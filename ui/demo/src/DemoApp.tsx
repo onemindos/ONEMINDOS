@@ -19,6 +19,7 @@ import { StoreDemo } from './store/StoreDemo';
 import { SystemDemo } from './settings/SystemDemo';
 import { AppearanceDemo } from './customize/AppearanceDemo';
 import { ShellScreens } from './shell/ShellScreens';
+import { NetworkDemo } from './network/NetworkDemo';
 import { BackupsDemo } from './backups/BackupsDemo';
 
 export const NAV: NavItem[] = [
@@ -28,6 +29,7 @@ export const NAV: NavItem[] = [
   { id: 'activity', label: 'Activity', href: '#/activity', icon: 'activity', primary: true },
   { id: 'notifications', label: 'Alerts', href: '#/notifications', icon: 'bell', badge: alerts.filter((a) => !a.acked).length, badgeLabel: `${alerts.filter((a) => !a.acked).length} open` },
   { id: 'nodes', label: 'Nodes', href: '#/nodes', icon: 'nodes', group: 'System' },
+  { id: 'network', label: 'Network', href: '#/network', icon: 'link', group: 'System' },
   { id: 'backups', label: 'Backups', href: '#/backups', icon: 'backups', group: 'System' },
   { id: 'updates', label: 'Updates', href: '#/updates', icon: 'updates', group: 'System' },
   { id: 'settings', label: 'Settings', href: '#/settings', icon: 'settings', group: 'System' },
@@ -78,6 +80,7 @@ export function DemoApp() {
       case 'store': return <StoreDemo />;
       case 'home': return <HomeLauncher variant={r.arg} />;
       case 'shell': return <ShellScreens arg={r.arg} />;
+      case 'network': return <NetworkDemo arg={r.arg} />;
       case 'backup': return <BackupsDemo arg={r.arg} />;
       default:
         return <Home />;

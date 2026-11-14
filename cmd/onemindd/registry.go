@@ -3,10 +3,7 @@
 package main
 
 import (
-	"os"
-
 	"github.com/onemindos/onemindos/internal/backup"
-	"github.com/onemindos/onemindos/internal/mesh"
 	"github.com/onemindos/onemindos/internal/service"
 )
 
@@ -16,11 +13,12 @@ var subcommands = map[string]func(args []string) int{
 	"update":      runUpdate,
 	"backup-init": runBackupInit, // backup.go: one-shot, creates the device key; the agent itself is backup.Service() below
 	"storage":     runStorage,
-	"mesh":        func(a []string) int { return mesh.RunCLI(a, os.Stdout, os.Stderr) },
+	"mesh":        runMesh, // net.go
 }
 
 // optionalServices run inside the heartbeat agent's process, next to it.
 // One line per internal/<feature> package, e.g. `backup.Service(),`.
 var optionalServices = []service.Service{
+	leafSupervisor.Service(joinedNode), // net.go: supervises the NATS leaf, feeds fabric.leaf_link
 	backup.Service(),
 }

@@ -1,0 +1,7 @@
+[10:45:08] creating omos-netp2-hub
+[10:45:58] creating omos-netp2-node
+[10:46:49] hub LAN address (masked in results): 192.0.2.4
+[10:46:49] building onemindd/onemind for linux/arm64 and copying the tree
+[10:46:54] NP-1: hub install
+[10:48:04] NP-2: ticket, node request, approval
+[10:51:35] verdict: FAIL

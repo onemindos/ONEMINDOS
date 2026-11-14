@@ -63,6 +63,11 @@ jobs:
         run: |
           python3 -I test/perf/perf.py check --budget test/perf/budget.json \
             --keys idle_memory_mib,api_p95_ms,api_read_errors,gateway_cold_start_s idle.json load.json cold.json | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: k3s state when something failed
+        if: failure()
+        run: |
+          sudo k3s kubectl get nodes,pods,deployments -A -o wide 2>&1 | cut -c1-200 || true
+          sudo journalctl --no-pager -n 40 -u k3s | cut -c1-200 || true
       - name: Upload the reports
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

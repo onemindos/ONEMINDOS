@@ -65,7 +65,8 @@ POD_GROUPS = (
 HUB = ("k3s", "k3s-addons", "gateway", "onemindd", "nats", "mesh")  # what "hub-total" adds up
 SIM_UNIT = "onemind-perf-sim-{}.service"
 READS = ("/healthz", "/v1/instance", "/v1/nodes", "/v1/apps", "/v1/actions")  # what the dashboard polls
-ADDONS = ("coredns", "local-path-provisioner", "metrics-server", "traefik")  # k3s default add-ons
+# k3s default add-ons the hub keeps. Traefik and ServiceLB are off (install.sh k3s config): the gateway owns :80/:443.
+ADDONS = ("coredns", "local-path-provisioner", "metrics-server")
 ID_RE = re.compile(r"[A-Za-z0-9_.:-]{1,128}")
 POD_RE = re.compile(r"pod([0-9a-f]{8}[-_][0-9a-f]{4}[-_][0-9a-f]{4}[-_][0-9a-f]{4}[-_][0-9a-f]{12})(?:\.slice)?$")
 

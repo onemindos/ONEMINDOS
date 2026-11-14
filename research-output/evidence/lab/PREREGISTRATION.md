@@ -12,6 +12,7 @@ Each row records when a spike's goal, hypotheses and pass/fail criteria were fro
 | secureboot-1152 | 2026-11-11T12:11:49Z | `0e437bd424a122c5c891b7afba38cb84c7eab0f4931a9001da89476e7050ca28` |
 | ubuntu-secureboot (U-SB, FIX5) | 2026-11-11T15:51:12Z | `c98a09d1d89f3b25184986b2711e9276aa548014246b9ede6c34c8e981e8f8db` |
 | fb3-mesh-nat (fabric mission 02, lab test 1) | 2026-11-12T07:37:48Z | `52573fc062cbf02a06884a5235d46c2b5884a9be3e046185d05abb3626cff39b` |
+| net-p2 (networking part 2, hub + node VM pair) | 2026-11-12T10:43:00Z | `abd6dd65b7de025284824ac57ac5c7ee0168160a9ca78563fa427194d7dbb863` |
 | fb2-fdo-enroll (fabric mission 02, lab test 3) | 2026-11-12T10:15:48Z | `ba6d675118f41eb64b42a2c5c43f1f23c30855346d1f3f2b76f6590eab046bfd` |
 | fb4-fleet-rings (fabric mission 02, lab test 2) | 2026-11-12T10:15:48Z | `db4d3a63e268b6b6536f5847a8644434eb1b8489695750a346a5508ca78cb386` |
 | machines-spike (machines.md §4.1, F-56: KubeVirt vs own QEMU + noVNC) | 2026-11-12T11:23:12Z | `66dad152319a9587bf0916c910d42783cba9b394ca0d3cc8e3287d5d34aa8fca` |

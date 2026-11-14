@@ -28,8 +28,9 @@ start and the end.
 ## install.sh
 ```sh
 git clone https://github.com/onemindos/ONEMINDOS && cd ONEMINDOS
-sudo deploy/install.sh --role hub                    # prints the owner token ONCE, and a join command
-sudo deploy/install.sh --role node --hub http://<hub>:8080 --token <join token>   # on each other machine
+sudo deploy/install.sh --role hub [--box-name box1]          # prints the owner token ONCE
+ONEMIND_TOKEN=<owner token> onemind fabric ticket            # on the hub: a one-time join code (or Add a device)
+sudo deploy/install.sh --role node --join 'onemind-join:v1?…'   # on the new machine; the owner approves it
 ONEMIND_TOKEN=<owner token> deploy/verify/verify.sh http://<hub>:8080
 sudo deploy/install.sh --uninstall [--purge]
 ```
@@ -45,7 +46,7 @@ file with its content, each service it would enable) and changes nothing; it nee
 `--target` it plans for another machine, so you can read the plan on a Mac before touching the box:
 ```sh
 deploy/install.sh --role hub  --dry-run --target rpi5
-deploy/install.sh --role node --dry-run --target jetson --hub http://hub.local:8080 --token <join token>
+deploy/install.sh --role node --dry-run --target jetson --join 'onemind-join:v1?…'
 ```
 | `--target` | Machine | What changes in the plan |
 |---|---|---|
@@ -110,6 +111,29 @@ when Go is installed); `--no-airgap` leaves the images out (k3s then pulls them)
 | dashboard (hub) | `npm ci --ignore-scripts` + `vite build` with **Node v24.22.3** (pinned), run as user `onemind` (never root: npm packages are third-party code), served by the gateway via `ONEMIND_DASHBOARD_DIST` | `/opt/onemind/dashboard` |
 | toolchains + downloads | only what the role needs | `/opt/onemind/toolchain`, `/var/cache/onemind` |
 
+### Networking (CORE-NET-11, docs/architecture/NETWORKING.md)
+
+> **In plain words.** The hub runs its own private network (a *mesh*: WireGuard tunnels coordinated by
+> Headscale) and joins it first. Everything between machines then runs inside the mesh: k3s and its
+> pod traffic (WireGuard again, H-17) and each node's NATS link, which is TLS with the box's own
+> certificate authority and logs in with that node's own key. A new machine joins only with a
+> one-time code the owner made, and only after the owner approved the card showing the same short
+> code as the machine's screen. People open the dashboard at `https://<box>.local` and each app at
+> `https://<app>.<box>.local`, behind their OneMind sign-in.
+
+| Piece | How | Where |
+|---|---|---|
+| Headscale `0.29.7` (hub) | release binary, sha256-pinned in `pins.env`; unit `onemind-headscale` (dynamic user); TLS on `:8444` with a box-CA certificate a root `ExecStartPre` copies into its runtime directory (until `onemind-edge` fronts it on :443); embedded DERP + STUN `:3478/udp`; `derp.urls: []`, update checks and log upload off; policy pushed by the gateway from OneMind roles | `/usr/local/bin/headscale`, `/etc/onemind/headscale/config.yaml`, `/var/lib/onemind-headscale/` |
+| Tailscale client `1.104.6` (every machine) | static tarball from pkgs.tailscale.com, sha256-pinned (no third-party apt key); `--no-logs-no-support`; drop-in `SSL_CERT_FILE` = the box CA, so the coordinator is trusted only through it. A machine that already has Tailscale is refused (OneMind would log it out of its network), and `--uninstall` removes the client only if OneMind installed it (`/etc/onemind/mesh-client`) | `/usr/sbin/tailscaled`, `/usr/bin/tailscale`, `/etc/default/tailscaled` |
+| Hub mesh enrollment | the hub mints its own key over Headscale's local socket (`tag:onemind-hub`, `tag:onemind-k3s`, 10 min, single use, through a 0600 file) and gives the gateway a Headscale API key (0600, user `onemind`) | `/etc/onemind/headscale.key` |
+| k3s over the mesh | `node-ip`/`advertise-address` = the mesh IP, `flannel-backend: wireguard-native` on `tailscale0`, Traefik and ServiceLB off (the gateway owns :443/:80); a drop-in waits for the mesh address (`onemindd mesh wait-ip`). A cluster created before the mesh is refused (rebuild after a backup) | `/etc/rancher/k3s/config.yaml`, `k3s(-agent).service.d/onemind-mesh.conf` |
+| Hub NATS | clients `127.0.0.1:4222` only; leaf listener on `<mesh IP>:7422`, TLS `verify: true` with the box CA; one account per node in an include file the gateway writes; a systemd path unit reloads NATS when it changes; pings tuned so a dead link shows within about a minute | `/etc/onemind/nats.conf`, `/var/lib/onemind/nats/accounts.conf`, `onemind-nats-accounts.path` |
+| Node NATS leaf | `onemind-nats-leaf` (user `onemind-nats`), config written by `onemind fabric join` | `/etc/onemind/nats/` |
+| HTTPS gateway | box CA created by `python -m onemind_core.ca` as user `onemind`; HTTPS `:443` and `:8443`, `:80` redirects, `:8080` plain HTTP on loopback only (H-05), for local tools and the health gate; `CAP_NET_BIND_SERVICE` only | `/var/lib/onemind/tls/` |
+| LAN names | avahi; the gateway publishes `onemind.local`, `<app>.<box>.local` and `<app>.onemind.local` for installed apps with a web UI | `avahi-daemon`, `avahi-utils`, `libnss-mdns` |
+
+The v0 `--token` join (a long-lived k3s agent token printed by the hub, NATS open on the LAN) is gone.
+
 ### Tokens
 - **Owner token:** 256 random bits, printed once. `/etc/onemind/tokens.yaml` stores only
   `sha256:<hex>` (the gateway supports that form), so the file holds no usable secret. Lost it?
@@ -148,7 +172,7 @@ defaults** for every namespace ([`k8s/psa.yaml`](k8s/psa.yaml): enforce `baselin
 from the gateway. Both are cluster-start settings: an upgrade restarts k3s once.
 
 ### Agent apps (contract §7, §11.2), the deploy side
-- `gateway.env` sets `ONEMIND_PUBLIC_URL` (the `--hub` URL, else `http://<primary IP>:8080`): the
+- `gateway.env` sets `ONEMIND_PUBLIC_URL` (the `--hub` URL, else `https://<primary IP>:8443`): the
   URL app pods use to reach the gateway, which the wave-2 gateway writes into each agent app's
   Secret as `ONEMIND_GATEWAY_URL`. The wave-1 gateway ignores the variable.
 - The per-app RoleBinding above lets the gateway create and delete Secrets in `app-<id>`, which §11.2 needs.
@@ -159,11 +183,11 @@ from the gateway. Both are cluster-start settings: an upgrade restarts k3s once.
   `409 stale_precondition`; `verify.sh` counts that as the §10.3 check passing.
 
 ### Choices to flag for the contract owner
-- **Gateway bound to `0.0.0.0:8080` by default.** Brief 30's P6 line says "dashboard bound to
-  localhost", but contract §1 gives the hub gateway `:8080` and §11.2 needs app pods to reach it.
-  `--gateway-bind 127.0.0.1` gives the brief's behaviour (and breaks agent apps and remote browsers).
-  Founder call; the default follows the contract.
-- **NATS has no auth or TLS** and listens on `0.0.0.0:4222`, because the contract's v0 shortcut is
+- *(Retired by H-05, CORE-NET-11.)* **Gateway bound to `0.0.0.0:8080`.** Plain HTTP now listens on loopback only
+  (`--gateway-bind` defaults to `127.0.0.1`, and the gateway narrows anything wider while HTTPS is on); the LAN is
+  served by HTTPS on `:443` and `:8443` with the box CA. Agent apps in pods reach it on `https://<primary IP>:8443`;
+  delivering the box CA to those pods (`ONEMIND_GATEWAY_CA`) is not built yet (hardening H-05, follow-up).
+- *(Retired by CORE-NET-11, see Networking above.)* **NATS has no auth or TLS** and listens on `0.0.0.0:4222`, because the contract's v0 shortcut is
   "nodes publish straight to the hub's NATS". Anyone on the LAN can publish fake heartbeats. Leaf
   nodes + account permissions (D-B6.5) replace this.
 - Plain HTTP on the LAN (no TLS) for the gateway: the bearer token crosses the network in clear.

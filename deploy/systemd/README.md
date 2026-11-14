@@ -55,3 +55,15 @@ Do **not** enable it on a developer install (stock Debian, no A/B): there, contr
 ## v0 shortcuts / gaps
 - The binary path is `/usr/local/bin` (developer install, contract §6). The OneMind image will ship it in `/usr/bin` and the image's own unit.
 - Not yet run under this unit on real k3s/RAUC/NVIDIA hosts; if a sandbox option blocks one of those tools there, relax that one option and record why here.
+
+## Networking units (CORE-NET-11)
+
+| Unit | Machine | What |
+|---|---|---|
+| `onemind-headscale.service` | hub | mesh coordinator, embedded DERP/STUN; dynamic user, TLS files copied into its runtime directory by a root `ExecStartPre` |
+| `onemind-nats-leaf.service` | node | local NATS leaf linked to the hub over the mesh; user `onemind-nats` |
+| `onemind-nats-accounts.path` + `onemind-nats-reload.service` | hub | reload NATS when the gateway rewrites the per-node accounts |
+
+`install.sh` also writes drop-ins: `tailscaled.service.d/onemind.conf` (box CA only, no log upload),
+`k3s(-agent).service.d/onemind-mesh.conf` and `onemind-nats.service.d/onemind-mesh.conf` (wait for the
+mesh address; NATS gets its TLS files the same way).

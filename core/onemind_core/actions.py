@@ -13,7 +13,10 @@ This is where "AI never actuates without human approval" is enforced:
   backup.run and backup.restore): they go through the same ledger, the same owner-only approval
   and the same audit lines; only what runs after approval is the feature's;
 - a feature may prepare an app install before the executor runs (install_hooks, for example the
-  app's database and its Secret); a hook that fails fails the install before anything is applied.
+  app's database and its Secret); a hook that fails fails the install before anything is applied;
+- action types that are not about an app and have no executor step (node.join, later mesh.*) plug in a
+  handler with register_handler(type, handler): the same ledger, approval rule and audit trail apply,
+  and the handler owns the precondition re-check and the effect (docs/leap/core/PLUMBING.md §2).
 """
 
 from __future__ import annotations
@@ -24,7 +27,7 @@ import threading
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import Annotated, Literal
+from typing import Annotated, Literal, Protocol
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -50,6 +53,28 @@ ActionType = Literal[
 APP_CLAIMS: dict[str, tuple[str, frozenset[str], bool]] = {
     t: (spec.claim, spec.allowed, spec.allow_absent) for t, spec in lc.TYPES.items()
 }
+
+
+# Handler action types whose module reconciles them itself when it registers (reconcile_interrupted
+# runs before the routers register, so self.handlers is still empty then). Types of FeatureAction are
+# not in this set: they are marked outcome_unknown here, as before.
+SELF_RECONCILED_TYPES = frozenset({"node.join"})
+
+
+class ActionHandler(Protocol):
+    """The effect of a non-app action type, run only after an owner approved it.
+
+    recheck(action) -> a message when the world changed since the request (the approval answers 409
+    stale_precondition and the action stays awaiting_approval), else None.
+    dispatch(action) -> an ExecResult to finish the action now, or None to leave it dispatched; the
+    handler then calls ActionService.finish() when the effect is complete (a node joining).
+    reconcile_interrupted() leaves the type's accepted/dispatched actions alone: the handler's module
+    picks them up when it registers.
+    """
+
+    def recheck(self, action: Action) -> str | None: ...
+
+    def dispatch(self, action: Action) -> ExecResult | None: ...
 
 
 class ActionParams(BaseModel):
@@ -328,17 +353,63 @@ class ActionService:
         # Contract §12.1 / H-14: most actions one non-owner requester may have awaiting approval.
         # 0 = no cap. Set from the limits settings section (guard.py).
         self.max_pending_per_requester = 10
+        self.handlers: dict[str, ActionHandler] = {}
         # How a background feature action's run() is started after approval; tests make it synchronous.
         self.spawn: Callable[[Callable[[], None]], None] = _worker
         # Contract §12.17: checked right after a request is filed; the first grant accepts it.
         self.standing_approvals: list[Callable[[Action], StandingGrant | None]] = []
 
     def register_type(self, action_type: str, spec: FeatureAction) -> None:
-        if action_type in APP_CLAIMS or action_type in self.feature_types:
+        if action_type in APP_CLAIMS or action_type in self.feature_types or action_type in self.handlers:
             raise ValueError(f"action type {action_type} is already registered")
         if spec.risk not in ("read", "write", "sensitive", "destructive", "actuate"):
             raise ValueError(f"{action_type}: unknown risk class {spec.risk!r}")
         self.feature_types[action_type] = spec
+
+    # ---- handlers for non-app action types ---------------------------------------------
+    def register_handler(self, action_type: str, handler: ActionHandler) -> None:
+        if action_type in APP_CLAIMS or action_type in self.handlers or action_type in self.feature_types:
+            raise ValueError(f"action type {action_type!r} already has a handler")
+        self.handlers[action_type] = handler
+
+    def file(self, action_type: str, params: dict, requested_by: dict, *, expires_at: datetime,
+             idempotency_key: str, audit_principal: dict | None = None) -> Action:
+        """File an action of a registered handler type straight into awaiting_approval.
+
+        For requests that do not come through POST /v1/actions (a joining node, §12.11). The
+        caller has already checked who may ask; approval still needs an owner.
+        """
+        if action_type not in self.handlers:
+            raise ValueError(f"no handler for action type {action_type!r}")
+        now = self.clock()
+        action = Action(
+            id=new_action_id(), type=action_type, params=params, state="requested",
+            requested_by=requested_by, idempotency_key=idempotency_key,
+            created_at=now, updated_at=now, expires_at=utc(expires_at),
+        )
+        stored, created = self.repo.create(action)
+        if not created:
+            raise ApiError(409, "conflict", "this request was already filed")
+        self.audit.append("action.requested", audit_principal, stored.id, {
+            "type": stored.type, "params": stored.params, "expires_at": iso(stored.expires_at),
+            "requested_by": requested_by.get("id"),
+        })
+        moved = self.repo.transition(stored.id, {"requested"}, "awaiting_approval", self.clock())
+        self.audit.append("action.awaiting_approval", None, stored.id, {})
+        return moved or stored
+
+    def finish(self, action_id: str, outcome: str, message: str, result: dict | None = None, *,
+               from_states: frozenset[str] = frozenset({"dispatched"})) -> Action | None:
+        """Complete a dispatched handler action (succeeded | failed | outcome_unknown). Idempotent.
+
+        A handler that reconciles at startup passes from_states={"accepted", "dispatched"} to close
+        an approval a crash interrupted (as outcome_unknown, never a retry).
+        """
+        body = {"outcome": outcome, "message": message, **(result or {})}
+        final = self.repo.transition(action_id, set(from_states), outcome, self.clock(), result=body)
+        if final is not None:
+            self.audit.append(f"action.{outcome}", None, action_id, {"message": message})
+        return final
 
     # ---- helpers -------------------------------------------------------------------------
     def _deny(self, principal: Principal, what: str, action_id: str | None = None) -> ApiError:
@@ -614,6 +685,11 @@ class ActionService:
             raise ApiError(409, "conflict", f"action is {a.state}, not awaiting_approval")
         if a.type in self.feature_types:
             return self._approve_feature(principal, a, self.feature_types[a.type], standing)
+        handler = self.handlers.get(a.type)
+        if handler is not None:
+            return self._approve_handled(principal, a, handler)
+        if a.type not in APP_CLAIMS:
+            raise ApiError(409, "conflict", f"no handler for action type {a.type!r} is running")
 
         # Check current conditions again: the world may have changed since the request. The claim
         # on the app is made atomically with "accepted", so two actions for one app cannot both
@@ -680,6 +756,32 @@ class ActionService:
                 details=[_detail(v) for v in violations],
             )
         return out
+
+    def _approve_handled(self, principal: Principal, a: Action, handler: ActionHandler) -> dict:
+        problem = handler.recheck(a)
+        if problem:
+            raise ApiError(409, "stale_precondition", problem)
+        now = self.clock()
+        accepted = self.repo.transition(
+            a.id, {"awaiting_approval"}, "accepted", now, decided_by=principal.as_dict(), decided_at=now
+        )
+        if accepted is None:
+            raise ApiError(409, "conflict", "action was decided concurrently")
+        ids = {"requested_by": a.requested_by.get("id"), "approved_by": principal.id}
+        self.audit.append("action.approved", principal.as_dict(), a.id, {"type": a.type, "params": a.params, **ids})
+        dispatched = self.repo.transition(a.id, {"accepted"}, "dispatched", self.clock())
+        if dispatched is None:
+            self._mark_outcome_unknown(accepted, "accepted action could not move to dispatched")
+            return self._get(a.id).to_json()
+        self.audit.append("action.dispatched", None, a.id, {"executor": f"handler:{a.type}", **ids})
+        try:
+            result = handler.dispatch(dispatched)
+        except Exception as exc:  # unknown effect: never retry automatically
+            log.exception("action handler crashed")
+            result = ExecResult("outcome_unknown", f"handler error: {exc.__class__.__name__}")
+        if result is not None:
+            self.finish(a.id, result.outcome, result.message)
+        return self._get(a.id).to_json()
 
     def _dispatch(self, a: Action, app: AppEntry, ids: dict, prior: str | None = None) -> dict:
         dispatched = self.repo.transition(a.id, {"accepted"}, "dispatched", self.clock())
@@ -850,6 +952,10 @@ class ActionService:
         forever. (v0 runs one gateway per ledger; several would need leases first.)
         """
         for a in self.repo.list(states={"accepted", "dispatched"}):
+            if a.type in SELF_RECONCILED_TYPES:
+                # Handler types (node.join) finish on their own schedule: their module reconciles
+                # them when it registers (create_app runs this before the routers register).
+                continue
             self._mark_outcome_unknown(a, f"gateway restarted while the action was {a.state}")
         now = self.clock()
         for app_id, st in self.repo.list_app_states().items():

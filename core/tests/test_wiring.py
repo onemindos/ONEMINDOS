@@ -13,11 +13,7 @@ from pathlib import Path
 PKG = Path(__file__).resolve().parent.parent / "onemind_core"
 
 # module (dotted, relative to onemind_core) -> the epic that mounts it. Delete the line when wired.
-NOT_MOUNTED_YET = {
-    "ca": "CORE-NET-8 (per-box CA)",
-    "mesh": "CORE-NET-8 (mesh coordinator router)",
-    "proxy": "CORE-NET-8 (app reverse proxy middleware)",
-}
+NOT_MOUNTED_YET: dict[str, str] = {}
 ENTRY_POINTS = {"__init__", "__main__", "openapi"}  # run by `python -m` or imported as a package
 
 

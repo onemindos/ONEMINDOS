@@ -8,7 +8,7 @@
 #   onemindd-linux-<arch>, onemind-linux-<arch>   node agent and CLI (static, from cmd/)
 #   gateway-runtime-linux-<arch>.tar.gz           hub: Python 3.12 + the gateway venv, built for /opt/onemind
 #   dashboard/                                    hub: the built dashboard
-#   downloads/                                    k3s + its install.sh + airgap images, NATS, restic (hub);
+#   downloads/                                    k3s + its install.sh + airgap images, NATS, Tailscale, Headscale + restic (hub);
 #                                                 the same pinned files install.sh fetches, same sha256
 #   src/                                          deploy/, apps/, sdk/schema/, sdk/policy/ from this checkout
 #   BUNDLE.txt, SHA256SUMS                        what is in it; a checksum for every other file
@@ -108,16 +108,23 @@ else
   rm -f "$OUT/downloads/k3s-airgap-images-$ARCH.tar.zst"
 fi
 NATS_TGZ="nats-server-$NATS_VERSION-linux-$ARCH.tar.gz"
+TS_TGZ="tailscale_${TAILSCALE_VERSION}_$ARCH.tgz"
+HS_BIN="headscale_${HEADSCALE_VERSION}_linux_$ARCH"
+# Every machine runs a NATS leaf and the mesh client (NETWORKING.md §4, §7); only the hub has the
+# coordinator and the backup agent.
+fetch "https://github.com/nats-io/nats-server/releases/download/$NATS_VERSION/$NATS_TGZ" "$(pick NATS_SHA256)" "$OUT/downloads/$NATS_TGZ"
+fetch "https://pkgs.tailscale.com/stable/$TS_TGZ" "$(pick TAILSCALE_SHA256)" "$OUT/downloads/$TS_TGZ"
 if [ "$NODE_ONLY" = 0 ]; then
-  fetch "https://github.com/nats-io/nats-server/releases/download/$NATS_VERSION/$NATS_TGZ" "$(pick NATS_SHA256)" "$OUT/downloads/$NATS_TGZ"
+  fetch "https://github.com/juanfont/headscale/releases/download/v$HEADSCALE_VERSION/$HS_BIN" "$(pick HEADSCALE_SHA256)" "$OUT/downloads/$HS_BIN"
   # restic for the backup agent (deploy/backup.sh fetches it by this file name, same sha256)
   fetch "$(pick RESTIC_URL)" "$(pick RESTIC_SHA256)" "$OUT/downloads/restic-$RESTIC_VERSION.bz2"
 else
-  rm -f "$OUT/downloads/$NATS_TGZ" "$OUT/downloads/restic-$RESTIC_VERSION.bz2"
+  rm -f "$OUT/downloads/$HS_BIN" "$OUT/downloads/restic-$RESTIC_VERSION.bz2"
 fi
 # Nothing else may sit in downloads/ (install.sh refuses files SHA256SUMS does not list anyway).
 find "$OUT/downloads" -type f ! -name "k3s-$K3S_VERSION-$ARCH" ! -name "k3s-install-$K3S_INSTALL_COMMIT.sh" \
-  ! -name "k3s-airgap-images-$ARCH.tar.zst" ! -name "$NATS_TGZ" ! -name "restic-$RESTIC_VERSION.bz2" -delete
+  ! -name "k3s-airgap-images-$ARCH.tar.zst" ! -name "$NATS_TGZ" ! -name "$TS_TGZ" ! -name "$HS_BIN" \
+  ! -name "restic-$RESTIC_VERSION.bz2" -delete
 
 # ---- 2. onemindd + onemind (static) ---------------------------------------------------------
 LDFLAGS="-s -w -buildid= -X github.com/onemindos/onemindos/internal/version.Version=$VERSION"
@@ -198,7 +205,7 @@ onemindd_version=$VERSION
 go=$GO_USED
 k3s=$K3S_VERSION
 k3s_airgap_images=$([ "$AIRGAP" = 1 ] && echo yes || echo no)
-nats=$([ "$NODE_ONLY" = 1 ] && echo none || echo "$NATS_VERSION")
+nats=$NATS_VERSION
 uv=$([ "$NODE_ONLY" = 1 ] && echo none || echo "$UV_VERSION")
 built_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 EOF
@@ -211,4 +218,4 @@ printf '\nOn the machine (after copying the folder there):\n'
 if [ "$NODE_ONLY" = 0 ]; then
   printf '    sudo ./%s/src/deploy/install.sh --role hub --bundle ./%s\n' "${OUT##*/}" "${OUT##*/}"
 fi
-printf '    sudo ./%s/src/deploy/install.sh --role node --hub http://<hub>:8080 --token <join token> --bundle ./%s\n' "${OUT##*/}" "${OUT##*/}"
+printf "    sudo ./%s/src/deploy/install.sh --role node --join '<code from onemind fabric ticket on the hub>' --bundle ./%s\n" "${OUT##*/}" "${OUT##*/}"

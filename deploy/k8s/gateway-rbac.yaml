@@ -6,7 +6,7 @@
 # 1. RBAC: cluster-wide the gateway may only manage namespaces, create RoleBindings and bind
 #    one ClusterRole (onemind-app-deployer). It reads and writes app objects only inside a
 #    namespace where it bound that role to itself (the executor does this per app-<id>).
-# 2. The ValidatingAdmissionPolicy below: every write the gateway makes must be in an app-*
+# 2. The ValidatingAdmissionPolicy below: every write the gateway makes must be in an app-* (or be a node join token in kube-system)
 #    namespace (or be an app-* Namespace), a Namespace must carry onemind.io/app and a Pod
 #    Security level of restricted or baseline, and a RoleBinding may only grant a namespaced
 #    Role or onemind-app-deployer. RBAC cannot express "namespaces named app-*"; this can.
@@ -78,6 +78,25 @@ rules:
     resources: [roles, rolebindings]
     verbs: [get, list, watch, create, update, patch, delete]
 ---
+# One thing outside app-*: a node's 1-hour join token (FABRIC §4) is a bootstrap-token Secret in
+# kube-system. The gateway may create and delete Secrets there and nothing else (no get, list, patch):
+# it cannot read what is already in kube-system. The admission policy below limits it to Secrets named
+# bootstrap-token-* of type bootstrap.kubernetes.io/token; the API server itself only honours
+# auth-extra-groups under system:bootstrappers:.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata: {name: onemind-gateway-join-tokens, namespace: kube-system}
+rules:
+  - apiGroups: [""]
+    resources: [secrets]
+    verbs: [create, delete]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata: {name: onemind-gateway-join-tokens, namespace: kube-system}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: onemind-gateway-join-tokens}
+subjects: [{kind: ServiceAccount, name: onemind-gateway, namespace: onemind-system}]
+---
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
 metadata: {name: onemind-gateway-fence}
@@ -95,8 +114,11 @@ spec:
   validations:
     - expression: >-
         request.namespace.startsWith("app-") ||
-        (request.resource.resource == "namespaces" && request.subResource == "" && request.name.startsWith("app-"))
-      message: the OneMind gateway may only change app-* namespaces and what is inside them
+        (request.resource.resource == "namespaces" && request.subResource == "" && request.name.startsWith("app-")) ||
+        (request.namespace == "kube-system" && request.resource.resource == "secrets" && (!has(request.subResource) || request.subResource == "") &&
+         request.name.startsWith("bootstrap-token-") &&
+         (request.operation == "DELETE" || object.type == "bootstrap.kubernetes.io/token"))
+      message: the OneMind gateway may only change app-* namespaces and what is inside them, and node join tokens in kube-system
     - expression: >-
         request.resource.resource != "namespaces" || request.operation == "DELETE" ||
         (has(object.metadata.labels) && "onemind.io/app" in object.metadata.labels &&

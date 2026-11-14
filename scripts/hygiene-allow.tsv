@@ -43,6 +43,13 @@ apps/*	/home/(node|coder)	B-FP-10
 # B-FP-7: SSRF probe targets in the security attack suite (RFC 1918 and CGNAT example hosts, and a userinfo@host URL) that the tests assert are refused; they are attack inputs, not hosts or addresses of this project.
 core/tests/security/test_injection_traversal.py	(10\.0\.0\.1|192\.168\.1\.1|172\.16\.0\.1|100\.64\.0\.1)	B-FP-7
 core/tests/security/test_injection_traversal.py	127\.0\.0\.1@evil\.example	B-FP-7
+research-output/evidence/lab/net-p2/*	(100\.64\.[0-9]+\.[0-9]+|10\.4[23]\.[0-9]+\.[0-9]+)	B-FP-9
+cmd/onemind/cli/mesh*	100\.64\.[0-9]+\.[0-9]+	B-FP-9
+core/onemind_core/netconf.py	100\.64\.0\.0	B-FP-9
+deploy/install.sh	100\.64\.0\.0	B-FP-9
+internal/fabric/*	100\.64\.[0-9]+\.[0-9]+	B-FP-9
+ui/src/network/*	100\.64\.[0-9]+\.[0-9]+	B-FP-9
+ui/demo/src/network/*	100\.64\.[0-9]+\.[0-9]+	B-FP-9
 # B-FP-6: cloud images. /home/admin is the admin user's home inside the image (as B-FP-1), and the QEMU user-network subnet in CRITERIA-CLOUD.md §6 is QEMU's built-in default, not a real network.
 os/boards/cloud/*	/home/admin	B-FP-6
 scripts/hygiene-allow.tsv	/home/admin	B-FP-6

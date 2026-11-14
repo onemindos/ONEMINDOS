@@ -61,6 +61,13 @@ Receive = Callable[[], Awaitable[dict]]
 Send = Callable[[dict], Awaitable[None]]
 
 SESSION_COOKIE = "onemind_session"
+# Identity's cookies are __Host-onemind_session and __Host-onemind_csrf; the gateway's own is
+# onemind_session. Apps never receive or set any cookie in the onemind namespace (hardening H-34).
+IDENTITY_COOKIE_PREFIXES = ("onemind_", "__host-onemind_")
+
+
+def is_identity_cookie(name: str) -> bool:
+    return name.strip().lower().startswith(IDENTITY_COOKIE_PREFIXES)
 SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 ACCESS_LEVELS = ("owner", "adults", "signed_in")
 DEFAULT_ACCESS = "adults"
@@ -297,7 +304,7 @@ class AppProxy:
             if name.startswith("x-forwarded-") or (websocket and name in WS_HANDSHAKE | {"origin"}):
                 continue
             if name == "cookie":
-                kept = [c for c in value.split(";") if c.strip().partition("=")[0] != SESSION_COOKIE]
+                kept = [c for c in value.split(";") if not is_identity_cookie(c.partition("=")[0])]
                 if not any(c.strip() for c in kept):
                     continue
                 value = ";".join(kept).strip()
@@ -324,7 +331,7 @@ def _sets_session_cookie(name: bytes, value: bytes) -> bool:
     if name.lower() != b"set-cookie":
         return False
     cookie_name = value.decode("latin-1").split(";", 1)[0].partition("=")[0].strip()
-    return cookie_name == SESSION_COOKIE
+    return is_identity_cookie(cookie_name)
 
 
 def _host(scope: Scope) -> str:

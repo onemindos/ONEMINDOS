@@ -1,0 +1,50 @@
+
+************************************************************
+*  OneMind: unsupported developer install, no OS rollback  *
+*  (REC-DEC-30) Packages upgrade in place; nothing can roll *
+*  the OS back. Use the OneMind image for a real box.       *
+************************************************************
+
+==> platform: Debian GNU/Linux 13 (trixie), arm64, role hub
+==> apt: installing ca-certificates curl tar gzip iproute2 unattended-upgrades needrestart apt-listchanges avahi-daemon avahi-utils libnss-mdns sqlite3
+==> download https://github.com/k3s-io/k3s/releases/download/v1.37.2%2Bk3s1/k3s-arm64
+==> download https://raw.githubusercontent.com/k3s-io/k3s/f6973cb850e9b245585363d15bde80904ac862fd/install.sh
+==> onemindd: using prebuilt /opt/src/onemindd
+==> download https://github.com/astral-sh/uv/releases/download/0.13.7/uv-aarch64-unknown-linux-gnu.tar.gz
+==> gateway: installing core/ with uv 0.13.7 into /opt/onemind/venv
+==> download https://pkgs.tailscale.com/stable/tailscale_1.104.6_arm64.tgz
+==> download https://github.com/juanfont/headscale/releases/download/v0.29.7/headscale_0.29.7_linux_arm64
+==> mesh: the hub joins its own coordinator
+==> mesh: hub is 100.64.0.1 on the mesh
+==> k3s v1.37.2+k3s1 server: install/restart
+Created symlink '/etc/systemd/system/multi-user.target.wants/k3s.service' → '/etc/systemd/system/k3s.service'.
+==> waiting for the k3s node to be Ready
+==> download https://github.com/nats-io/nats-server/releases/download/v2.15.2/nats-server-v2.15.2-linux-arm64.tar.gz
+==> dashboard: using prebuilt /opt/src/core/tests/fixtures/dist
+
+************************************************************
+*  OneMind: unsupported developer install, no OS rollback  *
+*  (REC-DEC-30) Packages upgrade in place; nothing can roll *
+*  the OS back. Use the OneMind image for a real box.       *
+************************************************************
+
+==> hub ready: https://box1.local (and https://onemind.local), box CA sha256 <sha256-or-token>
+==> mesh: hub 100.64.0.1; k3s and the NATS leaf listener run on it
+
+OWNER TOKEN (shown once; only its sha256 is stored in /etc/onemind/tokens.yaml):
+
+    <sha256-or-token>
+
+Trust the box CA on your computer: download https://box1.local/v1/tls/ca.crt and check its sha256 is <sha256-or-token>
+
+Join another machine: make a one-time code here (or Add a device on the dashboard), then approve:
+
+    ONEMIND_TOKEN=<owner token> onemind fabric ticket [--role leaf]
+
+Check this hub:  ONEMIND_TOKEN=<owner token> deploy/verify/verify.sh http://127.0.0.1:8080
+Hermes agent (contract §7) model credentials, created by the owner at install time:
+
+    sudo k3s kubectl create namespace app-hermes-agent --dry-run=client -o yaml | sudo k3s kubectl apply -f -
+    read -rs KEY   # paste the key; it stays out of shell history and the process list
+    printf '<PROVIDER>_API_KEY=%s\n' "$KEY" | sudo k3s kubectl -n app-hermes-agent create secret generic hermes-agent-credentials --from-env-file=/dev/stdin
+

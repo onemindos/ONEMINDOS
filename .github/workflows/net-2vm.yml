@@ -1,0 +1,87 @@
+# SPDX-License-Identifier: Apache-2.0
+# 2-VM network proof: a hub and a node (Debian 13, QEMU/KVM) on a private network; install, owner-approved
+# join, mesh, NATS leaf TLS, no plain HTTP on the LAN, HTTPS app proxy. Criteria: test/net/CRITERIA-2VM.md
+# (pre-registered). A criterion that could not run reports BLOCKED, never PASS; pull requests run strict (BLOCKED fails).
+name: net-2vm
+on:
+  pull_request:
+    paths:
+      - 'test/net/**'
+      - 'deploy/**'
+      - 'internal/fabric/**'
+      - 'internal/mesh/**'
+      - 'internal/leaf/**'
+      - 'cmd/onemind/cli/fabric.go'
+      - 'cmd/onemindd/**'
+      - 'core/onemind_core/fabric.py'
+      - 'core/onemind_core/mesh.py'
+      - 'core/onemind_core/natsconf.py'
+      - 'core/onemind_core/netconf.py'
+      - 'core/onemind_core/proxy.py'
+      - 'core/onemind_core/serve.py'
+      - 'core/onemind_core/ca.py'
+      - 'core/onemind_core/lan.py'
+      - 'core/onemind_core/routers/net.py'
+      - 'core/onemind_core/app.py'
+      - '.github/workflows/net-2vm.yml'
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: 'Commit-ish whose tree is installed in the VMs (default: this checkout)'
+        required: false
+        default: ''
+      strict:
+        description: 'Treat BLOCKED as a failure (always on for pull requests)'
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: net-2vm-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+jobs:
+  two-vm:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version-file: go.mod
+      - name: Install QEMU and cloud-init tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends qemu-system-x86 qemu-utils cloud-image-utils
+          sudo chmod 666 /dev/kvm || true
+          ls -l /dev/kvm || echo "no /dev/kvm: the run falls back to TCG (slow)"
+      - name: Run the 2-VM proof
+        env:
+          ONEMIND_NET_SRC_REF: ${{ github.event.inputs.source_ref }}
+          # Strict on every pull request: a BLOCKED criterion fails the job (nothing is counted as passed that did not run).
+          # A manual run is strict only when asked. FAIL always fails the job.
+          ONEMIND_NET_STRICT: ${{ (github.event_name == 'pull_request' || github.event.inputs.strict == 'true') && '1' || '0' }}
+        run: |
+          mkdir -p test/net/results
+          python3 -I test/net/two_vm.py --results test/net/results/run.json
+      - name: Summary
+        if: always()
+        run: |
+          python3 -I - <<'EOF' >> "$GITHUB_STEP_SUMMARY" || true
+          import json
+          try:
+              r = json.load(open("test/net/results/run.json"))
+          except OSError:
+              print("no results file"); raise SystemExit
+          print(f"### net-2vm: {r['verdict']} ({r['info'].get('accel')}, {r['seconds']} s)\n")
+          print("| ID | Result | Evidence |\n|---|---|---|")
+          for c in r["criteria"]:
+              print(f"| {c['id']} {c['title']} | {c['result']} | {c['evidence'][:300].replace('|', '/')} |")
+          EOF
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: net-2vm-results
+          path: test/net/results/
+          retention-days: 14
