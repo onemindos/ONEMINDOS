@@ -469,6 +469,12 @@ def test_app_session_cookie(nc):
     assert nc.post("/v1/auth/app-session").status_code == 401
 
 
+def test_an_agent_refused_an_app_session_is_audited(nc):
+    assert nc.post("/v1/auth/app-session", headers=AGENT).status_code == 403
+    lines = Path(nc.app.state.settings.audit_path).read_text().splitlines()
+    assert any("authz.denied" in ln and "open an app session" in ln for ln in lines)
+
+
 def test_app_host_goes_through_the_proxy(nc):
     # not signed in: 401 for any app name, installed or not
     r = nc.get("/", headers={"Host": "vaultwarden.box1.local"})
