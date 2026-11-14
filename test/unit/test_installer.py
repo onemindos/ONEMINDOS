@@ -110,7 +110,7 @@ class Write(unittest.TestCase):
     def test_read_back_detects_change(self):
         fd = self.fd()
         ins.write_image(io.BytesIO(self.img), fd, len(self.img), self.sha)
-        os.pwrite(fd, b"\0", 5)
+        os.pwrite(fd, bytes([self.img[5] ^ 0xFF]), 5)   # always a different byte (random data can already be 0)
         self.assertNotEqual(ins.read_back(fd, len(self.img)), self.sha)
 
 
