@@ -33,8 +33,8 @@ def test_action_body_schema_offers_settings_and_confirm_only_where_the_server_ta
         v = resolve(doc, v)
         params = resolve(doc, v["properties"]["params"])
         tprop = v["properties"]["type"]
-        if "enum" not in tprop and "const" not in tprop:
-            feature.append(tprop)  # the registered-feature variant (source.*, exposure.*): any type a feature registered
+        if "const" not in tprop and not ({"app.install", "app.configure", "app.delete_data"} & set(tprop.get("enum", []))):
+            feature.append(tprop)  # the registered-feature variant: exactly the types features registered
             continue
         for t in tprop.get("enum") or [tprop["const"]]:
             variants[t] = set(params["properties"]) | {"~required:" + r for r in params.get("required", [])}
@@ -45,7 +45,8 @@ def test_action_body_schema_offers_settings_and_confirm_only_where_the_server_ta
     assert set(variants) == {"app.install", "app.remove", "app.start", "app.stop", "app.restart", "app.update",
                              "app.configure", "app.delete_data"}
     if path == "/v1/actions":
-        assert len(feature) == 1 and feature[0].get("pattern"), feature
+        assert len(feature) == 1, feature
+        assert not {t for t in feature[0].get("enum", []) if t.startswith("app.")}, feature  # no lifecycle type twice
 
 
 def test_the_server_still_refuses_what_the_schema_no_longer_offers(client):
