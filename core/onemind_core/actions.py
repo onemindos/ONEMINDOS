@@ -31,7 +31,9 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Annotated, Any, Literal
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import (
+    AwareDatetime, BaseModel, ConfigDict, Discriminator, Field, Tag, ValidationError, field_validator, model_validator,
+)
 
 from .audit import AuditLog
 from .auth import Principal, new_agent_token, token_hash
@@ -76,7 +78,9 @@ class ActionParams(BaseModel):
     model_config = ConfigDict(extra="forbid")
     app_id: str = Field(min_length=1, max_length=59, pattern=APP_ID_RE.pattern)
     # app.configure: plain settings, never secrets (those go through the sealed path).
-    settings: dict[str, str] | None = Field(default=None, max_length=50)
+    # §12.22: a setting an app declares in spec.settings is a string, integer, number or boolean;
+    # the manifest's field says which, and it is checked there when the app declares any.
+    settings: dict[str, str | int | float | bool] | None = Field(default=None, max_length=50)
     # app.delete_data: the app id typed again by the owner. Deleting data is never one click.
     confirm: str | None = Field(default=None, max_length=59)
 
@@ -98,6 +102,8 @@ def check_params_fit(action_type: str, p: ActionParams) -> None:
         raise ValueError("params.confirm is only for app.delete_data")
 
 
+TYPE_RE = r"^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*){1,3}$"
+
 def _expiry_in_range(v: datetime) -> datetime:
     # 9999-12-31T23:59:59-23:59 is a valid RFC 3339 time whose UTC instant is past year 9999:
     # converting it raised OverflowError, an unaudited 500 (finding F-API-1). Refuse it here.
@@ -110,13 +116,24 @@ def _expiry_in_range(v: datetime) -> datetime:
 
 class ActionRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    type: ActionType
-    params: ActionParams
+    # A lifecycle type (ActionType) or a type a feature registered (contract §12.5, §12.22:
+    # source.add|move|remove, exposure.private|mesh|public). Unknown types are refused at request.
+    type: str = Field(min_length=1, max_length=64, pattern=TYPE_RE)
+    params: ActionParams | dict[str, Any]
     idempotency_key: str = Field(min_length=1, max_length=200)
     expires_at: AwareDatetime
     # Contract §12.4: the fingerprint of the plan the requester looked at. If the plan the gateway
     # renders now differs, the request is refused (409 stale_precondition, reason plan_changed).
     plan_sha256: str | None = Field(default=None, max_length=80)
+
+    @field_validator("params", mode="before")
+    @classmethod
+    def _lifecycle_params(cls, value: Any, info):
+        # A lifecycle type takes exactly ActionParams (extra keys refused); a feature type's params
+        # are checked against its own model when the request is filed.
+        if info.data.get("type") in APP_CLAIMS:
+            return ActionParams.model_validate(value)
+        return value
 
     @field_validator("expires_at")
     @classmethod
@@ -125,7 +142,8 @@ class ActionRequest(BaseModel):
 
     @model_validator(mode="after")
     def _params_fit_type(self):
-        check_params_fit(self.type, self.params)
+        if isinstance(self.params, ActionParams):
+            check_params_fit(self.type, self.params)
         return self
 
 
@@ -153,8 +171,9 @@ class PlainActionParams(BaseModel):
 
 
 class ConfigureActionParams(PlainActionParams):
-    # plain settings, never secrets (those go through the sealed path)
-    settings: dict[str, str] = Field(min_length=1, max_length=50)
+    # plain settings, never secrets (those go through the sealed path). Typed settings (D21, §12.22):
+    # a value is a string, integer, number or boolean; the app's spec.settings says which.
+    settings: dict[str, str | int | float | bool] = Field(min_length=1, max_length=50)
 
 
 class DeleteDataActionParams(PlainActionParams):
@@ -212,8 +231,27 @@ class DeleteDataActionRequest(_ActionRequestFields):
         return self
 
 
+class FeatureActionRequest(_ActionRequestFields):
+    # A type a feature registered at runtime (contract §12.5, §12.22: source.add|move|remove,
+    # exposure.private|mesh|public, ...). The service checks params against the model the feature
+    # registered and refuses a type nobody registered, so this variant cannot widen what is accepted.
+    type: str = Field(min_length=1, max_length=64, pattern=TYPE_RE)
+    params: dict[str, Any]
+
+
+_LIFECYCLE_TAGS = {**{t: "plain" for t in _PLAIN_TYPES.__args__}, "app.configure": "configure",
+                   "app.delete_data": "delete_data"}
+
+
+def _action_variant(body: Any) -> str:
+    t = body.get("type") if isinstance(body, dict) else getattr(body, "type", None)
+    return _LIFECYCLE_TAGS.get(t, "feature") if isinstance(t, str) else "plain"
+
+
 ActionRequestBody = Annotated[
-    PlainActionRequest | ConfigureActionRequest | DeleteDataActionRequest, Field(discriminator="type")
+    Annotated[PlainActionRequest, Tag("plain")] | Annotated[ConfigureActionRequest, Tag("configure")]
+    | Annotated[DeleteDataActionRequest, Tag("delete_data")] | Annotated[FeatureActionRequest, Tag("feature")],
+    Discriminator(_action_variant),
 ]
 
 
@@ -294,6 +332,11 @@ class FeatureAction:
     run: Callable[["Action", Callable[[ExecResult], None]], None]
     requesters: frozenset[str] = frozenset({"person"})
     check: Callable[["Action"], str | None] | None = None
+    # Requested through POST /v1/actions (contract §12.22): the pydantic model its params must fit,
+    # and an optional request-time check that raises ApiError. Types filed by their own routes
+    # (backup.run ...) leave both unset.
+    params_model: type[BaseModel] | None = None
+    check_request: Callable[[dict, Principal], None] | None = None
     claim: Callable[["Action"], str | None] | None = None
     release: Callable[["Action"], None] | None = None
     background: bool = False
@@ -355,6 +398,14 @@ class ActionService:
         self.spawn: Callable[[Callable[[], None]], None] = _worker
         # Contract §12.17: checked right after a request is filed; the first grant accepts it.
         self.standing_approvals: list[Callable[[Action], StandingGrant | None]] = []
+        # Extra preconditions for lifecycle types: fn(type, params, app, phase) raises ApiError;
+        # phase is "request" or "approve" (§12.22 dependencies, host ports, settings values).
+        self.app_checks: list[Callable[[str, dict, AppEntry, str], None]] = []
+        # Run after every lifecycle dispatch with (action, outcome); a failing hook is logged and skipped.
+        self.after_dispatch: list[Callable[[Action, str], None]] = []
+        # §12.22: (app, merged settings by name, changed names) -> (ConfigMap data keyed by env name,
+        # whether the workloads restart). Set when an app declares spec.settings.
+        self.settings_transform: Callable[[AppEntry, dict, dict], tuple[dict, bool]] | None = None
 
     def register_type(self, action_type: str, spec: FeatureAction) -> None:
         if action_type in APP_CLAIMS or action_type in self.feature_types:
@@ -428,7 +479,7 @@ class ActionService:
         reason (from the MCP request_action tool) is written to the audit log only; the §3 action
         shape has no field for it.
         """
-        data = {"type": req.type, "params": req.params.model_dump(exclude_none=True), "idempotency_key": req.idempotency_key}
+        data = {"type": req.type, "params": _params_of(req), "idempotency_key": req.idempotency_key}
         return self._audited(
             principal, "request action", None, data, lambda: self._create(principal, req, reason)
         )
@@ -538,12 +589,14 @@ class ActionService:
         }
 
     def _create(self, principal: Principal, req: ActionRequest, reason: str | None = None) -> tuple[dict, bool]:
+        if req.type not in APP_CLAIMS:
+            return self._create_feature(principal, req, reason)
         if not principal.can_request_actions:
             raise self._deny(principal, "request actions")
         if not lc.TYPES[req.type].agent_may_request and not principal.is_owner:
             # Deleting data is the owner's own act: an agent can propose a removal, never this.
             raise self._deny(principal, f"request {req.type}")
-        params = req.params.model_dump(exclude_none=True)
+        params = _params_of(req)
         existing = self.repo.get_by_idempotency_key(req.idempotency_key)
         if existing is not None:
             return self._replay(principal, req, params, existing)
@@ -557,6 +610,8 @@ class ActionService:
             raise ApiError(404, "not_found", problem or "unknown app")
         if problem:
             raise ApiError(409, "stale_precondition", problem)
+        for hook in self.app_checks:
+            hook(req.type, params, app, "request")
         _, rendered, _ = self.render(req.type, params)
         if req.plan_sha256 is not None and req.plan_sha256 != rendered["plan_sha256"]:
             raise ApiError(
@@ -706,6 +761,9 @@ class ActionService:
         app = self.catalog.get(app_id)
         claim, allowed, allow_absent = APP_CLAIMS[a.type]
         now = self.clock()
+        if app is not None:
+            for hook in self.app_checks:  # the world may have changed since the request
+                hook(a.type, a.params, app, "approve")
         # Plan binding (contract §12.4): the owner approves a fingerprint, and only the thing that
         # fingerprint describes may run. A different fingerprint from the card, or a fresh render
         # that no longer matches what was requested, leaves the action awaiting_approval.
@@ -864,7 +922,15 @@ class ActionService:
                 "app.update_reverted", None, a.id,
                 {"app_id": app.id, "reason": "the new version failed its health check", **ids},
             )
+        self._after(a, result.outcome)
         return (final or self._get(a.id)).to_json()
+
+    def _after(self, a: Action, outcome: str) -> None:
+        for hook in self.after_dispatch:
+            try:
+                hook(a, outcome)
+            except Exception:  # a follow-up must never change the recorded outcome
+                log.exception("after-dispatch hook %r failed for %s", hook, a.id)
 
     def _run_executor(self, a: Action, app: AppEntry, agent: AgentSecret | None, ctx: lc.ExecContext) -> ExecResult:
         # Executors written before the lifecycle (tests, plugins) take no ctx; give it only to those that do.
@@ -888,12 +954,15 @@ class ActionService:
         runtime = self.repo.get_runtime(app.id)
         stored = dict(runtime.settings) if runtime else {}
         settings = {**stored, **(a.params.get("settings") or {})}
+        restart = True
+        if a.type == "app.configure" and self.settings_transform is not None:
+            settings, restart = self.settings_transform(app, settings, a.params.get("settings") or {})
         grant = None
         if a.type == "app.install" and self.credentials is not None:
             grant, generated = self.credentials.ensure(app, self.clock())
             if generated:  # the value is never logged, only the fact
                 self.audit.append("app.credentials.generated", None, a.id, {"app_id": app.id, **ids})
-        return lc.ExecContext(params=dict(a.params), settings=settings, credentials=grant)
+        return lc.ExecContext(params=dict(a.params), settings=settings, credentials=grant, restart=restart)
 
     def _progress_reporter(self, a: Action):
         def report(step: str, pct: int) -> None:
@@ -1024,34 +1093,63 @@ class ActionService:
         data = {"type": action_type, "params": params, "idempotency_key": idempotency_key}
 
         def create() -> tuple[dict, bool]:
-            if not principal.can_request_actions or (not principal.is_owner and principal.kind not in spec.requesters):
-                raise self._deny(principal, f"request {action_type}")
-            existing = self.repo.get_by_idempotency_key(idempotency_key)
-            if existing is not None:
-                if existing.type != action_type or existing.params != params or existing.requested_by.get("id") != principal.id:
-                    raise ApiError(409, "conflict", "idempotency_key was already used for a different request")
-                return self.expire_if_due(existing).to_json(), False
-            now = self.clock()
-            exp = utc(expires_at)
-            if exp <= now:
-                raise ApiError(409, "expired", "expires_at is already in the past")
-            action = Action(
-                id=new_action_id(), type=action_type, params=params, state="requested",
-                requested_by={"id": principal.id, "kind": principal.kind}, idempotency_key=idempotency_key,
-                created_at=now, updated_at=now, expires_at=exp,
-            )
-            stored, created = self.repo.create(action)
-            if not created:
-                return self.expire_if_due(stored).to_json(), False
-            self.audit.append("action.requested", principal.as_dict(), stored.id, {
-                "type": action_type, "params": params, "risk": spec.risk, "expires_at": iso(exp),
-                "requested_by": principal.id, **({"reason": reason} if reason else {}), **(audit_extra or {}),
-            })
-            moved = self.repo.transition(stored.id, {"requested"}, "awaiting_approval", self.clock())
-            self.audit.append("action.awaiting_approval", None, stored.id, {})
-            return (moved or stored).to_json(), True
+            return self._file_feature(
+                principal, action_type, spec, params, idempotency_key, expires_at, reason, audit_extra)
 
         return self._audited(principal, f"request {action_type}", None, data, create)
+
+    def _create_feature(self, principal: Principal, req: ActionRequest, reason: str | None) -> tuple[dict, bool]:
+        """POST /v1/actions for a type a feature registered with params_model (contract §12.22)."""
+        spec = self.feature_types.get(req.type)
+        if spec is None or spec.params_model is None:
+            raise ApiError(422, "conflict", f"request failed validation: type: unknown action type {req.type!r}")
+        if not principal.can_request_actions or (not principal.is_owner and principal.kind not in spec.requesters):
+            raise self._deny(principal, f"request {req.type}")  # before anything is validated or filed
+        raw = req.params if isinstance(req.params, dict) else req.params.model_dump(exclude_none=True)
+        try:
+            params = spec.params_model.model_validate(raw).model_dump(exclude_none=True)
+        except ValidationError as exc:
+            problems = "; ".join(
+                f"params.{'.'.join(str(x) for x in e.get('loc', []))}: {e.get('msg', '')}" for e in exc.errors())
+            raise ApiError(422, "conflict", f"request failed validation: {problems}"[:1000]) from exc
+        existing = self.repo.get_by_idempotency_key(req.idempotency_key)
+        if existing is None:
+            self._check_pending_cap(principal)
+            if spec.check_request is not None:
+                spec.check_request(params, principal)
+        return self._file_feature(
+            principal, req.type, spec, params, req.idempotency_key, req.expires_at, reason, None)
+
+    def _file_feature(
+        self, principal: Principal, action_type: str, spec: FeatureAction, params: dict,
+        idempotency_key: str, expires_at: datetime, reason: str | None, audit_extra: dict | None,
+    ) -> tuple[dict, bool]:
+        if not principal.can_request_actions or (not principal.is_owner and principal.kind not in spec.requesters):
+            raise self._deny(principal, f"request {action_type}")
+        existing = self.repo.get_by_idempotency_key(idempotency_key)
+        if existing is not None:
+            if existing.type != action_type or existing.params != params or existing.requested_by.get("id") != principal.id:
+                raise ApiError(409, "conflict", "idempotency_key was already used for a different request")
+            return self.expire_if_due(existing).to_json(), False
+        now = self.clock()
+        exp = utc(expires_at)
+        if exp <= now:
+            raise ApiError(409, "expired", "expires_at is already in the past")
+        action = Action(
+            id=new_action_id(), type=action_type, params=params, state="requested",
+            requested_by={"id": principal.id, "kind": principal.kind}, idempotency_key=idempotency_key,
+            created_at=now, updated_at=now, expires_at=exp,
+        )
+        stored, created = self.repo.create(action)
+        if not created:
+            return self.expire_if_due(stored).to_json(), False
+        self.audit.append("action.requested", principal.as_dict(), stored.id, {
+            "type": action_type, "params": params, "risk": spec.risk, "expires_at": iso(exp),
+            "requested_by": principal.id, **({"reason": reason} if reason else {}), **(audit_extra or {}),
+        })
+        moved = self.repo.transition(stored.id, {"requested"}, "awaiting_approval", self.clock())
+        self.audit.append("action.awaiting_approval", None, stored.id, {})
+        return (moved or stored).to_json(), True
 
     def _approve_feature(
         self, principal: Principal, a: Action, spec: FeatureAction, standing: dict | None = None
@@ -1102,6 +1200,10 @@ class ActionService:
         else:
             start()
         return self._get(a.id).to_json()
+
+
+def _params_of(req: ActionRequest) -> dict:
+    return dict(req.params) if isinstance(req.params, dict) else req.params.model_dump(exclude_none=True)
 
 
 def _detail(v: dict) -> dict:

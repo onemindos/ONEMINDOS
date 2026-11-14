@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 import re
 import secrets
@@ -84,6 +85,8 @@ def settings_problem(settings: dict) -> str | None:
             return f"setting name {k!r} is not valid"
         if SECRETISH_RE.search(k):
             return f"setting {k!r} looks like a secret; secrets are never sent as settings"
+        if isinstance(v, bool) or (isinstance(v, (int, float)) and math.isfinite(v)):
+            continue  # typed by the app's spec.settings (§12.22); checked against the field there
         if not isinstance(v, str) or len(v) > MAX_SETTING_VALUE:
             return f"setting {k!r} must be a string of at most {MAX_SETTING_VALUE} characters"
     return None
@@ -210,6 +213,7 @@ class ExecContext:
     params: dict = field(default_factory=dict)
     settings: dict = field(default_factory=dict)  # settings to apply (configure: new; others: stored)
     credentials: AppCredentialGrant | None = None
+    restart: bool = True  # app.configure: roll the workloads after the settings are written (§12.22 restart: false)
     # The app's declared secrets with their current values (executors.AppSecret; appsecrets/).
     # Never shown in a repr, step, result or log line.
     secrets: tuple = field(default=(), repr=False)

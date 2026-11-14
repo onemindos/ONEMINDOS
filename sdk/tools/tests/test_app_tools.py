@@ -286,6 +286,30 @@ class RenovateTests(unittest.TestCase):
         self.assertTrue(validate.renovate_check(cfg, tmp, dirs))
 
 
+class HostPortTests(unittest.TestCase):
+    """Check 10 (contract §12.22): declared host ports never collide across the catalog."""
+
+    def test_collisions_and_reserved(self):
+        tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, tmp)
+        for app, ports in [("a", [[53, "udp"]]), ("b", [[53, "udp"], [53, "tcp"]]), ("c", [[4222, "tcp"]]), ("d", [])]:
+            (tmp / app).mkdir()
+            hp = [{"port": p, "protocol": proto, "description": "x"} for p, proto in ports]
+            (tmp / app / "onemind.app.yaml").write_text(yaml.safe_dump({"spec": {"hostPorts": hp}}))
+        dirs = sorted(d for d in tmp.iterdir() if d.is_dir())
+        errors = validate.host_ports_check(dirs, validate.HOST_PORTS_PATH)
+        self.assertEqual(errors, [
+            "apps/b/ and apps/a/ both declare host port 53/udp",
+            "apps/c/ declares host port 4222/tcp, which OneMind uses (nats)",
+        ])
+        self.assertEqual(validate.host_ports_check(dirs[3:], validate.HOST_PORTS_PATH), [])
+
+    def test_repo_catalog_has_no_collisions(self):
+        apps = TOOLS.parents[1] / "apps"
+        dirs = sorted(d for d in apps.iterdir() if d.is_dir() and not d.name.startswith(("_", ".")))
+        self.assertEqual(validate.host_ports_check(dirs, validate.HOST_PORTS_PATH), [])
+
+
 class IsolationTests(unittest.TestCase):
     def test_isolation(self):
         def errs(pod=None, **obj):

@@ -57,6 +57,7 @@ is where that rule is enforced in code, not in a prompt:
 | `onemind_core/eventstream.py`, `routers/events.py` | §12.8 `GET /v1/events` (SSE, audit-derived ids, resume, `node.status`) |
 | `onemind_core/apimodels.py`, `openapi.py` | Documented response bodies and stable `operationId`s; `python -m onemind_core.openapi` exports `sdk/openapi/onemind-v1.json` |
 | `onemind_core/models.py` | OpenAPI response models for `GET /v1/apps` |
+| `onemind_core/appstore/`, `routers/appstore.py` | App store depth (§12.22): logs, settings and `app.configure`, dependencies, host ports, Compose import, community sources, exposure tiers |
 
 ### Action states
 ```
@@ -161,6 +162,34 @@ Point an MCP client at it, e.g. Hermes's `mcp_servers.onemind` entry, with
 `url: <ONEMIND_GATEWAY_URL>/mcp` and header `Authorization: Bearer <ONEMIND_AGENT_TOKEN>`.
 The test suite drives it with the official MCP Python SDK client (`tests/test_mcp.py`).
 
+### App store depth (§12.22)
+umbrelOS-level app management, with the rule kept: every change is a request an owner approves.
+- **Logs:** `GET /v1/apps/{id}/logs?component=&tail=&since=` returns at most 2000 lines and 1 MiB
+  of plain text, with known credential shapes replaced by `[redacted]`. People with role owner or
+  adult only; every read is audited `app.logs.read`. Redaction is a safety net, not a promise,
+  which is why agents cannot read logs yet.
+- **Settings:** `spec.settings` is a short typed list (a JSON Schema subset per field). The
+  dashboard shows it as a form (`GET /v1/apps/{id}/settings`); saving files `app.configure
+  {app_id, settings}`. Values are checked when the request is filed and again at approval, then
+  written to ConfigMap `onemind-settings` and the workloads restart. Settings are never secrets: a
+  field named like a password or token is refused.
+- **Dependencies:** `spec.dependencies` with `alternatives`. Installing without a provider, or
+  removing the last provider an installed app needs ("remove these first: …"), is refused with
+  `409 stale_precondition`.
+- **Host ports:** `spec.hostPorts` declarations are conflict-checked against OneMind's own ports
+  (`sdk/policy/host-ports.yaml`) and other apps, in CI and at request and approval. The install
+  sandbox still refuses `hostPort` itself.
+- **Compose import:** `POST /v1/deploy/compose` (owner) turns a Compose file into a private app
+  folder and refuses, with the sandbox's rule ids, anything the sandbox would refuse (privileged,
+  host network, bind mounts, unpinned images, root user, …). It writes and installs nothing.
+- **Community sources:** `source.add|move|remove` pin a Git repository to one commit. git runs
+  with hooks, symlinks, submodules and LFS off and only https; nothing in the checkout runs. Apps
+  from a source are `community` at most and need an **on-box** scan record (their own `scan.json`
+  is ignored); without an image scanner on the box (CORE-DEPLOY-2) they cannot be installed yet.
+- **Exposure:** `exposure.private|mesh|public`, owner-requested only. `mesh` adds the
+  `<app>.apps.onemind.internal` name; `public` is refused as parked until the relay exists. The
+  app proxy honours it when built with `exposure=app.state.appstore.tier`.
+
 ## Run it
 
 Needs [uv](https://docs.astral.sh/uv/) (it downloads Python 3.12 itself).
@@ -205,6 +234,8 @@ Runs as uid 10001 (non-root), data in `/var/lib/onemind`, kubectl v1.37.2 (sha25
 | `ONEMIND_PUBLIC_URL` | derived (see "Agent principals") | gateway URL written into app agent Secrets |
 | `ONEMIND_ALLOW_UNSCANNED` | `0` | `1` skips the §10.3 scan check; dev only, refused with `kubernetes` |
 | `ONEMIND_APP_SCHEMA` | `sdk/schema/onemind.app.schema.json` if present | manifest JSON Schema |
+| `ONEMIND_APPSTORE_SOURCES_DIR` | `<folder of ONEMIND_AUDIT_PATH>/sources` | pinned checkouts of community sources |
+| `ONEMIND_APPSTORE_GIT`, `ONEMIND_APPSTORE_FETCH_TIMEOUT_S`, `ONEMIND_APPSTORE_MAX_SOURCE_MB` | `git`, `120`, `64` | community source fetch: git binary, timeout, checkout size limit |
 | `ONEMIND_PHOTOS_ENABLED`, `ONEMIND_PHOTOS_DIR`, `ONEMIND_PHOTOS_*` | `0`, none | Photos backup routes and library folder; the rest in [PHOTOS.md §6](../docs/leap/core/PHOTOS.md#6-settings-config_sectionphotos) |
 | `ONEMIND_SANDBOX_RULES` | `sdk/policy/app-objects.yaml` (repo or image) | install sandbox rule file; the `kubernetes` executor refuses to start without it (and without `ONEMIND_APP_SCHEMA`) |
 | `ONEMIND_SANDBOX_GATEWAY_SA` | unset | `<namespace>/<serviceaccount>` the executor binds to `onemind-app-deployer` in each `app-<id>` (`deploy/install.sh` sets it) |

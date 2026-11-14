@@ -192,8 +192,13 @@ class NoopExecutor(Executor):
             steps.append({"would": f"roll the workloads of {app.id} in {ns}"})
         elif action_type == "app.configure":
             if ctx.settings:
-                steps.append({"would": f"apply ConfigMap {SETTINGS_CONFIGMAP} ({len(ctx.settings)} settings) in {ns}"})
-            steps.append({"would": f"roll the workloads of {app.id} in {ns}"})
+                steps.append({
+                    "would": f"apply ConfigMap {SETTINGS_CONFIGMAP} ({len(ctx.settings)} settings) in {ns}"
+                             + (", then roll the workloads" if ctx.restart else "; the workloads are not restarted"),
+                    "keys": sorted(ctx.settings),
+                })
+            if not ctx.settings or (ctx.secrets and not ctx.restart):  # a changed Secret is read only at start
+                steps.append({"would": f"roll the workloads of {app.id} in {ns}"})
         elif action_type == "app.remove":
             if agent is not None:
                 steps.append({"would": f"delete Secret {agent.name} in {ns}", "principal": agent.principal_id})
@@ -485,6 +490,11 @@ class KubernetesExecutor(Executor):
                 _, err = self._exec([k, "apply", "-n", ns, "-f", "-"], self.settings_doc(app, ctx.settings), app, None, steps, secrets=ctx.secrets)
                 if err is not None:
                     return err
+            if not ctx.restart and not ctx.secrets:
+                # every changed setting is read live (§12.22 restart: false); a changed Secret is read
+                # only at start, so a secret change always rolls the workloads
+                report_progress("done", 100)
+                return ExecResult("succeeded", f"app.configure {app.id}: settings applied, no restart needed", steps)
         report_progress("reading workloads", 30)
         work, err = self._workloads(app, steps)
         if err is not None:
