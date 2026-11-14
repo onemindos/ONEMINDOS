@@ -65,6 +65,9 @@ class Wiring(unittest.TestCase):
     def test_recovery_target_is_minimal(self):
         u = unit("onemind-recovery.target")["Unit"]
         self.assertEqual(u["AllowIsolate"], "yes")
+        # A running plymouth splash swallows /dev/console writes; the ONEMIND-RECOVERY lines must be seen.
+        self.assertIn("plymouth-quit.service", u["Wants"].split())
+        self.assertIn("plymouth-quit.service", unit("onemind-recovery.service")["Unit"]["After"].split())
         wants = u["Wants"].split()
         for w in ("systemd-networkd.service", "avahi-daemon.service", "getty.target",
                   "onemind-recovery.service", "onemind-recovery-web.service"):

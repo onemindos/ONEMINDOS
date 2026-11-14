@@ -5,7 +5,9 @@
 [Unit]
 Description=OneMind recovery mode (the data partition is not usable)
 Requires=basic.target
-Wants=systemd-networkd.service systemd-resolved.service avahi-daemon.service getty.target onemind-recovery.service onemind-recovery-web.service
+# plymouth-quit: a running boot splash swallows what the recovery units print to /dev/console (the
+# ONEMIND-RECOVERY lines), and this target never reaches multi-user.target, which is what normally ends it.
+Wants=systemd-networkd.service systemd-resolved.service avahi-daemon.service getty.target plymouth-quit.service onemind-recovery.service onemind-recovery-web.service
 After=basic.target
 Conflicts=rescue.service rescue.target emergency.service emergency.target
 AllowIsolate=yes
