@@ -88,6 +88,10 @@ Effort: S ≤ 3 days, M ≈ 1 to 2 weeks, L ≈ 3 to 6 weeks (one builder). "Pla
 
 Gates: FG4 (PX4 SITL plus B12 "done when"), FG5 (above). Kit FK-4 (Jetson and a Pixhawk-class controller, props off).
 
+**Founder-requested acceptance clarification (2026-11-14; docs only):** the [first-class robotics matrix RC1–RC7](../../../research-output/fabric/15-FIRST-CLASS-ROBOTICS.md#3-first-class-citizenship-acceptance-matrix-conversation-point-3) is the detailed acceptance checklist for CORE-ROBOT-1…3: RC1/4/7 cover companion enrollment/lifecycle/local operation; RC2/5/6/7 cover the MAVLink mission boundary; RC2/3 cover scoped ROS capability projection. It maps each row to existing FAB-2/3/4/5/6 and CORE-ADAPT-1/4 checks and FG1/FG2/FG4, including revocation, wrong-target/direct-protocol rejection, replay/idempotency, bounded retention and safe staged updates. All rows are **NOT RUN**; no epic is promoted or moved, and PLAN-E15 and PLAN-E7-LAB remain parked. Owner + step-up remains baseline; ZF-07 is unresolved. FB-R labels stay provisional.
+
+**Architecture flag, not a resolution:** §1 defines leaf as “no k3s,” whereas CORE-ROBOT-1 above says “k3s agent only.” Resolve this ambiguity through the existing architecture/decision process before implementing the companion topology. The [boundary diagram](../../../research-output/fabric/15-FIRST-CLASS-ROBOTICS.md#4-onemind--companion--controller-boundary-conversation-point-4) preserves controller safety and excludes cloud/WAN from the control loop; documenting it authorizes no physical command.
+
 ## 4. How this lines up with the 180-day plan
 | Plan item | Fabric content | Change proposed to the plan (Zeus decides) |
 |---|---|---|
