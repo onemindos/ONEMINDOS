@@ -36,7 +36,7 @@ spec:
           type: RuntimeDefault
       containers:
       - name: calibre-web
-        image: ghcr.io/linuxserver/calibre-web:0.6.27-ls394@sha256:8eabbc9ac4d7fcbc252434493078ba22e4e8c3aa461e11b102020b040c5fc3e6
+        image: ghcr.io/linuxserver/calibre-web:0.6.27-ls409@sha256:8eabbc9ac4d7fcbc252434493078ba22e4e8c3aa461e11b102020b040c5fc3e6
         imagePullPolicy: IfNotPresent
         command:
         - python3

@@ -1,0 +1,31 @@
+# SPDX-License-Identifier: Apache-2.0
+# jenkins: Market batch 6 (contract sdk/contracts/poc-v0.md §9.5), written by hand from primary sources:
+# Jenkins 2.590 (github.com/jenkinsci/jenkins), image docker.io/jenkins/jenkins:2.590-jdk21 (jenkinsci/docker). The image
+# Image digests and archs read from the registry API, GitHub facts from the GitHub API, read 2026-11-13.
+apiVersion: onemind.app/v1alpha1
+kind: App
+metadata:
+  id: jenkins
+  name: "Jenkins"
+  version: "2.590"
+  description: "The leading open source automation server: build, test and deploy projects with pipelines and thousands of plugins."
+  # Market category slug from docs/design/TAXONOMY.md §1; sub-tags (ci) are listed in README.md
+  # until the schema has metadata.tags.
+  category: developer
+  icon: icon.svg
+  license: "MIT"
+  source: https://github.com/jenkinsci/jenkins
+  links:
+    docs: "https://www.jenkins.io/doc/"
+    github: "https://github.com/jenkinsci/jenkins"
+    website: "https://www.jenkins.io"
+    support: "https://github.com/jenkinsci/jenkins/issues"
+  upstream: {release: "2.590", released_at: "2026-11-10T07:57:47Z", archived: false}
+  tier: community   # set by CI (sdk/tools/app-gate --tier write), not by hand
+spec:
+  archs: [amd64, arm64]
+  requires: {gpu: false, minMemoryMb: 768}   # sum of the memory requests in manifests/
+  web: {port: 8080}
+  manifests: manifests/
+  # automerge stays none until renovate.json lists this app (validate-apps check 9).
+  updates: {channel: stable, automerge: none}

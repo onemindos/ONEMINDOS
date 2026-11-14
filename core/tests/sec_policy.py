@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 """THE authorization policy table: every gateway route x every principal kind -> expected status.
+Part of board item CORE-SEC-11 (security suite).
 
 test_route_authz.py (the matrix half) enumerates the live app's routes (app.routes) and runs one request per cell.
 A route with no row here fails the suite, so a new endpoint cannot ship without someone writing
@@ -283,8 +284,6 @@ _AUTOMATION = "docs/leap/dev/API.md §5.5; core/tests/test_automation.py"
 _BACKUPS = "docs/leap/dev/API.md §5.2 backups; core/tests/test_backups.py"
 _FILES = "docs/leap/dev/API.md files; core/tests/test_files_*.py"
 _PHOTOS = "docs/leap/core/PHOTOS.md section 2; core/tests/test_photos.py"
-PHOTOS_NO_AUDIT = {k: ("finding in feat/photos (PR #108): PhotosService.person() refuses with 403 but writes no authz.denied audit "
-                       "record (contract section 3: every decision is audited)") for k in ("guest", "agent", "app-agent")}
 PHOTOS_404 = grid(404, 404, 403, 403, 403)  # owner and adult own a library; a missing object is 404 for them
 POLICY |= {
     # ---- automation, standing approvals and windows ------------------------------------------------------
@@ -403,18 +402,18 @@ POLICY |= {
     # The service's own gate (PhotosService.person) runs before any lookup: only a person with role owner or adult has a
     # photo library, so guests, children and agents are 403 and the two library owners reach the (missing) object: 404.
     ("POST", "/v1/photos/sources"): Row(grid(201, 201, 403, 403, 403), w.p_missing(
-        "/v1/photos/sources", json={"client_id": "probe-phone", "name": "Probe", "platform": "other"}), f"{_PHOTOS}: owner and adult register a phone", gaps=PHOTOS_NO_AUDIT),
+        "/v1/photos/sources", json={"client_id": "probe-phone", "name": "Probe", "platform": "other"}), f"{_PHOTOS}: owner and adult register a phone"),
     ("POST", "/v1/photos/sources/{source_id}/check"): Row(PHOTOS_404, w.p_missing(
-        "/v1/photos/sources/{source}/check", json={"items": []}), f"{_PHOTOS}: your own phone only", gaps=PHOTOS_NO_AUDIT),
-    ("GET", "/v1/photos/sources/{source_id}/coverage"): Row(PHOTOS_404, w.p_missing("/v1/photos/sources/{source}/coverage"), f"{_PHOTOS}: your own phone only", gaps=PHOTOS_NO_AUDIT),
-    ("GET", "/v1/photos/sources/{source_id}/receipts"): Row(PHOTOS_404, w.p_missing("/v1/photos/sources/{source}/receipts"), f"{_PHOTOS}: your own phone only", gaps=PHOTOS_NO_AUDIT),
+        "/v1/photos/sources/{source}/check", json={"items": []}), f"{_PHOTOS}: your own phone only"),
+    ("GET", "/v1/photos/sources/{source_id}/coverage"): Row(PHOTOS_404, w.p_missing("/v1/photos/sources/{source}/coverage"), f"{_PHOTOS}: your own phone only"),
+    ("GET", "/v1/photos/sources/{source_id}/receipts"): Row(PHOTOS_404, w.p_missing("/v1/photos/sources/{source}/receipts"), f"{_PHOTOS}: your own phone only"),
     ("POST", "/v1/photos/uploads"): Row(PHOTOS_404, w.p_missing("/v1/photos/uploads", headers={
         "Upload-Length": "1", "Upload-Complete": "?0", "OneMind-Source-Id": w.MISSING["source"],
-        "OneMind-Client-Key": "a" * 64, "OneMind-Content-Hash": "sha256:" + "b" * 64}), f"{_PHOTOS}: upload for your own phone only", gaps=PHOTOS_NO_AUDIT),
-    ("HEAD", "/v1/photos/uploads/{upload_id}"): Row(PHOTOS_404, w.p_missing("/v1/photos/uploads/{upload}"), f"{_PHOTOS}: your own upload", gaps=PHOTOS_NO_AUDIT),
+        "OneMind-Client-Key": "a" * 64, "OneMind-Content-Hash": "sha256:" + "b" * 64}), f"{_PHOTOS}: upload for your own phone only"),
+    ("HEAD", "/v1/photos/uploads/{upload_id}"): Row(PHOTOS_404, w.p_missing("/v1/photos/uploads/{upload}"), f"{_PHOTOS}: your own upload"),
     ("PATCH", "/v1/photos/uploads/{upload_id}"): Row(PHOTOS_404, w.p_missing(
         "/v1/photos/uploads/{upload}", content=b"x",
-        headers={"Content-Type": "application/partial-upload", "Upload-Offset": "0", "Upload-Complete": "?1"}), f"{_PHOTOS}: your own upload", gaps=PHOTOS_NO_AUDIT),
+        headers={"Content-Type": "application/partial-upload", "Upload-Offset": "0", "Upload-Complete": "?1"}), f"{_PHOTOS}: your own upload"),
     # ---- migration (another cluster's namespace comes in; the owner decides every step) -----------------------
     ("POST", "/v1/migrate/plans"): Row(grid(422, 403, 403, 403, 403), w.p_missing(
         "/v1/migrate/plans", json={"kubeconfig": w.KUBECONFIG, "namespace": "old"}), "only the owner reads another cluster"),

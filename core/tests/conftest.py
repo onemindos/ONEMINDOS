@@ -75,6 +75,14 @@ def _dispose_engines(monkeypatch):
         engine.dispose()
 
 
+@pytest.fixture(scope="module")
+def property_resources():
+    """Stateless allocator: each draw owns a fresh retained backend and directory."""
+    from property_resources import PropertyResources
+
+    return PropertyResources.from_env()
+
+
 @pytest.fixture
 def clock() -> Clock:
     return Clock()

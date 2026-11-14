@@ -14,4 +14,4 @@ research-output/evidence/sources/LAB-mender/mender-convert@85e8c50_configs_mende
 # same public fingerprint, dir-scan form (line moved by the merge with main)
 os/versions.lock.yaml:generic-api-key:135
 # same public fingerprint, dir-scan form (line moved again by the merge with main)
-os/versions.lock.yaml:generic-api-key:137
+os/versions.lock.yaml:generic-api-key:138

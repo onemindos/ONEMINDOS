@@ -9,7 +9,7 @@
 # list every app whose result changes. Adding to `pod_security.reviewed` or
 # `capabilities.add_allowed` widens what runs on the box.
 schema: onemind.io/app-objects/v1
-version: 2
+version: 3
 
 # apiVersion/kind pairs an app may ship. Everything else is refused (K-01), including every
 # cluster-scoped kind (Namespace, ClusterRole, ClusterRoleBinding, CRDs, webhooks, PVs,
@@ -101,6 +101,11 @@ rules:
   F-06: privileged containers are not allowed
   F-07: capability is not on the reviewed list
   F-08: spec.securityContext.windowsOptions.hostProcess is not allowed
+  F-09: baseline pods must not disable seccomp
+  F-10: baseline containers must use the Default procMount
+  F-11: baseline pods must use RuntimeDefault or Localhost AppArmor
+  F-12: baseline SELinux type must be allowed and user and role must be unset
+  F-13: baseline pods may set only the Kubernetes safe sysctls
   S-01: restricted pods must run as non-root (runAsNonRoot true, runAsUser not 0)
   S-02: restricted containers must set allowPrivilegeEscalation false
   S-03: restricted containers must drop ALL capabilities

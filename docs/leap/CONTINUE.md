@@ -26,26 +26,26 @@
 ## Medium (15–45 minutes each, one at a time, in this order)
 | Order | Item | Branch / PR | Why medium |
 |---|---|---|---|
-| 1 | Automation | `feat/automation` | Gateway module; registration conflicts only |
-| 2 | Files | `feat/files` | Gateway module |
+| 1 | Automation | `feat/automation` | Merged in #75 (2026-11-13) |
+| 2 | Files | `feat/files` | Merged in #77 (2026-11-13) |
 | 3 | Secrets (owner override off, pending F-7) | `feat/app-secrets` | Gateway module |
-| 4 | Photos server | `feat/photos-server` | Gateway module |
-| 5 | Migration kit | `feat/migrate-kit` | CLI + gateway |
+| 4 | Photos server | `feat/photos-server` | Merged in #108 (2026-11-13) |
+| 5 | Migration kit | `feat/migrate-kit` | Merged in #76 (2026-11-13) |
 | 6 | Phone app v1 | `feat/mobile-v1` | Merged in #63 (2026-11-12) |
 | 7 | Dashboard v2 | `feat/dashboard-v2` | Merged in #73 (2026-11-12) |
-| 8 | Ports from #27 | `feat/deploy-port27` | `deploy/install.sh` changed under it |
-| 9 | Backups switched on + shared Postgres | `feat/backups-on` | Gateway + onemindd wiring |
+| 8 | Ports from #27 | `feat/deploy-port27` | Merged in #78 (2026-11-13); #27 closed |
+| 9 | Backups switched on + shared Postgres | `feat/backups-on` | Merged in #86 (2026-11-13) |
 | 10 | Storage actions + LUKS2 | `feat/storage-actions` | Gateway + onemindd wiring |
 | 11 | App store depth | #47 (contract) + #57 (code) | Contract + gateway conflicts |
 
 ## Heavy (hours; do last or in a fresh session)
 | Item | Branch | Why heavy |
 |---|---|---|
-| Mesh, HTTPS and join wired in | `feat/net-part2` | install.sh, gateway and onemindd all moved underneath it; needs a 2-VM test |
-| Image line | `feat/image-line` | USB installer unfinished; slow boot battery; wire the other streams' os/ patches |
+| Mesh, HTTPS and join wired in | `feat/net-part2` | PR #88: 2-VM proof N2-0..N2-6 pass (cross-node app proxy fixed); N2-7 cookie check in progress |
+| Image line | `feat/image-line` | Merged in #66 (2026-11-13). LUKS2 waits for `feat/storage-actions` and F-61/F-62 |
 | Slop fixes | `docs/slop-audit` | Pass 1 merged in #67; pass 2 reports are `docs/quality/slop-audit-2-*.md` |
 | Not started | — | App lifecycle (PD-03..07), dashboard wiring pass. Pi perf budget (#68) and the Machines spike (#70) are merged |
-| Last of all | #43, #58 | Redo the board refresh and CHANGELOG catch-up once everything above has landed |
+| Last of all | #43, #58 | Done: #43 closed; #58 closed, its CHANGELOG catch-up landed as `changes/docs-lane-b-wrapup.md` |
 
 ## Cloud handoff (an agent with only GitHub access)
 Everything needed is on GitHub: merged work on `main`, open PRs, and pushed branches for the rest. Nothing depends on the founder's Mac.

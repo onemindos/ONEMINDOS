@@ -105,6 +105,15 @@ class LicenceTests(unittest.TestCase):
         rows = licence.matrix_rows(common.MATRIX_CSV, "binwiederhier/ntfy")
         self.assertTrue(rows and rows[0]["SPDX"] == "Apache-2.0 OR GPL-2.0")
         self.assertEqual(licence.matrix_rows(common.MATRIX_CSV, "binwiederhier/ntf"), [])
+    def test_market_batch7_rows(self):
+        # Read from the upstream LICENSE file at the pinned tag (market batch 7). GitHub reports NOASSERTION
+        # for PrivateBin, so only the research matrix row confirms the licence.
+        for repo, spdx, want in (("PrivateBin/PrivateBin", "Zlib", "L1"),
+                                 ("eclipse-mosquitto/mosquitto", "EPL-2.0 OR BSD-3-Clause", "L1"),
+                                 ("danny-avila/LibreChat", "MIT", "L1")):
+            rows = licence.matrix_rows(common.MATRIX_CSV, repo)
+            self.assertTrue(rows, repo)
+            self.assertEqual(licence.gate(spdx, "NOASSERTION", rows)[0], want, repo)
 
 
 class ScaffoldTests(unittest.TestCase):
@@ -223,6 +232,40 @@ class GateTests(unittest.TestCase):
             g = G(user)
             g.nonroot(objs)
             self.assertEqual(g.check("manifests").ok, ok, (user, objs))
+
+
+class SmokeLogScrubTests(unittest.TestCase):
+    """--logs-dir: pod logs saved after a failed smoke test never carry a Secret value."""
+
+    def test_scrub_replaces_every_secret_value_of_six_or_more_chars(self):
+        text = "token=hunter22 again hunter22 and hunter2233 short=abc pw=smoke-test-placeholder"
+        out = gate.scrub(text, ["hunter22", "hunter2233", "abc"])
+        self.assertEqual(out, "token=[REDACTED] again [REDACTED] and [REDACTED] short=abc pw=[REDACTED]")
+
+    def test_scrub_with_no_secrets_still_redacts_the_placeholder(self):
+        self.assertEqual(gate.scrub("x smoke-test-placeholder y", []), "x [REDACTED] y")
+        self.assertEqual(gate.scrub("nothing here", []), "nothing here")
+
+    def test_secret_values_decodes_every_secret(self):
+        import base64
+        enc = lambda v: base64.b64encode(v.encode()).decode()  # noqa: E731
+        doc = json.dumps({"items": [{"data": {"a": enc("first-value"), "b": enc("second")}},
+                                    {"data": None}, {"data": {"c": "!!not base64!!"}}]})
+        self.assertEqual(sorted(gate.secret_values(doc)[:2]), ["first-value", "second"])
+        self.assertEqual(gate.secret_values(""), [])
+
+    def test_collect_logs_failure_only_adds_a_note(self):
+        import os
+        tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, tmp)
+        c = gate.Check("smoke")
+        old, os.environ["PATH"] = os.environ["PATH"], str(tmp)  # no kubectl on PATH
+        try:
+            gate.Gate.collect_logs(None, "app-x", tmp / "logs", c)
+        finally:
+            os.environ["PATH"] = old
+        self.assertTrue(c.ok)
+        self.assertIn("could not collect pod logs", c.notes[-1])
 
 
 class RenovateTests(unittest.TestCase):

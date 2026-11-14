@@ -101,6 +101,8 @@ The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked**
 - Passed: ClamAV (0 infected), smoke test (GET / returned 200).
 
 To unblock: move the pins to upstream releases that fix these findings (tags that exist, checked with `crane`), then rerun `sdk/tools/app-gate` (the daily `apps-rescan` workflow does this too). Nothing is bumped to an unverified tag.
+
+**Hold (apps/market-unblock-2, 2026-11-13):** 5 npm CVEs in the app image, Go and Debian CVEs in `ferretdb` and `postgres-documentdb` (both at their newest tags), a test-fixture JWT, and no licence-matrix row. The LibreChat registry (`registry.librechat.ai`) is not reachable from the worker, so newer app tags could not be read. Unblock: fixed upstream images and a licence-matrix row (a research file, outside `apps/`).
 <!-- onemind:notes:end -->
 
 ## Latest security scan

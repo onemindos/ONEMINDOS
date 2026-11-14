@@ -7,7 +7,7 @@ from fastapi import Depends, FastAPI, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
-from ..actions import ActionRequest
+from ..actions import ActionRequest, ActionRequestBody
 from ..apimodels import Action
 from ..auth import Principal
 from ..context import Gateway
@@ -36,8 +36,8 @@ def register(app: FastAPI, gw: Gateway) -> None:
             **error_responses(401, 403, 404, 409, 422, 429),
         },
     )
-    def create_action(req: ActionRequest, p: Principal = Depends(principal)):
-        body, created = actions.create(p, req)
+    def create_action(req: ActionRequestBody, p: Principal = Depends(principal)):
+        body, created = actions.create(p, ActionRequest.model_validate(req.model_dump()))
         return JSONResponse(status_code=201 if created else 200, content=body)
 
     @app.get(
