@@ -47,10 +47,12 @@ class ScriptedExecutor(Executor):
         self.raise_exc = raise_exc
         self.calls: list[tuple[str, str]] = []
         self.agents: list = []  # the AgentSecret grant of each call (None for apps without spec.agent)
+        self.secrets: list = []  # the AppSecret list of each call (() for apps without spec.secrets)
 
     def run(self, action_type, app, agent=None, ctx=None):
         self.calls.append((action_type, app.id))
         self.agents.append(agent)
+        self.secrets.append(list(ctx.secrets) if ctx is not None else [])
         if self.raise_exc:
             raise RuntimeError("boom")
         return ExecResult(self.outcome, f"scripted {self.outcome}")
@@ -105,7 +107,7 @@ def settings(tmp_path: Path, clock) -> Settings:
     apps = tmp_path / "apps"
     shutil.copytree(FIXTURES / "apps", apps)
     # §10.3: installs need a passing scan newer than 7 days. Every valid fixture app gets one.
-    for app_id in ("uptime-kuma", "whoami", "hermes-like"):
+    for app_id in ("uptime-kuma", "whoami", "hermes-like", "vault-like"):
         write_scan(apps / app_id, clock.now - timedelta(days=1))
     db_url = os.environ.get("ONEMIND_TEST_DB_URL")
     if db_url:

@@ -34,7 +34,10 @@ type Member struct {
 	Missing   bool             `json:"missing"`
 	SizeBytes uint64           `json:"size_bytes"`
 	UsedBytes uint64           `json:"allocated_bytes"`
-	Errors    map[string]int64 `json:"errors"` // write_io_errs, read_io_errs, flush_io_errs, corruption_errs, generation_errs
+	Errors    map[string]int64 `json:"errors"`              // write_io_errs, read_io_errs, flush_io_errs, corruption_errs, generation_errs
+	Backing   string           `json:"backing,omitempty"`   // LUKS2 partition under a dm-crypt member (Collector.LUKS)
+	LUKSUUID  string           `json:"luks_uuid,omitempty"` // that partition's LUKS UUID
+	PartUUID  string           `json:"partuuid,omitempty"`  // that partition's GPT id
 }
 
 // Profile is one allocation class (Data, Metadata, System) and its profile.
@@ -60,6 +63,8 @@ type Mirror struct {
 	State        State     `json:"state"`
 	Reasons      []string  `json:"reasons,omitempty"`
 	Repair       []string  `json:"repair,omitempty"` // what PlanRepair would do: "reconnect", "scrub", "soft-convert"
+	Encrypted    bool      `json:"encrypted"`        // members are dm-crypt (Collector.LUKS)
+	Generation   int       `json:"generation"`       // newest OneMind LUKS2 token generation; 0 = none
 }
 
 // NeedsScrubMarker (relative to the mount) records that the set was mounted
@@ -294,4 +299,37 @@ func Evaluate(m *Mirror) {
 		m.State = StateUnprotected
 		m.Reasons = append(m.Reasons, "one copy of the data only: a disk failure loses it")
 	}
+}
+
+// MembersFromShow parses `btrfs filesystem show --raw` for one filesystem.
+func MembersFromShow(data []byte) ([]Member, error) {
+	m := &Mirror{}
+	if err := parseShow(data, m); err != nil {
+		return nil, err
+	}
+	return m.Members, nil
+}
+
+var reTotal = regexp.MustCompile(`Total devices (\d+)`)
+
+// ShowCounts reads `btrfs filesystem show --raw` for one filesystem: how many
+// devices it has and how many are present. For a filesystem that is not
+// mounted, btrfs-progs does not list a missing device at all; it prints only
+// the total and "*** Some devices missing" (Debian 13 VM lab, log 27).
+func ShowCounts(data []byte) (total, present int, err error) {
+	g := reTotal.FindSubmatch(data)
+	if g == nil {
+		return 0, 0, fmt.Errorf("btrfs filesystem show: no device total")
+	}
+	total, _ = strconv.Atoi(string(g[1]))
+	mem, err := MembersFromShow(data)
+	if err != nil {
+		return total, 0, err
+	}
+	for _, m := range mem {
+		if !m.Missing {
+			present++
+		}
+	}
+	return total, present, nil
 }

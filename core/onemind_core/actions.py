@@ -9,6 +9,10 @@ This is where "AI never actuates without human approval" is enforced:
 - an app.install is approved only for an app with a passing scan newer than 7 days (§10.3);
 - an app that declares spec.agent gets its own agent principal at install, revoked at removal
   (§11.2), so the AI inside it can request actions but, like every agent, never approve them;
+- an app's declared secrets are entered by the owner with the approval itself (or filed as an
+  app.configure the owner approves) and reach the executor only after acceptance (appsecrets/);
+- an owner may approve an install whose scan failed only through the F-7 owner override, which
+  is off unless ONEMIND_ALLOW_OWNER_OVERRIDE=1 and leaves a red audit mark (override.py);
 - a feature module may own further action types of contract §12.5 (FeatureAction, for example
   backup.run and backup.restore): they go through the same ledger, the same owner-only approval
   and the same audit lines; only what runs after approval is the feature's;
@@ -18,6 +22,7 @@ This is where "AI never actuates without human approval" is enforced:
 
 from __future__ import annotations
 
+import dataclasses
 import inspect
 import logging
 import threading
@@ -50,6 +55,21 @@ ActionType = Literal[
 APP_CLAIMS: dict[str, tuple[str, frozenset[str], bool]] = {
     t: (spec.claim, spec.allowed, spec.allow_absent) for t, spec in lc.TYPES.items()
 }
+
+
+@dataclass(frozen=True)
+class ApprovalInput:
+    """What the owner sends with an approval besides the action id.
+
+    sealed: the app's secrets form, sealed in the browser (app.install only; appsecrets/).
+    override: the F-7 owner override {reason, confirm} for an install whose scan failed.
+    webauthn: whether a passkey assertion came with the approval. The identity feature's approval
+      guard verifies it before the action service runs; the override only checks it was there.
+    """
+
+    sealed: dict | None = None
+    override: dict | None = None
+    webauthn: bool = False
 
 
 class ActionParams(BaseModel):
@@ -343,6 +363,9 @@ class ActionService:
         self.executor = executor
         self.audit = audit
         self.clock = clock
+        # Set by feature routers at registration (routers/secrets.py, routers/override.py).
+        self.app_secrets: Any = None  # appsecrets.service.AppSecretsService
+        self.owner_override: Any = None  # override.OwnerOverride
         self.feature_types: dict[str, FeatureAction] = {}
         self.install_hooks: list[InstallHook] = []
         self._finish_lock = threading.Lock()
@@ -440,16 +463,76 @@ class ActionService:
         )
 
     def deny(self, principal: Principal, action_id: str) -> dict:
-        return self._audited(principal, "deny action", action_id, {}, lambda: self._cancel(principal, action_id))
+        out = self._audited(principal, "deny action", action_id, {}, lambda: self._cancel(principal, action_id))
+        if self.app_secrets is not None:  # values entered for a denied change are not kept
+            self.app_secrets.discard(action_id)
+        return out
 
     def approve(
-        self, principal: Principal, action_id: str, plan_sha256: str | None = None, strict: bool = False
+        self, principal: Principal, action_id: str, plan_sha256: str | None = None, strict: bool = False,
+        extra: ApprovalInput | None = None,
     ) -> dict:
         """strict=True (the client sent OneMind-API-Version: 1) refuses an approval without plan_sha256."""
         return self._audited(
             principal, "approve action", action_id, {},
-            lambda: self._approve(principal, action_id, plan_sha256, strict),
+            lambda: self._approve(principal, action_id, plan_sha256, strict, extra=extra or ApprovalInput()),
         )
+
+    def request_configure(
+        self, principal: Principal, params: dict, idempotency_key: str, expires_at: datetime,
+        reason: str | None = None,
+    ) -> tuple[dict, bool]:
+        """File an app.configure whose params list secret changes (routers/secrets.py, owner only).
+
+        POST /v1/actions and the MCP tool cannot carry these params (ActionParams forbids them),
+        and this path is never offered to a standing approval: only a person approves it.
+        """
+        data = {"type": "app.configure", "params": params, "idempotency_key": idempotency_key}
+        return self._audited(
+            principal, "request action", None, data,
+            lambda: self._create_configure(principal, params, idempotency_key, expires_at, reason),
+        )
+
+    def _create_configure(
+        self, principal: Principal, params: dict, idempotency_key: str, expires_at: datetime, reason: str | None
+    ) -> tuple[dict, bool]:
+        if not principal.is_owner:
+            raise self._deny(principal, "request app.configure with secrets")
+        existing = self.repo.get_by_idempotency_key(idempotency_key)
+        if existing is not None:
+            same = (
+                existing.type == "app.configure" and existing.params == params
+                and existing.requested_by.get("id") == principal.id and existing.expires_at == utc(expires_at)
+            )
+            if not same:
+                raise ApiError(409, "conflict", "idempotency_key was already used for a different request")
+            return self.expire_if_due(existing).to_json(), False
+        now = self.clock()
+        expires = utc(expires_at)
+        if expires <= now:
+            raise ApiError(409, "expired", "expires_at is already in the past")
+        app, problem = self._precondition("app.configure", params["app_id"])
+        if app is None:
+            raise ApiError(404, "not_found", problem or "unknown app")
+        if problem:
+            raise ApiError(409, "stale_precondition", problem)
+        action = Action(
+            id=new_action_id(), type="app.configure", params=params, state="requested",
+            requested_by={"id": principal.id, "kind": principal.kind}, idempotency_key=idempotency_key,
+            created_at=now, updated_at=now, expires_at=expires, risk=lc.TYPES["app.configure"].risk,
+        )
+        stored, created = self.repo.create(action)
+        if not created:  # lost an insert race on the same idempotency key
+            return self.expire_if_due(stored).to_json(), False
+        self.audit.append(
+            "action.requested", principal.as_dict(), stored.id,
+            {"type": stored.type, "params": stored.params, "expires_at": iso(stored.expires_at),
+             "requested_by": principal.id, "risk": lc.TYPES["app.configure"].risk,
+             **({"reason": reason} if reason else {})},
+        )
+        moved = self.repo.transition(stored.id, {"requested"}, "awaiting_approval", self.clock())
+        self.audit.append("action.awaiting_approval", None, stored.id, {})
+        return (moved or stored).to_json(), True
 
     # ---- plans (contract §12.4) -----------------------------------------------------------
     def render(self, action_type: str, params: dict) -> tuple[AppEntry | None, dict | None, str | None]:
@@ -636,8 +719,9 @@ class ActionService:
 
     def _approve(
         self, principal: Principal, action_id: str, plan_sha256: str | None = None, strict: bool = False,
-        standing: dict | None = None,
+        standing: dict | None = None, extra: ApprovalInput | None = None,
     ) -> dict:
+        extra = extra or ApprovalInput()
         if standing is None and not principal.is_owner:
             raise self._deny(principal, "approve actions", action_id)
         a = self.expire_if_due(self._get(action_id))
@@ -681,13 +765,29 @@ class ActionService:
                 )
         prior_state = self.repo.get_app_state(app_id)
         prior = prior_state.status if prior_state else None
+        override = None
+        if extra.override is not None and a.type != "app.install":
+            raise ApiError(422, "conflict", "an owner override applies only to app.install")
         if a.type in ("app.install", "app.update") and app is not None and self.require_scan:
             # Contract 9.4: a malware hit or a human review sets metadata.tier to blocked, and
-            # nothing lifts it but a human. The scan record alone must not override it.
-            problem = f"app {app_id!r} is tier blocked; a human has to review it first" if (app.manifest.get("metadata") or {}).get("tier") == "blocked" else None
-            problem = problem or scan_problem(app_id, app.scan, now)
-            if problem:  # §10.3: nothing unscanned runs; the action stays awaiting_approval
+            # nothing lifts it but a human. The scan record alone must not override it, and
+            # neither does the F-7 owner override: it never applies to a blocked tier.
+            if (app.manifest.get("metadata") or {}).get("tier") == "blocked":
+                raise ApiError(
+                    409, "stale_precondition", f"app {app_id!r} is tier blocked; a human has to review it first"
+                )
+            problem = scan_problem(app_id, app.scan, now)
+            if problem and extra.override is None:  # §10.3: nothing unscanned runs; stays awaiting_approval
                 raise ApiError(409, "stale_precondition", problem)
+            if problem:  # F-7: refuses (and audits) unless the box allows it and every check passes
+                if self.owner_override is None:
+                    raise self._deny(principal, "override a failed scan (no owner override on this gateway)", a.id)
+                override = self.owner_override.check(principal, a, app, problem, extra)
+        prepared = None
+        if app is not None and self.app_secrets is not None:
+            prepared = self.app_secrets.prepare(a, app, extra.sealed)  # refuses before anything is claimed
+        elif extra.sealed is not None:
+            raise ApiError(422, "conflict", "this gateway has no secret store")
         outcome = "stale" if app is None else self.repo.accept_and_claim(
             a.id, now, principal.as_dict(), app_id, claim, set(allowed), allow_absent
         )
@@ -698,11 +798,16 @@ class ActionService:
             raise ApiError(409, "stale_precondition", problem)
         ids = {"requested_by": a.requested_by.get("id"), "approved_by": principal.id, **(standing or {})}
         # Contract §12.4: an approval that named no plan fingerprint is allowed for old clients, but recorded.
-        extra = {"plan_unchecked": True} if plan_sha256 is None and a.plan_sha256 is not None else {}
-        self.audit.append("action.approved", principal.as_dict(), a.id, {"type": a.type, "params": a.params, **ids, **extra})
+        unchecked = {"plan_unchecked": True} if plan_sha256 is None and a.plan_sha256 is not None else {}
+        self.audit.append(
+            "action.approved", principal.as_dict(), a.id,
+            {"type": a.type, "params": a.params, **ids, **unchecked, **({"owner_override": True} if override else {})},
+        )
+        if override is not None:
+            self.owner_override.record(principal, a, override)
 
         try:
-            out = self._dispatch(a, app, ids, prior)
+            out = self._dispatch(a, app, ids, prior, principal, prepared, override)
         except Exception as exc:  # anything after accepted: the effect is unknown, never retry
             log.exception("dispatch interrupted")
             self._mark_outcome_unknown(a, f"dispatch error: {exc.__class__.__name__}")
@@ -717,7 +822,10 @@ class ActionService:
             )
         return out
 
-    def _dispatch(self, a: Action, app: AppEntry, ids: dict, prior: str | None = None) -> dict:
+    def _dispatch(
+        self, a: Action, app: AppEntry, ids: dict, prior: str | None = None, approver: Principal | None = None,
+        prepared=None, override: dict | None = None,
+    ) -> dict:
         dispatched = self.repo.transition(a.id, {"accepted"}, "dispatched", self.clock())
         if dispatched is None:
             raise RuntimeError("accepted action could not move to dispatched")
@@ -739,7 +847,10 @@ class ActionService:
             log.exception("install hook failed")
             result = ExecResult("failed", f"install preparation failed: {exc}"[:500], hook_steps)
         else:
+            # The approved values become current only now, after acceptance (appsecrets/service.py).
+            secrets = self.app_secrets.commit(a, app, prepared, approver) if prepared is not None else []
             ctx = self._exec_context(a, app, ids)
+            ctx = dataclasses.replace(ctx, secrets=tuple(secrets))
             token = lc.set_progress_callback(self._progress_reporter(a))
             try:
                 result = self._run_executor(a, app, agent, ctx)
@@ -767,7 +878,10 @@ class ActionService:
                 {"app_id": app.id, "violations": result.violations,
                  "policy_version": (result.plan or {}).get("policy_version"), **ids},
             )
-        final = self.repo.transition(a.id, {"dispatched"}, result.outcome, self.clock(), result=result.to_json())
+        stored_result = result.to_json()
+        if override is not None:  # shown on the action itself, not only in the audit log
+            stored_result["owner_override"] = {"mark": override["mark"], "approved_by": ids["approved_by"]}
+        final = self.repo.transition(a.id, {"dispatched"}, result.outcome, self.clock(), result=stored_result)
         self._record_app_state(a, result, prior)
         self.audit.append(
             f"action.{result.outcome}", None, a.id,
@@ -939,7 +1053,7 @@ class ActionService:
                 previous_version=runtime.version if runtime and runtime.version != version else (
                     runtime.previous_version if runtime else None),
             )
-        elif a.type == "app.configure":
+        elif a.type == "app.configure" and a.params.get("settings"):  # a secrets-only change has none
             self.repo.set_runtime(app_id, now, settings={**(runtime.settings if runtime else {}), **a.params["settings"]})
 
 

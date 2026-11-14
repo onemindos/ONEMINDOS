@@ -1,0 +1,7 @@
+time=2026-11-12T06:08:39.993-05:00 level=INFO msg="member unlocked" part=/dev/vdb1 as=onemind-data-64abeb67 generation=17
+time=2026-11-12T06:08:41.021-05:00 level=INFO msg="member unlocked" part=/dev/vdc1 as=onemind-data-a3e280b6 generation=17
+{"state":"degraded","set_uuid":"f587b105-7dd7-49f2-ae22-975c78079dbd","members":["/dev/mapper/onemind-data-64abeb67","/dev/mapper/onemind-data-a3e280b6"],"detail":"1 of 3 members missing; mounted degraded, needs-scrub marker written"}
+  run marker: degraded
+{"state":"degraded","reasons":["1 of 3 disks missing"],"encrypted":true,"generation":17,"members":["1:/dev/mapper/onemind-data-64abeb67","2:missing","3:/dev/mapper/onemind-data-a3e280b6"],"profiles":["Data=raid1","System=raid1c3","Metadata=raid1c3"]}
+{"needs_scrub":true,"mounted_degraded":true}
+corpus OK: 40 files match their checksums

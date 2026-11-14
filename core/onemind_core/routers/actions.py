@@ -5,19 +5,33 @@ from __future__ import annotations
 
 from fastapi import Depends, FastAPI, Request
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
-from ..actions import ActionRequest, ActionRequestBody
+from ..actions import ActionRequest, ActionRequestBody, ApprovalInput
 from ..apimodels import Action
+from ..appsecrets.api import SealedInput
 from ..auth import Principal
 from ..context import Gateway
 from ..errors import error_responses
 
 
+class OverrideInput(BaseModel):
+    """F-7 owner override (override.py): why, and the app id typed as confirmation."""
+
+    model_config = ConfigDict(extra="forbid")
+    reason: str = Field(max_length=2000)
+    confirm: str = Field(max_length=200)
+
+
 class ApproveBody(BaseModel):
-    """§12.4: optional approve body. `webauthn` is the passkey assertion over approve-options' challenge."""
+    """§12.4: optional approve body. `webauthn` is the passkey assertion over approve-options' challenge.
+
+    sealed: the app's secrets form for app.install (appsecrets/); override: the F-7 owner override.
+    """
 
     plan_sha256: str | None = Field(default=None, max_length=200)
+    sealed: SealedInput | None = None
+    override: OverrideInput | None = None
     webauthn: dict | None = None
 
 
@@ -65,7 +79,12 @@ def register(app: FastAPI, gw: Gateway) -> None:
             guard(p, action_id, body.model_dump() if body else {}, request)
         # Clients that send OneMind-API-Version: 1 must name the plan they read (contract §12.4).
         strict = request.headers.get("OneMind-API-Version") == "1"
-        return actions.approve(p, action_id, body.plan_sha256 if body else None, strict)
+        extra = ApprovalInput(
+            sealed=body.sealed.model_dump(exclude_none=True) if body and body.sealed else None,
+            override=body.override.model_dump() if body and body.override else None,
+            webauthn=bool(body and body.webauthn),
+        )
+        return actions.approve(p, action_id, body.plan_sha256 if body else None, strict, extra)
 
     @app.post(
         "/v1/actions/{action_id}/deny", tags=["actions"], operation_id="actions.deny",

@@ -48,7 +48,10 @@ from .routers import nodes as nodes_routes
 from .routers import photos as photos_routes
 from .routers import onboarding as onboarding_routes
 from .routers import notifications as notifications_routes
+from .routers import override as override_routes
+from .routers import secrets as secrets_routes
 from .routers import static as static_routes
+from .routers import storage as storage_routes
 from .routers.static import API_EXACT, API_TREES, is_api_path
 from .store import Database, migrate
 
@@ -65,6 +68,8 @@ ROUTERS: list[Register] = [
     appstore_routes.register,
     mcp_routes.register,
     actions_routes.register,
+    secrets_routes.register,
+    override_routes.register,
     photos_routes.register,
     databases_routes.register,  # before backups, which dumps and restores its databases
     backups_routes.register,
@@ -77,6 +82,7 @@ ROUTERS: list[Register] = [
     automation_routes.register,
     migrate_routes.register,
     files_routes.register,
+    storage_routes.register,
     static_routes.register,
 ]
 

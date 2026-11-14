@@ -33,3 +33,16 @@ spec:
   # §11.2: the gateway creates agent:hermes-agent and this Secret (ONEMIND_GATEWAY_URL,
   # ONEMIND_AGENT_TOKEN) in app-hermes-agent before applying manifests/.
   agent: {principal: true, secret: hermes-agent-onemind}
+  # Model-provider keys, entered by the owner in the install approval (docs/leap/core/SECRETS.md),
+  # stored encrypted on the box and written into app-hermes-agent as this Secret, which the
+  # Deployment loads with envFrom. Variable names: upstream .env.example at v0.23.0 (OpenRouter)
+  # and the providers docs (Anthropic, OpenAI, OPENAI_BASE_URL), read 2026-11-12. Change or
+  # rotate them later from the app page (POST /v1/apps/hermes-agent/secrets).
+  secrets:
+    - name: hermes-agent-credentials
+      description: "Model-provider keys. Enter the key of the provider you use, then pick the model in Hermes's dashboard."
+      keys:
+        - {key: OPENROUTER_API_KEY, kind: api-key, description: "OpenRouter API key (openrouter.ai/keys)"}
+        - {key: ANTHROPIC_API_KEY, kind: api-key, description: "Anthropic API key"}
+        - {key: OPENAI_API_KEY, kind: api-key, description: "OpenAI API key"}
+        - {key: OPENAI_BASE_URL, kind: url, description: "Optional OpenAI-compatible endpoint; Hermes uses it only with the openai-api provider"}

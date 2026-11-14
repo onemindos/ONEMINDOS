@@ -53,3 +53,4 @@ export * from './backups';
 export * from './settings';
 export * from './store';
 export * from './shell';
+export * from './secrets';

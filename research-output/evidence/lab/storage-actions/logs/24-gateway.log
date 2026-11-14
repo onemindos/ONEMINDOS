@@ -1,0 +1,24 @@
+Running as unit: lab-gw.service; invocation ID: 6e151d55b1ca4fa79c57b6272697cc6c
+== a user outside the group cannot reach the socket
+curl: (7) Failed to connect to storage port 80 after 0 ms: Could not connect to server
+== GET /v1/storage (any principal; no disk identities)
+{"enabled":true,"available":true,"state":"protected","encrypted":true,"generation":16,"members":2}
+== agent requests storage.mirror.add of /dev/vdd
+{"action":{"id":"f66bce6e-73c3-471c-9709-606655c7df62","state":"awaiting_approval","type":"storage.mirror.add","requested_by":{"id":"hermes","kind":"agent"}},"risk":"destructive","plan_sha256":"6d58d82c273c","targets":[{"path":"/dev/vdd","serial_tail":null,"size_bytes":4294967296}]}
+agent approves: {"error":"permission_denied"}
+owner approves: {"state":"dispatched"}
+{"state":"succeeded","result":"the operation finished and the set was verified"}
+{"state":"succeeded","progress":{"id":"f66bce6e-73c3-471c-9709-606655c7df62","kind":"add","state":"succeeded","done":16,"total":16,"step":null,"resumes":0,"error":null}}
+{"state":"protected","generation":17,"members":3,"profiles":["Data=raid1","System=raid1c3","Metadata=raid1c3"]}
+== audit trail of the action
+{"event":"action.requested","by":"hermes"}
+{"event":"action.awaiting_approval","by":null}
+{"event":"authz.denied","by":"hermes"}
+{"event":"action.approved","by":"owner"}
+{"event":"action.dispatched","by":null}
+{"event":"action.succeeded","by":null}
+{"event":"storage.operation.finished","by":null}
+== events the notifier would receive
+{"event":"storage.state","severity":"info","dedupe":null}
+{"event":"storage.operation.finished","severity":"info","dedupe":null}
+corpus OK: 40 files match their checksums

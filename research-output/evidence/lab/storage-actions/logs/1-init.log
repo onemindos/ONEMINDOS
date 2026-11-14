@@ -1,0 +1,26 @@
+Device No is not active.
+Device devices is not active.
+Device found is not active.
+== onemindd storage init
+{"recovery_key_file":"/run/onemind/storage/recovery-key","set_uuid":"f587b105-7dd7-49f2-ae22-975c78079dbd","tpm2":false}
+    0: luks2
+  	PBKDF:      argon2id
+  	Memory:     140816
+    1: luks2
+  	PBKDF:      pbkdf2
+    30: onemind-storage
+== recovery key: shown once through the socket
+{"operations_available":false,"recovery_key_pending":true,"mirror_state":"unavailable"}
+taken: 71 characters, format xxxxxxxx-xxxxxxxx-xxxxxxxx-xxxxxxxx-xxxxxxxx-xxxxxxxx-xxxxxxxx-xxxxxxxx
+second take: {"error":"not_found","message":"no recovery key is waiting to be shown (it is shown once)"}
+== assemble (as at boot) and start the service
+assemble: cannot unlock /dev/vdb1
+assemble: /dev/vdb1 unlocked as luks-40148036-dbf6-4163-af82-b0d40d02d6e2 (generation 1)
+assemble: /data not mountable: storage recovery mode
+assemble: /dev/vdb1 unlocked as luks-8c681e27-d6e1-42e5-b510-19bcd69567ca (generation 1)
+assemble: /data mounted
+/dev/mapper/luks-8c681e27-d6e1-42e5-b510-19bcd69567ca[/@] btrfs
+set key: -rw------- root /data/onemind/storage/keys/set.key
+== corpus
+corpus OK: 24 files match their checksums
+{"state":"unprotected","reasons":["one copy of the data only: a disk failure loses it"],"encrypted":true,"generation":1,"members":["1:/dev/mapper/luks-8c681e27-d6e1-42e5-b510-19bcd69567ca"],"profiles":["Data=single","System=dup","Metadata=dup"]}

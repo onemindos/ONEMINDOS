@@ -214,6 +214,9 @@ class ExecContext:
     settings: dict = field(default_factory=dict)  # settings to apply (configure: new; others: stored)
     credentials: AppCredentialGrant | None = None
     restart: bool = True  # app.configure: roll the workloads after the settings are written (§12.22 restart: false)
+    # The app's declared secrets with their current values (executors.AppSecret; appsecrets/).
+    # Never shown in a repr, step, result or log line.
+    secrets: tuple = field(default=(), repr=False)
 
 
 # ---- sealed credentials (PD-07) ----------------------------------------------------------

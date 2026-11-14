@@ -2262,6 +2262,28 @@
         "title": "Options",
         "type": "object"
       },
+      "OverrideInput": {
+        "additionalProperties": false,
+        "description": "F-7 owner override (override.py): why, and the app id typed as confirmation.",
+        "properties": {
+          "confirm": {
+            "maxLength": 200,
+            "title": "Confirm",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 2000,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason",
+          "confirm"
+        ],
+        "title": "OverrideInput",
+        "type": "object"
+      },
       "PasskeyRegisterBody": {
         "properties": {
           "credential": {
@@ -3289,6 +3311,108 @@
         "title": "ScanSummary",
         "type": "object"
       },
+      "SealedInput": {
+        "additionalProperties": false,
+        "description": "`{\"alg\": \"X25519-AES256GCM\", \"kid\"?, \"epk\", \"ct\"}`, encrypted to GET /v1/secrets/public-key.",
+        "properties": {
+          "alg": {
+            "maxLength": 40,
+            "title": "Alg",
+            "type": "string"
+          },
+          "ct": {
+            "maxLength": 131072,
+            "minLength": 1,
+            "title": "Ct",
+            "type": "string"
+          },
+          "epk": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Epk",
+            "type": "string"
+          },
+          "kid": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kid"
+          }
+        },
+        "required": [
+          "alg",
+          "epk",
+          "ct"
+        ],
+        "title": "SealedInput",
+        "type": "object"
+      },
+      "SecretsChange": {
+        "additionalProperties": false,
+        "description": "POST /v1/apps/{id}/secrets: what to change. An empty body re-applies the current values.",
+        "properties": {
+          "clear": {
+            "description": "<secret>/<key> to unset",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 64,
+            "title": "Clear",
+            "type": "array"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "generate": {
+            "description": "<secret>/<key> to rotate",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 64,
+            "title": "Generate",
+            "type": "array"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "sealed": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SealedInput"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "SecretsChange",
+        "type": "object"
+      },
       "SendIn": {
         "additionalProperties": false,
         "properties": {
@@ -3440,6 +3564,152 @@
           "platform"
         ],
         "title": "SourceOut",
+        "type": "object"
+      },
+      "StorageActionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "idempotency_key": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idempotency Key"
+          },
+          "params": {
+            "$ref": "#/components/schemas/StorageParams",
+            "default": {
+              "unprotect": false,
+              "wipe": false
+            }
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "type": {
+            "enum": [
+              "storage.mirror.create",
+              "storage.mirror.add",
+              "storage.mirror.replace",
+              "storage.mirror.remove",
+              "storage.mirror.repair"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "title": "StorageActionRequest",
+        "type": "object"
+      },
+      "StorageParams": {
+        "additionalProperties": false,
+        "properties": {
+          "device": {
+            "anyOf": [
+              {
+                "pattern": "^(/dev/[A-Za-z0-9/_.:+-]{1,120}|[A-Za-z0-9_:+][A-Za-z0-9_.:+-]{0,119})$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Device"
+          },
+          "member": {
+            "anyOf": [
+              {
+                "pattern": "^(/dev/[A-Za-z0-9/_.:+-]{1,120}|[A-Za-z0-9_:+][A-Za-z0-9_.:+-]{0,119})$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Member"
+          },
+          "node_id": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Node Id"
+          },
+          "unprotect": {
+            "default": false,
+            "title": "Unprotect",
+            "type": "boolean"
+          },
+          "wipe": {
+            "default": false,
+            "title": "Wipe",
+            "type": "boolean"
+          }
+        },
+        "title": "StorageParams",
+        "type": "object"
+      },
+      "StoragePlanRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "params": {
+            "$ref": "#/components/schemas/StorageParams",
+            "default": {
+              "unprotect": false,
+              "wipe": false
+            }
+          },
+          "type": {
+            "enum": [
+              "storage.mirror.create",
+              "storage.mirror.add",
+              "storage.mirror.replace",
+              "storage.mirror.remove",
+              "storage.mirror.repair"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "title": "StoragePlanRequest",
         "type": "object"
       },
       "Subject": {
@@ -3755,8 +4025,18 @@
         "type": "object"
       },
       "onemind_core__routers__actions__ApproveBody": {
-        "description": "§12.4: optional approve body. `webauthn` is the passkey assertion over approve-options' challenge.",
+        "description": "§12.4: optional approve body. `webauthn` is the passkey assertion over approve-options' challenge.\n\nsealed: the app's secrets form for app.install (appsecrets/); override: the F-7 owner override.",
         "properties": {
+          "override": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OverrideInput"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "plan_sha256": {
             "anyOf": [
               {
@@ -3768,6 +4048,16 @@
               }
             ],
             "title": "Plan Sha256"
+          },
+          "sealed": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SealedInput"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "webauthn": {
             "anyOf": [
@@ -5691,6 +5981,76 @@
         ]
       }
     },
+    "/v1/apps/{app_id}/owner-override": {
+      "get": {
+        "operationId": "apps.owner_override.get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "app_id",
+            "required": true,
+            "schema": {
+              "title": "App Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Describe",
+        "tags": [
+          "apps"
+        ]
+      }
+    },
     "/v1/apps/{app_id}/plan": {
       "get": {
         "description": "What `type` would do to this app, and the fingerprint (`plan_sha256`) an approval binds to.",
@@ -5781,6 +6141,184 @@
         "summary": "App Plan",
         "tags": [
           "apps"
+        ]
+      }
+    },
+    "/v1/apps/{app_id}/secrets": {
+      "get": {
+        "operationId": "apps.secrets.get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "app_id",
+            "required": true,
+            "schema": {
+              "title": "App Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Describe",
+        "tags": [
+          "secrets"
+        ]
+      },
+      "post": {
+        "operationId": "apps.secrets.change",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "app_id",
+            "required": true,
+            "schema": {
+              "title": "App Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "idempotency-key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SecretsChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Idempotent replay"
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Change",
+        "tags": [
+          "secrets"
         ]
       }
     },
@@ -14412,6 +14950,35 @@
         ]
       }
     },
+    "/v1/secrets/public-key": {
+      "get": {
+        "operationId": "secrets.public_key",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          }
+        },
+        "summary": "Public Key",
+        "tags": [
+          "secrets"
+        ]
+      }
+    },
     "/v1/sources": {
       "get": {
         "operationId": "sources.list",
@@ -14498,6 +15065,399 @@
         "summary": "Get Source",
         "tags": [
           "sources"
+        ]
+      }
+    },
+    "/v1/storage": {
+      "get": {
+        "description": "The data set of this box: state, members, running operation. No disk identities.",
+        "operationId": "storage.summary",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          }
+        },
+        "summary": "Storage Summary",
+        "tags": [
+          "storage"
+        ]
+      }
+    },
+    "/v1/storage/actions": {
+      "post": {
+        "description": "Request a storage action; it waits for the owner's approval with its plan.",
+        "operationId": "storage.actions.create",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StorageActionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Idempotent replay"
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Storage Request",
+        "tags": [
+          "storage"
+        ]
+      }
+    },
+    "/v1/storage/devices": {
+      "get": {
+        "description": "Every disk with its role and health (full serials: owners only).",
+        "operationId": "storage.devices.list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          }
+        },
+        "summary": "Storage Devices",
+        "tags": [
+          "storage"
+        ]
+      }
+    },
+    "/v1/storage/operations/{action_id}": {
+      "get": {
+        "description": "The stored plan and, while it runs, the node's journal (step by step).",
+        "operationId": "storage.operations.get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "action_id",
+            "required": true,
+            "schema": {
+              "title": "Action Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Storage Operation",
+        "tags": [
+          "storage"
+        ]
+      }
+    },
+    "/v1/storage/plans": {
+      "post": {
+        "description": "Dry run: the plan a storage action would get. Nothing is filed or changed.",
+        "operationId": "storage.plans.create",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StoragePlanRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Storage Plan",
+        "tags": [
+          "storage"
+        ]
+      }
+    },
+    "/v1/storage/recovery-key": {
+      "post": {
+        "description": "The data set's recovery key, once (H-11). Never stored by the gateway, never shown again.",
+        "operationId": "storage.recovery_key.take",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          }
+        },
+        "summary": "Storage Recovery Key",
+        "tags": [
+          "storage"
         ]
       }
     },

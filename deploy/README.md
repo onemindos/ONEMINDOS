@@ -152,8 +152,11 @@ from the gateway. Both are cluster-start settings: an upgrade restarts k3s once.
   URL app pods use to reach the gateway, which the wave-2 gateway writes into each agent app's
   Secret as `ONEMIND_GATEWAY_URL`. The wave-1 gateway ignores the variable.
 - The per-app RoleBinding above lets the gateway create and delete Secrets in `app-<id>`, which §11.2 needs.
-- The hub install prints the command with which the **owner** creates `hermes-agent-credentials`
-  (model-provider keys never come from the repo).
+- The **owner** enters Hermes's model-provider keys (`hermes-agent-credentials`, declared in its
+  `spec.secrets`) in the install approval; the gateway stores them encrypted and writes the Secret
+  ([SECRETS.md](../docs/leap/core/SECRETS.md)), terminal equivalent `onemind-secrets approve <action id>
+  <secret>/<key>`. Model-provider keys never come from the repo. The hub install still prints the old
+  `kubectl create secret` command until `deploy/install.sh` (Lane B) drops it.
 - `ONEMIND_ALLOW_UNSCANNED` is **not** set on the hub (the contract refuses it with the kubernetes
   executor). With the wave-2 gateway, installs of apps without a fresh passing `scan.json` return
   `409 stale_precondition`; `verify.sh` counts that as the §10.3 check passing.

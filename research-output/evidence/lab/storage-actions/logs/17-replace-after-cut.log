@@ -1,0 +1,55 @@
+== boot
+assemble: /dev/vdd1 is generation 7, the set is at 8 (it left the set): skipped
+assemble: /dev/vdb1 unlocked as luks-8c681e27-d6e1-42e5-b510-19bcd69567ca (generation 8)
+assemble: /dev/vdc1 unlocked as luks-d6f8c410-8b0c-4925-b5af-ce4f4bf0ea61 (generation 8)
+assemble: retry with /dev/vdd1 (older generation)
+assemble: /data mounted with an older-generation member: run a repair
+level=INFO msg="storage operation finished" op=lab-repair-1 state=succeeded error=""
+level=INFO msg="storage operation finished" op=lab-replace-3 state=failed error="step 14 replace exited 1"
+level=INFO msg="storage operation finished" op=lab-replace-4 state=succeeded error=""
+== operation lab-replace-4
+final state: succeeded
+  1. wipe [prepare] done attempts=1 
+  2. partition [prepare] done attempts=1 
+  3. settle [prepare] done attempts=1 
+  4. rundir [prepare] done attempts=1 
+  5. luks-header-drop [prepare] done attempts=1 
+  6. luks-header-backup [prepare] done attempts=1 
+  7. luks-header-restore [prepare] done attempts=1 
+  8. luks-header-drop [prepare] done attempts=1 
+  9. luks-uuid [prepare] done attempts=1 
+  10. luks-open [prepare] done attempts=1 
+  11. token [prepare] done attempts=1 
+  12. token-member [join] done attempts=1 
+  13. token-member [join] done attempts=1 
+  14. replace [commit] done attempts=1 
+  15. resize [commit] done attempts=1 
+  16. balance [commit] done attempts=1 
+  17. token-member [commit] done attempts=1 
+  18. token-member [commit] done attempts=1 
+  19. old-close [commit] done attempts=1 
+  20. old-erase [commit] done attempts=1 
+  21. old-wipefs [commit] done attempts=1 
+  22. old-zap [commit] done attempts=1 
+  23. verify [verify] done attempts=1 
+{"state":"succeeded","error":null,"resumes":null,"relocated":null,"rollback":[]}
+== set
+{"state":"protected","reasons":null,"encrypted":true,"generation":12,"members":["1:/dev/mapper/luks-8c681e27-d6e1-42e5-b510-19bcd69567ca","2:/dev/mapper/onemind-data-vdc"],"profiles":["Data=raid1","System=raid1","Metadata=raid1"]}
+  Data, RAID1: total=2.86GiB, used=1.95GiB
+  System, RAID1: total=32.00MiB, used=16.00KiB
+  Metadata, RAID1: total=288.00MiB, used=2.33MiB
+  GlobalReserve, single: total=5.50MiB, used=0.00B
+== scrub
+  Status:           finished
+  Total to scrub:   3.91GiB
+  Error summary:    no errors found
+corpus OK: 40 files match their checksums
+/dev/vdb1 token: {"generation":12,"partuuid":"64abeb67-b5f1-4df4-ba32-57c69c747940"}
+  own partuuid: 64abeb67-b5f1-4df4-ba32-57c69c747940
+/dev/vdc1 token: {"generation":12,"partuuid":"d8af25e1-4a7d-4529-bd87-018d4e4df15e"}
+  own partuuid: d8af25e1-4a7d-4529-bd87-018d4e4df15e
+recovery key opens /dev/vdb1
+Warning: keyslot operation could fail as it requires more than available memory.
+recovery key opens /dev/vdc1
+== old disk vdd
+vdd disk 
