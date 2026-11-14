@@ -1,0 +1,116 @@
+# SPDX-License-Identifier: Apache-2.0
+# Upstream references (3.8.2): docker/server/Dockerfile (USER user, UID 1001; WORKDIR /data),
+# docker/server/start.sh (kiwix-serve --port=$PORT), kiwix-serve --help (--library, --monitorLibrary).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kiwix
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  # One ReadWriteOnce volume, one writer (the library manager): stop the old pod first.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kiwix
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: kiwix
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      # The image's own non-root user (docker/server/Dockerfile: adduser -u 1001 user).
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        # kiwix-serve serves every book in library.xml and reloads the file when the library
+        # manager replaces it (--monitorLibrary). An empty library is valid: it serves an empty
+        # catalog until the first book is verified.
+        - name: kiwix-serve
+          image: ghcr.io/kiwix/kiwix-serve:3.8.2@sha256:e478554a9920412eeb5ce1d73f24e4b28445ebed233187cdd03c623c32be46a5
+          command: ["/usr/bin/dumb-init", "--", "/bin/sh", "-c"]
+          args:
+            - >-
+              [ -f /data/library.xml ] || printf '<library version="20110515">\n</library>\n' > /data/library.xml;
+              exec /usr/local/bin/kiwix-serve --port=8080 --monitorLibrary --library /data/library.xml
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          # OneMind choice (upstream gives no sizing): kiwix-serve memory-maps the ZIM files, so
+          # its resident memory stays small and the page cache does the rest.
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: data
+              mountPath: /data
+        # Library manager: downloads and verifies the books listed in the owner's KIWIX_ZIMS
+        # setting (ConfigMap onemind-settings, contract §12.22), then every 6 hours retries
+        # anything that failed. Only the owner changes the list; no app or agent can.
+        - name: library-sync
+          image: ghcr.io/kiwix/kiwix-serve:3.8.2@sha256:e478554a9920412eeb5ce1d73f24e4b28445ebed233187cdd03c623c32be46a5
+          command: ["/usr/bin/dumb-init", "--", "/bin/sh", "-c"]
+          args:
+            - while :; do sh /opt/onemind/library-sync.sh; sleep 21600; done
+          envFrom:
+            - configMapRef:
+                name: onemind-settings
+                optional: true
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 500m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: scripts
+              mountPath: /opt/onemind
+              readOnly: true
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: kiwix-data
+        - name: scripts
+          configMap:
+            name: kiwix-library-sync

@@ -1,0 +1,30 @@
+{
+  "scanned_at": "2026-11-14T12:25:48Z",
+  "result": "fail",
+  "images": [
+    {
+      "ref": "ghcr.io/learningequality/kolibri:0.19.5@sha256:19810f674f1e94a4f925f4f45f8a45de1735310e83540361c4e8614eca34a9fe",
+      "archs": [
+        "amd64",
+        "arm64"
+      ],
+      "trivy": {
+        "version": "0.76.2",
+        "critical_fixable": 5,
+        "critical": 5,
+        "high": 129
+      },
+      "clamav": {
+        "signatures": "daily-28183",
+        "infected": 0
+      },
+      "secrets": 0,
+      "cosign": "unsigned"
+    }
+  ],
+  "licence": {
+    "spdx": "MIT",
+    "class": "L1"
+  },
+  "smoke": "pass"
+}

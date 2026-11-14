@@ -82,3 +82,7 @@
 - {name: Miniflux, github: miniflux/v2, priority: 2, status: "skipped: deferred; needs PostgreSQL plus an admin account created on first start (no web sign-up), which needs the app-secrets design", notes: "market batch 6 skip"}
 - {name: LibreTranslate, github: LibreTranslate/LibreTranslate, priority: 2, status: "skipped: not attempted; downloads multi-gigabyte language models at start", notes: "market batch 6 skip"}
 - {name: PrivateBin, github: PrivateBin/PrivateBin, priority: 2, status: "skipped: the licence gate cannot confirm the licence (GitHub reports NOASSERTION, no matrix row; candidates.csv says Apache-2.0 from a licence-file match that was not re-checked)", notes: "market batch 6 skip"}
+# Offline Knowledge bundle (REC-NOMAD-01, research-output/02-competitors/project-nomad.md §18; apps/_bundles/offline-knowledge/).
+- {name: Kiwix, github: kiwix/kiwix-tools, priority: 1, status: in-pr, notes: "offline knowledge bundle; app id kiwix"}
+- {name: Kolibri, github: learningequality/kolibri, priority: 1, status: "blocked: image 0.19.5 (newest) has fixable CRITICAL CVEs (perl-base x3, Django CVE-2025-64459, certifi); everything else in place", notes: "offline knowledge bundle"}
+- {name: go-pmtiles (Offline Maps), github: protomaps/go-pmtiles, priority: 1, status: in-pr, notes: "offline knowledge bundle; app id offline-maps with OneMind's own viewer"}

@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: Apache-2.0
+# KOLIBRI_HOME: the SQLite databases, settings, the Morango node id and imported channel content.
+# Channels vary from a few MiB to tens of GiB (Kolibri Studio shows each size before import).
+# No storageClassName: the cluster default class is used (k3s local-path).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: kolibri-data
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 32Gi
