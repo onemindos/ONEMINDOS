@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 """THE authorization policy table: every gateway route x every principal kind -> expected status.
+Part of board item CORE-SEC-11 (security suite).
 
 test_route_authz.py (the matrix half) enumerates the live app's routes (app.routes) and runs one request per cell.
 A route with no row here fails the suite, so a new endpoint cannot ship without someone writing

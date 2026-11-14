@@ -234,6 +234,40 @@ class GateTests(unittest.TestCase):
             self.assertEqual(g.check("manifests").ok, ok, (user, objs))
 
 
+class SmokeLogScrubTests(unittest.TestCase):
+    """--logs-dir: pod logs saved after a failed smoke test never carry a Secret value."""
+
+    def test_scrub_replaces_every_secret_value_of_six_or_more_chars(self):
+        text = "token=hunter22 again hunter22 and hunter2233 short=abc pw=smoke-test-placeholder"
+        out = gate.scrub(text, ["hunter22", "hunter2233", "abc"])
+        self.assertEqual(out, "token=[REDACTED] again [REDACTED] and [REDACTED] short=abc pw=[REDACTED]")
+
+    def test_scrub_with_no_secrets_still_redacts_the_placeholder(self):
+        self.assertEqual(gate.scrub("x smoke-test-placeholder y", []), "x [REDACTED] y")
+        self.assertEqual(gate.scrub("nothing here", []), "nothing here")
+
+    def test_secret_values_decodes_every_secret(self):
+        import base64
+        enc = lambda v: base64.b64encode(v.encode()).decode()  # noqa: E731
+        doc = json.dumps({"items": [{"data": {"a": enc("first-value"), "b": enc("second")}},
+                                    {"data": None}, {"data": {"c": "!!not base64!!"}}]})
+        self.assertEqual(sorted(gate.secret_values(doc)[:2]), ["first-value", "second"])
+        self.assertEqual(gate.secret_values(""), [])
+
+    def test_collect_logs_failure_only_adds_a_note(self):
+        import os
+        tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, tmp)
+        c = gate.Check("smoke")
+        old, os.environ["PATH"] = os.environ["PATH"], str(tmp)  # no kubectl on PATH
+        try:
+            gate.Gate.collect_logs(None, "app-x", tmp / "logs", c)
+        finally:
+            os.environ["PATH"] = old
+        self.assertTrue(c.ok)
+        self.assertIn("could not collect pod logs", c.notes[-1])
+
+
 class RenovateTests(unittest.TestCase):
     def test_automerge_list(self):
         tmp = Path(tempfile.mkdtemp())
