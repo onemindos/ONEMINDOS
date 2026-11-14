@@ -29,23 +29,26 @@ jobs:
           set -eu
           for t in debian13 rpi5 jetson do; do
             bash deploy/install.sh --role hub --dry-run --target "$t" > "hub-$t.log"
-            bash deploy/install.sh --role node --dry-run --target "$t" --hub http://hub.example.invalid:8080 \
-              --token K10example::node:example > "node-$t.log"
+            bash deploy/install.sh --role node --dry-run --target "$t" \
+              --join 'onemind-join:v1?c=K10example-code&box=box1&role=worker' > "node-$t.log"
             grep -q 'unsupported developer install, no OS rollback' "hub-$t.log"
-            if grep -q 'K10example' "node-$t.log"; then echo "dry run printed the join token" >&2; exit 1; fi
+            if grep -q 'K10example' "node-$t.log"; then echo "dry run printed the join code" >&2; exit 1; fi
           done
           grep -q 'cgroup_memory=1 cgroup_enable=memory' hub-rpi5.log
           grep -q 'DigitalOcean Cloud' hub-do.log && grep -q 'DigitalOcean Cloud' node-do.log
           ! grep -q 'DigitalOcean Cloud' hub-debian13.log
           if bash deploy/install.sh --role hub --target rpi5 >/dev/null 2>&1; then echo "--target without --dry-run must fail" >&2; exit 1; fi
-          # A second line in --hub or --token would land in gateway.env or k3s's env file.
+          # A second line in --hub or --join would land in gateway.env or a config file.
           if bash deploy/install.sh --role hub --dry-run --target debian13 \
                --hub "$(printf 'http://hub.example.invalid:8080\nONEMIND_EXECUTOR=noop')" >/dev/null 2>&1; then
             echo "a two-line --hub was accepted" >&2; exit 1
           fi
-          if bash deploy/install.sh --role node --dry-run --target debian13 --hub http://hub.example.invalid:8080 \
-               --token "$(printf 'K10example\nX=1')" >/dev/null 2>&1; then
-            echo "a two-line --token was accepted" >&2; exit 1
+          if bash deploy/install.sh --role node --dry-run --target debian13 \
+               --join "$(printf 'onemind-join:v1?c=K10example-code&box=box1\nX=1')" >/dev/null 2>&1; then
+            echo "a two-line --join was accepted" >&2; exit 1
+          fi
+          if bash deploy/install.sh --role node --dry-run --target debian13 --token abcdefgh >/dev/null 2>&1; then
+            echo "--token (the removed shared join secret) was accepted" >&2; exit 1
           fi
       - name: bundle.sh refuses an --out folder it did not make (it empties --out before a build)
         run: |

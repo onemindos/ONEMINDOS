@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: Apache-2.0
+# Triggered by onemind-nats-accounts.path. NATS keeps its old config if the new one is invalid.
+[Unit]
+Description=Reload the hub NATS accounts
+
+[Service]
+Type=oneshot
+ExecStart=/bin/systemctl reload onemind-nats.service

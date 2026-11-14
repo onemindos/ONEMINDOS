@@ -1,0 +1,39 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+/* Network page and Add a device. Every value comes from a global token. */
+.om-net { display: grid; gap: var(--om-space-4); }
+.om-net-muted { color: var(--om-color-text-muted); }
+.om-net-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--om-space-3); margin: var(--om-space-3) 0 0; }
+.om-net-facts dt { color: var(--om-color-text-muted); font-size: 0.875em; }
+.om-net-facts dd { margin: var(--om-space-1) 0 0; }
+.om-net-fp, .om-net-code { font-family: var(--om-font-mono, ui-monospace, monospace); }
+.om-net-code { font-weight: 600; letter-spacing: 0.04em; }
+.om-net-actions { display: flex; gap: var(--om-space-2); flex-wrap: wrap; }
+.om-net-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--om-space-2); }
+.om-net-list li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--om-space-2); }
+.om-net-names { list-style: none; margin: var(--om-space-2) 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--om-space-3); }
+.om-net-name { font-weight: 600; }
+.om-net-choices { display: grid; gap: var(--om-space-2); }
+.om-net-choice {
+  display: grid; gap: var(--om-space-1); text-align: start; cursor: pointer;
+  padding: var(--om-space-3) var(--om-space-4); border-radius: var(--om-radius-md);
+  border: 1px solid var(--om-color-border-strong); background: var(--om-color-surface); color: var(--om-color-text);
+}
+.om-net-choice:hover, .om-net-choice:focus-visible { border-color: var(--om-color-accent); }
+.om-net-choice span { color: var(--om-color-text-muted); font-size: 0.875em; }
+.om-net-ticket { display: grid; grid-template-columns: auto 1fr; gap: var(--om-space-4); align-items: start; }
+.om-net-ticket-body p { margin: 0 0 var(--om-space-2); }
+.om-net-waiting { grid-column: 1 / -1; border-top: 1px solid var(--om-color-border); padding-top: var(--om-space-3); }
+.om-net-waiting h3 { margin: 0 0 var(--om-space-2); font-size: 1em; }
+.om-net-bigcode code { font-size: 1.5em; font-weight: 700; letter-spacing: 0.08em; }
+.om-net-cmd {
+  margin: 0 0 var(--om-space-2); padding: var(--om-space-2) var(--om-space-3); overflow-x: auto; white-space: pre-wrap; word-break: break-all;
+  border-radius: var(--om-radius-md); background: var(--om-color-surface-sunken); font-size: 0.8125em;
+}
+.om-net-qr { width: 200px; height: 200px; flex: none; border-radius: var(--om-radius-md); border: 1px solid var(--om-color-border-strong); }
+/* A QR code must stay dark-on-light in both themes, or phone cameras cannot read it. */
+.om-net-qr-bg { fill: #ffffff; }
+.om-net-qr-on { fill: #000000; }
+@media (max-width: 640px) {
+  .om-net-ticket { grid-template-columns: 1fr; }
+  .om-net-qr { width: 180px; height: 180px; justify-self: center; }
+}

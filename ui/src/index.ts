@@ -51,6 +51,7 @@ export * from './customize';
 export * from './home';
 export * from './backups';
 export * from './settings';
+export * from './network';
 export * from './store';
 export * from './shell';
 export * from './secrets';

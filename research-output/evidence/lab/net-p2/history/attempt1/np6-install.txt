@@ -1,0 +1,1 @@
+succeeded app.install vaultwarden applied to namespace app-vaultwarden
