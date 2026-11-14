@@ -28,6 +28,7 @@ class Requirement:
     id: str
     alternatives: tuple[str, ...]
     reason: str | None
+    port: int | None = None  # the provider's Service port the app calls; default its spec.web.port
 
     @property
     def choices(self) -> tuple[str, ...]:
@@ -36,7 +37,7 @@ class Requirement:
         return tuple(out)
 
     def to_json(self) -> dict:
-        return {"id": self.id, "alternatives": list(self.alternatives), "reason": self.reason}
+        return {"id": self.id, "alternatives": list(self.alternatives), "reason": self.reason, "port": self.port}
 
 
 def requirements(manifest: dict) -> list[Requirement]:
@@ -52,7 +53,9 @@ def requirements(manifest: dict) -> list[Requirement]:
         alts = entry.get("alternatives") or []
         alts = tuple(a for a in alts if isinstance(a, str) and APP_ID_RE.match(a)) if isinstance(alts, list) else ()
         reason = entry.get("reason") if isinstance(entry.get("reason"), str) else None
-        out.append(Requirement(entry["id"], alts, reason))
+        port = entry.get("port")
+        port = port if isinstance(port, int) and not isinstance(port, bool) and 1 <= port <= 65535 else None
+        out.append(Requirement(entry["id"], alts, reason, port))
     return out
 
 
@@ -90,3 +93,52 @@ def missing_message(app_id: str, missing: list[Requirement]) -> str:
         what = f" ({r.reason})" if r.reason else ""
         parts.append(f"one of {', '.join(r.choices)}{what}" if len(r.choices) > 1 else f"{r.id}{what}")
     return f"app {app_id!r} needs {'; '.join(parts)} installed first"
+
+
+# ---- network paths (§12.22 dependency network paths) ---------------------------------------------
+
+@dataclass(frozen=True)
+class Link:
+    """One owner-approved path app-<dependent> -> app-<provider>, TCP on the provider's Service port."""
+
+    provider: str
+    port: int
+    requirement: str
+
+    def to_json(self, dependent: str) -> dict:
+        return {"from": f"app-{dependent}", "to": f"app-{self.provider}", "provider": self.provider,
+                "port": self.port, "protocol": "TCP", "requirement": self.requirement}
+
+
+def web_port(manifest: dict) -> int | None:
+    spec = manifest.get("spec") if isinstance(manifest, dict) else None
+    web = spec.get("web") if isinstance(spec, dict) else None
+    port = web.get("port") if isinstance(web, dict) else None
+    return port if isinstance(port, int) and not isinstance(port, bool) and 1 <= port <= 65535 else None
+
+
+def links(app_id: str, manifest: dict, manifests: Mapping[str, dict], provided: Iterable[str]
+          ) -> tuple[list[Link], list[str]]:
+    """(paths to open, warnings) for app_id's satisfied requirements. Pure.
+
+    The provider is the first installed choice (as satisfied_by), never the app itself. Its port is
+    the requirement's `port`, else the provider's spec.web.port; with neither, no path and a warning.
+    """
+    have = set(provided) - {app_id}
+    out: list[Link] = []
+    warnings: list[str] = []
+    seen: set[tuple[str, int]] = set()
+    for req in requirements(manifest):
+        provider = satisfied_by(req, have)
+        if provider is None or not APP_ID_RE.match(provider):
+            continue
+        port = req.port or web_port(manifests.get(provider) or {})
+        if port is None:
+            warnings.append(f"No port is known for {provider} (needed for {req.id}): no network path is opened, "
+                            f"so {app_id} cannot reach it.")
+            continue
+        if (provider, port) in seen:
+            continue
+        seen.add((provider, port))
+        out.append(Link(provider, port, req.id))
+    return out, warnings
