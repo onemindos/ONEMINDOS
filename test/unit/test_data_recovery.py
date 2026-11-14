@@ -56,6 +56,11 @@ class Wiring(unittest.TestCase):
         self.assertEqual(u["DefaultDependencies"], "no")
         self.assertEqual(u["OnFailure"], "onemind-recovery.target")
         self.assertEqual(u["OnFailureJobMode"], "isolate")
+        # The isolate re-pulls local-fs.target; without this the check reruns, fails and isolates forever
+        # (found in CI: TD1 never saw the recovery line). The check writes the status file before it exits 1.
+        self.assertEqual(u["ConditionPathExists"], "!/run/onemind-recovery/status")
+        script = read("os/recovery/onemind-data-check")
+        self.assertLess(script.index("$RUN/status.new"), script.index("exit 1"))
 
     def test_recovery_target_is_minimal(self):
         u = unit("onemind-recovery.target")["Unit"]
