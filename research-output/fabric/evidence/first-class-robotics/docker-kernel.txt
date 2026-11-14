@@ -1,0 +1,2 @@
+every container on a machine
+shares that machine’s kernel.

@@ -1,0 +1,46 @@
+#!/bin/bash
+# SPDX-License-Identifier: Apache-2.0
+# OneMind: is the data partition usable on this boot? (os/recovery/README.md §2 steps 2-3)
+# Exit 0: yes, the normal boot goes on. Exit 1: no; the reason is in /run/onemind-recovery/status,
+# writable paths get temporary tmpfs state, and the unit's OnFailure= isolates onemind-recovery.target.
+# Never formats, repairs or writes anything on the data disk except the boot probe below.
+set -u
+RUN=/run/onemind-recovery
+DATA=${ONEMIND_DATA:-/data}
+reason=""; detail=""
+bad() { reason=$1; detail=$2; }
+
+src=$(findmnt --fstab -n -o SOURCE "$DATA" 2>/dev/null)
+if ! mountpoint -q "$DATA"; then
+  if [ -n "$src" ] && ! findfs "$src" >/dev/null 2>&1; then
+    bad missing "no partition matches $src"
+  else
+    bad unmountable "the data partition is there, but its filesystem could not be checked or mounted"
+  fi
+elif ! findmnt -n -o OPTIONS "$DATA" | grep -qE '(^|,)rw(,|$)'; then
+  bad read-only "the data partition is mounted read-only (the kernel may have found filesystem errors)"
+else
+  p=$DATA/onemind/.boot-probe; id=$(cat /proc/sys/kernel/random/boot_id)
+  if ! { echo "$id" > "$p.new" && sync "$p.new" && mv "$p.new" "$p" && grep -q "$id" "$p"; } 2>/dev/null; then
+    bad unwritable "a test write to the data partition failed"
+  else
+    # Every bind mount from fstab whose source is on the data partition must be in place.
+    while read -r what where _ opts _; do
+      case $what in "$DATA"/*) ;; *) continue ;; esac
+      case ,$opts, in *,bind,*) ;; *) continue ;; esac
+      mountpoint -q "$where" || { bad layout "$where is not bound to the data partition"; break; }
+    done < <(grep -v '^[[:space:]]*#' /etc/fstab)
+  fi
+fi
+
+if [ -z "$reason" ]; then echo "data partition ok"; exit 0; fi
+
+mkdir -p "$RUN"; chmod 0755 "$RUN"
+{ printf 'REASON=%s\n' "$reason"; printf 'DETAIL=%q\n' "$detail"; printf 'SOURCE=%q\n' "${src:-unknown}"
+  printf 'SINCE=%s\n' "$(date -u +%FT%TZ)"; } > "$RUN/status.new" && mv "$RUN/status.new" "$RUN/status"
+# Temporary state in RAM for the paths ordinary services write to; /data itself stays unmounted.
+for t in /var/tmp /var/lib/systemd /var/log /home /root; do
+  [ -d "$t" ] && ! mountpoint -q "$t" && mount -t tmpfs -o "mode=$(stat -c %a "$t"),nosuid,nodev,size=64m" onemind-recovery "$t"
+done
+echo "ONEMIND-DATA: data partition unusable, reason=$reason ($detail): starting recovery mode" | tee /dev/console
+exit 1

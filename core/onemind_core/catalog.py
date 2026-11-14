@@ -10,11 +10,13 @@ from __future__ import annotations
 import json
 import logging
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
 import yaml
 
+from .appsecrets.spec import SecretDecl, parse_secrets, secret_spec_errors
 from .scan import ScanRecord, read_scan
 
 log = logging.getLogger("onemind.catalog")
@@ -78,6 +80,12 @@ class AppEntry:
         return None
 
     @property
+    def secrets(self) -> tuple[SecretDecl, ...]:
+        """The declared spec.secrets (DEPLOYMENTS.md §7); () when none. Validated at load."""
+        agent = self.agent
+        return parse_secrets(self.manifest.get("spec") or {}, agent.secret if agent else None)[0]
+
+    @property
     def scan(self) -> ScanRecord | None:
         return read_scan(self.dir)
 
@@ -104,6 +112,8 @@ class AppEntry:
             "links": {k: _http_url(links.get(k)) for k in LINK_KEYS},
             "tier": md.get("tier") if md.get("tier") in TIERS else None,
             "scan": scan.summary() if scan is not None else None,
+            # §12.22: set by a community source's entry; the official catalog has none.
+            "catalog_source": None,
         }
 
 
@@ -140,6 +150,7 @@ def builtin_check(doc: object) -> list[str]:
     if port is not None and not (isinstance(port, int) and 1 <= port <= 65535):
         errs.append("spec.web.port must be 1-65535")
     errs.extend(agent_spec_errors(spec))
+    errs.extend(secret_spec_errors(spec))
     return errs
 
 
@@ -163,6 +174,13 @@ class Catalog:
         # validated once, and again only when its file changes (see _outcome).
         self._parsed: dict[Path, tuple[tuple, AppEntry | list[str]]] = {}
         self.parse_count = 0  # manifests actually parsed; tests use it to prove load() is cached
+        # More apps from elsewhere (community sources, §12.22): fn(official ids) -> {id: AppEntry}.
+        # An id the official folder already has always wins.
+        self.providers: list[Callable[[set[str]], dict[str, AppEntry]]] = []
+
+    def validate(self, doc: object) -> list[str]:
+        """The same manifest check the apps folder gets (schema, or the built-in one)."""
+        return self._validate(doc)
 
     @property
     def validation_mode(self) -> str:
@@ -180,6 +198,8 @@ class Catalog:
             if not isinstance(app_id, str) or not APP_ID_RE.match(app_id):
                 errs.append("metadata.id must be a lowercase DNS label (max 59 chars)")
             errs.extend(agent_spec_errors(doc.get("spec") if isinstance(doc, dict) else None))
+            # Rules a JSON Schema cannot say: unique names and keys, no clash with spec.agent.
+            errs.extend(secret_spec_errors(doc.get("spec") if isinstance(doc, dict) else None))
         return errs
 
     def _outcome(self, path: Path) -> AppEntry | list[str]:
@@ -236,6 +256,14 @@ class Catalog:
             else:
                 errors[path.parent.name] = list(outcome)
         self.errors = errors
+        for provide in self.providers:
+            try:
+                extra = provide(set(apps))
+            except Exception:  # one broken source must not hide the official Market
+                log.exception("catalog provider %r failed", provide)
+                continue
+            for app_id, entry in extra.items():
+                apps.setdefault(app_id, entry)
         return apps
 
     def get(self, app_id: str) -> AppEntry | None:

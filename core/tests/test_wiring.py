@@ -14,7 +14,7 @@ PKG = Path(__file__).resolve().parent.parent / "onemind_core"
 
 # module (dotted, relative to onemind_core) -> the epic that mounts it. Delete the line when wired.
 NOT_MOUNTED_YET: dict[str, str] = {}
-ENTRY_POINTS = {"__init__", "__main__", "openapi"}  # run by `python -m` or imported as a package
+ENTRY_POINTS = {"__init__", "__main__", "openapi", "cli"}  # run by `python -m`, a console script (pyproject [project.scripts]), or imported as a package
 
 
 def _modules() -> dict[str, str]:

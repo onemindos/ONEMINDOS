@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: Apache-2.0
+# maps/: the .pmtiles archives; assets/: the viewer's browser libraries, fonts and icons (about
+# 15 MiB). A city to zoom 15 is tens of MiB, a country to zoom 12 a few GiB, the planet ~130 GiB.
+# No storageClassName: the cluster default class is used (k3s local-path).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: offline-maps-data
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 16Gi

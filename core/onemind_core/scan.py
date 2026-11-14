@@ -32,6 +32,10 @@ RESULTS = ("pass", "fail")
 class ScanRecord:
     scanned_at: datetime
     result: str
+    # ClamAV hits summed over images[].clamav.infected; None unless every listed image has a
+    # readable count from a known signature database, so "no malware" is never assumed from a
+    # record that does not say it (F-7 override).
+    malware: int | None = None
 
     def summary(self) -> dict:
         """The §11.4 catalog field: {scanned_at, result}."""
@@ -86,7 +90,30 @@ def _read_scan_file(app_dir: Path, path: Path) -> ScanRecord | None:
     if ts is None or ts.tzinfo is None:
         log.warning("ignoring %s/%s: scanned_at is not an RFC 3339 timestamp", app_dir.name, SCAN_FILE)
         return None
-    return ScanRecord(scanned_at=ts, result=result)
+    return ScanRecord(scanned_at=ts, result=result, malware=_malware(doc.get("images")))
+
+
+def _malware(images: object) -> int | None:
+    # No image entries means ClamAV ran on nothing: app-gate skips an image whose pin check
+    # failed, so a failed record can list none. "daily-unknown" is app-gate's mark for a run
+    # without a signature database, whose count of 0 proves nothing.
+    # A positive count anywhere wins over an unknown one elsewhere.
+    if not isinstance(images, list) or not images:
+        return None
+    found, unknown = 0, False
+    for img in images:
+        clamav = img.get("clamav") if isinstance(img, dict) else None
+        infected = clamav.get("infected") if isinstance(clamav, dict) else None
+        sigs = clamav.get("signatures") if isinstance(clamav, dict) else None
+        if not isinstance(infected, int) or isinstance(infected, bool) or infected < 0:
+            unknown = True
+            continue
+        found += infected
+        if not isinstance(sigs, str) or not sigs or sigs.endswith("-unknown"):
+            unknown = True
+    if found:
+        return found
+    return None if unknown else 0
 
 
 def scan_problem(app_id: str, record: ScanRecord | None, now: datetime) -> str | None:

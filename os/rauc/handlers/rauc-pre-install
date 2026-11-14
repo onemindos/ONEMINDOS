@@ -13,4 +13,12 @@ V=$(sed -n 's/^version=//p' "$RAUC_BUNDLE_MOUNT_POINT/manifest.raucm" | head -n1
 mkdir -p /data/onemind
 echo "$T ${V:-?}" > /data/onemind/pending.new
 sync /data/onemind/pending.new; mv /data/onemind/pending.new /data/onemind/pending; sync /data/onemind
+# A copy on the ESP, the one writable place that does not depend on the data disk: recovery mode
+# reads it to tell a trial boot from a committed one (os/recovery/README.md §3). /data stays the
+# copy the gate trusts.
+if mountpoint -q /boot/efi; then
+  mkdir -p /boot/efi/onemind
+  echo "$T ${V:-?}" > /boot/efi/onemind/pending.new
+  sync /boot/efi/onemind/pending.new; mv /boot/efi/onemind/pending.new /boot/efi/onemind/pending; sync /boot/efi/onemind
+fi
 echo "pre-install: trial marker slot=$T version=${V:-?}" > /dev/console

@@ -20,6 +20,7 @@ import { SystemDemo } from './settings/SystemDemo';
 import { AppearanceDemo } from './customize/AppearanceDemo';
 import { ShellScreens } from './shell/ShellScreens';
 import { NetworkDemo } from './network/NetworkDemo';
+import { SecretsDemo } from './secrets/SecretsDemo';
 import { BackupsDemo } from './backups/BackupsDemo';
 
 export const NAV: NavItem[] = [
@@ -81,6 +82,7 @@ export function DemoApp() {
       case 'home': return <HomeLauncher variant={r.arg} />;
       case 'shell': return <ShellScreens arg={r.arg} />;
       case 'network': return <NetworkDemo arg={r.arg} />;
+      case 'secrets': return <SecretsDemo arg={r.arg} />;
       case 'backup': return <BackupsDemo arg={r.arg} />;
       default:
         return <Home />;

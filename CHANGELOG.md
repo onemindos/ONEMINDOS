@@ -7,6 +7,8 @@ A plain-language record of everything added to this repo, newest first.
 
 ## Unreleased / in progress
 
+- `docs/robotics-first-class-integration`: founder-requested lesson 17 and sourced Debian/Ubuntu robotics addendum; first-class acceptance and gateway/companion/controller safety boundary mapped to existing epics. Documentation only, all robotics acceptance NOT RUN; no decision, status or schedule promotion. Separate factual fix reconciles lesson 03's stale Z-38 status with D-007.
+
 Branches with work that is not on `main` yet (as of 2026-11-12):
 
 | Branch | PR | What it adds |
