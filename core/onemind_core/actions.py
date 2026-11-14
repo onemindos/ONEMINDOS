@@ -406,6 +406,9 @@ class ActionService:
         # §12.22: (app, merged settings by name, changed names) -> (ConfigMap data keyed by env name,
         # whether the workloads restart). Set when an app declares spec.settings.
         self.settings_transform: Callable[[AppEntry, dict, dict], tuple[dict, bool]] | None = None
+        # §12.22 dependency network paths: app -> ([{from, to, provider, port, protocol, requirement}],
+        # plan warnings). Set by the app store.
+        self.dependency_paths: Callable[[AppEntry], tuple[list[dict], list[str]]] | None = None
 
     def register_type(self, action_type: str, spec: FeatureAction) -> None:
         if action_type in APP_CLAIMS or action_type in self.feature_types:
@@ -564,7 +567,10 @@ class ActionService:
             return None, None, f"app {params['app_id']!r} is not in the catalog"
         state = self.repo.get_app_state(app.id)
         status = state.status if state else None
-        rendered = lc.render_plan(action_type, params, app, self.repo.get_runtime(app.id), status)
+        network = None
+        if self.dependency_paths is not None:
+            network = self.dependency_paths(app)
+        rendered = lc.render_plan(action_type, params, app, self.repo.get_runtime(app.id), status, network)
         _, allowed, allow_absent = APP_CLAIMS[action_type]
         problem = None if (status in allowed or (status is None and allow_absent)) else (
             f"app {app.id!r} is {self.shown_status(status)}"
@@ -658,6 +664,8 @@ class ActionService:
         policy accept a sensitive, destructive or actuate request (docs/leap/core/AUTOMATION.md §4).
         """
         if not self.standing_approvals or _never_by_policy(a):
+            return None
+        if (a.plan or {}).get("network_paths"):  # §12.22: opening a path between apps needs a person
             return None
         for decide in self.standing_approvals:
             try:
@@ -962,7 +970,16 @@ class ActionService:
             grant, generated = self.credentials.ensure(app, self.clock())
             if generated:  # the value is never logged, only the fact
                 self.audit.append("app.credentials.generated", None, a.id, {"app_id": app.id, **ids})
-        return lc.ExecContext(params=dict(a.params), settings=settings, credentials=grant, restart=restart)
+        paths: tuple[tuple[str, int], ...] = ()
+        sync = False
+        if self.dependency_paths is not None and a.type in ("app.install", "app.update", "app.configure", "app.remove"):
+            # Exactly the paths of the plan the owner approved (re-rendered and hash-checked just
+            # before dispatch). app.remove opens nothing and closes all.
+            if a.type != "app.remove":
+                paths = tuple((p["provider"], p["port"]) for p in (a.plan or {}).get("network_paths") or ())
+            sync = a.type != "app.install" or bool(paths)  # a fresh install has nothing to close
+        return lc.ExecContext(params=dict(a.params), settings=settings, credentials=grant, restart=restart,
+                              dependency_paths=paths, dependency_sync=sync)
 
     def _progress_reporter(self, a: Action):
         def report(step: str, pct: int) -> None:
