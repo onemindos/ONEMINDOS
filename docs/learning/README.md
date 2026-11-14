@@ -29,6 +29,12 @@ Read in order: each builds on the one before.
 | 15 | [The design system and the dashboard](15-design-system-and-dashboard.md) | yes |
 | 16 | [How we test](16-testing-strategy.md) | unit to system tests yes; fuzz, property and browser e2e not yet |
 
+## Robotics: documented target, not shipped support (2026-11-14)
+
+| # | Lesson |
+|---|---|
+| 17 | [Robotics as first-class citizens: Debian/Ubuntu qualification and the autonomy boundary](17-robotics-first-class-citizens.md) |
+
 ## Founder notes (2026-11-14 onward)
 Short answers to founder questions, saved so they are not lost in chat. Folder: [`founder/`](founder/).
 
