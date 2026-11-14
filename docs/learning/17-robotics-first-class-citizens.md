@@ -17,7 +17,7 @@ Not just an SSH link or a map pin. It needs all seven [acceptance rows RC1–RC7
 
 - Unique approved identity and hardware/capability discovery, rejecting impersonation.
 - Native telemetry and status with timestamps, freshness and disconnected labels.
-- Consistent typed API, MCP (AI tool interface) and UI capabilities, each explicitly read, write or actuate; no hidden physical effects or protocol bypass.
+- Consistent typed API, MCP (AI tool interface) and UI capabilities, each explicitly read, write or actuate; no hidden physical effects or protocol bypass. A basic/telemetry label is not proof of a passive connection: inspect and test constructors, connect, start, stop, calibration and teardown against unapproved motion before any live connection; potentially actuating hardware paths require specific authorization.
 - Managed app versions, health and safe staged updates with honest rollback limits; vendor OS explicitly not updated unless separately supported. Controller safety firmware/settings stay outside OneMind updates.
 - Bounded human-approved missions, signed for the exact target, plan hash and expiry, with audit and refusal evidence.
 - Revocation, replay rejection, deduplication and idempotency: retrying must not perform a mission twice.
