@@ -1,0 +1,5 @@
+corpus OK: 54 files match their checksums
+  Data, RAID1: total=3.44GiB, used=2.64GiB
+  System, RAID1: total=64.00MiB, used=16.00KiB
+  Metadata, RAID1: total=256.00MiB, used=3.02MiB
+  GlobalReserve, single: total=5.50MiB, used=0.00B

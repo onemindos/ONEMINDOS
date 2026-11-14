@@ -114,6 +114,9 @@ def test_owner_only_routes_refuse_everyone_else(client, clock, who):
         # owner only to plan or request (contract 12.40)
         ("GET", "/v1/apps/whoami/credentials", None),
         ("POST", "/v1/plans", {"type": "app.delete_data", "params": {"app_id": "whoami", "confirm": "whoami"}}),
+        # storage: full disk identities and the LUKS recovery key are owner only (STORAGE-ACT-1)
+        ("GET", "/v1/storage/devices", None),
+        ("POST", "/v1/storage/recovery-key", None),
     ]
     for method, path, body in refused:
         r = client.request(method, path, headers=who, json=body)
