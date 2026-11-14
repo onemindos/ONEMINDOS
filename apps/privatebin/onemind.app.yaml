@@ -1,0 +1,33 @@
+# SPDX-License-Identifier: Apache-2.0
+# privatebin: Market batch 7 (contract sdk/contracts/poc-v0.md §9.5), written by hand from primary sources:
+# PrivateBin 2.1.1 (github.com/PrivateBin/PrivateBin), image docker.io/privatebin/nginx-fpm-alpine (upstream's own
+# image, built from github.com/PrivateBin/docker-nginx-fpm-alpine). Licence read from LICENSE.md at tag 2.1.1:
+# Zlib/libpng for PrivateBin's own code (the matrix row lists the bundled GPLv2, BSD, MIT, Apache and CC-BY parts).
+# Image digest and archs read from the registry API, GitHub facts from the GitHub API, read 2026-11-13.
+apiVersion: onemind.app/v1alpha1
+kind: App
+metadata:
+  id: privatebin
+  name: "PrivateBin"
+  version: "2.1.1"
+  description: "A minimalist, self-hosted pastebin where the server knows nothing: pastes are encrypted in the browser."
+  # Market category slug from docs/design/TAXONOMY.md §1; sub-tags (pastebin) are listed in README.md
+  # until the schema has metadata.tags.
+  category: files
+  icon: icon.svg
+  license: "Zlib"
+  source: https://github.com/PrivateBin/PrivateBin
+  links:
+    docs: "https://github.com/PrivateBin/PrivateBin/wiki"
+    github: "https://github.com/PrivateBin/PrivateBin"
+    website: "https://privatebin.info"
+    support: "https://github.com/PrivateBin/PrivateBin/issues"
+  upstream: {release: "2.1.1", released_at: "2026-11-04T23:20:26Z", archived: false}
+  tier: community   # set by CI (sdk/tools/app-gate --tier write), not by hand
+spec:
+  archs: [amd64, arm64]
+  requires: {gpu: false, minMemoryMb: 64}   # sum of the memory requests in manifests/
+  web: {port: 8080}
+  manifests: manifests/
+  # automerge stays none until renovate.json lists this app (validate-apps check 9).
+  updates: {channel: stable, automerge: none}
