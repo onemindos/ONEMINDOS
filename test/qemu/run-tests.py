@@ -20,7 +20,8 @@ failfast = importlib.util.module_from_spec(_ff)
 _ff.loader.exec_module(failfast)
 
 ANSI = re.compile(rb"\x1b\[[0-9;?]*[A-Za-z]|\x1b[()][0-9A-B]|\r")
-GATE = r"HEALTH-GATE: \S+ RESULT (\S+) slot=(\w) version=(\S+)([^\n]*)"
+# The version stops at whitespace or ";": the fell-back line reads "version=2; slot B (v2) marked bad ...".
+GATE = r"HEALTH-GATE: \S+ RESULT (\S+) slot=(\w) version=([^\s;]+)([^\n]*)"
 ENV = "grub-editenv /boot/efi/EFI/BOOT/grubenv list"
 B = "/run/onemind-test/bundles"
 ORDER = ["T1", "TC1", "T2", "T11", "T3", "T4", "T5", "T6", "T7", "T8", "T9", "T10"]

@@ -2,7 +2,7 @@
 # Recovery mode's one-time work: the ESP note, the update-slot decision, the alert and the page.
 [Unit]
 Description=OneMind recovery mode: record the data failure, keep the slot, raise the alert
-After=basic.target dbus.service
+After=basic.target dbus.service plymouth-quit.service
 Wants=dbus.service
 RequiresMountsFor=/boot/efi
 
