@@ -122,7 +122,7 @@ as everyone else:
    database (`agent_tokens` table) stores **only the sha256 of the token**; tokens from
    `ONEMIND_TOKENS_FILE` keep working next to it.
 2. The kubernetes executor writes Secret `<name>` in `app-<id>` with `ONEMIND_GATEWAY_URL` and
-   `ONEMIND_AGENT_TOKEN` **before** applying the manifests, so the pods start with it. The token
+   `ONEMIND_AGENT_TOKEN` (plus `ONEMIND_GATEWAY_CA`, the box CA as PEM, when HTTPS is on) **before** applying the manifests, so the pods start with it. The token
    travels on kubectl's stdin only: it is never in the action's `result`, the audit log or a log
    line (kubectl output is scrubbed too).
 3. If the install fails or its outcome is unknown, the principal is revoked at once (a new install

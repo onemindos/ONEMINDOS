@@ -88,10 +88,15 @@ class AgentSecret:
     principal_id: str
     gateway_url: str | None = None
     token: str | None = field(default=None, repr=False)
+    # H-05: the box CA (PEM, public) when the gateway is served over HTTPS; written as ONEMIND_GATEWAY_CA.
+    ca_pem: str | None = None
 
     def manifest(self, namespace: str, app_id: str) -> str:
         if not self.token or not self.gateway_url:
             raise ValueError("an agent Secret to create needs gateway_url and token")
+        data = {"ONEMIND_GATEWAY_URL": _b64(self.gateway_url), "ONEMIND_AGENT_TOKEN": _b64(self.token)}
+        if self.ca_pem:
+            data["ONEMIND_GATEWAY_CA"] = _b64(self.ca_pem)
         doc = {
             "apiVersion": "v1",
             "kind": "Secret",
@@ -104,7 +109,7 @@ class AgentSecret:
             },
             # data (base64), not stringData: the Secret is applied server-side (see plan()), and
             # data round-trips exactly through server-side apply's field ownership.
-            "data": {"ONEMIND_GATEWAY_URL": _b64(self.gateway_url), "ONEMIND_AGENT_TOKEN": _b64(self.token)},
+            "data": data,
         }
         return json.dumps(doc)  # JSON is YAML; no quoting surprises in the token or URL
 
@@ -135,7 +140,7 @@ class NoopExecutor(Executor):
         if agent is not None and action_type == "app.install":
             steps.append({
                 "would": f"create Secret {agent.name} in {ns}",
-                "keys": ["ONEMIND_GATEWAY_URL", "ONEMIND_AGENT_TOKEN"],
+                "keys": ["ONEMIND_GATEWAY_URL", "ONEMIND_AGENT_TOKEN", *(["ONEMIND_GATEWAY_CA"] if agent.ca_pem else [])],
                 "principal": agent.principal_id,
             })
         if ctx.credentials is not None and action_type == "app.install":

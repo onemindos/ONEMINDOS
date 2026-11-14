@@ -5,6 +5,7 @@
 import type { components } from "./gen/schema.js";
 import { AmbiguousResultError, errorFor, NetworkError, OneMindError, UnexpectedResponseError } from "./errors.js";
 import { EventsApi } from "./events.js";
+import { caFetch } from "./nodeca.js";
 
 export type Instance = components["schemas"]["Instance"];
 export type Node = components["schemas"]["Node"];
@@ -106,12 +107,15 @@ export class OneMind {
     this.events = new EventsApi(this);
   }
 
-  /** ONEMIND_HUB + ONEMIND_TOKEN, else ONEMIND_GATEWAY_URL + ONEMIND_AGENT_TOKEN (contract §11.2). */
+  /** ONEMIND_HUB + ONEMIND_TOKEN, else ONEMIND_GATEWAY_URL + ONEMIND_AGENT_TOKEN (contract §11.2).
+   *  With ONEMIND_GATEWAY_CA (PEM text) set, the client verifies TLS against that CA only (Node). */
   static fromEnv(env: Record<string, string | undefined> = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env ?? {}, extra: Partial<ClientOptions> = {}) {
     const hub = env.ONEMIND_HUB || env.ONEMIND_GATEWAY_URL;
     if (!hub) throw new Error("onemind: set ONEMIND_HUB (and ONEMIND_TOKEN) or ONEMIND_GATEWAY_URL");
     const token = env.ONEMIND_HUB ? env.ONEMIND_TOKEN : env.ONEMIND_AGENT_TOKEN;
-    return new OneMind({ ...extra, baseUrl: hub, token: token ?? "" });
+    // ONEMIND_GATEWAY_CA (PEM): trust the box CA for this client, Node only; `extra.fetch` still wins.
+    const ca = env.ONEMIND_GATEWAY_CA?.trim();
+    return new OneMind({ ...(ca ? { fetch: caFetch(ca) } : {}), ...extra, baseUrl: hub, token: token ?? "" });
   }
 
   toString(): string {

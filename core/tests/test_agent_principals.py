@@ -15,7 +15,8 @@ from onemind_core.app import create_app
 from onemind_core.audit import verify
 from onemind_core.catalog import Catalog, agent_spec_errors
 from onemind_core.config import Settings
-from onemind_core.executors import KubernetesExecutor
+from onemind_core.executors import AgentSecret, KubernetesExecutor
+from onemind_core.netconf import NetSettings
 
 SCHEMA = Path(__file__).resolve().parents[2] / "sdk" / "schema" / "onemind.app.schema.json"
 from onemind_core.ledger import AgentTokenRow
@@ -135,6 +136,42 @@ def test_public_url_goes_into_the_secret(settings, clock):
     with TestClient(create_app(s, clock=clock, executor=ex)) as c:
         run_action(c, clock)
     assert ex.agents[-1].gateway_url == "https://hub.example.test"
+
+
+def test_agent_secret_has_no_ca_when_https_is_off(settings, clock):
+    ex = ScriptedExecutor()
+    with TestClient(create_app(settings, clock=clock, executor=ex)) as c:
+        run_action(c, clock)
+    assert ex.agents[-1].ca_pem is None
+
+
+def test_agent_secret_carries_the_box_ca_when_https_is_on(settings, clock, tmp_path):
+    ex = ScriptedExecutor()
+    s = replace(settings, sections={**settings.sections, "net": NetSettings(
+        box_name="box1", lan_addr="192.0.2.10", tls=True, tls_dir=tmp_path / "tls")})
+    with TestClient(create_app(s, clock=clock, executor=ex)) as c:
+        run_action(c, clock)
+        pem = ex.agents[-1].ca_pem
+        assert pem.startswith("-----BEGIN CERTIFICATE-----") and "PRIVATE" not in pem
+        assert pem.encode() == c.get("/v1/tls/ca.crt?format=pem").content  # the public CA the gateway serves
+
+
+def test_agent_secret_manifest_includes_the_ca_only_when_set():
+    pem = "-----BEGIN CERTIFICATE-----\nTEST-DATA\n-----END CERTIFICATE-----\n"
+    base = dict(name=SECRET, principal_id=f"agent:{APP}", gateway_url="https://192.0.2.10:8443", token="tok")
+    with_ca = json.loads(AgentSecret(**base, ca_pem=pem).manifest("app-x", "x"))["data"]
+    assert set(with_ca) == {"ONEMIND_GATEWAY_URL", "ONEMIND_AGENT_TOKEN", "ONEMIND_GATEWAY_CA"}
+    assert base64.b64decode(with_ca["ONEMIND_GATEWAY_CA"]).decode() == pem
+    without = json.loads(AgentSecret(**base).manifest("app-x", "x"))["data"]
+    assert set(without) == {"ONEMIND_GATEWAY_URL", "ONEMIND_AGENT_TOKEN"}
+
+
+def test_noop_executor_lists_the_ca_key_when_set(settings):
+    from onemind_core.executors import NoopExecutor
+    app = Catalog(settings.apps_dir).load()[APP]
+    agent = AgentSecret(SECRET, f"agent:{APP}", gateway_url="https://192.0.2.10:8443", token="tok", ca_pem="PEM")
+    steps = NoopExecutor().run("app.install", app, agent).steps
+    assert steps[0]["keys"] == ["ONEMIND_GATEWAY_URL", "ONEMIND_AGENT_TOKEN", "ONEMIND_GATEWAY_CA"]
 
 
 def test_public_url_env_parsing(monkeypatch):

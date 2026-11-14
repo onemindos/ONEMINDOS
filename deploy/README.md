@@ -186,7 +186,8 @@ from the gateway. Both are cluster-start settings: an upgrade restarts k3s once.
 - *(Retired by H-05, CORE-NET-11.)* **Gateway bound to `0.0.0.0:8080`.** Plain HTTP now listens on loopback only
   (`--gateway-bind` defaults to `127.0.0.1`, and the gateway narrows anything wider while HTTPS is on); the LAN is
   served by HTTPS on `:443` and `:8443` with the box CA. Agent apps in pods reach it on `https://<primary IP>:8443`;
-  delivering the box CA to those pods (`ONEMIND_GATEWAY_CA`) is not built yet (hardening H-05, follow-up).
+  with HTTPS on, the gateway writes the box CA (PEM) into each agent app's Secret as `ONEMIND_GATEWAY_CA` next to
+  `ONEMIND_GATEWAY_URL`, and the SDKs' `from_env`/`FromEnv`/`fromEnv` verify TLS against that CA only.
 - *(Retired by CORE-NET-11, see Networking above.)* **NATS has no auth or TLS** and listens on `0.0.0.0:4222`, because the contract's v0 shortcut is
   "nodes publish straight to the hub's NATS". Anyone on the LAN can publish fake heartbeats. Leaf
   nodes + account permissions (D-B6.5) replace this.
