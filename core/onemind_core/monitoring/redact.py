@@ -33,6 +33,11 @@ _RULES: list[tuple[re.Pattern, str]] = [
     (re.compile(r"\beyJ[A-Za-z0-9_-]{6,}\.[A-Za-z0-9_-]{6,}\.[A-Za-z0-9_-]{6,}"), R),
     (re.compile(r"\bom_(?:pat|agt|plg|nod|aut)_[A-Za-z0-9_-]{8,}"), R),
     (re.compile(r"\b(?:AKIA|ASIA)[0-9A-Z]{16}\b"), R),
+    # Forge, chat and payment keys that are printed bare (§12.22 review): not behind a key name.
+    (re.compile(r"\b(?:gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}|glpat-[A-Za-z0-9_-]{20,})"), R),
+    (re.compile(r"\bxox[abpors]-[A-Za-z0-9-]{10,}"), R),
+    (re.compile(r"\b[rs]k_(?:live|test)_[A-Za-z0-9]{16,}"), R),
+    (re.compile(r"(?i)\b(basic\s+)[A-Za-z0-9+/=]{8,}"), r"\1" + R),
     (re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}"), "[email]"),
     (re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b"), "[ip]"),
 ]

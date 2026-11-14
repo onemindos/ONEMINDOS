@@ -111,6 +111,7 @@ CATALOG_KEYS = {
     "id", "name", "version", "description", "category", "icon", "license", "source",
     "archs", "requires", "web_port", "installed", "status", "data_kept",
     "links", "tier", "scan",  # §11.4
+    "catalog_source",  # §12.22
 }
 VALID_APPS = {"uptime-kuma", "whoami", "hermes-like", "vault-like"}
 
