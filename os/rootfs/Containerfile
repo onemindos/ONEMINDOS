@@ -144,6 +144,11 @@ RUN /tmp/onemind/fetch-k3s.sh "${TARGETARCH}" /
 COPY --chmod=755 os/gate/onemind-health-gate os/gate/onemind-k3s-check os/gate/onemind-local-api-respond \
      os/rauc/handlers/rauc-pre-install /usr/lib/onemind/
 COPY os/gate/onemind-health-gate.service os/gate/onemind-local-api.service /usr/lib/systemd/system/
+# Recovery mode when the data partition cannot be used (os/recovery/README.md).
+COPY --chmod=755 os/recovery/onemind-data-check os/recovery/onemind-recovery os/recovery/onemind-recovery-respond \
+     /usr/lib/onemind/
+COPY os/recovery/onemind-data-check.service os/recovery/onemind-recovery.target os/recovery/onemind-recovery.service \
+     os/recovery/onemind-recovery-web.service /usr/lib/systemd/system/
 COPY os/rootfs/layers/base/ /
 # OneMind layer (docs/leap/core/IMAGES.md): agent + CLI, NATS, gateway venv, dashboard, catalog,
 # first boot. Every role unit ships disabled; onemind-firstboot starts them once the box has a role.
@@ -166,7 +171,7 @@ RUN set -eu; \
     /usr/lib/onemind/gateway/venv/bin/python3 -I -c "import onemind_core" ; \
     if [ -x /tmp/onemind/board/post-install.sh ]; then /tmp/onemind/board/post-install.sh; fi; \
     systemctl enable systemd-networkd.service systemd-resolved.service onemind-data-layout.service \
-      k3s.service onemind-local-api.service onemind-health-gate.service >/dev/null; \
+      k3s.service onemind-local-api.service onemind-health-gate.service onemind-data-check.service >/dev/null; \
     systemctl mask systemd-firstboot.service >/dev/null 2>&1 || true; \
     passwd -l root >/dev/null; \
     plymouth-set-default-theme onemind; \

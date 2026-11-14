@@ -1,0 +1,21 @@
+# SPDX-License-Identifier: Apache-2.0
+# Decides between the normal boot and recovery mode (os/recovery/README.md §2). The data mounts are
+# "nofail" in /etc/fstab, which also drops their "before local-fs.target" ordering; this unit restores
+# it: it waits for every data-dependent mount and runs before local-fs.target, so nothing that needs
+# /var/log or /var/lib/... starts before the answer. Keep After= in step with the binds in /etc/fstab
+# (test/unit/test_data_recovery.py checks it).
+[Unit]
+Description=OneMind: check the data partition (recovery mode if it is not usable)
+DefaultDependencies=no
+After=data.mount onemind-data-layout.service etc-rancher-node.mount var-lib-rancher.mount var-lib-kubelet.mount var-lib-cni.mount var-log.mount var-lib-systemd.mount var-tmp.mount home.mount root.mount var-lib-cloud.mount
+Before=local-fs.target
+OnFailure=onemind-recovery.target
+OnFailureJobMode=isolate
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/lib/onemind/onemind-data-check
+
+[Install]
+WantedBy=local-fs.target
