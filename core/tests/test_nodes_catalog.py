@@ -112,7 +112,7 @@ CATALOG_KEYS = {
     "archs", "requires", "web_port", "installed", "status", "data_kept",
     "links", "tier", "scan",  # §11.4
 }
-VALID_APPS = {"uptime-kuma", "whoami", "hermes-like"}
+VALID_APPS = {"uptime-kuma", "whoami", "hermes-like", "vault-like"}
 
 
 def test_apps_catalog_shape(client):
