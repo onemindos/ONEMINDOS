@@ -23,7 +23,7 @@ metadata:
     website: "https://privatebin.info"
     support: "https://github.com/PrivateBin/PrivateBin/issues"
   upstream: {release: "2.1.1", released_at: "2026-11-04T23:20:26Z", archived: false}
-  tier: community   # set by CI (sdk/tools/app-gate --tier write), not by hand
+  tier: blocked     # set by CI (sdk/tools/app-gate --tier write), not by hand
 spec:
   archs: [amd64, arm64]
   requires: {gpu: false, minMemoryMb: 64}   # sum of the memory requests in manifests/
