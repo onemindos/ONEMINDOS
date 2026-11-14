@@ -30,7 +30,9 @@ concurrency:
 jobs:
   schemathesis:
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    # PRs fuzz 40 cases per operation (~7 min a phase). Nightly and manual runs fuzz 400, about 10x as long
+    # over three phases; 45 minutes cancelled the first full run on main (run 43558739985, A9).
+    timeout-minutes: ${{ github.event_name == 'pull_request' && 45 || 180 }}
     env:
       # Generated cases per operation in the fuzzing phase: quick on PRs, deep at night.
       EXAMPLES: ${{ github.event_name == 'pull_request' && '40' || '400' }}
