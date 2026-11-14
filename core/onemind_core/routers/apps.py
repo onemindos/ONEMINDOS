@@ -32,6 +32,14 @@ def app_rows(gw: Gateway) -> list[dict]:
     return rows
 
 
+def app_visible(gw: Gateway, app_id: str, request: Request, p: Principal) -> None:
+    """§12.6 sharing: an app hidden from this principal in GET /v1/apps does not exist here either (404)."""
+    if not APP_ID_RE.match(app_id) or app_id not in gw.catalog.load() or not all(
+        f(request, p, app_id) for f in gw.app_filters
+    ):
+        raise ApiError(404, "not_found", "no such app")
+
+
 def register(app: FastAPI, gw: Gateway) -> None:
     principal = gw.principal
 
@@ -42,11 +50,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return [r for r in rows if all(f(request, p, r["id"]) for f in gw.app_filters)]
 
     def visible(app_id: str, request: Request, p: Principal) -> None:
-        # §12.6 sharing: an app hidden from this principal in GET /v1/apps does not exist here either.
-        if not APP_ID_RE.match(app_id) or app_id not in gw.catalog.load() or not all(
-            f(request, p, app_id) for f in gw.app_filters
-        ):
-            raise ApiError(404, "not_found", "no such app")
+        app_visible(gw, app_id, request, p)
 
     @app.get(
         "/v1/apps/{app_id}/plan", tags=["apps"], operation_id="apps.plan", response_model=PlanPreview,

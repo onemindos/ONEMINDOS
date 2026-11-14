@@ -4,10 +4,11 @@
 from __future__ import annotations
 
 from fastapi import Depends, FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
-from ..actions import ActionRequest, ActionRequestBody, ApprovalInput
+from ..actions import ActionRequest, ActionRequestBody, ApprovalInput, FeatureActionRequest
 from ..apimodels import Action
 from ..appsecrets.api import SealedInput
 from ..auth import Principal
@@ -39,6 +40,25 @@ def register(app: FastAPI, gw: Gateway) -> None:
     actions = gw.actions
     principal = gw.principal
 
+    def postable_feature_types() -> list[str]:
+        # Only a type registered with a params model is filed through POST /v1/actions; the rest
+        # (backup.*, migrate.*, storage.*) have their own routes.
+        return sorted(t for t, spec in actions.feature_types.items() if spec.params_model is not None)
+
+    build = app.openapi
+
+    def openapi() -> dict:
+        # Feature action types (source.*, exposure.*, ...) are registered at startup, after the models
+        # are defined, so the published variant lists them here: /openapi.json never offers a type the
+        # server refuses (an unregistered one is a 422 at the body, like a bad lifecycle type).
+        doc = build()
+        feature = doc.get("components", {}).get("schemas", {}).get("FeatureActionRequest")
+        if feature and (posted := postable_feature_types()):
+            feature["properties"]["type"] = {"type": "string", "enum": posted, "title": "Type"}
+        return doc
+
+    app.openapi = openapi  # type: ignore[method-assign]
+
     @app.post(
         "/v1/actions",
         tags=["actions"],
@@ -51,6 +71,10 @@ def register(app: FastAPI, gw: Gateway) -> None:
         },
     )
     def create_action(req: ActionRequestBody, p: Principal = Depends(principal)):
+        if isinstance(req, FeatureActionRequest) and req.type not in postable_feature_types():
+            # Same 422 a lifecycle body with a bad type gets: only registered types are requests.
+            raise RequestValidationError([{"type": "literal_error", "loc": ("body", "type"),
+                                           "msg": f"unknown action type {req.type!r}", "input": req.type}])
         body, created = actions.create(p, ActionRequest.model_validate(req.model_dump()))
         return JSONResponse(status_code=201 if created else 200, content=body)
 

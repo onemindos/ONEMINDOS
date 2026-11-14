@@ -21,7 +21,7 @@ from typing import Any
 from pydantic import ValidationError
 
 from .. import __version__
-from ..actions import ActionParams, ActionRequest
+from ..actions import APP_CLAIMS, ActionParams, ActionRequest
 from ..auth import Principal
 from ..errors import ApiError
 from .limits import Limits
@@ -357,6 +357,8 @@ class Catalogue:
         reason = args.get("reason")
         if reason is not None and (not isinstance(reason, str) or len(reason) > MAX_REASON):
             raise RpcError(INVALID_PARAMS, f"reason must be a string of at most {MAX_REASON} characters")
+        if args.get("type") not in APP_CLAIMS:  # lifecycle types only; feature types (§12.22) are never an agent's
+            raise RpcError(INVALID_PARAMS, f"invalid arguments: type: must be one of {sorted(APP_CLAIMS)}")
         try:
             req = ActionRequest(
                 type=args.get("type"),

@@ -1,0 +1,28 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Host ports OneMind itself uses on a box (contract §1, §12.7, §12.22; NETWORKING.md; SANDBOX.md
+# §3.4). An app's spec.hostPorts may never declare one of these. The app CI gate
+# (sdk/tools/validate-apps, check 10) and the gateway (core/onemind_core/appstore/hostports.py)
+# both read this file. Add a port here in the same PR that makes OneMind listen on it.
+schema: onemind.io/host-ports/v1
+version: 1
+reserved:
+  - {port: 22, protocol: tcp, what: ssh}
+  - {port: 80, protocol: tcp, what: edge-http}
+  - {port: 443, protocol: tcp, what: edge-https}
+  - {port: 2379, protocol: tcp, what: k3s-datastore}
+  - {port: 2380, protocol: tcp, what: k3s-datastore-peer}
+  - {port: 3478, protocol: udp, what: derp-stun}
+  - {port: 4222, protocol: tcp, what: nats}
+  - {port: 5353, protocol: udp, what: mdns}
+  - {port: 6443, protocol: tcp, what: k3s-api}
+  - {port: 6444, protocol: tcp, what: k3s-supervisor}
+  - {port: 7422, protocol: tcp, what: nats-leaf}
+  - {port: 7480, protocol: tcp, what: onemindd}
+  - {port: 8080, protocol: tcp, what: gateway}
+  - {port: 8443, protocol: tcp, what: gateway-https}
+  - {port: 8472, protocol: udp, what: flannel-vxlan}
+  - {port: 10250, protocol: tcp, what: kubelet}
+  - {port: 41641, protocol: udp, what: mesh-wireguard}
+  - {port: 51820, protocol: udp, what: flannel-wireguard}
+  - {port: 51821, protocol: udp, what: flannel-wireguard-v6}

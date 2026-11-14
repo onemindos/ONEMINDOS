@@ -101,6 +101,25 @@ def test_sharing_gates_the_per_app_routes(hc):
     assert guest.get("/v1/apps/whoami").status_code == 404  # unsharing is instant
 
 
+def test_app_store_reads_follow_sharing(hc):
+    """§12.22 reads use the same visibility check as /plan: 404 for an app not shared with the caller."""
+    setup_owner(hc)
+    guest, child = enrol(hc, "guest", "gus"), enrol(hc, "child", "kid")
+    paths = [f"/v1/apps/whoami/{leaf}" for leaf in ("settings", "dependencies", "host-ports", "exposure")]
+    for who in (guest, child):
+        for path in paths + ["/v1/apps/whoami/plan"]:
+            assert who.get(path).status_code == 404, path  # not shared: as absent as in GET /v1/apps
+    hc.put("/v1/apps/whoami/access", json={"roles": ["guest", "child"]}, headers=csrf(hc))
+    for who in (guest, child):
+        for path in paths:
+            assert who.get(path).status_code == 200, path
+    for path in paths:
+        assert hc.get(path).status_code == 200  # owners see every app
+        assert hc.get(path.replace("whoami", "no-such-app")).status_code == 404
+    hc.put("/v1/apps/whoami/access", json={"roles": []}, headers=csrf(hc))
+    assert guest.get(paths[0]).status_code == 404 and child.get(paths[3]).status_code == 404  # instant
+
+
 def _fixable_alert(hc, clock):
     """An installed app whose scan went stale: the alert carries an app.remove fix."""
     hc.post("/v1/actions", headers=OWNER, json=action_body(clock))

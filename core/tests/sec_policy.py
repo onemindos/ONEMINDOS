@@ -366,6 +366,16 @@ POLICY |= {
                                            "a preview of an install: any reader; a child sees only shared apps (404)"),
     ("POST", "/v1/plans"): Row(grid(200, 403, 403, 403, 200), w.p_missing("/v1/plans", json={"type": "app.install", "params": {"app_id": w.TARGET_APP}}),
                                "an owner or agent may preview an action; a plan changes nothing"),
+    # ---- app store depth (contract 12.22) ---------------------------------------------------------------------
+    ("GET", "/v1/apps/{app_id}/settings"): Row(grid(200, 200, 200, 404, 200), w.p_static(f"/v1/apps/{w.TARGET_APP}/settings"),
+                                               "12.22: any reader; values only for owner and adult"),
+    ("GET", "/v1/apps/{app_id}/dependencies"): Row(grid(200, 200, 200, 404, 200), w.p_static(f"/v1/apps/{w.TARGET_APP}/dependencies"), "12.22: any reader"),
+    ("GET", "/v1/apps/{app_id}/host-ports"): Row(grid(200, 200, 200, 404, 200), w.p_static(f"/v1/apps/{w.TARGET_APP}/host-ports"), "12.22: any reader"),
+    ("GET", "/v1/apps/{app_id}/exposure"): Row(grid(200, 200, 200, 404, 200), w.p_static(f"/v1/apps/{w.TARGET_APP}/exposure"), "12.22: any reader"),
+    ("GET", "/v1/sources"): Row(READ_ANY, w.p_static("/v1/sources"), "12.22: any reader"),
+    ("GET", "/v1/sources/{source_id}"): Row(READ_ANY_404, w.p_static("/v1/sources/src_00000000000000000000000000"), "12.22: any reader; missing is 404"),
+    ("POST", "/v1/deploy/compose"): Row(grid(422, 403, 403, 403, 403), w.p_missing("/v1/deploy/compose", json={"app_id": "imp", "compose": "x"}),
+                                        "12.22: Compose import is owner only; the probe's text is not Compose (422)"),
     # ---- files ----------------------------------------------------------------------------------------------
     ("GET", "/v1/files/roots"): Row(grid(200, 200, 200, 403, 200), w.p_static("/v1/files/roots"), f"{_FILES}: people list their spaces"),
     ("GET", "/v1/files/list"): Row(grid(200, 200, 200, 403, 403), w.p_static("/v1/files/list?root=shared&path=/"),

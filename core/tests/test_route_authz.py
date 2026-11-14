@@ -114,6 +114,8 @@ def test_owner_only_routes_refuse_everyone_else(client, clock, who):
         # owner only to plan or request (contract 12.40)
         ("GET", "/v1/apps/whoami/credentials", None),
         ("POST", "/v1/plans", {"type": "app.delete_data", "params": {"app_id": "whoami", "confirm": "whoami"}}),
+        # app store depth (contract 12.22): importing a Compose file is owner only
+        ("POST", "/v1/deploy/compose", {"app_id": "imp", "compose": "services: {a: {image: x}}"}),
         # app secrets: only an owner changes or rotates them; the F-7 override card is owner only
         ("POST", "/v1/apps/whoami/secrets", {}),
         ("GET", "/v1/apps/whoami/owner-override", None),
