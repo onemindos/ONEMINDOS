@@ -184,6 +184,48 @@ def test_public_url_env_parsing(monkeypatch):
     assert Settings.from_env({**base, "ONEMIND_PORT": "9000"}).gateway_url() == "http://hubhost:9000"
 
 
+def test_agent_url_env_parsing():
+    base = {"ONEMIND_NODE_ID": "x", "ONEMIND_PUBLIC_URL": "https://192.0.2.10:8443"}
+    s = Settings.from_env({**base, "ONEMIND_AGENT_URL": "https://hub.onemind.internal:8443/"})
+    assert s.agent_url == "https://hub.onemind.internal:8443"
+    assert s.agent_gateway_url() == "https://hub.onemind.internal:8443"
+    assert s.gateway_url() == "https://192.0.2.10:8443"  # the browser URL is untouched
+    unset = Settings.from_env(base)
+    assert unset.agent_url is None and unset.agent_gateway_url() == unset.gateway_url() == "https://192.0.2.10:8443"
+    with pytest.raises(ValueError):
+        Settings.from_env({**base, "ONEMIND_AGENT_URL": "hub.onemind.internal"})
+
+
+def test_agent_secret_uses_the_agent_url_not_the_public_url(settings, clock):
+    ex = ScriptedExecutor()
+    s = replace(settings, public_url="https://192.0.2.10:8443", agent_url="https://hub.onemind.internal:8443")
+    with TestClient(create_app(s, clock=clock, executor=ex)) as c:
+        run_action(c, clock)
+    assert ex.agents[-1].gateway_url == "https://hub.onemind.internal:8443"
+
+
+def test_egress_for_the_hub_name_uses_the_static_mesh_mapping():
+    from onemind_core.executors import mesh_static_hosts
+    from onemind_core.netconf import MeshSettings
+    boom = lambda host: (_ for _ in ()).throw(AssertionError("host DNS consulted for " + host))
+    hosts = mesh_static_hosts(MeshSettings(enabled=True, headscale_key_file=Path("k"), hub_ip="100.64.0.1"))
+    assert hosts == {"hub.onemind.internal": ["100.64.0.1"]}
+    ex = KubernetesExecutor(runner=FakeKubectl(), resolve=boom, static_hosts=hosts)
+    agent = AgentSecret(SECRET, f"agent:{APP}", gateway_url="https://hub.onemind.internal:8443", token="t")
+    assert ex._gateway_egress(agent) == [("100.64.0.1/32", 8443)]
+    other = AgentSecret(SECRET, f"agent:{APP}", gateway_url="https://other.example.test:8443", token="t")
+    with pytest.raises(AssertionError):  # only the mapped name skips host DNS
+        ex._gateway_egress(other)
+
+
+def test_static_hosts_empty_without_a_usable_mesh_hub_ip():
+    from onemind_core.executors import mesh_static_hosts
+    from onemind_core.netconf import MeshSettings
+    assert mesh_static_hosts(MeshSettings()) == {}
+    assert mesh_static_hosts(MeshSettings(enabled=False, hub_ip="100.64.0.1")) == {}
+    assert mesh_static_hosts(MeshSettings(enabled=True, hub_ip="not-an-ip")) == {}
+
+
 def test_audit_records_requester_and_approver_ids(client, clock, executor, settings):
     run_action(client, clock, app_id="uptime-kuma", requester=AGENT)
     recs = audit_lines(settings)

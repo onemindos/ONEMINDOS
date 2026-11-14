@@ -173,8 +173,12 @@ from the gateway. Both are cluster-start settings: an upgrade restarts k3s once.
 
 ### Agent apps (contract §7, §11.2), the deploy side
 - `gateway.env` sets `ONEMIND_PUBLIC_URL` (the `--hub` URL, else `https://<primary IP>:8443`): the
-  URL app pods use to reach the gateway, which the wave-2 gateway writes into each agent app's
-  Secret as `ONEMIND_GATEWAY_URL`. The wave-1 gateway ignores the variable.
+  browser/LAN URL. It also sets `ONEMIND_AGENT_URL=https://hub.onemind.internal:8443`, the URL the
+  gateway writes into each agent app's Secret as `ONEMIND_GATEWAY_URL`: pods verify the gateway
+  certificate against the box CA only, and that certificate has DNS names and no LAN IP (the CA
+  also forbids non-mesh IPs). The installer adds a `coredns-custom` ConfigMap (kube-system) so pods
+  resolve `hub.onemind.internal` to the hub's mesh address, and the gateway maps the same name to it
+  for the app's egress NetworkPolicy.
 - The per-app RoleBinding above lets the gateway create and delete Secrets in `app-<id>`, which §11.2 needs.
 - The hub install prints the command with which the **owner** creates `hermes-agent-credentials`
   (model-provider keys never come from the repo).

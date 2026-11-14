@@ -33,8 +33,10 @@ from urllib.parse import urlsplit
 
 import yaml
 
+from .ca import MESH_DOMAIN
 from .catalog import AppEntry
 from .lifecycle import AppCredentialGrant, ExecContext, report_progress
+from .netconf import MeshSettings
 from .policy import (
     Rules,
     SandboxSettings,
@@ -213,6 +215,7 @@ class KubernetesExecutor(Executor):
         health_timeout_s: float = 120,
         resolve: Callable[[str], list[str]] | None = None,
         hub_addresses: Callable[[], list[str]] | None = None,
+        static_hosts: dict[str, list[str]] | None = None,
     ):
         self.kubectl = kubectl
         self.timeout_s = timeout_s
@@ -230,6 +233,8 @@ class KubernetesExecutor(Executor):
         self.sleep = sleep
         self.health_timeout_s = health_timeout_s
         self.resolve = resolve or _resolve
+        # Names the gateway knows without asking host DNS (hub.onemind.internal -> the hub's mesh IP).
+        self.static_hosts = {h.lower(): list(v) for h, v in (static_hosts or {}).items()}
         self.hub_addresses = hub_addresses or (lambda: [])
 
     # ---- the documents the gateway itself writes ---------------------------------------------
@@ -268,7 +273,7 @@ class KubernetesExecutor(Executor):
             return []
         port = parts.port or (443 if parts.scheme == "https" else 80)
         out = []
-        for ip in self.resolve(parts.hostname):
+        for ip in self.static_hosts.get(parts.hostname.lower()) or self.resolve(parts.hostname):
             addr = ipaddress.ip_address(ip)
             out.append((f"{addr}/{32 if addr.version == 4 else 128}", port))
         return out
@@ -688,10 +693,26 @@ def local_flannel_addresses(*, names: Callable[[], list[str]] | None = None,
     return find
 
 
+def mesh_static_hosts(mesh: MeshSettings) -> dict[str, list[str]]:
+    """hub.onemind.internal -> the hub's mesh IP, when the mesh is on and the IP is a valid address.
+
+    Pods dial the gateway by this name (ONEMIND_AGENT_URL); host DNS need not know it, and
+    MagicDNS names are node-<x>.onemind.internal, not hub.
+    """
+    if not mesh.enabled or not mesh.hub_ip:
+        return {}
+    try:
+        ip = str(ipaddress.ip_address(mesh.hub_ip))
+    except ValueError:
+        return {}
+    return {f"hub.{MESH_DOMAIN}": [ip]}
+
+
 def make_executor(
-    name: str, kubectl: str = "kubectl", timeout_s: float = 300, sandbox: SandboxSettings | None = None
+    name: str, kubectl: str = "kubectl", timeout_s: float = 300, sandbox: SandboxSettings | None = None,
+    static_hosts: dict[str, list[str]] | None = None,
 ) -> Executor:
     if name == "kubernetes":
         return KubernetesExecutor(kubectl=kubectl, timeout_s=timeout_s, sandbox=sandbox,
-                                  hub_addresses=local_flannel_addresses())
+                                  hub_addresses=local_flannel_addresses(), static_hosts=static_hosts)
     return NoopExecutor()
