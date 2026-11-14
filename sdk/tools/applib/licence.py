@@ -44,7 +44,12 @@ def class_of_id(spdx_id: str) -> str:
 
 def classify(expr: str) -> str:
     """Return L1, L2 or blocked for an SPDX expression (OR takes the best, AND the worst)."""
-    tokens = TOKEN_RE.findall(expr or "")
+    expr = expr or ""
+    # findall alone silently drops punctuation (e.g. MIT! becomes MIT). Every non-space
+    # character must belong to a token before the expression is eligible for the Market.
+    if TOKEN_RE.sub("", expr).strip():
+        return "blocked"
+    tokens = TOKEN_RE.findall(expr)
     if not tokens:
         return "blocked"
     pos = 0
@@ -106,11 +111,15 @@ def ids_in(expr: str) -> set[str]:
 
 
 def normalise(expr: str) -> str:
-    """Drop parenthetical notes the research matrix adds, e.g. 'MIT (test data)'."""
-    expr = re.sub(r"\s*\((?![A-Za-z0-9.+-]+ (?:AND|OR|WITH) )[^()]*\)", "", expr or "")
+    """Normalize whitespace and the reviewed EDL alias, never discard SPDX groups.
+
+    Free-form research prose is not machine confirmation of a different expression.
+    """
     # The Eclipse Distribution License 1.0 is the BSD-3-Clause text; SPDX has no separate id for it
     # (https://www.eclipse.org/org/documents/edl-v10.php), so research rows written "EDL-1.0" match it.
-    expr = re.sub(r"\bEDL-1\.0\b", "BSD-3-Clause", expr)
+    expr = re.sub(r"\bEDL-1\.0\b", "BSD-3-Clause", expr or "")
+    # The matrix's exact annotated EDL/BSD alias is the sole reviewed prose equivalence.
+    expr = re.sub(r"\bBSD-3-Clause\s+\(BSD-3-Clause\)", "BSD-3-Clause", expr)
     return " ".join(expr.split())
 
 

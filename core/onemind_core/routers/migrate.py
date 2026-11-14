@@ -78,7 +78,7 @@ def _expiry(gw: Gateway, given: datetime | None) -> datetime:
         return now + DEFAULT_TTL
     given = utc(given)
     if given - now > MAX_TTL:
-        raise ApiError(422, "conflict", "expires_at may be at most 7 days ahead")
+        raise ApiError(422, "conflict", "expires_at may be at most 7 days ahead", reason="expiry_too_far")
     return given
 
 

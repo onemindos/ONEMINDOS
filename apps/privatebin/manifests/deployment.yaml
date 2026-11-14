@@ -1,0 +1,97 @@
+# SPDX-License-Identifier: Apache-2.0
+# PrivateBin 2.1.1 (github.com/PrivateBin/PrivateBin), image docker.io/privatebin/nginx-fpm-alpine. The image
+# runs nginx and php-fpm as UID 65534 (nobody) on 8080, keeps pastes in /srv/data (a directory owned by group
+# 82, so fsGroup is 82) and supports a read-only root filesystem when /tmp, /run (which must allow exec: s6
+# copies its service scripts there) and /var/lib/nginx/tmp are writable. GET / answers 200 (checked by running
+# the pinned image as UID 65534 with all capabilities dropped and a read-only root filesystem).
+#
+# Pod: non-root, RuntimeDefault seccomp, no service-account token; container: read-only root filesystem, no
+# privilege escalation, all capabilities dropped.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: privatebin
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: privatebin
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: privatebin
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        fsGroup: 82
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: privatebin
+        image: docker.io/privatebin/nginx-fpm-alpine:2.1.1@sha256:9fbcc4d5671b974cafb55948d6fc3ab9eaf77f0c39271a50a16dd71bd4c4d3e6
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: http
+          containerPort: 8080
+          protocol: TCP
+        startupProbe:
+          httpGet:
+            path: /
+            port: http
+          periodSeconds: 5
+          timeoutSeconds: 5
+          failureThreshold: 30
+        readinessProbe:
+          httpGet:
+            path: /
+            port: http
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        livenessProbe:
+          httpGet:
+            path: /
+            port: http
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 5
+        resources:
+          requests:
+            cpu: 20m
+            memory: 64Mi
+          limits:
+            cpu: 500m
+            memory: 256Mi
+        securityContext:
+          readOnlyRootFilesystem: true
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - name: data
+          mountPath: /srv/data
+        - name: tmp
+          mountPath: /tmp
+        - name: run
+          mountPath: /run
+        - name: nginx-tmp
+          mountPath: /var/lib/nginx/tmp
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: privatebin-data
+      - name: tmp
+        emptyDir: {}
+      - name: run
+        emptyDir: {}
+      - name: nginx-tmp
+        emptyDir: {}

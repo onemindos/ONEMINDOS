@@ -15,7 +15,7 @@ import anyio
 from fastapi import Body, Depends, FastAPI, Header, Query, Request, Response
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse, StreamingResponse
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
+from pydantic import AwareDatetime, BaseModel, BeforeValidator, ConfigDict, Field
 from starlette.requests import ClientDisconnect
 
 from ..auth import Principal
@@ -37,6 +37,7 @@ _ERR = {
     409: {"description": "conflict, stale_precondition or expired; `reason` says which case"},
     412: {"description": "Tus-Resumable version not supported"},
     413: {"description": "payload_too_large: quota_exceeded, insufficient_space, upload_too_large or chunk_too_large"},
+    415: {"description": "PATCH needs Content-Type: application/offset+octet-stream"},
     416: {"description": "Range not satisfiable"},
     422: {"description": "Invalid root, path or body (conflict, reason invalid_path / invalid_root ...)"},
     429: {"description": "rate_limited: too many requests awaiting approval"},
@@ -49,16 +50,66 @@ def errs(*codes: int) -> dict:
     return {c: _ERR[c] for c in codes}
 
 
+MAX_QUOTA_BYTES = 10**15  # 1 PB: far above any box, and exact as a JSON float
+
+
+def _not_a_bool(v):
+    if isinstance(v, bool):
+        raise ValueError("expected an integer, not a boolean")
+    return v
+
+
 # ---- bodies -------------------------------------------------------------------------------
-class OpBody(BaseModel):
+# Patterns here are published in the schema only (json_schema_extra): the server keeps answering a bad value with
+# its own reason (invalid_root, invalid_cursor) instead of a generic validation error.
+# A space: `shared`, or `home:<person_id>` (printable ASCII here; files.access.parse_root takes more).
+ROOT_RE = r"^(?:shared|home:[ -~]{1,200})$"
+Root = Annotated[str, Field(max_length=205, json_schema_extra={"pattern": ROOT_RE})]
+# The cursors this API hands out are url-safe base64 (the Link header); what they decode to is opaque.
+CURSOR_RE = r"^[A-Za-z0-9_-]{1,64}$"
+RootQ = Annotated[str, Query(max_length=205, json_schema_extra={"pattern": ROOT_RE})]
+
+
+class _Op(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    op: Literal["mkdir", "move", "rename", "trash", "restore_trash"]
-    root: str | None = Field(default=None, max_length=220)
-    path: str | None = Field(default=None, max_length=4096)
-    to_root: str | None = Field(default=None, max_length=220)
+
+
+class MkdirOp(_Op):
+    op: Literal["mkdir"]
+    root: Root
+    path: str = Field(max_length=4096)
+
+
+class MoveOp(_Op):
+    op: Literal["move"]
+    root: Root
+    path: str = Field(max_length=4096)
+    to_root: Root | None = None  # the same space when absent
+    to_path: str = Field(max_length=4096)
+
+
+class RenameOp(_Op):
+    op: Literal["rename"]
+    root: Root
+    path: str = Field(max_length=4096)
+    name: str = Field(min_length=1, max_length=255)
+
+
+class TrashOp(_Op):
+    op: Literal["trash"]
+    root: Root
+    path: str = Field(max_length=4096)
+
+
+class RestoreTrashOp(_Op):
+    op: Literal["restore_trash"]
+    trash_id: str = Field(min_length=1, max_length=40)
+    to_root: Root | None = None
     to_path: str | None = Field(default=None, max_length=4096)
-    name: str | None = Field(default=None, max_length=255)
-    trash_id: str | None = Field(default=None, max_length=40)
+
+
+# One variant per op, each with the fields that op needs: the schema cannot offer a body the server refuses.
+OpBody = Annotated[MkdirOp | MoveOp | RenameOp | TrashOp | RestoreTrashOp, Field(discriminator="op")]
 
 
 class Subject(BaseModel):
@@ -76,7 +127,7 @@ class RequestCommon(BaseModel):
 
 class GrantBody(RequestCommon):
     subject: Subject
-    root: str = Field(max_length=220)
+    root: Root
     path: str = Field(max_length=4096)
     access: Literal["r", "rw"]
     slot: str | None = Field(default=None, pattern=r"^[a-z][a-z0-9-]{0,62}$")
@@ -100,7 +151,12 @@ class DenyBody(BaseModel):
 
 class QuotaBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    limit_bytes: int | None = Field(ge=0)
+    # JSON Schema's integer includes 5.0 but not true. The column is a signed 64-bit integer (2**63 was a 500);
+    # the bound is a round number every JSON client reads exactly (a float cannot hold 2**63 - 1 or 2**53 - 1
+    # at the edge, and Schemathesis generated the value just past it).
+    # The bound sits before the validator: after a BeforeValidator, pydantic writes ge/le into the schema
+    # as raw keys instead of minimum/maximum, and the fuzzer then sends values the server refuses.
+    limit_bytes: Annotated[int, Field(ge=0, le=MAX_QUOTA_BYTES), BeforeValidator(_not_a_bool)] | None
 
 
 IdemKey = Annotated[str | None, Header(alias="Idempotency-Key", max_length=200)]
@@ -159,6 +215,12 @@ def content_disposition(name: str, inline: bool) -> str:
     return f"{'inline' if inline else 'attachment'}; filename=\"{ascii_name}\"; filename*=UTF-8''{urllib.parse.quote(name)}"
 
 
+TusResumable = Annotated[Literal["1.0.0"], Header(description="The tus protocol version; anything else is 412.")]
+UPLOAD_METADATA_RE = (
+    r"^[A-Za-z0-9_.-]{1,64}(?: [A-Za-z0-9+/]*={0,2})?(?:,[A-Za-z0-9_.-]{1,64}(?: [A-Za-z0-9+/]*={0,2})?)*$"
+)
+
+
 def tus_headers(**extra: str) -> dict[str, str]:
     return {"Tus-Resumable": TUS_VERSION, "Cache-Control": "no-store", **extra}
 
@@ -180,6 +242,22 @@ def register(app: FastAPI, gw: Gateway) -> None:
     principal = gw.principal
     app.add_exception_handler(FilesError, ferrors.handle)
 
+    def tus_validation(request: Request, errors: list[dict]) -> JSONResponse | None:
+        """The schema requires Tus-Resumable: 1.0.0 (and the PATCH content type); the protocol answers 412 / 415."""
+        if not request.url.path.startswith("/v1/files/uploads"):
+            return None
+        bad = {tuple(e.get("loc", ())[:2]) for e in errors}
+        exc = None
+        if ("header", "tus-resumable") in bad:
+            exc = FilesError(412, "conflict", f"send Tus-Resumable: {TUS_VERSION}", reason="tus_version",
+                             headers={"Tus-Version": TUS_VERSION, "Tus-Resumable": TUS_VERSION})
+        elif request.method == "PATCH" and ("header", "content-type") in bad:
+            exc = FilesError(415, "conflict", "PATCH needs Content-Type: application/offset+octet-stream",
+                             reason="content_type")
+        return None if exc is None else JSONResponse(status_code=exc.status, content=exc.body(), headers=exc.headers or None)
+
+    app.state.validation_overrides = [*getattr(app.state, "validation_overrides", []), tus_validation]
+
     def housekeeping() -> None:
         try:
             svc.purge_expired()
@@ -195,22 +273,22 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return svc.roots(p)
 
     @app.get("/v1/files/list", operation_id="files.list", tags=TAG, responses=errs(401, 403, 404, 409, 422, 503))
-    def list_folder(request: Request, root: str = Query(max_length=220), path: str = Query("/", max_length=4096),
-                    limit: int = Query(100, ge=1, le=500), cursor: str | None = Query(None, max_length=64),
+    def list_folder(request: Request, root: RootQ, path: str = Query("/", max_length=4096),
+                    limit: int = Query(100, ge=1, le=500), cursor: str | None = Query(None, max_length=64, json_schema_extra={"pattern": CURSOR_RE}),
                     p: Principal = Depends(principal)):
         return paginate(request, svc.list(p, root, path), limit, cursor)
 
     @app.get("/v1/files/stat", operation_id="files.stat", tags=TAG, responses=errs(401, 403, 404, 409, 422, 503))
-    def stat(root: str = Query(max_length=220), path: str = Query("/", max_length=4096), p: Principal = Depends(principal)):
+    def stat(root: RootQ, path: str = Query("/", max_length=4096), p: Principal = Depends(principal)):
         return svc.stat(p, root, path)
 
     @app.get("/v1/files/preview", operation_id="files.preview", tags=TAG, responses=errs(401, 403, 404, 409, 422, 503))
-    def preview(root: str = Query(max_length=220), path: str = Query(max_length=4096), p: Principal = Depends(principal)):
+    def preview(root: RootQ, path: str = Query(max_length=4096), p: Principal = Depends(principal)):
         return svc.preview(p, root, path)
 
     @app.get("/v1/files/download", operation_id="files.download", tags=TAG, responses={206: {"description": "Partial content (Range)"},
                                                          **errs(401, 403, 404, 409, 416, 422, 503)})
-    def download(request: Request, root: str = Query(max_length=220), path: str = Query(max_length=4096),
+    def download(request: Request, root: RootQ, path: str = Query(max_length=4096),
                  inline: bool = False, p: Principal = Depends(principal)):
         cm = svc.open_file(p, root, path)
         fd, st, name = cm.__enter__()
@@ -256,23 +334,19 @@ def register(app: FastAPI, gw: Gateway) -> None:
     # -- data-plane writes --
     @app.post("/v1/files/ops", operation_id="files.ops", tags=TAG, responses=errs(401, 403, 404, 409, 413, 422, 503))
     def ops(body: OpBody, p: Principal = Depends(principal)):
-        if body.op == "mkdir":
+        if isinstance(body, MkdirOp):
             return svc.mkdir(p, body.root, body.path)
-        if body.op == "move":
+        if isinstance(body, MoveOp):
             return svc.move(p, body.root, body.path, body.to_root, body.to_path)
-        if body.op == "rename":
-            if not body.name:
-                raise FilesError(422, "conflict", "rename needs name", reason="invalid_request")
+        if isinstance(body, RenameOp):
             return svc.rename(p, body.root, body.path, body.name)
-        if body.op == "trash":
+        if isinstance(body, TrashOp):
             return svc.trash(p, body.root, body.path)
-        if not body.trash_id:
-            raise FilesError(422, "conflict", "restore_trash needs trash_id", reason="invalid_request")
         return svc.restore_trash(p, body.trash_id, body.to_root, body.to_path)
 
     @app.get("/v1/files/trash", operation_id="files.trash.list", tags=TAG, responses=errs(401, 403, 503))
     def trash(request: Request, trash: Literal["home", "shared"] = "home", limit: int = Query(100, ge=1, le=500),
-              cursor: str | None = Query(None, max_length=64), p: Principal = Depends(principal)):
+              cursor: str | None = Query(None, pattern=CURSOR_RE, max_length=64), p: Principal = Depends(principal)):
         return paginate(request, svc.list_trash(p, trash), limit, cursor)
 
     # -- quotas --
@@ -308,7 +382,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
 
     @app.get("/v1/files/requests", operation_id="files.requests.list", tags=TAG, responses=errs(401))
     def list_requests(request: Request, state: str | None = Query(None, max_length=100),
-                      limit: int = Query(100, ge=1, le=500), cursor: str | None = Query(None, max_length=64),
+                      limit: int = Query(100, ge=1, le=500), cursor: str | None = Query(None, pattern=CURSOR_RE, max_length=64),
                       p: Principal = Depends(principal)):
         return paginate(request, svc.list_requests(p, state), limit, cursor)
 
@@ -338,7 +412,8 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return svc.revoke_grant(p, grant_id)
 
     # -- resumable uploads (tus 1.0.0) --
-    @app.options("/v1/files/uploads", operation_id="files.uploads.options", tags=TAG)
+    @app.options("/v1/files/uploads", operation_id="files.uploads.options", tags=TAG, status_code=204,
+                 responses={204: {"description": "The tus capabilities, in the Tus-* response headers"}, **errs(401)})
     def tus_options():
         return Response(status_code=204, headers=tus_headers(**{
             "Tus-Version": TUS_VERSION, "Tus-Extension": TUS_EXTENSIONS, "Tus-Checksum-Algorithm": "sha256",
@@ -346,10 +421,12 @@ def register(app: FastAPI, gw: Gateway) -> None:
         }))
 
     @app.post("/v1/files/uploads", operation_id="files.uploads.create", tags=TAG, status_code=201, responses=errs(401, 403, 404, 409, 412, 413, 422, 503))
-    def tus_create(upload_length: Annotated[int | None, Header()] = None,
-                   upload_metadata: Annotated[str | None, Header(max_length=8192)] = None,
+    def tus_create(tus_resumable: TusResumable,
+                   upload_length: Annotated[int, Header(ge=0, description="The whole file's size (deferred length is not supported)")],
+                   upload_metadata: Annotated[str, Header(max_length=8192, pattern=UPLOAD_METADATA_RE,
+                                                          description="`filename` (base64) at least; also root, path, sha256, overwrite")],
                    repr_digest: Annotated[str | None, Header(max_length=300)] = None,
-                   tus_resumable: Annotated[str | None, Header()] = None, p: Principal = Depends(principal)):
+                   p: Principal = Depends(principal)):
         require_tus(tus_resumable)
         row = uploads.create(p, upload_length, parse_metadata(upload_metadata), parse_repr_digest(repr_digest))
         return JSONResponse(uploads.json(row), status_code=201, headers=tus_headers(**{
@@ -358,7 +435,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         }))
 
     @app.head("/v1/files/uploads/{upload_id}", operation_id="files.uploads.head", tags=TAG, responses=errs(401, 404, 412))
-    def tus_head(upload_id: str, tus_resumable: Annotated[str | None, Header()] = None, p: Principal = Depends(principal)):
+    def tus_head(upload_id: str, tus_resumable: TusResumable, p: Principal = Depends(principal)):
         require_tus(tus_resumable)
         row = uploads.get(p, upload_id)
         return Response(status_code=200, headers=tus_headers(**{
@@ -371,11 +448,12 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return uploads.json(uploads.get(p, upload_id))
 
     @app.patch("/v1/files/uploads/{upload_id}", operation_id="files.uploads.patch", tags=TAG, status_code=204,
-               responses=errs(401, 404, 409, 412, 413, 460, 503))
-    async def tus_patch(request: Request, upload_id: str, upload_offset: Annotated[int | None, Header()] = None,
+               responses=errs(401, 404, 409, 412, 413, 415, 460, 503))
+    async def tus_patch(request: Request, upload_id: str, tus_resumable: TusResumable,
+                        upload_offset: Annotated[int, Header(ge=0)],
+                        content_type: Annotated[str, Header(pattern=r"(?i)^application/offset\+octet-stream(?:\s*;.*)?$")],
                         upload_checksum: Annotated[str | None, Header(max_length=200)] = None,
-                        content_type: Annotated[str | None, Header()] = None,
-                        tus_resumable: Annotated[str | None, Header()] = None, p: Principal = Depends(principal)):
+                        p: Principal = Depends(principal)):
         require_tus(tus_resumable)
         if (content_type or "").split(";")[0].strip().lower() != "application/offset+octet-stream":
             raise FilesError(415, "conflict", "PATCH needs Content-Type: application/offset+octet-stream",
@@ -405,7 +483,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         }))
 
     @app.delete("/v1/files/uploads/{upload_id}", operation_id="files.uploads.delete", tags=TAG, status_code=204, responses=errs(401, 404, 409, 412))
-    def tus_delete(upload_id: str, tus_resumable: Annotated[str | None, Header()] = None, p: Principal = Depends(principal)):
+    def tus_delete(upload_id: str, tus_resumable: TusResumable, p: Principal = Depends(principal)):
         require_tus(tus_resumable)
         uploads.terminate(p, upload_id)
         return Response(status_code=204, headers=tus_headers())

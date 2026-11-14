@@ -1,0 +1,31 @@
+# SPDX-License-Identifier: Apache-2.0
+# prometheus: Market batch 6 (contract sdk/contracts/poc-v0.md §9.5), written by hand from primary sources:
+# Prometheus 3.16.0 (github.com/prometheus/prometheus, Dockerfile at v3.16.0). The image runs as nobody (UID 65534), keeps
+# Image digests and archs read from the registry API, GitHub facts from the GitHub API, read 2026-11-13.
+apiVersion: onemind.app/v1alpha1
+kind: App
+metadata:
+  id: prometheus
+  name: "Prometheus"
+  version: "3.16.0"
+  description: "The Prometheus monitoring system and time series database."
+  # Market category slug from docs/design/TAXONOMY.md §1; sub-tags (metrics) are listed in README.md
+  # until the schema has metadata.tags.
+  category: monitoring
+  icon: icon.svg
+  license: "Apache-2.0"
+  source: https://github.com/prometheus/prometheus
+  links:
+    docs: "https://prometheus.io/docs/"
+    github: "https://github.com/prometheus/prometheus"
+    website: "https://prometheus.io/"
+    support: "https://github.com/prometheus/prometheus/issues"
+  upstream: {release: "3.16.0", released_at: "2026-11-05T16:06:52Z", archived: false}
+  tier: community   # set by CI (sdk/tools/app-gate --tier write), not by hand
+spec:
+  archs: [amd64, arm64]
+  requires: {gpu: false, minMemoryMb: 256}   # sum of the memory requests in manifests/
+  web: {port: 9090}
+  manifests: manifests/
+  # automerge stays none until renovate.json lists this app (validate-apps check 9).
+  updates: {channel: stable, automerge: none}

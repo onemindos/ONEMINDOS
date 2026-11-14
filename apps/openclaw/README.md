@@ -78,6 +78,8 @@ The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked**
 - Licence: GitHub MIT matches, but there is no research licence-matrix row, so the app is not preinstallable on sold boxes until one is added (brief 30 B10). ClamAV 0 infected.
 
 To unblock: the probe mismatch is fixed above (rerun the gate to confirm); move the image pin to a release without these findings (tag verified with `crane`). Then rerun `sdk/tools/app-gate`.
+
+**Hold (apps/market-unblock-2, 2026-11-13):** `dompurify` GHSA-cg2g-xh64-v4q7 (fixed in 3.4.17), CRITICALs without a fix in `libsqlite3-0`, `openssh-client` and `zlib1g`, and a Slack-token-shaped string in `/app/qa/scenarios/` (gate run 43405572161). The smoke test now passes. `2026.11.3` is the newest tag. Unblock: a release with `dompurify` 3.4.17 and without the QA fixture string. The registry was re-read on 2026-11-13: the pinned digest is unchanged and no newer fixed tag exists, so nothing is bumped (the gate was not weakened and the tier was not edited). It unblocks when the weekly `apps-rescan` or a manual `apps-gate-all` run computes a pass on a rebuilt image. No upstream issue link was looked up (the GitHub API is not reachable from the worker).
 <!-- onemind:notes:end -->
 
 ## Latest security scan

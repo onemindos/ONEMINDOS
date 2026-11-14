@@ -61,3 +61,24 @@
 - {name: Bazarr, github: morpheus65535/bazarr, priority: 2, status: in-pr, notes: "market batch 5"}
 - {name: Excalidraw, github: excalidraw/excalidraw, priority: 2, status: in-pr, notes: "market batch 5"}
 - {name: Umami, github: umami-software/umami, priority: 2, status: in-pr, notes: "market batch 5"}
+# Market batch 6 (contract §9.5; apps/_intake/CANDIDATES.md "Proposed queue batches"). Seven apps: the order is the
+# candidates.csv score order after batch 5; skipped rows are listed with the reason.
+- {name: Wiki.js, github: requarks/wiki, priority: 2, status: in-pr, notes: "market batch 6"}
+- {name: Jenkins, github: jenkinsci/jenkins, priority: 2, status: in-pr, notes: "market batch 6"}
+- {name: BentoPDF, github: alam00000/bentopdf, priority: 2, status: in-pr, notes: "market batch 6"}
+- {name: MeTube, github: alexta69/metube, priority: 2, status: in-pr, notes: "market batch 6"}
+- {name: Seerr, github: seerr-team/seerr, priority: 2, status: in-pr, notes: "market batch 6"}
+- {name: Prometheus, github: prometheus/prometheus, priority: 2, status: in-pr, notes: "market batch 6"}
+- {name: Vikunja, github: go-vikunja/vikunja, priority: 2, status: in-pr, notes: "market batch 6"}
+- {name: Portainer, github: portainer/portainer, priority: 2, status: "skipped: it manages Docker or Kubernetes through a socket or a cluster-wide role; apps may not mount host paths or hold cluster roles", notes: "market batch 6 skip"}
+- {name: Frigate, github: blakeblackshear/frigate, priority: 2, status: "skipped: not attempted; the upstream image is built to start as root and to use host devices for detectors", notes: "market batch 6 skip"}
+- {name: Glances, github: nicolargo/glances, priority: 2, status: "skipped: the licence gate cannot confirm the licence (GitHub reports NOASSERTION, the COPYING file is the LGPL-3.0 text, candidates.csv says AGPL-3.0, no matrix row); needs a research licence-matrix row first", notes: "market batch 6 skip"}
+- {name: ArchiveBox, github: ArchiveBox/ArchiveBox, priority: 2, status: "skipped: not attempted; drives a Chromium that needs more privilege than apps may take", notes: "market batch 6 skip"}
+- {name: WireGuard (wg-easy), github: wg-easy/wg-easy, priority: 2, status: "skipped: needs NET_ADMIN and host sysctls, which apps may not use", notes: "market batch 6 skip"}
+- {name: BookStack, github: BookStackApp/BookStack, priority: 2, status: "skipped: attempted locally; the only image is LinuxServer's (nginx on ports 80 and 443, root-first init, needs a MariaDB sidecar and an app key); the non-root start was not completed, so it is deferred", notes: "market batch 6 skip"}
+- {name: FlareSolverr, github: FlareSolverr/FlareSolverr, priority: 2, status: "skipped: not attempted; runs a Chromium, root image", notes: "market batch 6 skip"}
+- {name: Jackett, github: Jackett/Jackett, priority: 2, status: "skipped: deferred; the LinuxServer image family fails the gate today on .NET 8.0.27 (same as radarr and prowlarr), so it would only be added as blocked", notes: "market batch 6 skip"}
+- {name: Kavita, github: Kareadita/Kavita, priority: 2, status: "skipped: not attempted", notes: "market batch 6 skip"}
+- {name: Miniflux, github: miniflux/v2, priority: 2, status: "skipped: deferred; needs PostgreSQL plus an admin account created on first start (no web sign-up), which needs the app-secrets design", notes: "market batch 6 skip"}
+- {name: LibreTranslate, github: LibreTranslate/LibreTranslate, priority: 2, status: "skipped: not attempted; downloads multi-gigabyte language models at start", notes: "market batch 6 skip"}
+- {name: PrivateBin, github: PrivateBin/PrivateBin, priority: 2, status: "skipped: the licence gate cannot confirm the licence (GitHub reports NOASSERTION, no matrix row; candidates.csv says Apache-2.0 from a licence-file match that was not re-checked)", notes: "market batch 6 skip"}

@@ -1,0 +1,82 @@
+# SPDX-License-Identifier: Apache-2.0
+# MeTube 2026.11.10 (github.com/alexta69/metube, Dockerfile and docker-entrypoint.sh at that tag). The image has no USER and
+# its entrypoint only drops to PUID/PGID when started as root; started as another UID it prints "User set by docker"
+# and runs as that UID, so this package starts it as 10001. Port 8081. GET / is the web UI and is the image's own
+# HEALTHCHECK (checked by running the pinned image as UID 10001 with all capabilities dropped).
+#
+# Pod: non-root, RuntimeDefault seccomp, no service-account token; containers: no privilege escalation, all capabilities dropped.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: metube
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: metube
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: metube
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: metube
+        image: ghcr.io/alexta69/metube:2026.11.10@sha256:6654866e76eab4228530dc5ed828ccfd702d1ee810feab2d629028272b399e14
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: http
+          containerPort: 8081
+          protocol: TCP
+        startupProbe:
+          httpGet:
+            path: /
+            port: http
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 30
+        readinessProbe:
+          httpGet:
+            path: /
+            port: http
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        livenessProbe:
+          httpGet:
+            path: /
+            port: http
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 5
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: '2'
+            memory: 1Gi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - name: data
+          mountPath: /downloads
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: metube-downloads

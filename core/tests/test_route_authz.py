@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Scripted route inventory (threat model §5): every route the app registers is either on the short
+"""Board item CORE-SEC-11 (security suite: every route has a written policy row, tested per role).
+
+Scripted route inventory (threat model §5): every route the app registers is either on the short
 public list below or answers 401 without a credential, and the routes that decide who may do what
 refuse every non-owner credential.
 

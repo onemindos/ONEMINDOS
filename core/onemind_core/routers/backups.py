@@ -14,7 +14,7 @@ from __future__ import annotations
 import re
 import secrets
 from datetime import datetime, timedelta
-from typing import Literal
+from typing import Annotated, Literal
 
 from fastapi import Depends, FastAPI, Header, Query, Request
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -26,13 +26,21 @@ from ..backups.service import BackupService, Unavailable
 from ..backups.settings import BackupsSettings
 from ..catalog import APP_ID_RE
 from ..context import Gateway
-from ..errors import ApiError, error_responses
+from ..errors import ApiError, error_responses as _error_responses
 from ..ledger import utc
+
+
+def error_responses(*statuses: int) -> dict[int, dict]:
+    """The shared error entries plus 503: any backup route may answer it (feature off, agent down)."""
+    return _error_responses(*statuses, 503)
 
 SNAP_RE = r"^[0-9a-f]{8,64}$"
 DEST_RE = r"^dst_[0-9a-f]{16}$"
 USB_UUID_RE = re.compile(r"^[A-Za-z0-9-]{1,64}$")
 USER_RE = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
+
+
+IdemHeader = Annotated[str | None, Header(alias="Idempotency-Key", min_length=1, max_length=200)]
 
 
 class _Request(BaseModel):
@@ -47,8 +55,13 @@ class AppScope(BaseModel):
     app_id: str = Field(min_length=1, max_length=59, pattern=APP_ID_RE.pattern)
 
 
+# An absolute path of non-empty segments, none of them "." or "..", with optional trailing slashes. This is
+# exactly what _plain accepts, so the published schema describes every path the server takes (and no other).
+PATH_RE = r"^(?:/(?:[^/.][^/]*|\.[^/.][^/]*|\.\.[^/]+))+/*$"
+
+
 class PathScope(AppScope):
-    path: str = Field(min_length=1, max_length=4096, pattern=r"^/")
+    path: str = Field(min_length=1, max_length=4096, pattern=PATH_RE)
 
     @field_validator("path")
     @classmethod
@@ -159,7 +172,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         now = gw.clock()
         exp = utc(body.expires_at) if body.expires_at else now + timedelta(hours=24)
         if exp > now + timedelta(days=7):
-            raise ApiError(422, "conflict", "expires_at may be at most 7 days ahead")
+            raise ApiError(422, "conflict", "expires_at may be at most 7 days ahead", reason="expiry_too_far")
         return exp
 
     def shortcut(p: Principal, body: _Request) -> None:
@@ -177,8 +190,6 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return JSONResponse(status_code=202, content={**action, **(extra or {})}, headers=headers)
 
     def key(header: str | None) -> str:
-        if header is not None and not 1 <= len(header) <= 200:
-            raise ApiError(422, "conflict", "Idempotency-Key must be 1-200 characters")
         return header or "auto:" + secrets.token_hex(16)
 
     tags = ["backups"]
@@ -195,7 +206,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
 
     @app.post("/v1/backups/destinations", operation_id="backups.destinations.add", tags=tags, status_code=202, responses=error_responses(401, 403, 409, 422))
     def add_destination(body: DestinationBody, p: Principal = Depends(owner),
-                        idem: str | None = Header(default=None, alias="Idempotency-Key")):
+                        idem: IdemHeader = None):
         b = body.model_dump()
         b["config"] = _check_destination(body)
         action, created = svc.request_destination(p, b, idempotency_key=key(idem), expires_at=window(body), reason=body.reason)
@@ -203,7 +214,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
 
     @app.delete("/v1/backups/destinations/{dest_id}", operation_id="backups.destinations.remove", tags=tags, status_code=202, responses=error_responses(401, 403, 404))
     def remove_destination(dest_id: str, p: Principal = Depends(owner),
-                           idem: str | None = Header(default=None, alias="Idempotency-Key")):
+                           idem: IdemHeader = None):
         if not any(d.id == dest_id for d in svc.repo.destinations()):
             raise ApiError(404, "not_found", "no such destination")
         body = _Request()
@@ -213,7 +224,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
 
     @app.post("/v1/backups/runs", operation_id="backups.runs.request", tags=tags, status_code=202, responses=error_responses(401, 403, 409, 422))
     def request_run(body: RunBody, p: Principal = Depends(principal),
-                    idem: str | None = Header(default=None, alias="Idempotency-Key")):
+                    idem: IdemHeader = None):
         shortcut(p, body)
         if not svc.enabled:
             raise Unavailable("backups are not switched on (ONEMIND_BACKUPS_ENABLED=1)", "backups_disabled")
@@ -255,7 +266,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
 
     @app.post("/v1/backups/verify", operation_id="backups.verify", tags=tags, status_code=202, responses=error_responses(401, 403, 409, 422))
     def verify(body: VerifyBody, p: Principal = Depends(principal),
-               idem: str | None = Header(default=None, alias="Idempotency-Key")):
+               idem: IdemHeader = None):
         shortcut(p, body)
         if not svc.enabled:
             raise Unavailable("backups are not switched on (ONEMIND_BACKUPS_ENABLED=1)", "backups_disabled")
@@ -270,7 +281,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
 
     @app.post("/v1/restores", operation_id="restores.request", tags=["restores"], status_code=202, responses=error_responses(401, 403, 404, 409, 422))
     def request_restore(body: RestoreBody, p: Principal = Depends(principal),
-                        idem: str | None = Header(default=None, alias="Idempotency-Key")):
+                        idem: IdemHeader = None):
         if not p.is_owner:  # agents need the explicit grant actions:request:backup.restore (not in v0)
             raise deny(p, "request backup.restore")
         if body.scope == "box":
@@ -296,7 +307,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return svc.kit_state()
 
     @app.post("/v1/backups/kit", operation_id="backups.kit.issue", tags=tags, status_code=201, responses=error_responses(401, 403, 409))
-    def issue_kit(p: Principal = Depends(owner), idem: str | None = Header(default=None, alias="Idempotency-Key")):
+    def issue_kit(p: Principal = Depends(owner), idem: IdemHeader = None):
         """Owner shortcut: files backup.kit.issue and approves it; the key is in this response only."""
         if not svc.enabled:
             raise Unavailable("backups are not switched on (ONEMIND_BACKUPS_ENABLED=1)", "backups_disabled")
