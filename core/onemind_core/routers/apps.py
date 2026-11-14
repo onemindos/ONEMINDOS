@@ -9,7 +9,7 @@ from fastapi import Depends, FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from .. import lifecycle as lc
-from ..actions import ActionParams, PlanRequest
+from ..actions import ActionParams, PlanRequest, PlanRequestBody
 from ..apimodels import AppCredentials, PlanPreview
 from ..auth import Principal
 from ..catalog import APP_ID_RE
@@ -69,8 +69,9 @@ def register(app: FastAPI, gw: Gateway) -> None:
         "/v1/plans", tags=["actions"], operation_id="plans.create", response_model=PlanPreview,
         responses=error_responses(401, 403, 404, 422),
     )
-    def create_plan(req: PlanRequest, request: Request, p: Principal = Depends(principal)):
+    def create_plan(body: PlanRequestBody, request: Request, p: Principal = Depends(principal)):
         """Preview any app action with its params (for example the settings of app.configure). Files nothing."""
+        req = PlanRequest.model_validate(body.model_dump())
         if not p.can_request_actions:
             gw.audit.append("authz.denied", p.as_dict(), None, {"attempted": "preview an action", "type": req.type,
                                                                   "reason": "permission_denied"})

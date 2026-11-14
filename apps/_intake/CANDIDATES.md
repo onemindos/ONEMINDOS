@@ -151,6 +151,8 @@ Batches 2 to 5 follow the score, with no hand reordering.
 
 Batches after 5 continue in score order through the `queue` rows of the CSV.
 
+**Batch 6.** Wiki.js (`requarks/wiki`, Notes & Knowledge, L2), Jenkins (`jenkinsci/jenkins`, Developer, L1), BentoPDF (`alam00000/bentopdf`, Productivity, L2), MeTube (`alexta69/metube`, Media, L2), Seerr (`seerr-team/seerr`, Media, L1), Prometheus (`prometheus/prometheus`, Monitoring, L1), Vikunja (`go-vikunja/vikunja`, Productivity, L2): the next rows in score order that could be packaged as non-root without privileges. Skipped, with reasons in `queue.yaml`: Portainer, Frigate, Glances (licence gate cannot confirm), ArchiveBox, WireGuard, BookStack, FlareSolverr, Jackett, Kavita, Miniflux, LibreTranslate, PrivateBin (licence gate cannot confirm).
+
 ## Top 100
 
 These are the top 100 rows by score, across all tiers. The `stores` column uses the letters u = Umbrel, o = Olares, c = CasaOS, r = Runtipi, y = YunoHost, x = Cosmos, k = Coolify.

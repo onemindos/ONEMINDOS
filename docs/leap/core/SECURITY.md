@@ -159,6 +159,7 @@ The acceptance tests are those of H-05, H-06, H-09, H-10, H-11, H-12, H-14, H-17
 | CORE-SEC-8 | Signing keys in GitHub environments, split jobs | S | – | H-07 |
 | CORE-SEC-9 | CSP and security headers, body and rate limits | S | – | H-18, H-20 |
 | CORE-SEC-10 | Identity floor: on-box IdP (Kanidm), roles, retire v0 tokens | L | 2 | E8, D-B9.1 |
+| CORE-SEC-11 | Security suite: every route has a written policy row, tested per role; API fuzzing | M | – | `core/tests/test_route_authz.py`, `core/tests/sec_policy.py`, TR-287 |
 
 ## 7a. SECURITY P0 as built (branch `feat/sec-p0`, 2026-11-12)
 

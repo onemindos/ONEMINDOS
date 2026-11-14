@@ -1,0 +1,24 @@
+# SPDX-License-Identifier: Apache-2.0
+# wiki-js-db: the PostgreSQL data directory (every page, user and setting).
+# wiki-js-data: /wiki/data, Wiki.js's cache, content and repository working folders.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: wiki-js-db
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: wiki-js-data
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi

@@ -1,0 +1,31 @@
+# SPDX-License-Identifier: Apache-2.0
+# wiki-js: Market batch 6 (contract sdk/contracts/poc-v0.md §9.5), written by hand from primary sources:
+# dev/build/Dockerfile and dev/build/config.yml at 3.3.1 (github.com/requarks/wiki), and a run of the pinned image (/_healthz).
+# Image digests and archs read from the registry API, GitHub facts from the GitHub API, read 2026-11-13.
+apiVersion: onemind.app/v1alpha1
+kind: App
+metadata:
+  id: wiki-js
+  name: "Wiki.js"
+  version: "3.3.1"
+  description: "Wiki.js is a modern, powerful wiki engine: Markdown and visual editing, a page tree, search, and Git or other storage sync."
+  # Market category slug from docs/design/TAXONOMY.md §1; sub-tags (wiki) are listed in README.md
+  # until the schema has metadata.tags.
+  category: notes
+  icon: icon.svg
+  license: "AGPL-3.0"
+  source: https://github.com/requarks/wiki
+  links:
+    docs: "https://js.wiki"
+    github: "https://github.com/requarks/wiki"
+    website: "https://js.wiki"
+    support: "https://github.com/requarks/wiki/issues"
+  upstream: {release: "3.3.1", released_at: "2026-11-11T10:02:37Z", archived: false}
+  tier: blocked     # set by CI (sdk/tools/app-gate --tier write), not by hand
+spec:
+  archs: [amd64, arm64]
+  requires: {gpu: false, minMemoryMb: 384}   # sum of the memory requests in manifests/
+  web: {port: 3000}
+  manifests: manifests/
+  # automerge stays none until renovate.json lists this app (validate-apps check 9).
+  updates: {channel: stable, automerge: none}

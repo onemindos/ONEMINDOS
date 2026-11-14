@@ -32,7 +32,7 @@ Storage: PVC `calibre-web-books` 20Gi, PVC `calibre-web-config` 1Gi.
 
 Images:
 
-- `ghcr.io/linuxserver/calibre-web:0.6.27-ls394@sha256:8eabbc9ac4d7fcbc252434493078ba22e4e8c3aa461e11b102020b040c5fc3e6`
+- `ghcr.io/linuxserver/calibre-web:0.6.27-ls409@sha256:8eabbc9ac4d7fcbc252434493078ba22e4e8c3aa461e11b102020b040c5fc3e6`
 
 <!-- onemind:notes:begin -->
 ## What it is
@@ -45,7 +45,7 @@ Images:
 
 ## How it is packaged
 
-- **Image:** `ghcr.io/linuxserver/calibre-web:0.6.27-ls394`, the LinuxServer image that upstream's README lists under "Docker Images". Upstream publishes no image of its own.
+- **Image:** `ghcr.io/linuxserver/calibre-web:0.6.27-ls409`, the LinuxServer image that upstream's README lists under "Docker Images". Upstream publishes no image of its own.
 - **How it runs:** the LinuxServer s6 service always switches to the user `abc` (`svc-calibre-web/run`), which needs root, and LinuxServer does not list this image as tested for non-root use. This package runs what that service runs, `python3 /app/calibre-web/cps.py` with `CALIBRE_DBPATH=/config`, directly as UID 1000. The LinuxServer init steps it skips need root and only matter for Google Drive, the Calibre converter mod and PDF covers (see Known limits).
 - **State:** PVCs `calibre-web-config` (`/config`: `app.db` and logs) and `calibre-web-books` (`/books`: the Calibre library). The app cache is an `emptyDir`.
 - **Health:** probes on `GET /login`.
@@ -76,6 +76,8 @@ The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked**
 - Passed: the smoke test now passes (GET / returned 302), so the earlier manifest fix works. ClamAV 0 infected. The tag `0.6.27-ls394` now points to a newer digest than the pinned one; the pinned digest still decides what runs.
 
 To unblock: move the pins to upstream releases that fix these findings (tags that exist, checked with `crane`), then rerun `sdk/tools/app-gate` (the daily `apps-rescan` workflow does this too). Nothing is bumped to an unverified tag.
+
+**Hold (apps/market-unblock-2, 2026-11-13):** `certifi` GHSA-6q48-6c7w-9gw2, `zip` CVE-2026-115905, and two test private keys of the Python `slapdtest` package inside the image. The pinned digest `sha256:8eabbc9a…c3e6` is the digest of the tag `0.6.27-ls409`, the newest tag; the label `ls394` now points to a different, older digest, so the manifest tag was corrected to `ls409` (same bytes, no behaviour change). Unblock: a LinuxServer rebuild with `certifi` 2026.10.18 or newer and without the test keys.
 <!-- onemind:notes:end -->
 
 ## Latest security scan

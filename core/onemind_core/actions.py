@@ -23,15 +23,15 @@ import logging
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime
-from typing import Any, Literal
+from datetime import UTC, datetime
+from typing import Annotated, Any, Literal
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
 from .audit import AuditLog
 from .auth import Principal, new_agent_token, token_hash
 from .catalog import APP_ID_RE, AppEntry, Catalog
-from .errors import ApiError
+from .errors import ApiError, SemanticValueError
 from .executors import AgentSecret, ExecResult, Executor
 from . import lifecycle as lc
 from .scan import scan_problem
@@ -69,17 +69,27 @@ def check_params_fit(action_type: str, p: ActionParams) -> None:
             raise ValueError("app.configure needs params.settings")
         problem = lc.settings_problem(p.settings)
         if problem:
-            raise ValueError(problem)
+            raise SemanticValueError(problem, "invalid_settings")
     elif p.settings is not None:
         raise ValueError(f"params.settings is only for app.configure, not {action_type}")
     if action_type == "app.delete_data":
         if p.confirm != p.app_id:
-            raise ValueError("app.delete_data needs params.confirm equal to the app id, typed by the owner")
+            raise SemanticValueError("app.delete_data needs params.confirm equal to the app id, typed by the owner",
+                                     "confirm_mismatch")
     elif p.confirm is not None:
         raise ValueError("params.confirm is only for app.delete_data")
 
 
 TYPE_RE = r"^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*){1,3}$"
+
+def _expiry_in_range(v: datetime) -> datetime:
+    # 9999-12-31T23:59:59-23:59 is a valid RFC 3339 time whose UTC instant is past year 9999:
+    # converting it raised OverflowError, an unaudited 500 (finding F-API-1). Refuse it here.
+    try:
+        v.astimezone(UTC)
+    except OverflowError:
+        raise ValueError("expires_at is outside the supported date range") from None
+    return v
 
 
 class ActionRequest(BaseModel):
@@ -103,6 +113,11 @@ class ActionRequest(BaseModel):
             return ActionParams.model_validate(value)
         return value
 
+    @field_validator("expires_at")
+    @classmethod
+    def _expires_in_range(cls, v: datetime) -> datetime:
+        return _expiry_in_range(v)
+
     @model_validator(mode="after")
     def _params_fit_type(self):
         if isinstance(self.params, ActionParams):
@@ -121,6 +136,117 @@ class PlanRequest(BaseModel):
     def _params_fit_type(self):
         check_params_fit(self.type, self.params)
         return self
+
+
+# ---- what the API publishes -------------------------------------------------------------------
+# ActionRequest / PlanRequest above are what the service works with. The published schema is
+# stricter: it is one variant per kind of params, tied to `type`, so a client generated from
+# /openapi.json cannot build a request the server refuses (settings only on app.configure,
+# confirm only on app.delete_data). The routers accept these and hand the service the plain model.
+class PlainActionParams(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    app_id: str = Field(min_length=1, max_length=59, pattern=APP_ID_RE.pattern)
+
+
+class ConfigureActionParams(PlainActionParams):
+    # plain settings, never secrets (those go through the sealed path)
+    settings: dict[str, str] = Field(min_length=1, max_length=50)
+
+
+class DeleteDataActionParams(PlainActionParams):
+    # the app id typed again by the owner (check_params_fit enforces the equality)
+    confirm: str = Field(min_length=1, max_length=59)
+
+
+def _fits(model) -> None:
+    """The same checks as ActionRequest, run while the request body is validated (so a failure is a 422)."""
+    check_params_fit(model.type, ActionParams.model_validate(model.params.model_dump()))
+
+
+_PLAIN_TYPES = Literal["app.install", "app.remove", "app.start", "app.stop", "app.restart", "app.update"]
+
+
+class _ActionRequestFields(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    idempotency_key: str = Field(min_length=1, max_length=200)
+    expires_at: AwareDatetime
+    plan_sha256: str | None = Field(default=None, max_length=80)
+
+    @field_validator("expires_at")
+    @classmethod
+    def _expires_in_range(cls, v: datetime) -> datetime:
+        return _expiry_in_range(v)
+
+
+class PlainActionRequest(_ActionRequestFields):
+    type: _PLAIN_TYPES
+    params: PlainActionParams
+
+    @model_validator(mode="after")
+    def _params_fit_type(self):
+        _fits(self)
+        return self
+
+
+class ConfigureActionRequest(_ActionRequestFields):
+    type: Literal["app.configure"]
+    params: ConfigureActionParams
+
+    @model_validator(mode="after")
+    def _params_fit_type(self):
+        _fits(self)
+        return self
+
+
+class DeleteDataActionRequest(_ActionRequestFields):
+    type: Literal["app.delete_data"]
+    params: DeleteDataActionParams
+
+    @model_validator(mode="after")
+    def _params_fit_type(self):
+        _fits(self)
+        return self
+
+
+ActionRequestBody = Annotated[
+    PlainActionRequest | ConfigureActionRequest | DeleteDataActionRequest, Field(discriminator="type")
+]
+
+
+class PlainPlanRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    type: _PLAIN_TYPES
+    params: PlainActionParams
+
+    @model_validator(mode="after")
+    def _params_fit_type(self):
+        _fits(self)
+        return self
+
+
+class ConfigurePlanRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    type: Literal["app.configure"]
+    params: ConfigureActionParams
+
+    @model_validator(mode="after")
+    def _params_fit_type(self):
+        _fits(self)
+        return self
+
+
+class DeleteDataPlanRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    type: Literal["app.delete_data"]
+    params: DeleteDataActionParams
+
+    @model_validator(mode="after")
+    def _params_fit_type(self):
+        _fits(self)
+        return self
+
+
+PlanRequestBody = Annotated[PlainPlanRequest | ConfigurePlanRequest | DeleteDataPlanRequest, Field(discriminator="type")]
 
 
 def _never_by_policy(a: Action) -> bool:

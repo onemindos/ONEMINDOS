@@ -80,6 +80,8 @@ The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked**
 - Passed: licence AGPL-3.0 matches GitHub (there is no research licence-matrix row yet, so the app is also not preinstallable on sold boxes, brief 30 B10), ClamAV (0 infected), smoke test (GET / returned 307).
 
 To unblock: move the pins to upstream releases that fix these findings (tags that exist, checked with `crane`), then rerun `sdk/tools/app-gate` (the daily `apps-rescan` workflow does this too). Nothing is bumped to an unverified tag.
+
+**Hold (apps/market-unblock-2, 2026-11-13):** `libbrotli1`, `dompurify`, Go `stdlib` in `karakeep:0.34.1` (the newest tag), and openssl in `meilisearch:v1.41.0`. Meilisearch `v1.56.x` tags exist but are a 15-minor jump that needs a compatibility read first, and the Karakeep image would still block. Unblock: a fixed Karakeep release.
 <!-- onemind:notes:end -->
 
 ## Latest security scan

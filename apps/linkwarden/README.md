@@ -91,6 +91,8 @@ The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked**
 - Passed: ClamAV (0 infected), smoke test (GET / returned 200).
 
 To unblock: move the pins to upstream releases that fix these findings (tags that exist, checked with `crane`), then rerun `sdk/tools/app-gate` (the daily `apps-rescan` workflow does this too). Nothing is bumped to an unverified tag.
+
+**Hold (apps/market-unblock-2, 2026-11-13):** Go `stdlib` in `linkwarden:v2.17.0` (the newest tag). The sidecar `postgres:16.15-trixie` could move to `16.15-alpine` (exists) but the app image would still block, so the sidecar stays as it is. Unblock: a Linkwarden release without the Go finding, then the Alpine postgres of the same major.
 <!-- onemind:notes:end -->
 
 ## Latest security scan

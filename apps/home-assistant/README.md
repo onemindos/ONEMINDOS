@@ -76,6 +76,8 @@ From upstream's Container install guide (https://www.home-assistant.io/installat
 3. Onboarding: create the owner account, or restore from a Home Assistant backup. Then set the home's name, location, time zone and units, and choose whether to share analytics.
 4. Add integrations under **Settings > Devices & services**. Without host networking, add devices by IP address rather than waiting for discovery.
 5. After you change `configuration.yaml`, restart from **Settings > System** (power icon > **Restart Home Assistant**), as upstream describes.
+
+**Hold (apps/market-unblock-2, 2026-11-13):** 5 CRITICAL (4 with a fix) in `2026.11.1`, the newest tag. Unblock: `2026.11.2` or a rebuild with fixed packages. The registry was re-read on 2026-11-13: the pinned digest is unchanged and no newer fixed tag exists, so nothing is bumped (the gate was not weakened and the tier was not edited). It unblocks when the weekly `apps-rescan` or a manual `apps-gate-all` run computes a pass on a rebuilt image. No upstream issue link was looked up (the GitHub API is not reachable from the worker).
 <!-- onemind:notes:end -->
 
 ## Latest security scan

@@ -1,0 +1,31 @@
+# SPDX-License-Identifier: Apache-2.0
+# vikunja: Market batch 6 (contract sdk/contracts/poc-v0.md §9.5), written by hand from primary sources:
+# Vikunja 2.8.0 (github.com/go-vikunja/vikunja), image docker.io/vikunja/vikunja. The image runs as UID 1000, listens on
+# Image digests and archs read from the registry API, GitHub facts from the GitHub API, read 2026-11-13.
+apiVersion: onemind.app/v1alpha1
+kind: App
+metadata:
+  id: vikunja
+  name: "Vikunja"
+  version: "2.8.0"
+  description: "The task manager you actually own: lists, kanban boards, gantt and table views, with sharing and reminders."
+  # Market category slug from docs/design/TAXONOMY.md §1; sub-tags (tasks) are listed in README.md
+  # until the schema has metadata.tags.
+  category: productivity
+  icon: icon.svg
+  license: "AGPL-3.0"
+  source: https://github.com/go-vikunja/vikunja
+  links:
+    docs: "https://vikunja.io/docs/"
+    github: "https://github.com/go-vikunja/vikunja"
+    website: "https://vikunja.io"
+    support: "https://github.com/go-vikunja/vikunja/issues"
+  upstream: {release: "2.8.0", released_at: "2026-11-05T20:44:21Z", archived: false}
+  tier: community   # set by CI (sdk/tools/app-gate --tier write), not by hand
+spec:
+  archs: [amd64, arm64]
+  requires: {gpu: false, minMemoryMb: 128}   # sum of the memory requests in manifests/
+  web: {port: 3456}
+  manifests: manifests/
+  # automerge stays none until renovate.json lists this app (validate-apps check 9).
+  updates: {channel: stable, automerge: none}

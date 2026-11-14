@@ -86,6 +86,8 @@ The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked**
 - Passed: ClamAV (0 infected), smoke test (GET / returned 200).
 
 To unblock: move the pins to upstream releases that fix these findings (tags that exist, checked with `crane`), then rerun `sdk/tools/app-gate` (the daily `apps-rescan` workflow does this too). Nothing is bumped to an unverified tag.
+
+**Hold (apps/market-unblock-2, 2026-11-13):** 45 secret-shaped strings in the bundled `yt_dlp` sources (one `aws-access-key-id`, CRITICAL) in `v3.30.0`. A newer tag `v3.31.0` exists (digest `sha256:97e21ac9…7dc12f`) but it has not been scanned and the finding is in a bundled Python package, so no fix is claimed. Unblock: a gate run on a `v3.31.0` pin showing the findings are gone.
 <!-- onemind:notes:end -->
 
 ## Latest security scan

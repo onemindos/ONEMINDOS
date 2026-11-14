@@ -95,6 +95,8 @@ Source: [Dynamic Security plugin, "Generating the configuration file - 2.1 onwar
 - **No TLS listener.** Passwords cross the network in clear text, and `mosquitto_ctrl` warns about it. Keep the broker inside the cluster or home network. TLS (port 8883) needs a certificate, which OneMind does not issue to apps yet.
 - **Not reachable from outside the cluster.** Devices on the LAN (ESP32 sensors, for example) need a LoadBalancer or NodePort Service, which this v0 package does not create.
 - The upstream HTTP dashboard (port 9883) is not enabled.
+
+**Hold (apps/market-unblock-2, 2026-11-13):** Not a vulnerability: the licence-matrix row says `EDL-1.0`, which is not an SPDX id, so the licence gate cannot confirm it. The fix is a one-line row in `research-output/evidence/license-matrix.csv`, outside `apps/` and outside this change. Licence-blocked apps stay blocked.
 <!-- onemind:notes:end -->
 
 ## Latest security scan

@@ -185,11 +185,13 @@ class PhotosService:
         repo: PhotosRepository,
         clock: Callable[[], datetime],
         events: EventHub,
+        audit,
     ):
         self.settings = settings
         self.repo = repo
         self.clock = clock
         self.events = events
+        self.audit = audit  # the gateway audit log: a refused caller is recorded as authz.denied
         self.files = PhotoFiles(settings.dir or Path("photos-disabled"))
         self.ttl = timedelta(seconds=settings.upload_ttl_s)
         self.hashers = HasherCache()
@@ -200,6 +202,8 @@ class PhotosService:
         if not self.settings.enabled:
             raise PhotosError(404, "not_found", "Photos is not turned on on this box")
         if p.kind != "person" or p.role not in PERSON_ROLES:
+            self.audit.append("authz.denied", p.as_dict(), None,
+                              {"attempted": "use photo backup", "reason": "permission_denied"})
             raise PhotosError(
                 403, "permission_denied",
                 "photo backup needs a person's own sign-in (owner or adult); guests and agents have no photo library",
