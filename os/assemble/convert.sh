@@ -19,7 +19,7 @@ for f in $FORMATS; do
 done
 if [ "$board" = vm ]; then
   # Minimal OVF 1.0 package around the streamOptimized VMDK. UNVERIFIED on VirtualBox/VMware
-  # import (handbook/findings.md F-09); the vmdk/vdi files are the supported path until then.
+  # import; see docs/learning/mac-dev-loop.md. The vmdk/vdi files are the fallback until then.
   n=$(basename "$BASE"); cap=$(qemu-img info --output=json "$IMG" | python3 -c 'import json,sys;print(json.load(sys.stdin)["virtual-size"])')
   sed -e "s/@NAME@/$n/g" -e "s/@CAPACITY@/$cap/g" "$(dirname "$0")/ova.ovf.in" > "$D/$n.ovf"
   ( cd "$D" && tar -cf "$n.ova" "$n.ovf" "$n.vmdk" && rm -f "$n.ovf" )
