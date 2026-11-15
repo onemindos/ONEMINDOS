@@ -15,6 +15,7 @@ from fastapi import Depends, FastAPI
 from ..auth import Principal
 from ..context import Gateway
 from ..errors import ApiError, error_responses
+from ..identity.scopes import register_route_scope
 from ..machines.capability import MIN_MEMORY_MB, describe
 
 
@@ -24,6 +25,11 @@ ORDER = 330
 
 def register(app: FastAPI, gw: Gateway) -> None:
     principal = gw.principal
+    # What a scoped token needs (identity/scopes.py): the capabilities show what /v1/nodes shows, so
+    # that scope reads them; enabling is owner-only, and `machines:admin` is minted to no one, so
+    # only the owner role (every scope) holds it. Without rows both routes fell to "full scope only".
+    register_route_scope("GET,HEAD", r"/v1/machines/capabilities", ("nodes:read",))
+    register_route_scope("POST", r"/v1/machines/enable", ("machines:admin",))
 
     def capabilities() -> dict:
         nodes = [describe(n) for n in gw.registry.list()]
