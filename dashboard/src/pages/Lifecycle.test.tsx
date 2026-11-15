@@ -7,6 +7,7 @@ import { App } from '../App';
 import { HttpApi } from '../api/client';
 import { MockApi } from '../api/mock';
 import { SessionProvider } from '../session';
+import { ActionStatus } from '../shell/ActionJobs';
 
 function setup(route = '/installed/uptime-kuma', failPlan = false, opts: { stopped?: boolean; progress?: boolean; enumKind?: 'number' | 'string'; delay?: boolean; malformed?: boolean } = {}) {
   let navigate: NavigateFunction;
@@ -47,6 +48,15 @@ function setup(route = '/installed/uptime-kuma', failPlan = false, opts: { stopp
 }
 
 describe('lifecycle through the HTTP client', () => {
+  it('presents completed ledger status in a labelled card with an explained gateway result', () => {
+    render(<ActionStatus label="App request progress" action={{ id: 'presentation-test', type: 'app.install', params: { app_id: 'uptime-kuma' }, state: 'succeeded', idempotency_key: 'presentation-test', expires_at: '2030-01-01T00:00:00Z', result: { outcome: 'succeeded', message: 'applied' } }} />);
+    const panel = screen.getByRole('region', { name: 'App request progress' });
+    expect(within(panel).getByRole('heading', { name: 'App request progress' })).toBeInTheDocument();
+    expect(panel).toHaveClass('om-card');
+    expect(within(panel).getByRole('status')).toHaveTextContent('Request status: succeeded');
+    expect(within(panel).getByText('Gateway result: applied')).toBeInTheDocument();
+    expect(within(panel).queryByText('Healthy')).not.toBeInTheDocument();
+  });
   it('keeps the compact jobs island and expands to actual ledger state', async () => {
     const { user } = setup();
     const tray = await screen.findByRole('complementary', { name: 'Jobs in progress' });

@@ -1,16 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
 import { useId, useState } from 'react';
-import { Icon } from '@onemind/ui';
+import { Card, Icon } from '@onemind/ui';
 import { useHub } from '../data/hub';
 import { href } from './routes';
 import { isActive } from '../data/adapters';
 import type { Action } from '../api/types';
 
 export function ActionStatus({ action: a, label = 'Request progress' }: { action: Action; label?: string }) {
-  return <section aria-label={label}><p role="status">{a.state.replace(/_/g, ' ')}{a.progress ? ` — ${a.progress.step}` : ''}</p>
+  return <Card as="section" title={label} variant="sunken">
+    <p role="status">Request status: {a.state.replace(/_/g, ' ')}</p>
+    {a.progress && <p>Executor step: {a.progress.step}</p>}
     {a.progress && Number.isFinite(a.progress.pct) && <progress aria-label={`${a.type} progress`} max={100} value={a.progress.pct}>{a.progress.pct}%</progress>}
-    {a.result?.message && <p>{a.result.message}</p>}
-  </section>;
+    {a.result?.message && <p>Gateway result: {a.result.message}</p>}
+  </Card>;
 }
 
 /** Show ledger states and executor percentages, never guessed install/health stages. */
