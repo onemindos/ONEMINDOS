@@ -21,17 +21,22 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/onemindos/onemindos/internal/etcdir"
 	"github.com/onemindos/onemindos/internal/heartbeat"
 	"github.com/onemindos/onemindos/internal/leaf"
 	"github.com/onemindos/onemindos/internal/mesh"
 )
 
-// Where a joined node keeps its fabric identity (all under Layout.Root).
+// Where a joined node keeps its fabric identity (all under Installer.Root): /etc/onemind, or
+// ONEMIND_ETC_DIR on the OS image, whose /etc is read-only (internal/etcdir, #292).
+var (
+	IdentityDir = filepath.Join(etcdir.Dir(), "identity")
+	NATSDir     = filepath.Join(etcdir.Dir(), "nats")
+	StateFile   = filepath.Join(etcdir.Dir(), "fabric.json")
+	OnemindEnv  = filepath.Join(etcdir.Dir(), "onemindd.env")
+)
+
 const (
-	IdentityDir   = "/etc/onemind/identity"
-	NATSDir       = "/etc/onemind/nats"
-	StateFile     = "/etc/onemind/fabric.json"
-	OnemindEnv    = "/etc/onemind/onemindd.env"
 	K3sConfig     = "/etc/rancher/k3s/config.yaml"
 	HostsFile     = "/etc/hosts"
 	LeafStoreDir  = "/var/lib/onemind-nats-leaf"
