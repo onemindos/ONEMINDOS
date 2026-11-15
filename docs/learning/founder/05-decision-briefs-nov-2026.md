@@ -1,6 +1,6 @@
 # Founder decision briefs: week of 2026-11-16
 
-**For:** Zeus · **Written:** 2026-11-14 · **Why this exists:** six open decisions block code or dates. Each brief below gives the question in plain words, why it matters now, the options, a recommendation, and what your answer unblocks. Answer with one letter per brief (in chat or on the issue). Each answer becomes a dated entry in [`docs/DECISIONS.md`](../../DECISIONS.md) (D-008 onward), and the issues that wait on it lose `needs-founder`.
+**For:** Zeus · **Written:** 2026-11-14 · **Why this exists:** six open decisions block code or dates. Each brief below gives the question in plain words, why it matters now, the options, a recommendation, and what your answer unblocks. Answer with one letter per brief (in chat or on the issue). Each answer becomes a dated entry in [`docs/DECISIONS.md`](../../DECISIONS.md) (D-009 onward), and the issues that wait on it lose `needs-founder`.
 
 None of these reopen D-001 to D-007. Where the research was written before D-007 (Debian 13), the brief says what changed.
 
@@ -13,7 +13,7 @@ None of these reopen D-001 to D-007. Where the research was written before D-007
 | 3 | **#214 / F-25**: order the hardware | This week | **(a)** Two Pi 5s + NVMe now; Jetson after the NVIDIA Inception answer; radios later | The Pi soak (must start by 2026-12-11), the bootc Pi test, every metal gate |
 | 4 | **Z-40**: write down four scoring rules | Before G1 (2026-12-13) | **(a)** Adopt the readings the research used | A clean reading of the bootc Pi test |
 | 5 | **Z-10 / W2-HW-3**: approve the bootc test on a real Pi 5 | Before G1 | **(a)** Yes, as D-007's reopen check | Keeps D-007's own reopen condition honest |
-| 6 | **#253**: VMs, a web terminal, Tor | No hard date | VMs **later**, web terminal **yes (owner-only, rescue console)**, Tor **later** | 3 roadmap rows; Codex knows what not to build |
+| 6 | **#253**: VMs, a web terminal, Tor | No hard date | VMs **later**, web terminal **yes (owner-only, rescue console)**, Tor **later**. **Your answer (D-014): build all three now**, Tor as an optional app | #281 (VMs), #273 (terminal), #284 (Tor) |
 
 ---
 
@@ -131,6 +131,11 @@ None of these reopen D-001 to D-007. Where the research was written before D-007
 - **Web terminal: yes, narrowly.** Owner-only, behind passkey login, inside the rescue console, every session audited, never exposed to agents or the API's AI tools.
 - **Tor: later, opt-in.** Revisit after the mesh and relay work (#139, #236). Default off; it adds an egress exception.
 
+**Your answer (2026-11-15, D-014): build all three now, with the guardrails.**
+- **VMs (#281):** measured on real KVM hardware first (LT-MACH-2 on the Beelink); x86 hubs with ≥ 16 GB only, never on a Pi; owner approval for every machine action.
+- **Web terminal (#273):** as above. It stays disabled until passkey sign-in exists (#236).
+- **Tor (#284):** an optional Market app, never in the core OS. It gives the dashboard an onion address, needs per-device client keys, and is never an outbound proxy for apps or AI.
+
 **Unblocks:** three roadmap rows. Codex gets a clear "don't build" on VMs and Tor, and the web terminal becomes an `owner:claude` issue (security-sensitive).
 
 ---
@@ -138,7 +143,7 @@ None of these reopen D-001 to D-007. Where the research was written before D-007
 ## How your answers get recorded
 
 1. You reply, for example: "Z-41 d, Z-04 a′, #214 a, Z-40 a, Z-10 a, #253 as recommended."
-2. A docs PR adds D-008 onward to `docs/DECISIONS.md`, with your words quoted and the date.
+2. A docs PR adds D-009 onward to `docs/DECISIONS.md`, with your words quoted and the date.
 3. The waiting issues lose `needs-founder`, and any new issues (hardware-key signer, web terminal) get `owner:` and `wave:` labels so the agents pick them up.
 
 **Sources:** `research-output/26-OPEN-QUESTIONS-FOR-ZEUS.md` (Z-04, Z-10, Z-40, Z-41, §H, §I), `research-output/22-HARDWARE-LAB-TEST-PLAN.md` (LT-PI5-02, LT-VM-20), `docs/DECISIONS.md` (D-004, D-006, D-007), `docs/HARDWARE.md` §2, `os/update/README.md`, `scripts/tuf-bootstrap-root.sh`, `docs/leap/ALPHA-CHECKLIST.md`, issues #153, #214, #253.
