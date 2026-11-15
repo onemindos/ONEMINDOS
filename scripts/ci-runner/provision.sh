@@ -24,16 +24,23 @@ if ! command -v gitleaks >/dev/null; then
   rm -f /tmp/gl.tgz
 fi
 
-R=/home/runner/actions-runner
-if [ ! -x "$R/run.sh" ] || ! grep -q "\"$RUNNER_VERSION\"" "$R/.runner-version" 2>/dev/null; then
-  rm -rf "$R" && mkdir -p "$R"
+RH=$(getent passwd runner | cut -d: -f6)
+N=${INSTANCES:-1}
+if [ ! -f "$RH/runner-$RUNNER_VERSION.tgz" ]; then
   curl -fsSL -o /tmp/runner.tgz "https://github.com/actions/runner/releases/download/v${RUNNER_VERSION}/actions-runner-linux-arm64-${RUNNER_VERSION}.tar.gz"
   echo "${RUNNER_SHA256}  /tmp/runner.tgz" | sha256sum -c -
-  tar -xzf /tmp/runner.tgz -C "$R"
-  rm -f /tmp/runner.tgz
-  echo "\"$RUNNER_VERSION\"" > "$R/.runner-version"
-  "$R/bin/installdependencies.sh" >/dev/null   # the runner's own list of system libraries
-  chown -R runner:runner /home/runner
+  rm -f "$RH"/runner-*.tgz && mv /tmp/runner.tgz "$RH/runner-$RUNNER_VERSION.tgz"
+  rm -rf "$RH"/actions-runner-*
 fi
+i=1
+while [ "$i" -le "$N" ]; do
+  R=$RH/actions-runner-$i
+  if [ ! -x "$R/run.sh" ]; then
+    mkdir -p "$R" && tar -xzf "$RH/runner-$RUNNER_VERSION.tgz" -C "$R"
+    "$R/bin/installdependencies.sh" >/dev/null   # the runner's own list of system libraries
+  fi
+  i=$((i + 1))
+done
+chown -R runner:runner "$RH"
 install -m 0755 -o root -g root /opt/onemind-ci/run-one.sh /usr/local/bin/onemind-ci-run-one
-echo "provisioned: runner $RUNNER_VERSION"
+echo "provisioned: runner $RUNNER_VERSION x $N"

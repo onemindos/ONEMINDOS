@@ -6,6 +6,7 @@ REPO=${REPO:-onemindos/ONEMINDOS}
 ORG=${REPO%%/*}
 VM=${VM:-onemind-ci}
 echo "LOCAL_RUNNER variable : $(gh api "repos/$REPO/actions/variables/LOCAL_RUNNER" -q .value 2>/dev/null || echo 'not set (= off)')"
+echo "Mac                   : $(sysctl -n hw.ncpu) cores, $(( $(sysctl -n hw.memsize) / 1073741824 )) GiB"
 echo "VM                    : $(limactl list --format '{{.Name}} {{.Status}}' 2>/dev/null | grep "^$VM " || echo 'none')"
 if launchctl print "gui/$(id -u)/dev.onemind.ci-runner" >/dev/null 2>&1; then echo "launchd service      : loaded"; else echo "launchd service      : not loaded"; fi
 echo "registered runners    :"

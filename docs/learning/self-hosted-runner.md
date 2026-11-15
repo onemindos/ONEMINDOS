@@ -51,6 +51,9 @@ scripts/ci-runner/status
 
 You should see the VM `Running`, the service `loaded`, a runner named `onemind-local-…` online, and `LOCAL_RUNNER` `on`.
 
+## Sizing: this Mac serves the whole team
+Codex's workers and the Claude builders run on the same Mac, so the VM is capped. `up` reads `CPUS` (default: half the Mac's cores), `MEMORY` in GiB (default 8) and `INSTANCES` (parallel runners, 1 or 2, default 1). Example: `CPUS=6 MEMORY=12 INSTANCES=2 scripts/ci-runner/up --service --on`. CPUS and MEMORY apply when the VM is created; to change them, run `down --wipe` and `up` again. `status` shows the Mac's cores and memory next to the runners.
+
 ## Everyday use
 | I want to | Run |
 |---|---|
