@@ -71,9 +71,9 @@ These are founder decisions ([CHANNEL.md §6–7](CHANNEL.md)). The pipeline nam
 
 **Recommended, not configured here:** put the signing secrets in a GitHub **Environment** restricted to `main`. A required reviewer would stop the nightly automation, so that choice is the founder's.
 
-**Bootstrapping the root (offline, once per channel).**
-1. Run `scripts/tuf-bootstrap-root.sh rehearse <dir>` in a VM with networking off to practise.
-2. At the ceremony, run `scripts/tuf-bootstrap-root.sh create <dir> security 2 <root1.key> <root2.key> -- targets.pub snapshot.pub timestamp.pub`.
+**Bootstrapping the root (offline, once per channel).** The full runbook is [CEREMONY.md](CEREMONY.md); print [CEREMONY-CHECKLIST.md](CEREMONY-CHECKLIST.md).
+1. Practise first: `scripts/tuf-bootstrap-root.sh rehearse <dir>` (a VM or container with networking off). It does the whole 2-of-3 ceremony on throwaway keys.
+2. At the ceremony: `root-key` once per holder (a passphrase-protected key on each encrypted stick), `online-keys`, then `create <dir> security 2 <holder-a>/root.key <holder-b>/root.key <holder-c>.pub -- targets.pub snapshot.pub timestamp.pub`, then `check <dir> 2 3`.
 3. Commit `<dir>/root.json` as `os/rootfs/layers/base/usr/lib/onemind/tuf/security/root.json`.
 4. Store the three online private keys as the secrets above.
 

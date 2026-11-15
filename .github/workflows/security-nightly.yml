@@ -46,7 +46,7 @@ jobs:
           python3 -I -m unittest discover -s os/update/tests -p 'test_*.py' -v
           python3 -m venv "$RUNNER_TEMP/tuf"
           "$RUNNER_TEMP/tuf/bin/pip" install -q --require-hashes --only-binary :all: -r os/update/requirements-tuf.txt
-          "$RUNNER_TEMP/tuf/bin/python" -I -m unittest discover -s os/update/tests -p 'test_tuf_repo.py' -v
+          "$RUNNER_TEMP/tuf/bin/python" -I -m unittest discover -s os/update/tests -p 'test_tuf_*.py' -v
 
   check:
     needs: unit
