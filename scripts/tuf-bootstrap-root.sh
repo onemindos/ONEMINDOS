@@ -29,7 +29,7 @@
 # Output of create: <dir>/1.root.json and <dir>/root.json, then run check. Then:
 #   1. commit <dir>/root.json as os/rootfs/layers/base/usr/lib/onemind/tuf/<channel>/root.json
 #      (public; it is what every image trusts),
-#   2. store the targets / snapshot / timestamp PRIVATE keys as the GitHub Actions secrets
+#   2. store the targets / snapshot / timestamp PRIVATE keys as secrets of the GitHub Environment tuf-signing (main only):
 #      ONEMIND_TUF_TARGETS_KEY / _SNAPSHOT_KEY / _TIMESTAMP_KEY (os/update/CEREMONY.md step 9),
 #   3. keep the root private keys offline (never a secret, never in the repo).
 # The root expires after a year (channel.json): put the renewal date in a calendar.

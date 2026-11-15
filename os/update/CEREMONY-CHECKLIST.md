@@ -9,7 +9,7 @@ Code commit (`git rev-parse HEAD`): ______________________________
 Holders: A ______________  B ______________  C ______________  Witness (optional) ______________
 
 ## Before the day
-- [ ] Rehearsal passed on the ceremony machine: `REHEARSAL PASSED` (`scripts/tuf-bootstrap-root.sh rehearse /tmp/rehearsal-1`), then `/tmp/rehearsal-1` deleted
+- [ ] **Go/no-go:** rehearsal passed on the ceremony machine: `REHEARSAL PASSED` (the unit tests skip silently without python-tuf, so this is the proof) (`scripts/tuf-bootstrap-root.sh rehearse /tmp/rehearsal-1`), then `/tmp/rehearsal-1` deleted
 - [ ] 3 USB sticks + 1 transfer stick + printer + this sheet + 3 envelopes (one for the succession note)
 - [ ] Pinned tools installed (`pip install --require-hashes ... requirements-tuf.txt`) while still online
 
@@ -28,7 +28,7 @@ Holders: A ______________  B ______________  C ______________  Witness (optional
   - Signed by (initials): A ____  B ____  C ____
 - [ ] 8. Only `out/root.json` copied to the transfer stick; sha256 on the online computer matches the line above
 - [ ] 9. `root.json` committed in a PR as `os/rootfs/layers/base/usr/lib/onemind/tuf/<channel>/root.json`
-- [ ] 10. Secrets set: `ONEMIND_TUF_TARGETS_KEY`, `ONEMIND_TUF_SNAPSHOT_KEY`, `ONEMIND_TUF_TIMESTAMP_KEY` (from the online `.key` files)
+- [ ] 10. GitHub Environment `tuf-signing` created (Settings → Environments), deployment branches: `main` only, **no** required reviewer. Secrets set **in that environment** with `gh secret set <NAME> --env tuf-signing < online/<role>.key`: `ONEMIND_TUF_TARGETS_KEY`, `ONEMIND_TUF_SNAPSHOT_KEY`, `ONEMIND_TUF_TIMESTAMP_KEY`. Only these three, never the root keys, never as repository secrets
 - [ ] 11. Ceremony machine shut down (live USB) or `online/` and `out/` securely deleted; transfer stick wiped
 
 ## After

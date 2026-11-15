@@ -35,7 +35,7 @@ python3 -m venv V && V/bin/pip install --require-hashes --only-binary :all: -r o
 PYTHON=V/bin/python scripts/tuf-bootstrap-root.sh rehearse /tmp/rehearsal-1
 ```
 
-You should see `REHEARSAL PASSED`. It does the whole ceremony on throwaway keys: three root keys, 2-of-3 signing with one holder absent, online keys, the final check and a signed test release checked as a box would. Delete `/tmp/rehearsal-1` afterwards. The command refuses an existing directory and refuses to run in CI.
+You should see `REHEARSAL PASSED`. **The rehearsal is the go/no-go:** the unit tests in `os/update/tests/test_tuf_ceremony.py` skip silently on a machine without python-tuf, so a green test run alone proves nothing there. If `REHEARSAL PASSED` does not appear on the ceremony machine, do not start. It does the whole ceremony on throwaway keys: three root keys, 2-of-3 signing with one holder absent, online keys, the final check and a signed test release checked as a box would. Delete `/tmp/rehearsal-1` afterwards. The command refuses an existing directory and refuses to run in CI.
 
 ## The ceremony
 
@@ -65,13 +65,13 @@ Use the commands as written. `<stick-a>` is where holder A's stick is mounted (f
 8. **Move the public file out.** Copy **only** `out/root.json` to the transfer stick. Check the sha256 on the online computer matches the printout (`shasum -a 256 root.json`).
 9. **Publish (on the online computer, by you).**
    - Commit `root.json` as `os/rootfs/layers/base/usr/lib/onemind/tuf/security/root.json` (and `.../stable/root.json` for the stable channel) in a PR, so the gate reviews it. `root.json` is public.
-   - Put the three online private keys into GitHub as **repository secrets** (this is what `.github/workflows/security-nightly.yml` reads today):
+   - Put the three online private keys into the GitHub **Environment** `tuf-signing` (D-010). First create it: repository **Settings → Environments → New environment → `tuf-signing`**, then *Deployment branches and tags* → *Selected branches and tags* → add `main` only. Leave *Required reviewers* off (a reviewer would stop the nightly and the 6-hourly re-sign). Then set the three secrets **in that environment**:
      ```sh
-     gh secret set ONEMIND_TUF_TARGETS_KEY   < online/targets.key
-     gh secret set ONEMIND_TUF_SNAPSHOT_KEY  < online/snapshot.key
-     gh secret set ONEMIND_TUF_TIMESTAMP_KEY < online/timestamp.key
+     gh secret set ONEMIND_TUF_TARGETS_KEY   --env tuf-signing < online/targets.key
+     gh secret set ONEMIND_TUF_SNAPSHOT_KEY  --env tuf-signing < online/snapshot.key
+     gh secret set ONEMIND_TUF_TIMESTAMP_KEY --env tuf-signing < online/timestamp.key
      ```
-     Do this by carrying the three `.key` files on the **transfer stick only for this step**, then wipe it. Moving them into a protected GitHub *Environment* (CORE-SEC-8) needs the workflow to declare that environment: a separate change, not part of this ceremony.
+     Carry the three `.key` files on the **transfer stick only for this step**, then wipe it. Only the jobs `decide`, `tuf` and `timestamp` of `security-nightly.yml` declare `environment: tuf-signing`, and `test/unit/test_tuf_secrets.py` fails if any other job or workflow reads these keys. Because `main` is the only branch allowed, a manual dispatch from another branch stops at `decide`: run dry runs on `main`. Do **not** also set them as repository secrets.
    - Signed releases need more than the TUF keys: `ONEMIND_RAUC_SIGNING_KEY`, `ONEMIND_RAUC_SIGNING_CERT` and the variable `ONEMIND_SECURITY_PUBLISH=true` ([README](README.md)). Those are not made here.
 10. **Wipe the online machine.** Shut the live USB down (it forgets), or securely delete `online/` and `out/`. The root `.key` files exist only on the three sticks. Wipe the transfer stick.
 11. **Store the sticks** in three places, one each: home, off-site, a trusted person. The succession note (who may act if you cannot, and where the sticks and passphrases are) goes in a **sealed envelope, never in the repo**.
