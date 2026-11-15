@@ -249,7 +249,45 @@ a green CI. Report at the end: approved and queued, sent back (with the main
 reason), and waiting on Zeus.
 ```
 
-## 11. Words used
+## 11. Running the Codex seat in Hermes: models, cost and start-up
+
+**Checked 2026-11-14.** Hermes signs in to Codex with ChatGPT accounts (OAuth), not an API key. So the cost is not billed per token. Each model uses up the accounts' usage allowance at a different rate, roughly in the same proportion as the API prices below. Hermes spreads turns over both accounts (`credential_pool_strategies: openai-codex: least_used`).
+
+| Model | What OpenAI says it is for | API price, $ per 1M tokens (input / output) | Use it here for |
+|---|---|---|---|
+| `gpt-6-astra` | most capable, hardest end-to-end work | 10 / 50 (third-party figure) | **Not for building.** It costs about 5× Sol; the hard work goes to the Claude builder, and judgment to the Opus gate |
+| `gpt-6.1-sol` | near-Astra for complex, repeated, long-running code work; Codex default | 2 / 10 | **The orchestrator and every coding worker** |
+| `gpt-6.1-terra` | fast; writing, charts, computer use | 1 / 5 | Optional: checking dashboard screens by driving a browser |
+| `gpt-6-luna` | most efficient; focused, high-volume tasks, including focused coding | 0.10 / 0.50 | Mechanical issues: STATUS.md, docs, fragments, lint-only fixes |
+
+Rules for saving allowance:
+- **Do not use the `-900k` variants.** Sol and Luna charge 2× input and 1.5× output above 272K tokens, and one issue never needs that much context.
+- **Reasoning `medium`, not `high`,** for workers. Raise a worker to `high` only on its second `review:changes` round for the same PR.
+- **4 workers at once** (see §5).
+
+Sources: [OpenAI Codex models](https://learn.chatgpt.com/docs/models) (tiers and use); API prices are third-party (OpenAI's pricing page blocks automated readers): [TrueFoundry](https://www.truefoundry.com/blog/gpt-6-1-sol-terra-luna), [Requesty](https://www.requesty.ai/blog/gpt-6-1-terra-pricing-api), [Licenseware](https://licenseware.io/openai-api-cost/). UNVERIFIED against openai.com/api/pricing.
+
+**Hermes settings** (in the Hermes `config.yaml`, `delegation:` section):
+
+```yaml
+delegation:
+  provider: openai-codex
+  model: gpt-6.1-sol
+  reasoning_effort: medium
+  max_concurrent_children: 4     # Hermes' default is 10; the merge queue cannot absorb that yet
+  worktree_isolation: true       # each worker in its own git worktree
+```
+
+**Start-up, every time:**
+1. Bring the checkout up to date: `git -C <repo> switch main && git -C <repo> pull`.
+2. Check Hermes: `hermes doctor` (the `openai-codex` provider shows ✓) and `hermes auth list` (two `openai-codex` credentials).
+3. Start the orchestrator in the repo: `hermes chat --in <repo> -m gpt-6.1-sol --reasoning medium`, then paste Prompt A (§8).
+4. Watch it in the Hermes dashboard, or with `gh issue list -R onemindos/ONEMINDOS -l claimed` and `gh pr list -R onemindos/ONEMINDOS -l builder:codex`.
+5. **Emergency stop:** `hermes pause` (stops new turns and dispatch); `hermes resume` to continue.
+
+Do not start Hermes with `--yolo`: the workers push to a public repo, and approval prompts are the last check on a bad command.
+
+## 12. Words used
 
 - **Merge queue:** GitHub tests each PR on top of the latest `main` before merging, one after another, so `main` stays green.
 - **DCO sign-off:** a `Signed-off-by:` line on each commit saying you have the right to contribute it.
