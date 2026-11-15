@@ -2,7 +2,7 @@
 # Base layer, Debian 13 leg (brief 30 B2). Versions come from the pinned snapshot
 # (os/versions.lock.yaml); the resolved list is exported as /usr/lib/onemind/packages.txt.
 systemd systemd-sysv systemd-resolved udev dbus login passwd
-kmod iproute2 iptables procps util-linux mount e2fsprogs dosfstools
+kmod iproute2 iptables nftables procps util-linux mount e2fsprogs dosfstools
 ca-certificates curl socat zstd squashfs-tools
 apparmor
 # OneMind layer: onemind.local over mDNS; openssl for the per-box CA at first boot (docs/leap/core/IMAGES.md)

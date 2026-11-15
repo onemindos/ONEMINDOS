@@ -46,7 +46,9 @@ COPY --chmod=755 os/rootfs/fetch-onemind.sh /usr/local/sbin/fetch-onemind
 
 FROM onemind-buildbase AS onemind-fetch
 ARG TARGETARCH
-RUN fetch-onemind nats "$TARGETARCH" /opt/nats
+RUN fetch-onemind nats "$TARGETARCH" /opt/nats \
+ && fetch-onemind tailscale "$TARGETARCH" /opt/tailscale \
+ && fetch-onemind headscale "$TARGETARCH" /opt/headscale
 
 FROM onemind-buildbase AS onemind-go
 ARG BUILDARCH
@@ -156,6 +158,9 @@ COPY os/rootfs/layers/base/ /
 # first boot. Every role unit ships disabled; onemind-firstboot starts them once the box has a role.
 COPY --from=onemind-go /out/onemindd /out/onemind /usr/bin/
 COPY --from=onemind-fetch /opt/nats/nats-server /usr/bin/nats-server
+COPY --from=onemind-fetch /opt/tailscale/tailscale /usr/bin/tailscale
+COPY --from=onemind-fetch /opt/tailscale/tailscaled /usr/sbin/tailscaled
+COPY --from=onemind-fetch /opt/headscale/headscale /usr/bin/headscale
 COPY --from=onemind-gateway /usr/lib/onemind/gateway/ /usr/lib/onemind/gateway/
 COPY --from=onemind-dashboard /src/dashboard/dist/ /usr/lib/onemind/dashboard/
 COPY sdk/schema/ /usr/lib/onemind/sdk/schema/
@@ -170,8 +175,15 @@ RUN set -eu; \
     groupadd --system --gid 961 onemind; \
     useradd --system --uid 961 --gid onemind --home-dir /data/onemind/gateway --no-create-home \
       --shell /usr/sbin/nologin onemind; \
+    groupadd --system --gid 962 onemind-nats; \
+    useradd --system --uid 962 --gid onemind-nats --no-create-home --home-dir /nonexistent \
+      --shell /usr/sbin/nologin onemind-nats; \
+    groupadd --system --gid 963 onemind-headscale; \
+    useradd --system --uid 963 --gid onemind-headscale --no-create-home --home-dir /nonexistent \
+      --shell /usr/sbin/nologin onemind-headscale; \
     systemctl enable onemind-firstboot.service avahi-daemon.service >/dev/null; \
     /usr/bin/nats-server --version; \
+    /usr/sbin/tailscaled --version | head -1; /usr/bin/tailscale --version | head -1; /usr/bin/headscale version; \
     /usr/lib/onemind/gateway/venv/bin/python3 -I -c "import onemind_core" ; \
     if [ -x /tmp/onemind/board/post-install.sh ]; then /tmp/onemind/board/post-install.sh; fi; \
     systemctl enable systemd-networkd.service systemd-resolved.service onemind-data-layout.service \
@@ -185,7 +197,8 @@ RUN set -eu; \
     kver=$(ls /lib/modules | sort -V | tail -n1); \
     ln -sf "vmlinuz-$kver" /boot/vmlinuz; ln -sf "initrd.img-$kver" /boot/initrd.img; \
     update-initramfs -u -k "$kver"; \
-    mkdir -p /data /boot/efi /etc/rancher/node /var/lib/rancher /var/lib/kubelet /var/lib/cni; \
+    mkdir -p /data /boot/efi /etc/rancher/node /var/lib/rancher /var/lib/kubelet /var/lib/cni \
+      /var/lib/tailscale /var/lib/onemind-headscale /var/lib/onemind-nats-leaf; \
     dpkg-query -W -f='${Package} ${Version} ${Architecture}\n' | sort > /usr/lib/onemind/packages.txt; \
     printf 'leg=%s board=%s arch=%s kernel=%s\n' "${LEG}" "${BOARD}" "${TARGETARCH}" "$kver" > /usr/lib/onemind/build-info.txt; \
     rm -rf /tmp/onemind /var/cache/apt/*.bin /var/log/apt /var/log/dpkg.log; \

@@ -25,8 +25,8 @@ def unit(name):
 
 
 def mount_unit(path):
-    assert "-" not in path, "escape '-' as \\x2d if a bind target ever has one"
-    return path.strip("/").replace("/", "-") + ".mount"
+    # systemd path escaping: "/" becomes "-" and a literal "-" becomes \\x2d (systemd-escape --path).
+    return path.strip("/").replace("-", "\\x2d").replace("/", "-") + ".mount"
 
 
 class Wiring(unittest.TestCase):

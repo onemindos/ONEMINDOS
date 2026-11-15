@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Ubuntu 26.04 CI hedge only (founder override Z-38 = b): same definition, never published (Z-01).
 systemd systemd-sysv systemd-resolved udev dbus login passwd
-kmod iproute2 iptables procps util-linux mount e2fsprogs dosfstools
+kmod iproute2 iptables nftables procps util-linux mount e2fsprogs dosfstools
 ca-certificates curl socat zstd squashfs-tools
 apparmor
 avahi-daemon openssl

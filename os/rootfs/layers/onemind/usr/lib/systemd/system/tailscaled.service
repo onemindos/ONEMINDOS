@@ -1,0 +1,25 @@
+# SPDX-License-Identifier: Apache-2.0
+# The mesh client (docs/architecture/NETWORKING.md §4; IMG-MESH-01). Based on the unit in the Tailscale
+# 1.104.6 tarball, with deploy/install.sh's drop-in baked in: no log upload to Tailscale Inc (S12), the
+# coordinator's certificate checked against the box CA only, and the flannel guard. Ships disabled;
+# onemind-firstboot starts it once the box CA exists. Its state is the bind mount /var/lib/tailscale.
+[Unit]
+Description=OneMind mesh client (tailscaled)
+Documentation=https://tailscale.com/docs/
+Wants=network-pre.target
+After=network-pre.target systemd-resolved.service
+RequiresMountsFor=/data /var/lib/tailscale
+ConditionPathExists=/data/onemind/identity/ca.pem
+
+[Service]
+Environment=SSL_CERT_FILE=/data/onemind/identity/ca.pem
+Environment=TS_NO_LOGS_NO_SUPPORT=true
+# Tailscale offers flannel's interfaces as paths; drop its UDP port there (/usr/lib/onemind/mesh-guard.nft).
+ExecStartPre=/usr/sbin/nft -f /usr/lib/onemind/mesh-guard.nft
+ExecStart=/usr/sbin/tailscaled --no-logs-no-support --port=41641 --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock
+ExecStopPost=/usr/sbin/tailscaled --cleanup
+ExecStopPost=-/usr/sbin/nft delete table inet onemind_mesh_guard
+Restart=on-failure
+RuntimeDirectory=tailscale
+RuntimeDirectoryMode=0755
+Type=notify
