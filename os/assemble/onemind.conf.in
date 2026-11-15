@@ -6,5 +6,9 @@
 #
 # role       = hub            # hub | worker | leaf
 # name       = OneMind        # shown in the dashboard (hub)
-# hub        = onemind.local  # worker / leaf: the hub's name or address
-# join_token =                # worker / leaf: printed on the hub's console at its first boot
+# join_code  =                # worker / leaf: on the hub run `onemind fabric ticket` (or Add a device on
+#                             # the dashboard) and paste the whole onemind-join:v1?... code; the owner
+#                             # then approves this box on the hub. Codes are one-use and expire
+#                             # (15 min by default; `--ttl 1h` gives more time to flash and boot)
+# hub_addr   =                # worker / leaf, optional: the hub's LAN IP (printed on its console),
+#                             # if this box cannot find the hub by its .local name
