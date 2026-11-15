@@ -41,8 +41,8 @@
 ## Heavy (hours; do last or in a fresh session)
 | Item | Branch | Why heavy |
 |---|---|---|
-| Mesh, HTTPS and join wired in | `feat/net-part2` | PR #88: 2-VM proof N2-0..N2-6 pass (cross-node app proxy fixed); N2-7 cookie check in progress |
-| Image line | `feat/image-line` | Merged in #66 (2026-11-13). LUKS2 waits for `feat/storage-actions` and F-61/F-62 |
+| Mesh, HTTPS and join wired in | `feat/net-part2` | Merged in #88; 2-VM proof N2-0..N2-7 pass. Follow-ups: app-session refusal audited (#224); box CA delivered to agent pods, reached at `hub.onemind.internal` (H-05, #258) |
+| Image line | `feat/image-line` | Merged in #66 (2026-11-13). Storage actions merged in #103; LUKS2 waits for F-61/F-62 |
 | Slop fixes | `docs/slop-audit` | Pass 1 merged in #67; pass 2 reports are `docs/quality/slop-audit-2-*.md` |
 | Not started | — | App lifecycle (PD-03..07), dashboard wiring pass. Pi perf budget (#68) and the Machines spike (#70) are merged |
 | Last of all | #43, #58 | Done: #43 closed; #58 closed, its CHANGELOG catch-up landed as `changes/docs-lane-b-wrapup.md` |
