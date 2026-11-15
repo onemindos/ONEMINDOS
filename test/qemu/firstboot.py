@@ -67,14 +67,27 @@ def http_code(vm, url, token=None, timeout=900):
 
 
 def diagnose(vm, why):
-    """Best effort: put the gateway journal into the log (the serial log and stdout) so the cause is visible."""
-    vm.mark(f"DIAGNOSE ({why}): gateway journal")
+    """Best effort: put the journal of the unit that failed (named in `why`, if any) and the gateway's into
+    the log (the serial log and stdout) so the cause is visible."""
+    units = [battery.failfast.GATEWAY_UNIT]
+    m = re.search(r"Failed to start (?:\x1b?\[[0-9;]*m)?(onemind[\w@.-]*)", why)    # systemd colours the name
+    unit = m and m.group(1).removesuffix(".service") + ".service"
+    if unit and unit not in units:
+        units.insert(0, unit)
+    vm.mark(f"DIAGNOSE ({why}): journal of {' '.join(units)}")
     vm.failfast = False
     try:
-        _, out = vm.run(battery.failfast.dump_cmd(), 90)
-        print(out[-6000:], flush=True)
+        # The fatal sign can come before the console has logged in; a command sent then is lost.
+        vm.send("")
+        vm.expect(r"root@onemind:~# ", 120)
     except (TimeoutError, RuntimeError, OSError) as e:
-        vm.mark(f"DIAGNOSE failed: {e}")
+        vm.mark(f"DIAGNOSE: no shell prompt ({e}); trying anyway")
+    for unit in units:
+        try:
+            _, out = vm.run(battery.failfast.dump_cmd(unit), 90)
+            print(out[-6000:], flush=True)
+        except (TimeoutError, RuntimeError, OSError) as e:
+            vm.mark(f"DIAGNOSE failed: {e}")
 
 
 def nodes(vm, token, want_id, timeout=600):
@@ -367,6 +380,7 @@ def main():
         cfg = vm.expect(CONFIGURED, 900).group(0)
         time.sleep(3)
         toks = TOKEN.findall(vm.since(0))
+        vm.pos = 0              # on a fast host the gate line comes before CONFIGURED; this boot's buffer only
         g = vm.wait_gate()
         vm.shell_ready()
         f0(vm, a.board)
@@ -438,7 +452,7 @@ def main():
     except (TimeoutError, RuntimeError) as e:
         record("HARNESS", False, f"aborted: {e}")
         if "fatal sign" in str(e) and "Kernel panic" not in str(e) and vm.proc and vm.proc.poll() is None:
-            diagnose(vm, "fatal console sign")
+            diagnose(vm, f"fatal console sign: {e}")
     if rc == 0:
         vm.poweroff()
     elif vm.proc and vm.proc.poll() is None:

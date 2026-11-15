@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 # Keeps tailscaled off flannel's interfaces (see tailscaled.service). Same rules as deploy/install.sh.
 # Tailscale offers every local interface address as a path to its peers, and flannel's own interface
 # (flannel-wg, in the pod network) carries traffic inside tailscale0: a path through it is a loop.

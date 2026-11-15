@@ -80,6 +80,7 @@ ONEMIND_CLI = "/usr/bin/onemind"
 ONEMINDD = "/usr/bin/onemindd"
 HEADSCALE = "/usr/bin/headscale"
 TAILSCALE = "/usr/bin/tailscale"
+LAN_WAIT_S = 60          # how long `mesh` waits for a LAN IPv4 address (a slow DHCPv4 lease)
 JOIN_TIMEOUT = "20m"      # how long `onemind fabric join` waits for the owner's approval
 
 
@@ -327,16 +328,44 @@ def lan_addr() -> str | None:
     """The IPv4 address this box's default route leaves from, read once (at first boot, or by `mesh`
     if the network was not up yet) and kept in /data/onemind/etc/lan-addr. connect() on a UDP socket
     sends no packet: it only asks the kernel which route and source address it would use.
-    192.0.2.1 is TEST-NET-1 (RFC 5737), an address no real host has."""
+    192.0.2.1 is TEST-NET-1 (RFC 5737), an address no real host has.
+    A LAN without a router (offline, or QEMU's restrict=on network) gives no default route; then the
+    box's one global IPv4 address on a real interface is its LAN address, if it has exactly one."""
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
         s.connect(("192.0.2.1", 9))
         addr = s.getsockname()[0]
     except OSError:
-        return None
+        addr = ""
     finally:
         s.close()
-    return None if addr.startswith(("0.", "127.")) else addr
+    if addr and not addr.startswith(("0.", "127.")):
+        return addr
+    try:
+        r = run_cmd(["ip", "-4", "-o", "addr", "show", "scope", "global"])
+    except OSError:
+        return None
+    return only_lan_addr(r.stdout) if r.returncode == 0 else None
+
+
+# Interfaces that are never the LAN: the mesh, k3s (flannel, CNI, pods), containers, bridges.
+VIRTUAL_IFACES = ("lo", "tailscale", "flannel", "cni", "veth", "kube", "docker", "virbr", "br-")
+
+
+def only_lan_addr(ip_addr_out: str) -> str | None:
+    """From `ip -4 -o addr show scope global`, the single LAN IPv4 address; None if none or several."""
+    found = set()
+    for line in ip_addr_out.splitlines():
+        f = line.split()                       # "2: enp0s1    inet 10.0.2.15/24 brd ... scope global ..."
+        if len(f) < 4 or f[2] != "inet" or f[1].startswith(VIRTUAL_IFACES):
+            continue
+        try:
+            ip = ipaddress.IPv4Address(f[3].split("/")[0])
+        except ValueError:
+            continue
+        if not (ip.is_loopback or ip.is_link_local or ip in MESH_V4):
+            found.add(str(ip))
+    return found.pop() if len(found) == 1 else None
 
 
 def known_lan(p: Paths) -> str | None:
@@ -744,9 +773,15 @@ def _mesh(p: Paths, st: dict, sleep) -> str:
     # 1. The LAN address: read at first boot, or now if the network was not up then.
     lan = known_lan(p)
     if not lan:
-        lan = lan_addr()
-        if not lan:
-            raise MeshError("this box has no IPv4 default route, so no LAN address for the mesh relay")
+        # The box can be "online" before its DHCPv4 lease: an IPv6 router advertisement is enough for
+        # network-online.target unless the .network file says otherwise, and DHCP servers can be slow.
+        for _ in range(LAN_WAIT_S):
+            lan = lan_addr()
+            if lan:
+                break
+            sleep(1)
+        else:
+            raise MeshError(f"this box got no LAN IPv4 address in {LAN_WAIT_S} s (no default route and no single LAN address), so none for the mesh relay")
         write(p.lan_file, lan + "\n", 0o644)
         log(f"mesh: LAN address {lan}")
     # 2. Headscale's config; its user reads it, nobody else needs it (no secret in it).

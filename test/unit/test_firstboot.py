@@ -444,6 +444,35 @@ class Mesh(Box):
         self.assertNotIn("hs preauthkeys create", self.fake.names())
         self.assertNotIn("ONEMIND_MESH_", self.etc("gateway.env"))
 
+    def test_lan_address_without_a_router(self):
+        # QEMU's restrict=on network (and an offline LAN) leases an address with no default route.
+        out = ("2: enp0s1    inet 10.0.2.15/24 metric 1024 brd 10.0.2.255 scope global dynamic enp0s1\\\n"
+               "3: tailscale0    inet 100.64.0.1/32 scope global tailscale0\\\n"
+               "4: flannel.1    inet 10.42.0.0/32 scope global flannel.1\\\n"
+               "5: cni0    inet 10.42.0.1/24 brd 10.42.0.255 scope global cni0\\\n")
+        self.assertEqual(fb.only_lan_addr(out), "10.0.2.15")
+        two = out + "6: enp0s2    inet 192.168.1.5/24 scope global enp0s2\\\n"
+        self.assertIsNone(fb.only_lan_addr(two))           # two LANs: no guessing
+        self.assertIsNone(fb.only_lan_addr(""))
+
+    def test_waits_for_a_late_ipv4_lease(self):
+        os.remove(self.p.lan_file)                         # first boot ran before the DHCPv4 lease
+        answers = [None, None, LAN]
+        with mock.patch.object(fb, "lan_addr", lambda: answers.pop(0)):
+            self.assertEqual(fb.mesh(self.p, sleep=lambda s: None), 0)
+        self.assertEqual(self.read(self.p.lan_file), LAN + "\n")
+        self.assertIn("mesh up", self.console())
+
+    def test_no_ipv4_route_fails_clearly_and_starts_nothing(self):
+        os.remove(self.p.lan_file)
+        naps = []
+        with mock.patch.object(fb, "lan_addr", lambda: None):
+            self.assertEqual(fb.mesh(self.p, sleep=naps.append), 1)
+        self.assertEqual(len(naps), fb.LAN_WAIT_S)
+        self.assertIn("no LAN IPv4 address in 60 s", self.console())
+        self.assertEqual(self.started, [])
+        self.assertEqual(self.fake.names(), [])
+
     def test_no_mesh_address_leaves_gateway_alone(self):
         class NeverUp(FakeMesh):
             def __call__(fake, argv, env=None):
