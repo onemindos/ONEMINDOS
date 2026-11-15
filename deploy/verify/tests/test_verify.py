@@ -329,5 +329,87 @@ class NatscheckAgainstRealNats(unittest.TestCase):
         self.assertIn("CERTIFICATE_VERIFY_FAILED", out)
 
 
+def has_cryptography():
+    try:
+        import cryptography  # noqa: F401
+        return True
+    except ImportError:
+        return False
+
+
+def make_nkey(directory, name):
+    """A NATS user nkey pair written the way the installer writes it (seed file), plus the public key."""
+    import base64
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+    from cryptography.hazmat.primitives.serialization import Encoding, NoEncryption, PrivateFormat, PublicFormat
+
+    def crc(data):
+        c = 0
+        for b in data:
+            c ^= b << 8
+            for _ in range(8):
+                c = ((c << 1) ^ 0x1021) if c & 0x8000 else c << 1
+                c &= 0xFFFF
+        return c
+
+    def enc(raw):
+        return base64.b32encode(raw + crc(raw).to_bytes(2, "little")).decode().rstrip("=")
+    k = Ed25519PrivateKey.generate()
+    user = 20 << 3
+    seed = enc(bytes([18 << 3 | user >> 5, (user & 31) << 3]) + k.private_bytes(Encoding.Raw, PrivateFormat.Raw, NoEncryption()))
+    pub = enc(bytes([user]) + k.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw))
+    path = os.path.join(directory, name + ".nk")
+    with open(path, "w") as f:
+        f.write(seed + "\n")
+    return path, pub
+
+
+@unittest.skipUnless(docker_ok() and has_cryptography(), "needs Docker and the cryptography package")
+class NatscheckNkeyAgainstRealNats(unittest.TestCase):
+    """A strict hub (CORE-SEC-4, #161): only the listed service nkey gets in; natscheck signs with it."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.dir = tempfile.mkdtemp()
+        os.chmod(cls.dir, 0o755)
+        cls.seed, pub = make_nkey(cls.dir, "onemindd")
+        cls.stranger, _ = make_nkey(cls.dir, "stranger")
+        with open(os.path.join(cls.dir, "nats.conf"), "w") as f:
+            f.write('listen: 0.0.0.0:4222\nauthorization { users: [ {nkey: "%s"} ] }\n' % pub)
+        os.chmod(os.path.join(cls.dir, "nats.conf"), 0o644)
+        s = socket.socket()
+        s.bind(("127.0.0.1", 0))
+        cls.port = s.getsockname()[1]
+        s.close()
+        cls.name = "onemind-natscheck-nkey-%d" % cls.port
+        subprocess.run(["docker", "run", "-d", "--rm", "--name", cls.name, "-p", "127.0.0.1:%d:4222" % cls.port,
+                        "-v", cls.dir + ":/conf:ro", NATS_IMAGE, "-c", "/conf/nats.conf"], check=True, capture_output=True)
+        if not wait_port(cls.port):
+            raise RuntimeError("nats did not start")
+        time.sleep(1)
+
+    @classmethod
+    def tearDownClass(cls):
+        subprocess.run(["docker", "rm", "-f", cls.name], capture_output=True)
+        shutil.rmtree(cls.dir, ignore_errors=True)
+
+    def test_listed_key_signs_in_others_are_refused(self):
+        url = "nats://127.0.0.1:%d" % self.port
+        code, out = natscheck("ping", url, "--nkey", self.seed)
+        self.assertEqual(code, 0, out)
+        env = os.path.join(self.dir, "onemindd.env")
+        with open(env, "w") as f:
+            f.write("ONEMIND_NATS_URL=%s\nONEMIND_NATS_NKEY_SEED=%s\n" % (url, self.seed))
+        code, out = natscheck("ping", "--env-file", env)
+        self.assertEqual(code, 0, out)
+        code, out = natscheck("ping", url)               # no key
+        self.assertEqual(code, 1, out)
+        code, out = natscheck("ping", url, "--nkey", self.stranger)  # a key the hub does not list
+        self.assertEqual(code, 1, out)
+        self.assertIn("Authorization", out)
+        with open(self.seed) as f:
+            self.assertNotIn(f.read().strip(), out)
+
+
 if __name__ == "__main__":
     unittest.main()

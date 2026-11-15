@@ -58,7 +58,7 @@ Install as a service: see [`deploy/systemd/`](../../deploy/systemd/README.md).
 
 ## v0 shortcuts (from the contract, plus this component's own)
 - **Nodes publish straight to the hub's NATS.** NATS leaf nodes (buffering on the node) come later (contract v0 shortcut; brief 30 BM4).
-- **NATS auth:** only what fits in `ONEMIND_NATS_URL` (e.g. `nats://user:pass@hub:4222`). No NKEY/creds file yet.
+- **NATS auth:** what fits in `ONEMIND_NATS_URL` (e.g. `nats://user:pass@hub:4222`), or on a hub its own service nkey: `ONEMIND_NATS_NKEY_SEED` (flag `-nats-nkey`) names the seed file `deploy/install.sh` makes (CORE-SEC-4, #161). No JWT/creds file.
 - **The local API has no authentication**, so it listens on `127.0.0.1:7480` (loopback only, hardening H-24); the hub learns the same data from heartbeats. It is read-only and the heartbeat holds no secrets or personal data by design. The rescue console (brief 30 B11, LAN-only HTTPS with the local CA) will replace this.
 - **k3s agent readiness** is "the `k3s-agent` unit is active", which is weaker than the server's `/readyz`. The gate's fresh-health check (REC-DEC-07) is a separate job.
 - **RAUC slots** carry `name, class, bootname, state, boot_status, bundle_version`; the contract only says `slots: []`. The JSON field names read from `rauc status` follow RAUC's JSON output as used in our lab work; **UNVERIFIED against RAUC v1.15.2 on hardware** until LT-X86-01 runs it.

@@ -40,6 +40,9 @@ type Config struct {
 	Interval  time.Duration // heartbeat period, default 10 s
 	Collector *detect.Collector
 	Logger    *slog.Logger
+	// NATSNkeySeed is this daemon's own NATS user seed file on a strict hub
+	// (CORE-SEC-4, #161; core/onemind_core/natsconf.py). Empty = no nkey.
+	NATSNkeySeed string
 	// UpdateReport, when set, supplies the optional "update" object of the
 	// heartbeat (read from the update service's status file). nil = omit.
 	UpdateReport func() *heartbeat.Update
@@ -239,18 +242,27 @@ func (a *Agent) Serve(ctx context.Context, ln net.Listener) error {
 // connectNATS starts a connection that keeps retrying forever in the
 // background, including when the server is down at start-up.
 func (a *Agent) connectNATS() {
-	nc, err := nats.Connect(a.cfg.NATSURL,
-		nats.Name("onemindd/"+version.Version),
+	opts := []nats.Option{
+		nats.Name("onemindd/" + version.Version),
 		nats.RetryOnFailedConnect(true),
 		nats.MaxReconnects(-1),
-		nats.ReconnectWait(2*time.Second),
+		nats.ReconnectWait(2 * time.Second),
 		nats.ReconnectBufSize(-1), // do not buffer while disconnected; see package doc
 		nats.ConnectHandler(func(*nats.Conn) { a.log.Info("NATS connected"); a.kickPublish() }),
 		nats.ReconnectHandler(func(*nats.Conn) { a.log.Info("NATS reconnected"); a.kickPublish() }),
 		nats.DisconnectErrHandler(func(_ *nats.Conn, err error) {
 			a.log.Warn("NATS disconnected; will keep retrying", "err", err)
 		}),
-	)
+	}
+	if a.cfg.NATSNkeySeed != "" {
+		nk, err := nats.NkeyOptionFromSeed(a.cfg.NATSNkeySeed)
+		if err != nil {
+			a.log.Error("NATS nkey seed unreadable; heartbeats disabled", "err", err)
+			return
+		}
+		opts = append(opts, nk)
+	}
+	nc, err := nats.Connect(a.cfg.NATSURL, opts...)
 	if err != nil {
 		// Only bad URLs/options get here; RetryOnFailedConnect handles "down".
 		a.log.Error("NATS connect failed; heartbeats disabled", "err", err)
