@@ -168,7 +168,7 @@ class GuardMiddleware:
         if declared is not None and declared > limit:
             return await _reject(scope, receive, send, 413, "payload_too_large",
                                  f"request body is over {limit} bytes", None, None)
-        if declared is None and _has_body(scope):
+        if declared is None:
             # Chunked or unknown length: read it here, up to the limit, before any route sees it
             # (a route's own body parser would turn an error into a generic 400).
             body, more = bytearray(), True
@@ -212,10 +212,6 @@ async def _reject(scope, receive, send, status, error, message, reason, wait):
     retry = max(1, math.ceil(wait)) if wait is not None else None
     resp = error_response(status, error, message, reason=reason, retry_after_s=retry)
     await resp(scope, receive, send)
-
-
-def _has_body(scope) -> bool:
-    return any(k == b"transfer-encoding" for k, _ in scope.get("headers") or [])
 
 
 def _replay(body: bytes, receive):
