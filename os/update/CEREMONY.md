@@ -75,7 +75,80 @@ Use the commands as written. `<stick-a>` is where holder A's stick is mounted (f
    - Signed releases need more than the TUF keys: `ONEMIND_RAUC_SIGNING_KEY`, `ONEMIND_RAUC_SIGNING_CERT` and the variable `ONEMIND_SECURITY_PUBLISH=true` ([README](README.md)). Those are not made here.
 10. **Wipe the online machine.** Shut the live USB down (it forgets), or securely delete `online/` and `out/`. The root `.key` files exist only on the three sticks. Wipe the transfer stick.
 11. **Store the sticks** in three places, one each: home, off-site, a trusted person. The succession note (who may act if you cannot, and where the sticks and passphrases are) goes in a **sealed envelope, never in the repo**.
-12. **Calendar the renewal.** The root **expires after 365 days** ([channel.json](channel.json)), and a box refuses an expired root, so put a reminder 60 days before. **Renewal is not built yet:** it needs a new `2.root.json` signed by 2 of the 3 holders (and by the old root keys, as TUF's root rotation requires). `tuf-repo.py init-root` has a `--version` option, but `scripts/tuf-bootstrap-root.sh` has no renewal command and no rehearsal for it. That is a follow-up to finish within the year; moving the root onto hardware tokens (#272) is the same kind of rotation and counts as the required drill (D-010).
+12. **Calendar the renewal.** The root **expires after 365 days** ([channel.json](channel.json)), and a box refuses an expired root, so put a reminder 60 days before. **Renewal is a rotation:** `scripts/tuf-bootstrap-root.sh rotate-root` makes the next `root.json` (a new expiry, the same or new keys), signed by 2 of the old and 2 of the new root keys; use the same keys as old and new to renew. It is the same command as moving onto hardware keys, see [Rotate the root onto hardware keys](#rotate-the-root-onto-hardware-keys-rel-02-272), and `rotate-root`'s rehearsal is `rehearse-rotate`.
+
+## Rotate the root onto hardware keys (REL-02, #272)
+
+**What this is.** Today (after the ceremony above) the three root keys are files on three encrypted sticks. This moves the root onto **hardware keys**: three small devices, each holding one root key that **can never be copied out of the device**. Stealing the stick's file or its passphrase is no longer enough; the thief needs the device **and** its PIN. It is a **root rotation**: a new `root.json` (version 2) with a new set of root keys. Boxes that ship the version-1 root follow it by themselves, because TUF requires version 2 to be signed by **2 of the 3 OLD keys and 2 of the 3 NEW keys** (spec 5.3.4). If either group is short, a box refuses the new root, and `rotate-root` refuses to write it. The same command also **renews an expiring root** (use the same keys as old and new).
+
+**You run this, never an agent.** Offline machine, your own hands, like the ceremony. The rehearsal below is the only part an agent runs, on throwaway keys.
+
+### More words
+
+- **Hardware token:** a small device (a YubiKey, a smart card) that makes and keeps a private key inside itself and signs for you on request. The key never leaves it.
+- **PKCS#11:** the standard plug a program uses to talk to such a device. Each device type comes with a **module** (a `.so` or `.dylib` file) that implements it; `PYKCS11LIB` names that file.
+- **PIV:** the smart-card feature of a YubiKey. It has numbered **slots**; slot `9c` is "digital signature", PKCS#11 key id `2`, and is what the tool uses by default.
+- **PIN:** the short code that unlocks the device for signing. **Three wrong PINs lock a YubiKey**, so type slowly. It is typed at a prompt that shows nothing; it is never part of a command (a command is saved in your shell history).
+- **ECDSA P-256:** the signature type the token keys use. (The sticks use ed25519, which PKCS#11 devices do not reliably support.) Box code handles both; this was checked with the box's own verifier.
+- **Threshold:** how many of a role's keys must sign. Root: 2 (of 3), before and after.
+- **Rotation:** replacing the keys a root trusts, with the old keys vouching for the new ones.
+
+### What you need
+
+| Item | Notes |
+|---|---|
+| 3 hardware tokens, one per holder | YubiKey 5 (PIV) or any PKCS#11 token that does ECDSA P-256. A fresh PIN set on each |
+| The PKCS#11 module for the token | YubiKey: `libykcs11.so` (Linux, package `ykcs11` / `yubico-piv-tool`) or `libykcs11.dylib` (Mac, `brew install yubico-piv-tool`). Note its full path |
+| 2 of the 3 old sticks, with their passphrases | The two holders who sign for the old root |
+| The current root | The committed `os/rootfs/layers/base/usr/lib/onemind/tuf/<channel>/root.json`, copied onto the offline machine |
+| The offline machine of the ceremony | Same rules: no network. `opensc` (`pkcs11-tool`) or `ykman` installed beforehand |
+
+### 0. Rehearse (an agent or you, any machine)
+
+```sh
+PYTHON=V/bin/python scripts/tuf-bootstrap-root.sh rehearse-rotate /tmp/rotate-rehearsal-1
+```
+You should see `REHEARSAL PASSED: v1 -> v2 rotation signed by 2 old + 2 new keys, followed by a client that trusts only v1.` It uses throwaway file keys; the token path is tested in CI with SoftHSM (a software token) in `os/update/tests/test_tuf_hsm.py`. Delete the directory afterwards.
+
+### The rotation
+
+Use `--` and quotes as written: a token key is named `'hsm:2?label=<token label>'` (key id 2, the device's label), and the quotes stop the shell treating `?`.
+
+1. **Make each hardware key ON its device, one holder at a time.** The private key is generated inside the device and is marked "never extractable".
+   - Any PKCS#11 token (tested on SoftHSM): `pkcs11-tool --module <module path> --login --keypairgen --key-type EC:prime256v1 --id 02 --label onemind-root` (it asks for the PIN). Add `--token-label <label>` if several tokens are plugged in. The output must say `never extractable` for the private key.
+   - YubiKey (PIV slot 9c): `ykman piv keys generate --algorithm ECCP256 9c <holder>-yk.pub`, then `ykman piv certificates generate --subject "OneMind root" 9c <holder>-yk.pub` (some versions of the PKCS#11 module only list a key that has a certificate). **UNVERIFIED on real hardware**: do this on a spare YubiKey first and check step 2 works before touching the real three.
+2. **Export each public key.** The holder hands over the public part only:
+   ```sh
+   export PYKCS11LIB=<module path>
+   scripts/tuf-bootstrap-root.sh token-pub 'hsm:2?label=<token label>' pubs/new-a.pub    # holder A's device plugged in
+   scripts/tuf-bootstrap-root.sh token-pub 'hsm:2?label=<token label>' pubs/new-b.pub    # holder B
+   scripts/tuf-bootstrap-root.sh token-pub 'hsm:2?label=<token label>' pubs/new-c.pub    # holder C
+   ```
+   It prints the key id. Each holder reads their key id aloud so the three `.pub` files are known to match the three devices. Nothing secret is exported.
+3. **Rotate.** Two old holders and two token holders sign (C's device stays unplugged, its public key is trusted):
+   ```sh
+   scripts/tuf-bootstrap-root.sh rotate-root <current root.json> rotated security 2 \
+     <stick-a>/root.key <stick-b>/root.key -- \
+     'hsm:2?label=<token A label>' 'hsm:2?label=<token B label>' pubs/new-c.pub
+   ```
+   Arguments: the current root, an **empty** output directory, the channel, the new threshold (2), the two old private keys, `--`, then the new keys: a token reference **signs**, a `.pub` is only trusted. You type each stick's passphrase and each token's PIN at its own prompt, once. If fewer than 2 old keys or fewer than 2 new keys are given, nothing is written. A second run into the same directory is refused.
+4. **Check it.** Name the old root too, so the check proves the old keys signed it:
+   ```sh
+   scripts/tuf-bootstrap-root.sh check rotated 2 3 <current root.json>
+   ```
+   All must be true: `root.json version 2`, `root threshold 2 of 3`, three different root key ids (the key ids of step 2), targets/snapshot/timestamp unchanged, `root signatures on file: 4`, and **`previous root v1: 2 of its keys signed this root too`**. All holders read the `sha256` line aloud and write it on the checklist. Any `FAIL`: stop and do not use these files.
+5. **Publish (online computer, you).** Carry only `rotated/root.json` (and `rotated/2.root.json`, the same file) out on the transfer stick; check the sha256.
+   - Commit `rotated/root.json` as `os/rootfs/layers/base/usr/lib/onemind/tuf/<channel>/root.json` in a PR. New images ship version 2 from then on.
+   - The next release build writes `2.root.json` into the channel next to `1.root.json` (the build copies the committed root in as `<version>.root.json`, and the publish step uploads `[0-9]*.root.json`). **Boxes already out there trust only version 1** and walk to version 2 on their next check; keep the old files served.
+6. **Keep or destroy the old sticks.** After at least one release has reached the boxes, the old sticks no longer matter for trust. Do not destroy them until a box that ships version 1 has been seen to update. Store the three devices as in step 11 above (three places), the PIN of each only in its holder's head or password manager.
+
+If a device is lost, the other two still sign (2 of 3). Replacing the third key is the same command again: the two remaining **token** keys are the old keys, a newly made token key (or `.pub`) joins the new set.
+
+### What this does not cover
+
+- **Real hardware.** Everything here was exercised with SoftHSM, a software token that speaks the same PKCS#11 as a YubiKey. The `ykman` commands and the YubiKey module name have not been run or checked by an agent: the spare-device trial in step 1 is how you find out.
+- **Touch or PIN policies** (a YubiKey that wants a touch per signature): the prompt appears while the tool waits; touch the device. Not tested.
+- **The online keys** (`targets`, `snapshot`, `timestamp`) stay as they are unless you pass `--targets-pub` and friends to `tuf-repo.py rotate-root` directly; the channel metadata must then be rebuilt by hand.
 
 ## If something goes wrong
 
@@ -87,7 +160,7 @@ Use the commands as written. `<stick-a>` is where holder A's stick is mounted (f
 | `refusing to overwrite a key` / `already holds a root.json` | The folder already has a key or a root | Use a **new** folder. Never delete a real root.json to retry: ask the gate |
 | `need at least 2 distinct root keys, 2 of them to sign` | Fewer than 2 private keys were given | Two holders must be present and sign |
 | `check` prints a `FAIL` line | The root is not the shape D-010 requires | Do not use it. Delete the output folder and redo step 6 |
-| A holder loses a stick or its passphrase | One of three is gone; 2-of-3 still works for signing | Nothing breaks today. Replacing the third key needs the renewal tooling (step 12), which is not built yet: tell the gate |
+| A holder loses a stick or its passphrase | One of three is gone; 2-of-3 still works for signing | Nothing breaks today. Replacing the third key is a rotation (`rotate-root`, see below): 2 remaining holders sign |
 
 ## Rehearsal record
 

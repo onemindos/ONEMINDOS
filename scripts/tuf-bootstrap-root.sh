@@ -22,7 +22,19 @@
 #       The real root. Every root-key argument ending in .pub is a holder who is not present (their
 #       key is trusted, they do not sign); every other argument is a private root key that signs
 #       (you type its passphrase). At least <threshold> must sign. Refuses to overwrite a root.
-#   scripts/tuf-bootstrap-root.sh check <dir> <threshold> <root-keys>
+#   scripts/tuf-bootstrap-root.sh token-pub <hsm:id?label=L> <out.pub>
+#       A root key that lives on a hardware token (YubiKey PIV, or any PKCS#11 token; ECDSA P-256, made
+#       ON the token): writes its public key. $PYKCS11LIB names the token's PKCS#11 module; the token's
+#       PIN is typed at a no-echo prompt. See os/update/CEREMONY.md "Rotate the root onto hardware keys".
+#   scripts/tuf-bootstrap-root.sh rotate-root <root.json> <dir> <channel> <threshold> <old-key>... -- <new-key-or-pub>...
+#       The next root: signed by <old-key>... (private keys of the CURRENT root; enough of them to meet
+#       its threshold) AND by the new private keys (file or hsm:id?label=L), while every new key ending
+#       in .pub is trusted without signing. New threshold <threshold>; at least that many new keys must
+#       sign. Online keys stay. Writes <dir>/<N+1>.root.json and <dir>/root.json; refuses to overwrite.
+#   scripts/tuf-bootstrap-root.sh rehearse-rotate <dir>
+#       The rehearsal of the whole thing on throwaway file keys: v1 root, then v2 signed by 2 old + 2
+#       new keys, then a release checked by a client that trusts only v1.
+#   scripts/tuf-bootstrap-root.sh check <dir> <threshold> <root-keys> [<previous-root.json>]
 #       Reads <dir>/root.json as a box would and prints the sheet to read aloud and print:
 #       sha256, thresholds, key ids, expiry. Exit 1 on any problem.
 #
@@ -98,12 +110,51 @@ create)
   tuf init-root "$@" --threshold "$TH" --targets-pub "$tp" --snapshot-pub "$sp" --timestamp-pub "$mp" --out "$D"
   echo "channel: $CH -> commit as os/rootfs/layers/base/usr/lib/onemind/tuf/$CH/root.json"
   ;;
-check)
-  D=$1; TH=$2; NK=$3
-  tuf inspect --root "$D/root.json" --expect-threshold "$TH" --expect-root-keys "$NK"
+token-pub)
+  tuf token-pub --key "$1" --out "$2"
   exit 0
   ;;
-*) sed -n '3,34p' "$0"; exit 2 ;;
+rotate-root)
+  OLD=$1; D=$2; CH=$3; TH=$4; shift 4
+  n=0; for a in "$@"; do [ "$a" = "--" ] && break; n=$((n + 1)); done
+  [ "$n" -lt $# ] || { echo "missing -- between the old keys and the new keys" >&2; exit 2; }
+  # Old keys sign (--old-key). New keys: a .pub is trusted without signing (--new-pub), anything else
+  # (a file or an hsm: reference) signs (--new-key). Quoted, so paths with spaces survive.
+  i=0; while [ "$i" -lt "$n" ]; do a=$1; shift; set -- "$@" --old-key "$a"; i=$((i + 1)); done
+  shift   # the --
+  i=$(($# - 2 * n)); while [ "$i" -gt 0 ]; do
+    a=$1; shift
+    case "$a" in hsm:*) set -- "$@" --new-key "$a" ;; *.pub) set -- "$@" --new-pub "$a" ;; *) set -- "$@" --new-key "$a" ;; esac
+    i=$((i - 1)); done
+  tuf rotate-root --root "$OLD" "$@" --threshold "$TH" --out "$D"
+  echo "channel: $CH -> commit as os/rootfs/layers/base/usr/lib/onemind/tuf/$CH/root.json; the channel also needs the numbered <N+1>.root.json from $D"
+  ;;
+rehearse-rotate)
+  D=$1
+  [ ! -e "$D" ] || { echo "refusing: $D exists; rehearse into a new directory" >&2; exit 2; }
+  sh "$0" rehearse "$D" >/dev/null
+  export ONEMIND_TUF_PASSPHRASE="rehearsal-throwaway-passphrase"
+  echo "== REHEARSAL OF THE ROTATION: throwaway keys only" >&2
+  for h in new-a new-b new-c; do tuf keygen --out-dir "$D/sticks/$h" --roles root --encrypt; done
+  tuf rotate-root --root "$D/out/root.json" --old-key "$D/sticks/holder-a/root.key" --old-key "$D/sticks/holder-b/root.key"     --new-key "$D/sticks/new-a/root.key" --new-key "$D/sticks/new-b/root.key" --new-pub "$D/sticks/new-c/root.pub"     --threshold 2 --out "$D/rotated"
+  tuf inspect --root "$D/rotated/root.json" --expect-threshold 2 --expect-root-keys 3 --prev "$D/out/root.json"
+  printf rehearsal2 >"$D/rel/onemind-vm-0.0.1.raucb"; printf '{}' >"$D/rel/onemind-vm-0.0.1.spdx.json"
+  printf '{}' >"$D/rel/onemind-vm-0.0.1.cve-report.json"
+  sed 's/0\.0\.0/0.0.1/g' "$D/rel/release-vm-0.0.0.json" >"$D/rel/release-vm-0.0.1.json"
+  tuf build --repo "$D/channel2" --root "$D/rotated/root.json" --prev "$D/channel" --release "$D/rel/release-vm-0.0.1.json" \
+    --targets-key "$D/online/targets.key" --snapshot-key "$D/online/snapshot.key" \
+    --timestamp-key "$D/online/timestamp.key" >/dev/null
+  tuf verify --repo "$D/channel2" --root "$D/out/root.json" --allow-absent   # a box that still trusts only version 1
+  echo "== REHEARSAL PASSED: v1 -> v2 rotation signed by 2 old + 2 new keys, followed by a client that trusts only v1. Delete $D." >&2
+  exit 0
+  ;;
+check)
+  D=$1; TH=$2; NK=$3
+  # After a rotation, name the previous root too: the check then also proves its keys signed this one.
+  tuf inspect --root "$D/root.json" --expect-threshold "$TH" --expect-root-keys "$NK" ${4:+--prev "$4"}
+  exit 0
+  ;;
+*) sed -n '3,46p' "$0"; exit 2 ;;
 esac
 sha256sum "$D/root.json" 2>/dev/null || shasum -a 256 "$D/root.json"
 "$PY" -I -c 'import json,sys

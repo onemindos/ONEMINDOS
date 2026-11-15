@@ -7,16 +7,26 @@ cannot push a malicious update: root (certifies the other keys; offline), target
 and their hashes), snapshot (pins the current targets version), timestamp (short-lived "this is
 fresh" signature). A box trusts only the root.json baked into its image.
 
-Keys are ed25519, PEM (PKCS#8 private, SubjectPublicKeyInfo public). A key argument is a file path
-or env:NAME (read from that environment variable, so CI secrets never touch the disk).
+Keys are ed25519, PEM (PKCS#8 private, SubjectPublicKeyInfo public). A key argument is a file path,
+env:NAME (read from that environment variable, so CI secrets never touch the disk) or, for a ROOT key
+on a hardware token (a YubiKey, or SoftHSM in tests), hsm:<id>[?label=<token label>]: an ECDSA P-256
+key that never leaves the token, reached through the PKCS#11 module named by $PYKCS11LIB. The token's
+PIN is typed at a no-echo prompt (or $ONEMIND_TUF_PIN, tests only), never given as an argument.
 
   keygen    --out-dir D [--roles root,targets,snapshot,timestamp] [--encrypt]
                                        new keys; never overwrites; --encrypt asks for a passphrase
-  inspect   --root root.json [--expect-threshold N] [--expect-root-keys N]
-                                       read a root as a box would trust it; exit 1 on any problem
+  inspect   --root root.json [--expect-threshold N] [--expect-root-keys N] [--prev OLD/root.json]
+                                       read a root as a box would trust it; exit 1 on any problem;
+                                       --prev also checks that the previous root's keys signed it (a rotation)
+  token-pub --key hsm:<id>[?label=L] --out FILE.pub
+                                       export a token key's public part (the private key stays on the token)
   init-root --root-key K [--root-key K2 ...] [--root-pub P ...] --threshold N
             --targets-pub P --snapshot-pub P --timestamp-pub P --out DIR [--expires-days 365]
             [--version 1]          offline only: writes DIR/<version>.root.json and DIR/root.json
+  rotate-root --root CURRENT/root.json --old-key K [--old-key K2 ...] --new-key K [--new-key K2 ...]
+            [--new-pub P ...] --threshold N --out DIR [--targets-pub P ...] [--expires-days 365]
+            offline only: writes DIR/<N+1>.root.json and DIR/root.json with a new set of root keys,
+            signed by a threshold of the OLD root keys AND a threshold of the NEW ones (TUF spec 5.3.4)
   build     --repo OUT --root root.json [--prev DIR] --release release-<board>.json ...
             --targets-key K --snapshot-key K --timestamp-key K [--keep 3]
             new targets/snapshot/timestamp versions on top of the previous channel metadata
@@ -29,7 +39,8 @@ or env:NAME (read from that environment variable, so CI secrets never touch the 
 Repo layout is flat (CHANNEL.md §3): <N>.root.json, root.json, timestamp.json, snapshot.json,
 targets.json and each target file under the basename of its target path.
 """
-import argparse, datetime, functools, getpass, hashlib, http.server, json, os, re, shutil, sys, tempfile, threading
+import argparse, copy, datetime, functools, getpass, hashlib, http.server, json, os, re, shutil, sys, tempfile, threading
+from urllib import parse
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ed25519
@@ -83,7 +94,46 @@ def _passphrase(label, confirm=False):
     return pw.encode()
 
 
+HSM_PREFIX = "hsm:"
+PIN_ENV = "ONEMIND_TUF_PIN"                   # tests only; a real ceremony types the PIN at a no-echo prompt
+
+
+def _hsm(spec):
+    """(signer, public key) of a token key: spec hsm:<id>[?label=<token label>] (securesystemslib's
+    HSMSigner, python-pkcs11). The key is ECDSA P-256; the private part never leaves the token."""
+    if not os.environ.get("PYKCS11LIB"):
+        raise SystemExit(f"key {spec}: set PYKCS11LIB to the token's PKCS#11 module "
+                         f"(YubiKey: libykcs11.so; tests: libsofthsm2.so)")
+    try:
+        from securesystemslib.signer import HSMSigner
+    except ImportError as e:                      # pragma: no cover
+        raise SystemExit(f"key {spec}: PKCS#11 support is missing ({e}); install os/update/requirements-tuf.txt")
+    u = parse.urlparse(spec)
+    pin = []
+
+    def pin_handler(_what):                       # asked once per key, however often it signs
+        if not pin:
+            pin.append(os.environ.get(PIN_ENV) or getpass.getpass(f"PIN for token key {spec}: "))
+        return pin[0]
+
+    try:
+        uri, pub = HSMSigner.import_(int(u.path) if u.path else None, dict(parse.parse_qsl(u.query)).get("label"),
+                                     pin_handler)
+        return HSMSigner.from_priv_key_uri(uri, pub, pin_handler), pub
+    except Exception as e:                        # the token, the module or the key is not as named
+        raise SystemExit(f"key {spec}: {e}")
+
+
+def sign_with(md, signer, label):
+    try:
+        md.sign(signer, append=True)
+    except Exception as e:                        # e.g. a wrong PIN (three wrong ones lock a real token)
+        raise SystemExit(f"signing with {label} failed: {e.__cause__ or e}")
+
+
 def load_signer(spec):
+    if spec.startswith(HSM_PREFIX):
+        return _hsm(spec)[0]
     data = _read(spec)
     password = None
     if b"ENCRYPTED PRIVATE KEY" in data:           # PKCS#8 with a passphrase (an offline root key)
@@ -98,6 +148,8 @@ def load_signer(spec):
 
 
 def load_pub(spec):
+    if spec.startswith(HSM_PREFIX):
+        return _hsm(spec)[1]
     data = _read(spec)
     if b"PRIVATE KEY" in data:
         return load_signer(spec).public_key
@@ -123,6 +175,17 @@ def keygen(out_dir, roles, encrypt=False):
                                                 serialization.PublicFormat.SubjectPublicKeyInfo))
 
 
+def token_pub(spec, out):
+    """Write a token key's PUBLIC key (PEM) so its holder can hand it over. Never overwrites."""
+    pub = _hsm(spec)[1]
+    if os.path.exists(out):
+        raise SystemExit(f"{out} exists; refusing to overwrite it")
+    fd = os.open(out, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
+    with os.fdopen(fd, "w") as f:
+        f.write(pub.keyval["public"])
+    return pub
+
+
 # ------------------------------------------------------------------ root (offline)
 def init_root(root_keys, root_pubs, threshold, targets_pub, snapshot_pub, timestamp_pub, out,
               expires_days=None, version=1):
@@ -141,7 +204,7 @@ def init_root(root_keys, root_pubs, threshold, targets_pub, snapshot_pub, timest
         root.add_key(load_pub(p), role)
     md = Metadata(root)
     for s in signers:
-        md.sign(s, append=True)
+        sign_with(md, s, s.public_key.keyid[:12])
     md.verify_delegate(Root.type, md)            # threshold met by the signatures just made
     os.makedirs(out, exist_ok=True)
     md.to_file(os.path.join(out, f"{version}.root.json"), SER)
@@ -149,7 +212,66 @@ def init_root(root_keys, root_pubs, threshold, targets_pub, snapshot_pub, timest
     return md
 
 
-def inspect_root(root_path, expect_threshold=None, expect_root_keys=None):
+def rotate_root(old_root_path, old_keys, new_keys, new_pubs, threshold, out, expires_days=None, online_pubs=None):
+    """The next root.json: new root keys and threshold, version + 1, online keys kept unless
+    online_pubs ({"targets": P, ...}) replaces them. A client that trusts only the OLD root accepts it
+    when a threshold of the OLD root keys AND a threshold of the NEW root keys signed it (TUF spec
+    5.3.4), so both are required here and nothing is written otherwise. Offline only."""
+    old_md = Metadata[Root].from_file(old_root_path)
+    old = old_md.signed
+    try:
+        old_md.verify_delegate(Root.type, old_md)
+    except Exception as e:
+        raise SystemExit(f"{old_root_path} does not verify against its own keys ({e}); not rotating from it")
+    version = old.version + 1
+    for name in (f"{version}.root.json", "root.json"):
+        if os.path.exists(os.path.join(out, name)):
+            raise SystemExit(f"{out}/{name} exists; refusing to overwrite it (use a new directory)")
+    old_signers = [load_signer(k) for k in old_keys]
+    old_role = old.roles[Root.type]
+    old_have = {s.public_key.keyid for s in old_signers}
+    stray = [k[:12] for k in old_have if k not in old_role.keyids]
+    if stray:
+        raise SystemExit(f"old key(s) {stray} are not root keys of {old_root_path}")
+    if len(old_have) < old_role.threshold:
+        raise SystemExit(f"the current root needs {old_role.threshold} of its {len(old_role.keyids)} root keys "
+                         f"to sign the rotation; {len(old_have)} given")
+    new_signers = [load_signer(k) for k in new_keys]
+    new_have = {s.public_key.keyid for s in new_signers}
+    new_pubs = {k.keyid: k for k in [s.public_key for s in new_signers] + [load_pub(p) for p in new_pubs]}
+    if threshold < 1 or len(new_pubs) < threshold:
+        raise SystemExit(f"a new threshold of {threshold} needs at least that many distinct new root keys "
+                         f"({len(new_pubs)} given)")
+    if len(new_have) < threshold:
+        raise SystemExit(f"the new root keys must sign too: {threshold} of them are needed, {len(new_have)} given")
+    root = Root.from_dict(copy.deepcopy(old.to_dict()))
+    root.version, root.expires = version, now() + datetime.timedelta(days=expires_days or EXPIRY["root"])
+    for role in (online_pubs or {}):
+        root.roles[role].keyids.clear()
+        root.add_key(load_pub(online_pubs[role]), role)
+    root.roles[Root.type].keyids.clear()
+    for k in new_pubs.values():
+        root.add_key(k, Root.type)
+    root.roles[Root.type].threshold = threshold
+    root.keys = {kid: k for kid, k in root.keys.items() if any(kid in r.keyids for r in root.roles.values())}
+    online = [root.roles[r].keyids for r in (Targets.type, Snapshot.type, Timestamp.type)]
+    if len(set().union(*online)) != 3 or set().union(*online) & set(new_pubs):
+        raise SystemExit("targets, snapshot, timestamp and root must each use their own key")
+    md = Metadata(root)
+    for s in {s.public_key.keyid: s for s in old_signers + new_signers}.values():   # a key in both signs once
+        sign_with(md, s, s.public_key.keyid[:12])
+    try:
+        old_md.verify_delegate(Root.type, md)    # what a box that trusts only the old root checks first...
+        md.verify_delegate(Root.type, md)        # ...then the new root against its own keys
+    except Exception as e:
+        raise SystemExit(f"the rotated root does not verify under both key sets ({e}); nothing was written")
+    os.makedirs(out, exist_ok=True)
+    md.to_file(os.path.join(out, f"{version}.root.json"), SER)
+    md.to_file(os.path.join(out, "root.json"), SER)
+    return md
+
+
+def inspect_root(root_path, expect_threshold=None, expect_root_keys=None, prev=None):
     """Read a root.json the way a box would trust it: every signature checked, the numbers shown.
 
     Returns (lines to print, problems). The ceremony ends with this, so what is committed is what
@@ -180,6 +302,17 @@ def inspect_root(root_path, expect_threshold=None, expect_root_keys=None):
         problems.append("targets, snapshot, timestamp and root must each use their own key")
     if len(good) < root.roles[Root.type].threshold:
         problems.append("fewer valid root signatures than the threshold")
+    if prev:                                     # a rotation: a box that trusts only the previous root checks this
+        old = Metadata[Root].from_file(prev)
+        try:
+            old.verify_delegate(Root.type, md)
+            lines.append(f"previous root v{old.signed.version}: {old.signed.roles[Root.type].threshold} of its keys "
+                         f"signed this root too")
+        except Exception as e:
+            problems.append(f"the previous root's keys (threshold {old.signed.roles[Root.type].threshold}) did not "
+                            f"sign this root: {e}")
+        if root.version != old.signed.version + 1:
+            problems.append(f"version {root.version} does not follow the previous root's version {old.signed.version}")
     return lines, problems
 
 
@@ -403,6 +536,15 @@ def main(argv=None):
     g.add_argument("--encrypt", action="store_true", help="protect each private key with a passphrase")
     i = sub.add_parser("inspect"); i.add_argument("--root", required=True)
     i.add_argument("--expect-threshold", type=int); i.add_argument("--expect-root-keys", type=int)
+    i.add_argument("--prev", help="the previous root.json: check that its keys signed this root (a rotation)")
+    t = sub.add_parser("token-pub"); t.add_argument("--key", required=True); t.add_argument("--out", required=True)
+    o = sub.add_parser("rotate-root"); o.add_argument("--root", required=True)
+    o.add_argument("--old-key", action="append", required=True)
+    o.add_argument("--new-key", action="append", default=[]); o.add_argument("--new-pub", action="append", default=[])
+    o.add_argument("--threshold", type=int, required=True); o.add_argument("--out", required=True)
+    o.add_argument("--expires-days", type=int)
+    for role in ("targets", "snapshot", "timestamp"):
+        o.add_argument(f"--{role}-pub", help=f"replace the {role} key (default: keep the current one)")
     r = sub.add_parser("init-root")
     r.add_argument("--root-key", action="append", required=True)
     r.add_argument("--root-pub", action="append", default=[])
@@ -426,12 +568,12 @@ def main(argv=None):
     v.add_argument("--metadata-only", action="store_true")
     v.add_argument("--allow-absent", action="store_true", help="skip targets whose file is not in --repo")
     a = ap.parse_args(argv)
-    if os.environ.get("GITHUB_ACTIONS") == "true" and a.cmd == "init-root" and not os.environ.get("ONEMIND_TUF_EPHEMERAL"):
-        raise SystemExit("init-root makes a ROOT of trust: run it offline (scripts/tuf-bootstrap-root.sh), never in CI")
+    if os.environ.get("GITHUB_ACTIONS") == "true" and a.cmd in ("init-root", "rotate-root") and not os.environ.get("ONEMIND_TUF_EPHEMERAL"):
+        raise SystemExit(f"{a.cmd} signs a ROOT of trust: run it offline (scripts/tuf-bootstrap-root.sh), never in CI")
     if a.cmd == "keygen":
         keygen(a.out_dir, a.roles.split(","), a.encrypt)
     elif a.cmd == "inspect":
-        lines, problems = inspect_root(a.root, a.expect_threshold, a.expect_root_keys)
+        lines, problems = inspect_root(a.root, a.expect_threshold, a.expect_root_keys, a.prev)
         print("\n".join(lines))
         for p in problems:
             print("FAIL " + p)
@@ -439,6 +581,14 @@ def main(argv=None):
     elif a.cmd == "init-root":
         md = init_root(a.root_key, a.root_pub, a.threshold, a.targets_pub, a.snapshot_pub, a.timestamp_pub,
                        a.out, a.expires_days, a.version)
+        print(f"root v{md.signed.version}: {len(md.signed.roles['root'].keyids)} root key(s), threshold "
+              f"{md.signed.roles['root'].threshold}, expires {md.signed.expires.isoformat()}", file=sys.stderr)
+    elif a.cmd == "token-pub":
+        pub = token_pub(a.key, a.out)
+        print(f"wrote {a.out}: {pub.scheme} public key, keyid {pub.keyid}", file=sys.stderr)
+    elif a.cmd == "rotate-root":
+        online = {r: getattr(a, f"{r}_pub") for r in ("targets", "snapshot", "timestamp") if getattr(a, f"{r}_pub")}
+        md = rotate_root(a.root, a.old_key, a.new_key, a.new_pub, a.threshold, a.out, a.expires_days, online)
         print(f"root v{md.signed.version}: {len(md.signed.roles['root'].keyids)} root key(s), threshold "
               f"{md.signed.roles['root'].threshold}, expires {md.signed.expires.isoformat()}", file=sys.stderr)
     elif a.cmd == "build":
