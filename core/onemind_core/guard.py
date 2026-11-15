@@ -197,8 +197,12 @@ class GuardMiddleware:
             # Read only when the route asks: its read deadline and disconnect handling
             # must surround receive(), not wait behind an eager middleware buffer.
             await self.app(scope, limited_receive, tracking_send)
-        except Exception:
-            if not exceeded or "code" in status:
+        except (_BodyTooLarge, ExceptionGroup) as exc:
+            # AnyIO receive task groups may wrap the private signal. Handle only
+            # groups made entirely of overflow signals, never independent failures
+            # (including wrappers whose cause/context happens to be overflow).
+            if (not exceeded or "code" in status
+                    or isinstance(exc, ExceptionGroup) and exc.split(_BodyTooLarge)[1] is not None):
                 raise
         if exceeded:
             if "code" in status:
