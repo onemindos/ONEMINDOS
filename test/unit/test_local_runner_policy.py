@@ -78,6 +78,13 @@ class Kit(unittest.TestCase):
         self.assertIn("--ephemeral", text)
         self.assertIn("--labels onemind-local", text)
 
+    def test_every_job_gets_a_fresh_vm_and_the_switch_goes_off_on_exit(self):
+        text = (KIT / "cycle").read_text()
+        self.assertIn("limactl clone", text)
+        self.assertIn('limactl delete --force "$run"', text)
+        self.assertIn("LOCAL_RUNNER --body off", text)
+        self.assertIn("trap cleanup EXIT INT TERM", text)
+
     def test_vm_shares_nothing_with_the_mac(self):
         self.assertRegex((KIT / "lima.yaml").read_text(), r"(?m)^mounts: \[\]$")
 

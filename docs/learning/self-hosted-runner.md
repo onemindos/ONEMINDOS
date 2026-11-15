@@ -39,7 +39,7 @@ gh auth refresh -h github.com -s admin:org
 scripts/ci-runner/up --service --on
 ```
 
-   `--service` installs the launchd agent (it keeps running and restarts after a reboot); `--on` sets the repo variable `LOCAL_RUNNER=on`. Prefer to watch it in the foreground first? Run `scripts/ci-runner/up` and `Ctrl-C` stops it.
+   `--service` installs the launchd agent (it keeps running and restarts after a reboot; it also sets `LOCAL_RUNNER=on` while running and `off` when it stops); `--on` sets the repo variable `LOCAL_RUNNER=on`. Prefer to watch it in the foreground first? Run `scripts/ci-runner/up` and `Ctrl-C` stops it.
 
    *If you would rather paste a one-off registration token* (GitHub → org Settings → Actions → Runners → New runner → copy the token from the `config.sh` line): export it only in that terminal, `RUNNER_REG_TOKEN=<paste> scripts/ci-runner/up`, which serves exactly **one** job and then falls back to `gh`. Tokens expire in an hour, which is why the `gh` route is the real one.
 
@@ -63,14 +63,13 @@ Codex's workers and the Claude builders run on the same Mac, so the VM is capped
 | start from a clean VM | `scripts/ci-runner/down --off --wipe`, then `up --service --on` |
 | read what it is doing | `~/Library/Logs/onemind-ci-runner.log` |
 
-## What if the Mac is off or asleep?
-A job already pointed at `onemind-local` waits for a runner that is not there, up to GitHub's 24-hour limit, and a *queued* job does not move to GitHub by itself. Two defences:
-- Before you close the lid for a long time, run `scripts/ci-runner/down --off`. New runs then pick GitHub-hosted runners; already queued ones: cancel and re-run.
-- The loop only registers a runner while `LOCAL_RUNNER` is `on`. If the Mac is merely asleep for minutes, jobs wait and then run when it wakes.
-The honest limit: the switch is manual. Making it automatic (a heartbeat that flips the variable) needs a token with write access to variables, which is your decision, not something this PR does.
+## Switch it off before the Mac sleeps
+**Say it plainly: before you close the lid, shut the Mac down, or leave for a long time, run `scripts/ci-runner/down --off`** (or, from anywhere: `gh variable set LOCAL_RUNNER --body off --repo onemindos/ONEMINDOS`).
+A job already pointed at `onemind-local` waits for a runner that is not there, up to GitHub's 24-hour limit, and a *queued* job does not move to GitHub by itself. With the variable off, new runs use GitHub-hosted runners; cancel and re-run anything already queued.
+What the kit does for you: while the loop runs it keeps `LOCAL_RUNNER=on`, and when the loop stops (Ctrl-C, `down`, logout, a crash) it sets `LOCAL_RUNNER=off`. The launchd agent runs under `caffeinate -i`, so an idle Mac does not sleep while the loop is up. What it cannot do: notice a closed lid or a power cut, because the Mac stops before any script can react. That case is on you, hence the rule above.
 
 ## Limits and known risks
 - **Not tested on real hardware by the author.** The kit is checked by tests and shellcheck only. The first `up` on your Mac is the real test; send me anything that fails.
-- The VM keeps its disk between jobs (only the work folder is deleted) and the `runner` user has passwordless `sudo`, because the moved jobs run `sudo apt-get`. That is acceptable only because the VM holds nothing secret and only trusted events reach it. For a stronger reset, `down --wipe` and `up`.
+- **Every job gets a new VM.** `up` provisions one base VM and leaves it stopped. Before each job `cycle` clones it, starts the clone, runs the one job, and deletes the clone, so a changed binary or patched toolchain dies with the job (the `runner` user has passwordless `sudo`, because the moved jobs run `sudo apt-get`; this is why the reset matters). The cost is the clone-and-boot time before each job. `cycle` logs it: `grep 'fresh VM ready' ~/Library/Logs/onemind-ci-runner.log`. **The author has not measured it** (no Lima here); the first lines of that log are the measurement. If it is too slow, `FRESH=none` reuses one VM (fast, not clean) and `down --wipe` plus `up` rebuilds it from the pinned image; ask for a scheduled rebuild instead. Two instances means two clones running at once, so twice the memory.
 - Results come from arm64 Linux, not the x86 hosted image. A job that passes there and fails on GitHub (or the reverse) is a real signal, not noise: report it.
 - The runner version and image are pinned with checksums in `scripts/ci-runner/runner.pin` and `lima.yaml`; bump them in a PR.
