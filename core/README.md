@@ -123,14 +123,15 @@ as everyone else:
    database (`agent_tokens` table) stores **only the sha256 of the token**; tokens from
    `ONEMIND_TOKENS_FILE` keep working next to it.
 2. The kubernetes executor writes Secret `<name>` in `app-<id>` with `ONEMIND_GATEWAY_URL` and
-   `ONEMIND_AGENT_TOKEN` **before** applying the manifests, so the pods start with it. The token
+   `ONEMIND_AGENT_TOKEN` (plus `ONEMIND_GATEWAY_CA`, the box CA as PEM, when HTTPS is on) **before** applying the manifests, so the pods start with it. The token
    travels on kubectl's stdin only: it is never in the action's `result`, the audit log or a log
    line (kubectl output is scrubbed too).
 3. If the install fails or its outcome is unknown, the principal is revoked at once (a new install
    issues a new token). `app.remove` revokes it **first**, then deletes the Secret, the manifests
    and the namespace, so a removed app's credential is dead even if a delete step fails.
 
-`ONEMIND_GATEWAY_URL` is `ONEMIND_PUBLIC_URL` when set, else `http://<ONEMIND_HOST>:<ONEMIND_PORT>`,
+`ONEMIND_GATEWAY_URL` is `ONEMIND_AGENT_URL` when set (the deploy sets `https://hub.onemind.internal:8443`, a
+name in the gateway certificate), else `ONEMIND_PUBLIC_URL` when set, else `http://<ONEMIND_HOST>:<ONEMIND_PORT>`,
 with a wildcard host (`0.0.0.0`) replaced by the machine's hostname (k3s's CoreDNS resolves node
 hostnames for pods). Set `ONEMIND_PUBLIC_URL` when pods reach the gateway another way.
 
@@ -231,7 +232,8 @@ Runs as uid 10001 (non-root), data in `/var/lib/onemind`, kubectl v1.37.2 (sha25
 | `ONEMIND_NATS_URL` | `nats://127.0.0.1:4222` | empty string disables NATS |
 | `ONEMIND_AUDIT_PATH` | `./data/audit.jsonl` | audit log |
 | `ONEMIND_NODE_ID` | sha256 of `/etc/machine-id`, else `/var/lib/dbus/machine-id`, else `"hostname:"+hostname`, first 12 hex | hub id in `/v1/instance`; same chain as `onemindd`. In a container, mount the host's `/etc/machine-id` read-only or set this, or the id will not match the hub's `onemindd` |
-| `ONEMIND_PUBLIC_URL` | derived (see "Agent principals") | gateway URL written into app agent Secrets |
+| `ONEMIND_PUBLIC_URL` | derived (see "Agent principals") | gateway URL written into app agent Secrets, unless `ONEMIND_AGENT_URL` is set; also the browser/LAN URL |
+| `ONEMIND_AGENT_URL` | unset (falls back to `ONEMIND_PUBLIC_URL`) | gateway URL for app pods (agent Secret); must be a name in the HTTPS certificate, e.g. `https://hub.onemind.internal:8443` |
 | `ONEMIND_ALLOW_UNSCANNED` | `0` | `1` skips the §10.3 scan check; dev only, refused with `kubernetes` |
 | `ONEMIND_APP_SCHEMA` | `sdk/schema/onemind.app.schema.json` if present | manifest JSON Schema |
 | `ONEMIND_APPSTORE_SOURCES_DIR` | `<folder of ONEMIND_AUDIT_PATH>/sources` | pinned checkouts of community sources |

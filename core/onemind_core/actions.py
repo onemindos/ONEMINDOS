@@ -404,6 +404,8 @@ class ActionService:
         # Called as fn(action_dict_fields) while an executor reports progress; failures are ignored.
         self.progress_listeners: list[Callable[[str, dict], None]] = []
         self.gateway_url = gateway_url
+        # H-05: the box CA (PEM) to hand agent pods as ONEMIND_GATEWAY_CA; net.py sets it when HTTPS is on.
+        self.gateway_ca: Callable[[], str | None] = lambda: None
         self.require_scan = require_scan
         self.repo = repo
         self.catalog = catalog
@@ -1106,7 +1108,8 @@ class ActionService:
             {"principal": {"id": spec.principal_id, "kind": "agent", "role": "agent"},
              "app_id": app.id, "secret": spec.secret, "namespace": f"app-{app.id}"},
         )
-        return AgentSecret(spec.secret, spec.principal_id, gateway_url=self.gateway_url, token=token)
+        return AgentSecret(spec.secret, spec.principal_id, gateway_url=self.gateway_url, token=token,
+                           ca_pem=self.gateway_ca())
 
     def _revoke_agent(self, a: Action, reason: str) -> None:
         principal_id = f"agent:{a.params['app_id']}"

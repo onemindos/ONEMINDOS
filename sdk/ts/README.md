@@ -13,3 +13,7 @@ await om.events.subscribe({ types: ["action.*"], signal }, (e) => console.log(e.
 ```
 
 The token goes only in the `Authorization` header (the event stream uses streaming `fetch`, not `EventSource`, for that reason). Regenerate with `make -C sdk gen`; test with `make -C sdk test-ts`.
+
+### Agent apps and the box CA
+
+`OneMind.fromEnv()` reads the agent Secret (`ONEMIND_GATEWAY_URL`, `ONEMIND_AGENT_TOKEN`). When `ONEMIND_GATEWAY_CA` (the box CA as PEM text) is also set, the client verifies TLS against that CA only, on Node, through a small `node:https` fetch (no extra dependency; verification is never disabled). A `fetch` passed in `extra` replaces it. Browsers and React Native do not use this variable: install the box CA in the device instead.

@@ -194,3 +194,18 @@ describe("fromEnv", () => {
     expect(() => OneMind.fromEnv({})).toThrow();
   });
 });
+
+describe("fromEnv with ONEMIND_GATEWAY_CA", () => {
+  const impl = (om: OneMind) => (om as unknown as { fetchImpl: unknown }).fetchImpl;
+  it("uses the caller's fetch over the CA fetch", () => {
+    const f = (async () => new Response("[]")) as typeof fetch;
+    expect(impl(OneMind.fromEnv({ ONEMIND_GATEWAY_URL: "https://gw:8443", ONEMIND_GATEWAY_CA: "PEM" }, { fetch: f }))).toBe(f);
+  });
+  it("installs a CA fetch only when the variable is non-empty", () => {
+    const caOn = impl(OneMind.fromEnv({ ONEMIND_GATEWAY_URL: "https://gw:8443", ONEMIND_GATEWAY_CA: "PEM" }));
+    const empty = impl(OneMind.fromEnv({ ONEMIND_GATEWAY_URL: "https://gw:8443", ONEMIND_GATEWAY_CA: " " }));
+    const unset = impl(OneMind.fromEnv({ ONEMIND_GATEWAY_URL: "https://gw:8443" }));
+    expect(caOn).not.toBe(unset);
+    expect(caOn).not.toBe(empty);
+  });
+});

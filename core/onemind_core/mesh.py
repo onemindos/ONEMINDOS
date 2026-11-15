@@ -356,7 +356,9 @@ def render_policy(people: Iterable[MeshPerson], *, owner_ssh: bool = False) -> s
     grants = [
         {"src": ["group:owners", "group:adults"], "dst": [TAG_HUB], "ip": ["tcp:443"]},
         {"src": [TAG_WORKER, TAG_LEAF], "dst": [TAG_HUB], "ip": ["tcp:443", "tcp:7422"]},
-        {"src": [TAG_WORKER], "dst": [TAG_HUB], "ip": ["tcp:6443"]},
+        # 8443: app pods on a worker reach the gateway at hub.onemind.internal (the hub mesh IP) over
+        # HTTPS with the box CA (H-05, ONEMIND_AGENT_URL); the pod network masquerades to the worker.
+        {"src": [TAG_WORKER], "dst": [TAG_HUB], "ip": ["tcp:6443", "tcp:8443"]},
         {"src": [TAG_K3S], "dst": [TAG_K3S], "ip": ["tcp:10250", "udp:51820"]},
     ]
     if owner_ssh:  # §6.3, the approved mesh.ssh.set setting

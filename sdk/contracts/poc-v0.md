@@ -117,7 +117,7 @@ spec:
   - `automountServiceAccountToken: false`
   - limits 2 CPU / 3 GiB, requests 250m / 1.75 GiB, so the app sets `requires.minMemoryMb: 2048` and a Pi 5 needs 8 GB
 - **Clean packaging only.** Copy nothing from the founder's private deployment: no Zoho, Whop or Todoist entries, Mac SSH material, tailnet names, OIDC issuer, owner name or Langfuse. Model-provider credentials come from a Kubernetes Secret `hermes-agent-credentials` that the **owner creates at install time** (`deploy/` prints the command), never from the repo.
-- **Agent principal:** at install the gateway creates a token with `kind: agent`, `role: agent` for Hermes and stores it in Secret `hermes-agent-onemind` (`ONEMIND_GATEWAY_URL`, `ONEMIND_AGENT_TOKEN`). Hermes can then **request** actions (`POST /v1/actions`) and read nodes and apps. It can never approve (403, contract §3).
+- **Agent principal:** at install the gateway creates a token with `kind: agent`, `role: agent` for Hermes and stores it in Secret `hermes-agent-onemind` (`ONEMIND_GATEWAY_URL`, `ONEMIND_AGENT_TOKEN`, and `ONEMIND_GATEWAY_CA`, the box CA as PEM, when the gateway is served over HTTPS). Hermes can then **request** actions (`POST /v1/actions`) and read nodes and apps. It can never approve (403, contract §3).
 - **Agent tools (gateway, wave 2):** a minimal MCP endpoint `POST /mcp` (Streamable HTTP) on the gateway, for agent principals only, with tools `list_nodes`, `list_apps` and `request_action`. It has no approve tool. Hermes's default config points one `mcp_servers.onemind` entry at it. This is the v0 slice of D-B9.2; the authorization-server façade comes later.
 - **Demo to prove:** ask Hermes "install ntfy". An action appears in Approvals as requested by an agent. The owner approves, ntfy is installed, and the audit chain records requester `agent:hermes-agent` and approver `person:owner`.
 
@@ -208,7 +208,7 @@ These fill in what §7, §9 and §10 leave open, so that the pipeline, gateway, 
 
 **11.2 Agent principals for apps.** A manifest may declare `spec.agent: {principal: true, secret: <name>}`. When the gateway installs such an app (kubernetes executor), it:
 1. creates the principal `{id: "agent:<app-id>", kind: agent, role: agent}` with a fresh random token, stored hashed in the gateway's database next to the static tokens file (both are honoured);
-2. creates the Secret `<name>` in `app-<id>` with `ONEMIND_GATEWAY_URL` and `ONEMIND_AGENT_TOKEN`, before applying the manifests;
+2. creates the Secret `<name>` in `app-<id>` with `ONEMIND_GATEWAY_URL` and `ONEMIND_AGENT_TOKEN` (plus `ONEMIND_GATEWAY_CA`, the box CA in PEM, when HTTPS is on; the SDKs trust it), before applying the manifests;
 3. revokes the principal and deletes the Secret on `app.remove`.
 
 The audit log records the requester of an action as the principal id (e.g. `agent:hermes-agent`) and the approver as the owner's id.

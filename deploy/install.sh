@@ -1151,6 +1151,36 @@ EOF
   systemctl enable --now onemind-gateway-token.timer >/dev/null 2>&1
 }
 
+# Pods resolve hub.onemind.internal to the hub's mesh address. k3s's CoreDNS imports every
+# /etc/coredns/custom/*.server from the optional coredns-custom ConfigMap in kube-system (verified:
+# https://github.com/k3s-io/k3s/blob/master/manifests/coredns.yaml, "import /etc/coredns/custom/*.server",
+# volume coredns-custom with optional: true; docs https://docs.k3s.io/advanced#coredns-custom-configuration-imports).
+# The server block answers only this one name, so nothing else in cluster DNS changes.
+coredns_hub_name() {
+  local k="$BIN/k3s kubectl" ip=${HUB_MESH_IP:-<the hub mesh address>}
+  if [ "$DRY_RUN" = 1 ]; then
+    step "Cluster DNS: hub.onemind.internal for app pods"
+    plan "kubectl apply the coredns-custom ConfigMap (kube-system): hub.onemind.internal -> $ip (pods reach the gateway on https://hub.onemind.internal:8443)"
+    return 0
+  fi
+  # A placeholder here would be a CoreDNS parse error, which takes down all cluster DNS.
+  [ -n "${HUB_MESH_IP:-}" ] || die "no hub mesh address for the cluster DNS entry hub.onemind.internal"
+  $k apply -f - >/dev/null <<EOF
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: coredns-custom
+  namespace: kube-system
+data:
+  onemind.server: |
+    hub.onemind.internal:53 {
+        hosts {
+            $ip hub.onemind.internal
+        }
+    }
+EOF
+}
+
 # API tokens (contract §3): 256 random bits each, printed once at the end, and only their sha256
 # is stored (core/onemind_core/auth.py reads "sha256:<hex>" keys). No raw token stays on disk.
 OWNER_TOKEN="" AGENT_TOKEN=""
@@ -1227,6 +1257,12 @@ ONEMIND_PORT=8080
 # §11.2: the URL app pods use to reach this gateway (written into each agent app's Secret as
 # ONEMIND_GATEWAY_URL). The wave-2 gateway reads it from ONEMIND_PUBLIC_URL (core/README.md).
 ONEMIND_PUBLIC_URL=$1
+# What app pods actually dial (ONEMIND_AGENT_URL, core/README.md). Pods verify the gateway's HTTPS
+# certificate against the box CA only. That certificate has DNS names and no IP address, and the
+# CA's name constraints allow only mesh IPs, so https://<LAN IP>:8443 can never verify. Pods use
+# hub.onemind.internal instead (a certificate name); coredns_hub_name resolves it to the hub's mesh
+# address inside the cluster, and the gateway maps it to that address for the egress NetworkPolicy.
+ONEMIND_AGENT_URL=https://hub.onemind.internal:8443
 # Networking (core/onemind_core/netconf.py; NETWORKING.md): HTTPS with the box CA on 443 and 8443,
 # :80 redirects, onemind.local and <app>.$BOX.local over mDNS, the mesh and fabric joins.
 ONEMIND_NET_BOX_NAME=$BOX
@@ -1310,6 +1346,7 @@ if [ "$ROLE" = hub ]; then
   nats_install
   dashboard_build
   gateway_kubeconfig
+  coredns_hub_name
   gateway_tokens
   # App pods reach the gateway over HTTPS on :8443 (box CA): with HTTPS on, the plain-HTTP port is
   # bound to loopback and the LAN never sees it (H-05).

@@ -24,10 +24,11 @@ from .context import UNAUTH_AUDIT_INTERVAL_S, Gateway, principal_dependency
 from .errors import install_handlers
 from .events import EventHub
 from .lifecycle import CredentialStore
-from .executors import Executor, NoopExecutor, make_executor
+from .executors import Executor, NoopExecutor, make_executor, mesh_static_hosts
 from .ledger import ActionRepository, SqlActionRepository
 from .netconf import FabricSettings
 from .nodes import NodeRegistry
+from .netconf import MeshSettings
 from .policy import SandboxSettings
 from .routers import Register, discover
 from .routers.static import API_EXACT, API_TREES, is_api_path
@@ -67,8 +68,10 @@ def create_app(
     owns_engine = engine is None
     db = Database(engine if engine is not None else ledger.make_engine(settings.db_url))
     migrate(db.engine)
+    mesh = settings.section(MeshSettings)
     executor = executor or make_executor(
-        settings.executor, settings.kubectl, settings.executor_timeout_s, settings.section(SandboxSettings)
+        settings.executor, settings.kubectl, settings.executor_timeout_s, settings.section(SandboxSettings),
+        static_hosts=mesh_static_hosts(mesh),
     )
     # §11.1: the scan check is skipped only on explicit request, and only when nothing real runs.
     skip_scan = settings.allow_unscanned and settings.executor == "noop" and isinstance(executor, NoopExecutor)
@@ -78,8 +81,8 @@ def create_app(
         log.warning(
             "ONEMIND_ALLOW_UNSCANNED=1: installs are approved WITHOUT a passing scan (dev only, noop executor)"
         )
-    gateway_url = settings.gateway_url()
-    if settings.public_url is None:
+    gateway_url = settings.agent_gateway_url()
+    if settings.agent_url is None and settings.public_url is None:
         log.info("ONEMIND_PUBLIC_URL not set; app agent Secrets will use %s", gateway_url)
     actions = ActionService(
         repo, catalog, executor, audit, clock, gateway_url=gateway_url, require_scan=not skip_scan,
