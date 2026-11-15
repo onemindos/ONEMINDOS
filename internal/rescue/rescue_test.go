@@ -92,7 +92,7 @@ func do(s *Server, method, path, token string, form url.Values) *httptest.Respon
 		body = strings.NewReader("")
 	}
 	r := httptest.NewRequest(method, path, body)
-	r.RemoteAddr = "192.168.1.20:50000" // a LAN client
+	r.RemoteAddr = "[fd00::20]:50000" // a LAN client (ULA, fc00::/7)
 	if form != nil {
 		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	}
@@ -168,7 +168,7 @@ func TestCrossSiteOriginRefused(t *testing.T) {
 	s, f := newServer(t, hashedOwner())
 	form := url.Values{"csrf": {s.csrf}, "confirm": {"rollback"}}
 	r := httptest.NewRequest("POST", "/rollback", strings.NewReader(form.Encode()))
-	r.RemoteAddr = "192.168.1.20:1"
+	r.RemoteAddr = "[fd00::20]:1"
 	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	r.Header.Set("Origin", "https://evil.example")
 	r.Header.Set("Authorization", "Bearer "+ownerToken)
