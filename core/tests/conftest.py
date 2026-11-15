@@ -58,6 +58,66 @@ class ScriptedExecutor(Executor):
         return ExecResult(self.outcome, f"scripted {self.outcome}")
 
 
+def pytest_configure(config):
+    """Give each pytest-xdist worker its own PostgreSQL database (CI-03, #228).
+
+    The `settings` fixture drops every table before each test, so workers sharing one database
+    would wipe each other's rows mid-test. Worker gw3 gets `<db>_gw3`, created on first use and
+    emptied the same way by `settings`. Serial runs (no xdist) keep the database they were given.
+    """
+    worker = os.environ.get("PYTEST_XDIST_WORKER")
+    db_url = os.environ.get("ONEMIND_TEST_DB_URL")
+    if not (worker and db_url):
+        return
+    from sqlalchemy import text
+    from sqlalchemy.engine import make_url
+
+    from onemind_core.ledger import make_engine
+
+    base = make_url(db_url)
+    if base.get_backend_name() != "postgresql":
+        return
+    name = f"{base.database}_{worker}"
+    admin = make_engine(db_url).execution_options(isolation_level="AUTOCOMMIT")
+    try:
+        with admin.connect() as conn:
+            if not conn.scalar(text("SELECT 1 FROM pg_database WHERE datname = :n"), {"n": name}):
+                conn.execute(text(f'CREATE DATABASE "{name}"'))
+    finally:
+        admin.engine.dispose()
+    os.environ["ONEMIND_TEST_DB_URL"] = base.set(database=name).render_as_string(hide_password=False)
+
+
+def _shard_key(item) -> str:
+    group = item.get_closest_marker("xdist_group")
+    if group is not None:
+        return "group:" + str(group.args[0] if group.args else group.kwargs.get("name"))
+    return item.nodeid
+
+
+def pytest_collection_modifyitems(config, items):
+    """ONEMIND_TEST_SHARD=k/n keeps a stable 1/n of the tests (CI-03, #228).
+
+    ci-core splits the slow PostgreSQL leg over several runners. A test goes to shard
+    crc32(node id) mod n, so every test runs in exactly one shard and the split does not move
+    when tests are added elsewhere. Tests in one xdist_group stay in the same shard.
+    """
+    spec = os.environ.get("ONEMIND_TEST_SHARD", "").strip()
+    if not spec:
+        return
+    import zlib
+
+    k, n = (int(x) for x in spec.split("/"))
+    if not 1 <= k <= n:
+        raise pytest.UsageError("ONEMIND_TEST_SHARD must be k/n with 1 <= k <= n")
+    keep, drop = [], []
+    for item in items:
+        (keep if zlib.crc32(_shard_key(item).encode()) % n == k - 1 else drop).append(item)
+    if drop:
+        config.hook.pytest_deselected(items=drop)
+    items[:] = keep
+
+
 @pytest.fixture(autouse=True)
 def _dispose_engines(monkeypatch):
     """Close every engine a test created, so the PostgreSQL leg never runs out of connections."""
