@@ -94,8 +94,17 @@ echo "OneMind contract check (poc-v0) against $HUB"
 
 # ---- NATS listener (started first, so it sees heartbeats and the audit lines of this run) ----
 if [ "$NATS" != none ]; then
-  # A strict hub (CORE-SEC-4, #161) refuses clients without a service nkey: run as root with
-  # ONEMIND_NATS_NKEY_SEED=/var/lib/onemind/nats/keys/gateway.nk and VERIFY_PYTHON=/opt/onemind/venv/bin/python.
+  # A strict hub (CORE-SEC-4, #161) refuses NATS clients without a service nkey. Run as root on the hub,
+  # verify.sh signs in with the gateway's own key (from /etc/onemind/gateway.env) and the gateway's
+  # Python, which has the `cryptography` package signing needs. Elsewhere set ONEMIND_NATS_NKEY_SEED
+  # and VERIFY_PYTHON yourself; without a key the NATS checks are skipped, not failed.
+  if [ -z "${ONEMIND_NATS_NKEY_SEED:-}" ] && [ -r /etc/onemind/gateway.env ]; then
+    seed=$(sed -n 's/^ONEMIND_FABRIC_NATS_NKEY_SEED=//p' /etc/onemind/gateway.env | tail -1)
+    if [ -n "$seed" ] && [ -r "$seed" ]; then export ONEMIND_NATS_NKEY_SEED=$seed; fi
+  fi
+  if [ -z "${VERIFY_PYTHON:-}" ] && [ -n "${ONEMIND_NATS_NKEY_SEED:-}" ] && [ -x /opt/onemind/venv/bin/python ]; then
+    VERIFY_PYTHON=/opt/onemind/venv/bin/python
+  fi
   "${VERIFY_PYTHON:-python3}" -I - "$NATS" "$WORK/nats.jsonl" "$(dirname "$0")" > "$WORK/nats.log" 2>&1 <<'PY' &
 import json, os, socket, sys, time
 url, out = sys.argv[1], sys.argv[2]
@@ -122,6 +131,9 @@ with open(out, "a") as o:
             break
         if line.startswith(b"PING"):
             s.sendall(b"PONG\r\n")
+        elif line.startswith(b"-ERR"):
+            print(line.decode(errors="replace").strip(), flush=True)  # e.g. 'Authorization Violation'
+            break
         elif line.startswith(b"MSG"):
             parts = line.split()
             size = int(parts[-1])
@@ -362,7 +374,9 @@ if [ "$NATS" != none ]; then
   for _ in $(seq 1 12); do grep -q '"subject": "onemind.node' "$WORK/nats.jsonl" 2>/dev/null && break; sleep 1; done
   sleep 1
   kill "$NATS_PID" 2>/dev/null; wait "$NATS_PID" 2>/dev/null
-  if [ ! -s "$WORK/nats.jsonl" ]; then
+  if grep -qiE "authorization violation|signing an nkey needs" "$WORK/nats.log" 2>/dev/null; then
+    skip "NATS checks: $NATS wants a service nkey (CORE-SEC-4); run as root on the hub, or set ONEMIND_NATS_NKEY_SEED and VERIFY_PYTHON ($(tail -1 "$WORK/nats.log"))"
+  elif [ ! -s "$WORK/nats.jsonl" ]; then
     fail "NATS $NATS not reachable: $(tail -1 "$WORK/nats.log")"
   else
     pass "§1 NATS answers at $NATS"

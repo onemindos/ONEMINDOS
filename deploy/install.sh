@@ -647,8 +647,10 @@ nats_install() {
   # CORE-SEC-4 (#161): the hub's own clients sign in with their own nkeys and the hub account has no
   # passwordless user, so any other local process without a key is refused. Each seed belongs to its
   # service's user (the gateway runs as onemind, onemindd as root); existing keys are kept.
-  install -d -m0755 -o onemind -g onemind "$STATE/nats/keys"
-  runuser -u onemind -- "$PREFIX/venv/bin/python" -m onemind_core.natsconf service-key "$STATE/nats/keys" gateway >/dev/null
+  # The directory is root's, so the gateway user can read its own seed but cannot replace onemindd's.
+  install -d -m0755 -o root -g root "$STATE/nats/keys"
+  "$PREFIX/venv/bin/python" -m onemind_core.natsconf service-key "$STATE/nats/keys" gateway >/dev/null
+  chown onemind:onemind "$STATE/nats/keys/gateway.nk"
   "$PREFIX/venv/bin/python" -m onemind_core.natsconf service-key "$STATE/nats/keys" onemindd >/dev/null
   runuser -u onemind -- "$PREFIX/venv/bin/python" -m onemind_core.natsconf "$STATE/nats/accounts.conf" "$STATE/nats/keys"
   ln -sfn "$STATE/nats/accounts.conf" "$ETC/nats-accounts.conf"

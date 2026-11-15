@@ -174,6 +174,27 @@ def new_user_key() -> tuple[str, str]:
     return _encode(seed_prefix, seed), _encode(bytes([user]), pub)
 
 
+def load_seed(path: Path):
+    """Read a user nkey seed file: returns (public key "U...", sign(bytes) -> 64-byte Ed25519
+    signature). With `cryptography`, not the `nkeys` package, which has no wheel for the image's
+    --only-binary install (#269)."""
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+    from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+
+    text = Path(path).read_text(encoding="ascii").strip()
+    try:
+        raw = base64.b32decode(text + "=" * (-len(text) % 8))
+    except ValueError:
+        raw = b""
+    user = 20 << 3
+    if (len(raw) != 36 or _crc16(raw[:-2]) != int.from_bytes(raw[-2:], "little")
+            or raw[0] != (18 << 3 | user >> 5) or raw[1] != (user & 31) << 3):
+        raise ValueError(f"{path} is not a NATS user nkey seed")
+    key = Ed25519PrivateKey.from_private_bytes(raw[2:34])
+    pub = _encode(bytes([user]), key.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw))
+    return pub, key.sign
+
+
 def make_service_key(directory: Path, name: str) -> str:
     """Write `<name>.nk` (seed, 0600) and `<name>.pub` (0644) once; keep an existing pair.
     Returns the public key. The installer then hands the seed file to the service's user."""

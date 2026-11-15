@@ -12,13 +12,13 @@ import os
 import stat
 from pathlib import Path
 
-import nkeys
 import pytest
 
 from onemind_core import natsconf
-from onemind_core.bus import NatsBus
+from onemind_core.bus import NatsBus, SeedClient
 from onemind_core.natsconf import (
-    HUB_LOCAL_USER, NodeAccount, ServiceKey, load_service_keys, make_service_key, new_user_key, render_accounts,
+    HUB_LOCAL_USER, NodeAccount, ServiceKey, load_seed, load_service_keys, make_service_key, new_user_key,
+    render_accounts,
 )
 from onemind_core.nodes import NodeRegistry
 
@@ -28,6 +28,11 @@ PUB_B = "UC3WGTQV7ERIG2GOPKU7CXZ6B6DPY4S2DC4ZIUZ4XVZENDHGM3RRMZF3"
 PUB_GW = "UAIETCIAFQAMTEIL47WBJYZ7OVLKMFPNIJ4P5T6XMGO7EHNVADUNJAAR"
 PUB_OD = "UC4NBEYQFAATYOQQ7SNT66S4WUDHAPZJ76SYNNSFMH2RXR3A6YESSM3V"
 NODES = [NodeAccount("bbb222", PUB_B), NodeAccount("aaa111", PUB_A)]
+# Reference vector made with the nkeys library (nkeys.py 0.2.1, from_seed + sign), which is what
+# nats-py itself signs with. A throwaway test key: nothing trusts it.
+REF_SEED = "SUAFYZMM7JSOKPMRRXMGNWNLWIJIIS52NZTGPO3VXYLYLEKU5YGD7E3LJ4"
+REF_PUB = "UCN22NCNRTF5KMIS5S3H5SCIWNUS2HZK4T2B6JJWLL6MTHD77QKC33B4"
+REF_SIG = "8POp6YQDSsf1pawtVYIaA92zdVsPXkXArJQpsiudXiRWswOMk0Z1daTpD5k2oj5zubMUqLDl3AXyLLdZmfNiAg=="
 
 
 def test_services_golden_matches_the_go_refusal_test():
@@ -44,14 +49,36 @@ def test_strict_hub_has_no_passwordless_user():
     assert f'no_auth_user: "{HUB_LOCAL_USER}"' in legacy
 
 
-def test_generated_key_is_a_real_nkey_that_signs():
+def test_seed_loading_matches_the_nkeys_library(tmp_path):
+    f = tmp_path / "ref.nk"
+    f.write_text(REF_SEED + "\n")
+    pub, sign = load_seed(f)
+    assert pub == REF_PUB
+    assert base64.b64encode(sign(b"hub-nonce-123")).decode() == REF_SIG  # Ed25519 is deterministic
+
+
+def test_generated_key_round_trips(tmp_path):
     seed, pub = new_user_key()
     assert seed.startswith("SU") and natsconf.is_user_public_nkey(pub)
-    kp = nkeys.from_seed(bytearray(seed.encode()))  # the library nats-py signs with
-    assert kp.public_key.decode() == pub
-    sig = kp.sign(b"nonce")
-    assert kp.verify(b"nonce", sig)
+    f = tmp_path / "k.nk"
+    f.write_text(seed)
+    assert load_seed(f)[0] == pub
     assert new_user_key()[1] != pub
+    for bad in ("", "SUNOTASEED", REF_PUB, REF_SEED[:-1] + ("A" if REF_SEED[-1] != "A" else "B")):
+        f.write_text(bad)
+        with pytest.raises(ValueError):
+            load_seed(f)
+
+
+def test_gateway_client_signs_the_nonce_like_nats_py_does(tmp_path):
+    """SeedClient fills the fields nats-py puts in CONNECT (nkey, sig), without the nkeys package."""
+    f = tmp_path / "gateway.nk"
+    f.write_text(REF_SEED + "\n")
+    c = SeedClient()
+    c._nkeys_seed = str(f)
+    c._setup_nkeys_seed_connect()
+    assert c._public_nkey == REF_PUB
+    assert c._signature_cb("hub-nonce-123").decode() == REF_SIG
 
 
 def test_service_key_files(tmp_path):
@@ -84,12 +111,11 @@ def test_installer_cli(tmp_path, capsys):
 def test_gateway_connects_with_its_seed(monkeypatch, tmp_path):
     seen = {}
 
-    async def fake_connect(url, **kw):
+    async def fake_connect(self, url, **kw):
         seen.update(kw, url=url)
         raise OSError("stop here")
 
-    import nats
-    monkeypatch.setattr(nats, "connect", fake_connect)
+    monkeypatch.setattr(SeedClient, "connect", fake_connect)
     seed = tmp_path / "gateway.nk"
 
     async def go(bus):
