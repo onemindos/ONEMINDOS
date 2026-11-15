@@ -356,7 +356,7 @@ def only_lan_addr(ip_addr_out: str) -> str | None:
     """From `ip -4 -o addr show scope global`, the single LAN IPv4 address; None if none or several."""
     found = set()
     for line in ip_addr_out.splitlines():
-        f = line.split()                       # "2: enp0s1    inet 10.0.2.15/24 brd ... scope global ..."
+        f = line.split()                       # "2: enp0s1    inet 192.0.2.10/24 brd ... scope global ..."
         if len(f) < 4 or f[2] != "inet" or f[1].startswith(VIRTUAL_IFACES):
             continue
         try:

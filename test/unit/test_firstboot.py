@@ -446,12 +446,12 @@ class Mesh(Box):
 
     def test_lan_address_without_a_router(self):
         # QEMU's restrict=on network (and an offline LAN) leases an address with no default route.
-        out = ("2: enp0s1    inet 10.0.2.15/24 metric 1024 brd 10.0.2.255 scope global dynamic enp0s1\\\n"
+        out = ("2: enp0s1    inet " + LAN + "/24 metric 1024 brd 192.0.2.255 scope global dynamic enp0s1\\\n"
                "3: tailscale0    inet 100.64.0.1/32 scope global tailscale0\\\n"
-               "4: flannel.1    inet 10.42.0.0/32 scope global flannel.1\\\n"
-               "5: cni0    inet 10.42.0.1/24 brd 10.42.0.255 scope global cni0\\\n")
-        self.assertEqual(fb.only_lan_addr(out), "10.0.2.15")
-        two = out + "6: enp0s2    inet 192.168.1.5/24 scope global enp0s2\\\n"
+               "4: flannel.1    inet 198.51.100.0/32 scope global flannel.1\\\n"
+               "5: cni0    inet 198.51.100.1/24 brd 198.51.100.255 scope global cni0\\\n")
+        self.assertEqual(fb.only_lan_addr(out), LAN)
+        two = out + "6: enp0s2    inet 203.0.113.5/24 scope global enp0s2\\\n"
         self.assertIsNone(fb.only_lan_addr(two))           # two LANs: no guessing
         self.assertIsNone(fb.only_lan_addr(""))
 
