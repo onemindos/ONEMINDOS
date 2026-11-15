@@ -278,7 +278,7 @@ People's devices are **user-owned** Headscale nodes (one Headscale user per OneM
 | OneMind role | Mesh identity | May reach | Never |
 |---|---|---|---|
 | hub | `tag:onemind-hub`, `tag:onemind-k3s` | workers: 10250/tcp, 51820/udp | leaves (nothing listens there) |
-| worker | `tag:onemind-worker`, `tag:onemind-k3s` | hub: 443, 6443, 7422/tcp; other k3s machines: 10250/tcp, 51820/udp | owner devices; leaves |
+| worker | `tag:onemind-worker`, `tag:onemind-k3s` | hub: 443, 6443, 7422, 8443/tcp (8443: app pods reach the gateway at `hub.onemind.internal`, H-05); other k3s machines: 10250/tcp, 51820/udp | owner devices; leaves |
 | leaf | `tag:onemind-leaf` | hub: 443 and 7422/tcp only | anything else |
 | owner device | user `person-<id>`, `group:owners` | hub: 443/tcp (dashboard, apps, coordinator) | node ports (4222, 6443, 7422, 10250, 7480); SSH unless `mesh.ssh` is on |
 | adult / guest device | user `person-<id>`, `group:adults` / `group:guests` | adults: hub 443/tcp; guests: nothing by default | as above |
@@ -301,7 +301,7 @@ The gateway is the only writer of the policy: it renders `policy.json` from the 
   "grants": [
     {"src": ["group:owners", "group:adults"], "dst": ["tag:onemind-hub"], "ip": ["tcp:443"]},
     {"src": ["tag:onemind-worker", "tag:onemind-leaf"], "dst": ["tag:onemind-hub"], "ip": ["tcp:443", "tcp:7422"]},
-    {"src": ["tag:onemind-worker"], "dst": ["tag:onemind-hub"], "ip": ["tcp:6443"]},
+    {"src": ["tag:onemind-worker"], "dst": ["tag:onemind-hub"], "ip": ["tcp:6443", "tcp:8443"]},
     {"src": ["tag:onemind-k3s"], "dst": ["tag:onemind-k3s"], "ip": ["tcp:10250", "udp:51820"]}
   ]
   // No other grant: Headscale denies everything not granted. Exit nodes and subnet routes are
