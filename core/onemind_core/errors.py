@@ -107,6 +107,17 @@ def error_response(
 
 
 def install_handlers(app: FastAPI) -> None:
+    @app.exception_handler(Exception)
+    async def _unexpected_error(_: Request, exc: Exception):
+        # ServerErrorMiddleware generates these outside GuardMiddleware. Import at
+        # response time because guard itself uses this module's error_response.
+        from .guard import SECURITY_HEADERS
+
+        response = error_response(500, "unavailable", "internal server error")
+        for name, value in SECURITY_HEADERS:
+            response.headers[name.decode("ascii")] = value.decode("ascii")
+        return response
+
     @app.middleware("http")
     async def static_resource_methods(request: Request, call_next):
         # OpenAPI gives literal resources precedence over sibling templates. Do the same
