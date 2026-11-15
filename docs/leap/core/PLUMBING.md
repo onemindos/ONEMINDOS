@@ -10,7 +10,7 @@
 
 | You are adding | Write | Register with one line in |
 |---|---|---|
-| REST routes | `core/onemind_core/routers/<feature>.py` with `register(app, gw)` | `ROUTERS` in `core/onemind_core/app.py` (before `static`) |
+| REST routes | `core/onemind_core/routers/<feature>.py` with `register(app, gw)` and `ORDER = <int>` | none: `routers.discover()` finds the module (CI-06, #231) |
 | Logic and state | `core/onemind_core/<feature>.py` (or a `<feature>/` package) | imported by your router |
 | Database tables | models on `ledger.Base` + `FeatureSchema("<feature>")` + a `SqlRepository` subclass, in your feature module | nothing (importing the module registers it) |
 | Settings | a frozen dataclass with `@config_section("<feature>")` | nothing (importing the module registers it) |
@@ -41,7 +41,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return svc.status()
 ```
 
-Then in `app.py`: `from .routers import backups as backups_routes` and `backups_routes.register,` in `ROUTERS`.
+Then give the module `ORDER = 200` (its place in the route order; `static` is 10000 and stays last). `app.py` finds it by itself (CI-06, #231).
 
 What `gw` (`context.Gateway`) gives you: `settings`, `clock` (use it, never `datetime.now()`, so tests control time), `tokens`, `registry` (nodes), `bus` (NATS), `audit`, `events`, `catalog`, `repo` (the action ledger), `db` (shared database), `executor`, `actions` (request/approve/deny), `skip_scan`, `principal` (the bearer-token dependency: 401 and rate-limited `auth.rejected` audit), `on_startup`, `on_shutdown`. `app.state.gateway` exposes it to tests.
 
@@ -174,7 +174,7 @@ and add `leaf.Service(),` to `optionalServices`. `internal/service` runs each en
 
 ## 8. Checklist for a feature PR
 
-- [ ] One new router line in `app.py` (and one `groups`/`registry.go` line if it has a CLI or daemon part); no other hotspot lines.
+- [ ] A new router module with `ORDER`, and no `app.py` edit (one `groups`/`registry.go` line if it has a CLI or daemon part); no other hotspot lines.
 - [ ] Tables named `<feature>_*`, a `FeatureSchema`, and a step for every change to a shipped table.
 - [ ] Settings via `@config_section`; no secrets in env defaults.
 - [ ] Facts worth telling someone go through `publish_event`; no direct NATS publishes under `onemind.>` from feature code.

@@ -122,4 +122,4 @@ There is no "update app" action yet. When the catalog gets a newer version of an
 
 ## Suggest an app
 
-Add a line to [`apps/_intake/queue.yaml`](https://github.com/onemindos/ONEMINDOS/blob/main/apps/_intake/queue.yaml) and open a pull request. The tools fill in the rest from the upstream project and run the same checks. See [Apps and trust cards](../../concepts/apps-and-trust-cards/).
+Add a file to [`apps/_intake/queue/`](https://github.com/onemindos/ONEMINDOS/blob/main/apps/_intake/queue/README.md) and open a pull request. The tools fill in the rest from the upstream project and run the same checks. See [Apps and trust cards](../../concepts/apps-and-trust-cards/).

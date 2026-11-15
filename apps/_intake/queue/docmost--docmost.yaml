@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+name: Docmost
+github: docmost/docmost
+priority: 3
+status: 'blocked: licence - the image (v0.97.0) builds apps/client/src/ee, under the Docmost Enterprise License (packages/ee/LICENSE: distribution forbidden), next to the AGPL-3.0 core (README License). Not redistributable; list-only candidate'
+notes: market batch 3

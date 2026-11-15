@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+name: AnythingLLM
+github: Mintplex-Labs/anything-llm
+priority: 2
+status: in-pr
+notes: market batch 5

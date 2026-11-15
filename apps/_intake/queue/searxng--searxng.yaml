@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+name: SearXNG
+github: searxng/searxng
+priority: 1
+status: in-pr
+notes: market batch 1

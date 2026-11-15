@@ -126,7 +126,7 @@ class CiAppsPathsTests(unittest.TestCase):
 
     def test_changed_apps_are_deduplicated_sorted_and_checked_for_existence(self):
         paths = [f"apps/{app}/manifests/deployment.yaml" for app in reversed(APPS[:2])]
-        paths += paths[:1] + ["apps/no-such-app/onemind.app.yaml", "apps/_intake/queue.yaml",
+        paths += paths[:1] + ["apps/no-such-app/onemind.app.yaml", "apps/_intake/queue/a--b.yaml",
                             "apps/.hidden/README.md", "sdk/tools/tests/test_app_tools.py"]
         self.assertEqual(self.selected(*paths), APPS[:2])
         for path in paths:

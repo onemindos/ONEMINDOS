@@ -35,6 +35,10 @@ class OnboardingSettingsView(BaseModel):
     saved: bool
 
 
+# Route order in the app and in /openapi.json (routers/__init__.py).
+ORDER = 210
+
+
 def register(app: FastAPI, gw: Gateway) -> None:
     svc = OnboardingService(gw.db)
     app.state.onboarding = svc

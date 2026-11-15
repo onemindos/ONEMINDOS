@@ -96,6 +96,10 @@ class AccessBody(BaseModel):
     auth: Literal["onemind", "app"] | None = None
 
 
+# Route order in the app and in /openapi.json (routers/__init__.py).
+ORDER = 260
+
+
 def register(app: FastAPI, gw: Gateway) -> None:
     svc = IdentityService(gw)
     gw.authenticators.append(svc.authenticate)

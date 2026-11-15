@@ -101,6 +101,10 @@ def _library_escape(_: Request, exc: LibraryEscape):
     return error_response(403, "permission_denied", "the photo library refused a path outside itself")
 
 
+# Route order in the app and in /openapi.json (routers/__init__.py).
+ORDER = 180
+
+
 def register(app: FastAPI, gw: Gateway) -> None:
     settings = gw.settings.section(PhotosSettings)
     svc = PhotosService(settings, PhotosRepository(gw.db), gw.clock, gw.events, gw.audit)

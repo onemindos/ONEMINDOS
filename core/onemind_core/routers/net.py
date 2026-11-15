@@ -61,6 +61,10 @@ def web_apps(gw: Gateway) -> list[str]:
     return sorted(out)
 
 
+# Route order in the app and in /openapi.json (routers/__init__.py).
+ORDER = 270
+
+
 def register(app: FastAPI, gw: Gateway) -> None:
     settings = gw.settings
     net = settings.section(NetSettings)

@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+name: WireGuard (wg-easy)
+github: wg-easy/wg-easy
+priority: 2
+status: 'skipped: needs NET_ADMIN and host sysctls, which apps may not use'
+notes: market batch 6 skip

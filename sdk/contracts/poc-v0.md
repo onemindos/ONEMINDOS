@@ -128,13 +128,14 @@ spec:
 ## 9. Adding apps at scale (founder requirement 2026-11-11: 100+ apps, added continuously)
 **Goal:** adding an app is a **repeatable, checked, mostly automatic** step that any AI or person can do in one PR. It is never hand-crafted. Every app arrives with its docs, its GitHub repo and its security results attached.
 
-**9.1 Intake queue.** The founder's app list lives in `apps/_intake/queue.yaml`. Each entry is one line plus optional hints:
+**9.1 Intake queue.** The founder's app list lives in `apps/_intake/queue/`, one file per app named `<owner>--<repo>.yaml` in lower case (CI-06: two PRs never edit the same file). Each file holds one entry plus optional hints:
 ```yaml
-- name: Immich
-  github: immich-app/immich          # required: owner/repo
-  docs: https://immich.app/docs      # optional; the scaffolder finds it if empty
-  priority: 1                        # 1 = next batch
-  notes: needs GPU optional
+# apps/_intake/queue/immich-app--immich.yaml
+name: Immich
+github: immich-app/immich          # required: owner/repo
+docs: https://immich.app/docs      # optional; the scaffolder finds it if empty
+priority: 1                        # 1 = next batch
+notes: needs GPU optional
 ```
 The queue is the only list. A status field (`queued`, `in-pr`, `verified`, `blocked: <reason>`) is updated by the PR that adds the app.
 
