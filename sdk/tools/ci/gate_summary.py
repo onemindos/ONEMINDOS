@@ -67,6 +67,11 @@ def classify(cell: dict | None) -> str:
         return "pass"
     if rc in (0, 1) and report:
         return "fail"
+    # A failed pipeline under bash -e can leave the initial rc=null behind.
+    # Recover only explicit failures for this app, never infer a successful exit.
+    if (rc is None and isinstance(report, dict) and report.get("app") == cell.get("app")
+            and report.get("result") == "fail"):
+        return "fail"
     return "error"
 
 
@@ -106,7 +111,11 @@ def render(cells: dict[tuple[str, str], dict | None], apps: list[str], archs: li
                 names = ", ".join(n for n, _ in failing_checks(cell["report"])) or "see report"
                 row.append(f"**FAIL**: {names} (tier {cell['report'].get('computed_tier', '?')})")
             elif kind == "error":
-                row.append("**ERROR** (setup)" if cell.get("rc") is None else f"**ERROR** (exit {cell.get('rc')})")
+                if cell.get("rc") is None:
+                    started = cell.get("report") or cell.get("log_tail")
+                    row.append("**ERROR** (exit status missing)" if started else "**ERROR** (setup)")
+                else:
+                    row.append(f"**ERROR** (exit {cell.get('rc')})")
             else:
                 row.append("**NO RESULT**")
         table.append(f"| `{app}` | " + " | ".join(row) + " |")
@@ -120,13 +129,20 @@ def render(cells: dict[tuple[str, str], dict | None], apps: list[str], archs: li
             details.append(f"### `{app}` on {arch}")
             if kind == "missing":
                 details.append("No artifact: the job was cancelled, timed out or never started.")
-            elif kind == "error" and cell.get("rc") is None:
+            elif kind == "error" and cell.get("rc") is None and not (cell.get("report") or cell.get("log_tail")):
                 details.append("The job stopped before app-gate finished (tool install, ClamAV signatures or the "
                                "k3d cluster); see the job's log in the run.")
             elif kind == "error":
-                details.append(f"app-gate exited {cell.get('rc')} (tool, network or input error), last lines of its output:")
+                if cell.get("rc") is None:
+                    details.append("The gate produced output but its exit status was not recorded; "
+                                   "this is not a pass. Last lines of its output:")
+                else:
+                    details.append(f"app-gate exited {cell.get('rc')} (tool, network or input error), last lines of its output:")
                 details += ["```", *[clean(x, 300) for x in cell.get("log_tail", [])], "```"]
             else:
+                if cell.get("rc") is None:
+                    details.append("The report records failure, but the exit status was not recorded; "
+                                   "see the job log for the pipeline failure.")
                 for name, notes in failing_checks(cell["report"]):
                     details.append(f"- **{name}**")
                     shown = notes[:MAX_NOTES_PER_CHECK]
