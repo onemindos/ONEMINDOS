@@ -16,6 +16,10 @@ from .apps import app_rows
 from .audit import owned_action_ids
 
 
+# Route order in the app and in /openapi.json (routers/__init__.py).
+ORDER = 140
+
+
 def register(app: FastAPI, gw: Gateway) -> None:
     actions = gw.actions
     principal = gw.principal

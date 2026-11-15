@@ -1,0 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+name: Vaultwarden
+github: dani-garcia/vaultwarden
+priority: 1
+status: verified

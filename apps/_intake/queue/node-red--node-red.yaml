@@ -1,0 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+name: Node-RED
+github: node-red/node-red
+priority: 1
+status: 'blocked: upstream image 5.0.9 has fixable CRITICAL CVE-2026-123158 (openssh-client); every 5.0.9 variant fails the gate'

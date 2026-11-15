@@ -89,6 +89,10 @@ def _accepted(action: dict, created: bool) -> JSONResponse:
     return JSONResponse(status_code=202 if created else 200, content=action, headers=headers)
 
 
+# Route order in the app and in /openapi.json (routers/__init__.py).
+ORDER = 290
+
+
 def register(app: FastAPI, gw: Gateway) -> None:
     settings = gw.settings.section(MigrateSettings)
     box = BoxKube(gw.settings.kubectl, gw.settings.executor_timeout_s) if gw.settings.executor == "kubernetes" else None

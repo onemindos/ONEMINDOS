@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+name: Miniflux
+github: miniflux/v2
+priority: 2
+status: 'skipped: deferred; needs PostgreSQL plus an admin account created on first start (no web sign-up), which needs the app-secrets design'
+notes: market batch 6 skip

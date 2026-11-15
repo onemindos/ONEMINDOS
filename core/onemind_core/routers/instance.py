@@ -13,6 +13,10 @@ from ..errors import error_responses
 from ..onboarding import OnboardingService
 
 
+# Route order in the app and in /openapi.json (routers/__init__.py).
+ORDER = 100
+
+
 def register(app: FastAPI, gw: Gateway) -> None:
     settings = gw.settings
     principal = gw.principal

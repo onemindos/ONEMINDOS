@@ -29,7 +29,7 @@ Each app page shows a **trust card**: the facts you would want before you instal
 
 The goal is 100+ apps, added continuously, without hand-crafting YAML:
 
-1. **Queue.** One line per app in [`apps/_intake/queue.yaml`](https://github.com/onemindos/ONEMINDOS/blob/main/apps/_intake/queue.yaml): name, GitHub repo, optional docs link.
+1. **Queue.** One small file per app in [`apps/_intake/queue/`](https://github.com/onemindos/ONEMINDOS/blob/main/apps/_intake/queue/README.md): name, GitHub repo, optional docs link.
 2. **Scaffolder.** Fills the manifest from primary sources only: the GitHub API, the upstream's own compose file or Helm chart, and the registry for digests and architectures. Anything it cannot verify is written as `UNVERIFIED` and blocks the `verified` tier. It never guesses an image name.
 3. **CI gate.** Runs every check above on each pull request.
 4. **Updates.** Renovate opens pull requests that bump tag and digest. The gate runs again. Patch bumps of verified apps can merge automatically when green; minor and major bumps wait for a human. A new critical CVE or malware hit marks the app `blocked`. Alerting the owners who have it installed is planned.

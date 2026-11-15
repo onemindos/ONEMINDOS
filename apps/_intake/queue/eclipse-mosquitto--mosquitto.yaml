@@ -1,0 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+name: Eclipse Mosquitto
+github: eclipse-mosquitto/mosquitto
+priority: 1
+status: 'blocked: licence gate - research licence-matrix row writes EPL-2.0 OR EDL-1.0 (not SPDX); upstream LICENSE.txt is EPL-2.0 OR BSD-3-Clause. All other checks pass'

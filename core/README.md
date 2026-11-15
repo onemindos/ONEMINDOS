@@ -39,7 +39,7 @@ is where that rule is enforced in code, not in a prompt:
 
 | File | Job |
 |---|---|
-| `onemind_core/app.py` | Builds the gateway and holds `ROUTERS`, the router registry ([how to add a feature](../docs/leap/core/PLUMBING.md)) |
+| `onemind_core/app.py` | Builds the gateway; `ROUTERS` is every `routers/` module in its `ORDER`, found by `routers.discover()` ([how to add a feature](../docs/leap/core/PLUMBING.md)) |
 | `onemind_core/routers/` | One module per route group: `instance`, `nodes`, `apps`, `mcp`, `actions`, `static` (dashboard files with SPA fallback, last) |
 | `onemind_core/context.py` | `Gateway`, the shared services every router gets, and the bearer-token dependency |
 | `onemind_core/store.py`, `sections.py`, `events.py` | Per-feature tables and upgrade steps; per-feature settings sections; `publish_event` |
