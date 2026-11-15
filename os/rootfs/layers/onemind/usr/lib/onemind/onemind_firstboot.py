@@ -838,8 +838,8 @@ def _mesh(p: Paths, st: dict, sleep) -> str:
 # ------------------------------------------------------------------ worker / leaf: the join
 def join(p: Paths) -> int:
     """`onemind fabric join` with the code from onemind.conf (onemind-fabric-join.service). The code is
-    one-use and expires; the owner approves the request on the hub. The CLI has no flag to read the
-    code from a file, so it is passed as an argument of a child process (never on the unit's command line)."""
+    one-use and expires; the owner approves the request on the hub. The CLI reads it from its 0600
+    file (--code-file), so it never shows in the process list, the journal or the console."""
     st = load_state(p)
     if not st or st["role"] == "hub":
         return 0
@@ -858,7 +858,7 @@ def join(p: Paths) -> int:
         msg = f"ONEMIND-FIRSTBOOT: the saved join code is not valid ({exc})"
         log(msg); console(p, msg)
         return 1
-    argv = [ONEMIND_CLI, "fabric", "join", code, "--timeout", JOIN_TIMEOUT]
+    argv = [ONEMIND_CLI, "fabric", "join", "--code-file", p.join_code, "--timeout", JOIN_TIMEOUT]
     if st.get("hub_addr"):
         argv += ["--hub-addr", st["hub_addr"]]
     msg = ("ONEMIND-FIRSTBOOT: joining the hub; approve this box on the hub's dashboard (Approvals) "

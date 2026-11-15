@@ -513,7 +513,9 @@ class Node(Box):
         with mock.patch.object(fb, "run_stream", fake):
             self.assertEqual(fb.join(self.p), 0)
         argv, env = seen[0]
-        self.assertEqual(argv[:4], [fb.ONEMIND_CLI, "fabric", "join", JOIN])
+        # The code is read from its 0600 file, never passed where the process list shows it.
+        self.assertEqual(argv[:5], [fb.ONEMIND_CLI, "fabric", "join", "--code-file", self.p.join_code])
+        self.assertNotIn(JOIN, " ".join(argv))
         self.assertEqual(argv[argv.index("--hub-addr") + 1], LAN)
         self.assertEqual(argv[argv.index("--timeout") + 1], "20m")
         self.assertEqual(env["ONEMIND_ETC_DIR"], self.p.etc)

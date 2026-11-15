@@ -211,7 +211,7 @@ func (in *Installer) Apply(ctx context.Context, id *Identity, cr *Credentials, c
 	if err := in.writeLeaf(id, cr); err != nil {
 		return nil, fmt.Errorf("nats leaf: %w", err)
 	}
-	if err := in.Sys.Systemctl(ctx, "enable", "--now", LeafUnit); err != nil {
+	if err := in.startLeaf(ctx); err != nil {
 		return nil, err
 	}
 	_ = in.Sys.Systemctl(ctx, "reload-or-restart", LeafUnit)
@@ -241,6 +241,16 @@ func (in *Installer) Apply(ctx context.Context, id *Identity, cr *Credentials, c
 		in.say("note: %v", err)
 	}
 	return st, nil
+}
+
+// startLeaf enables and starts the leaf. The OS image's units cannot be enabled (read-only /etc);
+// its first boot starts them on every boot instead, so starting it now is enough (IMG-MESH-01, #292).
+func (in *Installer) startLeaf(ctx context.Context) error {
+	if err := in.Sys.Systemctl(ctx, "enable", "--now", LeafUnit); err != nil {
+		in.say("note: %v; starting %s without enabling it", err, LeafUnit)
+		return in.Sys.Systemctl(ctx, "start", LeafUnit)
+	}
+	return nil
 }
 
 func (in *Installer) writeLeaf(id *Identity, cr *Credentials) error {

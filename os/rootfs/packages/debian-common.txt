@@ -6,7 +6,7 @@ kmod iproute2 iptables nftables procps util-linux mount e2fsprogs dosfstools
 ca-certificates curl socat zstd squashfs-tools
 apparmor
 # OneMind layer: onemind.local over mDNS; openssl for the per-box CA at first boot (docs/leap/core/IMAGES.md)
-avahi-daemon openssl
+avahi-daemon avahi-utils openssl
 initramfs-tools
 # Boot splash (brand/generated/os/plymouth): graphical console only, the serial console is untouched
 plymouth plymouth-label fontconfig fonts-dejavu-core

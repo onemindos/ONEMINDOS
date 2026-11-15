@@ -17,6 +17,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"math/big"
 	"net"
@@ -190,10 +191,17 @@ func (f *fakeTS) Run(_ context.Context, args ...string) ([]byte, error) {
 	return nil, nil
 }
 
-type fakeSys struct{ calls []string }
+type fakeSys struct {
+	calls []string
+	fail  string // a call that starts with this fails (e.g. "enable" on the read-only OS image)
+}
 
 func (s *fakeSys) Systemctl(_ context.Context, args ...string) error {
-	s.calls = append(s.calls, strings.Join(args, " "))
+	call := strings.Join(args, " ")
+	s.calls = append(s.calls, call)
+	if s.fail != "" && strings.HasPrefix(call, s.fail) {
+		return errors.New("systemctl " + call + ": Read-only file system")
+	}
 	return nil
 }
 func (s *fakeSys) Chown(string, string) error { return nil }
@@ -361,3 +369,24 @@ func contains(list []string, s string) bool {
 	}
 	return false
 }
+
+// On the OS image `systemctl enable` fails (read-only /etc): the leaf is started anyway (#292).
+func TestStartLeafWhenEnableFails(t *testing.T) {
+	sys := &fakeSys{fail: "enable"}
+	var out bytes.Buffer
+	in := &Installer{Sys: sys, Out: &out}
+	if err := in.startLeaf(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Join(sys.calls, "; "); got != "enable --now onemind-nats-leaf.service; start onemind-nats-leaf.service" {
+		t.Fatalf("systemctl calls: %s", got)
+	}
+	if err := (&Installer{Sys: failAll{}, Out: &out}).startLeaf(context.Background()); err == nil {
+		t.Fatal("a start that fails too must fail the join")
+	}
+}
+
+type failAll struct{}
+
+func (failAll) Systemctl(context.Context, ...string) error { return errors.New("no systemd") }
+func (failAll) Chown(string, string) error                 { return nil }
