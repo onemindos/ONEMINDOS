@@ -143,6 +143,12 @@ func (a *App) reportChain(res onemind.ChainResult, source string, extra func() e
 	if extra != nil {
 		extraErr = extra()
 	}
+	var ee *exitError
+	if res.OK && errors.As(extraErr, &ee) && ee.code == ExitVerifyFailed {
+		// A self-consistent download is not a successful verification when the
+		// gateway disagrees. The cross-check does not locate a bad record.
+		res.OK, res.Reason, res.FirstBadSeq = false, ee.msg, nil
+	}
 	if a.G.JSON {
 		if err := printJSON(a.Stdout, map[string]any{"schema": "onemind.cli.audit_verify/v1", "source": source, "result": res,
 			"checkpoint": nil, "checks": []string{"chain"}}); err != nil {
@@ -155,13 +161,17 @@ func (a *App) reportChain(res onemind.ChainResult, source string, extra func() e
 		}
 		fmt.Fprintf(a.Stdout, "%d entries · chain ok · %s\n", res.Records, head)
 		fmt.Fprintf(a.Stdout, "Checked: the chain of %s. Not checked: a signed checkpoint (none exist yet, H-10).\n", source)
-	} else {
+	} else if res.FirstBadSeq != nil {
 		fmt.Fprintf(a.Stdout, "FAIL at seq %d: %s\n", *res.FirstBadSeq, res.Reason)
+	} else {
+		fmt.Fprintf(a.Stdout, "FAIL: %s\n", res.Reason)
 	}
 	if !res.OK {
+		if res.FirstBadSeq == nil {
+			return exitWith(ExitVerifyFailed, "verify_failed", res.Reason)
+		}
 		return exitWith(ExitVerifyFailed, "verify_failed", fmt.Sprintf("audit chain broken at seq %d", *res.FirstBadSeq))
 	}
-	var ee *exitError
 	if errors.As(extraErr, &ee) {
 		return extraErr
 	}
