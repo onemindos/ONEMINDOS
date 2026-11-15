@@ -1,0 +1,34 @@
+#!/bin/bash
+# SPDX-License-Identifier: Apache-2.0
+# The host-side loop behind `up` (CI-10, issue 299): one fresh ephemeral runner per job, forever.
+# Each round mints a registration token with the Mac's own `gh` login (valid one hour, never stored or
+# printed), hands it to the VM on stdin, and waits for the runner to finish its single job. When the repo
+# variable LOCAL_RUNNER is not "on" it registers nothing, so jobs fall back to GitHub-hosted runners.
+set -uo pipefail
+ORG=${ORG:-onemindos}
+REPO=${REPO:-onemindos/ONEMINDOS}
+GROUP=${RUNNER_GROUP:-onemind-local}
+VM=${VM:-onemind-ci}
+fail=0
+while :; do
+  switch=$(gh api "repos/$REPO/actions/variables/LOCAL_RUNNER" -q .value 2>/dev/null || echo off)
+  if [ "$switch" != "on" ]; then
+    echo "$(date '+%F %T') LOCAL_RUNNER is '$switch': not taking jobs"; sleep 60; continue
+  fi
+  if [ -n "${RUNNER_REG_TOKEN:-}" ]; then   # one-off token pasted by the founder: use it for one round only
+    token=$RUNNER_REG_TOKEN; unset RUNNER_REG_TOKEN
+  else
+    token=$(gh api -X POST "orgs/$ORG/actions/runners/registration-token" -q .token 2>/dev/null) || token=""
+  fi
+  if [ -z "$token" ]; then
+    echo "$(date '+%F %T') could not get a registration token (gh auth needs the admin:org scope)"
+    fail=$((fail + 1)); sleep $((fail < 10 ? 30 * fail : 300)); continue
+  fi
+  echo "$(date '+%F %T') waiting for one job"
+  if printf '%s\n' "$token" | limactl shell "$VM" -- sudo -u runner /usr/local/bin/onemind-ci-run-one "https://github.com/$ORG" "$GROUP"; then
+    fail=0
+  else
+    fail=$((fail + 1)); echo "$(date '+%F %T') runner round failed ($fail)"; sleep $((fail < 10 ? 10 * fail : 100))
+  fi
+  unset token
+done

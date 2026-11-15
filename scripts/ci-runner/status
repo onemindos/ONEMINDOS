@@ -1,0 +1,14 @@
+#!/bin/bash
+# SPDX-License-Identifier: Apache-2.0
+# Show the local CI runner's state (CI-10, issue 299): switch, VM, service, registered runners, queue.
+set -uo pipefail
+REPO=${REPO:-onemindos/ONEMINDOS}
+ORG=${REPO%%/*}
+VM=${VM:-onemind-ci}
+echo "LOCAL_RUNNER variable : $(gh api "repos/$REPO/actions/variables/LOCAL_RUNNER" -q .value 2>/dev/null || echo 'not set (= off)')"
+echo "VM                    : $(limactl list --format '{{.Name}} {{.Status}}' 2>/dev/null | grep "^$VM " || echo 'none')"
+if launchctl print "gui/$(id -u)/dev.onemind.ci-runner" >/dev/null 2>&1; then echo "launchd service      : loaded"; else echo "launchd service      : not loaded"; fi
+echo "registered runners    :"
+gh api "orgs/$ORG/actions/runners" -q '.runners[] | select(.labels[].name == "onemind-local") | "  \(.name)  \(.status)  busy=\(.busy)"' 2>/dev/null || echo "  (gh needs the admin:org scope to list runners)"
+echo "workflow runs queued  : $(gh api "repos/$REPO/actions/runs?status=queued&per_page=1" -q .total_count 2>/dev/null || echo '?')"
+echo "workflow runs running : $(gh api "repos/$REPO/actions/runs?status=in_progress&per_page=1" -q .total_count 2>/dev/null || echo '?')"
