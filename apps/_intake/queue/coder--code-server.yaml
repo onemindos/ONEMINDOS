@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+name: code-server
+github: coder/code-server
+priority: 3
+status: in-pr
+notes: market batch 3

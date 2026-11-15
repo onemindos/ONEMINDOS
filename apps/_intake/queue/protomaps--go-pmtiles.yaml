@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+name: go-pmtiles (Offline Maps)
+github: protomaps/go-pmtiles
+priority: 1
+status: in-pr
+notes: offline knowledge bundle; app id offline-maps with OneMind's own viewer

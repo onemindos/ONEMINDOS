@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+name: Kolibri
+github: learningequality/kolibri
+priority: 1
+status: 'blocked: image 0.19.5 (newest) has fixable CRITICAL CVEs (perl-base x3, Django CVE-2025-64459, certifi); everything else in place'
+notes: offline knowledge bundle

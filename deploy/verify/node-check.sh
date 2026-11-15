@@ -52,9 +52,12 @@ active() { systemctl is-active --quiet "$1" 2>/dev/null; }
 unit_exists() { [ -n "$(systemctl list-unit-files --no-legend "$1.service" 2>/dev/null)" ]; }
 svc() { if active "$1"; then row PASS "$1.service active"; else row FAIL "$1.service active" "journalctl -u $1"; fi; }
 # natscheck reads the URL from the env file, so credentials never reach a command line.
+# On a hub onemindd.env also names onemindd's NATS seed (CORE-SEC-4, #161); signing it needs the
+# `cryptography` package, which the gateway's Python has.
+PY=python3; [ -x /opt/onemind/venv/bin/python ] && PY=/opt/onemind/venv/bin/python
 nc() { local cmd=$1; shift
-  if [ -n "$NATS_URL" ]; then python3 -I "$NATSCHECK" "$cmd" "$NATS_URL" "$@"
-  else python3 -I "$NATSCHECK" "$cmd" --env-file "$ENV_FILE" "$@"; fi; }
+  if [ -n "$NATS_URL" ]; then "$PY" -I "$NATSCHECK" "$cmd" "$NATS_URL" "$@"
+  else "$PY" -I "$NATSCHECK" "$cmd" --env-file "$ENV_FILE" "$@"; fi; }
 
 echo "OneMind node check (role $ROLE)"
 

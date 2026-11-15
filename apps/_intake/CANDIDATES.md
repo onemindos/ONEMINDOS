@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 # Market candidates from competitor app stores
 
-This is the ranked list of upstream projects that OneMind could package for the Market. It was built on 2026-11-12 from seven competitor app stores. The full list is in [`candidates.csv`](candidates.csv): 1199 upstream projects, one row each. It proposes candidates only. An app joins the queue when a PR adds it to [`queue.yaml`](queue.yaml), and the scaffolder and gate then check it (`sdk/contracts/poc-v0.md` §9).
+This is the ranked list of upstream projects that OneMind could package for the Market. It was built on 2026-11-12 from seven competitor app stores. The full list is in [`candidates.csv`](candidates.csv): 1199 upstream projects, one row each. It proposes candidates only. An app joins the queue when a PR adds its file to [`queue/`](queue/README.md), and the scaffolder and gate then check it (`sdk/contracts/poc-v0.md` §9).
 
 ## Legal rule
 
@@ -133,7 +133,7 @@ Each row is normalised to the Market taxonomy in [`docs/design/TAXONOMY.md`](../
 
 ## Proposed queue batches
 
-These batches are ordered by priority, ten apps each. They skip apps already in `apps/` (Home Assistant, ntfy, Uptime Kuma) and apps already in `queue.yaml` (Hermes Agent, Node-RED, Mosquitto, Vaultwarden, Actual Budget, Zigbee2MQTT).
+These batches are ordered by priority, ten apps each. They skip apps already in `apps/` (Home Assistant, ntfy, Uptime Kuma) and apps already in the queue (Hermes Agent, Node-RED, Mosquitto, Vaultwarden, Actual Budget, Zigbee2MQTT).
 
 Batch 1 holds the daily essentials for replacing a home cluster, as the founder asked. The data supports this set: all ten are L1 or L2, are listed in at least four of the seven stores, and had a release (SearXNG: a push) within the last 30 days. Seven of them are in the top 30 by score. Gitea is chosen over Forgejo because Forgejo is hosted on Codeberg and could not be scored here; Forgejo is the copyleft fork, if that is preferred. The LibreChat repo has moved to `LibreChat-AI/LibreChat`.
 
@@ -151,7 +151,7 @@ Batches 2 to 5 follow the score, with no hand reordering.
 
 Batches after 5 continue in score order through the `queue` rows of the CSV.
 
-**Batch 6.** Wiki.js (`requarks/wiki`, Notes & Knowledge, L2), Jenkins (`jenkinsci/jenkins`, Developer, L1), BentoPDF (`alam00000/bentopdf`, Productivity, L2), MeTube (`alexta69/metube`, Media, L2), Seerr (`seerr-team/seerr`, Media, L1), Prometheus (`prometheus/prometheus`, Monitoring, L1), Vikunja (`go-vikunja/vikunja`, Productivity, L2): the next rows in score order that could be packaged as non-root without privileges. Skipped, with reasons in `queue.yaml`: Portainer, Frigate, Glances (licence gate cannot confirm), ArchiveBox, WireGuard, BookStack, FlareSolverr, Jackett, Kavita, Miniflux, LibreTranslate, PrivateBin (licence gate cannot confirm).
+**Batch 6.** Wiki.js (`requarks/wiki`, Notes & Knowledge, L2), Jenkins (`jenkinsci/jenkins`, Developer, L1), BentoPDF (`alam00000/bentopdf`, Productivity, L2), MeTube (`alexta69/metube`, Media, L2), Seerr (`seerr-team/seerr`, Media, L1), Prometheus (`prometheus/prometheus`, Monitoring, L1), Vikunja (`go-vikunja/vikunja`, Productivity, L2): the next rows in score order that could be packaged as non-root without privileges. Skipped, with reasons in the queue files: Portainer, Frigate, Glances (licence gate cannot confirm), ArchiveBox, WireGuard, BookStack, FlareSolverr, Jackett, Kavita, Miniflux, LibreTranslate, PrivateBin (licence gate cannot confirm).
 
 ## Top 100
 

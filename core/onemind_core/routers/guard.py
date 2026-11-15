@@ -13,6 +13,10 @@ from ..context import Gateway
 from ..guard import GuardMiddleware, LimitSettings
 
 
+# Route order in the app and in /openapi.json (routers/__init__.py).
+ORDER = 0  # first: limits and security headers wrap every later route
+
+
 def register(app: FastAPI, gw: Gateway) -> None:
     settings = gw.settings
     if settings.executor == "kubernetes" and (settings.app_schema_path is None or not settings.app_schema_path.is_file()):

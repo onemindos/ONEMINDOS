@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+name: Radarr
+github: Radarr/Radarr
+priority: 3
+status: in-pr
+notes: market batch 3

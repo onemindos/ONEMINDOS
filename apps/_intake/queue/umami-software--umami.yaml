@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+name: Umami
+github: umami-software/umami
+priority: 2
+status: in-pr
+notes: market batch 5

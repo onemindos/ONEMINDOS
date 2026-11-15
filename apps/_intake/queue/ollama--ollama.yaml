@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+name: Ollama
+github: ollama/ollama
+priority: 1
+status: in-pr
+notes: market batch 1
