@@ -16,7 +16,7 @@ Environment=SSL_CERT_FILE=/data/onemind/identity/ca.pem
 Environment=TS_NO_LOGS_NO_SUPPORT=true
 # Tailscale offers flannel's interfaces as paths; drop its UDP port there (/usr/lib/onemind/mesh-guard.nft).
 ExecStartPre=/usr/sbin/nft -f /usr/lib/onemind/mesh-guard.nft
-ExecStart=/usr/sbin/tailscaled --no-logs-no-support --port=41641 --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock
+ExecStart=/usr/sbin/tailscaled --no-logs-no-support --port=41641 --state=/var/lib/tailscale/tailscaled.state --statedir=/var/lib/tailscale --socket=/run/tailscale/tailscaled.sock
 ExecStopPost=/usr/sbin/tailscaled --cleanup
 ExecStopPost=-/usr/sbin/nft delete table inet onemind_mesh_guard
 Restart=on-failure
