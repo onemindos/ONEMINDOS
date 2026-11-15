@@ -63,3 +63,14 @@ Founder decisions. Each entry is final until Zeus changes it. Reference these ID
   - it cannot be revoked: "the operating system for sovereignty"
 - **Reopen only if:** bootc passes on a real Pi 5 (W2-HW-3), or Canonical offers a written, non-revocable, affordable agreement.
 - Explained in [`learning/03-base-os-debian-vs-ubuntu.md`](learning/03-base-os-debian-vs-ubuntu.md) and [`learning/05-official-route-and-why-not-fedora-arch.md`](learning/05-official-route-and-why-not-fedora-arch.md).
+
+## D-008 · Rescue console sign-in: the owner token until passkeys
+**Date:** 2026-11-15 · **Decided by:** Zeus
+> "keep the owner token for the rescue console"
+- The rescue console in onemindd (CORE-UPDATE-8, #157, PR #268) signs the owner in with the **existing owner token**. It checks the token against the gateway's hash-only tokens file (`/etc/onemind/tokens.yaml`), so it works with k3s and the gateway down. **No separate rescue credential.**
+- Only a person with role owner passes; agent tokens never do (AI never actuates without human approval).
+- **Why:**
+  - nothing new to provision or lose;
+  - no new secret on disk (the file stores only hashes);
+  - no new privilege: the same token already controls the gateway.
+- **Until:** owner passkeys land with Kanidm (BD-03; UPDATES §3.5 plans a locally cached owner passkey). Then the console moves to the passkey.

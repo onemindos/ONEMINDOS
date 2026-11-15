@@ -17,4 +17,4 @@ Closes #
 - [ ] `make lint`, `scripts/changes.py check`, `scripts/hygiene.py`, gitleaks pass
 - [ ] `changes/<branch>.md` fragment added; CHANGELOG.md and STATUS.md untouched
 - [ ] Every commit signed off (`git commit -s`)
-- [ ] No locked decision broken (D-001 to D-007); AI never actuates without human approval
+- [ ] No locked decision broken (D-001 to D-008); AI never actuates without human approval

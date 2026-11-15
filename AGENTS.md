@@ -8,7 +8,7 @@
 - **Prefer the next shippable step over more analysis:** something that runs, a test that passes, or a kit Zeus can run on hardware.
 
 ## Locked founder decisions (read before building)
-- **D-001 to D-007** in [docs/DECISIONS.md](docs/DECISIONS.md).
+- **D-001 to D-008** in [docs/DECISIONS.md](docs/DECISIONS.md).
 - **Base OS (D-007, Z-38 = b, 2026-11-11): Debian 13 is the shipping base.**
   - Ubuntu 26.04 is a light CI hedge only.
   - Jetson runs NVIDIA L4T (dev kits).
