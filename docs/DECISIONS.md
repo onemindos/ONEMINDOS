@@ -63,3 +63,49 @@ Founder decisions. Each entry is final until Zeus changes it. Reference these ID
   - it cannot be revoked: "the operating system for sovereignty"
 - **Reopen only if:** bootc passes on a real Pi 5 (W2-HW-3), or Canonical offers a written, non-revocable, affordable agreement.
 - Explained in [`learning/03-base-os-debian-vs-ubuntu.md`](learning/03-base-os-debian-vs-ubuntu.md) and [`learning/05-official-route-and-why-not-fedora-arch.md`](learning/05-official-route-and-why-not-fedora-arch.md).
+
+## D-008 · Z-41: the Ubuntu Secure Boot test is dropped
+**Date:** 2026-11-14 · **Decided by:** Zeus
+> "Accept all six" (the recommendations in [`learning/founder/05-decision-briefs-nov-2026.md`](learning/founder/05-decision-briefs-nov-2026.md); applies to D-008 to D-013).
+- **Z-41 = (d):** LT-VM-20 (U-SB) is not run. The lock record says "U-SB not run; not needed under D-007".
+- **Why:** D-007 reopens only for a bootc pass on a real Pi 5 or a Canonical agreement, so no U-SB result can change the base.
+- If the Ubuntu CI hedge ever needs Secure Boot, the kit can join that CI leg later.
+
+## D-009 · Z-04 / F-27: the signing-key ceremony runs now, on key files, then rotates onto hardware keys
+**Date:** 2026-11-14 · **Decided by:** Zeus
+- **Z-04 = (a′):** the offline TUF root has three keys, each on its own encrypted USB stick, with a **2-of-3** threshold. The keys are made offline with `scripts/tuf-bootstrap-root.sh`: rehearse first, then `create`.
+- The sticks are kept in three places: home, off-site, and a trusted person. The succession note stays in a sealed envelope, never in the repo.
+- `root.json` (public) is committed. Only the three online role keys become GitHub environment secrets; the root never touches CI.
+- **Later:** a root rotation moves the root onto hardware keys once the token signer exists (#272). That rotation counts as Z-04's required drill.
+- **Sovereign mode** (owners replace their box's Secure Boot keys): yes in principle, designed under Z-19 (#148), not built now.
+- **Why:** the hardware-token signer isn't built yet (`os/update/README.md`). This unblocks signed releases now and keeps the 2-of-3 and offline rules.
+
+## D-010 · F-25 / #214: the hardware order is phased
+**Date:** 2026-11-14 · **Decided by:** Zeus
+- **Now:** a Raspberry Pi 5 16 GB and a Pi 5 4 GB, each with an NVMe HAT, the official 27 W PSU and a case, plus a spare SSD for the bootc test.
+- **Jetson Orin Nano Super:** once NVIDIA Inception (D-006) answers, or by G2.
+- **Meshtastic/LoRa radios and the Zigbee/Thread dongle:** when TAK is unparked.
+- Serials go in the inventory (LT-X86-00), never in the public repo.
+- **Why:** the smallest order that meets the Pi soak start (2026-12-11) and the bootc test.
+
+## D-011 · Z-40: four scoring rules are fixed before the bootc Pi test
+**Date:** 2026-11-14 · **Decided by:** Zeus
+- **Z-40 = (a):**
+  1. The tie-break counts rows across the full table, and a draw comes back to Zeus.
+  2. "Experimental" vendor support with a documented path scores 3 (`doc-only`) until W2-HW-3 measures it.
+  3. "Proven in production" (C4) is scored on the base layer.
+  4. No third candidate may enter a tie.
+- To be copied into `research-output/evidence/scorecard-weights.md` §8 before LT-PI5-02 runs.
+- **Why:** under D-007 these rules only decide how a bootc pass is read. Fixing them before the result is known keeps the reading fair.
+
+## D-012 · Z-10: the bootc test on a real Pi 5 (W2-HW-3) is approved
+**Date:** 2026-11-14 · **Decided by:** Zeus
+- **Z-10 = (a):** LT-PI5-02 runs before G1 (2026-12-13), on the 16 GB Pi with its own SSD or card, after D-011 is logged. bootc stays the year-2 Industrial profile (D-007).
+- **Why:** this is the test for D-007's own reopen condition. A fail confirms Debian; a pass reopens D-007, read under D-011.
+
+## D-013 · #253: VMs later, a web terminal yes (narrowly), Tor later
+**Date:** 2026-11-14 · **Decided by:** Zeus
+- **Virtual machines: later.** Study only, on x86 hubs with ≥ 16 GB, after metal measures the RAM cost. Not on Pi. Agents don't build VM features before then.
+- **Web terminal: yes.** It is owner-only, behind a passkey with re-auth, inside the rescue console, with every session audited. It is off by default and never reachable by agents, the SDK or AI tools. Tracked in #273.
+- **Tor: later, opt-in.** Revisit after the mesh and relay work (#139, #236). It is off by default, since it is an egress exception.
+- **Why:** each touches a locked rule (small boxes, AI never actuates without approval, default-deny egress). These are the narrowest versions that keep those rules.
