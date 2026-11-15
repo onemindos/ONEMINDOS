@@ -516,8 +516,7 @@ POLICY |= {
                                      "NETWORKING §9.3: forward-auth for the app proxy, loopback only (the test client is not loopback: 404)"),
     ("POST", "/v1/auth/app-session"): Row(
         cells(403, **GONE, owner=204, adult=204, guest=204, child=204, **PENDING_DENY), w.p_static("/v1/auth/app-session"),
-        "NETWORKING §9: a person's own bearer becomes the app-host cookie; agents are not people",
-        gaps={k: NO_AUDIT for k in ("agent", "app-agent")}),
+        "NETWORKING §9: a person's own bearer becomes the app-host cookie; agents are not people (refusal audited)"),
     ("DELETE", "/v1/auth/app-session"): Row(cells(204), w.p_static("/v1/auth/app-session"),
                                             "NETWORKING §9: only clears the caller's own cookie; no data, so no credential"),
 }

@@ -280,6 +280,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         strips this cookie before a request reaches an app (proxy.py).
         """
         if p.kind != "person":
+            gw.audit.append("authz.denied", p.as_dict(), None, {"attempted": "open an app session", "reason": "permission_denied"})
             raise ApiError(403, "permission_denied", "only people open apps")
         scheme, _, token = request.headers.get("authorization", "").partition(" ")
         resp = Response(status_code=204)
