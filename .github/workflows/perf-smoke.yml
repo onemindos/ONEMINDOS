@@ -34,6 +34,10 @@ jobs:
           start=$(date +%s)
           if ! sudo sh -c 'deploy/install.sh --role hub --force-os --hub http://127.0.0.1:8080 > /root/perf/install.log 2>&1'; then
             sudo sed -E '/[0-9a-f]{32}/d; /K10/d' /root/perf/install.log | tail -n 80
+            # #275: did a package upgrade (systemd, dbus) run during the install?
+            echo "--- dpkg upgrades since the install started, and the apt timers' runs"
+            sudo grep -E ' (upgrade|trigproc) ' /var/log/dpkg.log | awk -v t="$(date -u -d @"$start" '+%F %T')" '$1" "$2 >= t' | tail -n 40 || true
+            sudo journalctl --no-pager -o short-iso --since "@$start" -u apt-daily.service -u apt-daily-upgrade.service -u dbus.service -u dbus-broker.service | tail -n 40 || true
             exit 1
           fi
           sudo grep -E '^(==>|WARNING)' /root/perf/install.log | grep -v -i token || true
