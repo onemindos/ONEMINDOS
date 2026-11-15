@@ -4,8 +4,15 @@
 # (pre-registered). A criterion that could not run reports BLOCKED, never PASS; pull requests run strict (BLOCKED fails).
 name: net-2vm
 on:
+  # CI-11 (issue 298): informational, so never on every PR. A PR runs it only when it touches the
+  # workflow's own harness; every change to the code it watches is covered on main, nightly and by hand.
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - 'test/net/**'
+      - '.github/workflows/net-2vm.yml'
+  push:
+    branches: [main]
     paths:
       - 'test/net/**'
       - 'deploy/**'

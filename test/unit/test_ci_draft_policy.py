@@ -79,5 +79,45 @@ class Concurrency(unittest.TestCase):
             self.assertIsNot(c.get("cancel-in-progress"), True, f"{name} cancels main/merge_group runs too")
 
 
+# CI-11 (issue 298): the informational workflows (scripts/ci-gate.py INFORMATIONAL) never decide a merge,
+# so a PR runs one only when it changes the workflow's own harness. Everything else they watch is covered
+# by the schedule, a push to main and a manual run. Value: the paths a PR may match.
+INFORMATIONAL_PR_PATHS = {
+    "api-fuzz.yml": {"core/tests/api_fuzz_check.py", ".github/workflows/api-fuzz.yml"},
+    "go-fuzz.yml": {"internal/**/*fuzz*_test.go", ".github/workflows/go-fuzz.yml"},
+    "perf-smoke.yml": {"test/perf/**", ".github/workflows/perf-smoke.yml"},
+    "net-2vm.yml": {"test/net/**", ".github/workflows/net-2vm.yml"},
+    "security-nightly.yml": {"os/update/**", ".github/workflows/security-nightly.yml"},
+    "apps-gate-all.yml": {"sdk/tools/ci/**", ".github/workflows/apps-gate-all.yml"},
+}
+
+
+class InformationalWorkflows(unittest.TestCase):
+    def test_list_matches_the_gate(self):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("ci_gate", WF.parents[1] / "scripts" / "ci-gate.py")
+        gate = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(gate)
+        names = {d["name"] for _, d, _ in load()}
+        self.assertEqual({n.removesuffix(".yml") for n in INFORMATIONAL_PR_PATHS}, set(gate.INFORMATIONAL))
+        self.assertTrue(set(gate.INFORMATIONAL) <= names)
+
+    def test_pull_requests_run_them_only_for_their_own_files(self):
+        by_name = {n: on for n, _, on in load()}
+        for name, allowed in INFORMATIONAL_PR_PATHS.items():
+            pr = by_name[name].get("pull_request")
+            if pr is None:
+                continue
+            paths = set(pr.get("paths") or [])
+            self.assertTrue(paths, f"{name}: pull_request without a paths filter runs on every PR")
+            self.assertLessEqual(paths, allowed, f"{name}: PR paths are broader than the harness")
+
+    def test_they_still_run_on_schedule_main_or_by_hand(self):
+        for name, on in {n: on for n, _, on in load()}.items():
+            if name in INFORMATIONAL_PR_PATHS:
+                self.assertTrue({"workflow_dispatch"} <= set(on), f"{name}: no manual run")
+                self.assertTrue({"schedule", "push"} & set(on), f"{name}: no schedule or push to main")
+
+
 if __name__ == "__main__":
     unittest.main()
