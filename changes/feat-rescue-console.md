@@ -1,5 +1,5 @@
 ---
-pr: pending
+pr: 268
 branch: feat/rescue-console
 status_rows:
   - CORE-UPDATE-8 | in-review | onemindd rescue, owner token, rollback with k3s stopped
