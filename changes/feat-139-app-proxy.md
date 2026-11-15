@@ -1,5 +1,5 @@
 ---
-pr: pending
+pr: 287
 branch: feat/139-app-proxy
 status_rows:
   - CORE-NET-8 | in-review | app proxy says when an app is stopped or starting; HTTPS open tested end to end (#139 part 1)
