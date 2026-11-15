@@ -147,7 +147,31 @@ func (l *limiter) fail(ip string) {
 
 // lanOnly reports whether the client address is loopback, private
 // (RFC 1918, fc00::/7) or link-local: the rescue console is not for the internet.
+// meshNets are the mesh's address ranges (core/onemind_core/ca.py MESH_NETS): the CGNAT range
+// and the Tailscale ULA. The console is LAN-only, so they are refused even though Go counts the
+// ULA (inside fc00::/7) as private.
+var meshNets = []*net.IPNet{
+	mustCIDR("100.64.0.0/10"),
+	mustCIDR("fd7a:115c:a1e0::/48"),
+}
+
+func mustCIDR(s string) *net.IPNet {
+	_, n, err := net.ParseCIDR(s)
+	if err != nil {
+		panic(err)
+	}
+	return n
+}
+
 func lanOnly(r *http.Request) bool {
 	ip := net.ParseIP(clientIP(r))
-	return ip != nil && (ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast())
+	if ip == nil {
+		return false
+	}
+	for _, n := range meshNets {
+		if n.Contains(ip) {
+			return false
+		}
+	}
+	return ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast()
 }

@@ -222,14 +222,34 @@ func TestRateLimit(t *testing.T) {
 }
 
 func TestLANOnly(t *testing.T) {
-	s, f := newServer(t, hashedOwner())
-	r := httptest.NewRequest("GET", "/", nil)
-	r.RemoteAddr = "198.51.100.7:1" // TEST-NET-2: a public address
-	r.SetBasicAuth("owner", ownerToken)
-	w := httptest.NewRecorder()
-	s.ServeHTTP(w, r)
-	if w.Code != 403 || len(f.calls) != 0 {
-		t.Fatalf("code %d calls %v", w.Code, f.calls)
+	refused := []string{
+		"198.51.100.7:1",             // TEST-NET-2: a public address
+		"100.64.0.5:1",               // mesh CGNAT range
+		"[fd7a:115c:a1e0::5]:1",      // mesh IPv6 (inside fc00::/7, which Go calls private)
+		"[fd7a:115c:a1e0:ab12::1]:1", // anywhere in the mesh /48
+	}
+	for _, addr := range refused {
+		s, f := newServer(t, hashedOwner())
+		r := httptest.NewRequest("GET", "/", nil)
+		r.RemoteAddr = addr
+		r.SetBasicAuth("owner", ownerToken)
+		w := httptest.NewRecorder()
+		s.ServeHTTP(w, r)
+		if w.Code != 403 || len(f.calls) != 0 {
+			t.Fatalf("%s: code %d calls %v", addr, w.Code, f.calls)
+		}
+	}
+	// Other private and link-local addresses on the LAN still get the page.
+	for _, addr := range []string{"[fd00::7]:1", "[fe80::1]:1", "10.0.0.7:1"} {
+		s, _ := newServer(t, hashedOwner())
+		r := httptest.NewRequest("GET", "/", nil)
+		r.RemoteAddr = addr
+		r.SetBasicAuth("owner", ownerToken)
+		w := httptest.NewRecorder()
+		s.ServeHTTP(w, r)
+		if w.Code != 200 {
+			t.Fatalf("%s: LAN client refused with %d", addr, w.Code)
+		}
 	}
 }
 
