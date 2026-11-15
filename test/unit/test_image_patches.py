@@ -125,6 +125,14 @@ class DashboardUiSource(unittest.TestCase):
         self.assertIn("!ui/src/", rd(".dockerignore"))
         self.assertIn("../ui/src", rd("dashboard", "tsconfig.json"))
 
+    def test_sdk_src_reaches_the_dashboard_stage(self):
+        cf = rd("os", "rootfs", "Containerfile")
+        stage = cf[cf.index("AS onemind-dashboard"):cf.index("AS onemind-pyprep")]
+        self.assertIn("COPY sdk/ts/src/ /src/sdk/ts/src/", stage)
+        self.assertLess(stage.index("COPY sdk/ts/src/"), stage.index("npm run build"))
+        self.assertIn("!sdk/ts/src/", rd(".dockerignore"))
+        self.assertIn("../sdk/ts/src", rd("dashboard", "tsconfig.json"))
+
 
 class NatsUnit(unittest.TestCase):
     def test_tls_files_reach_the_throwaway_user_without_credentials_glob(self):

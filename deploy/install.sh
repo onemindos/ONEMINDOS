@@ -1071,24 +1071,25 @@ dashboard_build() {
     log "dashboard: using prebuilt $DASH_DIST"
     copy_tree_plain "$DASH_DIST" "$PREFIX/dashboard"; return 0
   fi
-  # The dashboard imports the design system from source (../ui/src), so both trees count.
-  sum=$(cd "$SRC" && find dashboard ui/src -path dashboard/node_modules -prune -o -path dashboard/dist -prune -o -type f -print0 \
+  # Dashboard aliases consume the design system and SDK from source; hash every input tree.
+  sum=$(cd "$SRC" && find dashboard ui/src sdk/ts/src -path dashboard/node_modules -prune -o -path dashboard/dist -prune -o -type f -print0 \
         | LC_ALL=C sort -z | xargs -0 sha256sum | sha256sum | cut -d' ' -f1)
   if [ -f "$stamp" ] && [ "$(cat "$stamp")" = "$sum" ]; then log "dashboard: up to date"; return 0; fi
   node_toolchain
   log "dashboard: npm ci + vite build with Node $NODE_VERSION (as user onemind, no install scripts)"
   copy_src_tree "$SRC/dashboard" "$CACHE/dashboard-src"
   copy_src_tree "$SRC/ui/src" "$CACHE/ui/src"   # ../ui/src as seen from dashboard-src
+  copy_src_tree "$SRC/sdk/ts/src" "$CACHE/sdk/ts/src"
   # npm packages are third-party code: never run them as root. --ignore-scripts skips dependency
   # lifecycle scripts (esbuild's is an optional speed-up; its platform binary comes as a package).
   install -d -o onemind -g onemind -m0700 "$CACHE/npm-home"
-  chown -R onemind:onemind "$CACHE/dashboard-src" "$CACHE/ui"
+  chown -R onemind:onemind "$CACHE/dashboard-src" "$CACHE/ui" "$CACHE/sdk"
   (cd "$CACHE/dashboard-src" && runuser -u onemind -- env -i PATH="$NODE_DIR/bin:/usr/bin:/bin" HOME="$CACHE/npm-home" \
      npm_config_cache="$CACHE/npm-home/cache" npm_config_update_notifier=false sh -ec \
      'npm ci --ignore-scripts --no-audit --no-fund --loglevel=error >/dev/null; npm run build >/dev/null')
   copy_tree_plain "$CACHE/dashboard-src/dist" "$PREFIX/dashboard"
   printf '%s\n' "$sum" > "$stamp"
-  rm -rf "$CACHE/dashboard-src" "$CACHE/ui"
+  rm -rf "$CACHE/dashboard-src" "$CACHE/ui" "$CACHE/sdk"
 }
 copy_tree_plain() { rm -rf "$2.new"; mkdir -p "$2.new"; cp -R "$1/." "$2.new/"; rm -rf "$2"; mv "$2.new" "$2"; chmod -R a+rX "$2"; }
 

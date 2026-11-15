@@ -226,7 +226,6 @@ export function toJob(a: Action, appName: string): StoreJob {
     app_name: appName,
     type: a.type,
     state: jobState(a.state),
-
     message: a.result?.message && RESULT_MESSAGE.has(a.state) ? a.result.message : JOB_MESSAGE[a.state],
     updated_at: a.updated_at ?? a.created_at ?? a.expires_at,
     requested_by: a.requested_by?.id,
