@@ -7,7 +7,7 @@ home-assistant-core,Home Assistant,home-assistant/core,Home & IoT,uocryxk,Apache
 uptime-kuma,Uptime Kuma,louislam/uptime-kuma,Monitoring & Intel,uocryxk,MIT,L1,93538,false,2.5.10 2026-11-12,yes,14.97,queue,already shipped (apps/uptime-kuma),monitoring,uptime,plugin,any
 syncthing,Syncthing,syncthing/syncthing,Files & Photos,uocryxk,MPL-2.0,L2,90391,false,v2.1.7 2026-10-21,yes,14.96,queue,,files,sync,market-verified,any
 grafana,Grafana,grafana/grafana,Monitoring & Intel,uocryxk,AGPL-3.0,L2,77857,false,v13.3.1 2026-11-10,yes,14.89,queue,,monitoring,metrics,market-verified,any
-vaultwarden,Vaultwarden,dani-garcia/vaultwarden,Security & Network,uocryxk,AGPL-3.0,L2,70615,false,1.37.5 2026-11-01,yes,14.85,queue,already in queue.yaml,network,passwords,market-verified,any
+vaultwarden,Vaultwarden,dani-garcia/vaultwarden,Security & Network,uocryxk,AGPL-3.0,L2,70615,false,1.37.5 2026-11-01,yes,14.85,queue,already in the queue,network,passwords,market-verified,any
 memos,Memos,usememos/memos,Productivity & Knowledge,uocryxk,MIT,L1,64413,false,26.11.0 2026-11-01,yes,14.81,queue,,notes,notes,market-verified,any
 gitea,Gitea,go-gitea/gitea,Developer,uocryxk,MIT,L1,59038,false,v28.3.0 2026-11-01,yes,14.77,queue,,developer,git,market-verified,any
 jellyfin,Jellyfin,jellyfin/jellyfin,Media,uocryxk,GPL-2.0,L2,59239,false,v12.4 2026-10-26,yes,14.77,queue,,media,video,market-verified,any
@@ -39,10 +39,10 @@ paperless-ngx,Paperless-ngx,paperless-ngx/paperless-ngx,Files & Photos,uryxk,GPL
 qbittorrent,qBittorrent,qbittorrent/qBittorrent,Media: download automation,uocryk,GPL (licence-file text match),L2,41537,false,release-5.3.0 2026-10-20,yes,12.62,queue,classified from licence-file text; GitHub could not detect SPDX,media,downloads,market-verified,any
 adguardhome,AdGuard Home,AdguardTeam/AdGuardHome,Security & Network,uocry,GPL-3.0,L2,38380,false,v0.107.80 2026-11-03,yes,12.58,queue,,network,dns,market-verified,hub
 changedetection-io,changedetection,dgtlmoon/changedetection.io,Monitoring & Intel,uryxk,Apache-2.0,L1,35759,false,0.70.3 2026-11-09,yes,12.55,queue,,news,change-detection,market-verified,any
-actual,Actual,actualbudget/actual,Finance,ucryk,MIT,L1,30187,false,v26.11.0 2026-11-02,yes,12.48,queue,already in queue.yaml,finance,budget,market-verified,any
-hermes-agent,Hermes Agent,NousResearch/hermes-agent,AI & Models,uock,MIT,L1,262808,false,v0.23.1 2026-11-10,yes,12.42,queue,already in queue.yaml,ai,agents,plugin,any
+actual,Actual,actualbudget/actual,Finance,ucryk,MIT,L1,30187,false,v26.11.0 2026-11-02,yes,12.48,queue,already in the queue,finance,budget,market-verified,any
+hermes-agent,Hermes Agent,NousResearch/hermes-agent,AI & Models,uock,MIT,L1,262808,false,v0.23.1 2026-11-10,yes,12.42,queue,already in the queue,ai,agents,plugin,any
 firefly-iii,Firefly III,firefly-iii/firefly-iii,Finance,uoryx,AGPL-3.0,L2,25223,false,develop-20261111.1 2026-11-11,yes,12.40,queue,,finance,budget,market-verified,any
-node-red,Node-RED,node-red/node-red,Automation,ucryx,Apache-2.0,L1,23837,false,5.0.9 2026-10-21,yes,12.38,queue,already in queue.yaml,automation,workflows,market-verified,any
+node-red,Node-RED,node-red/node-red,Automation,ucryx,Apache-2.0,L1,23837,false,5.0.9 2026-10-21,yes,12.38,queue,already in the queue,automation,workflows,market-verified,any
 wordpress,WordPress,WordPress/WordPress,Productivity & Knowledge,uoryx,LGPL (licence-file text match),L2,21536,false,7.1.4 2026-10-28,yes,12.33,queue,classified from licence-file text; GitHub could not detect SPDX,productivity,website,market-verified,any
 linkwarden,Linkwarden,linkwarden/linkwarden,Productivity & Knowledge,ucryk,AGPL-3.0,L2,20392,false,v2.17.0 2026-11-10,yes,12.31,queue,,notes,bookmarks,market-verified,any
 transmission,Transmission,transmission/transmission,Media: download automation,uocryxk,NOASSERTION,L?,15407,false,4.1.4 2026-10-24,yes,12.19,list-only,custom licence text; read by hand,media,downloads,list-only,any
@@ -98,7 +98,7 @@ siyuan,SiYuan Note,siyuan-note/siyuan,Productivity & Knowledge,crk,AGPL-3.0,L2,4
 appsmith,Appsmith,appsmithorg/appsmith,Developer,uok,Apache-2.0,L1,41235,false,v2.6.0 2026-10-28,yes,10.62,queue,,developer,low-code,market-verified,any
 tailscale,Tailscale,tailscale/tailscale,Security & Network,ucr,BSD-3-Clause,L1,38970,false,v1.104.6 2026-11-11,yes,10.59,queue,,network,vpn,market-verified,any
 glance,Glance,glanceapp/glance,Productivity & Knowledge,ryk,AGPL-3.0,L2,38148,false,v0.8.8 2026-11-07,yes,10.58,queue,,monitoring,dashboards,market-verified,any
-mosquitto,Mosquitto,eclipse-mosquitto/mosquitto,Home & IoT,uryx,EPL-2.0 OR EDL-1.0 (BSD-3-Clause),L2,11360,false,v2.1.2 2026-02-09,yes,10.56,queue,already in queue.yaml; store URL redirected/renamed to eclipse-mosquitto/mosquitto,home,mqtt,market-verified,any
+mosquitto,Mosquitto,eclipse-mosquitto/mosquitto,Home & IoT,uryx,EPL-2.0 OR EDL-1.0 (BSD-3-Clause),L2,11360,false,v2.1.2 2026-02-09,yes,10.56,queue,already in the queue; store URL redirected/renamed to eclipse-mosquitto/mosquitto,home,mqtt,market-verified,any
 cyberchef,CyberChef,gchq/CyberChef,Security & Network,ryk,Apache-2.0,L1,36380,false,v11.5.0 2026-09-18,yes,10.56,queue,,developer,tools,market-verified,any
 zipline,Zipline,diced/zipline,Media,ryxk,MIT,L1,3499,false,v4.8.3 2026-11-08,yes,10.54,queue,,files,sharing,market-verified,any
 homepage,Homepage,gethomepage/homepage,Monitoring & Intel,rxk,GPL-3.0,L2,33627,false,v2.8.0 2026-11-11,yes,10.53,queue,,monitoring,dashboards,market-verified,any
@@ -173,7 +173,7 @@ docuseal,DocuSeal,docusealco/docuseal,Productivity & Knowledge,uk,AGPL-3.0,L2,19
 coder,Coder,coder/coder,Developer,ok,AGPL-3.0,L2,17367,false,v2.38.7 2026-11-10,yes,9.24,queue,,developer,ide,market-verified,any
 analytics,Plausible Analytics,plausible/analytics,Monitoring & Intel,uk,AGPL-3.0,L2,29827,false,v3.2.1 2026-05-15,unknown,9.22,queue,,monitoring,analytics,market-verified,any
 termix,Termix,Termix-SSH/Termix,Developer,uk,Apache-2.0,L1,15948,false,v26.11.1 2026-11-09,unknown,9.20,queue,,network,remote-access,market-verified,any
-zigbee2mqtt,Zigbee2MQTT,Koenkk/zigbee2mqtt,Home & IoT,ur,GPL-3.0,L2,15817,false,2.14.3 2026-11-01,yes,9.20,queue,already in queue.yaml,home,mqtt;zigbee,market-verified,any
+zigbee2mqtt,Zigbee2MQTT,Koenkk/zigbee2mqtt,Home & IoT,ur,GPL-3.0,L2,15817,false,2.14.3 2026-11-01,yes,9.20,queue,already in the queue,home,mqtt;zigbee,market-verified,any
 documenso,Documenso,documenso/documenso,Productivity & Knowledge,ok,AGPL-3.0,L2,15729,false,v2.21.1 2026-10-22,yes,9.20,queue,,productivity,signing,market-verified,any
 grav,Grav,getgrav/grav,Social & Communication,ryx,MIT,L1,15721,false,2.2.29 2026-11-11,yes,9.20,queue,,productivity,website,market-verified,any
 snipe-it,Snipe-IT,grokability/snipe-it,Productivity & Knowledge,yk,AGPL-3.0,L2,15170,false,v8.8.3 2026-10-22,yes,9.18,queue,store URL redirected/renamed to grokability/snipe-it,productivity,business,market-verified,any
