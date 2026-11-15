@@ -25,7 +25,7 @@
 
 ## Engineering: where code lives and how to build it
 Run every command from the repo root. On a Mac, install the tools once:
-`brew install uv go node@22 gitleaks shellcheck` (Go 1.26, Node 22, Python 3.12 comes through uv), plus Docker Desktop (or a Lima VM: `brew install lima`) for anything under `os/` and `deploy/`. The full Mac dev loop is issue #230.
+`brew install uv go node@22 gitleaks shellcheck` (Go 1.26, Node 22, Python 3.12 comes through uv), plus Docker Desktop (or a Lima VM: `brew install lima`) for container builds. Before `make test`, follow [the Mac developer loop](docs/learning/mac-dev-loop.md#native-tests-no-docker-or-vm-needed) to create and activate an isolated Python environment and install `requirements-dev.txt`; system Python does not supply PyYAML. Image assembly and release scripts need a Linux build environment, such as the Lima guest; native unit tests need neither Docker nor a VM.
 
 | Part | Code | Check it with (what CI runs) |
 |---|---|---|

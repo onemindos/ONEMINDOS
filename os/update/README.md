@@ -83,7 +83,7 @@ The script refuses to run in CI. Root keys on hardware tokens need a token-backe
 
 ## Running it locally
 
-For Mac prerequisites, isolated native unit tests, and the canonical **Docker inside Lima** image-build setup, follow [the Mac developer loop](../../docs/learning/mac-dev-loop.md). Run the image and release commands below inside that Linux guest; the TUF tests use their own pinned dependencies as shown.
+For Mac prerequisites, isolated native unit tests, and the Docker Desktop / Docker-inside-Lima choices, follow [the Mac developer loop](../../docs/learning/mac-dev-loop.md). Run the image assembly and release commands below in a Linux build environment (for example, the Lima guest); the TUF tests use their own pinned dependencies as shown.
 
 ```sh
 # unit tests (stdlib), then the TUF tests with the pinned python-tuf

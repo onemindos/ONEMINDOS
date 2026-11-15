@@ -50,11 +50,20 @@ The safeFS fixture resolves **only its trusted temporary root** with
 Production restore paths still reject symlink components. The tests cover real
 directory creation and rejection of a deliberately planted link.
 
-## Image builds: Docker inside Lima
+## Image builds: Docker Desktop or Docker inside Lima
 
-Use **Docker Engine inside a Linux Lima VM**, not Docker Desktop on the Mac.
-Lima supplies the Linux machine; Docker builds the existing Containerfile inside
-it. Host-native unit tests above do not require this heavier setup.
+The Mac container choices are **Docker Desktop** or **Docker Engine inside a
+Linux Lima VM**, consistent with the agent engineering guide. Both supply a
+Linux Docker engine for the existing Containerfile; native unit tests above
+need neither. This task exercised neither container/VM path, so these are setup
+instructions, not a claim of a passing image build on either backend.
+
+For Docker Desktop, start its Linux engine and check `docker info` and
+`docker buildx version` from the worktree before running the rootfs target below.
+Image assembly and release scripts also need Linux tools: run those in a Linux
+build environment, not directly in macOS merely because Docker Desktop is
+running. The Lima option below puts the Docker engine and build tools in the
+same Linux guest.
 
 With owner authorization to create a VM, provision a Lima `template:docker`
 instance with the worktree mounted writable, `make` and `python3-yaml` available
