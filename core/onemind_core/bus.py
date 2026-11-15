@@ -21,8 +21,9 @@ RETRY_S = 5.0
 
 
 class NatsBus:
-    def __init__(self, url: str | None, registry: NodeRegistry):
+    def __init__(self, url: str | None, registry: NodeRegistry, nkey_seed=None):
         self.url = url
+        self.nkey_seed = nkey_seed  # path of the gateway's NATS seed file, or None
         self.registry = registry
         self.nc = None
         self._loop: asyncio.AbstractEventLoop | None = None
@@ -49,6 +50,8 @@ class NatsBus:
             try:
                 nc = await nats.connect(
                     self.url,
+                    # CORE-SEC-4 (#161): the gateway's own service nkey on a strict hub.
+                    **({"nkeys_seed": str(self.nkey_seed)} if self.nkey_seed else {}),
                     connect_timeout=2,
                     allow_reconnect=True,
                     max_reconnect_attempts=-1,

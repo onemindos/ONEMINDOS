@@ -94,8 +94,10 @@ echo "OneMind contract check (poc-v0) against $HUB"
 
 # ---- NATS listener (started first, so it sees heartbeats and the audit lines of this run) ----
 if [ "$NATS" != none ]; then
-  python3 -I - "$NATS" "$WORK/nats.jsonl" > "$WORK/nats.log" 2>&1 <<'PY' &
-import json, socket, sys, time
+  # A strict hub (CORE-SEC-4, #161) refuses clients without a service nkey: run as root with
+  # ONEMIND_NATS_NKEY_SEED=/var/lib/onemind/nats/keys/gateway.nk and VERIFY_PYTHON=/opt/onemind/venv/bin/python.
+  "${VERIFY_PYTHON:-python3}" -I - "$NATS" "$WORK/nats.jsonl" "$(dirname "$0")" > "$WORK/nats.log" 2>&1 <<'PY' &
+import json, os, socket, sys, time
 url, out = sys.argv[1], sys.argv[2]
 hostport = url.split("://", 1)[-1].split("/")[0].split("@")[-1]
 host, _, port = hostport.rpartition(":")
@@ -104,7 +106,13 @@ f = s.makefile("rb")
 info = f.readline()
 with open(out, "a") as o:
     o.write(json.dumps({"info": info.decode().strip()[5:]}) + "\n"); o.flush()
-    s.sendall(b'CONNECT {"verbose":false,"pedantic":false,"name":"onemind-verify","lang":"python"}\r\n'
+    opts = {"verbose": False, "pedantic": False, "name": "onemind-verify", "lang": "python"}
+    seed, nonce = os.environ.get("ONEMIND_NATS_NKEY_SEED"), json.loads(info[5:]).get("nonce")
+    if seed and nonce:
+        sys.path.insert(0, sys.argv[3])
+        from natscheck import nkey_auth
+        opts.update(nkey_auth(seed, nonce))
+    s.sendall(b"CONNECT " + json.dumps(opts).encode() + b"\r\n"
               b"SUB onemind.node.*.status 1\r\nSUB onemind.audit 2\r\nPING\r\n")
     s.settimeout(None)
     deadline = time.time() + 900

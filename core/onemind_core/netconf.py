@@ -80,6 +80,10 @@ class MeshSettings:
 class FabricSettings:
     hub_url: str | None = None              # ONEMIND_FABRIC_HUB_URL: https URL nodes use to join
     nats_accounts_file: Path | None = None  # ONEMIND_FABRIC_NATS_ACCOUNTS_FILE: hub NATS include
+    # CORE-SEC-4 (#161): directory of <service>.pub keys the hub account accepts (gateway, onemindd),
+    # and the gateway's own seed file. Unset: the hub account keeps the passwordless loopback user.
+    nats_service_keys: Path | None = None   # ONEMIND_FABRIC_NATS_SERVICE_KEYS
+    nats_nkey_seed: Path | None = None      # ONEMIND_FABRIC_NATS_NKEY_SEED
     nats_leaf_port: int = 7422              # ONEMIND_FABRIC_NATS_LEAF_PORT
     k3s_ca_hash: str | None = None          # ONEMIND_FABRIC_K3S_CA_HASH: "K10<sha256 hex>" of k3s /cacerts
     k3s: bool = False                       # ONEMIND_FABRIC_K3S=1: workers get a 1-hour k3s bootstrap token

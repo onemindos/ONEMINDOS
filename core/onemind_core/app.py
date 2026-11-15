@@ -26,6 +26,7 @@ from .events import EventHub
 from .lifecycle import CredentialStore
 from .executors import Executor, NoopExecutor, make_executor
 from .ledger import ActionRepository, SqlActionRepository
+from .netconf import FabricSettings
 from .nodes import NodeRegistry
 from .policy import SandboxSettings
 from .routers import Register
@@ -104,7 +105,7 @@ def create_app(
     settings.check()  # refuses ONEMIND_ALLOW_UNSCANNED with the kubernetes executor
     tokens = TokenStore(settings.tokens_file)
     registry = NodeRegistry(clock)
-    bus = NatsBus(settings.nats_url, registry)
+    bus = NatsBus(settings.nats_url, registry, nkey_seed=settings.section(FabricSettings).nats_nkey_seed)
     audit = AuditLog(settings.audit_path, clock, publish=bus.publish_threadsafe)
     catalog = Catalog(settings.apps_dir, settings.app_schema_path)
     owns_repo = repo is None

@@ -635,6 +635,7 @@ nats_install() {
   [ "$DRY_RUN" = 1 ] && step "NATS $NATS_VERSION on the hub (loopback :4222; leaf listener on the mesh address, TLS, per-node accounts)"
   nats_binary
   if [ "$DRY_RUN" = 1 ]; then
+    plan "service nkeys for the gateway and onemindd in $STATE/nats/keys (seed 0600 per service, public keys 0644)"
     plan "hub accounts file $STATE/nats/accounts.conf (python -m onemind_core.natsconf), linked beside nats.conf"
     plan "write $ETC/nats.conf: listen 127.0.0.1:4222, leafnodes on <mesh address>:7422 with TLS (box CA, verify)"
     plan "install $SCRIPT_DIR/systemd/onemind-nats.service, a mesh drop-in, onemind-nats-accounts.path and -reload.service; enable and restart"
@@ -643,7 +644,13 @@ nats_install() {
   # The accounts file the gateway owns; NATS includes it through a link beside nats.conf, because
   # nats-server resolves include paths relative to the including file.
   install -d -m0755 -o onemind -g onemind "$STATE/nats"
-  runuser -u onemind -- "$PREFIX/venv/bin/python" -m onemind_core.natsconf "$STATE/nats/accounts.conf"
+  # CORE-SEC-4 (#161): the hub's own clients sign in with their own nkeys and the hub account has no
+  # passwordless user, so any other local process without a key is refused. Each seed belongs to its
+  # service's user (the gateway runs as onemind, onemindd as root); existing keys are kept.
+  install -d -m0755 -o onemind -g onemind "$STATE/nats/keys"
+  runuser -u onemind -- "$PREFIX/venv/bin/python" -m onemind_core.natsconf service-key "$STATE/nats/keys" gateway >/dev/null
+  "$PREFIX/venv/bin/python" -m onemind_core.natsconf service-key "$STATE/nats/keys" onemindd >/dev/null
+  runuser -u onemind -- "$PREFIX/venv/bin/python" -m onemind_core.natsconf "$STATE/nats/accounts.conf" "$STATE/nats/keys"
   ln -sfn "$STATE/nats/accounts.conf" "$ETC/nats-accounts.conf"
   cat > "$ETC/nats.conf" <<EOF
 # OneMind hub NATS (deploy/install.sh; NETWORKING.md §7). Do not edit: rewritten on install.
@@ -690,6 +697,8 @@ EOF
   systemctl enable onemind-nats onemind-nats-accounts.path >/dev/null 2>&1
   systemctl restart onemind-nats
   systemctl restart onemind-nats-accounts.path
+  # onemindd was installed before its key existed: start it again so it signs in with it.
+  systemctl try-restart onemindd
 }
 
 nats_leaf_install() {  # node
@@ -921,7 +930,11 @@ uv_toolchain() {
 # ------------------------------------------------------------------------------------------
 # 5. onemindd (+ the onemind CLI) as a systemd service, on every machine
 # ------------------------------------------------------------------------------------------
-onemindd_env() { printf '# Written by deploy/install.sh (contract §1)\nONEMIND_NATS_URL=%s\nONEMIND_NODE_ROLE=%s\n' "$1" "$ROLE"; }
+onemindd_env() {
+  printf '# Written by deploy/install.sh (contract §1)\nONEMIND_NATS_URL=%s\nONEMIND_NODE_ROLE=%s\n' "$1" "$ROLE"
+  # Hub: onemindd signs in to the hub NATS with its own service nkey (CORE-SEC-4, #161; nats_install makes it).
+  if [ "$ROLE" = hub ]; then printf 'ONEMIND_NATS_NKEY_SEED=%s\n' "$STATE/nats/keys/onemindd.nk"; fi
+}
 
 onemindd_install() {
   local out="$CACHE/build" nats_url
@@ -1227,6 +1240,8 @@ ONEMIND_MESH_HEADSCALE_KEY_FILE=$ETC/headscale.key
 ONEMIND_MESH_HUB_IP=${HUB_MESH_IP:-<the hub mesh address>}
 ONEMIND_FABRIC_HUB_URL=https://$BOX.local
 ONEMIND_FABRIC_NATS_ACCOUNTS_FILE=$STATE/nats/accounts.conf
+ONEMIND_FABRIC_NATS_SERVICE_KEYS=$STATE/nats/keys
+ONEMIND_FABRIC_NATS_NKEY_SEED=$STATE/nats/keys/gateway.nk
 ONEMIND_FABRIC_K3S=1
 ONEMIND_FABRIC_K3S_CA_HASH=${K3S_CA_HASH:-<K10 + sha256 of the k3s CA>}
 EOF

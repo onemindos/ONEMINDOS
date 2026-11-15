@@ -60,6 +60,11 @@ REVIEWED = {
         "no SPDX in metadata (webauthn dependency); the licence file is the 2-clause BSD text, permissive",
         "https://github.com/pyasn1/pyasn1-modules/blob/master/LICENSE.txt",
     ),
+    "nkeys": (
+        "Apache-2.0",
+        "metadata says 'Apache 2 License' (free text, no SPDX); the licence file in the wheel is the Apache License 2.0. nats-py's nkeys extra: service keys on the hub (CORE-SEC-4)",
+        "https://github.com/nats-io/nkeys.py/blob/main/LICENSE",
+    ),
     "pyopenssl": (
         "Apache-2.0",
         "metadata says 'Apache License, Version 2.0' (free text, no SPDX); the licence file is the Apache License 2.0",
