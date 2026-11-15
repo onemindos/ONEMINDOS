@@ -1,24 +1,33 @@
 # SPDX-License-Identifier: Apache-2.0
-# NATS on a hub (clients :4222, leaf nodes :7422) or a leaf (local :4222, forwards to the hub).
-# Config with credentials: /data/onemind/etc/nats.conf, written by onemind-firstboot, handed in
-# as a systemd credential so a throw-away user can read it. Started by onemind-firstboot.
+# NATS on a hub (clients on loopback :4222, each with its own nkey; leaf nodes on the hub's mesh
+# address :7422 with TLS from the box CA) or, on a box set up before IMG-MESH-01, a leaf. The config is
+# /data/onemind/etc/nats.conf, written by onemind-firstboot (and rewritten by `onemind-firstboot mesh`).
+# Started by onemind-firstboot.
+#
+# Why the files are copied: NATS runs as a throw-away user that can read neither /data/onemind/etc
+# (root's) nor the gateway's tls dir. A root step ("+" prefix) copies the config, the accounts file the
+# gateway owns and the TLS files into this unit's own runtime dir, so nats.conf's
+# `include "nats-accounts.conf"` (resolved next to nats.conf) finds the copy. Not LoadCredential: an
+# include relative to the credentials dir would not see the accounts file. A reload (the gateway
+# rewrote the accounts file: onemind-nats-accounts.path) copies again before the HUP.
 [Unit]
 Description=OneMind NATS server
-After=network-online.target onemind-firstboot.service
+After=network-online.target onemind-firstboot.service tailscaled.service
 Wants=network-online.target
 RequiresMountsFor=/data
 ConditionPathExists=/data/onemind/etc/nats.conf
 
 [Service]
 Type=simple
-LoadCredential=nats.conf:/data/onemind/etc/nats.conf
-# TLS (cfg nats_tls): the key is 0600 root on /data, so a root-run step copies the files to the unit's own
-# runtime directory and hands them to the throw-away user. Without TLS files nothing is copied.
 RuntimeDirectory=onemind-nats
 RuntimeDirectoryMode=0700
-ExecStartPre=+/bin/sh -c 'd=/run/onemind-nats; for f in nats-server.pem nats-server.key nats-ca.pem; do if [ -f /data/onemind/etc/$$f ]; then cp /data/onemind/etc/$$f $$d/$$f; fi; done; chown -R "$$(stat -c %%u $$d)" $$d; chmod -R go-rwx $$d'
-ExecStart=/usr/bin/nats-server -c ${CREDENTIALS_DIRECTORY}/nats.conf
+ExecStartPre=+/usr/lib/onemind/onemind-nats-files
+# With the leaf listener (after `onemind-firstboot mesh`), NATS binds the hub's mesh address: wait for it.
+ExecStartPre=+/bin/sh -c 'if grep -q "^leafnodes" /run/onemind-nats/nats.conf; then exec /usr/bin/onemindd mesh wait-ip --timeout 120s; fi'
+ExecStart=/usr/bin/nats-server -c /run/onemind-nats/nats.conf
+ExecReload=+/usr/lib/onemind/onemind-nats-files
 ExecReload=/bin/kill -HUP $MAINPID
+TimeoutStartSec=180s
 Restart=always
 RestartSec=2s
 DynamicUser=yes

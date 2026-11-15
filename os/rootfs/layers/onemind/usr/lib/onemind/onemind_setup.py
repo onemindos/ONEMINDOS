@@ -34,9 +34,10 @@ FORM = """<!doctype html><html><head><meta charset="utf-8"><meta name="viewport"
 <label><input type="radio" name="role" value="leaf"> Leaf: an edge device that forwards to a hub</label>
 </fieldset>
 <label>Name <input type="text" name="name" value="OneMind" maxlength="64"></label>
-<p>Worker and leaf only (the hub printed both at its first boot):</p>
-<label>Hub address <input type="text" name="hub" placeholder="onemind.local"></label>
-<label>Join token <input type="text" name="join_token" autocomplete="off"></label>
+<p>Worker and leaf only. On the hub, run <code>onemind fabric ticket</code> (or Add a device on the
+dashboard) and copy the join code. The owner then approves this box on the hub.</p>
+<label>Join code <input type="text" name="join_code" autocomplete="off" placeholder="onemind-join:v1?code=..."></label>
+<label>Hub IP address (optional: only if this box cannot find the hub by name) <input type="text" name="hub_addr" placeholder="192.0.2.10"></label>
 <button type="submit">Set up</button></form></body></html>"""
 
 DONE = """<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">
@@ -94,6 +95,10 @@ class Wizard(BaseHTTPRequestHandler):
             except OSError:
                 token = "<p>The owner token was printed on the box's console.</p>"
             nxt = "Reload this address in a minute for the dashboard."
+        else:
+            nxt = ("It now asks the hub to join: approve it on the hub's dashboard (Approvals) after checking "
+                   "that the code shown there matches the one on this box's console. This page stops answering "
+                   "in a few seconds.")
         self._send(200, DONE.format(style=STYLE, role=cfg["role"], token=token, next=nxt))
         self.done.set()
 
