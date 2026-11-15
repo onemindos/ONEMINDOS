@@ -96,6 +96,15 @@ export function openUrl(a: Pick<CatalogApp, 'web_port' | 'installed'>, loc: Pick
 /** Gateway app `status` → run state. `installed` means applied, not "healthy": v0 reports no health. */
 export function runState(status: string): AppRunState & InstalledRunState {
   switch (status) {
+    case 'stopped':
+      return 'stopped';
+    case 'starting':
+    case 'stopping':
+    case 'restarting':
+    case 'configuring':
+      return 'starting';
+    case 'updating':
+      return 'updating';
     case 'installed':
       return 'installed';
     case 'installing':
@@ -217,6 +226,7 @@ export function toJob(a: Action, appName: string): StoreJob {
     app_name: appName,
     type: a.type,
     state: jobState(a.state),
+
     message: a.result?.message && RESULT_MESSAGE.has(a.state) ? a.result.message : JOB_MESSAGE[a.state],
     updated_at: a.updated_at ?? a.created_at ?? a.expires_at,
     requested_by: a.requested_by?.id,
