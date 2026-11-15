@@ -6,11 +6,23 @@ import re
 import subprocess
 import tempfile
 import unittest
+import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
 
 
 class DashboardBuildInputs(unittest.TestCase):
+    def test_bundle_dashboard_stages_sdk_source(self):
+        script = (ROOT / "deploy/bundle.sh").read_text()
+        self.assertIn('-v "$REPO/sdk/ts/src:/src/sdk/ts/src:ro"', script)
+        self.assertIn('cp -R /src/sdk/ts/src /work/sdk/ts/src', script)
+
+    def test_compose_dashboard_mounts_sdk_relative_to_its_build_directory(self):
+        data = yaml.safe_load((ROOT / "deploy/compose/compose.yaml").read_text())
+        dashboard = data['services']['dashboard']
+        self.assertEqual(dashboard['working_dir'], '/build')
+        self.assertIn('../../sdk/ts/src:/sdk/ts/src:ro', dashboard['volumes'])
+
     def setUp(self):
         script = (ROOT / "deploy/install.sh").read_text()
         match = re.search(r"(?ms)^dashboard_build\(\) \{.*?^\}", script)

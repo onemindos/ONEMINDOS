@@ -47,6 +47,19 @@ function setup(route = '/installed/uptime-kuma', failPlan = false, opts: { stopp
 }
 
 describe('lifecycle through the HTTP client', () => {
+  it('keeps the compact jobs island and expands to actual ledger state', async () => {
+    const { user } = setup();
+    const tray = await screen.findByRole('complementary', { name: 'Jobs in progress' });
+    const toggle = within(tray).getByRole('button', { name: '1 job · Ollama: Awaiting approval' });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(toggle).toHaveClass('om-store-tray-pill');
+    expect(within(tray).queryByRole('region', { name: 'Request progress' })).not.toBeInTheDocument();
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    const progress = within(tray).getByRole('region', { name: 'Request progress' });
+    expect(progress).toHaveTextContent('awaiting approval');
+    expect(progress.parentElement?.tagName).toBe('DIV');
+  });
   it('does not announce an incomplete write response as success and reuses the retry identity', async () => {
     const { user, writes } = setup('/installed/uptime-kuma', false, { malformed: true });
     const send = async () => {
@@ -124,7 +137,9 @@ describe('lifecycle through the HTTP client', () => {
     const { user } = setup('/installed/uptime-kuma', false, { progress: true });
     await user.click(await screen.findByRole('button', { name: 'Restart' }));
     await user.click(within(await screen.findByRole('dialog', { name: 'Review app request' })).getByRole('button', { name: 'Send request' }));
-    expect(await screen.findByRole('progressbar', { name: 'app.restart progress' })).toHaveAttribute('value', '42');
+    const tray = await screen.findByRole('complementary', { name: 'Jobs in progress' });
+    await user.click(within(tray).getByRole('button', { expanded: false }));
+    expect(within(tray).getByRole('progressbar', { name: 'app.restart progress' })).toHaveAttribute('value', '42');
   });
   it('previews Restart, binds the request to that plan, and never approves it', async () => {
     const { user, writes, reads } = setup();
