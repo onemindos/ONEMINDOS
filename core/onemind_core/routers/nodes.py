@@ -11,6 +11,10 @@ from ..context import Gateway
 from ..errors import ApiError, error_responses
 
 
+# Route order in the app and in /openapi.json (routers/__init__.py).
+ORDER = 110
+
+
 def register(app: FastAPI, gw: Gateway) -> None:
     registry = gw.registry
     principal = gw.principal

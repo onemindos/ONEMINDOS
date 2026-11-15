@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+name: Jackett
+github: Jackett/Jackett
+priority: 2
+status: 'skipped: deferred; the LinuxServer image family fails the gate today on .NET 8.0.27 (same as radarr and prowlarr), so it would only be added as blocked'
+notes: market batch 6 skip

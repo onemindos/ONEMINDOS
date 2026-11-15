@@ -73,6 +73,10 @@ def parse_window(value: str | None, now: datetime, default_s: int, max_s: int) -
     return secs
 
 
+# Route order in the app and in /openapi.json (routers/__init__.py).
+ORDER = 250
+
+
 def register(app: FastAPI, gw: Gateway) -> None:
     mon = MonitoringService(gw)
     app.state.monitoring = mon

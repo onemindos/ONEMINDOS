@@ -421,22 +421,29 @@ def icon_svg(app_id: str, name: str) -> str:
             "</svg>\n")
 
 
+def queue_file(queue: Path, repo: str) -> Path:
+    """apps/_intake/queue/<owner>--<repo>.yaml: one file per app, so two PRs never edit the same one (CI-06)."""
+    return queue / (re.sub(r"[^a-z0-9.-]+", "-", repo.lower().replace("/", "--")) + ".yaml")
+
+
 def queue_entry(queue: Path, repo: str) -> dict:
-    if not queue.is_file():
+    path = queue_file(queue, repo)
+    if not path.is_file():
         return {}
-    for entry in yaml.safe_load(queue.read_text(encoding="utf-8")) or []:
-        if isinstance(entry, dict) and str(entry.get("github", "")).lower() == repo.lower():
-            return entry
+    entry = yaml.safe_load(path.read_text(encoding="utf-8"))
+    if isinstance(entry, dict) and str(entry.get("github", "")).lower() == repo.lower():
+        return entry
     return {}
 
 
 def mark_in_pr(queue: Path, repo: str) -> bool:
-    """Set the queue entry's status to in-pr, editing only that line."""
-    text = queue.read_text(encoding="utf-8")
-    pat = re.compile(rf"(?mi)^(.*github:\s*{re.escape(repo)}\b.*?status:\s*)queued\b")
-    new, n = pat.subn(r"\g<1>in-pr", text, count=1)
+    """Set the queue entry's status from queued to in-pr, editing only that line of its file."""
+    path = queue_file(queue, repo)
+    if not path.is_file():
+        return False
+    new, n = re.subn(r"(?m)^(status:[ \t]*)queued[ \t]*$", r"\g<1>in-pr", path.read_text(encoding="utf-8"), count=1)
     if n:
-        queue.write_text(new, encoding="utf-8")
+        path.write_text(new, encoding="utf-8")
     return bool(n)
 
 
@@ -456,7 +463,7 @@ def main(argv: list[str]) -> int:
     if args.id is not None and (len(args.id) > 59 or not ID_RE.match(args.id)):
         sys.stderr.write("error: --id must be a DNS-1123 label of at most 59 characters (contract §11.5)\n")
         return 2
-    queue = args.apps_dir / "_intake" / "queue.yaml"
+    queue = args.apps_dir / "_intake" / "queue"
     entry = queue_entry(queue, args.repo)
     s = Scaffold(args.repo, common.GitHub(), common.Registry(), args.apps_dir, app_id=args.id,
                  image=args.image, docs=args.docs or entry.get("docs"), name=entry.get("name"))

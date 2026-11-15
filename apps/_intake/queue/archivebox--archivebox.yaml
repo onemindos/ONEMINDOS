@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+name: ArchiveBox
+github: ArchiveBox/ArchiveBox
+priority: 2
+status: 'skipped: not attempted; drives a Chromium that needs more privilege than apps may take'
+notes: market batch 6 skip

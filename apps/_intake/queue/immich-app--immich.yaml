@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+name: Immich
+github: immich-app/immich
+priority: 1
+status: in-pr
+notes: market batch 1

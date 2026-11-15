@@ -236,6 +236,10 @@ def http_date(dt: datetime | None) -> str:
 
 
 # ---- routes -------------------------------------------------------------------------------
+# Route order in the app and in /openapi.json (routers/__init__.py).
+ORDER = 300
+
+
 def register(app: FastAPI, gw: Gateway) -> None:
     svc = FilesService(gw)
     uploads = Uploads(svc)
