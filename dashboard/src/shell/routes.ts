@@ -14,6 +14,7 @@ export const href = {
   activity: '/activity',
   nodes: '/nodes',
   alerts: '/alerts',
+  storage: '/storage',
   coming: '/coming',
   settings: '/settings',
   setting: (id: string) => `/settings/${id}`,
@@ -53,6 +54,8 @@ export function toRoute(link: string): string | undefined {
     case 'backups':
     case 'updates':
       return href.setting(parts[0]);
+    case 'storage':
+      return href.storage;
     case 'settings':
       return parts[1] ? href.setting(SETTINGS_ALIAS[parts[1]] ?? parts[1]) : href.settings;
     default:
