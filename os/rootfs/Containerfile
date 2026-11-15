@@ -163,6 +163,8 @@ COPY sdk/policy/app-objects.yaml /usr/lib/onemind/sdk/policy/app-objects.yaml
 COPY apps/ /usr/lib/onemind/apps/
 COPY os/rootfs/layers/onemind/ /
 COPY os/boards/${BOARD}/rootfs/ /
+# The boot splash theme: Debian has plymouth-set-default-theme; Ubuntu (the CI hedge, D-007) sets it
+# with update-alternatives instead (#226).
 RUN set -eu; \
     rm -f /.keep /usr/lib/onemind/apps/README.md; \
     groupadd --system --gid 961 onemind; \
@@ -176,7 +178,10 @@ RUN set -eu; \
       k3s.service onemind-local-api.service onemind-health-gate.service onemind-data-check.service >/dev/null; \
     systemctl mask systemd-firstboot.service >/dev/null 2>&1 || true; \
     passwd -l root >/dev/null; \
-    plymouth-set-default-theme onemind; \
+    if command -v plymouth-set-default-theme >/dev/null; then plymouth-set-default-theme onemind; \
+    else update-alternatives --install /usr/share/plymouth/themes/default.plymouth default.plymouth \
+           /usr/share/plymouth/themes/onemind/onemind.plymouth 200 >/dev/null; \
+         update-alternatives --set default.plymouth /usr/share/plymouth/themes/onemind/onemind.plymouth >/dev/null; fi; \
     kver=$(ls /lib/modules | sort -V | tail -n1); \
     ln -sf "vmlinuz-$kver" /boot/vmlinuz; ln -sf "initrd.img-$kver" /boot/initrd.img; \
     update-initramfs -u -k "$kver"; \
