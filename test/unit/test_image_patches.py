@@ -114,6 +114,38 @@ class BrandBootSplash(unittest.TestCase):
         self.assertNotIn("quiet", line.split())        # the battery reads the serial console
 
 
+class NightlyBattery(unittest.TestCase):
+    """#226: the nightly T6/T7 markers, vm-do's GRUB-RAUC line and the Ubuntu hedge build."""
+    def test_bad_image_markers_bypass_the_splash(self):
+        # plymouth holds /dev/console while a bad slot's PID 1 runs; the kernel log reaches the
+        # serial port. Level <2> stays under the loglevel=4 on the kernel command line.
+        loglevel = int(re.search(r"\bloglevel=(\d)", rd("os", "assemble", "grub.cfg.in")).group(1))
+        for name, mark in (("bad-boot-init", "BAD-BOOT: broken init exiting"),
+                           ("bad-hang-init", "BAD-HANG: arming watchdog")):
+            src = rd("test", "qemu", name)
+            self.assertIn(mark, rd("test", "qemu", "run-tests.py"))
+            m = re.search(r'echo "<(\d)>[^"]*' if name == "bad-boot-init" else r'echo "<(\d)>\$\*" > /dev/kmsg', src)
+            self.assertIsNotNone(m, name)
+            self.assertLess(int(m.group(1)), loglevel, name)
+            self.assertIn("/dev/kmsg", src)
+        self.assertIn('"$SRC/test/qemu/bad-boot-init" "$T/sbin/init"', rd("test", "qemu", "mkfixtures.sh"))
+
+    def test_bios_grub_also_writes_to_serial(self):
+        g = rd("os", "assemble", "grub.cfg.in")
+        block = g[g.index('if [ "$grub_platform" = "pc" ]'):]
+        block = block[:block.index("\nfi\n")]
+        self.assertIn("serial --unit=0 --speed=115200", block)
+        self.assertIn("terminal_output console serial", block)
+        self.assertLess(g.index('if [ "$grub_platform" = "pc" ]'), g.index('echo "GRUB-RAUC:'))
+
+    def test_build_base_configures_apt_for_its_own_leg(self):
+        cf = rd("os", "rootfs", "Containerfile")
+        stage = cf[cf.index("AS onemind-buildbase"):cf.index("AS onemind-fetch")]
+        self.assertIn("ARG LEG=", stage)
+        self.assertIn('onemind-configure-apt "$LEG" "$SNAPSHOT"', stage)
+        self.assertNotIn("onemind-configure-apt debian", stage)
+
+
 class DashboardUiSource(unittest.TestCase):
     """The dashboard imports @onemind/ui from source (../ui/src, see dashboard/vite.config.ts); the image's
     dashboard stage must have ui/src beside dashboard/ or `npm run build` fails with TS2307."""
