@@ -9,20 +9,21 @@ import {
   Button,
   CommandPalette,
   FreshnessPill,
-  JobsTray,
+
   NotificationBell,
   PaletteTrigger,
   buildPaletteCommands,
   formatAgo,
   pushRecentCommand,
-  toastForRequestError,
-  useToast,
+
   usePaletteHotkey,
   type NavItem,
   type PaletteCommand,
 } from '@onemind/ui';
-import { activityFrom, isActive, notificationsFrom, toActionSummary, toJob, toPaletteApp } from '../data/adapters';
-import { errorText, useHub } from '../data/hub';
+import { activityFrom, notificationsFrom, toActionSummary, toPaletteApp } from '../data/adapters';
+import { ActionJobs } from './ActionJobs';
+import { useHub } from '../data/hub';
+import { useAppRequest } from './useAppRequest';
 import { personList } from '../data/prefs';
 import { brand } from '../brand.generated';
 import { useSignedIn } from '../session';
@@ -31,7 +32,7 @@ import { href, navId, toRoute } from './routes';
 interface ShellApi {
   openPalette: () => void;
   /** Request an app action from anywhere, with the toasts; resolves to the action id. */
-  requestApp: (type: 'app.install' | 'app.remove', appId: string) => Promise<string | undefined>;
+  requestApp: ReturnType<typeof useAppRequest>['requestApp'];
 }
 const ShellCtx = createContext<ShellApi | null>(null);
 export function useShell(): ShellApi {
@@ -41,20 +42,20 @@ export function useShell(): ShellApi {
 }
 
 /** The contract's action types; anything else is shown as "coming", never sent. */
-const CONTRACT_TYPES = new Set(['app.install', 'app.remove']);
+const CONTRACT_TYPES = new Set(['app.install', 'app.remove', 'app.start', 'app.stop', 'app.restart', 'app.update']);
 
 export function Shell({ children }: { children: ReactNode }) {
   const hub = useHub();
   const { principal, person, signOut, mock } = useSignedIn();
   const navigate = useNavigate();
   const location = useLocation();
-  const toast = useToast();
+  const { requestApp, reviewDialog } = useAppRequest();
   const [paletteOpen, setPaletteOpen] = useState(false);
   const readStore = useMemo(() => personList(person, 'notifications.read'), [person]);
   const recentStore = useMemo(() => personList(person, 'palette.recent', 8), [person]);
   const [read, setRead] = useState(() => new Set(readStore.load()));
   const [recent, setRecent] = useState(() => recentStore.load());
-  const [dismissed, setDismissed] = useState<ReadonlySet<string>>(new Set());
+
   usePaletteHotkey(() => setPaletteOpen(true));
 
   const go = (link: string) => {
@@ -62,19 +63,6 @@ export function Shell({ children }: { children: ReactNode }) {
     if (to) navigate(to);
   };
 
-  const requestApp = async (type: 'app.install' | 'app.remove', appId: string) => {
-    const name = hub.appName(appId);
-    const title = `${type === 'app.install' ? 'Install' : 'Remove'} ${name}`;
-    try {
-      const a = await hub.request(type, appId);
-      toast.show({ tone: 'info', title: 'Request sent', body: `${title}. It waits in Approvals until the owner decides.`, action: { label: 'View', onClick: () => navigate(href.approval(a.id)) } });
-      return a.id;
-    } catch (e) {
-      const { code, message } = errorText(e);
-      toast.show(toastForRequestError(title, code, message));
-      return undefined;
-    }
-  };
 
   const nodes = hub.nodes.data ?? [];
   const apps = hub.apps.data ?? [];
@@ -110,14 +98,10 @@ export function Shell({ children }: { children: ReactNode }) {
     recentStore.save(r);
     if (c.request) {
       const appId = String(c.request.params.app_id ?? '');
-      if (CONTRACT_TYPES.has(c.request.type) && appId) void requestApp(c.request.type as 'app.install' | 'app.remove', appId);
-      else toast.show({ tone: 'neutral', title: `${c.title}: not on this hub yet`, body: `${c.request.type} comes with the app lifecycle actions of contract §12.5. Nothing was sent.` });
+      if (CONTRACT_TYPES.has(c.request.type) && appId) void requestApp(c.request.type as Parameters<typeof requestApp>[0], appId);
     } else if (c.href) go(c.href);
   };
 
-  const jobs = hub.actionList
-    .filter((a) => a.type === 'app.install' && !dismissed.has(a.id) && (isActive(a) || Date.parse(a.updated_at ?? '') > hub.now - 60_000))
-    .map((a) => toJob(a, hub.appName(a.params.app_id)));
 
   const waiting = pending.length;
   const nav: NavItem[] = [
@@ -205,7 +189,8 @@ export function Shell({ children }: { children: ReactNode }) {
           state={hub.freshness === 'stale' || hub.freshness === 'offline' ? hub.freshness : hub.freshness === 'unknown' ? 'loading' : 'ready'}
           ageSeconds={hub.ageS}
         />
-        <JobsTray jobs={jobs} now={hub.now} onDismiss={(id) => setDismissed((d) => new Set(d).add(id))} />
+        <ActionJobs />
+        {reviewDialog}
       </div>
     </ShellCtx.Provider>
   );

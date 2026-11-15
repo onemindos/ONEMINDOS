@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Types for the proof-of-concept v0 contract (sdk/contracts/poc-v0.md).
 // Section numbers below refer to that file.
+import type { components } from '@onemind/sdk';
 
 /** §2 `board` values. */
 export type Board =
@@ -97,7 +98,14 @@ export interface CatalogApp {
   scan: ScanSummary | null;
 }
 
-export type ActionType = 'app.install' | 'app.remove';
+export type ActionType = components['schemas']['PlainActionRequest']['type'] | components['schemas']['ConfigureActionRequest']['type'];
+export type AppParams = components['schemas']['PlainActionParams'] & Partial<Pick<components['schemas']['ConfigureActionParams'], 'settings'>>;
+export type PlanPreview = components['schemas']['PlanPreview'];
+/** Validated dashboard view of the SDK's opaque apps.settings response, not a wire contract. */
+export interface AppSettings {
+  fields: Array<{ name: string; title?: string; type: string; default?: string | number | boolean; enum?: Array<string | number | boolean>; description?: string; restart?: boolean }>;
+  values: Record<string, string | number | boolean> | null;
+}
 
 /** §3 action states. */
 export type ActionState =
@@ -124,7 +132,8 @@ export interface Principal {
 /** §3 `POST /v1/actions` body. */
 export interface ActionRequest {
   type: ActionType;
-  params: { app_id: string };
+  params: AppParams;
+  plan_sha256?: string;
   idempotency_key: string;
   expires_at: string;
 }
@@ -147,6 +156,8 @@ export interface ActionResult {
  * to "unknown" instead of crashing if the gateway names them differently.
  */
 export interface Action extends ActionRequest {
+  plan?: PlanPreview['plan'] | null;
+  progress?: { step: string; pct: number } | null;
   id: string;
   state: ActionState;
   requested_by?: Principal;
