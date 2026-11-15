@@ -7,7 +7,9 @@ Input: a directory with one folder per gate job, as actions/download-artifact wr
 app-gate --report JSON (report.json) and the gate's output (gate.log).
 Every expected (app, arch) pair gets a cell: pass, FAIL (failing checks), ERROR (app-gate exit 2:
 tool or network error; "setup" when the job stopped before app-gate finished) or NO RESULT (no
-artifact: the job was cancelled, timed out or never ran).
+artifact: the job was cancelled, timed out or never ran). An explicit failed report for the
+matching app is still a failure when status.json was not updated after a failed shell pipeline;
+a missing exit status can never establish a pass.
 
   python3 -I sdk/tools/ci/gate_summary.py <dir> --apps a b --archs amd64 arm64 \\
       [--run-url URL] [--sha SHA] [--out body.md]
