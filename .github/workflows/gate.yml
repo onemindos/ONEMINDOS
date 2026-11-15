@@ -2,9 +2,10 @@
 # The one required check for main (CI-02, issue 227; how it works: scripts/ci-gate.py).
 # No `paths:` filter, so it reports on every PR and every merge-queue entry. It waits for every
 # other workflow GitHub started for the same commit and fails if a blocking one failed. Founder:
-# make `gate` a required status check on main (repo settings); the per-workflow checks then
-# need not be listed one by one.
-name: gate
+# make `merge-gate` a required status check on main (repo settings); the per-workflow checks then
+# need not be listed one by one. Not named `gate`: ci-apps, apps-gate-all and release already have
+# jobs called `gate`, and a required check is matched by name, so a skipped one could satisfy it.
+name: merge-gate
 
 on:
   pull_request:
@@ -16,11 +17,11 @@ permissions:
 
 # A new push to a PR replaces that PR's waiting gate.
 concurrency:
-  group: gate-${{ github.event.pull_request.number || github.sha }}
+  group: merge-gate-${{ github.event.pull_request.number || github.sha }}
   cancel-in-progress: true
 
 jobs:
-  gate:
+  merge-gate:
     runs-on: ubuntu-24.04
     timeout-minutes: 180   # the image battery is the slowest blocking workflow (~60 min)
     steps:

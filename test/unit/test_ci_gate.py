@@ -100,7 +100,14 @@ class Workflow(unittest.TestCase):
         names = {re.search(r"^name: *(\S+)", p.read_text(), re.M).group(1)
                  for p in (ROOT / ".github" / "workflows").glob("*.yml")}
         self.assertLessEqual(set(gate.INFORMATIONAL), names)
-        self.assertNotIn("gate", gate.INFORMATIONAL)
+        self.assertNotIn("merge-gate", gate.INFORMATIONAL)
+
+    def test_check_name_is_unique(self):
+        # A required check is matched by name; three other workflows have a job called `gate`.
+        jobs = []
+        for p in (ROOT / ".github" / "workflows").glob("*.yml"):
+            jobs += re.findall(r"^  ([A-Za-z0-9_-]+):\s*$", p.read_text().split("\njobs:", 1)[-1], re.M)
+        self.assertEqual(jobs.count("merge-gate"), 1)
 
 
 if __name__ == "__main__":

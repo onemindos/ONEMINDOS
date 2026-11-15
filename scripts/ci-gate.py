@@ -8,7 +8,7 @@ require the four checks that always run (dco, hygiene, lint, unit), and a PR wit
 battery could still merge (#123). This gate always runs and always reports: it waits for every
 other workflow run GitHub started for the same commit and event, and fails if any blocking one did
 not succeed. A docs-only PR starts only the quick workflows, so the gate passes in minutes; a PR
-that breaks core tests or the battery fails it. Main needs only one required check: `gate`.
+that breaks core tests or the battery fails it. Main needs only one required check: `merge-gate`.
 
 Blocking is the default, so a new workflow protects main without editing this file. The
 INFORMATIONAL workflows below are reported but never block (fuzzers, scans, perf and multi-VM
