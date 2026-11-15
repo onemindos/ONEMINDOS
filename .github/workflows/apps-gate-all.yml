@@ -23,6 +23,7 @@ name: apps-gate-all
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - '.github/workflows/apps-gate-all.yml'
       - 'sdk/tools/ci/**'
@@ -38,11 +39,12 @@ on:
 permissions: {}
 
 concurrency:
-  group: apps-gate-all-${{ github.event_name }}-${{ github.ref }}
+  group: apps-gate-all-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   plan:
+    if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
@@ -85,6 +87,7 @@ jobs:
           echo "apps to gate (full run: $full):" $ids
 
   signatures:
+    if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
@@ -117,6 +120,7 @@ jobs:
           retention-days: 1
 
   gate:
+    if: ${{ !github.event.pull_request.draft }}
     name: ${{ matrix.app }} (${{ matrix.platform.arch }})
     needs: [plan, signatures]
     runs-on: ${{ matrix.platform.runner }}
@@ -217,7 +221,7 @@ jobs:
 
   report:
     needs: [plan, gate]
-    if: ${{ !cancelled() && needs.plan.result == 'success' }}
+    if: ${{ !github.event.pull_request.draft && (!cancelled() && needs.plan.result == 'success') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -257,7 +261,7 @@ jobs:
 
   issue:
     needs: [plan, report]
-    if: ${{ !cancelled() && needs.plan.outputs.full == 'true' && needs.report.result == 'success' }}
+    if: ${{ !github.event.pull_request.draft && (!cancelled() && needs.plan.outputs.full == 'true' && needs.report.result == 'success') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:

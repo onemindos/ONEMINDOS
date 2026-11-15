@@ -8,6 +8,7 @@ name: go-fuzz
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths: ["internal/**", "go.mod", "go.sum", ".github/workflows/go-fuzz.yml"]
   schedule:
     - cron: "41 3 * * *"
@@ -17,11 +18,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: go-fuzz-${{ github.ref }}
-  cancel-in-progress: true
+  group: go-fuzz-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   fuzz:
+    if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     strategy:

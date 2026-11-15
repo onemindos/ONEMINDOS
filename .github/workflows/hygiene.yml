@@ -4,11 +4,16 @@ name: hygiene
 on:
   workflow_dispatch:   # docs/testing/README.md §2 (test-all)
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
   merge_group:   # lets a GitHub merge queue be enabled later
   push:
     branches: [main]
 permissions:
   contents: read
+concurrency:
+  group: hygiene-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   hygiene:
     runs-on: ubuntu-24.04

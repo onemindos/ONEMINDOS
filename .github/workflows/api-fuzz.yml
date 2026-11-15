@@ -15,6 +15,7 @@ name: api-fuzz
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths: ["core/**", "sdk/schema/**", "sdk/tools/applib/**", "apps/*/onemind.app.yaml", ".github/workflows/api-fuzz.yml"]
   schedule:
     - cron: "17 3 * * *"
@@ -24,11 +25,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: api-fuzz-${{ github.ref }}
-  cancel-in-progress: true
+  group: api-fuzz-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   schemathesis:
+    if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-24.04
     # PRs fuzz 40 cases per operation (~7 min a phase). Nightly and manual runs fuzz 400, about 10x as long
     # over three phases; 45 minutes cancelled the first full run on main (run 43558739985, A9).
@@ -150,7 +152,7 @@ jobs:
           if-no-files-found: ignore
 
   properties:
-    if: github.event_name != 'pull_request'
+    if: ${{ !github.event.pull_request.draft && (github.event_name != 'pull_request') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:

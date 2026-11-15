@@ -8,6 +8,7 @@
 name: perf-smoke
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths: ["deploy/**", "core/**", "cmd/**", "internal/**", "dashboard/**", "apps/**", "test/perf/**",
             "os/versions.lock.yaml", ".github/workflows/perf-smoke.yml"]
   push:
@@ -18,10 +19,11 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: perf-smoke-${{ github.ref }}
-  cancel-in-progress: true
+  group: perf-smoke-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   perf-smoke:
+    if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 45
     steps:

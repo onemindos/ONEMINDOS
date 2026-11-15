@@ -57,6 +57,50 @@ class Verdict(unittest.TestCase):
         self.assertEqual(len(v["failed"]), 1)
 
 
+def at(r, t):
+    """Give a run a created_at, `t` seconds after 2026-11-15T10:00:00Z."""
+    from datetime import datetime, timedelta, timezone
+    r["created_at"] = (datetime(2026, 11, 15, 10, tzinfo=timezone.utc) + timedelta(seconds=t)).isoformat()
+    return r
+
+
+class DraftToReady(unittest.TestCase):
+    """CI-09 (issue 298): a draft push skips the heavy workflows; marking ready must wait for all of them."""
+
+    def test_a_ready_pr_waits_for_every_workflow_not_the_drafts_skipped_runs(self):
+        draft_time = [at(run(1, "ci-core", conclusion="skipped"), 0), at(run(2, "image", conclusion="skipped"), 0),
+                      at(run(3, "ci"), 0)]
+        ready_time = [at(run(10, "ci", "in_progress", None), 3600), at(run(SELF, "merge-gate", "in_progress", None), 3601)]
+        v = gate.verdict(draft_time + ready_time, SELF)
+        # ci-core and image have not started yet for the ready event: they must not count as green.
+        self.assertEqual(v["pending"], ["ci"])
+        self.assertNotIn("ci-core", v["passed"])
+        self.assertNotIn("image", v["passed"])
+
+    def test_ready_pr_waits_for_the_new_heavy_runs_then_passes(self):
+        runs = [at(run(1, "ci-core", conclusion="skipped"), 0), at(run(SELF, "merge-gate", "in_progress", None), 3600),
+                at(run(10, "ci-core", "in_progress", None, wid=hash("ci-core") % 10_000), 3599)]
+        runs[0]["workflow_id"] = runs[2]["workflow_id"]
+        self.assertEqual(gate.verdict(runs, SELF)["pending"], ["ci-core"])
+        runs[2].update(status="completed", conclusion="success")
+        v = gate.verdict(runs, SELF)
+        self.assertEqual((v["pending"], v["failed"], v["passed"]), ([], [], ["ci-core"]))
+
+    def test_runs_of_the_same_push_are_all_counted(self):
+        runs = [at(run(SELF, "merge-gate", "in_progress", None), 5), at(run(1, "ci-core", conclusion="failure"), 0),
+                at(run(2, "ci"), 8)]
+        self.assertEqual(len(gate.verdict(runs, SELF)["failed"]), 1)
+
+    def test_draft_gate_logs_that_heavy_checks_skipped(self):
+        env = dict(Loop.ENV, DRAFT="true")
+        printed = []
+        with mock.patch.dict(os.environ, env), mock.patch.object(gate, "fetch_runs", lambda *a: [run(1, "ci")]), \
+                mock.patch.object(gate.time, "sleep", lambda s: None), \
+                mock.patch("builtins.print", lambda *a, **k: printed.append(" ".join(map(str, a)))):
+            self.assertEqual(gate.main(), 0)
+        self.assertTrue(any("draft" in line for line in printed))
+
+
 class Loop(unittest.TestCase):
     ENV = {"REPO": "o/r", "HEAD_SHA": "abc", "EVENT": "pull_request", "GH_TOKEN": "t", "RUN_ID": str(SELF),
            "GATE_SETTLE_S": "0", "GATE_POLL_S": "0", "GATE_TIMEOUT_S": "60"}
@@ -92,6 +136,7 @@ class Workflow(unittest.TestCase):
         on = wf[wf.index("\non:"):wf.index("\npermissions:")]
         self.assertIn("pull_request:", on)
         self.assertIn("merge_group:", on)
+        self.assertIn("ready_for_review", on)  # marking a draft ready starts a fresh gate (CI-09)
         self.assertNotIn("paths", on)          # a path filter would make it stop reporting
         self.assertIn("actions: read", wf)
         self.assertIn("python3 -I scripts/ci-gate.py", wf)

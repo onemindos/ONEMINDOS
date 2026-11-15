@@ -4,6 +4,7 @@ name: ci-dashboard
 on:
   workflow_dispatch:   # docs/testing/README.md §2 (test-all)
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'dashboard/**'
       - 'ui/src/**'
@@ -18,8 +19,13 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-dashboard-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   dashboard:
+    if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-24.04
     defaults:
       run:
