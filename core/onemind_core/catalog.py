@@ -16,6 +16,7 @@ from pathlib import Path
 
 import yaml
 
+from .ai_policy import catalog_policy
 from .appsecrets.spec import SecretDecl, parse_secrets, secret_spec_errors
 from .scan import ScanRecord, read_scan
 
@@ -97,6 +98,8 @@ class AppEntry:
         links = md.get("links") if isinstance(md.get("links"), dict) else {}
         scan = self.scan
         return {
+            **({"aiPolicy": catalog_policy(self.manifest)}
+               if "aiPolicy" in spec or catalog_policy(self.manifest) is not None else {}),
             "id": self.id,
             "name": md.get("name"),
             "version": str(md.get("version")) if md.get("version") is not None else None,
