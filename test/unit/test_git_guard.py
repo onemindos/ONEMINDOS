@@ -58,6 +58,15 @@ class GitGuard(unittest.TestCase):
         git(self.main, "config", "--unset", "core.worktree")
         self.assertEqual(guard(self.wt).returncode, 0)
 
+    def test_exported_git_dir_or_work_tree_fails_with_the_fix(self):
+        for var, val in (("GIT_DIR", str(self.wt / ".git")), ("GIT_WORK_TREE", str(self.wt))):
+            e = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+            e[var] = val
+            r = subprocess.run(["sh", str(GUARD)], cwd=self.wt, env=e, capture_output=True, text=True)
+            self.assertEqual(r.returncode, 1, (var, r.stderr))
+            self.assertIn("git -C <worktree>", r.stderr)
+            self.assertIn(var, r.stderr)
+
     def test_outside_a_checkout_fails(self):
         self.assertEqual(guard(self.other).returncode, 1)
 
@@ -67,6 +76,9 @@ class Documented(unittest.TestCase):
         doc = (GUARD.parents[1] / "docs" / "learning" / "mac-dev-loop.md").read_text()
         self.assertIn("scripts/git-guard.sh", doc)
         self.assertIn(".git/hooks/pre-commit", doc)
+        agents = (GUARD.parents[1] / "AGENTS.md").read_text()
+        self.assertIn("git -C <worktree>", agents)
+        self.assertIn("GIT_WORK_TREE", agents)
 
 
 if __name__ == "__main__":
