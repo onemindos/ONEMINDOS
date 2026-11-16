@@ -77,6 +77,18 @@ class DraftToReady(unittest.TestCase):
         self.assertNotIn("ci-core", v["passed"])
         self.assertNotIn("image", v["passed"])
 
+    def test_an_earlier_cancelled_gate_run_of_the_same_commit_is_ignored(self):
+        # The draft's gate was cancelled by concurrency when the PR was marked ready (CI-09 bug on #301).
+        old_gate = at(run(5, "merge-gate", conclusion="cancelled", wid=77), 3590)
+        v = gate.verdict([old_gate, at(run(10, "ci"), 3600), at(run(SELF, "merge-gate", "in_progress", None, wid=77), 3601)], SELF)
+        self.assertEqual(v["failed"], [])
+        self.assertEqual(v["passed"], ["ci"])
+        # also by name when the workflow id is unknown, and for a failed or pending earlier gate
+        for conc, st in (("failure", "completed"), (None, "in_progress")):
+            g = at(run(6, "merge-gate", st, conc, wid=78), 3595)
+            v = gate.verdict([g, at(run(10, "ci"), 3600), at(run(SELF, "merge-gate", "in_progress", None, wid=77), 3601)], SELF)
+            self.assertEqual((v["failed"], v["pending"]), ([], []))
+
     def test_ready_pr_waits_for_the_new_heavy_runs_then_passes(self):
         runs = [at(run(1, "ci-core", conclusion="skipped"), 0), at(run(SELF, "merge-gate", "in_progress", None), 3600),
                 at(run(10, "ci-core", "in_progress", None, wid=hash("ci-core") % 10_000), 3599)]
