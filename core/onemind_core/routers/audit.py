@@ -34,6 +34,10 @@ def owned_action_ids(gw: Gateway):
     return ids
 
 
+# Route order in the app and in /openapi.json (routers/__init__.py).
+ORDER = 220
+
+
 def register(app: FastAPI, gw: Gateway) -> None:
     principal = gw.principal
     reader = AuditReader(gw.settings.audit_path, gw.clock, owned_action_ids(gw))

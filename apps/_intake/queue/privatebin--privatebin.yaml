@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+name: PrivateBin
+github: PrivateBin/PrivateBin
+priority: 2
+status: 'skipped: the licence gate cannot confirm the licence (GitHub reports NOASSERTION, no matrix row; candidates.csv says Apache-2.0 from a licence-file match that was not re-checked)'
+notes: market batch 6 skip

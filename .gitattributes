@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+# Generated SDK code (CI-06, issue 231). linguist-generated folds these files in PR diffs, so
+# reviewers read the API change in core/ instead of thousands of generated lines.
+# Never hand-merge them. On a merge conflict in any of them: take either side, then run
+#   make -C sdk gen
+# and commit what it writes. ci-sdk (`make -C sdk check-stale`) fails when they drift from core/.
+sdk/openapi/onemind-v1.json              linguist-generated=true
+sdk/go/internal/gen/types.gen.go         linguist-generated=true
+sdk/python/src/onemind_sdk/_gen/models.py linguist-generated=true
+sdk/python/src/onemind_sdk/aio.py        linguist-generated=true
+sdk/ts/src/gen/schema.ts                 linguist-generated=true

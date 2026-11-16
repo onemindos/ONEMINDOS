@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+name: Grocy
+github: grocy/grocy
+priority: 2
+status: 'blocked: the only image Grocy points to (linuxserver/grocy) needs root at start: its init replaces /app/www/data with a symlink (rm -Rf, then ln -s). Non-root mode answered HTTP 500 on a k3s smoke test, and mounting the data path instead would let that rm -Rf delete user data. Needs a non-root image or an upstream fix'
+notes: market batch 4

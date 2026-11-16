@@ -38,6 +38,10 @@ SSE_RECORD_SCHEMA = {
 }
 
 
+# Route order in the app and in /openapi.json (routers/__init__.py).
+ORDER = 230
+
+
 def register(app: FastAPI, gw: Gateway) -> None:
     principal = gw.principal
     stream = EventStream(gw.settings.audit_path, gw.registry.list, owned_action_ids(gw), gw.clock)

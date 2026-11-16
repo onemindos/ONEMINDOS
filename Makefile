@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
-# OneMind OS build entry points (brief 30 §5, D-B1.2). Everything heavy runs in containers built
-# from os/rootfs/Containerfile, so the Mac only needs Docker (or the Lima VM, handbook/workbench.md).
+# OneMind OS build entry points (brief 30 §5, D-B1.2). Image builds run in containers built
+# from os/rootfs/Containerfile; Mac setup and native tests: docs/learning/mac-dev-loop.md.
 #
 #   make rootfs  BOARD=x86_64-efi [LEG=debian|ubuntu]   -> out/rootfs-<leg>-<board>.tar
 #   make image   BOARD=x86_64-efi [VERSION=...]         -> out/image-<board>/ (disk .img, .raucb, SHA256SUMS)

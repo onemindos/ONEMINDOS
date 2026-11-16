@@ -58,12 +58,33 @@ Install as a service: see [`deploy/systemd/`](../../deploy/systemd/README.md).
 
 ## v0 shortcuts (from the contract, plus this component's own)
 - **Nodes publish straight to the hub's NATS.** NATS leaf nodes (buffering on the node) come later (contract v0 shortcut; brief 30 BM4).
-- **NATS auth:** only what fits in `ONEMIND_NATS_URL` (e.g. `nats://user:pass@hub:4222`). No NKEY/creds file yet.
-- **The local API has no authentication**, so it listens on `127.0.0.1:7480` (loopback only, hardening H-24); the hub learns the same data from heartbeats. It is read-only and the heartbeat holds no secrets or personal data by design. The rescue console (brief 30 B11, LAN-only HTTPS with the local CA) will replace this.
+- **NATS auth:** what fits in `ONEMIND_NATS_URL` (e.g. `nats://user:pass@hub:4222`), or on a hub its own service nkey: `ONEMIND_NATS_NKEY_SEED` (flag `-nats-nkey`) names the seed file `deploy/install.sh` makes (CORE-SEC-4, #161). No JWT/creds file.
+- **The local API has no authentication**, so it listens on `127.0.0.1:7480` (loopback only, hardening H-24); the hub learns the same data from heartbeats. It is read-only and the heartbeat holds no secrets or personal data by design. Actions that change the box live in the separate, authenticated rescue console below, not in this API.
 - **k3s agent readiness** is "the `k3s-agent` unit is active", which is weaker than the server's `/readyz`. The gate's fresh-health check (REC-DEC-07) is a separate job.
 - **RAUC slots** carry `name, class, bootname, state, boot_status, bundle_version`; the contract only says `slots: []`. The JSON field names read from `rauc status` follow RAUC's JSON output as used in our lab work; **UNVERIFIED against RAUC v1.15.2 on hardware** until LT-X86-01 runs it.
 - **OS updates** (B4.2) run in the same binary as a separate process, `onemindd update`, under its own unit; see [`internal/update/`](../../internal/update/README.md). When `/etc/onemind/update.conf` exists (`ONEMIND_UPDATE_CONF` overrides the path), the heartbeat carries an optional `update` object read from the update service's status file: `{channel, current_version, available_version|null, state, last_check|null, last_result}`. Without the file the object is omitted, so heartbeats stay valid under contract §2.
 
+## Rescue console
+`onemindd rescue` (CORE-UPDATE-8, brief 30 B11, [UPDATES §3.5](../../docs/leap/core/UPDATES.md)) is the owner's way back when Kubernetes or the gateway is broken. It runs as its own process and unit ([`onemind-rescue.service`](../../deploy/systemd/onemind-rescue.service)) and needs only `rauc`, `systemctl` and `journalctl`, so it works with k3s stopped. Code: [`internal/rescue/`](../../internal/rescue/).
+
+| Path | What it does |
+|---|---|
+| `GET /` | Page: booted slot, each slot's state, boot status and bundle version (`rauc status --output-format=json`), the `k3s`/`k3s-agent` unit states, the onemindd version, the rollback form and the log link |
+| `GET /status.json` | The same as JSON (with the CSRF token, for `curl`) |
+| `POST /rollback` | Form fields `csrf` (from the page) and `confirm=rollback`: runs `rauc status mark-active other`, answers, then `systemctl reboot`. A GET is refused (405) |
+| `GET /logs` | `journalctl -n 5000` for onemindd, update, rescue, health gate, rauc and k3s, as a text file, at most 4 MiB |
+
+**Who may use it.** Every path needs the **owner token**, the one `deploy/install.sh` printed once. The browser asks for it as a password (HTTP Basic, any user name); `curl` can send `Authorization: Bearer <token>`. It is checked against the owner `sha256:` entry in the gateway's tokens file (`-tokens`, `ONEMIND_TOKENS_FILE`, default `/etc/onemind/tokens.yaml`), in constant time, without the gateway running. Agent principals never pass (AI never actuates). With no owner entry the console answers 503 to everyone. 5 wrong tries from one address block that address for a minute. Only loopback, private (RFC 1918, `fc00::/7`) and link-local clients are served.
+
+**Why this way.** The tokens file already exists on every install and stores only hashes, so no new secret has to be made or stored. A CSRF token (a random value only the real page knows) plus the typed `rollback` stops another website open in the same browser from triggering a rollback with the cached password.
+
+**HTTPS.** It serves the box CA's certificate (`-tls-dir`, `ONEMIND_NET_TLS_DIR`, default `/var/lib/onemind/tls`, files `https.crt` and `https.key`, written by `core/onemind_core/ca.py`) on `-listen` (`ONEMIND_RESCUE_ADDR`, default `:7443`). Without those files it refuses to start, unless `-listen` is a loopback address (`127.0.0.1:7443`), where plain HTTP is allowed for an SSH tunnel.
+
+```sh
+curl --cacert ca.crt -H "Authorization: Bearer $OWNER_TOKEN" https://onemind.local:7443/status.json
+```
+
 ## Known gaps
+- **Rescue console:** owner token, not the owner passkey that UPDATES §3.5 plans (passkeys arrive with Kanidm, BD-03). The CA directory lives on `/data`, so when `/data` itself is lost the console has no certificate and only loopback works; recovery mode's read-only page on :8080 covers that case (`os/recovery/README.md`). Restore and gate-log views are not built yet. The lockout is per address, so a LAN device can keep the owner locked out while it keeps guessing. Not yet run on hardware with real RAUC (`mark-active other` under this unit is UNVERIFIED until an LT-X86 kit runs it).
 - `vm` detection inside a container needs `systemd-detect-virt` or readable DMI; a plain Docker container on a VM may report `unknown`.
 - Not yet run on the real Beelink, Pi 5, Jetson or droplet. Fixture trees were written from the documented file formats, not copied from those machines. First hardware run: `onemind node info` on each box, and compare.

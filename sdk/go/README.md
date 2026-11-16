@@ -5,6 +5,7 @@
 
 ```go
 c, err := onemind.FromEnv()   // ONEMIND_HUB + ONEMIND_TOKEN, or the agent Secret's names
+// With ONEMIND_GATEWAY_CA (PEM text) set, FromEnv verifies TLS against that CA only (see WithGatewayCA).
 nodes, err := c.Nodes.List(ctx)
 a, err := c.Actions.Request(ctx, onemind.ActionRequest{Type: onemind.ActionAppInstall, AppID: "ntfy"})
 a, err = c.Actions.Wait(ctx, a.Id, 2*time.Second, nil)

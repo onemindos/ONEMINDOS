@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+name: Hermes Agent
+github: NousResearch/hermes-agent
+priority: 1
+status: 'blocked: pinned image v0.23.0 (contract §7) has fixable CRITICAL CVE-2026-99083 (linux-libc-dev); v0.23.1 has it too. All other checks and the smoke test pass'
+notes: first founder app; contract §7

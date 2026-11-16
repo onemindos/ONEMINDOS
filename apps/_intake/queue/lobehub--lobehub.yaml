@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+name: Lobe Hub
+github: lobehub/lobehub
+priority: 2
+status: 'blocked: LICENSE at v2.3.2 is the LobeHub Community License (Apache-2.0 plus extra conditions: a commercial licence for derivative works), not Apache-2.0 as candidates.csv says; L?, list-only (TAXONOMY §2)'
+notes: market batch 4

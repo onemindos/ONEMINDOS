@@ -12,6 +12,10 @@
 # Every 6 hours: re-sign timestamp.json (1-day expiry), and snapshot/targets when near expiry.
 # Without the secrets everything runs with throwaway keys and publishes nothing (dry run).
 # Secrets, hosting and how to move it: os/update/README.md. Interface: os/update/CHANNEL.md.
+# The three online TUF keys (ONEMIND_TUF_*) are secrets of the GitHub Environment `tuf-signing`
+# (D-010), which only `main` may deploy to: the jobs that read them (decide, tuf, timestamp) declare
+# it, and test/unit/test_tuf_secrets.py fails if any other job or workflow reads them. So a manual
+# dispatch from another branch stops at `decide`; use a dry run on main.
 name: security-nightly
 on:
   schedule:
@@ -46,7 +50,7 @@ jobs:
           python3 -I -m unittest discover -s os/update/tests -p 'test_*.py' -v
           python3 -m venv "$RUNNER_TEMP/tuf"
           "$RUNNER_TEMP/tuf/bin/pip" install -q --require-hashes --only-binary :all: -r os/update/requirements-tuf.txt
-          "$RUNNER_TEMP/tuf/bin/python" -I -m unittest discover -s os/update/tests -p 'test_tuf_repo.py' -v
+          "$RUNNER_TEMP/tuf/bin/python" -I -m unittest discover -s os/update/tests -p 'test_tuf_*.py' -v
 
   check:
     needs: unit
@@ -102,6 +106,7 @@ jobs:
   decide:
     needs: check
     runs-on: ubuntu-24.04
+    environment: tuf-signing   # D-010: the online TUF keys are Environment secrets, main only
     timeout-minutes: 30
     outputs:
       rebuild: ${{ steps.pick.outputs.rebuild }}
@@ -261,6 +266,7 @@ jobs:
   tuf:
     needs: [decide, build, battery-x86_64-efi, battery-vm-do, battery-arm64-efi]
     runs-on: ubuntu-24.04
+    environment: tuf-signing
     timeout-minutes: 30
     env:
       PUBLISH: ${{ needs.decide.outputs.publish }}
@@ -383,6 +389,7 @@ jobs:
   timestamp:
     if: github.event.schedule == '41 */6 * * *'
     runs-on: ubuntu-24.04
+    environment: tuf-signing
     timeout-minutes: 15
     permissions:
       contents: write

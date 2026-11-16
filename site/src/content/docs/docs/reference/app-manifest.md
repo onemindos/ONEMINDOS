@@ -54,4 +54,4 @@ spec:
 
 ## Add an app
 
-Add a line to [`apps/_intake/queue.yaml`](https://github.com/onemindos/ONEMINDOS/blob/main/apps/_intake/queue.yaml) and open a pull request. See [Apps and trust cards](../../concepts/apps-and-trust-cards/).
+Add a file to [`apps/_intake/queue/`](https://github.com/onemindos/ONEMINDOS/blob/main/apps/_intake/queue/README.md) and open a pull request. See [Apps and trust cards](../../concepts/apps-and-trust-cards/).

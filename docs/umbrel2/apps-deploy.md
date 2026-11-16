@@ -128,7 +128,7 @@ Instant feel (progress from image pull, state pushed over events); install revie
 | Manifest additions | `links`, `upstream`, `tier`, `spec.updates`, `spec.agent` (contract §9.3, §11.2) | `feat/app-pipeline` schema |
 | Packaging | Kustomize per app under `apps/<id>/manifests/`, images pinned by tag + digest | `main` (3 seed apps) + 6 more on `feat/app-pipeline` |
 | Scaffold and gate | `sdk/tools/app-scaffold`, `app-gate` (schema, licence class, pinning, Trivy 0.76.2, ClamAV, secrets, cosign, upstream health, non-root, k3d smoke), `app-readme`, `scan.json` | `feat/app-pipeline` |
-| Intake and taxonomy | `apps/_intake/queue.yaml`; ranked candidates `apps/_intake/CANDIDATES.md`, `candidates.csv` | `main` / `feat/app-taxonomy` |
+| Intake and taxonomy | `apps/_intake/queue/` (one file per app); ranked candidates `apps/_intake/CANDIDATES.md`, `candidates.csv` | `main` / `feat/app-taxonomy` |
 | Catalog API | `GET /v1/apps` (`core/onemind_core/catalog.py`); scan, links, tier (§11.4, `core/onemind_core/scan.py`) | `main` / `feat/gateway-agent-mcp` |
 | Install / remove | `app.install`, `app.remove` actions, owner approval, idempotent, expiring, audited (`core/onemind_core/actions.py`, `audit.py`) | `main` |
 | Executor | `kubectl apply -k` into `app-<id>`; remove deletes the namespace **and its data** (`core/onemind_core/executors.py`) | `main` |

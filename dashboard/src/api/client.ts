@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { WiringApi } from './wiring';
 import type * as W from './wiring';
+import { OneMind, OneMindError, type operations } from '@onemind/sdk';
 import {
   ApiError,
   type Action,
   type ActionRequest,
+  type ActionType, type AppParams, type PlanPreview, type AppSettings,
   type ApiErrorBody,
   type CatalogApp,
   type Instance,
@@ -24,6 +26,10 @@ export interface OneMindApi extends WiringApi {
   nodes(): Promise<NodeRecord[]>;
   node(nodeId: string): Promise<NodeRecord>;
   apps(): Promise<CatalogApp[]>;
+  appPlan?(id: string): Promise<PlanPreview>;
+  previewAction?(type: ActionType, params: AppParams): Promise<PlanPreview>;
+  appSettings?(id: string): Promise<AppSettings>;
+  appLogs?(id: string): Promise<string>;
   createAction(req: ActionRequest): Promise<Action>;
   actions(): Promise<Action[]>;
   action(id: string): Promise<Action>;
@@ -72,6 +78,7 @@ export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>
 
 /** Real client: talks to the gateway over HTTP with a bearer token. */
 export class HttpApi implements OneMindApi {
+  private readonly sdk: OneMind;
   onboardingSettings = () => this.req<FirstRunSettings>('GET', '/v1/onboarding/settings');
   saveOnboardingSettings = (body: FirstRunSettingsBody) => this.req<FirstRunSettings>('PUT', '/v1/onboarding/settings', body);
   backupDestinations = () => this.req<BackupDestinationRecord[]>('GET', '/v1/backups/destinations', undefined, 'array');
@@ -84,21 +91,26 @@ export class HttpApi implements OneMindApi {
     this.base = (opts.baseUrl ?? '').replace(/\/$/, '');
     this.token = opts.token;
     this.fetchFn = opts.fetchFn ?? ((input, init) => fetch(input, init));
+    this.sdk = new OneMind({ baseUrl: new URL(this.base || '/', globalThis.location?.origin ?? 'http://localhost').href, token: opts.token, fetch: (input, init) => this.fetchFn(String(input), init), retries: 1 });
   }
 
   /**
    * `shape` is what a 2xx body must be. Anything else (an HTML page from a proxy
    * or SPA fallback, an empty body, the wrong JSON type) is an error, not data.
    */
-  private async req<T>(method: string, path: string, body?: unknown, shape: 'object' | 'array' = 'object', bearer?: string): Promise<T> {
+  private async req<T>(method: string, path: string, body?: unknown, shape: 'object' | 'array' | 'text' = 'object', bearer?: string): Promise<T> {
     let res: Response;
     try {
-      res = await this.fetchFn(this.base + path, {
+      // The SDK's JSON-only call cannot decode text/plain logs; reuse its authenticated
+      // transport directly for that one route rather than invent another token provider.
+      const fetchFn = shape === 'text' ? this.sdk.fetchImpl : this.fetchFn;
+      res = await fetchFn(shape === 'text' ? this.sdk.baseUrl + path : this.base + path, {
         method,
         headers: {
-          Accept: 'application/json',
+          Accept: shape === 'text' ? 'text/plain' : 'application/json',
           ...((bearer ?? this.token) ? { Authorization: `Bearer ${bearer ?? this.token}` } : {}),
           ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+          ...(shape === 'text' ? await this.sdk.authHeader() : {}),
         },
         body: body !== undefined ? JSON.stringify(body) : undefined,
       });
@@ -125,6 +137,10 @@ export class HttpApi implements OneMindApi {
       throw new ApiError(res.status, code, `HTTP ${res.status}`);
     }
     if (res.status === 204) return undefined as T;
+    if (shape === 'text') {
+      if (!res.headers.get('Content-Type')?.startsWith('text/plain')) throw new ApiError(res.status, 'unknown', 'Unexpected response from the hub');
+      return text as T;
+    }
     const valid =
       shape === 'array' ? Array.isArray(data) : typeof data === 'object' && data !== null && !Array.isArray(data);
     if (!valid) throw new ApiError(res.status, 'unknown', 'Unexpected response from the hub');
@@ -149,9 +165,44 @@ export class HttpApi implements OneMindApi {
   apps() {
     return this.req<CatalogApp[]>('GET', '/v1/apps', undefined, 'array');
   }
-  createAction(req: ActionRequest) {
-    return this.req<Action>('POST', '/v1/actions', req);
+  async createAction(req: ActionRequest) {
+    const ambiguous = () => new ApiError(0, 'outcome_unknown', 'The request may have been recorded, but the gateway did not return a complete matching action. Retry to confirm it.');
+    let action: Action;
+    try { action = await this.sdkCall<Action>('POST', '/v1/actions', req); }
+    catch (e) {
+      if (!(e instanceof ApiError) || e.status === 0 || e.status === 408 || e.status >= 500 || (e.status >= 200 && e.status < 300)) throw ambiguous();
+      throw e;
+    }
+    const states = new Set(['requested', 'awaiting_approval', 'accepted', 'dispatched', 'succeeded', 'failed', 'outcome_unknown', 'expired', 'cancelled']);
+    if (typeof action.id !== 'string' || !action.id || action.type !== req.type || !states.has(action.state) || action.params?.app_id !== req.params.app_id || action.idempotency_key !== req.idempotency_key || !Number.isFinite(Date.parse(action.expires_at))) throw ambiguous();
+    if (req.params.settings && (!action.params.settings || Object.keys(action.params.settings).length !== Object.keys(req.params.settings).length || Object.entries(req.params.settings).some(([k, v]) => action.params.settings?.[k] !== v))) throw ambiguous();
+    if (req.plan_sha256 && action.plan_sha256 !== req.plan_sha256) throw ambiguous();
+    if (action.progress && (typeof action.progress.step !== 'string' || !Number.isFinite(action.progress.pct) || action.progress.pct < 0 || action.progress.pct > 100)) throw ambiguous();
+    return action;
   }
+  private async sdkCall<T>(method: 'GET' | 'POST', path: string, body?: unknown): Promise<T> {
+    try {
+      const value = await this.sdk.call<T>({ method, path, body });
+      if (!value || typeof value !== 'object' || Array.isArray(value)) throw new ApiError(200, 'unknown', 'Unexpected response from the hub');
+      return value;
+    }
+    catch (e) {
+      if (e instanceof OneMindError) throw new ApiError(e.status, KNOWN_CODES.has(e.code) || e.code === 'network' ? e.code as ApiError['code'] : 'unknown', e.message, e.reason);
+      throw e;
+    }
+  }
+  appPlan(id: string) { return this.sdkCall<PlanPreview>('GET', `/v1/apps/${encodeURIComponent(id)}/plan`); }
+  previewAction(type: ActionType, params: AppParams) { return this.sdkCall<PlanPreview>('POST', '/v1/plans', { type, params }); }
+  async appSettings(id: string) {
+    const raw = await this.sdkCall<operations['apps.settings']['responses'][200]['content']['application/json']>('GET', `/v1/apps/${encodeURIComponent(id)}/settings`);
+    if (!raw || typeof raw !== 'object' || !('fields' in raw) || !Array.isArray(raw.fields) || !('values' in raw)) throw new ApiError(200, 'unknown', 'Invalid gateway settings');
+    for (const f of raw.fields) {
+      if (!f || typeof f !== 'object' || typeof f.name !== 'string' || !['string', 'integer', 'number', 'boolean'].includes(f.type) || (f.enum !== undefined && (!Array.isArray(f.enum) || f.enum.some((v: unknown) => !['string', 'number', 'boolean'].includes(typeof v))))) throw new ApiError(200, 'unknown', 'Invalid gateway settings field');
+    }
+    if (raw.values !== null && (typeof raw.values !== 'object' || Array.isArray(raw.values) || Object.values(raw.values).some((v) => !['string', 'number', 'boolean'].includes(typeof v)))) throw new ApiError(200, 'unknown', 'Invalid gateway setting values');
+    return raw as AppSettings;
+  }
+  appLogs(id: string) { return this.req<string>('GET', `/v1/apps/${encodeURIComponent(id)}/logs?tail=200`, undefined, 'text'); }
   actions() {
     return this.req<Action[]>('GET', '/v1/actions', undefined, 'array');
   }

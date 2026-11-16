@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+name: LibreTranslate
+github: LibreTranslate/LibreTranslate
+priority: 2
+status: 'skipped: not attempted; downloads multi-gigabyte language models at start'
+notes: market batch 6 skip

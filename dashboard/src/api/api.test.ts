@@ -25,17 +25,17 @@ describe('HttpApi (contract §3)', () => {
   });
 
   it('POSTs actions as JSON', async () => {
-    const f = vi.fn().mockResolvedValue(jsonResponse(201, { id: 'a1', state: 'awaiting_approval' }));
-    const api = new HttpApi({ token: 't', fetchFn: f });
     const body = {
       type: 'app.install' as const,
       params: { app_id: 'jellyfin' },
       idempotency_key: 'k',
       expires_at: '2026-11-11T23:00:00Z',
     };
+    const f = vi.fn().mockResolvedValue(jsonResponse(201, { ...body, id: 'a1', state: 'awaiting_approval' }));
+    const api = new HttpApi({ token: 't', fetchFn: f });
     await api.createAction(body);
     const [url, init] = f.mock.calls[0]!;
-    expect(url).toBe('/v1/actions');
+    expect(url).toBe(`${window.location.origin}/v1/actions`);
     expect(init.method).toBe('POST');
     expect(init.headers['Content-Type']).toBe('application/json');
     expect(JSON.parse(init.body)).toEqual(body);

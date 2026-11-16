@@ -54,7 +54,7 @@ from .errors import ApiError
 from .executors import ExecResult
 from .ledger import Action, Base, iso, utc
 from .mesh import ROLE_TAGS, MeshRefused, MeshService
-from .natsconf import NodeAccount, is_user_public_nkey, write_accounts
+from .natsconf import NodeAccount, is_user_public_nkey, load_service_keys, write_accounts
 from .netconf import FabricSettings, MeshSettings, NetSettings
 from .store import Database, FeatureSchema, SqlRepository
 
@@ -473,7 +473,7 @@ class FabricService:
         if path is None:
             return False
         accounts = [NodeAccount(n["node_id"], n["nats_pubkey"]) for n in self.repo.nodes()]
-        changed = write_accounts(path, accounts)
+        changed = write_accounts(path, accounts, load_service_keys(self.d.fabric.nats_service_keys))
         if changed:
             log.info("NATS accounts updated (%d nodes)", len(accounts))
         return changed

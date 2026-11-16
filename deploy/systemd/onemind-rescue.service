@@ -1,0 +1,60 @@
+# SPDX-License-Identifier: Apache-2.0
+# OneMind rescue console (CORE-UPDATE-8, brief 30 B11, docs/leap/core/UPDATES.md §3.5).
+# Same binary as the heartbeat agent, separate process: `onemindd rescue`.
+# HTTPS on :7443 with the box CA's https.crt/key, LAN clients only, owner token
+# (checked against the sha256 entries of /etc/onemind/tokens.yaml).
+#
+# Why a third unit: it must keep working when k3s and the gateway are down, so
+# it depends on neither; and rollback needs `rauc status mark-active other`
+# (D-Bus to rauc) and `systemctl reboot`, which onemindd.service must not do.
+# It runs only on an explicit owner POST; nothing here acts on its own.
+
+[Unit]
+Description=OneMind rescue console (slots, rollback, logs; works with k3s stopped)
+Documentation=https://github.com/onemindos/ONEMINDOS/tree/main/internal/rescue
+After=network-online.target rauc.service
+Wants=network-online.target
+ConditionPathExists=/etc/onemind/tokens.yaml
+
+[Service]
+Type=simple
+EnvironmentFile=-/etc/onemind/onemindd.env
+ExecStart=/usr/local/bin/onemindd rescue
+Restart=always
+RestartSec=5s
+
+# --- identity / privileges: root to read the CA key and the journal, no capabilities ---
+User=root
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+
+# --- filesystem: read-only ---
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+UMask=0077
+
+# --- kernel / syscalls ---
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged
+SystemCallErrorNumber=EPERM
+
+# --- network: HTTPS for the LAN, AF_UNIX for D-Bus (rauc, systemd reboot) ---
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+
+[Install]
+WantedBy=multi-user.target

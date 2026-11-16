@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+name: Portainer
+github: portainer/portainer
+priority: 2
+status: 'skipped: it manages Docker or Kubernetes through a socket or a cluster-wide role; apps may not mount host paths or hold cluster roles'
+notes: market batch 6 skip

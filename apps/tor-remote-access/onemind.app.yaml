@@ -1,0 +1,36 @@
+# SPDX-License-Identifier: Apache-2.0
+# Remote access over Tor (NET-TOR-01, #284; founder decision D-014, 2026-11-15): an optional
+# Market app, never part of the core OS. A Tor onion service for the OneMind dashboard only, with
+# Tor client authorization (one key per device, fail closed) and the normal OneMind sign-in
+# behind it. SocksPort 0: never an outbound proxy for apps, agents or AI.
+# OneMind's own code (manifests/tor_access.py, Python standard library) on the official python
+# image, next to C tor 0.4.9.17 (BSD-3-Clause; tag tor-0.4.9.17, commit a00b3e0bd288, released
+# 2026-11-13) in the leplusorg/tor image (Apache-2.0, github.com/leplusorg/docker-tor@6a75612bdd11,
+# cosign-signed, amd64 + arm64); digests from `crane digest`.
+apiVersion: onemind.app/v1alpha1
+kind: App
+metadata:
+  id: tor-remote-access
+  name: Remote access over Tor
+  version: "0.1.0"
+  description: Reach your OneMind from anywhere through Tor, even behind CGNAT, with no server of ours; only devices you add can connect
+  # docs/design/TAXONOMY.md §1: Network & Security; sub-tags remote-access, tor.
+  category: network
+  icon: icon.svg
+  license: Apache-2.0
+  source: https://github.com/onemindos/ONEMINDOS
+  links:
+    docs: https://github.com/onemindos/ONEMINDOS/blob/main/apps/tor-remote-access/README.md
+    github: https://github.com/onemindos/ONEMINDOS
+    website: https://github.com/onemindos/ONEMINDOS
+    support: https://github.com/onemindos/ONEMINDOS/issues
+  # OneMind ships this app from the repo itself: the "release" is this manifest version.
+  upstream: {release: "0.1.0", released_at: "2026-11-15T12:00:00Z", archived: false}
+  tier: community   # set by CI (sdk/tools/app-gate --tier write), not by hand
+spec:
+  archs: [amd64, arm64]
+  requires: {gpu: false, minMemoryMb: 128}
+  # The owner page. tor_access.py answers only X-OneMind-Role: owner.
+  web: {port: 8080}
+  manifests: manifests/
+  updates: {channel: stable, automerge: none}

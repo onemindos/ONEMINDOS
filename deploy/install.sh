@@ -635,6 +635,7 @@ nats_install() {
   [ "$DRY_RUN" = 1 ] && step "NATS $NATS_VERSION on the hub (loopback :4222; leaf listener on the mesh address, TLS, per-node accounts)"
   nats_binary
   if [ "$DRY_RUN" = 1 ]; then
+    plan "service nkeys for the gateway and onemindd in $STATE/nats/keys (seed 0600 per service, public keys 0644)"
     plan "hub accounts file $STATE/nats/accounts.conf (python -m onemind_core.natsconf), linked beside nats.conf"
     plan "write $ETC/nats.conf: listen 127.0.0.1:4222, leafnodes on <mesh address>:7422 with TLS (box CA, verify)"
     plan "install $SCRIPT_DIR/systemd/onemind-nats.service, a mesh drop-in, onemind-nats-accounts.path and -reload.service; enable and restart"
@@ -643,7 +644,15 @@ nats_install() {
   # The accounts file the gateway owns; NATS includes it through a link beside nats.conf, because
   # nats-server resolves include paths relative to the including file.
   install -d -m0755 -o onemind -g onemind "$STATE/nats"
-  runuser -u onemind -- "$PREFIX/venv/bin/python" -m onemind_core.natsconf "$STATE/nats/accounts.conf"
+  # CORE-SEC-4 (#161): the hub's own clients sign in with their own nkeys and the hub account has no
+  # passwordless user, so any other local process without a key is refused. Each seed belongs to its
+  # service's user (the gateway runs as onemind, onemindd as root); existing keys are kept.
+  # The directory is root's, so the gateway user can read its own seed but cannot replace onemindd's.
+  install -d -m0755 -o root -g root "$STATE/nats/keys"
+  "$PREFIX/venv/bin/python" -m onemind_core.natsconf service-key "$STATE/nats/keys" gateway >/dev/null
+  chown onemind:onemind "$STATE/nats/keys/gateway.nk"
+  "$PREFIX/venv/bin/python" -m onemind_core.natsconf service-key "$STATE/nats/keys" onemindd >/dev/null
+  runuser -u onemind -- "$PREFIX/venv/bin/python" -m onemind_core.natsconf "$STATE/nats/accounts.conf" "$STATE/nats/keys"
   ln -sfn "$STATE/nats/accounts.conf" "$ETC/nats-accounts.conf"
   cat > "$ETC/nats.conf" <<EOF
 # OneMind hub NATS (deploy/install.sh; NETWORKING.md §7). Do not edit: rewritten on install.
@@ -690,6 +699,8 @@ EOF
   systemctl enable onemind-nats onemind-nats-accounts.path >/dev/null 2>&1
   systemctl restart onemind-nats
   systemctl restart onemind-nats-accounts.path
+  # onemindd was installed before its key existed: start it again so it signs in with it.
+  systemctl try-restart onemindd
 }
 
 nats_leaf_install() {  # node
@@ -921,7 +932,11 @@ uv_toolchain() {
 # ------------------------------------------------------------------------------------------
 # 5. onemindd (+ the onemind CLI) as a systemd service, on every machine
 # ------------------------------------------------------------------------------------------
-onemindd_env() { printf '# Written by deploy/install.sh (contract §1)\nONEMIND_NATS_URL=%s\nONEMIND_NODE_ROLE=%s\n' "$1" "$ROLE"; }
+onemindd_env() {
+  printf '# Written by deploy/install.sh (contract §1)\nONEMIND_NATS_URL=%s\nONEMIND_NODE_ROLE=%s\n' "$1" "$ROLE"
+  # Hub: onemindd signs in to the hub NATS with its own service nkey (CORE-SEC-4, #161; nats_install makes it).
+  if [ "$ROLE" = hub ]; then printf 'ONEMIND_NATS_NKEY_SEED=%s\n' "$STATE/nats/keys/onemindd.nk"; fi
+}
 
 onemindd_install() {
   local out="$CACHE/build" nats_url
@@ -1071,24 +1086,25 @@ dashboard_build() {
     log "dashboard: using prebuilt $DASH_DIST"
     copy_tree_plain "$DASH_DIST" "$PREFIX/dashboard"; return 0
   fi
-  # The dashboard imports the design system from source (../ui/src), so both trees count.
-  sum=$(cd "$SRC" && find dashboard ui/src -path dashboard/node_modules -prune -o -path dashboard/dist -prune -o -type f -print0 \
+  # Dashboard aliases consume the design system and SDK from source; hash every input tree.
+  sum=$(cd "$SRC" && find dashboard ui/src sdk/ts/src -path dashboard/node_modules -prune -o -path dashboard/dist -prune -o -type f -print0 \
         | LC_ALL=C sort -z | xargs -0 sha256sum | sha256sum | cut -d' ' -f1)
   if [ -f "$stamp" ] && [ "$(cat "$stamp")" = "$sum" ]; then log "dashboard: up to date"; return 0; fi
   node_toolchain
   log "dashboard: npm ci + vite build with Node $NODE_VERSION (as user onemind, no install scripts)"
   copy_src_tree "$SRC/dashboard" "$CACHE/dashboard-src"
   copy_src_tree "$SRC/ui/src" "$CACHE/ui/src"   # ../ui/src as seen from dashboard-src
+  copy_src_tree "$SRC/sdk/ts/src" "$CACHE/sdk/ts/src"
   # npm packages are third-party code: never run them as root. --ignore-scripts skips dependency
   # lifecycle scripts (esbuild's is an optional speed-up; its platform binary comes as a package).
   install -d -o onemind -g onemind -m0700 "$CACHE/npm-home"
-  chown -R onemind:onemind "$CACHE/dashboard-src" "$CACHE/ui"
+  chown -R onemind:onemind "$CACHE/dashboard-src" "$CACHE/ui" "$CACHE/sdk"
   (cd "$CACHE/dashboard-src" && runuser -u onemind -- env -i PATH="$NODE_DIR/bin:/usr/bin:/bin" HOME="$CACHE/npm-home" \
      npm_config_cache="$CACHE/npm-home/cache" npm_config_update_notifier=false sh -ec \
      'npm ci --ignore-scripts --no-audit --no-fund --loglevel=error >/dev/null; npm run build >/dev/null')
   copy_tree_plain "$CACHE/dashboard-src/dist" "$PREFIX/dashboard"
   printf '%s\n' "$sum" > "$stamp"
-  rm -rf "$CACHE/dashboard-src" "$CACHE/ui"
+  rm -rf "$CACHE/dashboard-src" "$CACHE/ui" "$CACHE/sdk"
 }
 copy_tree_plain() { rm -rf "$2.new"; mkdir -p "$2.new"; cp -R "$1/." "$2.new/"; rm -rf "$2"; mv "$2.new" "$2"; chmod -R a+rX "$2"; }
 
@@ -1134,6 +1150,36 @@ EOF
   install -m0644 "$SCRIPT_DIR/systemd/onemind-gateway-token.timer" /etc/systemd/system/onemind-gateway-token.timer
   systemctl daemon-reload
   systemctl enable --now onemind-gateway-token.timer >/dev/null 2>&1
+}
+
+# Pods resolve hub.onemind.internal to the hub's mesh address. k3s's CoreDNS imports every
+# /etc/coredns/custom/*.server from the optional coredns-custom ConfigMap in kube-system (verified:
+# https://github.com/k3s-io/k3s/blob/master/manifests/coredns.yaml, "import /etc/coredns/custom/*.server",
+# volume coredns-custom with optional: true; docs https://docs.k3s.io/advanced#coredns-custom-configuration-imports).
+# The server block answers only this one name, so nothing else in cluster DNS changes.
+coredns_hub_name() {
+  local k="$BIN/k3s kubectl" ip=${HUB_MESH_IP:-<the hub mesh address>}
+  if [ "$DRY_RUN" = 1 ]; then
+    step "Cluster DNS: hub.onemind.internal for app pods"
+    plan "kubectl apply the coredns-custom ConfigMap (kube-system): hub.onemind.internal -> $ip (pods reach the gateway on https://hub.onemind.internal:8443)"
+    return 0
+  fi
+  # A placeholder here would be a CoreDNS parse error, which takes down all cluster DNS.
+  [ -n "${HUB_MESH_IP:-}" ] || die "no hub mesh address for the cluster DNS entry hub.onemind.internal"
+  $k apply -f - >/dev/null <<EOF
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: coredns-custom
+  namespace: kube-system
+data:
+  onemind.server: |
+    hub.onemind.internal:53 {
+        hosts {
+            $ip hub.onemind.internal
+        }
+    }
+EOF
 }
 
 # API tokens (contract §3): 256 random bits each, printed once at the end, and only their sha256
@@ -1212,6 +1258,12 @@ ONEMIND_PORT=8080
 # §11.2: the URL app pods use to reach this gateway (written into each agent app's Secret as
 # ONEMIND_GATEWAY_URL). The wave-2 gateway reads it from ONEMIND_PUBLIC_URL (core/README.md).
 ONEMIND_PUBLIC_URL=$1
+# What app pods actually dial (ONEMIND_AGENT_URL, core/README.md). Pods verify the gateway's HTTPS
+# certificate against the box CA only. That certificate has DNS names and no IP address, and the
+# CA's name constraints allow only mesh IPs, so https://<LAN IP>:8443 can never verify. Pods use
+# hub.onemind.internal instead (a certificate name); coredns_hub_name resolves it to the hub's mesh
+# address inside the cluster, and the gateway maps it to that address for the egress NetworkPolicy.
+ONEMIND_AGENT_URL=https://hub.onemind.internal:8443
 # Networking (core/onemind_core/netconf.py; NETWORKING.md): HTTPS with the box CA on 443 and 8443,
 # :80 redirects, onemind.local and <app>.$BOX.local over mDNS, the mesh and fabric joins.
 ONEMIND_NET_BOX_NAME=$BOX
@@ -1227,6 +1279,8 @@ ONEMIND_MESH_HEADSCALE_KEY_FILE=$ETC/headscale.key
 ONEMIND_MESH_HUB_IP=${HUB_MESH_IP:-<the hub mesh address>}
 ONEMIND_FABRIC_HUB_URL=https://$BOX.local
 ONEMIND_FABRIC_NATS_ACCOUNTS_FILE=$STATE/nats/accounts.conf
+ONEMIND_FABRIC_NATS_SERVICE_KEYS=$STATE/nats/keys
+ONEMIND_FABRIC_NATS_NKEY_SEED=$STATE/nats/keys/gateway.nk
 ONEMIND_FABRIC_K3S=1
 ONEMIND_FABRIC_K3S_CA_HASH=${K3S_CA_HASH:-<K10 + sha256 of the k3s CA>}
 EOF
@@ -1293,6 +1347,7 @@ if [ "$ROLE" = hub ]; then
   nats_install
   dashboard_build
   gateway_kubeconfig
+  coredns_hub_name
   gateway_tokens
   # App pods reach the gateway over HTTPS on :8443 (box CA): with HTTPS on, the plain-HTTP port is
   # bound to loopback and the LAN never sees it (H-05).

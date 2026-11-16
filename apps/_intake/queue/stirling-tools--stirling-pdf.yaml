@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+name: Stirling-PDF
+github: Stirling-Tools/Stirling-PDF
+priority: 2
+status: 'blocked: licence - every upstream image (v3.3.0) ships code outside the MIT part: the default image builds STIRLING_FLAVOR=proprietary (app/proprietary/LICENSE, Stirling PDF User License) and even ultra-lite bundles frontend/src/processor (separate licence, root LICENSE). Not redistributable; list-only candidate'
+notes: market batch 2
