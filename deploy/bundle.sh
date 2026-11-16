@@ -172,11 +172,13 @@ if [ "$NODE_ONLY" = 0 ]; then
   # (/work/ui/src beside /work/dashboard), as install.sh's on-box build does. Build output stays
   # visible: tsc prints its errors on stdout, so nothing is sent to /dev/null here.
   docker run --rm -v "$REPO/dashboard:/src/dashboard:ro" -v "$REPO/ui/src:/src/ui/src:ro" \
+    -v "$REPO/sdk/ts/src:/src/sdk/ts/src:ro" \
     -v "$OUT/dashboard:/out" --tmpfs /work:exec,size=2g \
     -e HOST_IDS="$HOST_IDS" -e npm_config_update_notifier=false "$BUNDLE_NODE_IMAGE" sh -ec '
-      mkdir -p /work/dashboard /work/ui
+      mkdir -p /work/dashboard /work/ui /work/sdk/ts
       cd /src/dashboard && tar --exclude=./node_modules --exclude=./dist -cf - . | tar -C /work/dashboard -xf -
       cp -R /src/ui/src /work/ui/src
+      cp -R /src/sdk/ts/src /work/sdk/ts/src
       cd /work/dashboard && npm ci --ignore-scripts --no-audit --no-fund --loglevel=error && npm run build
       cp -R dist/. /out/ && chown -R "$HOST_IDS" /out'
   [ -f "$OUT/dashboard/index.html" ] || die "the dashboard build produced no index.html"

@@ -19,3 +19,19 @@ func TestRegistry(t *testing.T) {
 		}
 	}
 }
+
+func TestRescueLoopbackOnlyWithoutTLS(t *testing.T) {
+	for addr, want := range map[string]bool{"127.0.0.1:7443": true, "[::1]:7443": true, "localhost:7443": true,
+		":7443": false, "0.0.0.0:7443": false, "192.0.2.1:7443": false, "bad": false} {
+		if loopbackAddr(addr) != want {
+			t.Errorf("loopbackAddr(%q) != %v", addr, want)
+		}
+	}
+	if subcommands["rescue"] == nil {
+		t.Fatal("onemindd rescue must be registered")
+	}
+	// No certificate in the TLS dir and a LAN listen address: refuse to serve plain HTTP.
+	if rc := runRescue([]string{"-listen", ":0", "-tls-dir", t.TempDir()}); rc != 2 {
+		t.Fatalf("runRescue without TLS on all interfaces = %d, want 2", rc)
+	}
+}
