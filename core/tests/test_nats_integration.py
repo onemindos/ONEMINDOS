@@ -20,7 +20,9 @@ from onemind_core.app import create_app
 from test_nodes_catalog import heartbeat
 
 URL = os.environ.get("ONEMIND_TEST_NATS_URL")
-pytestmark = [pytest.mark.nats, pytest.mark.skipif(not URL, reason="ONEMIND_TEST_NATS_URL not set")]
+# xdist_group: every real-NATS test runs on one worker, so no other gateway publishes on the
+# subjects it listens to (CI-03, #228).
+pytestmark = [pytest.mark.nats, pytest.mark.xdist_group("nats"), pytest.mark.skipif(not URL, reason="ONEMIND_TEST_NATS_URL not set")]
 
 
 def _wait(pred, timeout=10.0):

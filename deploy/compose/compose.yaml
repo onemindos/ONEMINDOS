@@ -45,6 +45,7 @@ services:
       - ../../dashboard:/src:ro
       # The dashboard compiles @onemind/ui from ../ui/src (vite.config.ts, tsconfig.json paths).
       - ../../ui/src:/ui/src:ro
+      - ../../sdk/ts/src:/sdk/ts/src:ro
       - dashboard-dist:/out
 
   gateway:

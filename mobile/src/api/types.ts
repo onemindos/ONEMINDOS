@@ -579,3 +579,6 @@ export interface MigratePlan {
   last_error?: string | null;
   updated_at?: string | null;
 }
+
+/** UMB-P07 `/v1/me/home`: the person's Home document, generated from the gateway's OpenAPI (`@onemind/sdk`). */
+export type { HomeBody, HomeView } from '@onemind/sdk';

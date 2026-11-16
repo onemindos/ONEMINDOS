@@ -10,6 +10,7 @@ import { effectiveStatus, OFFLINE_AFTER_S, STALE_AFTER_S } from '../lib/time';
 import { uuidv4 } from '../lib/uuid';
 import { useSignedIn, type DecideAbility } from '../session';
 import { isActive } from './adapters';
+import type { AppParams } from '../api/types';
 
 /** How long an owner has to decide on a request (§11.3 and §12.1 use 24 h). */
 export const REQUEST_TTL_MS = 24 * 60 * 60 * 1000;
@@ -41,7 +42,7 @@ export interface Hub {
   canRequest: DecideAbility;
   /** Ids of actions with a decision in flight. */
   busy: ReadonlySet<string>;
-  request: (type: ActionType, appId: string) => Promise<Action>;
+  request: (type: ActionType, appId: string, extra?: Omit<AppParams, 'app_id'>, planSha?: string) => Promise<Action>;
   decide: (id: string, how: 'approve' | 'deny') => Promise<Action>;
   reloadAll: () => void;
 }
@@ -113,15 +114,16 @@ export function HubProvider({ children }: { children: ReactNode }) {
   const { reload: reloadActions } = actions;
   const { reload: reloadApps } = apps;
   const request = useCallback(
-    async (type: ActionType, appId: string) => {
-      const slot = `${type}:${appId}`;
+    async (type: ActionType, appId: string, extra: Omit<AppParams, 'app_id'> = {}, planSha?: string) => {
+      const params = { ...extra, app_id: appId };
+      const slot = JSON.stringify([type, params, planSha]);
       let k = keys.current.get(slot);
       if (!k) {
         k = { key: uuidv4(), expiresAt: new Date(Date.now() + offset + REQUEST_TTL_MS).toISOString() };
         keys.current.set(slot, k);
       }
       try {
-        const a = await api.createAction({ type, params: { app_id: appId }, idempotency_key: k.key, expires_at: k.expiresAt });
+        const a = await api.createAction({ type, params, ...(planSha ? { plan_sha256: planSha } : {}), idempotency_key: k.key, expires_at: k.expiresAt });
         keys.current.delete(slot);
         setFollowed((f) => ({ ...f, [a.id]: a }));
         void reloadActions();

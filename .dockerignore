@@ -15,6 +15,7 @@
 !sdk/schema/
 !sdk/policy/
 !sdk/go/
+!sdk/ts/src/
 !apps/
 **/node_modules
 **/dist
