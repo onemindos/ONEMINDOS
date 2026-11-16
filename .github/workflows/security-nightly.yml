@@ -39,7 +39,9 @@ env:
   CHANNEL_TAG: os-channel-security
   TRACKER_URL: https://security-tracker.debian.org/tracker/data/json
 jobs:
-  unit:
+  # Not named `unit`: main's required checks match by job name, so a failed or cancelled job of that name
+  # here would block every PR like ci's `unit` does.
+  update-unit:
     if: github.event.schedule != '41 */6 * * *'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -53,7 +55,7 @@ jobs:
           "$RUNNER_TEMP/tuf/bin/python" -I -m unittest discover -s os/update/tests -p 'test_tuf_*.py' -v
 
   check:
-    needs: unit
+    needs: update-unit
     if: github.event_name != 'pull_request'
     strategy:
       fail-fast: false

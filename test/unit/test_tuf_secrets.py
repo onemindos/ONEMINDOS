@@ -46,7 +46,7 @@ class TufSecrets(unittest.TestCase):
 
     def test_the_job_splitter_finds_the_nightly_jobs(self):
         with open(os.path.join(WORKFLOWS, NIGHTLY)) as f:
-            self.assertTrue({"unit", "check", "decide", "build", "tuf", "publish", "timestamp"} <= set(jobs(f.read())))
+            self.assertTrue({"update-unit", "check", "decide", "build", "tuf", "publish", "timestamp"} <= set(jobs(f.read())))
 
 
 if __name__ == "__main__":
