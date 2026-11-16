@@ -7,13 +7,16 @@ Heartbeats go through the real gateway's node registry; the answers come from th
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 
 import pytest
 from fastapi.testclient import TestClient
 
 from conftest import ADULT, AGENT, GUEST, OWNER
 from onemind_core.app import create_app
+from onemind_core.identity.scopes import required_scopes
 from onemind_core.machines.capability import MIN_MEMORY_MB, refusals
+from test_identity import csrf, enrol, id_settings, setup_owner
 
 PC = {"node_id": "pc0123456789", "hostname": "beelink", "role": "hub", "board": "x86_64-efi", "arch": "amd64",
       "mem_total_mb": 15_800, "kvm": True, "k3s": {"present": True, "role": "server", "ready": True}}
@@ -124,3 +127,37 @@ def test_only_the_owner_can_enable_and_the_refusal_is_audited(box, who, settings
     assert r.status_code == 403
     events = [json.loads(line) for line in settings.audit_path.read_text().splitlines()]
     assert any(e["event"] == "authz.denied" and e["data"]["attempted"] == "enable machines" for e in events)
+
+
+# ---- who can reach the routes with a household account or a scoped token (identity/scopes.py) ---------
+
+def test_the_routes_have_their_own_scope_rows(box):
+    assert required_scopes("GET", "/v1/machines/capabilities") == ("nodes:read",)
+    assert required_scopes("HEAD", "/v1/machines/capabilities") == ("nodes:read",)
+    assert required_scopes("POST", "/v1/machines/enable") == ("machines:admin",)
+    # not the full-scope fallback ("*") that an unregistered route gets
+    assert required_scopes("GET", "/v1/machines/other") == ("*",)
+
+
+def test_household_accounts_read_the_capabilities_and_only_the_owner_enables(settings, clock, executor):
+    s = id_settings(settings)
+    with TestClient(create_app(s, clock=clock, executor=executor)) as hc:
+        setup_owner(hc)
+        adult, guest = enrol(hc, "adult", "ana"), enrol(hc, "guest", "gus")
+        for who in (adult, guest):  # nodes:read: the same facts as /v1/nodes
+            assert who.get("/v1/machines/capabilities").status_code == 200
+        assert enrol(hc, "child", "kid").get("/v1/machines/capabilities").status_code == 403  # no nodes:read
+        for who in (adult, guest):
+            assert who.post("/v1/machines/enable", headers=csrf(who)).status_code == 403
+        assert hc.post("/v1/machines/enable", headers=csrf(hc)).status_code == 409  # the owner got past the scope
+
+
+def test_a_narrow_owner_token_reads_but_cannot_enable(settings, clock, executor):
+    with TestClient(create_app(id_settings(settings), clock=clock, executor=executor)) as hc:
+        setup_owner(hc)
+        pat = hc.post("/v1/tokens", headers=csrf(hc), json={"name": "n", "scopes": ["nodes:read"]}).json()["one_time"]["token"]
+        bearer = {"Authorization": f"Bearer {pat}"}
+        assert hc.get("/v1/machines/capabilities", headers=bearer).status_code == 200
+        r = hc.post("/v1/machines/enable", headers=bearer)
+        assert r.status_code == 403, r.text
+        assert hc.post("/v1/tokens", headers=csrf(hc), json={"name": "m", "scopes": ["machines:admin"]}).status_code == 422

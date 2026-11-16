@@ -26,12 +26,12 @@ git pull
 sudo deploy/install.sh --role hub          # on the hub, plus --hub URL if you used it before
 ```
 
-On each other machine, run the join command again (the hub prints it every time the script runs):
+On each other machine, make a fresh join code on the hub (`onemind fabric ticket`, or **Add a device**), then run the join command again and approve it:
 
 ```sh
 cd ONEMINDOS
 git pull
-sudo deploy/install.sh --role node --hub http://<hub-address>:8080 --token <join-token>
+sudo deploy/install.sh --role node --join 'onemind-join:v1?…'
 ```
 
 Running the script again is safe. Every step checks what is already there, rebuilds only what changed, and restarts a service only when its program or settings changed. Your owner token, the gateway's records and your apps are kept.

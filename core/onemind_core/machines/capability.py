@@ -6,8 +6,9 @@ Anywhere else, enabling them is refused with a reason a person can read: never o
 board that is itself a VM, never on a small box. Pure functions over a node's heartbeat
 (contract section 2); nothing here touches the cluster.
 
-`kvm` is an optional heartbeat field: true when /dev/kvm exists on the node. A node that does not
-report it is treated as having no KVM, so a missing field refuses rather than guesses.
+`kvm` is a heartbeat field (internal/detect): true when /dev/kvm exists on the node. A node that
+does not report it (an older agent) is treated as having no KVM, so a missing field refuses rather
+than guesses.
 """
 
 from __future__ import annotations
