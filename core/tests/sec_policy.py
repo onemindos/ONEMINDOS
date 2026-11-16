@@ -349,6 +349,13 @@ POLICY |= {
     ("GET", "/v1/onboarding/settings"): Row(ONLY_OWNER, w.p_static("/v1/onboarding/settings"), "contract 12.41: owner only, audited"),
     ("PUT", "/v1/onboarding/settings"): Row(ONLY_OWNER, w.p_missing("/v1/onboarding/settings", json={
         "box_name": "home-hub", "time_zone": "UTC", "backup_choice": "later"}), "contract 12.41: owner only, audited"),
+    # ---- the person's own Home (UMB-P07, #144) --------------------------------------------------------------
+    # Every person has one (child included); an agent has none. The write is probed without If-Match, so a
+    # person who is let in gets 428: the route never reaches the store without a validator.
+    ("GET", "/v1/me/home"): Row(grid(200, 200, 200, 200, 403), w.p_static("/v1/me/home"),
+                                "desktop-ui.md 4.3: a person reads only their own Home; agents have none"),
+    ("PUT", "/v1/me/home"): Row(grid(428, 428, 428, 428, 403), w.p_missing("/v1/me/home", json={}),
+                                "desktop-ui.md 4.3: a person writes only their own Home; If-Match is required"),
     # ---- apps, plans, databases -----------------------------------------------------------------------------
     ("GET", "/v1/databases"): Row(OWNER_ADULT, w.p_static("/v1/databases"), "owner and adult list databases; never a password"),
     ("GET", "/v1/apps/{app_id}/credentials"): Row(OWNER_ONLY_404, w.p_static(f"/v1/apps/{w.TARGET_APP}/credentials"),
