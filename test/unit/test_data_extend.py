@@ -182,6 +182,10 @@ class Wiring(unittest.TestCase):
         self.assertIn("After=local-fs.target", unit)
         self.assertRegex(unit, r"Before=.*k3s\.service")
         self.assertRegex(unit, r"Before=.*onemind-firstboot\.service")
+        # Without this, the unit waits for basic.target and so does first-boot setup, which then
+        # finishes after the health gate (#318: smoke F1 timed out twice on exactly that).
+        self.assertIn("DefaultDependencies=no", unit)
+        self.assertIn("Conflicts=shutdown.target", unit)
         self.assertNotIn("Requires", unit)                          # a failed /data must not fail boot (nofail, recovery mode)
 
     def test_it_is_enabled_by_a_wants_symlink_and_the_script_is_executable(self):
