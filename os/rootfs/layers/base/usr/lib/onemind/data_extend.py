@@ -83,7 +83,7 @@ def main():
         return 0
     if todo["node"] != node:
         say(f"{todo['node']} is not {node}; refusing")
-        return 1
+        return 0
     say(f"growing {node} by {todo['free_mib']} MiB to fill {disk}")
     run(["sfdisk", "--quiet", "--no-reread", "--no-tell-kernel", "-N", str(todo["number"]), disk],
         input=todo["script"])
@@ -93,9 +93,17 @@ def main():
     return 0
 
 
-if __name__ == "__main__":
+def safe_main():
+    """Growing the disk is a convenience, never a reason for a box not to boot: whatever goes wrong
+    (a missing tool, an odd table, a failed command) is logged with its reason and the exit is 0."""
     try:
-        sys.exit(main())
+        return main()
     except subprocess.CalledProcessError as exc:
-        say(f"failed: {' '.join(exc.cmd)}: {(exc.stderr or '').strip()[-300:]}")
-        sys.exit(1)
+        say(f"not grown (command failed): {' '.join(map(str, exc.cmd))}: {(exc.stderr or '').strip()[-300:]}")
+    except Exception as exc:  # noqa: BLE001 (nothing may fail the boot)
+        say(f"not grown ({type(exc).__name__}): {str(exc)[:300]}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(safe_main())

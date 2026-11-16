@@ -11,4 +11,6 @@ Before=onemind-firstboot.service k3s.service
 
 [Service]
 Type=oneshot
-ExecStart=/usr/lib/onemind/data-extend
+# The leading '-' : a failure to start or run it is logged, never a failed unit (the health gate treats a
+# failed unit as fatal, and growing the disk is never worth a box that does not boot).
+ExecStart=-/usr/lib/onemind/data-extend

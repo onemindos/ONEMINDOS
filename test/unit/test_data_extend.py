@@ -116,6 +116,38 @@ class RealTable(unittest.TestCase):
             self.assertIsNone(de.plan(after, 8 * 1024**3 // 512)[0])  # and the next boot has nothing to do
 
 
+class NeverFailsTheBoot(unittest.TestCase):
+    """Growing is a convenience: every way it can go wrong ends in exit 0 and a log line (CI run 43801035540:
+    a failed unit is fatal to the health gate)."""
+
+    def run_with(self, boom):
+        saved = (de.main, de.say)
+        lines = []
+        de.say = lines.append
+        def main():
+            raise boom
+        de.main = main
+        try:
+            return de.safe_main(), lines
+        finally:
+            de.main, de.say = saved
+
+    def test_a_failed_command_is_logged_and_exits_zero(self):
+        rc, lines = self.run_with(subprocess.CalledProcessError(2, ["blkid", "/dev/x"], stderr="boom"))
+        self.assertEqual(rc, 0)
+        self.assertIn("blkid", lines[0])
+
+    def test_a_missing_tool_exits_zero(self):
+        self.assertEqual(self.run_with(FileNotFoundError("sfdisk"))[0], 0)
+
+    def test_an_odd_table_exits_zero(self):
+        self.assertEqual(self.run_with(KeyError("uuid"))[0], 0)
+
+    def test_the_unit_ignores_a_failed_start(self):
+        unit = open(os.path.join(BASE, "systemd", "system", "onemind-data-extend.service")).read()
+        self.assertRegex(unit, r"(?m)^ExecStart=-/usr/lib/onemind/data-extend$")
+
+
 class Wiring(unittest.TestCase):
     def read(self, *p):
         with open(os.path.join(ROOT, *p)) as f:
