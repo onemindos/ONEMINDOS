@@ -359,6 +359,7 @@ def test_gateway_exposes_events_on_the_live_bus_path(client):
 
 
 @pytest.mark.nats
+@pytest.mark.xdist_group("nats")  # one worker for every real-NATS test (CI-03, #228)
 def test_publish_event_reaches_real_nats(settings, clock, executor):
     """onemind.event.<type> on a real NATS server. Skipped unless ONEMIND_TEST_NATS_URL is set."""
     import asyncio

@@ -19,7 +19,8 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  lint:
+  # Not named `lint`: main's required checks match by job name, so a failure here would block PRs like ci's `lint`.
+  deploy-lint:
     if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-24.04
     steps:
