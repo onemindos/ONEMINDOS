@@ -1,0 +1,496 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OneMind OS, Finished</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a cutaway of the machine. The stack of layers is the spine; everything else points back into it. */
+:root{
+  --bg:#F5F6F7; --surface:#FFFFFF; --ink:#0B0C0E; --muted:#5A5F66; --line:#DCDFE3; --soft:#ECEEF1;
+  --red:#E0222A; --red-soft:#FFE4E5; --red-ink:#B5141B;
+  --ok:#147A3D; --ok-soft:#DDF3E5; --warn:#8A5A00; --warn-soft:#FDF0D2; --plan:#5A5F66;
+  --display:"Space Grotesk",ui-sans-serif,system-ui,sans-serif;
+  --body:"Inter",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0A0B0D; --surface:#14161A; --ink:#F2F3F5; --muted:#9BA1A9; --line:#2A2E35; --soft:#1C1F24;
+  --red:#FF4148; --red-soft:#3A1416; --red-ink:#FF7A7F;
+  --ok:#4FD488; --ok-soft:#10301E; --warn:#F2B84B; --warn-soft:#33260B; --plan:#9BA1A9; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0A0B0D; --surface:#14161A; --ink:#F2F3F5; --muted:#9BA1A9; --line:#2A2E35; --soft:#1C1F24;
+  --red:#FF4148; --red-soft:#3A1416; --red-ink:#FF7A7F;
+  --ok:#4FD488; --ok-soft:#10301E; --warn:#F2B84B; --warn-soft:#33260B; --plan:#9BA1A9; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.55;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1180px;margin:0 auto;padding-block:40px 80px;display:flex;flex-direction:column;gap:72px}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0;letter-spacing:-.01em}
+h2{font-size:clamp(26px,3.4vw,36px);line-height:1.1}
+h3{font-size:19px}
+p{margin:0}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--red-ink)}
+.lede{color:var(--muted);max-width:68ch}
+.sec-head{display:flex;flex-direction:column;gap:10px;margin-bottom:24px}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--red);outline-offset:2px;border-radius:6px}
+
+/* hero */
+.hero{display:grid;grid-template-columns:1.3fr 1fr;gap:40px;align-items:center}
+.brand{display:flex;align-items:center;gap:12px;font-family:var(--display);font-weight:600;font-size:18px;margin-bottom:28px}
+.brand svg{width:40px;height:40px;color:var(--ink)}
+.hero h1{font-size:clamp(40px,6.4vw,76px);line-height:.98;font-weight:700}
+.hero h1 em{font-style:normal;color:var(--red)}
+.hero .lede{margin-top:20px;font-size:17px}
+.facts{display:flex;flex-direction:column;gap:0;border-top:1px solid var(--line)}
+.fact{display:grid;grid-template-columns:120px 1fr;gap:16px;padding:14px 0;border-bottom:1px solid var(--line)}
+.fact b{font-family:var(--mono);font-weight:500;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding-top:2px}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:13px;color:var(--muted);margin-top:18px}
+
+/* status pills */
+.st{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:2px 9px;border-radius:999px;white-space:nowrap}
+.st::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.st.built{color:var(--ok);background:var(--ok-soft)}
+.st.partial{color:var(--warn);background:var(--warn-soft)}
+.st.planned{color:var(--plan);border:1px dashed var(--line)}
+.st.planned::before{background:transparent;border:1.5px solid currentColor;width:5px;height:5px}
+
+/* stack explorer */
+.explorer{display:grid;grid-template-columns:minmax(0,420px) minmax(0,1fr);gap:28px;align-items:start}
+.stack{display:flex;flex-direction:column;gap:6px}
+.layer{display:grid;grid-template-columns:34px 1fr auto;align-items:center;gap:12px;text-align:left;
+  background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:13px 14px;transition:border-color .15s, transform .15s}
+.layer:hover{border-color:var(--muted)}
+.layer[aria-selected="true"]{border-color:var(--red);box-shadow:inset 4px 0 0 var(--red)}
+.layer .n{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.layer .t{font-family:var(--display);font-weight:600;font-size:16px;line-height:1.2}
+.layer .s{font-size:13px;color:var(--muted);line-height:1.35}
+.bar{display:flex;width:64px;height:6px;border-radius:3px;overflow:hidden;background:var(--soft)}
+.bar i{display:block;height:100%}
+.bar .b{background:var(--ok)} .bar .p{background:var(--warn)}
+.layer.lit{border-color:var(--red);background:var(--red-soft)}
+.stack-cap{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;padding:0 4px}
+.detail{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:26px;display:flex;flex-direction:column;gap:18px;min-width:0}
+.detail .plain{font-size:16px}
+.parts{display:flex;flex-direction:column}
+.part{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 14px;padding:12px 0;border-top:1px solid var(--line)}
+.part .pn{font-weight:600}
+.part .pd{grid-column:1/-1;color:var(--muted);font-size:14px}
+.part .pd code,.where code{font-family:var(--mono);font-size:12.5px;background:var(--soft);padding:1px 5px;border-radius:4px}
+.where{font-size:13px;color:var(--muted)}
+
+/* walkthrough */
+.scen-tabs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px}
+.tab{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:8px 16px;font-weight:500}
+.tab[aria-selected="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.walk{display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:28px;align-items:start}
+.stepcard{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:26px;display:flex;flex-direction:column;gap:16px;min-width:0}
+.stepnum{font-family:var(--mono);font-size:13px;color:var(--muted)}
+.stepcard h3{font-size:24px}
+.stepcard .body{font-size:16px;max-width:62ch}
+.stepcard .tech{font-size:13.5px;color:var(--muted);border-left:2px solid var(--line);padding-left:12px}
+.controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:8px 14px;font-weight:600}
+.btn.primary{background:var(--red);border-color:var(--red);color:#fff}
+.btn:disabled{opacity:.4;cursor:default}
+.dots{display:flex;gap:6px;margin-left:auto}
+.dot{width:26px;height:6px;border-radius:3px;background:var(--line);border:0;padding:0}
+.dot.on{background:var(--red)}
+.mini{display:flex;flex-direction:column;gap:4px}
+.mini div{font-size:12.5px;padding:7px 10px;border-radius:7px;border:1px solid var(--line);color:var(--muted);background:var(--surface);transition:all .2s}
+.mini div.lit{background:var(--red);border-color:var(--red);color:#fff;font-weight:600}
+.phone{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:var(--soft);font-size:14px;display:flex;flex-direction:column;gap:8px}
+.phone .pt{font-weight:600}
+.phone .pb{display:flex;gap:8px}
+.phone .pb span{font-size:13px;padding:5px 12px;border-radius:7px;font-weight:600}
+.phone .ap{background:var(--red);color:#fff}
+.phone .dn{border:1px solid var(--line)}
+
+/* fabric */
+.fabric{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:24px;align-items:start}
+.figure{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px;overflow-x:auto}
+.figure svg{display:block;width:100%;min-width:640px;height:auto}
+.fnode{cursor:pointer}
+.fnode rect{fill:var(--surface);stroke:var(--line);stroke-width:1.5}
+.fnode:hover rect,.fnode.on rect{stroke:var(--red);stroke-width:2}
+.fnode text{fill:var(--ink);font-family:var(--body);font-size:13px;font-weight:600}
+.fnode text.sub{fill:var(--muted);font-size:11px;font-weight:400}
+.site{fill:var(--soft);stroke:var(--line);stroke-dasharray:5 4}
+.sitelabel{fill:var(--muted);font-family:var(--mono);font-size:11px;letter-spacing:.06em}
+.link{stroke:var(--muted);stroke-width:1.4;fill:none}
+.link.bus{stroke:var(--red);stroke-width:2}
+.link.dash{stroke-dasharray:4 4}
+.linklabel{fill:var(--muted);font-family:var(--mono);font-size:10px}
+.finfo{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:22px;display:flex;flex-direction:column;gap:10px}
+.finfo .k{font-family:var(--mono);font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+
+/* tiers */
+.tiers{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.tier{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:8px}
+.tier .hw{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.tier .power{font-size:14px}
+.profiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-top:14px}
+.prof{border:1px dashed var(--line);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:6px;font-size:14px}
+.prof code{font-family:var(--mono);font-size:13px;color:var(--red-ink);font-weight:500}
+
+/* road */
+.counts{display:flex;height:18px;border-radius:5px;overflow:hidden;background:var(--soft);margin:6px 0 10px}
+.counts i{display:block;height:100%}
+.ckey{display:flex;flex-wrap:wrap;gap:16px;font-size:13px;color:var(--muted)}
+.ckey span{display:inline-flex;align-items:center;gap:6px}
+.ckey span::before{content:"";width:10px;height:10px;border-radius:2px;background:var(--c)}
+.road{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin-top:28px}
+.stage{border-top:3px solid var(--line);padding-top:14px;display:flex;flex-direction:column;gap:8px}
+.stage.now{border-top-color:var(--red)}
+.stage .when{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.stage ul{margin:0;padding-left:18px;font-size:14px;color:var(--muted);display:flex;flex-direction:column;gap:4px}
+.stage .you{font-size:13.5px}
+.footer{font-size:13px;color:var(--muted);border-top:1px solid var(--line);padding-top:20px;display:flex;flex-direction:column;gap:6px}
+.footer code{font-family:var(--mono);font-size:12px}
+
+@media (max-width:900px){
+  .hero,.explorer,.walk,.fabric{grid-template-columns:minmax(0,1fr)}
+  .tiers{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .profiles{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .road{grid-template-columns:minmax(0,1fr)}
+  .mini{flex-direction:row;flex-wrap:wrap}
+}
+@media (max-width:520px){
+  .tiers,.profiles{grid-template-columns:minmax(0,1fr)}
+  .fact{grid-template-columns:minmax(0,1fr);gap:2px}
+  .detail,.stepcard{padding:18px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+<header class="hero">
+  <div>
+    <div class="brand"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1191 1191" role="img" aria-label="OneMind logo">
+
+<path fill="currentColor" fill-rule="evenodd" d="M446.6,1110.8C411.9,1107.4 381.3,1091.2 352.9,1061.2C307.1,1012.8 290.8,956.3 307.6,904.5C318.5,871.3 345.2,839.6 380.9,817.7C391.7,811.0 404.6,804.3 437.0,788.6C472.7,771.3 479.0,766.2 479.8,754.2C480.7,740.2 467.2,731.1 451.5,735.2C435.4,739.5 395.2,757.4 374.3,769.6C354.5,781.1 335.6,795.2 318.6,810.9L309.7,819.2L306.5,815.8C304.7,814.0 292.2,800.7 278.7,786.4C251.6,757.6 249.5,756.0 239.6,756.0C224.2,756.0 213.6,771.3 220.0,784.4C222.2,789.0 236.9,805.7 262.1,832.2C281.5,852.7 281.6,853.0 278.1,864.4C270.4,889.9 264.6,910.9 261.1,926.9C258.7,937.6 256.3,946.1 255.3,947.2C251.8,951.1 239.7,948.5 217.5,939.1C195.4,929.7 176.5,916.9 159.5,899.6C145.9,885.8 136.9,873.3 128.5,856.5C117.2,833.9 111.1,811.1 110.2,788.2C110.0,781.0 110.1,775.0 110.5,775.0C110.9,775.0 115.3,777.1 120.4,779.6C128.0,783.3 130.6,784.2 135.3,784.2C146.5,784.3 156.0,775.2 156.0,764.3C156.0,761.3 155.3,757.3 154.5,755.2C153.4,752.7 144.3,743.0 126.6,725.5C104.4,703.6 99.2,697.9 93.7,689.5C73.8,659.1 64.0,624.3 64.0,583.7C64.0,565.3 65.2,553.3 68.6,536.2C73.3,512.4 85.2,482.0 93.3,472.6L96.7,468.8L101.3,476.2C108.6,487.8 114.3,492.0 122.8,492.0C128.0,492.0 136.7,487.4 140.4,482.7C144.2,477.9 144.8,471.4 142.6,456.7C139.6,436.8 138.7,417.0 139.9,401.8C144.6,344.6 168.8,300.9 212.8,270.1C221.1,264.4 234.7,257.4 235.7,258.4C236.0,258.7 237.3,265.8 238.6,274.2C243.9,309.5 253.6,330.4 274.5,351.6C298.1,375.6 321.7,386.3 387.8,403.0C399.9,406.1 405.2,407.0 408.0,406.5C425.4,403.6 432.3,379.9 418.7,369.6C413.7,365.8 410.3,364.6 388.0,359.5C350.5,350.8 330.4,342.1 311.2,326.1C298.5,315.5 287.5,298.7 283.4,283.5C280.9,274.4 280.4,253.5 282.4,242.5C287.9,213.0 304.2,178.9 325.9,151.5C345.0,127.4 373.5,104.6 401.4,91.0C434.3,74.9 469.6,74.2 500.8,89.0C511.4,94.0 516.9,97.8 525.3,105.9C542.9,122.7 549.6,138.8 555.0,177.0C556.5,187.5 557.0,196.2 557.0,215.8L557.0,241.0L554.8,240.6C553.5,240.3 544.3,239.9 534.3,239.5C505.1,238.6 490.4,235.5 474.0,226.9C461.0,220.1 452.5,212.8 435.9,194.4C431.0,188.9 425.8,186.6 418.8,186.6C410.7,186.7 404.6,190.6 400.7,198.0C395.1,208.7 398.4,217.9 413.9,234.2C442.0,263.8 476.8,278.5 527.1,282.0C535.6,282.5 545.8,283.3 549.8,283.6L557.0,284.2L557.0,442.9L557.0,601.7L546.5,602.3C522.0,603.7 501.0,598.5 483.9,587.0C476.4,581.8 459.4,567.0 440.7,549.2C420.0,529.6 406.5,520.0 387.6,511.8C366.7,502.7 350.9,499.7 321.5,499.5C309.0,499.3 298.4,498.8 296.9,498.2C293.5,496.9 291.4,494.1 283.8,481.4C271.9,461.3 247.7,431.9 239.8,427.9C236.5,426.2 234.3,425.9 229.4,426.2C221.9,426.7 216.1,430.2 212.5,436.4C209.1,442.4 208.6,446.2 210.5,452.5C211.8,457.3 213.5,459.6 221.3,467.8C237.4,484.6 243.8,494.8 246.7,508.4C248.1,514.8 248.2,516.9 247.1,522.9C243.7,542.1 228.0,561.4 200.5,580.5C196.7,583.2 192.0,586.7 190.2,588.4C178.5,599.2 180.4,616.4 193.9,623.2C203.4,628.0 208.4,627.0 223.5,617.2C250.0,600.1 266.8,582.3 279.5,558.0C283.7,550.0 286.1,546.5 288.5,545.0C293.2,542.1 306.2,540.6 321.5,541.3C349.1,542.5 371.9,550.2 393.9,565.8C399.1,569.4 410.2,579.4 420.2,589.3C447.2,616.2 464.8,627.9 490.5,636.3C505.2,641.2 523.1,643.7 547.5,644.3L556.5,644.5L556.8,761.1L557.0,877.7L544.3,878.9C506.1,882.5 489.9,885.1 474.0,890.2C451.8,897.3 433.4,908.5 417.5,924.4C405.3,936.7 400.4,943.7 398.9,951.0C396.1,964.4 405.9,976.0 419.9,976.0C426.7,976.0 431.2,973.6 438.0,966.4C463.2,939.3 491.4,926.4 532.5,923.0C539.1,922.5 547.3,922.0 550.8,922.0L557.0,922.0L557.0,1017.0L557.0,1112.1L505.8,1111.9C477.6,1111.7 450.9,1111.3 446.6,1110.8Z"/>
+<path fill="#FF333A" fill-rule="evenodd" d="M601.7,1111.3C601.3,1111.0 601.0,1076.3 601.0,1034.3L601.0,958.0L662.2,957.8L723.3,957.5L765.6,904.5L807.9,851.5L807.9,778.9L808.0,706.3L766.8,660.1L725.5,614.0L663.2,614.0L601.0,614.0L601.0,539.5L601.0,465.0L662.4,465.0L723.8,465.0L774.9,406.0L826.0,347.0L826.0,276.5L826.0,206.0L900.5,206.0L975.0,206.0L975.0,270.8L974.9,335.5L1002.2,362.2L1029.5,389.0L1058.8,389.0L1088.0,389.0L1088.0,427.0L1088.0,465.0L1049.5,465.0L1011.0,465.0L1011.0,435.6L1011.0,406.2L984.3,380.1L957.7,354.0L905.5,354.0L853.3,354.0L802.2,413.1L751.0,472.2L751.0,538.4L751.0,604.6L792.2,650.8L833.5,697.0L898.2,697.0L963.0,697.0L963.0,774.0L963.0,851.0L901.7,851.0L840.4,851.0L794.0,909.4L747.5,967.8L747.0,1039.7L746.5,1111.5L674.4,1111.8C634.8,1111.9 602.0,1111.7 601.7,1111.3ZM848.0,1006.5L848.0,953.0L901.5,953.0L955.0,953.0L955.0,1006.5L955.0,1060.0L901.5,1060.0L848.0,1060.0L848.0,1006.5ZM1009.0,839.0L1009.0,805.0L1043.5,805.0L1078.0,805.0L1078.0,839.0L1078.0,873.0L1043.5,873.0L1009.0,873.0L1009.0,839.0ZM601.0,785.5L601.0,732.0L650.5,732.0L700.0,732.0L700.0,785.5L700.0,839.0L650.5,839.0L601.0,839.0L601.0,785.5ZM1027.0,681.2L1027.0,642.5L978.5,599.0L930.1,555.5L882.8,555.0L835.5,554.5L835.2,501.2L835.0,448.0L888.5,448.0L942.0,448.0L942.1,490.2L942.1,532.5L991.3,576.7L1040.5,620.9L1083.2,620.9L1126.0,621.0L1126.0,670.5L1126.0,720.0L1076.5,720.0L1027.0,720.0L1027.0,681.2ZM606.0,309.5L606.0,265.0L634.9,265.0L663.8,265.0L713.9,206.9L764.0,148.8L764.0,117.4L764.0,86.0L802.0,86.0L840.0,86.0L840.0,124.5L840.0,163.0L812.6,163.0L785.2,163.0L740.1,215.2L695.0,267.5L695.0,310.8L695.0,354.0L650.5,354.0L606.0,354.0L606.0,309.5ZM601.0,130.5L601.0,93.0L638.5,93.0L676.0,93.0L676.0,130.5L676.0,168.0L638.5,168.0L601.0,168.0L601.0,130.5Z"/>
+</svg><span>OneMind OS</span></div>
+    <h1>AI can ask.<br><em>Only you approve.</em></h1>
+    <p class="lede">This is OneMind OS as it looks once every epic in the backlog has landed. Every machine you own, from a Raspberry Pi in the garage to a GPU box and a cloud server, joins one system. Your apps, files, devices and AI agents live on it. AI can see all of it when you allow it, and nothing physical or risky happens until you approve it on your phone.</p>
+  </div>
+  <div>
+    <div class="facts">
+      <div class="fact"><b>Who it is for</b><span>One person, a family, a farm, a business, a public-safety team. Same design, different profiles.</span></div>
+      <div class="fact"><b>Where it runs</b><span>Your hardware first. A cloud server joins as just another node.</span></div>
+      <div class="fact"><b>What makes it different</b><span>No other self-hosted OS gates AI actions in the gateway (fabric research FB-11).</span></div>
+      <div class="fact"><b>Status today</b><span>About 1 in 10 epics done. This page marks each part honestly.</span></div>
+    </div>
+    <div class="legend"><span class="st built">Built on main</span><span class="st partial">Partly built</span><span class="st planned">Planned</span></div>
+  </div>
+</header>
+
+<section aria-labelledby="h-stack">
+  <div class="sec-head">
+    <span class="eyebrow">The whole system</span>
+    <h2 id="h-stack">Seven layers, one machine</h2>
+    <p class="lede">Read it from the bottom up. Each layer only talks to the ones next to it, which is what lets one developer build it safely. Pick a layer to see what lives inside it when it is finished.</p>
+  </div>
+  <div class="explorer">
+    <div>
+      <div class="stack-cap"><span>You touch this</span><span>Built</span></div>
+      <div class="stack" id="stack" role="tablist" aria-label="Layers"></div>
+      <div class="stack-cap" style="margin-top:6px"><span>The metal</span><span></span></div>
+    </div>
+    <article class="detail" id="detail" role="tabpanel" aria-live="polite"></article>
+  </div>
+</section>
+
+<section aria-labelledby="h-walk">
+  <div class="sec-head">
+    <span class="eyebrow">Follow one request</span>
+    <h2 id="h-walk">What happens when you use it</h2>
+    <p class="lede">Three everyday moments, step by step, with the layers each step passes through lit on the right.</p>
+  </div>
+  <div class="scen-tabs" id="scenTabs" role="tablist" aria-label="Scenarios"></div>
+  <div class="walk">
+    <article class="stepcard" id="stepcard" aria-live="polite"></article>
+    <div class="mini" id="mini" aria-label="Layers involved"></div>
+  </div>
+</section>
+
+<section aria-labelledby="h-fabric">
+  <div class="sec-head">
+    <span class="eyebrow">The One Mind fabric</span>
+    <h2 id="h-fabric">One OneMind, many machines</h2>
+    <p class="lede">A site is one place: your home, the greenhouse, an office. Each site runs on its own and keeps working offline. Sites connect to each other through a fleet hub. Pick any box in the picture.</p>
+  </div>
+  <div class="fabric">
+    <div class="figure">
+      <svg viewBox="0 0 820 470" role="img" aria-label="Fabric diagram: a home site, a greenhouse site and a cloud node joined through a fleet hub, with a phone as a client">
+        <rect class="site" x="10" y="40" width="470" height="420" rx="14"/>
+        <text class="sitelabel" x="26" y="62">SITE · HOME</text>
+        <rect class="site" x="520" y="200" width="290" height="260" rx="14"/>
+        <text class="sitelabel" x="536" y="222">SITE · GREENHOUSE</text>
+
+        <path class="link bus" d="M245 170 L120 250"/>
+        <path class="link bus" d="M245 170 L245 250"/>
+        <path class="link bus" d="M245 170 L370 250"/>
+        <path class="link" d="M120 310 L120 370"/>
+        <path class="link" d="M370 310 L370 370"/>
+        <path class="link dash" d="M320 140 L560 100"/>
+        <path class="link dash" d="M640 130 L665 270"/>
+        <path class="link" d="M665 330 L665 380"/>
+        <path class="link dash" d="M170 140 L80 100"/>
+        <text class="linklabel" x="170" y="215">NATS bus · mesh</text>
+        <text class="linklabel" x="400" y="110">site leaf</text>
+        <text class="linklabel" x="672" y="205">site leaf</text>
+        <text class="linklabel" x="76" y="125">HTTPS</text>
+
+        <g class="fnode" data-n="phone" tabindex="0"><rect x="20" y="70" width="110" height="44" rx="10"/><text x="34" y="90">Your phone</text><text class="sub" x="34" y="105">client, not a node</text></g>
+        <g class="fnode" data-n="hub" tabindex="0"><rect x="170" y="110" width="150" height="60" rx="10"/><text x="186" y="134">Hub · mini PC</text><text class="sub" x="186" y="152">gateway · k3s server</text></g>
+        <g class="fnode" data-n="pi" tabindex="0"><rect x="45" y="250" width="150" height="60" rx="10"/><text x="61" y="274">Pi 5 · garage</text><text class="sub" x="61" y="292">node · Edge</text></g>
+        <g class="fnode" data-n="gpu" tabindex="0"><rect x="185" y="250" width="120" height="60" rx="10"/><text x="199" y="274">GPU box</text><text class="sub" x="199" y="292">node · Pro</text></g>
+        <g class="fnode" data-n="jetson" tabindex="0"><rect x="315" y="250" width="150" height="60" rx="10"/><text x="331" y="274">Jetson Orin</text><text class="sub" x="331" y="292">node · Robotics</text></g>
+        <g class="fnode" data-n="sensors" tabindex="0"><rect x="45" y="370" width="150" height="60" rx="10"/><text x="61" y="394">Zigbee sensors</text><text class="sub" x="61" y="412">devices via adapter</text></g>
+        <g class="fnode" data-n="robot" tabindex="0"><rect x="295" y="370" width="170" height="60" rx="10"/><text x="311" y="394">Robot arm</text><text class="sub" x="311" y="412">parked until you own one</text></g>
+        <g class="fnode" data-n="fleet" tabindex="0"><rect x="560" y="70" width="160" height="60" rx="10"/><text x="576" y="94">Fleet hub</text><text class="sub" x="576" y="112">sees every site</text></g>
+        <g class="fnode" data-n="gh" tabindex="0"><rect x="590" y="270" width="150" height="60" rx="10"/><text x="606" y="294">Pi 5 · greenhouse</text><text class="sub" x="606" y="312">profile: greenhouse</text></g>
+        <g class="fnode" data-n="esp" tabindex="0"><rect x="590" y="380" width="150" height="60" rx="10"/><text x="606" y="404">ESPHome valves</text><text class="sub" x="606" y="422">soil sensors, relays</text></g>
+      </svg>
+    </div>
+    <aside class="finfo" id="finfo" aria-live="polite"></aside>
+  </div>
+</section>
+
+<section aria-labelledby="h-tiers">
+  <div class="sec-head">
+    <span class="eyebrow">Decision D-002 · one design, every tier</span>
+    <h2 id="h-tiers">Every machine has a superpower</h2>
+    <p class="lede">The same image pipeline builds every tier. A tier is a profile, not a fork. Apps say what they need, and the OS decides which machine can run them.</p>
+  </div>
+  <div class="tiers" id="tiers"></div>
+  <div class="profiles" id="profiles"></div>
+</section>
+
+<section aria-labelledby="h-road">
+  <div class="sec-head">
+    <span class="eyebrow">Getting there</span>
+    <h2 id="h-road">From today to finished</h2>
+    <p class="lede">The backlog has 336 epics. This is where they stand, counted in <code style="font-family:var(--mono);font-size:13px">docs/leap/STATUS.md</code> on 2026-11-12. The 90-day plan started today, 2026-11-16.</p>
+  </div>
+  <div class="counts" id="counts" role="img" aria-label="31 done, 4 in review, 37 in progress, 258 to do, 6 parked or superseded"></div>
+  <div class="ckey" id="ckey"></div>
+  <div class="road" id="road"></div>
+</section>
+
+<footer class="footer">
+  <p>Sources in the repo: <code>research-output/30-NEXT-ULTRACODE-BUILD-BRIEF.md</code> (layers, E1–E10, profiles), <code>research-output/fabric/00-FABRIC-SUMMARY.md</code> (fabric), <code>docs/leap/BACKLOG.md</code> and <code>STATUS.md</code> (stages, counts), <code>docs/DECISIONS.md</code> D-001 to D-014, <code>docs/REQUIREMENTS.md</code>.</p>
+  <p>Built, partly built and planned are judged from code on <code>main</code> on 2026-11-16. "Partly built" means code exists but the epic is not done or not proven on hardware. Nothing here has booted on a real board yet (ALPHA-CHECKLIST, F-25).</p>
+</footer>
+</div>
+
+<script>
+const LAYERS=[
+ {id:"surfaces",n:"07",t:"Screens you use",s:"Web, phone, desktop, CLI, SDK",
+  plain:"Everything you see and touch. One web app is the front door. The phone app is where approvals arrive. Developers and AI tools get a CLI and generated SDKs that speak the same API.",
+  parts:[
+   ["Web dashboard","built","Home, Market, Approvals, Activity, Nodes, Settings. Light and dark themes. Drawn from the <code>@onemind/ui</code> design system."],
+   ["onemind CLI","built","Every dashboard action as a command: <code>onemind update</code>, <code>onemind mesh</code>, <code>onemind storage</code>."],
+   ["Generated SDKs","built","TypeScript and Python clients generated from the gateway's OpenAPI spec, with a CI check that they never go stale."],
+   ["Phone app (iOS, Android)","partial","Approvals with a passkey, push alerts carrying minimal data (D-005), pairing by QR code."],
+   ["Desktop app (Mac, Windows, Linux)","partial","Tauri shell that opens your box directly."],
+   ["Widgets from apps (E5)","planned","Apps add cards to your Home in sandboxed frames with no access to your login."],
+   ["XR and glasses","planned","WebXR access to your box. Later phase (UX-9)."]],
+  where:"<code>dashboard/</code> <code>ui/</code> <code>mobile/</code> <code>desktop/</code> <code>cmd/onemind/</code> <code>sdk/</code>"},
+ {id:"ai",n:"06",t:"AI layer",s:"Agents, MCP, local models",
+  plain:"Everything on the OS is context for AI, if you allow it. Agents are users with their own identity. They can read and they can ask. They can never approve their own requests, and they never move anything physical without you.",
+  parts:[
+   ["MCP endpoint","built","Gateway serves <code>/mcp</code>, so Claude, Hermes or any MCP client can see apps and file requests."],
+   ["Agents as principals","built","An agent has its own token and scopes. Its request waits in Approvals; if it tries to approve, it gets 403."],
+   ["Hermes agent app","built","OneMind's own agent, packaged as a normal Market app."],
+   ["Local models with GPU detection","partial","Ollama and others run on whichever node has the GPU (AI-8)."],
+   ["Every app becomes an AI tool","partial","Installing an app registers its capabilities as MCP tools, CLI verbs and API routes at once (E6)."],
+   ["Physical actions need step-up approval","partial","Anything with risk class <code>actuate</code> needs a fresh passkey approval from the device's owner. No standing rule can cover it."],
+   ["One AI door per site","planned","AI reaches other sites only through gateway-to-gateway grants, never by passing tokens through (FB-6)."]],
+  where:"<code>core/onemind_core/mcp/</code> <code>apps/hermes-agent/</code> <code>apps/ollama/</code> <code>internal/mcpbridge/</code>"},
+ {id:"apps",n:"05",t:"Apps and plugins",s:"Market, sandbox, trust",
+  plain:"The app store. Every app is checked for licence, vulnerabilities and malware before it is offered. Installing is a request you approve. Each app runs in its own walled-off space and only gets the hardware access you grant.",
+  parts:[
+   ["Market and app pipeline (E1)","built","About 65 app manifests today: Immich, Jellyfin, Home Assistant, Vaultwarden, Nextcloud, Paperless and more. Each passes the app gate in CI."],
+   ["Scan gate","built","An app without a fresh, clean scan cannot be installed. A blocked app needs a human to review it."],
+   ["Sandbox per app","partial","Each app gets a restricted namespace and a default-deny network. It cannot reach other apps or the system."],
+   ["Hardware grants (E2)","planned","GPU, USB devices or host networking only for countersigned apps, shown to you and removable live."],
+   ["Profiles (E8)","planned","One command turns a box into a greenhouse controller or a TAK node: <code>onemind profile apply greenhouse</code>."],
+   ["Plugin trust and revocation (E9)","planned","Signed plugins, pinned by digest, with an expiring revocation list so a bad plugin can be switched off everywhere."],
+   ["Plugin SDK and community store","planned","Other developers publish apps and plugins (A-5, A-6)."]],
+  where:"<code>apps/</code> <code>sdk/tools/app-gate</code> <code>sdk/policy/</code> <code>core/onemind_core/appstore/</code>"},
+ {id:"core",n:"04",t:"Core gateway",s:"Identity, approvals, audit",
+  plain:"The brain's front desk. Every request from a person, app or agent comes through here. It checks who is asking, what they may do and what the action will change. It waits for your approval, then writes everything to a log that cannot be edited quietly.",
+  parts:[
+   ["Approvals and action ledger","built","Every change is an action: requested, approved or denied, run, done. Two people approving at once cannot both win."],
+   ["Plan fingerprint","built","You approve the exact plan you read (<code>plan_sha256</code>). If anything changed since, the approval is refused."],
+   ["Hash-chained audit log","built","Each entry includes a fingerprint of the one before, so editing history breaks the chain. Verification is built in."],
+   ["Accounts and passkeys","partial","Each family member gets their own space (U-1). Passkey sign-in; approvals signed with your passkey."],
+   ["Automation rules","partial","\"Back up every night at 2\". Risky action types can never be automated."],
+   ["Notifications","partial","Alerts routed to your phone or ntfy with no outside service needed (UX-4)."],
+   ["Secrets for apps","partial","App passwords are sealed and never shown to agents."]],
+  where:"<code>core/onemind_core/actions.py</code> <code>audit.py</code> <code>identity/</code> <code>automation/</code> <code>notify/</code>"},
+ {id:"platform",n:"03",t:"Platform",s:"k3s, NATS, mesh, backups",
+  plain:"The plumbing that makes many machines act like one. Kubernetes (k3s) runs the apps. NATS is the single message bus every machine and device speaks. A private mesh network connects your machines anywhere. Backups run on their own.",
+  parts:[
+   ["k3s (lightweight Kubernetes)","built","Ships in the image. The hub is the server; other machines join as agents."],
+   ["NATS message bus","built","One bus with a fixed subject grammar. Each plugin only gets the subjects its manifest declares (E7)."],
+   ["Private mesh per site","partial","Tailscale-class network so your phone reaches home from anywhere, private by default (U-5)."],
+   ["Encrypted backups with restic","partial","Snapshots before every update, scheduled backups, restore drills."],
+   ["Storage and files","partial","Disks, shares and a files app managed from the dashboard."],
+   ["VMs and web terminal","partial","Run full virtual machines and a browser terminal (D-014)."],
+   ["Offline outbox","planned","Each node queues messages while offline and delivers them later. Late commands are dropped, never replayed (FB-7)."]],
+  where:"<code>internal/mesh/</code> <code>internal/backup/</code> <code>internal/storage/</code> <code>core/onemind_core/bus.py</code> <code>deploy/k8s/</code>"},
+ {id:"os",n:"02",t:"OS image",s:"Debian 13, read-only, A/B",
+  plain:"The operating system itself. You never change it by hand: the whole thing is replaced as one signed image. If an update goes wrong, the machine boots the previous version automatically.",
+  parts:[
+   ["Debian 13 read-only image","partial","One image definition for every board (D-007). Builds and boots in QEMU in CI."],
+   ["RAUC A/B with health gate","built","Two system slots. A new version must prove it is healthy, or the box rolls back to the old one."],
+   ["Signed updates (TUF)","built","The updater refuses fake, old or replayed releases."],
+   ["Rescue console","built","A recovery screen when something is wrong, signed in with the owner token (D-008)."],
+   ["Disk encryption (LUKS2)","planned","Data encrypted from first boot. Waiting on founder decisions F-61 and F-62."],
+   ["Signed driver packs (E3, E4)","planned","NVIDIA and other vendor drivers built for the exact kernel and signed, never compiled on the device."],
+   ["Boot overlays and firmware pins (E10)","planned","Pi EEPROM and Jetson firmware versions pinned and checked with each release."]],
+  where:"<code>os/</code> <code>internal/update/</code> <code>internal/rescue/</code> <code>test/qemu/</code>"},
+ {id:"hw",n:"01",t:"Hardware",s:"Pi, PC, GPU, Jetson, cloud",
+  plain:"Bring your own hardware, or buy a OneMind box. Machines that can run OneMind become nodes. Things that cannot, like sensors, PLCs and flight controllers, never run OneMind; a nearby node translates for them.",
+  parts:[
+   ["x86 mini PC or server","partial","The usual hub. The image builds and passes the QEMU boot battery; real-hardware boot waits on the hardware order (F-25)."],
+   ["Raspberry Pi 5","planned","Flash with Raspberry Pi Imager. Bootc test on a real Pi approved (D-013)."],
+   ["NVIDIA Jetson","planned","Runs NVIDIA's L4T as a dev-kit flavour."],
+   ["Cloud server","planned","A cloud VM joins as a node, the only machine allowed to join a home cluster across the internet (ZF-02)."],
+   ["Sensors, PLCs, drones","planned","Through adapters: MQTT, Modbus, OPC UA, CAN, MAVLink (FB-3)."],
+   ["Robots","planned","Parked until OneMind owns a robot (founder, 2026-11-14)."],
+   ["Zero-touch OneMind boxes","planned","Boxes OneMind sells find their owner by themselves with an FDO voucher (FB-2)."]],
+  where:"<code>os/boards/</code> <code>internal/detect/</code> <code>lab-kits/</code> <code>docs/HARDWARE.md</code>"}
+];
+
+const SCEN=[
+ {id:"install",name:"An AI agent installs an app",steps:[
+  {t:"You ask your agent",b:"You tell Hermes on your phone: \"Set up a password manager for the family.\"",tech:"Hermes is an app with its own identity and scopes. It can read the Market and file requests.",L:["surfaces","ai"]},
+  {t:"The agent files a request",b:"Hermes picks Vaultwarden and asks the gateway to install it. It cannot approve its own request.",tech:"MCP tool call → POST action app.install. An approve from an agent principal returns 403.",L:["ai","core"]},
+  {t:"The gateway writes the plan",b:"The gateway works out exactly what will be created, checks it against the sandbox rules, and fingerprints it.",tech:"Rendered Kubernetes manifests checked by the policy checker; plan_sha256 stored with the action.",L:["core","apps"]},
+  {t:"Your phone asks you",b:"A card shows what Vaultwarden will get: storage, network and no hardware access. You approve with your fingerprint.",tech:"Passkey-signed approval bound to the plan fingerprint.",L:["surfaces","core"],phone:["Install Vaultwarden?","Requested by Hermes · 2 GB storage · no device access"]},
+  {t:"The gateway checks again",b:"Is the security scan still clean? Is it still the same plan? Is anyone else installing it right now? Then it records your approval.",tech:"Scan gate, plan re-render, atomic claim, hash-chained audit entry.",L:["core"]},
+  {t:"It runs, walled off",b:"The app starts in its own space. It cannot reach your other apps or the system.",tech:"kubectl apply of the checked bytes into a restricted namespace with default-deny NetworkPolicy.",L:["apps","platform"]},
+  {t:"Everything updates at once",b:"Vaultwarden appears on Home. Its abilities are now available to AI, with permission, and it joins the nightly backup.",tech:"Capability registration (E6); backup plan picks up the new volume.",L:["surfaces","ai","platform"]}]},
+ {id:"greenhouse",name:"AI wants to water the greenhouse",steps:[
+  {t:"A sensor reports dry soil",b:"A soil sensor in zone 2 of the greenhouse reports 18% moisture.",tech:"ESPHome device → MQTT → bridged onto NATS by the greenhouse Pi's adapter.",L:["hw","platform"]},
+  {t:"AI suggests a fix",b:"The local model notices zone 2 is drying out and proposes opening the valve for 10 minutes.",tech:"Proposed command cmd.greenhouse.zone2.set_valve, risk class actuate.",L:["ai"]},
+  {t:"The gateway stops it",b:"Opening a valve changes the physical world, so the gateway will not run it on any rule or agent's say-so.",tech:"actuate actions always need a fresh owner approval; a standing policy covering them is refused (422).",L:["core"]},
+  {t:"You decide",b:"Your phone shows the reading, the proposal and the duration. You approve.",tech:"Step-up passkey approval by the greenhouse site's owner.",L:["surfaces","core"],phone:["Open valve, zone 2, for 10 min?","Suggested by local AI · soil 18%"]},
+  {t:"The command travels, signed",b:"The gateway signs the command with a time limit and sends it to the greenhouse.",tech:"Signed command on NATS with a TTL. Only the gateway may publish commands.",L:["core","platform"]},
+  {t:"The valve opens",b:"The greenhouse Pi checks the signature and opens the relay. If the command arrives late, it is dropped, never replayed.",tech:"Adapter enforces TTL and the per-relay restore mode.",L:["platform","hw"]},
+  {t:"It is on the record",b:"Who suggested it, who approved it and what happened are all in the audit chain. If the greenhouse was offline, its outbox delivers the record later.",tech:"Hash-chained audit; node outbox (FB-7).",L:["core","platform"]}]},
+ {id:"join",name:"A new machine joins",steps:[
+  {t:"Flash and boot",b:"You flash the OneMind image onto a Raspberry Pi 5 and plug it in.",tech:"Read-only Debian 13 image; RAUC boots slot A.",L:["hw","os"]},
+  {t:"It checks its own health",b:"The new system has to prove it works before it is accepted.",tech:"Fresh-signal health gate commits the slot, or the board rolls back.",L:["os"]},
+  {t:"It asks to join",b:"The Pi shows a 6-digit code. Your phone shows the same code and asks if this is your machine.",tech:"Owner-approved join ticket. OneMind-made boxes can use an FDO voucher instead.",L:["os","surfaces"],phone:["Add \"pi-garage\" to Home?","Code 482 913 · Raspberry Pi 5 · 8 GB"]},
+  {t:"It gets an identity",b:"Once you approve, the Pi gets its own certificate and only the permissions a node needs.",tech:"Node identity, mesh enrolment, NATS leaf user limited to its own subjects, k3s agent join.",L:["core","platform"]},
+  {t:"It says what it can do",b:"The Pi reports its CPU, memory, disks and attached devices.",tech:"Hardware detection → node capability labels used for placement.",L:["platform","apps"]},
+  {t:"It becomes useful",b:"It shows up in Nodes on every screen. Apps that need a Zigbee stick can now run there. Updates and backups include it.",tech:"Placement by NodeCapabilities; update ring membership from enrolment, not from labels the node reports.",L:["surfaces","apps","platform"]}]}
+];
+
+const FAB={
+ phone:["Your phone","A client, not a node. It shows every site, gets push alerts and is where you approve. It never connects to the bus directly.","FB-10 · CORE-MOBILE","partial"],
+ hub:["Hub","The site's front desk: the gateway, the k3s server and the NATS server. Every request in the site goes through it.","CORE gateway · W2-DEPLOY","built"],
+ pi:["Pi 5 · garage","A small node. Runs light apps and bridges devices like a Zigbee stick onto the bus.","Edge tier · CORE-FABRIC-1","planned"],
+ gpu:["GPU box","Runs local AI models. Apps that need a GPU are placed here automatically.","Pro tier · AI-8","planned"],
+ jetson:["Jetson Orin","Robotics and vision node on NVIDIA L4T.","Robotics tier","planned"],
+ sensors:["Zigbee sensors","Devices that cannot run OneMind. The nearest node translates them into capabilities on the bus.","FB-1 adapters · FB-3","planned"],
+ robot:["Robot arm","A future device. Its movement would be an actuate capability that always needs your approval. Parked until OneMind owns a robot.","parked","planned"],
+ fleet:["Fleet hub","Connects many sites. Each site keeps running alone; the hub rolls out updates in rings and shows all sites in one view.","MULTI-CLUSTER-1…8 (proposed) · ZF-01","planned"],
+ gh:["Pi 5 · greenhouse","A site of its own with the greenhouse profile: Home Assistant, ESPHome, Zigbee2MQTT, Mosquitto and NATS.","Profile greenhouse (E8)","planned"],
+ esp:["ESPHome valves","Soil sensors and relays. AI may suggest; opening a valve needs your approval. Setpoints expire.","cmd.greenhouse.{zone}.set_*","planned"]
+};
+
+const TIERS=[["Edge","Raspberry Pi 5","Sensors, home automation, a garage or greenhouse node."],
+ ["Lite","Mini PC, x86","The household hub: apps, files, photos, backups."],
+ ["Pro","PC with a GPU","Local AI models, media transcoding."],
+ ["Robotics","NVIDIA Jetson","Vision, robots and drones through companion computers."],
+ ["Omni","Workstation","Simulation and training."],
+ ["Cluster","Many machines, cloud","Business and enterprise sites, many sites in one fleet."]];
+const PROFS=[["lite","A single x86 box with the essentials."],["greenhouse","Pi 5 with Home Assistant, ESPHome and Zigbee. AI may only suggest within limits."],["tak-node","Pi 5 for situational awareness: OpenTAKServer on the mesh, manual updates in the field."],["robot-agent","k3s agent only, with the robot runtime class."]];
+
+const COUNTS=[["Done",31,"var(--ok)"],["In review",4,"#3B82F6"],["In progress",37,"var(--warn)"],["To do",258,"var(--line)"],["Parked or superseded",6,"var(--muted)"]];
+const ROAD=[
+ {s:"S0",w:"Weeks 0–2",t:"Land what is half done",i:["Image line and installer","Updater and security pipeline","Seed apps and Hermes"],now:true},
+ {s:"S1",w:"Weeks 1–5",t:"Plumbing and security",i:["HTTPS with the box's own CA","Passkey-signed approvals","App sandbox and network walls","Encrypted, authenticated NATS"]},
+ {s:"S2",w:"Weeks 5–9",t:"Many machines, one mind",i:["Fabric: join, identity, placement","Backups and restore drills","Notifications and the phone app"]},
+ {s:"S3",w:"Weeks 9–13",t:"It runs itself",i:["Automation rules","Plugin SDK v0","Website launch","Your own services moved over"]},
+ {s:"S4+",w:"After 2027-02-14",t:"Phase 2",i:["Multi-site fleets","Industrial edition (RHEL-family bootc, year 2)","Robotics, once there is a robot"]}];
+
+const $=s=>document.querySelector(s);
+const pill=s=>`<span class="st ${s}">${s==="built"?"Built":s==="partial"?"Partly built":"Planned"}</span>`;
+
+function renderStack(sel){
+  $("#stack").innerHTML=LAYERS.map(L=>{
+    const b=L.parts.filter(p=>p[1]==="built").length,p=L.parts.filter(p=>p[1]==="partial").length,n=L.parts.length;
+    return `<button class="layer" role="tab" id="tab-${L.id}" aria-selected="${L.id===sel}" data-id="${L.id}">
+      <span class="n">${L.n}</span><span><span class="t">${L.t}</span><br><span class="s">${L.s}</span></span>
+      <span class="bar" title="${b} built, ${p} partly built, ${n-b-p} planned"><i class="b" style="width:${b/n*100}%"></i><i class="p" style="width:${p/n*100}%"></i></span></button>`}).join("");
+  const L=LAYERS.find(x=>x.id===sel);
+  $("#detail").innerHTML=`<span class="eyebrow">Layer ${L.n}</span><h3 style="font-size:26px">${L.t}</h3>
+   <p class="plain">${L.plain}</p>
+   <div class="parts">${L.parts.map(p=>`<div class="part"><span class="pn">${p[0]}</span>${pill(p[1])}<span class="pd">${p[2]}</span></div>`).join("")}</div>
+   <p class="where">In the repo: ${L.where}</p>`;
+}
+$("#stack").addEventListener("click",e=>{const b=e.target.closest(".layer");if(b){cur=b.dataset.id;renderStack(cur);}});
+$("#stack").addEventListener("keydown",e=>{
+  if(!["ArrowUp","ArrowDown"].includes(e.key))return;e.preventDefault();
+  const i=LAYERS.findIndex(l=>l.id===cur),j=Math.max(0,Math.min(LAYERS.length-1,i+(e.key==="ArrowDown"?1:-1)));
+  cur=LAYERS[j].id;renderStack(cur);document.getElementById("tab-"+cur).focus();});
+let cur="core";renderStack(cur);
+
+let sc=0,st=0;
+function renderScen(){
+  $("#scenTabs").innerHTML=SCEN.map((s,i)=>`<button class="tab" role="tab" aria-selected="${i===sc}" data-i="${i}">${s.name}</button>`).join("");
+  const S=SCEN[sc],P=S.steps[st];
+  $("#stepcard").innerHTML=`<span class="stepnum">Step ${st+1} of ${S.steps.length}</span><h3>${P.t}</h3><p class="body">${P.b}</p>
+   ${P.phone?`<div class="phone" aria-label="Phone notification"><span class="pt">${P.phone[0]}</span><span style="color:var(--muted);font-size:13px">${P.phone[1]}</span><span class="pb"><span class="ap">Approve</span><span class="dn">Deny</span></span></div>`:""}
+   <p class="tech">${P.tech}</p>
+   <div class="controls"><button class="btn" id="prev" ${st===0?"disabled":""}>Back</button>
+   <button class="btn primary" id="next">${st===S.steps.length-1?"Start again":"Next step"}</button>
+   <div class="dots">${S.steps.map((_,i)=>`<button class="dot ${i===st?"on":""}" data-s="${i}" aria-label="Step ${i+1}"></button>`).join("")}</div></div>`;
+  $("#mini").innerHTML=LAYERS.map(L=>`<div class="${P.L.includes(L.id)?"lit":""}">${L.n} ${L.t}</div>`).join("");
+}
+$("#scenTabs").addEventListener("click",e=>{const b=e.target.closest(".tab");if(b){sc=+b.dataset.i;st=0;renderScen();}});
+$("#stepcard").addEventListener("click",e=>{
+  const S=SCEN[sc];
+  if(e.target.id==="next"){st=st===S.steps.length-1?0:st+1;renderScen();$("#next").focus();}
+  else if(e.target.id==="prev"&&st>0){st--;renderScen();$("#prev").focus();}
+  else if(e.target.dataset.s){st=+e.target.dataset.s;renderScen();}
+});
+renderScen();
+
+function renderFab(k){
+  document.querySelectorAll(".fnode").forEach(g=>g.classList.toggle("on",g.dataset.n===k));
+  const f=FAB[k];
+  $("#finfo").innerHTML=`<span class="k">${f[2]}</span><h3>${f[0]}</h3><p>${f[1]}</p><div>${pill(f[3])}</div>`;
+}
+document.querySelectorAll(".fnode").forEach(g=>{
+  if(!FAB[g.dataset.n]){g.remove();return;}
+  g.setAttribute("role","button");g.setAttribute("aria-label",FAB[g.dataset.n][0]);
+  g.addEventListener("click",()=>renderFab(g.dataset.n));
+  g.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();renderFab(g.dataset.n);}});
+});
+renderFab("hub");
+
+$("#tiers").innerHTML=TIERS.map(t=>`<div class="tier"><h3>${t[0]}</h3><span class="hw">${t[1]}</span><p class="power">${t[2]}</p></div>`).join("");
+$("#profiles").innerHTML=PROFS.map(p=>`<div class="prof"><code>${p[0]}</code><span>${p[1]}</span></div>`).join("");
+
+const tot=COUNTS.reduce((a,c)=>a+c[1],0);
+$("#counts").innerHTML=COUNTS.map(c=>`<i style="width:${c[1]/tot*100}%;background:${c[2]}"></i>`).join("");
+$("#ckey").innerHTML=COUNTS.map(c=>`<span style="--c:${c[2]}">${c[0]} ${c[1]}</span>`).join("");
+$("#road").innerHTML=ROAD.map(r=>`<div class="stage ${r.now?"now":""}"><span class="when">${r.s} · ${r.w}</span><h3>${r.t}</h3><ul>${r.i.map(x=>`<li>${x}</li>`).join("")}</ul></div>`).join("");
+</script>
+</body>
+</html>
