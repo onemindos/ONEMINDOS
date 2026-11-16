@@ -110,6 +110,7 @@ func (c *Collector) Collect(ctx context.Context) heartbeat.Status {
 		ObservedAt:   now().UTC().Format(time.RFC3339),
 	}
 	st.CPUModel, st.CPUs = c.CPU()
+	st.CPULevel = c.CPULevel(arch)
 	st.MemTotalMB, st.MemAvailableMB = c.Memory()
 	st.DiskTotalGB, st.DiskFreeGB = c.Disk()
 	st.Metrics = c.Metrics()
@@ -309,6 +310,55 @@ func parseKV(b []byte, sep string) map[string]string {
 		out[strings.TrimSpace(k)] = v
 	}
 	return out
+}
+
+// x86-64 microarchitecture levels (the x86-64 psABI, as used by GCC/LLVM -march=x86-64-vN and by
+// glibc-hwcaps), each with the /proc/cpuinfo flags it adds on top of the level below. Images built
+// for a higher level crash with "illegal instruction" on an older CPU (NMD-09, #134).
+var x86Levels = []struct {
+	name  string
+	flags []string
+}{
+	{"x86-64-v1", []string{"cmov", "cx8", "fxsr", "mmx", "sse", "sse2"}},
+	{"x86-64-v2", []string{"cx16", "lahf_lm", "pni", "popcnt", "sse4_1", "sse4_2", "ssse3"}}, // "pni" is SSE3
+	{"x86-64-v3", []string{"avx", "avx2", "bmi1", "bmi2", "f16c", "fma", "abm", "movbe", "xsave"}},
+	{"x86-64-v4", []string{"avx512f", "avx512bw", "avx512cd", "avx512dq", "avx512vl"}},
+}
+
+// CPULevel returns the highest x86-64 level ("x86-64-v1" … "x86-64-v4") this amd64 machine meets,
+// read from the first "flags" line of /proc/cpuinfo ("abm" is how Linux shows LZCNT). It is "" on
+// other architectures and when the flags cannot be read: the gateway then treats the level as
+// unknown, never as low.
+func (c *Collector) CPULevel(arch string) string {
+	if arch != "amd64" {
+		return ""
+	}
+	b, err := c.read("proc/cpuinfo")
+	if err != nil {
+		return ""
+	}
+	have := map[string]bool{}
+	sc := bufio.NewScanner(bytes.NewReader(b))
+	sc.Buffer(make([]byte, 64*1024), 1024*1024)
+	for sc.Scan() {
+		k, v, ok := strings.Cut(sc.Text(), ":")
+		if ok && strings.TrimSpace(k) == "flags" {
+			for _, f := range strings.Fields(v) {
+				have[f] = true
+			}
+			break
+		}
+	}
+	level := ""
+	for _, l := range x86Levels {
+		for _, f := range l.flags {
+			if !have[f] {
+				return level
+			}
+		}
+		level = l.name
+	}
+	return level
 }
 
 // CPU returns the CPU model and the number of logical CPUs from /proc/cpuinfo.

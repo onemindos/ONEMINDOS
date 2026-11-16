@@ -29,7 +29,7 @@
   "arch": "amd64",
   "os": {"id": "debian", "version_id": "13", "pretty": "Debian GNU/Linux 13 (trixie)"},
   "kernel": "6.12.0-amd64",
-  "cpu_model": "…", "cpus": 4,
+  "cpu_model": "…", "cpus": 4, "cpu_level": "x86-64-v3",
   "mem_total_mb": 7800, "mem_available_mb": 5100,
   "disk_total_gb": 238.0, "disk_free_gb": 190.2,
   "tpm2": false,
