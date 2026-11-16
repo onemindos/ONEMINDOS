@@ -43,7 +43,9 @@ go test ./...
 ```
 
 This preserves version stamping; it does not disable tests or change Git config.
-Use a separate shell for other checkouts.
+Use a separate shell for other checkouts, and `unset GIT_DIR GIT_WORK_TREE` before running any other git
+command there: with them set, `git worktree` or `git config` can write the work tree into the shared config
+(see the guard below). Prefer `git -C <worktree> ...` for everything else.
 
 The safeFS fixture resolves **only its trusted temporary root** with
 `filepath.EvalSymlinks`: macOS can place temp directories behind `/var`'s symlink.
@@ -93,7 +95,7 @@ Many agents share one repository through linked worktrees, and they all read the
 `<repo>/.git/config`. If anything sets `core.worktree` there, it points **every** worktree at one other
 folder: `git status` shows that folder's files and `git add` / `git commit` act on them, with no error.
 This has happened twice. [`scripts/git-guard.sh`](../../scripts/git-guard.sh) catches it: it exits 1 and prints
-the fix when the shared config sets `core.worktree`, or when git's top level is not the folder you are in.
+the fix when the shared config sets `core.worktree`, or when `GIT_DIR` / `GIT_WORK_TREE` is exported (the likely cause: use `git -C <worktree>` instead), or when git's top level is not the folder you are in.
 
 Run it before you commit, or install it once per clone as a hook (one line; hooks live in the shared
 `.git/hooks`, so it covers every worktree):
