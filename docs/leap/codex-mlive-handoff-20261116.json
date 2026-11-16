@@ -1,0 +1,387 @@
+{
+  "schema_version": 1,
+  "purpose": "Owner-requested preservation only; not feature acceptance, approval, merge or issue closure",
+  "observed_at_utc": "2026-11-16T21:19:38.663973+00:00",
+  "base_main": "712f1b4e7dea6d3e0b08c3a1b2c5ec0a556f81a7",
+  "coordination_issue": "https://github.com/onemindos/ONEMINDOS/issues/276",
+  "continuation_guide": "docs/leap/CODEX-MLIVE-HANDOFF-20261116.md",
+  "source_prs": [
+    {
+      "pr": 262,
+      "issue": 230,
+      "url": "https://github.com/onemindos/ONEMINDOS/pull/262",
+      "branch": "fix/230-mac-dev-loop",
+      "head": "701b9824761f1ab3897d750f346ada38011dd26d",
+      "state": "MERGED",
+      "draft": false,
+      "labels": [
+        "builder:codex",
+        "review:approved"
+      ],
+      "merge_commit": "2cac24f3530f75239de5cd04f04be708a264673a",
+      "observed_checks": {
+        "total": 46,
+        "unsuccessful_or_pending": []
+      },
+      "remote_branch_head_verified": true
+    },
+    {
+      "pr": 270,
+      "issue": 138,
+      "url": "https://github.com/onemindos/ONEMINDOS/pull/270",
+      "branch": "feat/138-dashboard-lifecycle",
+      "head": "1fb5e789404041a151be410abf97b4e89f35d7a3",
+      "state": "MERGED",
+      "draft": false,
+      "labels": [
+        "builder:codex",
+        "review:approved"
+      ],
+      "merge_commit": "1485fffa66f53c7ac1f4515eac7cbbf72bf15704",
+      "observed_checks": {
+        "total": 39,
+        "unsuccessful_or_pending": [
+          {
+            "name": "two-vm",
+            "status": "COMPLETED",
+            "conclusion": "CANCELLED",
+            "url": "https://github.com/onemindos/ONEMINDOS/actions/runs/43721896532/job/132835512689"
+          },
+          {
+            "name": "perf-smoke",
+            "status": "COMPLETED",
+            "conclusion": "CANCELLED",
+            "url": "https://github.com/onemindos/ONEMINDOS/actions/runs/43721896542/job/132835513110"
+          }
+        ]
+      },
+      "remote_branch_head_verified": true
+    },
+    {
+      "pr": 280,
+      "issue": 141,
+      "url": "https://github.com/onemindos/ONEMINDOS/pull/280",
+      "branch": "feat/141-backups-dashboard",
+      "head": "58126d2b2fab3c97b59a6af48a81140c7ba152fc",
+      "state": "OPEN",
+      "draft": false,
+      "labels": [
+        "builder:codex",
+        "review:changes"
+      ],
+      "merge_commit": null,
+      "observed_checks": {
+        "total": 37,
+        "unsuccessful_or_pending": [
+          {
+            "name": "merge-gate",
+            "status": "COMPLETED",
+            "conclusion": "FAILURE",
+            "url": "https://github.com/onemindos/ONEMINDOS/actions/runs/43803811090/job/133089854887"
+          }
+        ]
+      },
+      "remote_branch_head_verified": true
+    },
+    {
+      "pr": 282,
+      "issue": 141,
+      "url": "https://github.com/onemindos/ONEMINDOS/pull/282",
+      "branch": "feat/141-storage-dashboard",
+      "head": "f272037a830f182648fd09c82d3d05aa6ff2b1a8",
+      "state": "OPEN",
+      "draft": false,
+      "labels": [
+        "builder:codex",
+        "review:changes"
+      ],
+      "merge_commit": null,
+      "observed_checks": {
+        "total": 31,
+        "unsuccessful_or_pending": [
+          {
+            "name": "image (x86_64-efi, ubuntu-24.04)",
+            "status": "COMPLETED",
+            "conclusion": "FAILURE",
+            "url": "https://github.com/onemindos/ONEMINDOS/actions/runs/43674920126/job/132692845390"
+          },
+          {
+            "name": "merge-gate",
+            "status": "COMPLETED",
+            "conclusion": "FAILURE",
+            "url": "https://github.com/onemindos/ONEMINDOS/actions/runs/43674920079/job/132692844710"
+          },
+          {
+            "name": "perf-smoke",
+            "status": "COMPLETED",
+            "conclusion": "FAILURE",
+            "url": "https://github.com/onemindos/ONEMINDOS/actions/runs/43674920226/job/132692845855"
+          },
+          {
+            "name": "image (vm, ubuntu-24.04)",
+            "status": "COMPLETED",
+            "conclusion": "FAILURE",
+            "url": "https://github.com/onemindos/ONEMINDOS/actions/runs/43674920126/job/132692845403"
+          },
+          {
+            "name": "image (vm-do, ubuntu-24.04)",
+            "status": "COMPLETED",
+            "conclusion": "FAILURE",
+            "url": "https://github.com/onemindos/ONEMINDOS/actions/runs/43674920126/job/132692845260"
+          },
+          {
+            "name": "image (arm64-efi, ubuntu-24.04-arm)",
+            "status": "COMPLETED",
+            "conclusion": "FAILURE",
+            "url": "https://github.com/onemindos/ONEMINDOS/actions/runs/43674920126/job/132692845453"
+          },
+          {
+            "name": "image (rpi5, ubuntu-24.04-arm)",
+            "status": "COMPLETED",
+            "conclusion": "FAILURE",
+            "url": "https://github.com/onemindos/ONEMINDOS/actions/runs/43674920126/job/132692845485"
+          },
+          {
+            "name": "compose-e2e",
+            "status": "COMPLETED",
+            "conclusion": "FAILURE",
+            "url": "https://github.com/onemindos/ONEMINDOS/actions/runs/43674920194/job/132692842201"
+          },
+          {
+            "name": "golden-path",
+            "status": "COMPLETED",
+            "conclusion": "FAILURE",
+            "url": "https://github.com/onemindos/ONEMINDOS/actions/runs/43674920179/job/132692846094"
+          },
+          {
+            "name": "smoke",
+            "status": "COMPLETED",
+            "conclusion": "FAILURE",
+            "url": "https://github.com/onemindos/ONEMINDOS/actions/runs/43674920126/job/132692845426"
+          },
+          {
+            "name": "e2e-systemd",
+            "status": "COMPLETED",
+            "conclusion": "FAILURE",
+            "url": "https://github.com/onemindos/ONEMINDOS/actions/runs/43674920194/job/132692842608"
+          }
+        ]
+      },
+      "remote_branch_head_verified": true
+    },
+    {
+      "pr": 288,
+      "issue": 160,
+      "url": "https://github.com/onemindos/ONEMINDOS/pull/288",
+      "branch": "fix/160-gateway-guards",
+      "head": "98b5a9df70ceb1e52ce36460a4126ff63cc36bbf",
+      "state": "OPEN",
+      "draft": false,
+      "labels": [
+        "builder:codex",
+        "needs-review"
+      ],
+      "merge_commit": null,
+      "observed_checks": {
+        "total": 35,
+        "unsuccessful_or_pending": []
+      },
+      "remote_branch_head_verified": true
+    },
+    {
+      "pr": 289,
+      "issue": 117,
+      "url": "https://github.com/onemindos/ONEMINDOS/pull/289",
+      "branch": "fix/117-app-gate",
+      "head": "71d0e6934744e616e9f8ff54e4079d02ac9622ed",
+      "state": "MERGED",
+      "draft": false,
+      "labels": [
+        "builder:codex",
+        "review:approved"
+      ],
+      "merge_commit": "c67068b342d60bd891cb5548749b1f93deb502e5",
+      "observed_checks": {
+        "total": 20,
+        "unsuccessful_or_pending": [
+          {
+            "name": "report",
+            "status": "COMPLETED",
+            "conclusion": "CANCELLED",
+            "url": "https://github.com/onemindos/ONEMINDOS/actions/runs/43717764254/job/132847431612"
+          },
+          {
+            "name": "issue",
+            "status": "COMPLETED",
+            "conclusion": "CANCELLED",
+            "url": "https://github.com/onemindos/ONEMINDOS/actions/runs/43717764254/job/132861747575"
+          }
+        ]
+      },
+      "remote_branch_head_verified": true
+    },
+    {
+      "pr": 290,
+      "issue": 165,
+      "url": "https://github.com/onemindos/ONEMINDOS/pull/290",
+      "branch": "feat/165-ai-policy-slice",
+      "head": "2a4af7895ae68fac59de574a4278ae5018e56640",
+      "state": "OPEN",
+      "draft": false,
+      "labels": [
+        "builder:codex",
+        "needs-review"
+      ],
+      "merge_commit": null,
+      "observed_checks": {
+        "total": 35,
+        "unsuccessful_or_pending": []
+      },
+      "remote_branch_head_verified": true
+    },
+    {
+      "pr": 291,
+      "issue": 159,
+      "url": "https://github.com/onemindos/ONEMINDOS/pull/291",
+      "branch": "feat/159-audit-verification",
+      "head": "e042d8e2c3a9734e3a0161293391dffeaa784afb",
+      "state": "MERGED",
+      "draft": false,
+      "labels": [
+        "builder:codex",
+        "review:approved"
+      ],
+      "merge_commit": "e21ef252e40f4a6652cbf7c4e691a4fd151fc1ea",
+      "observed_checks": {
+        "total": 32,
+        "unsuccessful_or_pending": []
+      },
+      "remote_branch_head_verified": true
+    },
+    {
+      "pr": 310,
+      "issue": 165,
+      "url": "https://github.com/onemindos/ONEMINDOS/pull/310",
+      "branch": "feat/165-model-boundary",
+      "head": "0baa7d6b84da6152a75b86a8d06064c5af2a85d3",
+      "state": "MERGED",
+      "draft": false,
+      "labels": [
+        "builder:codex",
+        "review:approved"
+      ],
+      "merge_commit": "6dab9fac8f5bdb1d74590d9a3994a0d6000cea4a",
+      "observed_checks": {
+        "total": 35,
+        "unsuccessful_or_pending": []
+      },
+      "remote_branch_head_verified": true
+    },
+    {
+      "pr": 311,
+      "issue": 173,
+      "url": "https://github.com/onemindos/ONEMINDOS/pull/311",
+      "branch": "fix/173-licence-expression-validation",
+      "head": "b3a07a47817e490d3e81f41e2a1e37eb13581f38",
+      "state": "MERGED",
+      "draft": false,
+      "labels": [
+        "builder:codex",
+        "review:approved"
+      ],
+      "merge_commit": "533c75a8e3d24e64c2d50e790811081408cca7c0",
+      "observed_checks": {
+        "total": 80,
+        "unsuccessful_or_pending": []
+      },
+      "remote_branch_head_verified": true
+    },
+    {
+      "pr": 312,
+      "issue": 160,
+      "url": "https://github.com/onemindos/ONEMINDOS/pull/312",
+      "branch": "fix/160-streaming-body-limit",
+      "head": "50594a46e5f0df868425a03d84ed30efb81f3dad",
+      "state": "OPEN",
+      "draft": true,
+      "labels": [
+        "builder:codex"
+      ],
+      "merge_commit": null,
+      "observed_checks": {
+        "total": 35,
+        "unsuccessful_or_pending": [
+          {
+            "name": "test",
+            "status": "COMPLETED",
+            "conclusion": "FAILURE",
+            "url": "https://github.com/onemindos/ONEMINDOS/actions/runs/43764182072/job/132965466740"
+          },
+          {
+            "name": "merge-gate",
+            "status": "COMPLETED",
+            "conclusion": "FAILURE",
+            "url": "https://github.com/onemindos/ONEMINDOS/actions/runs/43764182094/job/132965472509"
+          }
+        ]
+      },
+      "remote_branch_head_verified": true
+    }
+  ],
+  "retained_baseline_refs": [
+    {
+      "branch": "verify/117-current-smoke",
+      "head": "eaae7c4531210126f64bd588535b8b7b8163afeb",
+      "remote_branch_exists": false,
+      "recover_via": "origin/main",
+      "classification": "baseline-or-verification-only; no separate feature completion",
+      "unique_unpublished_commits": false
+    },
+    {
+      "branch": "feat/147-market-unblock",
+      "head": "e7d64c6e4bf37810bf206479dc122d015f8a74ac",
+      "remote_branch_exists": false,
+      "recover_via": "origin/main",
+      "classification": "baseline-or-verification-only; no separate feature completion",
+      "unique_unpublished_commits": false
+    },
+    {
+      "branch": "feat/159-agent-kill-switch",
+      "head": "3535f6651ee6e1d9bdac7b6ec62c49a53f953401",
+      "remote_branch_exists": false,
+      "recover_via": "origin/main",
+      "classification": "baseline-or-verification-only; no separate feature completion",
+      "unique_unpublished_commits": false
+    },
+    {
+      "branch": "verify/160-clean-recovery",
+      "head": "98b5a9df70ceb1e52ce36460a4126ff63cc36bbf",
+      "remote_branch_exists": false,
+      "recover_via": "origin/fix/160-gateway-guards",
+      "classification": "baseline-or-verification-only; no separate feature completion",
+      "unique_unpublished_commits": false
+    },
+    {
+      "branch": "feat/165-ai-policy",
+      "head": "e7d64c6e4bf37810bf206479dc122d015f8a74ac",
+      "remote_branch_exists": false,
+      "recover_via": "origin/main",
+      "classification": "baseline-or-verification-only; no separate feature completion",
+      "unique_unpublished_commits": false
+    }
+  ],
+  "archived_diagnostic": {
+    "path": "docs/leap/archive/codex-mlive-20261116/test_ai_policy_boundary.py.snapshot",
+    "original_repo_relative_path": "core/tests/test_ai_policy_boundary.py",
+    "sha256": "70085809d3816ded970706d1cfd82581f4cd741a571a7d1569cbda53c2b77da3",
+    "bytes": 1838,
+    "lines": 43,
+    "status": "obsolete/unaccepted; not executed; no passing claim",
+    "restore_requires": "Ownership and overlap check; restore original relative layout only after checking accepted #290/#310 coverage"
+  },
+  "limitations": [
+    "All parent issues remain subject to their full acceptance scope; merged slices do not close their remainders.",
+    "Historical local source/evidence PASS is not current CI, approval, merge or deployment.",
+    "Foreign dirty source/backup and other local-only commit audit are outside this publication; no files or worktrees removed."
+  ]
+}
