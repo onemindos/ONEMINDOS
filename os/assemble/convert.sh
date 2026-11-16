@@ -10,11 +10,14 @@ IMG=$(ls "$D"/onemind-*.img | head -n1); BASE=${IMG%.img}
 board=$(basename "$D" | sed 's/^image-//')
 case "$board" in
   vm-do) FORMATS="qcow2" ;;
+  arm64-efi) FORMATS="qcow2" ;;   # UTM on Apple Silicon imports a qcow2 (docs/see-onemind/mac-utm.md)
   vm)    FORMATS="qcow2 vhdx vmdk vdi" ;;
   *)     FORMATS="" ;;
 esac
 for f in $FORMATS; do
   opts=""; [ "$f" = vmdk ] && opts="-o subformat=streamOptimized"
+  # The arm64 qcow2 is a download for a Mac: compress it (-c; the image is mostly empty space).
+  [ "$board/$f" = arm64-efi/qcow2 ] && opts="-c"
   qemu-img convert -p -O "$f" $opts "$IMG" "$BASE.$f"
 done
 if [ "$board" = vm ]; then
