@@ -1,5 +1,0 @@
----
-pr: pending
-branch: fix/recovery-td1-boot
----
-Recovery mode now starts when the data disk is missing, and says so on the console. Three bugs hid it from the QEMU runs (TD1 never saw its console line). First, the isolate that onemind-data-check.service triggers pulls local-fs.target in again, which started the check again, which failed again and isolated again, in an endless loop of 30-second data-device waits; the check now skips itself once its status file exists. Second, the running boot splash (plymouth) swallows everything written to /dev/console, and recovery mode never reaches multi-user.target, which is what normally ends it; the recovery target now wants plymouth-quit.service and the recovery unit runs after it. Third, the harness read the version of the gate fell-back line as "2;" instead of "2", which failed TD3 (and would fail T6 and T7); the parser now stops at the semicolon. The serial-log trimmer also keeps start-job timeouts, failed dependencies and OnFailure triggers, so a loop like this shows in CI logs.
