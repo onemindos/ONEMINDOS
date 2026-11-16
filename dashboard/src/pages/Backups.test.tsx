@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
-import { render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, renderHook, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, it, vi } from 'vitest';
 import { App } from '../App';
 import { DEMO_TOKENS } from '../api/fixtures';
 import { MockApi } from '../api/mock';
-import { SessionProvider } from '../session';
+import { SessionProvider, useSession } from '../session';
+import { ApiError } from '../api/types';
+import { usePoll } from '../lib/hooks';
 
 const token = 'owner-demo';
 const status = { health: 'ok', agent: 'ok', reason: null, last_success_at: '2026-11-14T12:00:00Z', last_verified_restore_at: null, next_run_at: null, badges: { box: { state: 'backed_up' } } };
@@ -116,6 +118,79 @@ it('lets the user start a new request only after the gateway conclusively reject
   expect(posts[0]![1]?.body).toBe(posts[1]![1]?.body);
   expect(new Headers(posts[0]![1]?.headers).get('Idempotency-Key')).toBe(new Headers(posts[1]![1]?.headers).get('Idempotency-Key'));
   expect(new Headers(posts[2]![1]?.headers).get('Idempotency-Key')).not.toBe(new Headers(posts[0]![1]?.headers).get('Idempotency-Key'));
+});
+
+it('keeps confirmed backups and the stale warning when an older success follows a newer failure', async () => {
+  let reads = 0;
+  let finishOlder!: (reply: Response) => void;
+  let finishNewer!: (reply: Response) => void;
+  const older = new Promise<Response>((resolve) => { finishOlder = resolve; });
+  const newer = new Promise<Response>((resolve) => { finishNewer = resolve; });
+  transport((path) => {
+    if (path !== '/v1/backups/status') return;
+    if (++reads === 2) return older;
+    if (reads === 3) return newer;
+    return response(reads > 3 ? { ...status, health: 'recovered' } : status);
+  });
+  mount();
+  const summary = await screen.findByRole('article', { name: 'Backup health' });
+  expect(within(summary).getByText('ok')).toBeInTheDocument();
+  const refresh = screen.getByRole('button', { name: 'Refresh backups' });
+  fireEvent.click(refresh);
+  fireEvent.click(refresh);
+  await waitFor(() => expect(reads).toBe(3));
+  // A malformed newer response fails validation without SDK transport retries.
+  await act(async () => { finishNewer(response({})); });
+  const warning = /Could not refresh\. Showing previously fetched backup data/;
+  expect(screen.getByText(warning)).toBeInTheDocument();
+  expect(within(summary).getByText('ok')).toBeInTheDocument();
+  await act(async () => {
+    finishOlder(response({ ...status, health: 'obsolete', last_success_at: '2026-11-13T12:00:00Z' }));
+  });
+  expect(screen.getByText(warning)).toBeInTheDocument();
+  expect(within(summary).getByText('ok')).toBeInTheDocument();
+  expect(within(summary).getByText(status.last_success_at)).toBeInTheDocument();
+  expect(screen.queryByText('obsolete')).not.toBeInTheDocument();
+  fireEvent.click(refresh);
+  expect(await within(summary).findByText('recovered')).toBeInTheDocument();
+  expect(screen.queryByText(warning)).not.toBeInTheDocument();
+});
+
+it.each([401, 403])('preserves confirmed backup fetch time and %s semantics across overlapping reads', async (code) => {
+  window.sessionStorage.setItem('onemind.token', token);
+  let finishOlder!: (value: typeof status) => void;
+  const pending = new Promise<typeof status>((resolve) => { finishOlder = resolve; });
+  const denied = new ApiError(code, code === 401 ? 'unauthenticated' : 'permission_denied', 'read denied');
+  const read = vi.fn<() => Promise<typeof status>>()
+    .mockResolvedValueOnce(status).mockReturnValueOnce(pending).mockRejectedValueOnce(denied)
+    .mockResolvedValueOnce({ ...status, health: 'recovered' });
+  const { result, unmount } = renderHook(() => ({ poll: usePoll(read, 0), session: useSession().session }), {
+    wrapper: ({ children }) => <SessionProvider deps={{ mock: true }}>{children}</SessionProvider>,
+  });
+  await waitFor(() => expect(result.current.poll.data).toEqual(status));
+  const fetchedAt = result.current.poll.fetchedAt;
+  expect(fetchedAt).toEqual(expect.any(Number));
+  let older!: Promise<void>;
+  act(() => { older = result.current.poll.reload(); });
+  await act(async () => { await result.current.poll.reload(); });
+  expect(result.current.poll.error).toBe(denied);
+  expect(result.current.session === null).toBe(code === 401);
+  await act(async () => { finishOlder({ ...status, health: 'obsolete' }); await older; });
+  expect(result.current.poll.data).toEqual(status);
+  expect(result.current.poll.fetchedAt).toBe(fetchedAt);
+  expect(result.current.poll.error).toBe(denied);
+  await act(async () => { await result.current.poll.reload(); });
+  expect(result.current.poll.data?.health).toBe('recovered');
+  expect(result.current.poll.error).toBeUndefined();
+  // Settling a late read after unmount must not sign out or mutate hook state.
+  let rejectLate!: (error: Error) => void;
+  read.mockReturnValueOnce(new Promise((_, reject) => { rejectLate = reject; }));
+  act(() => { older = result.current.poll.reload(); });
+  const last = result.current;
+  unmount();
+  await act(async () => { rejectLate(new ApiError(401, 'unauthenticated', 'late')); await older; });
+  expect(result.current).toBe(last);
+  expect(window.sessionStorage.getItem('onemind.token')).toBe(code === 401 ? null : token);
 });
 
 it('keeps the page usable when backup status is malformed', async () => {
