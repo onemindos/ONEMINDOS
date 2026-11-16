@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 # Reviewed false positives for scripts/hygiene.py: <path glob> TAB <regex the whole hit must match> TAB <id in handbook/hygiene.md>
-*	serial-getty@tty[A-Za-z0-9]+\.service	FP-3
+*	(serial-)?getty@tty[A-Za-z0-9]+\.service	FP-3
 *	git@github\.com	FP-5
 os/boards/vm-do/*	/home/onemind	B-FP-1
 test/qemu/*	/home/onemind	B-FP-1
