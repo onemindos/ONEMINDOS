@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: Apache-2.0
+# Grows the onemind-data partition and its ext4 to the end of the disk the image was written to
+# (IMG-02, #149; usr/lib/onemind/data_extend.py says what it will never do). Runs every boot, after /data is
+# mounted, before anything that fills /data. A no-op when there is nothing to grow. Enabled by the wants
+# symlink in multi-user.target.wants.
+[Unit]
+Description=OneMind: fit the data partition to the disk
+After=local-fs.target
+ConditionPathIsMountPoint=/data
+Before=onemind-firstboot.service k3s.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/onemind/data-extend
