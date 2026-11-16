@@ -101,6 +101,7 @@ func (c *Collector) Collect(ctx context.Context) heartbeat.Status {
 		OS:           c.OSRelease(),
 		Kernel:       c.readTrim("proc/sys/kernel/osrelease"),
 		TPM2:         c.TPM2(),
+		KVM:          c.KVM(),
 		SecureBoot:   c.SecureBoot(),
 		K3s:          c.K3s(ctx),
 		RAUC:         c.RAUC(ctx),
@@ -400,6 +401,11 @@ func (c *Collector) Disk() (float64, float64) {
 func round1(f float64) float64 { return float64(int64(f*10+0.5)) / 10 }
 
 // ---- trust: TPM and Secure Boot ------------------------------------------------
+
+// KVM reports whether this machine can run virtual machines: /dev/kvm exists. The kernel makes it
+// only when the CPU has the virtualisation extensions and the firmware has them switched on, so a
+// box that is itself a VM without nested virtualisation, or a BIOS with them off, reports false.
+func (c *Collector) KVM() bool { return c.exists("dev/kvm") }
 
 // TPM2 reports a TPM 2.0 chip: /sys/class/tpm/tpm0 with tpm_version_major = 2
 // (kernel 5.6+), or the TPM2-only resource manager /dev/tpmrm0.

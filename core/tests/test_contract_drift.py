@@ -241,7 +241,9 @@ def test_sse_household_scope_and_role_refusal(event_server, hc, read_scopes):
     token = hc.post('/v1/tokens', headers=csrf(hc),
                     json={'name': 'stream-only', 'scopes': ['events:read', *read_scopes]}).json()['one_time']['token']
     publish(hc, 'app', 'unhealthy', {'app_id': 'whoami'}, 'warning')
-    with httpx.Client(base_url=event_server, timeout=1) as c:
+    # 5 s, not 1 s: with pytest-xdist the server shares the CPU with other workers, and a slow
+    # 403 or response header must not pass for the read timeout this test expects (CI-03, #228).
+    with httpx.Client(base_url=event_server, timeout=5) as c:
         for person in (guest, child):
             with c.stream('GET', '/v1/events', cookies=dict(person.cookies)) as r:
                 assert r.status_code == 403

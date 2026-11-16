@@ -42,6 +42,7 @@ Run every command from the repo root. On a Mac, install the tools once:
 | Repo-wide | everything | `make lint`, `make test`, `python3 -I scripts/changes.py check`, `make hygiene` (gitleaks + hygiene greps) |
 
 **Rules that keep the code clean** (the full definition of done is [docs/leap/AGENT-QUEUE.md §4](docs/leap/AGENT-QUEUE.md)):
+- **Never export `GIT_DIR` or `GIT_WORK_TREE`.** In a linked worktree use `git -C <worktree> ...`. Git commands run with them set (`git worktree`, `git config`) can write the work tree into the shared `.git/config`, which then redirects every other worktree and sends commits to the wrong folder. `scripts/git-guard.sh` fails when they are set ([docs/learning/mac-dev-loop.md](docs/learning/mac-dev-loop.md#guard-against-committing-into-the-wrong-checkout)).
 - **Use the generated client.** Dashboard and app code call the gateway through `@onemind/sdk` (`sdk/ts`), never hand-written API types. Change the API in `core/`, then run `make -C sdk gen` and commit the result.
 - **Wire it up.** A feature is reachable from a mounted route, a dashboard screen or the `onemind` CLI in the same PR, or the PR says why not. No new mock backend.
 - **Tests in the same PR,** one issue per PR, under about 600 changed lines unless the PR is labelled `large`.

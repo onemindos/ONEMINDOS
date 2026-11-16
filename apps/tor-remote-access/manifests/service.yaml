@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: Apache-2.0
+# The owner page only. Tor itself listens on no port: the onion service is reached through Tor.
+apiVersion: v1
+kind: Service
+metadata:
+  name: tor-remote-access
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: tor-remote-access
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+      protocol: TCP

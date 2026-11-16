@@ -76,6 +76,7 @@ RUN npm ci --loglevel=error
 COPY dashboard/ ./
 # @onemind/ui is consumed from source (dashboard tsconfig paths + vite alias -> ../ui/src), no ui build.
 COPY ui/src/ /src/ui/src/
+COPY sdk/ts/src/ /src/sdk/ts/src/
 RUN npm run build && test -f dist/index.html
 
 FROM onemind-buildbase AS onemind-pyprep

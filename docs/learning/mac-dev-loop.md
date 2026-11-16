@@ -43,7 +43,9 @@ go test ./...
 ```
 
 This preserves version stamping; it does not disable tests or change Git config.
-Use a separate shell for other checkouts.
+Use a separate shell for other checkouts, and `unset GIT_DIR GIT_WORK_TREE` before running any other git
+command there: with them set, `git worktree` or `git config` can write the work tree into the shared config
+(see the guard below). Prefer `git -C <worktree> ...` for everything else.
 
 The safeFS fixture resolves **only its trusted temporary root** with
 `filepath.EvalSymlinks`: macOS can place temp directories behind `/var`'s symlink.
@@ -86,6 +88,25 @@ See [image coverage](../leap/core/IMAGES.md) and
 This local-loop fix does **not** claim a new VM/image/battery run, hardware boot,
 or OVA import validation. `convert.sh`'s OVA import remains UNVERIFIED on
 VirtualBox/VMware; the VMDK/VDI outputs remain the documented fallback.
+
+## Guard against committing into the wrong checkout
+
+Many agents share one repository through linked worktrees, and they all read the **same** config file,
+`<repo>/.git/config`. If anything sets `core.worktree` there, it points **every** worktree at one other
+folder: `git status` shows that folder's files and `git add` / `git commit` act on them, with no error.
+This has happened twice. [`scripts/git-guard.sh`](../../scripts/git-guard.sh) catches it: it exits 1 and prints
+the fix when the shared config sets `core.worktree`, or when `GIT_DIR` / `GIT_WORK_TREE` is exported (the likely cause: use `git -C <worktree>` instead), or when git's top level is not the folder you are in.
+
+Run it before you commit, or install it once per clone as a hook (one line; hooks live in the shared
+`.git/hooks`, so it covers every worktree):
+
+```sh
+H="$(git rev-parse --path-format=absolute --git-common-dir)"; printf '#!/bin/sh\nexec sh "%s/../scripts/git-guard.sh"\n' "$H" > "$H/hooks/pre-commit" && chmod +x "$H/hooks/pre-commit"
+```
+
+The hook is `.git/hooks/pre-commit`, so it is yours alone and never committed. If it fires, do not commit:
+remove the key with the command it prints, then check `git rev-parse --show-toplevel` again. Never set that
+key with plain `git config`; use `git config --worktree` for anything that belongs to one worktree.
 
 ## Evidence and limits
 

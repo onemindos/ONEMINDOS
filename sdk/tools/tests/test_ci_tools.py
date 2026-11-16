@@ -96,6 +96,39 @@ class GateSummaryTests(unittest.TestCase):
         self.assertIn("| `ntfy` | **ERROR** (setup) | pass (verified) |", body)
         self.assertIn("stopped before app-gate finished", body)
 
+    def test_failed_report_survives_missing_exit_status(self):
+        # Bash -e can exit at the gate's failed pipeline before status.json is updated.
+        write_cell(self.dir, "uptime-kuma", "amd64", None,
+                   report("uptime-kuma", "fail", "blocked", {
+                       "vulnerabilities": ["FAIL: fixable CRITICAL finding"]}))
+        _, body, stdout = self.run_main(["uptime-kuma"])
+        self.assertIn("problems=2", stdout)
+        self.assertIn("**FAIL**: vulnerabilities (tier blocked)", body)
+        self.assertIn("fixable CRITICAL finding", body)
+        self.assertIn("exit status was not recorded", body)
+        self.assertNotIn("**ERROR** (setup)", body)
+
+    def test_unrecorded_exit_never_passes(self):
+        write_cell(self.dir, "ntfy", "amd64", None, report("ntfy", "pass", "verified"),
+                   "gate interrupted at 192.0.2.7\x1b[31m!\x1b[0m")
+        _, body, stdout = self.run_main(["ntfy"])
+        self.assertIn("problems=2", stdout)
+        self.assertNotIn("pass (verified)", body)
+        self.assertIn("**ERROR** (exit status missing)", body)
+        self.assertIn("gate interrupted at <ip>!", body)
+
+    def test_unrecorded_tool_error_shows_log_not_setup(self):
+        write_cell(self.dir, "ntfy", "amd64", None, None, "error: crane timed out")
+        _, body, _ = self.run_main(["ntfy"])
+        self.assertIn("**ERROR** (exit status missing)", body)
+        self.assertIn("error: crane timed out", body)
+        self.assertNotIn("**ERROR** (setup)", body)
+
+    def test_report_for_another_app_cannot_supply_failure(self):
+        write_cell(self.dir, "ntfy", "amd64", None, report("other", "fail", "blocked"))
+        cell = gs.load_cell(self.dir / "apps-gate-ntfy-amd64")
+        self.assertEqual(gs.classify(cell), "error")
+
     def test_tier_overclaim_is_listed(self):
         rep = report("ntfy", "fail", "community", {"tier": ["metadata.tier is 'verified' but the gate computes 'community'"]})
         write_cell(self.dir, "ntfy", "amd64", 1, rep)
