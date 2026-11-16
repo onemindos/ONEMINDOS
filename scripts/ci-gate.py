@@ -37,6 +37,7 @@ PASSING = frozenset({"success", "skipped", "neutral"})
 # gate within seconds; without this window a gate that looked a moment too early would see only the
 # old skipped runs and pass before the heavy workflows even started.
 FRESH_WINDOW_S = 300
+GATE_NAME = "merge-gate"
 
 
 def _ts(value: str | None) -> float | None:
@@ -61,7 +62,11 @@ def verdict(runs: list[dict], self_run_id: int) -> dict[str, list[str]]:
     out: dict[str, list[str]] = {"failed": [], "pending": [], "passed": [], "informational": []}
     me = next((r for r in runs if r["id"] == self_run_id), None)
     anchor = _ts(me.get("created_at")) if me else None
-    others = [r for r in runs if r["id"] != self_run_id]
+    # The gate never waits on a gate: not this run, and not an earlier gate run of the same commit (a
+    # draft push's gate, cancelled by concurrency when the PR was marked ready, would count as failed).
+    me_wid = me["workflow_id"] if me else None
+    others = [r for r in runs if r["id"] != self_run_id and r["name"] != GATE_NAME
+              and (me_wid is None or r["workflow_id"] != me_wid)]
     if anchor is not None:
         others = [r for r in others if (_ts(r.get("created_at")) or anchor) >= anchor - FRESH_WINDOW_S]
     for r in latest_per_workflow(others):
