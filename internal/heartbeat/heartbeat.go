@@ -78,6 +78,7 @@ type Status struct {
 	DiskFreeGB     float64 `json:"disk_free_gb"`
 	CPULevel       string  `json:"cpu_level"` // x86-64-v1..v4 on amd64, "" elsewhere or unknown (NMD-09, #134)
 	TPM2           bool    `json:"tpm2"`
+	KVM            bool    `json:"kvm"` // /dev/kvm exists: machines can run here (MACH-01)
 	SecureBoot     string  `json:"secure_boot"`
 	K3s            K3s     `json:"k3s"`
 	RAUC           RAUC    `json:"rauc"`

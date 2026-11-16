@@ -181,6 +181,17 @@ func TestAgentReadyViaSystemctl(t *testing.T) {
 	}
 }
 
+// /dev/kvm is what the gateway's machines preflight reads (MACH-01, #281): present on the x86 box,
+// absent on the Pi, the Jetson, the VM and the droplet.
+func TestKVMFollowsDevKVM(t *testing.T) {
+	for name, arch := range map[string]string{"x86efi": "amd64", "rpi5": "arm64", "jetson": "arm64", "x86vm": "amd64", "droplet": "amd64"} {
+		s := fixture(t, name, arch).Collect(context.Background())
+		if want := name == "x86efi"; s.KVM != want {
+			t.Errorf("%s: kvm = %v, want %v", name, s.KVM, want)
+		}
+	}
+}
+
 func TestX86EFITrustGPUAndRAUC(t *testing.T) {
 	c := fixture(t, "x86efi", "amd64")
 	raucJSON, err := os.ReadFile("testdata/cmd/rauc-status.json")
@@ -245,7 +256,7 @@ func TestJSONShapeAndPrivacy(t *testing.T) {
 			}
 			for _, k := range []string{"schema", "node_id", "hostname", "role", "board", "arch", "os", "kernel",
 				"cpu_model", "cpus", "mem_total_mb", "mem_available_mb", "disk_total_gb", "disk_free_gb",
-				"cpu_level", "tpm2", "secure_boot", "k3s", "rauc", "gpu", "uptime_s", "agent_version", "observed_at"} {
+				"cpu_level", "tpm2", "kvm", "secure_boot", "k3s", "rauc", "gpu", "uptime_s", "agent_version", "observed_at"} {
 				if _, ok := m[k]; !ok {
 					t.Errorf("missing key %q", k)
 				}

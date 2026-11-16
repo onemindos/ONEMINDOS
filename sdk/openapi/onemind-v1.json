@@ -352,6 +352,59 @@
         "title": "AppScope",
         "type": "object"
       },
+      "Appearance": {
+        "additionalProperties": false,
+        "properties": {
+          "accent": {
+            "default": "wallpaper",
+            "pattern": "^[a-z][a-z0-9-]{0,39}$",
+            "title": "Accent",
+            "type": "string"
+          },
+          "density": {
+            "default": "comfortable",
+            "enum": [
+              "comfortable",
+              "compact"
+            ],
+            "title": "Density",
+            "type": "string"
+          },
+          "reduce_motion": {
+            "default": "system",
+            "enum": [
+              "system",
+              "on",
+              "off"
+            ],
+            "title": "Reduce Motion",
+            "type": "string"
+          },
+          "reduce_transparency": {
+            "default": false,
+            "title": "Reduce Transparency",
+            "type": "boolean"
+          },
+          "theme": {
+            "default": "system",
+            "enum": [
+              "system",
+              "light",
+              "dark"
+            ],
+            "title": "Theme",
+            "type": "string"
+          },
+          "wallpaper": {
+            "default": "om-dusk-01",
+            "pattern": "^[a-z][a-z0-9-]{0,63}$",
+            "title": "Wallpaper",
+            "type": "string"
+          }
+        },
+        "title": "Appearance",
+        "type": "object"
+      },
       "AuditHead": {
         "properties": {
           "hash": {
@@ -1722,6 +1775,29 @@
         "title": "GrantBody",
         "type": "object"
       },
+      "Grid": {
+        "additionalProperties": false,
+        "properties": {
+          "hidden": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 200,
+            "title": "Hidden",
+            "type": "array"
+          },
+          "order": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 200,
+            "title": "Order",
+            "type": "array"
+          }
+        },
+        "title": "Grid",
+        "type": "object"
+      },
       "Healthz": {
         "properties": {
           "ok": {
@@ -1733,6 +1809,123 @@
           "ok"
         ],
         "title": "Healthz",
+        "type": "object"
+      },
+      "HomeBody": {
+        "additionalProperties": false,
+        "description": "What a client may send. `updated_at` is accepted (so a GET result can be sent back) and ignored.",
+        "properties": {
+          "appearance": {
+            "$ref": "#/components/schemas/Appearance"
+          },
+          "dock": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 8,
+            "title": "Dock",
+            "type": "array"
+          },
+          "grid": {
+            "$ref": "#/components/schemas/Grid"
+          },
+          "layout": {
+            "default": "desktop",
+            "enum": [
+              "desktop",
+              "classic"
+            ],
+            "title": "Layout",
+            "type": "string"
+          },
+          "seen": {
+            "$ref": "#/components/schemas/Seen"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "version": {
+            "const": 3,
+            "default": 3,
+            "title": "Version",
+            "type": "integer"
+          },
+          "widgets": {
+            "items": {
+              "$ref": "#/components/schemas/Widget"
+            },
+            "maxItems": 6,
+            "title": "Widgets",
+            "type": "array"
+          }
+        },
+        "title": "HomeBody",
+        "type": "object"
+      },
+      "HomeView": {
+        "additionalProperties": false,
+        "properties": {
+          "appearance": {
+            "$ref": "#/components/schemas/Appearance"
+          },
+          "dock": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 8,
+            "title": "Dock",
+            "type": "array"
+          },
+          "grid": {
+            "$ref": "#/components/schemas/Grid"
+          },
+          "layout": {
+            "default": "desktop",
+            "enum": [
+              "desktop",
+              "classic"
+            ],
+            "title": "Layout",
+            "type": "string"
+          },
+          "seen": {
+            "$ref": "#/components/schemas/Seen"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "version": {
+            "const": 3,
+            "default": 3,
+            "title": "Version",
+            "type": "integer"
+          },
+          "widgets": {
+            "items": {
+              "$ref": "#/components/schemas/Widget"
+            },
+            "maxItems": 6,
+            "title": "Widgets",
+            "type": "array"
+          }
+        },
+        "title": "HomeView",
         "type": "object"
       },
       "ImportBody": {
@@ -3575,6 +3768,33 @@
         "title": "SecretsChange",
         "type": "object"
       },
+      "Seen": {
+        "additionalProperties": false,
+        "properties": {
+          "welcome_tips_closed": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Welcome Tips Closed",
+            "type": "array"
+          },
+          "whats_new": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Whats New"
+          }
+        },
+        "title": "Seen",
+        "type": "object"
+      },
       "SendIn": {
         "additionalProperties": false,
         "properties": {
@@ -4181,6 +4401,29 @@
           }
         },
         "title": "VerifyBody",
+        "type": "object"
+      },
+      "Widget": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "size": {
+            "default": "regular",
+            "enum": [
+              "regular",
+              "large"
+            ],
+            "title": "Size",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "title": "Widget",
         "type": "object"
       },
       "WindowBody": {
@@ -12470,6 +12713,136 @@
         "summary": "Me",
         "tags": [
           "auth"
+        ]
+      }
+    },
+    "/v1/me/home": {
+      "get": {
+        "operationId": "me.home.get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HomeView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "summary": "Read",
+        "tags": [
+          "me"
+        ]
+      },
+      "put": {
+        "operationId": "me.home.save",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HomeBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HomeView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "412": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "A precondition failed: If-Match does not match (stale_precondition)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "428": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "A precondition header is required (conflict)"
+          }
+        },
+        "summary": "Save",
+        "tags": [
+          "me"
         ]
       }
     },

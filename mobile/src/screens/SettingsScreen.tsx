@@ -6,6 +6,7 @@ import { deviceInfo, loadLink, type DeviceLink } from '../lib/device';
 import { setupNotifications, showAlert } from '../notify';
 import { useSignedIn } from '../session';
 import { Button, Card, H1, H2, Notice, P, Row, Screen, s } from '../ui/bits';
+import { AppearanceSection } from './AppearanceSection';
 import { BoxSettingsSection } from './BoxSettingsSection';
 import { DeviceSection } from './DeviceSection';
 import { IdentitySection } from './IdentitySection';
@@ -40,6 +41,7 @@ export function SettingsScreen() {
     <Screen testID="settings">
       <H1>Settings</H1>
       <IdentitySection deviceName={name} />
+      <AppearanceSection />
       <BoxSettingsSection />
       <DeviceSection link={link} onLink={onLink} name={name} onName={setName} />
       <PushSection deviceApproved={link?.state === 'active'} deviceName={name} />

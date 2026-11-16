@@ -13,6 +13,14 @@ export type CatalogApp = components["schemas"]["CatalogApp"];
 export type Action = components["schemas"]["Action"];
 export type AuditRecord = components["schemas"]["AuditRecord"];
 export type AuditVerify = components["schemas"]["AuditVerify"];
+/** The caller's own Home document (UMB-P07, `/v1/me/home`). */
+export type HomeView = components["schemas"]["HomeView"];
+export type HomeBody = components["schemas"]["HomeBody"];
+/** A Home document with the validator to send back on the next save. */
+export interface HomeWithEtag {
+  home: HomeView;
+  etag: string;
+}
 
 export const SDK_VERSION = "0.1.0";
 export const TERMINAL_STATES = new Set(["succeeded", "failed", "cancelled", "expired", "outcome_unknown"]);
@@ -68,10 +76,11 @@ export interface AuditQuery {
 }
 
 interface Req {
-  method: "GET" | "POST";
+  method: "GET" | "POST" | "PUT";
   path: string;
   body?: unknown;
   retry?: boolean;
+  headers?: Record<string, string>;
 }
 
 const RETRY_STATUSES = new Set([429, 502, 503, 504]);
@@ -192,6 +201,21 @@ export class OneMind {
     },
   };
 
+  readonly me = {
+    home: {
+      /** The caller's resolved Home and its ETag. */
+      get: async (): Promise<HomeWithEtag> => {
+        const { body, headers } = await this.raw<HomeView>({ method: "GET", path: "/v1/me/home", retry: true });
+        return { home: body, etag: headers.get("etag") ?? "" };
+      },
+      /** Replace the whole document; `etag` is the one read last (a stale one answers 412). */
+      save: async (doc: HomeBody, etag: string): Promise<HomeWithEtag> => {
+        const { body, headers } = await this.raw<HomeView>({ method: "PUT", path: "/v1/me/home", body: doc, headers: { "If-Match": etag } });
+        return { home: body, etag: headers.get("etag") ?? "" };
+      },
+    },
+  };
+
   readonly audit = {
     /** audit.events.list; `more` is true when the gateway sent Link rel="next". */
     list: async (q: AuditQuery = {}): Promise<{ records: AuditRecord[]; more: boolean }> => {
@@ -286,6 +310,7 @@ export class OneMind {
         headers: {
           Accept: "application/json",
           ...(r.body !== undefined ? { "Content-Type": "application/json" } : {}),
+          ...(r.headers ?? {}),
           ...(await this.authHeader()),
         },
         body: r.body !== undefined ? JSON.stringify(r.body) : undefined,
