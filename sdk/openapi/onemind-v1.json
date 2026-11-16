@@ -12354,6 +12354,86 @@
         ]
       }
     },
+    "/v1/machines/capabilities": {
+      "get": {
+        "description": "Which nodes can run virtual machines, and the reasons the others cannot.",
+        "operationId": "machines.capabilities",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          }
+        },
+        "summary": "Machines Capabilities",
+        "tags": [
+          "machines"
+        ]
+      }
+    },
+    "/v1/machines/enable": {
+      "post": {
+        "description": "The owner's switch for machines. Refused with reasons unless a node can run them.",
+        "operationId": "machines.enable",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          }
+        },
+        "summary": "Machines Enable",
+        "tags": [
+          "machines"
+        ]
+      }
+    },
     "/v1/me": {
       "get": {
         "operationId": "me.get",

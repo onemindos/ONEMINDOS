@@ -520,3 +520,14 @@ POLICY |= {
     ("DELETE", "/v1/auth/app-session"): Row(cells(204), w.p_static("/v1/auth/app-session"),
                                             "NETWORKING §9: only clears the caller's own cookie; no data, so no credential"),
 }
+
+# ---- virtual machines (MACH-1, #281: core/onemind_core/routers/machines.py) ---------------------------------
+_MACH = "core/onemind_core/routers/machines.py"
+POLICY |= {
+    ("GET", "/v1/machines/capabilities"): Row(CHILD_CANNOT, w.p_static("/v1/machines/capabilities"),
+                                              f"{_MACH}: shows what /v1/nodes shows, so the same nodes:read gate (a child has none)"),
+    # The owner reaches the preflight, which refuses with 409 (no eligible node, or no extension yet); everybody else is stopped at 403.
+    ("POST", "/v1/machines/enable"): Row(cells(403, **GONE, owner=409, plugin=DENIED, automation=DENIED, node=DENIED),
+                                         w.p_static("/v1/machines/enable"),
+                                         f"{_MACH}: only the owner turns machines on; an agent can never approve its own power-up"),
+}
