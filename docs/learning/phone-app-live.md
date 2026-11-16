@@ -2,7 +2,7 @@
 # Phone app, live: from the Mac simulator to your iPhone
 
 **For:** Zeus · **Serves:** M-LIVE (founder goal 2026-11-15), issue [#314](https://github.com/onemindos/ONEMINDOS/issues/314) (MOB-LIVE-01), [#234](https://github.com/onemindos/ONEMINDOS/issues/234) (the box this app talks to).
-**Honest status:** the app's data layer and all main screens were run against a **real gateway** (not the demo) by tests, see §6. The steps in §3 to §5 on a **simulator and a real iPhone** have **not** been run by an agent yet: this Mac had no iOS Simulator runtime installed when this was written. Anything marked **UNVERIFIED** is a step to try; tell us what differs.
+**Honest status:** the app's data layer and all main screens were run against a **real gateway** (not the demo) by tests, see §6. The simulator and iPhone steps (§1, §3, §4) are **later**: founder decision 2026-11-15, the iOS Simulator runtime (a multi-GB download) is not installed yet, so no agent has run them. They are written so you can follow them when you are ready; tell us what differs.
 
 ## 0. Words you need
 - **Hub:** the OneMind box (a VM on your Mac, the Beelink, a droplet). The phone talks only to it.
@@ -10,7 +10,7 @@
 - **Metro:** the small program on your Mac that serves the app's code to a *development* build while you work.
 - **Owner token:** the long secret the box shows once at setup. It is your password for the phone until passkeys work on the phone (§7).
 
-## 1. One-time setup on the Mac
+## 1. One-time setup on the Mac (LATER: needs the simulator runtime)
 ```sh
 brew install node@22          # skip if `node -v` already says 22 or newer
 cd <your ONEMINDOS folder>/mobile
@@ -37,7 +37,7 @@ The dev owner token is `dev-owner-token-change-me`. **These tokens are public in
 
 For a real box (#234) the owner token appears **once** at setup (`docs/see-onemind/`, when merged): copy it into your password manager.
 
-## 3. Run the app in the Mac simulator
+## 3. Run the app in the Mac simulator (LATER)
 ```sh
 cd mobile
 npx expo run:ios        # builds, installs, opens the Simulator, starts Metro (first build takes several minutes)
@@ -51,7 +51,7 @@ Walk this list. Each line is something the app must do; if one fails, note the s
 5. **More → Settings:** shows who you are (role from the hub), the connection state and **Disconnect**.
 6. Kill the app and open it again: it signs in by itself (the token is kept in the iPhone's Keychain).
 
-## 4. Run it on your real iPhone (same Wi-Fi as the hub) — UNVERIFIED
+## 4. Run it on your real iPhone (same Wi-Fi as the hub) (LATER, UNVERIFIED)
 1. iPhone: **Settings → Privacy & Security → Developer Mode → on** (restarts the phone).
 2. Plug the iPhone into the Mac, unlock it, tap **Trust**.
 3. Xcode needs a signing identity: **Xcode → Settings → Accounts → add your Apple ID** (a free account is enough; the app then expires after 7 days and must be rebuilt).
