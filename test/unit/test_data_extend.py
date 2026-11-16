@@ -148,6 +148,29 @@ class NeverFailsTheBoot(unittest.TestCase):
         self.assertRegex(unit, r"(?m)^ExecStart=-/usr/lib/onemind/data-extend$")
 
 
+class ToolsAreInTheImage(unittest.TestCase):
+    """The first CI boot failed because sfdisk was not installed: Debian 13 ships it in `fdisk`, not util-linux.
+    Every tool data_extend.py runs must come from a package the image lists."""
+    PACKAGE = {"lsblk": "util-linux", "blkid": "util-linux", "blockdev": "util-linux", "partx": "util-linux",
+               "sfdisk": "fdisk", "resize2fs": "e2fsprogs", "df": None}     # None: coreutils, always there
+
+    def test_every_tool_it_runs_is_mapped_to_a_package(self):
+        with open(os.path.join(BASE, "onemind", "data_extend.py")) as f:
+            src = f.read()
+        import re
+        tools = set(re.findall(r'run\(\["([a-z0-9]+)"', src))
+        self.assertTrue({"sfdisk", "resize2fs", "lsblk"} <= tools, tools)
+        self.assertEqual(tools - set(self.PACKAGE), set(), "a new tool: add its package to PACKAGE and the package lists")
+
+    def test_those_packages_are_in_both_package_lists(self):
+        for leg in ("debian", "ubuntu"):
+            with open(os.path.join(ROOT, "os", "rootfs", "packages", f"{leg}-common.txt")) as f:
+                words = {w for line in f for w in line.split("#")[0].split()}
+            for tool, pkg in self.PACKAGE.items():
+                if pkg:
+                    self.assertIn(pkg, words, f"{tool} needs package {pkg} in {leg}-common.txt")
+
+
 class Wiring(unittest.TestCase):
     def read(self, *p):
         with open(os.path.join(ROOT, *p)) as f:
