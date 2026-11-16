@@ -25,12 +25,15 @@ export function FilesScreen() {
   const roots = useLoad(() => api.filesRoots(), [api]);
   const list = useLoad(() => (at ? api.filesList(at.root, at.path) : Promise.resolve([])), [api, at?.root, at?.path]);
 
+  // A fresh hub answers 503 with reason `storage_unavailable` (seen on a real gateway, MOB-LIVE-01).
+  const noStorage = roots.error?.reason === 'storage_unavailable';
+
   if (roots.loading) return <Loading what="files" />;
   if (!at)
     return (
       <Screen testID="files">
         <H1>Files</H1>
-        {roots.error ? <Notice tone={roots.forbidden ? 'warn' : 'bad'} text={roots.forbidden ? 'This sign-in has no files.' : `Could not read files: ${roots.error.message}`} /> : null}
+        {roots.error ? <Notice tone={roots.forbidden || noStorage ? 'warn' : 'bad'} text={roots.forbidden ? 'This sign-in has no files.' : noStorage ? 'This hub has no storage for shared files yet.' : `Could not read files: ${roots.error.message}`} /> : null}
         {(roots.data ?? []).length === 0 && !roots.error ? <P muted>No folders are shared with you.</P> : null}
         {(roots.data ?? []).map((r) => (
           <Pressable key={r.root} testID={`root-${r.root}`} accessibilityRole="button" onPress={() => setAt({ root: r.root, path: r.path || '/' })}>
