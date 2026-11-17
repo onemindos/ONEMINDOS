@@ -118,6 +118,38 @@ class InformationalWorkflows(unittest.TestCase):
                 self.assertTrue({"workflow_dispatch"} <= set(on), f"{name}: no manual run")
                 self.assertTrue({"schedule", "push"} & set(on), f"{name}: no schedule or push to main")
 
+    def test_net_2vm_is_strict_on_every_automatic_event(self):
+        """Nothing is counted as passed that did not run: pushes to main are the only automatic
+        coverage of the code net-2vm watches, so they must be strict like a pull request."""
+        import re
+        by_name = {n: (d, on) for n, d, on in load()}
+        d, on = by_name["net-2vm.yml"]
+        expr = None
+        for job in d["jobs"].values():
+            for step in job.get("steps", []):
+                if "ONEMIND_NET_STRICT" in (step.get("env") or {}):
+                    expr = step["env"]["ONEMIND_NET_STRICT"]
+        self.assertIsNotNone(expr, "no ONEMIND_NET_STRICT env found")
+        m = re.fullmatch(r"\$\{\{(.*)\}\}", expr.strip())
+        self.assertIsNotNone(m, f"not a single expression: {expr}")
+
+        def evaluate(body, event, strict_input):
+            tokens = re.findall(r"github\.event_name|github\.event\.inputs\.strict|'[^']*'|==|!=|&&|\|\||\(|\)", body)
+            rest = re.sub(r"github\.event_name|github\.event\.inputs\.strict|'[^']*'|==|!=|&&|\|\||\(|\)|\s+", "", body)
+            self.assertEqual(rest, "", f"evaluator does not understand: {rest!r} in {body!r}")
+            py = []
+            for t in tokens:
+                py.append({"github.event_name": repr(event), "github.event.inputs.strict": repr(strict_input),
+                           "&&": " and ", "||": " or "}.get(t, t))
+            return eval("".join(py), {"__builtins__": {}}, {})  # noqa: S307 (tokens validated above)
+
+        events = set(on)
+        self.assertIn("workflow_dispatch", events)
+        for event in sorted(events - {"workflow_dispatch"}):
+            self.assertEqual(evaluate(m.group(1), event, ""), "1", f"{event} must run strict")
+        self.assertEqual(evaluate(m.group(1), "workflow_dispatch", ""), "0")
+        self.assertEqual(evaluate(m.group(1), "workflow_dispatch", "true"), "1")
+
 
 if __name__ == "__main__":
     unittest.main()
