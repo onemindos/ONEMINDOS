@@ -5,12 +5,13 @@
 # symlink in multi-user.target.wants.
 [Unit]
 Description=OneMind: fit the data partition to the disk
-# Early boot, like onemind-firstboot (which is ordered after this unit). With default dependencies this unit
-# would wait for basic.target and drag first-boot setup behind it, after the health gate (#318 smoke F1).
+# Early boot, with no default dependencies. Deliberately NOT Before=onemind-firstboot.service: the grow is
+# online and first boot only writes small files, so first-boot setup must not wait for it. When it did, setup
+# sometimes finished after the health gate, and the smoke F1 test failed on main after #318.
 DefaultDependencies=no
 After=local-fs.target systemd-udevd.service
 ConditionPathIsMountPoint=/data
-Before=onemind-firstboot.service k3s.service shutdown.target
+Before=k3s.service shutdown.target
 Conflicts=shutdown.target
 
 [Service]
