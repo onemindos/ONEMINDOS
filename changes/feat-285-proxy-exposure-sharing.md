@@ -1,5 +1,5 @@
 ---
-pr: pending
+pr: 339
 branch: feat/285-proxy-exposure-sharing
 status_rows:
   - CORE-NET-8 | in-review | app proxy honours the exposure tier and per-app sharing (#285)

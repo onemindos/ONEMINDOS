@@ -63,6 +63,7 @@ from websockets.exceptions import ConnectionClosed, InvalidHandshake, InvalidSta
 
 from .auth import Principal, TokenStore
 from .catalog import APP_ID_RE, Catalog
+from .errors import ApiError
 
 log = logging.getLogger("onemind.proxy")
 
@@ -124,19 +125,23 @@ def token_session_resolver(tokens: TokenStore, cookie: str = SESSION_COOKIE) -> 
 
 
 def _probe(token: str, authenticators: list) -> tuple[Request, Principal | None]:
-    """The gateway's own authenticators (household sessions and API tokens, §12.6) asked about `token`.
+    """The gateway's own authenticators asked about a household session token (`om_ses_`, §12.6).
 
-    They take a Request, so one is made for a self-service route (GET /v1/me, which needs no scope);
-    a feature that refuses raises, and a refusal here is simply "not signed in". The returned
-    request carries `state.identity` for the sharing filters.
+    Only sessions open apps. An API token is scoped to routes (`instance:read`, `apps:read`...),
+    while an app host is whole-app interactive access, so a scoped token must not open one; it is
+    simply "not signed in" here. The authenticators take a Request, so one is made for GET /v1/me;
+    a refusal (ApiError: disabled account) is also "not signed in". The returned request carries
+    `state.identity` for the sharing filters.
     """
     request = Request({"type": "http", "method": "GET", "path": "/v1/me", "raw_path": b"/v1/me",
                        "query_string": b"", "scheme": "https", "client": None, "server": None,
                        "headers": [(b"authorization", f"Bearer {token}".encode("latin-1"))]})
+    if not token.startswith("om_ses_"):
+        return request, None
     for authenticate in authenticators:
         try:
             principal = authenticate(request, token)
-        except Exception:  # ApiError (scope, disabled): not signed in for an app
+        except ApiError:  # disabled account: not signed in for an app
             return request, None
         if principal is not None:
             return request, principal

@@ -174,3 +174,13 @@ def test_forward_auth_agrees_with_the_proxy(box, clock, monkeypatch):
     assert ask(MESH).status_code == 404  # shared, but the app is private: no mesh name
     set_tier(box, clock, "mesh")
     assert ask(MESH).status_code == 204
+
+
+@pytest.mark.parametrize("scopes", [["instance:read"], ["apps:read"]])
+def test_a_scoped_api_token_does_not_open_an_app_host(box, scopes):
+    # An API token is scoped to routes; an app host is whole-app interactive access, so only a
+    # household session (or a tokens-file principal) opens it, whatever read scope the token has.
+    r = box.post("/v1/tokens", json={"name": "widget", "scopes": scopes}, headers=csrf(box))
+    assert r.status_code in (200, 201), r.text
+    token = r.json()["one_time"]["token"]
+    assert open_app(box, token, LAN).status_code == 401
