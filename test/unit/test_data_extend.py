@@ -181,9 +181,11 @@ class Wiring(unittest.TestCase):
         self.assertIn("ConditionPathIsMountPoint=/data", unit)
         self.assertIn("After=local-fs.target", unit)
         self.assertRegex(unit, r"Before=.*k3s\.service")
-        self.assertRegex(unit, r"Before=.*onemind-firstboot\.service")
-        # Without this, the unit waits for basic.target and so does first-boot setup, which then
-        # finishes after the health gate (#318: smoke F1 timed out twice on exactly that).
+        # First-boot setup must never wait for the grow: when it did, setup sometimes finished after the
+        # health gate and smoke F1 failed (main after #318).
+        before = [l for l in unit.splitlines() if l.startswith("Before=")]
+        self.assertEqual(len(before), 1)
+        self.assertNotIn("onemind-firstboot", before[0])
         self.assertIn("DefaultDependencies=no", unit)
         self.assertIn("Conflicts=shutdown.target", unit)
         self.assertNotIn("Requires", unit)                          # a failed /data must not fail boot (nofail, recovery mode)
