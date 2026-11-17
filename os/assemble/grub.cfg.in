@@ -13,6 +13,16 @@ insmod ext2
 insmod regexp
 insmod loadenv
 insmod test
+# BIOS boards (vm-do, grub_platform "pc"): GRUB writes to the VGA screen only unless told, while
+# EFI firmware (OVMF, real UEFI) already mirrors GRUB's console to the serial port. Also write to
+# the first serial port, so a cloud serial console and the QEMU battery see the GRUB-RAUC line
+# (nightly vm-do T9 waited 300 s for it; #226).
+if [ "$grub_platform" = "pc" ]; then
+    insmod serial
+    serial --unit=0 --speed=115200
+    terminal_input console serial
+    terminal_output console serial
+fi
 set default=0
 set timeout=1
 @BRAND@

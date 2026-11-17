@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+name: Duplicati
+github: duplicati/duplicati
+priority: 3
+status: 'blocked: licence - image 2.4.1.0 ships opt/duplicati/Duplicati.Proprietary.*.dll (Office365, GoogleWorkspace, DiskImage, LicenseChecker), under proprietary/LICENSE (distribution forbidden), next to the MIT core. Not redistributable; list-only candidate'
+notes: market batch 3

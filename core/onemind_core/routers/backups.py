@@ -133,6 +133,10 @@ def _check_destination(b: DestinationBody) -> dict:
     return c
 
 
+# Route order in the app and in /openapi.json (routers/__init__.py).
+ORDER = 200
+
+
 def register(app: FastAPI, gw: Gateway) -> None:
     settings = gw.settings.section(BackupsSettings)
     svc = BackupService(gw, settings, pg=getattr(app.state, "databases", None))

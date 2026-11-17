@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+name: BookStack
+github: BookStackApp/BookStack
+priority: 2
+status: 'skipped: attempted locally; the only image is LinuxServer''s (nginx on ports 80 and 443, root-first init, needs a MariaDB sidecar and an app key); the non-root start was not completed, so it is deferred'
+notes: market batch 6 skip

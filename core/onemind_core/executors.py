@@ -36,8 +36,10 @@ from urllib.parse import urlsplit
 
 import yaml
 
+from .ca import MESH_DOMAIN
 from .catalog import AppEntry
 from .lifecycle import AppCredentialGrant, ExecContext, report_progress
+from .netconf import MeshSettings
 from .policy import (
     Rules,
     SandboxSettings,
@@ -91,10 +93,15 @@ class AgentSecret:
     principal_id: str
     gateway_url: str | None = None
     token: str | None = field(default=None, repr=False)
+    # H-05: the box CA (PEM, public) when the gateway is served over HTTPS; written as ONEMIND_GATEWAY_CA.
+    ca_pem: str | None = None
 
     def manifest(self, namespace: str, app_id: str) -> str:
         if not self.token or not self.gateway_url:
             raise ValueError("an agent Secret to create needs gateway_url and token")
+        data = {"ONEMIND_GATEWAY_URL": _b64(self.gateway_url), "ONEMIND_AGENT_TOKEN": _b64(self.token)}
+        if self.ca_pem:
+            data["ONEMIND_GATEWAY_CA"] = _b64(self.ca_pem)
         doc = {
             "apiVersion": "v1",
             "kind": "Secret",
@@ -107,7 +114,7 @@ class AgentSecret:
             },
             # data (base64), not stringData: the Secret is applied server-side (see plan()), and
             # data round-trips exactly through server-side apply's field ownership.
-            "data": {"ONEMIND_GATEWAY_URL": _b64(self.gateway_url), "ONEMIND_AGENT_TOKEN": _b64(self.token)},
+            "data": data,
         }
         return json.dumps(doc)  # JSON is YAML; no quoting surprises in the token or URL
 
@@ -176,7 +183,7 @@ class NoopExecutor(Executor):
         if agent is not None and action_type == "app.install":
             steps.append({
                 "would": f"create Secret {agent.name} in {ns}",
-                "keys": ["ONEMIND_GATEWAY_URL", "ONEMIND_AGENT_TOKEN"],
+                "keys": ["ONEMIND_GATEWAY_URL", "ONEMIND_AGENT_TOKEN", *(["ONEMIND_GATEWAY_CA"] if agent.ca_pem else [])],
                 "principal": agent.principal_id,
             })
         if ctx.credentials is not None and action_type == "app.install":
@@ -259,6 +266,7 @@ class KubernetesExecutor(Executor):
         health_timeout_s: float = 120,
         resolve: Callable[[str], list[str]] | None = None,
         hub_addresses: Callable[[], list[str]] | None = None,
+        static_hosts: dict[str, list[str]] | None = None,
     ):
         self.kubectl = kubectl
         self.timeout_s = timeout_s
@@ -276,6 +284,8 @@ class KubernetesExecutor(Executor):
         self.sleep = sleep
         self.health_timeout_s = health_timeout_s
         self.resolve = resolve or _resolve
+        # Names the gateway knows without asking host DNS (hub.onemind.internal -> the hub's mesh IP).
+        self.static_hosts = {h.lower(): list(v) for h, v in (static_hosts or {}).items()}
         self.hub_addresses = hub_addresses or (lambda: [])
 
     # ---- the documents the gateway itself writes ---------------------------------------------
@@ -314,7 +324,7 @@ class KubernetesExecutor(Executor):
             return []
         port = parts.port or (443 if parts.scheme == "https" else 80)
         out = []
-        for ip in self.resolve(parts.hostname):
+        for ip in self.static_hosts.get(parts.hostname.lower()) or self.resolve(parts.hostname):
             addr = ipaddress.ip_address(ip)
             out.append((f"{addr}/{32 if addr.version == 4 else 128}", port))
         return out
@@ -762,10 +772,26 @@ def local_flannel_addresses(*, names: Callable[[], list[str]] | None = None,
     return find
 
 
+def mesh_static_hosts(mesh: MeshSettings) -> dict[str, list[str]]:
+    """hub.onemind.internal -> the hub's mesh IP, when the mesh is on and the IP is a valid address.
+
+    Pods dial the gateway by this name (ONEMIND_AGENT_URL); host DNS need not know it, and
+    MagicDNS names are node-<x>.onemind.internal, not hub.
+    """
+    if not mesh.enabled or not mesh.hub_ip:
+        return {}
+    try:
+        ip = str(ipaddress.ip_address(mesh.hub_ip))
+    except ValueError:
+        return {}
+    return {f"hub.{MESH_DOMAIN}": [ip]}
+
+
 def make_executor(
-    name: str, kubectl: str = "kubectl", timeout_s: float = 300, sandbox: SandboxSettings | None = None
+    name: str, kubectl: str = "kubectl", timeout_s: float = 300, sandbox: SandboxSettings | None = None,
+    static_hosts: dict[str, list[str]] | None = None,
 ) -> Executor:
     if name == "kubernetes":
         return KubernetesExecutor(kubectl=kubectl, timeout_s=timeout_s, sandbox=sandbox,
-                                  hub_addresses=local_flannel_addresses())
+                                  hub_addresses=local_flannel_addresses(), static_hosts=static_hosts)
     return NoopExecutor()

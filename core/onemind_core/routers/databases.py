@@ -16,6 +16,10 @@ from ..databases import DatabasesSettings, SharedPostgres
 from ..errors import ApiError, error_responses
 
 
+# Route order in the app and in /openapi.json (routers/__init__.py).
+ORDER = 190  # before backups, which dumps and restores its databases
+
+
 def register(app: FastAPI, gw: Gateway) -> None:
     real = gw.executor.name == "kubernetes"
     kube = Kube(gw.settings.kubectl, gw.settings.executor_timeout_s) if real else DryKube()

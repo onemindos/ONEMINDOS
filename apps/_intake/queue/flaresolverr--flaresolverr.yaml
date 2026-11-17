@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+name: FlareSolverr
+github: FlareSolverr/FlareSolverr
+priority: 2
+status: 'skipped: not attempted; runs a Chromium, root image'
+notes: market batch 6 skip

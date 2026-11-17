@@ -40,6 +40,10 @@ def app_visible(gw: Gateway, app_id: str, request: Request, p: Principal) -> Non
         raise ApiError(404, "not_found", "no such app")
 
 
+# Route order in the app and in /openapi.json (routers/__init__.py).
+ORDER = 120
+
+
 def register(app: FastAPI, gw: Gateway) -> None:
     principal = gw.principal
 

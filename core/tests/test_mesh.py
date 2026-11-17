@@ -308,6 +308,7 @@ def test_render_policy_matches_design():
     grants = {(tuple(g["src"]), tuple(g["dst"])): g["ip"] for g in doc["grants"]}
     assert grants[(("group:owners", "group:adults"), ("tag:onemind-hub",))] == ["tcp:443"]
     assert grants[(("tag:onemind-worker", "tag:onemind-leaf"), ("tag:onemind-hub",))] == ["tcp:443", "tcp:7422"]
+    assert grants[(("tag:onemind-worker",), ("tag:onemind-hub",))] == ["tcp:6443", "tcp:8443"]  # 8443: agent pods (H-05)
     assert grants[(("tag:onemind-k3s",), ("tag:onemind-k3s",))] == ["tcp:10250", "udp:51820"]
     # guests reach nothing; no node port is granted to people; no SSH unless enabled
     flat = json.dumps(doc["grants"])

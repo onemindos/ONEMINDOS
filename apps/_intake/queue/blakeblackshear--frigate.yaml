@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+name: Frigate
+github: blakeblackshear/frigate
+priority: 2
+status: 'skipped: not attempted; the upstream image is built to start as root and to use host devices for detectors'
+notes: market batch 6 skip

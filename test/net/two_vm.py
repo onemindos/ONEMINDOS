@@ -3,7 +3,7 @@
 """2-VM network proof: hub + node join on a private QEMU network (criteria: test/net/CRITERIA-2VM.md).
 
 Boots two Debian 13 VMs, installs the hub with deploy/install.sh, issues a join ticket, joins the
-node, and checks criteria N2-0..N2-7. Each reports PASS, FAIL or BLOCKED with evidence; a criterion
+node, and checks criteria N2-0..N2-8. Each reports PASS, FAIL or BLOCKED with evidence; a criterion
 whose feature is not in the source tree yet is BLOCKED with the reason, never faked.
 Results: JSON (--results). The criteria file is pre-registered; do not change it to fit a result.
 
@@ -26,6 +26,7 @@ CRITERIA = [
     ("N2-5", "hub serves no plain HTTP to the LAN (H-05)"),
     ("N2-6", "https://<app>.<box>.local through the per-app proxy (H-29, H-34)"),
     ("N2-7", "identity __Host- cookies stripped by the proxy (H-34)"),
+    ("N2-8", "a pod on the node verifies the gateway at https://hub.onemind.internal:8443 with the box CA (H-05)"),
 ]
 FATAL = re.compile(r"Kernel panic|end Kernel panic|BUG: unable to handle|Oops:|Out of memory: Killed|"
                    r"BUG: soft lockup|VFS: Unable to mount root|Call Trace:.*(oom|panic)", re.I)
@@ -565,6 +566,46 @@ class Suite:
         else:
             self.R.set("N2-7", "FAIL", f"upstream saw cookies: [{seen}]; identity names leaked: {leaked}")
 
+    def n28(self):
+        """What an agent app pod does: resolve hub.onemind.internal (CoreDNS custom block), reach :8443
+        across the mesh, and verify the gateway certificate against the box CA only. A throwaway pod is
+        pinned to the second node, so the traffic really crosses the node's pod network."""
+        if not self.R.ok("N2-2"):
+            return self.block(["N2-8"], "N2-2 did not pass: no joined node to test")
+        rc, ca_pem = self.noderun("cat /etc/onemind/identity/ca.pem", 30)  # the box CA, as in N2-6
+        rc2, host = self.noderun("hostname -s", 30)
+        node_name = host.strip().splitlines()[-1].lower() if rc2 == 0 and host.strip() else ""
+        if rc != 0 or "BEGIN CERTIFICATE" not in ca_pem or not node_name:
+            return self.R.set("N2-8", "BLOCKED", f"harness could not read the box CA or the node name (rc {rc}/{rc2})")
+        url = "https://hub.onemind.internal:8443/v1/tls/ca.crt"  # public route: the box CA is public data
+        cmd = ("printf '%s' \"$BOX_CA\" > /tmp/ca.pem; "
+               f"curl -sS -m 20 --cacert /tmp/ca.pem -o /tmp/body -w 'http=%{{http_code}} verify=%{{ssl_verify_result}}\\n' {url} 2>&1; echo curl_rc=$?")
+        pod = {"apiVersion": "v1", "kind": "Pod", "metadata": {"name": "h05-agent-ca", "namespace": "default"},
+               "spec": {"nodeName": node_name, "restartPolicy": "Never",
+                        "securityContext": {"runAsNonRoot": True, "runAsUser": 1000, "seccompProfile": {"type": "RuntimeDefault"}},
+                        "containers": [{"name": "curl", "image": "docker.io/curlimages/curl:8.10.1", "command": ["sh", "-c", cmd],
+                                        "env": [{"name": "BOX_CA", "value": ca_pem}],
+                                        "securityContext": {"allowPrivilegeEscalation": False, "capabilities": {"drop": ["ALL"]}}}]}}
+        k = "k3s kubectl -n default"
+        script = (f"{k} delete pod h05-agent-ca --ignore-not-found --wait=true >/dev/null 2>&1\n"
+                  f"cat <<'YEOF' | k3s kubectl apply -f - 2>&1\n{json.dumps(pod)}\nYEOF\n"
+                  f"for i in $(seq 1 60); do p=$({k} get pod h05-agent-ca -o jsonpath='{{.status.phase}}' 2>/dev/null); "
+                  "case $p in Succeeded|Failed) break;; esac; sleep 5; done; "
+                  f"echo phase=$p; {k} logs h05-agent-ca 2>&1 | tail -5")
+        rc, out = self.hubrun(script, 420)
+        phase = re.search(r"phase=(\w*)", out)
+        if not phase or phase.group(1) not in ("Succeeded", "Failed"):
+            self.logs["n28-diagnostics.txt"] = self.hubrun(f"{k} describe pod h05-agent-ca 2>&1 | tail -40; k3s kubectl -n kube-system get cm coredns-custom -o yaml 2>&1", 60)[1]
+            return self.R.set("N2-8", "BLOCKED", f"the probe pod did not finish (image pull or scheduling, a harness limit): {out.strip()[-200:]}")
+        m = re.search(r"http=(\d+) verify=(\d+)", out)
+        self.hubrun(f"{k} delete pod h05-agent-ca --wait=false >/dev/null 2>&1", 30)
+        if m and m.group(1) == "200" and m.group(2) == "0" and "curl_rc=0" in out:
+            self.R.set("N2-8", "PASS", f"pod on {node_name}: {url} -> HTTP 200 with certificate verification on (box CA only)")
+        else:
+            self.logs["n28-diagnostics.txt"] = self.hubrun("k3s kubectl -n kube-system get cm coredns-custom -o yaml 2>&1; k3s kubectl -n kube-system logs deploy/coredns --tail=20 2>&1; "
+                                                          "ss -ltnH 'sport = :8443' 2>&1; grep ONEMIND_AGENT_URL /etc/onemind/gateway.env 2>&1", 60)[1]
+            self.R.set("N2-8", "FAIL", f"pod on {node_name}: {out.strip()[-300:]}")
+
     # -- dumps
     def dump(self, outdir):
         os.makedirs(outdir, exist_ok=True)
@@ -613,7 +654,7 @@ def main():
         s.n21()
         s.n25()
         s.n22()
-        for step in (s.n23, s.n24, s.n26_27):
+        for step in (s.n23, s.n24, s.n26_27, s.n28):
             if any(not s.R.done(i) for i in ("N2-2",)):
                 break
             step()

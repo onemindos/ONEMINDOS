@@ -173,8 +173,12 @@ from the gateway. Both are cluster-start settings: an upgrade restarts k3s once.
 
 ### Agent apps (contract §7, §11.2), the deploy side
 - `gateway.env` sets `ONEMIND_PUBLIC_URL` (the `--hub` URL, else `https://<primary IP>:8443`): the
-  URL app pods use to reach the gateway, which the wave-2 gateway writes into each agent app's
-  Secret as `ONEMIND_GATEWAY_URL`. The wave-1 gateway ignores the variable.
+  browser/LAN URL. It also sets `ONEMIND_AGENT_URL=https://hub.onemind.internal:8443`, the URL the
+  gateway writes into each agent app's Secret as `ONEMIND_GATEWAY_URL`: pods verify the gateway
+  certificate against the box CA only, and that certificate has DNS names and no LAN IP (the CA
+  also forbids non-mesh IPs). The installer adds a `coredns-custom` ConfigMap (kube-system) so pods
+  resolve `hub.onemind.internal` to the hub's mesh address, and the gateway maps the same name to it
+  for the app's egress NetworkPolicy.
 - The per-app RoleBinding above lets the gateway create and delete Secrets in `app-<id>`, which §11.2 needs.
 - The **owner** enters Hermes's model-provider keys (`hermes-agent-credentials`, declared in its
   `spec.secrets`) in the install approval; the gateway stores them encrypted and writes the Secret
@@ -189,7 +193,8 @@ from the gateway. Both are cluster-start settings: an upgrade restarts k3s once.
 - *(Retired by H-05, CORE-NET-11.)* **Gateway bound to `0.0.0.0:8080`.** Plain HTTP now listens on loopback only
   (`--gateway-bind` defaults to `127.0.0.1`, and the gateway narrows anything wider while HTTPS is on); the LAN is
   served by HTTPS on `:443` and `:8443` with the box CA. Agent apps in pods reach it on `https://<primary IP>:8443`;
-  delivering the box CA to those pods (`ONEMIND_GATEWAY_CA`) is not built yet (hardening H-05, follow-up).
+  with HTTPS on, the gateway writes the box CA (PEM) into each agent app's Secret as `ONEMIND_GATEWAY_CA` next to
+  `ONEMIND_GATEWAY_URL`, and the SDKs' `from_env`/`FromEnv`/`fromEnv` verify TLS against that CA only.
 - *(Retired by CORE-NET-11, see Networking above.)* **NATS has no auth or TLS** and listens on `0.0.0.0:4222`, because the contract's v0 shortcut is
   "nodes publish straight to the hub's NATS". Anyone on the LAN can publish fake heartbeats. Leaf
   nodes + account permissions (D-B6.5) replace this.

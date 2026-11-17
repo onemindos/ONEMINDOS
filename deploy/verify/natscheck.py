@@ -6,7 +6,10 @@ Ported from PR #27 and adapted to the NATS auth main has (contract §1, §12.9):
   * the hub NATS of a developer install has no auth (v0); `ping` says so (auth_required=False),
   * onemindd takes credentials only inside ONEMIND_NATS_URL (nats://TOKEN@host or user:pass@host),
   * per-node nkey users and TLS with the box CA (H-06) arrive through the node's NATS leaf, which
-    listens on loopback; `leafz` reads that leaf's /leafz to see whether its link to the hub is up.
+    listens on loopback; `leafz` reads that leaf's /leafz to see whether its link to the hub is up,
+  * on a strict hub (CORE-SEC-4, #161) every local client signs in with a service nkey: --nkey SEED
+    (or ONEMIND_NATS_NKEY_SEED in the --env-file) signs the server's nonce. Signing needs the
+    `cryptography` package, which the gateway's Python has: run with /opt/onemind/venv/bin/python.
 
   natscheck.py ping  (URL | --env-file F) [--ca FILE] [--timeout S]
       connect, authenticate, PING/PONG; exit 0 if the server answered
@@ -34,6 +37,45 @@ HEARTBEAT_SCHEMA = "onemind.node.status/v1"
 SUBJECT_RE = re.compile(r"onemind\.node\.([A-Za-z0-9_-]{1,64})\.status")
 
 
+def read_env(path, key):
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if line.startswith(key + "="):
+                return line.split("=", 1)[1].strip().strip('"').strip("'")
+    return None
+
+
+def _crc16(data):
+    crc = 0
+    for b in data:
+        crc ^= b << 8
+        for _ in range(8):
+            crc = ((crc << 1) ^ 0x1021) if crc & 0x8000 else crc << 1
+            crc &= 0xFFFF
+    return crc
+
+
+def nkey_auth(seed_file, nonce):
+    """CONNECT fields for a NATS user nkey: the public key and the nonce signed with the seed."""
+    import base64
+    try:
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+        from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+    except ImportError:
+        raise ConnectionError("signing an nkey needs the cryptography package: run with /opt/onemind/venv/bin/python")
+    with open(seed_file, encoding="ascii") as f:
+        text = f.read().strip()
+    raw = base64.b32decode(text + "=" * (-len(text) % 8))
+    if len(raw) != 36 or _crc16(raw[:-2]) != int.from_bytes(raw[-2:], "little") or raw[0] >> 3 != 18:
+        raise ValueError("%s is not an nkey seed" % seed_file)
+    key = Ed25519PrivateKey.from_private_bytes(raw[2:34])
+    pub = bytes([(raw[0] & 7) << 5 | raw[1] >> 3]) + key.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)
+    nkey = base64.b32encode(pub + _crc16(pub).to_bytes(2, "little")).decode().rstrip("=")
+    sig = base64.urlsafe_b64encode(key.sign(nonce.encode())).decode().rstrip("=")
+    return {"nkey": nkey, "sig": sig}
+
+
 def read_env_url(path):
     with open(path, encoding="utf-8") as f:
         for line in f:
@@ -53,7 +95,8 @@ def safe_url(url):
 
 
 class Conn:
-    def __init__(self, url, timeout, ca=None):
+    def __init__(self, url, timeout, ca=None, nkey=None):
+        self.nkey = nkey
         u = urlsplit(url if "://" in url else "nats://" + url)
         if u.scheme not in ("nats", "tls"):
             raise ValueError("only nats:// and tls:// URLs are supported")
@@ -84,6 +127,8 @@ class Conn:
             opts.update(user=user, **{"pass": unquote(u.password)})
         elif user:
             opts["auth_token"] = user
+        elif self.nkey and self.info.get("nonce"):
+            opts.update(nkey_auth(self.nkey, self.info["nonce"]))
         elif self.info.get("auth_required") and self.info.get("nonce"):
             raise ConnectionError("the server wants nkey or JWT credentials (H-06 per-node users); natscheck "
                                   "signs no nonces: check the node's leaf link instead (natscheck.py leafz)")
@@ -123,6 +168,12 @@ class Conn:
             pass
 
 
+def nkey_of(a):
+    if getattr(a, "nkey", None):
+        return a.nkey
+    return read_env(a.env_file, "ONEMIND_NATS_NKEY_SEED") if a.env_file else None
+
+
 def url_of(a):
     if a.env_file:
         return read_env_url(a.env_file)
@@ -133,7 +184,7 @@ def url_of(a):
 
 def cmd_ping(a):
     url = url_of(a)
-    c = Conn(url, a.timeout, a.ca)
+    c = Conn(url, a.timeout, a.ca, nkey_of(a))
     c.close()
     i = c.info
     print("ok: NATS %s at %s answered (tls=%s, auth_required=%s)" % (
@@ -143,7 +194,7 @@ def cmd_ping(a):
 
 def cmd_watch(a):
     url = url_of(a)
-    c = Conn(url, a.timeout, a.ca)
+    c = Conn(url, a.timeout, a.ca, nkey_of(a))
     c.sock.sendall(("SUB %s 1\r\nPING\r\n" % a.subject).encode())
     seen, deadline = {}, time.time() + a.timeout
     try:
@@ -207,6 +258,7 @@ def main(argv=None):
         p.add_argument("url", nargs="?", help="nats://[TOKEN@|USER:PASS@]host:4222 or tls://... (visible in ps)")
         p.add_argument("--env-file", help="read ONEMIND_NATS_URL from this KEY=VALUE file")
         p.add_argument("--ca", help="CA file for tls:// (the box CA)")
+        p.add_argument("--nkey", help="NATS user seed file (a strict hub; default ONEMIND_NATS_NKEY_SEED from --env-file)")
         p.add_argument("--timeout", type=float, default=5 if name == "ping" else 30)
         if name == "watch":
             p.add_argument("--subject", default="onemind.node.*.status")

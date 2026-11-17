@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import ssl
 import time
 import warnings
 from collections.abc import Callable, Iterator
@@ -23,7 +24,8 @@ class Client:
     def __init__(self, base_url: str, token: str = "", *, timeout: float = core.DEFAULT_TIMEOUT_S, retries: int = 3,
                  principal: str | None = None, transport: httpx.BaseTransport | None = None,
                  refresh: Callable[[], str | None] | None = None, sleep: Callable[[float], None] = time.sleep,
-                 trace: Callable[[str, str, int, float], None] | None = None):
+                 trace: Callable[[str, str, int, float], None] | None = None,
+                 verify: ssl.SSLContext | bool = True):
         self.base_url = core.normalize_hub_url(base_url)
         self._token = token
         self._attempts = max(1, retries)
@@ -34,7 +36,7 @@ class Client:
         self._offset = timedelta(0)
         self._expiry = core.ExpiryMemo()
         self._warned = False
-        self._http = httpx.Client(base_url=self.base_url, timeout=timeout, transport=transport,
+        self._http = httpx.Client(base_url=self.base_url, timeout=timeout, transport=transport, verify=verify,
                                   headers={"User-Agent": f"onemind-sdk-python/{core.VERSION}"})
         self.instance = _Instance(self)
         self.nodes = _Nodes(self)
@@ -46,6 +48,9 @@ class Client:
     @classmethod
     def from_env(cls, env: dict[str, str] | None = None, **kw: Any) -> Client:
         hub, token = core.from_env(env)
+        ca = core.ca_context(env)  # ONEMIND_GATEWAY_CA: trust the box CA (verification stays on)
+        if ca is not None:
+            kw.setdefault("verify", ca)
         return cls(hub, token, **kw)
 
     def __repr__(self) -> str:

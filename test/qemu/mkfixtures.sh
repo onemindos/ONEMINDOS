@@ -56,7 +56,7 @@ setver 4; k3sargs "--disable-agent";              ext4 v; bundle v 4 bad-noagent
 k3sargs ""
 if [ "$UPTO" != T5 ]; then
   mv "$T/sbin/init" "$T/sbin/init.real"
-  printf '#!/bin/sh\necho "BAD-BOOT: broken init exiting"\nexit 1\n' > "$T/sbin/init"; chmod 755 "$T/sbin/init"
+  install -m 755 "$SRC/test/qemu/bad-boot-init" "$T/sbin/init"
   setver 5; ext4 v; bundle v 5 bad-boot dev                                          # kernel panic
   install -m 755 "$SRC/test/qemu/bad-hang-init" "$T/sbin/init"
   setver 6; ext4 v; bundle v 6 bad-hang dev                                          # hang, watchdog armed

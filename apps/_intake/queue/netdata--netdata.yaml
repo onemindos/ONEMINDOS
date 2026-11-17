@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+name: Netdata
+github: netdata/netdata
+priority: 2
+status: 'blocked: the agent image redistributes the Netdata Cloud UI under NCUL1, a non-open licence (REDISTRIBUTED.md at v2.12.3); also needs host PID, network and /proc access, which apps may not use'
+notes: market batch 5
