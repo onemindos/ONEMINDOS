@@ -67,7 +67,7 @@ Terms: an **onion service** is an address ending in `.onion` that is reachable o
 
 - The gateway path is not built yet (#284, the next PR). The onion service forwards to the dashboard at `ONEMIND_DASHBOARD_TARGET` (`ip:port`), which the gateway will provide as ConfigMap `onemind-gateway-path`, together with an egress allowance to that port only. Until then the init container stops with a clear message, so the app reports failed rather than pretending to work.
 - QR codes for the address and the keys are not in this version: copy the text instead.
-- The sign-in now accepts the box's own `.onion` address as its WebAuthn origin over `http://` (#284 PR B1; the gateway has no other Host allow-list). Whether the sign-in cookies work over `.onion` stays UNVERIFIED until that PR tests it in Tor Browser.
+- The sign-in now accepts a well-formed `.onion` address as its WebAuthn origin over `http://` (#284 PR B1; the gateway has no other Host allow-list, and it does not yet compare the address with this box's own, which waits for `onemind-gateway-path`). **Over Tor, sign in with the password:** a passkey works only on the address it was made for, so the LAN passkey does not work on the `.onion`, and adding an onion passkey needs a passkey sign-in on that same address. Owner approvals and administration that need a passkey therefore do not work over Tor yet; a follow-up on #284 must add an owner-approved, single-use enrolment. A box that sets `ONEMIND_IDENTITY_ORIGINS` does not get the onion origin. Whether the sign-in cookies work over `.onion` stays UNVERIFIED until it is tested in Tor Browser (a hardware step on #284).
 <!-- onemind:notes:end -->
 
 ## Latest security scan

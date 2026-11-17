@@ -3,8 +3,13 @@
 
 from __future__ import annotations
 
+import dataclasses
 from types import SimpleNamespace
 
+from fastapi.testclient import TestClient
+
+from conftest import OWNER
+from onemind_core.app import create_app
 from onemind_core.identity.service import IdentityService
 from onemind_core.identity.settings import IdentitySettings
 
@@ -40,3 +45,36 @@ def test_only_well_formed_v3_onion_addresses():
 
 def test_configured_origins_still_win():
     assert rp(ONION, origins=("https://box.example.com",))[1] == ["https://box.example.com"]
+
+
+
+# ---- through the real routes: what an owner can and cannot do over the onion origin ---------------
+def test_owner_with_a_lan_passkey_over_onion_has_password_only(settings, clock, executor):
+    """Pins the known limit (review of #335): a passkey belongs to one relying party, so the LAN
+    passkey does not work on the onion origin, and adding an onion passkey needs a passkey sign-in
+    on that same origin (step-up), which the owner cannot have yet. Password sign-in works."""
+    from onemind_core.identity.crypto import b64url
+    from test_identity import PASSWORD, SoftAuthenticator, csrf
+
+    cfg = IdentitySettings(cookie_secure=False)
+    app = create_app(dataclasses.replace(settings, sections={**settings.sections, "identity": cfg}),
+                     clock=clock, executor=executor)
+    lan_host = "onemind.local"
+    key = SoftAuthenticator(rp_id=lan_host, origin=f"https://{lan_host}")
+    with TestClient(app, base_url=f"https://{lan_host}") as lan, TestClient(app, base_url=f"http://{ONION}") as tor:
+        assert lan.post("/v1/auth/setup", headers=OWNER, json={
+            "username": "zeus", "display_name": "Zeus", "password": PASSWORD}).status_code == 201
+        opts = lan.post("/v1/auth/passkeys/register/options", headers=csrf(lan)).json()
+        assert lan.post("/v1/auth/passkeys/register", headers=csrf(lan),
+                        json={"credential": key.register(opts), "label": "laptop"}).status_code == 201
+
+        # password sign-in works over the onion origin
+        assert tor.post("/v1/auth/login", json={"username": "zeus", "password": PASSWORD}).status_code == 200
+        # ... but the LAN passkey does not (different relying party)
+        o = tor.post("/v1/auth/login/options").json()
+        assert o["publicKey"]["rpId"] == ONION
+        assert TestClient(app, base_url=f"http://{ONION}").post(
+            "/v1/auth/login", json={"passkey": key.assert_(o["publicKey"]["challenge"])}).status_code == 401
+        # ... and an onion passkey cannot be added: step-up needs a passkey sign-in on this origin
+        r = tor.post("/v1/auth/passkeys/register/options", headers=csrf(tor))
+        assert r.status_code == 401 and "step_up_required" in r.text, r.text
