@@ -5,6 +5,7 @@
 name: net-2vm
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'test/net/**'
       - 'deploy/**'
@@ -37,10 +38,11 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: net-2vm-${{ github.ref }}
+  group: net-2vm-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   two-vm:
+    if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-24.04
     timeout-minutes: 75
     steps:

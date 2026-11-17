@@ -13,6 +13,7 @@ name: ui-quality
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'ui/**'
       - 'dashboard/**'
@@ -35,11 +36,12 @@ on:
 permissions: {}
 
 concurrency:
-  group: ui-quality-${{ github.event_name }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: ui-quality-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build:
+    if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
@@ -77,6 +79,7 @@ jobs:
           retention-days: 3
 
   browsers:
+    if: ${{ !github.event.pull_request.draft }}
     name: ${{ matrix.browser }}
     needs: build
     runs-on: ubuntu-24.04
@@ -152,7 +155,7 @@ jobs:
   # ui/test/visual/<browser>/. Review happens in the pull request (GitHub shows image diffs).
   commit-baseline:
     needs: browsers
-    if: ${{ !cancelled() && github.event_name == 'workflow_dispatch' && inputs.update_baseline && github.ref != 'refs/heads/main' }}
+    if: ${{ !github.event.pull_request.draft && (!cancelled() && github.event_name == 'workflow_dispatch' && inputs.update_baseline && github.ref != 'refs/heads/main') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
