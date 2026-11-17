@@ -36,7 +36,8 @@ To check everything at once, run `deploy/verify/verify.sh` ([Install](../../gett
 | `the gateway did not answer /healthz in 60 s (journalctl -u onemind-gateway)` | Read that log. A port conflict on 8080 is one cause: another program already uses it. |
 | `sha256 mismatch for ...` | A download did not match the checksum OneMind pins for it. The script refuses to use it. Try again later; if it repeats, report it, because it can mean the download was tampered with. |
 | `--hub must look like http://HOST:8080` | Give the hub's address with `http://` and the port, for example `http://hub.local:8080`. |
-| `--token has unexpected characters` | Copy the join token again, exactly as the hub printed it. |
+| `--token was the v0 shared join secret …` | Machines now join with a one-time code. On the hub run `onemind fabric ticket` (or **Add a device**), then use `--join '<the code>'`. |
+| `--join does not look like a OneMind join code` | Copy the whole code, starting with `onemind-join:v1?`, and put it in single quotes. |
 
 ## Signing in
 
@@ -67,7 +68,7 @@ It works at once; no restart is needed. Then open `/etc/onemind/tokens.yaml` wit
 | A machine never appears on **Nodes** | On that machine: `systemctl status onemindd`, and check that `/etc/onemind/onemindd.env` names the hub as `nats://<hub-address>:4222`. The machine must be able to reach the hub on port 4222. |
 | A machine shows **stale** (no report for 30 s) or **offline** (120 s) | It stopped reporting: it is off, its network is down, or `onemindd` stopped. The card's numbers are its last report, not live. |
 | A machine is in k3s but its k3s part is not ready | On that machine: `journalctl -u k3s-agent -e`. It must reach the hub on port 6443. |
-| The hub's address changed | Run the join command again on each machine (the hub prints it every time its install script runs). |
+| The hub's address changed | On each machine, run the join command again with a fresh code from `onemind fabric ticket`. |
 | What does this machine report? | `onemind node info` on it prints exactly what it sends to the hub. |
 
 ## Apps and approvals

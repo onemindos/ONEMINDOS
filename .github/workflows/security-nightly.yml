@@ -39,7 +39,9 @@ env:
   CHANNEL_TAG: os-channel-security
   TRACKER_URL: https://security-tracker.debian.org/tracker/data/json
 jobs:
-  unit:
+  # Not named `unit`: main's required checks match by job name, so a failed or cancelled job of that name
+  # here would block every PR like ci's `unit` does.
+  update-unit:
     if: github.event.schedule != '41 */6 * * *'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -53,7 +55,7 @@ jobs:
           "$RUNNER_TEMP/tuf/bin/python" -I -m unittest discover -s os/update/tests -p 'test_tuf_*.py' -v
 
   check:
-    needs: unit
+    needs: update-unit
     if: github.event_name != 'pull_request'
     strategy:
       fail-fast: false
@@ -417,3 +419,14 @@ jobs:
           gh release upload "$CHANNEL_TAG" -R "$GITHUB_REPOSITORY" --clobber repo/targets.json
           gh release upload "$CHANNEL_TAG" -R "$GITHUB_REPOSITORY" --clobber repo/snapshot.json
           gh release upload "$CHANNEL_TAG" -R "$GITHUB_REPOSITORY" --clobber repo/timestamp.json
+
+  # REL-03 (#302): a box refuses an expired root, so the nightly goes red 60 days before the committed
+  # root expires, which is the signal to arrange the offline renewal. No secrets, no environment.
+  root-expiry:
+    if: github.event_name != 'pull_request' && github.event.schedule != '41 */6 * * *'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Fail 60 days before a committed root expires
+        run: python3 -I os/update/root-expiry.py --warn-days 60

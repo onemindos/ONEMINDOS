@@ -28,21 +28,24 @@
 1. **Get the image.** From the latest green `image` workflow run on the PR, download the artifact `image-debian-vm-do`. It holds `onemind-vm-do-<v>.qcow2`, `onemind-vm-do-<v>.raucb`, `onemind-vm-do-<v>-next.raucb`, `dev-ca.cert.pem` and `SHA256SUMS`. Check: `shasum -a 256 -c SHA256SUMS --ignore-missing`.
    Or build it on the Mac: `make rootfs BOARD=vm-do && make image BOARD=vm-do && make convert BOARD=vm-do` (images land in `out/image-vm-do/`).
 2. **Upload** (D1): DigitalOcean control panel → Backups & Snapshots → Custom Images → Upload Image → the `.qcow2`; distribution "Unknown/Debian", the region you use.
-3. **Create a droplet** (D2) from that custom image, smallest plan with a ≥ 25 GB disk, **your SSH key** selected, no user data. Open the web console and watch the boot (`GRUB-RAUC: …`, then `HEALTH-GATE: … RESULT committed-boot slot=A`).
-4. **Check** (D3, D4, D6) over SSH:
+3. **Before you create the droplet: the firewall and the role.** A droplet is on the public internet from its first second, and OneMind's gateway speaks plain HTTP on 8080 (no HTTPS yet), so protect it first.
+   - **Cloud Firewall** (control panel → Networking → Firewalls → Create). Inbound rules, nothing else: **TCP 22 (SSH) from your own IP only**, and **TCP 8080 (dashboard, plain HTTP) from your own IP only**. Everything else is closed by default. The cluster's own ports must **never** be open to the internet: **4222** (NATS bus), **6443** (k3s API), **10250** (kubelet), **8472/udp** (VXLAN between nodes). Apply the firewall to the droplet **by name when you create it** (the create page has a Firewalls box), so there is no window without it.
+   - **User data** (the create page's Advanced Options → "Add initialization scripts"): paste the contents of [`os/cloud/user-data.hub.yaml`](../../os/cloud/user-data.hub.yaml). The part that matters is `onemind:` with `role: hub`. Without it the box never becomes a hub: it waits for a role, and a droplet has no screen where you could choose one. (An earlier version of this kit said to leave user data empty; that leaves the box with no role.)
+4. **Create the droplet** (D2) from that custom image: smallest plan with a ≥ 25 GB disk, **your SSH key** selected, the user data above, the firewall above. Open the web console and watch the boot (`GRUB-RAUC: …`, then `HEALTH-GATE: … RESULT committed-boot slot=A`). The owner token appears once: `ssh admin@<droplet-ip> sudo cat /run/onemind/owner-token` (it is gone after the first reboot). Copy it, then open `http://<droplet-ip>:8080/` from your own IP.
+5. **Check** (D3, D4, D6) over SSH:
    ```bash
    ssh admin@<droplet-ip>
    cloud-init status --long; ip -br a; df -h /data
    sudo rauc status; sudo cat /data/onemind/gate.log
    touch /usr/x; ls /etc/ssh/ssh_host_* /data/onemind/ssh/
    ```
-5. **Update** (D5): copy the next bundle up and install it.
+6. **Update** (D5): copy the next bundle up and install it.
    ```bash
    scp onemind-vm-do-*-next.raucb admin@<droplet-ip>:   # into ~admin, which lives on /data
    ssh admin@<droplet-ip> 'sudo rauc install ~/onemind-vm-do-*-next.raucb && sudo systemctl reboot'
    ```
    Wait 5 minutes without touching anything, then SSH back in (the host key must not change) and run `sudo rauc status; sudo tail -5 /data/onemind/gate.log`.
-6. **Record:** pipe everything you paste through `sh lab-kits/common/redact.sh` (it masks the droplet's IP addresses), write `research-output/evidence/lab/founder-hardware/LT-DO-01.md` from [`../common/RESULT-TEMPLATE.md`](../common/RESULT-TEMPLATE.md), and **destroy the droplet and the custom image** afterwards (the image carries a throwaway dev CA; it is a test image, not a release).
+7. **Record:** pipe everything you paste through `sh lab-kits/common/redact.sh` (it masks the droplet's IP addresses), write `research-output/evidence/lab/founder-hardware/LT-DO-01.md` from [`../common/RESULT-TEMPLATE.md`](../common/RESULT-TEMPLATE.md), and **destroy the droplet and the custom image** afterwards (the image carries a throwaway dev CA; it is a test image, not a release).
 
 ## If it fails
 - **No boot at all on the console:** note the last line. "GRUB" missing means the BIOS boot sector patch (`os/assemble/assemble.py` `install_bios_boot`) did not work on DigitalOcean's firmware even though SeaBIOS passed; a fallback is to let `grub-install --target=i386-pc` write it from a loop device in CI.

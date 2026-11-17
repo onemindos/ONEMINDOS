@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 
 from .. import lifecycle as lc
 from ..actions import ActionParams, PlanRequest, PlanRequestBody
+from ..agent_catalog import agent_catalog_filter
 from ..apimodels import AppCredentials, PlanPreview
 from ..auth import Principal
 from ..catalog import APP_ID_RE
@@ -46,6 +47,7 @@ ORDER = 120
 
 def register(app: FastAPI, gw: Gateway) -> None:
     principal = gw.principal
+    gw.app_filters.append(agent_catalog_filter(gw))
 
     @app.get("/v1/apps", tags=["apps"], operation_id="apps.list", response_model=list[CatalogApp], responses=error_responses(401))
     def list_apps(request: Request, p: Principal = Depends(principal)):

@@ -22,6 +22,7 @@ from pydantic import ValidationError
 
 from .. import __version__
 from ..actions import APP_CLAIMS, ActionParams, ActionRequest
+from ..ai_policy import catalog_visible_to_ai
 from ..auth import Principal
 from ..errors import ApiError
 from .limits import Limits
@@ -285,7 +286,8 @@ class Catalogue:
         return result(node, NODE_FIELDS, _source(node, "", "node_id", "node"))
 
     def _apps(self, category=None, installed=None) -> list[dict]:
-        rows = self.svc.list_apps()
+        # Filter before pagination, wrapping or serialization (text AND structuredContent).
+        rows = [a for a in self.svc.list_apps() if catalog_visible_to_ai(a)]
         if category is not None:
             rows = [a for a in rows if a.get("category") == category]
         if installed is not None:
@@ -308,7 +310,7 @@ class Catalogue:
 
     def t_get_app(self, p, args):
         app_id = _str(_args(args, {"app_id"}), "app_id", True)
-        app = next((a for a in self.svc.list_apps() if a.get("id") == app_id), None)
+        app = next((a for a in self._apps() if a.get("id") == app_id), None)
         if app is None:
             return refusal("not_found", f"app {app_id!r} is not in the catalog")
         return result(app, APP_FIELDS, _source(app, "", "id", "app"))
@@ -410,7 +412,7 @@ class Catalogue:
         parts = path.split("/")
         if path == "catalog":
             s = {"apps": [{k: a.get(k) for k in ("id", "name", "version", "category", "tier", "scan", "status")}
-                          for a in self.svc.list_apps()]}
+                          for a in self._apps()]}
             r = result(s, _under("apps", ["name", "category"]), _source(s, "apps", "id", "app"))
         elif len(parts) == 2 and parts[0] == "catalog":
             r = self.t_get_app(p, {"app_id": parts[1]})

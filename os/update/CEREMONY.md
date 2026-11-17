@@ -75,7 +75,31 @@ Use the commands as written. `<stick-a>` is where holder A's stick is mounted (f
    - Signed releases need more than the TUF keys: `ONEMIND_RAUC_SIGNING_KEY`, `ONEMIND_RAUC_SIGNING_CERT` and the variable `ONEMIND_SECURITY_PUBLISH=true` ([README](README.md)). Those are not made here.
 10. **Wipe the online machine.** Shut the live USB down (it forgets), or securely delete `online/` and `out/`. The root `.key` files exist only on the three sticks. Wipe the transfer stick.
 11. **Store the sticks** in three places, one each: home, off-site, a trusted person. The succession note (who may act if you cannot, and where the sticks and passphrases are) goes in a **sealed envelope, never in the repo**.
-12. **Calendar the renewal.** The root **expires after 365 days** ([channel.json](channel.json)), and a box refuses an expired root, so put a reminder 60 days before. **Renewal is not built yet:** it needs a new `2.root.json` signed by 2 of the 3 holders (and by the old root keys, as TUF's root rotation requires). `tuf-repo.py init-root` has a `--version` option, but `scripts/tuf-bootstrap-root.sh` has no renewal command and no rehearsal for it. That is a follow-up to finish within the year; moving the root onto hardware tokens (#272) is the same kind of rotation and counts as the required drill (D-010).
+12. **Calendar the renewal.** The root **expires after 365 days** ([channel.json](channel.json)), and a box refuses an expired root, so put a reminder 90 days before. The nightly (`root-expiry` job in `security-nightly.yml`) also goes red 60 days before expiry. Renewal is done as described in **Renewing the root** below.
+
+## Renewing the root
+A root lives 365 days. If it expires, every box refuses every update, security fixes included, and a box cannot fetch a new root by itself without one signed by keys it already trusts. So the root is renewed **before** it expires, offline, by the same 2-of-3 holders. Renewal makes root **version N+1** with the **same keys and thresholds** and a new expiry. It is not a key rotation (no key changes), so a box needs nothing but the new file: it walks `1.root.json`, `2.root.json`, … and accepts each one signed by the threshold of the keys the previous one trusted (TUF's root rotation rule, [CHANNEL.md §2](CHANNEL.md)).
+
+**When.** The nightly fails with `::error:: … expires in 60 days` from 60 days before expiry. Do it in the 30 days after that, not on the last day: holders travel.
+
+**Practise first** (any time, on any machine; it uses throwaway keys and takes a few seconds):
+```sh
+scripts/tuf-bootstrap-root.sh rehearse-renewal /tmp/renewal-rehearsal   # a new, empty path
+```
+It runs the whole ceremony, then a renewal signed by holders B and C (A absent), checks that **one holder alone is refused**, and checks that a client which trusts only version 1 follows the chain to version 2.
+
+**For real** (air-gapped machine, two holders present, as in the ceremony; the printed sheet is [CEREMONY-CHECKLIST.md](CEREMONY-CHECKLIST.md) part B):
+1. Boot the offline machine, mount the two sticks, and copy the **current** committed `root.json` of the channel onto it.
+2. Run (it asks each holder for their passphrase, and refuses if fewer than the threshold sign, if a key is not a root key of the current root, or in CI):
+   ```sh
+   scripts/tuf-bootstrap-root.sh renew current/root.json out-renewed <stick-1>/root.key <stick-2>/root.key
+   ```
+   It checks that a box holding version N accepts the result, then prints the sheet (version, sha256, key ids, expiry).
+3. **Read the sheet aloud.** The key ids must be the **same** as in the old root, `version` one higher, about 365 days left, and two valid signatures. The holders sign the printout.
+4. Carry only `out-renewed/root.json` and `out-renewed/<N+1>.root.json` out on the transfer stick. Commit `root.json` as `os/rootfs/layers/base/usr/lib/onemind/tuf/<channel>/root.json` in a PR (the gate reviews it). The next nightly publish copies `<N+1>.root.json` next to the older roots on the channel (the build keeps every numbered root), and new images carry the new `root.json`.
+5. Wipe the offline machine and the transfer stick; set the next reminder.
+
+**Order matters:** publish the renewed root on the channel (the next nightly after the PR merges) **before** the old one expires, and keep every older `<N>.root.json` on the channel: a box that was off for months needs the whole chain. Test it once the PR is in: on a spare box or VM image built before the renewal, update; it must reach the new root without help.
 
 ## If something goes wrong
 
@@ -87,7 +111,7 @@ Use the commands as written. `<stick-a>` is where holder A's stick is mounted (f
 | `refusing to overwrite a key` / `already holds a root.json` | The folder already has a key or a root | Use a **new** folder. Never delete a real root.json to retry: ask the gate |
 | `need at least 2 distinct root keys, 2 of them to sign` | Fewer than 2 private keys were given | Two holders must be present and sign |
 | `check` prints a `FAIL` line | The root is not the shape D-010 requires | Do not use it. Delete the output folder and redo step 6 |
-| A holder loses a stick or its passphrase | One of three is gone; 2-of-3 still works for signing | Nothing breaks today. Replacing the third key needs the renewal tooling (step 12), which is not built yet: tell the gate |
+| A holder loses a stick or its passphrase | One of three is gone; 2-of-3 still works for signing | Nothing breaks today. Renewing the root keeps the same keys; replacing a lost key is a key rotation (#272), not built yet: tell the gate |
 
 ## Rehearsal record
 

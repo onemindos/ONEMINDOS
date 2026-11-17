@@ -165,6 +165,16 @@ describe('Automation screen', () => {
 });
 
 describe('Files screen', () => {
+  it('says plainly when the hub has no file storage yet (a fresh hub answers storage_unavailable)', async () => {
+    await mount(<FilesScreen />, {
+      filesRoots: async () => {
+        throw new ApiError(503, 'unavailable', 'the files storage is not available', { reason: 'storage_unavailable' });
+      },
+    });
+    expect(await screen.findByText('This hub has no storage for shared files yet.')).toBeTruthy();
+    expect(screen.queryByText(/Could not read files/)).toBeNull();
+  });
+
   it('browses a root and a folder, read only', async () => {
     const filesList = jest.fn(async (_root: string, path: string) =>
       path === '/'

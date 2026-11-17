@@ -52,7 +52,9 @@ _DESCRIPTIONS = {
     403: "The principal may not do this (permission_denied)",
     404: "No such resource (not_found)",
     409: "stale_precondition, expired, conflict or policy_refused",
+    412: "A precondition failed: If-Match does not match (stale_precondition)",
     413: "Request body over its limit (payload_too_large)",
+    428: "A precondition header is required (conflict)",
     422: "Request failed validation (conflict, with the bad fields in message)",
     503: "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)",
     429: "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After",
@@ -107,6 +109,17 @@ def error_response(
 
 
 def install_handlers(app: FastAPI) -> None:
+    @app.exception_handler(Exception)
+    async def _unexpected_error(_: Request, exc: Exception):
+        # ServerErrorMiddleware generates these outside GuardMiddleware. Import at
+        # response time because guard itself uses this module's error_response.
+        from .guard import SECURITY_HEADERS
+
+        response = error_response(500, "unavailable", "internal server error")
+        for name, value in SECURITY_HEADERS:
+            response.headers[name.decode("ascii")] = value.decode("ascii")
+        return response
+
     @app.middleware("http")
     async def static_resource_methods(request: Request, call_next):
         # OpenAPI gives literal resources precedence over sibling templates. Do the same

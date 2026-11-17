@@ -2,6 +2,7 @@
 // The phone's theme comes from the OneMind design tokens (ui/src/tokens/tokens.ts → tokens.generated.ts,
 // docs/design/TOKENS.md): the same colour roles, spacing, radii and type scale as the dashboard.
 // Screens use only these names; they never pick raw colours.
+import { useSyncExternalStore } from 'react';
 import { useColorScheme } from 'react-native';
 import { tokens } from './tokens.generated';
 
@@ -50,8 +51,32 @@ const light = fromRoles(tokens.light);
 export type Palette = typeof light;
 const dark: Palette = fromRoles(tokens.dark);
 
+/**
+ * The person's choice kept on the hub (UMB-P07). 'system' (or nothing yet) follows the phone, 'light' and 'dark'
+ * win over it, so the phone looks like the person's desktop.
+ */
+type ThemeChoice = 'system' | 'light' | 'dark';
+let themeChoice: ThemeChoice = 'system';
+const themeListeners = new Set<() => void>();
+export function setThemeChoice(choice: ThemeChoice): void {
+  if (choice === themeChoice) return;
+  themeChoice = choice;
+  themeListeners.forEach((l) => l());
+}
+const subscribeTheme = (l: () => void) => {
+  themeListeners.add(l);
+  return () => void themeListeners.delete(l);
+};
+
+/** Whether the screen is dark: the person's choice from the hub, else the phone's setting. */
+export function useIsDark(): boolean {
+  const system = useColorScheme();
+  const choice = useSyncExternalStore(subscribeTheme, () => themeChoice);
+  return (choice === 'system' ? system : choice) === 'dark';
+}
+
 export function useTheme(): Palette {
-  return useColorScheme() === 'dark' ? dark : light;
+  return useIsDark() ? dark : light;
 }
 
 /** px from a token value ('16px', '1.125rem'). */

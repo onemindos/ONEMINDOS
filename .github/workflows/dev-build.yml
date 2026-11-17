@@ -1,0 +1,67 @@
+# SPDX-License-Identifier: Apache-2.0
+# Nightly "dev build" pre-release (DEV-SEE-01, #234): the newest green image.yml run on main, published as a
+# GitHub pre-release so nobody has to dig in CI artifacts. Throwaway dev keys, labelled NOT FOR PRODUCTION.
+# It signs nothing and makes no keys; release.yml (gated on the real root, F-27) is the only real release path.
+name: dev-build
+on:
+  schedule:
+    - cron: '23 6 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: dev-build
+  cancel-in-progress: false
+jobs:
+  publish:
+    # Only on the repository itself (a fork has no image artifacts to publish).
+    if: github.repository == 'onemindos/ONEMINDOS'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: write     # create and prune the dev-* pre-releases, nothing else
+      actions: read       # download the image run's artifacts
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Newest green image run on main
+        id: run
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          row=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow image.yml --branch main --event push --status success \
+                  --limit 1 --json databaseId,headSha --jq '.[0] | "\(.databaseId) \(.headSha)"')
+          [ -n "$row" ] && [ "$row" != "null" ] || { echo "no green image run on main yet; nothing to publish"; echo "skip=1" >> "$GITHUB_OUTPUT"; exit 0; }
+          set -- $row
+          echo "id=$1" >> "$GITHUB_OUTPUT"; echo "sha=$2" >> "$GITHUB_OUTPUT"
+          # One dev build per commit: if a release already carries this commit's short id, stop.
+          if gh release list --repo "$GITHUB_REPOSITORY" --limit 50 --json tagName --jq '.[].tagName' | grep -q -- "-$(echo "$2" | cut -c1-7)\$"; then
+            echo "already published for $2"; echo "skip=1" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Download the three images
+        if: steps.run.outputs.skip != '1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ steps.run.outputs.id }}
+        run: |
+          mkdir dl
+          for n in image-debian-arm64-efi image-debian-vm-do installer-debian-x86_64; do
+            gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" --name "$n" --dir "dl/$n"
+          done
+      - name: Pick files, write checksums and the warning
+        if: steps.run.outputs.skip != '1'
+        id: pick
+        run: echo "tag=$(python3 -I scripts/release/dev-release.py --dl dl --out rel --sha '${{ steps.run.outputs.sha }}' --date "$(date -u +%Y%m%d)" | tail -n1)" >> "$GITHUB_OUTPUT"
+      - name: Publish the pre-release; keep the newest 7
+        if: steps.run.outputs.skip != '1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.pick.outputs.tag }}
+          SHA: ${{ steps.run.outputs.sha }}
+        run: |
+          set -eu
+          gh release create "$TAG" rel/* --repo "$GITHUB_REPOSITORY" --target "$SHA" --prerelease \
+            --title "DEV BUILD $TAG (not for production)" --notes-file rel/NOTES.md
+          gh release list --repo "$GITHUB_REPOSITORY" --limit 100 --json tagName,publishedAt \
+            --jq '[.[] | select(.tagName | startswith("dev-"))] | sort_by(.publishedAt) | reverse | .[7:] | .[].tagName' |
+            while read -r old; do gh release delete "$old" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag; done

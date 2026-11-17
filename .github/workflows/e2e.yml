@@ -15,7 +15,8 @@ concurrency:
   group: e2e-${{ github.ref }}
   cancel-in-progress: true
 jobs:
-  unit:
+  # Not named `unit`: main's required checks match by job name, so a failure here would block PRs like ci's `unit`.
+  e2e-unit:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
