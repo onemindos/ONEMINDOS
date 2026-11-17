@@ -53,6 +53,10 @@ def _identity_guard_present(gw: Gateway) -> bool:
     return any(getattr(g, "__name__", "") == "approval_guard" for g in gw.approval_guards)
 
 
+# Route order in the app and in /openapi.json (routers/__init__.py).
+ORDER = 310
+
+
 def register(app: FastAPI, gw: Gateway) -> None:
     svc = StorageService(gw)
     for action_type, (_, risk, requesters) in TYPES.items():

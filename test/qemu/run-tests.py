@@ -310,6 +310,10 @@ def datafail(vm):
 
     T = other(S)
     vm.mark(f"TD2 good -> {T}, data disk detached for the trial boot")
+    # Count v2 bad-release lines before: in the nightly, T8 (power cut while v2 installs) has already
+    # recorded one legitimately. TD2 only asks that this trial adds none (#226).
+    _, o = vm.run("echo \"BAD2=$(cat /data/onemind/bad-releases 2>/dev/null | grep -c 'version=2 ')\"")
+    bad2_before = int(tag(o, "BAD2") or 0)
     rc, _ = install(vm, "good.raucb")
     vm.poweroff(); set_data(vm, False); vm.restart("TD2 trial boot with the data disk detached")
     d = recovery_check(vm)
@@ -317,8 +321,9 @@ def datafail(vm):
     g = vm.wait_gate(); vm.shell_ready()
     _, o = vm.run("echo \"BAD2=$(cat /data/onemind/bad-releases 2>/dev/null | grep -c 'version=2 ')\"")
     record("TD2", rc == 0 and d["slot"] == T and d["decision"] == "trial" and reachable(d) and f"{T}_OK=1" in d["env"]
-           and d["esp_marker"] == f"{T}:2" and g == ("mark-good", T, "2") and tag(o, "BAD2") == "0",
-           f"rc={rc} recovery={ {k: v for k, v in d.items() if k != 'env'} } env={d['env']} restored={g} bad_v2_lines={tag(o, 'BAD2')}")
+           and d["esp_marker"] == f"{T}:2" and g == ("mark-good", T, "2") and int(tag(o, "BAD2") or 0) == bad2_before,
+           f"rc={rc} recovery={ {k: v for k, v in d.items() if k != 'env'} } env={d['env']} restored={g} "
+           f"bad_v2_lines={bad2_before}->{tag(o, 'BAD2')}")
 
     T2, O = other(T), T
     vm.mark(f"TD3 good -> {T2}, data disk detached for the whole trial")

@@ -149,6 +149,10 @@ def _list_params(limit: int | None) -> int:
     return 100 if limit is None else limit
 
 
+# Route order in the app and in /openapi.json (routers/__init__.py).
+ORDER = 240
+
+
 def register(app: FastAPI, gw: Gateway) -> None:
     svc = NotifyService(gw)
     svc.attach()

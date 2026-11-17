@@ -28,6 +28,10 @@ class WindowBody(BaseModel):
     ranges: list[dict]
 
 
+# Route order in the app and in /openapi.json (routers/__init__.py).
+ORDER = 280
+
+
 def register(app: FastAPI, gw: Gateway) -> None:
     svc = AutomationService(gw)
     policies = svc.policies

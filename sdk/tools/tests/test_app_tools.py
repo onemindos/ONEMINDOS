@@ -188,13 +188,31 @@ class ScaffoldTests(unittest.TestCase):
         self.assertIn(">&lt;x<", scaffold.icon_svg("x", "<script> x"))
 
     def test_queue_status(self):
-        q = self.tmp / "queue.yaml"
-        q.write_text("- {name: Uptime Kuma, github: louislam/uptime-kuma, priority: 1, status: queued}\n"
-                     "- {name: Other, github: a/b, status: queued}\n")
+        # CI-06 (#231): one file per app, so scaffolding one app never edits another's entry.
+        q = self.tmp / "queue"
+        q.mkdir()
+        mine = q / "louislam--uptime-kuma.yaml"
+        mine.write_text("name: Uptime Kuma\ngithub: louislam/uptime-kuma\npriority: 1\nstatus: queued\n")
+        other = q / "a--b.yaml"
+        other.write_text("name: Other\ngithub: a/b\nstatus: queued\n")
+        self.assertEqual(scaffold.queue_file(q, "LouisLam/Uptime-Kuma"), mine)
         self.assertEqual(scaffold.queue_entry(q, REPO)["name"], "Uptime Kuma")
+        self.assertEqual(scaffold.queue_entry(q, "no/such"), {})
         self.assertTrue(scaffold.mark_in_pr(q, REPO))
-        self.assertIn("uptime-kuma, priority: 1, status: in-pr}", q.read_text())
-        self.assertIn("a/b, status: queued}", q.read_text())
+        self.assertIn("priority: 1\nstatus: in-pr\n", mine.read_text())
+        self.assertFalse(scaffold.mark_in_pr(q, REPO))  # already in-pr
+        self.assertEqual(other.read_text(), "name: Other\ngithub: a/b\nstatus: queued\n")
+
+    def test_repo_queue_is_one_valid_file_per_app(self):
+        q = Path(__file__).resolve().parents[3] / "apps" / "_intake" / "queue"
+        self.assertFalse((q.parent / "queue.yaml").exists())
+        files = sorted(q.glob("*.yaml"))
+        self.assertGreater(len(files), 0)
+        for f in files:
+            with self.subTest(file=f.name):
+                entry = yaml.safe_load(f.read_text(encoding="utf-8"))
+                self.assertTrue(entry.get("name") and entry.get("github"))
+                self.assertEqual(scaffold.queue_file(q, entry["github"]), f)
 
 
 class GateTests(unittest.TestCase):

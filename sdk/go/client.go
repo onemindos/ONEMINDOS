@@ -14,6 +14,8 @@ package onemind
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -91,6 +93,20 @@ func WithTokenProvider(p TokenProvider) Option { return func(c *Client) { c.toke
 // WithHTTPClient replaces the HTTP client (custom TLS roots, a pinned CA, a test server).
 func WithHTTPClient(h *http.Client) Option { return func(c *Client) { c.http = h } }
 
+// WithGatewayCA makes the client verify the gateway's TLS certificate against the given CA
+// (PEM text) instead of the system roots, with TLS 1.2 or later. Verification stays on: this
+// narrows what is trusted to that CA. It is what FromEnv uses for ONEMIND_GATEWAY_CA (the box CA
+// an agent app's Secret carries). A later WithHTTPClient replaces it.
+func WithGatewayCA(pem []byte) (Option, error) {
+	pool := x509.NewCertPool()
+	if !pool.AppendCertsFromPEM(pem) {
+		return nil, errors.New("onemind: the gateway CA is not a valid PEM certificate")
+	}
+	tr := http.DefaultTransport.(*http.Transport).Clone()
+	tr.TLSClientConfig = &tls.Config{RootCAs: pool, MinVersion: tls.VersionTLS12}
+	return func(c *Client) { c.http = &http.Client{Transport: tr} }, nil
+}
+
 // WithTimeout sets the per-attempt timeout (default 10 s). A context deadline still applies.
 func WithTimeout(d time.Duration) Option { return func(c *Client) { c.timeout = d } }
 
@@ -153,7 +169,8 @@ func New(baseURL string, opts ...Option) (*Client, error) {
 }
 
 // FromEnv builds a client from ONEMIND_HUB and ONEMIND_TOKEN (the CLI's names), else from
-// ONEMIND_GATEWAY_URL and ONEMIND_AGENT_TOKEN (the Secret an agent app gets, contract §11.2).
+// ONEMIND_GATEWAY_URL and ONEMIND_AGENT_TOKEN (the Secret an agent app gets, contract §11.2). When
+// ONEMIND_GATEWAY_CA (PEM text) is set, the client trusts that CA for the gateway (see WithGatewayCA).
 func FromEnv(opts ...Option) (*Client, error) {
 	hub, token := os.Getenv("ONEMIND_HUB"), os.Getenv("ONEMIND_TOKEN")
 	if hub == "" {
@@ -162,7 +179,15 @@ func FromEnv(opts ...Option) (*Client, error) {
 	if hub == "" {
 		return nil, errors.New("onemind: set ONEMIND_HUB (and ONEMIND_TOKEN) or ONEMIND_GATEWAY_URL")
 	}
-	return New(hub, append([]Option{WithToken(token)}, opts...)...)
+	base := []Option{WithToken(token)}
+	if ca := strings.TrimSpace(os.Getenv("ONEMIND_GATEWAY_CA")); ca != "" { // the box CA (hardening H-05)
+		o, err := WithGatewayCA([]byte(ca))
+		if err != nil {
+			return nil, err
+		}
+		base = append(base, o)
+	}
+	return New(hub, append(base, opts...)...)
 }
 
 // HubNow is the hub's clock as last seen in a Date header (local time before the first call).

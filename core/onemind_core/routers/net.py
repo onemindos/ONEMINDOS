@@ -61,6 +61,10 @@ def web_apps(gw: Gateway) -> list[str]:
     return sorted(out)
 
 
+# Route order in the app and in /openapi.json (routers/__init__.py).
+ORDER = 270
+
+
 def register(app: FastAPI, gw: Gateway) -> None:
     settings = gw.settings
     net = settings.section(NetSettings)
@@ -68,6 +72,8 @@ def register(app: FastAPI, gw: Gateway) -> None:
     fab_cfg = settings.section(FabricSettings)
     box = net.box()
     box_ca = BoxCA(net.tls_dir or settings.audit_path.parent / "tls", box, clock=gw.clock)
+    if net.tls:  # H-05: agent app pods verify the gateway's HTTPS with this CA (ONEMIND_GATEWAY_CA)
+        gw.actions.gateway_ca = lambda: box_ca.ca_pem().decode()
     mesh: MeshService | None = None
     if mesh_cfg.enabled:
         assert mesh_cfg.headscale_key_file is not None  # MeshSettings.validate

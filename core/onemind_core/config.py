@@ -66,6 +66,10 @@ class Settings:
     port: int
     # §11.2: the gateway URL written into an app's agent Secret. None = derived (gateway_url()).
     public_url: str | None = None
+    # ONEMIND_AGENT_URL: the gateway URL app pods use (written into the agent Secret). None = same
+    # as gateway_url(). It exists because pods verify the gateway's HTTPS cert against the box CA:
+    # that cert has DNS names only, so pods must dial a name (hub.onemind.internal), not a LAN IP.
+    agent_url: str | None = None
     # §11.1 dev override: skip the §10.3 scan check. Only honoured with the noop executor.
     allow_unscanned: bool = False
     # Per-feature sections (sections.py), keyed by section name. Read them with section().
@@ -91,6 +95,10 @@ class Settings:
             host = f"[{host}]"
         return f"http://{host}:{self.port}"
 
+    def agent_gateway_url(self) -> str:
+        """ONEMIND_AGENT_URL, else gateway_url(): the URL written into an app's agent Secret."""
+        return self.agent_url or self.gateway_url()
+
     def check(self) -> None:
         """Startup refusals that do not depend on how Settings was built."""
         if self.allow_unscanned and self.executor != "noop":
@@ -115,6 +123,11 @@ class Settings:
             parsed = urlsplit(public_url)
             if parsed.scheme not in ("http", "https") or not parsed.netloc:
                 raise ValueError("ONEMIND_PUBLIC_URL must be an http:// or https:// URL")
+        agent_url = (env.get("ONEMIND_AGENT_URL") or "").strip().rstrip("/") or None
+        if agent_url is not None:
+            parsed = urlsplit(agent_url)
+            if parsed.scheme not in ("http", "https") or not parsed.netloc:
+                raise ValueError("ONEMIND_AGENT_URL must be an http:// or https:// URL")
         allow = env.get("ONEMIND_ALLOW_UNSCANNED", "").strip().lower()
         if allow not in ("", "0", "false", "no", "1", "true", "yes"):
             raise ValueError("ONEMIND_ALLOW_UNSCANNED must be 1 or 0")
@@ -134,6 +147,7 @@ class Settings:
             host=env.get("ONEMIND_HOST", "0.0.0.0"),
             port=int(env.get("ONEMIND_PORT", "8080")),
             public_url=public_url,
+            agent_url=agent_url,
             allow_unscanned=allow in ("1", "true", "yes"),
             sections=load_sections(env),
         )

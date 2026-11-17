@@ -21,6 +21,10 @@ def is_api_path(full_path: str) -> bool:
     return full_path in API_EXACT or any(full_path == p or full_path.startswith(p + "/") for p in API_TREES)
 
 
+# Route order in the app and in /openapi.json (routers/__init__.py).
+ORDER = 10000  # last: its SPA fallback matches every path
+
+
 def register(app: FastAPI, gw: Gateway) -> None:
     settings = gw.settings
     dist = settings.dashboard_dist.resolve() if settings.dashboard_dist else None

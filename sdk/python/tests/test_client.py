@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import ssl
 from datetime import UTC, datetime, timedelta
 from email.utils import format_datetime
 
@@ -226,3 +227,48 @@ def test_from_env():
     assert om.base_url == "http://gw:8080"
     with pytest.raises(ValueError):
         Client.from_env({})
+
+
+# Public test-only self-signed certificate (no key exists in the repo). Test data, not a real CA.
+TEST_CA_PEM = """-----BEGIN CERTIFICATE-----
+MIIBsDCCAVegAwIBAgIUW1p8/IuLSmMLunNfoZGeOfaMyRwwCgYIKoZIzj0EAwIw
+LTErMCkGA1UEAwwib25lbWluZC1zZGstdGVzdC1jYS10ZXN0LWRhdGEtb25seTAg
+Fw0yNjExMTQwOTU2NDlaGA8yMTI2MTAyMTA5NTY0OVowLTErMCkGA1UEAwwib25l
+bWluZC1zZGstdGVzdC1jYS10ZXN0LWRhdGEtb25seTBZMBMGByqGSM49AgEGCCqG
+SM49AwEHA0IABBR7Nw23HEAKiNnsJVRg/D0WNULQP7aPP0R3RdZSk5lxZF+dbEeQ
+iOtsaq4vu36tf2A8y00PhEB5euvihoDhJmOjUzBRMB0GA1UdDgQWBBQhp6YlW0MA
+RVxRCjPKDul4tEDz3TAfBgNVHSMEGDAWgBQhp6YlW0MARVxRCjPKDul4tEDz3TAP
+BgNVHRMBAf8EBTADAQH/MAoGCCqGSM49BAMCA0cAMEQCIAEWH4iA/rH/Gqcn+rPc
+5wp6GL4e3l6YcmbPI9FI3WwdAiACBs6xrrO3hPetAw4NgjmGdeiQbwUXLp/acA1c
+4rfO6Q==
+-----END CERTIFICATE-----
+"""
+
+
+def test_from_env_trusts_the_gateway_ca_only():
+    env = {"ONEMIND_GATEWAY_URL": "https://192.0.2.10:8443", "ONEMIND_AGENT_TOKEN": "t",
+           "ONEMIND_GATEWAY_CA": TEST_CA_PEM}
+    ctx = core.ca_context(env)
+    assert ctx.verify_mode == ssl.CERT_REQUIRED and ctx.check_hostname
+    assert [dict(x[0] for x in c["subject"])["commonName"] for c in ctx.get_ca_certs()] == [
+        "onemind-sdk-test-ca-test-data-only"]  # that CA and no system roots
+    om = Client.from_env(env)
+    assert om.base_url == "https://192.0.2.10:8443"
+    om.close()
+    assert core.ca_context({"ONEMIND_GATEWAY_URL": "https://x"}) is None  # unset: system roots as before
+    assert core.ca_context({"ONEMIND_GATEWAY_CA": "  "}) is None
+
+
+def test_from_env_rejects_a_malformed_gateway_ca():
+    with pytest.raises(ValueError, match="ONEMIND_GATEWAY_CA"):
+        Client.from_env({"ONEMIND_GATEWAY_URL": "https://gw:8443", "ONEMIND_GATEWAY_CA": "garbage"})
+
+
+def test_from_env_ca_reaches_the_async_client():
+    env = {"ONEMIND_GATEWAY_URL": "https://192.0.2.10:8443", "ONEMIND_GATEWAY_CA": TEST_CA_PEM}
+
+    async def scenario():
+        om = aio.Client.from_env(env)
+        await om._http.aclose()
+
+    asyncio.run(scenario())

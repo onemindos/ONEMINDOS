@@ -5,6 +5,7 @@
 import type { components } from "./gen/schema.js";
 import { AmbiguousResultError, errorFor, NetworkError, OneMindError, UnexpectedResponseError } from "./errors.js";
 import { EventsApi } from "./events.js";
+import { caFetch } from "./nodeca.js";
 
 export type Instance = components["schemas"]["Instance"];
 export type Node = components["schemas"]["Node"];
@@ -12,6 +13,14 @@ export type CatalogApp = components["schemas"]["CatalogApp"];
 export type Action = components["schemas"]["Action"];
 export type AuditRecord = components["schemas"]["AuditRecord"];
 export type AuditVerify = components["schemas"]["AuditVerify"];
+/** The caller's own Home document (UMB-P07, `/v1/me/home`). */
+export type HomeView = components["schemas"]["HomeView"];
+export type HomeBody = components["schemas"]["HomeBody"];
+/** A Home document with the validator to send back on the next save. */
+export interface HomeWithEtag {
+  home: HomeView;
+  etag: string;
+}
 
 export const SDK_VERSION = "0.1.0";
 export const TERMINAL_STATES = new Set(["succeeded", "failed", "cancelled", "expired", "outcome_unknown"]);
@@ -67,10 +76,11 @@ export interface AuditQuery {
 }
 
 interface Req {
-  method: "GET" | "POST";
+  method: "GET" | "POST" | "PUT";
   path: string;
   body?: unknown;
   retry?: boolean;
+  headers?: Record<string, string>;
 }
 
 const RETRY_STATUSES = new Set([429, 502, 503, 504]);
@@ -106,12 +116,15 @@ export class OneMind {
     this.events = new EventsApi(this);
   }
 
-  /** ONEMIND_HUB + ONEMIND_TOKEN, else ONEMIND_GATEWAY_URL + ONEMIND_AGENT_TOKEN (contract §11.2). */
+  /** ONEMIND_HUB + ONEMIND_TOKEN, else ONEMIND_GATEWAY_URL + ONEMIND_AGENT_TOKEN (contract §11.2).
+   *  With ONEMIND_GATEWAY_CA (PEM text) set, the client verifies TLS against that CA only (Node). */
   static fromEnv(env: Record<string, string | undefined> = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env ?? {}, extra: Partial<ClientOptions> = {}) {
     const hub = env.ONEMIND_HUB || env.ONEMIND_GATEWAY_URL;
     if (!hub) throw new Error("onemind: set ONEMIND_HUB (and ONEMIND_TOKEN) or ONEMIND_GATEWAY_URL");
     const token = env.ONEMIND_HUB ? env.ONEMIND_TOKEN : env.ONEMIND_AGENT_TOKEN;
-    return new OneMind({ ...extra, baseUrl: hub, token: token ?? "" });
+    // ONEMIND_GATEWAY_CA (PEM): trust the box CA for this client, Node only; `extra.fetch` still wins.
+    const ca = env.ONEMIND_GATEWAY_CA?.trim();
+    return new OneMind({ ...(ca ? { fetch: caFetch(ca) } : {}), ...extra, baseUrl: hub, token: token ?? "" });
   }
 
   toString(): string {
@@ -185,6 +198,21 @@ export class OneMind {
         if (TERMINAL_STATES.has(a.state) || opts.signal?.aborted) return a;
         await this.sleep(opts.everyMs ?? 2000);
       }
+    },
+  };
+
+  readonly me = {
+    home: {
+      /** The caller's resolved Home and its ETag. */
+      get: async (): Promise<HomeWithEtag> => {
+        const { body, headers } = await this.raw<HomeView>({ method: "GET", path: "/v1/me/home", retry: true });
+        return { home: body, etag: headers.get("etag") ?? "" };
+      },
+      /** Replace the whole document; `etag` is the one read last (a stale one answers 412). */
+      save: async (doc: HomeBody, etag: string): Promise<HomeWithEtag> => {
+        const { body, headers } = await this.raw<HomeView>({ method: "PUT", path: "/v1/me/home", body: doc, headers: { "If-Match": etag } });
+        return { home: body, etag: headers.get("etag") ?? "" };
+      },
     },
   };
 
@@ -282,6 +310,7 @@ export class OneMind {
         headers: {
           Accept: "application/json",
           ...(r.body !== undefined ? { "Content-Type": "application/json" } : {}),
+          ...(r.headers ?? {}),
           ...(await this.authHeader()),
         },
         body: r.body !== undefined ? JSON.stringify(r.body) : undefined,

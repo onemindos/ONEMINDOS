@@ -34,6 +34,7 @@ dev = [
   # Property-based tests (tests/test_properties_*.py). MPL-2.0, test-only: never shipped in the
   # gateway image. Recorded in docs/testing/PROPERTY-AND-FUZZ.md.
   "hypothesis==6.170.15",
+  "pytest-xdist>=3.6,<4",
 ]
 # API fuzzing (.github/workflows/api-fuzz.yml). MIT, test-only, CI-only: `uv sync --group fuzz`.
 # Not in the default groups, so `make -C core test` never installs it.

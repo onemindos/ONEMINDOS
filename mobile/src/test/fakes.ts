@@ -43,6 +43,8 @@ export function v0Api(over: Partial<OneMindApi> = {}, now = Date.now()): OneMind
     deviceRequest: missing,
     deviceRequestStatus: missing,
     deviceToken: missing,
+    home: missing,
+    saveHome: missing,
     onboardingSettings: missing,
     saveOnboardingSettings: missing,
     appPlan: missing,

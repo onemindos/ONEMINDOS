@@ -7,6 +7,7 @@ from __future__ import annotations
 import json
 import os
 import random
+import ssl
 import threading
 import uuid
 from collections import OrderedDict
@@ -44,6 +45,22 @@ def from_env(env: dict[str, str] | None = None) -> tuple[str, str]:
     if env.get("ONEMIND_GATEWAY_URL"):
         return env["ONEMIND_GATEWAY_URL"], env.get("ONEMIND_AGENT_TOKEN", "")
     raise ValueError("onemind: set ONEMIND_HUB (and ONEMIND_TOKEN) or ONEMIND_GATEWAY_URL")
+
+
+def ca_context(env: dict[str, str] | None = None) -> ssl.SSLContext | None:
+    """A TLS context that trusts ONEMIND_GATEWAY_CA (PEM text) and nothing else, or None when unset.
+
+    The agent Secret carries the box CA (hardening H-05). Verification stays on: the client trusts
+    that one CA instead of the system roots, and a malformed value is an error, never a fallback.
+    """
+    env = os.environ if env is None else env
+    pem = (env.get("ONEMIND_GATEWAY_CA") or "").strip()
+    if not pem:
+        return None
+    try:
+        return ssl.create_default_context(cadata=pem)  # cadata given: the system roots are not loaded
+    except (ssl.SSLError, ValueError) as e:
+        raise ValueError("onemind: ONEMIND_GATEWAY_CA is not a valid PEM certificate") from e
 
 
 def plain_http_warning(base: str) -> str | None:

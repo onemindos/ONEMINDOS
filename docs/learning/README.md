@@ -44,5 +44,6 @@ Short answers to founder questions, saved so they are not lost in chat. Folder: 
 | 02 | [Inside the umbrelOS 2.0.1 images](founder/02-umbrelos-image-teardown.md) |
 | 03 | [Olares, Project NOMAD, k3s vs Docker, and where OneMind goes next](founder/03-competitors-and-where-we-go.md) |
 | 04 | [Before the big build: code check, process fixes, seeing the OS, open decisions](founder/04-before-the-big-build.md) |
+| 05 | [Decision briefs, week of 2026-11-16: Z-41, signing keys, hardware, scoring rules, bootc Pi test, VMs/terminal/Tor](founder/05-decision-briefs-nov-2026.md) |
 
 The "On `main`?" column was checked on 2026-11-12. The leap's live state is in [`docs/leap/STATUS.md`](../leap/STATUS.md).

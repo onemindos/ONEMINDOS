@@ -169,7 +169,7 @@ for _ in $(seq 1 60); do
 done
 check "2 k3s nodes Ready (got $READY)" [ "$READY" -ge 2 ]
 check "2 onemindd heartbeats on the hub's NATS" \
-  on "$HUB" python3 -I "$VERIFY_DIR/natscheck.py" watch --env-file /etc/onemind/onemindd.env --count 2 --timeout 40
+  on "$HUB" /opt/onemind/venv/bin/python -I "$VERIFY_DIR/natscheck.py" watch --env-file /etc/onemind/onemindd.env --count 2 --timeout 40
 ONLINE=0
 for _ in $(seq 1 15); do
   ONLINE=$(on "$HUB" python3 -I -c '

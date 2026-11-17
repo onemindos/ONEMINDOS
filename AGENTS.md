@@ -8,7 +8,7 @@
 - **Prefer the next shippable step over more analysis:** something that runs, a test that passes, or a kit Zeus can run on hardware.
 
 ## Locked founder decisions (read before building)
-- **D-001 to D-007** in [docs/DECISIONS.md](docs/DECISIONS.md).
+- **D-001 to D-014** in [docs/DECISIONS.md](docs/DECISIONS.md).
 - **Base OS (D-007, Z-38 = b, 2026-11-11): Debian 13 is the shipping base.**
   - Ubuntu 26.04 is a light CI hedge only.
   - Jetson runs NVIDIA L4T (dev kits).
@@ -25,7 +25,7 @@
 
 ## Engineering: where code lives and how to build it
 Run every command from the repo root. On a Mac, install the tools once:
-`brew install uv go node@22 gitleaks shellcheck` (Go 1.26, Node 22, Python 3.12 comes through uv), plus Docker Desktop (or a Lima VM: `brew install lima`) for anything under `os/` and `deploy/`. The full Mac dev loop is issue #230.
+`brew install uv go node@22 gitleaks shellcheck` (Go 1.26, Node 22, Python 3.12 comes through uv), plus Docker Desktop (or a Lima VM: `brew install lima`) for container builds. Before `make test`, follow [the Mac developer loop](docs/learning/mac-dev-loop.md#native-tests-no-docker-or-vm-needed) to create and activate an isolated Python environment and install `requirements-dev.txt`; system Python does not supply PyYAML. Image assembly and release scripts need a Linux build environment, such as the Lima guest; native unit tests need neither Docker nor a VM.
 
 | Part | Code | Check it with (what CI runs) |
 |---|---|---|
@@ -42,6 +42,7 @@ Run every command from the repo root. On a Mac, install the tools once:
 | Repo-wide | everything | `make lint`, `make test`, `python3 -I scripts/changes.py check`, `make hygiene` (gitleaks + hygiene greps) |
 
 **Rules that keep the code clean** (the full definition of done is [docs/leap/AGENT-QUEUE.md §4](docs/leap/AGENT-QUEUE.md)):
+- **Never export `GIT_DIR` or `GIT_WORK_TREE`.** In a linked worktree use `git -C <worktree> ...`. Git commands run with them set (`git worktree`, `git config`) can write the work tree into the shared `.git/config`, which then redirects every other worktree and sends commits to the wrong folder. `scripts/git-guard.sh` fails when they are set ([docs/learning/mac-dev-loop.md](docs/learning/mac-dev-loop.md#guard-against-committing-into-the-wrong-checkout)).
 - **Use the generated client.** Dashboard and app code call the gateway through `@onemind/sdk` (`sdk/ts`), never hand-written API types. Change the API in `core/`, then run `make -C sdk gen` and commit the result.
 - **Wire it up.** A feature is reachable from a mounted route, a dashboard screen or the `onemind` CLI in the same PR, or the PR says why not. No new mock backend.
 - **Tests in the same PR,** one issue per PR, under about 600 changed lines unless the PR is labelled `large`.

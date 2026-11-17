@@ -194,3 +194,40 @@ describe("fromEnv", () => {
     expect(() => OneMind.fromEnv({})).toThrow();
   });
 });
+
+describe("fromEnv with ONEMIND_GATEWAY_CA", () => {
+  const impl = (om: OneMind) => (om as unknown as { fetchImpl: unknown }).fetchImpl;
+  it("uses the caller's fetch over the CA fetch", () => {
+    const f = (async () => new Response("[]")) as typeof fetch;
+    expect(impl(OneMind.fromEnv({ ONEMIND_GATEWAY_URL: "https://gw:8443", ONEMIND_GATEWAY_CA: "PEM" }, { fetch: f }))).toBe(f);
+  });
+  it("installs a CA fetch only when the variable is non-empty", () => {
+    const caOn = impl(OneMind.fromEnv({ ONEMIND_GATEWAY_URL: "https://gw:8443", ONEMIND_GATEWAY_CA: "PEM" }));
+    const empty = impl(OneMind.fromEnv({ ONEMIND_GATEWAY_URL: "https://gw:8443", ONEMIND_GATEWAY_CA: " " }));
+    const unset = impl(OneMind.fromEnv({ ONEMIND_GATEWAY_URL: "https://gw:8443" }));
+    expect(caOn).not.toBe(unset);
+    expect(caOn).not.toBe(empty);
+  });
+});
+
+describe("me.home (UMB-P07)", () => {
+  const home = { version: 3, layout: "desktop", appearance: { theme: "dark" }, dock: [], grid: { order: [], hidden: [] }, widgets: [], seen: {}, updated_at: null };
+
+  it("reads the document with its ETag and saves with If-Match", async () => {
+    const { om, calls } = client((url, init) =>
+      init.method === "PUT" ? json(200, { ...home, updated_at: "t" }, { etag: '"b"' }) : json(200, home, { etag: '"a"' }));
+    const got = await om.me.home.get();
+    expect(got.etag).toBe('"a"');
+    const saved = await om.me.home.save(got.home as never, got.etag);
+    expect(saved.etag).toBe('"b"');
+    const put = calls[1]!;
+    expect(put.url).toBe("http://localhost:8080/v1/me/home");
+    expect((put.init.headers as Record<string, string>)["If-Match"]).toBe('"a"');
+  });
+
+  it("a stale ETag is a typed error, not a retry", async () => {
+    const { om, calls } = client(() => json(412, { error: "stale_precondition", message: "Home changed elsewhere", reason: "etag_mismatch" }));
+    await expect(om.me.home.save(home as never, '"old"')).rejects.toBeInstanceOf(OneMindError);
+    expect(calls).toHaveLength(1);
+  });
+});

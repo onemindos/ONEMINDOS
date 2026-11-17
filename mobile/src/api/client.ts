@@ -23,6 +23,8 @@ import {
   type FileRoot,
   type FirstRunSettings,
   type FirstRunSettingsBody,
+  type HomeBody,
+  type HomeView,
   type InboxItem,
   type Instance,
   type LifecycleType,
@@ -61,6 +63,8 @@ export const OP = {
   deviceToken: 'POST /v1/devices/token',
   /** §12.41 (owner only). */
   onboardingSettings: 'GET /v1/onboarding/settings',
+  /** UMB-P07: the person's own Home (appearance, layout, dock) kept on the hub. */
+  homeGet: 'GET /v1/me/home',
   /** §12.40. */
   appPlan: 'GET /v1/apps/{}/plan',
   backupStatus: 'GET /v1/backups/status',
@@ -171,6 +175,9 @@ export interface OneMindApi {
   deviceToken(dpopProof: string, refreshToken: string): Promise<LoginResult>;
 
   // §12.41 first-run settings, owner only (403 for everyone else).
+  /** UMB-P07: the person's Home and the ETag to send back with the next save. */
+  home(): Promise<{ home: HomeView; etag: string }>;
+  saveHome(doc: HomeBody, etag: string): Promise<{ home: HomeView; etag: string }>;
   onboardingSettings(): Promise<FirstRunSettings>;
   /** Full replacement; the hub validates the name, zone and destination (422) and writes nothing on a refusal. */
   saveOnboardingSettings(body: FirstRunSettingsBody): Promise<FirstRunSettings>;
@@ -319,7 +326,7 @@ export class HttpApi implements OneMindApi {
     path: string,
     body?: unknown,
     shape: Shape = 'object',
-    opts: { auth?: boolean; headers?: Record<string, string>; retried?: boolean } = {},
+    opts: { auth?: boolean; headers?: Record<string, string>; retried?: boolean; onHeaders?: (h: Headers) => void } = {},
   ): Promise<T> {
     let res: Response;
     const ctl = typeof AbortController !== 'undefined' ? new AbortController() : undefined;
@@ -350,6 +357,7 @@ export class HttpApi implements OneMindApi {
     // for the 30 s / 120 s thresholds).
     const hubDate = Date.parse(res.headers.get('Date') ?? '');
     if (!Number.isNaN(hubDate)) this.offsetMs = hubDate - Date.now();
+    opts.onHeaders?.(res.headers);
     const text = await res.text();
     let data: unknown = undefined;
     if (text) {
@@ -496,6 +504,19 @@ export class HttpApi implements OneMindApi {
       auth: false,
       headers: { DPoP: dpopProof },
     });
+  }
+  async home() {
+    let etag = '';
+    const home = await this.req<HomeView>('GET', '/v1/me/home', undefined, 'object', { onHeaders: (h) => void (etag = h.get('ETag') ?? '') });
+    return { home, etag };
+  }
+  async saveHome(doc: HomeBody, etag: string) {
+    let next = '';
+    const home = await this.req<HomeView>('PUT', '/v1/me/home', doc, 'object', {
+      headers: { 'If-Match': etag },
+      onHeaders: (h) => void (next = h.get('ETag') ?? ''),
+    });
+    return { home, etag: next };
   }
   onboardingSettings() {
     return this.req<FirstRunSettings>('GET', '/v1/onboarding/settings');

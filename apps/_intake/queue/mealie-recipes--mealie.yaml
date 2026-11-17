@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+name: Mealie
+github: mealie-recipes/mealie
+priority: 2
+status: in-pr
+notes: market batch 4

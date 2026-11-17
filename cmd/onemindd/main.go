@@ -5,6 +5,7 @@
 // Configuration comes from environment variables (contract §1):
 //
 //	ONEMIND_NATS_URL    hub NATS URL, e.g. nats://hub.local:4222 (empty = API only)
+//	ONEMIND_NATS_NKEY_SEED  this daemon's NATS user seed file on a strict hub (#161)
 //	ONEMIND_NODE_ROLE   hub | node (default node)
 //	ONEMIND_NODE_ID     override the id derived from /etc/machine-id
 //	ONEMIND_AGENT_ADDR  local API address (default 127.0.0.1:7480, loopback only)
@@ -114,6 +115,7 @@ func main() {
 	}
 	listen := flag.String("listen", env("ONEMIND_AGENT_ADDR", agent.DefaultListen), "local API listen address")
 	natsURL := flag.String("nats", os.Getenv("ONEMIND_NATS_URL"), "hub NATS URL (empty = do not publish)")
+	natsSeed := flag.String("nats-nkey", os.Getenv("ONEMIND_NATS_NKEY_SEED"), "NATS user seed file (empty = no nkey)")
 	role := flag.String("role", env("ONEMIND_NODE_ROLE", "node"), "hub or node")
 	interval := flag.Duration("interval", agent.DefaultInterval, "heartbeat interval")
 	showVersion := flag.Bool("version", false, "print version and exit")
@@ -145,7 +147,7 @@ func main() {
 
 	log.Info("onemindd starting", "version", version.Version, "node_id", col.ID(), "role", *role, "board", col.Board())
 	meshReport, fabricReport := netReports(*role, log) // net.go
-	a := agent.New(agent.Config{Listen: *listen, NATSURL: *natsURL, Interval: *interval, Collector: col, Logger: log,
+	a := agent.New(agent.Config{Listen: *listen, NATSURL: *natsURL, NATSNkeySeed: *natsSeed, Interval: *interval, Collector: col, Logger: log,
 		UpdateReport: updateReport(env("ONEMIND_UPDATE_CONF", update.DefaultConfigPath), log),
 		MeshReport:   meshReport,
 		FabricReport: fabricReport,

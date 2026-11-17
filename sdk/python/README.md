@@ -7,6 +7,7 @@ Python client for the OneMind gateway API, sync and async, generated from `sdk/o
 from onemind_sdk import Client, PermissionDenied
 
 om = Client.from_env()          # ONEMIND_HUB + ONEMIND_TOKEN, or ONEMIND_GATEWAY_URL + ONEMIND_AGENT_TOKEN
+                               # (+ ONEMIND_GATEWAY_CA, PEM text: trusted instead of the system roots; verification stays on)
 for node in om.nodes.list():
     print(node.node_id, node.status)
 

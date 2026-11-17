@@ -36,6 +36,10 @@ class ApproveBody(BaseModel):
     webauthn: dict | None = None
 
 
+# Route order in the app and in /openapi.json (routers/__init__.py).
+ORDER = 150
+
+
 def register(app: FastAPI, gw: Gateway) -> None:
     actions = gw.actions
     principal = gw.principal

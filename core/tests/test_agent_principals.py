@@ -15,7 +15,8 @@ from onemind_core.app import create_app
 from onemind_core.audit import verify
 from onemind_core.catalog import Catalog, agent_spec_errors
 from onemind_core.config import Settings
-from onemind_core.executors import KubernetesExecutor
+from onemind_core.executors import AgentSecret, KubernetesExecutor
+from onemind_core.netconf import NetSettings
 
 SCHEMA = Path(__file__).resolve().parents[2] / "sdk" / "schema" / "onemind.app.schema.json"
 from onemind_core.ledger import AgentTokenRow
@@ -137,6 +138,42 @@ def test_public_url_goes_into_the_secret(settings, clock):
     assert ex.agents[-1].gateway_url == "https://hub.example.test"
 
 
+def test_agent_secret_has_no_ca_when_https_is_off(settings, clock):
+    ex = ScriptedExecutor()
+    with TestClient(create_app(settings, clock=clock, executor=ex)) as c:
+        run_action(c, clock)
+    assert ex.agents[-1].ca_pem is None
+
+
+def test_agent_secret_carries_the_box_ca_when_https_is_on(settings, clock, tmp_path):
+    ex = ScriptedExecutor()
+    s = replace(settings, sections={**settings.sections, "net": NetSettings(
+        box_name="box1", lan_addr="192.0.2.10", tls=True, tls_dir=tmp_path / "tls")})
+    with TestClient(create_app(s, clock=clock, executor=ex)) as c:
+        run_action(c, clock)
+        pem = ex.agents[-1].ca_pem
+        assert pem.startswith("-----BEGIN CERTIFICATE-----") and "PRIVATE" not in pem
+        assert pem.encode() == c.get("/v1/tls/ca.crt?format=pem").content  # the public CA the gateway serves
+
+
+def test_agent_secret_manifest_includes_the_ca_only_when_set():
+    pem = "-----BEGIN CERTIFICATE-----\nTEST-DATA\n-----END CERTIFICATE-----\n"
+    base = dict(name=SECRET, principal_id=f"agent:{APP}", gateway_url="https://192.0.2.10:8443", token="tok")
+    with_ca = json.loads(AgentSecret(**base, ca_pem=pem).manifest("app-x", "x"))["data"]
+    assert set(with_ca) == {"ONEMIND_GATEWAY_URL", "ONEMIND_AGENT_TOKEN", "ONEMIND_GATEWAY_CA"}
+    assert base64.b64decode(with_ca["ONEMIND_GATEWAY_CA"]).decode() == pem
+    without = json.loads(AgentSecret(**base).manifest("app-x", "x"))["data"]
+    assert set(without) == {"ONEMIND_GATEWAY_URL", "ONEMIND_AGENT_TOKEN"}
+
+
+def test_noop_executor_lists_the_ca_key_when_set(settings):
+    from onemind_core.executors import NoopExecutor
+    app = Catalog(settings.apps_dir).load()[APP]
+    agent = AgentSecret(SECRET, f"agent:{APP}", gateway_url="https://192.0.2.10:8443", token="tok", ca_pem="PEM")
+    steps = NoopExecutor().run("app.install", app, agent).steps
+    assert steps[0]["keys"] == ["ONEMIND_GATEWAY_URL", "ONEMIND_AGENT_TOKEN", "ONEMIND_GATEWAY_CA"]
+
+
 def test_public_url_env_parsing(monkeypatch):
     base = {"ONEMIND_NODE_ID": "x"}
     s = Settings.from_env({**base, "ONEMIND_PUBLIC_URL": "https://hub.example.test/"})
@@ -145,6 +182,48 @@ def test_public_url_env_parsing(monkeypatch):
         Settings.from_env({**base, "ONEMIND_PUBLIC_URL": "hub.example.test"})
     monkeypatch.setattr("socket.gethostname", lambda: "hubhost")
     assert Settings.from_env({**base, "ONEMIND_PORT": "9000"}).gateway_url() == "http://hubhost:9000"
+
+
+def test_agent_url_env_parsing():
+    base = {"ONEMIND_NODE_ID": "x", "ONEMIND_PUBLIC_URL": "https://192.0.2.10:8443"}
+    s = Settings.from_env({**base, "ONEMIND_AGENT_URL": "https://hub.onemind.internal:8443/"})
+    assert s.agent_url == "https://hub.onemind.internal:8443"
+    assert s.agent_gateway_url() == "https://hub.onemind.internal:8443"
+    assert s.gateway_url() == "https://192.0.2.10:8443"  # the browser URL is untouched
+    unset = Settings.from_env(base)
+    assert unset.agent_url is None and unset.agent_gateway_url() == unset.gateway_url() == "https://192.0.2.10:8443"
+    with pytest.raises(ValueError):
+        Settings.from_env({**base, "ONEMIND_AGENT_URL": "hub.onemind.internal"})
+
+
+def test_agent_secret_uses_the_agent_url_not_the_public_url(settings, clock):
+    ex = ScriptedExecutor()
+    s = replace(settings, public_url="https://192.0.2.10:8443", agent_url="https://hub.onemind.internal:8443")
+    with TestClient(create_app(s, clock=clock, executor=ex)) as c:
+        run_action(c, clock)
+    assert ex.agents[-1].gateway_url == "https://hub.onemind.internal:8443"
+
+
+def test_egress_for_the_hub_name_uses_the_static_mesh_mapping():
+    from onemind_core.executors import mesh_static_hosts
+    from onemind_core.netconf import MeshSettings
+    boom = lambda host: (_ for _ in ()).throw(AssertionError("host DNS consulted for " + host))
+    hosts = mesh_static_hosts(MeshSettings(enabled=True, headscale_key_file=Path("k"), hub_ip="100.64.0.1"))
+    assert hosts == {"hub.onemind.internal": ["100.64.0.1"]}
+    ex = KubernetesExecutor(runner=FakeKubectl(), resolve=boom, static_hosts=hosts)
+    agent = AgentSecret(SECRET, f"agent:{APP}", gateway_url="https://hub.onemind.internal:8443", token="t")
+    assert ex._gateway_egress(agent) == [("100.64.0.1/32", 8443)]
+    other = AgentSecret(SECRET, f"agent:{APP}", gateway_url="https://other.example.test:8443", token="t")
+    with pytest.raises(AssertionError):  # only the mapped name skips host DNS
+        ex._gateway_egress(other)
+
+
+def test_static_hosts_empty_without_a_usable_mesh_hub_ip():
+    from onemind_core.executors import mesh_static_hosts
+    from onemind_core.netconf import MeshSettings
+    assert mesh_static_hosts(MeshSettings()) == {}
+    assert mesh_static_hosts(MeshSettings(enabled=False, hub_ip="100.64.0.1")) == {}
+    assert mesh_static_hosts(MeshSettings(enabled=True, hub_ip="not-an-ip")) == {}
 
 
 def test_audit_records_requester_and_approver_ids(client, clock, executor, settings):
