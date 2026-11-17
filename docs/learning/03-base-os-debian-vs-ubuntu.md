@@ -2,7 +2,7 @@
 
 **For:** Zeus (learning track) · **Date:** 2026-11-11
 **Sources:** the ultracode research on branch `research/ultracode-foundation` (PR #1, rev. 4.1): `research-output/01-FOUNDATION-DECISION.md` §3.1.6, `research-output/26-OPEN-QUESTIONS-FOR-ZEUS.md` (Z-01, Z-38), `research-output/02-competitors/MATRIX.md` and `olares.md`. Claim IDs (C-…) resolve in `research-output/evidence/claims/*.csv` on that branch.
-**Status:** founder notes and a recommendation. **Not a logged decision**: Z-38 is still open.
+**Status:** historical research and recommendation; **D-007 finalized Z-38 = b on 2026-11-11: Debian 13 is the shipping base.** [Decision log](../DECISIONS.md#d-007--base-os-debian-13-is-the-shipping-base-z-38--b) governs; the frozen research scores below are unchanged.
 
 ---
 
@@ -37,7 +37,7 @@ Debian beats Ubuntu **6–5** on the decision-critical rows.
 
 **Takeaway:** Ubuntu's wins all sit on tiers that already get their own Ubuntu or bootc flavor. Debian's wins sit on the boxes OneMind ships first: the day-180 beta (x86 mini PC + Pi 5) and the hypothesised first kit (Greenhouse + TAK: Lite hub + Pi leaves).
 
-## 3. Recommendation (Z-38 option b, founder decision)
+## 3. Historical recommendation (Z-38 option b; D-007 now governs)
 ```
 Pi 5, mini PCs, x86 hubs (Edge / Lite / Pro)  →  Debian 13 OneMind image + RAUC
 Jetson robots                                  →  NVIDIA L4T Ubuntu 24.04 (any base needs this); Yocto meta-tegra test in 180 days

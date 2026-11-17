@@ -75,6 +75,9 @@ async def set_cookies(_: Request):
     r = JSONResponse({"ok": True})
     r.set_cookie("onemind_session", "planted", domain="onemind.local")
     r.set_cookie("theme", "dark")
+    r.set_cookie("__Host-onemind_session", "planted", path="/", secure=True)
+    r.set_cookie("__Host-onemind_csrf", "planted", path="/", secure=True)
+    r.set_cookie("onemind_csrf", "planted")
     return r
 
 
@@ -135,7 +138,7 @@ def env(tmp_path: Path, upstream_port):
         (apps / app_id).mkdir(parents=True)
         (apps / app_id / "onemind.app.yaml").write_text(yaml.safe_dump(manifest(app_id, port, access)))
     status = {"kuma": "installed", "private": "installed", "open": "installed", "noweb": "installed",
-              "down": "installed", "notinst": "failed"}
+              "down": "installed", "notinst": "removed"}
     resolved: list[tuple[str, int]] = []
 
     def resolver(ns, port):
@@ -223,7 +226,18 @@ def test_app_cannot_set_session_cookie(env):
     assert r.status_code == 200
     cookies = r.headers.get_list("set-cookie")
     assert any(c.startswith("theme=") for c in cookies)
-    assert not any("onemind_session" in c for c in cookies)
+    assert not any("onemind_" in c.lower() for c in cookies)
+
+
+def test_identity_cookies_never_reach_the_app(env):
+    """H-34: identity's __Host- cookies and every onemind_* cookie are stripped; others pass through."""
+    r = client(env).get("/x", headers={**bearer(env, "owner"), "Cookie": (
+        "__Host-onemind_session=a; __Host-onemind_csrf=b; onemind_session=c; onemind_csrf=d; "
+        "__host-ONEMIND_x=e; keep=1; onemindful=2")})
+    assert r.status_code == 200, r.text
+    assert r.json()["headers"]["cookie"] == "keep=1; onemindful=2"
+    r = client(env).get("/x", headers={**bearer(env, "owner"), "Cookie": "__Host-onemind_session=a"})
+    assert "cookie" not in r.json()["headers"]
 
 
 def test_cross_origin_unsafe_method_refused(env):
@@ -293,6 +307,8 @@ def test_uninstall_takes_effect(env):
     c = client(env)
     assert c.get("/", headers=bearer(env, "owner")).status_code == 200
     env["status"]["kuma"] = "removing"
+    assert c.get("/", headers=bearer(env, "owner")).status_code == 503
+    env["status"]["kuma"] = "removed"
     assert c.get("/", headers=bearer(env, "owner")).status_code == 404
 
 
@@ -310,7 +326,74 @@ def test_streaming_response(env):
 
 def test_timeout_and_down(env):
     assert client(env).get("/slow", headers=bearer(env, "owner")).status_code == 504
-    assert client(env, "down.onemind.local").get("/", headers=bearer(env, "owner")).status_code == 502
+    r = client(env, "down.onemind.local").get("/", headers=bearer(env, "owner"))
+    assert r.status_code == 502 and r.text == "down is installed but not answering. It may still be starting."
+    assert r.headers["retry-after"] == "5"
+
+
+# ---- honest pages for an app that is not running (UMB-P02) ---------------------------------------------
+@pytest.mark.parametrize("status,said,changing", [
+    ("stopped", "kuma is stopped. Start it from the OneMind dashboard.", False),
+    ("starting", "kuma is starting.", True),
+    ("installing", "kuma is being installed.", True),
+    ("updating", "kuma is being updated.", True),
+    ("failed", "kuma is not running: its last change failed. The OneMind dashboard shows why.", False),
+])
+def test_not_running_app_says_so(env, status, said, changing):
+    env["status"]["kuma"] = status
+    r = client(env).get("/", headers=bearer(env, "adult"))
+    assert r.status_code == 503 and r.text == said
+    assert r.headers["content-type"].startswith("text/plain")
+    assert ("retry-after" in r.headers) is changing
+
+
+def test_not_running_page_for_a_browser(env):
+    env["status"]["kuma"] = "starting"
+    r = client(env).get("/", headers={**bearer(env, "owner"), "Accept": "text/html,*/*;q=0.8"})
+    assert r.status_code == 503 and r.headers["content-type"].startswith("text/html")
+    assert "<p>kuma is starting.</p>" in r.text and 'http-equiv="refresh" content="5"' in r.text
+    assert r.headers["content-security-policy"] == "default-src 'none'; style-src 'unsafe-inline'"
+    assert "<script" not in r.text
+    env["status"]["kuma"] = "stopped"
+    r = client(env).get("/", headers={**bearer(env, "owner"), "Accept": "text/html"})
+    assert "refresh" not in r.text and "retry-after" not in r.headers
+
+
+def test_not_running_tells_only_who_could_open_it(env):
+    env["status"]["private"] = "stopped"  # access: owner
+    assert client(env, "private.onemind.local").get("/", headers=bearer(env, "owner")).status_code == 503
+    assert client(env, "private.onemind.local").get("/", headers=bearer(env, "adult")).status_code == 404
+    # signed out: 401 whatever the state, so nobody can list apps or their states
+    assert client(env, "private.onemind.local").get("/").status_code == 401
+    # agents never open apps, running or not
+    assert client(env, "private.onemind.local").get("/", headers=bearer(env, "agent")).status_code == 404
+
+
+def test_not_running_respects_mesh_exposure(env):
+    proxy = env["app"].user_middleware[0].kwargs["proxy"]
+    proxy.exposure = lambda app_id: "private"
+    env["status"]["kuma"] = "stopped"
+    assert client(env, "kuma.apps.onemind.internal").get("/", headers=bearer(env, "owner")).status_code == 404
+    assert client(env, "kuma.onemind.local").get("/", headers=bearer(env, "owner")).status_code == 503
+
+
+def test_forward_auth_decision_unchanged_for_a_stopped_app(env):
+    """decide() keeps 204/401/403/404: /v1/auth/forward maps exactly those."""
+    proxy = env["app"].user_middleware[0].kwargs["proxy"]
+    env["status"]["kuma"] = "stopped"
+    status, _, _ = proxy.decide({"host": "kuma.onemind.local", "authorization": bearer(env, "owner")["Authorization"]}, "kuma")
+    assert status == 404
+
+
+def test_page_escapes_the_app_name(env, tmp_path):
+    proxy = env["app"].user_middleware[0].kwargs["proxy"]
+    m = manifest("kuma", 1)
+    m["metadata"]["name"] = "<img src=x onerror=alert(1)>"
+    (tmp_path / "apps" / "kuma" / "onemind.app.yaml").write_text(yaml.safe_dump(m))
+    proxy.catalog = Catalog(tmp_path / "apps")
+    env["status"]["kuma"] = "stopped"
+    r = client(env).get("/", headers={**bearer(env, "owner"), "Accept": "text/html"})
+    assert "<img" not in r.text and "&lt;img src=x onerror=alert(1)&gt; is stopped." in r.text
 
 
 # ---- WebSocket --------------------------------------------------------------------------------------

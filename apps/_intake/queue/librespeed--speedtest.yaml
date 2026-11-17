@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+name: LibreSpeed
+github: librespeed/speedtest
+priority: 2
+status: in-pr
+notes: market batch 4

@@ -7,11 +7,13 @@ connection runs as a background task that keeps retrying, and nothing else waits
 from __future__ import annotations
 
 import asyncio
+import base64
 import contextlib
 import logging
 
-import nats
+from nats.aio.client import Client
 
+from .natsconf import load_seed
 from .nodes import NodeRegistry
 
 log = logging.getLogger("onemind.bus")
@@ -20,9 +22,24 @@ HEARTBEAT_SUBJECT = "onemind.node.*.status"
 RETRY_S = 5.0
 
 
+class SeedClient(Client):
+    """nats-py's client, signing in with a user nkey seed file (`nkeys_seed=`) through `cryptography`.
+
+    nats-py would import the `nkeys` package for that, which ships no wheel, so the image's
+    --require-hashes --only-binary install cannot have it (#269). nats-py calls this hook when
+    `nkeys_seed` is given and then sends `nkey` and `sig` in CONNECT, the same as with `nkeys`.
+    """
+
+    def _setup_nkeys_seed_connect(self) -> None:
+        pub, sign = load_seed(self._nkeys_seed)
+        self._public_nkey = pub
+        self._signature_cb = lambda nonce: base64.b64encode(sign(nonce.encode()))
+
+
 class NatsBus:
-    def __init__(self, url: str | None, registry: NodeRegistry):
+    def __init__(self, url: str | None, registry: NodeRegistry, nkey_seed=None):
         self.url = url
+        self.nkey_seed = nkey_seed  # path of the gateway's NATS seed file, or None
         self.registry = registry
         self.nc = None
         self._loop: asyncio.AbstractEventLoop | None = None
@@ -47,8 +64,11 @@ class NatsBus:
     async def _run(self) -> None:
         while not self._stop.is_set():
             try:
-                nc = await nats.connect(
+                nc = SeedClient()
+                await nc.connect(
                     self.url,
+                    # CORE-SEC-4 (#161): the gateway's own service nkey on a strict hub.
+                    **({"nkeys_seed": str(self.nkey_seed)} if self.nkey_seed else {}),
                     connect_timeout=2,
                     allow_reconnect=True,
                     max_reconnect_attempts=-1,

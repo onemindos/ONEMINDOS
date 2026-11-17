@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: Apache-2.0
+# OneMind recovery mode (os/recovery/README.md): reached only when onemind-data-check.service finds
+# the data partition unusable (OnFailure= isolate). Network, mDNS, the console and the status page;
+# no k3s, gateway, health gate, apps or AI.
+[Unit]
+Description=OneMind recovery mode (the data partition is not usable)
+Requires=basic.target
+# plymouth-quit: a running boot splash swallows what the recovery units print to /dev/console (the
+# ONEMIND-RECOVERY lines), and this target never reaches multi-user.target, which is what normally ends it.
+Wants=systemd-networkd.service systemd-resolved.service avahi-daemon.service getty.target plymouth-quit.service onemind-recovery.service onemind-recovery-web.service
+After=basic.target
+Conflicts=rescue.service rescue.target emergency.service emergency.target
+AllowIsolate=yes

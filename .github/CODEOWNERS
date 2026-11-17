@@ -1,0 +1,40 @@
+# SPDX-License-Identifier: Apache-2.0
+# Who is asked to review a PR, per component (CI-04, issue 229). GitHub requests the owners of
+# every path a PR touches. The last matching line wins, so the catch-all comes first.
+# Today one maintainer owns everything; when a component gets its own maintainer, change its line.
+# The Opus gate (docs/leap/AGENT-QUEUE.md §6) still reviews every builder PR before merge.
+
+*                       @Zeus-Delacruz
+
+# Gateway (Python) and the API contract
+/core/                  @Zeus-Delacruz
+/sdk/                   @Zeus-Delacruz
+
+# Node daemon and the onemind CLI (Go)
+/cmd/                   @Zeus-Delacruz
+/internal/              @Zeus-Delacruz
+/go.mod                 @Zeus-Delacruz
+/go.sum                 @Zeus-Delacruz
+
+# Screens and clients
+/dashboard/             @Zeus-Delacruz
+/ui/                    @Zeus-Delacruz
+/mobile/                @Zeus-Delacruz
+/desktop/               @Zeus-Delacruz
+/site/                  @Zeus-Delacruz
+
+# Market apps
+/apps/                  @Zeus-Delacruz
+
+# OS image, boot, RAUC updates, image tests, install bundle
+/os/                    @Zeus-Delacruz
+/test/                  @Zeus-Delacruz
+/deploy/                @Zeus-Delacruz
+/lab-kits/              @Zeus-Delacruz
+
+# CI, repo rules and locked decisions
+/.github/               @Zeus-Delacruz
+/scripts/               @Zeus-Delacruz
+/AGENTS.md              @Zeus-Delacruz
+/CLAUDE.md              @Zeus-Delacruz
+/docs/DECISIONS.md      @Zeus-Delacruz

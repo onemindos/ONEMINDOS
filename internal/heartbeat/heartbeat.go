@@ -9,6 +9,8 @@ package heartbeat
 import (
 	"fmt"
 	"regexp"
+
+	"github.com/onemindos/onemindos/internal/mesh"
 )
 
 // Schema is the value of the "schema" field.
@@ -75,6 +77,7 @@ type Status struct {
 	DiskTotalGB    float64 `json:"disk_total_gb"`
 	DiskFreeGB     float64 `json:"disk_free_gb"`
 	TPM2           bool    `json:"tpm2"`
+	KVM            bool    `json:"kvm"` // /dev/kvm exists: machines can run here (MACH-01)
 	SecureBoot     string  `json:"secure_boot"`
 	K3s            K3s     `json:"k3s"`
 	RAUC           RAUC    `json:"rauc"`
@@ -86,12 +89,27 @@ type Status struct {
 	// optional and additive: omitted when the box has no update service
 	// configured, so heartbeats without it stay valid.
 	Update *Update `json:"update,omitempty"`
+	// Mesh is this machine's mesh state (contract §12.10; internal/mesh):
+	// state and path, plus counts. Never an address or a peer name. Omitted
+	// when the machine has no mesh client.
+	Mesh *mesh.Heartbeat `json:"mesh,omitempty"`
+	// Fabric is the machine's place in the fabric (contract §12.10):
+	// role hub|worker|leaf and its NATS leaf link. Omitted on v0 installs
+	// that never joined through the fabric.
+	Fabric *Fabric `json:"fabric,omitempty"`
 	// Backup is the backup agent's last result (contract 12.10); omitted
 	// when the box has no backup agent configured.
 	Backup *Backup `json:"backup,omitempty"`
 	// Metrics are the node's live load figures (contract 12.10 "metrics"),
 	// read at each heartbeat. Optional: omitted when none can be read.
 	Metrics *Metrics `json:"metrics,omitempty"`
+}
+
+// Fabric is the heartbeat's fabric object (contract §12.10).
+type Fabric struct {
+	Role          string  `json:"role"`      // hub | worker | leaf
+	LeafLink      string  `json:"leaf_link"` // up | down | none
+	CertExpiresAt *string `json:"cert_expires_at,omitempty"`
 }
 
 // Backup is the heartbeat's optional "backup" object (contract 12.10).

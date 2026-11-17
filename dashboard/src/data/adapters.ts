@@ -96,6 +96,15 @@ export function openUrl(a: Pick<CatalogApp, 'web_port' | 'installed'>, loc: Pick
 /** Gateway app `status` → run state. `installed` means applied, not "healthy": v0 reports no health. */
 export function runState(status: string): AppRunState & InstalledRunState {
   switch (status) {
+    case 'stopped':
+      return 'stopped';
+    case 'starting':
+    case 'stopping':
+    case 'restarting':
+    case 'configuring':
+      return 'starting';
+    case 'updating':
+      return 'updating';
     case 'installed':
       return 'installed';
     case 'installing':

@@ -13,11 +13,7 @@ from pathlib import Path
 PKG = Path(__file__).resolve().parent.parent / "onemind_core"
 
 # module (dotted, relative to onemind_core) -> the epic that mounts it. Delete the line when wired.
-NOT_MOUNTED_YET = {
-    "ca": "CORE-NET-8 (per-box CA)",
-    "mesh": "CORE-NET-8 (mesh coordinator router)",
-    "proxy": "CORE-NET-8 (app reverse proxy middleware)",
-}
+NOT_MOUNTED_YET: dict[str, str] = {}
 ENTRY_POINTS = {"__init__", "__main__", "openapi", "cli"}  # run by `python -m`, a console script (pyproject [project.scripts]), or imported as a package
 
 
@@ -36,6 +32,8 @@ def _imported(name: str, mods: dict[str, str]) -> bool:
     # `from ...<leaf> import`, `from ... import ..<leaf>` or `import ...<leaf>` counts.
     pats = [
         rf"from\s+[\w.]*\b{re.escape(leaf)}\s+import",
+        # A submodule import loads its package too: `from ..appstore.service import X` wires appstore.
+        rf"from\s+[\w.]*\b{re.escape(leaf)}\.[\w.]+\s+import",
         rf"from\s+[\w.]+\s+import[^\n]*\b{re.escape(leaf)}\b",
         rf"^\s*import\s+[\w.]*\b{re.escape(leaf)}\b",
         rf"from\s+[\w.]+\s+import\s*\([^)]*\b{re.escape(leaf)}\b",
@@ -48,13 +46,29 @@ def _imported(name: str, mods: dict[str, str]) -> bool:
     return False
 
 
+def _discovered_routers() -> set[str]:
+    """Router modules app.py mounts through routers.discover() (CI-06, #231), not through imports."""
+    from onemind_core.routers import discover
+
+    return {"routers." + r.__module__.rsplit(".", 1)[1] for r in discover()}
+
+
 def test_every_module_is_imported_or_listed():
     mods = _modules()
+    mounted = _discovered_routers()
     orphans = sorted(
         n for n in mods
-        if n.split(".")[-1] not in ENTRY_POINTS and n not in NOT_MOUNTED_YET and not _imported(n, mods)
+        if n.split(".")[-1] not in ENTRY_POINTS and n not in NOT_MOUNTED_YET and n not in mounted
+        and not _imported(n, mods)
     )
     assert not orphans, f"modules nothing imports: {orphans}. Wire them, or list them in NOT_MOUNTED_YET with the epic."
+
+
+def test_discovered_routers_are_real_modules():
+    mods = _modules()
+    mounted = _discovered_routers()
+    assert "routers.static" in mounted and "routers.guard" in mounted
+    assert mounted <= set(mods)
 
 
 def test_not_mounted_list_is_still_true():

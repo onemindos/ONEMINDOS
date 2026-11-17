@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+name: Vikunja
+github: go-vikunja/vikunja
+priority: 2
+status: in-pr
+notes: market batch 6

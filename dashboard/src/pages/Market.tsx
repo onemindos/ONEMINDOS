@@ -5,7 +5,8 @@
 import { useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { AppDetail, Market as StoreMarket, PageHeader, type Collection, type LoadState } from '@onemind/ui';
-import { toJob, toStoreApp } from '../data/adapters';
+import { toStoreApp } from '../data/adapters';
+import { ActionStatus } from '../shell/ActionJobs';
 import { useHub, type Hub } from '../data/hub';
 import type { Polled } from '../lib/hooks';
 import { href } from '../shell/routes';
@@ -58,7 +59,7 @@ export function Market() {
     if (a?.installed && a.web_port) window.open(`${window.location.protocol}//${window.location.hostname}:${a.web_port}/`, '_blank', 'noopener');
     else navigate(href.manage(id));
   };
-  const jobs = hub.actionList.filter((a) => a.type === 'app.install').map((a) => toJob(a, hub.appName(a.params.app_id)));
+  const appJob = hub.actionList.find((a) => a.params.app_id === appId);
   const blockedForYou = hub.canRequest === 'no' ? 'Your account can look but not request installs. Ask the owner.' : undefined;
 
   // A request goes straight to the hub and lands in Approvals, where the owner sees the exact
@@ -76,7 +77,7 @@ export function Market() {
           app={app}
           state={state}
           planState={{ kind: 'ready', fetched_at: hub.asOf ?? new Date().toISOString() }}
-          job={jobs.find((j) => j.app_id === appId)}
+
           now={hub.now}
           backHref={href.market}
           manageHref={href.manage}
@@ -84,6 +85,7 @@ export function Market() {
           onOpen={(a) => open(a.id)}
           onRetry={hub.reloadAll}
         />
+        {appJob && <ActionStatus action={appJob} label="App request progress" />}
         {blockedForYou && <p className="om-note om-tone-info">{blockedForYou}</p>}
       </>
     );
@@ -100,7 +102,7 @@ export function Market() {
         now={hub.now}
         collections={COLLECTIONS}
         featured={apps.some((a) => a.id === FEATURED.app_id) ? FEATURED : undefined}
-        jobs={jobs}
+
         appHref={href.app}
         approvalsHref={href.approvals}
         onOpen={(a) => open(a.id)}

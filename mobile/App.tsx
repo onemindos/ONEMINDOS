@@ -12,7 +12,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import * as Notifications from 'expo-notifications';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo } from 'react';
-import { ActivityIndicator, Image, Text, useColorScheme, View } from 'react-native';
+import { ActivityIndicator, Image, Text, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { HubDataProvider, useHubData } from './src/data';
 import type { Alert } from './src/lib/alerts';
@@ -40,7 +40,8 @@ import { NodesScreen } from './src/screens/NodesScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
 import { onForgetHub, SessionProvider, useSession, useSignedIn, type SessionDeps } from './src/session';
 import { TOUR, TOUR_ROLE, TOUR_STEP_MS } from './src/tour';
-import { font, useTheme } from './src/ui/theme';
+import { PrefsProvider } from './src/prefs';
+import { font, useIsDark, useTheme } from './src/ui/theme';
 
 const Tab = createBottomTabNavigator<TabParams>();
 const Stack = createNativeStackNavigator<RootParams>();
@@ -80,7 +81,7 @@ const ICON: Record<keyof TabParams, string> = { Home: '⌂', Apps: '▦', Approv
 
 function HomeTitle() {
   const t = useTheme();
-  const scheme = useColorScheme();
+  const scheme = useIsDark() ? 'dark' : 'light';
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
       <Image source={scheme === 'dark' ? MARK.dark : MARK.light} style={{ width: 28, height: 28 }} accessibilityIgnoresInvertColors />
@@ -136,12 +137,12 @@ function PushPings() {
 }
 
 function SignedIn() {
-  const scheme = useColorScheme();
+  const dark = useIsDark();
   const t = useTheme();
   const navTheme = useMemo<NavTheme>(() => {
-    const base = scheme === 'dark' ? DarkTheme : DefaultTheme;
+    const base = dark ? DarkTheme : DefaultTheme;
     return { ...base, colors: { ...base.colors, primary: t.accent, background: t.bg, card: t.card, text: t.text, border: t.border, notification: t.danger } };
-  }, [scheme, t]);
+  }, [dark, t]);
   const onAlerts = useCallback((alerts: Alert[]) => {
     for (const a of alerts) void showAlert(a).catch(() => undefined);
   }, []);
@@ -176,6 +177,7 @@ function SignedIn() {
   return (
     <HubDataProvider onAlerts={onAlerts}>
       <PushPings />
+      <PrefsProvider>
       <PhotoBackupProvider>
         <NavigationContainer ref={navRef} linking={linking} theme={navTheme}>
           <Stack.Navigator screenOptions={{ headerBackTitle: 'Back', headerStyle: { backgroundColor: t.card }, headerTintColor: t.text }}>
@@ -193,6 +195,7 @@ function SignedIn() {
           </Stack.Navigator>
         </NavigationContainer>
       </PhotoBackupProvider>
+      </PrefsProvider>
     </HubDataProvider>
   );
 }

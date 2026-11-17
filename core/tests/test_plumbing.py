@@ -77,6 +77,37 @@ def test_router_registry_keeps_static_last():
     assert len(set(ROUTERS)) == len(ROUTERS)
 
 
+def test_routers_register_themselves_in_their_declared_order():
+    """CI-06 (#231): every routers/ module is found without a shared list, in ORDER."""
+    import importlib
+    import pkgutil
+
+    import onemind_core.routers as pkg
+
+    names = [m.name for m in pkgutil.iter_modules(pkg.__path__) if not m.name.startswith("_")]
+    modules = {n: importlib.import_module(f"onemind_core.routers.{n}") for n in names}
+    with_routes = {n: m for n, m in modules.items() if hasattr(m, "register")}
+    order = [r.__module__.rsplit(".", 1)[1] for r in ROUTERS]
+    assert order == sorted(with_routes, key=lambda n: (with_routes[n].ORDER, n))
+    # The order rules the old hand-kept list encoded.
+    assert order[0] == "guard" and order[-1] == "static"
+    assert order.index("databases") < order.index("backups")
+
+
+def test_router_module_without_order_is_refused(tmp_path, monkeypatch):
+    import sys
+
+    import onemind_core.routers as pkg
+
+    (tmp_path / "zz_noorder.py").write_text("def register(app, gw):\n    pass\n")
+    monkeypatch.setattr(pkg, "__path__", [*pkg.__path__, str(tmp_path)])
+    try:
+        with pytest.raises(TypeError, match="zz_noorder"):
+            pkg.discover()
+    finally:
+        sys.modules.pop("onemind_core.routers.zz_noorder", None)
+
+
 def test_feature_router_plugs_in_with_one_entry(settings, clock, executor, monkeypatch):
     seen = {}
 
@@ -328,6 +359,7 @@ def test_gateway_exposes_events_on_the_live_bus_path(client):
 
 
 @pytest.mark.nats
+@pytest.mark.xdist_group("nats")  # one worker for every real-NATS test (CI-03, #228)
 def test_publish_event_reaches_real_nats(settings, clock, executor):
     """onemind.event.<type> on a real NATS server. Skipped unless ONEMIND_TEST_NATS_URL is set."""
     import asyncio

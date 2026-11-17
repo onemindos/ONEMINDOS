@@ -20,6 +20,10 @@ from ..override import ENV, OwnerOverride, OwnerOverrideSettings
 log = logging.getLogger("onemind.override")
 
 
+# Route order in the app and in /openapi.json (routers/__init__.py).
+ORDER = 170
+
+
 def register(app: FastAPI, gw: Gateway) -> None:
     cfg = gw.settings.section(OwnerOverrideSettings)
 

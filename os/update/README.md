@@ -54,7 +54,7 @@ These are founder decisions ([CHANNEL.md §6–7](CHANNEL.md)). The pipeline nam
 | `ONEMIND_RAUC_SIGNING_KEY` | secret | PEM private key that signs RAUC bundles (K-RAUC-SIGN; certificate with EKU codeSigning) |
 | `ONEMIND_RAUC_SIGNING_CERT` | secret | Its certificate (PEM) |
 | `ONEMIND_RAUC_KEYRING_CERT` | secret (public content), optional | The CA certificate the image trusts (`/etc/rauc/keyring.pem`, K-RAUC-CA); defaults to the signing cert |
-| `ONEMIND_TUF_TARGETS_KEY` / `_SNAPSHOT_KEY` / `_TIMESTAMP_KEY` | secrets | ed25519 PKCS#8 PEM private keys of the online TUF roles (K-TUF-ONLINE) |
+| `ONEMIND_TUF_TARGETS_KEY` / `_SNAPSHOT_KEY` / `_TIMESTAMP_KEY` | secrets of the Environment `tuf-signing` (`main` only; D-010) | ed25519 PKCS#8 PEM private keys of the online TUF roles (K-TUF-ONLINE) |
 | `ONEMIND_TUF_ROOT_KEY` | — | **Deliberately not used.** The root signs offline (K-ROOT, 2-of-3). CI never holds it |
 | `ONEMIND_SECURITY_PUBLISH` | variable | `true` turns publishing on |
 
@@ -69,13 +69,13 @@ These are founder decisions ([CHANNEL.md §6–7](CHANNEL.md)). The pipeline nam
 - Results stay as workflow artifacts (`release-<board>`, `tuf-security-metadata`, `decide`).
 - Nothing is uploaded to a release.
 
-**Recommended, not configured here:** put the signing secrets in a GitHub **Environment** restricted to `main`. A required reviewer would stop the nightly automation, so that choice is the founder's.
+**The TUF keys live in the Environment `tuf-signing`** (D-010), restricted to `main`; the jobs that read them declare it, and `test/unit/test_tuf_secrets.py` fails if anything else does. A required reviewer on that environment would stop the nightly automation, so there is none. The RAUC secrets are not part of this: put them in an Environment the same way when the founder decides.
 
-**Bootstrapping the root (offline, once per channel).**
-1. Run `scripts/tuf-bootstrap-root.sh rehearse <dir>` in a VM with networking off to practise.
-2. At the ceremony, run `scripts/tuf-bootstrap-root.sh create <dir> security 2 <root1.key> <root2.key> -- targets.pub snapshot.pub timestamp.pub`.
+**Bootstrapping the root (offline, once per channel).** The full runbook is [CEREMONY.md](CEREMONY.md); print [CEREMONY-CHECKLIST.md](CEREMONY-CHECKLIST.md).
+1. Practise first: `scripts/tuf-bootstrap-root.sh rehearse <dir>` (a VM or container with networking off). It does the whole 2-of-3 ceremony on throwaway keys.
+2. At the ceremony: `root-key` once per holder (a passphrase-protected key on each encrypted stick), `online-keys`, then `create <dir> security 2 <holder-a>/root.key <holder-b>/root.key <holder-c>.pub -- targets.pub snapshot.pub timestamp.pub`, then `check <dir> 2 3`.
 3. Commit `<dir>/root.json` as `os/rootfs/layers/base/usr/lib/onemind/tuf/security/root.json`.
-4. Store the three online private keys as the secrets above.
+4. Store the three online private keys as secrets of the GitHub Environment `tuf-signing` (only `main` may deploy to it, no required reviewer), as in [CEREMONY.md](CEREMONY.md) step 9.
 
 The script refuses to run in CI. Root keys on hardware tokens need a token-backed signer, which is not built yet: `tuf-repo.py` signs with PEM key files, and `securesystemslib` has HSM/PKCS#11 signers to add when the token model is chosen (B4.6 `<HSM-OR-TOKEN-MODEL>`).
 
@@ -83,7 +83,7 @@ The script refuses to run in CI. Root keys on hardware tokens need a token-backe
 
 ## Running it locally
 
-There is no Docker on the Mac, so builds run in a Lima VM (`limactl start --name <n> --tty=false --cpus 8 --memory 16 template:docker`, with the worktree mounted writable; `make`/`python3-yaml` installed; `qemu-user-binfmt` for amd64 under an arm64 VM).
+For Mac prerequisites, isolated native unit tests, and the Docker Desktop / Docker-inside-Lima choices, follow [the Mac developer loop](../../docs/learning/mac-dev-loop.md). Run the image assembly and release commands below in a Linux build environment (for example, the Lima guest); the TUF tests use their own pinned dependencies as shown.
 
 ```sh
 # unit tests (stdlib), then the TUF tests with the pinned python-tuf

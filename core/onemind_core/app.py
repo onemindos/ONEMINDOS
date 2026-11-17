@@ -24,34 +24,13 @@ from .context import UNAUTH_AUDIT_INTERVAL_S, Gateway, principal_dependency
 from .errors import install_handlers
 from .events import EventHub
 from .lifecycle import CredentialStore
-from .executors import Executor, NoopExecutor, make_executor
+from .executors import Executor, NoopExecutor, make_executor, mesh_static_hosts
 from .ledger import ActionRepository, SqlActionRepository
+from .netconf import FabricSettings
 from .nodes import NodeRegistry
+from .netconf import MeshSettings
 from .policy import SandboxSettings
-from .routers import Register
-from .routers import actions as actions_routes
-from .routers import apps as apps_routes
-from .routers import appstore as appstore_routes
-from .routers import backups as backups_routes
-from .routers import databases as databases_routes
-from .routers import audit as audit_routes
-from .routers import events as events_routes
-from .routers import files as files_routes
-from .routers import guard as guard_routes
-from .routers import identity as identity_routes
-from .routers import automation as automation_routes
-from .routers import instance as instance_routes
-from .routers import mcp as mcp_routes
-from .routers import monitoring as monitoring_routes
-from .routers import migrate as migrate_routes
-from .routers import nodes as nodes_routes
-from .routers import photos as photos_routes
-from .routers import onboarding as onboarding_routes
-from .routers import notifications as notifications_routes
-from .routers import override as override_routes
-from .routers import secrets as secrets_routes
-from .routers import static as static_routes
-from .routers import storage as storage_routes
+from .routers import Register, discover
 from .routers.static import API_EXACT, API_TREES, is_api_path
 from .store import Database, migrate
 
@@ -59,32 +38,9 @@ __all__ = ["API_EXACT", "API_TREES", "ROUTERS", "UNAUTH_AUDIT_INTERVAL_S", "crea
 
 log = logging.getLogger("onemind.gateway")
 
-# The router registry. Order is route order (and /openapi.json order); static must stay last.
-ROUTERS: list[Register] = [
-    guard_routes.register,  # limits and security headers; adds no routes
-    instance_routes.register,
-    nodes_routes.register,
-    apps_routes.register,
-    appstore_routes.register,
-    mcp_routes.register,
-    actions_routes.register,
-    secrets_routes.register,
-    override_routes.register,
-    photos_routes.register,
-    databases_routes.register,  # before backups, which dumps and restores its databases
-    backups_routes.register,
-    onboarding_routes.register,
-    audit_routes.register,
-    events_routes.register,
-    notifications_routes.register,
-    monitoring_routes.register,
-    identity_routes.register,
-    automation_routes.register,
-    migrate_routes.register,
-    files_routes.register,
-    storage_routes.register,
-    static_routes.register,
-]
+# The router registry: every module in routers/, in ORDER (routers/__init__.py). A feature adds
+# its own router module and never edits this file (CI-06, #231).
+ROUTERS: list[Register] = discover()
 
 
 def utcnow() -> datetime:
@@ -102,7 +58,7 @@ def create_app(
     settings.check()  # refuses ONEMIND_ALLOW_UNSCANNED with the kubernetes executor
     tokens = TokenStore(settings.tokens_file)
     registry = NodeRegistry(clock)
-    bus = NatsBus(settings.nats_url, registry)
+    bus = NatsBus(settings.nats_url, registry, nkey_seed=settings.section(FabricSettings).nats_nkey_seed)
     audit = AuditLog(settings.audit_path, clock, publish=bus.publish_threadsafe)
     catalog = Catalog(settings.apps_dir, settings.app_schema_path)
     owns_repo = repo is None
@@ -112,8 +68,10 @@ def create_app(
     owns_engine = engine is None
     db = Database(engine if engine is not None else ledger.make_engine(settings.db_url))
     migrate(db.engine)
+    mesh = settings.section(MeshSettings)
     executor = executor or make_executor(
-        settings.executor, settings.kubectl, settings.executor_timeout_s, settings.section(SandboxSettings)
+        settings.executor, settings.kubectl, settings.executor_timeout_s, settings.section(SandboxSettings),
+        static_hosts=mesh_static_hosts(mesh),
     )
     # §11.1: the scan check is skipped only on explicit request, and only when nothing real runs.
     skip_scan = settings.allow_unscanned and settings.executor == "noop" and isinstance(executor, NoopExecutor)
@@ -123,8 +81,8 @@ def create_app(
         log.warning(
             "ONEMIND_ALLOW_UNSCANNED=1: installs are approved WITHOUT a passing scan (dev only, noop executor)"
         )
-    gateway_url = settings.gateway_url()
-    if settings.public_url is None:
+    gateway_url = settings.agent_gateway_url()
+    if settings.agent_url is None and settings.public_url is None:
         log.info("ONEMIND_PUBLIC_URL not set; app agent Secrets will use %s", gateway_url)
     actions = ActionService(
         repo, catalog, executor, audit, clock, gateway_url=gateway_url, require_scan=not skip_scan,

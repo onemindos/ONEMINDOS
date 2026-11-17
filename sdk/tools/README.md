@@ -57,7 +57,7 @@ Pin the index digest, not a single-arch one, so the same reference works on amd6
 - **Upstream files at the release tag:** the shallowest compose file (test, dev and e2e files are skipped), else a Helm chart's `values.yaml`, else a `docker run` line in `README.md`: image, container ports and volumes. Host paths (`/etc`, `/run`, device files) and extra services (databases) are not packaged and are listed as open questions.
 - **Registry (crane):** the image tag that equals the release (`2.5.10` or `v2.5.10`) is preferred over a floating tag such as `:2` or `:latest`; then the index digest, architectures and the image's `USER`.
 
-Whatever it cannot confirm is written as `UNVERIFIED` (in values, or in comments for defaults such as resources and category) and listed in the README's open questions, which caps the app at tier `community`. It never guesses an image name: without one in an upstream file or `--image`, the Deployment's image is `UNVERIFIED` and `validate-apps` fails. If the repo is in `apps/_intake/queue.yaml`, it takes the entry's name and docs and sets its status to `in-pr`.
+Whatever it cannot confirm is written as `UNVERIFIED` (in values, or in comments for defaults such as resources and category) and listed in the README's open questions, which caps the app at tier `community`. It never guesses an image name: without one in an upstream file or `--image`, the Deployment's image is `UNVERIFIED` and `validate-apps` fails. If the repo has a file in `apps/_intake/queue/` (`<owner>--<repo>.yaml`), it takes the entry's name and docs and sets its status to `in-pr`.
 
 ```sh
 python3 -I sdk/tools/app-scaffold dani-garcia/vaultwarden

@@ -349,6 +349,13 @@ POLICY |= {
     ("GET", "/v1/onboarding/settings"): Row(ONLY_OWNER, w.p_static("/v1/onboarding/settings"), "contract 12.41: owner only, audited"),
     ("PUT", "/v1/onboarding/settings"): Row(ONLY_OWNER, w.p_missing("/v1/onboarding/settings", json={
         "box_name": "home-hub", "time_zone": "UTC", "backup_choice": "later"}), "contract 12.41: owner only, audited"),
+    # ---- the person's own Home (UMB-P07, #144) --------------------------------------------------------------
+    # Every person has one (child included); an agent has none. The write is probed without If-Match, so a
+    # person who is let in gets 428: the route never reaches the store without a validator.
+    ("GET", "/v1/me/home"): Row(grid(200, 200, 200, 200, 403), w.p_static("/v1/me/home"),
+                                "desktop-ui.md 4.3: a person reads only their own Home; agents have none"),
+    ("PUT", "/v1/me/home"): Row(grid(428, 428, 428, 428, 403), w.p_missing("/v1/me/home", json={}),
+                                "desktop-ui.md 4.3: a person writes only their own Home; If-Match is required"),
     # ---- apps, plans, databases -----------------------------------------------------------------------------
     ("GET", "/v1/databases"): Row(OWNER_ADULT, w.p_static("/v1/databases"), "owner and adult list databases; never a password"),
     ("GET", "/v1/apps/{app_id}/credentials"): Row(OWNER_ONLY_404, w.p_static(f"/v1/apps/{w.TARGET_APP}/credentials"),
@@ -486,4 +493,48 @@ POLICY |= {
                                                        f"{_STORAGE}: requesters read the stored plan"),
     ("POST", "/v1/storage/recovery-key"): Row(grid(404, 403, 403, 403, 403), w.p_missing("/v1/storage/recovery-key"),
                                               f"{_STORAGE}: owner only, and off until F-61/F-62"),
+}
+
+# ---- networking: feat/net-part2 (CORE-NET-12; contract §12.7 box CA, §12.11 fabric joins, §12.1 rate limits) ------
+# Join tickets are an owner's: a ticket is what lets a machine ask to join the box (agents and guests never mint
+# or list them; every refusal is audited, FabricService._deny). A joining node has no session: the one-time join
+# code in the body (or in the poll's headers) is its only credential, so a bearer token is neither needed nor
+# looked at, and a code the hub never issued is 401 for every caller. The box CA is public data.
+_NET = "contract §12.11, core/onemind_core/routers/net.py"
+_JOIN_CODE = f"{_NET}: no session, the one-time join code authenticates (rate limited per source, §12.1)"
+POLICY |= {
+    ("POST", "/v1/fabric/join-tickets"): Row(grid(201, 403, 403, 403, 403), w.p_missing("/v1/fabric/join-tickets", json={}),
+                                             f"{_NET}: only the owner lets a machine join (an agent never mints a ticket)"),
+    ("GET", "/v1/fabric/join-tickets"): Row(ONLY_OWNER, w.p_static("/v1/fabric/join-tickets"), f"{_NET}: owner only"),
+    ("DELETE", "/v1/fabric/join-tickets/{ticket_id}"): Row(OWNER_ONLY_404, w.p_missing("/v1/fabric/join-tickets/tkt_0123456789abcdef"),
+                                                           f"{_NET}: owner only; the gate runs before the lookup"),
+    ("POST", "/v1/fabric/join-requests"): Row(cells(401), w.p_join_request, _JOIN_CODE, challenge="bearer"),
+    ("GET", "/v1/fabric/join-requests/{request_id}"): Row(cells(404), w.p_missing("/v1/fabric/join-requests/jrq_0123456789abcdef"),
+                                                          f"{_JOIN_CODE}; an unknown request id is 404 before any code is checked"),
+    ("GET", "/v1/fabric"): Row(CHILD_CANNOT, w.p_static("/v1/fabric"),
+                               f"{_NET}: the fabric summary (nodes, pending joins) like /v1/nodes: a child has no nodes:read (§12.6)"),
+    ("GET", "/v1/mesh"): Row(CHILD_CANNOT, w.p_static("/v1/mesh"),
+                             f"{_NET}: the mesh view (nodes, devices, app URLs); a child has no nodes:read; mesh addresses are owner only (?addresses)"),
+    ("GET", "/v1/tls"): Row(CHILD_CANNOT, w.p_static("/v1/tls"),
+                            "contract §12.7: CA fingerprint and names to any signed-in caller; a child's role defaults do not cover it"),
+    ("GET", "/v1/tls/ca.crt"): Row(cells(200), w.p_static("/v1/tls/ca.crt"),
+                                   "contract §12.7: the box CA is public data; a phone or node needs it before it can sign in"),
+    ("GET", "/v1/auth/forward"): Row(cells(404), w.p_static("/v1/auth/forward"),
+                                     "NETWORKING §9.3: forward-auth for the app proxy, loopback only (the test client is not loopback: 404)"),
+    ("POST", "/v1/auth/app-session"): Row(
+        cells(403, **GONE, owner=204, adult=204, guest=204, child=204, **PENDING_DENY), w.p_static("/v1/auth/app-session"),
+        "NETWORKING §9: a person's own bearer becomes the app-host cookie; agents are not people (refusal audited)"),
+    ("DELETE", "/v1/auth/app-session"): Row(cells(204), w.p_static("/v1/auth/app-session"),
+                                            "NETWORKING §9: only clears the caller's own cookie; no data, so no credential"),
+}
+
+# ---- virtual machines (MACH-1, #281: core/onemind_core/routers/machines.py) ---------------------------------
+_MACH = "core/onemind_core/routers/machines.py"
+POLICY |= {
+    ("GET", "/v1/machines/capabilities"): Row(CHILD_CANNOT, w.p_static("/v1/machines/capabilities"),
+                                              f"{_MACH}: shows what /v1/nodes shows, so the same nodes:read gate (a child has none)"),
+    # The owner reaches the preflight, which refuses with 409 (no eligible node, or no extension yet); everybody else is stopped at 403.
+    ("POST", "/v1/machines/enable"): Row(cells(403, **GONE, owner=409, plugin=DENIED, automation=DENIED, node=DENIED),
+                                         w.p_static("/v1/machines/enable"),
+                                         f"{_MACH}: only the owner turns machines on; an agent can never approve its own power-up"),
 }

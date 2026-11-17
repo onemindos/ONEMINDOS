@@ -1,0 +1,39 @@
+# SPDX-License-Identifier: Apache-2.0
+# The one required check for main (CI-02, issue 227; how it works: scripts/ci-gate.py).
+# No `paths:` filter, so it reports on every PR and every merge-queue entry. It waits for every
+# other workflow GitHub started for the same commit and fails if a blocking one failed. Founder:
+# make `merge-gate` a required status check on main (repo settings); the per-workflow checks then
+# need not be listed one by one. Not named `gate`: ci-apps, apps-gate-all and release already have
+# jobs called `gate`, and a required check is matched by name, so a skipped one could satisfy it.
+name: merge-gate
+
+on:
+  pull_request:
+  merge_group:
+
+permissions:
+  contents: read
+  actions: read   # list this commit's workflow runs
+
+# A new push to a PR replaces that PR's waiting gate.
+concurrency:
+  group: merge-gate-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  merge-gate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180   # the image battery is the slowest blocking workflow (~60 min)
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          sparse-checkout: scripts/ci-gate.py
+          sparse-checkout-cone-mode: false
+      - name: Wait for this commit's workflows
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+          EVENT: ${{ github.event_name }}
+          RUN_ID: ${{ github.run_id }}
+        run: python3 -I scripts/ci-gate.py

@@ -24,6 +24,10 @@ class ComposeBody(BaseModel):
     compose: str = Field(min_length=1, max_length=MAX_COMPOSE_BYTES)
 
 
+# Route order in the app and in /openapi.json (routers/__init__.py).
+ORDER = 130
+
+
 def register(app: FastAPI, gw: Gateway) -> None:
     store = AppStore(gw)
     store.install()

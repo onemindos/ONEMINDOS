@@ -43,8 +43,7 @@ def test_openapi_documents_contract_statuses_and_error_body(client):
     assert set(err["properties"]["error"]["enum"]) == {
         "permission_denied", "stale_precondition", "expired", "conflict",
         "outcome_unknown", "not_found", "unauthenticated",
-        "rate_limited", "payload_too_large", "policy_refused",  # contract §12.2
-            "unavailable",  # §12.2: feature off or dependency down (backups, files storage); always with a reason
+        "rate_limited", "payload_too_large", "policy_refused", "unavailable",  # contract §12.2; §12.2: feature off or dependency down (backups, files storage, fabric joins); always with a reason
     }
 
 

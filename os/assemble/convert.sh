@@ -10,16 +10,19 @@ IMG=$(ls "$D"/onemind-*.img | head -n1); BASE=${IMG%.img}
 board=$(basename "$D" | sed 's/^image-//')
 case "$board" in
   vm-do) FORMATS="qcow2" ;;
+  arm64-efi) FORMATS="qcow2" ;;   # UTM on Apple Silicon imports a qcow2 (docs/see-onemind/mac-utm.md)
   vm)    FORMATS="qcow2 vhdx vmdk vdi" ;;
   *)     FORMATS="" ;;
 esac
 for f in $FORMATS; do
   opts=""; [ "$f" = vmdk ] && opts="-o subformat=streamOptimized"
+  # The arm64 qcow2 is a download for a Mac: compress it (-c; the image is mostly empty space).
+  [ "$board/$f" = arm64-efi/qcow2 ] && opts="-c"
   qemu-img convert -p -O "$f" $opts "$IMG" "$BASE.$f"
 done
 if [ "$board" = vm ]; then
   # Minimal OVF 1.0 package around the streamOptimized VMDK. UNVERIFIED on VirtualBox/VMware
-  # import (handbook/findings.md F-09); the vmdk/vdi files are the supported path until then.
+  # import; see docs/learning/mac-dev-loop.md. The vmdk/vdi files are the fallback until then.
   n=$(basename "$BASE"); cap=$(qemu-img info --output=json "$IMG" | python3 -c 'import json,sys;print(json.load(sys.stdin)["virtual-size"])')
   sed -e "s/@NAME@/$n/g" -e "s/@CAPACITY@/$cap/g" "$(dirname "$0")/ova.ovf.in" > "$D/$n.ovf"
   ( cd "$D" && tar -cf "$n.ova" "$n.ovf" "$n.vmdk" && rm -f "$n.ovf" )

@@ -21,6 +21,7 @@ import (
 
 	"github.com/onemindos/onemindos/internal/detect"
 	"github.com/onemindos/onemindos/internal/heartbeat"
+	"github.com/onemindos/onemindos/internal/mesh"
 	"github.com/onemindos/onemindos/internal/version"
 )
 
@@ -39,9 +40,16 @@ type Config struct {
 	Interval  time.Duration // heartbeat period, default 10 s
 	Collector *detect.Collector
 	Logger    *slog.Logger
+	// NATSNkeySeed is this daemon's own NATS user seed file on a strict hub
+	// (CORE-SEC-4, #161; core/onemind_core/natsconf.py). Empty = no nkey.
+	NATSNkeySeed string
 	// UpdateReport, when set, supplies the optional "update" object of the
 	// heartbeat (read from the update service's status file). nil = omit.
 	UpdateReport func() *heartbeat.Update
+	// MeshReport and FabricReport supply the optional "mesh" and "fabric"
+	// objects (contract §12.10). nil, or a nil result, omits them.
+	MeshReport   func() *mesh.Heartbeat
+	FabricReport func() *heartbeat.Fabric
 	// BackupReport, when set, supplies the optional "backup" object (read
 	// from the backup agent's state file). nil = omit.
 	BackupReport func() *heartbeat.Backup
@@ -127,6 +135,12 @@ func (a *Agent) collect(c *collection) {
 	c.st = a.cfg.Collector.Collect(context.Background())
 	if a.cfg.UpdateReport != nil {
 		c.st.Update = a.cfg.UpdateReport()
+	}
+	if a.cfg.MeshReport != nil {
+		c.st.Mesh = a.cfg.MeshReport()
+	}
+	if a.cfg.FabricReport != nil {
+		c.st.Fabric = a.cfg.FabricReport()
 	}
 	if a.cfg.BackupReport != nil {
 		c.st.Backup = a.cfg.BackupReport()
@@ -228,18 +242,27 @@ func (a *Agent) Serve(ctx context.Context, ln net.Listener) error {
 // connectNATS starts a connection that keeps retrying forever in the
 // background, including when the server is down at start-up.
 func (a *Agent) connectNATS() {
-	nc, err := nats.Connect(a.cfg.NATSURL,
-		nats.Name("onemindd/"+version.Version),
+	opts := []nats.Option{
+		nats.Name("onemindd/" + version.Version),
 		nats.RetryOnFailedConnect(true),
 		nats.MaxReconnects(-1),
-		nats.ReconnectWait(2*time.Second),
+		nats.ReconnectWait(2 * time.Second),
 		nats.ReconnectBufSize(-1), // do not buffer while disconnected; see package doc
 		nats.ConnectHandler(func(*nats.Conn) { a.log.Info("NATS connected"); a.kickPublish() }),
 		nats.ReconnectHandler(func(*nats.Conn) { a.log.Info("NATS reconnected"); a.kickPublish() }),
 		nats.DisconnectErrHandler(func(_ *nats.Conn, err error) {
 			a.log.Warn("NATS disconnected; will keep retrying", "err", err)
 		}),
-	)
+	}
+	if a.cfg.NATSNkeySeed != "" {
+		nk, err := nats.NkeyOptionFromSeed(a.cfg.NATSNkeySeed)
+		if err != nil {
+			a.log.Error("NATS nkey seed unreadable; heartbeats disabled", "err", err)
+			return
+		}
+		opts = append(opts, nk)
+	}
+	nc, err := nats.Connect(a.cfg.NATSURL, opts...)
 	if err != nil {
 		// Only bad URLs/options get here; RetryOnFailedConnect handles "down".
 		a.log.Error("NATS connect failed; heartbeats disabled", "err", err)

@@ -21,6 +21,10 @@ from ..context import Gateway
 from ..errors import ApiError, error_responses
 
 
+# Route order in the app and in /openapi.json (routers/__init__.py).
+ORDER = 160
+
+
 def register(app: FastAPI, gw: Gateway) -> None:
     key = load_store_key(gw.settings.section(SecretsSettings), gw.settings.audit_path)
     svc = AppSecretsService(SecretsRepository(gw.db), key, gw.catalog, gw.repo, gw.audit, gw.events, gw.clock)

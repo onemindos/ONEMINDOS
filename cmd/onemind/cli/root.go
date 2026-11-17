@@ -55,6 +55,7 @@ var groups = []func(a *App) []*cobra.Command{
 	loginCommands,
 	statusCommands,
 	nodeCommands,
+	fabricCommands,
 	appsCommands,
 	actionsCommands,
 	auditCommands,

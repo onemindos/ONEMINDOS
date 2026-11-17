@@ -117,15 +117,49 @@ func TestRestoreRefusesPlantedSymlinks(t *testing.T) {
 	}
 }
 
+func safeFSTempDir(t *testing.T) string {
+	t.Helper()
+	// macOS temp directories may have /var -> /private/var ancestors. Only
+	// canonicalize our trusted fixture root; planted links below must still fail.
+	root, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	return root
+}
+
+func TestOpenDirNoFollowCreatesDirectories(t *testing.T) {
+	root := safeFSTempDir(t)
+	path := filepath.Join(root, "new", "deep")
+	fd, err := openDirNoFollow(path, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	closeDir(fd)
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !info.IsDir() {
+		t.Fatal("created path is not a directory")
+	}
+}
+
 // The low-level opener rejects a symlink at any depth.
 func TestOpenDirNoFollowRejectsSymlinkComponent(t *testing.T) {
-	root := t.TempDir()
+	root := safeFSTempDir(t)
 	real := filepath.Join(root, "real", "deep")
-	_ = os.MkdirAll(real, 0o755)
-	_ = os.Symlink(filepath.Join(root, "real"), filepath.Join(root, "link"))
-	if fd, err := openDirNoFollow(filepath.Join(root, "link", "deep"), false); err == nil {
-		closeDir(fd)
-		t.Fatal("followed a symlink")
+	if err := os.MkdirAll(real, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(root, "real"), filepath.Join(root, "link")); err != nil {
+		t.Fatal(err)
+	}
+	for _, create := range []bool{false, true} {
+		if fd, err := openDirNoFollow(filepath.Join(root, "link", "deep"), create); err == nil {
+			closeDir(fd)
+			t.Fatalf("followed a symlink (create=%v)", create)
+		}
 	}
 	fd, err := openDirNoFollow(real, false)
 	if err != nil {

@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+name: Glances
+github: nicolargo/glances
+priority: 2
+status: 'skipped: the licence gate cannot confirm the licence (GitHub reports NOASSERTION, the COPYING file is the LGPL-3.0 text, candidates.csv says AGPL-3.0, no matrix row); needs a research licence-matrix row first'
+notes: market batch 6 skip

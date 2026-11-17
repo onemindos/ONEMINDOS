@@ -1,0 +1,101 @@
+# SPDX-License-Identifier: Apache-2.0
+# Upstream references (v0.19.5): docker/Dockerfile (user kolibri, UID/GID 1000; KOLIBRI_HOME=/kolibri;
+# ports 8080 and 8081; CMD kolibri start --foreground) and docker/entrypoint.sh.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kolibri
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  # SQLite on a ReadWriteOnce volume has a single writer: stop the old pod first.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kolibri
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: kolibri
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      # The image starts as root and its entrypoint chowns KOLIBRI_HOME, then drops to the
+      # kolibri user (UID 1000) with setpriv. Here the pod starts as that user directly, so the
+      # entrypoint is replaced by the two things it does that still matter: keep a stable
+      # Morango node id on the volume (used for syncing between Kolibri devices) and exec Kolibri.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: kolibri
+          image: ghcr.io/learningequality/kolibri:0.19.5@sha256:19810f674f1e94a4f925f4f45f8a45de1735310e83540361c4e8614eca34a9fe
+          command: ["/bin/bash", "-c"]
+          args:
+            - >-
+              f="$KOLIBRI_HOME/.node_id";
+              [ -s "$f" ] || cat /proc/sys/kernel/random/uuid > "$f";
+              export MORANGO_SYSTEM_ID="$(cat "$f")" MORANGO_NODE_ID="$(cat "$f")";
+              exec kolibri start --foreground
+          env:
+            - name: KOLIBRI_HOME
+              value: /kolibri
+            - name: KOLIBRI_HTTP_PORT
+              value: "8080"
+            - name: KOLIBRI_ZIP_CONTENT_PORT
+              value: "8081"
+            # Kolibri pings telemetry.learningequality.org with usage statistics by default
+            # (kolibri/utils/options.py, Deployment.DISABLE_PING). OneMind sends nothing unasked.
+            - name: KOLIBRI_DISABLE_PING
+              value: "true"
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+            - name: zip-content
+              containerPort: 8081
+              protocol: TCP
+          # The first start migrates the databases, which takes a minute or more on a Pi.
+          startupProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 10
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 15
+            timeoutSeconds: 5
+          livenessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          # Learning Equality's hardware guidance: 2 GB RAM for a small server; Kolibri itself
+          # (Python, Django, a CherryPy/Magic Bus server) uses a few hundred MiB when idle.
+          resources:
+            requests:
+              cpu: 100m
+              memory: 384Mi
+            limits:
+              cpu: "2"
+              memory: 1536Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: data
+              mountPath: /kolibri
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: kolibri-data

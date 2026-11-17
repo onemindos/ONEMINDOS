@@ -1,0 +1,10 @@
+{
+  "ticket_id": "tkt_01M77PA0951WXYQD8FTP52JR11",
+  "role": "worker",
+  "expires_at": "2026-11-12T11:09:25.573650Z",
+  "hub_ca_sha256": "<sha256-or-token>",
+  "qr_payload": "onemind-join:v1?code=XXXX-XXXX-XXXX\u0026ca=<sha256-or-token>\u0026role=worker\u0026hub=https%3A%2F%2Fbox1.local",
+  "one_time": {
+    "join_code": "<redacted>"
+  }
+}

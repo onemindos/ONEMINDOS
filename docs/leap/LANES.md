@@ -58,6 +58,7 @@
 | B10 | Close stale PRs + catch-up | #27, #43, #58, then `docs/leap/CONTINUE.md` | Per D15/D16: check #27 against #78, then close #27, #43 and #58 with a reason. Add any truly missing #24–#50 changelog entries as one fragment PR. Last of all, mark finished rows in CONTINUE.md. |
 
 **Lane B does not touch:** `.github/workflows/`, `apps/`, the generated SDK files, and every Lane A branch.
+Exception (founder, 2026-11-14): #66 and #88 keep the workflow changes they own (#66: `image.yml`, `battery.yml` installer cleanup; #88: `net-2vm.yml`, `ci-deploy.yml`, `perf-smoke.yml`).
 **Lane A does not touch:** `os/`, `deploy/install.sh`, `deploy/pins.env`, the mesh, proxy and NATS code, and every Lane B branch.
 
 ## Hardware testing later (not blocking the software)

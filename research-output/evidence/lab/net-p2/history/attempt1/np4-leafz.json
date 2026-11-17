@@ -1,0 +1,22 @@
+{
+  "server_id": "NDX632CXCHAWCVQYCDB72GVOZR3WI7MYFAE3KN7I6CMRQHVRHWI5GPIE",
+  "now": "2026-11-12T10:48:50.113637171Z",
+  "leafnodes": 1,
+  "leafs": [
+    {
+      "id": 9,
+      "name": "node-dddbafc5d447",
+      "is_spoke": false,
+      "account": "NODE_dddbafc5d447",
+      "ip": "100.64.0.2",
+      "port": 39484,
+      "rtt": "7.220746ms",
+      "in_msgs": 1,
+      "out_msgs": 0,
+      "in_bytes": 848,
+      "out_bytes": 0,
+      "subscriptions": 14,
+      "compression": "s2_uncompressed"
+    }
+  ]
+}

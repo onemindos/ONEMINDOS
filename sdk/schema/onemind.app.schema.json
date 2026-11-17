@@ -296,7 +296,7 @@
               "type": "boolean"
             },
             "secret": {
-              "description": "Secret name (DNS-1123 subdomain) that receives ONEMIND_GATEWAY_URL and ONEMIND_AGENT_TOKEN.",
+              "description": "Secret name (DNS-1123 subdomain) that receives ONEMIND_GATEWAY_URL and ONEMIND_AGENT_TOKEN (and ONEMIND_GATEWAY_CA, the box CA as PEM, when the gateway is served over HTTPS).",
               "type": "string",
               "maxLength": 253,
               "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"

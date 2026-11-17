@@ -26,6 +26,7 @@ import base64
 import ipaddress
 import json
 import logging
+import os
 import socket
 import subprocess
 import time
@@ -35,8 +36,10 @@ from urllib.parse import urlsplit
 
 import yaml
 
+from .ca import MESH_DOMAIN
 from .catalog import AppEntry
 from .lifecycle import AppCredentialGrant, ExecContext, report_progress
+from .netconf import MeshSettings
 from .policy import (
     APP_ID,
     DEPENDENCIES_POLICY,
@@ -54,6 +57,7 @@ from .policy import (
     pod_security_level,
     rendered_sha256,
     summarize,
+    web_ports,
 )
 
 log = logging.getLogger("onemind.executor")
@@ -93,10 +97,15 @@ class AgentSecret:
     principal_id: str
     gateway_url: str | None = None
     token: str | None = field(default=None, repr=False)
+    # H-05: the box CA (PEM, public) when the gateway is served over HTTPS; written as ONEMIND_GATEWAY_CA.
+    ca_pem: str | None = None
 
     def manifest(self, namespace: str, app_id: str) -> str:
         if not self.token or not self.gateway_url:
             raise ValueError("an agent Secret to create needs gateway_url and token")
+        data = {"ONEMIND_GATEWAY_URL": _b64(self.gateway_url), "ONEMIND_AGENT_TOKEN": _b64(self.token)}
+        if self.ca_pem:
+            data["ONEMIND_GATEWAY_CA"] = _b64(self.ca_pem)
         doc = {
             "apiVersion": "v1",
             "kind": "Secret",
@@ -109,7 +118,7 @@ class AgentSecret:
             },
             # data (base64), not stringData: the Secret is applied server-side (see plan()), and
             # data round-trips exactly through server-side apply's field ownership.
-            "data": {"ONEMIND_GATEWAY_URL": _b64(self.gateway_url), "ONEMIND_AGENT_TOKEN": _b64(self.token)},
+            "data": data,
         }
         return json.dumps(doc)  # JSON is YAML; no quoting surprises in the token or URL
 
@@ -178,7 +187,7 @@ class NoopExecutor(Executor):
         if agent is not None and action_type == "app.install":
             steps.append({
                 "would": f"create Secret {agent.name} in {ns}",
-                "keys": ["ONEMIND_GATEWAY_URL", "ONEMIND_AGENT_TOKEN"],
+                "keys": ["ONEMIND_GATEWAY_URL", "ONEMIND_AGENT_TOKEN", *(["ONEMIND_GATEWAY_CA"] if agent.ca_pem else [])],
                 "principal": agent.principal_id,
             })
         if ctx.credentials is not None and action_type == "app.install":
@@ -265,6 +274,8 @@ class KubernetesExecutor(Executor):
         sleep: Callable[[float], None] = time.sleep,
         health_timeout_s: float = 120,
         resolve: Callable[[str], list[str]] | None = None,
+        hub_addresses: Callable[[], list[str]] | None = None,
+        static_hosts: dict[str, list[str]] | None = None,
     ):
         self.kubectl = kubectl
         self.timeout_s = timeout_s
@@ -282,6 +293,9 @@ class KubernetesExecutor(Executor):
         self.sleep = sleep
         self.health_timeout_s = health_timeout_s
         self.resolve = resolve or _resolve
+        # Names the gateway knows without asking host DNS (hub.onemind.internal -> the hub's mesh IP).
+        self.static_hosts = {h.lower(): list(v) for h, v in (static_hosts or {}).items()}
+        self.hub_addresses = hub_addresses or (lambda: [])
 
     # ---- the documents the gateway itself writes ---------------------------------------------
     def namespace_doc(self, app: AppEntry, level: str) -> str:
@@ -319,10 +333,26 @@ class KubernetesExecutor(Executor):
             return []
         port = parts.port or (443 if parts.scheme == "https" else 80)
         out = []
-        for ip in self.resolve(parts.hostname):
+        for ip in self.static_hosts.get(parts.hostname.lower()) or self.resolve(parts.hostname):
             addr = ipaddress.ip_address(ip)
             out.append((f"{addr}/{32 if addr.version == 4 else 128}", port))
         return out
+
+    def _netpols(self, app: AppEntry, egress: list[str] | None, agent: AgentSecret | None,
+                 rendered: str | None) -> list[dict]:
+        """Default-deny plus the allowances; the hub's host address may reach only the web port.
+
+        The gateway is a host process on the hub, so for an app whose pod runs on another node its
+        traffic arrives over the pod network from the hub's host addresses, which the namespace
+        rule does not match.
+        """
+        ports: list[int] = []
+        try:
+            ports = web_ports(app.manifest, parse_rendered(rendered or ""))
+        except yaml.YAMLError:
+            pass
+        sources = self.hub_addresses() if ports else []
+        return network_policies(app.id, egress or [], self.rules, self._gateway_egress(agent), sources, ports)
 
     def plan(
         self, action_type: str, app: AppEntry, agent: AgentSecret | None = None, *,
@@ -341,7 +371,7 @@ class KubernetesExecutor(Executor):
             rb = self.rolebinding_doc(app)
             if rb is not None:
                 steps.append(([k, "apply", "-n", ns, "-f", "-"], rb))
-            netpols = network_policies(app.id, egress or [], self.rules, self._gateway_egress(agent))
+            netpols = self._netpols(app, egress, agent, rendered)
             steps.append(([k, "apply", "-n", ns, "-f", "-"], "\n---\n".join(json.dumps(d) for d in netpols)))
             if agent is not None:  # before the manifests, so the pods start with the Secret
                 # Server-side apply: a client-side `kubectl apply` would copy the whole object,
@@ -651,7 +681,7 @@ class KubernetesExecutor(Executor):
             return checked
         rendered, _level, egress, plan_info = checked
         report_progress("applying the new version", 35)
-        netpols = network_policies(app.id, egress or [], self.rules, self._gateway_egress(agent))
+        netpols = self._netpols(app, egress, agent, rendered)
         for argv, stdin in (
             ([k, "apply", "-n", ns, "-f", "-"], "\n---\n".join(json.dumps(d) for d in netpols)),
             ([k, "apply", "-n", ns, "-f", "-"], rendered),  # exactly the checked bytes
@@ -802,9 +832,99 @@ def _display(argv: Sequence[str], app: AppEntry) -> list[str]:
     return [a.replace(root, "$ONEMIND_APPS_DIR", 1) if a.startswith(root) else a for a in argv]
 
 
+def _ipv4_of(name: str) -> str | None:
+    """The IPv4 address of interface `name` (SIOCGIFADDR on an AF_INET socket: no netlink needed)."""
+    import fcntl
+    import struct
+
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+        try:
+            raw = fcntl.ioctl(s.fileno(), 0x8915, struct.pack("256s", name.encode()[:15]))
+        except OSError:  # no IPv4 address on it
+            return None
+    return socket.inet_ntoa(raw[20:24])
+
+
+def _read(path: str) -> str:
+    with open(path, encoding="ascii", errors="replace") as f:
+        return f.read()
+
+
+def local_flannel_addresses(*, names: Callable[[], list[str]] | None = None,
+                            ipv4_of: Callable[[str], str | None] = _ipv4_of,
+                            inet6: Callable[[], str] = lambda: _read("/proc/net/if_inet6"),
+                            ) -> Callable[[], list[str]]:
+    """The addresses a pod on another node sees for traffic from this host (the hub).
+
+    The gateway runs on the hub host. Host-originated traffic to a pod on another node leaves
+    from the address of the local flannel interface (flannel-wg for wireguard-native, flannel.1
+    for vxlan, flannel-v6 and so on), which `ip route get <remote pod ip>` shows (VERIFIED in the
+    2-VM CI run). So these are the addresses on local interfaces named `flannel*`.
+
+    They are read without netlink: the gateway's unit allows only AF_INET, AF_INET6 and AF_UNIX
+    sockets (RestrictAddressFamilies), so `ip addr` fails there (it needs AF_NETLINK; seen in the
+    2-VM run as a policy with no hub rule). Interface names come from /sys/class/net, IPv4 from
+    the SIOCGIFADDR ioctl, IPv6 from /proc/net/if_inet6. Empty on any failure, which leaves the
+    policy closed. Read each time the policy is rendered, since the interface appears only after
+    k3s is up.
+    """
+    list_names = names or (lambda: sorted(os.listdir("/sys/class/net")))
+
+    def find() -> list[str]:
+        try:
+            flannel = [n for n in list_names() if n.startswith("flannel")]
+        except OSError:
+            return []
+        out: list[str] = []
+        for n in flannel:
+            try:
+                a = ipv4_of(n)
+                if a:
+                    a = str(ipaddress.ip_address(a))
+                    if a not in out:
+                        out.append(a)
+            except (OSError, ValueError):
+                continue
+        if flannel:
+            try:
+                text = inet6()
+            except OSError:
+                text = ""
+            for line in text.splitlines():
+                f = line.split()
+                if len(f) != 6 or f[5] not in flannel or len(f[0]) != 32:
+                    continue
+                try:
+                    a = str(ipaddress.IPv6Address(bytes.fromhex(f[0])))
+                except ValueError:
+                    continue
+                if not ipaddress.IPv6Address(a).is_link_local and a not in out:
+                    out.append(a)
+        return out
+
+    return find
+
+
+def mesh_static_hosts(mesh: MeshSettings) -> dict[str, list[str]]:
+    """hub.onemind.internal -> the hub's mesh IP, when the mesh is on and the IP is a valid address.
+
+    Pods dial the gateway by this name (ONEMIND_AGENT_URL); host DNS need not know it, and
+    MagicDNS names are node-<x>.onemind.internal, not hub.
+    """
+    if not mesh.enabled or not mesh.hub_ip:
+        return {}
+    try:
+        ip = str(ipaddress.ip_address(mesh.hub_ip))
+    except ValueError:
+        return {}
+    return {f"hub.{MESH_DOMAIN}": [ip]}
+
+
 def make_executor(
-    name: str, kubectl: str = "kubectl", timeout_s: float = 300, sandbox: SandboxSettings | None = None
+    name: str, kubectl: str = "kubectl", timeout_s: float = 300, sandbox: SandboxSettings | None = None,
+    static_hosts: dict[str, list[str]] | None = None,
 ) -> Executor:
     if name == "kubernetes":
-        return KubernetesExecutor(kubectl=kubectl, timeout_s=timeout_s, sandbox=sandbox)
+        return KubernetesExecutor(kubectl=kubectl, timeout_s=timeout_s, sandbox=sandbox,
+                                  hub_addresses=local_flannel_addresses(), static_hosts=static_hosts)
     return NoopExecutor()

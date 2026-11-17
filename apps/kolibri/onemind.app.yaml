@@ -1,0 +1,36 @@
+# SPDX-License-Identifier: Apache-2.0
+# Kolibri: Offline Knowledge bundle (REC-NOMAD-01, research-output/02-competitors/project-nomad.md §18).
+# Sources: github.com/learningequality/kolibri release v0.19.5 (tag commit f7cafd40f5c3),
+# docker/Dockerfile, docker/entrypoint.sh and docker/README.md at that tag. The official image
+# (ghcr.io/learningequality/kolibri, docker/README.md) digest and archs from `crane`, 2026-11-14.
+apiVersion: onemind.app/v1alpha1
+kind: App
+metadata:
+  id: kolibri
+  name: Kolibri
+  version: "0.19.5"
+  description: Offline learning platform with courses, videos, exercises and classes that work without internet
+  # Market category slug from docs/design/TAXONOMY.md §1; sub-tags: courses, offline-knowledge.
+  category: learning
+  icon: icon.svg
+  license: MIT
+  source: https://github.com/learningequality/kolibri
+  # §9.3 facts from the GitHub API (repos/learningequality/kolibri and its releases/latest), read 2026-11-14.
+  links:
+    docs: https://kolibri.readthedocs.io/
+    github: https://github.com/learningequality/kolibri
+    website: https://learningequality.org/kolibri/
+    support: https://community.learningequality.org/
+  upstream: {release: "v0.19.5", released_at: "2026-07-13T19:44:32Z", archived: false}
+  tier: blocked   # set by CI (sdk/tools/app-gate --tier write), not by hand
+spec:
+  archs: [amd64, arm64]
+  requires: {gpu: false, minMemoryMb: 1024}
+  web: {port: 8080}
+  manifests: manifests/
+  updates: {channel: stable, automerge: none}
+  # Kolibri keeps users, classes and progress in SQLite under KOLIBRI_HOME. Imported channel
+  # content (content/) is downloaded again from Kolibri Studio, so it is left out of backups.
+  backup:
+    mode: cold
+    exclude: ["content/", "process_cache/", "*.log"]

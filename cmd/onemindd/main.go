@@ -5,6 +5,7 @@
 // Configuration comes from environment variables (contract §1):
 //
 //	ONEMIND_NATS_URL    hub NATS URL, e.g. nats://hub.local:4222 (empty = API only)
+//	ONEMIND_NATS_NKEY_SEED  this daemon's NATS user seed file on a strict hub (#161)
 //	ONEMIND_NODE_ROLE   hub | node (default node)
 //	ONEMIND_NODE_ID     override the id derived from /etc/machine-id
 //	ONEMIND_AGENT_ADDR  local API address (default 127.0.0.1:7480, loopback only)
@@ -12,6 +13,9 @@
 //	ONEMIND_LOG_LEVEL   debug | info | warn | error (default info)
 //	ONEMIND_UPDATE_CONF OS update settings (default /etc/onemind/update.conf);
 //	                    when present, the heartbeat carries the "update" object
+//
+// `onemindd mesh enroll|wait-ip|status` manages this machine's mesh client
+// (internal/mesh; the k3s and NATS units call `wait-ip` before they start).
 //
 // `onemindd update [-config FILE]` runs the OS update service instead
 // (brief 30 B4.2, contract §10.1; unit deploy/systemd/onemind-update.service).
@@ -111,6 +115,7 @@ func main() {
 	}
 	listen := flag.String("listen", env("ONEMIND_AGENT_ADDR", agent.DefaultListen), "local API listen address")
 	natsURL := flag.String("nats", os.Getenv("ONEMIND_NATS_URL"), "hub NATS URL (empty = do not publish)")
+	natsSeed := flag.String("nats-nkey", os.Getenv("ONEMIND_NATS_NKEY_SEED"), "NATS user seed file (empty = no nkey)")
 	role := flag.String("role", env("ONEMIND_NODE_ROLE", "node"), "hub or node")
 	interval := flag.Duration("interval", agent.DefaultInterval, "heartbeat interval")
 	showVersion := flag.Bool("version", false, "print version and exit")
@@ -141,8 +146,11 @@ func main() {
 	defer stop()
 
 	log.Info("onemindd starting", "version", version.Version, "node_id", col.ID(), "role", *role, "board", col.Board())
-	a := agent.New(agent.Config{Listen: *listen, NATSURL: *natsURL, Interval: *interval, Collector: col, Logger: log,
+	meshReport, fabricReport := netReports(*role, log) // net.go
+	a := agent.New(agent.Config{Listen: *listen, NATSURL: *natsURL, NATSNkeySeed: *natsSeed, Interval: *interval, Collector: col, Logger: log,
 		UpdateReport: updateReport(env("ONEMIND_UPDATE_CONF", update.DefaultConfigPath), log),
+		MeshReport:   meshReport,
+		FabricReport: fabricReport,
 		BackupReport: backupReport(env("ONEMIND_BACKUP_CONF", backup.DefaultConfigPath)),
 		Mounts:       service.Mounts(ctx, optionalServices)})
 	wait := service.Start(ctx, log, optionalServices) // registry.go

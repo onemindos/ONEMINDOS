@@ -1,0 +1,37 @@
+
+************************************************************
+*  OneMind: unsupported developer install, no OS rollback  *
+*  (REC-DEC-30) Packages upgrade in place; nothing can roll *
+*  the OS back. Use the OneMind image for a real box.       *
+************************************************************
+
+==> platform: Debian GNU/Linux 13 (trixie), arm64, role node
+==> apt: installing ca-certificates curl tar gzip iproute2 unattended-upgrades needrestart apt-listchanges avahi-daemon avahi-utils libnss-mdns sqlite3
+==> download https://github.com/k3s-io/k3s/releases/download/v1.37.2%2Bk3s1/k3s-arm64
+==> download https://raw.githubusercontent.com/k3s-io/k3s/f6973cb850e9b245585363d15bde80904ac862fd/install.sh
+==> onemindd: using prebuilt /opt/src/onemindd
+==> download https://pkgs.tailscale.com/stable/tailscale_1.104.6_arm64.tgz
+==> download https://github.com/nats-io/nats-server/releases/download/v2.15.2/nats-server-v2.15.2-linux-arm64.tar.gz
+==> joining: the owner approves this machine on the hub (dashboard Approvals or onemind fabric approve)
+Hub         box1.local (box CA pinned)
+This node   lima-omos-netp2-node · vm · arm64 · Debian GNU/Linux 13 (trixie)
+Role        worker
+Code        YR-4H4W   <- check this matches the card on your phone
+Waiting for the owner to approve…
+Approved.
+Identity    node-dddbafc5d447 certificate until 2027-11-12
+Mesh        joined as node-dddbafc5d447 (tag:onemind-k3s, tag:onemind-worker)
+NATS        leaf to tls://100.64.0.1:7422 as account NODE_dddbafc5d447 (own subjects only)
+k3s         agent config written (server https://100.64.0.1:6443, ticket valid 1 h)
+Done. This node is a worker (node-dddbafc5d447).
+==> k3s v1.37.2+k3s1 agent: joining https://100.64.0.1:6443 over the mesh
+Created symlink '/etc/systemd/system/multi-user.target.wants/k3s-agent.service' → '/etc/systemd/system/k3s-agent.service'.
+
+************************************************************
+*  OneMind: unsupported developer install, no OS rollback  *
+*  (REC-DEC-30) Packages upgrade in place; nothing can roll *
+*  the OS back. Use the OneMind image for a real box.       *
+************************************************************
+
+==> node joined as a worker: mesh up, NATS leaf to the hub over the mesh
+exit=0

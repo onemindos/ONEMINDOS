@@ -1,0 +1,22 @@
+# SPDX-License-Identifier: Apache-2.0
+# Recovery mode's status page on :8080 (the dashboard's port, so onemind.local:8080 lands here).
+# Read-only, static, pre-rendered by onemind-recovery; every path answers 503.
+[Unit]
+Description=OneMind recovery mode: status page on port 8080
+After=onemind-recovery.service
+
+[Service]
+User=nobody
+Group=nogroup
+ExecStart=/usr/bin/socat -T 10 TCP-LISTEN:8080,reuseaddr,fork,max-children=16 EXEC:/usr/lib/onemind/onemind-recovery-respond
+Restart=always
+RestartSec=2
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+CapabilityBoundingSet=
