@@ -29,10 +29,8 @@ type principal struct {
 	Role  string `yaml:"role"`
 }
 
-// ownerDigests reads the tokens file (both shapes core/onemind_core/auth.py
-// accepts) and returns the sha256 of every owner principal's token. Only a
-// person with role owner counts: an agent can never act as the owner.
-func ownerDigests(path string) ([][]byte, error) {
+// loadPrincipals reads the tokens file (both shapes core/onemind_core/auth.py accepts).
+func loadPrincipals(path string) ([]principal, error) {
 	b, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
@@ -59,23 +57,59 @@ func ownerDigests(path string) ([][]byte, error) {
 			return nil, fmt.Errorf("tokens file: %w", err)
 		}
 	}
+	return entries, nil
+}
+
+// digestOf returns the sha256 a principal's token entry stands for.
+func digestOf(p principal) ([]byte, bool) {
+	if p.Token == "" {
+		return nil, false
+	}
+	if h, ok := strings.CutPrefix(p.Token, "sha256:"); ok {
+		d, err := hex.DecodeString(strings.ToLower(h))
+		return d, err == nil && len(d) == sha256.Size
+	}
+	d := sha256.Sum256([]byte(p.Token))
+	return d[:], true
+}
+
+// ownerDigests returns the sha256 of every owner principal's token. Only a
+// person with role owner counts: an agent can never act as the owner.
+func ownerDigests(path string) ([][]byte, error) {
+	entries, err := loadPrincipals(path)
+	if err != nil {
+		return nil, err
+	}
 	var out [][]byte
 	for _, p := range entries {
-		if p.Kind != "person" || p.Role != "owner" || p.Token == "" {
+		if p.Kind != "person" || p.Role != "owner" {
 			continue
 		}
-		if h, ok := strings.CutPrefix(p.Token, "sha256:"); ok {
-			d, err := hex.DecodeString(strings.ToLower(h))
-			if err != nil || len(d) != sha256.Size {
-				continue
-			}
+		if d, ok := digestOf(p); ok {
 			out = append(out, d)
-			continue
 		}
-		d := sha256.Sum256([]byte(p.Token))
-		out = append(out, d[:])
 	}
 	return out, nil
+}
+
+// nonOwnerDigests returns the sha256 of every other principal's token (agents,
+// non-owner people). The terminal answers these with 403 instead of 401: the
+// credential is valid, but it is never allowed a shell.
+func nonOwnerDigests(path string) [][]byte {
+	entries, err := loadPrincipals(path)
+	if err != nil {
+		return nil
+	}
+	var out [][]byte
+	for _, p := range entries {
+		if p.Kind == "person" && p.Role == "owner" {
+			continue
+		}
+		if d, ok := digestOf(p); ok {
+			out = append(out, d)
+		}
+	}
+	return out
 }
 
 // presented returns the credential from "Authorization: Bearer <token>" or
