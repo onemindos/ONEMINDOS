@@ -7,10 +7,11 @@
 # not target, hence --force-os.
 name: perf-smoke
 on:
+  # CI-11 (issue 298): informational, so never on every PR. A PR runs it only when it touches the
+  # workflow's own harness; every change to the code it watches is covered on main, nightly and by hand.
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
-    paths: ["deploy/**", "core/**", "cmd/**", "internal/**", "dashboard/**", "apps/**", "test/perf/**",
-            "os/versions.lock.yaml", ".github/workflows/perf-smoke.yml"]
+    paths: ["test/perf/**", ".github/workflows/perf-smoke.yml"]
   push:
     branches: [main]
     paths: ["deploy/**", "core/**", "cmd/**", "internal/**", "dashboard/**", "apps/**", "test/perf/**",
