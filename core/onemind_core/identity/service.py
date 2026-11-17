@@ -61,6 +61,8 @@ PERSON_ROLES = ("owner", "adult", "guest", "child")
 USERNAME_RE = re.compile(r"[a-z][a-z0-9._-]{1,31}")
 AGENT_ID_RE = re.compile(r"agent:[a-z0-9][a-z0-9._-]{0,62}")
 CSRF_HEADER = "onemind-csrf"
+# A version 3 onion address: 56 base32 characters, then ".onion" (lower case, as Tor Browser sends it).
+ONION_V3 = re.compile(r"[a-z2-7]{56}\.onion")
 SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
 TOUCH_EVERY = timedelta(seconds=60)  # last_seen / last_used are written at most once a minute
 CHALLENGE_TTL = timedelta(seconds=120)
@@ -171,6 +173,12 @@ class IdentityService:
             return rp_id, list(self.cfg.origins)
         origins = {f"https://{rp_id}", f"https://{host}"}
         if rp_id in ("localhost", "127.0.0.1"):
+            origins |= {f"http://{rp_id}", f"http://{host}"}
+        elif ONION_V3.fullmatch(rp_id):
+            # Tor onion service (NET-TOR-01, #284): the .onion link is already end-to-end encrypted
+            # and authenticated by the address itself, and Tor Browser treats it as a secure
+            # context, so it is served over http://. The relying party stays the exact address;
+            # a lookalike or another onion gets a different rp_id and never matches.
             origins |= {f"http://{rp_id}", f"http://{host}"}
         return rp_id, sorted(origins)
 
