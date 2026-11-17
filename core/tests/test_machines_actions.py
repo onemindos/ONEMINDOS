@@ -158,6 +158,23 @@ def test_a_failed_create_gives_its_quota_back(settings, clock):
         assert c.get("/v1/machines", headers=OWNER).json() == []
 
 
+def test_an_unknown_create_keeps_its_quota_and_name(settings, clock):
+    class TimedOut:
+        def create(self, p):
+            return ExecResult("outcome_unknown", "kubectl timed out", [])
+    app = create_app(settings, clock=clock)
+    with TestClient(app) as c:
+        app.state.machines.runtime = TimedOut()
+        app.state.registry.ingest("onemind.node.pc0123456789.status", json.dumps(PC).encode())
+        c.clock, c.n = clock, 0
+        r = _ask(c, "machine.create", VM, OWNER)
+        out = c.post(f"/v1/actions/{r.json()['id']}/approve", headers=OWNER).json()
+        assert out["state"] == "outcome_unknown"
+        held = c.get("/v1/machines", headers=OWNER).json()
+        assert [(m["name"], m["state"]) for m in held] == [("win", "unknown")]  # still booked
+        assert _ask(c, "machine.create", VM, OWNER).status_code == 409  # the name is held until an owner reconciles
+
+
 def test_the_routes_have_scope_rows():
     assert required_scopes("GET", "/v1/machines") == ("nodes:read",)
     assert required_scopes("GET", "/v1/machines/win") == ("nodes:read",)

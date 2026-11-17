@@ -106,7 +106,17 @@ class MachineService:
             return None if ok else f"A machine named {p['name']} already exists."
 
     def _release_create(self, a) -> None:
-        self.repo.remove(a.params["name"], only_state="creating")  # a create that did not finish gives its quota back
+        """Runs when the action ends. Only a create that surely did nothing gives its quota back.
+
+        outcome_unknown (a kubectl timeout, a gateway restart mid-create) may have left the VM in the
+        cluster, so the row stays as `unknown`: the name and the RAM/CPU stay booked until an owner
+        deletes or reconciles it. The ledger already holds the final state when this runs."""
+        name = a.params["name"]
+        final = self.gw.actions.repo.get(a.id)
+        if final is not None and final.state == "outcome_unknown":
+            self.repo.set_state(name, "unknown", self.gw.clock(), only_from=("creating",))
+        else:
+            self.repo.remove(name, only_state="creating")
 
     # ---- what runs after approval ---------------------------------------------------------
     def _run_create(self, a, finish) -> None:

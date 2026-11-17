@@ -21,7 +21,7 @@ class MachineRow(Base):
     ram_mb: Mapped[int] = mapped_column(Integer)
     cpus: Mapped[int] = mapped_column(Integer)
     disk_gb: Mapped[int] = mapped_column(Integer)
-    state: Mapped[str] = mapped_column(String(12))  # creating | stopped | running
+    state: Mapped[str] = mapped_column(String(12))  # creating | stopped | running | unknown
     action_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
