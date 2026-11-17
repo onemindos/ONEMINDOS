@@ -69,7 +69,16 @@ def main(argv: list[str]) -> int:
                 print(f"TODO {f}: {notes[0]}")
                 bad += 1
             else:
-                f.write_text(API_LINE.sub(rf"\g<1>{CURRENT}", text, count=1), encoding="utf-8")
+                rewritten = API_LINE.sub(rf"\g<1>{CURRENT}", text, count=1)
+                try:
+                    ok = (yaml.safe_load(rewritten) or {}).get("apiVersion") == CURRENT
+                except yaml.YAMLError:
+                    ok = False
+                if not ok:  # the key is written in a style the line edit cannot reach
+                    print(f"FAIL {f}: could not rewrite apiVersion (unusual key style); edit it by hand")
+                    bad += 1
+                    continue
+                f.write_text(rewritten, encoding="utf-8")
                 print(f"done {f}: {notes[0]}")
             continue
         errs = sorted(catalog.validate(doc))

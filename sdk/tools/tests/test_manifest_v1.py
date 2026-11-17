@@ -108,6 +108,18 @@ class ManifestV1Tests(unittest.TestCase):
             self.assertEqual(cli.main(["convert", "--check", str(f)]), 0)
             self.assertEqual(cli.main(["validate", str(f)]), 0)
 
+    def test_cli_convert_fails_when_the_key_cannot_be_rewritten(self):
+        cli = load("app-manifest")
+        with tempfile.TemporaryDirectory() as tmp:
+            f = Path(tmp) / "app" / "onemind.app.yaml"
+            f.parent.mkdir()
+            text = (REPO / "apps" / "ntfy" / "onemind.app.yaml").read_text()
+            odd = text.replace("apiVersion: onemind.app/v1alpha1", '"apiVersion": onemind.app/v1alpha1', 1)
+            self.assertNotEqual(odd, text)
+            f.write_text(odd)
+            self.assertEqual(cli.main(["convert", str(f)]), 1)  # not "done" with exit 0
+            self.assertEqual(f.read_text(), odd)  # nothing half-written
+
     def test_every_app_passes_the_shared_validator(self):
         failed = {}
         for path in sorted((REPO / "apps").glob("*/onemind.app.yaml")):
