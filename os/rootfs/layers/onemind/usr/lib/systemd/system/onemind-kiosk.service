@@ -6,13 +6,22 @@
 Description=OneMind: kiosk dashboard on the box's screen
 ConditionPathExists=/data/onemind/kiosk/enabled
 After=plymouth-quit.service systemd-user-sessions.service onemind-gateway.service
-Conflicts=getty@tty1.service onemind-screen.service
+# No Conflicts= on onemind-screen.service: both units are wanted by multi-user.target, the two
+# ConditionPathExists lines already make them exclusive, and a Conflicts= makes systemd drop both start
+# jobs (a blank monitor). Only the getty is conflicted.
+Conflicts=getty@tty1.service
 Before=getty@tty1.service
 
 [Service]
+# A browser must not run as root (Chromium refuses to): a dedicated user with a logind session on tty1.
+User=onemind-kiosk
+Group=onemind-kiosk
+SupplementaryGroups=video render input
+UtmpIdentifier=tty1
+UtmpMode=user
 RuntimeDirectory=onemind-kiosk
 RuntimeDirectoryMode=0700
-ExecStartPre=-/usr/bin/plymouth quit
+ExecStartPre=-+/usr/bin/plymouth quit
 ExecStart=/usr/lib/onemind/onemind-kiosk
 TTYPath=/dev/tty1
 StandardInput=tty-fail
@@ -22,6 +31,10 @@ RestartSec=5
 NoNewPrivileges=yes
 ProtectHome=yes
 PrivateTmp=yes
+ProtectSystem=strict
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
 
 [Install]
 WantedBy=multi-user.target

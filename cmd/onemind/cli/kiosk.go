@@ -5,7 +5,8 @@ package cli
 // onemind kiosk: the owner turns the box's own screen from the text screen into the full-screen
 // dashboard (UX-07, #242 part 2). It is a local, root-on-the-box action: it creates or removes the
 // flag file that onemind-kiosk.service and onemind-screen.service test (ConditionPathExists), so the
-// choice is the owner's and nothing is enabled by default. It talks to no gateway and holds no token.
+// choice is the owner's and nothing is enabled by default. It talks to no gateway and holds no token. An owner without a shell on the box does the same over
+// the API (PUT /v1/instance/kiosk): the root account is locked and the monitor boards ship no SSH.
 
 import (
 	"fmt"
@@ -18,7 +19,7 @@ import (
 // kioskFlag is the file the two units test. Keep in step with os/rootfs/layers/onemind/usr/lib/systemd/system.
 const kioskFlag = "/data/onemind/kiosk/enabled"
 
-const kioskApply = "To apply now: systemctl restart onemind-screen onemind-kiosk (or reboot)."
+const kioskApply = "The screen switches within a few seconds (onemind-kiosk.path); or: systemctl restart onemind-screen onemind-kiosk."
 
 func kioskCommands(a *App) []*cobra.Command {
 	var flag string
@@ -43,7 +44,7 @@ func kioskCommands(a *App) []*cobra.Command {
 	})
 	k.AddCommand(&cobra.Command{
 		Use:   "enable",
-		Short: "Turn kiosk mode on: the monitor shows the dashboard, read-only (no owner token is kept)",
+		Short: "Turn kiosk mode on: the monitor shows the dashboard (no owner token is kept; a keyboard on the box can still sign in)",
 		Args:  cobra.NoArgs,
 		RunE: func(*cobra.Command, []string) error {
 			if err := os.MkdirAll(filepath.Dir(flag), 0o755); err != nil {

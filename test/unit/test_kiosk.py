@@ -47,15 +47,54 @@ class Plan(unittest.TestCase):
             self.assertTrue(k.enabled(root))
 
 
+class Wait(unittest.TestCase):
+    def test_waits_until_healthz_answers(self):
+        calls = []
+        def fetch(u):
+            calls.append(u)
+            if len(calls) < 3:
+                raise OSError("refused")
+            return 200
+        slept = []
+        self.assertTrue(k.wait_for_gateway(fetch=fetch, sleep=slept.append, pause=0.5))
+        self.assertEqual(len(calls), 3)
+        self.assertEqual(slept, [0.5, 0.5])
+        self.assertEqual(calls[0], "http://127.0.0.1:8080/healthz")
+
+    def test_gives_up_after_the_tries(self):
+        def refuse(u):
+            raise OSError("refused")
+        self.assertFalse(k.wait_for_gateway(tries=3, fetch=refuse, sleep=lambda s: None))
+
+
 class Wiring(unittest.TestCase):
     def test_kiosk_unit_is_owner_enabled_and_replaces_the_text_screen(self):
         unit = read("systemd", "system", "onemind-kiosk.service")
         self.assertIn("ConditionPathExists=" + k.FLAG, unit)
-        self.assertIn("Conflicts=getty@tty1.service onemind-screen.service", unit)
+        # Conflicts= on the screen unit makes systemd drop both start jobs at boot (blank monitor); the two
+        # ConditionPathExists lines already keep them exclusive. Only the getty may be conflicted.
+        conflicts = [l for l in unit.splitlines() if l.startswith("Conflicts=")]
+        self.assertEqual(conflicts, ["Conflicts=getty@tty1.service"])
         self.assertIn("ExecStart=/usr/lib/onemind/onemind-kiosk", unit)
         self.assertEqual(os.readlink(os.path.join(LIB, "systemd", "system", "multi-user.target.wants",
                                                   "onemind-kiosk.service")), "../onemind-kiosk.service")
         self.assertTrue(os.access(os.path.join(LIB, "onemind", "onemind-kiosk"), os.X_OK))
+
+    def test_the_browser_never_runs_as_root(self):
+        unit = read("systemd", "system", "onemind-kiosk.service")
+        self.assertIn("User=onemind-kiosk", unit)        # Chromium refuses root; cage loops forever otherwise
+        self.assertIn("ProtectSystem=strict", unit)      # also covers the text-screen fallback
+        self.assertIn("onemind-kiosk", read("sysusers.d", "onemind-kiosk.conf"))
+        self.assertNotIn("--no-sandbox", read("onemind", "onemind_kiosk.py"))
+
+    def test_switching_over_the_api_reaches_the_screen(self):
+        path = read("systemd", "system", "onemind-kiosk.path")
+        self.assertIn("PathChanged=" + os.path.dirname(k.FLAG), path)
+        self.assertIn("restart onemind-screen.service onemind-kiosk.service", read("systemd", "system", "onemind-kiosk-apply.service"))
+        self.assertEqual(os.readlink(os.path.join(LIB, "systemd", "system", "multi-user.target.wants",
+                                                  "onemind-kiosk.path")), "../onemind-kiosk.path")
+        gw = read("systemd", "system", "onemind-gateway.service")    # the gateway may write only the flag dir
+        self.assertIn("/data/onemind/kiosk", gw)
 
     def test_text_screen_steps_aside_only_when_kiosk_is_on(self):
         self.assertIn("ConditionPathExists=!" + k.FLAG, read("systemd", "system", "onemind-screen.service"))
