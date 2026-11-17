@@ -24,6 +24,9 @@ on:
       # SDKs have their own workflows and cannot change an app's gate result).
       - "sdk/tools/**"
       - "sdk/schema/**"
+      # validate-apps runs the gateway's own manifest check (PLAN-E6, #175).
+      - "core/onemind_core/catalog.py"
+      - "core/onemind_core/manifest_convert.py"
       - "research-output/evidence/license-matrix.csv"   # only the apps whose rows changed are gated
       - "renovate.json"
       - ".github/workflows/ci-apps.yml"
@@ -95,7 +98,7 @@ jobs:
           matrix=research-output/evidence/license-matrix.csv
           # A change to the gate itself (its tools, pinned tool installer, schema or this workflow) re-gates
           # every app; otherwise only the apps the PR touches (SDK changes that are not gate inputs gate none).
-          if grep -qE '^(sdk/tools/((app-gate|validate-apps|requirements\.txt|ci/install-tools\.sh)$|applib/)|sdk/schema/|\.github/workflows/ci-apps\.yml$)' <<<"$files"; then
+          if grep -qE '^(sdk/tools/((app-gate|validate-apps|requirements\.txt|ci/install-tools\.sh)$|applib/)|sdk/schema/|core/onemind_core/(catalog|manifest_convert)\.py$|\.github/workflows/ci-apps\.yml$)' <<<"$files"; then
             ids=$(all_apps)
           else
             ids=$(grep -oE '^apps/[^/_.][^/]*/' <<<"$files" | cut -d/ -f2 | sort -u || true)

@@ -3,6 +3,10 @@
 
 Tools for packaging OneMind apps. The binding contract is [`sdk/contracts/poc-v0.md`](../contracts/poc-v0.md): §4 defines the app manifest and §9.4 the app CI gate.
 
+## app-manifest (PLAN-E6, #175)
+
+`python3 -I sdk/tools/app-manifest validate apps` checks manifests with the gateway's own `Catalog.validate` (`core/onemind_core/catalog.py`), the code the box runs and `validate-apps` calls. `app-manifest convert [--check] PATH...` rewrites `apiVersion: onemind.app/v1alpha1` to `onemind.app/v1` and changes nothing else in the file; v1 keeps every v1alpha1 field.
+
 ## validate-apps
 
 `validate-apps` checks every app directory `apps/<id>/` against the contract. It skips directories whose names start with `_` (such as `apps/_intake`) or `.`. It is the local version of the checks that `.github/workflows/ci-apps.yml` runs on every pull request that touches `apps/` or `sdk/`.

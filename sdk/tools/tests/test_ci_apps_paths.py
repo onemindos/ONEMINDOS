@@ -65,6 +65,7 @@ class CiAppsPathsTests(unittest.TestCase):
             "sdk/tools/applib/common.py", "sdk/tools/applib/readme.py",
             "sdk/tools/requirements.txt", "sdk/tools/ci/install-tools.sh",
             "sdk/schema/onemind.app.schema.json",
+            "core/onemind_core/catalog.py", "core/onemind_core/manifest_convert.py",
             ".github/workflows/ci-apps.yml",
         ):
             with self.subTest(path=path):

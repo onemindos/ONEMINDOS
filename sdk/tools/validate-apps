@@ -33,14 +33,18 @@ import subprocess
 import sys
 from pathlib import Path
 
+REPO_ROOT = Path(__file__).resolve().parents[2]
+# PLAN-E6 (#175): the manifest check is the gateway's own (core/onemind_core/catalog.py), so CI and
+# the box cannot disagree. python3 -I drops the script folder from sys.path, so add core/ here.
+sys.path.insert(0, str(REPO_ROOT / "core"))
 try:
     import yaml
     from jsonschema import Draft202012Validator
+    from onemind_core.catalog import Catalog
 except ImportError as exc:  # pragma: no cover - environment problem
     sys.stderr.write(f"error: missing dependency ({exc.name}); install sdk/tools/requirements.txt\n")
     sys.exit(2)
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
 SCHEMA_PATH = REPO_ROOT / "sdk" / "schema" / "onemind.app.schema.json"
 RENOVATE_PATH = REPO_ROOT / "renovate.json"
 HOST_PORTS_PATH = REPO_ROOT / "sdk" / "policy" / "host-ports.yaml"
@@ -107,8 +111,8 @@ def inside(child: Path, parent: Path) -> bool:
 
 
 class AppChecker:
-    def __init__(self, validator: Draft202012Validator, kustomize: str, kubeconform: str):
-        self.validator = validator
+    def __init__(self, catalog: Catalog, kustomize: str, kubeconform: str):
+        self.catalog = catalog
         self.kustomize = kustomize
         self.kubeconform = kubeconform
 
@@ -123,10 +127,8 @@ class AppChecker:
         except yaml.YAMLError as exc:
             return None, [f"{MANIFEST_NAME} is not valid YAML: {exc}"]
 
-        schema_errors = sorted(self.validator.iter_errors(doc), key=lambda e: list(e.absolute_path))
-        for err in schema_errors:
-            where = "/".join(str(p) for p in err.absolute_path) or "(root)"
-            errors.append(f"schema: {where}: {err.message}")
+        schema_errors = sorted(self.catalog.validate(doc))
+        errors.extend(f"schema: {msg}" for msg in schema_errors)
         if schema_errors:
             # The remaining checks rely on a schema-valid manifest.
             app_id = dig(doc, ("metadata", "id"))
@@ -407,10 +409,7 @@ def main(argv: list[str]) -> int:
         print("validate-apps: no app directories found; nothing to check")
         return 0
 
-    checker = AppChecker(
-        Draft202012Validator(schema, format_checker=Draft202012Validator.FORMAT_CHECKER),
-        tools["kustomize"], tools["kubeconform"],
-    )
+    checker = AppChecker(Catalog(apps_dir, SCHEMA_PATH), tools["kustomize"], tools["kubeconform"])
     seen: dict[str, str] = {}
     failed = 0
     for app_dir in app_dirs:
