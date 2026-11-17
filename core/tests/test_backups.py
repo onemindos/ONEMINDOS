@@ -647,3 +647,57 @@ def test_dump_file_is_created_private_and_a_failed_dump_leaves_no_tmp(client, bk
         bk.pg.dump("notes")
     last = [c[2] for c in bk.kube.calls if c[0] == "exec"][-1]
     assert last[:2] == ("rm", "-f") and last[2].endswith(".pgdump.tmp"), "the half-written dump is deleted"
+
+
+# ---- first-run restore candidates (UMB-P08) -------------------------------------------------
+def _fresh(client, bk):
+    """A fresh box: a destination is configured but no app is installed."""
+    dst = add_usb(client, bk)
+    did = client.get("/v1/backups/destinations", headers=OWNER).json()[0]["id"]
+    bk.gw.repo.set_app_state("notes", "uninstalled", bk.gw.clock())
+    return did
+
+
+def test_restore_candidates_group_by_run_and_refuse_a_box_with_apps(client, bk):
+    add_usb(client, bk)
+    did = client.get("/v1/backups/destinations", headers=OWNER).json()[0]["id"]
+    body = {"destination_id": did}
+    # notes is installed (the fixture): a populated box restores per app, not at first run.
+    r = client.post("/v1/onboarding/restore/candidates", headers=OWNER, json=body)
+    assert r.status_code == 409, r.text
+    assert "already has apps" in r.json()["message"]
+
+    bk.gw.repo.set_app_state("notes", "uninstalled", bk.gw.clock())
+    r = client.post("/v1/backups/runs", headers=OWNER, json={"approve": True})
+    assert r.status_code == 202, r.text
+    bk.agent.snaps.extend([
+        {"id": "a" * 64, "short_id": "aaaaaaaa", "unit": "system", "app_id": "", "node_id": "old", "taken_at": "2026-11-10T10:00:00Z",
+         "reason": "scheduled", "run_id": "run_old", "tags": [], "paths": ["/etc"]},
+        {"id": "b" * 64, "short_id": "bbbbbbbb", "unit": "app:notes", "app_id": "notes", "node_id": "old", "taken_at": "2026-11-10T10:01:00Z",
+         "reason": "scheduled", "run_id": "run_old", "tags": [], "paths": ["/x"]},
+    ])
+    r = client.post("/v1/onboarding/restore/candidates", headers=OWNER, json=body)
+    assert r.status_code == 200, r.text
+    assert r.headers["cache-control"] == "no-store"
+    pts = r.json()["points"]
+    old = next(p for p in pts if p["run_id"] == "run_old")
+    assert old["system"] is True and old["apps"] == ["notes"] and len(old["snapshot_ids"]) == 2
+    assert [p["taken_at"] for p in pts] == sorted((p["taken_at"] for p in pts), reverse=True)
+    sent = [j for j in bk.agent.jobs if j[0] == "backup.snapshots" and j[1].get("target_id") == did]
+    assert sent, "the destination id must reach the agent"
+
+
+def test_restore_candidates_passes_box_id_and_is_owner_only(client, bk):
+    did = _fresh(client, bk)
+    r = client.post("/v1/onboarding/restore/candidates", headers=OWNER, json={"destination_id": did, "box_id": "old-box"})
+    assert r.status_code == 200, r.text
+    assert any(j[0] == "backup.snapshots" and j[1].get("box_id") == "old-box" for j in bk.agent.jobs)
+    for who in (ADULT, AGENT):
+        assert client.post("/v1/onboarding/restore/candidates", headers=who, json={"destination_id": did}).status_code == 403
+    assert client.post("/v1/onboarding/restore/candidates", headers=OWNER, json={"destination_id": "dst_0000000000000000"}).status_code == 404
+    assert client.post("/v1/onboarding/restore/candidates", headers=OWNER, json={"destination_id": did, "box_id": "a b;"}).status_code == 422
+
+
+def test_restore_candidates_unavailable_when_backups_off(client):
+    r = client.post("/v1/onboarding/restore/candidates", headers=OWNER, json={"destination_id": "dst_0000000000000000"})
+    assert r.status_code == 503 and r.json()["reason"] == "backups_disabled"

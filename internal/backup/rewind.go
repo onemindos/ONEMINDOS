@@ -74,11 +74,21 @@ func toInfo(s Snapshot) SnapshotInfo {
 // ListSnapshots lists this box's snapshots on a target, newest first,
 // optionally only one unit. Fence records are not restore points.
 func (a *Agent) ListSnapshots(ctx context.Context, targetID, unit string) ([]SnapshotInfo, error) {
+	return a.ListSnapshotsOfBox(ctx, targetID, "", unit)
+}
+
+// ListSnapshotsOfBox is ListSnapshots for another box's restore points (boxID
+// empty means this box). It only lists: a fresh box uses it to offer "restore
+// from this backup" before it has the old box's identity.
+func (a *Agent) ListSnapshotsOfBox(ctx context.Context, targetID, boxID, unit string) ([]SnapshotInfo, error) {
 	repo, _, err := a.browseRepo(ctx, targetID)
 	if err != nil {
 		return nil, err
 	}
-	filter := []string{"onemind", "box=" + a.Cfg.BoxID}
+	if boxID == "" {
+		boxID = a.Cfg.BoxID
+	}
+	filter := []string{"onemind", "box=" + boxID}
 	if unit != "" {
 		filter = append(filter, "unit="+unit)
 	}

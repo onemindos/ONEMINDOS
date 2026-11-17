@@ -452,3 +452,27 @@ func TestAppRestorePutsTheOnlineSQLiteCopyBack(t *testing.T) {
 		t.Fatal("rollback must bring the live database back")
 	}
 }
+
+// A fresh box lists the old box's restore points by box id; a bad id is refused.
+func TestSnapshotsJobListsAnotherBoxsPoints(t *testing.T) {
+	m := newManagedFixture(t)
+	m.ok(t, KindConfigure, usbTarget())
+	snap := appRun(t, m, ReasonManual).Units[0].SnapshotID
+
+	own, _ := json.Marshal(m.ok(t, KindSnapshots, map[string]any{}).Result)
+	if !strings.Contains(string(own), snap) {
+		t.Fatalf("this box's own points are missing: %s", own)
+	}
+	other, _ := json.Marshal(m.ok(t, KindSnapshots, map[string]any{"box_id": "some-other-box"}).Result)
+	if strings.Contains(string(other), snap) {
+		t.Fatalf("another box's listing leaked this box's snapshot: %s", other)
+	}
+	same, _ := json.Marshal(m.ok(t, KindSnapshots, map[string]any{"box_id": m.cfg.BoxID}).Result)
+	if !strings.Contains(string(same), snap) {
+		t.Fatalf("listing by this box's own id should match: %s", same)
+	}
+	code, res, _ := m.do(t, KindSnapshots, map[string]any{"box_id": "bad id;rm"})
+	if code == 200 || res.Error != "bad_job" {
+		t.Fatalf("a malformed box_id was accepted: %d %+v", code, res)
+	}
+}

@@ -474,6 +474,39 @@ class BackupService:
                  "size_bytes": None, "reason": s.get("reason"), "run_id": s.get("run_id"), "tags": s.get("tags") or [],
                  "paths": s.get("paths") or [], "verified_at": verified.get(s["id"])} for s in snaps]
 
+    def restore_candidates(self, destination_id: str, box_id: str | None = None) -> list[dict]:
+        """First-run restore (UMB-P08): the restore points on one destination, one entry per backup run.
+
+        Only a fresh box may ask (no app installed yet): a box with apps restores one app at a time through
+        POST /v1/restores. Read-only; nothing is changed or approved here. `box_id` names the old box when
+        the backup was made by different hardware."""
+        if self.installed_apps():
+            raise ApiError(409, "stale_precondition",
+                           "this box already has apps; restore one app at a time from Backups instead")
+        if not any(d["id"] == destination_id for d in self.destinations()):
+            raise ApiError(404, "not_found", "no such backup destination")
+        params = {"target_id": destination_id, **({"box_id": box_id} if box_id else {})}
+        try:
+            snaps = self._job("backup.snapshots", params) or []
+        except AgentError as e:
+            raise ApiError(409, "stale_precondition", f"the backup could not be read: {e}") from None
+        points: dict[str, dict] = {}
+        for s in snaps:
+            key = s.get("run_id") or s["id"]
+            pt = points.setdefault(key, {"run_id": s.get("run_id"), "taken_at": s.get("taken_at"), "reason": s.get("reason"),
+                                         "system": False, "apps": [], "snapshot_ids": []})
+            pt["snapshot_ids"].append(s["id"])
+            if s.get("unit") == "system":
+                pt["system"] = True
+            elif s.get("app_id"):
+                pt["apps"].append(s["app_id"])
+            if (s.get("taken_at") or "") > (pt["taken_at"] or ""):
+                pt["taken_at"] = s["taken_at"]
+        out = sorted(points.values(), key=lambda p: p["taken_at"] or "", reverse=True)
+        for pt in out:
+            pt["apps"].sort()
+        return out
+
     def snapshot(self, snapshot_id: str) -> dict:
         for s in self.snapshots():
             if s["id"] == snapshot_id or (len(snapshot_id) >= 8 and s["id"].startswith(snapshot_id)):
