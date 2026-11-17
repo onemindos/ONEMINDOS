@@ -3352,6 +3352,21 @@
             "pattern": "^dst_[0-9a-f]{16}$",
             "title": "Destination Id",
             "type": "string"
+          },
+          "recovery_key": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "minLength": 32,
+                "pattern": "^[^\\r\\n]+$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recovery Key",
+            "writeOnly": true
           }
         },
         "required": [
@@ -14836,7 +14851,7 @@
     },
     "/v1/onboarding/restore/candidates": {
       "post": {
-        "description": "The first-run wizard's \"restore from a backup\" step: list what a destination holds. Read-only.",
+        "description": "The first-run wizard's \"restore from a backup\" step: list what a destination holds. Read-only.\n\nBackup made by this box's hardware: send only `destination_id`. Backup made by another (dead or replaced) box:\nalso send its `box_id` and the owner `recovery_key` from the recovery kit (the kit QR carries both); a fresh box\nhas no way to discover the old box id, and its own device key cannot open the old repository.",
         "operationId": "onboarding.restore.candidates",
         "requestBody": {
           "content": {

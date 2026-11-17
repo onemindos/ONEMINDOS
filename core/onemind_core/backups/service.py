@@ -474,22 +474,25 @@ class BackupService:
                  "size_bytes": None, "reason": s.get("reason"), "run_id": s.get("run_id"), "tags": s.get("tags") or [],
                  "paths": s.get("paths") or [], "verified_at": verified.get(s["id"])} for s in snaps]
 
-    def restore_candidates(self, destination_id: str, box_id: str | None = None) -> list[dict]:
+    def restore_candidates(self, destination_id: str, box_id: str | None = None,
+                           recovery_key: str | None = None) -> list[dict]:
         """First-run restore (UMB-P08): the restore points on one destination, one entry per backup run.
 
         Only a fresh box may ask (no app installed yet): a box with apps restores one app at a time through
         POST /v1/restores. Read-only; nothing is changed or approved here. `box_id` names the old box when
-        the backup was made by different hardware."""
+        the backup was made by different hardware, and then `recovery_key` (the owner key from the kit) opens its
+        repository; the key goes to the agent in the signed job only and is never logged or audited."""
         if self.installed_apps():
             raise ApiError(409, "stale_precondition",
                            "this box already has apps; restore one app at a time from Backups instead")
         if not any(d["id"] == destination_id for d in self.destinations()):
             raise ApiError(404, "not_found", "no such backup destination")
-        params = {"target_id": destination_id, **({"box_id": box_id} if box_id else {})}
+        params = {"target_id": destination_id, **({"box_id": box_id} if box_id else {}),
+                  **({"recovery_key": recovery_key} if recovery_key else {})}
         try:
             snaps = self._job("backup.snapshots", params) or []
         except AgentError as e:
-            raise ApiError(409, "stale_precondition", f"the backup could not be read: {e}") from None
+            raise ApiError(409, "stale_precondition", "the backup could not be read: wrong recovery key, wrong disk or no backup there") from None
         points: dict[str, dict] = {}
         for s in snaps:
             key = s.get("run_id") or s["id"]

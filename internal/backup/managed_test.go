@@ -476,3 +476,67 @@ func TestSnapshotsJobListsAnotherBoxsPoints(t *testing.T) {
 		t.Fatalf("a malformed box_id was accepted: %d %+v", code, res)
 	}
 }
+
+// New hardware: the old box's repository is sealed with the OLD box's device
+// key, which the fresh box does not have. Only the owner recovery key from the
+// kit opens it; with the fresh box's own key the listing must fail, and a
+// listing must never create a repository.
+func TestSnapshotsJobOpensAnotherBoxsRepoWithTheRecoveryKey(t *testing.T) {
+	m := newManagedFixture(t)
+	m.ok(t, KindConfigure, usbTarget())
+	snap := appRun(t, m, ReasonManual).Units[0].SnapshotID
+	const recovery = "owner-recovery-key-0123456789abcdef0123456789"
+	inits := 0
+	m.agent.OpenRepoWithKeyFile = func(_ Target, keyFile string) (Repo, error) {
+		b, err := os.ReadFile(keyFile)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.TrimSpace(string(b)) != recovery {
+			return &sealedRepo{Repo: m.repo, wrong: true}, nil
+		}
+		return &sealedRepo{Repo: m.repo, inits: &inits}, nil
+	}
+
+	params := map[string]any{"box_id": m.cfg.BoxID, "recovery_key": recovery}
+	got, _ := json.Marshal(m.ok(t, KindSnapshots, params).Result)
+	if !strings.Contains(string(got), snap) {
+		t.Fatalf("the recovery key should open the repository: %s", got)
+	}
+	if inits != 0 {
+		t.Fatal("browsing another box's repository must never run init")
+	}
+	params["recovery_key"] = "wrong-key-0123456789abcdef0123456789abcd"
+	code, res, body := m.do(t, KindSnapshots, params)
+	if res.State != "failed" || strings.Contains(string(body), "wrong-key") {
+		t.Fatalf("a wrong key must fail without echoing it: %d %+v %s", code, res, body)
+	}
+	code, res, _ = m.do(t, KindSnapshots, map[string]any{"box_id": "b", "recovery_key": "short"})
+	if code == 200 || res.Error != "bad_job" {
+		t.Fatalf("a short key was accepted: %d %+v", code, res)
+	}
+	if left, _ := filepath.Glob(filepath.Join(m.cfg.StateDir, ".key-*")); len(left) != 0 {
+		t.Fatalf("the key file must be removed: %v", left)
+	}
+}
+
+// sealedRepo is a repository that only answers when opened with the right key.
+type sealedRepo struct {
+	Repo
+	wrong bool
+	inits *int
+}
+
+func (s *sealedRepo) Init(ctx context.Context) error {
+	if s.inits != nil {
+		*s.inits++
+	}
+	return s.Repo.Init(ctx)
+}
+
+func (s *sealedRepo) Snapshots(ctx context.Context, f []string) ([]Snapshot, error) {
+	if s.wrong {
+		return nil, &ResticError{Op: "snapshots", ExitCode: exitWrongKey, Stderr: "wrong password or no key found"}
+	}
+	return s.Repo.Snapshots(ctx, f)
+}

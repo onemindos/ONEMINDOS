@@ -4,7 +4,7 @@ from typing import Literal
 from zoneinfo import available_timezones
 
 from fastapi import Depends, FastAPI, Response
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from ..auth import Principal
 from ..backups.service import Unavailable
@@ -32,6 +32,18 @@ class RestoreCandidatesBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
     destination_id: str = Field(pattern=r"^dst_[0-9a-f]{16}$")
     box_id: str | None = Field(default=None, pattern=r"^[A-Za-z0-9._:-]{1,128}$")
+    # The owner recovery key from the kit (its QR carries key= and box=). An old box's repository is sealed with
+    # that box's own device key, so a box id alone cannot open it; the key is used once, in memory, never stored.
+    recovery_key: str | None = Field(default=None, min_length=32, max_length=256, pattern=r"^[^\r\n]+$",
+                                     json_schema_extra={"writeOnly": True})
+
+    @model_validator(mode="after")
+    def _other_box_needs_its_key(self):
+        if self.box_id and not self.recovery_key:
+            raise ValueError("restoring another box's backup needs the owner recovery key from the kit")
+        if self.recovery_key and not self.box_id:
+            raise ValueError("recovery_key goes with the box_id it opens")
+        return self
 
 
 class RestorePoint(BaseModel):
@@ -96,11 +108,15 @@ def register(app: FastAPI, gw: Gateway) -> None:
     @app.post("/v1/onboarding/restore/candidates", operation_id="onboarding.restore.candidates", tags=["onboarding"],
               response_model=RestoreCandidatesView, responses=error_responses(401, 403, 404, 409, 422, 503))
     def restore_candidates(body: RestoreCandidatesBody, response: Response, p: Principal = Depends(owner)):
-        """The first-run wizard's "restore from a backup" step: list what a destination holds. Read-only."""
+        """The first-run wizard's "restore from a backup" step: list what a destination holds. Read-only.
+
+        Backup made by this box's hardware: send only `destination_id`. Backup made by another (dead or replaced) box:
+        also send its `box_id` and the owner `recovery_key` from the recovery kit (the kit QR carries both); a fresh box
+        has no way to discover the old box id, and its own device key cannot open the old repository."""
         backups = app.state.backups
         if not backups.enabled:
             raise Unavailable("backups are not switched on (ONEMIND_BACKUPS_ENABLED=1)", "backups_disabled")
-        points = backups.restore_candidates(body.destination_id, body.box_id)
+        points = backups.restore_candidates(body.destination_id, body.box_id, body.recovery_key)
         gw.audit.append("onboarding.restore.candidates", p.as_dict(), None,
                         {"destination_id": body.destination_id, "box_id": body.box_id, "points": len(points)})
         response.headers["Cache-Control"] = "no-store"

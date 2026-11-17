@@ -71,6 +71,9 @@ class FakeAgent:
                 out.append({"unit": u, "state": "succeeded", "snapshot_id": sid})
             return {"id": params["run_id"], "state": self.run_state, "units": out, "bytes_added": 42, "target_id": "dst_x"}
         if kind == "backup.snapshots":
+            if params.get("box_id") and params.get("recovery_key") != getattr(self, "recovery_key", None):
+                # the repository is sealed with the old box's device key: only the recovery key opens it
+                raise AgentError(kind, "restic snapshots: exit 12: wrong password or no key found", reason="failed")
             return [s for s in reversed(self.snaps) if not params.get("unit") or s["unit"] == params["unit"]]
         if kind == "backup.status":
             units = {s["unit"]: {"state": "unverified", "last_success_at": s["taken_at"], "verified_at": None} for s in self.snaps}
@@ -689,7 +692,8 @@ def test_restore_candidates_group_by_run_and_refuse_a_box_with_apps(client, bk):
 
 def test_restore_candidates_passes_box_id_and_is_owner_only(client, bk):
     did = _fresh(client, bk)
-    r = client.post("/v1/onboarding/restore/candidates", headers=OWNER, json={"destination_id": did, "box_id": "old-box"})
+    bk.agent.recovery_key = "K" * 40
+    r = client.post("/v1/onboarding/restore/candidates", headers=OWNER, json={"destination_id": did, "box_id": "old-box", "recovery_key": "K" * 40})
     assert r.status_code == 200, r.text
     assert any(j[0] == "backup.snapshots" and j[1].get("box_id") == "old-box" for j in bk.agent.jobs)
     for who in (ADULT, AGENT):
@@ -701,3 +705,31 @@ def test_restore_candidates_passes_box_id_and_is_owner_only(client, bk):
 def test_restore_candidates_unavailable_when_backups_off(client):
     r = client.post("/v1/onboarding/restore/candidates", headers=OWNER, json={"destination_id": "dst_0000000000000000"})
     assert r.status_code == 503 and r.json()["reason"] == "backups_disabled"
+
+
+def test_restore_candidates_other_box_needs_the_recovery_key(client, bk, settings):
+    did = _fresh(client, bk)
+    bk.agent.recovery_key = "RK" * 20
+    # a box id without the key cannot open the repository: refused before the agent is asked
+    r = client.post("/v1/onboarding/restore/candidates", headers=OWNER, json={"destination_id": did, "box_id": "old-box"})
+    assert r.status_code == 422, r.text
+    assert not any(j[0] == "backup.snapshots" for j in bk.agent.jobs)
+    # the wrong key: the agent's failure is a 409, and the key is never echoed or audited
+    bad = "XX" * 20
+    r = client.post("/v1/onboarding/restore/candidates", headers=OWNER,
+                    json={"destination_id": did, "box_id": "old-box", "recovery_key": bad})
+    assert r.status_code == 409 and bad not in r.text, r.text
+    # the right key reaches the agent with the box id and lists the points
+    r = client.post("/v1/onboarding/restore/candidates", headers=OWNER,
+                    json={"destination_id": did, "box_id": "old-box", "recovery_key": bk.agent.recovery_key})
+    assert r.status_code == 200, r.text
+    assert "RK" * 20 not in r.text and r.headers["cache-control"] == "no-store"
+    audit = settings.audit_path.read_text()
+    assert "onboarding.restore.candidates" in audit and "RK" * 20 not in audit and bad not in audit
+    # short or multi-line keys are refused
+    for k in ("short", "A" * 40 + "\nB"):
+        r = client.post("/v1/onboarding/restore/candidates", headers=OWNER,
+                        json={"destination_id": did, "box_id": "old-box", "recovery_key": k})
+        assert r.status_code == 422
+
+
