@@ -175,6 +175,41 @@ def test_an_unknown_create_keeps_its_quota_and_name(settings, clock):
         assert _ask(c, "machine.create", VM, OWNER).status_code == 409  # the name is held until an owner reconciles
 
 
+@pytest.mark.parametrize("how", ["deny", "expire"])
+@pytest.mark.parametrize("outcome", ["succeeded", "outcome_unknown"])
+def test_a_duplicate_create_that_ends_does_not_release_the_in_flight_create(settings, clock, how, outcome):
+    """Two creates for one name are filed. A is approved and running; B is denied or expires meanwhile."""
+    app = create_app(settings, clock=clock)
+    with TestClient(app) as c:
+        c.clock, c.n = clock, 0
+        app.state.registry.ingest("onemind.node.pc0123456789.status", json.dumps(PC).encode())
+        a = _ask(c, "machine.create", VM, OWNER).json()["id"]
+        b = _ask(c, "machine.create", VM, OWNER).json()["id"]
+        seen = {}
+
+        class Slow:
+            def create(self, p):
+                if how == "deny":
+                    assert c.post(f"/v1/actions/{b}/deny", headers=OWNER).status_code == 200
+                else:
+                    clock.advance(11 * 60)
+                    assert c.get(f"/v1/actions/{b}", headers=OWNER).json()["state"] == "expired"
+                seen["row"] = app.state.machines.repo.get("win")
+                return ExecResult(outcome, "x", [])
+        app.state.machines.runtime = Slow()
+        out = c.post(f"/v1/actions/{a}/approve", headers=OWNER).json()
+        assert out["state"] == outcome
+        assert seen["row"] is not None and seen["row"]["state"] == "creating"  # B's end did not touch A's row
+        held = c.get("/v1/machines", headers=OWNER).json()
+        assert [(m["name"], m["state"]) for m in held] == [("win", "stopped" if outcome == "succeeded" else "unknown")]
+
+
+@pytest.mark.parametrize("name", ["capabilities", "enable"])
+def test_machine_names_cannot_shadow_a_route(box, name):
+    box.report()
+    assert box.ask("machine.create", {**VM, "name": name}).status_code == 422
+
+
 def test_the_routes_have_scope_rows():
     assert required_scopes("GET", "/v1/machines") == ("nodes:read",)
     assert required_scopes("GET", "/v1/machines/win") == ("nodes:read",)

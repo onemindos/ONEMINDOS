@@ -13,10 +13,19 @@ from __future__ import annotations
 import json
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 NAMESPACE = "machines"
 NAME_PATTERN = r"^[a-z][a-z0-9-]{0,38}[a-z0-9]$"
+RESERVED_NAMES = frozenset({"capabilities", "enable"})  # they would collide with GET /v1/machines/<word>
+
+
+def _not_reserved(name: str) -> str:
+    if name in RESERVED_NAMES:
+        raise ValueError(f"{name} is reserved: pick another machine name")
+    return name
+
+
 # What the box keeps for k3s, the gateway and the node daemon. Machines may use the rest.
 RESERVE_MB = 4096
 RESERVE_CPUS = 1
@@ -33,6 +42,7 @@ class MachineCreateParams(BaseModel):
     # A cloud image the owner chose, fetched by CDI over HTTPS. The machine itself gets no network
     # beyond what the owner approves (default-deny below); only the import pod reaches this URL.
     image_url: str = Field(pattern=r"^https://[^\s]{1,500}$")
+    _name_ok = field_validator("name")(_not_reserved)
 
 
 class MachineRefParams(BaseModel):

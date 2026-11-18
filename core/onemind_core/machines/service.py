@@ -53,7 +53,7 @@ class MachineService:
         why = sorted({r.message for n in self.gw.registry.list() for r in refusals(n)})
         return "This box cannot run virtual machines: " + (" ".join(why) or "no node has reported yet.")
 
-    def problem(self, verb: str, params: dict, *, reserve_own: bool = False) -> tuple[str, str] | None:
+    def problem(self, verb: str, params: dict, *, reserve_own: str | None = None) -> tuple[str, str] | None:
         """(reason, message) when the action cannot be done now; None when it can."""
         name = params["name"]
         row = self.repo.get(name)
@@ -61,7 +61,7 @@ class MachineService:
             node = self._host()
             if node is None:
                 return "machines_unsupported", self._refusal_text()
-            if row is not None and not (reserve_own and row["state"] == "creating"):
+            if row is not None and not (reserve_own and row["state"] == "creating" and self.repo.owner(name) == reserve_own):
                 return "name_taken", f"A machine named {name} already exists."
             others = [m for m in self.repo.all() if m["name"] != name]
             msg = quota_problem(node, others, params["ram_mb"], params["cpus"])
@@ -88,7 +88,7 @@ class MachineService:
 
     def _recheck(self, verb: str):
         def check(a) -> str | None:
-            found = self.problem(verb, a.params, reserve_own=True)
+            found = self.problem(verb, a.params, reserve_own=a.id)
             return found[1] if found else None
         return check
 
@@ -114,15 +114,15 @@ class MachineService:
         name = a.params["name"]
         final = self.gw.actions.repo.get(a.id)
         if final is not None and final.state == "outcome_unknown":
-            self.repo.set_state(name, "unknown", self.gw.clock(), only_from=("creating",))
+            self.repo.set_state(name, "unknown", self.gw.clock(), only_from=("creating",), action_id=a.id)
         else:
-            self.repo.remove(name, only_state="creating")
+            self.repo.remove(name, only_state="creating", action_id=a.id)
 
     # ---- what runs after approval ---------------------------------------------------------
     def _run_create(self, a, finish) -> None:
         res = self.runtime.create(MachineCreateParams.model_validate(a.params))
         if res.outcome == "succeeded":
-            self.repo.set_state(a.params["name"], "stopped", self.gw.clock())
+            self.repo.set_state(a.params["name"], "stopped", self.gw.clock(), action_id=a.id)
         finish(res)
 
     def _run_toggle(self, running: bool):

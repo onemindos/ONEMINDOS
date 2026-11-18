@@ -50,16 +50,27 @@ class MachinesRepository(SqlRepository):
             s.add(row)
             return True
 
-    def set_state(self, name: str, state: str, now: datetime, *, only_from: tuple[str, ...] | None = None) -> bool:
+    def owner(self, name: str) -> str | None:
+        """The create action that claimed this row (None when there is no row)."""
+        with self.db.session() as s:
+            row = s.get(MachineRow, name)
+            return row.action_id if row else None
+
+    def set_state(self, name: str, state: str, now: datetime, *, only_from: tuple[str, ...] | None = None,
+                  action_id: str | None = None) -> bool:
         with self.db.session.begin() as s:
             q = update(MachineRow).where(MachineRow.name == name)
+            if action_id:
+                q = q.where(MachineRow.action_id == action_id)
             if only_from:
                 q = q.where(MachineRow.state.in_(only_from))
             return s.execute(q.values(state=state, updated_at=now)).rowcount == 1
 
-    def remove(self, name: str, *, only_state: str | None = None) -> None:
+    def remove(self, name: str, *, only_state: str | None = None, action_id: str | None = None) -> None:
         with self.db.session.begin() as s:
             q = delete(MachineRow).where(MachineRow.name == name)
+            if action_id:
+                q = q.where(MachineRow.action_id == action_id)
             if only_state:
                 q = q.where(MachineRow.state == only_state)
             s.execute(q)
