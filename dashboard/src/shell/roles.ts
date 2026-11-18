@@ -29,3 +29,8 @@ export function roleOf(principal: Principal | undefined, me: Me | undefined): st
 export function showsNav(id: string, view: View): boolean {
   return !PRO_SCREENS.has(id) || view === 'pro';
 }
+
+/** Wait before retrying a failed GET /v1/me: 1 s, 2 s, 4 s, then every 30 s. */
+export function meRetryDelay(attempt: number): number {
+  return attempt < 3 ? 1000 * 2 ** attempt : 30_000;
+}

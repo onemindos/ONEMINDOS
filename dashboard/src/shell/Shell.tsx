@@ -2,7 +2,7 @@
 // The frame around every signed-in screen: @onemind/ui AppShell (sidebar, phone tab bar), the hub
 // connection pill, the ⌘K palette, the notification bell and the jobs tray. In-app links from ui
 // components are routed here, so the page never reloads (mock state and polls survive).
-import { createContext, useContext, useMemo, useState, type MouseEvent, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import {
   AppShell,
@@ -28,7 +28,7 @@ import { personList } from '../data/prefs';
 import { brand } from '../brand.generated';
 import { useSignedIn } from '../session';
 import { href, navId, toRoute } from './routes';
-import { roleOf, showsNav, viewFor, type View } from './roles';
+import { meRetryDelay, roleOf, showsNav, viewFor, type View } from './roles';
 import { usePoll } from '../lib/hooks';
 
 interface ShellApi {
@@ -67,6 +67,18 @@ export function Shell({ children }: { children: ReactNode }) {
   const me = usePoll(() => (principal ? Promise.resolve(null) : client.me()), 0);
   const role = roleOf(principal, me.data ?? undefined);
   const view = viewFor(role === undefined && me.error ? null : role);
+  // A failed lookup is retried with backoff, then slowly, so a network hiccup does not leave an
+  // owner in the Simple view until a reload. Stops once /v1/me answers.
+  const meTries = useRef(0);
+  const { error: meError, reload: meReload } = me;
+  useEffect(() => {
+    if (!meError) {
+      meTries.current = 0;
+      return;
+    }
+    const id = window.setTimeout(() => void meReload(), meRetryDelay(meTries.current++));
+    return () => window.clearTimeout(id);
+  }, [meError, meReload]);
 
   const go = (link: string) => {
     const to = toRoute(link);
@@ -97,9 +109,9 @@ export function Shell({ children }: { children: ReactNode }) {
         nodes: nodes.map((n) => ({ ...n, status: hub.nodeStatus(n) })),
         pending: pending.map(toActionSummary),
         canApprove: hub.canDecide !== 'no',
-      }),
+      }).filter((c) => paletteShows(c, view)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [hub.apps.data, hub.nodes.data, hub.actionList, hub.canDecide],
+    [hub.apps.data, hub.nodes.data, hub.actionList, hub.canDecide, view],
   );
   const runCommand = (c: PaletteCommand) => {
     setPaletteOpen(false);
@@ -209,6 +221,13 @@ export function Shell({ children }: { children: ReactNode }) {
       </div>
     </ShellCtx.Provider>
   );
+}
+
+/** A palette command is offered when it leads to a screen this view shows (Pro screens: roles.ts). */
+export function paletteShows(c: PaletteCommand, view: View): boolean {
+  if (!c.href) return true;
+  const to = toRoute(c.href);
+  return to === undefined || showsNav(navId(to.split('?')[0] ?? '/'), view);
 }
 
 /** Activity entries are needed by Home and Activity; computed once per actions answer. */

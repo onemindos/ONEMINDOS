@@ -4,10 +4,15 @@
 // a direct link to a Pro screen shows a calm "not for your role" line instead of the screen.
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { buildPaletteCommands } from '@onemind/ui';
+import { MockWiringBase } from './api/mockWiring';
+import { ApiError } from './api/types';
 import type { AuditRecord } from './api/wiring';
 import { agentRecords, agentSummaries } from './data/audit';
-import { roleOf, showsNav, viewFor } from './shell/roles';
+import { AGENTS_WINDOW_NOTE } from './pages/Agents';
+import { meRetryDelay, roleOf, showsNav, viewFor } from './shell/roles';
+import { paletteShows } from './shell/Shell';
 import { renderApp, seriousViolations } from './test/helpers';
 
 const T = { timeout: 4000 };
@@ -62,10 +67,54 @@ describe('Pro routes for a Simple role', () => {
 });
 
 describe('role from GET /v1/me (real gateway: the session has no role)', () => {
+  afterEach(() => vi.restoreAllMocks());
+
   it('an owner gets the Pro nav once /v1/me answers', async () => {
     renderApp({ token: 'owner-demo', knownRole: false });
     const nav = await mainNav();
     expect(await nav.findByRole('link', { name: /^Control Hub/ }, T)).toBeInTheDocument();
+  });
+
+  it('a failed lookup is retried, so a network hiccup does not leave the owner in Simple', async () => {
+    const me = vi.spyOn(MockWiringBase.prototype, 'me').mockRejectedValueOnce(new ApiError(0, 'network', 'hub unreachable'));
+    renderApp({ token: 'owner-demo', knownRole: false });
+    const nav = await mainNav();
+    expect(await nav.findByRole('link', { name: /^Control Hub/ }, T)).toBeInTheDocument();
+    expect(me.mock.calls.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('retries back off, then poll slowly', () => {
+    expect([0, 1, 2, 3, 9].map(meRetryDelay)).toEqual([1000, 2000, 4000, 30_000, 30_000]);
+  });
+});
+
+describe('Pro links outside the nav', () => {
+  const nodes = [{ node_id: 'n1', name: 'box', role: 'hub', status: 'online' }] as unknown as Parameters<typeof buildPaletteCommands>[0]['nodes'];
+  const commands = buildPaletteCommands({ now: Date.now(), apps: [], nodes, pending: [], canApprove: false });
+  const proIds = ['go:nodes', 'go:backups', 'set:backups', 'node:n1'];
+
+  it('the palette offers Pro screens to Pro roles only', () => {
+    const offered = (view: 'pro' | 'simple' | 'unknown') => commands.filter((c) => paletteShows(c, view)).map((c) => c.id);
+    for (const id of proIds) {
+      expect(offered('pro')).toContain(id);
+      expect(offered('simple')).not.toContain(id);
+      expect(offered('unknown')).not.toContain(id);
+    }
+    expect(offered('simple')).toContain('go:home');
+    expect(offered('simple')).toContain('go:settings');
+  });
+
+  it.each([
+    ['owner-demo', true],
+    ['child-demo', false],
+    ['guest-demo', false],
+  ])('Home for %s links to Nodes only for a Pro role', async (token, pro) => {
+    renderApp({ token });
+    const main = await screen.findByRole('main', {}, T);
+    await waitFor(() => expect(main.querySelectorAll('a[href="/approvals"]').length).toBeGreaterThan(0), T);
+    const proLinks = () => main.querySelectorAll('a[href="/nodes"], a[href="/settings/backups"]');
+    if (pro) await waitFor(() => expect(proLinks().length).toBeGreaterThan(0), T);
+    else expect(proLinks().length).toBe(0);
   });
 });
 
@@ -94,6 +143,8 @@ describe('AI & Agents audit', () => {
     expect(screen.queryByText(/auth\.login\.succeeded/)).not.toBeInTheDocument();
     const table = screen.getByRole('table', { name: 'Agents' });
     expect(within(table).getByText('ops-agent')).toBeInTheDocument();
+    expect(screen.getByText(AGENTS_WINDOW_NOTE)).toBeInTheDocument();
+    expect(AGENTS_WINDOW_NOTE).toMatch(/latest 500 audit events/);
   });
 
   it('when the chain cannot be read it falls back to the agents’ requests and says so', async () => {

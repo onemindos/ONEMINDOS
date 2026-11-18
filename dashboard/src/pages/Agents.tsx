@@ -17,6 +17,9 @@ export const AGENTS_NOTE =
 
 const PAGE = 500;
 
+/** The page reads one window of the chain, so it says how far back it goes. */
+export const AGENTS_WINDOW_NOTE = `Covers the latest ${PAGE} audit events on this hub; older agent activity is not shown here.`;
+
 export function Agents() {
   const hub = useHub();
   const { api } = useSignedIn();
@@ -47,6 +50,7 @@ export function Agents() {
     return (
       <div className="dash-stack">
         <AuditTimeline {...head} data={data} now={hub.now} onVerify={() => void audit.reload()} onRetry={() => void audit.reload()} />
+        <p className="om-hint">{AGENTS_WINDOW_NOTE}</p>
         <Card title="Agents" variant="sunken">
           <Table caption="Agents" hideCaption columns={cols} rows={agentSummaries(records)} rowKey={(r) => r.id} empty="No agent has made a request yet." />
         </Card>
