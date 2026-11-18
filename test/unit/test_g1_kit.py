@@ -147,6 +147,20 @@ class Kit(unittest.TestCase):
         self.assertEqual(self.kit("soak-sample").returncode, 0)
         self.assertEqual(len(rd(os.path.join(self.lab, "soak.jsonl")).splitlines()), 2)
 
+    def test_soak_reads_nvme_wear_and_timer_runs_the_kit_through_python(self):
+        """The wear numbers come from the disk itself, and the daily timer does not rely on the +x bit."""
+        sm = os.path.join(self.t, "bin", "smartctl")
+        wr(sm, '#!/bin/sh\necho "smartctl $*" >> "$FAKE_LOG"\n'
+               '[ "$2" = /dev/nvme0n1 ] || exit 2\n'
+               'printf "Percentage Used: 3%%\\nData Units Written: 1,234 [631 GB]\\n"\n')
+        os.chmod(sm, 0o755)
+        self.assertEqual(self.kit("soak-start").returncode, 0)
+        sample = json.loads(rd(os.path.join(self.lab, "soak.jsonl")).splitlines()[0])
+        self.assertEqual(sample["nvme_pct_used"], 3)
+        self.assertEqual(sample["nvme_data_units_written"], "1,234")
+        unit = rd(os.path.join(self.t, "units", "onemind-g1-soak.service"))
+        self.assertIn(f"ExecStart={sys.executable} -I ", unit)
+
     def test_soak_warns_on_non_4gb_board(self):
         wr(os.path.join(self.t, "proc", "meminfo"), "MemTotal: 16000000 kB\nMemAvailable: 9000000 kB\n")
         r = self.kit("soak-start")

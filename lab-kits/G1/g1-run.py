@@ -284,7 +284,7 @@ def sample(a):
         f = l.split()
         if len(f) > 9 and f[2] == a.disk:
             disk = int(f[9]) * 512 // 1048576
-    rc, sm = sh("smartctl", "-a", "/dev/" + a.disk.rstrip("0123456789p")) if shutil.which("smartctl") else (1, "")
+    rc, sm = sh("smartctl", "-a", "/dev/" + a.disk) if shutil.which("smartctl") else (1, "")
     w = re.search(r"Data Units Written:\s+([\d,]+)", sm)
     u = re.search(r"Percentage Used:\s+(\d+)", sm)
     return dict(ts=now(), slot=slot(), mem_total_mib=meminfo("MemTotal"), mem_available_mib=meminfo("MemAvailable"),
@@ -305,9 +305,13 @@ def soak(a, start):
         info = dict(started=s["ts"], ends=time.strftime("%Y-%m-%d", time.gmtime(time.time() + SOAK_DAYS * 86400)),
                     mem_total_mib=mem, is_4gb_board=3000 <= mem <= 4300, disk=a.disk, pass_rule="30 days: MemAvailable >= 2048 MiB, <= 5 GB/day written (LT-PI5-03)")
         wr(p, json.dumps(info, indent=1))
+        here = os.path.abspath(__file__)
+        if here.startswith(("/media/", "/run/media/", "/mnt/")):
+            print(f"WARNING: the kit runs from {here}; the daily timer needs it there for 30 days. "
+                  "Copy it to /data first if that is a USB stick.", file=sys.stderr)
         if not info["is_4gb_board"]:
             print(f"WARNING: {mem} MiB RAM is not a 4 GB Pi; the soak record says so. LT-PI5-03 needs the 4 GB board.", file=sys.stderr)
-        for n, body in (("onemind-g1-soak.service", f"[Unit]\nDescription=OneMind G1 soak sample\n[Service]\nType=oneshot\nExecStart={os.path.abspath(__file__)} soak-sample --root {a.root} --disk {a.disk}\n"),
+        for n, body in (("onemind-g1-soak.service", f"[Unit]\nDescription=OneMind G1 soak sample\n[Service]\nType=oneshot\nExecStart={sys.executable} -I {os.path.abspath(__file__)} soak-sample --root {a.root} --disk {a.disk}\n"),
                         ("onemind-g1-soak.timer", "[Unit]\nDescription=OneMind G1 soak, daily\n[Timer]\nOnCalendar=daily\nPersistent=true\n[Install]\nWantedBy=timers.target\n")):
             try:
                 wr(os.path.join(UNIT_DIR, n), body)
