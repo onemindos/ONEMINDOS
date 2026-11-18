@@ -8,4 +8,4 @@ grub_target: arm64-efi
 efi_binary: BOOTAA64.EFI
 console: "console=tty0 console=ttyAMA0,115200"
 layout: layout.yaml
-outputs: [raw]
+outputs: [raw, qcow2]

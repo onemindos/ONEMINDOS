@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: Apache-2.0
+# Pinned GitHub Actions runner (arm64). The SHA-256 comes from the release notes of
+# https://github.com/actions/runner/releases/tag/v2.338.2 ; provision.sh refuses a tarball that differs.
+RUNNER_VERSION=2.338.2
+RUNNER_SHA256=670adb2f268fe21dcbb58b3db0e0aa9d5b3bddfe2c651481336e561ff86de945
+GITLEAKS_VERSION=8.30.1
+GITLEAKS_SHA256=e4a487ee7ccd7d3a7f7ec08657610aa3606637dab924210b3aee62570fb4b080

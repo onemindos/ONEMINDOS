@@ -9,6 +9,7 @@ name: merge-gate
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
   merge_group:
 
 permissions:
@@ -18,7 +19,7 @@ permissions:
 # A new push to a PR replaces that PR's waiting gate.
 concurrency:
   group: merge-gate-${{ github.event.pull_request.number || github.sha }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   merge-gate:
@@ -36,4 +37,5 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
           EVENT: ${{ github.event_name }}
           RUN_ID: ${{ github.run_id }}
+          DRAFT: ${{ github.event.pull_request.draft && 'true' || 'false' }}
         run: python3 -I scripts/ci-gate.py

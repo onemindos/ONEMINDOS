@@ -52,6 +52,12 @@ Checked in a Debian 13 Lima VM (systemd 257, arm64): `systemd-analyze verify` cl
 
 Do **not** enable it on a developer install (stock Debian, no A/B): there, contract §10.1 uses `unattended-upgrades`.
 
+## onemind-rescue.service (rescue console, CORE-UPDATE-8)
+`onemindd rescue` serves a small web page on `https://<box>:7443/` that keeps working when k3s and the gateway are down: booted slot, slot states and versions, k3s unit state, a log download, and **roll back** (`rauc status mark-active other`, then `systemctl reboot`), which runs only on an owner POST with the page's CSRF token and the typed word `rollback`. See [`cmd/onemindd/README.md`](../../cmd/onemindd/README.md#rescue-console).
+- Owner token: checked against the owner `sha256:` entry of `/etc/onemind/tokens.yaml` (the gateway's file, which holds only hashes). No owner entry, no access. 5 failed tries from one address lock it out for a minute.
+- TLS: the box CA's `https.crt`/`https.key` from `/var/lib/onemind/tls` (re-read on each connection, so renewals apply). Without them it refuses to start unless `-listen` is a loopback address.
+- No capabilities, read-only filesystem; D-Bus over `AF_UNIX` for RAUC and the reboot (both allow root).
+
 ## v0 shortcuts / gaps
 - The binary path is `/usr/local/bin` (developer install, contract §6). The OneMind image will ship it in `/usr/bin` and the image's own unit.
 - Not yet run under this unit on real k3s/RAUC/NVIDIA hosts; if a sandbox option blocks one of those tools there, relax that one option and record why here.

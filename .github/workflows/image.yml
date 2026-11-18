@@ -4,6 +4,7 @@
 name: image
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths: ['os/**', 'test/qemu/**', 'cmd/**', 'internal/**', 'core/**', 'dashboard/**', 'ui/src/**', 'apps/**', 'go.mod', 'go.sum', '.dockerignore', 'Makefile', '.github/workflows/image.yml', '.github/workflows/battery.yml']
   push:
     branches: [main]
@@ -18,6 +19,7 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   image:
+    if: ${{ !github.event.pull_request.draft }}
     strategy:
       fail-fast: false
       matrix:
@@ -70,6 +72,7 @@ jobs:
   # jobs (battery, cloud, installer) start, so a broken image fails here in minutes instead of in all of them.
   # Same build, fixtures and `make firstboot` as the battery's first-boot step; no criterion changes.
   smoke:
+    if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
@@ -118,6 +121,7 @@ jobs:
             out/firstboot-x86_64-efi/serial-trimmed.log
           retention-days: 14
   battery:
+    if: ${{ !github.event.pull_request.draft }}
     needs: smoke
     strategy:
       fail-fast: false
@@ -136,6 +140,7 @@ jobs:
   # that cloud imports, then the cloud test on that exact artifact (test/qemu/CRITERIA-CLOUD.md).
   # Uploading to a cloud account is never done here (os/cloud/*-import.sh, run by the owner).
   cloud:
+    if: ${{ !github.event.pull_request.draft }}
     needs: smoke
     strategy:
       fail-fast: false
@@ -199,6 +204,7 @@ jobs:
   # stick, then I1-I5 (test/qemu/CRITERIA-INSTALLER.md): boot the stick, install to an NVMe disk
   # through the menu, verify, reboot into OneMind. KVM here; TCG runs exceed the write budget.
   installer:
+    if: ${{ !github.event.pull_request.draft }}
     needs: smoke
     runs-on: ubuntu-24.04
     timeout-minutes: 150

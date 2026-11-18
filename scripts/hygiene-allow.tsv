@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 # Reviewed false positives for scripts/hygiene.py: <path glob> TAB <regex the whole hit must match> TAB <id in handbook/hygiene.md>
-*	serial-getty@tty[A-Za-z0-9]+\.service	FP-3
+*	(serial-)?getty@tty[A-Za-z0-9]+\.service	FP-3
 *	git@github\.com	FP-5
 os/boards/vm-do/*	/home/onemind	B-FP-1
 test/qemu/*	/home/onemind	B-FP-1
@@ -34,6 +34,7 @@ core/onemind_core/mesh.py	100\.64\.[0-9]+\.[0-9]+	B-FP-9
 core/tests/*	100\.64\.[0-9]+\.[0-9]+	B-FP-9
 internal/mesh/*	(100\.64\.[0-9]+\.[0-9]+|p@control\.onemind\.internal)	B-FP-9
 internal/leaf/*	100\.64\.[0-9]+\.[0-9]+	B-FP-9
+internal/rescue/*	100\.64\.[0-9]+\.[0-9]+	B-FP-9
 docs/architecture/NETWORKING.md	100\.64\.[0-9]+\.[0-9]+	B-FP-9
 docs/leap/core/NETWORKING.md	100\.64\.[0-9]+\.[0-9]+	B-FP-9
 os/rootfs/layers/onemind/usr/lib/onemind/onemind_firstboot.py	100\.64\.[0-9]+\.[0-9]+	B-FP-9
@@ -60,3 +61,6 @@ scripts/hygiene-allow.tsv	/home/admin	B-FP-6
 test/qemu/CRITERIA-CLOUD.md	10\.0\.2\.0	B-FP-6
 os/boards/vm-do/*	/home/admin	B-FP-6
 test/qemu/*	/home/admin	B-FP-6
+# B-FP-11: the rescue console's LAN-only test (internal/rescue, #157) checks that an RFC 1918 client address is still served
+# next to the mesh ranges it refuses. A test input, not a host or address of this project.
+internal/rescue/rescue_test.go	10\.0\.0\.7	B-FP-11

@@ -5,6 +5,7 @@ name: ci-desktop
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'desktop/**'
       - 'ui/src/tokens/tokens.css'   # desktop/src/tokens.css must stay an exact copy (npm run check:ui)
@@ -19,8 +20,13 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-desktop-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   build:
+    if: ${{ !github.event.pull_request.draft }}
     strategy:
       fail-fast: false
       matrix:

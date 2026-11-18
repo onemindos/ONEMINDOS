@@ -53,7 +53,7 @@ The hub runs k3s (the system that runs apps), NATS (the message bus), the node a
 At the end it prints:
 
 - **The owner token.** You sign in with it. **Write it down now: it is shown once.** The hub keeps only a fingerprint of it, so it cannot show it again.
-- **The join command** for adding machines, with the join token in it. This is printed every time the script runs.
+- **How to add machines:** make a one-time join code on the hub, then run the join command on the new machine. There is no shared join token any more.
 - The address of the dashboard. By default the hub uses the address of its main network connection; add `--hub http://<name-or-address>:8080` to choose another.
 - The commands for giving the Hermes AI agent its model key, if you plan to install that app later ([AI agents](../../guides/agents/)).
 
@@ -63,11 +63,20 @@ Browse to `http://<hub-address>:8080` and paste the owner token. You should see 
 
 ## 4. Add a machine (optional)
 
-On each other machine, get the code (step 1), then run the join command the hub printed:
+Each machine joins with a one-time code that you approve. On the hub, make a code (or use **Add a device** on the dashboard):
 
 ```sh
-sudo deploy/install.sh --role node --hub http://<hub-address>:8080 --token <join-token>
+read -rs ONEMIND_TOKEN && export ONEMIND_TOKEN   # paste the owner token
+onemind fabric ticket                            # add --role leaf for a machine that only relays messages
 ```
+
+The code works once and expires after 15 minutes (`--ttl 1h` gives up to an hour). On the new machine, get the code (step 1), then run:
+
+```sh
+sudo deploy/install.sh --role node --join 'onemind-join:v1?…'
+```
+
+Put the code in single quotes: it contains `?` and `&`. If the new machine cannot find the hub by its `.local` name, add `--hub-addr <the hub's LAN IP>`. The script waits until you approve the machine on the hub, under **Approvals** on the dashboard or with `onemind fabric approve`. Check that the code it shows matches.
 
 The machine joins k3s as a worker (never as a second hub; it cannot see the hub's admin keys) and starts reporting. It appears on the Nodes screen within about 10 seconds. It must be able to reach the hub on ports 6443 and 4222.
 
@@ -110,7 +119,6 @@ Install Debian 13 as usual (the server install without a desktop is enough), the
   ```
 
   then browse to `http://127.0.0.1:8080`.
-- By default the hub advertises its public address. That is what the join command uses.
 
 ### NVIDIA Jetson
 
@@ -122,7 +130,8 @@ Use a dev kit with Jetson Linux (L4T) from NVIDIA. The script recognises it and 
 |---|---|
 | `--role hub\|node` | Hub: k3s server, NATS, onemindd, gateway and dashboard. Node: k3s worker and onemindd. |
 | `--hub URL` | The hub's address, for example `http://hub.local:8080`. Required on nodes; on the hub, the address it tells others. Its host is also used for k3s (`:6443`) and NATS (`:4222`). |
-| `--token T` | The join token the hub printed (nodes only). |
+| `--join CODE` | The one-time join code from `onemind fabric ticket` or **Add a device** (nodes only). The old `--token` is refused. |
+| `--hub-addr IP` | The hub's LAN address, when the network has no working `.local` names (nodes only). |
 | `--gateway-bind ADDR` | Where the gateway listens (default `0.0.0.0`, all networks). `127.0.0.1` keeps it on the hub only, but then other machines, your phone and apps with their own AI agent cannot reach it. |
 | `--onemindd-bin FILE`, `--dashboard-dist DIR` | Use ready-built programs instead of building with Go and Node. |
 | `--force-os` | Try a system the script was not written for. |

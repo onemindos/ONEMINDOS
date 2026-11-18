@@ -1,0 +1,19 @@
+#!/bin/bash
+# SPDX-License-Identifier: Apache-2.0
+# Stop the local CI runner (CI-10, issue 299). Usage: scripts/ci-runner/down [--off] [--wipe]
+#   --off   also set the repo variable LOCAL_RUNNER=off, so every job goes back to GitHub-hosted runners
+#   --wipe  also delete the VM and its disk (the next `up` builds a fresh one)
+set -uo pipefail
+REPO=${REPO:-onemindos/ONEMINDOS}
+VM=${VM:-onemind-ci}
+off=0 wipe=0
+for a in "$@"; do case $a in --off) off=1;; --wipe) wipe=1;; *) echo "usage: down [--off] [--wipe]" >&2; exit 2;; esac; done
+# Flip the switch first: jobs queued while the VM goes down must not wait for a runner that is not coming.
+if [ "$off" = 1 ]; then gh variable set LOCAL_RUNNER --body off --repo "$REPO" && echo "LOCAL_RUNNER=off"; fi
+plist="$HOME/Library/LaunchAgents/dev.onemind.ci-runner.plist"
+if [ -f "$plist" ]; then launchctl bootout "gui/$(id -u)" "$plist" 2>/dev/null; rm -f "$plist"; echo "service removed"; fi
+pkill -f 'scripts/ci-runner/cycle' 2>/dev/null
+for r in $(limactl list -q 2>/dev/null | grep "^$VM-run-"); do limactl delete --force "$r" >/dev/null 2>&1 && echo "deleted $r"; done
+limactl stop "$VM" 2>/dev/null && echo "VM stopped"
+if [ "$wipe" = 1 ]; then limactl delete --force "$VM" && echo "VM deleted"; fi
+if [ "$off" = 0 ]; then echo "note: LOCAL_RUNNER is unchanged; if it is 'on', jobs wait for a runner. Run: scripts/ci-runner/down --off"; fi

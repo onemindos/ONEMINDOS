@@ -1,0 +1,65 @@
+#!/bin/bash
+# SPDX-License-Identifier: Apache-2.0
+# The host-side loop behind `up` (CI-10, issue 299): one fresh VM and one ephemeral runner per job, forever.
+# Fresh means: before every job the VM is cloned from the stopped, provisioned base VM and, after the job,
+# deleted, so nothing a job did survives (FRESH=none skips this and reuses the base VM: faster, not clean).
+# While this script runs it keeps the repo variable LOCAL_RUNNER=on, and it sets it to off when it exits,
+# so jobs go back to GitHub-hosted runners (it cannot catch a Mac going to sleep: see the doc).
+# Each round mints a registration token with the Mac's own `gh` login (valid one hour, never stored or
+# printed), hands it to the VM on stdin, and waits for the runner to finish its single job. When the repo
+# variable LOCAL_RUNNER is not "on" it registers nothing, so jobs fall back to GitHub-hosted runners.
+set -uo pipefail
+ORG=${ORG:-onemindos}
+REPO=${REPO:-onemindos/ONEMINDOS}
+GROUP=${RUNNER_GROUP:-onemind-local}
+VM=${VM:-onemind-ci}            # the stopped, provisioned base
+FRESH=${FRESH:-clone}
+INSTANCE=${INSTANCE:-}
+if [ -z "$INSTANCE" ]; then   # parent: one loop per runner instance (INSTANCES, default 1, at most 2)
+  n=${INSTANCES:-1}; [ "$n" -ge 1 ] && [ "$n" -le 2 ] || { echo "INSTANCES must be 1 or 2" >&2; exit 2; }
+  cleanup() {
+    trap '' EXIT INT TERM
+    gh variable set LOCAL_RUNNER --body off --repo "$REPO" >/dev/null 2>&1 && echo "LOCAL_RUNNER=off (runner loop stopped)"
+    kill 0
+  }
+  trap cleanup EXIT INT TERM
+  gh variable set LOCAL_RUNNER --body on --repo "$REPO" >/dev/null 2>&1 && echo "LOCAL_RUNNER=on"
+  i=1; while [ "$i" -le "$n" ]; do INSTANCE=$i "$0" & i=$((i + 1)); done
+  wait; exit
+fi
+fail=0
+while :; do
+  switch=$(gh api "repos/$REPO/actions/variables/LOCAL_RUNNER" -q .value 2>/dev/null || echo off)
+  if [ "$switch" != "on" ]; then
+    echo "$(date '+%F %T') LOCAL_RUNNER is '$switch': not taking jobs"; sleep 60; continue
+  fi
+  if [ -n "${RUNNER_REG_TOKEN:-}" ]; then   # one-off token pasted by the founder: use it for one round only
+    token=$RUNNER_REG_TOKEN; unset RUNNER_REG_TOKEN
+  else
+    token=$(gh api -X POST "orgs/$ORG/actions/runners/registration-token" -q .token 2>/dev/null) || token=""
+  fi
+  if [ -z "$token" ]; then
+    echo "$(date '+%F %T') could not get a registration token (gh auth needs the admin:org scope)"
+    fail=$((fail + 1)); sleep $((fail < 10 ? 30 * fail : 300)); continue
+  fi
+  run=$VM
+  t0=$SECONDS
+  if [ "$FRESH" = clone ]; then
+    run="$VM-run-$INSTANCE"
+    limactl delete --force "$run" >/dev/null 2>&1
+    if ! limactl clone --tty=false "$VM" "$run" >/dev/null 2>&1 || ! limactl start --tty=false "$run" >/dev/null 2>&1; then
+      echo "$(date '+%F %T') [$INSTANCE] could not clone and start $run from $VM (is up done?)"
+      limactl delete --force "$run" >/dev/null 2>&1; fail=$((fail + 1)); sleep $((fail < 10 ? 30 * fail : 300)); continue
+    fi
+  fi
+  t1=$SECONDS
+  echo "$(date '+%F %T') [$INSTANCE] fresh VM ready in $((t1 - t0))s; waiting for one job"
+  if printf '%s\n' "$token" | limactl shell "$run" -- sudo -u runner /usr/local/bin/onemind-ci-run-one "https://github.com/$ORG" "$GROUP" 1; then
+    fail=0
+  else
+    fail=$((fail + 1)); echo "$(date '+%F %T') [$INSTANCE] runner round failed ($fail)"; sleep $((fail < 10 ? 10 * fail : 100))
+  fi
+  [ "$FRESH" = clone ] && limactl delete --force "$run" >/dev/null 2>&1
+  echo "$(date '+%F %T') [$INSTANCE] round done: restore $((t1 - t0))s, job+teardown $((SECONDS - t1))s"
+  unset token
+done

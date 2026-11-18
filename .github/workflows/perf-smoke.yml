@@ -7,9 +7,11 @@
 # not target, hence --force-os.
 name: perf-smoke
 on:
+  # CI-11 (issue 298): informational, so never on every PR. A PR runs it only when it touches the
+  # workflow's own harness; every change to the code it watches is covered on main, nightly and by hand.
   pull_request:
-    paths: ["deploy/**", "core/**", "cmd/**", "internal/**", "dashboard/**", "apps/**", "test/perf/**",
-            "os/versions.lock.yaml", ".github/workflows/perf-smoke.yml"]
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths: ["test/perf/**", ".github/workflows/perf-smoke.yml"]
   push:
     branches: [main]
     paths: ["deploy/**", "core/**", "cmd/**", "internal/**", "dashboard/**", "apps/**", "test/perf/**",
@@ -18,10 +20,11 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: perf-smoke-${{ github.ref }}
-  cancel-in-progress: true
+  group: perf-smoke-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   perf-smoke:
+    if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 45
     steps:

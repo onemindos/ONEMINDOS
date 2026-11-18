@@ -7,6 +7,7 @@ name: brand
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'brand/**'
       - 'scripts/brand-sync.py'
@@ -29,8 +30,13 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: brand-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   sync:
+    if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -43,6 +49,7 @@ jobs:
         run: python3 -I scripts/brand-sync.py --check
 
   icons:
+    if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:

@@ -2,6 +2,8 @@
 # Ubuntu 26.04 CI hedge only (founder override Z-38 = b): same definition, never published (Z-01).
 systemd systemd-sysv systemd-resolved udev dbus login passwd
 kmod iproute2 iptables nftables procps util-linux mount e2fsprogs dosfstools
+# sfdisk (data_extend.py) is in its own package on Debian 13, not in util-linux
+fdisk
 ca-certificates curl socat zstd squashfs-tools
 apparmor
 avahi-daemon avahi-utils openssl

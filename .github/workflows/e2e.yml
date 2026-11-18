@@ -5,6 +5,7 @@
 name: e2e
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths: ["core/**", "dashboard/**", "deploy/**", "cmd/**", "internal/**", "apps/**", "tests/e2e/**", "os/versions.lock.yaml", ".github/workflows/e2e.yml"]
   schedule:
     - cron: "17 3 * * *"   # nightly
@@ -12,10 +13,12 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: e2e-${{ github.ref }}
-  cancel-in-progress: true
+  group: e2e-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
-  unit:
+  # Not named `unit`: main's required checks match by job name, so a failure here would block PRs like ci's `unit`.
+  e2e-unit:
+    if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -33,6 +36,7 @@ jobs:
         run: shellcheck -x tests/e2e/harness/run.sh
 
   golden-path:
+    if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:

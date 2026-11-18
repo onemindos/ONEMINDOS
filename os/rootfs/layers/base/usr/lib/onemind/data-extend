@@ -1,0 +1,5 @@
+#!/bin/sh
+# SPDX-License-Identifier: Apache-2.0
+# onemind-data-extend.service: grow /data to the disk (data_extend.py), with the gateway venv's pinned Python
+# (the image has no system Python, like onemind-firstboot).
+exec /usr/lib/onemind/gateway/venv/bin/python3 -I /usr/lib/onemind/data_extend.py "$@"

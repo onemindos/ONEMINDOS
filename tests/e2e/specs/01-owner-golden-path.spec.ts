@@ -73,6 +73,10 @@ test('the owner requests the install, approves it and sees it succeed', async ({
   await signIn(page, E.ownerToken);
   await page.goto(`/market/${E.app}`);
   await page.getByRole('button', { name: `Install ${app.name}` }).click();
+  const review = page.getByRole('dialog', { name: 'Review app request' });
+  await expect(review).toContainText('Nothing runs now.');
+  await expect(page).toHaveURL(new RegExp(`/market/${E.app}$`));
+  await review.getByRole('button', { name: 'Send request', exact: true }).click();
   await expect(page).toHaveURL(/\/approvals\?highlight=/);
   const actionId = new URL(page.url()).searchParams.get('highlight')!;
   recordAction({ id: actionId, type: 'app.install', by: 'owner' });
@@ -100,6 +104,9 @@ test('the owner removes the app again', async ({ page, request }) => {
   await signIn(page, E.ownerToken);
   await navTo(page, 'Market');
   await page.getByRole('article', { name: app.name, exact: true }).getByRole('button', { name: `Remove ${app.name}` }).click();
+  const review = page.getByRole('dialog', { name: 'Review app request' });
+  await expect(review).toContainText('Nothing runs now.');
+  await review.getByRole('button', { name: 'Send request', exact: true }).click();
   await expect(page).toHaveURL(/\/approvals\?highlight=/);
   recordAction({ id: new URL(page.url()).searchParams.get('highlight')!, type: 'app.remove', by: 'owner' });
   expect(await approveOnScreen(page, `Remove ${E.app}`, APPROVE_TIMEOUT_MS)).toBe(`Remove ${E.app}: succeeded.`);
