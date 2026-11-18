@@ -34,6 +34,7 @@ func runRescue(args []string) int {
 	tlsDir := fs.String("tls-dir", env("ONEMIND_NET_TLS_DIR", "/var/lib/onemind/tls"), "box CA directory with https.crt and https.key")
 	sw := fs.String("terminal-switch", env("ONEMIND_RESCUE_TERMINAL_SWITCH", defaultTerminalSwitch), "file whose presence turns the owner terminal on")
 	auditPath := fs.String("audit", env("ONEMIND_RESCUE_AUDIT", defaultRescueAudit), "the console's own audit chain")
+	gateway := fs.String("gateway", env("ONEMIND_RESCUE_GATEWAY", defaultRescueGateway), "gateway on this box (loopback only) that checks the owner's passkey")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -48,13 +49,19 @@ func runRescue(args []string) int {
 		return 2
 	}
 	cfg := rescue.Config{TokensFile: *tokens, Version: version.Version, Runner: rescue.Exec{}, Logger: log}
-	// The owner terminal (SEC-TERM-01). Reauth stays nil until passkey sign-in exists (#236): D-014 forbids
-	// a shell behind the plain owner token, so every start is refused even with the switch on.
+	// The owner terminal (SEC-TERM-01). A start needs a fresh owner passkey assertion that the gateway on this
+	// box verifies (D-014: never a shell behind the plain owner token). With a bad -gateway address Reauth
+	// stays nil and every start is refused.
 	if au, err := rescue.OpenAudit(*auditPath, nil); err != nil {
 		log.Error("rescue terminal not mounted: the audit chain does not verify", "file", *auditPath, "err", err)
 	} else {
 		cfg.Terminal = &rescue.Terminal{SwitchFile: *sw, Spawner: rescue.PTY{}, Audit: au,
 			IdleTimeout: 10 * time.Minute, MaxDuration: time.Hour}
+		if re, err := rescue.NewGatewayReauth(*gateway, nil); err != nil {
+			log.Error("rescue terminal has no passkey check, so it cannot open", "err", err)
+		} else {
+			cfg.Terminal.Reauth = re
+		}
 	}
 	srv := &http.Server{Addr: *listen, ReadHeaderTimeout: 10 * time.Second, IdleTimeout: time.Minute,
 		Handler: rescue.New(cfg)}
@@ -104,6 +111,7 @@ func loopbackAddr(addr string) bool {
 const (
 	defaultTerminalSwitch = "/etc/onemind/rescue-terminal.on"
 	defaultRescueAudit    = "/var/lib/onemind/rescue-audit.jsonl"
+	defaultRescueGateway  = "http://127.0.0.1:8080" // the gateway's loopback-only HTTP port
 )
 
 // runRescueTerminal is `onemindd rescue terminal enable|disable|status`: the owner's switch for the web
