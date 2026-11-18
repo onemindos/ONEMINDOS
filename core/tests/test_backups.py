@@ -731,5 +731,6 @@ def test_restore_candidates_other_box_needs_the_recovery_key(client, bk, setting
         r = client.post("/v1/onboarding/restore/candidates", headers=OWNER,
                         json={"destination_id": did, "box_id": "old-box", "recovery_key": k})
         assert r.status_code == 422
+        assert k.strip() not in r.text  # a refused key is not echoed back either
 
 
