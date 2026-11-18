@@ -272,6 +272,56 @@ class SmokeLogScrubTests(unittest.TestCase):
         self.assertEqual(sorted(gate.secret_values(doc)[:2]), ["first-value", "second"])
         self.assertEqual(gate.secret_values(""), [])
 
+    def test_collect_logs_includes_init_failures_and_current_errors(self):
+        import base64
+        from subprocess import CompletedProcess
+        from unittest.mock import patch
+
+        pod = {
+            "metadata": {"name": "app-pod"},
+            "spec": {"initContainers": [{"name": "init"}],
+                     "containers": [{"name": "web"}]},
+            "status": {"initContainerStatuses": [{"name": "init", "restartCount": 2}],
+                       "containerStatuses": [{"name": "web", "restartCount": 0}]},
+        }
+        calls = []
+
+        def run(cmd, **kwargs):
+            args = cmd[3:]  # kubectl -n app-x
+            calls.append(args)
+            out, err, rc = "", "", 0
+            if args[:2] == ["get", "secrets"]:
+                out = json.dumps({"items": [{"data": {
+                    "token": base64.b64encode(b"test-only-secret").decode()}}]})
+            elif args[:2] == ["get", "pods"]:
+                out = json.dumps({"items": [pod]})
+            elif args[0] == "logs":
+                if "--previous" in args:
+                    out = "init failed: test-only-secret smoke-test-placeholder"
+                elif "-c" in args and args[args.index("-c") + 1] == "init":
+                    out = "init current failure"
+                else:
+                    rc, err = 1, "web is waiting: PodInitializing test-only-secret"
+            elif args[:2] == ["get", "events"]:
+                out = "BackOff test-only-secret"
+            return CompletedProcess(cmd, rc, out, err)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            c = gate.Check("smoke")
+            c.fail("rollout failed")
+            with patch.object(gate.common, "which", return_value="kubectl"), \
+                    patch.object(gate.common, "run", side_effect=run):
+                gate.Gate.collect_logs(None, "app-x", Path(tmp), c)
+            text = (Path(tmp) / "app-pod.log").read_text()
+            self.assertIn("init current failure", text)
+            self.assertIn("previous run of container init", text)
+            self.assertIn("init failed: [REDACTED] [REDACTED]", text)
+            self.assertIn("PodInitializing [REDACTED]", text)
+            self.assertNotIn("test-only-secret", text)
+            self.assertEqual((Path(tmp) / "events.log").read_text(), "BackOff [REDACTED]")
+            self.assertFalse(c.ok)  # diagnostics must not change the verdict
+            self.assertFalse(any("--previous" in a and "web" in a for a in calls))
+
     def test_collect_logs_failure_only_adds_a_note(self):
         import os
         tmp = Path(tempfile.mkdtemp())

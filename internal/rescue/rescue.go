@@ -74,6 +74,8 @@ type Config struct {
 	Runner     Runner
 	Logger     *slog.Logger
 	Now        func() time.Time // tests
+	// Terminal mounts the owner-only web terminal (terminal.go); nil leaves it unmounted.
+	Terminal *Terminal
 }
 
 // Server is the rescue console's HTTP handler.
@@ -82,6 +84,7 @@ type Server struct {
 	csrf string
 	lim  *limiter
 	mux  *http.ServeMux
+	term termState
 }
 
 // New returns the handler. The CSRF token is random per process.
@@ -101,6 +104,9 @@ func New(cfg Config) *Server {
 	s.mux.HandleFunc("GET /status.json", s.statusJSON)
 	s.mux.HandleFunc("GET /logs", s.logs)
 	s.mux.HandleFunc("POST /rollback", s.rollback)
+	if cfg.Terminal != nil {
+		s.mountTerminal()
+	}
 	return s
 }
 
@@ -128,6 +134,10 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	tok := presented(r)
 	if tok == "" || !matches(tok, owners) {
+		if tok != "" && isTerminalPath(r.URL.Path) && matches(tok, nonOwnerDigests(s.cfg.TokensFile)) {
+			s.deniedNonOwner(w, r) // a valid credential, but never a shell: 403, not 401
+			return
+		}
 		if tok != "" {
 			s.lim.fail(ip)
 			s.cfg.Logger.Warn("rescue: wrong owner credential", "client", ip)
@@ -141,15 +151,16 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // Status is what the console shows.
 type Status struct {
-	Version string            `json:"onemindd_version"`
-	RAUC    heartbeat.RAUC    `json:"rauc"`
-	K3s     map[string]string `json:"k3s_units"`
-	Errors  []string          `json:"errors,omitempty"`
-	CSRF    string            `json:"csrf"`
+	Version  string            `json:"onemindd_version"`
+	RAUC     heartbeat.RAUC    `json:"rauc"`
+	K3s      map[string]string `json:"k3s_units"`
+	Errors   []string          `json:"errors,omitempty"`
+	CSRF     string            `json:"csrf"`
+	Terminal bool              `json:"-"`
 }
 
 func (s *Server) status(ctx context.Context) Status {
-	st := Status{Version: s.cfg.Version, RAUC: heartbeat.RAUC{Slots: []heartbeat.Slot{}}, K3s: map[string]string{}, CSRF: s.csrf}
+	st := Status{Version: s.cfg.Version, RAUC: heartbeat.RAUC{Slots: []heartbeat.Slot{}}, K3s: map[string]string{}, CSRF: s.csrf, Terminal: s.cfg.Terminal != nil && SwitchOn(s.cfg.Terminal.SwitchFile)}
 	if b, err := s.cfg.Runner.Run(ctx, "rauc", "status", "--output-format=json"); err != nil {
 		st.Errors = append(st.Errors, "rauc status: "+err.Error())
 	} else {
@@ -187,6 +198,7 @@ var pageTmpl = template.Must(template.New("p").Parse(`<!doctype html><html lang=
 <input type="hidden" name="csrf" value="{{.CSRF}}">
 <label>Type <code>rollback</code> to confirm: <input name="confirm" autocomplete="off" required></label>
 <button type="submit">Roll back and restart</button></form>
+{{if .Terminal}}<h2>Terminal</h2><p><a href="terminal">Open a shell</a> (owner only, needs a fresh passkey sign-in).</p>{{end}}
 <h2>Logs</h2><p><a href="logs">Download recent logs</a> (onemindd, update, health gate, RAUC, k3s).</p>
 </body></html>`))
 
