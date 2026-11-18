@@ -209,7 +209,7 @@ class NatsMeshWait(unittest.TestCase):
             import onemind_firstboot as fb
         finally:
             sys.path.pop(0)
-        self.assertTrue(self.waits(fb.hub_nats_conf("100.64.0.1")))
+        self.assertTrue(self.waits(fb.hub_nats_conf("192.0.2.1")))
         self.assertFalse(self.waits(fb.hub_nats_conf(None)))
 
 
