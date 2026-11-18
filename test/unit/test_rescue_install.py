@@ -74,7 +74,7 @@ class FirstBoot(unittest.TestCase):
     def test_cert_is_signed_by_the_box_ca_private_and_kept(self):
         with tempfile.TemporaryDirectory() as d:
             p = fb.Paths(d)
-            fb.make_ca(p)
+            fb.make_ca(p, "box")             # IMG-MESH-01: the box CA lives in the gateway tls dir
             self.assertEqual(fb.issue_rescue_cert(p, "box"), "created")
             crt, key = (os.path.join(p.rescue_tls, f) for f in ("https.crt", "https.key"))
             self.assertEqual(os.stat(key).st_mode & 0o777, 0o600)
@@ -83,8 +83,11 @@ class FirstBoot(unittest.TestCase):
             self.assertIn("OK", r.stdout)
             txt = subprocess.run(["openssl", "x509", "-in", crt, "-noout", "-ext", "subjectAltName"],
                                  capture_output=True, text=True).stdout
-            for n in ("DNS:box.local", "DNS:onemind.local", "IP Address:127.0.0.1"):
+            for n in ("DNS:box.local", "DNS:onemind.local"):
                 self.assertIn(n, txt)
+            # Outside the box CA's name constraints: asking for them would void the whole certificate.
+            for n in ("IP Address:127.0.0.1", "DNS:localhost", "DNS:box,"):
+                self.assertNotIn(n, txt + ",")
             self.assertEqual(sorted(os.listdir(p.rescue_tls)), ["https.crt", "https.key"])
             with open(crt) as fh:
                 before = fh.read()
@@ -92,18 +95,35 @@ class FirstBoot(unittest.TestCase):
             with open(crt) as fh:
                 self.assertEqual(fh.read(), before)
 
+    @unittest.skipUnless(shutil.which("openssl"), "openssl missing")
+    def test_a_box_set_up_before_the_mesh_signs_with_its_identity_ca(self):
+        # A hub configured before IMG-MESH-01 keeps its CA in identity/ (ca.key, ca.pem); after an update
+        # the rescue pair must still be made, signed by that CA.
+        with tempfile.TemporaryDirectory() as d:
+            p = fb.Paths(d)
+            os.makedirs(p.identity)
+            key, pem = os.path.join(p.identity, "ca.key"), os.path.join(p.identity, "ca.pem")
+            subprocess.run(["openssl", "req", "-x509", "-newkey", "ec", "-pkeyopt", "ec_paramgen_curve:P-256",
+                            "-nodes", "-subj", "/CN=old box CA", "-days", "30", "-keyout", key, "-out", pem],
+                           check=True, capture_output=True)
+            self.assertFalse(os.path.exists(os.path.join(p.tls, "ca.key")))
+            self.assertEqual(fb.issue_rescue_cert(p, "box"), "created")
+            r = subprocess.run(["openssl", "verify", "-CAfile", pem, os.path.join(p.rescue_tls, "https.crt")],
+                               capture_output=True, text=True)
+            self.assertIn("OK", r.stdout)
+
     def test_starting_a_hub_makes_the_pair_first_and_failure_is_not_fatal(self):
         with tempfile.TemporaryDirectory() as d:
             p = fb.Paths(d)
             seen = []
             with mock.patch.object(fb, "issue_rescue_cert", lambda *a: seen.append(a)), \
                  mock.patch.object(fb, "systemctl", lambda *a: seen.append(a)):
-                fb.start_units(p, "hub")
+                fb.start_units(p, {"role": "hub", "mesh": 1})
             self.assertEqual(seen[0][0], p)
             self.assertIn("onemind-rescue.service", seen[-1])
             with mock.patch.object(fb, "issue_rescue_cert", side_effect=subprocess.CalledProcessError(1, "openssl")), \
                  mock.patch.object(fb, "systemctl", lambda *a: seen.append(a)):
-                fb.start_units(p, "hub")      # must not raise
+                fb.start_units(p, {"role": "hub", "mesh": 1})      # must not raise
 
 
 if __name__ == "__main__":

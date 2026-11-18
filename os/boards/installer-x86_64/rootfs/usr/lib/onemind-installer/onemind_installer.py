@@ -52,8 +52,9 @@ MAX_WEB_ATTEMPTS = 5
 
 # Same rules as onemind-firstboot's validate() (test/unit/test_installer.py checks they agree).
 ROLES = ("hub", "worker", "leaf")
-HOST_RE = re.compile(r"^(\[[0-9A-Fa-f:]+\]|[A-Za-z0-9]([A-Za-z0-9.-]{0,251}[A-Za-z0-9])?)$")
-TOKEN_RE = re.compile(r"^[A-Za-z0-9]{32,128}$")
+# The hub's join code (`onemind fabric ticket`); onemind-firstboot checks every field at first boot.
+JOIN_CODE_RE = re.compile(r"^onemind-join:v1\?[A-Za-z0-9%=&._:/-]{20,620}$")
+IPV4_RE = re.compile(r"^([0-9]{1,3}\.){3}[0-9]{1,3}$")
 NAME_RE = re.compile(r"^[^\x00-\x1f\"\\#=]{1,64}$")
 HEX64 = re.compile(r"^[0-9a-f]{64}$")
 
@@ -150,7 +151,7 @@ def describe(d: dict) -> str:
 
 
 # ------------------------------------------------------------------ role
-def make_settings(role: str, name: str = "", hub: str = "", join_token: str = "") -> dict | None:
+def make_settings(role: str, name: str = "", join_code: str = "", hub_addr: str = "") -> dict | None:
     """Validated first-boot settings, or None for 'setup' (decide in the wizard at first boot)."""
     role = (role or "").strip().lower()
     if role in ("setup", "wizard", ""):
@@ -161,12 +162,14 @@ def make_settings(role: str, name: str = "", hub: str = "", join_token: str = ""
     if not NAME_RE.match(out["name"]):
         raise InstallError("name: 1-64 printable characters, no quotes, backslashes, '#' or '='")
     if role in ("worker", "leaf"):
-        hub = (hub or "").strip()
-        if not HOST_RE.match(hub):
-            raise InstallError("hub: the hub's host name or address is required for this role")
-        if not TOKEN_RE.match((join_token or "").strip()):
-            raise InstallError("join_token: the hub's join token (32-128 letters and digits) is required")
-        out.update(hub=hub, join_token=join_token.strip())
+        code, addr = (join_code or "").strip(), (hub_addr or "").strip()
+        if not JOIN_CODE_RE.match(code):
+            raise InstallError("join_code: the onemind-join:v1?... code from `onemind fabric ticket` on the hub is required")
+        if addr and not IPV4_RE.match(addr):
+            raise InstallError("hub_addr: the hub's IPv4 address, or leave it empty")
+        out["join_code"] = code
+        if addr:
+            out["hub_addr"] = addr
     return out
 
 
@@ -176,7 +179,9 @@ def render_conf(s: dict) -> str:
              "# (docs/leap/core/IMAGES.md §3), then renamed onemind.conf.applied.",
              f"role = {s['role']}", f"name = {s['name']}"]
     if s["role"] in ("worker", "leaf"):
-        lines += [f"hub = {s['hub']}", f"join_token = {s['join_token']}"]
+        lines.append(f"join_code = {s['join_code']}")
+        if s.get("hub_addr"):
+            lines.append(f"hub_addr = {s['hub_addr']}")
     return "\n".join(lines) + "\n"
 
 
@@ -455,7 +460,8 @@ def tui_once(ui, payload, scan=scan_disks, do_install=install, lock=None) -> dic
     role = ui.ask("Role: hub, worker, leaf, or setup (choose later in the browser)", "hub").lower()
     try:
         if role in ("worker", "leaf"):
-            settings = make_settings(role, hub=ui.ask("Hub address"), join_token=ui.ask("Join token (printed on the hub's console)"))
+            settings = make_settings(role, join_code=ui.ask("Join code (on the hub: onemind fabric ticket --ttl 1h)"),
+                                     hub_addr=ui.ask("Hub IP address (empty: find it by name)", ""))
         elif role == "hub":
             settings = make_settings(role, name=ui.ask("Name shown in the dashboard", "OneMind"))
         else:
@@ -519,7 +525,7 @@ class WebState:
         if not disk:
             return 400, "choose one of the listed disks", None
         try:
-            s = make_settings(form.get("role", ""), form.get("name", ""), form.get("hub", ""), form.get("join_token", ""))
+            s = make_settings(form.get("role", ""), form.get("name", ""), form.get("join_code", ""), form.get("hub_addr", ""))
         except InstallError as exc:
             return 400, str(exc), None
         return 202, "install started", {"disk": disk, "settings": s}
@@ -542,8 +548,8 @@ def render_page(payload: dict, targets: list, skipped: list, status: str) -> str
             '<label>Role <select name="role"><option>hub</option><option>worker</option><option>leaf</option>'
             '<option value="setup">setup (choose at first boot)</option></select></label>'
             '<label>Name (hub) <input name="name" value="OneMind"></label>'
-            '<label>Hub address (worker, leaf) <input name="hub"></label>'
-            '<label>Join token (worker, leaf) <input name="join_token" autocomplete="off"></label>'
+            '<label>Join code (worker, leaf; on the hub: onemind fabric ticket --ttl 1h) <input name="join_code" autocomplete="off"></label>'
+            '<label>Hub IP address (worker, leaf; optional) <input name="hub_addr"></label>'
             '<label>One-time code (on this computer\'s screen) <input name="code" autocomplete="off" required></label>'
             f'<p class="warn">The chosen disk will be <b>erased</b>: every file on it is lost. '
             f'Type <b>{CONFIRM_WORD}</b> to confirm.</p><label><input name="confirm" autocomplete="off" required></label>'

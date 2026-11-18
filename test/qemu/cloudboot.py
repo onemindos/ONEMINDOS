@@ -5,14 +5,16 @@
 
 Boots the artifact a cloud imports (raw, disk.raw in a tar.gz, fixed VHD, qcow2), unmodified, through
 a copy-on-write overlay 8 GiB larger, with a NoCloud seed shaped like that cloud's metadata. The guest
-is driven like a cloud instance: serial console, SSH as `admin` (throwaway key made here), HTTP to the
-gateway, all through ports forwarded on 127.0.0.1 (user networking, restrict=on). Tools container:
+is driven like a cloud instance: serial console, SSH as `admin` (throwaway key made here), HTTPS to the
+gateway (:8443) and HTTP to the setup wizard (:8080), all through ports forwarded on 127.0.0.1 (user
+networking, restrict=on). The hub serves the LAN over HTTPS only: with ONEMIND_NET_TLS=1 the gateway binds
+plain HTTP :8080 to loopback (H-05, core/onemind_core/serve.py). Tools container:
 
   python3 -I cloudboot.py --cloud aws --image-dir /out/image-cloud-aws --work DIR --log serial.log \
       [--tests C0,C1,C2,C3,C4,C5,C6] [--results r.json]
 """
 import argparse, hashlib, importlib.util, json, os, platform, re, secrets, shlex, shutil, socket, subprocess, sys
-import tarfile, time, urllib.error, urllib.request, uuid
+import ssl, tarfile, time, urllib.error, urllib.request, uuid
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SRC = os.path.dirname(os.path.dirname(HERE))
@@ -97,7 +99,8 @@ def qemu_cmd(cloud, disk, seed, extra_disks, ports, accel, cpu):
     qemu = ["qemu-system-x86_64", "-machine", p["machine"], "-accel", accel, "-cpu", cpu, "-smp", "4", "-m", "4096",
             "-nodefaults", "-display", "none", "-vga", "none",
             "-nic", f"user,model=virtio-net-pci,mac={MAC},restrict=on,"
-                    f"hostfwd=tcp:127.0.0.1:{ports['ssh']}-:22,hostfwd=tcp:127.0.0.1:{ports['http']}-:8080",
+                    f"hostfwd=tcp:127.0.0.1:{ports['ssh']}-:22,hostfwd=tcp:127.0.0.1:{ports['http']}-:8080,"
+                    f"hostfwd=tcp:127.0.0.1:{ports['https']}-:8443",
             "-drive", f"if=none,id=root,format=qcow2,cache=writeback,file={disk}"]
     if p["bus"] == "nvme":
         qemu += ["-device", "nvme,drive=root,serial=onemindroot,bootindex=0"]
@@ -182,13 +185,21 @@ def free_port():
     return port
 
 
-def http(port, path, token=None, timeout=10):
-    """(status, body) or (None, error) when no HTTP response came."""
-    req = urllib.request.Request(f"http://127.0.0.1:{port}{path}")
+# The gateway's certificate is for the box's names (onemind.local, <box>.local), from the box CA, and the
+# harness reaches it as 127.0.0.1: these checks are about answers, not the certificate (F7 and F9 verify
+# it against the box CA inside the guest).
+NO_VERIFY = ssl.create_default_context()
+NO_VERIFY.check_hostname = False
+NO_VERIFY.verify_mode = ssl.CERT_NONE
+
+
+def http(port, path, token=None, timeout=10, tls=False):
+    """(status, body) or (None, error) when no HTTP response came. tls: HTTPS (the gateway on :8443)."""
+    req = urllib.request.Request(f"{'https' if tls else 'http'}://127.0.0.1:{port}{path}")
     if token:
         req.add_header("Authorization", f"Bearer {token}")
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as r:
+        with urllib.request.urlopen(req, timeout=timeout, context=NO_VERIFY if tls else None) as r:
             return r.status, r.read()
     except urllib.error.HTTPError as e:
         return e.code, e.read()
@@ -196,12 +207,12 @@ def http(port, path, token=None, timeout=10):
         return None, repr(e).encode()
 
 
-def wait_http(port, path, token=None, timeout=900, guard=None):
+def wait_http(port, path, token=None, timeout=900, guard=None, tls=False):
     """Poll until HTTP 200 or the timeout. `guard()` (fail fast, failfast.py) is called about every 30 s and
     returns a reason string when the guest is already known to be broken; polling then stops."""
     end, last, next_guard = time.time() + timeout, (None, b""), time.time() + 30
     while time.time() < end:
-        last = http(port, path, token)
+        last = http(port, path, token, tls=tls)
         if last[0] == 200:
             break
         if guard and time.time() >= next_guard:
@@ -217,7 +228,7 @@ class Run:
     def __init__(self, a, battery):
         self.a, self.battery, self.p = a, battery, PROFILES[a.cloud]
         self.key = os.path.join(a.work, "id_ed25519")
-        self.ports = {"ssh": free_port(), "http": free_port()}
+        self.ports = {"ssh": free_port(), "http": free_port(), "https": free_port()}
         self.logf = open(a.log, "a")
         self.vm = None
 
@@ -298,7 +309,7 @@ class Run:
             self.vm.mark(f"DIAGNOSE failed: {e}")
 
     def healthz(self, why="healthz"):
-        code, body = wait_http(self.ports["http"], "/healthz", guard=self.guard)
+        code, body = wait_http(self.ports["https"], "/healthz", guard=self.guard, tls=True)
         if code != 200:
             self.diagnose(f"{why}={code} {body[:80]!r}")
         return code, body
@@ -325,7 +336,7 @@ class Run:
     def listed(self, token, nid, timeout=600):
         end, rows = time.time() + timeout, []
         while time.time() < end:
-            code, body = http(self.ports["http"], "/v1/nodes", token)
+            code, body = http(self.ports["https"], "/v1/nodes", token, tls=True)
             if code == 200:
                 try:
                     rows = [(n["node_id"], n["role"], n["status"]) for n in json.loads(body)]
@@ -460,8 +471,8 @@ def boot_main(R, base, tests, extra):
     hz = R.healthz()[0]
     rows = R.listed(token, nid) if token and hz == 200 else []
     me = [r for r in rows if r[0] == nid]
-    noauth = http(R.ports["http"], "/v1/nodes")[0]
-    code, body = http(R.ports["http"], "/")
+    noauth = http(R.ports["https"], "/v1/nodes", tls=True)[0]
+    code, body = http(R.ports["https"], "/", tls=True)
     _, idx = R.ssh("sha256sum /usr/lib/onemind/dashboard/index.html | cut -c1-64")
     dash = code == 200 and hashlib.sha256(body).hexdigest() in idx
     # Reported, not judged: the SSH path to the token (clouds whose console users cannot see ttyS0).

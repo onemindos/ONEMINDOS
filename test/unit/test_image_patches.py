@@ -170,8 +170,14 @@ class NatsUnit(unittest.TestCase):
     def test_tls_files_reach_the_throwaway_user_without_credentials_glob(self):
         u = rd("os", "rootfs", "layers", "onemind", "usr", "lib", "systemd", "system", "onemind-nats.service")
         self.assertIn("RuntimeDirectory=onemind-nats", u)
-        self.assertIn("$$f", u)          # systemd would expand a bare $f
-        self.assertIn("%%u", u)          # and a bare %u is a specifier
+        # The copy is a script (onemind-nats-files), so no shell variable or specifier sits in an Exec line,
+        # where systemd would expand a bare $f or %u itself.
+        self.assertIn("ExecStartPre=+/usr/lib/onemind/onemind-nats-files", u)
+        for line in u.splitlines():
+            if line.startswith("Exec"):
+                self.assertNotRegex(line.replace("$MAINPID", ""), r"(?<!\$)\$(?!\$)|(?<!%)%(?!%)", line)
+        script = rd("os", "rootfs", "layers", "onemind", "usr", "lib", "onemind", "onemind-nats-files")
+        self.assertIn("/data/onemind/gateway/tls/$f", script)
 
 
 class NoSigningMaterial(unittest.TestCase):

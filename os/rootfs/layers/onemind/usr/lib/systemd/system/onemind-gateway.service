@@ -1,9 +1,11 @@
 # SPDX-License-Identifier: Apache-2.0
-# OneMind Core gateway in the image (:8080; serves the dashboard at /). Hub role only, started by
-# onemind-firstboot. Code and venv are read-only in the slot (/usr/lib/onemind/gateway); its
-# database, audit log, tokens and kubeconfig live in /data/onemind/gateway.
+# OneMind Core gateway in the image (HTTPS :443/:8443 with the box CA, local HTTP :8080; serves the
+# dashboard at /). Hub role only, started by onemind-firstboot. Code and venv are read-only in the slot
+# (/usr/lib/onemind/gateway); its database, audit log, tokens, kubeconfig and box CA (tls/) live in
+# /data/onemind/gateway. It also reads its NATS seed (/data/onemind/nats/keys/gateway.nk) and its
+# Headscale API key (/data/onemind/etc/headscale.key), both 0600 and owned by onemind.
 [Unit]
-Description=OneMind Core gateway (:8080)
+Description=OneMind Core gateway (HTTPS :443/:8443, local HTTP :8080)
 After=network-online.target onemind-firstboot.service onemind-nats.service
 Wants=network-online.target onemind-nats.service
 RequiresMountsFor=/data
@@ -20,8 +22,9 @@ ExecStart=/usr/lib/onemind/gateway/venv/bin/python3 -m onemind_core
 Restart=always
 RestartSec=3s
 NoNewPrivileges=yes
-CapabilityBoundingSet=
-AmbientCapabilities=
+# HTTPS on :443 (ONEMIND_NET_TLS, NETWORKING.md §9) needs a port below 1024; nothing else.
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+AmbientCapabilities=CAP_NET_BIND_SERVICE
 ProtectSystem=strict
 ReadWritePaths=/data/onemind/gateway
 ProtectHome=yes

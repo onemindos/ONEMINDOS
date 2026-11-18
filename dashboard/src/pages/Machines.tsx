@@ -1,0 +1,170 @@
+// SPDX-License-Identifier: Apache-2.0
+// Machines (MACH-01, #281): the virtual machines on this box, from GET /v1/machines, and whether the
+// box can run them at all, from GET /v1/machines/capabilities. Create, start, stop and remove are
+// only ever REQUESTS (POST /v1/actions, machine.*): they wait in Approvals and nothing reaches the
+// runtime until an owner approves. States are the gateway's own words (creating, stopped, running,
+// unknown); the screen never guesses a better one.
+import { useRef, useState, type FormEvent } from 'react';
+import { Link } from 'react-router';
+import { Button, Card, Dialog, EmptyState, PageHeader, StatusPill, useToast, type Tone } from '@onemind/ui';
+import type { Action, MachineActionType, MachineParams, MachineRecord } from '../api/types';
+import { isActive } from '../data/adapters';
+import { errorText, useHub } from '../data/hub';
+import { usePoll } from '../lib/hooks';
+import { useSignedIn } from '../session';
+import { href } from '../shell/routes';
+import { Load, TextField } from './parts';
+
+const STATE: Record<string, { tone: Tone; label: string; pulse?: boolean; note?: string }> = {
+  creating: { tone: 'info', label: 'Creating', pulse: true, note: 'The disk is being prepared. Nothing else can be done with it yet.' },
+  stopped: { tone: 'neutral', label: 'Stopped' },
+  running: { tone: 'ok', label: 'Running' },
+  unknown: { tone: 'warn', label: 'Unknown', note: 'A request ended without a clear answer, so it may or may not exist in the cluster. Its name and quota stay held until an owner removes it.' },
+};
+const VERB: Record<MachineActionType, string> = { 'machine.create': 'create', 'machine.start': 'start', 'machine.stop': 'stop', 'machine.delete': 'remove' };
+const NAME = /^[a-z][a-z0-9-]{0,38}[a-z0-9]$/;
+const RESERVED = new Set(['capabilities', 'enable']);
+
+export function Machines() {
+  const { api } = useSignedIn();
+  const hub = useHub();
+  const toast = useToast();
+  const caps = usePoll(async () => (api.machineCapabilities ? api.machineCapabilities() : Promise.reject(new Error('unsupported'))), 30_000);
+  const list = usePoll(async () => (api.machines ? api.machines() : Promise.reject(new Error('unsupported'))), 5_000);
+  const [creating, setCreating] = useState(false);
+  const [removing, setRemoving] = useState<MachineRecord>();
+  const [typed, setTyped] = useState('');
+  const [form, setForm] = useState({ name: '', ram_mb: '2048', cpus: '2', disk_gb: '20', image_url: '' });
+  const sending = useRef(false);
+  const [busy, setBusy] = useState(false);
+  const blocked = hub.canRequest === 'no';
+  const supported = !!api.machines;
+
+  const open = hub.actionList.filter((a) => a.type.startsWith('machine.') && isActive(a));
+  const openFor = (name: string) => open.filter((a) => a.params.name === name);
+
+  const send = async (type: MachineActionType, params: MachineParams): Promise<boolean> => {
+    if (sending.current || blocked) return false;
+    sending.current = true;
+    setBusy(true);
+    try {
+      await hub.requestMachine(type, params);
+      toast.show({ tone: 'info', title: 'Request sent', body: `It waits in Approvals. The machine is not touched until an owner approves it to ${VERB[type]}.` });
+      void list.reload();
+      return true;
+    } catch (e) {
+      toast.show({ tone: 'bad', title: `Could not request ${VERB[type]}`, body: errorText(e).message });
+      return false;
+    } finally {
+      sending.current = false;
+      setBusy(false);
+    }
+  };
+
+  const problem = (() => {
+    if (!form.name) return undefined;
+    if (!NAME.test(form.name)) return 'Use 2 to 40 characters: lower-case letters, digits and dashes, starting with a letter.';
+    if (RESERVED.has(form.name)) return `${form.name} is reserved: pick another name.`;
+    if ((list.data ?? []).some((m) => m.name === form.name)) return 'A machine with this name already exists.';
+    return undefined;
+  })();
+  const nums = { ram_mb: Number(form.ram_mb), cpus: Number(form.cpus), disk_gb: Number(form.disk_gb) };
+  const valid = !!form.name && !problem && /^https:\/\/\S+$/.test(form.image_url)
+    && Number.isInteger(nums.ram_mb) && nums.ram_mb >= 512 && Number.isInteger(nums.cpus) && nums.cpus >= 1 && Number.isInteger(nums.disk_gb) && nums.disk_gb >= 1;
+  const submitCreate = async (e?: FormEvent) => {
+    e?.preventDefault();
+    if (!valid) return;
+    if (await send('machine.create', { name: form.name, ...nums, image_url: form.image_url })) setCreating(false);
+  };
+  const submitRemove = async () => {
+    const m = removing;
+    if (!m || typed !== m.name) return;
+    if (await send('machine.delete', { name: m.name, confirm: typed })) { setRemoving(undefined); setTyped(''); }
+  };
+
+  const eligible = caps.data ? caps.data.eligible_node_ids.length > 0 : undefined;
+  const reasons = caps.data ? [...new Set(caps.data.nodes.flatMap((n) => n.reasons.map((r) => r.message)))] : [];
+  const waitingCreates = open.filter((a) => a.type === 'machine.create' && !(list.data ?? []).some((m) => m.name === a.params.name));
+
+  return (
+    <>
+      <PageHeader
+        title="Machines"
+        lede="Virtual machines on this box. Every change here is a request: it waits in Approvals and nothing runs until an owner approves it."
+        actions={<Button variant="primary" disabled={!supported || blocked || eligible !== true} onClick={() => setCreating(true)}>Request a machine</Button>}
+      />
+      {!supported && <p className="om-note om-tone-warn" role="status">This gateway connection has no machines route (demo data has none). Sign in to a real gateway to see machines.</p>}
+      {supported && caps.data && (
+        <p className={`om-note ${eligible ? 'om-tone-ok' : 'om-tone-warn'}`} role="status">
+          {eligible
+            ? `This box can run virtual machines (${caps.data.eligible_node_ids.length} eligible node${caps.data.eligible_node_ids.length === 1 ? '' : 's'}). ${caps.data.extension.state === 'unavailable' ? caps.data.extension.message : ''}`
+            : `This box cannot run virtual machines yet. ${reasons.join(' ') || 'No node has reported yet.'}`}
+        </p>
+      )}
+      {supported && (
+        <Load res={list} what="Loading machines">
+          {(machines) => machines.length === 0 && waitingCreates.length === 0 ? (
+            <EmptyState icon="nodes" title="No machines yet">
+              <p>A machine is created stopped. Starting it is a second request, so nothing uses memory before you say so.</p>
+            </EmptyState>
+          ) : (
+            <ul className="dash-grid" aria-label="Machines">
+              {waitingCreates.map((a) => (
+                <li key={a.id}>
+                  <Card title={String(a.params.name)}>
+                    <StatusPill tone="warn" label={a.state === 'awaiting_approval' ? 'Waiting for approval' : `Request ${a.state.replace(/_/g, ' ')}`} />
+                    <p className="om-hint">Requested, not created. <Link to={href.approval(a.id)}>Open in Approvals</Link></p>
+                  </Card>
+                </li>
+              ))}
+              {machines.map((m) => <MachineCard key={m.name} m={m} pending={openFor(m.name)} disabled={blocked || busy} onSend={send} onRemove={() => { setTyped(''); setRemoving(m); }} />)}
+            </ul>
+          )}
+        </Load>
+      )}
+      <Dialog open={creating} onClose={() => setCreating(false)} title="Request a machine"
+        description="The machine is created stopped, with no network. An owner approves this exact request in Approvals."
+        actions={<><Button variant="ghost" onClick={() => setCreating(false)}>Cancel</Button><Button variant="primary" disabled={!valid || busy} onClick={() => void submitCreate()}>Send request</Button></>}>
+        <form className="dash-form" onSubmit={(e) => void submitCreate(e)}>
+          <TextField id="machine-name" label="Name" value={form.name} onChange={(v) => setForm({ ...form, name: v })} />
+          {problem && <p className="om-note om-tone-bad" role="alert">{problem}</p>}
+          <TextField id="machine-ram" label="Memory (MB)" value={form.ram_mb} onChange={(v) => setForm({ ...form, ram_mb: v })} />
+          <TextField id="machine-cpus" label="Processor cores" value={form.cpus} onChange={(v) => setForm({ ...form, cpus: v })} />
+          <TextField id="machine-disk" label="Disk (GB)" value={form.disk_gb} onChange={(v) => setForm({ ...form, disk_gb: v })} />
+          <TextField id="machine-image" label="Cloud image (https link)" value={form.image_url} onChange={(v) => setForm({ ...form, image_url: v })} />
+        </form>
+      </Dialog>
+      <Dialog open={!!removing} role="alertdialog" onClose={() => setRemoving(undefined)} title={`Request removal of ${removing?.name ?? ''}`}
+        description="Removing a machine erases its disk and cannot be undone. Type its name to confirm; an owner still has to approve."
+        actions={<><Button variant="ghost" onClick={() => setRemoving(undefined)}>Cancel</Button><Button variant="danger" disabled={typed !== removing?.name || busy} onClick={() => void submitRemove()}>Send removal request</Button></>}>
+        <TextField id="machine-confirm" label="Machine name" value={typed} onChange={setTyped} />
+      </Dialog>
+    </>
+  );
+}
+
+function MachineCard({ m, pending, disabled, onSend, onRemove }: { m: MachineRecord; pending: Action[]; disabled: boolean; onSend: (t: MachineActionType, p: MachineParams) => Promise<boolean>; onRemove: () => void }) {
+  const s = STATE[m.state] ?? { tone: 'warn' as Tone, label: m.state };
+  const waiting = pending.length > 0;
+  const off = disabled || waiting || m.state === 'creating';
+  return (
+    <li>
+      <Card title={m.name}>
+        <StatusPill tone={s.tone} label={s.label} pulse={s.pulse} />
+        <p>{m.ram_mb} MB memory, {m.cpus} cores, {m.disk_gb} GB disk · node {m.node_id || 'not assigned'}</p>
+        {s.note && <p className="om-hint">{s.note}</p>}
+        {waiting && (
+          <p className="om-note om-tone-warn" role="status">
+            {pending.map((a) => `${VERB[a.type as MachineActionType] ?? a.type}: ${a.state.replace(/_/g, ' ')}`).join(', ')}.{' '}
+            <Link to={href.approval(pending[0]!.id)}>Open in Approvals</Link>
+          </p>
+        )}
+        <div className="om-row">
+          {m.state === 'stopped' && <Button size="sm" disabled={off} aria-label={`Request start of ${m.name}`} onClick={() => void onSend('machine.start', { name: m.name })}>Request start</Button>}
+          {m.state === 'running' && <Button size="sm" disabled={off} aria-label={`Request stop of ${m.name}`} onClick={() => void onSend('machine.stop', { name: m.name })}>Request stop</Button>}
+          <Button size="sm" variant="danger" disabled={off} aria-label={`Request removal of ${m.name}`} onClick={onRemove}>Request removal</Button>
+        </div>
+      </Card>
+    </li>
+  );
+}

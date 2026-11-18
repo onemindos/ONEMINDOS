@@ -10,4 +10,4 @@ Before=local-fs.target
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=/bin/sh -c 'for d in etc-rancher-node var-lib-rancher var-lib-kubelet var-lib-cni var-log var-tmp var-lib-systemd home root var-lib-cloud; do mkdir -p /data/state/$$d; done; mkdir -p /data/onemind /data/rauc /data/k3s; chmod 1777 /data/state/var-tmp; chmod 0700 /data/state/root'
+ExecStart=/bin/sh -c 'for d in etc-rancher-node var-lib-rancher var-lib-kubelet var-lib-cni var-log var-tmp var-lib-systemd home root var-lib-cloud var-lib-tailscale var-lib-onemind-headscale var-lib-onemind-nats-leaf; do mkdir -p /data/state/$$d; done; mkdir -p /data/onemind /data/rauc /data/k3s; chmod 1777 /data/state/var-tmp; chmod 0700 /data/state/root; chmod 0700 /data/state/var-lib-tailscale; chown 963:963 /data/state/var-lib-onemind-headscale; chmod 0700 /data/state/var-lib-onemind-headscale; chown 962:962 /data/state/var-lib-onemind-nats-leaf; chmod 0700 /data/state/var-lib-onemind-nats-leaf; [ -f /data/state/etc-hosts ] || install -m 0644 /usr/lib/onemind/hosts.default /data/state/etc-hosts'
