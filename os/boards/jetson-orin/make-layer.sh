@@ -53,7 +53,7 @@ install -D -m 644 os/gate/onemind-local-api.service    "$L/usr/lib/systemd/syste
 B=os/rootfs/layers/base
 for f in etc/default/k3s etc/default/onemind-health-gate usr/lib/systemd/system/k3s.service \
          usr/lib/systemd/system/onemind-data-layout.service usr/lib/onemind/manifests/onemind-core.yaml \
-         usr/lib/onemind/tuf/README.md; do
+         usr/lib/onemind/tuf/README.md usr/lib/onemind/hosts.default; do
   install -D -m 644 "$B/$f" "$L/$f"
 done
 mkdir -p "$L/usr/lib/onemind/sdk" "$L/usr/lib/onemind/apps"

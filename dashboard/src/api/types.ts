@@ -99,7 +99,7 @@ export interface CatalogApp {
 }
 
 export type ActionType = components['schemas']['PlainActionRequest']['type'] | components['schemas']['ConfigureActionRequest']['type'];
-export type AppParams = components['schemas']['PlainActionParams'] & Partial<Pick<components['schemas']['ConfigureActionParams'], 'settings'>>;
+export type AppParams = components['schemas']['PlainActionParams'] & Partial<Pick<components['schemas']['ConfigureActionParams'], 'settings'>> & { name?: undefined };
 export type PlanPreview = components['schemas']['PlanPreview'];
 /** Validated dashboard view of the SDK's opaque apps.settings response, not a wire contract. */
 export interface AppSettings {
@@ -129,10 +129,44 @@ export interface Principal {
   role: PrincipalRole;
 }
 
+/** MACH-01 (#281): machine requests. They carry a machine `name`, never an `app_id`. */
+export type MachineActionType = Extract<components['schemas']['FeatureActionRequest']['type'], `machine.${string}`>;
+export interface MachineParams {
+  name: string;
+  ram_mb?: number;
+  cpus?: number;
+  disk_gb?: number;
+  image_url?: string;
+  /** Delete only: the machine's name typed again by the owner. */
+  confirm?: string;
+  app_id?: undefined;
+  settings?: undefined;
+}
+export type MachineState = 'creating' | 'stopped' | 'running' | 'unknown';
+/** GET /v1/machines rows (core/onemind_core/machines/store.py; the OpenAPI response is untyped). */
+export interface MachineRecord {
+  name: string;
+  node_id: string;
+  ram_mb: number;
+  cpus: number;
+  disk_gb: number;
+  state: MachineState | string;
+  created_at: string;
+  updated_at: string;
+}
+/** GET /v1/machines/capabilities, the parts the screen shows. */
+export interface MachineCapabilities {
+  enabled: boolean;
+  extension: { state: string; message: string };
+  requirements: { min_memory_mb: number; arch: string; kvm: boolean };
+  eligible_node_ids: string[];
+  nodes: Array<{ node_id: string; eligible: boolean; reasons: Array<{ code: string; message: string }> }>;
+}
+
 /** §3 `POST /v1/actions` body. */
 export interface ActionRequest {
-  type: ActionType;
-  params: AppParams;
+  type: ActionType | MachineActionType;
+  params: AppParams | MachineParams;
   plan_sha256?: string;
   idempotency_key: string;
   expires_at: string;
