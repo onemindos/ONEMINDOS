@@ -28,6 +28,7 @@ from starlette.websockets import WebSocketDisconnect
 import onemind_core.routers.net as net_router
 from onemind_core.app import create_app
 from onemind_core.netconf import NetSettings
+from onemind_core.netpath import path_of_peer
 from conftest import OWNER
 from test_identity import PASSWORD, csrf, enrol, id_settings, setup_owner
 
@@ -198,12 +199,19 @@ LAN_V4, LAN_V6, LAN_MAPPED = LAN_PEER, "fd12:3456::5", "::ffff:192.168.1.20"
 MESH_V4, MESH_V6 = "100.64.0.7", "fd7a:115c:a1e0::7"
 PUBLIC_V4, PUBLIC_V6 = "93.184.216.34", "2001:4860:4860::8888"
 UNTELLABLE = ["127.0.0.1", "::1", "testclient", "0.0.0.0", "224.0.0.1"]  # loopback, junk, multicast
-ALL_PEERS = [LAN_V4, LAN_V6, LAN_MAPPED, MESH_V4, MESH_V6, PUBLIC_V4, PUBLIC_V6, *UNTELLABLE]
+# "private" to Python's ipaddress, yet not the home LAN: reachable from the internet or reserved
+NOT_LAN = ["2001:0:5ef5:79fd::1", "2002:808:808::1", "2001:db8::1", "198.18.0.1", "240.0.0.1"]  # Teredo, 6to4, docs, benchmark, reserved
+ALL_PEERS = [LAN_V4, LAN_V6, LAN_MAPPED, MESH_V4, MESH_V6, PUBLIC_V4, PUBLIC_V6, *UNTELLABLE, *NOT_LAN]
 ADMITTED = {  # tier -> the peers that may open the app
     "private": {LAN_V4, LAN_V6, LAN_MAPPED},
     "mesh": {LAN_V4, LAN_V6, LAN_MAPPED, MESH_V4, MESH_V6},
     "public": {LAN_V4, LAN_V6, LAN_MAPPED, MESH_V4, MESH_V6, PUBLIC_V4, PUBLIC_V6},
 }
+
+
+@pytest.mark.parametrize("peer", NOT_LAN)
+def test_ranges_python_calls_private_but_the_internet_can_reach_are_not_the_lan(peer):
+    assert path_of_peer(peer) != "lan"
 
 
 def from_peer(box: TestClient, peer: str) -> TestClient:

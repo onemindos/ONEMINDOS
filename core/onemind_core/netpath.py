@@ -11,11 +11,13 @@ Paths, from the peer address the socket reports (never from a header the client 
 - mesh: the peer is inside the mesh ranges (100.64.0.0/10, fd7a:115c:a1e0::/48), the address the
   box CA also pins. Checked before LAN because 100.64.0.0/10 is not RFC 1918 but is "private" to
   Python's ipaddress module.
-- lan: a private or link-local address that is not mesh (RFC 1918, fc00::/7, fe80::/10, 169.254/16).
+- lan: an address in an explicit LAN list that is not mesh (RFC 1918, fc00::/7, fe80::/10, 169.254/16).
+  Python's "private" is deliberately not used: it admits Teredo, 6to4 and reserved ranges.
 - public: any other global address.
 - tor: only ever asserted by a trusted edge (the onion service daemon connects from loopback, so
   the socket cannot tell Tor from the LAN).
-- unknown: everything else, including loopback with no trusted edge, an unparsable or missing peer,
+- unknown: everything else (non-global addresses outside the LAN list, such as 2001:db8::/32 or
+  240/4, included), loopback with no trusted edge, an unparsable or missing peer,
   and a trusted edge that said nothing or something unrecognised. Unknown fails closed: no tier
   admits it, not even private.
 
@@ -48,6 +50,11 @@ TIER_PATHS: dict[str, frozenset[str]] = {
 
 _IP = ipaddress.IPv4Address | ipaddress.IPv6Address
 
+# The home LAN, spelled out. Python's `is_private` is not this: it also covers ranges the internet can
+# reach (Teredo 2001::/32, 6to4 2002::/16) and reserved ones (documentation, 198.18/15, 240/4).
+LAN_NETS = tuple(ipaddress.ip_network(n) for n in (
+    "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "169.254.0.0/16", "fc00::/7", "fe80::/10"))
+
 
 def parse_networks(spec: str | tuple[str, ...] | list[str]) -> tuple[ipaddress.IPv4Network | ipaddress.IPv6Network, ...]:
     """Comma-separated CIDRs or addresses; raises ValueError on anything else."""
@@ -74,7 +81,7 @@ def path_of_peer(peer: str | None) -> NetPath:
         return "unknown"
     if any(ip in n for n in MESH_NETS if n.version == ip.version):
         return "mesh"
-    if ip.is_private or ip.is_link_local:
+    if any(ip in n for n in LAN_NETS if n.version == ip.version):
         return "lan"
     return "public" if ip.is_global else "unknown"
 
