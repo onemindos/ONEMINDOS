@@ -14,6 +14,7 @@ export const href = {
   activity: '/activity',
   nodes: '/nodes',
   alerts: '/alerts',
+  backups: '/backups',
   coming: '/coming',
   settings: '/settings',
   setting: (id: string) => `/settings/${id}`,
@@ -51,6 +52,7 @@ export function toRoute(link: string): string | undefined {
     case 'notifications':
       return href.activity;
     case 'backups':
+      return href.backups;
     case 'updates':
       return href.setting(parts[0]);
     case 'settings':
