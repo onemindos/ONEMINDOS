@@ -1,0 +1,53 @@
+#!/bin/bash
+# SPDX-License-Identifier: Apache-2.0
+# Start the local CI runner (CI-10, issue 299). Usage: scripts/ci-runner/up [--service] [--on]
+#   (no flag)  create/start the VM if needed, then run the job loop in this terminal (Ctrl-C stops it)
+#   --service  install and start the launchd agent instead, so it survives logout and restarts
+#   --on       also set the repo variable LOCAL_RUNNER=on (workflows start choosing the local runner)
+# Size (this Mac also runs the agents; the VM is capped): CPUS (default: half the cores), MEMORY in GiB
+# (default 8), INSTANCES = parallel runners, 1 or 2 (default 1; each runs in its own VM,
+# so 2 needs twice the memory). FRESH=clone (default) gives every job a new VM cloned from the provisioned base;
+# FRESH=none reuses one VM (faster, but a job can leave things behind). CPUS and MEMORY apply when the VM is created;
+# to change them later run `down --wipe` and `up` again.
+# Needs: lima (brew install lima) and gh logged in with the admin:org scope. No token is ever written to disk.
+set -euo pipefail
+here=$(cd "$(dirname "$0")" && pwd)
+REPO=${REPO:-onemindos/ONEMINDOS}
+VM=${VM:-onemind-ci}
+service=0 on=0
+for a in "$@"; do case $a in --service) service=1;; --on) on=1;; *) echo "usage: up [--service] [--on]" >&2; exit 2;; esac; done
+command -v limactl >/dev/null || { echo "install Lima first: brew install lima" >&2; exit 1; }
+command -v gh >/dev/null || { echo "install the GitHub CLI first: brew install gh" >&2; exit 1; }
+gh auth status >/dev/null 2>&1 || { echo "log in first: gh auth login" >&2; exit 1; }
+if ! gh api "orgs/${REPO%%/*}/actions/runner-groups" >/dev/null 2>&1; then
+  echo "gh lacks the admin:org scope. Run: gh auth refresh -h github.com -s admin:org" >&2; exit 1
+fi
+
+if ! limactl list -q 2>/dev/null | grep -qx "$VM"; then
+  cores=$(sysctl -n hw.ncpu); CPUS=${CPUS:-$(( cores / 2 > 2 ? cores / 2 : 2 ))}; MEMORY=${MEMORY:-8}
+  limactl create --name "$VM" --tty=false --cpus "$CPUS" --memory "$MEMORY" "$here/lima.yaml"
+fi
+limactl list --format '{{.Name}} {{.Status}}' | grep -qx "$VM Running" || limactl start "$VM"
+limactl shell "$VM" -- sudo mkdir -p /opt/onemind-ci
+for f in provision.sh run-one.sh runner.pin; do
+  limactl copy "$here/$f" "$VM:/tmp/$f"
+  limactl shell "$VM" -- sudo install -m 0755 "/tmp/$f" "/opt/onemind-ci/$f"
+done
+limactl shell "$VM" -- sudo env INSTANCES=1 sh /opt/onemind-ci/provision.sh
+# The base stays stopped: cycle clones it for every job (FRESH=clone, the default).
+if [ "${FRESH:-clone}" = clone ]; then limactl stop "$VM"; fi
+
+if [ "$on" = 1 ]; then gh variable set LOCAL_RUNNER --body on --repo "$REPO"; echo "LOCAL_RUNNER=on"; fi
+export INSTANCES=${INSTANCES:-1}
+
+if [ "$service" = 1 ]; then
+  plist="$HOME/Library/LaunchAgents/dev.onemind.ci-runner.plist"
+  mkdir -p "$HOME/Library/LaunchAgents" "$HOME/Library/Logs"
+  sed -e "s|__CYCLE__|$here/cycle|g" -e "s|__HOME__|$HOME|g" -e "s|__INSTANCES__|$INSTANCES|g" -e "s|__PATH__|$(dirname "$(command -v limactl)"):$(dirname "$(command -v gh)"):/usr/bin:/bin|g" \
+    "$here/dev.onemind.ci-runner.plist" > "$plist"
+  launchctl bootout "gui/$(id -u)" "$plist" 2>/dev/null || true
+  launchctl bootstrap "gui/$(id -u)" "$plist"
+  echo "service started; logs: ~/Library/Logs/onemind-ci-runner.log; check with scripts/ci-runner/status"
+else
+  exec "$here/cycle"
+fi

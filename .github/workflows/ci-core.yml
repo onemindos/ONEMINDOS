@@ -8,13 +8,55 @@ on:
   push:
     branches: [main]
     paths: ["core/**", "sdk/**", ".github/workflows/ci-core.yml"]
+  merge_group:   # no paths filter exists for this event; the plan job filters instead
 
 permissions:
   contents: read
 
+# A new push to a PR cancels that PR's older run; runs on main always finish (CI-03, #228).
+concurrency:
+  group: ci-core-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
-  test:
+  # Which shards run (scripts/ci-core-matrix.py): a PR push runs the 3 SQLite shards; the merge
+  # queue runs the 4 PostgreSQL shards once per merge (founder, 2026-11-15: the org's 20 shared
+  # runners were the bottleneck); pushes to main and manual runs run all 7.
+  plan:
     runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.pick.outputs.matrix }}
+      run: ${{ steps.pick.outputs.run }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          sparse-checkout: scripts/ci-core-matrix.py
+          sparse-checkout-cone-mode: false
+      - id: pick
+        env:
+          EVENT: ${{ github.event_name }}
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          BASE_SHA: ${{ github.event.merge_group.base_sha }}
+          HEAD_SHA: ${{ github.event.merge_group.head_sha }}
+        run: python3 scripts/ci-core-matrix.py
+
+  # CI-03 (#228): the suite used to run twice in one job, SQLite (~33 min) then PostgreSQL + NATS
+  # (~106 min). Now each backend is split into shards (3 SQLite, 4 PostgreSQL; one SQLite job on
+  # 4 cores still took over 30 min in CI)
+  # (ONEMIND_TEST_SHARD, tests/conftest.py), and every job runs pytest-xdist on all runner cores.
+  # Each xdist worker gets its own PostgreSQL database; real-NATS tests share one worker.
+  # Together the jobs run exactly the tests the old single job ran.
+  test:
+    name: test (${{ matrix.backend }} ${{ matrix.shard }})
+    needs: plan
+    if: needs.plan.outputs.run == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40   # a safety net; a shard takes about 15 min (CI-03 target: under 20)
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
     services:
       nats:
         image: nats:2.10-alpine
@@ -32,28 +74,36 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
-      - name: Unit + contract tests (SQLite, no NATS)
+      - name: Throwaway test database, so skip disk syncs
+        if: matrix.backend == 'postgresql'
         env:
-          ONEMIND_PROPERTY_BACKEND: sqlite
-          ONEMIND_PROPERTY_ARTIFACTS: ${{ github.workspace }}/property-evidence/sqlite
-        run: make -C core test
-      - name: Same suite on PostgreSQL + real NATS
+          PGPASSWORD: test
+        run: |
+          psql -h 127.0.0.1 -U postgres -d onemind -v ON_ERROR_STOP=1 \
+            -c "ALTER SYSTEM SET fsync = off" \
+            -c "ALTER SYSTEM SET synchronous_commit = off" \
+            -c "ALTER SYSTEM SET full_page_writes = off" \
+            -c "SELECT pg_reload_conf()"
+      - name: Core suite (${{ matrix.backend }}, shard ${{ matrix.shard }})
         env:
-          ONEMIND_PROPERTY_BACKEND: postgresql
-          ONEMIND_PROPERTY_ARTIFACTS: ${{ github.workspace }}/property-evidence/postgresql
-          ONEMIND_TEST_DB_URL: postgresql://postgres:test@127.0.0.1:5432/onemind
-          ONEMIND_TEST_NATS_URL: nats://127.0.0.1:4222
-        run: cd core && uv run pytest -q
+          ONEMIND_TEST_SHARD: ${{ matrix.shard }}
+          ONEMIND_PROPERTY_BACKEND: ${{ matrix.backend }}
+          ONEMIND_PROPERTY_ARTIFACTS: ${{ github.workspace }}/property-evidence/${{ matrix.backend }}
+          # Empty on the SQLite leg: the suite then uses SQLite and skips the real-NATS tests.
+          ONEMIND_TEST_DB_URL: ${{ matrix.backend == 'postgresql' && 'postgresql://postgres:test@127.0.0.1:5432/onemind' || '' }}
+          ONEMIND_TEST_NATS_URL: ${{ matrix.backend == 'postgresql' && 'nats://127.0.0.1:4222' || '' }}
+        run: make -C core test PYTEST_ARGS="-n auto --dist loadgroup --durations=20"
       - name: Retain property backend allocation manifests (never key files or databases)
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: property-backends-${{ github.run_id }}
+          name: property-backends-${{ github.run_id }}-${{ matrix.backend }}-${{ strategy.job-index }}
           path: property-evidence/*/allocations-*.jsonl
           if-no-files-found: error
           retention-days: 14
 
   image:
+    if: github.event_name != 'merge_group'   # built on every PR push already
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2

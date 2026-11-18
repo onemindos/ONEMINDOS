@@ -27,6 +27,10 @@ PIN is typed at a no-echo prompt (or $ONEMIND_TUF_PIN, tests only), never given 
             [--new-pub P ...] --threshold N --out DIR [--targets-pub P ...] [--expires-days 365]
             offline only: writes DIR/<N+1>.root.json and DIR/root.json with a new set of root keys,
             signed by a threshold of the OLD root keys AND a threshold of the NEW ones (TUF spec 5.3.4)
+  renew-root --current root.json --root-key K [--root-key K2 ...] --out DIR [--expires-days 365]
+                                       offline only: root version N+1 with a new expiry and the SAME keys,
+                                       signed by the threshold of the current root keys; checks a box
+                                       holding version N accepts it; writes DIR/<N+1>.root.json and root.json
   build     --repo OUT --root root.json [--prev DIR] --release release-<board>.json ...
             --targets-key K --snapshot-key K --timestamp-key K [--keep 3]
             new targets/snapshot/timestamp versions on top of the previous channel metadata
@@ -267,6 +271,66 @@ def rotate_root(old_root_path, old_keys, new_keys, new_pubs, threshold, out, exp
         raise SystemExit(f"the rotated root does not verify under both key sets ({e}); nothing was written")
     os.makedirs(out, exist_ok=True)
     md.to_file(os.path.join(out, f"{version}.root.json"), SER)
+    md.to_file(os.path.join(out, "root.json"), SER)
+    return md
+
+
+def box_accepts(old_md, new_md):
+    """Would a box holding root `old_md` accept `new_md` as its next root? Returns the problems (empty: yes).
+
+    The TUF client rule (spec 5.3): the next root is exactly version N+1, signed by the threshold of the
+    keys the OLD root trusts and by the threshold of the keys the NEW root trusts, and not expired.
+    """
+    problems = []
+    if new_md.signed.version != old_md.signed.version + 1:
+        problems.append(f"version {new_md.signed.version} does not follow {old_md.signed.version}")
+    for who, md in (("the old root's keys", old_md), ("the new root's keys", new_md)):
+        try:
+            md.verify_delegate(Root.type, new_md)
+        except Exception as e:
+            problems.append(f"signatures do not meet the threshold of {who}: {e}")
+    if new_md.signed.expires <= now():
+        problems.append("the new root is already expired")
+    return problems
+
+
+def renew_root(current, root_keys, out, expires_days=None):
+    """Root version N+1: same keys and thresholds, new expiry, signed by the current root keys. OFFLINE ONLY.
+
+    Not a key rotation: the keys do not change, so the box needs nothing but the new file (served as
+    <N+1>.root.json next to the older ones; it walks the chain). Refuses unless the threshold of the
+    CURRENT root's keys signs, and checks the result the way a box would before writing anything.
+    """
+    old = Metadata[Root].from_file(current)
+    try:
+        old.verify_delegate(Root.type, old)
+    except Exception as e:
+        raise SystemExit(f"{current} is not validly signed by its own root keys; renew from the real current root ({e})")
+    n = old.signed.version + 1
+    if os.path.exists(os.path.join(out, "root.json")) or os.path.exists(os.path.join(out, f"{n}.root.json")):
+        raise SystemExit(f"{out} already holds a root.json; refusing to overwrite it (use a new directory)")
+    signers = [load_signer(k) for k in root_keys]
+    ids = [s.public_key.keyid for s in signers]
+    trusted = set(old.signed.roles[Root.type].keyids)
+    if len(set(ids)) != len(ids):
+        raise SystemExit("the same root key was given twice; every signer must be a different holder")
+    stranger = [i[:12] for i in ids if i not in trusted]
+    if stranger:
+        raise SystemExit(f"key(s) {stranger} are not root keys of {current}; nothing was written")
+    need = old.signed.roles[Root.type].threshold
+    if len(signers) < need:
+        raise SystemExit(f"need {need} of the root keys to sign a renewal, got {len(signers)}; nothing was written")
+    new = Root.from_dict(old.signed.to_dict())
+    new.version = n
+    new.expires = now() + datetime.timedelta(days=expires_days or EXPIRY["root"])
+    md = Metadata(new)
+    for sg in signers:
+        md.sign(sg, append=True)
+    problems = box_accepts(old, md)
+    if problems:
+        raise SystemExit("the renewed root would be refused by a box: " + "; ".join(problems))
+    os.makedirs(out, exist_ok=True)
+    md.to_file(os.path.join(out, f"{n}.root.json"), SER)
     md.to_file(os.path.join(out, "root.json"), SER)
     return md
 
@@ -553,6 +617,9 @@ def main(argv=None):
         r.add_argument(f"--{role}-pub", required=True)
     r.add_argument("--out", required=True); r.add_argument("--expires-days", type=int)
     r.add_argument("--version", type=int, default=1)
+    n = sub.add_parser("renew-root")
+    n.add_argument("--current", required=True); n.add_argument("--root-key", action="append", required=True)
+    n.add_argument("--out", required=True); n.add_argument("--expires-days", type=int)
     b = sub.add_parser("build")
     b.add_argument("--repo", required=True); b.add_argument("--root", required=True); b.add_argument("--prev")
     b.add_argument("--release", action="append", required=True)
@@ -568,8 +635,8 @@ def main(argv=None):
     v.add_argument("--metadata-only", action="store_true")
     v.add_argument("--allow-absent", action="store_true", help="skip targets whose file is not in --repo")
     a = ap.parse_args(argv)
-    if os.environ.get("GITHUB_ACTIONS") == "true" and a.cmd in ("init-root", "rotate-root") and not os.environ.get("ONEMIND_TUF_EPHEMERAL"):
-        raise SystemExit(f"{a.cmd} signs a ROOT of trust: run it offline (scripts/tuf-bootstrap-root.sh), never in CI")
+    if os.environ.get("GITHUB_ACTIONS") == "true" and a.cmd in ("init-root", "renew-root", "rotate-root") and not os.environ.get("ONEMIND_TUF_EPHEMERAL"):
+        raise SystemExit(f"{a.cmd} makes a ROOT of trust: run it offline (scripts/tuf-bootstrap-root.sh), never in CI")
     if a.cmd == "keygen":
         keygen(a.out_dir, a.roles.split(","), a.encrypt)
     elif a.cmd == "inspect":
@@ -591,6 +658,10 @@ def main(argv=None):
         md = rotate_root(a.root, a.old_key, a.new_key, a.new_pub, a.threshold, a.out, a.expires_days, online)
         print(f"root v{md.signed.version}: {len(md.signed.roles['root'].keyids)} root key(s), threshold "
               f"{md.signed.roles['root'].threshold}, expires {md.signed.expires.isoformat()}", file=sys.stderr)
+    elif a.cmd == "renew-root":
+        md = renew_root(a.current, a.root_key, a.out, a.expires_days)
+        print(f"root v{md.signed.version}: same keys, signed by {len(md.signatures)}, expires "
+              f"{md.signed.expires.isoformat()}; a box holding v{md.signed.version - 1} accepts it", file=sys.stderr)
     elif a.cmd == "build":
         res = build(a.repo, a.root, a.prev, a.release, a.targets_key, a.snapshot_key, a.timestamp_key, a.keep,
                     a.allow_dry_run)

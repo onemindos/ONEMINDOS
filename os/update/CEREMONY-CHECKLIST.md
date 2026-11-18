@@ -34,7 +34,7 @@ Holders: A ______________  B ______________  C ______________  Witness (optional
 ## After
 - [ ] 12. Sticks stored in 3 places: home ____________ Â· off-site ____________ Â· trusted person ____________
 - [ ] 13. Succession note sealed in an envelope (never in the repo); location: ____________
-- [ ] 14. Calendar reminder 60 days before the root expires (date: ____________, 365 days from today). Renewal is `rotate-root` (below); boxes refuse an expired root
+- [ ] 14. Calendar reminder 90 days before the root expires (date: ____________, 365 days from today). The nightly also goes red 60 days before. Boxes refuse an expired root; renewal is part B below, a move onto hardware keys is the rotation section above
 - [ ] 15. Still to do for a published release (not part of this ceremony): `ONEMIND_RAUC_SIGNING_KEY`, `ONEMIND_RAUC_SIGNING_CERT`, `ONEMIND_SECURITY_PUBLISH=true`
 - [ ] 16. Issue #153 updated with the root.json sha256 (never a key)
 
@@ -49,6 +49,23 @@ Needs: 3 hardware tokens (PIN set on each), their PKCS#11 module path, 2 old sti
   - **sha256 of the new root.json:** ____________________________________________________________
   - Read aloud, signed (initials): A ____  B ____  C ____
 - [ ] R5. Only `rotated/root.json` (and `2.root.json`) carried out; sha256 matches; committed as `os/rootfs/layers/base/usr/lib/onemind/tuf/<channel>/root.json` in a PR
-- [ ] R6. After a release: a box that ships the old root has updated. Only then are the old sticks retired. Devices stored in 3 places: ____________ · ____________ · ____________
+- [ ] R6. After a release: a box that ships the old root has updated. Only then are the old sticks retired. Devices stored in 3 places: ____________ / ____________ / ____________
 
 If any step prints `FAIL`, asks for something unexpected, or a passphrase fails three times: **stop**, change nothing, and ask.
+
+---
+
+# Part B: renewing the root (before it expires; two holders, same rules as above)
+
+Practise first: `scripts/tuf-bootstrap-root.sh rehearse-renewal <new empty path>` prints `REHEARSAL PASSED`. Date practised: ____________
+
+- [ ] B1. Offline machine, networking off, live USB. Two holders present with their sticks. Current `root.json` of the channel on the machine (channel: ____________, version now: ____)
+- [ ] B2. `scripts/tuf-bootstrap-root.sh renew current/root.json out-renewed <stick-1>/root.key <stick-2>/root.key` ran; each holder typed their own passphrase; no `FAIL`
+- [ ] B3. Sheet read aloud by both holders: version is one higher (____), **root key ids are the same as before**, thresholds unchanged (root 2 of 3), two valid signatures, about 365 days left
+  - **sha256 of the new root.json:** ____________________________________________________________
+  - Signed by (initials): ____ ____
+- [ ] B4. Only `root.json` and `<N+1>.root.json` copied to the transfer stick; sha256 matches on the online computer
+- [ ] B5. `root.json` committed in a PR as `os/rootfs/layers/base/usr/lib/onemind/tuf/<channel>/root.json`; PR reviewed and merged
+- [ ] B6. The next nightly published `<N+1>.root.json` on the channel, and all older `<N>.root.json` are still there
+- [ ] B7. Spare box or old VM image updated without help and reached the new root
+- [ ] B8. Offline machine and transfer stick wiped; sticks back in their 3 places; next reminder set (date: ____________)

@@ -442,6 +442,12 @@
                 "type": "string",
                 "minLength": 1,
                 "maxLength": 120
+              },
+              "port": {
+                "description": "The provider's Service port this app calls (contract 12.22, dependency network paths). Default: the provider's spec.web.port.",
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 65535
               }
             }
           }

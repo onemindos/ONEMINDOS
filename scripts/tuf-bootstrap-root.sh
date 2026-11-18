@@ -38,6 +38,16 @@
 #       Reads <dir>/root.json as a box would and prints the sheet to read aloud and print:
 #       sha256, thresholds, key ids, expiry. Exit 1 on any problem.
 #
+#   scripts/tuf-bootstrap-root.sh renew <current-root.json> <out-dir> <root-key>...
+#       RENEW the root before it expires (365 days; os/update/CEREMONY.md "Renewing the root"): version
+#       N+1 with the same keys and a new expiry, signed by the private root keys you give (at least the
+#       threshold, each one a different holder; you type each passphrase). Checks that a box holding
+#       version N accepts it, then prints the same sheet as check. Refuses to overwrite.
+#   scripts/tuf-bootstrap-root.sh rehearse-renewal <dir>
+#       The ceremony AND a renewal on throwaway keys in <dir> (networking off): a different pair of
+#       holders signs the renewal, one holder alone is refused, and a box that trusts only version 1
+#       follows the chain to version 2.
+#
 # Output of create: <dir>/1.root.json and <dir>/root.json, then run check. Then:
 #   1. commit <dir>/root.json as os/rootfs/layers/base/usr/lib/onemind/tuf/<channel>/root.json
 #      (public; it is what every image trusts),
@@ -81,6 +91,36 @@ rehearse)
   tuf verify --repo "$D/channel" --root "$D/out/root.json"
   echo "== REHEARSAL PASSED: 2-of-3 root, online keys, a signed release verified. Throwaway keys are in $D: delete it." >&2
   D="$D/out"
+  ;;
+rehearse-renewal)
+  D=$1
+  [ ! -e "$D" ] || { echo "refusing: $D exists; rehearse into a new directory" >&2; exit 2; }
+  export ONEMIND_TUF_PASSPHRASE="rehearsal-throwaway-passphrase"
+  mkdir -p "$D"
+  sh "$0" rehearse "$D/first" >/dev/null || { echo "the ceremony rehearsal failed" >&2; exit 1; }
+  echo "== REHEARSAL (renewal): throwaway keys only" >&2
+  # One holder alone must be refused, and nothing may be written.
+  if tuf renew-root --current "$D/first/out/root.json" --root-key "$D/first/sticks/holder-c/root.key" --out "$D/refused" 2>/dev/null; then
+    echo "FAIL: a renewal signed by one holder was accepted" >&2; exit 1
+  fi
+  [ ! -e "$D/refused/root.json" ] || { echo "FAIL: a refused renewal left a file" >&2; exit 1; }
+  # Holders B and C renew (A is absent this time).
+  tuf renew-root --current "$D/first/out/root.json" --root-key "$D/first/sticks/holder-b/root.key" \
+    --root-key "$D/first/sticks/holder-c/root.key" --out "$D/renewed"
+  tuf inspect --root "$D/renewed/root.json" --expect-threshold 2 --expect-root-keys 3
+  # A box that trusts only version 1 refreshes against the channel plus 2.root.json.
+  cp -R "$D/first/channel" "$D/channel"; cp "$D/renewed/2.root.json" "$D/channel/2.root.json"
+  tuf verify --repo "$D/channel" --root "$D/first/out/root.json"
+  echo "== REHEARSAL PASSED: root v2 signed by B and C, one holder refused, a box on v1 follows the chain. Throwaway keys are in $D: delete it." >&2
+  exit 0
+  ;;
+renew)
+  CUR=$1; D=$2; shift 2
+  [ $# -ge 1 ] || { echo "give at least the threshold's worth of private root keys" >&2; exit 2; }
+  # Each private key becomes --root-key <path>; quoted, so a stick mounted at a path with spaces works.
+  i=0; n=$#; while [ "$i" -lt "$n" ]; do a=$1; shift; set -- "$@" --root-key "$a"; i=$((i + 1)); done
+  tuf renew-root --current "$CUR" "$@" --out "$D"
+  echo "commit $D/root.json as os/rootfs/layers/base/usr/lib/onemind/tuf/<channel>/root.json and publish $D/*.root.json beside the older ones"
   ;;
 root-key)
   D=$1; N=$2
@@ -154,7 +194,7 @@ check)
   tuf inspect --root "$D/root.json" --expect-threshold "$TH" --expect-root-keys "$NK" ${4:+--prev "$4"}
   exit 0
   ;;
-*) sed -n '3,46p' "$0"; exit 2 ;;
+*) sed -n '3,57p' "$0"; exit 2 ;;
 esac
 sha256sum "$D/root.json" 2>/dev/null || shasum -a 256 "$D/root.json"
 "$PY" -I -c 'import json,sys

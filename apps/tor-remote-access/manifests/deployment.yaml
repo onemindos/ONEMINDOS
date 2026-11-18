@@ -1,0 +1,108 @@
+# SPDX-License-Identifier: Apache-2.0
+# Tor (onion service only) and the owner page, sharing the data volume as the same user (tor, 100:101).
+# tor_access.py comes from the ConfigMap; both images are used as published, nothing installed.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tor-remote-access
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  # One onion key on a ReadWriteOnce volume: never two Tor processes publishing the same address.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: tor-remote-access
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: tor-remote-access
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 100
+        runAsGroup: 101
+        fsGroup: 101
+        # Only the volume's top folder is fixed up; Tor refuses its own folders if they are group-readable.
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        # Writes the torrc and the onion folder with its lock key; fails (and the app with it) when
+        # the gateway has not given the dashboard address (ConfigMap onemind-gateway-path).
+        - name: init
+          image: docker.io/library/python:3.14.10-slim-trixie@sha256:9aaa474097d094040649f2162a627c0049b408f52138d980916788d80f04802f
+          command: ["python3", "-I", "-B", "/opt/onemind/tor_access.py", "init"]
+          envFrom:
+            - configMapRef:
+                name: onemind-gateway-path
+                optional: true
+          resources:
+            requests: {cpu: 10m, memory: 16Mi}
+            limits: {cpu: 200m, memory: 64Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - {name: data, mountPath: /var/lib/tor}
+            - {name: config, mountPath: /etc/onemind-tor}
+            - {name: app, mountPath: /opt/onemind, readOnly: true}
+      containers:
+        - name: tor
+          image: docker.io/leplusorg/tor:4.9.17@sha256:276c6c28bf5e888195004fd13786fedeb30173169279158b3a4dfc0ae7e67cfe
+          # Our torrc only: no image defaults, no entrypoint template.
+          command: ["tor", "--defaults-torrc", "/dev/null", "-f", "/etc/onemind-tor/torrc"]
+          resources:
+            requests: {cpu: 50m, memory: 64Mi}
+            limits: {cpu: 500m, memory: 256Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - {name: data, mountPath: /var/lib/tor}
+            - {name: config, mountPath: /etc/onemind-tor, readOnly: true}
+        - name: owner-page
+          image: docker.io/library/python:3.14.10-slim-trixie@sha256:9aaa474097d094040649f2162a627c0049b408f52138d980916788d80f04802f
+          command: ["python3", "-I", "-B", "/opt/onemind/tor_access.py", "serve"]
+          env:
+            - {name: PORT, value: "8080"}
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          readinessProbe:
+            httpGet: {path: /healthz, port: http}
+            periodSeconds: 10
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet: {path: /healthz, port: http}
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            timeoutSeconds: 5
+          resources:
+            requests: {cpu: 10m, memory: 32Mi}
+            limits: {cpu: 200m, memory: 64Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - {name: data, mountPath: /var/lib/tor}
+            - {name: app, mountPath: /opt/onemind, readOnly: true}
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: tor-remote-access-data
+        - name: config
+          emptyDir: {sizeLimit: 1Mi}
+        - name: app
+          configMap:
+            name: tor-remote-access-app

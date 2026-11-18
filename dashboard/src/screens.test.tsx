@@ -49,13 +49,14 @@ describe('Market and the install loop', () => {
     const u = userEvent.setup();
     renderApp({ token: 'owner-demo', route: '/market/vaultwarden' });
     await u.click(await screen.findByRole('button', { name: /Request install/ }, T));
+    await u.click(within(await screen.findByRole('dialog', { name: 'Review app request' })).getByRole('button', { name: 'Send request' }));
     // The request goes straight to Approvals, where the owner sees who asked and what, then decides.
     expect(await screen.findByText('Request sent', {}, T)).toBeInTheDocument();
     expect(await screen.findByRole('heading', { level: 1, name: 'Approvals' }, T)).toBeInTheDocument();
     const card = await screen.findByRole('article', { name: /Install vaultwarden|Install Vaultwarden/ }, T);
     expect(within(card).getByText('Person')).toBeInTheDocument();
     expect(card).toHaveTextContent(/awaiting approval/i);
-    expect(screen.getByText(/does not compute a plan for requests yet/)).toBeInTheDocument();
+    expect(screen.getByText(/Review the exact request and its gateway plan/)).toBeInTheDocument();
     await u.click(screen.getByRole('button', { name: /^Approve/ }));
     expect(await screen.findByText('Approved', {}, T)).toBeInTheDocument();
 
@@ -97,15 +98,15 @@ describe('Approvals', () => {
 });
 
 describe('Installed', () => {
-  it('Manage says Open is not behind the sign-in, and Remove promises no kept data and sends only app_id', async () => {
+  it('Manage identifies the direct port and removal reviews a keep-data plan before requesting', async () => {
     const u = userEvent.setup();
     const { getApi } = renderApp({ token: 'owner-demo', route: '/installed/uptime-kuma' });
     expect(await screen.findByText(/not behind the OneMind sign-in/, {}, T)).toBeInTheDocument();
     await u.click(screen.getByRole('button', { name: /^Remove/ }));
-    const dlg = await screen.findByRole('alertdialog');
+    const dlg = await screen.findByRole('dialog', { name: 'Review app request' });
     expect(within(dlg).queryByRole('radio')).toBeNull();
-    expect(dlg).toHaveTextContent(/namespace is deleted/);
-    await u.click(within(dlg).getByRole('button', { name: 'Request removal' }));
+    expect(screen.getByText(/Removal keeps app data/)).toBeInTheDocument();
+    await u.click(within(dlg).getByRole('button', { name: 'Send request' }));
     expect(await screen.findByText('Request sent', {}, T)).toBeInTheDocument();
     const sent = (await getApi().actions()).find((a) => a.type === 'app.remove' && a.state === 'awaiting_approval');
     expect(sent?.params).toEqual({ app_id: 'uptime-kuma' });

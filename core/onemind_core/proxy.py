@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """Reverse proxy for installed apps, with gateway sign-in in front (H-29; NETWORKING.md §9).
 
-NOT MOUNTED YET (CORE-NET-8): no router or middleware registration in app.py uses this module.
+Mounted by routers/net.py (CORE-NET-8), which adds AppProxyMiddleware in front of every route.
 Routing (written as an ASGI middleware, so HTTP and WebSocket share one code path):
 - by host: <app>.<box-domain> (for example uptime-kuma.onemind.local or <app>.apps.onemind.internal);
 - by path, as a fallback for clients without multi-label mDNS: /apps/<app>/... on any host the
@@ -27,6 +27,11 @@ What it refuses (no open proxy):
 - an unauthenticated request gets 401 whether or not the app exists, so installed apps cannot be
   listed without signing in.
 
+Honest pages (UMB-P02): a signed-in person who may open an app that is stopped, starting, being
+updated or failed gets 503 with a page that says so (and reloads itself while the app is changing),
+not a bare 404; an app that is installed but does not answer gets 502 saying that. A browser gets a
+small HTML page, any other client plain text. 404 stays for names that are not an app at all.
+
 Timeouts: connect, idle read and total request body size are bounded (H-20). The decision
 `AppProxy.decide()` is the same one the Go edge will ask for through /v1/auth/forward (§9.3;
 that route does not exist yet).
@@ -36,6 +41,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import html
 import ipaddress
 import json
 import logging
@@ -157,6 +163,7 @@ class AppRoute:
     host: str
     port: int
     access: str
+    name: str = ""
 
 
 @dataclass(frozen=True)
@@ -167,7 +174,24 @@ class Timeouts:
 
 
 class Decision:
-    ALLOW, UNAUTHENTICATED, FORBIDDEN, NOT_FOUND = 204, 401, 403, 404
+    ALLOW, UNAUTHENTICATED, FORBIDDEN, NOT_FOUND, UNAVAILABLE = 204, 401, 403, 404, 503
+
+
+# Ledger states of an app that exists but is not serving (lifecycle.py), and what the page says.
+# True: the app is changing, so the page asks the browser to reload in a few seconds.
+NOT_RUNNING: dict[str, tuple[str, bool]] = {
+    "installing": ("is being installed.", True),
+    "starting": ("is starting.", True),
+    "restarting": ("is restarting.", True),
+    "updating": ("is being updated.", True),
+    "configuring": ("is applying new settings.", True),
+    "stopping": ("is stopping.", True),
+    "removing": ("is being removed.", False),
+    "stopped": ("is stopped. Start it from the OneMind dashboard.", False),
+    "failed": ("is not running: its last change failed. The OneMind dashboard shows why.", False),
+    "unknown": ("may not be running: OneMind cannot tell right now. The OneMind dashboard shows its state.", False),
+}
+RETRY_AFTER_S = 5
 
 
 def allowed(principal: Principal, access: str) -> bool:
@@ -260,9 +284,8 @@ class AppProxy:
             self._routes[app_id] = (now, route)
         return route
 
-    def _resolve(self, app_id: str) -> AppRoute | None:
-        if self.app_status(app_id) != "installed":
-            return None
+    def _web(self, app_id: str) -> tuple[int, str, str] | None:
+        """(web port, access level, display name) from the catalog, or None for an app without a web UI."""
         entry = self.catalog.get(app_id)
         if entry is None:
             return None
@@ -273,10 +296,38 @@ class AppProxy:
         access = web.get("access", DEFAULT_ACCESS)
         if access not in ACCESS_LEVELS:
             access = DEFAULT_ACCESS
+        name = (entry.manifest.get("metadata") or {}).get("name")
+        return port, access, name if isinstance(name, str) and name.strip() else app_id
+
+    def _resolve(self, app_id: str) -> AppRoute | None:
+        if self.app_status(app_id) != "installed":
+            return None
+        web = self._web(app_id)
+        if web is None:
+            return None
+        port, access, name = web
         host = self.resolve_service(f"app-{app_id}", port)
         if not host:
             return None
-        return AppRoute(app_id=app_id, host=host, port=port, access=access)
+        return AppRoute(app_id=app_id, host=host, port=port, access=access, name=name)
+
+    def not_running(self, principal: Principal, host: str, app_id: str) -> tuple[str, str] | None:
+        """(display name, ledger status) of a web app that exists but is not serving, else None.
+
+        Asked only after decide() said 404 to a signed-in person, and answered only when that person
+        could open the app if it were running (same access level, same exposure rule), so nobody
+        learns of an app they may not open. decide() itself keeps its four answers: /v1/auth/forward
+        maps them one to one.
+        """
+        if not APP_ID_RE.match(app_id) or not self._exposed(host, app_id):
+            return None
+        status = self.app_status(app_id)
+        if status not in NOT_RUNNING:
+            return None
+        web = self._web(app_id)
+        if web is None or not allowed(principal, web[1]):
+            return None
+        return web[2], status
 
     def decide(self, headers: dict[str, str], app_id: str) -> tuple[int, Principal | None, AppRoute | None]:
         """Forward-auth decision: 204 allow, 401 not signed in, 403 not allowed, 404 no such app.
@@ -374,17 +425,50 @@ def _upstream_target(scope: Scope, prefix: str) -> bytes:
     return raw + (b"?" + qs if qs else b"")
 
 
-async def _plain(send: Send, status: int, text: str, headers: list[tuple[bytes, bytes]] | None = None) -> None:
-    body = text.encode()
+async def _plain(send: Send, status: int, text: str, headers: list[tuple[bytes, bytes]] | None = None,
+                 *, page: bool = False, refresh: bool = False) -> None:
+    """A response the proxy writes itself. page=True: a small HTML page for a browser.
+
+    The page has no script and no outside resource (its CSP says so); refresh=True makes it reload
+    itself after RETRY_AFTER_S, for an app that is starting or changing.
+    """
+    extra = list(headers or [])
+    if refresh:
+        extra.append((b"retry-after", str(RETRY_AFTER_S).encode()))
+    if page:
+        meta = f'<meta http-equiv="refresh" content="{RETRY_AFTER_S}">' if refresh else ""
+        body = (
+            '<!doctype html><html lang="en"><head><meta charset="utf-8">'
+            '<meta name="viewport" content="width=device-width,initial-scale=1">'
+            f"{meta}<title>OneMind</title><style>body{{font:16px/1.5 system-ui,sans-serif;max-width:32rem;"
+            "margin:15vh auto;padding:0 1rem;color:#222;background:#fff}}@media(prefers-color-scheme:dark)"
+            "{body{color:#eee;background:#111}}</style></head>"
+            f"<body><p>{html.escape(text)}</p></body></html>"
+        ).encode()
+        ctype = b"text/html; charset=utf-8"
+        extra += [(b"content-security-policy", b"default-src 'none'; style-src 'unsafe-inline'"),
+                  (b"x-content-type-options", b"nosniff")]
+    else:
+        body = text.encode()
+        ctype = b"text/plain; charset=utf-8"
     await send({"type": "http.response.start", "status": status, "headers": [
-        (b"content-type", b"text/plain; charset=utf-8"), (b"content-length", str(len(body)).encode()),
-        (b"cache-control", b"no-store"), *(headers or []),
+        (b"content-type", ctype), (b"content-length", str(len(body)).encode()),
+        (b"cache-control", b"no-store"), *extra,
     ]})
     await send({"type": "http.response.body", "body": body})
 
 
+def _wants_page(headers: dict[str, str]) -> bool:
+    return "text/html" in headers.get("accept", "")
+
+
 DENY_TEXT = {401: "Sign in to OneMind to open this app.", 403: "You do not have access to this app.",
              404: "No such app."}
+
+
+def unavailable_text(name: str, status: str) -> tuple[str, bool]:
+    said, changing = NOT_RUNNING[status]
+    return f"{name} {said}", changing
 
 
 class AppProxyMiddleware:
@@ -408,25 +492,33 @@ class AppProxyMiddleware:
         if status == Decision.ALLOW and scope.get("method", "GET") not in SAFE_METHODS \
                 and not _same_origin(headers.get("origin"), scope):
             status = Decision.FORBIDDEN
+        page = _wants_page(headers)
+        if status == Decision.NOT_FOUND and principal is not None:
+            down = self.proxy.not_running(principal, headers.get("host", ""), app_id)
+            if down is not None:
+                text, changing = unavailable_text(*down)
+                return await _plain(send, Decision.UNAVAILABLE, text, page=page, refresh=changing)
         if status != Decision.ALLOW:
             self.proxy._audit_denied(principal, app_id, status, scope)
             extra = [(b"www-authenticate", b"Bearer")] if status == 401 else None
-            return await _plain(send, status, DENY_TEXT[status], extra)
+            return await _plain(send, status, DENY_TEXT[status], extra, page=page)
         if prefix and scope.get("path") == prefix:  # /apps/<id> -> /apps/<id>/
             qs = scope.get("query_string") or b""
             loc = (prefix + "/").encode() + (b"?" + qs if qs else b"")
             return await _plain(send, 308, "Moved", [(b"location", loc)])
         assert principal is not None and route is not None
-        await self._http(scope, receive, send, principal, route, prefix)
+        await self._http(scope, receive, send, principal, route, prefix, page)
 
     # ---- HTTP --------------------------------------------------------------------------------------
     async def _http(self, scope: Scope, receive: Receive, send: Send, principal: Principal,
-                    route: AppRoute, prefix: str) -> None:
+                    route: AppRoute, prefix: str, page: bool = False) -> None:
         p, t = self.proxy, self.proxy.timeouts
+        name = route.name or route.app_id
         try:
             reader, writer = await asyncio.wait_for(asyncio.open_connection(route.host, route.port), t.connect)
         except (OSError, asyncio.TimeoutError):
-            return await _plain(send, 502, "The app is not answering.")
+            return await _plain(send, 502, f"{name} is installed but not answering. It may still be starting.",
+                                page=page, refresh=True)
         conn = h11.Connection(h11.CLIENT)
         started = False
         try:
@@ -475,11 +567,11 @@ class AppProxyMiddleware:
                     return
         except asyncio.TimeoutError:
             if not started:
-                return await _plain(send, 504, "The app took too long to answer.")
+                return await _plain(send, 504, f"{name} took too long to answer.", page=page)
             raise
         except (OSError, h11.ProtocolError):
             if not started:
-                return await _plain(send, 502, "The app sent a broken response.")
+                return await _plain(send, 502, f"{name} sent a broken response.", page=page)
             raise
         finally:
             writer.close()

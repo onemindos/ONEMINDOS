@@ -26,6 +26,7 @@ from typing import Any
 
 import yaml
 
+from .catalog import APP_ID_RE as APP_ID
 from .sections import config_section
 
 # Repo-relative and image locations of the rule file, found the same way as the app schema.
@@ -603,3 +604,64 @@ def network_policies(
         "spec": {"podSelector": {}, "policyTypes": ["Ingress", "Egress"], "ingress": ingress, "egress": egress_rules},
     }
     return [deny, allow]
+
+
+# Names of the NetworkPolicies for declared dependencies (contract §12.22, dependency network paths).
+DEPENDENCIES_POLICY = "onemind-dependencies"
+
+
+def dependent_policy_name(dependent: str) -> str:
+    return f"onemind-dependent-{dependent}"
+
+
+def _ns_selector(app_id: str) -> dict:
+    # kubernetes.io/metadata.name is set by the API server from the namespace's name; an app cannot
+    # put it on another namespace, so this selects exactly one namespace.
+    return {"namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": f"app-{app_id}"}}}
+
+
+def dependency_policies(dependent: str, paths: Iterable[tuple[str, int]]) -> list[dict]:
+    """The NetworkPolicies opening app-<dependent> -> app-<provider> on TCP port, for each path.
+
+    paths: (provider app id, pod port after Service translation). One egress policy in the dependent's
+    namespace (all paths), then one ingress policy per provider in that provider's namespace. Every
+    peer is one exact namespace; no ipBlock, no UDP, nothing on the host. An empty `paths` gives []
+    (the caller deletes what an earlier run wrote).
+    """
+    if not APP_ID.match(dependent):
+        raise ValueError(f"not an app id: {dependent!r}")
+    by_provider: dict[str, list[int]] = {}
+    for provider, port in paths:
+        if not APP_ID.match(provider) or provider == dependent:
+            raise ValueError(f"not a provider for {dependent}: {provider!r}")
+        if isinstance(port, bool) or not isinstance(port, int) or not 1 <= port <= 65535:
+            raise ValueError(f"not a port: {port!r}")
+        ports = by_provider.setdefault(provider, [])
+        if port not in ports:
+            ports.append(port)
+    if not by_provider:
+        return []
+
+    def labels(app_id: str) -> dict:
+        return {"onemind.io/app": app_id, "onemind.io/managed-by": "onemind-gateway", "onemind.io/dependent": dependent}
+
+    def tcp(ports: list[int]) -> list[dict]:
+        return [{"protocol": "TCP", "port": p} for p in sorted(ports)]
+
+    out = [{
+        "apiVersion": "networking.k8s.io/v1", "kind": "NetworkPolicy",
+        "metadata": {"name": DEPENDENCIES_POLICY, "namespace": f"app-{dependent}", "labels": labels(dependent)},
+        "spec": {"podSelector": {}, "policyTypes": ["Egress"], "egress": [
+            {"to": [{**_ns_selector(p), "podSelector": {}}], "ports": tcp(ports)}
+            for p, ports in sorted(by_provider.items())
+        ]},
+    }]
+    for p, ports in sorted(by_provider.items()):
+        out.append({
+            "apiVersion": "networking.k8s.io/v1", "kind": "NetworkPolicy",
+            "metadata": {"name": dependent_policy_name(dependent), "namespace": f"app-{p}", "labels": labels(p)},
+            "spec": {"podSelector": {}, "policyTypes": ["Ingress"], "ingress": [
+                {"from": [{**_ns_selector(dependent), "podSelector": {}}], "ports": tcp(ports)}
+            ]},
+        })
+    return out

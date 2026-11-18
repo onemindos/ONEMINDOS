@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: Apache-2.0
+# The Lima VM that hosts the local CI runner (CI-10, issue 299). Debian 13 arm64 to match D-007.
+# Docs: docs/learning/self-hosted-runner.md. Created and started by scripts/ci-runner/up.
+minimumLimaVersion: 1.0.0
+vmType: vz
+arch: aarch64
+cpus: 6
+memory: 12GiB
+disk: 80GiB
+images:
+  # Pinned build, with the SHA-512 from https://cloud.debian.org/images/cloud/trixie/20261111-2659/SHA512SUMS
+  - location: https://cloud.debian.org/images/cloud/trixie/20261111-2659/debian-13-genericcloud-arm64-20261111-2659.qcow2
+    arch: aarch64
+    digest: sha512:4a166ab9a73f27857896b799dff913199ea982e2379889340e60734ba43bea83840c1317f6257a9a8ca466b2293862181a597edc5cdb5d19d4cb704a85b4130a
+# Nothing from the Mac is shared into the VM: a job can never read the home folder or its keys.
+mounts: []
+containerd:
+  system: false
+  user: false

@@ -73,10 +73,18 @@ def classify(expr: str) -> str:
 
     def parse_with() -> str:
         nonlocal pos
+        # SPDX WITH attaches only to a simple licence id, never a parenthesised
+        # expression. Syntax errors must abort the whole parse: returning blocked
+        # here would let a permissive OR alternative conceal malformed syntax.
+        grouped = pos < len(tokens) and tokens[pos] == "("
         cls = parse_atom()
         if pos < len(tokens) and tokens[pos].upper() == "WITH":
+            if grouped:
+                raise ValueError("WITH requires a simple licence id")
             pos += 1
-            exc = tokens[pos] if pos < len(tokens) else ""
+            if pos >= len(tokens) or tokens[pos] in ("(", ")") or tokens[pos].upper() in ("AND", "OR", "WITH"):
+                raise ValueError("WITH requires an exception id")
+            exc = tokens[pos]
             pos += 1
             if exc not in KNOWN_EXCEPTIONS:
                 return "blocked"

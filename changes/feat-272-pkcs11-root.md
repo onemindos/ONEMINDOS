@@ -1,5 +1,5 @@
 ---
-pr: pending
+pr: 309
 branch: feat/272-pkcs11-root
 ---
 Root keys can now live on hardware tokens, and the root can be rotated onto them (REL-02, #272). `tuf-repo.py` accepts a root key given as `hsm:<id>?label=<token>` (an ECDSA P-256 key made on a YubiKey or any PKCS#11 device, reached through `$PYKCS11LIB`, PIN typed at a no-echo prompt, never an argument) through securesystemslib's `HSMSigner`, and has `token-pub` to export a token key's public part. The new `rotate-root` command (and `scripts/tuf-bootstrap-root.sh rotate-root`, `token-pub` and a throwaway `rehearse-rotate`) writes the next `<N+1>.root.json` signed by a threshold of the old root keys AND a threshold of the new ones (TUF spec 5.3.4), refusing otherwise; `inspect --prev` proves the old keys signed it. Tests use SoftHSM tokens in a temp directory (a python-tuf client that trusts only v1 follows the rotation and accepts a release; v2 signed by only the old or only the new keys is refused; the box's go-tuf verifier accepts the ECDSA root) and run in the `security-nightly` unit job and on pull requests that touch `os/update/`; python-pkcs11 and asn1crypto are added to `requirements-tuf.txt` with hashes. The runbook and checklist gain "Rotate the root onto hardware keys". No real key is involved; the real rotation stays with Zeus and three devices.

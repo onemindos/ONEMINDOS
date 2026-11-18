@@ -244,6 +244,8 @@ export class MockApi implements OneMindApi {
     return { ...action };
   }
   // The demo has no first-run settings, lifecycle plans, backups, automation, files or migration.
+  home = unsupported('Home preferences');
+  saveHome = unsupported('Home preferences');
   onboardingSettings = unsupported('First-run settings');
   saveOnboardingSettings = unsupported('First-run settings');
   appPlan = unsupported('Plans');
