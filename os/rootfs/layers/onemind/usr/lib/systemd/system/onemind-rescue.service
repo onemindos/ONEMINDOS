@@ -50,6 +50,9 @@ RestrictNamespaces=yes
 SystemCallArchitectures=native
 SystemCallFilter=@system-service
 SystemCallFilter=~@privileged
+# capset back from @privileged, alone: the terminal's shell helper uses it to drop every capability before
+# exec. capset never raises a process's permitted set, so it cannot grant anything the unit does not allow.
+SystemCallFilter=capset
 SystemCallErrorNumber=EPERM
 
 # --- network: HTTPS for the LAN, AF_UNIX for D-Bus (rauc, systemd reboot) ---
