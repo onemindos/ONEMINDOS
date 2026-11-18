@@ -10,6 +10,8 @@ import {
   type ApiErrorBody,
   type CatalogApp,
   type Instance,
+  type MachineCapabilities,
+  type MachineRecord,
   type NodeRecord,
 } from './types';
 
@@ -26,6 +28,9 @@ export interface OneMindApi extends WiringApi {
   nodes(): Promise<NodeRecord[]>;
   node(nodeId: string): Promise<NodeRecord>;
   apps(): Promise<CatalogApp[]>;
+  /** MACH-01: absent on the mock gateway, which has no machines. */
+  machines?(): Promise<MachineRecord[]>;
+  machineCapabilities?(): Promise<MachineCapabilities>;
   appPlan?(id: string): Promise<PlanPreview>;
   previewAction?(type: ActionType, params: AppParams): Promise<PlanPreview>;
   appSettings?(id: string): Promise<AppSettings>;
@@ -174,7 +179,7 @@ export class HttpApi implements OneMindApi {
       throw e;
     }
     const states = new Set(['requested', 'awaiting_approval', 'accepted', 'dispatched', 'succeeded', 'failed', 'outcome_unknown', 'expired', 'cancelled']);
-    if (typeof action.id !== 'string' || !action.id || action.type !== req.type || !states.has(action.state) || action.params?.app_id !== req.params.app_id || action.idempotency_key !== req.idempotency_key || !Number.isFinite(Date.parse(action.expires_at))) throw ambiguous();
+    if (typeof action.id !== 'string' || !action.id || action.type !== req.type || !states.has(action.state) || action.params?.app_id !== req.params.app_id || (req.params.app_id === undefined && action.params?.name !== req.params.name) || action.idempotency_key !== req.idempotency_key || !Number.isFinite(Date.parse(action.expires_at))) throw ambiguous();
     if (req.params.settings && (!action.params.settings || Object.keys(action.params.settings).length !== Object.keys(req.params.settings).length || Object.entries(req.params.settings).some(([k, v]) => action.params.settings?.[k] !== v))) throw ambiguous();
     if (req.plan_sha256 && action.plan_sha256 !== req.plan_sha256) throw ambiguous();
     if (action.progress && (typeof action.progress.step !== 'string' || !Number.isFinite(action.progress.pct) || action.progress.pct < 0 || action.progress.pct > 100)) throw ambiguous();
@@ -191,6 +196,8 @@ export class HttpApi implements OneMindApi {
       throw e;
     }
   }
+  machines() { return this.req<MachineRecord[]>('GET', '/v1/machines', undefined, 'array'); }
+  machineCapabilities() { return this.req<MachineCapabilities>('GET', '/v1/machines/capabilities'); }
   appPlan(id: string) { return this.sdkCall<PlanPreview>('GET', `/v1/apps/${encodeURIComponent(id)}/plan`); }
   previewAction(type: ActionType, params: AppParams) { return this.sdkCall<PlanPreview>('POST', '/v1/plans', { type, params }); }
   async appSettings(id: string) {

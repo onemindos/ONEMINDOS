@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: Apache-2.0
+# Hub only (IMG-MESH-01): write Headscale's config and start it, let the hub join its own mesh with a
+# one-time key minted over Headscale's local socket, issue the NATS leaf certificate for the hub's mesh
+# address, give the gateway a Headscale API key, and add the mesh lines to gateway.env
+# (onemind-firstboot mesh). It needs running services, so it is not part of first-boot configuration;
+# onemind-firstboot starts it on every boot and it skips whatever is already done. Not enabled in the image.
+[Unit]
+Description=OneMind hub mesh setup (Headscale, tailscale up, NATS leaf port)
+After=network-online.target onemind-firstboot.service
+Wants=network-online.target
+RequiresMountsFor=/data /var/lib/tailscale /var/lib/onemind-headscale
+ConditionPathExists=/data/onemind/etc/gateway.env
+
+[Service]
+Type=oneshot
+UMask=0077
+ExecStart=/usr/lib/onemind/onemind-firstboot mesh
+TimeoutStartSec=10min

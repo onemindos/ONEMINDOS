@@ -3337,6 +3337,134 @@
         "title": "RestoreBody",
         "type": "object"
       },
+      "RestoreCandidatesBody": {
+        "additionalProperties": false,
+        "properties": {
+          "box_id": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Za-z0-9._:-]{1,128}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Box Id"
+          },
+          "destination_id": {
+            "pattern": "^dst_[0-9a-f]{16}$",
+            "title": "Destination Id",
+            "type": "string"
+          },
+          "recovery_key": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "minLength": 32,
+                "pattern": "^[^\\r\\n]+$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recovery Key",
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "destination_id"
+        ],
+        "title": "RestoreCandidatesBody",
+        "type": "object"
+      },
+      "RestoreCandidatesView": {
+        "properties": {
+          "destination_id": {
+            "title": "Destination Id",
+            "type": "string"
+          },
+          "points": {
+            "items": {
+              "$ref": "#/components/schemas/RestorePoint"
+            },
+            "title": "Points",
+            "type": "array"
+          }
+        },
+        "required": [
+          "destination_id",
+          "points"
+        ],
+        "title": "RestoreCandidatesView",
+        "type": "object"
+      },
+      "RestorePoint": {
+        "properties": {
+          "apps": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Apps",
+            "type": "array"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id"
+          },
+          "snapshot_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Snapshot Ids",
+            "type": "array"
+          },
+          "system": {
+            "title": "System",
+            "type": "boolean"
+          },
+          "taken_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Taken At"
+          }
+        },
+        "required": [
+          "run_id",
+          "taken_at",
+          "reason",
+          "system",
+          "apps",
+          "snapshot_ids"
+        ],
+        "title": "RestorePoint",
+        "type": "object"
+      },
       "RestoreTrashOp": {
         "additionalProperties": false,
         "properties": {
@@ -14904,6 +15032,108 @@
         "summary": "Read One",
         "tags": [
           "notifications"
+        ]
+      }
+    },
+    "/v1/onboarding/restore/candidates": {
+      "post": {
+        "description": "The first-run wizard's \"restore from a backup\" step: list what a destination holds. Read-only.\n\nBackup made by this box's hardware: send only `destination_id`. Backup made by another (dead or replaced) box:\nalso send its `box_id` and the owner `recovery_key` from the recovery kit (the kit QR carries both); a fresh box\nhas no way to discover the old box id, and its own device key cannot open the old repository.",
+        "operationId": "onboarding.restore.candidates",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RestoreCandidatesBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RestoreCandidatesView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
+          }
+        },
+        "summary": "Restore Candidates",
+        "tags": [
+          "onboarding"
         ]
       }
     },

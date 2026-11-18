@@ -54,37 +54,45 @@ The image units are the developer-install units (`deploy/systemd/`) adapted to a
         role: hub          # hub | worker | leaf
         name: Home         # optional
       ```
-   2. **`/boot/efi/onemind.conf`:** every image ships this file on its FAT partition (any computer can open it after flashing), all lines commented out. Set `role = hub` (and for a worker or leaf `hub = …` and `join_token = …`). After use it is renamed `onemind.conf.applied`.
-   3. **Nothing:** start the setup wizard on `:8080` (`http://onemind.local:8080/`): pick the role, and for a hub the page shows the owner token once. The wizard then exits and the gateway takes the port.
+   2. **`/boot/efi/onemind.conf`:** every image ships this file on its FAT partition (any computer can open it after flashing), all lines commented out. Set `role = hub`; for a worker or leaf also `join_code = onemind-join:v1?…` (on the hub: `onemind fabric ticket`, or Add a device on the dashboard; the code is one-use and expires, 15 min by default, so use `--ttl 1h` when flashing takes longer) and, if the box cannot find the hub by its `.local` name, `hub_addr = <the hub's LAN IP>`. The keys `hub`, `join_token` and `nats_tls` of the first images are refused now. After use it is renamed `onemind.conf.applied`.
+   3. **Nothing:** start the setup wizard on `:8080` (`http://onemind.local:8080/`): pick the role (a worker or leaf also takes the join code and, optionally, the hub's IP), and for a hub the page shows the owner token once. The wizard then exits and the gateway takes the port.
 3. **Configure** (writes, in this order, `state.json` last so a power cut just reruns it):
    - a node id (`/data/onemind/etc/node-id`; the read-only root has no persistent machine-id, so the agent and the gateway are told this id),
-   - NATS credentials (per-service passwords; hub: a `node` join token for workers and leaves),
-   - the per-box CA in `/data/onemind/identity/` (EC P-256, 10 years; kept if a CA module created it first, NETWORKING.md §8),
-   - hub: the owner token (only its sha256 is stored, `core/onemind_core/auth.py`), `gateway.env`, the gateway's data directory,
-   - prints `ONEMIND OWNER TOKEN: …` and the join token **on the console only** (never in the journal); the wizard gets it through `/run` (tmpfs, deleted when shown).
+   - hub: **one box CA**, made by the gateway's own code (`core/onemind_core/ca.py`, as `deploy/install.sh` does) in the gateway's `tls/` directory, with the HTTPS certificate and Headscale's control certificate. Its certificate is copied to `/data/onemind/identity/ca.pem`, the file `tailscaled` trusts. The CA key exists only in `tls/`,
+   - hub: NATS service nkeys for the gateway and the hub's `onemindd` (`/data/onemind/nats/keys`, CORE-SEC-4), the first accounts file, and `nats.conf` with clients on loopback only; no passwords anywhere,
+   - hub: the owner token (only its sha256 is stored, `core/onemind_core/auth.py`), `gateway.env` (HTTPS with the box CA, mDNS, fabric joins), the gateway's data directory, the box name (from the hostname) and the LAN address (the IPv4 of the default route, read once),
+   - worker or leaf: the join code (`/data/onemind/secrets/join-code`, 0600), and `/data/onemind/identity` as a link to `/data/onemind/etc/identity`, where the join writes the box CA,
+   - prints `ONEMIND OWNER TOKEN: …` **on the console only** (never in the journal); the wizard gets it through `/run` (tmpfs, deleted when shown). A hub also prints its box CA fingerprint and how to join another box (with its LAN IP).
 4. **Start the role's units** (runtime `systemctl start`; enabling would write to the read-only `/etc`):
 
 | Role | Units | NATS |
 |---|---|---|
-| hub | `onemind-nats`, `onemindd`, `onemind-gateway`, `onemind-gateway-kube` | server on :4222 (clients) and :7422 (leaf nodes), user/password per service |
-| worker | `onemindd` | publishes to the hub's NATS (`nats://node:<join token>@<hub>:4222`) |
-| leaf | `onemind-nats` (leaf mode), `onemindd` | local NATS on 127.0.0.1:4222, forwards to `nats-leaf://<hub>:7422` |
+| hub | `onemind-nats`, `onemind-nats-accounts.path`, `onemindd`, `onemind-gateway`, `onemind-gateway-kube`, `tailscaled`, `onemind-headscale`, `onemind-mesh-setup` | server on 127.0.0.1:4222, an nkey per service; leaf nodes on `<hub mesh IP>:7422`, TLS from the box CA, client certificate required |
+| worker, leaf | `tailscaled`, `onemind-nats-leaf`, `onemindd`, `onemind-fabric-join` | after the join: a local leaf on 127.0.0.1:4222, linked to the hub over the mesh with the node's own certificate and nkey |
+
+A unit whose condition is not met yet (no box CA for `tailscaled`, no `leaf.conf` before the join) is skipped; whoever writes the missing file starts it.
+
+5. **The mesh (hub):** `onemind-mesh-setup.service` (`onemind-firstboot mesh`) does what `deploy/install.sh` does in `headscale_install` and `mesh_hub`, on every boot, skipping what is done. It writes Headscale's config (port 8444, embedded DERP on the LAN address) and starts Headscale; writes the managed `/etc/hosts` block (`control.onemind.internal` on 127.0.0.1); mints a 10-minute pre-auth key over Headscale's local socket into `/run/onemind/hub-authkey`, runs `tailscale up` with it and deletes the file; waits with `onemindd mesh wait-ip`; issues the NATS leaf certificate for the mesh address; and creates the gateway's Headscale API key (`/data/onemind/etc/headscale.key`, 0600, user `onemind`). Then `nats.conf` gets the leaf listener, `gateway.env` gets the `ONEMIND_MESH_*` lines, and the changed services restart. Neither key reaches the journal or the console.
+6. **The join (worker, leaf):** `onemind-fabric-join.service` (`onemind-firstboot join`) runs `onemind fabric join` with the saved code and `ONEMIND_ETC_DIR=/data/onemind/etc` (`/etc` is read-only). The console shows the match code; the owner approves the request on the hub's dashboard (Approvals) within 20 minutes. The join writes the identity, restarts `tailscaled` and enrolls in the mesh, writes and starts the NATS leaf, and points `onemindd` at it; then the code file is deleted. If it fails (not approved in time, code expired or used), the console says so: make a new code, write it to `/data/onemind/secrets/join-code` and run `systemctl start onemind-fabric-join` (or reboot).
+
+**Boxes set up before the mesh** (their `state.json` has no `mesh` entry) keep running as they were, with the units they were set up with; first boot prints a note on the console. Moving such a box onto the mesh means reinstalling it (or wiping `/data/onemind` and booting again): there is no migration from the old shared NATS password and the old separate CA.
 
 ## 4. State on /data (read-only root)
 
 | Path | Contents | Mode |
 |---|---|---|
-| `/data/onemind/firstboot/state.json` | role, source, node id, when | 0644 |
-| `/data/onemind/etc/` | `role`, `node-id`, `onemindd.env`, `gateway.env`, `nats.conf` | dir 0700, secrets 0600 |
-| `/data/onemind/secrets/join-token` | hub's join token | 0600 |
-| `/data/onemind/identity/` | `ca.pem`, `ca.key` | 0700 / key 0600 |
-| `/data/onemind/gateway/` | `tokens.yaml` (hashes only), `onemind.db`, `audit.jsonl`, `kubeconfig` | owned by `onemind` (uid/gid 961, fixed so updates keep ownership) |
+| `/data/onemind/firstboot/state.json` | role, source, node id, box name, mesh, when | 0644 |
+| `/data/onemind/etc/` | `role`, `node-id`, `lan-addr`, `onemindd.env`, `gateway.env`, `nats.conf`, `headscale/config.yaml`, `headscale.key`; on a node also what the join writes (`identity/`, `nats/`, `fabric.json`, `leaf-config.json`) | dir 0711 (services open their own files by name, nobody lists it), secrets 0600; `headscale/` 0750 and its config 0640, user `onemind-headscale` |
+| `/data/onemind/secrets/join-code` | worker or leaf: the join code until the join succeeds | 0600 |
+| `/data/onemind/identity/ca.pem` | hub: copy of the box CA certificate; node: link to `etc/identity` | 0644, no key |
+| `/data/onemind/nats/keys/` | hub: service nkeys (`gateway.nk` owned by `onemind`, `onemindd.nk` by root) | dir 0755 root, seeds 0600 |
+| `/data/onemind/gateway/` | `tokens.yaml` (hashes only), `onemind.db`, `audit.jsonl`, `kubeconfig`, `tls/` (the box CA and its certificates), `nats/accounts.conf` | owned by `onemind` (uid/gid 961, fixed so updates keep ownership) |
 
 An A/B update replaces only the slot; F4 proves `/data` and the owner token survive it.
 
 ## 5. v0 shortcuts (known, tracked)
 
-- **NATS:** user/password, no TLS, no per-subject permissions; one shared `node` join secret for all workers and leaves. NETWORKING.md N-R6 (TLS with the box CA, per-node credentials) replaces it.
+- **Image workers have no k3s agent yet,** so `ONEMIND_FABRIC_K3S` stays off on an image hub: a worker joins the mesh and the bus, not the hub's cluster.
 - **Workers still run their own k3s server** (the base image's k3s unit and the health gate's G1–G3 assume a server). Joining the hub's cluster as a k3s agent needs a gate variant for agents.
 - **Wizard:** plain HTTP, first come first served on the LAN (the HAOS onboarding model) until the owner passkey flow (D-B9.1, BM2).
 - **mDNS names:** every box is `onemind`; a second box on the same LAN gets avahi's `onemind-2.local`.

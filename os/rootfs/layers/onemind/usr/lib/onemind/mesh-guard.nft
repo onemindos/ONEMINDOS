@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: Apache-2.0
+# Keeps tailscaled off flannel's interfaces (see tailscaled.service). Same rules as deploy/install.sh.
+# Tailscale offers every local interface address as a path to its peers, and flannel's own interface
+# (flannel-wg, in the pod network) carries traffic inside tailscale0: a path through it is a loop.
+# Tailscale has no setting to leave an interface out (tailscale/tailscale#1552), so its UDP port is
+# dropped on flannel's interfaces; the real LAN, relay and mesh paths are not touched.
+# add + flush + table: the same file loads on the first start and on every restart.
+add table inet onemind_mesh_guard
+flush table inet onemind_mesh_guard
+table inet onemind_mesh_guard {
+  chain out { type filter hook output priority -10; policy accept; oifname "flannel*" udp dport 41641 drop; }
+  chain in { type filter hook input priority -10; policy accept; iifname "flannel*" udp dport 41641 drop; }
+}
