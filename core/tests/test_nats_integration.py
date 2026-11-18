@@ -15,7 +15,7 @@ import nats
 import pytest
 from fastapi.testclient import TestClient
 
-from conftest import OWNER, action_body
+from conftest import OWNER, action_body, fresh_scans
 from onemind_core.app import create_app
 from test_nodes_catalog import heartbeat
 
@@ -38,6 +38,8 @@ def test_heartbeat_and_audit_over_real_nats(settings):
     from dataclasses import replace
 
     s = replace(settings, nats_url=URL)
+    # The gateway below runs on the real clock, so the scans must be fresh on it (§10.3).
+    fresh_scans(settings)
     received: list[bytes] = []
     ready = threading.Event()
     stop = threading.Event()

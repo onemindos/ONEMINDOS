@@ -134,12 +134,15 @@ describe('Activity, Nodes, Settings', () => {
     expect(await seriousViolations(container)).toEqual([]);
   });
 
-  it('Appearance is live; sections without an API say which stream brings them', async () => {
+  it('Appearance is live; legacy Backups opens the real-hub page and About stays reachable', async () => {
     const u = userEvent.setup();
     renderApp({ token: 'owner-demo', route: '/settings/appearance' });
     expect(await screen.findByRole('heading', { level: 1, name: 'Appearance' }, T)).toBeInTheDocument();
-    await u.click(screen.getByRole('link', { name: /Backups/ }));
-    expect(await screen.findByText(/coming with CORE-BACKUP/)).toBeInTheDocument();
+    const backups = screen.getAllByRole('link', { name: /Backups/ }).find((link) => link.getAttribute('href') === '/settings/backups');
+    expect(backups).toBeDefined();
+    await u.click(backups!);
+    expect(await screen.findByText(/Demo mode has no backup data/)).toBeInTheDocument();
+    await u.click(screen.getByRole('link', { name: 'Settings' }));
     await u.click(screen.getByRole('link', { name: /About/ }));
     expect(await screen.findByText('Hub node', {}, T)).toBeInTheDocument();
     expect(screen.getAllByText('Home OneMind').length).toBeGreaterThan(0);

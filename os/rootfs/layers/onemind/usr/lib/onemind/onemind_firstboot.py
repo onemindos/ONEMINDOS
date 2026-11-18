@@ -48,14 +48,15 @@ ROLES = ("hub", "worker", "leaf")
 ROLE_UNITS = {
     "hub": ["onemind-nats.service", "onemind-nats-accounts.path", "onemindd.service", "onemind-gateway.service",
             "onemind-gateway-kube.service", "tailscaled.service", "onemind-headscale.service",
-            "onemind-mesh-setup.service"],
+            "onemind-mesh-setup.service", "onemind-rescue.service"],
     # A worker and a leaf both get the mesh and a local NATS leaf (internal/fabric Installer.Apply).
     "worker": ["tailscaled.service", "onemind-nats-leaf.service", "onemindd.service", "onemind-fabric-join.service"],
     "leaf": ["tailscaled.service", "onemind-nats-leaf.service", "onemindd.service", "onemind-fabric-join.service"],
 }
 # A box configured before IMG-MESH-01 (state.json without "mesh") keeps the units it was set up for.
 LEGACY_ROLE_UNITS = {
-    "hub": ["onemind-nats.service", "onemindd.service", "onemind-gateway.service", "onemind-gateway-kube.service"],
+    "hub": ["onemind-nats.service", "onemindd.service", "onemind-gateway.service", "onemind-gateway-kube.service",
+            "onemind-rescue.service"],
     "worker": ["onemindd.service"],
     "leaf": ["onemind-nats.service", "onemindd.service"],
 }
@@ -117,6 +118,7 @@ class Paths:
         self.run = j("run", "onemind")
         self.console = j("dev", "console")
         self.lib = j("usr", "lib", "onemind")
+        self.rescue_tls = j("data", "onemind", "tls")   # https.crt/https.key for onemind-rescue (CORE-UPDATE-9)
 
 
 # ------------------------------------------------------------------ settings
@@ -562,6 +564,60 @@ def set_hosts(path: str, addr: str) -> bool:
     return True
 
 
+# ------------------------------------------------------------------ rescue console TLS (CORE-UPDATE-9)
+def issue_rescue_cert(p: Paths, hostname: str) -> str:
+    """Hub only (CORE-UPDATE-9): the HTTPS pair for the rescue console on :7443, signed by the box CA.
+    Kept if present. The key stays root-only: the rescue unit runs as root, the gateway never reads it.
+    Returns "kept" or "created"."""
+    d = p.rescue_tls
+    key, csr, crt = (os.path.join(d, f) for f in ("https.key", "https.csr", "https.crt"))
+    if os.path.exists(key) and os.path.exists(crt):
+        return "kept"
+    # The box CA: in the gateway's tls dir since IMG-MESH-01 (box_ca); a box set up before the mesh keeps
+    # it in identity/.
+    ca_dir = p.tls if os.path.exists(os.path.join(p.tls, "ca.key")) else p.identity
+    ca_key = os.path.join(ca_dir, "ca.key")
+    ca_crt = os.path.join(ca_dir, "ca.crt" if ca_dir == p.tls else "ca.pem")
+    os.makedirs(d, mode=0o700, exist_ok=True)
+    os.chmod(d, 0o700)
+    ext = os.path.join(d, "https.ext")
+    if ca_dir == p.tls:
+        # The mesh-era box CA has name constraints (core/onemind_core/ca.py): it may sign only onemind.local,
+        # <box>.local, onemind.internal and mesh addresses. A name outside them (bare host, localhost,
+        # 127.0.0.1) makes every verifier reject the whole certificate, so ask only for permitted names.
+        san = f"DNS:{hostname}.local,DNS:onemind.local"
+    else:
+        san = f"DNS:{hostname},DNS:{hostname}.local,DNS:onemind.local,DNS:localhost,IP:127.0.0.1"
+    write(ext, f"subjectAltName={san}\nextendedKeyUsage=serverAuth\n", 0o600)
+    run = lambda *a: subprocess.run(a, check=True, capture_output=True)
+    try:
+        run("openssl", "req", "-new", "-newkey", "ec", "-pkeyopt", "ec_paramgen_curve:P-256", "-nodes",
+            "-subj", f"/O=OneMind/CN={hostname}", "-keyout", key, "-out", csr)
+        run("openssl", "x509", "-req", "-in", csr, "-CA", ca_crt,
+            "-CAkey", ca_key, "-CAcreateserial", "-days", "825", "-sha256",
+            "-extfile", ext, "-out", crt)
+    finally:
+        for f in (csr, ext):
+            if os.path.exists(f):
+                os.remove(f)
+    os.chmod(key, 0o600)
+    os.chmod(crt, 0o644)
+    return "created"
+
+
+def ensure_rescue_tls(p: Paths) -> None:
+    """Never fatal: without the pair the rescue unit refuses to start and the rest of the box is unaffected."""
+    try:
+        name = box_name(socket.gethostname())   # the same DNS-safe name the box CA uses
+    except Exception:  # noqa: BLE001 - a name problem must not stop the box
+        name = "onemind"
+    try:
+        issue_rescue_cert(p, name)
+    except (OSError, subprocess.CalledProcessError) as e:
+        log(f"rescue console certificate not made: {e}")
+
+
+
 # ------------------------------------------------------------------ configure
 def configure(p: Paths, cfg: dict, source: str) -> str | None:
     """Write role, secrets and service settings. Returns the owner token (hub) or None.
@@ -584,6 +640,7 @@ def configure(p: Paths, cfg: dict, source: str) -> str | None:
             write(p.lan_file, lan + "\n", 0o644)
         st["box"] = box
         st["ca_sha256"] = make_ca(p, box)
+        ensure_rescue_tls(p)                # CORE-UPDATE-9: needs the box CA above
         nats_service_keys(p)
         write(os.path.join(p.etc, "nats.conf"), hub_nats_conf(None))
         write(os.path.join(p.etc, "onemindd.env"),
@@ -674,6 +731,7 @@ def run_stream(argv: list[str], env: dict, on_line) -> int:
 def start_units(p: Paths, st: dict) -> None:
     role = st["role"]
     if role == "hub":
+        ensure_rescue_tls(p)               # boxes configured before CORE-UPDATE-9 get their pair now
         # uid of "onemind" is fixed in the image (961), but re-own after an update anyway.
         chown_tree(p.gateway, onemind_ids())
     units = ROLE_UNITS if st.get("mesh") else LEGACY_ROLE_UNITS
