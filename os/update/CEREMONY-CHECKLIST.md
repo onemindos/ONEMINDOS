@@ -34,9 +34,22 @@ Holders: A ______________  B ______________  C ______________  Witness (optional
 ## After
 - [ ] 12. Sticks stored in 3 places: home ____________ · off-site ____________ · trusted person ____________
 - [ ] 13. Succession note sealed in an envelope (never in the repo); location: ____________
-- [ ] 14. Calendar reminder 90 days before the root expires (date: ____________, 365 days from today). The nightly also goes red 60 days before. Boxes refuse an expired root; renewal is part B below
+- [ ] 14. Calendar reminder 90 days before the root expires (date: ____________, 365 days from today). The nightly also goes red 60 days before. Boxes refuse an expired root; renewal is part B below, a move onto hardware keys is the rotation section above
 - [ ] 15. Still to do for a published release (not part of this ceremony): `ONEMIND_RAUC_SIGNING_KEY`, `ONEMIND_RAUC_SIGNING_CERT`, `ONEMIND_SECURITY_PUBLISH=true`
 - [ ] 16. Issue #153 updated with the root.json sha256 (never a key)
+
+## Rotate the root onto hardware keys (REL-02, #272): full steps in [CEREMONY.md](CEREMONY.md)
+Date: ____________  Current root.json sha256 (the one being replaced): ______________________________
+Needs: 3 hardware tokens (PIN set on each), their PKCS#11 module path, 2 old sticks + passphrases, `opensc` or `ykman`, offline machine.
+- [ ] R0. Rehearsal passed: `scripts/tuf-bootstrap-root.sh rehearse-rotate /tmp/rotate-rehearsal-1` printed `REHEARSAL PASSED`; the YubiKey steps tried first on a **spare** device (not yet tested on hardware)
+- [ ] R1. Key made ON each device (`pkcs11-tool --keypairgen --key-type EC:prime256v1 --id 02`, or `ykman piv keys generate --algorithm ECCP256 9c`); private key says `never extractable`
+- [ ] R2. Public keys exported: `token-pub 'hsm:2?label=<label>' pubs/new-<x>.pub`; each holder read their key id aloud: A ____  B ____  C ____
+- [ ] R3. `rotate-root <current root.json> rotated <channel> 2 <stick-a>/root.key <stick-b>/root.key -- 'hsm:2?label=<A>' 'hsm:2?label=<B>' pubs/new-c.pub` ran (2 old passphrases, 2 PINs typed; the PINs are never in a command)
+- [ ] R4. `check rotated 2 3 <current root.json>`: no `FAIL`; `version 2`, `threshold 2 of 3`, `signatures on file: 4`, **`previous root v1: 2 of its keys signed this root too`**
+  - **sha256 of the new root.json:** ____________________________________________________________
+  - Read aloud, signed (initials): A ____  B ____  C ____
+- [ ] R5. Only `rotated/root.json` (and `2.root.json`) carried out; sha256 matches; committed as `os/rootfs/layers/base/usr/lib/onemind/tuf/<channel>/root.json` in a PR
+- [ ] R6. After a release: a box that ships the old root has updated. Only then are the old sticks retired. Devices stored in 3 places: ____________ / ____________ / ____________
 
 If any step prints `FAIL`, asks for something unexpected, or a passphrase fails three times: **stop**, change nothing, and ask.
 
