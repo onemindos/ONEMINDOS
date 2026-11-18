@@ -1,5 +1,5 @@
 ---
-pr: pending
+pr: 357
 branch: claude/142-os-updates
 status_rows:
   - CORE-UPDATE-2 | in-progress | /v1/os/updates read routes and the os.update.install approval landed; the local update socket is still missing

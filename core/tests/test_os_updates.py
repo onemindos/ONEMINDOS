@@ -88,10 +88,20 @@ def test_install_is_refused_for_an_update_nobody_offers(box):
     box.report()
     wrong = ask(box, {"node_id": "box0123456789", "version": "9.9.9"})
     assert wrong.status_code == 409 and wrong.json()["reason"] == "no_such_update"
+    ghost = ask(box, {"node_id": "ghost", "version": "0.1.2"})
+    assert ghost.status_code == 409 and ghost.json()["reason"] == "unknown_node"
     assert ask(box, {"node_id": "box0123456789", "version": "0.1.2", "now": True}).status_code == 422
     assert ask(box, {"node_id": "box0123456789", "version": "0.1.2"}, who=AGENT).status_code == 403
     box.report(update={"state": "trial"})
-    assert ask(box, {"node_id": "box0123456789", "version": "0.1.2"}).status_code == 409
+    busy = ask(box, {"node_id": "box0123456789", "version": "0.1.2"})
+    assert busy.status_code == 409 and busy.json()["reason"] == "already_installing"
+
+
+def test_install_is_an_actuate_request(box):
+    box.report()
+    r = ask(box, {"node_id": "box0123456789", "version": "0.1.2"})
+    assert r.status_code == 201, r.text
+    assert box.app.state.actions.feature_types["os.update.install"].risk == "actuate"  # it reboots the box
 
 
 def test_approval_rechecks_the_node(box):
@@ -132,3 +142,26 @@ def test_a_failing_listener_never_drops_a_heartbeat(box):
     box.app.state.registry.listeners.insert(0, boom)
     box.report()
     assert box.get("/v1/os/updates", headers=OWNER).json()["nodes"][0]["state"] == "idle"
+
+
+def test_reworded_last_result_does_not_repeat_a_verdict(box):
+    box.report(update={"state": "committed", "current_version": "0.1.2", "last_result": "gate: good"})
+    box.report(update={"state": "committed", "current_version": "0.1.2", "last_result": "gate: good (12 s)"})
+    events = box.get("/v1/os/updates/history", headers=OWNER).json()["events"]
+    assert [(e["state"], e["version"], e["last_result"]) for e in events] == [("committed", "0.1.2", "gate: good")]
+
+
+def test_rotating_node_ids_stay_bounded(box, monkeypatch):
+    """No NATS users yet (H-06): a LAN device inventing node ids grows neither the table nor the cache."""
+    import onemind_core.osupdate as osupdate
+    monkeypatch.setattr(osupdate, "KEEP_PER_NODE", 2)
+    monkeypatch.setattr(osupdate, "MAX_NODES", 4)
+    svc = box.app.state.osupdate
+    for i in range(30):
+        for state in ("committed", "rolled_back"):
+            box.report(node_id=f"fake{i:04d}", update={"state": state, "current_version": f"0.{i}.0"})
+        assert len(svc._seen) <= 4
+        assert svc.repo.count() <= 2 * 4
+    assert svc.repo.count() == 8 and list(svc._seen) == [f"fake{i:04d}" for i in range(26, 30)]
+    newest = svc.repo.list()
+    assert {e["node_id"] for e in newest} == {f"fake{i:04d}" for i in range(26, 30)}
