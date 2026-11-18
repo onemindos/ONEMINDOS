@@ -136,7 +136,7 @@ def test_the_routes_have_their_own_scope_rows(box):
     assert required_scopes("HEAD", "/v1/machines/capabilities") == ("nodes:read",)
     assert required_scopes("POST", "/v1/machines/enable") == ("machines:admin",)
     # not the full-scope fallback ("*") that an unregistered route gets
-    assert required_scopes("GET", "/v1/machines/other") == ("*",)
+    assert required_scopes("GET", "/v1/machines/other/extra") == ("*",)
 
 
 def test_household_accounts_read_the_capabilities_and_only_the_owner_enables(settings, clock, executor):

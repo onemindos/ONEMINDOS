@@ -53,6 +53,7 @@ export function usePoll<T>(fn: () => Promise<T>, intervalMs = 10_000): Polled<T>
       setFetchedAt(Date.now());
     } catch (e) {
       if (!alive.current || seq < applied.current) return;
+      applied.current = seq; // A newer failure must also fence off older successes.
       const err = e instanceof ApiError ? e : new ApiError(0, 'unknown', String(e));
       if (err.code === 'unauthenticated') signOut();
       setError(err);

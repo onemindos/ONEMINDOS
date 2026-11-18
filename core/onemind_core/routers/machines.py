@@ -17,6 +17,7 @@ from ..context import Gateway
 from ..errors import ApiError, error_responses
 from ..identity.scopes import register_route_scope
 from ..machines.capability import MIN_MEMORY_MB, describe
+from ..machines.service import MachineService
 
 
 # Route order in the app and in /openapi.json (routers/__init__.py).
@@ -30,6 +31,13 @@ def register(app: FastAPI, gw: Gateway) -> None:
     # only the owner role (every scope) holds it. Without rows both routes fell to "full scope only".
     register_route_scope("GET,HEAD", r"/v1/machines/capabilities", ("nodes:read",))
     register_route_scope("POST", r"/v1/machines/enable", ("machines:admin",))
+    # Part 3: the machines the owner has, and the console ticket (owner-only, like enabling).
+    register_route_scope("GET,HEAD", r"/v1/machines", ("nodes:read",))
+    register_route_scope("GET,HEAD", r"/v1/machines/[a-z][a-z0-9-]*", ("nodes:read",))
+    register_route_scope("POST", r"/v1/machines/[a-z][a-z0-9-]*/console", ("machines:admin",))
+    svc = MachineService(gw)
+    svc.register()  # machine.create|start|stop|delete: requested by an owner or an agent, approved by an owner
+    app.state.machines = svc
 
     def capabilities() -> dict:
         nodes = [describe(n) for n in gw.registry.list()]
@@ -61,3 +69,25 @@ def register(app: FastAPI, gw: Gateway) -> None:
                 " ".join(sorted({r["message"] for r in reasons})) or "no node has reported yet."),
                 reason="machines_unsupported", details=reasons or None)
         raise ApiError(409, "policy_refused", caps["extension"]["message"], reason="extension_unavailable")
+
+    @app.get("/v1/machines", tags=["machines"], operation_id="machines.list", responses=error_responses(401))
+    def machines_list(_: Principal = Depends(principal)):
+        """The machines on this box, with their state and the quota they hold."""
+        return svc.repo.all()
+
+    @app.get("/v1/machines/{name}", tags=["machines"], operation_id="machines.get", responses=error_responses(401, 404))
+    def machines_get(name: str, _: Principal = Depends(principal)):
+        row = svc.repo.get(name)
+        if row is None:
+            raise ApiError(404, "not_found", f"There is no machine named {name}.")
+        return row
+
+    @app.post("/v1/machines/{name}/console", tags=["machines"], operation_id="machines.console", responses=error_responses(401, 403, 404, 409))
+    def machines_console(name: str, p: Principal = Depends(principal)):
+        """A one-minute, single-use console ticket. Owner only: an agent never gets a screen."""
+        if not p.is_owner:
+            gw.audit.append("authz.denied", p.as_dict(), None, {"attempted": "open machine console", "reason": "permission_denied"})
+            raise ApiError(403, "permission_denied", "only an owner may open a machine's console")
+        out = svc.console_ticket(name)
+        gw.audit.append("machines.console.ticket", p.as_dict(), None, {"machine": name})
+        return out

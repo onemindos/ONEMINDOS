@@ -2,7 +2,7 @@
 """Recovery mode when the data partition fails (os/recovery/README.md): static checks of the fstab and
 unit wiring, and the status page responder. The boot behaviour itself is TD1-TD3 in the QEMU battery
 (test/qemu/CRITERIA-DATAFAIL.md)."""
-import configparser, os, re, shutil, subprocess, tempfile, unittest
+import configparser, os, re, shutil, subprocess, tempfile, types, unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 REC = os.path.join(ROOT, "os", "recovery")
@@ -113,6 +113,27 @@ class Harness(unittest.TestCase):
         self.assertEqual(m.groups()[:3], ("fell-back", "A", "2"))
         m = re.search(rt.GATE, "HEALTH-GATE: 19:58:46 RESULT committed-boot slot=A version=1")
         self.assertEqual(m.groups()[:3], ("committed-boot", "A", "1"))
+
+    def test_wait_gate_waits_for_the_whole_serial_line(self):
+        # #324: the gate line can arrive in two serial reads. wait_gate must not return the half line,
+        # or TD3 reads verdict=None although the rollback and the last-bad marker are correct.
+        import importlib.util, threading, time
+        spec = importlib.util.spec_from_file_location("rt324", os.path.join(ROOT, "test", "qemu", "run-tests.py"))
+        rt = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(rt)
+        vm = object.__new__(rt.VM)
+        vm.buf, vm.pos, vm.lock, vm.failfast = "", 0, threading.Lock(), False
+        vm.proc = types.SimpleNamespace(poll=lambda: None)
+        head = "HEALTH-GATE: 06:42:34 RESULT fell-back slot=A version=2; slot B (v2) marked bad verdict=env"
+        vm.buf = "boot noise\r\n" + head
+
+        def rest():
+            time.sleep(0.5)
+            with vm.lock:
+                vm.buf += "ironment-bad, re-offered (why)\r\n"
+        threading.Thread(target=rest).start()
+        self.assertEqual(vm.wait_gate(timeout=5), ("fell-back", "A", "2"))
+        self.assertIn("verdict=environment-bad", vm.last_gate)
 
 
 @unittest.skipUnless(shutil.which("bash"), "needs bash")
