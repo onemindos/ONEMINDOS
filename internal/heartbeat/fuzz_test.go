@@ -108,7 +108,7 @@ func FuzzStatusJSON(f *testing.F) {
 			t.Fatal(err)
 		}
 		for _, k := range []string{"schema", "node_id", "hostname", "role", "board", "arch", "os", "kernel",
-			"cpu_model", "cpus", "mem_total_mb", "mem_available_mb", "disk_total_gb", "disk_free_gb", "tpm2",
+			"cpu_model", "cpus", "mem_total_mb", "mem_available_mb", "disk_total_gb", "disk_free_gb", "cpu_level", "tpm2",
 			"secure_boot", "k3s", "rauc", "gpu", "uptime_s", "agent_version", "observed_at"} {
 			if _, ok := top[k]; !ok {
 				t.Fatalf("encoding lacks %q: %s", k, b1)

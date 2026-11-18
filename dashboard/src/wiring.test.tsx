@@ -213,8 +213,8 @@ describe('Coming soon', () => {
     for (const i of COMING_ITEMS) expect(within(list).getByRole('article', { name: i.title })).toHaveTextContent('Coming soon');
   });
 
-  it('Backups, Updates and Storage settings say they are coming, not broken', async () => {
+  it('legacy Storage settings reach the new real-hub-only view', async () => {
     renderApp({ token: 'owner-demo', route: '/settings/storage' });
-    expect(await screen.findByText(/Storage: coming with/, {}, T)).toBeInTheDocument();
+    expect(await screen.findByText(/Demo mode has no storage data/, {}, T)).toBeInTheDocument();
   });
 });
