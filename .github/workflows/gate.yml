@@ -24,9 +24,10 @@ concurrency:
 jobs:
   merge-gate:
     # CI-13 (#299): API-only (it polls this commit's runs), so it runs on the Mac's small gate pool when
-    # LOCAL_RUNNER=on and the event is trusted (never a fork PR; merge_group is); otherwise GitHub-hosted.
-    # docs/learning/self-hosted-runner.md
-    runs-on: ${{ (vars.LOCAL_RUNNER == 'on' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","onemind-gate"]') || 'ubuntu-24.04' }}
+    # LOCAL_GATE=on and the event is trusted (never a fork PR; merge_group is); otherwise GitHub-hosted.
+    # Its own switch, not LOCAL_RUNNER: the runner loop sets LOCAL_GATE=on only while gate slots run, so an
+    # empty or broken gate pool never stalls merges. docs/learning/self-hosted-runner.md
+    runs-on: ${{ (vars.LOCAL_GATE == 'on' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","onemind-gate"]') || 'ubuntu-24.04' }}
     timeout-minutes: 180   # the image battery is the slowest blocking workflow (~60 min)
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2

@@ -4,9 +4,9 @@
 # need, creates the `runner` user and unpacks the pinned GitHub Actions runner. Idempotent.
 #   ROLE=worker (default): the base VM that `cycle` clones for every job; INSTANCES runner folders
 #                          (actions-runner-1, ...). The runner user gets passwordless sudo.
-#   ROLE=gate:             the small gate VM for API-only jobs (merge-gate); INSTANCES runner folders
-#                          (actions-runner-gate-1, ...) used side by side. No sudo: these jobs only poll
-#                          the GitHub API, and this VM is reused, not cloned per job.
+#   ROLE=gate:             the small gate base VM for API-only jobs (merge-gate), also cloned per job;
+#                          one runner folder (actions-runner-gate-1). No sudo: these jobs only poll the
+#                          GitHub API, so they get no root even inside their throwaway clone.
 # Docs: docs/learning/self-hosted-runner.md.
 set -eu
 cd /opt/onemind-ci
@@ -26,7 +26,7 @@ if [ "$ROLE" = worker ]; then
   # secrets, shares nothing with the Mac, only trusted events reach it, and every job gets a fresh clone.
   echo 'runner ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/runner && chmod 0440 /etc/sudoers.d/runner
 else
-  rm -f /etc/sudoers.d/runner   # the gate VM is reused between jobs: no root for its jobs
+  rm -f /etc/sudoers.d/runner   # API-only jobs: no root for them
 fi
 
 if [ "$ROLE" = worker ] && ! command -v gitleaks >/dev/null; then
