@@ -17,6 +17,7 @@ import { Approvals } from './pages/Approvals';
 import { Home } from './pages/Home';
 import { Installed } from './pages/Installed';
 import { Market } from './pages/Market';
+import { ComposeImport, Sources } from './pages/AppSources';
 import { Nodes } from './pages/Nodes';
 import { Settings } from './pages/Settings';
 import { SignIn } from './pages/SignIn';
@@ -50,6 +51,8 @@ export function SignedInApp() {
             <Route index element={<Home />} />
             <Route path="market" element={<Market />} />
             <Route path="market/:appId" element={<Market />} />
+            <Route path="sources" element={<Sources />} />
+            <Route path="compose" element={<ComposeImport />} />
             <Route path="installed" element={<Installed />} />
             <Route path="installed/:appId" element={<Installed />} />
             <Route path="approvals" element={<Approvals />} />

@@ -7,6 +7,7 @@ import {
   type Action,
   type ActionRequest,
   type ActionType, type AppParams, type PlanPreview, type AppSettings,
+  type AppDependencies, type AppHostPorts, type CommunitySource, type ComposeResult,
   type ApiErrorBody,
   type CatalogApp,
   type Instance,
@@ -30,6 +31,12 @@ export interface OneMindApi extends WiringApi {
   previewAction?(type: ActionType, params: AppParams): Promise<PlanPreview>;
   appSettings?(id: string): Promise<AppSettings>;
   appLogs?(id: string): Promise<string>;
+  appDependencies?(id: string): Promise<AppDependencies>;
+  appHostPorts?(id: string): Promise<AppHostPorts>;
+  sources?(): Promise<CommunitySource[]>;
+  /** Files a `source.add` request; it waits in Approvals until the owner approves it. */
+  requestSourceAdd?(params: SourceAddParams, key: { idempotency_key: string; expires_at: string }): Promise<Action>;
+  convertCompose?(body: { app_id: string; name?: string; compose: string }): Promise<ComposeResult>;
   createAction(req: ActionRequest): Promise<Action>;
   actions(): Promise<Action[]>;
   action(id: string): Promise<Action>;
@@ -50,6 +57,7 @@ export interface FirstRunSettings extends Omit<FirstRunSettingsBody, 'box_name' 
   time_zone: string | null;
   saved: boolean;
 }
+export interface SourceAddParams { name: string; url: string; commit: string }
 export interface BackupDestinationRecord { id: string; kind: string; label: string }
 
 const KNOWN_CODES = new Set([
@@ -180,10 +188,10 @@ export class HttpApi implements OneMindApi {
     if (action.progress && (typeof action.progress.step !== 'string' || !Number.isFinite(action.progress.pct) || action.progress.pct < 0 || action.progress.pct > 100)) throw ambiguous();
     return action;
   }
-  private async sdkCall<T>(method: 'GET' | 'POST', path: string, body?: unknown): Promise<T> {
+  private async sdkCall<T>(method: 'GET' | 'POST', path: string, body?: unknown, array = false): Promise<T> {
     try {
       const value = await this.sdk.call<T>({ method, path, body });
-      if (!value || typeof value !== 'object' || Array.isArray(value)) throw new ApiError(200, 'unknown', 'Unexpected response from the hub');
+      if (!value || typeof value !== 'object' || Array.isArray(value) !== array) throw new ApiError(200, 'unknown', 'Unexpected response from the hub');
       return value;
     }
     catch (e) {
@@ -201,6 +209,39 @@ export class HttpApi implements OneMindApi {
     }
     if (raw.values !== null && (typeof raw.values !== 'object' || Array.isArray(raw.values) || Object.values(raw.values).some((v) => !['string', 'number', 'boolean'].includes(typeof v)))) throw new ApiError(200, 'unknown', 'Invalid gateway setting values');
     return raw as AppSettings;
+  }
+  // ---- §12.22 app store depth (#57). The SDK types these bodies as unknown, so each is checked here.
+  async appDependencies(id: string) {
+    const raw = await this.sdkCall<AppDependencies>('GET', `/v1/apps/${encodeURIComponent(id)}/dependencies`);
+    const okChoice = (c: AppDependencies['requires'][number]['choices'][number]) => !!c && typeof c.id === 'string' && typeof c.installed === 'boolean' && typeof c.in_catalog === 'boolean';
+    if (!Array.isArray(raw.requires) || !Array.isArray(raw.dependents) || raw.requires.some((r) => !r || typeof r.id !== 'string' || !Array.isArray(r.choices) || !r.choices.every(okChoice)) || raw.dependents.some((d) => !d || typeof d.id !== 'string')) throw new ApiError(200, 'unknown', 'Invalid gateway dependencies');
+    return raw;
+  }
+  async appHostPorts(id: string) {
+    const raw = await this.sdkCall<AppHostPorts>('GET', `/v1/apps/${encodeURIComponent(id)}/host-ports`);
+    const port = (p: { port: number; protocol: string }) => !!p && Number.isInteger(p.port) && typeof p.protocol === 'string';
+    if (!Array.isArray(raw.declared) || !Array.isArray(raw.conflicts) || !raw.declared.every(port) || !raw.conflicts.every((c) => port(c) && typeof c.with === 'string')) throw new ApiError(200, 'unknown', 'Invalid gateway host ports');
+    return raw;
+  }
+  async sources() {
+    const raw = await this.sdkCall<CommunitySource[]>('GET', '/v1/sources', undefined, true);
+    if (raw.some((s) => !s || typeof s.id !== 'string' || typeof s.name !== 'string' || typeof s.commit !== 'string' || !Array.isArray(s.apps) || !Array.isArray(s.errors))) throw new ApiError(200, 'unknown', 'Invalid gateway sources');
+    return raw;
+  }
+  async requestSourceAdd(params: SourceAddParams, key: { idempotency_key: string; expires_at: string }) {
+    let action: Action;
+    try { action = await this.sdkCall<Action>('POST', '/v1/actions', { type: 'source.add', params, ...key }); }
+    catch (e) {
+      if (e instanceof ApiError && e.status >= 400 && e.status < 500) throw e;
+      throw new ApiError(0, 'outcome_unknown', 'The request may have been recorded. Retry to confirm it.');
+    }
+    if (action.type as string !== 'source.add' || action.idempotency_key !== key.idempotency_key || typeof action.id !== 'string') throw new ApiError(0, 'outcome_unknown', 'The gateway did not return the matching request. Retry to confirm it.');
+    return action;
+  }
+  async convertCompose(body: { app_id: string; name?: string; compose: string }) {
+    const raw = await this.sdkCall<ComposeResult>('POST', '/v1/deploy/compose', body);
+    if (typeof raw.ok !== 'boolean' || !raw.files || typeof raw.files !== 'object' || !Array.isArray(raw.refusals) || !Array.isArray(raw.warnings) || Object.values(raw.files).some((v) => typeof v !== 'string')) throw new ApiError(200, 'unknown', 'Invalid gateway Compose result');
+    return raw;
   }
   appLogs(id: string) { return this.req<string>('GET', `/v1/apps/${encodeURIComponent(id)}/logs?tail=200`, undefined, 'text'); }
   actions() {
