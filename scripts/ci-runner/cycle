@@ -9,11 +9,14 @@
 #   gate (label onemind-gate, switch LOCAL_GATE): base VM $VM-gate. GATE_RUNNERS slots (0 to 8, default 4;
 #     0 turns the pool off) side by side, each cloning its own small VM (GATE_CPUS, default 1; GATE_MEMORY
 #     in GiB, default 1) per job. Only API-only jobs (merge-gate) pick this label.
-# Each pool has its own repo variable, so an empty or broken gate pool never stalls merges: merge-gate
-# goes to the gate pool only while LOCAL_GATE=on. This loop sets LOCAL_RUNNER=on, and LOCAL_GATE=on only
-# when there are gate slots and the gate base VM exists; it sets LOCAL_GATE=off when the gate pool is 0 or
-# missing, when 3 gate clones in a row fail to start, and it sets both to off when it exits, so jobs go
-# back to GitHub-hosted runners (it cannot catch a Mac going to sleep: see the doc).
+# Each pool has its own repo variable, so a broken gate pool does not hold the worker switch: merge-gate
+# goes to the gate pool only while LOCAL_GATE=on. This loop sets LOCAL_RUNNER=on at start. LOCAL_GATE starts
+# off and goes on only once a gate slot's runner is registered and online. It goes off when the gate pool is
+# 0 or its base VM is missing, after 3 gate failures in a row in one slot (no token, a clone that does not
+# start, a runner round that fails, a runner that never comes online; the slot keeps trying and switches it
+# back on when its runner is online again), and both go off when this loop exits normally (a trap). It
+# cannot switch anything off after SIGKILL, a kernel panic, a power cut or sleep: a queued merge-gate then
+# waits for a runner that is gone, until someone runs the off-switch (docs/learning/self-hosted-runner.md).
 # Each round mints a registration token with the Mac's own `gh` login (valid one hour, never stored or
 # printed) and hands it to the VM on stdin; inside, run-one.sh gives it to config.sh in an environment
 # variable, never on a command line. A slot whose pool switch is not "on" registers nothing.
@@ -25,6 +28,7 @@ VM=${VM:-onemind-ci}            # the stopped, provisioned worker base
 GATE_VM=${GATE_VM:-$VM-gate}    # the stopped, provisioned gate base
 FRESH=${FRESH:-clone}
 INSTANCE=${INSTANCE:-}
+nap() { sleep "${CYCLE_NAP:-$1}"; }   # CYCLE_NAP: one short wait for every pause (tests only)
 setvar() { gh variable set "$1" --body "$2" --repo "$REPO" >/dev/null 2>&1 && echo "$(date '+%F %T') $1=$2${3:+ ($3)}"; }
 if [ -z "$INSTANCE" ]; then   # parent: one loop per worker instance and one per gate slot
   n=${INSTANCES:-1}; g=${GATE_RUNNERS:-4}
@@ -45,10 +49,11 @@ if [ -z "$INSTANCE" ]; then   # parent: one loop per worker instance and one per
   }
   trap cleanup EXIT INT TERM
   setvar LOCAL_RUNNER on
-  if [ "$g" -gt 0 ]; then setvar LOCAL_GATE on; else setvar LOCAL_GATE off "no gate slots"; fi
+  # Never on at start: a stale "on" left by a killed loop goes off, and a slot turns it on once its runner is online.
+  if [ "$g" -gt 0 ]; then setvar LOCAL_GATE off "until a gate runner is online"; else setvar LOCAL_GATE off "no gate slots"; fi
   echo "$(date '+%F %T') workers: $n, gate slots: $g"
   i=1; while [ "$i" -le "$n" ]; do INSTANCE=$i "$0" & i=$((i + 1)); done
-  i=1; while [ "$i" -le "$g" ]; do INSTANCE=gate-$i "$0" & sleep 2; i=$((i + 1)); done
+  i=1; while [ "$i" -le "$g" ]; do INSTANCE=gate-$i "$0" & nap 2; i=$((i + 1)); done
   wait; exit
 fi
 
@@ -58,7 +63,8 @@ case $INSTANCE in
   *) pool=worker label=onemind-local switchvar=LOCAL_RUNNER base=$VM slot=1 cpus=${CPUS:-} mem=${MEMORY:-} ;;
 esac
 # Every clone has one runner folder: actions-runner-1 (worker) or actions-runner-gate-1 (gate).
-unhealthy=${GATE_STATE:-/nonexistent}/unhealthy
+unhealthy=${GATE_STATE:-/nonexistent}/unhealthy   # this loop switched LOCAL_GATE off after failures
+online=${GATE_STATE:-/nonexistent}/online         # this loop switched LOCAL_GATE on (a gate runner was online)
 run="$base-run-${INSTANCE#gate-}"
 fresh() {   # clone the base into $run and start it; 1 on failure (and nothing left behind)
   limactl delete --force "$run" >/dev/null 2>&1
@@ -66,17 +72,34 @@ fresh() {   # clone the base into $run and start it; 1 on failure (and nothing l
      && limactl start --tty=false "$run" >/dev/null 2>&1; then return 0; fi
   limactl delete --force "$run" >/dev/null 2>&1; return 1
 }
-backoff() { fail=$((fail + 1)); sleep $((fail < 10 ? $1 * fail : $1 * 10)); }
+strike() {   # one more failure in a row ($1: what failed), then wait longer each time ($2 s per strike, up to 10x)
+  fail=$((fail + 1))
+  echo "$(date '+%F %T') [$INSTANCE] $1 ($fail in a row)"
+  if [ "$pool" = gate ] && [ "$fail" -eq 3 ]; then   # third in a row, any kind: send merge-gate back to GitHub
+    touch "$unhealthy"; setvar LOCAL_GATE off "[$INSTANCE] 3 gate failures in a row: $1"
+  fi
+  nap $((fail < 10 ? $2 * fail : $2 * 10))
+}
+registered() {   # is this clone's runner (named <label>-<hostname>-<slot> by run-one.sh) online at GitHub?
+  gh api --paginate "orgs/$ORG/actions/runners?per_page=100" -q '.runners[] | select(.status == "online") | .name' \
+    2>/dev/null | grep -q -- "-$run-$slot\$"
+}
+gate_up() {   # LOCAL_GATE on, unless it is on already or someone else (not this loop) switched it off
+  if [ -e "$unhealthy" ] || [ ! -e "$online" ]; then   # a fresh start for the 3-strike count, too
+    rm -f "$unhealthy"; touch "$online"; fail=0; setvar LOCAL_GATE on "[$INSTANCE] gate runner online"
+  fi
+}
+ONLINE_WAIT=${GATE_ONLINE_WAIT:-300}   # seconds a gate runner has to come online after its clone is up
 fail=0
 while :; do
   switch=$(gh api "repos/$REPO/actions/variables/$switchvar" -q .value 2>/dev/null || echo off)
   if [ "$switch" != "on" ]; then
-    # The gate pool switched itself off after failed clones: probe, and switch it back on when one works.
-    if [ "$pool" = gate ] && [ -e "$unhealthy" ] && fresh; then
-      limactl delete --force "$run" >/dev/null 2>&1; rm -f "$unhealthy"; fail=0
-      setvar LOCAL_GATE on "[$INSTANCE] gate clones start again"; continue
+    # A gate slot still runs while LOCAL_GATE is off if this loop has not switched it on yet (start) or switched
+    # it off after failures (probe): its runner coming online is what switches it on. Off for any other reason
+    # (the founder, down --off) means off.
+    if [ "$pool" != gate ] || { [ ! -e "$unhealthy" ] && [ -e "$online" ]; }; then
+      echo "$(date '+%F %T') [$INSTANCE] $switchvar is '$switch': not taking jobs"; nap 60; continue
     fi
-    echo "$(date '+%F %T') [$INSTANCE] $switchvar is '$switch': not taking jobs"; sleep 60; continue
   fi
   if [ "$pool" = worker ] && [ -n "${RUNNER_REG_TOKEN:-}" ]; then   # one-off token pasted by the founder: one round only
     token=$RUNNER_REG_TOKEN; unset RUNNER_REG_TOKEN
@@ -84,18 +107,13 @@ while :; do
     token=$(gh api -X POST "orgs/$ORG/actions/runners/registration-token" -q .token 2>/dev/null) || token=""
   fi
   if [ -z "$token" ]; then
-    echo "$(date '+%F %T') [$INSTANCE] could not get a registration token (gh auth needs the admin:org scope)"
-    backoff 30; continue
+    strike "could not get a registration token (gh auth needs the admin:org scope)" 30; continue
   fi
   t0=$SECONDS
   if [ "$pool" = gate ] || [ "$FRESH" = clone ]; then
     if ! fresh; then
       unset token
-      echo "$(date '+%F %T') [$INSTANCE] could not clone and start $run from $base (is up done?)"
-      if [ "$pool" = gate ] && [ "$fail" -ge 2 ]; then   # third failure in a row: send merge-gate back to GitHub
-        touch "$unhealthy"; setvar LOCAL_GATE off "[$INSTANCE] gate clones fail to start"
-      fi
-      backoff 30; continue
+      strike "could not clone and start $run from $base (is up done?)" 30; continue
     fi
   else
     run=$base   # FRESH=none: reuse the worker base VM
@@ -103,13 +121,24 @@ while :; do
   fi
   t1=$SECONDS
   echo "$(date '+%F %T') [$INSTANCE] fresh $pool VM ready in $((t1 - t0))s; waiting for one job ($label)"
-  if printf '%s\n' "$token" | limactl shell "$run" -- sudo -u runner /usr/local/bin/onemind-ci-run-one "https://github.com/$ORG" "$GROUP" "$slot" "$label"; then
-    fail=0
-  else
-    echo "$(date '+%F %T') [$INSTANCE] runner round failed ($((fail + 1)))"; backoff 10
+  printf '%s\n' "$token" | limactl shell "$run" -- sudo -u runner /usr/local/bin/onemind-ci-run-one "https://github.com/$ORG" "$GROUP" "$slot" "$label" &
+  rpid=$!; unset token
+  why="runner round failed"
+  if [ "$pool" = gate ]; then   # watch the round: LOCAL_GATE goes on only once this runner is online
+    seen=""
+    while kill -0 "$rpid" 2>/dev/null; do
+      if [ -z "$seen" ]; then
+        if registered; then seen=1; echo "$(date '+%F %T') [$INSTANCE] runner online"
+        elif [ $((SECONDS - t1)) -ge "$ONLINE_WAIT" ]; then
+          why="runner never came online in ${ONLINE_WAIT}s"; kill "$rpid" 2>/dev/null; break
+        fi
+      fi
+      [ -n "$seen" ] && gate_up
+      nap 5
+    done
   fi
+  if wait "$rpid"; then fail=0; else strike "$why" 10; fi
   [ "$run" != "$base" ] && limactl delete --force "$run" >/dev/null 2>&1
   run="$base-run-${INSTANCE#gate-}"
   echo "$(date '+%F %T') [$INSTANCE] round done: restore $((t1 - t0))s, job+teardown $((SECONDS - t1))s"
-  unset token
 done

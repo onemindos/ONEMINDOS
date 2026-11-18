@@ -270,55 +270,148 @@ class Kit(unittest.TestCase):
         self.assertIn("cpus=${GATE_CPUS:-1} mem=${GATE_MEMORY:-1}", text)
         self.assertNotIn("run=$GATE_VM\n", text)
 
-    def test_local_gate_is_on_only_while_gate_slots_run(self):
+    def test_local_gate_is_never_switched_on_at_start(self):
         cycle = (KIT / "cycle").read_text()
         parent = cycle[:cycle.index("wait; exit")]
-        self.assertIn('if [ "$g" -gt 0 ]; then setvar LOCAL_GATE on; else setvar LOCAL_GATE off', parent)
-        self.assertLess(parent.index("g=0"), parent.index("setvar LOCAL_GATE on"))   # a missing gate VM means g=0
-        self.assertIn('touch "$unhealthy"; setvar LOCAL_GATE off', cycle)          # failing clones switch it off
+        self.assertNotIn("setvar LOCAL_GATE on", parent)        # only a slot whose runner is online turns it on
+        self.assertIn('setvar LOCAL_GATE off "until a gate runner is online"', parent)
+        self.assertIn('touch "$unhealthy"; setvar LOCAL_GATE off', cycle)          # 3 failures switch it off
         self.assertIn("switchvar=LOCAL_GATE", cycle)
         up = (KIT / "up").read_text()
         self.assertIn('if [ "$GATE_RUNNERS" -eq 0 ]; then gh variable set LOCAL_GATE --body off', up)
+        self.assertNotIn("LOCAL_GATE --body on", up)
         down = (KIT / "down").read_text()
         self.assertIn("gh variable set LOCAL_GATE --body off", down)
         self.assertIn("gh variable set LOCAL_RUNNER --body off", down)
 
-    def run_cycle(self, gate_runners, vms):
-        """Start `cycle` with stub gh and limactl, stop it, and return the switch changes it made, in order."""
+    # Stub gh: repo variables live in files (a missing one reads like a 404), the registration token can be
+    # made to fail, and the runner list prints the names in <state>/online. Stub limactl: every VM call works
+    # (unless <state>/clone-fails exists); `shell` into a gate clone runs <state>/round with the round number,
+    # and a worker round just waits.
+    GH = r"""#!/bin/sh
+d=%(d)s
+echo "$*" >> "$d/gh.log"
+case "$*" in
+  "variable set "*) printf '%%s' "$5" > "$d/var.$3" ;;
+  *registration-token*) [ -e "$d/token-fails" ] && exit 1; echo tok ;;
+  *actions/runners*) cat "$d/online" 2>/dev/null ;;
+  *actions/variables/*) v=${2##*/}; [ -e "$d/var.$v" ] || exit 1; cat "$d/var.$v"; echo ;;
+esac
+exit 0
+"""
+    LIMACTL = r"""#!/bin/sh
+d=%(d)s
+case $1 in
+  list) printf '%(vms)s' ;;
+  clone) [ -e "$d/clone-fails" ] && exit 1 ;;
+  shell) cat >/dev/null
+    case $2 in *-gate-run-*) ;; *) exec sleep 60 ;; esac
+    n=$(( $(cat "$d/rounds" 2>/dev/null || echo 0) + 1 )); echo "$n" > "$d/rounds"
+    exec sh "$d/round" "$n" "$d" ;;
+esac
+exit 0
+"""
+    GATE_RUNNER = "onemind-gate-lima-onemind-ci-gate-run-1-gate-1"   # run-one.sh: <label>-<hostname>-<slot>
+
+    def run_cycle(self, gate_runners, vms, round_script="exec sleep 60\n", until=None, files=(), timeout=1.5,
+                  env_extra=None):
+        """Start `cycle` with stub gh and limactl, wait until `until(sets)` is true (or `timeout` seconds),
+        stop it, and return the switch changes it made, in order, and its output."""
         with tempfile.TemporaryDirectory() as tmp:
-            stub, log = Path(tmp), Path(tmp) / "gh.log"
-            (stub / "gh").write_text('#!/bin/sh\necho "$*" >> "%s"\n[ "$1" = api ] && echo off\nexit 0\n' % log)
-            (stub / "limactl").write_text('#!/bin/sh\n[ "$1" = list ] && printf "%s"\nexit 0\n' % "".join(v + "\\n" for v in vms))
+            d = Path(tmp)
+            (d / "gh").write_text(self.GH % {"d": tmp})
+            (d / "limactl").write_text(self.LIMACTL % {"d": tmp, "vms": "".join(v + "\\n" for v in vms)})
+            (d / "round").write_text(round_script)
             for f in ("gh", "limactl"):
-                (stub / f).chmod(0o755)
-            env = {"PATH": f"{stub}:/usr/bin:/bin", "TMPDIR": tmp, "INSTANCES": "1", "GATE_RUNNERS": gate_runners}
-            p = subprocess.Popen(["bash", str(KIT / "cycle")], env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                 start_new_session=True, text=True)
+                (d / f).chmod(0o755)
+            for f in files:
+                (d / f).touch()
+            env = {"PATH": f"{tmp}:/usr/bin:/bin", "TMPDIR": tmp, "INSTANCES": "1", "GATE_RUNNERS": gate_runners,
+                   "CYCLE_NAP": "0.05", "GATE_ONLINE_WAIT": "20", **(env_extra or {})}
+            out = d / "out.log"
+            with out.open("w") as fh:
+                p = subprocess.Popen(["bash", str(KIT / "cycle")], env=env, stdout=fh, stderr=subprocess.STDOUT,
+                                     start_new_session=True)
+
+            def sets():
+                log = d / "gh.log"
+                lines = log.read_text().splitlines() if log.exists() else []
+                return [line.split()[2:5:2] for line in lines if line.startswith("variable set")]
             try:
-                time.sleep(1.5)
+                end = time.monotonic() + (20 if until else timeout)
+                while time.monotonic() < end and not (until and until(sets())):
+                    time.sleep(0.1)
                 os.killpg(p.pid, signal.SIGTERM)
-                p.communicate(timeout=20)
+                p.wait(timeout=20)
             finally:
                 try:
                     os.killpg(p.pid, signal.SIGKILL)
                 except ProcessLookupError:
                     pass
-            return [line.split()[2:5:2] for line in log.read_text().splitlines() if line.startswith("variable set")]
+            return sets(), out.read_text()
+
+    @staticmethod
+    def gate_sets(sets):
+        return [v for k, v in sets if k == "LOCAL_GATE"]
 
     def test_no_gate_vm_means_local_gate_off(self):
-        sets = self.run_cycle("4", ["onemind-ci"])
+        sets, _ = self.run_cycle("4", ["onemind-ci"])
         self.assertNotIn(["LOCAL_GATE", "on"], sets)
         self.assertEqual(sets[:2], [["LOCAL_RUNNER", "on"], ["LOCAL_GATE", "off"]])
         self.assertEqual(sets[-2:], [["LOCAL_GATE", "off"], ["LOCAL_RUNNER", "off"]])   # trap on exit
 
     def test_zero_gate_slots_means_local_gate_off(self):
-        sets = self.run_cycle("0", ["onemind-ci", "onemind-ci-gate"])
+        sets, _ = self.run_cycle("0", ["onemind-ci", "onemind-ci-gate"])
         self.assertNotIn(["LOCAL_GATE", "on"], sets)
 
-    def test_gate_slots_and_a_gate_vm_turn_local_gate_on_until_exit(self):
-        sets = self.run_cycle("2", ["onemind-ci", "onemind-ci-gate"])
-        self.assertEqual(sets[:2], [["LOCAL_RUNNER", "on"], ["LOCAL_GATE", "on"]])
+    def test_local_gate_stays_off_until_a_gate_runner_is_online(self):
+        # the clone is up and the round runs, but no runner is online: merge-gate must not pick the gate pool
+        sets, out = self.run_cycle("1", ["onemind-ci", "onemind-ci-gate"], timeout=2)
+        self.assertIn("waiting for one job (onemind-gate)", out)
+        self.assertEqual(self.gate_sets(sets), ["off", "off"])               # start, then the trap on exit
         self.assertEqual(sets[-2:], [["LOCAL_GATE", "off"], ["LOCAL_RUNNER", "off"]])
+
+    def test_local_gate_goes_on_once_the_gate_runner_is_online(self):
+        online = f'echo {self.GATE_RUNNER} > "$2/online"; exec sleep 60\n'
+        sets, _ = self.run_cycle("1", ["onemind-ci", "onemind-ci-gate"], online, until=lambda s: ["LOCAL_GATE", "on"] in s)
+        self.assertEqual(self.gate_sets(sets), ["off", "on", "off"])          # start, runner online, exit
+        self.assertEqual(sets[-2:], [["LOCAL_GATE", "off"], ["LOCAL_RUNNER", "off"]])
+
+    def test_another_slots_runner_does_not_count(self):
+        other = 'echo onemind-gate-lima-onemind-ci-gate-run-2-gate-1 > "$2/online"; exec sleep 60\n'
+        sets, _ = self.run_cycle("1", ["onemind-ci", "onemind-ci-gate"], other, timeout=2)
+        self.assertNotIn("on", self.gate_sets(sets))
+
+    def strikes_off(self, sets):
+        return self.gate_sets(sets).count("off") >= 2    # the start sets off once; the third failure again
+
+    def test_three_failed_runner_rounds_switch_local_gate_off(self):
+        # clone and start work; config.sh (or the runner) fails in every round
+        sets, out = self.run_cycle("1", ["onemind-ci", "onemind-ci-gate"], "exit 1\n", until=self.strikes_off)
+        self.assertNotIn("on", self.gate_sets(sets))
+        self.assertIn("LOCAL_GATE=off ([gate-1] 3 gate failures in a row: runner round failed)", out)
+
+    def test_three_failed_tokens_switch_local_gate_off(self):
+        sets, out = self.run_cycle("1", ["onemind-ci", "onemind-ci-gate"], until=self.strikes_off,
+                                   files=("token-fails",))
+        self.assertIn("LOCAL_GATE=off ([gate-1] 3 gate failures in a row: could not get a registration token", out)
+
+    def test_three_failed_clones_switch_local_gate_off(self):
+        _, out = self.run_cycle("1", ["onemind-ci", "onemind-ci-gate"], until=self.strikes_off,
+                                files=("clone-fails",))
+        self.assertIn("LOCAL_GATE=off ([gate-1] 3 gate failures in a row: could not clone and start", out)
+
+    def test_a_runner_that_never_comes_online_is_a_failure(self):
+        sets, out = self.run_cycle("1", ["onemind-ci", "onemind-ci-gate"], until=self.strikes_off,
+                                   env_extra={"GATE_ONLINE_WAIT": "0"})
+        self.assertIn("3 gate failures in a row: runner never came online in 0s", out)
+
+    def test_after_switch_off_a_probe_whose_runner_is_online_switches_it_back_on(self):
+        recover = f'[ "$1" -le 3 ] && exit 1\necho {self.GATE_RUNNER} > "$2/online"; exec sleep 60\n'
+        sets, out = self.run_cycle("1", ["onemind-ci", "onemind-ci-gate"], recover,
+                                   until=lambda s: self.gate_sets(s)[-1:] == ["on"])
+        self.assertEqual(self.gate_sets(sets), ["off", "off", "on", "off"])   # start, 3 strikes, probe, exit
+        self.assertIn("3 gate failures in a row: runner round failed", out)
 
     def test_vm_shares_nothing_with_the_mac(self):
         self.assertRegex((KIT / "lima.yaml").read_text(), r"(?m)^mounts: \[\]$")

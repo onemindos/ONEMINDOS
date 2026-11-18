@@ -11,7 +11,7 @@ It has **two pools** (CI-13):
 - **Workers** (label `onemind-local`): build and test jobs. Each job gets a fresh VM cloned from a provisioned base VM, and the clone is deleted afterwards. Up to 3 run side by side (`INSTANCES`).
 - **Gate** (label `onemind-gate`): small VMs for `merge-gate` only. Like the workers, every gate job gets a fresh clone (1 CPU, 1 GB) of a small, stopped gate base VM (`onemind-ci-gate`), and the clone is deleted afterwards. Up to `GATE_RUNNERS` gate jobs run side by side (default 4, at most 8), each in its own clone. `merge-gate` does no building: it polls the GitHub API for up to three hours, waiting for the other workflows of its commit. On GitHub-hosted runners those waits filled 8 of the 12 running slots (measured 2026-11-18); on the Mac a gate clone's CPU is idle almost all the time.
 
-**Each pool has its own switch** (a repo variable): `LOCAL_RUNNER` sends build and test jobs to the workers, `LOCAL_GATE` sends `merge-gate` to the gate pool. They are separate on purpose. `merge-gate` is the one check every merge needs, so if it followed `LOCAL_RUNNER` while the gate pool had no runners (`GATE_RUNNERS=0`, or a missing gate VM), every merge would wait for a runner that never comes. The runner loop sets `LOCAL_GATE=on` only while gate slots actually run, and sets it `off` when the gate pool is 0 or its base VM is missing, when three gate clones in a row fail to start (it switches back on when a clone starts again), and when the loop stops.
+**Each pool has its own switch** (a repo variable): `LOCAL_RUNNER` sends build and test jobs to the workers, `LOCAL_GATE` sends `merge-gate` to the gate pool. They are separate on purpose. `merge-gate` is the one check every merge needs, so if it followed `LOCAL_RUNNER` while the gate pool had no runners (`GATE_RUNNERS=0`, or a missing gate VM), every merge would wait for a runner that never comes. The runner loop starts with `LOCAL_GATE=off` and sets it `on` only once a gate slot's runner has registered and is online at GitHub. It sets it `off` when the gate pool is 0 or its base VM is missing, after three gate failures in a row in one slot (of any kind: no registration token, a clone that does not start, a runner round that fails, a runner that does not come online within 5 minutes; the slot keeps trying and switches it back on once its runner is online again), and when the loop stops normally.
 
 **Ephemeral** means one job per registration. The runner takes one job, the work folder is deleted, and a fresh runner registers for the next. Nothing one job leaves behind reaches the next.
 
@@ -96,7 +96,7 @@ gh auth refresh -h github.com -s admin:org
 scripts/ci-runner/up --service --on
 ```
 
-   `--service` installs the launchd agent (it keeps running and restarts after a reboot; while running it keeps `LOCAL_RUNNER=on` and, when gate slots run, `LOCAL_GATE=on`, and it sets both `off` when it stops); `--on` sets the repo variables right away. Prefer to watch it in the foreground first? Run `scripts/ci-runner/up` and `Ctrl-C` stops it.
+   `--service` installs the launchd agent (it keeps running and restarts after a reboot; while running it keeps `LOCAL_RUNNER=on`, and sets `LOCAL_GATE=on` once a gate runner is online; it sets both `off` when it stops normally); `--on` sets `LOCAL_RUNNER` right away (`LOCAL_GATE` is left to the loop). Prefer to watch it in the foreground first? Run `scripts/ci-runner/up` and `Ctrl-C` stops it.
 
    *If you would rather paste a one-off registration token* (GitHub → org Settings → Actions → Runners → New runner → copy the token from the `config.sh` line): export it only in that terminal, `RUNNER_REG_TOKEN=<paste> scripts/ci-runner/up`, which serves exactly **one** job and then falls back to `gh`. Tokens expire in an hour, which is why the `gh` route is the real one.
 
@@ -148,7 +148,19 @@ gh variable set LOCAL_RUNNER --body off --repo onemindos/ONEMINDOS
 ```
 
 **A closed lid with `LOCAL_GATE` on stalls every merge:** `merge-gate` is the one required check, and it waits for a gate runner that is asleep. A job already pointed at `onemind-local` or `onemind-gate` waits for a runner that is not there, up to GitHub's 24-hour limit, and a *queued* job does not move to GitHub by itself. With the variables off, new runs use GitHub-hosted runners; cancel and re-run anything already queued (for a stuck PR, re-run its `merge-gate`).
-What the kit does for you: while the loop runs it keeps `LOCAL_RUNNER=on` (and `LOCAL_GATE=on` while gate slots run), and when the loop stops (Ctrl-C, `down`, logout, a crash) it sets both `off`. The launchd agent runs under `caffeinate -i`, so an idle Mac does not sleep while the loop is up. What it cannot do: notice a closed lid or a power cut, because the Mac stops before any script can react. That case is on you, hence the rule above.
+What the kit does for you: while the loop runs it keeps `LOCAL_RUNNER=on` (and `LOCAL_GATE=on` once a gate runner is online), and when the loop is stopped normally (Ctrl-C, `down`, logout, a `kill` without `-9`) it sets both `off`. The next start of the loop sets `LOCAL_GATE=off` first, so a stale `on` does not outlive a restart. The launchd agent runs under `caffeinate -i`, so an idle Mac does not sleep while the loop is up.
+
+**What it cannot do: switch anything off when it gets no chance to run.** A `kill -9` (SIGKILL), a kernel panic, a power cut, a closed lid, or a reboot where nobody logs in (the launchd agent starts only at login) leaves **both variables `on`**, and every `merge-gate` then waits for a gate runner that is gone. Run the off-switch from any machine with `gh`:
+
+```bash
+gh variable set LOCAL_GATE --body off --repo onemindos/ONEMINDOS
+```
+
+```bash
+gh variable set LOCAL_RUNNER --body off --repo onemindos/ONEMINDOS
+```
+
+Then cancel and re-run the stuck runs (for a stuck PR, re-run its `merge-gate`).
 
 ## Limits and known risks
 - **Not tested on real hardware by the author.** The kit is checked by tests and shellcheck only. The first `up` on your Mac is the real test; send me anything that fails.
