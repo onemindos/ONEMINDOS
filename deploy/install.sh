@@ -1234,7 +1234,9 @@ rescue_install() {
     plan "check that https://127.0.0.1:7443 answers 401 without the owner token"
     return 0
   fi
-  [ -f "$STATE/tls/https.crt" ] && [ -f "$STATE/tls/https.key" ] || die "no HTTPS certificate in $STATE/tls: the rescue console needs the box CA pair"
+  if [ ! -f "$STATE/tls/https.crt" ] || [ ! -f "$STATE/tls/https.key" ]; then
+    die "no HTTPS certificate in $STATE/tls: the rescue console needs the box CA pair"
+  fi
   [ -f "$ETC/tokens.yaml" ] || die "no $ETC/tokens.yaml: the rescue console signs in with the owner token"
   local changed=0
   cmp -s "$SCRIPT_DIR/systemd/onemind-rescue.service" /etc/systemd/system/onemind-rescue.service 2>/dev/null || changed=1
