@@ -173,20 +173,32 @@ export class HttpApi implements OneMindApi {
   apps() {
     return this.req<CatalogApp[]>('GET', '/v1/apps', undefined, 'array');
   }
-  async createAction(req: ActionRequest) {
+  /**
+   * POST /v1/actions with the outcome rules every request shares: a lost reply (network, 408,
+   * 5xx or an unreadable 2xx) is outcome_unknown, so the caller keeps the idempotency key and a
+   * retry cannot file a second action; any other 4xx is a clear refusal. A reply only counts when
+   * it is the action that was asked for (type, key, state, expiry, plus the caller's own checks).
+   */
+  private async fileAction(body: { type: string; params: unknown; idempotency_key: string; expires_at: string }, matches: (a: Action) => boolean): Promise<Action> {
     const ambiguous = () => new ApiError(0, 'outcome_unknown', 'The request may have been recorded, but the gateway did not return a complete matching action. Retry to confirm it.');
     let action: Action;
-    try { action = await this.sdkCall<Action>('POST', '/v1/actions', req); }
+    try { action = await this.sdkCall<Action>('POST', '/v1/actions', body); }
     catch (e) {
       if (!(e instanceof ApiError) || e.status === 0 || e.status === 408 || e.status >= 500 || (e.status >= 200 && e.status < 300)) throw ambiguous();
       throw e;
     }
     const states = new Set(['requested', 'awaiting_approval', 'accepted', 'dispatched', 'succeeded', 'failed', 'outcome_unknown', 'expired', 'cancelled']);
-    if (typeof action.id !== 'string' || !action.id || action.type !== req.type || !states.has(action.state) || action.params?.app_id !== req.params.app_id || action.idempotency_key !== req.idempotency_key || !Number.isFinite(Date.parse(action.expires_at))) throw ambiguous();
-    if (req.params.settings && (!action.params.settings || Object.keys(action.params.settings).length !== Object.keys(req.params.settings).length || Object.entries(req.params.settings).some(([k, v]) => action.params.settings?.[k] !== v))) throw ambiguous();
-    if (req.plan_sha256 && action.plan_sha256 !== req.plan_sha256) throw ambiguous();
+    if (typeof action.id !== 'string' || !action.id || (action.type as string) !== body.type || !states.has(action.state) || !action.params || typeof action.params !== 'object' || action.idempotency_key !== body.idempotency_key || !Number.isFinite(Date.parse(action.expires_at))) throw ambiguous();
     if (action.progress && (typeof action.progress.step !== 'string' || !Number.isFinite(action.progress.pct) || action.progress.pct < 0 || action.progress.pct > 100)) throw ambiguous();
+    if (!matches(action)) throw ambiguous();
     return action;
+  }
+  createAction(req: ActionRequest) {
+    return this.fileAction(req, (action) => {
+      if (action.params.app_id !== req.params.app_id) return false;
+      if (req.params.settings && (!action.params.settings || Object.keys(action.params.settings).length !== Object.keys(req.params.settings).length || Object.entries(req.params.settings).some(([k, v]) => action.params.settings?.[k] !== v))) return false;
+      return !req.plan_sha256 || action.plan_sha256 === req.plan_sha256;
+    });
   }
   private async sdkCall<T>(method: 'GET' | 'POST', path: string, body?: unknown, array = false): Promise<T> {
     try {
@@ -228,15 +240,12 @@ export class HttpApi implements OneMindApi {
     if (raw.some((s) => !s || typeof s.id !== 'string' || typeof s.name !== 'string' || typeof s.commit !== 'string' || !Array.isArray(s.apps) || !Array.isArray(s.errors))) throw new ApiError(200, 'unknown', 'Invalid gateway sources');
     return raw;
   }
-  async requestSourceAdd(params: SourceAddParams, key: { idempotency_key: string; expires_at: string }) {
-    let action: Action;
-    try { action = await this.sdkCall<Action>('POST', '/v1/actions', { type: 'source.add', params, ...key }); }
-    catch (e) {
-      if (e instanceof ApiError && e.status >= 400 && e.status < 500) throw e;
-      throw new ApiError(0, 'outcome_unknown', 'The request may have been recorded. Retry to confirm it.');
-    }
-    if (action.type as string !== 'source.add' || action.idempotency_key !== key.idempotency_key || typeof action.id !== 'string') throw new ApiError(0, 'outcome_unknown', 'The gateway did not return the matching request. Retry to confirm it.');
-    return action;
+  requestSourceAdd(params: SourceAddParams, key: { idempotency_key: string; expires_at: string }) {
+    return this.fileAction({ type: 'source.add', params, ...key }, (action) => {
+      const got = action.params as unknown as Record<string, unknown>;
+      return Object.keys(got).length === 3 && got.name === params.name && got.url === params.url && got.commit === params.commit
+        && Date.parse(action.expires_at) === Date.parse(key.expires_at);
+    });
   }
   async convertCompose(body: { app_id: string; name?: string; compose: string }) {
     const raw = await this.sdkCall<ComposeResult>('POST', '/v1/deploy/compose', body);

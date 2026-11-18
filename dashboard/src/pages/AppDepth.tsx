@@ -22,6 +22,11 @@ export function AppDepth({ appId }: { appId: string }) {
     return api.appHostPorts(appId);
   }, 0);
   const canAsk = hub.canRequest !== 'no' && hub.freshness === 'live';
+  // An installed app whose dependency was removed is already past the install gate: say it may not work.
+  const installed = hub.apps.data?.find((a) => a.id === appId)?.installed === true;
+  const missing = installed
+    ? 'Missing: no app that provides this is installed, so this app may not work. Install one of these.'
+    : 'Missing: install one of these first. The install request is refused until one is running.';
   return <>
     <section aria-label="Dependencies">
       <h2>Dependencies</h2>
@@ -29,7 +34,7 @@ export function AppDepth({ appId }: { appId: string }) {
         {deps.data.requires.length === 0 ? <p>This app needs no other app.</p> : <ul>
           {deps.data.requires.map((r) => <li key={r.id}>
             <p><strong>Needs {r.choices.map((c) => c.name || c.id).join(' or ')}</strong>{r.reason ? ` — ${r.reason}` : ''}</p>
-            <p role="status">{r.satisfied_by ? `Satisfied by ${hub.appName(r.satisfied_by)}.` : 'Missing: install one of these first. The install request is refused until one is running.'}</p>
+            <p role="status">{r.satisfied_by ? `Satisfied by ${hub.appName(r.satisfied_by)}.` : missing}</p>
             {!r.satisfied_by && <ul aria-label={`Choices for ${r.id}`}>
               {r.choices.map((c) => <li key={c.id}>
                 {c.in_catalog ? <a href={href.app(c.id)}>{c.name || c.id}</a> : <span>{c.id} (not in the catalog)</span>}

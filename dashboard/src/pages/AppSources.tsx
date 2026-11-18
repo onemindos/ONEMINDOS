@@ -16,8 +16,12 @@ import { StoreTabs } from './Market';
 
 const REQUEST_TTL_MS = 24 * 3600 * 1000;
 
+/** Adding a source and Compose import are owner-only (§12.22); say so before the form, not after a 403. */
+const OWNER_ONLY = (what: string) => `Only an owner can ${what}. This account is not an owner, so the form cannot be sent.`;
+
 export function Sources() {
-  const { api } = useSignedIn();
+  const { api, canDecide } = useSignedIn();
+  const notOwner = canDecide === 'no';
   const hub = useHub();
   const toast = useToast();
   const navigate = useNavigate();
@@ -43,7 +47,8 @@ export function Sources() {
       toast.show({ tone: 'info', title: 'Request sent', body: 'Nothing is fetched until the owner approves it in Approvals.' });
       navigate(href.approval(action.id));
     } catch (e) {
-      if (e instanceof ApiError && e.status >= 400 && e.status < 500) keys.current.delete(slot);
+      // outcome_unknown (lost reply, 408, 5xx): keep the key so a retry returns the same request.
+      if (!(e instanceof ApiError && e.code === 'outcome_unknown')) keys.current.delete(slot);
       toast.show({ tone: 'bad', title: 'Could not request the source', body: errorText(e).message });
     } finally {
       setSending(false);
@@ -65,11 +70,12 @@ export function Sources() {
     </section>
     <section aria-label="Add a source">
       <h2>Add a pinned source</h2>
-      <form onSubmit={(e) => { e.preventDefault(); setReview(form); }}>
+      {notOwner && <p role="note">{OWNER_ONLY('add a source')}</p>}
+      <form onSubmit={(e) => { e.preventDefault(); if (!notOwner) setReview(form); }}>
         <p><label>Name<input required pattern="[a-z0-9]([a-z0-9\-]{0,18}[a-z0-9])?" maxLength={20} value={form.name} onChange={set('name')} /></label><small>Lowercase letters, digits and dashes.</small></p>
         <p><label>Git URL<input required type="url" pattern="https://.+" maxLength={500} value={form.url} onChange={set('url')} /></label><small>https only, no user name or query.</small></p>
         <p><label>Commit<input required pattern="[0-9a-f]{40}" minLength={40} maxLength={40} value={form.commit} onChange={set('commit')} /></label><small>The full 40-character commit id. A branch name is not accepted: a pin never moves by itself.</small></p>
-        <Button type="submit" disabled={sending || hub.canRequest === 'no'}>Review source</Button>
+        <Button type="submit" disabled={sending || notOwner || hub.canRequest === 'no'}>Review source</Button>
       </form>
       <p className="om-hint">Only an owner may add a source, and an owner approves it in Approvals before anything is fetched.</p>
     </section>
@@ -81,7 +87,8 @@ export function Sources() {
 }
 
 export function ComposeImport() {
-  const { api } = useSignedIn();
+  const { api, canDecide } = useSignedIn();
+  const notOwner = canDecide === 'no';
   const [appId, setAppId] = useState('');
   const [name, setName] = useState('');
   const [text, setText] = useState('');
@@ -89,7 +96,7 @@ export function ComposeImport() {
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
   const convert = async () => {
-    if (!api.convertCompose) return;
+    if (!api.convertCompose || notOwner) return;
     setBusy(true);
     setError(undefined);
     try {
@@ -104,11 +111,12 @@ export function ComposeImport() {
   return <>
     <PageHeader title="Import a Compose file" lede="Convert a docker-compose.yml into a OneMind app folder. The conversion writes nothing and installs nothing." />
     <StoreTabs current="compose" />
+    {notOwner && <p role="note">{OWNER_ONLY('import a Compose file')}</p>}
     <form onSubmit={(e) => { e.preventDefault(); void convert(); }}>
       <p><label>App id<input required pattern="[a-z0-9]([a-z0-9\-]{0,57}[a-z0-9])?" maxLength={59} value={appId} onChange={(e) => setAppId(e.target.value)} /></label></p>
       <p><label>Display name (optional)<input maxLength={80} value={name} onChange={(e) => setName(e.target.value)} /></label></p>
       <p><label>Compose file<textarea required rows={12} value={text} onChange={(e) => setText(e.target.value)} /></label></p>
-      <Button type="submit" disabled={busy}>Convert</Button>
+      <Button type="submit" disabled={busy || notOwner}>Convert</Button>
     </form>
     {error && <p role="alert">{error}</p>}
     {result && <section aria-label="Conversion result">
