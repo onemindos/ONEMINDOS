@@ -231,6 +231,22 @@
             "minMemoryMb": {
               "type": "integer",
               "minimum": 1
+            },
+            "cpuLevel": {
+              "description": "Lowest CPU level the pinned images need, per architecture. Install and update are refused on a box below it (NMD-09, #134). x86-64 levels follow the x86-64 psABI (-march=x86-64-vN). Omit when the images run on any CPU of the architecture.",
+              "type": "object",
+              "additionalProperties": false,
+              "minProperties": 1,
+              "properties": {
+                "amd64": {
+                  "enum": [
+                    "x86-64-v1",
+                    "x86-64-v2",
+                    "x86-64-v3",
+                    "x86-64-v4"
+                  ]
+                }
+              }
             }
           }
         },

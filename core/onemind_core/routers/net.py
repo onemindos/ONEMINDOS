@@ -29,7 +29,9 @@ from ..fabric import FabricDeps, FabricService, JoinRequestBody, K3sBootstrapTok
 from ..lan import AvahiPublisher, desired_names
 from ..mesh import TAG_HUB, HeadscaleClient, HeadscaleError, MeshService, tls_transport
 from ..netconf import FabricSettings, MeshSettings, NetSettings
-from ..proxy import SESSION_COOKIE, AppProxy, AppProxyMiddleware, KubectlServiceResolver, token_session_resolver
+from ..proxy import (
+    SESSION_COOKIE, AppProxy, AppProxyMiddleware, KubectlServiceResolver, gateway_session_resolver, sharing_check,
+)
 
 log = logging.getLogger("onemind.net")
 
@@ -91,10 +93,15 @@ def register(app: FastAPI, gw: Gateway) -> None:
     gw.actions.register_handler("node.join", fabric)
 
     # ---- the app proxy: <app>.<box>.local, <app>.onemind.local, <app>.apps.onemind.internal ----------
+    def exposure_of(app_id: str) -> str:
+        """The app's tier (§12.22, default private), read when a request arrives on a mesh name."""
+        return app.state.appstore.repo.get_exposure(app_id)[0]
+
     proxy = AppProxy(
         gw.catalog, lambda i: (st := gw.repo.get_app_state(i)) and st.status,
-        token_session_resolver(gw.tokens), KubectlServiceResolver(settings.kubectl),
+        gateway_session_resolver(gw.tokens, gw.authenticators), KubectlServiceResolver(settings.kubectl),
         box_domains=net.box_domains(), audit=gw.audit.append, path_routes=net.path_routes,
+        exposure=exposure_of, shared=sharing_check(gw.authenticators, gw.app_filters),
     )
     app.add_middleware(AppProxyMiddleware, proxy=proxy)
 
@@ -264,6 +271,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         if matched is None:
             raise ApiError(404, "not_found", "not an app host")
         headers = {k.lower(): v for k, v in request.headers.items()}
+        headers["host"] = host  # the name the person used, not the gateway's own: the exposure tier depends on it
         status, who, _route = proxy.decide(headers, matched[0])
         if status == 204 and who is not None:
             return Response(status_code=204, headers={"X-OneMind-Principal": f"person:{who.id}", "X-OneMind-Role": who.role})
