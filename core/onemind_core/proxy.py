@@ -24,6 +24,9 @@ What it refuses (no open proxy):
 - a WebSocket, or a request with an unsafe method (anything but GET/HEAD/OPTIONS), whose Origin
   is not the host it is sent to is refused (cross-site hijacking and CSRF: app names share one
   site, so SameSite=Lax alone would let one app post to another as the person);
+- an app that is not shared with the person (contract §12.6, the same `app_filters` as
+  GET /v1/apps) and an app whose exposure tier (§12.22) does not include the name used (a private
+  app on its mesh name) are 404, as if they did not exist;
 - an unauthenticated request gets 401 whether or not the app exists, so installed apps cannot be
   listed without signing in.
 
@@ -34,7 +37,7 @@ small HTML page, any other client plain text. 404 stays for names that are not a
 
 Timeouts: connect, idle read and total request body size are bounded (H-20). The decision
 `AppProxy.decide()` is the same one the Go edge will ask for through /v1/auth/forward (§9.3;
-that route does not exist yet).
+that route is in routers/net.py).
 """
 
 from __future__ import annotations
@@ -55,10 +58,12 @@ from urllib.parse import quote, urlsplit
 
 import h11
 from websockets.asyncio.client import connect as ws_connect
+from starlette.requests import Request
 from websockets.exceptions import ConnectionClosed, InvalidHandshake, InvalidStatus
 
 from .auth import Principal, TokenStore
 from .catalog import APP_ID_RE, Catalog
+from .errors import ApiError
 
 log = logging.getLogger("onemind.proxy")
 
@@ -99,6 +104,12 @@ ServiceResolver = Callable[[str, int], str | None]
 """(namespace, port) -> the address of the Service in that namespace exposing that port."""
 
 
+def _bearer_or_cookie(headers: dict[str, str], cookies: dict[str, str], cookie: str) -> str:
+    scheme, _, token = headers.get("authorization", "").partition(" ")
+    token = token.strip() if scheme.lower() == "bearer" else ""
+    return token or cookies.get(cookie, "").strip()
+
+
 def token_session_resolver(tokens: TokenStore, cookie: str = SESSION_COOKIE) -> SessionResolver:
     """v0 sessions: a bearer token in the Authorization header or in the session cookie.
 
@@ -107,12 +118,61 @@ def token_session_resolver(tokens: TokenStore, cookie: str = SESSION_COOKIE) -> 
     """
 
     def resolve(headers: dict[str, str], cookies: dict[str, str]) -> Principal | None:
-        scheme, _, token = headers.get("authorization", "").partition(" ")
-        token = token.strip() if scheme.lower() == "bearer" else ""
-        token = token or cookies.get(cookie, "").strip()
+        token = _bearer_or_cookie(headers, cookies, cookie)
         return tokens.lookup(token) if token else None
 
     return resolve
+
+
+def _probe(token: str, authenticators: list) -> tuple[Request, Principal | None]:
+    """The gateway's own authenticators asked about a household session token (`om_ses_`, §12.6).
+
+    Only sessions open apps. An API token is scoped to routes (`instance:read`, `apps:read`...),
+    while an app host is whole-app interactive access, so a scoped token must not open one; it is
+    simply "not signed in" here. The authenticators take a Request, so one is made for GET /v1/me;
+    a refusal (ApiError: disabled account) is also "not signed in". The returned request carries
+    `state.identity` for the sharing filters.
+    """
+    request = Request({"type": "http", "method": "GET", "path": "/v1/me", "raw_path": b"/v1/me",
+                       "query_string": b"", "scheme": "https", "client": None, "server": None,
+                       "headers": [(b"authorization", f"Bearer {token}".encode("latin-1"))]})
+    if not token.startswith("om_ses_"):
+        return request, None
+    for authenticate in authenticators:
+        try:
+            principal = authenticate(request, token)
+        except ApiError:  # disabled account: not signed in for an app
+            return request, None
+        if principal is not None:
+            return request, principal
+    return request, None
+
+
+def gateway_session_resolver(tokens: TokenStore, authenticators: list, cookie: str = SESSION_COOKIE) -> SessionResolver:
+    """token_session_resolver plus the gateway's authenticators, so a household member's session
+    token (the one the dashboard sends to POST /v1/auth/app-session) opens apps too."""
+
+    def resolve(headers: dict[str, str], cookies: dict[str, str]) -> Principal | None:
+        token = _bearer_or_cookie(headers, cookies, cookie)
+        if not token:
+            return None
+        return tokens.lookup(token) or _probe(token, authenticators)[1]
+
+    return resolve
+
+
+def sharing_check(authenticators: list, filters: list, cookie: str = SESSION_COOKIE) -> Callable[[Principal, str, dict[str, str]], bool]:
+    """AppProxy(shared=...): the gateway's `app_filters` (per-app sharing, §12.6) for this request.
+
+    Both lists are the gateway's live ones, so a feature that registers later still counts.
+    """
+
+    def shared(principal: Principal, app_id: str, headers: dict[str, str]) -> bool:
+        token = _bearer_or_cookie(headers, parse_cookies(headers.get("cookie", "")), cookie)
+        request, _ = _probe(token, authenticators)
+        return all(f(request, principal, app_id) for f in list(filters))
+
+    return shared
 
 
 class KubectlServiceResolver:
@@ -230,6 +290,7 @@ class AppProxy:
         path_routes: bool = False,
         exposure: Callable[[str], str] | None = None,
         mesh_domains: tuple[str, ...] = ("apps.onemind.internal",),
+        shared: Callable[[Principal, str, dict[str, str]], bool] | None = None,
     ):
         """app_status(app_id) returns the ledger status ("installed", ...) or None.
 
@@ -239,6 +300,8 @@ class AppProxy:
         see the module docstring before turning it on).
         exposure(app_id) -> private | mesh | public (contract §12.22): a request on a mesh_domains
         name is answered 404 unless the app's tier includes the mesh.
+        shared(principal, app_id, headers) -> whether the app is shared with this person (§12.6);
+        False is 404, like GET /v1/apps. None: every signed-in person (the v0 behaviour).
         """
         self.catalog = catalog
         self.app_status = app_status
@@ -253,6 +316,7 @@ class AppProxy:
         self.path_routes = path_routes
         self.exposure = exposure
         self.mesh_domains = tuple(d.lower().strip(".") for d in mesh_domains)
+        self.shared = shared
         self._routes: dict[str, tuple[float, AppRoute | None]] = {}
         self._lock = threading.Lock()
 
@@ -311,7 +375,8 @@ class AppProxy:
             return None
         return AppRoute(app_id=app_id, host=host, port=port, access=access, name=name)
 
-    def not_running(self, principal: Principal, host: str, app_id: str) -> tuple[str, str] | None:
+    def not_running(self, principal: Principal, host: str, app_id: str,
+                    headers: dict[str, str] | None = None) -> tuple[str, str] | None:
         """(display name, ledger status) of a web app that exists but is not serving, else None.
 
         Asked only after decide() said 404 to a signed-in person, and answered only when that person
@@ -319,7 +384,8 @@ class AppProxy:
         learns of an app they may not open. decide() itself keeps its four answers: /v1/auth/forward
         maps them one to one.
         """
-        if not APP_ID_RE.match(app_id) or not self._exposed(host, app_id):
+        if not APP_ID_RE.match(app_id) or not self._exposed(host, app_id) \
+                or not self._shared_with(principal, app_id, headers or {}):
             return None
         status = self.app_status(app_id)
         if status not in NOT_RUNNING:
@@ -338,11 +404,16 @@ class AppProxy:
         if principal is None:
             return Decision.UNAUTHENTICATED, None, None
         route = self.route_for(app_id)
-        if route is None or not self._exposed(headers.get("host", ""), app_id):
+        if route is None or not self._exposed(headers.get("host", ""), app_id) \
+                or not self._shared_with(principal, app_id, headers):
             return Decision.NOT_FOUND, principal, None
         if not allowed(principal, route.access):
             return Decision.FORBIDDEN, principal, route
         return Decision.ALLOW, principal, route
+
+    def _shared_with(self, principal: Principal, app_id: str, headers: dict[str, str]) -> bool:
+        """False for an app the owner has not shared with this person (§12.6)."""
+        return self.shared is None or self.shared(principal, app_id, headers)
 
     def _exposed(self, host: str, app_id: str) -> bool:
         """False for a mesh name of an app that is not exposed on the mesh (§12.22)."""
@@ -494,7 +565,7 @@ class AppProxyMiddleware:
             status = Decision.FORBIDDEN
         page = _wants_page(headers)
         if status == Decision.NOT_FOUND and principal is not None:
-            down = self.proxy.not_running(principal, headers.get("host", ""), app_id)
+            down = self.proxy.not_running(principal, headers.get("host", ""), app_id, headers)
             if down is not None:
                 text, changing = unavailable_text(*down)
                 return await _plain(send, Decision.UNAVAILABLE, text, page=page, refresh=changing)
