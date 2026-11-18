@@ -28,6 +28,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from ..actions import FeatureAction
 from ..auth import Principal
+from .. import cpufit
 from ..catalog import APP_ID_RE, MANIFEST, AppEntry
 from ..context import Gateway
 from ..errors import ApiError
@@ -240,6 +241,12 @@ class AppStore:
         if action_type == "app.configure":
             self._check_configure(params, phase)
             return
+        if action_type in ("app.install", "app.update"):
+            # NMD-09 (#134): an image the hub's CPU cannot run is refused before anything is pulled.
+            fit = cpufit.refusal(app.manifest, cpufit.hub(self.gw.registry.list()))
+            if fit:
+                code, message, details = fit
+                raise _refuse(409, "stale_precondition", message, reason=code, details=details)
         statuses = self.statuses()
         if action_type == "app.install":
             missing = deps.unsatisfied(app.manifest, deps.providing(statuses))

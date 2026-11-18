@@ -35,7 +35,8 @@ import time
 
 ROLES = ("hub", "worker", "leaf")
 ROLE_UNITS = {
-    "hub": ["onemind-nats.service", "onemindd.service", "onemind-gateway.service", "onemind-gateway-kube.service"],
+    "hub": ["onemind-nats.service", "onemindd.service", "onemind-gateway.service", "onemind-gateway-kube.service",
+            "onemind-rescue.service"],
     "worker": ["onemindd.service"],
     "leaf": ["onemind-nats.service", "onemindd.service"],
 }
@@ -68,6 +69,7 @@ class Paths:
         self.run = j("run", "onemind")
         self.console = j("dev", "console")
         self.lib = j("usr", "lib", "onemind")
+        self.rescue_tls = j("data", "onemind", "tls")   # https.crt/https.key for onemind-rescue (CORE-UPDATE-9)
 
 
 # ------------------------------------------------------------------ settings
@@ -282,6 +284,44 @@ def make_ca(p: Paths) -> str:
     return "created"
 
 
+def issue_rescue_cert(p: Paths, hostname: str) -> str:
+    """Hub only (CORE-UPDATE-9): the HTTPS pair for the rescue console on :7443, signed by the box CA.
+    Kept if present. The key stays root-only: the rescue unit runs as root, the gateway never reads it.
+    Returns "kept" or "created"."""
+    d = p.rescue_tls
+    key, csr, crt = (os.path.join(d, f) for f in ("https.key", "https.csr", "https.crt"))
+    if os.path.exists(key) and os.path.exists(crt):
+        return "kept"
+    os.makedirs(d, mode=0o700, exist_ok=True)
+    os.chmod(d, 0o700)
+    ext = os.path.join(d, "https.ext")
+    write(ext, f"subjectAltName=DNS:{hostname},DNS:{hostname}.local,DNS:onemind.local,DNS:localhost,IP:127.0.0.1\n"
+               "extendedKeyUsage=serverAuth\n", 0o600)
+    run = lambda *a: subprocess.run(a, check=True, capture_output=True)
+    try:
+        run("openssl", "req", "-new", "-newkey", "ec", "-pkeyopt", "ec_paramgen_curve:P-256", "-nodes",
+            "-subj", f"/O=OneMind/CN={hostname}", "-keyout", key, "-out", csr)
+        run("openssl", "x509", "-req", "-in", csr, "-CA", os.path.join(p.identity, "ca.pem"),
+            "-CAkey", os.path.join(p.identity, "ca.key"), "-CAcreateserial", "-days", "825", "-sha256",
+            "-extfile", ext, "-out", crt)
+    finally:
+        for f in (csr, ext):
+            if os.path.exists(f):
+                os.remove(f)
+    os.chmod(key, 0o600)
+    os.chmod(crt, 0o644)
+    return "created"
+
+
+def ensure_rescue_tls(p: Paths) -> None:
+    """Never fatal: without the pair the rescue unit refuses to start and the rest of the box is unaffected."""
+    host = socket.gethostname()
+    try:
+        issue_rescue_cert(p, host if HOST_RE.match(host) else "onemind")
+    except (OSError, subprocess.CalledProcessError) as e:
+        log(f"rescue console certificate not made: {e}")
+
+
 def configure(p: Paths, cfg: dict, source: str, make_ca_fn=make_ca) -> str | None:
     """Write role, secrets and service settings. Returns the owner token (hub) or None.
     state.json is written last: until it exists, the next boot configures again from scratch."""
@@ -317,6 +357,7 @@ def configure(p: Paths, cfg: dict, source: str, make_ca_fn=make_ca) -> str | Non
           f"ONEMIND_NODE_ID={node_id}\nONEMIND_DISK_PATH=/data\n")
     ca = make_ca_fn(p)
     if role == "hub":
+        ensure_rescue_tls(p)
         ids = onemind_ids()
         os.makedirs(p.gateway, mode=0o750, exist_ok=True)
         if ids:
@@ -377,6 +418,8 @@ def systemctl(*args: str) -> None:
 
 def start_units(p: Paths, role: str) -> None:
     ids = onemind_ids()
+    if role == "hub":
+        ensure_rescue_tls(p)               # boxes configured before CORE-UPDATE-9 get their pair now
     if role == "hub" and ids and os.path.isdir(p.gateway):
         # uid of "onemind" is fixed in the image (961), but re-own after an update anyway.
         for dirpath, _dirs, files in os.walk(p.gateway):
