@@ -84,6 +84,9 @@ Install as a service: see [`deploy/systemd/`](../../deploy/systemd/README.md).
 curl --cacert ca.crt -H "Authorization: Bearer $OWNER_TOKEN" https://onemind.local:7443/status.json
 ```
 
+### Owner terminal (SEC-TERM-01, #273)
+The console can carry an owner-only web terminal ([threat model](../../docs/security/rescue-terminal.md)). It is **off by default and refuses every shell until passkey sign-in exists** (D-014: never behind the plain owner token). `onemindd rescue terminal enable|disable|status` flips the switch file (`-terminal-switch`, `ONEMIND_RESCUE_TERMINAL_SWITCH`, default `/etc/onemind/rescue-terminal.on`); each change, and every session start and end, is written to the console's own audit chain (`-audit`, `ONEMIND_RESCUE_AUDIT`, default `/var/lib/onemind/rescue-audit.jsonl`). A valid agent or non-owner token gets 403 on `/terminal`.
+
 ## Known gaps
 - **Rescue console:** owner token, not the owner passkey that UPDATES §3.5 plans (passkeys arrive with Kanidm, BD-03). The CA directory lives on `/data`, so when `/data` itself is lost the console has no certificate and only loopback works; recovery mode's read-only page on :8080 covers that case (`os/recovery/README.md`). Restore and gate-log views are not built yet. The lockout is per address, so a LAN device can keep the owner locked out while it keeps guessing. Not yet run on hardware with real RAUC (`mark-active other` under this unit is UNVERIFIED until an LT-X86 kit runs it).
 - `vm` detection inside a container needs `systemd-detect-virt` or readable DMI; a plain Docker container on a VM may report `unknown`.
