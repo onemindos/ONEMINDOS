@@ -553,8 +553,10 @@ POLICY |= {
                                         f"{_SYS}: restart, shutdown, reset and their pending requests; owner only"),
     ("GET", "/v1/system/diagnostics"): Row(OWNER_ONLY, w.p_static("/v1/system/diagnostics"),
                                            f"{_SYS}: the redacted diagnostic bundle; owner only, audited"),
-    # A restart request is filed (202) for the owner and agents; it still waits for the owner's approval.
-    ("POST", "/v1/system/actions"): Row(cells(403, **GONE, owner=202, agent=202, app_agent=202, plugin=DENIED,
+    # The owner and agents pass authorization; the gateway has no host path yet (NoHostPath), so the
+    # request answers 409 host_unavailable instead of filing it. With a host, it is filed (202) and waits
+    # for the owner's approval (tests/test_system_controls.py). Everyone else is refused first (403).
+    ("POST", "/v1/system/actions"): Row(cells(403, **GONE, owner=409, agent=409, app_agent=409, plugin=DENIED,
                                               automation=DENIED, node=DENIED),
                                         lambda _w: w.Req("/v1/system/actions", json={"type": "system.restart"}),
                                         f"{_SYS}: owner or agent requests a restart; only an owner approves it"),

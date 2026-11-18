@@ -1468,6 +1468,70 @@
         "title": "DestinationBody",
         "type": "object"
       },
+      "DiagnosticsBundle": {
+        "additionalProperties": true,
+        "description": "GET /v1/system/diagnostics: a redacted bundle for support. More fields may appear.",
+        "properties": {
+          "actions": {
+            "additionalProperties": true,
+            "title": "Actions",
+            "type": "object"
+          },
+          "audit": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Audit",
+            "type": "array"
+          },
+          "gateway": {
+            "additionalProperties": true,
+            "title": "Gateway",
+            "type": "object"
+          },
+          "generated_at": {
+            "title": "Generated At",
+            "type": "string"
+          },
+          "nodes": {
+            "description": "node heartbeats: ids hashed, names dropped, text redacted",
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Nodes",
+            "type": "array"
+          },
+          "redaction": {
+            "$ref": "#/components/schemas/Redaction"
+          },
+          "schema": {
+            "description": "onemind.diagnostics/v1",
+            "title": "Schema",
+            "type": "string"
+          },
+          "system_controls": {
+            "items": {
+              "$ref": "#/components/schemas/SystemControl"
+            },
+            "title": "System Controls",
+            "type": "array"
+          }
+        },
+        "required": [
+          "schema",
+          "generated_at",
+          "gateway",
+          "nodes",
+          "actions",
+          "audit",
+          "system_controls",
+          "redaction"
+        ],
+        "title": "DiagnosticsBundle",
+        "type": "object"
+      },
       "DryRunBody": {
         "additionalProperties": false,
         "properties": {
@@ -3210,6 +3274,31 @@
         "title": "ReceiptPage",
         "type": "object"
       },
+      "Redaction": {
+        "properties": {
+          "found": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "description": "how many values each rule removed",
+            "title": "Found",
+            "type": "object"
+          },
+          "rules": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Rules",
+            "type": "array"
+          }
+        },
+        "required": [
+          "rules",
+          "found"
+        ],
+        "title": "Redaction",
+        "type": "object"
+      },
       "RefreshBody": {
         "properties": {
           "refresh_token": {
@@ -4178,6 +4267,98 @@
           "type"
         ],
         "title": "SystemActionRequest",
+        "type": "object"
+      },
+      "SystemControl": {
+        "description": "One control in GET /v1/system/controls: what it is and whether this box can perform it.",
+        "properties": {
+          "available": {
+            "description": "false: requests are refused with 409 host_unavailable",
+            "title": "Available",
+            "type": "boolean"
+          },
+          "confirm_phrase": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the phrase the owner types to ask for it; null when none",
+            "title": "Confirm Phrase"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "needs_passkey": {
+            "title": "Needs Passkey",
+            "type": "boolean"
+          },
+          "risk": {
+            "description": "actuate | destructive (§12.3)",
+            "title": "Risk",
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "system.restart",
+              "system.shutdown",
+              "system.factory_reset"
+            ],
+            "title": "Type",
+            "type": "string"
+          },
+          "unavailable_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unavailable Reason"
+          }
+        },
+        "required": [
+          "type",
+          "label",
+          "risk",
+          "needs_passkey",
+          "confirm_phrase",
+          "available",
+          "unavailable_reason"
+        ],
+        "title": "SystemControl",
+        "type": "object"
+      },
+      "SystemControls": {
+        "description": "GET /v1/system/controls.",
+        "properties": {
+          "controls": {
+            "items": {
+              "$ref": "#/components/schemas/SystemControl"
+            },
+            "title": "Controls",
+            "type": "array"
+          },
+          "pending": {
+            "description": "system requests not yet finished",
+            "items": {
+              "$ref": "#/components/schemas/Action"
+            },
+            "title": "Pending",
+            "type": "array"
+          }
+        },
+        "required": [
+          "controls",
+          "pending"
+        ],
+        "title": "SystemControls",
         "type": "object"
       },
       "TicketRequest": {
@@ -16883,7 +17064,7 @@
     },
     "/v1/system/actions": {
       "post": {
-        "description": "Request a restart, shutdown or factory reset. It waits for the owner's approval.",
+        "description": "Request a restart, shutdown or factory reset. It waits for the owner's approval.\n\n409 host_unavailable while this box cannot perform the control (nothing is filed: an approval\nthat can only fail would be noise); 429 too_many_pending when an agent has too many waiting.",
         "operationId": "system.actions.create",
         "requestBody": {
           "content": {
@@ -16897,12 +17078,21 @@
         },
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
+                }
+              }
+            },
             "description": "Idempotent replay"
           },
           "202": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
+                }
               }
             },
             "description": "Successful Response"
@@ -16956,6 +17146,16 @@
               }
             },
             "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
           }
         },
         "summary": "System Request",
@@ -16972,7 +17172,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/SystemControls"
+                }
               }
             },
             "description": "Successful Response"
@@ -17012,7 +17214,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/DiagnosticsBundle"
+                }
               }
             },
             "description": "Successful Response"

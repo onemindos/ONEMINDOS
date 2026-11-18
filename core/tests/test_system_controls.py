@@ -23,7 +23,7 @@ from onemind_core.app import create_app
 from onemind_core.executors import ExecResult
 from onemind_core.identity import IdentitySettings
 from onemind_core.identity.scopes import required_scopes
-from onemind_core.system import NoHostPath, redact
+from onemind_core.system import NoHostPath, node_pseudonym, redact
 from test_identity import ORIGIN, RP_ID, SoftAuthenticator, register_passkey, setup_owner
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -99,14 +99,36 @@ def test_agent_may_ask_for_a_restart_but_never_approve_it(settings, clock):
             assert ask(c, "system.shutdown", headers=who).status_code == 403
 
 
-def test_no_host_path_records_the_approval_and_never_claims_success(settings, clock):
+def test_no_host_path_refuses_to_file_controls_it_cannot_perform(settings, clock):
     with box(settings, clock) as c:
         ctl = c.get("/v1/system/controls", headers=OWNER).json()["controls"]
         assert {x["type"] for x in ctl} == {"system.restart", "system.shutdown", "system.factory_reset"}
         assert all(x["available"] is False and x["unavailable_reason"] == NoHostPath.MESSAGE for x in ctl)
+        for typ, who, extra in (("system.restart", OWNER, {}), ("system.shutdown", AGENT, {}),
+                                ("system.factory_reset", OWNER, {"confirm": "factory reset"})):
+            r = ask(c, typ, headers=who, **extra)
+            assert r.status_code == 409 and r.json()["reason"] == "host_unavailable", r.text
+            assert "rescue console" in r.json()["message"]
+        assert ask(c, "system.restart", headers=GUEST).status_code == 403  # no availability hint to the unauthorised
+        assert c.get("/v1/actions", headers=OWNER).json() == [] and c.get("/v1/system/controls", headers=OWNER).json()["pending"] == []
+
+
+def test_a_control_that_became_unavailable_after_the_request_fails_and_never_claims_success(settings, clock):
+    with box(settings, clock, host=Host()) as c:
         a = ask(c, "system.restart").json()
+        c.app.state.system.executor = NoHostPath()
         done = c.post(f"/v1/actions/{a['id']}/approve", headers=OWNER).json()
         assert done["state"] == "failed" and done["decided_by"]["id"] and "rescue console" in done["result"]["message"]
+
+
+def test_an_agent_cannot_flood_the_approval_queue(settings, clock):
+    with box(settings, clock, host=Host()) as c:
+        c.app.state.actions.max_pending_per_requester = 2
+        assert [ask(c, "system.restart", headers=AGENT).status_code for _ in range(2)] == [202, 202]
+        r = ask(c, "system.shutdown", headers=AGENT)
+        assert r.status_code == 429 and r.json()["reason"] == "too_many_pending", r.text
+        assert sum(a["requested_by"]["kind"] == "agent" for a in c.get("/v1/actions", headers=OWNER).json()) == 2
+        assert ask(c, "system.restart", headers=OWNER).status_code == 202  # the owner is never capped
 
 
 def test_factory_reset_needs_the_typed_phrase_the_owner_and_a_passkey(settings, clock):
@@ -144,7 +166,7 @@ def test_the_generic_actions_route_cannot_file_a_system_control(settings, clock)
 
 
 def test_requests_are_idempotent(settings, clock):
-    with box(settings, clock) as c:
+    with box(settings, clock, host=Host()) as c:
         first = ask(c, "system.shutdown", idempotency_key="same")
         again = ask(c, "system.shutdown", idempotency_key="same")
         assert first.status_code == 202 and again.status_code == 200 and again.json()["id"] == first.json()["id"]
@@ -173,7 +195,7 @@ SECRET = "sk_live_" + "Q" * 44
 
 
 def test_diagnostic_bundle_passes_the_hygiene_checks(settings, clock):
-    with box(settings, clock) as c:
+    with box(settings, clock, host=Host()) as c:
         hb = {"schema": "onemind.node.status/v1", "node_id": "pc0123456789", "hostname": "alices-laptop", "role": "hub",
               "arch": "amd64", "note": f"mounted {HOME} from {LAN} via {TAILNET}, {CGNAT}; owner {MAIL}",
               "api_token": SECRET, "last_error": f"Bearer {SECRET}", "v6": "fd00:1:2:3:4:5:6:7"}
@@ -187,7 +209,7 @@ def test_diagnostic_bundle_passes_the_hygiene_checks(settings, clock):
         for planted in (SECRET, "alices-laptop", "fd00:1:2", LAN, CGNAT, "alice"):
             assert planted not in text
         b = r.json()
-        assert b["schema"] == "onemind.diagnostics/v1" and b["nodes"][0]["node_id"] == "pc0123456789"
+        assert b["schema"] == "onemind.diagnostics/v1" and b["nodes"][0]["node_id"] == node_pseudonym("pc0123456789")
         assert b["nodes"][0]["status"] == "online"  # real health survives redaction
         assert b["actions"]["by_state"] == {"awaiting_approval": 1}
         assert any(e["event"] == "action.requested" for e in b["audit"])
@@ -202,3 +224,43 @@ def _audit(c) -> list[dict]:
 def test_redact_keeps_times_versions_and_ids():
     out, found = redact({"at": "2026-11-18T12:00:00Z", "version": "0.1.0", "id": "act_123", "n": 3})
     assert out == {"at": "2026-11-18T12:00:00Z", "version": "0.1.0", "id": "act_123", "n": 3} and found == {}
+
+
+def test_bundle_hashes_node_ids_and_drops_node_names(settings, clock):
+    with box(settings, clock) as c:
+        hb = {"schema": "onemind.node.status/v1", "node_id": "zeus-mbp", "name": "zeus-mbp", "display_name": "Zeus's MacBook",
+              "role": "hub", "labels": {"owner": "zeus"}, "peer": {"node_id": "zeus-mbp", "nickname": "laptop"}}
+        assert c.app.state.registry.ingest("onemind.node.zeus-mbp.status", json.dumps(hb).encode())
+        r = c.get("/v1/system/diagnostics", headers=OWNER)
+        assert "zeus" not in r.text.lower() and "laptop" not in r.text
+        b = r.json()
+        node = b["nodes"][0]
+        assert node["node_id"] == node_pseudonym("zeus-mbp") == "node-" + node["node_id"][5:] and len(node["node_id"]) == 17
+        assert node["peer"] == {"node_id": node_pseudonym("zeus-mbp")} and node["role"] == "hub" and node["status"] == "online"
+        assert not {"name", "display_name", "labels"} & node.keys()
+        hub = c.app.state.gateway.settings.node_id
+        assert b["gateway"]["hub_node_id"] == (node_pseudonym(hub) if hub else None)
+        assert b["redaction"]["found"]["name-field"] == 4 and b["redaction"]["found"]["node-id"] >= 2
+        assert node_pseudonym("zeus-mbp") == c.get("/v1/system/diagnostics", headers=OWNER).json()["nodes"][0]["node_id"]  # stable
+
+
+@pytest.mark.parametrize("text", ["std::vector<int>", "deadbeef::cafe", "Foo::Bar", "a :: b", "at 12:30:45", "fe80"])
+def test_ipv6_rule_leaves_code_and_words_alone(text):
+    assert redact(text) == (text, {})
+
+
+@pytest.mark.parametrize("addr", ["fd7a:115c:a1e0::1", "2001:db8::1", "::1", "fd00:1:2:3:4:5:6:7", "fe80::1"])
+def test_ipv6_rule_still_removes_addresses(addr):
+    out, found = redact(f"peer {addr}, up")
+    assert out == "peer [ip], up" and found == {"ipv6": 1}
+
+
+def test_controls_and_bundle_match_their_published_models(settings, clock):
+    from onemind_core.system import DiagnosticsBundle, SystemControls
+    with box(settings, clock, host=Host()) as c:
+        ask(c, "system.restart")
+        SystemControls.model_validate(c.get("/v1/system/controls", headers=OWNER).json())
+        DiagnosticsBundle.model_validate(c.get("/v1/system/diagnostics", headers=OWNER).json())
+        spec = c.get("/openapi.json").json()
+        ok = spec["paths"]["/v1/system/actions"]["post"]["responses"]["202"]["content"]["application/json"]["schema"]
+        assert ok["$ref"].endswith("/Action")

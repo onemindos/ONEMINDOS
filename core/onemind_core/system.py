@@ -15,11 +15,13 @@ with that reason, so the ledger shows the owner's decision and the box never pre
 The diagnostic bundle is what support needs to see what is wrong, and nothing personal: versions,
 node health, recent actions and audit event names. Every string goes through `redact`, which covers
 the public-repo hygiene patterns (scripts/hygiene.py: home paths, private IPv4, tailnet names, e-mail
-addresses) plus every IP address, secret-looking keys and long token-shaped values.
+addresses) plus every IP address, secret-looking keys and long token-shaped values; node ids are
+replaced by a stable short hash and node names are dropped.
 """
 
 from __future__ import annotations
 
+import hashlib
 import re
 from collections import Counter, deque
 from typing import Any, Literal, Protocol
@@ -27,6 +29,7 @@ from typing import Any, Literal, Protocol
 from pydantic import BaseModel, ConfigDict, Field
 
 from . import __version__
+from .apimodels import Action
 from .auditread import iter_records
 from .executors import ExecResult
 from .ledger import TERMINAL, iso
@@ -52,6 +55,44 @@ class SystemActionRequest(BaseModel):
     confirm: str | None = Field(default=None, max_length=40)
     reason: str | None = Field(default=None, max_length=500)
     idempotency_key: str | None = Field(default=None, min_length=1, max_length=200)
+
+
+class SystemControl(BaseModel):
+    """One control in GET /v1/system/controls: what it is and whether this box can perform it."""
+
+    type: Literal["system.restart", "system.shutdown", "system.factory_reset"]
+    label: str
+    risk: str = Field(description="actuate | destructive (§12.3)")
+    needs_passkey: bool
+    confirm_phrase: str | None = Field(description="the phrase the owner types to ask for it; null when none")
+    available: bool = Field(description="false: requests are refused with 409 host_unavailable")
+    unavailable_reason: str | None
+
+
+class SystemControls(BaseModel):
+    """GET /v1/system/controls."""
+
+    controls: list[SystemControl]
+    pending: list[Action] = Field(description="system requests not yet finished")
+
+
+class Redaction(BaseModel):
+    rules: list[str]
+    found: dict[str, int] = Field(description="how many values each rule removed")
+
+
+class DiagnosticsBundle(BaseModel):
+    """GET /v1/system/diagnostics: a redacted bundle for support. More fields may appear."""
+
+    model_config = ConfigDict(extra="allow")
+    schema_: str = Field(alias="schema", description=BUNDLE_SCHEMA)
+    generated_at: str
+    gateway: dict[str, Any]
+    nodes: list[dict[str, Any]] = Field(description="node heartbeats: ids hashed, names dropped, text redacted")
+    actions: dict[str, Any]
+    audit: list[dict[str, Any]]
+    system_controls: list[SystemControl]
+    redaction: Redaction
 
 
 class SystemExecutor(Protocol):
@@ -83,8 +124,11 @@ _RULES: list[tuple[str, re.Pattern[str], str]] = [
     ("email", re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}"), "[email]"),
     ("tailnet", re.compile(r"[A-Za-z0-9.-]+\.ts\.net\b"), "[tailnet-name]"),
     ("ipv4", re.compile(r"\b\d{1,3}(?:\.\d{1,3}){3}\b"), "[ip]"),
-    # Full IPv6 (8 groups) or compressed ("::"); a clock time (hh:mm:ss) is neither.
-    ("ipv6", re.compile(r"\b(?:[0-9A-Fa-f]{1,4}:){7}[0-9A-Fa-f]{1,4}\b|(?:[0-9A-Fa-f]{1,4})?::(?:[0-9A-Fa-f]{1,4}:?)*"), "[ip]"),
+    # Full IPv6 (8 groups) or compressed ("::" with at least one hex digit), standing alone: not part
+    # of a longer word, so "std::vector" and "deadbeef::cafe" survive; a clock time (hh:mm:ss) has no "::".
+    ("ipv6", re.compile(r"(?<![0-9A-Za-z:])(?:(?:[0-9A-Fa-f]{1,4}:){7}[0-9A-Fa-f]{1,4}"
+                        r"|(?=[0-9A-Fa-f:]*[0-9A-Fa-f])(?:[0-9A-Fa-f]{1,4}(?::[0-9A-Fa-f]{1,4}){0,6})?::"
+                        r"(?:[0-9A-Fa-f]{1,4}(?::[0-9A-Fa-f]{1,4}){0,6})?)(?![0-9A-Za-z:])"), "[ip]"),
     ("bearer", re.compile(r"(?i)\bbearer\s+\S+"), "Bearer [token]"),
     ("token", re.compile(r"\b[A-Za-z0-9_\-]{40,}\b"), "[token]"),
 ]
@@ -114,6 +158,35 @@ class Redactor:
         if isinstance(v, (list, tuple)):
             return [self.value(x) for x in v]
         return v
+
+
+# Node heartbeats are free-form: a node's id or name ("zeus-mbp") can name a person. Ids become a
+# stable short hash (the same node keeps the same pseudonym across bundles, so support can still
+# follow one machine), and name-like fields are dropped.
+_NODE_ID_KEYS = frozenset({"node_id", "hub_node_id"})
+_NAME_KEY = re.compile(r"(?i)name|label|nickname")
+
+
+def node_pseudonym(node_id: str) -> str:
+    return "node-" + hashlib.sha256(node_id.encode()).hexdigest()[:12]
+
+
+def pseudonymize(v: Any, found: Counter[str]) -> Any:
+    """v with node ids hashed and name-like fields dropped, at every depth."""
+    if isinstance(v, dict):
+        out = {}
+        for k, x in v.items():
+            if k in _NODE_ID_KEYS and isinstance(x, str):
+                out[k] = node_pseudonym(x)
+                found["node-id"] += 1
+            elif _NAME_KEY.search(str(k)):
+                found["name-field"] += 1
+            else:
+                out[k] = pseudonymize(x, found)
+        return out
+    if isinstance(v, (list, tuple)):
+        return [pseudonymize(x, found) for x in v]
+    return v
 
 
 def redact(obj: Any) -> tuple[Any, dict[str, int]]:
@@ -153,11 +226,13 @@ class SystemService:
         for _, rec in iter_records(gw.audit.path):
             audit.append({"seq": rec.get("seq"), "ts": rec.get("ts"), "event": rec.get("event"),
                           "principal_kind": (rec.get("principal") or {}).get("kind"), "action_id": rec.get("action_id")})
+        named: Counter[str] = Counter()
         bundle = {
             "schema": BUNDLE_SCHEMA,
             "generated_at": iso(gw.clock()),
-            "gateway": {"version": __version__, "executor": gw.settings.executor, "hub_node_id": gw.settings.node_id},
-            "nodes": gw.registry.list(),
+            "gateway": pseudonymize({"version": __version__, "executor": gw.settings.executor,
+                                     "hub_node_id": gw.settings.node_id}, named),
+            "nodes": pseudonymize(gw.registry.list(), named),
             "actions": {
                 "by_state": dict(sorted(Counter(a["state"] for a in actions).items())),
                 "recent": [{k: a.get(k) for k in ("id", "type", "state", "created_at", "updated_at")}
@@ -167,5 +242,7 @@ class SystemService:
             "system_controls": self.controls()["controls"],
         }
         clean, found = redact(bundle)
-        clean["redaction"] = {"rules": [name for name, _, _ in _RULES] + ["secret-field"], "found": found}
+        found = dict(sorted((Counter(found) + named).items()))
+        clean["redaction"] = {"rules": [name for name, _, _ in _RULES] + ["secret-field", "node-id", "name-field"],
+                              "found": found}
         return clean

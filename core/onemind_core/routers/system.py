@@ -14,11 +14,12 @@ from fastapi import Depends, FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from ..actions import FeatureAction
+from ..apimodels import Action
 from ..auth import Principal
 from ..context import Gateway
 from ..errors import ApiError, error_responses
 from ..identity.scopes import register_route_scope
-from ..system import CONTROLS, RESET_PHRASE, SystemActionRequest, SystemService
+from ..system import CONTROLS, RESET_PHRASE, DiagnosticsBundle, SystemActionRequest, SystemControls, SystemService
 
 # Route order in the app and in /openapi.json (routers/__init__.py).
 ORDER = 340
@@ -70,13 +71,15 @@ def register(app: FastAPI, gw: Gateway) -> None:
             gw.audit.append("authz.denied", p.as_dict(), None, {"attempted": what, "reason": "permission_denied"})
             raise ApiError(403, "permission_denied", "only an owner may do this")
 
-    @app.get("/v1/system/controls", tags=["system"], operation_id="system.controls", responses=error_responses(401, 403))
+    @app.get("/v1/system/controls", tags=["system"], operation_id="system.controls", response_model=SystemControls,
+             responses=error_responses(401, 403))
     def system_controls(p: Principal = Depends(principal)):
         """Restart, shutdown and factory reset: whether this box can perform them, and the requests waiting."""
         owner(p, "read system controls")
         return svc.controls()
 
-    @app.get("/v1/system/diagnostics", tags=["system"], operation_id="system.diagnostics", responses=error_responses(401, 403))
+    @app.get("/v1/system/diagnostics", tags=["system"], operation_id="system.diagnostics", response_model=DiagnosticsBundle,
+             responses=error_responses(401, 403))
     def system_diagnostics(p: Principal = Depends(principal)):
         """A redacted diagnostic bundle for support: versions, node health, recent actions and audit events."""
         owner(p, "export diagnostics")
@@ -87,10 +90,18 @@ def register(app: FastAPI, gw: Gateway) -> None:
 
     @app.post(
         "/v1/system/actions", tags=["system"], operation_id="system.actions.create", status_code=202,
-        responses={200: {"description": "Idempotent replay"}, **error_responses(401, 403, 409, 422)},
+        response_model=Action,
+        responses={200: {"model": Action, "description": "Idempotent replay"}, **error_responses(401, 403, 409, 422, 429)},
     )
     def system_request(req: SystemActionRequest, p: Principal = Depends(principal)):
-        """Request a restart, shutdown or factory reset. It waits for the owner's approval."""
+        """Request a restart, shutdown or factory reset. It waits for the owner's approval.
+
+        409 host_unavailable while this box cannot perform the control (nothing is filed: an approval
+        that can only fail would be noise); 429 too_many_pending when an agent has too many waiting."""
+        requesters = CONTROLS[req.type][2]
+        why = svc.executor.unavailable(req.type)
+        if why and p.can_request_actions and (p.is_owner or p.kind in requesters):  # others get request_feature's 403
+            raise ApiError(409, "conflict", why, reason="host_unavailable")
         params: dict = {}
         if req.type == "system.factory_reset":
             if req.confirm != RESET_PHRASE:
@@ -101,6 +112,6 @@ def register(app: FastAPI, gw: Gateway) -> None:
             raise ApiError(422, "conflict", "confirm is only for system.factory_reset")
         body, created = gw.actions.request_feature(
             p, req.type, params, idempotency_key=req.idempotency_key or f"system:{uuid.uuid4()}",
-            expires_at=gw.clock() + REQUEST_TTL, reason=req.reason)
+            expires_at=gw.clock() + REQUEST_TTL, reason=req.reason, pending_cap=True)
         return JSONResponse(status_code=202 if created else 200, content=body,
                             headers={"Location": f"/v1/actions/{body['id']}"})

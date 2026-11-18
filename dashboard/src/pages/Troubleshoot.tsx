@@ -15,9 +15,9 @@ import { Load, TextField, useRun } from './parts';
 
 type SystemRequest = components['schemas']['SystemActionRequest'];
 type ControlType = SystemRequest['type'];
-interface Control { type: ControlType; label: string; risk: string; needs_passkey: boolean; confirm_phrase: string | null; available: boolean; unavailable_reason: string | null }
-interface Pending { id: string; type: string; state: string; created_at?: string }
-interface Controls { controls: Control[]; pending: Pending[] }
+type Controls = components['schemas']['SystemControls'];
+type Bundle = components['schemas']['DiagnosticsBundle'];
+type Action = components['schemas']['Action'];
 
 function controls(value: unknown): Controls {
   const v = value as Controls | null;
@@ -56,14 +56,14 @@ function LiveTroubleshoot({ token }: { token: string }) {
   const [found, setFound] = useState<Record<string, number>>();
 
   const diagnostics = () => void run(async () => {
-    const bundle = await call<{ redaction?: { found?: Record<string, number> } }>(client, 'GET', '/v1/system/diagnostics');
-    setFound(bundle.redaction?.found ?? {});
+    const bundle = await call<Bundle>(client, 'GET', '/v1/system/diagnostics');
+    setFound(bundle.redaction.found);
     save('onemind-diagnostics.json', bundle);
   }, 'Could not collect diagnostics');
 
   const request = (type: ControlType, confirm?: string) => void run(async () => {
     const body: SystemRequest = { type, ...(confirm ? { confirm } : {}) };
-    await call(client, 'POST', '/v1/system/actions', body);
+    await call<Action>(client, 'POST', '/v1/system/actions', body);
     toast.show({ tone: 'ok', title: 'Request filed', body: 'It waits for an owner approval before anything happens.' });
     setPhrase('');
     await res.reload();
@@ -72,8 +72,9 @@ function LiveTroubleshoot({ token }: { token: string }) {
   const approveWithPasskey = (id: string) => void run(async () => {
     const opts = await call<{ publicKey: Record<string, unknown> }>(client, 'POST', `/v1/actions/${encodeURIComponent(id)}/approve-options`);
     const webauthn = await getPasskey(opts.publicKey);
-    const done = await call<{ state: string; result?: { message?: string } }>(client, 'POST', `/v1/actions/${encodeURIComponent(id)}/approve`, { webauthn });
-    toast.show({ tone: done.state === 'succeeded' ? 'ok' : 'warn', title: `Factory reset ${done.state}`, body: done.result?.message });
+    const done = await call<Action>(client, 'POST', `/v1/actions/${encodeURIComponent(id)}/approve`, { webauthn });
+    const message = done.result?.message;
+    toast.show({ tone: done.state === 'succeeded' ? 'ok' : 'warn', title: `Factory reset ${done.state}`, body: typeof message === 'string' ? message : undefined });
     await res.reload();
   }, 'Could not approve the factory reset');
 
@@ -87,7 +88,7 @@ function LiveTroubleshoot({ token }: { token: string }) {
     <Load res={res} what="Loading system controls">{(s) => <>
       <Card title="Power">
         {s.controls.filter((c) => c.type !== 'system.factory_reset').map((c) => <div key={c.type}>
-          <Button onClick={() => request(c.type)}>{c.label}</Button>{' '}
+          <Button disabled={!c.available} onClick={() => request(c.type)}>{c.label}</Button>{' '}
           {!c.available && <StatusPill tone="warn" label="Not available on this box yet" />}
         </div>)}
         {s.controls.some((c) => !c.available) && <p className="om-hint">{s.controls.find((c) => !c.available)?.unavailable_reason}</p>}
@@ -95,7 +96,7 @@ function LiveTroubleshoot({ token }: { token: string }) {
       {s.controls.filter((c) => c.type === 'system.factory_reset').map((c) => <Card key={c.type} title="Factory reset">
         <p>Erases this box and returns it to its first-boot state. It needs your passkey to approve.</p>
         <TextField id="reset-confirm" label={`Type "${c.confirm_phrase ?? ''}" to ask for it`} value={phrase} onChange={setPhrase} />
-        <Button variant="danger" disabled={phrase !== c.confirm_phrase} onClick={() => request(c.type, phrase)}>Request factory reset</Button>
+        <Button variant="danger" disabled={!c.available || phrase !== c.confirm_phrase} onClick={() => request(c.type, phrase)}>Request factory reset</Button>
         {!c.available && <p className="om-hint">{c.unavailable_reason}</p>}
       </Card>)}
       <Card title="Waiting for approval">
