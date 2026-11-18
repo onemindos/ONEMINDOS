@@ -71,8 +71,16 @@ func TestRescueUnitLetsTheTerminalWorkAndNothingMore(t *testing.T) {
 			t.Errorf("%s was removed", k)
 		}
 	}
-	if v := u["CapabilityBoundingSet"]; len(v) != 1 || v[0] != "" {
-		t.Errorf("CapabilityBoundingSet = %q: the shell must not gain capabilities", v)
+	// The console needs exactly one capability (CORE-UPDATE-9: read the onemind-owned CA key and tokens); the
+	// shell sheds it through the helper (shell.go), which needs capset and nothing else from @privileged.
+	if v := u["CapabilityBoundingSet"]; len(v) != 1 || v[0] != "CAP_DAC_READ_SEARCH" {
+		t.Errorf("CapabilityBoundingSet = %q, want exactly [CAP_DAC_READ_SEARCH]", v)
+	}
+	if v := u["AmbientCapabilities"]; len(v) != 1 || v[0] != "" {
+		t.Errorf("AmbientCapabilities = %q: nothing may pass to children on its own", v)
+	}
+	if v, want := strings.Join(u["SystemCallFilter"], "|"), "@system-service|~@privileged|capset"; v != want {
+		t.Errorf("SystemCallFilter = %q, want %q (only capset is taken back from @privileged)", v, want)
 	}
 	for _, rw := range u["ReadWritePaths"] {
 		if rw != "/var/lib/onemind" {
