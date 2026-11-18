@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { useId, useState } from 'react';
 import { Card, Icon } from '@onemind/ui';
-import { useHub } from '../data/hub';
+import { subjectOf, useHub } from '../data/hub';
 import { href } from './routes';
 import { isActive } from '../data/adapters';
 import type { Action } from '../api/types';
@@ -28,12 +28,12 @@ export function ActionJobs() {
   const state = lead.state.replace(/_/g, ' ');
   return <aside aria-label="Jobs in progress" className={`om-store-tray${open ? ' om-store-tray-open' : ''}`}>
     {open && <div id={panel} className="om-store-tray-panel"><ul>{jobs.map((a) => <li key={a.id}>
-      <div className="om-store-tray-text"><a href={href.approval(a.id)}>{a.type}: {hub.appName(a.params.app_id)}</a><ActionStatus action={a} /></div>
-      {!isActive(a) && <button type="button" className="om-icon-btn" aria-label={`Dismiss ${hub.appName(a.params.app_id)}`} onClick={() => setDismissed(new Set(dismissed).add(a.id))}><Icon name="x" size={16} /></button>}
+      <div className="om-store-tray-text"><a href={href.approval(a.id)}>{a.type}: {subjectOf(hub, a)}</a><ActionStatus action={a} /></div>
+      {!isActive(a) && <button type="button" className="om-icon-btn" aria-label={`Dismiss ${subjectOf(hub, a)}`} onClick={() => setDismissed(new Set(dismissed).add(a.id))}><Icon name="x" size={16} /></button>}
     </li>)}</ul></div>}
     <button type="button" className="om-store-tray-pill" aria-expanded={open} aria-controls={panel} onClick={() => setOpen(!open)}>
       <span className={`om-store-tray-ring${isActive(lead) && lead.state !== 'awaiting_approval' ? ' om-store-tray-ring-on' : ''}`} aria-hidden="true" />
-      <span aria-live="polite">{active.length ? `${active.length} ${active.length === 1 ? 'job' : 'jobs'}` : 'Jobs done'} · {hub.appName(lead.params.app_id)}: {state[0]!.toUpperCase() + state.slice(1)}{lead.progress && Number.isFinite(lead.progress.pct) ? ` ${lead.progress.pct}%` : ''}</span>
+      <span aria-live="polite">{active.length ? `${active.length} ${active.length === 1 ? 'job' : 'jobs'}` : 'Jobs done'} · {subjectOf(hub, lead)}: {state[0]!.toUpperCase() + state.slice(1)}{lead.progress && Number.isFinite(lead.progress.pct) ? ` ${lead.progress.pct}%` : ''}</span>
       <Icon name="chevron" size={16} className={open ? 'om-store-rot' : undefined} />
     </button>
   </aside>;
