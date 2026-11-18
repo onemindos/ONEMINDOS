@@ -465,7 +465,7 @@ def gateway_env(p: Paths, st: dict, mesh_ip: str | None = None) -> str:
            f"ONEMIND_KUBECTL=/usr/lib/onemind/bin/kubectl\nKUBECONFIG={g}/kubeconfig\n"
            "ONEMIND_NATS_URL=nats://127.0.0.1:4222\n"
            f"ONEMIND_NODE_ID={st['node_id']}\nONEMIND_INSTANCE_NAME={st['name']}\n"
-           "# Plain HTTP on :8080 stays for the setup page's address and the existing image battery.\n"
+           "# Plain HTTP :8080 is loopback only once ONEMIND_NET_TLS=1 (H-05, serve.py): local tools and the gate.\n"
            "ONEMIND_HOST=0.0.0.0\nONEMIND_PORT=8080\nONEMIND_GATEWAY_URL=http://onemind.local:8080\n"
            "# Networking (core/onemind_core/netconf.py; NETWORKING.md): HTTPS with the box CA on 443 and 8443,\n"
            "# onemind.local and <box>.local over mDNS (avahi).\n"

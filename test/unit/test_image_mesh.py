@@ -239,5 +239,38 @@ class JetsonLayer(unittest.TestCase):
             self.assertNotIn(needle, fstab)
 
 
+class OutsideChecks(unittest.TestCase):
+    """The image hub turns HTTPS on (ONEMIND_NET_TLS=1), so the gateway binds plain HTTP :8080 to loopback
+    (H-05, core/onemind_core/serve.py plain_http_host). The installer (I5) and cloud (C3/C4/C6) batteries
+    check the hub from outside the guest, so they must reach it on HTTPS :8443, not on :8080
+    (image run 44283273303: `I5 ... healthz=0`, `C3 ... healthz=None ... Connection reset by peer`)."""
+
+    def test_image_turns_https_on_and_plain_http_goes_to_loopback(self):
+        fb = rd("os/rootfs/layers/onemind/usr/lib/onemind/onemind_firstboot.py")
+        self.assertIn("ONEMIND_NET_TLS=1", fb)
+        self.assertIn("ONEMIND_HOST=0.0.0.0", fb)
+        serve = rd("core/onemind_core/serve.py")
+        self.assertRegex(serve, r"host=plain_http_host\(settings\.host\)")
+        self.assertIn('LOOPBACK_HOST = "127.0.0.1"', serve)
+
+    def test_installer_reaches_the_hub_over_https(self):
+        s = rd("test/qemu/installer.py")
+        self.assertRegex(s, r"hostfwd=tcp:127\.0\.0\.1:\{TLS_PORT\}-:8443")
+        self.assertIn('HUB = f"https://127.0.0.1:{TLS_PORT}"', s)
+        i5 = s[s.index('vm.mark("I5'):s.index('record("I5"')]
+        for call in re.findall(r"\b(?:poll|http)\(\"GET\"[^\n]*", i5):
+            self.assertIn("hub=True", call, call)
+        self.assertEqual(len(re.findall(r"\b(?:poll|http)\(\"GET\"", i5)), 4)
+
+    def test_cloud_reaches_the_gateway_over_https(self):
+        s = rd("test/qemu/cloudboot.py")
+        self.assertRegex(s, r"hostfwd=tcp:127\.0\.0\.1:\{ports\['https'\]\}-:8443")
+        for call in re.findall(r"\bhttp\(\w+\.ports\[\"https\"\][^\n]*", s) + re.findall(r"wait_http\([^\n]*", s)[1:]:
+            self.assertIn("tls=True", call, call)
+        # every gateway path (healthz, nodes, the dashboard) goes to the HTTPS port; only C5's wizard stays on :8080
+        plain = re.findall(r"\bhttp\(\w+\.ports\[\"http\"\][^\n]*", s)
+        self.assertEqual(plain, ['http(R.ports["http"], "/", timeout=15)'])
+
+
 if __name__ == "__main__":
     unittest.main()
