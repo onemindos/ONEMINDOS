@@ -349,6 +349,8 @@ POLICY |= {
     ("GET", "/v1/onboarding/settings"): Row(ONLY_OWNER, w.p_static("/v1/onboarding/settings"), "contract 12.41: owner only, audited"),
     ("PUT", "/v1/onboarding/settings"): Row(ONLY_OWNER, w.p_missing("/v1/onboarding/settings", json={
         "box_name": "home-hub", "time_zone": "UTC", "backup_choice": "later"}), "contract 12.41: owner only, audited"),
+    ("POST", "/v1/onboarding/restore/candidates"): Row(OFF_OWNER_ONLY, w.p_missing("/v1/onboarding/restore/candidates", json={
+        "destination_id": "dst_0123456789abcdef"}), "UMB-P08: first-run restore listing is owner only (503: backups off in the matrix)"),
     # ---- the person's own Home (UMB-P07, #144) --------------------------------------------------------------
     # Every person has one (child included); an agent has none. The write is probed without If-Match, so a
     # person who is let in gets 428: the route never reaches the store without a validator.

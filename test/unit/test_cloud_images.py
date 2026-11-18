@@ -149,7 +149,7 @@ class Seeds(unittest.TestCase):
 
 
 class Qemu(unittest.TestCase):
-    PORTS = {"ssh": 2222, "http": 8888}
+    PORTS = {"ssh": 2222, "http": 8888, "https": 8443}
 
     def cmd(self, c):
         return " ".join(cb.qemu_cmd(c, "d.qcow2", "seed.img", ["b.img"], self.PORTS, "tcg", "max"))
@@ -163,7 +163,8 @@ class Qemu(unittest.TestCase):
             self.assertEqual(s.count("bootindex"), 1, c)          # the seed's FAT boot sector is never booted
             self.assertIn("restrict=on", s)
             self.assertIn("hostfwd=tcp:127.0.0.1:2222-:22", s)
-            self.assertIn("hostfwd=tcp:127.0.0.1:8888-:8080", s)
+            self.assertIn("hostfwd=tcp:127.0.0.1:8888-:8080", s)            # the setup wizard (C5)
+            self.assertIn("hostfwd=tcp:127.0.0.1:8443-:8443", s)            # the gateway: HTTPS only off the box (H-05)
             self.assertIn("file=seed.img", s)
 
     def test_machine(self):
