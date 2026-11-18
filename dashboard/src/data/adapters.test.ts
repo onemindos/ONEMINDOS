@@ -142,7 +142,7 @@ describe('routes from ui links', () => {
     expect(toRoute('#/approvals/a-1')).toBe('/approvals?highlight=a-1');
     expect(toRoute('#/settings/people')).toBe('/settings/users');
     expect(toRoute('#/settings/appearance')).toBe('/settings/appearance');
-    expect(toRoute('#/backups')).toBe('/settings/backups');
+    expect(toRoute('#/backups')).toBe('/backups');
     expect(toRoute('/installed/x')).toBe('/installed/x');
   });
 
