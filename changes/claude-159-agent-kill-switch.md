@@ -1,5 +1,5 @@
 ---
-pr: pending
+pr: 358
 branch: claude/159-agent-kill-switch
 status_rows:
   - CORE-SEC-6 | in-review | agent kill switch built; signed audit checkpoints still to do
