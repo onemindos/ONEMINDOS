@@ -15,7 +15,7 @@ INFORMATIONAL workflows below are reported but never block (fuzzers, scans, perf
 smoke tests: useful signals, too slow or too noisy to hold every merge).
 
 Environment: GH_TOKEN, REPO (owner/name), HEAD_SHA, EVENT (pull_request | merge_group), RUN_ID
-(this run, skipped). Optional: DRAFT (true on a draft PR, for the log), GATE_SETTLE_S (default 45), GATE_POLL_S (30), GATE_TIMEOUT_S (10200).
+(this run, skipped). Optional: DRAFT (true on a draft PR: the gate passes at once, see main()), GATE_SETTLE_S (default 45), GATE_POLL_S (30), GATE_TIMEOUT_S (10200).
 No dependencies beyond the Python standard library.
 """
 from __future__ import annotations
@@ -104,9 +104,15 @@ def main() -> int:
     self_id = int(env["RUN_ID"])
     settle, poll = int(env.get("GATE_SETTLE_S", "45")), int(env.get("GATE_POLL_S", "30"))
     deadline = time.time() + int(env.get("GATE_TIMEOUT_S", "10200"))
-    if env.get("DRAFT") == "true":
-        print("gate: this PR is a draft, so only dco, hygiene, lint and unit run; the heavy workflows "
-              "skip. Marking it ready starts a new gate that waits for all of them.")
+    if env.get("DRAFT") == "true" and event == "pull_request":
+        # A draft cannot merge, and the only workflows a draft runs (dco, hygiene, lint, unit) are
+        # required checks of their own. Waiting here held a runner for hours while the queue was full,
+        # for no protection, so a draft's gate passes at once. Marking the PR ready starts a new gate
+        # (ready_for_review) that waits for every workflow, and the merge queue gates again.
+        print("gate: draft PR, nothing to wait for: it cannot merge, and its checks (dco, hygiene, "
+              "lint, unit) are required on their own. Marking it ready starts a gate that waits for "
+              "every workflow.")
+        return 0
     print(f"gate: {event} {sha}; waiting {settle}s for every workflow to start")
     time.sleep(settle)  # all runs of one event are created within seconds of each other
     last = None

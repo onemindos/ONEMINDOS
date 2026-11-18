@@ -49,9 +49,9 @@ class DraftPolicy(unittest.TestCase):
                 self.assertTrue("pull_request.draft" in cond or inherits or never_on_pr,
                                 f"{name}:{job} runs on drafts")
 
-    def test_gate_job_runs_on_drafts_and_waits_for_the_set(self):
+    def test_gate_job_always_reports_on_drafts(self):
         d = yaml.safe_load((WF / "gate.yml").read_text())
-        self.assertNotIn("if", d["jobs"]["merge-gate"])  # always reports; a skipped check would pass
+        self.assertNotIn("if", d["jobs"]["merge-gate"])  # always reports (a skipped check would pass); on a draft it passes at once
         self.assertIn("merge_group", d.get(True) or d["on"])
 
 

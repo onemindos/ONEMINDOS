@@ -103,14 +103,30 @@ class DraftToReady(unittest.TestCase):
                 at(run(2, "ci"), 8)]
         self.assertEqual(len(gate.verdict(runs, SELF)["failed"]), 1)
 
-    def test_draft_gate_logs_that_heavy_checks_skipped(self):
+    def test_draft_gate_passes_at_once_without_holding_a_runner(self):
         env = dict(Loop.ENV, DRAFT="true")
-        printed = []
-        with mock.patch.dict(os.environ, env), mock.patch.object(gate, "fetch_runs", lambda *a: [run(1, "ci")]), \
-                mock.patch.object(gate.time, "sleep", lambda s: None), \
+        printed, calls = [], []
+        with mock.patch.dict(os.environ, env), \
+                mock.patch.object(gate, "fetch_runs", lambda *a: calls.append("fetch") or [run(1, "ci", conclusion="failure")]), \
+                mock.patch.object(gate.time, "sleep", lambda s: calls.append("sleep")), \
                 mock.patch("builtins.print", lambda *a, **k: printed.append(" ".join(map(str, a)))):
             self.assertEqual(gate.main(), 0)
+        self.assertEqual(calls, [])  # no settle wait, no polling: the job ends at once
         self.assertTrue(any("draft" in line for line in printed))
+
+    def test_draft_flag_never_short_cuts_the_merge_queue(self):
+        env = dict(Loop.ENV, DRAFT="true", EVENT="merge_group")
+        with mock.patch.dict(os.environ, env), \
+                mock.patch.object(gate, "fetch_runs", lambda *a: [run(1, "ci-core", conclusion="failure")]), \
+                mock.patch.object(gate.time, "sleep", lambda s: None), mock.patch("builtins.print"):
+            self.assertEqual(gate.main(), 1)
+
+    def test_a_ready_pr_still_waits_and_fails_on_red(self):
+        env = dict(Loop.ENV, DRAFT="false")
+        with mock.patch.dict(os.environ, env), \
+                mock.patch.object(gate, "fetch_runs", lambda *a: [run(1, "ci-core", conclusion="failure")]), \
+                mock.patch.object(gate.time, "sleep", lambda s: None), mock.patch("builtins.print"):
+            self.assertEqual(gate.main(), 1)
 
 
 class Loop(unittest.TestCase):
