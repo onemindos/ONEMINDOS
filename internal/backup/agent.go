@@ -29,6 +29,10 @@ type Agent struct {
 	Store *Store
 	// OpenRepo returns the repository client for a target.
 	OpenRepo func(Target) (Repo, error)
+	// OpenRepoWithKeyFile is OpenRepo, but the repository is opened with the
+	// password in keyFile instead of this box's device key (an old box's
+	// repository on new hardware, opened with the owner recovery key).
+	OpenRepoWithKeyFile func(t Target, keyFile string) (Repo, error)
 	// Units returns what to back up now. The default reads the config; the
 	// gateway coordinator (K3) replaces the app list per job.
 	Units     func(ctx context.Context) ([]Unit, error)
@@ -75,6 +79,11 @@ func New(cfg Config) (*Agent, error) {
 	}
 	a := newAgent(cfg, st)
 	a.OpenRepo = func(t Target) (Repo, error) { c := a.conf(); return NewRestic(&c, t, ExecRunner{}) }
+	a.OpenRepoWithKeyFile = func(t Target, keyFile string) (Repo, error) {
+		c := a.conf()
+		c.DeviceKeyFile = keyFile
+		return NewRestic(&c, t, ExecRunner{})
+	}
 	a.Units = func(context.Context) ([]Unit, error) { c := a.conf(); return BuildUnits(&c, ExecRunner{}), nil }
 	a.Jobs = &JobVerifier{PubKeyFile: cfg.JobPubKeyFile, DonePath: filepath.Join(cfg.StateDir, "jobs-done.json"),
 		Now: func() time.Time { return a.Now() }}
