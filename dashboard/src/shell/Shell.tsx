@@ -28,11 +28,15 @@ import { personList } from '../data/prefs';
 import { brand } from '../brand.generated';
 import { useSignedIn } from '../session';
 import { href, navId, toRoute } from './routes';
+import { roleOf, showsNav, viewFor, type View } from './roles';
+import { usePoll } from '../lib/hooks';
 
 interface ShellApi {
   openPalette: () => void;
   /** Request an app action from anywhere, with the toasts; resolves to the action id. */
   requestApp: ReturnType<typeof useAppRequest>['requestApp'];
+  /** Simple or Pro, from the signed-in role (roles.ts); 'unknown' until GET /v1/me answers. */
+  view: View;
 }
 const ShellCtx = createContext<ShellApi | null>(null);
 export function useShell(): ShellApi {
@@ -46,7 +50,7 @@ const CONTRACT_TYPES = new Set(['app.install', 'app.remove', 'app.start', 'app.s
 
 export function Shell({ children }: { children: ReactNode }) {
   const hub = useHub();
-  const { principal, person, signOut, mock } = useSignedIn();
+  const { principal, person, signOut, mock, api: client } = useSignedIn();
   const navigate = useNavigate();
   const location = useLocation();
   const { requestApp, reviewDialog } = useAppRequest();
@@ -57,6 +61,12 @@ export function Shell({ children }: { children: ReactNode }) {
   const [recent, setRecent] = useState(() => recentStore.load());
 
   usePaletteHotkey(() => setPaletteOpen(true));
+
+  // A real gateway session does not carry the role, so ask GET /v1/me once. If that fails the
+  // view falls back to Simple (fail closed): the Pro screens are offered only to a known role.
+  const me = usePoll(() => (principal ? Promise.resolve(null) : client.me()), 0);
+  const role = roleOf(principal, me.data ?? undefined);
+  const view = viewFor(role === undefined && me.error ? null : role);
 
   const go = (link: string) => {
     const to = toRoute(link);
@@ -104,7 +114,7 @@ export function Shell({ children }: { children: ReactNode }) {
 
 
   const waiting = pending.length;
-  const nav: NavItem[] = [
+  const allNav: NavItem[] = [
     { id: 'home', label: 'Home', href: href.home, icon: 'home', primary: true },
     { id: 'market', label: 'Market', href: href.market, icon: 'apps', primary: true },
     { id: 'approvals', label: 'Approvals', href: href.approvals, icon: 'approvals', primary: true, badge: waiting, badgeLabel: `${waiting} waiting` },
@@ -116,7 +126,10 @@ export function Shell({ children }: { children: ReactNode }) {
     { id: 'backups', label: 'Backups', href: href.backups, icon: 'backups', group: 'Your box' },
     { id: 'settings', label: 'Settings', href: href.settings, icon: 'settings', group: 'Your box' },
     { id: 'coming', label: 'Coming soon', href: href.coming, icon: 'info', group: 'Your box' },
+    { id: 'control-hub', label: 'Control Hub', href: href.controlHub, icon: 'nodes', group: 'System' },
+    { id: 'agents', label: 'AI & Agents', href: href.agents, icon: 'agent', group: 'System' },
   ];
+  const nav = allNav.filter((item) => showsNav(item.id, view));
 
   // Route plain in-app links from ui components through the router (no reload).
   const onClickCapture = (e: MouseEvent<HTMLDivElement>) => {
@@ -139,7 +152,7 @@ export function Shell({ children }: { children: ReactNode }) {
     );
 
   const boxName = hub.instance.data?.name ?? brand.shortName;
-  const api: ShellApi = { openPalette: () => setPaletteOpen(true), requestApp };
+  const api: ShellApi = { openPalette: () => setPaletteOpen(true), requestApp, view };
   return (
     <ShellCtx.Provider value={api}>
       <div onClickCapture={onClickCapture} className="dash-root">
