@@ -1,0 +1,21 @@
+#!/bin/sh
+# SPDX-License-Identifier: Apache-2.0
+# Root step of onemind-nats.service (start and reload): copy what the hub NATS reads into its runtime
+# dir, owned by its throw-away user, because that user may not read the originals (see the unit).
+#   /data/onemind/etc/nats.conf                -> nats.conf           (onemind-firstboot)
+#   /data/onemind/gateway/nats/accounts.conf   -> nats-accounts.conf  (the gateway; public nkeys only)
+#   /data/onemind/gateway/tls/{nats.crt,nats.key,ca.crt}              (the box CA; leaf listener TLS)
+#   /data/onemind/etc/{nats-server.pem,nats-server.key,nats-ca.pem}   (only on a box set up before the mesh)
+set -eu
+d=/run/onemind-nats
+copy() { # copy SRC NAME: replace atomically, so a reload never reads half a file
+  [ -f "$1" ] || return 0
+  cp "$1" "$d/.$2.new"
+  chown "$(stat -c %u "$d")" "$d/.$2.new"
+  chmod 0600 "$d/.$2.new"
+  mv -f "$d/.$2.new" "$d/$2"
+}
+copy /data/onemind/etc/nats.conf nats.conf
+copy /data/onemind/gateway/nats/accounts.conf nats-accounts.conf
+for f in nats.crt nats.key ca.crt; do copy "/data/onemind/gateway/tls/$f" "$f"; done
+for f in nats-server.pem nats-server.key nats-ca.pem; do copy "/data/onemind/etc/$f" "$f"; done

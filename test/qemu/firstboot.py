@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
-"""OneMind QEMU battery, first boot (F0-F6). Criteria: test/qemu/CRITERIA-FIRSTBOOT.md
+"""OneMind QEMU battery, first boot (F0-F9). Criteria: test/qemu/CRITERIA-FIRSTBOOT.md
 (pre-registered; never edited to make a result pass). Reuses run-tests.py's VM driver.
 
 Input: the battery's fixtures (`make fixtures`: disk.img = slot A v1 + test overlay, bundles.img with
@@ -67,14 +67,27 @@ def http_code(vm, url, token=None, timeout=900):
 
 
 def diagnose(vm, why):
-    """Best effort: put the gateway journal into the log (the serial log and stdout) so the cause is visible."""
-    vm.mark(f"DIAGNOSE ({why}): gateway journal")
+    """Best effort: put the journal of the unit that failed (named in `why`, if any) and the gateway's into
+    the log (the serial log and stdout) so the cause is visible."""
+    units = [battery.failfast.GATEWAY_UNIT]
+    m = re.search(r"Failed to start (?:\x1b?\[[0-9;]*m)?(onemind[\w@.-]*)", why)    # systemd colours the name
+    unit = m and m.group(1).removesuffix(".service") + ".service"
+    if unit and unit not in units:
+        units.insert(0, unit)
+    vm.mark(f"DIAGNOSE ({why}): journal of {' '.join(units)}")
     vm.failfast = False
     try:
-        _, out = vm.run(battery.failfast.dump_cmd(), 90)
-        print(out[-6000:], flush=True)
+        # The fatal sign can come before the console has logged in; a command sent then is lost.
+        vm.send("")
+        vm.expect(r"root@onemind:~# ", 120)
     except (TimeoutError, RuntimeError, OSError) as e:
-        vm.mark(f"DIAGNOSE failed: {e}")
+        vm.mark(f"DIAGNOSE: no shell prompt ({e}); trying anyway")
+    for unit in units:
+        try:
+            _, out = vm.run(battery.failfast.dump_cmd(unit), 90)
+            print(out[-6000:], flush=True)
+        except (TimeoutError, RuntimeError, OSError) as e:
+            vm.mark(f"DIAGNOSE failed: {e}")
 
 
 def nodes(vm, token, want_id, timeout=600):
@@ -165,6 +178,185 @@ def f6(vm):
            f"plaintext_hits={g('PLAIN')} envelope_hits={g('ENVELOPE')} delete_rc={g('DELETE_RC')} status={status.strip()[:160]!r}")
 
 
+HS = "headscale -c /data/onemind/etc/headscale/config.yaml"
+MESH_RE = re.compile(r"^MESHIP=(100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\.\d{1,3}\.\d{1,3})\s*$", re.M)  # 100.64.0.0/10
+
+
+def mesh_ip(vm, timeout=600):
+    """Poll `tailscale ip -4` until onemind-mesh-setup has put the hub on its mesh; '' if never."""
+    _, out = vm.run(f"t0=$SECONDS; while :; do a=$(tailscale ip -4 2>/dev/null | head -1); "
+                    f"case $a in 100.*) break;; esac; [ $((SECONDS - t0)) -ge {timeout} ] && break; sleep 5; done; "
+                    "echo MESHIP=$a", timeout + 60)
+    m = MESH_RE.search(out)
+    return m.group(1) if m else ""
+
+
+def f7(vm):
+    """The hub is on its own mesh, serves HTTPS with the box CA, and Headscale refuses a made-up key (section 5)."""
+    ip = mesh_ip(vm)
+    if not ip:
+        _, out = vm.run("systemctl status --no-pager -n 20 onemind-mesh-setup onemind-headscale tailscaled 2>&1 | tail -40", 60)
+        print(out[-3000:], flush=True)
+    url = "https://onemind.local:8443/healthz"
+    _, out = vm.run(f"t0=$SECONDS; while :; do c=$(curl -s -o /dev/null -w '%{{http_code}}' --cacert /data/onemind/identity/ca.pem "
+                    f"--resolve onemind.local:8443:127.0.0.1 {url}); [ \"$c\" = 200 ] || [ $((SECONDS - t0)) -ge 300 ] && break; "
+                    "sleep 5; done; echo HTTPS=$c", 400)
+    https = (re.findall(r"HTTPS=(\S+)", out) or ["none"])[-1]
+    # A second Tailscale client, userspace networking (it never touches tailscale0 or the firewall), state in /run,
+    # trusting only the box CA, tries to enroll with a key of the right shape that Headscale never issued.
+    count = (f"{HS} nodes list -o json 2>/dev/null | {PY} -I -c 'import json,sys; d=json.load(sys.stdin) or []; "
+             "print(len(d), sum(1 for n in d if \"f7-intruder\" in json.dumps(n)))'")
+    _, out = vm.run(
+        f"echo BEFORE=$({count}); rm -rf /run/f7; mkdir -m 0700 /run/f7; "
+        "SSL_CERT_FILE=/data/onemind/identity/ca.pem TS_NO_LOGS_NO_SUPPORT=true /usr/sbin/tailscaled --no-logs-no-support "
+        "--tun=userspace-networking --statedir=/run/f7 --socket=/run/f7/ts.sock --port=0 >/run/f7/log 2>&1 & "
+        "for i in $(seq 1 30); do [ -S /run/f7/ts.sock ] && break; sleep 1; done; "
+        "k=hskey-auth-$(head -c 24 /dev/urandom | od -An -tx1 | tr -d ' \\n'); "
+        "timeout 60 tailscale --socket=/run/f7/ts.sock up --login-server=https://control.onemind.internal:8444 "
+        "--auth-key=$k --hostname=f7-intruder --accept-dns=false --timeout=30s >/run/f7/up 2>&1; echo UP_RC=$?; "
+        "tail -c 300 /run/f7/up | tr '\\n' ' '; echo; "
+        f"pkill -f 'tailscaled.*--socket=/run/f7/ts.sock'; sleep 2; rm -rf /run/f7; echo AFTER=$({count})", 180)
+    g = lambda k: (re.findall(rf"^{k}=(.*?)\s*$", out, re.M) or [""])[-1]
+    before, after, up_rc = g("BEFORE").split(), g("AFTER").split(), g("UP_RC")
+    refused = up_rc not in ("", "0")
+    same = len(before) == 2 and before[0] == (after[:1] or [None])[0] and after[1:] == ["0"]
+    record("F7", bool(ip) and https == "200" and refused and same,
+           f"mesh_ip={ip or 'none'} https_healthz={https} madeup_key_up_rc={up_rc} nodes_before={before} "
+           f"nodes_after={after} out={out.strip()[-300:]!r}")
+    return ip
+
+
+# F8's client, run in the guest with the gateway venv's Python (stdlib + cryptography + onemind_core).
+# NATS speaks a line protocol: INFO from the server (with a nonce), CONNECT from the client; a leaf
+# connection reads the plain-text INFO, then upgrades to TLS (nats-server's default for leaf nodes).
+F8_PY = r'''
+import base64, datetime, json, os, socket, ssl, sys
+from pathlib import Path
+from cryptography import x509
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.x509.oid import ExtendedKeyUsageOID, NameOID
+from onemind_core import natsconf
+from onemind_core.ca import BoxCA
+IP, D, CA = sys.argv[1], "/run/f8", "/data/onemind/identity/ca.pem"
+
+def client(seed=None):
+    s = socket.create_connection(("127.0.0.1", 4222), 5); f = s.makefile("rb")
+    info = json.loads(f.readline().split(b" ", 1)[1])
+    c = {"verbose": False, "pedantic": False, "protocol": 1, "name": "f8"}
+    if seed:
+        pub, sign = natsconf.load_seed(Path(seed))
+        # The same signature the gateway sends (core/onemind_core/bus.py, through nats-py's signature_cb).
+        c.update(nkey=pub, sig=base64.b64encode(sign(info["nonce"].encode())).decode())
+    s.sendall(b"CONNECT " + json.dumps(c).encode() + b"\r\nPING\r\n")
+    for _ in range(5):
+        line = f.readline().decode().strip()
+        if line.startswith(("PONG", "-ERR")):
+            break
+    s.close()
+    return line
+
+def pem(obj, key=False):
+    if key:
+        return obj.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption())
+    return obj.public_bytes(serialization.Encoding.PEM)
+
+def save(name, data):
+    p = os.path.join(D, name); open(p, "wb").write(data); return p
+
+def foreign():
+    """A CA that is not the box CA, and a client certificate from it."""
+    now = datetime.datetime.now(datetime.timezone.utc)
+    cak, k = ec.generate_private_key(ec.SECP256R1()), ec.generate_private_key(ec.SECP256R1())
+    name = lambda n: x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, n)])
+    ca = (x509.CertificateBuilder().subject_name(name("f8 other CA")).issuer_name(name("f8 other CA"))
+          .public_key(cak.public_key()).serial_number(1).not_valid_before(now).not_valid_after(now + datetime.timedelta(hours=1))
+          .add_extension(x509.BasicConstraints(ca=True, path_length=0), critical=True).sign(cak, hashes.SHA256()))
+    crt = (x509.CertificateBuilder().subject_name(name("node-f8other")).issuer_name(ca.subject)
+           .public_key(k.public_key()).serial_number(2).not_valid_before(now).not_valid_after(now + datetime.timedelta(hours=1))
+           .add_extension(x509.ExtendedKeyUsage([ExtendedKeyUsageOID.CLIENT_AUTH]), critical=False).sign(cak, hashes.SHA256()))
+    return save("other.crt", pem(crt) + pem(ca)), save("other.key", pem(k, True))
+
+def boxca_client():
+    """A client certificate the box CA signs, as for an approved node (the control: this one must pass TLS)."""
+    box = next(l.split("=", 1)[1].strip() for l in open("/data/onemind/etc/gateway.env") if l.startswith("ONEMIND_NET_BOX_NAME="))
+    k = ec.generate_private_key(ec.SECP256R1())
+    csr = x509.CertificateSigningRequestBuilder().subject_name(
+        x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "node-f8probe")])).sign(k, hashes.SHA256())
+    crt = BoxCA(Path("/data/onemind/gateway/tls"), box).sign_node_csr(pem(csr), "f8probe")
+    return save("box.crt", pem(crt)), save("box.key", pem(k, True))
+
+def leaf(cert=None):
+    """'refused' (TLS alert, handshake error or close within 3 s) or 'accepted' (TLS up, server waits for CONNECT)."""
+    s = socket.create_connection((IP, 7422), 5)
+    info = s.makefile("rb").readline()
+    if not info.startswith(b"INFO"):
+        return "no-info"
+    ctx = ssl.create_default_context(cafile=CA); ctx.check_hostname = False
+    if cert:
+        ctx.load_cert_chain(*cert)
+    try:
+        t = ctx.wrap_socket(s); t.settimeout(3)
+        return "accepted-data" if t.recv(1) else "refused"
+    except socket.timeout:
+        return "accepted"
+    except (ssl.SSLError, OSError):
+        return "refused"
+    finally:
+        s.close()
+
+os.makedirs(D, mode=0o700, exist_ok=True)
+try:
+    print("NOKEY=" + client())
+    print("WITHKEY=" + client("/data/onemind/nats/keys/onemindd.nk"))
+    print("LEAF_NOCERT=" + leaf())
+    print("LEAF_FOREIGN=" + leaf(foreign()))
+    print("LEAF_BOXCA=" + leaf(boxca_client()))
+finally:
+    for f in os.listdir(D):
+        os.remove(os.path.join(D, f))
+    os.rmdir(D)
+'''
+
+
+def send_file(vm, path, text, chunk=800):
+    """Put a file into the guest over the serial shell: base64 in short lines, then decoded."""
+    import base64
+    b64 = base64.b64encode(text.encode()).decode()
+    vm.run(f"rm -f {path}.b64")
+    for i in range(0, len(b64), chunk):
+        vm.run(f"printf %s '{b64[i:i + chunk]}' >> {path}.b64")
+    vm.run(f"base64 -d {path}.b64 > {path} && rm -f {path}.b64")
+
+
+def f8(vm, ip):
+    """Hub NATS refuses clients without a key and leaf connections without a box-CA certificate (section 5)."""
+    send_file(vm, "/run/f8.py", F8_PY)
+    _, out = vm.run(f"{PY} -I /run/f8.py {ip or '0.0.0.0'} 2>&1 | tail -20; rm -f /run/f8.py; "
+                    "echo PW=$(grep -c password /data/onemind/etc/nats.conf)", 120)
+    g = lambda k: (re.findall(rf"^{k}=(.*?)\s*$", out, re.M) or [""])[-1]
+    c = {"nokey_refused": "Authorization Violation" in g("NOKEY"), "onemindd_key_pong": g("WITHKEY") == "PONG",
+         "leaf_nocert_refused": g("LEAF_NOCERT") == "refused", "leaf_foreign_refused": g("LEAF_FOREIGN") == "refused",
+         "leaf_boxca_accepted": g("LEAF_BOXCA").startswith("accepted"), "no_password": g("PW") == "0"}
+    record("F8", bool(ip) and all(c.values()), " ".join(f"{k}={v}" for k, v in c.items())
+           + f" mesh_ip={ip or 'none'} out={out.strip()[-400:]!r}")
+
+
+def f9(vm):
+    """One box CA: identity/ca.pem is the gateway's CA, no CA key outside the gateway's tls dir (section 5)."""
+    t = "/data/onemind/gateway/tls"
+    _, out = vm.run("echo ID=$(sha256sum /data/onemind/identity/ca.pem | cut -c1-64); "
+                    f"echo GW=$(sha256sum {t}/ca.crt | cut -c1-64); "
+                    "echo KEY=$(test -e /data/onemind/identity/ca.key && echo present || echo absent); "
+                    f"openssl verify -CAfile /data/onemind/identity/ca.pem {t}/https.crt {t}/control.crt {t}/nats.crt 2>&1 | "
+                    "sed 's/^/VERIFY /'")
+    g = lambda k: (re.findall(rf"^{k}=(\S*)\s*$", out, re.M) or [""])[-1]
+    oks = re.findall(r"^VERIFY \S+\.crt: OK\s*$", out, re.M)
+    record("F9", len(g("ID")) == 64 and g("ID") == g("GW") and g("KEY") == "absent" and len(oks) == 3,
+           f"identity_sha={g('ID')[:16]} gateway_ca_sha={g('GW')[:16]} identity_ca_key={g('KEY')} verified={len(oks)}/3 "
+           f"out={out.strip()[-300:]!r}")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--board", required=True, choices=sorted(battery.BOARDS))
@@ -188,6 +380,7 @@ def main():
         cfg = vm.expect(CONFIGURED, 900).group(0)
         time.sleep(3)
         toks = TOKEN.findall(vm.since(0))
+        vm.pos = 0              # on a fast host the gate line comes before CONFIGURED; this boot's buffer only
         g = vm.wait_gate()
         vm.shell_ready()
         f0(vm, a.board)
@@ -214,6 +407,9 @@ def main():
 
         vm.mark("F5 PSA admission (H-01)"); f5(vm)
         vm.mark("F6 secrets encrypted at rest (H-12)"); f6(vm)
+        vm.mark("F7 the hub on its own mesh, HTTPS with the box CA (IMG-MESH-01)"); ip = f7(vm)
+        vm.mark("F8 hub NATS: own keys only, leaf port needs the box CA"); f8(vm, ip)
+        vm.mark("F9 one box CA"); f9(vm)
 
         if a.upto in ("F3", "F4"):
             vm.mark("F3 reboot keeps state")
@@ -256,7 +452,7 @@ def main():
     except (TimeoutError, RuntimeError) as e:
         record("HARNESS", False, f"aborted: {e}")
         if "fatal sign" in str(e) and "Kernel panic" not in str(e) and vm.proc and vm.proc.poll() is None:
-            diagnose(vm, "fatal console sign")
+            diagnose(vm, f"fatal console sign: {e}")
     if rc == 0:
         vm.poweroff()
     elif vm.proc and vm.proc.poll() is None:

@@ -41,3 +41,31 @@ func TestWriteFileOtherRenameErrorsAreReturned(t *testing.T) {
 		t.Fatal("an EACCES rename must not be hidden")
 	}
 }
+
+// On the image /etc is read-only but /etc/hosts is a writable bind mount: CreateTemp in the directory fails
+// with EROFS/EACCES, and the file must still be written in place.
+func TestWriteFileInReadOnlyDirWritesInPlace(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root ignores directory permissions")
+	}
+	dir := t.TempDir()
+	path := filepath.Join(dir, "hosts")
+	if err := os.WriteFile(path, []byte("old\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(dir, 0o555); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Chmod(dir, 0o755)
+	if err := writeFile(path, []byte("new\n"), 0o644); err != nil {
+		t.Fatalf("writeFile in a read-only dir: %v", err)
+	}
+	got, _ := os.ReadFile(path)
+	if string(got) != "new\n" {
+		t.Fatalf("content %q", got)
+	}
+	// A missing target in a read-only dir still fails: nothing to write in place.
+	if err := writeFile(filepath.Join(dir, "absent"), []byte("x"), 0o644); err == nil {
+		t.Fatal("creating a new file in a read-only dir must fail")
+	}
+}

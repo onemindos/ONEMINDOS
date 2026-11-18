@@ -6,11 +6,13 @@
 Two disks: the installer stick (`make installer`, USB mass storage, copy-on-write so the file never
 changes) and a fresh, all-zero 40 GiB NVMe target. Everything goes through the installer's serial
 menu and its LAN page (forwarded to 127.0.0.1); the installed box is checked from outside only
-(console + forwarded :8080), because the shipped image has no login. Runs in the tools container:
+(console + the gateway's HTTPS :8443, forwarded), because the shipped image has no login. The installed
+hub serves the LAN over HTTPS only: with ONEMIND_NET_TLS=1 the gateway binds plain HTTP :8080 to loopback
+(H-05, core/onemind_core/serve.py); :8080 from outside is the installer's own page. Runs in the tools container:
 
   python3 -I installer.py --stick-dir DIR --image-dir DIR --work DIR --log serial.log [--results r.json]
 """
-import argparse, importlib.util, json, os, platform, re, struct, subprocess, sys, time
+import argparse, importlib.util, json, os, platform, re, ssl, struct, subprocess, sys, time
 import urllib.error, urllib.parse, urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -18,8 +20,15 @@ _spec = importlib.util.spec_from_file_location("battery", os.path.join(HERE, "ru
 battery = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(battery)
 
-PORT = 18080
+PORT = 18080                          # the installer's LAN page (guest :8080, plain HTTP)
 URL = f"http://127.0.0.1:{PORT}"
+TLS_PORT = 18443                      # the installed hub's gateway (guest :8443, HTTPS with the box CA)
+HUB = f"https://127.0.0.1:{TLS_PORT}"
+# The gateway's certificate names the box (onemind.local, <box>.local), not 127.0.0.1, and the box CA is
+# not reachable from outside before first boot: I5 checks answers, not the certificate (F7/F9 do that).
+NO_VERIFY = ssl.create_default_context()
+NO_VERIFY.check_hostname = False
+NO_VERIFY.verify_mode = ssl.CERT_NONE
 READY = r"ONEMIND-INSTALLER: ready disks=(\d+)"
 PROMPT = r"Install OneMind on disk number: "
 AFTER = r"(ONEMIND-FIRSTBOOT: configured role=\w+ source=\w+[^\n]*|ONEMIND-INSTALLER: ready)"
@@ -47,7 +56,8 @@ class InstVM(battery.VM):
         c = self.cfg
         cmd = [c["qemu"], "-machine", c["machine"], "-accel", self.accel, "-cpu", self.cpu,
                "-smp", "4", "-m", "3072", "-nodefaults", "-display", "none", "-vga", "none",
-               "-nic", f"user,model=virtio-net-pci,restrict=on,hostfwd=tcp:127.0.0.1:{PORT}-:8080",
+               "-nic", f"user,model=virtio-net-pci,restrict=on,hostfwd=tcp:127.0.0.1:{PORT}-:8080,"
+               f"hostfwd=tcp:127.0.0.1:{TLS_PORT}-:8443",
                "-device", "i6300esb", "-action", "watchdog=reset",
                "-drive", f"if=pflash,format=raw,readonly=on,file={c['code']}",
                "-drive", f"if=pflash,format=raw,file={self.vars}",
@@ -65,12 +75,13 @@ class InstVM(battery.VM):
         threading.Thread(target=self._reader, daemon=True).start()
 
 
-def http(method, path, token=None, data=None, timeout=20):
-    req = urllib.request.Request(URL + path, method=method, data=data)
+def http(method, path, token=None, data=None, timeout=20, hub=False):
+    """hub=True: the installed hub's gateway over HTTPS; otherwise the installer's page."""
+    req = urllib.request.Request((HUB if hub else URL) + path, method=method, data=data)
     if token:
         req.add_header("Authorization", f"Bearer {token}")
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as r:
+        with urllib.request.urlopen(req, timeout=timeout, context=NO_VERIFY if hub else None) as r:
             return r.status, r.read().decode("utf-8", "replace")
     except urllib.error.HTTPError as e:
         return e.code, e.read().decode("utf-8", "replace")
@@ -78,12 +89,12 @@ def http(method, path, token=None, data=None, timeout=20):
         return 0, str(e)
 
 
-def poll(method, path, until, timeout, token=None, guard=None):
+def poll(method, path, until, timeout, token=None, guard=None, hub=False):
     """`guard()` (fail fast, failfast.py) runs about every 30 s; it raises RuntimeError when the guest is
     already known to be broken, so the poll does not wait out its timeout."""
     end, last, nxt = time.time() + timeout, (0, ""), time.time() + 30
     while time.time() < end:
-        last = http(method, path, token)
+        last = http(method, path, token, hub=hub)
         if until(*last):
             break
         if guard and time.time() >= nxt:
@@ -263,16 +274,16 @@ def main():
             vm.shell_ready(); shell = True
         except (TimeoutError, RuntimeError):
             vm.mark("serial root shell not available; fail-fast uses console signs only")
-        hz = poll("GET", "/healthz", lambda c, b: c == 200, 900, guard=make_guard(vm, shell))[0]
+        hz = poll("GET", "/healthz", lambda c, b: c == 200, 900, guard=make_guard(vm, shell), hub=True)[0]
         if hz != 200 and shell:
             diagnose(vm, f"healthz={hz}")
-        nst, nbody = poll("GET", "/v1/nodes", lambda c, b: c == 200 and '"hub"' in b, 600, token=token)
+        nst, nbody = poll("GET", "/v1/nodes", lambda c, b: c == 200 and '"hub"' in b, 600, token=token, hub=True)
         try:
             nodes = [(x["node_id"], x["role"], x["status"]) for x in json.loads(nbody)] if nst == 200 else []
         except (ValueError, KeyError, TypeError):
             nodes = []
-        noauth = http("GET", "/v1/nodes")[0]
-        rst, rbody = http("GET", "/")
+        noauth = http("GET", "/v1/nodes", hub=True)[0]
+        rst, rbody = http("GET", "/", hub=True)
         record("I5", first.startswith("ONEMIND-FIRSTBOOT: configured role=hub source=esp") and len(toks) == 1
                and g[0] == "committed-boot" and g[1] == "A" and hz == 200 and any(r == "hub" for _, r, _ in nodes)
                and noauth == 401 and rst == 200 and "<html" in rbody.lower(),
