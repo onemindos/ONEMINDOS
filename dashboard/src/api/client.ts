@@ -11,6 +11,8 @@ import {
   type ApiErrorBody,
   type CatalogApp,
   type Instance,
+  type MachineCapabilities,
+  type MachineRecord,
   type NodeRecord,
 } from './types';
 
@@ -27,6 +29,9 @@ export interface OneMindApi extends WiringApi {
   nodes(): Promise<NodeRecord[]>;
   node(nodeId: string): Promise<NodeRecord>;
   apps(): Promise<CatalogApp[]>;
+  /** MACH-01: absent on the mock gateway, which has no machines. */
+  machines?(): Promise<MachineRecord[]>;
+  machineCapabilities?(): Promise<MachineCapabilities>;
   appPlan?(id: string): Promise<PlanPreview>;
   previewAction?(type: ActionType, params: AppParams): Promise<PlanPreview>;
   appSettings?(id: string): Promise<AppSettings>;
@@ -196,6 +201,7 @@ export class HttpApi implements OneMindApi {
   createAction(req: ActionRequest) {
     return this.fileAction(req, (action) => {
       if (action.params.app_id !== req.params.app_id) return false;
+      if (req.params.app_id === undefined && action.params.name !== req.params.name) return false;
       if (req.params.settings && (!action.params.settings || Object.keys(action.params.settings).length !== Object.keys(req.params.settings).length || Object.entries(req.params.settings).some(([k, v]) => action.params.settings?.[k] !== v))) return false;
       return !req.plan_sha256 || action.plan_sha256 === req.plan_sha256;
     });
@@ -211,6 +217,8 @@ export class HttpApi implements OneMindApi {
       throw e;
     }
   }
+  machines() { return this.req<MachineRecord[]>('GET', '/v1/machines', undefined, 'array'); }
+  machineCapabilities() { return this.req<MachineCapabilities>('GET', '/v1/machines/capabilities'); }
   appPlan(id: string) { return this.sdkCall<PlanPreview>('GET', `/v1/apps/${encodeURIComponent(id)}/plan`); }
   previewAction(type: ActionType, params: AppParams) { return this.sdkCall<PlanPreview>('POST', '/v1/plans', { type, params }); }
   async appSettings(id: string) {

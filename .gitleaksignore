@@ -16,6 +16,8 @@ internal/leaf/testdata/hub-accounts.golden.conf:generic-api-key:22
 os/versions.lock.yaml:generic-api-key:135
 # same public fingerprint, dir-scan form (line moved again by the merge with main)
 os/versions.lock.yaml:generic-api-key:138
+# same public fingerprint, dir-scan form (line moved by the Tailscale/Headscale pins, IMG-MESH-01)
+os/versions.lock.yaml:generic-api-key:148
 # NATS user public nkeys in the strict-hub golden (CORE-SEC-4, #161); public by design, no seed is committed
 internal/leaf/testdata/hub-accounts-services.golden.conf:generic-api-key:6
 internal/leaf/testdata/hub-accounts-services.golden.conf:generic-api-key:7

@@ -15,6 +15,7 @@ export const href = {
   approval: (id: string) => `/approvals?highlight=${encodeURIComponent(id)}`,
   activity: '/activity',
   nodes: '/nodes',
+  machines: '/machines',
   alerts: '/alerts',
   storage: '/storage',
   backups: '/backups',
@@ -52,6 +53,8 @@ export function toRoute(link: string): string | undefined {
       return parts[1] ? `/approvals?highlight=${parts[1]}` : href.approvals + q;
     case 'nodes':
       return href.nodes;
+    case 'machines':
+      return href.machines;
     case 'notifications':
       return href.activity;
     case 'backups':

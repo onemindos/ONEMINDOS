@@ -1,0 +1,24 @@
+# SPDX-License-Identifier: Apache-2.0
+# Worker and leaf (IMG-MESH-01): join the hub with the one-time join code from onemind.conf, the
+# wizard or the seed (`onemind fabric join`, through `onemind-firstboot join`, which reads the code from
+# /data/onemind/secrets/join-code, so it is never on this unit's command line). The owner approves the
+# request on the hub. The join then writes the node identity, restarts tailscaled and enrolls in the
+# mesh, writes and starts the NATS leaf, and points onemindd at it. Its files go to /data/onemind/etc
+# (ONEMIND_ETC_DIR), because /etc is read-only. Started by onemind-firstboot; not enabled in the image.
+[Unit]
+Description=OneMind fabric join (waits for the owner's approval on the hub)
+After=network-online.target onemind-firstboot.service
+Wants=network-online.target
+RequiresMountsFor=/data /var/lib/tailscale /var/lib/onemind-nats-leaf
+ConditionPathExists=/data/onemind/secrets/join-code
+ConditionPathExists=!/data/onemind/etc/fabric.json
+
+[Service]
+Type=oneshot
+# As deploy/install.sh runs it: the join sets the mode of every secret it writes (0600) itself, and
+# directories such as identity/ stay readable as on an install.sh box.
+UMask=0022
+Environment=ONEMIND_ETC_DIR=/data/onemind/etc
+ExecStart=/usr/lib/onemind/onemind-firstboot join
+# The join waits up to 20 minutes for the owner's approval, then enrolls in the mesh.
+TimeoutStartSec=30min

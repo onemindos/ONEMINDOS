@@ -9,6 +9,8 @@ sys.path.insert(0, os.path.join(ROOT, "os", "rootfs", "layers", "onemind", "usr"
 import onemind_installer as ins  # noqa: E402
 import onemind_firstboot as fb  # noqa: E402
 
+JOIN = "onemind-join:v1?code=7KQ4-M2XP-9D3F&ca=" + "ab" * 32 + "&role=worker&hub=https%3A%2F%2Fhome.local"
+
 GB = 10 ** 9
 LSBLK = {"blockdevices": [
     {"name": "sda", "path": "/dev/sda", "size": 8 * GB, "type": "disk", "ro": False, "model": "USB Stick", "tran": "usb",
@@ -58,16 +60,19 @@ class Settings(unittest.TestCase):
 
     def test_worker_and_leaf(self):
         for role in ("worker", "leaf"):
-            s = ins.make_settings(role, hub="onemind.local", join_token="A" * 40)
-            self.assertEqual(self.roundtrip(s), {"role": role, "name": "OneMind", "hub": "onemind.local", "join_token": "A" * 40})
+            code = JOIN.replace("role=worker", f"role={role}")
+            s = ins.make_settings(role, join_code=code, hub_addr="192.0.2.10")
+            self.assertEqual(self.roundtrip(s), {"role": role, "name": "OneMind", "join_code": code, "hub_addr": "192.0.2.10"})
+            s = ins.make_settings(role, join_code=code)
+            self.assertEqual(self.roundtrip(s), {"role": role, "name": "OneMind", "join_code": code})
 
     def test_setup_means_no_file(self):
         self.assertIsNone(ins.make_settings("setup"))
         self.assertIsNone(ins.make_settings(""))
 
     def test_rejects(self):
-        for args in (("admin",), ("worker",), ("leaf", "", "onemind.local", "short"),
-                     ("worker", "", "bad host!", "A" * 40), ("hub", "a#b"), ("hub", 'q"')):
+        for args in (("admin",), ("worker",), ("leaf", "", "A" * 40), ("worker", "", JOIN, "hub.local"),
+                     ("hub", "a#b"), ("hub", 'q"')):
             with self.assertRaises(ins.InstallError, msg=args):
                 ins.make_settings(*args)
 

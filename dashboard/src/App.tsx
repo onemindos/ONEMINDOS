@@ -18,6 +18,7 @@ import { Home } from './pages/Home';
 import { Installed } from './pages/Installed';
 import { Market } from './pages/Market';
 import { ComposeImport, Sources } from './pages/AppSources';
+import { Machines } from './pages/Machines';
 import { Nodes } from './pages/Nodes';
 import { Settings } from './pages/Settings';
 import { SignIn } from './pages/SignIn';
@@ -58,6 +59,7 @@ export function SignedInApp() {
             <Route path="approvals" element={<Approvals />} />
             <Route path="activity" element={<Activity />} />
             <Route path="nodes" element={<Nodes />} />
+            <Route path="machines" element={<Machines />} />
             <Route path="alerts" element={<Alerts />} />
             <Route path="storage" element={<Storage />} />
             <Route path="settings/storage" element={<Navigate to="/storage" replace />} />

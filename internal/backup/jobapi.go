@@ -172,11 +172,20 @@ func (a *Agent) runJobKind(ctx context.Context, j Job) (any, error) {
 		var p struct {
 			TargetID string `json:"target_id"`
 			Unit     string `json:"unit"`
+			BoxID    string `json:"box_id"` // another box's restore points (first-run restore on new hardware)
+			// RecoveryKey opens that box's repository (sealed with its own device key).
+			RecoveryKey string `json:"recovery_key"`
 		}
 		if err := decodeParams(j.Params, &p); err != nil {
 			return nil, err
 		}
-		return a.ListSnapshots(ctx, p.TargetID, p.Unit)
+		if p.BoxID != "" && !tagValueRe.MatchString(p.BoxID) {
+			return nil, badParams{fmt.Errorf("box_id must be tag-safe")}
+		}
+		if p.RecoveryKey != "" && (p.BoxID == "" || len(p.RecoveryKey) < 32 || strings.ContainsAny(p.RecoveryKey, "\r\n")) {
+			return nil, badParams{fmt.Errorf("recovery_key needs a box_id and must be at least 32 characters on one line")}
+		}
+		return a.ListSnapshotsOfBox(ctx, p.TargetID, p.BoxID, p.Unit, p.RecoveryKey)
 
 	case KindTree:
 		var p struct {
