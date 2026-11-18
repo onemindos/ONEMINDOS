@@ -30,10 +30,13 @@ ExecStart=/usr/local/bin/onemindd rescue
 Restart=always
 RestartSec=5s
 
-# --- identity / privileges: root to read the CA key and the journal, no capabilities ---
+# --- identity / privileges: root, with one capability: read files the gateway's user owns ---
+# The box CA pair and the tokens file belong to `onemind` (0600/0640). Without a capability, root cannot
+# read another user's 0600 file, so the console would never start (CORE-UPDATE-9). DAC_READ_SEARCH is
+# read-only: no write, no chown, no other privilege.
 User=root
 NoNewPrivileges=yes
-CapabilityBoundingSet=
+CapabilityBoundingSet=CAP_DAC_READ_SEARCH
 AmbientCapabilities=
 
 # --- filesystem: read-only, except the audit directory; devices: a short allow list ---
