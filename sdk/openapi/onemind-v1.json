@@ -2103,6 +2103,81 @@
         "title": "JoinRequestBody",
         "type": "object"
       },
+      "KillSwitch": {
+        "additionalProperties": true,
+        "description": "The agent kill switch. `on: true` means every AI agent is refused until the owner turns it off.",
+        "properties": {
+          "changed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "RFC 3339 time of the last change; null if never changed",
+            "title": "Changed At"
+          },
+          "changed_by": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PrincipalRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "on": {
+            "title": "On",
+            "type": "boolean"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "on"
+        ],
+        "title": "KillSwitch",
+        "type": "object"
+      },
+      "KillSwitchBody": {
+        "additionalProperties": false,
+        "properties": {
+          "on": {
+            "description": "true stops every AI agent; false lets them work again",
+            "title": "On",
+            "type": "boolean"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why, for the audit record (at most 500 characters)",
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "on"
+        ],
+        "title": "KillSwitchBody",
+        "type": "object"
+      },
       "KitConfirmBody": {
         "additionalProperties": false,
         "properties": {
@@ -5135,6 +5210,116 @@
         "summary": "Deny Action",
         "tags": [
           "actions"
+        ]
+      }
+    },
+    "/v1/agents/kill-switch": {
+      "get": {
+        "operationId": "agents.kill_switch.get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KillSwitch"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "summary": "Get Kill Switch",
+        "tags": [
+          "agents"
+        ]
+      },
+      "put": {
+        "operationId": "agents.kill_switch.set",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KillSwitchBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KillSwitch"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Set Kill Switch",
+        "tags": [
+          "agents"
         ]
       }
     },

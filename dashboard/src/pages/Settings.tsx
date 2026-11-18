@@ -6,6 +6,7 @@ import { useParams } from 'react-router';
 import { AppearanceSettings, Card, EmptyState, PageHeader, SETTINGS_SECTIONS, SettingsLayout, type SettingsSectionId } from '@onemind/ui';
 import { useHub } from '../data/hub';
 import { Account } from './Account';
+import { AgentStop } from './AgentStop';
 import { Inbox } from './Inbox';
 import { Tokens } from './Tokens';
 import { Users } from './Users';
@@ -72,7 +73,13 @@ export function Settings() {
   else if (current === 'about') body = <About />;
   else if (current === 'account') body = <Account />;
   else if (current === 'users') body = <Users />;
-  else if (current === 'agents') body = <Tokens />;
+  else if (current === 'agents')
+    body = (
+      <>
+        <AgentStop />
+        <Tokens />
+      </>
+    );
   else if (current === 'notifications') body = <Inbox />;
   else {
     const c = COMING[current as keyof typeof COMING];

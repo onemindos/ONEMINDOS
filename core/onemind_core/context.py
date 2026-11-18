@@ -47,6 +47,9 @@ AppFilter = Callable[[Request, Principal, str], bool]
 # Person id -> role of every active person a feature knows, beyond the tokens file (identity:
 # household accounts, §12.6). Notifications use it to find who to notify.
 PeopleSource = Callable[[], dict[str, str]]
+# Runs on every authenticated request after the caller is known; raises ApiError to refuse it
+# (agent kill switch, CORE-SEC-6: every agent principal is refused while the owner has it on).
+PrincipalGuard = Callable[[Request, Principal], None]
 
 
 @dataclass
@@ -70,6 +73,7 @@ class Gateway:
     approval_guards: list[ApprovalGuard] = field(default_factory=list)
     app_filters: list[AppFilter] = field(default_factory=list)
     people_sources: list[PeopleSource] = field(default_factory=list)
+    principal_guards: list[PrincipalGuard] = field(default_factory=list)
     _startup: list[Hook] = field(default_factory=list)
     _shutdown: list[Hook] = field(default_factory=list)
 
@@ -130,6 +134,12 @@ def principal_dependency(gw: Gateway) -> Callable[[Request], Principal]:
         return None
 
     def principal(request: Request) -> Principal:
+        p = authenticate(request)
+        for guard in gw.principal_guards:  # e.g. the agent kill switch; raises to refuse
+            guard(request, p)
+        return p
+
+    def authenticate(request: Request) -> Principal:
         header = request.headers.get("authorization", "")
         scheme, _, token = header.partition(" ")
         if scheme.lower() != "bearer" or not token.strip():
