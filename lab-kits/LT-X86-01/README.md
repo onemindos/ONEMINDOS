@@ -60,6 +60,8 @@ rauc install /run/onemind-test/bundles/plain-good.raucb                         
 curl -s localhost:10248/healthz; echo                                          # "ok" on the committed slot
 cat /data/onemind/gate.log /data/onemind/bad-releases
 ```
+> Shortcut: [`../G1/`](../G1/README.md) runs this section C sequence for you (plus 10 rollback rounds), resumes after each reboot and writes `result.json`. Nothing there has run on hardware yet.
+
 ### D. Record
 1. Copy the gate log off the box (the stick is read-only; use a third stick or a photo), run it through `sh lab-kits/common/redact.sh`, and write `research-output/evidence/lab/founder-hardware/LT-X86-01.md` from [`../common/RESULT-TEMPLATE.md`](../common/RESULT-TEMPLATE.md).
 2. Write down the **good-commit time** (`RESULT mark-good … after Ns`) and the **bad-k3s decision time**. 22 says: set the production gate deadline to about 3× the good-commit time (`ONEMIND_GATE_TIMEOUT` in `os/gate/onemind-health-gate.default`).

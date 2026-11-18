@@ -399,8 +399,16 @@ class Gate:
             pods = json.loads(k("get", "pods", "-o", "json").stdout or "{}").get("items", [])
             for pod in pods:
                 name = common.dig(pod, ("metadata", "name"))
-                parts = [k("logs", name, "--all-containers", "--tail=1000").stdout]
-                for st in common.dig(pod, ("status", "containerStatuses")) or []:
+                parts = []
+                # Query each container separately: an unstarted app container can make the
+                # aggregate request fail before it returns the failing init container's logs.
+                spec = pod.get("spec") or {}
+                containers = [*spec.get("initContainers", []), *spec.get("containers", [])]
+                for container in containers:
+                    current = k("logs", name, "-c", container["name"], "--tail=1000")
+                    parts.append(f"\n==== container {container['name']} ====\n{current.stdout}{current.stderr}")
+                status = pod.get("status") or {}
+                for st in [*status.get("initContainerStatuses", []), *status.get("containerStatuses", [])]:
                     if st.get("restartCount", 0) > 0:
                         prev = k("logs", name, "-c", st["name"], "--previous", "--tail=1000")
                         parts.append(f"\n==== previous run of container {st['name']} ====\n{prev.stdout}{prev.stderr}")

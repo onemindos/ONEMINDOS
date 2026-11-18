@@ -9,6 +9,8 @@ import { HubProvider, useHub } from './data/hub';
 import { preferenceStores } from './data/prefs';
 import { Activity } from './pages/Activity';
 import { Alerts } from './pages/Alerts';
+import { Storage } from './pages/Storage';
+import { Backups } from './pages/Backups';
 import { Coming } from './pages/Coming';
 import { FirstRun, wizardPending } from './pages/FirstRun';
 import { Approvals } from './pages/Approvals';
@@ -54,6 +56,10 @@ export function SignedInApp() {
             <Route path="activity" element={<Activity />} />
             <Route path="nodes" element={<Nodes />} />
             <Route path="alerts" element={<Alerts />} />
+            <Route path="storage" element={<Storage />} />
+            <Route path="settings/storage" element={<Navigate to="/storage" replace />} />
+            <Route path="backups" element={<Backups />} />
+            <Route path="settings/backups" element={<Navigate to="/backups" replace />} />
             <Route path="coming" element={<Coming />} />
             <Route path="settings" element={<Settings />} />
             <Route path="settings/:section" element={<Settings />} />
