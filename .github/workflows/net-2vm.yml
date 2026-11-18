@@ -1,10 +1,18 @@
 # SPDX-License-Identifier: Apache-2.0
 # 2-VM network proof: a hub and a node (Debian 13, QEMU/KVM) on a private network; install, owner-approved
 # join, mesh, NATS leaf TLS, no plain HTTP on the LAN, HTTPS app proxy. Criteria: test/net/CRITERIA-2VM.md
-# (pre-registered). A criterion that could not run reports BLOCKED, never PASS; pull requests run strict (BLOCKED fails).
+# (pre-registered). A criterion that could not run reports BLOCKED, never PASS; pull requests and pushes to main run strict (BLOCKED fails).
 name: net-2vm
 on:
+  # CI-11 (issue 298): informational, so never on every PR. A PR runs it only when it touches the
+  # workflow's own harness; every change to the code it watches is covered on main, nightly and by hand.
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - 'test/net/**'
+      - '.github/workflows/net-2vm.yml'
+  push:
+    branches: [main]
     paths:
       - 'test/net/**'
       - 'deploy/**'
@@ -31,16 +39,17 @@ on:
         required: false
         default: ''
       strict:
-        description: 'Treat BLOCKED as a failure (always on for pull requests)'
+        description: 'Treat BLOCKED as a failure (always on for pull requests and pushes to main)'
         type: boolean
         default: false
 permissions:
   contents: read
 concurrency:
-  group: net-2vm-${{ github.ref }}
+  group: net-2vm-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   two-vm:
+    if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-24.04
     timeout-minutes: 75
     steps:
@@ -59,9 +68,9 @@ jobs:
       - name: Run the 2-VM proof
         env:
           ONEMIND_NET_SRC_REF: ${{ github.event.inputs.source_ref }}
-          # Strict on every pull request: a BLOCKED criterion fails the job (nothing is counted as passed that did not run).
-          # A manual run is strict only when asked. FAIL always fails the job.
-          ONEMIND_NET_STRICT: ${{ (github.event_name == 'pull_request' || github.event.inputs.strict == 'true') && '1' || '0' }}
+          # Strict on every pull request and every push to main (and any schedule): a BLOCKED criterion fails the job
+          # (nothing is counted as passed that did not run). A manual run is strict only when asked. FAIL always fails the job.
+          ONEMIND_NET_STRICT: ${{ (github.event_name != 'workflow_dispatch' || github.event.inputs.strict == 'true') && '1' || '0' }}
         run: |
           mkdir -p test/net/results
           python3 -I test/net/two_vm.py --results test/net/results/run.json

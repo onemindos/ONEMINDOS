@@ -41,11 +41,15 @@ from .catalog import AppEntry
 from .lifecycle import AppCredentialGrant, ExecContext, report_progress
 from .netconf import MeshSettings
 from .policy import (
+    APP_ID,
+    DEPENDENCIES_POLICY,
     Rules,
     SandboxSettings,
     Violation,
     check_kustomization,
     check_objects,
+    dependency_policies,
+    dependent_policy_name,
     egress_entries,
     load_rules,
     network_policies,
@@ -191,6 +195,9 @@ class NoopExecutor(Executor):
         if action_type in ("app.install", "app.configure"):
             for sec in ctx.secrets:
                 steps.append({"would": f"apply Secret {sec.name} in {ns} (server-side)", "keys": sec.keys()})
+        for provider, port in ctx.dependency_paths:  # §12.22, the plan's network_paths
+            steps.append({"would": f"open network path {ns} -> app-{provider} on TCP {port} (NetworkPolicies "
+                                   f"{DEPENDENCIES_POLICY} in {ns}, {dependent_policy_name(app.id)} in app-{provider})"})
         if action_type in ("app.install", "app.update", "app.start"):
             steps.append({"would": f"apply manifests of {app.id} in {ns}"})
             if action_type == "app.update":
@@ -212,6 +219,8 @@ class NoopExecutor(Executor):
             if agent is not None:
                 steps.append({"would": f"delete Secret {agent.name} in {ns}", "principal": agent.principal_id})
             steps.append({"would": f"delete the workloads of {app.id} in {ns}; its data (PersistentVolumeClaims) is kept"})
+            if ctx.dependency_sync:
+                steps.append({"would": f"close every network path of {ns} to the apps it depends on"})
         elif action_type == "app.delete_data":
             steps.append({"would": f"delete namespace {ns} with all its PersistentVolumeClaims"})
         report_progress(f"{action_type} done", 100)
@@ -426,6 +435,112 @@ class KubernetesExecutor(Executor):
             return None, ExecResult("failed", f"kubectl exited {cp.returncode}", steps)
         return cp, None
 
+    # ---- §12.22 dependency network paths ------------------------------------------------------
+    def _pod_port(self, app: AppEntry, provider: str, port: int, steps: list[dict]) -> tuple[int | None, str]:
+        """The provider's pod port behind its Service port (NetworkPolicy matches after translation)."""
+        pns = f"app-{provider}"
+        cp, err = self._exec([self.kubectl, "get", "services", "-n", pns, "-o", "json"], None, app, None, steps,
+                             keep_stdout=False)
+        if err is not None:
+            return None, f"could not read the Services of {pns}"
+        try:
+            services = json.loads(cp.stdout or "{}").get("items") or []
+        except ValueError:
+            return None, f"could not read the Services of {pns}"
+        target = None
+        for svc in services:
+            for sp in ((svc.get("spec") or {}).get("ports") or []):
+                if sp.get("port") == port and (sp.get("protocol") or "TCP") == "TCP":
+                    target = sp.get("targetPort", port)
+                    break
+            if target is not None:
+                break
+        if target is None:
+            return None, f"no Service in {pns} exposes TCP {port}"
+        if isinstance(target, int) and not isinstance(target, bool):
+            return (target, "") if 1 <= target <= 65535 else (None, f"bad targetPort in {pns}")
+        # A named targetPort: the container port of that name (pods are read-only to the gateway).
+        cp, err = self._exec([self.kubectl, "get", "pods", "-n", pns, "-o", "json"], None, app, None, steps,
+                             keep_stdout=False)
+        if err is not None:
+            return None, f"could not read the pods of {pns}"
+        try:
+            pods = json.loads(cp.stdout or "{}").get("items") or []
+        except ValueError:
+            return None, f"could not read the pods of {pns}"
+        found = {cport.get("containerPort") for pod in pods for c in ((pod.get("spec") or {}).get("containers") or [])
+                 for cport in (c.get("ports") or []) if cport.get("name") == target and (cport.get("protocol") or "TCP") == "TCP"}
+        found = {n for n in found if isinstance(n, int) and not isinstance(n, bool) and 1 <= n <= 65535}
+        if len(found) != 1:
+            return None, f"the named port {target!r} in {pns} does not resolve to one container port"
+        return found.pop(), ""
+
+    def _linked_providers(self, app: AppEntry, steps: list[dict]) -> tuple[set[str] | None, ExecResult | None]:
+        """The providers the app's own onemind-dependencies policy opens today (what to close).
+
+        None (and no error) when the app has no such policy.
+        """
+        ns = f"app-{app.id}"
+        cp, err = self._exec([self.kubectl, "get", "networkpolicy", DEPENDENCIES_POLICY, "-n", ns, "-o", "json",
+                              "--ignore-not-found=true"], None, app, None, steps, keep_stdout=False)
+        if err is not None:
+            return None, err
+        if not (cp.stdout or "").strip():
+            return None, None
+        try:
+            doc = json.loads(cp.stdout)
+        except ValueError:
+            return None, ExecResult("failed", f"could not read NetworkPolicy {DEPENDENCIES_POLICY} in {ns}", steps)
+        out = set()
+        for rule in ((doc.get("spec") or {}).get("egress") or []):
+            for peer in rule.get("to") or []:
+                name = ((peer.get("namespaceSelector") or {}).get("matchLabels") or {}).get("kubernetes.io/metadata.name")
+                if isinstance(name, str) and name.startswith("app-") and APP_ID.match(name[4:]):
+                    out.add(name[4:])
+        return out, None
+
+    def _sync_dependencies(self, app: AppEntry, ctx: ExecContext, steps: list[dict], *, remove: bool = False
+                           ) -> ExecResult | None:
+        """Open the approved paths (ctx.dependency_paths) and close every other path of this app.
+
+        Returns an ExecResult to stop with, or None. A path whose pod port cannot be resolved is
+        not opened (recorded in the steps). Closing in a provider namespace the gateway can no
+        longer reach (its data was deleted) is recorded and does not fail the action.
+        """
+        if not ctx.dependency_sync and not ctx.dependency_paths:
+            return None
+        ns = f"app-{app.id}"
+        k = self.kubectl
+        before, err = self._linked_providers(app, steps)
+        if err is not None:
+            return err
+        if before is None and not ctx.dependency_paths:  # nothing open, nothing to open
+            return None
+        resolved: list[tuple[str, int]] = []
+        for provider, port in (() if remove else ctx.dependency_paths):
+            pod_port, why = self._pod_port(app, provider, port, steps)
+            if pod_port is None:
+                steps.append({"network_path": f"{ns} -> app-{provider} TCP {port}", "opened": False, "reason": why})
+                continue
+            resolved.append((provider, pod_port))
+        docs = dependency_policies(app.id, resolved)
+        for doc in docs:
+            dns = doc["metadata"]["namespace"]
+            _, err = self._exec([k, "apply", "-n", dns, "-f", "-"], json.dumps(doc), app, None, steps)
+            if err is not None:
+                return err
+        if not docs and before is not None:
+            _, err = self._exec([k, "delete", "networkpolicy", DEPENDENCIES_POLICY, "-n", ns, "--ignore-not-found=true"],
+                                None, app, None, steps)
+            if err is not None:
+                return err
+        for provider in sorted((before or set()) - {p for p, _ in resolved}):
+            _, err = self._exec([k, "delete", "networkpolicy", dependent_policy_name(app.id), "-n", f"app-{provider}",
+                                 "--ignore-not-found=true"], None, app, None, steps)
+            if err is not None:  # an allowance alone opens nothing: the dependent's egress is closed
+                steps[-1]["ignored"] = True
+        return None
+
     def _check(self, app: AppEntry, steps: list[dict]):
         """Render and check. Returns (rendered, level, egress, plan) or an ExecResult to return."""
         rules = self.rules
@@ -509,6 +624,9 @@ class KubernetesExecutor(Executor):
         ns = f"app-{app.id}"
         k = self.kubectl
         if action_type == "app.configure":
+            err = self._sync_dependencies(app, ctx, steps)
+            if err is not None:
+                return err
             # Secrets first, server-side (values on stdin only, scrubbed from recorded output).
             for sec in ctx.secrets:
                 report_progress("writing secrets", 15)
@@ -552,7 +670,8 @@ class KubernetesExecutor(Executor):
         report_progress("done", 100)
         return ExecResult("succeeded", f"{action_type} {app.id} applied to namespace {ns}", steps)
 
-    def _update(self, app: AppEntry, agent: AgentSecret | None, steps: list[dict]) -> ExecResult:
+    def _update(self, app: AppEntry, agent: AgentSecret | None, steps: list[dict], ctx: ExecContext | None = None
+                ) -> ExecResult:
         """Check, apply the new render, wait for health; restore the previous revision if unhealthy."""
         ns = f"app-{app.id}"
         k = self.kubectl
@@ -567,6 +686,11 @@ class KubernetesExecutor(Executor):
             ([k, "apply", "-n", ns, "-f", "-"], "\n---\n".join(json.dumps(d) for d in netpols)),
             ([k, "apply", "-n", ns, "-f", "-"], rendered),  # exactly the checked bytes
         ):
+            if stdin is rendered:  # the paths before the new version starts (§12.22)
+                err = self._sync_dependencies(app, ctx or ExecContext(), steps)
+                if err is not None:
+                    err.plan = plan_info
+                    return err
             _, err = self._exec(argv, stdin, app, agent, steps)
             if err is not None:
                 err.plan = plan_info
@@ -610,7 +734,7 @@ class KubernetesExecutor(Executor):
         steps: list[dict] = []
         ctx = ctx or ExecContext()
         if action_type == "app.update":
-            return self._update(app, agent, steps)
+            return self._update(app, agent, steps, ctx)
         if action_type in ("app.stop", "app.start", "app.restart", "app.configure"):
             return self._lifecycle(action_type, app, ctx, steps)
         plan_info: dict | None = None
@@ -641,12 +765,21 @@ class KubernetesExecutor(Executor):
         total = max(1, len(commands))
         for n, (argv, stdin) in enumerate(commands):
             report_progress(f"{action_type.split('.')[1]} step {n + 1} of {total}", 20 + int(75 * n / total))
+            if action_type == "app.install" and n == len(commands) - 1:  # paths before the pods start
+                err = self._sync_dependencies(app, ctx, steps)
+                if err is not None:
+                    err.plan = plan_info
+                    return err
             _, err = self._exec(argv, stdin, app, agent, steps, retry_forbidden=bound, secrets=ctx.secrets)
             if err is not None:
                 err.plan = plan_info
                 return err
             if stdin is not None and '"kind": "RoleBinding"' in stdin:
                 bound = True  # later steps may race the new binding
+        if action_type == "app.remove":  # §12.22: removing the dependent closes all its paths
+            err = self._sync_dependencies(app, ctx, steps, remove=True)
+            if err is not None:
+                return err
         report_progress("done", 100)
         return ExecResult(
             "succeeded", f"{action_type} {app.id} applied to namespace app-{app.id}", steps, plan=plan_info

@@ -26,6 +26,7 @@ on:
       force_rebuild: {type: boolean, default: false, description: 'Rebuild even if no new fix is found'}
       dry_run: {type: boolean, default: true, description: 'Never publish, even with keys and the switch on'}
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths: ['os/update/**', '.github/workflows/security-nightly.yml']
 permissions:
   contents: read
@@ -42,7 +43,7 @@ jobs:
   # Not named `unit`: main's required checks match by job name, so a failed or cancelled job of that name
   # here would block every PR like ci's `unit` does.
   update-unit:
-    if: github.event.schedule != '41 */6 * * *'
+    if: ${{ !github.event.pull_request.draft && github.event.schedule != '41 */6 * * *' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:

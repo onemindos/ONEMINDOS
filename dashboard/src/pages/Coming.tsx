@@ -20,7 +20,6 @@ export const COMING_ITEMS: ComingItem[] = [
   { id: 'photos', title: 'Photos', what: 'Your photo timeline, albums and trash.', need: 'UMB-PHOTO' },
   { id: 'lifecycle', title: 'Start, stop, update and delete app data', what: 'Per-app controls with progress and automatic revert when an update fails its health check.', need: 'the app lifecycle actions (CORE-APP lifecycle)' },
   { id: 'network', title: 'Network, QR and adding a device', what: 'Join codes and QR pairing, mesh state, HTTPS names for your apps.', need: 'CORE-NET / CORE-FABRIC (/v1/fabric)' },
-  { id: 'backups', title: 'Backups', what: 'Where backups go, when the last one worked, and restore tests.', need: 'a gateway backups route (/v1/backups); the daemon exists, the gateway does not expose it yet' },
   { id: 'updates', title: 'Operating system updates', what: 'Current version, pending update, rollback history.', need: 'a gateway OS status route (/v1/os); the daemon exists, the gateway does not expose it yet' },
 ];
 

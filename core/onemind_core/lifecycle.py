@@ -138,8 +138,17 @@ _SUMMARY = {
 }
 
 
-def render_plan(action_type: str, params: dict, app: AppEntry, runtime: AppRuntime | None, status: str | None) -> dict:
-    """The plan for one action, with `plan_sha256`. Pure: no cluster call, no write."""
+# Action types whose executor opens the app's dependency network paths (§12.22).
+OPENS_PATHS = frozenset({"app.install", "app.update", "app.configure"})
+
+
+def render_plan(action_type: str, params: dict, app: AppEntry, runtime: AppRuntime | None, status: str | None,
+                network: tuple[list[dict], list[str]] | None = None) -> dict:
+    """The plan for one action, with `plan_sha256`. Pure: no cluster call, no write.
+
+    network: (paths, warnings) from the dependency resolver (§12.22); an app without dependencies
+    passes None or empty lists, and its plan and fingerprint stay exactly as before.
+    """
     md = app.manifest.get("metadata") or {}
     to_version = str(md.get("version")) if md.get("version") is not None else None
     frm = runtime.version if runtime else None
@@ -167,6 +176,15 @@ def render_plan(action_type: str, params: dict, app: AppEntry, runtime: AppRunti
         volumes.append({"kind": "PersistentVolumeClaim", "namespace": ns, "selector": "all", "effect": "deleted"})
         obj["namespace"] = ns
         warnings.append("All files and databases of this app are deleted. There is no undo.")
+    paths: list[dict] = []
+    if network is not None and action_type in OPENS_PATHS:
+        paths, net_warnings = network
+        if paths:
+            obj["network_paths"] = paths  # hashed: another provider or port is a different plan
+        for path in paths:
+            warnings.append(f"Opens a network path: {path['from']} → {path['to']} on TCP {path['port']} "
+                            f"(needs {path['requirement']}).")
+        warnings.extend(net_warnings)
     if bundle is None:
         warnings.append("The app's manifest folder could not be read.")
     objects = [obj]
@@ -176,6 +194,8 @@ def render_plan(action_type: str, params: dict, app: AppEntry, runtime: AppRunti
         "objects": objects, "images": [], "volumes": volumes, "nodes": [], "warnings": warnings,
         "app_status": status or "not_installed",
     }
+    if paths:
+        plan["network_paths"] = paths
     return {"plan": plan, "plan_sha256": plan_hash(action_type, params, target, objects), "target": target}
 
 
@@ -217,6 +237,11 @@ class ExecContext:
     # The app's declared secrets with their current values (executors.AppSecret; appsecrets/).
     # Never shown in a repr, step, result or log line.
     secrets: tuple = field(default=(), repr=False)
+    # §12.22 dependency network paths: the approved (provider, Service port) pairs to open (the
+    # plan's network_paths). dependency_sync: the executor reconciles the app's paths (opens these,
+    # closes the ones its own onemind-dependencies policy names but these do not; app.remove closes all).
+    dependency_paths: tuple[tuple[str, int], ...] = ()
+    dependency_sync: bool = False
 
 
 # ---- sealed credentials (PD-07) ----------------------------------------------------------
