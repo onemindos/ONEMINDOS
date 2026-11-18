@@ -122,6 +122,13 @@ func writeFile(path string, body []byte, mode os.FileMode) error {
 	}
 	tmp, err := os.CreateTemp(filepath.Dir(path), ".tmp-"+filepath.Base(path)+"-*")
 	if err != nil {
+		if errors.Is(err, syscall.EROFS) || errors.Is(err, syscall.EACCES) {
+			// A read-only directory (the image's /etc) cannot take a temp file, but the file itself may be a
+			// writable bind mount (/etc/hosts from /data/state): write it in place, as the Python set_hosts does.
+			if _, serr := os.Stat(path); serr == nil {
+				return os.WriteFile(path, body, mode)
+			}
+		}
 		return err
 	}
 	name := tmp.Name()

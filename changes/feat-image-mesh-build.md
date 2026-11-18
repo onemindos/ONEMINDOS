@@ -1,5 +1,0 @@
----
-pr: pending
-branch: feat/image-mesh-build
----
-IMG-MESH-01 (#292), image build half: the OS image now carries the mesh. Pinned, sha256-checked Tailscale 1.104.6 (`tailscale`, `tailscaled`) and Headscale 0.29.7 binaries are fetched in the `onemind-fetch` stage (same pins as `deploy/pins.env`, plus the hash of each extracted binary); the build creates the `onemind-nats` (962) and `onemind-headscale` (963) users; `/var/lib/tailscale`, `/var/lib/onemind-headscale`, `/var/lib/onemind-nats-leaf` and `/etc/hosts` are bind mounts from `/data/state` (hosts seeded from `/usr/lib/onemind/hosts.default`); and the disabled units `tailscaled` (no log upload, box-CA trust, flannel guard), `onemind-headscale` and `onemind-nats-leaf` ship in the image, with `nftables` added to the package lists. First boot (a separate change) starts them. The recovery data check now also waits for the new bind mounts (and the test escapes "-" in mount unit names). A unit test checks the pins, mounts, users and units against each other.

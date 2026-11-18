@@ -421,6 +421,11 @@ def nats_service_keys(p: Paths) -> None:
 NATS_RUN = "/run/onemind-nats"
 
 
+# onemind-nats.service waits for the mesh address only when this line is in nats.conf. A box set up before
+# IMG-MESH-01 has its own `leafnodes {` block (no mesh), so matching that would make it wait and fail.
+MESH_LEAF_MARKER = "# onemind: mesh leaf listener"
+
+
 def hub_nats_conf(mesh_ip: str | None = None) -> str:
     """The hub NATS as deploy/install.sh nats_install writes it: clients on loopback only, each with its
     own nkey (the included accounts file); with the mesh, the leaf-node listener on the hub's mesh
@@ -431,7 +436,8 @@ def hub_nats_conf(mesh_ip: str | None = None) -> str:
            "# A dead leaf link shows within about a minute instead of 3-7 (FB-3 lab, observation \"outage detection\").\n"
            'ping_interval: "20s"\nping_max: 2\nwrite_deadline: "10s"\n')
     if mesh_ip:
-        out += ("leafnodes {\n"
+        out += (f"{MESH_LEAF_MARKER}\n"
+                "leafnodes {\n"
                 f'  listen: "{mesh_ip}:7422"\n'
                 "  tls {\n"
                 f'    cert_file: "{NATS_RUN}/nats.crt"\n'

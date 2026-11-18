@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """IMG-MESH-01 (#292): the mesh in the OS image. Static checks on the files that make the image run
 Tailscale everywhere and Headscale on the hub: pins, users, writable state, units. Stdlib only."""
-import os, re, unittest
+import os, re, subprocess, sys, tempfile, unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 UNITS = "os/rootfs/layers/onemind/usr/lib/systemd/system"
@@ -174,6 +174,69 @@ class Units(unittest.TestCase):
                      "ReadWritePaths=/var/lib/onemind-nats-leaf"):
             self.assertIn(line, u)
         self.assertNotRegex(u, r"(?m)^StateDirectory=")
+
+
+LEGACY_HUB_CONF = (  # the pre-mesh hub config (old nats_conf())
+    "server_name: hub\nlisten: 0.0.0.0:4222\n"
+    'leafnodes { listen: 0.0.0.0:7422, authorization { user: "node", password: "x" } }\n')
+LEGACY_LEAF_CONF = 'server_name: leaf\nleafnodes { remotes = [ { url: "nats://192.0.2.1:7422" } ] }\n'
+
+
+class NatsMeshWait(unittest.TestCase):
+    """onemind-nats.service waits for the mesh address only for the mesh leaf listener, never for the
+    `leafnodes {` block of a box set up before IMG-MESH-01 (it has no tailscaled and would never start)."""
+
+    @staticmethod
+    def waits(conf_text):
+        u = rd(UNITS, "onemind-nats.service")
+        m = re.search(r"^ExecStartPre=\+/bin/sh -c '(if grep [^']*)'$", u, re.M)
+        assert m, "wait-ip ExecStartPre not found"
+        script = m.group(1).replace("/run/onemind-nats/nats.conf", "\"$1\"").replace(
+            "exec /usr/bin/onemindd mesh wait-ip --timeout 120s", "echo WAIT")
+        with tempfile.NamedTemporaryFile("w", suffix=".conf") as f:
+            f.write(conf_text)
+            f.flush()
+            r = subprocess.run(["/bin/sh", "-c", script, "sh", f.name], capture_output=True, text=True)
+        return "WAIT" in r.stdout
+
+    def test_legacy_confs_do_not_wait(self):
+        self.assertFalse(self.waits(LEGACY_HUB_CONF))
+        self.assertFalse(self.waits(LEGACY_LEAF_CONF))
+
+    def test_mesh_conf_waits_and_hub_without_mesh_does_not(self):
+        sys.path.insert(0, os.path.join(ROOT, "os", "rootfs", "layers", "onemind", "usr", "lib", "onemind"))
+        try:
+            import onemind_firstboot as fb
+        finally:
+            sys.path.pop(0)
+        self.assertTrue(self.waits(fb.hub_nats_conf("100.64.0.1")))
+        self.assertFalse(self.waits(fb.hub_nats_conf(None)))
+
+
+class JetsonLayer(unittest.TestCase):
+    """The Jetson layer copies a few base files by name: everything they reference under /usr/lib/onemind
+    must ship too, or a unit fails and (with a required bind) the box drops to emergency mode."""
+
+    def test_make_layer_ships_what_copied_units_reference(self):
+        mk = rd("os", "boards", "jetson-orin", "make-layer.sh")
+        m = re.search(r"for f in (.*?); do", mk, re.S)
+        copied = re.findall(r"\S+", m.group(1).replace("\\\n", " "))
+        shipped_dirs = [("os", "rootfs", "layers", "onemind"), ("os", "boards", "jetson-orin", "rootfs")]
+        for f in copied:
+            if not f.startswith("usr/lib/systemd/system/"):
+                continue
+            unit = rd("os", "rootfs", "layers", "base", f)
+            for ref in set(re.findall(r"/usr/lib/onemind/[\w./-]+", unit)):
+                rel = ref.lstrip("/")
+                # k3s-airgap-images is staged by the shared fetch script, not copied from the repo.
+                ok = rel in copied or os.path.basename(rel) in rd("os", "rootfs", "fetch-k3s.sh") or any(os.path.exists(os.path.join(ROOT, *d, rel)) for d in shipped_dirs)
+                self.assertTrue(ok, "%s references %s, which make-layer.sh does not ship" % (f, ref))
+        self.assertIn("usr/lib/onemind/hosts.default", copied)
+
+    def test_jetson_fstab_has_no_mesh_binds(self):
+        fstab = rd("os", "boards", "jetson-orin", "rootfs", "etc", "onemind", "jetson-fstab")
+        for needle in ("/etc/hosts", "tailscale", "headscale", "nats-leaf"):
+            self.assertNotIn(needle, fstab)
 
 
 if __name__ == "__main__":

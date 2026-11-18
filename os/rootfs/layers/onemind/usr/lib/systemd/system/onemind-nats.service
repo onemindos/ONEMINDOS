@@ -22,8 +22,9 @@ Type=simple
 RuntimeDirectory=onemind-nats
 RuntimeDirectoryMode=0700
 ExecStartPre=+/usr/lib/onemind/onemind-nats-files
-# With the leaf listener (after `onemind-firstboot mesh`), NATS binds the hub's mesh address: wait for it.
-ExecStartPre=+/bin/sh -c 'if grep -q "^leafnodes" /run/onemind-nats/nats.conf; then exec /usr/bin/onemindd mesh wait-ip --timeout 120s; fi'
+# With the mesh leaf listener (after `onemind-firstboot mesh`, marked by a comment line; a pre-mesh box's
+# own `leafnodes` block has no marker), NATS binds the hub's mesh address: wait for it.
+ExecStartPre=+/bin/sh -c 'if grep -qx "# onemind: mesh leaf listener" /run/onemind-nats/nats.conf; then exec /usr/bin/onemindd mesh wait-ip --timeout 120s; fi'
 ExecStart=/usr/bin/nats-server -c /run/onemind-nats/nats.conf
 ExecReload=+/usr/lib/onemind/onemind-nats-files
 ExecReload=/bin/kill -HUP $MAINPID
