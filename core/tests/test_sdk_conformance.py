@@ -20,20 +20,13 @@ from pathlib import Path
 
 import pytest
 
-from conftest import AGENT, OWNER, write_scan
+from conftest import AGENT, OWNER, fresh_scans
 
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "sdk" / "python" / "src"))
 
 OWNER_TOKEN = OWNER["Authorization"].split()[1]
 AGENT_TOKEN = AGENT["Authorization"].split()[1]
-
-
-def fresh_scans(settings) -> None:
-    """Re-date every fixture app's scan record to one day before the real wall clock."""
-    for app_dir in Path(settings.apps_dir).iterdir():
-        if (app_dir / "scan.json").exists():
-            write_scan(app_dir, datetime.now(UTC) - timedelta(days=1))
 
 
 def test_conformance_scans_are_fresh_on_the_real_clock(settings):
