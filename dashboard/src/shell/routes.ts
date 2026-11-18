@@ -16,6 +16,7 @@ export const href = {
   alerts: '/alerts',
   storage: '/storage',
   backups: '/backups',
+  updates: '/updates',
   coming: '/coming',
   settings: '/settings',
   setting: (id: string) => `/settings/${id}`,
@@ -55,7 +56,7 @@ export function toRoute(link: string): string | undefined {
     case 'backups':
       return href.backups;
     case 'updates':
-      return href.setting(parts[0]);
+      return href.updates;
     case 'storage':
       return href.storage;
     case 'settings':

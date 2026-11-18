@@ -10,6 +10,7 @@ import { preferenceStores } from './data/prefs';
 import { Activity } from './pages/Activity';
 import { Alerts } from './pages/Alerts';
 import { Storage } from './pages/Storage';
+import { Updates } from './pages/Updates';
 import { Backups } from './pages/Backups';
 import { Coming } from './pages/Coming';
 import { FirstRun, wizardPending } from './pages/FirstRun';
@@ -60,6 +61,8 @@ export function SignedInApp() {
             <Route path="settings/storage" element={<Navigate to="/storage" replace />} />
             <Route path="backups" element={<Backups />} />
             <Route path="settings/backups" element={<Navigate to="/backups" replace />} />
+            <Route path="updates" element={<Updates />} />
+            <Route path="settings/updates" element={<Navigate to="/updates" replace />} />
             <Route path="coming" element={<Coming />} />
             <Route path="settings" element={<Settings />} />
             <Route path="settings/:section" element={<Settings />} />
