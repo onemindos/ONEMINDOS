@@ -545,3 +545,17 @@ POLICY |= {
                                                  w.p_static("/v1/machines/ghost/console"),
                                                  f"{_MACH}: only the owner gets a console ticket; an agent never gets a screen"),
 }
+
+# ---- system controls (UMB-P09, #146: core/onemind_core/routers/system.py) -----------------------------------
+_SYS = "core/onemind_core/routers/system.py"
+POLICY |= {
+    ("GET", "/v1/system/controls"): Row(OWNER_ONLY, w.p_static("/v1/system/controls"),
+                                        f"{_SYS}: restart, shutdown, reset and their pending requests; owner only"),
+    ("GET", "/v1/system/diagnostics"): Row(OWNER_ONLY, w.p_static("/v1/system/diagnostics"),
+                                           f"{_SYS}: the redacted diagnostic bundle; owner only, audited"),
+    # A restart request is filed (202) for the owner and agents; it still waits for the owner's approval.
+    ("POST", "/v1/system/actions"): Row(cells(403, **GONE, owner=202, agent=202, app_agent=202, plugin=DENIED,
+                                              automation=DENIED, node=DENIED),
+                                        lambda _w: w.Req("/v1/system/actions", json={"type": "system.restart"}),
+                                        f"{_SYS}: owner or agent requests a restart; only an owner approves it"),
+}

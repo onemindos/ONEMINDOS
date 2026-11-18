@@ -16,6 +16,7 @@ export const href = {
   alerts: '/alerts',
   storage: '/storage',
   backups: '/backups',
+  troubleshoot: '/troubleshoot',
   coming: '/coming',
   settings: '/settings',
   setting: (id: string) => `/settings/${id}`,
