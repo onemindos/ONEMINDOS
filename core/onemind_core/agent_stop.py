@@ -4,8 +4,8 @@
 While it is on, the gateway refuses every request from an agent principal (a static agent token,
 an app's agent principal issued at install, or an identity-issued agent token) before any route
 runs, with 403 `permission_denied` and `reason: "agents_stopped"`. It also refuses an owner's
-approval of an action an agent requested, so nothing an agent asked for before the stop can
-actuate while it is on. People keep working; the automation kill switch (§12.17) is separate.
+approval of anything an agent requested (an action, or a files request such as a folder grant),
+so nothing an agent asked for before the stop can actuate while it is on. People keep working; the automation kill switch (§12.17) is separate.
 
 Why block instead of revoking every grant: the switch is meant for "stop now, look, then decide".
 Revoking would force every app to be reinstalled to get its token back; blocking is instant and
@@ -18,7 +18,9 @@ Rules:
   refused change writes `authz.denied`;
 - the state lives in the database (table `agent_stop_state`), so it survives a gateway restart;
 - a refused agent request writes at most one `agents.refused` audit line a minute, with the count
-  of refusals suppressed since the previous line, so a looping agent cannot flood the log.
+  of refusals suppressed since the previous line, so a looping agent cannot flood the log;
+- enforcement state (the switch's in-memory copy and the refusal throttle) is per process: correct
+  for today's single uvicorn process; several workers would each need to re-read the row.
 """
 
 from __future__ import annotations
@@ -135,11 +137,22 @@ class AgentStop:
         if self._on and is_agent(principal):
             raise self._refuse(principal, {"method": request.method, "path": request.url.path})
 
-    def refuse_agent_approval(self, principal: Principal, action_id: str, _body: dict, _request: Any) -> None:
-        """context.ApprovalGuard: an action an agent requested cannot be approved while agents are stopped."""
-        if not self._on:
-            return
-        action = self.gw.repo.get(action_id) if isinstance(action_id, str) else None
-        if action is not None and is_agent(action.requested_by):
-            raise self._refuse(principal, {"action_id": action_id, "attempted": "approve an agent's request"},
+    def requester(self, approval_id: str) -> dict | None:
+        """Who asked for the action or feature request (files: frq_...) this approval is for."""
+        if not isinstance(approval_id, str):
+            return None
+        action = self.gw.repo.get(approval_id)
+        if action is not None:
+            return action.requested_by
+        for lookup in getattr(self.gw, "requester_lookups", ()) or ():
+            found = lookup(approval_id)
+            if found is not None:
+                return found
+        return None
+
+    def refuse_agent_approval(self, principal: Principal, approval_id: str, _body: dict, _request: Any) -> None:
+        """context.ApprovalGuard: anything an agent requested (an action, a files request) cannot be
+        approved while agents are stopped."""
+        if self._on and is_agent(self.requester(approval_id)):
+            raise self._refuse(principal, {"action_id": approval_id, "attempted": "approve an agent's request"},
                                throttle=False)

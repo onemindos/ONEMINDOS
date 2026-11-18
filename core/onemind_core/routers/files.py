@@ -243,6 +243,7 @@ ORDER = 300
 def register(app: FastAPI, gw: Gateway) -> None:
     svc = FilesService(gw)
     uploads = Uploads(svc)
+    gw.requester_lookups.append(svc.requester)  # agent kill switch: an agent's frq_ cannot be approved
     principal = gw.principal
     app.add_exception_handler(FilesError, ferrors.handle)
 

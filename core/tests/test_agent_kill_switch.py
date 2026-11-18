@@ -2,7 +2,8 @@
 """CORE-SEC-6 (#159): the agent kill switch stops every AI agent, for every agent principal kind.
 
 Kinds covered: the static agent token (tokens file), an app's agent principal issued at install
-(§11.2), and an identity-issued agent token (§12.6). People keep working; only the owner can turn
+(§11.2), and an identity-issued agent token (§12.6). Approvals of anything an agent asked for are
+refused on both approval paths: actions and files requests. People keep working; only the owner can turn
 it on or off; every change is audited; it survives a gateway restart.
 """
 
@@ -13,6 +14,7 @@ import json
 from fastapi.testclient import TestClient
 
 from conftest import ADULT, AGENT, GUEST, OWNER, action_body, make_client
+from files_support import fc, files_root, files_settings, mkdir  # noqa: F401 (pytest fixtures)
 from onemind_core.app import create_app
 from onemind_core.audit import verify
 from test_identity import csrf, id_settings, setup_owner
@@ -140,3 +142,26 @@ def test_identity_issued_agent_token_is_refused(settings, clock, executor):
         assert r.status_code == 200 and r.json()["on"] is True
         assert refused(idc.get("/v1/nodes", headers=h))
         assert idc.get("/v1/nodes").status_code == 200  # the owner's session still works
+
+
+def test_an_agents_files_request_cannot_be_approved_while_stopped(fc, settings):
+    """The files approval path (POST /v1/files/requests/{frq_}/approve) runs the same approval
+    guards, so an agent's earlier folder-grant request stays pending while agents are stopped."""
+    mkdir(fc, OWNER, "shared", "/Media")
+    r = fc.post("/v1/files/grants", headers=AGENT,
+                json={"subject": {"kind": "agent", "id": "hermes"}, "root": "shared", "path": "/Media", "access": "r"})
+    assert r.status_code == 202
+    frq = r.json()["id"]
+    assert frq.startswith("frq_")
+    mine = fc.post("/v1/files/grants", headers=OWNER,
+                   json={"subject": {"kind": "app", "id": "whoami"}, "root": "shared", "path": "/Media", "access": "r"})
+    assert mine.status_code == 202
+    assert stop(fc, True).status_code == 200
+    assert refused(fc.post(f"/v1/files/requests/{frq}/approve", headers=OWNER))
+    assert fc.get(f"/v1/files/requests/{frq}", headers=OWNER).json()["state"] == "awaiting_approval"
+    line = [e for e in audit(settings) if e["event"] == "agents.refused"][-1]
+    assert line["data"]["action_id"] == frq and line["data"]["attempted"] == "approve an agent's request"
+    # a person's own files request is not an agent's: it is still approved
+    assert fc.post(f"/v1/files/requests/{mine.json()['id']}/approve", headers=OWNER).json()["state"] == "succeeded"
+    assert stop(fc, False).status_code == 200
+    assert fc.post(f"/v1/files/requests/{frq}/approve", headers=OWNER).json()["state"] == "succeeded"
