@@ -7,6 +7,9 @@ answers with the upstream's address as k3s would answer with a ClusterIP).
 
 - Exposure (§12.22): a private app answers on its LAN names and is 404 on its mesh name
   (<app>.apps.onemind.internal); a mesh or public app answers on both.
+- Network path (#285): the tier is also enforced by where the request came from (LAN, mesh, Tor,
+  public), not only the Host header, so a LAN-only app cannot be reached from the internet by
+  sending its LAN name. Anything that cannot be told fails closed.
 - Sharing (§12.6): a guest or child the app is not shared with gets 404 on the app's host, as in
   GET /v1/apps, over HTTP, WebSocket and /v1/auth/forward. Sharing is instant to remove.
 """
@@ -14,6 +17,7 @@ answers with the upstream's address as k3s would answer with a ClusterIP).
 from __future__ import annotations
 
 import threading
+from dataclasses import replace
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
@@ -23,11 +27,13 @@ from starlette.websockets import WebSocketDisconnect
 
 import onemind_core.routers.net as net_router
 from onemind_core.app import create_app
+from onemind_core.netconf import NetSettings
 from conftest import OWNER
 from test_identity import PASSWORD, csrf, enrol, id_settings, setup_owner
 
 APP = "whoami"
 LAN, MESH = f"{APP}.onemind.local", f"{APP}.apps.onemind.internal"
+LAN_PEER = "192.168.1.20"  # the socket peer of a household device on the LAN (the path rule reads it)
 
 
 class Hello(BaseHTTPRequestHandler):
@@ -63,7 +69,7 @@ def box(settings, clock, executor, upstream, monkeypatch):
     monkeypatch.setattr(net_router, "KubectlServiceResolver", lambda _kubectl: (lambda _ns, _port: "127.0.0.1"))
     app = create_app(id_settings(settings), clock=clock, executor=executor)
     app.state.repo.set_app_state(APP, "installed", clock.now)
-    with TestClient(app) as c:
+    with TestClient(app, client=(LAN_PEER, 50000)) as c:
         setup_owner(c)
         yield c
 
@@ -164,7 +170,8 @@ def test_forward_auth_agrees_with_the_proxy(box, clock, monkeypatch):
     token = session_token(box, "gus")
 
     def ask(host: str):
-        return box.get("/v1/auth/forward", headers={"X-Forwarded-Host": host, "Authorization": f"Bearer {token}"})
+        return box.get("/v1/auth/forward", headers={"X-Forwarded-Host": host, "Authorization": f"Bearer {token}",
+                                                      "X-OneMind-Path": "lan"})
 
     assert ask(LAN).status_code == 404  # not shared
     gid = guest.get("/v1/me").json()["principal"]["id"]
@@ -184,3 +191,142 @@ def test_a_scoped_api_token_does_not_open_an_app_host(box, scopes):
     assert r.status_code in (200, 201), r.text
     token = r.json()["one_time"]["token"]
     assert open_app(box, token, LAN).status_code == 401
+
+
+# ---- the network path, not the Host header (#285 follow-up) --------------------------------------
+LAN_V4, LAN_V6, LAN_MAPPED = LAN_PEER, "fd12:3456::5", "::ffff:192.168.1.20"
+MESH_V4, MESH_V6 = "100.64.0.7", "fd7a:115c:a1e0::7"
+PUBLIC_V4, PUBLIC_V6 = "93.184.216.34", "2001:4860:4860::8888"
+UNTELLABLE = ["127.0.0.1", "::1", "testclient", "0.0.0.0", "224.0.0.1"]  # loopback, junk, multicast
+ALL_PEERS = [LAN_V4, LAN_V6, LAN_MAPPED, MESH_V4, MESH_V6, PUBLIC_V4, PUBLIC_V6, *UNTELLABLE]
+ADMITTED = {  # tier -> the peers that may open the app
+    "private": {LAN_V4, LAN_V6, LAN_MAPPED},
+    "mesh": {LAN_V4, LAN_V6, LAN_MAPPED, MESH_V4, MESH_V6},
+    "public": {LAN_V4, LAN_V6, LAN_MAPPED, MESH_V4, MESH_V6, PUBLIC_V4, PUBLIC_V6},
+}
+
+
+def from_peer(box: TestClient, peer: str) -> TestClient:
+    return TestClient(box.app, client=(peer, 50000))
+
+
+@pytest.mark.parametrize("tier", ["private", "mesh", "public"])
+@pytest.mark.parametrize("host", [LAN, MESH])
+@pytest.mark.parametrize("peer", ALL_PEERS)
+def test_the_tier_is_enforced_by_the_path_whatever_host_the_client_sends(box, clock, tier, host, peer):
+    set_tier(box, clock, tier)
+    token = session_token(box, "zeus")
+    r = open_app(from_peer(box, peer), token, host)
+    # the name rule still closes the mesh name of a private app, for everyone
+    open_here = peer in ADMITTED[tier] and not (host == MESH and tier == "private")
+    assert (r.status_code, r.text == "hello from the app") == ((200, True) if open_here else (404, False)), \
+        (tier, host, peer, r.status_code)
+
+
+def test_a_lan_name_over_a_public_path_does_not_open_a_private_app(box):
+    token = session_token(box, "zeus")
+    assert open_app(from_peer(box, LAN_V4), token, LAN).status_code == 200
+    r = open_app(from_peer(box, PUBLIC_V4), token, LAN)  # the spoof: right name, wrong road
+    assert r.status_code == 404 and r.text == "No such app."
+
+
+def test_claiming_to_be_the_lan_in_a_header_changes_nothing_from_an_untrusted_peer(box):
+    token = session_token(box, "zeus")
+    c = from_peer(box, PUBLIC_V4)
+    for spoof in ({"X-OneMind-Path": "lan"}, {"X-Forwarded-For": LAN_V4}, {"Forwarded": f"for={LAN_V4}"},
+                  {"X-Real-IP": LAN_V4}, {"X-Forwarded-Host": LAN}):
+        r = c.get("/", headers={"Host": LAN, "Authorization": f"Bearer {token}", **spoof})
+        assert r.status_code == 404, spoof
+
+
+def test_the_path_is_judged_for_the_app_path_route_too(box, monkeypatch):
+    # the /apps/<id>/ route is off by default; it must obey the same rule when on
+    proxy = next(m for m in box.app.user_middleware if m.cls is net_router.AppProxyMiddleware).kwargs["proxy"]
+    monkeypatch.setattr(proxy, "path_routes", True)
+    token = session_token(box, "zeus")
+    ok = from_peer(box, LAN_V4).get(f"/apps/{APP}/", headers={"Authorization": f"Bearer {token}"})
+    assert ok.status_code == 200
+    bad = from_peer(box, PUBLIC_V4).get(f"/apps/{APP}/", headers={"Authorization": f"Bearer {token}"})
+    assert bad.status_code == 404
+
+
+def test_a_stopped_app_does_not_reveal_itself_to_a_path_that_may_not_open_it(box, clock):
+    token = session_token(box, "zeus")
+    box.app.state.repo.set_app_state(APP, "stopped", clock.now)
+    assert open_app(from_peer(box, LAN_V4), token, LAN).status_code == 503
+    r = open_app(from_peer(box, PUBLIC_V4), token, LAN)
+    assert r.status_code == 404 and "stopped" not in r.text.lower()
+
+
+def test_a_websocket_over_a_path_the_tier_does_not_admit_is_refused(box):
+    token = session_token(box, "zeus")
+    with pytest.raises(WebSocketDisconnect) as closed:
+        with from_peer(box, PUBLIC_V4).websocket_connect(
+            "/ws", headers={"Host": LAN, "Origin": f"https://{LAN}", "Authorization": f"Bearer {token}"}
+        ):
+            pass
+    assert closed.value.code == 1008
+
+
+@pytest.mark.parametrize("tier,path,code", [
+    ("private", "lan", 204), ("private", "mesh", 404), ("private", "tor", 404), ("private", "public", 404),
+    ("mesh", "lan", 204), ("mesh", "mesh", 204), ("mesh", "tor", 404), ("mesh", "public", 404),
+    ("public", "lan", 204), ("public", "mesh", 204), ("public", "tor", 204), ("public", "public", 204),
+    ("private", None, 404), ("public", None, 404), ("public", "nonsense", 404), ("public", "LAN, public", 404),
+])
+def test_forward_auth_takes_the_path_from_the_edge_and_fails_closed(box, clock, monkeypatch, tier, path, code):
+    monkeypatch.setattr(net_router, "_is_loopback", lambda _request: True)
+    set_tier(box, clock, tier)
+    token = session_token(box, "zeus")
+    headers = {"X-Forwarded-Host": LAN, "Authorization": f"Bearer {token}"}
+    if path is not None:
+        headers["X-OneMind-Path"] = path
+    assert box.get("/v1/auth/forward", headers=headers).status_code == code
+
+
+@pytest.fixture
+def edge_box(settings, clock, executor, upstream, monkeypatch):
+    """The same box with a trusted edge on loopback (ONEMIND_NET_TRUSTED_PROXIES)."""
+    path = settings.apps_dir / APP / "onemind.app.yaml"
+    manifest = yaml.safe_load(path.read_text())
+    manifest["spec"]["web"] = {"port": upstream, "access": "signed_in"}
+    path.write_text(yaml.safe_dump(manifest, sort_keys=False))
+    monkeypatch.setattr(net_router, "KubectlServiceResolver", lambda _kubectl: (lambda _ns, _port: "127.0.0.1"))
+    with_edge = id_settings(settings)
+    with_edge = replace(with_edge, sections={**with_edge.sections, "net": NetSettings(trusted_proxies="127.0.0.0/8, ::1")})
+    app = create_app(with_edge, clock=clock, executor=executor)
+    app.state.repo.set_app_state(APP, "installed", clock.now)
+    with TestClient(app, client=(LAN_PEER, 50000)) as c:
+        setup_owner(c)
+        yield c
+
+
+@pytest.mark.parametrize("tier,path,code", [
+    ("private", "lan", 200), ("private", "mesh", 404), ("private", "tor", 404), ("private", "public", 404),
+    ("mesh", "mesh", 200), ("mesh", "tor", 404), ("mesh", "public", 404),
+    ("public", "tor", 200), ("public", "public", 200),
+    ("public", None, 404), ("public", "bogus", 404), ("private", None, 404),
+])
+def test_a_trusted_edge_states_the_path_and_silence_is_unknown(edge_box, clock, tier, path, code):
+    set_tier(edge_box, clock, tier)
+    token = session_token(edge_box, "zeus")
+    extra = {} if path is None else {"X-OneMind-Path": path}
+    r = from_peer(edge_box, "127.0.0.1").get("/", headers={"Host": LAN, "Authorization": f"Bearer {token}", **extra})
+    assert r.status_code == code, (tier, path)
+
+
+def test_the_edges_word_is_not_taken_from_a_peer_that_is_not_the_edge(edge_box, clock):
+    set_tier(edge_box, clock, "private")
+    token = session_token(edge_box, "zeus")
+    r = from_peer(edge_box, PUBLIC_V4).get("/", headers={"Host": LAN, "Authorization": f"Bearer {token}",
+                                                        "X-OneMind-Path": "lan"})
+    assert r.status_code == 404
+    # a client of the edge cannot smuggle the header past it: the app never sees X-OneMind-Path from clients
+    assert from_peer(edge_box, LAN_V4).get("/", headers={"Host": LAN, "Authorization": f"Bearer {token}",
+                                                        "X-OneMind-Path": "public"}).status_code == 200
+
+
+def test_trusted_proxies_must_be_networks(settings):
+    with pytest.raises(ValueError, match="TRUSTED_PROXIES"):
+        NetSettings(trusted_proxies="not-an-ip").validate()
+    NetSettings(trusted_proxies="127.0.0.0/8,::1").validate()
