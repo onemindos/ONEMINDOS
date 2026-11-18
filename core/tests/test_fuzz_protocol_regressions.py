@@ -50,6 +50,16 @@ def test_fuzz_config_states_the_expected_statuses_and_no_operation_is_selected_b
         'not_a_server_error': {'expected-statuses': ['2xx', '3xx', '4xx', 503]}}
     assert set(families['^/v1/files/uploads']) == {'negative_data_rejection', 'missing_required_header'}
     assert 412 in families['^/v1/files/uploads']['negative_data_rejection']['expected-statuses']
+    # Optimistic Home writes: absent If-Match is 428; a well-formed but stale tag is 412.
+    # Scope these semantic statuses to the single write operation, never GET or unrelated routes.
+    home = [op for op in operations if op.get('include-operation-id') == 'me.home.save']
+    assert len(home) == 1
+    assert set(home[0]['checks']) == {'missing_required_header', 'positive_data_acceptance'}
+    assert set(home[0]['checks']['missing_required_header']['expected-statuses']) == {
+        400, 401, 403, 406, 415, 422, 428}
+    assert set(home[0]['checks']['positive_data_acceptance']['expected-statuses']) == {
+        '2xx', '3xx', 401, 403, 404, 409, 412, 413, 422, 429, '5xx'}
+    assert 'missing_required_header' not in doc['checks']
 
 
 @pytest.mark.parametrize('method', ['GET', 'DELETE'])
