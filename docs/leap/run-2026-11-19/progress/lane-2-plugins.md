@@ -10,7 +10,7 @@ The order comes from [LANES.md](../LANES.md).
 
 ## Draft (pushed, not ready yet)
 
-- #177: bounded UI bundle and static markup validation (P7/P8); PR pending, stacked on #396. Includes root SVG icons, settings schema compilation and local script checks.
+- #177: bounded UI bundle and static markup validation (P7/P8); PR #397, stacked on #396. Includes root SVG icons, settings schema compilation and local script checks.
 
 - #177: typed widget data schema and schema-only CI coverage; PR #396, stacked on #395. Standalone contract consumed by future #179 host.
 
