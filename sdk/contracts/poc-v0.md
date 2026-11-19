@@ -768,8 +768,21 @@ destructive tools declare effects; execution still requires owner approval.
 `onemind plugin validate [dir]` uses `internal/plugin/validate`, the offline Go
 package shared by box tooling and CI. It checks the existing app schema plus
 plugin tool declarations. A passing manifest check is not artifact verification
-or install authorization. Bundle paths, UI, widening comparisons and
-supply-chain verification remain separate validation slices before #177 is done.
+or install authorization. Widening comparisons and supply-chain verification remain separate
+validation slices before #177 is done.
+
+The CLI validates the unpacked directory with `validate.Directory`: the manifest
+and icon must be regular files, the declared manifests path must be a directory,
+and no declared path component or workload-tree entry may be a symlink or special
+file. All declared paths stay below the bundle root. This check assumes immutable
+contents during validation/install; it does not extract archives, inspect workload
+permissions or verify signatures.
+
+Box callers can use `ManifestForAPI` or `DirectoryForAPI` to check the plugin's
+`compat.onemind` range against their actual plugin API level. The CLI exposes
+this offline check with `onemind plugin validate --api-level <level> [dir]`.
+Without that flag the CLI checks range syntax only; it does not imply the
+manifest is compatible with a particular box. Explicit empty levels are errors.
 
 The event declaration slice adds optional `spec.extensions.events.publish` and
 `subscribe` arrays alongside the required tools. Published names are local
@@ -780,6 +793,17 @@ tokens, and bare `>` is forbidden in both subscriptions and grants. A requested
 pattern must fit inside a single grant; narrower grants are never combined to
 justify a broader subscription. These checks implement P4/P5 only: they do not
 connect plugins to NATS or replace runtime scope enforcement by the gateway.
+
+The egress declaration slice adds optional `spec.egress`, empty/absent meaning
+no internet egress grant. Entries are qualified ASCII hostnames (IDNs must use
+valid punycode), optionally prefixed with `*.`. IP literals, URL components,
+malformed labels, case-equivalent duplicates, special-use/local domains and
+unknown top-level suffixes are rejected. Wildcards must sit below a registrable
+domain according to the embedded Public Suffix List, including its private
+suffixes: `*.example.com` is permitted, `*.com` and `*.github.io` are not.
+Validation is offline and performs no DNS lookups. Runtime enforcement must
+separately reject private or rebound destination addresses; declaring egress
+never authorizes a plugin to act without owner approval.
 
 The UI declaration slice adds optional `spec.extensions.widgets`, `settings`,
 `alerts.actions` and `tiles` alongside the required tools. Template widgets name

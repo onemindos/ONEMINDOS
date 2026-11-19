@@ -10,9 +10,15 @@ The order comes from [LANES.md](../LANES.md).
 
 ## Draft (pushed, not ready yet)
 
-- #177: UI declaration validation (P1/P2 and lexical P7); PR pending, stacked on the event slice. Widgets, alert actions, settings and tiles; no widget runtime.
+- #177: UI declaration validation (P1/P2 and lexical P7); PR pending, stacked on #392. Widgets, alert actions, settings and tiles; no widget runtime.
 
-- #177: event declaration validation (P4/P5); PR pending, stacked on #387. No NATS runtime or registry changes.
+- #177: egress declaration validation (P9); PR pending, stacked on #389. Offline hostname/public-suffix checks, no runtime network changes.
+
+- #177: event declaration validation (P4/P5); PR #389, stacked on #390. No NATS runtime or registry changes.
+
+- #177: box API compatibility checks; PR #390, stacked on #388. Offline --api-level validates the target version against compat.onemind.
+
+- #177: bundle path safety; PR #388, stacked on #387. Checks existence, types and symlinks through the shared Go validator.
 
 - #177: tool-manifest foundation; PR #387. Shared Go validator and CLI; remaining rules tracked in the PR.
 
