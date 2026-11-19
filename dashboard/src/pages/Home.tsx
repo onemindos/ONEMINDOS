@@ -10,6 +10,7 @@ import { homeLayoutStore } from '../data/prefs';
 import type { Polled } from '../lib/hooks';
 import { useSignedIn } from '../session';
 import { href } from '../shell/routes';
+import { showsNav } from '../shell/roles';
 import { useActivity, useShell } from '../shell/Shell';
 
 /** Home's first layout here: only widgets this hub can feed. The rest are in the widget gallery. */
@@ -56,6 +57,7 @@ export function Home() {
   const [layout, setLayout] = useState<HomeLayout>(() => store.load(person) ?? DASHBOARD_HOME_LAYOUT);
   const entries = useActivity();
   const data = homeData(hub, homeActivity(entries));
+  const pro = showsNav('nodes', shell.view);
 
   const decide = (a: ActionSummary, how: 'approve' | 'deny') =>
     hub.decide(a.id, how).then(
@@ -85,11 +87,12 @@ export function Home() {
       onOpenSearch={shell.openPalette}
       links={{
         approvals: href.approvals,
-        nodes: href.nodes,
+        // Nodes and Backups are Pro screens (roles.ts): a guest or child gets no link to them.
+        nodes: pro ? href.nodes : '',
         activity: href.activity,
-        backups: href.setting('backups'),
+        backups: pro ? href.setting('backups') : '',
         updates: href.setting('updates'),
-        mesh: href.nodes,
+        mesh: pro ? href.nodes : '',
         apps: href.market,
         app: (id) => (hub.apps.data?.find((a) => a.id === id)?.installed ? href.manage(id) : href.app(id)),
         approval: (id) => href.approval(id),
