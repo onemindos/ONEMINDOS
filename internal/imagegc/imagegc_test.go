@@ -233,11 +233,27 @@ func TestParseRef(t *testing.T) {
 		"localhost:5000/x":                 {"localhost:5000/x", "latest", ""},
 		"localhost/x:dev":                  {"localhost/x", "dev", ""},
 		"docker.io/library/postgres:16":    {"docker.io/library/postgres", "16", ""},
+		"docker.io/redis:7":                {"docker.io/library/redis", "7", ""},
+		"index.docker.io/bitnami/redis:7":  {"docker.io/bitnami/redis", "7", ""},
 		"registry.example:443/team/app:v2": {"registry.example:443/team/app", "v2", ""},
 	} {
 		if got := ParseRef(in); got != want {
 			t.Errorf("ParseRef(%q) = %+v, want %+v", in, got, want)
 		}
+	}
+}
+
+// Two apps name one Docker Hub repository in two spellings ("docker.io/redis"
+// and "redis"): the stopped app's version is still wanted, not superseded.
+func TestDockerHubSpellingsAreOneRepository(t *testing.T) {
+	images := []Image{
+		{ID: "sha256:r70", RepoTags: []string{"docker.io/library/redis:7.0"}, Size: 10},
+		{ID: "sha256:r72", RepoTags: []string{"docker.io/library/redis:7.2"}, Size: 10},
+		{ID: "sha256:r60", RepoTags: []string{"docker.io/library/redis:6.0"}, Size: 10},
+	}
+	d := Plan(images, []string{"docker.io/redis:7.0", "redis:7.2"}, map[string]bool{"sha256:r72": true})
+	if len(d.Prune) != 1 || d.Prune[0].ID != "sha256:r60" {
+		t.Fatalf("pruned %+v, want only the superseded redis 6.0", d.Prune)
 	}
 }
 

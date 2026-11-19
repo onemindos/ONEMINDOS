@@ -64,6 +64,13 @@ func ParseRef(s string) Ref {
 		s, r.Tag = s[:i], s[i+1:]
 	}
 	parts := strings.Split(s, "/")
+	if (parts[0] == "docker.io" || parts[0] == "index.docker.io") && len(parts) > 1 {
+		// An explicit Docker Hub name is the same repository as the bare one: the
+		// runtime stores "docker.io/redis" as docker.io/library/redis. Without
+		// this, two spellings of one image look like two repositories and a
+		// stopped app's image could be judged superseded.
+		parts = parts[1:]
+	}
 	first := parts[0]
 	if len(parts) == 1 || (!strings.ContainsAny(first, ".:") && first != "localhost") {
 		if len(parts) == 1 {
