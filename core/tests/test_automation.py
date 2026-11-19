@@ -344,6 +344,9 @@ def test_f6_patch_updates_of_verified_apps_inside_the_window(client, clock, auto
     path = auto_settings.apps_dir / "whoami" / "onemind.app.yaml"
     doc = yaml.safe_load(path.read_text())
     doc["metadata"]["tier"] = "verified"
+    # The catalog's release is past the update policy's default cool-off (NMD-07, #132).
+    doc["metadata"]["version"] = "1.10.2"
+    doc["metadata"]["upstream"] = {"release": "v1.10.2", "released_at": "2026-11-01T00:00:00Z"}
     path.write_text(yaml.safe_dump(doc))
     s = svc(client)
     s.policies.installed_version = lambda app_id: "1.10.1"
