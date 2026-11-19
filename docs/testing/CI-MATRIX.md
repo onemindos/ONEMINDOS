@@ -45,7 +45,7 @@ Download `playwright-report-<browser>` from the run and open `playwright-report/
 A difference fails the PR on purpose; someone has to look at it. The reference is not a committed picture but `main` itself: the build job also builds the first parent of GitHub's merge commit (`main` as the PR merges into it), and each browser job draws the screenshots from that build before comparing the PR with them. Two PRs that change the same screen therefore never conflict over PNGs.
 
 1. The `visual` job's summary lists the changed screens; `playwright-report-<browser>` → `playwright-report-visual/index.html` shows expected, actual and diff.
-2. The reviewer adds the label `visual:accepted` if the change is intended. The label starts `visual-recheck`, which re-uses the newest full run of the commit (its build, axe and flows must have passed) and decides again with the current labels; then re-run `merge-gate`.
+2. The reviewer adds the label `visual:accepted` if the change is intended. The label starts `visual-recheck`, which re-uses the newest full run of the commit (its build, axe and flows must have passed) and decides again with the current labels; then re-run `merge-gate`. The label counts only if it was added after the newest commit or force-push (the PR's timeline), so a later push needs a fresh look and a fresh label.
 3. Locally: `ui/test/visual-vs-main.sh` does the same comparison on your machine ([ui/test/README.md](../../ui/test/README.md)).
 
 ### 1.4 Known findings (defects in `ui/`, for the ui stream to fix)

@@ -55,6 +55,7 @@ class WorkflowContract(unittest.TestCase):
         for name, job in d["jobs"].items():
             perms = job.get("permissions") or {}
             self.assertEqual("pull-requests" in perms, name in {"visual", "visual-recheck"}, name)
+            self.assertEqual("issues" in perms, name in {"visual", "visual-recheck"}, name)
             self.assertEqual("actions" in perms, name == "visual-recheck", name)
 
     def test_no_update_baseline_input(self):
@@ -103,6 +104,9 @@ class WorkflowContract(unittest.TestCase):
             self.assertIn("github.event.action != 'labeled'", d["jobs"][job]["if"], job)
         self.assertIn("github.event.action == 'labeled'", d["jobs"]["visual-recheck"]["if"])
         self.assertIn("github.run_id", d["concurrency"]["group"])  # a re-check never cancels a full run
+        # find-run may wait RECHECK_TIMEOUT_S (65 min); the job must outlive it.
+        self.assertGreaterEqual(d["jobs"]["visual-recheck"]["timeout-minutes"] * 60, 3900 + 300)
+        self.assertIn('"RECHECK_TIMEOUT_S", "3900"', SCRIPT.read_text())
 
     def test_actions_stay_pinned_to_the_same_shas(self):
         pins = {"actions/checkout": "11bd71901bbe5b1630ceea73d27597364c9af683",
@@ -131,6 +135,14 @@ class NothingCommitted(unittest.TestCase):
         self.assertIn("${VISUAL_DIR}/{projectName}/{arg}{ext}", cfg)
 
 
+T1, T2, T3 = "2026-11-19T10:00:00Z", "2026-11-19T11:00:00Z", "2026-11-19T12:00:00Z"
+COMMIT = [{"event": "committed", "committer": {"date": "2026-11-19T10:30:00Z"}}]
+
+
+def label(name, at, event="labeled"):
+    return {"event": event, "label": {"name": name}, "created_at": at}
+
+
 def report(*tests, errors=None):
     return {"errors": errors or [], "suites": [{"title": "visual.spec.ts", "specs": [], "suites": [
         {"title": "visual", "specs": [{"title": t, "tests": [{"status": st}]} for t, st in tests]}]}]}
@@ -141,6 +153,12 @@ class Changes(unittest.TestCase):
         r = report(("ui-home light", "expected"), ("dash-nodes light", "unexpected"), ("ui-store light", "skipped"))
         self.assertEqual(verdict.changed_tests(r), ["dash-nodes light"])
 
+    def test_all_skipped_is_refused_but_wk1_skips_are_fine(self):
+        r = report(("ui-home light", "skipped"), ("ui-store light", "skipped"), ("dash-home light", "expected"))
+        self.assertEqual(verdict.changed_tests(r), [])  # WebKit: WK-1 screens skipped, the rest compared
+        with self.assertRaises(ValueError):
+            verdict.changed_tests(report(("ui-home light", "skipped"), ("dash-home light", "skipped")))
+
     def test_global_error_or_no_tests_is_refused(self):
         with self.assertRaises(ValueError):
             verdict.changed_tests(report(("a", "expected"), errors=[{"message": "web server failed"}]))
@@ -150,18 +168,33 @@ class Changes(unittest.TestCase):
 
 class Verdict(unittest.TestCase):
     def test_no_change_passes_without_label(self):
-        ok, text = verdict.decide({b: [] for b in verdict.BROWSERS}, [])
+        ok, text = verdict.decide({b: [] for b in verdict.BROWSERS}, False)
         self.assertTrue(ok)
         self.assertIn("no screen differs", text)
 
     def test_change_fails_until_labelled(self):
         changes = {"chromium": ["dash-home light"], "firefox": [], "webkit": []}
-        ok, text = verdict.decide(changes, ["owner:claude"])
+        ok, text = verdict.decide(changes, *verdict.label_is_current(COMMIT + [label("owner:claude", T2)]))
         self.assertFalse(ok)
         self.assertIn("dash-home light", text)
-        ok, text = verdict.decide(changes, ["owner:claude", "visual:accepted"])
+        ok, text = verdict.decide(changes, *verdict.label_is_current(COMMIT + [label("visual:accepted", T2)]))
         self.assertTrue(ok)
         self.assertIn("dash-home light", text)  # still listed when accepted
+
+    def test_label_added_before_the_newest_commit_does_not_count(self):
+        changes = {"chromium": [], "firefox": ["dash-nodes light"], "webkit": []}
+        stale = [label("visual:accepted", T1)] + COMMIT  # accepted, then a new commit was pushed
+        self.assertEqual(verdict.label_is_current(stale)[0], False)
+        ok, text = verdict.decide(changes, *verdict.label_is_current(stale))
+        self.assertFalse(ok)
+        self.assertIn("before the newest commit", text)
+        forced = [label("visual:accepted", T2), {"event": "head_ref_force_pushed", "created_at": T3}]
+        self.assertFalse(verdict.label_is_current(COMMIT + forced)[0])
+        # Removed and added again after the push: counts.
+        again = stale + [label("visual:accepted", T2, "unlabeled"), label("visual:accepted", T3)]
+        self.assertTrue(verdict.label_is_current(again)[0])
+        removed = COMMIT + [label("visual:accepted", T2), label("visual:accepted", T3, "unlabeled")]
+        self.assertFalse(verdict.label_is_current(removed)[0])
 
     def test_missing_browser_result_is_an_error(self):
         with tempfile.TemporaryDirectory() as d:
@@ -176,21 +209,28 @@ class Verdict(unittest.TestCase):
                 (Path(d) / f"visual-changes-{b}").mkdir()
                 (Path(d) / f"visual-changes-{b}" / "changes.txt").write_text("ui-home light\n" if b == "webkit" else "")
             env = {"REPO": "o/r", "PR": "7", "GH_TOKEN": "x", "GITHUB_STEP_SUMMARY": str(Path(d) / "s.md")}
-            for labels, code in (([], 1), ([{"name": "visual:accepted"}], 0)):
+            for timeline, code in ((COMMIT, 1), (COMMIT + [label("visual:accepted", T2)], 0),
+                                   ([label("visual:accepted", T1)] + COMMIT, 1)):
                 with mock.patch.dict(os.environ, env), \
-                        mock.patch.object(verdict, "_api", return_value={"labels": labels}) as api:
+                        mock.patch.object(verdict, "_api", return_value=timeline) as api:
                     self.assertEqual(verdict.cmd_verdict(d), code)
-                    api.assert_called_once_with("repos/o/r/pulls/7", "x")
+                    api.assert_called_once_with("repos/o/r/issues/7/timeline?per_page=100&page=1", "x")
 
 
 class Recheck(unittest.TestCase):
-    def test_picks_the_newest_full_run_not_itself_or_another_recheck(self):
-        runs = [{"id": 10, "display_title": "Fix nodes"},
-                {"id": 12, "display_title": "ui-quality: label re-check (labeled owner:claude)"},
-                {"id": 11, "display_title": "Fix nodes"},
-                {"id": 13, "display_title": "ui-quality: label re-check (labeled visual:accepted)"}]
-        self.assertEqual(verdict.pick_full_run(runs, 13)["id"], 11)
-        self.assertIsNone(verdict.pick_full_run(runs[1:2], 13))
+    def test_picks_the_newest_full_run_by_its_jobs_not_its_name(self):
+        full = [{"name": "build", "conclusion": "success"}, {"name": "visual-recheck", "conclusion": "skipped"}]
+        recheck = [{"name": "build", "conclusion": "skipped"}, {"name": "visual-recheck", "conclusion": None}]
+        # A PR titled like a re-check must not confuse it: names are ignored.
+        runs = [{"id": 10, "display_title": "ui-quality: label re-check (a PR title)"}, {"id": 11}, {"id": 12}, {"id": 13}]
+        jobs = {10: full, 11: full, 12: recheck, 13: recheck}
+        self.assertEqual(verdict.pick_full_run(runs, 13, jobs.get)["id"], 11)
+        self.assertEqual(verdict.pick_full_run(runs[:1] + runs[3:], 13, jobs.get)["id"], 10)
+        self.assertIsNone(verdict.pick_full_run([runs[2]], 13, jobs.get))
+        self.assertEqual(verdict.pick_full_run(runs, 13, {**jobs, 12: []}.get), "unknown")  # queued
+        draft = [{"name": "build", "conclusion": "skipped"}, {"name": "visual-recheck", "conclusion": "skipped"}]
+        self.assertEqual(verdict.run_kind(draft), "other")
+        self.assertEqual(verdict.run_kind([{"name": "build", "conclusion": None}]), "full")  # still running
 
     def test_a_failed_axe_or_build_is_not_hidden_by_a_label(self):
         ok = [{"name": n, "conclusion": "success"} for n in verdict.FULL_RUN_JOBS]

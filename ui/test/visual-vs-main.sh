@@ -14,6 +14,8 @@ repo=$(git -C "$here" rev-parse --show-toplevel)
 base=${1:-$(git -C "$repo" merge-base HEAD origin/main)}
 browser=${2:-chromium}
 case "$browser" in chromium|firefox|webkit) ;; *) echo "unknown browser: $browser" >&2; exit 2 ;; esac
+# As in CI: never re-use a server already on port 4173/4174, or one server could answer for both sides.
+export CI=1 PW_GITHUB=0
 tmp=$(mktemp -d)
 cleanup() { git -C "$repo" worktree remove --force "$tmp/base" >/dev/null 2>&1 || true; rm -rf "$tmp"; }
 trap cleanup EXIT
