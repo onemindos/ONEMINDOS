@@ -89,6 +89,9 @@ jobs:
           git worktree add --detach _base HEAD^1
           echo "base: $(git -C _base rev-parse HEAD)"
           (cd _base/ui && npm ci && npm run build:demo)
+          # CI-16 (#386): once main stops committing the generated SDK, main's own script makes the TS
+          # schema the dashboard imports. Before that, the committed file is used and there is no script.
+          if [ -x _base/sdk/scripts/gen-code.sh ]; then _base/sdk/scripts/gen-code.sh ts; fi
           (cd _base/dashboard && npm ci && npm run build:mock)
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
