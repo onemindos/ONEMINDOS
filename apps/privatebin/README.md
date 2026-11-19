@@ -8,7 +8,7 @@ A minimalist, self-hosted pastebin where the server knows nothing: pastes are en
 | | |
 |---|---|
 | Version | 2.1.1 (upstream release `2.1.1`, published 2026-11-04) |
-| Licence | `Zlib`, Market class **L1** (licence gate, scan of 2026-11-19) |
+| Licence | `Zlib`, Market class L1 by SPDX id; not yet confirmed by the licence gate |
 | Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | files |
 | GitHub | <https://github.com/PrivateBin/PrivateBin> |
@@ -67,10 +67,4 @@ Founder decision D25 (2026-11-13, `docs/leap/LANES.md`): PrivateBin ships only b
 
 ## Latest security scan
 
-Scanned 2026-11-19T14:55:02Z by `sdk/tools/app-gate`: **fail**. Licence `Zlib` class L1; smoke test pass.
-
-| Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
-|---|---|---|---|---|---|---|
-| `docker.io/privatebin/nginx-fpm-alpine:2.1.1@sha256:9fbcc4d5671b974cafb55948d6fc3ab9eaf77f0c39271a50a16dd71bd4c4d3e6` | amd64, arm64 | 3 (3) | 41 | 0 infected (daily-28188) | 0 | unsigned |
-
-Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.
+No scan yet. `sdk/tools/app-gate` writes `scan.json` (contract §9.4, §11.1).
