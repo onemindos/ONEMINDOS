@@ -10,6 +10,8 @@ The order comes from [LANES.md](../LANES.md).
 
 ## Draft (pushed, not ready yet)
 
+- #177: UI declaration validation (P1/P2 and lexical P7); PR pending, stacked on the event slice. Widgets, alert actions, settings and tiles; no widget runtime.
+
 - #177: event declaration validation (P4/P5); PR pending, stacked on #387. No NATS runtime or registry changes.
 
 - #177: tool-manifest foundation; PR #387. Shared Go validator and CLI; remaining rules tracked in the PR.

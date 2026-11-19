@@ -780,3 +780,13 @@ tokens, and bare `>` is forbidden in both subscriptions and grants. A requested
 pattern must fit inside a single grant; narrower grants are never combined to
 justify a broader subscription. These checks implement P4/P5 only: they do not
 connect plugins to NATS or replace runtime scope enforcement by the gateway.
+
+The UI declaration slice adds optional `spec.extensions.widgets`, `settings`,
+`alerts.actions` and `tiles` alongside the required tools. Template widgets name
+a declared read tool; alert actions name a declared tool and never approve it.
+Iframe widgets target the dashboard only and declare a relative entry under
+`ui/`. Settings schemas and optional tile icons use relative bundle paths, with
+no traversal, absolute paths, unsafe characters or empty path components. UI IDs
+are unique within each surface. These are manifest checks only: bundle file
+existence/symlink checks, settings-schema content and static HTML scanning remain
+separate, as does the sandboxed widget host in #179.

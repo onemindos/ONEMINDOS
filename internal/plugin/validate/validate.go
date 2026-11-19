@@ -106,6 +106,9 @@ func Manifest(data []byte) error {
 	if err := validateEvents(spec, ext); err != nil {
 		return err
 	}
+	if err := validateUI(spec, ext); err != nil {
+		return err
+	}
 	seen := map[string]bool{}
 	for _, raw := range ext["tools"].([]any) {
 		tool := raw.(map[string]any)
