@@ -10,7 +10,7 @@ The order comes from [LANES.md](../LANES.md).
 
 ## Draft (pushed, not ready yet)
 
-- #177: tool-manifest foundation; PR pending. Shared Go validator and CLI; remaining rules tracked in the PR.
+- #177: tool-manifest foundation; PR #387. Shared Go validator and CLI; remaining rules tracked in the PR.
 
 ## Next
 
