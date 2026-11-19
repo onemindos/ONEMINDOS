@@ -10,7 +10,7 @@ The order comes from [LANES.md](../LANES.md).
 
 ## Draft (pushed, not ready yet)
 
-- #177: tool-update major-version guard; PR pending, stacked on #394. Removed tools, changed effects and changed inputs require a higher major.
+- #177: tool-update major-version guard; PR #395, stacked on #394. Removed tools, changed effects and changed inputs require a higher major.
 
 - #177: permission-widening comparison (P11); PR #394, stacked on #393. Reports sorted reasons and never approves updates.
 
