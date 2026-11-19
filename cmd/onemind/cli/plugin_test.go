@@ -81,3 +81,23 @@ func TestPluginValidatePreviousGrants(t *testing.T) {
 		t.Fatalf("invalid previous manifest accepted: %d", code)
 	}
 }
+
+func TestPluginValidateRejectsEmptyPrevious(t *testing.T) {
+	fixture, err := os.ReadFile("../../../internal/plugin/validate/testdata/tool.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "onemind.app.yaml"), fixture, 0600); err != nil {
+		t.Fatal(err)
+	}
+	for _, previous := range []string{"", " ", "\t\n"} {
+		t.Run(previous, func(t *testing.T) {
+			var out, stderr bytes.Buffer
+			code := Run([]string{"plugin", "validate", dir, "--previous", previous, "--json"}, Env{Stdout: &out, Stderr: &stderr})
+			if code != ExitVerifyFailed || out.Len() != 0 || !strings.Contains(stderr.String(), `"error":"validation_failed"`) || !strings.Contains(stderr.String(), "--previous requires a non-empty directory") {
+				t.Fatalf("code %d: stdout %s stderr %s", code, &out, &stderr)
+			}
+		})
+	}
+}

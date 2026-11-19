@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/onemindos/onemindos/internal/plugin/validate"
 	"github.com/spf13/cobra"
@@ -17,7 +18,11 @@ func pluginCommands(a *App) []*cobra.Command {
 	var previous string
 	command := &cobra.Command{
 		Use: "validate [dir]", Short: "Validate a tool plugin manifest (does not verify artifacts)", Args: cobra.MaximumNArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, args []string) error {
+			hasPrevious := cmd.Flags().Changed("previous")
+			if hasPrevious && strings.TrimSpace(previous) == "" {
+				return exitWith(ExitVerifyFailed, "validation_failed", "--previous requires a non-empty directory")
+			}
 			dir := "."
 			if len(args) > 0 {
 				dir = args[0]
@@ -43,7 +48,7 @@ func pluginCommands(a *App) []*cobra.Command {
 				return exitWith(ExitVerifyFailed, "validation_failed", err.Error())
 			}
 			var comparison *validate.GrantDiff
-			if previous != "" {
+			if hasPrevious {
 				before, err := previousManifest(previous)
 				if err != nil {
 					return exitWith(ExitVerifyFailed, "validation_failed", err.Error())
