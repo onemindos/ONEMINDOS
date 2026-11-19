@@ -217,7 +217,12 @@ jobs:
           d=out/cloudboot-${{ matrix.cloud }}
           sudo chmod -R a+rw out
           if [ -f $d/results.json ]; then python3 -I test/qemu/summary.py $d/results.json >> "$GITHUB_STEP_SUMMARY"; fi
-          if [ -f $d/serial.log ]; then test/qemu/trim-log.sh $d/serial.log > $d/serial-trimmed.log; rm -f $d/serial.log; fi
+          # The masked last 400 lines too: the AWS C1 flake hangs before any evidence line is printed.
+          if [ -f $d/serial.log ]; then
+            test/qemu/trim-log.sh $d/serial.log > $d/serial-trimmed.log
+            test/qemu/trim-log.sh --tail 400 $d/serial.log > $d/serial-tail.log
+            rm -f $d/serial.log
+          fi
           rm -rf $d/work
           rm -f out/image-cloud-${{ matrix.cloud }}/*.raw out/image-cloud-${{ matrix.cloud }}/*.vhd
           cat out/image-cloud-${{ matrix.cloud }}/SHA256SUMS || true
