@@ -10,9 +10,15 @@ So a file written, read and rewritten within one tick can look unchanged, and th
 serving the old content, for scan.json an old "pass" after the scanner wrote "fail".
 
 Git has the same problem with its index ("racy git") and solves it the same way: a signature is
-only trusted once the file's timestamps are clearly older than now. A later write then lands in a
-later tick and moves mtime and ctime. Until then the file is simply read again, which costs one
-small read for files changed in the last couple of seconds.
+only trusted once the file's ctime is clearly older than now. A later write then lands in a later
+tick and moves ctime. Until then the file is simply read again, which costs one small read for
+files changed in the last couple of seconds.
+
+Only ctime counts, never mtime: user space can set mtime to any value (utime, cp -p,
+shutil.copy2, tar -x, rsync -t), but the kernel alone stamps ctime, with the current tick, on
+every write, chmod or utime. A copied file carries its source's old mtime, so an mtime-based rule
+would trust it at once, and a same-size rewrite carrying the same old mtime in the same tick
+would then look unchanged.
 """
 
 from __future__ import annotations
@@ -28,11 +34,13 @@ RACY_WINDOW_NS = 2_000_000_000
 def cache_signature(st: os.stat_result, now_ns: int | None = None) -> tuple | None:
     """The cache key for a file with this stat, or None if it changed too recently to trust.
 
-    A later write sets both mtime and ctime to the current tick, so the key can only collide if
-    BOTH are still within the current tick; once either is older than the window, any write moves
-    it. That is why the older of the two decides (a copy2/utime'd file has an old mtime and is safe).
+    The key is trusted only when ctime is at least RACY_WINDOW_NS old: any later write stamps
+    ctime with a later tick, so the key must change. mtime is ignored for this decision because
+    it can be set back by the writer (a cp -p copy has an old mtime and a fresh ctime). A ctime
+    in the future (clock stepped back) is never counted as old.
     """
     now = time.time_ns() if now_ns is None else now_ns
-    if now - min(st.st_mtime_ns, st.st_ctime_ns) < RACY_WINDOW_NS:
+    age = now - st.st_ctime_ns
+    if age < RACY_WINDOW_NS:  # also true for a future ctime (negative age)
         return None
     return (st.st_mtime_ns, st.st_ctime_ns, st.st_size, st.st_ino)
