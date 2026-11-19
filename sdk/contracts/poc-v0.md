@@ -768,5 +768,15 @@ destructive tools declare effects; execution still requires owner approval.
 `onemind plugin validate [dir]` uses `internal/plugin/validate`, the offline Go
 package shared by box tooling and CI. It checks the existing app schema plus
 plugin tool declarations. A passing manifest check is not artifact verification
-or install authorization. Bundle paths, UI, events, widening comparisons and
+or install authorization. Bundle paths, UI, widening comparisons and
 supply-chain verification remain separate validation slices before #177 is done.
+
+The event declaration slice adds optional `spec.extensions.events.publish` and
+`subscribe` arrays alongside the required tools. Published names are local
+`[a-z0-9_-]{1,40}` names only; the gateway supplies the app subject prefix.
+Subscriptions require a covering `events:subscribe:<pattern>` permission. Only
+whole-token `*` and terminal `>` wildcards are accepted; `>` matches one or more
+tokens, and bare `>` is forbidden in both subscriptions and grants. A requested
+pattern must fit inside a single grant; narrower grants are never combined to
+justify a broader subscription. These checks implement P4/P5 only: they do not
+connect plugins to NATS or replace runtime scope enforcement by the gateway.

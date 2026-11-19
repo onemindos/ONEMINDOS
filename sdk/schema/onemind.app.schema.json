@@ -201,7 +201,7 @@
         "updates"
       ],
       "properties": {
-        "permissions": {"type": "array", "uniqueItems": true, "maxItems": 64, "items": {"type": "string", "minLength": 1, "maxLength": 128, "pattern": "^(nodes:read|apps:read|actions:read:self|actions:request:[a-z][a-z0-9_]*\\.[a-z][a-z0-9_.]*|alerts:raise)$"}},
+        "permissions": {"type": "array", "uniqueItems": true, "maxItems": 64, "items": {"type": "string", "minLength": 1, "maxLength": 128, "pattern": "^(nodes:read|apps:read|actions:read:self|actions:request:[a-z][a-z0-9_]*\\.[a-z][a-z0-9_.]*|alerts:raise|events:subscribe:[^\\s]+)$"}},
         "compat": {"type": "object", "additionalProperties": false, "properties": {"onemind": {"type": "string", "minLength": 1, "maxLength": 128}}, "required": ["onemind"]},
         "plugin": {
           "type": "object",
@@ -248,6 +248,32 @@
           "type": "object",
           "additionalProperties": false,
           "properties": {
+            "events": {
+              "type": "object",
+              "additionalProperties": false,
+              "minProperties": 1,
+              "properties": {
+                "publish": {
+                  "type": "array",
+                  "uniqueItems": true,
+                  "maxItems": 64,
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9_-]{1,40}$"
+                  }
+                },
+                "subscribe": {
+                  "type": "array",
+                  "uniqueItems": true,
+                  "maxItems": 64,
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  }
+                }
+              }
+            },
             "tools": {
               "type": "array",
               "minItems": 1,

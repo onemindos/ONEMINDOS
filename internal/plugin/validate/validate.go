@@ -103,6 +103,9 @@ func Manifest(data []byte) error {
 	if _, err := semver.NewConstraint(compat["onemind"].(string)); err != nil {
 		return fmt.Errorf("compat.onemind: %w", err)
 	}
+	if err := validateEvents(spec, ext); err != nil {
+		return err
+	}
 	seen := map[string]bool{}
 	for _, raw := range ext["tools"].([]any) {
 		tool := raw.(map[string]any)
