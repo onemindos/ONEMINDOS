@@ -18,8 +18,34 @@ concurrency:
   group: image-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
-  image:
+  # CI-14 (leap run): which part of this workflow the PR needs (scripts/ci-image-scope.py). A PR that only
+  # changes the image's payload (core/, dashboard/, ui/src/, apps/) gets the x86_64-efi first-boot smoke
+  # (the gateway really starts on the image) plus e2e.yml's golden path; the 5 image builds, battery,
+  # cloud and installer (~14 hosted jobs) run for OS PRs, on every push to main and on dispatch.
+  scope:
     if: ${{ !github.event.pull_request.draft }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      os: ${{ steps.s.outputs.os }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - id: s
+        name: OS change or payload only?
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" != pull_request ]; then echo os=true | tee -a "$GITHUB_OUTPUT"; exit 0; fi
+          # Any API error leaves the list empty, and an empty list means os=true.
+          { gh api "repos/$GITHUB_REPOSITORY/pulls/$PR/files" --paginate --jq '.[].filename' || true; } > files.txt
+          python3 -I scripts/ci-image-scope.py < files.txt | tee -a "$GITHUB_OUTPUT"
+  image:
+    needs: scope
+    if: ${{ !github.event.pull_request.draft && needs.scope.outputs.os == 'true' }}
     strategy:
       fail-fast: false
       matrix:
@@ -72,6 +98,7 @@ jobs:
   # jobs (battery, cloud, installer) start, so a broken image fails here in minutes instead of in all of them.
   # Same build, fixtures and `make firstboot` as the battery's first-boot step; no criterion changes.
   smoke:
+    needs: scope
     if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-24.04
     timeout-minutes: 45
@@ -121,8 +148,8 @@ jobs:
             out/firstboot-x86_64-efi/serial-trimmed.log
           retention-days: 14
   battery:
-    if: ${{ !github.event.pull_request.draft }}
-    needs: smoke
+    if: ${{ !github.event.pull_request.draft && needs.scope.outputs.os == 'true' }}
+    needs: [scope, smoke]
     strategy:
       fail-fast: false
       matrix:
@@ -140,8 +167,8 @@ jobs:
   # that cloud imports, then the cloud test on that exact artifact (test/qemu/CRITERIA-CLOUD.md).
   # Uploading to a cloud account is never done here (os/cloud/*-import.sh, run by the owner).
   cloud:
-    if: ${{ !github.event.pull_request.draft }}
-    needs: smoke
+    if: ${{ !github.event.pull_request.draft && needs.scope.outputs.os == 'true' }}
+    needs: [scope, smoke]
     strategy:
       fail-fast: false
       matrix:
@@ -204,8 +231,8 @@ jobs:
   # stick, then I1-I5 (test/qemu/CRITERIA-INSTALLER.md): boot the stick, install to an NVMe disk
   # through the menu, verify, reboot into OneMind. KVM here; TCG runs exceed the write budget.
   installer:
-    if: ${{ !github.event.pull_request.draft }}
-    needs: smoke
+    if: ${{ !github.event.pull_request.draft && needs.scope.outputs.os == 'true' }}
+    needs: [scope, smoke]
     runs-on: ubuntu-24.04
     timeout-minutes: 150
     steps:
