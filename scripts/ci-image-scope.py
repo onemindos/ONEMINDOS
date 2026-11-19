@@ -12,22 +12,39 @@ x86_64-efi first-boot smoke (F0-F4: the gateway really starts on the image) plus
   - on every push to main, so a payload change that breaks the battery shows up within hours;
   - on manual dispatch.
 
-Input: the PR's changed file names, one per line, on stdin. Output (for $GITHUB_OUTPUT):
+Input: the PR's changed file names (and the old names of renamed files), one per line, on stdin. Output (for $GITHUB_OUTPUT):
 `os=true` (run everything) or `os=false` (smoke only). Any doubt is `os=true`: an empty list,
-an unreadable list, or GitHub's 3000-file cap on the PR files API.
+an unreadable list, or GitHub's 3000-file cap on the PR files API. The workflow itself writes
+`os=true` without calling this script when the files API fails.
 """
 from __future__ import annotations
 
 import sys
 
-# Paths image.yml triggers on that only change the image's payload, not its build, boot or update.
-PAYLOAD = ("core/", "dashboard/", "ui/src/", "apps/")
+# What the image carries but does not boot or update with: the gateway, dashboard, design system, app
+# catalogue and the SDK sources the image copies (schemas and policy for the gateway, TypeScript for the
+# dashboard, Go for onemindd; a Go compile break is caught by ci-onemindd on every PR anyway).
+PAYLOAD = ("core/", "dashboard/", "ui/src/", "apps/", "sdk/")
+# Inside the payload folders but part of how the image is built or what the cloud tests prove:
+# - the gateway's Python dependencies are resolved per architecture in the image build (only the arm64
+#   builds catch a dependency with no arm64 wheel);
+# - serve.py, netconf.py and the onboarding router decide that the setup wizard answers only locally
+#   (cloud test C5, a security check).
+PAYLOAD_EXCEPTIONS = {
+    "core/pyproject.toml", "core/uv.lock",
+    "core/onemind_core/serve.py", "core/onemind_core/netconf.py", "core/onemind_core/routers/onboarding.py",
+}
+OS_PREFIXES = ("os/", "test/qemu/", "cmd/", "internal/", "brand/")
+OS_FILES = {
+    "go.mod", "go.sum", ".dockerignore", "Makefile",
+    ".github/workflows/image.yml", ".github/workflows/battery.yml", "scripts/ci-image-scope.py",
+}
 # The PR files API returns at most 3000 files; a list that long may be cut, so assume the OS changed.
 API_CAP = 3000
 
 
 def needs_full_image(files: list[str]) -> bool:
-    """True unless every file is payload or outside the image's trigger paths entirely."""
+    """True unless every file is payload or outside what the image is built from."""
     files = [f.strip() for f in files if f.strip()]
     if not files or len(files) >= API_CAP:
         return True
@@ -35,15 +52,12 @@ def needs_full_image(files: list[str]) -> bool:
 
 
 def is_os(path: str) -> bool:
-    """A path image.yml triggers on that is not payload (keep in step with image.yml `paths:`)."""
+    """A path that changes how the image is built, boots or updates (or what the cloud tests prove)."""
+    if path in PAYLOAD_EXCEPTIONS or path in OS_FILES:
+        return True
     if path.startswith(PAYLOAD):
         return False
-    if path.startswith(("os/", "test/qemu/", "cmd/", "internal/")):
-        return True
-    return path in {
-        "go.mod", "go.sum", ".dockerignore", "Makefile",
-        ".github/workflows/image.yml", ".github/workflows/battery.yml", "scripts/ci-image-scope.py",
-    }
+    return path.startswith(OS_PREFIXES)
 
 
 def main() -> int:

@@ -19,7 +19,7 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   # CI-14 (leap run): which part of this workflow the PR needs (scripts/ci-image-scope.py). A PR that only
-  # changes the image's payload (core/, dashboard/, ui/src/, apps/) gets the x86_64-efi first-boot smoke
+  # changes the image's payload (core/, dashboard/, ui/src/, apps/, sdk/) gets the x86_64-efi first-boot smoke
   # (the gateway really starts on the image) plus e2e.yml's golden path; the 5 image builds, battery,
   # cloud and installer (~14 hosted jobs) run for OS PRs, on every push to main and on dispatch.
   scope:
@@ -40,8 +40,12 @@ jobs:
           PR: ${{ github.event.pull_request.number }}
         run: |
           if [ "$GITHUB_EVENT_NAME" != pull_request ]; then echo os=true | tee -a "$GITHUB_OUTPUT"; exit 0; fi
-          # Any API error leaves the list empty, and an empty list means os=true.
-          { gh api "repos/$GITHUB_REPOSITORY/pulls/$PR/files" --paginate --jq '.[].filename' || true; } > files.txt
+          # Any API error (even on a later page, after earlier pages printed) means os=true. A rename also
+          # lists its old path, so moving a file out of os/ still counts as an OS change.
+          if ! gh api "repos/$GITHUB_REPOSITORY/pulls/$PR/files" --paginate \
+               --jq '.[] | .filename, (.previous_filename // empty)' > files.txt; then
+            echo os=true | tee -a "$GITHUB_OUTPUT"; exit 0
+          fi
           python3 -I scripts/ci-image-scope.py < files.txt | tee -a "$GITHUB_OUTPUT"
   image:
     needs: scope
@@ -98,7 +102,6 @@ jobs:
   # jobs (battery, cloud, installer) start, so a broken image fails here in minutes instead of in all of them.
   # Same build, fixtures and `make firstboot` as the battery's first-boot step; no criterion changes.
   smoke:
-    needs: scope
     if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-24.04
     timeout-minutes: 45
