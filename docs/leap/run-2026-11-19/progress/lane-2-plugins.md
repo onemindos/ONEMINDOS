@@ -10,7 +10,7 @@ The order comes from [LANES.md](../LANES.md).
 
 ## Draft (pushed, not ready yet)
 
-- #177: permission-widening comparison (P11); PR pending, stacked on #393. Reports sorted reasons and never approves updates.
+- #177: permission-widening comparison (P11); PR #394, stacked on #393. Reports sorted reasons and never approves updates.
 
 - #177: UI declaration validation (P1/P2 and lexical P7); PR #393, stacked on #392. Widgets, alert actions, settings and tiles; no widget runtime.
 
