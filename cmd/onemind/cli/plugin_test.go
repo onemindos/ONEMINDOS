@@ -57,3 +57,29 @@ func TestPluginValidateRequiresBundleFiles(t *testing.T) {
 		t.Fatalf("%d %s", code, &stderr)
 	}
 }
+
+func TestPluginValidateAPILevel(t *testing.T) {
+	fixture, err := os.ReadFile("../../../internal/plugin/validate/testdata/tool.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	for name, data := range map[string][]byte{"onemind.app.yaml": fixture, "icon.svg": []byte("<svg/>")} {
+		if err := os.WriteFile(filepath.Join(dir, name), data, 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.Mkdir(filepath.Join(dir, "manifests"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	for _, level := range []string{"0.3", "1.0", ""} {
+		var out, stderr bytes.Buffer
+		code := Run([]string{"plugin", "validate", dir, "--api-level", level, "--json"}, Env{Stdout: &out, Stderr: &stderr})
+		if level == "0.3" && code != ExitOK {
+			t.Fatalf("%d %s", code, &stderr)
+		}
+		if level != "0.3" && code != ExitVerifyFailed {
+			t.Fatalf("accepted %q: %d %s", level, code, &stderr)
+		}
+	}
+}

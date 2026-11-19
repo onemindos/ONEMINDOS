@@ -777,3 +777,9 @@ and no declared path component or workload-tree entry may be a symlink or specia
 file. All declared paths stay below the bundle root. This check assumes immutable
 contents during validation/install; it does not extract archives, inspect workload
 permissions or verify signatures.
+
+Box callers can use `ManifestForAPI` or `DirectoryForAPI` to check the plugin's
+`compat.onemind` range against their actual plugin API level. The CLI exposes
+this offline check with `onemind plugin validate --api-level <level> [dir]`.
+Without that flag the CLI checks range syntax only; it does not imply the
+manifest is compatible with a particular box. Explicit empty levels are errors.

@@ -16,7 +16,9 @@ import (
 // Directory validates an unpacked, quiescent plugin bundle. Extraction and
 // signature verification must finish before this check; callers must not mutate
 // the directory while validating or installing it. This is not an archive extractor.
-func Directory(dir string) error {
+func Directory(dir string) error { return directory(dir, "") }
+
+func directory(dir, apiLevel string) error {
 	root, err := filepath.Abs(dir)
 	if err != nil {
 		return err
@@ -41,7 +43,11 @@ func Directory(dir string) error {
 	if err != nil {
 		return err
 	}
-	if err := Manifest(data); err != nil {
+	if apiLevel == "" {
+		if err := Manifest(data); err != nil {
+			return err
+		}
+	} else if err := ManifestForAPI(data, apiLevel); err != nil {
 		return err
 	}
 	// Manifest already established the types and single-document constraint.

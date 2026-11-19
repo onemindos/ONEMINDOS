@@ -10,6 +10,8 @@ The order comes from [LANES.md](../LANES.md).
 
 ## Draft (pushed, not ready yet)
 
+- #177: box API compatibility checks; PR pending, stacked on #388. Offline --api-level validates the target version against compat.onemind.
+
 - #177: bundle path safety; PR #388, stacked on #387. Checks existence, types and symlinks through the shared Go validator.
 
 - #177: tool-manifest foundation; PR #387. Shared Go validator and CLI; remaining rules tracked in the PR.
