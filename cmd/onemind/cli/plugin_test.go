@@ -117,7 +117,7 @@ func TestPluginValidatePreviousGrants(t *testing.T) {
 			if err := os.WriteFile(filepath.Join(current, "onemind.app.yaml"), test.data, 0600); err != nil {
 				t.Fatal(err)
 			}
-			args := []string{"plugin", "validate", current, "--previous", previous}
+			args := []string{"plugin", "validate", current, "--previous", previous, "--api-level", "0.3"}
 			if test.json {
 				args = append(args, "--json")
 			}

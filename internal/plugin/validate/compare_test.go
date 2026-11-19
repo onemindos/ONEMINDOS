@@ -170,3 +170,20 @@ func TestCompareEgressAndDeterministicOrder(t *testing.T) {
 		t.Fatal("accepted unknown egress shape")
 	}
 }
+
+func TestComparePublicEgress(t *testing.T) {
+	old, next := comparisonFixture(t), comparisonFixture(t)
+	old["spec"].(map[string]any)["egress"] = []any{"api.example.com"}
+	next["spec"].(map[string]any)["egress"] = []any{"api.example.com", "new.example.com"}
+	result, err := Compare(manifestBytes(t, old), manifestBytes(t, next))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.WidensGrants || !reflect.DeepEqual(result.Reasons, []string{"egress added: new.example.com"}) {
+		t.Fatalf("%+v", result)
+	}
+	next["spec"].(map[string]any)["egress"] = []any{"*.com"}
+	if _, err := Compare(manifestBytes(t, old), manifestBytes(t, next)); err == nil {
+		t.Fatal("grant comparison bypassed egress validation")
+	}
+}
