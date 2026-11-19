@@ -19,6 +19,17 @@ The finish line is [#234](https://github.com/onemindos/ONEMINDOS/issues/234): On
 8. [#206](https://github.com/onemindos/ONEMINDOS/issues/206) part 2 · [#233](https://github.com/onemindos/ONEMINDOS/issues/233) one API client · [#232](https://github.com/onemindos/ONEMINDOS/issues/232) · [#284](https://github.com/onemindos/ONEMINDOS/issues/284) Tor · [#361](https://github.com/onemindos/ONEMINDOS/issues/361) benchmark · [#324](https://github.com/onemindos/ONEMINDOS/issues/324) and [#275](https://github.com/onemindos/ONEMINDOS/issues/275) CI flakes
 9. [#234](https://github.com/onemindos/ONEMINDOS/issues/234) the "See OneMind" guide, written last against what really runs
 
+## Lane 1b — M-LIVE security and the box · builder: **Claude helper (second account, another computer)** · label `leap:1b-security`
+
+Split out of lane 1 so the gate session can focus on merging, the pipeline, the host executor and the screens.
+
+1. [#363](https://github.com/onemindos/ONEMINDOS/issues/363) tokens-file cache race (reuse `core/onemind_core/filesig.py` from #360)
+2. [#364](https://github.com/onemindos/ONEMINDOS/issues/364) audit-verify cache race
+3. [#159](https://github.com/onemindos/ONEMINDOS/issues/159) signed audit checkpoints (the kill switch is done in #358)
+4. [#274](https://github.com/onemindos/ONEMINDOS/issues/274) per-node NATS accounts at first boot (open PR #349) and [#277](https://github.com/onemindos/ONEMINDOS/issues/277) NETWORKING.md §7
+5. [#273](https://github.com/onemindos/ONEMINDOS/issues/273) rescue terminal on the OS image's unit file
+6. [#324](https://github.com/onemindos/ONEMINDOS/issues/324) and [#275](https://github.com/onemindos/ONEMINDOS/issues/275) CI flakes
+
 ## Lane 2 — Plugins · builder: **Codex** · label `leap:2-plugins` · area `plugins`
 
 1. [#177](https://github.com/onemindos/ONEMINDOS/issues/177) plugin manifest and validator
@@ -52,7 +63,7 @@ All AI work sits under aiPolicy ([#165](https://github.com/onemindos/ONEMINDOS/i
 6. [#156](https://github.com/onemindos/ONEMINDOS/issues/156) fleet-staged updates and the release service on NATS
 7. [#127](https://github.com/onemindos/ONEMINDOS/issues/127) content manager for offline libraries · [#164](https://github.com/onemindos/ONEMINDOS/issues/164) backups for offline content
 
-## Lane 5 — OS, image and network · builder: **Claude helper (second account, another computer)** · label `leap:5-os-net` · areas `os`, `net`, `daemon`
+## Lane 5 — OS, image and network · builder: **Codex** · label `leap:5-os-net` · areas `os`, `net`, `daemon`
 
 Hardware-only parts get code and VM tests now; tests on real devices come later.
 
