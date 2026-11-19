@@ -103,14 +103,44 @@ class DraftToReady(unittest.TestCase):
                 at(run(2, "ci"), 8)]
         self.assertEqual(len(gate.verdict(runs, SELF)["failed"]), 1)
 
-    def test_draft_gate_logs_that_heavy_checks_skipped(self):
-        env = dict(Loop.ENV, DRAFT="true")
-        printed = []
-        with mock.patch.dict(os.environ, env), mock.patch.object(gate, "fetch_runs", lambda *a: [run(1, "ci")]), \
-                mock.patch.object(gate.time, "sleep", lambda s: None), \
+    def test_draft_gate_passes_at_once_without_holding_a_runner(self):
+        env = dict(Loop.ENV, DRAFT="true", PR="7")
+        printed, calls = [], []
+        with mock.patch.dict(os.environ, env), mock.patch.object(gate, "still_draft", lambda *a: True), \
+                mock.patch.object(gate, "fetch_runs", lambda *a: calls.append("fetch") or [run(1, "ci", conclusion="failure")]), \
+                mock.patch.object(gate.time, "sleep", lambda s: calls.append("sleep")), \
                 mock.patch("builtins.print", lambda *a, **k: printed.append(" ".join(map(str, a)))):
             self.assertEqual(gate.main(), 0)
+        self.assertEqual(calls, [])  # no settle wait, no polling: the job ends at once
         self.assertTrue(any("draft" in line for line in printed))
+
+    def test_draft_flag_never_short_cuts_the_merge_queue(self):
+        env = dict(Loop.ENV, DRAFT="true", EVENT="merge_group")
+        with mock.patch.dict(os.environ, env), \
+                mock.patch.object(gate, "fetch_runs", lambda *a: [run(1, "ci-core", conclusion="failure")]), \
+                mock.patch.object(gate.time, "sleep", lambda s: None), mock.patch("builtins.print"):
+            self.assertEqual(gate.main(), 1)
+
+    def test_a_stale_draft_payload_still_waits_when_the_pr_is_ready_now(self):
+        # A re-run of an old draft gate, or a late synchronize event, carries draft=true; the PR is ready.
+        env = dict(Loop.ENV, DRAFT="true", PR="7")
+        with mock.patch.dict(os.environ, env), mock.patch.object(gate, "still_draft", lambda *a: False), \
+                mock.patch.object(gate, "fetch_runs", lambda *a: [run(1, "ci-dashboard", conclusion="failure")]), \
+                mock.patch.object(gate.time, "sleep", lambda s: None), mock.patch("builtins.print"):
+            self.assertEqual(gate.main(), 1)
+
+    def test_still_draft_is_false_on_doubt(self):
+        self.assertFalse(gate.still_draft("o/r", "", "t"))
+        self.assertFalse(gate.still_draft("o/r", "abc", "t"))
+        with mock.patch.object(gate.urllib.request, "urlopen", side_effect=OSError("down")):
+            self.assertFalse(gate.still_draft("o/r", "7", "t"))
+
+    def test_a_ready_pr_still_waits_and_fails_on_red(self):
+        env = dict(Loop.ENV, DRAFT="false")
+        with mock.patch.dict(os.environ, env), \
+                mock.patch.object(gate, "fetch_runs", lambda *a: [run(1, "ci-core", conclusion="failure")]), \
+                mock.patch.object(gate.time, "sleep", lambda s: None), mock.patch("builtins.print"):
+            self.assertEqual(gate.main(), 1)
 
 
 class Loop(unittest.TestCase):

@@ -13299,6 +13299,17 @@
       },
       "put": {
         "operationId": "me.home.save",
+        "parameters": [
+          {
+            "description": "The ETag read from GET /v1/me/home.",
+            "in": "header",
+            "name": "If-Match",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {

@@ -200,6 +200,37 @@ class Ceremony(unittest.TestCase):
         self.assertNotEqual(r.returncode, 0)
         self.assertFalse(os.path.exists(self.p("root", "root.json")))
 
+    # ---- root rotation with file keys (the hardware-token path is tests/test_tuf_hsm.py)
+    def test_the_rotation_rehearsal_runs_and_the_ci_refusal_holds(self):
+        r = run_script("rehearse-rotate", self.p("rot"))
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("REHEARSAL PASSED: v1 -> v2 rotation", r.stderr)
+        self.assertIn("previous root v1: 2 of its keys signed this root too", r.stdout)
+        self.assertEqual(tr.inspect_root(self.p("rot", "rotated", "root.json"), 2, 3, prev=self.p("rot", "out", "root.json"))[1], [])
+        self.assertEqual(run_script("rehearse-rotate", self.p("rot")).returncode, 2)       # never reuse the directory
+        self.assertEqual(run_script("rehearse-rotate", self.p("rot2"), CI="true").returncode, 1)
+
+    def test_rotate_needs_a_threshold_of_old_and_of_new_keys(self):
+        k = self.sticks()
+        self.make_root()
+        old_root = self.p("out", "root.json")
+        for h in "abc":
+            tr.keygen(self.p("new", h), ["root"], encrypt=True)
+        new = {h: self.p("new", h, "root.key") for h in "abc"}
+        pub_c = self.p("new", "c", "root.pub")
+        with self.assertRaises(SystemExit):                       # one old key of two
+            tr.rotate_root(old_root, [k["a"]], [new["a"], new["b"]], [pub_c], 2, self.p("r1"))
+        with self.assertRaises(SystemExit):                       # one new signer of two
+            tr.rotate_root(old_root, [k["a"], k["b"]], [new["a"]], [self.p("new", "b", "root.pub"), pub_c], 2, self.p("r2"))
+        with self.assertRaises(SystemExit):                       # the old key c (a .pub holder) cannot sign: not a signer here
+            tr.rotate_root(old_root, [new["a"], new["b"]], [new["a"], new["b"]], [pub_c], 2, self.p("r3"))
+        self.assertFalse(any(os.path.exists(self.p(d)) for d in ("r1", "r2", "r3")))
+        md = tr.rotate_root(old_root, [k["a"], k["b"]], [new["a"], new["b"]], [pub_c], 2, self.p("r4"))
+        self.assertEqual(md.signed.version, 2)
+        self.assertEqual(tr.inspect_root(self.p("r4", "root.json"), 2, 3, prev=old_root)[1], [])
+        same = tr.rotate_root(self.p("r4", "root.json"), [new["a"], new["b"]], [new["a"], new["b"]], [pub_c], 2, self.p("r5"))
+        self.assertEqual((same.signed.version, len(same.signatures)), (3, 2))                    # renewal: same keys, signs once
+
 
 if __name__ == "__main__":
     unittest.main()
