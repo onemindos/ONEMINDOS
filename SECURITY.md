@@ -7,7 +7,7 @@ This repository is private, so only members of the `onemindos` organisation can 
 
 Instead:
 1. **Tell a maintainer directly**, in a private message. The maintainers are listed in [.github/CODEOWNERS](.github/CODEOWNERS).
-2. If you need something to track, open an issue titled only `Security report` with the `security` label and **no details**. The maintainer adds the details once the fix is out.
+2. If you need something to track, open an issue titled only `Security report` with **no details**. The maintainer adds the details once the fix is out.
 3. If the problem is a leaked secret (a token, key or password in the code or history), say so first: the secret is rotated before anything else, because removing it from the code does not remove it from git history.
 
 Please include:
