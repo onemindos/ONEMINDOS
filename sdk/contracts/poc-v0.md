@@ -496,7 +496,10 @@ All optional. **Absent means "this agent does not report it", never "false" or "
 "storage": {"state": "protected", "mount": "/data", "used_bytes": 0, "free_bytes": 0,
             "needs_scrub": false, "reasons": []},
 "fabric":  {"role": "worker", "leaf_link": "up", "outbox_pending": 0, "cert_expires_at": "…"},
-"metrics": {"cpu_pct": 12.5, "load1": 0.52, "temp_c": 61.3}
+"metrics": {"cpu_pct": 12.5, "load1": 0.52, "temp_c": 61.3},
+"images":  {"count": 12, "bytes": 0, "superseded_bytes": 0, "disk_used_pct": 41.5, "budget_pct": 80,
+            "warn_pct": 70, "last_cleanup_at": "…", "last_result": "succeeded", "last_removed": 0,
+            "last_freed_bytes": 0}
 ```
 - `update` is exactly the struct in `internal/heartbeat` (PR #15): `state` is `idle|downloading|installing|pending_reboot|trial|committed|rolled_back|error`; `available_version` and `last_check` may be null.
 - `mesh.state` is `up|down|none`, `mesh.path` is `direct|relayed|none`. Mesh addresses are never in the heartbeat; the gateway reads them from the coordinator.
@@ -504,6 +507,7 @@ All optional. **Absent means "this agent does not report it", never "false" or "
 - `storage.state` is `protected|unprotected|degraded|unavailable|unsupported` (`internal/storage`); `reasons` are short slugs; disks are reported only through the owner-only storage API, never in the heartbeat.
 - `fabric.role` is `hub|worker|leaf` (the top-level §2 `role` stays `hub|node`); `leaf_link` is `up|down|none`.
 - `metrics` (added 2026-11-12, CORE-NOTIFY monitoring): `cpu_pct` is busy time since the previous heartbeat, `load1` the 1-minute load average, `temp_c` the hottest thermal zone; each may be null.
+- `images` (added 2026-11-19, NMD-08 #133): the hub's image cleaner (`onemindd images`, `internal/imagegc`). `last_result` is `succeeded|partial|skipped|failed|none`; `last_cleanup_at` may be null; `disk_used_pct` is 0 when the disk could not be read. The gateway opens `disk.budget_near` (topic `storage`) when `disk_used_pct` reaches `warn_pct` and resolves it (`disk.budget_ok`) 2 points below.
 - The gateway adds `received_at` and `clock_skew_s` when it serves nodes; they are not in the published heartbeat.
 
 ### 12.11 Fabric: join ticket → node request → owner approval
