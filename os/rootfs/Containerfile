@@ -60,6 +60,11 @@ WORKDIR /src
 COPY go.mod go.sum ./
 COPY sdk/go/ sdk/go/
 RUN go mod download && go mod verify
+# The Go SDK's types are not committed (CI-16): generate them from the committed spec, always, so
+# the image never builds on stale types left in a developer's checkout.
+COPY sdk/openapi/ sdk/openapi/
+COPY sdk/scripts/ sdk/scripts/
+RUN sh sdk/scripts/gen-code.sh go
 COPY cmd/ cmd/
 COPY internal/ internal/
 RUN for b in onemindd onemind; do \
@@ -78,7 +83,11 @@ RUN npm ci --loglevel=error
 COPY dashboard/ ./
 # @onemind/ui is consumed from source (dashboard tsconfig paths + vite alias -> ../ui/src), no ui build.
 COPY ui/src/ /src/ui/src/
-COPY sdk/ts/src/ /src/sdk/ts/src/
+# The TS SDK's schema is not committed (CI-16): generate it from the committed spec (npm ci in sdk/ts).
+COPY sdk/openapi/ /src/sdk/openapi/
+COPY sdk/scripts/ /src/sdk/scripts/
+COPY sdk/ts/ /src/sdk/ts/
+RUN sh /src/sdk/scripts/gen-code.sh ts
 RUN npm run build && test -f dist/index.html
 
 FROM onemind-buildbase AS onemind-pyprep

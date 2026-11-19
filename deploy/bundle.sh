@@ -127,6 +127,18 @@ find "$OUT/downloads" -type f ! -name "k3s-$K3S_VERSION-$ARCH" ! -name "k3s-inst
   ! -name "restic-$RESTIC_VERSION.bz2" -delete
 
 # ---- 2. onemindd + onemind (static) ---------------------------------------------------------
+# The onemind CLI (Go SDK) and the dashboard (TS SDK) import SDK code that is generated from the
+# committed spec, not committed (CI-16). Make it in this checkout when it is missing.
+GEN_LANGS=go; [ "$NODE_ONLY" = 0 ] && GEN_LANGS="go ts"
+for g in sdk/go/internal/gen/types.gen.go sdk/ts/src/gen/schema.ts; do
+  [ "$g" = sdk/ts/src/gen/schema.ts ] && [ "$NODE_ONLY" = 1 ] && continue
+  [ -f "$REPO/$g" ] && continue
+  log "generating the SDK code ($GEN_LANGS) from sdk/openapi: $g is missing"
+  # shellcheck disable=SC2086 # GEN_LANGS is a word list
+  sh "$REPO/sdk/scripts/gen-code.sh" $GEN_LANGS \
+    || die "SDK code generation failed: it needs Go, Node 22 and npm here (or run make -C sdk gen-code first)"
+  break
+done
 LDFLAGS="-s -w -buildid= -X github.com/onemindos/onemindos/internal/version.Version=$VERSION"
 if [ "$GO_MODE" = local ]; then
   log "onemindd + onemind for linux/$ARCH with the local $(go version | awk '{print $3}')"

@@ -35,7 +35,7 @@ class DashboardBuildInputs(unittest.TestCase):
         command = match.group(0)
         with tempfile.TemporaryDirectory() as directory:
             src = Path(directory)
-            for path in ("dashboard/main.ts", "ui/src/index.ts", "sdk/ts/src/index.ts"):
+            for path in ("dashboard/main.ts", "ui/src/index.ts", "sdk/ts/src/index.ts", "sdk/openapi/onemind-v1.json"):
                 file = src / path
                 file.parent.mkdir(parents=True, exist_ok=True)
                 file.write_text("before\n")
@@ -44,13 +44,17 @@ class DashboardBuildInputs(unittest.TestCase):
             before = digest()
             (src / "sdk/ts/src/index.ts").write_text("after\n")
             self.assertNotEqual(before, digest(), "an SDK-only change must rebuild the dashboard")
+            spec_before = digest()
+            (src / "sdk/openapi/onemind-v1.json").write_text("after\n")
+            self.assertNotEqual(spec_before, digest(), "a spec-only change must rebuild the dashboard (CI-16)")
 
     def test_installer_stages_the_entire_sdk_tree_next_to_dashboard(self):
         commands = "\n".join(re.findall(r'^\s*copy_src_tree .*$', self.function, re.M))
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             src, cache = root / "src", root / "cache"
-            for path in ("dashboard/main.ts", "ui/src/index.ts", "sdk/ts/src/index.ts", "sdk/ts/src/gen/schema.ts"):
+            for path in ("dashboard/main.ts", "ui/src/index.ts", "sdk/ts/src/index.ts", "sdk/ts/src/gen/schema.ts",
+                         "sdk/ts/package.json", "sdk/openapi/onemind-v1.json", "sdk/scripts/gen-code.sh"):
                 file = src / path
                 file.parent.mkdir(parents=True, exist_ok=True)
                 file.write_text(path)
@@ -59,7 +63,11 @@ class DashboardBuildInputs(unittest.TestCase):
                 copied = cache / "sdk/ts/src" / relative
                 self.assertTrue(copied.is_file(), "installer must stage SDK source: " + relative)
                 self.assertEqual(copied.read_text(), "sdk/ts/src/" + relative)
+            # CI-16: what generating src/gen/schema.ts from the spec needs, staged beside it
+            for relative in ("sdk/ts/package.json", "sdk/openapi/onemind-v1.json", "sdk/scripts/gen-code.sh"):
+                self.assertTrue((cache / relative).is_file(), "installer must stage " + relative)
         self.assertRegex(self.function, r'chown -R onemind:onemind[^\n]*"\$CACHE/sdk"')
+        self.assertLess(self.function.index("gen-code.sh ts"), self.function.index("npm run build >/dev/null"))
 
 
 if __name__ == "__main__":

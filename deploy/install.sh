@@ -947,6 +947,7 @@ onemindd_install() {
       plan "use the prebuilt $ONEMINDD_BIN (and onemind-linux-$ARCH next to it, if there)"
     else
       go_toolchain
+      [ -f "$SRC/sdk/go/internal/gen/types.gen.go" ] || plan "generate the Go SDK types from sdk/openapi (sdk/scripts/gen-code.sh go; not committed, CI-16)"
       plan "go build -trimpath ./cmd/onemindd ./cmd/onemind (CGO_ENABLED=0, from $SRC)"
     fi
     plan "install -m0755 onemindd onemind -> $BIN/ (if they differ)"
@@ -963,7 +964,15 @@ onemindd_install() {
     # No onemindd release artifact is published yet, so it is built from this checkout.
     go_toolchain
     log "onemindd: building from source with Go $GO_VERSION"
-    local bin
+    local bin gen="$SRC/sdk/go/internal/gen/types.gen.go"
+    # The onemind CLI imports the Go SDK, whose types are generated, not committed (CI-16). A fresh
+    # checkout has none: make them from the committed spec, owned like the checkout, not by root.
+    if [ ! -f "$gen" ]; then
+      log "onemindd: generating the Go SDK types from sdk/openapi (sdk/scripts/gen-code.sh go)"
+      (cd "$SRC" && env PATH="$GO_DIR/bin:$PATH" GOTOOLCHAIN=local GOCACHE="$CACHE/go-build" GOMODCACHE="$CACHE/go-mod" \
+        GOPATH="$CACHE/go" HOME="$CACHE" sh sdk/scripts/gen-code.sh go)
+      chown --reference="$SRC/sdk/go" "$SRC/sdk/go/internal/gen" "$gen" 2>/dev/null || true
+    fi
     for bin in onemindd onemind; do
       (cd "$SRC" && env CGO_ENABLED=0 GOTOOLCHAIN=local GOFLAGS=-mod=readonly \
         GOCACHE="$CACHE/go-build" GOMODCACHE="$CACHE/go-mod" GOPATH="$CACHE/go" HOME="$CACHE" \
@@ -1078,7 +1087,7 @@ dashboard_build() {
     step "Dashboard -> $PREFIX/dashboard (served by the gateway)"
     if [ -n "$DASH_DIST" ]; then plan "copy the prebuilt $DASH_DIST"; return 0; fi
     node_toolchain
-    plan "as user onemind: npm ci --ignore-scripts && npm run build (skipped when dashboard/ is unchanged)"
+    plan "as user onemind: generate the TS SDK schema from sdk/openapi (CI-16), npm ci --ignore-scripts && npm run build (skipped when dashboard/ is unchanged)"
     return 0
   fi
   if [ -n "$DASH_DIST" ]; then
@@ -1087,21 +1096,25 @@ dashboard_build() {
     copy_tree_plain "$DASH_DIST" "$PREFIX/dashboard"; return 0
   fi
   # Dashboard aliases consume the design system and SDK from source; hash every input tree.
-  sum=$(cd "$SRC" && find dashboard ui/src sdk/ts/src -path dashboard/node_modules -prune -o -path dashboard/dist -prune -o -type f -print0 \
+  # sdk/openapi: the TS SDK schema is generated from the spec here when the checkout has none (CI-16).
+  sum=$(cd "$SRC" && find dashboard ui/src sdk/ts/src sdk/openapi -path dashboard/node_modules -prune -o -path dashboard/dist -prune -o -type f -print0 \
         | LC_ALL=C sort -z | xargs -0 sha256sum | sha256sum | cut -d' ' -f1)
   if [ -f "$stamp" ] && [ "$(cat "$stamp")" = "$sum" ]; then log "dashboard: up to date"; return 0; fi
   node_toolchain
   log "dashboard: npm ci + vite build with Node $NODE_VERSION (as user onemind, no install scripts)"
   copy_src_tree "$SRC/dashboard" "$CACHE/dashboard-src"
   copy_src_tree "$SRC/ui/src" "$CACHE/ui/src"   # ../ui/src as seen from dashboard-src
-  copy_src_tree "$SRC/sdk/ts/src" "$CACHE/sdk/ts/src"
+  copy_src_tree "$SRC/sdk/ts" "$CACHE/sdk/ts"   # src/ for the build; package files to generate src/gen/
+  copy_src_tree "$SRC/sdk/openapi" "$CACHE/sdk/openapi"
+  copy_src_tree "$SRC/sdk/scripts" "$CACHE/sdk/scripts"
   # npm packages are third-party code: never run them as root. --ignore-scripts skips dependency
   # lifecycle scripts (esbuild's is an optional speed-up; its platform binary comes as a package).
   install -d -o onemind -g onemind -m0700 "$CACHE/npm-home"
   chown -R onemind:onemind "$CACHE/dashboard-src" "$CACHE/ui" "$CACHE/sdk"
   (cd "$CACHE/dashboard-src" && runuser -u onemind -- env -i PATH="$NODE_DIR/bin:/usr/bin:/bin" HOME="$CACHE/npm-home" \
      npm_config_cache="$CACHE/npm-home/cache" npm_config_update_notifier=false sh -ec \
-     'npm ci --ignore-scripts --no-audit --no-fund --loglevel=error >/dev/null; npm run build >/dev/null')
+     'sh ../sdk/scripts/gen-code.sh ts >/dev/null   # always from the spec, never a stale copy
+      npm ci --ignore-scripts --no-audit --no-fund --loglevel=error >/dev/null; npm run build >/dev/null')
   copy_tree_plain "$CACHE/dashboard-src/dist" "$PREFIX/dashboard"
   printf '%s\n' "$sum" > "$stamp"
   rm -rf "$CACHE/dashboard-src" "$CACHE/ui" "$CACHE/sdk"
