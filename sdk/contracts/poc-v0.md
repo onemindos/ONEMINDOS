@@ -814,3 +814,13 @@ no traversal, absolute paths, unsafe characters or empty path components. UI IDs
 are unique within each surface. These are manifest checks only: bundle file
 existence/symlink checks, settings-schema content and static HTML scanning remain
 separate, as does the sandboxed widget host in #179.
+
+The standalone `sdk/schema/widget-templates.schema.json` publishes the typed
+widget result contract (PLUGIN-SDK.md §6.2); `validate.WidgetData` checks that
+same embedded schema offline. Every result is a closed object with an RFC 3339
+`observed_at`. Stat values are text or numbers; `trend`, when present, is only
+null until a numeric trend contract is specified. Lists carry title/subtitle and
+a status from `ok`, `warn`, `error`, `unknown`; progress is a number in [0, 1];
+status cards carry that state vocabulary and text. There are no host-fetchable
+URL/image fields. The future #179 host renders strings as text and marks stale
+timestamps; this schema publication adds no runtime UI route or renderer.

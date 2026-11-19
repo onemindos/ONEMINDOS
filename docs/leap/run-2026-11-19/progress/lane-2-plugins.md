@@ -10,6 +10,8 @@ The order comes from [LANES.md](../LANES.md).
 
 ## Draft (pushed, not ready yet)
 
+- #177: standalone widget-template schema and CI schema triggers; PR pending, stacked on UI declaration slice. Renderer remains #179.
+
 - #177: UI declaration validation (P1/P2 and lexical P7); PR pending, stacked on #392. Widgets, alert actions, settings and tiles; no widget runtime.
 
 - #177: egress declaration validation (P9); PR #392, stacked on #389. Offline hostname/public-suffix checks, no runtime network changes.

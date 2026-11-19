@@ -9,3 +9,8 @@ import _ "embed"
 //
 //go:embed onemind.app.schema.json
 var App string
+
+// WidgetTemplates is the standalone typed-widget data contract for host consumers.
+//
+//go:embed widget-templates.schema.json
+var WidgetTemplates string
