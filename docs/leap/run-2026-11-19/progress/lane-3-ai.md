@@ -6,7 +6,7 @@ Ties to AIG-05 (#240), the AI Gateway workstream and D-007 (Debian 13).
 
 ## Draft
 
-- #240 claimed by Codex on `codex/240-model-manager`. Claim-only draft; implementation has not started.
+- #240 claimed by Codex on `codex/240-model-manager`. [Draft PR #371](https://github.com/onemindos/ONEMINDOS/pull/371); claim and plan only, implementation has not started.
 - Plan: inspect existing model, hardware, action and backup interfaces; implement an approved catalogue with artifact sizes and RAM/VRAM requirements; derive fit from detected hardware; implement owner-approved downloads with progress, disk reservation/budget checks and safe removal; expose through mounted gateway routes and the generated SDK, with a reachable owner interface.
 - Verification: fit and unknown-hardware behavior, disk exhaustion/concurrent downloads, interrupted or invalid downloads, removal safety, authorization and agent approval refusal; touched gateway/SDK/interface suites, hygiene and secret scanning.
 - Dependencies: #166 (router) and #164 (model backups) are open. Keep integration requirements explicit; do not claim end-to-end completion until verified.
