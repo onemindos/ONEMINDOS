@@ -52,6 +52,10 @@ class PasskeyRegisterBody(BaseModel):
     label: str | None = Field(default=None, max_length=100)
 
 
+class RescueVerifyBody(BaseModel):
+    credential: dict[str, Any]
+
+
 class PasswordBody(BaseModel):
     current_password: str = Field(max_length=1024)
     new_password: str = Field(max_length=1024)
@@ -261,6 +265,15 @@ def register(app: FastAPI, gw: Gateway) -> None:
     @app.post("/v1/actions/{action_id}/approve-options", operation_id="actions.approve_options", tags=["actions"], responses=R(401, 403, 404, 409))
     def approve_options(action_id: str, request: Request, p: Principal = Depends(principal)):
         return svc.approve_options(request, p, action_id)
+
+    # ---- rescue console step-up (D-014): called by the console on this box, never listed in the API ----
+    @app.post("/v1/auth/rescue/options", include_in_schema=False)
+    def rescue_options(request: Request, p: Principal = Depends(principal)):
+        return svc.rescue_options(request, p)
+
+    @app.post("/v1/auth/rescue/verify", include_in_schema=False)
+    def rescue_verify(body: RescueVerifyBody, request: Request, p: Principal = Depends(principal)):
+        return svc.rescue_verify(request, p, body.credential)
 
     # ---- the minimal sign-in page (until the new UI wires its own screens) ---------------------------
     @app.get("/signin", include_in_schema=False)

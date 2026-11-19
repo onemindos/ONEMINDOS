@@ -4,6 +4,7 @@ package rescue
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
@@ -27,9 +28,10 @@ import (
 //  1. the caller is the owner (the console's own check; a valid non-owner
 //     credential, such as an agent token, gets 403, never a shell);
 //  2. the switch file exists (off by default; `onemindd rescue terminal enable`);
-//  3. a fresh passkey assertion (Reauth). Passkey sign-in does not exist yet
-//     (#236), and D-014 forbids shipping this behind the plain owner token,
-//     so production wires no Reauth and step 3 refuses with 503;
+//  3. a fresh passkey assertion (Reauth), checked by the gateway (passkey.go),
+//     once per session, at the start. D-014 forbids a shell behind the plain
+//     owner token. With no Reauth wired, or the gateway unreachable, step 3
+//     refuses with 503, and with an assertion that does not verify, 401;
 //  4. the start event is on the audit chain (fail closed: no record, no shell).
 //
 // Keystrokes and output are NOT recorded, only who, when, from where, how long
@@ -63,7 +65,7 @@ type Terminal struct {
 	// SwitchFile enables the terminal when it exists as a regular file nobody but
 	// its owner can write. Absent means off.
 	SwitchFile string
-	Reauth     Reauther // nil: refuse every start (no passkeys yet)
+	Reauth     Reauther // nil: refuse every start (503); production wires a GatewayReauth
 	Spawner    Spawner
 	Audit      *Audit
 	// IdleTimeout closes a session nobody types into; MaxDuration is the hard cap.
@@ -82,6 +84,7 @@ type termSession struct {
 	started  time.Time
 	client   string
 	cred     string
+	owner    [32]byte // sha256 of the owner token that started it: only that credential may use the session
 	bytesIn  atomic.Int64
 	bytesOut atomic.Int64
 	tmu      sync.Mutex // guards idle and max, which a timer may fire before they are stored
@@ -97,6 +100,7 @@ type termState struct {
 
 func (s *Server) mountTerminal() {
 	s.mux.HandleFunc("GET /terminal", s.termPage)
+	s.mux.HandleFunc("POST /terminal/passkey/options", s.termChallenge)
 	s.mux.HandleFunc("POST /terminal/sessions", s.termStart)
 	s.mux.HandleFunc("GET /terminal/sessions/{id}/out", s.termOut)
 	s.mux.HandleFunc("POST /terminal/sessions/{id}/in", s.termIn)
@@ -117,23 +121,61 @@ func (s *Server) deniedNonOwner(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, "the terminal is for the owner only", http.StatusForbidden)
 }
 
-// termGuard runs checks 2 and 3. It returns the passkey credential on success.
-func (s *Server) termGuard(w http.ResponseWriter, r *http.Request) (string, bool) {
+// termGuard runs check 2 and, when fresh is set, check 3, and returns the passkey credential. Only the
+// start asks for a fresh assertion; the page, the challenge and the calls on an open session need the switch,
+// a wired Reauth and (for a session) the owner credential that started it.
+func (s *Server) termGuard(w http.ResponseWriter, r *http.Request, fresh bool) (string, bool) {
 	t := s.cfg.Terminal
 	if !SwitchOn(t.SwitchFile) {
 		http.Error(w, "the terminal is off (the owner turns it on with: onemindd rescue terminal enable)", http.StatusNotFound)
 		return "", false
 	}
 	if t.Reauth == nil {
-		http.Error(w, "the terminal needs passkey sign-in, which this box does not have yet", http.StatusServiceUnavailable)
+		http.Error(w, "the terminal needs passkey sign-in, which this console is not set up for", http.StatusServiceUnavailable)
 		return "", false
 	}
+	if !fresh {
+		return "", true
+	}
 	cred, err := t.Reauth.Fresh(r)
-	if err != nil {
+	switch {
+	case errors.Is(err, ErrReauthUnavailable):
+		http.Error(w, err.Error(), http.StatusServiceUnavailable)
+		return "", false
+	case err != nil || cred == "":
 		http.Error(w, ErrNoFreshAuth.Error(), http.StatusUnauthorized)
 		return "", false
 	}
 	return cred, true
+}
+
+// termChallenge hands the page the gateway's passkey challenge. It opens nothing.
+func (s *Server) termChallenge(w http.ResponseWriter, r *http.Request) {
+	if !s.sameOriginPost(w, r) {
+		return
+	}
+	if _, ok := s.termGuard(w, r, false); !ok {
+		return
+	}
+	ch, ok := s.cfg.Terminal.Reauth.(Challenger)
+	if !ok {
+		http.Error(w, "the terminal needs passkey sign-in, which this console is not set up for", http.StatusServiceUnavailable)
+		return
+	}
+	b, err := ch.Challenge(r)
+	switch {
+	case errors.Is(err, ErrNoPasskey):
+		http.Error(w, err.Error(), http.StatusConflict)
+		return
+	case errors.Is(err, ErrNoFreshAuth):
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	case err != nil:
+		http.Error(w, ErrReauthUnavailable.Error(), http.StatusServiceUnavailable)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_, _ = w.Write(b)
 }
 
 var termTmpl = template.Must(template.New("t").Parse(`<!doctype html><html lang="en"><meta charset="utf-8">
@@ -149,8 +191,21 @@ It closes after a few idle minutes. <a href="./">Back</a></p>
 (async()=>{
 const out=document.getElementById('out'),line=document.getElementById('line');
 const h={'X-CSRF-Token':'{{.CSRF}}'};
-const r=await fetch('terminal/sessions',{method:'POST',headers:h});
+const u=s=>Uint8Array.from(atob(s.replace(/-/g,'+').replace(/_/g,'/')+'==='.slice((s.length+3)%4)),c=>c.charCodeAt(0));
+const b=a=>btoa(String.fromCharCode(...new Uint8Array(a))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+out.textContent='Touch your passkey to open the shell...';
+let cred;
+try{
+ const o=await fetch('terminal/passkey/options',{method:'POST',headers:h});
+ if(!o.ok){out.textContent='Could not start the passkey check: '+(await o.text());return}
+ const pk=(await o.json()).publicKey;pk.challenge=u(pk.challenge);(pk.allowCredentials||[]).forEach(c=>{c.id=u(c.id)});
+ const c=await navigator.credentials.get({publicKey:pk}),x=c.response;
+ cred={id:c.id,rawId:b(c.rawId),type:c.type,response:{clientDataJSON:b(x.clientDataJSON),authenticatorData:b(x.authenticatorData),
+  signature:b(x.signature),userHandle:x.userHandle?b(x.userHandle):null}};
+}catch(e){out.textContent='Passkey check failed: '+e.message;return}
+const r=await fetch('terminal/sessions',{method:'POST',headers:{...h,'Content-Type':'application/json'},body:JSON.stringify({webauthn:cred})});
 if(!r.ok){out.textContent='Could not open a shell: '+(await r.text());return}
+out.textContent='';
 const {id}=await r.json();
 const send=b=>fetch('terminal/sessions/'+id+'/in',{method:'POST',headers:h,body:b});
 document.getElementById('f').onsubmit=e=>{e.preventDefault();send(line.value+'\n');line.value=''};
@@ -170,7 +225,7 @@ func nonce() string {
 }
 
 func (s *Server) termPage(w http.ResponseWriter, r *http.Request) {
-	if _, ok := s.termGuard(w, r); !ok {
+	if _, ok := s.termGuard(w, r, false); !ok {
 		return
 	}
 	n := nonce()
@@ -197,18 +252,18 @@ func (s *Server) termStart(w http.ResponseWriter, r *http.Request) {
 	if !s.sameOriginPost(w, r) {
 		return
 	}
-	cred, ok := s.termGuard(w, r)
-	if !ok {
-		return
-	}
 	t := s.cfg.Terminal
 	s.term.mu.Lock()
 	defer s.term.mu.Unlock()
-	if s.term.active != nil {
+	if s.term.active != nil { // checked before the passkey, so a refused start does not spend an assertion
 		http.Error(w, "a terminal session is already open", http.StatusConflict)
 		return
 	}
-	ts := &termSession{id: nonce(), started: s.cfg.Now(), client: clientIP(r), cred: cred}
+	cred, ok := s.termGuard(w, r, true)
+	if !ok {
+		return
+	}
+	ts := &termSession{id: nonce(), started: s.cfg.Now(), client: clientIP(r), cred: cred, owner: sha256.Sum256([]byte(presented(r)))}
 	// Fail closed: no audit line, no shell.
 	if err := t.Audit.Append("terminal.start", ownerPrincipal, map[string]any{
 		"session": ts.id, "client": ts.client, "credential": cred}); err != nil {
@@ -269,7 +324,7 @@ func (s *Server) session(w http.ResponseWriter, r *http.Request) *termSession {
 	s.term.mu.Lock()
 	ts := s.term.active
 	s.term.mu.Unlock()
-	if ts == nil || r.PathValue("id") != ts.id {
+	if ts == nil || r.PathValue("id") != ts.id || sha256.Sum256([]byte(presented(r))) != ts.owner {
 		http.Error(w, "no such terminal session", http.StatusNotFound)
 		return nil
 	}
@@ -288,7 +343,7 @@ func (s *Server) termIn(w http.ResponseWriter, r *http.Request) {
 	if !s.sameOriginPost(w, r) {
 		return
 	}
-	if _, ok := s.termGuard(w, r); !ok {
+	if _, ok := s.termGuard(w, r, false); !ok {
 		return
 	}
 	ts := s.session(w, r)
@@ -311,7 +366,7 @@ func (s *Server) termIn(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) termOut(w http.ResponseWriter, r *http.Request) {
-	if _, ok := s.termGuard(w, r); !ok {
+	if _, ok := s.termGuard(w, r, false); !ok {
 		return
 	}
 	ts := s.session(w, r)
@@ -341,7 +396,7 @@ func (s *Server) termClose(w http.ResponseWriter, r *http.Request) {
 	if !s.sameOriginPost(w, r) {
 		return
 	}
-	if _, ok := s.termGuard(w, r); !ok {
+	if _, ok := s.termGuard(w, r, false); !ok {
 		return
 	}
 	ts := s.session(w, r)
