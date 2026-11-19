@@ -55,10 +55,13 @@ def passkey_step_up(gw: Gateway):
     return guard
 
 
+# Registered once at import, not per app (CORE-HYG-01, #323).
+# machines:admin-style scope minted to no one: only the owner role (every scope) holds system:admin.
+register_route_scope("GET,HEAD", r"/v1/system/(controls|diagnostics)", ("system:admin",))
+register_route_scope("POST", r"/v1/system/actions", ("actions:request",))
+
+
 def register(app: FastAPI, gw: Gateway) -> None:
-    # machines:admin-style scope minted to no one: only the owner role (every scope) holds system:admin.
-    register_route_scope("GET,HEAD", r"/v1/system/(controls|diagnostics)", ("system:admin",))
-    register_route_scope("POST", r"/v1/system/actions", ("actions:request",))
     svc = SystemService(gw)
     for action_type, (_, risk, requesters, _) in CONTROLS.items():
         gw.actions.register_type(action_type, FeatureAction(risk, svc.run, requesters))

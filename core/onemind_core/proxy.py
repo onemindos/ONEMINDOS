@@ -26,7 +26,9 @@ What it refuses (no open proxy):
   site, so SameSite=Lax alone would let one app post to another as the person);
 - an app that is not shared with the person (contract §12.6, the same `app_filters` as
   GET /v1/apps) and an app whose exposure tier (§12.22) does not include the name used (a private
-  app on its mesh name) are 404, as if they did not exist;
+  app on its mesh name) are 404, as if they did not exist. The tier is also enforced by the network
+  path the request came by (netpath.py), not only the Host header, so a LAN-only app cannot be
+  reached from the internet by sending its LAN name; an unknown path is refused;
 - an unauthenticated request gets 401 whether or not the app exists, so installed apps cannot be
   listed without signing in.
 
@@ -64,6 +66,7 @@ from websockets.exceptions import ConnectionClosed, InvalidHandshake, InvalidSta
 from .auth import Principal, TokenStore
 from .catalog import APP_ID_RE, Catalog
 from .errors import ApiError
+from .netpath import NetPath, PathClassifier, tier_admits
 
 log = logging.getLogger("onemind.proxy")
 
@@ -291,6 +294,7 @@ class AppProxy:
         exposure: Callable[[str], str] | None = None,
         mesh_domains: tuple[str, ...] = ("apps.onemind.internal",),
         shared: Callable[[Principal, str, dict[str, str]], bool] | None = None,
+        classify: PathClassifier | None = None,
     ):
         """app_status(app_id) returns the ledger status ("installed", ...) or None.
 
@@ -302,6 +306,9 @@ class AppProxy:
         name is answered 404 unless the app's tier includes the mesh.
         shared(principal, app_id, headers) -> whether the app is shared with this person (§12.6);
         False is 404, like GET /v1/apps. None: every signed-in person (the v0 behaviour).
+        classify: the network path a request really came from (netpath.py). When set, the tier is
+        also enforced by path, not only by Host: a private app answers only to the LAN, a mesh app
+        to LAN and mesh, and a path that cannot be told is refused (fails closed). None: host only.
         """
         self.catalog = catalog
         self.app_status = app_status
@@ -317,6 +324,7 @@ class AppProxy:
         self.exposure = exposure
         self.mesh_domains = tuple(d.lower().strip(".") for d in mesh_domains)
         self.shared = shared
+        self.classify = classify
         self._routes: dict[str, tuple[float, AppRoute | None]] = {}
         self._lock = threading.Lock()
 
@@ -375,8 +383,15 @@ class AppProxy:
             return None
         return AppRoute(app_id=app_id, host=host, port=port, access=access, name=name)
 
+    def path_of(self, scope: Scope, headers: dict[str, str]) -> NetPath:
+        """The path this connection came by (unknown when no classifier is set: nothing is enforced)."""
+        if self.classify is None:
+            return "unknown"
+        client = scope.get("client")
+        return self.classify(client[0] if client else None, headers)
+
     def not_running(self, principal: Principal, host: str, app_id: str,
-                    headers: dict[str, str] | None = None) -> tuple[str, str] | None:
+                    headers: dict[str, str] | None = None, path: NetPath = "unknown") -> tuple[str, str] | None:
         """(display name, ledger status) of a web app that exists but is not serving, else None.
 
         Asked only after decide() said 404 to a signed-in person, and answered only when that person
@@ -384,7 +399,7 @@ class AppProxy:
         learns of an app they may not open. decide() itself keeps its four answers: /v1/auth/forward
         maps them one to one.
         """
-        if not APP_ID_RE.match(app_id) or not self._exposed(host, app_id) \
+        if not APP_ID_RE.match(app_id) or not self._exposed(host, app_id, path) \
                 or not self._shared_with(principal, app_id, headers or {}):
             return None
         status = self.app_status(app_id)
@@ -395,16 +410,18 @@ class AppProxy:
             return None
         return web[2], status
 
-    def decide(self, headers: dict[str, str], app_id: str) -> tuple[int, Principal | None, AppRoute | None]:
+    def decide(self, headers: dict[str, str], app_id: str,
+               path: NetPath = "unknown") -> tuple[int, Principal | None, AppRoute | None]:
         """Forward-auth decision: 204 allow, 401 not signed in, 403 not allowed, 404 no such app.
 
         Sign-in is checked first, so a caller without a session cannot tell installed apps apart.
+        `path` is the network path of the request (path_of); it matters only when a classifier is set.
         """
         principal = self.resolve_session(headers, parse_cookies(headers.get("cookie", "")))
         if principal is None:
             return Decision.UNAUTHENTICATED, None, None
         route = self.route_for(app_id)
-        if route is None or not self._exposed(headers.get("host", ""), app_id) \
+        if route is None or not self._exposed(headers.get("host", ""), app_id, path) \
                 or not self._shared_with(principal, app_id, headers):
             return Decision.NOT_FOUND, principal, None
         if not allowed(principal, route.access):
@@ -415,10 +432,16 @@ class AppProxy:
         """False for an app the owner has not shared with this person (§12.6)."""
         return self.shared is None or self.shared(principal, app_id, headers)
 
-    def _exposed(self, host: str, app_id: str) -> bool:
-        """False for a mesh name of an app that is not exposed on the mesh (§12.22)."""
+    def _exposed(self, host: str, app_id: str, path: NetPath = "unknown") -> bool:
+        """False when the tier (§12.22) does not admit this request: by the name used, and by the path.
+
+        The Host header is the client's word, so it only closes doors (a mesh name of a private app);
+        the network path is what keeps a LAN-only app off the internet.
+        """
         if self.exposure is None:
             return True
+        if self.classify is not None and not tier_admits(self.exposure(app_id), path):
+            return False
         name = host.lower().rsplit(":", 1)[0] if not host.startswith("[") else host.lower()
         name = name.rstrip(".")
         if not any(name.endswith("." + d) for d in self.mesh_domains):
@@ -557,7 +580,8 @@ class AppProxyMiddleware:
             return await self.app(scope, receive, send)
         app_id, prefix = matched
         headers = {k.decode("latin-1").lower(): v.decode("latin-1") for k, v in scope.get("headers", [])}
-        status, principal, route = self.proxy.decide(headers, app_id)
+        path = self.proxy.path_of(scope, headers)
+        status, principal, route = self.proxy.decide(headers, app_id, path)
         if scope["type"] == "websocket":
             return await self._websocket(scope, receive, send, app_id, status, principal, route, prefix, headers)
         if status == Decision.ALLOW and scope.get("method", "GET") not in SAFE_METHODS \
@@ -565,7 +589,7 @@ class AppProxyMiddleware:
             status = Decision.FORBIDDEN
         page = _wants_page(headers)
         if status == Decision.NOT_FOUND and principal is not None:
-            down = self.proxy.not_running(principal, headers.get("host", ""), app_id, headers)
+            down = self.proxy.not_running(principal, headers.get("host", ""), app_id, headers, path)
             if down is not None:
                 text, changing = unavailable_text(*down)
                 return await _plain(send, Decision.UNAVAILABLE, text, page=page, refresh=changing)
