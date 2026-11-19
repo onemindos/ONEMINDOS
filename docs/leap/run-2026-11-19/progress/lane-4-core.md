@@ -38,3 +38,30 @@ The initial claim contains this progress plan only. No application code has
 been written. Dashboard changes, if required, must respect the concurrently
 owned dashboard lane; prefer a complete gateway implementation reachable by
 mounted routes and the generated SDK.
+
+## Implementation update
+
+- Draft PR: #369. Gateway implementation and generated SDK models are complete.
+- Added durable owner-managed profiles and app classifications through mounted
+  `/v1/family/profiles/{user_id}` and `/v1/family/apps/{app_id}` routes.
+- Profiles restrict existing sharing with allowlists, age-rating limits, tag
+  blocks and local-time weekly windows (including overnight windows). A rating
+  limit blocks unclassified apps. Birth dates are private child-profile data.
+- Owner management uses existing passkey step-up and CSRF protections. Profile
+  reads use `Cache-Control: no-store`; audit records omit private policy values.
+- Catalog, direct app routes and proxy decisions use the same restrictions;
+  owned agent tokens inherit the owning person's policy and sharing limits.
+  Children may open shared `signed_in` apps; adult/owner-only apps stay denied.
+- Native Codex subagent review found two access gaps; both were fixed and the
+  follow-up review reported no remaining actionable findings.
+- Verification so far: 61 family/proxy tests passed; the initial 92-test family,
+  identity and proxy run passed before the review fixes; Go SDK tests, 17 Python
+  SDK tests, TypeScript typecheck and 15 TypeScript tests passed (one live test
+  skipped); lint, fragment validation and hygiene/gitleaks passed.
+- Full core suite and repo unit suite are running. Homebrew OpenSSL is required
+  for these local certificate tests; system OpenSSL failed existing TLS checks.
+- Scope limits: this implements gateway policy and mounted management routes,
+  without editing the concurrently owned dashboard lane. App ratings classify
+  entire apps; content-item filtering inside third-party apps is not supplied.
+  Existing app connections are not forcibly terminated when a window closes;
+  subsequent gateway/proxy access checks enforce the current policy.
