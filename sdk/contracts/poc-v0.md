@@ -768,8 +768,21 @@ destructive tools declare effects; execution still requires owner approval.
 `onemind plugin validate [dir]` uses `internal/plugin/validate`, the offline Go
 package shared by box tooling and CI. It checks the existing app schema plus
 plugin tool declarations. A passing manifest check is not artifact verification
-or install authorization. Bundle paths, UI, widening comparisons and
-supply-chain verification remain separate validation slices before #177 is done.
+or install authorization. UI, widening comparisons and supply-chain verification remain separate
+validation slices before #177 is done.
+
+The CLI validates the unpacked directory with `validate.Directory`: the manifest
+and icon must be regular files, the declared manifests path must be a directory,
+and no declared path component or workload-tree entry may be a symlink or special
+file. All declared paths stay below the bundle root. This check assumes immutable
+contents during validation/install; it does not extract archives, inspect workload
+permissions or verify signatures.
+
+Box callers can use `ManifestForAPI` or `DirectoryForAPI` to check the plugin's
+`compat.onemind` range against their actual plugin API level. The CLI exposes
+this offline check with `onemind plugin validate --api-level <level> [dir]`.
+Without that flag the CLI checks range syntax only; it does not imply the
+manifest is compatible with a particular box. Explicit empty levels are errors.
 
 The event declaration slice adds optional `spec.extensions.events.publish` and
 `subscribe` arrays alongside the required tools. Published names are local
