@@ -124,3 +124,10 @@ Founder decisions. Each entry is final until Zeus changes it. Reference these ID
   - Never an outbound proxy for apps, agents or AI (`SocksPort 0`).
   - Installed and removed only by owner-approved actions. Its egress lives in the app's own NetworkPolicy, so the core keeps default-deny egress.
 - **Why:** Zeus wants all three in the product now. The guardrails keep the locked rules: small boxes, AI never actuates without approval, default-deny egress.
+
+## D-015 · F-34: Kanidm runs as a host service on the hub OS
+**Date:** 2026-11-19 · **Decided by:** Zeus
+> "F34 YES ON THE HUB OS" (in chat, while lane 4 was being finished)
+- **F-34 = host service:** Kanidm (BD-03) runs as a systemd service in the hub's OS image, not as a chart inside k3s. This settles ACCT-D2 in `docs/umbrel2/accounts.md`; the `kanidm` chart listed in research 30's file tree is not built.
+- **Why:** sign-in must keep working when k3s is down or being updated, which is when the owner most needs to get in.
+- **Unblocks:** UMB-ACCT-1 (the Kanidm lab test) and CORE-SEC-10. #236 (SEC-SSO-01) still waits on UMB-ACCT-1 and #139. Background: `docs/learning/founder/06-kanidm-and-single-sign-on.md` (PR #399).
