@@ -753,3 +753,20 @@ approval; §12.40 lifecycle and §12.12 approval/security controls are unchanged
 - **Credentials (PD-07).** A manifest may declare `spec.credentials: {username?, password: generated, showBeforeOpen?}`. The gateway generates the password at the first install, stores it sealed (AES-256-GCM, key file beside the audit log) and hands it to the executor for Secret `<id>-credentials`. `GET /v1/apps/{id}/credentials` returns `{username, password}` to the owner only (`403` and `authz.denied` for anyone else, never an agent; `Cache-Control: no-store`; audited as `app.credentials.revealed` without the value). It survives `app.remove` and is erased by `app.delete_data`.
 - **Request limits by kind.** An agent may request `app.start|stop|restart|update|configure|remove` (no `sealed`), never `app.delete_data`; approval is owner-only as in §3.
 
+
+### Plugin tool manifest foundation (DEV-PLG-1, #177)
+
+An App may add `spec.extensions.tools`, `spec.plugin`, `spec.permissions` and
+`spec.compat`, as specified in `docs/leap/dev/PLUGIN-SDK.md` §4–5. The initial
+validator slice accepts tool extensions only; other extension types fail closed
+until their validation ships. Tools require a backend, a plugin principal and a
+valid compatibility range. Tool inputs and outputs are closed JSON Schemas;
+remote schema references are forbidden. Permissions are read grants or requests
+for specific action types, never approval or administration grants. Write and
+destructive tools declare effects; execution still requires owner approval.
+
+`onemind plugin validate [dir]` uses `internal/plugin/validate`, the offline Go
+package shared by box tooling and CI. It checks the existing app schema plus
+plugin tool declarations. A passing manifest check is not artifact verification
+or install authorization. Bundle paths, UI, events, widening comparisons and
+supply-chain verification remain separate validation slices before #177 is done.

@@ -10,6 +10,12 @@ The order comes from [LANES.md](../LANES.md).
 
 ## Draft (pushed, not ready yet)
 
+- #177: tool-manifest foundation; PR pending. Shared Go validator and CLI; remaining rules tracked in the PR.
+
 ## Next
 
+- Finish #177 validation rules, then #178, #179, #180, #183, #182, #181, #184, #185.
+
 ## Blocked (waiting on the founder, hardware or another lane)
+
+- #175 manifest freeze remains open; #177 retains its dependency label until the gate resolves it.
