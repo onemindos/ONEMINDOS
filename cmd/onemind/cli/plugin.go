@@ -15,9 +15,9 @@ import (
 
 func pluginCommands(a *App) []*cobra.Command {
 	plugin := &cobra.Command{Use: "plugin", Short: "Develop plugins (local, offline checks)"}
-	var previous string
+	var previous, apiLevel string
 	command := &cobra.Command{
-		Use: "validate [dir]", Short: "Validate a tool plugin manifest (does not verify artifacts)", Args: cobra.MaximumNArgs(1),
+		Use: "validate [dir]", Short: "Validate a tool plugin bundle (does not verify signatures)", Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			hasPrevious := cmd.Flags().Changed("previous")
 			if hasPrevious && strings.TrimSpace(previous) == "" {
@@ -27,24 +27,13 @@ func pluginCommands(a *App) []*cobra.Command {
 			if len(args) > 0 {
 				dir = args[0]
 			}
-			path := filepath.Join(dir, "onemind.app.yaml")
-			info, err := os.Lstat(path)
+			var err error
+			if cmd.Flags().Changed("api-level") {
+				err = validate.DirectoryForAPI(dir, apiLevel)
+			} else {
+				err = validate.Directory(dir)
+			}
 			if err != nil {
-				return err
-			}
-			if !info.Mode().IsRegular() {
-				return fmt.Errorf("manifest must be a regular file")
-			}
-			f, err := os.Open(path)
-			if err != nil {
-				return err
-			}
-			defer f.Close()
-			data, err := io.ReadAll(io.LimitReader(f, validate.MaxManifestBytes+1))
-			if err != nil {
-				return err
-			}
-			if err = validate.Manifest(data); err != nil {
 				return exitWith(ExitVerifyFailed, "validation_failed", err.Error())
 			}
 			var comparison *validate.GrantDiff
@@ -52,6 +41,10 @@ func pluginCommands(a *App) []*cobra.Command {
 				before, err := previousManifest(previous)
 				if err != nil {
 					return exitWith(ExitVerifyFailed, "validation_failed", err.Error())
+				}
+				data, readErr := previousManifest(dir)
+				if readErr != nil {
+					return exitWith(ExitVerifyFailed, "validation_failed", readErr.Error())
 				}
 				comparison, err = validate.Compare(before, data)
 				if err != nil {
@@ -75,6 +68,7 @@ func pluginCommands(a *App) []*cobra.Command {
 		},
 	}
 	command.Flags().StringVar(&previous, "previous", "", "compare grants with a previous plugin directory")
+	command.Flags().StringVar(&apiLevel, "api-level", "", "check against this box plugin API level (offline)")
 	plugin.AddCommand(command)
 	return []*cobra.Command{plugin}
 }

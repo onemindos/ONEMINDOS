@@ -103,7 +103,13 @@ func Manifest(data []byte) error {
 	if _, err := semver.NewConstraint(compat["onemind"].(string)); err != nil {
 		return fmt.Errorf("compat.onemind: %w", err)
 	}
+	if err := validateEgress(spec); err != nil {
+		return err
+	}
 	if err := validateEvents(spec, ext); err != nil {
+		return err
+	}
+	if err := validateUI(spec, ext); err != nil {
 		return err
 	}
 	seen := map[string]bool{}
