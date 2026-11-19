@@ -40,6 +40,7 @@ func TestEventManifest(t *testing.T) {
 		{"no subscriptions", []string{"greeted"}, []string{}, []string{}, true},
 		{"full publish subject", []string{"evt.app.hello.greeted"}, []string{}, []string{}, false},
 		{"command publish wildcard", []string{"cmd.>"}, []string{}, []string{}, false},
+		{"publish trailing newline", []string{"greeted\n"}, []string{}, []string{}, false},
 		{"publish wildcard", []string{"*"}, []string{}, []string{}, false},
 		{"uppercase publish", []string{"Greeted"}, []string{}, []string{}, false},
 		{"long publish", []string{"abcdefghijklmnopqrstuvwxyz0123456789abcde"}, []string{}, []string{}, false},
