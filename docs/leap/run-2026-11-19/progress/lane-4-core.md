@@ -84,3 +84,16 @@ mounted routes and the generated SDK.
 - Next issue in the assigned order is #237. Its preparation found no existing
   HTTP relay transport; relay compatibility needs explicit validation rather
   than an unsupported completion claim. #236 remains blocked on open #139.
+
+## #237 claim and plan
+
+- #204 handed to the independent gate as ready PR #369; its claim released.
+- Claimed #237 on `codex/237-expiring-shares`, stacked on #204 to preserve the
+  single lane progress file without conflicting independent additions.
+- Build persisted expiring file and photo-selection links, optional password,
+  anonymous confined downloads, creator authorization rechecks, revocation
+  and audit. Return capability secrets once and store only hashes.
+- Native Codex workers split implementation and security-test work. The main
+  agent owns integration, SDK generation, review and final checks.
+- Relay deployment is absent from this repo; proxy-friendly public URLs can
+  be tested, but live relay delivery must remain an explicit validation gap.
