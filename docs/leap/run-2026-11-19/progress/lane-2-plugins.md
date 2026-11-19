@@ -10,6 +10,8 @@ The order comes from [LANES.md](../LANES.md).
 
 ## Draft (pushed, not ready yet)
 
+- #178: read-only plugin token policy foundation; PR pending. No credential issuer or action-request enablement.
+
 ## Next
 
 ## Blocked (waiting on the founder, hardware or another lane)

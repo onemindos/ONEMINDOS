@@ -205,6 +205,19 @@ class IdentityService:
             return None
         if ctx is None:
             return None
+        if ctx.principal.kind == "plugin":
+            # Installation-owned plugins never inherit static-v0 access, self-service
+            # exceptions or the generic scope table's broad route trees.
+            from ..plugins.auth import allows_read, plugin_app_id
+
+            app_id = plugin_app_id(ctx.principal.id)
+            state = self.gw.repo.get_app_state(app_id) if app_id else None
+            row = ctx.token
+            if row is None or not allows_read(
+                method=request.method, path=request.url.path, principal_id=ctx.principal.id,
+                source=row.source, scopes=row.scopes, app_status=state.status if state else None,
+            ):
+                raise self.deny(ctx.principal, f"{request.method} {request.url.path}", reason="plugin_policy")
         required = sc.required_scopes(request.method, request.url.path)
         if required is not None and not sc.has_any(ctx.scopes, required):
             raise self.deny(ctx.principal, f"{request.method} {request.url.path}",
@@ -281,7 +294,13 @@ class IdentityService:
             principal = self.principal_for(owner)
         else:
             principal = Principal(id=t.principal_id, kind=t.kind, role=t.kind)
-        granted = frozenset(s for s in t.scopes if sc.allowed_for_kind(s, t.kind))
+        if t.kind == "plugin":
+            # The plugin policy checks the original snapshot and rejects malformed
+            # JSON. Do not let generic scope parsing fail before that denial.
+            raw = t.scopes if isinstance(t.scopes, list) else []
+            granted = frozenset(s for s in raw if isinstance(s, str))
+        else:
+            granted = frozenset(s for s in t.scopes if sc.allowed_for_kind(s, t.kind))
         if owner is not None and self.cfg.enforce_role_scopes:  # never beyond the owning person today
             cap = sc.role_scopes(owner.role)
             granted = frozenset(s for s in granted if sc.within(s, cap) or (s == sc.ALL and sc.ALL in cap))
