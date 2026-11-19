@@ -146,3 +146,33 @@ class AppCredentials(BaseModel):
 
     username: str | None
     password: str
+
+
+class PlacementReason(BaseModel):
+    """Why a node cannot run an app (`blocking`), or runs it with a warning."""
+
+    code: str = Field(description="gpu_missing | gpu_unknown | memory_too_small | memory_busy | cpu_level_too_low | "
+                                  "arch_unsupported | node_offline | node_stale | no_cluster | cluster_not_ready",
+                      json_schema_extra=OPEN_ENUM)
+    message: str
+    blocking: bool
+
+
+class NodePlacement(BaseModel):
+    """One node's line in the placement (contract §12.11)."""
+
+    node_id: str
+    role: str | None = Field(json_schema_extra=OPEN_ENUM)
+    verdict: str = Field(description="fits | fits_with_warning | no", json_schema_extra=OPEN_ENUM)
+    labels: dict[str, str] = Field(description="capability labels from the node's heartbeat (onemind.io/gpu, /arch, ...)")
+    reasons: list[PlacementReason]
+
+
+class AppPlacement(BaseModel):
+    """GET /v1/apps/{id}/placement (CORE-FABRIC-4): where the app would run, from its `spec.requires`."""
+
+    app_id: str
+    verdict: str = Field(description="here | elsewhere | nowhere | unknown (no node has reported)", json_schema_extra=OPEN_ENUM)
+    node_id: str | None = Field(description="the node it would be placed on; null for nowhere and unknown")
+    message: str
+    nodes: list[NodePlacement]
