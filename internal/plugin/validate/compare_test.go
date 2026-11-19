@@ -108,6 +108,7 @@ func TestCompareGrants(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			old, next := comparisonFixture(t), comparisonFixture(t)
+			next["metadata"].(map[string]any)["version"] = "3.0.0"
 			tt.change(old["spec"].(map[string]any), next["spec"].(map[string]any))
 			got, err := Compare(manifestBytes(t, old), manifestBytes(t, next))
 			if err != nil {

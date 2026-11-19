@@ -823,3 +823,10 @@ Display descriptions and grant removals do not. Newly added strings conservative
 require reapproval even when an older grant might subsume them. Secret fields use
 the existing App `secrets[].keys[]` format, never secret values. A false result does
 not authorize installation or waive signatures, runtime checks or owner approval.
+
+When `--previous` compares an update, removed tools or changed effects require
+a higher plugin major version (PLUGIN-SDK.md §13). Any changed input schema is
+conservatively treated as breaking: this validator does not attempt to prove
+inclusion between arbitrary JSON Schemas. New tools and display-only changes do
+not require a major bump. This version check is separate from grant widening;
+a major bump never removes reapproval or artifact verification requirements.

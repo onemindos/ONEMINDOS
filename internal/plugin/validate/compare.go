@@ -35,6 +35,9 @@ func Compare(previous, current []byte) (*GrantDiff, error) {
 	if oldID != newID {
 		return nil, fmt.Errorf("cannot compare different plugin IDs")
 	}
+	if err := checkToolVersion(manifests[0], manifests[1]); err != nil {
+		return nil, err
+	}
 	return compareSpecs(manifests[0]["spec"].(map[string]any), manifests[1]["spec"].(map[string]any))
 }
 
