@@ -58,7 +58,11 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return send(response, resolved(request, p))
 
     @app.put("/v1/me/home", operation_id="me.home.save", tags=["me"], response_model=HomeView,
-             responses=error_responses(401, 403, 412, 422, 428))
+             responses=error_responses(401, 403, 412, 422, 428),
+             # Keep the handler's 428 for a missing header, rather than FastAPI's validation 422.
+             openapi_extra={"parameters": [{"name": "If-Match", "in": "header", "required": True,
+                                            "schema": {"type": "string"},
+                                            "description": "The ETag read from GET /v1/me/home."}]})
     def save(body: HomeBody, request: Request, response: Response, p: Principal = Depends(person)):
         match = request.headers.get("if-match")
         if match is None:

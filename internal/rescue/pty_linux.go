@@ -17,7 +17,7 @@ import (
 // PTY starts a login-less shell on a pseudo-terminal. No new dependency: the
 // pty is opened with /dev/ptmx and two ioctls (x/sys/unix is already used).
 type PTY struct {
-	Shell string   // default /bin/sh
+	Shell string   // absolute path, default /bin/sh; started through ShellHelperCommand with no capabilities
 	Env   []string // default: a minimal environment
 }
 
@@ -56,7 +56,17 @@ func (p PTY) Spawn() (Session, error) {
 	if env == nil {
 		env = []string{"TERM=dumb", "HOME=/root", "PATH=/usr/sbin:/usr/bin:/sbin:/bin", "PS1=rescue# "}
 	}
-	cmd := exec.Command(shell)
+	// Not exec.Command(shell): the shell would inherit the unit's CAP_DAC_READ_SEARCH. onemindd's helper
+	// drops every capability first (shell.go).
+	self, err := os.Executable()
+	if err != nil {
+		return fail(fmt.Errorf("rescue shell helper: %w", err))
+	}
+	argv, err := shellArgv(self, shell)
+	if err != nil {
+		return fail(err)
+	}
+	cmd := exec.Command(argv[0], argv[1:]...)
 	cmd.Env = env
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = slave, slave, slave
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true, Setctty: true, Ctty: 0}
