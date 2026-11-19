@@ -10,9 +10,15 @@ The order comes from [LANES.md](../LANES.md).
 
 ## Draft (pushed, not ready yet)
 
-- #177: actual UI bundle checks (P7/P8); PR pending, stacked on the UI declaration slice. File containment, settings schemas and static markup checks; no JavaScript execution.
+- #177: bounded UI bundle and static markup validation (P7/P8); PR pending, stacked on #396. Includes root SVG icons, settings schema compilation and local script checks.
 
-- #177: UI declaration validation (P1/P2 and lexical P7); PR pending, stacked on #392. Widgets, alert actions, settings and tiles; no widget runtime.
+- #177: typed widget data schema and schema-only CI coverage; PR #396, stacked on #395. Standalone contract consumed by future #179 host.
+
+- #177: tool-update major-version guard; PR #395, stacked on #394. Removed tools, changed effects and changed inputs require a higher major.
+
+- #177: permission-widening comparison (P11); PR #394, stacked on #393. Reports sorted reasons and never approves updates.
+
+- #177: UI declaration validation (P1/P2 and lexical P7); PR #393, stacked on #392. Widgets, alert actions, settings and tiles; no widget runtime.
 
 - #177: egress declaration validation (P9); PR #392, stacked on #389. Offline hostname/public-suffix checks, no runtime network changes.
 
@@ -26,7 +32,10 @@ The order comes from [LANES.md](../LANES.md).
 
 ## Next
 
-- Finish #177 validation rules, then #178, #179, #180, #183, #182, #181, #184, #185.
+- Resolve #175 and review the #177 draft stack, then #178, #179, #180, #183, #182, #181, #184, #185.
+- #177 coverage limits: tool-backed plugins only; backend-free declarations and the literal older Hello example need alignment with the current App contract. Publisher ownership verification belongs to signing/index work.
+- The current App secret name/key format is preserved. The older plugin example differs; do not copy its flat secret shape or omit App-required metadata/updates.
+- Workload policy, scans, signatures and owner approval remain mandatory separate gates; the Go bundle check does not replace existing app-gate checks.
 
 ## Blocked (waiting on the founder, hardware or another lane)
 

@@ -73,3 +73,20 @@ func TestExistingAppSchemaCompiles(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestToolSchemaDialect(t *testing.T) {
+	for _, field := range []string{"input", "output"} {
+		for _, dialect := range []string{"http://json-schema.org/draft-07/schema#", "https://json-schema.org/draft/2020-12/schema"} {
+			value := comparisonFixture(t)
+			tool := toolsOf(value["spec"].(map[string]any))[0].(map[string]any)
+			tool[field].(map[string]any)["$schema"] = dialect
+			err := Manifest(manifestBytes(t, value))
+			if dialect == "https://json-schema.org/draft/2020-12/schema" && err != nil {
+				t.Fatal(err)
+			}
+			if dialect != "https://json-schema.org/draft/2020-12/schema" && err == nil {
+				t.Fatal("accepted non-2020-12 tool schema")
+			}
+		}
+	}
+}

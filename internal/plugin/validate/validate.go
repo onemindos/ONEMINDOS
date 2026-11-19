@@ -126,6 +126,9 @@ func Manifest(data []byte) error {
 				continue
 			}
 			js := v.(map[string]any)
+			if dialect, present := js["$schema"]; present && dialect != "https://json-schema.org/draft/2020-12/schema" && dialect != "https://json-schema.org/draft/2020-12/schema#" {
+				return fmt.Errorf("tool %s %s must use JSON Schema 2020-12", name, field)
+			}
 			if js["type"] != "object" || js["additionalProperties"] != false {
 				return fmt.Errorf("tool %s %s must be a closed object schema", name, field)
 			}

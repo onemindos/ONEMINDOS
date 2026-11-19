@@ -757,9 +757,9 @@ approval; §12.40 lifecycle and §12.12 approval/security controls are unchanged
 ### Plugin tool manifest foundation (DEV-PLG-1, #177)
 
 An App may add `spec.extensions.tools`, `spec.plugin`, `spec.permissions` and
-`spec.compat`, as specified in `docs/leap/dev/PLUGIN-SDK.md` §4–5. The initial
-validator slice accepts tool extensions only; other extension types fail closed
-until their validation ships. Tools require a backend, a plugin principal and a
+`spec.compat`, as specified in `docs/leap/dev/PLUGIN-SDK.md` §4–5. The phase-1
+validator accepts tool-backed plugins with optional UI and event declarations.
+Backend-free declarative-only plugins await an App-contract-compatible slice. Tools require a backend, a plugin principal and a
 valid compatibility range. Tool inputs and outputs are closed JSON Schemas;
 remote schema references are forbidden. Permissions are read grants or requests
 for specific action types, never approval or administration grants. Write and
@@ -832,3 +832,29 @@ UI validation is bounded to 4 MiB per file, 32 MiB total and 4096 entries
 settings schemas are limited to the 256 KiB manifest limit. The unpacked tree
 must remain unchanged during validation/install; archive extraction, signatures,
 workload policy and installation approval remain separate checks.
+
+`onemind plugin validate --previous <dir>` validates both manifests and reports
+P11's informational `widens_grants` flag with sorted reasons. Comparison requires
+the same plugin ID. Added permission and egress strings, new secret name/key grants,
+changed key semantics, and new or stronger write/destructive tools widen grants.
+Display descriptions and grant removals do not. Newly added strings conservatively
+require reapproval even when an older grant might subsume them. Secret fields use
+the existing App `secrets[].keys[]` format, never secret values. A false result does
+not authorize installation or waive signatures, runtime checks or owner approval.
+
+When `--previous` compares an update, removed tools or changed effects require
+a higher plugin major version (PLUGIN-SDK.md §13). Any changed input schema is
+conservatively treated as breaking: this validator does not attempt to prove
+inclusion between arbitrary JSON Schemas. New tools and display-only changes do
+not require a major bump. This version check is separate from grant widening;
+a major bump never removes reapproval or artifact verification requirements.
+
+The standalone `sdk/schema/widget-templates.schema.json` publishes the typed
+widget result contract (PLUGIN-SDK.md §6.2); `validate.WidgetData` checks that
+same embedded schema offline. Every result is a closed object with an RFC 3339
+`observed_at`. Stat values are text or numbers; `trend`, when present, is only
+null until a numeric trend contract is specified. Lists carry title/subtitle and
+a status from `ok`, `warn`, `error`, `unknown`; progress is a number in [0, 1];
+status cards carry that state vocabulary and text. There are no host-fetchable
+URL/image fields. The future #179 host renders strings as text and marks stale
+timestamps; this schema publication adds no runtime UI route or renderer.
