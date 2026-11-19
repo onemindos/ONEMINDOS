@@ -52,7 +52,7 @@ All AI work sits under aiPolicy ([#165](https://github.com/onemindos/ONEMINDOS/i
 6. [#156](https://github.com/onemindos/ONEMINDOS/issues/156) fleet-staged updates and the release service on NATS
 7. [#127](https://github.com/onemindos/ONEMINDOS/issues/127) content manager for offline libraries · [#164](https://github.com/onemindos/ONEMINDOS/issues/164) backups for offline content
 
-## Lane 5 — OS, image and network · builder: **Codex** · label `leap:5-os-net` · areas `os`, `net`, `daemon`
+## Lane 5 — OS, image and network · builder: **Claude helper (second account, another computer)** · label `leap:5-os-net` · areas `os`, `net`, `daemon`
 
 Hardware-only parts get code and VM tests now; tests on real devices come later.
 

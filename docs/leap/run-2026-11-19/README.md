@@ -15,6 +15,7 @@
 | [LANES.md](LANES.md) | The six lanes, their issues in build order, and who owns each |
 | [CODEX.md](CODEX.md) | The master prompt for Codex and one starter prompt per lane |
 | [MERGE-GATE.md](MERGE-GATE.md) | How Claude lands PRs: the order, the checks, and the traps we hit on 2026-11-18 and how each is handled |
+| [SESSIONS.md](SESSIONS.md) | Who runs which lane, and the prompts for the new Claude gate session and the second Claude account |
 | [progress/](progress/) | One progress file per lane. Each lane updates only its own file, in every PR |
 
 ## Roles
