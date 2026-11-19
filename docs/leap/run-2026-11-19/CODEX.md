@@ -32,9 +32,9 @@ YOUR PROGRESS FILE
 - Before you start each day, read your progress file and git pull origin main in a fresh worktree, to see what merged.
 
 WHERE TO WORK (this Mac is shared with Claude and with a CI runner)
-- Never edit the main checkout /Users/zeus/ONEMINDOS. Never touch ~/ONEMINDOS-worktrees/ci-runner-main.
+- Never edit the main checkout ~/ONEMINDOS. Never touch ~/ONEMINDOS-worktrees/ci-runner-main.
 - Never start, stop or delete the Lima VMs onemind-ci or onemind-ci-run-*.
-- One worktree per issue: git -C /Users/zeus/ONEMINDOS worktree add -b codex/<issue>-<slug> /Users/zeus/ONEMINDOS-worktrees/codex-<issue>-<slug> origin/main
+- One worktree per issue: git -C ~/ONEMINDOS worktree add -b codex/<issue>-<slug> ~/ONEMINDOS-worktrees/codex-<issue>-<slug> origin/main
 - Use git -C <worktree> or absolute paths. Never export GIT_DIR or GIT_WORK_TREE. Check `git -C <wt> rev-parse --show-toplevel` before each commit.
 - Never rebase. Never force-push. Never push to main. Merge origin/main into your branch when needed.
 
@@ -56,7 +56,7 @@ HOW TO BUILD (definition of done: docs/leap/AGENT-QUEUE.md §4)
    - python3 -I scripts/changes.py check
    - gitleaks git --log-opts=origin/main..HEAD --no-banner .
 6. Commit with `git commit -s` and the trailer:
-   Co-Authored-By: <your model name> <noreply@openai.com>
+   Co-Authored-By: <your model name> with OpenAI's noreply address (the trailer your Codex setup already uses).
    Add one changes/<branch-with-dashes>.md fragment per PR (format: changes/README.md).
    Never edit CHANGELOG.md or docs/leap/STATUS.md.
 7. PUSH THE SAME DAY. Open a DRAFT PR:
