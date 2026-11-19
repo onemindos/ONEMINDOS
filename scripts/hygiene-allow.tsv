@@ -64,3 +64,7 @@ test/qemu/*	/home/admin	B-FP-6
 # B-FP-11: the rescue console's LAN-only test (internal/rescue, #157) checks that an RFC 1918 client address is still served
 # next to the mesh ranges it refuses. A test input, not a host or address of this project.
 internal/rescue/rescue_test.go	10\.0\.0\.7	B-FP-11
+core/onemind_core/netpath.py	100\.64\.0\.0	B-FP-9
+core/tests/test_app_exposure_sharing.py	192\.168\.1\.20	B-FP-6
+# B-FP-9b: the LAN allowlist in core/onemind_core/netpath.py names the RFC 1918 network addresses (standard ranges, not a real network).
+core/onemind_core/netpath.py	(10\.0\.0\.0|172\.16\.0\.0|192\.168\.0\.0)	B-FP-9

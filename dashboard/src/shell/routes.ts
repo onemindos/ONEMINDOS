@@ -18,6 +18,8 @@ export const href = {
   storage: '/storage',
   backups: '/backups',
   coming: '/coming',
+  controlHub: '/control-hub',
+  agents: '/agents',
   settings: '/settings',
   setting: (id: string) => `/settings/${id}`,
 };
