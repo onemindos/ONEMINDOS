@@ -10,6 +10,8 @@ The order comes from [LANES.md](../LANES.md).
 
 ## Draft (pushed, not ready yet)
 
+- #177: bundle path safety; PR pending, stacked on #387. Checks existence, types and symlinks through the shared Go validator.
+
 - #177: tool-manifest foundation; PR #387. Shared Go validator and CLI; remaining rules tracked in the PR.
 
 ## Next

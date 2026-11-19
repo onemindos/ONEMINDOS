@@ -768,5 +768,12 @@ destructive tools declare effects; execution still requires owner approval.
 `onemind plugin validate [dir]` uses `internal/plugin/validate`, the offline Go
 package shared by box tooling and CI. It checks the existing app schema plus
 plugin tool declarations. A passing manifest check is not artifact verification
-or install authorization. Bundle paths, UI, events, widening comparisons and
-supply-chain verification remain separate validation slices before #177 is done.
+or install authorization. UI, events, widening comparisons and supply-chain verification remain separate
+validation slices before #177 is done.
+
+The CLI validates the unpacked directory with `validate.Directory`: the manifest
+and icon must be regular files, the declared manifests path must be a directory,
+and no declared path component or workload-tree entry may be a symlink or special
+file. All declared paths stay below the bundle root. This check assumes immutable
+contents during validation/install; it does not extract archives, inspect workload
+permissions or verify signatures.
