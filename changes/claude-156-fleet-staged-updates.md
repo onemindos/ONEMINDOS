@@ -1,5 +1,5 @@
 ---
-pr: pending
+pr: 383
 branch: claude/156-fleet-staged-updates
 status_rows:
   - CORE-UPDATE-9 | in-review | gateway release service (fleet view, staged rollout, pause and owner-approved resume); node-side update.apply consumer still open
