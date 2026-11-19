@@ -1,86 +1,32 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
-# Lane 4: core — 2026-11-19
+# Lane 4-core progress: Core features
 
-Workstream: FAM-01 (#204), followed by #237, #236, #132, #133, #171,
-#156, #127 and #164, in that order. Locked decisions D-001–D-014 apply.
+Only PRs from this lane edit this file. Update it in every PR: move the issue's line and add the PR number.
+The order comes from [LANES.md](../LANES.md).
 
-## Current claim
+## Merged
 
-- Issue: #204, family roles and parental controls.
-- Builder: Codex, leap:4-core (area:core).
-- Branch: `codex/204-family-controls`.
-- Status: implementation complete; handed to independent review in PR #369.
-- Listed the lane with `gh issue list -R onemindos/ONEMINDOS -l leap:4-core`.
+## In review (ready, needs-review)
+- #204 FAM-01 family roles and parental controls: PR #369 (Codex build, taken over by Claude for the lane). Updated from main on 2026-11-19 to pick up the apps rescan (#365), which fixes the red e2e-systemd check (expired ntfy scan, not this PR's code).
 
-## Implementation plan
+## Draft (pushed, not ready yet)
+Drafts run only the fast CI checks; each needs a full green CI run before it leaves draft. Nothing in this lane was merged by an agent.
+- #237 FILES-02 expiring share links: PR #381 (supersedes the plan-only draft #375). Reviewer fixed two missing PUBLIC route rows. Live relay delivery cannot be tested in this repo. Open founder question: the owner can list every person's links, including file paths from an adult's private Home.
+- #132 NMD-07 update policy knobs: PR #384. Reviewer fixed operation ids (updates.policy.*).
+- #133 NMD-08 offline-aware cleanup and disk budget: PR #380. Reviewer fixed a bug where docker.io/redis and redis were treated as different images, which could prune a stopped app's image. Not yet tried on hardware (k3s crictl under the unit's sandbox).
+- #171 CORE-FABRIC-4 capability labels and placement verdict: PR #400. Placement is advisory: the executor does not yet set a nodeSelector. The route needs nodes:read so children cannot read machine details.
+- #156 CORE-UPDATE-9 fleet-staged updates (gateway side): PR #383. Reviewer closed a hole where the static guest token could read fleet and rollout state. The node-side update.apply consumer in onemindd is still open.
+- #127 NMD-02 content manager for offline libraries: PR #398. Built on main; does not need #368's code. Adds the Library dashboard page. Every download or update waits for owner approval.
+- #164 BAK-03 optional size-aware content backup tier: PR #382. Review found nothing to fix.
 
-1. Inspect existing identity persistence, authorization, app access and tests,
-   and the dashboard role views in PR #354 before extending them.
-2. Preserve the existing owner, adult, guest and child roles. The issue's older
-   Teen-role request is superseded by the founder's lane instructions.
-3. Persist per-person app visibility, rating/tag restrictions, schedules and
-   child birth dates through the existing identity model. Keep private profile
-   data out of public responses and audit payloads.
-4. Expose controls through authenticated gateway routes; enforce restrictions
-   at the relevant access boundaries, with owner-approved management and no
-   agent bypass. Register route scopes once at module level, following
-   `core/onemind_core/routers/machines.py`, never inside `register()`.
-5. Add role, authorization and schedule tests, including denied access and
-   boundary cases; verify existing role views remain compatible. Regenerate
-   SDK artifacts if the gateway contract changes.
-6. Run checks for touched areas plus fragment validation, hygiene and gitleaks;
-   add the required change fragment, sign off commits, push and hand the PR
-   to the independent review gate. Only this file receives doc/progress edits.
+## Next
+- Full CI on every draft above, then undraft and hand to the admin for review and merge.
+- #171 follow-up: make the executor honour placement (nodeSelector and node labels).
+- #156 follow-up: node-side update.apply consumer in onemindd.
 
-## Scope notes
+## Blocked (waiting on the founder, hardware or another lane)
+- #236 SEC-SSO-01 single sign-on (OIDC + forward-auth): needs founder decision F-34 (where Kanidm runs), the Kanidm lab test UMB-ACCT-1, and #139 (draft PR #347). Kanidm is not in the repo yet. Explainer: docs/learning/founder/06-kanidm-and-single-sign-on.md (PR #399).
 
-The initial claim contains this progress plan only. No application code has
-been written. Dashboard changes, if required, must respect the concurrently
-owned dashboard lane; prefer a complete gateway implementation reachable by
-mounted routes and the generated SDK.
-
-## Implementation update
-
-- Draft PR: #369. Gateway implementation and generated SDK models are complete.
-- Added durable owner-managed profiles and app classifications through mounted
-  `/v1/family/profiles/{user_id}` and `/v1/family/apps/{app_id}` routes.
-- Profiles restrict existing sharing with allowlists, age-rating limits, tag
-  blocks and local-time weekly windows (including overnight windows). A rating
-  limit blocks unclassified apps. Birth dates are private child-profile data.
-- Owner management uses existing passkey step-up and CSRF protections. Profile
-  reads use `Cache-Control: no-store`; audit records omit private policy values.
-- Catalog, direct app routes and proxy decisions use the same restrictions;
-  owned agent tokens inherit the owning person's policy and sharing limits.
-  Children may open shared `signed_in` apps; adult/owner-only apps stay denied.
-- Native Codex subagent review found two access gaps; both were fixed and the
-  follow-up review reported no remaining actionable findings.
-- Verification so far: 61 family/proxy tests passed; the initial 92-test family,
-  identity and proxy run passed before the review fixes; Go SDK tests, 17 Python
-  SDK tests, TypeScript typecheck and 15 TypeScript tests passed (one live test
-  skipped); lint, fragment validation and hygiene/gitleaks passed.
-- Full core suite and repo unit suite are running. Homebrew OpenSSL is required
-  for these local certificate tests; system OpenSSL failed existing TLS checks.
-- Scope limits: this implements gateway policy and mounted management routes,
-  without editing the concurrently owned dashboard lane. App ratings classify
-  entire apps; content-item filtering inside third-party apps is not supplied.
-  Existing app connections are not forcibly terminated when a window closes;
-  subsequent gateway/proxy access checks enforce the current policy.
-
-- Repo unit verification completed: 391 tests passed with one skip using
-  Homebrew OpenSSL. SDK regeneration/staleness check passed after committing
-  generated artifacts. The final core suite is running with four workers.
-
-## Final verification for #204
-
-- Full core run: 4,649 passed, 631 skipped, 57 expected failures. Its sole
-  failure was missing entries for the four new routes in the mandatory
-  authorization policy table. Added owner-only rows, then reran route coverage
-  and all new family authorization/audit matrix cases: 42 passed, 12 skipped.
-- Family/proxy regression run: 61 passed. Repo unit suite: 391 tests, one skip.
-- Go, Python and TypeScript SDK tests and generated-artifact staleness passed.
-- Lint, fragment validation, diff whitespace check and final hygiene/gitleaks
-  passed. No documentation file other than this progress file was changed.
-- Native subagent follow-up review: no remaining actionable findings.
-- Next issue in the assigned order is #237. Its preparation found no existing
-  HTTP relay transport; relay compatibility needs explicit validation rather
-  than an unsupported completion claim. #236 remains blocked on open #139.
+## Notes
+- 2026-11-19: Codex built #204 (PR #369) and claimed #237 (draft #375). Zeus then moved the whole lane to Claude, which built the rest with parallel agents, one worktree and one draft PR per issue, each followed by a reviewer.
+- #204 scope as built: owner-managed per-person profiles (app allowlists, age-rating limits, tag blocks, weekly schedules including overnight windows, private child birth dates) through /v1/family/profiles/{user_id} and /v1/family/apps/{app_id}. The same checks apply to the catalog, app routes and the proxy, and an agent token inherits its owner's limits. Roles stay owner, adult, guest and child; the issue's Teen role was not added, following the lane instructions. Content filtering inside third-party apps is not provided.

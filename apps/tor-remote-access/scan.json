@@ -1,0 +1,49 @@
+{
+  "scanned_at": "2026-11-19T15:20:49Z",
+  "result": "fail",
+  "images": [
+    {
+      "ref": "docker.io/library/python:3.14.10-slim-trixie@sha256:9aaa474097d094040649f2162a627c0049b408f52138d980916788d80f04802f",
+      "archs": [
+        "amd64",
+        "arm64"
+      ],
+      "trivy": {
+        "version": "0.76.2",
+        "critical_fixable": 0,
+        "critical": 0,
+        "high": 53
+      },
+      "clamav": {
+        "signatures": "daily-28188",
+        "infected": 0
+      },
+      "secrets": 0,
+      "cosign": "unsigned"
+    },
+    {
+      "ref": "docker.io/leplusorg/tor:4.9.17@sha256:276c6c28bf5e888195004fd13786fedeb30173169279158b3a4dfc0ae7e67cfe",
+      "archs": [
+        "amd64",
+        "arm64"
+      ],
+      "trivy": {
+        "version": "0.76.2",
+        "critical_fixable": 0,
+        "critical": 0,
+        "high": 0
+      },
+      "clamav": {
+        "signatures": "daily-28188",
+        "infected": 0
+      },
+      "secrets": 0,
+      "cosign": "unsigned"
+    }
+  ],
+  "licence": {
+    "spdx": "Apache-2.0",
+    "class": "L1"
+  },
+  "smoke": "fail"
+}
