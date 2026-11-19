@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: Apache-2.0
+# The visual check of CI (ui-quality.yml, CI-17) on your own machine: draw the screenshots from a base
+# commit (default: where your branch left origin/main), then compare your working tree with them.
+#   ui/test/visual-vs-main.sh [base-ref] [browser]      (defaults: merge-base with origin/main, chromium)
+# Needs Playwright's browser installed (npx playwright install --with-deps <browser>; README.md: in a
+# Linux VM, not on the Mac host). Base and working tree render on the same machine, so the comparison
+# is fair anywhere; the pictures only look like CI's on Linux. Nothing is committed: the reference
+# screenshots go to ui/test/visual/ (gitignored) and the report to ui/test/playwright-report-visual/.
+set -euo pipefail
+
+here=$(cd "$(dirname "$0")" && pwd)
+repo=$(git -C "$here" rev-parse --show-toplevel)
+base=${1:-$(git -C "$repo" merge-base HEAD origin/main)}
+browser=${2:-chromium}
+case "$browser" in chromium|firefox|webkit) ;; *) echo "unknown browser: $browser" >&2; exit 2 ;; esac
+tmp=$(mktemp -d)
+cleanup() { git -C "$repo" worktree remove --force "$tmp/base" >/dev/null 2>&1 || true; rm -rf "$tmp"; }
+trap cleanup EXIT
+
+build() { # <tree>: the ui demo and the dashboard mock, as the CI build job does
+  (cd "$1/ui" && npm ci --silent && npm run build:demo >/dev/null)
+  (cd "$1/dashboard" && npm ci --silent && npm run build:mock >/dev/null)
+}
+
+echo "base: $(git -C "$repo" rev-parse --short "$base")  browser: $browser"
+git -C "$repo" worktree add --detach "$tmp/base" "$base" >/dev/null
+build "$tmp/base"
+build "$repo"
+cd "$here"
+npm ci --silent
+rm -rf visual
+UI_DIST="$tmp/base/ui/dist-demo" DASH_DIST="$tmp/base/dashboard/dist" PW_REPORT="$tmp/base-report" \
+  PW_OUTPUT="$tmp/base-results" npx playwright test --project="$browser" --grep @visual --update-snapshots=all \
+  || echo "some base screenshots could not be drawn; those screens will show as changed"
+if PW_REPORT=playwright-report-visual PW_OUTPUT=test-results-visual \
+  npx playwright test --project="$browser" --grep @visual --update-snapshots=none; then
+  echo "no screen differs from $base"
+else
+  echo "screens differ from $base: npx playwright show-report playwright-report-visual"
+  exit 1
+fi
