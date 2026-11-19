@@ -10,6 +10,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -42,12 +43,14 @@ func (f *fakePower) PowerOff(context.Context) error {
 
 type fakeOS struct {
 	why      string
+	busy     string
 	offered  string
 	rebooted bool
 	got      []string
 }
 
 func (f *fakeOS) Unavailable() string { return f.why }
+func (f *fakeOS) UpdateBusy() string  { return f.busy }
 func (f *fakeOS) Install(_ context.Context, v string, goingDown func()) (string, bool, error) {
 	f.got = append(f.got, v)
 	if v != f.offered {
@@ -163,6 +166,15 @@ func TestRefusals(t *testing.T) {
 	if _, err := idle.Store.Get("r1"); !errors.Is(err, ErrNotFound) {
 		t.Fatal("a refused request was journaled")
 	}
+	// An OS update between install and the gate's verdict: the box must not go down.
+	upd, _ := newService(t, t.TempDir(), "b")
+	upd.OS = &fakeOS{busy: "an OS update is trial"}
+	for _, k := range []string{KindRestart, KindShutdown} {
+		_, _, err = upd.Submit(ctx, Request{ActionID: "busy-" + k, Kind: k})
+		if !errors.As(err, &r) || r.Reason != "update_in_progress" {
+			t.Errorf("%s during an update: %v", k, err)
+		}
+	}
 	// No journal: nothing may start.
 	nj := &Service{Power: &fakePower{}}
 	if _, _, err := nj.Submit(ctx, Request{ActionID: "n1", Kind: KindRestart}); !errors.Is(err, ErrNoJournal) {
@@ -178,6 +190,7 @@ func TestInterruptedActionsAreFailedNotRerun(t *testing.T) {
 		{ID: "same-boot", Kind: KindRestart, State: StateAccepted, BootID: "b2", AcceptedAt: at},
 		{ID: "power-cut", Kind: KindOSInstall, Version: "1.2.0", State: StateRunning, BootID: "b1", AcceptedAt: at},
 		{ID: "installed", Kind: KindOSInstall, Version: "1.2.0", State: StateGoingDown, BootID: "b1", AcceptedAt: at},
+		{ID: "reset", Kind: KindFactoryReset, State: StateGoingDown, BootID: "b1", AcceptedAt: at},
 		{ID: "done", Kind: KindRestart, State: StateSucceeded, BootID: "b0", AcceptedAt: at, Message: "kept"},
 	} {
 		if err := st.Put(op); err != nil {
@@ -189,12 +202,16 @@ func TestInterruptedActionsAreFailedNotRerun(t *testing.T) {
 	if err := s.Resume(); err != nil {
 		t.Fatal(err)
 	}
-	want := map[string]string{"same-boot": StateFailed, "power-cut": StateFailed, "installed": StateSucceeded, "done": StateSucceeded}
+	want := map[string]string{"same-boot": StateFailed, "power-cut": StateFailed, "installed": StateSucceeded,
+		"done": StateSucceeded, "reset": StateFailed}
 	for id, w := range want {
 		op, _ := st.Get(id)
 		if op.State != w {
 			t.Errorf("%s: %s, want %s (%s)", id, op.State, w, op.Message)
 		}
+	}
+	if op, _ := st.Get("reset"); op.Reason != "not_wiped" {
+		t.Errorf("a reset record that survived the reboot: %+v", op)
 	}
 	if op, _ := st.Get("done"); op.Message != "kept" {
 		t.Error("a finished record was rewritten")
@@ -319,4 +336,49 @@ func TestSocketPeerCredentials(t *testing.T) {
 	if st.Schema != Schema || len(st.Operations) != 4 || !st.Operations[0].Available || st.Operations[2].Available {
 		t.Fatalf("status: %+v", st)
 	}
+}
+
+func TestCorruptRecordFailsClosed(t *testing.T) {
+	dir := t.TempDir()
+	st, _ := OpenStore(dir)
+	if err := os.WriteFile(filepath.Join(dir, "half.json"), []byte(`{"action_id": "half", "st`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.List(); err == nil {
+		t.Fatal("a corrupt record was skipped")
+	}
+	if err := (&Service{Store: st, BootID: "b"}).Resume(); err == nil {
+		t.Fatal("resume went on past a corrupt record")
+	}
+}
+
+func TestActivationListener(t *testing.T) {
+	env := map[string]string{}
+	get := func(k string) string { return env[k] }
+	if l, err := ActivationListener(get, 42, 3); l != nil || err != nil {
+		t.Fatalf("not activated: %v %v", l, err)
+	}
+	dir, err := shortTempDir(t)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ul, err := net.ListenUnix("unix", &net.UnixAddr{Name: filepath.Join(dir, "a.sock"), Net: "unix"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ul.Close()
+	f, err := ul.File()
+	if err != nil {
+		t.Fatal(err)
+	}
+	env["LISTEN_PID"], env["LISTEN_FDS"] = "42", "2"
+	if _, err := ActivationListener(get, 42, f.Fd()); err == nil {
+		t.Fatal("two sockets accepted")
+	}
+	env["LISTEN_FDS"] = "1"
+	l, err := ActivationListener(get, 42, f.Fd())
+	if err != nil || l == nil {
+		t.Fatalf("activated: %v", err)
+	}
+	l.Close()
 }

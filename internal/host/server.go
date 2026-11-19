@@ -6,8 +6,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
+	"os"
+	"strconv"
 	"time"
 )
 
@@ -15,8 +18,8 @@ import (
 const Schema = "onemind.host/v1"
 
 // Server is the host API on a Unix socket (mode 0660, root and the gateway's
-// group; ops.Listen opens it). Each connection's peer credentials are checked
-// again: root, or the allowed uid or gid.
+// group; systemd opens it, onemind-host.socket). Each connection's peer
+// credentials are checked again: root, or the allowed uid (the gateway's user).
 //
 //	GET  /v1/status            what this box can do, and why not
 //	POST /v1/operations        {action_id, kind, version?} → 202 new, 200 known
@@ -26,6 +29,9 @@ type Server struct {
 	S        *Service
 	AllowUID int // besides root; -1 none
 	AllowGID int // -1 none
+	// Ctx is the service's lifetime: actions run on it, not on the request's
+	// (they outlive the request), so stopping the service stops waiting ones.
+	Ctx context.Context
 	// PeerCred reads a connection's uid and gid (default SO_PEERCRED; tests replace it).
 	PeerCred func(*net.UnixConn) (uid, gid int, ok bool)
 }
@@ -54,6 +60,7 @@ func (s *Server) Serve(ctx context.Context, l net.Listener) error {
 	hs := &http.Server{
 		Handler:           s.Handler(),
 		ReadHeaderTimeout: 10 * time.Second,
+		IdleTimeout:       time.Minute,
 		ConnContext: func(ctx context.Context, c net.Conn) context.Context {
 			return context.WithValue(ctx, ctxKey{}, c)
 		},
@@ -127,8 +134,11 @@ func (s *Server) Handler() http.Handler {
 			apiError(w, http.StatusBadRequest, "bad_request", "malformed", err.Error())
 			return
 		}
-		// The action outlives the request: it runs on the service's context, not the caller's.
-		op, created, err := s.S.Submit(context.WithoutCancel(r.Context()), req)
+		ctx := s.Ctx
+		if ctx == nil {
+			ctx = context.WithoutCancel(r.Context())
+		}
+		op, created, err := s.S.Submit(ctx, req)
 		var ref *Refusal
 		switch {
 		case err == nil && created:
@@ -182,4 +192,28 @@ func (s *Server) Handler() http.Handler {
 		}
 		mux.ServeHTTP(w, r)
 	})
+}
+
+// ActivationListener returns the socket systemd passed (LISTEN_PID, LISTEN_FDS,
+// fd 3: sd_listen_fds), or nil when the process was not socket-activated.
+// systemd creates the socket with its owner, group and mode, so this service
+// needs no chown (and no CAP_CHOWN under SystemCallFilter=~@privileged).
+func ActivationListener(getenv func(string) string, pid int, fd uintptr) (net.Listener, error) {
+	if getenv("LISTEN_PID") != strconv.Itoa(pid) {
+		return nil, nil
+	}
+	if n, err := strconv.Atoi(getenv("LISTEN_FDS")); err != nil || n != 1 {
+		return nil, fmt.Errorf("socket activation: want exactly one socket, LISTEN_FDS=%q", getenv("LISTEN_FDS"))
+	}
+	f := os.NewFile(fd, "host.sock")
+	defer f.Close()
+	l, err := net.FileListener(f)
+	if err != nil {
+		return nil, fmt.Errorf("socket activation: %w", err)
+	}
+	if _, ok := l.(*net.UnixListener); !ok {
+		l.Close()
+		return nil, errors.New("socket activation: the passed socket is not a Unix socket")
+	}
+	return l, nil
 }

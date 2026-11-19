@@ -5,10 +5,13 @@ package host
 import (
 	"bytes"
 	"context"
+	"errors"
+	"log/slog"
 	"net"
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"testing"
@@ -74,8 +77,73 @@ func TestPinnedInstallerRefusesAnotherVersion(t *testing.T) {
 	}
 	called := false
 	rb := &recReboot{}
-	if err := (announceRebooter{inner: rb, before: func() { called = rb.n == 0 }}).Reboot(context.Background()); err != nil || !called || rb.n != 1 {
+	ok := &announceRebooter{inner: rb, before: func() { called = rb.n == 0 }, cfg: c, want: "1.3.0"}
+	if err := ok.Reboot(context.Background()); err != nil || !called || rb.n != 1 {
 		t.Fatal("going_down must be journaled before the reboot")
+	}
+	called = false
+	other := &announceRebooter{inner: rb, before: func() { called = true }, cfg: c, want: "1.2.0"}
+	if err := other.Reboot(context.Background()); err == nil || other.refused == nil || called || rb.n != 1 {
+		t.Fatal("rebooted into a version the owner did not approve")
+	}
+}
+
+// The engine: an approval for one version never reboots into another one the
+// update service installed on its own (blocker: Run(ModeApply) reboots a
+// pending install without running the installer).
+func TestUpdateEngineNeverRebootsIntoAnotherVersion(t *testing.T) {
+	dir := t.TempDir()
+	conf := filepath.Join(dir, "update.conf")
+	if err := os.WriteFile(conf, []byte("channel = security\nurl = https://example.org/tuf\nstate_dir = "+dir+"/state\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	c, err := update.LoadConfig(conf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	offer := &update.Target{Meta: update.TargetMeta{Version: "1.2.0"}}
+	rb, inst := &recReboot{}, &recInstaller{}
+	pending := &update.Status{TargetVersion: "1.1.9"}
+	pending.State = "pending_reboot"
+	var modes []update.Mode
+	u := &UpdateEngine{ConfigPath: conf,
+		newEngine: func(*update.Config, *slog.Logger) *update.Engine {
+			return &update.Engine{Installer: inst, Rebooter: rb}
+		},
+		run: func(ctx context.Context, e *update.Engine, m update.Mode) (*update.Result, error) {
+			modes = append(modes, m)
+			st, _ := update.LoadStatus(c)
+			if m == update.ModeApply { // the engine's pending-reboot shortcut: no install, straight to reboot
+				return &update.Result{Rebooted: e.Rebooter.Reboot(ctx) == nil, Status: st}, nil
+			}
+			return &update.Result{Candidate: offer, Status: st}, nil
+		}}
+	// 1. Seen at the check: refused before ModeApply runs.
+	if err := pending.Save(c); err != nil {
+		t.Fatal(err)
+	}
+	if u.UpdateBusy() == "" {
+		t.Error("pending_reboot not reported busy")
+	}
+	var r *Refusal
+	if _, _, err := u.Install(context.Background(), "1.2.0", func() { t.Error("going_down") }); !errors.As(err, &r) || r.Reason != "update_pending" {
+		t.Fatalf("pending at check: %v", err)
+	}
+	if len(modes) != 1 || rb.n != 0 {
+		t.Fatalf("modes %v reboots %d", modes, rb.n)
+	}
+	// 2. Appears between check and apply: the rebooter refuses.
+	idle := &update.Status{TargetVersion: "1.1.9"}
+	idle.State = "idle"
+	if err := idle.Save(c); err != nil {
+		t.Fatal(err)
+	}
+	modes = nil
+	if _, _, err := u.Install(context.Background(), "1.2.0", func() { t.Error("going_down") }); !errors.As(err, &r) || r.Reason != "update_pending" {
+		t.Fatalf("pending at apply: %v", err)
+	}
+	if len(modes) != 2 || rb.n != 0 || inst.n != 0 {
+		t.Fatalf("modes %v reboots %d installs %d", modes, rb.n, inst.n)
 	}
 }
 
@@ -118,19 +186,19 @@ func unit(t *testing.T) map[string][]string {
 // halves are pinned: what it needs, and every hardening line it keeps.
 func TestHostUnitSandbox(t *testing.T) {
 	u := unit(t)
-	if v := u["ExecStart"]; len(v) != 1 || v[0] != "/usr/bin/onemindd host serve --group onemind" {
+	if v := u["ExecStart"]; len(v) != 1 || v[0] != "/usr/bin/onemindd host serve --user onemind" {
 		t.Errorf("ExecStart = %q", v)
 	}
-	if v := u["CapabilityBoundingSet"]; len(v) != 1 || v[0] != "CAP_DAC_READ_SEARCH CAP_CHOWN" {
-		t.Errorf("CapabilityBoundingSet = %q, want exactly CAP_DAC_READ_SEARCH CAP_CHOWN", v)
+	if v := u["CapabilityBoundingSet"]; len(v) != 1 || v[0] != "CAP_DAC_READ_SEARCH" {
+		t.Errorf("CapabilityBoundingSet = %q, want exactly CAP_DAC_READ_SEARCH", v)
 	}
-	if v := u["ReadWritePaths"]; len(v) != 1 || v[0] != "/data /run/onemind" {
+	if v := u["ReadWritePaths"]; len(v) != 1 || v[0] != "/data" {
 		t.Errorf("ReadWritePaths = %q", v)
 	}
 	for _, k := range []string{"User=root", "NoNewPrivileges=yes", "ProtectSystem=strict", "ProtectHome=yes",
 		"PrivateTmp=yes", "PrivateDevices=yes", "ProtectKernelTunables=yes", "ProtectKernelModules=yes",
 		"ProtectControlGroups=yes", "RestrictSUIDSGID=yes", "MemoryDenyWriteExecute=yes", "RestrictNamespaces=yes",
-		"SystemCallFilter=~@privileged", "UMask=0077", "AmbientCapabilities=", "RequiresMountsFor=/data",
+		"SystemCallFilter=~@privileged", "UMask=0022", "Requires=onemind-host.socket", "AmbientCapabilities=", "RequiresMountsFor=/data",
 		"RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX"} {
 		key, val, _ := strings.Cut(k, "=")
 		found := false
@@ -143,5 +211,38 @@ func TestHostUnitSandbox(t *testing.T) {
 	}
 	if _, ok := u["WantedBy"]; !ok {
 		t.Error("[Install] missing")
+	}
+}
+
+// ~@privileged forbids @chown (EPERM), so the service must never chown its
+// socket: systemd makes it (onemind-host.socket) and the fallback opens it
+// without a group. A text-only check of the unit missed this once.
+func TestSocketNeedsNoChown(t *testing.T) {
+	u := unit(t)
+	for _, f := range u["SystemCallFilter"] {
+		if f == "@chown" || f == "chown" {
+			t.Fatal("the filter allows chown again: then the socket unit is the only safe way, keep it")
+		}
+	}
+	b, err := os.ReadFile(filepath.Join("..", "..", "os", "rootfs", "layers", "onemind", "usr", "lib", "systemd", "system", "onemind-host.socket"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"ListenStream=/run/onemind/host.sock", "SocketUser=root", "SocketGroup=onemind", "SocketMode=0660"} {
+		if !strings.Contains(string(b), want) {
+			t.Errorf("onemind-host.socket: %s missing", want)
+		}
+	}
+	src, err := os.ReadFile(filepath.Join("..", "..", "cmd", "onemindd", "host.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !regexp.MustCompile(`ops\.Listen\([^,]+,\s*-1\)`).Match(src) || strings.Contains(string(src), "Chown") {
+		t.Error("cmd/onemindd/host.go must not chown (no CAP_CHOWN, @chown filtered)")
+	}
+	for _, f := range []string{"host.go", "server.go", "journal.go", "update.go"} {
+		if b, _ := os.ReadFile(f); strings.Contains(string(b), "Chown(") {
+			t.Errorf("%s chowns", f)
+		}
 	}
 }

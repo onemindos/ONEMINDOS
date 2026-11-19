@@ -19,7 +19,7 @@ import (
 )
 
 const hostUsage = `usage:
-  onemindd host serve [--socket PATH] [--group NAME] [--journal DIR] [--update-conf FILE] [--delay 3s]
+  onemindd host serve [--socket PATH] [--user NAME] [--journal DIR] [--update-conf FILE] [--delay 3s]
 `
 
 // runHost is `onemindd host`: the host action service (#146, #142), its own
@@ -33,7 +33,7 @@ func runHost(args []string) int {
 	}
 	fs := flag.NewFlagSet("onemindd host serve", flag.ContinueOnError)
 	sock := fs.String("socket", env("ONEMIND_HOST_SOCKET", "/run/onemind/host.sock"), "Unix socket for the gateway")
-	group := fs.String("group", env("ONEMIND_HOST_GROUP", "onemind"), "group allowed on the socket (the gateway's)")
+	gwUser := fs.String("user", env("ONEMIND_HOST_USER", "onemind"), "the one user besides root allowed on the socket (the gateway's)")
 	journal := fs.String("journal", env("ONEMIND_HOST_JOURNAL", "/data/onemind/host/actions"), "action journal directory")
 	conf := fs.String("update-conf", env("ONEMIND_UPDATE_CONF", update.DefaultConfigPath), "update.conf for OS installs")
 	delay := fs.Duration("delay", 3*time.Second, "wait before the box goes down, so the gateway records the answer first")
@@ -51,21 +51,28 @@ func runHost(args []string) int {
 		svc.Store = st
 	}
 	if err := svc.Resume(); err != nil {
-		log.Error("resume failed", "err", err)
+		// Fail closed: an unreadable journal may hide an open action.
+		log.Error("host journal unreadable: status only, every action refused", "err", err)
+		svc.Store = nil
 	}
-	gid := -1
-	if g, err := user.LookupGroup(*group); err == nil {
-		gid, _ = strconv.Atoi(g.Gid)
+	uid := -1
+	if u, err := user.Lookup(*gwUser); err == nil {
+		uid, _ = strconv.Atoi(u.Uid)
 	} else {
-		log.Warn("socket group not found; root only", "group", *group)
+		log.Warn("gateway user not found; root only", "user", *gwUser)
 	}
-	l, err := ops.Listen(*sock, gid) // same socket rules as the storage service: 0660, root:<group>
+	// The image passes the socket from onemind-host.socket (0660 root:onemind), so
+	// nothing here chowns. Without systemd (development) it opens one, root only.
+	l, err := host.ActivationListener(os.Getenv, os.Getpid(), 3)
+	if err == nil && l == nil {
+		l, err = ops.Listen(*sock, -1)
+	}
 	if err != nil {
 		log.Error("cannot listen", "socket", *sock, "err", err)
 		return 1
 	}
-	log.Info("host service listening", "socket", *sock, "journal", svc.Store != nil, "boot_id", svc.BootID)
-	err = (&host.Server{S: svc, AllowUID: -1, AllowGID: gid}).Serve(ctx, l)
+	log.Info("host service listening", "socket", *sock, "journal", svc.Store != nil, "boot_id", svc.BootID, "gateway_uid", uid)
+	err = (&host.Server{S: svc, AllowUID: uid, AllowGID: -1, Ctx: ctx}).Serve(ctx, l)
 	stop()
 	svc.Wait()
 	if err != nil {

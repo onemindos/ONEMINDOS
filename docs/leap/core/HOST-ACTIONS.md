@@ -11,9 +11,9 @@
 | Piece | Where | What it does |
 |---|---|---|
 | `onemindd host serve` | `cmd/onemindd/host.go`, `internal/host/` | The API below, the journal, restart and shutdown through systemd, the OS install hand-off to `internal/update` |
-| `onemind-host.service` | `os/rootfs/layers/onemind/usr/lib/systemd/system/` | Root, sandboxed like `onemind-update.service` plus `CAP_CHOWN` for the socket group. Started by `onemind-firstboot` on the hub role |
+| `onemind-host.service` + `onemind-host.socket` | `os/rootfs/layers/onemind/usr/lib/systemd/system/` | Root, sandboxed like `onemind-update.service` (`SystemCallFilter=~@privileged`, which also forbids chown). systemd creates the socket (socket activation), so the service never chowns and holds no `CAP_CHOWN`. Started by `onemind-firstboot` on the hub role |
 | Journal | `/data/onemind/host/actions/<action_id>.json` | One file per action, written whole (temp file, fsync, rename, fsync of the folder) |
-| Socket | `/run/onemind/host.sock` | Mode 0660, `root:onemind` (same `ops.Listen` as the storage service). Every connection's peer credentials (SO_PEERCRED) are checked: root, or group `onemind`; anyone else gets 403 before any handler runs |
+| Socket | `/run/onemind/host.sock` | Mode 0660, `root:onemind`, made by `onemind-host.socket`. Every connection's peer credentials (SO_PEERCRED) are checked: root, or the gateway's **uid** (user `onemind`); any other process, even one in group `onemind`, gets 403 before any handler runs |
 
 ## 2. The socket contract (for the gateway follow-up)
 
@@ -22,13 +22,13 @@ JSON over HTTP/1.1 on the Unix socket, like `onemindd storage serve` (`core/onem
 | Call | Answer |
 |---|---|
 | `GET /v1/status` | `{"schema": "onemind.host/v1", "boot_id", "journal": bool, "operations": [{"kind", "available", "unavailable_reason"}], "active_operation": Op or null, "at"}`. Kinds in this order: `restart`, `shutdown`, `factory-reset`, `os-install` |
-| `POST /v1/operations` `{"action_id", "kind", "version"?}` | **202** + Op: new, accepted. **200** + Op: this action id is already known with the same request (idempotent retry; nothing new runs). **409** `{"error": "refused", "reason", "message"}`: `busy`, `action_id_reused`, `unavailable`. **400** `bad_request`: malformed, unknown field, unknown kind, version missing or present where it must not be. **503** `no_journal`. **403** `permission_denied` |
+| `POST /v1/operations` `{"action_id", "kind", "version"?}` | **202** + Op: new, accepted. **200** + Op: this action id is already known with the same request (idempotent retry; nothing new runs). **409** `{"error": "refused", "reason", "message"}`: `busy`, `action_id_reused`, `unavailable`, `update_in_progress` (restart, shutdown or reset while an OS update is downloading, installing, waiting to reboot or on its trial). **400** `bad_request`: malformed, unknown field, unknown kind, version missing or present where it must not be. **503** `no_journal`. **403** `permission_denied` |
 | `GET /v1/operations/{action_id}` | **200** Op, **404** `unknown_action` |
 | `GET /v1/operations` | the 50 newest Ops |
 
 `action_id`: 1 to 128 of `A-Z a-z 0-9 _ . : -` (the gateway's action id). `version` (os-install only): the gateway's `InstallParams.version` pattern.
 
-**Op** = `{"action_id", "kind", "version"?, "state", "reason"?, "message", "boot_id", "accepted_at", "updated_at", "finished_at"?}`. States: `accepted` → `running` (os-install, factory-reset arming) → `going_down` → `succeeded`, or `failed` with a stable `reason`: `host_error`, `interrupted`, `version_not_offered`, `engine_busy`, `engine_declined`, `engine_error`, `unavailable`.
+**Op** = `{"action_id", "kind", "version"?, "state", "reason"?, "message", "boot_id", "accepted_at", "updated_at", "finished_at"?}`. States: `accepted` → `running` (os-install, factory-reset arming) → `going_down` → `succeeded`, or `failed` with a stable `reason`: `host_error`, `interrupted`, `version_not_offered`, `update_pending`, `engine_busy`, `engine_declined`, `engine_error`, `unavailable`, `not_wiped`.
 
 **Mapping in the gateway** (follow-up PR after #355 and #357 merge; nothing in `core/` changes in this PR):
 
@@ -48,8 +48,10 @@ The follow-up adds `HostSocketExecutor` in `core/onemind_core/system.py`:
 ## 3. Restart, shutdown, OS install
 
 - **Restart / shutdown:** journal `accepted`, wait `--delay` (3 s) so the gateway records the answer, journal `going_down`, then `systemctl reboot` or `systemctl poweroff` (systemd stops every unit cleanly). A failed command: `failed`, `host_error`. On the next start, `Resume` turns a `going_down` from an earlier boot (different `boot_id`) into `succeeded`.
+- **A factory-reset record that survives a reboot** becomes `failed`, `not_wiped`: the journal is on `/data`, which the wipe erases, so a surviving record proves the wipe did not run.
+- **An unreadable journal record** stops the service from acting (status only), because it may hide an open action.
 - **Anything left open by a crash or power cut** (`accepted`, `running`, or `going_down` on the same boot) becomes `failed`, `interrupted`. It is never re-run unasked: a restart the owner approved an hour ago must not happen by surprise.
-- **OS install** runs `internal/update`'s engine in this process: first `ModeCheck` (is `version` the update on offer? else `version_not_offered`), then `ModeApply`, the same path as `onemind update apply`: restic snapshot, RAUC install into the other slot (RAUC re-checks the signature), reboot, health-gated trial, automatic rollback (D-007). Two wrappers keep it honest: the installer refuses unless the engine's target version is still the approved one (a channel that moved on between check and apply installs nothing), and the rebooter journals `going_down` before the engine reboots. The engine's own lock stops it racing the update service. Never a raw `rauc install`.
+- **OS install** runs `internal/update`'s engine in this process: first `ModeCheck` (is `version` the update on offer? else `version_not_offered`), then `ModeApply`, the same path as `onemind update apply`: restic snapshot, RAUC install into the other slot (RAUC re-checks the signature), reboot, health-gated trial, automatic rollback (D-007). Three guards keep it honest. (1) If the check finds an install already `pending_reboot` or on `trial`, the request is refused (`update_pending`): the engine's `ModeApply` would otherwise reboot into that other version without installing anything. (2) The installer refuses unless the engine's target version is still the approved one (a channel that moved on between check and apply installs nothing). (3) The rebooter re-reads the engine's status and reboots only into the approved version, refusing with `update_pending` otherwise; it journals `going_down` just before. The engine's own lock stops it racing the update service. Never a raw `rauc install`.
 
 ## 4. Factory reset (PR 2)
 
@@ -59,7 +61,7 @@ The follow-up adds `HostSocketExecutor` in `core/onemind_core/system.py`:
 
 | Step | Who | Writes | A power cut here means |
 |---|---|---|---|
-| 1. Arm | `host serve` (running box) | journal `running`; marker `/boot/efi/onemind/factory-reset` (`ACTION_ID`, `REQUESTED_AT`, written temp + fsync + rename + fsync) on the ESP, which is not on the data set and survives the wipe | before the marker: nothing happened; `Resume` reports `interrupted`. After: the next boot wipes (the owner approved it) |
+| 1. Arm | `host serve` (running box) | journal `running`; marker `/boot/efi/onemind/factory-reset` (`ACTION_ID`, `REQUESTED_AT`, `DATA_SET` = the data set's UUID (ext4 UUID today, btrfs set UUID after the storage patch), `EXPIRES_AT` = a short window such as 1 hour, written temp + fsync + rename + fsync) on the ESP, which is not on the data set and survives the wipe | before the marker: nothing happened; `Resume` reports `interrupted`. After: the next boot wipes (the owner approved it) |
 | 2. Reboot | `host serve` | journal `going_down`; `systemctl reboot` | the marker is there: the next boot wipes |
 | 3. Wipe | `onemind-factory-reset.service`, early boot: `DefaultDependencies=no`, `RequiresMountsFor=/boot/efi`, `Before=data.mount onemind-data-assemble.service onemind-data-layout.service onemind-data-check.service local-fs.target`, `ConditionPathExists=/boot/efi/onemind/factory-reset` | marker `STATE=wiping`, `ATTEMPTS+1`; wipes each member; removes `onemind.conf.applied` | every step is repeatable, so the next boot simply starts the wipe again. The marker is removed only after the last step |
 | 4. Done | same unit | marker renamed to `factory-reset.done` (`ACTION_ID`, `COMPLETED_AT`) | the boot goes on: `/data` mounts the empty data set, `onemind-data-layout` makes the folders, `onemind-firstboot` finds no state and starts the setup wizard. No second reboot |
@@ -70,9 +72,13 @@ The follow-up adds `HostSocketExecutor` in `core/onemind_core/system.py`:
 
 **If the wipe fails** (a disk error): the unit writes `/run/onemind-recovery/status` with `REASON=factory-reset` and fails; `OnFailure=` isolates `onemind-recovery.target`, so the old data is **never** mounted after a reset was approved. The next boot tries again.
 
+**The marker is checked before anything is wiped.** If `DATA_SET` does not match the data set on this boot, or `EXPIRES_AT` has passed, the unit wipes nothing: it writes `REASON=factory-reset-stale` to `/run/onemind-recovery/status` and goes to recovery mode, where the owner decides. This stops a marker from wiping a different disk set, or from firing weeks later.
+
+**Arming only on a committed slot.** The arm step refuses unless the booted slot is committed: no update trial, no ESP `pending` note, update state not `pending_reboot` or `trial`. Then a rollback cannot move the box onto a slot without the wipe unit while a marker is waiting. Even so, a slot without the wipe unit that boots with a marker present would mount the old data. PR 2 therefore also makes `onemind-data-check` (which every slot from now on carries) refuse to pass while a marker exists, and the expiry bounds the window.
+
 **Refused when armed:** during an update trial or a pending reboot (the ESP `pending` note or the update state), or while a storage operation runs; the box would otherwise lose the gate's notes mid-trial.
 
-**Older slot caveat:** a rollback to a slot built before PR 2 has no wipe unit; the marker then waits until a slot that has it boots. PR 2's QEMU test covers a power cut in step 3.
+**Older slot caveat:** a slot built before PR 2 has neither the wipe unit nor the marker check. Arming only on a committed slot, together with the expiry, keeps the box from rolling back onto such a slot while a reset is armed. PR 2's QEMU tests cover a power cut in step 3, a stale marker and a mismatched data set.
 
 ## 5. What is not tested here
 

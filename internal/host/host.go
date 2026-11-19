@@ -113,6 +113,9 @@ type Power interface {
 type OSInstaller interface {
 	// Unavailable says why this box cannot install OS updates, or "".
 	Unavailable() string
+	// UpdateBusy says why the box must not go down now (an install is
+	// downloading, installing, waiting to reboot or on its health-gate trial), or "".
+	UpdateBusy() string
 	// Install installs version through the engine's normal path (snapshot,
 	// RAUC into the other slot, health-gated trial). goingDown is called just
 	// before the engine reboots. A *Refusal is returned when version is not the
@@ -221,6 +224,13 @@ func (s *Service) Submit(ctx context.Context, req Request) (op Op, created bool,
 	if why := s.Unavailable(req.Kind); why != "" {
 		return Op{}, false, &Refusal{"unavailable", why}
 	}
+	// A restart, shutdown or reset in the middle of an OS update would cut the
+	// install short or spend one of the health gate's trial boots.
+	if req.Kind != KindOSInstall && s.OS != nil {
+		if why := s.OS.UpdateBusy(); why != "" {
+			return Op{}, false, &Refusal{"update_in_progress", why}
+		}
+	}
 	now := s.now()
 	op = Op{ID: req.ActionID, Kind: req.Kind, Version: req.Version, State: StateAccepted, BootID: s.BootID,
 		AcceptedAt: now, UpdatedAt: now, Message: "accepted"}
@@ -328,13 +338,16 @@ func (s *Service) Resume() error {
 		}
 		earlier := op.BootID != s.BootID
 		switch {
+		case op.Kind == KindFactoryReset && earlier:
+			// The journal lives on /data, which the wipe erases: a record that
+			// survived a reboot means the box was not wiped.
+			s.set(&op, StateFailed, "not_wiped", "the box restarted but was not wiped (the early-boot wipe did not run)")
 		case op.State == StateGoingDown && earlier:
 			msg := map[string]string{
 				KindRestart:  "the box restarted",
 				KindShutdown: "the box shut down (and has been started again)",
 				KindOSInstall: "rebooted into " + op.Version +
 					"; the health gate decides whether it is kept (OS updates screen)",
-				KindFactoryReset: "the box restarted to wipe itself",
 			}[op.Kind]
 			s.set(&op, StateSucceeded, "", msg)
 		case earlier:

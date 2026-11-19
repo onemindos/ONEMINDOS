@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/onemindos/onemindos/internal/heartbeat"
 	"github.com/onemindos/onemindos/internal/update"
 )
 
@@ -45,6 +46,30 @@ func (u *UpdateEngine) Unavailable() string {
 	return why
 }
 
+// UpdateBusy implements OSInstaller.
+func (u *UpdateEngine) UpdateBusy() string {
+	c, why := u.config()
+	if why != "" {
+		return "" // no A/B updates on this box: nothing to cut short
+	}
+	st, err := update.LoadStatus(c)
+	if err != nil {
+		return "the OS update status cannot be read: " + err.Error()
+	}
+	if busy(st.State) {
+		return "an OS update is " + st.State + " (" + st.TargetVersion + "); wait for the health gate's verdict"
+	}
+	return ""
+}
+
+func busy(state string) bool {
+	switch state {
+	case heartbeat.UpdateDownloading, heartbeat.UpdateInstalling, heartbeat.UpdatePendingReboot, heartbeat.UpdateTrial:
+		return true
+	}
+	return false
+}
+
 // Install implements OSInstaller: check that version is the update on offer,
 // then apply it with the installer pinned to that version.
 func (u *UpdateEngine) Install(ctx context.Context, version string, goingDown func()) (string, bool, error) {
@@ -68,6 +93,11 @@ func (u *UpdateEngine) Install(ctx context.Context, version string, goingDown fu
 	} else if err != nil {
 		return "", false, fmt.Errorf("update check: %w", err)
 	}
+	// An install already waiting to reboot (or on trial) would be rebooted into
+	// by ModeApply without the installer running: never on this approval.
+	if st := res.Status; st != nil && (st.State == heartbeat.UpdatePendingReboot || st.State == heartbeat.UpdateTrial) {
+		return "", false, &Refusal{"update_pending", fmt.Sprintf("%s is already %s; wait for the health gate's verdict", st.TargetVersion, st.State)}
+	}
 	if res.Candidate == nil || res.Candidate.Meta.Version != version {
 		offered := "none"
 		if res.Candidate != nil {
@@ -76,8 +106,12 @@ func (u *UpdateEngine) Install(ctx context.Context, version string, goingDown fu
 		return "", false, &Refusal{"version_not_offered", fmt.Sprintf("the channel offers %s, not the approved %s; nothing was installed", offered, version)}
 	}
 	e.Installer = pinnedInstaller{inner: e.Installer, cfg: c, want: version}
-	e.Rebooter = announceRebooter{inner: e.Rebooter, before: goingDown}
+	rb := &announceRebooter{inner: e.Rebooter, before: goingDown, cfg: c, want: version}
+	e.Rebooter = rb
 	res, err = run(ctx, e, update.ModeApply)
+	if rb.refused != nil {
+		return "", false, &Refusal{"update_pending", rb.refused.Error()}
+	}
 	if errors.Is(err, update.ErrBusy) {
 		return "", false, &Refusal{"engine_busy", "the update service started a cycle; ask again in a minute"}
 	} else if err != nil {
@@ -112,13 +146,27 @@ func (p pinnedInstaller) Install(ctx context.Context, bundle string) error {
 	return p.inner.Install(ctx, bundle)
 }
 
-// announceRebooter journals going_down before the engine reboots.
+// announceRebooter reboots only into the approved version, and journals
+// going_down first. The engine reboots without installing when an install is
+// already pending, so the target version is checked again here.
 type announceRebooter struct {
-	inner  update.Rebooter
-	before func()
+	inner   update.Rebooter
+	before  func()
+	cfg     *update.Config
+	want    string
+	refused error
 }
 
-func (a announceRebooter) Reboot(ctx context.Context) error {
+func (a *announceRebooter) Reboot(ctx context.Context) error {
+	st, err := update.LoadStatus(a.cfg)
+	if err != nil {
+		a.refused = fmt.Errorf("the update status cannot be read, so the box was not rebooted: %w", err)
+		return a.refused
+	}
+	if st.TargetVersion != a.want {
+		a.refused = fmt.Errorf("the update engine would reboot into %s, but the owner approved %s; the box was not rebooted", st.TargetVersion, a.want)
+		return a.refused
+	}
 	if a.before != nil {
 		a.before()
 	}

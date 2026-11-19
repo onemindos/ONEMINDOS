@@ -32,6 +32,15 @@ class HostService(unittest.TestCase):
         self.assertIn("RequiresMountsFor=/data", UNIT)
         self.assertRegex(UNIT, r"(?m)^After=.*onemind-firstboot\.service")
 
+    def test_systemd_makes_the_socket(self):
+        # The service's filter forbids chown, so systemd owns the socket's group and mode.
+        sock = open(os.path.join(ROOT, "os", "rootfs", "layers", "onemind", "usr", "lib", "systemd", "system",
+                                 "onemind-host.socket")).read()
+        for line in ("ListenStream=/run/onemind/host.sock", "SocketGroup=onemind", "SocketMode=0660"):
+            self.assertIn(line, sock)
+        self.assertIn("Requires=onemind-host.socket", UNIT)
+        self.assertNotIn("CAP_CHOWN", UNIT)
+
     def test_never_installs_with_rauc_directly(self):
         # An OS install goes through the update engine (snapshot + health gate), never a raw rauc call.
         self.assertNotIn("rauc install", UNIT)

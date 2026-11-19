@@ -88,7 +88,8 @@ func (s *Store) Get(id string) (Op, error) {
 }
 
 // List returns every operation, newest first. A record that does not parse is
-// skipped (it can only be a foreign file: Put never leaves half a record).
+// an error, never skipped: it may be an action still open, and hiding it could
+// let a second one start (Put never leaves half a record, so this is disk damage).
 func (s *Store) List() ([]Op, error) {
 	ents, err := os.ReadDir(s.dir)
 	if err != nil {
@@ -100,9 +101,11 @@ func (s *Store) List() ([]Op, error) {
 		if !e.Type().IsRegular() || !strings.HasSuffix(name, ".json") {
 			continue
 		}
-		if op, err := s.Get(strings.TrimSuffix(name, ".json")); err == nil {
-			out = append(out, op)
+		op, err := s.Get(strings.TrimSuffix(name, ".json"))
+		if err != nil {
+			return nil, fmt.Errorf("host journal record %s: %w", name, err)
 		}
+		out = append(out, op)
 	}
 	sort.SliceStable(out, func(i, j int) bool { return out[i].AcceptedAt.After(out[j].AcceptedAt) })
 	return out, nil
