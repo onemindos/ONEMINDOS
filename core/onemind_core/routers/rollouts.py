@@ -41,19 +41,27 @@ def register(app: FastAPI, gw: Gateway) -> None:
             raise ApiError(404, "not_found", f"There is no rollout {rollout_id}.")
         return row
 
+    def reader(p: Principal = Depends(principal)) -> Principal:
+        # updates:read is the scope check for identity tokens; static-file tokens skip scopes (v0),
+        # so the household rule (owner, adult, agent; not guests or children) is checked here too.
+        if not (p.is_owner or p.role in ("adult", "agent")):
+            gw.audit.append("authz.denied", p.as_dict(), None, {"attempted": "read OS rollouts", "reason": "permission_denied"})
+            raise ApiError(403, "permission_denied", f"{p.kind}/{p.role} may not read OS versions or rollouts")
+        return p
+
     @app.get("/v1/os/fleet", tags=["os"], operation_id="os.fleet", responses=error_responses(401, 403))
-    def os_fleet(_: Principal = Depends(principal)):
+    def os_fleet(_: Principal = Depends(reader)):
         """Every machine's OS version and update state, and how many machines run each version."""
         return svc.fleet()
 
     @app.get("/v1/os/rollouts", tags=["os"], operation_id="os.rollouts.list", responses=error_responses(401, 403))
-    def os_rollouts(_: Principal = Depends(principal)):
+    def os_rollouts(_: Principal = Depends(reader)):
         """Fleet-staged rollouts, newest first."""
         return svc.repo.all()
 
     @app.get("/v1/os/rollouts/{rollout_id}", tags=["os"], operation_id="os.rollouts.get",
              responses=error_responses(401, 403, 404))
-    def os_rollout(rollout_id: str, _: Principal = Depends(principal)):
+    def os_rollout(rollout_id: str, _: Principal = Depends(reader)):
         """One rollout: its stage, each machine's state, and why it paused."""
         return one(rollout_id)
 
