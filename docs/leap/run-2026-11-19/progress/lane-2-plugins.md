@@ -10,7 +10,7 @@ The order comes from [LANES.md](../LANES.md).
 
 ## Draft (pushed, not ready yet)
 
-- #177: event declaration validation (P4/P5); PR pending, stacked on #387. No NATS runtime or registry changes.
+- #177: event declaration validation (P4/P5); PR #389, stacked on #387. No NATS runtime or registry changes.
 
 - #177: tool-manifest foundation; PR #387. Shared Go validator and CLI; remaining rules tracked in the PR.
 
