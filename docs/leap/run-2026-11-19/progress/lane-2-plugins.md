@@ -10,6 +10,8 @@ The order comes from [LANES.md](../LANES.md).
 
 ## Draft (pushed, not ready yet)
 
+- #177: actual UI bundle checks (P7/P8); PR pending, stacked on the UI declaration slice. File containment, settings schemas and static markup checks; no JavaScript execution.
+
 - #177: UI declaration validation (P1/P2 and lexical P7); PR pending, stacked on #392. Widgets, alert actions, settings and tiles; no widget runtime.
 
 - #177: egress declaration validation (P9); PR #392, stacked on #389. Offline hostname/public-suffix checks, no runtime network changes.

@@ -65,7 +65,7 @@ func directory(dir, apiLevel string) error {
 		return fmt.Errorf("spec.manifests: %w", err)
 	}
 	// Reject symlinks anywhere in the workload tree, not only the entry directory.
-	return filepath.WalkDir(manifests, func(path string, entry fs.DirEntry, walkErr error) error {
+	if err := filepath.WalkDir(manifests, func(path string, entry fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
 		}
@@ -77,7 +77,10 @@ func directory(dir, apiLevel string) error {
 			return fmt.Errorf("manifest tree contains symlink or special file: %s", entry.Name())
 		}
 		return nil
-	})
+	}); err != nil {
+		return err
+	}
+	return validateUIBundle(root, metadata, spec)
 }
 
 func bundlePath(root, relative string, directory bool) (string, error) {

@@ -811,6 +811,24 @@ a declared read tool; alert actions name a declared tool and never approve it.
 Iframe widgets target the dashboard only and declare a relative entry under
 `ui/`. Settings schemas and optional tile icons use relative bundle paths, with
 no traversal, absolute paths, unsafe characters or empty path components. UI IDs
-are unique within each surface. These are manifest checks only: bundle file
-existence/symlink checks, settings-schema content and static HTML scanning remain
-separate, as does the sandboxed widget host in #179.
+are unique within each surface. These declarations do not execute UI code; the sandboxed widget host is #179.
+
+The directory validator checks actual iframe entry, settings-schema and tile-icon
+files with the same safe bundle-path checks. Referenced SVG/markup icons are
+scanned even outside `ui/`. Every entry under `ui/` must be a
+regular file or directory, including unreferenced entries. Settings schemas are
+JSON Schema documents compiled offline; remote/file references cannot load.
+Markup checks cover all HTML/HTM/SVG/XHTML files and every iframe entry regardless
+of suffix, require UTF-8 without NUL bytes, and reject inline `on*` handlers,
+inline scripts, remote script sources, `base` elements and embedded `srcdoc`.
+Scripts must use an HTML `src` with no inline content; SVG/href and namespaced
+script elements are refused. Sources name existing relative files inside `ui/`; URL
+components, encoded traversal and parent traversal are refused. The tokenizer
+uses browser HTML attribute semantics, including first-duplicate-wins. This is
+not a JavaScript/dependency scan and does not replace CSP or sandboxing.
+
+UI validation is bounded to 4 MiB per file, 32 MiB total and 4096 entries
+(including referenced files outside `ui/`);
+settings schemas are limited to the 256 KiB manifest limit. The unpacked tree
+must remain unchanged during validation/install; archive extraction, signatures,
+workload policy and installation approval remain separate checks.
