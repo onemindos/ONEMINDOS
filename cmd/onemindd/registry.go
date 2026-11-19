@@ -4,6 +4,7 @@ package main
 
 import (
 	"github.com/onemindos/onemindos/internal/backup"
+	"github.com/onemindos/onemindos/internal/rescue"
 	"github.com/onemindos/onemindos/internal/service"
 )
 
@@ -15,6 +16,8 @@ var subcommands = map[string]func(args []string) int{
 	"storage":     runStorage,
 	"mesh":        runMesh,   // net.go
 	"rescue":      runRescue, // rescue.go: the rescue console, its own unit (CORE-UPDATE-8)
+	// The terminal's shell starts through this hidden mode, which drops every capability first (#273).
+	rescue.ShellHelperCommand: rescue.RunShellHelper,
 }
 
 // optionalServices run inside the heartbeat agent's process, next to it.

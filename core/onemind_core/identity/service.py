@@ -68,6 +68,7 @@ ENROL_TTL = timedelta(hours=24)
 PAT_DEFAULT_DAYS, PAT_MAX_DAYS = 90, 365
 AGENT_DEFAULT_DAYS = AGENT_MAX_DAYS = 90  # F-15: personal agent tokens, renewable
 MAX_GRACE_S = 3600
+MAX_OPEN_RESCUE_CHALLENGES = 20  # an owner credential is needed, so far fewer than for login
 MAX_OPEN_LOGIN_CHALLENGES = 1000  # unauthenticated: bound the rows an anonymous caller can create
 MAX_CREDENTIAL_ID = 512  # PasskeyRow.id width; WebAuthn allows longer ids, which we refuse with a 422
 
@@ -1010,6 +1011,55 @@ class IdentityService:
         if reason == "plan_changed":
             return ApiError(409, "stale_precondition", why, reason=reason)
         return ApiError(401, "unauthenticated", f"passkey check failed: {why}"[:300], reason="step_up_required")
+
+    # ---- rescue console step-up (SEC-TERM-01, D-014) -----------------------------------------------
+    # The rescue console (a separate Go process) opens a root shell only after the owner proves a fresh
+    # passkey here. It forwards the owner's own credential; these two calls are not in the OpenAPI, the
+    # SDK or the MCP tools, and they open nothing themselves: they only check and audit the assertion.
+    def rescue_options(self, request: Request, p: Principal) -> dict:
+        if not p.is_owner:
+            raise self.deny(p, "start a rescue session")
+        if not self.passkeys_active():
+            raise ApiError(409, "conflict", "no owner passkey is registered on this box", reason="no_passkey")
+        now = self.now()
+        if self.repo.count(ChallengeRow, ChallengeRow.purpose == "rescue", ChallengeRow.used_at.is_(None),
+                           ChallengeRow.expires_at > now) >= MAX_OPEN_RESCUE_CHALLENGES:
+            raise ApiError(429, "rate_limited", "too many rescue sign-ins in progress; try again shortly",
+                           reason="too_many_pending", retry_after_s=int(CHALLENGE_TTL.total_seconds()))
+        ctx = ctx_of(request)
+        user_id = ctx.user.id if ctx and ctx.user else None
+        allow_users = [user_id] if user_id else self.active_owner_ids()
+        allow = list(self.repo.all(select(PasskeyRow.id).where(PasskeyRow.user_id.in_(allow_users))))
+        row, raw = self._new_challenge("rescue", user_id=user_id)
+        rp_id, _ = self.rp(request)
+        return {"challenge_id": row.id, "expires_at": iso(row.expires_at),
+                "publicKey": pk.authentication_options(rp_id=rp_id, challenge=raw, allow=allow)}
+
+    def rescue_verify(self, request: Request, p: Principal, credential: dict) -> dict:
+        """Single-use, two minutes: the assertion must answer a challenge made by rescue_options and
+        come from an active owner's passkey. Audited either way."""
+        if not p.is_owner:
+            raise self.deny(p, "start a rescue session")
+        ctx = ctx_of(request)
+        try:
+            credential = pk.normalize(credential)
+            row = self._consume_challenge(credential, "rescue")
+            cred = self._assert(request, credential, row)
+            owner = self._live_user(cred.user_id)
+            if owner is None or owner.role != "owner":
+                raise ApiError(401, "unauthenticated", "passkey does not belong to an active owner")
+            if row.user_id is not None and row.user_id != owner.id:
+                raise ApiError(401, "unauthenticated", "passkey belongs to another account")
+            if ctx is not None and ctx.user is not None and ctx.user.id != owner.id:
+                raise ApiError(401, "unauthenticated", "passkey belongs to another account")
+        except (ApiError, pk.PasskeyError) as exc:
+            why = exc.message if isinstance(exc, ApiError) else str(exc)
+            self.emit("auth", "step_up.failed", {"attempted": "rescue session", "detail": why[:200]}, p,
+                      severity="warning")
+            raise ApiError(401, "unauthenticated", f"passkey check failed: {why}"[:300], reason="step_up_required") from None
+        self.emit("auth", "step_up.succeeded", {"attempted": "rescue session", "credential_id": cred.id,
+                                                "passkey_user_id": owner.id, "approval": "passkey"}, p)
+        return {"credential_id": cred.id, "user_id": owner.id, "verified_at": iso(self.now())}
 
     # ---- /v1/me ------------------------------------------------------------------------------------
     def me(self, request: Request, p: Principal) -> dict:
