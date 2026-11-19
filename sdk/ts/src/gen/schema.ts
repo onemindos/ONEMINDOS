@@ -2769,12 +2769,12 @@ export interface paths {
          * Get Update Policy
          * @description The owner's update policy for apps, and the apps whose auto-update is paused.
          */
-        get: operations["update_policy.get"];
+        get: operations["updates.policy.get"];
         /**
          * Put Update Policy
          * @description Change the update policy (owner only). The knobs only ever hold an update back.
          */
-        put: operations["update_policy.put"];
+        put: operations["updates.policy.update"];
         post?: never;
         delete?: never;
         options?: never;
@@ -2793,7 +2793,7 @@ export interface paths {
          * Update Policy Dry Run
          * @description What would update in the next maintenance window, app by app, and why not. Files nothing.
          */
-        get: operations["update_policy.dry_run"];
+        get: operations["updates.policy.dry_run"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2815,7 +2815,7 @@ export interface paths {
          * Resume Auto Update
          * @description Lift the back-off for one app (owner only): its failed updates before now stop counting.
          */
-        post: operations["update_policy.resume"];
+        post: operations["updates.policy.resume"];
         delete?: never;
         options?: never;
         head?: never;
@@ -14890,7 +14890,7 @@ export interface operations {
             };
         };
     };
-    "update_policy.get": {
+    "updates.policy.get": {
         parameters: {
             query?: never;
             header?: never;
@@ -14919,7 +14919,7 @@ export interface operations {
             };
         };
     };
-    "update_policy.put": {
+    "updates.policy.update": {
         parameters: {
             query?: never;
             header?: never;
@@ -14979,7 +14979,7 @@ export interface operations {
             };
         };
     };
-    "update_policy.dry_run": {
+    "updates.policy.dry_run": {
         parameters: {
             query?: never;
             header?: never;
@@ -15008,7 +15008,7 @@ export interface operations {
             };
         };
     };
-    "update_policy.resume": {
+    "updates.policy.resume": {
         parameters: {
             query?: never;
             header?: never;

@@ -34,22 +34,22 @@ def register(app: FastAPI, gw: Gateway) -> None:
     app.state.update_policy = svc
     tags = ["updates"]
 
-    @app.get("/v1/update-policy", operation_id="update_policy.get", tags=tags, responses=error_responses(401))
+    @app.get("/v1/update-policy", operation_id="updates.policy.get", tags=tags, responses=error_responses(401))
     def get_update_policy(_: Principal = Depends(principal)):
         """The owner's update policy for apps, and the apps whose auto-update is paused."""
         return svc.to_json()
 
-    @app.put("/v1/update-policy", operation_id="update_policy.put", tags=tags, responses=error_responses(401, 403, 422))
+    @app.put("/v1/update-policy", operation_id="updates.policy.update", tags=tags, responses=error_responses(401, 403, 422))
     def put_update_policy(body: UpdatePolicyBody, p: Principal = Depends(principal)):
         """Change the update policy (owner only). The knobs only ever hold an update back."""
         return svc.put(p, body)
 
-    @app.get("/v1/update-policy/dry-run", operation_id="update_policy.dry_run", tags=tags, responses=error_responses(401))
+    @app.get("/v1/update-policy/dry-run", operation_id="updates.policy.dry_run", tags=tags, responses=error_responses(401))
     def update_policy_dry_run(_: Principal = Depends(principal)):
         """What would update in the next maintenance window, app by app, and why not. Files nothing."""
         return svc.dry_run()
 
-    @app.post("/v1/update-policy/resume", operation_id="update_policy.resume", tags=tags, responses=error_responses(401, 403, 422))
+    @app.post("/v1/update-policy/resume", operation_id="updates.policy.resume", tags=tags, responses=error_responses(401, 403, 422))
     def resume_auto_update(body: ResumeBody, p: Principal = Depends(principal)):
         """Lift the back-off for one app (owner only): its failed updates before now stop counting."""
         return svc.resume(p, body.app_id)

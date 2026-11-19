@@ -17501,7 +17501,7 @@
     "/v1/update-policy": {
       "get": {
         "description": "The owner's update policy for apps, and the apps whose auto-update is paused.",
-        "operationId": "update_policy.get",
+        "operationId": "updates.policy.get",
         "responses": {
           "200": {
             "content": {
@@ -17529,7 +17529,7 @@
       },
       "put": {
         "description": "Change the update policy (owner only). The knobs only ever hold an update back.",
-        "operationId": "update_policy.put",
+        "operationId": "updates.policy.update",
         "requestBody": {
           "content": {
             "application/json": {
@@ -17599,7 +17599,7 @@
     "/v1/update-policy/dry-run": {
       "get": {
         "description": "What would update in the next maintenance window, app by app, and why not. Files nothing.",
-        "operationId": "update_policy.dry_run",
+        "operationId": "updates.policy.dry_run",
         "responses": {
           "200": {
             "content": {
@@ -17629,7 +17629,7 @@
     "/v1/update-policy/resume": {
       "post": {
         "description": "Lift the back-off for one app (owner only): its failed updates before now stop counting.",
-        "operationId": "update_policy.resume",
+        "operationId": "updates.policy.resume",
         "requestBody": {
           "content": {
             "application/json": {
