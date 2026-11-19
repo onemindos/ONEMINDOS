@@ -15,12 +15,13 @@ from ..identity.scopes import register_route_scope
 # Route order in the app and in /openapi.json (routers/__init__.py).
 ORDER = 215
 
+# Self-service like /v1/auth/*: the handler checks the caller is a person.
+register_route_scope("GET,HEAD,PUT", r"/v1/me/home", None)
+
 
 def register(app: FastAPI, gw: Gateway) -> None:
     svc = HomeService(gw.db)
     app.state.home = svc
-    # Self-service like /v1/auth/*: the handler checks the caller is a person.
-    register_route_scope("GET,HEAD,PUT", r"/v1/me/home", None)
 
     def person(p: Principal = Depends(gw.principal)) -> Principal:
         if p.kind != "person":
