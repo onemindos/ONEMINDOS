@@ -10,7 +10,7 @@ The order comes from [LANES.md](../LANES.md).
 
 ## Draft (pushed, not ready yet)
 
-- #177: egress declaration validation (P9); PR pending, stacked on #389. Offline hostname/public-suffix checks, no runtime network changes.
+- #177: egress declaration validation (P9); PR #392, stacked on #389. Offline hostname/public-suffix checks, no runtime network changes.
 
 - #177: event declaration validation (P4/P5); PR #389, stacked on #390. No NATS runtime or registry changes.
 
