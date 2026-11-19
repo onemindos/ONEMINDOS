@@ -120,7 +120,7 @@ export type ActionState =
   | 'cancelled';
 
 export type PrincipalKind = 'person' | 'agent';
-export type PrincipalRole = 'owner' | 'adult' | 'guest' | 'agent';
+export type PrincipalRole = 'owner' | 'adult' | 'guest' | 'child' | 'agent';
 
 /** §3 tokens map to principals `{id, kind, role}`. */
 export interface Principal {

@@ -19,6 +19,8 @@ export const href = {
   backups: '/backups',
   updates: '/updates',
   coming: '/coming',
+  controlHub: '/control-hub',
+  agents: '/agents',
   settings: '/settings',
   setting: (id: string) => `/settings/${id}`,
 };

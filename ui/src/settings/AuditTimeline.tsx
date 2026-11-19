@@ -31,17 +31,20 @@ export interface AuditTimelineProps {
   chainNote?: string;
   /** The API calls listed at the bottom; defaults to the audit routes. */
   calls?: string[];
+  /** Page title and lede; default "Activity" (the AI & Agents screen reuses the timeline). */
+  title?: string;
+  lede?: string;
 }
 
-export function AuditTimeline({ data, now, onVerify, onRetry, chainNote, calls }: AuditTimelineProps) {
+export function AuditTimeline({ data, now, onVerify, onRetry, chainNote, calls, title, lede }: AuditTimelineProps) {
   const [actor, setActor] = useState<ActorFilter>('all');
   const [q, setQ] = useState('');
   const searchId = useId();
   return (
     <>
       <PageHeader
-        title="Activity"
-        lede="Every request, decision and result, newest first. Each entry is chained to the one before it, so nothing can be removed or edited quietly."
+        title={title ?? 'Activity'}
+        lede={lede ?? 'Every request, decision and result, newest first. Each entry is chained to the one before it, so nothing can be removed or edited quietly.'}
         actions={
           onVerify && (
             <Button icon="lock" onClick={onVerify} disabled={data.status !== 'ready' || data.stale || !!chainNote}>
