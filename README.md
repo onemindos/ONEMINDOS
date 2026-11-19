@@ -4,9 +4,10 @@
 **The operating system for sovereignty.** OneMind OS is a local-first home and edge cloud: a box you own runs your apps, files, photos, backups and AI, every device you add becomes a node, every app is plug-and-play, and **AI never acts on anything without your approval**.
 
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
-[![CI](https://github.com/onemindos/ONEMINDOS/actions/workflows/ci.yml/badge.svg)](https://github.com/onemindos/ONEMINDOS/actions/workflows/ci.yml)
 
-> **Status: pre-alpha.** The pieces below are built and tested in CI, but there is no signed release yet. What a `v0.1.0-alpha` still needs is tracked in [docs/leap/ALPHA-CHECKLIST.md](docs/leap/ALPHA-CHECKLIST.md). Do not run it on data you cannot lose.
+> **Access: private repository.** Only invited members of the `onemindos` organisation can see or clone it. Sign in first (`gh auth login`, or an SSH key on your GitHub account); `git clone` over plain HTTPS without credentials fails.
+
+> **Status: pre-alpha.** The pieces below are built and tested in CI, but there is no signed release yet. What a `v0.1.0-alpha` still needs is tracked in [docs/leap/ALPHA-CHECKLIST.md](docs/leap/ALPHA-CHECKLIST.md). Do not run it on data you cannot lose. The update channel in [os/update/channel.json](os/update/channel.json) points at this repo's GitHub Releases; while the repo is private a box cannot download from it, so over-the-air updates need a public host first (founder decision F-5).
 
 ## What it is made of
 
@@ -28,7 +29,7 @@ The foundation choices (Debian 13, RAUC A/B, k3s, NATS, restic backups, plugin s
 **On a laptop with Docker** (development only; every port is bound to `127.0.0.1`):
 
 ```sh
-git clone https://github.com/onemindos/ONEMINDOS && cd ONEMINDOS/deploy/compose
+gh repo clone onemindos/ONEMINDOS && cd ONEMINDOS/deploy/compose   # needs repo access
 ./gen-tokens.sh                  # once: random owner and agent tokens into ./local/ (gitignored)
 docker compose up -d --build     # NATS, gateway, dashboard, one node, two simulated machines
 ```
@@ -72,7 +73,7 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md). In short: one issue per PR, tests in th
 
 ## Security
 
-Please do not open a public issue for a vulnerability. See [SECURITY.md](SECURITY.md).
+Report a vulnerability to the maintainers directly, not in an issue thread. See [SECURITY.md](SECURITY.md).
 
 ## License
 

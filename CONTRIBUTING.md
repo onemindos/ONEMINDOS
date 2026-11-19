@@ -33,9 +33,9 @@ make hygiene
 
 Use the template (*Why / What / Tests / Not done*) and write `Closes #<issue>` or `Refs #<issue>`. CODEOWNERS requests the reviewer. A PR is merged only when every check is green and the review approves it.
 
-## This repository is public
+## Treat every commit as public
 
-Never commit secrets, tokens, private IP addresses, host names, local file paths or personal data. `make hygiene` (gitleaks plus our own greps) catches most of it; you are still responsible for what you push.
+The repository is private today, but git history keeps everything and the code may be published later (the licence is open-core Apache-2.0, D-001). So the public-repo rules stay: never commit secrets, tokens, private IP addresses, host names, local file paths or personal data. `make hygiene` (gitleaks plus our own greps) catches most of it; you are still responsible for what you push.
 
 ## Licence
 
@@ -43,4 +43,4 @@ By contributing you agree that your work is licensed under [Apache-2.0](LICENSE)
 
 ## Security problems
 
-Report them privately, as described in [SECURITY.md](SECURITY.md), not in an issue.
+Report them to a maintainer directly, as described in [SECURITY.md](SECURITY.md), not in an issue thread.
