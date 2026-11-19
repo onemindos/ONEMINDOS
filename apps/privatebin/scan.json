@@ -1,0 +1,30 @@
+{
+  "scanned_at": "2026-11-19T14:55:02Z",
+  "result": "fail",
+  "images": [
+    {
+      "ref": "docker.io/privatebin/nginx-fpm-alpine:2.1.1@sha256:9fbcc4d5671b974cafb55948d6fc3ab9eaf77f0c39271a50a16dd71bd4c4d3e6",
+      "archs": [
+        "amd64",
+        "arm64"
+      ],
+      "trivy": {
+        "version": "0.76.2",
+        "critical_fixable": 3,
+        "critical": 3,
+        "high": 41
+      },
+      "clamav": {
+        "signatures": "daily-28188",
+        "infected": 0
+      },
+      "secrets": 0,
+      "cosign": "unsigned"
+    }
+  ],
+  "licence": {
+    "spdx": "Zlib",
+    "class": "L1"
+  },
+  "smoke": "pass"
+}
