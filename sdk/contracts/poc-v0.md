@@ -768,7 +768,7 @@ destructive tools declare effects; execution still requires owner approval.
 `onemind plugin validate [dir]` uses `internal/plugin/validate`, the offline Go
 package shared by box tooling and CI. It checks the existing app schema plus
 plugin tool declarations. A passing manifest check is not artifact verification
-or install authorization. Widening comparisons and supply-chain verification remain separate
+or install authorization. Supply-chain verification remain separate
 validation slices before #177 is done.
 
 The CLI validates the unpacked directory with `validate.Directory`: the manifest
@@ -814,6 +814,22 @@ no traversal, absolute paths, unsafe characters or empty path components. UI IDs
 are unique within each surface. These are manifest checks only: bundle file
 existence/symlink checks, settings-schema content and static HTML scanning remain
 separate, as does the sandboxed widget host in #179.
+
+`onemind plugin validate --previous <dir>` validates both manifests and reports
+P11's informational `widens_grants` flag with sorted reasons. Comparison requires
+the same plugin ID. Added permission and egress strings, new secret name/key grants,
+changed key semantics, and new or stronger write/destructive tools widen grants.
+Display descriptions and grant removals do not. Newly added strings conservatively
+require reapproval even when an older grant might subsume them. Secret fields use
+the existing App `secrets[].keys[]` format, never secret values. A false result does
+not authorize installation or waive signatures, runtime checks or owner approval.
+
+When `--previous` compares an update, removed tools or changed effects require
+a higher plugin major version (PLUGIN-SDK.md §13). Any changed input schema is
+conservatively treated as breaking: this validator does not attempt to prove
+inclusion between arbitrary JSON Schemas. New tools and display-only changes do
+not require a major bump. This version check is separate from grant widening;
+a major bump never removes reapproval or artifact verification requirements.
 
 The standalone `sdk/schema/widget-templates.schema.json` publishes the typed
 widget result contract (PLUGIN-SDK.md §6.2); `validate.WidgetData` checks that
