@@ -16,7 +16,11 @@ What keeps a link safe:
   The anonymous routes (/v1/share/...) reach nothing else, so a relay can forward that one
   prefix without exposing the rest of the box.
 - Every creation, revoke, open, download and refusal is an audit record (files.share.*), with
-  the link id and never the secret or the password.
+  the link id and never the secret or the password. Download records name the item by index,
+  never by path: the audit log is owner-readable, and a Home is private (files/access.py).
+- An owner sees every link and may revoke any of them, but a link made by someone else is shown
+  without the paths in that person's Home, their photo hashes, or the link name they typed:
+  oversight of what leaves the house, without reading another person's Home.
 """
 
 from __future__ import annotations
@@ -144,12 +148,34 @@ class ShareService:
             os.close(fd)
 
     # ---- the creator's side ----------------------------------------------------------------
-    def json(self, row: ShareRow) -> dict:
+    @staticmethod
+    def _private(item: dict) -> bool:
+        """An item from its creator's own Home or photo library (anything but Shared)."""
+        return not (item["kind"] == "file" and item["root"] == "shared")
+
+    def json(self, row: ShareRow, viewer: Principal | None = None) -> dict:
+        """The link as `viewer` may see it. The creator (or no viewer: creation) sees everything;
+        anyone else (an owner) sees Shared items in full and private items only by kind."""
         now = self.now()
         state = "revoked" if row.revoked_at else ("expired" if aware(row.expires_at) <= now else "active")
+        items = [dict(i) for i in row.items]
+        name = row.name
+        hidden = 0
+        if viewer is not None and viewer.id != row.created_by:
+            shown = []
+            for i in items:
+                if self._private(i):
+                    hidden += 1
+                    shown.append({"kind": i["kind"], "hidden": True,
+                                  **({"root": i["root"]} if i["kind"] == "file" else {})})
+                else:
+                    shown.append(i)
+            items = shown
+            if hidden:
+                name = f"{len(items)} shared item{'s' if len(items) != 1 else ''}"
         return {
-            "id": row.id, "name": row.name, "created_by": row.created_by, "state": state,
-            "items": [dict(i) for i in row.items], "password": row.password_hash is not None,
+            "id": row.id, "name": name, "created_by": row.created_by, "state": state,
+            "items": items, "items_hidden": hidden, "password": row.password_hash is not None,
             "created_at": iso(aware(row.created_at)), "expires_at": iso(aware(row.expires_at)),
             "revoked_at": iso(aware(row.revoked_at)) if row.revoked_at else None,
             "opened_count": row.opened_count,
@@ -185,7 +211,7 @@ class ShareService:
     def list(self, p: Principal) -> list[dict]:
         if not is_person(p):
             return []
-        return [self.json(r) for r in self.repo.shares(None if p.is_owner else p.id)]
+        return [self.json(r, p) for r in self.repo.shares(None if p.is_owner else p.id)]
 
     def revoke(self, p: Principal, share_id: str) -> dict:
         row = self.repo.share(share_id) if SHARE_ID_RE.match(share_id) else None
@@ -193,7 +219,7 @@ class ShareService:
             raise not_found("no such share link")
         if self.repo.revoke_share(share_id, p.id, self.now()):
             self.event("revoked", p, share_id, {"created_by": row.created_by})
-        return self.json(self.repo.share(share_id))
+        return self.json(self.repo.share(share_id), p)
 
     # ---- the outside user's side -----------------------------------------------------------
     def resolve(self, token: str, password: str | None) -> tuple[ShareRow, Principal]:
@@ -247,9 +273,8 @@ class ShareService:
         item = row.items[index]
         try:
             with self.open_item(creator, item) as (fd, st, name):
-                self.event("downloaded", None, row.id, {"index": index, "size": st.st_size, "created_by": row.created_by,
-                                                         **({"root": item["root"], "path": item["path"]}
-                                                            if item["kind"] == "file" else {"photo": item["hash"]})})
+                self.event("downloaded", None, row.id, {"index": index, "kind": item["kind"], "size": st.st_size,
+                                                         "created_by": row.created_by})
                 yield fd, st, name
         except FilesError as exc:
             if exc.status in (403, 404):

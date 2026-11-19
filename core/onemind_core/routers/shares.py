@@ -97,7 +97,8 @@ def register(app: FastAPI, gw: Gateway) -> None:
 
     @app.get("/v1/files/shares", operation_id="files.shares.list", tags=TAG, responses=errs(401))
     def list_shares(p: Principal = Depends(principal)):
-        """Your links (an owner sees everyone's), without their secrets."""
+        """Your links, without their secrets. An owner also sees everyone else's, but not the paths,
+        photos or names behind items from that person's Home or photo library."""
         return shares.list(p)
 
     @app.delete("/v1/files/shares/{share_id}", operation_id="files.shares.revoke", tags=TAG, responses=errs(401, 404))

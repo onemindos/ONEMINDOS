@@ -12197,7 +12197,7 @@
     },
     "/v1/files/shares": {
       "get": {
-        "description": "Your links (an owner sees everyone's), without their secrets.",
+        "description": "Your links, without their secrets. An owner also sees everyone else's, but not the paths,\nphotos or names behind items from that person's Home or photo library.",
         "operationId": "files.shares.list",
         "responses": {
           "200": {

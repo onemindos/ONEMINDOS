@@ -179,3 +179,40 @@ def test_photos_are_shared_by_content_from_your_own_library(pfc, clock):
     assert share(pfc, OWNER, clock, [{"photo": sha(data)}]).status_code == 404
     assert share(pfc, ADULT, clock, [{"photo": sha(b"nope")}]).status_code == 404
     assert share(pfc, ADULT, clock, [{"photo": "sha256:XYZ"}]).status_code == 422
+
+
+def test_an_owner_oversees_links_without_reading_another_persons_home(fc, settings, clock):
+    """A Home is private even from the owner (files/access.py): the owner sees that an adult's
+    link exists, when it expires and how often it was opened, and may revoke it, but not the
+    paths or the name behind items from the adult's Home. Shared items stay visible in full."""
+    mkdir(fc, ADULT, "shared", "/Trip")
+    mkdir(fc, ADULT, "home:adult", "/medical")
+    private = put(fc, ADULT, "home:adult", "/medical", "scan.pdf", b"private")
+    public = put(fc, ADULT, "shared", "/Trip", "map.txt", b"map")
+    made = ok(share(fc, ADULT, clock, [private, public], name="Medical scans", password=PASSWORD), 201)
+    token = made["one_time"]["token"]
+
+    # The creator sees everything they shared.
+    mine = ok(fc.get("/v1/files/shares", headers=ADULT))[0]
+    assert mine["name"] == "Medical scans" and mine["items_hidden"] == 0
+    assert mine["items"][0] == {"kind": "file", "root": "home:adult", "path": "/medical/scan.pdf"}
+
+    # The owner sees the link, but not the Home path or the typed name.
+    seen = next(s for s in ok(fc.get("/v1/files/shares", headers=OWNER)) if s["id"] == made["id"])
+    assert seen["created_by"] == mine["created_by"] and seen["password"] is True and seen["state"] == "active"
+    assert seen["items_hidden"] == 1 and seen["name"] == "2 shared items"
+    assert seen["items"] == [{"kind": "file", "hidden": True, "root": "home:adult"},
+                             {"kind": "file", "root": "shared", "path": "/Trip/map.txt"}]
+    flat = repr(seen)
+    assert "scan.pdf" not in flat and "/medical" not in flat and "Medical" not in flat
+
+    # A download is audited by index, never by path, so the owner-readable audit log cannot
+    # reveal the Home path either.
+    ok(fc.get(f"/v1/share/{token}/items/0", headers={"OneMind-Share-Password": PASSWORD}))
+    downloaded = [e for e in audit_events(settings) if e["event"] == "files.share.downloaded"]
+    assert downloaded and "scan.pdf" not in repr(downloaded) and "/medical" not in repr(downloaded)
+
+    # The owner can still end the link without reading it, and still without the path.
+    revoked = ok(fc.delete(f"/v1/files/shares/{made['id']}", headers=OWNER))
+    assert revoked["state"] == "revoked" and revoked["items_hidden"] == 1 and "scan.pdf" not in repr(revoked)
+    assert fc.get(f"/v1/share/{token}", headers={"OneMind-Share-Password": PASSWORD}).status_code == 410
