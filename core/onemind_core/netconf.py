@@ -14,6 +14,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from .ca import BOX_RE, MESH_NETS, box_name_from_hostname
+from .netpath import parse_networks
 from .sections import config_section
 
 
@@ -29,6 +30,9 @@ class NetSettings:
     http_redirect_port: int = 0          # ONEMIND_NET_HTTP_REDIRECT_PORT: e.g. 80 -> https; 0 = off
     mdns: bool = False                   # ONEMIND_NET_MDNS=1: publish onemind.local and app names (avahi)
     path_routes: bool = False            # ONEMIND_NET_PATH_ROUTES=1: also /apps/<id>/ (see proxy.py)
+    # ONEMIND_NET_TRUSTED_PROXIES: comma-separated CIDRs of edges whose X-OneMind-Path is believed
+    # (netpath.py). Default none: only the socket peer decides the path.
+    trusted_proxies: str = ""
 
     def validate(self) -> None:
         if self.box_name is not None and not BOX_RE.match(self.box_name):
@@ -42,6 +46,10 @@ class NetSettings:
                 raise ValueError("ONEMIND_NET_HTTPS_PORTS must be a comma-separated list of ports")
         if not 0 <= self.http_redirect_port <= 65535:
             raise ValueError("ONEMIND_NET_HTTP_REDIRECT_PORT must be a port or 0")
+        try:
+            parse_networks(self.trusted_proxies)
+        except ValueError:
+            raise ValueError("ONEMIND_NET_TRUSTED_PROXIES must be comma-separated CIDRs") from None
 
     def box(self) -> str:
         return self.box_name or box_name_from_hostname(socket.gethostname())

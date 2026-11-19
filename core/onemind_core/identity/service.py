@@ -61,6 +61,8 @@ PERSON_ROLES = ("owner", "adult", "guest", "child")
 USERNAME_RE = re.compile(r"[a-z][a-z0-9._-]{1,31}")
 AGENT_ID_RE = re.compile(r"agent:[a-z0-9][a-z0-9._-]{0,62}")
 CSRF_HEADER = "onemind-csrf"
+# A version 3 onion address: 56 base32 characters, then ".onion" (lower case, as Tor Browser sends it).
+ONION_V3 = re.compile(r"[a-z2-7]{56}\.onion")
 SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
 TOUCH_EVERY = timedelta(seconds=60)  # last_seen / last_used are written at most once a minute
 CHALLENGE_TTL = timedelta(seconds=120)
@@ -172,6 +174,12 @@ class IdentityService:
             return rp_id, list(self.cfg.origins)
         origins = {f"https://{rp_id}", f"https://{host}"}
         if rp_id in ("localhost", "127.0.0.1"):
+            origins |= {f"http://{rp_id}", f"http://{host}"}
+        elif ONION_V3.fullmatch(rp_id):
+            # Tor onion service (NET-TOR-01, #284): the .onion link is already end-to-end encrypted
+            # and authenticated by the address itself, and Tor Browser treats it as a secure
+            # context, so it is served over http://. The relying party stays the exact address;
+            # a lookalike or another onion gets a different rp_id and never matches.
             origins |= {f"http://{rp_id}", f"http://{host}"}
         return rp_id, sorted(origins)
 
@@ -553,8 +561,22 @@ class IdentityService:
             raise self.deny(ctx.principal, what, reason="session_required")
         return user
 
+    def _refuse_onion_enrolment(self, request: Request, ctx: AuthContext | None) -> None:
+        """#284: an onion-bound passkey cannot assert on the LAN origin, yet its existence turns
+        passkeys_active() on for the whole box and would lock LAN approvals. Until the owner-approved
+        enrolment design lands, passkeys are not registered over an onion address (sign-in by
+        password still works there)."""
+        rp_id, _ = self.rp(request)
+        if ONION_V3.fullmatch(rp_id):
+            self.emit("authz", "denied", {"attempted": "register a passkey", "reason": "onion_origin"},
+                      ctx.principal if ctx else None, severity="warning")
+            raise ApiError(403, "permission_denied",
+                           "passkeys cannot be added over a .onion address yet; add it on your home network "
+                           "(password sign-in works over Tor)", reason="passkey_enrolment_unavailable_on_onion")
+
     def passkey_register_options(self, request: Request, ctx: AuthContext | None) -> dict:
         user = self._account(ctx, "register a passkey")
+        self._refuse_onion_enrolment(request, ctx)
         existing = list(self.repo.all(select(PasskeyRow.id).where(PasskeyRow.user_id == user.id)))
         if existing:  # adding a second key is adding power: prove you hold the first
             self.require_step_up(ctx, ctx.principal, "register a passkey")
@@ -567,6 +589,7 @@ class IdentityService:
 
     def passkey_register(self, request: Request, ctx: AuthContext | None, credential: dict, label: str | None) -> dict:
         user = self._account(ctx, "register a passkey")
+        self._refuse_onion_enrolment(request, ctx)
         try:
             credential = pk.normalize(credential)
             row = self._consume_challenge(credential, "register")
