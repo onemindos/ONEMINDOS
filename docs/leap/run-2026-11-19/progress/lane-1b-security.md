@@ -10,7 +10,7 @@ The order comes from [LANES.md](../LANES.md).
 
 ## Draft (pushed, not ready yet)
 
-- [#363](https://github.com/onemindos/ONEMINDOS/issues/363) tokens-file cache race: branch `claude2/363-tokens-race`, PR pending. Carries a copy of `core/onemind_core/filesig.py` identical to #360's.
+- [#363](https://github.com/onemindos/ONEMINDOS/issues/363) tokens-file cache race: branch `claude2/363-tokens-race`, [PR #377](https://github.com/onemindos/ONEMINDOS/pull/377). Carries a copy of `core/onemind_core/filesig.py` identical to #360's.
 
 ## Next
 
