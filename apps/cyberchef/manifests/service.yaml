@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: Apache-2.0
+# The web app on Service port 8080 (nginx listens on 8080 in the pod).
+apiVersion: v1
+kind: Service
+metadata:
+  name: cyberchef
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: cyberchef
+  ports:
+  - name: http
+    port: 8080
+    targetPort: http
+    protocol: TCP

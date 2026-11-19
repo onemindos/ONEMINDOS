@@ -1,0 +1,109 @@
+# SPDX-License-Identifier: Apache-2.0
+# ArchiveBox 0.9.77, upstream image docker.io/archivebox/archivebox. The image config (read from the
+# registry on 2026-11-19) sets no USER, keeps the collection in /data, listens on 5797 and runs
+# "archivebox server --init 0.0.0.0:5797" through bin/docker_entrypoint.sh. The image bundles Chromium
+# and the other archivers (about 1 GB compressed per arch).
+#
+# Why it can run non-root here: the entrypoint at tag v0.9.77 has an explicit non-root path. When
+# "id -u" is not 0 it skips usermod/chown/setpriv, only checks that the directories it needs are
+# writable, and execs archivebox as the current user. So the pod runs as the image's archivebox user
+# (UID/GID 911, the entrypoint's DEFAULT_ARCHIVEBOX_UID) and fsGroup 911 makes the PVC writable.
+#
+# Pod: non-root, RuntimeDefault seccomp, no service-account token. Container: no privilege escalation,
+# all capabilities dropped. The root filesystem stays writable: the entrypoint writes under
+# /opt/archivebox, /home/archivebox and /tmp/archivebox.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: archivebox
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: archivebox
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: archivebox
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 911
+        runAsGroup: 911
+        fsGroup: 911
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: archivebox
+        image: docker.io/archivebox/archivebox:0.9.77@sha256:f63170551ec48d7aa087c71e2d093156dbf4b4ed8680e2f97f22483e3bc71e55
+        imagePullPolicy: IfNotPresent
+        env:
+        # Settings from archivebox/config/common.py at v0.9.77. Anonymous visitors cannot add URLs
+        # (upstream default, kept explicit) and cannot browse the index (upstream default is true).
+        - name: PUBLIC_ADD_VIEW
+          value: "False"
+        - name: PUBLIC_INDEX
+          value: "False"
+        ports:
+        - name: http
+          containerPort: 5797
+          protocol: TCP
+        # Upstream's own HEALTHCHECK asks /health/ on the admin.archivebox.localhost host name (the
+        # server routes by host name when bound to 0.0.0.0), so the probes send that Host header.
+        # The first start runs "archivebox init" on the empty volume: up to 10 minutes allowed.
+        startupProbe:
+          httpGet:
+            path: /health/
+            port: http
+            httpHeaders:
+            - name: Host
+              value: "admin.archivebox.localhost:5797"
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 60
+        readinessProbe:
+          httpGet:
+            path: /health/
+            port: http
+            httpHeaders:
+            - name: Host
+              value: "admin.archivebox.localhost:5797"
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        livenessProbe:
+          httpGet:
+            path: /health/
+            port: http
+            httpHeaders:
+            - name: Host
+              value: "admin.archivebox.localhost:5797"
+          periodSeconds: 60
+          timeoutSeconds: 20
+          failureThreshold: 5
+        # A OneMind choice (upstream publishes no figures): Chromium snapshots need the headroom.
+        resources:
+          requests:
+            cpu: 100m
+            memory: 512Mi
+          limits:
+            cpu: "2"
+            memory: 2Gi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - name: data
+          mountPath: /data
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: archivebox-data
