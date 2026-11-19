@@ -31,7 +31,7 @@ def needs(step, job_wd):
         langs.add("go")
     if "make -C core test" in run:   # test_sdk_conformance / test_mcp: the Python SDK and the onemind CLI
         langs |= {"go", "py"}
-    if (wd == "dashboard" and "npm run" in run) or "docker compose up" in run:
+    if (wd in ("dashboard", "mobile") and "npm run" in run) or "docker compose up" in run:
         langs.add("ts")
     if "make -C sdk test" in run:
         langs |= {"ts", "py"}
@@ -95,7 +95,17 @@ class EveryConsumerGeneratesFirst(unittest.TestCase):
                     self.assertFalse(missing, f"{wf.name} job {name}: step {step.get('name') or step.get('run')!r} "
                                               f"needs the SDK code for {sorted(missing)}; add {ACTION} before it")
                     have |= generated(step)
-        self.assertGreaterEqual(checked, 6, "the consumer detection found too few steps to be meaningful")
+        self.assertGreaterEqual(checked, 8, "the consumer detection found too few steps to be meaningful")
+
+    def test_mobile_typecheck_generates_the_ts_sdk(self):
+        wf = yaml.safe_load(rd(".github", "workflows", "ci-mobile.yml"))
+        steps = wf["jobs"]["test"]["steps"]
+        gen = next(i for i, s in enumerate(steps) if s.get("uses") == ACTION and "ts" in s["with"]["langs"])
+        check = next(i for i, s in enumerate(steps) if "npm run typecheck" in (s.get("run") or ""))
+        self.assertLess(gen, check)
+        paths = wf[True]["pull_request"]["paths"]
+        for p in ("sdk/ts/src/**", ".github/actions/sdk-gen/**"):
+            self.assertIn(p, paths)
 
     def test_the_action_runs_the_shared_script(self):
         action = yaml.safe_load(rd(".github", "actions", "sdk-gen", "action.yml"))
@@ -106,8 +116,14 @@ class EveryConsumerGeneratesFirst(unittest.TestCase):
         install = rd("deploy", "install.sh")
         fn = install[install.index("onemindd_install() {"):install.index("\n}\n", install.index("onemindd_install() {"))]
         self.assertLess(fn.index("gen-code.sh go"), fn.index('"$GO_DIR/bin/go" build'))
+        # never root, never into the checkout, never an "only if missing" (a stale ignored copy)
+        self.assertIn("runuser -u nobody", fn)
+        self.assertIn('-overlay "$gen/overlay.json"', fn)
+        self.assertNotIn('[ ! -f "$gen" ]', fn)
         bundle = rd("deploy", "bundle.sh")
-        self.assertLess(bundle.index("gen-code.sh"), bundle.index("go build"))
+        self.assertLess(bundle.index("gen-code.sh go"), bundle.index("go build"))
+        self.assertNotIn('[ -f "$REPO/sdk/go/internal/gen', bundle)
+        self.assertIn('"$BUNDLE_GO_IMAGE" sh /sdk/scripts/gen-code.sh go', bundle)   # a Docker-only host
         for script in (("test", "net", "two_vm.py"), ("test", "migrate", "lima-e2e.sh")):
             text = rd(*script)
             self.assertLess(text.index("gen-code.sh"), text.index("./cmd/onemind"), "/".join(script))

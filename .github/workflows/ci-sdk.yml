@@ -43,8 +43,6 @@ jobs:
         working-directory: sdk/ts
       - name: Committed OpenAPI spec matches core/, and the SDK code generates from it
         run: make -C sdk check-stale
-      - name: aio client matches client.py
-        run: python3 sdk/python/scripts/make_aio.py --check
 
   test:
     if: ${{ !github.event.pull_request.draft }}

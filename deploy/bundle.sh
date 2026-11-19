@@ -127,18 +127,17 @@ find "$OUT/downloads" -type f ! -name "k3s-$K3S_VERSION-$ARCH" ! -name "k3s-inst
   ! -name "restic-$RESTIC_VERSION.bz2" -delete
 
 # ---- 2. onemindd + onemind (static) ---------------------------------------------------------
-# The onemind CLI (Go SDK) and the dashboard (TS SDK) import SDK code that is generated from the
-# committed spec, not committed (CI-16). Make it in this checkout when it is missing.
-GEN_LANGS=go; [ "$NODE_ONLY" = 0 ] && GEN_LANGS="go ts"
-for g in sdk/go/internal/gen/types.gen.go sdk/ts/src/gen/schema.ts; do
-  [ "$g" = sdk/ts/src/gen/schema.ts ] && [ "$NODE_ONLY" = 1 ] && continue
-  [ -f "$REPO/$g" ] && continue
-  log "generating the SDK code ($GEN_LANGS) from sdk/openapi: $g is missing"
-  # shellcheck disable=SC2086 # GEN_LANGS is a word list
-  sh "$REPO/sdk/scripts/gen-code.sh" $GEN_LANGS \
-    || die "SDK code generation failed: it needs Go, Node 22 and npm here (or run make -C sdk gen-code first)"
-  break
-done
+# The onemind CLI imports the Go SDK, whose types are generated from the committed spec, not
+# committed (CI-16). Always regenerate (an ignored copy can be stale after a pull), with the same Go
+# the binaries are built with. The dashboard's TS schema is generated inside its container (step 4).
+if [ "$GO_MODE" = local ]; then
+  log "Go SDK types from sdk/openapi (sdk/scripts/gen-code.sh go, local Go)"
+  sh "$REPO/sdk/scripts/gen-code.sh" go
+else
+  log "Go SDK types from sdk/openapi (sdk/scripts/gen-code.sh go, in $BUNDLE_GO_IMAGE)"
+  docker run --rm --user "$HOST_IDS" -v "$REPO/sdk:/sdk" -e HOME=/tmp -e GOCACHE=/tmp/go-build -e GOMODCACHE=/tmp/go-mod \
+    "$BUNDLE_GO_IMAGE" sh /sdk/scripts/gen-code.sh go
+fi
 LDFLAGS="-s -w -buildid= -X github.com/onemindos/onemindos/internal/version.Version=$VERSION"
 if [ "$GO_MODE" = local ]; then
   log "onemindd + onemind for linux/$ARCH with the local $(go version | awk '{print $3}')"
@@ -184,13 +183,15 @@ if [ "$NODE_ONLY" = 0 ]; then
   # (/work/ui/src beside /work/dashboard), as install.sh's on-box build does. Build output stays
   # visible: tsc prints its errors on stdout, so nothing is sent to /dev/null here.
   docker run --rm -v "$REPO/dashboard:/src/dashboard:ro" -v "$REPO/ui/src:/src/ui/src:ro" \
-    -v "$REPO/sdk/ts/src:/src/sdk/ts/src:ro" \
+    -v "$REPO/sdk/ts:/src/sdk/ts:ro" -v "$REPO/sdk/openapi:/src/sdk/openapi:ro" -v "$REPO/sdk/scripts:/src/sdk/scripts:ro" \
     -v "$OUT/dashboard:/out" --tmpfs /work:exec,size=2g \
     -e HOST_IDS="$HOST_IDS" -e npm_config_update_notifier=false "$BUNDLE_NODE_IMAGE" sh -ec '
       mkdir -p /work/dashboard /work/ui /work/sdk/ts
       cd /src/dashboard && tar --exclude=./node_modules --exclude=./dist -cf - . | tar -C /work/dashboard -xf -
       cp -R /src/ui/src /work/ui/src
-      cp -R /src/sdk/ts/src /work/sdk/ts/src
+      cd /src/sdk/ts && tar --exclude=./node_modules --exclude=./dist -cf - . | tar -C /work/sdk/ts -xf -
+      cp -R /src/sdk/openapi /src/sdk/scripts /work/sdk/
+      sh /work/sdk/scripts/gen-code.sh ts   # the TS SDK schema, always from the spec (CI-16)
       cd /work/dashboard && npm ci --ignore-scripts --no-audit --no-fund --loglevel=error && npm run build
       cp -R dist/. /out/ && chown -R "$HOST_IDS" /out'
   [ -f "$OUT/dashboard/index.html" ] || die "the dashboard build produced no index.html"

@@ -947,8 +947,8 @@ onemindd_install() {
       plan "use the prebuilt $ONEMINDD_BIN (and onemind-linux-$ARCH next to it, if there)"
     else
       go_toolchain
-      [ -f "$SRC/sdk/go/internal/gen/types.gen.go" ] || plan "generate the Go SDK types from sdk/openapi (sdk/scripts/gen-code.sh go; not committed, CI-16)"
-      plan "go build -trimpath ./cmd/onemindd ./cmd/onemind (CGO_ENABLED=0, from $SRC)"
+      plan "as user nobody, in $CACHE/sdk-gen: generate the Go SDK types from sdk/openapi (sdk/scripts/gen-code.sh go; CI-16)"
+      plan "go build -trimpath -overlay (those types) ./cmd/onemindd ./cmd/onemind (CGO_ENABLED=0, from $SRC)"
     fi
     plan "install -m0755 onemindd onemind -> $BIN/ (if they differ)"
     onemindd_env "$nats_url" | show_file "$ETC/onemindd.env" 0644
@@ -964,22 +964,27 @@ onemindd_install() {
     # No onemindd release artifact is published yet, so it is built from this checkout.
     go_toolchain
     log "onemindd: building from source with Go $GO_VERSION"
-    local bin gen="$SRC/sdk/go/internal/gen/types.gen.go"
-    # The onemind CLI imports the Go SDK, whose types are generated, not committed (CI-16). A fresh
-    # checkout has none: make them from the committed spec, owned like the checkout, not by root.
-    if [ ! -f "$gen" ]; then
-      log "onemindd: generating the Go SDK types from sdk/openapi (sdk/scripts/gen-code.sh go)"
-      (cd "$SRC" && env PATH="$GO_DIR/bin:$PATH" GOTOOLCHAIN=local GOCACHE="$CACHE/go-build" GOMODCACHE="$CACHE/go-mod" \
-        GOPATH="$CACHE/go" HOME="$CACHE" sh sdk/scripts/gen-code.sh go)
-      chown --reference="$SRC/sdk/go" "$SRC/sdk/go/internal/gen" "$gen" 2>/dev/null || true
-    fi
+    local bin gen="$CACHE/sdk-gen"
+    # The onemind CLI imports the Go SDK, whose types are generated from the committed spec, not
+    # committed (CI-16). Make them every time (an ignored copy in the checkout can be stale), as the
+    # unprivileged user nobody in a scratch copy, never as root, and hand them to `go build` with
+    # -overlay: nothing is written into the checkout.
+    log "onemindd: generating the Go SDK types from sdk/openapi (sdk/scripts/gen-code.sh go, as nobody)"
+    rm -rf "$gen"; install -d -m0700 "$gen/sdk"
+    cp -R "$SRC/sdk/go" "$SRC/sdk/openapi" "$SRC/sdk/scripts" "$gen/sdk/"
+    chown -R nobody "$gen"
+    runuser -u nobody -- env -i PATH="$GO_DIR/bin:/usr/bin:/bin" HOME="$gen" GOTOOLCHAIN=local \
+      GOCACHE="$gen/go-build" GOMODCACHE="$gen/go-mod" GOPATH="$gen/go" sh "$gen/sdk/scripts/gen-code.sh" go
+    printf '{"Replace":{"%s":"%s"}}\n' "$SRC/sdk/go/internal/gen/types.gen.go" "$gen/sdk/go/internal/gen/types.gen.go" \
+      > "$gen/overlay.json"
     for bin in onemindd onemind; do
       (cd "$SRC" && env CGO_ENABLED=0 GOTOOLCHAIN=local GOFLAGS=-mod=readonly \
         GOCACHE="$CACHE/go-build" GOMODCACHE="$CACHE/go-mod" GOPATH="$CACHE/go" HOME="$CACHE" \
-        "$GO_DIR/bin/go" build -trimpath -buildvcs=false \
+        "$GO_DIR/bin/go" build -trimpath -buildvcs=false -overlay "$gen/overlay.json" \
         -ldflags "-s -w -buildid= -X github.com/onemindos/onemindos/internal/version.Version=0.1.0+devinstall" \
         -o "$out/$bin" "./cmd/$bin")
     done
+    rm -rf "$gen"
   fi
   local changed=0
   cmp -s "$out/onemindd" "$BIN/onemindd" 2>/dev/null || { install -m0755 "$out/onemindd" "$BIN/onemindd"; changed=1; }
@@ -1096,8 +1101,9 @@ dashboard_build() {
     copy_tree_plain "$DASH_DIST" "$PREFIX/dashboard"; return 0
   fi
   # Dashboard aliases consume the design system and SDK from source; hash every input tree.
-  # sdk/openapi: the TS SDK schema is generated from the spec here when the checkout has none (CI-16).
-  sum=$(cd "$SRC" && find dashboard ui/src sdk/ts/src sdk/openapi -path dashboard/node_modules -prune -o -path dashboard/dist -prune -o -type f -print0 \
+  # sdk/openapi and sdk/ts/package*.json: the TS SDK schema is generated here from the spec, with the
+  # generator sdk/ts pins (CI-16).
+  sum=$(cd "$SRC" && find dashboard ui/src sdk/ts/src sdk/ts/package.json sdk/ts/package-lock.json sdk/openapi -path dashboard/node_modules -prune -o -path dashboard/dist -prune -o -type f -print0 \
         | LC_ALL=C sort -z | xargs -0 sha256sum | sha256sum | cut -d' ' -f1)
   if [ -f "$stamp" ] && [ "$(cat "$stamp")" = "$sum" ]; then log "dashboard: up to date"; return 0; fi
   node_toolchain
