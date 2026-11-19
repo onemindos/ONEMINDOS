@@ -18,6 +18,7 @@ from pathlib import Path
 
 from .audit import GENESIS, chain_hash
 from .auth import Principal
+from .filesig import cache_signature
 
 FULL_READERS = {("person", "owner"), ("person", "adult")}
 DEFAULT_LIMIT = 100
@@ -92,7 +93,7 @@ class AuditReader:
         self.path = path
         self.clock = clock
         self.owned_action_ids = owned_action_ids
-        self._verify_cache: tuple[tuple[int, float], dict] | None = None
+        self._verify_cache: tuple[tuple, dict] | None = None
 
     def visible(self, p: Principal) -> Callable[[dict], bool]:
         if can_read_all(p):
@@ -156,18 +157,23 @@ class AuditReader:
         return None
 
     def verify(self, from_seq: int | None = None) -> dict:
-        """Recompute the chain. A full check is cached until the file changes."""
+        """Recompute the chain. A full check is cached until the file changes.
+
+        "Changes" is decided by filesig.cache_signature (#364): the cache is used only while the
+        file's ctime is at least 2 s old. A same-size edit within one clock tick keeps mtime,
+        ctime, size and inode, so a fresher file is always verified again, never served a
+        cached "ok". A missing or unreadable file is never cached either.
+        """
         try:
-            st = self.path.stat()
-            key = (st.st_size, st.st_mtime)
+            key = cache_signature(self.path.stat())
         except OSError:
-            key = (0, 0.0)
-        if from_seq is None and self._verify_cache and self._verify_cache[0] == key:
+            key = None
+        if from_seq is None and key is not None and self._verify_cache and self._verify_cache[0] == key:
             return self._verify_cache[1]
         result = verify_file(self.path, from_seq)
         result["checked_at"] = self.clock().isoformat().replace("+00:00", "Z")
         if from_seq is None:
-            self._verify_cache = (key, result)
+            self._verify_cache = (key, result) if key is not None else None
         return result
 
 
