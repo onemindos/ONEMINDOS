@@ -68,9 +68,10 @@ class TrimTail(unittest.TestCase):
     def test_tail_keeps_unfiltered_lines_and_masks_addresses(self):
         with tempfile.NamedTemporaryFile("w", suffix=".log", delete=False) as f:
             f.write("old line\n[    1.2] nvme nvme0: I/O 12 QID 0 timeout\r\n"
+                    "ONEMIND OWNER TOKEN: " + "ab12" * 16 + "\n"
                     "ip 10.0.2.15 lan 192.168.1.4 pod 10.42.0.7 other 10.9.8.7 kept v1.15.2\n")
         try:
-            out = subprocess.run(["sh", TRIM, "--tail", "2", f.name], capture_output=True, text=True, check=True).stdout
+            out = subprocess.run(["sh", TRIM, "--tail", "3", f.name], capture_output=True, text=True, check=True).stdout
         finally:
             os.unlink(f.name)
         self.assertNotIn("old line", out)
@@ -79,6 +80,12 @@ class TrimTail(unittest.TestCase):
         for ip in ("10.0.2.15", "192.168.1.4", "10.42.0.7", "10.9.8.7"):
             self.assertNotIn(ip, out)
         self.assertIn("v1.15.2", out)
+        self.assertNotIn("ab12" * 16, out)                       # the owner token never reaches an artifact
+        self.assertIn("ONEMIND OWNER TOKEN: <owner-token>", out)
+
+    def test_tail_rejects_a_bad_count(self):
+        r = subprocess.run(["sh", TRIM, "--tail", "x", "/dev/null"], capture_output=True, text=True)
+        self.assertEqual(r.returncode, 2)
 
     def test_workflow_keeps_the_masked_tail_for_cloud_runs(self):
         with open(os.path.join(ROOT, ".github", "workflows", "image.yml")) as f:

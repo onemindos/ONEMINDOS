@@ -5,16 +5,19 @@
 # Port of evidence/lab/rauc-1152/scripts/trim-logs.sh.   trim-log.sh <serial.log> > trimmed.log
 # trim-log.sh --tail N <serial.log>: the last N lines unfiltered (same masking), for a boot that hung
 # before any evidence line was printed (the AWS cloud-boot flake, leap run Day 1).
+# The first-boot owner token is printed once on the console and must never reach an artifact.
 mask() {
-  sed -E -e 's/10\.0\.2\.[0-9]+/<vm-private-ip>/g' -e 's/fec0:[0-9a-f:]+/<vm-private-ip>/g' \
+  sed -E -e 's/(OWNER TOKEN: )[0-9A-Za-z_-]{16,}/\1<owner-token>/g' \
+         -e 's/10\.0\.2\.[0-9]+/<vm-private-ip>/g' -e 's/fec0:[0-9a-f:]+/<vm-private-ip>/g' \
          -e 's/(192\.168|172\.(1[6-9]|2[0-9]|3[01]))\.[0-9]+\.[0-9]+/<vm-private-ip>/g' \
          -e 's/10\.4[23]\.[0-9]+\.[0-9]+/<pod-ip>/g' \
          -e 's/(^|[^0-9.])10\.[0-9]+\.[0-9]+\.[0-9]+/\1<vm-private-ip>/g' \
   | cut -c1-260
 }
 if [ "$1" = --tail ]; then
+  case "$2" in ''|*[!0-9]*) echo "usage: trim-log.sh --tail N <serial.log>" >&2; exit 2;; esac
   tail -n "$2" "$3" | tr -d '\r' | mask
-  exit 0
+  exit
 fi
 grep -a -E '#####|GRUB-RAUC|HEALTH-GATE|BAD-BOOT|BAD-HANG|Kernel panic|watchdog|pre-install: trial|Marking target|Copying image|writing data|LastError|signature|not allowed|rauc v?1\.15|bundle-formats|--- state|ONEMIND_VERSION|^ORDER=|^[AB]_(OK|TRY)=|Booted from|boot status|pending|status: |cloud-init|FAILED|A start job is running|Timed out|DEPEND|emergency mode|Triggering OnFailure|ONEMIND-RECOVERY|ONEMIND-DATA|DATA DISK|DATA-FAILURES|^(apps|kube-system|onemind-system) ' "$1" \
  | grep -a -v -E 'echo __R|grep -E' \
