@@ -780,3 +780,14 @@ tokens, and bare `>` is forbidden in both subscriptions and grants. A requested
 pattern must fit inside a single grant; narrower grants are never combined to
 justify a broader subscription. These checks implement P4/P5 only: they do not
 connect plugins to NATS or replace runtime scope enforcement by the gateway.
+
+The egress declaration slice adds optional `spec.egress`, empty/absent meaning
+no internet egress grant. Entries are qualified ASCII hostnames (IDNs must use
+valid punycode), optionally prefixed with `*.`. IP literals, URL components,
+malformed labels, case-equivalent duplicates, special-use/local domains and
+unknown top-level suffixes are rejected. Wildcards must sit below a registrable
+domain according to the embedded Public Suffix List, including its private
+suffixes: `*.example.com` is permitted, `*.com` and `*.github.io` are not.
+Validation is offline and performs no DNS lookups. Runtime enforcement must
+separately reject private or rebound destination addresses; declaring egress
+never authorizes a plugin to act without owner approval.
