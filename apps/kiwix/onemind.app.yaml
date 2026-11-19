@@ -52,8 +52,11 @@ spec:
       default: 1024
       minimum: 0
       maximum: 1048576
-  # ZIM files can be hundreds of GiB and are downloaded again from the mirror, so only the
-  # library list is backed up (REC-NOMAD-07: content is an optional, size-aware tier).
+  # ZIM files can be hundreds of GiB and are downloaded again from the mirror, so they are the
+  # optional, size-aware content tier (REC-NOMAD-07, BAK-03): the library list is always backed up,
+  # the books only when the owner switches the tier on after seeing their size. Half-done
+  # downloads are never backed up.
   backup:
     mode: hot
-    exclude: ["*.zim", "*.zim.part"]
+    exclude: ["*.zim.part"]
+    content: ["*.zim"]
