@@ -15,6 +15,7 @@
 | [LANES.md](LANES.md) | The six lanes, their issues in build order, and who owns each |
 | [CODEX.md](CODEX.md) | The master prompt for Codex and one starter prompt per lane |
 | [MERGE-GATE.md](MERGE-GATE.md) | How Claude lands PRs: the order, the checks, and the traps we hit on 2026-11-18 and how each is handled |
+| [progress/](progress/) | One progress file per lane. Each lane updates only its own file, in every PR |
 
 ## Roles
 
@@ -40,6 +41,7 @@
 - **One issue slice per PR,** under about 600 changed lines. The body says "Refs #N", never "Closes".
 - **Lanes own areas.** Shared files (route policy `core/tests/sec_policy.py`, dashboard `App.tsx` and navigation, OpenAPI) take additive edits only.
 - **Push every day.** Nothing lives only in a Codex session; when the usage ends, the code is already on GitHub.
+- **Never push to main.** A pre-push hook on the founder's Mac blocks it; main changes only through the merge queue.
 - **Drafts first.** Drafts run only the cheap CI. Codex marks a PR ready with `needs-review` when its lane's previous PR has merged, at most one ready PR per lane.
 - **Real data, tests, sign-off** (`git commit -s`), one `changes/` fragment per PR, no edits to `CHANGELOG.md` or `docs/leap/STATUS.md`. AI never actuates without owner approval.
 - **Parked stays parked:** no robotics work.

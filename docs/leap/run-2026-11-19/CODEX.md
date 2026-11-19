@@ -19,6 +19,18 @@ ROLES
 - Claude (the Opus gate) builds lane 1 (M-LIVE), reviews every PR and does ALL merging.
 - You never merge, never touch lane 1 issues, and never touch Claude's worktrees or branches (claude/*, ci/*, docs/leap-*).
 
+NEVER PUSH TO MAIN (hard rule)
+- main changes ONLY through a PR that the gate merges via the merge queue.
+- Never `git push origin main`, never push HEAD:main, never force-push anything.
+- A pre-push hook on this Mac blocks pushes to main. If you see "BLOCKED: pushing to refs/heads/main", you made a mistake: push your branch instead.
+- Never use --no-verify.
+
+YOUR PROGRESS FILE
+- docs/leap/run-2026-11-19/progress/lane-<your lane>.md belongs to your lane alone.
+- Update it in EVERY PR: move the issue to Merged / In review / Draft / Next / Blocked, with the PR number.
+- Never edit another lane's progress file, LANES.md, README.md or MERGE-GATE.md. The gate keeps those.
+- Before you start each day, read your progress file and git pull origin main in a fresh worktree, to see what merged.
+
 WHERE TO WORK (this Mac is shared with Claude and with a CI runner)
 - Never edit the main checkout /Users/zeus/ONEMINDOS. Never touch ~/ONEMINDOS-worktrees/ci-runner-main.
 - Never start, stop or delete the Lima VMs onemind-ci or onemind-ci-run-*.
