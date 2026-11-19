@@ -1,0 +1,5 @@
+---
+pr: pending
+branch: claude/237-expiring-shares
+---
+FILES-02 expiring share links (#237): an owner or adult picks files or photos from their own library, sets an expiry (5 minutes to 30 days) and an optional password, and gets a link to send to someone outside the household. The outsider opens /v1/share/<secret> with no account, sees the item list and downloads each item (Range supported) until the link expires or is revoked; after that it answers 410. The box keeps only the SHA-256 of the 256-bit link secret and a scrypt hash of the password, shows the secret once, and ends a link after ten wrong passwords. A link carries no rights of its own: each use re-checks that the creator is still an active owner or adult and can still read each item through the FILES confinement (no symlinks, own Home or Shared, own photos). Guests, children, agents and API tokens without the new person-only files:share scope cannot create links. Creation, opening, downloads, refusals and revocations are audit records without the secret or password. The SDKs are regenerated; delivery over the relay is not testable in this repo.
