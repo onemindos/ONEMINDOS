@@ -22,6 +22,10 @@ ORDER = 155  # right after actions: its approval guard must see the actions it r
 
 TAGS = ["agents"]
 
+# Scope rows are registered once, at import (#323): register() runs per app and must not grow the
+# global registry. PUT has no row: an unknown route needs every scope, so only the owner role reaches it.
+register_route_scope("GET,HEAD", r"/v1/agents/kill-switch", ("instance:read",))
+
 
 class KillSwitch(BaseModel):
     """The agent kill switch. `on: true` means every AI agent is refused until the owner turns it off."""
@@ -54,8 +58,6 @@ def register(app: FastAPI, gw: Gateway) -> None:
     gw.approval_guards.append(stop.refuse_agent_approval)
     app.state.agent_stop = stop
     principal = gw.principal
-    register_route_scope("GET,HEAD", r"/v1/agents/kill-switch", ("instance:read",))
-    # PUT has no scope row: an unknown route needs every scope, so only the owner role reaches it.
 
     @app.get("/v1/agents/kill-switch", operation_id="agents.kill_switch.get", tags=TAGS,
              response_model=KillSwitch, responses=error_responses(401, 403))
