@@ -19,11 +19,12 @@ from ..osupdate import OsUpdateService
 
 ORDER = 335
 
+# Registered once, at import (#323): the same facts /v1/nodes shows (version, slots), so the same scope reads them.
+register_route_scope("GET,HEAD", r"/v1/os/updates", ("nodes:read",))
+register_route_scope("GET,HEAD", r"/v1/os/updates/history", ("nodes:read",))
+
 
 def register(app: FastAPI, gw: Gateway) -> None:
-    # The same facts /v1/nodes shows (version, slots), so the same scope reads them.
-    register_route_scope("GET,HEAD", r"/v1/os/updates", ("nodes:read",))
-    register_route_scope("GET,HEAD", r"/v1/os/updates/history", ("nodes:read",))
     svc = OsUpdateService(gw)
     svc.register()
     app.state.osupdate = svc
