@@ -9,7 +9,7 @@ Workstream: FAM-01 (#204), followed by #237, #236, #132, #133, #171,
 - Issue: #204, family roles and parental controls.
 - Builder: Codex, leap:4-core (area:core).
 - Branch: `codex/204-family-controls`.
-- Status: claimed; planning complete; implementation not started.
+- Status: implementation complete; handed to independent review in PR #369.
 - Listed the lane with `gh issue list -R onemindos/ONEMINDOS -l leap:4-core`.
 
 ## Implementation plan
@@ -65,3 +65,22 @@ mounted routes and the generated SDK.
   entire apps; content-item filtering inside third-party apps is not supplied.
   Existing app connections are not forcibly terminated when a window closes;
   subsequent gateway/proxy access checks enforce the current policy.
+
+- Repo unit verification completed: 391 tests passed with one skip using
+  Homebrew OpenSSL. SDK regeneration/staleness check passed after committing
+  generated artifacts. The final core suite is running with four workers.
+
+## Final verification for #204
+
+- Full core run: 4,649 passed, 631 skipped, 57 expected failures. Its sole
+  failure was missing entries for the four new routes in the mandatory
+  authorization policy table. Added owner-only rows, then reran route coverage
+  and all new family authorization/audit matrix cases: 42 passed, 12 skipped.
+- Family/proxy regression run: 61 passed. Repo unit suite: 391 tests, one skip.
+- Go, Python and TypeScript SDK tests and generated-artifact staleness passed.
+- Lint, fragment validation, diff whitespace check and final hygiene/gitleaks
+  passed. No documentation file other than this progress file was changed.
+- Native subagent follow-up review: no remaining actionable findings.
+- Next issue in the assigned order is #237. Its preparation found no existing
+  HTTP relay transport; relay compatibility needs explicit validation rather
+  than an unsupported completion claim. #236 remains blocked on open #139.
