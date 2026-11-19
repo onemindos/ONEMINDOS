@@ -271,6 +271,14 @@ def find_config(p: Paths, mount: bool = True) -> tuple[dict | None, str | None]:
 
 
 # ------------------------------------------------------------------ files
+def run_dir(p: "Paths") -> None:
+    """/run/onemind, mode 0711: other users may pass through to a socket they are allowed on (the
+    gateway to /run/onemind/host.sock and storage.sock) but cannot list it; the files in it stay 0600.
+    A folder an earlier boot step made 0700 is loosened to 0711, never tightened or widened further."""
+    os.makedirs(p.run, mode=0o711, exist_ok=True)
+    os.chmod(p.run, 0o711)
+
+
 def write(path: str, data: str, mode: int = 0o600, owner: tuple[int, int] | None = None) -> bool:
     """Atomic write: a power cut leaves the old file or the new one, never half of one.
     Returns False (and touches nothing) when the file already has exactly this content, mode and owner."""
@@ -784,7 +792,7 @@ def finish(p: Paths, cfg: dict, source: str) -> int:
     if owner:
         console(p, "ONEMIND-FIRSTBOOT: the owner token below is shown once; only its sha256 is stored.")
         console(p, f"ONEMIND OWNER TOKEN: {owner}")
-        os.makedirs(p.run, mode=0o700, exist_ok=True)
+        run_dir(p)
         write(os.path.join(p.run, "owner-token"), owner + "\n")  # tmpfs: for the wizard, gone at reboot
         ca = f"ONEMIND-FIRSTBOOT: box CA sha256 {st.get('ca_sha256', '?')} (https://{st.get('box')}.local/v1/tls/ca.crt)"
         log(ca); console(p, ca)
@@ -889,7 +897,7 @@ def _mesh(p: Paths, st: dict, sleep) -> str:
                         "--expiration", "10m", "-o", "json"), "headscale preauthkeys create").get("key", "")
         if not key:
             raise MeshError("Headscale returned no pre-auth key")
-        os.makedirs(p.run, mode=0o700, exist_ok=True)
+        run_dir(p)
         keyfile = os.path.join(p.run, "hub-authkey")
         write(keyfile, key)
         del key

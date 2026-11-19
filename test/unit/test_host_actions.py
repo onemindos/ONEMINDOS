@@ -3,7 +3,7 @@
 
 The service itself is tested in Go (internal/host); this pins how the image starts it.
 """
-import os, re, sys, unittest
+import os, re, sys, tempfile, unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 LIB = os.path.join(ROOT, "os", "rootfs", "layers", "onemind", "usr", "lib", "onemind")
@@ -40,6 +40,22 @@ class HostService(unittest.TestCase):
             self.assertIn(line, sock)
         self.assertIn("Requires=onemind-host.socket", UNIT)
         self.assertNotIn("CAP_CHOWN", UNIT)
+
+    def test_the_gateway_can_reach_the_socket_folder(self):
+        # DirectoryMode= only applies when systemd creates /run/onemind; first boot may make it earlier.
+        sock = open(os.path.join(ROOT, "os", "rootfs", "layers", "onemind", "usr", "lib", "systemd", "system",
+                                 "onemind-host.socket")).read()
+        self.assertIn("ExecStartPre=/bin/sh -c 'mkdir -p /run/onemind && chmod go+x /run/onemind'", sock)
+        src = open(os.path.join(LIB, "onemind_firstboot.py")).read()
+        self.assertNotRegex(src, r"makedirs\(p\.run, mode=0o700")
+        with tempfile.TemporaryDirectory() as d:
+            p = fb.Paths(d)
+            os.makedirs(p.run, mode=0o700)
+            os.chmod(p.run, 0o700)              # what an older first boot left
+            fb.run_dir(p)
+            self.assertEqual(os.stat(p.run).st_mode & 0o777, 0o711)
+            fb.write(os.path.join(p.run, "owner-token"), "x\n")
+            self.assertEqual(os.stat(os.path.join(p.run, "owner-token")).st_mode & 0o777, 0o600)
 
     def test_never_installs_with_rauc_directly(self):
         # An OS install goes through the update engine (snapshot + health gate), never a raw rauc call.

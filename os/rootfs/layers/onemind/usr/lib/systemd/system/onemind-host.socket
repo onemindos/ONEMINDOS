@@ -12,8 +12,11 @@ ListenStream=/run/onemind/host.sock
 SocketUser=root
 SocketGroup=onemind
 SocketMode=0660
-DirectoryMode=0755
+DirectoryMode=0711
 Accept=no
+# DirectoryMode= applies only to a folder systemd creates. onemind-firstboot may have made /run/onemind
+# first; make sure the gateway can pass through it (0711: enter, not list) whoever made it.
+ExecStartPre=/bin/sh -c 'mkdir -p /run/onemind && chmod go+x /run/onemind'
 
 [Install]
 WantedBy=sockets.target
