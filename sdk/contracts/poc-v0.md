@@ -780,3 +780,12 @@ tokens, and bare `>` is forbidden in both subscriptions and grants. A requested
 pattern must fit inside a single grant; narrower grants are never combined to
 justify a broader subscription. These checks implement P4/P5 only: they do not
 connect plugins to NATS or replace runtime scope enforcement by the gateway.
+
+`onemind plugin validate --previous <dir>` validates both manifests and reports
+P11's informational `widens_grants` flag with sorted reasons. Comparison requires
+the same plugin ID. Added permission and egress strings, new secret name/key grants,
+changed key semantics, and new or stronger write/destructive tools widen grants.
+Display descriptions and grant removals do not. Newly added strings conservatively
+require reapproval even when an older grant might subsume them. Secret fields use
+the existing App `secrets[].keys[]` format, never secret values. A false result does
+not authorize installation or waive signatures, runtime checks or owner approval.
