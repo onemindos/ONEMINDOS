@@ -137,6 +137,7 @@ export function Shell({ children }: { children: ReactNode }) {
     { id: 'alerts', label: 'Alerts', href: href.alerts, icon: 'bell', group: 'Your box' },
     { id: 'storage', label: 'Storage', href: href.storage, icon: 'nodes', group: 'Your box' },
     { id: 'backups', label: 'Backups', href: href.backups, icon: 'backups', group: 'Your box' },
+    { id: 'library', label: 'Offline library', href: href.library, icon: 'apps', group: 'Your box' },
     { id: 'settings', label: 'Settings', href: href.settings, icon: 'settings', group: 'Your box' },
     { id: 'coming', label: 'Coming soon', href: href.coming, icon: 'info', group: 'Your box' },
     { id: 'control-hub', label: 'Control Hub', href: href.controlHub, icon: 'nodes', group: 'System' },
