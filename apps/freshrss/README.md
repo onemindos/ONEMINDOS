@@ -8,7 +8,7 @@ A free, self-hostable news aggregator…
 | | |
 |---|---|
 | Version | 1.30.4 (upstream release `1.30.4`, published 2026-10-21) |
-| Licence | `AGPL-3.0`, Market class L2 by SPDX id; not yet confirmed by the licence gate |
+| Licence | `AGPL-3.0`, Market class **L2** (licence gate, scan of 2026-11-19) |
 | Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | news |
 | GitHub | <https://github.com/FreshRSS/FreshRSS> |
@@ -81,4 +81,10 @@ To unblock: move the pins to upstream releases that fix these findings (tags tha
 
 ## Latest security scan
 
-No scan yet. `sdk/tools/app-gate` writes `scan.json` (contract §9.4, §11.1).
+Scanned 2026-11-19T13:58:53Z by `sdk/tools/app-gate`: **fail**. Licence `AGPL-3.0` class L2; smoke test pass.
+
+| Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
+|---|---|---|---|---|---|---|
+| `docker.io/freshrss/freshrss:1.30.4@sha256:af44385229541bee24aa9148d0ff8f3b40e095373c63a2c0f74e09a27d3c59df` | amd64, arm64 | 6 (5) | 158 | 0 infected (daily-28188) | 0 | unsigned |
+
+Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.
