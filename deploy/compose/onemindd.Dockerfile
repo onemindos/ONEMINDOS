@@ -7,6 +7,7 @@ FROM docker.io/library/golang:1.26.11-trixie@sha256:fa340cb59ebeb1d53ac1cccfc334
 WORKDIR /src
 COPY go.mod go.sum ./
 COPY sdk/go ./sdk/go
+COPY sdk/schema ./sdk/schema
 RUN go mod download
 COPY cmd ./cmd
 COPY internal ./internal

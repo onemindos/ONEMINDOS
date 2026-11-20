@@ -59,6 +59,7 @@ ENV PATH=/opt/go/bin:$PATH GOTOOLCHAIN=local GOFLAGS=-mod=readonly CGO_ENABLED=0
 WORKDIR /src
 COPY go.mod go.sum ./
 COPY sdk/go/ sdk/go/
+COPY sdk/schema/ sdk/schema/
 RUN go mod download && go mod verify
 COPY cmd/ cmd/
 COPY internal/ internal/
