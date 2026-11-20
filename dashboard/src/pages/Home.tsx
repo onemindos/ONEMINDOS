@@ -85,6 +85,7 @@ export function Home() {
       onDeny={(a) => void decide(a, 'deny')}
       busy={hub.busy}
       onOpenSearch={shell.openPalette}
+      showDock={shell.layout === 'console'}
       links={{
         approvals: href.approvals,
         // Nodes and Backups are Pro screens (roles.ts): a guest or child gets no link to them.
