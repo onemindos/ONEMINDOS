@@ -564,3 +564,12 @@ POLICY.update({
     ("GET", "/v1/plugins/{plugin_id}"): Row(cells(404, **GONE, plugin=DECIDE, automation=DECIDE, node=DECIDE),
                                           w.p_static("/v1/plugins/not-installed"), "#178 unavailable or unshared plugin is 404"),
 })
+
+# #178 REST plugin tools never allow plugin backend tokens or ownerless mutation.
+POLICY.update({
+    ("GET", "/v1/plugins/{plugin_id}/tools"): Row(cells(404, **GONE, plugin=DECIDE, automation=DECIDE, node=DECIDE),
+        w.p_static("/v1/plugins/not-installed/tools"), "#178 shared installed tool declarations"),
+    ("POST", "/v1/plugins/{plugin_id}/tools/{tool_name}"): Row(cells(404, **GONE, plugin=DECIDE, automation=DECIDE, node=DECIDE),
+        lambda world: w.Req("/v1/plugins/not-installed/tools/missing", json={"arguments": {}}),
+        "#178 read tools or pending owner-approved invocation"),
+})

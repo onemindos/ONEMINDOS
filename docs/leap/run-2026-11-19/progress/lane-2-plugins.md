@@ -37,7 +37,9 @@ The order comes from [LANES.md](../LANES.md).
 - #178: own-action polling; PR #411, stacked on #409. Exact stored actions:read:own permits only known ledger GET routes and the requesting plugin’s own rows. Public manifest actions:read:self maps to this internal grant at issuance; other actors’ details return 404.
 - #178: approved-install plugin credential delivery; PR #409, stacked on #408. Hashed grants, atomic installation snapshot, plugin-only Secret variables and persistent dispatch public key. Unsupported grants and plugin updates fail closed pending their runtime support.
 
-- #178: installed registry receipts and plan fingerprints; PR pending, stacked on #411. Declarative plugins appear in registry; immutable receipts survive catalog edits. Settings schemas/UI/icons enter the approval fingerprint with symlink and size bounds.
+- #178: installed registry receipts and plan fingerprints; PR #413, stacked on #411. Declarative plugins appear in registry; immutable receipts survive catalog edits. Settings schemas/UI/icons enter the approval fingerprint with symlink and size bounds.
+
+- #178: signed REST tool invocation; PR pending, stacked on #413. Read tools are bounded and audited; mutation requests retain declared risk, require owner approval and serialize against app removal. Destructive approvals require a real action-bound passkey.
 
 - #178: installed-schema plugin settings; PR pending, stacked after tool integration. Owner-approved plugin.configure applies fixed plugin-settings ConfigMap; schema/value bounds, sharing and receipt checks precede execution.
 
