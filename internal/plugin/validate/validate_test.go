@@ -31,6 +31,7 @@ func TestManifest(t *testing.T) {
 		{"bad version", "version: \"2.5.11\"", "version: \"latest\""},
 		{"numeric prerelease", "version: \"2.5.11\"", "version: \"2.5.11-01\""},
 		{"open schema", "additionalProperties: false", "additionalProperties: true"},
+		{"older dialect", "type: object, additionalProperties: false", "type: object, additionalProperties: false, $schema: 'http://json-schema.org/draft-07/schema#'"},
 		{"invalid schema", "type: object, additionalProperties: false", "type: object, additionalProperties: false, required: 42"},
 		{"external ref", "type: object, additionalProperties: false", "type: object, additionalProperties: false, $ref: 'https://example.com/schema'"},
 		{"traversal", "manifests: manifests/", "manifests: ../outside"},
