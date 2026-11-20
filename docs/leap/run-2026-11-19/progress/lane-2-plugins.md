@@ -29,7 +29,7 @@ The order comes from [LANES.md](../LANES.md).
 - #177: box API compatibility checks; PR #390, stacked on #388. Offline --api-level validates the target version against compat.onemind.
 - #177: bundle path safety; PR #388, stacked on #387. Checks existence, types and symlinks through the shared Go validator.
 
-- #178: persistent credential retirement; PR pending, stacked on #407. Revokes before removal, before reinstall, after failed install and during startup recovery; no issuer or Secret delivery yet.
+- #178: persistent credential retirement; PR #408, stacked on #407. Revokes before removal, before reinstall, after failed install and during startup recovery; no issuer or Secret delivery yet.
 
 ## Next
 
