@@ -53,7 +53,8 @@ export const DEFAULT_PREFERENCES: AppearancePreferences = {
   accentSource: 'preset',
   accentPreset: DEFAULT_ACCENT,
   accentCustom: ACCENTS[DEFAULT_ACCENT].light,
-  wallpaper: 'aurora',
+  // OneMind's own signature wallpaper is the default (D-016: a branded desktop).
+  wallpaper: 'onemind',
   wallpaperBlur: 0,
   wallpaperDim: 0.2,
   customWallpaperColors: [],

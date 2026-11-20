@@ -54,6 +54,8 @@ export interface HomeScreenProps {
   links?: Partial<HomeLinks>;
   /** Start in edit mode (screenshots, tests). */
   initialEditing?: boolean;
+  /** Show Home's own dock of pinned apps. Off when the host's frame already shows them (dashboard Desktop, D-016). */
+  showDock?: boolean;
 }
 
 export function HomeScreen({
@@ -71,6 +73,7 @@ export function HomeScreen({
   onOpenSearch,
   links: linkOverrides,
   initialEditing = false,
+  showDock = true,
 }: HomeScreenProps) {
   const [editing, setEditing] = useState(initialEditing);
   const [galleryOpen, setGalleryOpen] = useState(false);
@@ -224,7 +227,7 @@ export function HomeScreen({
           ))}
       </section>
 
-      <Dock apps={docked} layout={layout} editing={editing} hubLive={hubLive} hrefFor={hrefFor} appsHref={links.apps} onChange={change} />
+      {showDock && <Dock apps={docked} layout={layout} editing={editing} hubLive={hubLive} hrefFor={hrefFor} appsHref={links.apps} onChange={change} />}
 
       <WidgetGallery open={galleryOpen} onClose={() => setGalleryOpen(false)} data={data} layout={layout} onAdd={change} />
       <p className="om-visually-hidden" role="status" aria-live="polite">
