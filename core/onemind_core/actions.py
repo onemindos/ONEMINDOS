@@ -419,6 +419,8 @@ class ActionService:
         self.owner_override: Any = None  # override.OwnerOverride
         self.feature_types: dict[str, FeatureAction] = {}
         self.install_hooks: list[InstallHook] = []
+        # A feature-owned workload identity, handed only to the executor after preparation.
+        self.workload_credential: Callable[[Action, AppEntry], AgentSecret | None] | None = None
         self._finish_lock = threading.Lock()
         # Contract §12.1 / H-14: most actions one non-owner requester may have awaiting approval.
         # 0 = no cap. Set from the limits settings section (guard.py).
@@ -1003,6 +1005,12 @@ class ActionService:
             ctx = dataclasses.replace(ctx, secrets=tuple(secrets))
             token = lc.set_progress_callback(self._progress_reporter(a))
             try:
+                if self.workload_credential is not None:
+                    credential = self.workload_credential(a, app)
+                    if credential is not None:
+                        if agent is not None:
+                            raise ValueError("a workload cannot have two principal kinds")
+                        agent = credential
                 result = self._run_executor(a, app, agent, ctx)
             except Exception as exc:  # unknown effect: never retry automatically
                 log.exception("executor crashed")

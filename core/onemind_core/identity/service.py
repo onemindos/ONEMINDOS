@@ -902,6 +902,8 @@ class IdentityService:
 
     def rotate_token(self, ctx: AuthContext | None, p: Principal, token_id: str, grace_s: int) -> dict:
         t = self._token_for_write(ctx, p, token_id, "rotate tokens")
+        if t.kind == "plugin" and t.source == "app-install":
+            raise self.deny(p, "rotate an installation-managed plugin token", token_id=t.id)
         uid = ctx.user.id if ctx and ctx.user else None
         if t.owner_user_id is not None and t.owner_user_id != uid:
             # Rotation hands out the new secret: an owner may revoke another person's token, but not
