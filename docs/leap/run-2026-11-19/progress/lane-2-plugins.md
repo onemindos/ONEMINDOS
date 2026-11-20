@@ -12,7 +12,7 @@ The order comes from [LANES.md](../LANES.md).
 
 ## Draft (pushed, not ready yet)
 
-- #178: scoped HTTP action requests; PR pending, stacked on #406. Real plugin tokens create pending actions only for exact stored types; live origin state is rechecked before filing.
+- #178: scoped HTTP action requests; PR #407, stacked on #406. Real plugin tokens create pending actions only for exact stored types; live origin state is rechecked before filing.
 
 - #178: exact action-type guard and immutable plugin principal; PR #406, stacked on #405. Common checks protect lifecycle, feature and replay paths. HTTP token policy remains read-only.
 
