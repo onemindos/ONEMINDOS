@@ -23,11 +23,17 @@ jobs:
   # queue runs the 4 PostgreSQL shards once per merge (founder, 2026-11-15: the org's 20 shared
   # runners were the bottleneck); pushes to main and manual runs run all 7.
   plan:
-    runs-on: ubuntu-24.04
+    # CI-13 (#299): arm64-safe, no secrets, no Docker. Local Mac runner when LOCAL_RUNNER=on and the event is
+    # trusted (never a fork PR); otherwise GitHub-hosted. docs/learning/self-hosted-runner.md
+    runs-on: ${{ (vars.LOCAL_RUNNER == 'on' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","onemind-local"]') || 'ubuntu-24.04' }}
     timeout-minutes: 5
     outputs:
       matrix: ${{ steps.pick.outputs.matrix }}
       run: ${{ steps.pick.outputs.run }}
+      sqlite: ${{ steps.pick.outputs.sqlite }}
+      run_sqlite: ${{ steps.pick.outputs.run_sqlite }}
+      postgresql: ${{ steps.pick.outputs.postgresql }}
+      run_postgresql: ${{ steps.pick.outputs.run_postgresql }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -48,15 +54,62 @@ jobs:
   # (ONEMIND_TEST_SHARD, tests/conftest.py), and every job runs pytest-xdist on all runner cores.
   # Each xdist worker gets its own PostgreSQL database; real-NATS tests share one worker.
   # Together the jobs run exactly the tests the old single job ran.
+  # CI-13 (#299): one job per backend. The SQLite shards need no service containers, so they may run
+  # on the Mac's local runner (arm64, no Docker); the PostgreSQL shards need postgres and nats
+  # containers and stay GitHub-hosted. The check names are unchanged: test (<backend> <k>/<n>).
   test:
     name: test (${{ matrix.backend }} ${{ matrix.shard }})
     needs: plan
-    if: needs.plan.outputs.run == 'true'
-    runs-on: ubuntu-24.04
+    if: needs.plan.outputs.run_sqlite == 'true'
+    # Local Mac runner when LOCAL_RUNNER=on and the event is trusted (never a fork PR); otherwise
+    # GitHub-hosted. docs/learning/self-hosted-runner.md
+    runs-on: ${{ (vars.LOCAL_RUNNER == 'on' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","onemind-local"]') || 'ubuntu-24.04' }}
     timeout-minutes: 40   # a safety net; a shard takes about 15 min (CI-03 target: under 20)
     strategy:
       fail-fast: false
-      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+      matrix: ${{ fromJSON(needs.plan.outputs.sqlite) }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
+      # GitHub's image has Go and kustomize preinstalled and some core tests skip without them
+      # (test_sdk_conformance, test_policy, security/test_sandbox_escapes). Install both, so the
+      # local runner runs the same tests.
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version-file: go.mod
+      - name: kustomize (pinned, sha256-checked; amd64 or arm64)
+        run: |
+          sdk/tools/ci/install-tools.sh "$RUNNER_TEMP/bin" kustomize
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+      - name: Core suite (${{ matrix.backend }}, shard ${{ matrix.shard }})
+        env:
+          ONEMIND_TEST_SHARD: ${{ matrix.shard }}
+          ONEMIND_PROPERTY_BACKEND: ${{ matrix.backend }}
+          ONEMIND_PROPERTY_ARTIFACTS: ${{ github.workspace }}/property-evidence/${{ matrix.backend }}
+          # Empty: the suite then uses SQLite and skips the real-NATS tests.
+          ONEMIND_TEST_DB_URL: ''
+          ONEMIND_TEST_NATS_URL: ''
+        run: make -C core test PYTEST_ARGS="-n auto --dist loadgroup --durations=20"
+      - name: Retain property backend allocation manifests (never key files or databases)
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: property-backends-${{ github.run_id }}-${{ matrix.backend }}-${{ strategy.job-index }}
+          path: property-evidence/*/allocations-*.jsonl
+          if-no-files-found: error
+          retention-days: 14
+
+  test-postgresql:
+    name: test (${{ matrix.backend }} ${{ matrix.shard }})
+    needs: plan
+    if: needs.plan.outputs.run_postgresql == 'true'
+    runs-on: ubuntu-24.04   # service containers need Docker; the local runner has none
+    timeout-minutes: 40   # a safety net; a shard takes about 15 min (CI-03 target: under 20)
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.postgresql) }}
     services:
       nats:
         image: nats:2.10-alpine
@@ -80,7 +133,6 @@ jobs:
         with:
           langs: go py
       - name: Throwaway test database, so skip disk syncs
-        if: matrix.backend == 'postgresql'
         env:
           PGPASSWORD: test
         run: |
@@ -94,9 +146,8 @@ jobs:
           ONEMIND_TEST_SHARD: ${{ matrix.shard }}
           ONEMIND_PROPERTY_BACKEND: ${{ matrix.backend }}
           ONEMIND_PROPERTY_ARTIFACTS: ${{ github.workspace }}/property-evidence/${{ matrix.backend }}
-          # Empty on the SQLite leg: the suite then uses SQLite and skips the real-NATS tests.
-          ONEMIND_TEST_DB_URL: ${{ matrix.backend == 'postgresql' && 'postgresql://postgres:test@127.0.0.1:5432/onemind' || '' }}
-          ONEMIND_TEST_NATS_URL: ${{ matrix.backend == 'postgresql' && 'nats://127.0.0.1:4222' || '' }}
+          ONEMIND_TEST_DB_URL: postgresql://postgres:test@127.0.0.1:5432/onemind
+          ONEMIND_TEST_NATS_URL: nats://127.0.0.1:4222
         run: make -C core test PYTEST_ARGS="-n auto --dist loadgroup --durations=20"
       - name: Retain property backend allocation manifests (never key files or databases)
         if: always()

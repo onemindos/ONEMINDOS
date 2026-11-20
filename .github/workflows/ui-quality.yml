@@ -52,7 +52,9 @@ env:
 jobs:
   build:
     if: ${{ !github.event.pull_request.draft && github.event.action != 'labeled' && github.event.action != 'unlabeled' }}
-    runs-on: ubuntu-24.04
+    # CI-13 (#299): arm64-safe, no secrets, no Docker. Local Mac runner when LOCAL_RUNNER=on and the event is
+    # trusted (never a fork PR); otherwise GitHub-hosted. docs/learning/self-hosted-runner.md
+    runs-on: ${{ (vars.LOCAL_RUNNER == 'on' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","onemind-local"]') || 'ubuntu-24.04' }}
     timeout-minutes: 20
     permissions:
       contents: read
