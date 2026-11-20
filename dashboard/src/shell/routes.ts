@@ -17,6 +17,7 @@ export const href = {
   alerts: '/alerts',
   storage: '/storage',
   backups: '/backups',
+  automation: '/automation',
   updates: '/updates',
   coming: '/coming',
   controlHub: '/control-hub',
@@ -60,6 +61,8 @@ export function toRoute(link: string): string | undefined {
       return href.activity;
     case 'backups':
       return href.backups;
+    case 'automation':
+      return href.automation;
     case 'updates':
       return href.updates;
     case 'storage':

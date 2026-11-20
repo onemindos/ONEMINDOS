@@ -12,6 +12,7 @@ import { Alerts } from './pages/Alerts';
 import { Storage } from './pages/Storage';
 import { Updates } from './pages/Updates';
 import { Backups } from './pages/Backups';
+import { Automation } from './pages/Automation';
 import { Coming } from './pages/Coming';
 import { FirstRun, wizardPending } from './pages/FirstRun';
 import { Approvals } from './pages/Approvals';
@@ -66,6 +67,7 @@ export function SignedInApp() {
             <Route path="settings/storage" element={<Navigate to="/storage" replace />} />
             <Route path="backups" element={<ProOnly title="Backups"><Backups /></ProOnly>} />
             <Route path="settings/backups" element={<Navigate to="/backups" replace />} />
+            <Route path="automation" element={<ProOnly title="Automation"><Automation /></ProOnly>} />
             <Route path="updates" element={<ProOnly title="OS updates"><Updates /></ProOnly>} />
             <Route path="settings/updates" element={<Navigate to="/updates" replace />} />
             <Route path="coming" element={<Coming />} />
