@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: Apache-2.0
+# The WOPI document server on Service port 9980 (plain HTTP inside the cluster).
+apiVersion: v1
+kind: Service
+metadata:
+  name: collabora-code
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: collabora-code
+  ports:
+  - name: http
+    port: 9980
+    targetPort: http
+    protocol: TCP

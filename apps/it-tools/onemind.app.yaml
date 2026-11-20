@@ -1,0 +1,33 @@
+# SPDX-License-Identifier: Apache-2.0
+# IT-Tools: issue #129 (NMD-04, Supply Depot), written by hand from primary sources: the GitHub API
+# (repos/CorentinTh/it-tools, releases/latest; licence GPL-3.0 detected by GitHub) and the image config.
+# Image digest and archs read from the Docker Hub registry API (v2 manifest endpoint, anonymous token) on
+# 2026-11-19; ghcr.io/corentinth/it-tools serves the same digest for this tag.
+apiVersion: onemind.app/v1alpha1
+kind: App
+metadata:
+  id: it-tools
+  name: "IT-Tools"
+  version: "2024.10.22-7ca5933"
+  description: "Handy tools for developers and admins in one web page: converters, generators, encoders and more."
+  # Market category slug from docs/design/TAXONOMY.md §1; sub-tag (tools) is listed in README.md until
+  # the schema has metadata.tags.
+  category: developer
+  icon: icon.svg
+  license: "GPL-3.0"
+  source: https://github.com/CorentinTh/it-tools
+  links:
+    docs: "https://github.com/CorentinTh/it-tools#readme"
+    github: "https://github.com/CorentinTh/it-tools"
+    website: "https://it-tools.tech"
+    support: "https://github.com/CorentinTh/it-tools/issues"
+  # The newest release is from 2024-10-22, over 18 months old, which caps the tier at community.
+  upstream: {release: "v2024.10.22-7ca5933", released_at: "2024-10-22T09:58:03Z", archived: false}
+  tier: community   # set by CI (sdk/tools/app-gate --tier write), not by hand
+spec:
+  archs: [amd64, arm64]
+  requires: {gpu: false, minMemoryMb: 16}   # sum of the memory requests in manifests/
+  web: {port: 8080}
+  manifests: manifests/
+  # automerge stays none until renovate.json lists this app (validate-apps check 9).
+  updates: {channel: stable, automerge: none}
