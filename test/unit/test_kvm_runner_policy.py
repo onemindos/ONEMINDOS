@@ -235,6 +235,7 @@ class Kit(unittest.TestCase):
         self.assertIn("iptables FORWARD -i $BR ! -s $NET.0/24 -j DROP", text)
         self.assertIn("ip6tables INPUT -i $BR -j DROP", text)
         self.assertIn("iptables FORWARD -i $BR ! -o $UP -j DROP", text)
+        self.assertIn("iptables -S FORWARD 1", text)      # --check also wants our rules first, not just present
         cycle = (KIT / "cycle").read_text()
         self.assertIn('net.sh" --check', cycle)          # no clone without the firewall rules in place
         self.assertIn("not isolated: not starting", cycle)

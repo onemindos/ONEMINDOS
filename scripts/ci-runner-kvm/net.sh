@@ -52,6 +52,12 @@ if [ "${1:-}" = --check ]; then
     # shellcheck disable=SC2086
     $cmd $t -C $chain $spec 2>/dev/null || { echo "missing firewall rule: $cmd $rest" >&2; exit 1; }
   done
+  # Present is not enough: a service that later inserts an ACCEPT above ours (a VPN's forward chain)
+  # would bypass them. Ours must be the first FORWARD rules, or no job VM starts.
+  first=$(iptables -S FORWARD 1 2>/dev/null)
+  case $first in *"-i $BR "*) ;; *) echo "FORWARD rule 1 is not a job-network rule: $first" >&2; exit 1;; esac
+  first6=$(ip6tables -S FORWARD 1 2>/dev/null)
+  case $first6 in *"$BR"*) ;; *) echo "ip6tables FORWARD rule 1 is not a job-network rule: $first6" >&2; exit 1;; esac
   exit 0
 fi
 {
