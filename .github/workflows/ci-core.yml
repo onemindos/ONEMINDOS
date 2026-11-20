@@ -4,10 +4,10 @@ name: ci-core
 on:
   workflow_dispatch:   # docs/testing/README.md §2 (test-all)
   pull_request:
-    paths: ["core/**", "sdk/**", ".github/workflows/ci-core.yml"]
+    paths: ["core/**", "sdk/**", ".github/actions/sdk-gen/**", ".github/workflows/ci-core.yml"]
   push:
     branches: [main]
-    paths: ["core/**", "sdk/**", ".github/workflows/ci-core.yml"]
+    paths: ["core/**", "sdk/**", ".github/actions/sdk-gen/**", ".github/workflows/ci-core.yml"]
   merge_group:   # no paths filter exists for this event; the plan job filters instead
 
 permissions:
@@ -74,6 +74,11 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
+      # test_sdk_conformance and test_mcp import the Python SDK and build the onemind CLI (Go SDK).
+      - name: Generate the SDK code from the committed spec (CI-16, not committed)
+        uses: ./.github/actions/sdk-gen
+        with:
+          langs: go py
       - name: Throwaway test database, so skip disk syncs
         if: matrix.backend == 'postgresql'
         env:
