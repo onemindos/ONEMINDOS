@@ -69,7 +69,7 @@ func pluginCommands(a *App) []*cobra.Command {
 	}
 	command.Flags().StringVar(&previous, "previous", "", "compare grants with a previous plugin directory")
 	command.Flags().StringVar(&apiLevel, "api-level", "", "check against this box plugin API level (offline)")
-	plugin.AddCommand(command, pluginInitCommand(a), pluginPackCommand(a), pluginInspectCommand(a))
+	plugin.AddCommand(command, pluginInitCommand(a), pluginPackCommand(a), pluginInspectCommand(a), pluginSignCommand(a))
 	return []*cobra.Command{plugin}
 }
 

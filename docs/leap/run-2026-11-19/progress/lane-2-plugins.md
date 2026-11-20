@@ -78,3 +78,7 @@ The order comes from [LANES.md](../LANES.md).
 - #420 integrated packaging corrections passed artifact/CLI race tests, including empty workload directories, shared workload/UI icons and canonical path aliases. Next implementation: owner-approved private key enrollment, then complete verification/installation and dev workflow.
 
 - Next concrete #180 slice (E9 private tier): owner-only signing-key enrollment/revocation actions with stored canonical SPKI public keys and SHA-256 fingerprints, step-up when passkeys are active, real upgrade/auth tests and a generated-SDK dashboard screen. Parse/reject private PEM before filing/auditing; only approved actions activate trust. This does not create production root/store keys or grant publisher trust from a caller-supplied key.
+
+- #180 owner-key enrollment slice: PR #421 (draft), stacked on #415. Canonical public-key fingerprints enter trust only after owner-approved actions; enrollment/revocation require action-bound passkeys when active. Mounted Settings screen uses generated SDK and the real approval challenge flow. Artifact verification/install integration remains next.
+
+- #180 local signing: draft pending, stacked on #420. `plugin sign` signs only a digest-pinned, fully parsed local artifact, using an existing owner-readable PKCS8 key. Detached output is exclusive; key bytes are never logged or copied into the layout. Signing does not establish owner trust or installation approval.
