@@ -33,26 +33,37 @@ api() {   # api METHOD PATH [JSON]: GitHub REST with the token on stdin, never o
 switch() { api PATCH "repos/$REPO/actions/variables/KVM_RUNNER" "{\"value\":\"$1\"}" >/dev/null 2>&1 ||
            api POST "repos/$REPO/actions/variables" "{\"name\":\"KVM_RUNNER\",\"value\":\"$1\"}" >/dev/null 2>&1; }
 log() { echo "$(date '+%F %T') ${INSTANCE:+[$INSTANCE] }$*"; }
-gone() {  # remove VM $1 even if a killed clone left a lock; say so if it survives
+ours() {  # true if VM $1 does not exist or is one of our job VMs (never touch anyone else's VM)
+  local n; qm status "$1" >/dev/null 2>&1 || return 0
+  n=$(qm config "$1" 2>/dev/null | sed -n 's/^name: //p'); [[ $n == onemind-kvm-[0-9]* ]]
+}
+gone() {  # remove our VM $1 even if a killed clone left a lock; say so if it survives
+  if ! ours "$1"; then log "REFUSING to destroy VM $1: it is not an onemind-kvm job VM"; return 1; fi
   qm unlock "$1" >/dev/null 2>&1; qm stop "$1" >/dev/null 2>&1; qm destroy "$1" --purge >/dev/null 2>&1
   if qm status "$1" >/dev/null 2>&1; then log "WARNING: VM $1 could not be destroyed"; return 1; fi
 }
 
 [ -r "$TOKEN_FILE" ] || { echo "no GitHub token at $TOKEN_FILE (run: up --token)" >&2; exit 2; }
-qm status "$TID" >/dev/null 2>&1 || { echo "no template $TID (run: up)" >&2; exit 2; }
+qm config "$TID" 2>/dev/null | grep -qx 'name: onemind-kvm-template' && qm config "$TID" | grep -qx 'template: 1' ||
+  { echo "VM $TID is not the onemind-kvm template (run: up, or set TEMPLATE_ID)" >&2; exit 2; }
 
 if [ -z "$INSTANCE" ]; then   # parent: one loop per instance
   n=${INSTANCES:-2}; [ "$n" -ge 1 ] && [ "$n" -le 6 ] || { echo "INSTANCES must be 1 to 6" >&2; exit 2; }
   cleanup() {
+    local rc=$?
     trap '' EXIT INT TERM
     switch off && log "KVM_RUNNER=off (loop stopped)"
     kill 0 2>/dev/null
     i=1; while [ "$i" -le "$n" ]; do gone $((BASE + i)); i=$((i + 1)); done
-    exit 0
+    exit "$rc"   # a real failure stays a failure, so systemd's Restart=on-failure applies
   }
   trap cleanup EXIT INT TERM
   k=0; until switch on; do k=$((k + 1)); [ "$k" -le 30 ] || { echo "cannot set KVM_RUNNER (token?)" >&2; exit 2; }; sleep 20; done
   log "KVM_RUNNER=on"
+  i=1; while [ "$i" -le "$n" ]; do
+    ours $((BASE + i)) || { log "VM $((BASE + i)) exists and is not ours: change BASE_ID"; exit 2; }
+    i=$((i + 1))
+  done
   i=1; while [ "$i" -le "$n" ]; do INSTANCE=$i "$0" & i=$((i + 1)); done
   wait; exit
 fi
@@ -72,10 +83,14 @@ while :; do
         "{\"name\":\"$name\",\"runner_group_id\":$gid,\"labels\":[\"self-hosted\",\"onemind-kvm\"],\"work_folder\":\"_work\"}" 2>/dev/null)
   rid=$(printf '%s' "$jit" | jq -r '.runner.id // empty' 2>/dev/null)
   cfg=$(printf '%s' "$jit" | jq -r '.encoded_jit_config // empty' 2>/dev/null); unset jit
-  if [ -z "$cfg" ] || [ -z "$rid" ]; then log "could not get a JIT runner config"; backoff; continue; fi
+  if [ -z "$cfg" ] || [ -z "$rid" ]; then
+    log "could not get a JIT runner config"; gid=""   # the group may have been recreated: look it up again
+    [ -n "$rid" ] && api DELETE "orgs/$ORG/actions/runners/$rid" >/dev/null 2>&1
+    unset cfg; backoff; continue
+  fi
 
   t0=$SECONDS
-  gone "$id"
+  gone "$id" || { api DELETE "orgs/$ORG/actions/runners/$rid" >/dev/null 2>&1; unset cfg; backoff; continue; }
   if ! qm clone "$TID" "$id" --name "onemind-kvm-$INSTANCE" >/dev/null 2>&1 ||
      ! qm set "$id" --ipconfig0 "ip=$NET.$((10 + INSTANCE))/24,gw=$NET.1" >/dev/null 2>&1 ||
      ! qm start "$id" >/dev/null 2>&1; then
@@ -108,6 +123,6 @@ while :; do
   done
   gone "$id"
   api DELETE "orgs/$ORG/actions/runners/$rid" >/dev/null 2>&1   # usually gone already (ephemeral); 404 is fine
-  fail=0
+  if [ -n "$tj" ]; then fail=0; else log "$name ended without running a job"; backoff; fi
   log "round done: start $((t1 - t0))s, total $((SECONDS - t1))s"
 done

@@ -44,6 +44,10 @@ The first `up` with a token builds the network and the template (about 10 minute
 | more or fewer parallel jobs | `INSTANCES=` in `/etc/onemind-ci-kvm.env`, then `systemctl restart onemind-ci-kvm` (each job VM: 4 cores, 8 GiB, a 150 GiB thin disk) |
 
 ## Limits and known risks
+- **It only touches its own VMs.** It destroys a VM only if its name is `onemind-kvm-<n>` and uses a template only if it is `onemind-kvm-template`; if `TEMPLATE_ID` or `BASE_ID`+1… are taken by other VMs it refuses to start. Pick free IDs in `/etc/onemind-ci-kvm.env`.
+- **If every job VM keeps failing, the switch stays on** and x86 jobs wait for it. `status` and `journalctl -u onemind-ci-kvm` show the failing rounds (each one backs off); turn the switch off as below while you fix it.
+- **The JIT config is in the runner's environment during the job.** It is single-use and the job already has root in its own VM, so it grants nothing new; a step that prints `env` to a public log would show a config that stops working when the job ends.
+- **Inside the job network**, a VM can claim another address in the same /24 (only addresses outside it are dropped as spoofed). Job VMs are port-isolated from each other, so this reaches nothing but the internet.
 - **Queued jobs do not move by themselves.** If the host goes down without the service stopping cleanly (power cut), `KVM_RUNNER` stays `on` and new x86 jobs wait for it. Set it off from anywhere: `gh variable set KVM_RUNNER --body off --repo onemindos/ONEMINDOS`, then re-run the waiting jobs.
 - **Results come from a different x86 machine than GitHub's.** A job that passes here and fails on GitHub (or the reverse) is a real signal: report it.
 - The runner, the Ubuntu image and their checksums are pinned in `runner.pin`; bump them in a PR. A JIT runner may still update itself when GitHub requires a newer version; the next template rebuild picks up the pin.

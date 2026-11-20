@@ -152,21 +152,60 @@ class Kit(unittest.TestCase):
         # the runner accepts only paths ending in .sh/.ps1/.js, and the file installed must be that path
         self.assertIn("job-started.sh /usr/local/bin/onemind-ci-job-started.sh", prov)
         hook = KIT / "job-started.sh"
-        for event, repo, rc in (
-            ({"pull_request": {"head": {"repo": {"full_name": "someone/ONEMINDOS"}}}}, "onemindos/ONEMINDOS", 1),
-            ({"pull_request": {"head": {"repo": None}}}, "onemindos/ONEMINDOS", 1),
-            ({"pull_request": {"head": {"repo": {"full_name": "onemindos/ONEMINDOS"}}}}, "onemindos/ONEMINDOS", 0),
-            ({"ref": "refs/heads/main"}, "onemindos/ONEMINDOS", 0),
-        ):
-            import os, tempfile
-            with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
-                json.dump(event, f)
+        import os, tempfile
+        fork = {"head": {"repo": {"full_name": "someone/ONEMINDOS"}}}
+        same = {"head": {"repo": {"full_name": "onemindos/ONEMINDOS"}}}
+        cases = [   # (event payload or None for "no event file", GITHUB_REPOSITORY, expected rc)
+            ({"pull_request": fork}, "onemindos/ONEMINDOS", 1),                        # pull_request from a fork
+            ({"pull_request": fork, "action": "submitted", "review": {}}, "onemindos/ONEMINDOS", 1),  # pull_request_review
+            ({"pull_request": fork, "action": "opened"}, "onemindos/ONEMINDOS", 1),    # pull_request_target shape
+            ({"pull_request": {"head": {"repo": None}}}, "onemindos/ONEMINDOS", 1),    # deleted fork
+            ({"pull_request": same}, "onemindos/ONEMINDOS", 0),
+            ({"ref": "refs/heads/main"}, "onemindos/ONEMINDOS", 0),                   # push / dispatch / schedule
+            ({"ref": "refs/heads/main"}, "", 1),                                       # no GITHUB_REPOSITORY: fail closed
+            (None, "onemindos/ONEMINDOS", 1),                                          # no event file: fail closed
+        ]
+        for event, repo, rc in cases:
+            env = {"PATH": os.environ["PATH"], "GITHUB_REPOSITORY": repo, "GITHUB_EVENT_NAME": "test"}
+            path = None
+            if event is not None:
+                with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
+                    json.dump(event, f)
+                path = env["GITHUB_EVENT_PATH"] = f.name
             try:
-                r = subprocess.run(["sh", str(hook)], env={"PATH": os.environ["PATH"], "GITHUB_EVENT_PATH": f.name,
-                                                          "GITHUB_REPOSITORY": repo}, capture_output=True)
-                self.assertEqual(r.returncode, rc, (event, r.stderr))
+                r = subprocess.run(["sh", str(hook)], env=env, capture_output=True, text=True)
+                self.assertEqual(r.returncode, rc, (event, repo, r.stderr))
+                self.assertIn("onemind-kvm guard:", r.stdout + r.stderr)   # every job log shows the guard ran
             finally:
-                os.unlink(f.name)
+                if path:
+                    os.unlink(path)
+
+    def test_it_never_touches_vms_that_are_not_its_own(self):
+        cycle = (KIT / "cycle").read_text()
+        self.assertIn("[[ $n == onemind-kvm-[0-9]* ]]", cycle)
+        self.assertIn('if ! ours "$1"; then', cycle)
+        self.assertIn("grep -qx 'name: onemind-kvm-template'", cycle)
+        for f in ("up", "down"):
+            self.assertIn("grep -qx 'name: onemind-kvm-template'", (KIT / f).read_text(), f)
+        self.assertIn('exit "$rc"', cycle)                  # a failed loop exits non-zero, so systemd restarts it
+        self.assertIn('if [ -n "$tj" ]; then fail=0; else', cycle)   # a round with no job backs off
+
+    def test_net_rules_generate_valid_idempotent_commands(self):
+        # Run net.sh's own rule generator (not a text search) and check the exact commands.
+        text = (KIT / "net.sh").read_text()
+        funcs = text[text.index("rules() {"):text.index("{\n  echo \"# OneMind CI job network")]
+        out = subprocess.run(["sh", "-c", "BR=vmbr1; NET=10.10.0; UP=vmbr0\n" + funcs + "\nadd; echo ---; del"],
+                             capture_output=True, text=True, check=True).stdout
+        add, dele = out.split("---\n")
+        self.assertIn("iptables -t nat -C POSTROUTING -s 10.10.0.0/24 -o vmbr0 -j MASQUERADE 2>/dev/null || "
+                      "iptables -t nat -I POSTROUTING 1 -s 10.10.0.0/24 -o vmbr0 -j MASQUERADE", add)
+        self.assertIn("iptables  -I FORWARD 1 -i vmbr1 ! -s 10.10.0.0/24 -j DROP", add)
+        self.assertIn("iptables  -I FORWARD 1 -i vmbr1 -d 192.168.0.0/16 -j DROP", add)
+        self.assertIn("ip6tables  -I INPUT 1 -i vmbr1 -j DROP", add)
+        self.assertEqual(len(add.strip().splitlines()), 11)
+        self.assertEqual(len(dele.strip().splitlines()), 11)
+        for line in dele.strip().splitlines():
+            self.assertRegex(line, r"^ip6?tables +(-t nat )?-D \S+ .* 2>/dev/null \|\| true$")
 
     def test_job_network_has_no_lan_no_host_no_ipv6_no_spoofing(self):
         text = (KIT / "net.sh").read_text()

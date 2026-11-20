@@ -36,8 +36,8 @@ install -m 0755 -o root -g root job-started.sh /usr/local/bin/onemind-ci-job-sta
 echo "ACTIONS_RUNNER_HOOK_JOB_STARTED=/usr/local/bin/onemind-ci-job-started.sh" > "$RH/actions-runner/.env"
 chown runner:runner "$RH/actions-runner/.env"
 
-# A clone must not change under a job: no package upgrades, no apt timers, no runner self-update
-# (the template is pinned; bump runner.pin and rebuild it instead).
+# A clone must not change under a job: no package upgrades and no apt timers (the template is pinned;
+# bump runner.pin and rebuild it). The runner may still self-update when GitHub requires it.
 systemctl disable --now apt-daily.timer apt-daily-upgrade.timer >/dev/null 2>&1 || true
 apt-get purge -y -qq unattended-upgrades >/dev/null 2>&1 || true
 # Docker Hub limits anonymous pulls per IP; keep the image setup-buildx needs inside the template.
