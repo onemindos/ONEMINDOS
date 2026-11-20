@@ -47,7 +47,7 @@ The order comes from [LANES.md](../LANES.md).
 
 - #181: safe settings scaffold; PR #417, stacked on #412. onemind plugin init requires a source URL, validates output before publication and never replaces existing paths. Backend templates/dev runtime follow packaging.
 
-- #180: deterministic local OCI packing; PR pending, stacked on #417. Content-addressed config/workload/UI/README layers, no root-file globbing, no overwrites. Unsigned only; image pin resolution, remote transport, verification and install follow.
+- #180: deterministic local OCI packing; PR #418, stacked on #417. Content-addressed config/workload/UI/README layers, no root-file globbing, no overwrites. Unsigned only; image pin resolution, remote transport, verification and install follow.
 
 ## Next
 
