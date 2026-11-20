@@ -13,7 +13,7 @@ The order comes from [LANES.md](../LANES.md).
 ## Draft (pushed, not ready yet)
 
 - #177: declarative manifest completion; PR #410, stacked on #397. Conditional workload requirements, optional tools, bounded publisher declarations and dual-identity refusal.
-- #177: shared Go validator in app CI; PR pending, stacked on #410. Real binary invocation fails closed; native tests exercise valid and invalid bundles.
+- #177: shared Go validator in app CI; PR #412, stacked on #410. Real binary invocation fails closed; native tests exercise valid and invalid bundles.
 
 - #178: scoped HTTP action requests; PR #407, stacked on #406. Real plugin tokens create pending actions only for exact stored types; live origin state is rechecked before filing.
 
