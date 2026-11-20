@@ -40,3 +40,5 @@ The order comes from [LANES.md](../LANES.md).
 ## Blocked (waiting on the founder, hardware or another lane)
 
 - #175 manifest freeze remains open; #177 retains its dependency label until the gate resolves it.
+
+- #177: completion slice prepared on codex/177-plugin-manifest-completion (PR pending): declarative extensions without tools/workloads, P6 runtime requirements, bounded publisher declarations and plugin/agent identity separation. Literal older Hello example still needs current App metadata/updates, closed tool output and structured App secrets; no docs example or secret contract is changed here. Shared-validator CI invocation is a separate integration slice.

@@ -858,3 +858,12 @@ a status from `ok`, `warn`, `error`, `unknown`; progress is a number in [0, 1];
 status cards carry that state vocabulary and text. There are no host-fetchable
 URL/image fields. The future #179 host renders strings as text and marks stale
 timestamps; this schema publication adds no runtime UI route or renderer.
+
+Declarative plugin manifests may omit `spec.plugin` and `spec.manifests` when
+no tools, iframe widgets or event subscriptions require a backend (PLUGIN-SDK
+P6). Ordinary apps still require manifests; existing App metadata, updates and
+secret entry requirements remain unchanged. Backend-bearing extensions require
+both manifests and `plugin.backend`; declaring both `spec.agent` and
+`spec.plugin` is refused to prevent acquiring an additional agent credential.
+`metadata.publisher` is an optional closed `{id, name}` declaration: its DNS
+label id is not a verified identity or an artifact-signing authorization.

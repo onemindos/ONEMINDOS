@@ -42,6 +42,14 @@
           "maxLength": 59,
           "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
         },
+        "publisher": {
+          "description": "Declared publisher identity; signature/index verification is required separately.",
+          "type": "object", "additionalProperties": false, "required": ["id", "name"],
+          "properties": {
+            "id": {"type": "string", "minLength": 1, "maxLength": 59, "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"},
+            "name": {"type": "string", "minLength": 1, "maxLength": 128}
+          }
+        },
         "name": {
           "description": "Display name.",
           "type": "string",
@@ -197,7 +205,6 @@
       "required": [
         "archs",
         "requires",
-        "manifests",
         "updates"
       ],
       "properties": {
@@ -241,12 +248,12 @@
           },
           "required": [
             "principal",
-            "secret",
-            "backend"
+            "secret"
           ]
         },
         "extensions": {
           "type": "object",
+          "minProperties": 1,
           "additionalProperties": false,
           "properties": {
             "widgets": {
@@ -422,10 +429,7 @@
                 ]
               }
             }
-          },
-          "required": [
-            "tools"
-          ]
+          }
         },
         "archs": {
           "description": "CPU architectures the pinned images support.",
@@ -1010,5 +1014,134 @@
       }
     }
   },
-  "allOf": [{"if": {"properties": {"spec": {"required": ["extensions"]}}}, "then": {"properties": {"spec": {"required": ["plugin", "compat"]}, "metadata": {"properties": {"version": {"pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?(\\+[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?$"}}}}}}]
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "spec": {
+            "required": [
+              "extensions"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "spec": {
+            "required": [
+              "compat"
+            ]
+          },
+          "metadata": {
+            "properties": {
+              "version": {
+                "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?(\\+[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?$"
+              }
+            }
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "spec": {
+            "required": [
+              "manifests"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "spec": {
+            "required": [
+              "extensions"
+            ],
+            "properties": {
+              "extensions": {
+                "anyOf": [
+                  {
+                    "required": [
+                      "tools"
+                    ],
+                    "properties": {
+                      "tools": {
+                        "minItems": 1
+                      }
+                    }
+                  },
+                  {
+                    "required": [
+                      "widgets"
+                    ],
+                    "properties": {
+                      "widgets": {
+                        "contains": {
+                          "properties": {
+                            "render": {
+                              "const": "iframe"
+                            }
+                          },
+                          "required": [
+                            "render"
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "required": [
+                      "events"
+                    ],
+                    "properties": {
+                      "events": {
+                        "required": [
+                          "subscribe"
+                        ],
+                        "properties": {
+                          "subscribe": {
+                            "minItems": 1
+                          }
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "spec": {
+            "required": [
+              "manifests",
+              "plugin"
+            ],
+            "properties": {
+              "plugin": {
+                "required": [
+                  "backend"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "not": {
+        "properties": {
+          "spec": {
+            "required": [
+              "agent",
+              "plugin"
+            ]
+          }
+        }
+      }
+    }
+  ]
 }

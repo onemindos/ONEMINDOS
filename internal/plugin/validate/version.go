@@ -43,7 +43,8 @@ func checkToolVersion(previous, current map[string]any) error {
 }
 func toolDeclarations(spec map[string]any) map[string]map[string]any {
 	result := map[string]map[string]any{}
-	for _, raw := range spec["extensions"].(map[string]any)["tools"].([]any) {
+	tools, _ := spec["extensions"].(map[string]any)["tools"].([]any)
+	for _, raw := range tools {
 		tool := raw.(map[string]any)
 		result[tool["name"].(string)] = tool
 	}

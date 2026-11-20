@@ -16,7 +16,8 @@ var uiName = regexp.MustCompile(`^[a-z][a-z0-9_-]{0,39}$`)
 
 func validateUI(spec, extensions map[string]any) error {
 	tools := map[string]string{}
-	for _, raw := range extensions["tools"].([]any) {
+	declarations, _ := extensions["tools"].([]any)
+	for _, raw := range declarations {
 		tool := raw.(map[string]any)
 		tools[tool["name"].(string)] = tool["effect"].(string)
 	}

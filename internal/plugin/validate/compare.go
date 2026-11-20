@@ -138,7 +138,8 @@ func secretGrants(spec map[string]any) (map[string]map[string]any, error) {
 func effects(spec map[string]any) map[string]string {
 	result := map[string]string{}
 	ext := spec["extensions"].(map[string]any)
-	for _, raw := range ext["tools"].([]any) {
+	tools, _ := ext["tools"].([]any)
+	for _, raw := range tools {
 		tool := raw.(map[string]any)
 		result[tool["name"].(string)] = tool["effect"].(string)
 	}

@@ -113,7 +113,8 @@ func Manifest(data []byte) error {
 		return err
 	}
 	seen := map[string]bool{}
-	for _, raw := range ext["tools"].([]any) {
+	tools, _ := ext["tools"].([]any)
+	for _, raw := range tools {
 		tool := raw.(map[string]any)
 		name := tool["name"].(string)
 		if seen[name] {

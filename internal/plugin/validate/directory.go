@@ -60,25 +60,27 @@ func directory(dir, apiLevel string) error {
 	if _, err := bundlePath(root, metadata["icon"].(string), false); err != nil {
 		return fmt.Errorf("metadata.icon: %w", err)
 	}
-	manifests, err := bundlePath(root, spec["manifests"].(string), true)
-	if err != nil {
-		return fmt.Errorf("spec.manifests: %w", err)
-	}
-	// Reject symlinks anywhere in the workload tree, not only the entry directory.
-	if err := filepath.WalkDir(manifests, func(path string, entry fs.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
-		info, err := entry.Info()
+	if relative, present := spec["manifests"].(string); present {
+		manifests, err := bundlePath(root, relative, true)
 		if err != nil {
+			return fmt.Errorf("spec.manifests: %w", err)
+		}
+		// Reject symlinks anywhere in the workload tree, not only the entry directory.
+		if err := filepath.WalkDir(manifests, func(path string, entry fs.DirEntry, walkErr error) error {
+			if walkErr != nil {
+				return walkErr
+			}
+			info, err := entry.Info()
+			if err != nil {
+				return err
+			}
+			if !info.IsDir() && !info.Mode().IsRegular() {
+				return fmt.Errorf("manifest tree contains symlink or special file: %s", entry.Name())
+			}
+			return nil
+		}); err != nil {
 			return err
 		}
-		if !info.IsDir() && !info.Mode().IsRegular() {
-			return fmt.Errorf("manifest tree contains symlink or special file: %s", entry.Name())
-		}
-		return nil
-	}); err != nil {
-		return err
 	}
 	return validateUIBundle(root, metadata, spec)
 }
