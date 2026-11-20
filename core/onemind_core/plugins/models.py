@@ -15,3 +15,13 @@ class PluginInstallRow(Base):
     secret_name: Mapped[str] = mapped_column(String(253))
     bundle_sha256: Mapped[str] = mapped_column(String(71))
     manifest: Mapped[dict] = mapped_column(JSON)
+
+    settings_schema: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+
+
+class PluginSettingsRow(Base):
+    __tablename__ = "plugins_settings"
+    app_id: Mapped[str] = mapped_column(String(59), primary_key=True)
+    values: Mapped[dict] = mapped_column(JSON, default=dict)
+    claim_action: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    prior_status: Mapped[str | None] = mapped_column(String(32), nullable=True)

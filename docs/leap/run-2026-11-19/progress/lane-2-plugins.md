@@ -39,6 +39,8 @@ The order comes from [LANES.md](../LANES.md).
 
 - #178: installed registry receipts and plan fingerprints; PR pending, stacked on #411. Declarative plugins appear in registry; immutable receipts survive catalog edits. Settings schemas/UI/icons enter the approval fingerprint with symlink and size bounds.
 
+- #178: installed-schema plugin settings; PR pending, stacked after tool integration. Owner-approved plugin.configure applies fixed plugin-settings ConfigMap; schema/value bounds, sharing and receipt checks precede execution.
+
 ## Next
 
 - Finish #177/#178 implementation and review first. Founder then requests smallest-to-heaviest work where dependencies allow: #183 scan adapter and #181 init slices are smallest; #180 packaging must land before those full issues, #184 follows #181, while #179/#182/#185 require heavier integration.

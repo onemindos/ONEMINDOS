@@ -14,7 +14,9 @@ from ..executors import AgentSecret
 from ..identity.crypto import new_id, new_secret, sha256_hex
 from ..identity.models import TokenRow
 from .auth import plugin_app_id, request_types
-from .models import PluginInstallRow
+from .models import PluginInstallRow, PluginSettingsRow
+from .settings_schema import load_settings_schema
+from sqlalchemy import delete
 
 _SECRET = re.compile(r"[a-z0-9](?:[-a-z0-9.]*[a-z0-9])?\Z")
 
@@ -66,6 +68,7 @@ def register_workloads(gw, identity) -> None:
             return
         try:
             declaration(app)
+            load_settings_schema(app)
         except ValueError as exc:
             raise ApiError(422, "conflict", str(exc), reason="invalid_request") from exc
         if type_ == "app.update" and app.manifest.get("spec", {}).get("plugin"):
@@ -85,6 +88,7 @@ def register_workloads(gw, identity) -> None:
         if parsed is None:
             return None
         name, scopes = parsed
+        settings_schema = load_settings_schema(app)
         digest = lc.bundle_sha256(app)
         if digest is None:
             raise ValueError("plugin workload bundle is unavailable")
@@ -98,8 +102,9 @@ def register_workloads(gw, identity) -> None:
                        scopes=scopes, source="app-install", created_by=approved.approved_by if approved and approved.approved_by else action.requested_by["id"],
                        created_at=now)
         with identity.repo.db.session.begin() as session:
+            session.execute(delete(PluginSettingsRow).where(PluginSettingsRow.app_id == app.id))
             session.merge(PluginInstallRow(app_id=app.id, secret_name=name, bundle_sha256=digest,
-                                           manifest=json.loads(json.dumps(app.manifest))))
+                                           manifest=json.loads(json.dumps(app.manifest)), settings_schema=settings_schema))
             session.add(row)
         gw.audit.append("plugin.principal.issued", None, action.id, {
             "principal_id": row.principal_id, "app_id": app.id, "scopes": scopes,

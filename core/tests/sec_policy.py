@@ -556,6 +556,10 @@ POLICY |= {
 
 # DEV-PLG-3 (#178): installed plugin summaries follow the Market's visibility filters.
 POLICY.update({
+    ("GET", "/v1/plugins/{plugin_id}/settings"): Row(cells(404, **GONE, plugin=DECIDE, automation=DECIDE, node=DECIDE),
+                                          w.p_static("/v1/plugins/not-installed/settings"), "#178 installed settings require sharing"),
+    ("POST", "/v1/plugins/{plugin_id}/settings"): Row(cells(403, **GONE, owner=404, plugin=DECIDE, automation=DECIDE, node=DECIDE),
+                                          lambda x: w.Req("/v1/plugins/not-installed/settings", json={"settings": {}, "bundle_sha256": "sha256:" + "a" * 64, "idempotency_key": x.key(), "expires_at": x.action_body()["expires_at"]}), "#178 owner-approved plugin.configure"),
     ("GET", "/v1/plugins"): Row(ANY_PRINCIPAL, w.p_static("/v1/plugins"), "#178 apps:read; shared installed plugin summaries"),
     ("GET", "/v1/plugins/{plugin_id}"): Row(cells(404, **GONE, plugin=DECIDE, automation=DECIDE, node=DECIDE),
                                           w.p_static("/v1/plugins/not-installed"), "#178 unavailable or unshared plugin is 404"),
