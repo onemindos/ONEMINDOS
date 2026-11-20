@@ -39,6 +39,8 @@ The order comes from [LANES.md](../LANES.md).
 
 - #178: installed registry receipts and plan fingerprints; PR #413, stacked on #411. Declarative plugins appear in registry; immutable receipts survive catalog edits. Settings schemas/UI/icons enter the approval fingerprint with symlink and size bounds.
 
+- #178: signed REST tool invocation; PR pending, stacked on #413. Read tools are bounded and audited; mutation requests retain declared risk, require owner approval and serialize against app removal. Destructive approvals require a real action-bound passkey.
+
 ## Next
 
 - Finish #177/#178 implementation and review first. Founder then requests smallest-to-heaviest work where dependencies allow: #183 scan adapter and #181 init slices are smallest; #180 packaging must land before those full issues, #184 follows #181, while #179/#182/#185 require heavier integration.
