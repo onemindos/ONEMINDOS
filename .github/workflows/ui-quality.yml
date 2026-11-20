@@ -74,6 +74,10 @@ jobs:
       - name: Build the ui demo
         working-directory: ui
         run: npm ci && npm run build:demo
+      - name: Generate the SDK code from the committed spec (CI-16, not committed)
+        uses: ./.github/actions/sdk-gen
+        with:
+          langs: ts
       - name: Build the dashboard (mock data, no gateway)
         working-directory: dashboard
         run: npm ci && npm run build:mock

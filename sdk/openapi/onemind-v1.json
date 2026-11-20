@@ -221,6 +221,32 @@
         "title": "ActionTemplate",
         "type": "object"
       },
+      "AiSchedule": {
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "default": false,
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "off": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Off",
+            "type": "array"
+          },
+          "tz": {
+            "default": "box",
+            "maxLength": 64,
+            "title": "Tz",
+            "type": "string"
+          }
+        },
+        "title": "AiSchedule",
+        "type": "object"
+      },
       "Allow": {
         "additionalProperties": false,
         "properties": {
@@ -256,6 +282,36 @@
           "requested_by"
         ],
         "title": "Allow",
+        "type": "object"
+      },
+      "AppClassification": {
+        "additionalProperties": false,
+        "properties": {
+          "min_age": {
+            "anyOf": [
+              {
+                "maximum": 21.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Age"
+          },
+          "tags": {
+            "items": {
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Tags",
+            "type": "array"
+          }
+        },
+        "title": "AppClassification",
         "type": "object"
       },
       "AppCredentials": {
@@ -333,6 +389,53 @@
           }
         },
         "title": "AppLinks",
+        "type": "object"
+      },
+      "AppPlacement": {
+        "description": "GET /v1/apps/{id}/placement (CORE-FABRIC-4): where the app would run, from its `spec.requires`.",
+        "properties": {
+          "app_id": {
+            "title": "App Id",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "node_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the node it would be placed on; null for nowhere and unknown",
+            "title": "Node Id"
+          },
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/NodePlacement"
+            },
+            "title": "Nodes",
+            "type": "array"
+          },
+          "verdict": {
+            "description": "here | elsewhere | nowhere | unknown (no node has reported)",
+            "title": "Verdict",
+            "type": "string",
+            "x-onemind-open-enum": true
+          }
+        },
+        "required": [
+          "app_id",
+          "verdict",
+          "node_id",
+          "message",
+          "nodes"
+        ],
+        "title": "AppPlacement",
         "type": "object"
       },
       "AppScope": {
@@ -551,6 +654,121 @@
         "title": "AuditVerify",
         "type": "object"
       },
+      "AutoUpdate": {
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "last_action_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Action Id"
+          },
+          "last_checked_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Checked At"
+          },
+          "last_download_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Download Bytes"
+          },
+          "last_result": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Result"
+          },
+          "window_id": {
+            "title": "Window Id",
+            "type": "string"
+          },
+          "window_open": {
+            "title": "Window Open",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled",
+          "window_id",
+          "window_open",
+          "last_checked_at",
+          "last_result",
+          "last_action_id",
+          "last_download_bytes"
+        ],
+        "title": "AutoUpdate",
+        "type": "object"
+      },
+      "AutoUpdateBody": {
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "window_id": {
+            "default": "win_nightly",
+            "pattern": "^win_[a-z0-9_]{1,36}$",
+            "title": "Window Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "title": "AutoUpdateBody",
+        "type": "object"
+      },
+      "BookRef": {
+        "additionalProperties": false,
+        "properties": {
+          "flavour": {
+            "default": "",
+            "maxLength": 20,
+            "pattern": "^[a-z0-9-]{0,20}$",
+            "title": "Flavour",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 100,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$",
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "BookRef",
+        "type": "object"
+      },
       "CatalogApp": {
         "description": "One GET /v1/apps entry: the §3 fields plus links, tier and scan (§11.4).",
         "properties": {
@@ -735,6 +953,49 @@
           "scan"
         ],
         "title": "CatalogApp",
+        "type": "object"
+      },
+      "CatalogBook": {
+        "properties": {
+          "flavour": {
+            "title": "Flavour",
+            "type": "string"
+          },
+          "issued": {
+            "title": "Issued",
+            "type": "string"
+          },
+          "language": {
+            "title": "Language",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "size_bytes": {
+            "title": "Size Bytes",
+            "type": "integer"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "flavour",
+          "title",
+          "language",
+          "path",
+          "size_bytes",
+          "issued"
+        ],
+        "title": "CatalogBook",
         "type": "object"
       },
       "CatalogSource": {
@@ -1110,6 +1371,241 @@
           "params"
         ],
         "title": "ConfigurePlanRequest",
+        "type": "object"
+      },
+      "ContentBody": {
+        "additionalProperties": false,
+        "description": "Switch an app's content tier (BAK-03). Switching it on needs the size the owner was shown.",
+        "properties": {
+          "app_id": {
+            "maxLength": 59,
+            "minLength": 1,
+            "pattern": "^[a-z0-9]([a-z0-9-]{0,57}[a-z0-9])?$",
+            "title": "App Id",
+            "type": "string"
+          },
+          "approve": {
+            "default": false,
+            "title": "Approve",
+            "type": "boolean"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "seen_size_bytes": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seen Size Bytes"
+          }
+        },
+        "required": [
+          "app_id",
+          "enabled"
+        ],
+        "title": "ContentBody",
+        "type": "object"
+      },
+      "ContentChange": {
+        "additionalProperties": false,
+        "properties": {
+          "add": {
+            "items": {
+              "$ref": "#/components/schemas/BookRef"
+            },
+            "maxItems": 40,
+            "title": "Add",
+            "type": "array"
+          },
+          "remove": {
+            "items": {
+              "$ref": "#/components/schemas/BookRef"
+            },
+            "maxItems": 200,
+            "title": "Remove",
+            "type": "array"
+          }
+        },
+        "title": "ContentChange",
+        "type": "object"
+      },
+      "ContentChangeRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "add": {
+            "items": {
+              "$ref": "#/components/schemas/BookRef"
+            },
+            "maxItems": 40,
+            "title": "Add",
+            "type": "array"
+          },
+          "download_bytes": {
+            "minimum": 0.0,
+            "title": "Download Bytes",
+            "type": "integer"
+          },
+          "idempotency_key": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "remove": {
+            "items": {
+              "$ref": "#/components/schemas/BookRef"
+            },
+            "maxItems": 200,
+            "title": "Remove",
+            "type": "array"
+          }
+        },
+        "required": [
+          "download_bytes",
+          "idempotency_key"
+        ],
+        "title": "ContentChangeRequest",
+        "type": "object"
+      },
+      "ContentChangeResult": {
+        "properties": {
+          "action": {
+            "$ref": "#/components/schemas/Action"
+          },
+          "plan": {
+            "$ref": "#/components/schemas/ContentPlan"
+          }
+        },
+        "required": [
+          "action",
+          "plan"
+        ],
+        "title": "ContentChangeResult",
+        "type": "object"
+      },
+      "ContentPlan": {
+        "properties": {
+          "changed": {
+            "title": "Changed",
+            "type": "boolean"
+          },
+          "download_bytes": {
+            "title": "Download Bytes",
+            "type": "integer"
+          },
+          "downloads": {
+            "items": {
+              "$ref": "#/components/schemas/CatalogBook"
+            },
+            "title": "Downloads",
+            "type": "array"
+          },
+          "removed": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Removed",
+            "type": "array"
+          },
+          "zims_after": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Zims After",
+            "type": "array"
+          },
+          "zims_before": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Zims Before",
+            "type": "array"
+          }
+        },
+        "required": [
+          "zims_before",
+          "zims_after",
+          "downloads",
+          "removed",
+          "download_bytes",
+          "changed"
+        ],
+        "title": "ContentPlan",
+        "type": "object"
+      },
+      "ContentView": {
+        "properties": {
+          "app": {
+            "$ref": "#/components/schemas/KiwixState"
+          },
+          "auto_update": {
+            "$ref": "#/components/schemas/AutoUpdate"
+          },
+          "library": {
+            "items": {
+              "$ref": "#/components/schemas/LibraryBook"
+            },
+            "title": "Library",
+            "type": "array"
+          },
+          "packs": {
+            "items": {
+              "$ref": "#/components/schemas/Pack"
+            },
+            "title": "Packs",
+            "type": "array"
+          },
+          "pending_action_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pending Action Id"
+          }
+        },
+        "required": [
+          "app",
+          "library",
+          "packs",
+          "pending_action_id",
+          "auto_update"
+        ],
+        "title": "ContentView",
         "type": "object"
       },
       "CopyBody": {
@@ -1622,6 +2118,89 @@
         "title": "ErrorBody",
         "type": "object"
       },
+      "FamilyProfile": {
+        "additionalProperties": false,
+        "properties": {
+          "allowed_apps": {
+            "anyOf": [
+              {
+                "items": {
+                  "pattern": "^[a-z0-9][a-z0-9-]{0,62}$",
+                  "type": "string"
+                },
+                "maxItems": 500,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Null inherits sharing; empty denies all apps; never grants access",
+            "title": "Allowed Apps"
+          },
+          "birth_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Private child profile data; never included in audit events",
+            "title": "Birth Date"
+          },
+          "blocked_tags": {
+            "items": {
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Blocked Tags",
+            "type": "array"
+          },
+          "max_age_rating": {
+            "anyOf": [
+              {
+                "maximum": 21.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Maximum app minimum-age rating; unclassified apps are blocked when set",
+            "title": "Max Age Rating"
+          },
+          "timezone": {
+            "default": "UTC",
+            "maxLength": 100,
+            "title": "Timezone",
+            "type": "string"
+          },
+          "windows": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/Window"
+                },
+                "maxItems": 50,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Null allows all times; empty denies all times; evaluated in timezone",
+            "title": "Windows"
+          }
+        },
+        "title": "FamilyProfile",
+        "type": "object"
+      },
       "FeatureActionRequest": {
         "additionalProperties": false,
         "properties": {
@@ -1662,6 +2241,9 @@
               "machine.delete",
               "machine.start",
               "machine.stop",
+              "node.wake",
+              "os.rollout.resume",
+              "os.rollout.start",
               "source.add",
               "source.move",
               "source.remove"
@@ -2103,6 +2685,112 @@
         "title": "JoinRequestBody",
         "type": "object"
       },
+      "KillSwitch": {
+        "additionalProperties": true,
+        "description": "The agent kill switch. `on: true` means every AI agent is refused until the owner turns it off.",
+        "properties": {
+          "changed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "RFC 3339 time of the last change; null if never changed",
+            "title": "Changed At"
+          },
+          "changed_by": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PrincipalRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "on": {
+            "title": "On",
+            "type": "boolean"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "on"
+        ],
+        "title": "KillSwitch",
+        "type": "object"
+      },
+      "KillSwitchBody": {
+        "additionalProperties": false,
+        "properties": {
+          "on": {
+            "description": "true stops every AI agent; false lets them work again",
+            "title": "On",
+            "type": "boolean"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why, for the audit record (at most 500 characters)",
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "on"
+        ],
+        "title": "KillSwitchBody",
+        "type": "object"
+      },
+      "KioskChange": {
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "title": "KioskChange",
+        "type": "object"
+      },
+      "KioskState": {
+        "properties": {
+          "apply": {
+            "default": "The box's own screen switches within a few seconds.",
+            "title": "Apply",
+            "type": "string"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "title": "KioskState",
+        "type": "object"
+      },
       "KitConfirmBody": {
         "additionalProperties": false,
         "properties": {
@@ -2119,6 +2807,64 @@
           "answers"
         ],
         "title": "KitConfirmBody",
+        "type": "object"
+      },
+      "KiwixState": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "in_catalog": {
+            "title": "In Catalog",
+            "type": "boolean"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "in_catalog",
+          "status"
+        ],
+        "title": "KiwixState",
+        "type": "object"
+      },
+      "LibraryBook": {
+        "properties": {
+          "date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date"
+          },
+          "flavour": {
+            "title": "Flavour",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "name",
+          "flavour",
+          "date"
+        ],
+        "title": "LibraryBook",
         "type": "object"
       },
       "Limits": {
@@ -2472,6 +3218,57 @@
         "title": "NodeOS",
         "type": "object"
       },
+      "NodePlacement": {
+        "description": "One node's line in the placement (contract §12.11).",
+        "properties": {
+          "labels": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "capability labels from the node's heartbeat (onemind.io/gpu, /arch, ...)",
+            "title": "Labels",
+            "type": "object"
+          },
+          "node_id": {
+            "title": "Node Id",
+            "type": "string"
+          },
+          "reasons": {
+            "items": {
+              "$ref": "#/components/schemas/PlacementReason"
+            },
+            "title": "Reasons",
+            "type": "array"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role",
+            "x-onemind-open-enum": true
+          },
+          "verdict": {
+            "description": "fits | fits_with_warning | no",
+            "title": "Verdict",
+            "type": "string",
+            "x-onemind-open-enum": true
+          }
+        },
+        "required": [
+          "node_id",
+          "role",
+          "verdict",
+          "labels",
+          "reasons"
+        ],
+        "title": "NodePlacement",
+        "type": "object"
+      },
       "OnboardingSettingsBody": {
         "additionalProperties": false,
         "properties": {
@@ -2643,6 +3440,60 @@
         "title": "OverrideInput",
         "type": "object"
       },
+      "Pack": {
+        "properties": {
+          "books": {
+            "items": {
+              "$ref": "#/components/schemas/PackBook"
+            },
+            "title": "Books",
+            "type": "array"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "description",
+          "books"
+        ],
+        "title": "Pack",
+        "type": "object"
+      },
+      "PackBook": {
+        "properties": {
+          "flavour": {
+            "title": "Flavour",
+            "type": "string"
+          },
+          "in_library": {
+            "title": "In Library",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "flavour",
+          "in_library"
+        ],
+        "title": "PackBook",
+        "type": "object"
+      },
       "PasskeyRegisterBody": {
         "properties": {
           "credential": {
@@ -2745,6 +3596,32 @@
           }
         },
         "title": "PauseBody",
+        "type": "object"
+      },
+      "PlacementReason": {
+        "description": "Why a node cannot run an app (`blocking`), or runs it with a warning.",
+        "properties": {
+          "blocking": {
+            "title": "Blocking",
+            "type": "boolean"
+          },
+          "code": {
+            "description": "gpu_missing | gpu_unknown | memory_too_small | memory_busy | cpu_level_too_low | arch_unsupported | node_offline | node_stale | no_cluster | cluster_not_ready",
+            "title": "Code",
+            "type": "string",
+            "x-onemind-open-enum": true
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "blocking"
+        ],
+        "title": "PlacementReason",
         "type": "object"
       },
       "PlainActionParams": {
@@ -3512,6 +4389,21 @@
         "title": "RestoreTrashOp",
         "type": "object"
       },
+      "ResumeBody": {
+        "additionalProperties": false,
+        "properties": {
+          "app_id": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,62}$",
+            "title": "App Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "app_id"
+        ],
+        "title": "ResumeBody",
+        "type": "object"
+      },
       "RevertBody": {
         "additionalProperties": false,
         "properties": {
@@ -4020,6 +4912,105 @@
         "title": "SetupBody",
         "type": "object"
       },
+      "ShareBody": {
+        "additionalProperties": false,
+        "properties": {
+          "expires_at": {
+            "description": "Between 5 minutes and 30 days from now",
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/ShareFileItem"
+                },
+                {
+                  "$ref": "#/components/schemas/SharePhotoItem"
+                }
+              ]
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Items",
+            "type": "array"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "password": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 8,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional; stored only as a hash",
+            "title": "Password"
+          }
+        },
+        "required": [
+          "items",
+          "expires_at"
+        ],
+        "title": "ShareBody",
+        "type": "object"
+      },
+      "ShareFileItem": {
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Path",
+            "type": "string"
+          },
+          "root": {
+            "maxLength": 205,
+            "pattern": "^(?:shared|home:[ -~]{1,200})$",
+            "title": "Root",
+            "type": "string"
+          }
+        },
+        "required": [
+          "root",
+          "path"
+        ],
+        "title": "ShareFileItem",
+        "type": "object"
+      },
+      "SharePhotoItem": {
+        "additionalProperties": false,
+        "properties": {
+          "photo": {
+            "description": "A photo in your library, by content: sha256:<hex>",
+            "maxLength": 71,
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Photo",
+            "type": "string"
+          }
+        },
+        "required": [
+          "photo"
+        ],
+        "title": "SharePhotoItem",
+        "type": "object"
+      },
       "SourceIn": {
         "properties": {
           "client_id": {
@@ -4408,6 +5399,41 @@
         "title": "TrashOp",
         "type": "object"
       },
+      "UpdatePolicyBody": {
+        "additionalProperties": false,
+        "properties": {
+          "ai_schedule": {
+            "$ref": "#/components/schemas/AiSchedule"
+          },
+          "backoff_after_failures": {
+            "default": 3,
+            "maximum": 10.0,
+            "minimum": 1.0,
+            "title": "Backoff After Failures",
+            "type": "integer"
+          },
+          "cool_off_hours": {
+            "default": 48,
+            "maximum": 720.0,
+            "minimum": 0.0,
+            "title": "Cool Off Hours",
+            "type": "integer"
+          },
+          "same_major_only": {
+            "default": true,
+            "title": "Same Major Only",
+            "type": "boolean"
+          },
+          "window_id": {
+            "default": "win_nightly",
+            "maxLength": 40,
+            "title": "Window Id",
+            "type": "string"
+          }
+        },
+        "title": "UpdatePolicyBody",
+        "type": "object"
+      },
       "UserCreateBody": {
         "properties": {
           "display_name": {
@@ -4535,6 +5561,55 @@
         "title": "VerifyBody",
         "type": "object"
       },
+      "WakeCapability": {
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "params": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WakeParams"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "available",
+          "reason"
+        ],
+        "title": "WakeCapability",
+        "type": "object"
+      },
+      "WakeParams": {
+        "additionalProperties": false,
+        "properties": {
+          "node_id": {
+            "pattern": "^[A-Za-z0-9_-]{1,64}$",
+            "title": "Node Id",
+            "type": "string"
+          },
+          "target_sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Target Sha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "node_id",
+          "target_sha256"
+        ],
+        "title": "WakeParams",
+        "type": "object"
+      },
       "Widget": {
         "additionalProperties": false,
         "properties": {
@@ -4556,6 +5631,64 @@
           "id"
         ],
         "title": "Widget",
+        "type": "object"
+      },
+      "WikipediaChoices": {
+        "properties": {
+          "books": {
+            "items": {
+              "$ref": "#/components/schemas/CatalogBook"
+            },
+            "title": "Books",
+            "type": "array"
+          },
+          "lang": {
+            "title": "Lang",
+            "type": "string"
+          }
+        },
+        "required": [
+          "lang",
+          "books"
+        ],
+        "title": "WikipediaChoices",
+        "type": "object"
+      },
+      "Window": {
+        "additionalProperties": false,
+        "properties": {
+          "days": {
+            "description": "Monday=0; start day for overnight windows",
+            "items": {
+              "maximum": 6.0,
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "maxItems": 7,
+            "minItems": 1,
+            "title": "Days",
+            "type": "array"
+          },
+          "end_minute": {
+            "description": "Exclusive end; less than start means overnight",
+            "maximum": 1440.0,
+            "minimum": 0.0,
+            "title": "End Minute",
+            "type": "integer"
+          },
+          "start_minute": {
+            "maximum": 1439.0,
+            "minimum": 0.0,
+            "title": "Start Minute",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "days",
+          "start_minute",
+          "end_minute"
+        ],
+        "title": "Window",
         "type": "object"
       },
       "WindowBody": {
@@ -5263,6 +6396,116 @@
         "summary": "Deny Action",
         "tags": [
           "actions"
+        ]
+      }
+    },
+    "/v1/agents/kill-switch": {
+      "get": {
+        "operationId": "agents.kill_switch.get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KillSwitch"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "summary": "Get Kill Switch",
+        "tags": [
+          "agents"
+        ]
+      },
+      "put": {
+        "operationId": "agents.kill_switch.set",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KillSwitchBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KillSwitch"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Set Kill Switch",
+        "tags": [
+          "agents"
         ]
       }
     },
@@ -6601,6 +7844,79 @@
           }
         },
         "summary": "Describe",
+        "tags": [
+          "apps"
+        ]
+      }
+    },
+    "/v1/apps/{app_id}/placement": {
+      "get": {
+        "description": "Where the app would run (CORE-FABRIC-4): here, on another machine, or nowhere, with each node's reasons.",
+        "operationId": "apps.placement",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "app_id",
+            "required": true,
+            "schema": {
+              "title": "App Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppPlacement"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "App Placement",
         "tags": [
           "apps"
         ]
@@ -9225,6 +10541,173 @@
         ]
       }
     },
+    "/v1/backups/content": {
+      "get": {
+        "description": "Apps with large re-downloadable content (spec.backup.content): whether the optional content\ntier is on, and what it weighs now, so the size is shown before anyone switches it on.",
+        "operationId": "backups.content.list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
+          }
+        },
+        "summary": "Content",
+        "tags": [
+          "backups"
+        ]
+      },
+      "post": {
+        "operationId": "backups.content.set",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContentBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
+          }
+        },
+        "summary": "Set Content",
+        "tags": [
+          "backups"
+        ]
+      }
+    },
     "/v1/backups/destinations": {
       "get": {
         "operationId": "backups.destinations.list",
@@ -10515,6 +11998,462 @@
         ]
       }
     },
+    "/v1/content": {
+      "get": {
+        "description": "The Kiwix library, the curated packs and the auto-update setting. No network.",
+        "operationId": "content.get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "summary": "Content Get",
+        "tags": [
+          "content"
+        ]
+      }
+    },
+    "/v1/content/auto-update": {
+      "put": {
+        "description": "Turn the auto-update check on or off, and pick the maintenance window it runs in.",
+        "operationId": "content.auto_update",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AutoUpdateBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AutoUpdate"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Content Auto Update",
+        "tags": [
+          "content"
+        ]
+      }
+    },
+    "/v1/content/changes": {
+      "post": {
+        "description": "Request the change as an app.configure of Kiwix; it waits for an owner's approval.",
+        "operationId": "content.changes",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContentChangeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentChangeResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
+          }
+        },
+        "summary": "Content Changes",
+        "tags": [
+          "content"
+        ]
+      }
+    },
+    "/v1/content/plan": {
+      "post": {
+        "description": "What a change would download (with sizes) and stop serving. Files nothing.",
+        "operationId": "content.plan",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContentChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentPlan"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
+          }
+        },
+        "summary": "Content Plan",
+        "tags": [
+          "content"
+        ]
+      }
+    },
+    "/v1/content/updates": {
+      "get": {
+        "description": "Newer releases of the books in the library, with their download size. Files nothing.",
+        "operationId": "content.updates",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentPlan"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
+          }
+        },
+        "summary": "Content Updates",
+        "tags": [
+          "content"
+        ]
+      }
+    },
+    "/v1/content/wikipedia": {
+      "get": {
+        "description": "Wikipedia in one language, in each size the catalogue has, with the download size.",
+        "operationId": "content.wikipedia",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "lang",
+            "required": true,
+            "schema": {
+              "maxLength": 21,
+              "minLength": 2,
+              "pattern": "^[a-z]{2,12}(-[a-z]{2,8})?$",
+              "title": "Lang",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WikipediaChoices"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
+          }
+        },
+        "summary": "Content Wikipedia",
+        "tags": [
+          "content"
+        ]
+      }
+    },
     "/v1/databases": {
       "get": {
         "description": "Apps' databases on the shared PostgreSQL. Never a password: those live in each app's Secret.",
@@ -11186,6 +13125,331 @@
         "summary": "Revoke Ticket",
         "tags": [
           "fabric"
+        ]
+      }
+    },
+    "/v1/family/apps/{app_id}": {
+      "get": {
+        "operationId": "family.apps.get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "app_id",
+            "required": true,
+            "schema": {
+              "title": "App Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppClassification"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Get Classification",
+        "tags": [
+          "family"
+        ]
+      },
+      "put": {
+        "operationId": "family.apps.set",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "app_id",
+            "required": true,
+            "schema": {
+              "title": "App Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AppClassification"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppClassification"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Put Classification",
+        "tags": [
+          "family"
+        ]
+      }
+    },
+    "/v1/family/profiles/{user_id}": {
+      "get": {
+        "operationId": "family.profiles.get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FamilyProfile"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Get Profile",
+        "tags": [
+          "family"
+        ]
+      },
+      "put": {
+        "description": "Replace a person's controls. Owner only, with the existing passkey step-up rules.",
+        "operationId": "family.profiles.set",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FamilyProfile"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FamilyProfile"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Put Profile",
+        "tags": [
+          "family"
         ]
       }
     },
@@ -12096,6 +14360,137 @@
         ]
       }
     },
+    "/v1/files/shares": {
+      "get": {
+        "description": "Your links, without their secrets. An owner also sees everyone else's, but not the paths,\nphotos or names behind items from that person's Home or photo library.",
+        "operationId": "files.shares.list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Not signed in; on /v1/share: the link's password is missing or wrong (unauthenticated)"
+          }
+        },
+        "summary": "List Shares",
+        "tags": [
+          "files"
+        ]
+      },
+      "post": {
+        "description": "Share files or photos outside the household until `expires_at`. The secret comes back once.",
+        "operationId": "files.shares.create",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShareBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Not signed in; on /v1/share: the link's password is missing or wrong (unauthenticated)"
+          },
+          "403": {
+            "description": "Only an owner or adult shares, and only what they can read (permission_denied)"
+          },
+          "404": {
+            "description": "No such link, file, photo or item (not_found)"
+          },
+          "409": {
+            "description": "Not a regular file (conflict)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "description": "Invalid body, expiry or photo hash (conflict)"
+          },
+          "429": {
+            "description": "Too many live links for this person (rate_limited)"
+          },
+          "503": {
+            "description": "The files storage is not usable (unavailable)"
+          }
+        },
+        "summary": "Create Share",
+        "tags": [
+          "files"
+        ]
+      }
+    },
+    "/v1/files/shares/{share_id}": {
+      "delete": {
+        "description": "End a link now: the creator or an owner.",
+        "operationId": "files.shares.revoke",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "share_id",
+            "required": true,
+            "schema": {
+              "maxLength": 40,
+              "pattern": "^shl_[0-9A-Z]{26}$",
+              "title": "Share Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Not signed in; on /v1/share: the link's password is missing or wrong (unauthenticated)"
+          },
+          "404": {
+            "description": "No such link, file, photo or item (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Revoke Share",
+        "tags": [
+          "files"
+        ]
+      }
+    },
     "/v1/files/stat": {
       "get": {
         "operationId": "files.stat",
@@ -12724,6 +15119,126 @@
           }
         },
         "summary": "Instance",
+        "tags": [
+          "instance"
+        ]
+      }
+    },
+    "/v1/instance/kiosk": {
+      "get": {
+        "operationId": "instance.kiosk.get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KioskState"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "summary": "Get Kiosk",
+        "tags": [
+          "instance"
+        ]
+      },
+      "put": {
+        "operationId": "instance.kiosk.set",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KioskChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KioskState"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
+          }
+        },
+        "summary": "Set Kiosk",
         "tags": [
           "instance"
         ]
@@ -14168,6 +16683,68 @@
         ]
       }
     },
+    "/v1/nodes/{node_id}/wake": {
+      "get": {
+        "operationId": "nodes.wake_capability",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "node_id",
+            "required": true,
+            "schema": {
+              "title": "Node Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WakeCapability"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Wake Capability",
+        "tags": [
+          "nodes"
+        ]
+      }
+    },
     "/v1/notifications": {
       "get": {
         "operationId": "notifications.list",
@@ -15244,6 +17821,238 @@
         "summary": "Save",
         "tags": [
           "onboarding"
+        ]
+      }
+    },
+    "/v1/os/fleet": {
+      "get": {
+        "description": "Every machine's OS version and update state, and how many machines run each version.",
+        "operationId": "os.fleet",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "summary": "Os Fleet",
+        "tags": [
+          "os"
+        ]
+      }
+    },
+    "/v1/os/rollouts": {
+      "get": {
+        "description": "Fleet-staged rollouts, newest first.",
+        "operationId": "os.rollouts.list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "summary": "Os Rollouts",
+        "tags": [
+          "os"
+        ]
+      }
+    },
+    "/v1/os/rollouts/{rollout_id}": {
+      "get": {
+        "description": "One rollout: its stage, each machine's state, and why it paused.",
+        "operationId": "os.rollouts.get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "rollout_id",
+            "required": true,
+            "schema": {
+              "title": "Rollout Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Os Rollout",
+        "tags": [
+          "os"
+        ]
+      }
+    },
+    "/v1/os/rollouts/{rollout_id}/cancel": {
+      "post": {
+        "description": "Stop offering the version to more machines. Owner only; machines already updated stay updated.",
+        "operationId": "os.rollouts.cancel",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "rollout_id",
+            "required": true,
+            "schema": {
+              "title": "Rollout Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Os Rollout Cancel",
+        "tags": [
+          "os"
         ]
       }
     },
@@ -16583,6 +19392,168 @@
         ]
       }
     },
+    "/v1/share/{token}": {
+      "get": {
+        "description": "No account: the link secret is the credential. The items the link shares, by index.",
+        "operationId": "share.open",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "maxLength": 60,
+              "pattern": "^oms_[A-Za-z0-9_-]{43}$",
+              "title": "Token",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "OneMind-Share-Password",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Onemind-Share-Password"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Not signed in; on /v1/share: the link's password is missing or wrong (unauthenticated)"
+          },
+          "404": {
+            "description": "No such link, file, photo or item (not_found)"
+          },
+          "410": {
+            "description": "The link expired, was revoked, or its creator can no longer share (expired)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Open Share",
+        "tags": [
+          "share"
+        ]
+      }
+    },
+    "/v1/share/{token}/items/{index}": {
+      "get": {
+        "description": "One shared item's bytes, read with the creator's current rights.",
+        "operationId": "share.download",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "maxLength": 60,
+              "pattern": "^oms_[A-Za-z0-9_-]{43}$",
+              "title": "Token",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "index",
+            "required": true,
+            "schema": {
+              "exclusiveMaximum": 100,
+              "minimum": 0,
+              "title": "Index",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "inline",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Inline",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "header",
+            "name": "OneMind-Share-Password",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Onemind-Share-Password"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "206": {
+            "description": "Partial content (Range)"
+          },
+          "401": {
+            "description": "Not signed in; on /v1/share: the link's password is missing or wrong (unauthenticated)"
+          },
+          "404": {
+            "description": "No such link, file, photo or item (not_found)"
+          },
+          "410": {
+            "description": "The link expired, was revoked, or its creator can no longer share (expired)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Download Share Item",
+        "tags": [
+          "share"
+        ]
+      }
+    },
     "/v1/sources": {
       "get": {
         "operationId": "sources.list",
@@ -17419,6 +20390,204 @@
         "summary": "Rotate Token",
         "tags": [
           "tokens"
+        ]
+      }
+    },
+    "/v1/update-policy": {
+      "get": {
+        "description": "The owner's update policy for apps, and the apps whose auto-update is paused.",
+        "operationId": "updates.policy.get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          }
+        },
+        "summary": "Get Update Policy",
+        "tags": [
+          "updates"
+        ]
+      },
+      "put": {
+        "description": "Change the update policy (owner only). The knobs only ever hold an update back.",
+        "operationId": "updates.policy.update",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePolicyBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Put Update Policy",
+        "tags": [
+          "updates"
+        ]
+      }
+    },
+    "/v1/update-policy/dry-run": {
+      "get": {
+        "description": "What would update in the next maintenance window, app by app, and why not. Files nothing.",
+        "operationId": "updates.policy.dry_run",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          }
+        },
+        "summary": "Update Policy Dry Run",
+        "tags": [
+          "updates"
+        ]
+      }
+    },
+    "/v1/update-policy/resume": {
+      "post": {
+        "description": "Lift the back-off for one app (owner only): its failed updates before now stop counting.",
+        "operationId": "updates.policy.resume",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResumeBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Resume Auto Update",
+        "tags": [
+          "updates"
         ]
       }
     },

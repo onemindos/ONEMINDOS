@@ -168,29 +168,48 @@ class GuardMiddleware:
         if declared is not None and declared > limit:
             return await _reject(scope, receive, send, 413, "payload_too_large",
                                  f"request body is over {limit} bytes", None, None)
-        if declared is None and _has_body(scope):
-            # Chunked or unknown length: read it here, up to the limit, before any route sees it
-            # (a route's own body parser would turn an error into a generic 400).
-            body, more = bytearray(), True
-            while more:
-                msg = await receive()
-                if msg["type"] != "http.request":
-                    break
-                body += msg.get("body", b"")
-                more = msg.get("more_body", False)
-                if len(body) > limit:
-                    return await _reject(scope, receive, send, 413, "payload_too_large",
-                                         f"request body is over {limit} bytes", None, None)
-            receive = _replay(bytes(body), receive)
+        consumed, exceeded = 0, False
+
+        async def limited_receive():
+            nonlocal consumed, exceeded
+            if exceeded:
+                raise _BodyTooLarge
+            msg = await receive()
+            if msg["type"] == "http.request":
+                consumed += len(msg.get("body", b""))
+                if consumed > limit:
+                    exceeded = True
+                    raise _BodyTooLarge
+            return msg
 
         status: dict[str, int] = {}
 
         async def tracking_send(msg):
+            # A parser or route cleanup may translate the receive exception into a
+            # 400/409. Keep the guard's 413 authoritative, without buffering a response.
+            if exceeded:
+                return
             if msg["type"] == "http.response.start":
                 status["code"] = msg["status"]
             await send(msg)
 
-        await self.app(scope, receive, tracking_send)
+        try:
+            # Read only when the route asks: its read deadline and disconnect handling
+            # must surround receive(), not wait behind an eager middleware buffer.
+            await self.app(scope, limited_receive, tracking_send)
+        except (_BodyTooLarge, ExceptionGroup) as exc:
+            # AnyIO receive task groups may wrap the private signal. Handle only
+            # groups made entirely of overflow signals, never independent failures
+            # (including wrappers whose cause/context happens to be overflow).
+            if (not exceeded or "code" in status
+                    or isinstance(exc, ExceptionGroup) and exc.split(_BodyTooLarge)[1] is not None):
+                raise
+        if exceeded:
+            if "code" in status:
+                # A streaming response already started: never send a second start.
+                raise _BodyTooLarge
+            return await _reject(scope, receive, send, 413, "payload_too_large",
+                                 f"request body is over {limit} bytes", None, None)
         if status.get("code") == 401 and self.limits.enabled and self.auth.failed(source):
             if self.on_backoff is not None:
                 self.on_backoff(source)
@@ -214,21 +233,8 @@ async def _reject(scope, receive, send, status, error, message, reason, wait):
     await resp(scope, receive, send)
 
 
-def _has_body(scope) -> bool:
-    return any(k == b"transfer-encoding" for k, _ in scope.get("headers") or [])
-
-
-def _replay(body: bytes, receive):
-    sent = False
-
-    async def replay():
-        nonlocal sent
-        if not sent:
-            sent = True
-            return {"type": "http.request", "body": body, "more_body": False}
-        return await receive()
-
-    return replay
+class _BodyTooLarge(Exception):
+    """Internal receive signal; parsers may catch it, so the guard also tracks overflow."""
 
 
 def _content_length(scope) -> int | None:

@@ -1,0 +1,22 @@
+# SPDX-License-Identifier: Apache-2.0
+# The host action service's socket (onemind-host.service, docs/leap/core/HOST-ACTIONS.md). systemd creates
+# it with its owner, group and mode, so the service needs no chown: its syscall filter forbids @chown and it
+# holds no CAP_CHOWN. Mode 0660 root:onemind lets the gateway's user connect; the service then admits root
+# and the gateway's uid only (SO_PEERCRED).
+[Unit]
+Description=OneMind host actions socket
+ConditionPathExists=/data/onemind/firstboot/state.json
+
+[Socket]
+ListenStream=/run/onemind/host.sock
+SocketUser=root
+SocketGroup=onemind
+SocketMode=0660
+DirectoryMode=0711
+Accept=no
+# DirectoryMode= applies only to a folder systemd creates. onemind-firstboot may have made /run/onemind
+# first; make sure the gateway can pass through it (0711: enter, not list) whoever made it.
+ExecStartPre=/bin/sh -c 'mkdir -p /run/onemind && chmod go+x /run/onemind'
+
+[Install]
+WantedBy=sockets.target

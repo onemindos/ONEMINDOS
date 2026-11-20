@@ -6,18 +6,19 @@ import { useParams } from 'react-router';
 import { AppearanceSettings, Card, EmptyState, PageHeader, SETTINGS_SECTIONS, SettingsLayout, type SettingsSectionId } from '@onemind/ui';
 import { useHub } from '../data/hub';
 import { Account } from './Account';
+import { AgentStop } from './AgentStop';
 import { Inbox } from './Inbox';
 import { Tokens } from './Tokens';
 import { Users } from './Users';
+import { UpdatePolicy } from './UpdatePolicy';
 import { href } from '../shell/routes';
 
 /** Section → the work stream (docs/leap/STATUS.md epic) and the §12 API that brings it (§12 owns the paths). */
-export const COMING: Record<Exclude<SettingsSectionId, 'appearance' | 'about' | 'account' | 'users' | 'agents' | 'notifications'>, { stream: string; api: string | null }> = {
+export const COMING: Record<Exclude<SettingsSectionId, 'appearance' | 'about' | 'account' | 'users' | 'agents' | 'notifications' | 'updates'>, { stream: string; api: string | null }> = {
   devices: { stream: 'CORE-FABRIC (core-net)', api: '/v1/fabric/join-tickets' },
   network: { stream: 'CORE-FABRIC (core-net)', api: '/v1/fabric, /v1/tls' },
   storage: { stream: 'UMB-STOR', api: null },
   backups: { stream: 'CORE-BACKUP (a gateway backups route)', api: null },
-  updates: { stream: 'CORE-UPDATE (a gateway OS status route)', api: null },
   automation: { stream: 'CORE-AUTO', api: '/v1/automation/rules, /v1/approval-policies' },
 };
 
@@ -72,8 +73,15 @@ export function Settings() {
   else if (current === 'about') body = <About />;
   else if (current === 'account') body = <Account />;
   else if (current === 'users') body = <Users />;
-  else if (current === 'agents') body = <Tokens />;
+  else if (current === 'agents')
+    body = (
+      <>
+        <AgentStop />
+        <Tokens />
+      </>
+    );
   else if (current === 'notifications') body = <Inbox />;
+  else if (current === 'updates') body = <UpdatePolicy />;
   else {
     const c = COMING[current as keyof typeof COMING];
     body = (

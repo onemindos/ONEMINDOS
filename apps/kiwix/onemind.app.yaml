@@ -43,7 +43,9 @@ spec:
       description: "https:// base URL of a Kiwix mirror's zim/ folder. Each file is still checked against that mirror's .sha256 file."
       default: "https://download.kiwix.org/zim"
       maxLength: 200
-      pattern: "^https://[A-Za-z0-9.-]+(:[0-9]+)?(/[A-Za-z0-9._~-]+)*$"
+      # One character class: the gateway refuses quantified groups in a pattern (appstore/appsettings.py
+      # pattern_risk), and library-sync.sh checks the https:// prefix again before it downloads.
+      pattern: "^https://[A-Za-z0-9._~:/-]+$"
     - name: reserve_mb
       env: KIWIX_RESERVE_MB
       type: integer
@@ -52,8 +54,11 @@ spec:
       default: 1024
       minimum: 0
       maximum: 1048576
-  # ZIM files can be hundreds of GiB and are downloaded again from the mirror, so only the
-  # library list is backed up (REC-NOMAD-07: content is an optional, size-aware tier).
+  # ZIM files can be hundreds of GiB and are downloaded again from the mirror, so they are the
+  # optional, size-aware content tier (REC-NOMAD-07, BAK-03): the library list is always backed up,
+  # the books only when the owner switches the tier on after seeing their size. Half-done
+  # downloads are never backed up.
   backup:
     mode: hot
-    exclude: ["*.zim", "*.zim.part"]
+    exclude: ["*.zim.part"]
+    content: ["*.zim"]

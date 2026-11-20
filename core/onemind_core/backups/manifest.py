@@ -8,12 +8,18 @@
         post: [{exec: {command: [rm, -f, /data/app.db.bak]}}]
         sqlite: [{claim: data, path: app.db}]     # SQLite files inside a volume: online copy
         exclude: [cache/, "*.tmp"]
+        content: ["*.zim"]         # large, re-downloadable content: an optional tier (BAK-03)
         restore: {post: [{exec: {command: [...]}}]}
       database: {engine: postgres, secret: notes-db}   # a database, role and Secret at install
 
 A hook is `{exec: {container?, command: [argv...]}, timeout_s?}`; one hook may be given without
 the list. Commands run inside the app's container through the Kubernetes API, never on the host.
 An app without `backup:` is copied hot ("crash-consistent only") and its badge says so.
+
+`content` marks large content the app downloads again by itself (offline libraries, map archives,
+model files; REC-NOMAD-07). It is left out of the app's snapshots like `exclude`, until the owner
+switches the content tier on for that app after seeing its size (GET /v1/backups/content).
+Patterns are relative, read like restic reads a relative --exclude, without `..` or `**`.
 """
 
 from __future__ import annotations
@@ -43,6 +49,7 @@ class BackupSpec:
     restore_post: tuple[ExecHook, ...] = ()
     sqlite: tuple[tuple[str, str], ...] = ()  # (claim, path inside the volume)
     exclude: tuple[str, ...] = ()
+    content: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -99,6 +106,12 @@ def parse_backup(spec: object) -> tuple[BackupSpec, list[str]]:
     ):
         errs.append("spec.backup.exclude must be a list of relative patterns")
         exclude = []
+    content = b.get("content") or []
+    if not isinstance(content, list) or len(content) > 64 or not all(
+        isinstance(c, str) and c and not c.startswith("/") and ".." not in c and "**" not in c for c in content
+    ):
+        errs.append("spec.backup.content must be a list of relative patterns (no '..' or '**')")
+        content = []
     restore = b.get("restore") or {}
     out = BackupSpec(
         declared=True,
@@ -108,6 +121,7 @@ def parse_backup(spec: object) -> tuple[BackupSpec, list[str]]:
         restore_post=_hooks(restore.get("post") if isinstance(restore, dict) else None, "spec.backup.restore.post", errs),
         sqlite=tuple(sqlite),
         exclude=tuple(exclude),
+        content=tuple(content),
     )
     return out, errs
 

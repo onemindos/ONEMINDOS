@@ -264,7 +264,7 @@ def allowed(principal: Principal, access: str) -> bool:
         return principal.role == "owner"
     if access == "adults":
         return principal.role in ("owner", "adult")
-    return principal.role in ("owner", "adult", "guest")
+    return principal.role in ("owner", "adult", "guest", "child")
 
 
 def parse_cookies(header: str) -> dict[str, str]:

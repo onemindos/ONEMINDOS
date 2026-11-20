@@ -8,7 +8,7 @@ Vector street maps of your region that work with no internet, from OpenStreetMap
 | | |
 |---|---|
 | Version | 1.31.2 (upstream release `v1.31.2`, published 2026-07-22) |
-| Licence | `BSD-3-Clause`, Market class **L1** (licence gate, scan of 2026-11-19) |
+| Licence | `BSD-3-Clause`, Market class **L1** (licence gate, scan of 2026-11-20) |
 | Tier | `verified` (set by CI: sdk/tools/app-gate) |
 | Category | field |
 | GitHub | <https://github.com/protomaps/go-pmtiles> |
@@ -54,7 +54,7 @@ Images:
   - It never writes, renames or deletes a map.
 - **`pmtiles`** (`go-pmtiles serve`, port 8081): a Z/X/Y tile API (`/<map name>/{z}/{x}/{y}.mvt`) for other map clients. It is also the tool the owner uses to cut a map (below).
 - Settings: `language` (place-name language, for example `en`, `es`, `de`) and `flavor` (`light`, `dark`, `white`, `grayscale`, `black`).
-- Backups skip the maps and the assets, which can be cut and downloaded again.
+- Backups skip the assets, which are downloaded again. The maps (`maps/*.pmtiles`) are the optional content tier: skipped (they can be cut again) until the owner switches the tier on in Backups after seeing their size (`GET /v1/backups/content`, BAK-03).
 
 ## First run
 
@@ -79,6 +79,28 @@ To remove a map (the `pmtiles` container is distroless and has no shell, so this
 kubectl -n app-offline-maps exec deploy/offline-maps -c viewer -- python3 -c "import os; os.remove('/data/maps/home.pmtiles')"
 ```
 
+## Measure distance and add an overlay
+
+Enable **Measure two points**, then click two places. The viewer shows the
+approximate straight-line distance in kilometres; it does not calculate a road
+route or account for terrain. A third click starts a new measurement, and
+**Clear measurement** removes it. Both calculations and drawing work offline.
+
+Choose a local `.geojson` or `.json` file with **GeoJSON overlay** to display
+points, lines or polygons over the map. The file stays in this browser tab and
+is never uploaded. Switching map archives retains the overlay; clearing it or
+closing/reloading the tab removes it. Keep the original file yourself.
+
+Overlays use longitude/latitude degrees ([RFC 7946](https://www.rfc-editor.org/rfc/rfc7946)).
+Files are limited to 2 MiB and 50,000 positions. Point, MultiPoint, LineString,
+MultiLineString, Polygon and MultiPolygon geometries are supported; polygon
+rings must be closed. GeometryCollection is unsupported. Only geometry is
+drawn; properties, links, HTML and remote styles are discarded. This uses the
+existing MapLibre GeoJSON source/layer APIs; no new library is downloaded.
+API reference: [MapLibre GeoJSONSource](https://maplibre.org/maplibre-gl-js/docs/API/classes/GeoJSONSource/).
+Use only overlay data you have permission to use, and keep its attribution and
+licence with the original file; the overlay adds no redistribution rights.
+
 ## Not done yet
 
 - **Cutting a map is a terminal step.** A Market action ("add map for this area") that the owner approves from the dashboard is the next step. It needs a contract action type for app-specific jobs.
@@ -89,11 +111,11 @@ kubectl -n app-offline-maps exec deploy/offline-maps -c viewer -- python3 -c "im
 
 ## Latest security scan
 
-Scanned 2026-11-19T14:41:31Z by `sdk/tools/app-gate`: **pass**. Licence `BSD-3-Clause` class L1; smoke test pass.
+Scanned 2026-11-20T14:07:48Z by `sdk/tools/app-gate`: **pass**. Licence `BSD-3-Clause` class L1; smoke test pass.
 
 | Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
 |---|---|---|---|---|---|---|
-| `docker.io/library/python:3.14.10-slim-trixie@sha256:9aaa474097d094040649f2162a627c0049b408f52138d980916788d80f04802f` | amd64, arm64 | 0 (0) | 53 | 0 infected (daily-28188) | 0 | unsigned |
-| `docker.io/protomaps/go-pmtiles:v1.31.2@sha256:06574f01f55a78f78f887bc7ebf729a5c093c0d6e17d9876300cfcb0758b59d3` | amd64, arm64 | 0 (0) | 36 | 0 infected (daily-28188) | 0 | unsigned |
+| `docker.io/library/python:3.14.10-slim-trixie@sha256:9aaa474097d094040649f2162a627c0049b408f52138d980916788d80f04802f` | amd64, arm64 | 0 (0) | 53 | 0 infected (daily-28189) | 0 | unsigned |
+| `docker.io/protomaps/go-pmtiles:v1.31.2@sha256:06574f01f55a78f78f887bc7ebf729a5c093c0d6e17d9876300cfcb0758b59d3` | amd64, arm64 | 0 (0) | 35 | 0 infected (daily-28189) | 0 | unsigned |
 
 Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

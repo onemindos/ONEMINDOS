@@ -8,7 +8,7 @@ Offline Wikipedia and other reference libraries (ZIM files), with a library mana
 | | |
 |---|---|
 | Version | 3.8.2 (upstream release `3.8.2`, published 2026-03-02) |
-| Licence | `GPL-3.0`, Market class **L2** (licence gate, scan of 2026-11-19) |
+| Licence | `GPL-3.0`, Market class **L2** (licence gate, scan of 2026-11-20) |
 | Tier | `verified` (set by CI: sdk/tools/app-gate) |
 | Category | learning |
 | GitHub | <https://github.com/kiwix/kiwix-tools> |
@@ -56,7 +56,7 @@ Kiwix serves **offline copies of Wikipedia and other reference works** to any br
   5. rebuilds `library.xml` from exactly the listed books (`kiwix-manage add`).
   It never deletes a ZIM file. A book left out of the list simply stops being served.
 - Settings (contract §12.22, delivered as ConfigMap `onemind-settings`): `zims` (the book list), `mirror` (an `https://` Kiwix mirror; checksums still come from that mirror) and `reserve_mb`.
-- Backups keep the library list and skip the ZIM files (`*.zim`), which can be downloaded again.
+- Backups keep the library list. The ZIM files (`*.zim`) are the optional content tier: skipped (they can be downloaded again) until the owner switches the tier on in Backups after seeing their size (`GET /v1/backups/content`, BAK-03).
 - Other apps reach it at `http://kiwix.app-kiwix.svc.cluster.local:8080`. Its search API (`/search?pattern=…&format=xml`) is what Library Chat uses.
 
 ## First run
@@ -88,10 +88,10 @@ Take it out of the **Books** setting, which stops serving it. Then delete the fi
 
 ## Latest security scan
 
-Scanned 2026-11-19T14:11:44Z by `sdk/tools/app-gate`: **pass**. Licence `GPL-3.0` class L2; smoke test pass.
+Scanned 2026-11-20T13:42:44Z by `sdk/tools/app-gate`: **pass**. Licence `GPL-3.0` class L2; smoke test pass.
 
 | Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
 |---|---|---|---|---|---|---|
-| `ghcr.io/kiwix/kiwix-serve:3.8.2@sha256:e478554a9920412eeb5ce1d73f24e4b28445ebed233187cdd03c623c32be46a5` | amd64, arm64 | 0 (0) | 5 | 0 infected (daily-28188) | 0 | unsigned |
+| `ghcr.io/kiwix/kiwix-serve:3.8.2@sha256:e478554a9920412eeb5ce1d73f24e4b28445ebed233187cdd03c623c32be46a5` | amd64, arm64 | 0 (0) | 5 | 0 infected (daily-28189) | 0 | unsigned |
 
 Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

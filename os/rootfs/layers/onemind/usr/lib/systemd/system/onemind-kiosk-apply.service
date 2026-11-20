@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: Apache-2.0
+# Applies a kiosk switch: restarts the screen units, whose ConditionPathExists lines pick the right one.
+[Unit]
+Description=OneMind: apply the kiosk switch to the box's own screen
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/systemctl restart onemind-screen.service onemind-kiosk.service

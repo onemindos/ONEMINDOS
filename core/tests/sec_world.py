@@ -561,10 +561,25 @@ def p_window_put(w: World) -> Req:
     return Req("/v1/windows/win_probe", json={"name": "probe", "tz": "UTC", "ranges": [{"start": "21:00", "end": "23:00"}]})
 
 
+def p_kiosk_put(w: World) -> Req:
+    return Req("/v1/instance/kiosk", json={"enabled": False})
+
+
 def p_missing(path: str, *, json: Any = None, content: bytes | None = None, headers: dict | None = None):
     """A probe for `path` with {policy}-style placeholders filled from MISSING (an object that is not there)."""
     concrete = path.format(**MISSING)
     return lambda w: Req(concrete, json=json, content=content, headers=dict(headers or {}))
+
+
+# ---- share links (FILES-02, #237) ----------------------------------------------------------------------------
+SHARE_ID = "shl_0123456789ABCDEFGHJKMNPQRS"   # a share link that does not exist
+SHARE_TOKEN = "oms_" + "A" * 43               # a link secret the box never issued
+
+
+def p_share_create(w: World) -> Req:
+    """A well-formed link to a file that is not there: the people allowed to share reach the 404."""
+    return Req("/v1/files/shares", json={"items": [{"root": "shared", "path": "/no-such-file"}],
+                                         "expires_at": _in_a_day(w)})
 
 
 # ---- networking (feat/net-part2: join tickets, join requests, mesh, box CA, app sessions) --------------------
