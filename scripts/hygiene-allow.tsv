@@ -68,5 +68,5 @@ core/onemind_core/netpath.py	100\.64\.0\.0	B-FP-9
 core/tests/test_app_exposure_sharing.py	192\.168\.1\.20	B-FP-6
 # B-FP-9b: the LAN allowlist in core/onemind_core/netpath.py names the RFC 1918 network addresses (standard ranges, not a real network).
 core/onemind_core/netpath.py	(10\.0\.0\.0|172\.16\.0\.0|192\.168\.0\.0)	B-FP-9
-# B-FP-12: net-2vm harness private link, not a real network.
-test/net/*	172\.31\.250\.[0-9]+(/24)?	B-FP-12
+# B-FP-13: net-2vm harness private link, not a real network.
+test/net/*	172\.31\.250\.[0-9]+(/24)?	B-FP-13
