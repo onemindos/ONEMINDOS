@@ -17,6 +17,7 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/v1/layout"
 	"github.com/onemindos/onemindos/internal/plugin/scaffold"
+	"gopkg.in/yaml.v3"
 )
 
 func source(t *testing.T) string {
@@ -193,5 +194,62 @@ func TestOCIConsumerReadsProducedLayout(t *testing.T) {
 	}
 	if doc.ArtifactType != Type {
 		t.Fatal("OCI consumer read wrong artifact type")
+	}
+}
+
+func TestPayloadDirectoriesAndCanonicalLayerPartition(t *testing.T) {
+	src := source(t)
+	if err := os.MkdirAll(filepath.Join(src, "manifests/empty"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(src, "manifests/icon.svg"), []byte("<svg/>"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(src, "onemind.app.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var doc map[string]any
+	if err = yaml.Unmarshal(raw, &doc); err != nil {
+		t.Fatal(err)
+	}
+	doc["spec"].(map[string]any)["manifests"] = "manifests"
+	doc["metadata"].(map[string]any)["icon"] = "./manifests/icon.svg"
+	raw, err = json.Marshal(doc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(filepath.Join(src, "onemind.app.yaml"), raw, 0600); err != nil {
+		t.Fatal(err)
+	}
+	output := filepath.Join(t.TempDir(), "oci")
+	if _, err = Pack(src, output); err != nil {
+		t.Fatal(err)
+	}
+	m := manifest(t, output)
+	seen := map[string]int{}
+	for _, layer := range m.Layers {
+		if !strings.HasSuffix(layer.MediaType, "tar+gzip") {
+			continue
+		}
+		zip, err := gzip.NewReader(bytes.NewReader(blob(t, output, layer)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		reader := tar.NewReader(zip)
+		for {
+			header, err := reader.Next()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			seen[header.Name]++
+		}
+		zip.Close()
+	}
+	if seen["manifests/empty/"] != 1 || seen["manifests/icon.svg"] != 1 {
+		t.Fatalf("directories lost or overlapping file duplicated: %v", seen)
 	}
 }

@@ -103,10 +103,14 @@ func Pack(directory, output string) (string, error) {
 		return Descriptor{MediaType: media, Digest: digest, Size: int64(len(data))}
 	}
 	layers := []Descriptor{}
+	workloadPaths := map[string]bool{}
 	if doc.Spec.Manifests != "" {
 		paths, e := tree(root, doc.Spec.Manifests)
 		if e != nil {
 			return "", e
+		}
+		for _, name := range paths {
+			workloadPaths[filepath.Clean(name)] = true
 		}
 		data, e := archive(root, paths)
 		if e != nil {
@@ -130,7 +134,13 @@ func Pack(directory, output string) (string, error) {
 		}
 		paths = append(paths, ui...)
 	}
-	data, err := archive(root, paths)
+	uiPaths := []string{}
+	for _, name := range paths {
+		if !workloadPaths[filepath.Clean(name)] {
+			uiPaths = append(uiPaths, name)
+		}
+	}
+	data, err := archive(root, uiPaths)
 	if err != nil {
 		return "", err
 	}
@@ -220,10 +230,7 @@ func tree(root, relative string) ([]string, error) {
 		if d.Type()&os.ModeSymlink != 0 {
 			return fmt.Errorf("symlink in payload")
 		}
-		if d.IsDir() {
-			return nil
-		}
-		if !d.Type().IsRegular() {
+		if !d.IsDir() && !d.Type().IsRegular() {
 			return fmt.Errorf("special file in payload")
 		}
 		rel, e := filepath.Rel(root, path)
@@ -236,6 +243,11 @@ func tree(root, relative string) ([]string, error) {
 	return paths, err
 }
 func archive(root string, paths []string) ([]byte, error) {
+	canonical := make([]string, 0, len(paths))
+	for _, name := range paths {
+		canonical = append(canonical, filepath.Clean(name))
+	}
+	paths = canonical
 	sort.Strings(paths)
 	var buffer bytes.Buffer
 	zipped := gzip.NewWriter(&buffer)
@@ -248,6 +260,17 @@ func archive(root string, paths []string) ([]byte, error) {
 			continue
 		}
 		last = path
+		info, err := os.Lstat(filepath.Join(root, path))
+		if err != nil {
+			return nil, err
+		}
+		if info.IsDir() {
+			header := &tar.Header{Name: filepath.ToSlash(path) + "/", Typeflag: tar.TypeDir, Mode: 0755, ModTime: time.Unix(0, 0), Format: tar.FormatPAX}
+			if err := writer.WriteHeader(header); err != nil {
+				return nil, err
+			}
+			continue
+		}
 		data, err := read(root, path, 8<<20)
 		if err != nil {
 			return nil, err
