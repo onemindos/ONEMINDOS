@@ -22,7 +22,7 @@ metadata:
     website: "https://docs.searxng.org/"
     support: "https://github.com/searxng/searxng/issues"
   upstream: {release: "2026.11.11-626105eec", released_at: "2026-11-11T18:22:48Z", archived: false}
-  tier: community   # set by CI (sdk/tools/app-gate --tier write), not by hand
+  tier: verified   # set by CI (sdk/tools/app-gate --tier write), not by hand
 spec:
   archs: [amd64, arm64]
   requires: {gpu: false, minMemoryMb: 256}
