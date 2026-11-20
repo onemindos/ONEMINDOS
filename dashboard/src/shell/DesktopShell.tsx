@@ -373,7 +373,8 @@ export function DesktopShell(props: DesktopShellProps) {
                 <Icon name="x" size={16} />
               </a>
             </div>
-            <main id="om-main" tabIndex={-1} className="dsk-window-body">
+            {/* tabIndex 0: the window scrolls, so keyboard users must be able to reach it (axe scrollable-region-focusable). */}
+            <main id="om-main" tabIndex={0} className="dsk-window-body">
               {children}
             </main>
           </section>
