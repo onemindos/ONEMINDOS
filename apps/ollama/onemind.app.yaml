@@ -22,7 +22,7 @@ metadata:
     website: "https://ollama.com"
     support: "https://github.com/ollama/ollama/issues"
   upstream: {release: "v0.40.16", released_at: "2026-11-09T18:21:19Z", archived: false}
-  tier: community   # set by CI (sdk/tools/app-gate --tier write), not by hand
+  tier: verified   # set by CI (sdk/tools/app-gate --tier write), not by hand
 spec:
   archs: [amd64, arm64]
   requires: {gpu: false, minMemoryMb: 4096}
