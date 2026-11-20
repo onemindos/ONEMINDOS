@@ -10,6 +10,8 @@ The order comes from [LANES.md](../LANES.md).
 
 ## Draft (pushed, not ready yet)
 
+- #178: exact action-type guard and immutable plugin principal; PR pending, stacked on #405. Common checks protect lifecycle, feature and replay paths. HTTP token policy remains read-only.
+
 - #178: installed read-only token policy; PR #405, stacked on #404. Stored grants, exact route operations and live app state; issuer/request paths still disabled.
 
 - #178: read-only installed plugin registry; PR #404. Real app states and Market sharing, with scoped-token/route authorization tests. Built on current main; merge after #177 schema support.

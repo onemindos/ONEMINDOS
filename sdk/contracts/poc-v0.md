@@ -762,3 +762,10 @@ summaries: `id`, `name`, `installed_version`, `status`. The version comes from
 the persisted runtime receipt; null means no receipt exists. Missing, uninstalled,
 non-plugin and unshared IDs are 404. No credential or execution authority is
 created; principal issuance and approved tool dispatch are later slices.
+
+DEV-PLG-3 request authorization: lifecycle and feature action filing/replay check
+`Principal.may_request_action(type)` and feature-owned live request checks first.
+`PluginPrincipal` binds a plugin app id to immutable exact action-type grants;
+it cannot become an owner or approve. Trusted credential resolvers must supply
+only approved grant snapshots. This seam does not enable plugin HTTP requests or
+mint credentials: the existing plugin HTTP token policy remains read-only.
