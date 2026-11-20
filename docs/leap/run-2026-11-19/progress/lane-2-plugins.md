@@ -49,7 +49,7 @@ The order comes from [LANES.md](../LANES.md).
 
 - #180: deterministic local OCI packing; PR #418, stacked on #417. Content-addressed config/workload/UI/README layers, no root-file globbing, no overwrites. Unsigned only; image pin resolution, remote transport, verification and install follow.
 
-- #180: exact-digest OCI content inspection; PR pending, stacked on #418. Bounded blob verification/extraction rejects paths, links, duplicate/reserved entries and trailing payloads, then reuses the shared validator. Content integrity is explicitly not publisher trust.
+- #180: exact-digest OCI content inspection; PR #419, stacked on #418. Bounded blob verification/extraction rejects paths, links, duplicate/reserved entries and trailing payloads, then reuses the shared validator. Content integrity is explicitly not publisher trust.
 
 ## Next
 
