@@ -73,3 +73,6 @@ The order comes from [LANES.md](../LANES.md).
 - #387 CI checkpoint: code/image workflows passed; merge-gate timed out waiting for ci-apps. Do not rerun the broad suite while that dependency is still pending. Gate review and merges remain Claude-owned.
 
 - #418 review corrections: preserve empty directories, canonicalize archive aliases before deduplication and partition overlapping workload/UI paths so produced layouts round-trip through the strict reader.
+
+- #415 schema upgrade fix is pushed: v1 registry databases migrate to plugin schema v2 without losing receipts. Two upgrade/idempotence/fresh-database tests and the settings suite passed (16 total).
+- #420 integrated packaging corrections passed artifact/CLI race tests, including empty workload directories, shared workload/UI icons and canonical path aliases. Next implementation: owner-approved private key enrollment, then complete verification/installation and dev workflow.
