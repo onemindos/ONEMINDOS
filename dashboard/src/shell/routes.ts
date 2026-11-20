@@ -8,6 +8,8 @@ export const href = {
   market: '/market',
   app: (id: string) => `/market/${encodeURIComponent(id)}`,
   installed: '/installed',
+  sources: '/sources',
+  compose: '/compose',
   manage: (id: string) => `/installed/${encodeURIComponent(id)}`,
   approvals: '/approvals',
   approval: (id: string) => `/approvals?highlight=${encodeURIComponent(id)}`,
@@ -74,5 +76,6 @@ export function toRoute(link: string): string | undefined {
 /** Which nav item a path belongs to. */
 export function navId(pathname: string): string {
   const first = pathname.split('/').filter(Boolean)[0] ?? 'home';
-  return first;
+  // Community sources and Compose import are Market tabs.
+  return first === 'sources' || first === 'compose' ? 'market' : first;
 }
