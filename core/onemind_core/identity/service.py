@@ -209,6 +209,7 @@ class IdentityService:
             # Installation-owned plugins never inherit static-v0 access, self-service
             # exceptions or the generic scope table's broad route trees.
             from ..plugins.auth import allows_read, allows_request, plugin_app_id, request_types
+            from ..plugins.auth import allows_own_action_read
             from ..plugins.principal import PluginPrincipal
 
             app_id = plugin_app_id(ctx.principal.id)
@@ -226,6 +227,11 @@ class IdentityService:
                 if not exact:
                     raise self.deny(ctx.principal, "request actions", reason="plugin_policy")
                 ctx.principal = PluginPrincipal(ctx.principal.id, "plugin", "plugin", exact)
+                request.state.identity = ctx
+                return ctx.principal
+            if allows_own_action_read(**policy):
+                if "actions:read:own" not in ctx.scopes:
+                    raise self.deny(ctx.principal, "read own actions", reason="plugin_policy")
                 request.state.identity = ctx
                 return ctx.principal
             if not allows_read(**policy):

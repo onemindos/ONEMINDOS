@@ -31,6 +31,8 @@ The order comes from [LANES.md](../LANES.md).
 
 - #178: persistent credential retirement; PR #408, stacked on #407. Revokes before removal, before reinstall, after failed install and during startup recovery; no issuer or Secret delivery yet.
 
+- #178: own-action polling; PR pending, based on #408. Exact stored actions:read:own permits only known ledger GET routes and the requesting plugin’s own rows. Public manifest actions:read:self maps to this internal grant at issuance; other actors’ details return 404.
+
 ## Next
 
 - Resolve #175 and review the #177 draft stack, then #178, #179, #180, #183, #182, #181, #184, #185.

@@ -11,7 +11,7 @@ from __future__ import annotations
 import re
 
 _APP_ID = re.compile(r"plugin:([a-z0-9](?:[-a-z0-9]*[a-z0-9])?)\Z")
-_READ_GRANTS = frozenset({"nodes:read", "apps:read"})
+_READ_GRANTS = frozenset({"nodes:read", "apps:read", "actions:read:own"})
 
 
 def plugin_app_id(principal_id: str) -> str | None:
@@ -73,3 +73,15 @@ def allows_request(*, method: str, path: str, operation_id: str | None, principa
     return (method == "POST" and path == "/v1/actions" and operation_id == "actions.create"
             and source == "app-install" and plugin_app_id(principal_id) is not None
             and app_status in {"installed", "stopped"} and bool(request_types(scopes)))
+
+
+def allows_own_action_read(*, method: str, path: str, operation_id: str | None, principal_id: str,
+                          source: str, scopes: object, app_status: str | None) -> bool:
+    """Known ledger reads only; ownership is enforced again by the action routes."""
+    if (method != "GET" or source != "app-install" or plugin_app_id(principal_id) is None
+            or app_status not in {"installed", "stopped"} or request_types(scopes) is None
+            or "actions:read:own" not in scopes):
+        return False
+    return ((path == "/v1/actions" and operation_id == "actions.list")
+            or (operation_id == "actions.get"
+                and re.fullmatch(r"/v1/actions/[A-Za-z0-9_-]{1,64}", path) is not None))
