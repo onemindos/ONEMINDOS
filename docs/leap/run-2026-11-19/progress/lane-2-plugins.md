@@ -10,7 +10,7 @@ The order comes from [LANES.md](../LANES.md).
 
 ## Draft (pushed, not ready yet)
 
-- #178: installed read-only token policy; PR pending, stacked on #404. Stored grants, exact route operations and live app state; issuer/request paths still disabled.
+- #178: installed read-only token policy; PR #405, stacked on #404. Stored grants, exact route operations and live app state; issuer/request paths still disabled.
 
 - #178: read-only installed plugin registry; PR #404. Real app states and Market sharing, with scoped-token/route authorization tests. Built on current main; merge after #177 schema support.
 - #177: bounded UI bundle and static markup validation (P7/P8); PR #397, stacked on #396. Includes root SVG icons, settings schema compilation and local script checks.
