@@ -519,6 +519,11 @@ class FilesService:
         digest = hashlib.sha256(canonical({"type": row.type, "params": row.params, "plan": row.plan}).encode())
         return "sha256:" + digest.hexdigest()
 
+    def requester(self, request_id: str) -> dict | None:
+        """context.RequesterLookup: who filed this files request, or None when it is not one."""
+        row = self.repo.request(request_id) if request_id.startswith("frq_") else None
+        return dict(row.requested_by) if row is not None else None
+
     def _run_guards(self, p: Principal, request_id: str, body: dict, http_request: Any) -> None:
         """Approval guards other features register (identity: passkey step-up, F-2), with the
         signature of `context.ApprovalGuard`: (principal, request id, approve body, request).
