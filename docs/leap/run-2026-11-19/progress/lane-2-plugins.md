@@ -41,7 +41,7 @@ The order comes from [LANES.md](../LANES.md).
 
 - #178: signed REST tool invocation; PR #414, stacked on #413. Read tools are bounded and audited; mutation requests retain declared risk, require owner approval and serialize against app removal. Destructive approvals require a real action-bound passkey.
 
-- #178: installed-schema plugin settings; PR pending, stacked on #414. Owner-approved plugin.configure applies fixed plugin-settings ConfigMap; schema/value bounds, sharing and receipt checks precede execution.
+- #178: installed-schema plugin settings; PR #415, stacked on #414. Owner-approved plugin.configure applies fixed plugin-settings ConfigMap; schema/value bounds, sharing and receipt checks precede execution.
 
 ## Next
 
