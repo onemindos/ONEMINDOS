@@ -51,6 +51,8 @@ The order comes from [LANES.md](../LANES.md).
 
 - #180: exact-digest OCI content inspection; PR #419, stacked on #418. Bounded blob verification/extraction rejects paths, links, duplicate/reserved entries and trailing payloads, then reuses the shared validator. Content integrity is explicitly not publisher trust.
 
+- #180: candidate private signature inspection; PR pending, stacked on #419. Existing Sigstore verifier checks detached signatures over the exact artifact manifest (Ed25519/ECDSA/RSA), reports a public-key fingerprint and never claims owner enrollment or overall trust.
+
 ## Next
 
 - Finish #177/#178 implementation and review first. Founder then requests smallest-to-heaviest work where dependencies allow: #183 scan adapter and #181 init slices are smallest; #180 packaging must land before those full issues, #184 follows #181, while #179/#182/#185 require heavier integration.
