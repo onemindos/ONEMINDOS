@@ -43,6 +43,16 @@ The order comes from [LANES.md](../LANES.md).
 
 - #178: installed-schema plugin settings; PR #415, stacked on #414. Owner-approved plugin.configure applies fixed plugin-settings ConfigMap; schema/value bounds, sharing and receipt checks precede execution.
 
+- #183: unpacked plugin malware scan adapter; PR #416, stacked on #412. Real ClamAV scans frozen bundle files, including UI. EICAR blocks the app gate/tier; errors, symlinks and byte limits fail closed. Full OCI/referrer/scan-attestation binding remains dependent on #180.
+
+- #181: safe settings scaffold; PR #417, stacked on #412. onemind plugin init requires a source URL, validates output before publication and never replaces existing paths. Backend templates/dev runtime follow packaging.
+
+- #180: deterministic local OCI packing; PR #418, stacked on #417. Content-addressed config/workload/UI/README layers, no root-file globbing, no overwrites. Unsigned only; image pin resolution, remote transport, verification and install follow.
+
+- #180: exact-digest OCI content inspection; PR #419, stacked on #418. Bounded blob verification/extraction rejects paths, links, duplicate/reserved entries and trailing payloads, then reuses the shared validator. Content integrity is explicitly not publisher trust.
+
+- #180: candidate private signature inspection; PR #420, stacked on #419. Existing Sigstore verifier checks detached signatures over the exact artifact manifest (Ed25519/ECDSA/RSA), reports a public-key fingerprint and never claims owner enrollment or overall trust.
+
 ## Next
 
 - Finish #177/#178 implementation and review first. Founder then requests smallest-to-heaviest work where dependencies allow: #183 scan adapter and #181 init slices are smallest; #180 packaging must land before those full issues, #184 follows #181, while #179/#182/#185 require heavier integration.
@@ -56,8 +66,17 @@ The order comes from [LANES.md](../LANES.md).
 
 ## Blocked (waiting on the founder, hardware or another lane)
 
-- #178 depends on #177 and has signed tool invocation and installed-schema settings drafted for final review. Issuance, Secret delivery, own-action polling and persistent revocation are drafted; static token kinds stay unchanged.
+- #178 depends on #177 and has signed tool invocation and installed-schema settings drafted for final review in #414/#415. Issuance, Secret delivery, own-action polling and persistent revocation are drafted; static token kinds stay unchanged.
 
 - #175 manifest freeze remains open; #177 retains its dependency label until the gate resolves it.
 
-- #415 upgrade correction: plugins schema v2 adds the settings snapshot column for databases created by #409. Real v1-to-v2 preservation/idempotence and fresh-database tests cover the upgrade.
+- #387 CI checkpoint: code/image workflows passed; merge-gate timed out waiting for ci-apps. Do not rerun the broad suite while that dependency is still pending. Gate review and merges remain Claude-owned.
+
+- #418 review corrections: preserve empty directories, canonicalize archive aliases before deduplication and partition overlapping workload/UI paths so produced layouts round-trip through the strict reader.
+
+- #415 schema upgrade fix is pushed: v1 registry databases migrate to plugin schema v2 without losing receipts. Two upgrade/idempotence/fresh-database tests and the settings suite passed (16 total).
+- #420 integrated packaging corrections passed artifact/CLI race tests, including empty workload directories, shared workload/UI icons and canonical path aliases. Next implementation: owner-approved private key enrollment, then complete verification/installation and dev workflow.
+
+- Next concrete #180 slice (E9 private tier): owner-only signing-key enrollment/revocation actions with stored canonical SPKI public keys and SHA-256 fingerprints, step-up when passkeys are active, real upgrade/auth tests and a generated-SDK dashboard screen. Parse/reject private PEM before filing/auditing; only approved actions activate trust. This does not create production root/store keys or grant publisher trust from a caller-supplied key.
+
+- #180 owner-key enrollment slice: draft pending, stacked on #415. Canonical public-key fingerprints enter trust only after owner-approved actions; enrollment/revocation require action-bound passkeys when active. Mounted Settings screen uses generated SDK and the real approval challenge flow. Artifact verification/install integration remains next.
