@@ -3,6 +3,7 @@
 // every button only files a machine.* request that waits for an owner.
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { screensNav } from '../test/helpers';
 import { MemoryRouter } from 'react-router';
 import { describe, expect, it, vi } from 'vitest';
 import { App } from '../App';
@@ -43,7 +44,8 @@ function setup(opts: { eligible?: boolean; machines?: unknown[]; failFirst?: boo
 describe('Machines screen', () => {
   it('is in the navigation and shows each state in the gateway words', async () => {
     setup({ machines: [row('web', 'running'), row('db', 'stopped'), row('new', 'creating'), row('lost', 'unknown')] });
-    expect(await screen.findByRole('link', { name: 'Machines' })).toBeInTheDocument();
+    expect((await screensNav(userEvent.setup())).getByRole('link', { name: 'Machines' })).toBeInTheDocument();
+    await userEvent.setup().keyboard('{Escape}');
     const list = await screen.findByRole('list', { name: 'Machines' });
     expect(within(list).getByText('Running')).toBeInTheDocument();
     expect(within(list).getByText('Stopped')).toBeInTheDocument();
