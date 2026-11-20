@@ -6,9 +6,9 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import type { NavItem } from '@onemind/ui';
-import { dockGroups } from './shell/DesktopShell';
+import { dockSplit, parentPath } from './shell/DesktopShell';
 import { layoutModeStore, parseLayoutMode } from './shell/layoutMode';
-import { renderApp, seriousViolations } from './test/helpers';
+import { renderApp, screensNav, seriousViolations } from './test/helpers';
 
 const T = { timeout: 4000 };
 
@@ -34,10 +34,17 @@ describe('layout mode', () => {
     expect(layoutModeStore('owner', null).load()).toBe('desktop'); // no storage: the default
   });
 
-  it('groups the dock: primary items first, then the sidebar groups in order', () => {
+  it('splits the nav: everyday screens in the dock, the rest in Launchpad', () => {
     const item = (id: string, extra: Partial<NavItem> = {}): NavItem => ({ id, label: id, href: `/${id}`, icon: 'home', ...extra });
-    const groups = dockGroups([item('sys', { group: 'System' }), item('home', { primary: true }), item('box', { group: 'Your box' }), item('market', { primary: true })]);
-    expect(groups.map((g) => g.map((n) => n.id))).toEqual([['home', 'market'], ['box'], ['sys']]);
+    const { dock, more } = dockSplit([item('nodes', { group: 'Your box' }), item('settings'), item('home', { primary: true }), item('market', { primary: true })]);
+    expect(dock.map((n) => n.id)).toEqual(['home', 'market', 'settings']);
+    expect(more.map((n) => n.id)).toEqual(['nodes']);
+  });
+
+  it('knows the way back up inside a screen', () => {
+    expect(parentPath('/market/vaultwarden')).toBe('/market');
+    expect(parentPath('/market')).toBeNull();
+    expect(parentPath('/')).toBeNull();
   });
 });
 
@@ -72,7 +79,8 @@ describe('desktop frame', () => {
   it.skipIf(!hasLocalStorage)('switches to the Console sidebar and back, and remembers the choice', async () => {
     const u = userEvent.setup();
     const { container, unmount } = renderApp({ token: 'owner-demo' });
-    await u.click(await screen.findByRole('button', { name: 'Console view' }, T));
+    await u.click(await screen.findByRole('button', { name: /Account/ }, T));
+    await u.click(screen.getByRole('button', { name: 'Console view' }));
     await waitFor(() => expect(container.querySelector('.om-shell')).not.toBeNull());
     expect(container.querySelector('.dsk')).toBeNull();
     unmount();
@@ -82,10 +90,30 @@ describe('desktop frame', () => {
     expect(again.container.querySelector('.om-shell')).not.toBeNull();
   });
 
-  it('keeps Pro screens out of the dock for a guest', async () => {
+  it('keeps Pro screens out of the dock and Launchpad for a guest', async () => {
     renderApp({ token: 'guest-demo' });
     const dock = within(await screen.findByRole('navigation', { name: 'Main' }, T));
     expect(dock.getByRole('link', { name: /Home/ })).toBeInTheDocument();
-    expect(dock.queryByRole('link', { name: /Nodes/ })).toBeNull();
+    const lp = await screensNav(userEvent.setup());
+    expect(lp.getByRole('link', { name: /Activity/ })).toBeInTheDocument();
+    expect(lp.queryByRole('link', { name: /Nodes/ })).toBeNull();
+  });
+
+  it('Launchpad lists every screen, filters as you type, and closes with Esc', async () => {
+    const u = userEvent.setup();
+    renderApp({ token: 'owner-demo' });
+    const lp = await screensNav(u);
+    expect(lp.getByRole('link', { name: /Control Hub/ })).toBeInTheDocument();
+    await u.type(lp.getByRole('searchbox', { name: 'Find a screen or app' }), 'back');
+    expect(lp.getByRole('link', { name: /Backups/ })).toBeInTheDocument();
+    expect(lp.queryByRole('link', { name: /Control Hub/ })).toBeNull();
+    await u.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Launchpad' })).toBeNull());
+  });
+
+  it('a nested page has a Back button to its screen', async () => {
+    renderApp({ token: 'owner-demo', route: '/market/vaultwarden' });
+    const win = await screen.findByRole('region', { name: 'Market' }, T);
+    expect(within(win).getByRole('link', { name: 'Back' })).toHaveAttribute('href', '/market');
   });
 });

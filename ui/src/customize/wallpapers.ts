@@ -10,6 +10,7 @@ import { AA } from './accents';
 import { contrast, mix } from './color';
 
 export const WALLPAPER_IDS = [
+  'onemind',
   'aurora',
   'tide',
   'contour',
@@ -149,7 +150,51 @@ function bloom(c: Stops): string {
 
 const radial = (x: string, y: string, color: string, size = '55%') => `radial-gradient(circle at ${x} ${y}, ${color} 0, transparent ${size})`;
 
+/**
+ * OneMind's signature: a quiet neural field. Seeded nodes, each linked to its nearest
+ * neighbours with hairlines, densest towards the top left where the brand glow sits.
+ * Lines and nodes use the wallpaper's own stops, so the contrast guard sees every colour.
+ */
+function neural(c: Stops, seed: number): string {
+  const rand = rng(seed);
+  const W = 1600;
+  const H = 1000;
+  const pts = Array.from({ length: 46 }, () => {
+    // bias towards the upper-left third, like the glow
+    const x = Math.pow(rand(), 1.35) * W;
+    const y = Math.pow(rand(), 1.2) * H;
+    return [r1(x), r1(y)] as const;
+  });
+  const lines: string[] = [];
+  pts.forEach(([x, y], i) => {
+    const near = pts
+      .map(([u, v], j) => ({ j, d: (u - x) ** 2 + (v - y) ** 2 }))
+      .filter((n) => n.j > i)
+      .sort((a, b) => a.d - b.d)
+      .slice(0, 2);
+    for (const n of near) {
+      const [u, v] = pts[n.j]!;
+      lines.push(`<line x1="${x}" y1="${y}" x2="${u}" y2="${v}"/>`);
+    }
+  });
+  const dots = pts.map(([x, y], i) => `<circle cx="${x}" cy="${y}" r="${i % 7 === 0 ? 3.2 : 1.6}"/>`).join('');
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid slice">` +
+    `<g stroke="${c[3]}" stroke-width="1" stroke-opacity="0.55" fill="none">${lines.join('')}</g>` +
+    `<g fill="${c[1]}" fill-opacity="0.9">${dots}</g></svg>`;
+  return svgUrl(svg);
+}
+
 export const WALLPAPERS: Record<WallpaperId, Wallpaper> = {
+  onemind: {
+    id: 'onemind',
+    name: 'OneMind',
+    kind: 'mesh',
+    accent: 'onemind',
+    colors: { light: ['#f8f4f3', '#f3c9cc', '#e8e1ef', '#efe2db'], dark: ['#09090c', '#5c0f18', '#1c1029', '#2a1a1f'] },
+    render: (c) =>
+      `${neural(c, 1)} center / cover no-repeat, ${radial('12%', '8%', c[1], '58%')}, ${radial('92%', '96%', c[2], '62%')}, ${radial('80%', '18%', c[3], '45%')}, ${c[0]}`,
+  },
   aurora: {
     id: 'aurora',
     name: 'Aurora',

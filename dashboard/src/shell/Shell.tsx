@@ -140,13 +140,13 @@ export function Shell({ children }: { children: ReactNode }) {
     { id: 'activity', label: 'Activity', href: href.activity, icon: 'activity', primary: true },
     { id: 'installed', label: 'Installed', href: href.installed, icon: 'check', group: 'Your box' },
     { id: 'nodes', label: 'Nodes', href: href.nodes, icon: 'nodes', group: 'Your box' },
-    { id: 'machines', label: 'Machines', href: href.machines, icon: 'nodes', group: 'Your box' },
+    { id: 'machines', label: 'Machines', href: href.machines, icon: 'monitor', group: 'Your box' },
     { id: 'alerts', label: 'Alerts', href: href.alerts, icon: 'bell', group: 'Your box' },
-    { id: 'storage', label: 'Storage', href: href.storage, icon: 'nodes', group: 'Your box' },
+    { id: 'storage', label: 'Storage', href: href.storage, icon: 'storage', group: 'Your box' },
     { id: 'backups', label: 'Backups', href: href.backups, icon: 'backups', group: 'Your box' },
     { id: 'settings', label: 'Settings', href: href.settings, icon: 'settings', group: 'Your box' },
     { id: 'coming', label: 'Coming soon', href: href.coming, icon: 'info', group: 'Your box' },
-    { id: 'control-hub', label: 'Control Hub', href: href.controlHub, icon: 'nodes', group: 'System' },
+    { id: 'control-hub', label: 'Control Hub', href: href.controlHub, icon: 'hub', group: 'System' },
     { id: 'agents', label: 'AI & Agents', href: href.agents, icon: 'agent', group: 'System' },
   ];
   const nav = allNav.filter((item) => showsNav(item.id, view));
@@ -172,34 +172,37 @@ export function Shell({ children }: { children: ReactNode }) {
     );
 
   const boxName = hub.instance.data?.name ?? brand.shortName;
+  const bell = (
+    <NotificationBell
+      items={notifications}
+      now={hub.now}
+      state={hub.freshness === 'stale' || hub.freshness === 'offline' ? hub.freshness : 'ready'}
+      ageSeconds={hub.ageS}
+      onRetry={hub.reloadAll}
+      onOpen={(n) => {
+        markRead([n.id], true);
+        go(n.href);
+      }}
+      onSetRead={markRead}
+      onReadAll={() => markRead(notifications.map((n) => n.id), true)}
+      allHref={href.activity}
+      settingsHref={href.setting('notifications')}
+    />
+  );
   const account = (
     <>
       <span className="dash-hide-compact">
         <PaletteTrigger onOpen={() => setPaletteOpen(true)} label="Search" />
       </span>
-      <NotificationBell
-        items={notifications}
-        now={hub.now}
-        state={hub.freshness === 'stale' || hub.freshness === 'offline' ? hub.freshness : 'ready'}
-        ageSeconds={hub.ageS}
-        onRetry={hub.reloadAll}
-        onOpen={(n) => {
-          markRead([n.id], true);
-          go(n.href);
-        }}
-        onSetRead={markRead}
-        onReadAll={() => markRead(notifications.map((n) => n.id), true)}
-        allHref={href.activity}
-        settingsHref={href.setting('notifications')}
-      />
+      {bell}
       {mock && <span className="dash-demo-flag">Demo data</span>}
       {principal && (
         <span className="dash-who dash-hide-compact">
           {principal.id} <span className="om-hint">({principal.kind === 'agent' ? 'agent' : principal.role})</span>
         </span>
       )}
-      <Button size="sm" variant="ghost" onClick={() => setLayout(layout === 'desktop' ? 'console' : 'desktop')} title={layout === 'desktop' ? 'Switch to the sidebar layout' : 'Switch to the desktop layout'}>
-        {layout === 'desktop' ? 'Console view' : 'Desktop view'}
+      <Button size="sm" variant="ghost" onClick={() => setLayout('desktop')} title="Switch to the desktop layout">
+        Desktop view
       </Button>
       <Button size="sm" variant="ghost" onClick={signOut}>
         Sign out
@@ -210,15 +213,32 @@ export function Shell({ children }: { children: ReactNode }) {
 
   // Apps pinned on Home go in the dock (Home hides its own dock on the desktop).
   const pinnedIds = layout === 'desktop' ? (homeLayoutStore().load(person)?.pinned ?? []) : [];
+  const dockApp = (a: (typeof apps)[number]): DockApp => ({ id: a.id, name: a.name ?? a.id, icon: a.icon, href: a.installed ? href.manage(a.id) : href.app(a.id) });
   const pinned: DockApp[] = pinnedIds.flatMap((id) => {
     const a = apps.find((x) => x.id === id);
-    return a ? [{ id: a.id, name: a.name ?? a.id, icon: a.icon, href: a.installed ? href.manage(a.id) : href.app(a.id) }] : [];
+    return a ? [dockApp(a)] : [];
   });
+  const installedApps: DockApp[] = layout === 'desktop' ? apps.filter((a) => a.installed).map(dockApp) : [];
   return (
     <ShellCtx.Provider value={api}>
       <div onClickCapture={onClickCapture} className={layout === 'desktop' ? 'dash-root dash-desktop' : 'dash-root'}>
         {layout === 'desktop' ? (
-          <DesktopShell boxName={boxName} nav={nav} current={navId(location.pathname)} status={status} account={account} pinned={pinned}>
+          <DesktopShell
+            boxName={boxName}
+            nav={nav}
+            current={navId(location.pathname)}
+            status={status}
+            bell={bell}
+            pinned={pinned}
+            apps={installedApps}
+            now={hub.now}
+            timeZone={Intl.DateTimeFormat().resolvedOptions().timeZone}
+            person={principal ? { id: principal.id, role: principal.kind === 'agent' ? 'agent' : principal.role } : undefined}
+            demo={mock}
+            onSearch={() => setPaletteOpen(true)}
+            onConsoleView={() => setLayout('console')}
+            onSignOut={signOut}
+          >
             {children}
           </DesktopShell>
         ) : (
