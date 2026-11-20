@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Read-only plugin token policy foundation (PLUGIN-SDK.md §7.1).
+"""Bound plugin read/request token policy (PLUGIN-SDK.md §7.1).
 
 No credentials are issued here. Only installation-owned plugin tokens with an
-explicit stored read grant may use a small known route set. New routes and token
+explicit stored grants may use a small known route set. New routes and token
 grants fail closed until their resource-specific policies are implemented.
 """
 
@@ -24,8 +24,7 @@ def allows_read(*, method: str, path: str, principal_id: str, source: str,
                 scopes: object, app_status: str | None, operation_id: str | None = None) -> bool:
     """Use only the stored token snapshot; never widen from a mutable catalog.
 
-    This initial policy accepts read-only snapshots. Other plugin permission
-    vocabulary, including request grants, needs its own policy before issuance.
+    Other permission vocabulary needs its own resource policy before issuance.
     A wildcard/admin/unknown grant invalidates the whole snapshot, not just the
     offending entry. The general identity filter must not hide malformed grants.
     """
@@ -33,7 +32,7 @@ def allows_read(*, method: str, path: str, principal_id: str, source: str,
         return False
     if app_status not in {"installed", "stopped"} or method != "GET":
         return False
-    if not isinstance(scopes, list) or any(not isinstance(s, str) or s not in _READ_GRANTS for s in scopes):
+    if request_types(scopes) is None:
         return False
     if path == "/v1/apps" and operation_id == "apps.list":
         return "apps:read" in scopes
@@ -43,3 +42,34 @@ def allows_read(*, method: str, path: str, principal_id: str, source: str,
         return "nodes:read" in scopes
     # No /apps/* wildcard: that tree includes credentials, access and plans.
     return False
+
+
+def request_types(scopes: object) -> frozenset[str] | None:
+    """Exact request types in a valid snapshot; None means invalid, not empty."""
+    from ..identity.scopes import parse_scope
+
+    if not isinstance(scopes, list):
+        return None
+    result = set()
+    prefix = "actions:request:"
+    for scope in scopes:
+        if not isinstance(scope, str):
+            return None
+        if scope in _READ_GRANTS:
+            continue
+        if not scope.startswith(prefix):
+            return None
+        try:
+            parse_scope(scope)
+        except ValueError:
+            return None
+        result.add(scope[len(prefix):])
+    return frozenset(result)
+
+
+def allows_request(*, method: str, path: str, operation_id: str | None, principal_id: str,
+                   source: str, scopes: object, app_status: str | None) -> bool:
+    """Only the common action endpoint may reach exact-type service checks."""
+    return (method == "POST" and path == "/v1/actions" and operation_id == "actions.create"
+            and source == "app-install" and plugin_app_id(principal_id) is not None
+            and app_status in {"installed", "stopped"} and bool(request_types(scopes)))

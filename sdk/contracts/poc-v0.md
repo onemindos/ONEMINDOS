@@ -769,3 +769,12 @@ DEV-PLG-3 request authorization: lifecycle and feature action filing/replay chec
 it cannot become an owner or approve. Trusted credential resolvers must supply
 only approved grant snapshots. This seam does not enable plugin HTTP requests or
 mint credentials: the existing plugin HTTP token policy remains read-only.
+
+DEV-PLG-3 scoped requests: an `app-install` plugin token bound to an
+installed/stopped app may POST to `/v1/actions` with explicit stored
+`actions:request:<type>` grants. Authentication creates the immutable plugin
+principal from effective grants, preserving any owning-person cap. The common
+service checks the body type before filing or replay; requester-kind and
+owner-only restrictions still apply. Live origin-app state is checked again at
+filing. MCP, approval, other write routes and unknown operations remain denied.
+Credential issuance is not exposed by this slice.

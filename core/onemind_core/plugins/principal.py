@@ -2,7 +2,7 @@
 """Plugin principal with an immutable action-type grant snapshot (DEV-PLG-3).
 
 Only a trusted credential resolver may supply approved grants. This module does
-not issue credentials or widen the read-only HTTP plugin token policy.
+not issue credentials; HTTP authentication separately checks installed source and grants.
 """
 from dataclasses import dataclass
 import re

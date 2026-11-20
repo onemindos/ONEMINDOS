@@ -79,7 +79,8 @@ def test_plugin_snapshot_cannot_widen_or_approve(client, clock, executor):
     grants.add("app.remove")  # A caller's mutable set cannot widen the frozen snapshot.
     assert not principal.is_owner and principal.can_request_actions
     service = client.app.state.actions
-    action, created = service.create(principal, ActionRequest.model_validate(action_body(clock)))
+    client.app.state.repo.set_app_state("uptime-kuma", "installed", clock())
+    action, created = service.create(principal, ActionRequest.model_validate(action_body(clock, app_id="whoami")))
     assert created and action["state"] == "awaiting_approval" and executor.calls == []
     with pytest.raises(ApiError) as error:
         service.create(principal, ActionRequest.model_validate(action_body(clock, type_="app.remove", key="remove")))
@@ -108,6 +109,7 @@ def test_feature_path_enforces_plugin_exact_grants(client, clock):
             risk="write", requesters=frozenset({"plugin"}), run=lambda a, finish: ran.append(a.id),
         ))
     principal = PluginPrincipal("plugin:uptime-kuma", "plugin", "plugin", {"demo.allowed"})
+    client.app.state.repo.set_app_state("uptime-kuma", "installed", clock())
     expiry = clock.now + timedelta(minutes=5)
     allowed, created = service.request_feature(principal, "demo.allowed", {}, idempotency_key="allowed", expires_at=expiry)
     assert created and allowed["state"] == "awaiting_approval"

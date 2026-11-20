@@ -8,7 +8,11 @@ The order comes from [LANES.md](../LANES.md).
 
 ## In review (ready, needs-review)
 
+- #177: tool-manifest foundation; PR #387. Current-main refresh and checks pass; only lane-2 needs-review request. Gate retains #175/#336 dependency ordering.
+
 ## Draft (pushed, not ready yet)
+
+- #178: scoped HTTP action requests; PR pending, stacked on #406. Real plugin tokens create pending actions only for exact stored types; live origin state is rechecked before filing.
 
 - #178: exact action-type guard and immutable plugin principal; PR #406, stacked on #405. Common checks protect lifecycle, feature and replay paths. HTTP token policy remains read-only.
 
@@ -24,7 +28,6 @@ The order comes from [LANES.md](../LANES.md).
 - #177: event declaration validation (P4/P5); PR #389, stacked on #390. No NATS runtime or registry changes.
 - #177: box API compatibility checks; PR #390, stacked on #388. Offline --api-level validates the target version against compat.onemind.
 - #177: bundle path safety; PR #388, stacked on #387. Checks existence, types and symlinks through the shared Go validator.
-- #177: tool-manifest foundation; PR #387. Shared Go validator and CLI; remaining rules tracked in the PR.
 
 ## Next
 

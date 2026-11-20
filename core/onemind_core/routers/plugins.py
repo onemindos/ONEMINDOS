@@ -9,6 +9,7 @@ from ..context import Gateway
 from ..errors import ApiError, error_responses
 from ..identity.scopes import register_route_scope
 from ..plugins.registry import PluginSummary, installed_plugins
+from ..plugins.auth import plugin_app_id
 
 ORDER = 125
 
@@ -17,6 +18,15 @@ register_route_scope("GET,HEAD", r"/v1/plugins/[^/]+", ("apps:read",))
 
 
 def register(app: FastAPI, gw: Gateway) -> None:
+    def live_plugin_request(p: Principal, _type: str) -> bool:
+        if p.kind != "plugin":
+            return True
+        app_id = plugin_app_id(p.id)
+        state = gw.repo.get_app_state(app_id) if app_id else None
+        return state is not None and state.status in {"installed", "stopped"}
+
+    gw.actions.request_checks.append(live_plugin_request)
+
     @app.get("/v1/plugins", tags=["plugins"], operation_id="plugins.list",
              response_model=list[PluginSummary], responses=error_responses(401, 403))
     def list_plugins(request: Request, p: Principal = Depends(gw.principal)):
