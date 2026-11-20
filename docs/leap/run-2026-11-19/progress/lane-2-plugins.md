@@ -12,6 +12,8 @@ The order comes from [LANES.md](../LANES.md).
 
 ## Draft (pushed, not ready yet)
 
+- #182: TUF-delegated revocation client; draft pending, stacked on #422. Real signed-repository tests cover the plugins delegation, target hash, metadata/list expiry, metadata rollback and persistent list-version/equivocation floors. CLI is diagnostic; gateway stopping/tool enforcement and phase-2 countersignatures remain next.
+
 - #177: declarative manifest completion; PR #410, stacked on #397. Conditional workload requirements, optional tools, bounded publisher declarations and dual-identity refusal.
 - #177: shared Go validator in app CI; PR #412, stacked on #410. Real binary invocation fails closed; native tests exercise valid and invalid bundles.
 

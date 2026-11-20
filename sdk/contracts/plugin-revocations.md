@@ -1,0 +1,12 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+# Plugin revocation verification (E9, issue 182)
+
+`onemind plugin revocations --root ROOT --metadata-url HTTPS_METADATA --targets-url HTTPS_TARGETS --state STATE [--id ID --version VERSION --digest SHA256_DIGEST]` fetches and verifies `plugins/revocations.json`. ROOT is an operator/image trust anchor, never a root from an artifact or publisher. STATE must be persistent, owner-owned storage separate from OS update state. URLs require HTTPS; redirects are refused.
+
+The existing go-tuf client verifies root rotation, metadata signatures/thresholds/expiry and persisted metadata versions. The target must be authorized by the signed `plugins` delegation itself, with SHA-256 and a bounded length. A top-level target alone cannot substitute for that delegation. List schema is `onemind.revocations/v1`, version is positive, entries are explicit, and expiry must be in the future. Unsupported actions, invalid semver constraints or mutable digest selectors fail closed. The effective validity ends at the earliest list or TUF-chain expiry.
+
+A separate atomically replaced, synced floor records list version and exact content SHA-256. Lower versions and different bytes at an observed version are refused even under newer valid TUF metadata. A process lock serializes cache/floor updates. A malformed existing floor fails closed. Non-Unix platforms refuse this check rather than bypassing the lock.
+
+Entries match an exact plugin id and either their semantic-version constraint or any pinned digest. An entry with neither selector covers all versions of that id. Constraints use the existing Masterminds semver rules, including explicit prerelease constraints. All matches are returned so callers preserve per-tool actions and overlapping advisories.
+
+JSON reports `revocations_verified`, the list version/expiry, effective `valid_until`, entries and optional identity matches. This verifies only revocation metadata. It does not assert artifact trust, approve installation, stop workloads, issue production keys or publish a feed. Gateway scheduling, safe stopping, immediate tool refusal, owner overrides and phase-2 artifact countersignatures remain integration work under issue 182.
