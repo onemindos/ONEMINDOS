@@ -308,6 +308,29 @@ class Run:
         except (subprocess.SubprocessError, OSError) as e:
             self.vm.mark(f"DIAGNOSE failed: {e}")
 
+    def hang_report(self, waited_for):
+        """A boot that never printed `waited_for` (the AWS C1 flake: silent after GRUB, cause unknown).
+        Best effort, never raises: is the guest alive over SSH, and if so, what is systemd stuck on?
+        Everything goes to the serial log, which CI keeps as a masked tail (trim-log.sh --tail)."""
+        v = self.vm
+        with v.lock:
+            seen = len(v.buf)
+        v.mark(f"HANG REPORT: no {waited_for!r} after {seen} console bytes; probing the guest over SSH")
+        try:
+            rc, out = self.ssh("sudo -n sh -c " + shlex.quote(
+                "echo '--- uptime'; cat /proc/uptime; echo '--- jobs'; systemctl list-jobs --no-pager 2>&1 | head -40; "
+                "echo '--- failed'; systemctl --failed --no-legend --no-pager 2>&1 | head -20; "
+                "echo '--- firstboot, rauc, cloud-init'; journalctl -b -u onemind-firstboot.service -u rauc.service "
+                "-u cloud-init.service -u cloud-init-local.service -n 120 --no-pager 2>&1 | tail -120; "
+                "echo '--- warnings this boot'; journalctl -b -p warning -n 120 --no-pager 2>&1 | tail -120"), 120)
+            alive = rc == 0
+            self.logf.write(out + "\n"); self.logf.flush()
+        except (subprocess.SubprocessError, OSError) as e:
+            alive, out = False, ""
+            v.mark(f"HANG REPORT: SSH failed: {e}")
+        v.mark(f"HANG REPORT: guest_ssh={'alive' if alive else 'no answer'}")
+        return "guest answers SSH (console stalled or a unit is stuck)" if alive else "guest silent and no SSH (early-boot hang)"
+
     def healthz(self, why="healthz"):
         code, body = wait_http(self.ports["https"], "/healthz", guard=self.guard, tls=True)
         if code != 200:
@@ -433,7 +456,10 @@ def boot_main(R, base, tests, extra):
     disk, seed, extra = R.prepare(base, "main", True, extra)
     vm = R.boot(disk, seed, extra)
     vm.mark("C1 first boot as hub")
-    cfg = vm.expect(CONFIGURED, 900).group(0)
+    try:
+        cfg = vm.expect(CONFIGURED, 900).group(0)
+    except TimeoutError as e:
+        raise TimeoutError(f"{e}; {R.hang_report('ONEMIND-FIRSTBOOT')}") from None
     time.sleep(3)
     gate = expect_from(vm, GATE, 0, 1800).groups()
     toks = TOKEN.findall(vm.since(0))

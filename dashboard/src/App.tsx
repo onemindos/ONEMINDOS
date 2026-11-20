@@ -19,6 +19,9 @@ import { Installed } from './pages/Installed';
 import { Market } from './pages/Market';
 import { Machines } from './pages/Machines';
 import { Nodes } from './pages/Nodes';
+import { ControlHub } from './pages/ControlHub';
+import { Agents } from './pages/Agents';
+import { ProOnly } from './shell/ProOnly';
 import { Settings } from './pages/Settings';
 import { SignIn } from './pages/SignIn';
 import { useSession, useSignedIn } from './session';
@@ -55,14 +58,16 @@ export function SignedInApp() {
             <Route path="installed/:appId" element={<Installed />} />
             <Route path="approvals" element={<Approvals />} />
             <Route path="activity" element={<Activity />} />
-            <Route path="nodes" element={<Nodes />} />
+            <Route path="nodes" element={<ProOnly title="Nodes"><Nodes /></ProOnly>} />
             <Route path="machines" element={<Machines />} />
             <Route path="alerts" element={<Alerts />} />
-            <Route path="storage" element={<Storage />} />
+            <Route path="storage" element={<ProOnly title="Storage"><Storage /></ProOnly>} />
             <Route path="settings/storage" element={<Navigate to="/storage" replace />} />
-            <Route path="backups" element={<Backups />} />
+            <Route path="backups" element={<ProOnly title="Backups"><Backups /></ProOnly>} />
             <Route path="settings/backups" element={<Navigate to="/backups" replace />} />
             <Route path="coming" element={<Coming />} />
+            <Route path="control-hub" element={<ProOnly title="Control Hub"><ControlHub /></ProOnly>} />
+            <Route path="agents" element={<ProOnly title="AI & Agents"><Agents /></ProOnly>} />
             <Route path="settings" element={<Settings />} />
             <Route path="settings/:section" element={<Settings />} />
             <Route path="*" element={<Navigate to="/" replace />} />
