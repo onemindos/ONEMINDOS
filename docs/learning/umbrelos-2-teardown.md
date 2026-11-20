@@ -19,7 +19,7 @@
 | A/B updates | **Rugix Ctrl** (Rust, Apache-2.0/MIT). GRUB reads two checksummed environment files (`rugpi/primary.grubenv`, `secondary.grubenv`) and a "boot spare once" flag: it tries the other slot one time, and falls back if the new slot isn't committed | RAUC with verity bundles and a health gate (k3s) before commit |
 | Data partition | A mount script reads `umbrel.yaml` from Rugix's config partition and can mount an external RAID instead of the local `data` partition. If mounting fails, the box **still boots** on a temporary in-memory data area and the daemon starts in **recovery mode** (`fail-on-mount-error = false`) | Rescue console when k3s is down (REC-W11-04); no "boot without data" mode yet |
 | Factory reset | A Rugix **state-reset** hook (`/etc/rugix/hooks/state-reset/prepare/10-umbrel.sh`) | UMB-P09 (#146, PR #355) |
-| System daemon | **One** Node.js daemon, `umbreld` (`umbrel.service`, restarts forever, data in `/home/umbrel/umbrel`). It serves the web UI, the API and per-app login, and drives everything else | Gateway (FastAPI) + `onemindd` (Go) + k3s + NATS |
+| System daemon | **One** Node.js daemon, `umbreld` (`umbrel.service`, restarts forever, data in the `umbrel` user's home folder). It serves the web UI, the API and per-app login, and drives everything else | Gateway (FastAPI) + `onemindd` (Go) + k3s + NATS |
 | Apps | Docker (each app is a Compose project) | k3s |
 | VMs ("Machines") | libvirt / QEMU, with a `machines.target` | Not in v0 (dashboard has a Machines page) |
 | Local name | Avahi mDNS → `umbrel.local` works on the LAN with no setup | Check: does the hub announce itself over mDNS? |
