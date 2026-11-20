@@ -385,6 +385,8 @@ class InstallHook:
     name: str
     prepare: Callable[[AppEntry, "Action"], list[dict]]
     removed: Callable[[AppEntry, "Action"], None] | None = field(default=None)
+    # Security cleanup must precede removal, including a failed executor.
+    removing: Callable[[AppEntry, "Action"], None] | None = field(default=None)
 
 
 class ActionService:
@@ -984,6 +986,10 @@ class ActionService:
         agent = self._agent_grant(a, app)
         hook_steps: list[dict] = []
         try:
+            if a.type == "app.remove":
+                for hook in self.install_hooks:
+                    if hook.removing is not None:
+                        hook.removing(app, a)
             if a.type == "app.install":
                 for hook in self.install_hooks:
                     hook_steps += [{"hook": hook.name, **st} for st in hook.prepare(app, a)]
