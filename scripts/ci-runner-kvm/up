@@ -1,0 +1,49 @@
+#!/bin/bash
+# SPDX-License-Identifier: Apache-2.0
+# Set up and start the x86 KVM runner on a Proxmox VE host (CI-14). Run ON the host, as root, from a
+# copy of this folder: `scp -r scripts/ci-runner-kvm root@<host>:/opt/` then `ssh -t root@<host> /opt/ci-runner-kvm/up`.
+#   up             write /etc/onemind-ci-kvm.env (first time), the job network, the template (if missing),
+#                  and start onemind-ci-kvm.service (it sets KVM_RUNNER=on while it runs)
+#   up --token     first ask for the GitHub token (typed, not shown) and store it root-only
+# Settings in /etc/onemind-ci-kvm.env: STORAGE (VM disks), SNIPPETS (a storage with "snippets"),
+# INSTANCES (parallel job VMs; each 4 cores, 8 GiB), TEMPLATE_ID, BASE_ID, CI_NET, RUNNER_GROUP.
+set -euo pipefail
+here=$(cd "$(dirname "$0")" && pwd)
+[ "$(id -u)" = 0 ] || { echo "run as root on the Proxmox host" >&2; exit 1; }
+command -v qm >/dev/null || { echo "this is not a Proxmox VE host (no qm)" >&2; exit 1; }
+command -v jq >/dev/null || { echo "install jq first: apt install jq" >&2; exit 1; }
+
+if [ "${1:-}" = --token ]; then
+  echo "Paste the fine-grained GitHub token (README.md, step 2). It is not shown and not stored anywhere else."
+  IFS= read -rs tok; echo
+  [ -n "$tok" ] || { echo "empty token" >&2; exit 1; }
+  (umask 077; printf '%s' "$tok" > /etc/onemind-ci-kvm.token); unset tok
+  echo "stored in /etc/onemind-ci-kvm.token (root, 0600)"
+fi
+[ -s /etc/onemind-ci-kvm.token ] || { echo "no token yet: run up --token" >&2; exit 1; }
+
+if [ ! -f /etc/onemind-ci-kvm.env ]; then
+  cat > /etc/onemind-ci-kvm.env <<'ENV'
+# OneMind x86 KVM runner (scripts/ci-runner-kvm). Change, then: systemctl restart onemind-ci-kvm
+STORAGE=local-lvm
+SNIPPETS=local
+INSTANCES=2
+TEMPLATE_ID=9100
+BASE_ID=9110
+CI_NET=10.10.0
+CI_BRIDGE=vmbr1
+RUNNER_GROUP=onemind-local
+ENV
+  echo "wrote /etc/onemind-ci-kvm.env (defaults; edit STORAGE and SNIPPETS for this host, then run up again)"
+  exit 0
+fi
+. /etc/onemind-ci-kvm.env
+
+CI_NET=${CI_NET:-10.10.0} CI_BRIDGE=${CI_BRIDGE:-vmbr1} sh "$here/net.sh"
+qm status "${TEMPLATE_ID:-9100}" >/dev/null 2>&1 || sh "$here/template.sh"
+
+sed "s|__CYCLE__|$here/cycle|" "$here/onemind-ci-kvm.service" > /etc/systemd/system/onemind-ci-kvm.service
+systemctl daemon-reload
+systemctl enable --now onemind-ci-kvm.service
+systemctl restart onemind-ci-kvm.service
+echo "started; follow it with: journalctl -fu onemind-ci-kvm   (status: $here/status)"

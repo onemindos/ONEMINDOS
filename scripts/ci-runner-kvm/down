@@ -1,0 +1,11 @@
+#!/bin/bash
+# SPDX-License-Identifier: Apache-2.0
+# Stop the x86 KVM runner (CI-14). Run on the Proxmox host as root.
+#   down           stop the service: KVM_RUNNER goes off, running job VMs are destroyed, jobs go back to GitHub
+#   down --wipe    also delete the template (the next `up` rebuilds it from the pinned image)
+set -uo pipefail
+[ -f /etc/onemind-ci-kvm.env ] && . /etc/onemind-ci-kvm.env
+systemctl disable --now onemind-ci-kvm.service 2>/dev/null && echo "service stopped; KVM_RUNNER=off"
+if [ "${1:-}" = --wipe ]; then
+  qm destroy "${TEMPLATE_ID:-9100}" --purge && echo "template ${TEMPLATE_ID:-9100} deleted"
+fi
