@@ -2,3 +2,9 @@
 node_modules/
 test-results/
 playwright-report/
+# Reference screenshots are drawn from main on every run (CI-17), never committed.
+visual/
+playwright-report-visual/
+test-results-visual/
+visual-results.json
+visual-changes-*/
