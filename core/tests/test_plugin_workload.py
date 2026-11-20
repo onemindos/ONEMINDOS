@@ -45,7 +45,7 @@ def test_install_issues_only_after_approval_and_hands_scoped_secret(plugin_setti
         rows = tokens(client)
         assert len(rows) == 1 and rows[0].hash == sha256_hex(grant.token)
         assert rows[0].source == "app-install" and rows[0].principal_id == "plugin:uptime-kuma"
-        assert rows[0].scopes == ["actions:request:app.install", "apps:read"]
+        assert rows[0].scopes == ["actions:read:own", "actions:request:app.install", "apps:read"]
         doc = json.loads(grant.manifest("app-uptime-kuma", "uptime-kuma"))
         data = {k: base64.b64decode(v).decode() for k, v in doc["data"].items()}
         assert data["ONEMIND_PLUGIN_TOKEN"] == grant.token
@@ -56,6 +56,9 @@ def test_install_issues_only_after_approval_and_hands_scoped_secret(plugin_setti
         r = client.post("/v1/actions", headers=bearer(grant),
                         json=action_body(clock, app_id="whoami", key="plugin-requests"))
         assert r.status_code == 201 and r.json()["state"] == "awaiting_approval"
+        own = client.get("/v1/actions", headers=bearer(grant))
+        assert own.status_code == 200 and [a["id"] for a in own.json()] == [r.json()["id"]]
+        assert client.get(f"/v1/actions/{action_id}", headers=bearer(grant)).status_code == 404
         assert client.post(f"/v1/actions/{r.json()['id']}/approve", headers=bearer(grant)).status_code == 403
         assert client.post("/mcp", headers=bearer(grant), json={}).status_code == 403
         stored = client.app.state.identity.repo.get(PluginInstallRow, "uptime-kuma")

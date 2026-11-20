@@ -35,10 +35,12 @@ def declaration(app) -> tuple[str, list[str]] | None:
         raise ValueError("invalid plugin credential Secret name")
     if any(row.name == secret for row in app.secrets):
         raise ValueError("plugin credential Secret collides with app secrets")
-    scopes = spec.get("permissions", [])
+    permissions = spec.get("permissions", [])
+    scopes = (["actions:read:own" if item == "actions:read:self" else item for item in permissions]
+              if isinstance(permissions, list) else permissions)
     if request_types(scopes) is None:
         raise ValueError("plugin requests unsupported runtime permissions")
-    return secret, sorted(set(scopes))
+    return secret, sorted(set(scopes) | {"actions:read:own"})
 
 
 @dataclass(frozen=True)
