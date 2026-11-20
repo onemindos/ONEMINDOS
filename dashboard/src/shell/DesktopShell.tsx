@@ -89,9 +89,16 @@ export function parentPath(pathname: string): string | null {
   return parts.length > 1 ? `/${parts.slice(0, -1).join('/')}` : null;
 }
 
-/** A modal dialog or the command palette is open: Esc belongs to it, not to the window. */
+/**
+ * Esc belongs to something else: a modal dialog or the palette, or a popover opened from the
+ * menu bar (the bell, the account menu: their triggers say aria-expanded). Expandable sections
+ * inside a page do not count.
+ */
 function overlayOpen(except?: Element | null): boolean {
-  return [...document.querySelectorAll('[aria-modal="true"], dialog[open]')].some((e) => e !== except);
+  return [...document.querySelectorAll('[aria-modal="true"], dialog[open], .dsk-bar [aria-expanded="true"]')].some((e) => e !== except);
+}
+function typingIn(target: EventTarget | null): boolean {
+  return target instanceof HTMLElement && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName));
 }
 
 function ScreenTile({ id, icon, size = 44 }: { id: string; icon: NavItem['icon']; size?: number }) {
@@ -153,7 +160,7 @@ function PersonMenu({ person, demo, onConsoleView, onSignOut }: Pick<DesktopShel
   const initial = (person?.id ?? '?').slice(0, 1).toUpperCase();
   return (
     <div className="dsk-person" ref={ref}>
-      <button type="button" className="dsk-avatar" aria-haspopup="true" aria-expanded={open} aria-controls={menuId} onClick={() => setOpen((o) => !o)}>
+      <button type="button" className="dsk-avatar" aria-expanded={open} aria-controls={menuId} onClick={() => setOpen((o) => !o)}>
         <span aria-hidden="true">{initial}</span>
         <span className="om-visually-hidden">{person ? `Account: ${person.id}` : 'Account'}</span>
       </button>
@@ -174,7 +181,14 @@ function PersonMenu({ person, demo, onConsoleView, onSignOut }: Pick<DesktopShel
           <a className="dsk-menu-item" href="/settings" onClick={() => setOpen(false)}>
             <Icon name="settings" size={16} /> Settings
           </a>
-          <button type="button" className="dsk-menu-item" onClick={onConsoleView}>
+          <button
+            type="button"
+            className="dsk-menu-item"
+            onClick={() => {
+              setOpen(false);
+              onConsoleView();
+            }}
+          >
             <Icon name="menu" size={16} /> Console view
           </button>
           <button type="button" className="dsk-menu-item dsk-menu-danger" onClick={onSignOut}>
@@ -191,17 +205,41 @@ function Launchpad({ nav, apps, onClose }: { nav: NavItem[]; apps: DockApp[]; on
   const ref = useRef<HTMLDivElement>(null);
   const title = useId();
   const input = useRef<HTMLInputElement>(null);
+  // The latest onClose without re-running the effect: the shell re-renders on every hub poll,
+  // and re-running would pull focus back to the search field each time.
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
   useEffect(() => {
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     input.current?.focus();
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && !overlayOpen(ref.current)) {
         e.preventDefault();
-        onClose();
+        closeRef.current();
+        return;
+      }
+      // Keep Tab inside Launchpad while it is open (aria-modal).
+      if (e.key === 'Tab' && ref.current) {
+        const items = [...ref.current.querySelectorAll<HTMLElement>('a[href], button, input, [tabindex]:not([tabindex="-1"])')];
+        const first = items[0];
+        const last = items[items.length - 1];
+        if (!first || !last) return;
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
       }
     };
     document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [onClose]);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      // Back to whatever opened it (the dock's All button), if it is still on the page.
+      if (opener?.isConnected) opener.focus();
+    };
+  }, []);
   const needle = q.trim().toLowerCase();
   const screens = nav.filter((n) => !needle || n.label.toLowerCase().includes(needle));
   const shownApps = apps.filter((a) => !needle || a.name.toLowerCase().includes(needle));
@@ -285,7 +323,7 @@ export function DesktopShell(props: DesktopShellProps) {
         setLaunchpad((o) => !o);
         return;
       }
-      if (e.key === 'Escape' && !atHome && !launchpad && !overlayOpen()) navigate('/');
+      if (e.key === 'Escape' && !atHome && !launchpad && !overlayOpen() && !typingIn(e.target)) navigate('/');
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);

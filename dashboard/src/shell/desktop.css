@@ -21,7 +21,8 @@
 
 /* ── Menu bar ───────────────────────────────────────────────────────────── */
 .dsk-bar {
-  position: sticky; top: 0; z-index: var(--om-z-nav);
+  /* Above the dock, so the bell and account popovers are never painted under it. */
+  position: sticky; top: 0; z-index: calc(var(--om-z-nav) + 1);
   display: flex; align-items: center; gap: var(--om-space-3);
   min-height: var(--dsk-bar-h); padding: 4px var(--om-space-4);
   background: var(--dsk-glass); border-bottom: 1px solid var(--dsk-hairline);

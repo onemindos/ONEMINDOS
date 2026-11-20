@@ -111,6 +111,30 @@ describe('desktop frame', () => {
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Launchpad' })).toBeNull());
   });
 
+  it('Esc closes the bell popover or leaves a search field without closing the window', async () => {
+    const u = userEvent.setup();
+    renderApp({ token: 'owner-demo', route: '/market' });
+    await screen.findByRole('region', { name: 'Market' }, T);
+    await u.click(screen.getByRole('button', { name: /^Notifications/ }));
+    await u.keyboard('{Escape}');
+    expect(screen.getByRole('region', { name: 'Market' })).toBeInTheDocument();
+    await u.click(screen.getByPlaceholderText(/Search apps/));
+    await u.keyboard('{Escape}');
+    expect(screen.getByRole('region', { name: 'Market' })).toBeInTheDocument();
+  });
+
+  it('Launchpad hands focus back to the All button when it closes', async () => {
+    const u = userEvent.setup();
+    renderApp({ token: 'owner-demo' });
+    const nav = within(await screen.findByRole('navigation', { name: 'Main' }, T));
+    const all = nav.getByRole('button', { name: /screens and apps/ });
+    await u.click(all);
+    const lp = within(await screen.findByRole('dialog', { name: 'Launchpad' }));
+    expect(lp.getByRole('searchbox')).toHaveFocus();
+    await u.keyboard('{Escape}');
+    await waitFor(() => expect(all).toHaveFocus());
+  });
+
   it('a nested page has a Back button to its screen', async () => {
     renderApp({ token: 'owner-demo', route: '/market/vaultwarden' });
     const win = await screen.findByRole('region', { name: 'Market' }, T);
