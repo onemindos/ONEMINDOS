@@ -59,12 +59,12 @@ class KvmRunnerPolicy(unittest.TestCase):
 
     def test_every_self_hosted_job_is_a_reviewed_one(self):
         # Runners carry only self-hosted + their own label, but a job asking for [self-hosted] alone
-        # would still match; every self-hosted job must be one this test or CI-10's test reviews.
+        # would still match; every self-hosted job must be one this test or CI-10/CI-13 (test_local_runner_policy.py) reviews.
         for wf, d in workflows():
             for name, job in d["jobs"].items():
                 ro = str(job.get("runs-on", ""))
                 if "self-hosted" in ro:
-                    self.assertTrue(LABEL in ro or "onemind-local" in ro, f"{wf}:{name} asks for an unreviewed self-hosted runner")
+                    self.assertTrue(LABEL in ro or "onemind-local" in ro or "onemind-gate" in ro, f"{wf}:{name} asks for an unreviewed self-hosted runner")
 
     def test_no_job_that_can_pick_it_can_read_a_secret(self):
         for wf, d, name, job in kvm_jobs():
