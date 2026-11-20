@@ -30,10 +30,12 @@ The order comes from [LANES.md](../LANES.md).
 
 - #177: tool-manifest foundation; PR #387. Shared Go validator and CLI; remaining rules tracked in the PR.
 
+- #177: shared box/CI validator wiring; PR pending, stacked on codex/177-plugin-manifest-completion. App validation executes the built Go CLI for every extensions declaration, fails closed without an explicit binary, and handles declarative bundles without rendering a workload. ci-apps builds native binaries in both jobs; Go validator/source changes re-gate apps.
+
 ## Next
 
 - Resolve #175 and review the #177 draft stack, then #178, #179, #180, #183, #182, #181, #184, #185.
-- #177 coverage limits: tool-backed plugins only; backend-free declarations and the literal older Hello example need alignment with the current App contract. Publisher ownership verification belongs to signing/index work.
+- #177 coverage: declarative and backend-backed declarations use the same Go validator in the CLI and app CI. The literal older Hello example needs current App metadata/updates, closed output schemas and structured secrets. Publisher ownership verification belongs to signing/index work.
 - The current App secret name/key format is preserved. The older plugin example differs; do not copy its flat secret shape or omit App-required metadata/updates.
 - Workload policy, scans, signatures and owner approval remain mandatory separate gates; the Go bundle check does not replace existing app-gate checks.
 
