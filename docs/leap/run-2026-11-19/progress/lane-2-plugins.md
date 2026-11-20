@@ -59,3 +59,5 @@ The order comes from [LANES.md](../LANES.md).
 - #178 depends on #177 and has signed tool invocation and installed-schema settings drafted for final review. Issuance, Secret delivery, own-action polling and persistent revocation are drafted; static token kinds stay unchanged.
 
 - #175 manifest freeze remains open; #177 retains its dependency label until the gate resolves it.
+
+- #415 upgrade correction: plugins schema v2 adds the settings snapshot column for databases created by #409. Real v1-to-v2 preservation/idempotence and fresh-database tests cover the upgrade.

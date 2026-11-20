@@ -25,3 +25,12 @@ class PluginSettingsRow(Base):
     values: Mapped[dict] = mapped_column(JSON, default=dict)
     claim_action: Mapped[str | None] = mapped_column(String(36), nullable=True)
     prior_status: Mapped[str | None] = mapped_column(String(32), nullable=True)
+
+
+@SCHEMA.step(2, "snapshot installed settings schemas")
+def _plugins_v2(conn):
+    from sqlalchemy import inspect, text
+
+    columns = {column["name"] for column in inspect(conn).get_columns("plugins_installs")}
+    if "settings_schema" not in columns:
+        conn.execute(text("ALTER TABLE plugins_installs ADD COLUMN settings_schema JSON"))
