@@ -8,7 +8,7 @@ Ask your offline library questions and get short answers from a local AI model, 
 | | |
 |---|---|
 | Version | 0.1.0 (upstream release `0.1.0`, published 2026-11-14) |
-| Licence | `Apache-2.0`, Market class **L1** (licence gate, scan of 2026-11-14) |
+| Licence | `Apache-2.0`, Market class **L1** (licence gate, scan of 2026-11-19) |
 | Tier | `verified` (set by CI: sdk/tools/app-gate) |
 | Category | ai |
 | GitHub | <https://github.com/onemindos/ONEMINDOS> |
@@ -78,10 +78,10 @@ Images:
 
 ## Latest security scan
 
-Scanned 2026-11-14T12:28:46Z by `sdk/tools/app-gate`: **pass**. Licence `Apache-2.0` class L1; smoke test pass.
+Scanned 2026-11-19T14:22:18Z by `sdk/tools/app-gate`: **pass**. Licence `Apache-2.0` class L1; smoke test pass.
 
 | Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
 |---|---|---|---|---|---|---|
-| `docker.io/library/python:3.14.10-slim-trixie@sha256:9aaa474097d094040649f2162a627c0049b408f52138d980916788d80f04802f` | amd64, arm64 | 0 (0) | 54 | 0 infected (daily-28183) | 0 | unsigned |
+| `docker.io/library/python:3.14.10-slim-trixie@sha256:9aaa474097d094040649f2162a627c0049b408f52138d980916788d80f04802f` | amd64, arm64 | 0 (0) | 53 | 0 infected (daily-28188) | 0 | unsigned |
 
 Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.
