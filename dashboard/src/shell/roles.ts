@@ -8,8 +8,9 @@ import type { Principal } from '../api/types';
 /** core/onemind_core/auth.py ROLES: owner, adult, guest, child, agent. */
 export const PRO_ROLES: ReadonlySet<string> = new Set(['owner', 'adult']);
 
-/** Nav ids (routes.ts navId) of the Pro screens: Nodes, Control Hub, AI & Agents, and System. */
-export const PRO_SCREENS: ReadonlySet<string> = new Set(['nodes', 'control-hub', 'agents', 'storage', 'backups']);
+/** Nav ids (routes.ts navId) of the Pro screens: Nodes, Control Hub, AI & Agents, and System
+ * (Storage, Backups, OS updates). */
+export const PRO_SCREENS: ReadonlySet<string> = new Set(['nodes', 'control-hub', 'agents', 'storage', 'backups', 'updates']);
 
 export type View = 'pro' | 'simple' | 'unknown';
 
