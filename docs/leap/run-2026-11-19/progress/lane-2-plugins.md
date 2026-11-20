@@ -45,7 +45,7 @@ The order comes from [LANES.md](../LANES.md).
 
 - #183: unpacked plugin malware scan adapter; PR #416, stacked on #412. Real ClamAV scans frozen bundle files, including UI. EICAR blocks the app gate/tier; errors, symlinks and byte limits fail closed. Full OCI/referrer/scan-attestation binding remains dependent on #180.
 
-- #181: safe settings scaffold; PR pending, stacked on #412. onemind plugin init requires a source URL, validates output before publication and never replaces existing paths. Backend templates/dev runtime follow packaging.
+- #181: safe settings scaffold; PR #417, stacked on #412. onemind plugin init requires a source URL, validates output before publication and never replaces existing paths. Backend templates/dev runtime follow packaging.
 
 ## Next
 
