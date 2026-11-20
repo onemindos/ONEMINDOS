@@ -54,7 +54,7 @@ Images:
   - It never writes, renames or deletes a map.
 - **`pmtiles`** (`go-pmtiles serve`, port 8081): a Z/X/Y tile API (`/<map name>/{z}/{x}/{y}.mvt`) for other map clients. It is also the tool the owner uses to cut a map (below).
 - Settings: `language` (place-name language, for example `en`, `es`, `de`) and `flavor` (`light`, `dark`, `white`, `grayscale`, `black`).
-- Backups skip the maps and the assets, which can be cut and downloaded again.
+- Backups skip the assets, which are downloaded again. The maps (`maps/*.pmtiles`) are the optional content tier: skipped (they can be cut again) until the owner switches the tier on in Backups after seeing their size (`GET /v1/backups/content`, BAK-03).
 
 ## First run
 
