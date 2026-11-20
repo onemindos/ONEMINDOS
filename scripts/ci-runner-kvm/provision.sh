@@ -30,8 +30,20 @@ if [ ! -x "$RH/actions-runner/run.sh" ]; then
 fi
 chown -R runner:runner "$RH"
 install -m 0755 -o root -g root run-one.sh /usr/local/bin/onemind-ci-run-one
+install -m 0755 -o root -g root job-started.sh /usr/local/bin/onemind-ci-job-started
+# Every job first passes the guard: a pull request whose head is a fork is refused, even if the PR's
+# own workflow file hard-codes this runner's labels (a fork PR runs its own copy of the workflows).
+echo "ACTIONS_RUNNER_HOOK_JOB_STARTED=/usr/local/bin/onemind-ci-job-started" > "$RH/actions-runner/.env"
+chown runner:runner "$RH/actions-runner/.env"
 
-# The one-job service: the host writes /run/onemind-ci/job (org URL, group, name, token) through the
+# A clone must not change under a job: no package upgrades, no apt timers, no runner self-update
+# (the template is pinned; bump runner.pin and rebuild it instead).
+systemctl disable --now apt-daily.timer apt-daily-upgrade.timer >/dev/null 2>&1 || true
+apt-get purge -y -qq unattended-upgrades >/dev/null 2>&1 || true
+# Docker Hub limits anonymous pulls per IP; keep the image setup-buildx needs inside the template.
+docker pull -q moby/buildkit:buildx-stable-1 >/dev/null
+
+# The one-job service: the host writes /run/onemind-ci/job (a single-use JIT runner config) through the
 # guest agent and starts this unit. When the job ends, the VM powers off and the host destroys it.
 cat > /etc/systemd/system/onemind-ci-job.service <<'UNIT'
 [Unit]

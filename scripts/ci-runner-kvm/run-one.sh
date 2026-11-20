@@ -1,15 +1,13 @@
 #!/bin/sh
 # SPDX-License-Identifier: Apache-2.0
-# Runs inside a job VM as `runner` (CI-14), started by onemind-ci-job.service: register as an EPHEMERAL
-# runner, take exactly one job, then stop. The host left one file, /run/onemind-ci/job, holding
-# "ORG_URL GROUP NAME" on line 1 and a one-hour registration token on line 2; it is deleted before
-# the job starts, so the job never sees the token.
+# Runs inside a job VM as `runner` (CI-14), started by onemind-ci-job.service: run as an ephemeral
+# just-in-time (JIT) runner for exactly one job, then stop. The host left one file, /run/onemind-ci/job,
+# holding the encoded JIT config (one runner, labels self-hosted + onemind-kvm, group onemind-local,
+# single use); it is deleted before the runner starts. The unit then powers the VM off.
 set -eu
 f=/run/onemind-ci/job
-{ read -r url group name; IFS= read -r token; } < "$f"
+IFS= read -r ACTIONS_RUNNER_INPUT_JITCONFIG < "$f"
 rm -f "$f"
+export ACTIONS_RUNNER_INPUT_JITCONFIG
 cd "$HOME/actions-runner"
-./config.sh --unattended --ephemeral --replace --url "$url" --token "$token" \
-  --runnergroup "$group" --labels onemind-kvm --name "$name" --work _work >/dev/null
-unset token
-exec ./run.sh     # returns after the one job (ephemeral); the unit then powers the VM off
+exec ./run.sh

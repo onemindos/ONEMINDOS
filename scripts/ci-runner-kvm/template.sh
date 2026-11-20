@@ -10,7 +10,7 @@ here=$(cd "$(dirname "$0")" && pwd)
 [ -f /etc/onemind-ci-kvm.env ] && . /etc/onemind-ci-kvm.env
 TID=${TEMPLATE_ID:-9100}; ST=${STORAGE:-local-lvm}; SN=${SNIPPETS:-local}
 BR=${CI_BRIDGE:-vmbr1}; NET=${CI_NET:-10.10.0}; DISK=${DISK_GB:-150}
-for c in qm pvesm curl sha256sum tar; do command -v "$c" >/dev/null || { echo "missing: $c" >&2; exit 2; }; done
+for c in qm pvesm curl sha256sum tar jq; do command -v "$c" >/dev/null || { echo "missing: $c" >&2; exit 2; }; done
 if qm status "$TID" >/dev/null 2>&1; then echo "VM $TID exists; remove it first (down --wipe)" >&2; exit 1; fi
 
 img=/var/tmp/onemind-ci-kvm/$(basename "$UBUNTU_IMAGE_URL")
@@ -45,14 +45,15 @@ i=0; until qm agent "$TID" ping >/dev/null 2>&1; do
   i=$((i + 1)); [ "$i" -le 90 ] || { echo "no guest agent after 15 min" >&2; qm stop "$TID"; exit 1; }; sleep 10
 done
 qm guest exec "$TID" --timeout 900 -- cloud-init status --wait >/dev/null || true
-tar -C "$here" -cf - provision.sh run-one.sh runner.pin |
+tar -C "$here" -cf - provision.sh run-one.sh job-started.sh runner.pin |
   qm guest exec "$TID" --pass-stdin 1 -- sh -c 'mkdir -p /opt/onemind-ci && tar -xf - -C /opt/onemind-ci' >/dev/null
 out=$(qm guest exec "$TID" --timeout 0 -- sh /opt/onemind-ci/provision.sh)
-echo "$out" | grep -q '"exitcode" : 0' || { echo "$out" >&2; echo "provision failed" >&2; exit 1; }
-echo "$out" | sed -n 's/.*"out-data" : "\(provisioned[^"\\]*\).*/\1/p'
+echo "$out" | jq -e '.exitcode == 0' >/dev/null || { echo "$out" >&2; echo "provision failed" >&2; exit 1; }
+echo "$out" | jq -r '."out-data"' | tail -1
 
 qm shutdown "$TID" --timeout 120 || qm stop "$TID"
-qm set "$TID" --delete cicustom --ipconfig0 "ip=$NET.9/24,gw=$NET.1" >/dev/null
+# Clones use Proxmox's generated cloud-init: network only, no package upgrade (ciupgrade defaults to on).
+qm set "$TID" --delete cicustom --ciupgrade 0 --ipconfig0 "ip=$NET.9/24,gw=$NET.1" >/dev/null
 rm -f "$snip_dir/onemind-ci-template.yaml"
 qm template "$TID"
 echo "template $TID ready"
