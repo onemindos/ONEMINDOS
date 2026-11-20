@@ -1,0 +1,30 @@
+{
+  "scanned_at": "2026-11-19T14:18:23Z",
+  "result": "fail",
+  "images": [
+    {
+      "ref": "docker.io/jenkins/jenkins:2.590-jdk21@sha256:1b8068fd8b82518be3bb2e89560efa44f67f5fbc1ab3a9b59826c7f8f70f2260",
+      "archs": [
+        "amd64",
+        "arm64"
+      ],
+      "trivy": {
+        "version": "0.76.2",
+        "critical_fixable": 0,
+        "critical": 1,
+        "high": 133
+      },
+      "clamav": {
+        "signatures": "daily-28188",
+        "infected": 0
+      },
+      "secrets": 0,
+      "cosign": "unsigned"
+    }
+  ],
+  "licence": {
+    "spdx": "MIT",
+    "class": "L1"
+  },
+  "smoke": "fail"
+}
