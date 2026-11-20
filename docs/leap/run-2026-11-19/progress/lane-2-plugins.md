@@ -61,3 +61,5 @@ The order comes from [LANES.md](../LANES.md).
 - #178 depends on #177 and has signed tool invocation and installed-schema settings drafted for final review in #414/#415. Issuance, Secret delivery, own-action polling and persistent revocation are drafted; static token kinds stay unchanged.
 
 - #175 manifest freeze remains open; #177 retains its dependency label until the gate resolves it.
+
+- #387 CI checkpoint: code/image workflows passed; merge-gate timed out waiting for ci-apps. Do not rerun the broad suite while that dependency is still pending. Gate review and merges remain Claude-owned.
