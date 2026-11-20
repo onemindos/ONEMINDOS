@@ -553,3 +553,10 @@ POLICY |= {
                                                  w.p_static("/v1/machines/ghost/console"),
                                                  f"{_MACH}: only the owner gets a console ticket; an agent never gets a screen"),
 }
+
+# DEV-PLG-3 (#178): installed plugin summaries follow the Market's visibility filters.
+POLICY.update({
+    ("GET", "/v1/plugins"): Row(ANY_PRINCIPAL, w.p_static("/v1/plugins"), "#178 apps:read; shared installed plugin summaries"),
+    ("GET", "/v1/plugins/{plugin_id}"): Row(cells(404, **GONE, plugin=DECIDE, automation=DECIDE, node=DECIDE),
+                                          w.p_static("/v1/plugins/not-installed"), "#178 unavailable or unshared plugin is 404"),
+})
