@@ -68,7 +68,7 @@ core/onemind_core/netpath.py	100\.64\.0\.0	B-FP-9
 core/tests/test_app_exposure_sharing.py	192\.168\.1\.20	B-FP-6
 # B-FP-9b: the LAN allowlist in core/onemind_core/netpath.py names the RFC 1918 network addresses (standard ranges, not a real network).
 core/onemind_core/netpath.py	(10\.0\.0\.0|172\.16\.0\.0|192\.168\.0\.0)	B-FP-9
-# B-FP-11: CI-14 KVM runner firewall (scripts/ci-runner-kvm/net.sh) and its test block whole ranges by their network address: RFC 1918 (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16) and RFC 6598 CGNAT (100.64.0.0/10). They are the ranges being denied, not hosts or addresses of any real network.
+# B-FP-11: CI-14 KVM runner firewall (scripts/ci-runner-kvm/net.sh) and its test block whole ranges by their network address: RFC 1918 (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16) and RFC 6598 CGNAT (100.64.0.0/10). They are the ranges being denied, not hosts or addresses of any real network. 10.10.0.0 is the kit's own default job subnet (CI_NET), created by net.sh on the runner host.
 scripts/ci-runner-kvm/*	(10\.0\.0\.0|172\.16\.0\.0|192\.168\.0\.0|100\.64\.0\.0)	B-FP-11
-test/unit/test_kvm_runner_policy.py	(10\.0\.0\.0|172\.16\.0\.0|192\.168\.0\.0|100\.64\.0\.0)	B-FP-11
-scripts/hygiene-allow.tsv	(10\.0\.0\.0|172\.16\.0\.0|192\.168\.0\.0|100\.64\.0\.0)	B-FP-11
+test/unit/test_kvm_runner_policy.py	(10\.0\.0\.0|10\.10\.0\.0|172\.16\.0\.0|192\.168\.0\.0|100\.64\.0\.0)	B-FP-11
+scripts/hygiene-allow.tsv	(10\.0\.0\.0|10\.10\.0\.0|172\.16\.0\.0|192\.168\.0\.0|100\.64\.0\.0)	B-FP-11
