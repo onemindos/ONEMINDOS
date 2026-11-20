@@ -43,3 +43,5 @@ The order comes from [LANES.md](../LANES.md).
 - #178 depends on #177. Plugin credentials need a deny-by-default policy plus exact-type guards in lifecycle and feature request paths before enabling request capability. Existing identity token rows can store plugin hashes; static token kinds stay unchanged. Pre-dispatch removal revocation is required, not only successful-removal cleanup.
 
 - #175 manifest freeze remains open; #177 retains its dependency label until the gate resolves it.
+
+- #387 CI found a missing sdk/schema copy in image builders; fixed both Go build contexts and the compose allowlist. Local isolated-context builds verify the dependency is present.
