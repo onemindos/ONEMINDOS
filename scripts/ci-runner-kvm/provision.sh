@@ -30,10 +30,10 @@ if [ ! -x "$RH/actions-runner/run.sh" ]; then
 fi
 chown -R runner:runner "$RH"
 install -m 0755 -o root -g root run-one.sh /usr/local/bin/onemind-ci-run-one
-install -m 0755 -o root -g root job-started.sh /usr/local/bin/onemind-ci-job-started
+install -m 0755 -o root -g root job-started.sh /usr/local/bin/onemind-ci-job-started.sh   # the runner requires .sh
 # Every job first passes the guard: a pull request whose head is a fork is refused, even if the PR's
 # own workflow file hard-codes this runner's labels (a fork PR runs its own copy of the workflows).
-echo "ACTIONS_RUNNER_HOOK_JOB_STARTED=/usr/local/bin/onemind-ci-job-started" > "$RH/actions-runner/.env"
+echo "ACTIONS_RUNNER_HOOK_JOB_STARTED=/usr/local/bin/onemind-ci-job-started.sh" > "$RH/actions-runner/.env"
 chown runner:runner "$RH/actions-runner/.env"
 
 # A clone must not change under a job: no package upgrades, no apt timers, no runner self-update

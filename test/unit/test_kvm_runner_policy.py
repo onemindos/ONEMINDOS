@@ -148,7 +148,9 @@ class Kit(unittest.TestCase):
 
     def test_fork_pull_requests_are_refused_on_the_machine(self):
         prov = (KIT / "provision.sh").read_text()
-        self.assertIn("ACTIONS_RUNNER_HOOK_JOB_STARTED=/usr/local/bin/onemind-ci-job-started", prov)
+        self.assertIn("ACTIONS_RUNNER_HOOK_JOB_STARTED=/usr/local/bin/onemind-ci-job-started.sh", prov)
+        # the runner accepts only paths ending in .sh/.ps1/.js, and the file installed must be that path
+        self.assertIn("job-started.sh /usr/local/bin/onemind-ci-job-started.sh", prov)
         hook = KIT / "job-started.sh"
         for event, repo, rc in (
             ({"pull_request": {"head": {"repo": {"full_name": "someone/ONEMINDOS"}}}}, "onemindos/ONEMINDOS", 1),
