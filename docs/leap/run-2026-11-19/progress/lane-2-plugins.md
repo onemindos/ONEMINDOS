@@ -43,7 +43,7 @@ The order comes from [LANES.md](../LANES.md).
 
 - #178: installed-schema plugin settings; PR #415, stacked on #414. Owner-approved plugin.configure applies fixed plugin-settings ConfigMap; schema/value bounds, sharing and receipt checks precede execution.
 
-- #183: unpacked plugin malware scan adapter; PR pending, stacked on #412. Real ClamAV scans frozen bundle files, including UI. EICAR blocks the app gate/tier; errors, symlinks and byte limits fail closed. Full OCI/referrer/scan-attestation binding remains dependent on #180.
+- #183: unpacked plugin malware scan adapter; PR #416, stacked on #412. Real ClamAV scans frozen bundle files, including UI. EICAR blocks the app gate/tier; errors, symlinks and byte limits fail closed. Full OCI/referrer/scan-attestation binding remains dependent on #180.
 
 ## Next
 
