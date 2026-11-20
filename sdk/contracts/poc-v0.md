@@ -753,3 +753,12 @@ approval; §12.40 lifecycle and §12.12 approval/security controls are unchanged
 - **Credentials (PD-07).** A manifest may declare `spec.credentials: {username?, password: generated, showBeforeOpen?}`. The gateway generates the password at the first install, stores it sealed (AES-256-GCM, key file beside the audit log) and hands it to the executor for Secret `<id>-credentials`. `GET /v1/apps/{id}/credentials` returns `{username, password}` to the owner only (`403` and `authz.denied` for anyone else, never an agent; `Cache-Control: no-store`; audited as `app.credentials.revealed` without the value). It survives `app.remove` and is erased by `app.delete_data`.
 - **Request limits by kind.** An agent may request `app.start|stop|restart|update|configure|remove` (no `sealed`), never `app.delete_data`; approval is owner-only as in §3.
 
+
+### Plugin registry read API (DEV-PLG-3, #178, first slice)
+
+`GET /v1/plugins` and `GET /v1/plugins/{plugin_id}` require `apps:read` and apply
+the Market sharing filters. They return installed/stopped tool-backed plugin
+summaries: `id`, `name`, `catalog_version`, `status`. The version comes from the
+current catalog, not a pinned installed-artifact receipt. Missing, uninstalled,
+non-plugin and unshared IDs are 404. No credential or execution authority is
+created; principal issuance and approved tool dispatch are later slices.

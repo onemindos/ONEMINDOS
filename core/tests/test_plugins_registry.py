@@ -1,0 +1,96 @@
+# SPDX-License-Identifier: Apache-2.0
+"""Registry checks use real temporary catalog files and the gateway app-state store."""
+from __future__ import annotations
+
+import yaml
+
+from conftest import AGENT, GUEST, OWNER
+
+
+def declare_plugin(client, settings, clock, *, state="installed"):
+    path = settings.apps_dir / "uptime-kuma" / "onemind.app.yaml"
+    manifest = yaml.safe_load(path.read_text())
+    manifest["spec"].update({
+        "plugin": {"principal": True, "secret": "plugin-token", "backend": {"service": "app", "port": 8080}},
+        "compat": {"onemind": ">=0.3 <1.0"},
+        "permissions": ["nodes:read"],
+        "extensions": {"tools": [{"name": "status", "title": "Status", "effect": "read", "description": "Read status",
+                                   "input": {"type": "object", "additionalProperties": False}}]},
+    })
+    path.write_text(yaml.safe_dump(manifest))
+    client.app.state.gateway.repo.set_app_state("uptime-kuma", state, clock.now)
+    return path
+
+
+def test_installed_registry_tracks_real_state(client, settings, clock):
+    assert client.get("/v1/plugins", headers=OWNER).json() == []
+    path = declare_plugin(client, settings, clock)
+    row = client.get("/v1/plugins/uptime-kuma", headers=OWNER)
+    assert row.status_code == 200
+    assert row.json() == {"id": "uptime-kuma", "name": "Uptime Kuma", "catalog_version": "2.0.2",
+                          "status": "installed"}
+    assert client.get("/v1/plugins", headers=OWNER).json() == [row.json()]
+    manifest = yaml.safe_load(path.read_text())
+    manifest["metadata"]["version"] = "2.0.0"
+    path.write_text(yaml.safe_dump(manifest))
+    assert client.get("/v1/plugins/uptime-kuma", headers=OWNER).json()["catalog_version"] == "2.0.0"
+    repo = client.app.state.gateway.repo
+    repo.set_app_state("uptime-kuma", "stopped", clock.now)
+    assert client.get("/v1/plugins/uptime-kuma", headers=OWNER).json()["status"] == "stopped"
+    for status in ("removed", "installing", "failed", "unknown", None):
+        repo.set_app_state("uptime-kuma", status, clock.now)
+        assert client.get("/v1/plugins", headers=OWNER).json() == []
+        assert client.get("/v1/plugins/uptime-kuma", headers=OWNER).status_code == 404
+
+
+def test_registry_requires_authentication_and_preserves_sharing(client, settings, clock):
+    declare_plugin(client, settings, clock)
+    for route in ("/v1/plugins", "/v1/plugins/uptime-kuma"):
+        assert client.get(route).status_code == 401
+        for headers in (OWNER, GUEST, AGENT):
+            assert client.get(route, headers=headers).status_code == 200
+    client.app.state.gateway.app_filters.append(lambda request, p, app_id: p.is_owner)
+    assert client.get("/v1/plugins", headers=GUEST).json() == []
+    assert client.get("/v1/plugins/uptime-kuma", headers=GUEST).status_code == 404
+    assert client.get("/v1/plugins/uptime-kuma", headers=OWNER).status_code == 200
+    assert client.get("/v1/plugins/nonexistent", headers=OWNER).status_code == 404
+
+
+def test_registry_never_exposes_raw_manifest(client, settings, clock):
+    declare_plugin(client, settings, clock)
+    response = client.get("/v1/plugins", headers=OWNER)
+    assert response.status_code == 200
+    assert not ({"secret", "backend", "permissions", "extensions", "dir"} & response.json()[0].keys())
+    repo = client.app.state.gateway.repo
+    repo.set_app_state("whoami", "installed", clock.now)
+    assert [row["id"] for row in client.get("/v1/plugins", headers=OWNER).json()] == ["uptime-kuma"]
+    assert client.get("/v1/plugins/whoami", headers=OWNER).status_code == 404
+
+
+def test_identity_tokens_need_apps_read(settings, clock, executor):
+    from fastapi.testclient import TestClient
+    from onemind_core.app import create_app
+    from test_identity import csrf, id_settings, setup_owner
+
+    with TestClient(create_app(id_settings(settings), clock=clock, executor=executor)) as client:
+        setup_owner(client)
+        declare_plugin(client, settings, clock)
+        for scopes, expected in ((["apps:read"], 200), (["instance:read"], 403)):
+            minted = client.post("/v1/tokens", json={"name": "registry-reader", "scopes": scopes}, headers=csrf(client))
+            assert minted.status_code == 201, minted.text
+            headers = {"Authorization": "Bearer " + minted.json()["one_time"]["token"]}
+            for path in ("/v1/plugins", "/v1/plugins/uptime-kuma"):
+                assert client.get(path, headers=headers).status_code == expected
+
+
+def test_registry_does_not_activate_invalid_declarations(client, settings, clock):
+    path = declare_plugin(client, settings, clock)
+    manifest = yaml.safe_load(path.read_text())
+    for invalid in (False, None):
+        manifest["spec"]["plugin"]["principal"] = invalid
+        path.write_text(yaml.safe_dump(manifest))
+        assert client.get("/v1/plugins", headers=OWNER).json() == []
+    manifest["spec"]["plugin"]["principal"] = True
+    manifest["spec"]["extensions"]["tools"] = "not-a-list"
+    path.write_text(yaml.safe_dump(manifest))
+    assert client.get("/v1/plugins", headers=OWNER).json() == []
