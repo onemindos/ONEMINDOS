@@ -758,7 +758,7 @@ approval; §12.40 lifecycle and §12.12 approval/security controls are unchanged
 
 `GET /v1/plugins` and `GET /v1/plugins/{plugin_id}` require `apps:read` and apply
 the Market sharing filters. They return installed/stopped tool-backed plugin
-summaries: `id`, `name`, `catalog_version`, `status`. The version comes from the
-current catalog, not a pinned installed-artifact receipt. Missing, uninstalled,
+summaries: `id`, `name`, `installed_version`, `status`. The version comes from
+the persisted runtime receipt; null means no receipt exists. Missing, uninstalled,
 non-plugin and unshared IDs are 404. No credential or execution authority is
 created; principal issuance and approved tool dispatch are later slices.

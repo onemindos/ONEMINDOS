@@ -2967,14 +2967,21 @@
       },
       "PluginSummary": {
         "properties": {
-          "catalog_version": {
-            "description": "Version declared in the current catalog, not an installed-artifact receipt.",
-            "title": "Catalog Version",
-            "type": "string"
-          },
           "id": {
             "title": "Id",
             "type": "string"
+          },
+          "installed_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Persisted installed version; null when no runtime receipt exists.",
+            "title": "Installed Version"
           },
           "name": {
             "title": "Name",
@@ -2992,7 +2999,7 @@
         "required": [
           "id",
           "name",
-          "catalog_version",
+          "installed_version",
           "status"
         ],
         "title": "PluginSummary",

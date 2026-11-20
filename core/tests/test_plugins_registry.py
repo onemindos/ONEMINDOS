@@ -19,6 +19,7 @@ def declare_plugin(client, settings, clock, *, state="installed"):
     })
     path.write_text(yaml.safe_dump(manifest))
     client.app.state.gateway.repo.set_app_state("uptime-kuma", state, clock.now)
+    client.app.state.gateway.repo.set_runtime("uptime-kuma", clock.now, version="2.0.2")
     return path
 
 
@@ -27,14 +28,16 @@ def test_installed_registry_tracks_real_state(client, settings, clock):
     path = declare_plugin(client, settings, clock)
     row = client.get("/v1/plugins/uptime-kuma", headers=OWNER)
     assert row.status_code == 200
-    assert row.json() == {"id": "uptime-kuma", "name": "Uptime Kuma", "catalog_version": "2.0.2",
+    assert row.json() == {"id": "uptime-kuma", "name": "Uptime Kuma", "installed_version": "2.0.2",
                           "status": "installed"}
     assert client.get("/v1/plugins", headers=OWNER).json() == [row.json()]
     manifest = yaml.safe_load(path.read_text())
     manifest["metadata"]["version"] = "2.0.0"
     path.write_text(yaml.safe_dump(manifest))
-    assert client.get("/v1/plugins/uptime-kuma", headers=OWNER).json()["catalog_version"] == "2.0.0"
+    assert client.get("/v1/plugins/uptime-kuma", headers=OWNER).json()["installed_version"] == "2.0.2"
     repo = client.app.state.gateway.repo
+    repo.delete_runtime("uptime-kuma")
+    assert client.get("/v1/plugins/uptime-kuma", headers=OWNER).json()["installed_version"] is None
     repo.set_app_state("uptime-kuma", "stopped", clock.now)
     assert client.get("/v1/plugins/uptime-kuma", headers=OWNER).json()["status"] == "stopped"
     for status in ("removed", "installing", "failed", "unknown", None):

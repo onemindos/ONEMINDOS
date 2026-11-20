@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 """Read-only projection of installed apps with plugin declarations (#178).
 
-The catalog is not an installed-artifact receipt: versions are explicitly catalog declarations. This view grants no runtime capability.
+Versions come from persisted runtime receipts, never mutable catalog metadata.
+This view grants no runtime capability.
 """
 from __future__ import annotations
 
@@ -17,7 +18,7 @@ from ..context import Gateway
 class PluginSummary(BaseModel):
     id: str
     name: str
-    catalog_version: str = Field(description="Version declared in the current catalog, not an installed-artifact receipt.")
+    installed_version: str | None = Field(description="Persisted installed version; null when no runtime receipt exists.")
     status: Literal["installed", "stopped"]
 
 
@@ -43,8 +44,9 @@ def installed_plugins(gw: Gateway, request: Request, principal: Principal) -> li
         if not isinstance(tools, list) or not tools or not isinstance(widgets, list):
             continue
         metadata = entry.manifest["metadata"]
+        runtime = gw.repo.get_runtime(app_id)
         rows.append(PluginSummary(
-            id=app_id, name=str(metadata["name"]), catalog_version=str(metadata["version"]),
+            id=app_id, name=str(metadata["name"]), installed_version=runtime.version if runtime else None,
             status=state.status,
         ))
     return rows
