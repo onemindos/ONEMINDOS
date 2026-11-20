@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
-// The frame around every signed-in screen: @onemind/ui AppShell (sidebar, phone tab bar), the hub
+// The frame around every signed-in screen: the Desktop (DesktopShell: wallpaper desktop, windows,
+// dock; the default, D-016) or the Console (@onemind/ui AppShell: sidebar, phone tab bar), the hub
 // connection pill, the ⌘K palette, the notification bell and the jobs tray. In-app links from ui
 // components are routed here, so the page never reloads (mock state and polls survive).
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from 'react';
@@ -24,7 +25,9 @@ import { activityFrom, notificationsFrom, toActionSummary, toPaletteApp } from '
 import { ActionJobs } from './ActionJobs';
 import { useHub } from '../data/hub';
 import { useAppRequest } from './useAppRequest';
-import { personList } from '../data/prefs';
+import { homeLayoutStore, personList } from '../data/prefs';
+import { DesktopShell, type DockApp } from './DesktopShell';
+import { useLayoutMode, type LayoutMode } from './layoutMode';
 import { brand } from '../brand.generated';
 import { useSignedIn } from '../session';
 import { href, navId, toRoute } from './routes';
@@ -37,6 +40,8 @@ interface ShellApi {
   requestApp: ReturnType<typeof useAppRequest>['requestApp'];
   /** Simple or Pro, from the signed-in role (roles.ts); 'unknown' until GET /v1/me answers. */
   view: View;
+  /** Desktop (default) or Console, chosen per person (layoutMode.ts). */
+  layout: LayoutMode;
 }
 const ShellCtx = createContext<ShellApi | null>(null);
 export function useShell(): ShellApi {
@@ -59,6 +64,8 @@ export function Shell({ children }: { children: ReactNode }) {
   const recentStore = useMemo(() => personList(person, 'palette.recent', 8), [person]);
   const [read, setRead] = useState(() => new Set(readStore.load()));
   const [recent, setRecent] = useState(() => recentStore.load());
+
+  const [layout, setLayout] = useLayoutMode(person);
 
   usePaletteHotkey(() => setPaletteOpen(true));
 
@@ -133,15 +140,15 @@ export function Shell({ children }: { children: ReactNode }) {
     { id: 'activity', label: 'Activity', href: href.activity, icon: 'activity', primary: true },
     { id: 'installed', label: 'Installed', href: href.installed, icon: 'check', group: 'Your box' },
     { id: 'nodes', label: 'Nodes', href: href.nodes, icon: 'nodes', group: 'Your box' },
-    { id: 'machines', label: 'Machines', href: href.machines, icon: 'nodes', group: 'Your box' },
+    { id: 'machines', label: 'Machines', href: href.machines, icon: 'monitor', group: 'Your box' },
     { id: 'alerts', label: 'Alerts', href: href.alerts, icon: 'bell', group: 'Your box' },
-    { id: 'storage', label: 'Storage', href: href.storage, icon: 'nodes', group: 'Your box' },
+    { id: 'storage', label: 'Storage', href: href.storage, icon: 'storage', group: 'Your box' },
     { id: 'backups', label: 'Backups', href: href.backups, icon: 'backups', group: 'Your box' },
     // Owner-only on the hub (system:admin); hidden once we know this principal is not an owner.
     ...(hub.canDecide === 'no' ? [] : [{ id: 'troubleshoot', label: 'Troubleshoot', href: href.troubleshoot, icon: 'alert', group: 'Your box' } satisfies NavItem]),
     { id: 'settings', label: 'Settings', href: href.settings, icon: 'settings', group: 'Your box' },
     { id: 'coming', label: 'Coming soon', href: href.coming, icon: 'info', group: 'Your box' },
-    { id: 'control-hub', label: 'Control Hub', href: href.controlHub, icon: 'nodes', group: 'System' },
+    { id: 'control-hub', label: 'Control Hub', href: href.controlHub, icon: 'hub', group: 'System' },
     { id: 'agents', label: 'AI & Agents', href: href.agents, icon: 'agent', group: 'System' },
   ];
   const nav = allNav.filter((item) => showsNav(item.id, view));
@@ -167,49 +174,80 @@ export function Shell({ children }: { children: ReactNode }) {
     );
 
   const boxName = hub.instance.data?.name ?? brand.shortName;
-  const api: ShellApi = { openPalette: () => setPaletteOpen(true), requestApp, view };
+  const bell = (
+    <NotificationBell
+      items={notifications}
+      now={hub.now}
+      state={hub.freshness === 'stale' || hub.freshness === 'offline' ? hub.freshness : 'ready'}
+      ageSeconds={hub.ageS}
+      onRetry={hub.reloadAll}
+      onOpen={(n) => {
+        markRead([n.id], true);
+        go(n.href);
+      }}
+      onSetRead={markRead}
+      onReadAll={() => markRead(notifications.map((n) => n.id), true)}
+      allHref={href.activity}
+      settingsHref={href.setting('notifications')}
+    />
+  );
+  const account = (
+    <>
+      <span className="dash-hide-compact">
+        <PaletteTrigger onOpen={() => setPaletteOpen(true)} label="Search" />
+      </span>
+      {bell}
+      {mock && <span className="dash-demo-flag">Demo data</span>}
+      {principal && (
+        <span className="dash-who dash-hide-compact">
+          {principal.id} <span className="om-hint">({principal.kind === 'agent' ? 'agent' : principal.role})</span>
+        </span>
+      )}
+      <Button size="sm" variant="ghost" onClick={() => setLayout('desktop')} title="Switch to the desktop layout">
+        Desktop view
+      </Button>
+      <Button size="sm" variant="ghost" onClick={signOut}>
+        Sign out
+      </Button>
+    </>
+  );
+  const api: ShellApi = { openPalette: () => setPaletteOpen(true), requestApp, view, layout };
+
+  // Apps pinned on Home go in the dock (Home hides its own dock on the desktop).
+  const pinnedIds = layout === 'desktop' ? (homeLayoutStore().load(person)?.pinned ?? []) : [];
+  const dockApp = (a: (typeof apps)[number]): DockApp => ({ id: a.id, name: a.name ?? a.id, icon: a.icon, href: a.installed ? href.manage(a.id) : href.app(a.id) });
+  const pinned: DockApp[] = pinnedIds.flatMap((id) => {
+    const a = apps.find((x) => x.id === id);
+    return a ? [dockApp(a)] : [];
+  });
+  const installedApps: DockApp[] = layout === 'desktop' ? apps.filter((a) => a.installed).map(dockApp) : [];
   return (
     <ShellCtx.Provider value={api}>
-      <div onClickCapture={onClickCapture} className="dash-root">
-        <AppShell
-          boxName={boxName}
-          nav={nav}
-          current={navId(location.pathname)}
-          status={status}
-          account={
-            <>
-              <span className="dash-hide-compact">
-                <PaletteTrigger onOpen={() => setPaletteOpen(true)} label="Search" />
-              </span>
-              <NotificationBell
-                items={notifications}
-                now={hub.now}
-                state={hub.freshness === 'stale' || hub.freshness === 'offline' ? hub.freshness : 'ready'}
-                ageSeconds={hub.ageS}
-                onRetry={hub.reloadAll}
-                onOpen={(n) => {
-                  markRead([n.id], true);
-                  go(n.href);
-                }}
-                onSetRead={markRead}
-                onReadAll={() => markRead(notifications.map((n) => n.id), true)}
-                allHref={href.activity}
-                settingsHref={href.setting('notifications')}
-              />
-              {mock && <span className="dash-demo-flag">Demo data</span>}
-              {principal && (
-                <span className="dash-who dash-hide-compact">
-                  {principal.id} <span className="om-hint">({principal.kind === 'agent' ? 'agent' : principal.role})</span>
-                </span>
-              )}
-              <Button size="sm" variant="ghost" onClick={signOut}>
-                Sign out
-              </Button>
-            </>
-          }
-        >
-          {children}
-        </AppShell>
+      <div onClickCapture={onClickCapture} className={layout === 'desktop' ? 'dash-root dash-desktop' : 'dash-root'}>
+        {layout === 'desktop' ? (
+          <DesktopShell
+            boxName={boxName}
+            nav={nav}
+            current={navId(location.pathname)}
+            status={status}
+            bell={bell}
+            pinned={pinned}
+            apps={installedApps}
+            now={hub.now}
+            timeZone={Intl.DateTimeFormat().resolvedOptions().timeZone}
+            person={principal ? { id: principal.id, role: principal.kind === 'agent' ? 'agent' : principal.role } : undefined}
+            demo={mock}
+            onSearch={() => setPaletteOpen(true)}
+            onConsoleView={() => setLayout('console')}
+            onSignOut={signOut}
+          >
+            {children}
+          </DesktopShell>
+        ) : (
+          <AppShell boxName={boxName} nav={nav} current={navId(location.pathname)} status={status} account={account}>
+            {children}
+          </AppShell>
+        )}
         <CommandPalette
           open={paletteOpen}
           onClose={() => setPaletteOpen(false)}
