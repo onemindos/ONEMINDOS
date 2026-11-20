@@ -152,3 +152,59 @@ func TestOpenRejectsConsistentlyHashedHostileArchives(t *testing.T) {
 		t.Fatal("archive escaped private extraction directory")
 	}
 }
+
+func TestRoundTripPreservesDirectoriesAndLayerAliases(t *testing.T) {
+	for _, mode := range []string{"empty", "shared-icon", "alias-icon"} {
+		t.Run(mode, func(t *testing.T) {
+			src := source(t)
+			if err := os.MkdirAll(filepath.Join(src, "manifests/empty"), 0700); err != nil {
+				t.Fatal(err)
+			}
+			raw, err := os.ReadFile(filepath.Join(src, "onemind.app.yaml"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			var doc map[string]any
+			if err = json.Unmarshal(raw, &doc); err != nil {
+				t.Fatal(err)
+			}
+			doc["spec"].(map[string]any)["manifests"] = "manifests"
+			icon := ""
+			if mode == "shared-icon" {
+				icon = "manifests/icon.svg"
+			}
+			if mode == "alias-icon" {
+				icon = "ui/icon.svg"
+			}
+			if icon != "" {
+				if err = os.MkdirAll(filepath.Dir(filepath.Join(src, icon)), 0700); err != nil {
+					t.Fatal(err)
+				}
+				if err = os.WriteFile(filepath.Join(src, icon), []byte("<svg/>"), 0600); err != nil {
+					t.Fatal(err)
+				}
+				doc["metadata"].(map[string]any)["icon"] = "./" + icon
+			}
+			raw, err = json.Marshal(doc)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err = os.WriteFile(filepath.Join(src, "onemind.app.yaml"), raw, 0600); err != nil {
+				t.Fatal(err)
+			}
+			output := filepath.Join(t.TempDir(), "oci")
+			digest, err := Pack(src, output)
+			if err != nil {
+				t.Fatal(err)
+			}
+			bundle, err := Open(output, digest)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer bundle.Close()
+			if info, err := os.Stat(filepath.Join(bundle.Directory, "manifests/empty")); err != nil || !info.IsDir() {
+				t.Fatal("empty directory lost")
+			}
+		})
+	}
+}
