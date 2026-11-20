@@ -8,7 +8,7 @@ Wiki.js is a modern, powerful wiki engine: Markdown and visual editing, a page t
 | | |
 |---|---|
 | Version | 3.3.1 (upstream release `3.3.1`, published 2026-11-11) |
-| Licence | `AGPL-3.0`, Market class L2 by SPDX id; not yet confirmed by the licence gate |
+| Licence | `AGPL-3.0`, Market class **L2** (licence gate, scan of 2026-11-19) |
 | Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | notes |
 | GitHub | <https://github.com/requarks/wiki> |
@@ -80,4 +80,11 @@ The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked**
 
 ## Latest security scan
 
-No scan yet. `sdk/tools/app-gate` writes `scan.json` (contract §9.4, §11.1).
+Scanned 2026-11-19T15:42:27Z by `sdk/tools/app-gate`: **fail**. Licence `AGPL-3.0` class L2; smoke test pass.
+
+| Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
+|---|---|---|---|---|---|---|
+| `docker.io/library/postgres:18.6-alpine@sha256:9ba53c7d41ea093baf5c1ba635ba5434c4f979880527d49bb7d9237d3193085b` | amd64, arm64 | 1 (1) | 45 | 0 infected (daily-28188) | 0 | unsigned |
+| `ghcr.io/requarks/wiki:3.3.1@sha256:2bdfa19d02d3f0ce18020648cc38ca138c5467fe1cfc4765d4b5f2a59c8efcad` | amd64, arm64 | 15 (4) | 517 | 0 infected (daily-28188) | 0 | unsigned |
+
+Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.
