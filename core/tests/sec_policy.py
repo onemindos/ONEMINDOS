@@ -579,3 +579,13 @@ POLICY |= {
     ("PUT", "/v1/agents/kill-switch"): Row(ONLY_OWNER, w.p_missing("/v1/agents/kill-switch", json={"on": False}),
                                            f"{_STOP}: only the owner stops or resumes agents; an agent can never turn it off"),
 }
+
+# ---- the box's own screen (UX-07, #242: core/onemind_core/routers/kiosk.py) ---------------------------------
+_KIOSK = "core/onemind_core/routers/kiosk.py"
+POLICY |= {
+    ("GET", "/v1/instance/kiosk"): Row(ONLY_OWNER, w.p_static("/v1/instance/kiosk"),
+                                       f"{_KIOSK}: owner only, reading too (the switch is the box's own screen); refusals audited"),
+    # enabled=false only removes a flag file that is not there on a test box, so the probe changes nothing.
+    ("PUT", "/v1/instance/kiosk"): Row(ONLY_OWNER, w.p_kiosk_put,
+                                       f"{_KIOSK}: only the owner changes the screen; an agent can never switch it"),
+}
