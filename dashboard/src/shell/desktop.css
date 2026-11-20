@@ -1,0 +1,125 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+/* Desktop frame (D-016): top bar, desktop, window over the wallpaper, dock. Only --om-* design
+   tokens and the Home glass tokens (--omh-glass*, ui/src/home/home.css). The wallpaper itself
+   is painted by WallpaperLayer behind everything. */
+.dsk {
+  --dsk-bar-h: 52px;
+  --dsk-dock-h: 76px;
+  --dsk-gap: var(--om-space-4);
+  position: relative;
+  min-height: 100vh;
+  overflow-x: clip;
+  color: var(--om-color-text);
+}
+
+/* Top bar: box name, hub freshness, search, bell, person. Glass, so the wallpaper shows. */
+.dsk-bar {
+  position: sticky; top: 0; z-index: var(--om-z-nav);
+  display: flex; align-items: center; gap: var(--om-space-3);
+  min-height: var(--dsk-bar-h); padding: var(--om-space-2) var(--om-space-4);
+  background: var(--omh-glass); border-bottom: 1px solid var(--omh-glass-border);
+  backdrop-filter: blur(var(--omh-blur)); -webkit-backdrop-filter: blur(var(--omh-blur));
+}
+.dsk-box { font-weight: var(--om-font-weight-semibold); white-space: nowrap; }
+.dsk-status { min-width: 0; }
+.dsk-account { margin-left: auto; display: flex; align-items: center; gap: var(--om-space-2); }
+
+/* The desktop: Home's launcher, with room for the dock. */
+.dsk-desktop {
+  width: 100%; max-width: 1200px; margin: 0 auto;
+  padding: var(--om-space-6) var(--dsk-gap) calc(var(--dsk-dock-h) + var(--om-space-8));
+  outline: none;
+}
+
+/* A window over the wallpaper. */
+.dsk-stage {
+  position: fixed; inset: var(--dsk-bar-real, var(--dsk-bar-h)) 0 0 0; z-index: calc(var(--om-z-nav) - 1);
+  display: flex; justify-content: center;
+  padding: var(--om-space-6) var(--dsk-gap) calc(var(--dsk-dock-h) + var(--om-space-6));
+}
+.dsk-scrim {
+  position: absolute; inset: 0;
+  background: color-mix(in srgb, var(--om-color-bg) 35%, transparent);
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+}
+.dsk-window {
+  position: relative; display: flex; flex-direction: column;
+  width: min(1200px, 100%); height: 100%;
+  border-radius: var(--om-radius-xl); overflow: hidden;
+  background: color-mix(in srgb, var(--om-color-surface) 92%, transparent);
+  border: 1px solid var(--omh-glass-border); box-shadow: var(--om-shadow-3);
+  backdrop-filter: blur(calc(var(--omh-blur) * 2)); -webkit-backdrop-filter: blur(calc(var(--omh-blur) * 2));
+  animation: dsk-open 160ms ease-out;
+}
+.dsk-window-bar {
+  flex: none; display: flex; align-items: center; justify-content: space-between; gap: var(--om-space-3);
+  padding: var(--om-space-3) var(--om-space-4) 0 var(--om-space-6);
+}
+.dsk-window-title { font-size: var(--om-font-size-sm); font-weight: var(--om-font-weight-semibold); color: var(--om-color-text-muted); }
+.dsk-close {
+  display: inline-grid; place-items: center; width: 32px; height: 32px; border-radius: var(--om-radius-pill);
+  color: var(--om-color-text-muted); background: var(--omh-glass); border: 1px solid var(--omh-glass-border); text-decoration: none;
+}
+.dsk-close:hover { color: var(--om-color-text); }
+.dsk-close:focus-visible, .dsk-dock-item:focus-visible { outline: 2px solid var(--om-color-focus); outline-offset: 2px; }
+.dsk-window-body { flex: 1; min-height: 0; overflow: auto; padding: var(--om-space-2) var(--om-space-6) var(--om-space-6); outline: none; }
+
+@keyframes dsk-open { from { opacity: 0; transform: translateY(8px) scale(0.985); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .dsk-window { animation: none; } .dsk-dock-item { transition: none; } }
+
+/* The dock: main navigation plus pinned apps. */
+.dsk-dock {
+  position: fixed; left: 50%; bottom: var(--om-space-4); transform: translateX(-50%); z-index: var(--om-z-nav);
+  display: flex; align-items: center; gap: var(--om-space-2);
+  max-width: calc(100vw - 2 * var(--om-space-3)); overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none;
+  padding: var(--om-space-2) var(--om-space-3); border-radius: var(--om-radius-xl);
+  background: var(--omh-glass); border: 1px solid var(--omh-glass-border); box-shadow: var(--om-shadow-2);
+  backdrop-filter: blur(var(--omh-blur)); -webkit-backdrop-filter: blur(var(--omh-blur));
+}
+.dsk-dock::-webkit-scrollbar { display: none; }
+.dsk-dock-group { list-style: none; margin: 0; padding: 0; display: flex; gap: var(--om-space-1); }
+.dsk-dock-sep { flex: none; width: 1px; height: 36px; background: var(--omh-glass-border); }
+.dsk-dock-item {
+  position: relative; display: inline-flex; flex-direction: column; align-items: center; gap: 2px;
+  min-width: 56px; padding: var(--om-space-1); border-radius: var(--om-radius-md);
+  color: var(--om-color-text); text-decoration: none; transition: transform 120ms ease-out;
+}
+.dsk-dock-item:hover { transform: translateY(-3px); }
+.dsk-dock-icon {
+  display: grid; place-items: center; width: 40px; height: 40px; border-radius: 26%;
+  background: var(--om-color-surface-raised); border: 1px solid var(--om-color-border); box-shadow: var(--om-shadow-1);
+}
+.dsk-dock-item[aria-current='page'] .dsk-dock-icon { background: var(--om-color-accent); border-color: var(--om-color-accent); color: var(--om-color-accent-text); }
+.dsk-dock-item[aria-current='page']::after {
+  content: ''; position: absolute; bottom: -4px; width: 4px; height: 4px; border-radius: 50%; background: var(--om-color-text);
+}
+.dsk-dock-label { font-size: var(--om-font-size-xs); color: var(--om-color-text-muted); white-space: nowrap; max-width: 72px; overflow: hidden; text-overflow: ellipsis; }
+.dsk-dock-badge {
+  position: absolute; top: 0; right: 6px; min-width: 18px; padding: 0 5px; border-radius: var(--om-radius-pill);
+  background: var(--om-color-warn-bg); color: var(--om-color-warn-fg); border: 1px solid var(--om-color-warn-border);
+  font-size: var(--om-font-size-xs); font-weight: var(--om-font-weight-bold); line-height: 16px; text-align: center;
+}
+
+/* The jobs tray and toasts float above the dock, not on it. */
+.dash-desktop .om-store-tray { bottom: calc(var(--dsk-dock-h, 76px) + var(--om-space-6)); }
+
+/* A narrow window: the top bar keeps one line. */
+@media (max-width: 1024px) {
+  .dsk-account .dash-who, .dsk-account .dash-demo-flag { display: none; }
+  .dsk-account { gap: var(--om-space-1); }
+  .dsk-account .om-btn { white-space: nowrap; }
+}
+
+/* Phones: the window is a full sheet; dock labels only for the current item. */
+@media (max-width: 720px) {
+  .dsk { --dsk-dock-h: 64px; --dsk-gap: var(--om-space-2); }
+  .dsk-bar { flex-wrap: wrap; row-gap: var(--om-space-1); padding: var(--om-space-2) var(--om-space-3); }
+  .dsk-box { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .dsk-account { flex-wrap: wrap; justify-content: flex-end; }
+  .dsk-stage { padding: var(--om-space-2) var(--om-space-2) calc(var(--dsk-dock-h) + var(--om-space-4)); }
+  .dsk-window { border-radius: var(--om-radius-lg); }
+  .dsk-window-body { padding: var(--om-space-2) var(--om-space-3) var(--om-space-4); }
+  .dsk-dock { bottom: var(--om-space-2); padding: var(--om-space-1) var(--om-space-2); }
+  .dsk-dock-item { min-width: 48px; }
+  .dsk-dock-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+}
