@@ -574,6 +574,17 @@
                 "pattern": "^(?!/)(?!.*(^|/)\\.\\.(/|$)).+$"
               }
             },
+            "content": {
+              "description": "Large content the app downloads again by itself (offline libraries, map archives, model files): left out of backups like exclude until the owner switches the content tier on for the app after seeing its size (BAK-03, REC-NOMAD-07). Relative patterns, read like a relative restic --exclude.",
+              "type": "array",
+              "maxItems": 64,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024,
+                "pattern": "^(?!/)(?!.*\\.\\.)(?!.*\\*\\*).+$"
+              }
+            },
             "restore": {
               "type": "object",
               "additionalProperties": false,

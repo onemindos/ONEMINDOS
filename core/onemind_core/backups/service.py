@@ -41,6 +41,7 @@ from .settings import BackupsSettings
 from .store import (
     SCHEMA,  # noqa: F401  (importing the module registers the tables)
     BackupsRepository,
+    ContentTierRow,
     DestinationRow,
     KitRow,
     RestoreRow,
@@ -139,6 +140,7 @@ class BackupService:
         acts.register_type("backup.destination.add", FeatureAction("sensitive", self._act_dest_add))
         acts.register_type("backup.destination.remove", FeatureAction("destructive", self._act_dest_remove))
         acts.register_type("backup.kit.issue", FeatureAction("sensitive", self._act_kit_issue))
+        acts.register_type("backup.content.set", FeatureAction("write", self._act_content_set))
 
     # ---- plumbing ---------------------------------------------------------------------------
     @property
@@ -236,8 +238,15 @@ class BackupService:
               for c, path in spec.sqlite if c in claims]
         if sq:
             entry["volume_sqlite"] = sq
-        if spec.exclude:
-            entry["excludes"] = list(spec.exclude)
+        excludes = list(spec.exclude)
+        if spec.content:
+            # The content tier (BAK-03): left out until the owner switches it on for this app.
+            included = app.id in self.repo.content_tier()
+            entry["content"] = "included" if included else "excluded"
+            if not included:
+                excludes += [c for c in spec.content if c not in excludes]
+        if excludes:
+            entry["excludes"] = excludes
         if database_spec(app) is not None and self.pg is not None:
             try:
                 entry["files"] = [self.pg.dump_file(app.id)]
@@ -560,10 +569,19 @@ class BackupService:
                      f"start {app_id} and wait up to {self.s.health_deadline_s} s for fresh, ready pods",
                      "if it does not come back healthy: put today's data back and report the restore failed"]
             summary = f"Restore {app_id} to {taken}"
+        warnings = [] if backup_spec(app).declared else ["this app declares no backup hooks: its copy is crash-consistent only"]
+        # BAK-03: say whether the app's re-downloadable content comes back with this snapshot.
+        content = next((t.split("=", 1)[1] for t in snap.get("tags") or [] if t.startswith("content=")), None)
+        if content is None and backup_spec(app).content:
+            content = "unknown"
+        if content in ("excluded", "unknown") and "path" not in scope:
+            held = "does not hold" if content == "excluded" else "was taken before the content tier and may not hold"
+            warnings.append(f"this snapshot {held} {app_id}'s downloadable content ("
+                            + ", ".join(backup_spec(app).content)
+                            + "): what it lacks is not restored, and the app downloads it again")
         plan = {"summary": summary, "app_id": app_id, "snapshot": {"id": snap["id"], "taken_at": taken, "reason": snap.get("reason")},
-                "database": db, "steps": steps, "downtime": "the app is stopped during the restore",
-                "warnings": [] if backup_spec(app).declared else
-                ["this app declares no backup hooks: its copy is crash-consistent only"]}
+                "database": db, "content": content, "steps": steps, "downtime": "the app is stopped during the restore",
+                "warnings": warnings}
         return plan, snap
 
     def _check_restore(self, a: Action) -> str | None:
@@ -853,6 +871,75 @@ class BackupService:
         self.repo.remove_destination(dest_id)
         self._event("destination.removed", {"destination_id": dest_id}, action_id=a.id)
         finish(ExecResult("succeeded", "destination removed; its backups were left untouched", [{"destination_id": dest_id}]))
+
+    # ---- content tier (BAK-03, REC-NOMAD-07) ---------------------------------------------------
+    def _content_apps(self) -> list[tuple[AppEntry, BackupSpec]]:
+        return [(a, s) for a in self.installed_apps() if (s := backup_spec(a)).content]
+
+    def _content_sizes(self, apps: list[tuple[AppEntry, BackupSpec]]) -> dict[str, dict]:
+        """What each app's content weighs now, measured by the agent on the app's volumes (read only)."""
+        req = []
+        for app, spec in apps:
+            try:
+                vols = [{"namespace": f"app-{app.id}", "claim": p["claim"], "volume": p["volume"]}
+                        for p in self.kube.pvcs(f"app-{app.id}") if p.get("volume")]
+            except KubeError:
+                vols = []
+            req.append({"id": app.id, "volumes": vols, "patterns": list(spec.content)})
+        if not req:
+            return {}
+        return {r["id"]: r for r in (self._job("backup.content.size", {"apps": req}) or [])}
+
+    def content(self) -> list[dict]:
+        """Apps with downloadable content: the tier, and the size it would add (shown before switching it on)."""
+        apps = self._content_apps()
+        sizes = self._content_sizes(apps)
+        tier = self.repo.content_tier()
+        measured = iso(self.gw.clock())
+        out = []
+        for app, spec in apps:
+            s, row = sizes.get(app.id) or {}, tier.get(app.id)
+            out.append({"app_id": app.id, "name": (app.manifest.get("metadata") or {}).get("name") or app.id,
+                        "patterns": list(spec.content), "enabled": row is not None,
+                        "size_bytes": s.get("bytes"), "files": s.get("files"), "missing_volumes": s.get("missing") or [],
+                        "measured_at": measured, "enabled_at": iso(row.enabled_at) if row else None,
+                        "enabled_size_bytes": row.size_bytes if row else None})
+        return out
+
+    def request_content(self, principal, body: dict, *, idempotency_key: str, expires_at: datetime, reason: str | None):
+        """File backup.content.set. Switching the tier on needs the size the owner was shown, and that size
+        must still hold (within 10 % or 1 GiB): the approval then records what the owner agreed to store."""
+        app_id, enabled = body["app_id"], body["enabled"]
+        entry = next((e for e in self.content() if e["app_id"] == app_id), None)
+        if entry is None:
+            raise ApiError(404, "not_found", f"{app_id} is not installed or marks no downloadable content")
+        params: dict = {"app_id": app_id, "enabled": enabled}
+        if enabled:
+            seen = body.get("seen_size_bytes")
+            if seen is None:
+                raise ApiError(422, "conflict", "seen_size_bytes is required: show the size from GET /v1/backups/content "
+                                                "before switching the content tier on", reason="size_not_seen")
+            now_b = entry["size_bytes"] or 0
+            if now_b > seen + max(seen // 10, 1 << 30):
+                raise ApiError(409, "stale_precondition", f"{app_id}'s content is now {now_b} bytes, more than the "
+                                                          f"{seen} shown; look at the size again", reason="size_changed")
+            params.update(size_bytes=now_b, patterns=entry["patterns"])
+        return self.gw.actions.request_feature(principal, "backup.content.set", params, idempotency_key=idempotency_key,
+                                               expires_at=expires_at, reason=reason)
+
+    def _act_content_set(self, a: Action, finish: Callable[[ExecResult], None]) -> None:
+        p = a.params
+        app_id = p["app_id"]
+        if p["enabled"]:
+            self.repo.set_content_tier(ContentTierRow(app_id=app_id, size_bytes=int(p.get("size_bytes") or 0),
+                                                      action_id=a.id, enabled_at=utc(self.gw.clock())), app_id)
+            msg = f"{app_id}'s downloadable content ({p.get('size_bytes') or 0} bytes) is backed up from the next run"
+        else:
+            self.repo.set_content_tier(None, app_id)
+            msg = f"{app_id}'s downloadable content is left out from the next run; earlier snapshots keep theirs"
+        self._event("content.changed", {"app_id": app_id, "enabled": p["enabled"], "size_bytes": p.get("size_bytes")},
+                    action_id=a.id)
+        finish(ExecResult("succeeded", msg, [{"app_id": app_id, "enabled": p["enabled"]}]))
 
     # ---- emergency kit ------------------------------------------------------------------------
     def _act_kit_issue(self, a: Action, finish: Callable[[ExecResult], None]) -> None:

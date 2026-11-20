@@ -53,6 +53,7 @@ class FakeAgent:
         self.verified: dict[str, dict] = {}
         self.fail: dict[str, str] = {}
         self.run_state = "succeeded"
+        self.content_bytes: dict[str, int] = {}
 
     def job(self, kind, params, *, action_id=None, timeout=None):
         canonical(params)  # what is sent must be signable
@@ -63,11 +64,13 @@ class FakeAgent:
             units = params.get("units") or [f"app:{a['id']}" for a in params["apps"]] + ["system"]
             units = [u for u in units if u not in params.get("skip_units", [])]
             out = []
+            content = {a["id"]: a["content"] for a in params["apps"] if a.get("content")}
             for u in units:
                 sid = hashlib.sha256(f"{u}{len(self.snaps)}".encode()).hexdigest()
+                tags = [f"content={content[u[4:]]}"] if u[4:] in content else []  # as units.go tags it
                 self.snaps.append({"id": sid, "short_id": sid[:8], "unit": u, "app_id": u[4:] if u.startswith("app:") else "",
                                    "node_id": "n1", "taken_at": self.clock().isoformat(), "reason": params["reason"],
-                                   "run_id": params["run_id"], "tags": [], "paths": [f"/var/lib/rancher/k3s/storage/pvc-1_app-notes_data"]})
+                                   "run_id": params["run_id"], "tags": tags, "paths": [f"/var/lib/rancher/k3s/storage/pvc-1_app-notes_data"]})
                 out.append({"unit": u, "state": "succeeded", "snapshot_id": sid})
             return {"id": params["run_id"], "state": self.run_state, "units": out, "bytes_added": 42, "target_id": "dst_x"}
         if kind == "backup.snapshots":
@@ -93,6 +96,8 @@ class FakeAgent:
             return out
         if kind == "backup.restore":
             return {"app_id": params.get("app_id"), "stamp": params.get("stamp"), "items": [], "pre_restore_snapshot_id": "pre1"}
+        if kind == "backup.content.size":
+            return [{"id": a["id"], "bytes": self.content_bytes.get(a["id"], 0), "files": 1} for a in params["apps"]]
         if kind == "backup.tree":
             return [{"name": "notes.txt", "path": params["path"].rstrip("/") + "/notes.txt", "type": "file", "size": 2}]
         if kind in ("backup.configure", "backup.restore.finish", "backup.key.add"):
@@ -732,3 +737,122 @@ def test_restore_candidates_other_box_needs_the_recovery_key(client, bk, setting
                         json={"destination_id": did, "box_id": "old-box", "recovery_key": k})
         assert r.status_code == 422
         assert k.strip() not in r.text  # a refused key is not echoed back either
+
+
+# ---- content tier (BAK-03, REC-NOMAD-07) -------------------------------------------------------
+LIBRARY = NOTES.replace("id: notes, name: Notes", "id: library, name: Library").split("  backup:")[0] + """  backup:
+    mode: hot
+    exclude: ["*.zim.part"]
+    content: ["*.zim"]
+"""
+GIB = 1 << 30
+
+
+@pytest.fixture
+def library(bk, settings, clock):
+    d = settings.apps_dir / "library"
+    (d / "manifests").mkdir(parents=True)
+    (d / "onemind.app.yaml").write_text(LIBRARY)
+    (d / "manifests" / "kustomization.yaml").write_text("resources: []\n")
+    bk.gw.repo.set_app_state("library", "installed", clock.now)
+    bk.agent.content_bytes["library"] = 5 * GIB
+    return d
+
+
+def run_apps(bk) -> dict[str, dict]:
+    """The app entries of the last backup.run job, by app id."""
+    params = [p for k, p, _ in bk.agent.jobs if k == "backup.run"][-1]
+    return {a["id"]: a for a in params["apps"]}
+
+
+def test_content_tier_is_off_by_default_and_its_size_is_shown(client, bk, library):
+    r = client.get("/v1/backups/content", headers=ADULT)
+    assert r.status_code == 200, r.text
+    [entry] = r.json()  # notes marks no content, so only the library is listed
+    assert entry["app_id"] == "library" and entry["patterns"] == ["*.zim"]
+    assert entry["enabled"] is False and entry["size_bytes"] == 5 * GIB and entry["measured_at"]
+    size_job = [p for k, p, _ in bk.agent.jobs if k == "backup.content.size"][-1]
+    assert size_job["apps"] == [{"id": "library", "volumes": [{"namespace": "app-library", "claim": "data", "volume": "pvc-1"}],
+                                 "patterns": ["*.zim"]}]
+    assert client.get("/v1/backups/content", headers=GUEST_HEADERS).status_code == 403
+
+    add_usb(client, bk)
+    client.post("/v1/backups/runs", headers=OWNER, json={"approve": True})
+    apps = run_apps(bk)
+    assert apps["library"]["content"] == "excluded"
+    assert apps["library"]["excludes"] == ["*.zim.part", "*.zim"], "content stays out until switched on"
+    assert "content" not in apps["notes"]
+
+
+def test_switching_the_content_tier_on_needs_the_size_seen_and_the_owner(client, bk, library):
+    on = {"app_id": "library", "enabled": True}
+    assert client.post("/v1/backups/content", headers=ADULT, json={**on, "seen_size_bytes": 5 * GIB}).status_code == 403
+    assert client.post("/v1/backups/content", headers=AGENT, json={**on, "seen_size_bytes": 5 * GIB}).status_code == 403
+    r = client.post("/v1/backups/content", headers=OWNER, json=on)
+    assert r.status_code == 422 and r.json()["reason"] == "size_not_seen"
+    r = client.post("/v1/backups/content", headers=OWNER, json={**on, "seen_size_bytes": 1024})
+    assert r.status_code == 409 and r.json()["reason"] == "size_changed", "a size far below today's is not consent"
+    r = client.post("/v1/backups/content", headers=OWNER, json={"app_id": "notes", "enabled": True, "seen_size_bytes": 0})
+    assert r.status_code == 404, "notes marks no downloadable content"
+
+    r = client.post("/v1/backups/content", headers=OWNER, json={**on, "seen_size_bytes": 5 * GIB})
+    assert r.status_code == 202 and r.json()["state"] == "awaiting_approval", "nothing changes before approval"
+    assert r.json()["params"]["size_bytes"] == 5 * GIB
+    assert client.get("/v1/backups/content", headers=OWNER).json()[0]["enabled"] is False
+    done = approve(client, r.json()["id"])
+    assert done["state"] == "succeeded", done
+    entry = client.get("/v1/backups/content", headers=OWNER).json()[0]
+    assert entry["enabled"] is True and entry["enabled_size_bytes"] == 5 * GIB
+
+    r = client.post("/v1/backups/content", headers=OWNER, json={"app_id": "library", "enabled": False, "approve": True})
+    assert r.status_code == 202 and r.json()["state"] == "succeeded"
+    assert client.get("/v1/backups/content", headers=OWNER).json()[0]["enabled"] is False
+
+
+def test_restore_with_and_without_the_content_tier(client, bk, library):
+    """BAK-03 done-when, gateway side (the agent side, with real files, is internal/backup/content_test.go)."""
+    add_usb(client, bk)
+    client.post("/v1/backups/runs", headers=OWNER, json={"approve": True})
+    assert run_apps(bk)["library"]["content"] == "excluded"
+    without = client.get("/v1/backups/snapshots?app_id=library", headers=OWNER).json()[0]
+    assert "content=excluded" in without["tags"]
+
+    r = client.post("/v1/backups/content", headers=OWNER,
+                    json={"app_id": "library", "enabled": True, "seen_size_bytes": 5 * GIB, "approve": True})
+    assert r.json()["state"] == "succeeded", r.text
+    client.post("/v1/backups/runs", headers=OWNER, json={"approve": True})
+    lib = run_apps(bk)["library"]
+    assert lib["content"] == "included" and lib["excludes"] == ["*.zim.part"]
+    with_ = client.get("/v1/backups/snapshots?app_id=library", headers=OWNER).json()[0]
+    assert "content=included" in with_["tags"]
+
+    for snap, content in ((without, "excluded"), (with_, "included")):
+        r = client.post("/v1/restores", headers=OWNER, json={"snapshot_id": snap["id"], "scope": {"app_id": "library"}})
+        assert r.status_code == 202, r.text
+        plan = r.json()["restore"]["plan"]
+        assert plan["content"] == content
+        warned = any("downloadable content" in w for w in plan["warnings"])
+        assert warned is (content == "excluded"), plan["warnings"]
+        done = approve(client, r.json()["id"])
+        assert done["state"] == "succeeded", done
+        restore_job = [p for k, p, _ in bk.agent.jobs if k == "backup.restore"][-1]
+        assert restore_job["snapshot_id"] == snap["id"] and restore_job["app_id"] == "library"
+
+
+def test_manifest_content_block():
+    spec, errs = parse_backup({"backup": {"content": ["*.zim", "maps/*.pmtiles"]}})
+    assert errs == [] and spec.content == ("*.zim", "maps/*.pmtiles")
+    for bad in (["/data"], ["../x"], ["a/**/b"], "x"):
+        assert parse_backup({"backup": {"content": bad}})[1]
+
+
+def test_market_apps_mark_their_downloadable_content():
+    """Kiwix ZIMs, offline map archives and Ollama models are the content tier, not always-excluded."""
+    from pathlib import Path
+
+    import yaml
+
+    root = Path(__file__).resolve().parents[2]
+    for app, pattern in (("kiwix", "*.zim"), ("offline-maps", "maps/*.pmtiles"), ("ollama", "models/")):
+        spec, errs = parse_backup(yaml.safe_load((root / "apps" / app / "onemind.app.yaml").read_text())["spec"])
+        assert errs == [] and pattern in spec.content and pattern not in spec.exclude, app
