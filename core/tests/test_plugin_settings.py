@@ -126,3 +126,37 @@ def test_local_nonrecursive_reference_is_supported():
     validator = compile_schema({"type": "object", "$defs": {"g": {"type": "string"}},
                                 "properties": {"greeting": {"$ref": "#/$defs/g"}}})
     validator.validate({"greeting": "Hello"})
+
+
+def update_manifest(client, version="2.0.3", permissions=None):
+    path = client.app.state.settings.apps_dir / "uptime-kuma" / "onemind.app.yaml"
+    doc = yaml.safe_load(path.read_text())
+    doc["metadata"]["version"] = version
+    if permissions is not None:
+        doc["spec"]["permissions"] = permissions
+    path.write_text(yaml.safe_dump(doc))
+
+
+def test_update_preserves_credential_and_publishes_new_receipt(configured, clock):
+    from sqlalchemy import select
+    from onemind_core.identity.models import TokenRow
+    client = configured
+    repo = client.app.state.identity.repo
+    before = repo.all(select(TokenRow).where(TokenRow.kind == "plugin"))[0]
+    update_manifest(client)
+    assert approve(client, request(client, clock, "app.update", "update"))["state"] == "succeeded"
+    row = repo.get(PluginInstallRow, "uptime-kuma")
+    assert row.manifest["metadata"]["version"] == "2.0.3"
+    assert row.bundle_sha256 == client.app.state.repo.get_runtime("uptime-kuma").bundle_sha256
+    after = repo.all(select(TokenRow).where(TokenRow.kind == "plugin"))
+    assert len(after) == 1 and after[0].hash == before.hash and after[0].revoked_at is None
+    assert client.get(PATH, headers=OWNER).status_code == 200
+
+
+def test_changed_update_grants_require_fresh_approved_install(configured, clock):
+    client = configured
+    update_manifest(client, permissions=["apps:read", "nodes:read"])
+    r = client.post("/v1/actions", headers=OWNER,
+                    json=action_body(clock, type_="app.update", key="changed-grants"))
+    assert r.status_code == 409
+    assert "fresh approved install" in r.json()["message"]
