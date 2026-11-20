@@ -1,10 +1,12 @@
 # SPDX-License-Identifier: Apache-2.0
 # OneMind node agent in the image (deploy/systemd/onemindd.service, adapted to a read-only root:
 # binary in /usr/bin, settings on /data, no StateDirectory). Started by onemind-firstboot.
+# ONEMIND_ETC_DIR: on a joined worker or leaf, its fabric files (fabric.json, leaf-config.json) are in
+# /data/onemind/etc, because /etc is read-only (internal/etcdir, IMG-MESH-01).
 # Root with no capabilities and a read-only view of the box (deploy/systemd/README.md).
 [Unit]
 Description=OneMind node agent (heartbeat + local API on :7480)
-After=network-online.target onemind-firstboot.service onemind-nats.service
+After=network-online.target onemind-firstboot.service onemind-nats.service onemind-nats-leaf.service
 Wants=network-online.target
 RequiresMountsFor=/data
 ConditionPathExists=/data/onemind/etc/onemindd.env
@@ -13,6 +15,7 @@ ConditionPathExists=/data/onemind/etc/onemindd.env
 Type=simple
 EnvironmentFile=/data/onemind/etc/onemindd.env
 Environment=HOME=/run/onemindd
+Environment=ONEMIND_ETC_DIR=/data/onemind/etc
 RuntimeDirectory=onemindd
 ExecStart=/usr/bin/onemindd
 Restart=always

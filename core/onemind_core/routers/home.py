@@ -15,12 +15,13 @@ from ..identity.scopes import register_route_scope
 # Route order in the app and in /openapi.json (routers/__init__.py).
 ORDER = 215
 
+# Self-service like /v1/auth/*: the handler checks the caller is a person.
+register_route_scope("GET,HEAD,PUT", r"/v1/me/home", None)
+
 
 def register(app: FastAPI, gw: Gateway) -> None:
     svc = HomeService(gw.db)
     app.state.home = svc
-    # Self-service like /v1/auth/*: the handler checks the caller is a person.
-    register_route_scope("GET,HEAD,PUT", r"/v1/me/home", None)
 
     def person(p: Principal = Depends(gw.principal)) -> Principal:
         if p.kind != "person":
@@ -58,7 +59,11 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return send(response, resolved(request, p))
 
     @app.put("/v1/me/home", operation_id="me.home.save", tags=["me"], response_model=HomeView,
-             responses=error_responses(401, 403, 412, 422, 428))
+             responses=error_responses(401, 403, 412, 422, 428),
+             # Keep the handler's 428 for a missing header, rather than FastAPI's validation 422.
+             openapi_extra={"parameters": [{"name": "If-Match", "in": "header", "required": True,
+                                            "schema": {"type": "string"},
+                                            "description": "The ETag read from GET /v1/me/home."}]})
     def save(body: HomeBody, request: Request, response: Response, p: Principal = Depends(person)):
         match = request.headers.get("if-match")
         if match is None:

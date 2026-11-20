@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { ApprovalsBoard, actionTitle, useToast, type ActionSummary, type SettingsLoadable } from '@onemind/ui';
 import { toActionSummary } from '../data/adapters';
-import { errorText, useHub } from '../data/hub';
+import { errorText, subjectOf, useHub } from '../data/hub';
 
 export const PLAN_NOTE =
   'Review the exact request and its gateway plan before approving. An install still requires the gateway scan check.';
@@ -46,7 +46,7 @@ export function Approvals() {
 
   return (
     <>
-      {hub.actionList.filter((a) => a.state === 'awaiting_approval' && a.plan).map((a) => <details key={a.id}><summary>Gateway plan: {a.type} — {hub.appName(a.params.app_id)}</summary><pre>{JSON.stringify(a.plan, null, 2)}</pre><p>Plan fingerprint: {a.plan_sha256}</p></details>)}
+      {hub.actionList.filter((a) => a.state === 'awaiting_approval' && a.plan).map((a) => <details key={a.id}><summary>Gateway plan: {a.type} — {subjectOf(hub, a)}</summary><pre>{JSON.stringify(a.plan, null, 2)}</pre><p>Plan fingerprint: {a.plan_sha256}</p></details>)}
       {last && lastNow && (
         <p className="om-note om-tone-info" {...(ended ? { role: 'status' } : {})}>
           {last.title}: {ended ? lastNow.state.replace(/_/g, ' ') : 'approved, the hub is applying it'}.

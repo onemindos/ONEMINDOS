@@ -8,6 +8,15 @@
 # it depends on neither; and rollback needs `rauc status mark-active other`
 # (D-Bus to rauc) and `systemctl reboot`, which onemindd.service must not do.
 # It runs only on an explicit owner POST; nothing here acts on its own.
+#
+# The owner web terminal (SEC-TERM-01, #273, docs/security/rescue-terminal.md) runs a shell as a child of this
+# process, so it inherits every limit below. It needed four loosenings, and no more: a pseudo-terminal
+# (/dev/ptmx and /dev/pts, through an explicit DeviceAllow list instead of PrivateDevices), write access to
+# /var/lib/onemind for its audit chain, loopback HTTP to the gateway for the passkey check (AF_INET is
+# already allowed), and the capset syscall so the shell can shed capabilities. The console holds exactly
+# CAP_DAC_READ_SEARCH (below); the shell holds none: it starts through `onemindd rescue-shell`, which empties
+# its capability sets under no_new_privs before exec, so the kernel cannot hand DAC_READ_SEARCH back to it.
+# The file system stays read-only, no new privileges. Pinned by internal/rescue/unit_test.go.
 
 [Unit]
 Description=OneMind rescue console (slots, rollback, logs; works with k3s stopped)
@@ -32,11 +41,22 @@ NoNewPrivileges=yes
 CapabilityBoundingSet=CAP_DAC_READ_SEARCH
 AmbientCapabilities=
 
-# --- filesystem: read-only ---
+# --- filesystem: read-only, except the audit directory; devices: a short allow list ---
 ProtectSystem=strict
 ProtectHome=yes
 PrivateTmp=yes
-PrivateDevices=yes
+# The audit chain (/var/lib/onemind/rescue-audit.jsonl) is the one writable path.
+ReadWritePaths=/var/lib/onemind
+# Not PrivateDevices: the terminal needs /dev/ptmx and /dev/pts. Everything else stays closed.
+PrivateDevices=no
+DevicePolicy=closed
+DeviceAllow=/dev/ptmx rw
+DeviceAllow=char-pts rw
+DeviceAllow=/dev/tty rw
+DeviceAllow=/dev/null rw
+DeviceAllow=/dev/zero rw
+DeviceAllow=/dev/urandom r
+DeviceAllow=/dev/random r
 ProtectKernelTunables=yes
 ProtectKernelModules=yes
 ProtectKernelLogs=yes
@@ -54,9 +74,12 @@ RestrictNamespaces=yes
 SystemCallArchitectures=native
 SystemCallFilter=@system-service
 SystemCallFilter=~@privileged
+# capset back from @privileged, alone: the terminal's shell helper uses it to drop every capability before
+# exec. capset never raises a process's permitted set, so it cannot grant anything the unit does not allow.
+SystemCallFilter=capset
 SystemCallErrorNumber=EPERM
 
-# --- network: HTTPS for the LAN, AF_UNIX for D-Bus (rauc, systemd reboot) ---
+# --- network: HTTPS for the LAN (and loopback HTTP to the gateway's passkey check), AF_UNIX for D-Bus (rauc, systemd reboot) ---
 RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
 
 [Install]

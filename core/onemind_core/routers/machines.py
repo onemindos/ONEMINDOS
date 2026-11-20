@@ -24,17 +24,19 @@ from ..machines.service import MachineService
 ORDER = 330
 
 
+# What a scoped token needs (identity/scopes.py): the capabilities show what /v1/nodes shows, so
+# that scope reads them; enabling is owner-only, and `machines:admin` is minted to no one, so
+# only the owner role (every scope) holds it. Without rows both routes fell to "full scope only".
+register_route_scope("GET,HEAD", r"/v1/machines/capabilities", ("nodes:read",))
+register_route_scope("POST", r"/v1/machines/enable", ("machines:admin",))
+# Part 3: the machines the owner has, and the console ticket (owner-only, like enabling).
+register_route_scope("GET,HEAD", r"/v1/machines", ("nodes:read",))
+register_route_scope("GET,HEAD", r"/v1/machines/[a-z][a-z0-9-]*", ("nodes:read",))
+register_route_scope("POST", r"/v1/machines/[a-z][a-z0-9-]*/console", ("machines:admin",))
+
+
 def register(app: FastAPI, gw: Gateway) -> None:
     principal = gw.principal
-    # What a scoped token needs (identity/scopes.py): the capabilities show what /v1/nodes shows, so
-    # that scope reads them; enabling is owner-only, and `machines:admin` is minted to no one, so
-    # only the owner role (every scope) holds it. Without rows both routes fell to "full scope only".
-    register_route_scope("GET,HEAD", r"/v1/machines/capabilities", ("nodes:read",))
-    register_route_scope("POST", r"/v1/machines/enable", ("machines:admin",))
-    # Part 3: the machines the owner has, and the console ticket (owner-only, like enabling).
-    register_route_scope("GET,HEAD", r"/v1/machines", ("nodes:read",))
-    register_route_scope("GET,HEAD", r"/v1/machines/[a-z][a-z0-9-]*", ("nodes:read",))
-    register_route_scope("POST", r"/v1/machines/[a-z][a-z0-9-]*/console", ("machines:admin",))
     svc = MachineService(gw)
     svc.register()  # machine.create|start|stop|delete: requested by an owner or an agent, approved by an owner
     app.state.machines = svc

@@ -168,6 +168,17 @@ def prepare(gateway: str, config: Path) -> int:
         'expected-statuses = [400, 401, 403, 404, 405, 406, 409, 412, 413, 415, 422, 428, 429, "5xx"]\n'
         '[operations.checks.missing_required_header]\n'
         'expected-statuses = [400, 401, 403, 406, 412, 415, 422]\n'
+        # Home uses HTTP write preconditions: a missing required If-Match is 428;
+        # a schema-valid but stale ETag is 412. Do not allow these globally or on GET.
+        '\n[[operations]]\ninclude-operation-id = "me.home.save"\n'
+        '[operations.checks.missing_required_header]\n'
+        'expected-statuses = [400, 401, 403, 406, 415, 422, 428]\n'
+        '[operations.checks.positive_data_acceptance]\n'
+        'expected-statuses = ["2xx", "3xx", 401, 403, 404, 409, 412, 413, 422, 429, "5xx"]\n'
+        # A schema-invalid body may be coerced by Pydantic before the stale-tag
+        # check. Its 412 still rejects the write; ST201 must not call it acceptance.
+        '[operations.checks.negative_data_rejection]\n'
+        'expected-statuses = [400, 401, 403, 404, 405, 406, 409, 412, 413, 415, 422, 428, 429, "5xx"]\n'
     )
     print(f"prepare: the agent requested {len(ids)} installs; config aims the fuzzers at them")
     return 0

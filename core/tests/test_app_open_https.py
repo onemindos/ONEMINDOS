@@ -101,6 +101,9 @@ def box(settings, tmp_path, upstream, clock):
         "ONEMIND_HOST": "127.0.0.1", "ONEMIND_PORT": str(plain_port),
         "ONEMIND_NET_TLS": "1", "ONEMIND_NET_BOX_NAME": "box1", "ONEMIND_NET_TLS_DIR": str(tmp_path / "tls"),
         "ONEMIND_NET_HTTPS_HOST": "127.0.0.1", "ONEMIND_NET_HTTPS_PORTS": str(https_port),
+        # The test client connects over loopback, which says nothing about the real path (#285): it plays
+        # the trusted edge and states the path itself with X-OneMind-Path.
+        "ONEMIND_NET_TRUSTED_PROXIES": "127.0.0.0/8",
     }
     proc = subprocess.Popen([sys.executable, "-m", "onemind_core"], cwd=CORE, env=env,
                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
@@ -135,7 +138,7 @@ class Box:
 
     def request(self, method: str, host: str, path: str = "/", **kw) -> httpx.Response:
         """A request to https://<host>/, connecting to the gateway's loopback port; TLS checks <host>."""
-        headers = {"Host": host, **kw.pop("headers", {})}
+        headers = {"Host": host, "X-OneMind-Path": "lan", **kw.pop("headers", {})}
         return self.client.request(method, f"https://127.0.0.1:{self.port}{path}", headers=headers,
                                    extensions={"sni_hostname": host}, **kw)
 

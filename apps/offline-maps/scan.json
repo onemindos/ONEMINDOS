@@ -1,5 +1,5 @@
 {
-  "scanned_at": "2026-11-14T12:20:27Z",
+  "scanned_at": "2026-11-19T14:41:31Z",
   "result": "pass",
   "images": [
     {
@@ -12,10 +12,10 @@
         "version": "0.76.2",
         "critical_fixable": 0,
         "critical": 0,
-        "high": 54
+        "high": 53
       },
       "clamav": {
-        "signatures": "daily-28183",
+        "signatures": "daily-28188",
         "infected": 0
       },
       "secrets": 0,
@@ -31,10 +31,10 @@
         "version": "0.76.2",
         "critical_fixable": 0,
         "critical": 0,
-        "high": 35
+        "high": 36
       },
       "clamav": {
-        "signatures": "daily-28183",
+        "signatures": "daily-28188",
         "infected": 0
       },
       "secrets": 0,

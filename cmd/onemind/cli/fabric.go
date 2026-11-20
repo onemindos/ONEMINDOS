@@ -34,7 +34,7 @@ func fabricCommands(a *App) []*cobra.Command {
 	}
 	fab := &cobra.Command{Use: "fabric", Short: "Join this machine to a OneMind, or add one (the owner's side)"}
 	fab.AddCommand(
-		sub("join 'onemind-join:v1?…' [--hub-addr IP] [--timeout 20m]", "Join this machine to a hub (run as root)", fabricJoin),
+		sub("join 'onemind-join:v1?…' | --code-file F [--hub-addr IP] [--timeout 20m]", "Join this machine to a hub (run as root)", fabricJoin),
 		sub("ticket [--hub URL] [--role worker|leaf] [--ttl 15m] [--token T] [--json]", "Mint a one-use join code", fabricTicket),
 		sub("approve ACTION_ID [--hub URL] [--token T]", "Approve a node join request", fabricApprove),
 		sub("status [--hub URL] [--token T] [--json]", "Nodes and pending joins", fabricStatus),
@@ -76,12 +76,27 @@ func fabricJoin(args []string, out io.Writer) error {
 	ca := fs.String("ca", "", "box CA sha256 (with --code)")
 	hubAddr := fs.String("hub-addr", "", "dial this IP for the hub instead of resolving its name (mDNS not working)")
 	timeout := fs.Duration("timeout", 20*time.Minute, "how long to wait for the owner's approval")
+	// The OS image's first boot keeps the code in a 0600 file: an argument is visible to every local
+	// user in the process list for as long as the join waits (IMG-MESH-01, #292).
+	codeFile := fs.String("code-file", "", "read the 'onemind-join:v1?...' text from this file")
 	var payload string
 	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
 		payload, args = args[0], args[1:]
 	}
 	if err := fs.Parse(args); err != nil {
 		return err
+	}
+	if *codeFile != "" {
+		if payload != "" || *code != "" {
+			return errors.New("--code-file replaces the join text and --code; give only one")
+		}
+		raw, err := os.ReadFile(*codeFile)
+		if err != nil {
+			return fmt.Errorf("--code-file: %w", err)
+		}
+		if payload = strings.TrimSpace(string(raw)); payload == "" {
+			return errors.New("--code-file: the file is empty")
+		}
 	}
 	var t *fabric.Ticket
 	var err error
