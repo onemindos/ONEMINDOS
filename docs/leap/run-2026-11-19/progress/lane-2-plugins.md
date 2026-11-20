@@ -76,3 +76,5 @@ The order comes from [LANES.md](../LANES.md).
 
 - #415 schema upgrade fix is pushed: v1 registry databases migrate to plugin schema v2 without losing receipts. Two upgrade/idempotence/fresh-database tests and the settings suite passed (16 total).
 - #420 integrated packaging corrections passed artifact/CLI race tests, including empty workload directories, shared workload/UI icons and canonical path aliases. Next implementation: owner-approved private key enrollment, then complete verification/installation and dev workflow.
+
+- Next concrete #180 slice (E9 private tier): owner-only signing-key enrollment/revocation actions with stored canonical SPKI public keys and SHA-256 fingerprints, step-up when passkeys are active, real upgrade/auth tests and a generated-SDK dashboard screen. Parse/reject private PEM before filing/auditing; only approved actions activate trust. This does not create production root/store keys or grant publisher trust from a caller-supplied key.
