@@ -81,4 +81,4 @@ The order comes from [LANES.md](../LANES.md).
 
 - #180 owner-key enrollment slice: PR #421 (draft), stacked on #415. Canonical public-key fingerprints enter trust only after owner-approved actions; enrollment/revocation require action-bound passkeys when active. Mounted Settings screen uses generated SDK and the real approval challenge flow. Artifact verification/install integration remains next.
 
-- #180 local signing: draft pending, stacked on #420. `plugin sign` signs only a digest-pinned, fully parsed local artifact, using an existing owner-readable PKCS8 key. Detached output is exclusive; key bytes are never logged or copied into the layout. Signing does not establish owner trust or installation approval.
+- #180 local signing: PR #422 (draft), stacked on #420. `plugin sign` signs only a digest-pinned, fully parsed local artifact, using an existing owner-readable PKCS8 key. Detached output is exclusive; key bytes are never logged or copied into the layout. Signing does not establish owner trust or installation approval.
