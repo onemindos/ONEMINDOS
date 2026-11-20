@@ -8,7 +8,7 @@ BitTorrent client with a web interface (qbittorrent-nox).
 | | |
 |---|---|
 | Version | 5.3.0 (upstream release `release-5.3.0`, published 2026-10-20) |
-| Licence | `GPL-3.0-or-later`, Market class L2 by SPDX id; not yet confirmed by the licence gate |
+| Licence | `GPL-3.0-or-later`, Market class **L2** (licence gate, scan of 2026-11-19) |
 | Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | media |
 | GitHub | <https://github.com/qbittorrent/qBittorrent> |
@@ -95,4 +95,10 @@ To unblock: upstream must publish an image with brotli-libs 1.2.1-r0 or later. T
 
 ## Latest security scan
 
-No scan yet. `sdk/tools/app-gate` writes `scan.json` (contract §9.4, §11.1).
+Scanned 2026-11-19T15:00:27Z by `sdk/tools/app-gate`: **fail**. Licence `GPL-3.0-or-later` class L2; smoke test fail.
+
+| Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
+|---|---|---|---|---|---|---|
+| `docker.io/qbittorrentofficial/qbittorrent-nox:5.3.0-2@sha256:43b2d352cf76330a7ca34c7320b9b74227d6f31e662e0e123d0457206b09a7ea` | amd64, arm64 | 1 (1) | 8 | 0 infected (daily-28188) | 0 | unsigned |
+
+Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

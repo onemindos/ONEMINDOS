@@ -110,7 +110,8 @@ class T(unittest.TestCase):
         self.assertIn("not a full row truth audit", data["status"])
         self.assertIn(sha, data["status"])
         self.assertNotIn("2000-01-01", data["status"])
-        self.assertNotIn("999", data["status"])
+        # The stale summary row of the fixture, not the bare digits: a random commit SHA can hold "999".
+        self.assertNotIn("| todo | 999 |", data["status"])
         self.assertEqual(before, {p: p.read_bytes() for p in self.r.rglob("*.md")})
 
     def test_status_updates_every_duplicate_without_removing_rows(self):
