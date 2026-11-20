@@ -12,6 +12,9 @@ The order comes from [LANES.md](../LANES.md).
 
 ## Draft (pushed, not ready yet)
 
+- #177: declarative manifest completion; PR #410, stacked on #397. Conditional workload requirements, optional tools, bounded publisher declarations and dual-identity refusal.
+- #177: shared Go validator in app CI; PR #412, stacked on #410. Real binary invocation fails closed; native tests exercise valid and invalid bundles.
+
 - #178: scoped HTTP action requests; PR #407, stacked on #406. Real plugin tokens create pending actions only for exact stored types; live origin state is rechecked before filing.
 
 - #178: exact action-type guard and immutable plugin principal; PR #406, stacked on #405. Common checks protect lifecycle, feature and replay paths. HTTP token policy remains read-only.
@@ -31,13 +34,15 @@ The order comes from [LANES.md](../LANES.md).
 
 - #178: persistent credential retirement; PR #408, stacked on #407. Revokes before removal, before reinstall, after failed install and during startup recovery; no issuer or Secret delivery yet.
 
-- #178: own-action polling; PR pending, stacked on #409. Exact stored actions:read:own permits only known ledger GET routes and the requesting plugin’s own rows. Public manifest actions:read:self maps to this internal grant at issuance; other actors’ details return 404.
+- #178: own-action polling; PR #411, stacked on #409. Exact stored actions:read:own permits only known ledger GET routes and the requesting plugin’s own rows. Public manifest actions:read:self maps to this internal grant at issuance; other actors’ details return 404.
 - #178: approved-install plugin credential delivery; PR #409, stacked on #408. Hashed grants, atomic installation snapshot, plugin-only Secret variables and persistent dispatch public key. Unsupported grants and plugin updates fail closed pending their runtime support.
+
+- #178: installed registry receipts and plan fingerprints; PR pending, stacked on #411. Declarative plugins appear in registry; immutable receipts survive catalog edits. Settings schemas/UI/icons enter the approval fingerprint with symlink and size bounds.
 
 ## Next
 
-- Resolve #175 and review the #177 draft stack, then #178, #179, #180, #183, #182, #181, #184, #185.
-- #177 coverage limits: tool-backed plugins only; backend-free declarations and the literal older Hello example need alignment with the current App contract. Publisher ownership verification belongs to signing/index work.
+- Finish #177/#178 implementation and review first. Founder then requests smallest-to-heaviest work where dependencies allow: #183 scan adapter and #181 init slices are smallest; #180 packaging must land before those full issues, #184 follows #181, while #179/#182/#185 require heavier integration.
+- #177 validator covers tool-backed and declarative plugins. The older design Hello example uses an obsolete App shape; current executable tests use the current metadata/updates and structured-secret contract. Publisher verification belongs to signing/index work.
 - The current App secret name/key format is preserved. The older plugin example differs; do not copy its flat secret shape or omit App-required metadata/updates.
 - Workload policy, scans, signatures and owner approval remain mandatory separate gates; the Go bundle check does not replace existing app-gate checks.
 
@@ -47,6 +52,6 @@ The order comes from [LANES.md](../LANES.md).
 
 ## Blocked (waiting on the founder, hardware or another lane)
 
-- #178 depends on #177. Plugin credentials need a deny-by-default policy plus exact-type guards in lifecycle and feature request paths before enabling request capability. Existing identity token rows can store plugin hashes; static token kinds stay unchanged. Pre-dispatch removal revocation is required, not only successful-removal cleanup.
+- #178 depends on #177 and still needs final tool invocation/settings runtime integration. Issuance, Secret delivery, own-action polling and persistent revocation are drafted; static token kinds stay unchanged.
 
 - #175 manifest freeze remains open; #177 retains its dependency label until the gate resolves it.

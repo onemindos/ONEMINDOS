@@ -5,6 +5,7 @@ from __future__ import annotations
 import yaml
 
 from conftest import AGENT, GUEST, OWNER
+from test_plugin_workload import plugin_settings  # noqa: F401
 
 
 def declare_plugin(client, settings, clock, *, state="installed"):
@@ -97,3 +98,28 @@ def test_registry_does_not_activate_invalid_declarations(client, settings, clock
     manifest["spec"]["extensions"]["tools"] = "not-a-list"
     path.write_text(yaml.safe_dump(manifest))
     assert client.get("/v1/plugins", headers=OWNER).json() == []
+
+
+def test_registry_lists_installed_declarative_plugin_without_identity(client, settings, clock):
+    path = declare_plugin(client, settings, clock)
+    manifest = yaml.safe_load(path.read_text())
+    manifest["spec"].pop("plugin")
+    manifest["spec"]["extensions"] = {"tiles": [{"id": "open", "label": "Open", "opens": "web"}]}
+    path.write_text(yaml.safe_dump(manifest))
+    r = client.get("/v1/plugins/uptime-kuma", headers=OWNER)
+    assert r.status_code == 200 and r.json()["status"] == "installed"
+
+
+def test_registry_projects_installed_receipt_after_catalog_changes(plugin_settings, clock):
+    from conftest import make_client, ScriptedExecutor
+    from test_plugin_credentials import approve, request
+
+    with make_client(plugin_settings, clock, ScriptedExecutor()) as client:
+        approve(client, request(client, clock, "app.install"))
+        path = plugin_settings.apps_dir / "uptime-kuma" / "onemind.app.yaml"
+        manifest = yaml.safe_load(path.read_text())
+        manifest["spec"].pop("plugin"); manifest["spec"].pop("extensions")
+        manifest["metadata"]["name"] = "Catalog changed"
+        path.write_text(yaml.safe_dump(manifest))
+        r = client.get("/v1/plugins/uptime-kuma", headers=OWNER)
+        assert r.status_code == 200 and r.json()["name"] == "Uptime Kuma"
