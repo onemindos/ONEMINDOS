@@ -322,6 +322,14 @@ POLICY |= {
                                            "§12.5: agents never change the kill switch"),
     ("GET", "/v1/windows"): Row(READ_ANY, w.p_static("/v1/windows"), f"{_AUTOMATION}: any reader"),
     ("PUT", "/v1/windows/{window_id}"): Row(ONLY_OWNER, w.p_window_put, f"{_AUTOMATION}: only the owner edits windows"),
+    # ---- update policy for apps (NMD-07, #132: core/onemind_core/routers/updatepolicy.py) -------------------
+    ("GET", "/v1/update-policy"): Row(READ_ANY, w.p_static("/v1/update-policy"), "NMD-07: any reader sees the knobs"),
+    ("PUT", "/v1/update-policy"): Row(ONLY_OWNER, w.p_missing("/v1/update-policy", json={}),
+                                      "NMD-07: only the owner changes the update policy"),
+    ("GET", "/v1/update-policy/dry-run"): Row(READ_ANY, w.p_static("/v1/update-policy/dry-run"),
+                                              "NMD-07: any reader sees what would update; it files nothing"),
+    ("POST", "/v1/update-policy/resume"): Row(ONLY_OWNER, w.p_missing("/v1/update-policy/resume", json={"app_id": "whoami"}),
+                                              "NMD-07: only the owner lifts a back-off"),
     # ---- backups and restores (an agent may request, never approve; reads are household only) ---------------
     ("GET", "/v1/backups/status"): Row(HOUSEHOLD, w.p_static("/v1/backups/status"), f"{_BACKUPS}: owner, adult, agent read"),
     ("GET", "/v1/backups/destinations"): Row(grid(200, 200, 403, 403, 403), w.p_static("/v1/backups/destinations"),
