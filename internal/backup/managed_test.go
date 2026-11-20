@@ -540,3 +540,46 @@ func (s *sealedRepo) Snapshots(ctx context.Context, f []string) ([]Snapshot, err
 	}
 	return s.Repo.Snapshots(ctx, f)
 }
+
+// New hardware (UMB-P08): an app is restored from the OLD box's repository with
+// the owner recovery key. The wrong key changes nothing, and the key file is
+// removed afterwards.
+func TestAppRestoreFromAnotherBoxNeedsTheRecoveryKey(t *testing.T) {
+	m := newManagedFixture(t)
+	m.ok(t, KindConfigure, usbTarget())
+	snap := appRun(t, m, ReasonManual).Units[0].SnapshotID
+	const recovery = "owner-recovery-key-0123456789abcdef0123456789"
+	m.agent.OpenRepoWithKeyFile = func(_ Target, keyFile string) (Repo, error) {
+		b, err := os.ReadFile(keyFile)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return &sealedRepo{Repo: m.repo, wrong: strings.TrimSpace(string(b)) != recovery}, nil
+	}
+	m.write("storage/pvc-1111_app-notes_data/notes.txt", "FRESH BOX")
+	job := map[string]any{"scope": "app", "app_id": "notes", "snapshot_id": snap, "stamp": "20261112T120000Z",
+		"box_id": m.cfg.BoxID, "recovery_key": "wrong-key-0123456789abcdef0123456789abcd"}
+	_, res, body := m.do(t, KindRestore, job)
+	if res.State != StateFailed || strings.Contains(string(body), "wrong-key") {
+		t.Fatalf("a wrong key must fail without echoing it: %+v %s", res, body)
+	}
+	if m.read("storage/pvc-1111_app-notes_data/notes.txt") != "FRESH BOX" {
+		t.Fatal("a refused restore changed the volume")
+	}
+	job["recovery_key"] = recovery
+	m.ok(t, KindRestore, job)
+	if m.read("storage/pvc-1111_app-notes_data/notes.txt") != "v1" {
+		t.Fatal("the other box's snapshot was not restored")
+	}
+	if left, _ := filepath.Glob(filepath.Join(m.cfg.StateDir, ".key-*")); len(left) != 0 {
+		t.Fatalf("the key file must be removed: %v", left)
+	}
+	for _, bad := range []map[string]any{
+		{"scope": "path", "path": "/x", "snapshot_id": snap, "box_id": "b", "recovery_key": recovery},
+		{"scope": "app", "app_id": "notes", "snapshot_id": snap, "stamp": "20261112T120000Z", "recovery_key": recovery},
+	} {
+		if code, r, _ := m.do(t, KindRestore, bad); code == 200 || r.Error != "bad_job" {
+			t.Fatalf("a malformed key restore was accepted: %d %+v", code, r)
+		}
+	}
+}
