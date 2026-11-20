@@ -216,6 +216,7 @@ class IdentityService:
             if row is None or not allows_read(
                 method=request.method, path=request.url.path, principal_id=ctx.principal.id,
                 source=row.source, scopes=row.scopes, app_status=state.status if state else None,
+                operation_id=getattr(request.scope.get("route"), "operation_id", None),
             ):
                 raise self.deny(ctx.principal, f"{request.method} {request.url.path}", reason="plugin_policy")
         required = sc.required_scopes(request.method, request.url.path)

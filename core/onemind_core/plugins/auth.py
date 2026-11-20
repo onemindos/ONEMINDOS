@@ -21,7 +21,7 @@ def plugin_app_id(principal_id: str) -> str | None:
 
 
 def allows_read(*, method: str, path: str, principal_id: str, source: str,
-                scopes: object, app_status: str | None) -> bool:
+                scopes: object, app_status: str | None, operation_id: str | None = None) -> bool:
     """Use only the stored token snapshot; never widen from a mutable catalog.
 
     This initial policy accepts read-only snapshots. Other plugin permission
@@ -35,9 +35,11 @@ def allows_read(*, method: str, path: str, principal_id: str, source: str,
         return False
     if not isinstance(scopes, list) or any(not isinstance(s, str) or s not in _READ_GRANTS for s in scopes):
         return False
-    if path == "/v1/apps":
+    if path == "/v1/apps" and operation_id == "apps.list":
         return "apps:read" in scopes
-    if path == "/v1/nodes" or re.fullmatch(r"/v1/nodes/[^/]+", path):
+    if path == "/v1/nodes" and operation_id == "nodes.list":
+        return "nodes:read" in scopes
+    if operation_id == "nodes.get" and re.fullmatch(r"/v1/nodes/[A-Za-z0-9_-]{1,64}", path):
         return "nodes:read" in scopes
     # No /apps/* wildcard: that tree includes credentials, access and plans.
     return False

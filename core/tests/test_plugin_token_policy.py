@@ -133,3 +133,15 @@ def test_pure_policy_rejects_unknown_paths_and_malformed_ids():
     for method,path in [("HEAD","/v1/apps"),("GET","/v1/nodes/id/extra"),("GET","/v1/apps/new")]:
         assert not allows_read(method=method,path=path,principal_id="plugin:test",source="app-install",
                                scopes=["apps:read","nodes:read"],app_status="installed")
+
+
+def test_new_node_subroutes_do_not_inherit_read_grants(plugin):
+    client, headers, _ = plugin
+    @client.app.get("/v1/nodes/future-admin", operation_id="future.nodes_admin")
+    def added_node_route(p=Depends(client.app.state.gateway.principal)):
+        return p.as_dict()
+    client.app.router.routes.insert(0, client.app.router.routes.pop())
+    assert client.get("/v1/nodes/future-admin", headers=headers).status_code == 403
+    # A forged path without a known operation identity is also refused by the pure policy.
+    assert not allows_read(method="GET", path="/v1/nodes/id", principal_id="plugin:test", source="app-install",
+                           scopes=["nodes:read"], app_status="installed")
