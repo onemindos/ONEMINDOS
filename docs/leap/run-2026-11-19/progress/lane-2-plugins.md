@@ -31,7 +31,7 @@ The order comes from [LANES.md](../LANES.md).
 
 - #178: persistent credential retirement; PR #408, stacked on #407. Revokes before removal, before reinstall, after failed install and during startup recovery; no issuer or Secret delivery yet.
 
-- #178: approved-install plugin credential delivery; PR pending, stacked on #408. Hashed grants, atomic installation snapshot, plugin-only Secret variables and persistent dispatch public key. Unsupported grants and plugin updates fail closed pending their runtime support.
+- #178: approved-install plugin credential delivery; PR #409, stacked on #408. Hashed grants, atomic installation snapshot, plugin-only Secret variables and persistent dispatch public key. Unsupported grants and plugin updates fail closed pending their runtime support.
 
 ## Next
 
