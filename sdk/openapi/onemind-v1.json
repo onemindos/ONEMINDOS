@@ -551,6 +551,121 @@
         "title": "AuditVerify",
         "type": "object"
       },
+      "AutoUpdate": {
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "last_action_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Action Id"
+          },
+          "last_checked_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Checked At"
+          },
+          "last_download_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Download Bytes"
+          },
+          "last_result": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Result"
+          },
+          "window_id": {
+            "title": "Window Id",
+            "type": "string"
+          },
+          "window_open": {
+            "title": "Window Open",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled",
+          "window_id",
+          "window_open",
+          "last_checked_at",
+          "last_result",
+          "last_action_id",
+          "last_download_bytes"
+        ],
+        "title": "AutoUpdate",
+        "type": "object"
+      },
+      "AutoUpdateBody": {
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "window_id": {
+            "default": "win_nightly",
+            "pattern": "^win_[a-z0-9_]{1,36}$",
+            "title": "Window Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "title": "AutoUpdateBody",
+        "type": "object"
+      },
+      "BookRef": {
+        "additionalProperties": false,
+        "properties": {
+          "flavour": {
+            "default": "",
+            "maxLength": 20,
+            "pattern": "^[a-z0-9-]{0,20}$",
+            "title": "Flavour",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 100,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$",
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "BookRef",
+        "type": "object"
+      },
       "CatalogApp": {
         "description": "One GET /v1/apps entry: the §3 fields plus links, tier and scan (§11.4).",
         "properties": {
@@ -735,6 +850,49 @@
           "scan"
         ],
         "title": "CatalogApp",
+        "type": "object"
+      },
+      "CatalogBook": {
+        "properties": {
+          "flavour": {
+            "title": "Flavour",
+            "type": "string"
+          },
+          "issued": {
+            "title": "Issued",
+            "type": "string"
+          },
+          "language": {
+            "title": "Language",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "size_bytes": {
+            "title": "Size Bytes",
+            "type": "integer"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "flavour",
+          "title",
+          "language",
+          "path",
+          "size_bytes",
+          "issued"
+        ],
+        "title": "CatalogBook",
         "type": "object"
       },
       "CatalogSource": {
@@ -1110,6 +1268,177 @@
           "params"
         ],
         "title": "ConfigurePlanRequest",
+        "type": "object"
+      },
+      "ContentChange": {
+        "additionalProperties": false,
+        "properties": {
+          "add": {
+            "items": {
+              "$ref": "#/components/schemas/BookRef"
+            },
+            "maxItems": 40,
+            "title": "Add",
+            "type": "array"
+          },
+          "remove": {
+            "items": {
+              "$ref": "#/components/schemas/BookRef"
+            },
+            "maxItems": 200,
+            "title": "Remove",
+            "type": "array"
+          }
+        },
+        "title": "ContentChange",
+        "type": "object"
+      },
+      "ContentChangeRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "add": {
+            "items": {
+              "$ref": "#/components/schemas/BookRef"
+            },
+            "maxItems": 40,
+            "title": "Add",
+            "type": "array"
+          },
+          "download_bytes": {
+            "minimum": 0.0,
+            "title": "Download Bytes",
+            "type": "integer"
+          },
+          "idempotency_key": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "remove": {
+            "items": {
+              "$ref": "#/components/schemas/BookRef"
+            },
+            "maxItems": 200,
+            "title": "Remove",
+            "type": "array"
+          }
+        },
+        "required": [
+          "download_bytes",
+          "idempotency_key"
+        ],
+        "title": "ContentChangeRequest",
+        "type": "object"
+      },
+      "ContentChangeResult": {
+        "properties": {
+          "action": {
+            "$ref": "#/components/schemas/Action"
+          },
+          "plan": {
+            "$ref": "#/components/schemas/ContentPlan"
+          }
+        },
+        "required": [
+          "action",
+          "plan"
+        ],
+        "title": "ContentChangeResult",
+        "type": "object"
+      },
+      "ContentPlan": {
+        "properties": {
+          "changed": {
+            "title": "Changed",
+            "type": "boolean"
+          },
+          "download_bytes": {
+            "title": "Download Bytes",
+            "type": "integer"
+          },
+          "downloads": {
+            "items": {
+              "$ref": "#/components/schemas/CatalogBook"
+            },
+            "title": "Downloads",
+            "type": "array"
+          },
+          "removed": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Removed",
+            "type": "array"
+          },
+          "zims_after": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Zims After",
+            "type": "array"
+          },
+          "zims_before": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Zims Before",
+            "type": "array"
+          }
+        },
+        "required": [
+          "zims_before",
+          "zims_after",
+          "downloads",
+          "removed",
+          "download_bytes",
+          "changed"
+        ],
+        "title": "ContentPlan",
+        "type": "object"
+      },
+      "ContentView": {
+        "properties": {
+          "app": {
+            "$ref": "#/components/schemas/KiwixState"
+          },
+          "auto_update": {
+            "$ref": "#/components/schemas/AutoUpdate"
+          },
+          "library": {
+            "items": {
+              "$ref": "#/components/schemas/LibraryBook"
+            },
+            "title": "Library",
+            "type": "array"
+          },
+          "packs": {
+            "items": {
+              "$ref": "#/components/schemas/Pack"
+            },
+            "title": "Packs",
+            "type": "array"
+          },
+          "pending_action_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pending Action Id"
+          }
+        },
+        "required": [
+          "app",
+          "library",
+          "packs",
+          "pending_action_id",
+          "auto_update"
+        ],
+        "title": "ContentView",
         "type": "object"
       },
       "CopyBody": {
@@ -2121,6 +2450,64 @@
         "title": "KitConfirmBody",
         "type": "object"
       },
+      "KiwixState": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "in_catalog": {
+            "title": "In Catalog",
+            "type": "boolean"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "in_catalog",
+          "status"
+        ],
+        "title": "KiwixState",
+        "type": "object"
+      },
+      "LibraryBook": {
+        "properties": {
+          "date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date"
+          },
+          "flavour": {
+            "title": "Flavour",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "name",
+          "flavour",
+          "date"
+        ],
+        "title": "LibraryBook",
+        "type": "object"
+      },
       "Limits": {
         "additionalProperties": false,
         "properties": {
@@ -2641,6 +3028,60 @@
           "confirm"
         ],
         "title": "OverrideInput",
+        "type": "object"
+      },
+      "Pack": {
+        "properties": {
+          "books": {
+            "items": {
+              "$ref": "#/components/schemas/PackBook"
+            },
+            "title": "Books",
+            "type": "array"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "description",
+          "books"
+        ],
+        "title": "Pack",
+        "type": "object"
+      },
+      "PackBook": {
+        "properties": {
+          "flavour": {
+            "title": "Flavour",
+            "type": "string"
+          },
+          "in_library": {
+            "title": "In Library",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "flavour",
+          "in_library"
+        ],
+        "title": "PackBook",
         "type": "object"
       },
       "PasskeyRegisterBody": {
@@ -4556,6 +4997,27 @@
           "id"
         ],
         "title": "Widget",
+        "type": "object"
+      },
+      "WikipediaChoices": {
+        "properties": {
+          "books": {
+            "items": {
+              "$ref": "#/components/schemas/CatalogBook"
+            },
+            "title": "Books",
+            "type": "array"
+          },
+          "lang": {
+            "title": "Lang",
+            "type": "string"
+          }
+        },
+        "required": [
+          "lang",
+          "books"
+        ],
+        "title": "WikipediaChoices",
         "type": "object"
       },
       "WindowBody": {
@@ -10512,6 +10974,462 @@
         "summary": "Verify",
         "tags": [
           "backups"
+        ]
+      }
+    },
+    "/v1/content": {
+      "get": {
+        "description": "The Kiwix library, the curated packs and the auto-update setting. No network.",
+        "operationId": "content.get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "summary": "Content Get",
+        "tags": [
+          "content"
+        ]
+      }
+    },
+    "/v1/content/auto-update": {
+      "put": {
+        "description": "Turn the auto-update check on or off, and pick the maintenance window it runs in.",
+        "operationId": "content.auto_update",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AutoUpdateBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AutoUpdate"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Content Auto Update",
+        "tags": [
+          "content"
+        ]
+      }
+    },
+    "/v1/content/changes": {
+      "post": {
+        "description": "Request the change as an app.configure of Kiwix; it waits for an owner's approval.",
+        "operationId": "content.changes",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContentChangeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentChangeResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
+          }
+        },
+        "summary": "Content Changes",
+        "tags": [
+          "content"
+        ]
+      }
+    },
+    "/v1/content/plan": {
+      "post": {
+        "description": "What a change would download (with sizes) and stop serving. Files nothing.",
+        "operationId": "content.plan",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContentChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentPlan"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
+          }
+        },
+        "summary": "Content Plan",
+        "tags": [
+          "content"
+        ]
+      }
+    },
+    "/v1/content/updates": {
+      "get": {
+        "description": "Newer releases of the books in the library, with their download size. Files nothing.",
+        "operationId": "content.updates",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentPlan"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
+          }
+        },
+        "summary": "Content Updates",
+        "tags": [
+          "content"
+        ]
+      }
+    },
+    "/v1/content/wikipedia": {
+      "get": {
+        "description": "Wikipedia in one language, in each size the catalogue has, with the download size.",
+        "operationId": "content.wikipedia",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "lang",
+            "required": true,
+            "schema": {
+              "maxLength": 21,
+              "minLength": 2,
+              "pattern": "^[a-z]{2,12}(-[a-z]{2,8})?$",
+              "title": "Lang",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WikipediaChoices"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
+          }
+        },
+        "summary": "Content Wikipedia",
+        "tags": [
+          "content"
         ]
       }
     },
