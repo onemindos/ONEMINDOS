@@ -101,6 +101,9 @@ type Status struct {
 	// Backup is the backup agent's last result (contract 12.10); omitted
 	// when the box has no backup agent configured.
 	Backup *Backup `json:"backup,omitempty"`
+	// Images is the image cleanup and disk budget state (NMD-08, #133;
+	// internal/imagegc); omitted when the node runs no image cleaner.
+	Images *Images `json:"images,omitempty"`
 	// Metrics are the node's live load figures (contract 12.10 "metrics"),
 	// read at each heartbeat. Optional: omitted when none can be read.
 	Metrics *Metrics `json:"metrics,omitempty"`
@@ -118,6 +121,22 @@ type Backup struct {
 	Running    bool    `json:"running"`
 	LastRunAt  *string `json:"last_run_at"`
 	LastResult string  `json:"last_result"` // succeeded | failed | partial | none
+}
+
+// Images is the heartbeat's optional "images" object (NMD-08): the container
+// image store, the box's disk budget, and the last cleanup. The gateway warns
+// the owner (disk.budget_near) when DiskUsedPct reaches WarnPct.
+type Images struct {
+	Count           int     `json:"count"`
+	Bytes           int64   `json:"bytes"`
+	SupersededBytes int64   `json:"superseded_bytes"`
+	DiskUsedPct     float64 `json:"disk_used_pct"`
+	BudgetPct       float64 `json:"budget_pct"`
+	WarnPct         float64 `json:"warn_pct"`
+	LastCleanupAt   *string `json:"last_cleanup_at"`
+	LastResult      string  `json:"last_result"` // succeeded | partial | skipped | failed | none
+	LastRemoved     int     `json:"last_removed"`
+	LastFreedBytes  int64   `json:"last_freed_bytes"`
 }
 
 // Metrics feeds the gateway's per-node history and threshold alerts

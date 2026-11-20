@@ -73,3 +73,9 @@ Do **not** enable it on a developer install (stock Debian, no A/B): there, contr
 `install.sh` also writes drop-ins: `tailscaled.service.d/onemind.conf` (box CA only, no log upload),
 `k3s(-agent).service.d/onemind-mesh.conf` and `onemind-nats.service.d/onemind-mesh.conf` (wait for the
 mesh address; NATS gets its TLS files the same way).
+
+## onemind-images.service (image cleanup and disk budget, NMD-08)
+`onemindd images` removes only **superseded** container images: an app's older versions that no workload (at any replica count), no current or previous revision and no container (running or exited) uses. It never removes the images of an installed app, stopped or not, so a box with no internet can start every app again (Project NOMAD #858; test `TestOfflineBoxRestartsEveryInstalledAppAfterCleanup` in `internal/imagegc`). It removes nothing when it cannot read the cluster.
+- Schedule: once at start, every 24 h, and at once when the image disk passes the box's budget (`ONEMIND_IMAGES_BUDGET_PCT`, default 80, below kubelet's own 85 % collector).
+- Warning: the heartbeat's `images` object carries the disk use and `warn_pct` (`ONEMIND_IMAGES_WARN_PCT`, default budget - 10); the gateway opens the `disk.budget_near` alert for the owner there.
+- Hub only (`ConditionPathExists=/etc/rancher/k3s/k3s.yaml`): it needs the k3s admin kubeconfig. Root without capabilities, read-only filesystem; containerd deletes the image files over its Unix socket.
