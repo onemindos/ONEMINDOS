@@ -46,5 +46,6 @@ Short answers to founder questions, saved so they are not lost in chat. Folder: 
 | 04 | [Before the big build: code check, process fixes, seeing the OS, open decisions](founder/04-before-the-big-build.md) |
 | 05 | [Decision briefs, week of 2026-11-16: Z-41, signing keys, hardware, scoring rules, bootc Pi test, VMs/terminal/Tor](founder/05-decision-briefs-nov-2026.md) |
 | 06 | [The test lab, machine by machine: R530 + Proxmox, which box tests what, what to sell](founder/06-test-lab-hardware.md) |
+| 06 | [Kanidm and single sign-on: what it is, is it the right pick, and F-34](founder/06-kanidm-and-single-sign-on.md) |
 
 The "On `main`?" column was checked on 2026-11-12. The leap's live state is in [`docs/leap/STATUS.md`](../leap/STATUS.md).
