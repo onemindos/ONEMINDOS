@@ -604,3 +604,17 @@ POLICY |= {
     ("PUT", "/v1/instance/kiosk"): Row(ONLY_OWNER, w.p_kiosk_put,
                                        f"{_KIOSK}: only the owner changes the screen; an agent can never switch it"),
 }
+
+# ---- family controls (FAM-01, #204) -------------------------------------------------------
+# The owner passes authorization and gets 404 for these deliberately missing targets.
+# Other people and service identities are refused before target lookup.
+POLICY |= {
+    ("GET", "/v1/family/profiles/{user_id}"): Row(
+        OWNER_ONLY_404, w.p_static("/v1/family/profiles/missing"), "FAM-01: private profiles are owner only"),
+    ("PUT", "/v1/family/profiles/{user_id}"): Row(
+        OWNER_ONLY_404, w.p_missing("/v1/family/profiles/missing", json={}), "FAM-01: owner manages profiles"),
+    ("GET", "/v1/family/apps/{app_id}"): Row(
+        OWNER_ONLY_404, w.p_static("/v1/family/apps/missing"), "FAM-01: classifications are owner only"),
+    ("PUT", "/v1/family/apps/{app_id}"): Row(
+        OWNER_ONLY_404, w.p_missing("/v1/family/apps/missing", json={}), "FAM-01: owner manages classifications"),
+}
