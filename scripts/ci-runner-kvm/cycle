@@ -23,6 +23,7 @@ MAX_JOB_MIN=${MAX_JOB_MIN:-300}        # from the moment a job starts; the longe
 MAX_IDLE_MIN=${MAX_IDLE_MIN:-360}      # a VM that got no job by then is recycled (fresh clone, fresh config)
 TOKEN_FILE=${TOKEN_FILE:-/etc/onemind-ci-kvm.token}
 INSTANCE=${INSTANCE:-}
+KIT_DIR=$(cd "$(dirname "$0")" && pwd)
 
 api() {   # api METHOD PATH [JSON]: GitHub REST with the token on stdin, never on the command line
   local m=$1 p=$2 d=${3:-}
@@ -90,6 +91,11 @@ while :; do
   fi
 
   t0=$SECONDS
+  # No VM without the job network's firewall: a reload or flush must stop jobs, not leave them open.
+  if ! CI_NET=$NET CI_BRIDGE=${CI_BRIDGE:-vmbr1} CI_UPLINK=${CI_UPLINK:-vmbr0} CI_BLOCK_EXTRA=${CI_BLOCK_EXTRA:-} sh "$KIT_DIR/net.sh" --check; then
+    log "job network not isolated: not starting a VM (run net.sh)"; api DELETE "orgs/$ORG/actions/runners/$rid" >/dev/null 2>&1
+    unset cfg; backoff; continue
+  fi
   gone "$id" || { api DELETE "orgs/$ORG/actions/runners/$rid" >/dev/null 2>&1; unset cfg; backoff; continue; }
   if ! qm clone "$TID" "$id" --name "onemind-kvm-$INSTANCE" >/dev/null 2>&1 ||
      ! qm set "$id" --ipconfig0 "ip=$NET.$((10 + INSTANCE))/24,gw=$NET.1" >/dev/null 2>&1 ||
@@ -97,7 +103,10 @@ while :; do
     log "could not clone and start $id from template $TID"; gone "$id"; api DELETE "orgs/$ORG/actions/runners/$rid" >/dev/null 2>&1
     unset cfg; backoff; continue
   fi
-  bridge link set dev "tap${id}i0" isolated on 2>/dev/null || log "WARNING: could not isolate tap${id}i0 from other job VMs"
+  if ! bridge link set dev "tap${id}i0" isolated on 2>/dev/null; then
+    log "tap${id}i0 not isolated: not starting a job on it"; gone "$id"; api DELETE "orgs/$ORG/actions/runners/$rid" >/dev/null 2>&1
+    unset cfg; backoff; continue
+  fi
   k=0; until qm agent "$id" ping >/dev/null 2>&1; do k=$((k + 1)); [ "$k" -le 60 ] || break; sleep 5; done
   if ! printf '%s\n' "$cfg" |
        qm guest exec "$id" --pass-stdin 1 -- sh -c 'install -d -o runner -m 0700 /run/onemind-ci && umask 077 && cat > /run/onemind-ci/job && chown runner /run/onemind-ci/job' >/dev/null 2>&1 ||
@@ -111,7 +120,9 @@ while :; do
   while qm status "$id" 2>/dev/null | grep -q running; do
     if [ -z "$tj" ]; then
       # qm's output is not strict JSON (raw newlines in out-data): match the exit code as text.
-      if qm guest exec "$id" --timeout 10 -- pgrep -f Runner.Worker 2>/dev/null | grep -Eq '"exitcode" *: *0([^0-9]|$)'; then
+      # The guest's answer can be faked by the job itself; GitHub's own busy flag cannot.
+      if qm guest exec "$id" --timeout 10 -- pgrep -f Runner.Worker 2>/dev/null | grep -Eq '"exitcode" *: *0([^0-9]|$)' ||
+         [ "$(api GET "orgs/$ORG/actions/runners/$rid" 2>/dev/null | jq -r .busy 2>/dev/null)" = true ]; then
         tj=$SECONDS; log "$name started a job after $(( (tj - t1) / 60 )) min idle"
       elif [ $((SECONDS - t1)) -gt $((MAX_IDLE_MIN * 60)) ]; then
         log "$name idle over ${MAX_IDLE_MIN} min: recycling"; break

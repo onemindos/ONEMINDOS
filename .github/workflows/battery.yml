@@ -28,9 +28,9 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   battery:
-    # CI-14: x86 + KVM on the R530 runner when KVM_RUNNER=on and the event is trusted; the release-signing
+    # CI-14: x86 + KVM on a Proxmox VE host when KVM_RUNNER=on and the event is trusted (allow-list); the release-signing
     # workflow (security-nightly) always stays GitHub-hosted, so a home machine never vouches for a release.
-    runs-on: ${{ (inputs.runner == 'ubuntu-24.04' && github.workflow != 'security-nightly' && vars.KVM_RUNNER == 'on' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","onemind-kvm"]') || inputs.runner }}
+    runs-on: ${{ (inputs.runner == 'ubuntu-24.04' && github.workflow != 'security-nightly' && vars.KVM_RUNNER == 'on' && (contains(fromJSON('["push","schedule","workflow_dispatch","merge_group"]'), github.event_name) || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository))) && fromJSON('["self-hosted","onemind-kvm"]') || inputs.runner }}
     timeout-minutes: 240
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2

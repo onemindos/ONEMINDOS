@@ -18,6 +18,7 @@ if [ "${1:-}" = --token ]; then
   IFS= read -rs tok; echo
   [ -n "$tok" ] || { echo "empty token" >&2; exit 1; }
   (umask 077; printf '%s' "$tok" > /etc/onemind-ci-kvm.token); unset tok
+  chown root:root /etc/onemind-ci-kvm.token; chmod 600 /etc/onemind-ci-kvm.token   # umask does not fix an old file
   echo "stored in /etc/onemind-ci-kvm.token (root, 0600)"
 fi
 [ -s /etc/onemind-ci-kvm.token ] || { echo "no token yet: run up --token" >&2; exit 1; }
@@ -32,6 +33,8 @@ TEMPLATE_ID=9100
 BASE_ID=9110
 CI_NET=10.10.0
 CI_BRIDGE=vmbr1
+CI_UPLINK=vmbr0
+# CI_BLOCK_EXTRA="<router public address>/32"   # also blocked for job VMs (hairpin NAT); run up again after a change
 RUNNER_GROUP=onemind-local
 ENV
   echo "wrote /etc/onemind-ci-kvm.env (defaults; edit STORAGE and SNIPPETS for this host, then run up again)"
@@ -39,7 +42,7 @@ ENV
 fi
 . /etc/onemind-ci-kvm.env
 
-CI_NET=${CI_NET:-10.10.0} CI_BRIDGE=${CI_BRIDGE:-vmbr1} sh "$here/net.sh"
+CI_NET=${CI_NET:-10.10.0} CI_BRIDGE=${CI_BRIDGE:-vmbr1} CI_UPLINK=${CI_UPLINK:-vmbr0} CI_BLOCK_EXTRA=${CI_BLOCK_EXTRA:-} sh "$here/net.sh"
 if qm status "${TEMPLATE_ID:-9100}" >/dev/null 2>&1; then
   qm config "${TEMPLATE_ID:-9100}" | grep -qx 'name: onemind-kvm-template' ||
     { echo "VM ${TEMPLATE_ID:-9100} exists and is not ours: set TEMPLATE_ID in /etc/onemind-ci-kvm.env" >&2; exit 1; }

@@ -59,8 +59,8 @@ jobs:
           - {board: vm-do,      runner: ubuntu-24.04}
           - {board: arm64-efi,  runner: ubuntu-24.04-arm}
           - {board: rpi5,       runner: ubuntu-24.04-arm}   # no QEMU boot (Pi firmware): structure check + LT-PI5-01
-    # CI-14: x86 + KVM on the R530 runner when KVM_RUNNER=on and the event is trusted; else GitHub-hosted
-    runs-on: ${{ (matrix.runner == 'ubuntu-24.04' && vars.KVM_RUNNER == 'on' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","onemind-kvm"]') || matrix.runner }}
+    # CI-14: x86 + KVM on a Proxmox VE host when KVM_RUNNER=on and the event is trusted (allow-list); else GitHub-hosted
+    runs-on: ${{ (matrix.runner == 'ubuntu-24.04' && vars.KVM_RUNNER == 'on' && (contains(fromJSON('["push","schedule","workflow_dispatch","merge_group"]'), github.event_name) || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository))) && fromJSON('["self-hosted","onemind-kvm"]') || matrix.runner }}
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -104,8 +104,8 @@ jobs:
   # Same build, fixtures and `make firstboot` as the battery's first-boot step; no criterion changes.
   smoke:
     if: ${{ !github.event.pull_request.draft }}
-    # CI-14: x86 + KVM on the R530 runner when KVM_RUNNER=on and the event is trusted; else GitHub-hosted
-    runs-on: ${{ (vars.KVM_RUNNER == 'on' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","onemind-kvm"]') || 'ubuntu-24.04' }}
+    # CI-14: x86 + KVM on a Proxmox VE host when KVM_RUNNER=on and the event is trusted (allow-list); else GitHub-hosted
+    runs-on: ${{ (vars.KVM_RUNNER == 'on' && (contains(fromJSON('["push","schedule","workflow_dispatch","merge_group"]'), github.event_name) || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository))) && fromJSON('["self-hosted","onemind-kvm"]') || 'ubuntu-24.04' }}
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -178,8 +178,8 @@ jobs:
       fail-fast: false
       matrix:
         cloud: [aws, gcp, azure, hetzner, proxmox]
-    # CI-14: x86 + KVM on the R530 runner when KVM_RUNNER=on and the event is trusted; else GitHub-hosted
-    runs-on: ${{ (vars.KVM_RUNNER == 'on' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","onemind-kvm"]') || 'ubuntu-24.04' }}
+    # CI-14: x86 + KVM on a Proxmox VE host when KVM_RUNNER=on and the event is trusted (allow-list); else GitHub-hosted
+    runs-on: ${{ (vars.KVM_RUNNER == 'on' && (contains(fromJSON('["push","schedule","workflow_dispatch","merge_group"]'), github.event_name) || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository))) && fromJSON('["self-hosted","onemind-kvm"]') || 'ubuntu-24.04' }}
     timeout-minutes: 150
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -244,8 +244,8 @@ jobs:
   installer:
     if: ${{ !github.event.pull_request.draft && needs.scope.outputs.os == 'true' }}
     needs: [scope, smoke]
-    # CI-14: x86 + KVM on the R530 runner when KVM_RUNNER=on and the event is trusted; else GitHub-hosted
-    runs-on: ${{ (vars.KVM_RUNNER == 'on' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","onemind-kvm"]') || 'ubuntu-24.04' }}
+    # CI-14: x86 + KVM on a Proxmox VE host when KVM_RUNNER=on and the event is trusted (allow-list); else GitHub-hosted
+    runs-on: ${{ (vars.KVM_RUNNER == 'on' && (contains(fromJSON('["push","schedule","workflow_dispatch","merge_group"]'), github.event_name) || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository))) && fromJSON('["self-hosted","onemind-kvm"]') || 'ubuntu-24.04' }}
     timeout-minutes: 150
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2

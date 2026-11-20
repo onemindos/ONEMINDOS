@@ -42,8 +42,8 @@ class KvmRunnerPolicy(unittest.TestCase):
 
     def test_selection_is_exactly_the_reviewed_expression(self):
         # Whole-string match, not fragments: swapping && for || or dropping the fork guard fails here.
-        trust = ("(github.event_name != 'pull_request' || "
-                 "github.event.pull_request.head.repo.full_name == github.repository)")
+        trust = ("(contains(fromJSON('[\"push\",\"schedule\",\"workflow_dispatch\",\"merge_group\"]'), github.event_name) || "
+                 "(github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository))")
         kvm = f"vars.KVM_RUNNER == 'on' && {trust}"
         sel = "fromJSON('[\"self-hosted\",\"onemind-kvm\"]')"
         want = {
@@ -79,6 +79,18 @@ class KvmRunnerPolicy(unittest.TestCase):
             for name, job in d["jobs"].items():
                 if str(job.get("uses", "")).endswith("workflows/battery.yml"):
                     self.assertNotIn("secrets", job, f"{wf}:{name}")
+
+    def test_only_allow_listed_events_can_reach_a_kvm_job(self):
+        # A new workflow that calls battery.yml (or a kvm job's own workflow) from issue_comment,
+        # workflow_run, pull_request_target... would otherwise be routed by an expression it inherits.
+        allowed = {"push", "schedule", "workflow_dispatch", "merge_group", "pull_request", "workflow_call"}
+        kvm_wfs = {wf for wf, *_ in kvm_jobs()}
+        for wf, d in workflows():
+            calls = any(str(j.get("uses", "")).endswith("workflows/battery.yml") for j in d["jobs"].values())
+            if wf in kvm_wfs or calls:
+                on = d.get(True, d.get("on"))   # YAML 1.1 reads the key `on` as True
+                events = set(on) if isinstance(on, (dict, list)) else {on}
+                self.assertLessEqual(events, allowed, f"{wf} has triggers {sorted(events - allowed)}")
 
     def test_the_release_path_stays_hosted(self):
         for wf, _, name, _ in kvm_jobs():
@@ -162,11 +174,17 @@ class Kit(unittest.TestCase):
             ({"pull_request": {"head": {"repo": None}}}, "onemindos/ONEMINDOS", 1),    # deleted fork
             ({"pull_request": same}, "onemindos/ONEMINDOS", 0),
             ({"ref": "refs/heads/main"}, "onemindos/ONEMINDOS", 0),                   # push / dispatch / schedule
+            ({"ref": "refs/heads/main"}, "onemindos/ONEMINDOS", 1, "issue_comment"),  # not on the allow-list
+            ({"workflow_run": {}}, "onemindos/ONEMINDOS", 1, "workflow_run"),
+            ({"pull_request": same}, "onemindos/ONEMINDOS", 1, "pull_request_target"),
+            ({"ref": "refs/heads/main"}, "onemindos/ONEMINDOS", 1, ""),               # no event name: fail closed
+            ({"merge_group": {}}, "onemindos/ONEMINDOS", 0, "merge_group"),
             ({"ref": "refs/heads/main"}, "", 1),                                       # no GITHUB_REPOSITORY: fail closed
             (None, "onemindos/ONEMINDOS", 1),                                          # no event file: fail closed
         ]
-        for event, repo, rc in cases:
-            env = {"PATH": os.environ["PATH"], "GITHUB_REPOSITORY": repo, "GITHUB_EVENT_NAME": "test"}
+        for event, repo, rc, *name in cases:
+            ev_name = name[0] if name else ("pull_request" if event and "pull_request" in event else "push")
+            env = {"PATH": os.environ["PATH"], "GITHUB_REPOSITORY": repo, "GITHUB_EVENT_NAME": ev_name}
             path = None
             if event is not None:
                 with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
@@ -202,8 +220,9 @@ class Kit(unittest.TestCase):
         self.assertIn("iptables  -I FORWARD 1 -i vmbr1 ! -s 10.10.0.0/24 -j DROP", add)
         self.assertIn("iptables  -I FORWARD 1 -i vmbr1 -d 192.168.0.0/16 -j DROP", add)
         self.assertIn("ip6tables  -I INPUT 1 -i vmbr1 -j DROP", add)
-        self.assertEqual(len(add.strip().splitlines()), 11)
-        self.assertEqual(len(dele.strip().splitlines()), 11)
+        self.assertIn("iptables  -I FORWARD 1 -i vmbr1 ! -o vmbr0 -j DROP", add)   # internet only, allow-list
+        self.assertEqual(len(add.strip().splitlines()), 12)
+        self.assertEqual(len(dele.strip().splitlines()), 12)
         for line in dele.strip().splitlines():
             self.assertRegex(line, r"^ip6?tables +(-t nat )?-D \S+ .* 2>/dev/null \|\| true$")
 
@@ -215,6 +234,11 @@ class Kit(unittest.TestCase):
         self.assertIn("iptables INPUT -i $BR -j DROP", text)
         self.assertIn("iptables FORWARD -i $BR ! -s $NET.0/24 -j DROP", text)
         self.assertIn("ip6tables INPUT -i $BR -j DROP", text)
+        self.assertIn("iptables FORWARD -i $BR ! -o $UP -j DROP", text)
+        cycle = (KIT / "cycle").read_text()
+        self.assertIn('net.sh" --check', cycle)          # no clone without the firewall rules in place
+        self.assertIn("not isolated: not starting", cycle)
+        self.assertIn(".busy", cycle)                    # the job clock starts from GitHub's view, not the guest's
         self.assertIn("ip6tables FORWARD -i $BR -j DROP", text)
         self.assertIn("net.ipv6.conf.$BR.disable_ipv6=1", text)
         self.assertIn(" -C $chain $spec 2>/dev/null || ", text)   # no duplicate rules on ifreload
