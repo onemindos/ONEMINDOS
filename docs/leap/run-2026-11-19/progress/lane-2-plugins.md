@@ -69,3 +69,5 @@ The order comes from [LANES.md](../LANES.md).
 - #175 manifest freeze remains open; #177 retains its dependency label until the gate resolves it.
 
 - #387 CI checkpoint: code/image workflows passed; merge-gate timed out waiting for ci-apps. Do not rerun the broad suite while that dependency is still pending. Gate review and merges remain Claude-owned.
+
+- #418 review corrections: preserve empty directories, canonicalize archive aliases before deduplication and partition overlapping workload/UI paths so produced layouts round-trip through the strict reader.
