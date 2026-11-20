@@ -9,7 +9,7 @@ import type { Principal } from '../api/types';
 export const PRO_ROLES: ReadonlySet<string> = new Set(['owner', 'adult']);
 
 /** Nav ids (routes.ts navId) of the Pro screens: Nodes, Control Hub, AI & Agents, and System. */
-export const PRO_SCREENS: ReadonlySet<string> = new Set(['nodes', 'control-hub', 'agents', 'storage', 'backups']);
+export const PRO_SCREENS: ReadonlySet<string> = new Set(['nodes', 'control-hub', 'agents', 'storage', 'backups', 'library']);
 
 export type View = 'pro' | 'simple' | 'unknown';
 

@@ -289,6 +289,7 @@ OFF_HOUSEHOLD = grid(503, 503, 403, 403, 503)
 BASIC_ONLY = cells(401)
 
 _AUTOMATION = "docs/leap/dev/API.md §5.5; core/tests/test_automation.py"
+_CONTENT = "NMD-02 #127; core/tests/test_content.py"
 _BACKUPS = "docs/leap/dev/API.md §5.2 backups; core/tests/test_backups.py"
 _FILES = "docs/leap/dev/API.md files; core/tests/test_files_*.py"
 _PHOTOS = "docs/leap/core/PHOTOS.md section 2; core/tests/test_photos.py"
@@ -332,6 +333,20 @@ POLICY |= {
                                               "NMD-07: any reader sees what would update; it files nothing"),
     ("POST", "/v1/update-policy/resume"): Row(ONLY_OWNER, w.p_missing("/v1/update-policy/resume", json={"app_id": "whoami"}),
                                               "NMD-07: only the owner lifts a back-off"),
+    # ---- offline content manager (NMD-02 #127). The security world has no Kiwix app in its catalogue, so the
+    # owner's catalogue reads and plans stop at 409 kiwix_missing (no network is touched); everyone else is 403.
+    ("GET", "/v1/content"): Row(ONLY_OWNER, w.p_static("/v1/content"), f"{_CONTENT}: the library is the owner's"),
+    ("GET", "/v1/content/wikipedia"): Row(grid(409, 403, 403, 403, 403), w.p_static("/v1/content/wikipedia?lang=en"),
+                                          f"{_CONTENT}: owner only"),
+    ("GET", "/v1/content/updates"): Row(grid(409, 403, 403, 403, 403), w.p_static("/v1/content/updates"),
+                                        f"{_CONTENT}: owner only"),
+    ("POST", "/v1/content/plan"): Row(grid(409, 403, 403, 403, 403), w.p_missing("/v1/content/plan", json={}),
+                                      f"{_CONTENT}: owner only"),
+    ("POST", "/v1/content/changes"): Row(grid(409, 403, 403, 403, 403),
+                                         w.p_missing("/v1/content/changes", json={"download_bytes": 0, "idempotency_key": "k"}),
+                                         f"{_CONTENT}: owner only; the change itself waits for owner approval"),
+    ("PUT", "/v1/content/auto-update"): Row(ONLY_OWNER, w.p_missing("/v1/content/auto-update", json={"enabled": False}),
+                                            f"{_CONTENT}: only the owner turns the auto-update check on or off"),
     # ---- backups and restores (an agent may request, never approve; reads are household only) ---------------
     ("GET", "/v1/backups/status"): Row(HOUSEHOLD, w.p_static("/v1/backups/status"), f"{_BACKUPS}: owner, adult, agent read"),
     ("GET", "/v1/backups/destinations"): Row(grid(200, 200, 403, 403, 403), w.p_static("/v1/backups/destinations"),

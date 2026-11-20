@@ -19,6 +19,7 @@ export const href = {
   alerts: '/alerts',
   storage: '/storage',
   backups: '/backups',
+  library: '/library',
   coming: '/coming',
   controlHub: '/control-hub',
   agents: '/agents',
