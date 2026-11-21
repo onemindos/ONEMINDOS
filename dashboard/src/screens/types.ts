@@ -22,6 +22,8 @@ export interface ScreenDef {
   order: number;
   /** Position in the dock when the screen is docked; omit and it is one click away in Launchpad. */
   dock?: number;
+  /** Routable but never offered as a tile (dock, Launchpad, sidebar): a page that only exists to say what is not built yet. */
+  hidden?: boolean;
   /** Tile gradient (two colours) with a white glyph on top. */
   hue: readonly [string, string];
   /** Pro-only: offered to owners and adults, guarded by ProOnly (shell/roles.ts). */

@@ -39,7 +39,6 @@ describe('screen registry', () => {
       ['automation', '/automation', 'Your box'],
       ['updates', '/updates', 'Your box'],
       ['settings', '/settings', 'Your box'],
-      ['coming', '/coming', 'Your box'],
       ['control-hub', '/control-hub', 'System'],
       ['agents', '/agents', 'System'],
     ]);
@@ -47,6 +46,11 @@ describe('screen registry', () => {
     expect([...PRO_SCREEN_IDS].sort()).toEqual(['agents', 'automation', 'backups', 'control-hub', 'nodes', 'storage', 'updates']);
     expect(DOCK_ORDER).toEqual(['home', 'market', 'installed', 'approvals', 'activity', 'settings']);
     expect(SCREENS.every((s) => s.title.length > 0)).toBe(true);
+  });
+
+  it('keeps the Coming soon page routable but out of the dock, Launchpad and sidebar', () => {
+    expect(SCREENS.some((s) => s.id === 'coming' && s.hidden)).toBe(true);
+    expect(navItems(0).some((n) => n.id === 'coming')).toBe(false);
   });
 
   it('maps detail pages and tabs to their screen', () => {

@@ -44,7 +44,7 @@ it('reaches real backup status, targets and runs without inventing verified rest
   expect(within(summary).getByText('Not verified')).toBeInTheDocument();
   expect(await screen.findByText('run-1')).toBeInTheDocument();
   expect(fetch.mock.calls.every(([, init]) => new Headers(init?.headers).get('authorization') === 'Bearer ' + token)).toBe(true);
-  await openScreen(userEvent.setup(), /Coming soon/);
+  await openScreen(userEvent.setup(), /Settings/);
   expect(screen.queryByRole('article', { name: 'Backups' })).not.toBeInTheDocument();
 });
 
@@ -216,7 +216,7 @@ it('keeps an unconfirmed network write identity across in-tab navigation', async
   await u.click(screen.getByRole('button', { name: 'Send request' }));
   expect(await screen.findByRole('alert')).toHaveTextContent(/may already have been filed/);
   await u.click(screen.getByRole('button', { name: 'Close' }));
-  await openScreen(u, /Coming soon/);
+  await openScreen(u, /Settings/);
   await openScreen(u, 'Backups');
   await u.click(await screen.findByRole('button', { name: 'Request backup' }));
   await u.click(screen.getByRole('button', { name: /Send request|Retry same request/ }));
