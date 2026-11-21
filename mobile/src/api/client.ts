@@ -29,6 +29,14 @@ import {
   type Instance,
   type LifecycleType,
   type LoginResult,
+  type MeshView,
+  type MonitoringSummary,
+  type NodeMetrics,
+  type AppMetrics,
+  type OsUpdateHistory,
+  type OsUpdateStatus,
+  type SystemControlType,
+  type SystemPlanPreview,
   type Me,
   type MigratePlan,
   type NodeRecord,
@@ -79,6 +87,14 @@ export const OP = {
   filesDownload: 'GET /v1/files/download',
   filesUploads: 'POST /v1/files/uploads',
   migratePlans: 'GET /v1/migrate/plans',
+  osUpdates: 'GET /v1/os/updates',
+  osUpdateHistory: 'GET /v1/os/updates/history',
+  monitoringSummary: 'GET /v1/monitoring/summary',
+  nodeMetrics: 'GET /v1/nodes/{}/metrics',
+  appMetrics: 'GET /v1/apps/{}/metrics',
+  mesh: 'GET /v1/mesh',
+  /** UNVERIFIED name: the hub has no restart / shut down / troubleshoot route yet, so System controls stays hidden. */
+  systemPlan: 'GET /v1/system/plan',
 } as const;
 
 export type Op = (typeof OP)[keyof typeof OP];
@@ -209,6 +225,14 @@ export interface OneMindApi {
   /** `PATCH` one chunk at `offset`; returns the new offset and, on the last chunk, the hub's whole-file sha256. */
   filesUploadChunk(url: string, offset: number, bytes: Uint8Array): Promise<{ offset: number; sha256?: string }>;
   migratePlans(): Promise<MigratePlan[]>;
+  // System screens (read only, except that an install or a control is filed as a request).
+  osUpdates(): Promise<OsUpdateStatus>;
+  osUpdateHistory(): Promise<OsUpdateHistory>;
+  monitoringSummary(): Promise<MonitoringSummary>;
+  nodeMetrics(nodeId: string, window?: string): Promise<NodeMetrics>;
+  appMetrics(appId: string): Promise<AppMetrics>;
+  mesh(): Promise<MeshView>;
+  systemPlan(type: SystemControlType): Promise<SystemPlanPreview>;
   /** Where the SSE stream lives and which bearer to send; undefined in demo mode (no stream). */
   eventsEndpoint(): { url: string; bearer: () => string | undefined; refresh?: () => Promise<string | undefined> } | undefined;
 }
@@ -642,6 +666,27 @@ export class HttpApi implements OneMindApi {
   }
   migratePlans() {
     return this.req<MigratePlan[]>('GET', '/v1/migrate/plans', undefined, 'array');
+  }
+  osUpdates() {
+    return this.req<OsUpdateStatus>('GET', '/v1/os/updates');
+  }
+  osUpdateHistory() {
+    return this.req<OsUpdateHistory>('GET', '/v1/os/updates/history');
+  }
+  monitoringSummary() {
+    return this.req<MonitoringSummary>('GET', '/v1/monitoring/summary');
+  }
+  nodeMetrics(nodeId: string, window = '1h') {
+    return this.req<NodeMetrics>('GET', `/v1/nodes/${enc(nodeId)}/metrics?window=${enc(window)}`);
+  }
+  appMetrics(appId: string) {
+    return this.req<AppMetrics>('GET', `/v1/apps/${enc(appId)}/metrics`);
+  }
+  mesh() {
+    return this.req<MeshView>('GET', '/v1/mesh');
+  }
+  systemPlan(type: SystemControlType) {
+    return this.req<SystemPlanPreview>('GET', `/v1/system/plan?type=${enc(type)}`);
   }
   eventsEndpoint() {
     return {
