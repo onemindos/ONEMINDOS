@@ -25,7 +25,7 @@
 **Verdict:** PASS if D1–D6 pass. BLOCKED (not FAIL) if the account cannot create custom images.
 
 ## Steps
-1. **Get the image.** From the latest green `image` workflow run on the PR, download the artifact `image-debian-vm-do`. It holds `onemind-vm-do-<v>.qcow2`, `onemind-vm-do-<v>.raucb`, `onemind-vm-do-<v>-next.raucb`, `dev-ca.cert.pem` and `SHA256SUMS`. Check: `shasum -a 256 -c SHA256SUMS --ignore-missing`.
+1. **Get the image.** Easiest: the newest `dev-*` pre-release on GitHub Releases now carries the qcow2, both `.raucb` bundles, `dev-ca.cert.pem` and `SHA256SUMS` (throwaway dev CA, not for production, until the signing ceremony #153). Otherwise, from the latest green `image` workflow run on the PR, download the artifact `image-debian-vm-do`. It holds `onemind-vm-do-<v>.qcow2`, `onemind-vm-do-<v>.raucb`, `onemind-vm-do-<v>-next.raucb`, `dev-ca.cert.pem` and `SHA256SUMS`. Check: `shasum -a 256 -c SHA256SUMS --ignore-missing`.
    Or build it on the Mac: `make rootfs BOARD=vm-do && make image BOARD=vm-do && make convert BOARD=vm-do` (images land in `out/image-vm-do/`).
 2. **Upload** (D1): DigitalOcean control panel → Backups & Snapshots → Custom Images → Upload Image → the `.qcow2`; distribution "Unknown/Debian", the region you use.
 3. **Before you create the droplet: the firewall and the role.** A droplet is on the public internet from its first second, and OneMind's gateway speaks plain HTTP on 8080 (no HTTPS yet), so protect it first.
