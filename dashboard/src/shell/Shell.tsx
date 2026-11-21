@@ -34,6 +34,7 @@ import { navItems } from '../screens/registry';
 import { href, navId, toRoute } from './routes';
 import { meRetryDelay, roleOf, showsNav, viewFor, type View } from './roles';
 import { usePoll } from '../lib/hooks';
+import { useDisplayName } from '../data/homeMe';
 
 interface ShellApi {
   openPalette: () => void;
@@ -73,6 +74,7 @@ export function Shell({ children }: { children: ReactNode }) {
   // A real gateway session does not carry the role, so ask GET /v1/me once. If that fails the
   // view falls back to Simple (fail closed): the Pro screens are offered only to a known role.
   const me = usePoll(() => (principal ? Promise.resolve(null) : client.me()), 0);
+  const displayName = useDisplayName();
   const role = roleOf(principal, me.data ?? undefined);
   const view = viewFor(role === undefined && me.error ? null : role);
   // A failed lookup is retried with backoff, then slowly, so a network hiccup does not leave an
@@ -220,6 +222,7 @@ export function Shell({ children }: { children: ReactNode }) {
             now={hub.now}
             timeZone={Intl.DateTimeFormat().resolvedOptions().timeZone}
             person={principal ? { id: principal.id, role: principal.kind === 'agent' ? 'agent' : principal.role } : undefined}
+            displayName={displayName}
             demo={mock}
             onSearch={() => setPaletteOpen(true)}
             onConsoleView={() => setLayout('console')}

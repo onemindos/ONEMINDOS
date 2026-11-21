@@ -6,7 +6,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import type { NavItem } from '@onemind/ui';
-import { dockSplit, parentPath } from './shell/DesktopShell';
+import { avatarInitial, dockSplit, parentPath } from './shell/DesktopShell';
 import { layoutModeStore, parseLayoutMode } from './shell/layoutMode';
 import { renderApp, screensNav, seriousViolations } from './test/helpers';
 
@@ -177,5 +177,15 @@ describe('desktop frame', () => {
     renderApp({ token: 'owner-demo', route: '/market/vaultwarden' });
     const win = await screen.findByRole('region', { name: 'Market' }, T);
     expect(within(win).getByRole('link', { name: 'Back' })).toHaveAttribute('href', '/market');
+  });
+});
+
+describe('avatar initial', () => {
+  it('uses the greeted name first, then the account id, then a question mark', () => {
+    expect(avatarInitial('alex', undefined)).toBe('A');
+    expect(avatarInitial('Zeus', 'owner')).toBe('Z');
+    expect(avatarInitial(undefined, 'pi')).toBe('P');
+    expect(avatarInitial('  ', undefined)).toBe('?');
+    expect(avatarInitial()).toBe('?');
   });
 });

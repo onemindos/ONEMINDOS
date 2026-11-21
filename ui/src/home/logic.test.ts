@@ -3,7 +3,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { dark, light } from '../tokens/tokens';
-import { clockText, dayPart, greeting, greetingName, formatUptime, summaryLine } from './greeting';
+import { clockText, dayPart, greeting, greetingName, greetingParts, formatUptime, summaryLine } from './greeting';
 import { GLASS_ALPHA, HOME_WALLPAPER_IDS, homeWallpapers, wallVar } from './homeTokens';
 import {
   DEFAULT_LAYOUT,
@@ -207,5 +207,35 @@ describe('home tokens', () => {
         for (const fg of ['text', 'text-muted', 'text-subtle', 'accent'] as const) expect(contrast(rgb(t[fg]), glass)).toBeGreaterThanOrEqual(4.5);
       }
     });
+  });
+});
+
+describe('greeting on a phone (never cut)', () => {
+  const now = Date.UTC(2026, 10, 21, 15, 0);
+  it('splits into a hello and the whole name, for any length', () => {
+    for (const name of ['Alex', 'Christopher-James', 'A'.repeat(60)]) {
+      expect(greetingParts(now, 'UTC', name)).toEqual({ hello: 'Good afternoon', who: name });
+      expect(greeting(now, 'UTC', name)).toBe(`Good afternoon, ${name}`);
+    }
+    expect(greetingParts(now, 'UTC')).toEqual({ hello: 'Good afternoon' });
+  });
+  it('the phone CSS wraps the name and never clips it with an ellipsis', () => {
+    const css: string = readFileSync(`${process.cwd()}/src/home/home.css`, 'utf8');
+    const phone = css.slice(css.indexOf('@media (max-width: 720px)'));
+    const rule = /\.omh-greeting \{[^}]*\}/.exec(phone)?.[0] ?? '';
+    expect(rule).toContain('clamp(');
+    expect(rule).toContain('overflow-wrap: anywhere');
+    expect(rule).not.toMatch(/ellipsis|nowrap|overflow: hidden/);
+    expect(phone).toMatch(/\.omh-greeting-name \{[^}]*clamp\(/);
+  });
+});
+
+describe('disabled buttons', () => {
+  it('use a neutral disabled style from tokens, not a faded accent', () => {
+    const css: string = readFileSync(`${process.cwd()}/src/styles/components.css`, 'utf8');
+    const rule = /\.om-btn:disabled \{[^}]*\}/.exec(css)?.[0] ?? '';
+    expect(rule).toContain('var(--om-color-surface-sunken)');
+    expect(rule).toContain('var(--om-color-text-muted)');
+    expect(rule).not.toMatch(/opacity: 0\./);
   });
 });

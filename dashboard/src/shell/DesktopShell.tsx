@@ -44,6 +44,8 @@ export interface DesktopShellProps {
   now: number;
   timeZone: string;
   person?: DesktopPerson;
+  /** The greeted first name, when known: its initial fills the avatar while the account is still loading. */
+  displayName?: string;
   demo?: boolean;
   onSearch: () => void;
   onConsoleView: () => void;
@@ -128,7 +130,12 @@ function Clock({ now, timeZone }: { now: number; timeZone: string }) {
   );
 }
 
-function PersonMenu({ person, demo, onConsoleView, onSignOut }: Pick<DesktopShellProps, 'person' | 'demo' | 'onConsoleView' | 'onSignOut'>) {
+/** The name's initial when a name is known, else the account id's, else "?". */
+export function avatarInitial(displayName?: string, id?: string): string {
+  return (Array.from((displayName ?? '').trim()[0] ? displayName!.trim() : (id ?? '').trim())[0] ?? '?').toUpperCase();
+}
+
+function PersonMenu({ person, displayName, demo, onConsoleView, onSignOut }: Pick<DesktopShellProps, 'person' | 'displayName' | 'demo' | 'onConsoleView' | 'onSignOut'>) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const menuId = useId();
@@ -147,7 +154,7 @@ function PersonMenu({ person, demo, onConsoleView, onSignOut }: Pick<DesktopShel
       document.removeEventListener('keydown', close);
     };
   }, [open]);
-  const initial = (person?.id ?? '?').slice(0, 1).toUpperCase();
+  const initial = avatarInitial(displayName, person?.id);
   return (
     <div className="dsk-person" ref={ref}>
       <button type="button" className="dsk-avatar" aria-expanded={open} aria-controls={menuId} onClick={() => setOpen((o) => !o)}>
@@ -280,7 +287,7 @@ function Launchpad({ nav, apps, onClose }: { nav: NavItem[]; apps: DockApp[]; on
 }
 
 export function DesktopShell(props: DesktopShellProps) {
-  const { boxName, status, bell, nav, current, pinned = [], apps = [], now, timeZone, person, demo, onSearch, onConsoleView, onSignOut, children } = props;
+  const { boxName, status, bell, nav, current, pinned = [], apps = [], now, timeZone, person, displayName, demo, onSearch, onConsoleView, onSignOut, children } = props;
   const navigate = useNavigate();
   const location = useLocation();
   const atHome = current === 'home';
@@ -344,7 +351,7 @@ export function DesktopShell(props: DesktopShellProps) {
             <Icon name="search" size={18} />
           </button>
           {bell}
-          <PersonMenu person={person} demo={demo} onConsoleView={onConsoleView} onSignOut={onSignOut} />
+          <PersonMenu person={person} displayName={displayName} demo={demo} onConsoleView={onConsoleView} onSignOut={onSignOut} />
         </div>
       </header>
 

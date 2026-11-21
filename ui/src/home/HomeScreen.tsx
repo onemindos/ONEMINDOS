@@ -14,7 +14,7 @@ import { freshness } from '../lib/freshness';
 import { formatAgo, secondsSince } from '../lib/time';
 import { AppGrid } from './AppGrid';
 import { Dock } from './Dock';
-import { clockText, dateText, greeting, summaryLine } from './greeting';
+import { clockText, dateText, greetingParts, summaryLine } from './greeting';
 import type { HomeWallpaperId } from './homeTokens';
 import { DEFAULT_LAYOUT, MAX_PINNED, dockApps, togglePin, type HomeLayout } from './layout';
 import { nodeFreshness } from './parts';
@@ -140,7 +140,7 @@ export function HomeScreen({
               {dateText(now, timeZone)} · {clockText(now, timeZone)}
             </time>
           </p>
-          <h1 className="omh-greeting">{greeting(now, timeZone, personName)}</h1>
+          <h1 className="omh-greeting">{greetingHeading(now, timeZone, personName)}</h1>
           <p className="omh-summary">{summary}</p>
         </div>
         {w && (
@@ -242,5 +242,16 @@ export function HomeScreen({
         {announce}
       </p>
     </div>
+  );
+}
+
+/** "Good afternoon," then the name in its own span: on a phone the name drops to the second line. */
+function greetingHeading(now: number, timeZone: string, name?: string) {
+  const { hello, who } = greetingParts(now, timeZone, name);
+  if (!who) return hello;
+  return (
+    <>
+      <span className="omh-greeting-hello">{hello},</span> <span className="omh-greeting-name">{who}</span>
+    </>
   );
 }

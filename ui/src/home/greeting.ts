@@ -34,10 +34,16 @@ export function greetingName(id?: string | null): string | undefined {
   return first.charAt(0).toUpperCase() + first.slice(1);
 }
 
-export function greeting(now: number, timeZone: string, name?: string): string {
+/** The greeting in two parts, so the screen can put the name on its own line on a phone. */
+export function greetingParts(now: number, timeZone: string, name?: string): { hello: string; who?: string } {
   const part = dayPart(hourIn(now, timeZone));
   const hello = part === 'night' ? 'Good night' : `Good ${part}`;
   const who = name?.trim();
+  return who ? { hello, who } : { hello };
+}
+
+export function greeting(now: number, timeZone: string, name?: string): string {
+  const { hello, who } = greetingParts(now, timeZone, name);
   return who ? `${hello}, ${who}` : hello;
 }
 

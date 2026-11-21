@@ -356,7 +356,7 @@ function TrustWidget({ w, ctx }: { w: WidgetInstance; ctx: WidgetContext }) {
   const none = (text: string) => <span className="omh-na">{text}</span>;
   return (
     <WidgetFrame {...common} stale={hubStale(ctx)}>
-      <dl className="omh-facts omh-facts-stack">
+      <dl className="omh-facts omh-facts-stack omh-facts-spread">
         <div>
           <dt>Nodes online</dt>
           <dd>{nodes.length ? <StatusPill tone={online === nodes.length ? 'ok' : 'warn'} label={`${online} of ${nodes.length}`} /> : none('None reported')}</dd>
