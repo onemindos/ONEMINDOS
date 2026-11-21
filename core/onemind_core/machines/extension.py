@@ -7,6 +7,8 @@ approves the `machines.enable` action; `machines.disable` takes it all out again
 
 Safety rules kept here:
 - every manifest is re-hashed against extension.json before it is applied (a changed file is refused);
+- the operators' container images are named by mutable tag today (digests are UNVERIFIED until LT-MACH-2),
+  so install is refused unless the box was started with ONEMIND_MACHINES_ALLOW_TAG_IMAGES=1 (default off);
 - software emulation (`useEmulation`, a slow fallback for boxes without KVM) is refused, in the file
   before install and in the live KubeVirt object after it;
 - removal must leave no CRD, webhook or API service of KubeVirt or CDI behind, or it reports failed.
@@ -30,6 +32,8 @@ FILES = ("kubevirt-operator.yaml", "kubevirt-cr.yaml", "cdi-operator.yaml", "cdi
 LEFTOVER_KINDS = "crd,validatingwebhookconfigurations,mutatingwebhookconfigurations,apiservices"
 LEFTOVER_MARKS = ("kubevirt.io", "cdi.kubevirt.io", "virt-", "cdi-")
 EMULATION = "useEmulation"
+UNPINNED = ("The machines layer still names its container images by tag, not by digest, so it will not be applied "
+            "until the images are pinned (LT-MACH-2).")
 
 
 @dataclass(frozen=True)
@@ -86,11 +90,15 @@ class NoopExtension:
 class KubectlExtension:
     name = "kubernetes"
 
-    def __init__(self, root: Path, kubectl: str = "kubectl", runner: Runner = subprocess.run, timeout_s: float = 1200):
+    def __init__(self, root: Path, kubectl: str = "kubectl", runner: Runner = subprocess.run, timeout_s: float = 1200,
+                 allow_tag_images: bool = False):
         self.root, self.kubectl, self.runner, self.timeout_s = Path(root), kubectl, runner, timeout_s
+        self.allow_tag_images = allow_tag_images
 
     def available(self) -> tuple[bool, str]:
         layer, why = Layer.load(self.root)
+        if layer is not None and not self.allow_tag_images:
+            return False, UNPINNED
         return layer is not None, why
 
     def _run(self, steps: list[dict], *argv: str) -> tuple[ExecResult | None, str]:
@@ -116,6 +124,8 @@ class KubectlExtension:
         layer, why = Layer.load(self.root)
         if layer is None:  # the file is re-read here: it may have changed since the owner asked
             return ExecResult("failed", why, [])
+        if not self.allow_tag_images:  # privileged images by mutable tag: never without the explicit switch
+            return ExecResult("failed", UNPINNED, [])
         steps: list[dict] = []
         f = lambda n: str(layer.root / n)  # noqa: E731
         wait = ("--for=condition=Available", "--timeout=15m")

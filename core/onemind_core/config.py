@@ -74,6 +74,9 @@ class Settings:
     allow_unscanned: bool = False
     # The optional machines layer (os/rootfs/layers/machines): pinned KubeVirt and CDI manifests.
     machines_extension_dir: Path = Path("/usr/lib/onemind/extensions/machines")
+    # ONEMIND_MACHINES_ALLOW_TAG_IMAGES: let Turn on apply operators whose images are tags, not digests.
+    # Off by default until LT-MACH-2 records the digests; a lab switch, never set on a shipped box.
+    machines_allow_tag_images: bool = False
     # Per-feature sections (sections.py), keyed by section name. Read them with section().
     sections: dict[str, Any] = field(default_factory=dict, compare=False, repr=False)
 
@@ -152,6 +155,7 @@ class Settings:
             agent_url=agent_url,
             allow_unscanned=allow in ("1", "true", "yes"),
             machines_extension_dir=Path(env.get("ONEMIND_MACHINES_EXTENSION_DIR", "/usr/lib/onemind/extensions/machines")),
+            machines_allow_tag_images=env.get("ONEMIND_MACHINES_ALLOW_TAG_IMAGES", "").strip().lower() in ("1", "true", "yes"),
             sections=load_sections(env),
         )
         settings.check()

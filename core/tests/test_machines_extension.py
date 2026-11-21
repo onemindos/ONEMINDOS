@@ -235,7 +235,7 @@ class Script:
 
 def test_install_applies_in_order_waits_and_checks_emulation_is_off(tmp_path):
     run = Script()
-    res = KubectlExtension(layer_dir(tmp_path), runner=run).install()
+    res = KubectlExtension(layer_dir(tmp_path), allow_tag_images=True, runner=run).install()
     assert res.outcome == "succeeded"
     lines = [" ".join(c[1:]) for c in run.calls]
     order = [next(i for i, l in enumerate(lines) if k in l) for k in ("kubevirt-operator", "virt-operator", "kubevirt-cr", "cdi-operator", "deploy/cdi-operator", "cdi-cr")]
@@ -245,7 +245,7 @@ def test_install_applies_in_order_waits_and_checks_emulation_is_off(tmp_path):
 
 def test_install_refuses_a_cluster_that_runs_on_software_emulation(tmp_path):
     run = Script(answers={"useEmulation": "true"})
-    res = KubectlExtension(layer_dir(tmp_path), runner=run).install()
+    res = KubectlExtension(layer_dir(tmp_path), allow_tag_images=True, runner=run).install()
     assert res.outcome == "failed" and "emulation" in res.message
 
 
@@ -253,24 +253,44 @@ def test_install_refuses_a_layer_whose_file_changed_before_any_kubectl_call(tmp_
     d = layer_dir(tmp_path)
     (d / "kubevirt-operator.yaml").write_bytes(b"changed")
     run = Script()
-    assert KubectlExtension(d, runner=run).install().outcome == "failed" and run.calls == []
+    assert KubectlExtension(d, allow_tag_images=True, runner=run).install().outcome == "failed" and run.calls == []
 
 
 def test_install_outcomes_follow_the_executor_rules(tmp_path):
     d = layer_dir(tmp_path)
-    assert KubectlExtension(d, runner=Script(fail_on="cdi-cr")).install().outcome == "failed"
-    assert KubectlExtension(d, runner=Script(timeout_on="wait")).install().outcome == "outcome_unknown"
-    assert KubectlExtension(d, kubectl="nope", runner=lambda *a, **k: (_ for _ in ()).throw(FileNotFoundError())).install().outcome == "failed"
+    assert KubectlExtension(d, allow_tag_images=True, runner=Script(fail_on="cdi-cr")).install().outcome == "failed"
+    assert KubectlExtension(d, allow_tag_images=True, runner=Script(timeout_on="wait")).install().outcome == "outcome_unknown"
+    assert KubectlExtension(d, allow_tag_images=True, kubectl="nope", runner=lambda *a, **k: (_ for _ in ()).throw(FileNotFoundError())).install().outcome == "failed"
 
 
 def test_remove_succeeds_only_when_no_crd_or_webhook_is_left(tmp_path):
     d = layer_dir(tmp_path)
     clean = Script(answers={"get crd": "customresourcedefinition.apiextensions.k8s.io/certificates.cert-manager.io\n"})
-    assert KubectlExtension(d, runner=clean).remove().outcome == "succeeded"
+    assert KubectlExtension(d, allow_tag_images=True, runner=clean).remove().outcome == "succeeded"
     dirty = Script(answers={"get crd": "customresourcedefinition.apiextensions.k8s.io/kubevirts.kubevirt.io\n"
                                        "validatingwebhookconfiguration.admissionregistration.k8s.io/virt-api-validator\n"})
-    res = KubectlExtension(d, runner=dirty).remove()
+    res = KubectlExtension(d, allow_tag_images=True, runner=dirty).remove()
     assert res.outcome == "failed" and "kubevirts.kubevirt.io" in res.message and "virt-api-validator" in res.message
     deletes = [" ".join(c[1:]) for c in clean.calls if "delete" in c]
     assert [("cdi-cr" in l, "cdi-operator" in l, "kubevirt kubevirt" in l, "kubevirt-operator" in l) for l in deletes] == [
         (True, False, False, False), (False, True, False, False), (False, False, True, False), (False, False, False, True)]
+
+
+def test_install_and_enable_are_refused_while_the_images_are_only_tags(box, tmp_path):
+    d = layer_dir(tmp_path)
+    run = Script()
+    ext = KubectlExtension(d, runner=run)  # default: tags not allowed
+    res = ext.install()
+    assert res.outcome == "failed" and "digest" in res.message and run.calls == []
+    box.report()
+    box.svc.ext = ext
+    r = box.post("/v1/machines/enable", headers=OWNER)
+    assert r.status_code == 409 and r.json()["reason"] == "extension_unavailable"
+    assert run.calls == [] and box.svc.repo.extension()["state"] == "absent"
+    assert KubectlExtension(d, runner=run, allow_tag_images=True).available() == (True, "")
+
+
+def test_the_tag_switch_is_off_unless_the_environment_sets_it():
+    from onemind_core.config import Settings
+    assert Settings.from_env({}).machines_allow_tag_images is False
+    assert Settings.from_env({"ONEMIND_MACHINES_ALLOW_TAG_IMAGES": "1"}).machines_allow_tag_images is True

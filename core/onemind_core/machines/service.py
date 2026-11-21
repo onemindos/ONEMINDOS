@@ -54,7 +54,8 @@ class MachineService:
         self.runtime: MachineRuntime = runtime or (
             NoopRuntime() if s.executor == "noop" else KubectlRuntime(s.kubectl, timeout_s=s.executor_timeout_s))
         self.ext: ExtensionRuntime = ext or (
-            NoopExtension() if s.executor == "noop" else KubectlExtension(s.machines_extension_dir, s.kubectl))
+            NoopExtension() if s.executor == "noop" else KubectlExtension(s.machines_extension_dir, s.kubectl,
+                                                        allow_tag_images=s.machines_allow_tag_images))
         self._lock = threading.Lock()
         self._tickets: dict[str, tuple[str, object]] = {}  # sha256(ticket) -> (machine, expires_at)
 
