@@ -13,3 +13,5 @@
 # Python bytecode (lint byte-compiles; never commit or lint it)
 __pycache__/
 *.pyc
+# local agent sessions and worktrees (Claude Code); never shared
+/.claude/
