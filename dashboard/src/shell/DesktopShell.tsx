@@ -12,6 +12,7 @@ import { useEffect, useId, useMemo, useRef, useState, type CSSProperties, type R
 import { useLocation, useNavigate } from 'react-router';
 import { AppIcon, BrandMark, Icon, type NavItem } from '@onemind/ui';
 import './desktop.css';
+import { trackBarHeight } from './trackBarHeight';
 
 export interface DockApp {
   id: string;
@@ -309,10 +310,8 @@ export function DesktopShell(props: DesktopShellProps) {
   useEffect(() => {
     const bar = barRef.current;
     const root = rootRef.current;
-    if (!bar || !root || typeof ResizeObserver === 'undefined') return;
-    const ro = new ResizeObserver(() => root.style.setProperty('--dsk-bar-real', `${bar.offsetHeight}px`));
-    ro.observe(bar);
-    return () => ro.disconnect();
+    if (!bar || !root) return;
+    return trackBarHeight(bar, root, '--dsk-bar-real');
   }, []);
 
   // Esc closes the window (back to the desktop); Ctrl/⌘ + / opens Launchpad.
