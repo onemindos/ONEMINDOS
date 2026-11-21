@@ -43,12 +43,19 @@ NEEDS_HOSTED = re.compile(
     r"linux_x64|linux-amd64\b|-amd64 -version|_X64\b|ANDROID_HOME|xcodebuild|make image|make battery|"
     r"battery\.yml|\bk3d\b", re.I)
 # Workflows that build or test the OS image, need KVM or sign/publish: never on the Mac.
-HOSTED_ONLY_WORKFLOWS = {"image.yml", "battery.yml", "nightly.yml", "net-2vm.yml", "perf-smoke.yml",
+HOSTED_ONLY_WORKFLOWS = {"image.yml", "battery.yml", "nightly.yml", "net-2vm.yml", "restore-drill.yml", "perf-smoke.yml",
                          "release.yml", "security-nightly.yml", "apps-rescan.yml", "changes-collect.yml",
                          "dev-build.yml", "apps-gate-all.yml", "ci-desktop.yml"}
 # setup-python has no Python 3.13 build for Debian 13 arm64. PR #352 moves ci-apps `validate` to a venv;
 # until it merges, that one job is the known exception.
 SETUP_PYTHON_PENDING = {("ci-apps.yml", "validate")}
+
+
+# CI-15: the first safe jobs may try the DigitalOcean pool (onemind-do, switch DO_RUNNER) before the Mac; that
+# prefix is reviewed by test_do_runner_policy.py, so the Mac check below compares the rest of the expression.
+DO_PREFIX = ("(vars.DO_RUNNER == 'on' && (github.event_name != 'pull_request' || "
+             "github.event.pull_request.head.repo.full_name == github.repository)) && "
+             "fromJSON('[\"self-hosted\",\"onemind-do\"]') || ")
 
 
 def workflows():
@@ -84,7 +91,7 @@ class LocalRunnerPolicy(unittest.TestCase):
 
     def test_selection_is_switchable_fork_safe_and_has_a_hosted_fallback(self):
         for wf, d, name, job in mac_jobs():
-            ro = job["runs-on"]
+            ro = job["runs-on"].replace(DO_PREFIX, "", 1)
             where = f"{wf}:{name}"
             label = next(lab for lab in MAC_LABELS if lab in ro)
             want = "${{ %s && fromJSON('[\"self-hosted\",\"%s\"]') || 'ubuntu-24.04' }}" % (

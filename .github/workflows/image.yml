@@ -106,7 +106,10 @@ jobs:
     if: ${{ !github.event.pull_request.draft }}
     # CI-14: x86 + KVM on a Proxmox VE host when KVM_RUNNER=on and the event is trusted (allow-list); else GitHub-hosted
     runs-on: ${{ (vars.KVM_RUNNER == 'on' && (contains(fromJSON('["push","schedule","workflow_dispatch","merge_group"]'), github.event_name) || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository))) && fromJSON('["self-hosted","onemind-kvm"]') || 'ubuntu-24.04' }}
-    timeout-minutes: 45
+    # 90, not 45: on a busy KVM host a PASSING smoke takes about 44 minutes (tools image 6, fixtures 13, first boot
+    # 20+), so 45 cancelled about half of them and each cancelled run cost 45 runner-minutes plus a re-run.
+    # A broken image still fails early: test/qemu/firstboot.py has its own per-step timeouts (10 to 15 minutes).
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Free disk space
