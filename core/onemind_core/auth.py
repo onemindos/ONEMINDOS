@@ -21,7 +21,7 @@ import hashlib
 import logging
 import secrets
 import threading
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import yaml
@@ -30,6 +30,28 @@ log = logging.getLogger("onemind.auth")
 
 KINDS = {"person", "agent"}
 ROLES = {"owner", "adult", "guest", "child", "agent"}
+# Scope strings an agent token may hold on /mcp: the vocabulary of docs/leap/dev/MCP.md §4.1.
+# Only the scopes whose tools exist today are accepted; a string from the plan that is not built yet
+# (docs:read, actions:withdraw:own, ...) is refused, never silently ignored. instance:read is
+# always granted.
+MCP_SCOPES = (
+    "instance:read", "nodes:read", "apps:read", "actions:read:own", "audit:read:own",
+    "actions:request:app.install", "actions:request:app.remove", "actions:request:app.start",
+    "actions:request:app.stop", "actions:request:app.restart", "actions:request:app.update",
+    "actions:request:app.configure", "actions:request:app.delete_data",
+)
+ALWAYS_GRANTED = frozenset({"instance:read"})
+_READER = ("instance:read", "nodes:read", "apps:read", "actions:read:own", "audit:read:own")
+# One scope per request_action type (the lifecycle.TYPES keys; a test keeps the two in step), so a
+# token holds exactly the types it was granted and the rest are denied by default.
+_REQUEST = tuple(x for x in MCP_SCOPES if x.startswith("actions:request:"))
+MCP_BUNDLES = {  # §4.1 named bundles, limited to what exists today
+    "reader": frozenset(_READER),
+    "requester": frozenset(_READER + _REQUEST),
+    # Today's behaviour: every tool /mcp already serves (the §4.1 table lists fewer read scopes than
+    # the shipped tools, so v0 here is the full shipped set, not a downgrade). Default with no `scopes:`.
+    "v0": frozenset(MCP_SCOPES),
+}
 
 
 @dataclass(frozen=True)
@@ -37,6 +59,8 @@ class Principal:
     id: str
     kind: str
     role: str
+    # MCP scopes of an agent token (tokens file `scopes`). None = the v0 bundle (the §4.1 default for agents with no `scopes:` field).
+    scopes: frozenset[str] | None = field(default=None, compare=False)
 
     def as_dict(self) -> dict:
         return {"id": self.id, "kind": self.kind, "role": self.role}
@@ -79,6 +103,22 @@ def _principal(entry: dict, where: str) -> Principal:
         raise ValueError(f"{where}: role must be one of {sorted(ROLES)}")
     if (p.kind == "agent") != (p.role == "agent"):
         raise ValueError(f"{where}: kind 'agent' goes with role 'agent' and only with it")
+    if "mcp_scopes" in entry:
+        raise ValueError(f"{where}: the field is `scopes` (docs/leap/dev/MCP.md §4.1), not `mcp_scopes`")
+    if "scopes" in entry:
+        scopes = entry["scopes"]
+        if p.kind != "agent" or not isinstance(scopes, list) or not all(isinstance(x, str) for x in scopes):
+            raise ValueError(f"{where}: scopes is a list of strings and belongs to agents only")
+        granted: set[str] = set(ALWAYS_GRANTED)
+        for x in scopes:
+            if x in MCP_BUNDLES:
+                granted |= MCP_BUNDLES[x]
+            elif x in MCP_SCOPES:
+                granted.add(x)
+            else:
+                raise ValueError(f"{where}: unknown scopes [{x!r}]; known: {sorted(MCP_SCOPES)} "
+                                 f"and bundles {sorted(MCP_BUNDLES)}")
+        p = Principal(id=p.id, kind=p.kind, role=p.role, scopes=frozenset(granted))
     return p
 
 
