@@ -153,7 +153,7 @@ COPY os/gate/onemind-health-gate.service os/gate/onemind-local-api.service /usr/
 COPY --chmod=755 os/recovery/onemind-data-check os/recovery/onemind-recovery os/recovery/onemind-recovery-respond \
      /usr/lib/onemind/
 COPY os/recovery/onemind-data-check.service os/recovery/onemind-recovery.target os/recovery/onemind-recovery.service \
-     os/recovery/onemind-recovery-web.service /usr/lib/systemd/system/
+     os/recovery/onemind-recovery-web.service os/recovery/onemind-factory-reset.service /usr/lib/systemd/system/
 COPY os/rootfs/layers/base/ /
 # OneMind layer (docs/leap/core/IMAGES.md): agent + CLI, NATS, gateway venv, dashboard, catalog,
 # first boot. Every role unit ships disabled; onemind-firstboot starts them once the box has a role.
@@ -188,7 +188,8 @@ RUN set -eu; \
     /usr/lib/onemind/gateway/venv/bin/python3 -I -c "import onemind_core" ; \
     if [ -x /tmp/onemind/board/post-install.sh ]; then /tmp/onemind/board/post-install.sh; fi; \
     systemctl enable systemd-networkd.service systemd-resolved.service onemind-data-layout.service \
-      k3s.service onemind-local-api.service onemind-health-gate.service onemind-data-check.service >/dev/null; \
+      k3s.service onemind-local-api.service onemind-health-gate.service onemind-data-check.service \
+      onemind-factory-reset.service >/dev/null; \
     systemctl mask systemd-firstboot.service >/dev/null 2>&1 || true; \
     passwd -l root >/dev/null; \
     if command -v plymouth-set-default-theme >/dev/null; then plymouth-set-default-theme onemind; \
