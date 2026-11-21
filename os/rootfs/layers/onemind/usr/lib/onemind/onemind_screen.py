@@ -227,8 +227,15 @@ def gather(root="/"):
             state = json.load(f)
     except (OSError, ValueError):
         pass
+    tls = False
+    try:
+        with open(j("data", "onemind", "etc", "gateway.env")) as f:
+            tls = any(line.strip() == "ONEMIND_NET_TLS=1" for line in f)
+    except OSError:
+        pass
+    # Health is always probed on loopback: with TLS on, plain HTTP :8080 is bound to loopback only (H-05).
     status, body = _get(f"http://127.0.0.1:{PORT}/healthz")
-    return {"host": socket.gethostname(), "addrs": addresses(),
+    return {"tls": tls, "host": socket.gethostname(), "addrs": addresses(),
             "role": state.get("role") if isinstance(state, dict) else None,
             "name": state.get("name") if isinstance(state, dict) else None,
             "setup_open": status == 200 and body.strip() == "setup",
@@ -238,13 +245,22 @@ def gather(root="/"):
 def view(info):
     """(headline, lines, url or None) for the facts in `info`. A pure function: the tests call it."""
     addr = info["addrs"][0] if info["addrs"] else None
-    url = f"http://{addr}:{PORT}/" if addr else None
     role = info.get("role")
-    if info["setup_open"] or (role is None and not info["ready"]):
+    setup = info["setup_open"] or (role is None and not info["ready"])
+    # Plain HTTP :8080 is only the setup wizard. Once set up on a hub (ONEMIND_NET_TLS=1, H-05) the gateway
+    # serves the LAN over HTTPS on :443 and :8080 is loopback only, so the screen must never point at it.
+    https = not setup and (info.get("tls") or role == "hub")
+    if https:
+        url = f"https://{addr}/" if addr else None
+        names = f"https://{info['host']}.local/  /  https://onemind.local/"
+    else:
+        url = f"http://{addr}:{PORT}/" if addr else None
+        names = f"http://{info['host']}.local:{PORT}/  /  http://onemind.local:{PORT}/"
+    if setup:
         head = "FINISH SETUP"
         lines = ["On a phone or computer on the same network, open:", "",
                  f"   {url}" if url else "   (no network yet: plug in the network cable)",
-                 f"   or http://{info['host']}.local:{PORT}/  /  http://onemind.local:{PORT}/", "",
+                 f"   or {names}", "",
                  "Choose what this box is. The page then shows your owner token ONCE:",
                  "copy it. It is never shown on this screen."]
     elif role in ("worker", "leaf"):
@@ -254,7 +270,8 @@ def view(info):
     elif info["ready"]:
         head = "ONEMIND IS RUNNING"
         lines = ["Open the dashboard on a phone or computer on this network:", "",
-                 f"   {url}" if url else "   (no network address yet)", "",
+                 f"   {url}" if url else "   (no network address yet)",
+                 f"   or {names}", "",
                  "Sign in with your owner token (shown once when you set this box up)."]
     else:
         head = "ONEMIND IS STARTING"
