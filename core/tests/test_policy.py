@@ -134,7 +134,15 @@ def test_psa_levels(rules):
 
 @pytest.mark.parametrize(("rule", "ok"), [
     ({"apiGroups": [""], "resources": ["configmaps", "pods/log"], "verbs": ["get", "list"]}, True),
-    ({"apiGroups": ["apps"], "resources": ["deployments"], "verbs": ["get", "patch"]}, True),
+    ({"apiGroups": ["apps"], "resources": ["deployments"], "verbs": ["get", "list", "watch"]}, True),
+    ({"apiGroups": [""], "resources": ["configmaps"], "verbs": ["create", "update", "patch", "delete"]}, True),
+    ({"apiGroups": ["apps"], "resources": ["deployments"], "verbs": ["get", "patch"]}, False),
+    ({"apiGroups": ["apps"], "resources": ["deployments", "statefulsets", "daemonsets", "replicasets"], "verbs": ["create"]}, False),
+    ({"apiGroups": ["batch"], "resources": ["jobs", "cronjobs"], "verbs": ["create"]}, False),
+    ({"apiGroups": [""], "resources": ["services", "secrets"], "verbs": ["create", "update", "patch"]}, False),
+    ({"apiGroups": [""], "resources": ["endpoints"], "verbs": ["delete"]}, False),
+    ({"apiGroups": [""], "resources": ["pods"], "verbs": ["deletecollection"]}, False),
+    ({"apiGroups": [""], "resources": ["serviceaccounts"], "verbs": ["update"]}, False),
     ({"apiGroups": [""], "resources": ["namespaces"], "verbs": ["patch"]}, False),
     ({"apiGroups": [""], "resources": ["namespaces/status"], "verbs": ["update"]}, False),
     ({"apiGroups": ["networking.k8s.io"], "resources": ["networkpolicies"], "verbs": ["create"]}, False),
