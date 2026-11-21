@@ -145,6 +145,7 @@ export function Shell({ children }: { children: ReactNode }) {
     { id: 'storage', label: 'Storage', href: href.storage, icon: 'storage', group: 'Your box' },
     { id: 'backups', label: 'Backups', href: href.backups, icon: 'backups', group: 'Your box' },
     { id: 'network', label: 'Network', href: href.network, icon: 'network', group: 'Your box' },
+    { id: 'automation', label: 'Automation', href: href.automation, icon: 'clock', group: 'Your box' },
     { id: 'updates', label: 'OS updates', href: href.updates, icon: 'updates', group: 'Your box' },
     { id: 'settings', label: 'Settings', href: href.settings, icon: 'settings', group: 'Your box' },
     { id: 'coming', label: 'Coming soon', href: href.coming, icon: 'info', group: 'Your box' },

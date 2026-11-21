@@ -66,6 +66,7 @@ export const SCREEN_HUES: Record<string, readonly [string, string]> = {
   storage: ['#f6a35c', '#b8460c'],
   backups: ['#3fc6db', '#0c6b80'],
   network: ['#4aa8e0', '#1d5f99'],
+  automation: ['#8c7cf0', '#4a3bb8'],
   coming: ['#7d8794', '#3a414b'],
   'control-hub': ['#e5484d', '#7c0d16'],
   agents: ['#d96cf0', '#8a1fa3'],

@@ -9,8 +9,8 @@ import type { Principal } from '../api/types';
 export const PRO_ROLES: ReadonlySet<string> = new Set(['owner', 'adult']);
 
 /** Nav ids (routes.ts navId) of the Pro screens: Nodes, Control Hub, AI & Agents, and System
- * (Storage, Backups, OS updates, Network, which is also owner-only: OWNER_SCREENS). */
-export const PRO_SCREENS: ReadonlySet<string> = new Set(['nodes', 'control-hub', 'agents', 'storage', 'backups', 'updates', 'network']);
+ * (Storage, Backups, Automation, OS updates, Network, which is also owner-only: OWNER_SCREENS). */
+export const PRO_SCREENS: ReadonlySet<string> = new Set(['nodes', 'control-hub', 'agents', 'storage', 'backups', 'automation', 'updates', 'network']);
 
 /** Pro screens only an owner may open: the gateway answers 403 to everyone else (GET /v1/network). */
 export const OWNER_SCREENS: ReadonlySet<string> = new Set(['network']);
