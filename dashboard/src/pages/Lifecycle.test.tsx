@@ -53,8 +53,10 @@ describe('lifecycle through the HTTP client', () => {
     const panel = screen.getByRole('region', { name: 'App request progress' });
     expect(within(panel).getByRole('heading', { name: 'App request progress' })).toBeInTheDocument();
     expect(panel).toHaveClass('om-card');
-    expect(within(panel).getByRole('status')).toHaveTextContent('Request status: succeeded');
-    expect(within(panel).getByText('Gateway result: applied')).toBeInTheDocument();
+    expect(within(panel).getByRole('status')).toHaveTextContent('Done.');
+    expect(panel).not.toHaveTextContent('Request status');
+    expect(panel).not.toHaveTextContent('Gateway result');
+    expect(within(panel).getByText('Hub result: applied')).toBeInTheDocument();
     expect(within(panel).queryByText('Healthy')).not.toBeInTheDocument();
   });
   it('keeps the compact jobs island and expands to actual ledger state', async () => {

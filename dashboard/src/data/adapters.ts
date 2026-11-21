@@ -5,7 +5,9 @@
 // says "unknown" or "not reported".
 import {
   CATEGORY_BY_SLUG,
+  type ActionPlan,
   type ActionSummary,
+  type PlanEffect,
   type AppRunState,
   type AuditEntry,
   type CategorySlug,
@@ -85,12 +87,16 @@ export function toStoreApp(a: CatalogApp): StoreApp {
 }
 
 /**
- * Where "Open" goes. Contract v0 has no per-app address (§12 adds one behind the gateway login),
- * so it is the app's web port on the host that served this page, as in dashboard v0.
+ * Where "Open" goes: the app's own name on the box, `<app>.<box host>`, which the gateway proxies
+ * behind the OneMind sign-in (UMB-P02). Never the app's raw port: that skips the sign-in.
+ * Only a page served from a `.local` name can say it (onemind.local or <box>.local); from an IP
+ * address or any other name there is no app name that resolves, so there is no link.
  */
-export function openUrl(a: Pick<CatalogApp, 'web_port' | 'installed'>, loc: Pick<Location, 'protocol' | 'hostname'> = window.location): string | undefined {
+export function openUrl(a: Pick<CatalogApp, 'id' | 'web_port' | 'installed'>, loc: Pick<Location, 'protocol' | 'hostname'> = window.location): string | undefined {
   if (!a.installed || !a.web_port) return undefined;
-  return `${loc.protocol}//${loc.hostname}:${a.web_port}/`;
+  const host = loc.hostname.toLowerCase();
+  if (!/^[a-z0-9-]+(\.[a-z0-9-]+)*\.local$/.test(host) || !/^[a-z0-9-]+$/.test(a.id)) return undefined;
+  return `${loc.protocol}//${a.id}.${host}/`;
 }
 
 /** Gateway app `status` → run state. `installed` means applied, not "healthy": v0 reports no health. */
@@ -131,8 +137,8 @@ export function toHomeApp(a: CatalogApp, loc?: Pick<Location, 'protocol' | 'host
   };
 }
 
-/** What `openUrl` is: the app's own port, which no OneMind sign-in guards on a v0 hub. */
-export const DIRECT_URL_NOTE = 'the app’s own port on this host, not behind the OneMind sign-in';
+/** Shown when an app is installed but this page's address cannot name it (an IP address, say). */
+export const NO_APP_NAME_NOTE = 'open the dashboard at onemind.local to open apps behind the OneMind sign-in';
 
 /** An installed app for the manager. The hub reports no node or health per app in v0. */
 export function toInstalled(a: CatalogApp, checkedAt: string, loc?: Pick<Location, 'protocol' | 'hostname'>): InstalledApp {
@@ -143,7 +149,7 @@ export function toInstalled(a: CatalogApp, checkedAt: string, loc?: Pick<Locatio
     state: runState(a.status),
     checked_at: checkedAt,
     url,
-    url_note: url ? DIRECT_URL_NOTE : undefined,
+    url_note: !url && a.installed && a.web_port ? NO_APP_NAME_NOTE : undefined,
   };
 }
 
@@ -338,5 +344,40 @@ export function toPaletteApp(a: CatalogApp): PaletteApp {
     installed: a.installed,
     status: s === 'installed' || s === 'starting' || s === 'unhealthy' ? s : undefined,
     deployClass: deployClass(a.tier),
+  };
+}
+
+/** The gateway plan's own warning that the network path effects already say. */
+const NETWORK_WARNING = /^Opens a network path/;
+
+/**
+ * The gateway's plan (summary, objects, volumes, warnings, network paths; lifecycle.py) as the
+ * plain-language effects card: what is kept or deleted, which ports and paths open, and what the
+ * gateway warns about. Nothing is invented: a plan with no volumes or paths says no changes beyond
+ * the action itself. Undefined when the action has no plan (the board then says so).
+ */
+export function toActionPlan(a: Action): ActionPlan | undefined {
+  const p = a.plan as Record<string, unknown> | null | undefined;
+  if (!p || !a.plan_sha256) return undefined;
+  const list = (v: unknown): Array<Record<string, unknown>> => (Array.isArray(v) ? v.filter((x): x is Record<string, unknown> => !!x && typeof x === 'object') : []);
+  const effects: PlanEffect[] = [];
+  for (const v of list(p.volumes)) {
+    if (v.effect === 'deleted') effects.push({ kind: 'data-delete', risk: 'high', label: 'Deletes all of this app\'s files and databases', detail: 'No undo' });
+    else if (v.effect === 'kept') effects.push({ kind: 'volume', risk: 'low', label: 'Keeps this app\'s files and databases', detail: 'Your data stays on disk' });
+    else effects.push({ kind: 'volume', risk: 'medium', label: `Changes stored data (${String(v.effect ?? 'unknown')})` });
+  }
+  for (const n of list(p.network_paths)) {
+    effects.push({ kind: 'port', risk: 'medium', label: `Opens a path from ${String(n.from)} to ${String(n.to)}`, detail: `TCP port ${String(n.port)}${n.requirement ? `, needs ${String(n.requirement)}` : ''}` });
+  }
+  for (const w of Array.isArray(p.warnings) ? p.warnings : []) {
+    if (typeof w === 'string' && !NETWORK_WARNING.test(w)) effects.push({ kind: 'note', risk: /no undo|deleted|refus/i.test(w) ? 'high' : 'low', label: w });
+  }
+  if (typeof p.summary === 'string' && p.summary) effects.unshift({ kind: 'note', risk: 'low', label: p.summary });
+  return {
+    action_id: a.id,
+    plan_hash: a.plan_sha256,
+    computed_at: a.created_at ?? new Date(0).toISOString(),
+    effects,
+    undo: a.type === ('app.delete_data' as string) ? 'one-way' : 'reversible',
   };
 }

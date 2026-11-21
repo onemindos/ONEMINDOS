@@ -170,6 +170,7 @@
 }
 .dsk-window-body .om-card-attention { box-shadow: inset 3px 0 0 var(--om-color-warn-fg), 0 8px 24px -16px rgb(0 0 0 / 0.5); }
 .dsk-window-body a.om-btn { text-decoration: none; }
+.dsk-window-body .dash-status { margin-top: var(--om-space-4); }
 .dsk-window-body h2 { letter-spacing: -0.015em; }
 .dsk-window-body .om-subhead { text-transform: uppercase; letter-spacing: 0.08em; font-size: var(--om-font-size-xs); font-weight: var(--om-font-weight-semibold); }
 .dsk-window-body .om-table tr + tr td { border-top-color: var(--dsk-hairline); }
@@ -198,7 +199,8 @@
 .dsk-dock-item > :first-child { transition: transform var(--dsk-t-fast) var(--dsk-ease); transform-origin: bottom center; }
 .dsk-dock-item:hover > :first-child, .dsk-dock-item:focus-visible > :first-child { transform: translateY(-6px) scale(1.14); }
 .dsk-dock-label { font-size: 11px; line-height: 1.1; color: var(--om-color-text-muted); white-space: nowrap; max-width: 76px; overflow: hidden; text-overflow: ellipsis; }
-.dsk-dock-item[aria-current='page'] .dsk-dock-label { color: var(--om-color-text); font-weight: var(--om-font-weight-semibold); }
+/* The active label changes colour, never weight: a bolder label is wider and would shift the whole row. */
+.dsk-dock-item[aria-current='page'] .dsk-dock-label { color: var(--om-color-text); }
 .dsk-dock-item[aria-current='page']::after {
   content: ''; position: absolute; bottom: 1px; width: 5px; height: 5px; border-radius: 50%; background: var(--om-color-text);
 }
@@ -253,6 +255,9 @@
 .dsk-launchpad-label { font-size: var(--om-font-size-sm); text-align: center; }
 .dsk-launchpad-none { text-align: center; color: var(--om-color-text-muted); }
 
+/* The jobs tray sits in the bottom-right corner, clear of the dock and of window content. */
+.dash-desktop .om-store-tray { left: auto; right: var(--om-space-4); transform: none; bottom: calc(var(--dsk-dock-h, 84px) + var(--om-space-3)); width: min(340px, calc(100vw - 32px)); align-items: flex-end; }
+@media (max-width: 720px) { .dash-desktop .om-store-tray { left: 50%; right: auto; transform: translateX(-50%); align-items: center; } }
 /* The jobs pill never covers content or a control. Wide screens: it sits on the dock row, vertically centred on
    the dock, at the right edge, and the dock gives up the room (below). Narrower screens and phones: it sits centred
    directly above the dock (8px gap) and the shell sets --dsk-jobs-stack (only while a job exists), so scrolling
@@ -316,4 +321,99 @@
   .dsk-status .om-pill { position: relative; flex: none; white-space: nowrap; }
   .dsk-window-body { padding-top: 64px; }
   .dsk-launchpad-big { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); }
+  .dsk-desktop { padding-top: var(--om-space-4); }
+  /* The menu bar never widens the page: what does not fit is cut, not scrolled to. */
+  .dsk, .dsk-stage, .dsk-window { max-width: 100vw; overflow-x: clip; }
+  .dsk-bar { min-width: 0; overflow: hidden; }
+  .dsk-bar > * { min-width: 0; }
+  /* Approve and Deny stay pinned at the bottom of the sheet, above the dock, while the request scrolls. */
+  .dsk-window-body .om-card-foot {
+    position: sticky; bottom: 0; z-index: 2;
+    margin: 0 calc(-1 * var(--om-space-4)); padding: var(--om-space-3) var(--om-space-4) calc(var(--om-space-3) + env(safe-area-inset-bottom, 0px));
+    background: var(--om-color-surface); border-top: 1px solid var(--dsk-hairline);
+  }
+  /* Room under the pinned bar so the last line of the request scrolls fully above it. */
+  .dsk-window-body { padding-bottom: calc(var(--om-space-6) + 96px); scroll-padding-bottom: 112px; }
+  .dsk-window-body .om-card-foot .om-decide .om-btn { flex: 1; min-height: 48px; justify-content: center; }
+  .dsk-window-body .om-card-foot .om-decide .om-hint { flex-basis: 100%; }
+}
+
+/* ── Polish: status, accessibility and the phone layout ─────────────────────
+   Colour-independent: only layout, size, opacity and shape. One block, so it merges cleanly with
+   the other polish passes. */
+
+/* Panes never get thinner than this over a custom wallpaper (text stays AA over a bright photo). */
+.dsk { --dsk-pane-min: 84%; --dsk-glass: color-mix(in srgb, var(--om-color-surface) var(--dsk-pane-min), transparent); --dsk-glass-strong: color-mix(in srgb, var(--om-color-surface) 94%, transparent); }
+.dsk-window-body .om-card { background: color-mix(in srgb, var(--om-color-surface-raised) 90%, transparent); }
+.dsk-launchpad { background: color-mix(in srgb, var(--om-color-bg) 97%, transparent); }
+/* Opaque floor: Home text and the dock never show through the launchpad; the last row clears the safe area. */
+.dsk-launchpad-inner { padding-bottom: calc(120px + env(safe-area-inset-bottom, 0px)); }
+.dsk:has(.dsk-launchpad) .dsk-dock { visibility: hidden; }
+@media (prefers-contrast: more) {
+  .dsk { --dsk-glass: var(--om-color-surface); --dsk-glass-strong: var(--om-color-surface); --dsk-hairline: var(--om-color-control-border); }
+  .dsk-window, .dsk-menu, .dsk-dock, .dsk-bar, .omh-widget { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+  .dsk-scrim, .dsk-launchpad { backdrop-filter: none; -webkit-backdrop-filter: none; background: var(--om-color-bg); }
+  .dsk-dock-label, .dsk-clock-day { color: var(--om-color-text); }
+}
+@media (forced-colors: active) {
+  .dsk-bar, .dsk-window, .dsk-menu, .dsk-dock, .dsk-launchpad-search, .dsk-menu-item:focus-visible { background: Canvas; color: CanvasText; border: 1px solid CanvasText; backdrop-filter: none; -webkit-backdrop-filter: none; }
+  .dsk-scrim, .dsk-launchpad { background: Canvas; backdrop-filter: none; -webkit-backdrop-filter: none; }
+  .dsk-tile { forced-color-adjust: none; border: 1px solid CanvasText; }
+  .dsk-dock-item[aria-current='page']::after { background: Highlight; }
+  .dsk-avatar { border: 1px solid CanvasText; background: Canvas; color: CanvasText; }
+  .dsk-badge { background: Highlight; color: HighlightText; border-color: Canvas; forced-color-adjust: none; }
+}
+
+/* A focused row is never hidden under the dock or the menu bar. */
+html { scroll-padding-bottom: calc(var(--dsk-dock-h, 84px) + var(--om-space-6)); scroll-padding-top: calc(var(--dsk-bar-real, var(--dsk-bar-h, 44px)) + var(--om-space-4)); }
+.dsk-window-body { scroll-padding-bottom: var(--om-space-6); }
+.dsk-desktop { scroll-margin-bottom: var(--dsk-dock-h, 84px); }
+
+/* The dock is centred with auto margins, not left:50% + translate. The old form was sized from half the
+   viewport, so on a phone it grew wider than the screen and pushed the page sideways. */
+.dsk-dock { left: 0; right: 0; transform: none; margin-inline: auto; width: fit-content; max-width: calc(100% - 2 * var(--om-space-3)); }
+
+/* The avatar is tonal (a tint of the accent with body-text ink), not a loud filled disc. */
+.dsk-avatar {
+  position: relative; background: var(--om-color-accent-soft); color: var(--om-color-text);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--om-color-control-border) 55%, transparent) inset;
+}
+.dsk-avatar::after { content: ''; position: absolute; inset: -6px; } /* hit area: 44 px around the 28-36 px disc */
+.dsk-avatar-lg::after { content: none; }
+.dsk-avatar-lg { color: var(--om-color-text); }
+.dsk-iconbtn::after { content: ''; position: absolute; inset: -6px; }
+.dsk-iconbtn { position: relative; }
+
+/* A request waiting: the dock badge is the one count for it (the bell counts everything else). */
+.dsk-badge { font-size: 12px; }
+
+@media (max-width: 720px) {
+  .dsk { --dsk-bar-h: 52px; --dsk-dock-h: 92px; }
+  /* Menu bar, window bar, menu rows: 44 px targets. */
+  .dsk-iconbtn { width: 44px; height: 44px; }
+  .dsk-iconbtn::after { content: none; }
+  .dsk-avatar { width: 36px; height: 36px; font-size: 15px; margin-left: var(--om-space-2); }
+  .oms-bell { width: 44px; height: 44px; }
+  .dsk-wbtn { width: 44px; height: 44px; }
+  .dsk-window-bar { min-height: 56px; }
+  .dsk-menu-item { min-height: 44px; }
+  .dsk-launchpad-item { min-height: 44px; }
+  .dsk-window-body .dash-tabs a, .dash-tabs a { min-height: 44px; }
+  .dsk-window-body .dash-tabs { border-radius: var(--om-radius-lg); }
+  /* The dock names every icon, at 12 px: a bare icon hides what it opens. */
+  .dsk-dock { padding: 6px 4px; }
+  .dsk-dock-group { gap: 0; }
+  .dsk-dock-item { width: 58px; min-width: 58px; min-height: 64px; padding: 2px 0 6px; }
+  .dsk-dock-label { position: static; width: auto; height: auto; overflow: hidden; clip: auto; white-space: nowrap; font-size: 12px; line-height: 1.15; max-width: 100%; text-align: center; letter-spacing: -0.02em; }
+  .dsk-dock-sep { height: 44px; }
+  .dsk-badge { right: 2px; }
+  /* The jobs tray spans the phone between 12 px margins, above the dock. Its old right:50% + translate form pushed
+     the layout viewport wider than the phone, which also pushed the dock off screen. */
+  .dash-desktop .om-store-tray, .om-store-tray { left: var(--om-space-3); right: var(--om-space-3); transform: none; width: auto; align-items: center; bottom: calc(var(--dsk-dock-h) + var(--om-space-3)); }
+  /* The dock floats over a short fade of the page background, so content never shows raw under the gap. */
+  .dsk:not(:has(.dsk-launchpad))::after {
+    content: ''; position: fixed; left: 0; right: 0; bottom: 0; height: calc(var(--dsk-dock-h) + var(--om-space-2));
+    background: linear-gradient(to bottom, transparent, var(--om-color-bg, Canvas) 70%);
+    pointer-events: none; z-index: calc(var(--om-z-nav) - 1);
+  }
 }

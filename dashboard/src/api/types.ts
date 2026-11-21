@@ -101,6 +101,8 @@ export interface CatalogApp {
 export type ActionType = components['schemas']['PlainActionRequest']['type'] | components['schemas']['ConfigureActionRequest']['type'];
 export type AppParams = components['schemas']['PlainActionParams'] & Partial<Pick<components['schemas']['ConfigureActionParams'], 'settings'>> & { name?: undefined };
 export type PlanPreview = components['schemas']['PlanPreview'];
+/** Body of POST /v1/actions/{id}/approve (§12.4): the plan read, the passkey assertion, the sealed secrets form. */
+export type ApproveBody = components['schemas']['onemind_core__routers__actions__ApproveBody'];
 /** Validated dashboard view of the SDK's opaque apps.settings response, not a wire contract. */
 export interface AppSettings {
   fields: Array<{

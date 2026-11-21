@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { makeActions, makeApps, makeNodes } from '../api/fixtures';
 import type { Action } from '../api/types';
 import { toRoute } from '../shell/routes';
-import { activityFrom, categorySlug, deployClass, DIRECT_URL_NOTE, iconOf, jobState, notificationsFrom, openUrl, runState, toActionSummary, toInstalled, toJob, toStoreApp } from './adapters';
+import { activityFrom, categorySlug, deployClass, NO_APP_NAME_NOTE, iconOf, jobState, notificationsFrom, openUrl, runState, toActionSummary, toInstalled, toJob, toStoreApp } from './adapters';
 import { personKey, personStorage } from './prefs';
 
 const NOW = Date.parse('2026-11-12T12:00:00Z');
@@ -47,11 +47,19 @@ describe('catalog → Market (TAXONOMY §1, §11.4)', () => {
     expect(iconOf('https://example.org/a.png')).toBe('https://example.org/a.png');
   });
 
-  it('opens an installed app on its web port on this host, and nothing else', () => {
+  it('opens an installed app at its own name on the box, never its raw port', () => {
     const loc = { protocol: 'https:', hostname: 'onemind.local' };
-    expect(openUrl({ installed: true, web_port: 3001 }, loc)).toBe('https://onemind.local:3001/');
-    expect(openUrl({ installed: false, web_port: 3001 }, loc)).toBeUndefined();
-    expect(openUrl({ installed: true, web_port: null }, loc)).toBeUndefined();
+    expect(openUrl({ id: 'uptime-kuma', installed: true, web_port: 3001 }, loc)).toBe('https://uptime-kuma.onemind.local/');
+    expect(openUrl({ id: 'uptime-kuma', installed: true, web_port: 3001 }, { protocol: 'https:', hostname: 'box1.local' })).toBe('https://uptime-kuma.box1.local/');
+    expect(openUrl({ id: 'x', installed: false, web_port: 3001 }, loc)).toBeUndefined();
+    expect(openUrl({ id: 'x', installed: true, web_port: null }, loc)).toBeUndefined();
+  });
+
+  it('has no link from an address that cannot name the app (an IP or another domain)', () => {
+    for (const hostname of ['192.0.2.10', 'localhost', 'box.example.org', 'evil.local.example.org']) {
+      expect(openUrl({ id: 'x', installed: true, web_port: 3001 }, { protocol: 'https:', hostname })).toBeUndefined();
+    }
+    expect(openUrl({ id: 'a.b', installed: true, web_port: 3001 }, { protocol: 'https:', hostname: 'onemind.local' })).toBeUndefined();
   });
 
   it('says "installed", not "running": v0 reports no health', () => {
@@ -62,12 +70,14 @@ describe('catalog → Market (TAXONOMY §1, §11.4)', () => {
     expect(toInstalled(makeApps(NOW)[0]!, new Date(NOW).toISOString()).state).toBe('installed');
   });
 
-  it('never calls the direct app port "behind the OneMind sign-in"', () => {
-    const loc = { protocol: 'http:', hostname: 'onemind.local' };
-    const inst = toInstalled(makeApps(NOW)[0]!, new Date(NOW).toISOString(), loc);
-    expect(inst.url).toBe('http://onemind.local:3001/');
-    expect(inst.url_note).toBe(DIRECT_URL_NOTE);
-    expect(inst.url_note).toMatch(/not behind the OneMind sign-in/);
+  it('links to the app behind the sign-in, and says so when it cannot', () => {
+    const app = makeApps(NOW)[0]!;
+    const named = toInstalled(app, new Date(NOW).toISOString(), { protocol: 'https:', hostname: 'onemind.local' });
+    expect(named.url).toBe(`https://${app.id}.onemind.local/`);
+    expect(named.url_note).toBeUndefined();
+    const byIp = toInstalled(app, new Date(NOW).toISOString(), { protocol: 'http:', hostname: '192.0.2.10' });
+    expect(byIp.url).toBeUndefined();
+    expect(byIp.url_note).toBe(NO_APP_NAME_NOTE);
   });
 });
 

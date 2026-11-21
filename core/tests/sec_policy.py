@@ -74,6 +74,7 @@ MCP_OTHER = cells(405, **GONE, child=403, plugin=NOT_2XX, automation=NOT_2XX, no
 POLICY: dict[tuple[str, str], Row] = {
     # ---- open (§3: only /healthz and /openapi.json; the dashboard shell is static) ------------------
     ("GET", "/healthz"): Row(OPEN, w.p_static("/healthz"), "§3 open health check"),
+    ("GET", "/v1/instance/name"): Row(OPEN, w.p_static("/v1/instance/name"), "the box name alone, so the sign-in page can show it"),
     ("GET", "/openapi.json"): Row(OPEN, w.p_static("/openapi.json"), "§3 OpenAPI is published"),
     ("HEAD", "/openapi.json"): Row(OPEN, w.p_static("/openapi.json"), "§3 OpenAPI is published"),
     ("GET", "/{full_path:path}"): Row(OPEN, w.p_static("/"), "§3 static dashboard with SPA fallback"),

@@ -11,6 +11,7 @@ import { preferenceStores } from './data/prefs';
 import { FirstRun, useWizardPending } from './pages/FirstRun';
 import { OwnerOnly, ProOnly } from './shell/ProOnly';
 import { SignIn } from './pages/SignIn';
+import { LocaleProvider } from './i18n/LocaleProvider';
 import { useSession, useSignedIn } from './session';
 import { Shell } from './shell/Shell';
 import { SCREENS } from './screens/registry';
@@ -82,8 +83,10 @@ export function SignedInApp() {
 export function App({ mock }: { mock: boolean }) {
   const { session } = useSession();
   return (
-    <ErrorBoundary>
-      <ToastProvider>{session ? <SignedInApp /> : <SignIn mock={mock} />}</ToastProvider>
-    </ErrorBoundary>
+    <LocaleProvider person={session?.person ?? null}>
+      <ErrorBoundary>
+        <ToastProvider>{session ? <SignedInApp /> : <SignIn mock={mock} />}</ToastProvider>
+      </ErrorBoundary>
+    </LocaleProvider>
   );
 }

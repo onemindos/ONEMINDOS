@@ -40,6 +40,11 @@ kbd {
   font-family: var(--om-font-mono);
   font-size: 0.875em;
 }
+/* The browser default placeholder is about 3.8:1 in dark. Muted text is 4.5:1 or more on every surface. */
+::placeholder {
+  color: var(--om-color-text-muted);
+  opacity: 1;
+}
 :focus-visible {
   outline: 2px solid var(--om-color-focus);
   outline-offset: 2px;

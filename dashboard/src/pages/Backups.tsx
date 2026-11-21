@@ -9,33 +9,20 @@ import { usePoll } from '../lib/hooks';
 import { useSignedIn } from '../session';
 import { href } from '../shell/routes';
 import { Load } from './parts';
+import { object, read, rows, text } from './backups/shared';
+import { RestoreSection } from './backups/Restore';
+import { DestinationForm } from './backups/Destinations';
 
 type PendingBackup = { key: string; body: components['schemas']['RunBody'] };
 // In-tab navigation must not turn a lost reply into a second logical request. No tokens here.
 const pendingBackups = new Map<string, PendingBackup | undefined>();
 
-function object(value: unknown): Record<string, unknown> {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('The hub returned an invalid backup record.');
-  return value as Record<string, unknown>;
-}
-function rows(value: unknown) {
-  if (!Array.isArray(value)) throw new Error('The hub returned an invalid backup list.');
-  return value.map(object);
-}
-function text(value: unknown, absent = 'Not reported') { return typeof value === 'string' && value ? value : absent; }
 function backupStatus(value: unknown) {
   try {
     const s = object(value);
     if (typeof s.health !== 'string' || typeof object(object(s.badges).box).state !== 'string') throw new Error();
     return s;
   } catch { throw new Error('The hub returned an invalid backup status.'); }
-}
-async function read(sdk: OneMind, path: string) {
-  try { return await sdk.call<unknown>({ method: 'GET', path }); }
-  catch (e) {
-    if (e instanceof OneMindError) throw new ApiError(e.status, e.status === 401 ? 'unauthenticated' : e.status === 403 ? 'permission_denied' : 'unknown', e.message, e.reason);
-    throw e;
-  }
 }
 
 export function Backups() {
@@ -114,7 +101,9 @@ function LiveBackups({ token, person }: { token: string; person: string }) {
     </Card>}</Load>
     <Load res={targets} what="Loading backup destinations">{(items) => <Card title="Backup destinations">
       {items.length === 0 ? <p>No backup destinations configured.</p> : <ul>{items.map((d) => <li key={text(d.id)}><strong>{text(d.label)}</strong> — {text(d.kind)}{d.primary === true ? ' · primary' : ''}{d.append_only === true ? ' · append-only' : ''}</li>)}</ul>}
+      <DestinationForm sdk={sdk} token={token} />
     </Card>}</Load>
+    <RestoreSection sdk={sdk} token={token} />
     <Load res={runs} what="Loading backup runs">{(items) => <Card title="Backup runs">
       {items.length === 0 ? <p>No backup runs reported.</p> : <ul>{items.map((r) => <li key={text(r.id)}><strong>{text(r.id)}</strong> — {text(r.state)}{typeof r.finished_at === 'string' ? ` · finished ${r.finished_at}` : ''}{typeof r.error === 'string' ? ` · ${r.error}` : ''}</li>)}</ul>}
     </Card>}</Load>

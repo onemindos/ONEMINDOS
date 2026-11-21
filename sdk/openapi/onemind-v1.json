@@ -2417,6 +2417,20 @@
         "title": "Instance",
         "type": "object"
       },
+      "InstanceName": {
+        "description": "GET /v1/instance/name: the box name alone, readable before sign-in.",
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "InstanceName",
+        "type": "object"
+      },
       "JoinNode": {
         "properties": {
           "arch": {
@@ -14030,6 +14044,27 @@
           }
         },
         "summary": "Instance",
+        "tags": [
+          "instance"
+        ]
+      }
+    },
+    "/v1/instance/name": {
+      "get": {
+        "operationId": "instance.name",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstanceName"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Instance Name",
         "tags": [
           "instance"
         ]

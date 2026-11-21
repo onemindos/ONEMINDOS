@@ -322,7 +322,8 @@ export function Market({ apps, state, now, collections = [], featured, jobs = []
           <CategoryIcon name="grid" size={16} />
           All <span className="om-store-chip-n">{total}</span>
         </button>
-        {CATEGORIES.map((c) => (
+        {/* A category with no apps would only lead to an empty list: leave it out (the open one stays so it can be closed). */}
+        {CATEGORIES.filter((c) => (counts[c.slug] ?? 0) > 0 || f.category === c.slug).map((c) => (
           <button
             key={c.slug}
             type="button"

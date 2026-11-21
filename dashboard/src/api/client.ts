@@ -11,7 +11,7 @@ import {
   ApiError,
   type Action,
   type ActionRequest,
-  type ActionType, type AppParams, type PlanPreview, type AppSettings,
+  type ActionType, type AppParams, type ApproveBody, type PlanPreview, type AppSettings,
   type AppDependencies, type AppHostPorts, type CommunitySource, type ComposeResult,
   type ApiErrorBody,
   type CatalogApp,
@@ -36,6 +36,8 @@ export interface OneMindApi extends WiringApi {
   backupDestinations(): Promise<BackupDestinationRecord[]>;
   healthz(): Promise<{ ok: boolean }>;
   instance(): Promise<Instance>;
+  /** GET /v1/instance/name: open, so the sign-in page can say which box this is. Absent on test doubles. */
+  instanceName?(): Promise<{ name: string }>;
   nodes(): Promise<NodeRecord[]>;
   node(nodeId: string): Promise<NodeRecord>;
   apps(): Promise<CatalogApp[]>;
@@ -63,6 +65,8 @@ export interface OneMindApi extends WiringApi {
   requestSecretsChange?(id: string, body: SecretsChangeBody, key: { idempotency_key: string; expires_at: string }): Promise<Action>;
   appDependencies?(id: string): Promise<AppDependencies>;
   appHostPorts?(id: string): Promise<AppHostPorts>;
+  /** Sets the sign-in cookie app hosts accept (POST /v1/auth/app-session). Absent on the mock gateway. */
+  openAppSession?(): Promise<void>;
   sources?(): Promise<CommunitySource[]>;
   /** Files a `source.add` request; it waits in Approvals until the owner approves it. */
   requestSourceAdd?(params: SourceAddParams, key: { idempotency_key: string; expires_at: string }): Promise<Action>;
@@ -70,15 +74,34 @@ export interface OneMindApi extends WiringApi {
   createAction(req: ActionRequest): Promise<Action>;
   actions(): Promise<Action[]>;
   action(id: string): Promise<Action>;
-  approve(id: string): Promise<Action>;
+  approve(id: string, body?: ApproveBody): Promise<Action>;
+  /** §12.4: the passkey challenge bound to this action and its plan. Absent on the demo gateway. */
+  approveOptions?(id: string): Promise<ApproveOptions>;
   deny(id: string): Promise<Action>;
   /** Hub clock minus browser clock (ms), learned from responses; undefined until known. */
   hubOffsetMs(): number | undefined;
+  /**
+   * GET /v1/events (SSE) through the SDK: calls `onEvent` for each event until `signal` aborts.
+   * Rejects when the hub has no stream (4xx), so the caller keeps polling. Absent on the mock gateway.
+   */
+  watchEvents?(onEvent: (type: string) => void, signal: AbortSignal): Promise<void>;
+  /** GET /v1/backups/status, validated to be an object. Absent on the mock gateway. */
+  backupsStatus?(): Promise<Record<string, unknown>>;
+  /** GET /v1/os/updates, validated to be an object. Absent on the mock gateway. */
+  osUpdates?(): Promise<Record<string, unknown>>;
 }
 
 /** GET /v1/tls (core routers/net.py). */
 export interface TlsInfo { ca_sha256: string; names: string[]; not_after: string | null; https: boolean }
 
+/** POST /v1/actions/{id}/approve-options: sign `publicKey` with a passkey, then approve with the result. */
+export interface ApproveOptions {
+  challenge: string;
+  action_sha256: string;
+  plan_sha256: string | null;
+  expires_at: string;
+  publicKey: Record<string, unknown>;
+}
 export interface FirstRunSettingsBody {
   box_name: string;
   time_zone: string;
@@ -209,6 +232,9 @@ export class HttpApi implements OneMindApi {
   healthz() {
     return this.req<{ ok: boolean }>('GET', '/healthz');
   }
+  instanceName() {
+    return this.req<{ name: string }>('GET', '/v1/instance/name');
+  }
   instance() {
     return this.req<Instance>('GET', '/v1/instance');
   }
@@ -270,6 +296,15 @@ export class HttpApi implements OneMindApi {
     if (typeof t.ticket_id !== 'string' || t.role !== role || typeof t.qr_payload !== 'string' || typeof t.hub_ca_sha256 !== 'string' || !Number.isFinite(Date.parse(t.expires_at)) || typeof t.one_time?.join_code !== 'string') throw new ApiError(201, 'unknown', 'Invalid gateway join ticket');
     return t;
   }
+  watchEvents(onEvent: (type: string) => void, signal: AbortSignal) {
+    return this.sdk.events.subscribe({ signal }, (e) => onEvent(e.type)).catch((e: unknown) => {
+      if (signal.aborted) return;
+      if (e instanceof OneMindError) throw new ApiError(e.status, KNOWN_CODES.has(e.code) || e.code === 'network' ? e.code as ApiError['code'] : 'unknown', e.message, e.reason);
+      throw e;
+    });
+  }
+  backupsStatus() { return this.sdkCall<Record<string, unknown>>('GET', '/v1/backups/status'); }
+  osUpdates() { return this.sdkCall<Record<string, unknown>>('GET', '/v1/os/updates'); }
   about() { return this.req<AboutBox>('GET', '/v1/os/about'); }
   machines() { return this.req<MachineRecord[]>('GET', '/v1/machines', undefined, 'array'); }
   machineCapabilities() { return this.req<MachineCapabilities>('GET', '/v1/machines/capabilities'); }
@@ -290,6 +325,9 @@ export class HttpApi implements OneMindApi {
     const okChoice = (c: AppDependencies['requires'][number]['choices'][number]) => !!c && typeof c.id === 'string' && typeof c.installed === 'boolean' && typeof c.in_catalog === 'boolean';
     if (!Array.isArray(raw.requires) || !Array.isArray(raw.dependents) || raw.requires.some((r) => !r || typeof r.id !== 'string' || !Array.isArray(r.choices) || !r.choices.every(okChoice)) || raw.dependents.some((d) => !d || typeof d.id !== 'string')) throw new ApiError(200, 'unknown', 'Invalid gateway dependencies');
     return raw;
+  }
+  async openAppSession() {
+    await this.req<void>('POST', '/v1/auth/app-session');
   }
   async appHostPorts(id: string) {
     const raw = await this.sdkCall<AppHostPorts>('GET', `/v1/apps/${encodeURIComponent(id)}/host-ports`);
@@ -344,8 +382,11 @@ export class HttpApi implements OneMindApi {
   action(id: string) {
     return this.req<Action>('GET', `/v1/actions/${encodeURIComponent(id)}`);
   }
-  approve(id: string) {
-    return this.req<Action>('POST', `/v1/actions/${encodeURIComponent(id)}/approve`);
+  approve(id: string, body?: ApproveBody) {
+    return this.req<Action>('POST', `/v1/actions/${encodeURIComponent(id)}/approve`, body);
+  }
+  approveOptions(id: string) {
+    return this.req<ApproveOptions>('POST', `/v1/actions/${encodeURIComponent(id)}/approve-options`, {});
   }
   deny(id: string) {
     return this.req<Action>('POST', `/v1/actions/${encodeURIComponent(id)}/deny`);

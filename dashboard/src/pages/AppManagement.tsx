@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 import { useState } from 'react';
 import { Button, PageHeader } from '@onemind/ui';
+import { openUrl } from '../data/adapters';
+import { openAppOrSay } from '../lib/openApp';
 import { useHub } from '../data/hub';
 import { useSignedIn } from '../session';
 import { usePoll } from '../lib/hooks';
 import { useShell } from '../shell/Shell';
 import { href } from '../shell/routes';
+import { appPageHref } from '../lib/appPage';
 import type { AppSettings } from '../api/types';
 import { AppDepth } from './AppDepth';
 
@@ -30,10 +33,10 @@ export function AppManagement({ appId }: { appId: string }) {
   if (!app) return <p role="status">{hub.apps.error?.message ?? (hub.apps.loading ? 'Loading app…' : 'App not found.')}</p>;
   const present = app.installed || ['stopped', 'failed', 'unknown', 'starting', 'stopping', 'restarting', 'updating', 'configuring'].includes(app.status);
   return <>
-    <a href={href.installed}>Installed apps</a>
+    <a href={href.installed}>Installed apps</a> · <a href={appPageHref(appId)}>Health, usage, alerts and access</a>
     <PageHeader title={app.name || app.id} lede={`Gateway status: ${app.status}. Every change waits for owner approval.`} />
     <div role="group" aria-label={`${app.name || app.id} actions`}>
-      <Button disabled={!app.installed || !app.web_port} onClick={() => window.open(`${window.location.protocol}//${window.location.hostname}:${app.web_port}/`, '_blank', 'noopener')}>Open</Button>
+      <Button disabled={!openUrl(app)} onClick={() => { const url = openUrl(app); if (url) openAppOrSay(api, app.name || app.id, url); }}>Open</Button>
       <Button disabled={disabled || !present || app.status === 'stopped'} onClick={() => void shell.requestApp('app.restart', appId)}>Restart</Button>
       <Button disabled={disabled || !present} onClick={() => void shell.requestApp(app.status === 'stopped' ? 'app.start' : 'app.stop', appId)}>{app.status === 'stopped' ? 'Start' : 'Stop'}</Button>
       <Button disabled={disabled || !present || app.status === 'stopped'} onClick={() => void shell.requestApp('app.update', appId)}>Review update</Button>

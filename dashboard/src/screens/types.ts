@@ -30,6 +30,8 @@ export interface ScreenDef {
   pro?: boolean;
   /** A live count the shell fills in. Only 'approvals' exists: requests awaiting a decision. */
   badge?: 'approvals';
+  /** Routed and windowed but not offered in the sidebar or Launchpad: a page reached from another screen or a link (a path with a parameter has no nav entry). */
+  hidden?: boolean;
   load: ScreenLoader;
   /** More paths of the same screen (a detail page, a tab). Nav and window title stay this screen's. */
   extra?: { path: string; load?: ScreenLoader; /** Owner-only page: guarded by OwnerOnly (shell/ProOnly.tsx), titled with this text. */ owner?: string }[];

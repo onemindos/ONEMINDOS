@@ -7,14 +7,15 @@ import { actionTitle, equivalentCall, requesterPill } from '../components/Approv
 import { BRAND } from '../components/BrandMark';
 import { Button } from '../components/Button';
 import { Meter } from '../components/Meter';
-import { FreshnessPill, StatusPill } from '../components/StatusPill';
+import { StatusGlyph } from '../components/StatusGlyph';
+import { FRESHNESS_GLYPH, FreshnessPill, StatusPill } from '../components/StatusPill';
 import { FRESHNESS_LABEL } from '../lib/freshness';
 import { formatAgo, formatIn, secondsSince } from '../lib/time';
 import type { IconName } from '../components/Icon';
 import type { Tone } from '../tokens/tokens';
 import { formatUptime } from './greeting';
 import type { WidgetInstance, WidgetSize } from './layout';
-import { AppGlyph, StatusDot, appState, gb, nodeFreshness, pct, tempTone } from './parts';
+import { AppGlyph, appState, gb, nodeFreshness, pct, tempTone } from './parts';
 import type { AppWidgetPayload, HomeApp, HomeData, HomeNode, Loadable } from './types';
 import { WidgetFrame, type WidgetBodyState } from './WidgetFrame';
 
@@ -176,7 +177,7 @@ function SystemWidget({ w, ctx }: { w: WidgetInstance; ctx: WidgetContext }) {
           return (
             <li key={n.node_id} className={f === 'live' ? undefined : 'omh-row-stale'}>
               <span className="omh-node-name">
-                <StatusDot tone={f === 'live' ? 'ok' : f === 'stale' ? 'warn' : 'neutral'} hollow={f !== 'live'} />
+                <StatusGlyph kind={FRESHNESS_GLYPH[f]} size={16} className="omh-node-glyph" />
                 <span>{n.hostname}</span>
                 {f !== 'live' && <span className="omh-row-note">{FRESHNESS_LABEL[f]} · {ago(n.last_seen, ctx.now)}</span>}
               </span>

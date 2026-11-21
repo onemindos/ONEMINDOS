@@ -21,6 +21,8 @@ import {
   type NavItem,
   type PaletteCommand,
 } from '@onemind/ui';
+import { isServerId, mergeNotifications, SERVER_PREFIX } from '../data/notificationFeed';
+import { useNotificationFeed } from '../data/useNotificationFeed';
 import { activityFrom, notificationsFrom, toActionSummary, toPaletteApp } from '../data/adapters';
 import { ActionJobs, jobsStackStyle } from './ActionJobs';
 import { useHub } from '../data/hub';
@@ -102,16 +104,29 @@ export function Shell({ children }: { children: ReactNode }) {
   const nodes = hub.nodes.data ?? [];
   const apps = hub.apps.data ?? [];
   const pending = hub.actionList.filter((a) => a.state === 'awaiting_approval');
+  const feed = useNotificationFeed();
   const notifications = useMemo(
-    () => notificationsFrom(hub.actionList, nodes.map((n) => ({ ...n, status: hub.nodeStatus(n) })), hub.appName, read),
+    () => mergeNotifications(feed.notifications, feed.alerts, notificationsFrom(hub.actionList, nodes.map((n) => ({ ...n, status: hub.nodeStatus(n) })), hub.appName, read), read),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [hub.actionList, hub.nodes.data, hub.appName, read, hub.now - (hub.now % 10_000)],
+    [feed.notifications, feed.alerts, hub.actionList, hub.nodes.data, hub.appName, read, hub.now - (hub.now % 10_000)],
   );
-  const markRead = (ids: string[], value: boolean) => {
+  // Read state: a hub notification is also marked read on the hub (it follows the person to every
+  // device; the hub has no "unread", so un-reading is this browser only). Alerts and derived facts
+  // are remembered in this browser.
+  const remember = (ids: string[], value: boolean) => {
     const next = new Set(read);
     ids.forEach((id) => (value ? next.add(id) : next.delete(id)));
     setRead(next);
     readStore.save([...next]);
+  };
+  const markRead = (ids: string[], value: boolean) => {
+    const hubIds = ids.filter(isServerId);
+    if (value && hubIds.length) void Promise.allSettled(hubIds.map((id) => client.markRead(id.slice(SERVER_PREFIX.length)))).then(feed.reload);
+    remember(ids, value);
+  };
+  const readAll = () => {
+    void client.markAllRead().then(feed.reload, () => undefined);
+    remember(notifications.map((n) => n.id), true);
   };
 
   const commands = useMemo(
@@ -175,7 +190,7 @@ export function Shell({ children }: { children: ReactNode }) {
         go(n.href);
       }}
       onSetRead={markRead}
-      onReadAll={() => markRead(notifications.map((n) => n.id), true)}
+      onReadAll={readAll}
       allHref={href.activity}
       settingsHref={href.setting('notifications')}
     />

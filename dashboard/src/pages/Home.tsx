@@ -15,6 +15,7 @@ import { useSignedIn } from '../session';
 import { href } from '../shell/routes';
 import { showsNav } from '../shell/roles';
 import { useActivity, useShell } from '../shell/Shell';
+import { HomeHealth } from './HomeHealth';
 import { SimpleHome } from './SimpleHome';
 
 /**
@@ -97,6 +98,8 @@ function ProHome() {
     );
 
   return (
+    <>
+    <HomeHealth pro={pro} />
     <HomeScreen
       data={data}
       now={hub.now}
@@ -133,5 +136,6 @@ function ProHome() {
         approval: (id) => href.approval(id),
       }}
     />
+    </>
   );
 }
