@@ -178,6 +178,84 @@ func TestSignedDelegatedRevocationsAndPersistentFloor(t *testing.T) {
 	}
 }
 
+func TestRootRotationCannotBeRolledBack(t *testing.T) {
+	r := newRepo(t)
+	expires := time.Now().Add(72 * time.Hour)
+	entry := Revocation{ID: "hello", Action: "remove", Reason: "publisher revoked"}
+	r.publish(listBytes(t, 1, expires, entry), true, false)
+	if _, err := FetchRevocations(r.config); err != nil {
+		t.Fatal(err)
+	}
+	// The owner rotates targets, snapshot and timestamp keys in root v2.
+	old := map[string]ed25519.PrivateKey{}
+	for k, v := range r.keys {
+		old[k] = v
+	}
+	root2 := metadata.Root(time.Now().Add(48 * time.Hour))
+	root2.Signed.Version = 2
+	root2.Signed.ConsistentSnapshot = false
+	for _, role := range []string{"root", "targets", "snapshot", "timestamp"} {
+		if role != "root" {
+			_, key, err := ed25519.GenerateKey(rand.Reader)
+			if err != nil {
+				t.Fatal(err)
+			}
+			r.keys[role] = key
+		}
+		k, err := metadata.KeyFromPublicKey(r.keys[role].Public())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err = root2.Signed.AddKey(k, role); err != nil {
+			t.Fatal(err)
+		}
+	}
+	r.write("metadata/2.root.json", r.sign("root", root2))
+	r.publish(listBytes(t, 2, expires, entry), true, false)
+	if _, err := FetchRevocations(r.config); err != nil {
+		t.Fatalf("rotation not followed: %v", err)
+	}
+	// The mirror hides 2.root.json and re-signs with the retired keys and a
+	// delegated attacker key, publishing a higher list with nothing revoked.
+	if err := os.Remove(filepath.Join(r.dir, "metadata/2.root.json")); err != nil {
+		t.Fatal(err)
+	}
+	r.keys = old
+	r.publish(listBytes(t, 3, expires), true, false)
+	if list, err := FetchRevocations(r.config); err == nil {
+		t.Fatalf("root rollback accepted an un-revoke: %+v", list)
+	}
+	// A corrupt cached root fails closed instead of falling back.
+	if err := os.WriteFile(filepath.Join(r.config.StateDir, "metadata", "root.json"), []byte("{"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := FetchRevocations(r.config); err == nil {
+		t.Fatal("corrupt cached root accepted")
+	}
+}
+
+func TestStartingRootPrefersNewerCachedRoot(t *testing.T) {
+	r := newRepo(t)
+	cached := filepath.Join(t.TempDir(), "root.json")
+	got, err := startingRoot(r.root, cached)
+	if err != nil || string(got) != string(r.root) {
+		t.Fatalf("bootstrap: %v", err)
+	}
+	root2 := metadata.Root(time.Now().Add(time.Hour))
+	root2.Signed.Version = 2
+	b := r.sign("root", root2)
+	if err = os.WriteFile(cached, b, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if got, err = startingRoot(r.root, cached); err != nil || string(got) != string(b) {
+		t.Fatalf("cached root not preferred: %v", err)
+	}
+	// A newer operator root replaces an older cache.
+	if got, err = startingRoot(b, filepath.Join(r.dir, "metadata/1.root.json")); err != nil || string(got) != string(b) {
+		t.Fatalf("operator root with higher version lost: %v", err)
+	}
+}
+
 func TestRevocationTrustFailures(t *testing.T) {
 	for _, name := range []string{"wrong signer", "not delegated", "expired", "tampered target", "timestamp rollback", "expired timestamp", "corrupt floor"} {
 		t.Run(name, func(t *testing.T) {
@@ -234,6 +312,17 @@ func TestRevocationSelectorsAndInvalidEntries(t *testing.T) {
 		m, err := r.Match(tc.id, tc.version, tc.digest)
 		if err != nil || len(m) != tc.count {
 			t.Fatalf("%+v: %v %v", tc, m, err)
+		}
+	}
+	// Prereleases must not slip past a version range: Masterminds leaves them
+	// out of ranges that do not name a prerelease.
+	pre, err := parseRevocations(listBytes(t, 1, expires, Revocation{ID: "hello", Versions: "<=1.2.0", Action: "remove", Reason: "unsafe"}), time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for v, want := range map[string]int{"1.1.0": 1, "1.1.0-rc.1": 1, "1.2.0-0": 1, "1.2.0-rc.2+build.5": 1, "1.2.1-rc.1": 0, "2.0.0-beta.1": 0, "1.2.1": 0} {
+		if m, err := pre.Match("hello", v, digest); err != nil || len(m) != want {
+			t.Fatalf("version %s: %d matches, want %d (%v)", v, len(m), want, err)
 		}
 	}
 	for _, entry := range []Revocation{{ID: "hello", Action: "unknown", Reason: "x"}, {ID: "hello", Action: "disable-capability", Reason: "x"}, {ID: "hello", Action: "disable", Reason: "x", Versions: "invalid!"}, {ID: "hello", Action: "disable", Reason: "x", Digests: []string{"latest"}}} {

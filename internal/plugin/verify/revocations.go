@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/Masterminds/semver/v3"
+	"github.com/theupdateframework/go-tuf/v2/metadata"
 	"github.com/theupdateframework/go-tuf/v2/metadata/config"
 	"github.com/theupdateframework/go-tuf/v2/metadata/updater"
 )
@@ -138,7 +139,17 @@ func (r *Revocations) Match(id, version, digest string) ([]Revocation, error) {
 			if err != nil {
 				return nil, err
 			}
+			// Masterminds leaves prereleases out of every range that does not
+			// itself name one, so a revoked publisher could re-ship 1.1.0-rc.1
+			// under "<=1.2.0". Also test the version without its prerelease.
 			match = match || c.Check(v)
+			if v.Prerelease() != "" {
+				base, err := v.SetPrerelease("")
+				if err != nil {
+					return nil, err
+				}
+				match = match || c.Check(&base)
+			}
 		}
 		for _, d := range e.Digests {
 			match = match || d == digest
@@ -148,6 +159,40 @@ func (r *Revocations) Match(id, version, digest string) ([]Revocation, error) {
 		}
 	}
 	return matches, nil
+}
+
+// startingRoot returns the root the TUF client must begin from. go-tuf's
+// updater overwrites the cached root.json with whatever root it is given, so
+// passing the operator root on every run would roll back any rotation the
+// client already followed: a mirror could hide the newer root files and sign
+// with the retired keys. The operator root only bootstraps; once a cached root
+// of equal or higher version exists in StateDir, that cached root is the
+// anchor. A cached file that cannot be read or parsed fails closed.
+func startingRoot(operator []byte, cachedPath string) ([]byte, error) {
+	op, err := metadata.Root().FromBytes(operator)
+	if err != nil {
+		return nil, fmt.Errorf("invalid trusted root: %w", err)
+	}
+	f, err := os.Open(cachedPath)
+	if os.IsNotExist(err) {
+		return operator, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	cached, err := io.ReadAll(io.LimitReader(f, 512001))
+	if err != nil || len(cached) > 512000 {
+		return nil, fmt.Errorf("invalid cached TUF root")
+	}
+	cr, err := metadata.Root().FromBytes(cached)
+	if err != nil {
+		return nil, fmt.Errorf("invalid cached TUF root: %w", err)
+	}
+	if cr.Signed.Version >= op.Signed.Version {
+		return cached, nil
+	}
+	return operator, nil
 }
 
 func httpsBase(s string) bool {
@@ -170,7 +215,11 @@ func FetchRevocations(c RevocationConfig) (*Revocations, error) {
 		return nil, err
 	}
 	defer unlock()
-	uc, err := config.New(c.MetadataURL, c.TrustedRoot)
+	root, err := startingRoot(c.TrustedRoot, filepath.Join(c.StateDir, "metadata", "root.json"))
+	if err != nil {
+		return nil, err
+	}
+	uc, err := config.New(c.MetadataURL, root)
 	if err != nil {
 		return nil, err
 	}
