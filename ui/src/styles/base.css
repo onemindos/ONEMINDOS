@@ -55,3 +55,18 @@ kbd {
   white-space: nowrap;
   border: 0;
 }
+
+/* Numbers that change or line up (clocks, counts, sizes, metrics, table cells) use tabular figures, so a
+   value does not jitter or shift its neighbours as digits change. Prose keeps Inter's proportional digits. */
+time,
+td,
+output,
+dd,
+.om-num,
+[class*='-count'],
+[class*='-stat'],
+[class*='-metric'],
+[class*='-badge'],
+[class*='-kpi'] {
+  font-variant-numeric: tabular-nums;
+}

@@ -25,8 +25,8 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
-    // Only tokens.css is processed, so the drift test can read it with ?raw.
-    css: { include: [/tokens\.css/] },
+    // Only these stylesheets are processed, so tests can read them with ?raw.
+    css: { include: [/tokens\.css/, /styles\/(fonts|base)\.css/] },
     include: ['src/**/*.test.{ts,tsx}', 'demo/src/**/*.test.{ts,tsx}'],
   },
 });

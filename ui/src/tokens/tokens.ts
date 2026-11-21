@@ -152,7 +152,7 @@ export const dark: Theme = {
 /** Theme-independent scales. Keys become `--om-<group>-<key>`. */
 export const scale = {
   font: {
-    sans: "system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
+    sans: "'Inter Variable', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
     mono: "ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace",
   },
   'font-size': {

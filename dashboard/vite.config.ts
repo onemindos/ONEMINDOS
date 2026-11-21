@@ -29,6 +29,7 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
-    css: false,
+    // Styles are skipped, except the desktop frame's, which polish.test.ts reads with ?raw.
+    css: { include: [/shell\/desktop\.css/] },
   },
 });
