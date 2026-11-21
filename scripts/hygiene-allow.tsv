@@ -72,3 +72,5 @@ core/onemind_core/netpath.py	(10\.0\.0\.0|172\.16\.0\.0|192\.168\.0\.0)	B-FP-9
 scripts/ci-runner-kvm/*	(10\.0\.0\.0|172\.16\.0\.0|192\.168\.0\.0|100\.64\.0\.0)	B-FP-12
 test/unit/test_kvm_runner_policy.py	(10\.0\.0\.0|10\.10\.0\.0|172\.16\.0\.0|192\.168\.0\.0|100\.64\.0\.0)	B-FP-12
 scripts/hygiene-allow.tsv	(10\.0\.0\.0|10\.10\.0\.0|172\.16\.0\.0|192\.168\.0\.0|100\.64\.0\.0)	B-FP-12
+# B-FP-13: net-2vm harness private link, not a real network.
+test/net/*	172\.31\.250\.[0-9]+(/24)?	B-FP-13
