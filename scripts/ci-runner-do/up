@@ -1,0 +1,72 @@
+#!/bin/bash
+# SPDX-License-Identifier: Apache-2.0
+# Create DigitalOcean droplets that run ephemeral GitHub Actions runners (label onemind-do) for trusted events.
+#   scripts/ci-runner-do/up N SIZE REGION [--no-run]
+#   e.g.  scripts/ci-runner-do/up 2 c-16 nyc3     (needs DO_SSH_KEY and DO_ADMIN_CIDR, see below)
+# This SPENDS MONEY (droplets bill while they exist). Guards: N is at most MAX_DROPLETS (default 4, hard limit
+# 8), the total hourly price must not exceed MAX_USD_HOUR (default 2.00), the price comes from
+# `doctl compute size list`, and `cycle` destroys everything after IDLE_HOURS (default 2) without a job and
+# after MAX_HOURS (default 12) in all. `up` prints the cost before it creates anything and asks to confirm
+# (ASSUME_YES=1 skips the question). `down` destroys everything.
+# Needs: doctl (doctl auth init), gh with the admin:org scope, ssh, jq. No token is written to disk.
+#   DO_SSH_KEY    id or fingerprint of an SSH key already in your DigitalOcean account (doctl compute ssh-key list)
+#   DO_ADMIN_CIDR your public address as a CIDR (x.x.x.x/32): the only source the cloud firewall lets reach port 22
+#   SLOTS         job containers per droplet (default: vCPUs / 2, 1 to 8); RUNNER_GROUP (default onemind-local)
+# DigitalOcean droplets have no /dev/kvm: only jobs that need no KVM and no Docker are routed here.
+set -euo pipefail
+here=$(cd "$(dirname "$0")" && pwd)
+# shellcheck source=lib.sh
+. "$here/lib.sh"
+usage() { echo "usage: up N SIZE REGION [--no-run]" >&2; exit 2; }
+[ $# -ge 3 ] || usage
+n=$1 size=$2 region=$3; shift 3
+run=1
+for a in "$@"; do case $a in --no-run) run=0 ;; *) usage ;; esac; done
+case $n in ''|*[!0-9]*) echo "N must be a number" >&2; exit 2 ;; esac
+MAX_DROPLETS=${MAX_DROPLETS:-4}
+case $MAX_DROPLETS in ''|*[!0-9]*) echo "MAX_DROPLETS must be a number" >&2; exit 2 ;; esac
+[ "$MAX_DROPLETS" -le "$HARD_MAX_DROPLETS" ] || { echo "MAX_DROPLETS may not exceed $HARD_MAX_DROPLETS" >&2; exit 2; }
+{ [ "$n" -ge 1 ] && [ "$n" -le "$MAX_DROPLETS" ]; } || { echo "N must be 1 to $MAX_DROPLETS (MAX_DROPLETS)" >&2; exit 2; }
+case $size in *[!a-z0-9.-]*|'') echo "bad SIZE" >&2; exit 2 ;; esac
+case $region in *[!a-z0-9]*|'') echo "bad REGION" >&2; exit 2 ;; esac
+[ -n "${DO_SSH_KEY:-}" ] || { echo "set DO_SSH_KEY (doctl compute ssh-key list)" >&2; exit 2; }
+[[ ${DO_ADMIN_CIDR:-} =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}/([0-9]|[12][0-9]|3[0-2])$ ]] || { echo "set DO_ADMIN_CIDR to your public address as x.x.x.x/32" >&2; exit 2; }
+[[ $DO_ADMIN_CIDR != 0.0.0.0/* ]] || { echo "DO_ADMIN_CIDR must not be the whole internet" >&2; exit 2; }
+for t in doctl gh ssh jq awk; do need "$t"; done
+doctl account get >/dev/null 2>&1 || { echo "log in first: doctl auth init" >&2; exit 1; }
+gh auth status >/dev/null 2>&1 || { echo "log in first: gh auth login" >&2; exit 1; }
+[ -z "$(droplets)" ] || { echo "droplets already exist (scripts/ci-runner-do/status); run down first" >&2; exit 1; }
+
+price=$(price_hourly "$size")
+[ -n "$price" ] || { echo "unknown SIZE '$size' (doctl compute size list)" >&2; exit 2; }
+vcpus=$(doctl compute size list --format Slug,VCPUs --no-header | awk -v s="$size" '$1 == s {print $2}')
+doctl compute region list --format Slug --no-header | grep -qx "$region" || { echo "unknown REGION '$region'" >&2; exit 2; }
+total=$(awk -v n="$n" -v p="$price" 'BEGIN {printf "%.4f", n * p}')
+MAX_USD_HOUR=${MAX_USD_HOUR:-2.00}
+awk -v t="$total" -v m="$MAX_USD_HOUR" 'BEGIN {exit !(t <= m)}' ||
+  { echo "refusing: $n x $size costs \$$total per hour, over MAX_USD_HOUR=\$$MAX_USD_HOUR" >&2; exit 2; }
+slots=${SLOTS:-$(( vcpus / 2 > 1 ? vcpus / 2 : 1 ))}; [ "$slots" -le 8 ] || slots=8
+echo "About to create $n x $size in $region ($vcpus vCPUs each, $slots job containers each)."
+awk -v t="$total" -v i="${IDLE_HOURS:-2}" -v h="${MAX_HOURS:-12}" \
+  'BEGIN {printf "COST: $%s per hour, $%.2f per day; the loop destroys them after %s idle hours or %s hours in all.\n", t, t * 24, i, h}'
+if [ "${ASSUME_YES:-0}" != 1 ]; then read -r -p "Create them? [y/N] " a; [ "$a" = y ] || { echo "cancelled"; exit 1; }; fi
+
+doctl compute firewall create --name "$FW" --tag-names "$TAG" \
+  --inbound-rules "protocol:tcp,ports:22,address:$DO_ADMIN_CIDR" \
+  --outbound-rules "protocol:tcp,ports:all,address:0.0.0.0/0,address:::/0 protocol:udp,ports:all,address:0.0.0.0/0,address:::/0 protocol:icmp,address:0.0.0.0/0,address:::/0" >/dev/null
+names=(); i=1; while [ "$i" -le "$n" ]; do names+=("onemind-do-$i"); i=$((i + 1)); done
+trap 'echo "failed: destroying what was created" >&2; destroy_all' ERR
+doctl compute droplet create "${names[@]}" --image "$(sed -n 's/^DO_IMAGE=//p' "$here/runner.pin")" --size "$size" \
+  --region "$region" --ssh-keys "$DO_SSH_KEY" --tag-name "$TAG" --wait >/dev/null
+KNOWN_HOSTS=$(mktemp); export KNOWN_HOSTS
+while read -r _ name ip; do
+  log "$name: waiting for ssh"
+  k=0; until sshd "$ip" true 2>/dev/null; do k=$((k + 1)); [ "$k" -le 40 ] || { echo "no ssh on $name" >&2; exit 1; }; sleep 5; done
+  sshd "$ip" mkdir -p /opt/onemind-ci
+  tar -C "$here" -cf - Dockerfile job-started.sh run-one.sh start-job.sh provision.sh runner.pin | sshd "$ip" tar -C /opt/onemind-ci -xf -
+  sshd "$ip" sh /opt/onemind-ci/provision.sh | sed "s/^/[$name] /"
+done < <(droplets)
+trap - ERR
+log "provisioned $n droplets: \$$total per hour"
+if [ "$run" = 1 ]; then SLOTS=$slots exec "$here/cycle"; fi
+echo "droplets are running and billing. Start the job loop: SLOTS=$slots $here/cycle   Stop everything: $here/down"
