@@ -169,3 +169,20 @@ describe('AI & Agents audit', () => {
     expect(agentSummaries(rows)).toEqual([{ id: 'ops-agent', requests: 1, approved: 1, denied: 0, last: '2026-11-18T00:00:02Z' }]);
   });
 });
+
+describe('Settings sections by role', () => {
+  const PRO_SECTIONS = ['Users & roles', 'Agents & MCP', 'Devices & nodes'];
+  it('a child sees only the personal sections and a direct link shows the role notice', async () => {
+    renderApp({ token: 'child-demo', route: '/settings/users' });
+    expect(await screen.findByText(/for the people who run this box/, {}, T)).toBeInTheDocument();
+    const nav = within(screen.getByRole('navigation', { name: 'Settings sections' }));
+    expect(nav.getByRole('link', { name: /Appearance/ })).toBeInTheDocument();
+    for (const n of PRO_SECTIONS) expect(nav.queryByRole('link', { name: new RegExp(n) })).not.toBeInTheDocument();
+  });
+
+  it('an owner sees the people and agent sections', async () => {
+    renderApp({ token: 'owner-demo', route: '/settings/account' });
+    const nav = within(await screen.findByRole('navigation', { name: 'Settings sections' }, T));
+    for (const n of PRO_SECTIONS) expect(await nav.findByRole('link', { name: new RegExp(n) }, T)).toBeInTheDocument();
+  });
+});
