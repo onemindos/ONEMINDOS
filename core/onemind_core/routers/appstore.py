@@ -8,12 +8,14 @@ from __future__ import annotations
 from fastapi import Depends, FastAPI, Query, Request
 from pydantic import BaseModel, ConfigDict, Field
 
+from ..apimodels import AppPlacement
 from ..appstore.compose import MAX_COMPOSE_BYTES
 from ..appstore.service import AppStore
 from ..auth import Principal
 from ..catalog import APP_ID_RE
 from ..context import Gateway
 from ..errors import error_responses
+from ..identity.scopes import register_route_scope
 from .apps import app_visible
 
 
@@ -26,6 +28,11 @@ class ComposeBody(BaseModel):
 
 # Route order in the app and in /openapi.json (routers/__init__.py).
 ORDER = 130
+
+# CORE-FABRIC-4 (#171): the placement names every machine with its board, memory, role and GPU, which
+# is what /v1/nodes shows, so it needs that route's scope, not only apps:read. A child (no nodes:read,
+# contract §12.6) is refused rather than shown the machines through an app it can see.
+register_route_scope("GET,HEAD", r"/v1/apps/[^/]+/placement", ("nodes:read",))
 
 
 def register(app: FastAPI, gw: Gateway) -> None:
@@ -49,6 +56,13 @@ def register(app: FastAPI, gw: Gateway) -> None:
                        p: Principal = Depends(principal)):
         app_visible(gw, app_id, request, p)
         return store.host_ports_view(app_id, node_id)
+
+    @app.get("/v1/apps/{app_id}/placement", operation_id="apps.placement", tags=["apps"],
+             responses={200: {"model": AppPlacement}, **error_responses(401, 403, 404)})
+    def app_placement(app_id: str, request: Request, p: Principal = Depends(principal)):
+        """Where the app would run (CORE-FABRIC-4): here, on another machine, or nowhere, with each node's reasons."""
+        app_visible(gw, app_id, request, p)
+        return store.placement_view(app_id)
 
     @app.get("/v1/apps/{app_id}/exposure", operation_id="apps.exposure", tags=["apps"], responses=error_responses(401, 404))
     def app_exposure(app_id: str, request: Request, p: Principal = Depends(principal)):

@@ -28,7 +28,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from ..actions import FeatureAction
 from ..auth import Principal
-from .. import cpufit
+from .. import cpufit, placement
 from ..catalog import APP_ID_RE, MANIFEST, AppEntry
 from ..context import Gateway
 from ..errors import ApiError
@@ -230,6 +230,10 @@ class AppStore:
                 "declared": [h.to_json() for h in hostports.declared(entry.manifest)],
                 "conflicts": self._port_conflicts(entry)}
 
+    def placement_view(self, app_id: str) -> dict:
+        """CORE-FABRIC-4 (#171): the Market verdict, from `spec.requires` and every node's capabilities."""
+        return {"app_id": app_id, **placement.place(self._app(app_id).manifest, self.gw.registry.list())}
+
     def _port_conflicts(self, entry: AppEntry) -> list[dict]:
         # v0 runs every app on the hub node; per-node placement (CORE-FABRIC-4) narrows `others`.
         apps = self.gw.catalog.load()
@@ -247,6 +251,13 @@ class AppStore:
             if fit:
                 code, message, details = fit
                 raise _refuse(409, "stale_precondition", message, reason=code, details=details)
+            # CORE-FABRIC-4 (#171): refused when no machine can run it, for example an app that
+            # needs a GPU where no node has one. No node reported yet is unknown, not refused.
+            where = placement.place(app.manifest, self.gw.registry.list())
+            if where["verdict"] == "nowhere":
+                raise _refuse(409, "stale_precondition", where["message"], reason="no_node_fits",
+                              details=[{"field": f"node:{ln['node_id']}", "problem": r["code"]}
+                                       for ln in where["nodes"] for r in ln["reasons"] if r["blocking"]])
         statuses = self.statuses()
         if action_type == "app.install":
             missing = deps.unsatisfied(app.manifest, deps.providing(statuses))
