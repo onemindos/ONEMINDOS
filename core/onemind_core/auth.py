@@ -21,7 +21,7 @@ import hashlib
 import logging
 import secrets
 import threading
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import yaml
@@ -30,6 +30,11 @@ log = logging.getLogger("onemind.auth")
 
 KINDS = {"person", "agent"}
 ROLES = {"owner", "adult", "guest", "child", "agent"}
+# Per-tool scopes an agent token may hold on /mcp (docs/leap/dev/MCP.md §4; DEV-MCP-10).
+MCP_SCOPES = (
+    "mcp:instance:read", "mcp:nodes:read", "mcp:apps:read",
+    "mcp:actions:read:own", "mcp:audit:read:own", "mcp:actions:request",
+)
 
 
 @dataclass(frozen=True)
@@ -37,6 +42,8 @@ class Principal:
     id: str
     kind: str
     role: str
+    # MCP scopes of an agent token (tokens file `mcp_scopes`). None = the v0 bundle: every scope.
+    scopes: frozenset[str] | None = field(default=None, compare=False)
 
     def as_dict(self) -> dict:
         return {"id": self.id, "kind": self.kind, "role": self.role}
@@ -79,6 +86,14 @@ def _principal(entry: dict, where: str) -> Principal:
         raise ValueError(f"{where}: role must be one of {sorted(ROLES)}")
     if (p.kind == "agent") != (p.role == "agent"):
         raise ValueError(f"{where}: kind 'agent' goes with role 'agent' and only with it")
+    if "mcp_scopes" in entry:
+        scopes = entry["mcp_scopes"]
+        if p.kind != "agent" or not isinstance(scopes, list) or not all(isinstance(x, str) for x in scopes):
+            raise ValueError(f"{where}: mcp_scopes is a list of strings and belongs to agents only")
+        unknown = sorted(set(scopes) - set(MCP_SCOPES))
+        if unknown:
+            raise ValueError(f"{where}: unknown mcp_scopes {unknown}")
+        p = Principal(id=p.id, kind=p.kind, role=p.role, scopes=frozenset(scopes))
     return p
 
 
