@@ -19,6 +19,7 @@ import {
   riskInfo,
   severityTone,
   shortHash,
+  updateStrip,
   updatesTile,
 } from '../src/format.js';
 
@@ -125,6 +126,28 @@ test('footer says what needs you first, and only says live when a stream is open
   assert.equal(footText([{ status: { ...base, inbox: null }, live: true }]), '1 box · live');
   assert.equal(footText([{ status: { ...base, inbox: [] } }, { status: null }]), '2 boxes · checks every 20 s');
   assert.equal(footText([]), 'Not paired yet');
+});
+
+test('updateStrip: nothing to show when updates are off, current, or malformed', () => {
+  assert.equal(updateStrip(null), null);
+  assert.equal(updateStrip({ configured: false, channel: 'stable', current: '0.1.0', available: { version: '0.2.0' } }), null);
+  assert.equal(updateStrip({ configured: true, channel: 'stable', current: '0.1.0', available: null }), null);
+  assert.equal(updateStrip({ configured: true, channel: 'stable', current: '0.1.0', available: {} }), null);
+});
+
+test('updateStrip: an offer says nothing installs until the click', () => {
+  const u = updateStrip({ configured: true, channel: 'stable', current: '0.1.0', available: { version: '0.2.0', current: '0.1.0', notes: '  Fixes a crash.  ' } });
+  assert.equal(u.title, 'Update available: OneMind 0.2.0');
+  assert.match(u.detail, /Nothing installs until you click/);
+  assert.equal(u.notes, 'Fixes a crash.');
+  assert.equal(u.action, 'Install and restart');
+});
+
+test('updateStrip: dev channel is named, long notes are cut, non-text notes dropped', () => {
+  const u = updateStrip({ configured: true, channel: 'dev', current: '0.2.0-dev.1', available: { version: '0.2.0-dev.2', current: '0.2.0-dev.1', notes: 'x'.repeat(2000) } });
+  assert.match(u.title, /\(dev channel\)/);
+  assert.equal(u.notes.length, 600);
+  assert.equal(updateStrip({ configured: true, channel: 'stable', available: { version: '1.0.0', notes: { a: 1 } } }).notes, '');
 });
 
 import { backupRow, bytesText, healthRows, needsYou, osRow, storageRow } from '../src/format.js';
