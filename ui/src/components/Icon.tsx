@@ -29,6 +29,9 @@ const PATHS = {
   qr: 'M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2v2h-2zM18 18h2v2h-2zM14 18h2M18 14h2',
   clock: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 2',
   menu: 'M4 7h16M4 12h16M4 17h16',
+  monitor: 'M3 5h18v11H3zM8 20h8M12 16v4',
+  storage: 'M3 14l2.5-8h13l2.5 8M3 14h18v5H3zM7 16.5h.01M10.5 16.5h.01',
+  hub: 'M12 9.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM5 3a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM19 3a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM12 19a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM6.4 6.4l3.8 3.8M17.6 6.4l-3.8 3.8M12 14.5V19',
 } as const;
 
 export type IconName = keyof typeof PATHS;
