@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: Apache-2.0
+# Pins for the DigitalOcean runner kit. provision.sh and the Dockerfile refuse a download that differs.
+# Runner: SHA-256 from the release notes of https://github.com/actions/runner/releases/tag/v2.338.2 (linux-x64);
+# the same version and checksum as scripts/ci-runner-kvm/runner.pin.
+RUNNER_VERSION=2.338.2
+RUNNER_SHA256=baebf204307bac6193480852732f0aba2ae97b6c5597c244f4d5558390147c40
+# Droplet OS: DigitalOcean's Ubuntu 24.04 image (matches GitHub's `ubuntu-24.04`).
+DO_IMAGE=ubuntu-24-04-x64

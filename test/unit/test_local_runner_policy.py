@@ -51,6 +51,13 @@ HOSTED_ONLY_WORKFLOWS = {"image.yml", "battery.yml", "nightly.yml", "net-2vm.yml
 SETUP_PYTHON_PENDING = {("ci-apps.yml", "validate")}
 
 
+# CI-15: the first safe jobs may try the DigitalOcean pool (onemind-do, switch DO_RUNNER) before the Mac; that
+# prefix is reviewed by test_do_runner_policy.py, so the Mac check below compares the rest of the expression.
+DO_PREFIX = ("(vars.DO_RUNNER == 'on' && (github.event_name != 'pull_request' || "
+             "github.event.pull_request.head.repo.full_name == github.repository)) && "
+             "fromJSON('[\"self-hosted\",\"onemind-do\"]') || ")
+
+
 def workflows():
     for p in sorted(WF.glob("*.yml")):
         yield p.name, yaml.safe_load(p.read_text())
@@ -84,7 +91,7 @@ class LocalRunnerPolicy(unittest.TestCase):
 
     def test_selection_is_switchable_fork_safe_and_has_a_hosted_fallback(self):
         for wf, d, name, job in mac_jobs():
-            ro = job["runs-on"]
+            ro = job["runs-on"].replace(DO_PREFIX, "", 1)
             where = f"{wf}:{name}"
             label = next(lab for lab in MAC_LABELS if lab in ro)
             want = "${{ %s && fromJSON('[\"self-hosted\",\"%s\"]') || 'ubuntu-24.04' }}" % (
