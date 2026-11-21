@@ -443,6 +443,12 @@ func (s *NodesService) List(ctx context.Context) ([]Node, error) {
 	return v, s.c.Do(ctx, http.MethodGet, "/v1/nodes", nil, &v)
 }
 
+// Usage is operation monitoring.usage (GET /v1/usage): CPU, memory and disk per machine and per app.
+func (s *NodesService) Usage(ctx context.Context) (*Usage, error) {
+	var v Usage
+	return &v, s.c.Do(ctx, http.MethodGet, "/v1/usage", nil, &v)
+}
+
 // Get is operation nodes.get.
 func (s *NodesService) Get(ctx context.Context, id string) (*Node, error) {
 	var v Node

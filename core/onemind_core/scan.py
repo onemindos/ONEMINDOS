@@ -38,10 +38,13 @@ class ScanRecord:
     # readable count from a known signature database, so "no malware" is never assumed from a
     # record that does not say it (F-7 override).
     malware: int | None = None
+    # Why a failed scan failed, in words an owner can read (None on a pass).
+    reason: str | None = None
 
     def summary(self) -> dict:
-        """The §11.4 catalog field: {scanned_at, result}."""
-        return {"scanned_at": self.scanned_at.isoformat().replace("+00:00", "Z"), "result": self.result}
+        """The §11.4 catalog field: {scanned_at, result, reason}; reason is set only on a fail."""
+        return {"scanned_at": self.scanned_at.isoformat().replace("+00:00", "Z"), "result": self.result,
+                "reason": self.reason}
 
 
 # scan.json path -> (stat signature, record). GET /v1/apps reads every app's scan on every poll; the
@@ -94,7 +97,38 @@ def _read_scan_file(app_dir: Path, path: Path) -> ScanRecord | None:
     if ts is None or ts.tzinfo is None:
         log.warning("ignoring %s/%s: scanned_at is not an RFC 3339 timestamp", app_dir.name, SCAN_FILE)
         return None
-    return ScanRecord(scanned_at=ts, result=result, malware=_malware(doc.get("images")))
+    return ScanRecord(scanned_at=ts, result=result, malware=_malware(doc.get("images")),
+                      reason=_reason(doc) if result == "fail" else None)
+
+
+def _count(v: object) -> int:
+    return v if isinstance(v, int) and not isinstance(v, bool) and v > 0 else 0
+
+
+def _reason(doc: dict) -> str:
+    """Summarise scan.json's own counts: what the gate counted, never a guess about the cause."""
+    parts: list[str] = []
+    images = doc.get("images")
+    images = [i for i in images if isinstance(i, dict)] if isinstance(images, list) else []
+    for img in images:
+        trivy, clam = img.get("trivy"), img.get("clamav")
+        trivy, clam = trivy if isinstance(trivy, dict) else {}, clam if isinstance(clam, dict) else {}
+        ref = str(img.get("ref") or "image").split("@")[0][:120]
+        bits = []
+        if _count(trivy.get("critical_fixable")):
+            bits.append(f"{_count(trivy.get('critical_fixable'))} CRITICAL vulnerabilities with a fix available")
+        if _count(img.get("secrets")):
+            bits.append(f"{_count(img.get('secrets'))} secret finding(s)")
+        if _count(clam.get("infected")):
+            bits.append(f"{_count(clam.get('infected'))} malware hit(s)")
+        if bits:
+            parts.append(f"{ref}: {', '.join(bits)}")
+    if doc.get("smoke") not in (None, "pass"):
+        parts.append(f"smoke test {doc.get('smoke')}")
+    lic = doc.get("licence")
+    if isinstance(lic, dict) and lic.get("class") == "blocked":
+        parts.append(f"licence {str(lic.get('spdx'))[:40]} is not allowed")
+    return "; ".join(parts)[:600] or "the gate computed fail (see the app's README)"
 
 
 def _malware(images: object) -> int | None:

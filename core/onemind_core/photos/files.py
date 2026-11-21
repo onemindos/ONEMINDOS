@@ -35,15 +35,6 @@ _MAX_NAME_BYTES = 180
 READ_CHUNK = 1024 * 1024
 
 
-def fsync_dir(path: Path) -> None:
-    """Make the directory's entries (a new name, a removed name) durable."""
-    fd = os.open(path, os.O_RDONLY)
-    try:
-        os.fsync(fd)
-    finally:
-        os.close(fd)
-
-
 def sha256_file(path: Path) -> str:
     h = hashlib.sha256()
     with open(path, "rb") as f:

@@ -19,6 +19,7 @@ import yaml
 from .ai_policy import catalog_policy
 from .appsecrets.spec import SecretDecl, parse_secrets, secret_spec_errors
 from .filesig import cache_signature
+from .manifest_convert import CURRENT, OLDER
 from .scan import ScanRecord, read_scan
 
 log = logging.getLogger("onemind.catalog")
@@ -26,6 +27,8 @@ log = logging.getLogger("onemind.catalog")
 # app-<id> must stay a valid Kubernetes namespace (DNS label, max 63 chars).
 APP_ID_RE = re.compile(r"^[a-z0-9]([a-z0-9-]{0,57}[a-z0-9])?$")
 MANIFEST = "onemind.app.yaml"
+# PLAN-E6: v1 is the frozen manifest; v1alpha1 stays readable until every app is converted.
+API_VERSIONS = (CURRENT, *OLDER)  # one list, shared with the converter (manifest_convert)
 # Kubernetes Secret names are DNS-1123 subdomains.
 SECRET_NAME_RE = re.compile(r"^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$")
 LINK_KEYS = ("docs", "github", "website", "support")
@@ -125,8 +128,8 @@ def builtin_check(doc: object) -> list[str]:
     errs: list[str] = []
     if not isinstance(doc, dict):
         return ["manifest is not a mapping"]
-    if doc.get("apiVersion") != "onemind.app/v1alpha1":
-        errs.append("apiVersion must be onemind.app/v1alpha1")
+    if doc.get("apiVersion") not in API_VERSIONS:
+        errs.append("apiVersion must be onemind.app/v1 (or onemind.app/v1alpha1, until converted)")
     if doc.get("kind") != "App":
         errs.append("kind must be App")
     md, spec = doc.get("metadata"), doc.get("spec")
@@ -169,7 +172,7 @@ class Catalog:
             schema = json.loads(schema_path.read_text())
             cls = validator_for(schema)
             cls.check_schema(schema)
-            self._validator = cls(schema)
+            self._validator = cls(schema, format_checker=cls.FORMAT_CHECKER)
             log.info("validating app manifests against %s", schema_path.name)
         else:
             log.info("no app schema found; using the built-in manifest check")

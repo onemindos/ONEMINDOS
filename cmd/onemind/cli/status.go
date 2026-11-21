@@ -12,9 +12,10 @@ import (
 )
 
 func statusCommands(a *App) []*cobra.Command {
-	return []*cobra.Command{{
+	var usage bool
+	cmd := &cobra.Command{
 		Use:   "status",
-		Short: "One-screen health of the current box",
+		Short: "One-screen health of the current box (--usage: CPU, memory and disk per machine and app)",
 		Args:  cobra.NoArgs,
 		RunE: func(*cobra.Command, []string) error {
 			c, _, err := a.client()
@@ -22,6 +23,9 @@ func statusCommands(a *App) []*cobra.Command {
 				return err
 			}
 			ctx := bg()
+			if usage {
+				return a.printUsage(c)
+			}
 			inst, err := c.Instance.Get(ctx)
 			if err != nil {
 				return err
@@ -104,7 +108,9 @@ func statusCommands(a *App) []*cobra.Command {
 			}
 			return kv(a.Stdout, lines)
 		},
-	}}
+	}
+	cmd.Flags().BoolVar(&usage, "usage", false, "show live CPU, memory and disk per machine and per app (GET /v1/usage)")
+	return []*cobra.Command{cmd}
 }
 
 // attentionLines is the "needs attention" block of `onemind status` (FD-01). The overall state comes

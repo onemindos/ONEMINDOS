@@ -330,6 +330,11 @@ export function DesktopShell(props: DesktopShellProps) {
           <button type="button" className="dsk-iconbtn" onClick={onSearch} aria-label="Search (Ctrl K)" title="Search (Ctrl K)">
             <Icon name="search" size={18} />
           </button>
+          {nav.some((n) => n.id === 'usage') && (
+            <a href="/usage" className="dsk-iconbtn" aria-label="Live usage" title="Live usage" aria-current={current === 'usage' ? 'page' : undefined}>
+              <Icon name="gauge" size={18} />
+            </a>
+          )}
           {bell}
           <PersonMenu person={person} demo={demo} onConsoleView={onConsoleView} onSignOut={onSignOut} />
         </div>

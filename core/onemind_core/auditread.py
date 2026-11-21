@@ -19,6 +19,7 @@ from pathlib import Path
 
 from .audit import GENESIS, PRUNED_EVENT, chain_anchored, chain_hash, iter_lines, segments
 from .auth import Principal
+from .filesig import cache_signature
 
 FULL_READERS = {("person", "owner"), ("person", "adult")}
 DEFAULT_LIMIT = 100
@@ -170,18 +171,24 @@ class AuditReader:
         return None
 
     def verify(self, from_seq: int | None = None) -> dict:
-        """Recompute the chain. A full check is cached until the file changes."""
+        """Recompute the chain. A full check is cached until the file changes (#364).
+
+        The cache key is filesig.cache_signature: (size, mtime) alone missed a same-size change
+        within one kernel tick, so verify() could report the old "ok" for a tampered log. A file
+        whose ctime is younger than the racy window is verified again on every call."""
         try:
-            st = self.path.stat()
-            key = (st.st_size, st.st_mtime, tuple(p.name for _, _, p in segments(self.path)))
+            sig = cache_signature(self.path.stat())
+            # The live file's signature plus the names of the rotated segments: pruning or rotating
+            # changes the chain without touching the live file's stat.
+            key = None if sig is None else (sig, tuple(p.name for _, _, p in segments(self.path)))
         except OSError:
-            key = (0, 0.0, ())
-        if from_seq is None and self._verify_cache and self._verify_cache[0] == key:
+            key = None
+        if from_seq is None and key is not None and self._verify_cache and self._verify_cache[0] == key:
             return self._verify_cache[1]
         result = verify_file(self.path, from_seq)
         result["checked_at"] = self.clock().isoformat().replace("+00:00", "Z")
         if from_seq is None:
-            self._verify_cache = (key, result)
+            self._verify_cache = (key, result) if key is not None else None
         return result
 
 
