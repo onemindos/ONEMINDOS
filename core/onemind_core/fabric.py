@@ -653,7 +653,8 @@ class FabricService:
         if mesh_key is not None:
             creds["mesh"] = {
                 "control_url": self.d.mesh_settings.control_url,
-                "control_addrs": [self.d.net.lan_addr] if self.d.net.lan_addr else [],
+                # LAN first, so a machine at home never leaves the house; the owner's relay second, for away.
+                "control_addrs": [a for a in (self.d.net.lan_addr, self.d.mesh_settings.relay_addr) if a],
                 "ca_sha256": self.d.box_ca.ca_fingerprint(),
                 "auth_key": mesh_key.key,
                 "hostname": f"node-{req['node_id']}",

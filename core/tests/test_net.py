@@ -607,3 +607,42 @@ def test_k3s_token_failure_says_why_without_the_secret():
     with pytest.raises(RuntimeError) as ei:
         k.create("n1", __import__("datetime").datetime(2030, 1, 1, tzinfo=__import__("datetime").timezone.utc))
     assert "Forbidden" in str(ei.value) and "token-secret" not in str(ei.value)
+
+
+# ---- the owner's own relay (NETWORKING §4.4, #234) ---------------------------------------------------
+@pytest.fixture
+def relay_nc(net_settings, clock):
+    mesh = replace(net_settings.section(MeshSettings), relay_addr="203.0.113.7")
+    return TestClient(create_app(replace(net_settings, sections={**net_settings.sections, "mesh": mesh}),
+                                 clock=clock, executor=ScriptedExecutor()))
+
+
+def test_a_box_with_no_relay_says_so_plainly(nc, hs):
+    hs.users["9"] = {"id": "9", "name": "onemind-machines"}
+    view = nc.get("/v1/mesh", headers=OWNER).json()
+    assert view["mode"] == "lan" and view["relay"]["state"] == "none" and view["relay"]["addr"] is None
+    assert "home network" in view["relay"]["detail"] and "internet" in view["relay"]["detail"]
+    assert view["control"]["state"] == "up"  # not an error: the mesh itself is fine
+
+
+def test_a_paired_relay_is_shown_and_the_mode_is_relay(relay_nc, hs):
+    hs.users["9"] = {"id": "9", "name": "onemind-machines"}
+    view = relay_nc.get("/v1/mesh", headers=OWNER).json()
+    assert view["mode"] == "relay" and view["relay"]["state"] == "configured" and view["relay"]["addr"] == "203.0.113.7"
+    assert relay_nc.get("/v1/mesh").status_code == 401  # still signed-in callers only
+
+
+def test_join_bundle_advertises_lan_first_then_the_relay(relay_nc):
+    t = ticket(relay_nc)
+    node = Node()
+    jr = relay_nc.post("/v1/fabric/join-requests", json=node.body(t["one_time"]["join_code"])).json()
+    relay_nc.post(f"/v1/actions/{jr['action']['id']}/approve", headers=OWNER)
+    c = node.poll(relay_nc, jr["join_request_id"], t["one_time"]["join_code"]).json()["credentials"]
+    assert c["mesh"]["control_addrs"] == ["192.0.2.10", "203.0.113.7"]
+
+
+@pytest.mark.parametrize("addr", [".".join(("10", "0", "0", "5")), ".".join(("192", "168", "1", "9")), "127.0.0.1", "100.64.0.9", "relay.example.com", ""])
+def test_relay_addr_must_be_a_public_ip(addr):
+    with pytest.raises(ValueError, match="RELAY_ADDR"):
+        MeshSettings(relay_addr=addr).validate()
+    MeshSettings(relay_addr="203.0.113.7").validate()

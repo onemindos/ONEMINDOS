@@ -16,6 +16,7 @@ var subcommands = map[string]func(args []string) int{
 	"storage":     runStorage,
 	"host":        runHost,   // host.go: approved restart, shutdown, OS install (#146, #142), its own unit
 	"mesh":        runMesh,   // net.go
+	"relay":       runRelay,  // net.go: the owner's relay role (NETWORKING.md §4.4)
 	"rescue":      runRescue, // rescue.go: the rescue console, its own unit (CORE-UPDATE-8)
 	// The terminal's shell starts through this hidden mode, which drops every capability first (#273).
 	rescue.ShellHelperCommand: rescue.RunShellHelper,
