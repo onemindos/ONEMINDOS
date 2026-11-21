@@ -39,6 +39,7 @@ import { HomeScreen } from './src/screens/HomeScreen';
 import { InboxScreen } from './src/screens/InboxScreen';
 import { MoreScreen, useMoreBadge } from './src/screens/MoreScreen';
 import { NodesScreen } from './src/screens/NodesScreen';
+import { DeviceInfoScreen, LiveUsageScreen, NetworkScreen, OsUpdatesScreen, SystemControlsScreen } from './src/screens/SystemScreens';
 import { SettingsScreen } from './src/screens/SettingsScreen';
 import { onForgetHub, SessionProvider, useSession, useSignedIn, type SessionDeps } from './src/session';
 import { TOUR, TOUR_ROLE, TOUR_STEP_MS } from './src/tour';
@@ -72,6 +73,11 @@ const linking: LinkingOptions<RootParams> = {
       Inbox: 'inbox',
       Nodes: 'nodes',
       Backups: 'backups',
+      OsUpdates: 'os-updates',
+      SystemControls: 'system-controls',
+      DeviceInfo: 'device-info',
+      LiveUsage: 'live-usage',
+      Network: 'network',
       Automation: 'automation',
       Files: 'files',
       Migrate: 'migrate',
@@ -191,6 +197,11 @@ function SignedIn() {
             <Stack.Screen name="Inbox" component={InboxScreen} />
             <Stack.Screen name="Nodes" component={NodesScreen} />
             <Stack.Screen name="Backups" component={BackupsScreen} />
+            <Stack.Screen name="OsUpdates" component={OsUpdatesScreen} options={{ title: 'OS updates' }} />
+            <Stack.Screen name="SystemControls" component={SystemControlsScreen} options={{ title: 'System controls' }} />
+            <Stack.Screen name="DeviceInfo" component={DeviceInfoScreen} options={{ title: 'About this box' }} />
+            <Stack.Screen name="LiveUsage" component={LiveUsageScreen} options={{ title: 'Live usage' }} />
+            <Stack.Screen name="Network" component={NetworkScreen} />
             <Stack.Screen name="Automation" component={AutomationScreen} />
             <Stack.Screen name="Files" component={FilesScreen} />
             <Stack.Screen name="Migrate" component={MigrateScreen} options={{ title: 'Migration' }} />

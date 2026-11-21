@@ -63,7 +63,7 @@ jobs:
     if: needs.plan.outputs.run_sqlite == 'true'
     # Local Mac runner when LOCAL_RUNNER=on and the event is trusted (never a fork PR); otherwise
     # GitHub-hosted. docs/learning/self-hosted-runner.md
-    runs-on: ${{ (vars.LOCAL_RUNNER == 'on' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","onemind-local"]') || 'ubuntu-24.04' }}
+    runs-on: ${{ (vars.DO_RUNNER == 'on' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","onemind-do"]') || (vars.LOCAL_RUNNER == 'on' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","onemind-local"]') || 'ubuntu-24.04' }}
     timeout-minutes: 40   # a safety net; a shard takes about 15 min (CI-03 target: under 20)
     strategy:
       fail-fast: false

@@ -261,6 +261,12 @@ export class MockApi implements OneMindApi {
   setAutomationPaused = unsupported('Automation');
   filesRoots = unsupported('Files');
   filesList = unsupported('Files');
+  filesDownloadRequest = (): never => {
+    throw new ApiError(0, 'unknown', 'Files need a connected hub');
+  };
+  filesUploadCreate = unsupported('Files');
+  filesUploadOffset = unsupported('Files');
+  filesUploadChunk = unsupported('Files');
   migratePlans = unsupported('Migration');
   users = unsupported('People');
   createUser = unsupported('People');
@@ -269,6 +275,13 @@ export class MockApi implements OneMindApi {
   apiTokens = unsupported('Agents');
   killSwitch = unsupported('Agents');
   setKillSwitch = unsupported('Agents');
+  osUpdates = unsupported('OS updates');
+  osUpdateHistory = unsupported('OS updates');
+  monitoringSummary = unsupported('Live usage');
+  nodeMetrics = unsupported('Live usage');
+  appMetrics = unsupported('Live usage');
+  mesh = unsupported('Network');
+  systemPlan = unsupported('System controls');
   pushRegister = unsupported('Push');
   pushRegistrations = unsupported('Push');
   pushUnregister = unsupported('Push');

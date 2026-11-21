@@ -1,12 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
-// Files: browse the folders the box shares with you. Read only on the phone: moving, trashing and sharing are
-// owner actions on the dashboard, and downloads are not offered here. Photos have their own backup screen.
+// Files: browse the folders the box shares with you, save or share a file, and add a file from the phone to a
+// folder you may write to. Each part shows only when the hub serves its route. Moving, trashing and sharing
+// links are not here: those stay on the dashboard. Photos have their own backup screen.
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
+import { OP } from '../api/client';
+import { uploadLocalFile, uploadProblem, type FilesDevice } from '../lib/filesTransfer';
 import { formatBytes } from '../lib/manage';
 import { useLoad } from '../lib/useLoad';
 import { useSignedIn } from '../session';
-import { Badge, Card, H1, H2, Loading, Notice, P, Screen, s } from '../ui/bits';
+import { Badge, Button, Card, H1, H2, Loading, Notice, P, Screen, s } from '../ui/bits';
 import { font, useTheme } from '../ui/theme';
 
 /** "/a/b" -> "/a"; "/a" -> "/". */
@@ -18,9 +21,29 @@ export function join(path: string, name: string): string {
   return `${path === '/' ? '' : path.replace(/\/+$/, '')}/${name}`;
 }
 
-export function FilesScreen() {
+const BACKUP_BADGE: Record<string, { label: string; tone: 'ok' | 'warn' | 'bad' }> = {
+  verified: { label: 'Safe in a backup, restore-checked', tone: 'ok' },
+  unverified: { label: 'Backed up, not restore-checked yet', tone: 'warn' },
+  stale: { label: 'Backup is out of date', tone: 'warn' },
+  failing: { label: 'Backup is failing', tone: 'bad' },
+};
+
+function nativeDevice(): FilesDevice {
+  // Loaded on first use so the screen (and its tests) never touch native modules until a button is pressed.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  return (require('../files/native') as typeof import('../files/native')).nativeFiles;
+}
+
+export function FilesScreen({ device }: { device?: FilesDevice } = {}) {
   const t = useTheme();
-  const { api } = useSignedIn();
+  const { api, features } = useSignedIn();
+  const [busy, setBusy] = useState<string>();
+  const [msg, setMsg] = useState<{ text: string; tone: 'ok' | 'bad' }>();
+  const canDownload = features.has(OP.filesDownload);
+  const canUpload = features.has(OP.filesUploads);
+  // The box-wide badge from the backups route (it is not per file: the hub reports no per-file state).
+  const backup = useLoad(() => (features.has(OP.backupStatus) ? api.backupStatus().catch(() => undefined) : Promise.resolve(undefined)), [api]);
+  const badge = backup.data?.badges?.box ? BACKUP_BADGE[backup.data.badges.box.state] : undefined;
   const [at, setAt] = useState<{ root: string; path: string }>();
   const roots = useLoad(() => api.filesRoots(), [api]);
   const list = useLoad(() => (at ? api.filesList(at.root, at.path) : Promise.resolve([])), [api, at?.root, at?.path]);
@@ -49,15 +72,52 @@ export function FilesScreen() {
             </Card>
           </Pressable>
         ))}
-        <P muted small>Opening and changing files is done on the dashboard.</P>
+        <P muted small>Moving and deleting files is done on the dashboard.</P>
       </Screen>
     );
+
+  const dev = () => (device ??= nativeDevice());
+  const writable = (roots.data ?? []).find((r) => r.root === at.root)?.writable === true;
+
+  /** Fetch to the phone, then open the system sheet: it offers "Save to Files", other apps and AirDrop/Nearby Share. */
+  async function fetchFile(name: string) {
+    setBusy(`file-${name}`);
+    setMsg(undefined);
+    try {
+      const local = await dev().download(api.filesDownloadRequest(at!.root, join(at!.path, name)), name);
+      await dev().share(local, name);
+      setMsg({ text: `${name} was fetched from the hub.`, tone: 'ok' });
+    } catch (e) {
+      setMsg({ text: `Could not get ${name}: ${uploadProblem(e)}`, tone: 'bad' });
+    } finally {
+      setBusy(undefined);
+    }
+  }
+
+  async function addFile() {
+    setBusy('upload');
+    setMsg(undefined);
+    try {
+      const f = await dev().pick();
+      if (!f) return;
+      await uploadLocalFile(api, f, at!.root, at!.path, (sent, total) => setMsg({ text: `Sending ${f.name}: ${formatBytes(sent)} of ${formatBytes(total)}`, tone: 'ok' }));
+      setMsg({ text: `${f.name} is on the hub.`, tone: 'ok' });
+      await list.reload();
+    } catch (e) {
+      setMsg({ text: `Could not add the file: ${uploadProblem(e)}`, tone: 'bad' });
+    } finally {
+      setBusy(undefined);
+    }
+  }
 
   const rootName = (roots.data ?? []).find((r) => r.root === at.root)?.name ?? at.root;
   return (
     <Screen testID="files-folder">
       <H1>{rootName}</H1>
       <P muted small>{at.path}</P>
+      {badge ? <Badge label={badge.label} tone={badge.tone} /> : null}
+      {msg ? <Notice tone={msg.tone === 'ok' ? 'info' : 'bad'} text={msg.text} /> : null}
+      {canUpload && writable ? <Button testID="files-add" label={busy === 'upload' ? 'Sending...' : 'Add a file from this phone'} disabled={busy !== undefined} onPress={() => void addFile()} /> : null}
       <View style={s.wrap}>
         <Pressable testID="files-up" accessibilityRole="button" onPress={() => setAt(at.path === '/' ? undefined : { root: at.root, path: parentOf(at.path) })}>
           <Badge label="← Back" tone="info" />
@@ -79,11 +139,16 @@ export function FilesScreen() {
               <Text style={{ color: t.text, fontSize: font.md, flexShrink: 1 }}>{e.name}</Text>
               <Text style={{ color: t.muted, fontSize: font.sm }}>{formatBytes(e.size)}</Text>
             </View>
+            {canDownload ? (
+              <View style={s.wrap}>
+                <Button testID={`save-${e.name}`} variant="secondary" label={busy === `file-${e.name}` ? 'Fetching...' : 'Save or share'} disabled={busy !== undefined} onPress={() => void fetchFile(e.name)} />
+              </View>
+            ) : null}
           </Card>
         ),
       )}
-      <H2>Read only here</H2>
-      <P muted small>To open, move or delete a file, use the dashboard.</P>
+      <H2>On the dashboard</H2>
+      <P muted small>Moving, deleting and share links are done on the dashboard.</P>
     </Screen>
   );
 }
