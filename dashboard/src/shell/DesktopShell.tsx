@@ -54,7 +54,7 @@ export const DOCK_IDS = ['home', 'market', 'installed', 'approvals', 'activity',
 
 /** One colour per screen, so a place is recognised before its name is read. White glyph on each. */
 export const SCREEN_HUES: Record<string, readonly [string, string]> = {
-  home: ['#ff4d55', '#b3101c'],
+  home: ['#f59a5c', '#a8470f'],
   market: ['#6d84ff', '#3340c4'],
   installed: ['#34c77b', '#147a45'],
   approvals: ['#f59e0b', '#b45309'],
@@ -67,7 +67,7 @@ export const SCREEN_HUES: Record<string, readonly [string, string]> = {
   backups: ['#3fc6db', '#0c6b80'],
   automation: ['#8c7cf0', '#4a3bb8'],
   coming: ['#7d8794', '#3a414b'],
-  'control-hub': ['#e5484d', '#7c0d16'],
+  'control-hub': ['#f08a4b', '#7c3410'],
   agents: ['#d96cf0', '#8a1fa3'],
 };
 const FALLBACK_HUE = ['#7d8794', '#3a414b'] as const;

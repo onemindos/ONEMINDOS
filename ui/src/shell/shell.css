@@ -198,10 +198,10 @@
 .oms-label { font-size: var(--om-font-size-sm); font-weight: var(--om-font-weight-semibold); color: var(--om-color-text); padding: 0; }
 .oms-field-hint { font-size: var(--om-font-size-sm); color: var(--om-color-text-muted); }
 .oms-field-msg { display: flex; align-items: center; gap: var(--om-space-1); font-size: var(--om-font-size-sm); color: var(--om-color-bad-fg); }
-.oms-input { width: 100%; min-height: 48px; padding: 0 var(--om-space-4); border-radius: var(--om-radius-md); border: 1px solid var(--om-color-border-strong); background: var(--om-color-surface); color: var(--om-color-text); font: inherit; font-size: var(--om-font-size-md); transition: border-color var(--om-motion-duration-fast) var(--om-motion-ease-standard), box-shadow var(--om-motion-duration-fast) var(--om-motion-ease-standard); }
+.oms-input { width: 100%; min-height: 48px; padding: 0 var(--om-space-4); border-radius: var(--om-radius-md); border: 1px solid var(--om-color-control-border); background: var(--om-color-surface); color: var(--om-color-text); font: inherit; font-size: var(--om-font-size-md); transition: border-color var(--om-motion-duration-fast) var(--om-motion-ease-standard), box-shadow var(--om-motion-duration-fast) var(--om-motion-ease-standard); }
 .oms-input:focus { outline: none; border-color: var(--om-color-accent); box-shadow: 0 0 0 3px var(--oms-ring-soft); }
 .oms-input:focus-visible { outline: 2px solid var(--om-color-focus); outline-offset: 1px; }
-.oms-input-wrap { display: flex; align-items: center; gap: var(--om-space-2); padding-left: var(--om-space-4); border-radius: var(--om-radius-md); border: 1px solid var(--om-color-border-strong); background: var(--om-color-surface); color: var(--om-color-text-muted); }
+.oms-input-wrap { display: flex; align-items: center; gap: var(--om-space-2); padding-left: var(--om-space-4); border-radius: var(--om-radius-md); border: 1px solid var(--om-color-control-border); background: var(--om-color-surface); color: var(--om-color-text-muted); }
 .oms-input-wrap:focus-within { border-color: var(--om-color-accent); box-shadow: 0 0 0 3px var(--oms-ring-soft); }
 .oms-input-wrap .oms-input { border: 0; padding: 0; box-shadow: none; font-size: var(--om-font-size-lg); font-weight: var(--om-font-weight-medium); background: transparent; }
 .oms-input-wrap .oms-input:focus-visible { outline: none; }

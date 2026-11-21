@@ -40,6 +40,11 @@
 }
 
 /* ---------- wallpaper layer ---------- */
+/* Reduced transparency (system or the person's choice) hides the starfield of "Harbour light". */
+:root[data-om-glass='off'] { --om-wp-stars: linear-gradient(transparent, transparent); }
+@media (prefers-reduced-transparency: reduce) {
+  :root:not([data-om-glass='on']) { --om-wp-stars: linear-gradient(transparent, transparent); }
+}
 .om-cz-wallpaper { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; background: var(--om-color-bg); }
 .om-cz-wallpaper-img { position: absolute; inset: calc(var(--om-wallpaper-blur) * -2); filter: blur(var(--om-wallpaper-blur)); }
 .om-cz-wallpaper-veil { position: absolute; inset: 0; background: var(--om-color-bg); opacity: var(--om-wallpaper-dim); transition: opacity var(--om-motion-duration-slow) var(--om-motion-ease-standard); }
@@ -144,9 +149,9 @@
 .om-cz-field { display: flex; flex-direction: column; gap: var(--om-space-1); font-size: var(--om-font-size-sm); color: var(--om-color-text-muted); }
 .om-cz-field > span { display: inline-flex; align-items: center; gap: var(--om-space-1); }
 .om-cz-field input[type='time'],
-.om-cz-field input[type='text'] { font: inherit; color: var(--om-color-text); min-height: var(--om-layout-touch-target); padding: 0 var(--om-space-3); border-radius: var(--om-radius-md); border: 1px solid var(--om-color-border-strong); background: var(--om-color-surface); width: 9.5rem; }
+.om-cz-field input[type='text'] { font: inherit; color: var(--om-color-text); min-height: var(--om-layout-touch-target); padding: 0 var(--om-space-3); border-radius: var(--om-radius-md); border: 1px solid var(--om-color-control-border); background: var(--om-color-surface); width: 9.5rem; }
 .om-cz-field input[aria-invalid='true'] { border-color: var(--om-color-bad-fg); }
-.om-cz-field input[type='color'] { width: var(--om-layout-touch-target); height: var(--om-layout-touch-target); padding: 2px; border-radius: var(--om-radius-md); border: 1px solid var(--om-color-border-strong); background: var(--om-color-surface); cursor: pointer; }
+.om-cz-field input[type='color'] { width: var(--om-layout-touch-target); height: var(--om-layout-touch-target); padding: 2px; border-radius: var(--om-radius-md); border: 1px solid var(--om-color-control-border); background: var(--om-color-surface); cursor: pointer; }
 
 /* ---------- accent swatches ---------- */
 .om-cz-swatches { display: grid; gap: var(--om-space-2); grid-template-columns: repeat(auto-fill, minmax(min(100%, 112px), 1fr)); }

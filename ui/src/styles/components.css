@@ -32,7 +32,7 @@
 .om-btn-sm { min-height: 32px; padding: 0 var(--om-space-3); }
 .om-btn-primary { background: var(--om-color-accent); color: var(--om-color-accent-text); }
 .om-btn-primary:hover:not(:disabled) { background: var(--om-color-accent-hover); }
-.om-btn-secondary { background: var(--om-color-surface); color: var(--om-color-text); border-color: var(--om-color-border-strong); }
+.om-btn-secondary { background: var(--om-color-surface); color: var(--om-color-text); border-color: var(--om-color-control-border); }
 .om-btn-secondary:hover:not(:disabled) { background: var(--om-color-surface-sunken); }
 .om-btn-ghost { background: transparent; color: var(--om-color-accent); }
 .om-btn-ghost:hover:not(:disabled) { background: var(--om-color-accent-soft); }

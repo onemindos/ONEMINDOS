@@ -53,10 +53,10 @@ export const DEFAULT_PREFERENCES: AppearancePreferences = {
   accentSource: 'preset',
   accentPreset: DEFAULT_ACCENT,
   accentCustom: ACCENTS[DEFAULT_ACCENT].light,
-  // OneMind's own signature wallpaper is the default (D-016: a branded desktop).
-  wallpaper: 'onemind',
+  // OneMind's own wallpaper is the default (D-016: a branded desktop): Lantern's "Harbour light".
+  wallpaper: 'harbour',
   wallpaperBlur: 0,
-  wallpaperDim: 0.2,
+  wallpaperDim: 0.1,
   customWallpaperColors: [],
   density: 'comfortable',
   fontScale: 1,
@@ -196,6 +196,8 @@ export interface ApplyEnv {
   now?: Date;
   /** Whether the system asks for reduced transparency (matchMedia); default false. */
   systemReducedTransparency?: boolean;
+  /** Force the light animation path (kiosk builds). */
+  lite?: boolean;
 }
 
 /** Write the preferences onto the root element and the customize stylesheet. */
@@ -209,6 +211,9 @@ export function applyPreferences(p: AppearancePreferences, env: ApplyEnv = {}): 
   root.setAttribute('data-om-corners', p.corners);
   root.setAttribute('data-om-motion', p.motion);
   root.setAttribute('data-om-wallpaper', p.wallpaper === 'none' ? 'none' : 'on');
+  // Blur in the window-open animation costs GPU time: small devices (4 cores or fewer) skip it.
+  if ((typeof navigator !== 'undefined' && navigator.hardwareConcurrency > 0 && navigator.hardwareConcurrency <= 4) || env.lite) root.setAttribute('data-om-lite', '');
+  else root.removeAttribute('data-om-lite');
   const glass = p.transparency === 'on' || (p.transparency === 'system' && !env.systemReducedTransparency);
   root.setAttribute('data-om-glass', glass && p.wallpaper !== 'none' ? 'on' : 'off');
   if (p.fontScale === 1) root.style.removeProperty('font-size');
@@ -224,7 +229,7 @@ export function applyPreferences(p: AppearancePreferences, env: ApplyEnv = {}): 
 
 /** Remove everything applyPreferences() wrote. */
 export function clearPreferences(root: HTMLElement = document.documentElement): void {
-  for (const a of ['data-om-density', 'data-om-corners', 'data-om-motion', 'data-om-wallpaper', 'data-om-glass']) root.removeAttribute(a);
+  for (const a of ['data-om-density', 'data-om-corners', 'data-om-motion', 'data-om-wallpaper', 'data-om-glass', 'data-om-lite']) root.removeAttribute(a);
   root.style.removeProperty('font-size');
   root.ownerDocument.getElementById(STYLE_ID)?.remove();
 }

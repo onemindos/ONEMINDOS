@@ -1,4 +1,21 @@
 /* SPDX-License-Identifier: Apache-2.0 */
+/* Lantern type: Plus Jakarta Sans for display and UI, JetBrains Mono for numbers and technical
+   strings. Both are SIL Open Font License 1.1, variable weight, latin subset, self-hosted
+   (licences next to the files in src/fonts). font-display: swap keeps text visible while loading. */
+@font-face {
+  font-family: 'Plus Jakarta Sans';
+  font-style: normal;
+  font-weight: 200 800;
+  font-display: swap;
+  src: url('../fonts/plus-jakarta-sans-latin-wght-normal.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 100 800;
+  font-display: swap;
+  src: url('../fonts/jetbrains-mono-latin-wght-normal.woff2') format('woff2');
+}
 /* Base: only element defaults the components rely on. Scoped to .om-root or the document. */
 *,
 *::before,
@@ -39,7 +56,16 @@ pre,
 kbd {
   font-family: var(--om-font-mono);
   font-size: 0.875em;
+  font-variant-numeric: tabular-nums;
 }
+/* Light text on a dark ground needs air. */
+:root[data-theme='dark'] body { line-height: var(--om-line-height-relaxed); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) body { line-height: var(--om-line-height-relaxed); }
+}
+/* Plus Jakarta Sans sets a narrow word space; a little extra keeps small text easy to read. */
+body { -webkit-font-smoothing: antialiased; word-spacing: 0.07em; }
+h1, h2 { letter-spacing: -0.02em; }
 :focus-visible {
   outline: 2px solid var(--om-color-focus);
   outline-offset: 2px;

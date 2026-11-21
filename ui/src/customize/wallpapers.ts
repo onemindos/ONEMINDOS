@@ -10,6 +10,7 @@ import { AA } from './accents';
 import { contrast, mix } from './color';
 
 export const WALLPAPER_IDS = [
+  'harbour',
   'onemind',
   'aurora',
   'tide',
@@ -185,7 +186,61 @@ function neural(c: Stops, seed: number): string {
   return svgUrl(svg);
 }
 
+
+/**
+ * Starlight for "Harbour light": the neural() idea with a different seed and finer marks, so it
+ * reads as stars and constellations. Nodes are 1 to 2 px, kept above the horizon (top 62%).
+ * It is a swappable layer: "Reduce transparency" sets --om-wp-stars to nothing (customize.css).
+ * Colours are the wallpaper's own stop c[3], already blended to what the eye sees, so the
+ * contrast guard counts every star pixel.
+ */
+function starlight(c: Stops, seed: number): string {
+  const rand = rng(seed);
+  const W = 1600;
+  const H = 1000;
+  const pts = Array.from({ length: 70 }, () => [r1(rand() * W), r1(Math.pow(rand(), 1.5) * H * 0.62)] as const);
+  const lines: string[] = [];
+  pts.forEach(([x, y], i) => {
+    const near = pts
+      .map(([u, v], j) => ({ j, d: (u - x) ** 2 + (v - y) ** 2 }))
+      .filter((n) => n.j > i && n.d < 190 ** 2)
+      .sort((a, b) => a.d - b.d)
+      .slice(0, 1);
+    for (const n of near) {
+      const [u, v] = pts[n.j]!;
+      lines.push(`<line x1="${x}" y1="${y}" x2="${u}" y2="${v}"/>`);
+    }
+  });
+  const dots = pts.map(([x, y], i) => `<circle cx="${x}" cy="${y}" r="${i % 9 === 0 ? 2 : 1.1}"/>`).join('');
+  return svgUrl(
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid slice">` +
+      `<g stroke="${c[3]}" stroke-width="1" stroke-opacity="0.5" fill="none">${lines.join('')}</g><g fill="${c[3]}">${dots}</g></svg>`,
+  );
+}
+
 export const WALLPAPERS: Record<WallpaperId, Wallpaper> = {
+  harbour: {
+    id: 'harbour',
+    name: 'Harbour light',
+    kind: 'landscape',
+    accent: 'onemind',
+    // Stops: [base, horizon glow as painted, sea teal, starlight as painted]. The sky ends are
+    // darker (night) or lighter (day) than the base, so they never need more dimming than the stops.
+    colors: { light: ['#f2f5f6', '#f3dccb', '#d6e8ec', '#c9d7dc'], dark: ['#0a1418', '#5c4436', '#0f4a55', '#3a4d53'] },
+    render: (c) => {
+      const night = c[0] === '#0a1418';
+      const [top, bottom] = night ? ['#07263a', '#050b0e'] : ['#dfe9ee', '#e6eef1'];
+      const reflect = `color-mix(in srgb, ${c[1]} 30%, transparent)`;
+      return [
+        `var(--om-wp-stars, ${starlight(c, 21)}) center / cover no-repeat`,
+        `radial-gradient(ellipse 62% 11% at 50% 70%, ${c[1]} 0, transparent 100%)`,
+        `radial-gradient(ellipse 110% 30% at 50% 70%, ${c[2]} 0, transparent 100%)`,
+        `radial-gradient(ellipse 50% 9% at 50% 78%, ${reflect} 0, transparent 100%)`,
+        `linear-gradient(180deg, ${top} 0%, ${c[0]} 45%, ${bottom} 100%)`,
+      ].join(', ');
+    },
+  },
+
   onemind: {
     id: 'onemind',
     name: 'OneMind',

@@ -5,7 +5,6 @@
 // as the shipped tokens (ui/src/tokens/tokens.test.ts):
 //   accent >= 4.5:1 on bg, surface, surface-raised and accent-soft;
 //   accent-text >= 4.5:1 on accent and on accent-hover.
-import { brand } from '../tokens/brand.generated.ts';
 import { dark, light } from '../tokens/tokens';
 import { contrast, hexToOklch, mix, normalizeHex, withLightness } from './color';
 
@@ -31,7 +30,8 @@ export interface AccentPreset {
 export const DEFAULT_ACCENT: AccentId = 'onemind';
 
 export const ACCENTS: Record<AccentId, AccentPreset> = {
-  onemind: { id: 'onemind', name: brand.accent.name, light: brand.accent.light.accent, dark: brand.accent.dark.accent },
+  // Direction C: the default accent is Lantern (apricot). OneMind Red stays the logo colour (brand/brand.json).
+  onemind: { id: 'onemind', name: 'Lantern', light: light.accent, dark: dark.accent },
   teal: { id: 'teal', name: 'Teal', light: '#1f6a66', dark: '#6db8b0' },
   lagoon: { id: 'lagoon', name: 'Lagoon', light: '#0b6283', dark: '#6cc0e0' },
   ink: { id: 'ink', name: 'Ink', light: '#34488f', dark: '#a6b6ec' },
@@ -109,6 +109,14 @@ export function deriveAccent(seed: string, theme: ThemeName): DerivedAccent {
 /** Both themes for one preset. */
 export function presetAccent(id: AccentId): Record<ThemeName, DerivedAccent> {
   const p = ACCENTS[id];
+  if (id === 'onemind') {
+    // The default accent is exactly the shipped tokens, so a fresh box looks as designed.
+    const exact = (t: typeof light, theme: ThemeName): DerivedAccent => {
+      const set = { accent: t.accent, hover: t['accent-hover'], text: t['accent-text'], soft: t['accent-soft'] };
+      return { set, requested: t.accent, adjusted: false, ratio: accentWorstRatio(set, theme) };
+    };
+    return { light: exact(light, 'light'), dark: exact(dark, 'dark') };
+  }
   return { light: deriveAccent(p.light, 'light'), dark: deriveAccent(p.dark, 'dark') };
 }
 
