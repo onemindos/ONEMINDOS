@@ -637,4 +637,4 @@ def test_static_adult_cannot_mint_an_unowned_agent_token(idc):
     r = idc.post("/v1/tokens", json=body, headers=ADULT)
     assert r.status_code == 403 and r.json()["error"] == "permission_denied"
     assert idc.post("/v1/tokens", json={"name": "x", "principal": "self"}, headers=ADULT).status_code == 403
-    assert not [t for t in idc.get("/v1/tokens").json() if t["kind"] == "agent"]
+    assert not [t for t in idc.get("/v1/tokens").json() if t["source"] == "api"]
