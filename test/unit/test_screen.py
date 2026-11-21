@@ -67,6 +67,11 @@ class View(unittest.TestCase):
         self.assertIn("onemind.local:8080", text)
         self.assertEqual(url, "http://192.0.2.10:8080/")
 
+    def test_setup_shows_the_one_time_code(self):
+        text = "\n".join(sc.view({**FACTS, "setup_open": True, "setup_code": "12345678"})[1])
+        self.assertIn("Setup code (the page asks for it): 12345678", text)
+        self.assertNotIn("Setup code", "\n".join(sc.view({**FACTS, "setup_open": True})[1]))
+
     def test_a_box_before_anything_answers_is_treated_as_setup(self):
         self.assertEqual(sc.view(FACTS)[0], "FINISH SETUP")
 

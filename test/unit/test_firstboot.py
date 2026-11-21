@@ -5,7 +5,7 @@ The hub tests use the gateway's own box CA and NATS key code (core/onemind_core:
 which needs the `cryptography` package: run them with core's venv, as CI's `unit` job does
 (`uv sync --project core`, then core/.venv/bin/python -I -m unittest ...). Without it they are skipped.
 """
-import contextlib, io, json, os, re, stat, sys, tempfile, threading, unittest, urllib.error, urllib.request
+import contextlib, io, json, os, re, shutil, stat, subprocess, sys, tempfile, threading, unittest, urllib.error, urllib.request
 from unittest import mock
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -623,6 +623,99 @@ class Wizard(Box):
         self.assertIn("Approvals", body)
         self.assertEqual(self.read(self.p.join_code), JOIN + "\n")
         self.assertEqual(json.load(open(self.p.state))["hub_addr"], LAN)
+
+
+class WizardLockdown(Box):
+    """From a device on the LAN the wizard needs the one-time code; after setup it refuses the LAN."""
+
+    def serve(self):
+        setup.Wizard.paths = self.p
+        setup.Wizard.done = threading.Event()
+        srv = setup.ThreadingHTTPServer(("127.0.0.1", 0), setup.Wizard)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        self.addCleanup(srv.shutdown)
+        return f"http://127.0.0.1:{srv.server_address[1]}"
+
+    def lan(self):
+        patcher = mock.patch.object(setup, "is_local", return_value=False)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        setup.Wizard.gate = setup.Gate()
+        return setup.Wizard.gate.new(self.p.run)
+
+    def post(self, base, data):
+        try:
+            return urllib.request.urlopen(base + "/setup", data=data)
+        except urllib.error.HTTPError as e:
+            return e
+
+    def test_lan_needs_the_code_and_the_screen_can_read_it(self):
+        base = self.serve()
+        code = self.lan()
+        f = os.path.join(self.p.run, "setup-code")
+        self.assertEqual(self.read(f).strip(), code)
+        self.assertEqual(os.stat(f).st_mode & 0o777, 0o600)
+        self.assertIn('name="code"', urllib.request.urlopen(base + "/").read().decode())
+        self.assertEqual(self.post(base, b"role=hub&name=Lab").code, 403)
+        wrong = "00000000" if code != "00000000" else "11111111"
+        self.assertEqual(self.post(base, f"role=hub&name=Lab&code={wrong}".encode()).code, 403)
+        self.assertFalse(os.path.exists(self.p.state))
+        self.assertEqual(self.post(base, f"role=worker&code={code}".encode()).code, 400)  # code ok, form bad
+
+    def test_wrong_codes_change_the_code(self):
+        base = self.serve()
+        first = self.lan()
+        for _ in range(setup.MAX_WRONG):
+            self.post(base, b"role=hub&code=x")
+        self.assertNotEqual(self.read(os.path.join(self.p.run, "setup-code")).strip(), first)
+        self.assertEqual(self.post(base, f"role=hub&code={first}".encode()).code, 403)
+
+    def test_lan_is_refused_after_the_owner_exists(self):
+        base = self.serve()
+        code = self.lan()
+        self.put("data/onemind/firstboot/state.json", json.dumps({"role": "hub", "node_id": "n"}))
+        self.assertEqual(self.post(base, f"role=hub&code={code}".encode()).code, 403)
+        for path in ("/", "/healthz"):
+            with self.assertRaises(urllib.error.HTTPError) as e:
+                urllib.request.urlopen(base + path)
+            self.assertEqual(e.exception.code, 403)
+
+    def test_lan_cannot_probe_healthz_before_setup(self):
+        base = self.serve()
+        self.lan()
+        with self.assertRaises(urllib.error.HTTPError) as e:
+            urllib.request.urlopen(base + "/healthz")
+        self.assertEqual(e.exception.code, 403)
+
+    def test_the_box_itself_needs_no_code(self):
+        base = self.serve()
+        self.assertEqual(urllib.request.urlopen(base + "/healthz").read(), b"setup")
+        self.assertNotIn('name="code"', urllib.request.urlopen(base + "/").read().decode())
+
+    def test_is_local(self):
+        for a in ("127.0.0.1", "::1", "::ffff:127.0.0.1"):
+            self.assertTrue(setup.is_local(a), a)
+        for a in ("192.0.2.5", "fe80::1%eth0", "nonsense"):
+            self.assertFalse(setup.is_local(a), a)
+
+
+class WizardUnit(unittest.TestCase):
+    UNIT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "os", "rootfs", "layers",
+                        "onemind", "usr", "lib", "systemd", "system", "onemind-setup.service")
+
+    def test_directives(self):
+        text = open(self.UNIT).read()
+        for d in ("ProtectSystem=strict", "NoNewPrivileges=yes", "SystemCallFilter=@system-service",
+                  "CapabilityBoundingSet=CAP_CHOWN CAP_DAC_OVERRIDE CAP_FOWNER", "MemoryDenyWriteExecute=yes",
+                  "RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX", "ProtectKernelLogs=yes"):
+            self.assertIn(d, text)
+
+    @unittest.skipUnless(shutil.which("systemd-analyze"), "needs systemd-analyze")
+    def test_security_score_is_under_5(self):
+        # --threshold is on the 0..100 exposure scale: 49 = under 5.0 on the 0..10 scale of the table
+        r = subprocess.run(["systemd-analyze", "security", "--offline=true", "--threshold=49",
+                            "--no-pager", self.UNIT], capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
 
 
 if __name__ == "__main__":

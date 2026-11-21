@@ -1,6 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 # Local setup wizard on :8080 (http://onemind.local:8080/). Started by onemind-firstboot only
 # while the box has no role; exits once the owner has picked one. Not enabled in the image.
+# Lockdown (image-security review 07): the LAN needs the one-time code from the box screen, and
+# this unit is sandboxed. It still runs as root because configure() chowns the data tree to the
+# service users; splitting that into a root helper so the web part can be DynamicUser is left.
 [Unit]
 Description=OneMind setup wizard (:8080, until the box has a role)
 RequiresMountsFor=/data /boot/efi
@@ -14,7 +17,27 @@ Restart=on-failure
 RestartSec=3s
 ProtectHome=yes
 PrivateTmp=yes
+PrivateDevices=no
 ProtectKernelTunables=yes
 ProtectKernelModules=yes
+ProtectKernelLogs=yes
 ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+ProcSubset=pid
 NoNewPrivileges=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@mount @debug @swap @reboot @raw-io @obsolete @cpu-emulation
+# chown/chmod need CHOWN, DAC_OVERRIDE, FOWNER; nothing else.
+CapabilityBoundingSet=CAP_CHOWN CAP_DAC_OVERRIDE CAP_FOWNER
+ProtectSystem=strict
+ReadWritePaths=/data /run /boot/efi
+ReadWritePaths=-/etc/hosts

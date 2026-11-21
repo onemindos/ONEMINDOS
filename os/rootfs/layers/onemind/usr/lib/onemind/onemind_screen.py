@@ -228,7 +228,14 @@ def gather(root="/"):
     except (OSError, ValueError):
         pass
     status, body = _get(f"http://127.0.0.1:{PORT}/healthz")
-    return {"host": socket.gethostname(), "addrs": addresses(),
+    code = None
+    if status == 200 and body.strip() == "setup":
+        try:
+            with open(j("run", "onemind", "setup-code")) as f:
+                code = f.read().strip() or None
+        except OSError:
+            pass
+    return {"setup_code": code, "host": socket.gethostname(), "addrs": addresses(),
             "role": state.get("role") if isinstance(state, dict) else None,
             "name": state.get("name") if isinstance(state, dict) else None,
             "setup_open": status == 200 and body.strip() == "setup",
@@ -245,6 +252,7 @@ def view(info):
         lines = ["On a phone or computer on the same network, open:", "",
                  f"   {url}" if url else "   (no network yet: plug in the network cable)",
                  f"   or http://{info['host']}.local:{PORT}/  /  http://onemind.local:{PORT}/", "",
+                 *([f"Setup code (the page asks for it): {info['setup_code']}", ""] if info.get("setup_code") else []),
                  "Choose what this box is. The page then shows your owner token ONCE:",
                  "copy it. It is never shown on this screen."]
     elif role in ("worker", "leaf"):
