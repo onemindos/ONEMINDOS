@@ -38,6 +38,8 @@ export interface OneMindApi extends WiringApi {
   appLogs?(id: string): Promise<string>;
   appDependencies?(id: string): Promise<AppDependencies>;
   appHostPorts?(id: string): Promise<AppHostPorts>;
+  /** Sets the sign-in cookie app hosts accept (POST /v1/auth/app-session). Absent on the mock gateway. */
+  openAppSession?(): Promise<void>;
   sources?(): Promise<CommunitySource[]>;
   /** Files a `source.add` request; it waits in Approvals until the owner approves it. */
   requestSourceAdd?(params: SourceAddParams, key: { idempotency_key: string; expires_at: string }): Promise<Action>;
@@ -236,6 +238,9 @@ export class HttpApi implements OneMindApi {
     const okChoice = (c: AppDependencies['requires'][number]['choices'][number]) => !!c && typeof c.id === 'string' && typeof c.installed === 'boolean' && typeof c.in_catalog === 'boolean';
     if (!Array.isArray(raw.requires) || !Array.isArray(raw.dependents) || raw.requires.some((r) => !r || typeof r.id !== 'string' || !Array.isArray(r.choices) || !r.choices.every(okChoice)) || raw.dependents.some((d) => !d || typeof d.id !== 'string')) throw new ApiError(200, 'unknown', 'Invalid gateway dependencies');
     return raw;
+  }
+  async openAppSession() {
+    await this.req<void>('POST', '/v1/auth/app-session');
   }
   async appHostPorts(id: string) {
     const raw = await this.sdkCall<AppHostPorts>('GET', `/v1/apps/${encodeURIComponent(id)}/host-ports`);

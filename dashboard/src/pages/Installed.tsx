@@ -2,6 +2,8 @@
 import { useParams } from 'react-router';
 import { InstalledList, PageHeader, type InstalledApp, type StoreActionRequest } from '@onemind/ui';
 import { toInstalled } from '../data/adapters';
+import { openAppOrSay } from '../lib/openApp';
+import { useSignedIn } from '../session';
 import { useHub } from '../data/hub';
 import { href } from '../shell/routes';
 import { useShell } from '../shell/Shell';
@@ -11,6 +13,7 @@ import { AppManagement } from './AppManagement';
 export function Installed() {
   const hub = useHub();
   const shell = useShell();
+  const { api } = useSignedIn();
   const { appId } = useParams();
   const state = loadState(hub.apps, hub);
   const checkedAt = hub.asOf ?? new Date(0).toISOString();
@@ -25,7 +28,7 @@ export function Installed() {
   return <>
     <PageHeader title="Installed apps" lede="Open an app or review a lifecycle request. An owner approves every change." />
     <StoreTabs current="installed" />
-    <InstalledList apps={installed} state={state} now={hub.now} manageHref={href.manage} onOpen={(inst) => { if (inst.url) window.open(inst.url, '_blank', 'noopener'); }} onRequest={onRequest} onRetry={hub.reloadAll} />
+    <InstalledList apps={installed} state={state} now={hub.now} manageHref={href.manage} onOpen={(inst) => { if (inst.url) openAppOrSay(api, inst.app.name || inst.app.id, inst.url); }} onRequest={onRequest} onRetry={hub.reloadAll} />
     <p className="om-hint">Removal keeps app data. Deleting data is a separate owner-only operation.</p>
   </>;
 }

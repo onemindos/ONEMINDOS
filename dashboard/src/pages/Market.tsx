@@ -5,7 +5,9 @@
 import { useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { AppDetail, Market as StoreMarket, PageHeader, type Collection, type LoadState } from '@onemind/ui';
-import { toStoreApp } from '../data/adapters';
+import { openUrl, toStoreApp } from '../data/adapters';
+import { openAppOrSay } from '../lib/openApp';
+import { useSignedIn } from '../session';
 import { ActionStatus } from '../shell/ActionJobs';
 import { AppDepth } from './AppDepth';
 import { useHub, type Hub } from '../data/hub';
@@ -56,6 +58,7 @@ export { StoreTabs };
 export function Market() {
   const hub = useHub();
   const shell = useShell();
+  const { api } = useSignedIn();
   const navigate = useNavigate();
   const { appId } = useParams();
   const apps = useMemo(() => (hub.apps.data ?? []).map(toStoreApp), [hub.apps.data]);
@@ -63,7 +66,8 @@ export function Market() {
   const byId = (id: string) => hub.apps.data?.find((a) => a.id === id);
   const open = (id: string) => {
     const a = byId(id);
-    if (a?.installed && a.web_port) window.open(`${window.location.protocol}//${window.location.hostname}:${a.web_port}/`, '_blank', 'noopener');
+    const url = a ? openUrl(a) : undefined;
+    if (a && url) openAppOrSay(api, a.name || a.id, url);
     else navigate(href.manage(id));
   };
   const appJob = hub.actionList.find((a) => a.params.app_id === appId);
