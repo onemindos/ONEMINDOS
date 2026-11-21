@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::Mutex;
 
-const KEYCHAIN_SERVICE: &str = "io.onemind.desktop";
+const KEYCHAIN_SERVICE: &str = "com.onemindos.desktop";
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct SavedBox {
