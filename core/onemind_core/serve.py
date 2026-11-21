@@ -27,7 +27,8 @@ import uvicorn
 
 from .ca import BoxCA
 from .config import Settings
-from .netconf import NetSettings
+from .netconf import MeshSettings, NetSettings
+from .netpath import SCOPE_PATH_KEY, parse_networks
 
 log = logging.getLogger("onemind.serve")
 
@@ -104,6 +105,64 @@ def redirect_app(https_port: int):
     return app
 
 
+TOR_APP_ID = "tor-remote-access"
+# Who may reach the Tor listener: the Tor pod (k3s default pod CIDR, or the flannel gateway address
+# in it), the hub itself, and mesh peers. The home LAN is not in this list.
+TOR_PEER_NETWORKS = parse_networks("127.0.0.0/8,10.42.0.0/16,100.64.0.0/10")
+
+
+def tor_bind_host(settings: Settings) -> str | None:
+    """The one address the plain-HTTP Tor listener binds to: the hub's mesh address, else None.
+
+    That is the address gateway_path() hands the Tor pod (hub.onemind.internal). It is never a
+    wildcard and never a LAN address: this listener is plain HTTP and carries sign-in, so the home
+    Wi-Fi must not be able to reach it (contract sdk/contracts/poc-v0.md section 12.7, H-05).
+    """
+    mesh = settings.section(MeshSettings)
+    if not mesh.enabled or not mesh.hub_ip:
+        return None
+    try:
+        ip = ipaddress.ip_address(mesh.hub_ip)
+    except ValueError:
+        return None
+    if ip.version != 4 or ip not in ipaddress.ip_network("100.64.0.0/10"):
+        return None
+    return str(ip)
+
+
+def pinned_path_app(app, path: str, *, peers=None, enabled=None):
+    """ASGI wrapper: every connection this listener accepts is on `path` (netpath.SCOPE_PATH_KEY).
+
+    peers: networks allowed to connect; any other peer gets 403 (None = no check).
+    enabled: callable; while it returns False the listener answers 503 (the Tor app is not installed).
+    """
+
+    async def deny(scope, send, status: int):
+        if scope["type"] == "http":
+            await send({"type": "http.response.start", "status": status, "headers": [
+                (b"content-length", b"0"), (b"cache-control", b"no-store")]})
+            await send({"type": "http.response.body", "body": b""})
+        else:
+            await send({"type": "websocket.close", "code": 1008})
+
+    async def wrapped(scope, receive, send):
+        if scope["type"] in ("http", "websocket"):
+            if peers is not None:
+                client = scope.get("client")
+                try:
+                    ok = bool(client) and any(ipaddress.ip_address(client[0].split("%", 1)[0]) in n for n in peers)
+                except ValueError:
+                    ok = False
+                if not ok:
+                    return await deny(scope, send, 403)
+            if enabled is not None and not enabled():
+                return await deny(scope, send, 503)
+            scope = {**scope, SCOPE_PATH_KEY: path}
+        await app(scope, receive, send)
+
+    return wrapped
+
+
 def https_cert(settings: Settings, net: NetSettings) -> tuple[str, str]:
     tls_dir = net.tls_dir or settings.audit_path.parent / "tls"
     cert = BoxCA(tls_dir, net.box()).ensure_https_cert()
@@ -122,6 +181,31 @@ async def serve_all(app, settings: Settings) -> None:
     if net.http_redirect_port:
         redirect = _Server(uvicorn.Config(redirect_app(ports[0]), lifespan="off", proxy_headers=False))
         extra.append((redirect, [_bind(net.https_host, net.http_redirect_port)]))
+    if net.tor_port:
+        # Plain HTTP on purpose: the onion address already encrypts and authenticates the link, and
+        # Tor forwards raw TCP, so a TLS listener here would fail the browser's plain request.
+        # Because it is plain HTTP it binds only to the hub's mesh address, never to net.https_host.
+        host = tor_bind_host(settings)
+        sock = None
+        if host is None:
+            log.warning("Tor listener :%s not started: it needs the mesh on with a hub mesh address", net.tor_port)
+        else:
+            try:
+                sock = _bind(host, net.tor_port)
+            except OSError as e:
+                log.warning("Tor listener %s:%s not started: %s", host, net.tor_port, e)
+        if sock is not None:
+            def tor_installed() -> bool:
+                repo = getattr(getattr(app, "state", None), "repo", None)
+                try:
+                    st = repo.get_app_state(TOR_APP_ID) if repo is not None else None
+                except Exception:
+                    return False
+                return bool(st and st.status == "installed")
+
+            tor = _Server(uvicorn.Config(pinned_path_app(app, "tor", peers=TOR_PEER_NETWORKS, enabled=tor_installed),
+                                         lifespan="off", proxy_headers=False))
+            extra.append((tor, [sock]))
     servers = [main] + [s for s, _ in extra]
 
     loop = asyncio.get_running_loop()

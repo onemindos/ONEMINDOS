@@ -74,3 +74,5 @@ test/unit/test_kvm_runner_policy.py	(10\.0\.0\.0|10\.10\.0\.0|172\.16\.0\.0|192\
 scripts/hygiene-allow.tsv	(10\.0\.0\.0|10\.10\.0\.0|172\.16\.0\.0|192\.168\.0\.0|100\.64\.0\.0)	B-FP-12
 # B-FP-13: net-2vm harness private link, not a real network.
 test/net/*	172\.31\.250\.[0-9]+(/24)?	B-FP-13
+core/onemind_core/serve.py	(10\.42\.0\.0|100\.64\.0\.0)	B-FP-9
+core/tests/test_serve_bind.py	(10\.42\.0\.7|100\.64\.0\.1|192\.168\.1\.[0-9]+|10\.0\.0\.5)	B-FP-9
