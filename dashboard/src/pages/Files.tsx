@@ -199,9 +199,9 @@ function Sharing({ api, run, person, roots }: { api: FilesApi; run: Run; person:
       <Load res={reqs} what="Loading requests">{(rows) => rows.length === 0 ? <p>No file requests.</p> : <ul>
         {rows.map((r) => <li key={r.id}><StatusPill tone={r.state === 'awaiting_approval' ? 'warn' : 'neutral'} label={r.state.replace('_', ' ')} /> {r.plan.summary ?? r.type}
           {r.reason ? ` · "${r.reason}"` : ''} · risk {r.risk} · asked by {r.requested_by.id} · expires {when(r.expires_at)}{' '}
-          {r.state === 'awaiting_approval' && (r.requested_by.id === person
-            ? <Button size="sm" variant="secondary" onClick={() => decide(r, 'cancel')}>Cancel request</Button>
-            : <><Button size="sm" aria-label={`Review request ${r.id}`} onClick={() => setDeciding(r)}>Review</Button></>)}</li>)}
+          {r.state === 'awaiting_approval' && <>
+            <Button size="sm" aria-label={`Review request ${r.id}`} onClick={() => setDeciding(r)}>Review</Button>{' '}
+            {r.requested_by.id === person && <Button size="sm" variant="secondary" aria-label={`Cancel request ${r.id}`} onClick={() => decide(r, 'cancel')}>Cancel request</Button>}</>}</li>)}
       </ul>}</Load>
     </Card>
     <Dialog open={form} onClose={() => setForm(false)} title="Request folder access" description="This files a request. The app or agent gets nothing until a person approves it."

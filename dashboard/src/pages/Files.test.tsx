@@ -118,3 +118,15 @@ it('files a grant request with approve=false', async () => {
   await waitFor(() => expect(calls.some((c) => c.method === 'POST' && c.path === '/v1/files/grants')).toBe(true));
   expect(JSON.parse(calls.find((c) => c.method === 'POST')!.body)).toEqual({ subject: { kind: 'app', id: 'photos' }, root: 'home:owner', path: '/', access: 'r', approve: false });
 });
+
+it('lets an owner review and approve a request they filed themselves', async () => {
+  const own = { ...request, requested_by: { id: 'owner', kind: 'person' } };
+  const calls = mount((c) => c.path === '/v1/files/requests' ? json([own]) : c.path.endsWith('/approve') ? json({ ...own, state: 'approved' }) : undefined);
+  const u = userEvent.setup();
+  await u.click(await screen.findByRole('button', { name: 'Sharing' }));
+  expect(await screen.findByRole('button', { name: 'Cancel request frq_1' })).toBeInTheDocument();
+  await u.click(screen.getByRole('button', { name: 'Review request frq_1' }));
+  await u.click(screen.getByRole('button', { name: 'Approve this plan' }));
+  await waitFor(() => expect(calls.find((c) => c.path === '/v1/files/requests/frq_1/approve')).toBeDefined());
+  expect(JSON.parse(calls.find((c) => c.path.endsWith('/approve'))!.body)).toEqual({ plan_sha256: 'sha256:abc' });
+});
