@@ -140,8 +140,6 @@ POLICY |= {
     ("POST", "/v1/auth/totp/setup"): Row(own_credentials(200), w.p_static("/v1/auth/totp/setup"), "§12.6 own credentials", ID, UNAUDITED),
     ("POST", "/v1/auth/totp/confirm"): Row(own_credentials(409), w.p_totp_confirm, "§12.6 own credentials (no setup started: 409)", ID, UNAUDITED),
     ("POST", "/v1/auth/totp/disable"): Row(own_credentials(204), w.p_totp_disable, "§12.6 own credentials", ID, UNAUDITED),
-    ("PATCH", "/v1/me"): Row(grid(200, 200, 200, 200, 403), w.p_missing("/v1/me", json={"display_name": "Probe"}),
-                             "a person sets only their own display name; display text, grants nothing", ID),
     ("GET", "/v1/me"): Row(SIGNED_IN, w.p_static("/v1/me"), "§12.6 any principal", ID),
     ("GET", "/v1/users"): Row(ACCOUNT_ADMIN, w.p_static("/v1/users"), "§12.6 users:read is owner only", ID),
     ("POST", "/v1/users"): Row(cells(403, **GONE, owner=201, **PENDING_DENY), w.p_user_create, "§12.6 owner", ID),
@@ -368,6 +366,8 @@ POLICY |= {
                                 "desktop-ui.md 4.3: a person reads only their own Home; agents have none"),
     ("PUT", "/v1/me/home"): Row(grid(428, 428, 428, 428, 403), w.p_missing("/v1/me/home", json={}),
                                 "desktop-ui.md 4.3: a person writes only their own Home; If-Match is required"),
+    ("PATCH", "/v1/me"): Row(grid(200, 200, 200, 200, 403), w.p_missing("/v1/me", json={"display_name": "Probe"}),
+                             "a person sets only their own display name; display text, grants nothing", ID),
     # ---- apps, plans, databases -----------------------------------------------------------------------------
     ("GET", "/v1/databases"): Row(OWNER_ADULT, w.p_static("/v1/databases"), "owner and adult list databases; never a password"),
     ("GET", "/v1/apps/{app_id}/credentials"): Row(OWNER_ONLY_404, w.p_static(f"/v1/apps/{w.TARGET_APP}/credentials"),
