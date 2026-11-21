@@ -166,6 +166,12 @@ describe('Jobs', () => {
     await u.click(screen.getByRole('button', { name: 'Dismiss Grafana' }));
     expect(onDismiss).toHaveBeenCalledWith('act-33d0');
   });
+  it('tray pill carries a status glyph shape, not the removed ring', () => {
+    render(<JobsTray jobs={jobs} now={NOW} />);
+    const pill = screen.getByRole('button', { name: /2 jobs/ });
+    expect(pill.querySelector('svg.om-store-tray-glyph')).not.toBeNull();
+    expect(pill.querySelector('.om-store-tray-ring')).toBeNull();
+  });
 });
 
 describe('Installed', () => {

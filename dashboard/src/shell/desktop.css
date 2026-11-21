@@ -158,7 +158,8 @@
 .dsk-dock-item > :first-child { transition: transform 160ms var(--dsk-ease); transform-origin: bottom center; }
 .dsk-dock-item:hover > :first-child, .dsk-dock-item:focus-visible > :first-child { transform: translateY(-6px) scale(1.14); }
 .dsk-dock-label { font-size: 11px; line-height: 1.1; color: var(--om-color-text-muted); white-space: nowrap; max-width: 76px; overflow: hidden; text-overflow: ellipsis; }
-.dsk-dock-item[aria-current='page'] .dsk-dock-label { color: var(--om-color-text); font-weight: var(--om-font-weight-semibold); }
+/* The active label changes colour, never weight: a bolder label is wider and would shift the whole row. */
+.dsk-dock-item[aria-current='page'] .dsk-dock-label { color: var(--om-color-text); }
 .dsk-dock-item[aria-current='page']::after {
   content: ''; position: absolute; bottom: 1px; width: 5px; height: 5px; border-radius: 50%; background: var(--om-color-text);
 }
@@ -306,12 +307,19 @@ html { scroll-padding-bottom: calc(var(--dsk-dock-h, 84px) + var(--om-space-6));
   .dsk-window-body .dash-tabs a, .dash-tabs a { min-height: 44px; }
   .dsk-window-body .dash-tabs { border-radius: var(--om-radius-lg); }
   /* The dock names every icon, at 12 px: a bare icon hides what it opens. */
-  .dsk-dock { padding: 6px 8px; }
-  .dsk-dock-item { min-width: 56px; min-height: 64px; padding: 2px 2px 6px; }
-  .dsk-dock-label { position: static; width: auto; height: auto; overflow: hidden; clip: auto; white-space: nowrap; font-size: 12px; line-height: 1.15; max-width: 68px; letter-spacing: -0.01em; }
+  .dsk-dock { padding: 6px 4px; }
+  .dsk-dock-group { gap: 0; }
+  .dsk-dock-item { width: 58px; min-width: 58px; min-height: 64px; padding: 2px 0 6px; }
+  .dsk-dock-label { position: static; width: auto; height: auto; overflow: hidden; clip: auto; white-space: nowrap; font-size: 12px; line-height: 1.15; max-width: 100%; text-align: center; letter-spacing: -0.02em; }
   .dsk-dock-sep { height: 44px; }
   .dsk-badge { right: 2px; }
   /* The jobs tray spans the phone between 12 px margins, above the dock. Its old right:50% + translate form pushed
      the layout viewport wider than the phone, which also pushed the dock off screen. */
   .dash-desktop .om-store-tray, .om-store-tray { left: var(--om-space-3); right: var(--om-space-3); transform: none; width: auto; align-items: center; bottom: calc(var(--dsk-dock-h) + var(--om-space-3)); }
+  /* The dock floats over a short fade of the page background, so content never shows raw under the gap. */
+  .dsk:not(:has(.dsk-launchpad))::after {
+    content: ''; position: fixed; left: 0; right: 0; bottom: 0; height: calc(var(--dsk-dock-h) + var(--om-space-2));
+    background: linear-gradient(to bottom, transparent, var(--om-color-bg, Canvas) 70%);
+    pointer-events: none; z-index: calc(var(--om-z-nav) - 1);
+  }
 }

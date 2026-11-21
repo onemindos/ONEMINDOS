@@ -41,6 +41,8 @@ describe('phone layout in CSS', () => {
     expect(phone).toMatch(/\.dash-tabs a \{ min-height: 44px; \}/);
   });
   it('shows the dock labels at 12 px on phones instead of hiding them', () => {
+    expect(phone).toMatch(/\.dsk-dock-item \{ width: 58px;/);
+    expect(desktop).not.toMatch(/aria-current='page'\] \.dsk-dock-label \{[^}]*font-weight/);
     expect(phone).toMatch(/\.dsk-dock-label \{ position: static;[^}]*font-size: 12px/);
   });
   it('the shared chip, icon button and small button are 44 px on phones', () => {
