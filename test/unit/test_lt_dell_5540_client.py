@@ -20,7 +20,7 @@ class Probe(unittest.TestCase):
             with open(p, "w") as f: f.write(body)
             os.chmod(p, 0o755)
         self.env = dict(os.environ, PATH=self.bin + ":" + os.environ["PATH"], STATE=self.d, OUT=self.d,
-                        HUB="http://" + FAKE_IP + ":8080", INTERVAL="0", COUNT="6")
+                        HUB="https://" + FAKE_IP + ":8443", INTERVAL="0", COUNT="6")
         self.setwifi("no")
 
     def setwifi(self, v):

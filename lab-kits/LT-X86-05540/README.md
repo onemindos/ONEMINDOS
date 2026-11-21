@@ -27,11 +27,11 @@
 2. A live image may lack the helpers. Install them (needs the internet): `sudo apt-get update && sudo apt-get install -y curl rfkill network-manager v4l-utils pulseaudio-utils`. `wireplumber` (gives `wpctl`) is fine instead of `pulseaudio-utils` if the image runs PipeWire. The probe prints "missing" for any tool it lacks, so a "missing" line means install it, not a fail.
 3. Check: `sh lab-kits/LT-X86-05540/client-probe.sh snapshot start` runs and writes `./snap-start.txt`. Snapshot files live in the live session's RAM; copy them to the second stick before you power off.
 
-Set `export HUB=http://<hub-ip>:8080` on Leg L. Take a snapshot at every stage: `sh lab-kits/LT-X86-05540/client-probe.sh snapshot NAME`. It is read-only, redacted, and written to `./snap-NAME.txt`. Compare two with `... compare A B`.
+Set `export HUB=https://<hub-ip>:8443` on Leg L. Since H-05 the hub's plain HTTP `:8080` listens on loopback only, so a LAN client must use HTTPS (`:443` or `:8443`) with the box CA. Copy the box CA from the hub (`/var/lib/onemind/tls/ca.crt`, public part only) to the laptop and `export HUB_CA=<path>/ca.crt`. The hub certificate has DNS names (for example `onemind.local`) and no LAN IP, so verifying an IP URL fails the name check: either use `HUB=https://onemind.local:8443` with `HUB_CA`, or leave `HUB_CA` unset and the probe uses `curl -k` (fine for "is it up", it sends nothing secret; do not use `-k` for anything else). Take a snapshot at every stage: `sh lab-kits/LT-X86-05540/client-probe.sh snapshot NAME`. It is read-only, redacted, and written to `./snap-NAME.txt`. Compare two with `... compare A B`.
 
 ### 1. Pair with the hub (both legs)
-1. Leg W: install and open the tray app, let it find the hub (mDNS) or type `<hub-ip>:8080`, paste the owner token. Expect the status card to show nodes online and "Live".
-2. Leg L: `curl -s $HUB/healthz` prints ok. Then in Firefox or Chromium open `$HUB` and sign in.
+1. Leg W: install and open the tray app, let it find the hub (mDNS) or type `<hub-ip>:8443` (HTTPS; trust the box CA on the laptop first, plain `:8080` is loopback-only on the hub), paste the owner token. Expect the status card to show nodes online and "Live".
+2. Leg L: `curl -s --cacert "$HUB_CA" $HUB/healthz` prints ok (no CA yet: `curl -sk $HUB/healthz`, for this check only). Then in Firefox or Chromium open `$HUB` and sign in.
 3. Fail if: pairing needs a retry, the token ends up in a plain file (Leg W stores it in Windows Credential Manager), or the status card shows green for something marked "not reported yet".
 
 ### 2. Dashboard and desktop app

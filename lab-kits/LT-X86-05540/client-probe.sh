@@ -5,7 +5,9 @@
 #   sh client-probe.sh snapshot LABEL      write snap-LABEL.txt (radios, audio, camera, displays, battery, sleep count, hub)
 #   sh client-probe.sh compare A B         show what changed between two snapshots (snap-A.txt, snap-B.txt)
 #   sh client-probe.sh wan-watch           poll the hub, log UP/DOWN transitions with seconds since start
-# Environment: HUB=http://<hub-ip>:8080 (required for hub lines and wan-watch), OUT=dir (default .),
+# Environment: HUB=https://<hub-ip>:8443 (required for hub lines and wan-watch; plain HTTP :8080 is loopback-only
+# on the hub since H-05, so a LAN client cannot use it), HUB_CA=path to the box CA (ca.crt) to verify the hub
+# (if unset the probe uses curl -k: it only asks "is it up", GET /healthz, and sends nothing secret), OUT=dir (default .),
 # COUNT=polls for wan-watch (default 120), INTERVAL=seconds between polls (default 5).
 set -eu
 HERE=$(cd "$(dirname "$0")" && pwd)
@@ -17,7 +19,9 @@ redact() { sh "$HERE/../common/redact.sh"; }
 hub_state() {
   [ -n "${HUB:-}" ] || { echo "hub: HUB not set"; return 0; }
   have curl || { echo "hub: curl missing"; return 0; }
-  if curl -fsS -m 3 -o /dev/null "$HUB/healthz" 2>/dev/null; then echo "hub: UP"; else echo "hub: DOWN"; fi
+  # -k only when no CA is given: the hub certificate has DNS names, not the LAN IP, so verifying an IP URL fails
+  if [ -n "${HUB_CA:-}" ]; then set -- --cacert "$HUB_CA"; else set -- -k; fi
+  if curl -fsS "$@" -m 3 -o /dev/null "$HUB/healthz" 2>/dev/null; then echo "hub: UP"; else echo "hub: DOWN"; fi
 }
 
 snapshot_body() {
@@ -68,7 +72,7 @@ case "${1:-}" in
     rm -f "$ta" "$tb"
     ;;
   wan-watch)
-    [ -n "${HUB:-}" ] || { echo "set HUB=http://<hub-ip>:8080" >&2; exit 2; }
+    [ -n "${HUB:-}" ] || { echo "set HUB=https://<hub-ip>:8443" >&2; exit 2; }
     count=${COUNT:-120}; interval=${INTERVAL:-5}; prev=""; i=0
     while [ "$i" -lt "$count" ]; do
       cur=$(hub_state | sed 's/^hub: //')
