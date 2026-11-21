@@ -151,7 +151,11 @@ jobs:
           PW_OUTPUT: ${{ runner.temp }}/base-results
           PW_GITHUB: '0'
         # A screen that fails to draw on the base gets no reference; the PR's run then lists it as changed.
-        run: npx playwright test --project="$BROWSER" --grep @visual --update-snapshots=all || echo "::warning::some base screenshots could not be drawn"
+        # A screen that fails once (WebKit sometimes gives no stable frame) is drawn again, alone, before it is given up.
+        run: |
+          npx playwright test --project="$BROWSER" --grep @visual --update-snapshots=all \
+            || npx playwright test --project="$BROWSER" --grep @visual --update-snapshots=all --last-failed \
+            || echo "::warning::some base screenshots could not be drawn"
       - name: Compare the PR with the base
         if: ${{ !cancelled() && env.COMPARE == 'true' }}
         env:
