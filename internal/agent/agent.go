@@ -54,17 +54,14 @@ type Config struct {
 	// BackupReport, when set, supplies the optional "backup" object (read
 	// from the backup agent's state file). nil = omit.
 	BackupReport func() *heartbeat.Backup
-<<<<<<< HEAD
 	// ImagesReport, when set, supplies the optional "images" object (read
 	// from the image cleaner's report file, NMD-08). nil = omit.
 	ImagesReport func() *heartbeat.Images
-=======
 	// Durable turns on store-and-forward node events: POST /api/v1/events and a heartbeat of
 	// record every RecordEvery go into the leaf outbox (events.go). It needs the NATS URL to be
 	// the local leaf (JetStream with the outbox stream).
 	Durable     bool
 	RecordEvery time.Duration // default 5 min
->>>>>>> e8bbd4d58bcc399d06dd5d2f5924a545ca1c4313
 	// Mounts adds optional services' HTTP APIs under their path prefix (service.Mounts).
 	Mounts map[string]http.Handler
 }
