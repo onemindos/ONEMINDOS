@@ -147,7 +147,7 @@ export function HubProvider({ children }: { children: ReactNode }) {
     async (id: string, how: 'approve' | 'deny') => {
       setBusy((b) => new Set(b).add(id));
       try {
-        const a = how === 'approve' ? await api.approve(id) : await api.deny(id);
+        const a = how === 'approve' ? await api.approve(id, actionList.find((x) => x.id === id)?.plan_sha256) : await api.deny(id);
         setFollowed((f) => ({ ...f, [a.id]: a }));
         void reloadActions();
         void reloadApps();
@@ -164,7 +164,7 @@ export function HubProvider({ children }: { children: ReactNode }) {
         });
       }
     },
-    [api, reloadActions, reloadApps, markForbidden],
+    [api, actionList, reloadActions, reloadApps, markForbidden],
   );
 
   // When a followed action ends, refresh the catalog once so "installed" shows at once.

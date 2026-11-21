@@ -45,7 +45,7 @@ export interface OneMindApi extends WiringApi {
   createAction(req: ActionRequest): Promise<Action>;
   actions(): Promise<Action[]>;
   action(id: string): Promise<Action>;
-  approve(id: string): Promise<Action>;
+  approve(id: string, planSha256?: string): Promise<Action>;
   deny(id: string): Promise<Action>;
   /** Hub clock minus browser clock (ms), learned from responses; undefined until known. */
   hubOffsetMs(): number | undefined;
@@ -267,8 +267,9 @@ export class HttpApi implements OneMindApi {
   action(id: string) {
     return this.req<Action>('GET', `/v1/actions/${encodeURIComponent(id)}`);
   }
-  approve(id: string) {
-    return this.req<Action>('POST', `/v1/actions/${encodeURIComponent(id)}/approve`);
+  /** Pass the card's plan_sha256 so the approval is bound to the plan the owner read (§12.4); a tainted agent request needs it. */
+  approve(id: string, planSha256?: string) {
+    return this.req<Action>('POST', `/v1/actions/${encodeURIComponent(id)}/approve`, planSha256 ? { plan_sha256: planSha256 } : undefined);
   }
   deny(id: string) {
     return this.req<Action>('POST', `/v1/actions/${encodeURIComponent(id)}/deny`);

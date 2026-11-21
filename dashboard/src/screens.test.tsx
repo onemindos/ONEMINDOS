@@ -3,7 +3,8 @@
 // request → approval → live progress → installed loop, roles, honest stale and "coming" states.
 import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { MockApi } from './api/mock';
 import { renderApp, seriousViolations } from './test/helpers';
 
 const T = { timeout: 4000 };
@@ -88,6 +89,26 @@ describe('Approvals', () => {
     expect(await screen.findByText('Could not approve', {}, T)).toBeInTheDocument();
     await waitFor(() => screen.getAllByRole('button', { name: /^Approve/ }).forEach((b) => expect(b).toBeDisabled()), T);
     expect((await getApi().action('act-0001')).state).toBe('awaiting_approval');
+  });
+
+  it('the Approve button sends the card plan fingerprint (needed for tainted agent requests)', async () => {
+    const u = userEvent.setup();
+    const real = MockApi.prototype.actions;
+    const listed = vi.spyOn(MockApi.prototype, 'actions').mockImplementation(async function (this: MockApi) {
+      return (await real.call(this)).map((x) => ({ ...x, plan_sha256: `sha256:card-${x.id}` }));
+    });
+    const approve = vi.spyOn(MockApi.prototype, 'approve');
+    try {
+      renderApp({ token: 'owner-demo', route: '/approvals' });
+      const [first] = await screen.findAllByRole('button', { name: /^Approve/ }, T);
+      await u.click(first!);
+      await waitFor(() => expect(approve).toHaveBeenCalled(), T);
+      const [id, sha] = approve.mock.calls[0]!;
+      expect(sha).toBe(`sha256:card-${id}`);
+    } finally {
+      listed.mockRestore();
+      approve.mockRestore();
+    }
   });
 
   it('passes axe', async () => {
