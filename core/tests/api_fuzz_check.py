@@ -155,10 +155,10 @@ def prepare(gateway: str, config: Path) -> int:
         'expected-statuses = [400, 401, 403, 404, 405, 406, 409, 413, 415, 422, 428, 429, "5xx"]\n'
         '\n[checks.positive_data_acceptance]\n'
         'expected-statuses = ["2xx", "3xx", 401, 403, 404, 409, 413, 422, 429, "5xx"]\n'
-        # The backup routes answer 503 `unavailable` when the feature is off or its agent is down (§12.2),
+        # The backup routes (the first-run restore wizard step included) answer 503 `unavailable` when the feature is off or its agent is down (§12.2),
         # which is documented. unavailable_is_the_documented_envelope pins the exact envelope and the
         # routes, so any other 5xx anywhere, and any 503 elsewhere, still fails.
-        '\n[[operations]]\ninclude-path-regex = "^/v1/(backups|restores)"\n'
+        '\n[[operations]]\ninclude-path-regex = "^/v1/(backups|restores|onboarding/restore)"\n'
         '[operations.checks.not_a_server_error]\n'
         'expected-statuses = ["2xx", "3xx", "4xx", 503]\n'
         # tus: a missing or wrong Tus-Resumable is the protocol's 412 (and a wrong PATCH content type its
