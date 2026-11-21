@@ -1,0 +1,5 @@
+---
+pr: pending
+branch: claude/145-restore-first-run
+---
+Second slice of UMB-P08: an app's data can now be restored from another box's backup, the move to new hardware. The owner-only route POST /v1/onboarding/restore/apps takes the backup destination, the old box id, the backup run and the owner recovery key from the kit, and files the ordinary approved backup.restore action for an app already installed on the new box (undo snapshot, stop, swap, start, health gate, roll back). The recovery key is held in gateway memory for that one action only: it is not in the action, the audit log, the database or any response, and if the gateway restarts before approval the restore fails safely with nothing changed. The backup agent's restore job accepts the old box id and key for app restores and opens the old repository with a temporary 0600 key file that is removed afterwards. Not done yet: the wizard screen, installing the apps for the user, whole-box restore, drain a node, stuck-app Repair and the VM test.

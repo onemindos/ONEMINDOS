@@ -17,6 +17,7 @@ import re
 import secrets
 import threading
 from collections import deque
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
@@ -57,7 +58,7 @@ from .settings import IdentitySettings
 
 log = logging.getLogger("onemind.identity")
 
-PERSON_ROLES = ("owner", "adult", "guest", "child")
+PERSON_ROLES = ("owner", "adult", "guest", "child", "teen")
 USERNAME_RE = re.compile(r"[a-z][a-z0-9._-]{1,31}")
 AGENT_ID_RE = re.compile(r"agent:[a-z0-9][a-z0-9._-]{0,62}")
 CSRF_HEADER = "onemind-csrf"
@@ -131,6 +132,8 @@ class IdentityService:
         self.gw = gw
         self.cfg = gw.settings.section(IdentitySettings)
         self.repo = IdentityRepository(gw.db)
+        # Features that give a new or re-roled person starting data (FAM-01 age presets): (user_id, role, actor).
+        self.role_hooks: list[Callable[[str, str, Principal], None]] = []
         self.limiter = FailureLimiter(self.cfg.login_failures_per_min, timedelta(minutes=self.cfg.lockout_minutes))
         secure = self.cfg.cookie_secure
         # __Host- cookies must be Secure, path=/ and host-only: they cannot be set by a sibling name.
@@ -205,6 +208,37 @@ class IdentityService:
             return None
         if ctx is None:
             return None
+        if ctx.principal.kind == "plugin":
+            # Installation-owned plugins never inherit static-v0 access, self-service
+            # exceptions or the generic scope table's broad route trees.
+            from ..plugins.auth import allows_read, allows_request, plugin_app_id, request_types
+            from ..plugins.auth import allows_own_action_read
+            from ..plugins.principal import PluginPrincipal
+
+            app_id = plugin_app_id(ctx.principal.id)
+            state = self.gw.repo.get_app_state(app_id) if app_id else None
+            row = ctx.token
+            policy = dict(method=request.method, path=request.url.path, principal_id=ctx.principal.id,
+                          source=row.source if row else "", scopes=row.scopes if row else None,
+                          app_status=state.status if state else None,
+                          operation_id=getattr(request.scope.get("route"), "operation_id", None))
+            if allows_request(**policy):
+                # Preserve the owning person's effective cap without ever adding the
+                # broad actions:request scope. The service checks the body type before
+                # either filing or returning an idempotent replay.
+                exact = request_types(list(ctx.scopes))
+                if not exact:
+                    raise self.deny(ctx.principal, "request actions", reason="plugin_policy")
+                ctx.principal = PluginPrincipal(ctx.principal.id, "plugin", "plugin", exact)
+                request.state.identity = ctx
+                return ctx.principal
+            if allows_own_action_read(**policy):
+                if "actions:read:own" not in ctx.scopes:
+                    raise self.deny(ctx.principal, "read own actions", reason="plugin_policy")
+                request.state.identity = ctx
+                return ctx.principal
+            if not allows_read(**policy):
+                raise self.deny(ctx.principal, f"{request.method} {request.url.path}", reason="plugin_policy")
         required = sc.required_scopes(request.method, request.url.path)
         if required is not None and not sc.has_any(ctx.scopes, required):
             raise self.deny(ctx.principal, f"{request.method} {request.url.path}",
@@ -281,7 +315,13 @@ class IdentityService:
             principal = self.principal_for(owner)
         else:
             principal = Principal(id=t.principal_id, kind=t.kind, role=t.kind)
-        granted = frozenset(s for s in t.scopes if sc.allowed_for_kind(s, t.kind))
+        if t.kind == "plugin":
+            # The plugin policy checks the original snapshot and rejects malformed
+            # JSON. Do not let generic scope parsing fail before that denial.
+            raw = t.scopes if isinstance(t.scopes, list) else []
+            granted = frozenset(s for s in raw if isinstance(s, str))
+        else:
+            granted = frozenset(s for s in t.scopes if sc.allowed_for_kind(s, t.kind))
         if owner is not None and self.cfg.enforce_role_scopes:  # never beyond the owning person today
             cap = sc.role_scopes(owner.role)
             granted = frozenset(s for s in granted if sc.within(s, cap) or (s == sc.ALL and sc.ALL in cap))
@@ -720,6 +760,8 @@ class IdentityService:
                     created_at=now, updated_at=now, created_by=p.id)
         self.repo.add(u)
         self.emit("user", "created", {"user_id": u.id, "role": u.role, "step_up": via}, p)
+        for hook in self.role_hooks:
+            hook(u.id, u.role, p)
         base = (self.gw.settings.public_url or str(request.base_url)).rstrip("/")
         return {**self.user_json(u), "one_time": {"enrolment_code": code, "enrolment_url": f"{base}/signin#enrol={code}",
                                                   "expires_at": iso(now + ENROL_TTL)}}
@@ -745,6 +787,9 @@ class IdentityService:
         changed = sorted(k for k in values if k != "updated_at")
         self.emit("user", "updated", {"user_id": u.id, "changed": changed, "role": values.get("role", u.role),
                                       "step_up": via}, p)
+        if "role" in values:
+            for hook in self.role_hooks:
+                hook(u.id, values["role"], p)
         return self.user_json(self.user(u.id))
 
     def disable_user(self, p: Principal, user_id: str) -> dict:
@@ -865,6 +910,8 @@ class IdentityService:
 
     def rotate_token(self, ctx: AuthContext | None, p: Principal, token_id: str, grace_s: int) -> dict:
         t = self._token_for_write(ctx, p, token_id, "rotate tokens")
+        if t.kind == "plugin" and t.source == "app-install":
+            raise self.deny(p, "rotate an installation-managed plugin token", token_id=t.id)
         uid = ctx.user.id if ctx and ctx.user else None
         if t.owner_user_id is not None and t.owner_user_id != uid:
             # Rotation hands out the new secret: an owner may revoke another person's token, but not

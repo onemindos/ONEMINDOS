@@ -66,7 +66,7 @@ from websockets.exceptions import ConnectionClosed, InvalidHandshake, InvalidSta
 from .auth import Principal, TokenStore
 from .catalog import APP_ID_RE, Catalog
 from .errors import ApiError
-from .netpath import NetPath, PathClassifier, tier_admits
+from .netpath import EDGE_PATHS, SCOPE_PATH_KEY, NetPath, PathClassifier, tier_admits
 
 log = logging.getLogger("onemind.proxy")
 
@@ -264,7 +264,7 @@ def allowed(principal: Principal, access: str) -> bool:
         return principal.role == "owner"
     if access == "adults":
         return principal.role in ("owner", "adult")
-    return principal.role in ("owner", "adult", "guest")
+    return principal.role in ("owner", "adult", "guest", "child", "teen")
 
 
 def parse_cookies(header: str) -> dict[str, str]:
@@ -387,6 +387,9 @@ class AppProxy:
         """The path this connection came by (unknown when no classifier is set: nothing is enforced)."""
         if self.classify is None:
             return "unknown"
+        pinned = scope.get(SCOPE_PATH_KEY)  # set by the listener itself (the Tor listener), never by a client
+        if pinned in EDGE_PATHS:
+            return pinned
         client = scope.get("client")
         return self.classify(client[0] if client else None, headers)
 

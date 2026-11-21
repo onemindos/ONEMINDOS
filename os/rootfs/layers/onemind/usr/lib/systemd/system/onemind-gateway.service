@@ -4,9 +4,13 @@
 # (/usr/lib/onemind/gateway); its database, audit log, tokens, kubeconfig and box CA (tls/) live in
 # /data/onemind/gateway. It also reads its NATS seed (/data/onemind/nats/keys/gateway.nk) and its
 # Headscale API key (/data/onemind/etc/headscale.key), both 0600 and owned by onemind.
+# Host actions (restart, shut down, OS install; #146, #142): after an owner approves one, the gateway
+# connects to /run/onemind/host.sock (onemind-host.socket, mode 0660 root:onemind) as user onemind and
+# sends the approved action id. The unit needs nothing else for that: AF_UNIX is allowed below, the
+# socket's folder is 0711, and connecting to a socket works under ProtectSystem=strict. Never PrivateNetwork.
 [Unit]
 Description=OneMind Core gateway (HTTPS :443/:8443, local HTTP :8080)
-After=network-online.target onemind-firstboot.service onemind-nats.service
+After=network-online.target onemind-firstboot.service onemind-nats.service onemind-host.socket
 Wants=network-online.target onemind-nats.service
 RequiresMountsFor=/data
 ConditionPathExists=/data/onemind/etc/gateway.env
@@ -18,6 +22,7 @@ Group=onemind
 EnvironmentFile=/data/onemind/etc/gateway.env
 Environment=HOME=/data/onemind/gateway PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
 WorkingDirectory=/data/onemind/gateway
+ExecStartPre=+/usr/bin/install -d -o onemind -g onemind -m 0755 /data/onemind/kiosk
 ExecStart=/usr/lib/onemind/gateway/venv/bin/python3 -m onemind_core
 Restart=always
 RestartSec=3s
@@ -26,7 +31,8 @@ NoNewPrivileges=yes
 CapabilityBoundingSet=CAP_NET_BIND_SERVICE
 AmbientCapabilities=CAP_NET_BIND_SERVICE
 ProtectSystem=strict
-ReadWritePaths=/data/onemind/gateway
+# /data/onemind/kiosk holds only the kiosk flag file the owner switches over the API (UX-07, #242).
+ReadWritePaths=/data/onemind/gateway -/data/onemind/kiosk
 ProtectHome=yes
 PrivateTmp=yes
 PrivateDevices=yes

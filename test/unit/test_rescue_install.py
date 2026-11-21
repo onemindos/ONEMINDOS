@@ -136,5 +136,28 @@ class FirstBoot(unittest.TestCase):
                 fb.start_units(p, {"role": "hub", "mesh": 1})      # must not raise
 
 
+class BatteryF10(unittest.TestCase):
+    """The first-boot battery proves the live answers (CRITERIA-FIRSTBOOT.md section 6); here, only that it is
+    pre-registered, hash-recorded and wired in. The QEMU run itself is CI's `image` and `battery` workflows."""
+    QEMU = os.path.join(ROOT, "test", "qemu")
+    FB = open(os.path.join(QEMU, "firstboot.py")).read()
+
+    def test_criteria_hash_is_the_last_recorded_for_the_file(self):
+        import hashlib
+        crit = open(os.path.join(self.QEMU, "CRITERIA-FIRSTBOOT.md"), "rb").read()
+        lines = [l.split() for l in open(os.path.join(self.QEMU, "PREREGISTRATION.sha256")) if "CRITERIA-FIRSTBOOT.md" in l]
+        self.assertEqual(lines[-1][0], hashlib.sha256(crit).hexdigest(), "append the new hash when the criteria change")
+        self.assertIn("| F10 |", crit.decode())
+
+    def test_f10_runs_after_f9_with_k3s_stopped_and_judges_401_and_200(self):
+        body = self.FB[self.FB.index("def f10("):self.FB.index("def main(")]
+        for needle in ("systemctl stop k3s", "systemctl start k3s", ":7443", "Bearer", "/data/onemind/identity/ca.pem",
+                       'g("NOAUTH") == "401"', 'g("WITH") == "200"', 'record("F10"'):
+            self.assertIn(needle, body)
+        main = self.FB[self.FB.index("def main("):]
+        self.assertLess(main.index("f9(vm)"), main.index("f10(vm, token)"))
+        self.assertLess(main.index("f10(vm, token)"), main.index('vm.mark("F3 reboot keeps state")'))
+
+
 if __name__ == "__main__":
     unittest.main()

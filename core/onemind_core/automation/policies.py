@@ -16,7 +16,7 @@ Hard limits, checked when it is created and again on every match:
 - `per_day` is counted in the database over the last 24 hours, so a restart keeps the count;
 - with a window, it approves only while the window is open;
 - `app.update` (F-6) needs a window and matches only a patch update of a `verified` app whose
-  scan passes.
+  scan passes, and that the owner's update policy does not hold back (updatepolicy.py, #132).
 
 Evaluation order is deterministic: kill switch, risk, then every live policy that matches, most
 specific first (most constrained parameters, then oldest), and the first with room left wins.
@@ -168,9 +168,12 @@ class PolicyService:
         self.catalog = catalog
         self.clock = clock
         self.box_tz = box_tz
-        # F-6 needs the version an app runs now. Until the deployments stream reports it
-        # (CORE-DEPLOY-3 revisions), nothing is known and app.update always waits for a person.
+        # F-6 needs the version an app runs now (app_runtime, recorded by app.install and
+        # app.update). Unknown means app.update always waits for a person.
         self.installed_version = installed_version or (lambda _app_id: None)
+        # NMD-07 (#132): the owner's update policy (cool-off, same major, back-off) may hold an
+        # update back; fn(params, at) -> reason or None. It never approves anything.
+        self.update_gate: Callable[[dict, datetime], str | None] = lambda _params, _at: None
 
     # ---- windows -------------------------------------------------------------------------------
     def window_is_open(self, window_id: str | None, at: datetime) -> bool:
@@ -262,7 +265,7 @@ class PolicyService:
             return "scan_not_passing"
         if update_kind(self.installed_version(app.id), params.get("to_version")) != "patch":
             return "not_a_patch_update"
-        return None
+        return self.update_gate(params, at)
 
     def candidates(self, action_type: str, params: dict, requested_by: dict, at: datetime,
                    paused: bool) -> tuple[list[dict], str]:

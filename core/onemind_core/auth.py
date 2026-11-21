@@ -26,10 +26,12 @@ from pathlib import Path
 
 import yaml
 
+from .filesig import cache_signature
+
 log = logging.getLogger("onemind.auth")
 
 KINDS = {"person", "agent"}
-ROLES = {"owner", "adult", "guest", "child", "agent"}
+ROLES = {"owner", "adult", "guest", "child", "teen", "agent"}
 
 
 @dataclass(frozen=True)
@@ -50,6 +52,10 @@ class Principal:
     def can_request_actions(self) -> bool:
         # Contract §12.1: an automation rule requests as automation:<rule-id> and never approves.
         return self.is_owner or (self.kind, self.role) in (("agent", "agent"), ("automation", "automation"))
+
+    def may_request_action(self, action_type: str) -> bool:
+        """Actor-bound type authorization; restricted principals override this."""
+        return self.can_request_actions
 
 
 def _hash(token: str) -> str:
@@ -112,12 +118,20 @@ def parse_tokens(doc: object) -> dict[str, Principal]:
 
 
 class TokenStore:
-    """Loads the tokens file and reloads it when its mtime changes."""
+    """Loads the tokens file and reloads it when it changes.
+
+    "Changed" is decided by filesig.cache_signature (#363): the stat signature is trusted only once
+    the file's ctime is at least 2 s old. Until then the file is read again on every lookup, because
+    a same-size rewrite in the same clock tick (revoking a token, say) leaves mtime, ctime, size and
+    inode unchanged, and an mtime-only check would keep serving the revoked token.
+    """
 
     def __init__(self, path: Path | None):
         self.path = path
         self._lock = threading.Lock()
-        self._mtime: float | None = None
+        self._sig: tuple | None = None  # signature of the file last read, when it was trustworthy
+        self._text: str | None = None  # the text last read, so a re-read of the same text is free
+        self._readable = False
         self._by_hash: dict[str, Principal] = {}
         self._reload_if_changed()
 
@@ -125,30 +139,42 @@ class TokenStore:
         if self.path is None:
             return
         try:
-            mtime = self.path.stat().st_mtime
+            st = self.path.stat()
         except OSError:
-            if self._mtime is not None or not self._by_hash:
+            if self._readable or not self._by_hash:
                 log.warning("tokens file not readable; every request will get 401")
-            self._by_hash, self._mtime = {}, None
+            self._by_hash, self._sig, self._text, self._readable = {}, None, None, False
             return
-        if mtime == self._mtime:
+        sig = cache_signature(st)
+        if sig is not None and sig == self._sig:
             return
         with self._lock:
-            if mtime == self._mtime:
+            if sig is not None and sig == self._sig:
                 return
+            self._readable = True
             try:
-                by_hash = parse_tokens(yaml.safe_load(self.path.read_text()))
-            except (OSError, ValueError, yaml.YAMLError) as exc:
+                text = self.path.read_text()
+            except OSError as exc:
+                log.error("tokens file could not be read (%s); keeping %d principals",
+                          exc.__class__.__name__, len(self._by_hash))
+                return
+            if text == self._text:  # a recent file read again: same content, nothing to parse or log
+                self._sig = sig
+                return
+            self._text = text
+            try:
+                by_hash = parse_tokens(yaml.safe_load(text))
+            except (ValueError, yaml.YAMLError) as exc:
                 # A bad edit or a half-written file must never turn into a 500. Keep the last good
-                # principals (none at startup, so every request gets 401) and remember this mtime,
-                # so the broken file is not parsed again on every request.
+                # principals (none at startup, so every request gets 401) and remember this text and
+                # signature, so the broken file is not parsed again on every request.
                 log.error(
                     "tokens file is invalid (%s); keeping %d previously loaded principals",
                     exc.__class__.__name__, len(self._by_hash),
                 )
-                self._mtime = mtime
+                self._sig = sig
                 return
-            self._by_hash, self._mtime = by_hash, mtime
+            self._by_hash, self._sig = by_hash, sig
             log.info("loaded %d principals from tokens file", len(self._by_hash))
 
     def principals(self) -> list[Principal]:

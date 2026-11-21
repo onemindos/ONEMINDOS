@@ -12,6 +12,8 @@ metadata:
   # Market category slug from docs/design/TAXONOMY.md §1; sub-tags (music) are listed in README.md
   # until the schema has metadata.tags.
   category: media
+  age_rating: 12   # proposed minimum age (apps/README.md rubric); the owner can override per app
+  age_reason: "Streams the owner's music; explicit lyrics are possible."
   icon: icon.svg
   license: "GPL-3.0"
   source: https://github.com/navidrome/navidrome

@@ -293,5 +293,6 @@ def conform_to_schema(app_dir: Path) -> None:
     }
     meta.setdefault("upstream", {"release": "v" + str(meta["version"]), "released_at": "2026-01-01T00:00:00Z", "archived": False})
     meta.setdefault("tier", "community")
+    meta.setdefault("age_rating", 18)  # FAM-01: required by the schema; the safest value for a fixture
     spec.setdefault("updates", {"channel": "stable", "automerge": "none"})
     path.write_text(yaml.safe_dump(doc, sort_keys=False))

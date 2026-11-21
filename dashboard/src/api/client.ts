@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { WiringApi } from './wiring';
+import { getPasskey } from '../lib/webauthn';
 import type * as W from './wiring';
-import { OneMind, OneMindError, type operations } from '@onemind/sdk';
+import { OneMind, OneMindError, type operations, type components } from '@onemind/sdk';
 import {
   ApiError,
   type Action,
@@ -20,7 +21,14 @@ import {
  * Everything the dashboard is allowed to ask the hub. One method per §3 route,
  * nothing else (contract §5: "it calls only the §3 API").
  */
+export type PluginKeyInfo = components["schemas"]["SigningKey"];
+export type PluginKeyInput = components["schemas"]["KeyRequest"];
+export type PluginKeyRevokeInput = components["schemas"]["RevokeRequest"];
+
 export interface OneMindApi extends WiringApi {
+  pluginSigningKeys?(): Promise<components["schemas"]["SigningKeys"]>;
+  requestPluginSigningKey?(body: PluginKeyInput): Promise<components["schemas"]["Action"]>;
+  revokePluginSigningKey?(keyId: string, body: PluginKeyRevokeInput): Promise<components["schemas"]["Action"]>;
   onboardingSettings(): Promise<FirstRunSettings>;
   saveOnboardingSettings(body: FirstRunSettingsBody): Promise<FirstRunSettings>;
   backupDestinations(): Promise<BackupDestinationRecord[]>;
@@ -206,9 +214,9 @@ export class HttpApi implements OneMindApi {
       return !req.plan_sha256 || action.plan_sha256 === req.plan_sha256;
     });
   }
-  private async sdkCall<T>(method: 'GET' | 'POST', path: string, body?: unknown, array = false): Promise<T> {
+  private async sdkCall<T>(method: 'GET' | 'POST', path: string, body?: unknown, array = false, retry?: boolean): Promise<T> {
     try {
-      const value = await this.sdk.call<T>({ method, path, body });
+      const value = await this.sdk.call<T>({ method, path, body, retry });
       if (!value || typeof value !== 'object' || Array.isArray(value) !== array) throw new ApiError(200, 'unknown', 'Unexpected response from the hub');
       return value;
     }
@@ -217,6 +225,9 @@ export class HttpApi implements OneMindApi {
       throw e;
     }
   }
+  pluginSigningKeys() { return this.sdkCall<components["schemas"]["SigningKeys"]>('GET', '/v1/plugin-trust/keys'); }
+  requestPluginSigningKey(body: PluginKeyInput) { return this.sdkCall<components["schemas"]["Action"]>('POST', '/v1/plugin-trust/keys/requests', body); }
+  revokePluginSigningKey(keyId: string, body: PluginKeyRevokeInput) { return this.sdkCall<components["schemas"]["Action"]>('POST', `/v1/plugin-trust/keys/${encodeURIComponent(keyId)}/revoke`, body); }
   machines() { return this.req<MachineRecord[]>('GET', '/v1/machines', undefined, 'array'); }
   machineCapabilities() { return this.req<MachineCapabilities>('GET', '/v1/machines/capabilities'); }
   appPlan(id: string) { return this.sdkCall<PlanPreview>('GET', `/v1/apps/${encodeURIComponent(id)}/plan`); }
@@ -267,8 +278,17 @@ export class HttpApi implements OneMindApi {
   action(id: string) {
     return this.req<Action>('GET', `/v1/actions/${encodeURIComponent(id)}`);
   }
-  approve(id: string) {
-    return this.req<Action>('POST', `/v1/actions/${encodeURIComponent(id)}/approve`);
+  async approve(id: string) {
+    const path = `/v1/actions/${encodeURIComponent(id)}/approve`;
+    try { return await this.req<Action>('POST', path); }
+    catch (error) {
+      if (!(error instanceof ApiError) || error.reason !== 'step_up_required') throw error;
+      const options = await this.sdkCall<components['schemas']['ApprovalChallenge']>('POST', path + '-options', {}, false, false);
+      const assertion = await getPasskey(options.publicKey);
+      return this.sdkCall<Action>('POST', path, {
+        webauthn: assertion, ...(options.plan_sha256 ? { plan_sha256: options.plan_sha256 } : {}),
+      }, false, false); // a consumed authenticator assertion must never be retried automatically
+    }
   }
   deny(id: string) {
     return this.req<Action>('POST', `/v1/actions/${encodeURIComponent(id)}/deny`);
@@ -325,6 +345,9 @@ export class HttpApi implements OneMindApi {
   }
   disableUser(id: string) {
     return this.req<W.UserInfo>('POST', `/v1/users/${encodeURIComponent(id)}/disable`, {});
+  }
+  familyProfile(id: string) {
+    return this.req<W.FamilyProfile>('GET', `/v1/family/profiles/${encodeURIComponent(id)}`);
   }
   tokens() {
     return this.req<W.TokenInfo[]>('GET', '/v1/tokens', undefined, 'array');

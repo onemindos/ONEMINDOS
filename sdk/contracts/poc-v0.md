@@ -80,6 +80,8 @@ metadata:
   version: "2.0.2"
   description: Self-hosted uptime monitoring
   category: monitoring
+  age_rating: 16   # proposed minimum age: 0, 7, 12, 16 or 18 (required; rubric in apps/README.md)
+  age_reason: "Probes any host or port the user enters and sends alerts; behaves like a scanner."
   icon: icon.svg
   license: MIT
   source: https://github.com/louislam/uptime-kuma
@@ -89,6 +91,7 @@ spec:
   web: {port: 3001}
   manifests: manifests/   # kustomization.yaml + Deployment/Service, images pinned by digest where possible
 ```
+`metadata.age_rating` (required, one of 0, 7, 12, 16, 18) and `metadata.age_reason` (optional one line) are the catalog's proposed minimum age (FAM-01, #204). The gateway uses the rating as the default classification for family filtering when the owner has not set a `min_age` for the app; an owner's `PUT /v1/family/apps/{id}` always wins; an app with neither is hidden from a person who has a rating limit. `GET /v1/apps` returns both fields.
 
 ## 5. Dashboard (`dashboard/`, React + TypeScript + Vite)
 - **Screens:** Home (instance, node count by status, installed apps), Nodes (cards per node with board, arch, OS, k3s and slot, status and `last_seen`; values are never shown as live when stale), Market (catalog, install button → creates an action), Approvals (pending actions with exact params and requester kind person/agent; approve/deny for the owner).
@@ -517,8 +520,9 @@ All optional. **Absent means "this agent does not report it", never "false" or "
 | `POST /v1/fabric/nodes/{node_id}/renew` | that node, mutual TLS | `{csr_pem}` → `{node_cert}`; `403` if removed |
 | `GET /v1/fabric` | `fabric:read` | `{hub_node_id, counts: {hub, worker, leaf}, nodes: [{node_id, role, state, leaf_link, mesh, outbox_pending, cert_expires_at}]}` |
 | `POST /v1/nodes/{node_id}/drain`, `/remove`, `/labels` | `fabric:request` | `202` with `node.drain`, `node.remove`, `node.label` |
-| `GET /v1/apps/{id}/placement` | any principal | `[{node_id, verdict: fits\|fits_with_warning\|no, reasons}]` |
+| `GET /v1/apps/{id}/placement` | `nodes:read` (it names the machines; a child has none) | `{app_id, verdict: here\|elsewhere\|nowhere\|unknown, node_id, message, nodes: [{node_id, role, verdict: fits\|fits_with_warning\|no, labels, reasons: [{code, message, blocking}]}]}` (CORE-FABRIC-4) |
 
+- Placement (CORE-FABRIC-4): each node's capability `labels` come from its heartbeat (`onemind.io/arch`, `/board`, `/role`, `/cpu-level`, `/gpu` = `nvidia|none`, `/kvm`, `/memory-mb`); a fact the node does not report gives no label. A node is checked against the app's `spec.archs` and `spec.requires` (`gpu`, `minMemoryMb`, `cpuLevel`); a node without a reported GPU never runs an app that needs one. The best node is a clean fit before a warning, then the hub, then the most free memory: `here` is the hub, `elsewhere` another machine. `app.install` and `app.update` are refused (`409 stale_precondition`, reason `no_node_fits`) when the verdict is `nowhere`; `unknown` (no node reported) refuses nothing.
 - The approval card shows board, arch, OS, hostname and the ticket's labels; never serials, MAC or IP addresses. The node becomes principal `node:<node_id>` with `nodes:report` only after approval. `node.join` succeeds on the first authenticated heartbeat (and, for a worker, k3s `Ready`).
 - `GET /v1/nodes` and `/v1/nodes/{id}` gain `role`, `state` (`joining|online|degraded|stale|offline|draining|drained|removed`), `degraded_reasons`, `received_at`, `clock_skew_s`, `apps` and filters `?status&role&limit&cursor`. §3's `status` keeps `online|stale|offline`.
 - **Job** (`onemind.job/v1`): `{schema, job_id, action_id, kind, params, params_sha256, issued_at, expires_at, sig}` signed Ed25519 with the gateway's job key. Kinds: `backup.run`, `backup.restore`, `backup.verify`, `backup.prune`, `backup.snapshot.delete`, `update.check`, `update.apply`, `update.postpone`, `update.settings`, `os.rollback`, `node.leave`, `node.renew`, `host.check`, `system.restart_unit`. A node refuses (and reports `failed` with `reason`) a bad signature, an expired job, a `job_id` it has seen, or an unknown kind.
@@ -753,3 +757,12 @@ approval; §12.40 lifecycle and §12.12 approval/security controls are unchanged
 - **Credentials (PD-07).** A manifest may declare `spec.credentials: {username?, password: generated, showBeforeOpen?}`. The gateway generates the password at the first install, stores it sealed (AES-256-GCM, key file beside the audit log) and hands it to the executor for Secret `<id>-credentials`. `GET /v1/apps/{id}/credentials` returns `{username, password}` to the owner only (`403` and `authz.denied` for anyone else, never an agent; `Cache-Control: no-store`; audited as `app.credentials.revealed` without the value). It survives `app.remove` and is erased by `app.delete_data`.
 - **Request limits by kind.** An agent may request `app.start|stop|restart|update|configure|remove` (no `sealed`), never `app.delete_data`; approval is owner-only as in §3.
 
+
+### Plugin registry read API (DEV-PLG-3, #178, first slice)
+
+`GET /v1/plugins` and `GET /v1/plugins/{plugin_id}` require `apps:read` and apply
+the Market sharing filters. They return installed/stopped tool-backed plugin
+summaries: `id`, `name`, `installed_version`, `status`. The version comes from
+the persisted runtime receipt; null means no receipt exists. Missing, uninstalled,
+non-plugin and unshared IDs are 404. No credential or execution authority is
+created; principal issuance and approved tool dispatch are later slices.

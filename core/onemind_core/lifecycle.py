@@ -115,6 +115,12 @@ def bundle_sha256(app: AppEntry) -> str | None:
     files = [app.dir / "onemind.app.yaml"]
     if root.is_dir():
         files += sorted(p for p in root.rglob("*") if p.is_file() and not p.is_symlink())
+    if "extensions" in (app.manifest.get("spec") or {}):
+        from .plugins.bundle import fingerprint_files
+        try:
+            files += fingerprint_files(app)
+        except (OSError, ValueError, TypeError):
+            return None
     base = app.dir.resolve()
     for p in files:
         try:

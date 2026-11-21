@@ -12,6 +12,7 @@ export const DEMO_TOKENS: Record<string, Principal> = {
   'agent-demo': { id: 'ops-agent', kind: 'agent', role: 'agent' },
   'guest-demo': { id: 'sam', kind: 'person', role: 'guest' },
   'child-demo': { id: 'kai', kind: 'person', role: 'child' },
+  'teen-demo': { id: 'tess', kind: 'person', role: 'teen' },
 };
 
 const iso = (now: number, secondsAgo: number) => new Date(now - secondsAgo * 1000).toISOString();

@@ -12,6 +12,8 @@ metadata:
   # Market category slug from docs/design/TAXONOMY.md §1 (sub-tags are listed in README.md until
   # the schema has metadata.tags).
   category: files
+  age_rating: 16   # proposed minimum age (apps/README.md rubric); the owner can override per app
+  age_reason: "Syncs folders with outside devices; a wrong device ID shares files."
   icon: icon.svg
   license: "MPL-2.0"
   source: https://github.com/syncthing/syncthing

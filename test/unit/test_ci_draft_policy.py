@@ -87,6 +87,7 @@ INFORMATIONAL_PR_PATHS = {
     "go-fuzz.yml": {"internal/**/*fuzz*_test.go", ".github/workflows/go-fuzz.yml"},
     "perf-smoke.yml": {"test/perf/**", ".github/workflows/perf-smoke.yml"},
     "net-2vm.yml": {"test/net/**", ".github/workflows/net-2vm.yml"},
+    "restore-drill.yml": {"test/restore-drill/**", ".github/workflows/restore-drill.yml"},
     "security-nightly.yml": {"os/update/**", ".github/workflows/security-nightly.yml"},
     "apps-gate-all.yml": {"sdk/tools/ci/**", ".github/workflows/apps-gate-all.yml"},
 }

@@ -24,10 +24,10 @@ async function mainNav() {
 }
 
 describe('role → view', () => {
-  it('owner and adult are Pro; guest, child and agent are Simple; unknown stays unknown', () => {
+  it('owner and adult are Pro; guest, child, teen and agent are Simple; unknown stays unknown', () => {
     expect(viewFor('owner')).toBe('pro');
     expect(viewFor('adult')).toBe('pro');
-    for (const r of ['guest', 'child', 'agent', null]) expect(viewFor(r)).toBe('simple');
+    for (const r of ['guest', 'child', 'teen', 'agent', null]) expect(viewFor(r)).toBe('simple');
     expect(viewFor(undefined)).toBe('unknown');
     expect(showsNav('control-hub', 'unknown')).toBe(false);
     expect(showsNav('home', 'simple')).toBe(true);
@@ -46,6 +46,7 @@ describe.each([
   ['adult-demo', true],
   ['guest-demo', false],
   ['child-demo', false],
+  ['teen-demo', false],
 ])('navigation for %s', (token, pro) => {
   it(pro ? 'shows the Pro screens' : 'shows only the simple screens', async () => {
     renderApp({ token });
@@ -60,8 +61,8 @@ describe.each([
 });
 
 describe('Pro routes for a Simple role', () => {
-  it.each(['/control-hub', '/agents', '/nodes'])('a child opening %s gets the role notice, not the screen', async (route) => {
-    renderApp({ token: 'child-demo', route });
+  it.each(['child-demo', 'teen-demo'].flatMap((t) => ['/control-hub', '/agents', '/nodes'].map((r) => [t, r])))('%s opening %s gets the role notice, not the screen', async (token, route) => {
+    renderApp({ token, route });
     expect(await screen.findByText(/for the people who run this box/, {}, T)).toBeInTheDocument();
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
   });
@@ -108,6 +109,7 @@ describe('Pro links outside the nav', () => {
   it.each([
     ['owner-demo', true],
     ['child-demo', false],
+    ['teen-demo', false],
     ['guest-demo', false],
   ])('Home for %s links to Nodes only for a Pro role', async (token, pro) => {
     renderApp({ token });
@@ -167,5 +169,22 @@ describe('AI & Agents audit', () => {
     ];
     expect(agentRecords(rows).map((x) => x.seq)).toEqual([2, 3]);
     expect(agentSummaries(rows)).toEqual([{ id: 'ops-agent', requests: 1, approved: 1, denied: 0, last: '2026-11-18T00:00:02Z' }]);
+  });
+});
+
+describe('Settings sections by role', () => {
+  const PRO_SECTIONS = ['Users & roles', 'Agents & MCP', 'Devices & nodes'];
+  it('a child sees only the personal sections and a direct link shows the role notice', async () => {
+    renderApp({ token: 'child-demo', route: '/settings/users' });
+    expect(await screen.findByText(/for the people who run this box/, {}, T)).toBeInTheDocument();
+    const nav = within(screen.getByRole('navigation', { name: 'Settings sections' }));
+    expect(nav.getByRole('link', { name: /Appearance/ })).toBeInTheDocument();
+    for (const n of PRO_SECTIONS) expect(nav.queryByRole('link', { name: new RegExp(n) })).not.toBeInTheDocument();
+  });
+
+  it('an owner sees the people and agent sections', async () => {
+    renderApp({ token: 'owner-demo', route: '/settings/account' });
+    const nav = within(await screen.findByRole('navigation', { name: 'Settings sections' }, T));
+    for (const n of PRO_SECTIONS) expect(await nav.findByRole('link', { name: new RegExp(n) }, T)).toBeInTheDocument();
   });
 });

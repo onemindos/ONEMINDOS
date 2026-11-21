@@ -13,6 +13,8 @@ metadata:
   description: Vector street maps of your region that work with no internet, from OpenStreetMap data in a single PMTiles file
   # Market category slug from docs/design/TAXONOMY.md §1; sub-tags: maps.
   category: field
+  age_rating: 0   # proposed minimum age (apps/README.md rubric); the owner can override per app
+  age_reason: "Offline street maps; no accounts, no chat, no internet."
   icon: icon.svg
   license: BSD-3-Clause
   source: https://github.com/protomaps/go-pmtiles

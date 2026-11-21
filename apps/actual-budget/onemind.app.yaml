@@ -11,6 +11,8 @@ metadata:
   version: "26.11.0"
   description: "A local-first personal finance app"
   category: finance
+  age_rating: 18   # proposed minimum age (apps/README.md rubric); the owner can override per app
+  age_reason: "Household budgets and account balances: money information."
   icon: icon.svg
   license: "MIT"
   source: https://github.com/actualbudget/actual

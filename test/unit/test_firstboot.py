@@ -314,6 +314,48 @@ class Hub(Box):
                      f"ONEMIND_MESH_HEADSCALE_KEY_FILE={self.p.hs_key}", f"ONEMIND_MESH_HUB_IP={MESH_IP}"):
             self.assertIn(line + "\n", with_mesh)
 
+    def test_backup_is_wired_on_a_new_hub(self):
+        st = self.first_boot()
+        self.assertEqual(self.mode(self.p.job_key), 0o600)
+        pub = os.path.join(self.p.backup, "job.pub")
+        self.assertEqual(self.read(pub), self.read(os.path.join(self.p.custodian, "job.pub")))
+        conf = json.load(open(self.p.backup_conf))
+        self.assertEqual(conf, fb.backup_agent_conf(self.p, st["node_id"]))
+        self.assertEqual(conf["targets"], [])               # the owner adds and approves a destination
+        self.assertIn(f"ONEMIND_BACKUP_CONF={self.p.backup_conf}\n", self.etc("onemindd.env"))
+        gw = self.etc("gateway.env")
+        self.assertIn("ONEMIND_BACKUPS_ENABLED=1\n", gw)
+        self.assertIn(f"ONEMIND_BACKUPS_JOB_KEY_FILE={self.p.job_key}\n", gw)
+        self.assertIn("ONEMIND_BACKUPS_ENABLED=1\n", fb.gateway_env(self.p, st, MESH_IP))   # `mesh` rewrites the file
+
+    def test_backup_catches_up_on_a_hub_set_up_before_it_and_keeps_its_key(self):
+        st = self.first_boot()
+        key = self.read(self.p.job_key)
+        os.unlink(self.p.backup_conf)
+        for name, marker in (("onemindd.env", "ONEMIND_BACKUP_CONF"), ("gateway.env", "ONEMIND_BACKUPS")):
+            text = "".join(l for l in self.etc(name).splitlines(True) if marker not in l and "Backups" not in l)
+            open(os.path.join(self.p.etc, name), "w").write(text)
+        fb.apply(self.p)                                    # a reboot of the old box
+        self.assertTrue(os.path.exists(self.p.backup_conf))
+        self.assertEqual(self.read(self.p.job_key), key)    # never a new key: old jobs stay valid
+        self.assertIn("ONEMIND_BACKUP_CONF=", self.etc("onemindd.env"))
+        self.assertEqual(self.etc("gateway.env").count("ONEMIND_BACKUPS_ENABLED=1"), 1)
+        fb.apply(self.p)
+        self.assertEqual(self.etc("gateway.env").count("ONEMIND_BACKUPS_ENABLED=1"), 1)
+        self.assertEqual(json.load(open(self.p.backup_conf))["node_id"], st["node_id"])
+
+    def test_a_failed_job_key_leaves_backups_off_but_the_box_boots(self):
+        with mock.patch("onemind_core.backups.jobs.load_or_create_job_key", side_effect=OSError("disk full")):
+            st = self.first_boot()
+        self.assertEqual(st["role"], "hub")
+        self.assertNotIn("ONEMIND_BACKUPS_ENABLED", self.etc("gateway.env"))
+        self.assertFalse(os.path.exists(self.p.backup_conf))
+        self.assertIn("backups not set up: disk full", self.out.getvalue())
+
+    def test_workers_get_no_backup_files(self):
+        fb.ensure_backup(self.p, {"role": "worker", "node_id": "abc"})
+        self.assertFalse(os.path.exists(self.p.backup))
+
     def test_old_box_keeps_its_units_and_gets_a_note(self):
         os.makedirs(os.path.dirname(self.p.state))
         open(self.p.state, "w").write(json.dumps({"schema": fb.SCHEMA, "role": "leaf", "node_id": "abc"}))
@@ -623,6 +665,89 @@ class Wizard(Box):
         self.assertIn("Approvals", body)
         self.assertEqual(self.read(self.p.join_code), JOIN + "\n")
         self.assertEqual(json.load(open(self.p.state))["hub_addr"], LAN)
+
+
+FIRSTBOOT_SRC = os.path.join(LIB, "onemind_firstboot.py")
+
+
+class NoSharedSecret(unittest.TestCase):
+    """CORE-SEC-5 (#274): the first-boot code holds no shared NATS password, no passwordless user, no
+    `nats_tls` switch and no all-interfaces client port, anywhere, not only in the confs it writes."""
+
+    def test_source_has_none_of_the_old_nats_config(self):
+        src = open(FIRSTBOOT_SRC).read()
+        self.assertNotIn("def nats_conf", src)               # the old password writer
+        for needle in ("nats_tls", "join_token", "0.0.0.0:4222", "0.0.0.0:7422", 'user: "node"',
+                       "authorization {", "authorization{"):
+            self.assertNotIn(needle, src, needle)
+        self.assertNotRegex(src, r"nats://(gateway|onemindd|node):")   # no password in a URL
+
+    @needs_core
+    def test_conf_never_lists_a_user_or_a_password(self):
+        for conf in (fb.hub_nats_conf(None), fb.hub_nats_conf(MESH_IP)):
+            self.assertNotRegex(conf, r"(?mi)^\s*(users?|password|pass|token|authorization)\b")
+            self.assertNotIn("0.0.0.0", conf)
+        # the client port is the loopback one, and it is the only non-leaf listener
+        self.assertRegex(fb.hub_nats_conf(MESH_IP), r"(?m)^listen: 127\.0\.0\.1:4222$")
+
+
+@needs_core
+class LegacyHubAfterUpdate(Box):
+    """A hub that ran the pre-mesh first boot (state.json has no "mesh", its own nats.conf with the old
+    config) must keep running after an image update: first boot leaves its files alone, starts the units
+    it had, and `mesh` does not rewrite its NATS config (the reinstall note says how to move it)."""
+    LEGACY_CONF = LEGACY = ("server_name: hub\nlisten: 0.0.0.0:4222\n"
+                            'leafnodes { listen: 0.0.0.0:7422, authorization { user: "node", password: "x" } }\n')
+
+    def test_old_hub_is_left_as_it_is(self):
+        os.makedirs(self.p.etc)
+        self.put("data/onemind/etc/nats.conf", self.LEGACY_CONF)
+        os.makedirs(os.path.dirname(self.p.state), exist_ok=True)
+        open(self.p.state, "w").write(json.dumps({"schema": fb.SCHEMA, "role": "hub", "node_id": "abc"}))
+        self.assertEqual(fb.apply(self.p), 0)
+        self.assertEqual(self.etc("nats.conf"), self.LEGACY_CONF)
+        self.assertIn("reinstall", self.console())
+        self.assertEqual(self.started[-1], ("start", "--no-block", "onemind-nats.service", "onemindd.service",
+                                            "onemind-gateway.service", "onemind-gateway-kube.service"))
+        self.assertEqual(fb.mesh(self.p), 0)
+        self.assertEqual(self.etc("nats.conf"), self.LEGACY_CONF)    # `mesh` is a no-op for it too
+
+
+@needs_core
+class HubAccounts(Box):
+    """The hub's first boot makes the pieces the image battery relies on: real service keys that the
+    accounts file names, and a nats.conf that nats-server itself accepts."""
+
+    def test_accounts_file_has_service_keys_and_per_node_accounts_are_separate(self):
+        from pathlib import Path
+
+        from onemind_core import natsconf
+        self.put("boot/efi/onemind.conf", "role = hub\nname = Home\n")
+        fb.apply(self.p)
+        acc = self.read(self.p.accounts)
+        for name in ("gateway", "onemindd"):
+            self.assertIn(self.read(os.path.join(self.p.nats_keys, f"{name}.pub")).strip(), acc)
+        # adding two node accounts gives each its own account (no shared node user)
+        a, b = natsconf.new_user_key()[1], natsconf.new_user_key()[1]
+        out = natsconf.render_accounts([natsconf.NodeAccount("n1", a), natsconf.NodeAccount("n2", b)],
+                                       natsconf.load_service_keys(Path(self.p.nats_keys)))
+        self.assertIn(a, out)
+        self.assertIn(b, out)
+        self.assertIn("NODE_n1", out)
+        self.assertIn("NODE_n2", out)                          # one account per node
+        self.assertNotIn("password", out)
+
+    @unittest.skipUnless(__import__("shutil").which("nats-server"), "needs nats-server")
+    def test_nats_server_accepts_the_hub_conf(self):
+        import subprocess
+        self.put("boot/efi/onemind.conf", "role = hub\nname = Home\n")
+        fb.apply(self.p)
+        d = os.path.join(self.tmp.name, "natsrun")
+        os.makedirs(d)
+        open(os.path.join(d, "nats.conf"), "w").write(self.etc("nats.conf"))
+        open(os.path.join(d, "nats-accounts.conf"), "w").write(self.read(self.p.accounts))
+        r = subprocess.run(["nats-server", "-t", "-c", os.path.join(d, "nats.conf")], capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
 
 
 if __name__ == "__main__":

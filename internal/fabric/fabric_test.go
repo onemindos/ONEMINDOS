@@ -258,7 +258,7 @@ func TestJoinEndToEnd(t *testing.T) {
 	os.MkdirAll(filepath.Join(root, "etc"), 0o755)
 	os.WriteFile(filepath.Join(root, HostsFile), []byte("127.0.0.1 localhost\n"), 0o644)
 	os.MkdirAll(filepath.Join(root, "etc/onemind"), 0o755)
-	os.WriteFile(filepath.Join(root, OnemindEnv), []byte("ONEMIND_NATS_URL=nats://old:4222\nONEMIND_NODE_ROLE=node\nOTHER=1\n"), 0o644)
+	os.WriteFile(filepath.Join(root, OnemindEnv), []byte("ONEMIND_NATS_URL=nats://old:4222\nONEMIND_NODE_ROLE=node\nONEMIND_NODE_ID=prejoin000000\nOTHER=1\n"), 0o644)
 	ts, sys := &fakeTS{}, &fakeSys{}
 	var out bytes.Buffer
 	in := &Installer{Root: root, Sys: sys, Mesh: &mesh.Client{Runner: ts, Now: time.Now}, Out: &out, EnrollTimeout: 5 * time.Second}
@@ -304,6 +304,10 @@ func TestJoinEndToEnd(t *testing.T) {
 	env := read(OnemindEnv)
 	if !strings.Contains(env, "ONEMIND_NATS_URL=nats://127.0.0.1:4222") || strings.Contains(env, "nats://old") || !strings.Contains(env, "OTHER=1") {
 		t.Fatalf("env:\n%s", env)
+	}
+	// onemindd must publish under the joined identity, not the id firstboot wrote before the join
+	if !strings.Contains(env, "ONEMIND_NODE_ID=n1\n") || strings.Contains(env, "prejoin000000") || strings.Count(env, "ONEMIND_NODE_ID=") != 1 {
+		t.Fatalf("node id in env:\n%s", env)
 	}
 	if got := strings.Join(sys.calls, "; "); !strings.Contains(got, "restart tailscaled.service") ||
 		!strings.Contains(got, "enable --now onemind-nats-leaf.service") || !strings.Contains(got, "restart onemindd.service") {

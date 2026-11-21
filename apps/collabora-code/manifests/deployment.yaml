@@ -1,0 +1,92 @@
+# SPDX-License-Identifier: Apache-2.0
+# Collabora Online CODE 26.04.6.1, upstream image docker.io/collabora/code. The image config (read from the
+# registry on 2026-11-19) runs /usr/bin/coolwsd --use-env-vars as UID 1001 on port 9980.
+#
+# Restricted mode, from upstream's Helm chart README ("OpenShift quickstart", CollaboraOnline/online
+# commit c662f7eb883d): runAsNonRoot, RuntimeDefault seccomp, all capabilities dropped, and
+#   --o:security.capabilities=false   coolwsd does not need Linux capabilities (no chroot jail per document)
+#   --o:child_root_path / cache_files.path under /tmp, which is a writable emptyDir
+#   --o:ssl.enable=false --o:ssl.termination=false   plain HTTP inside the cluster
+# The trade-off: without capabilities, coolwsd turns off its per-document chroot jail, so every document
+# is opened inside the same container sandbox. That container is still non-root, has no capabilities and
+# is confined to its own namespace.
+#
+# No admin console: it needs a username and password (env "username"/"password"), and committed manifests
+# never carry secrets. No WOPI host allow-list (env aliasgroup1) is set; see README.md.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: collabora-code
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: collabora-code
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: collabora-code
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: collabora-code
+        image: docker.io/collabora/code:26.04.6.1.1@sha256:95f29f1c0a1778999125f53f058d968fe0afb37c95e32ebfb9f3444140faebd2
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: extra_params
+          value: "--o:ssl.enable=false --o:ssl.termination=false --o:security.capabilities=false --o:child_root_path=/tmp/coolwsd-child-roots --o:cache_files.path=/tmp/coolwsd-cache"
+        ports:
+        - name: http
+          containerPort: 9980
+          protocol: TCP
+        # GET / answers "OK" (the path the upstream chart's probes use).
+        startupProbe:
+          httpGet:
+            path: /
+            port: http
+          periodSeconds: 5
+          timeoutSeconds: 5
+          failureThreshold: 60
+        readinessProbe:
+          httpGet:
+            path: /
+            port: http
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        livenessProbe:
+          httpGet:
+            path: /
+            port: http
+          periodSeconds: 60
+          timeoutSeconds: 10
+          failureThreshold: 3
+        # A OneMind choice (the upstream chart sets none): a few documents open at once.
+        resources:
+          requests:
+            cpu: 200m
+            memory: 512Mi
+          limits:
+            cpu: "2"
+            memory: 2Gi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+      volumes:
+      - name: tmp
+        emptyDir:
+          sizeLimit: 2Gi

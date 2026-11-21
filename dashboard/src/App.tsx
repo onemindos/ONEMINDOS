@@ -10,6 +10,7 @@ import { preferenceStores } from './data/prefs';
 import { Activity } from './pages/Activity';
 import { Alerts } from './pages/Alerts';
 import { Storage } from './pages/Storage';
+import { Troubleshoot } from './pages/Troubleshoot';
 import { Updates } from './pages/Updates';
 import { Backups } from './pages/Backups';
 import { Automation } from './pages/Automation';
@@ -26,6 +27,7 @@ import { ControlHub } from './pages/ControlHub';
 import { Agents } from './pages/Agents';
 import { ProOnly } from './shell/ProOnly';
 import { Settings } from './pages/Settings';
+import { PluginKeys } from './pages/PluginKeys';
 import { SignIn } from './pages/SignIn';
 import { useSession, useSignedIn } from './session';
 import { Shell } from './shell/Shell';
@@ -70,6 +72,7 @@ export function SignedInApp() {
             <Route path="settings/storage" element={<Navigate to="/storage" replace />} />
             <Route path="backups" element={<ProOnly title="Backups"><Backups /></ProOnly>} />
             <Route path="settings/backups" element={<Navigate to="/backups" replace />} />
+            <Route path="troubleshoot" element={<ProOnly title="Troubleshoot"><Troubleshoot /></ProOnly>} />
             <Route path="automation" element={<ProOnly title="Automation"><Automation /></ProOnly>} />
             <Route path="updates" element={<ProOnly title="OS updates"><Updates /></ProOnly>} />
             <Route path="settings/updates" element={<Navigate to="/updates" replace />} />
@@ -77,6 +80,7 @@ export function SignedInApp() {
             <Route path="control-hub" element={<ProOnly title="Control Hub"><ControlHub /></ProOnly>} />
             <Route path="agents" element={<ProOnly title="AI & Agents"><Agents /></ProOnly>} />
             <Route path="settings" element={<Settings />} />
+            <Route path="settings/plugin-keys" element={<PluginKeys />} />
             <Route path="settings/:section" element={<Settings />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

@@ -1,5 +1,5 @@
 {
-  "scanned_at": "2026-11-19T14:41:31Z",
+  "scanned_at": "2026-11-20T14:07:48Z",
   "result": "pass",
   "images": [
     {
@@ -15,7 +15,7 @@
         "high": 53
       },
       "clamav": {
-        "signatures": "daily-28188",
+        "signatures": "daily-28189",
         "infected": 0
       },
       "secrets": 0,
@@ -31,10 +31,10 @@
         "version": "0.76.2",
         "critical_fixable": 0,
         "critical": 0,
-        "high": 36
+        "high": 35
       },
       "clamav": {
-        "signatures": "daily-28188",
+        "signatures": "daily-28189",
         "infected": 0
       },
       "secrets": 0,

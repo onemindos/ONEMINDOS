@@ -135,7 +135,7 @@ export type ActionState =
 /** §3 kinds plus the §12.1 additions (`plugin`, `automation`, `node`). */
 export type PrincipalKind = 'person' | 'agent' | 'plugin' | 'automation' | 'node';
 /** §12.6 adds `child`; unknown roles are treated as the least privileged. */
-export type PrincipalRole = 'owner' | 'adult' | 'guest' | 'child' | 'agent';
+export type PrincipalRole = 'owner' | 'adult' | 'guest' | 'child' | 'teen' | 'agent';
 
 /** §3 tokens map to principals `{id, kind, role}`. */
 export interface Principal {
@@ -582,3 +582,89 @@ export interface MigratePlan {
 
 /** UMB-P07 `/v1/me/home`: the person's Home document, generated from the gateway's OpenAPI (`@onemind/sdk`). */
 export type { HomeBody, HomeView } from '@onemind/sdk';
+
+// ---- System screens (OS updates, usage, network, controls) ----
+
+/** One A/B slot as `GET /v1/os/updates` reports it (core/osupdate.py `node_view`); every field may be null. */
+export interface OsSlot {
+  name: string | null;
+  bootname: string | null;
+  state: string | null;
+  boot_status: string | null;
+  bundle_version: string | null;
+}
+export interface OsNodeUpdate {
+  node_id: string;
+  hostname: string | null;
+  status: string | null;
+  last_seen: string | null;
+  /** false: this machine runs no update service. */
+  reported: boolean;
+  channel: string | null;
+  current_version: string | null;
+  available_version: string | null;
+  state: string | null;
+  last_check: string | null;
+  last_result: string | null;
+  rauc: { present: boolean; booted_slot: string | null; slots: OsSlot[] };
+}
+export interface OsUpdateStatus {
+  nodes: OsNodeUpdate[];
+  /** `available: false` while the hub cannot reach the box's update engine; an approved install then does not run. */
+  install: { available: boolean; reason?: string; message?: string };
+}
+export interface OsUpdateHistory {
+  events: Array<{ node_id: string; state: string; version: string | null; last_result: string | null; observed_at: string }>;
+  requests: Array<{ action_id: string; state: string; node_id: string | null; version: string | null; message: string | null }>;
+}
+
+/** `GET /v1/monitoring/summary`. */
+export interface MonitoringSummary {
+  nodes: { online: number; stale: number; offline: number };
+  apps: Record<string, number>;
+  open_alerts: Record<string, number>;
+  at: string;
+}
+/** `GET /v1/nodes/{id}/metrics`; `null` where the node reported no value. */
+export interface NodeMetrics {
+  node_id: string;
+  source: string;
+  samples: Array<{
+    at: string;
+    cpu_pct: number | null;
+    mem_used_mb: number | null;
+    mem_total_mb: number | null;
+    disk_free_gb: number | null;
+    disk_total_gb: number | null;
+    temp_c: number | null;
+    load1: number | null;
+  }>;
+}
+/** `GET /v1/apps/{id}/metrics`; empty `components` when the hub has no metrics source. */
+export interface AppMetrics {
+  app_id: string;
+  at: string;
+  components: Array<{ name: string; cpu_millicores: number | null; mem_mb: number | null; restarts: number }>;
+}
+/** `GET /v1/mesh` (the names and mode only; addresses are never asked for). */
+export interface MeshView {
+  mode: string;
+  box: string;
+  https?: boolean;
+  names?: { lan?: string[]; mesh?: string[] };
+}
+
+/**
+ * Restart / shut down / troubleshoot. UNVERIFIED: the hub serves no such route today (the plan preview
+ * `POST /v1/plans` takes app types only), so the screen stays hidden until `OP.systemPlan` appears in
+ * /openapi.json. The shape mirrors PlanPreview without an app.
+ */
+export type SystemControlType = 'system.restart' | 'system.shutdown' | 'system.troubleshoot';
+export interface SystemPlanPreview {
+  type?: string;
+  policy_verdict: 'needs_approval' | 'refused' | (string & {});
+  reason?: string | null;
+  risk?: Risk;
+  plan: Plan;
+  plan_sha256: string;
+}

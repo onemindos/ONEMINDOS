@@ -8,7 +8,7 @@ Low-code programming for event-driven applications
 | | |
 |---|---|
 | Version | 5.0.9 (upstream release `5.0.9`, published 2026-10-21) |
-| Licence | `Apache-2.0`, Market class **L1** (licence gate, scan of 2026-11-19) |
+| Licence | `Apache-2.0`, Market class **L1** (licence gate, scan of 2026-11-20) |
 | Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | automation |
 | GitHub | <https://github.com/node-red/node-red> |
@@ -72,10 +72,10 @@ From the upstream Docker guide, <https://nodered.org/docs/getting-started/docker
 
 ## Latest security scan
 
-Scanned 2026-11-19T14:43:46Z by `sdk/tools/app-gate`: **fail**. Licence `Apache-2.0` class L1; smoke test pass.
+Scanned 2026-11-20T14:06:43Z by `sdk/tools/app-gate`: **fail**. Licence `Apache-2.0` class L1; smoke test pass.
 
 | Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
 |---|---|---|---|---|---|---|
-| `docker.io/nodered/node-red:5.0.9@sha256:2ccd38b4066648bd5e17430c50a2f8102c566a82fd4f2fc5c342e61664d6896f` | amd64, arm64 | 3 (3) | 21 | 0 infected (daily-28188) | 0 | unsigned |
+| `docker.io/nodered/node-red:5.0.9@sha256:2ccd38b4066648bd5e17430c50a2f8102c566a82fd4f2fc5c342e61664d6896f` | amd64, arm64 | 3 (3) | 21 | 0 infected (daily-28189) | 0 | unsigned |
 
 Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

@@ -39,6 +39,42 @@ type Engine struct {
 	Now         func() time.Time             // local time
 	Free        func(string) (uint64, error) // free bytes on the download filesystem
 	TUFTime     time.Time                    // tests only: TUF reference time instead of now
+	// Mirror, when set, is a directory (USB stick or mounted LAN share) laid
+	// out like the channel (CHANNEL.md section 3: TUF metadata files and the
+	// bundles side by side). Metadata and bundle are verified exactly as online:
+	// same image-shipped root, same TUF cache (rollback protection), same
+	// length and hash checks, and RAUC re-checks its own signature. Only the
+	// freshness check is relaxed, by Cfg.OfflineGrace.
+	Mirror string
+}
+
+// source is where one run reads the channel from.
+type source struct {
+	cfg    *Config // URL and TargetsURL rewritten for a mirror
+	hc     *http.Client
+	ref    time.Time // TUF reference time; zero = now
+	mirror string
+}
+
+func (e *Engine) source(now time.Time) (source, error) {
+	if e.Mirror == "" {
+		return source{cfg: e.Cfg, hc: e.HTTP, ref: e.TUFTime}, nil
+	}
+	if !filepath.IsAbs(e.Mirror) {
+		return source{}, fmt.Errorf("mirror %q: must be an absolute directory path", e.Mirror)
+	}
+	if fi, err := os.Stat(e.Mirror); err != nil || !fi.IsDir() {
+		return source{}, fmt.Errorf("mirror %q: not a readable directory", e.Mirror)
+	}
+	tr := &http.Transport{}
+	tr.RegisterProtocol("file", http.NewFileTransport(http.Dir(e.Mirror)))
+	mc := *e.Cfg
+	mc.URL, mc.TargetsURL = "file:///", "file:///"
+	ref := e.TUFTime
+	if ref.IsZero() {
+		ref = now
+	}
+	return source{cfg: &mc, hc: &http.Client{Transport: tr}, ref: ref.Add(-e.Cfg.OfflineGrace), mirror: e.Mirror}, nil
 }
 
 // New returns an Engine wired to the real rauc, restic and reboot command.
@@ -116,7 +152,11 @@ func (e *Engine) Run(ctx context.Context, mode Mode, noReboot bool) (*Result, er
 	now := e.Now()
 	ts := now.UTC().Format(time.RFC3339)
 	st.LastCheck = &ts
-	idx, err := fetchIndex(e.Cfg, e.HTTP, e.TUFTime)
+	src, err := e.source(now)
+	if err != nil {
+		return res, e.fail(st, "", err.Error())
+	}
+	idx, err := fetchIndex(src.cfg, src.hc, src.ref)
 	if err != nil {
 		e.Log.Warn("update check failed", "channel", e.Cfg.Channel, "err", err)
 		st.LastResult = "check failed: " + err.Error()
@@ -164,7 +204,7 @@ func (e *Engine) Run(ctx context.Context, mode Mode, noReboot bool) (*Result, er
 		}
 		return res, st.Save(e.Cfg)
 	}
-	if err := e.install(ctx, st, idx, cand, box.Version); err != nil {
+	if err := e.install(ctx, st, src, idx, cand, box.Version); err != nil {
 		return res, err
 	}
 	res.Rebooted = e.maybeReboot(ctx, st, mode, noReboot)
@@ -210,16 +250,19 @@ func (e *Engine) reconcile(st *Status, box Box, bad BadReleases) {
 	}
 }
 
-func (e *Engine) install(ctx context.Context, st *Status, idx *Index, t *Target, from string) error {
+func (e *Engine) install(ctx context.Context, st *Status, src source, idx *Index, t *Target, from string) error {
 	to := t.Meta.Version
 	st.State, st.TargetVersion, st.FromVersion, st.Warnings, st.Snapshot = heartbeat.UpdateDownloading, to, from, nil, ""
 	st.LastResult = "downloading " + to
 	if err := st.Save(e.Cfg); err != nil {
 		return err
 	}
-	url := downloadURL(e.Cfg, idx, t)
+	if src.mirror != "" {
+		st.Warnings = append(st.Warnings, "installed from mirror "+src.mirror+" (metadata freshness grace "+src.cfg.OfflineGrace.String()+")")
+	}
+	url := downloadURL(src.cfg, idx, t)
 	e.Log.Info("downloading", "target", t.Path, "url", url, "bytes", t.Length)
-	bundle, err := download(ctx, e.HTTP, url, e.Cfg.DownloadDir, t, e.Free)
+	bundle, err := download(ctx, src.hc, url, e.Cfg.DownloadDir, t, e.Free)
 	if err != nil {
 		return e.fail(st, from, "download: "+err.Error())
 	}
@@ -252,11 +295,46 @@ func (e *Engine) install(ctx context.Context, st *Status, idx *Index, t *Target,
 	}
 	e.Log.Info("installing", "bundle", bundle, "snapshot", st.Snapshot)
 	if err := e.Installer.Install(ctx, bundle); err != nil {
-		return e.fail(st, from, err.Error())
+		// RAUC's pre-install handler writes the trial marker before it writes
+		// any slot. If the write then failed, the marker is a lie: left in
+		// place the next cycle would report "reboot pending", reboot the box
+		// and let the gate mark a release image-bad that never installed.
+		msg := err.Error()
+		if cerr := e.clearTrialMarker(to); cerr != nil {
+			msg += "; could not clear the trial marker: " + cerr.Error()
+		}
+		return e.fail(st, from, msg)
 	}
 	_ = os.Remove(bundle) // RAUC wrote it into the slot; free /data
 	st.State, st.LastResult = heartbeat.UpdatePendingReboot, "installed "+to+", reboot pending"
 	return st.Save(e.Cfg)
+}
+
+// clearTrialMarker removes the gate's trial marker and its ESP copy when
+// they name version to (the install that just failed). A marker naming any
+// other version is not ours and stays.
+func (e *Engine) clearTrialMarker(to string) error {
+	var errs []error
+	for _, p := range []string{filepath.Join(e.Cfg.GateDir, "pending"), e.Cfg.ESPMarker} {
+		if p == "" {
+			continue
+		}
+		b, err := os.ReadFile(p)
+		if err != nil {
+			if !errors.Is(err, os.ErrNotExist) {
+				errs = append(errs, err)
+			}
+			continue
+		}
+		if f := strings.Fields(string(b)); len(f) > 1 && f[1] == to {
+			if err := os.Remove(p); err != nil && !errors.Is(err, os.ErrNotExist) {
+				errs = append(errs, err)
+			} else {
+				e.Log.Warn("install failed: removed the trial marker so the box does not reboot into a trial that never started", "marker", p)
+			}
+		}
+	}
+	return errors.Join(errs...)
 }
 
 // maybeReboot reboots at a safe point: an explicit apply reboots now (unless

@@ -50,6 +50,8 @@ PUBLIC = {
     ("DELETE", "/v1/auth/app-session"),        # only clears the caller's own cookie; no data
     ("GET", "/v1/auth/forward"),               # loopback only (404 elsewhere); decides with the same sign-in + access rule as the proxy
     ("GET", "/{full_path:path}"),              # the dashboard's static files (never the API tree)
+    ("GET", "/v1/share/{token}"),              # FILES-02 share link: the 256-bit link secret in the path is the credential
+    ("GET", "/v1/share/{token}/items/{index}"),  # FILES-02: one shared item, same secret; expiry, revoke and creator re-checked
 }
 
 
@@ -184,7 +186,7 @@ def test_every_row_has_every_column():
 
 def test_every_principal_kind_has_a_column():
     """A kind or role the gateway can authenticate must be a minted column of the matrix."""
-    columns = {"person": {"owner", "adult", "guest", "child"}, "agent": {"agent", "app-agent"}}
+    columns = {"person": {"owner", "adult", "guest", "child", "teen"}, "agent": {"agent", "app-agent"}}
     for kind in auth.KINDS:
         cols = columns.get(kind, {kind})
         assert cols <= set(KINDS), f"principal kind {kind!r} has no matrix column"

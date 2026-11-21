@@ -51,6 +51,8 @@ def cells(default, **over) -> dict:
         k = k.replace("_", "-")
         assert k in out, f"unknown principal kind {k}"
         out[k] = v
+    if "teen" not in over:
+        out["teen"] = out["child"]  # FAM-01: a teen holds the same API scopes as a child; rows override with teen=
     return out
 
 
@@ -79,6 +81,8 @@ POLICY: dict[tuple[str, str], Row] = {
     ("GET", "/v1/instance"): Row(ANY_PRINCIPAL, w.p_static("/v1/instance"), "§3; §12.6 instance:read for all"),
     ("GET", "/v1/nodes"): Row(CHILD_CANNOT, w.p_static("/v1/nodes"), "§3; §12.6 child has no nodes:read"),
     ("GET", "/v1/nodes/{node_id}"): Row(CHILD_CANNOT, w.p_node, "§3; §12.6 child has no nodes:read"),
+    ("GET", "/v1/nodes/{node_id}/wake"): Row(CHILD_CANNOT, lambda world: w.Req(f"/v1/nodes/{world.heartbeat()}/wake"),
+                                             "#251 wake availability only; nodes:read, no actuation"),
     ("GET", "/v1/apps"): Row(ANY_PRINCIPAL, w.p_static("/v1/apps"), "§3; §12.6 apps:read (shared apps for a child)"),
     ("GET", "/v1/actions"): Row(CHILD_CANNOT, w.p_static("/v1/actions"), "§3; §12.6 child has no actions:read"),
     ("GET", "/v1/actions/{action_id}"): Row(CHILD_CANNOT, w.p_action, "§3; §12.6 child has no actions:read"),
@@ -322,6 +326,14 @@ POLICY |= {
                                            "§12.5: agents never change the kill switch"),
     ("GET", "/v1/windows"): Row(READ_ANY, w.p_static("/v1/windows"), f"{_AUTOMATION}: any reader"),
     ("PUT", "/v1/windows/{window_id}"): Row(ONLY_OWNER, w.p_window_put, f"{_AUTOMATION}: only the owner edits windows"),
+    # ---- update policy for apps (NMD-07, #132: core/onemind_core/routers/updatepolicy.py) -------------------
+    ("GET", "/v1/update-policy"): Row(READ_ANY, w.p_static("/v1/update-policy"), "NMD-07: any reader sees the knobs"),
+    ("PUT", "/v1/update-policy"): Row(ONLY_OWNER, w.p_missing("/v1/update-policy", json={}),
+                                      "NMD-07: only the owner changes the update policy"),
+    ("GET", "/v1/update-policy/dry-run"): Row(READ_ANY, w.p_static("/v1/update-policy/dry-run"),
+                                              "NMD-07: any reader sees what would update; it files nothing"),
+    ("POST", "/v1/update-policy/resume"): Row(ONLY_OWNER, w.p_missing("/v1/update-policy/resume", json={"app_id": "whoami"}),
+                                              "NMD-07: only the owner lifts a back-off"),
     # ---- backups and restores (an agent may request, never approve; reads are household only) ---------------
     ("GET", "/v1/backups/status"): Row(HOUSEHOLD, w.p_static("/v1/backups/status"), f"{_BACKUPS}: owner, adult, agent read"),
     ("GET", "/v1/backups/destinations"): Row(grid(200, 200, 403, 403, 403), w.p_static("/v1/backups/destinations"),
@@ -357,6 +369,9 @@ POLICY |= {
         "box_name": "home-hub", "time_zone": "UTC", "backup_choice": "later"}), "contract 12.41: owner only, audited"),
     ("POST", "/v1/onboarding/restore/candidates"): Row(OFF_OWNER_ONLY, w.p_missing("/v1/onboarding/restore/candidates", json={
         "destination_id": "dst_0123456789abcdef"}), "UMB-P08: first-run restore listing is owner only (503: backups off in the matrix)"),
+    ("POST", "/v1/onboarding/restore/apps"): Row(OFF_OWNER_ONLY, w.p_missing("/v1/onboarding/restore/apps", json={
+        "destination_id": "dst_0123456789abcdef", "box_id": "old-box", "recovery_key": "K" * 40, "run_id": "run_old",
+        "app_id": "notes"}), "UMB-P08: restoring an app from another box's backup is owner only (503: backups off in the matrix)"),
     # ---- the person's own Home (UMB-P07, #144) --------------------------------------------------------------
     # Every person has one (child included); an agent has none. The write is probed without If-Match, so a
     # person who is let in gets 428: the route never reaches the store without a validator.
@@ -386,6 +401,8 @@ POLICY |= {
                                                "12.22: any reader; values only for owner and adult"),
     ("GET", "/v1/apps/{app_id}/dependencies"): Row(grid(200, 200, 200, 404, 200), w.p_static(f"/v1/apps/{w.TARGET_APP}/dependencies"), "12.22: any reader"),
     ("GET", "/v1/apps/{app_id}/host-ports"): Row(grid(200, 200, 200, 404, 200), w.p_static(f"/v1/apps/{w.TARGET_APP}/host-ports"), "12.22: any reader"),
+    ("GET", "/v1/apps/{app_id}/placement"): Row(CHILD_CANNOT, w.p_static(f"/v1/apps/{w.TARGET_APP}/placement"),
+                                                "12.11 CORE-FABRIC-4: names the machines, so nodes:read like /v1/nodes"),
     ("GET", "/v1/apps/{app_id}/exposure"): Row(grid(200, 200, 200, 404, 200), w.p_static(f"/v1/apps/{w.TARGET_APP}/exposure"), "12.22: any reader"),
     ("GET", "/v1/sources"): Row(READ_ANY, w.p_static("/v1/sources"), "12.22: any reader"),
     ("GET", "/v1/sources/{source_id}"): Row(READ_ANY_404, w.p_static("/v1/sources/src_00000000000000000000000000"), "12.22: any reader; missing is 404"),
@@ -554,6 +571,64 @@ POLICY |= {
                                                  f"{_MACH}: only the owner gets a console ticket; an agent never gets a screen"),
 }
 
+# ---- agent kill switch (CORE-SEC-6, #159: core/onemind_core/routers/agents.py) ---------------------------------
+# The matrix world runs with the switch off; test_agent_kill_switch.py covers every kind with it on.
+_STOP = "core/onemind_core/routers/agents.py"
+POLICY |= {
+    ("GET", "/v1/agents/kill-switch"): Row(ANY_PRINCIPAL, w.p_static("/v1/agents/kill-switch"),
+                                           f"{_STOP}: any signed-in caller may see whether agents are stopped (instance:read)"),
+    ("PUT", "/v1/agents/kill-switch"): Row(ONLY_OWNER, w.p_missing("/v1/agents/kill-switch", json={"on": False}),
+                                           f"{_STOP}: only the owner stops or resumes agents; an agent can never turn it off"),
+}
+
+# ---- system controls (UMB-P09, #146: core/onemind_core/routers/system.py) -----------------------------------
+_SYS = "core/onemind_core/routers/system.py"
+POLICY |= {
+    ("GET", "/v1/system/controls"): Row(OWNER_ONLY, w.p_static("/v1/system/controls"),
+                                        f"{_SYS}: restart, shutdown, reset and their pending requests; owner only"),
+    ("GET", "/v1/system/diagnostics"): Row(OWNER_ONLY, w.p_static("/v1/system/diagnostics"),
+                                           f"{_SYS}: the redacted diagnostic bundle; owner only, audited"),
+    # The owner and agents pass authorization; the gateway has no host path yet (NoHostPath), so the
+    # request answers 409 host_unavailable instead of filing it. With a host, it is filed (202) and waits
+    # for the owner's approval (tests/test_system_controls.py). Everyone else is refused first (403).
+    ("POST", "/v1/system/actions"): Row(cells(403, **GONE, owner=409, agent=409, app_agent=409, plugin=DENIED,
+                                              automation=DENIED, node=DENIED),
+                                        lambda _w: w.Req("/v1/system/actions", json={"type": "system.restart"}),
+                                        f"{_SYS}: owner or agent requests a restart; only an owner approves it"),
+}
+
+# ---- family controls (FAM-01, #204) -------------------------------------------------------
+# The owner passes authorization and gets 404 for these deliberately missing targets.
+# Other people and service identities are refused before target lookup.
+POLICY |= {
+    ("GET", "/v1/family/profiles/{user_id}"): Row(
+        OWNER_ONLY_404, w.p_static("/v1/family/profiles/missing"), "FAM-01: private profiles are owner only"),
+    ("PUT", "/v1/family/profiles/{user_id}"): Row(
+        OWNER_ONLY_404, w.p_missing("/v1/family/profiles/missing", json={}), "FAM-01: owner manages profiles"),
+    ("GET", "/v1/family/apps/{app_id}"): Row(
+        OWNER_ONLY_404, w.p_static("/v1/family/apps/missing"), "FAM-01: classifications are owner only"),
+    ("PUT", "/v1/family/apps/{app_id}"): Row(
+        OWNER_ONLY_404, w.p_missing("/v1/family/apps/missing", json={}), "FAM-01: owner manages classifications"),
+}
+
+# ---- share links (FILES-02, #237: core/onemind_core/routers/shares.py) ------------------------------------
+# Only an owner or adult publishes files outside the household (files:share); guests, children and agents are
+# refused before any lookup. The /v1/share routes take no principal: the link secret in the path is the only
+# credential, so a secret the box never issued is 404 for every caller, with or without a bearer token.
+_SHARE = "core/onemind_core/files/shares.py"
+POLICY |= {
+    ("POST", "/v1/files/shares"): Row(grid(404, 404, 403, 403, 403), w.p_share_create,
+                                      f"{_SHARE}: owner and adult share what they can read; agents never publish files"),
+    ("GET", "/v1/files/shares"): Row(READ_ANY, w.p_static("/v1/files/shares"),
+                                     f"{_SHARE}: each person their own links, an owner everyone's; others see none"),
+    ("DELETE", "/v1/files/shares/{share_id}"): Row(READ_ANY_404, w.p_static(f"/v1/files/shares/{w.SHARE_ID}"),
+                                                   f"{_SHARE}: the creator or an owner revokes; nobody else sees it"),
+    ("GET", "/v1/share/{token}"): Row(cells(404), w.p_static(f"/v1/share/{w.SHARE_TOKEN}"),
+                                      f"{_SHARE}: anonymous; the link secret is the credential"),
+    ("GET", "/v1/share/{token}/items/{index}"): Row(cells(404), w.p_static(f"/v1/share/{w.SHARE_TOKEN}/items/0"),
+                                                    f"{_SHARE}: anonymous; the link secret is the credential"),
+}
+
 # ---- OS updates (UMB-P05, #142: core/onemind_core/routers/osupdates.py) --------------------------------------
 _OSUP = "core/onemind_core/routers/osupdates.py"
 POLICY |= {
@@ -561,4 +636,84 @@ POLICY |= {
                                    f"{_OSUP}: versions and A/B slots, the facts /v1/nodes shows; a child has no nodes:read"),
     ("GET", "/v1/os/updates/history"): Row(CHILD_CANNOT, w.p_static("/v1/os/updates/history"),
                                            f"{_OSUP}: commits, rollbacks and install requests; same nodes:read gate"),
+}
+
+# ---- the box's own screen (UX-07, #242: core/onemind_core/routers/kiosk.py) ---------------------------------
+_KIOSK = "core/onemind_core/routers/kiosk.py"
+POLICY |= {
+    ("GET", "/v1/instance/kiosk"): Row(ONLY_OWNER, w.p_static("/v1/instance/kiosk"),
+                                       f"{_KIOSK}: owner only, reading too (the switch is the box's own screen); refusals audited"),
+    # enabled=false only removes a flag file that is not there on a test box, so the probe changes nothing.
+    ("PUT", "/v1/instance/kiosk"): Row(ONLY_OWNER, w.p_kiosk_put,
+                                       f"{_KIOSK}: only the owner changes the screen; an agent can never switch it"),
+}
+
+# ---- fleet-staged OS updates (CORE-UPDATE-9, #156: core/onemind_core/routers/rollouts.py) ------------------
+_ROLL = "core/onemind_core/routers/rollouts.py"
+POLICY |= {
+    # updates:read (contract §12.6): owner, adult and agents read versions and rollouts; guests and children do not.
+    ("GET", "/v1/os/fleet"): Row(HOUSEHOLD, w.p_static("/v1/os/fleet"), f"{_ROLL}: every machine's OS version, updates:read"),
+    ("GET", "/v1/os/rollouts"): Row(HOUSEHOLD, w.p_static("/v1/os/rollouts"), f"{_ROLL}: the rollouts, updates:read"),
+    ("GET", "/v1/os/rollouts/{rollout_id}"): Row(HOUSEHOLD_404, w.p_static("/v1/os/rollouts/rol_ghost"),
+                                                 f"{_ROLL}: one rollout; none exists in this world"),
+    # Starting and resuming go through POST /v1/actions (owner approval); cancelling is the owner's alone.
+    ("POST", "/v1/os/rollouts/{rollout_id}/cancel"): Row(OWNER_ONLY_404, w.p_static("/v1/os/rollouts/rol_ghost/cancel"),
+                                                         f"{_ROLL}: only the owner cancels a rollout"),
+}
+# DEV-PLG-3: real installed plugin summaries follow Market sharing.
+POLICY.update({
+    ("GET", "/v1/plugins/{plugin_id}/settings"): Row(cells(404, **GONE, plugin=DECIDE, automation=DECIDE, node=DECIDE),
+                                          w.p_static("/v1/plugins/not-installed/settings"), "#178 installed settings require sharing"),
+    ("POST", "/v1/plugins/{plugin_id}/settings"): Row(cells(403, **GONE, owner=404, plugin=DECIDE, automation=DECIDE, node=DECIDE),
+                                          lambda x: w.Req("/v1/plugins/not-installed/settings", json={"settings": {}, "bundle_sha256": "sha256:" + "a" * 64, "idempotency_key": x.key(), "expires_at": x.action_body()["expires_at"]}), "#178 owner-approved plugin.configure"),
+    ("GET", "/v1/plugins"): Row(ANY_PRINCIPAL, w.p_static("/v1/plugins"), "#178 apps:read; shared installed plugin summaries"),
+    ("GET", "/v1/plugins/{plugin_id}"): Row(cells(404, **GONE, plugin=DECIDE, automation=DECIDE, node=DECIDE),
+        w.p_static("/v1/plugins/not-installed"), "#178 unavailable or unshared plugin is 404"),
+})
+
+# #178 REST plugin tools never allow plugin backend tokens or ownerless mutation.
+POLICY.update({
+    ("GET", "/v1/plugins/{plugin_id}/tools"): Row(cells(404, **GONE, plugin=DECIDE, automation=DECIDE, node=DECIDE),
+        w.p_static("/v1/plugins/not-installed/tools"), "#178 shared installed tool declarations"),
+    ("POST", "/v1/plugins/{plugin_id}/tools/{tool_name}"): Row(cells(404, **GONE, plugin=DECIDE, automation=DECIDE, node=DECIDE),
+        lambda world: w.Req("/v1/plugins/not-installed/tools/missing", json={"arguments": {}}),
+        "#178 read tools or pending owner-approved invocation"),
+})
+
+
+def _plugin_key_proposal(world):
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+    public = Ed25519PrivateKey.generate().public_key().public_bytes(
+        serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo).decode()
+    return w.Req("/v1/plugin-trust/keys/requests", json={"name": "Test signing key", "public_key": public,
+        "idempotency_key": world.key(), "expires_at": world.action_body()["expires_at"]})
+
+
+POLICY.update({
+    ("GET", "/v1/plugin-trust/keys"): Row(OWNER_ONLY, w.p_static("/v1/plugin-trust/keys"),
+        "#180 only an owner reads private signing trust"),
+    ("POST", "/v1/plugin-trust/keys/requests"): Row({**OWNER_ONLY, "owner": 202}, _plugin_key_proposal,
+        "#180 owner proposal stays pending until approval"),
+    ("POST", "/v1/plugin-trust/keys/{key_id}/revoke"): Row({**OWNER_ONLY, "owner": 404},
+        lambda x: w.Req("/v1/plugin-trust/keys/sha256:" + "0" * 64 + "/revoke", json={
+            "idempotency_key": x.key(), "expires_at": x.action_body()["expires_at"]}),
+        "#180 owner approval required to revoke enrolled signing trust"),
+})
+# ---- bring your own domain (NET-DOM-01, #238: core/onemind_core/routers/domains.py) -----------------------------
+_DOM = "core/onemind_core/routers/domains.py"
+_OFF = grid(503, 403, 403, 403, 403)  # owner reaches the service, which is off in this world (domains_disabled)
+POLICY |= {
+    ("GET", "/v1/domains"): Row(ONLY_OWNER, w.p_static("/v1/domains"), f"{_DOM}: owner only, no-store"),
+    ("POST", "/v1/domains"): Row(_OFF, w.p_missing("/v1/domains", json={"domain": "example.org"}),
+                                 f"{_DOM}: owner only; refused while the feature is off"),
+    ("DELETE", "/v1/domains/{domain}"): Row(_OFF, w.p_missing("/v1/domains/example.org"), f"{_DOM}: owner only"),
+    ("POST", "/v1/domains/{domain}/check"): Row(_OFF, w.p_missing("/v1/domains/example.org/check"),
+                                                f"{_DOM}: owner only; the DNS check never runs while off"),
+    ("POST", "/v1/domains/{domain}/hosts"): Row(_OFF, w.p_missing("/v1/domains/example.org/hosts", json={"app_id": "whoami"}),
+                                                f"{_DOM}: owner only"),
+    ("POST", "/v1/domains/hosts/{hostname}/approve"): Row(
+        _OFF, w.p_missing("/v1/domains/hosts/whoami.example.org/approve", json={"confirm": "whoami.example.org"}),
+        f"{_DOM}: only the owner approves a public name; an agent never does"),
+    ("DELETE", "/v1/domains/hosts/{hostname}"): Row(_OFF, w.p_missing("/v1/domains/hosts/whoami.example.org"), f"{_DOM}: owner only"),
 }

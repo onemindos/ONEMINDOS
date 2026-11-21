@@ -1,0 +1,100 @@
+# SPDX-License-Identifier: Apache-2.0
+# CAN Adapter: field protocol adapter (FLD-03, #201; Foundation Report rev 4 ch. 3: protocols run as
+# apps, bridged onto NATS). OneMind's own app: manifests/can_adapter.py plus the shared
+# manifests/fieldbus.py, Python standard library only, written from the public protocol
+# specification (sources in the module docstring), no third-party code.
+# Observe-first: it only reads. Writes are refused until the gateway publishes owner-approved
+# cmd.* actions (research-output/fabric/06-DATA-AND-NAMING.md); AI never actuates (D-B9).
+# Image: the stock python image, same pin as apps/library-chat. Digest re-read 2026-11-19 from the
+# Docker Hub registry API (GET /v2/library/python/manifests/3.14.10-slim-trixie, header
+# Docker-Content-Digest, OCI image index with amd64 and arm64).
+apiVersion: onemind.app/v1alpha1
+kind: App
+metadata:
+  id: can-adapter
+  name: CAN Adapter
+  version: "0.1.0"
+  description: Listens to a CAN bus through a socketcand server and publishes decoded signals on NATS, read-only
+  # Market category slug from docs/design/TAXONOMY.md §1; sub-tags: industrial, energy.
+  category: home
+  icon: icon.svg
+  license: Apache-2.0
+  source: https://github.com/onemindos/ONEMINDOS
+  links:
+    docs: https://github.com/onemindos/ONEMINDOS/blob/main/apps/can-adapter/README.md
+    github: https://github.com/onemindos/ONEMINDOS
+    website: https://github.com/onemindos/ONEMINDOS
+    support: https://github.com/onemindos/ONEMINDOS/issues
+  # OneMind ships this app from the repo itself: the "release" is this manifest version.
+  upstream: {release: "0.1.0", released_at: "2026-11-19T12:00:00Z", archived: false}
+  tier: community   # set by CI (sdk/tools/app-gate --tier write), not by hand
+spec:
+  archs: [amd64, arm64]
+  requires: {gpu: false, minMemoryMb: 64}
+  web: {port: 8080}
+  manifests: manifests/
+  updates: {channel: stable, automerge: none}
+  settings:
+    - name: points
+      env: FIELD_POINTS
+      type: string
+      title: Points to read
+      description: "class.metric=HEXID:BYTE[:TYPE][*SCALE], comma-separated. TYPE u8, i8, u16, i16, u32, i32, f32 (little-endian; add be for big-endian)."
+      default: ""
+      maxLength: 2000
+    - name: can_host
+      env: CAN_HOST
+      type: string
+      title: socketcand address
+      description: "Host name or IP address of the socketcand server next to the CAN interface."
+      default: ""
+      maxLength: 253
+      pattern: "^[A-Za-z0-9.:-]*$"
+    - name: can_port
+      env: CAN_PORT
+      type: integer
+      title: socketcand port
+      description: "socketcand TCP port, usually 29536."
+      default: 29536
+      minimum: 1
+      maximum: 65535
+    - name: can_bus
+      env: CAN_BUS
+      type: string
+      title: CAN interface
+      description: "The CAN interface on the socketcand host, for example can0."
+      default: "can0"
+      maxLength: 15
+      pattern: "^[A-Za-z0-9_.-]{1,15}$"
+    - name: node
+      env: FIELD_NODE
+      type: string
+      title: Node name
+      description: "First part of the NATS subject tel.<node>-<device>.<class>.<metric>; lower-case a-z, 0-9, _."
+      default: "box"
+      maxLength: 40
+      pattern: "^[a-z0-9_]{1,40}$"
+    - name: device
+      env: FIELD_DEVICE
+      type: string
+      title: Device name
+      description: "Names this device in the NATS subject; lower-case a-z, 0-9, _."
+      default: "can"
+      maxLength: 40
+      pattern: "^[a-z0-9_]{1,40}$"
+    - name: poll_seconds
+      env: FIELD_POLL_S
+      type: integer
+      title: Poll interval (seconds)
+      description: "How often every point is read."
+      default: 5
+      minimum: 1
+      maximum: 3600
+    - name: nats_url
+      env: NATS_URL
+      type: string
+      title: NATS server
+      description: "Where values are published, for example nats://nats.example:4222. Empty: values show on the status page only. No user or password here: settings are not secret."
+      default: ""
+      maxLength: 200
+      pattern: "^(nats://[A-Za-z0-9.-]+(:[0-9]{1,5})?)?$"

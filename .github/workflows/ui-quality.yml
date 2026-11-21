@@ -54,7 +54,8 @@ jobs:
     if: ${{ !github.event.pull_request.draft && github.event.action != 'labeled' && github.event.action != 'unlabeled' }}
     # CI-13 (#299): arm64-safe, no secrets, no Docker. Local Mac runner when LOCAL_RUNNER=on and the event is
     # trusted (never a fork PR); otherwise GitHub-hosted. docs/learning/self-hosted-runner.md
-    runs-on: ${{ (vars.LOCAL_RUNNER == 'on' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","onemind-local"]') || 'ubuntu-24.04' }}
+    # merge_group only runs code already approved into the queue, so it is always trusted (no fork check); MQ_RUNNER unset keeps the old routing.
+    runs-on: ${{ (vars.MQ_RUNNER == 'on' && github.event_name == 'merge_group') && fromJSON('["self-hosted","onemind-mq"]') || (vars.LOCAL_RUNNER == 'on' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","onemind-local"]') || 'ubuntu-24.04' }}
     timeout-minutes: 20
     permissions:
       contents: read
@@ -76,6 +77,10 @@ jobs:
       - name: Build the ui demo
         working-directory: ui
         run: npm ci && npm run build:demo
+      - name: Generate the SDK code from the committed spec (CI-16, not committed)
+        uses: ./.github/actions/sdk-gen
+        with:
+          langs: ts
       - name: Build the dashboard (mock data, no gateway)
         working-directory: dashboard
         run: npm ci && npm run build:mock
@@ -151,7 +156,11 @@ jobs:
           PW_OUTPUT: ${{ runner.temp }}/base-results
           PW_GITHUB: '0'
         # A screen that fails to draw on the base gets no reference; the PR's run then lists it as changed.
-        run: npx playwright test --project="$BROWSER" --grep @visual --update-snapshots=all || echo "::warning::some base screenshots could not be drawn"
+        # A screen that fails once (WebKit sometimes gives no stable frame) is drawn again, alone, before it is given up.
+        run: |
+          npx playwright test --project="$BROWSER" --grep @visual --update-snapshots=all \
+            || npx playwright test --project="$BROWSER" --grep @visual --update-snapshots=all --last-failed \
+            || echo "::warning::some base screenshots could not be drawn"
       - name: Compare the PR with the base
         if: ${{ !cancelled() && env.COMPARE == 'true' }}
         env:

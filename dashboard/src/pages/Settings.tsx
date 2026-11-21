@@ -2,24 +2,31 @@
 // Settings on @onemind/ui SettingsLayout. Appearance is live (saved per person in this browser
 // until the §12 preferences route lands). About shows GET /v1/instance. Every other section says
 // which work stream brings its API, instead of showing controls that would do nothing.
-import { useParams } from 'react-router';
+import { Link, useParams } from 'react-router';
 import { AppearanceSettings, Card, EmptyState, PageHeader, SETTINGS_SECTIONS, SettingsLayout, type SettingsSectionId } from '@onemind/ui';
 import { useHub } from '../data/hub';
 import { Account } from './Account';
+import { AgentStop } from './AgentStop';
 import { Inbox } from './Inbox';
 import { Tokens } from './Tokens';
 import { Users } from './Users';
+import { UpdatePolicy } from './UpdatePolicy';
 import { href } from '../shell/routes';
+import { ProOnly } from '../shell/ProOnly';
+import { useShell } from '../shell/Shell';
 
 /** Section → the work stream (docs/leap/STATUS.md epic) and the §12 API that brings it (§12 owns the paths). */
-export const COMING: Record<Exclude<SettingsSectionId, 'appearance' | 'about' | 'account' | 'users' | 'agents' | 'notifications'>, { stream: string; api: string | null }> = {
+export const COMING: Record<Exclude<SettingsSectionId, 'appearance' | 'about' | 'account' | 'users' | 'agents' | 'notifications' | 'updates'>, { stream: string; api: string | null }> = {
   devices: { stream: 'CORE-FABRIC (core-net)', api: '/v1/fabric/join-tickets' },
   network: { stream: 'CORE-FABRIC (core-net)', api: '/v1/fabric, /v1/tls' },
   storage: { stream: 'UMB-STOR', api: null },
   backups: { stream: 'CORE-BACKUP (a gateway backups route)', api: null },
-  updates: { stream: 'CORE-UPDATE (a gateway OS status route)', api: null },
   automation: { stream: 'CORE-AUTO', api: '/v1/automation/rules, /v1/approval-policies' },
 };
+
+/** Settings sections for the people who run the box (UX-01, #206): hidden from the list for Simple roles and
+ * unknown roles, and a direct link shows the role notice. Appearance, Account, Notifications and About stay for everyone. */
+export const PRO_SETTINGS: ReadonlySet<SettingsSectionId> = new Set<SettingsSectionId>(['users', 'agents', 'devices', 'network', 'storage', 'backups', 'updates', 'automation']);
 
 const IDS = new Set(SETTINGS_SECTIONS.map((s) => s.id));
 
@@ -51,6 +58,10 @@ function About() {
           <p className="om-hint">{hub.instance.error ? `Could not read the instance: ${hub.instance.error.message}` : 'Loading…'}</p>
         )}
       </Card>
+      <Card title="Plugin signing trust">
+        <p>Owners can enroll public signing keys for private plugins. Changes wait for approval.</p>
+        <Link to="/settings/plugin-keys">Manage plugin signing keys</Link>
+      </Card>
       <p className="om-hint">Diagnostic bundles and component versions come with §12 (About &amp; diagnostics).</p>
     </>
   );
@@ -58,11 +69,13 @@ function About() {
 
 export function Settings() {
   const { section } = useParams();
+  const { view } = useShell();
   const explicit = !!section && IDS.has(section as SettingsSectionId);
   const current = (explicit ? section : 'appearance') as SettingsSectionId;
   const meta = SETTINGS_SECTIONS.find((s) => s.id === current)!;
   let body;
-  if (current === 'appearance')
+  if (view !== 'pro' && PRO_SETTINGS.has(current)) body = <ProOnly title={meta.label}>{null}</ProOnly>;
+  else if (current === 'appearance')
     body = (
       <>
         <PageHeader title="Appearance" lede="Theme, accent, wallpaper and layout. Saved for you only; it changes nothing on the box, so it needs no approval." />
@@ -72,8 +85,15 @@ export function Settings() {
   else if (current === 'about') body = <About />;
   else if (current === 'account') body = <Account />;
   else if (current === 'users') body = <Users />;
-  else if (current === 'agents') body = <Tokens />;
+  else if (current === 'agents')
+    body = (
+      <>
+        <AgentStop />
+        <Tokens />
+      </>
+    );
   else if (current === 'notifications') body = <Inbox />;
+  else if (current === 'updates') body = <UpdatePolicy />;
   else {
     const c = COMING[current as keyof typeof COMING];
     body = (
@@ -86,7 +106,7 @@ export function Settings() {
     );
   }
   return (
-    <SettingsLayout current={current} explicit={explicit} hrefFor={(id) => href.setting(id)} indexHref={href.settings}>
+    <SettingsLayout current={current} explicit={explicit} hrefFor={(id) => href.setting(id)} indexHref={href.settings} hidden={view === 'pro' ? undefined : PRO_SETTINGS}>
       {body}
     </SettingsLayout>
   );
