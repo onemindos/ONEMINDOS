@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # LT-PI5-02: run ON the Pi after each step; prints the evidence the result template asks for.
 # Read-only: it changes nothing on the device. Always pipe it through the redactor:
-#   sh collect-evidence.sh <label> | sh redact.sh > step-<label>.txt   (redact.sh is in lab-kits/common)
+#   sh collect-evidence.sh <label> | sh redact.sh > step-<label>.txt   (copy it from lab-kits/common next to this script)
 set -eu
 label=${1:-step}
 echo "== LT-PI5-02 evidence: $label =="

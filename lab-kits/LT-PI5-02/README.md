@@ -20,10 +20,14 @@
 - The Pi's EEPROM boot order must include 6 (NVMe) or 4 (USB), as in LT-PI5-01.
 
 ## Steps (22's four steps, with the commands)
-**1. Boot a vendor bootc image.** Flash the **AlmaLinux bootc Raspberry Pi image** (the project documents it as experimental, tested on Pi 5 16 GB [C-SCORE-025]) or the Fedora IoT 45 raw image. Boot it, then on the Pi:
+**1. Boot a vendor bootc image.** Flash the **AlmaLinux bootc Raspberry Pi image** (the project documents it as experimental, tested on Pi 5 16 GB [C-SCORE-025]) or the Fedora IoT 45 raw image. Boot it. The repo is not on the Pi, so first copy the two helper scripts over from the build machine (repo root; `<user>` is the image's login user, `<pi-ip>` its address). Every later `collect-evidence.sh` and `redact.sh` below is run on the Pi from that login directory:
+```sh
+scp lab-kits/LT-PI5-02/collect-evidence.sh lab-kits/common/redact.sh <user>@<pi-ip>:
+```
+Then on the Pi:
 ```sh
 sudo bootc status
-sh collect-evidence.sh step1 | sh ../common/redact.sh > step1.txt
+sh collect-evidence.sh step1 | sh redact.sh > step1.txt
 ```
 **2. Switch to the OneMind lab image (image 1, the good one).** The kit uses three images under one tag the Pi follows, `<registry>/onemind/lab:aarch64`:
 
@@ -71,7 +75,7 @@ Then on the Pi:
 ```sh
 sudo bootc upgrade && sudo reboot
 ```
-Now touch **nothing for 10 minutes**: no keyboard, no commands. Afterwards run `collect-evidence.sh step3`. PASS: the Pi is back on good 1 (the digest from step 2) and you used no console and no manual commit.
+Now touch **nothing for 10 minutes**: no keyboard, no commands. Afterwards run `sh collect-evidence.sh step3 | sh redact.sh > step3.txt`. PASS: the Pi is back on good 1 (the digest from step 2) and you used no console and no manual commit.
 **Between 3 and 4: replace the bad image.** The tag `:aarch64` still points at the bad image, so a second `bootc upgrade` would stage the bad image again and test nothing about a good update. On the build machine, point the tag at **good 2**, which has a new digest:
 ```sh
 podman tag $REG/onemind/lab:aarch64-good2 $REG/onemind/lab:aarch64 && podman push --tls-verify=false $REG/onemind/lab:aarch64
@@ -82,7 +86,7 @@ Check on the Pi that `sudo bootc upgrade --check` reports a new image whose dige
 sudo bootc upgrade        # staged
 sudo reboot               # pull the plug 1-2 s after the screen goes dark
 ```
-Power on, run `sudo ostree admin status`, reboot once more, run `collect-evidence.sh step4`. Record: is the version the same after the second reboot, and did the commit happen **automatically**? Stock greenboot 0.16.4/0.16.5 is expected to fail this (a silent downgrade, #219 [C-LAB-fedora-bootc-011, C-LAB-fedora-bootc-013]). Record the greenboot version and whether #219 is fixed in it.
+Power on, run `sudo ostree admin status`, reboot once more, run `sh collect-evidence.sh step4 | sh redact.sh > step4.txt`. Record: is the version the same after the second reboot, and did the commit happen **automatically**? Stock greenboot 0.16.4/0.16.5 is expected to fail this (a silent downgrade, #219 [C-LAB-fedora-bootc-011, C-LAB-fedora-bootc-013]). Record the greenboot version and whether #219 is fixed in it.
 
 ## Score it
 ```sh
