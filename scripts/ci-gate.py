@@ -15,7 +15,7 @@ INFORMATIONAL workflows below are reported but never block (fuzzers, scans, perf
 smoke tests: useful signals, too slow or too noisy to hold every merge).
 
 Environment: GH_TOKEN, REPO (owner/name), HEAD_SHA, EVENT (pull_request | merge_group), RUN_ID
-(this run, skipped). Optional: DRAFT (true on a draft PR) and PR (its number): the gate passes at once if the PR is still a draft, see main(), GATE_SETTLE_S (default 45), GATE_POLL_S (30), GATE_TIMEOUT_S (10200).
+(this run, skipped). Optional: DRAFT (true on a draft PR) and PR (its number): the gate passes at once if the PR is still a draft, see main(), GATE_SETTLE_S (default 45), GATE_POLL_S (30), GATE_TIMEOUT_S (19200; gate.yml sets it, see the R530 note there).
 No dependencies beyond the Python standard library.
 """
 from __future__ import annotations
@@ -118,7 +118,7 @@ def main() -> int:
     repo, sha, event, token = env["REPO"], env["HEAD_SHA"], env["EVENT"], env["GH_TOKEN"]
     self_id = int(env["RUN_ID"])
     settle, poll = int(env.get("GATE_SETTLE_S", "45")), int(env.get("GATE_POLL_S", "30"))
-    deadline = time.time() + int(env.get("GATE_TIMEOUT_S", "10200"))
+    deadline = time.time() + int(env.get("GATE_TIMEOUT_S", "19200"))
     if env.get("DRAFT") == "true" and event == "pull_request" and still_draft(repo, env.get("PR", ""), token):
         # A draft cannot merge, and the only workflows a draft runs (dco, hygiene, lint, unit) are
         # required checks of their own. Waiting here held a runner for hours while the queue was full,

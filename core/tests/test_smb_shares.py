@@ -8,6 +8,7 @@ the test injects (what the host receives is the thing under test).
 
 from __future__ import annotations
 
+import re
 from dataclasses import replace
 from datetime import timedelta
 
@@ -17,7 +18,7 @@ from fastapi.testclient import TestClient
 from conftest import ADULT, AGENT, GUEST, OWNER
 from onemind_core.app import create_app
 from onemind_core.files.settings import FilesSettings
-from onemind_core.smbshares import SmbHostError
+from onemind_core.smbshares import SmbHostError, smb_user
 
 GIB = 1024**3
 
@@ -115,7 +116,7 @@ def test_a_share_exists_only_after_an_owner_approves(on):
     assert (s["kind"], s["person_id"], s["name"], s["root"], s["state"]) == ("home", "adult", "adult", "home:adult", "active")
     assert s["reach"] == ["lan", "mesh"] and s["quota_bytes"] is None
     # The host was told exactly this share: its owner and root, no password and no host path.
-    assert on.svc.host.calls == [[{"id": s["id"], "kind": "home", "name": "adult", "user": "adult",
+    assert on.svc.host.calls == [[{"id": s["id"], "kind": "home", "name": "adult", "user": smb_user("adult"),
                                    "path": "home/adult", "quota_bytes": None}]]
     assert (on.svc.files.settings.root / "home" / "adult").is_dir()  # made by the gateway's own user
 
@@ -207,3 +208,14 @@ def test_share_names_are_safe_for_windows_and_macos(box):
     assert share_name("home", "A.Li@home") == "a-li-home"
     assert share_name("timemachine", "x" * 64) == "x" * 28 + "-timemachine"
     assert share_name("home", "@@@") == "person"
+
+
+def test_every_person_gets_their_own_smb_account():
+    from onemind_core.smbshares import smb_user
+    # These two fold to the same share name; they must never share a Samba user (one password, one set of files).
+    assert smb_user("bob.smith") != smb_user("bob@smith")
+    assert smb_user("Bob") != smb_user("bob")
+    assert smb_user("bob.smith") == smb_user("bob.smith")  # stable
+    for pid in ("root", "onemind", "nobody", "@@@", "x" * 64):
+        u = smb_user(pid)
+        assert u not in {"root", "onemind", "nobody"} and re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,31}", u)

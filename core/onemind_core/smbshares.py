@@ -23,6 +23,7 @@ the reason and a request is refused with `smb_unavailable`, instead of filing an
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import re
 import secrets
@@ -208,8 +209,14 @@ class ShareRepository(SqlRepository):
 
 
 def smb_user(person_id: str) -> str:
-    """The SMB account name of a person: what they type in Finder or Explorer (their home share's name)."""
-    return share_name("home", person_id)
+    """The SMB account name of a person, one account per person.
+
+    Share names fold case and punctuation ("bob.smith" and "bob@smith" both become "bob-smith"), so an account
+    named from the share name would let two people share one Samba user, one password and one set of files. The
+    account is therefore a readable prefix plus a hash of the exact person id: distinct ids never collide, and the
+    hash suffix keeps it clear of reserved system names (root, nobody, onemind)."""
+    base = re.sub(r"[^a-z0-9_-]+", "-", person_id.lower()).strip("-")[:20] or "person"
+    return f"{base}-{hashlib.sha256(person_id.encode()).hexdigest()[:8]}"
 
 
 class ShareService:
