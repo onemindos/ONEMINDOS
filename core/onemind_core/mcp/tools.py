@@ -58,6 +58,9 @@ class Services:
     request: Callable[[Principal, ActionRequest, str | None], tuple[dict, bool]]
     audit_list: Callable[..., tuple[list[dict], bool]]
     clock: Callable[[], datetime]
+    # AIG-04: called as (principal, source) when a result carried third-party text; the gateway then
+    # treats every later request from that agent as tainted (taint.py). None in a bare Services.
+    mark_tainted: Callable[[Principal, str], None] | None = None
 
 
 # ---- schemas ---------------------------------------------------------------------------------
@@ -263,7 +266,14 @@ class Catalogue:
             wait = self.limits.reads.hit(p.id)
             if wait:
                 return refusal("rate_limited", "too many read calls; slow down", retry_after_s=wait)
-        return getattr(self, f"t_{name}")(p, args)
+        out = getattr(self, f"t_{name}")(p, args)
+        self._taint(p, out, f"mcp:{name}")
+        return out
+
+    def _taint(self, p: Principal, out: dict, source: str) -> None:
+        """An agent that was handed third-party text is tainted, whether or not it obeys it (AIG-04)."""
+        if self.svc.mark_tainted is not None and not out.get("isError") and (out.get("_meta") or {}).get(META_KEY):
+            self.svc.mark_tainted(p, source)
 
     def t_get_instance(self, p, args):
         _args(args, set())
@@ -430,6 +440,7 @@ class Catalogue:
             raise RpcError(-32002, f"resource not found: {uri}")
         if r["isError"]:
             raise RpcError(-32002, f"resource not found: {uri}")
+        self._taint(p, r, f"mcp:resource:{parts[0]}")
         content = {"uri": uri, "mimeType": "application/json", "text": r["content"][0]["text"]}
         if "_meta" in r:
             content["_meta"] = r["_meta"]
