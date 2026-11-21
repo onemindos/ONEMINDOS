@@ -12,6 +12,8 @@ metadata:
   # Market category slug from docs/design/TAXONOMY.md §1; sub-tags (metrics) are listed in README.md
   # until the schema has metadata.tags.
   category: monitoring
+  age_rating: 18   # proposed minimum age (apps/README.md rubric); the owner can override per app
+  age_reason: "Exposes internal metrics of the box and its apps, with an admin API."
   icon: icon.svg
   license: "Apache-2.0"
   source: https://github.com/prometheus/prometheus

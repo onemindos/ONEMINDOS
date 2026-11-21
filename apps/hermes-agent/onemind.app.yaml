@@ -11,6 +11,8 @@ metadata:
   version: "0.23.0"
   description: Self-hosted AI agent with memory, skills and messaging gateways, by Nous Research
   category: ai
+  age_rating: 18   # proposed minimum age (apps/README.md rubric); the owner can override per app
+  age_reason: "An AI agent that can request actions on the box and message people."
   icon: icon.svg
   license: MIT
   source: https://github.com/NousResearch/hermes-agent

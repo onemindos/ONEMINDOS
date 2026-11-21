@@ -106,6 +106,9 @@ class AppEntry:
             "version": str(md.get("version")) if md.get("version") is not None else None,
             "description": md.get("description"),
             "category": md.get("category"),
+            # FAM-01: the manifest's proposed minimum age; None when the manifest has none.
+            "age_rating": md["age_rating"] if isinstance(md.get("age_rating"), int) and not isinstance(md.get("age_rating"), bool) else None,
+            "age_reason": md.get("age_reason") if isinstance(md.get("age_reason"), str) else None,
             "icon": md.get("icon"),
             "license": md.get("license"),
             "source": md.get("source"),

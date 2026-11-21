@@ -14,6 +14,8 @@ metadata:
   # Market category slug from docs/design/TAXONOMY.md §1 (sub-tags are listed in README.md until
   # the schema has metadata.tags).
   category: ai
+  age_rating: 16   # proposed minimum age (apps/README.md rubric); the owner can override per app
+  age_reason: "Chat with documents and agents on an AI model that has no age filter."
   icon: icon.svg
   license: "MIT"
   source: https://github.com/Mintplex-Labs/anything-llm

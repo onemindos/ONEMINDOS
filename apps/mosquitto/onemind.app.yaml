@@ -16,6 +16,8 @@ metadata:
   version: "2.1.2"
   description: "Eclipse Mosquitto - An open source MQTT broker"
   category: iot   # GitHub topics: iot, mqtt, mqtt-broker, messaging
+  age_rating: 18   # proposed minimum age (apps/README.md rubric); the owner can override per app
+  age_reason: "Message hub for devices; whoever can publish can control them."
   icon: icon.svg
   license: "EPL-2.0 OR BSD-3-Clause"
   source: https://github.com/eclipse-mosquitto/mosquitto
