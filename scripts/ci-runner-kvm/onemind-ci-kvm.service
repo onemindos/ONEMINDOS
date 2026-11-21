@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: Apache-2.0
+# Installed by scripts/ci-runner-kvm/up as /etc/systemd/system/onemind-ci-kvm.service (CI-14).
+[Unit]
+Description=OneMind CI: x86 KVM job VMs (one fresh clone per job)
+After=network-online.target pve-guests.service
+Wants=network-online.target
+[Service]
+ExecStart=__CYCLE__
+KillMode=mixed
+SuccessExitStatus=143
+TimeoutStopSec=120
+Restart=on-failure
+RestartSec=60
+[Install]
+WantedBy=multi-user.target
