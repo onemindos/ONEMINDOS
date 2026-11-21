@@ -26,6 +26,7 @@ import { ControlHub } from './pages/ControlHub';
 import { Agents } from './pages/Agents';
 import { ProOnly } from './shell/ProOnly';
 import { Settings } from './pages/Settings';
+import { PluginKeys } from './pages/PluginKeys';
 import { SignIn } from './pages/SignIn';
 import { useSession, useSignedIn } from './session';
 import { Shell } from './shell/Shell';
@@ -77,6 +78,7 @@ export function SignedInApp() {
             <Route path="control-hub" element={<ProOnly title="Control Hub"><ControlHub /></ProOnly>} />
             <Route path="agents" element={<ProOnly title="AI & Agents"><Agents /></ProOnly>} />
             <Route path="settings" element={<Settings />} />
+            <Route path="settings/plugin-keys" element={<PluginKeys />} />
             <Route path="settings/:section" element={<Settings />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
