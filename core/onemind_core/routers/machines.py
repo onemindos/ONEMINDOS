@@ -17,6 +17,7 @@ from ..context import Gateway
 from ..errors import ApiError, error_responses
 from ..identity.scopes import register_route_scope
 from ..machines.capability import MIN_MEMORY_MB, describe
+from ..machines.console import ConsoleBroker, ConsoleMiddleware, KubectlProxyUpstream
 from ..machines.service import MachineService
 
 
@@ -40,6 +41,12 @@ def register(app: FastAPI, gw: Gateway) -> None:
     svc = MachineService(gw)
     svc.register()  # machine.create|start|stop|delete: requested by an owner or an agent, approved by an owner
     app.state.machines = svc
+    # The console screen: a WebSocket whose credential is the ticket below (console.py). Only a real
+    # runtime has a display to show; the noop executor (demos, tests) closes it with a plain reason.
+    upstream = None if gw.settings.executor == "noop" else KubectlProxyUpstream(gw.settings.kubectl)
+    app.state.machine_console = ConsoleBroker(
+        svc.redeem, upstream, lambda event, who, data: gw.audit.append(event, who or None, None, data))
+    app.add_middleware(ConsoleMiddleware, broker=app.state.machine_console)
 
     def capabilities() -> dict:
         nodes = [describe(n) for n in gw.registry.list()]
@@ -86,10 +93,10 @@ def register(app: FastAPI, gw: Gateway) -> None:
 
     @app.post("/v1/machines/{name}/console", tags=["machines"], operation_id="machines.console", responses=error_responses(401, 403, 404, 409))
     def machines_console(name: str, p: Principal = Depends(principal)):
-        """A one-minute, single-use console ticket. Owner only: an agent never gets a screen."""
+        """A one-minute, single-use console ticket for `GET /v1/machines/{name}/console/ws` (add `view=1` for a screen with no hands). Owner only: an agent never gets a screen."""
         if not p.is_owner:
             gw.audit.append("authz.denied", p.as_dict(), None, {"attempted": "open machine console", "reason": "permission_denied"})
             raise ApiError(403, "permission_denied", "only an owner may open a machine's console")
-        out = svc.console_ticket(name)
+        out = svc.console_ticket(name, p.as_dict())
         gw.audit.append("machines.console.ticket", p.as_dict(), None, {"machine": name})
         return out
