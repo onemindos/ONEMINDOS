@@ -148,6 +148,27 @@ _SUMMARY = {
 OPENS_PATHS = frozenset({"app.install", "app.update", "app.configure"})
 
 
+def _plugin_grants(app: AppEntry) -> list[str]:
+    """The scopes a plugin principal's token would carry, or [] for a non-plugin app."""
+    if not (app.manifest.get("spec") or {}).get("plugin"):
+        return []
+    from .plugins.workload import declaration
+    try:
+        parsed = declaration(app)
+    except ValueError:
+        return []  # the app check refuses an invalid declaration before anything is issued
+    return parsed[1] if parsed else []
+
+
+def _describe_grant(grant: str) -> str:
+    prefix = "actions:request:"
+    if grant.startswith(prefix):
+        return f"may ask for the action {grant[len(prefix):]}, which still needs your approval"
+    return {"actions:read:own": "may read the status of its own requests",
+            "apps:read": "may read the list of apps", "nodes:read": "may read the list of machines"
+            }.get(grant, f"holds the grant {grant}")
+
+
 def render_plan(action_type: str, params: dict, app: AppEntry, runtime: AppRuntime | None, status: str | None,
                 network: tuple[list[dict], list[str]] | None = None) -> dict:
     """The plan for one action, with `plan_sha256`. Pure: no cluster call, no write.
@@ -182,6 +203,14 @@ def render_plan(action_type: str, params: dict, app: AppEntry, runtime: AppRunti
         volumes.append({"kind": "PersistentVolumeClaim", "namespace": ns, "selector": "all", "effect": "deleted"})
         obj["namespace"] = ns
         warnings.append("All files and databases of this app are deleted. There is no undo.")
+    if action_type in ("app.install", "app.update"):
+        grants = _plugin_grants(app)
+        if grants:
+            # Hashed with the plan: the owner approves these exact grants, and a different set
+            # is a different plan. They are what the plugin's own token can later request.
+            obj["plugin_grants"] = grants
+            for grant in grants:
+                warnings.append(f"Plugin permission: {_describe_grant(grant)}.")
     paths: list[dict] = []
     if network is not None and action_type in OPENS_PATHS:
         paths, net_warnings = network
