@@ -20,6 +20,18 @@ base:
     snapshot: none                   # UNVERIFIED: no Ubuntu snapshot service verified (handbook/findings.md F-03)
     role: nightly CI hedge only, never published (Z-01)
 
+image_firmware:
+  # Closed firmware and CPU microcode from Debian's non-free-firmware component (founder decision 2026-11-21).
+  # Pinned the way every Debian package is: by the base.debian.snapshot date. Lists: os/rootfs/firmware/,
+  # os/boards/<board>/packages-firmware-debian.txt. Licences: os/rootfs/firmware/licences.txt.
+  # Off switch: FIRMWARE=no (make) / --build-arg FIRMWARE=no.
+  component: non-free-firmware
+  snapshot: "20261111T000000Z"       # must equal base.debian.snapshot (test_firmware.py)
+  versions_at_snapshot:              # read from the snapshot's Packages index, 2026-11-21
+    firmware-nonfree_source: "20250410-2"   # firmware-iwlwifi, -atheros, -brcm80211, -realtek, -intel-graphics, -amd-graphics, -misc-nonfree
+    amd64-microcode: "3.20250311.1"
+    intel-microcode: "3.20250812.1~deb13u1"  # trixie-security at the snapshot
+
 rauc:
   repo: https://github.com/rauc/rauc.git
   tag: v1.15.2
