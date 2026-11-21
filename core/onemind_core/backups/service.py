@@ -129,6 +129,9 @@ class BackupService:
         self.worker = Worker(inline)
         self._pending_secrets: dict[str, dict] = {}  # action id -> destination credentials (memory only)
         self._one_time: dict[str, dict] = {}
+        # action id -> (owner recovery key, expiry): a first-run restore from another box's backup. Memory only, never in
+        # the action's params, the audit log or the database; dropped when used, expired or the gateway restarts.
+        self._pending_keys: dict[str, tuple[str, datetime]] = {}
         self._stop = threading.Event()
         self._last_slot: datetime | None = None
         acts = gw.actions
@@ -531,10 +534,12 @@ class BackupService:
             raise ApiError(404, "not_found", str(e)) from None
 
     # ---- restore ------------------------------------------------------------------------------
-    def plan_restore(self, snapshot_id: str, scope: dict) -> tuple[dict, dict]:
-        """Validate a restore request and build the plan the approval card shows."""
+    def plan_restore(self, snapshot_id: str, scope: dict, snap: dict | None = None) -> tuple[dict, dict]:
+        """Validate a restore request and build the plan the approval card shows.
+
+        `snap` is given for a snapshot of another box (not in this box's own list)."""
         app_id = scope.get("app_id")
-        snap = self.snapshot(snapshot_id)
+        snap = snap or self.snapshot(snapshot_id)
         if snap["unit"] != f"app:{app_id}":
             raise ApiError(409, "stale_precondition", f"snapshot {snap['short_id']} is of {snap['unit']}, not app:{app_id}")
         app = self.gw.catalog.get(app_id)
@@ -583,6 +588,46 @@ class BackupService:
                 id="rst_" + secrets.token_hex(10), action_id=action["id"], snapshot_id=snap["id"], scope=body["scope"],
                 mode=body["mode"], target=body["target"], state="awaiting_approval", plan=plan, steps=[],
                 created_at=utc(self.gw.clock())))
+        return action, created
+
+    def request_first_run_restore(self, principal, body: dict, *, idempotency_key: str, expires_at: datetime,
+                                  reason: str | None):
+        """UMB-P08: put one app's data back from ANOTHER box's backup (new hardware or a rebuilt box).
+
+        The app must already be installed here (the wizard installs it first). The owner recovery key opens the old
+        box's repository; it is held in memory for this one action and is never stored, audited or returned. The
+        action is the ordinary approved, health-gated, roll-back-able `backup.restore`."""
+        app_id = body["app_id"]
+        if not any(d["id"] == body["destination_id"] for d in self.destinations()):
+            raise ApiError(404, "not_found", "no such backup destination")
+        try:
+            snaps = self._job("backup.snapshots", {"target_id": body["destination_id"], "box_id": body["box_id"],
+                                                   "recovery_key": body["recovery_key"], "unit": f"app:{app_id}"}) or []
+        except AgentError:
+            raise ApiError(409, "stale_precondition",
+                           "the backup could not be read: wrong recovery key, wrong disk or no backup there") from None
+        raw = next((s for s in snaps if s.get("run_id") == body["run_id"]), None)
+        if raw is None:
+            raise ApiError(404, "not_found", f"that backup run holds no copy of {app_id}")
+        snap = {"id": raw["id"], "short_id": raw.get("short_id"), "unit": raw.get("unit"), "taken_at": raw.get("taken_at"),
+                "reason": raw.get("reason"), "paths": raw.get("paths") or []}
+        scope = {"app_id": app_id}
+        plan, snap = self.plan_restore(snap["id"], scope, snap)
+        plan["source"] = {"box_id": body["box_id"], "run_id": body["run_id"], "destination_id": body["destination_id"]}
+        params = {"snapshot_id": snap["id"], "scope": scope, "mode": "portable", "target": "in_place",
+                  "source": {"destination_id": body["destination_id"], "box_id": body["box_id"]}}
+        action, created = self.gw.actions.request_feature(
+            principal, "backup.restore", params, idempotency_key=idempotency_key, expires_at=expires_at, reason=reason,
+            audit_extra={"recovery_key": "provided"})
+        if created:
+            now = self.gw.clock()
+            for k in [k for k, (_, exp) in self._pending_keys.items() if exp <= now]:
+                del self._pending_keys[k]
+            self._pending_keys[action["id"]] = (body["recovery_key"], utc(expires_at))
+            self.repo.add_restore(RestoreRow(
+                id="rst_" + secrets.token_hex(10), action_id=action["id"], snapshot_id=snap["id"], scope=scope,
+                mode="portable", target="in_place", state="awaiting_approval", plan=plan, steps=[],
+                created_at=utc(now)))
         return action, created
 
     def restores(self) -> list[dict]:
@@ -635,6 +680,16 @@ class BackupService:
         if app is None:
             end("failed", "failed", f"{app_id} is not in the catalog")
             return
+        # A snapshot of another box (new hardware): the recovery key is in memory only; without it nothing is touched.
+        src = a.params.get("source") or {}
+        src_job: dict = {}
+        if src:
+            held = self._pending_keys.pop(a.id, None)
+            if held is None:
+                end("failed", "failed", "the recovery key was held in memory only and is gone (the gateway restarted); "
+                                        "request the restore again. Nothing was changed")
+                return
+            src_job = {"target_id": src["destination_id"], "box_id": src["box_id"], "recovery_key": held[0]}
 
         if "path" in scope:  # one file or folder: the agent snapshots what is there first
             # The app is stopped first: a running app could swap a folder for a symlink while root
@@ -705,7 +760,7 @@ class BackupService:
         stamp = utc(self.gw.clock()).strftime("%Y%m%dT%H%M%SZ")
         try:
             self._job("backup.restore", {"scope": "app", "app_id": app_id, "snapshot_id": a.params["snapshot_id"],
-                                         "stamp": stamp, "strict_files": has_db}, a.id)
+                                         "stamp": stamp, "strict_files": has_db, **src_job}, a.id)
         except (AgentError, Unavailable) as e:
             self._start(ns, workloads)
             end("failed", "failed", f"the agent could not restore the volumes, the current data is unchanged: {e}")

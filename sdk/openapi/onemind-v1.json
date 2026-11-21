@@ -3260,6 +3260,70 @@
         "title": "RenameOp",
         "type": "object"
       },
+      "RestoreAppBody": {
+        "additionalProperties": false,
+        "description": "Put one app's data back from another box's backup. The app is installed first, then this restores its data.",
+        "properties": {
+          "app_id": {
+            "maxLength": 59,
+            "minLength": 1,
+            "pattern": "^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$",
+            "title": "App Id",
+            "type": "string"
+          },
+          "approve": {
+            "default": false,
+            "title": "Approve",
+            "type": "boolean"
+          },
+          "box_id": {
+            "pattern": "^[A-Za-z0-9._:-]{1,128}$",
+            "title": "Box Id",
+            "type": "string"
+          },
+          "destination_id": {
+            "pattern": "^dst_[0-9a-f]{16}$",
+            "title": "Destination Id",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "recovery_key": {
+            "maxLength": 256,
+            "minLength": 32,
+            "pattern": "^[^\\r\\n]+$",
+            "title": "Recovery Key",
+            "type": "string",
+            "writeOnly": true
+          },
+          "run_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9._:-]+$",
+            "title": "Run Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "destination_id",
+          "box_id",
+          "recovery_key",
+          "run_id",
+          "app_id"
+        ],
+        "title": "RestoreAppBody",
+        "type": "object"
+      },
       "RestoreBody": {
         "additionalProperties": false,
         "properties": {
@@ -15033,6 +15097,126 @@
         "summary": "Read One",
         "tags": [
           "notifications"
+        ]
+      }
+    },
+    "/v1/onboarding/restore/apps": {
+      "post": {
+        "description": "Restore one installed app's data from another box's backup point (new hardware, UMB-P08).\n\nFiles the ordinary `backup.restore` action (undo snapshot, stop, swap, start, health gate, roll back), with the\nowner recovery key held in memory for that one action only: never in the action, the audit log or a response.\nSend `approve: true` to approve it in the same call; otherwise approve it at POST /v1/actions/{id}/approve.",
+        "operationId": "onboarding.restore.app",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RestoreAppBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
+          }
+        },
+        "summary": "Restore App",
+        "tags": [
+          "onboarding"
         ]
       }
     },
