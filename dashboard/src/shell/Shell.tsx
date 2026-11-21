@@ -22,7 +22,7 @@ import {
   type PaletteCommand,
 } from '@onemind/ui';
 import { activityFrom, notificationsFrom, toActionSummary, toPaletteApp } from '../data/adapters';
-import { ActionJobs } from './ActionJobs';
+import { ActionJobs, jobsStackStyle } from './ActionJobs';
 import { useHub } from '../data/hub';
 import { useAppRequest } from './useAppRequest';
 import { homeLayoutStore, personList } from '../data/prefs';
@@ -34,6 +34,7 @@ import { navItems } from '../screens/registry';
 import { href, navId, toRoute } from './routes';
 import { meRetryDelay, roleOf, showsNav, viewFor, type View } from './roles';
 import { usePoll } from '../lib/hooks';
+import { useDisplayName } from '../data/homeMe';
 
 interface ShellApi {
   openPalette: () => void;
@@ -63,6 +64,7 @@ export function Shell({ children }: { children: ReactNode }) {
   const location = useLocation();
   const { requestApp, reviewDialog } = useAppRequest();
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [jobsShown, setJobsShown] = useState(false);
   const readStore = useMemo(() => personList(person, 'notifications.read'), [person]);
   const recentStore = useMemo(() => personList(person, 'palette.recent', 8), [person]);
   const [read, setRead] = useState(() => new Set(readStore.load()));
@@ -75,6 +77,7 @@ export function Shell({ children }: { children: ReactNode }) {
   // A real gateway session does not carry the role, so ask GET /v1/me once. If that fails the
   // view falls back to Simple (fail closed): the Pro screens are offered only to a known role.
   const me = usePoll(() => (principal ? Promise.resolve(null) : client.me()), 0);
+  const displayName = useDisplayName();
   const role = roleOf(principal, me.data ?? undefined);
   const view = viewFor(role === undefined && me.error ? null : role);
   // A failed lookup is retried with backoff, then slowly, so a network hiccup does not leave an
@@ -117,7 +120,7 @@ export function Shell({ children }: { children: ReactNode }) {
         now: hub.now,
         apps: apps.map(toPaletteApp),
         nodes: nodes.map((n) => ({ ...n, status: hub.nodeStatus(n) })),
-        pending: pending.map(toActionSummary),
+        pending: pending.map((a) => toActionSummary(a, hub.appName)),
         canApprove: hub.canDecide !== 'no',
       }).filter((c) => paletteShows(c, view)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -209,7 +212,7 @@ export function Shell({ children }: { children: ReactNode }) {
   const installedApps: DockApp[] = layout === 'desktop' ? apps.filter((a) => a.installed).map(dockApp) : [];
   return (
     <ShellCtx.Provider value={api}>
-      <div onClickCapture={onClickCapture} className={layout === 'desktop' ? 'dash-root dash-desktop' : 'dash-root'}>
+      <div onClickCapture={onClickCapture} className={layout === 'desktop' ? 'dash-root dash-desktop' : 'dash-root'} data-jobs={jobsShown ? '' : undefined} style={jobsStackStyle(jobsShown)}>
         {layout === 'desktop' ? (
           <DesktopShell
             boxName={boxName}
@@ -222,6 +225,7 @@ export function Shell({ children }: { children: ReactNode }) {
             now={hub.now}
             timeZone={Intl.DateTimeFormat().resolvedOptions().timeZone}
             person={principal ? { id: principal.id, role: principal.kind === 'agent' ? 'agent' : principal.role } : undefined}
+            displayName={displayName}
             demo={mock}
             onSearch={() => setPaletteOpen(true)}
             onConsoleView={() => setLayout('console')}
@@ -243,7 +247,7 @@ export function Shell({ children }: { children: ReactNode }) {
           state={hub.freshness === 'stale' || hub.freshness === 'offline' ? hub.freshness : hub.freshness === 'unknown' ? 'loading' : 'ready'}
           ageSeconds={hub.ageS}
         />
-        {view !== 'simple' && <ActionJobs />}
+        {view !== 'simple' && <ActionJobs onShown={setJobsShown} />}
         {reviewDialog}
       </div>
     </ShellCtx.Provider>

@@ -6,7 +6,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import type { NavItem } from '@onemind/ui';
-import { dockSplit, parentPath } from './shell/DesktopShell';
+import { avatarInitial, dockSplit, parentPath } from './shell/DesktopShell';
 import { layoutModeStore, parseLayoutMode } from './shell/layoutMode';
 import { renderApp, screensNav, seriousViolations } from './test/helpers';
 
@@ -76,6 +76,44 @@ describe('desktop frame', () => {
     await waitFor(() => expect(screen.queryByRole('region', { name: 'Activity' })).toBeNull());
   });
 
+  it('says the screen name once: the heading, not a second title bar', async () => {
+    const { container } = renderApp({ token: 'owner-demo', route: '/market' });
+    const win = await screen.findByRole('region', { name: 'Market' }, T);
+    // The window's own name is for assistive tech only (visually hidden); no visible title text, no title bar.
+    expect(container.querySelector('.dsk-window-title')).toBeNull();
+    expect(container.querySelector('.dsk-window > .om-visually-hidden')?.textContent).toBe('Market');
+    expect(within(win).getByRole('link', { name: 'Close Market' })).toBeInTheDocument();
+  });
+
+  it('Home greets without the role word and names apps as the catalog does', async () => {
+    renderApp({ token: 'owner-demo' });
+    const h1 = await screen.findByRole('heading', { level: 1 }, T);
+    expect(h1.textContent).toMatch(/^Good (morning|afternoon|evening|night)$/);
+    expect(await screen.findByText('Install Ollama', {}, T)).toBeInTheDocument();
+    expect(screen.queryByText('Install ollama')).toBeNull();
+    // The raw activity log is in the Activity window, not on the default Home.
+    expect(screen.queryByRole('region', { name: 'Recent activity' })).toBeNull();
+    expect(screen.getByRole('region', { name: 'Backups' })).toHaveTextContent('No backup proved yet');
+  });
+
+  it('marks mock screens with a Demo data badge in the menu bar', async () => {
+    const { container } = renderApp({ token: 'owner-demo' });
+    await screen.findByRole('navigation', { name: 'Main' }, T);
+    expect(container.querySelector('.dsk-bar .dsk-demo')).toHaveTextContent('Demo data');
+  });
+
+  it('Launchpad lists your apps first, larger, and the system screens after in a smaller row', async () => {
+    const u = userEvent.setup();
+    renderApp({ token: 'owner-demo' });
+    await u.click(await screen.findByRole('button', { name: /screens and apps/ }, T));
+    const lp = await screen.findByRole('dialog', { name: 'Launchpad' });
+    const sections = [...lp.querySelectorAll('section')].map((s) => s.getAttribute('aria-label'));
+    expect(sections[0]).toBe('Your apps');
+    expect(sections).toContain('Screens');
+    expect(lp.querySelector('.dsk-launchpad-big')).not.toBeNull();
+    expect(lp.querySelector('.dsk-launchpad-small')).not.toBeNull();
+  });
+
   it.skipIf(!hasLocalStorage)('switches to the Console sidebar and back, and remembers the choice', async () => {
     const u = userEvent.setup();
     const { container, unmount } = renderApp({ token: 'owner-demo' });
@@ -139,5 +177,15 @@ describe('desktop frame', () => {
     renderApp({ token: 'owner-demo', route: '/market/vaultwarden' });
     const win = await screen.findByRole('region', { name: 'Market' }, T);
     expect(within(win).getByRole('link', { name: 'Back' })).toHaveAttribute('href', '/market');
+  });
+});
+
+describe('avatar initial', () => {
+  it('uses the greeted name first, then the account id, then a question mark', () => {
+    expect(avatarInitial('alex', undefined)).toBe('A');
+    expect(avatarInitial('Zeus', 'owner')).toBe('Z');
+    expect(avatarInitial(undefined, 'pi')).toBe('P');
+    expect(avatarInitial('  ', undefined)).toBe('?');
+    expect(avatarInitial()).toBe('?');
   });
 });

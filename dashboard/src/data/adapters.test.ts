@@ -79,6 +79,10 @@ describe('actions → approvals, progress, notifications, activity', () => {
     expect(s.requested_by?.id).toBe('owner');
     expect(s.message).toBe('kubectl delete exited with status 1');
     expect(toActionSummary(actions[0]!).requested_by?.kind).toBe('agent');
+    // Catalog names, not ids: "Install Ollama", never "Install ollama".
+    const named = toActionSummary({ ...actions[0]!, params: { app_id: 'ollama' } }, (id) => (id === 'ollama' ? 'Ollama' : id));
+    expect(named.target_name).toBe('Ollama');
+    expect(toActionSummary({ ...actions[0]!, params: { app_id: 'ollama' } }).target_name).toBeUndefined();
   });
 
   it('maps action states onto the install progress track', () => {

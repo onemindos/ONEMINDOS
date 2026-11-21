@@ -36,6 +36,8 @@ export interface ActionSummary {
   impact?: string;
   /** Failure text from the hub. */
   message?: string;
+  /** What the target is called in the catalog ("Ollama", not its id "ollama"); the id is shown when absent. */
+  target_name?: string;
 }
 
 export const ACTION_STATE: Record<ActionState, { tone: Tone; label: string }> = {
@@ -63,8 +65,8 @@ const VERB: Record<string, string> = {
   'exposure.enable': 'Expose to the internet',
 };
 
-export function actionTitle(a: Pick<ActionSummary, 'type' | 'params'>): string {
-  const target = (a.params.app_id ?? a.params.node_id ?? a.params.target ?? '') as string;
+export function actionTitle(a: Pick<ActionSummary, 'type' | 'params'> & { target_name?: string }): string {
+  const target = a.target_name ?? ((a.params.app_id ?? a.params.node_id ?? a.params.target ?? '') as string);
   return `${VERB[a.type] ?? a.type} ${target}`.trim();
 }
 

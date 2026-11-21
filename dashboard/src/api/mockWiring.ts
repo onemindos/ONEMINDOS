@@ -90,7 +90,8 @@ export abstract class MockWiringBase implements W.WiringApi {
     const p = this.auth();
     const caps = p.role === 'owner' ? ['can_approve', 'can_request', 'can_manage_users', 'can_share_apps', 'can_create_tokens'] : p.kind === 'agent' ? ['can_request'] : ['can_create_tokens'];
     return {
-      principal: { id: p.id, kind: p.kind, role: p.role },
+      // A person carries the display name and username a real gateway adds (Home greets by it).
+      principal: PERSONS[p.id]?.principal ?? { id: p.id, kind: p.kind, role: p.role },
       token: { id: 'tok_mock', scopes: ['*'], expires_at: null, source: 'file' },
       session: null,
       passkeys: this.passkeyRows.length,

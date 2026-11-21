@@ -175,10 +175,12 @@ export function requesterKind(kind: string | undefined): 'person' | 'agent' {
   return kind === 'person' ? 'person' : 'agent';
 }
 
-export function toActionSummary(a: Action): ActionSummary {
+export function toActionSummary(a: Action, appName?: (id: string) => string): ActionSummary {
   const rb = a.requested_by;
   const db = a.decided_by;
+  const appId = (a.params as Record<string, unknown>).app_id;
   return {
+    target_name: appName && typeof appId === 'string' ? appName(appId) : undefined,
     id: a.id,
     type: a.type,
     params: a.params as Record<string, unknown>,
