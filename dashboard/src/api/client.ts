@@ -49,6 +49,15 @@ export interface OneMindApi extends WiringApi {
   deny(id: string): Promise<Action>;
   /** Hub clock minus browser clock (ms), learned from responses; undefined until known. */
   hubOffsetMs(): number | undefined;
+  /**
+   * GET /v1/events (SSE) through the SDK: calls `onEvent` for each event until `signal` aborts.
+   * Rejects when the hub has no stream (4xx), so the caller keeps polling. Absent on the mock gateway.
+   */
+  watchEvents?(onEvent: (type: string) => void, signal: AbortSignal): Promise<void>;
+  /** GET /v1/backups/status, validated to be an object. Absent on the mock gateway. */
+  backupsStatus?(): Promise<Record<string, unknown>>;
+  /** GET /v1/os/updates, validated to be an object. Absent on the mock gateway. */
+  osUpdates?(): Promise<Record<string, unknown>>;
 }
 
 export interface FirstRunSettingsBody {
@@ -217,6 +226,15 @@ export class HttpApi implements OneMindApi {
       throw e;
     }
   }
+  watchEvents(onEvent: (type: string) => void, signal: AbortSignal) {
+    return this.sdk.events.subscribe({ signal }, (e) => onEvent(e.type)).catch((e: unknown) => {
+      if (signal.aborted) return;
+      if (e instanceof OneMindError) throw new ApiError(e.status, KNOWN_CODES.has(e.code) || e.code === 'network' ? e.code as ApiError['code'] : 'unknown', e.message, e.reason);
+      throw e;
+    });
+  }
+  backupsStatus() { return this.sdkCall<Record<string, unknown>>('GET', '/v1/backups/status'); }
+  osUpdates() { return this.sdkCall<Record<string, unknown>>('GET', '/v1/os/updates'); }
   machines() { return this.req<MachineRecord[]>('GET', '/v1/machines', undefined, 'array'); }
   machineCapabilities() { return this.req<MachineCapabilities>('GET', '/v1/machines/capabilities'); }
   appPlan(id: string) { return this.sdkCall<PlanPreview>('GET', `/v1/apps/${encodeURIComponent(id)}/plan`); }

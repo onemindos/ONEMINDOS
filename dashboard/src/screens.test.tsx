@@ -168,7 +168,32 @@ describe('palette and notifications', () => {
     await screen.findByRole('list', { name: 'Nodes' }, T);
     const bell = await screen.findByRole('button', { name: /Notifications/ }, T);
     await u.click(bell);
-    expect(await screen.findByText('Install Ollama is waiting for approval', {}, T)).toBeInTheDocument();
+    // The hub's own notification for that action replaces the one the browser used to derive.
+    expect(await screen.findByText('A request is waiting for you', {}, T)).toBeInTheDocument();
+  });
+});
+
+describe('one notification centre', () => {
+  it('the bell lists hub notifications and open alerts, and marking one read tells the hub', async () => {
+    const u = userEvent.setup();
+    const { getApi } = renderApp({ token: 'owner-demo', route: '/nodes' });
+    await screen.findByRole('list', { name: 'Nodes' }, T);
+    const bell = await screen.findByRole('button', { name: /Notifications/ }, T);
+    await u.click(bell);
+    expect(await screen.findByText('Backup is two days behind', {}, T)).toBeInTheDocument();
+    // The hub's request notification replaces the browser-derived one for the same action.
+    expect(screen.getAllByText(/A request is waiting for you/).length).toBe(1);
+    const api = getApi();
+    await u.click(await screen.findByRole('button', { name: /mark all.*read/i }, T));
+    await waitFor(async () => expect((await api.notifications({ unread: true })).length).toBe(0), T);
+  });
+
+  it('Home shows the health card, and says "Not reported" where the hub gives no answer', async () => {
+    renderApp({ token: 'owner-demo' });
+    const card = await screen.findByRole('region', { name: 'Box health' }, T);
+    // The demo gateway has no backup or update service: those rows say so; alerts are real.
+    expect(within(card).getAllByText('Not reported').length).toBe(2);
+    expect(within(card).getByText(/critical alert|No critical alerts/)).toBeInTheDocument();
   });
 });
 
