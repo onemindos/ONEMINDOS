@@ -9,7 +9,6 @@ const screen: ScreenDef = {
   section: 'Your box',
   order: 80,
   hue: ['#f4637c', '#b0123a'],
-  pro: true,
   load: () => import('../../pages/Alerts').then((m) => ({ default: m.Alerts })),
 };
 export default screen;

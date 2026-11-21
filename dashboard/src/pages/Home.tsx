@@ -55,7 +55,8 @@ export function homeData(hub: Hub, activity: ReturnType<typeof homeActivity>, ex
     activity: hub.actions.data !== undefined ? { state: 'ready', data: activity } : loadable(hub.actions, () => activity),
     backups,
     storage,
-    ...extras,
+    updates: extras.updates,
+    mesh: extras.mesh,
     appWidgets: {},
     weather: null,
   };

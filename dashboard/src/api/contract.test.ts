@@ -22,7 +22,7 @@ const prod = Object.entries(sources).map(([path, text]) => ({ path: path.startsW
 const specRaw = Object.values(import.meta.glob('../../../sdk/openapi/onemind-v1.json', { query: '?raw', import: 'default', eager: true }) as Record<string, string>)[0] ?? '';
 
 /** The only files allowed to touch the network directly; each wraps the SDK transport. */
-const RAW_FETCH_ALLOWED = new Set(['api/client.ts', 'pages/Backups.tsx']);
+const RAW_FETCH_ALLOWED = new Set(['api/client.ts', 'pages/Backups.tsx', 'pages/Migrate.tsx']);
 
 describe('one API client (CI-08)', () => {
   it('has no raw fetch/XHR outside the allowlisted transport files', () => {

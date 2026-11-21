@@ -7,6 +7,7 @@ import { App } from '../App';
 import { DEMO_TOKENS } from '../api/fixtures';
 import { MockApi } from '../api/mock';
 import { backupsFromStatus, meshFromHub, osUpdatesFromHub, updatesFromHub } from '../data/homeExtras';
+import { homeLayoutStore } from '../data/prefs';
 import { SessionProvider } from '../session';
 
 const NOW = '2026-11-21T10:00:00Z';
@@ -14,6 +15,11 @@ const backupStatus = { health: 'ok', reason: null, last_success_at: '2026-11-21T
 const osStatus = { nodes: [{ node_id: 'box1', current_version: '0.1.1', available_version: '0.1.2', channel: 'security', last_check: '2026-11-21T09:00:00Z' }] };
 function response(value: unknown, code = 200) { return new Response(JSON.stringify(value), { status: code, headers: { 'content-type': 'application/json' } }); }
 afterEach(() => vi.unstubAllGlobals());
+// The default Home keeps updates in the widget gallery (two rows: needs you, system, trust, storage, backups);
+// these tests put the Updates widget on this person's Home so they can read what it is fed.
+function showUpdatesWidget() {
+  homeLayoutStore().save('owner', { version: 1, widgets: [{ id: 'w-updates', kind: 'updates', size: 'S' }, { id: 'w-backups', kind: 'backups', size: 'M' }], pinned: [] });
+}
 
 it('feeds Home from /v1/backups/status and /v1/os/updates', async () => {
   const paths: string[] = [];
@@ -26,6 +32,7 @@ it('feeds Home from /v1/backups/status and /v1/os/updates', async () => {
     return response({ error: 'not_found', message: path }, 404);
   }));
   window.sessionStorage.setItem('onemind.token', 'owner-demo');
+  showUpdatesWidget();
   render(<MemoryRouter initialEntries={['/']}><SessionProvider deps={{ mock: false, makeApi: () => new MockApi('owner-demo'), knownPrincipal: () => DEMO_TOKENS['owner-demo'] }}><App mock={false} /></SessionProvider></MemoryRouter>);
   expect(await screen.findByText('0.1.1 → 0.1.2', { exact: false }, { timeout: 4000 })).toBeInTheDocument();
   expect(await screen.findByText('Restore verified')).toBeInTheDocument();
@@ -58,6 +65,7 @@ it('keeps Home mounted and shows a widget error when /v1/os/updates has no nodes
     return response({ error: 'not_found', message: path }, 404);
   }));
   window.sessionStorage.setItem('onemind.token', 'owner-demo');
+  showUpdatesWidget();
   render(<MemoryRouter initialEntries={['/']}><SessionProvider deps={{ mock: false, makeApi: () => new MockApi('owner-demo'), knownPrincipal: () => DEMO_TOKENS['owner-demo'] }}><App mock={false} /></SessionProvider></MemoryRouter>);
   expect(await screen.findByText(/invalid update status/i, {}, { timeout: 4000 })).toBeInTheDocument();
   expect(await screen.findByText('Restore verified')).toBeInTheDocument();
