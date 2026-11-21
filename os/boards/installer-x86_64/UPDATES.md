@@ -1,0 +1,50 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+# Updating a box that was installed from the USB stick
+
+Ties to: #234 (M-LIVE), D-010 (root-key ceremony), D-007 (Debian 13), `os/update/CEREMONY.md`, `os/update/CHANNEL.md`.
+
+## Why this page exists, in plain words
+
+A box that cannot take updates stops getting security fixes the day it is installed. The USB stick installs the `x86_64-efi` image. That image updates itself with **RAUC** (the tool that writes a new copy of the system into the spare "B" slot and boots it, going back to "A" if it does not come up healthy). RAUC only installs a bundle (one signed update file, `.raucb`) if the bundle was signed by a key the box already trusts. The box learns what to trust from a **keyring** (a list of trusted certificates) baked into the image.
+
+So an update has to match the box on three things: the board (`compatible` string), the version (must be newer, and the box's own minimum `min_from_version` must be met), and the signing authority (the CA in the box's keyring). `scripts/release/dev-release.py` now checks all three before it publishes, with the same ordering rules the on-box updater uses (`internal/update/semver.go`).
+
+## What a dev release gives you today
+
+Every nightly dev pre-release carries, for the installer board:
+
+| File | What it is |
+|---|---|
+| `onemind-x86_64-efi-<N>.raucb` | the system the stick installs, as an update bundle |
+| `onemind-x86_64-efi-<N>-next.raucb` | the same system one version later: install this over a box that runs N |
+| `dev-ca-x86_64-efi.cert.pem` | the public certificate of the throwaway CA that signed both (no key) |
+| `update-compat-x86_64-efi.json` | board, compatible string, N, N+1, minimum version, CA fingerprint |
+
+The **dev CA is made fresh for every build and destroyed with the build** (`os/assemble/dev-image.sh`). That is on purpose: no key store exists, nothing to steal. The price: a box installed from dev build N takes only the `-next` bundle of build N. It refuses a bundle from build N+1 because that was signed by a different throwaway CA. The compat file says this in its `note`.
+
+## What happens on ceremony day
+
+The founder runs the root-key ceremony (`os/update/CEREMONY.md`) and commits `os/rootfs/layers/base/usr/lib/onemind/tuf/<channel>/root.json`. Nothing else in the repository changes:
+
+1. The GitHub Environment the ceremony fills holds `ONEMIND_RAUC_SIGNING_KEY`, `ONEMIND_RAUC_SIGNING_CERT` and (optional) `ONEMIND_RAUC_KEYRING_CERT`. `security-nightly.yml` writes them to a private temp folder and `os/update/build-release.sh` (`KEYDIR=`) signs the `x86_64-efi` bundle with them. `x86_64-efi` is already in `os/update/channel.json`. No script reads or prints a key.
+2. The same job builds the image with that keyring, so a box built from release N trusts the CA that signs release N+1. The "same build only" limit above disappears because every build is signed by the same authority.
+3. `dev-release.py` stays as it is: it never signs, it only picks the files an image.yml run produced.
+
+## What is NOT done yet (follow-ups, not hidden)
+
+- **The stick still installs a dev-signed image.** `image.yml` builds the installer's payload with `dev-image.sh` (throwaway CA). A box installed from such a stick will never trust the channel's real keys. Before the Dell is the daily box, a signed-release installer must be built from the release-keyed image (the `release.yml` path refuses `-dev` builds, so this needs its own small change). This is the real remaining blocker for "install once, update forever".
+- The on-box side (dashboard approval to host install) is #493, not this PR.
+- No hardware proof: the update has run only in QEMU.
+
+## What CI must show for the installer board
+
+The preregistered criteria (`test/qemu/CRITERIA.md`, hash in `PREREGISTRATION.sha256`) are not edited. The installer writes the very same `x86_64-efi` disk image that the battery tests, so the battery rows below are the evidence for the installer board too. CI's first run of this PR is their first run with the new step.
+
+| Row | Must show on `x86_64-efi` (battery job, `image.yml` matrix, `upto: T5`) | Installer-board reading |
+|---|---|---|
+| T2 signature control | a bundle signed by a wrong key is refused, boot order unchanged, no trial marker | a box from the stick refuses any bundle outside its keyring, including a dev bundle of another build |
+| T5 stale-Ready trap | an update that breaks the node is marked bad and the box returns to the old slot with no input | a bad update on a box from the stick rolls back by itself |
+| I1-I5 (`CRITERIA-INSTALLER.md`) | the stick installs and the target boots | the image the bundles above update is the one I1-I5 installed |
+| new (unit) | `test/unit/test_installer_updates.py`: the bundles of release N and N+1 are an accepted pair, a foreign CA or older version is refused, the installer's `target_board` is covered by the battery matrix | |
+
+Hardware: kit `LT-X86-01` runs the same A to B update and the forced bad update on a real PC (never run yet).
