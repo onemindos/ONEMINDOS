@@ -44,6 +44,14 @@ describe('Market', () => {
     expect(within(screen.getByRole('list', { name: 'Apps' })).getAllByRole('article')).toHaveLength(1);
   });
 
+  it('leaves out categories that have no apps', () => {
+    const one = catalog.filter((a) => a.category === catalog[0]!.category);
+    render(<Market apps={one} state={READY} now={NOW} {...handlers()} />);
+    const chips = within(screen.getByRole('group', { name: 'Category' })).getAllByRole('button');
+    expect(chips).toHaveLength(2); // All, plus the one category that has apps
+    expect(chips.every((c) => !/\b0$/.test(c.textContent ?? ''))).toBe(true);
+  });
+
   it('searches, shows an empty state with the CLI, and resets', async () => {
     const u = userEvent.setup();
     render(<Market apps={catalog} state={READY} now={NOW} {...handlers()} />);

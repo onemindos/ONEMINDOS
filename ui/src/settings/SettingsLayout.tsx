@@ -54,7 +54,7 @@ export function SettingsLayout({ current, explicit, hrefFor, indexHref, hints = 
   const groups = [...new Set(shown.map((s) => s.group))];
   return (
     <>
-      <PageHeader title="Settings" lede="Everything here is also an API call. Changes that add power are requests you approve; changes that take power away happen at once." />
+      <PageHeader title="Settings" lede="Changes that add power are requests you approve; changes that take power away happen at once." />
       <div className={cx('om-set', explicit ? 'om-set-in-section' : 'om-set-at-index')}>
         <nav className="om-set-nav" aria-label="Settings sections">
           <label className="om-set-search" htmlFor={searchId}>

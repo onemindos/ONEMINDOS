@@ -6,12 +6,32 @@ import { href } from './routes';
 import { isActive } from '../data/adapters';
 import type { Action } from '../api/types';
 
+/** One plain line per ledger state (§3). The words are ours; the state itself stays under Technical details. */
+const HISTORY: Record<string, string> = {
+  requested: 'Request sent.',
+  awaiting_approval: 'Waiting for the owner to approve.',
+  accepted: 'Approved. Starting soon.',
+  dispatched: 'Working on it.',
+  succeeded: 'Done.',
+  failed: 'It did not work. Technical details below say why.',
+  outcome_unknown: 'We are not sure it finished. Check the app before trying again.',
+  expired: 'The request ran out of time before it was approved.',
+  cancelled: 'Cancelled.',
+};
+
 export function ActionStatus({ action: a, label = 'Request progress' }: { action: Action; label?: string }) {
+  const state = a.state.replace(/_/g, ' ');
+  const hasTech = !!a.progress || !!a.result?.message;
   return <Card as="section" title={label} variant="sunken">
-    <p role="status">Request status: {a.state.replace(/_/g, ' ')}</p>
-    {a.progress && <p>Executor step: {a.progress.step}</p>}
+    <p role="status">{HISTORY[a.state] ?? `Status: ${state}.`}</p>
     {a.progress && Number.isFinite(a.progress.pct) && <progress aria-label={`${a.type} progress`} max={100} value={a.progress.pct}>{a.progress.pct}%</progress>}
-    {a.result?.message && <p>Gateway result: {a.result.message}</p>}
+    <details className="dash-tech">
+      <summary>Technical details</summary>
+      <p>State: {state}</p>
+      {a.progress && <p>Executor step: {a.progress.step}</p>}
+      {a.result?.message && <p>Hub result: {a.result.message}</p>}
+      {!hasTech && <p className="om-hint">The hub has sent nothing more for this request.</p>}
+    </details>
   </Card>;
 }
 

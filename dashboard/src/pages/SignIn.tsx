@@ -5,7 +5,7 @@
 // bearer access token held in sessionStorage only (session.tsx); nothing goes to localStorage.
 // One error line at a time (role=alert) so a screen reader hears exactly one message.
 import { useId, useState, type FormEvent, type ReactNode } from 'react';
-import { BrandMark, Button } from '@onemind/ui';
+import { BrandMark, Button, WallpaperSurface, wallpaperLayers, DEFAULT_APPEARANCE } from '@onemind/ui';
 import { ApiError } from '../api/types';
 import type { LoginResult } from '../api/wiring';
 import { brand } from '../brand.generated';
@@ -67,6 +67,9 @@ export function SignIn({ mock }: { mock: boolean }) {
   const [setupToken, setSetupToken] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [code, setCode] = useState(hashCode);
+  const [chipGone, setChipGone] = useState(false);
+  const passkeyOk = webauthnSupported();
+  const layers = wallpaperLayers(DEFAULT_APPEARANCE.wallpaper, null);
 
   const fail = (field: string, msg: string) => {
     setError(msg);
@@ -147,42 +150,49 @@ export function SignIn({ mock }: { mock: boolean }) {
 
   return (
     <main id="main" className="dash-signin">
+      {layers && <WallpaperSurface layers={layers} className="dash-signin-wp" />}
       <div className="dash-signin-card">
         <BrandMark className="om-brand-mark dash-signin-mark" />
         {view === 'signin' && (
           <>
             <h1>{t('signin.title', { name: brand.shortName })}</h1>
             <p className="om-hint">{t('signin.lede')}</p>
-            {webauthnSupported() ? (
+            {mock && !chipGone && (
+              <p id={hintId} className="dash-chip">
+                <span>{t('signin.mockHint')}</span>
+                <button type="button" className="dash-chip-x" aria-label={t('signin.mockHint.dismiss')} onClick={() => setChipGone(true)}>
+                  <span aria-hidden="true">×</span>
+                </button>
+              </p>
+            )}
+            {passkeyOk ? (
               <Button variant="primary" onClick={onPasskey} disabled={busy}>
                 {t('signin.passkey')}
               </Button>
             ) : (
               <p className="om-hint">{t('signin.passkey.unsupported')}</p>
             )}
-            <form onSubmit={onAccount} noValidate className="dash-signin-form">
-              <h2 className="dash-signin-sub">{t('signin.account.heading')}</h2>
-              <Field label={t('signin.username')} name="username" autoComplete="username" value={username} onChange={setUsername} invalid={bad('username')} describedBy={describe('username')} />
-              <Field label={t('signin.password')} name="password" type="password" autoComplete="current-password" value={password} onChange={setPassword} />
-              <Field label={t('signin.totp')} name="totp" autoComplete="one-time-code" value={totp} onChange={setTotp} />
-              <Button type="submit" disabled={busy}>
-                {t('signin.account.submit')}
-              </Button>
-            </form>
-            <form onSubmit={onToken} noValidate className="dash-signin-form">
-              <h2 className="dash-signin-sub">{t('signin.token.heading')}</h2>
-              <Field label={t('signin.token.label')} name="token" type="password" autoComplete="off" value={token} onChange={setToken} invalid={bad('token')} describedBy={describe('token', mock ? hintId : undefined)} />
-              {mock && (
-                <p id={hintId} className="om-hint">
-                  {t('signin.mockHint')}
-                </p>
-              )}
-              <Button type="submit" variant="primary" disabled={busy}>
-                {busy ? t('signin.busy') : t('signin.token.submit')}
-              </Button>
-            </form>
+            <details className="dash-signin-more" open={!passkeyOk || undefined}>
+              <summary>{t('signin.more')}</summary>
+              <form onSubmit={onAccount} noValidate className="dash-signin-form">
+                <h2 className="dash-signin-sub">{t('signin.account.heading')}</h2>
+                <Field label={t('signin.username')} name="username" autoComplete="username" value={username} onChange={setUsername} invalid={bad('username')} describedBy={describe('username')} />
+                <Field label={t('signin.password')} name="password" type="password" autoComplete="current-password" value={password} onChange={setPassword} />
+                <Field label={t('signin.totp')} name="totp" autoComplete="one-time-code" value={totp} onChange={setTotp} />
+                <Button type="submit" disabled={busy}>
+                  {t('signin.account.submit')}
+                </Button>
+              </form>
+              <form onSubmit={onToken} noValidate className="dash-signin-form">
+                <h2 className="dash-signin-sub">{t('signin.token.heading')}</h2>
+                <Field label={t('signin.token.label')} name="token" type="password" autoComplete="off" value={token} onChange={setToken} invalid={bad('token')} describedBy={describe('token', mock && !chipGone ? hintId : undefined)} />
+                <Button type="submit" variant="primary" disabled={busy}>
+                  {busy ? t('signin.busy') : t('signin.token.submit')}
+                </Button>
+              </form>
+              <p className="om-hint">{t('signin.expiry')}</p>
+            </details>
             {alert}
-            <p className="om-hint">{t('signin.expiry')}</p>
             <p className="dash-signin-links">
               <button type="button" className="om-link" onClick={() => go('setup')}>
                 {t('signin.firstTime')}
