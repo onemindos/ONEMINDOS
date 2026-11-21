@@ -179,7 +179,7 @@ class Kit(unittest.TestCase):
         self.assertIn("INPUT -i docker0 -j DROP", start)
 
     def test_firewall_keeps_replies_flowing(self):
-        # Docker's bridge is 172.17.0.0/16, inside the 172.16.0.0/12 drop. Replies reach DOCKER-USER with the
+        # Docker's bridge is 172.17/16, inside the 172.16.0.0/12 drop. Replies reach DOCKER-USER with the
         # container as destination, so the drops must be limited to traffic from the bridge, and the
         # ESTABLISHED,RELATED return must be inserted AFTER the drops (each -I 1 lands first), i.e. end up first.
         prov = (KIT / "provision.sh").read_text()
