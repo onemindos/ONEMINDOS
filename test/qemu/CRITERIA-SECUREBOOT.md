@@ -1,6 +1,6 @@
 # QEMU battery, Secure Boot and signed UKI: pass/fail criteria (pre-registered)
 
-**Status:** PRE-REGISTERED. Written 2026-11-21 before `test/qemu/secureboot.py` was run. Its sha256 is in `PREREGISTRATION.sha256` and in the commit that adds it. Nothing here may change afterwards except typo fixes; any other change is a new, dated section at the end. Results never live here (they go to the run's `results.json` and CI logs).
+**Status:** PRE-REGISTERED. Written 2026-11-21 before the full-image run; the harness `test/qemu/secureboot.py` was self-tested on a rootless image first (SB2-SB4 and the harness self-test), so SB1 on the full image had not run. Its sha256 is in `PREREGISTRATION.sha256` and in the commit that adds it. Nothing here may change afterwards except typo fixes; any other change is a new, dated section at the end. Results never live here (they go to the run's `results.json` and CI logs).
 
 **Serves:** S-13 (verified boot chain), D-007, the finish audit `07-image-security` item 11. **Does not replace** `CRITERIA.md` or `CRITERIA-FIRSTBOOT.md`; the normal image is unchanged and still passes those on its own.
 
