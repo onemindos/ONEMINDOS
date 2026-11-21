@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Fixture stand-in for window.__TAURI__ so the popover can be previewed in a browser.
-// Scenes: status, calm, down, pair-error, approval, approval-passkey, inbox, manage.
+// Scenes: update, status, calm, down, pair-error, approval, approval-passkey, inbox, manage.
 // The status fixture uses the shape the Rust core returned from a local dev gateway
 // (pending action requested by the Hermes agent); nodes, updates and backups are fixture
 // values, because a dev gateway without NATS reports no nodes and the update and backup
@@ -44,7 +44,7 @@
     down: [{ id: 'a1b2c3d4e5f6', name: 'Home box', url: 'http://onemind.local:8080', insecure: true, has_token: true,
       status: { ...status, reachable: false, error: 'unreachable', pending: [], fetched_at: now - 200 } }],
   }[scene] || [];
-  if (!boxes.length && (scene.startsWith('approval') || scene === 'inbox' || scene === 'manage')) boxes.push(...[{ id: 'a1b2c3d4e5f6', name: 'Home box', url: 'https://onemind.local:8443', insecure: false, has_token: true, live: true, status }]);
+  if (!boxes.length && (scene.startsWith('approval') || scene === 'inbox' || scene === 'manage' || scene === 'update')) boxes.push(...[{ id: 'a1b2c3d4e5f6', name: 'Home box', url: 'https://onemind.local:8443', insecure: false, has_token: true, live: true, status }]);
   if (scene === 'inbox' || scene === 'status') boxes.forEach((b) => (b.live = true));
   const passkey = scene === 'approval-passkey';
   const detail = {
@@ -67,6 +67,9 @@
     autostart_get: () => autostart,
     autostart_set: ({ on }) => (autostart = on),
     list_boxes: () => boxes,
+    // Scene `update`: an offer is shown; installing does nothing in the preview.
+    update_check: () => ({ configured: scene === 'update', channel: 'stable', current: '0.1.0', available: scene === 'update' ? { version: '0.2.0', current: '0.1.0', notes: 'Approvals show the exact plan.\nFixes a tray crash on Windows.', date: null } : null }),
+    update_install: () => new Promise(() => {}),
     discover: () => new Promise((r) => setTimeout(() => r(found), 300)),
     pair: () => Promise.reject(scene === 'pair-error' ? 'unauthorized' : 'needs_https'),
     approval: () => detail,

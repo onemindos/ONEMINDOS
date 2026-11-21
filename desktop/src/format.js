@@ -3,6 +3,8 @@
 // No DOM and no Tauri here, so `node --test` can check them.
 
 const ERRORS = {
+  no_update_pending: 'That update is no longer ready. It will be checked again shortly.',
+  update_endpoint_refused: 'The update address was refused because it is not HTTPS.',
   unauthorized: 'The box did not accept this token. Create a new one on the box and try again.',
   unreachable: 'Cannot reach the box. Check that it is on and that this computer is on the same network.',
   needs_https:
@@ -216,6 +218,21 @@ export function isInsecureAddress(input) {
   if (!raw.startsWith('http://')) return false;
   const host = raw.slice(7).split(/[/:]/)[0];
   return !(host === 'localhost' || host.startsWith('127.') || raw.startsWith('http://[::1]'));
+}
+
+// ---- app updates (src-tauri/src/updates.rs; docs/UPDATER.md) ----
+
+/** What the update strip shows, or null when there is nothing to show (off, or up to date). */
+export function updateStrip(check) {
+  const a = check && check.configured && check.available;
+  if (!a || !a.version) return null;
+  const dev = check.channel === 'dev' ? ' (dev channel)' : '';
+  return {
+    title: `Update available: OneMind ${a.version}${dev}`,
+    detail: `You have ${a.current || 'an older version'}. Nothing installs until you click.`,
+    notes: typeof a.notes === 'string' ? a.notes.trim().slice(0, 600) : '',
+    action: 'Install and restart',
+  };
 }
 
 // ---- "Needs you" and box health (D-016 home; src-tauri/src/api.rs parse_alerts, parse_os, parse_storage) ----

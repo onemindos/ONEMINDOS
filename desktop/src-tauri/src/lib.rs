@@ -13,6 +13,7 @@ mod events;
 mod inbox;
 mod manage;
 mod store;
+mod updates;
 
 use serde::Serialize;
 use serde_json::json;
@@ -568,11 +569,13 @@ pub fn run() {
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| toggle_popover(app, None)))
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, None))
         .setup(|app| {
             #[cfg(target_os = "macos")]
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
 
+            app.manage(updates::Pending::default());
             let dir = app.path().app_config_dir().expect("config dir");
             app.manage(App {
                 store: store::Store::load(dir),
@@ -648,6 +651,7 @@ pub fn run() {
                 }
             }
             spawn_poller(app.handle().clone());
+            updates::spawn_checker(app.handle().clone());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -671,6 +675,8 @@ pub fn run() {
             manage_backup_request,
             manage_settings,
             manage_settings_save,
+            updates::update_check,
+            updates::update_install,
             autostart_get,
             autostart_set,
             hide,

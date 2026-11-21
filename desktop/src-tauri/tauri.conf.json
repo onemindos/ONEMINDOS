@@ -26,6 +26,11 @@
       "csp": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src ipc: http://ipc.localhost"
     }
   },
+  "plugins": {
+    "updater": {
+      "pubkey": "REPLACE_WITH_TAURI_SIGNER_PUBLIC_KEY"
+    }
+  },
   "bundle": {
     "active": true,
     "targets": ["app", "dmg", "nsis", "msi", "deb", "appimage"],
