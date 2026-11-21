@@ -148,5 +148,114 @@ class Refusals(unittest.TestCase):
                 g.stick_path("A", need_key=False)
 
 
+class SigningSticks(unittest.TestCase):
+    """The signing step with two separate stick folders (throwaway files; no keys, no passphrases)."""
+
+    class Talk(cg.Io):
+        def __init__(self, answers, after=None):
+            super().__init__(answers=answers)
+            self.lines, self.after, self.n = [], after, 0
+
+        def say(self, text="", err=False):
+            self.lines.append(text)
+
+        def ask(self, prompt, auto=None):
+            r = super().ask(prompt, auto)
+            self.n += 1
+            if self.after:
+                self.after(self.n)
+            return r
+
+    def setup_guide(self, d, after=None):
+        work = os.path.join(d, "work"); os.mkdir(work)
+        self.a, self.b = os.path.join(d, "stick-a"), os.path.join(d, "stick-b")
+        for p in (self.a, self.b):
+            os.mkdir(p)
+            open(os.path.join(p, "root.key"), "w").write("throwaway")
+        answers = [self.a, "ENCRYPTED", self.b, "ENCRYPTED"]
+        io = self.Talk(answers, after and (lambda n: after(n)))
+        g = cg.Guide(io, work, repo=ROOT)
+        g.state["holders"] = {"A": "Ann", "B": "Bo", "C": "Cy"}
+        g.state["signers"] = ["A", "B"]
+        self.calls = []
+        g.run_script = lambda *a, **k: (self.calls.append(a), os.makedirs(a[1]), open(os.path.join(a[1], "root.json"), "w").write("{}"), 0)[3]
+        return g, io
+
+    def patches(self):
+        ids = iter(["uuid-a", "uuid-b"])
+        return (unittest.mock.patch.object(cg.Guide, "on_work_disk", lambda self, p: False),
+                unittest.mock.patch.object(cg, "stick_identity", lambda p: (next(ids), None)))
+
+    def test_second_signer_is_told_to_keep_the_first_stick(self):
+        with tempfile.TemporaryDirectory() as d:
+            g, io = self.setup_guide(d)
+            p1, p2 = self.patches()
+            with p1, p2:
+                g.sign()
+            text = "\n".join(io.lines)
+            second = text.split("signer B")[1]
+            self.assertIn("KEEP holder A (Ann)'s stick PLUGGED IN", second)
+            self.assertNotIn("remove any other stick", second)
+            self.assertIn("remove any other stick", text.split("signer B")[0])    # fine for the first signer
+            create = self.calls[0]
+            self.assertIn(os.path.join(os.path.realpath(self.a), "root.key"), create)
+            self.assertIn(os.path.join(os.path.realpath(self.b), "root.key"), create)
+
+    def test_a_missing_key_names_the_holder_not_the_passphrase(self):
+        with tempfile.TemporaryDirectory() as d:
+            g, io = self.setup_guide(d, after=lambda n: n == 4 and os.remove(os.path.join(self.a, "root.key")))
+            p1, p2 = self.patches()
+            with p1, p2, self.assertRaises(cg.Stop) as c:
+                g.sign()
+            msg = str(c.exception)
+            self.assertIn("holder A (Ann)'s stick is not plugged in", msg)
+            self.assertIn("KEEP the other signer's stick", msg)
+            self.assertNotIn("passphrase", msg)
+            self.assertEqual(self.calls, [])
+
+    def test_failed_create_with_both_keys_present_still_says_how_to_retry(self):
+        with tempfile.TemporaryDirectory() as d:
+            g, io = self.setup_guide(d)
+            g.run_script = lambda *a, **k: 1
+            p1, p2 = self.patches()
+            with p1, p2, self.assertRaises(cg.Stop) as c:
+                g.sign()
+            self.assertIn("plug in their sticks together", str(c.exception))
+
+    def test_same_label_sticks_are_different_by_volume_id_same_stick_refused(self):
+        with tempfile.TemporaryDirectory() as d:
+            work = os.path.join(d, "work"); os.mkdir(work)
+            s = os.path.join(d, "STICK"); os.mkdir(s)
+            for ids, ok in ((["u1", "u2"], True), (["u1", "u1"], False)):
+                it = iter(ids)
+                g = cg.Guide(cg.Io(answers=[s, "ENCRYPTED", s, "ENCRYPTED"]), work, repo=ROOT)
+                g.state["holders"] = {"A": "Ann", "B": "Bo", "C": "Cy"}
+                with unittest.mock.patch.object(cg.Guide, "on_work_disk", lambda self, p: False), \
+                        unittest.mock.patch.object(cg, "stick_identity", lambda p: (next(it), None)):
+                    g.stick_path("A", need_key=False)
+                    if ok:
+                        g.stick_path("B", need_key=False)
+                    else:
+                        with self.assertRaises(cg.Stop):
+                            g.stick_path("B", need_key=False)
+
+    def test_no_identifier_says_what_could_not_be_done(self):
+        sid, note = (None, None)
+        with unittest.mock.patch.object(cg, "_probe", lambda cmd: (False, "", "")):
+            sid, note = cg.stick_identity(tempfile.gettempdir())
+        self.assertIsNone(sid)
+        self.assertIn(sys.platform, note)
+
+    def test_ipv6_off_in_kernel_refuses_and_says_why(self):
+        env = {k: v for k, v in os.environ.items() if k != "ONEMIND_GUIDE_TEST_ROUTE"}
+        probe = lambda cmd: (False, "", "") if "-6" in cmd else (True, "", "")
+        with unittest.mock.patch.dict(os.environ, env, clear=True), \
+                unittest.mock.patch.object(cg.sys, "platform", "linux"), \
+                unittest.mock.patch.object(cg, "_probe", probe), \
+                unittest.mock.patch.object(cg.os.path, "exists", lambda p: False if p == "/proc/net/if_inet6" else True):
+            self.assertTrue(cg.default_route())
+            self.assertIn("IPv6 is switched off", cg._ROUTE_REASON)
+
+
 if __name__ == "__main__":
     unittest.main()

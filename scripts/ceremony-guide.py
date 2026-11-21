@@ -20,7 +20,7 @@ Passphrases: typed only into the ceremony script's own no-echo prompts. This pro
 prints, logs, stores or passes one (a throwaway one is set only in --rehearsal). The log it keeps
 (<work>/guide.log) holds only its own messages and public values.
 """
-import argparse, hashlib, json, os, shutil, subprocess, sys, tempfile, time
+import argparse, hashlib, json, os, plistlib, shutil, subprocess, sys, tempfile, time
 
 REPO = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 SCRIPT = os.path.join(REPO, "scripts", "tuf-bootstrap-root.sh")
@@ -37,8 +37,11 @@ WHAT YOU NEED AND HOW LONG IT TAKES  (one page, read it before you start)
   People    Three key holders in one room (you and two people you trust). Only two of them sign,
             but all three make a key. D-010 requires three different holders.
   Things    - 3 USB sticks, one per holder, each ALREADY ENCRYPTED (CEREMONY.md step 3:
-              Mac "APFS (Encrypted)", Linux "LUKS"). Plug in only the one asked for.
-            - 1 more stick (the "transfer stick") that will carry only PUBLIC files out.
+              Mac "APFS (Encrypted)", Linux "LUKS"). Plug in only the one asked for. (Signing: the
+              two signers' sticks must be plugged in TOGETHER, and the guide says when.)
+            - 1 more stick (the "transfer stick"). It carries root.json (public) to the online
+              computer. The three online PRIVATE keys ride on it too, only for the GitHub step
+              (CEREMONY.md step 9); it is wiped after that. It is never a holder's stick.
             - This computer with the network OFF: Wi-Fi, Bluetooth, cable. Ideally a Debian
               live USB, which forgets everything at shutdown.
             - Paper and a printer for the final sheet (or a pen to copy the numbers).
@@ -114,12 +117,17 @@ def _probe(cmd):
     return r.returncode == 0, r.stdout, r.stderr
 
 
+_ROUTE_REASON = None    # why the last default_route() answered True (for the message), else None
+
+
 def default_route():
     """True when this machine may be online. Deny by default: True also means "could not prove it is offline".
 
     Checks IPv4 and IPv6 default routes. If a probe cannot run or gives no usable answer, the
     answer is True (refuse), so a minimal system without iproute2 never passes as offline.
     """
+    global _ROUTE_REASON
+    _ROUTE_REASON = None
     if os.environ.get("ONEMIND_GUIDE_TEST_ROUTE") == "present":   # test hook; can only make it stricter
         return True
     if sys.platform == "darwin":
@@ -133,10 +141,40 @@ def default_route():
     for fam in ("-4", "-6"):
         ok, out, _err = _probe(["ip", fam, "route", "show", "default"])
         if not ok:
+            if fam == "-6" and not os.path.exists("/proc/net/if_inet6"):
+                _ROUTE_REASON = ("IPv6 is switched off in this computer's kernel, so the IPv6 half of the network check "
+                                 "cannot run and the guide cannot prove the machine is offline. It refuses to be safe. "
+                                 "Boot with IPv6 enabled (remove ipv6.disable=1 from the boot options, or use the "
+                                 "standard Debian live USB), then run this again.")
             return True                        # cannot tell (no ip binary, or ip failed): refuse
         if any(l.split()[:1] == ["default"] for l in out.splitlines()):
             return True
     return False
+
+
+def stick_identity(p):
+    """A volume identifier for the stick holding folder p, or None where the platform gives none.
+
+    Two sticks can share a label and a mount path, so the path alone cannot tell them apart. macOS:
+    diskutil's VolumeUUID; Linux: the filesystem UUID from findmnt. Returns (id_or_None, note); the
+    note says what could not be done on which platform."""
+    try:
+        if sys.platform == "darwin":
+            ok, out, _e = _probe(["diskutil", "info", "-plist", p])
+            if ok:
+                info = plistlib.loads(out.encode())
+                v = info.get("VolumeUUID") or info.get("DiskUUID")
+                if v:
+                    return str(v), None
+        elif sys.platform.startswith("linux"):
+            ok, out, _e = _probe(["findmnt", "-n", "-o", "UUID", "-T", p])
+            if ok and out.strip():
+                return out.strip(), None
+    except Exception:
+        pass
+    tool = "diskutil" if sys.platform == "darwin" else "findmnt"
+    return None, (f"could not read a volume identifier for that stick on {sys.platform} (this needs {tool}); "
+                  "comparing mount folders only, so check by eye that each holder has a different stick")
 
 
 def git(repo, *args):
@@ -220,6 +258,8 @@ class Guide:
         if default_route():
             msg = ("this computer can reach a network (it has a default route). A real root must be made on a "
                    "computer with NO network: switch off Wi-Fi and Bluetooth, unplug the cable, then run this again.")
+            if _ROUTE_REASON:
+                msg = _ROUTE_REASON + " (A real root must be made on a computer with NO network.)"
             if not self.rehearsal:
                 raise Stop("refusing: " + msg)
             io.say("note (rehearsal only): " + msg)
@@ -273,33 +313,52 @@ class Guide:
         self.state["holders"] = names
         io.say("holders: " + ", ".join(f"{h}={n}" for h, n in names.items()))
 
-    def stick_path(self, h, need_key):
-        """Ask for holder h's stick folder and check it is a safe place. Returns the folder."""
+    def on_work_disk(self, p):
+        try:
+            return os.stat(p).st_dev in (os.stat(self.work).st_dev, os.stat(self.repo).st_dev)
+        except OSError as e:
+            raise Stop(f"cannot read that folder: {e}")
+
+    def stick_path(self, h, need_key, keep=()):
+        """Ask for holder h's stick folder and check it is a safe place. Returns the folder.
+
+        keep: holders whose sticks must STAY plugged in (signing needs both signers' sticks together)."""
         io, names = self.io, self.state["holders"]
         if self.rehearsal:
             p = os.path.join(self.work, "sticks", f"holder-{h.lower()}")
             os.makedirs(p, mode=0o700, exist_ok=True)
             return p
         who = names[h]
-        io.say(f"\n  >> {who} (holder {h}): plug in YOUR OWN encrypted USB stick now, unlock it, and remove any other stick.")
+        if keep:
+            kept = " and ".join(f"holder {k} ({names[k]})'s" for k in keep)
+            io.say(f"\n  >> {who} (holder {h}): plug in YOUR OWN encrypted USB stick now, unlock it, and KEEP {kept} stick "
+                   "PLUGGED IN. Do NOT remove it: both signers' sticks must be in at the same time. "
+                   "Take out only sticks that belong to nobody signing.")
+        else:
+            io.say(f"\n  >> {who} (holder {h}): plug in YOUR OWN encrypted USB stick now, unlock it, and remove any other stick.")
         p = io.ask(f"  Type the folder where {who}'s stick is mounted (e.g. /Volumes/STICK-A or /media/user/STICK-A):")
         if not p or not os.path.isdir(p):
             raise Stop("that folder does not exist. Mount the stick, find its folder in your file manager, and try again.")
         p = os.path.realpath(p)
         if inside(p, self.repo) or inside(p, self.work):
             raise Stop("that folder is on this computer's disk, not on a stick. Plug in the stick and give its folder.")
-        try:
-            if os.stat(p).st_dev in (os.stat(self.work).st_dev, os.stat(self.repo).st_dev):
-                raise Stop("that folder is on the same disk as this computer's work folder, so it is not a separate stick.")
-        except OSError as e:
-            raise Stop(f"cannot read that folder: {e}")
+        if self.on_work_disk(p):
+            raise Stop("that folder is on the same disk as this computer's work folder, so it is not a separate stick.")
         if not os.access(p, os.W_OK):
             raise Stop("that stick is read-only or locked. Unlock it (write-enabled) and try again.")
         seen = self.state.setdefault("sticks_seen", {})
+        ids = self.state.setdefault("stick_ids", {})
+        sid, note = stick_identity(p)
+        if note:
+            io.say("  note: " + note)
         for other, op in seen.items():
-            if other != h and os.path.realpath(op) == p:
+            if other == h:
+                continue
+            oid = ids.get(other)
+            same = (sid == oid) if (sid and oid) else (os.path.realpath(op) == p)   # ids when both known, else path
+            if same:
                 raise Stop(f"that is the same stick as holder {other}. Each holder needs their own stick, even in solo mode.")
-        seen[h] = p
+        seen[h], ids[h] = p, sid
         io.confirm_word(f"  Is this stick encrypted (CEREMONY.md step 3) and does it belong to {who}?", "ENCRYPTED")
         has = os.path.exists(os.path.join(p, "root.key"))
         if need_key and not has:
@@ -380,9 +439,11 @@ class Guide:
         io.say("\nSTEP 6 of 7: sign the root")
         sigs = self.state["signers"]
         paths = {}
+        io.say("Both signers' sticks must be plugged in AT THE SAME TIME when the root is signed.")
         for h in sigs:
             io.say(f"\n--- signer {h}: {self.state['holders'][h]} ---")
-            paths[h] = self.stick_path(h, need_key=True)
+            paths[h] = self.stick_path(h, need_key=True, keep=tuple(paths))
+        io.say("\nBoth signers' sticks should now be plugged in. Leave them in until signing is finished.")
         pubs = os.path.join(self.work, "pubs")
         others = [os.path.join(pubs, f"{h.lower()}.pub") for h in HOLDERS if h not in sigs]
         online = os.path.join(self.work, "online")
@@ -390,13 +451,30 @@ class Guide:
             out = os.path.join(self.work, f"out-{ch}")
             if os.path.exists(os.path.join(out, "root.json")):
                 io.say(f"channel {ch}: root already made; checking it."); continue
+            self.check_signer_keys(paths)       # every signer's key must be readable right now
             io.say(f"\nChannel {ch}: each signer now types their passphrase at the prompt that shows nothing.")
             args = ["create", out, ch, "2", *[os.path.join(paths[h], "root.key") for h in sigs], *others, "--",
                     os.path.join(online, "targets.pub"), os.path.join(online, "snapshot.pub"), os.path.join(online, "timestamp.pub")]
             if self.run_script(*args) != 0:
-                raise Stop("signing failed (message above). A wrong passphrase is the usual cause. Nothing was written; run again to retry this step.")
+                self.check_signer_keys(paths)   # a stick pulled out meanwhile is named, not blamed on a passphrase
+                raise Stop("signing failed (message above) although both root.key files are still readable, so a wrong "
+                           "passphrase is the likely cause. Nothing was written. Run the guide again with the same --work "
+                           "folder: it will ask both signers to plug in their sticks together, then retry this step.")
             if not os.path.isfile(os.path.join(out, "root.json")):
                 raise Stop("signing reported success but root.json is missing.")
+
+    def check_signer_keys(self, paths):
+        """Each signer's root.key must exist and be readable now. Names the holder whose stick is missing."""
+        names = self.state["holders"]
+        for h, p in paths.items():
+            key = os.path.join(p, "root.key")
+            try:
+                with open(key, "rb") as f:
+                    f.read(1)
+            except OSError:
+                raise Stop(f"holder {h} ({names[h]})'s stick is not plugged in (or is locked): cannot read {key}. "
+                           f"Plug it in and unlock it, KEEP the other signer's stick plugged in too (both are needed together), "
+                           "then run the guide again with the same --work folder. Nothing was written.")
 
     def verify_and_sheet(self):
         io = self.io
@@ -431,10 +509,11 @@ class Guide:
                   "  Holder sticks     Each holder keeps their own stick in their own place: home, off-site, a trusted person (D-010).",
                   "                    The stick is the only copy of the private key. Never copy root.key anywhere else.",
                   "  Passphrases       Each holder keeps their own safe. Never in the repo, chat or email.",
-                  "  Transfer stick    Copy ONLY these public files: " + ", ".join(f"out-{c}/root.json" for c in self.channels) + ". Then check",
-                  "                    on the online computer that `shasum -a 256 root.json` matches the sha256 above.",
-                  "  Online keys       online/*.key go into the GitHub Environment tuf-signing (CEREMONY.md step 9), carried on the",
-                  "                    transfer stick only for that step; then wipe the stick and this computer (shut the live USB down).",
+                  "  Transfer stick    First carry out ONLY the public file(s): " + ", ".join(f"out-{c}/root.json" for c in self.channels) + ". Check",
+                  "                    on the online computer that `shasum -a 256 root.json` matches the sha256 above (CEREMONY.md step 8).",
+                  "  Online keys       online/*.key are PRIVATE. They go into the GitHub Environment tuf-signing (CEREMONY.md step 9) and",
+                  "                    ride on the transfer stick only for that step; then wipe the stick and this computer (shut the live USB down).",
+                  "                    Never put a holder's root.key on the transfer stick.",
                   "  Next              Commit root.json under os/rootfs/layers/base/usr/lib/onemind/tuf/<channel>/ in a PR (CEREMONY.md step 9).",
                   "=" * 70]
         text = "\n".join(lines)
