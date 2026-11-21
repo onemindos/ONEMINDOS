@@ -12,6 +12,7 @@ import { useEffect, useId, useMemo, useRef, useState, type CSSProperties, type R
 import { useLocation, useNavigate } from 'react-router';
 import { AppIcon, BrandMark, Icon, type NavItem } from '@onemind/ui';
 import { DOCK_ORDER, HUES } from '../screens/registry';
+import { formatDate } from '../i18n';
 import './desktop.css';
 import { trackBarHeight } from './trackBarHeight';
 
@@ -116,8 +117,8 @@ function GridGlyph() {
 
 function Clock({ now, timeZone }: { now: number; timeZone: string }) {
   const d = new Date(now);
-  const day = new Intl.DateTimeFormat(undefined, { weekday: 'short', month: 'short', day: 'numeric', timeZone }).format(d);
-  const time = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit', timeZone }).format(d);
+  const day = formatDate(d, { weekday: 'short', month: 'short', day: 'numeric', timeZone });
+  const time = formatDate(d, { hour: 'numeric', minute: '2-digit', timeZone });
   return (
     <time className="dsk-clock" dateTime={d.toISOString()} title="Hub time">
       <span className="dsk-clock-day">{day}</span> {time}
