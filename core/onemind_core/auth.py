@@ -195,8 +195,12 @@ class TokenStore:
         if not self._retired and self.retire_when is not None:
             try:
                 self._retired = bool(self.retire_when())
-            except Exception:  # a database hiccup must not re-enable a retired token, nor 500 a request
-                log.exception("could not check whether the first-boot token is retired")
+            except Exception:
+                # Fail closed: `_retired` lives in memory and is False after every restart, so on a
+                # failed check we cannot know the owner account does not exist. Deny for this call
+                # (without caching) rather than accept a possibly retired credential, and never 500.
+                log.exception("could not check whether the first-boot token is retired; denying it")
+                return True
         return self._retired
 
     def lookup(self, token: str, *, include_retired: bool = False) -> Principal | None:

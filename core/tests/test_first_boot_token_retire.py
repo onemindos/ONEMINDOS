@@ -44,6 +44,21 @@ def test_store_retires_only_flagged_entry_once_owner_exists(tmp_path):
     assert store.lookup(FIRST) is None                          # never comes back
 
 
+def test_failed_retire_check_denies_flagged_token(tmp_path):
+    """After a restart `_retired` is False; if the database check raises, deny rather than fail open."""
+    store = TokenStore(_file(tmp_path))
+
+    def boom() -> bool:
+        raise RuntimeError("database unreachable")
+
+    store.retire_when = boom
+    assert store.lookup(FIRST) is None
+    assert [p.id for _, p in store.entries()] == ["other"]
+    assert store.lookup(OTHER).is_owner                         # unflagged tokens are unaffected
+    store.retire_when = lambda: False                           # database back, no owner yet: works again
+    assert store.lookup(FIRST).is_owner
+
+
 def test_unflagged_token_is_never_retired(tmp_path):
     store = TokenStore(_file(tmp_path, retiring=False))
     store.retire_when = lambda: True
