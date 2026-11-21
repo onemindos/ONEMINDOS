@@ -4081,6 +4081,105 @@
         "title": "SourceOut",
         "type": "object"
       },
+      "SourceStatus": {
+        "properties": {
+          "count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Count"
+          },
+          "observed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observed At"
+          },
+          "state": {
+            "enum": [
+              "ok",
+              "attention",
+              "critical",
+              "unknown"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "observed_at",
+          "summary"
+        ],
+        "title": "SourceStatus",
+        "type": "object"
+      },
+      "StatusView": {
+        "properties": {
+          "alerts": {
+            "$ref": "#/components/schemas/SourceStatus"
+          },
+          "approvals": {
+            "$ref": "#/components/schemas/SourceStatus"
+          },
+          "apps": {
+            "$ref": "#/components/schemas/SourceStatus"
+          },
+          "backups": {
+            "$ref": "#/components/schemas/SourceStatus"
+          },
+          "mesh": {
+            "$ref": "#/components/schemas/SourceStatus"
+          },
+          "observed_at": {
+            "title": "Observed At",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "ok",
+              "attention",
+              "critical",
+              "unknown"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "storage": {
+            "$ref": "#/components/schemas/SourceStatus"
+          },
+          "updates": {
+            "$ref": "#/components/schemas/SourceStatus"
+          }
+        },
+        "required": [
+          "state",
+          "observed_at",
+          "alerts",
+          "approvals",
+          "apps",
+          "storage",
+          "backups",
+          "updates",
+          "mesh"
+        ],
+        "title": "StatusView",
+        "type": "object"
+      },
       "StorageActionRequest": {
         "additionalProperties": false,
         "properties": {
@@ -16730,6 +16829,48 @@
         "summary": "Get Source",
         "tags": [
           "sources"
+        ]
+      }
+    },
+    "/v1/status": {
+      "get": {
+        "description": "Alerts, approvals, app health, storage, backups, updates and mesh, each with a state and when it was read.\n\nA source that cannot be read is `unknown`, never `ok`.",
+        "operationId": "status.get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "summary": "Get Status",
+        "tags": [
+          "status"
         ]
       }
     },

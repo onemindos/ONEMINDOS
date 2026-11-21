@@ -8,6 +8,7 @@ import { EventsApi } from "./events.js";
 import { caFetch } from "./nodeca.js";
 
 export type Instance = components["schemas"]["Instance"];
+export type StatusView = components["schemas"]["StatusView"];
 export type Node = components["schemas"]["Node"];
 export type CatalogApp = components["schemas"]["CatalogApp"];
 export type Action = components["schemas"]["Action"];
@@ -160,6 +161,9 @@ export class OneMind {
   }
 
   readonly instance = { get: () => this.call<Instance>({ method: "GET", path: "/v1/instance" }) };
+
+  /** status.get (FD-01): what needs attention, per source. A source that cannot be read is "unknown", never "ok". */
+  readonly status = { get: () => this.call<StatusView>({ method: "GET", path: "/v1/status" }) };
 
   readonly nodes = {
     list: () => this.call<Node[]>({ method: "GET", path: "/v1/nodes" }),
