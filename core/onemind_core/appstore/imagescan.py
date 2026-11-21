@@ -85,6 +85,7 @@ def namespace_docs() -> list[dict]:
         "apiVersion": "v1", "kind": "Namespace",
         "metadata": {"name": NAMESPACE, "labels": {
             **_labels("namespace"),
+            "onemind.io/app": "onemind-image-scan",  # the gateway fence (deploy/k8s/gateway-rbac.yaml) requires it
             "pod-security.kubernetes.io/enforce": "restricted",
             "pod-security.kubernetes.io/audit": "restricted",
         }},
@@ -106,7 +107,7 @@ def namespace_docs() -> list[dict]:
     pvc = {
         "apiVersion": "v1", "kind": "PersistentVolumeClaim",
         "metadata": {"name": CACHE_PVC, "namespace": NAMESPACE, "labels": _labels("cache")},
-        "spec": {"accessModes": ["ReadWriteOnce"], "resources": {"requests": {"storage": "2Gi"}}},
+        "spec": {"accessModes": ["ReadWriteOnce"], "resources": {"requests": {"storage": "4Gi"}}},
     }
     return [ns, policy, pvc]
 
@@ -126,7 +127,7 @@ def job_doc(name: str, kind: str, image: str, args: list[str], *, deadline_s: in
         "env": [{"name": "HOME", "value": "/tmp"}, {"name": "TMPDIR", "value": "/tmp"}],
         "volumeMounts": [{"name": "tmp", "mountPath": "/tmp"}],
     }
-    volumes: list[dict] = [{"name": "tmp", "emptyDir": {"sizeLimit": "1Gi"}}]
+    volumes: list[dict] = [{"name": "tmp", "emptyDir": {"sizeLimit": "4Gi"}}]
     if command:
         container["command"] = command
     if cache:

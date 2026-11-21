@@ -298,6 +298,54 @@ def test_community_source_record_is_decided_by_the_on_box_scan(tmp_path):
     assert scan_entry(entry, NoImageScanner(), NOW, src).result == "fail"
 
 
+# ---- the hardened install's gateway fence ----------------------------------------------------------
+
+RBAC = os.path.join(os.path.dirname(__file__), "..", "..", "deploy", "k8s", "gateway-rbac.yaml")
+
+
+def _rbac_docs() -> list[dict]:
+    with open(RBAC, encoding="utf-8") as f:
+        return [d for d in yaml.safe_load_all(f) if d]
+
+
+def test_gateway_fence_and_rbac_let_the_scanner_work_and_nothing_more():
+    """deploy/install.sh gives the gateway a narrow identity; the scanner must fit inside it exactly."""
+    docs = _rbac_docs()
+    ns = next(d for d in docs if d["kind"] == "Namespace" and d["metadata"]["name"] == im.NAMESPACE)
+    # the namespace the gateway applies must carry what the fence demands (label + restricted PSA)
+    mine = im.namespace_docs()[0]["metadata"]["labels"]
+    for labels in (ns["metadata"]["labels"], mine):
+        assert "onemind.io/app" in labels
+        assert labels["pod-security.kubernetes.io/enforce"] == "restricted"
+    role = next(d for d in docs if d["kind"] == "Role" and d["metadata"]["namespace"] == im.NAMESPACE)
+    granted = {(g or "", r): set(rule["verbs"]) for rule in role["rules"] for g in rule["apiGroups"]
+               for r in rule["resources"]}
+    # exactly these resources, no secrets, no pods write, no roles
+    assert set(granted) == {("batch", "jobs"), ("networking.k8s.io", "networkpolicies"),
+                            ("", "persistentvolumeclaims"), ("", "pods"), ("", "pods/log")}
+    assert granted[("", "pods")] <= {"get", "list", "watch"} and granted[("", "pods/log")] == {"get"}
+    # everything the scanner writes is granted
+    kinds = {"Job": ("batch", "jobs"), "NetworkPolicy": ("networking.k8s.io", "networkpolicies"),
+             "PersistentVolumeClaim": ("", "persistentvolumeclaims")}
+    for doc in im.namespace_docs() + [im.job_doc("j", "scan", im.TRIVY_IMAGE, [], deadline_s=60)]:
+        if doc["kind"] in kinds:
+            assert {"create"} <= granted[kinds[doc["kind"]]], doc["kind"]
+    assert "delete" in granted[("batch", "jobs")] and {"patch", "create"} <= granted[("", "persistentvolumeclaims")]
+    binding = next(d for d in docs if d["kind"] == "RoleBinding" and d["metadata"].get("namespace") == im.NAMESPACE)
+    assert binding["roleRef"]["name"] == role["metadata"]["name"]
+    assert binding["subjects"] == [{"kind": "ServiceAccount", "name": "onemind-gateway", "namespace": "onemind-system"}]
+    # the admission fence names this one namespace and those three kinds, not a pattern
+    policy = next(d for d in docs if d["kind"] == "ValidatingAdmissionPolicy")
+    first = policy["spec"]["validations"][0]["expression"]
+    assert 'request.name == "onemind-scan"' in first
+    assert 'request.namespace == "onemind-scan"' in first
+    assert '["jobs", "networkpolicies", "persistentvolumeclaims"]' in first
+    assert 'startsWith("onemind-' not in first and "startsWith(\"onemind" not in first  # no widening to a prefix
+    # the namespace-label rule and the roleBinding rule are untouched
+    assert "restricted" in policy["spec"]["validations"][1]["expression"]
+    assert "onemind-app-deployer" in policy["spec"]["validations"][2]["expression"]
+
+
 # ---- real cluster (opt-in) ------------------------------------------------------------------------
 
 @pytest.mark.skipif(os.environ.get("ONEMIND_SCAN_IT") != "1", reason="needs k3s and internet; set ONEMIND_SCAN_IT=1")
