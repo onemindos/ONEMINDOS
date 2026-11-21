@@ -178,6 +178,7 @@ export function Onboarding({
   const [saveError, setSaveError] = useState<string>();
   const savingRef = useRef(false);
   const [kitConfirmed, setKitConfirmed] = useState(kit?.state === 'confirmed');
+  const [kitSkipped, setKitSkipped] = useState(false);
   const [kitDownloaded, setKitDownloaded] = useState(!!initial?.backup?.kitSaved);
   const [cat, setCat] = useState<CategorySlug | 'all'>('all');
   const heading = useRef<HTMLHeadingElement>(null);
@@ -189,7 +190,7 @@ export function Onboarding({
   const s = ONBOARDING_STEPS[step]!;
   // The connected settings flow cannot issue a kit; it never fabricates kitSaved.
   const issues = onSaveSettings && s.id === 'backups'
-    ? (kit && !kitConfirmed ? ['Create and confirm your emergency kit first. Without it nobody can recover this box.'] : [])
+    ? (kit && !kitConfirmed && !kitSkipped ? ['Create and confirm your emergency kit first. Without it nobody can recover this box.'] : [])
     : stepIssues(s.id, d);
   const reach = onSaveSettings ? Math.min(step, 4) : furthestReachable(d);
   const set = (patch: Partial<OnboardingDraft>) => setD((x) => ({ ...x, ...patch }));
@@ -503,7 +504,7 @@ export function Onboarding({
                 <ShellIcon name="alert" size={16} /> Until you choose, a disk failure loses your data. Home will remind you.
               </p>
             )}
-            {onSaveSettings && kit && <RecoveryKit kit={kit} onConfirmed={() => setKitConfirmed(true)} />}
+            {onSaveSettings && kit && <RecoveryKit kit={kit} onConfirmed={() => setKitConfirmed(true)} onSkip={() => setKitSkipped(true)} />}
             {!onSaveSettings && <section className="oms-kit" aria-labelledby={`${ids.kit}-t`}>
               <div className="oms-kit-art" aria-hidden="true">
                 <ShellIcon name="key" size={30} />
@@ -582,7 +583,7 @@ export function Onboarding({
               <div>
                 <dt>Backups</dt>
                 <dd>
-                  {onSaveSettings ? `${d.backup.destinationId ? 'Existing destination selected' : 'Intention saved'}; ${kitConfirmed ? 'emergency kit confirmed.' : 'this does not enable backups or issue a recovery kit.'}` : <>{d.backup.destination === 'later' ? <StatusPill tone="warn" label="Not set up" /> : DESTS.find((x) => x.id === d.backup.destination)!.title} · emergency kit saved</>}
+                  {onSaveSettings ? `${d.backup.destinationId ? 'Existing destination selected' : 'Intention saved'}; ${kitConfirmed ? 'emergency kit confirmed.' : kitSkipped ? 'emergency kit skipped for now; create it from Backups.' : 'this does not enable backups or issue a recovery kit.'}` : <>{d.backup.destination === 'later' ? <StatusPill tone="warn" label="Not set up" /> : DESTS.find((x) => x.id === d.backup.destination)!.title} · emergency kit saved</>}
                 </dd>
               </div>
               <div>

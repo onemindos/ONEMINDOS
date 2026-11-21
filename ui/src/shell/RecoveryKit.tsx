@@ -24,7 +24,7 @@ export interface OnboardingKit {
 
 const message = (e: unknown) => (e instanceof Error ? e.message : 'That did not work. Try again.');
 
-export function RecoveryKit({ kit, onConfirmed }: { kit: OnboardingKit; onConfirmed: () => void }) {
+export function RecoveryKit({ kit, onConfirmed, onSkip }: { kit: OnboardingKit; onConfirmed: () => void; onSkip?: () => void }) {
   const id = useId();
   const [issued, setIssued] = useState<IssuedKit>();
   const [saved, setSaved] = useState(false);
@@ -72,7 +72,20 @@ export function RecoveryKit({ kit, onConfirmed }: { kit: OnboardingKit; onConfir
           </div>
         )}
         {!confirmed && !issued && kit.state === 'issued' && (
-          <p className="om-hint">A kit was already created on this box. The key cannot be shown again, so type the groups below from the copy you saved.</p>
+          <>
+            <p className="om-hint">A kit was already created on this box. The key cannot be shown again, so type the groups below from the copy you saved. Lost it? Make a new kit: the old key stops working.</p>
+            <div className="oms-kit-actions">
+              <button type="button" className="om-btn om-btn-secondary" disabled={busy} onClick={() => void run(async () => { setAnswers({}); setIssued(await kit.issue()); })}>
+                <ShellIcon name="key" size={18} /> I lost my copy: make a new kit
+              </button>
+            </div>
+          </>
+        )}
+        {!confirmed && onSkip && (
+          <div className="oms-kit-actions">
+            <button type="button" className="om-btn om-btn-secondary" disabled={busy} onClick={onSkip}>Skip for now</button>
+            <p className="om-hint">Without a confirmed kit nobody can recover this box. Create it later from Backups.</p>
+          </div>
         )}
         {issued && (
           <>
@@ -87,7 +100,7 @@ export function RecoveryKit({ kit, onConfirmed }: { kit: OnboardingKit; onConfir
           </>
         )}
         {needsTypeBack && positions.length > 0 && (issued ? saved : true) && (
-          <form onSubmit={(e) => { e.preventDefault(); void run(async () => { await kit.confirm(answers); setIssued(undefined); setAnswers({}); setConfirmed(true); onConfirmed(); }); }}>
+          <form onSubmit={(e) => { e.preventDefault(); e.stopPropagation(); void run(async () => { await kit.confirm(answers); setIssued(undefined); setAnswers({}); setConfirmed(true); onConfirmed(); }); }}>
             <p className="om-hint">Prove you saved it: type these groups from your copy.</p>
             {positions.map((p) => (
               <label key={p} className="oms-label">

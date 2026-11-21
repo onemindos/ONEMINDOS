@@ -43,8 +43,28 @@ it('a wrong answer is shown and nothing is marked confirmed', async () => {
   expect(done).not.toHaveBeenCalled();
 });
 
-it('an already issued kit cannot be re-issued; the owner types groups from the saved copy', () => {
-  render(<RecoveryKit kit={make({ state: 'issued', positions: [2, 4] })} onConfirmed={() => {}} />);
+it('an already issued kit can be re-issued when the copy is lost, then confirmed', async () => {
+  const u = userEvent.setup();
+  URL.createObjectURL = vi.fn(() => 'blob:x');
+  URL.revokeObjectURL = vi.fn();
+  const kit = make({ state: 'issued', positions: [2, 4] });
+  const done = vi.fn();
+  render(<RecoveryKit kit={kit} onConfirmed={done} />);
   expect(screen.queryByRole('button', { name: /Create my emergency kit/ })).toBeNull();
   expect(screen.getByLabelText('Group 2')).toBeInTheDocument();
+  await u.click(screen.getByRole('button', { name: /I lost my copy/ }));
+  expect(await screen.findByLabelText('Owner recovery key')).toHaveTextContent('ABCD-EFGH-JKLM');
+  await u.click(screen.getByRole('button', { name: /Download emergency kit/ }));
+  await u.type(screen.getByLabelText('Group 1'), 'abcd');
+  await u.type(screen.getByLabelText('Group 3'), 'jklm');
+  await u.click(screen.getByRole('button', { name: 'Confirm my kit' }));
+  await waitFor(() => expect(done).toHaveBeenCalled());
+});
+
+it('skip for now is offered while the kit is unconfirmed', async () => {
+  const u = userEvent.setup();
+  const skip = vi.fn();
+  render(<RecoveryKit kit={make({ state: 'issued', positions: [2, 4] })} onConfirmed={() => {}} onSkip={skip} />);
+  await u.click(screen.getByRole('button', { name: 'Skip for now' }));
+  expect(skip).toHaveBeenCalled();
 });
