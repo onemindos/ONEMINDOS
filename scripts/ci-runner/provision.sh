@@ -51,8 +51,13 @@ while [ "$i" -le "$N" ]; do
     mkdir -p "$R" && tar -xzf "$RH/runner-$RUNNER_VERSION.tgz" -C "$R"
     "$R/bin/installdependencies.sh" >/dev/null   # the runner's own list of system libraries
   fi
+  # Fail-closed fork-PR guard: the runner runs this before every job (the name must end in .sh).
+  grep -v '^ACTIONS_RUNNER_HOOK_JOB_STARTED=' "$R/.env" 2>/dev/null > "$R/.env.new" || true
+  echo 'ACTIONS_RUNNER_HOOK_JOB_STARTED=/usr/local/bin/onemind-ci-job-started.sh' >> "$R/.env.new"
+  mv "$R/.env.new" "$R/.env"
   i=$((i + 1))
 done
 chown -R runner:runner "$RH"
 install -m 0755 -o root -g root /opt/onemind-ci/run-one.sh /usr/local/bin/onemind-ci-run-one
+install -m 0755 -o root -g root /opt/onemind-ci/job-started.sh /usr/local/bin/onemind-ci-job-started.sh
 echo "provisioned ($ROLE): runner $RUNNER_VERSION x $N"
