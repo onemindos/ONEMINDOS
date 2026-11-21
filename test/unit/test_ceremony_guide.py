@@ -39,6 +39,13 @@ class Refusals(unittest.TestCase):
         r = run("--rehearsal", cg.SOLO_FLAG)
         self.assertEqual(r.returncode, 1)
 
+    def setUp(self):
+        # preflight refuses in CI first; these tests must behave the same on a CI runner.
+        env = {k: v for k, v in os.environ.items() if k not in ("CI", "GITHUB_ACTIONS")}
+        p = unittest.mock.patch.dict(os.environ, env, clear=True)
+        p.start()
+        self.addCleanup(p.stop)
+
     def guide(self, work, **kw):
         return cg.Guide(cg.Io(auto=True), work, **kw)
 
