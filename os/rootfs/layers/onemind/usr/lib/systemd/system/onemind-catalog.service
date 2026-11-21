@@ -14,6 +14,8 @@ RequiresMountsFor=/data
 
 [Service]
 Type=oneshot
+# ProtectSystem=strict needs the ReadWritePaths dir to exist, or the unit dies with 226/NAMESPACE.
+ExecStartPre=+/bin/mkdir -p /data/onemind/catalog
 ExecStart=/usr/bin/onemind catalog sync
 User=root
 NoNewPrivileges=yes

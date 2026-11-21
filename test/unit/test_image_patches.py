@@ -97,6 +97,8 @@ class CatalogSyncInertWithoutRoot(unittest.TestCase):
         self.assertIn("ConditionPathExists=/usr/lib/onemind/tuf/catalog/root.json", svc)
         self.assertIn("ExecStart=/usr/bin/onemind catalog sync", svc)
         self.assertIn("ReadWritePaths=/data/onemind/catalog", svc)
+        # the dir must exist before the sandbox is built (226/NAMESPACE otherwise)
+        self.assertIn("ExecStartPre=+/bin/mkdir -p /data/onemind/catalog", svc)
         self.assertNotIn("[Install]", svc + tm)
         self.assertIn("Unit=onemind-catalog.service", tm)
 
