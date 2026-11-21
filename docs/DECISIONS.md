@@ -150,7 +150,7 @@ Founder decisions. Each entry is final until Zeus changes it. Reference these ID
 - **Unchanged guardrails:** every share is an owner-approved action and AI can never request one; SMB2 or newer only, no guest access, one person's own credentials per share; reachable on the LAN and the OneMind mesh only, never from the internet.
 - **This replaces** F-45's proposed default, a separately updatable system app `apps/samba`.
 - **Why:** file sharing is a basic OS feature (umbrelOS treats it the same way). Built in, the box shows up in Finder and File Explorer reliably, and shares map directly to OneMind people without routing an app's network through k3s.
-=======
+
 ## D-018 · The D-016 desktop is the only front door; Backstage is retired
 **Date:** 2026-11-21 · **Decided by:** Zeus
 > "Backstage is retired everywhere; the D-016 desktop is the only front door, including developer and cluster tiers." (approved by Zeus in a Claude session on 2026-11-21, after the portal-to-OneMind front-door study)
@@ -162,4 +162,3 @@ Founder decisions. Each entry is final until Zeus changes it. Reference these ID
 - **This supersedes** "Backstage stays a developer portal" in `docs/ARCHITECTURE.md` (Dashboard row) and `docs/APPS.md` (Infrastructure tier row), and the same wording in `research-output/24` Q141 and Q255 (those files are left as written; this entry is the pointer).
 - **Tracking:** the front-door issues FD-00 to FD-20 (parent: FD-00).
 - **Why:** two front doors break D-016 and the "every change is an approval" rule, and the portal's cloud-only pages do not serve a home or small-business box.
->>>>>>> 6e7383db48d72b92b76bf63d80d0897d7960c56c
