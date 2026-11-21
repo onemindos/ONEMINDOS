@@ -55,3 +55,15 @@ All three run on the slot-A boot from F1, after F6 and before the F3 reboot, fro
 | F9 | One box CA | The sha256 of `/data/onemind/identity/ca.pem` equals that of `/data/onemind/gateway/tls/ca.crt`; `/data/onemind/identity/ca.key` does not exist; `openssl verify -CAfile /data/onemind/identity/ca.pem` accepts the gateway's `https.crt`, Headscale's `control.crt` and the NATS leaf listener's `nats.crt` | Two different CAs, a CA key in `identity`, or a certificate not from the box CA |
 
 Required for this task's "done": F7–F9 PASS on x86_64-efi. They are written without having run QEMU (no KVM where they were written); a harness bug found on the first run may be fixed and re-run once, named as such, under §1's rule.
+
+## 6. Amendment (2026-11-21): F10, the rescue console on the booted hub (CORE-UPDATE-9, #278)
+
+**Status:** PRE-REGISTERED before F10 was implemented in `firstboot.py` or run, in the commit before the code that adds it. F0-F9 above are unchanged. The sha256 of this file with this section is appended to `PREREGISTRATION.sha256`. **Serves:** issue #278's second "Done when" item (on a booted image hub with k3s stopped, the owner gets the rescue page). The image ships `onemind-rescue.service` and first boot enables it on the hub role; until now no test proved the running unit answers.
+
+F10 runs on the slot-A boot from F1, after F9 and before the F3 reboot, from the hub's own shell. It uses the owner token printed on the console in F1. Nothing is reached outside the VM. `k3s.service` is stopped by the test and started again at the end, so F3 and F4 judge the same box as before.
+
+| ID | Test | PASS if | FAIL if |
+|---|---|---|---|
+| F10 | Rescue console answers with k3s stopped | `systemctl is-enabled onemind-rescue` prints `enabled` and `is-active` prints `active`; with `systemctl stop k3s` done and `is-active k3s` not `active`: `curl --cacert /data/onemind/identity/ca.pem --resolve onemind.local:7443:127.0.0.1 https://onemind.local:7443/` returns HTTP **401** without a token (the certificate verifies against the box CA, by name) and HTTP **200** with `Authorization: Bearer <F1 owner token>`; `/status.json` with the token returns HTTP 200 and valid JSON; after `systemctl start k3s` the unit is still `active` | The unit not enabled or not active, a certificate that does not verify, anything other than 401 without the token or 200 with it, k3s still active when asked, or the unit stopped by k3s stopping |
+
+Required for this task's "done": F10 PASS on x86_64-efi. It is written without having run QEMU (no KVM where it was written); a harness bug found on the first run may be fixed and re-run once, named as such, under section 1's rule. The battery tier is the first-boot battery (`make firstboot`, run by CI's `image` and `battery` workflows with F4 as the upper limit, which includes F10); the A/B battery T1-T11 does not boot the OneMind layer.
