@@ -189,6 +189,7 @@ class NoopExecutor(Executor):
                 "would": f"create Secret {agent.name} in {ns}",
                 "keys": ["ONEMIND_GATEWAY_URL", "ONEMIND_AGENT_TOKEN", *(["ONEMIND_GATEWAY_CA"] if agent.ca_pem else [])],
                 "principal": agent.principal_id,
+                **({"keys": agent.keys()} if hasattr(agent, "keys") else {}),
             })
         if ctx.credentials is not None and action_type == "app.install":
             steps.append({"would": f"create Secret {ctx.credentials.secret_name} in {ns}", "keys": ["USERNAME", "PASSWORD"]})
