@@ -44,6 +44,7 @@ from .catalog import APP_ID_RE, AppEntry, Catalog
 from .errors import ApiError, SemanticValueError
 from .executors import AgentSecret, ExecResult, Executor
 from . import lifecycle as lc
+from . import streams
 from .scan import scan_problem
 from .ledger import Action, ActionRepository, iso, new_action_id, utc
 
@@ -643,7 +644,8 @@ class ActionService:
         network = None
         if self.dependency_paths is not None:
             network = self.dependency_paths(app)
-        rendered = lc.render_plan(action_type, params, app, self.repo.get_runtime(app.id), status, network)
+        rendered = lc.render_plan(action_type, params, app, self.repo.get_runtime(app.id), status, network,
+                                  streams.plan_entries(app.id, app.manifest))
         _, allowed, allow_absent = APP_CLAIMS[action_type]
         problem = None if (status in allowed or (status is None and allow_absent)) else (
             f"app {app.id!r} is {self.shown_status(status)}"

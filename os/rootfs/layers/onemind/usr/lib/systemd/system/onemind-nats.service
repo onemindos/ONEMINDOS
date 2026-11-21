@@ -35,6 +35,8 @@ DynamicUser=yes
 NoNewPrivileges=yes
 CapabilityBoundingSet=
 ProtectSystem=strict
+# JetStream store (bind mount from /data, owned by the onemind-nats uid; no StateDirectory, as the leaf).
+ReadWritePaths=-/var/lib/onemind-nats
 ProtectHome=yes
 PrivateTmp=yes
 PrivateDevices=yes

@@ -500,6 +500,51 @@
             }
           }
         },
+        "streams": {
+          "description": "Event streams the app keeps on the hub's JetStream (default none). Bounded: every stream needs a byte and an age limit, subjects are relative to the app (the hub puts them under onemind.app.<id>.), and the owner approves the exact limits in the install plan. Enforced in core/onemind_core/streams.py.",
+          "type": "array",
+          "maxItems": 4,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "subjects",
+              "maxBytes",
+              "maxAgeSeconds"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]{0,31}$"
+              },
+              "subjects": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 8,
+                "items": {
+                  "type": "string",
+                  "pattern": "^(([a-z0-9_-]{1,32}|\\*)(\\.([a-z0-9_-]{1,32}|\\*))*(\\.>)?|>)$"
+                }
+              },
+              "maxBytes": {
+                "type": "integer",
+                "minimum": 1048576,
+                "maximum": 1073741824
+              },
+              "maxAgeSeconds": {
+                "type": "integer",
+                "minimum": 60,
+                "maximum": 2592000
+              },
+              "description": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 120
+              }
+            }
+          }
+        },
         "backup": {
           "description": "How the app is backed up (contract 12.18; BACKUPS.md 2.2). Without it the app is copied hot and its badge says crash-consistent only.",
           "type": "object",
