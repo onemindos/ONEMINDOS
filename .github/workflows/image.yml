@@ -286,7 +286,8 @@ jobs:
         run: |
           # The matrix job's x86_64-efi image has a different throwaway CA, so only the bundles built together with
           # the image inside this stick can update a box installed from it. Public CA certificate only, no key.
-          cp out/image-x86_64-efi/onemind-x86_64-efi-*.raucb out/image-x86_64-efi/dev-ca.cert.pem out/installer-x86_64/
+          # out/installer-x86_64 is root-owned (make installer runs in a container without --user); the next step chowns it back.
+          sudo cp out/image-x86_64-efi/onemind-x86_64-efi-*.raucb out/image-x86_64-efi/dev-ca.cert.pem out/installer-x86_64/
           ls -l out/installer-x86_64
       - name: Summary; keep only the stick image (compressed) and the logs
         if: always()
