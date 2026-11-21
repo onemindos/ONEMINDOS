@@ -1209,8 +1209,12 @@ class ActionService:
     def request_feature(
         self, principal: Principal, action_type: str, params: dict, *, idempotency_key: str,
         expires_at: datetime, reason: str | None = None, audit_extra: dict | None = None,
+        pending_cap: bool = False,
     ) -> tuple[dict, bool]:
         """File a feature action: same ledger, idempotency and audit as POST /v1/actions.
+
+        pending_cap applies the per-requester limit on requests awaiting approval that POST /v1/actions
+        enforces (_check_pending_cap), for routes an agent can call in a loop.
 
         params are the feature's already-validated parameters (never secrets: they are stored and
         audited). audit_extra adds facts to the action.requested line, e.g. credentials: provided.
@@ -1220,7 +1224,8 @@ class ActionService:
 
         def create() -> tuple[dict, bool]:
             return self._file_feature(
-                principal, action_type, spec, params, idempotency_key, expires_at, reason, audit_extra)
+                principal, action_type, spec, params, idempotency_key, expires_at, reason, audit_extra,
+                pending_cap=pending_cap)
 
         return self._audited(principal, f"request {action_type}", None, data, create)
 
@@ -1249,6 +1254,7 @@ class ActionService:
     def _file_feature(
         self, principal: Principal, action_type: str, spec: FeatureAction, params: dict,
         idempotency_key: str, expires_at: datetime, reason: str | None, audit_extra: dict | None,
+        pending_cap: bool = False,
     ) -> tuple[dict, bool]:
         if not principal.can_request_actions or (not principal.is_owner and principal.kind not in spec.requesters):
             raise self._deny(principal, f"request {action_type}")
@@ -1257,6 +1263,8 @@ class ActionService:
             if existing.type != action_type or existing.params != params or existing.requested_by.get("id") != principal.id:
                 raise ApiError(409, "conflict", "idempotency_key was already used for a different request")
             return self.expire_if_due(existing).to_json(), False
+        if pending_cap:
+            self._check_pending_cap(principal)
         now = self.clock()
         exp = utc(expires_at)
         if exp <= now:

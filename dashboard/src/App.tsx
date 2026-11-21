@@ -10,6 +10,7 @@ import { preferenceStores } from './data/prefs';
 import { Activity } from './pages/Activity';
 import { Alerts } from './pages/Alerts';
 import { Storage } from './pages/Storage';
+import { Troubleshoot } from './pages/Troubleshoot';
 import { Updates } from './pages/Updates';
 import { Backups } from './pages/Backups';
 import { Automation } from './pages/Automation';
@@ -70,6 +71,7 @@ export function SignedInApp() {
             <Route path="settings/storage" element={<Navigate to="/storage" replace />} />
             <Route path="backups" element={<ProOnly title="Backups"><Backups /></ProOnly>} />
             <Route path="settings/backups" element={<Navigate to="/backups" replace />} />
+            <Route path="troubleshoot" element={<ProOnly title="Troubleshoot"><Troubleshoot /></ProOnly>} />
             <Route path="automation" element={<ProOnly title="Automation"><Automation /></ProOnly>} />
             <Route path="updates" element={<ProOnly title="OS updates"><Updates /></ProOnly>} />
             <Route path="settings/updates" element={<Navigate to="/updates" replace />} />

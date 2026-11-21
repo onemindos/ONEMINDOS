@@ -144,6 +144,8 @@ export function Shell({ children }: { children: ReactNode }) {
     { id: 'alerts', label: 'Alerts', href: href.alerts, icon: 'bell', group: 'Your box' },
     { id: 'storage', label: 'Storage', href: href.storage, icon: 'storage', group: 'Your box' },
     { id: 'backups', label: 'Backups', href: href.backups, icon: 'backups', group: 'Your box' },
+    // Owner-only on the hub (system:admin); hidden once we know this principal is not an owner.
+    ...(hub.canDecide === 'no' ? [] : [{ id: 'troubleshoot', label: 'Troubleshoot', href: href.troubleshoot, icon: 'alert', group: 'Your box' } satisfies NavItem]),
     { id: 'automation', label: 'Automation', href: href.automation, icon: 'clock', group: 'Your box' },
     { id: 'updates', label: 'OS updates', href: href.updates, icon: 'updates', group: 'Your box' },
     { id: 'settings', label: 'Settings', href: href.settings, icon: 'settings', group: 'Your box' },
