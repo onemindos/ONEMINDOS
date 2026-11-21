@@ -134,3 +134,12 @@ Founder decisions. Each entry is final until Zeus changes it. Reference these ID
 - **This replaces** IA §1 "sidebar on desktop, bottom tabs on phones" and `docs/strategy/umbrel-parity.md` PU-04 "a dock is not proposed".
 - **Unchanged:** every action is still a request, approvals still come first on Home, and freshness pills still show. umbrelOS is studied for the pattern only (PolyForm NC): no code, asset or text is copied.
 - **Why:** umbrelOS 2.0.1 runs on the same base as OneMind (Debian 13, A/B updates). What makes it feel like an operating system is its desktop frame. OneMind's sidebar made it read as an admin dashboard.
+
+## D-017 · F-45: Samba file sharing is built into the OS image
+**Date:** 2026-11-20 · **Decided by:** Zeus
+> "Built into OS" (said in a Claude session, answering F-45 after the File sharing screen landed as PR #443)
+- **Samba ships in the OneMind OS image** (Debian 13 package, GPL-3.0, a separate program; OneMind does not link to it). It is masked and off until an owner approves the first share.
+- **The root host service runs it** (`onemindd host serve`, docs/leap/core/HOST-ACTIONS.md): it renders the config under `/data`, checks it, and reloads. It updates with the OS through RAUC, not through the Market.
+- **Unchanged guardrails:** every share is an owner-approved action and AI can never request one; SMB2 or newer only, no guest access, one person's own credentials per share; reachable on the LAN and the OneMind mesh only, never from the internet.
+- **This replaces** F-45's proposed default, a separately updatable system app `apps/samba`.
+- **Why:** file sharing is a basic OS feature (umbrelOS treats it the same way). Built in, the box shows up in Finder and File Explorer reliably, and shares map directly to OneMind people without routing an app's network through k3s.
