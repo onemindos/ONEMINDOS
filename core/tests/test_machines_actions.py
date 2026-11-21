@@ -336,7 +336,7 @@ def test_a_failed_snapshot_leaves_no_record(box):
 
 def test_clone_waits_for_approval_counts_against_the_quota_and_starts_stopped(box):
     box.report()  # machines may use 15,800 - RESERVE_MB = 11,704 MB
-    done(box, "machine.create", {**VM, "name": "base", "ram_mb": 6_000})
+    done(box, "machine.create", {**VM, "name": "base", "ram_mb": 5_000})
     running = _waiting(box, "machine.start", {"name": "base"})
     box.post(f"/v1/actions/{running}/approve", headers=OWNER)
     r = box.ask("machine.clone", {"source": "base", "name": "copy"})
@@ -346,8 +346,8 @@ def test_clone_waits_for_approval_counts_against_the_quota_and_starts_stopped(bo
     assert box.get("/v1/machines/copy", headers=OWNER).status_code == 404  # nothing before approval
     assert box.post(f"/v1/actions/{aid}/approve", headers=OWNER).json()["state"] == "succeeded"
     c = box.get("/v1/machines/copy", headers=OWNER).json()
-    assert (c["state"], c["ram_mb"], c["cpus"], c["disk_gb"]) == ("stopped", 6_000, 2, 40)
-    # base 6,000 + copy 6,000 > 11,704: a second copy does not fit, at request time...
+    assert (c["state"], c["ram_mb"], c["cpus"], c["disk_gb"]) == ("stopped", 5_000, 2, 40)
+    # base 5,000 + copy 5,000 + another 5,000 > 11,704: a second copy does not fit, at request time
     r = box.ask("machine.clone", {"source": "base", "name": "copy2"})
     assert r.status_code == 409 and r.json()["reason"] == "quota_exceeded"
 
