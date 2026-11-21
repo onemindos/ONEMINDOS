@@ -135,7 +135,7 @@ export type ActionState =
 /** §3 kinds plus the §12.1 additions (`plugin`, `automation`, `node`). */
 export type PrincipalKind = 'person' | 'agent' | 'plugin' | 'automation' | 'node';
 /** §12.6 adds `child`; unknown roles are treated as the least privileged. */
-export type PrincipalRole = 'owner' | 'adult' | 'guest' | 'child' | 'agent';
+export type PrincipalRole = 'owner' | 'adult' | 'guest' | 'child' | 'teen' | 'agent';
 
 /** §3 tokens map to principals `{id, kind, role}`. */
 export interface Principal {

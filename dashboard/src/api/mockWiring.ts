@@ -4,6 +4,7 @@
 // the last owner cannot be disabled, an alert fix is only ever a REQUEST (never approved here),
 // bad credentials answer 401. All data is made up.
 import { ApiError, type Action, type Principal } from './types';
+import { AGE_PRESETS } from './wiring';
 import type * as W from './wiring';
 
 const DEMO_PASSWORD = 'demo-password';
@@ -13,6 +14,8 @@ const PERSONS: Record<string, { token: string; principal: W.PrincipalInfo }> = {
   owner: { token: 'owner-demo', principal: { id: 'owner', kind: 'person', role: 'owner', display_name: 'Owner', username: 'owner' } },
   alex: { token: 'adult-demo', principal: { id: 'alex', kind: 'person', role: 'adult', display_name: 'Alex', username: 'alex' } },
 };
+
+const EMPTY_PROFILE: W.FamilyProfile = { birth_date: null, allowed_apps: null, max_age_rating: null, blocked_tags: [], timezone: 'UTC', windows: null };
 
 const hex = (seed: string) => {
   let h = 2166136261;
@@ -31,6 +34,7 @@ export abstract class MockWiringBase implements W.WiringApi {
   private sessionRows: W.SessionInfo[] | undefined;
   private passkeyRows: W.PasskeyInfo[] = [];
   private userRows: W.UserInfo[] | undefined;
+  private profiles = new Map<string, W.FamilyProfile>();
   private tokenRows: W.TokenInfo[] | undefined;
   private notes: W.NotificationItem[] | undefined;
   private channelRows: W.ChannelInfo[] = [];
@@ -145,9 +149,10 @@ export abstract class MockWiringBase implements W.WiringApi {
   }
   async createUser(b: { display_name: string; role: W.PersonRole; username?: string }) {
     this.owner();
-    if (!['owner', 'adult', 'guest'].includes(b.role)) throw new ApiError(422, 'conflict', 'role must be one of owner, adult, guest');
+    if (!['owner', 'adult', 'teen', 'child', 'guest'].includes(b.role)) throw new ApiError(422, 'conflict', 'role must be one of owner, adult, teen, child, guest');
     const u: W.UserInfo = { id: this.id('usr'), username: b.username ?? null, display_name: b.display_name, role: b.role, created_at: this.iso(), last_seen_at: null, disabled: false, enrolled: false, passkeys: 0, totp: false };
     this.users_().push(u);
+    this.presetFor(u.id, u.role);
     return { ...u, one_time: { enrolment_code: MOCK_ENROL_CODE, enrolment_url: `http://box.local/signin#enrol=${MOCK_ENROL_CODE}`, expires_at: this.iso(-86400) } };
   }
   async updateUser(id: string, b: { display_name?: string; role?: W.PersonRole }) {
@@ -157,7 +162,18 @@ export abstract class MockWiringBase implements W.WiringApi {
     const owners = this.users_().filter((x) => x.role === 'owner' && !x.disabled);
     if (b.role && b.role !== 'owner' && u.role === 'owner' && owners.length === 1) throw new ApiError(409, 'conflict', 'the last owner cannot be demoted or disabled', 'last_owner');
     Object.assign(u, b);
+    if (b.role) this.presetFor(u.id, b.role);
     return { ...u };
+  }
+  /** Mirrors the gateway: a child or teen gets the default age rating once, and an existing profile is kept. */
+  private presetFor(id: string, role: W.PersonRole) {
+    const max = AGE_PRESETS[role];
+    if (max !== undefined && !this.profiles.has(id)) this.profiles.set(id, { ...EMPTY_PROFILE, max_age_rating: max });
+  }
+  async familyProfile(id: string) {
+    this.owner();
+    if (!this.users_().some((x) => x.id === id)) throw new ApiError(404, 'not_found', 'no such user');
+    return { ...(this.profiles.get(id) ?? EMPTY_PROFILE) };
   }
   async disableUser(id: string) {
     this.owner();
