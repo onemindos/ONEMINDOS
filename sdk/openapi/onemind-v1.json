@@ -489,6 +489,32 @@
         "title": "ActionTemplate",
         "type": "object"
       },
+      "AiSchedule": {
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "default": false,
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "off": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Off",
+            "type": "array"
+          },
+          "tz": {
+            "default": "box",
+            "maxLength": 64,
+            "title": "Tz",
+            "type": "string"
+          }
+        },
+        "title": "AiSchedule",
+        "type": "object"
+      },
       "Allow": {
         "additionalProperties": false,
         "properties": {
@@ -3857,6 +3883,21 @@
         "title": "RestoreTrashOp",
         "type": "object"
       },
+      "ResumeBody": {
+        "additionalProperties": false,
+        "properties": {
+          "app_id": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,62}$",
+            "title": "App Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "app_id"
+        ],
+        "title": "ResumeBody",
+        "type": "object"
+      },
       "RevertBody": {
         "additionalProperties": false,
         "properties": {
@@ -4751,6 +4792,41 @@
           "path"
         ],
         "title": "TrashOp",
+        "type": "object"
+      },
+      "UpdatePolicyBody": {
+        "additionalProperties": false,
+        "properties": {
+          "ai_schedule": {
+            "$ref": "#/components/schemas/AiSchedule"
+          },
+          "backoff_after_failures": {
+            "default": 3,
+            "maximum": 10.0,
+            "minimum": 1.0,
+            "title": "Backoff After Failures",
+            "type": "integer"
+          },
+          "cool_off_hours": {
+            "default": 48,
+            "maximum": 720.0,
+            "minimum": 0.0,
+            "title": "Cool Off Hours",
+            "type": "integer"
+          },
+          "same_major_only": {
+            "default": true,
+            "title": "Same Major Only",
+            "type": "boolean"
+          },
+          "window_id": {
+            "default": "win_nightly",
+            "maxLength": 40,
+            "title": "Window Id",
+            "type": "string"
+          }
+        },
+        "title": "UpdatePolicyBody",
         "type": "object"
       },
       "UserCreateBody": {
@@ -18077,6 +18153,204 @@
         "summary": "Rotate Token",
         "tags": [
           "tokens"
+        ]
+      }
+    },
+    "/v1/update-policy": {
+      "get": {
+        "description": "The owner's update policy for apps, and the apps whose auto-update is paused.",
+        "operationId": "updates.policy.get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          }
+        },
+        "summary": "Get Update Policy",
+        "tags": [
+          "updates"
+        ]
+      },
+      "put": {
+        "description": "Change the update policy (owner only). The knobs only ever hold an update back.",
+        "operationId": "updates.policy.update",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePolicyBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Put Update Policy",
+        "tags": [
+          "updates"
+        ]
+      }
+    },
+    "/v1/update-policy/dry-run": {
+      "get": {
+        "description": "What would update in the next maintenance window, app by app, and why not. Files nothing.",
+        "operationId": "updates.policy.dry_run",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          }
+        },
+        "summary": "Update Policy Dry Run",
+        "tags": [
+          "updates"
+        ]
+      }
+    },
+    "/v1/update-policy/resume": {
+      "post": {
+        "description": "Lift the back-off for one app (owner only): its failed updates before now stop counting.",
+        "operationId": "updates.policy.resume",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResumeBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Resume Auto Update",
+        "tags": [
+          "updates"
         ]
       }
     },
