@@ -2493,6 +2493,74 @@
         "title": "KitConfirmBody",
         "type": "object"
       },
+      "LibraryItem": {
+        "properties": {
+          "file_name": {
+            "title": "File Name",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "level": {
+            "description": "in_verified_backup is the only level that means safe in a backup that passed a restore check",
+            "enum": [
+              "on_box",
+              "in_backup",
+              "in_verified_backup"
+            ],
+            "title": "Level",
+            "type": "string"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          },
+          "taken_at": {
+            "description": "When the phone says it was taken; the day the box stored it when the phone sent none",
+            "title": "Taken At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "file_name",
+          "taken_at",
+          "size",
+          "level"
+        ],
+        "title": "LibraryItem",
+        "type": "object"
+      },
+      "LibraryPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/LibraryItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "title": "LibraryPage",
+        "type": "object"
+      },
       "Limits": {
         "additionalProperties": false,
         "properties": {
@@ -16078,6 +16146,168 @@
         "summary": "Os Updates History",
         "tags": [
           "os"
+        ]
+      }
+    },
+    "/v1/photos/assets/{asset_id}/content": {
+      "get": {
+        "operationId": "photos.asset_content",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "asset_id",
+            "required": true,
+            "schema": {
+              "title": "Asset Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {},
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "The photo's own bytes"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Asset Content",
+        "tags": [
+          "photos"
+        ]
+      }
+    },
+    "/v1/photos/library": {
+      "get": {
+        "operationId": "photos.library",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 60,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibraryPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Library",
+        "tags": [
+          "photos"
         ]
       }
     },
