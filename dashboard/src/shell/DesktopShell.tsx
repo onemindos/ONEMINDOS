@@ -11,6 +11,7 @@
 import { useEffect, useId, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { AppIcon, BrandMark, Icon, type NavItem } from '@onemind/ui';
+import { DOCK_ORDER, HUES } from '../screens/registry';
 import './desktop.css';
 
 export interface DockApp {
@@ -49,27 +50,11 @@ export interface DesktopShellProps {
   children: ReactNode;
 }
 
-/** Screens that stay in the dock; everything else is one click away in Launchpad. */
-export const DOCK_IDS = ['home', 'market', 'installed', 'approvals', 'activity', 'settings'] as const;
+/** Screens that stay in the dock (each screen's `dock` position); everything else is one click away in Launchpad. */
+export const DOCK_IDS = DOCK_ORDER;
 
-/** One colour per screen, so a place is recognised before its name is read. White glyph on each. */
-export const SCREEN_HUES: Record<string, readonly [string, string]> = {
-  home: ['#ff4d55', '#b3101c'],
-  market: ['#6d84ff', '#3340c4'],
-  installed: ['#34c77b', '#147a45'],
-  approvals: ['#f59e0b', '#b45309'],
-  activity: ['#22c5b0', '#0b7a6c'],
-  settings: ['#8f99a6', '#3e4652'],
-  nodes: ['#38a8f0', '#0b5f9a'],
-  machines: ['#9b7bf7', '#5b2bc8'],
-  alerts: ['#f4637c', '#b0123a'],
-  storage: ['#f6a35c', '#b8460c'],
-  backups: ['#3fc6db', '#0c6b80'],
-  automation: ['#8c7cf0', '#4a3bb8'],
-  coming: ['#7d8794', '#3a414b'],
-  'control-hub': ['#e5484d', '#7c0d16'],
-  agents: ['#d96cf0', '#8a1fa3'],
-};
+/** One colour per screen (each screen's `hue`), so a place is recognised before its name is read. White glyph on each. */
+export const SCREEN_HUES = HUES;
 const FALLBACK_HUE = ['#7d8794', '#3a414b'] as const;
 
 export function tileStyle(id: string): CSSProperties {
@@ -80,7 +65,7 @@ export function tileStyle(id: string): CSSProperties {
 /** Split the nav into dock items (fixed order) and Launchpad-only items (nav order). */
 export function dockSplit(nav: NavItem[]): { dock: NavItem[]; more: NavItem[] } {
   const dock = DOCK_IDS.flatMap((id) => nav.filter((n) => n.id === id));
-  const more = nav.filter((n) => !(DOCK_IDS as readonly string[]).includes(n.id));
+  const more = nav.filter((n) => !DOCK_IDS.includes(n.id));
   return { dock, more };
 }
 
