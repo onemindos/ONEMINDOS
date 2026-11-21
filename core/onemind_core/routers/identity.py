@@ -69,6 +69,11 @@ class PasswordOnlyBody(BaseModel):
     password: str = Field(max_length=1024)
 
 
+class MePatchBody(BaseModel):
+    # Not length-limited tightly here: the service answers 422 with a reason, like the other identity routes.
+    display_name: str | None = Field(default=None, max_length=1000)
+
+
 class UserCreateBody(BaseModel):
     display_name: str = Field(max_length=100)
     role: str = Field(max_length=16)
@@ -216,6 +221,11 @@ def register(app: FastAPI, gw: Gateway) -> None:
     @app.get("/v1/me", operation_id="me.get", tags=["auth"], responses=R(401, 403))
     def me(request: Request, p: Principal = Depends(principal)):
         return svc.me(request, p)
+
+    @app.patch("/v1/me", operation_id="me.update", tags=["auth"], responses=R(401, 403, 422))
+    def update_me(body: MePatchBody, request: Request, p: Principal = Depends(principal)):
+        """Set (or clear, with null) your own display name. Display text only; it grants nothing."""
+        return svc.set_profile_name(request, p, body.display_name)
 
     # ---- users (owner) -------------------------------------------------------------------------------
     @app.get("/v1/users", operation_id="users.list", tags=["users"], responses=R(401, 403))

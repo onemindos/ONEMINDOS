@@ -626,3 +626,51 @@ def test_rescue_verify_refuses_the_wrong_origin_and_a_bare_token(idc):
 def test_rescue_stepup_is_not_in_the_published_api(idc):
     spec = idc.get("/openapi.json").json()
     assert not [p for p in spec["paths"] if "rescue" in p]
+
+
+# ---- optional display name on /v1/me (so Home can greet a person by name) -------------------------
+def test_display_name_is_null_until_set_then_reads_back(idc):
+    setup_owner(idc)
+    assert idc.get("/v1/me").json()["display_name"] is None
+    r = idc.patch("/v1/me", json={"display_name": "  Zeus D  "}, headers=csrf(idc))
+    assert r.status_code == 200 and r.json() == {"display_name": "Zeus D"}
+    me = idc.get("/v1/me").json()
+    assert me["display_name"] == "Zeus D" and me["principal"]["role"] == "owner"
+    assert idc.patch("/v1/me", json={"display_name": None}, headers=csrf(idc)).status_code == 200
+    assert idc.get("/v1/me").json()["display_name"] is None
+
+
+@pytest.mark.parametrize("bad", ["", "   ", "x" * 61, "a\x00b", "a\nb", "a‮b", "<b>hi</b>", "x​z"])
+def test_display_name_refuses_bad_text(idc, bad):
+    setup_owner(idc)
+    r = idc.patch("/v1/me", json={"display_name": bad}, headers=csrf(idc))
+    assert r.status_code == 422, bad
+    assert idc.get("/v1/me").json()["display_name"] is None
+    assert idc.patch("/v1/me", json={"display_name": "x" * 60}, headers=csrf(idc)).status_code == 200
+
+
+def test_a_person_sets_only_their_own_display_name(idc):
+    setup_owner(idc)
+    child, adult = enrol(idc, "child", "kid"), enrol(idc, "adult", "ana")
+    owner_id = idc.get("/v1/me").json()["principal"]["id"]
+    assert child.patch("/v1/me", json={"display_name": "Kiddo"}, headers=csrf(child)).status_code == 200
+    # A child has no way to name someone else: the people-management path is owner only.
+    r = child.patch(f"/v1/users/{owner_id}", json={"display_name": "Hacked"}, headers=csrf(child))
+    assert r.status_code == 403
+    assert idc.get("/v1/me").json()["display_name"] is None
+    assert adult.get("/v1/me").json()["display_name"] is None
+    assert child.get("/v1/me").json()["display_name"] == "Kiddo"
+    # An API-less agent or static token is not a person and has no name to set.
+    assert idc.patch("/v1/me", json={"display_name": "Bot"}, headers=AGENT).status_code == 403
+
+
+def test_display_name_never_changes_the_stable_identity_and_the_change_is_audited(idc, settings):
+    setup_owner(idc)
+    before = idc.get("/v1/me").json()["principal"]
+    idc.patch("/v1/me", json={"display_name": "Totally Not Admin"}, headers=csrf(idc))
+    after = idc.get("/v1/me").json()["principal"]
+    assert (after["id"], after["role"]) == (before["id"], before["role"])
+    records = [e for e in audit_events(settings) if e["event"] == "user.profile_name.changed"]
+    assert len(records) == 1
+    assert records[0]["principal"]["id"] == before["id"] and records[0]["principal"]["role"] == "owner"
+    assert "Totally Not Admin" not in Path(settings.audit_path).read_text()
