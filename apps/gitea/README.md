@@ -7,9 +7,9 @@ Git with a cup of tea! Painless self-hosted all-in-one software development serv
 
 | | |
 |---|---|
-| Version | 28.3.0 (upstream release `v28.3.0`, published 2026-11-01) |
-| Licence | `MIT`, Market class **L1** (licence gate, scan of 2026-11-19) |
-| Tier | `blocked` (set by CI: sdk/tools/app-gate) |
+| Version | 28.4.0 (upstream release `v28.4.0`, published 2026-11-15) |
+| Licence | `MIT`, Market class **L1** (licence gate, scan of 2026-11-21) |
+| Tier | `community` (set by CI: sdk/tools/app-gate) |
 | Category | developer |
 | GitHub | <https://github.com/go-gitea/gitea> |
 | Website | <https://gitea.com> |
@@ -33,7 +33,7 @@ Storage: PVC `gitea-data` 10Gi.
 
 Images:
 
-- `docker.io/gitea/gitea:28.3.0-rootless@sha256:40c5a68a0463c0940e1ae32626c8300dd0572f3558e390073ad8379ca67c0e1d`
+- `docker.io/gitea/gitea:28.4.0-rootless@sha256:15ab7fadb44981a2b781f40c712cad07066197f395100ea1c6326e14e5bb073a`
 
 <!-- onemind:notes:begin -->
 ## What it is
@@ -76,24 +76,17 @@ Source: [docs.gitea.com](https://docs.gitea.com/installation/install-with-docker
 - Resource figures are OneMind choices where upstream gives none; they are checked against real use when the CI smoke test (contract §9.4 check 9) runs.
 - `metadata.tier` stays `community` until `sdk/tools/app-gate` in CI writes a passing `scan.json`. `spec.updates.automerge` is `none` until `renovate.json` lists the app.
 
-## Why this app is blocked
+## Gate status
 
-The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked** for this app on 2026-11-12 (ci-apps run 43212765046, job `gate (gitea)`). The gateway lists a blocked app in the Market but refuses to install it (§10.3, §11.1). The app is kept, not hidden, and the gate was not weakened. Reasons from that run:
-
-- Vulnerability: `docker.io/gitea/gitea:28.3.0-rootless`: CRITICAL CVE-2026-123158 in `openssh-keygen` 10.3_p1-r1, fixed in 10.3_p1-r2. A CRITICAL with a fix fails the gate (§9.4 check 3).
-- Passed: licence MIT matches, ClamAV (0 infected, amd64 and arm64), smoke test (GET / returned 200). Not signed with cosign (recorded as unsigned, informational).
-
-To unblock: move the pins to upstream releases that fix these findings (tags that exist, checked with `crane`), then rerun `sdk/tools/app-gate` (the daily `apps-rescan` workflow does this too). Nothing is bumped to an unverified tag.
-
-**Hold (apps/market-unblock-2, 2026-11-13):** CRITICAL CVE-2026-123158 in `openssh-keygen` 10.3_p1-r1 (fixed in r2). `28.3.0-rootless` is the newest tag. Unblock: a rebuild on a newer Alpine. The registry was re-read on 2026-11-13: the pinned digest is unchanged and no newer fixed tag exists, so nothing is bumped (the gate was not weakened and the tier was not edited). It unblocks when the weekly `apps-rescan` or a manual `apps-gate-all` run computes a pass on a rebuilt image. No upstream issue link was looked up (the GitHub API is not reachable from the worker).
+The gate computed tier **blocked** for 28.3.0 (CRITICAL CVE-2026-123158 in `openssh-keygen` 10.3_p1-r1, fixed in r2; ci-apps run 43212765046). The pin moved to `28.4.0-rootless` (upstream release v28.4.0, 2026-11-15; same rootless image, USER 1000:1000, ports 3000 and 2222, volumes `/etc/gitea` and `/var/lib/gitea`, amd64 and arm64 checked with `crane`). A local Trivy 0.76.2 scan of that digest on 2026-11-21 (linux/amd64, Trivy database of 2026-11-20) reports no CRITICAL with a fix. That is a check, not a gate run: the tier is `community` until the CI app gate on the pull request or the daily `apps-rescan` writes a new `scan.json` and computes `verified`. Issue #117.
 <!-- onemind:notes:end -->
 
 ## Latest security scan
 
-Scanned 2026-11-19T13:58:03Z by `sdk/tools/app-gate`: **fail**. Licence `MIT` class L1; smoke test pass.
+Scanned 2026-11-21T13:43:19Z by `sdk/tools/app-gate`: **fail**. Licence `MIT` class L1; smoke test pass.
 
 | Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
 |---|---|---|---|---|---|---|
-| `docker.io/gitea/gitea:28.3.0-rootless@sha256:40c5a68a0463c0940e1ae32626c8300dd0572f3558e390073ad8379ca67c0e1d` | amd64, arm64 | 1 (1) | 11 | 0 infected (daily-28188) | 0 | unsigned |
+| `docker.io/gitea/gitea:28.3.0-rootless@sha256:40c5a68a0463c0940e1ae32626c8300dd0572f3558e390073ad8379ca67c0e1d` | amd64, arm64 | 1 (1) | 11 | 0 infected (daily-28190) | 0 | unsigned |
 
 Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

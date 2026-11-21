@@ -30,6 +30,10 @@ MAC_LABELS = ("onemind-local", "onemind-gate")
 SWITCH = {"onemind-local": "LOCAL_RUNNER", "onemind-gate": "LOCAL_GATE"}
 TRUSTED = ("(vars.%s == 'on' && (github.event_name != 'pull_request' || "
            "github.event.pull_request.head.repo.full_name == github.repository))")
+# The merge-queue pool (MQ_RUNNER): merge_group runs only code already approved into the queue, so it is always
+# trusted and needs no fork check. It sits FIRST in the expression and only for merge_group.
+MQ_FIRST = ("(vars.MQ_RUNNER == 'on' && github.event_name == 'merge_group') && "
+            "fromJSON('[\"self-hosted\",\"onemind-mq\"]') || ")
 # Triggers that run with the base repo's context on behalf of someone else's code or comment: a workflow
 # with any of them must never send a job to the Mac.
 UNTRUSTED_TRIGGERS = {"pull_request_target", "workflow_run", "issue_comment"}
@@ -45,7 +49,7 @@ NEEDS_HOSTED = re.compile(
 # Workflows that build or test the OS image, need KVM or sign/publish: never on the Mac.
 HOSTED_ONLY_WORKFLOWS = {"image.yml", "battery.yml", "nightly.yml", "net-2vm.yml", "restore-drill.yml", "perf-smoke.yml",
                          "release.yml", "security-nightly.yml", "apps-rescan.yml", "changes-collect.yml",
-                         "dev-build.yml", "apps-gate-all.yml", "ci-desktop.yml"}
+                         "dev-build.yml", "apps-gate-all.yml", "ci-desktop.yml", "desktop-release.yml"}
 # setup-python has no Python 3.13 build for Debian 13 arm64. PR #352 moves ci-apps `validate` to a venv;
 # until it merges, that one job is the known exception.
 SETUP_PYTHON_PENDING = {("ci-apps.yml", "validate")}
@@ -94,9 +98,38 @@ class LocalRunnerPolicy(unittest.TestCase):
             ro = job["runs-on"].replace(DO_PREFIX, "", 1)
             where = f"{wf}:{name}"
             label = next(lab for lab in MAC_LABELS if lab in ro)
-            want = "${{ %s && fromJSON('[\"self-hosted\",\"%s\"]') || 'ubuntu-24.04' }}" % (
-                TRUSTED % SWITCH[label], label)
+            mq = MQ_FIRST if label == "onemind-local" else ""     # the gate pool has no merge-queue branch
+            want = "${{ %s%s && fromJSON('[\"self-hosted\",\"%s\"]') || 'ubuntu-24.04' }}" % (
+                mq, TRUSTED % SWITCH[label], label)
             self.assertEqual(ro, want, where)
+
+    def test_every_local_job_can_use_the_merge_queue_pool_on_merge_group_only(self):
+        for wf, d, name, job in mac_jobs("onemind-local"):
+            # the DO prefix (CI-15) sits between the merge-queue branch and the Mac branch on its four jobs
+            ro, where = job["runs-on"].replace(DO_PREFIX, "", 1), f"{wf}:{name}"
+            self.assertTrue(ro.startswith("${{ " + MQ_FIRST), where)
+            self.assertEqual(ro.count("onemind-mq"), 1, where)
+            self.assertLess(ro.index("onemind-mq"), ro.index("onemind-local"), where)
+            # only merge_group can reach it, and it is off unless MQ_RUNNER is on
+            self.assertEqual(ro.count("github.event_name == 'merge_group'"), 1, where)
+            self.assertNotIn("pull_request", ro.split("||")[0], where)
+            # with MQ_RUNNER unset the first branch is false: the rest is the unchanged LOCAL_RUNNER routing
+            self.assertTrue(ro[len("${{ " + MQ_FIRST):].startswith(TRUSTED % "LOCAL_RUNNER"), where)
+
+    def test_no_job_outside_the_local_pool_can_reach_the_merge_queue_pool(self):
+        for wf, d in workflows():
+            for name, job in d["jobs"].items():
+                ro = str(job.get("runs-on", ""))
+                if "onemind-mq" in ro:
+                    self.assertIn("onemind-local", ro, f"{wf}:{name}")
+                    self.assertNotIn("onemind-gate", ro, f"{wf}:{name}")
+
+    def test_merge_queue_pool_is_not_a_pull_request_pool(self):
+        """Evaluate the routing: a pull_request event never lands on onemind-mq, whatever the variables say."""
+        for wf, d, name, job in mac_jobs("onemind-local"):
+            first = job["runs-on"].split("||")[0]
+            self.assertIn("github.event_name == 'merge_group'", first)
+            self.assertNotIn("github.event_name != ", first, f"{wf}:{name}")
 
     def test_each_pool_has_its_own_switch(self):
         for wf, d, name, job in mac_jobs("onemind-gate"):
@@ -419,6 +452,11 @@ exit 0
                                    until=lambda s: self.gate_sets(s)[-1:] == ["on"])
         self.assertEqual(self.gate_sets(sets), ["off", "off", "on", "off"])   # start, 3 strikes, probe, exit
         self.assertIn("3 gate failures in a row: runner round failed", out)
+
+    def test_mq_pool_kit_is_documented_and_lists_hosted_image_tools(self):
+        text = (KIT / "README.md").read_text()
+        for needle in ("MQ_RUNNER", "onemind-mq", "merge_group", "sudo", "gitleaks"):
+            self.assertIn(needle, text)
 
     def test_vm_shares_nothing_with_the_mac(self):
         self.assertRegex((KIT / "lima.yaml").read_text(), r"(?m)^mounts: \[\]$")

@@ -222,6 +222,11 @@ def build_tree(work, ref):
         open(lst, "w").write("\n".join(names) + "\n")
         subprocess.run(["tar", "-c", "-C", ROOT, "-T", lst, "-f", os.path.join(work, "t.tar")], check=True)
         subprocess.run(["tar", "-x", "-C", src, "-f", os.path.join(work, "t.tar")], check=True)
+    # The onemind CLI imports the Go SDK, whose types are generated from the spec, not committed (CI-16).
+    if shutil.which("go"):
+        subprocess.run(["sh", "sdk/scripts/gen-code.sh", "go"], cwd=src, check=True)
+    else:
+        subprocess.run(["docker", "run", "--rm", "-v", f"{src}:/s", "-w", "/s", "golang:1.26", "sh", "sdk/scripts/gen-code.sh", "go"], check=True)
     env = dict(os.environ, CGO_ENABLED="0", GOOS="linux", GOARCH="amd64")
     flags = ["-trimpath", "-ldflags", "-s -w"]
     for out, pkg in (("onemindd", "./cmd/onemindd"), ("onemind-linux-amd64", "./cmd/onemind")):

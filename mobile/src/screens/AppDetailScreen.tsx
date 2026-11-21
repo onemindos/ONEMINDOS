@@ -6,6 +6,7 @@ import { OP } from '../api/client';
 import { ApiError, type ActionType } from '../api/types';
 import { useHubData } from '../data';
 import { principalLabel, requestAction } from '../lib/approvals';
+import { asksParent } from '../lib/people';
 import { installBlockReason } from '../lib/scan';
 import type { RootParams } from '../nav';
 import { useSignedIn } from '../session';
@@ -18,7 +19,9 @@ export function AppDetailScreen() {
   const t = useTheme();
   const nav = useNavigation();
   const { params } = useRoute<RouteProp<RootParams, 'AppDetail'>>();
-  const { api, canRequest, features } = useSignedIn();
+  const { api, canRequest, features, principal } = useSignedIn();
+  // Teen and Child never decide anything: their request goes to a parent's Approvals (FAM-01).
+  const young = asksParent(principal?.role);
   const { apps, actions, hubOffsetMs, reload } = useHubData();
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ text: string; tone: 'ok' | 'bad' }>();
@@ -34,11 +37,13 @@ export function AppDetailScreen() {
   const type: ActionType = app.installed ? 'app.remove' : 'app.install';
   const blockReason = type === 'app.install' ? installBlockReason(app, Date.now() + (hubOffsetMs ?? 0)) : undefined;
   const reason =
-    canRequest === 'no'
-      ? 'Only an owner (or an agent) can ask for changes.'
-      : waiting
-        ? `A request is already waiting for approval (from ${principalLabel(waiting.requested_by)}).`
-        : blockReason;
+    young
+      ? 'Teen and Child sign-ins cannot file requests yet (no hub route for it). Ask a parent to add the app for you.'
+      : canRequest === 'no' && !young
+        ? 'Only an owner (or an agent) can ask for changes.'
+        : waiting
+          ? `A request is already waiting for approval (from ${principalLabel(waiting.requested_by)}).`
+          : blockReason;
   const scan = scanLabel(app);
   // With §12.40 plans the installed app's actions (including remove) go through AppLifecycle.
   const managed = app.installed && features.has(OP.appPlan);
@@ -48,10 +53,10 @@ export function AppDetailScreen() {
     setMsg(undefined);
     try {
       await requestAction(api, type, app!.id);
-      setMsg({ text: 'Request sent. It waits in Approvals until an owner decides.', tone: 'ok' });
+      setMsg({ text: young ? 'Asked. Your request is with a parent. Nothing is installed until they say yes.' : 'Request sent. It waits in Approvals until an owner decides.', tone: 'ok' });
       await reload();
     } catch (e) {
-      setMsg({ text: `Could not send the request: ${e instanceof ApiError ? e.message : String(e)}`, tone: 'bad' });
+      setMsg({ text: young && e instanceof ApiError && (e.code === 'permission_denied' || e.code === 'not_found') ? 'The hub did not accept this request. Ask a parent to add the app for you.' : `Could not send the request: ${e instanceof ApiError ? e.message : String(e)}`, tone: 'bad' });
     } finally {
       setBusy(false);
     }
@@ -66,6 +71,7 @@ export function AppDetailScreen() {
       <View style={s.wrap}>
         <Badge label={app.tier ?? 'no tier'} tone={app.tier ? TIER_TONE[app.tier] : 'warn'} />
         <Badge label={scan.text} tone={scan.tone} />
+        {app.min_age != null && <Badge label={`age ${app.min_age}+`} />}
         {app.installed && <Badge label={app.status.replace(/_/g, ' ')} tone="info" />}
       </View>
       <Card>
@@ -87,20 +93,22 @@ export function AppDetailScreen() {
       </View>
       {reason && !managed && <Notice tone="warn" text={reason} />}
       {msg && <Notice tone={msg.tone} text={msg.text} />}
-      {managed ? (
+      {managed && !young ? (
         <AppLifecycle app={app} />
       ) : (
         <View style={s.wrap}>
-          <Button
-            testID="request"
-            label={busy ? 'Sending…' : app.installed ? 'Ask to remove' : 'Ask to install'}
-            variant={app.installed ? 'danger' : 'primary'}
-            disabled={busy || !!reason}
-            onPress={() => void ask()}
-          />
+          {young ? null : (
+            <Button
+              testID="request"
+              label={busy ? 'Sending…' : app.installed ? 'Ask to remove' : 'Ask to install'}
+              variant={app.installed ? 'danger' : 'primary'}
+              disabled={busy || !!reason}
+              onPress={() => void ask()}
+            />
+          )}
         </View>
       )}
-      {msg?.tone === 'ok' && (
+      {msg?.tone === 'ok' && !young && (
         <Button variant="secondary" label="Open Approvals" onPress={() => nav.navigate('Tabs', { screen: 'Approvals' })} />
       )}
       <Text style={{ color: t.muted, fontSize: 12 }}>
