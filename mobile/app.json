@@ -8,7 +8,7 @@
     "userInterfaceStyle": "automatic",
     "icon": "./assets/icon.png",
     "ios": {
-      "bundleIdentifier": "os.onemind.mobile",
+      "bundleIdentifier": "com.onemindos.mobile",
       "supportsTablet": true,
       "infoPlist": {
         "NSAppTransportSecurity": {
@@ -61,7 +61,7 @@
       }
     },
     "android": {
-      "package": "os.onemind.mobile",
+      "package": "com.onemindos.mobile",
       "permissions": [
         "android.permission.POST_NOTIFICATIONS"
       ],
