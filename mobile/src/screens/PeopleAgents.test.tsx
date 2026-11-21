@@ -143,7 +143,7 @@ describe('Agents screen', () => {
   });
 
   it('shows the error, no badge and no toggle when the kill switch cannot be read', async () => {
-    await mount(<AgentsScreen />, OWNER_OPS, { ...base, killSwitch: async () => { throw new ApiError(500, 'internal', 'boom'); } });
+    await mount(<AgentsScreen />, OWNER_OPS, { ...base, killSwitch: async () => { throw new ApiError(500, 'unknown', 'boom'); } });
     expect(await screen.findByText(/cannot say whether agents are stopped/)).toBeTruthy();
     expect(screen.queryByText('Agents allowed to ask')).toBeNull();
     expect(screen.queryByTestId('kill-switch-toggle')).toBeNull();
