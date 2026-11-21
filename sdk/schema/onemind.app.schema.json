@@ -27,6 +27,7 @@
         "version",
         "description",
         "category",
+        "age_rating",
         "icon",
         "license",
         "source",
@@ -66,6 +67,17 @@
           "type": "string",
           "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
           "maxLength": 40
+        },
+        "age_rating": {
+          "description": "Proposed minimum age for using the app: 0, 7, 12, 16 or 18. The rubric is in apps/README.md; when unsure, the higher number. It is the default for family filtering; an owner's own classification overrides it.",
+          "type": "integer",
+          "enum": [0, 7, 12, 16, 18]
+        },
+        "age_reason": {
+          "description": "One short line saying why the app has that age_rating, based on what the app does.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 140
         },
         "icon": {
           "description": "Icon file path relative to apps/<id>/ (no leading slash, no '..').",

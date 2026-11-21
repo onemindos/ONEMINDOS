@@ -3,9 +3,16 @@
 // sessions, people, API tokens, notifications, monitoring and the audit chain. Shapes mirror what
 // the gateway returns (core/onemind_core/routers/*); the OpenAPI file only names the request bodies.
 // Every method is one route. The dashboard calls nothing else.
+import type { components } from '@onemind/sdk';
 import type { Action } from './types';
 
-export type PersonRole = 'owner' | 'adult' | 'guest';
+/** GET /v1/family/profiles/{id}: a person's private family controls (FAM-01), straight from the SDK types. */
+export type FamilyProfile = components['schemas']['FamilyProfile'];
+
+/** Default age rating a new child or teen starts with (FAM-01, founder decision 2026-11-21). Mirrors core ROLE_PRESETS. */
+export const AGE_PRESETS: Partial<Record<string, number>> = { child: 12, teen: 16 };
+
+export type PersonRole = 'owner' | 'adult' | 'teen' | 'child' | 'guest';
 
 export interface PrincipalInfo {
   id: string;
@@ -208,6 +215,7 @@ export interface WiringApi {
   createUser(body: { display_name: string; role: PersonRole; username?: string }): Promise<UserCreated>;
   updateUser(id: string, body: { display_name?: string; role?: PersonRole }): Promise<UserInfo>;
   disableUser(id: string): Promise<UserInfo>;
+  familyProfile(id: string): Promise<FamilyProfile>;
   tokens(): Promise<TokenInfo[]>;
   createToken(body: { name: string; principal?: 'self' | { kind: 'agent'; id: string }; expires_in_days?: number }): Promise<TokenCreated>;
   rotateToken(id: string, graceS?: number): Promise<TokenCreated>;
