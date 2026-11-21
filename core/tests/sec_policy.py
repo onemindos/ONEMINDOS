@@ -660,3 +660,43 @@ POLICY |= {
     ("POST", "/v1/os/rollouts/{rollout_id}/cancel"): Row(OWNER_ONLY_404, w.p_static("/v1/os/rollouts/rol_ghost/cancel"),
                                                          f"{_ROLL}: only the owner cancels a rollout"),
 }
+# DEV-PLG-3: real installed plugin summaries follow Market sharing.
+POLICY.update({
+    ("GET", "/v1/plugins/{plugin_id}/settings"): Row(cells(404, **GONE, plugin=DECIDE, automation=DECIDE, node=DECIDE),
+                                          w.p_static("/v1/plugins/not-installed/settings"), "#178 installed settings require sharing"),
+    ("POST", "/v1/plugins/{plugin_id}/settings"): Row(cells(403, **GONE, owner=404, plugin=DECIDE, automation=DECIDE, node=DECIDE),
+                                          lambda x: w.Req("/v1/plugins/not-installed/settings", json={"settings": {}, "bundle_sha256": "sha256:" + "a" * 64, "idempotency_key": x.key(), "expires_at": x.action_body()["expires_at"]}), "#178 owner-approved plugin.configure"),
+    ("GET", "/v1/plugins"): Row(ANY_PRINCIPAL, w.p_static("/v1/plugins"), "#178 apps:read; shared installed plugin summaries"),
+    ("GET", "/v1/plugins/{plugin_id}"): Row(cells(404, **GONE, plugin=DECIDE, automation=DECIDE, node=DECIDE),
+        w.p_static("/v1/plugins/not-installed"), "#178 unavailable or unshared plugin is 404"),
+})
+
+# #178 REST plugin tools never allow plugin backend tokens or ownerless mutation.
+POLICY.update({
+    ("GET", "/v1/plugins/{plugin_id}/tools"): Row(cells(404, **GONE, plugin=DECIDE, automation=DECIDE, node=DECIDE),
+        w.p_static("/v1/plugins/not-installed/tools"), "#178 shared installed tool declarations"),
+    ("POST", "/v1/plugins/{plugin_id}/tools/{tool_name}"): Row(cells(404, **GONE, plugin=DECIDE, automation=DECIDE, node=DECIDE),
+        lambda world: w.Req("/v1/plugins/not-installed/tools/missing", json={"arguments": {}}),
+        "#178 read tools or pending owner-approved invocation"),
+})
+
+
+def _plugin_key_proposal(world):
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+    public = Ed25519PrivateKey.generate().public_key().public_bytes(
+        serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo).decode()
+    return w.Req("/v1/plugin-trust/keys/requests", json={"name": "Test signing key", "public_key": public,
+        "idempotency_key": world.key(), "expires_at": world.action_body()["expires_at"]})
+
+
+POLICY.update({
+    ("GET", "/v1/plugin-trust/keys"): Row(OWNER_ONLY, w.p_static("/v1/plugin-trust/keys"),
+        "#180 only an owner reads private signing trust"),
+    ("POST", "/v1/plugin-trust/keys/requests"): Row({**OWNER_ONLY, "owner": 202}, _plugin_key_proposal,
+        "#180 owner proposal stays pending until approval"),
+    ("POST", "/v1/plugin-trust/keys/{key_id}/revoke"): Row({**OWNER_ONLY, "owner": 404},
+        lambda x: w.Req("/v1/plugin-trust/keys/sha256:" + "0" * 64 + "/revoke", json={
+            "idempotency_key": x.key(), "expires_at": x.action_body()["expires_at"]}),
+        "#180 owner approval required to revoke enrolled signing trust"),
+})

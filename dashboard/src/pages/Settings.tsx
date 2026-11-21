@@ -2,7 +2,7 @@
 // Settings on @onemind/ui SettingsLayout. Appearance is live (saved per person in this browser
 // until the §12 preferences route lands). About shows GET /v1/instance. Every other section says
 // which work stream brings its API, instead of showing controls that would do nothing.
-import { useParams } from 'react-router';
+import { Link, useParams } from 'react-router';
 import { AppearanceSettings, Card, EmptyState, PageHeader, SETTINGS_SECTIONS, SettingsLayout, type SettingsSectionId } from '@onemind/ui';
 import { useHub } from '../data/hub';
 import { Account } from './Account';
@@ -51,6 +51,10 @@ function About() {
         ) : (
           <p className="om-hint">{hub.instance.error ? `Could not read the instance: ${hub.instance.error.message}` : 'Loading…'}</p>
         )}
+      </Card>
+      <Card title="Plugin signing trust">
+        <p>Owners can enroll public signing keys for private plugins. Changes wait for approval.</p>
+        <Link to="/settings/plugin-keys">Manage plugin signing keys</Link>
       </Card>
       <p className="om-hint">Diagnostic bundles and component versions come with §12 (About &amp; diagnostics).</p>
     </>

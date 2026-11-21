@@ -14,6 +14,7 @@ from ..appsecrets.api import SealedInput
 from ..auth import Principal
 from ..context import Gateway
 from ..errors import error_responses
+from ..plugins.actions import own_actions, own_action
 
 
 class OverrideInput(BaseModel):
@@ -86,14 +87,18 @@ def register(app: FastAPI, gw: Gateway) -> None:
         "/v1/actions", tags=["actions"], operation_id="actions.list",
         responses={200: {"model": list[Action]}, **error_responses(401)},
     )
-    def list_actions(_: Principal = Depends(principal)):
+    def list_actions(p: Principal = Depends(principal)):
+        if p.kind == "plugin":
+            return own_actions(gw, p)
         return actions.list()
 
     @app.get(
         "/v1/actions/{action_id}", tags=["actions"], operation_id="actions.get",
         responses={200: {"model": Action}, **error_responses(401, 404, 422)},
     )
-    def get_action(action_id: str, _: Principal = Depends(principal)):
+    def get_action(action_id: str, p: Principal = Depends(principal)):
+        if p.kind == "plugin":
+            return own_action(gw, p, action_id)
         return actions.get(action_id)
 
     @app.post(
