@@ -10,7 +10,7 @@ export const PRO_ROLES: ReadonlySet<string> = new Set(['owner', 'adult']);
 
 /** Nav ids (routes.ts navId) of the Pro screens: Nodes, Control Hub, AI & Agents, and System
  * (Storage, Backups, OS updates). */
-export const PRO_SCREENS: ReadonlySet<string> = new Set(['nodes', 'control-hub', 'agents', 'storage', 'backups', 'updates', 'usage']);
+export const PRO_SCREENS: ReadonlySet<string> = new Set(['nodes', 'control-hub', 'agents', 'storage', 'backups', 'automation', 'updates', 'usage']);
 
 export type View = 'pro' | 'simple' | 'unknown';
 
