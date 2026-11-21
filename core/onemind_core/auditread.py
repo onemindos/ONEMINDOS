@@ -16,7 +16,7 @@ from collections.abc import Callable, Iterator
 from datetime import UTC, datetime
 from pathlib import Path
 
-from .audit import GENESIS, chain_hash
+from .audit import GENESIS, PRUNED_EVENT, chain_anchored, chain_hash, iter_lines, segments
 from .auth import Principal
 
 FULL_READERS = {("person", "owner"), ("person", "adult")}
@@ -51,6 +51,19 @@ def iter_records(path: Path, start: int = 0) -> Iterator[tuple[int, dict]]:
                 continue
             if isinstance(rec, dict) and isinstance(rec.get("seq"), int):
                 yield pos, rec
+
+
+def iter_all_records(path: Path, min_seq: int = 0) -> Iterator[dict]:
+    """Every parseable record across closed segments and the active file, skipping old segments."""
+    for raw in iter_lines(path, min_seq):
+        if not raw.strip():
+            continue
+        try:
+            rec = json.loads(raw)
+        except ValueError:
+            continue
+        if isinstance(rec, dict) and isinstance(rec.get("seq"), int):
+            yield rec
 
 
 def parse_time(value: str | None, name: str) -> datetime | None:
@@ -92,7 +105,7 @@ class AuditReader:
         self.path = path
         self.clock = clock
         self.owned_action_ids = owned_action_ids
-        self._verify_cache: tuple[tuple[int, float], dict] | None = None
+        self._verify_cache: tuple[tuple, dict] | None = None
 
     def visible(self, p: Principal) -> Callable[[dict], bool]:
         if can_read_all(p):
@@ -125,7 +138,7 @@ class AuditReader:
         t_since, t_until = parse_time(since, "since"), parse_time(until, "until")
         ok = self.visible(p)
         out: list[dict] = []
-        for _, rec in iter_records(self.path):
+        for rec in iter_all_records(self.path, (after_seq or 0) + 1):
             seq = rec["seq"]
             if after_seq is not None and seq <= after_seq:
                 continue
@@ -148,7 +161,7 @@ class AuditReader:
 
     def get(self, p: Principal, seq: int) -> dict | None:
         ok = self.visible(p)
-        for _, rec in iter_records(self.path):
+        for rec in iter_all_records(self.path, seq):
             if rec["seq"] == seq:
                 return rec if ok(rec) else None
             if rec["seq"] > seq:
@@ -159,9 +172,9 @@ class AuditReader:
         """Recompute the chain. A full check is cached until the file changes."""
         try:
             st = self.path.stat()
-            key = (st.st_size, st.st_mtime)
+            key = (st.st_size, st.st_mtime, tuple(p.name for _, _, p in segments(self.path)))
         except OSError:
-            key = (0, 0.0)
+            key = (0, 0.0, ())
         if from_seq is None and self._verify_cache and self._verify_cache[0] == key:
             return self._verify_cache[1]
         result = verify_file(self.path, from_seq)
@@ -171,9 +184,10 @@ class AuditReader:
         return result
 
 
-def verify_lines(lines: Iterator[bytes], from_seq: int | None = None) -> dict:
+def verify_lines(lines: Iterator[bytes], from_seq: int | None = None, anchored: bool = False) -> dict:
     """The audit.py rule, reporting the first bad seq. Shared by the API and its tests."""
     prev, n, head = GENESIS, 0, None
+    anchor, accounted, first = None, False, True
     for raw in lines:
         if not raw.strip():
             continue
@@ -184,6 +198,11 @@ def verify_lines(lines: Iterator[bytes], from_seq: int | None = None) -> dict:
         except (ValueError, KeyError, TypeError, AttributeError):
             return _bad(n, head, bad_seq, f"seq {bad_seq}: not a JSON audit record")
         seq = rec.get("seq")
+        if first and anchored and isinstance(seq, int):
+            # Oldest history was pruned: the chain starts from the prev_hash an audit.pruned
+            # event later in the chain must account for.
+            prev, n, anchor = got_prev, seq - 1, (seq - 1, got_prev)
+        first = False
         if from_seq is not None and isinstance(seq, int) and seq < from_seq:
             # Before the range: only follow the chain.
             prev, n, head = got_hash, seq, {"seq": seq, "hash": got_hash}
@@ -194,7 +213,12 @@ def verify_lines(lines: Iterator[bytes], from_seq: int | None = None) -> dict:
             return _bad(n, head, bad_seq, f"seq {seq!r} out of order (expected {bad_seq})")
         if chain_hash(prev, rec) != got_hash:
             return _bad(n, head, bad_seq, f"seq {bad_seq}: hash mismatch (record changed after it was written)")
+        if anchor and rec.get("event") == PRUNED_EVENT:
+            d = rec.get("data") or {}
+            accounted = accounted or (d.get("through_seq"), d.get("through_hash")) == anchor
         prev, n, head = got_hash, seq, {"seq": seq, "hash": got_hash}
+    if anchor and not accounted:
+        return _bad(n, head, n + 1, "old records are missing and no audit.pruned event in the chain accounts for them")
     return {"ok": True, "records": n, "head": head, "first_bad_seq": None, "reason": "ok", "last_checkpoint": None}
 
 
@@ -203,7 +227,4 @@ def _bad(n: int, head: dict | None, seq: int, reason: str) -> dict:
 
 
 def verify_file(path: Path, from_seq: int | None = None) -> dict:
-    if not path.exists():
-        return verify_lines(iter(()), from_seq)
-    with path.open("rb") as fh:
-        return verify_lines(iter(fh), from_seq)
+    return verify_lines(iter_lines(path), from_seq, chain_anchored(path))

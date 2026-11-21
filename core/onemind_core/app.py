@@ -59,7 +59,10 @@ def create_app(
     tokens = TokenStore(settings.tokens_file)
     registry = NodeRegistry(clock)
     bus = NatsBus(settings.nats_url, registry, nkey_seed=settings.section(FabricSettings).nats_nkey_seed)
-    audit = AuditLog(settings.audit_path, clock, publish=bus.publish_threadsafe)
+    audit = AuditLog(
+        settings.audit_path, clock, publish=bus.publish_threadsafe,
+        max_bytes=settings.audit_max_bytes or None, keep_segments=settings.audit_keep_segments,
+    )
     catalog = Catalog(settings.apps_dir, settings.app_schema_path)
     owns_repo = repo is None
     repo = repo or SqlActionRepository.from_url(settings.db_url)
