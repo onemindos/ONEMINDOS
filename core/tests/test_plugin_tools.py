@@ -60,7 +60,7 @@ def test_read_is_immediate_audited_and_uses_installed_snapshot(tools):
     rows = client.get(PATH, headers=OWNER).json()
     assert {r["name"] for r in rows} == {"status", "change", "erase"}
     assert "From the plugin:" in rows[0]["description"]
-    assert call(client, "status").json() == {"output": {}}
+    assert call(client, "status", headers=OWNER).json() == {"output": {}}
     assert len(calls) == 1 and calls[0].url.host == "uptime-kuma.app-uptime-kuma.svc.cluster.local"
     assert calls[0].headers["authorization"] != AGENT["Authorization"]
     assert any(json.loads(line)["event"] == "plugin.tool.read"
@@ -110,12 +110,12 @@ def test_changed_preconditions_and_action_tampering_prevent_dispatch(tools, cloc
 def test_undeclared_and_unexposed_tools_and_bad_arguments_are_refused(tools):
     client, calls, _ = tools
     assert call(client, "missing").status_code == 404
-    assert client.post(PATH + "/status", headers=AGENT, json={"arguments": {"bad": True}}).status_code == 422
+    assert client.post(PATH + "/status", headers=OWNER, json={"arguments": {"bad": True}}).status_code == 422
     row = client.app.state.identity.repo.get(PluginInstallRow, "uptime-kuma")
     manifest = deepcopy(row.manifest)
     manifest["spec"]["extensions"]["tools"][0]["exposure"]["rest"] = False
     client.app.state.identity.repo.update(PluginInstallRow, [PluginInstallRow.app_id == row.app_id], {"manifest": manifest})
-    assert call(client, "status").status_code == 404 and calls == []
+    assert call(client, "status", headers=OWNER).status_code == 404 and calls == []
 
 
 def test_scoped_apps_reader_cannot_request_mutation_and_sharing_is_checked(tools, clock):
@@ -171,3 +171,71 @@ def test_mutating_dispatch_serializes_against_app_removal(tools, clock, monkeypa
     action = call(client, "change").json()
     assert approve(client, action["id"])["state"] == "succeeded"
     assert client.app.state.repo.get_app_state("uptime-kuma").status == "installed"
+
+
+def test_agent_cannot_run_a_tool_the_plugin_labelled_read(tools):
+    """#414a: the plugin author labels its own tools; an AI needs the exact grant, not apps:read."""
+    client, calls, _ = tools
+    refused = call(client, "status", headers=AGENT)
+    assert refused.status_code == 403 and "plugin.invoke" in refused.json()["message"]
+    assert calls == []
+    assert call(client, "status", headers=OWNER).status_code == 200 and len(calls) == 1
+
+
+def test_install_plan_lists_each_tool_with_its_declared_effect(plugin_settings, clock):
+    from conftest import ScriptedExecutor
+    path = Path(plugin_settings.apps_dir) / "uptime-kuma" / "onemind.app.yaml"
+    doc = yaml.safe_load(path.read_text())
+    doc["spec"]["extensions"]["tools"] = [
+        {"name": n, "title": n, "description": "d", "effect": e, "input": deepcopy(CLOSED),
+         "output": deepcopy(CLOSED), "exposure": {"rest": True}} for n, e in (("status", "read"), ("erase", "destructive"))]
+    path.write_text(yaml.safe_dump(doc))
+    with make_client(plugin_settings, clock, ScriptedExecutor()) as client:
+        action = client.get(f"/v1/actions/{request(client, clock, 'app.install')}", headers=OWNER).json()
+        obj = action["plan"]["objects"][0]
+        assert obj["plugin_tools"] == [{"name": "erase", "effect": "destructive", "rest": True},
+                                       {"name": "status", "effect": "read", "rest": True}]
+        text = " ".join(action["plan"]["warnings"])
+        assert "Plugin tool status (read): runs at once with no approval" in text
+        assert "Plugin tool erase (destructive): waits for your approval" in text
+
+
+def test_destructive_tool_is_approvable_when_no_passkey_exists(tools):
+    client, calls, _ = tools
+    action = call(client, "erase", headers=OWNER).json()
+    assert action["risk"] == "destructive"
+    done = client.post(f"/v1/actions/{action['id']}/approve", headers=OWNER)
+    assert done.status_code == 200 and done.json()["state"] == "succeeded", done.text
+    assert len(calls) == 1
+
+
+def edit_manifest(path, change):
+    doc = yaml.safe_load(path.read_text())
+    doc["metadata"]["version"] = "9.9.9"
+    change(doc["spec"])
+    path.write_text(yaml.safe_dump(doc))
+
+
+@pytest.mark.parametrize("name,change", [
+    ("flip-effect", lambda spec: spec["extensions"]["tools"][1].update(effect="read")),
+    ("add-tool", lambda spec: spec["extensions"]["tools"].append(
+        {"name": "extra", "title": "Extra", "description": "d", "effect": "read", "input": deepcopy(CLOSED),
+         "output": deepcopy(CLOSED), "exposure": {"rest": True}})),
+    ("new-backend", lambda spec: spec["plugin"].update(backend={"service": "other", "port": 9})),
+    ("expose-rest", lambda spec: spec["extensions"]["tools"][0]["exposure"].update(rest=False)),
+])
+def test_update_cannot_widen_tools_or_move_the_backend(tools, clock, name, change):
+    """The grants stay equal, but the approved tool effects and backend are part of what was approved."""
+    from conftest import action_body
+    client, _, path = tools
+    edit_manifest(path, change)
+    r = client.post("/v1/actions", headers=OWNER, json=action_body(clock, type_="app.update", key=name))
+    assert r.status_code == 409 and "fresh approved install" in r.json()["message"], r.text
+
+
+def test_update_may_drop_a_tool(tools, clock):
+    from conftest import action_body
+    client, _, path = tools
+    edit_manifest(path, lambda spec: spec["extensions"]["tools"].pop())
+    r = client.post("/v1/actions", headers=OWNER, json=action_body(clock, type_="app.update", key="drop"))
+    assert r.status_code == 201, r.text

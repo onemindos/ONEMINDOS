@@ -160,3 +160,20 @@ def test_changed_update_grants_require_fresh_approved_install(configured, clock)
                     json=action_body(clock, type_="app.update", key="changed-grants"))
     assert r.status_code == 409
     assert "fresh approved install" in r.json()["message"]
+
+
+def test_only_an_owner_reads_stored_values_back(configured, clock):
+    client = configured
+    assert approve(client, client.post(PATH, headers=OWNER, json=body(client, clock)).json()["id"])["state"] == "succeeded"
+    assert client.get(PATH, headers=OWNER).json()["settings"] == {"greeting": "Hello"}
+    seen = client.get(PATH, headers=AGENT)
+    assert seen.status_code == 200 and seen.json()["settings"] == {}
+
+
+@pytest.mark.parametrize("prop", [
+    {"apiKey": {"type": "string"}}, {"smtp_password": {"type": "string"}}, {"botToken": {"type": "string"}},
+    {"x": {"type": "string", "writeOnly": True}}, {"x": {"type": "string", "format": "password"}},
+])
+def test_schemas_cannot_ask_for_secrets(prop):
+    with pytest.raises(ValueError, match="secrets"):
+        compile_schema({"type": "object", "properties": prop})

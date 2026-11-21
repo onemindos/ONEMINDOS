@@ -153,3 +153,24 @@ def test_registry_projects_installed_receipt_after_catalog_changes(plugin_settin
         path.write_text(yaml.safe_dump(manifest))
         r = client.get("/v1/plugins/uptime-kuma", headers=OWNER)
         assert r.status_code == 200 and r.json()["name"] == "Uptime Kuma"
+
+
+def test_install_plan_shows_every_grant_the_plugin_token_will_hold(plugin_settings, clock):
+    """#409: the owner approves a plan that names the grants, and the plan hash binds them."""
+    with make_client(plugin_settings, clock, ScriptedExecutor()) as client:
+        action_id = request(client, clock, "app.install")
+        action = client.get(f"/v1/actions/{action_id}", headers=OWNER).json()
+        obj = action["plan"]["objects"][0]
+        assert obj["plugin_grants"] == ["actions:read:own", "actions:request:app.install", "apps:read"]
+        text = " ".join(action["plan"]["warnings"])
+        assert "action app.install, which still needs your approval" in text
+        assert "list of apps" in text
+        stored = client.app.state.identity.repo.get(PluginInstallRow, "uptime-kuma")
+        assert stored is None
+
+
+def test_plan_without_a_plugin_declaration_carries_no_grants(settings, clock):
+    with make_client(settings, clock, ScriptedExecutor()) as client:
+        action_id = request(client, clock, "app.install")
+        plan = client.get(f"/v1/actions/{action_id}", headers=OWNER).json()["plan"]
+        assert "plugin_grants" not in plan["objects"][0]

@@ -32,10 +32,13 @@ def register(app: FastAPI, gw: Gateway):
     tools = Tools(gw, app.state.identity)
     app.state.plugin_tools = tools
 
+    # Like storage and the signing-key guard: the passkey is required once the household has
+    # passkeys. With none enrolled the owner's ordinary approval is all there is, and a
+    # destructive tool must not be impossible to approve.
     def destructive_step_up(principal, action_id, body, request):
         action = gw.repo.get(action_id)
         if (principal.is_owner and action and action.type == "plugin.invoke" and action.risk == "destructive"
-                and body.get("webauthn") is None):
+                and app.state.identity.passkeys_active() and body.get("webauthn") is None):
             raise ApiError(401, "unauthenticated", "destructive plugin tools require an action-bound passkey",
                            reason="step_up_required")
         # Identity's following guard cryptographically verifies every supplied assertion,
@@ -70,6 +73,11 @@ def register(app: FastAPI, gw: Gateway):
         if tool["effect"] == "read":
             if ctx and not has_any(ctx.scopes, ("apps:read",)):
                 raise ApiError(403, "permission_denied", "read tools require apps:read")
+            if p.kind != "person" and not (ctx and has_any(ctx.scopes, (_SCOPE,))):
+                # The plugin author labels its own tools. A read runs with no approval, so an
+                # agent or rule may run one only with the exact grant its owner issued for tools.
+                raise ApiError(403, "permission_denied",
+                               "agents and automations need the exact plugin.invoke grant to run any plugin tool")
             return {"output": tools.read(p, plugin_id, tool_name, body.arguments)}
         if ctx and not has_any(ctx.scopes, (_SCOPE,)):
             raise ApiError(403, "permission_denied", "mutating tools require an exact action request grant")

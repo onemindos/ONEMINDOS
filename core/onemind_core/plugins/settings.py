@@ -48,7 +48,9 @@ class PluginSettings:
     def view(self, app_id, principal):
         row = self.record(app_id, principal)
         saved = self.repo.get(PluginSettingsRow, app_id)
-        return {"schema": row.settings_schema, "settings": saved.values if saved else {},
+        # Stored values also sit in the ledger and a ConfigMap, so only an owner reads them back.
+        shown = saved.values if saved and principal.is_owner else {}
+        return {"schema": row.settings_schema, "settings": shown,
                 "bundle_sha256": row.bundle_sha256}
 
     def validate(self, params, claimed=None):
