@@ -54,7 +54,7 @@ class Stamping(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stderr)
         versions, code, build = stamp.read_versions(self.t.name)
         self.assertEqual(set(versions.values()), {"1.4.2"})     # pre-release suffix never reaches a store
-        self.assertEqual(code, 10_000_000 + 400_000 + 2000 + 42)
+        self.assertEqual(code, 100_000_000 + 4_000_000 + 20_000 + 42)
         self.assertEqual(build, "42")
         self.assertEqual(run("--root", self.t.name, "--version", "1.4.2", "--build", "42", "--check").returncode, 0)
 
@@ -80,12 +80,12 @@ class Stamping(unittest.TestCase):
     def test_bad_versions_refused(self):
         for v in ("", "1.2", "v1.2.3", "300.0.0", "1.100.0"):
             self.assertEqual(run("--root", self.t.name, "--version", v).returncode, 2, v)
-        self.assertEqual(run("--root", self.t.name, "--version", "1.0.0", "--build", "1000").returncode, 2)
+        self.assertEqual(run("--root", self.t.name, "--version", "1.0.0", "--build", "10000").returncode, 2)
 
     def test_versioncode_rises_with_version_and_build(self):
         c = stamp.version_code
-        self.assertLess(c("0.1.0", 999), c("0.1.1", 0))
-        self.assertLess(c("0.99.99", 999), c("1.0.0", 0))
+        self.assertLess(c("0.1.0", 9999), c("0.1.1", 0))
+        self.assertLess(c("0.99.99", 9999), c("1.0.0", 0))
         self.assertLess(c("1.0.0", 1), c("1.0.0", 2))
 
 

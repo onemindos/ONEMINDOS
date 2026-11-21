@@ -10,9 +10,10 @@ Android versionCode and iOS buildNumber. With --check it changes nothing and exi
 
 Why only X.Y.Z: the App Store, Google Play and the Windows MSI installer reject or mangle a pre-release
 suffix like "-dev.7", so a "0.2.0-dev.7" OS version becomes client version 0.2.0 and the suffix is
-carried by the build counter. The build counter is the CI run number (0-999), and must go up for every
-upload of the same version. Android versionCode = MAJOR*10_000_000 + MINOR*100_000 + PATCH*1000 + build,
-so it also goes up with every new version (Google Play needs a strictly rising integer, max 2.1 billion).
+carried by the build counter. The build counter is the CI run number (0-9999), and must go up for every
+upload of the same version. Android versionCode = MAJOR*100_000_000 + MINOR*1_000_000 + PATCH*10_000 + build,
+so it also goes up with every new version (Google Play needs a strictly rising integer, max 2.1 billion, so major <= 20).
+GITHUB_RUN_NUMBER never resets, so past run 9999 the release gate refuses with a clear message (exit 2) before anything is published.
 Exit 2 on bad input. This script never touches the bundle identifiers (see the PR body).
 """
 import argparse, json, os, re, sys
@@ -25,16 +26,17 @@ def core_version(v):
     if not m:
         raise ValueError(f"'{v}' is not a version like 1.2.3 or 1.2.3-dev.7")
     major, minor, patch = (int(x) for x in m.groups())
-    if major > 209 or minor > 99 or patch > 99:
-        raise ValueError("version out of range for the Android versionCode (major<=209, minor<=99, patch<=99)")
+    if major > 20 or minor > 99 or patch > 99:
+        raise ValueError("version out of range for the Android versionCode (major<=20, minor<=99, patch<=99)")
     return major, minor, patch
 
 
 def version_code(version, build):
     major, minor, patch = core_version(version)
-    if not 0 <= build <= 999:
-        raise ValueError("build must be 0-999")
-    return major * 10_000_000 + minor * 100_000 + patch * 1000 + build
+    if not 0 <= build <= 9999:
+        raise ValueError(f"build counter {build} is outside 0-9999 (the CI run number no longer fits the Android versionCode; "
+                         "pass a per-version counter with --build)")
+    return major * 100_000_000 + minor * 1_000_000 + patch * 10_000 + build
 
 
 def _read(p):
@@ -112,7 +114,7 @@ def read_versions(root):
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--version", required=True, help="OS release version, e.g. 0.2.0 or 0.2.0-dev.7")
-    ap.add_argument("--build", type=int, default=1, help="store build counter (CI run number, 0-999)")
+    ap.add_argument("--build", type=int, default=1, help="store build counter (CI run number, 0-9999)")
     ap.add_argument("--root", default=os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
     ap.add_argument("--check", action="store_true", help="change nothing; exit 1 if files differ")
     a = ap.parse_args(argv)

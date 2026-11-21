@@ -40,7 +40,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#FFFFFF"
       },
-      "versionCode": 100001
+      "versionCode": 1000001
     },
     "plugins": [
       "expo-secure-store",
