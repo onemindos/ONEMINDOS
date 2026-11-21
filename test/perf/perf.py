@@ -679,6 +679,8 @@ def measured(reports):
             m["boot_to_ready_s"] = r["boot_to_ready_s"]
         elif kind == "cold":
             m["gateway_cold_start_s"] = r["gateway_cold_start_s"]
+        elif kind == "dashboard":  # test/qemu F10: starting the gateway to its first HTTPS 200
+            m["time_to_dashboard_s"] = r["time_to_dashboard_s"]
         elif kind == "disk":
             m["disk_runtime_mib"] = r["runtime_mib"]
     return m

@@ -6,8 +6,11 @@
 # Headscale API key (/data/onemind/etc/headscale.key), both 0600 and owned by onemind.
 [Unit]
 Description=OneMind Core gateway (HTTPS :443/:8443, local HTTP :8080)
-After=network-online.target onemind-firstboot.service onemind-nats.service
-Wants=network-online.target onemind-nats.service
+# No network-online.target and no After=nats: the gateway binds 0.0.0.0, reaches NATS on loopback and keeps
+# retrying it in the background (bus.py), so waiting for DHCP or for NATS only delayed the dashboard.
+# After=onemind-starting.service: the starting page holds :443/:8443 until this gateway takes them over.
+After=onemind-firstboot.service onemind-starting.service
+Wants=onemind-nats.service onemind-starting.service
 RequiresMountsFor=/data
 ConditionPathExists=/data/onemind/etc/gateway.env
 

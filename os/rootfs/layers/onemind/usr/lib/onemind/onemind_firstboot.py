@@ -46,7 +46,7 @@ ROLES = ("hub", "worker", "leaf")
 # example tailscaled before the box CA exists, or the NATS leaf before `onemind fabric join` wrote
 # its config); whoever creates the missing file starts the unit itself.
 ROLE_UNITS = {
-    "hub": ["onemind-nats.service", "onemind-nats-accounts.path", "onemindd.service", "onemind-gateway.service",
+    "hub": ["onemind-starting.service", "onemind-nats.service", "onemind-nats-accounts.path", "onemindd.service", "onemind-gateway.service",
             "onemind-gateway-kube.service", "tailscaled.service", "onemind-headscale.service",
             "onemind-mesh-setup.service", "onemind-rescue.service", "onemind-host.service"],
     # A worker and a leaf both get the mesh and a local NATS leaf (internal/fabric Installer.Apply).
