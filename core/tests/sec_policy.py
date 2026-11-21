@@ -700,3 +700,20 @@ POLICY.update({
             "idempotency_key": x.key(), "expires_at": x.action_body()["expires_at"]}),
         "#180 owner approval required to revoke enrolled signing trust"),
 })
+# ---- bring your own domain (NET-DOM-01, #238: core/onemind_core/routers/domains.py) -----------------------------
+_DOM = "core/onemind_core/routers/domains.py"
+_OFF = grid(503, 403, 403, 403, 403)  # owner reaches the service, which is off in this world (domains_disabled)
+POLICY |= {
+    ("GET", "/v1/domains"): Row(ONLY_OWNER, w.p_static("/v1/domains"), f"{_DOM}: owner only, no-store"),
+    ("POST", "/v1/domains"): Row(_OFF, w.p_missing("/v1/domains", json={"domain": "example.org"}),
+                                 f"{_DOM}: owner only; refused while the feature is off"),
+    ("DELETE", "/v1/domains/{domain}"): Row(_OFF, w.p_missing("/v1/domains/example.org"), f"{_DOM}: owner only"),
+    ("POST", "/v1/domains/{domain}/check"): Row(_OFF, w.p_missing("/v1/domains/example.org/check"),
+                                                f"{_DOM}: owner only; the DNS check never runs while off"),
+    ("POST", "/v1/domains/{domain}/hosts"): Row(_OFF, w.p_missing("/v1/domains/example.org/hosts", json={"app_id": "whoami"}),
+                                                f"{_DOM}: owner only"),
+    ("POST", "/v1/domains/hosts/{hostname}/approve"): Row(
+        _OFF, w.p_missing("/v1/domains/hosts/whoami.example.org/approve", json={"confirm": "whoami.example.org"}),
+        f"{_DOM}: only the owner approves a public name; an agent never does"),
+    ("DELETE", "/v1/domains/hosts/{hostname}"): Row(_OFF, w.p_missing("/v1/domains/hosts/whoami.example.org"), f"{_DOM}: owner only"),
+}
