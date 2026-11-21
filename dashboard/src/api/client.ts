@@ -2,6 +2,7 @@
 import type { WiringApi } from './wiring';
 import type * as W from './wiring';
 import { OneMind, OneMindError, type components, type operations } from '@onemind/sdk';
+import type { AppSecrets, SecretsPublicKey } from '@onemind/ui';
 
 /** `GET /v1/os/about` (UMB-P14): device facts per node; never a serial number or an address. */
 export type AboutBox = components['schemas']['About'];
@@ -9,7 +10,7 @@ import {
   ApiError,
   type Action,
   type ActionRequest,
-  type ActionType, type AppParams, type PlanPreview, type AppSettings,
+  type ActionType, type AppParams, type ApproveBody, type PlanPreview, type AppSettings,
   type AppDependencies, type AppHostPorts, type CommunitySource, type ComposeResult,
   type ApiErrorBody,
   type CatalogApp,
@@ -52,12 +53,26 @@ export interface OneMindApi extends WiringApi {
   createAction(req: ActionRequest): Promise<Action>;
   actions(): Promise<Action[]>;
   action(id: string): Promise<Action>;
-  approve(id: string): Promise<Action>;
+  approve(id: string, body?: ApproveBody): Promise<Action>;
+  /** §12.4: the passkey challenge bound to this action and its plan. Absent on the demo gateway. */
+  approveOptions?(id: string): Promise<ApproveOptions>;
+  /** Where an install's secrets form is sealed to. Absent on the demo gateway. */
+  secretsPublicKey?(): Promise<SecretsPublicKey>;
+  /** Which secrets an app declares and which are set (never a value). Absent on the demo gateway. */
+  appSecrets?(id: string): Promise<AppSecrets>;
   deny(id: string): Promise<Action>;
   /** Hub clock minus browser clock (ms), learned from responses; undefined until known. */
   hubOffsetMs(): number | undefined;
 }
 
+/** POST /v1/actions/{id}/approve-options: sign `publicKey` with a passkey, then approve with the result. */
+export interface ApproveOptions {
+  challenge: string;
+  action_sha256: string;
+  plan_sha256: string | null;
+  expires_at: string;
+  publicKey: Record<string, unknown>;
+}
 export interface FirstRunSettingsBody {
   box_name: string;
   time_zone: string;
@@ -278,9 +293,14 @@ export class HttpApi implements OneMindApi {
   action(id: string) {
     return this.req<Action>('GET', `/v1/actions/${encodeURIComponent(id)}`);
   }
-  approve(id: string) {
-    return this.req<Action>('POST', `/v1/actions/${encodeURIComponent(id)}/approve`);
+  approve(id: string, body?: ApproveBody) {
+    return this.req<Action>('POST', `/v1/actions/${encodeURIComponent(id)}/approve`, body);
   }
+  approveOptions(id: string) {
+    return this.req<ApproveOptions>('POST', `/v1/actions/${encodeURIComponent(id)}/approve-options`, {});
+  }
+  secretsPublicKey() { return this.sdkCall<SecretsPublicKey>('GET', '/v1/secrets/public-key'); }
+  appSecrets(id: string) { return this.sdkCall<AppSecrets>('GET', `/v1/apps/${encodeURIComponent(id)}/secrets`); }
   deny(id: string) {
     return this.req<Action>('POST', `/v1/actions/${encodeURIComponent(id)}/deny`);
   }

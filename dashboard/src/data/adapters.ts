@@ -5,7 +5,9 @@
 // says "unknown" or "not reported".
 import {
   CATEGORY_BY_SLUG,
+  type ActionPlan,
   type ActionSummary,
+  type PlanEffect,
   type AppRunState,
   type AuditEntry,
   type CategorySlug,
@@ -340,5 +342,40 @@ export function toPaletteApp(a: CatalogApp): PaletteApp {
     installed: a.installed,
     status: s === 'installed' || s === 'starting' || s === 'unhealthy' ? s : undefined,
     deployClass: deployClass(a.tier),
+  };
+}
+
+/** The gateway plan's own warning that the network path effects already say. */
+const NETWORK_WARNING = /^Opens a network path/;
+
+/**
+ * The gateway's plan (summary, objects, volumes, warnings, network paths; lifecycle.py) as the
+ * plain-language effects card: what is kept or deleted, which ports and paths open, and what the
+ * gateway warns about. Nothing is invented: a plan with no volumes or paths says no changes beyond
+ * the action itself. Undefined when the action has no plan (the board then says so).
+ */
+export function toActionPlan(a: Action): ActionPlan | undefined {
+  const p = a.plan as Record<string, unknown> | null | undefined;
+  if (!p || !a.plan_sha256) return undefined;
+  const list = (v: unknown): Array<Record<string, unknown>> => (Array.isArray(v) ? v.filter((x): x is Record<string, unknown> => !!x && typeof x === 'object') : []);
+  const effects: PlanEffect[] = [];
+  for (const v of list(p.volumes)) {
+    if (v.effect === 'deleted') effects.push({ kind: 'data-delete', risk: 'high', label: 'Deletes all of this app\'s files and databases', detail: 'No undo' });
+    else if (v.effect === 'kept') effects.push({ kind: 'volume', risk: 'low', label: 'Keeps this app\'s files and databases', detail: 'Your data stays on disk' });
+    else effects.push({ kind: 'volume', risk: 'medium', label: `Changes stored data (${String(v.effect ?? 'unknown')})` });
+  }
+  for (const n of list(p.network_paths)) {
+    effects.push({ kind: 'port', risk: 'medium', label: `Opens a path from ${String(n.from)} to ${String(n.to)}`, detail: `TCP port ${String(n.port)}${n.requirement ? `, needs ${String(n.requirement)}` : ''}` });
+  }
+  for (const w of Array.isArray(p.warnings) ? p.warnings : []) {
+    if (typeof w === 'string' && !NETWORK_WARNING.test(w)) effects.push({ kind: 'note', risk: /no undo|deleted|refus/i.test(w) ? 'high' : 'low', label: w });
+  }
+  if (typeof p.summary === 'string' && p.summary) effects.unshift({ kind: 'note', risk: 'low', label: p.summary });
+  return {
+    action_id: a.id,
+    plan_hash: a.plan_sha256,
+    computed_at: a.created_at ?? new Date(0).toISOString(),
+    effects,
+    undo: a.type === ('app.delete_data' as string) ? 'one-way' : 'reversible',
   };
 }
