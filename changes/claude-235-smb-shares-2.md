@@ -1,5 +1,5 @@
 ---
-pr: pending
+pr: 446
 branch: claude/235-smb-shares-2
 status_rows:
   - UMB-FILES-5 | in-progress | part 2: Samba in the image (off until a share is approved), host calls that write and check its config, per-person SMB passwords, a separate Time Machine folder, a lab kit; real Mac and Windows proof pending
