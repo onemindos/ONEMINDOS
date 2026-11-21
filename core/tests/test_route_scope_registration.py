@@ -142,6 +142,7 @@ FALLBACK_BASELINE: set[tuple[str, str]] = {
     ("POST", "/v1/migrate/repo/{plan_id}/"),
     ("POST", "/v1/migrate/repo/{plan_id}/config"),
     ("POST", "/v1/migrate/repo/{plan_id}/{typ}/{name}"),
+    ("POST", "/v1/onboarding/restore/apps"),
     ("POST", "/v1/onboarding/restore/candidates"),
     ("POST", "/v1/photos/sources"),
     ("POST", "/v1/photos/sources/{source_id}/check"),
