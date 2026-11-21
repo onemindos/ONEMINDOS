@@ -562,3 +562,9 @@ POLICY |= {
     ("GET", "/v1/os/updates/history"): Row(CHILD_CANNOT, w.p_static("/v1/os/updates/history"),
                                            f"{_OSUP}: commits, rollbacks and install requests; same nodes:read gate"),
 }
+
+# ---- Network screen (NET-UI-01, #239: core/onemind_core/routers/network.py) ---------------------------------
+POLICY |= {
+    ("GET", "/v1/network"): Row(grid(200, 403, 403, 403, 403), w.p_static("/v1/network"),
+                                "core/onemind_core/routers/network.py: every address, MAC and open port of the box; owner only"),
+}

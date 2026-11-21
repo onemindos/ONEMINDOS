@@ -6,6 +6,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"os/user"
@@ -14,6 +15,7 @@ import (
 	"time"
 
 	"github.com/onemindos/onemindos/internal/host"
+	"github.com/onemindos/onemindos/internal/netview"
 	"github.com/onemindos/onemindos/internal/storage/ops"
 	"github.com/onemindos/onemindos/internal/update"
 )
@@ -72,7 +74,7 @@ func runHost(args []string) int {
 		return 1
 	}
 	log.Info("host service listening", "socket", *sock, "journal", svc.Store != nil, "boot_id", svc.BootID, "gateway_uid", uid)
-	err = (&host.Server{S: svc, AllowUID: uid, AllowGID: -1, Ctx: ctx}).Serve(ctx, l)
+	err = (&host.Server{S: svc, AllowUID: uid, AllowGID: -1, Ctx: ctx, Network: networkView}).Serve(ctx, l)
 	stop()
 	svc.Wait()
 	if err != nil {
@@ -80,4 +82,19 @@ func runHost(args []string) int {
 		return 1
 	}
 	return 0
+}
+
+// networkView is GET /v1/network: the box's interfaces, gateways, DNS and listening ports, read from
+// /sys and /proc (internal/netview). Files are capped so an odd host cannot make one answer huge.
+func networkView() (any, error) {
+	read := func(p string) ([]byte, error) {
+		f, err := os.Open(p)
+		if err != nil {
+			return nil, err
+		}
+		defer f.Close()
+		return io.ReadAll(io.LimitReader(f, 1<<20))
+	}
+	exists := func(p string) bool { _, err := os.Stat(p); return err == nil }
+	return netview.System(read, exists).Collect()
 }

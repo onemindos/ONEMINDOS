@@ -33,8 +33,14 @@ class NetSettings:
     # ONEMIND_NET_TRUSTED_PROXIES: comma-separated CIDRs of edges whose X-OneMind-Path is believed
     # (netpath.py). Default none: only the socket peer decides the path.
     trusted_proxies: str = ""
+    # ONEMIND_NET_HOST_SOCKET: the host service's socket (onemindd host serve), where the Network
+    # screen reads the box's interfaces and listening ports (hostnet.py). Missing socket: the screen says so.
+    host_socket: Path = Path("/run/onemind/host.sock")
+    host_timeout_s: float = 5.0          # ONEMIND_NET_HOST_TIMEOUT_S
 
     def validate(self) -> None:
+        if self.host_timeout_s <= 0:
+            raise ValueError("ONEMIND_NET_HOST_TIMEOUT_S must be positive")
         if self.box_name is not None and not BOX_RE.match(self.box_name):
             raise ValueError("ONEMIND_NET_BOX_NAME must be a lowercase DNS label")
         if self.lan_addr is not None:
