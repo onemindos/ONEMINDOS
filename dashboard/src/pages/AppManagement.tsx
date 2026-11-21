@@ -8,6 +8,7 @@ import { useSignedIn } from '../session';
 import { usePoll } from '../lib/hooks';
 import { useShell } from '../shell/Shell';
 import { href } from '../shell/routes';
+import { appPageHref } from '../lib/appPage';
 import type { AppSettings } from '../api/types';
 import { AppDepth } from './AppDepth';
 
@@ -32,7 +33,7 @@ export function AppManagement({ appId }: { appId: string }) {
   if (!app) return <p role="status">{hub.apps.error?.message ?? (hub.apps.loading ? 'Loading app…' : 'App not found.')}</p>;
   const present = app.installed || ['stopped', 'failed', 'unknown', 'starting', 'stopping', 'restarting', 'updating', 'configuring'].includes(app.status);
   return <>
-    <a href={href.installed}>Installed apps</a>
+    <a href={href.installed}>Installed apps</a> · <a href={appPageHref(appId)}>Health, usage, alerts and access</a>
     <PageHeader title={app.name || app.id} lede={`Gateway status: ${app.status}. Every change waits for owner approval.`} />
     <div role="group" aria-label={`${app.name || app.id} actions`}>
       <Button disabled={!openUrl(app)} onClick={() => { const url = openUrl(app); if (url) openAppOrSay(api, app.name || app.id, url); }}>Open</Button>
