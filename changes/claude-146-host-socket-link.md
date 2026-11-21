@@ -1,0 +1,7 @@
+---
+pr: pending
+branch: claude/146-host-socket-link
+status_rows:
+  - CORE-UPDATE-2 | in-progress | the gateway reaches the host executor, so an approved OS install runs through onemindd host serve; restart, shutdown and factory reset use the same link once their routes merge
+---
+The gateway can now act on the box it runs on (#146, #142). A new link, hostlink.py, speaks the host executor's socket contract (docs/leap/core/HOST-ACTIONS.md section 2): after an owner approves an action, the gateway sends only the action id and its kind to onemindd host serve on /run/onemind/host.sock (and the approved version for an OS install), and closes the ledger action from the host's journal when it says succeeded or failed. The OS install on the Updates screen now runs for real on a hub that has the host service: restic snapshot, install into the other A/B slot, reboot, health gate, automatic rollback. A box without the socket still ends the approved action failed with a plain reason, never succeeded, and the Updates page reports whether installing can run. A reboot restarts the gateway while the host finishes, so these action types are no longer marked outcome_unknown at startup: the gateway reads the answer from the host's journal, and gives up with outcome_unknown only after 30 minutes of silence. The image's gateway unit starts after the host socket. Restart, shutdown and factory reset (#355) need one more small change after it merges: call the same link from SystemService.
