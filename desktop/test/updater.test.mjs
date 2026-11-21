@@ -23,7 +23,10 @@ test('config: the web view gets no updater permission (Rust drives the plugin)',
 
 test('platformOf maps Tauri artifact names', () => {
   assert.equal(platformOf('OneMind_0.2.0_aarch64.app.tar.gz'), 'darwin-aarch64');
-  assert.equal(platformOf('OneMind.app.tar.gz'), 'darwin-x86_64');
+  assert.equal(platformOf('OneMind_0.2.0_x64.app.tar.gz'), 'darwin-x86_64');
+  assert.equal(platformOf('OneMind.app.tar.gz', 'aarch64'), 'darwin-aarch64');
+  assert.equal(platformOf('OneMind.app.tar.gz', 'x86_64'), 'darwin-x86_64');
+  assert.throws(() => platformOf('OneMind.app.tar.gz'), /--mac-arch/);
   assert.equal(platformOf('OneMind_0.2.0_x64-setup.exe'), 'windows-x86_64');
   assert.equal(platformOf('OneMind_0.2.0_amd64.AppImage'), 'linux-x86_64');
   assert.equal(platformOf('OneMind_0.2.0_aarch64.dmg'), null);

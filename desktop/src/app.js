@@ -89,7 +89,6 @@ function back() {
   inbox = null;
   manage = null;
   load();
-checkUpdate();
 }
 
 // ---- home: one card per box ----
@@ -182,7 +181,6 @@ function boxCard(b) {
           }
           await run('remove_box', { id: b.id });
           await load();
-checkUpdate();
         },
       }),
     ),
@@ -777,7 +775,6 @@ async function pair() {
     pairing = { url: '', token: '', insecure: false, error: '', busy: false };
     mode = 'home';
     await load();
-checkUpdate();
   } catch (e) {
     pairing.busy = false;
     pairing.error = String(e);
@@ -795,7 +792,6 @@ $('btn-refresh').addEventListener('click', async (ev) => {
   b.classList.add('spin');
   await run('refresh');
   await load();
-checkUpdate();
   b.classList.remove('spin');
 });
 $('btn-close').addEventListener('click', () => invoke('hide'));
@@ -814,7 +810,6 @@ tauri.event.listen('status', (ev) => {
     if (mode === 'home') render();
     else $('foot-note').textContent = footText(boxes);
   } else load();
-checkUpdate();
 });
 tauri.event.listen('live', (ev) => {
   const b = boxes.find((x) => x.id === ev.payload.box_id);
