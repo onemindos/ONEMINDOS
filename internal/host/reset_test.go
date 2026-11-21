@@ -179,7 +179,8 @@ func (r *recRunner) Exec(_ context.Context, _ string, name string, args ...strin
 func armed(t *testing.T, at time.Time, set string) string {
 	t.Helper()
 	esp := t.TempDir()
-	m := Marker{ActionID: "fr1", RequestedAt: at, DataSet: set, PlanSHA256: strings.Repeat("a", 64), ExpiresAt: at.Add(time.Hour)}
+	m := Marker{ActionID: "fr1", RequestedAt: at, DataSet: set, PlanSHA256: strings.Repeat("a", 64), ExpiresAt: at.Add(time.Hour),
+		Members: []MarkerMember{{"p-sys", 3}, {"p-two", 3}}}
 	if err := writeAtomic(filepath.Join(esp, MarkerName), m.encode()); err != nil {
 		t.Fatal(err)
 	}
@@ -219,7 +220,87 @@ func TestWipeErasesKeysOfEveryMemberOfTheSetOnly(t *testing.T) {
 	}
 }
 
+func fastWait(t *testing.T) {
+	t.Helper()
+	ow, op := wipeWait, wipePoll
+	wipeWait, wipePoll = 30*time.Millisecond, 5*time.Millisecond
+	t.Cleanup(func() { wipeWait, wipePoll = ow, op })
+}
+
+func TestWipeRefusesWhenAPlannedMemberIsMissing(t *testing.T) {
+	fastWait(t)
+	useDisks(t, []ops.Candidate{cand("/dev/vda7", "p-sys", "set-a", 3, true), cand("/dev/vdc1", "p-other", "set-b", 9, false)}, nil)
+	at := time.Now().UTC()
+	esp := armed(t, at, "set-a")
+	r := &recRunner{}
+	err := Wipe(context.Background(), r, esp, at)
+	if !errors.Is(err, ErrMembersMissing) || !strings.Contains(err.Error(), "p-two") {
+		t.Fatalf("err %v", err)
+	}
+	if len(r.cmds) != 0 {
+		t.Fatalf("wiped with a member missing: %v", r.cmds)
+	}
+	if _, err := os.Stat(filepath.Join(esp, MarkerName)); err != nil {
+		t.Fatal("marker must stay")
+	}
+	if _, err := os.Stat(filepath.Join(esp, MarkerDoneName)); err == nil {
+		t.Fatal("reported done")
+	}
+	// A member at another generation is not the planned member either.
+	useDisks(t, []ops.Candidate{cand("/dev/vda7", "p-sys", "set-a", 3, true), cand("/dev/vdb1", "p-two", "set-a", 2, false)}, nil)
+	if err := Wipe(context.Background(), &recRunner{}, esp, at); !errors.Is(err, ErrMembersMissing) {
+		t.Fatalf("wrong generation: %v", err)
+	}
+}
+
+func TestWipeWaitsForALateMember(t *testing.T) {
+	fastWait(t)
+	wipeWait = 2 * time.Second
+	at := time.Now().UTC()
+	esp := armed(t, at, "set-a")
+	calls := 0
+	old := candidates
+	candidates = func(context.Context, ops.Runner) ([]ops.Candidate, error) {
+		calls++
+		if calls < 3 {
+			return []ops.Candidate{cand("/dev/vda7", "p-sys", "set-a", 3, true)}, nil
+		}
+		return mirror(), nil
+	}
+	t.Cleanup(func() { candidates = old })
+	r := &recRunner{}
+	if err := Wipe(context.Background(), r, esp, at); err != nil {
+		t.Fatal(err)
+	}
+	if all := strings.Join(r.cmds, "\n"); !strings.Contains(all, "erase --batch-mode /dev/vdb1") || !strings.Contains(all, "erase --batch-mode /dev/vda7") {
+		t.Fatalf("late member not wiped: %s", all)
+	}
+}
+
+func TestWipeRetryAfterTheWindowStillFinishes(t *testing.T) {
+	fastWait(t)
+	useDisks(t, mirror(), nil)
+	at := time.Now().UTC()
+	esp := armed(t, at, "set-a")
+	if err := Wipe(context.Background(), &recRunner{fail: "erase --batch-mode /dev/vdb1"}, esp, at); err == nil {
+		t.Fatal("expected failure")
+	}
+	// Power back more than an hour later: the system disk is blank, vdb1 is left.
+	useDisks(t, []ops.Candidate{cand("/dev/vdb1", "p-two", "set-a", 3, false)}, nil)
+	r := &recRunner{}
+	if err := Wipe(context.Background(), r, esp, at.Add(5*time.Hour)); err != nil {
+		t.Fatalf("retry after the window: %v", err)
+	}
+	if all := strings.Join(r.cmds, "\n"); !strings.Contains(all, "erase --batch-mode /dev/vdb1") || strings.Contains(all, "vda7") {
+		t.Fatalf("retry: %s", all)
+	}
+	if _, err := os.Stat(filepath.Join(esp, MarkerDoneName)); err != nil {
+		t.Fatal("not finished")
+	}
+}
+
 func TestWipeRefusesStaleOrMismatchedMarker(t *testing.T) {
+	fastWait(t)
 	useDisks(t, mirror(), nil)
 	at := time.Now().UTC()
 	for name, c := range map[string]struct {
@@ -230,7 +311,8 @@ func TestWipeRefusesStaleOrMismatchedMarker(t *testing.T) {
 		"another disk set": {armed(t, at, "set-z"), at.Add(time.Minute)},
 	} {
 		r := &recRunner{}
-		if err := Wipe(context.Background(), r, c.esp, c.now); !errors.Is(err, ErrStaleMarker) || len(r.cmds) != 0 {
+		// Another set's marker finds none of its planned members here.
+		if err := Wipe(context.Background(), r, c.esp, c.now); !(errors.Is(err, ErrStaleMarker) || errors.Is(err, ErrMembersMissing)) || len(r.cmds) != 0 {
 			t.Errorf("%s: err %v cmds %v", name, err, r.cmds)
 		}
 		if _, err := os.Stat(filepath.Join(c.esp, MarkerName)); err != nil {

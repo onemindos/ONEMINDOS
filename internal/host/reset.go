@@ -141,6 +141,18 @@ type Marker struct {
 	ExpiresAt   time.Time
 	State       string // "" armed, "wiping"
 	Attempts    int
+	// Members are the approved plan's disks (PARTUUID and generation). The
+	// wipe erases exactly these and refuses unless every one is found.
+	Members []MarkerMember
+	// Erased are the members already done, so a retry after a power cut
+	// knows which are left (an erased member has no token to find).
+	Erased []string
+}
+
+// MarkerMember is one approved plan member as the marker stores it.
+type MarkerMember struct {
+	PartUUID   string
+	Generation int
 }
 
 const (
@@ -166,6 +178,12 @@ func (m Marker) encode() []byte {
 	w("EXPIRES_AT", m.ExpiresAt.UTC().Format(time.RFC3339))
 	w("STATE", m.State)
 	w("ATTEMPTS", strconv.Itoa(m.Attempts))
+	for _, mm := range m.Members {
+		w("MEMBER", mm.PartUUID+":"+strconv.Itoa(mm.Generation))
+	}
+	for _, e := range m.Erased {
+		w("ERASED", e)
+	}
 	return []byte(b.String())
 }
 
@@ -174,13 +192,21 @@ func (m Marker) encode() []byte {
 func ParseMarker(b []byte) (Marker, error) {
 	var m Marker
 	kv := map[string]string{}
+	var memberLines, erasedLines []string
 	sc := bufio.NewScanner(strings.NewReader(string(b)))
 	for sc.Scan() {
 		k, v, ok := strings.Cut(strings.TrimSpace(sc.Text()), "=")
 		if !ok || !markerValueRe.MatchString(v) {
 			return m, fmt.Errorf("bad marker line %q", sc.Text())
 		}
-		kv[k] = v
+		switch k {
+		case "MEMBER":
+			memberLines = append(memberLines, v)
+		case "ERASED":
+			erasedLines = append(erasedLines, strings.ToLower(v))
+		default:
+			kv[k] = v
+		}
 	}
 	var err error
 	if m.RequestedAt, err = time.Parse(time.RFC3339, kv["REQUESTED_AT"]); err != nil {
@@ -194,6 +220,15 @@ func ParseMarker(b []byte) (Marker, error) {
 	if m.ActionID == "" || m.DataSet == "" {
 		return m, errors.New("marker has no ACTION_ID or DATA_SET")
 	}
+	for _, l := range memberLines {
+		id, g, ok := strings.Cut(l, ":")
+		gen, gerr := strconv.Atoi(g)
+		if !ok || id == "" || gerr != nil {
+			return m, fmt.Errorf("bad MEMBER %q", l)
+		}
+		m.Members = append(m.Members, MarkerMember{PartUUID: strings.ToLower(id), Generation: gen})
+	}
+	m.Erased = erasedLines
 	return m, nil
 }
 
@@ -313,6 +348,9 @@ func (f *FactoryReset) Arm(ctx context.Context, op Op) error {
 	}
 	now := f.now()
 	m := Marker{ActionID: op.ID, RequestedAt: now, DataSet: p.SetUUID, PlanSHA256: p.SHA256, ExpiresAt: now.Add(MarkerWindow)}
+	for _, pm := range p.Members {
+		m.Members = append(m.Members, MarkerMember{PartUUID: pm.PartUUID, Generation: pm.Generation})
+	}
 	return writeAtomic(filepath.Join(f.esp(), MarkerName), m.encode())
 }
 
@@ -320,14 +358,28 @@ func (f *FactoryReset) Arm(ctx context.Context, op Op) error {
 var (
 	ErrNoMarker    = errors.New("no factory reset is armed")
 	ErrStaleMarker = errors.New("the armed factory reset does not match this boot (expired, or another disk set): nothing was wiped")
+	// ErrMembersMissing: a disk of the approved plan did not show up in time.
+	// Nothing is wiped, so the box never reports a reset that left a member
+	// readable; the marker stays and the box goes to recovery mode.
+	ErrMembersMissing = errors.New("a disk of the approved factory reset plan was not found")
 )
 
-// Wipe runs the armed reset: fast-wipes every member of the marker's data set,
+var (
+	// wipeWait is how long the wipe waits for late disks (USB, SAS), the same
+	// 30 s the data assembly waits.
+	wipeWait = 30 * time.Second
+	wipePoll = time.Second
+)
+
+// Wipe runs the armed reset: fast-wipes every member of the approved plan,
 // removes the first-boot settings file, and renames the marker to .done. Every
 // step can be repeated, so a power cut just means the next boot starts again;
-// the marker goes only after the last step. It wipes nothing when the marker
-// is expired or names another disk set (ErrStaleMarker), and it never wipes a
-// disk outside that set.
+// the marker goes only after the last step. It wipes nothing when an armed
+// marker is expired or names another disk set (ErrStaleMarker), or when a
+// planned member (PARTUUID and generation) is still missing after the wait
+// (ErrMembersMissing). A marker already in the wiping state is a retry of an
+// approved reset, so the expiry does not apply to it. It never wipes a disk
+// outside the plan.
 func Wipe(ctx context.Context, r ops.Runner, esp string, now time.Time) error {
 	path := filepath.Join(esp, MarkerName)
 	b, err := os.ReadFile(path)
@@ -340,24 +392,66 @@ func Wipe(ctx context.Context, r ops.Runner, esp string, now time.Time) error {
 	if err != nil {
 		return fmt.Errorf("%w: %v", ErrStaleMarker, err)
 	}
-	if now.After(m.ExpiresAt) {
+	if m.State != "wiping" && now.After(m.ExpiresAt) {
 		return ErrStaleMarker
 	}
-	cands, err := candidates(ctx, r)
-	if err != nil {
-		return err
+	if len(m.Members) == 0 {
+		return fmt.Errorf("%w: the marker lists no disks", ErrStaleMarker)
 	}
-	// The first run needs this box's own set to be the marker's. A retry (a
-	// power cut mid-wipe) has already erased some members, so the system disk
-	// may be blank by now: it wipes the remaining members that carry the
-	// marker's set uuid, never any other.
+	erased := map[string]bool{}
+	for _, e := range m.Erased {
+		erased[e] = true
+	}
+	deadline := time.Now().Add(wipeWait)
+	var cands, targets []ops.Candidate
+	for {
+		if cands, err = candidates(ctx, r); err != nil {
+			return err
+		}
+		var missing []string
+		targets = targets[:0]
+		for _, mm := range m.Members {
+			if erased[mm.PartUUID] {
+				continue
+			}
+			found := false
+			for _, c := range cands {
+				if c.Token != nil && strings.EqualFold(c.PartUUID, mm.PartUUID) && strings.EqualFold(c.Token.PartUUID, mm.PartUUID) &&
+					c.Token.SetUUID == m.DataSet && c.Token.Generation == mm.Generation {
+					targets, found = append(targets, c), true
+					break
+				}
+			}
+			if !found {
+				missing = append(missing, mm.PartUUID)
+			}
+		}
+		if len(missing) == 0 {
+			break
+		}
+		if !time.Now().Before(deadline) || ctx.Err() != nil {
+			return fmt.Errorf("%w: %s (nothing was wiped; the marker stays)", ErrMembersMissing, strings.Join(missing, ", "))
+		}
+		select {
+		case <-ctx.Done():
+		case <-time.After(wipePoll):
+		}
+	}
+	// The first run needs this box's own set to be the marker's. A retry has
+	// already erased some members, so the system disk may be blank by now.
 	if set, _, _, _ := ops.Choose(cands); m.State != "wiping" && set != m.DataSet {
 		return ErrStaleMarker
 	}
-	var targets []ops.Candidate
+	// A disk of the set that is not in the approved plan appeared since the
+	// approval: wiping it was never approved, and leaving it readable would
+	// break the reset, so stop and let the owner decide.
+	planned := map[string]bool{}
+	for _, mm := range m.Members {
+		planned[mm.PartUUID] = true
+	}
 	for _, c := range cands {
-		if c.Token != nil && strings.EqualFold(c.Token.PartUUID, c.PartUUID) && c.Token.SetUUID == m.DataSet {
-			targets = append(targets, c)
+		if c.Token != nil && c.Token.SetUUID == m.DataSet && !planned[strings.ToLower(c.PartUUID)] {
+			return fmt.Errorf("%w: %s is a member of the data set that the approved plan does not list", ErrStaleMarker, c.Part)
 		}
 	}
 	m.State, m.Attempts = "wiping", m.Attempts+1
@@ -370,6 +464,10 @@ func Wipe(ctx context.Context, r ops.Runner, esp string, now time.Time) error {
 		}
 		if out, code, err := r.Exec(ctx, "", "wipefs", "-a", c.Part); err != nil || code != 0 {
 			return fmt.Errorf("wipefs %s failed: %s", c.Part, strings.TrimSpace(string(out)))
+		}
+		m.Erased = append(m.Erased, strings.ToLower(c.PartUUID))
+		if err := writeAtomic(path, m.encode()); err != nil {
+			return err
 		}
 	}
 	if err := os.Remove(filepath.Join(esp, AppliedName)); err != nil && !errors.Is(err, os.ErrNotExist) {
