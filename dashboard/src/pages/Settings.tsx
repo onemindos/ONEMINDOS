@@ -9,18 +9,26 @@ import { useParams } from 'react-router';
 import { EmptyState, SETTINGS_SECTIONS, SettingsLayout, StateView, type SettingsSectionId } from '@onemind/ui';
 import { SETTINGS_PAGES } from '../screens/registry';
 import { href } from '../shell/routes';
+import { ProOnly } from '../shell/ProOnly';
+import { useShell } from '../shell/Shell';
+
+/** Settings sections for the people who run the box (UX-01, #206): hidden from the list for Simple roles and
+ * unknown roles, and a direct link shows the role notice. Appearance, Account, Notifications and About stay for everyone. */
+export const PRO_SETTINGS: ReadonlySet<SettingsSectionId> = new Set<SettingsSectionId>(['users', 'agents', 'devices', 'network', 'storage', 'backups', 'updates', 'automation']);
 
 const IDS = new Set(SETTINGS_SECTIONS.map((s) => s.id));
 
 export function Settings() {
   const { section } = useParams();
+  const { view } = useShell();
   const explicit = !!section && IDS.has(section as SettingsSectionId);
   const current = (explicit ? section : 'appearance') as SettingsSectionId;
   const meta = SETTINGS_SECTIONS.find((s) => s.id === current)!;
   const page = SETTINGS_PAGES.get(current);
   const Page = useMemo(() => (page?.load ? lazy(page.load) : null), [page]);
   let body;
-  if (Page) body = <Suspense fallback={<StateView state="loading" what={meta.label} skeleton="list" />}><Page /></Suspense>;
+  if (view !== 'pro' && PRO_SETTINGS.has(current)) body = <ProOnly title={meta.label}>{null}</ProOnly>;
+  else if (Page) body = <Suspense fallback={<StateView state="loading" what={meta.label} skeleton="list" />}><Page /></Suspense>;
   else {
     const c = page?.coming ?? { stream: 'its work stream', api: null };
     body = (
@@ -33,7 +41,7 @@ export function Settings() {
     );
   }
   return (
-    <SettingsLayout current={current} explicit={explicit} hrefFor={(id) => href.setting(id)} indexHref={href.settings}>
+    <SettingsLayout current={current} explicit={explicit} hrefFor={(id) => href.setting(id)} indexHref={href.settings} hidden={view === 'pro' ? undefined : PRO_SETTINGS}>
       {body}
     </SettingsLayout>
   );

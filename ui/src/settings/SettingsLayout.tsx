@@ -44,13 +44,15 @@ export interface SettingsLayoutProps {
   indexHref: string;
   /** Optional status per section, e.g. backups "Verify soon"; always a word, never only a dot. */
   hints?: Partial<Record<SettingsSectionId, { tone: Tone; label: string }>>;
+  /** Sections left out of the list (e.g. screens that are not for this person's role). */
+  hidden?: ReadonlySet<SettingsSectionId>;
   children: ReactNode;
 }
 
-export function SettingsLayout({ current, explicit, hrefFor, indexHref, hints = {}, children }: SettingsLayoutProps) {
+export function SettingsLayout({ current, explicit, hrefFor, indexHref, hints = {}, hidden, children }: SettingsLayoutProps) {
   const [q, setQ] = useState('');
   const searchId = useId();
-  const shown = SETTINGS_SECTIONS.filter((s) => matchSection(s, q));
+  const shown = SETTINGS_SECTIONS.filter((s) => !hidden?.has(s.id) && matchSection(s, q));
   const groups = [...new Set(shown.map((s) => s.group))];
   return (
     <>
