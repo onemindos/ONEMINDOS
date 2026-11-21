@@ -25,7 +25,11 @@ metadata:
   tier: verified   # set by CI (sdk/tools/app-gate --tier write), not by hand
 spec:
   archs: [amd64, arm64]
-  requires: {gpu: false, minMemoryMb: 4096}
+  # CPU works as it always did; a box with a GPU of 4 GB or more gets manifests-gpu/ instead (S-5).
+  requires:
+    gpu: false
+    minMemoryMb: 4096
+    accelerator: {capability: gpu-compute, minMemoryMb: 4096, optional: true, overlay: manifests-gpu}
   web: {port: 11434}
   manifests: manifests/
   # automerge stays none until renovate.json lists this app (validate-apps check 9).

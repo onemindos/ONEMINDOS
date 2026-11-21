@@ -1,0 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+# Build tools for the NVIDIA kernel modules (DKMS compiles them for the image's kernel at build time), and
+# pciutils for the lab kit. The GPU packages themselves come from gpu/packages.txt (post-install.sh), because
+# they live in Debian's non-free component, which the rest of the image does not enable.
+dkms gcc make libc6-dev linux-headers-amd64 pciutils

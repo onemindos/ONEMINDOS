@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: Apache-2.0
+# GPU variant (S-5). Runs before k3s on every boot. Only when an NVIDIA card is on the PCI bus does it load the
+# driver, create /dev/nvidia*, and hand k3s the manifests that start the GPU device plugin. With no NVIDIA card
+# (the image booted on the wrong machine) it removes any such manifest and succeeds: the box stays a normal
+# OneMind box, and apps that need a GPU are refused with a clear message (core/onemind_core/gpufit.py).
+[Unit]
+Description=OneMind GPU variant: NVIDIA driver and device plugin, only when a card is present
+Before=k3s.service
+After=systemd-udev-settle.service onemind-data-layout.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/lib/onemind/gpu/onemind-nvidia-setup
+
+[Install]
+WantedBy=multi-user.target

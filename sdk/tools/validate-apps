@@ -184,7 +184,33 @@ class AppChecker:
         self.isolation_checks(objects, errors)
         if "web" in spec:
             self.service_port_check(objects, spec["web"]["port"], errors)
+        self.overlay_checks(app_dir, spec, errors)
         return app_id, errors
+
+    def overlay_checks(self, app_dir: Path, spec: dict, errors: list[str]) -> None:
+        """S-5: the accelerator overlay (a directory in the app directory, built on spec.manifests) must render and pass the same
+        checks as the plain manifests, so a GPU box never gets a manifest nobody has validated."""
+        name = dig(spec, ("requires", "accelerator", "overlay"))
+        if not isinstance(name, str):
+            return
+        overlay = app_dir / name
+        if not inside(overlay, app_dir) or not overlay.is_dir():
+            errors.append(f"spec.requires.accelerator.overlay directory '{name}' does not exist in the app directory")
+            return
+        sub: list[str] = []
+        rendered = self.render(overlay, sub)
+        if rendered is not None:
+            self.kubeconform_check(rendered, sub)
+            try:
+                objects = [o for o in yaml.safe_load_all(rendered) if isinstance(o, dict)]
+            except yaml.YAMLError as exc:
+                sub.append(f"kustomize output is not valid YAML: {exc}")
+            else:
+                self.workload_checks(objects, sub)
+                self.isolation_checks(objects, sub)
+                if "web" in spec:
+                    self.service_port_check(objects, spec["web"]["port"], sub)
+        errors.extend(f"overlay '{name}': {e}" for e in sub)
 
     def render(self, manifests_dir: Path, errors: list[str]) -> str | None:
         proc = subprocess.run(
