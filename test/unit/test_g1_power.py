@@ -29,6 +29,9 @@ class FakeBox:
         self.reboot_returns = False
         self.up, self.rauc, self.gate, self.pending, self.install_rc = True, rauc, gate, pending, install_rc
         self.log = []
+        self.reads = 0          # install-log reads since the install was launched
+        self.rc_after = 1       # the log shows rc= from this read on (a short install would use 0)
+        self.no_log = False
 
     def ssh(self, cmd, timeout=20):
         self.log.append(cmd)
@@ -37,7 +40,11 @@ class FakeBox:
         if cmd.startswith("rauc status"): return 0, self.rauc
         if cmd.startswith("cat /data/onemind/pending"): return 0, self.pending
         if cmd.startswith("tail"): return 0, self.gate
-        if cmd.startswith("cat /run/g1-power-install.log"): return 0, f"installed\nrc={self.install_rc}\n"
+        if cmd.startswith("rm -f /run/g1-power-install.log"): self.reads = 0; return 0, ""
+        if cmd.startswith("cat /run/g1-power-install.log"):
+            if self.no_log: return 1, "No such file"
+            self.reads += 1
+            return 0, "installing\n" + (f"rc={self.install_rc}\n" if self.reads > self.rc_after else "")
         if cmd == "systemctl reboot":
             self.up = self.reboot_returns   # a clean reboot comes back by itself; during a pull cycle power decides
             return 0, ""
@@ -196,6 +203,26 @@ class Backends(unittest.TestCase):
             with self.assertRaises(SystemExit):
                 cls()
 
+    def test_write_phases_abort_if_install_was_not_running(self):
+        for ph in ("write-start", "write-mid"):
+            for label, setup in (("ended", lambda b: setattr(b, "rc_after", -1)), ("never started", lambda b: setattr(b, "no_log", True))):
+                box = FakeBox()
+                setup(box)
+                h, _ = harness(box)
+                r = h.cycle(1, ph)
+                self.assertEqual(r["verdict"], "ABORT", (ph, label, r))
+                self.assertNotIn("off", h.power.calls, (ph, label))   # power never cut
+
+    def test_missing_bundle_aborts_before_install(self):
+        box = FakeBox()
+        orig = box.ssh
+        box.ssh = lambda cmd, timeout=20: (1, "") if cmd.startswith("test -f") else orig(cmd, timeout)
+        h, _ = harness(box)
+        r = h.cycle(1, "write-mid")
+        self.assertEqual(r["verdict"], "ABORT")
+        self.assertIn("bundle not found", r["detail"])
+        self.assertFalse(any(c.startswith("rm -f /run/g1") for c in box.log))
+
     def test_manual_prompts(self):
         asked = []
         m = g.Manual(ask=asked.append)
@@ -216,6 +243,36 @@ class Cli(unittest.TestCase):
                     f.write(json.dumps(dict(verdict=v)) + "\n")
             self.assertEqual(g.summary_line(g.load(p)), "Power pulls (g1-power.py, 3 counted, 1 aborted and not counted): bootable after 2 / 3")
             self.assertEqual(g.main(["plan", "--cycles", "3"]), 0)
+
+    def test_default_bundle_is_persistent(self):
+        ap_default = [l for l in open(os.path.join(ROOT, "lab-kits", "G1", "g1-power.py")) if '"--bundle"' in l][0]
+        self.assertIn("/data/bundles/", ap_default)
+        self.assertNotIn("/run/", ap_default.split("help=")[0])
+
+    def test_plan_is_recorded_and_reused_on_resume(self):
+        with tempfile.TemporaryDirectory() as t:
+            p = os.path.join(t, "r.jsonl")
+            os.environ["G1_SSH_TARGET"] = "root@host-x"
+            try:
+                import unittest.mock as m
+                seen = []
+                def fake_cycle(self_, n, ph):
+                    seen.append(ph); return dict(cycle=n, phase=ph, verdict="PASS")
+                with m.patch.object(g.Harness, "cycle", fake_cycle):
+                    self.assertEqual(g.main(["run", "--cycles", "8", "--results", p]), 0)
+                    first = list(seen)
+                    plan = g.load_plan(p)
+                    self.assertEqual(plan["phases"], first)
+                    self.assertIn("seed", plan)
+                    # resume: drop the last three cycle lines, no --seed given
+                    lines = open(p).read().splitlines()
+                    open(p, "w").write("\n".join(lines[:-3]) + "\n")
+                    seen.clear()
+                    self.assertEqual(g.main(["run", "--cycles", "8", "--results", p]), 0)
+                    self.assertEqual(seen, first[5:])
+                    self.assertEqual(len(g.load(p)), 8)
+            finally:
+                os.environ.pop("G1_SSH_TARGET", None)
 
     def test_results_file_holds_no_credentials(self):
         # the record keys are fixed; none carries an address or secret

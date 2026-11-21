@@ -42,6 +42,10 @@ Step 3 above (20 of 20 pulls) no longer has to be hand-timed. `g1-power.py` runs
 | `ipmi` | `ipmitool chassis power off` then `on` (hard, not `soft`); password goes through `IPMI_PASSWORD` | same three `G1_BMC_*` |
 | `hook` | HTTP calls to a smart plug or relay | `G1_PLUG_OFF_URL`, `G1_PLUG_ON_URL`, optional `G1_PLUG_METHOD` |
 
+**Bundle on the box:** the harness installs from `--bundle` (default `/data/bundles/good.raucb`). Do not use the hand-mounted `/run/onemind-test` stick path: `/run` is empty after the first power pull. Copy the signed bundles once, before cycle 1, to persistent storage: `ssh root@<box-ip> 'mkdir -p /data/bundles'` then `scp good.raucb root@<box-ip>:/data/bundles/` (`g1-run.py` also looks in `/data/bundles`). The harness aborts a cycle (not counted) if the bundle is missing, or if at write-start and write-mid the install was not still running when power was cut, so a pull that interrupted nothing can never count as a pass.
+
+**Plan is recorded:** the first `run` writes a `kind=plan` line (seed and the phase list) to the results file; a resumed run reads it back, so the PP-10 spread stays the one you started with.
+
 Probe settings: `G1_SSH_TARGET` (`user@host`), optional `G1_SSH_KEY` (a path) and `G1_HEALTH_URL`.
 ```sh
 python3 -I g1-power.py plan --cycles 20                      # the phases; touches nothing

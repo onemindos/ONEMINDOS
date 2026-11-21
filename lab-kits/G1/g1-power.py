@@ -17,7 +17,7 @@ Credentials come ONLY from the environment and are never written to the results 
   probe:   G1_SSH_TARGET (user@host), [G1_SSH_KEY path or agent], [G1_HEALTH_URL, e.g. http://<box-ip>:10248/healthz]
 
   g1-power.py plan [--cycles N]          print the phases; touch nothing
-  g1-power.py run --power P --confirm-power [--cycles N] [--bundle PATH_ON_BOX]
+  g1-power.py run --power P --confirm-power [--cycles N] [--bundle PATH_ON_BOX]   (default /data/bundles/good.raucb)
   g1-power.py summary                    count passes, print the line for G1-RECORD.md section B
 
 A power backend other than manual changes real hardware, so it needs --confirm-power: a human saying
@@ -234,11 +234,18 @@ class Harness:
     # --- one cycle
     def cut(self, phase):
         a = self.a
+        rc, _ = self.ssh(f"test -f {a.bundle}", 15)
+        if rc != 0:
+            return f"bundle not found on the box at {a.bundle} (copy it to persistent storage, not /run)"
         self.ssh(f"rm -f {INSTALL_LOG}; nohup sh -c 'rauc install {a.bundle} >{INSTALL_LOG} 2>&1; echo rc=$? >>{INSTALL_LOG}' >/dev/null 2>&1 &", 15)
-        if phase == "write-start":
-            self.sleep(a.write_start)
-        elif phase == "write-mid":
-            self.sleep(a.write_mid)
+        if phase in ("write-start", "write-mid"):
+            self.sleep(a.write_start if phase == "write-start" else a.write_mid)
+            # A pull only counts if the install was still writing: the log must exist and have no rc= yet.
+            rc, log = self.ssh(f"cat {INSTALL_LOG}", 15)
+            if rc != 0:
+                return "install never started (no install log): not a power-pull result"
+            if "rc=" in log:
+                return "install already ended before the pull: not a power-pull result"
         else:
             if not self.wait_until(lambda: "rc=" in self.ssh(f"cat {INSTALL_LOG}", 15)[1], a.install_timeout, a.poll):
                 return "install never finished"
@@ -293,11 +300,22 @@ def phases_for(cycles, rng):
     return [PHASES[i] if i < len(PHASES) else rng.choice(PHASES) for i in range(cycles)]
 
 
-def load(path):
+def load_all(path):
     if not os.path.exists(path):
         return []
     with open(path) as f:
         return [json.loads(l) for l in f if l.strip()]
+
+
+def load(path):
+    """Cycle records only (the plan line is not a cycle)."""
+    return [r for r in load_all(path) if "verdict" in r]
+
+
+def load_plan(path):
+    """The recorded plan line (kind=plan) or None."""
+    plans = [r for r in load_all(path) if r.get("kind") == "plan"]
+    return plans[0] if plans else None
 
 
 def summary_line(recs):
@@ -314,7 +332,7 @@ def main(argv=None):
     ap.add_argument("--confirm-power", action="store_true", help="required for redfish, ipmi, hook: you own this box")
     ap.add_argument("--cycles", type=int, default=20, help="G1 wants 20 of 20")
     ap.add_argument("--results", default="g1-power.jsonl", help="one JSON line per cycle; resume = same file")
-    ap.add_argument("--bundle", default="/run/onemind-test/bundles/good.raucb", help="bundle path ON THE BOX")
+    ap.add_argument("--bundle", default="/data/bundles/good.raucb", help="bundle path ON THE BOX; must survive power loss, so never under /run")
     ap.add_argument("--health-url", default=E("G1_HEALTH_URL"))
     ap.add_argument("--seed", type=int, default=None, help="fix the random phases (cycles 6+)")
     ap.add_argument("--write-start", type=float, default=2, help="seconds after install starts")
@@ -346,7 +364,19 @@ def main(argv=None):
         print(e, file=sys.stderr)
         return 2
     h = Harness(power, rng=rng, a=a)
-    ph = phases_for(a.cycles, rng)
+    plan = load_plan(a.results)
+    if plan and plan.get("phases"):
+        ph = list(plan["phases"])
+        if len(ph) < a.cycles:   # asked for more cycles than recorded: keep the record, extend with the same seed
+            ph = phases_for(a.cycles, random.Random(plan["seed"]))[:a.cycles] if plan.get("seed") is not None else ph
+        if len(ph) < a.cycles:
+            print(f"recorded plan has {len(ph)} cycles; use a fresh --results file for {a.cycles}", file=sys.stderr)
+            return 2
+    else:
+        seed = a.seed if a.seed is not None else random.SystemRandom().randrange(2**31)
+        ph = phases_for(a.cycles, random.Random(seed))
+        with open(a.results, "a") as f:
+            f.write(json.dumps(dict(kind="plan", kit=KIT, seed=seed, cycles=a.cycles, phases=ph, start=now())) + "\n")
     counted = sum(r["verdict"] in ("PASS", "FAIL") for r in recs)
     rc = 0
     for n in range(counted + 1, a.cycles + 1):
