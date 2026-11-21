@@ -176,7 +176,7 @@ class McpEndpoint:
             name = params.get("name")
             targs = params.get("arguments")
             targs = targs if isinstance(targs, dict) else {}
-            if name in authz.TOOL_SCOPES and not authz.may_call(principal, name, targs):
+            if isinstance(name, str) and name in authz.TOOL_SCOPES and not authz.may_call(principal, name, targs):
                 self.refuse(principal, f"call tool {name}")  # audited authz.denied
                 need = authz.TOOL_SCOPES[name]
                 if need == "actions:request:*":
