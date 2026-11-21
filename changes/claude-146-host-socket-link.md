@@ -1,5 +1,5 @@
 ---
-pr: pending
+pr: 493
 branch: claude/146-host-socket-link
 status_rows:
   - CORE-UPDATE-2 | in-progress | the gateway reaches the host executor, so an approved OS install runs through onemindd host serve; restart, shutdown and factory reset use the same link once their routes merge
