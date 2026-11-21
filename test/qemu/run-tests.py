@@ -76,7 +76,7 @@ class VM:
     def start(self):
         c = self.cfg
         cmd = [c["qemu"], "-machine", c["machine"], "-accel", self.accel, "-cpu", self.cpu,
-               "-smp", "4", "-m", "3072", "-nodefaults", "-display", "none", "-vga", "none",
+               "-smp", "4", "-m", os.environ.get("ONEMIND_QEMU_MEM", "3072"), "-nodefaults", "-display", "none", "-vga", "none",
                "-nic", f"user,model=virtio-net-pci,restrict=on,hostfwd=tcp:127.0.0.1:{FWD}-:8080",
                "-device", "i6300esb", "-action", "watchdog=reset"]
         if c["code"]:

@@ -70,6 +70,17 @@ firstboot:
 	  --log /out/firstboot-$(BOARD)/serial.log --results /out/firstboot-$(BOARD)/results.json; \
 	  rc=$$?; rm -f $(OUT)/firstboot-$(BOARD)/work/disk.img; exit $$rc
 
+# Memory pressure (test/qemu/memorypressure.py, CRITERIA-MEMORY.md): a 6 GiB hog on an 8 GiB hub VM; the gateway
+# /healthz must stay up. Copies the fixture disk like `firstboot`; needs KVM and 8 GiB free for the VM.
+.PHONY: memory-test
+memory-test:
+	@test -f $(OUT)/fx-$(BOARD)/disk.img || $(MAKE) fixtures BOARD=$(BOARD)
+	mkdir -p $(OUT)/memory-$(BOARD)
+	$(DOCKER_RUN) $(KVM) -e ONEMIND_QEMU_MEM=8192 $(TOOLS) python3 -I /src/test/qemu/memorypressure.py --board $(BOARD) \
+	  --fixtures /out/fx-$(BOARD) --work /out/memory-$(BOARD)/work \
+	  --log /out/memory-$(BOARD)/serial.log --results /out/memory-$(BOARD)/results.json; \
+	  rc=$$?; rm -f $(OUT)/memory-$(BOARD)/work/disk.img; exit $$rc
+
 # Local KVM check of F0-F4 (build + fixtures + firstboot); see test/qemu/README.md "Local first boot".
 .PHONY: local-firstboot
 local-firstboot:
