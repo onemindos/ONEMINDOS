@@ -352,6 +352,7 @@ POLICY |= {
     ("POST", "/v1/backups/kit/confirm"): Row(OWNER_ONLY_404, w.p_missing("/v1/backups/kit/confirm", json={"answers": {}}),
                                              f"{_BACKUPS}: the emergency kit is owner only"),
     # ---- first-run settings (contract 12.41) ----------------------------------------------------------------
+    ("GET", "/v1/onboarding/state"): Row(ONLY_OWNER, w.p_static("/v1/onboarding/state"), "contract 12.41: owner only, read-only wizard state"),
     ("GET", "/v1/onboarding/settings"): Row(ONLY_OWNER, w.p_static("/v1/onboarding/settings"), "contract 12.41: owner only, audited"),
     ("PUT", "/v1/onboarding/settings"): Row(ONLY_OWNER, w.p_missing("/v1/onboarding/settings", json={
         "box_name": "home-hub", "time_zone": "UTC", "backup_choice": "later"}), "contract 12.41: owner only, audited"),

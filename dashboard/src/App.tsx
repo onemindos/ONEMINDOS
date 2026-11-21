@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Route table. Signed out: the sign-in screen. Signed in: per-person appearance (CustomizeProvider),
 // one shared hub poll (HubProvider), the shell, and the screens of docs/design/IA.md.
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Navigate, Route, Routes } from 'react-router';
 import { CustomizeProvider, ToastProvider, WallpaperLayer, clearPreferences } from '@onemind/ui';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -14,7 +14,7 @@ import { Updates } from './pages/Updates';
 import { Backups } from './pages/Backups';
 import { Automation } from './pages/Automation';
 import { Coming } from './pages/Coming';
-import { FirstRun, wizardPending } from './pages/FirstRun';
+import { FirstRun, useWizardPending } from './pages/FirstRun';
 import { Approvals } from './pages/Approvals';
 import { Home } from './pages/Home';
 import { Installed } from './pages/Installed';
@@ -45,11 +45,13 @@ function Appearance({ children }: { children: React.ReactNode }) {
 }
 
 export function SignedInApp() {
-  const [wizard, setWizard] = useState(wizardPending);
+  const [wizard, setWizard] = useWizardPending();
   return (
     <HubProvider>
       <Appearance>
-        {wizard ? (
+        {wizard === undefined ? (
+          <p role="status">Checking first-run setup…</p>
+        ) : wizard ? (
           <FirstRun onDone={() => setWizard(false)} />
         ) : (
         <Shell>

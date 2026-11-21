@@ -13,9 +13,6 @@ import { t } from '../i18n';
 import { getPasskey, webauthnSupported } from '../lib/webauthn';
 import { useSession } from '../session';
 
-/** Set after a first-run setup so the signed-in app opens the wizard once (cleared by it). */
-export const WIZARD_KEY = 'onemind.wizard';
-
 type View = 'signin' | 'setup' | 'enrol';
 
 function Field(props: { label: string; name: string; type?: string; value: string; onChange: (v: string) => void; autoComplete?: string; describedBy?: string; invalid?: boolean }) {
@@ -86,16 +83,8 @@ export function SignIn({ mock }: { mock: boolean }) {
       setBusy(false);
     }
   }
-  const finish = (r: LoginResult, wizard = false) => {
-    if (wizard) {
-      try {
-        window.sessionStorage.setItem(WIZARD_KEY, '1');
-      } catch {
-        /* the wizard is then simply skipped */
-      }
-    }
-    return signIn(r.access_token);
-  };
+  // Whether the first-run wizard opens is the gateway's call (/v1/onboarding/state), not a browser flag.
+  const finish = (r: LoginResult) => signIn(r.access_token);
 
   const onToken = (e: FormEvent) => {
     e.preventDefault();
@@ -122,7 +111,7 @@ export function SignIn({ mock }: { mock: boolean }) {
     if (password.length < 12) return fail('password', t('setup.short'));
     void run(
       'setup-token',
-      async () => finish(await anon.setup(setupToken.trim(), { username: username.trim(), display_name: displayName.trim() || username.trim(), password }), true),
+      async () => finish(await anon.setup(setupToken.trim(), { username: username.trim(), display_name: displayName.trim() || username.trim(), password })),
       (er) => (er.status === 409 ? t('setup.done') : er.code === 'unauthenticated' ? t('setup.badToken') : er.message),
     );
   };
