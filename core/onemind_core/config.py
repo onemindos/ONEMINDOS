@@ -72,6 +72,8 @@ class Settings:
     agent_url: str | None = None
     # §11.1 dev override: skip the §10.3 scan check. Only honoured with the noop executor.
     allow_unscanned: bool = False
+    # The optional machines layer (os/rootfs/layers/machines): pinned KubeVirt and CDI manifests.
+    machines_extension_dir: Path = Path("/usr/lib/onemind/extensions/machines")
     # Per-feature sections (sections.py), keyed by section name. Read them with section().
     sections: dict[str, Any] = field(default_factory=dict, compare=False, repr=False)
 
@@ -149,6 +151,7 @@ class Settings:
             public_url=public_url,
             agent_url=agent_url,
             allow_unscanned=allow in ("1", "true", "yes"),
+            machines_extension_dir=Path(env.get("ONEMIND_MACHINES_EXTENSION_DIR", "/usr/lib/onemind/extensions/machines")),
             sections=load_sections(env),
         )
         settings.check()

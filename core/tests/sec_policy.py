@@ -549,6 +549,9 @@ POLICY |= {
     ("POST", "/v1/machines/enable"): Row(cells(403, **GONE, owner=409, plugin=DENIED, automation=DENIED, node=DENIED),
                                          w.p_static("/v1/machines/enable"),
                                          f"{_MACH}: only the owner turns machines on; an agent can never approve its own power-up"),
+    ("POST", "/v1/machines/disable"): Row(cells(403, **GONE, owner=409, plugin=DENIED, automation=DENIED, node=DENIED),
+                                          w.p_static("/v1/machines/disable"),
+                                          f"{_MACH}: only the owner turns machines off; in this world they are already off (409)"),
     # Part 3 (machine actions). The list shows the same nodes:read facts; a machine that does not exist is a 404.
     ("GET", "/v1/machines"): Row(CHILD_CANNOT, w.p_static("/v1/machines"), f"{_MACH}: the machines on this box; a child has no nodes:read"),
     ("GET", "/v1/machines/{name}"): Row(cells(404, **GONE, child=403, plugin=DECIDE, automation=DECIDE, node=DECIDE),

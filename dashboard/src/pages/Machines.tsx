@@ -21,9 +21,9 @@ const STATE: Record<string, { tone: Tone; label: string; pulse?: boolean; note?:
   running: { tone: 'ok', label: 'Running' },
   unknown: { tone: 'warn', label: 'Unknown', note: 'A request ended without a clear answer, so it may or may not exist in the cluster. Its name and quota stay held until an owner removes it.' },
 };
-const VERB: Record<MachineActionType, string> = { 'machine.create': 'create', 'machine.start': 'start', 'machine.stop': 'stop', 'machine.delete': 'remove' };
+const VERB: Record<MachineActionType, string> = { 'machine.create': 'create', 'machine.start': 'start', 'machine.stop': 'stop', 'machine.delete': 'remove', 'machines.enable': 'turn on', 'machines.disable': 'turn off' };
 const NAME = /^[a-z][a-z0-9-]{0,38}[a-z0-9]$/;
-const RESERVED = new Set(['capabilities', 'enable']);
+const RESERVED = new Set(['capabilities', 'enable', 'disable']);
 
 export function Machines() {
   const { api } = useSignedIn();
@@ -61,6 +61,10 @@ export function Machines() {
     }
   };
 
+  const turnOn = async () => {
+    if (await send('machines.enable', {})) void caps.reload();
+  };
+
   const problem = (() => {
     if (!form.name) return undefined;
     if (!NAME.test(form.name)) return 'Use 2 to 40 characters: lower-case letters, digits and dashes, starting with a letter.';
@@ -84,6 +88,10 @@ export function Machines() {
 
   const eligible = caps.data ? caps.data.eligible_node_ids.length > 0 : undefined;
   const reasons = caps.data ? [...new Set(caps.data.nodes.flatMap((n) => n.reasons.map((r) => r.message)))] : [];
+  const ext = caps.data?.extension.state;
+  const on = caps.data?.enabled === true;
+  const turningOn = hub.actionList.some((a) => a.type === 'machines.enable' && isActive(a)) || ext === 'installing';
+  const canTurnOn = !on && !turningOn && eligible === true && !blocked && !busy && ext !== 'unavailable' && ext !== 'removing';
   const waitingCreates = open.filter((a) => a.type === 'machine.create' && !(list.data ?? []).some((m) => m.name === a.params.name));
 
   return (
@@ -91,13 +99,15 @@ export function Machines() {
       <PageHeader
         title="Machines"
         lede="Virtual machines on this box. Every change here is a request: it waits in Approvals and nothing runs until an owner approves it."
-        actions={<Button variant="primary" disabled={!supported || blocked || eligible !== true} onClick={() => setCreating(true)}>Request a machine</Button>}
+        actions={on
+          ? <Button variant="primary" disabled={!supported || blocked || eligible !== true} onClick={() => setCreating(true)}>Request a machine</Button>
+          : <Button variant="primary" disabled={!supported || !canTurnOn} aria-describedby="machines-status" onClick={() => void turnOn()}>{turningOn ? 'Turning on, waiting' : 'Turn on'}</Button>}
       />
       {!supported && <p className="om-note om-tone-warn" role="status">This gateway connection has no machines route (demo data has none). Sign in to a real gateway to see machines.</p>}
       {supported && caps.data && (
-        <p className={`om-note ${eligible ? 'om-tone-ok' : 'om-tone-warn'}`} role="status">
+        <p id="machines-status" className={`om-note ${eligible ? 'om-tone-ok' : 'om-tone-warn'}`} role="status">
           {eligible
-            ? `This box can run virtual machines (${caps.data.eligible_node_ids.length} eligible node${caps.data.eligible_node_ids.length === 1 ? '' : 's'}). ${caps.data.extension.state === 'unavailable' ? caps.data.extension.message : ''}`
+            ? `This box can run virtual machines (${caps.data.eligible_node_ids.length} eligible node${caps.data.eligible_node_ids.length === 1 ? '' : 's'}). ${caps.data.extension.message}${on || turningOn ? '' : ' Turning them on is a request: an owner approves it in Approvals.'}`
             : `This box cannot run virtual machines yet. ${reasons.join(' ') || 'No node has reported yet.'}`}
         </p>
       )}
