@@ -7,9 +7,9 @@ Low-code programming for event-driven applications
 
 | | |
 |---|---|
-| Version | 5.0.9 (upstream release `5.0.9`, published 2026-10-21) |
-| Licence | `Apache-2.0`, Market class **L1** (licence gate, scan of 2026-11-21) |
-| Tier | `blocked` (set by CI: sdk/tools/app-gate) |
+| Version | 5.0.10 (upstream release `5.0.10`, published 2026-11-17) |
+| Licence | `Apache-2.0`, Market class **L1** (licence gate, scan of 2026-11-19) |
+| Tier | `community` (set by CI: sdk/tools/app-gate) |
 | Category | automation |
 | GitHub | <https://github.com/node-red/node-red> |
 | Website | <https://nodered.org> |
@@ -32,7 +32,7 @@ Storage: PVC `node-red-data` 2Gi.
 
 Images:
 
-- `docker.io/nodered/node-red:5.0.9@sha256:2ccd38b4066648bd5e17430c50a2f8102c566a82fd4f2fc5c342e61664d6896f`
+- `docker.io/nodered/node-red:5.0.10@sha256:3622786c15b6f57f61bf1d0ece59d06a18b742c5c8955f588d189b6bee8dc97d`
 
 <!-- onemind:notes:begin -->
 ## What it is
@@ -62,12 +62,10 @@ From the upstream Docker guide, <https://nodered.org/docs/getting-started/docker
 
 ## Known limits in this package
 
-- **Blocked by the gate (scan of 2026-11-12).** The pinned image carries Alpine `openssh-client` 10.3_p1-r1 (pulled in for the Projects feature), and CVE-2026-123158 (CRITICAL) is fixed in 10.3_p1-r2. No upstream variant of 5.0.9 passes: `5.0.9-minimal` has the same packages, and `5.0.9-debian` has CRITICAL CVE-2026-99083 in `linux-libc-dev` 6.12.113-1 (fixed in 6.12.115-2). The gateway will not install the app until upstream publishes a rebuilt image and a new scan passes (contract §10.3).
+- **Gate status.** 5.0.9 was blocked by Alpine `openssh-client` 10.3_p1-r1 (CRITICAL CVE-2026-123158, fixed in r2). The pin moved to `5.0.10` (upstream release 2026-11-17; amd64 and arm64 checked with `crane`). A local Trivy 0.76.2 scan of that digest on 2026-11-21 (linux/amd64) reports no CRITICAL with a fix. That is a check, not a gate run: the tier is `community` until the CI app gate or the daily `apps-rescan` writes a new `scan.json` (issue #117).
 - **The editor is open until you do step 2.** This package ships upstream's default settings; it does not generate a login.
 - **Nodes that need native build tools** may fail to install from the palette: the image is Alpine-based and the pod has no privileges to add packages. Upstream's answer is a custom image ([docker-custom](https://github.com/node-red/node-red-docker/tree/master/docker-custom)).
 - **Serial and GPIO nodes** get no device access in this package.
-
-**Hold (apps/market-unblock-2, 2026-11-13):** `openssh-client` 10.3_p1-r1, CVE-2026-123158 (fixed in r2). `5.0.9` is the newest tag; the `-minimal` variant has the same package and `-debian` has its own CRITICAL. Unblock: a rebuild on a newer Alpine. The registry was re-read on 2026-11-13: the pinned digest is unchanged and no newer fixed tag exists, so nothing is bumped (the gate was not weakened and the tier was not edited). It unblocks when the weekly `apps-rescan` or a manual `apps-gate-all` run computes a pass on a rebuilt image. No upstream issue link was looked up (the GitHub API is not reachable from the worker).
 <!-- onemind:notes:end -->
 
 ## Latest security scan
