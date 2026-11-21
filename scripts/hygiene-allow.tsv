@@ -79,3 +79,8 @@ scripts/ci-runner-do/*	(10\.0\.0\.0|172\.16\.0\.0|192\.168\.0\.0|100\.64\.0\.0|/
 test/unit/test_do_runner_policy.py	(10\.0\.0\.0|172\.16\.0\.0|192\.168\.0\.0|100\.64\.0\.0)	B-FP-15
 # B-FP-16: host firewall (host.nft) names the private ranges by their network address (RFC 1918, RFC 6598), as ranges, not hosts.
 os/rootfs/layers/onemind/usr/lib/onemind/host.nft	(10\.0\.0\.0|172\.16\.0\.0|192\.168\.0\.0|100\.64\.0\.0)	B-FP-16
+# B-FP-17: firewall QEMU tests: the QEMU user-networking gateway (fixed by QEMU) and the private link addresses 192.168.77.x the harness gives its own two throwaway VMs; neither is a real network.
+test/qemu/firewall.py	192\.168\.77\.[0-9]+	B-FP-17
+test/qemu/CRITERIA-FIREWALL.md	192\.168\.77\.[0-9]+	B-FP-17
+test/qemu/overlay/etc/onemind/host.d/*	10\.0\.2\.2	B-FP-17
+test/unit/test_host_firewall.py	10\.0\.2\.2	B-FP-17

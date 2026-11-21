@@ -1,0 +1,190 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: Apache-2.0
+"""OneMind QEMU battery, host firewall (FW1-FW4). Criteria: test/qemu/CRITERIA-FIREWALL.md (pre-registered).
+
+Two VMs boot the fixture image: the box (hub seed) and a scanner (no seed, so no role: the setup wizard runs).
+A QEMU socket link joins them with two address pairs, a LAN one and a documentation-range "public" one. The
+scanner probes the box from both; the box counts what its firewall dropped (counting rules at the end of the
+input chain), so the verdict does not depend on the scanner reading silence correctly. Then the box probes the
+scanner's wizard port from both addresses. Run: make firewall BOARD=x86_64-efi (CI image workflow; first run there).
+"""
+import argparse, importlib.util, json, os, platform, re, shutil, sys, time
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+
+
+def _load(name, fn):
+    spec = importlib.util.spec_from_file_location(name, os.path.join(HERE, fn))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+fb = _load("firstboot_h", "firstboot.py")
+battery = fb.battery
+
+LINK_PORT = int(os.environ.get("ONEMIND_QEMU_LINK_PORT", "18770"))
+MAC = {"box": "52:54:00:fe:00:01", "scan": "52:54:00:fe:00:02"}
+ADDR = {"lan": {"box": "192.168.77.1", "scan": "192.168.77.2"}, "pub": {"box": "198.51.100.1", "scan": "198.51.100.2"}}
+TCP = [22, 80, 443, 445, 4222, 6443, 7422, 7443, 8080, 8443, 8444, 10250]
+UDP = [3478, 5353, 8472, 9999, 41641, 51820]
+WANT_LAN = {("tcp", p) for p in (443, 7443, 8443, 8444)} | {("udp", p) for p in (3478, 5353, 41641)}
+PROBE_PY = r'''
+import socket, sys, threading
+src, dst, tcp, udp = sys.argv[1], sys.argv[2], [int(x) for x in sys.argv[3].split(",") if x], [int(x) for x in sys.argv[4].split(",") if x]
+def t(p):
+    s = socket.socket(); s.settimeout(1.5); s.bind((src, 0))
+    try:
+        s.connect((dst, p)); r = "open"
+    except ConnectionRefusedError:
+        r = "refused"
+    except OSError:
+        r = "timeout"
+    print("T", p, r, flush=True)
+def u(p):
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM); s.settimeout(1.5); s.bind((src, 0))
+    for _ in range(2):
+        s.sendto(b"x", (dst, p))
+    print("U", p, "sent", flush=True)
+th = [threading.Thread(target=t, args=(p,)) for p in tcp] + [threading.Thread(target=u, args=(p,)) for p in udp]
+[x.start() for x in th]; [x.join() for x in th]
+print("PROBE-DONE", flush=True)
+'''
+RESULTS = []
+
+
+def record(tid, ok, detail):
+    verdict = ok if isinstance(ok, str) else ("PASS" if ok else "FAIL")
+    RESULTS.append({"test": tid, "verdict": verdict, "detail": detail})
+    print(f"===> {tid}: {verdict} {detail}", flush=True)
+
+
+def link_args(who):
+    nd = f"socket,id=fwlink,{'listen' if who == 'box' else 'connect'}=127.0.0.1:{LINK_PORT}"
+    return ["-netdev", nd, "-device", f"virtio-net-pci,netdev=fwlink,mac={MAC[who]}"]
+
+
+def addr_cmd(who):
+    """Bring up the link NIC (found by MAC) with both of this side's addresses."""
+    a = [ADDR[k][who] for k in ("lan", "pub")]
+    return (f"IF=$(ip -o link | awk '/{MAC[who]}/ {{sub(\":\",\"\",$2); print $2; exit}}'); echo IF=$IF; "
+            f"ip link set $IF up && ip addr add {a[0]}/24 dev $IF && ip addr add {a[1]}/24 dev $IF; echo ADDR-RC=$?")
+
+
+def probe(vm, src, dst, tcp, udp):
+    fb.send_file(vm, "/run/fwprobe.py", PROBE_PY)
+    _, out = vm.run(f"{fb.PY} -I /run/fwprobe.py {src} {dst} {','.join(map(str, tcp))} {','.join(map(str, udp))}; rm -f /run/fwprobe.py", 120)
+    return out
+
+
+def counters_script():
+    lines = []
+    for tag in ("lan", "pub"):
+        for proto, ports in (("tcp", TCP), ("udp", UDP)):
+            for p in ports:
+                lines.append(f'add rule inet onemind_host input ip saddr {ADDR[tag]["scan"]} {proto} dport {p} '
+                             f'counter comment "scan-{tag}-{proto}-{p}"')
+    return "\n".join(lines) + "\n"
+
+
+def read_counters(vm):
+    _, out = vm.run("nft list chain inet onemind_host input | awk '/scan-/ {p=\"\"; for(i=1;i<=NF;i++) if($i==\"packets\") p=$(i+1); "
+                    "match($0,/scan-[a-z]+-[a-z]+-[0-9]+/); print \"CNT \" substr($0,RSTART,RLENGTH), p}'")
+    c = {}
+    for tag, proto, port, n in re.findall(r"^CNT scan-(\w+)-(\w+)-(\d+) (\d+)\s*$", out, re.M):
+        c[(tag, proto, int(port))] = int(n)
+    return c
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--board", required=True, choices=sorted(battery.BOARDS))
+    ap.add_argument("--fixtures", required=True)
+    ap.add_argument("--work", required=True)
+    ap.add_argument("--log", required=True)
+    ap.add_argument("--results")
+    a = ap.parse_args()
+    box_dir, scan_dir = os.path.join(a.work, "box"), os.path.join(a.work, "scanner")
+    fb.make_work(a.fixtures, box_dir)
+    fb.make_work(a.fixtures, scan_dir)
+    os.remove(os.path.join(scan_dir, "seed.img"))          # no seed: no role, the wizard runs
+    logf = open(a.log, "w")
+    t0 = time.time()
+    box = battery.VM(a.board, box_dir, logf, box_dir)
+    scan = battery.VM(a.board, scan_dir, logf, scan_dir)
+    env = {"board": a.board, "accel": box.accel, "cpu": box.cpu, "host_cpus": os.cpu_count(), "host_machine": platform.machine()}
+    print(f"ENV {json.dumps(env)}", flush=True)
+    scan.fwd = battery.FWD + 1
+    box.extra_args, scan.extra_args = link_args("box"), link_args("scan")
+    box.failfast = True
+    rc = 1
+    try:
+        box.mark("box: first boot as hub")
+        box.start()
+        box.expect(fb.CONFIGURED, 900)
+        box.pos = 0
+        box.wait_gate()
+        box.shell_ready()
+        hz = fb.http_code(box, f"{fb.GW}/healthz", timeout=900)
+        if hz != "200":
+            fb.diagnose(box, f"healthz={hz}")
+            raise RuntimeError(f"gateway /healthz={hz}")
+        box.mark("scanner: boot with no role")
+        scan.start()
+        scan.shell_ready()
+        _, o = box.run(addr_cmd("box")); _, o2 = scan.run(addr_cmd("scan"))
+        if "ADDR-RC=0" not in o or "ADDR-RC=0" not in o2:
+            raise RuntimeError(f"link NIC not configured: box={o[-120:]!r} scanner={o2[-120:]!r}")
+        fb.send_file(box, "/run/fwcount.nft", counters_script())
+        rc_n, o = box.run("nft -f /run/fwcount.nft; echo NFT-RC=$?")
+        _, ping = scan.run(f"ping -c 2 -W 2 {ADDR['lan']['box']} >/dev/null 2>&1; echo PING=$?")
+        box.mark("scan the box from the LAN and the public address")
+        for tag in ("lan", "pub"):
+            probe(scan, ADDR[tag]["scan"], ADDR[tag]["box"], TCP, UDP)
+        time.sleep(2)
+        cnt = read_counters(box)
+        _, ss = box.run("ss -H -ltn | awk '{print \"LISTEN \" $4}'")
+        reach = {t: {(p, n) for (tg, p, n), v in cnt.items() if tg == t and v == 0} for t in ("lan", "pub")}
+        complete = all(len([k for k in cnt if k[0] == t]) == len(TCP) + len(UDP) for t in ("lan", "pub"))
+        alive = any(v > 0 for v in cnt.values())    # the link works: something was dropped
+        record("FW1", complete and alive and reach["lan"] == WANT_LAN,
+               f"reachable_from_lan={sorted(reach['lan'])} want={sorted(WANT_LAN)} counters={len(cnt)} ping={'ok' if 'PING=0' in ping else 'no'}")
+        record("FW2", complete and alive and not reach["pub"], f"reachable_from_public={sorted(reach['pub'])}")
+        listening = {int(x) for x in re.findall(r"^LISTEN (?:\*|0\.0\.0\.0|\[::\]|::):(\d+)\s*$", ss, re.M)}
+        k3s = {6443, 10250}
+        record("FW3", k3s <= listening and not any(("tcp", p) in reach[t] for p in k3s for t in reach),
+               f"k3s_listening_wildcard={sorted(k3s & listening)} reachable_lan={sorted(p for p in k3s if ('tcp', p) in reach['lan'])} "
+               f"reachable_public={sorted(p for p in k3s if ('tcp', p) in reach['pub'])}")
+        _, w = scan.run("systemctl is-active onemind-setup; echo WIZ=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/)")
+        wiz_up = "WIZ=200" in w and re.search(r"^active\s*$", w, re.M) is not None
+        res = {}
+        for tag in ("lan", "pub"):
+            out = probe(box, ADDR[tag]["box"], ADDR[tag]["scan"], [8080], [])
+            res[tag] = (re.findall(r"^T 8080 (\w+)", out, re.M) or ["none"])[-1]
+        record("FW4", wiz_up and res["lan"] == "open" and res["pub"] != "open" and ("tcp", 8080) not in reach["lan"],
+               f"wizard_running={wiz_up} 8080_from_lan={res['lan']} 8080_from_public={res['pub']} box_8080_from_lan={'open' if ('tcp', 8080) in reach['lan'] else 'dropped'}")
+        rc = 0
+    except (TimeoutError, RuntimeError) as e:
+        record("HARNESS", False, f"aborted: {e}")
+    for vm in (box, scan):
+        if vm.proc and vm.proc.poll() is None:
+            vm.kill() if rc else vm.poweroff()
+    total = (time.time() - t0) / 60
+    print("\nSUMMARY (total %.0f min, accel=%s)" % (total, env["accel"]))
+    for r in RESULTS:
+        print(" | ".join((r["test"], r["verdict"], r["detail"])))
+    logf.close()
+    if a.results:
+        json.dump({"env": env, "minutes": round(total, 1), "criteria": "test/qemu/CRITERIA-FIREWALL.md", "results": RESULTS},
+                  open(a.results, "w"), indent=2)
+    for d in (box_dir, scan_dir):
+        shutil.rmtree(os.path.join(d, "seed"), ignore_errors=True)
+        try:
+            os.remove(os.path.join(d, "disk.img"))
+        except OSError:
+            pass
+    return 0 if RESULTS and all(r["verdict"] == "PASS" for r in RESULTS) else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

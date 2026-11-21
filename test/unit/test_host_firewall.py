@@ -42,6 +42,36 @@ class HostFirewall(unittest.TestCase):
         self.assertIn("ExecStartPre=/usr/sbin/nft -c -f /usr/lib/onemind/host.nft", u)
         self.assertRegex(rd("os/rootfs/Containerfile"), r"systemctl enable onemind-firstboot\.service onemind-firewall\.service")
 
+    def test_setup_wizard_port_is_opened_only_by_the_wizard_unit_and_only_from_the_lan(self):
+        r = rd(RULES)
+        self.assertIn("jump setup", lan_chain())
+        self.assertRegex(r, r"chain setup \{\s*\}")          # empty in the ruleset: closed by default
+        self.assertNotRegex(lan_chain(), r"\b8080\b")
+        u = rd("os/rootfs/layers/onemind/usr/lib/systemd/system/onemind-setup.service")
+        self.assertIn("nft add rule inet onemind_host setup tcp dport 8080 accept", u)
+        self.assertIn("ExecStopPost=-/usr/sbin/nft flush chain inet onemind_host setup", u)
+        self.assertIn("wizard-local-only", u)
+        self.assertIn("After=onemind-firewall.service", u)
+
+    def test_cloud_boards_open_ssh_and_https_and_keep_the_wizard_local(self):
+        for b in ("cloud", "vm-do"):
+            d = f"os/boards/{b}/rootfs/etc/onemind"
+            rules = [l for l in rd(f"{d}/host.d/10-cloud.nft").splitlines() if l.strip() and not l.startswith("#")]
+            self.assertEqual(rules, ["add rule inet onemind_host input tcp dport { 22, 443, 8443 } accept",
+                                     "add rule inet onemind_host input udp dport 41641 accept"])
+            self.assertTrue(os.path.exists(os.path.join(ROOT, d, "wizard-local-only")))
+        self.assertIn("/etc/onemind/host.d/*.nft", rd(UNIT))
+
+    def test_qemu_test_overlay_allows_only_the_slirp_gateway_for_ssh_and_wizard_http(self):
+        rules = [l for l in rd("test/qemu/overlay/etc/onemind/host.d/90-qemu-test.nft").splitlines()
+                 if l.strip() and not l.startswith("#")]
+        self.assertEqual(rules, ["add rule inet onemind_host input ip saddr 10.0.2.2 tcp dport { 22, 8080 } accept"])
+
+    def test_firewall_criteria_are_preregistered(self):
+        import hashlib
+        h = hashlib.sha256(open(os.path.join(ROOT, "test/qemu/CRITERIA-FIREWALL.md"), "rb").read()).hexdigest()
+        self.assertIn(f"{h}  CRITERIA-FIREWALL.md", rd("test/qemu/PREREGISTRATION.sha256"))
+
     @unittest.skipUnless(sys.platform.startswith("linux") and hasattr(os, "geteuid") and os.geteuid() == 0
                          and shutil.which("nft") and shutil.which("ip"), "needs root, ip and nft on Linux")
     def test_port_scan_from_second_machine(self):
