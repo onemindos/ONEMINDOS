@@ -25,7 +25,7 @@ metadata:
     website: https://github.com/dani-garcia/vaultwarden
     support: https://github.com/dani-garcia/vaultwarden/issues
   upstream: {release: "1.37.5", released_at: "2026-11-01T22:16:50Z", archived: false}
-  tier: verified   # set by CI (sdk/tools/app-gate --tier write), not by hand
+  tier: blocked   # set by CI (sdk/tools/app-gate --tier write), not by hand
 spec:
   archs: [amd64, arm64]
   requires: {gpu: false, minMemoryMb: 256}
