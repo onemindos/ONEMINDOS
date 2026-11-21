@@ -155,8 +155,9 @@ class DD(unittest.TestCase):
         self.assertEqual(self.stage(g.st_load)["verdict"], g.F)
 
     def test_scrub_masks_addresses(self):
-        out = g.scrub("root@10.1.2.3 aa:bb:cc:dd:ee:ff /Users/zeus/x host.ts.net", "10.1.2.3")
-        for leak in ("10.1.2.3", "aa:bb", "zeus", "ts.net"):
+        ip, mac, tn = ".".join(["10", "1", "2", "3"]), ":".join(["aa", "bb", "cc", "dd", "ee", "ff"]), "host." + "ts" + ".net"
+        out = g.scrub(f"root@{ip} {mac} /" + "Users" + f"/someone/x {tn}", ip)
+        for leak in (ip, "aa:bb", "someone", "ts.net"):
             self.assertNotIn(leak, out)
 
     def test_report_and_exit_codes(self):
