@@ -305,7 +305,7 @@ function BackupsWidget({ w, ctx }: { w: WidgetInstance; ctx: WidgetContext }) {
   if (l.state !== 'ready') return <WidgetFrame {...common} state={bodyState(l)} />;
   const b = l.data;
   if (!b.destinations.length && !b.last_run)
-    return <WidgetFrame {...common} state={{ kind: 'empty', title: 'No backups set up', body: 'Add a USB disk, another OneMind or a bucket in Backups.' }} />;
+    return <WidgetFrame {...common} state={{ kind: 'empty', title: 'No backup proved yet', body: 'A proven backup is one we restored in a test and signed. Set up backups to start.' }} />;
   const runAge = b.last_run ? secondsSince(b.last_run, ctx.now) : Number.POSITIVE_INFINITY;
   const runTone: Tone = runAge > 26 * 3600 ? 'warn' : 'ok';
   const verifyAge = b.last_verified_restore ? secondsSince(b.last_verified_restore, ctx.now) : Number.POSITIVE_INFINITY;

@@ -226,8 +226,8 @@
 .omh-status { display: flex; flex-direction: column; gap: var(--om-space-2); align-items: flex-start; }
 
 /* ---------- dots and glyphs ---------- */
-.omh-dot { display: inline-block; flex: none; width: var(--omh-dot); height: var(--omh-dot); border-radius: 50%; background: var(--om-tone-fg); box-shadow: 0 0 0 2px var(--om-color-surface); }
-.omh-dot-hollow { background: var(--om-color-surface); border: 2px solid var(--om-tone-fg); }
+.omh-dot { display: inline-flex; flex: none; align-items: center; justify-content: center; color: var(--om-tone-fg); --om-tone-bg: var(--om-color-surface); }
+.omh-dot-hollow { opacity: 0.85; }
 .omh-glyph-add { position: relative; display: inline-flex; flex: none; align-items: center; justify-content: center; overflow: hidden; border-radius: var(--omh-glyph-radius); font-weight: var(--om-font-weight-bold); color: var(--om-tone-fg); background: var(--om-tone-bg); border: 1px solid var(--om-tone-border); box-shadow: var(--om-shadow-1); }
 .omh-hue-teal { --om-tone-fg: var(--om-color-accent); --om-tone-bg: var(--om-color-accent-soft); --om-tone-border: var(--om-color-border); }
 .omh-hue-green { --om-tone-fg: var(--om-color-ok-fg); --om-tone-bg: var(--om-color-ok-bg); --om-tone-border: var(--om-color-ok-border); }
@@ -260,7 +260,7 @@
 .omh-app:active { transform: scale(0.97); }
 @media (prefers-reduced-motion: reduce) { .omh-app:active { transform: none; } }
 .omh-app-icon { position: relative; display: inline-flex; }
-.omh-app-dot { position: absolute; right: -3px; bottom: -3px; width: 14px; height: 14px; box-shadow: 0 0 0 3px var(--om-color-surface); }
+.omh-app-dot { position: absolute; right: -3px; bottom: -3px; border-radius: 50%; background: var(--om-color-surface); box-shadow: 0 0 0 3px var(--om-color-surface); }
 .omh-app-updtext { color: var(--om-color-info-fg); font-weight: var(--om-font-weight-medium); }
 .omh-app-name { font-size: var(--om-font-size-sm); font-weight: var(--om-font-weight-semibold); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: var(--om-space-1); }
 .omh-app-state { font-size: var(--om-font-size-xs); color: var(--om-color-text-muted); }
@@ -287,7 +287,7 @@
 .omh-dock-app { position: relative; display: inline-flex; padding: var(--om-space-1); border-radius: var(--om-radius-md); text-decoration: none;
   transition: transform var(--om-motion-duration-fast) var(--om-motion-ease-standard); }
 .omh-dock-app:hover { transform: translateY(calc(var(--omh-lift) * 2)); }
-.omh-dock-dot { position: absolute; right: 1px; bottom: 1px; }
+.omh-dock-dot { position: absolute; right: 1px; bottom: 1px; border-radius: 50%; background: var(--om-color-surface); }
 .omh-dock-label { position: absolute; bottom: calc(100% + var(--om-space-2)); left: 50%; transform: translateX(-50%); padding: 2px var(--om-space-2); border-radius: var(--om-radius-sm); background: var(--om-color-surface-raised); color: var(--om-color-text); border: 1px solid var(--om-color-border); box-shadow: var(--om-shadow-2); font-size: var(--om-font-size-xs); white-space: nowrap; opacity: 0; pointer-events: none;
   transition: opacity var(--om-motion-duration-fast) var(--om-motion-ease-standard); }
 .omh-dock-app:hover .omh-dock-label, .omh-dock-app:focus-visible .omh-dock-label { opacity: 1; }

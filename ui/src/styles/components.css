@@ -81,7 +81,8 @@
   line-height: 1.6;
   white-space: nowrap;
 }
-.om-pill-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.om-pill-dot { display: inline-flex; flex: none; }
+.om-tone-glyph { display: block; }
 .om-pill-detail { font-weight: var(--om-font-weight-regular); }
 .om-pulse { animation: om-pulse 1.6s var(--om-motion-ease-standard) infinite; }
 @keyframes om-pulse { 50% { opacity: 0.3; } }
@@ -275,3 +276,14 @@
   .om-dialog-actions > .om-btn { width: 100%; }
 }
 @media (max-width: 720px) and (prefers-reduced-motion: reduce) { .om-dialog { animation: none; } }
+
+.om-lead { margin: 0; font-size: var(--om-font-size-lg); line-height: 1.4; color: var(--om-color-text); }
+
+/* A designed empty state: one 480px column, a 64px outlined icon, a headline, one line, one action. */
+.om-empty-fit { max-width: 480px; margin: var(--om-space-6) auto; }
+.om-empty-fit .om-empty { padding: var(--om-space-6) var(--om-space-4); gap: var(--om-space-3); }
+.om-empty-fit .om-empty-icon { padding: 0; background: none; color: var(--om-color-text-muted); }
+.om-empty-fit .om-empty-icon .om-icon { width: 64px; height: 64px; stroke-width: 1.25; }
+.om-empty-fit .om-empty-title { font-size: var(--om-font-size-2xl); letter-spacing: -0.02em; }
+.om-empty-fit .om-empty-body { max-width: 44ch; }
+.om-empty-fit .om-empty-body p + p { margin-top: var(--om-space-2); }

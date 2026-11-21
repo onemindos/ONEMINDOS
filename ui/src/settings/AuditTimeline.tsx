@@ -19,6 +19,9 @@ const FILTERS: Array<[ActorFilter, string]> = [
 const ACTOR_TONE: Record<AuditEntry['actor']['kind'], Tone> = { person: 'neutral', agent: 'agent', system: 'info', device: 'info' };
 const KIND_ICON = { request: 'plus', decision: 'approvals', result: 'check', 'sign-in': 'key', config: 'settings', checkpoint: 'hash' } as const;
 
+/** A result pill always says something; the dashboard supplies a specific label when it has one. */
+const RESULT_LABEL = { ok: 'Done', bad: 'Failed', warn: 'Needs attention', info: 'Recorded', neutral: 'Recorded', agent: 'Recorded' } as const;
+
 export interface AuditTimelineProps {
   data: Loadable<ActivityData>;
   now: number;
@@ -121,7 +124,7 @@ export function AuditTimeline({ data, now, onVerify, onRetry, chainNote, calls, 
                               )}
                             </p>
                           </div>
-                          {e.result && <StatusPill tone={e.result} label={e.resultLabel ?? ''} />}
+                          {e.result && <StatusPill tone={e.result} label={e.resultLabel ?? RESULT_LABEL[e.result]} />}
                         </li>
                       ))}
                     </ol>

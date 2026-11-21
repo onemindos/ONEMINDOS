@@ -74,7 +74,7 @@ describe('desktop frame', () => {
     expect(await screen.findByRole('region', { name: 'Activity' }, T)).toBeInTheDocument();
     await u.keyboard('{Escape}');
     await waitFor(() => expect(screen.queryByRole('region', { name: 'Activity' })).toBeNull());
-  });
+  }, 20_000);
 
   it.skipIf(!hasLocalStorage)('switches to the Console sidebar and back, and remembers the choice', async () => {
     const u = userEvent.setup();

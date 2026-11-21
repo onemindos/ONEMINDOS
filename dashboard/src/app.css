@@ -10,8 +10,18 @@
 .dash-tabs a:focus-visible { outline: 2px solid var(--om-color-focus); outline-offset: 2px; }
 .dash-grid { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--om-space-4); grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); }
 
-.dash-signin { min-height: 100vh; display: grid; place-items: center; padding: var(--om-space-4); background: var(--om-color-bg); color: var(--om-color-text); }
-.dash-signin-card { width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: var(--om-space-3); padding: var(--om-space-6); border-radius: var(--om-radius-xl); background: var(--om-color-surface-raised); border: 1px solid var(--om-color-border); box-shadow: var(--om-shadow-2); }
+.dash-signin { position: relative; min-height: 100vh; display: grid; place-items: center; padding: var(--om-space-6) var(--om-space-4); background: var(--om-color-bg); color: var(--om-color-text); isolation: isolate; }
+.dash-signin-wall { position: absolute; inset: 0; z-index: -1; overflow: hidden; }
+.dash-signin-wall .om-cz-wp { position: absolute; inset: 0; }
+.dash-signin-stack { width: 100%; max-width: 420px; display: flex; flex-direction: column; align-items: center; gap: var(--om-space-4); }
+.dash-signin-id { display: inline-flex; align-items: center; gap: var(--om-space-3); margin: 0; font-size: var(--om-font-size-xl); font-weight: var(--om-font-weight-semibold); letter-spacing: -0.02em; }
+.dash-signin-demo { display: flex; align-items: flex-start; gap: var(--om-space-3); margin: 0; padding: var(--om-space-2) var(--om-space-3); border-radius: var(--om-radius-sm); background: var(--om-color-surface-sunken); font-size: var(--om-font-size-xs); color: var(--om-color-text-muted); }
+.dash-signin-demo .om-link { flex: none; font-size: inherit; }
+.dash-signin-fine { margin: 0; font-size: var(--om-font-size-xs); }
+.dash-signin-links-row { flex-direction: row !important; flex-wrap: wrap; gap: var(--om-space-4) !important; }
+.dash-signin-card { width: 100%; display: flex; flex-direction: column; gap: var(--om-space-3); padding: var(--om-space-6); border-radius: var(--om-radius-lg); background: color-mix(in srgb, var(--om-color-surface-raised) 88%, transparent); backdrop-filter: blur(24px) saturate(1.2); -webkit-backdrop-filter: blur(24px) saturate(1.2); border: 1px solid var(--om-color-border-strong); box-shadow: var(--om-shadow-3); }
+.dash-signin-card h1 { font-size: var(--om-font-size-2xl); letter-spacing: -0.02em; margin: 0; }
+.dash-signin-links .om-link { text-align: left; text-decoration: underline; text-underline-offset: 3px; }
 .dash-signin-mark { width: 40px; height: 40px; }
 .dash-signin-form { display: flex; flex-direction: column; gap: var(--om-space-2); }
 .dash-signin-form label { font-weight: var(--om-font-weight-semibold); }
@@ -35,3 +45,5 @@
 @media (max-width: 720px) {
   .dash-hide-compact { display: none; }
 }
+
+.dash-signin-links { flex-direction: row !important; flex-wrap: wrap; gap: var(--om-space-2) var(--om-space-5) !important; }

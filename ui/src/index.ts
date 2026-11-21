@@ -30,6 +30,7 @@ export { Meter } from './components/Meter';
 export type { MeterProps } from './components/Meter';
 export { NodeCard } from './components/NodeCard';
 export type { NodeSummary } from './components/NodeCard';
+export { ToneGlyph } from './components/ToneGlyph';
 export { StatusPill, FreshnessPill } from './components/StatusPill';
 export type { StatusPillProps } from './components/StatusPill';
 export { Table } from './components/Table';

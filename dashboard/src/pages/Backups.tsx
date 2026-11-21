@@ -3,7 +3,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { OneMind, OneMindError, uuid4, type components } from '@onemind/sdk';
-import { Button, Card, Dialog, PageHeader, StatusPill } from '@onemind/ui';
+import { Button, Card, Dialog, EmptyState, PageHeader, StatusPill } from '@onemind/ui';
 import { ApiError } from '../api/types';
 import { usePoll } from '../lib/hooks';
 import { useSignedIn } from '../session';
@@ -40,7 +40,18 @@ async function read(sdk: OneMind, path: string) {
 
 export function Backups() {
   const { token, person, mock } = useSignedIn();
-  if (mock) return <><PageHeader title="Backups" /><p role="status">Connect to a real hub to view backups. Demo mode has no backup data.</p></>;
+  if (mock)
+    return (
+      <>
+        <PageHeader title="Backups" />
+        <div className="om-empty-fit">
+          <EmptyState icon="backups" title="No backup proved yet" action={<Button disabled aria-describedby="backups-demo-note">Set up backups</Button>}>
+            <p>A proven backup is one we restored in a test with restic and checked against its signature. Until one passes, nothing here says your data is safe.</p>
+            <p id="backups-demo-note" role="status">Connect to a real hub to view backups. Demo mode has no backup data.</p>
+          </EmptyState>
+        </div>
+      </>
+    );
   return <LiveBackups key={person} token={token} person={person} />;
 }
 function LiveBackups({ token, person }: { token: string; person: string }) {

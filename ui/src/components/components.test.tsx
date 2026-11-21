@@ -305,3 +305,18 @@ describe('AppShell', () => {
     expect(more).toHaveAttribute('aria-expanded', 'true');
   });
 });
+
+describe('StatusPill never says nothing', () => {
+  it('renders nothing for an empty label without an aria-label', () => {
+    const { container } = render(<StatusPill tone="info" label="" />);
+    expect(container.querySelector('.om-pill')).toBeNull();
+  });
+  it('a dot-only pill carries its aria-label', () => {
+    render(<StatusPill tone="ok" label="" ariaLabel="Recorded" />);
+    expect(screen.getByRole('img', { name: 'Recorded' })).toBeTruthy();
+  });
+  it('gives every tone its own shape (not colour alone)', () => {
+    const shapes = (['ok', 'warn', 'bad', 'info', 'neutral', 'agent'] as const).map((tone) => render(<StatusPill tone={tone} label={tone} />).container.querySelector('svg')?.innerHTML);
+    expect(new Set(shapes).size).toBe(6);
+  });
+});

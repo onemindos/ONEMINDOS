@@ -101,7 +101,7 @@ export function Market() {
 
   return (
     <>
-      <PageHeader title="Market" lede="Every app is checked for licence, vulnerabilities and malware before it is offered. Installing is a request: the owner approves it first." />
+      <PageHeader title="Market" lede="Scanned before it is offered. Installing is a request the owner approves." />
       <StoreTabs current="discover" />
       {blockedForYou && <p className="om-note om-tone-info">{blockedForYou}</p>}
       <StoreMarket

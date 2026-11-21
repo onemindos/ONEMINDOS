@@ -132,6 +132,11 @@ export function ApprovalCard({ action, now, canDecide, onApprove, onDeny, busy, 
         ) : undefined
       }
     >
+      {who && pending && !expired && (
+        <p className="om-lead">
+          {who.id} wants to {title.charAt(0).toLowerCase() + title.slice(1)}. Nothing happens until you approve.
+        </p>
+      )}
       <p className="om-requester">
         {who ? (
           <>
@@ -153,7 +158,7 @@ export function ApprovalCard({ action, now, canDecide, onApprove, onDeny, busy, 
         <p className="om-note om-tone-bad">{action.message ? `What the hub reported: ${action.message}` : 'The hub gave no reason.'}</p>
       )}
       <details className="om-details">
-        <summary>Exact request and API equivalent</summary>
+        <summary>Technical details</summary>
         <pre className="om-code">{JSON.stringify({ type: action.type, params: action.params }, null, 2)}</pre>
         <pre className="om-code">{equivalentCall(action)}</pre>
       </details>

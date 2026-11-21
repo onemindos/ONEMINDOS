@@ -3,11 +3,12 @@
 // Widgets whose API is not on this hub yet (backups, updates, mesh) say which work stream brings
 // them instead of showing made-up numbers.
 import { useMemo, useState } from 'react';
-import { HomeScreen, useOptionalCustomize, useToast, type ActionSummary, type HomeData, type HomeLayout, type HomeLoadable } from '@onemind/ui';
+import { OneMind } from '@onemind/sdk';
+import { HomeScreen, useOptionalCustomize, useToast, type ActionSummary, type BackupStatus, type HomeData, type HomeLayout, type HomeLoadable } from '@onemind/ui';
 import { homeActivity, toActionSummary, toHomeApp, toHomeNode } from '../data/adapters';
 import { errorText, useHub, type Hub } from '../data/hub';
 import { homeLayoutStore } from '../data/prefs';
-import type { Polled } from '../lib/hooks';
+import { usePoll, type Polled } from '../lib/hooks';
 import { useSignedIn } from '../session';
 import { href } from '../shell/routes';
 import { showsNav } from '../shell/roles';
@@ -20,6 +21,7 @@ export const DASHBOARD_HOME_LAYOUT: HomeLayout = {
     { id: 'w-approvals', kind: 'approvals', size: 'M' },
     { id: 'w-system', kind: 'system', size: 'M' },
     { id: 'w-activity', kind: 'activity', size: 'M' },
+    { id: 'w-backups', kind: 'backups', size: 'M' },
   ],
   pinned: [],
 };
@@ -32,14 +34,21 @@ function loadable<T, U>(p: Polled<T>, map: (d: T) => U): HomeLoadable<U> {
   return { state: 'loading' };
 }
 
-export function homeData(hub: Hub, activity: ReturnType<typeof homeActivity>): HomeData {
+/** GET /v1/backups/status → the Home widget's shape. Anything that is not a string is "never". */
+export function toBackupStatus(v: unknown, observedAt: string): BackupStatus {
+  const o = v && typeof v === 'object' ? (v as Record<string, unknown>) : {};
+  const iso = (x: unknown) => (typeof x === 'string' && x ? x : null);
+  return { last_run: iso(o.last_success_at), last_verified_restore: iso(o.last_verified_restore_at), destinations: [], observed_at: observedAt };
+}
+
+export function homeData(hub: Hub, activity: ReturnType<typeof homeActivity>, backups: HomeLoadable<BackupStatus> = coming('Backups', 'CORE-BACKUP')): HomeData {
   return {
     hub: { observed_at: hub.asOf ?? new Date(0).toISOString() },
     nodes: loadable(hub.nodes, (ns) => ns.map((n) => toHomeNode(n, hub.nodeStatus(n)))),
     apps: loadable(hub.apps, (as) => as.map((a) => toHomeApp(a))),
     approvals: hub.actions.data !== undefined ? { state: 'ready', data: hub.actionList.map(toActionSummary) } : loadable(hub.actions, () => [] as ActionSummary[]),
     activity: hub.actions.data !== undefined ? { state: 'ready', data: activity } : loadable(hub.actions, () => activity),
-    backups: coming('Backups', 'CORE-BACKUP'),
+    backups,
     updates: coming('OS and app updates', 'CORE-UPDATE'),
     mesh: coming('Mesh links', 'CORE-FABRIC'),
     appWidgets: {},
@@ -49,14 +58,25 @@ export function homeData(hub: Hub, activity: ReturnType<typeof homeActivity>): H
 
 export function Home() {
   const hub = useHub();
-  const { principal, person } = useSignedIn();
+  const { principal, person, token, mock } = useSignedIn();
   const shell = useShell();
   const toast = useToast();
   const customize = useOptionalCustomize();
   const store = useMemo(() => homeLayoutStore(), []);
   const [layout, setLayout] = useState<HomeLayout>(() => store.load(person) ?? DASHBOARD_HOME_LAYOUT);
   const entries = useActivity();
-  const data = homeData(hub, homeActivity(entries));
+  // The demo hub has no backup data (the Backups screen says so): the widget shows its honest empty state.
+  const sdk = useMemo(() => new OneMind({ baseUrl: window.location.origin, token, retries: 1 }), [token]);
+  const backupPoll = usePoll(async () => (mock ? null : await sdk.call<unknown>({ method: 'GET', path: '/v1/backups/status' })), 60_000);
+  const observed = hub.asOf ?? new Date(0).toISOString();
+  const backups: HomeLoadable<BackupStatus> = mock
+    ? { state: 'ready', data: { last_run: null, last_verified_restore: null, destinations: [], observed_at: observed } }
+    : backupPoll.data !== undefined
+      ? { state: 'ready', data: toBackupStatus(backupPoll.data, observed) }
+      : backupPoll.error
+        ? coming('Backups', 'CORE-BACKUP')
+        : { state: 'loading' };
+  const data = homeData(hub, homeActivity(entries), backups);
   const pro = showsNav('nodes', shell.view);
 
   const decide = (a: ActionSummary, how: 'approve' | 'deny') =>

@@ -31,6 +31,8 @@ export interface DesktopShellProps {
   status?: ReactNode;
   /** The notification bell. */
   bell?: ReactNode;
+  /** The jobs chip: lives in the menu bar so nothing floats over the windows. */
+  jobs?: ReactNode;
   nav: NavItem[];
   /** Nav id of the current route ('home' = the desktop). */
   current: string;
@@ -51,6 +53,10 @@ export interface DesktopShellProps {
 
 /** Screens that stay in the dock; everything else is one click away in Launchpad. */
 export const DOCK_IDS = ['home', 'market', 'installed', 'approvals', 'activity', 'settings'] as const;
+/** On a phone the dock has five places: these four and Launchpad. Installed and Settings are one tap away there. */
+const PHONE_DOCK_IDS: readonly string[] = ['home', 'market', 'approvals', 'activity'];
+/** Launchpad's tiles: the primary screens. Every other screen is listed under "More screens". */
+export const PRIMARY_IDS = [...DOCK_IDS, 'nodes', 'backups'] as const;
 
 /** One colour per screen, so a place is recognised before its name is read. White glyph on each. */
 export const SCREEN_HUES: Record<string, readonly [string, string]> = {
@@ -242,7 +248,10 @@ function Launchpad({ nav, apps, onClose }: { nav: NavItem[]; apps: DockApp[]; on
     };
   }, []);
   const needle = q.trim().toLowerCase();
-  const screens = nav.filter((n) => !needle || n.label.toLowerCase().includes(needle));
+  // "Coming soon" is not a screen: it never gets a tile.
+  const matching = nav.filter((n) => n.id !== 'coming' && (!needle || n.label.toLowerCase().includes(needle)));
+  const screens = needle ? matching.filter((n) => (PRIMARY_IDS as readonly string[]).includes(n.id)) : matching.filter((n) => (PRIMARY_IDS as readonly string[]).includes(n.id));
+  const others = matching.filter((n) => !(PRIMARY_IDS as readonly string[]).includes(n.id));
   const shownApps = apps.filter((a) => !needle || a.name.toLowerCase().includes(needle));
   return (
     <div className="dsk-launchpad" role="dialog" aria-modal="true" aria-labelledby={title} ref={ref} onClick={(e) => e.target === e.currentTarget && onClose()}>
@@ -268,6 +277,20 @@ function Launchpad({ nav, apps, onClose }: { nav: NavItem[]; apps: DockApp[]; on
               </li>
             ))}
           </ul>
+          {others.length > 0 && (
+            <details className="dsk-launchpad-more" open={!!needle}>
+              <summary>More screens</summary>
+              <ul>
+                {others.map((n) => (
+                  <li key={n.id}>
+                    <a href={n.href} onClick={onClose}>
+                      {n.label}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
         </section>
         {shownApps.length > 0 && (
           <section aria-label="Your apps">
@@ -284,14 +307,14 @@ function Launchpad({ nav, apps, onClose }: { nav: NavItem[]; apps: DockApp[]; on
             </ul>
           </section>
         )}
-        {screens.length === 0 && shownApps.length === 0 && <p className="dsk-launchpad-none">Nothing matches “{q}”. Try the search (Ctrl K) for settings and actions.</p>}
+        {screens.length === 0 && others.length === 0 && shownApps.length === 0 && <p className="dsk-launchpad-none">Nothing matches “{q}”. Try the search (Ctrl K) for settings and actions.</p>}
       </div>
     </div>
   );
 }
 
 export function DesktopShell(props: DesktopShellProps) {
-  const { boxName, status, bell, nav, current, pinned = [], apps = [], now, timeZone, person, demo, onSearch, onConsoleView, onSignOut, children } = props;
+  const { boxName, status, bell, jobs, nav, current, pinned = [], apps = [], now, timeZone, person, demo, onSearch, onConsoleView, onSignOut, children } = props;
   const navigate = useNavigate();
   const location = useLocation();
   const atHome = current === 'home';
@@ -332,10 +355,10 @@ export function DesktopShell(props: DesktopShellProps) {
 
   return (
     <div ref={rootRef} className={atHome ? 'dsk dsk-at-home' : 'dsk dsk-in-window'}>
-      <a href="#om-main" className="om-skip">
+      <a href="#om-main" className="om-skip" {...(launchpad ? { inert: true } : {})}>
         Skip to content
       </a>
-      <header ref={barRef} className="dsk-bar">
+      <header ref={barRef} className="dsk-bar" inert={launchpad || undefined}>
         <a href="/" className="dsk-brand" aria-label={`${boxName}: desktop`}>
           <BrandMark size={22} />
           <span className="dsk-box">{boxName}</span>
@@ -343,6 +366,7 @@ export function DesktopShell(props: DesktopShellProps) {
         <div className="dsk-status">{status}</div>
         <Clock now={now} timeZone={timeZone} />
         <div className="dsk-actions">
+          {jobs}
           <button type="button" className="dsk-iconbtn" onClick={onSearch} aria-label="Search (Ctrl K)" title="Search (Ctrl K)">
             <Icon name="search" size={18} />
           </button>
@@ -352,11 +376,11 @@ export function DesktopShell(props: DesktopShellProps) {
       </header>
 
       {atHome ? (
-        <main id="om-main" tabIndex={-1} className="dsk-desktop">
+        <main id="om-main" tabIndex={-1} className="dsk-desktop" inert={launchpad || undefined}>
           {children}
         </main>
       ) : (
-        <div className="dsk-stage">
+        <div className="dsk-stage" inert={launchpad || undefined}>
           <div className="dsk-scrim" aria-hidden="true" onClick={() => navigate('/')} />
           <section className="dsk-window" aria-labelledby={windowLabel} key={current}>
             <div className="dsk-window-bar">
@@ -382,10 +406,10 @@ export function DesktopShell(props: DesktopShellProps) {
         </div>
       )}
 
-      <nav className="dsk-dock" aria-label="Main">
+      <nav className="dsk-dock" aria-label="Main" inert={launchpad || undefined}>
         <ul className="dsk-dock-group">
           {dock.map((item) => (
-            <li key={item.id}>
+            <li key={item.id} className={PHONE_DOCK_IDS.includes(item.id) ? undefined : 'dsk-dock-optional'}>
               <a href={item.href} className="dsk-dock-item" aria-current={item.id === current ? 'page' : undefined}>
                 <ScreenTile id={item.id} icon={item.icon} />
                 <span className="dsk-dock-label">{item.label}</span>
@@ -399,7 +423,7 @@ export function DesktopShell(props: DesktopShellProps) {
             <span className="dsk-dock-sep" aria-hidden="true" />
             <ul className="dsk-dock-group" aria-label="Pinned apps">
               {pinned.map((a) => (
-                <li key={a.id}>
+                <li key={a.id} className="dsk-dock-app-li">
                   <a href={a.href} className="dsk-dock-item dsk-dock-app">
                     <AppIcon app={a} size={44} />
                     <span className="dsk-dock-label">{a.name}</span>

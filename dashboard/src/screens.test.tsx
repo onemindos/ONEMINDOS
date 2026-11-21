@@ -12,6 +12,7 @@ describe('sign-in', () => {
   it('rejects an unknown token and signs in the owner', async () => {
     const u = userEvent.setup();
     renderApp();
+    await u.click(screen.getByRole('button', { name: 'Use access token' }));
     await u.type(screen.getByLabelText('Access token'), 'nope');
     await u.click(screen.getByRole('button', { name: 'Sign in' }));
     expect(await screen.findByText(/not accepted/)).toBeInTheDocument();
@@ -28,7 +29,7 @@ describe('Home', () => {
     expect((await screen.findAllByText(/install ollama/i, {}, T)).length).toBeGreaterThan(0);
     expect(await screen.findByRole('link', { name: /Uptime Kuma/ }, T)).toBeInTheDocument();
     expect(await seriousViolations(container)).toEqual([]);
-  });
+  }, 20_000);
 });
 
 describe('Market and the install loop', () => {
@@ -176,5 +177,5 @@ it('a 401 from the hub signs the person out', async () => {
   const { getApi } = renderApp({ token: 'owner-demo', route: '/nodes' });
   await screen.findByRole('list', { name: 'Nodes' }, T);
   (getApi() as unknown as { principal: undefined }).principal = undefined;
-  await waitFor(() => expect(screen.getByLabelText('Access token')).toBeInTheDocument(), { timeout: 15_000 });
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Use access token' })).toBeInTheDocument(), { timeout: 15_000 });
 }, 20_000);

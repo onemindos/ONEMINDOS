@@ -16,7 +16,8 @@ export function ActionStatus({ action: a, label = 'Request progress' }: { action
 }
 
 /** Show ledger states and executor percentages, never guessed install/health stages. */
-export function ActionJobs() {
+/** `bar`: a compact chip inside the desktop menu bar (the panel drops down); `tray`: the floating pill of the console layout. */
+export function ActionJobs({ variant = 'tray' }: { variant?: 'tray' | 'bar' }) {
   const hub = useHub();
   const [open, setOpen] = useState(false);
   const panel = useId();
@@ -26,14 +27,18 @@ export function ActionJobs() {
   const active = jobs.filter(isActive);
   const lead = active.find((a) => a.state !== 'awaiting_approval') ?? active[0] ?? jobs[0]!;
   const state = lead.state.replace(/_/g, ' ');
-  return <aside aria-label="Jobs in progress" className={`om-store-tray${open ? ' om-store-tray-open' : ''}`}>
+  const compact = variant === 'bar';
+  const count = active.length ? `${active.length} ${active.length === 1 ? 'job' : 'jobs'}` : 'Jobs done';
+  return <aside aria-label="Jobs in progress" className={`om-store-tray${open ? ' om-store-tray-open' : ''}${compact ? ' om-store-tray-bar' : ''}`}>
     {open && <div id={panel} className="om-store-tray-panel"><ul>{jobs.map((a) => <li key={a.id}>
       <div className="om-store-tray-text"><a href={href.approval(a.id)}>{a.type}: {subjectOf(hub, a)}</a><ActionStatus action={a} /></div>
       {!isActive(a) && <button type="button" className="om-icon-btn" aria-label={`Dismiss ${subjectOf(hub, a)}`} onClick={() => setDismissed(new Set(dismissed).add(a.id))}><Icon name="x" size={16} /></button>}
     </li>)}</ul></div>}
     <button type="button" className="om-store-tray-pill" aria-expanded={open} aria-controls={panel} onClick={() => setOpen(!open)}>
       <span className={`om-store-tray-ring${isActive(lead) && lead.state !== 'awaiting_approval' ? ' om-store-tray-ring-on' : ''}`} aria-hidden="true" />
-      <span aria-live="polite">{active.length ? `${active.length} ${active.length === 1 ? 'job' : 'jobs'}` : 'Jobs done'} · {subjectOf(hub, lead)}: {state[0]!.toUpperCase() + state.slice(1)}{lead.progress && Number.isFinite(lead.progress.pct) ? ` ${lead.progress.pct}%` : ''}</span>
+      {compact
+        ? <span aria-live="polite">{count}<span className="om-visually-hidden"> · {subjectOf(hub, lead)}: {state[0]!.toUpperCase() + state.slice(1)}</span></span>
+        : <span aria-live="polite">{count} · {subjectOf(hub, lead)}: {state[0]!.toUpperCase() + state.slice(1)}{lead.progress && Number.isFinite(lead.progress.pct) ? ` ${lead.progress.pct}%` : ''}</span>}
       <Icon name="chevron" size={16} className={open ? 'om-store-rot' : undefined} />
     </button>
   </aside>;

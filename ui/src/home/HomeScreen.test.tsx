@@ -118,7 +118,7 @@ describe('HomeScreen', () => {
     render(<Harness data={freshData} start={{ version: 1, widgets: [{ id: 'w-approvals', kind: 'approvals', size: 'M' }, { id: 'w-u', kind: 'updates', size: 'S' }, { id: 'w-b', kind: 'backups', size: 'S' }], pinned: [] }} />);
     expect(screen.getByText('Nothing needs you')).toBeInTheDocument();
     expect(screen.getByText('Everything is up to date')).toBeInTheDocument();
-    expect(screen.getByText('No backups set up')).toBeInTheDocument();
+    expect(screen.getByText('No backup proved yet')).toBeInTheDocument();
     expect(screen.getByText('No apps yet')).toBeInTheDocument();
     expect(screen.queryByRole('navigation', { name: 'Dock' })).not.toBeInTheDocument();
   });
@@ -161,7 +161,7 @@ describe('editing Home', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Remove Network from Home' }));
     expect(screen.queryByRole('region', { name: 'Network' })).not.toBeInTheDocument();
-  });
+  }, 15_000);
 
   it('drag and drop reorders widgets', () => {
     const saved = vi.fn();

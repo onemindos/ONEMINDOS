@@ -157,7 +157,7 @@ export function ApprovalsBoard({ actions, plans, decided = [], now, canDecide, o
               {shown.length === 0 ? (
                 <Empty icon="check" title="Nothing from this kind of requester">Other requests are under All.</Empty>
               ) : (
-                <div className="om-set-board">
+                <div className={`om-set-board${shown.length === 1 ? ' om-set-board-single' : ''}`}>
                   <ul className="om-set-queue" aria-label="Waiting requests">
                     {shown.map((a) => {
                       const pl = plans[a.id];

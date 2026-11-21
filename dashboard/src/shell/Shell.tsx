@@ -170,7 +170,7 @@ export function Shell({ children }: { children: ReactNode }) {
     hub.freshness === 'unknown' ? (
       <FreshnessPill state="unknown" detail="connecting to the hub" />
     ) : (
-      <FreshnessPill state={hub.freshness} detail={hub.freshness === 'live' ? 'hub answering' : `hub last answered ${formatAgo(hub.ageS ?? 0)}`} />
+      <FreshnessPill state={hub.freshness} detail={hub.freshness === 'live' ? undefined : `hub last answered ${formatAgo(hub.ageS ?? 0)}`} />
     );
 
   const boxName = hub.instance.data?.name ?? brand.shortName;
@@ -231,6 +231,7 @@ export function Shell({ children }: { children: ReactNode }) {
             current={navId(location.pathname)}
             status={status}
             bell={bell}
+            jobs={<ActionJobs variant="bar" />}
             pinned={pinned}
             apps={installedApps}
             now={hub.now}
@@ -257,7 +258,7 @@ export function Shell({ children }: { children: ReactNode }) {
           state={hub.freshness === 'stale' || hub.freshness === 'offline' ? hub.freshness : hub.freshness === 'unknown' ? 'loading' : 'ready'}
           ageSeconds={hub.ageS}
         />
-        <ActionJobs />
+        {layout !== 'desktop' && <ActionJobs />}
         {reviewDialog}
       </div>
     </ShellCtx.Provider>

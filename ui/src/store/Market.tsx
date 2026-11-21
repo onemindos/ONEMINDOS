@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // The Market (TAXONOMY §4, IA §2.2, PU-02): search, category rail with sub-tags, filters,
 // Discover rails, and the results grid. Every install is a request that lands in Approvals (P1).
-import { useId, useMemo, useState, type ReactNode } from 'react';
+import { useId, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
+import { TILE_HUES, tileHue } from '../components/AppIcon';
 import { Button } from '../components/Button';
 import { EmptyState } from '../components/EmptyState';
 import { Icon } from '../components/Icon';
@@ -150,10 +151,8 @@ function RailRow({ apps, label, ...h }: MarketHandlers & { apps: CatalogApp[]; l
 function Featured({ app, headline, blurb, now, ...h }: MarketHandlers & { app: CatalogApp; headline: string; blurb: string; now: number; disabled?: string }) {
   const action = primaryAction(app, now);
   return (
-    <section className="om-store-hero" aria-labelledby="om-store-hero-title">
+    <section className="om-store-hero" aria-labelledby="om-store-hero-title" style={{ '--om-hero-tint': TILE_HUES[tileHue(app.id)]!.a } as CSSProperties}>
       <div className="om-store-hero-art" aria-hidden="true">
-        <span className="om-store-hero-orb" />
-        <span className="om-store-hero-orb om-store-hero-orb-2" />
         <AppTile app={app} size={96} />
       </div>
       <div className="om-store-hero-text">
@@ -319,7 +318,8 @@ export function Market({ apps, state, now, collections = [], featured, jobs = []
           <CategoryIcon name="grid" size={16} />
           All <span className="om-store-chip-n">{total}</span>
         </button>
-        {CATEGORIES.map((c) => (
+        {/* An empty shelf looks broken: categories with nothing in them stay out of the row. */}
+        {CATEGORIES.filter((c) => (counts[c.slug] ?? 0) > 0 || f.category === c.slug).map((c) => (
           <button
             key={c.slug}
             type="button"

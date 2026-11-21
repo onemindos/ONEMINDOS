@@ -22,9 +22,9 @@
 .om-set-nav-link { display: flex; align-items: center; gap: var(--om-space-3); min-height: var(--om-layout-touch-target); padding: 0 var(--om-space-3); border-radius: var(--om-radius-md); color: var(--om-color-text); text-decoration: none; font-size: var(--om-font-size-sm); font-weight: var(--om-font-weight-medium);
   transition: background-color var(--om-motion-duration-fast) var(--om-motion-ease-standard); }
 .om-set-nav-link:hover { background: var(--om-color-surface-sunken); color: var(--om-color-text); }
-.om-set-nav-link[aria-current] { background: var(--om-color-accent-soft); color: var(--om-color-accent); font-weight: var(--om-font-weight-semibold); }
+.om-set-nav-link[aria-current] { background: var(--om-color-accent-soft); color: var(--om-color-text); font-weight: var(--om-font-weight-semibold); box-shadow: inset 3px 0 0 var(--om-color-accent); }
 .om-set-nav-icon { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: var(--om-radius-sm); background: var(--om-color-surface); border: 1px solid var(--om-color-border); color: var(--om-color-text-muted); flex: none; }
-.om-set-nav-link[aria-current] .om-set-nav-icon { color: var(--om-color-accent); border-color: var(--om-color-accent); }
+.om-set-nav-link[aria-current] .om-set-nav-icon { color: var(--om-color-text); border-color: var(--om-color-text); }
 .om-set-nav-label { flex: 1; min-width: 0; }
 .om-set-nav-hint { flex: none; }
 .om-set-nav-chev { display: none; color: var(--om-color-text-subtle); }
@@ -105,7 +105,9 @@
 .om-set-chip { display: inline-flex; align-items: center; gap: var(--om-space-2); min-height: 36px; padding: 0 var(--om-space-3); border-radius: var(--om-radius-pill); border: 1px solid var(--om-color-border-strong); background: var(--om-color-surface); color: var(--om-color-text-muted); font: inherit; font-size: var(--om-font-size-sm); cursor: pointer;
   transition: background-color var(--om-motion-duration-fast) var(--om-motion-ease-standard); }
 .om-set-chip:hover { background: var(--om-color-surface-sunken); }
-.om-set-chip[aria-pressed='true'] { background: var(--om-color-accent-soft); color: var(--om-color-accent); border-color: var(--om-color-accent); font-weight: var(--om-font-weight-semibold); }
+.om-set-chip[aria-pressed='true'] { background: var(--om-color-accent); color: var(--om-color-accent-text); border-color: var(--om-color-accent); font-weight: var(--om-font-weight-semibold); }
+.om-set-chip[aria-pressed='true']:hover { background: var(--om-color-accent); }
+.om-set-chip { white-space: nowrap; }
 .om-set-chip-count { font-size: var(--om-font-size-xs); font-variant-numeric: tabular-nums; opacity: 0.85; }
 .om-set-filters { display: flex; flex-wrap: wrap; gap: var(--om-space-3); align-items: center; justify-content: space-between; }
 .om-set-calls { padding: 0 var(--om-space-1); }
@@ -262,4 +264,11 @@
   .om-set-queue > li { flex: none; }
   .om-set-decisions .om-set-row { flex-wrap: nowrap; align-items: flex-start; }
   .om-set-decisions .om-set-row-trail { width: auto; }
+}
+
+/* Direction A: one request waiting means no queue to pick from, on a phone. Approve and Deny stay pinned. */
+@media (max-width: 720px) {
+  .om-set-board-single .om-set-queue { display: none; }
+  .om-set-detail .om-decide { position: sticky; bottom: 0; z-index: 1; margin: 0 calc(-1 * var(--om-space-4)); padding: var(--om-space-3) var(--om-space-4); background: var(--om-color-surface); border-top: 1px solid var(--om-color-border); }
+  .om-set-detail .om-decide .om-btn { flex: 1; min-height: 44px; }
 }

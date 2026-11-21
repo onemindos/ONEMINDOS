@@ -4,6 +4,7 @@ import type { Tone } from '../tokens/tokens';
 import { cx } from '../lib/cx';
 import { freshness, NODE_LIMITS, type Freshness } from '../lib/freshness';
 import { AppIcon } from '../components/AppIcon';
+import { ToneGlyph } from '../components/ToneGlyph';
 import { secondsSince } from '../lib/time';
 import type { AppRunState, HomeApp, HomeNode } from './types';
 import type { CategoryInfo } from './taxonomy';
@@ -31,7 +32,12 @@ export function nodeFreshness(n: HomeNode, now: number): Freshness {
 }
 
 export function StatusDot({ tone, pulse, hollow, className }: { tone: Tone; pulse?: boolean; hollow?: boolean; className?: string }) {
-  return <span className={cx('omh-dot', `om-tone-${tone}`, pulse && 'om-pulse', hollow && 'omh-dot-hollow', className)} aria-hidden="true" />;
+  // The tone picks the shape (ToneGlyph); `hollow` marks a last-known value and dims the glyph.
+  return (
+    <span className={cx('omh-dot', `om-tone-${tone}`, pulse && 'om-pulse', hollow && 'omh-dot-hollow', className)} aria-hidden="true">
+      <ToneGlyph tone={tone} size={12} />
+    </span>
+  );
 }
 
 /** Home's app icon is the shared AppIcon (CRITIQUE #20), so an app looks the same here and in the Store. */

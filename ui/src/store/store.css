@@ -77,26 +77,17 @@
 
 /* ---------- hero ---------- */
 .om-store-hero {
-  position: relative; display: grid; grid-template-columns: minmax(180px, 2fr) 3fr; align-items: center; gap: var(--om-space-6);
-  padding: var(--om-space-8); border-radius: var(--om-radius-xl); overflow: hidden;
+  position: relative; display: grid; grid-template-columns: minmax(160px, 1.4fr) 3fr; align-items: center; gap: var(--om-space-6);
+  padding: var(--om-space-4) var(--om-space-6); border-radius: var(--om-radius-lg); overflow: hidden;
   border: 1px solid var(--om-color-border);
-  background:
-    radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--om-color-accent) 22%, transparent), transparent 60%),
-    radial-gradient(100% 120% at 100% 100%, color-mix(in srgb, var(--om-color-agent-fg) 16%, transparent), transparent 55%),
-    var(--om-color-surface);
-  box-shadow: var(--om-shadow-2);
+  background: var(--om-color-surface);
 }
-.om-store-hero-art { position: relative; display: grid; place-items: center; min-height: 180px; }
-.om-store-hero-art .om-app-icon { position: relative; z-index: 1; box-shadow: var(--om-shadow-3); transform: rotate(-6deg); }
-.om-store-hero-orb {
-  position: absolute; width: 180px; height: 180px; border-radius: 50%;
-  background: conic-gradient(from 200deg, color-mix(in srgb, var(--om-color-accent) 40%, transparent), color-mix(in srgb, var(--om-color-info-fg) 30%, transparent), transparent 70%);
-  filter: blur(2px); animation: om-store-drift 14s var(--om-motion-ease-standard) infinite alternate;
-}
-.om-store-hero-orb-2 { width: 110px; height: 110px; transform: translate(70px, 50px); animation-duration: 18s; opacity: 0.7; }
+/* A calm plate tinted from the app icon's own colour; the icon sits level, no tilt. */
+.om-store-hero-art { position: relative; display: grid; place-items: center; align-self: stretch; min-height: 104px; border-radius: var(--om-radius-md); background: color-mix(in srgb, var(--om-hero-tint, var(--om-color-text-muted)) 14%, var(--om-color-surface-sunken)); }
+.om-store-hero-art .om-app-icon { position: relative; z-index: 1; box-shadow: var(--om-shadow-2); }
 .om-store-hero-text { position: relative; display: flex; flex-direction: column; gap: var(--om-space-3); }
-.om-store-eyebrow { display: inline-flex; align-items: center; gap: var(--om-space-1); color: var(--om-color-accent); font-size: var(--om-font-size-xs); font-weight: var(--om-font-weight-semibold); text-transform: uppercase; letter-spacing: 0.06em; }
-.om-store-hero-title { font-size: var(--om-font-size-3xl); letter-spacing: -0.02em; }
+.om-store-eyebrow { display: inline-flex; align-items: center; gap: var(--om-space-1); color: var(--om-color-text-muted); font-size: var(--om-font-size-xs); font-weight: var(--om-font-weight-semibold); text-transform: uppercase; letter-spacing: 0.06em; }
+.om-store-hero-title { font-size: 2.5rem; line-height: 1.1; letter-spacing: -0.02em; font-weight: var(--om-font-weight-semibold); }
 .om-store-hero-blurb { color: var(--om-color-text-muted); max-width: 52ch; }
 
 /* ---------- rails and grid ---------- */
@@ -396,3 +387,8 @@ body:has(.om-dialog-backdrop) .om-store-tray { visibility: hidden; }
   .om-store-actionbar-more[data-open='true'] { display: flex; }
   .om-store-actionbar-more .om-btn { width: 100%; justify-content: flex-start; }
 }
+
+/* Direction A: a rail's subhead is one line, so a full row of cards stays above the fold. Trust stays in view beside the app page. */
+.om-store-rail-head .om-hint { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 70ch; }
+.om-store-detail-cols > .om-store-col:last-child { position: sticky; top: 0; }
+@media (max-width: 960px) { .om-store-detail-cols > .om-store-col:last-child { position: static; } }
