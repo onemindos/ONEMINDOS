@@ -30,6 +30,7 @@ describe('screen registry', () => {
       ['market', '/market', 'primary'],
       ['approvals', '/approvals', 'primary'],
       ['activity', '/activity', 'primary'],
+      ['files', '/files', 'Your box'],
       ['installed', '/installed', 'Your box'],
       ['nodes', '/nodes', 'Your box'],
       ['machines', '/machines', 'Your box'],
