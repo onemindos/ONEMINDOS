@@ -38,7 +38,8 @@
 .om-btn-ghost:hover:not(:disabled) { background: var(--om-color-accent-soft); }
 .om-btn-danger { background: var(--om-color-danger); color: var(--om-color-danger-text); }
 .om-btn-danger:hover:not(:disabled) { background: var(--om-color-danger-hover); }
-.om-btn:disabled { cursor: not-allowed; opacity: 0.55; }
+.om-btn:disabled { cursor: not-allowed; opacity: 1; background: var(--om-color-surface-sunken); color: var(--om-color-text-muted); border-color: var(--om-color-border); box-shadow: none; filter: none; }
+.om-btn-ghost:disabled { background: transparent; border-color: transparent; }
 .om-btn[aria-busy='true'] { opacity: 0.8; cursor: progress; }
 .om-spinner {
   width: 16px;

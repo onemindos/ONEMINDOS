@@ -13,8 +13,8 @@ const screen: ScreenDef = {
   load: () => import('../../pages/Market').then((m) => ({ default: m.Market })),
   extra: [
     { path: '/market/:appId' },
-    { path: '/sources', load: () => import('../../pages/AppSources').then((m) => ({ default: m.Sources })) },
-    { path: '/compose', load: () => import('../../pages/AppSources').then((m) => ({ default: m.ComposeImport })) },
+    { path: '/sources', load: () => import('../../pages/AppSources').then((m) => ({ default: m.Sources })), owner: 'Community sources' },
+    { path: '/compose', load: () => import('../../pages/AppSources').then((m) => ({ default: m.ComposeImport })), owner: 'Import Compose' },
   ],
 };
 export default screen;

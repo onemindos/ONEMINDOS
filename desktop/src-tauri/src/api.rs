@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 //! Gateway client: the routes in sdk/contracts/poc-v0.md §3, plus the §12 reads the tray uses
-//! (`/v1/me`, `/v1/notifications`, `/v1/os/status`, `/v1/backups/status`). A §12 route exists
+//! (`/v1/me`, `/v1/notifications`, `/v1/os/updates`, `/v1/backups/status`). A §12 route exists
 //! only once its module ships (§12 "Compatibility"), so a 404 on one is shown as "not reported
 //! by this box", never as an error and never as "all good".
 
@@ -278,14 +278,26 @@ pub fn parse_pending(actions: &Value) -> Vec<Pending> {
         .collect()
 }
 
-/// §12.13 `GET /v1/os/status`: one entry per node, the heartbeat `update` object plus
-/// `available: {version, security} | null`. Older drafts nested it under `update`.
+/// What the gateway serves for OS updates: `GET /v1/os/updates` answers `{nodes: [...], install}`.
+/// (`/v1/os/status`, an older draft's name, is not a gateway route and answered 404.)
+pub const UPDATES_PATH: &str = "/v1/os/updates";
+
+/// The gateway's `GET /v1/os/updates`: one entry per node with `reported` (does it run an update
+/// service) and `available_version` (the update on offer, or null). It does not say whether an
+/// update is a security one, so `security` stays false there. Older drafts' shapes are still read:
+/// the heartbeat `update` object, and `available: {version, security} | null`.
 pub fn parse_updates(v: &Value) -> Updates {
-    let nodes = items(v);
+    let mut nodes = items(v);
+    // Nodes that run no update service say nothing about updates; do not count them as reporting.
+    nodes.retain(|n| n.get("reported").and_then(|r| r.as_bool()) != Some(false));
     let mut available = 0;
     let mut security = false;
     for n in &nodes {
         let u = n.get("update").unwrap_or(n);
+        if s(n, "available_version").is_some() {
+            available += 1;
+            continue;
+        }
         if let Some(a) = u.get("available").filter(|a| !a.is_null()) {
             available += 1;
             security |= a.get("security").and_then(|x| x.as_bool()).unwrap_or(false);
@@ -393,7 +405,7 @@ pub async fn status(c: &reqwest::Client, box_id: &str, base: &str, token: &str) 
         get(c, base, t, "/v1/instance"),
         get(c, base, t, "/v1/nodes"),
         get(c, base, t, PENDING_PATH),
-        get(c, base, t, "/v1/os/status"),
+        get(c, base, t, UPDATES_PATH),
         get(c, base, t, "/v1/backups/status"),
         get(c, base, t, "/v1/me"),
         get(c, base, t, INBOX_UNREAD_PATH),
@@ -496,6 +508,20 @@ mod tests {
         // §12.13 shape: `available` next to the heartbeat fields.
         let v = json!([{"node_id": "n1", "state": "idle", "available": {"version": "0.3.0", "security": false}}]);
         assert_eq!(parse_updates(&v).available, 1);
+    }
+
+    #[test]
+    fn updates_read_the_gateway_route() {
+        // GET /v1/os/updates, as core/onemind_core/osupdate.py node_view builds it.
+        assert_eq!(UPDATES_PATH, "/v1/os/updates");
+        let v = json!({"nodes": [
+            {"node_id": "hub", "reported": true, "available_version": "0.4.0", "current_version": "0.3.0"},
+            {"node_id": "pi", "reported": true, "available_version": null, "current_version": "0.4.0"},
+            {"node_id": "old", "reported": false, "available_version": null}
+        ], "install": {"available": false}});
+        let u = parse_updates(&v);
+        // The node without an update service is not "reporting"; one update is on offer; security is not said.
+        assert_eq!((u.nodes_reporting, u.available, u.security), (2, 1, false));
     }
 
     #[test]

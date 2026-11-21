@@ -4,6 +4,7 @@
 // when it is not (P2). A broken widget shows a fallback and never blocks Home.
 import { useId, type ReactNode } from 'react';
 import { cx } from '../lib/cx';
+import { Button } from '../components/Button';
 import { Icon, type IconName } from '../components/Icon';
 import { StatusPill } from '../components/StatusPill';
 import type { WidgetSize } from './layout';
@@ -12,7 +13,7 @@ export type WidgetBodyState =
   | { kind: 'ready' }
   | { kind: 'loading' }
   | { kind: 'error'; error: string; message: string }
-  | { kind: 'empty'; title: string; body?: string };
+  | { kind: 'empty'; title: string; body?: string; /** The one thing to do about it. */ action?: { label: string; href: string } };
 
 export interface WidgetFrameProps {
   title: string;
@@ -25,16 +26,18 @@ export interface WidgetFrameProps {
   hrefLabel?: string;
   state?: WidgetBodyState;
   /** Last report, not live: the frame is dashed; `detail` says from when (empty when a page banner says it). */
-  stale?: { label: string; detail: string } | null;
+  stale?: { label: string; detail: string; /** How old the value is ("3 min ago"), shown next to the label. */ age?: string } | null;
   /** Data source for the headless equivalent (P4), shown in edit mode. */
   source?: string;
   showSource?: boolean;
   /** Right of the title, e.g. a count pill. */
   aside?: ReactNode;
+  /** Offered next to an error: asks the host to load the data again. */
+  onRetry?: () => void;
   children?: ReactNode;
 }
 
-export function WidgetFrame({ title, icon, glyph, size, href, hrefLabel = 'Open', state = { kind: 'ready' }, stale, source, showSource, aside, children }: WidgetFrameProps) {
+export function WidgetFrame({ title, icon, glyph, size, href, hrefLabel = 'Open', state = { kind: 'ready' }, stale, source, showSource, aside, onRetry, children }: WidgetFrameProps) {
   const id = useId();
   return (
     <section className={cx('omh-widget', `omh-size-${size}`, stale && 'omh-widget-stale')} aria-labelledby={id} aria-busy={state.kind === 'loading' || undefined}>
@@ -45,7 +48,7 @@ export function WidgetFrame({ title, icon, glyph, size, href, hrefLabel = 'Open'
         </h3>
         {(stale || aside) && (
           <span className="omh-widget-meta">
-            {stale && <StatusPill tone="warn" label={stale.label} />}
+            {stale && <StatusPill tone="warn" label={stale.label} detail={stale.age} />}
             {aside}
           </span>
         )}
@@ -72,12 +75,22 @@ export function WidgetFrame({ title, icon, glyph, size, href, hrefLabel = 'Open'
             <StatusPill tone="bad" label="Could not load" />
             <p>{state.message}</p>
             <code className="omh-code">{state.error}</code>
+            {onRetry && (
+              <Button size="sm" variant="secondary" icon="updates" onClick={onRetry}>
+                Retry<span className="om-visually-hidden"> loading {title}</span>
+              </Button>
+            )}
           </div>
         )}
         {state.kind === 'empty' && (
           <div className="omh-widget-empty">
             <p className="omh-empty-title">{state.title}</p>
             {state.body && <p className="om-hint">{state.body}</p>}
+            {state.action && (
+              <a className="omh-empty-action" href={state.action.href}>
+                {state.action.label}
+              </a>
+            )}
           </div>
         )}
         {state.kind === 'ready' && children}

@@ -60,7 +60,8 @@ describe('lifecycle through the HTTP client', () => {
   it('keeps the compact jobs island and expands to actual ledger state', async () => {
     const { user } = setup();
     const tray = await screen.findByRole('complementary', { name: 'Jobs in progress' });
-    const toggle = within(tray).getByRole('button', { name: '1 job · Ollama: Awaiting approval' });
+    const toggle = within(tray).getByRole('button', { name: '1 job waiting: Ollama, awaiting approval' });
+    expect(toggle).toHaveTextContent(/^1 job waiting$/);
     expect(toggle).toHaveAttribute('aria-expanded', 'false');
     expect(toggle).toHaveClass('om-store-tray-pill');
     expect(within(tray).queryByRole('region', { name: 'Request progress' })).not.toBeInTheDocument();

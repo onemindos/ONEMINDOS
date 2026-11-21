@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 // Route table. Signed out: the sign-in screen. Signed in: per-person appearance (CustomizeProvider),
 // one shared hub poll (HubProvider), the shell, and the screens of docs/design/IA.md.
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Navigate, Route, Routes } from 'react-router';
 import { lazy, Suspense, type ComponentType, type LazyExoticComponent } from 'react';
 import { CustomizeProvider, StateView, ToastProvider, WallpaperLayer, clearPreferences } from '@onemind/ui';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { HubProvider, useHub } from './data/hub';
 import { preferenceStores } from './data/prefs';
-import { FirstRun, wizardPending } from './pages/FirstRun';
-import { ProOnly } from './shell/ProOnly';
+import { FirstRun, useWizardPending } from './pages/FirstRun';
+import { OwnerOnly, ProOnly } from './shell/ProOnly';
 import { SignIn } from './pages/SignIn';
 import { useSession, useSignedIn } from './session';
 import { Shell } from './shell/Shell';
@@ -28,13 +28,14 @@ function lazyOf(load: ScreenLoader) {
 function screenRoutes() {
   return SCREENS.flatMap((s) => {
     const rel = (path: string) => path.replace(/^\//, '');
-    const wrap = (load: ScreenLoader) => {
+    const wrap = (load: ScreenLoader, ownerOnly?: string) => {
       const Page = lazyOf(load);
+      if (ownerOnly) return <OwnerOnly title={ownerOnly}><Page /></OwnerOnly>;
       return s.pro ? <ProOnly title={s.title}><Page /></ProOnly> : <Page />;
     };
     return [
       s.path === '/' ? <Route key={s.id} index element={wrap(s.load)} /> : <Route key={s.id} path={rel(s.path)} element={wrap(s.load)} />,
-      ...(s.extra ?? []).map((e) => <Route key={`${s.id}${e.path}`} path={rel(e.path)} element={wrap(e.load ?? s.load)} />),
+      ...(s.extra ?? []).map((e) => <Route key={`${s.id}${e.path}`} path={rel(e.path)} element={wrap(e.load ?? s.load, e.owner)} />),
       ...(s.redirects ?? []).map((r) => <Route key={`${s.id}${r.from}`} path={rel(r.from)} element={<Navigate to={r.to} replace />} />),
     ];
   });
@@ -55,11 +56,13 @@ function Appearance({ children }: { children: React.ReactNode }) {
 }
 
 export function SignedInApp() {
-  const [wizard, setWizard] = useState(wizardPending);
+  const [wizard, setWizard] = useWizardPending();
   return (
     <HubProvider>
       <Appearance>
-        {wizard ? (
+        {wizard === undefined ? (
+          <p role="status">Checking first-run setup…</p>
+        ) : wizard ? (
           <FirstRun onDone={() => setWizard(false)} />
         ) : (
         <Shell>

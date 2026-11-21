@@ -3,7 +3,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { OneMind, OneMindError, uuid4, type components } from '@onemind/sdk';
-import { Button, Card, Dialog, PageHeader, StatusPill } from '@onemind/ui';
+import { Button, Card, Dialog, EmptyState, PageHeader, StatusPill } from '@onemind/ui';
 import { ApiError } from '../api/types';
 import { usePoll } from '../lib/hooks';
 import { useSignedIn } from '../session';
@@ -40,7 +40,8 @@ async function read(sdk: OneMind, path: string) {
 
 export function Backups() {
   const { token, person, mock } = useSignedIn();
-  if (mock) return <><PageHeader title="Backups" /><p role="status">Connect to a real hub to view backups. Demo mode has no backup data.</p></>;
+  // The same empty state as Home's Backups widget; "Set up backups" leads to the Backups settings page.
+  if (mock) return <><PageHeader title="Backups" lede="Backup health and destinations reported by your hub." /><EmptyState icon="backups" title="No backup proved yet" action={<Link className="om-btn om-btn-primary" to={href.setting('backups')}>Set up backups</Link>}>A backup counts once a restore test has passed. Demo mode has no backup data; connect a real hub to set one up.</EmptyState></>;
   return <LiveBackups key={person} token={token} person={person} />;
 }
 function LiveBackups({ token, person }: { token: string; person: string }) {

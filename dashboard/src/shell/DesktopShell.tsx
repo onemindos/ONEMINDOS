@@ -44,6 +44,8 @@ export interface DesktopShellProps {
   now: number;
   timeZone: string;
   person?: DesktopPerson;
+  /** The greeted first name, when known: its initial fills the avatar while the account is still loading. */
+  displayName?: string;
   demo?: boolean;
   onSearch: () => void;
   onConsoleView: () => void;
@@ -56,6 +58,9 @@ export const DOCK_IDS = DOCK_ORDER;
 
 /** One colour per screen (each screen's `hue`), so a place is recognised before its name is read. White glyph on each. */
 export const SCREEN_HUES = HUES;
+
+/** Short screens (a few facts and one action) open in a narrow window instead of a wide, mostly empty one. */
+export const COMPACT_WINDOWS: ReadonlySet<string> = new Set(['storage', 'backups']);
 const FALLBACK_HUE = ['#7d8794', '#3a414b'] as const;
 
 export function tileStyle(id: string): CSSProperties {
@@ -125,7 +130,12 @@ function Clock({ now, timeZone }: { now: number; timeZone: string }) {
   );
 }
 
-function PersonMenu({ person, demo, onConsoleView, onSignOut }: Pick<DesktopShellProps, 'person' | 'demo' | 'onConsoleView' | 'onSignOut'>) {
+/** The name's initial when a name is known, else the account id's, else "?". */
+export function avatarInitial(displayName?: string, id?: string): string {
+  return (Array.from((displayName ?? '').trim()[0] ? displayName!.trim() : (id ?? '').trim())[0] ?? '?').toUpperCase();
+}
+
+function PersonMenu({ person, displayName, demo, onConsoleView, onSignOut }: Pick<DesktopShellProps, 'person' | 'displayName' | 'demo' | 'onConsoleView' | 'onSignOut'>) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const menuId = useId();
@@ -144,7 +154,7 @@ function PersonMenu({ person, demo, onConsoleView, onSignOut }: Pick<DesktopShel
       document.removeEventListener('keydown', close);
     };
   }, [open]);
-  const initial = (person?.id ?? '?').slice(0, 1).toUpperCase();
+  const initial = avatarInitial(displayName, person?.id);
   return (
     <div className="dsk-person" ref={ref}>
       <button type="button" className="dsk-avatar" aria-expanded={open} aria-controls={menuId} onClick={() => setOpen((o) => !o)}>
@@ -241,28 +251,14 @@ function Launchpad({ nav, apps, onClose }: { nav: NavItem[]; apps: DockApp[]; on
           <span className="om-visually-hidden">Find a screen or app</span>
           <input ref={input} type="search" placeholder="Find a screen or app" value={q} onChange={(e) => setQ(e.target.value)} />
         </label>
-        <section aria-label="Screens">
-          <h3 className="dsk-launchpad-head">Screens</h3>
-          <ul className="dsk-launchpad-grid">
-            {screens.map((n) => (
-              <li key={n.id}>
-                <a href={n.href} className="dsk-launchpad-item" onClick={onClose}>
-                  <ScreenTile id={n.id} icon={n.icon} size={64} />
-                  <span className="dsk-launchpad-label">{n.label}</span>
-                  <Badge item={n} />
-                </a>
-              </li>
-            ))}
-          </ul>
-        </section>
         {shownApps.length > 0 && (
           <section aria-label="Your apps">
             <h3 className="dsk-launchpad-head">Your apps</h3>
-            <ul className="dsk-launchpad-grid">
+            <ul className="dsk-launchpad-grid dsk-launchpad-big">
               {shownApps.map((a) => (
                 <li key={a.id}>
                   <a href={a.href} className="dsk-launchpad-item" onClick={onClose}>
-                    <AppIcon app={a} size={64} />
+                    <AppIcon app={a} size={84} />
                     <span className="dsk-launchpad-label">{a.name}</span>
                   </a>
                 </li>
@@ -270,6 +266,20 @@ function Launchpad({ nav, apps, onClose }: { nav: NavItem[]; apps: DockApp[]; on
             </ul>
           </section>
         )}
+        <section aria-label="Screens">
+          <h3 className="dsk-launchpad-head">Screens</h3>
+          <ul className="dsk-launchpad-grid dsk-launchpad-small">
+            {screens.map((n) => (
+              <li key={n.id}>
+                <a href={n.href} className="dsk-launchpad-item" onClick={onClose}>
+                  <ScreenTile id={n.id} icon={n.icon} size={44} />
+                  <span className="dsk-launchpad-label">{n.label}</span>
+                  <Badge item={n} />
+                </a>
+              </li>
+            ))}
+          </ul>
+        </section>
         {screens.length === 0 && shownApps.length === 0 && <p className="dsk-launchpad-none">Nothing matches “{q}”. Try the search (Ctrl K) for settings and actions.</p>}
       </div>
     </div>
@@ -277,7 +287,7 @@ function Launchpad({ nav, apps, onClose }: { nav: NavItem[]; apps: DockApp[]; on
 }
 
 export function DesktopShell(props: DesktopShellProps) {
-  const { boxName, status, bell, nav, current, pinned = [], apps = [], now, timeZone, person, demo, onSearch, onConsoleView, onSignOut, children } = props;
+  const { boxName, status, bell, nav, current, pinned = [], apps = [], now, timeZone, person, displayName, demo, onSearch, onConsoleView, onSignOut, children } = props;
   const navigate = useNavigate();
   const location = useLocation();
   const atHome = current === 'home';
@@ -324,7 +334,17 @@ export function DesktopShell(props: DesktopShellProps) {
           <BrandMark size={22} />
           <span className="dsk-box">{boxName}</span>
         </a>
-        <div className="dsk-status">{status}</div>
+        <div className="dsk-status">
+          {status}
+          {demo && (
+            <span className="dsk-demo" title="This screen shows sample data, not a real box">
+              <span className="dsk-demo-short" aria-hidden="true">
+                Demo
+              </span>
+              <span className="dsk-demo-long">Demo data</span>
+            </span>
+          )}
+        </div>
         <Clock now={now} timeZone={timeZone} />
         <div className="dsk-actions">
           <button type="button" className="dsk-iconbtn" onClick={onSearch} aria-label="Search (Ctrl K)" title="Search (Ctrl K)">
@@ -336,7 +356,7 @@ export function DesktopShell(props: DesktopShellProps) {
             </a>
           )}
           {bell}
-          <PersonMenu person={person} demo={demo} onConsoleView={onConsoleView} onSignOut={onSignOut} />
+          <PersonMenu person={person} displayName={displayName} demo={demo} onConsoleView={onConsoleView} onSignOut={onSignOut} />
         </div>
       </header>
 
@@ -347,20 +367,21 @@ export function DesktopShell(props: DesktopShellProps) {
       ) : (
         <div className="dsk-stage">
           <div className="dsk-scrim" aria-hidden="true" onClick={() => navigate('/')} />
-          <section className="dsk-window" aria-labelledby={windowLabel} key={current}>
+          <section className="dsk-window" data-size={COMPACT_WINDOWS.has(current) ? 'compact' : undefined} aria-labelledby={windowLabel} key={current}>
+            {/* The screen's name is said once, by its own heading; the window only names itself for assistive tech. */}
+            <span id={windowLabel} className="om-visually-hidden">
+              {title}
+            </span>
             <div className="dsk-window-bar">
               {up ? (
                 <a href={up} className="dsk-wbtn" aria-label="Back" title="Back">
-                  <Icon name="chevron" size={16} className="dsk-flip" />
+                  <Icon name="chevron" size={18} className="dsk-flip" />
                 </a>
               ) : (
-                here && <ScreenTile id={here.id} icon={here.icon} size={26} />
+                <span />
               )}
-              <span id={windowLabel} className="dsk-window-title">
-                {title}
-              </span>
               <a href="/" className="dsk-wbtn dsk-close" aria-label={`Close ${title}`} title="Close (Esc)">
-                <Icon name="x" size={16} />
+                <Icon name="x" size={18} />
               </a>
             </div>
             {/* tabIndex 0: the window scrolls, so keyboard users must be able to reach it (axe scrollable-region-focusable). */}

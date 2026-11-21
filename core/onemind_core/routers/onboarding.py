@@ -84,6 +84,22 @@ class OnboardingSettingsView(BaseModel):
     saved: bool
 
 
+class OnboardingKit(BaseModel):
+    state: Literal["missing", "issued", "confirmed"]
+    confirmed_at: str | None
+    fingerprint: str | None
+    positions: list[int]
+
+
+class OnboardingStateView(BaseModel):
+    """What the first-run wizard needs to decide whether to open: no browser flag involved."""
+    complete: bool
+    settings_saved: bool
+    backups_enabled: bool
+    destinations: int
+    kit: OnboardingKit
+
+
 # Route order in the app and in /openapi.json (routers/__init__.py).
 ORDER = 210
 
@@ -99,6 +115,20 @@ def register(app: FastAPI, gw: Gateway) -> None:
             raise ApiError(403, "permission_denied", "first-run settings require the owner")
         # Identity credentials also pass the existing route-scope guard (unknown route needs *).
         return p
+
+    @app.get("/v1/onboarding/state", operation_id="onboarding.state", tags=["onboarding"],
+             response_model=OnboardingStateView, responses=error_responses(401, 403))
+    def state(response: Response, _: Principal = Depends(owner)):
+        """The wizard is complete once the first-run settings are saved and, when a backup destination exists,
+        the emergency kit is typed back (confirmed). Read-only; the recovery key is never part of this answer."""
+        response.headers["Cache-Control"] = "no-store"
+        backups = app.state.backups
+        saved = svc.read()["saved"]
+        kit = backups.kit_state()
+        dests = len(backups.destinations())
+        return {"complete": saved and (dests == 0 or kit["state"] == "confirmed"), "settings_saved": saved,
+                "backups_enabled": bool(backups.enabled), "destinations": dests,
+                "kit": {k: kit[k] for k in ("state", "confirmed_at", "fingerprint", "positions")}}
 
     @app.get("/v1/onboarding/settings", operation_id="onboarding.settings.get", tags=["onboarding"],
              response_model=OnboardingSettingsView, responses=error_responses(401, 403))

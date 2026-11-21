@@ -38,6 +38,71 @@ function Harness(props: Partial<HomeScreenProps> & { data?: HomeData; start?: Ho
 
 const widget = (name: RegExp | string) => screen.getByRole('region', { name });
 
+describe('HomeScreen widget states', () => {
+  it('offers Retry in an error state and asks the host to load again', async () => {
+    const onRetry = vi.fn();
+    render(<Harness data={errorData} onRetry={onRetry} />);
+    const retry = screen.getAllByRole('button', { name: /^Retry/ })[0]!;
+    await userEvent.click(retry);
+    expect(onRetry).toHaveBeenCalledTimes(1);
+  });
+
+  it('has no Retry button when the host gives no way to retry', () => {
+    render(<Harness data={errorData} />);
+    expect(screen.queryByRole('button', { name: /^Retry/ })).not.toBeInTheDocument();
+  });
+
+  it('says No backup proved yet, with one action: Set up backups', () => {
+    const data: HomeData = { ...homeData, backups: { state: 'ready', data: { last_run: null, last_verified_restore: null, destinations: [], observed_at: homeData.hub.observed_at } } };
+    render(<Harness data={data} start={{ ...demoLayout, widgets: [{ id: 'w-b', kind: 'backups', size: 'M' }] }} links={{ backups: '/backups' }} />);
+    const w = widget('Backups');
+    expect(within(w).getByText('No backup proved yet')).toBeInTheDocument();
+    expect(within(w).getByRole('link', { name: 'Set up backups' })).toHaveAttribute('href', '/backups');
+  });
+
+  it('shows the trust tile: nodes online, last proved backup, last signed update', () => {
+    const data: HomeData = {
+      ...homeData,
+      backups: { state: 'ready', data: { last_run: null, last_verified_restore: null, destinations: [], observed_at: homeData.hub.observed_at } },
+    };
+    render(<Harness data={data} start={{ ...demoLayout, widgets: [{ id: 'w-t', kind: 'trust', size: 'S' }] }} />);
+    const w = widget('Trust');
+    expect(within(w).getByText('Nodes online')).toBeInTheDocument();
+    expect(within(w).getByText('None yet')).toBeInTheDocument();
+    expect(within(w).getByText('Not reported')).toBeInTheDocument();
+  });
+
+  it('says No storage reported yet with one action, and shows used data when the hub reports it', () => {
+    const start = { ...demoLayout, widgets: [{ id: 'w-s', kind: 'storage' as const, size: 'S' as const }] };
+    const { unmount } = render(<Harness data={homeData} start={start} links={{ storage: '/storage' }} />);
+    expect(within(widget('Storage')).getByText('No storage reported yet')).toBeInTheDocument();
+    expect(within(widget('Storage')).getByRole('link', { name: 'Open storage' })).toHaveAttribute('href', '/storage');
+    unmount();
+    const data: HomeData = { ...homeData, storage: { state: 'ready', data: { state: 'healthy', encrypted: true, used_bytes: 42_000_000_000, disks: 2, observed_at: homeData.hub.observed_at } } };
+    render(<Harness data={data} start={start} />);
+    expect(within(widget('Storage')).getByText('42 GB')).toBeInTheDocument();
+    expect(within(widget('Storage')).getByText('Healthy')).toBeInTheDocument();
+  });
+
+  it('titles an app widget by its display name while the catalog is still loading', () => {
+    render(<Harness data={loadingData} start={{ ...demoLayout, widgets: [{ id: 'w-a', kind: 'app', size: 'S', appId: 'uptime-kuma', widgetId: 'monitors' }, { id: 'w-n', kind: 'app', size: 'S', appId: 'ntfy', widgetId: 'x' }] }} />);
+    expect(screen.getByRole('region', { name: 'Uptime Kuma' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'ntfy' })).toBeInTheDocument();
+    expect(screen.queryByText(/App widget \(/)).not.toBeInTheDocument();
+  });
+
+  it('shows the age of a last-known value in its stale pill', () => {
+    render(<Harness data={offlineData} />);
+    expect(screen.getAllByText('Last known').length).toBeGreaterThan(0);
+    expect(document.querySelector('.omh-widget-meta .om-pill-detail')?.textContent).toMatch(/ago/);
+  });
+
+  it('never shows "(proposed)" on a data source', async () => {
+    render(<Harness initialEditing />);
+    expect(document.body.textContent).not.toMatch(/\(proposed\)/);
+  });
+});
+
 describe('HomeScreen', () => {
   it('hides its own dock when the host frame shows pinned apps (showDock=false, D-016)', () => {
     const { unmount } = render(<Harness />);
@@ -50,7 +115,7 @@ describe('HomeScreen', () => {
   it('greets by name and time of day, and says what needs the person', async () => {
     const { container } = render(<Harness />);
     expect(screen.getByRole('heading', { level: 1, name: 'Good afternoon, Robin' })).toBeInTheDocument();
-    expect(screen.getByText('3 requests need your decision; 1 app is unhealthy; 1 stale and 1 offline nodes.')).toBeInTheDocument();
+    expect(screen.getByText('3 requests need your decision; 1 app is unhealthy; 1 stale and 1 offline node.')).toBeInTheDocument();
     expect(screen.getByLabelText('Weather')).toHaveTextContent('Light rain');
     await noAxeViolations(container);
   });
@@ -114,11 +179,23 @@ describe('HomeScreen', () => {
     expect(within(widget('Updates')).getByText('3 available')).toBeInTheDocument();
   });
 
+  it('first paint says it is connecting: no "not answering" banner and no last-known-state age from 1970', () => {
+    const { unmount } = render(<Harness data={{ ...loadingData, hub: { observed_at: new Date(0).toISOString() } }} />);
+    expect(screen.getByText('Connecting to the hub.')).toBeInTheDocument();
+    expect(screen.queryByText(/not answering|last known state/)).not.toBeInTheDocument();
+    unmount();
+    // Once something has answered, a silent hub is still reported as such.
+    render(<Harness data={{ ...errorData, hub: { observed_at: new Date(0).toISOString() } }} />);
+    expect(screen.getByText('The hub is not answering.', { selector: 'strong' })).toBeInTheDocument();
+    expect(screen.getByText(/Nothing has loaded yet/)).toBeInTheDocument();
+    expect(screen.queryByText(/last known state from/)).not.toBeInTheDocument();
+  });
+
   it('a fresh box shows calm empty states and how to get apps', () => {
     render(<Harness data={freshData} start={{ version: 1, widgets: [{ id: 'w-approvals', kind: 'approvals', size: 'M' }, { id: 'w-u', kind: 'updates', size: 'S' }, { id: 'w-b', kind: 'backups', size: 'S' }], pinned: [] }} />);
     expect(screen.getByText('Nothing needs you')).toBeInTheDocument();
     expect(screen.getByText('Everything is up to date')).toBeInTheDocument();
-    expect(screen.getByText('No backups set up')).toBeInTheDocument();
+    expect(screen.getByText('No backup proved yet')).toBeInTheDocument();
     expect(screen.getByText('No apps yet')).toBeInTheDocument();
     expect(screen.queryByRole('navigation', { name: 'Dock' })).not.toBeInTheDocument();
   });

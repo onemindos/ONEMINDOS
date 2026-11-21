@@ -15,7 +15,7 @@ export function Approvals() {
   const hub = useHub();
   const toast = useToast();
   const [params] = useSearchParams();
-  const all = hub.actionList.map(toActionSummary);
+  const all = hub.actionList.map((a) => toActionSummary(a, hub.appName));
   const waiting = all.filter((a) => a.state === 'awaiting_approval');
   const decided = all.filter((a) => a.state !== 'awaiting_approval' && a.state !== 'requested').slice(0, 10);
   const stale = hub.freshness === 'stale' || hub.freshness === 'offline';

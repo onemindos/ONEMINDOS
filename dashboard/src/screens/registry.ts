@@ -44,7 +44,7 @@ export function navIdFor(pathname: string): string {
 
 /** The sidebar / Launchpad items; `waiting` fills the Approvals badge. */
 export function navItems(waiting: number): NavItem[] {
-  return SCREENS.map((s) => {
+  return SCREENS.filter((s) => !s.hidden).map((s) => {
     const item: NavItem = { id: s.id, label: s.title, href: s.path, icon: s.icon };
     if (s.section === 'primary') item.primary = true;
     else item.group = s.section;

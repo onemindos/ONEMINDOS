@@ -29,6 +29,27 @@ describe('Home', () => {
     expect(await screen.findByRole('link', { name: /Uptime Kuma/ }, T)).toBeInTheDocument();
     expect(await seriousViolations(container)).toEqual([]);
   });
+
+  it('greets the person by the display name /v1/me gives, and by no name when there is none', async () => {
+    const alex = renderApp({ token: 'adult-demo' });
+    expect(await screen.findByRole('heading', { level: 1, name: /^Good (morning|afternoon|evening|night), Alex$/ }, T)).toBeInTheDocument();
+    alex.unmount();
+    // The demo owner's display name is the role word "Owner": it is not a name, so nothing is invented.
+    renderApp({ token: 'owner-demo' });
+    expect(await screen.findByRole('heading', { level: 1, name: /^Good (morning|afternoon|evening|night)$/ }, T)).toBeInTheDocument();
+  });
+});
+
+describe('Short screens', () => {
+  it('Storage opens in a compact window; Market keeps the wide one', async () => {
+    const { container, unmount } = renderApp({ token: 'owner-demo', route: '/storage' });
+    expect(await screen.findByRole('heading', { level: 1, name: 'Storage' }, T)).toBeInTheDocument();
+    expect(container.querySelector('.dsk-window')?.getAttribute('data-size')).toBe('compact');
+    unmount();
+    const wide = renderApp({ token: 'owner-demo', route: '/market' });
+    expect(await screen.findByRole('heading', { name: 'Start here' }, T)).toBeInTheDocument();
+    expect(wide.container.querySelector('.dsk-window')?.getAttribute('data-size')).toBeNull();
+  });
 });
 
 describe('Market and the install loop', () => {
@@ -66,7 +87,9 @@ describe('Market and the install loop', () => {
 
   it('an adult can look but is told they cannot request', async () => {
     renderApp({ token: 'adult-demo', route: '/market' });
-    expect(await screen.findByText(/can look but not request installs/, {}, T)).toBeInTheDocument();
+    // The notice shows once as a banner and again as the reason on each card whose request is blocked (#531).
+    expect((await screen.findAllByText(/can look but not request installs/, {}, T)).length).toBeGreaterThan(0);
+    screen.getAllByRole('button', { name: /^Request install/ }).forEach((b) => expect(b).toBeDisabled());
   });
 });
 
@@ -142,6 +165,8 @@ describe('Activity, Nodes, Settings', () => {
     expect(backups).toBeDefined();
     await u.click(backups!);
     expect(await screen.findByText(/Demo mode has no backup data/)).toBeInTheDocument();
+    expect(screen.getByText('No backup proved yet')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Set up backups' })).toBeInTheDocument();
     await u.click(screen.getByRole('link', { name: 'Settings' }));
     await u.click(screen.getByRole('link', { name: /About/ }));
     expect(await screen.findByText('Hub node', {}, T)).toBeInTheDocument();

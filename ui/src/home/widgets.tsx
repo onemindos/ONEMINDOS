@@ -10,6 +10,7 @@ import { Meter } from '../components/Meter';
 import { FreshnessPill, StatusPill } from '../components/StatusPill';
 import { FRESHNESS_LABEL } from '../lib/freshness';
 import { formatAgo, formatIn, secondsSince } from '../lib/time';
+import type { IconName } from '../components/Icon';
 import type { Tone } from '../tokens/tokens';
 import { formatUptime } from './greeting';
 import type { WidgetInstance, WidgetSize } from './layout';
@@ -25,6 +26,8 @@ export interface HomeLinks {
   updates: string;
   mesh: string;
   apps: string;
+  /** Storage window; empty or absent for people who may not open it. */
+  storage?: string;
   app: (id: string) => string;
   approval: (id: string) => string;
 }
@@ -37,6 +40,7 @@ export const DEFAULT_LINKS: HomeLinks = {
   updates: '#/updates',
   mesh: '#/nodes',
   apps: '#/apps',
+  storage: '#/storage',
   app: (id) => `#/app/${encodeURIComponent(id)}`,
   approval: (id) => `#/approvals?highlight=${encodeURIComponent(id)}`,
 };
@@ -56,6 +60,8 @@ export interface WidgetContext {
   busy?: ReadonlySet<string>;
   links: HomeLinks;
   showSource: boolean;
+  /** Loads the data again (the Retry button in a widget's error state). */
+  onRetry?: () => void;
 }
 
 const ROWS: Record<WidgetSize, number> = { S: 2, M: 4, L: 8 };
@@ -69,7 +75,7 @@ function bodyState<T>(l: Loadable<T>): WidgetBodyState {
 
 function hubStale(ctx: WidgetContext) {
   // The page banner already says when the hub last answered; each widget just marks itself.
-  return ctx.hubLive ? null : { label: 'Last known', detail: '' };
+  return ctx.hubLive ? null : { label: 'Last known', detail: '', age: ctx.hubAgo };
 }
 
 /* ---------- System (contract §2 heartbeat) ---------- */
@@ -142,7 +148,7 @@ function SystemWidget({ w, ctx }: { w: WidgetInstance; ctx: WidgetContext }) {
   const nodes = l.state === 'ready' ? l.data : [];
   const one = w.nodeId ? nodes.find((n) => n.node_id === w.nodeId) : undefined;
   const title = w.nodeId ? (one?.hostname ?? 'Node') : 'System';
-  const common = { title, icon: 'nodes' as const, size: w.size, href: ctx.links.nodes, source: w.nodeId ? `GET /v1/nodes/${w.nodeId}` : 'GET /v1/nodes', showSource: ctx.showSource };
+  const common = { title, icon: 'nodes' as const, size: w.size, href: ctx.links.nodes, source: w.nodeId ? `GET /v1/nodes/${w.nodeId}` : 'GET /v1/nodes', showSource: ctx.showSource, onRetry: ctx.onRetry };
 
   if (l.state !== 'ready') return <WidgetFrame {...common} state={bodyState(l)} />;
   if (w.nodeId && !one) return <WidgetFrame {...common} state={{ kind: 'empty', title: 'This node has left the fabric', body: 'Remove this widget, or add one for another node.' }} />;
@@ -240,7 +246,7 @@ function ApprovalsWidget({ w, ctx }: { w: WidgetInstance; ctx: WidgetContext }) 
   const l = ctx.data.approvals;
   const list = l.state === 'ready' ? l.data.filter((a) => a.state === 'awaiting_approval') : [];
   const max = w.size === 'S' ? 1 : w.size === 'M' ? 2 : 4;
-  const common = { title: 'Needs you', icon: 'approvals' as const, size: w.size, href: ctx.links.approvals, hrefLabel: 'All', source: 'GET /v1/actions?state=awaiting_approval', showSource: ctx.showSource };
+  const common = { title: 'Needs you', icon: 'approvals' as const, size: w.size, href: ctx.links.approvals, hrefLabel: 'All', source: 'GET /v1/actions?state=awaiting_approval', showSource: ctx.showSource, onRetry: ctx.onRetry };
   if (l.state !== 'ready') return <WidgetFrame {...common} state={bodyState(l)} />;
   if (!list.length)
     return (
@@ -269,7 +275,7 @@ const ACTOR_TONE = { person: 'neutral', agent: 'agent', system: 'info' } as cons
 
 function ActivityWidget({ w, ctx }: { w: WidgetInstance; ctx: WidgetContext }) {
   const l = ctx.data.activity;
-  const common = { title: 'Recent activity', icon: 'activity' as const, size: w.size, href: ctx.links.activity, hrefLabel: 'Timeline', source: 'GET /v1/audit?limit=8 (proposed)', showSource: ctx.showSource };
+  const common = { title: 'Recent activity', icon: 'activity' as const, size: w.size, href: ctx.links.activity, hrefLabel: 'Timeline', source: 'GET /v1/audit?limit=8', showSource: ctx.showSource, onRetry: ctx.onRetry };
   if (l.state !== 'ready') return <WidgetFrame {...common} state={bodyState(l)} />;
   if (!l.data.length) return <WidgetFrame {...common} state={{ kind: 'empty', title: 'Nothing has happened yet', body: 'Installs, decisions and updates appear here with who did them.' }} />;
   return (
@@ -301,11 +307,11 @@ const DEST: Record<'ok' | 'behind' | 'failing', { tone: Tone; label: string }> =
 
 function BackupsWidget({ w, ctx }: { w: WidgetInstance; ctx: WidgetContext }) {
   const l = ctx.data.backups;
-  const common = { title: 'Backups', icon: 'backups' as const, size: w.size, href: ctx.links.backups, source: 'GET /v1/backups/status (proposed)', showSource: ctx.showSource };
+  const common = { title: 'Backups', icon: 'backups' as const, size: w.size, href: ctx.links.backups, source: 'GET /v1/backups/status', showSource: ctx.showSource, onRetry: ctx.onRetry };
   if (l.state !== 'ready') return <WidgetFrame {...common} state={bodyState(l)} />;
   const b = l.data;
   if (!b.destinations.length && !b.last_run)
-    return <WidgetFrame {...common} state={{ kind: 'empty', title: 'No backups set up', body: 'Add a USB disk, another OneMind or a bucket in Backups.' }} />;
+    return <WidgetFrame {...common} state={{ kind: 'empty', title: 'No backup proved yet', body: 'A backup counts once a restore test has passed. Add a USB disk, another OneMind or a bucket.', action: ctx.links.backups ? { label: 'Set up backups', href: ctx.links.backups } : undefined }} />;
   const runAge = b.last_run ? secondsSince(b.last_run, ctx.now) : Number.POSITIVE_INFINITY;
   const runTone: Tone = runAge > 26 * 3600 ? 'warn' : 'ok';
   const verifyAge = b.last_verified_restore ? secondsSince(b.last_verified_restore, ctx.now) : Number.POSITIVE_INFINITY;
@@ -337,11 +343,87 @@ function BackupsWidget({ w, ctx }: { w: WidgetInstance; ctx: WidgetContext }) {
   );
 }
 
+/* ---------- Trust (nodes online, last proved backup, last signed update) ---------- */
+
+function TrustWidget({ w, ctx }: { w: WidgetInstance; ctx: WidgetContext }) {
+  const nodesL = ctx.data.nodes;
+  const common = { title: 'Trust', icon: 'approvals' as const, size: w.size, href: ctx.links.nodes, source: 'GET /v1/nodes, /v1/backups/status, /v1/os/updates', showSource: ctx.showSource, onRetry: ctx.onRetry };
+  if (nodesL.state !== 'ready') return <WidgetFrame {...common} state={bodyState(nodesL)} />;
+  const nodes = nodesL.data;
+  const online = nodes.filter((n) => nodeFreshness(n, ctx.now) === 'live').length;
+  const proved = ctx.data.backups.state === 'ready' ? ctx.data.backups.data.last_verified_restore : null;
+  const signed = ctx.data.updates.state === 'ready' ? (ctx.data.updates.data.last_applied_at ?? null) : null;
+  const none = (text: string) => <span className="omh-na">{text}</span>;
+  return (
+    <WidgetFrame {...common} stale={hubStale(ctx)}>
+      <dl className="omh-facts omh-facts-stack omh-facts-spread">
+        <div>
+          <dt>Nodes online</dt>
+          <dd>{nodes.length ? <StatusPill tone={online === nodes.length ? 'ok' : 'warn'} label={`${online} of ${nodes.length}`} /> : none('None reported')}</dd>
+        </div>
+        <div>
+          <dt>Last proved backup</dt>
+          <dd>{proved ? ago(proved, ctx.now) : none(ctx.data.backups.state === 'ready' ? 'None yet' : 'Not available')}</dd>
+        </div>
+        <div>
+          <dt>Last signed update</dt>
+          <dd>{signed ? ago(signed, ctx.now) : none('Not reported')}</dd>
+        </div>
+      </dl>
+    </WidgetFrame>
+  );
+}
+
+/* ---------- Storage (GET /v1/storage; raw device values, never "free space") ---------- */
+
+function bytesText(n: number): string {
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  let v = n;
+  let i = 0;
+  while (v >= 1000 && i < units.length - 1) {
+    v /= 1000;
+    i += 1;
+  }
+  return `${i === 0 ? v : v.toFixed(v < 10 ? 1 : 0)} ${units[i]}`;
+}
+
+function StorageWidget({ w, ctx }: { w: WidgetInstance; ctx: WidgetContext }) {
+  const l = ctx.data.storage;
+  const href = ctx.links.storage ?? '';
+  const common = { title: 'Storage', icon: 'storage' as const, size: w.size, href, source: 'GET /v1/storage', showSource: ctx.showSource, onRetry: ctx.onRetry };
+  if (l && l.state !== 'ready') return <WidgetFrame {...common} state={bodyState(l)} />;
+  const s = l?.data;
+  if (!s || (!s.disks && s.used_bytes === null))
+    return <WidgetFrame {...common} state={{ kind: 'empty', title: 'No storage reported yet', body: 'A hub lists its disks and their health once its storage service has reported.', action: href ? { label: 'Open storage', href } : undefined }} />;
+  const healthy = s.state === 'healthy';
+  return (
+    <WidgetFrame {...common} stale={hubStale(ctx)}>
+      <dl className="omh-facts omh-facts-stack">
+        <div>
+          <dt>Health</dt>
+          <dd>{s.state ? <StatusPill tone={healthy ? 'ok' : 'warn'} label={s.state.charAt(0).toUpperCase() + s.state.slice(1)} /> : <span className="omh-na">Not reported</span>}</dd>
+        </div>
+        <div>
+          <dt>Used data</dt>
+          <dd>{s.used_bytes === null ? <span className="omh-na">Not reported</span> : bytesText(s.used_bytes)}</dd>
+        </div>
+        <div>
+          <dt>Disks</dt>
+          <dd>
+            {s.disks}
+            {s.encrypted !== null && <span className="omh-row-note"> · {s.encrypted ? 'encrypted' : 'not encrypted'}</span>}
+          </dd>
+        </div>
+      </dl>
+    </WidgetFrame>
+  );
+}
+
 /* ---------- Updates (PROPOSED, OSU-P1) ---------- */
 
 function UpdatesWidget({ w, ctx }: { w: WidgetInstance; ctx: WidgetContext }) {
   const l = ctx.data.updates;
-  const common = { title: 'Updates', icon: 'updates' as const, size: w.size, href: ctx.links.updates, hrefLabel: 'Review', source: 'GET /v1/os/status (proposed)', showSource: ctx.showSource };
+  const common = { title: 'Updates', icon: 'updates' as const, size: w.size, href: ctx.links.updates, hrefLabel: 'Review', source: 'GET /v1/os/updates', showSource: ctx.showSource, onRetry: ctx.onRetry };
   if (l.state !== 'ready') return <WidgetFrame {...common} state={bodyState(l)} />;
   const u = l.data;
   const checkAge = secondsSince(u.checked_at, ctx.now);
@@ -385,7 +467,7 @@ const REMOTE = { off: 'Remote access is off', mesh: 'Reachable on your mesh', pu
 
 function MeshWidget({ w, ctx }: { w: WidgetInstance; ctx: WidgetContext }) {
   const l = ctx.data.mesh;
-  const common = { title: 'Network', icon: 'link' as const, size: w.size, href: ctx.links.mesh, source: 'GET /v1/fabric (proposed)', showSource: ctx.showSource };
+  const common = { title: 'Network', icon: 'link' as const, size: w.size, href: ctx.links.mesh, source: 'GET /v1/fabric', showSource: ctx.showSource, onRetry: ctx.onRetry };
   if (l.state !== 'ready') return <WidgetFrame {...common} state={bodyState(l)} />;
   const m = l.data;
   if (!m.links.length) return <WidgetFrame {...common} state={{ kind: 'empty', title: 'Only the hub so far', body: 'Add a node to see its link here.' }} />;
@@ -466,13 +548,21 @@ function Payload({ p, size, now }: { p: AppWidgetPayload; size: WidgetSize; now:
   }
 }
 
+/** Display name for an app id while the catalog has not answered: "uptime-kuma" reads "Uptime Kuma". */
+const LOWERCASE_BRANDS = new Set(['ntfy']);
+function appLabel(id: string | undefined): string {
+  if (!id) return 'App';
+  if (LOWERCASE_BRANDS.has(id)) return id;
+  return id.split(/[-_]/).filter(Boolean).map((p) => p.charAt(0).toUpperCase() + p.slice(1)).join(' ') || 'App';
+}
+
 function AppWidget({ w, ctx }: { w: WidgetInstance; ctx: WidgetContext }) {
   const apps = ctx.data.apps.state === 'ready' ? ctx.data.apps.data : [];
   const app = apps.find((a) => a.id === w.appId);
   const decl = app?.widgets?.find((d) => d.id === w.widgetId);
   const glyph = app ? <AppGlyph app={app} size={20} /> : undefined;
-  const title = app && decl ? `${app.name} · ${decl.title}` : `App widget (${w.appId ?? 'unknown'})`;
-  const common = { title, icon: 'apps' as const, glyph, size: w.size, href: app ? ctx.links.app(app.id) : undefined, source: decl ? `GET /v1/apps/${app!.id}/widgets/${decl.id} (proposed)` : undefined, showSource: ctx.showSource };
+  const title = app && decl ? `${app.name} · ${decl.title}` : app?.name ?? appLabel(w.appId);
+  const common = { title, icon: 'apps' as const, glyph, size: w.size, href: app ? ctx.links.app(app.id) : undefined, source: decl ? `GET /v1/apps/${app!.id}/widgets/${decl.id}` : undefined, showSource: ctx.showSource, onRetry: ctx.onRetry };
   if (ctx.data.apps.state !== 'ready') return <WidgetFrame {...common} state={bodyState(ctx.data.apps)} />;
   if (!app || !app.installed) return <WidgetFrame {...common} state={{ kind: 'empty', title: 'This app is no longer installed', body: 'Remove this widget from Home.' }} />;
   if (!decl) return <WidgetFrame {...common} state={{ kind: 'empty', title: 'The app no longer offers this widget', body: 'Its new version dropped it. Remove this widget.' }} />;
@@ -498,13 +588,15 @@ function AppWidget({ w, ctx }: { w: WidgetInstance; ctx: WidgetContext }) {
 
 /* ---------- dispatcher ---------- */
 
-export const WIDGET_META: Record<Exclude<WidgetInstance['kind'], 'app'>, { title: string; icon: 'approvals' | 'nodes' | 'activity' | 'backups' | 'updates' | 'link'; blurb: string }> = {
+export const WIDGET_META: Record<Exclude<WidgetInstance['kind'], 'app'>, { title: string; icon: IconName; blurb: string }> = {
   approvals: { title: 'Needs you', icon: 'approvals', blurb: 'Requests waiting for your decision. Always first.' },
   system: { title: 'System', icon: 'nodes', blurb: 'CPU, memory, storage, temperature and uptime from each heartbeat.' },
   activity: { title: 'Recent activity', icon: 'activity', blurb: 'What happened and who did it.' },
   backups: { title: 'Backups', icon: 'backups', blurb: 'Last backup, last verified restore, destinations.' },
   updates: { title: 'Updates', icon: 'updates', blurb: 'OS and app updates waiting for you.' },
   mesh: { title: 'Network', icon: 'link', blurb: 'Links between your nodes and remote access.' },
+  trust: { title: 'Trust', icon: 'approvals', blurb: 'Nodes online, last proved backup, last signed update.' },
+  storage: { title: 'Storage', icon: 'storage', blurb: 'Disk health and used data from the hub.' },
 };
 
 export function renderWidget(w: WidgetInstance, ctx: WidgetContext): ReactNode {
@@ -521,6 +613,10 @@ export function renderWidget(w: WidgetInstance, ctx: WidgetContext): ReactNode {
       return <UpdatesWidget w={w} ctx={ctx} />;
     case 'mesh':
       return <MeshWidget w={w} ctx={ctx} />;
+    case 'trust':
+      return <TrustWidget w={w} ctx={ctx} />;
+    case 'storage':
+      return <StorageWidget w={w} ctx={ctx} />;
     case 'app':
       return <AppWidget w={w} ctx={ctx} />;
   }
@@ -531,7 +627,7 @@ export function widgetName(w: WidgetInstance, data: HomeData): string {
   if (w.kind === 'app') {
     const app: HomeApp | undefined = data.apps.state === 'ready' ? data.apps.data.find((a) => a.id === w.appId) : undefined;
     const d = app?.widgets?.find((x) => x.id === w.widgetId);
-    return app && d ? `${app.name} ${d.title}` : `App widget (${w.appId ?? 'unknown'})`;
+    return app && d ? `${app.name} ${d.title}` : app?.name ?? appLabel(w.appId);
   }
   if (w.kind === 'system' && w.nodeId) {
     const n = data.nodes.state === 'ready' ? data.nodes.data.find((x) => x.node_id === w.nodeId) : undefined;

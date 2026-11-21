@@ -22,6 +22,8 @@ export interface ScreenDef {
   order: number;
   /** Position in the dock when the screen is docked; omit and it is one click away in Launchpad. */
   dock?: number;
+  /** Routable but never offered as a tile (dock, Launchpad, sidebar): a page that only exists to say what is not built yet. */
+  hidden?: boolean;
   /** Tile gradient (two colours) with a white glyph on top. */
   hue: readonly [string, string];
   /** Pro-only: offered to owners and adults, guarded by ProOnly (shell/roles.ts). */
@@ -30,7 +32,7 @@ export interface ScreenDef {
   badge?: 'approvals';
   load: ScreenLoader;
   /** More paths of the same screen (a detail page, a tab). Nav and window title stay this screen's. */
-  extra?: { path: string; load?: ScreenLoader }[];
+  extra?: { path: string; load?: ScreenLoader; /** Owner-only page: guarded by OwnerOnly (shell/ProOnly.tsx), titled with this text. */ owner?: string }[];
   /** Old paths that now live here; they replace-redirect to `to`. */
   redirects?: { from: string; to: string }[];
 }

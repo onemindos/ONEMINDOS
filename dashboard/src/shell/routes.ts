@@ -24,7 +24,6 @@ export const href = {
   updates: '/updates',
   fileSharing: '/file-sharing',
   usage: '/usage',
-  coming: '/coming',
   controlHub: '/control-hub',
   agents: '/agents',
   settings: '/settings',
