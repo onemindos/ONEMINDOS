@@ -53,8 +53,9 @@ SystemCallFilter=@system-service
 SystemCallFilter=~@privileged
 SystemCallErrorNumber=EPERM
 
-# --- network: HTTPS for the update channel, AF_UNIX for D-Bus (systemd, rauc) ---
-RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+# --- network: HTTPS for the update channel, AF_UNIX for D-Bus (systemd, rauc), AF_NETLINK so GET /v1/network can
+# list interfaces (read only: CAP_NET_ADMIN is not in the bounding set, so no route or address can be changed) ---
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
 
 [Install]
 WantedBy=multi-user.target

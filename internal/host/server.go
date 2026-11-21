@@ -25,6 +25,7 @@ const Schema = "onemind.host/v1"
 //	POST /v1/operations        {action_id, kind, version?} → 202 new, 200 known
 //	GET  /v1/operations        recent operations, newest first
 //	GET  /v1/operations/{id}   one operation by action id
+//	GET  /v1/network           read-only network facts (internal/netview; 404 when Network is nil)
 type Server struct {
 	S        *Service
 	AllowUID int // besides root; -1 none
@@ -34,6 +35,8 @@ type Server struct {
 	Ctx context.Context
 	// PeerCred reads a connection's uid and gid (default SO_PEERCRED; tests replace it).
 	PeerCred func(*net.UnixConn) (uid, gid int, ok bool)
+	// Network answers GET /v1/network (NET-UI-01). It only reads; nil leaves the route off.
+	Network func() (any, error)
 }
 
 // Capability is one kind in GET /v1/status.
@@ -126,6 +129,16 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /v1/status", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, s.Status())
 	})
+	if s.Network != nil {
+		mux.HandleFunc("GET /v1/network", func(w http.ResponseWriter, r *http.Request) {
+			v, err := s.Network()
+			if err != nil {
+				apiError(w, http.StatusInternalServerError, "internal", "network", "the network facts could not be read")
+				return
+			}
+			writeJSON(w, http.StatusOK, v)
+		})
+	}
 	mux.HandleFunc("POST /v1/operations", func(w http.ResponseWriter, r *http.Request) {
 		var req Request
 		dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096))

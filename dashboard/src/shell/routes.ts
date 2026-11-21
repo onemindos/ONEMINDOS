@@ -18,6 +18,7 @@ export const href = {
   storage: '/storage',
   backups: '/backups',
   updates: '/updates',
+  network: '/network',
   coming: '/coming',
   controlHub: '/control-hub',
   agents: '/agents',
@@ -62,6 +63,8 @@ export function toRoute(link: string): string | undefined {
       return href.backups;
     case 'updates':
       return href.updates;
+    case 'network':
+      return href.network;
     case 'storage':
       return href.storage;
     case 'settings':

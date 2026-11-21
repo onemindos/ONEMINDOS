@@ -13,6 +13,8 @@ export type CatalogApp = components["schemas"]["CatalogApp"];
 export type Action = components["schemas"]["Action"];
 export type AuditRecord = components["schemas"]["AuditRecord"];
 export type AuditVerify = components["schemas"]["AuditVerify"];
+/** This box's interfaces, gateway, DNS and listening ports, read only (`/v1/network`, owner only). */
+export type NetworkView = components["schemas"]["NetworkView"];
 /** The caller's own Home document (UMB-P07, `/v1/me/home`). */
 export type HomeView = components["schemas"]["HomeView"];
 export type HomeBody = components["schemas"]["HomeBody"];
@@ -165,6 +167,8 @@ export class OneMind {
     list: () => this.call<Node[]>({ method: "GET", path: "/v1/nodes" }),
     get: (id: string) => this.call<Node>({ method: "GET", path: `/v1/nodes/${encodeURIComponent(id)}` }),
   };
+
+  readonly network = { view: () => this.call<NetworkView>({ method: "GET", path: "/v1/network" }) };
 
   readonly apps = {
     list: () => this.call<CatalogApp[]>({ method: "GET", path: "/v1/apps" }),
