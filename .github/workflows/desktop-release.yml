@@ -1,0 +1,254 @@
+# SPDX-License-Identifier: Apache-2.0
+# Desktop release builds (CLIENT-12): the Tauri app as a macOS universal .dmg, Windows .msi + NSIS .exe and
+# Linux .AppImage + .deb, attached with a checksum file to a GitHub release.
+#
+# When it runs:
+#   - a pushed release tag (v*)                      -> attaches to that release (create it first, or this fails)
+#   - after dev-build finishes (the nightly)         -> attaches to the newest dev-* pre-release
+#   - after release.yml finishes (the gated release) -> attaches to the newest non-pre-release
+#     (releases made with the default GITHUB_TOKEN do not fire tag events, hence the two workflow_run triggers)
+#   - by hand (workflow_dispatch)                    -> "tag" empty = dry run: builds and keeps the files as
+#                                                       workflow artifacts, publishes nothing
+# Never runs on a PR, so a pull request cannot reach the signing secrets.
+#
+# Signing is optional. Each platform signs ONLY when its secrets exist; otherwise the build is unsigned and every
+# file name ends in -UNSIGNED so nobody mistakes it for a signed one. Secrets (founder adds them, see
+# desktop/docs/RELEASE.md): APPLE_CERTIFICATE, APPLE_CERTIFICATE_PASSWORD, APPLE_ID, APPLE_TEAM_ID,
+# APPLE_APP_SPECIFIC_PASSWORD, WINDOWS_CERTIFICATE, WINDOWS_CERTIFICATE_PASSWORD.
+# The checksum file is SHA256SUMS-desktop (the image release already owns the name SHA256SUMS).
+name: desktop-release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_run:
+    workflows: [dev-build, release]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to attach to (empty = dry run, nothing published)'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-release-${{ github.event.inputs.tag || github.event.workflow_run.id || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    if: github.repository == 'onemindos/ONEMINDOS' && (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+      prerelease: ${{ steps.tag.outputs.prerelease }}
+    steps:
+      - name: Which release gets the desktop apps
+        id: tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          UPSTREAM: ${{ github.event.workflow_run.name }}
+          PUSHED: ${{ github.ref_name }}
+          INPUT: ${{ github.event.inputs.tag }}
+        run: |
+          set -eu
+          tag=""
+          case "$EVENT" in
+            push) tag="$PUSHED" ;;
+            workflow_dispatch) tag="$INPUT" ;;
+            workflow_run)
+              if [ "$UPSTREAM" = "dev-build" ]; then
+                tag=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 30 --json tagName,isPrerelease,publishedAt \
+                  --jq '[.[] | select(.isPrerelease and (.tagName | startswith("dev-")))] | sort_by(.publishedAt) | reverse | .[0].tagName // ""')
+              else
+                tag=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 30 --json tagName,isPrerelease,publishedAt \
+                  --jq '[.[] | select((.isPrerelease | not) and (.tagName | startswith("v")))] | sort_by(.publishedAt) | reverse | .[0].tagName // ""')
+              fi ;;
+          esac
+          # A tag is used in shell commands and file paths below: accept only a plain release tag.
+          if [ -n "$tag" ] && ! printf '%s' "$tag" | grep -Eq '^[A-Za-z0-9._-]{1,100}$'; then echo "refusing odd tag"; exit 1; fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          case "$tag" in dev-*|*-dev*|*-rc*|*-beta*|*-alpha*) echo "prerelease=true" >> "$GITHUB_OUTPUT" ;; *) echo "prerelease=false" >> "$GITHUB_OUTPUT" ;; esac
+          if [ -z "$tag" ]; then echo "No release to attach to: building only (dry run)." >> "$GITHUB_STEP_SUMMARY"; fi
+
+  build:
+    needs: plan
+    # An empty tag from a workflow_run means there was nothing to build for; a manual dry run still builds.
+    if: needs.plan.outputs.tag != '' || github.event_name == 'workflow_dispatch'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15
+            platform: macos
+            bundles: app,dmg
+            target: universal-apple-darwin   # one DMG for Apple silicon and Intel Macs
+          - os: windows-2025
+            platform: windows
+            bundles: nsis,msi
+            target: ''
+          - os: ubuntu-24.04
+            platform: linux
+            bundles: appimage,deb
+            target: ''
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+        working-directory: desktop
+    env:
+      # Presence flags only; the values are read by the signing steps through their own env.
+      HAVE_APPLE: ${{ secrets.APPLE_CERTIFICATE != '' && secrets.APPLE_CERTIFICATE_PASSWORD != '' && secrets.APPLE_ID != '' && secrets.APPLE_TEAM_ID != '' && secrets.APPLE_APP_SPECIFIC_PASSWORD != '' }}
+      HAVE_WINDOWS: ${{ secrets.WINDOWS_CERTIFICATE != '' && secrets.WINDOWS_CERTIFICATE_PASSWORD != '' }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          # The tag's commit, so the apps match the release they are attached to.
+          ref: ${{ needs.plan.outputs.tag != '' && format('refs/tags/{0}', needs.plan.outputs.tag) || github.sha }}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - name: Linux build libraries
+        if: matrix.platform == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends build-essential file patchelf libssl-dev \
+            libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev
+      - name: Rust toolchain (version from src-tauri/rust-toolchain.toml)
+        working-directory: desktop/src-tauri
+        run: |
+          rustup show active-toolchain || rustup toolchain install
+          if [ "${{ matrix.platform }}" = macos ]; then rustup target add aarch64-apple-darwin x86_64-apple-darwin; fi
+      - run: npm ci
+      - name: Icons from the brand sources
+        run: npm run icons && npm run icons:tray
+      - name: UI checks
+        run: npm run check:ui
+
+      - name: macOS signing certificate
+        id: mac
+        if: matrix.platform == 'macos' && env.HAVE_APPLE == 'true'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          set -eu
+          kc="$RUNNER_TEMP/build.keychain-db"; pw=$(uuidgen)
+          printf '%s' "$APPLE_CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security create-keychain -p "$pw" "$kc"
+          security set-keychain-settings -lut 3600 "$kc"
+          security unlock-keychain -p "$pw" "$kc"
+          security import "$RUNNER_TEMP/cert.p12" -P "$APPLE_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$kc"
+          security set-key-partition-list -S apple-tool:,apple: -k "$pw" "$kc" >/dev/null
+          security list-keychains -d user -s "$kc" login.keychain-db
+          rm -f "$RUNNER_TEMP/cert.p12"
+          id=$(security find-identity -v -p codesigning "$kc" | sed -n 's/.*"\(Developer ID Application:.*\)"/\1/p' | head -1)
+          test -n "$id" || { echo "::error::the certificate has no Developer ID Application identity"; exit 1; }
+          echo "::add-mask::$id"
+          echo "identity=$id" >> "$GITHUB_OUTPUT"
+
+      - name: Windows signing certificate
+        id: win
+        if: matrix.platform == 'windows' && env.HAVE_WINDOWS == 'true'
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          $pfx = Join-Path $env:RUNNER_TEMP 'cert.pfx'
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE))
+          $pw = ConvertTo-SecureString $env:WINDOWS_CERTIFICATE_PASSWORD -AsPlainText -Force
+          $cert = Import-PfxCertificate -FilePath $pfx -CertStoreLocation Cert:\CurrentUser\My -Password $pw
+          Remove-Item $pfx
+          $cfg = @{ bundle = @{ windows = @{ certificateThumbprint = $cert.Thumbprint; digestAlgorithm = 'sha256'; timestampUrl = 'http://timestamp.digicert.com' } } } | ConvertTo-Json -Depth 5
+          Set-Content -Path (Join-Path $env:RUNNER_TEMP 'sign.json') -Value $cfg
+
+      - name: Build (signed on macOS only with the Apple secrets, on Windows only with the Windows secrets)
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ steps.mac.outputs.identity }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          NO_STRIP: 'true'   # linuxdeploy's bundled strip cannot read newer ELF sections
+        run: |
+          set -eu
+          args=(--bundles "${{ matrix.bundles }}")
+          [ -n "${{ matrix.target }}" ] && args+=(--target "${{ matrix.target }}")
+          if [ "${{ matrix.platform }}" = windows ] && [ "$HAVE_WINDOWS" = true ]; then args+=(--config "$RUNNER_TEMP/sign.json"); fi
+          if [ "${{ matrix.platform }}" = macos ] && [ "$HAVE_APPLE" != true ]; then
+            # Without these variables Tauri skips signing and notarization.
+            unset APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID
+          fi
+          npx tauri build "${args[@]}" -- --locked
+
+      - name: Collect files; label unsigned ones
+        run: |
+          set -eu
+          mkdir -p ../out
+          root=src-tauri/target/release/bundle
+          [ -n "${{ matrix.target }}" ] && root="src-tauri/target/${{ matrix.target }}/release/bundle"
+          signed=false
+          case "${{ matrix.platform }}" in
+            macos) [ "$HAVE_APPLE" = true ] && signed=true; pats=("dmg/*.dmg") ;;
+            windows) [ "$HAVE_WINDOWS" = true ] && signed=true; pats=("nsis/*-setup.exe" "msi/*.msi") ;;
+            linux) signed=na; pats=("appimage/*.AppImage" "deb/*.deb") ;;
+          esac
+          n=0
+          for p in "${pats[@]}"; do
+            for f in $root/$p; do
+              test -f "$f" || continue
+              base=$(basename "$f"); ext="${base##*.}"; stem="${base%.*}"
+              [ "$signed" = false ] && base="$stem-UNSIGNED.$ext"
+              cp "$f" "../out/$base"; n=$((n+1))
+            done
+          done
+          test "$n" -ge "${#pats[@]}" || { echo "::error::expected ${#pats[@]} installers, found $n"; exit 1; }
+          if [ "$signed" = false ]; then echo "::warning::${{ matrix.platform }} build is UNSIGNED (signing secrets not set); files are labelled -UNSIGNED"; fi
+          echo "${{ matrix.platform }} signed=$signed" >> "$GITHUB_STEP_SUMMARY"
+          ls -l ../out
+      - name: Installers under 25 MB each (CLIENT-8 acceptance)
+        run: |
+          for f in ../out/*; do s=$(wc -c < "$f"); echo "$f $s"; test "$s" -lt 26214400; done
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: desktop-${{ matrix.platform }}
+          path: desktop/out/*
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    needs: [plan, build]
+    if: needs.plan.outputs.tag != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write   # upload release assets, nothing else
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: desktop-*
+          path: dl
+          merge-multiple: true
+      - name: Checksums and upload
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.plan.outputs.tag }}
+        run: |
+          set -eu
+          cd dl
+          sha256sum -- * > SHA256SUMS-desktop
+          cat SHA256SUMS-desktop
+          # --clobber: a re-run replaces the files of the same name instead of failing.
+          gh release upload "$TAG" * --repo "$GITHUB_REPOSITORY" --clobber

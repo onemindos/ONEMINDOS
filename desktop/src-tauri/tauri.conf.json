@@ -28,7 +28,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["app", "dmg", "nsis", "msi"],
+    "targets": ["app", "dmg", "nsis", "msi", "deb", "appimage"],
     "category": "Utility",
     "shortDescription": "Your OneMind box from the menu bar",
     "copyright": "OneMind contributors, Apache-2.0",
