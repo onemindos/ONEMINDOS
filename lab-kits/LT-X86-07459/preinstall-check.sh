@@ -31,7 +31,7 @@ fi
 # 2. Memory
 kb=$(sed -n 's/^MemTotal: *\([0-9]*\) kB.*/\1/p' "$R/proc/meminfo" 2>/dev/null | head -1)
 if [ -n "$kb" ] && [ "$kb" -ge 15000000 ]; then row "Memory" PASS "$((kb/1048576)) GiB"
-elif [ -n "$kb" ] && [ "$kb" -ge 7000000 ]; then row "Memory" WARN "$((kb/1048576)) GiB: the hub needs more than 8 GiB (target 32)"
+elif [ -n "$kb" ] && [ "$kb" -ge 7000000 ]; then row "Memory" WARN "$((kb/1048576)) GiB: the hub needs more than 8 GiB (expected about 15 GiB on the 16 GB Dell)"
 else row "Memory" FAIL "${kb:-unknown} kB"; fi
 
 # 3. Disks: SSD or spinning. Skips loop, ram, optical and the live stick (removable).
