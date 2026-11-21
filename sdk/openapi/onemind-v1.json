@@ -1930,6 +1930,7 @@
               "machine.delete",
               "machine.start",
               "machine.stop",
+              "node.wake",
               "os.update.install",
               "source.add",
               "source.move",
@@ -4802,6 +4803,55 @@
           }
         },
         "title": "VerifyBody",
+        "type": "object"
+      },
+      "WakeCapability": {
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "params": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WakeParams"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "available",
+          "reason"
+        ],
+        "title": "WakeCapability",
+        "type": "object"
+      },
+      "WakeParams": {
+        "additionalProperties": false,
+        "properties": {
+          "node_id": {
+            "pattern": "^[A-Za-z0-9_-]{1,64}$",
+            "title": "Node Id",
+            "type": "string"
+          },
+          "target_sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Target Sha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "node_id",
+          "target_sha256"
+        ],
+        "title": "WakeParams",
         "type": "object"
       },
       "Widget": {
@@ -14432,6 +14482,68 @@
           }
         },
         "summary": "Node Metrics",
+        "tags": [
+          "nodes"
+        ]
+      }
+    },
+    "/v1/nodes/{node_id}/wake": {
+      "get": {
+        "operationId": "nodes.wake_capability",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "node_id",
+            "required": true,
+            "schema": {
+              "title": "Node Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WakeCapability"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Wake Capability",
         "tags": [
           "nodes"
         ]
