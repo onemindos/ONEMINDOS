@@ -33,6 +33,11 @@ class NetSettings:
     # ONEMIND_NET_TRUSTED_PROXIES: comma-separated CIDRs of edges whose X-OneMind-Path is believed
     # (netpath.py). Default none: only the socket peer decides the path.
     trusted_proxies: str = ""
+    # ONEMIND_NET_TOR_PORT (#284): a plain-HTTP listener whose every request is classified as the
+    # Tor path. The Tor app's onion service forwards raw TCP to it (an onion origin is http://), and
+    # the socket peer is then a pod or masqueraded address that looks like the LAN, so the path is
+    # fixed by the listener, not guessed from the peer. 0 = off (the Tor app then gets no address).
+    tor_port: int = 0
 
     def validate(self) -> None:
         if self.box_name is not None and not BOX_RE.match(self.box_name):
@@ -46,6 +51,13 @@ class NetSettings:
                 raise ValueError("ONEMIND_NET_HTTPS_PORTS must be a comma-separated list of ports")
         if not 0 <= self.http_redirect_port <= 65535:
             raise ValueError("ONEMIND_NET_HTTP_REDIRECT_PORT must be a port or 0")
+        if not 0 <= self.tor_port <= 65535:
+            raise ValueError("ONEMIND_NET_TOR_PORT must be a port or 0")
+        if self.tor_port:
+            if not self.tls:
+                raise ValueError("ONEMIND_NET_TOR_PORT needs ONEMIND_NET_TLS=1 (the listener is started with the HTTPS ones)")
+            if str(self.tor_port) in self.https_ports or self.tor_port == self.http_redirect_port:
+                raise ValueError("ONEMIND_NET_TOR_PORT must differ from the HTTPS and redirect ports")
         try:
             parse_networks(self.trusted_proxies)
         except ValueError:
