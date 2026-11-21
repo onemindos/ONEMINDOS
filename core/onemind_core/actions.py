@@ -1261,6 +1261,7 @@ class ActionService:
             if existing.type != action_type or existing.params != params or existing.requested_by.get("id") != principal.id:
                 raise ApiError(409, "conflict", "idempotency_key was already used for a different request")
             return self.expire_if_due(existing).to_json(), False
+        self._check_pending_cap(principal)  # cancel/budget/cap hold for every filing route, not only POST /v1/actions
         now = self.clock()
         exp = utc(expires_at)
         if exp <= now:
