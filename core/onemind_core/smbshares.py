@@ -23,6 +23,7 @@ filing an approval that could not run.
 
 from __future__ import annotations
 
+import logging
 import re
 import threading
 from datetime import datetime
@@ -41,6 +42,7 @@ from .files.access import HOME_ROLES
 from .ledger import Base, iso
 from .store import FeatureSchema, SqlRepository
 
+log = logging.getLogger("onemind.fileshare")
 SCHEMA = FeatureSchema("fileshare")  # version 1 = the shape below
 ACTION = "files.share.create"
 KINDS = ("home", "timemachine")
@@ -232,14 +234,22 @@ class ShareService:
                            person_id=p["person_id"], name=share_name(p["kind"], p["person_id"]),
                            quota_bytes=p.get("quota_bytes"), state="applying", action_id=a.id,
                            approved_by=a.approved_by, created_at=now)
-            self.repo.add(row)  # recorded first: the table never says less than the box shares
             try:
+                self.repo.add(row)  # recorded first: the table never says less than the box shares
                 self.host.apply(desired(self.repo.all()))
-            except SmbHostError as e:
+                self.repo.set_state(row.id, "active")
+            except Exception as e:  # noqa: BLE001 - an approved action must always end; never leave `applying`
+                # Our own row only (its id comes from this action), so a concurrent twin's row is untouched.
                 self.repo.remove(row.id)
-                finish(ExecResult("failed", e.message, steps=[{"step": "apply shares", "share": row.name, "result": e.reason}]))
+                if isinstance(e, SmbHostError):
+                    reason, message = e.reason, e.message
+                else:
+                    log.exception("applying share %s failed", row.name)
+                    reason = "internal_error"
+                    message = (f"Sharing {row.name} failed on the gateway ({type(e).__name__}); nothing was recorded. "
+                               "The next change reconciles the box.")
+                finish(ExecResult("failed", message, steps=[{"step": "apply shares", "share": row.name, "result": reason}]))
                 return
-            self.repo.set_state(row.id, "active")
         finish(ExecResult("succeeded", f"Share {row.name} is on, for LAN and mesh only.",
                           steps=[{"step": "apply shares", "share": row.name, "result": "active"}]))
 

@@ -30,6 +30,8 @@ Rules kept: off by default; one share per person and kind; a person's share maps
 5. **Dashboard.** Connect hints (`smb://<box>.local/<share>`) and a "Set my SMB password" action, shown only when `available` is true.
 6. **Proof for the "Done when".** A Mac and a Windows PC opening a member's share cannot run in CI: a lab kit under `lab-kits/` for Zeus (Mac Finder, Windows Explorer, Time Machine first backup), with the QEMU `smbclient` checks as the CI half.
 
+**Time Machine needs its own directory (PR 2).** Today a share's `root` is `home:<person>` for both kinds (`ShareRow.root` in `smbshares.py`), so a Time Machine backup would land inside the person's Files home and count against their Files quota. PR 2 gives Time Machine shares a separate directory outside `home/` (for example `/data/onemind/files/.system/timemachine/<person>`, beside `home/` and `shared/`), changes `root` to say so, and keeps it out of Files browsing, search and trash.
+
 **Open problem to settle in PR 2, not hidden:** writes over SMB bypass the Files service's quota check. Options: count `/data/onemind/files` usage from disk (the service already does at upload time) and report it through Samba's `dfree command`, or enforce with btrfs qgroups once the storage patch lands. Until then a Time Machine share is bounded by its own `fruit:time machine max size`, but a home share is bounded only by free space.
 
 ## 3. Not in this feature

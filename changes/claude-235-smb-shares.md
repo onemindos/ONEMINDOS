@@ -1,5 +1,5 @@
 ---
-pr: pending
+pr: 443
 branch: claude/235-smb-shares
 status_rows:
   - UMB-FILES-5 | in-progress | share model, owner approval and File sharing screen landed (part 1); Samba and the host operation are part 2

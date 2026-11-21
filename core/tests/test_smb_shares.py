@@ -80,7 +80,7 @@ def test_a_request_is_refused_not_filed_while_nothing_can_share(box):
 def test_people_see_only_their_own_part_and_agents_and_guests_are_out(on):
     assert approve(on, ask(on, {"kind": "home", "person_id": "adult"})).json()["state"] == "succeeded"
     assert approve(on, ask(on, {"kind": "home", "person_id": "owner"})).json()["state"] == "succeeded"
-    assert [s["person_id"] for s in on.get("/v1/shares/smb", headers=OWNER).json()["shares"]] == ["adult", "owner"]
+    assert sorted(s["person_id"] for s in on.get("/v1/shares/smb", headers=OWNER).json()["shares"]) == ["adult", "owner"]
     mine = on.get("/v1/shares/smb", headers=ADULT).json()
     assert [s["person_id"] for s in mine["shares"]] == ["adult"] and [p["person_id"] for p in mine["people"]] == ["adult"]
     assert on.get("/v1/shares/smb", headers=GUEST).status_code == 403
@@ -144,6 +144,31 @@ def test_a_host_failure_leaves_no_share_behind(on):
     assert done["state"] == "failed" and done["result"]["message"] == "smbd would not start"
     assert done["result"]["steps"][0]["result"] == "host_error"
     assert on.get("/v1/shares/smb", headers=OWNER).json()["shares"] == []
+
+
+def test_an_unexpected_host_error_still_ends_the_action_and_leaves_no_row(on):
+    class Boom(RecordingHost):
+        def apply(self, desired):
+            raise RuntimeError("socket exploded")
+    on.svc.host = Boom()
+    done = approve(on, ask(on, {"kind": "home", "person_id": "adult"})).json()
+    assert done["state"] == "failed" and done["result"]["steps"][0]["result"] == "internal_error"
+    assert "socket exploded" not in done["result"]["message"]
+    assert on.get("/v1/shares/smb", headers=OWNER).json()["shares"] == []
+
+
+def test_a_duplicate_name_at_insert_fails_the_action_and_keeps_the_other_share(on):
+    from datetime import UTC, datetime
+
+    from onemind_core.smbshares import ShareRow
+    r = ask(on, {"kind": "home", "person_id": "adult"})
+    # A concurrent twin took the name after the recheck passed: the insert hits the unique name.
+    on.svc.repo.add(ShareRow(id="shr_twin", kind="home", person_id="adult", name="adult", quota_bytes=None,
+                             state="active", action_id=None, approved_by="owner", created_at=datetime.now(UTC)))
+    on.svc.refusal = lambda params: None
+    done = on.post(f"/v1/actions/{r.json()['id']}/approve", headers=OWNER).json()
+    assert done["state"] == "failed"
+    assert [s["id"] for s in on.get("/v1/shares/smb", headers=OWNER).json()["shares"]] == ["shr_twin"]
 
 
 # ---- removing ------------------------------------------------------------------------------------
