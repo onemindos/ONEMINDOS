@@ -155,6 +155,51 @@ jobs:
             out/firstboot-x86_64-efi/results.json
             out/firstboot-x86_64-efi/serial-trimmed.log
           retention-days: 14
+  # Encrypted /data (E1-E4, test/qemu/CRITERIA-DATAENC.md): a software TPM boots a luks2 image. Manual only
+  # (Actions > image > Run workflow on the branch) until the data layout default flips to luks2; CI is saturated
+  # and this is a 45-minute KVM job. Its first run is the first time this code boots anywhere.
+  dataenc:
+    if: ${{ github.event_name == 'workflow_dispatch' && !github.event.pull_request.draft }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: KVM
+        run: |
+          if [ -e /dev/kvm ]; then
+            echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+            sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
+          fi
+      - uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+      - name: Build rootfs (x86_64-efi)
+        run: |
+          mkdir -p out
+          docker buildx build -f os/rootfs/Containerfile --target rootfs --progress plain \
+            --build-arg BOARD=x86_64-efi $(sed -n 's/^\([A-Z]*=.*\)/--build-arg \1/p' os/rootfs/debian.args) \
+            --output type=tar,dest=out/rootfs-debian-x86_64-efi.tar .
+      - name: Build tools image
+        run: |
+          docker buildx build -f os/rootfs/Containerfile --target tools --progress plain \
+            $(sed -n 's/^\([A-Z]*=.*\)/--build-arg \1/p' os/rootfs/debian.args) --load -t onemind-tools:ci .
+      - name: Fixtures with a blank, encrypt-on-first-boot data partition
+        run: make fixtures BOARD=x86_64-efi UPTO=T5 DATA_FS=luks2 TOOLS=onemind-tools:ci
+      - name: Encrypted data (E1-E4)
+        run: make dataenc BOARD=x86_64-efi TOOLS=onemind-tools:ci
+      - name: Summary
+        if: always()
+        run: |
+          sudo chmod -R a+r out
+          f=out/dataenc-x86_64-efi
+          if [ -f $f/results.json ]; then python3 -I test/qemu/summary.py $f/results.json >> "$GITHUB_STEP_SUMMARY"; fi
+          if [ -f $f/serial.log ]; then test/qemu/trim-log.sh $f/serial.log > $f/serial-trimmed.log; rm -f $f/serial.log; fi
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: dataenc-debian-x86_64-efi
+          path: |
+            out/dataenc-x86_64-efi/results.json
+            out/dataenc-x86_64-efi/serial-trimmed.log
+          retention-days: 14
   battery:
     if: ${{ !github.event.pull_request.draft && needs.scope.outputs.os == 'true' }}
     needs: [scope, smoke]

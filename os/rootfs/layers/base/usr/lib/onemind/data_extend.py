@@ -71,6 +71,11 @@ def main():
     if not os.path.exists(node):
         say(f"no partition labelled {LABEL} (not a GPT OneMind disk); nothing to do")
         return 0
+    if os.path.basename(node).startswith("dm-"):
+        # Encrypted /data (data_encrypt.py): the name points at the unlocked volume, not at a partition.
+        # Growing partition + LUKS + ext4 together is its own change; until then the volume keeps its size.
+        say("the data volume is encrypted; not grown yet")
+        return 0
     if run(["blkid", "-o", "value", "-s", "TYPE", node]).strip() != "ext4":
         say("the data partition does not hold ext4; nothing to do")
         return 0
