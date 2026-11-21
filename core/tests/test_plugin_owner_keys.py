@@ -142,3 +142,29 @@ def test_narrow_owner_token_cannot_use_enrollment_route(client, clock, public):
     response = client.post(PATH + "/requests", headers={"Authorization": "Bearer " + token}, json=body(public, clock))
     assert response.status_code == 403
     assert client.app.state.identity.repo.all(select(KeyCandidateRow)) == []
+
+
+def test_revocation_cannot_be_rolled_back_by_a_stale_enrollment(client, clock, public):
+    """A2 filed while K is active must not re-activate K after K is revoked as compromised."""
+    first = client.post(PATH + "/requests", headers=OWNER, json=body(public, clock, "enroll-a1")).json()
+    assert approve(client, first["id"])["state"] == "succeeded"
+    stale = client.post(PATH + "/requests", headers=OWNER, json=body(public, clock, "enroll-a2")).json()
+    clock.advance(1)
+    revoke = client.post(PATH + f"/{first['params']['key_id']}/revoke", headers=OWNER,
+                         json={k: v for k, v in body(public, clock, "revoke-k").items()
+                               if k in {"idempotency_key", "expires_at"}}).json()
+    assert approve(client, revoke["id"])["state"] == "succeeded"
+    clock.advance(1)
+    refused = client.post(f"/v1/actions/{stale['id']}/approve", headers=OWNER)
+    assert refused.status_code == 409, refused.text
+    assert client.get(PATH, headers=OWNER).json()["keys"][0]["active"] is False
+    clock.advance(1)  # a fresh proposal after the revocation is a deliberate new decision
+    fresh = client.post(PATH + "/requests", headers=OWNER, json=body(public, clock, "enroll-a3")).json()
+    assert approve(client, fresh["id"])["state"] == "succeeded"
+    assert client.get(PATH, headers=OWNER).json()["keys"][0]["active"] is True
+
+
+def test_proposal_lifetime_is_capped(client, clock, public):
+    payload = body(public, clock)
+    payload["expires_at"] = (clock() + timedelta(days=30)).isoformat()
+    assert client.post(PATH + "/requests", headers=OWNER, json=payload).status_code == 422

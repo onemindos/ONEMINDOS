@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """Owner enrollment is distinct from a valid signature by an arbitrary key."""
 import base64
+from datetime import timedelta
 import hashlib
 
 from cryptography.hazmat.primitives import serialization
@@ -51,6 +52,9 @@ def parse_public_key(pem: str):
         raise ApiError(422, "conflict", "provide one supported public SPKI PEM key; private keys are not accepted") from exc
 
 
+MAX_PROPOSAL_AGE = timedelta(hours=24)
+
+
 class OwnerKeys:
     def __init__(self, gw, identity):
         self.gw, self.repo, self.identity = gw, IdentityRepository(gw.db), identity
@@ -78,6 +82,8 @@ class OwnerKeys:
         key_id, canonical = parse_public_key(body.public_key)
         if not body.name.strip():
             raise ApiError(422, "conflict", "signing key name must not be blank")
+        if utc(body.expires_at) > self.gw.clock() + MAX_PROPOSAL_AGE:
+            raise ApiError(422, "conflict", "a signing-key proposal may stay open for at most 24 hours")
         candidate_id = hashlib.sha256((principal.id + "\0" + body.idempotency_key).encode()).hexdigest()
         values = dict(id=candidate_id, key_id=key_id, name=body.name.strip(), public_key=canonical,
                       created_by=principal.id, expires_at=body.expires_at)
@@ -106,9 +112,21 @@ class OwnerKeys:
     def check_enrollment_action(self, action):
         try:
             self.candidate(action.params)
+            self.not_revoked_since(action)
         except ApiError as exc:
             return exc.message
         return None
+
+    def not_revoked_since(self, action):
+        """A revocation is final for every proposal filed before it.
+
+        Otherwise a stale proposal for the same key, approved after the owner revoked it as
+        compromised, would re-activate the key.
+        """
+        row = self.repo.get(SigningKeyRow, action.params["key_id"])
+        if row is not None and row.revoked_at is not None and utc(action.created_at) <= utc(row.revoked_at):
+            raise ApiError(409, "stale_precondition",
+                           "this signing key was revoked after the proposal was filed; propose it again")
 
     def check_revocation(self, params, principal):
         self.owner(principal)
@@ -122,6 +140,11 @@ class OwnerKeys:
 
     def enroll(self, action, finish):
         candidate = self.candidate(action.params)
+        try:
+            self.not_revoked_since(action)
+        except ApiError as exc:
+            finish(ExecResult("failed", exc.message))
+            return
         key_id, canonical = parse_public_key(candidate.public_key)
         if key_id != action.params["key_id"]:
             raise ApiError(409, "stale_precondition", "signing-key material changed")
