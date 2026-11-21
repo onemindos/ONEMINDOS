@@ -489,6 +489,32 @@
         "title": "ActionTemplate",
         "type": "object"
       },
+      "AiSchedule": {
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "default": false,
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "off": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Off",
+            "type": "array"
+          },
+          "tz": {
+            "default": "box",
+            "maxLength": 64,
+            "title": "Tz",
+            "type": "string"
+          }
+        },
+        "title": "AiSchedule",
+        "type": "object"
+      },
       "Allow": {
         "additionalProperties": false,
         "properties": {
@@ -2039,6 +2065,7 @@
               "exposure.mesh",
               "exposure.private",
               "exposure.public",
+              "files.share.create",
               "machine.create",
               "machine.delete",
               "machine.start",
@@ -2486,6 +2513,81 @@
         "title": "JoinRequestBody",
         "type": "object"
       },
+      "KillSwitch": {
+        "additionalProperties": true,
+        "description": "The agent kill switch. `on: true` means every AI agent is refused until the owner turns it off.",
+        "properties": {
+          "changed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "RFC 3339 time of the last change; null if never changed",
+            "title": "Changed At"
+          },
+          "changed_by": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PrincipalRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "on": {
+            "title": "On",
+            "type": "boolean"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "on"
+        ],
+        "title": "KillSwitch",
+        "type": "object"
+      },
+      "KillSwitchBody": {
+        "additionalProperties": false,
+        "properties": {
+          "on": {
+            "description": "true stops every AI agent; false lets them work again",
+            "title": "On",
+            "type": "boolean"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why, for the audit record (at most 500 characters)",
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "on"
+        ],
+        "title": "KillSwitchBody",
+        "type": "object"
+      },
       "KitConfirmBody": {
         "additionalProperties": false,
         "properties": {
@@ -2502,6 +2604,74 @@
           "answers"
         ],
         "title": "KitConfirmBody",
+        "type": "object"
+      },
+      "LibraryItem": {
+        "properties": {
+          "file_name": {
+            "title": "File Name",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "level": {
+            "description": "in_verified_backup is the only level that means safe in a backup that passed a restore check",
+            "enum": [
+              "on_box",
+              "in_backup",
+              "in_verified_backup"
+            ],
+            "title": "Level",
+            "type": "string"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          },
+          "taken_at": {
+            "description": "When the phone says it was taken; the day the box stored it when the phone sent none",
+            "title": "Taken At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "file_name",
+          "taken_at",
+          "size",
+          "level"
+        ],
+        "title": "LibraryItem",
+        "type": "object"
+      },
+      "LibraryPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/LibraryItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "title": "LibraryPage",
         "type": "object"
       },
       "Limits": {
@@ -3895,6 +4065,21 @@
         "title": "RestoreTrashOp",
         "type": "object"
       },
+      "ResumeBody": {
+        "additionalProperties": false,
+        "properties": {
+          "app_id": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,62}$",
+            "title": "App Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "app_id"
+        ],
+        "title": "ResumeBody",
+        "type": "object"
+      },
       "RevertBody": {
         "additionalProperties": false,
         "properties": {
@@ -4463,6 +4648,105 @@
         "title": "SourceOut",
         "type": "object"
       },
+      "SourceStatus": {
+        "properties": {
+          "count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Count"
+          },
+          "observed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observed At"
+          },
+          "state": {
+            "enum": [
+              "ok",
+              "attention",
+              "critical",
+              "unknown"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "observed_at",
+          "summary"
+        ],
+        "title": "SourceStatus",
+        "type": "object"
+      },
+      "StatusView": {
+        "properties": {
+          "alerts": {
+            "$ref": "#/components/schemas/SourceStatus"
+          },
+          "approvals": {
+            "$ref": "#/components/schemas/SourceStatus"
+          },
+          "apps": {
+            "$ref": "#/components/schemas/SourceStatus"
+          },
+          "backups": {
+            "$ref": "#/components/schemas/SourceStatus"
+          },
+          "mesh": {
+            "$ref": "#/components/schemas/SourceStatus"
+          },
+          "observed_at": {
+            "title": "Observed At",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "ok",
+              "attention",
+              "critical",
+              "unknown"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "storage": {
+            "$ref": "#/components/schemas/SourceStatus"
+          },
+          "updates": {
+            "$ref": "#/components/schemas/SourceStatus"
+          }
+        },
+        "required": [
+          "state",
+          "observed_at",
+          "alerts",
+          "approvals",
+          "apps",
+          "storage",
+          "backups",
+          "updates",
+          "mesh"
+        ],
+        "title": "StatusView",
+        "type": "object"
+      },
       "StorageActionRequest": {
         "additionalProperties": false,
         "properties": {
@@ -4789,6 +5073,41 @@
           "path"
         ],
         "title": "TrashOp",
+        "type": "object"
+      },
+      "UpdatePolicyBody": {
+        "additionalProperties": false,
+        "properties": {
+          "ai_schedule": {
+            "$ref": "#/components/schemas/AiSchedule"
+          },
+          "backoff_after_failures": {
+            "default": 3,
+            "maximum": 10.0,
+            "minimum": 1.0,
+            "title": "Backoff After Failures",
+            "type": "integer"
+          },
+          "cool_off_hours": {
+            "default": 48,
+            "maximum": 720.0,
+            "minimum": 0.0,
+            "title": "Cool Off Hours",
+            "type": "integer"
+          },
+          "same_major_only": {
+            "default": true,
+            "title": "Same Major Only",
+            "type": "boolean"
+          },
+          "window_id": {
+            "default": "win_nightly",
+            "maxLength": 40,
+            "title": "Window Id",
+            "type": "string"
+          }
+        },
+        "title": "UpdatePolicyBody",
         "type": "object"
       },
       "UserCreateBody": {
@@ -5732,6 +6051,116 @@
         "summary": "Deny Action",
         "tags": [
           "actions"
+        ]
+      }
+    },
+    "/v1/agents/kill-switch": {
+      "get": {
+        "operationId": "agents.kill_switch.get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KillSwitch"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "summary": "Get Kill Switch",
+        "tags": [
+          "agents"
+        ]
+      },
+      "put": {
+        "operationId": "agents.kill_switch.set",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KillSwitchBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KillSwitch"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Set Kill Switch",
+        "tags": [
+          "agents"
         ]
       }
     },
@@ -16195,6 +16624,168 @@
         ]
       }
     },
+    "/v1/photos/assets/{asset_id}/content": {
+      "get": {
+        "operationId": "photos.asset_content",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "asset_id",
+            "required": true,
+            "schema": {
+              "title": "Asset Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {},
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "The photo's own bytes"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Asset Content",
+        "tags": [
+          "photos"
+        ]
+      }
+    },
+    "/v1/photos/library": {
+      "get": {
+        "operationId": "photos.library",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 60,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibraryPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Library",
+        "tags": [
+          "photos"
+        ]
+      }
+    },
     "/v1/photos/sources": {
       "post": {
         "operationId": "photos.register_source",
@@ -17531,6 +18122,177 @@
         ]
       }
     },
+    "/v1/shares/smb": {
+      "get": {
+        "description": "Whether the box can share over SMB, who could be shared, and the shares that exist.\n\nAn owner sees everyone's shares; anyone else sees their own.",
+        "operationId": "shares.smb.list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "summary": "Shares List",
+        "tags": [
+          "files"
+        ]
+      }
+    },
+    "/v1/shares/smb/password": {
+      "post": {
+        "description": "A new SMB password for you, shown once. Replaces the old one; only people with a share of their own.\n\nOnce passkeys are active this needs a recent passkey sign-in (step-up), like other credential changes:\nthe password opens the person's whole Files home and Time Machine folder from the LAN or mesh.",
+        "operationId": "shares.smb.password",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          }
+        },
+        "summary": "Shares Password",
+        "tags": [
+          "files"
+        ]
+      }
+    },
+    "/v1/shares/smb/{share_id}/stop": {
+      "post": {
+        "description": "Stop sharing. Owner only; taking exposure away needs no approval, and is audited.",
+        "operationId": "shares.smb.stop",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "share_id",
+            "required": true,
+            "schema": {
+              "title": "Share Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Shares Stop",
+        "tags": [
+          "files"
+        ]
+      }
+    },
     "/v1/sources": {
       "get": {
         "operationId": "sources.list",
@@ -17617,6 +18379,48 @@
         "summary": "Get Source",
         "tags": [
           "sources"
+        ]
+      }
+    },
+    "/v1/status": {
+      "get": {
+        "description": "Alerts, approvals, app health, storage, backups, updates and mesh, each with a state and when it was read.\n\nA source that cannot be read is `unknown`, never `ok`.",
+        "operationId": "status.get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "summary": "Get Status",
+        "tags": [
+          "status"
         ]
       }
     },
@@ -18367,6 +19171,204 @@
         "summary": "Rotate Token",
         "tags": [
           "tokens"
+        ]
+      }
+    },
+    "/v1/update-policy": {
+      "get": {
+        "description": "The owner's update policy for apps, and the apps whose auto-update is paused.",
+        "operationId": "updates.policy.get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          }
+        },
+        "summary": "Get Update Policy",
+        "tags": [
+          "updates"
+        ]
+      },
+      "put": {
+        "description": "Change the update policy (owner only). The knobs only ever hold an update back.",
+        "operationId": "updates.policy.update",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePolicyBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Put Update Policy",
+        "tags": [
+          "updates"
+        ]
+      }
+    },
+    "/v1/update-policy/dry-run": {
+      "get": {
+        "description": "What would update in the next maintenance window, app by app, and why not. Files nothing.",
+        "operationId": "updates.policy.dry_run",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          }
+        },
+        "summary": "Update Policy Dry Run",
+        "tags": [
+          "updates"
+        ]
+      }
+    },
+    "/v1/update-policy/resume": {
+      "post": {
+        "description": "Lift the back-off for one app (owner only): its failed updates before now stop counting.",
+        "operationId": "updates.policy.resume",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResumeBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Resume Auto Update",
+        "tags": [
+          "updates"
         ]
       }
     },

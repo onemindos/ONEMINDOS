@@ -42,11 +42,18 @@ Hook = Callable[[], Awaitable[None] | None]
 Authenticator = Callable[[Request, str | None], Principal | None]
 # Runs before an owner approval; raises ApiError to refuse it (identity: passkey step-up, F-2).
 ApprovalGuard = Callable[[Principal, str, dict, Request], None]
+# Given the id an approval guard was called with, who asked for it ({"id", "kind", ...}), or None
+# when the id is not this feature's. Every feature with its own approvable requests (files: frq_...)
+# registers one, so a guard can judge the requester, not only the approver (CORE-SEC-6).
+RequesterLookup = Callable[[str], dict | None]
 # Whether this principal may see and open an installed app (identity: per-app sharing, §12.6).
 AppFilter = Callable[[Request, Principal, str], bool]
 # Person id -> role of every active person a feature knows, beyond the tokens file (identity:
 # household accounts, §12.6). Notifications use it to find who to notify.
 PeopleSource = Callable[[], dict[str, str]]
+# Runs on every authenticated request after the caller is known; raises ApiError to refuse it
+# (agent kill switch, CORE-SEC-6: every agent principal is refused while the owner has it on).
+PrincipalGuard = Callable[[Request, Principal], None]
 
 
 @dataclass
@@ -68,8 +75,10 @@ class Gateway:
     principal: Callable[..., Principal] = None  # type: ignore[assignment]
     authenticators: list[Authenticator] = field(default_factory=list)
     approval_guards: list[ApprovalGuard] = field(default_factory=list)
+    requester_lookups: list[RequesterLookup] = field(default_factory=list)
     app_filters: list[AppFilter] = field(default_factory=list)
     people_sources: list[PeopleSource] = field(default_factory=list)
+    principal_guards: list[PrincipalGuard] = field(default_factory=list)
     _startup: list[Hook] = field(default_factory=list)
     _shutdown: list[Hook] = field(default_factory=list)
 
@@ -130,6 +139,12 @@ def principal_dependency(gw: Gateway) -> Callable[[Request], Principal]:
         return None
 
     def principal(request: Request) -> Principal:
+        p = authenticate(request)
+        for guard in gw.principal_guards:  # e.g. the agent kill switch; raises to refuse
+            guard(request, p)
+        return p
+
+    def authenticate(request: Request) -> Principal:
         header = request.headers.get("authorization", "")
         scheme, _, token = header.partition(" ")
         if scheme.lower() != "bearer" or not token.strip():

@@ -155,6 +155,7 @@ type Service struct {
 	Power  Power
 	OS     OSInstaller
 	Reset  Resetter
+	SMB    SMBManager    // file sharing (smb.go); nil: not on this box
 	BootID string        // /proc/sys/kernel/random/boot_id
 	Delay  time.Duration // before the box goes down, so the gateway records "accepted" first
 	Now    func() time.Time

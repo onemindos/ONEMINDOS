@@ -80,6 +80,7 @@ type Client struct {
 	Actions  *ActionsService
 	Audit    *AuditService
 	Events   *EventsService
+	Status   *StatusService
 }
 
 // Option configures a Client.
@@ -167,6 +168,7 @@ func New(baseURL string, opts ...Option) (*Client, error) {
 	c.Actions = &ActionsService{c}
 	c.Audit = &AuditService{c}
 	c.Events = &EventsService{c}
+	c.Status = &StatusService{c}
 	return c, nil
 }
 
@@ -421,6 +423,15 @@ type AboutService struct{ c *Client }
 func (s *AboutService) Get(ctx context.Context) (*About, error) {
 	var v About
 	return &v, s.c.Do(ctx, http.MethodGet, "/v1/os/about", nil, &v)
+}
+
+// StatusService is GET /v1/status (FD-01): what needs attention, per source.
+type StatusService struct{ c *Client }
+
+// Get is operation status.get. A source the gateway could not read is "unknown", never "ok".
+func (s *StatusService) Get(ctx context.Context) (*StatusView, error) {
+	var v StatusView
+	return &v, s.c.Do(ctx, http.MethodGet, "/v1/status", nil, &v)
 }
 
 // NodesService is /v1/nodes.

@@ -26,6 +26,7 @@ const Schema = "onemind.host/v1"
 //	GET  /v1/operations        recent operations, newest first
 //	GET  /v1/operations/{id}   one operation by action id
 //	GET  /v1/plans/factory-reset  what a factory reset would erase, keep and warn (read-only)
+//	GET  /v1/smb, PUT /v1/smb/shares, PUT /v1/smb/users/{user}/password   file sharing (smb.go)
 type Server struct {
 	S        *Service
 	AllowUID int // besides root; -1 none
@@ -193,6 +194,7 @@ func (s *Server) Handler() http.Handler {
 		}
 		writeJSON(w, http.StatusOK, s.S.Reset.Plan(r.Context()))
 	})
+	s.smbRoutes(mux)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !s.peerAllowed(r) {
 			apiError(w, http.StatusForbidden, "permission_denied", "peer", "this socket serves root and the gateway only")

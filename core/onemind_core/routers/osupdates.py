@@ -3,8 +3,8 @@
 
 `GET /v1/os/updates` and `GET /v1/os/updates/history` read what the nodes' heartbeats report about
 `internal/update` and RAUC (osupdate.py). Installing is the `os.update.install` action, requested
-through `POST /v1/actions` and approved by an owner; until the gateway can reach the update engine
-an approved install reports `engine_unreachable` instead of running.
+through `POST /v1/actions` and approved by an owner; the approved version goes to the host service
+(hostlink.py), and a box without it reports `engine_unreachable` instead of running.
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ register_route_scope("GET,HEAD", r"/v1/os/updates/history", ("nodes:read",))
 
 
 def register(app: FastAPI, gw: Gateway) -> None:
-    svc = OsUpdateService(gw)
+    svc = OsUpdateService(gw, app.state.hostlink)
     svc.register()
     app.state.osupdate = svc
 

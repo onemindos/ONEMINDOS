@@ -754,7 +754,7 @@ def configure(p: Paths, cfg: dict, source: str) -> str | None:
         h = hashlib.sha256(owner.encode()).hexdigest()
         write(os.path.join(p.gateway, "tokens.yaml"),
               "# OneMind gateway principals (written by onemind-firstboot; only sha256 of each token).\n"
-              f"tokens:\n  \"sha256:{h}\": {{id: owner, kind: person, role: owner}}\n", 0o600, ids)
+              f"tokens:\n  \"sha256:{h}\": {{id: owner, kind: person, role: owner, retire_on_setup: true}}\n", 0o600, ids)
         ensure_backup(p, st)
         write(os.path.join(p.etc, "gateway.env"), gateway_env(p, st))
         chown_tree(p.gateway, ids)          # BoxCA and natsconf ran as root: the gateway must own its tree
@@ -1093,6 +1093,9 @@ current-context: onemind-gateway
 """
 
 
+KUBECONFIG_POLL_S = 2  # k3s issues the token seconds after the API is up; 10 s polls added up to 10 s
+
+
 def kubeconfig(p: Paths, timeout: int = 3600) -> int:
     """The gateway's ServiceAccount (manifests/onemind-gateway.yaml) -> its own kubeconfig."""
     dst = os.path.join(p.gateway, "kubeconfig")
@@ -1110,7 +1113,7 @@ def kubeconfig(p: Paths, timeout: int = 3600) -> int:
             write(dst, KUBECONFIG.format(ca=r2.stdout.strip(), token=tok), 0o600, onemind_ids())
             log("gateway kubeconfig written")
             return 0
-        time.sleep(10)
+        time.sleep(KUBECONFIG_POLL_S)
     log("k3s did not issue the gateway's ServiceAccount token in time")
     return 1
 

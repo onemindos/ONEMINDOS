@@ -57,6 +57,21 @@ class HostService(unittest.TestCase):
             fb.write(os.path.join(p.run, "owner-token"), "x\n")
             self.assertEqual(os.stat(os.path.join(p.run, "owner-token")).st_mode & 0o777, 0o600)
 
+    def test_the_gateway_unit_can_reach_the_host_socket(self):
+        # The gateway talks to /run/onemind/host.sock as the user the socket admits (HostLink, core/onemind_core/hostlink.py).
+        sysd = os.path.join(ROOT, "os", "rootfs", "layers", "onemind", "usr", "lib", "systemd", "system")
+        gw = open(os.path.join(sysd, "onemind-gateway.service")).read()
+        sock = open(os.path.join(sysd, "onemind-host.socket")).read()
+        self.assertIn("User=onemind", gw)
+        self.assertIn("SocketGroup=onemind", sock)             # the gateway's group may open it (mode 0660)
+        self.assertRegex(gw, r"(?m)^RestrictAddressFamilies=.*\bAF_UNIX\b")
+        self.assertRegex(gw, r"(?m)^After=.*\bonemind-host\.socket\b")   # socket first, so the first poll finds it
+        self.assertNotRegex(gw, r"(?m)^PrivateNetwork=yes")
+        # The default path in the gateway is the socket the host listens on.
+        py = open(os.path.join(ROOT, "core", "onemind_core", "hostlink.py")).read()
+        self.assertIn('Path("/run/onemind/host.sock")', py)
+        self.assertIn("ListenStream=/run/onemind/host.sock", sock)
+
     def test_never_installs_with_rauc_directly(self):
         # An OS install goes through the update engine (snapshot + health gate), never a raw rauc call.
         self.assertNotIn("rauc install", UNIT)

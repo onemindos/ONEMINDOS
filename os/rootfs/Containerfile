@@ -186,6 +186,11 @@ RUN set -eu; \
     useradd --system --uid 963 --gid onemind-headscale --no-create-home --home-dir /nonexistent \
       --shell /usr/sbin/nologin onemind-headscale; \
     systemctl enable onemind-firstboot.service avahi-daemon.service >/dev/null; \
+    systemctl mask smbd.service nmbd.service winbind.service samba-ad-dc.service >/dev/null; \
+    systemctl enable onemind-smb.service >/dev/null; \
+    for db in passwd group shadow; do \
+      grep -Eq "^$db:.*extrausers" /etc/nsswitch.conf || sed -i -E "s/^($db:.*)$/\\1 extrausers/" /etc/nsswitch.conf; \
+    done; \
     /usr/bin/nats-server --version; \
     /usr/sbin/tailscaled --version | head -1; /usr/bin/tailscale --version | head -1; /usr/bin/headscale version; \
     /usr/lib/onemind/restic version | grep -q 'restic 0.19.1'; command -v sqlite3 >/dev/null; \

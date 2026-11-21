@@ -292,6 +292,27 @@ class PhotoFiles:
                 return PurePosixPath(*folder_parts, candidate).as_posix()
         raise FileExistsError(f"no free file name for {name!r}")
 
+    def open_library_file(self, library_path: str, size: int) -> int:
+        """A read-only descriptor of the person's own file, which must still be a regular file of
+        `size` bytes (FileNotFoundError otherwise). Opened with O_NOFOLLOW from the confined folder
+        descriptor, so a symlink planted in the library is never read."""
+        with _guard():
+            parts = split_path(library_path)
+        if len(parts) < 2 or parts[0] != "library":
+            raise LibraryEscape("not a library path")
+        with self._dir(parts[:-1]) as dfd:
+            with _guard():
+                validate_name(parts[-1])
+            try:
+                fd = os.open(parts[-1], os.O_RDONLY | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0), dir_fd=dfd)
+            except OSError as exc:
+                raise FileNotFoundError(library_path) from exc
+        st = os.fstat(fd)
+        if not stat.S_ISREG(st.st_mode) or st.st_size != size:
+            os.close(fd)
+            raise FileNotFoundError(library_path)
+        return fd
+
     def restore_library_file(self, h: str, library_path: str) -> None:
         """Put the stored copy of h back at the person's own path, replacing a missing or damaged file.
 

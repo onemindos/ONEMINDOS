@@ -6,9 +6,13 @@
 # Headscale API key (/data/onemind/etc/headscale.key), both 0600 and owned by onemind. Its files area
 # (ONEMIND_FILES_ROOT) is /data/onemind/files; without write access there the files routes answer
 # 503 storage_unavailable.
+# Host actions (restart, shut down, OS install; #146, #142): after an owner approves one, the gateway
+# connects to /run/onemind/host.sock (onemind-host.socket, mode 0660 root:onemind) as user onemind and
+# sends the approved action id. The unit needs nothing else for that: AF_UNIX is allowed below, the
+# socket's folder is 0711, and connecting to a socket works under ProtectSystem=strict. Never PrivateNetwork.
 [Unit]
 Description=OneMind Core gateway (HTTPS :443/:8443, local HTTP :8080)
-After=network-online.target onemind-firstboot.service onemind-nats.service
+After=network-online.target onemind-firstboot.service onemind-nats.service onemind-host.socket
 Wants=network-online.target onemind-nats.service
 RequiresMountsFor=/data
 ConditionPathExists=/data/onemind/etc/gateway.env
