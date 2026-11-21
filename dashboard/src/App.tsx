@@ -9,13 +9,22 @@ import { HubProvider, useHub } from './data/hub';
 import { preferenceStores } from './data/prefs';
 import { Activity } from './pages/Activity';
 import { Alerts } from './pages/Alerts';
+import { Storage } from './pages/Storage';
+import { Updates } from './pages/Updates';
+import { Backups } from './pages/Backups';
+import { Automation } from './pages/Automation';
 import { Coming } from './pages/Coming';
 import { FirstRun, wizardPending } from './pages/FirstRun';
 import { Approvals } from './pages/Approvals';
 import { Home } from './pages/Home';
 import { Installed } from './pages/Installed';
 import { Market } from './pages/Market';
+import { ComposeImport, Sources } from './pages/AppSources';
+import { Machines } from './pages/Machines';
 import { Nodes } from './pages/Nodes';
+import { ControlHub } from './pages/ControlHub';
+import { Agents } from './pages/Agents';
+import { ProOnly } from './shell/ProOnly';
 import { Settings } from './pages/Settings';
 import { SignIn } from './pages/SignIn';
 import { useSession, useSignedIn } from './session';
@@ -48,13 +57,25 @@ export function SignedInApp() {
             <Route index element={<Home />} />
             <Route path="market" element={<Market />} />
             <Route path="market/:appId" element={<Market />} />
+            <Route path="sources" element={<Sources />} />
+            <Route path="compose" element={<ComposeImport />} />
             <Route path="installed" element={<Installed />} />
             <Route path="installed/:appId" element={<Installed />} />
             <Route path="approvals" element={<Approvals />} />
             <Route path="activity" element={<Activity />} />
-            <Route path="nodes" element={<Nodes />} />
+            <Route path="nodes" element={<ProOnly title="Nodes"><Nodes /></ProOnly>} />
+            <Route path="machines" element={<Machines />} />
             <Route path="alerts" element={<Alerts />} />
+            <Route path="storage" element={<ProOnly title="Storage"><Storage /></ProOnly>} />
+            <Route path="settings/storage" element={<Navigate to="/storage" replace />} />
+            <Route path="backups" element={<ProOnly title="Backups"><Backups /></ProOnly>} />
+            <Route path="settings/backups" element={<Navigate to="/backups" replace />} />
+            <Route path="automation" element={<ProOnly title="Automation"><Automation /></ProOnly>} />
+            <Route path="updates" element={<ProOnly title="OS updates"><Updates /></ProOnly>} />
+            <Route path="settings/updates" element={<Navigate to="/updates" replace />} />
             <Route path="coming" element={<Coming />} />
+            <Route path="control-hub" element={<ProOnly title="Control Hub"><ControlHub /></ProOnly>} />
+            <Route path="agents" element={<ProOnly title="AI & Agents"><Agents /></ProOnly>} />
             <Route path="settings" element={<Settings />} />
             <Route path="settings/:section" element={<Settings />} />
             <Route path="*" element={<Navigate to="/" replace />} />

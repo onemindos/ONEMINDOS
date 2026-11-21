@@ -5,6 +5,7 @@
 name: e2e
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths: ["core/**", "dashboard/**", "deploy/**", "cmd/**", "internal/**", "apps/**", "tests/e2e/**", "os/versions.lock.yaml", ".github/workflows/e2e.yml"]
   schedule:
     - cron: "17 3 * * *"   # nightly
@@ -12,11 +13,15 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: e2e-${{ github.ref }}
-  cancel-in-progress: true
+  group: e2e-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
-  unit:
-    runs-on: ubuntu-24.04
+  # Not named `unit`: main's required checks match by job name, so a failure here would block PRs like ci's `unit`.
+  e2e-unit:
+    if: ${{ !github.event.pull_request.draft }}
+    # CI-13 (#299): arm64-safe, no secrets, no Docker. Local Mac runner when LOCAL_RUNNER=on and the event is
+    # trusted (never a fork PR); otherwise GitHub-hosted. docs/learning/self-hosted-runner.md
+    runs-on: ${{ (vars.LOCAL_RUNNER == 'on' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","onemind-local"]') || 'ubuntu-24.04' }}
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -33,6 +38,7 @@ jobs:
         run: shellcheck -x tests/e2e/harness/run.sh
 
   golden-path:
+    if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:

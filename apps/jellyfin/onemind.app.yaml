@@ -21,7 +21,7 @@ metadata:
     website: "https://jellyfin.org"
     support: "https://github.com/jellyfin/jellyfin/issues"
   upstream: {release: "v12.4", released_at: "2026-10-26T21:30:17Z", archived: false}
-  tier: community   # set by CI (sdk/tools/app-gate --tier write), not by hand
+  tier: verified   # set by CI (sdk/tools/app-gate --tier write), not by hand
 spec:
   archs: [amd64, arm64]
   requires: {gpu: false, minMemoryMb: 512}   # sum of the memory requests in manifests/

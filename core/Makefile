@@ -3,6 +3,9 @@
 
 PY        ?= 3.12
 IMAGE     ?= onemind-core:dev
+# Extra pytest flags. CI runs `PYTEST_ARGS="-n auto --dist loadgroup"` (pytest-xdist, CI-03 #228);
+# the same works locally on any machine with more than one core.
+PYTEST_ARGS ?=
 PLATFORMS ?= linux/amd64,linux/arm64
 REPO_ROOT := $(abspath $(CURDIR)/..)
 # Use the real Market seed (apps/) when the apps stream has landed it, else the test fixtures.
@@ -30,7 +33,7 @@ test-integration: sync
 	docker run -d --rm -p 15432:5432 -e POSTGRES_PASSWORD=test -e POSTGRES_DB=onemind --name onemind-core-it-pg postgres:17-alpine
 	sleep 5
 	ONEMIND_TEST_DB_URL=postgresql://postgres:test@127.0.0.1:15432/onemind \
-	ONEMIND_TEST_NATS_URL=nats://127.0.0.1:14222 uv run pytest -q; rc=$$?; \
+	ONEMIND_TEST_NATS_URL=nats://127.0.0.1:14222 uv run pytest -q $(PYTEST_ARGS); rc=$$?; \
 	docker rm -f onemind-core-it-nats onemind-core-it-pg >/dev/null; exit $$rc
 
 run: sync

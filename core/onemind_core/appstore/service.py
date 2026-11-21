@@ -28,6 +28,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from ..actions import FeatureAction
 from ..auth import Principal
+from .. import cpufit
 from ..catalog import APP_ID_RE, MANIFEST, AppEntry
 from ..context import Gateway
 from ..errors import ApiError
@@ -210,6 +211,19 @@ class AppStore:
         return {"app_id": app_id, "requires": requires, "dependents": [
             {"id": d, "name": (apps[d].manifest.get("metadata") or {}).get("name")} for d in dependents]}
 
+    def dependency_paths(self, app: AppEntry) -> tuple[list[dict], list[str]]:
+        """§12.22 network paths for app: (paths to open, plan warnings).
+
+        Registered as ActionService.dependency_paths; the plan shows the paths (hashed) and the
+        executor opens exactly those.
+        """
+        if not deps.requirements(app.manifest):
+            return [], []
+        apps = self.gw.catalog.load()
+        found, warnings = deps.links(app.id, app.manifest, {k: v.manifest for k, v in apps.items()},
+                                     deps.providing(self.statuses()))
+        return [link.to_json(app.id) for link in found], warnings
+
     def host_ports_view(self, app_id: str, node_id: str | None) -> dict:
         entry = self._app(app_id)
         return {"app_id": app_id, "node_id": node_id or self.gw.settings.node_id,
@@ -227,6 +241,12 @@ class AppStore:
         if action_type == "app.configure":
             self._check_configure(params, phase)
             return
+        if action_type in ("app.install", "app.update"):
+            # NMD-09 (#134): an image the hub's CPU cannot run is refused before anything is pulled.
+            fit = cpufit.refusal(app.manifest, cpufit.hub(self.gw.registry.list()))
+            if fit:
+                code, message, details = fit
+                raise _refuse(409, "stale_precondition", message, reason=code, details=details)
         statuses = self.statuses()
         if action_type == "app.install":
             missing = deps.unsatisfied(app.manifest, deps.providing(statuses))
@@ -488,6 +508,7 @@ class AppStore:
         actions.app_checks.append(self.check_app)
         actions.after_dispatch.append(self.after_dispatch)
         actions.settings_transform = self.settings_transform
+        actions.dependency_paths = self.dependency_paths
         self.gw.catalog.providers.append(self.sources)
 
 

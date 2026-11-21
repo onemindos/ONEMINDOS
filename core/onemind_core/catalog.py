@@ -16,7 +16,9 @@ from pathlib import Path
 
 import yaml
 
+from .ai_policy import catalog_policy
 from .appsecrets.spec import SecretDecl, parse_secrets, secret_spec_errors
+from .filesig import cache_signature
 from .scan import ScanRecord, read_scan
 
 log = logging.getLogger("onemind.catalog")
@@ -97,6 +99,8 @@ class AppEntry:
         links = md.get("links") if isinstance(md.get("links"), dict) else {}
         scan = self.scan
         return {
+            **({"aiPolicy": catalog_policy(self.manifest)}
+               if "aiPolicy" in spec or catalog_policy(self.manifest) is not None else {}),
             "id": self.id,
             "name": md.get("name"),
             "version": str(md.get("version")) if md.get("version") is not None else None,
@@ -208,16 +212,18 @@ class Catalog:
         Why: yaml.safe_load is pure Python and the JSON Schema check is slow, so re-reading every
         manifest on every request made GET /v1/apps cost about 2 ms per app (perf-smoke p95 grew
         with the catalog). A file's identity (mtime, ctime, size, inode) changes whenever it is
-        edited or replaced, so an edit is picked up on the next request, same as before.
+        edited or replaced, so an edit is picked up on the next request, same as before. A manifest
+        changed in the last moments is parsed but not cached (filesig.cache_signature), because a
+        same-size edit within one clock tick leaves that identity unchanged.
         """
         folder = path.parent.name
         try:
             st = path.stat()
         except OSError as exc:
             return [f"cannot parse: {exc.__class__.__name__}"]
-        sig = (st.st_mtime_ns, st.st_ctime_ns, st.st_size, st.st_ino)
+        sig = cache_signature(st)
         hit = self._parsed.get(path)
-        if hit is not None and hit[0] == sig:
+        if sig is not None and hit is not None and hit[0] == sig:
             return hit[1]
         self.parse_count += 1
         outcome: AppEntry | list[str]
@@ -234,7 +240,10 @@ class Catalog:
                 outcome = errs
             else:
                 outcome = AppEntry(id=folder, dir=path.parent, manifest=doc)
-        self._parsed[path] = (sig, outcome)
+        if sig is None:
+            self._parsed.pop(path, None)
+        else:
+            self._parsed[path] = (sig, outcome)
         return outcome
 
     def load(self) -> dict[str, AppEntry]:

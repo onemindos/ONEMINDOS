@@ -1,11 +1,22 @@
 // SPDX-License-Identifier: Apache-2.0
-import { render } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
+import type userEvent from '@testing-library/user-event';
 import axe from 'axe-core';
 import { MemoryRouter } from 'react-router';
 import { App } from '../App';
 import { DEMO_TOKENS } from '../api/fixtures';
 import { MockApi } from '../api/mock';
 import { SessionProvider, type SessionDeps } from '../session';
+import type { ActionType, AppParams } from '../api/types';
+
+/** Lifecycle fixtures belong only in tests, not in the user-reachable demo gateway. */
+function testApi(token: string) {
+  const preview = async (type: ActionType, params: AppParams) => ({ plan: { summary: `${type}: ${params.app_id}`, objects: [], volumes: [], warnings: [] }, plan_sha256: 'sha256:test-fixture', app_id: params.app_id, type, risk: 'write', policy_verdict: 'needs_approval', reason: null });
+  return Object.assign(new MockApi(token), {
+    appPlan: (id: string) => preview('app.install', { app_id: id }), previewAction: preview,
+    appSettings: async () => ({ fields: [], values: {} }), appLogs: async () => '',
+  });
+}
 
 /**
  * Render the whole app on a route. With `token`, the user starts signed in.
@@ -13,13 +24,13 @@ import { SessionProvider, type SessionDeps } from '../session';
  * when the user signs in through the form, it is rebuilt for the typed token.
  */
 export function renderApp(opts: { token?: string; route?: string; knownRole?: boolean } = {}) {
-  let api = new MockApi(opts.token ?? '');
+  let api = testApi(opts.token ?? '');
   if (opts.token) window.sessionStorage.setItem('onemind.token', opts.token);
   const deps: SessionDeps = {
     mock: true,
     makeApi: (t) => {
-      if (t === '') return t === (opts.token ?? '') ? api : new MockApi(''); // the credential-less client
-      if (t !== (opts.token ?? '')) api = new MockApi(t);
+      if (t === '') return t === (opts.token ?? '') ? api : testApi(''); // the credential-less client
+      if (t !== (opts.token ?? '')) api = testApi(t);
       return api;
     },
     // knownRole=false simulates a real gateway, where v0 cannot ask "who am I".
@@ -46,4 +57,28 @@ export async function seriousViolations(node: Element = document.body) {
   return res.violations
     .filter((v) => v.impact === 'serious' || v.impact === 'critical')
     .map((v) => `${v.id} (${v.impact}): ${v.help} → ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`);
+}
+
+type User = ReturnType<typeof userEvent.setup>;
+
+/**
+ * Every screen the person can reach (D-016): the dock shows the everyday ones and Launchpad
+ * lists all of them, so this opens Launchpad and returns it. In the Console view (sidebar)
+ * it returns the sidebar instead.
+ */
+export async function screensNav(u: User, timeout = 4000) {
+  const nav = await screen.findByRole('navigation', { name: 'Main' }, { timeout });
+  const all = within(nav).queryByRole('button', { name: /screens and apps/ });
+  if (!all) return within(nav);
+  await u.click(all);
+  return within(await screen.findByRole('dialog', { name: 'Launchpad' }, { timeout }));
+}
+
+/** Open a screen the way a person would: from the dock, or from Launchpad when it is not docked. */
+export async function openScreen(u: User, name: string | RegExp) {
+  const nav = await screen.findByRole('navigation', { name: 'Main' }, { timeout: 4000 });
+  const docked = within(nav).queryAllByRole('link', { name });
+  if (docked.length) return u.click(docked[0]!);
+  const lp = await screensNav(u);
+  await u.click(lp.getAllByRole('link', { name })[0]!);
 }

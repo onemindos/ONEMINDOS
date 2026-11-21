@@ -1,0 +1,30 @@
+{
+  "scanned_at": "2026-11-19T14:35:22Z",
+  "result": "pass",
+  "images": [
+    {
+      "ref": "ghcr.io/alexta69/metube:2026.11.10@sha256:6654866e76eab4228530dc5ed828ccfd702d1ee810feab2d629028272b399e14",
+      "archs": [
+        "amd64",
+        "arm64"
+      ],
+      "trivy": {
+        "version": "0.76.2",
+        "critical_fixable": 0,
+        "critical": 1,
+        "high": 123
+      },
+      "clamav": {
+        "signatures": "daily-28188",
+        "infected": 0
+      },
+      "secrets": 0,
+      "cosign": "unsigned"
+    }
+  ],
+  "licence": {
+    "spdx": "AGPL-3.0",
+    "class": "L2"
+  },
+  "smoke": "pass"
+}

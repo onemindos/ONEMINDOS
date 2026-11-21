@@ -1,0 +1,21 @@
+# SPDX-License-Identifier: Apache-2.0
+# Grows the onemind-data partition and its ext4 to the end of the disk the image was written to
+# (IMG-02, #149; usr/lib/onemind/data_extend.py says what it will never do). Runs every boot, after /data is
+# mounted, before anything that fills /data. A no-op when there is nothing to grow. Enabled by the wants
+# symlink in multi-user.target.wants.
+[Unit]
+Description=OneMind: fit the data partition to the disk
+# Early boot, with no default dependencies. Deliberately NOT Before=onemind-firstboot.service: the grow is
+# online and first boot only writes small files, so first-boot setup must not wait for it. When it did, setup
+# sometimes finished after the health gate, and the smoke F1 test failed on main after #318.
+DefaultDependencies=no
+After=local-fs.target systemd-udevd.service
+ConditionPathIsMountPoint=/data
+Before=k3s.service shutdown.target
+Conflicts=shutdown.target
+
+[Service]
+Type=oneshot
+# The leading '-' : a failure to start or run it is logged, never a failed unit (the health gate treats a
+# failed unit as fatal, and growing the disk is never worth a box that does not boot).
+ExecStart=-/usr/lib/onemind/data-extend

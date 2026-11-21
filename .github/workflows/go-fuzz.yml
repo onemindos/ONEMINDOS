@@ -7,7 +7,13 @@
 name: go-fuzz
 
 on:
+  # CI-11 (issue 298): informational, so never on every PR. A PR runs it only when it touches the
+  # workflow's own harness; every change to the code it watches is covered on main, nightly and by hand.
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths: ["internal/**/*fuzz*_test.go", ".github/workflows/go-fuzz.yml"]
+  push:
+    branches: [main]
     paths: ["internal/**", "go.mod", "go.sum", ".github/workflows/go-fuzz.yml"]
   schedule:
     - cron: "41 3 * * *"
@@ -17,11 +23,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: go-fuzz-${{ github.ref }}
-  cancel-in-progress: true
+  group: go-fuzz-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   fuzz:
+    if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     strategy:

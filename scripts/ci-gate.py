@@ -15,7 +15,7 @@ INFORMATIONAL workflows below are reported but never block (fuzzers, scans, perf
 smoke tests: useful signals, too slow or too noisy to hold every merge).
 
 Environment: GH_TOKEN, REPO (owner/name), HEAD_SHA, EVENT (pull_request | merge_group), RUN_ID
-(this run, skipped). Optional: GATE_SETTLE_S (default 45), GATE_POLL_S (30), GATE_TIMEOUT_S (10200).
+(this run, skipped). Optional: DRAFT (true on a draft PR) and PR (its number): the gate passes at once if the PR is still a draft, see main(), GATE_SETTLE_S (default 45), GATE_POLL_S (30), GATE_TIMEOUT_S (10200).
 No dependencies beyond the Python standard library.
 """
 from __future__ import annotations
@@ -31,6 +31,20 @@ INFORMATIONAL = frozenset({
     "api-fuzz", "go-fuzz", "perf-smoke", "security-nightly", "net-2vm", "apps-gate-all",
 })
 PASSING = frozenset({"success", "skipped", "neutral"})
+# Runs older than this, measured from the gate's own start, belong to an earlier event on the same
+# commit and are ignored. Why (CI-09, issue 298): a draft push skips the heavy workflows, so the SHA
+# already carries "skipped" runs. When the PR is marked ready, GitHub starts fresh runs and a fresh
+# gate within seconds; without this window a gate that looked a moment too early would see only the
+# old skipped runs and pass before the heavy workflows even started.
+FRESH_WINDOW_S = 300
+GATE_NAME = "merge-gate"
+
+
+def _ts(value: str | None) -> float | None:
+    if not value:
+        return None
+    from datetime import datetime
+    return datetime.fromisoformat(value.replace("Z", "+00:00")).timestamp()
 
 
 def latest_per_workflow(runs: list[dict]) -> list[dict]:
@@ -46,7 +60,16 @@ def latest_per_workflow(runs: list[dict]) -> list[dict]:
 def verdict(runs: list[dict], self_run_id: int) -> dict[str, list[str]]:
     """Sort the runs of one commit into failed / pending / passed / informational (by name)."""
     out: dict[str, list[str]] = {"failed": [], "pending": [], "passed": [], "informational": []}
-    for r in latest_per_workflow([r for r in runs if r["id"] != self_run_id]):
+    me = next((r for r in runs if r["id"] == self_run_id), None)
+    anchor = _ts(me.get("created_at")) if me else None
+    # The gate never waits on a gate: not this run, and not an earlier gate run of the same commit (a
+    # draft push's gate, cancelled by concurrency when the PR was marked ready, would count as failed).
+    me_wid = me["workflow_id"] if me else None
+    others = [r for r in runs if r["id"] != self_run_id and r["name"] != GATE_NAME
+              and (me_wid is None or r["workflow_id"] != me_wid)]
+    if anchor is not None:
+        others = [r for r in others if (_ts(r.get("created_at")) or anchor) >= anchor - FRESH_WINDOW_S]
+    for r in latest_per_workflow(others):
         name = r["name"]
         if name in INFORMATIONAL:
             out["informational"].append(f"{name}={r.get('conclusion') or r['status']}")
@@ -75,12 +98,37 @@ def fetch_runs(repo: str, sha: str, event: str, token: str) -> list[dict]:
         page += 1
 
 
+def still_draft(repo: str, pr: str, token: str) -> bool:
+    """True only if GitHub says the PR is a draft right now; any doubt (no number, API error) is False."""
+    if not pr.isdigit():
+        return False
+    req = urllib.request.Request(f"https://api.github.com/repos/{repo}/pulls/{pr}", headers={
+        "Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28", "User-Agent": "onemind-ci-gate",
+    })
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            return json.load(resp).get("draft") is True
+    except (OSError, ValueError):
+        return False
+
+
 def main() -> int:
     env = os.environ
     repo, sha, event, token = env["REPO"], env["HEAD_SHA"], env["EVENT"], env["GH_TOKEN"]
     self_id = int(env["RUN_ID"])
     settle, poll = int(env.get("GATE_SETTLE_S", "45")), int(env.get("GATE_POLL_S", "30"))
     deadline = time.time() + int(env.get("GATE_TIMEOUT_S", "10200"))
+    if env.get("DRAFT") == "true" and event == "pull_request" and still_draft(repo, env.get("PR", ""), token):
+        # A draft cannot merge, and the only workflows a draft runs (dco, hygiene, lint, unit) are
+        # required checks of their own. Waiting here held a runner for hours while the queue was full,
+        # for no protection, so a draft's gate passes at once. The event payload is not trusted for
+        # this: a re-run keeps the old payload, and events can arrive out of order, so the PR is asked
+        # whether it is a draft *now*. Ready, unknown or an API error: fall through and wait as usual.
+        print("gate: draft PR, nothing to wait for: it cannot merge, and its checks (dco, hygiene, "
+              "lint, unit) are required on their own. Marking it ready starts a gate that waits for "
+              "every workflow.")
+        return 0
     print(f"gate: {event} {sha}; waiting {settle}s for every workflow to start")
     time.sleep(settle)  # all runs of one event are created within seconds of each other
     last = None

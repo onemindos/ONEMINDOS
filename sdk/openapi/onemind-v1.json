@@ -352,6 +352,59 @@
         "title": "AppScope",
         "type": "object"
       },
+      "Appearance": {
+        "additionalProperties": false,
+        "properties": {
+          "accent": {
+            "default": "wallpaper",
+            "pattern": "^[a-z][a-z0-9-]{0,39}$",
+            "title": "Accent",
+            "type": "string"
+          },
+          "density": {
+            "default": "comfortable",
+            "enum": [
+              "comfortable",
+              "compact"
+            ],
+            "title": "Density",
+            "type": "string"
+          },
+          "reduce_motion": {
+            "default": "system",
+            "enum": [
+              "system",
+              "on",
+              "off"
+            ],
+            "title": "Reduce Motion",
+            "type": "string"
+          },
+          "reduce_transparency": {
+            "default": false,
+            "title": "Reduce Transparency",
+            "type": "boolean"
+          },
+          "theme": {
+            "default": "system",
+            "enum": [
+              "system",
+              "light",
+              "dark"
+            ],
+            "title": "Theme",
+            "type": "string"
+          },
+          "wallpaper": {
+            "default": "om-dusk-01",
+            "pattern": "^[a-z][a-z0-9-]{0,63}$",
+            "title": "Wallpaper",
+            "type": "string"
+          }
+        },
+        "title": "Appearance",
+        "type": "object"
+      },
       "AuditHead": {
         "properties": {
           "hash": {
@@ -1605,6 +1658,11 @@
               "exposure.mesh",
               "exposure.private",
               "exposure.public",
+              "machine.create",
+              "machine.delete",
+              "machine.start",
+              "machine.stop",
+              "os.update.install",
               "source.add",
               "source.move",
               "source.remove"
@@ -1722,6 +1780,29 @@
         "title": "GrantBody",
         "type": "object"
       },
+      "Grid": {
+        "additionalProperties": false,
+        "properties": {
+          "hidden": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 200,
+            "title": "Hidden",
+            "type": "array"
+          },
+          "order": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 200,
+            "title": "Order",
+            "type": "array"
+          }
+        },
+        "title": "Grid",
+        "type": "object"
+      },
       "Healthz": {
         "properties": {
           "ok": {
@@ -1733,6 +1814,123 @@
           "ok"
         ],
         "title": "Healthz",
+        "type": "object"
+      },
+      "HomeBody": {
+        "additionalProperties": false,
+        "description": "What a client may send. `updated_at` is accepted (so a GET result can be sent back) and ignored.",
+        "properties": {
+          "appearance": {
+            "$ref": "#/components/schemas/Appearance"
+          },
+          "dock": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 8,
+            "title": "Dock",
+            "type": "array"
+          },
+          "grid": {
+            "$ref": "#/components/schemas/Grid"
+          },
+          "layout": {
+            "default": "desktop",
+            "enum": [
+              "desktop",
+              "classic"
+            ],
+            "title": "Layout",
+            "type": "string"
+          },
+          "seen": {
+            "$ref": "#/components/schemas/Seen"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "version": {
+            "const": 3,
+            "default": 3,
+            "title": "Version",
+            "type": "integer"
+          },
+          "widgets": {
+            "items": {
+              "$ref": "#/components/schemas/Widget"
+            },
+            "maxItems": 6,
+            "title": "Widgets",
+            "type": "array"
+          }
+        },
+        "title": "HomeBody",
+        "type": "object"
+      },
+      "HomeView": {
+        "additionalProperties": false,
+        "properties": {
+          "appearance": {
+            "$ref": "#/components/schemas/Appearance"
+          },
+          "dock": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 8,
+            "title": "Dock",
+            "type": "array"
+          },
+          "grid": {
+            "$ref": "#/components/schemas/Grid"
+          },
+          "layout": {
+            "default": "desktop",
+            "enum": [
+              "desktop",
+              "classic"
+            ],
+            "title": "Layout",
+            "type": "string"
+          },
+          "seen": {
+            "$ref": "#/components/schemas/Seen"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "version": {
+            "const": 3,
+            "default": 3,
+            "title": "Version",
+            "type": "integer"
+          },
+          "widgets": {
+            "items": {
+              "$ref": "#/components/schemas/Widget"
+            },
+            "maxItems": 6,
+            "title": "Widgets",
+            "type": "array"
+          }
+        },
+        "title": "HomeView",
         "type": "object"
       },
       "ImportBody": {
@@ -3140,6 +3338,134 @@
         "title": "RestoreBody",
         "type": "object"
       },
+      "RestoreCandidatesBody": {
+        "additionalProperties": false,
+        "properties": {
+          "box_id": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Za-z0-9._:-]{1,128}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Box Id"
+          },
+          "destination_id": {
+            "pattern": "^dst_[0-9a-f]{16}$",
+            "title": "Destination Id",
+            "type": "string"
+          },
+          "recovery_key": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "minLength": 32,
+                "pattern": "^[^\\r\\n]+$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recovery Key",
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "destination_id"
+        ],
+        "title": "RestoreCandidatesBody",
+        "type": "object"
+      },
+      "RestoreCandidatesView": {
+        "properties": {
+          "destination_id": {
+            "title": "Destination Id",
+            "type": "string"
+          },
+          "points": {
+            "items": {
+              "$ref": "#/components/schemas/RestorePoint"
+            },
+            "title": "Points",
+            "type": "array"
+          }
+        },
+        "required": [
+          "destination_id",
+          "points"
+        ],
+        "title": "RestoreCandidatesView",
+        "type": "object"
+      },
+      "RestorePoint": {
+        "properties": {
+          "apps": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Apps",
+            "type": "array"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id"
+          },
+          "snapshot_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Snapshot Ids",
+            "type": "array"
+          },
+          "system": {
+            "title": "System",
+            "type": "boolean"
+          },
+          "taken_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Taken At"
+          }
+        },
+        "required": [
+          "run_id",
+          "taken_at",
+          "reason",
+          "system",
+          "apps",
+          "snapshot_ids"
+        ],
+        "title": "RestorePoint",
+        "type": "object"
+      },
       "RestoreTrashOp": {
         "additionalProperties": false,
         "properties": {
@@ -3573,6 +3899,33 @@
           }
         },
         "title": "SecretsChange",
+        "type": "object"
+      },
+      "Seen": {
+        "additionalProperties": false,
+        "properties": {
+          "welcome_tips_closed": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Welcome Tips Closed",
+            "type": "array"
+          },
+          "whats_new": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Whats New"
+          }
+        },
+        "title": "Seen",
         "type": "object"
       },
       "SendIn": {
@@ -4181,6 +4534,29 @@
           }
         },
         "title": "VerifyBody",
+        "type": "object"
+      },
+      "Widget": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "size": {
+            "default": "regular",
+            "enum": [
+              "regular",
+              "large"
+            ],
+            "title": "Size",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "title": "Widget",
         "type": "object"
       },
       "WindowBody": {
@@ -12354,6 +12730,257 @@
         ]
       }
     },
+    "/v1/machines": {
+      "get": {
+        "description": "The machines on this box, with their state and the quota they hold.",
+        "operationId": "machines.list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          }
+        },
+        "summary": "Machines List",
+        "tags": [
+          "machines"
+        ]
+      }
+    },
+    "/v1/machines/capabilities": {
+      "get": {
+        "description": "Which nodes can run virtual machines, and the reasons the others cannot.",
+        "operationId": "machines.capabilities",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          }
+        },
+        "summary": "Machines Capabilities",
+        "tags": [
+          "machines"
+        ]
+      }
+    },
+    "/v1/machines/enable": {
+      "post": {
+        "description": "The owner's switch for machines. Refused with reasons unless a node can run them.",
+        "operationId": "machines.enable",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          }
+        },
+        "summary": "Machines Enable",
+        "tags": [
+          "machines"
+        ]
+      }
+    },
+    "/v1/machines/{name}": {
+      "get": {
+        "operationId": "machines.get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Machines Get",
+        "tags": [
+          "machines"
+        ]
+      }
+    },
+    "/v1/machines/{name}/console": {
+      "post": {
+        "description": "A one-minute, single-use console ticket. Owner only: an agent never gets a screen.",
+        "operationId": "machines.console",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Machines Console",
+        "tags": [
+          "machines"
+        ]
+      }
+    },
     "/v1/me": {
       "get": {
         "operationId": "me.get",
@@ -12390,6 +13017,147 @@
         "summary": "Me",
         "tags": [
           "auth"
+        ]
+      }
+    },
+    "/v1/me/home": {
+      "get": {
+        "operationId": "me.home.get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HomeView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "summary": "Read",
+        "tags": [
+          "me"
+        ]
+      },
+      "put": {
+        "operationId": "me.home.save",
+        "parameters": [
+          {
+            "description": "The ETag read from GET /v1/me/home.",
+            "in": "header",
+            "name": "If-Match",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HomeBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HomeView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "412": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "A precondition failed: If-Match does not match (stale_precondition)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "428": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "A precondition header is required (conflict)"
+          }
+        },
+        "summary": "Save",
+        "tags": [
+          "me"
         ]
       }
     },
@@ -14268,6 +15036,108 @@
         ]
       }
     },
+    "/v1/onboarding/restore/candidates": {
+      "post": {
+        "description": "The first-run wizard's \"restore from a backup\" step: list what a destination holds. Read-only.\n\nBackup made by this box's hardware: send only `destination_id`. Backup made by another (dead or replaced) box:\nalso send its `box_id` and the owner `recovery_key` from the recovery kit (the kit QR carries both); a fresh box\nhas no way to discover the old box id, and its own device key cannot open the old repository.",
+        "operationId": "onboarding.restore.candidates",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RestoreCandidatesBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RestoreCandidatesView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
+          }
+        },
+        "summary": "Restore Candidates",
+        "tags": [
+          "onboarding"
+        ]
+      }
+    },
     "/v1/onboarding/settings": {
       "get": {
         "operationId": "onboarding.settings.get",
@@ -14375,6 +15245,66 @@
         "summary": "Save",
         "tags": [
           "onboarding"
+        ]
+      }
+    },
+    "/v1/os/updates": {
+      "get": {
+        "description": "Per node: running version, booted A/B slot, the update on offer, and whether installing can run.",
+        "operationId": "os.updates.status",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          }
+        },
+        "summary": "Os Updates",
+        "tags": [
+          "os"
+        ]
+      }
+    },
+    "/v1/os/updates/history": {
+      "get": {
+        "description": "Commits and rollbacks the nodes reported, newest first, and the install requests filed.",
+        "operationId": "os.updates.history",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          }
+        },
+        "summary": "Os Updates History",
+        "tags": [
+          "os"
         ]
       }
     },

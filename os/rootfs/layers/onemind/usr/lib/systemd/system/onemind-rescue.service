@@ -1,0 +1,62 @@
+# SPDX-License-Identifier: Apache-2.0
+# OneMind rescue console in the image (CORE-UPDATE-9; deploy/systemd/onemind-rescue.service adapted to a
+# read-only root: binary in /usr/bin, tokens and the box-CA HTTPS pair on /data). Started by
+# onemind-firstboot on the hub role. Same sandbox as the deploy unit; owner POSTs only, nothing acts alone.
+[Unit]
+Description=OneMind rescue console (slots, rollback, logs; works with k3s stopped)
+Documentation=https://github.com/onemindos/ONEMINDOS/tree/main/internal/rescue
+After=network-online.target rauc.service onemind-firstboot.service
+Wants=network-online.target
+RequiresMountsFor=/data
+ConditionPathExists=/data/onemind/gateway/tokens.yaml
+ConditionPathExists=/data/onemind/tls/https.crt
+
+[Service]
+Type=simple
+Environment=ONEMIND_TOKENS_FILE=/data/onemind/gateway/tokens.yaml
+Environment=ONEMIND_NET_TLS_DIR=/data/onemind/tls
+ExecStart=/usr/bin/onemindd rescue
+Restart=always
+RestartSec=5s
+
+# --- identity / privileges: root, with one capability: read files the gateway's user owns ---
+# The box CA pair and the tokens file belong to `onemind` (0600/0640). Without a capability, root cannot
+# read another user's 0600 file, so the console would never start (CORE-UPDATE-9). DAC_READ_SEARCH is
+# read-only: no write, no chown, no other privilege.
+User=root
+NoNewPrivileges=yes
+CapabilityBoundingSet=CAP_DAC_READ_SEARCH
+AmbientCapabilities=
+
+# --- filesystem: read-only ---
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+UMask=0077
+
+# --- kernel / syscalls ---
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged
+# capset back from @privileged, alone: the terminal's shell helper uses it to drop every capability before
+# exec. capset never raises a process's permitted set, so it cannot grant anything the unit does not allow.
+SystemCallFilter=capset
+SystemCallErrorNumber=EPERM
+
+# --- network: HTTPS for the LAN, AF_UNIX for D-Bus (rauc, systemd reboot) ---
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+
+[Install]
+WantedBy=multi-user.target

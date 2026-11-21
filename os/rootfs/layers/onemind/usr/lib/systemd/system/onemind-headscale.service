@@ -1,0 +1,49 @@
+# SPDX-License-Identifier: Apache-2.0
+# OneMind mesh coordinator on the hub: Headscale v0.29.7 (BSD-3) with its embedded DERP relay and STUN
+# (docs/architecture/NETWORKING.md §4; IMG-MESH-01). Image version of deploy/systemd/onemind-headscale.service:
+# a static user (onemind-headscale, uid 963, made at build time because /etc/passwd is read-only) instead
+# of DynamicUser, and its state is the bind mount /var/lib/onemind-headscale (no StateDirectory).
+# onemind-firstboot writes the config and starts it. Headscale terminates TLS itself on :8444 with a
+# box-CA certificate the gateway issues; a root ExecStartPre (the "+" prefix) copies it into the unit's
+# RuntimeDirectory, owned by the service user, which never reads the gateway's tls directory.
+[Unit]
+Description=OneMind mesh coordinator (Headscale, embedded DERP)
+Documentation=https://github.com/juanfont/headscale
+After=network-online.target
+Wants=network-online.target
+RequiresMountsFor=/data /var/lib/onemind-headscale
+ConditionPathExists=/data/onemind/etc/headscale/config.yaml
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/headscale serve -c /data/onemind/etc/headscale/config.yaml
+Restart=always
+RestartSec=3s
+User=onemind-headscale
+Group=onemind-headscale
+ReadWritePaths=/var/lib/onemind-headscale
+RuntimeDirectory=onemind-headscale
+RuntimeDirectoryMode=0750
+ExecStartPre=+/bin/sh -ec 'd=/run/onemind-headscale; install -m0600 /data/onemind/gateway/tls/control.crt $$d/tls.crt; install -m0600 /data/onemind/gateway/tls/control.key $$d/tls.key; chown --reference=$$d $$d/tls.crt $$d/tls.key'
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+RestrictSUIDSGID=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged
+UMask=0077

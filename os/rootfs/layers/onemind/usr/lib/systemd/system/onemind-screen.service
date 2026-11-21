@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: Apache-2.0
+# The box's own screen on tty1 (UX-07, #242): setup address, a QR code of it, role and state, in place of
+# a login prompt (the root account is locked; there is no login here). Read-only, shows no secrets.
+# A box with no monitor is not affected. Enabled by the wants symlink in multi-user.target.wants.
+[Unit]
+Description=OneMind: the box's own screen
+After=plymouth-quit.service systemd-user-sessions.service
+Conflicts=getty@tty1.service
+Before=getty@tty1.service
+
+[Service]
+ExecStartPre=-/usr/bin/plymouth quit
+ExecStart=/usr/lib/onemind/onemind-screen
+Restart=always
+RestartSec=5
+# It only reads files and asks the local gateway for /healthz.
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<!-- launchd agent for the local CI runner (CI-10 and CI-13, issue 299): one loop runs both pools (workers and gate). `scripts/ci-runner/up --service` fills the
+     __PLACEHOLDERS__ and installs it under ~/Library/LaunchAgents; do not load this file as it is.
+     caffeinate -i stops idle sleep while it runs (a closed lid still sleeps). KeepAlive restarts the loop if it dies; while the Mac sleeps nothing runs, so queued jobs wait
+     until it wakes: switch both pools off (scripts/ci-runner/down --off sets LOCAL_RUNNER and LOCAL_GATE to off) for long absences. -->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>dev.onemind.ci-runner</string>
+  <key>ProgramArguments</key><array><string>/usr/bin/caffeinate</string><string>-i</string><string>__CYCLE__</string></array>
+  <key>EnvironmentVariables</key><dict><key>PATH</key><string>__PATH__</string><key>INSTANCES</key><string>__INSTANCES__</string><key>GATE_RUNNERS</key><string>__GATE_RUNNERS__</string><key>GATE_CPUS</key><string>__GATE_CPUS__</string><key>GATE_MEMORY</key><string>__GATE_MEMORY__</string><key>CPUS</key><string>__CPUS__</string><key>MEMORY</key><string>__MEMORY__</string><key>HOME</key><string>__HOME__</string></dict>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>ThrottleInterval</key><integer>30</integer>
+  <key>ProcessType</key><string>Background</string>
+  <key>StandardOutPath</key><string>__HOME__/Library/Logs/onemind-ci-runner.log</string>
+  <key>StandardErrorPath</key><string>__HOME__/Library/Logs/onemind-ci-runner.log</string>
+</dict>
+</plist>

@@ -468,6 +468,14 @@ def p_access_put(w: World) -> Req:
     return Req(f"/v1/apps/{TARGET_APP}/access", json={"roles": ["owner", "adult"], "people": []})
 
 
+def p_rescue_options(w: World) -> Req:
+    return Req("/v1/auth/rescue/options")
+
+
+def p_rescue_verify(w: World) -> Req:
+    return Req("/v1/auth/rescue/verify", json={"credential": {"id": "probe", "type": "public-key"}})
+
+
 def p_approve_options(w: World) -> Req:
     return Req(f"/v1/actions/{w.owner_action()}/approve-options")
 

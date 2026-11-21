@@ -4,12 +4,13 @@
 // palette always agree. Requests and decisions go through `request` and `decide`, which follow
 // an action by polling `GET /v1/actions/{id}` until it ends (live install progress).
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { ApiError, type Action, type ActionType, type CatalogApp, type Instance, type NodeRecord, type NodeStatus } from '../api/types';
+import { ApiError, type Action, type ActionType, type CatalogApp, type MachineActionType, type MachineParams, type Instance, type NodeRecord, type NodeStatus } from '../api/types';
 import { usePoll, useNow, type Polled } from '../lib/hooks';
 import { effectiveStatus, OFFLINE_AFTER_S, STALE_AFTER_S } from '../lib/time';
 import { uuidv4 } from '../lib/uuid';
 import { useSignedIn, type DecideAbility } from '../session';
 import { isActive } from './adapters';
+import type { AppParams } from '../api/types';
 
 /** How long an owner has to decide on a request (§11.3 and §12.1 use 24 h). */
 export const REQUEST_TTL_MS = 24 * 60 * 60 * 1000;
@@ -41,7 +42,9 @@ export interface Hub {
   canRequest: DecideAbility;
   /** Ids of actions with a decision in flight. */
   busy: ReadonlySet<string>;
-  request: (type: ActionType, appId: string) => Promise<Action>;
+  request: (type: ActionType, appId: string, extra?: Omit<AppParams, 'app_id'>, planSha?: string) => Promise<Action>;
+  /** MACH-01: files a machine.* request (it waits in Approvals; nothing runs before an owner approves). */
+  requestMachine: (type: MachineActionType, params: MachineParams) => Promise<Action>;
   decide: (id: string, how: 'approve' | 'deny') => Promise<Action>;
   reloadAll: () => void;
 }
@@ -112,16 +115,16 @@ export function HubProvider({ children }: { children: ReactNode }) {
 
   const { reload: reloadActions } = actions;
   const { reload: reloadApps } = apps;
-  const request = useCallback(
-    async (type: ActionType, appId: string) => {
-      const slot = `${type}:${appId}`;
+  const file = useCallback(
+    async (type: ActionType | MachineActionType, params: AppParams | MachineParams, planSha?: string) => {
+      const slot = JSON.stringify([type, params, planSha]);
       let k = keys.current.get(slot);
       if (!k) {
         k = { key: uuidv4(), expiresAt: new Date(Date.now() + offset + REQUEST_TTL_MS).toISOString() };
         keys.current.set(slot, k);
       }
       try {
-        const a = await api.createAction({ type, params: { app_id: appId }, idempotency_key: k.key, expires_at: k.expiresAt });
+        const a = await api.createAction({ type, params, ...(planSha ? { plan_sha256: planSha } : {}), idempotency_key: k.key, expires_at: k.expiresAt });
         keys.current.delete(slot);
         setFollowed((f) => ({ ...f, [a.id]: a }));
         void reloadActions();
@@ -134,6 +137,11 @@ export function HubProvider({ children }: { children: ReactNode }) {
     },
     [api, offset, reloadActions],
   );
+  const request = useCallback(
+    (type: ActionType, appId: string, extra: Omit<AppParams, 'app_id'> = {}, planSha?: string) => file(type, { ...extra, app_id: appId }, planSha),
+    [file],
+  );
+  const requestMachine = useCallback((type: MachineActionType, params: MachineParams) => file(type, params), [file]);
 
   const decide = useCallback(
     async (id: string, how: 'approve' | 'deny') => {
@@ -188,10 +196,16 @@ export function HubProvider({ children }: { children: ReactNode }) {
     canRequest,
     busy,
     request,
+    requestMachine,
     decide,
     reloadAll,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
+}
+
+/** What an action is about: the app's name, else the machine's name. */
+export function subjectOf(hub: Pick<Hub, 'appName'>, a: Pick<Action, 'params'>): string {
+  return a.params.app_id !== undefined ? hub.appName(a.params.app_id) : a.params.name ?? '';
 }
 
 /** Plain words for an ApiError, for toasts. */

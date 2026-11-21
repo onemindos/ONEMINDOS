@@ -143,7 +143,7 @@ banner
 uninstall() {
   if [ "$DRY_RUN" = 1 ]; then
     step "Uninstall"
-    plan "systemctl disable --now onemind-gateway-token.timer onemind-gateway onemindd onemind-nats; remove their unit files"
+    plan "systemctl disable --now onemind-gateway-token.timer onemind-gateway onemind-rescue onemindd onemind-nats; remove their unit files"
     plan "rm $BIN/onemindd $BIN/onemind $BIN/nats-server"
     plan "run k3s-uninstall.sh / k3s-agent-uninstall.sh if present (k3s and its data)"
     plan "rm /etc/apt/apt.conf.d/52onemind-security-only /etc/needrestart/conf.d/50-onemind.conf"
@@ -155,7 +155,7 @@ uninstall() {
   systemctl disable --now onemind-gateway-token.timer 2>/dev/null || true
   rm -f /etc/systemd/system/onemind-gateway-token.timer
   # The Tailscale client goes only if OneMind installed it (tailscale_install's marker).
-  local units="onemind-gateway onemind-gateway-token onemindd onemind-nats onemind-nats-leaf onemind-headscale onemind-nats-accounts.path" ts=0
+  local units="onemind-gateway onemind-gateway-token onemindd onemind-nats onemind-nats-leaf onemind-headscale onemind-rescue onemind-nats-accounts.path" ts=0
   [ -f "$ETC/mesh-client" ] && ts=1
   if [ "$ts" = 1 ]; then
     if command -v tailscale >/dev/null 2>&1; then tailscale logout >/dev/null 2>&1 || true; fi
@@ -277,7 +277,7 @@ do_firewall_reminder() {
   [ "$TARGET_KIND" = 'do' ] || return 0
   cat <<'EOF'
 
-  DigitalOcean: this droplet has a public address. Ports 8080 (gateway, plain HTTP), 4222 (NATS,
+  DigitalOcean: this droplet has a public address. Ports 7443 (rescue console, LAN only), 8080 (gateway, plain HTTP), 4222 (NATS,
   no auth in v0), 6443 (k3s API), 10250 (kubelet) and 8472/udp (flannel) must NOT be open to the
   internet. Put a DigitalOcean Cloud Firewall in front of the droplet that allows them only from
   your VPC or Tailscale range, and SSH only from your own address. This script does not change
@@ -1086,24 +1086,25 @@ dashboard_build() {
     log "dashboard: using prebuilt $DASH_DIST"
     copy_tree_plain "$DASH_DIST" "$PREFIX/dashboard"; return 0
   fi
-  # The dashboard imports the design system from source (../ui/src), so both trees count.
-  sum=$(cd "$SRC" && find dashboard ui/src -path dashboard/node_modules -prune -o -path dashboard/dist -prune -o -type f -print0 \
+  # Dashboard aliases consume the design system and SDK from source; hash every input tree.
+  sum=$(cd "$SRC" && find dashboard ui/src sdk/ts/src -path dashboard/node_modules -prune -o -path dashboard/dist -prune -o -type f -print0 \
         | LC_ALL=C sort -z | xargs -0 sha256sum | sha256sum | cut -d' ' -f1)
   if [ -f "$stamp" ] && [ "$(cat "$stamp")" = "$sum" ]; then log "dashboard: up to date"; return 0; fi
   node_toolchain
   log "dashboard: npm ci + vite build with Node $NODE_VERSION (as user onemind, no install scripts)"
   copy_src_tree "$SRC/dashboard" "$CACHE/dashboard-src"
   copy_src_tree "$SRC/ui/src" "$CACHE/ui/src"   # ../ui/src as seen from dashboard-src
+  copy_src_tree "$SRC/sdk/ts/src" "$CACHE/sdk/ts/src"
   # npm packages are third-party code: never run them as root. --ignore-scripts skips dependency
   # lifecycle scripts (esbuild's is an optional speed-up; its platform binary comes as a package).
   install -d -o onemind -g onemind -m0700 "$CACHE/npm-home"
-  chown -R onemind:onemind "$CACHE/dashboard-src" "$CACHE/ui"
+  chown -R onemind:onemind "$CACHE/dashboard-src" "$CACHE/ui" "$CACHE/sdk"
   (cd "$CACHE/dashboard-src" && runuser -u onemind -- env -i PATH="$NODE_DIR/bin:/usr/bin:/bin" HOME="$CACHE/npm-home" \
      npm_config_cache="$CACHE/npm-home/cache" npm_config_update_notifier=false sh -ec \
      'npm ci --ignore-scripts --no-audit --no-fund --loglevel=error >/dev/null; npm run build >/dev/null')
   copy_tree_plain "$CACHE/dashboard-src/dist" "$PREFIX/dashboard"
   printf '%s\n' "$sum" > "$stamp"
-  rm -rf "$CACHE/dashboard-src" "$CACHE/ui"
+  rm -rf "$CACHE/dashboard-src" "$CACHE/ui" "$CACHE/sdk"
 }
 copy_tree_plain() { rm -rf "$2.new"; mkdir -p "$2.new"; cp -R "$1/." "$2.new/"; rm -rf "$2"; mv "$2.new" "$2"; chmod -R a+rX "$2"; }
 
@@ -1221,6 +1222,36 @@ gateway_tokens() {
       log "tokens: added the agent principal dev-agent"
     fi
   fi
+}
+
+# The rescue console (CORE-UPDATE-9, #278): its own unit, so the owner has a page on :7443 even when k3s or
+# the gateway is down. Needs the box CA's https.crt/key (box_certs) and the owner's tokens.yaml
+# (gateway_tokens), so it comes after both. LAN only: the console refuses public and mesh clients itself.
+rescue_install() {
+  step "Rescue console (onemind-rescue.service, https://$BOX.local:7443, LAN only)"
+  if [ "$DRY_RUN" = 1 ]; then
+    plan "install $SCRIPT_DIR/systemd/onemind-rescue.service; systemctl enable onemind-rescue; start it (restart if the unit changed)"
+    plan "check that https://127.0.0.1:7443 answers 401 without the owner token"
+    return 0
+  fi
+  if [ ! -f "$STATE/tls/https.crt" ] || [ ! -f "$STATE/tls/https.key" ]; then
+    die "no HTTPS certificate in $STATE/tls: the rescue console needs the box CA pair"
+  fi
+  [ -f "$ETC/tokens.yaml" ] || die "no $ETC/tokens.yaml: the rescue console signs in with the owner token"
+  local changed=0
+  cmp -s "$SCRIPT_DIR/systemd/onemind-rescue.service" /etc/systemd/system/onemind-rescue.service 2>/dev/null || changed=1
+  install -m0644 "$SCRIPT_DIR/systemd/onemind-rescue.service" /etc/systemd/system/onemind-rescue.service
+  systemctl daemon-reload
+  systemctl enable onemind-rescue >/dev/null 2>&1
+  if [ "$changed" = 1 ] || ! systemctl is-active --quiet onemind-rescue; then systemctl restart onemind-rescue; fi
+  local i code=""
+  for i in $(seq 1 15); do
+    code=$(curl -sk -o /dev/null -w '%{http_code}' https://127.0.0.1:7443/ 2>/dev/null || true)
+    [ "$code" = 401 ] && return 0
+    sleep 1
+  done
+  journalctl -u onemind-rescue --no-pager -n 20 >&2 || true
+  die "the rescue console did not answer 401 on https://127.0.0.1:7443 (got '${code:-nothing}'; journalctl -u onemind-rescue)"
 }
 
 # Before printing new tokens: make sure none of them reached a file (only hashes may be on disk).
@@ -1348,6 +1379,7 @@ if [ "$ROLE" = hub ]; then
   gateway_kubeconfig
   coredns_hub_name
   gateway_tokens
+  rescue_install         # after the CA pair and the tokens file it needs
   # App pods reach the gateway over HTTPS on :8443 (box CA): with HTTPS on, the plain-HTTP port is
   # bound to loopback and the LAN never sees it (H-05).
   HUB_URL=${HUB:-"https://$LAN_ADDR:8443"}
@@ -1366,6 +1398,7 @@ if [ "$ROLE" = hub ]; then
   banner
   log "hub ready: https://$BOX.local (and https://onemind.local), box CA sha256 $BOX_CA_SHA"
   log "mesh: hub $HUB_MESH_IP; k3s and the NATS leaf listener run on it"
+  log "rescue console (works with k3s down; sign in with the owner token): https://$BOX.local:7443"
   if [ -n "$OWNER_TOKEN" ]; then
     printf '\nOWNER TOKEN (shown once; only its sha256 is stored in %s):\n\n    %s\n\n' "$ETC/tokens.yaml" "$OWNER_TOKEN"
   fi

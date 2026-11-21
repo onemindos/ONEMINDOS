@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 # Reviewed false positives for scripts/hygiene.py: <path glob> TAB <regex the whole hit must match> TAB <id in handbook/hygiene.md>
-*	serial-getty@tty[A-Za-z0-9]+\.service	FP-3
+*	(serial-)?getty@tty[A-Za-z0-9]+\.service	FP-3
 *	git@github\.com	FP-5
 os/boards/vm-do/*	/home/onemind	B-FP-1
 test/qemu/*	/home/onemind	B-FP-1
@@ -37,6 +37,10 @@ internal/leaf/*	100\.64\.[0-9]+\.[0-9]+	B-FP-9
 internal/rescue/*	100\.64\.[0-9]+\.[0-9]+	B-FP-9
 docs/architecture/NETWORKING.md	100\.64\.[0-9]+\.[0-9]+	B-FP-9
 docs/leap/core/NETWORKING.md	100\.64\.[0-9]+\.[0-9]+	B-FP-9
+os/rootfs/layers/onemind/usr/lib/onemind/onemind_firstboot.py	100\.64\.[0-9]+\.[0-9]+	B-FP-9
+test/qemu/CRITERIA-FIRSTBOOT.md	100\.64\.[0-9]+\.[0-9]+	B-FP-9
+test/qemu/firstboot.py	100\.64\.[0-9]+\.[0-9]+	B-FP-9
+test/unit/test_firstboot.py	100\.64\.[0-9]+\.[0-9]+	B-FP-9
 docs/architecture/NETWORKING.md	10\.4[23]\.0\.0	B-FP-9
 scripts/hygiene-allow.tsv	(100\.64\.0\.0|/home/runner)	B-FP-9
 # B-FP-10: Market app manifests and READMEs name the home directory of the user an upstream image runs as (node in Node.js images, coder in the code-server image). They are paths inside the container, not host home directories.
@@ -60,3 +64,9 @@ test/qemu/*	/home/admin	B-FP-6
 # B-FP-11: the rescue console's LAN-only test (internal/rescue, #157) checks that an RFC 1918 client address is still served
 # next to the mesh ranges it refuses. A test input, not a host or address of this project.
 internal/rescue/rescue_test.go	10\.0\.0\.7	B-FP-11
+core/onemind_core/netpath.py	100\.64\.0\.0	B-FP-9
+core/tests/test_app_exposure_sharing.py	192\.168\.1\.20	B-FP-6
+# B-FP-9b: the LAN allowlist in core/onemind_core/netpath.py names the RFC 1918 network addresses (standard ranges, not a real network).
+core/onemind_core/netpath.py	(10\.0\.0\.0|172\.16\.0\.0|192\.168\.0\.0)	B-FP-9
+# B-FP-13: net-2vm harness private link, not a real network.
+test/net/*	172\.31\.250\.[0-9]+(/24)?	B-FP-13

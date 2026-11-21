@@ -16,7 +16,7 @@ import argparse, hashlib, ipaddress, json, os, re, secrets, shutil, socket, subp
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
-LAN_NET, HUB_LAN, NODE_LAN, BOX = "198.51.100", "198.51.100.1", "198.51.100.2", "box1"
+LAN_NET, HUB_LAN, NODE_LAN, BOX = "172.31.250", "172.31.250.1", "172.31.250.2", "box1"
 CRITERIA = [
     ("N2-0", "two VMs boot and see each other on the private link"),
     ("N2-1", "hub install"),

@@ -17,6 +17,7 @@ name: ci-apps
 on:
   workflow_dispatch:   # docs/testing/README.md §2 (test-all)
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "apps/**"
       # Only the SDK files this gate reads (not all of sdk/**: the gateway, OpenAPI and language
@@ -31,12 +32,15 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-apps-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  group: ci-apps-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   validate:
-    runs-on: ubuntu-24.04
+    if: ${{ !github.event.pull_request.draft }}
+    # CI-10 (#299): arm64-safe, no secrets. Local Mac runner when LOCAL_RUNNER=on and the event is trusted
+    # (never a fork PR); otherwise GitHub-hosted. docs/learning/self-hosted-runner.md
+    runs-on: ${{ (vars.LOCAL_RUNNER == 'on' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","onemind-local"]') || 'ubuntu-24.04' }}
     timeout-minutes: 15
     outputs:
       apps: ${{ steps.changed.outputs.apps }}
@@ -47,10 +51,19 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      # setup-python has no 3.13 build for the local runner (Debian 13, arm64), so that runner uses Debian's
+      # own Python 3.13 in a venv instead (the system Python refuses pip installs, PEP 668).
       - name: Set up Python
+        if: runner.environment == 'github-hosted'
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.13"
+
+      - name: Set up Python (local runner)
+        if: runner.environment != 'github-hosted'
+        run: |
+          python3 -m venv "$RUNNER_TEMP/venv"
+          echo "$RUNNER_TEMP/venv/bin" >> "$GITHUB_PATH"
 
       - name: Install Python dependencies and pinned tools
         run: |
@@ -119,7 +132,7 @@ jobs:
 
   gate:
     needs: validate
-    if: needs.validate.outputs.apps != '[]'
+    if: ${{ !github.event.pull_request.draft && (needs.validate.outputs.apps != '[]') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     strategy:
