@@ -1,0 +1,27 @@
+# QEMU battery, Secure Boot and signed UKI: pass/fail criteria (pre-registered)
+
+**Status:** PRE-REGISTERED. Written 2026-11-21 before `test/qemu/secureboot.py` was run. Its sha256 is in `PREREGISTRATION.sha256` and in the commit that adds it. Nothing here may change afterwards except typo fixes; any other change is a new, dated section at the end. Results never live here (they go to the run's `results.json` and CI logs).
+
+**Serves:** S-13 (verified boot chain), D-007, the finish audit `07-image-security` item 11. **Does not replace** `CRITERIA.md` or `CRITERIA-FIRSTBOOT.md`; the normal image is unchanged and still passes those on its own.
+
+## 1. Starting state and rules
+
+- One disk: an x86_64-efi image built with `--sb-key/--sb-cert` (`make secureboot-image`), opened as a fresh copy for every test. Firmware: OVMF with Secure Boot **on** and a variable store whose only keys are three **throwaway test keys** (PK, KEK, db) made inside the run (`uki.make_test_keys`). The db holds one certificate, the image signing certificate. No Microsoft keys. No real key is ever used or stored by this test.
+- Every disk change a test makes is made from outside the guest, on the copy.
+- A test that cannot run because of an environment limit is **BLOCKED** with the reason, never PASS. A harness bug may be re-run once and is named as such.
+- Every verdict records KVM or TCG and the host CPU count.
+- Timeouts (wall clock): gate line 1500 s from QEMU start; a refusal test watches the console for 240 s.
+
+## 2. Tests
+
+| ID | Test | PASS if | FAIL if |
+|---|---|---|---|
+| SB1 | Signed UKI boots | With the enrolled keys, the untouched image boots (the firmware starts the signed slot-A UKI from the ESP's fallback boot file), the kernel's EFI stub prints `EFI stub: UEFI Secure Boot is enabled.`, and the gate logs `RESULT committed-boot slot=A` | No `Secure Boot is enabled` line, no gate line, or a firmware refusal on the console |
+| SB2 | A changed UKI is refused | One byte of the boot file `EFI/BOOT/BOOTX64.EFI` (the slot-A UKI) is changed in the disk copy. Within the watch time the console shows a refusal (`Access Denied`, `Security Violation` or `Image .* failed to load`) and shows **no** sign of the kernel or system starting (`EFI stub:`, `Loading, please wait`, `Welcome to`, `systemd[1]`, `Kernel panic`, `ONEMIND-FIRSTBOOT` or a gate line; the image boots at `loglevel=4`, which hides the kernel's own banner, so these are the first lines that do show; the EFI stub line was seen on a self-test image on 2026-11-21 before this file was committed) | The kernel starts, or no refusal text appears |
+| SB3 | A UKI signed by an unknown key is refused | `EFI/BOOT/BOOTX64.EFI` is re-signed with a key that is not in db. Same observation as SB2 | The kernel starts, or no refusal text appears |
+| SB4 | An unsigned boot file is refused | `EFI/BOOT/BOOTX64.EFI` is replaced by its unsigned version. Same observation as SB2 | The kernel starts, or no refusal text appears |
+
+## 3. Verdicts for this task
+
+- **x86_64** (OVMF) runs SB1-SB4. On TCG, a timeout missed only because TCG is slower is **BLOCKED (TCG timing)** and must pass on a KVM host (CI) before it counts.
+- **Not covered by this slice (listed, not hidden):** starting slot B and the A/B rollback under Secure Boot (needs the update bundle to carry a signed UKI and a RAUC efi-backend or BootOrder switch; GRUB cannot select slots under Secure Boot without shim), dm-verity on the booted root, TPM measurement, the real signing ceremony.
