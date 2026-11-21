@@ -51,6 +51,8 @@ def cells(default, **over) -> dict:
         k = k.replace("_", "-")
         assert k in out, f"unknown principal kind {k}"
         out[k] = v
+    if "teen" not in over:
+        out["teen"] = out["child"]  # FAM-01: a teen holds the same API scopes as a child; rows override with teen=
     return out
 
 
@@ -586,6 +588,20 @@ POLICY |= {
                                               automation=DENIED, node=DENIED),
                                         lambda _w: w.Req("/v1/system/actions", json={"type": "system.restart"}),
                                         f"{_SYS}: owner or agent requests a restart; only an owner approves it"),
+}
+
+# ---- family controls (FAM-01, #204) -------------------------------------------------------
+# The owner passes authorization and gets 404 for these deliberately missing targets.
+# Other people and service identities are refused before target lookup.
+POLICY |= {
+    ("GET", "/v1/family/profiles/{user_id}"): Row(
+        OWNER_ONLY_404, w.p_static("/v1/family/profiles/missing"), "FAM-01: private profiles are owner only"),
+    ("PUT", "/v1/family/profiles/{user_id}"): Row(
+        OWNER_ONLY_404, w.p_missing("/v1/family/profiles/missing", json={}), "FAM-01: owner manages profiles"),
+    ("GET", "/v1/family/apps/{app_id}"): Row(
+        OWNER_ONLY_404, w.p_static("/v1/family/apps/missing"), "FAM-01: classifications are owner only"),
+    ("PUT", "/v1/family/apps/{app_id}"): Row(
+        OWNER_ONLY_404, w.p_missing("/v1/family/apps/missing", json={}), "FAM-01: owner manages classifications"),
 }
 
 # ---- OS updates (UMB-P05, #142: core/onemind_core/routers/osupdates.py) --------------------------------------

@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // Simple and Pro by role (report ch. 3, UX-1, UX-2): there is no global "Pro mode" switch. The
-// Pro screens appear for the roles that run the box (owner, adult); guests and children see the
+// Pro screens appear for the roles that run the box (owner, adult); guests, children and teens see the
 // simple set. The gateway still enforces every route by scope; this only decides what is offered.
 import type { Me } from '../api/wiring';
 import type { Principal } from '../api/types';
 import { PRO_SCREEN_IDS } from '../screens/registry';
 
-/** core/onemind_core/auth.py ROLES: owner, adult, guest, child, agent. */
+/** core/onemind_core/auth.py ROLES: owner, adult, guest, child, teen, agent. */
 export const PRO_ROLES: ReadonlySet<string> = new Set(['owner', 'adult']);
 
 /** Nav ids of the Pro screens: every screen that declares `pro: true` in src/screens/<id>/screen.ts. */

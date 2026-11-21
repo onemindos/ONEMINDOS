@@ -24,10 +24,10 @@ async function mainNav() {
 }
 
 describe('role → view', () => {
-  it('owner and adult are Pro; guest, child and agent are Simple; unknown stays unknown', () => {
+  it('owner and adult are Pro; guest, child, teen and agent are Simple; unknown stays unknown', () => {
     expect(viewFor('owner')).toBe('pro');
     expect(viewFor('adult')).toBe('pro');
-    for (const r of ['guest', 'child', 'agent', null]) expect(viewFor(r)).toBe('simple');
+    for (const r of ['guest', 'child', 'teen', 'agent', null]) expect(viewFor(r)).toBe('simple');
     expect(viewFor(undefined)).toBe('unknown');
     expect(showsNav('control-hub', 'unknown')).toBe(false);
     expect(showsNav('home', 'simple')).toBe(true);
@@ -57,6 +57,7 @@ describe.each([
   ['adult-demo', true],
   ['guest-demo', false],
   ['child-demo', false],
+  ['teen-demo', false],
 ])('navigation for %s', (token, pro) => {
   it(pro ? 'shows the Pro screens' : 'shows only the simple screens', async () => {
     renderApp({ token });
@@ -71,8 +72,8 @@ describe.each([
 });
 
 describe('Pro routes for a Simple role', () => {
-  it.each(['/control-hub', '/agents', '/nodes'])('a child opening %s gets the role notice, not the screen', async (route) => {
-    renderApp({ token: 'child-demo', route });
+  it.each(['child-demo', 'teen-demo'].flatMap((t) => ['/control-hub', '/agents', '/nodes'].map((r) => [t, r])))('%s opening %s gets the role notice, not the screen', async (token, route) => {
+    renderApp({ token, route });
     expect(await screen.findByText(/for the people who run this box/, {}, T)).toBeInTheDocument();
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
   });
@@ -119,6 +120,7 @@ describe('Pro links outside the nav', () => {
   it.each([
     ['owner-demo', true],
     ['child-demo', false],
+    ['teen-demo', false],
     ['guest-demo', false],
   ])('Home for %s links to Nodes only for a Pro role', async (token, pro) => {
     renderApp({ token });

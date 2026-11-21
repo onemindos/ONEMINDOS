@@ -57,7 +57,7 @@ from .settings import IdentitySettings
 
 log = logging.getLogger("onemind.identity")
 
-PERSON_ROLES = ("owner", "adult", "guest", "child")
+PERSON_ROLES = ("owner", "adult", "guest", "child", "teen")
 USERNAME_RE = re.compile(r"[a-z][a-z0-9._-]{1,31}")
 AGENT_ID_RE = re.compile(r"agent:[a-z0-9][a-z0-9._-]{0,62}")
 CSRF_HEADER = "onemind-csrf"
