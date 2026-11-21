@@ -160,6 +160,18 @@ def _plugin_grants(app: AppEntry) -> list[str]:
     return parsed[1] if parsed else []
 
 
+def plugin_tools(app: AppEntry) -> list[dict]:
+    """Each declared REST tool with its declared effect, sorted. The owner approves these labels."""
+    tools = ((app.manifest.get("spec") or {}).get("extensions") or {}).get("tools")
+    rows = []
+    for item in tools if isinstance(tools, list) else []:
+        if isinstance(item, dict) and isinstance(item.get("name"), str):
+            rows.append({"name": item["name"], "effect": str(item.get("effect")),
+                         "rest": bool((item.get("exposure") or {}).get("rest"))
+                         if isinstance(item.get("exposure"), dict) else False})
+    return sorted(rows, key=lambda r: r["name"])
+
+
 def _describe_grant(grant: str) -> str:
     prefix = "actions:request:"
     if grant.startswith(prefix):
@@ -211,6 +223,13 @@ def render_plan(action_type: str, params: dict, app: AppEntry, runtime: AppRunti
             obj["plugin_grants"] = grants
             for grant in grants:
                 warnings.append(f"Plugin permission: {_describe_grant(grant)}.")
+            tools = plugin_tools(app)
+            if tools:
+                obj["plugin_tools"] = tools  # hashed: a flipped effect is a different plan
+                for tool in tools:
+                    warnings.append(f"Plugin tool {tool['name']} ({tool['effect']}): " + (
+                        "runs at once with no approval, so only approve it if it truly changes nothing."
+                        if tool["effect"] == "read" else "waits for your approval each time it is used."))
     paths: list[dict] = []
     if network is not None and action_type in OPENS_PATHS:
         paths, net_warnings = network

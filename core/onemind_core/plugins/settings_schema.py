@@ -2,10 +2,14 @@
 """Bounded, offline JSON settings schemas snapshotted at approved installation."""
 import json
 from pathlib import PurePosixPath
+import re
 
 from jsonschema import Draft202012Validator, SchemaError
 
 from ..appstore.appsettings import pattern_risk
+
+
+_SECRETISH = re.compile(r"secret|passw|passphrase|token|api[-_]?key|credential|private[-_]?key", re.I)
 
 
 def compile_schema(schema):
@@ -20,6 +24,11 @@ def compile_schema(schema):
             return [expand(v, depth + 1, refs) for v in value]
         if not isinstance(value, dict):
             return value
+        if value.get("writeOnly") or value.get("format") == "password" or any(
+                _SECRETISH.search(str(name)) for name in (value.get("properties") or {})
+                if isinstance(value.get("properties"), dict)):
+            raise ValueError("plugin settings must not hold secrets; they are stored in clear text "
+                             "and shown in the action ledger")
         if "$dynamicRef" in value or "$id" in value:
             raise ValueError("plugin settings dynamic references and schema IDs are unsupported")
         if "pattern" in value:

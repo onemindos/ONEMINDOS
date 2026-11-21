@@ -63,6 +63,19 @@ class PluginSecret(AgentSecret):
         return json.dumps(doc)
 
 
+def authority(app) -> tuple[dict, dict]:
+    """What the owner approved beyond grants: the backend and each tool's declared effect."""
+    from ..lifecycle import plugin_tools
+    plugin = (app.manifest.get("spec") or {}).get("plugin") or {}
+    return plugin.get("backend") or {}, {t["name"]: (t["effect"], t["rest"]) for t in plugin_tools(app)}
+
+
+def narrows(approved, proposed) -> bool:
+    """An update may drop tools but never add one, change an effect or move the backend."""
+    (old_backend, old_tools), (new_backend, new_tools) = authority(approved), authority(proposed)
+    return old_backend == new_backend and all(old_tools.get(name) == value for name, value in new_tools.items())
+
+
 def register_workloads(gw, identity) -> None:
     updates = {}
 
@@ -81,6 +94,9 @@ def register_workloads(gw, identity) -> None:
                 old = declaration(AppEntry(app.id, app.dir, installed.manifest)) if installed else None
                 if current is None or current != old:
                     raise ApiError(409, "conflict", "changed plugin identity grants require removal and a fresh approved install")
+                if not narrows(AppEntry(app.id, app.dir, installed.manifest), app):
+                    raise ApiError(409, "conflict",
+                                   "changed plugin tools or backend require removal and a fresh approved install")
                 saved = identity.repo.get(PluginSettingsRow, app.id)
                 schema = load_settings_schema(app)
                 if saved and schema is not None:
