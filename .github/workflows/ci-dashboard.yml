@@ -8,12 +8,20 @@ on:
     paths:
       - 'dashboard/**'
       - 'ui/src/**'
+      # The dashboard typechecks against the TS SDK generated from the spec (CI-16).
+      - 'sdk/openapi/**'
+      - 'sdk/ts/src/**'
+      - '.github/actions/sdk-gen/**'
       - '.github/workflows/ci-dashboard.yml'
   push:
     branches: [main]
     paths:
       - 'dashboard/**'
       - 'ui/src/**'
+      # The dashboard typechecks against the TS SDK generated from the spec (CI-16).
+      - 'sdk/openapi/**'
+      - 'sdk/ts/src/**'
+      - '.github/actions/sdk-gen/**'
       - '.github/workflows/ci-dashboard.yml'
 
 permissions:
@@ -39,6 +47,10 @@ jobs:
           node-version: '22'
           cache: npm
           cache-dependency-path: dashboard/package-lock.json
+      - name: Generate the SDK code from the committed spec (CI-16, not committed)
+        uses: ./.github/actions/sdk-gen
+        with:
+          langs: ts
       - run: npm ci
       - run: npm run lint
       - run: npm run typecheck
