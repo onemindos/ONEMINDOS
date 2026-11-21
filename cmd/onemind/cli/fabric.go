@@ -38,6 +38,7 @@ func fabricCommands(a *App) []*cobra.Command {
 		sub("ticket [--hub URL] [--role worker|leaf] [--ttl 15m] [--token T] [--json]", "Mint a one-use join code", fabricTicket),
 		sub("approve ACTION_ID [--hub URL] [--token T]", "Approve a node join request", fabricApprove),
 		sub("status [--hub URL] [--token T] [--json]", "Nodes and pending joins", fabricStatus),
+		sub("outbox init|status|send", "Leaf node: queue messages for the hub through hub outages", fabricOutbox),
 	)
 	return []*cobra.Command{fab}
 }
