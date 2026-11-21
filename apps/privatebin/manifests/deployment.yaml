@@ -1,5 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
-# PrivateBin 2.1.1 (github.com/PrivateBin/PrivateBin), image docker.io/privatebin/nginx-fpm-alpine. The image
+# PrivateBin 2.1.1 (github.com/PrivateBin/PrivateBin), image docker.io/privatebin/nginx-fpm-alpine. Pinned to the
+# digest of upstream's rebuilt `edge` tag (still PrivateBin 2.1.1; nginx 1.30.7-r0 fixes CVE-2026-121810, -123007 and
+# -123633, php 8.5.13-r0 fixes the php85 CVEs the 2.1.1 tag still carried; read from the image's apk database,
+# 2026-11-20). Swap back to a versioned tag when upstream publishes one with these fixes. The image
 # runs nginx and php-fpm as UID 65534 (nobody) on 8080, keeps pastes in /srv/data (a directory owned by group
 # 82, so fsGroup is 82) and supports a read-only root filesystem when /tmp, /run (which must allow exec: s6
 # copies its service scripts there) and /var/lib/nginx/tmp are writable. GET / answers 200 (checked by running
@@ -36,7 +39,7 @@ spec:
           type: RuntimeDefault
       containers:
       - name: privatebin
-        image: docker.io/privatebin/nginx-fpm-alpine:2.1.1@sha256:9fbcc4d5671b974cafb55948d6fc3ab9eaf77f0c39271a50a16dd71bd4c4d3e6
+        image: docker.io/privatebin/nginx-fpm-alpine:edge@sha256:f0ade5951258358b7f36ba8b7662f90f17165f60402b99945f3ffe2deb32011a
         imagePullPolicy: IfNotPresent
         ports:
         - name: http
