@@ -85,7 +85,7 @@ export const light: Theme = {
   'logo-brain': brand.logo.light.brain,
   'logo-circuit': brand.logo.light.circuit,
   // Teal focus ring: reads apart from Ember.
-  focus: '#0e6b72',
+  focus: '#0a5157',
   // Critical is raspberry crimson, cooler than Ember so the two cannot be confused.
   danger: '#a1123f',
   'danger-hover': '#7f0e32',
@@ -262,7 +262,7 @@ export function toCss(): string {
     `:root {\n${block(scaleVars(), '  ')}\n${lightVars}\n  color-scheme: light;\n}\n\n` +
     `@media (prefers-color-scheme: dark) {\n  :root:not([data-theme='light']) {\n${darkVars}\n    color-scheme: dark;\n  }\n}\n\n` +
     `:root[data-theme='dark'] {\n${darkForced}\n  color-scheme: dark;\n}\n\n` +
-    `@media (prefers-reduced-motion: reduce) {\n  :root {\n    --om-motion-duration-fast: 0ms;\n    --om-motion-duration-base: 0ms;\n    --om-motion-duration-slow: 0ms;\n  }\n}\n`
+    `@media (prefers-reduced-motion: reduce) {\n  :root {\n    --om-motion-duration-fast: 0ms;\n    --om-motion-duration-base: 0ms;\n    --om-motion-duration-slow: 0ms;\n    --om-motion-duration-open: 0ms;\n    --om-motion-duration-close: 0ms;\n  }\n}\n`
   );
 }
 

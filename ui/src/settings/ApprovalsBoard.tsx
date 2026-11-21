@@ -7,6 +7,8 @@ import { formatAgo, formatIn, secondsSince } from '../lib/time';
 import { PageHeader } from '../components/AppShell';
 import { ACTION_STATE, ApprovalCard, actionTitle, requesterPill, type ActionSummary, type ApprovalCardProps } from '../components/ApprovalCard';
 import { StatusPill } from '../components/StatusPill';
+import { Icon } from '../components/Icon';
+import { cx } from '../lib/cx';
 import { RISK, UNDO_TEXT, groupEffects, planRisk } from './logic';
 import { Async, CallHint, Empty, Skeleton, SetIcon } from './primitives';
 import { CATEGORY_LABEL, DEPLOY_CLASS } from './taxonomy';
@@ -111,11 +113,15 @@ export interface ApprovalsBoardProps {
   approveHint?: string;
   /** The API calls listed at the bottom; defaults to the §12 set. */
   calls?: string[];
+  /** One plain line of what will change, shown directly above Approve and Deny. */
+  planSummary?: (a: ActionSummary) => string | undefined;
 }
 
-export function ApprovalsBoard({ actions, plans, decided = [], now, canDecide, onApprove, onDeny, onRetry, initialId, planNote, approveHint, calls }: ApprovalsBoardProps) {
+export function ApprovalsBoard({ actions, plans, decided = [], now, canDecide, onApprove, onDeny, onRetry, initialId, planNote, approveHint, calls, planSummary }: ApprovalsBoardProps) {
   const [from, setFrom] = useState<From>('all');
   const [sel, setSel] = useState<string | undefined>(initialId);
+  // Phones go list to detail: the list shows until a request is opened, then only the request.
+  const [detail, setDetail] = useState(initialId !== undefined);
   return (
     <>
       <PageHeader title="Approvals" lede="Nothing changes on your box until a person approves it. Agents can ask; they can never approve. Each request shows what the gateway computed it will do." />
@@ -157,7 +163,7 @@ export function ApprovalsBoard({ actions, plans, decided = [], now, canDecide, o
               {shown.length === 0 ? (
                 <Empty icon="check" title="Nothing from this kind of requester">Other requests are under All.</Empty>
               ) : (
-                <div className="om-set-board">
+                <div className={cx('om-set-board', detail && 'om-set-board-detail')}>
                   <ul className="om-set-queue" aria-label="Waiting requests">
                     {shown.map((a) => {
                       const pl = plans[a.id];
@@ -166,7 +172,7 @@ export function ApprovalsBoard({ actions, plans, decided = [], now, canDecide, o
                       const expired = Date.parse(a.expires_at) <= now;
                       return (
                         <li key={a.id}>
-                          <button type="button" className="om-set-qitem" aria-current={current?.id === a.id ? 'true' : undefined} onClick={() => setSel(a.id)}>
+                          <button type="button" className="om-set-qitem" aria-current={current?.id === a.id ? 'true' : undefined} onClick={() => { setSel(a.id); setDetail(true); }}>
                             <span className="om-set-qitem-top">
                               {who && <StatusPill tone={who.tone} label={who.label} dot={false} />}
                               {risk && risk !== 'low' && <StatusPill tone={RISK[risk].tone} label={risk === 'high' ? 'High impact' : 'Check'} />}
@@ -182,6 +188,9 @@ export function ApprovalsBoard({ actions, plans, decided = [], now, canDecide, o
                   </ul>
                   {current && (
                     <div className="om-set-detail" aria-live="polite">
+                      <button type="button" className="om-set-back" onClick={() => setDetail(false)}>
+                        <Icon name="chevron" size={16} className="om-flip-x" /> All requests
+                      </button>
                       <ApprovalCard
                         key={current.id}
                         action={current}
@@ -191,7 +200,19 @@ export function ApprovalsBoard({ actions, plans, decided = [], now, canDecide, o
                         onDeny={onDeny}
                         extra={
                           <>
-                            {!plans[current.id] && planNote ? <p className="om-note om-tone-info">{planNote}</p> : <EffectsCard plan={plans[current.id] ?? { status: 'loading' }} now={now} />}
+                            {!plans[current.id] && planNote ? (
+                              <>
+                                {planSummary?.(current) && (
+                                  <p className="om-plan-summary">
+                                    <strong>What will change</strong>
+                                    <span>{planSummary(current)}</span>
+                                  </p>
+                                )}
+                                <p className="om-hint">{planNote}</p>
+                              </>
+                            ) : (
+                              <EffectsCard plan={plans[current.id] ?? { status: 'loading' }} now={now} />
+                            )}
                             <p className="om-hint">{approveHint ?? 'Approving asks for your passkey and signs exactly this plan. If the plan changes, the request has to be approved again.'}</p>
                           </>
                         }

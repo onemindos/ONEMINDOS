@@ -102,6 +102,7 @@
 .omh-search:hover:not(:disabled) { box-shadow: var(--om-shadow-2); transform: translateY(var(--omh-lift)); }
 .omh-search:focus-visible { outline: 2px solid var(--om-color-focus); outline-offset: 2px; }
 .omh-search:disabled { cursor: default; opacity: 0.7; }
+.omh-st-short { display: none; }
 .omh-search-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .omh-kbd { font-family: var(--om-font-sans); font-size: var(--om-font-size-xs); padding: 2px var(--om-space-2); border-radius: var(--om-radius-xs); border: 1px solid var(--om-color-border-strong); background: var(--om-color-surface); color: var(--om-color-text-muted); }
 
@@ -226,8 +227,8 @@
 .omh-status { display: flex; flex-direction: column; gap: var(--om-space-2); align-items: flex-start; }
 
 /* ---------- dots and glyphs ---------- */
-.omh-dot { display: inline-block; flex: none; width: var(--omh-dot); height: var(--omh-dot); border-radius: 50%; background: var(--om-tone-fg); box-shadow: 0 0 0 2px var(--om-color-surface); }
-.omh-dot-hollow { background: var(--om-color-surface); border: 2px solid var(--om-tone-fg); }
+.omh-dot { display: inline-grid; place-items: center; flex: none; width: calc(var(--omh-dot) + 6px); height: calc(var(--omh-dot) + 6px); border-radius: 50%; color: var(--om-tone-fg); background: var(--om-color-surface); }
+.omh-dot .om-pill-glyph { width: calc(var(--omh-dot) + 2px); height: calc(var(--omh-dot) + 2px); }
 .omh-glyph-add { position: relative; display: inline-flex; flex: none; align-items: center; justify-content: center; overflow: hidden; border-radius: var(--omh-glyph-radius); font-weight: var(--om-font-weight-bold); color: var(--om-tone-fg); background: var(--om-tone-bg); border: 1px solid var(--om-tone-border); box-shadow: var(--om-shadow-1); }
 .omh-hue-teal { --om-tone-fg: var(--om-color-accent); --om-tone-bg: var(--om-color-accent-soft); --om-tone-border: var(--om-color-border); }
 .omh-hue-green { --om-tone-fg: var(--om-color-ok-fg); --om-tone-bg: var(--om-color-ok-bg); --om-tone-border: var(--om-color-ok-border); }
@@ -313,7 +314,13 @@
 @media (max-width: 720px) {
   .omh-home { gap: var(--om-space-5); }
   .omh-hero { padding-top: 0; }
-  .omh-greeting { font-size: var(--om-font-size-3xl); }
+  .omh-greeting { font-size: 2rem; line-height: 1.1; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+  .omh-date { display: none; }
+  .omh-node-list .omh-node-name { flex-basis: auto; }
+  .omh-st-long { display: none; }
+  .omh-st-short { display: inline; }
+  .omh-node-list .omh-node-nums > span:not(:nth-child(2)) { display: none; }
+  .omh-widget-link { min-height: 44px; padding: 0 var(--om-space-2); }
   .omh-summary { font-size: var(--om-font-size-sm); }
   .omh-search { min-height: 48px; font-size: var(--om-font-size-sm); }
   .omh-kbd { display: none; }
@@ -331,8 +338,10 @@
   /* One widget per row: 2-up small widgets left ~150 px and truncated every title and number. */
   .omh-grid { grid-template-columns: minmax(0, 1fr); }
   .omh-cell-S, .omh-cell-M, .omh-cell-L { grid-column: auto; }
-  /* Node rows: name and state on one line, the numbers on the next, instead of "office-/laptop" wrapping. */
-  .omh-node-list .omh-node-name { flex-basis: 100%; }
+  /* Node rows on a phone: one line, name and state, then a single Mem figure. Full detail on tap. */
+  .omh-node-list .omh-node-name { flex: 1 1 auto; flex-basis: auto; min-width: 0; }
+  .omh-node-list li { flex-wrap: nowrap; }
+  .omh-node-nums { flex: none; }
 }
 @media (max-width: 400px) {
   .omh-appgrid { grid-template-columns: repeat(3, minmax(0, 1fr)); }

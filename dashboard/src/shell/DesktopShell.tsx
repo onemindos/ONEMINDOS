@@ -8,7 +8,7 @@
 // docs/learning/umbrelos-2-teardown.md). OneMind's own look: brand mark, signature wallpaper,
 // one colour per screen, approvals first.
 // Links are plain anchors: Shell's click handler routes them without a page reload.
-import { useEffect, useId, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { AppIcon, BrandMark, Icon, type NavItem } from '@onemind/ui';
 import './desktop.css';
@@ -29,6 +29,8 @@ export interface DesktopShellProps {
   boxName: string;
   /** Hub connection state (a FreshnessPill). */
   status?: ReactNode;
+  /** The jobs indicator, next to the bell. */
+  jobs?: ReactNode;
   /** The notification bell. */
   bell?: ReactNode;
   nav: NavItem[];
@@ -50,31 +52,37 @@ export interface DesktopShellProps {
 }
 
 /** Screens that stay in the dock; everything else is one click away in Launchpad. */
+/** The phone tab bar has five slots: these four and "All" (More). The rest are in Launchpad. */
+const PHONE_DOCK: readonly string[] = ['home', 'market', 'approvals', 'activity'];
+
 export const DOCK_IDS = ['home', 'market', 'installed', 'approvals', 'activity', 'settings'] as const;
 
-/** One colour per screen, so a place is recognised before its name is read. White glyph on each. */
-export const SCREEN_HUES: Record<string, readonly [string, string]> = {
-  home: ['#e5574c', '#a3221b'],
-  market: ['#6f8fb0', '#35546f'],
-  installed: ['#6fae6a', '#2f6a35'],
-  approvals: ['#e0a03c', '#9a5b0e'],
-  activity: ['#4fb3a4', '#1d6f66'],
-  settings: ['#9a9188', '#4a423b'],
-  nodes: ['#5aa3c4', '#245f7e'],
-  machines: ['#9a86c4', '#58468c'],
-  alerts: ['#d9667f', '#9a1840'],
-  storage: ['#e39a5c', '#a44a14'],
-  backups: ['#5bb4c0', '#24687a'],
-  automation: ['#8a86c8', '#4a4690'],
-  coming: ['#9a9188', '#4a423b'],
-  'control-hub': ['#c9473d', '#6e1a18'],
-  agents: ['#b57fc4', '#74377f'],
+/**
+ * One Hearth icon family: every screen is a warm-neutral tile with a single-colour glyph, and the
+ * glyph takes one of four tints (ink, terracotta, sage, ochre) defined in desktop.css. Red is never
+ * an icon colour: it is kept for the attention badge. Full colour is for third-party app icons only.
+ */
+export type ScreenTint = 'ink' | 'terracotta' | 'sage' | 'ochre';
+export const SCREEN_TINT: Record<string, ScreenTint> = {
+  home: 'ink',
+  market: 'terracotta',
+  installed: 'sage',
+  approvals: 'ochre',
+  activity: 'sage',
+  settings: 'ink',
+  nodes: 'sage',
+  machines: 'ink',
+  alerts: 'ochre',
+  storage: 'terracotta',
+  backups: 'sage',
+  automation: 'terracotta',
+  coming: 'ink',
+  'control-hub': 'ink',
+  agents: 'terracotta',
 };
-const FALLBACK_HUE = ['#9a9188', '#4a423b'] as const;
 
-export function tileStyle(id: string): CSSProperties {
-  const [a, b] = SCREEN_HUES[id] ?? FALLBACK_HUE;
-  return { '--dsk-tile-a': a, '--dsk-tile-b': b } as CSSProperties;
+export function tintOf(id: string): ScreenTint {
+  return SCREEN_TINT[id] ?? 'ink';
 }
 
 /** Split the nav into dock items (fixed order) and Launchpad-only items (nav order). */
@@ -104,7 +112,7 @@ function typingIn(target: EventTarget | null): boolean {
 
 function ScreenTile({ id, icon, size = 44 }: { id: string; icon: NavItem['icon']; size?: number }) {
   return (
-    <span className="dsk-tile" style={{ ...tileStyle(id), width: size, height: size }} aria-hidden="true">
+    <span className="dsk-tile" data-tint={tintOf(id)} style={{ width: size, height: size }} aria-hidden="true">
       <Icon name={icon} size={Math.round(size * 0.48)} />
     </span>
   );
@@ -291,7 +299,7 @@ function Launchpad({ nav, apps, onClose }: { nav: NavItem[]; apps: DockApp[]; on
 }
 
 export function DesktopShell(props: DesktopShellProps) {
-  const { boxName, status, bell, nav, current, pinned = [], apps = [], now, timeZone, person, demo, onSearch, onConsoleView, onSignOut, children } = props;
+  const { boxName, status, jobs, bell, nav, current, pinned = [], apps = [], now, timeZone, person, demo, onSearch, onConsoleView, onSignOut, children } = props;
   const navigate = useNavigate();
   const location = useLocation();
   const atHome = current === 'home';
@@ -363,6 +371,7 @@ export function DesktopShell(props: DesktopShellProps) {
           <button type="button" className="dsk-iconbtn" onClick={onSearch} aria-label="Search (Ctrl K)" title="Search (Ctrl K)">
             <Icon name="search" size={18} />
           </button>
+          {jobs}
           {bell}
           <PersonMenu person={person} demo={demo} onConsoleView={onConsoleView} onSignOut={onSignOut} />
         </div>
@@ -375,7 +384,7 @@ export function DesktopShell(props: DesktopShellProps) {
       ) : (
         <div className="dsk-stage">
           <div className="dsk-scrim" aria-hidden="true" onClick={() => navigate('/')} />
-          <section className="dsk-window" aria-labelledby={windowLabel} key={current}>
+          <section className={up ? 'dsk-window' : 'dsk-window dsk-window-top'} aria-labelledby={windowLabel} key={current}>
             <div className="dsk-window-bar">
               {up ? (
                 <a href={up} className="dsk-wbtn" aria-label="Back" title="Back">
@@ -402,7 +411,7 @@ export function DesktopShell(props: DesktopShellProps) {
       <nav className="dsk-dock" aria-label="Main">
         <ul className="dsk-dock-group">
           {dock.map((item) => (
-            <li key={item.id}>
+            <li key={item.id} className={PHONE_DOCK.includes(item.id) ? undefined : 'dsk-dock-extra'}>
               <a href={item.href} className="dsk-dock-item" aria-current={item.id === current ? 'page' : undefined}>
                 <ScreenTile id={item.id} icon={item.icon} />
                 <span className="dsk-dock-label">{item.label}</span>
@@ -413,8 +422,8 @@ export function DesktopShell(props: DesktopShellProps) {
         </ul>
         {pinned.length > 0 && (
           <>
-            <span className="dsk-dock-sep" aria-hidden="true" />
-            <ul className="dsk-dock-group" aria-label="Pinned apps">
+            <span className="dsk-dock-sep dsk-dock-extra" aria-hidden="true" />
+            <ul className="dsk-dock-group dsk-dock-extra" aria-label="Pinned apps">
               {pinned.map((a) => (
                 <li key={a.id}>
                   <a href={a.href} className="dsk-dock-item dsk-dock-app">

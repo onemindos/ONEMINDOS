@@ -57,12 +57,12 @@ describe('lifecycle through the HTTP client', () => {
     expect(within(panel).getByText('Gateway result: applied')).toBeInTheDocument();
     expect(within(panel).queryByText('Healthy')).not.toBeInTheDocument();
   });
-  it('keeps the compact jobs island and expands to actual ledger state', async () => {
+  it('keeps the menu-bar jobs indicator and expands to actual ledger state', async () => {
     const { user } = setup();
     const tray = await screen.findByRole('complementary', { name: 'Jobs in progress' });
     const toggle = within(tray).getByRole('button', { name: '1 job · Ollama: Awaiting approval' });
     expect(toggle).toHaveAttribute('aria-expanded', 'false');
-    expect(toggle).toHaveClass('om-store-tray-pill');
+    expect(toggle).toHaveClass('dsk-jobs-btn');
     expect(within(tray).queryByRole('region', { name: 'Request progress' })).not.toBeInTheDocument();
     await user.click(toggle);
     expect(toggle).toHaveAttribute('aria-expanded', 'true');

@@ -36,7 +36,7 @@
 .om-btn-primary:hover:not(:disabled) { background: var(--om-color-accent-hover); }
 .om-btn-secondary { background: var(--om-color-surface); color: var(--om-color-text); border-color: var(--om-color-control-border); }
 .om-btn-secondary:hover:not(:disabled) { background: var(--om-color-surface-sunken); }
-.om-btn-ghost { background: transparent; color: var(--om-color-accent); }
+.om-btn-ghost { background: transparent; color: var(--om-color-text); text-decoration: underline; text-underline-offset: 3px; }
 .om-btn-ghost:hover:not(:disabled) { background: var(--om-color-accent-soft); }
 /* Hearth: the commit action (Approve) is a solid ink button, so Ember stays for selection and brand. */
 .om-btn-primary.om-btn-ink { background: var(--om-color-text); color: var(--om-color-bg); }
@@ -84,7 +84,8 @@
   line-height: 1.6;
   white-space: nowrap;
 }
-.om-pill-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.om-pill-glyph { flex: none; }
+.om-pill[data-state='unknown'] { border-style: dashed; }
 .om-pill-detail { font-weight: var(--om-font-weight-regular); }
 .om-pulse { animation: om-pulse 1.6s var(--om-motion-ease-standard) infinite; }
 @keyframes om-pulse { 50% { opacity: 0.3; } }
@@ -144,7 +145,7 @@
 .om-expires { display: inline-flex; align-items: center; gap: var(--om-space-1); color: var(--om-color-warn-fg); margin-left: auto; }
 .om-reason { margin: 0; padding-left: var(--om-space-3); border-left: 3px solid var(--om-color-agent-border); color: var(--om-color-text-muted); font-size: var(--om-font-size-sm); }
 .om-impact { font-size: var(--om-font-size-sm); }
-.om-details summary { cursor: pointer; color: var(--om-color-accent); font-size: var(--om-font-size-sm); min-height: 32px; display: flex; align-items: center; }
+.om-details summary { cursor: pointer; color: var(--om-color-text); font-size: var(--om-font-size-sm); min-height: 32px; display: flex; align-items: center; }
 .om-code { margin: var(--om-space-2) 0 0; padding: var(--om-space-3); background: var(--om-color-surface-sunken); border: 1px solid var(--om-color-border); border-radius: var(--om-radius-sm); overflow-x: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
 .om-decide { display: flex; flex-wrap: wrap; align-items: center; gap: var(--om-space-3); }
 
@@ -278,3 +279,8 @@
   .om-dialog-actions > .om-btn { width: 100%; }
 }
 @media (max-width: 720px) and (prefers-reduced-motion: reduce) { .om-dialog { animation: none; } }
+
+/* Phones: touch targets are 44px. */
+@media (max-width: 720px) {
+  .om-btn-sm, .om-chip, .om-set-chip { min-height: var(--om-layout-touch-target); }
+}

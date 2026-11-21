@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Small pieces shared by Home: app glyph, status dot, category icon, freshness helpers.
+import { PillGlyphMark, type PillGlyph } from '../components/StatusPill';
 import type { Tone } from '../tokens/tokens';
 import { cx } from '../lib/cx';
 import { freshness, NODE_LIMITS, type Freshness } from '../lib/freshness';
@@ -30,8 +31,16 @@ export function nodeFreshness(n: HomeNode, now: number): Freshness {
   return freshness(secondsSince(n.last_seen, now), NODE_LIMITS);
 }
 
-export function StatusDot({ tone, pulse, hollow, className }: { tone: Tone; pulse?: boolean; hollow?: boolean; className?: string }) {
-  return <span className={cx('omh-dot', `om-tone-${tone}`, pulse && 'om-pulse', hollow && 'omh-dot-hollow', className)} aria-hidden="true" />;
+const DOT_GLYPH: Record<Tone, PillGlyph> = { ok: 'check', warn: 'clock', bad: 'x', info: 'info', neutral: 'ring', agent: 'agent' };
+
+/** Status as a shape, not a filled dot: check, clock, x, hollow ring, dashed ring with ? (unknown). */
+export function StatusDot({ tone, pulse, hollow, unknown, className }: { tone: Tone; pulse?: boolean; hollow?: boolean; unknown?: boolean; className?: string }) {
+  const glyph: PillGlyph = unknown ? 'unknown' : hollow && tone === 'ok' ? 'ring' : DOT_GLYPH[tone];
+  return (
+    <span className={cx('omh-dot', `om-tone-${tone}`, className)} data-glyph={glyph} aria-hidden="true">
+      <PillGlyphMark glyph={glyph} pulse={pulse} />
+    </span>
+  );
 }
 
 /** Home's app icon is the shared AppIcon (CRITIQUE #20), so an app looks the same here and in the Store. */

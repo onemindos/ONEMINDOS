@@ -94,6 +94,7 @@ export function WidgetGrid({ layout, onChange, editing, ctx }: WidgetGridProps) 
         return (
           <li
             key={w.id}
+            data-kind={w.kind}
             className={cx('omh-cell', `omh-cell-${w.size}`, dragId === w.id && 'omh-dragging', overId === w.id && dragId !== w.id && 'omh-drop')}
             draggable={canDrag}
             onDragStart={(e) => {

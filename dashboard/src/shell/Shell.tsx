@@ -230,6 +230,7 @@ export function Shell({ children }: { children: ReactNode }) {
             nav={nav}
             current={navId(location.pathname)}
             status={status}
+            jobs={<ActionJobs variant="bar" />}
             bell={bell}
             pinned={pinned}
             apps={installedApps}
@@ -257,7 +258,7 @@ export function Shell({ children }: { children: ReactNode }) {
           state={hub.freshness === 'stale' || hub.freshness === 'offline' ? hub.freshness : hub.freshness === 'unknown' ? 'loading' : 'ready'}
           ageSeconds={hub.ageS}
         />
-        <ActionJobs />
+        {layout !== 'desktop' && <ActionJobs />}
         {reviewDialog}
       </div>
     </ShellCtx.Provider>

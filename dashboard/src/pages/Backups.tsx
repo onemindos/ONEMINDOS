@@ -100,6 +100,19 @@ function LiveBackups({ token, person }: { token: string; person: string }) {
       <p>Scope: whole box. The gateway checks setup and backup permissions.</p>
       {error && <p role="alert">{error}</p>}
     </Dialog>
+    {(() => {
+      // Provable backups are what OneMind stands for: with nothing yet, the page says so plainly.
+      const none = status.data !== undefined && !status.data.last_success_at && runs.data !== undefined && runs.data.length === 0;
+      return none ? <section className="dash-proof" aria-label="Backup proof">
+        <svg className="dash-proof-art" viewBox="0 0 120 96" width="120" height="96" aria-hidden="true" focusable="false"><rect x="14" y="52" width="92" height="30" rx="10" fill="none" stroke="currentColor" strokeWidth="2.5" /><circle cx="30" cy="67" r="3" fill="currentColor" /><path d="M60 8l26 10v18c0 16-11 26-26 32-15-6-26-16-26-32V18z" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinejoin="round" /><path d="M48 36l9 9 16-18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+        <div>
+          <p className="dash-proof-kicker">Your last proven restore</p>
+          <p className="dash-proof-big">None yet</p>
+          <p className="om-hint">A backup only counts once a restore has been tried. Set one up and OneMind will show the proof here.</p>
+        </div>
+        <Button className="om-btn-ink" onClick={() => setOpen(true)}>Set up backups</Button>
+      </section> : null;
+    })()}
     {[status, targets, runs].some((r) => r.error && r.data !== undefined) && <p role="status">Could not refresh. Showing previously fetched backup data; refresh to check again.</p>}
     <Load res={status} what="Loading backup health">{(s) => <Card as="article" title="Backup health" variant="sunken">
       <StatusPill tone="neutral" label={text(s.health)} />

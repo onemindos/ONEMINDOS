@@ -68,7 +68,7 @@
   --om-color-accent-soft: #f8e6e4;
   --om-color-logo-brain: #000000;
   --om-color-logo-circuit: #ff333a;
-  --om-color-focus: #0e6b72;
+  --om-color-focus: #0a5157;
   --om-color-danger: #a1123f;
   --om-color-danger-hover: #7f0e32;
   --om-color-danger-text: #ffffff;
@@ -196,5 +196,7 @@
     --om-motion-duration-fast: 0ms;
     --om-motion-duration-base: 0ms;
     --om-motion-duration-slow: 0ms;
+    --om-motion-duration-open: 0ms;
+    --om-motion-duration-close: 0ms;
   }
 }

@@ -158,21 +158,28 @@ const radial = (x: string, y: string, color: string, size = '55%') => `radial-gr
  * that only ever lies over the base, so it is lighter than the hills in day and dimmer in night.
  */
 const HEARTH = {
-  light: ['#efe9e2', '#e6d6c6', '#d9bfa8', '#c99f86'],
+  light: ['#efe9e2', '#e6d2bd', '#dfc6ae', '#d9bfa8'],
   dark: ['#120e0b', '#2a1d16', '#3a261c', '#4a2f22'],
 } as const satisfies Record<ThemeName, Stops>;
-const HEARTH_SUN = { light: { color: '#f6d9c4', opacity: 0.6 }, dark: { color: '#6a3a2a', opacity: 0.35 } } as const;
+const HEARTH_SUN = { light: { color: '#f6d9c4', opacity: 0.6 }, dark: { color: '#4a2f22', opacity: 0.5 } } as const;
 
 function windowLight(c: Stops): string {
   const night = c[0] === HEARTH.dark[0];
   const sun = night ? HEARTH_SUN.dark : HEARTH_SUN.light;
   const disc = `<circle cx="1180" cy="430" r="150" fill="${sun.color}" fill-opacity="${sun.opacity}"/>`;
+  // Two soft shafts of window light fall from the top right across the room: a OneMind original
+  // scene, and the one place the wallpaper gets a clear value range behind the greeting.
+  const shafts =
+    `<defs><linearGradient id="s" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${sun.color}" stop-opacity="${night ? 0.5 : 0.9}"/><stop offset="0.7" stop-color="${sun.color}" stop-opacity="0"/></linearGradient>` +
+    `<linearGradient id="k" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${night ? c[0] : c[3]}" stop-opacity="${night ? 0.9 : 0.95}"/><stop offset="0.6" stop-color="${night ? c[0] : c[3]}" stop-opacity="0"/></linearGradient></defs>` +
+    `<rect width="1600" height="620" fill="url(#k)"/>` +
+    `<polygon points="980,0 1260,0 1060,780 640,780" fill="url(#s)" opacity="0.7"/><polygon points="1300,0 1480,0 1380,780 1130,780" fill="url(#s)" opacity="0.5"/>`;
   const grain =
     '<filter id="g" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="2" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 0.5  0 0 0 0 0.45  0 0 0 0 0.4  0 0 0 0.9 0"/></filter>' +
     '<rect width="1600" height="1000" filter="url(#g)" opacity="0.02"/>';
-  // The sun sits behind the hills: draw dunes first, then redraw only the sun beneath by ordering layers.
+  // Layers, back to front: base, sky shade, sun and shafts, then the hills, then grain.
   const hills = dunes(c, 3).replace(/<\/svg>$/, '');
-  const scene = hills.replace(`<rect width="1600" height="1000" fill="${c[0]}"/>`, `<rect width="1600" height="1000" fill="${c[0]}"/>${disc}`) + grain + '</svg>';
+  const scene = hills.replace(`<rect width="1600" height="1000" fill="${c[0]}"/>`, `<rect width="1600" height="1000" fill="${c[0]}"/>${disc}${shafts}`) + grain + '</svg>';
   return `${svgUrl(scene)} center / cover no-repeat, ${radial('78%', '38%', night ? '#3a2118' : '#f9e6d6', '48%')}, ${c[0]}`;
 }
 

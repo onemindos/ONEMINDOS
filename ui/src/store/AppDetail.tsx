@@ -24,13 +24,8 @@ export function Screenshots({ shots, appName }: { shots: Screenshot[]; appName: 
   const [at, setAt] = useState(0);
   const list = useRef<HTMLUListElement>(null);
   const id = useId();
-  if (shots.length === 0)
-    return (
-      <div className="om-store-shots-empty">
-        <CategoryIcon name="grid" />
-        <p>No screenshots published for {appName} yet. They come from the app's Market entry.</p>
-      </div>
-    );
+  // Nothing published: show nothing, not a dashed placeholder.
+  if (shots.length === 0) return null;
   const go = (n: number) => {
     const k = (n + shots.length) % shots.length;
     setAt(k);
@@ -388,13 +383,11 @@ export function AppDetail({ app, state, plan, planState, job, now, backHref, onR
                     <Card title="About" level={2}>
                       <p>{app.description}</p>
                     </Card>
-                    <Card title="What's new" level={2} subtitle={notes[0] ? `${notes[0].version} · ${formatDay(notes[0].released_at)}` : undefined}>
-                      {notes.length === 0 ? (
-                        <p className="om-hint">No release notes published for this version.</p>
-                      ) : (
+                    {notes.length > 0 && (
+                      <Card title="What's new" level={2} subtitle={`${notes[0]!.version} · ${formatDay(notes[0]!.released_at)}`}>
                         <ReleaseNotes notes={notes} />
-                      )}
-                    </Card>
+                      </Card>
+                    )}
                     <Requirements app={app} plan={plan} planState={planState} now={now} />
                     {app.permissions?.length || app.extensions?.length ? (
                       <Card title="Permissions" level={2} subtitle="What it asks for, in plain words. Agents never see its credentials.">

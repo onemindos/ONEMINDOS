@@ -170,7 +170,7 @@ function SystemWidget({ w, ctx }: { w: WidgetInstance; ctx: WidgetContext }) {
           return (
             <li key={n.node_id} className={f === 'live' ? undefined : 'omh-row-stale'}>
               <span className="omh-node-name">
-                <StatusDot tone={f === 'live' ? 'ok' : f === 'stale' ? 'warn' : 'neutral'} hollow={f !== 'live'} />
+                <StatusDot tone={f === 'live' ? 'ok' : f === 'stale' ? 'warn' : 'neutral'} unknown={f === 'unknown'} />
                 <span>{n.hostname}</span>
                 {f !== 'live' && <span className="omh-row-note">{FRESHNESS_LABEL[f]} · {ago(n.last_seen, ctx.now)}</span>}
               </span>

@@ -150,7 +150,7 @@ export function HomeScreen({
 
       <button type="button" className="omh-search" onClick={onOpenSearch} disabled={!onOpenSearch} aria-keyshortcuts="Control+K Meta+K">
         <Icon name="search" size={20} />
-        <span className="omh-search-text">Search apps, nodes and settings, or request something</span>
+        <span className="omh-search-text"><span className="omh-st-long">Search apps, nodes and settings, or request something</span><span className="omh-st-short" aria-hidden="true">Search or ask</span></span>
         <kbd className="omh-kbd" aria-hidden="true">
           Ctrl K
         </kbd>

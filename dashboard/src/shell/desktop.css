@@ -19,6 +19,10 @@
   --dsk-hairline: color-mix(in srgb, var(--om-color-text) 9%, transparent);
   --dsk-window-edge: transparent;
   --dsk-highlight: rgb(255 255 255 / 0.5);
+  /* Hearth icon family: a warm tile with a one-colour glyph in one of four tints (each >= 4.5:1 on the tile). */
+  --dsk-tile-top: #fbf6f0; --dsk-tile-bot: #ece2d6; --dsk-tile-edge: rgb(60 40 25 / 0.12);
+  --dsk-tint-ink: #3d352e; --dsk-tint-terracotta: #9c4521; --dsk-tint-sage: #3f6a38; --dsk-tint-ochre: #7d5200;
+  --dsk-card-glass: color-mix(in srgb, var(--om-color-surface) 82%, transparent);
   --dsk-ease: var(--om-motion-ease-settle, cubic-bezier(0.2, 0.9, 0.25, 1));
   position: relative;
   min-height: 100vh;
@@ -54,8 +58,9 @@
 .dsk-person { position: relative; }
 .dsk-avatar {
   all: unset; box-sizing: border-box; display: inline-grid; place-items: center; width: 28px; height: 28px; margin-left: var(--om-space-1);
-  border-radius: 50%; cursor: pointer; color: #fff; font-weight: var(--om-font-weight-bold); font-size: 13px;
-  background: linear-gradient(145deg, var(--brand-red, #ff333a), var(--accent, #d11826));
+  border-radius: 50%; cursor: pointer; color: var(--om-color-bg); font-weight: var(--om-font-weight-bold); font-size: 13px;
+  /* Ink, not red: red is kept for things that need attention. */
+  background: var(--om-color-text);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--om-color-surface) 70%, transparent);
 }
 .dsk-avatar-lg { width: 40px; height: 40px; font-size: 17px; margin: 0; cursor: default; }
@@ -72,12 +77,15 @@
   all: unset; box-sizing: border-box; display: flex; align-items: center; gap: var(--om-space-2); padding: 8px var(--om-space-2);
   border-radius: 8px; cursor: pointer; color: var(--om-color-text); font-size: var(--om-font-size-sm); text-decoration: none;
 }
-.dsk-menu-item:hover, .dsk-menu-item:focus-visible { background: var(--om-color-accent); color: var(--om-color-accent-text); }
+.dsk-menu-item:hover, .dsk-menu-item:focus-visible { background: var(--om-color-surface-sunken); color: var(--om-color-text); }
+/* Keyboard focus keeps the fill and adds a ring, so it differs from a mouse hover. */
+.dsk-menu-item:focus-visible { outline: 2px solid var(--om-color-focus); outline-offset: 1px; }
+.dsk-menu-danger .om-icon { color: var(--om-color-danger); }
 
 /* ── Desktop ────────────────────────────────────────────────────────────── */
 .dsk-desktop {
   width: 100%; max-width: 1120px; margin: 0 auto;
-  padding: var(--om-space-8) var(--dsk-gap) calc(var(--dsk-dock-h) + var(--om-space-10));
+  padding: var(--om-space-8) var(--dsk-gap) calc(var(--dsk-dock-h) + 24px + var(--om-space-6));
   outline: none;
 }
 /* Home reads as a desktop: centred greeting and search, glass widgets. */
@@ -88,13 +96,33 @@
 .dsk-desktop .omh-date { text-transform: uppercase; letter-spacing: 0.12em; font-size: var(--om-font-size-xs); }
 .dsk-desktop .omh-search { align-self: center; max-width: 560px; min-height: 52px; border-radius: var(--om-radius-pill); background: var(--dsk-tray); border-color: var(--dsk-hairline); box-shadow: var(--om-shadow-1); }
 .dsk-desktop .omh-search:focus-within { outline: 2px solid var(--om-color-focus); outline-offset: 2px; }
-.dsk-desktop .omh-widget { background: var(--dsk-tray); border-color: var(--dsk-hairline); border-radius: 20px; box-shadow: var(--om-shadow-1); }
-.dsk-desktop .omh-section-head h2 { font-size: var(--om-font-size-sm); text-transform: uppercase; letter-spacing: 0.1em; color: var(--om-color-text-muted); }
+.dsk-desktop .omh-widget { background: var(--dsk-card-glass); backdrop-filter: blur(24px) saturate(130%); -webkit-backdrop-filter: blur(24px) saturate(130%); border-color: var(--dsk-hairline); border-radius: 20px; box-shadow: var(--om-shadow-1); }
+.dsk-desktop .omh-widget-icon { color: var(--om-color-text); }
+/* The "Needs you" card is the waiting colour (ochre): a 4px bar down its left edge. */
+.dsk-desktop .omh-cell[data-kind='approvals'] .omh-widget { box-shadow: inset 4px 0 0 var(--om-color-warn-fg), var(--om-shadow-1); }
+.dsk-desktop .omh-section-head h2 { font-size: var(--om-font-size-sm); text-transform: uppercase; letter-spacing: 0.1em; color: var(--om-color-text); }
+/* Anything that sits straight on the wallpaper rides a tray chip, so it stays readable as the page scrolls. */
+.dsk-desktop .omh-section-head > h2, .dsk-desktop .omh-section-actions .om-btn { background: var(--dsk-tray); border-radius: var(--om-radius-pill); padding: 4px var(--om-space-3); border: 1px solid var(--dsk-hairline); }
+.dsk-desktop .omh-section-head > h2 { width: fit-content; }
+/* 12-column home grid: Needs you 7 + System 5, Activity 7 + Backups 5, then the rest; heights fit content. */
+.dsk-desktop .omh-grid { grid-template-columns: repeat(12, minmax(0, 1fr)); align-items: start; }
+.dsk-desktop .omh-cell { grid-column: span 6; grid-row: auto; order: 9; }
+.dsk-desktop .omh-cell[data-kind='approvals'] { grid-column: span 7; order: 1; }
+.dsk-desktop .omh-cell[data-kind='system'] { grid-column: span 5; order: 2; }
+.dsk-desktop .omh-cell[data-kind='activity'] { grid-column: span 7; order: 3; }
+.dsk-desktop .omh-cell[data-kind='backups'] { grid-column: span 5; order: 4; }
+.dsk-desktop .omh-cell-L { grid-column: 1 / -1; }
+.dsk-desktop .omh-widget { flex: 0 1 auto; }
+@media (max-width: 1100px) {
+  .dsk-desktop .omh-grid { grid-template-columns: minmax(0, 1fr); }
+  .dsk-desktop .omh-cell, .dsk-desktop .omh-cell[data-kind] { grid-column: auto; }
+}
 
 /* ── Window ─────────────────────────────────────────────────────────────── */
 .dsk-stage {
   position: fixed; inset: var(--dsk-bar-real, var(--dsk-bar-h)) 0 0 0; z-index: calc(var(--om-z-nav) - 1);
   display: flex; justify-content: center;
+  /* Room for the dock; the jobs indicator lives in the menu bar, so nothing floats over content. */
   padding: var(--om-space-5) var(--dsk-gap) calc(var(--dsk-dock-h) + var(--om-space-3));
 }
 .dsk-scrim {
@@ -124,15 +152,19 @@
   color: var(--om-color-text-muted); background: var(--dsk-hairline); text-decoration: none; transition: background 120ms, color 120ms;
 }
 .dsk-wbtn:hover { color: var(--om-color-text); background: color-mix(in srgb, var(--om-color-text) 16%, transparent); }
-.dsk-close:hover { background: var(--om-color-accent); color: var(--om-color-accent-text); }
-.dsk-wbtn:focus-visible, .dsk-dock-item:focus-visible, .dsk-launchpad-item:focus-visible { outline: 2px solid var(--om-color-focus); outline-offset: 2px; }
+.dsk-close:hover { background: var(--om-color-text); color: var(--om-color-bg); }
+.dsk-wbtn:focus-visible, .dsk-dock-item:focus-visible, .dsk-launchpad-item:focus-visible { outline: 2px solid var(--om-color-focus); outline-offset: 2px; box-shadow: 0 0 0 4px var(--om-color-surface); }
 .dsk-flip { transform: scaleX(-1); }
-.dsk-window-body { flex: 1; min-height: 0; overflow: auto; padding: var(--om-space-6) clamp(var(--om-space-4), 4vw, var(--om-space-10)) var(--om-space-10); outline: none; scroll-padding-top: var(--om-space-4); }
+.dsk-window-body { flex: 1; min-height: 0; overflow: auto; padding: var(--om-space-2) clamp(var(--om-space-4), 4vw, var(--om-space-10)) var(--om-space-10); outline: none; scroll-padding-top: var(--om-space-4); }
 
-/* Screens inside a window: one consistent, airy look for every page. */
-.dsk-window-body .om-page-head { margin-bottom: var(--om-space-6); align-items: flex-end; }
-.dsk-window-body .om-page-title { font-size: clamp(1.75rem, 1.3rem + 1.4vw, 2.375rem); font-weight: var(--om-font-weight-semibold); letter-spacing: -0.02em; line-height: 1.1; }
-.dsk-window-body .om-page-lede { max-width: 68ch; color: var(--om-color-text-muted); font-size: var(--om-font-size-md); margin-top: var(--om-space-2); }
+/* Screens inside a window. The title bar names the screen once: the in-window h1 is kept for screen
+   readers only on top-level screens, and the lede is one short muted line, so content starts within
+   about 160px of the window top. Nested pages (an app) keep their own h1: it names something new. */
+.dsk-window-body .om-page-head { margin-bottom: var(--om-space-4); align-items: flex-end; }
+.dsk-window-body .om-page-title { font-size: clamp(1.5rem, 1.2rem + 0.9vw, 2rem); font-weight: var(--om-font-weight-semibold); letter-spacing: -0.02em; line-height: 1.1; }
+.dsk-window-top .om-page-title { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.dsk-window-body .om-page-lede { max-width: 60ch; color: var(--om-color-text-muted); font-size: var(--om-font-size-sm); margin-top: var(--om-space-1); }
+.dsk-window-top .om-page-lede { margin-top: 0; }
 .dsk-window-body .om-card {
   background: var(--dsk-card-bg);
   border: 1px solid var(--dsk-hairline); border-radius: 16px;
@@ -144,6 +176,8 @@
 .dsk-window-body a.om-card:hover, .dsk-window-body .om-card[role='link']:hover, .dsk-window-body .om-card-link:hover { box-shadow: var(--om-shadow-2); }
 /* Status and "Needs you" cards: a 4px bar down the left edge in the tone colour. */
 .dsk-window-body .om-card-attention { box-shadow: inset 4px 0 0 var(--om-color-warn-fg); }
+/* Secondary links read as text with an underline; the accent is kept for the one primary action. */
+.dsk-window-body a:not([class]), .dsk-window-body .om-details summary, .omh-widget-link { color: var(--om-color-text); text-decoration: underline; text-underline-offset: 3px; }
 .dsk-window-body h2 { letter-spacing: -0.015em; }
 .dsk-window-body .om-subhead { text-transform: uppercase; letter-spacing: 0.08em; font-size: var(--om-font-size-xs); font-weight: var(--om-font-weight-semibold); }
 .dsk-window-body .om-table tr + tr td { border-top-color: var(--dsk-hairline); }
@@ -173,25 +207,26 @@
 .dsk-dock-item:hover > :first-child, .dsk-dock-item:focus-visible > :first-child { transform: translateY(-4px) scale(1.06); }
 .dsk-dock-label { font-size: 12px; line-height: 1.1; color: var(--om-color-text-muted); white-space: nowrap; max-width: 76px; overflow: hidden; text-overflow: ellipsis; }
 .dsk-dock-item[aria-current='page'] .dsk-dock-label { color: var(--om-color-text); font-weight: var(--om-font-weight-semibold); }
-/* The selected item carries Ember: a soft wash behind the tile and a dot beneath. */
-.dsk-dock-item[aria-current='page'] { background: var(--om-color-accent-soft); }
+/* The selected item is ink, not red (red means something is wrong): a sunken wash, a ring and a dot. */
+.dsk-dock-item[aria-current='page'] { background: var(--om-color-surface-sunken); box-shadow: inset 0 0 0 1.5px var(--om-color-text); }
 .dsk-dock-item[aria-current='page']::after {
-  content: ''; position: absolute; bottom: 1px; width: 5px; height: 5px; border-radius: 50%; background: var(--om-color-accent);
+  content: ''; position: absolute; bottom: 1px; width: 5px; height: 5px; border-radius: 50%; background: var(--om-color-text);
 }
 
-/* Screen tiles: one colour per screen, white glyph, soft light from above. */
+/* Screen tiles (Hearth icon family): a warm tile, a single-colour glyph in one of four tints. */
 .dsk-tile {
-  flex: none; display: grid; place-items: center; border-radius: var(--dsk-tile-radius); color: #fff;
-  background:
-    radial-gradient(120% 90% at 30% 0%, rgb(255 255 255 / 0.32), transparent 55%),
-    linear-gradient(160deg, var(--dsk-tile-a, #7d8794), var(--dsk-tile-b, #3a414b));
-  box-shadow: 0 1px 0 rgb(255 255 255 / 0.25) inset, 0 6px 14px -6px color-mix(in srgb, var(--dsk-tile-b, #000) 80%, transparent);
+  --dsk-glyph: var(--dsk-tint-ink);
+  flex: none; display: grid; place-items: center; border-radius: var(--dsk-tile-radius); color: var(--dsk-glyph);
+  background: linear-gradient(160deg, var(--dsk-tile-top), var(--dsk-tile-bot));
+  box-shadow: 0 0 0 1px var(--dsk-tile-edge) inset, 0 1px 0 rgb(255 255 255 / 0.5) inset, 0 4px 10px -6px rgb(60 40 25 / 0.35);
 }
-.dsk-tile .om-icon { filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.25)); }
+.dsk-tile[data-tint='terracotta'] { --dsk-glyph: var(--dsk-tint-terracotta); }
+.dsk-tile[data-tint='sage'] { --dsk-glyph: var(--dsk-tint-sage); }
+.dsk-tile[data-tint='ochre'] { --dsk-glyph: var(--dsk-tint-ochre); }
+.dsk-tile .om-icon { stroke-width: 1.9; }
 .dsk-tile-launch {
   width: 44px; height: 44px; color: var(--om-color-text);
-  background: color-mix(in srgb, var(--om-color-surface-raised) 85%, transparent);
-  box-shadow: 0 0 0 1px var(--dsk-hairline) inset;
+  background: transparent; box-shadow: 0 0 0 1.5px var(--om-color-control-border) inset;
 }
 .dsk-badge {
   position: absolute; top: -2px; right: 4px; min-width: 19px; height: 19px; padding: 0 5px; box-sizing: border-box;
@@ -224,9 +259,13 @@
 .dsk-launchpad-label { font-size: var(--om-font-size-sm); text-align: center; }
 .dsk-launchpad-none { text-align: center; color: var(--om-color-text-muted); }
 
-/* The jobs tray sits in the bottom-right corner, clear of the dock and of window content. */
-.dash-desktop .om-store-tray { left: auto; right: var(--om-space-4); transform: none; bottom: calc(var(--dsk-dock-h, 84px) + var(--om-space-3)); width: min(340px, calc(100vw - 32px)); align-items: flex-end; }
-@media (max-width: 720px) { .dash-desktop .om-store-tray { right: 50%; transform: translateX(50%); align-items: center; } }
+/* Jobs indicator (menu bar): a spinner and a count next to the bell; its popover is a .dsk-menu. */
+.dsk-jobs { position: relative; }
+.dsk-jobs-btn { width: auto; min-width: 36px; padding: 0 var(--om-space-2); gap: 6px; grid-auto-flow: column; display: inline-flex; align-items: center; justify-content: center; color: var(--om-color-text); }
+.dsk-jobs-n { font-size: var(--om-font-size-xs); font-weight: var(--om-font-weight-bold); font-variant-numeric: tabular-nums; }
+.dsk-jobs-panel { width: min(360px, calc(100vw - 24px)); right: 0; }
+.dsk-jobs-panel ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--om-space-2); }
+.dsk-jobs-panel li { display: flex; gap: var(--om-space-2); align-items: flex-start; font-size: var(--om-font-size-sm); }
 
 @keyframes dsk-open { from { opacity: 0; transform: scale(0.97); } to { opacity: 1; transform: none; } }
 @keyframes dsk-fade { from { opacity: 0; } to { opacity: 1; } }
@@ -240,11 +279,13 @@
   .dsk-dock-item > :first-child, .dsk-launchpad-item > :first-child { transition: none; }
 }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) .dsk { --dsk-window-edge: var(--om-color-border-strong); --dsk-highlight: rgb(255 255 255 / 0.06); --dsk-window-bg: var(--om-color-surface); --dsk-card-bg: var(--om-color-surface-raised); }
+  :root:not([data-theme='light']) .dsk { --dsk-tile-top: #3a312a; --dsk-tile-bot: #2c251f; --dsk-tile-edge: rgb(255 255 255 / 0.1); --dsk-tint-ink: #e8dfd6; --dsk-tint-terracotta: #f0a58a; --dsk-tint-sage: #a9cf9a; --dsk-tint-ochre: #efc26b; --dsk-window-edge: var(--om-color-border-strong); --dsk-highlight: rgb(255 255 255 / 0.06); --dsk-window-bg: var(--om-color-surface); --dsk-card-bg: var(--om-color-surface-raised); }
 }
-:root[data-theme='dark'] .dsk { --dsk-window-edge: var(--om-color-border-strong); --dsk-highlight: rgb(255 255 255 / 0.06); --dsk-window-bg: var(--om-color-surface); --dsk-card-bg: var(--om-color-surface-raised); }
+:root[data-theme='dark'] .dsk { --dsk-tile-top: #3a312a; --dsk-tile-bot: #2c251f; --dsk-tile-edge: rgb(255 255 255 / 0.1); --dsk-tint-ink: #e8dfd6; --dsk-tint-terracotta: #f0a58a; --dsk-tint-sage: #a9cf9a; --dsk-tint-ochre: #efc26b; --dsk-window-edge: var(--om-color-border-strong); --dsk-highlight: rgb(255 255 255 / 0.06); --dsk-window-bg: var(--om-color-surface); --dsk-card-bg: var(--om-color-surface-raised); }
 @media (prefers-reduced-transparency: reduce) {
-  .dsk { --dsk-glass: var(--om-color-surface); --dsk-glass-strong: var(--om-color-surface); }
+  .dsk { --dsk-glass: var(--om-color-surface); --dsk-glass-strong: var(--om-color-surface); --dsk-tray: var(--om-color-surface-raised); --dsk-card-glass: var(--om-color-surface); }
+  .dsk-launchpad { background: var(--om-color-bg); backdrop-filter: none; -webkit-backdrop-filter: none; }
+  .dsk-bar, .dsk-desktop .omh-widget { backdrop-filter: none; -webkit-backdrop-filter: none; }
 }
 
 /* Narrow screens: the clock drops the date first. */
@@ -261,7 +302,21 @@
   .dsk-window { border-radius: 18px; }
   .dsk-window-body { padding: var(--om-space-4) var(--om-space-3) var(--om-space-6); }
   .dsk-dock { bottom: var(--om-space-2); padding: 6px 8px; border-radius: 22px; }
-  .dsk-dock-item { min-width: 50px; padding-bottom: 6px; }
+  .dsk-dock-item { min-width: 56px; padding-bottom: 6px; }
+  .dsk-dock { overflow-x: visible; justify-content: space-between; width: calc(100vw - 2 * var(--om-space-2)); left: 50%; }
+  .dsk-dock-group { flex: 1; justify-content: space-around; }
+  .dsk-dock-extra { display: none; }
   .dsk-dock-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .dsk-desktop { padding-top: var(--om-space-4); }
+  /* Market tabs and other tab strips scroll sideways instead of wrapping inside the pill. */
+  .dsk-window-body .dash-tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; border-radius: var(--om-radius-pill); }
+  .dsk-window-body .dash-tabs a { white-space: nowrap; }
+  .dsk-window-body .om-page-lede { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+  /* Touch targets: 44px. */
+  .om-btn-sm, .om-chip, .dash-tabs a, .om-set-chip, .om-store-chip { min-height: var(--om-layout-touch-target); }
+  .dsk-wbtn { width: 44px; height: 44px; }
+  .omh-widget-head a, .omh-section-head > a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 8px; }
+  .dsk-iconbtn { width: 44px; height: 44px; }
+  .dsk-avatar { width: 36px; height: 36px; }
+  .dsk-jobs-btn { height: 44px; }
 }

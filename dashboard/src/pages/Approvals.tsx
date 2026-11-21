@@ -44,6 +44,17 @@ export function Approvals() {
       },
     );
 
+  const planSummary = (a: ActionSummary) => {
+    const full = hub.actionList.find((x) => x.id === a.id);
+    const plan = (full?.plan ?? undefined) as Record<string, unknown> | undefined;
+    const n = (v: unknown) => (Array.isArray(v) ? v.length : 0);
+    const parts = [typeof plan?.summary === 'string' ? plan.summary : `Will ${actionTitle(a).toLowerCase()}`];
+    if (n(plan?.objects)) parts.push(`${n(plan?.objects)} objects`);
+    if (n(plan?.volumes)) parts.push(`${n(plan?.volumes)} volumes`);
+    if (typeof a.params.node_id === 'string') parts.push(`node ${a.params.node_id}`);
+    return parts.join(' · ');
+  };
+
   return (
     <>
       {hub.actionList.filter((a) => a.state === 'awaiting_approval' && a.plan).map((a) => <details key={a.id}><summary>Gateway plan: {a.type} — {subjectOf(hub, a)}</summary><pre>{JSON.stringify(a.plan, null, 2)}</pre><p>Plan fingerprint: {a.plan_sha256}</p></details>)}
@@ -56,6 +67,7 @@ export function Approvals() {
       actions={actions}
       plans={{}}
       planNote={PLAN_NOTE}
+      planSummary={planSummary}
       approveHint={APPROVE_HINT}
       calls={['GET /v1/actions', 'POST /v1/actions/{id}/approve', 'POST /v1/actions/{id}/deny']}
       decided={decided}

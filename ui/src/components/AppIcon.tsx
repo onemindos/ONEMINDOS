@@ -11,13 +11,13 @@ import { safeHttpUrl } from '../lib/trust';
  */
 export const TILE_HUES: readonly { name: string; a: string; b: string }[] = [
   { name: 'teal', a: '#1f6a66', b: '#113432' },
-  { name: 'blue', a: '#2447b8', b: '#1a3389' },
-  { name: 'violet', a: '#5b45c4', b: '#3b2a8f' },
+  { name: 'blue', a: '#2f5d86', b: '#1f4163' },
+  { name: 'violet', a: '#5a4a8c', b: '#3b2f66' },
   { name: 'green', a: '#166236', b: '#0e3f23' },
   { name: 'amber', a: '#8a5a00', b: '#5c3c00' },
-  { name: 'red', a: '#b42318', b: '#7a170f' },
+  { name: 'copper', a: '#9a4a1c', b: '#6b3010' },
   { name: 'slate', a: '#475459', b: '#2b3539' },
-  { name: 'plum', a: '#8e2c74', b: '#5e1c4c' },
+  { name: 'plum', a: '#7d3a5e', b: '#52263e' },
 ];
 export const TILE_TEXT = '#ffffff';
 

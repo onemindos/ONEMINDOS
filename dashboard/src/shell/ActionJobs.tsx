@@ -16,7 +16,12 @@ export function ActionStatus({ action: a, label = 'Request progress' }: { action
 }
 
 /** Show ledger states and executor percentages, never guessed install/health stages. */
-export function ActionJobs() {
+/**
+ * `variant="bar"` is the desktop menu-bar indicator: a spinner and a count next to the bell that
+ * opens a popover. The floating pill (`tray`) stays for the Console view. A toast is not used here:
+ * the indicator and the Needs-you card already say the same thing, so nothing floats over content.
+ */
+export function ActionJobs({ variant = 'tray' }: { variant?: 'tray' | 'bar' }) {
   const hub = useHub();
   const [open, setOpen] = useState(false);
   const panel = useId();
@@ -26,6 +31,20 @@ export function ActionJobs() {
   const active = jobs.filter(isActive);
   const lead = active.find((a) => a.state !== 'awaiting_approval') ?? active[0] ?? jobs[0]!;
   const state = lead.state.replace(/_/g, ' ');
+  if (variant === 'bar') {
+    const label = `${active.length ? `${active.length} ${active.length === 1 ? 'job' : 'jobs'}` : 'Jobs done'} · ${subjectOf(hub, lead)}: ${state[0]!.toUpperCase() + state.slice(1)}${lead.progress && Number.isFinite(lead.progress.pct) ? ` ${lead.progress.pct}%` : ''}`;
+    const spinning = isActive(lead) && lead.state !== 'awaiting_approval';
+    return <div role="complementary" aria-label="Jobs in progress" className="dsk-jobs">
+      <button type="button" className="dsk-iconbtn dsk-jobs-btn" aria-expanded={open} aria-controls={panel} aria-label={label} title={label} onClick={() => setOpen(!open)}>
+        <span className={`om-store-tray-ring${spinning ? ' om-store-tray-ring-on' : ''}`} aria-hidden="true" />
+        <span className="dsk-jobs-n" aria-hidden="true">{active.length || jobs.length}</span>
+      </button>
+      {open && <div id={panel} className="dsk-menu dsk-jobs-panel"><ul>{jobs.map((a) => <li key={a.id}>
+        <div className="om-store-tray-text"><a href={href.approval(a.id)}>{a.type}: {subjectOf(hub, a)}</a><ActionStatus action={a} /></div>
+        {!isActive(a) && <button type="button" className="om-icon-btn" aria-label={`Dismiss ${subjectOf(hub, a)}`} onClick={() => setDismissed(new Set(dismissed).add(a.id))}><Icon name="x" size={16} /></button>}
+      </li>)}</ul></div>}
+    </div>;
+  }
   return <aside aria-label="Jobs in progress" className={`om-store-tray${open ? ' om-store-tray-open' : ''}`}>
     {open && <div id={panel} className="om-store-tray-panel"><ul>{jobs.map((a) => <li key={a.id}>
       <div className="om-store-tray-text"><a href={href.approval(a.id)}>{a.type}: {subjectOf(hub, a)}</a><ActionStatus action={a} /></div>

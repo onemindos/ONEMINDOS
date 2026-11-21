@@ -45,9 +45,11 @@ kbd {
   font-family: var(--om-font-mono);
   font-size: 0.875em;
 }
+/* A halo in the surface colour keeps the ring visible over busy wallpaper. */
 :focus-visible {
   outline: 2px solid var(--om-color-focus);
   outline-offset: 2px;
+  box-shadow: 0 0 0 4px var(--om-color-surface);
 }
 .om-visually-hidden {
   position: absolute !important;
