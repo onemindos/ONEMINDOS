@@ -499,6 +499,36 @@ def test_oversized_chunked_bodies_are_413(world):
 
 @pytest.mark.skipif(not HAS_GUARD, reason=GUARD_STREAM)
 @pytest.mark.parametrize("framing", ["chunked", "unframed"])
+def test_oversized_stream_to_a_bodyless_action_changes_nothing(world, framing):
+    """A route that takes no body (disable) must not run when its unread chunked body is over the cap.
+
+    The 413 is not enough: before the fix the route ran, disabled the person, and only then was its 2xx
+    replaced by 413. The state check is the proof that the route never ran."""
+    owner = world._identity_owner()
+    user_id, _ = world.id_user()
+
+    def disabled() -> bool:
+        users = world.client.get("/v1/users", headers=owner).json()
+        [row] = [u for u in users if u["id"] == user_id]
+        return row["disabled"] if "disabled" in row else row["status"] == "disabled"
+
+    parts = [b"x" * 10240 for _ in range(40)]
+    path = f"/v1/users/{user_id}/disable"
+    with TestClient(world.app) as live:
+        if framing == "chunked":
+            status = world.client.request("POST", path, content=iter(parts), headers=owner).status_code
+        else:
+            status = _raw_unframed(live.portal, world.app, "POST", path, dict(owner), parts)
+        assert status == 413
+        assert not disabled(), "the over-cap request changed state before it was refused"
+        # the same route within the cap still works (a small chunked body is simply ignored)
+        ok = world.client.request("POST", path, content=iter([b"x" * 10]), headers=owner)
+        assert ok.status_code == 200, ok.text
+        assert disabled()
+
+
+@pytest.mark.skipif(not HAS_GUARD, reason=GUARD_STREAM)
+@pytest.mark.parametrize("framing", ["chunked", "unframed"])
 def test_every_body_route_caps_the_stream_at_the_limit(world, framing):
     """One byte over the cap is 413 on every body route, in both framings; exactly the cap never is."""
     cap = 256 * 1024

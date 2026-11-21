@@ -7,7 +7,10 @@ One pure-ASGI middleware, added by routers/guard.py:
   a declared Content-Length, so a body cannot be longer than it says). Streamed bytes are counted as
   the route reads them; a body of unknown length that a route never reads is drained (counted and
   discarded, never buffered, 5 s at most) before the route's answer goes out, so over-cap is 413
-  even when a precondition such as Tus-Resumable would have answered first.
+  even when a precondition such as Tus-Resumable would have answered first. A route that declares
+  no body (an action like /disable, /deny, /ack) is drained before it runs, so an over-cap body is
+  refused with 413 and the route's change never happens; a 413 never hides a 2xx that already
+  changed state. Routes that read the raw stream themselves carry @reads_body and are left alone.
 - **Rate:** a token bucket per principal (the bearer token's hash) or, without a token, per
   source address. Reads 20/s burst 60; action requests (`POST /v1/actions`, `/v1/plans`) 2/s
   burst 10. Over the limit: 429 `rate_limited` with Retry-After.
@@ -27,8 +30,11 @@ import math
 import threading
 import time
 from collections import OrderedDict
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
+
+from fastapi.routing import APIRoute
+from starlette.routing import Match
 
 from .errors import error_response
 from .sections import config_section
@@ -52,6 +58,31 @@ OPEN_PATHS = frozenset({"/healthz"})
 MAX_KEYS = 10_000
 BODY_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 DRAIN_TIMEOUT_S = 5.0  # longest a response waits for an unread body of unknown length to finish
+
+
+def reads_body(fn):
+    """Mark a route function that reads the raw request stream itself (request.stream(), .json()).
+
+    The guard drains an unread body of unknown length before a route that declares no body runs.
+    A route that reads the stream on its own must not be drained first, so it says so here;
+    test_guard_streaming_limits.py fails when a route reads the stream without this mark.
+    """
+    fn.reads_body = True
+    return fn
+
+
+def declares_no_body(routes: Iterable, scope) -> bool:
+    """True when the route that will serve `scope` takes no request body at all.
+
+    Only an APIRoute with no declared body field that does not read the stream itself counts.
+    Anything else (mounts, raw ASGI routes, no match) is unknown and treated as possibly reading.
+    """
+    for route in routes:
+        match, _ = route.matches(scope)
+        if match == Match.FULL:
+            return (isinstance(route, APIRoute) and route.body_field is None
+                    and not getattr(route.endpoint, "reads_body", False))
+    return False  # no route matches (404/405: no route code runs, the response-time drain covers it)
 
 
 @config_section("limits")
@@ -143,9 +174,10 @@ class AuthFailures:
 class GuardMiddleware:
     def __init__(
         self, app, *, limits: LimitSettings, on_backoff: Callable[[str], None] | None = None,
-        now: Callable[[], float] = time.monotonic,
+        now: Callable[[], float] = time.monotonic, routes: Callable[[], Iterable] | None = None,
     ):
         self.app = app
+        self.routes = routes  # the router's routes, to tell a route that takes no body from one that does
         self.limits = limits
         self.on_backoff = on_backoff
         self.reads = TokenBuckets(limits.read_rate, limits.read_burst, now)
@@ -211,6 +243,16 @@ class GuardMiddleware:
                         await pull()
             except (_BodyTooLarge, TimeoutError):
                 pass  # overflow is recorded in `exceeded`; a stalled client just gets the route's answer
+
+        if drain_unread and self.routes is not None and declares_no_body(self.routes(), scope):
+            # The route takes no body, so nothing else will ever read it: settle its size now,
+            # before the route can change anything (an unread over-cap body must not leave a 2xx
+            # hidden behind a 413). Over the cap: refuse, the route never runs.
+            await drain()
+            if exceeded:
+                return await _reject(scope, receive, send, 413, "payload_too_large",
+                                     f"request body is over {limit} bytes", None, None)
+            drain_unread = False  # settled (or the client stalled: the route answers, nothing is hidden)
 
         status: dict[str, int] = {}
 

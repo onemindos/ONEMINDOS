@@ -11,13 +11,15 @@ from dataclasses import replace
 
 import anyio
 import pytest
+from fastapi import FastAPI, Request
+from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 from starlette.exceptions import HTTPException
 from starlette.middleware.exceptions import ExceptionMiddleware
 
 from conftest import OWNER
 from onemind_core.app import create_app
-from onemind_core.guard import SECURITY_HEADERS, GuardMiddleware, LimitSettings
+from onemind_core.guard import SECURITY_HEADERS, GuardMiddleware, LimitSettings, declares_no_body, reads_body
 from test_photos import Phone, blob, photos_settings
 
 
@@ -385,3 +387,88 @@ def test_unrelated_route_exception_propagates():
     guard = GuardMiddleware(broken, limits=LimitSettings())
     with pytest.raises(RuntimeError, match="route failure"):
         anyio.run(guard, {"type": "http", "headers": []}, unused, unused)
+
+
+# ---- routes that take no body run only after an unread body has been sized (H-20) -----------------------------
+def _probe_app(ran: list):
+    app = FastAPI()
+
+    @app.post("/act")
+    def act():
+        ran.append("act")
+        return {"ok": True}
+
+    @app.delete("/thing")
+    def remove():
+        ran.append("remove")
+        return {"ok": True}
+
+    @app.post("/raw")
+    @reads_body
+    async def raw(request: Request):
+        n = 0
+        async for chunk in request.stream():
+            n += len(chunk)
+        ran.append("raw")
+        return {"n": n}
+
+    return app, GuardMiddleware(app, limits=LimitSettings(max_body_bytes=1024), routes=lambda: app.router.routes)
+
+
+async def _chunked(guard, method, path, parts):
+    msgs = [{"type": "http.request", "body": b, "more_body": True} for b in parts]
+    msgs.append({"type": "http.request", "body": b"", "more_body": False})
+    sent = []
+
+    async def receive():
+        return msgs.pop(0) if msgs else {"type": "http.disconnect"}
+
+    async def send(m):
+        sent.append(m)
+
+    scope = {"type": "http", "asgi": {"version": "3.0"}, "http_version": "1.1", "method": method, "scheme": "http",
+             "path": path, "raw_path": path.encode(), "query_string": b"", "root_path": "",
+             "headers": [(b"transfer-encoding", b"chunked")], "client": ("t", 1), "server": ("s", 80)}
+    await guard(scope, receive, send)
+    start = next(m for m in sent if m["type"] == "http.response.start")
+    return start["status"], b"".join(m.get("body", b"") for m in sent if m["type"] == "http.response.body")
+
+
+@pytest.mark.parametrize("method,path", [("POST", "/act"), ("DELETE", "/thing")])
+def test_bodyless_route_never_runs_for_an_overcap_stream(method, path):
+    ran = []
+    _, guard = _probe_app(ran)
+    status, body = anyio.run(_chunked, guard, method, path, [b"x" * 600, b"x" * 600])
+    assert status == 413 and json.loads(body)["error"] == "payload_too_large"
+    assert ran == [], "the route changed state before the guard refused the body"
+    # within the cap the body is ignored and the route answers normally
+    status, _ = anyio.run(_chunked, guard, method, path, [b"x" * 600])
+    assert status == 200 and len(ran) == 1
+
+
+def test_route_that_reads_the_stream_is_not_drained_first():
+    ran = []
+    _, guard = _probe_app(ran)
+    status, body = anyio.run(_chunked, guard, "POST", "/raw", [b"x" * 600])
+    assert status == 200 and json.loads(body) == {"n": 600} and ran == ["raw"]
+    status, _ = anyio.run(_chunked, guard, "POST", "/raw", [b"x" * 600, b"x" * 600])
+    assert status == 413 and ran == ["raw"]  # refused while reading, never answered
+
+
+def test_routes_that_read_the_stream_are_marked(settings, clock):
+    """A route that reads the raw body itself must carry @reads_body, or the guard would drain it first."""
+    import inspect
+    import re
+
+    reads = re.compile(r"request\.(stream|body|json|form)\(|\b(object_route|mcp\.handle)\(")
+    with TestClient(create_app(settings, clock=clock)) as client:
+        routes = [r for r in client.app.router.routes if isinstance(r, APIRoute)]
+    unmarked = [f"{sorted(r.methods)} {r.path}" for r in routes
+                if r.body_field is None and not getattr(r.endpoint, "reads_body", False)
+                and reads.search(inspect.getsource(r.endpoint))]
+    assert unmarked == []
+    marked = {r.endpoint.__name__ for r in routes if getattr(r.endpoint, "reads_body", False)}
+    assert {"tus_patch", "put_preferences", "repo_object", "mcp_post", "append"} <= marked
+    scope = {"type": "http", "method": "POST", "path": "/v1/users/x/disable", "root_path": "", "headers": []}
+    assert declares_no_body(routes, scope)
+    assert not declares_no_body(routes, {**scope, "path": "/mcp"})

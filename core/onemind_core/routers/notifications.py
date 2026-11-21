@@ -27,6 +27,7 @@ from pydantic import AwareDatetime, BaseModel, BeforeValidator, ConfigDict, Fiel
 from ..actions import ActionRequest
 from ..auth import Principal
 from ..context import Gateway
+from ..guard import reads_body
 from ..errors import ApiError, error_responses
 from ..ledger import TERMINAL, utc
 from ..notify import NotifyService, RateLimited
@@ -381,6 +382,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
 
     @app.put("/v1/notifications/preferences", operation_id="notifications.preferences.set", tags=[TAG], responses=error_responses(401, 403, 409, 422),
              openapi_extra={"requestBody": {"required": True, "content": {"application/json": {"schema": {"type": "object"}}}}})
+    @reads_body
     async def put_preferences(request: Request, if_match: str | None = Header(default=None),
                               p: Principal = Depends(principal)):
         _person(p)

@@ -20,6 +20,7 @@ from starlette.requests import ClientDisconnect
 
 from ..auth import Principal
 from ..context import Gateway
+from ..guard import reads_body
 from ..files import errors as ferrors
 from ..files.errors import FilesError
 from ..files.preview import INLINE_SAFE, guess_mime
@@ -453,6 +454,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
 
     @app.patch("/v1/files/uploads/{upload_id}", operation_id="files.uploads.patch", tags=TAG, status_code=204,
                responses=errs(401, 404, 409, 412, 413, 415, 460, 503))
+    @reads_body
     async def tus_patch(request: Request, upload_id: str, tus_resumable: TusResumable,
                         upload_offset: Annotated[int, Header(ge=0)],
                         content_type: Annotated[str, Header(pattern=r"(?i)^application/offset\+octet-stream(?:\s*;.*)?$")],
