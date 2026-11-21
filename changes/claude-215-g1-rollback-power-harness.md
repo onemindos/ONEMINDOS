@@ -1,5 +1,5 @@
 ---
-pr: pending
+pr: 471
 branch: claude/215-g1-rollback-power-harness
 status_rows:
   - CORE-UPDATE-4 | in-review | power-pull harness for G1 (manual, Redfish, IPMI, smart-plug backends); not run on metal
