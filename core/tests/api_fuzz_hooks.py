@@ -35,7 +35,7 @@ def unavailable_is_the_documented_envelope(ctx, response, case):
     if response.status_code != 503:
         return
     body = response.json()
-    assert case.operation.path.startswith(("/v1/backups", "/v1/restores")), "503 outside the backup routes"
+    assert case.operation.path.startswith(("/v1/backups", "/v1/restores", "/v1/onboarding/restore")), "503 outside the backup routes"
     assert body.get("error") == "unavailable" and body.get("reason") in UNAVAILABLE_REASONS, body
     retry_after = response.headers.get("retry-after")
     assert body.get("retry_after_s") == 30 and retry_after in ("30", ["30"]), (body, retry_after)
