@@ -17,4 +17,4 @@ class PluginFailClosed(unittest.TestCase):
                 (root / "onemind.app.yaml").write_text(yaml.safe_dump({"metadata": {"id": root.name}, "spec": {field: {}}}))
                 with patch.object(checker, "render", side_effect=AssertionError("must not render")):
                     _, errors = checker.check(root)
-                self.assertTrue(any("shared Go validator" in e for e in errors))
+                self.assertTrue(any("validator" in e for e in errors))

@@ -19,6 +19,7 @@ Checks, per app directory (directories whose name starts with "_", such as apps/
      (contract §10.2; checked when renovate.json exists and every app is validated)
  10. no two apps declare the same spec.hostPorts port/protocol, and none declares a port OneMind
      itself uses (sdk/policy/host-ports.yaml; contract §12.22). Always checked across every app.
+ 11. plugin extensions pass the same built onemind plugin validate used on the box
 
 Run with: python3 -I sdk/tools/validate-apps [--apps-dir DIR] [APP_ID ...]
 Exit codes: 0 all apps pass, 1 at least one check failed, 2 usage or environment error.
@@ -32,6 +33,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -124,10 +126,12 @@ def licence_inventory(doc: object, app_dir: Path) -> None:
 
 
 class AppChecker:
-    def __init__(self, validator: Draft202012Validator, kustomize: str, kubeconform: str):
+    def __init__(self, validator: Draft202012Validator, kustomize: str, kubeconform: str,
+                 plugin_validator: Path | None = None):
         self.validator = validator
         self.kustomize = kustomize
         self.kubeconform = kubeconform
+        self.plugin_validator = plugin_validator
 
     def check(self, app_dir: Path) -> tuple[str | None, list[str]]:
         """Return (metadata.id or None, list of error messages) for one app directory."""
@@ -142,12 +146,6 @@ class AppChecker:
         except yaml.YAMLError as exc:
             return None, [f"{MANIFEST_NAME} is not valid YAML: {exc}"]
 
-        # Fail closed until the subsequent CI integration invokes the box's Go
-        # validator. JSON Schema alone does not implement plugin trust rules.
-        spec = doc.get("spec") if isinstance(doc, dict) else None
-        if isinstance(spec, dict) and any(k in spec for k in ("extensions", "plugin", "permissions", "compat")):
-            app_id = dig(doc, ("metadata", "id"))
-            return app_id, ["plugin declarations require the shared Go validator; CI integration is not enabled"]
         licence_inventory(doc, app_dir)
         schema_errors = sorted(self.validator.iter_errors(doc), key=lambda e: list(e.absolute_path))
         for err in schema_errors:
@@ -163,11 +161,23 @@ class AppChecker:
         if app_id != app_dir.name:
             errors.append(f"metadata.id '{app_id}' does not match directory name '{app_dir.name}'")
 
+        plugin_declaration = any(field in spec for field in ("extensions", "plugin", "permissions", "compat"))
+        if plugin_declaration:
+            self.plugin_check(app_dir, errors)
+            if errors:
+                return app_id, errors
+
         icon = app_dir / meta["icon"]
         if not inside(icon, app_dir):
             errors.append(f"icon '{meta['icon']}' points outside the app directory")
         elif not icon.is_file():
             errors.append(f"icon file '{meta['icon']}' does not exist")
+
+        if plugin_declaration:
+            # Declarative plugins need no workload; the Go validator enforces when
+            # tools, iframe widgets and subscriptions require a backend/manifests.
+            if "manifests" not in spec:
+                return app_id, errors
 
         manifests_dir = app_dir / spec["manifests"]
         if not inside(manifests_dir, app_dir):
@@ -191,6 +201,23 @@ class AppChecker:
         if "web" in spec:
             self.service_port_check(objects, spec["web"]["port"], errors)
         return app_id, errors
+
+    def plugin_check(self, app_dir: Path, errors: list[str]) -> None:
+        if self.plugin_validator is None or not self.plugin_validator.is_absolute():
+            errors.append("plugin: shared validator required; pass an absolute --plugin-validator path "
+                          "or ONEMIND_PLUGIN_VALIDATOR (build with go build -o /path/onemind ./cmd/onemind)")
+            return
+        try:
+            proc = subprocess.run(
+                [str(self.plugin_validator), "plugin", "validate", str(app_dir.resolve())],
+                capture_output=True, text=True, check=False, timeout=60,
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            errors.append(f"plugin: shared validator could not run: {exc}")
+            return
+        if proc.returncode != 0:
+            output = (proc.stdout + proc.stderr).strip()[:4000]
+            errors.append(f"plugin: shared validator failed ({proc.returncode}): {output}")
 
     def render(self, manifests_dir: Path, errors: list[str]) -> str | None:
         proc = subprocess.run(
@@ -401,6 +428,8 @@ def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(prog="validate-apps", description=__doc__.split("\n")[0])
     parser.add_argument("--apps-dir", type=Path, default=REPO_ROOT / "apps",
                         help="directory holding apps/<id>/ (default: the repo's apps/)")
+    parser.add_argument("--plugin-validator", type=Path, default=os.environ.get("ONEMIND_PLUGIN_VALIDATOR"),
+                        help="absolute built onemind binary path (or ONEMIND_PLUGIN_VALIDATOR); required for plugins")
     parser.add_argument("app_ids", nargs="*", help="validate only these app ids (default: all)")
     args = parser.parse_args(argv)
 
@@ -438,7 +467,7 @@ def main(argv: list[str]) -> int:
 
     checker = AppChecker(
         Draft202012Validator(schema, format_checker=Draft202012Validator.FORMAT_CHECKER),
-        tools["kustomize"], tools["kubeconform"],
+        tools["kustomize"], tools["kubeconform"], args.plugin_validator,
     )
     print("licence inventory: computed/SPDX-derived from metadata.license; "
           "not declared metadata.licenceClass; "
