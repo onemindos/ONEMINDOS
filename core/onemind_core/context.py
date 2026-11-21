@@ -66,6 +66,8 @@ class Gateway:
     skip_scan: bool
     # FastAPI dependency resolving the caller's Principal (401 otherwise). Set by create_app.
     principal: Callable[..., Principal] = None  # type: ignore[assignment]
+    # CORE-DEPLOY-2: the on-box image scanner (appstore/imagescan.py); None means none is installed.
+    image_scanner: Any = None
     authenticators: list[Authenticator] = field(default_factory=list)
     approval_guards: list[ApprovalGuard] = field(default_factory=list)
     app_filters: list[AppFilter] = field(default_factory=list)
