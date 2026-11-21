@@ -10,7 +10,8 @@
     "android": "expo run:android",
     "typecheck": "tsc --noEmit",
     "test": "jest",
-    "tokens": "node --experimental-strip-types --no-warnings scripts/sync-tokens.mjs"
+    "tokens": "node --experimental-strip-types --no-warnings scripts/sync-tokens.mjs",
+    "check:ios": "node scripts/check-ios-release.mjs"
   },
   "dependencies": {
     "@noble/curves": "2.4.0",
