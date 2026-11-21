@@ -130,6 +130,7 @@
   box-shadow: 0 1px 0 color-mix(in srgb, #fff 5%, transparent) inset, 0 8px 24px -16px rgb(0 0 0 / 0.5);
 }
 .dsk-window-body .om-card-attention { box-shadow: inset 3px 0 0 var(--om-color-warn-fg), 0 8px 24px -16px rgb(0 0 0 / 0.5); }
+.dsk-window-body .dash-status { margin-top: var(--om-space-4); }
 .dsk-window-body h2 { letter-spacing: -0.015em; }
 .dsk-window-body .om-subhead { text-transform: uppercase; letter-spacing: 0.08em; font-size: var(--om-font-size-xs); font-weight: var(--om-font-weight-semibold); }
 .dsk-window-body .om-table tr + tr td { border-top-color: var(--dsk-hairline); }
@@ -249,9 +250,10 @@
   .dsk-window-body .om-card-foot {
     position: sticky; bottom: 0; z-index: 2;
     margin: 0 calc(-1 * var(--om-space-4)); padding: var(--om-space-3) var(--om-space-4) calc(var(--om-space-3) + env(safe-area-inset-bottom, 0px));
-    background: var(--dsk-glass-strong); border-top: 1px solid var(--dsk-hairline);
-    backdrop-filter: saturate(160%) blur(20px); -webkit-backdrop-filter: saturate(160%) blur(20px);
+    background: var(--om-color-surface); border-top: 1px solid var(--dsk-hairline);
   }
+  /* Room under the pinned bar so the last line of the request scrolls fully above it. */
+  .dsk-window-body { padding-bottom: calc(var(--om-space-6) + 96px); scroll-padding-bottom: 112px; }
   .dsk-window-body .om-card-foot .om-decide .om-btn { flex: 1; min-height: 48px; justify-content: center; }
   .dsk-window-body .om-card-foot .om-decide .om-hint { flex-basis: 100%; }
 }

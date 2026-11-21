@@ -85,4 +85,11 @@ describe('request history line', () => {
     expect(tech).not.toHaveAttribute('open');
     expect(tech).toHaveTextContent('State: awaiting approval');
   });
+
+  it('finished requests show a real history line from the request data', () => {
+    const now = Date.parse('2026-11-21T12:00:00Z');
+    const a = { id: 'a', type: 'app.install', params: { app_id: 'x' }, state: 'succeeded', idempotency_key: 'k', expires_at: '2030-01-01T00:00:00Z', requested_by: { id: 'u', kind: 'person', role: 'owner' }, decided_by: { id: 'u', kind: 'person', role: 'owner' }, updated_at: '2026-11-20T12:00:00Z' } as const;
+    render(<ActionStatus action={a} now={now} />);
+    expect(screen.getByRole('status')).toHaveTextContent('Installed by owner \u00b7 approved by owner \u00b7 1d ago');
+  });
 });
