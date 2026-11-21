@@ -802,6 +802,11 @@ class IdentityService:
             kind, principal_id, default_days, max_days = "person", user.id, PAT_DEFAULT_DAYS, PAT_MAX_DAYS
             default_scopes = sorted(actor_scopes)
         elif isinstance(principal, dict) and principal.get("kind") == "agent":
+            if user is None and not p.is_owner:
+                # A static-file adult has no household account, so the token would be owned by no one:
+                # it would outlive the adult's removal and the adult could not list or revoke it.
+                raise ApiError(403, "permission_denied", "a static-file principal cannot hold API tokens; "
+                                                         "set up a household account first")
             principal_id = str(principal.get("id") or "")
             if not AGENT_ID_RE.fullmatch(principal_id):
                 raise ApiError(422, "conflict", "agent id must look like agent:<name> (a-z, 0-9, '.', '_', '-')")

@@ -626,3 +626,15 @@ def test_rescue_verify_refuses_the_wrong_origin_and_a_bare_token(idc):
 def test_rescue_stepup_is_not_in_the_published_api(idc):
     spec = idc.get("/openapi.json").json()
     assert not [p for p in spec["paths"] if "rescue" in p]
+
+
+def test_static_adult_cannot_mint_an_unowned_agent_token(idc):
+    """A static-file adult has no account: an agent token would be owned by no one and outlive them."""
+    from conftest import ADULT
+
+    setup_owner(idc)
+    body = {"name": "mine", "principal": {"kind": "agent", "id": "agent:mine"}, "scopes": ["actions:request"]}
+    r = idc.post("/v1/tokens", json=body, headers=ADULT)
+    assert r.status_code == 403 and r.json()["error"] == "permission_denied"
+    assert idc.post("/v1/tokens", json={"name": "x", "principal": "self"}, headers=ADULT).status_code == 403
+    assert not [t for t in idc.get("/v1/tokens").json() if t["kind"] == "agent"]
