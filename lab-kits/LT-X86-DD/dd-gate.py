@@ -30,6 +30,8 @@ DEFAULT_ALLOWED = [22, 80, 443]
 EXTRA_PORTS = [2379, 2380, 4222, 5432, 6443, 8080, 8222, 9100, 10250, 10248, 30000, 32767]
 G1_SSH_RESULT = "/data/onemind-lab/g1/result.json"
 RESTORE_BUDGET_S = 3600
+# Undo st_load on the box: drop the perf-probe principal (same file perf.py token edits) and the scratch dir.
+LOAD_CLEANUP = "sed -i '/{id: perf-probe,/d' /etc/onemind/tokens.yaml && rm -rf /tmp/dd-gate"
 P, F, W = "PASS", "FAIL", "PENDING"
 
 
@@ -244,13 +246,23 @@ def st_load(c):
              (f"python3 -I {d}/perf.py token --out {d}/tok", None),
              (f"python3 -I {d}/perf.py load --token-file {d}/tok --out {d}/load.json", None),
              (f"python3 -I {d}/perf.py check --budget {d}/budget.json {d}/load.json", "check")]
-    t0, out = time.monotonic(), ""
-    for cmd, cp in steps:
-        rc, out = c.scp_to(*cp) if cmd is None else c.ssh(cmd, timeout=c.a.load_timeout)
+    t0, out, r = time.monotonic(), "", None
+    try:
+        for cmd, cp in steps:
+            rc, out = c.scp_to(*cp) if cmd is None else c.ssh(cmd, timeout=c.a.load_timeout)
+            if rc != 0:
+                where = cp[1] if cmd is None else cmd.split()[2] if "perf.py" in cmd else cmd
+                r = res(F, f"step failed ({scrub(where, c.addr)}, rc={rc}): {scrub(out, c.addr)[-200:]}")
+                break
+        if r is None:
+            r = res(P, f"load run inside the budget ({scrub(out, c.addr)[-120:]})", seconds=round(time.monotonic() - t0, 1))
+    finally:
+        # perf.py token added an owner principal to the box's tokens file: take it out again, and the
+        # token file with it, even when the load failed, so the box keeps no credential from the gate.
+        rc, cout = c.ssh(LOAD_CLEANUP, timeout=60)
         if rc != 0:
-            where = cp[1] if cmd is None else cmd.split()[2] if "perf.py" in cmd else cmd
-            return res(F, f"step failed ({scrub(where, c.addr)}, rc={rc}): {scrub(out, c.addr)[-200:]}")
-    return res(P, f"load run inside the budget ({scrub(out, c.addr)[-120:]})", seconds=round(time.monotonic() - t0, 1))
+            r = res(F, f"cleanup failed, the perf-probe owner principal may still be on the box (rc={rc}): {scrub(cout, c.addr)[-150:]}")
+    return r
 
 
 RUN = dict(install=st_install, passkey=st_passkey, rollback=st_rollback, powerpull=st_powerpull,

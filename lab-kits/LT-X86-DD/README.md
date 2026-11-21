@@ -15,7 +15,7 @@
 | `powerpull` | reads it | the `g1-power.py` results file: 20 of 20 pulls come back with no keyboard |
 | `portscan` | runs it | TCP connect scan of ports 1 to 1024 plus the service ports of the image (k3s, NATS, Postgres and others). Only 22, 80 and 443 may be open (`--allow-ports` to change) |
 | `restore` | reads it | the JSON from `test/restore-drill/drill.py`: byte-for-byte verified inside 3600 s |
-| `load` | runs it | copies `test/perf/perf.py` to the box, runs `load`, then `check` against `test/perf/budget.json` |
+| `load` | runs it | copies `test/perf/perf.py` to the box, runs `load`, then `check` against `test/perf/budget.json`; then removes the temporary `perf-probe` owner principal and the scratch files from the box, even if the run fails |
 
 **Why some stages only read.** A power pull needs a relay, a BMC or your hand, and a rollback test reboots the box several times. Those tools already exist and survive reboots, so the gate reads what they wrote instead of duplicating them. A stage with no evidence is **PENDING**, never PASS. A stage that ran and missed is **FAIL**.
 

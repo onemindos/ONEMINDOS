@@ -12,6 +12,7 @@ spec.loader.exec_module(g)
 OS_OK = 'ID=debian\nVERSION_ID="13"\n'
 FAKE_SSH = """#!/bin/sh
 for last; do :; done
+[ -z "$FAKE_LOG" ] || printf '%s\\n' "$last" >> "$FAKE_LOG"
 case "$last" in
   "cat /etc/os-release") printf '%s' "$FAKE_OS";;
   "findmnt -no OPTIONS /") echo "$FAKE_ROOT";;
@@ -153,6 +154,17 @@ class DD(unittest.TestCase):
         self.assertEqual(self.stage(g.st_load)["verdict"], g.P)
         os.environ["FAKE_LOAD"] = "bad"
         self.assertEqual(self.stage(g.st_load)["verdict"], g.F)
+
+    def test_load_removes_probe_principal_and_token_even_on_failure(self):
+        for mode in ("ok", "bad"):
+            log = f"{self.t}/log-{mode}"
+            os.environ.update(FAKE_LOG=log, FAKE_LOAD=mode)
+            self.stage(g.st_load)
+            cmds = open(log).read().splitlines()
+            self.assertIn("perf.py token", " ".join(cmds))
+            self.assertEqual(cmds[-1], g.LOAD_CLEANUP)
+            self.assertIn("perf-probe", g.LOAD_CLEANUP)
+            self.assertIn("rm -rf /tmp/dd-gate", g.LOAD_CLEANUP)
 
     def test_scrub_masks_addresses(self):
         ip, mac, tn = ".".join(["10", "1", "2", "3"]), ":".join(["aa", "bb", "cc", "dd", "ee", "ff"]), "host." + "ts" + ".net"
