@@ -135,7 +135,8 @@ export function Shell({ children }: { children: ReactNode }) {
 
   const waiting = pending.length;
   const allNav: NavItem[] = navItems(waiting);
-  const nav = allNav.filter((item) => showsNav(item.id, view));
+  // Troubleshoot is owner-only on the hub (system:admin); hidden once we know this principal is not an owner.
+  const nav = allNav.filter((item) => showsNav(item.id, view) && !(item.id === 'troubleshoot' && hub.canDecide === 'no'));
 
   // Route plain in-app links from ui components through the router (no reload).
   const onClickCapture = (e: MouseEvent<HTMLDivElement>) => {

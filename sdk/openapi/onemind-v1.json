@@ -1736,6 +1736,70 @@
         "title": "DestinationBody",
         "type": "object"
       },
+      "DiagnosticsBundle": {
+        "additionalProperties": true,
+        "description": "GET /v1/system/diagnostics: a redacted bundle for support. More fields may appear.",
+        "properties": {
+          "actions": {
+            "additionalProperties": true,
+            "title": "Actions",
+            "type": "object"
+          },
+          "audit": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Audit",
+            "type": "array"
+          },
+          "gateway": {
+            "additionalProperties": true,
+            "title": "Gateway",
+            "type": "object"
+          },
+          "generated_at": {
+            "title": "Generated At",
+            "type": "string"
+          },
+          "nodes": {
+            "description": "node heartbeats: ids hashed, names dropped, text redacted",
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Nodes",
+            "type": "array"
+          },
+          "redaction": {
+            "$ref": "#/components/schemas/Redaction"
+          },
+          "schema": {
+            "description": "onemind.diagnostics/v1",
+            "title": "Schema",
+            "type": "string"
+          },
+          "system_controls": {
+            "items": {
+              "$ref": "#/components/schemas/SystemControl"
+            },
+            "title": "System Controls",
+            "type": "array"
+          }
+        },
+        "required": [
+          "schema",
+          "generated_at",
+          "gateway",
+          "nodes",
+          "actions",
+          "audit",
+          "system_controls",
+          "redaction"
+        ],
+        "title": "DiagnosticsBundle",
+        "type": "object"
+      },
       "DryRunBody": {
         "additionalProperties": false,
         "properties": {
@@ -3480,6 +3544,31 @@
         "title": "ReceiptPage",
         "type": "object"
       },
+      "Redaction": {
+        "properties": {
+          "found": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "description": "how many values each rule removed",
+            "title": "Found",
+            "type": "object"
+          },
+          "rules": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Rules",
+            "type": "array"
+          }
+        },
+        "required": [
+          "rules",
+          "found"
+        ],
+        "title": "Redaction",
+        "type": "object"
+      },
       "RefreshBody": {
         "properties": {
           "refresh_token": {
@@ -4519,6 +4608,155 @@
           "id"
         ],
         "title": "Subject",
+        "type": "object"
+      },
+      "SystemActionRequest": {
+        "additionalProperties": false,
+        "description": "POST /v1/system/actions. `confirm` is the phrase the owner types for a factory reset.",
+        "properties": {
+          "confirm": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirm"
+          },
+          "idempotency_key": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idempotency Key"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "type": {
+            "enum": [
+              "system.restart",
+              "system.shutdown",
+              "system.factory_reset"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "title": "SystemActionRequest",
+        "type": "object"
+      },
+      "SystemControl": {
+        "description": "One control in GET /v1/system/controls: what it is and whether this box can perform it.",
+        "properties": {
+          "available": {
+            "description": "false: requests are refused with 409 host_unavailable",
+            "title": "Available",
+            "type": "boolean"
+          },
+          "confirm_phrase": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the phrase the owner types to ask for it; null when none",
+            "title": "Confirm Phrase"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "needs_passkey": {
+            "title": "Needs Passkey",
+            "type": "boolean"
+          },
+          "risk": {
+            "description": "actuate | destructive (§12.3)",
+            "title": "Risk",
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "system.restart",
+              "system.shutdown",
+              "system.factory_reset"
+            ],
+            "title": "Type",
+            "type": "string"
+          },
+          "unavailable_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unavailable Reason"
+          }
+        },
+        "required": [
+          "type",
+          "label",
+          "risk",
+          "needs_passkey",
+          "confirm_phrase",
+          "available",
+          "unavailable_reason"
+        ],
+        "title": "SystemControl",
+        "type": "object"
+      },
+      "SystemControls": {
+        "description": "GET /v1/system/controls.",
+        "properties": {
+          "controls": {
+            "items": {
+              "$ref": "#/components/schemas/SystemControl"
+            },
+            "title": "Controls",
+            "type": "array"
+          },
+          "pending": {
+            "description": "system requests not yet finished",
+            "items": {
+              "$ref": "#/components/schemas/Action"
+            },
+            "title": "Pending",
+            "type": "array"
+          }
+        },
+        "required": [
+          "controls",
+          "pending"
+        ],
+        "title": "SystemControls",
         "type": "object"
       },
       "TicketRequest": {
@@ -17535,6 +17773,192 @@
         "summary": "Storage Recovery Key",
         "tags": [
           "storage"
+        ]
+      }
+    },
+    "/v1/system/actions": {
+      "post": {
+        "description": "Request a restart, shutdown or factory reset. It waits for the owner's approval.\n\n409 host_unavailable while this box cannot perform the control (nothing is filed: an approval\nthat can only fail would be noise); 429 too_many_pending when an agent has too many waiting.",
+        "operationId": "system.actions.create",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SystemActionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
+                }
+              }
+            },
+            "description": "Idempotent replay"
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
+          }
+        },
+        "summary": "System Request",
+        "tags": [
+          "system"
+        ]
+      }
+    },
+    "/v1/system/controls": {
+      "get": {
+        "description": "Restart, shutdown and factory reset: whether this box can perform them, and the requests waiting.",
+        "operationId": "system.controls",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SystemControls"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "summary": "System Controls",
+        "tags": [
+          "system"
+        ]
+      }
+    },
+    "/v1/system/diagnostics": {
+      "get": {
+        "description": "A redacted diagnostic bundle for support: versions, node health, recent actions and audit events.",
+        "operationId": "system.diagnostics",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiagnosticsBundle"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "summary": "System Diagnostics",
+        "tags": [
+          "system"
         ]
       }
     },
