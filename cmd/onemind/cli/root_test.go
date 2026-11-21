@@ -72,6 +72,15 @@ func (g *fakeGW) serve(w http.ResponseWriter, r *http.Request) {
 		jsonOut(w, 200, map[string]any{"jsonrpc": "2.0", "id": m["id"], "result": res})
 	case p == "/v1/instance":
 		jsonOut(w, 200, map[string]any{"name": "Test \x1b[31mBox", "version": "0.1.0", "hub_node_id": "abc"})
+	case p == "/v1/status":
+		src := func(state, sum string, at any) map[string]any {
+			return map[string]any{"state": state, "summary": sum, "observed_at": at, "count": 0}
+		}
+		jsonOut(w, 200, map[string]any{"state": "unknown", "observed_at": "2026-11-12T09:00:00Z",
+			"alerts": src("ok", "no open alerts", "2026-11-12T09:00:00Z"), "approvals": src("ok", "none", "2026-11-12T09:00:00Z"),
+			"apps": src("ok", "none", "2026-11-12T09:00:00Z"), "storage": src("unknown", "the storage service is not enabled", nil),
+			"backups": src("attention", "backups are not set up", "2026-11-12T09:00:00Z"),
+			"updates": src("ok", "up to date", "2026-11-12T09:00:00Z"), "mesh": src("ok", "off", "2026-11-12T09:00:00Z")})
 	case p == "/v1/nodes":
 		jsonOut(w, 200, []any{map[string]any{"node_id": "abc", "hostname": "hub", "status": "online", "last_seen": "2026-11-12T09:00:00Z", "zeta": 1, "alpha": 2}})
 	case p == "/v1/apps":
@@ -214,6 +223,10 @@ func TestLoginContextsAndConfigModes(t *testing.T) {
 	}
 	if r := run(t, "", false, "status", "--json"); r.code != 0 || !strings.Contains(r.out, `"onemind.cli.status/v1"`) {
 		t.Fatalf("status %+v", r)
+	}
+	if r := run(t, "", false, "status"); r.code != 0 || !strings.Contains(r.out, "unknown: the storage service is not enabled (not read)") ||
+		!strings.Contains(r.out, "Needs attention") {
+		t.Fatalf("status text %+v", r)
 	}
 	if r := run(t, "", false, "logout"); r.code != 0 {
 		t.Fatal(r)

@@ -85,6 +85,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
             extra["transport"] = tls_transport(box_ca.dir / "ca.crt", urlsplit(mesh_cfg.control_url).hostname or "")
         mesh = MeshService(HeadscaleClient.from_key_file(mesh_cfg.headscale_url, mesh_cfg.headscale_key_file, **extra),
                            gw.audit, gw.clock)
+    app.state.mesh = mesh  # read by GET /v1/status (FD-01)
     fabric = FabricService(FabricDeps(
         actions=gw.actions, audit=gw.audit, events=gw.events, registry=gw.registry, db=gw.db, clock=gw.clock,
         box_ca=box_ca, net=net, mesh_settings=mesh_cfg, fabric=fab_cfg, mesh=mesh,
