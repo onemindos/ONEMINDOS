@@ -3,6 +3,8 @@ import { useNavigation } from '@react-navigation/native';
 import { Pressable, Text, View } from 'react-native';
 import type { AppTier, CatalogApp } from '../api/types';
 import { useHubData } from '../data';
+import { asksParent } from '../lib/people';
+import { useSignedIn } from '../session';
 import { formatDay, installBlockReason } from '../lib/scan';
 import { Badge, Card, H1, H2, Loading, P, Screen, s } from '../ui/bits';
 import { useTheme } from '../ui/theme';
@@ -32,6 +34,7 @@ function AppRow({ app, hubNow }: { app: CatalogApp; hubNow: number }) {
           {app.installed && <Badge label={app.status.replace(/_/g, ' ')} tone="info" />}
           <Badge label={app.tier ?? 'no tier'} tone={app.tier ? TIER_TONE[app.tier] : 'warn'} />
           <Badge label={scan.text} tone={scan.tone} />
+          {app.min_age != null && <Badge label={`age ${app.min_age}+`} />}
           <Badge label={app.license} />
           {blocked ? <Badge label="cannot install yet" tone="warn" /> : null}
         </View>
@@ -42,6 +45,7 @@ function AppRow({ app, hubNow }: { app: CatalogApp; hubNow: number }) {
 
 export function AppsScreen() {
   const { apps, hubOffsetMs, loading } = useHubData();
+  const { principal } = useSignedIn();
   if (loading && !apps) return <Loading what="apps" />;
   const hubNow = Date.now() + (hubOffsetMs ?? 0);
   const installed = (apps ?? []).filter((a) => a.installed);
@@ -49,6 +53,7 @@ export function AppsScreen() {
   return (
     <Screen testID="apps">
       <H1>Apps</H1>
+      {asksParent(principal?.role) && <P muted small>The box only lists apps that fit your limits. For anything else, open an app and ask a parent.</P>}
       <P muted small>Only apps with a passing security scan from the last 7 days can be installed. Every install waits for an owner.</P>
       {installed.length > 0 && <H2>Installed</H2>}
       {installed.map((a) => (

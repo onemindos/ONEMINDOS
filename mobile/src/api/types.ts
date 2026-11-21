@@ -111,6 +111,8 @@ export interface CatalogApp {
   tier: AppTier | null;
   /** Last scan, or null when the app has never been scanned (or its record is unreadable). */
   scan: ScanSummary | null;
+  /** FAM-01 minimum age when the hub classified the app; the hub already hides apps above a young person's limit. */
+  min_age?: number | null;
 }
 
 /** §3 types the phone itself requests; §12.5 adds many more, which the phone shows but never invents. */
@@ -134,8 +136,8 @@ export type ActionState =
 
 /** §3 kinds plus the §12.1 additions (`plugin`, `automation`, `node`). */
 export type PrincipalKind = 'person' | 'agent' | 'plugin' | 'automation' | 'node';
-/** §12.6 adds `child`; unknown roles are treated as the least privileged. */
-export type PrincipalRole = 'owner' | 'adult' | 'guest' | 'child' | 'agent';
+/** §12.6 adds `child`; FAM-01 adds `teen` (between child and adult); unknown roles are treated as the least privileged. */
+export type PrincipalRole = 'owner' | 'adult' | 'teen' | 'guest' | 'child' | 'agent';
 
 /** §3 tokens map to principals `{id, kind, role}`. */
 export interface Principal {
@@ -582,3 +584,48 @@ export interface MigratePlan {
 
 /** UMB-P07 `/v1/me/home`: the person's Home document, generated from the gateway's OpenAPI (`@onemind/sdk`). */
 export type { HomeBody, HomeView } from '@onemind/sdk';
+
+/** `GET /v1/users` (owner only, §12.6). */
+export interface UserInfo {
+  id: string;
+  username: string | null;
+  display_name: string;
+  role: string;
+  disabled?: boolean;
+  created_at?: string | null;
+  last_seen_at?: string | null;
+  passkeys?: number;
+}
+
+/** `POST /v1/users`: the new person plus their sign-in code, returned exactly once (identity/service.py `one_time`). */
+export interface CreatedUser extends UserInfo {
+  one_time?: { enrolment_code: string; enrolment_url: string; expires_at?: string };
+}
+
+/** FAM-01 `GET /v1/family/profiles/{id}` (owner only): the limits on one child or teen. */
+export interface FamilyProfile {
+  allowed_apps?: string[] | null;
+  max_age_rating?: number | null;
+  blocked_tags?: string[];
+  timezone?: string;
+  windows?: unknown[] | null;
+}
+
+/** `GET /v1/tokens` row (owner sees all). An agent's scopes are what its token may do. */
+export interface TokenInfo {
+  id: string;
+  name: string;
+  principal_id: string;
+  kind: string;
+  scopes: string[];
+  expires_at?: string | null;
+  last_used_at?: string | null;
+}
+
+/** CORE-SEC-6 `GET`/`PUT /v1/agents/kill-switch`: while `on`, every AI agent is refused. */
+export interface KillSwitch {
+  on: boolean;
+  changed_by?: { id: string; kind: PrincipalKind } | null;
+  changed_at?: string | null;
+  reason?: string | null;
+}

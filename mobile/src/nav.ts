@@ -23,6 +23,8 @@ export type RootParams = {
   Automation: undefined;
   Files: undefined;
   Migrate: undefined;
+  People: undefined;
+  Agents: undefined;
 };
 
 declare global {

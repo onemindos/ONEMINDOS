@@ -27,6 +27,11 @@ import {
   type HomeView,
   type InboxItem,
   type Instance,
+  type FamilyProfile,
+  type KillSwitch,
+  type TokenInfo,
+  type CreatedUser,
+  type UserInfo,
   type LifecycleType,
   type LoginResult,
   type Me,
@@ -77,6 +82,14 @@ export const OP = {
   filesRoots: 'GET /v1/files/roots',
   filesList: 'GET /v1/files/list',
   migratePlans: 'GET /v1/migrate/plans',
+  /** §12.6 users (owner), FAM-01 family limits, CORE-SEC-6 agent kill switch. */
+  users: 'GET /v1/users',
+  usersCreate: 'POST /v1/users',
+  usersUpdate: 'PATCH /v1/users/{}',
+  familyProfile: 'GET /v1/family/profiles/{}',
+  tokens: 'GET /v1/tokens',
+  killSwitch: 'GET /v1/agents/kill-switch',
+  killSwitchSet: 'PUT /v1/agents/kill-switch',
 } as const;
 
 export type Op = (typeof OP)[keyof typeof OP];
@@ -199,6 +212,14 @@ export interface OneMindApi {
   filesRoots(): Promise<FileRoot[]>;
   filesList(root: string, path: string): Promise<FileEntry[]>;
   migratePlans(): Promise<MigratePlan[]>;
+  // People and agents. Writes are owner-only on the hub, which also asks for a fresh passkey (`step_up_required`).
+  users(): Promise<UserInfo[]>;
+  createUser(body: { display_name: string; role: string }): Promise<CreatedUser>;
+  setUserRole(id: string, role: string): Promise<UserInfo>;
+  familyProfile(id: string): Promise<FamilyProfile>;
+  apiTokens(): Promise<TokenInfo[]>;
+  killSwitch(): Promise<KillSwitch>;
+  setKillSwitch(on: boolean, reason?: string): Promise<KillSwitch>;
   /** Where the SSE stream lives and which bearer to send; undefined in demo mode (no stream). */
   eventsEndpoint(): { url: string; bearer: () => string | undefined; refresh?: () => Promise<string | undefined> } | undefined;
 }
@@ -572,6 +593,27 @@ export class HttpApi implements OneMindApi {
   }
   migratePlans() {
     return this.req<MigratePlan[]>('GET', '/v1/migrate/plans', undefined, 'array');
+  }
+  users() {
+    return this.req<UserInfo[]>('GET', '/v1/users', undefined, 'array');
+  }
+  createUser(body: { display_name: string; role: string }) {
+    return this.req<CreatedUser>('POST', '/v1/users', body);
+  }
+  setUserRole(id: string, role: string) {
+    return this.req<UserInfo>('PATCH', `/v1/users/${enc(id)}`, { role });
+  }
+  familyProfile(id: string) {
+    return this.req<FamilyProfile>('GET', `/v1/family/profiles/${enc(id)}`);
+  }
+  apiTokens() {
+    return this.req<TokenInfo[]>('GET', '/v1/tokens', undefined, 'array');
+  }
+  killSwitch() {
+    return this.req<KillSwitch>('GET', '/v1/agents/kill-switch');
+  }
+  setKillSwitch(on: boolean, reason?: string) {
+    return this.req<KillSwitch>('PUT', '/v1/agents/kill-switch', reason ? { on, reason } : { on });
   }
   eventsEndpoint() {
     return {

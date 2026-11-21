@@ -61,6 +61,13 @@ export function v0Api(over: Partial<OneMindApi> = {}, now = Date.now()): OneMind
     filesRoots: missing,
     filesList: missing,
     migratePlans: missing,
+    users: missing,
+    createUser: missing,
+    setUserRole: missing,
+    familyProfile: missing,
+    apiTokens: missing,
+    killSwitch: missing,
+    setKillSwitch: missing,
     eventsEndpoint: () => undefined,
     ...over,
   };
