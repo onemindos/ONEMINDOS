@@ -30,6 +30,7 @@ const ERRORS = {
   unauthenticated: 'The box did not accept this token. Pair the box again.',
   rate_limited: 'The box asks to slow down. Try again in a minute.',
   unavailable: 'The box cannot do this right now. Try again shortly.',
+  autostart_failed: 'The system would not change the start-at-login setting.',
   conflict: 'The box refused: the request is no longer in a state that can be decided.',
 };
 
@@ -215,4 +216,69 @@ export function isInsecureAddress(input) {
   if (!raw.startsWith('http://')) return false;
   const host = raw.slice(7).split(/[/:]/)[0];
   return !(host === 'localhost' || host.startsWith('127.') || raw.startsWith('http://[::1]'));
+}
+
+// ---- "Needs you" and box health (D-016 home; src-tauri/src/api.rs parse_alerts, parse_os, parse_storage) ----
+
+const SEV_RANK = { critical: 0, warning: 1, info: 2 };
+
+/**
+ * One list for everything a person has to look at: approvals first (they block someone), then open
+ * alerts, worst first. An acknowledged alert is not counted (someone already saw it). `alertsServed`
+ * says whether the box has an alerts route at all, so the popover can hide that part when it does not.
+ */
+export function needsYou(st) {
+  const items = [];
+  for (const p of st.pending || []) {
+    items.push({ kind: 'approval', id: p.id, title: p.target ? `${p.kind} · ${p.target}` : p.kind, sub: `asked by ${p.requested_by || 'someone'}`, tone: 'agent' });
+  }
+  const open = (st.alerts || []).filter((a) => a.state === 'open').sort((a, b) => (SEV_RANK[a.severity] ?? 2) - (SEV_RANK[b.severity] ?? 2));
+  for (const a of open) items.push({ kind: 'alert', id: a.id, title: a.title, sub: a.severity === 'critical' ? 'Critical alert' : 'Alert', tone: severityTone(a.severity), link: a.link || '/alerts' });
+  return { count: items.length, items, alertsServed: Array.isArray(st.alerts) };
+}
+
+export function bytesText(n) {
+  if (!Number.isFinite(n) || n < 0) return '';
+  const u = ['B', 'KB', 'MB', 'GB', 'TB'];
+  let i = 0;
+  let v = n;
+  while (v >= 1000 && i < u.length - 1) {
+    v /= 1000;
+    i += 1;
+  }
+  return `${v >= 100 || i === 0 ? Math.round(v) : v.toFixed(1)} ${u[i]}`;
+}
+
+const OS_BUSY = ['checking', 'downloading', 'installing', 'pending_reboot'];
+
+/** The OS row: version and booted A/B slot, and what the update service is doing. `null`: not served. */
+export function osRow(st) {
+  const o = st.os;
+  if (!o) return null;
+  const where = [o.version ? `v${o.version}` : null, o.booted_slot ? `slot ${o.booted_slot}` : null].filter(Boolean).join(' · ') || 'running';
+  if (o.state === 'rolled_back') return { label: 'System', tone: 'bad', value: where, note: 'The last update was rolled back by the health check.' };
+  if (OS_BUSY.includes(o.state)) return { label: 'System', tone: 'warn', value: where, note: `Update ${o.state.replace(/_/g, ' ')}.` };
+  if (o.available_version) return { label: 'System', tone: 'warn', value: where, note: `Update ${o.available_version} is ready.` };
+  return { label: 'System', tone: 'ok', value: where, note: 'Up to date.' };
+}
+
+export function storageRow(st) {
+  const s = st.storage;
+  if (!s || !s.available) return null; // the box has no managed storage: say nothing
+  const used = s.used_bytes != null ? (s.total_bytes ? `${bytesText(s.used_bytes)} of ${bytesText(s.total_bytes)}` : `${bytesText(s.used_bytes)} used`) : 'in use';
+  if (s.missing > 0) return { label: 'Storage', tone: 'bad', value: used, note: `${plural(s.missing, 'disk is', 'disks are')} missing.` };
+  if (s.state && s.state !== 'healthy' && s.state !== 'ok') return { label: 'Storage', tone: 'warn', value: used, note: `State: ${s.state}.` };
+  if (s.needs_scrub) return { label: 'Storage', tone: 'warn', value: used, note: 'A data check is due.' };
+  return { label: 'Storage', tone: 'ok', value: used, note: s.members > 1 ? `${s.members} disks, healthy.` : 'Healthy.' };
+}
+
+export function backupRow(st, now = Date.now() / 1000) {
+  if (!st.backups) return null;
+  const t = backupsTile(st, now);
+  return { label: 'Backups', tone: t.tone, value: t.label, note: t.detail || '' };
+}
+
+/** Rows for the "Box health" list; a row whose route the box does not serve is simply absent. */
+export function healthRows(st, now = Date.now() / 1000) {
+  return [osRow(st), backupRow(st, now), storageRow(st)].filter(Boolean);
 }
