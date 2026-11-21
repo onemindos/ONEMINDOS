@@ -42,6 +42,10 @@ jobs:
           node-version: '22'
           cache: npm
           cache-dependency-path: mobile/package-lock.json
+      - name: Generate the SDK code from the committed spec (CI-16, not committed)
+        uses: ./.github/actions/sdk-gen
+        with:
+          langs: ts
       - run: npm ci
       - name: Pre-flight (icons, export compliance, privacy manifest in app.json)
         run: npm run check:ios
