@@ -142,6 +142,12 @@ class AppChecker:
         except yaml.YAMLError as exc:
             return None, [f"{MANIFEST_NAME} is not valid YAML: {exc}"]
 
+        # Fail closed until the subsequent CI integration invokes the box's Go
+        # validator. JSON Schema alone does not implement plugin trust rules.
+        spec = doc.get("spec") if isinstance(doc, dict) else None
+        if isinstance(spec, dict) and any(k in spec for k in ("extensions", "plugin", "permissions", "compat")):
+            app_id = dig(doc, ("metadata", "id"))
+            return app_id, ["plugin declarations require the shared Go validator; CI integration is not enabled"]
         licence_inventory(doc, app_dir)
         schema_errors = sorted(self.validator.iter_errors(doc), key=lambda e: list(e.absolute_path))
         for err in schema_errors:
