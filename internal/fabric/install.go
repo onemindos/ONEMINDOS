@@ -235,8 +235,9 @@ func (in *Installer) Apply(ctx context.Context, id *Identity, cr *Credentials, c
 		in.say("k3s         agent config written (server %s, ticket valid 1 h)", cr.K3s.ServerURL)
 	}
 
-	// 6. onemindd publishes to its local leaf from now on.
-	if err := in.setEnv(map[string]string{"ONEMIND_NATS_URL": LocalNATSURL, "ONEMIND_NODE_ROLE": "node"}); err != nil {
+	// 6. onemindd publishes to its local leaf from now on, under the id the hub knows (firstboot wrote a
+	// different one; the leaf account and fabric.json use this one, so heartbeats on the old id never arrive).
+	if err := in.setEnv(map[string]string{"ONEMIND_NATS_URL": LocalNATSURL, "ONEMIND_NODE_ROLE": "node", "ONEMIND_NODE_ID": id.NodeID}); err != nil {
 		return nil, err
 	}
 	st.JoinedAt = in.Now().UTC().Format(time.RFC3339)
@@ -352,7 +353,7 @@ func (in *Installer) setEnv(set map[string]string) error {
 		}
 		out.WriteString(line + "\n")
 	}
-	for _, k := range []string{"ONEMIND_NATS_URL", "ONEMIND_NODE_ROLE"} {
+	for _, k := range []string{"ONEMIND_NATS_URL", "ONEMIND_NODE_ROLE", "ONEMIND_NODE_ID"} {
 		if v, ok := set[k]; ok {
 			fmt.Fprintf(&out, "%s=%s\n", k, v)
 		}
