@@ -4,8 +4,8 @@
 
   dev-release.py --dl DIR --out DIR --sha GIT_SHA --date YYYYMMDD
 
-DIR holds the downloaded artifacts of one successful image.yml run on main. The three downloads someone
-actually wants go flat into --out with a SHA256SUMS and a NOTES.md that says, first, that this is a
+DIR holds the downloaded artifacts of one successful image.yml run on main. The downloads someone
+actually wants (three images, the two update bundles and the dev CA certificate) go flat into --out with a SHA256SUMS and a NOTES.md that says, first, that this is a
 development build with throwaway keys. The tag name is printed on the last line (`dev-<date>-<sha7>`).
 Exit 2 and nothing published if a download is missing or too big for a GitHub release asset.
 This is not release.yml: it never signs, never makes keys, and release.yml still refuses `-dev` builds.
@@ -17,7 +17,14 @@ WANTED = [
     ("mac", re.compile(r"^onemind-arm64-efi-[\w.-]+\.qcow2$"), "Apple Silicon Mac in UTM (docs/see-onemind/mac-utm.md)"),
     ("beelink", re.compile(r"^onemind-installer-amd64-[\w.-]+\.img\.xz$"), "x86-64 PC from a USB stick (docs/see-onemind/beelink-usb.md)"),
     ("droplet", re.compile(r"^onemind-vm-do-[\w.-]+\.qcow2$"), "DigitalOcean custom image (lab-kits/LT-DO-01)"),
+    # The update test (lab-kits/LT-DO-01 D5, R530 lab) needs the signed-by-the-throwaway-CA bundles and that CA.
+    ("update-bundle", re.compile(r"^onemind-vm-do-[\w.-]+(?<!-next)\.raucb$"), "RAUC update bundle, the version the droplet image boots (update tests)"),
+    ("update-next", re.compile(r"^onemind-vm-do-[\w.-]+-next\.raucb$"), "RAUC update bundle, the next version to install over it (update tests)"),
+    ("dev-ca", re.compile(r"^dev-ca\.cert\.pem$"), "throwaway dev CA certificate that signed both bundles (public part only; no key)"),
 ]
+# image.yml uploads the whole out/image-<board>/ folder, and dev-image.sh puts dev-ca.cert.pem in every one,
+# so the bundles and the CA only count when they sit in the droplet board's artifact folder.
+SCOPE = {w: "image-debian-vm-do" for w in ("update-bundle", "update-next", "dev-ca")}
 MAX_ASSET = 2 * 1024**3 - 1   # GitHub release assets stop at 2 GiB
 
 
@@ -30,8 +37,9 @@ def pick(dl):
     found = {}
     for root, _, files in os.walk(dl):
         for name in sorted(files):
+            top = os.path.relpath(root, dl).split(os.sep)[0]
             for what, rx, _ in WANTED:
-                if rx.match(name):
+                if rx.match(name) and SCOPE.get(what, top) == top:
                     if what in found:
                         refuse(f"two files match the {what} download: {found[what]} and {name}")
                     found[what] = os.path.join(root, name)
@@ -54,7 +62,9 @@ def notes(tag, rows):
         "# DEVELOPMENT BUILD. NOT FOR PRODUCTION.", "",
         "Built automatically from `main` with **throwaway signing keys** and a throwaway certificate authority. "
         "It is for looking at OneMind, not for anything you care about: no Secure Boot, no signed updates, "
-        "no support. Never put real family data on it.", "",
+        "no support. Never put real family data on it. The RAUC update bundles and `dev-ca.cert.pem` are signed by that "
+        "throwaway CA, so they only install on dev images from the same build, and they stay that way until the "
+        "signing ceremony (#153).", "",
         "Pick one (guides: `docs/see-onemind/`):", "",
     ]
     for name, who, digest in rows:

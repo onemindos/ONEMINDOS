@@ -3,11 +3,13 @@
 # native builds, which until now ran only on a developer Mac.
 #   test:    design-token check + typecheck + jest (API client, approval flow, alerts, session, Approvals screen)
 #   android: expo prebuild + Gradle assembleDebug on ubuntu-24.04 with the NDK React Native names;
-#            the APK must not request any permission app.json blocks; APK uploaded for sideloading
+#            the APK must not request any permission app.json blocks; APK uploaded for sideloading;
+#            then the release-mode build (scripts/android-release-build.sh, debug-signed here) and the same check.
+#            Signed APK + AAB for the nightly dev release: dev-android.yml (secrets live only there)
 #   (release-ios.yml is the signed TestFlight lane; it runs only with Apple secrets, mobile/docs/ios-release.md)
 #   ios:     expo prebuild + CocoaPods + xcodebuild Release for the iOS simulator on macos-26
 #            (unsigned; the JS bundle is embedded, so Metro bundling is proven too)
-# No signing keys, store accounts or secrets are used.
+# No signing keys, store accounts or secrets are used in this workflow.
 name: ci-mobile
 
 on:
@@ -105,6 +107,9 @@ jobs:
           cd android
           ./gradlew assembleDebug --no-daemon --console=plain
           ls -l app/build/outputs/apk/debug/app-debug.apk
+          # The release step below re-runs expo prebuild, which can remove android/build outputs: keep a copy.
+          mkdir -p "$RUNNER_TEMP/debug-apk"
+          cp app/build/outputs/apk/debug/app-debug.apk "$RUNNER_TEMP/debug-apk/app-debug.apk"
       - name: The APK requests none of the permissions app.json blocks
         run: |
           set -euo pipefail
@@ -124,15 +129,17 @@ jobs:
       - name: No Google Play Services auth library in the app (plugins/withoutPlayServicesCredentials.js)
         run: |
           export JAVA_HOME="$JAVA_HOME_17_X64"
-          cd mobile/android && ./gradlew --no-daemon -q :app:dependencies --configuration releaseRuntimeClasspath > deps.txt
+          cd android && ./gradlew --no-daemon -q :app:dependencies --configuration releaseRuntimeClasspath > deps.txt
           if grep -E "play-services-auth|credentials-play-services-auth" deps.txt; then
             echo "a proprietary Play Services auth library is linked" >&2
             exit 1
           fi
+      - name: Release-mode APK builds too (no secrets here, debug-signed, same script as the dev release)
+        run: scripts/android-release-build.sh "$RUNNER_TEMP/android-release" 1 ci
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: onemind-mobile-debug-apk
-          path: mobile/android/app/build/outputs/apk/debug/app-debug.apk
+          path: ${{ runner.temp }}/debug-apk/app-debug.apk
           if-no-files-found: error
           retention-days: 14
 

@@ -37,6 +37,13 @@ jobs:
           VERSION: ${{ inputs.version }}
         run: |
           case "$VERSION" in *-dev*|"") echo "REFUSED: '$VERSION' is a development version"; exit 2;; esac
+      - name: Client apps take this version (desktop and mobile; stamping happens in their build jobs)
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          # Refuses a version the stores cannot take, and proves the stamper and the drift test pass.
+          python3 -I -m unittest discover -s test/unit -p 'test_client_versions.py'
+          cp -r . "$RUNNER_TEMP/stamp-try" && python3 -I scripts/release/stamp-client-versions.py --root "$RUNNER_TEMP/stamp-try" --version "$VERSION" --build "$GITHUB_RUN_NUMBER"
 
   publish:
     needs: gate

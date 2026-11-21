@@ -45,7 +45,7 @@ fi
 
 install_kit() {   # copy the in-VM scripts and run provision.sh with ROLE and INSTANCES
   limactl shell "$1" -- sudo mkdir -p /opt/onemind-ci
-  for f in provision.sh run-one.sh runner.pin; do
+  for f in provision.sh run-one.sh job-started.sh runner.pin; do
     limactl copy "$here/$f" "$1:/tmp/$f"
     limactl shell "$1" -- sudo install -m 0755 "/tmp/$f" "/opt/onemind-ci/$f"
   done
