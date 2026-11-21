@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// NMD-07 (#132): Settings > Updates shows and edits the gateway's update policy via @onemind/sdk.
+// NMD-07 (#132): the OS updates page shows and edits the gateway's update policy via @onemind/sdk.
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
@@ -35,7 +35,7 @@ function mount(token: 'owner-demo' | 'adult-demo' = 'owner-demo') {
   });
   vi.stubGlobal('fetch', fetch);
   window.sessionStorage.setItem('onemind.token', token);
-  render(<MemoryRouter initialEntries={['/settings/updates']}><SessionProvider deps={{ mock: false, makeApi: () => new MockApi(token), knownPrincipal: () => DEMO_TOKENS[token] }}><App mock={false} /></SessionProvider></MemoryRouter>);
+  render(<MemoryRouter initialEntries={['/updates']}><SessionProvider deps={{ mock: false, makeApi: () => new MockApi(token), knownPrincipal: () => DEMO_TOKENS[token] }}><App mock={false} /></SessionProvider></MemoryRouter>);
   return calls;
 }
 afterEach(() => vi.unstubAllGlobals());
@@ -49,7 +49,8 @@ it('shows the knobs, the paused apps and what would update tonight from the gate
   expect(screen.getByText('Would update')).toBeInTheDocument();
   expect(screen.getByText(/New major version: only a person updates it/)).toBeInTheDocument();
   expect(screen.getByText(/Covers: hermes-like/)).toBeInTheDocument();
-  expect(calls.every((c) => c.path.startsWith('/v1/update-policy'))).toBe(true);
+  expect(calls.some((c) => c.method === 'GET' && c.path === '/v1/update-policy')).toBe(true);
+  expect(calls.some((c) => c.path === '/v1/update-policy/dry-run')).toBe(true);
 });
 
 it('saves the edited knobs with PUT and lifts a back-off with resume', async () => {

@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
-// Settings > Updates: the owner's update policy for apps (NMD-07, #132). Reads and writes
+// OS updates page, below the slots: the owner's update policy for apps (NMD-07, #132). Reads and writes
 // /v1/update-policy through @onemind/sdk; the dry run answers "what would update tonight" and files
 // nothing. The knobs only ever hold an update back; approving stays with the owner.
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { OneMind, OneMindError, type components } from '@onemind/sdk';
-import { Button, Card, PageHeader, StatusPill } from '@onemind/ui';
+import { Button, Card, StatusPill } from '@onemind/ui';
 import { ApiError } from '../api/types';
 import { usePoll } from '../lib/hooks';
 import { useSignedIn } from '../session';
@@ -71,7 +71,7 @@ const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString() : 'no
 export function UpdatePolicy() {
   const { token, person, mock } = useSignedIn();
   return mock
-    ? <><PageHeader title="Updates" /><p role="status">Connect to a real hub to see its update policy. Demo mode has no update data.</p></>
+    ? <p role="status">Connect to a real hub to see its update policy. Demo mode has no update data.</p>
     : <LiveUpdatePolicy key={person} token={token} />;
 }
 
@@ -110,7 +110,8 @@ function LiveUpdatePolicy({ token }: { token: string }) {
 
   return (
     <div className="dash-stack">
-      <PageHeader title="Updates" lede="When apps may update on their own. These rules only hold an update back; an update still needs your approval or a standing approval you made." />
+      <h2>App update policy</h2>
+      <p className="om-hint">When apps may update on their own. These rules only hold an update back; an update still needs your approval or a standing approval you made.</p>
       <Load res={current} what="Loading the update policy">{(p) => <Card title="Update policy" level={2}>
         {!owner && <p className="om-note" role="status">Only the owner can change these rules.</p>}
         {draft && <form className="dash-form" onSubmit={save} aria-label="Update policy">
