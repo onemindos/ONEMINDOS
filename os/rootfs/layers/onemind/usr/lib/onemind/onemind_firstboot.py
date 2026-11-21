@@ -48,7 +48,8 @@ ROLES = ("hub", "worker", "leaf")
 ROLE_UNITS = {
     "hub": ["onemind-nats.service", "onemind-nats-accounts.path", "onemindd.service", "onemind-gateway.service",
             "onemind-gateway-kube.service", "tailscaled.service", "onemind-headscale.service",
-            "onemind-mesh-setup.service", "onemind-rescue.service", "onemind-host.service"],
+            "onemind-mesh-setup.service", "onemind-rescue.service", "onemind-host.service",
+            "onemind-storage.service"],
     # A worker and a leaf both get the mesh and a local NATS leaf (internal/fabric Installer.Apply).
     "worker": ["tailscaled.service", "onemind-nats-leaf.service", "onemindd.service", "onemind-fabric-join.service"],
     "leaf": ["tailscaled.service", "onemind-nats-leaf.service", "onemindd.service", "onemind-fabric-join.service"],
@@ -472,6 +473,9 @@ def gateway_env(p: Paths, st: dict, mesh_ip: str | None = None) -> str:
            "ONEMIND_DASHBOARD_DIST=/usr/lib/onemind/dashboard\nONEMIND_EXECUTOR=kubernetes\n"
            f"ONEMIND_KUBECTL=/usr/lib/onemind/bin/kubectl\nKUBECONFIG={g}/kubeconfig\n"
            "ONEMIND_NATS_URL=nats://127.0.0.1:4222\n"
+           "# Files (core/onemind_core/files) live on the data partition, not in the read-only root; storage\n"
+           "# actions talk to onemind-storage.service (onemindd storage serve) on /run/onemind/storage.sock.\n"
+           "ONEMIND_FILES_ROOT=/data/onemind/files\nONEMIND_STORAGE_ENABLED=1\n"
            f"ONEMIND_NODE_ID={st['node_id']}\nONEMIND_INSTANCE_NAME={st['name']}\n"
            "# Plain HTTP :8080 is loopback only once ONEMIND_NET_TLS=1 (H-05, serve.py): local tools and the gate.\n"
            "ONEMIND_HOST=0.0.0.0\nONEMIND_PORT=8080\nONEMIND_GATEWAY_URL=http://onemind.local:8080\n"
