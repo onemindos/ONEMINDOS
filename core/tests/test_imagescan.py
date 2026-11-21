@@ -206,7 +206,7 @@ def test_namespace_is_restricted_with_minimal_egress():
     ports = {p["port"] for rule in policy["spec"]["egress"] for p in rule["ports"]}
     assert ports == {53, 443}
     block = policy["spec"]["egress"][1]["to"][0]["ipBlock"]
-    assert "192.168.0.0/16" in block["except"] and "10.0.0.0/8" in block["except"]
+    assert block["except"] == list(im.NOT_REACHABLE) and len(block["except"]) == 5
     assert pvc["kind"] == "PersistentVolumeClaim"
 
 

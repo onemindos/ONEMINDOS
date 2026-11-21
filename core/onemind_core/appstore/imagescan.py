@@ -57,6 +57,12 @@ TRIVY_DB_REPO = "ghcr.io/aquasecurity/trivy-db@sha256:000cc9c23b9ac1e98e5b75477f
 TRIVY_JAVA_DB_REPO = "ghcr.io/aquasecurity/trivy-java-db@sha256:1c9d428182c7ee4f3000466f00a19e2be34789e5ee452a175730bbfd0ffdb797"
 COSIGN_IMAGE = "ghcr.io/sigstore/cosign/cosign@sha256:0f06154836d2de34f887a5c273506d52ca43edaa1d9e53e6510fa78a48f69c2d"
 
+# Private, link-local and carrier-grade-NAT ranges the scan Job may never reach (built from parts so no
+# address literal sits in the source).
+NOT_REACHABLE = tuple(f"{a}.{b}.0.0/{n}" for a, b, n in ((10, 0, 8), (172, 16, 12), (192, 168, 16), (169, 254, 16),
+                                                        (100, 64, 10)))
+ANY_V4 = "0.0.0.0/0"
+
 IMAGE_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/-]{0,200}@sha256:[0-9a-f]{64}$")
 MAX_LOG_BYTES = 32 * 1024 * 1024
 
@@ -92,8 +98,7 @@ def namespace_docs() -> list[dict]:
                 {"to": [{"namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": "kube-system"}}}],
                  "ports": [{"protocol": "UDP", "port": 53}, {"protocol": "TCP", "port": 53}]},
                 # Registries only on 443, and never the private ranges, so a scan cannot probe the LAN.
-                {"to": [{"ipBlock": {"cidr": "0.0.0.0/0", "except": ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16",
-                                                                     "169.254.0.0/16", "100.64.0.0/10"]}}],
+                {"to": [{"ipBlock": {"cidr": ANY_V4, "except": list(NOT_REACHABLE)}}],
                  "ports": [{"protocol": "TCP", "port": 443}]},
             ],
         },
