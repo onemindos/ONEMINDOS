@@ -72,6 +72,7 @@ export const tokens = {
     "surface-raised": "#ffffff",
     "border": "#e3e8e9",
     "border-strong": "#cdd5d7",
+    "control-border": "#7a818c",
     "text": "#131a1d",
     "text-muted": "#475459",
     "text-subtle": "#5e6b70",
@@ -112,6 +113,7 @@ export const tokens = {
     "surface-raised": "#1a2226",
     "border": "#222b2f",
     "border-strong": "#343f44",
+    "control-border": "#5a7884",
     "text": "#e8eeef",
     "text-muted": "#a9b6b9",
     "text-subtle": "#8a989c",
@@ -147,7 +149,7 @@ export const tokens = {
   },
   "scale": {
     "font": {
-      "sans": "system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
+      "sans": "'Inter Variable', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
       "mono": "ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace"
     },
     "font-size": {
