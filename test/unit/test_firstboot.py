@@ -222,6 +222,7 @@ class Hub(Box):
         self.assertNotIn(toks[0], tokens)
         import hashlib
         self.assertIn("sha256:" + hashlib.sha256(toks[0].encode()).hexdigest(), tokens)
+        self.assertIn("retire_on_setup: true", tokens)   # the gateway retires it once an owner exists
         self.assertTrue(os.path.exists(self.p.esp_conf + ".applied"))
         self.assertEqual((st["box"], st["mesh"]), ("home-box", 1))
         self.assertEqual(st["node_id"], self.etc("node-id").strip())
