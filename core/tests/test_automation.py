@@ -513,3 +513,22 @@ def test_background_worker_handles_events(auto_settings, clock, executor):
             time.sleep(0.05)
             runs = c.get("/v1/automation/runs", headers=OWNER).json()
         assert runs[0]["outcome"] == "requested"
+
+
+def test_standing_approvals_and_windows_need_a_passkey_once_passkeys_are_active(client, clock):
+    # F-2: with passkeys active, a password/token owner must not pre-approve agent actions.
+    ident = client.app.state.identity
+    ident.passkeys_active = lambda: True
+    r = policy(client, clock, requested_by=("agent:hermes",))
+    assert r.status_code == 401 and r.json()["reason"] == "step_up_required", r.text
+    assert client.get("/v1/approval-policies", headers=OWNER).json() == []
+    w = client.put("/v1/windows/win_nightly", headers=OWNER,
+                   json={"name": "nightly", "tz": "UTC", "ranges": [{"start": "00:00", "end": "23:59"}]})
+    assert w.status_code == 401 and w.json()["reason"] == "step_up_required", w.text
+    # An agent still gets 403, never a step-up prompt it could not answer.
+    assert policy(client, clock, headers=AGENT).status_code == 403
+    # Without passkeys the owner token still works and the audit says how presence was proved.
+    ident.passkeys_active = lambda: False
+    assert policy(client, clock).status_code == 201
+    made = [e for e in audit_events(client) if e["event"] == "automation.policy.created"]
+    assert made and made[-1]["data"]["approval"] == "token"
