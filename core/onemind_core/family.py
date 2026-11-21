@@ -20,6 +20,8 @@ from .store import FeatureSchema
 SCHEMA = FeatureSchema("family")
 AppId = Annotated[str, Field(pattern=r"^[a-z0-9][a-z0-9-]{0,62}$")]
 Tag = Annotated[str, Field(min_length=1, max_length=64)]
+# Roles that carry per-person limits and a birth date (age assurance, California AB 1043 from 2027).
+AGE_ASSURED_ROLES = ("child", "teen")
 
 
 class Window(BaseModel):
@@ -37,7 +39,7 @@ class Window(BaseModel):
 
 class FamilyProfile(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    birth_date: date | None = Field(default=None, description="Private child profile data; never included in audit events")
+    birth_date: date | None = Field(default=None, description="Private child or teen profile data; never included in audit events")
     allowed_apps: list[AppId] | None = Field(default=None, max_length=500, description="Null inherits sharing; empty denies all apps; never grants access")
     max_age_rating: int | None = Field(default=None, ge=0, le=21, description="Maximum app minimum-age rating; unclassified apps are blocked when set")
     blocked_tags: list[Tag] = Field(default_factory=list, max_length=100)
@@ -93,8 +95,8 @@ class FamilyService:
         user = self.target(p, user_id)
         if user.role == "owner":
             raise ApiError(422, "conflict", "owners cannot be restricted")
-        if policy.birth_date is not None and (user.role != "child" or policy.birth_date > self.gw.clock().date()):
-            raise ApiError(422, "conflict", "birth date must be a nonfuture date on a child profile")
+        if policy.birth_date is not None and (user.role not in AGE_ASSURED_ROLES or policy.birth_date > self.gw.clock().date()):
+            raise ApiError(422, "conflict", "birth date must be a nonfuture date on a child or teen profile")
         if policy.allowed_apps is not None and set(policy.allowed_apps) - self.gw.catalog.load().keys():
             raise ApiError(422, "conflict", "allowlist contains an unknown app")
         via = self.identity.require_step_up(ctx, p, "manage family controls")

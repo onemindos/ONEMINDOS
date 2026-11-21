@@ -1682,7 +1682,7 @@
                 "type": "null"
               }
             ],
-            "description": "Private child profile data; never included in audit events",
+            "description": "Private child or teen profile data; never included in audit events",
             "title": "Birth Date"
           },
           "blocked_tags": {
