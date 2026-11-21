@@ -15,7 +15,7 @@ import onemind_firstboot as fb  # noqa: E402
 try:
     from cryptography import x509 as _x509
     # A distribution's older cryptography (no *_utc accessors, e.g. Ubuntu 24.04's python3-cryptography on
-    # GitHub-hosted runners) is not what the gateway venv pins: skip the CA tests there, as test_firstboot does.
+    # GitHub-hosted runners) is not what the gateway venv pins: skip the one test that makes the box CA there, as test_firstboot does.
     HAVE_CRYPTO = hasattr(_x509.Certificate, "not_valid_after_utc")
 except ImportError:
     HAVE_CRYPTO = False
@@ -74,12 +74,12 @@ class Units(unittest.TestCase):
             self.assertNotRegex(u, r"CAP_(DAC_OVERRIDE|SYS_ADMIN|CHOWN|NET_ADMIN)")
 
 
-@needs_crypto
 class FirstBoot(unittest.TestCase):
     def test_hub_starts_the_console_and_other_roles_do_not(self):
         self.assertIn("onemind-rescue.service", fb.ROLE_UNITS["hub"])
         self.assertNotIn("onemind-rescue.service", fb.ROLE_UNITS["worker"] + fb.ROLE_UNITS["leaf"])
 
+    @needs_crypto
     @unittest.skipUnless(shutil.which("openssl"), "openssl missing")
     def test_cert_is_signed_by_the_box_ca_private_and_kept(self):
         with tempfile.TemporaryDirectory() as d:
