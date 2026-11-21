@@ -9,7 +9,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { HubProvider, useHub } from './data/hub';
 import { preferenceStores } from './data/prefs';
 import { FirstRun, wizardPending } from './pages/FirstRun';
-import { ProOnly } from './shell/ProOnly';
+import { OwnerOnly, ProOnly } from './shell/ProOnly';
 import { SignIn } from './pages/SignIn';
 import { useSession, useSignedIn } from './session';
 import { Shell } from './shell/Shell';
@@ -28,13 +28,14 @@ function lazyOf(load: ScreenLoader) {
 function screenRoutes() {
   return SCREENS.flatMap((s) => {
     const rel = (path: string) => path.replace(/^\//, '');
-    const wrap = (load: ScreenLoader) => {
+    const wrap = (load: ScreenLoader, ownerOnly?: string) => {
       const Page = lazyOf(load);
+      if (ownerOnly) return <OwnerOnly title={ownerOnly}><Page /></OwnerOnly>;
       return s.pro ? <ProOnly title={s.title}><Page /></ProOnly> : <Page />;
     };
     return [
       s.path === '/' ? <Route key={s.id} index element={wrap(s.load)} /> : <Route key={s.id} path={rel(s.path)} element={wrap(s.load)} />,
-      ...(s.extra ?? []).map((e) => <Route key={`${s.id}${e.path}`} path={rel(e.path)} element={wrap(e.load ?? s.load)} />),
+      ...(s.extra ?? []).map((e) => <Route key={`${s.id}${e.path}`} path={rel(e.path)} element={wrap(e.load ?? s.load, e.owner)} />),
       ...(s.redirects ?? []).map((r) => <Route key={`${s.id}${r.from}`} path={rel(r.from)} element={<Navigate to={r.to} replace />} />),
     ];
   });

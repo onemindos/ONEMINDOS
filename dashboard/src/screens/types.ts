@@ -30,7 +30,7 @@ export interface ScreenDef {
   badge?: 'approvals';
   load: ScreenLoader;
   /** More paths of the same screen (a detail page, a tab). Nav and window title stay this screen's. */
-  extra?: { path: string; load?: ScreenLoader }[];
+  extra?: { path: string; load?: ScreenLoader; /** Owner-only page: guarded by OwnerOnly (shell/ProOnly.tsx), titled with this text. */ owner?: string }[];
   /** Old paths that now live here; they replace-redirect to `to`. */
   redirects?: { from: string; to: string }[];
 }
