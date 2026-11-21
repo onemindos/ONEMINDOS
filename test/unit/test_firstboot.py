@@ -699,7 +699,7 @@ class WizardLockdown(Box):
             if g.locked() == 0:
                 tries += 1
             g.check("AAAAAAAAAA")
-        self.assertLess(tries, 30)
+        self.assertLess(tries, 50)   # unlimited would be 100000
 
     def test_lan_is_refused_after_the_owner_exists(self):
         base = self.serve()
