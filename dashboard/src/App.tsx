@@ -12,12 +12,14 @@ import { Alerts } from './pages/Alerts';
 import { Storage } from './pages/Storage';
 import { Updates } from './pages/Updates';
 import { Backups } from './pages/Backups';
+import { Automation } from './pages/Automation';
 import { Coming } from './pages/Coming';
 import { FirstRun, wizardPending } from './pages/FirstRun';
 import { Approvals } from './pages/Approvals';
 import { Home } from './pages/Home';
 import { Installed } from './pages/Installed';
 import { Market } from './pages/Market';
+import { ComposeImport, Sources } from './pages/AppSources';
 import { Machines } from './pages/Machines';
 import { Nodes } from './pages/Nodes';
 import { ControlHub } from './pages/ControlHub';
@@ -55,6 +57,8 @@ export function SignedInApp() {
             <Route index element={<Home />} />
             <Route path="market" element={<Market />} />
             <Route path="market/:appId" element={<Market />} />
+            <Route path="sources" element={<Sources />} />
+            <Route path="compose" element={<ComposeImport />} />
             <Route path="installed" element={<Installed />} />
             <Route path="installed/:appId" element={<Installed />} />
             <Route path="approvals" element={<Approvals />} />
@@ -66,6 +70,7 @@ export function SignedInApp() {
             <Route path="settings/storage" element={<Navigate to="/storage" replace />} />
             <Route path="backups" element={<ProOnly title="Backups"><Backups /></ProOnly>} />
             <Route path="settings/backups" element={<Navigate to="/backups" replace />} />
+            <Route path="automation" element={<ProOnly title="Automation"><Automation /></ProOnly>} />
             <Route path="updates" element={<ProOnly title="OS updates"><Updates /></ProOnly>} />
             <Route path="settings/updates" element={<Navigate to="/updates" replace />} />
             <Route path="coming" element={<Coming />} />
