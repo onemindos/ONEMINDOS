@@ -100,3 +100,58 @@ func TestUpdateCheckApplyStatus(t *testing.T) {
 		t.Fatalf("status json %v: %s", err, out.String())
 	}
 }
+
+// `onemind update apply --mirror <dir>`: a box with no reachable channel URL
+// installs from a USB-style directory whose metadata is long expired.
+func TestUpdateApplyFromMirror(t *testing.T) {
+	dir := t.TempDir()
+	repo, err := tuftest.New(time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	repo.Now = time.Now().Add(-45 * 24 * time.Hour)
+	repo.AddTarget(tuftest.Meta{Board: "vm", Version: "0.1.1", Compatible: "onemind-vm", MinFromVersion: "0.1.0", Security: true}, []byte("bundle"))
+	usb := filepath.Join(dir, "usb")
+	if err := repo.Publish(usb, 0); err != nil {
+		t.Fatal(err)
+	}
+	root, _ := repo.RootJSON()
+	files := map[string]string{
+		"tuf/security/root.json": string(root),
+		"os-release":             "ONEMIND_VERSION=0.1.0\nONEMIND_BOARD=vm\n",
+		"system.conf":            "compatible=onemind-vm\n",
+		"gate/.keep":             "",
+	}
+	for p, s := range files {
+		p = filepath.Join(dir, p)
+		_ = os.MkdirAll(filepath.Dir(p), 0o755)
+		if err := os.WriteFile(p, []byte(s), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	conf := filepath.Join(dir, "update.conf")
+	text := strings.Join([]string{"channel = security", "url = http://127.0.0.1:1", // nothing listens: offline
+		"tuf_root_dir = " + filepath.Join(dir, "tuf"), "state_dir = " + filepath.Join(dir, "state"),
+		"download_dir = " + filepath.Join(dir, "rauc"), "gate_dir = " + filepath.Join(dir, "gate"),
+		"os_release = " + filepath.Join(dir, "os-release"), "rauc_conf = " + filepath.Join(dir, "system.conf"), ""}, "\n")
+	if err := os.WriteFile(conf, []byte(text), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	inst, rb := &fakeInstall{}, &fakeReboot{}
+	newEngine = func(c *update.Config, log *slog.Logger) *update.Engine {
+		e := update.New(c, log)
+		e.Installer, e.Rebooter = inst, rb
+		return e
+	}
+	var out, errb bytes.Buffer
+	if code := run([]string{"update", "apply", "--config", conf, "--no-reboot"}, &out, &errb); code == 0 {
+		t.Fatal("apply without the mirror should fail: the channel URL is unreachable")
+	}
+	out.Reset()
+	if code := run([]string{"update", "apply", "--config", conf, "--no-reboot", "--mirror", usb}, &out, &errb); code != 0 {
+		t.Fatalf("apply --mirror exit %d: %s %s", code, out.String(), errb.String())
+	}
+	if len(inst.got) != 1 || !strings.Contains(out.String(), "pending_reboot") {
+		t.Fatalf("installs %v\n%s", inst.got, out.String())
+	}
+}
