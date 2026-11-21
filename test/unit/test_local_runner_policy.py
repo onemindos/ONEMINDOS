@@ -200,7 +200,7 @@ class MergeGate(unittest.TestCase):
 
 class Kit(unittest.TestCase):
     def test_scripts_exist_and_parse(self):
-        for f in ("up", "down", "status", "cycle", "provision.sh", "run-one.sh"):
+        for f in ("up", "down", "status", "cycle", "provision.sh", "run-one.sh", "job-started.sh"):
             path = KIT / f
             self.assertTrue(path.is_file(), f)
             self.assertTrue(path.stat().st_mode & 0o111, f"{f} is not executable")
@@ -429,6 +429,62 @@ exit 0
         self.assertIn('grep -e "^$VM-run-" -e "^$GATE_VM-run-"', text)   # gate clones are deleted too
         self.assertIn('limactl stop "$GATE_VM"', text)
         self.assertIn('limactl delete --force "$GATE_VM"', text)
+
+
+class JobStartedHook(unittest.TestCase):
+    """The fail-closed guard the runner runs before every job: fork and deleted-fork PRs are refused."""
+    HOOK = KIT / "job-started.sh"
+    REPO = "onemindos/ONEMINDOS"
+
+    def run_hook(self, payload, repo=REPO, event_file=True):
+        with tempfile.TemporaryDirectory() as tmp:
+            env = {"PATH": os.environ.get("PATH", "/usr/bin:/bin")}
+            if repo is not None:
+                env["GITHUB_REPOSITORY"] = repo
+            if event_file:
+                path = Path(tmp) / "event.json"
+                path.write_text(payload if isinstance(payload, str) else json.dumps(payload))
+                env["GITHUB_EVENT_PATH"] = str(path)
+            return subprocess.run(["sh", str(self.HOOK)], env=env, capture_output=True, text=True, timeout=30)
+
+    def pr(self, head):
+        return {"pull_request": {"head": {"repo": head}}}
+
+    def test_same_repo_pull_request_runs(self):
+        r = self.run_hook(self.pr({"full_name": self.REPO}))
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("onemind-local guard: ok", r.stdout)
+
+    def test_fork_pull_request_is_refused(self):
+        r = self.run_hook(self.pr({"full_name": "someone/ONEMINDOS"}))
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("onemind-local guard: REFUSED", r.stderr)
+
+    def test_deleted_fork_pull_request_is_refused(self):
+        for head in (None, {}):
+            r = self.run_hook(self.pr(head))
+            self.assertEqual(r.returncode, 1, head)
+            self.assertIn("REFUSED", r.stderr)
+        r = self.run_hook({"pull_request": {}})
+        self.assertEqual(r.returncode, 1)
+
+    def test_push_runs(self):
+        r = self.run_hook({"ref": "refs/heads/main"})
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("onemind-local guard: ok", r.stdout)
+
+    def test_missing_environment_is_refused(self):
+        for r in (self.run_hook({}, repo=None), self.run_hook({}, event_file=False),
+                  self.run_hook("not json"), self.run_hook({}, repo="")):
+            self.assertEqual(r.returncode, 1)
+            self.assertIn("onemind-local guard: REFUSED", r.stderr)
+
+    def test_provision_installs_the_hook_for_every_runner(self):
+        text = (KIT / "provision.sh").read_text()
+        self.assertIn("/usr/local/bin/onemind-ci-job-started.sh", text)   # the runner needs the .sh suffix
+        self.assertIn("ACTIONS_RUNNER_HOOK_JOB_STARTED=/usr/local/bin/onemind-ci-job-started.sh", text)
+        self.assertIn('"$R/.env', text)
+        self.assertIn("job-started.sh", (KIT / "up").read_text())
 
 
 if __name__ == "__main__":
