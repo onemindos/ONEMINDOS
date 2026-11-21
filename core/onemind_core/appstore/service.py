@@ -28,13 +28,14 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from ..actions import FeatureAction
 from ..auth import Principal
-from .. import cpufit
+from .. import cpufit, streams
 from ..catalog import APP_ID_RE, MANIFEST, AppEntry
 from ..context import Gateway
 from ..errors import ApiError
 from ..executors import ExecResult
 from ..ledger import Action, iso
 from ..scan import MAX_AGE
+from ..netconf import FabricSettings
 from ..sections import config_section
 from . import appsettings, compose, deps, exposure, hostports
 from .sources import (
@@ -230,6 +231,26 @@ class AppStore:
                 "declared": [h.to_json() for h in hostports.declared(entry.manifest)],
                 "conflicts": self._port_conflicts(entry)}
 
+    def jetstream_state(self) -> dict:
+        """The hub JetStream store: ok, degraded (disk nearly full) or unavailable (not set up here)."""
+        fab = self.gw.settings.section(FabricSettings)
+        return streams.store_state(fab.jetstream_path if fab.jetstream_max_bytes > 0 else None)
+
+    def _check_streams(self, app: AppEntry, action_type: str) -> None:
+        """spec.streams: a bad declaration, or a store that cannot take events, refuses the request."""
+        bad = streams.validate(app.manifest)
+        if bad:
+            raise _refuse(409, "stale_precondition", f"app {app.id!r} declares an invalid event stream",
+                          reason="invalid_stream", details=bad)
+        if not streams.declared(app.manifest):
+            return
+        state = self.jetstream_state()
+        if state["state"] != "ok":
+            raise _refuse(409, "stale_precondition",
+                          f"app {app.id!r} needs an event stream and the hub JetStream store is {state['state']}: {state['reason']}",
+                          reason=f"jetstream_{state['state']}",
+                          details=[{"field": "spec.streams", "problem": state["reason"]}])
+
     def _port_conflicts(self, entry: AppEntry) -> list[dict]:
         # v0 runs every app on the hub node; per-node placement (CORE-FABRIC-4) narrows `others`.
         apps = self.gw.catalog.load()
@@ -247,6 +268,8 @@ class AppStore:
             if fit:
                 code, message, details = fit
                 raise _refuse(409, "stale_precondition", message, reason=code, details=details)
+        if action_type in ("app.install", "app.update"):
+            self._check_streams(app, action_type)
         statuses = self.statuses()
         if action_type == "app.install":
             missing = deps.unsatisfied(app.manifest, deps.providing(statuses))
