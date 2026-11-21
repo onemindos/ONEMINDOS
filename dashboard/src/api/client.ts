@@ -1,8 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { WiringApi } from './wiring';
 import type * as W from './wiring';
-import { OneMind, OneMindError, type operations } from '@onemind/sdk';
+import { OneMind, OneMindError, type components, type operations } from '@onemind/sdk';
 import type { FabricSummary, JoinTicket, MeshView } from '@onemind/ui';
+
+/** `GET /v1/os/about` (UMB-P14): device facts per node; never a serial number or an address. */
+export type AboutBox = components['schemas']['About'];
 import {
   ApiError,
   type Action,
@@ -30,6 +33,8 @@ export interface OneMindApi extends WiringApi {
   nodes(): Promise<NodeRecord[]>;
   node(nodeId: string): Promise<NodeRecord>;
   apps(): Promise<CatalogApp[]>;
+  /** UMB-P14: absent on the mock gateway, which has no device facts. */
+  about?(): Promise<AboutBox>;
   /** MACH-01: absent on the mock gateway, which has no machines. */
   machines?(): Promise<MachineRecord[]>;
   machineCapabilities?(): Promise<MachineCapabilities>;
@@ -238,6 +243,7 @@ export class HttpApi implements OneMindApi {
     if (typeof t.ticket_id !== 'string' || t.role !== role || typeof t.qr_payload !== 'string' || typeof t.hub_ca_sha256 !== 'string' || !Number.isFinite(Date.parse(t.expires_at)) || typeof t.one_time?.join_code !== 'string') throw new ApiError(201, 'unknown', 'Invalid gateway join ticket');
     return t;
   }
+  about() { return this.req<AboutBox>('GET', '/v1/os/about'); }
   machines() { return this.req<MachineRecord[]>('GET', '/v1/machines', undefined, 'array'); }
   machineCapabilities() { return this.req<MachineCapabilities>('GET', '/v1/machines/capabilities'); }
   appPlan(id: string) { return this.sdkCall<PlanPreview>('GET', `/v1/apps/${encodeURIComponent(id)}/plan`); }

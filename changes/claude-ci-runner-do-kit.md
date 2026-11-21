@@ -1,0 +1,5 @@
+---
+pr: pending
+branch: claude/ci-runner-do-kit
+---
+CI-15: a kit that turns DigitalOcean droplets into ephemeral GitHub Actions runners (label onemind-do) for trusted events, off by default. scripts/ci-runner-do/up N SIZE REGION creates the droplets (cost printed first, capped by MAX_DROPLETS and MAX_USD_HOUR), cycle mints a single-use JIT runner config per job with the operator's own gh login and sends it over SSH on stdin to a fresh container that is deleted after one job (no GitHub token ever reaches a droplet, containers cannot reach the metadata service, the VPC or the droplet), a job-started hook refuses fork pull requests on the machine, and cycle destroys everything after 2 idle hours or 12 hours in all. down destroys only our droplets. Lint, unit, hygiene and the SQLite core test shards try the pool first only when the DO_RUNNER variable is on and the event is trusted, else the Mac pool or ubuntu-24.04 as before. test/unit/test_do_runner_policy.py enforces the routing, no secrets, the guards and the kit with stubbed doctl and gh. No droplet is created by this change.
