@@ -16,6 +16,7 @@ import {
   type Instance,
   type MachineCapabilities,
   type MachineRecord,
+  type MachineSnapshot,
   type NodeRecord,
 } from './types';
 
@@ -37,6 +38,7 @@ export interface OneMindApi extends WiringApi {
   /** MACH-01: absent on the mock gateway, which has no machines. */
   machines?(): Promise<MachineRecord[]>;
   machineCapabilities?(): Promise<MachineCapabilities>;
+  machineSnapshots?(name: string): Promise<MachineSnapshot[]>;
   appPlan?(id: string): Promise<PlanPreview>;
   previewAction?(type: ActionType, params: AppParams): Promise<PlanPreview>;
   appSettings?(id: string): Promise<AppSettings>;
@@ -225,6 +227,7 @@ export class HttpApi implements OneMindApi {
   about() { return this.req<AboutBox>('GET', '/v1/os/about'); }
   machines() { return this.req<MachineRecord[]>('GET', '/v1/machines', undefined, 'array'); }
   machineCapabilities() { return this.req<MachineCapabilities>('GET', '/v1/machines/capabilities'); }
+  machineSnapshots(name: string) { return this.req<MachineSnapshot[]>('GET', `/v1/machines/${encodeURIComponent(name)}/snapshots`, undefined, 'array'); }
   appPlan(id: string) { return this.sdkCall<PlanPreview>('GET', `/v1/apps/${encodeURIComponent(id)}/plan`); }
   previewAction(type: ActionType, params: AppParams) { return this.sdkCall<PlanPreview>('POST', '/v1/plans', { type, params }); }
   async appSettings(id: string) {

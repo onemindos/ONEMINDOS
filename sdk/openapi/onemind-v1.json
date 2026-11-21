@@ -2039,8 +2039,12 @@
               "exposure.mesh",
               "exposure.private",
               "exposure.public",
+              "machine.clone",
               "machine.create",
               "machine.delete",
+              "machine.force_stop",
+              "machine.restart",
+              "machine.snapshot",
               "machine.start",
               "machine.stop",
               "node.wake",
@@ -13769,6 +13773,67 @@
           }
         },
         "summary": "Machines Console",
+        "tags": [
+          "machines"
+        ]
+      }
+    },
+    "/v1/machines/{name}/snapshots": {
+      "get": {
+        "description": "The snapshots of one machine, with how consistent each copy is (a running machine's copy may be best effort).",
+        "operationId": "machines.snapshots",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Machines Snapshots",
         "tags": [
           "machines"
         ]

@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """Machine actions: request, owner approval, then the runtime (MACH-01, #281 scope 3 and 4).
 
-`machine.create|start|stop|delete` are feature action types (actions.py). The same ledger, the same
+`machine.create|start|stop|restart|force_stop|snapshot|clone|delete` are feature action types (actions.py). The same ledger, the same
 owner-only approval and the same audit lines apply as for apps: an owner or an agent may *request*
 one, only an owner approves, and nothing reaches the runtime before an approval. The checks run
 twice, at the request and again at approval, so a box that lost KVM or filled up in between is a
@@ -23,11 +23,14 @@ from ..executors import ExecResult
 from .capability import refusals
 from .runtime import KubectlRuntime, MachineRuntime, NoopRuntime
 from .spec import (
-    MachineCreateParams, MachineDeleteParams, MachineRefParams, quota_problem,
+    MAX_SNAPSHOTS, MachineCloneParams, MachineCreateParams, MachineDeleteParams, MachineRefParams,
+    MachineSnapshotParams, consistency, quota_problem,
 )
-from .store import MachineRow, MachinesRepository
+from .store import MachineRow, MachinesRepository, SnapshotRow
 
 CONSOLE_TTL_S = 60
+SNAPSHOT_NOTE = {"quiesce_failed": "QuiesceFailed: the disk could not be paused, so this copy is best effort.",
+                 "best_effort": "No guest agent answered, so this copy is best effort."}
 REQUESTERS = frozenset({"person", "agent"})  # an agent may ask; approval stays owner-only
 
 
@@ -57,14 +60,23 @@ class MachineService:
         """(reason, message) when the action cannot be done now; None when it can."""
         name = params["name"]
         row = self.repo.get(name)
-        if verb == "create":
+        if verb in ("create", "clone"):
             node = self._host()
             if node is None:
                 return "machines_unsupported", self._refusal_text()
+            ram, cpus = params.get("ram_mb"), params.get("cpus")
+            if verb == "clone":  # the copy needs what its source has; the source must be stopped and settled
+                src = self.repo.get(params["source"])
+                if src is None:
+                    return "machine_unknown", f"There is no machine named {params['source']}."
+                if src["state"] != "stopped":
+                    return "wrong_state", (f"Machine {src['name']} is {src['state']}: stop it first, so the copy is complete "
+                                           "and the new machine does not start on its own.")
+                ram, cpus = src["ram_mb"], src["cpus"]
             if row is not None and not (reserve_own and row["state"] == "creating" and self.repo.owner(name) == reserve_own):
                 return "name_taken", f"A machine named {name} already exists."
             others = [m for m in self.repo.all() if m["name"] != name]
-            msg = quota_problem(node, others, params["ram_mb"], params["cpus"])
+            msg = quota_problem(node, others, ram, cpus)
             return ("quota_exceeded", msg) if msg else None
         if row is None:
             return "machine_unknown", f"There is no machine named {name}."
@@ -74,14 +86,31 @@ class MachineService:
             return "wrong_state", f"Machine {name} is {row['state']}, so it cannot be started."
         if verb == "stop" and row["state"] != "running":
             return "wrong_state", f"Machine {name} is {row['state']}, so it cannot be stopped."
+        if verb == "restart" and row["state"] != "running":
+            return "wrong_state", f"Machine {name} is {row['state']}, so it cannot be restarted."
+        if verb == "force_stop" and row["state"] not in ("running", "stopped"):
+            return "wrong_state", f"Machine {name} is {row['state']}, so it cannot be forced off."
+        if verb == "snapshot":
+            if row["state"] not in ("running", "stopped"):
+                return "wrong_state", f"Machine {name} is {row['state']}, so it cannot be snapshotted."
+            have = self.repo.snapshots(name)
+            if any(x["name"] == params["snapshot"] for x in have):
+                return "snapshot_exists", f"Machine {name} already has a snapshot named {params['snapshot']}."
+            if len(have) >= MAX_SNAPSHOTS:
+                return "too_many_snapshots", (f"Machine {name} already has {len(have)} snapshots (the most this box keeps). "
+                                              "Each one uses disk space.")
         if verb == "delete" and params.get("confirm") != name:
-            return "confirm_mismatch", "Deleting a machine erases its disk: confirm needs the machine's name, typed by the owner."
+            n = len(self.repo.snapshots(name))
+            extra = f" and its {n} snapshot{'' if n == 1 else 's'}" if n else ""
+            return "confirm_mismatch", f"Deleting a machine erases its disk{extra}: confirm needs the machine's name, typed by the owner."
         return None
 
     def _check_request(self, verb: str):
         def check(params: dict, principal: Principal) -> None:
             if verb == "delete" and params.get("confirm") != params["name"]:
                 raise ApiError(422, "conflict", "params.confirm: must equal the machine name, typed by the owner")
+            if verb == "clone" and params["source"] == params["name"]:
+                raise ApiError(422, "conflict", "params.name: the copy needs a name of its own")
             if (found := self.problem(verb, params)) is not None:
                 raise ApiError(409, "policy_refused", found[1], reason=found[0])
         return check
@@ -95,11 +124,15 @@ class MachineService:
     # ---- approval: reserve what the action changes ----------------------------------------
     def _claim_create(self, a) -> str | None:
         with self._lock:  # two approved creates never both fit into the same last gigabyte
-            found = self.problem("create", a.params)
+            verb = "clone" if a.type == "machine.clone" else "create"
+            found = self.problem(verb, a.params)
             if found:
                 return found[1]
             now = self.gw.clock()
             p = a.params
+            if verb == "clone":  # the copy holds what its source holds, counted against the same quota
+                src = self.repo.get(p["source"]) or {}
+                p = {**p, "ram_mb": src["ram_mb"], "cpus": src["cpus"], "disk_gb": src["disk_gb"]}
             ok = self.repo.add(MachineRow(
                 name=p["name"], node_id=(self._host() or {}).get("node_id", ""), ram_mb=p["ram_mb"], cpus=p["cpus"],
                 disk_gb=p["disk_gb"], state="creating", action_id=a.id, created_at=now, updated_at=now))
@@ -139,6 +172,33 @@ class MachineService:
         res = self.runtime.delete(name)
         if res.outcome == "succeeded":
             self.repo.remove(name)
+            self.repo.remove_snapshots(name)
+        finish(res)
+
+    def _run_restart(self, a, finish) -> None:
+        finish(self.runtime.restart(a.params["name"]))  # the machine stays `running` in our records
+
+    def _run_force_stop(self, a, finish) -> None:
+        name = a.params["name"]
+        res = self.runtime.force_stop(name)
+        if res.outcome == "succeeded":
+            self.repo.set_state(name, "stopped", self.gw.clock())
+        finish(res)
+
+    def _run_snapshot(self, a, finish) -> None:
+        name, snap = a.params["name"], a.params["snapshot"]
+        row = self.repo.get(name)
+        res, indications = self.runtime.snapshot(name, snap)
+        if res.outcome == "succeeded":
+            how = consistency(row["state"] if row else "running", indications)
+            self.repo.add_snapshot(SnapshotRow(machine=name, name=snap, consistency=how, action_id=a.id, created_at=self.gw.clock()))
+            res.message = f"{res.message}. {SNAPSHOT_NOTE.get(how, '')}".strip()
+        finish(res)
+
+    def _run_clone(self, a, finish) -> None:
+        res = self.runtime.clone(a.params["source"], a.params["name"])
+        if res.outcome == "succeeded":
+            self.repo.set_state(a.params["name"], "stopped", self.gw.clock(), action_id=a.id)
         finish(res)
 
     def register(self) -> None:
@@ -148,12 +208,17 @@ class MachineService:
             ("start", MachineRefParams, "actuate", self._run_toggle(True)),
             ("stop", MachineRefParams, "write", self._run_toggle(False)),
             ("delete", MachineDeleteParams, "destructive", self._run_delete),
+            ("restart", MachineRefParams, "actuate", self._run_restart),
+            ("force_stop", MachineRefParams, "destructive", self._run_force_stop),
+            ("snapshot", MachineSnapshotParams, "write", self._run_snapshot),
+            ("clone", MachineCloneParams, "actuate", self._run_clone),
         ):
+            owns_row = verb in ("create", "clone")
             acts.register_type(f"machine.{verb}", FeatureAction(
                 risk, run, REQUESTERS, check=self._recheck(verb), params_model=model,
                 check_request=self._check_request(verb),
-                claim=self._claim_create if verb == "create" else None,
-                release=self._release_create if verb == "create" else None))
+                claim=self._claim_create if owns_row else None,
+                release=self._release_create if owns_row else None))
 
     # ---- console (the owner only) ---------------------------------------------------------
     def console_ticket(self, name: str) -> dict:

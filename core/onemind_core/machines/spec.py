@@ -55,7 +55,41 @@ class MachineDeleteParams(MachineRefParams):
     confirm: str = Field(min_length=2, max_length=40)
 
 
-Verb = Literal["create", "start", "stop", "delete"]
+class MachineSnapshotParams(MachineRefParams):
+    snapshot: str = Field(min_length=2, max_length=40, pattern=NAME_PATTERN)
+
+
+class MachineCloneParams(BaseModel):
+    """`name` is the NEW machine (like machine.create), so the quota claim and the name check are shared."""
+    model_config = ConfigDict(extra="forbid")
+    source: str = Field(min_length=2, max_length=40, pattern=NAME_PATTERN)
+    name: str = Field(min_length=2, max_length=40, pattern=NAME_PATTERN)
+    _name_ok = field_validator("name")(_not_reserved)
+
+
+Verb = Literal["create", "start", "stop", "delete", "restart", "force_stop", "snapshot", "clone"]
+
+# Disk copies are not free: each one grows with what changed since. A small cap keeps a hub's disk safe.
+MAX_SNAPSHOTS = 5
+
+# What a snapshot guarantees, in words for the owner. `quiesce` = the guest agent froze the disk first.
+CONSISTENCY_TEXT = {
+    "offline": "The machine was stopped, so the disk copy is complete and consistent.",
+    "quiesced": "The machine's guest agent paused its disk writes first, so the copy is consistent.",
+    "best_effort": "The machine was running without a guest agent, so the copy is best effort: like pulling the power cord, "
+                   "it usually starts but files written at that moment may be half done.",
+    "quiesce_failed": "The guest agent could not pause the disk (QuiesceFailed), so the copy is best effort: like pulling "
+                      "the power cord, it usually starts but files written at that moment may be half done.",
+}
+
+
+def consistency(state: str, indications: list[str]) -> str:
+    """How safe a snapshot is, from the machine's state and KubeVirt's `status.indications`."""
+    if state != "running":
+        return "offline"
+    if "QuiesceFailed" in indications:
+        return "quiesce_failed"
+    return "quiesced" if "GuestAgent" in indications else "best_effort"
 
 
 def budget(node: dict) -> tuple[int, int]:
@@ -118,6 +152,31 @@ def _deny_all(name: str) -> dict:
         "metadata": {"name": f"{name}-deny", "namespace": NAMESPACE, "labels": {"onemind.io/machine": name}},
         "spec": {"podSelector": {"matchLabels": {"onemind.io/machine": name}}, "policyTypes": ["Ingress", "Egress"]},
     }
+
+
+def snapshot_name(machine: str, snap: str) -> str:
+    return f"{machine}-{snap}"[:63]
+
+
+def render_snapshot(machine: str, snap: str) -> str:
+    return json.dumps({
+        "apiVersion": "snapshot.kubevirt.io/v1beta1", "kind": "VirtualMachineSnapshot",
+        "metadata": {"name": snapshot_name(machine, snap), "namespace": NAMESPACE, "labels": {"onemind.io/machine": machine}},
+        "spec": {"source": {"apiGroup": "kubevirt.io", "kind": "VirtualMachine", "name": machine}}}, sort_keys=True)
+
+
+def render_clone(source: str, target: str) -> str:
+    """The clone object plus the deny-all policy of the new machine, applied before the copy exists.
+
+    The clone filters out our own labels, so the copy is never selected by the source's policy, and
+    the runtime relabels it before anything can start it (runtime.KubectlRuntime.clone)."""
+    clone = {
+        "apiVersion": "clone.kubevirt.io/v1alpha1", "kind": "VirtualMachineClone",
+        "metadata": {"name": f"{target}-clone", "namespace": NAMESPACE, "labels": {"onemind.io/machine": target}},
+        "spec": {"source": {"apiGroup": "kubevirt.io", "kind": "VirtualMachine", "name": source},
+                 "target": {"apiGroup": "kubevirt.io", "kind": "VirtualMachine", "name": target},
+                 "labelFilters": ["*", "!onemind.io/*"], "template": {"labelFilters": ["*", "!onemind.io/*"]}}}
+    return json.dumps({"apiVersion": "v1", "kind": "List", "items": [_deny_all(target), clone]}, sort_keys=True)
 
 
 def render_create(p: MachineCreateParams) -> str:
