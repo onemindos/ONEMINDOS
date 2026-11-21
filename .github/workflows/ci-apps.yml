@@ -86,6 +86,14 @@ jobs:
           sdk/tools/ci/install-tools.sh "$RUNNER_TEMP/bin" kustomize kubeconform gitleaks
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
 
+      - name: Install real ClamAV for plugin EICAR tests
+        run: |
+          if ! command -v clamscan >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends clamav
+          fi
+          command -v clamscan
+
       - name: Unit tests (sdk/tools)
         run: python3 -I -m unittest discover -s sdk/tools/tests -v
 

@@ -39,6 +39,14 @@ function Harness(props: Partial<HomeScreenProps> & { data?: HomeData; start?: Ho
 const widget = (name: RegExp | string) => screen.getByRole('region', { name });
 
 describe('HomeScreen', () => {
+  it('hides its own dock when the host frame shows pinned apps (showDock=false, D-016)', () => {
+    const { unmount } = render(<Harness />);
+    expect(screen.getByRole('navigation', { name: 'Dock' })).toBeInTheDocument();
+    unmount();
+    render(<Harness showDock={false} />);
+    expect(screen.queryByRole('navigation', { name: 'Dock' })).not.toBeInTheDocument();
+  });
+
   it('greets by name and time of day, and says what needs the person', async () => {
     const { container } = render(<Harness />);
     expect(screen.getByRole('heading', { level: 1, name: 'Good afternoon, Robin' })).toBeInTheDocument();

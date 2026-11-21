@@ -81,9 +81,45 @@ func compareSpecs(previous, current map[string]any) (*GrantDiff, error) {
 			result.Reasons = append(result.Reasons, fmt.Sprintf("tool effect widened: %s (%s -> %s)", name, effectName(old), effect))
 		}
 	}
+	oldExt, _ := previous["extensions"].(map[string]any)
+	newExt, _ := current["extensions"].(map[string]any)
+	oldEvents, _ := oldExt["events"].(map[string]any)
+	newEvents, _ := newExt["events"].(map[string]any)
+	oldSubscriptions, _ := stringSet(oldEvents["subscribe"])
+	newSubscriptions, _ := stringSet(newEvents["subscribe"])
+	for subject := range newSubscriptions {
+		if !oldSubscriptions[subject] {
+			result.Reasons = append(result.Reasons, "event subscription added: "+subject)
+		}
+	}
+	oldAlerts := alertGrants(oldExt)
+	for id, grant := range alertGrants(newExt) {
+		if !reflect.DeepEqual(oldAlerts[id], grant) {
+			result.Reasons = append(result.Reasons, "alert action added or changed: "+id)
+		}
+	}
+	// Workload bytes are outside this manifest-only API. The lifecycle plan
+	// fingerprint must bind those bytes and image pins before owner approval.
+	for _, field := range []string{"manifests", "plugin"} {
+		if !reflect.DeepEqual(previous[field], current[field]) {
+			result.Reasons = append(result.Reasons, "workload declaration changed: "+field)
+		}
+	}
 	sort.Strings(result.Reasons)
 	result.WidensGrants = len(result.Reasons) > 0
 	return result, nil
+}
+
+func alertGrants(ext map[string]any) map[string]any {
+	result := map[string]any{}
+	alerts, _ := ext["alerts"].(map[string]any)
+	actions, _ := alerts["actions"].([]any)
+	for _, value := range actions {
+		action, _ := value.(map[string]any)
+		id, _ := action["id"].(string)
+		result[id] = map[string]any{"tool": action["tool"], "args": action["args"]}
+	}
+	return result
 }
 
 func stringSet(value any) (map[string]bool, error) {

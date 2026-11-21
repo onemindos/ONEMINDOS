@@ -17,11 +17,6 @@ func pluginInspectCommand(a *App) *cobra.Command {
 		if cmd.Flags().Changed("key") != cmd.Flags().Changed("signature") || (cmd.Flags().Changed("key") && (keyPath == "" || signaturePath == "")) {
 			return exitWith(ExitUsage, "signature_options", "--key and --signature must be supplied together")
 		}
-		bundle, err := artifact.Open(args[0], digest)
-		if err != nil {
-			return exitWith(ExitVerifyFailed, "artifact_invalid", err.Error())
-		}
-		defer bundle.Close()
 		keyID := ""
 		if keyPath != "" {
 			key, err := signatureInput(keyPath)
@@ -37,6 +32,11 @@ func pluginInspectCommand(a *App) *cobra.Command {
 				return exitWith(ExitVerifyFailed, "signature_invalid", err.Error())
 			}
 		}
+		bundle, err := artifact.Open(args[0], digest)
+		if err != nil {
+			return exitWith(ExitVerifyFailed, "artifact_invalid", err.Error())
+		}
+		defer bundle.Close()
 		if a.G.JSON {
 			return printJSON(a.Stdout, map[string]any{"id": bundle.ID, "version": bundle.Version, "digest": bundle.Digest, "integrity": true, "verified": false, "signature_valid": keyID != "", "candidate_key_id": keyID})
 		}

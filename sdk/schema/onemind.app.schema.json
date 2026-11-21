@@ -209,7 +209,7 @@
       ],
       "properties": {
         "egress": {"description": "Internet egress hostnames (P9); default deny when absent or empty. Wildcards only below a registrable domain; the Go validator checks the embedded Public Suffix List.", "type": "array", "uniqueItems": true, "maxItems": 64, "items": {"type": "string", "minLength": 1, "maxLength": 255}},
-        "permissions": {"type": "array", "uniqueItems": true, "maxItems": 64, "items": {"type": "string", "minLength": 1, "maxLength": 128, "pattern": "^(nodes:read|apps:read|actions:read:self|actions:request:[a-z][a-z0-9_]*\\.[a-z][a-z0-9_.]*|alerts:raise|events:subscribe:[^\\s]+)$"}},
+        "permissions": {"type": "array", "uniqueItems": true, "maxItems": 64, "items": {"type": "string", "minLength": 1, "maxLength": 128, "pattern": "^(nodes:read|apps:read|actions:read:self|actions:request:app\\.(install|remove|start|stop|restart|update|configure)|alerts:raise|events:subscribe:[^\\s]+)$"}},
         "compat": {"type": "object", "additionalProperties": false, "properties": {"onemind": {"type": "string", "minLength": 1, "maxLength": 128}}, "required": ["onemind"]},
         "plugin": {
           "type": "object",

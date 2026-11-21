@@ -42,7 +42,7 @@ from pathlib import Path, PurePosixPath
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 try:
-    from applib import common, licence, readme, retry  # noqa: E402
+    from applib import common, licence, readme, retry, plugin_scan  # noqa: E402
 except ImportError as exc:  # pragma: no cover
     sys.stderr.write(f"error: missing dependency ({exc.name}); install sdk/tools/requirements.txt\n")
     sys.exit(2)
@@ -125,6 +125,8 @@ class Gate:
                            "--apps-dir", str(self.app_dir.parent), self.id], timeout=600)
         if proc.returncode != 0:
             c.fail("validate-apps failed:\n" + (proc.stdout + proc.stderr).strip())
+        if "manifests" not in self.spec:
+            return []  # shared validator permits only declarative plugins without workloads
         return common.render(self.app_dir / self.spec["manifests"])
 
     # -- 2: licence ---------------------------------------------------------------------------
@@ -436,16 +438,26 @@ class Gate:
             clam = self.clamav(ref, archs)
             images.append({"ref": ref, "archs": archs, "trivy": trivy, "clamav": clam,
                            "secrets": secrets, "cosign": self.cosign(ref, children, owner)})
+        bundle_scan = None
+        if "extensions" in self.spec:
+            bundle_scan = plugin_scan.scan_bundle(self.app_dir, scanner=common.which("clamscan"),
+                                                  database=self.args.clamav_db)
+            for hit in bundle_scan["findings"]:
+                self.check("malware").fail("plugin bundle: " + hit)
+            self.check("malware").note(f"plugin bundle: {bundle_scan['files']} files scanned")
         smoke = self.smoke(objects) if self.check("manifests").ok and self.check("pinning").ok else "fail"
         if smoke == "fail" and "smoke" not in self.checks:
             self.check("smoke").fail("not run because the manifest or pinning checks failed")
         result = "pass" if all(c.ok for c in self.checks.values()) else "fail"
         scan = {"scanned_at": now(), "result": result, "images": images, "licence": lic, "smoke": smoke}
 
+        if bundle_scan is not None:
+            scan["plugin_bundle"] = bundle_scan
+
         unverified = common.unverified_files(self.app_dir)
         if unverified:
             self.check("unverified").note("UNVERIFIED in " + ", ".join(unverified) + ": tier capped at community")
-        if lic["class"] == "blocked" or any(i["clamav"]["infected"] or i["trivy"]["critical_fixable"] for i in images):
+        if lic["class"] == "blocked" or (bundle_scan and bundle_scan["infected"]) or any(i["clamav"]["infected"] or i["trivy"]["critical_fixable"] for i in images):
             tier = "blocked"
         elif result == "pass" and healthy and not unverified:
             tier = "verified"

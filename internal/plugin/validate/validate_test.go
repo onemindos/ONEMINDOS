@@ -21,6 +21,9 @@ func TestManifest(t *testing.T) {
 	tests := []struct{ name, from, to string }{
 		{"approve", "nodes:read", "actions:approve"},
 		{"admin", "nodes:read", "users:admin"},
+		{"delete data forbidden", "actions:request:app.install", "actions:request:app.delete_data"},
+		{"policy forbidden", "actions:request:app.install", "actions:request:policy.create"},
+		{"unknown action forbidden", "actions:request:app.install", "actions:request:app.unknown"},
 		{"broad request", "actions:request:app.install", "actions:request"},
 		{"actuate", "effect: read", "effect: actuate"},
 		{"unknown effect", "effect: read", "effect: execute"},

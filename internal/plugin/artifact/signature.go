@@ -20,6 +20,13 @@ import (
 	"github.com/sigstore/sigstore/pkg/signature"
 )
 
+// SignaturePurpose separates plugin artifact signatures from other uses of a key.
+const SignaturePurpose = "onemind.plugin.artifact/v1\n"
+
+func signingMessage(digest string, raw []byte) []byte {
+	return append([]byte(SignaturePurpose+digest+"\n"), raw...)
+}
+
 // CheckSignature verifies a detached base64 signature over the exact OCI artifact
 // manifest, using Sigstore's existing crypto verifier. The returned SPKI key id
 // is a candidate identity, not proof that an owner enrolled or trusts this key.
@@ -64,7 +71,7 @@ func CheckSignature(directory, digest string, publicPEM, encoded []byte) (string
 	if err != nil {
 		return "", fmt.Errorf("unsupported signature verifier")
 	}
-	if err = verifier.VerifySignature(bytes.NewReader(sig), bytes.NewReader(raw)); err != nil {
+	if err = verifier.VerifySignature(bytes.NewReader(sig), bytes.NewReader(signingMessage(digest, raw))); err != nil {
 		return "", fmt.Errorf("plugin signature does not match the artifact and key")
 	}
 	fingerprint := sha256.Sum256(block.Bytes)

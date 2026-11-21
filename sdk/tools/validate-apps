@@ -161,16 +161,19 @@ class AppChecker:
         if app_id != app_dir.name:
             errors.append(f"metadata.id '{app_id}' does not match directory name '{app_dir.name}'")
 
+        plugin_declaration = any(field in spec for field in ("extensions", "plugin", "permissions", "compat"))
+        if plugin_declaration:
+            self.plugin_check(app_dir, errors)
+            if errors:
+                return app_id, errors
+
         icon = app_dir / meta["icon"]
         if not inside(icon, app_dir):
             errors.append(f"icon '{meta['icon']}' points outside the app directory")
         elif not icon.is_file():
             errors.append(f"icon file '{meta['icon']}' does not exist")
 
-        if "extensions" in spec:
-            self.plugin_check(app_dir, errors)
-            if errors:
-                return app_id, errors
+        if plugin_declaration:
             # Declarative plugins need no workload; the Go validator enforces when
             # tools, iframe widgets and subscriptions require a backend/manifests.
             if "manifests" not in spec:

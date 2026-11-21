@@ -51,7 +51,7 @@ func Sign(directory, digest string, privatePEM []byte) (encoded []byte, keyID st
 	if err != nil {
 		return nil, "", fmt.Errorf("unsupported signing algorithm")
 	}
-	sig, err := signer.SignMessage(bytes.NewReader(raw))
+	sig, err := signer.SignMessage(bytes.NewReader(signingMessage(digest, raw)))
 	if err != nil {
 		return nil, "", fmt.Errorf("artifact signing failed")
 	}

@@ -92,7 +92,8 @@ class PluginValidatorTests(unittest.TestCase):
 
     def test_ordinary_app_does_not_require_plugin_binary(self):
         # Retain the normal workload checks and do not invent a plugin dependency.
-        self.doc["spec"].pop("extensions")
+        for field in ("extensions", "plugin", "permissions", "compat"):
+            self.doc["spec"].pop(field, None)
         self.doc["spec"]["manifests"] = "manifests/"
         self.write_manifest()
         _, errors = self.checker(None).check(self.app)

@@ -35,7 +35,7 @@ func TestDetachedSignatureVerifiesExactManifestThroughSigstore(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	encoded := []byte(base64.StdEncoding.EncodeToString(ed25519.Sign(private, raw)))
+	encoded := []byte(base64.StdEncoding.EncodeToString(ed25519.Sign(private, signingMessage(digest, raw))))
 	fingerprint, err := CheckSignature(output, digest, keyPEM(t, pub), encoded)
 	if err != nil || !digestPattern.MatchString(fingerprint) {
 		t.Fatalf("signature check: %s %v", fingerprint, err)
@@ -73,12 +73,30 @@ func TestECDSADetachedSignatureUsesSHA256(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sum := sha256.Sum256(raw)
+	sum := sha256.Sum256(signingMessage(digest, raw))
 	sig, err := ecdsa.SignASN1(rand.Reader, key, sum[:])
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, err = CheckSignature(output, digest, keyPEM(t, &key.PublicKey), []byte(base64.StdEncoding.EncodeToString(sig))); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestArtifactSignatureRejectsOtherPurposes(t *testing.T) {
+	output, digest := packed(t)
+	raw, err := os.ReadFile(filepath.Join(output, "blobs/sha256", strings.TrimPrefix(digest, "sha256:")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	pub, private, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, message := range [][]byte{raw, append([]byte("another-purpose\n"+digest+"\n"), raw...)} {
+		encoded := []byte(base64.StdEncoding.EncodeToString(ed25519.Sign(private, message)))
+		if _, err := CheckSignature(output, digest, keyPEM(t, pub), encoded); err == nil {
+			t.Fatal("cross-purpose signature accepted")
+		}
 	}
 }
