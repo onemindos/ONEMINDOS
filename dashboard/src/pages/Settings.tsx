@@ -6,6 +6,7 @@ import { useParams } from 'react-router';
 import { AppearanceSettings, Card, EmptyState, PageHeader, SETTINGS_SECTIONS, SettingsLayout, type SettingsSectionId } from '@onemind/ui';
 import { useHub } from '../data/hub';
 import { Account } from './Account';
+import { AboutBox } from './AboutBox';
 import { Inbox } from './Inbox';
 import { Tokens } from './Tokens';
 import { Users } from './Users';
@@ -51,7 +52,8 @@ function About() {
           <p className="om-hint">{hub.instance.error ? `Could not read the instance: ${hub.instance.error.message}` : 'Loading…'}</p>
         )}
       </Card>
-      <p className="om-hint">Diagnostic bundles and component versions come with §12 (About &amp; diagnostics).</p>
+      <AboutBox />
+      <p className="om-hint">Diagnostic bundles come with §12 (About &amp; diagnostics).</p>
     </>
   );
 }
