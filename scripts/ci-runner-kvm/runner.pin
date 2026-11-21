@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: Apache-2.0
+# Pins for the x86 KVM runner (CI-14). provision.sh and template.sh refuse a download that differs.
+# Runner: SHA-256 from the release notes of https://github.com/actions/runner/releases/tag/v2.338.2 (linux-x64).
+RUNNER_VERSION=2.338.2
+RUNNER_SHA256=baebf204307bac6193480852732f0aba2ae97b6c5597c244f4d5558390147c40
+# Guest OS: Ubuntu 24.04 server cloud image, a dated release (matches GitHub's `ubuntu-24.04` runners).
+# SHA-256 from https://cloud-images.ubuntu.com/noble/20261017/SHA256SUMS
+UBUNTU_IMAGE_URL=https://cloud-images.ubuntu.com/noble/20261017/noble-server-cloudimg-amd64.img
+UBUNTU_IMAGE_SHA256=04e8f2461a16a44e78a370284471f29616cdd9baf1893df25807b71f985b6c94
