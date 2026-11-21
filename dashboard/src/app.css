@@ -16,7 +16,7 @@
 .dash-signin-mark { width: 40px; height: 40px; }
 .dash-signin-form { display: flex; flex-direction: column; gap: var(--om-space-2); }
 .dash-signin-form label { font-weight: var(--om-font-weight-semibold); }
-.dash-signin-form input { min-height: var(--om-layout-touch-target); padding: 0 var(--om-space-3); border-radius: var(--om-radius-md); border: 1px solid var(--om-color-border-strong); background: var(--om-color-surface); color: var(--om-color-text); font: inherit; }
+.dash-signin-form input { min-height: var(--om-layout-touch-target); padding: 0 var(--om-space-3); border-radius: var(--om-radius-md); border: 1px solid var(--om-color-control-border); background: var(--om-color-surface); color: var(--om-color-text); font: inherit; }
 .dash-signin-form input:focus-visible { outline: 2px solid var(--om-color-focus); outline-offset: 2px; }
 
 /* Sign-in over the wallpaper (polish): the picture sits behind a veil in the page colour, so text on the card keeps its contrast. */
@@ -40,7 +40,7 @@
 .om-link:focus-visible { outline: 2px solid var(--om-color-focus); outline-offset: 2px; }
 .dash-form { display: flex; flex-direction: column; gap: var(--om-space-2); max-width: 440px; }
 .dash-form label { font-weight: var(--om-font-weight-semibold); }
-.dash-form input, .dash-form select { min-height: var(--om-layout-touch-target); padding: 0 var(--om-space-3); border-radius: var(--om-radius-md); border: 1px solid var(--om-color-border-strong); background: var(--om-color-surface); color: var(--om-color-text); font: inherit; }
+.dash-form input, .dash-form select { min-height: var(--om-layout-touch-target); padding: 0 var(--om-space-3); border-radius: var(--om-radius-md); border: 1px solid var(--om-color-control-border); background: var(--om-color-surface); color: var(--om-color-text); font: inherit; }
 .dash-form input:focus-visible, .dash-form select:focus-visible { outline: 2px solid var(--om-color-focus); outline-offset: 2px; }
 .dash-actions { display: flex; flex-wrap: wrap; gap: var(--om-space-2); align-items: center; }
 .dash-stack { display: flex; flex-direction: column; gap: var(--om-space-4); }

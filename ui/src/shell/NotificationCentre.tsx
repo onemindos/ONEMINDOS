@@ -164,8 +164,11 @@ export function NotificationBell({ defaultOpen = false, ...centre }: Notificatio
   const btn = useRef<HTMLButtonElement>(null);
   const pop = useRef<HTMLDivElement>(null);
   const popId = useId();
-  const unread = unreadCount(centre.items);
-  const urgent = centre.items.some(needsYou);
+  // A waiting request already has its own badge on Approvals (dock, tab bar, nav). The bell counts the rest,
+  // so one pending approval is never shown as two badges side by side. The list inside still shows it.
+  const others = centre.items.filter((n) => n.kind !== 'approval_waiting');
+  const unread = unreadCount(others);
+  const urgent = others.some(needsYou);
 
   useEffect(() => {
     if (!open) return;
