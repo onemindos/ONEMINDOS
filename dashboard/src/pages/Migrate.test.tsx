@@ -9,7 +9,7 @@ import { MockApi } from '../api/mock';
 import { SessionProvider } from '../session';
 
 const token = 'owner-demo';
-const plan = { id: 'mig_1', app_id: 'blog', name: 'Blog', namespace: 'blog', state: 'planned', next: 'import', source: { server_host: 'old.example' }, bundle_sha256: 'sha256:abc',
+const plan = { id: 'mig_1', app_id: 'blog', name: 'Blog', namespace: 'blog', state: 'planned', next: 'import', source: { server_host: 'old.example', context: 'ctx-a' }, bundle_sha256: 'sha256:abc',
   report: { blocking: [], counts: { workloads: 1 }, findings: [], volumes: [{ name: 'data' }] }, busy_action_id: null, old_replicas: null, last_error: null, copies: [] };
 function mount() {
   window.sessionStorage.setItem('onemind.token', token);
@@ -91,4 +91,6 @@ it('copy needs the kubeconfig and previews the helper pod', async () => {
   await u.click(within(dialog).getByRole('button', { name: 'Send request' }));
   expect(await within(dialog).findByText(/live old cluster/)).toBeInTheDocument();
   expect(f.mock.calls.some(([url]) => String(url).endsWith('/copy'))).toBe(true);
+  const copy = f.mock.calls.find(([url]) => String(url).endsWith('/copy'));
+  expect(JSON.parse(String(copy?.[1]?.body))).toMatchObject({ kubeconfig: 'apiVersion: v1', context: 'ctx-a' });
 });

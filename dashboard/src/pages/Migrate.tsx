@@ -175,7 +175,7 @@ function PlanDetail({ sdk, token, planId, kubeconfig, setKubeconfig }: { sdk: On
         <Button disabled={blocking > 0 && s.step === 'import' || typeof p.busy_action_id === 'string' && p.busy_action_id !== ''} onClick={() => setAsking(s.step)}>Request: {s.label}</Button>
         {filed[s.step] && <ActionProgress sdk={sdk} actionId={filed[s.step]!} />}
       </div>)}
-      {asking && <StepDialog sdk={sdk} token={token} planId={planId} bundle={text(p.bundle_sha256, '')} oldReplicas={p.old_replicas} step={asking} kubeconfig={kubeconfig} setKubeconfig={setKubeconfig}
+      {asking && <StepDialog sdk={sdk} token={token} planId={planId} bundle={text(p.bundle_sha256, '')} oldReplicas={p.old_replicas} sourceContext={text(rec(p.source ?? {}, 'plan').context, '')} step={asking} kubeconfig={kubeconfig} setKubeconfig={setKubeconfig}
         onClose={() => setAsking(undefined)} onFiled={(id) => { setFiled((f) => ({ ...f, [asking]: id })); setAsking(undefined); void plan.reload(); }} />}
     </Card>;
   }}</Load>;
@@ -187,8 +187,8 @@ function ActionProgress({ sdk, actionId }: { sdk: OneMind; actionId: string }) {
   return <p role="status">Request {actionId}: {state}.{state === 'awaiting_approval' && ' Waiting for the owner. '}<Link to={href.approval(actionId)}>Open request in Approvals</Link></p>;
 }
 
-function StepDialog({ sdk, token, planId, bundle, oldReplicas, step, kubeconfig, setKubeconfig, onClose, onFiled }: {
-  sdk: OneMind; token: string; planId: string; bundle: string; oldReplicas: unknown; step: Step; kubeconfig: string; setKubeconfig: (v: string) => void; onClose: () => void; onFiled: (id: string) => void;
+function StepDialog({ sdk, token, planId, bundle, oldReplicas, sourceContext, step, kubeconfig, setKubeconfig, onClose, onFiled }: {
+  sdk: OneMind; token: string; planId: string; bundle: string; oldReplicas: unknown; sourceContext: string; step: Step; kubeconfig: string; setKubeconfig: (v: string) => void; onClose: () => void; onFiled: (id: string) => void;
 }) {
   const meta = STEPS.find((s) => s.step === step)!;
   const [stopOld, setStopOld] = useState(false);
@@ -199,7 +199,7 @@ function StepDialog({ sdk, token, planId, bundle, oldReplicas, step, kubeconfig,
   const send = async () => {
     setBusy(true); setError('');
     const expires_at = new Date(sdk.hubNow() + 24 * 3600_000).toISOString();
-    const body: Rec = { expires_at, ...(step === 'import' && bundle && { bundle_sha256: bundle }), ...(wantsCluster && { kubeconfig }), ...(step === 'cutover' && { stop_old: stopOld }) };
+    const body: Rec = { expires_at, ...(step === 'import' && bundle && { bundle_sha256: bundle }), ...(wantsCluster && { kubeconfig, ...(sourceContext && { context: sourceContext }) }), ...(step === 'cutover' && { stop_old: stopOld }) };
     try {
       const a = await post(sdk, token, key.current, fill(ROUTE[step], planId), body);
       if (typeof a.id !== 'string' || !a.id) throw new Error('The hub returned an incomplete reply');
