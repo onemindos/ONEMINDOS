@@ -12,6 +12,15 @@ LIB = os.path.join(ROOT, "os", "rootfs", "layers", "onemind", "usr", "lib", "one
 sys.path.insert(0, LIB)
 import onemind_firstboot as fb  # noqa: E402
 
+try:
+    from cryptography import x509 as _x509
+    # A distribution's older cryptography (no *_utc accessors, e.g. Ubuntu 24.04's python3-cryptography on
+    # GitHub-hosted runners) is not what the gateway venv pins: skip the CA tests there, as test_firstboot does.
+    HAVE_CRYPTO = hasattr(_x509.Certificate, "not_valid_after_utc")
+except ImportError:
+    HAVE_CRYPTO = False
+needs_crypto = unittest.skipUnless(HAVE_CRYPTO, "needs cryptography with *_utc accessors (core's venv)")
+
 INSTALL = open(os.path.join(ROOT, "deploy", "install.sh")).read()
 DEPLOY_UNIT = open(os.path.join(ROOT, "deploy", "systemd", "onemind-rescue.service")).read()
 IMAGE_UNIT = open(os.path.join(ROOT, "os", "rootfs", "layers", "onemind", "usr", "lib", "systemd", "system",
@@ -65,6 +74,7 @@ class Units(unittest.TestCase):
             self.assertNotRegex(u, r"CAP_(DAC_OVERRIDE|SYS_ADMIN|CHOWN|NET_ADMIN)")
 
 
+@needs_crypto
 class FirstBoot(unittest.TestCase):
     def test_hub_starts_the_console_and_other_roles_do_not(self):
         self.assertIn("onemind-rescue.service", fb.ROLE_UNITS["hub"])
