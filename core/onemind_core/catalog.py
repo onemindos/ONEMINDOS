@@ -159,8 +159,12 @@ def builtin_check(doc: object) -> list[str]:
 
 
 class Catalog:
-    def __init__(self, apps_dir: Path, schema_path: Path | None = None):
+    def __init__(self, apps_dir: Path, schema_path: Path | None = None, channel_dir: Path | None = None):
         self.apps_dir = apps_dir
+        # The signed catalog channel (`onemind catalog sync`, internal/update/catalog.go) keeps its
+        # newest verified catalog under channel_dir/current -> releases/<version>. An app there
+        # replaces the same id from the image (the image's apps stay the fallback).
+        self.channel_dir = channel_dir
         self.schema_path = schema_path
         self._validator = None
         if schema_path is not None and schema_path.is_file():
@@ -246,6 +250,26 @@ class Catalog:
             self._parsed[path] = (sig, outcome)
         return outcome
 
+    def _channel_manifests(self) -> list[Path]:
+        """Manifests of the active channel catalog, or [] when there is none.
+
+        `current` must be a link that resolves to a folder inside channel_dir/releases: the
+        gateway never follows a link out of the channel's own folder.
+        """
+        if self.channel_dir is None:
+            return []
+        try:
+            real = (self.channel_dir / "current").resolve(strict=True)
+            if not real.is_relative_to((self.channel_dir / "releases").resolve()):
+                log.warning("catalog channel: current points outside releases/; ignored")
+                return []
+            apps = (real / "apps").resolve(strict=True)
+            if not apps.is_relative_to(real):
+                return []
+            return sorted(apps.glob(f"*/{MANIFEST}"))
+        except OSError:
+            return []
+
     def load(self) -> dict[str, AppEntry]:
         """The current catalog. Lists the folder on every call (new and removed apps show at once);
         a manifest is only re-parsed when its file changed."""
@@ -256,7 +280,8 @@ class Catalog:
             self._parsed.clear()
             return apps
         paths = sorted(self.apps_dir.glob(f"*/{MANIFEST}"))
-        for stale in set(self._parsed) - set(paths):
+        channel_paths = self._channel_manifests()
+        for stale in set(self._parsed) - set(paths) - set(channel_paths):
             del self._parsed[stale]
         for path in paths:
             outcome = self._outcome(path)
@@ -264,6 +289,13 @@ class Catalog:
                 apps[outcome.id] = outcome
             else:
                 errors[path.parent.name] = list(outcome)
+        for path in channel_paths:
+            outcome = self._outcome(path)
+            if isinstance(outcome, AppEntry):
+                apps[outcome.id] = outcome  # newer than the image's copy: it wins
+            else:
+                # A bad channel entry never hides the image's app; it is only reported.
+                errors[f"channel/{path.parent.name}"] = list(outcome)
         self.errors = errors
         for provide in self.providers:
             try:

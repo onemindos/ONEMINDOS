@@ -60,7 +60,7 @@ def create_app(
     registry = NodeRegistry(clock)
     bus = NatsBus(settings.nats_url, registry, nkey_seed=settings.section(FabricSettings).nats_nkey_seed)
     audit = AuditLog(settings.audit_path, clock, publish=bus.publish_threadsafe)
-    catalog = Catalog(settings.apps_dir, settings.app_schema_path)
+    catalog = Catalog(settings.apps_dir, settings.app_schema_path, settings.catalog_dir)
     owns_repo = repo is None
     repo = repo or SqlActionRepository.from_url(settings.db_url)
     # Feature tables share the ledger's engine; a repo without one (a test double) gets its own.

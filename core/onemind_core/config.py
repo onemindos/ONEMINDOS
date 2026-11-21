@@ -72,6 +72,9 @@ class Settings:
     agent_url: str | None = None
     # §11.1 dev override: skip the §10.3 scan check. Only honoured with the noop executor.
     allow_unscanned: bool = False
+    # ONEMIND_CATALOG_DIR: where `onemind catalog sync` keeps the signed Market catalog (None = the
+    # image's apps only).
+    catalog_dir: Path | None = None
     # Per-feature sections (sections.py), keyed by section name. Read them with section().
     sections: dict[str, Any] = field(default_factory=dict, compare=False, repr=False)
 
@@ -149,6 +152,7 @@ class Settings:
             public_url=public_url,
             agent_url=agent_url,
             allow_unscanned=allow in ("1", "true", "yes"),
+            catalog_dir=_opt_path(env.get("ONEMIND_CATALOG_DIR")),
             sections=load_sections(env),
         )
         settings.check()

@@ -22,6 +22,9 @@ const DefaultConfigPath = "/etc/onemind/update.conf"
 const (
 	ChannelSecurity = "security"
 	ChannelStable   = "stable"
+	// ChannelCatalog is the signed Market catalog (catalog.go): its own TUF repository
+	// and its own image-shipped root, never mixed with the OS channels.
+	ChannelCatalog = "catalog"
 )
 
 // Policy is the owner's update policy (brief 30 BD-09).
@@ -111,7 +114,29 @@ func LoadConfig(path string) (*Config, error) {
 }
 
 // ParseConfig parses update.conf content.
-func ParseConfig(b []byte) (*Config, error) {
+func ParseConfig(b []byte) (*Config, error) { return parseConfig(b, false) }
+
+// DefaultCatalogConfigPath is where the box keeps its catalog channel settings.
+const DefaultCatalogConfigPath = "/etc/onemind/catalog.conf"
+
+// ParseCatalogConfig parses catalog.conf: the same key = value format with
+// channel = catalog (the default when the key is absent). Only url is required.
+func ParseCatalogConfig(b []byte) (*Config, error) { return parseConfig(b, true) }
+
+// LoadCatalogConfig reads and validates the catalog config file at path.
+func LoadCatalogConfig(path string) (*Config, error) {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	c, err := ParseCatalogConfig(b)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", path, err)
+	}
+	return c, nil
+}
+
+func parseConfig(b []byte, catalog bool) (*Config, error) {
 	kv := map[string]string{}
 	sc := bufio.NewScanner(bytes.NewReader(b))
 	for n := 1; sc.Scan(); n++ {
@@ -134,10 +159,21 @@ func ParseConfig(b []byte) (*Config, error) {
 	}
 
 	ch := kv["channel"]
-	if ch != ChannelSecurity && ch != ChannelStable {
+	if catalog {
+		if ch == "" {
+			ch = ChannelCatalog
+			kv["channel"] = ch
+		}
+		if ch != ChannelCatalog {
+			return nil, fmt.Errorf("channel must be %q in catalog.conf, got %q", ChannelCatalog, ch)
+		}
+	} else if ch != ChannelSecurity && ch != ChannelStable {
 		return nil, fmt.Errorf("channel must be %q or %q, got %q", ChannelSecurity, ChannelStable, ch)
 	}
 	c := Defaults(ch)
+	if catalog {
+		c.StateDir = "/data/onemind/catalog"
+	}
 	for k, v := range kv {
 		var err error
 		switch k {

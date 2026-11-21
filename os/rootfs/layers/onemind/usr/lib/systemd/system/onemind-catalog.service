@@ -1,0 +1,35 @@
+# SPDX-License-Identifier: Apache-2.0
+# Fetch and verify the signed Market catalog (internal/update/catalog.go), so new apps reach the box
+# without an OS update. Inert until the image carries the catalog channel's TUF root
+# (/usr/lib/onemind/tuf/catalog/root.json) and firstboot has configured the box. Not enabled in the image.
+# A failed or refused sync changes nothing: the box keeps the catalog it has (or the image's).
+[Unit]
+Description=OneMind signed Market catalog sync (TUF check, verify, unpack, swap)
+After=network-online.target onemind-firstboot.service
+Wants=network-online.target
+ConditionPathExists=/etc/onemind/catalog.conf
+ConditionPathExists=/data/onemind/firstboot/state.json
+ConditionPathExists=/usr/lib/onemind/tuf/catalog/root.json
+RequiresMountsFor=/data
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/onemind catalog sync
+User=root
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+ProtectSystem=strict
+ReadWritePaths=/data/onemind/catalog
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictAddressFamilies=AF_INET AF_INET6
+SystemCallArchitectures=native
+UMask=0022
