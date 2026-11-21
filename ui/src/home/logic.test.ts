@@ -219,6 +219,14 @@ describe('greeting on a phone (never cut)', () => {
     }
     expect(greetingParts(now, 'UTC')).toEqual({ hello: 'Good afternoon' });
   });
+  it('the base greeting rule wraps a long single-word name at every width (not only on phones)', () => {
+    const css: string = readFileSync(`${process.cwd()}/src/home/home.css`, 'utf8');
+    const rule = /\n\.omh-greeting \{[^}]*\}/.exec(css)?.[0] ?? ''; // line-start only: the phone rule is indented
+    expect(rule).toContain('overflow-wrap: anywhere');
+    expect(rule).toContain('max-width: 100%');
+    expect(rule).not.toMatch(/ellipsis|nowrap|overflow: hidden/);
+    expect(css).toMatch(/@media \(min-width: 721px\) and \(max-width: 1100px\) \{ \.omh-greeting-name \{[^}]*clamp\(/);
+  });
   it('the phone CSS wraps the name and never clips it with an ellipsis', () => {
     const css: string = readFileSync(`${process.cwd()}/src/home/home.css`, 'utf8');
     const phone = css.slice(css.indexOf('@media (max-width: 720px)'));

@@ -22,7 +22,7 @@ import {
   type PaletteCommand,
 } from '@onemind/ui';
 import { activityFrom, notificationsFrom, toActionSummary, toPaletteApp } from '../data/adapters';
-import { ActionJobs } from './ActionJobs';
+import { ActionJobs, jobsStackStyle } from './ActionJobs';
 import { useHub } from '../data/hub';
 import { useAppRequest } from './useAppRequest';
 import { homeLayoutStore, personList } from '../data/prefs';
@@ -62,6 +62,7 @@ export function Shell({ children }: { children: ReactNode }) {
   const location = useLocation();
   const { requestApp, reviewDialog } = useAppRequest();
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [jobsShown, setJobsShown] = useState(false);
   const readStore = useMemo(() => personList(person, 'notifications.read'), [person]);
   const recentStore = useMemo(() => personList(person, 'palette.recent', 8), [person]);
   const [read, setRead] = useState(() => new Set(readStore.load()));
@@ -209,7 +210,7 @@ export function Shell({ children }: { children: ReactNode }) {
   const installedApps: DockApp[] = layout === 'desktop' ? apps.filter((a) => a.installed).map(dockApp) : [];
   return (
     <ShellCtx.Provider value={api}>
-      <div onClickCapture={onClickCapture} className={layout === 'desktop' ? 'dash-root dash-desktop' : 'dash-root'}>
+      <div onClickCapture={onClickCapture} className={layout === 'desktop' ? 'dash-root dash-desktop' : 'dash-root'} data-jobs={jobsShown ? '' : undefined} style={jobsStackStyle(jobsShown)}>
         {layout === 'desktop' ? (
           <DesktopShell
             boxName={boxName}
@@ -244,7 +245,7 @@ export function Shell({ children }: { children: ReactNode }) {
           state={hub.freshness === 'stale' || hub.freshness === 'offline' ? hub.freshness : hub.freshness === 'unknown' ? 'loading' : 'ready'}
           ageSeconds={hub.ageS}
         />
-        <ActionJobs />
+        <ActionJobs onShown={setJobsShown} />
         {reviewDialog}
       </div>
     </ShellCtx.Provider>

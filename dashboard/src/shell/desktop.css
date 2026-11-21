@@ -3,9 +3,18 @@
    look of every screen inside a window. Only --om-* design tokens, the brand tokens
    (brand.generated.css), and the per-screen tile colours set inline from DesktopShell's
    SCREEN_HUES. The wallpaper itself is painted by WallpaperLayer. */
+/* Dock and jobs-pill geometry, shared with the jobs tray (a sibling of .dsk, so it lives on the root).
+   --dsk-dock-h is the room reserved under content; --dsk-dock-box is the dock's real height. */
+.dash-desktop {
+  --dsk-dock-h: 84px;
+  --dsk-dock-bottom: var(--om-space-3);
+  --dsk-dock-box: 86px;
+  --dsk-pill-h: 44px;
+  --dsk-pill-w: 208px;
+  --dsk-pill-gap: 8px;
+}
 .dsk {
   --dsk-bar-h: 44px;
-  --dsk-dock-h: 84px;
   --dsk-gap: var(--om-space-4);
   --dsk-radius-window: 24px;
   --dsk-tile-radius: 28%;
@@ -83,7 +92,7 @@
 .dsk-at-home .dsk-desktop {
   flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
   /* The dock's height, its offset from the screen edge, and a gap above it. */
-  margin-bottom: calc(var(--dsk-dock-h) + var(--om-space-3) + var(--om-space-3) + env(safe-area-inset-bottom, 0px));
+  margin-bottom: calc(var(--dsk-dock-h) + var(--om-space-3) + var(--om-space-3) + var(--dsk-jobs-reserve, 0px) + env(safe-area-inset-bottom, 0px));
   scroll-padding-block: var(--om-space-4);
   /* A soft edge says there is more below, instead of a button cut in half. */
   -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent);
@@ -94,6 +103,7 @@
 .dsk-desktop .omh-hero { flex-direction: column; align-items: center; text-align: center; padding-top: var(--om-space-3); }
 .dsk-desktop .omh-hero-text { align-items: center; }
 .dsk-desktop .omh-greeting { font-size: clamp(2.25rem, 1.4rem + 3vw, 3.5rem); letter-spacing: -0.035em; text-shadow: 0 1px 24px color-mix(in srgb, var(--om-color-bg) 55%, transparent); }
+.dsk-desktop .omh-greeting-name { line-height: 1.15; }
 .dsk-desktop .omh-date { text-transform: uppercase; letter-spacing: 0.12em; font-size: var(--om-font-size-xs); }
 .dsk-desktop .omh-search { align-self: center; width: 100%; max-width: 600px; min-height: 52px; border-radius: var(--om-radius-pill); background: var(--dsk-glass); border-color: var(--dsk-hairline); }
 .dsk-desktop .omh-widget { background: var(--dsk-glass); border-color: var(--dsk-hairline); border-radius: 20px; backdrop-filter: saturate(150%) blur(26px); -webkit-backdrop-filter: saturate(150%) blur(26px); }
@@ -103,7 +113,7 @@
 .dsk-stage {
   position: fixed; inset: var(--dsk-bar-real, var(--dsk-bar-h)) 0 0 0; z-index: calc(var(--om-z-nav) - 1);
   display: flex; justify-content: center; align-items: center;
-  padding: var(--om-space-5) var(--dsk-gap) calc(var(--dsk-dock-h) + var(--om-space-3));
+  padding: var(--om-space-5) var(--dsk-gap) calc(var(--dsk-dock-h) + var(--om-space-3) + var(--dsk-jobs-reserve, 0px));
 }
 .dsk-scrim {
   position: absolute; inset: 0;
@@ -238,9 +248,22 @@
 .dsk-launchpad-label { font-size: var(--om-font-size-sm); text-align: center; }
 .dsk-launchpad-none { text-align: center; color: var(--om-color-text-muted); }
 
-/* The jobs tray sits in the bottom-right corner, clear of the dock and of window content. */
-.dash-desktop .om-store-tray { left: auto; right: var(--om-space-4); transform: none; bottom: calc(var(--dsk-dock-h, 84px) + var(--om-space-3)); width: min(340px, calc(100vw - 32px)); align-items: flex-end; }
-@media (max-width: 720px) { .dash-desktop .om-store-tray { right: 50%; transform: translateX(50%); align-items: center; } }
+/* The jobs pill never covers content or a control. Wide screens: it sits on the dock row, vertically centred on
+   the dock, at the right edge, and the dock gives up the room (below). Narrower screens and phones: it sits centred
+   directly above the dock (8px gap) and the shell sets --dsk-jobs-stack (only while a job exists), so scrolling
+   content and windows end above it. The content region already ends above the dock. */
+.dash-desktop .om-store-tray {
+  left: auto; right: var(--om-space-4); transform: none; width: auto; max-width: var(--dsk-pill-w); align-items: flex-end;
+  bottom: calc(var(--dsk-dock-bottom) + (var(--dsk-dock-box) - var(--dsk-pill-h)) / 2);
+}
+.dash-desktop .om-store-tray-pill { min-height: var(--dsk-pill-h); height: var(--dsk-pill-h); max-width: var(--dsk-pill-w); }
+@media (min-width: 1025px) {
+  .dash-desktop[data-jobs] .dsk-dock { max-width: calc(100vw - 2 * (var(--dsk-pill-w) + var(--om-space-4) + var(--om-space-3))); }
+}
+@media (max-width: 1024px) {
+  .dash-desktop .om-store-tray { left: 50%; right: auto; transform: translateX(-50%); align-items: center; width: min(420px, calc(100vw - 32px)); max-width: none; bottom: calc(var(--dsk-dock-bottom) + var(--dsk-dock-box) + var(--dsk-pill-gap) + env(safe-area-inset-bottom, 0px)); }
+  .dash-desktop { --dsk-jobs-reserve: var(--dsk-jobs-stack, 0px); }
+}
 
 @keyframes dsk-open { from { opacity: 0; transform: translateY(14px) scale(0.975); } to { opacity: 1; transform: none; } }
 @keyframes dsk-fade { from { opacity: 0; } to { opacity: 1; } }
@@ -260,11 +283,12 @@
 }
 /* Phones: the window is a full sheet; the dock shows icons only and scrolls. */
 @media (max-width: 720px) {
-  .dsk { --dsk-dock-h: 70px; --dsk-gap: var(--om-space-2); }
+  .dash-desktop { --dsk-dock-h: 70px; --dsk-dock-bottom: var(--om-space-2); --dsk-dock-box: 66px; }
+  .dsk { --dsk-gap: var(--om-space-2); }
   .dsk-bar { padding: 4px var(--om-space-3); gap: var(--om-space-2); }
   .dsk-box, .dsk-clock { display: none; }
   .dsk-actions { margin-left: auto; }
-  .dsk-stage { padding: var(--om-space-2) var(--om-space-2) calc(var(--dsk-dock-h) + var(--om-space-3)); }
+  .dsk-stage { padding: var(--om-space-2) var(--om-space-2) calc(var(--dsk-dock-h) + var(--om-space-3) + var(--dsk-jobs-reserve, 0px)); }
   .dsk-window { border-radius: 18px; }
   .dsk-window-body { padding: var(--om-space-4) var(--om-space-3) var(--om-space-6); }
   /* Seven 44px tiles fit a 390px phone without scrolling; more pinned apps scroll inside the pill. */
