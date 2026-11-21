@@ -561,6 +561,10 @@ def p_window_put(w: World) -> Req:
     return Req("/v1/windows/win_probe", json={"name": "probe", "tz": "UTC", "ranges": [{"start": "21:00", "end": "23:00"}]})
 
 
+def p_kiosk_put(w: World) -> Req:
+    return Req("/v1/instance/kiosk", json={"enabled": False})
+
+
 def p_missing(path: str, *, json: Any = None, content: bytes | None = None, headers: dict | None = None):
     """A probe for `path` with {policy}-style placeholders filled from MISSING (an object that is not there)."""
     concrete = path.format(**MISSING)

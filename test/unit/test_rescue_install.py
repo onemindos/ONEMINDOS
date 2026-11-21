@@ -12,6 +12,16 @@ LIB = os.path.join(ROOT, "os", "rootfs", "layers", "onemind", "usr", "lib", "one
 sys.path.insert(0, LIB)
 import onemind_firstboot as fb  # noqa: E402
 
+try:
+    from cryptography import x509 as _x509
+    # The box CA (onemind_core.ca) needs the *_utc accessors of the cryptography the gateway venv pins;
+    # a distribution's older one (the GitHub-hosted runner's system Python) lacks them. CI runs this file
+    # again under core's venv (.github/workflows/ci.yml), where nothing skips.
+    HAVE_CORE_CA = hasattr(_x509.Certificate, "not_valid_after_utc")
+except ImportError:
+    HAVE_CORE_CA = False
+needs_core_ca = unittest.skipUnless(HAVE_CORE_CA, "needs cryptography >= 42 (core's venv)")
+
 INSTALL = open(os.path.join(ROOT, "deploy", "install.sh")).read()
 DEPLOY_UNIT = open(os.path.join(ROOT, "deploy", "systemd", "onemind-rescue.service")).read()
 IMAGE_UNIT = open(os.path.join(ROOT, "os", "rootfs", "layers", "onemind", "usr", "lib", "systemd", "system",
@@ -70,6 +80,7 @@ class FirstBoot(unittest.TestCase):
         self.assertIn("onemind-rescue.service", fb.ROLE_UNITS["hub"])
         self.assertNotIn("onemind-rescue.service", fb.ROLE_UNITS["worker"] + fb.ROLE_UNITS["leaf"])
 
+    @needs_core_ca
     @unittest.skipUnless(shutil.which("openssl"), "openssl missing")
     def test_cert_is_signed_by_the_box_ca_private_and_kept(self):
         with tempfile.TemporaryDirectory() as d:

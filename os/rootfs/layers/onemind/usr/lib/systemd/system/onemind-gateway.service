@@ -18,6 +18,7 @@ Group=onemind
 EnvironmentFile=/data/onemind/etc/gateway.env
 Environment=HOME=/data/onemind/gateway PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
 WorkingDirectory=/data/onemind/gateway
+ExecStartPre=+/usr/bin/install -d -o onemind -g onemind -m 0755 /data/onemind/kiosk
 ExecStart=/usr/lib/onemind/gateway/venv/bin/python3 -m onemind_core
 Restart=always
 RestartSec=3s
@@ -26,7 +27,8 @@ NoNewPrivileges=yes
 CapabilityBoundingSet=CAP_NET_BIND_SERVICE
 AmbientCapabilities=CAP_NET_BIND_SERVICE
 ProtectSystem=strict
-ReadWritePaths=/data/onemind/gateway
+# /data/onemind/kiosk holds only the kiosk flag file the owner switches over the API (UX-07, #242).
+ReadWritePaths=/data/onemind/gateway -/data/onemind/kiosk
 ProtectHome=yes
 PrivateTmp=yes
 PrivateDevices=yes
