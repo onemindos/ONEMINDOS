@@ -18,6 +18,7 @@ export const href = {
   storage: '/storage',
   backups: '/backups',
   updates: '/updates',
+  fileSharing: '/file-sharing',
   coming: '/coming',
   controlHub: '/control-hub',
   agents: '/agents',
@@ -62,6 +63,8 @@ export function toRoute(link: string): string | undefined {
       return href.backups;
     case 'updates':
       return href.updates;
+    case 'file-sharing':
+      return href.fileSharing;
     case 'storage':
       return href.storage;
     case 'settings':

@@ -554,6 +554,17 @@ POLICY |= {
                                                  f"{_MACH}: only the owner gets a console ticket; an agent never gets a screen"),
 }
 
+# ---- SMB shares (FILES-SHARE-01, #235: core/onemind_core/routers/shares.py) ---------------------------------
+_SHR = "core/onemind_core/routers/shares.py"
+POLICY |= {
+    ("GET", "/v1/shares/smb"): Row(grid(200, 200, 403, 403, 403), w.p_static("/v1/shares/smb"),
+                                   f"{_SHR}: owner sees all shares, an adult their own; a guest has no home, a child has no scope, an agent never"),
+    ("POST", "/v1/shares/smb/password"): Row(grid(409, 409, 403, 403, 403), w.p_missing("/v1/shares/smb/password"),
+                                             f"{_SHR}: a person with files gets their own SMB password (409: none has a share in this world); guest, child and agent never"),
+    ("POST", "/v1/shares/smb/{share_id}/stop"): Row(grid(404, 403, 403, 403, 403), w.p_missing("/v1/shares/smb/shr_0123456789abcdef/stop"),
+                                                 f"{_SHR}: only an owner stops a share; the one probed does not exist"),
+}
+
 # ---- OS updates (UMB-P05, #142: core/onemind_core/routers/osupdates.py) --------------------------------------
 _OSUP = "core/onemind_core/routers/osupdates.py"
 POLICY |= {
