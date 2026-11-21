@@ -71,7 +71,7 @@ def create_app(
     mesh = settings.section(MeshSettings)
     executor = executor or make_executor(
         settings.executor, settings.kubectl, settings.executor_timeout_s, settings.section(SandboxSettings),
-        static_hosts=mesh_static_hosts(mesh),
+        static_hosts=mesh_static_hosts(mesh), dashboard_url=settings.agent_gateway_url(),
     )
     # §11.1: the scan check is skipped only on explicit request, and only when nothing real runs.
     skip_scan = settings.allow_unscanned and settings.executor == "noop" and isinstance(executor, NoopExecutor)
