@@ -569,3 +569,12 @@ POLICY |= {
                                         lambda _w: w.Req("/v1/system/actions", json={"type": "system.restart"}),
                                         f"{_SYS}: owner or agent requests a restart; only an owner approves it"),
 }
+
+# ---- OS updates (UMB-P05, #142: core/onemind_core/routers/osupdates.py) --------------------------------------
+_OSUP = "core/onemind_core/routers/osupdates.py"
+POLICY |= {
+    ("GET", "/v1/os/updates"): Row(CHILD_CANNOT, w.p_static("/v1/os/updates"),
+                                   f"{_OSUP}: versions and A/B slots, the facts /v1/nodes shows; a child has no nodes:read"),
+    ("GET", "/v1/os/updates/history"): Row(CHILD_CANNOT, w.p_static("/v1/os/updates/history"),
+                                           f"{_OSUP}: commits, rollbacks and install requests; same nodes:read gate"),
+}

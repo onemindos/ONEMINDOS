@@ -8,6 +8,7 @@ import { App } from '../App';
 import { DEMO_TOKENS } from '../api/fixtures';
 import { MockApi } from '../api/mock';
 import { SessionProvider } from '../session';
+import { screensNav } from '../test/helpers';
 
 const REASON = 'This version of OneMind cannot reach the host power controls yet.';
 type Controls = components['schemas']['SystemControls'];
@@ -97,12 +98,13 @@ it('says why a control is unavailable and disables it', async () => {
 
 it('shows Troubleshoot in the menu to the owner only', async () => {
   mount(() => response(controls()));
-  expect((await screen.findAllByRole('link', { name: 'Troubleshoot' })).length).toBeGreaterThan(0);
+  expect((await screensNav(userEvent.setup())).getAllByRole('link', { name: 'Troubleshoot' }).length).toBeGreaterThan(0);
   cleanup();
   mount(() => response({ error: 'permission_denied', message: 'only an owner may do this' }, 403), 'adult-demo');
   expect(await screen.findByText(/Your account is not allowed to see this/)).toBeInTheDocument();
-  expect(screen.getAllByRole('link', { name: 'Backups' }).length).toBeGreaterThan(0);
-  expect(screen.queryByRole('link', { name: 'Troubleshoot' })).not.toBeInTheDocument();
+  const nav = await screensNav(userEvent.setup());
+  expect(nav.getAllByRole('link', { name: 'Backups' }).length).toBeGreaterThan(0);
+  expect(nav.queryByRole('link', { name: 'Troubleshoot' })).not.toBeInTheDocument();
 });
 
 it('shows the owner-only refusal to everyone else', async () => {
