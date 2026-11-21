@@ -182,7 +182,7 @@ RUN set -eu; \
     groupadd --system --gid 963 onemind-headscale; \
     useradd --system --uid 963 --gid onemind-headscale --no-create-home --home-dir /nonexistent \
       --shell /usr/sbin/nologin onemind-headscale; \
-    systemctl enable onemind-firstboot.service avahi-daemon.service >/dev/null; \
+    systemctl enable onemind-firstboot.service onemind-firewall.service avahi-daemon.service >/dev/null; \
     /usr/bin/nats-server --version; \
     /usr/sbin/tailscaled --version | head -1; /usr/bin/tailscale --version | head -1; /usr/bin/headscale version; \
     /usr/lib/onemind/gateway/venv/bin/python3 -I -c "import onemind_core" ; \

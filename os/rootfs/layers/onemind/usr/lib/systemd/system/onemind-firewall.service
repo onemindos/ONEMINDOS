@@ -1,0 +1,25 @@
+# SPDX-License-Identifier: Apache-2.0
+# Host firewall (default-deny input, /usr/lib/onemind/host.nft). Loaded before the network is configured, so
+# there is no window where the box listens on everything. Optional rules (Samba, SSH) go in
+# /etc/onemind/host.local.nft as `add rule inet onemind_host input ...` lines; a missing file is fine.
+[Unit]
+Description=OneMind host firewall (default-deny)
+DefaultDependencies=no
+Before=network-pre.target
+Wants=network-pre.target
+After=local-fs.target
+Conflicts=shutdown.target
+Before=shutdown.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStartPre=/usr/sbin/nft -c -f /usr/lib/onemind/host.nft
+ExecStart=/usr/sbin/nft -f /usr/lib/onemind/host.nft
+ExecStartPost=-/bin/sh -c 'test -r /etc/onemind/host.local.nft && exec /usr/sbin/nft -f /etc/onemind/host.local.nft'
+ExecStop=/usr/sbin/nft delete table inet onemind_host
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=sysinit.target
