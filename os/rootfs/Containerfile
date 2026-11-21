@@ -41,14 +41,15 @@ ENV DEBIAN_FRONTEND=noninteractive LC_ALL=C.UTF-8
 COPY os/rootfs/sources/configure-apt.sh /usr/local/sbin/onemind-configure-apt
 # The leg, not a fixed "debian": on the Ubuntu CI hedge (D-007) BASE is ubuntu and SNAPSHOT is none (#226).
 RUN onemind-configure-apt "$LEG" "$SNAPSHOT" && apt-get update \
- && apt-get install -y ca-certificates curl && rm -rf /var/lib/apt/lists/*
+ && apt-get install -y ca-certificates curl bzip2 && rm -rf /var/lib/apt/lists/*
 COPY --chmod=755 os/rootfs/fetch-onemind.sh /usr/local/sbin/fetch-onemind
 
 FROM onemind-buildbase AS onemind-fetch
 ARG TARGETARCH
 RUN fetch-onemind nats "$TARGETARCH" /opt/nats \
  && fetch-onemind tailscale "$TARGETARCH" /opt/tailscale \
- && fetch-onemind headscale "$TARGETARCH" /opt/headscale
+ && fetch-onemind headscale "$TARGETARCH" /opt/headscale \
+ && fetch-onemind restic "$TARGETARCH" /opt/restic
 
 FROM onemind-buildbase AS onemind-go
 ARG BUILDARCH
@@ -162,6 +163,8 @@ COPY --from=onemind-fetch /opt/nats/nats-server /usr/bin/nats-server
 COPY --from=onemind-fetch /opt/tailscale/tailscale /usr/bin/tailscale
 COPY --from=onemind-fetch /opt/tailscale/tailscaled /usr/sbin/tailscaled
 COPY --from=onemind-fetch /opt/headscale/headscale /usr/bin/headscale
+# Backups (IMG-BACKUP-01): restic where the agent looks for it; the agent refuses any other sha256.
+COPY --from=onemind-fetch /opt/restic/restic /usr/lib/onemind/restic
 COPY --from=onemind-gateway /usr/lib/onemind/gateway/ /usr/lib/onemind/gateway/
 COPY --from=onemind-dashboard /src/dashboard/dist/ /usr/lib/onemind/dashboard/
 COPY sdk/schema/ /usr/lib/onemind/sdk/schema/
@@ -185,6 +188,7 @@ RUN set -eu; \
     systemctl enable onemind-firstboot.service avahi-daemon.service >/dev/null; \
     /usr/bin/nats-server --version; \
     /usr/sbin/tailscaled --version | head -1; /usr/bin/tailscale --version | head -1; /usr/bin/headscale version; \
+    /usr/lib/onemind/restic version | grep -q 'restic 0.19.1'; command -v sqlite3 >/dev/null; \
     /usr/lib/onemind/gateway/venv/bin/python3 -I -c "import onemind_core" ; \
     if [ -x /tmp/onemind/board/post-install.sh ]; then /tmp/onemind/board/post-install.sh; fi; \
     systemctl enable systemd-networkd.service systemd-resolved.service onemind-data-layout.service \
