@@ -4791,6 +4791,281 @@
         "title": "TrashOp",
         "type": "object"
       },
+      "Usage": {
+        "description": "GET /v1/usage.",
+        "properties": {
+          "apps": {
+            "$ref": "#/components/schemas/UsageApps"
+          },
+          "at": {
+            "title": "At",
+            "type": "string"
+          },
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/UsageNode"
+            },
+            "title": "Nodes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "at",
+          "nodes",
+          "apps"
+        ],
+        "title": "Usage",
+        "type": "object"
+      },
+      "UsageApp": {
+        "properties": {
+          "app_id": {
+            "title": "App Id",
+            "type": "string"
+          },
+          "cpu_millicores": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null when the runtime reports no figure",
+            "title": "Cpu Millicores"
+          },
+          "disk_mib": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "MiB used on the app's volume claims; null when unknown",
+            "title": "Disk Mib"
+          },
+          "mem_mib": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "MiB; null when the runtime reports no figure",
+            "title": "Mem Mib"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "required": [
+          "app_id"
+        ],
+        "title": "UsageApp",
+        "type": "object"
+      },
+      "UsageApps": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/UsageApp"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "sampled_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When these numbers were read from the runtime; null if never",
+            "title": "Sampled At"
+          },
+          "source": {
+            "description": "kubernetes | unavailable",
+            "title": "Source",
+            "type": "string",
+            "x-onemind-open-enum": true
+          },
+          "stale": {
+            "description": "True when sampled_at is older than 30 s, or nothing was ever read",
+            "title": "Stale",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "source",
+          "sampled_at",
+          "stale",
+          "items"
+        ],
+        "title": "UsageApps",
+        "type": "object"
+      },
+      "UsageNode": {
+        "additionalProperties": true,
+        "description": "One machine's latest heartbeat reading.",
+        "properties": {
+          "age_s": {
+            "description": "Seconds since the gateway last heard from the machine",
+            "title": "Age S",
+            "type": "integer"
+          },
+          "cpu_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null when the machine reports no CPU figure",
+            "title": "Cpu Pct"
+          },
+          "cpu_source": {
+            "description": "heartbeat | metrics-server",
+            "title": "Cpu Source",
+            "type": "string",
+            "x-onemind-open-enum": true
+          },
+          "cpus": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cpus"
+          },
+          "disk_total_gb": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Disk Total Gb"
+          },
+          "disk_used_gb": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Disk Used Gb"
+          },
+          "hostname": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hostname"
+          },
+          "last_seen": {
+            "title": "Last Seen",
+            "type": "string"
+          },
+          "load1": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Load1"
+          },
+          "mem_total_mb": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mem Total Mb"
+          },
+          "mem_used_mb": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mem Used Mb"
+          },
+          "node_id": {
+            "title": "Node Id",
+            "type": "string"
+          },
+          "stale": {
+            "description": "True when the last heartbeat is older than 30 s: the numbers are not current",
+            "title": "Stale",
+            "type": "boolean"
+          },
+          "status": {
+            "description": "online | stale | offline (from the heartbeat age)",
+            "title": "Status",
+            "type": "string",
+            "x-onemind-open-enum": true
+          },
+          "temp_c": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null when the hardware reports no temperature",
+            "title": "Temp C"
+          }
+        },
+        "required": [
+          "node_id",
+          "status",
+          "stale",
+          "last_seen",
+          "age_s",
+          "cpu_source"
+        ],
+        "title": "UsageNode",
+        "type": "object"
+      },
       "UserCreateBody": {
         "properties": {
           "display_name": {
@@ -18367,6 +18642,38 @@
         "summary": "Rotate Token",
         "tags": [
           "tokens"
+        ]
+      }
+    },
+    "/v1/usage": {
+      "get": {
+        "description": "Per machine and per app CPU, memory and disk, read-only. Old data says so (`stale`).",
+        "operationId": "monitoring.usage",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Usage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          }
+        },
+        "summary": "Live Usage",
+        "tags": [
+          "monitoring"
         ]
       }
     },
