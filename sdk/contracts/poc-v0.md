@@ -762,3 +762,117 @@ summaries: `id`, `name`, `installed_version`, `status`. The version comes from
 the persisted runtime receipt; null means no receipt exists. Missing, uninstalled,
 non-plugin and unshared IDs are 404. No credential or execution authority is
 created; principal issuance and approved tool dispatch are later slices.
+
+### Plugin tool manifest foundation (DEV-PLG-1, #177)
+
+An App may add `spec.extensions.tools`, `spec.plugin`, `spec.permissions` and
+`spec.compat`, as specified in `docs/leap/dev/PLUGIN-SDK.md` §4–5. The phase-1
+validator accepts tool-backed plugins with optional UI and event declarations.
+Backend-free declarative-only plugins await an App-contract-compatible slice. Tools require a backend, a plugin principal and a
+valid compatibility range. Tool inputs and outputs are closed JSON Schemas;
+remote schema references are forbidden. Permissions are read grants or requests
+for specific action types, never approval or administration grants. Write and
+destructive tools declare effects; execution still requires owner approval.
+
+`onemind plugin validate [dir]` uses `internal/plugin/validate`, the offline Go
+package shared by box tooling and CI. It checks the existing app schema plus
+plugin tool declarations. A passing manifest check is not artifact verification
+or install authorization. Widening comparisons and supply-chain verification remain separate
+validation slices before #177 is done.
+
+The CLI validates the unpacked directory with `validate.Directory`: the manifest
+and icon must be regular files, the declared manifests path must be a directory,
+and no declared path component or workload-tree entry may be a symlink or special
+file. All declared paths stay below the bundle root. This check assumes immutable
+contents during validation/install; it does not extract archives, inspect workload
+permissions or verify signatures.
+
+Box callers can use `ManifestForAPI` or `DirectoryForAPI` to check the plugin's
+`compat.onemind` range against their actual plugin API level. The CLI exposes
+this offline check with `onemind plugin validate --api-level <level> [dir]`.
+Without that flag the CLI checks range syntax only; it does not imply the
+manifest is compatible with a particular box. Explicit empty levels are errors.
+
+The event declaration slice adds optional `spec.extensions.events.publish` and
+`subscribe` arrays alongside the required tools. Published names are local
+`[a-z0-9_-]{1,40}` names only; the gateway supplies the app subject prefix.
+Subscriptions require a covering `events:subscribe:<pattern>` permission. Only
+whole-token `*` and terminal `>` wildcards are accepted; `>` matches one or more
+tokens, and bare `>` is forbidden in both subscriptions and grants. A requested
+pattern must fit inside a single grant; narrower grants are never combined to
+justify a broader subscription. These checks implement P4/P5 only: they do not
+connect plugins to NATS or replace runtime scope enforcement by the gateway.
+
+The egress declaration slice adds optional `spec.egress`, empty/absent meaning
+no internet egress grant. Entries are qualified ASCII hostnames (IDNs must use
+valid punycode), optionally prefixed with `*.`. IP literals, URL components,
+malformed labels, case-equivalent duplicates, special-use/local domains and
+unknown top-level suffixes are rejected. Wildcards must sit below a registrable
+domain according to the embedded Public Suffix List, including its private
+suffixes: `*.example.com` is permitted, `*.com` and `*.github.io` are not.
+Validation is offline and performs no DNS lookups. Runtime enforcement must
+separately reject private or rebound destination addresses; declaring egress
+never authorizes a plugin to act without owner approval.
+
+The UI declaration slice adds optional `spec.extensions.widgets`, `settings`,
+`alerts.actions` and `tiles` alongside the required tools. Template widgets name
+a declared read tool; alert actions name a declared tool and never approve it.
+Iframe widgets target the dashboard only and declare a relative entry under
+`ui/`. Settings schemas and optional tile icons use relative bundle paths, with
+no traversal, absolute paths, unsafe characters or empty path components. UI IDs
+are unique within each surface. These declarations do not execute UI code; the sandboxed widget host is #179.
+
+The directory validator checks actual iframe entry, settings-schema and tile-icon
+files with the same safe bundle-path checks. Referenced SVG/markup icons are
+scanned even outside `ui/`. Every entry under `ui/` must be a
+regular file or directory, including unreferenced entries. Settings schemas are
+JSON Schema documents compiled offline; remote/file references cannot load.
+Markup checks cover all HTML/HTM/SVG/XHTML files and every iframe entry regardless
+of suffix, require UTF-8 without NUL bytes, and reject inline `on*` handlers,
+inline scripts, remote script sources, `base` elements and embedded `srcdoc`.
+Scripts must use an HTML `src` with no inline content; SVG/href and namespaced
+script elements are refused. Sources name existing relative files inside `ui/`; URL
+components, encoded traversal and parent traversal are refused. The tokenizer
+uses browser HTML attribute semantics, including first-duplicate-wins. This is
+not a JavaScript/dependency scan and does not replace CSP or sandboxing.
+
+UI validation is bounded to 4 MiB per file, 32 MiB total and 4096 entries
+(including referenced files outside `ui/`);
+settings schemas are limited to the 256 KiB manifest limit. The unpacked tree
+must remain unchanged during validation/install; archive extraction, signatures,
+workload policy and installation approval remain separate checks.
+
+`onemind plugin validate --previous <dir>` validates both manifests and reports
+P11's informational `widens_grants` flag with sorted reasons. Comparison requires
+the same plugin ID. Added permission and egress strings, new secret name/key grants,
+changed key semantics, and new or stronger write/destructive tools widen grants.
+Display descriptions and grant removals do not. Newly added strings conservatively
+require reapproval even when an older grant might subsume them. Secret fields use
+the existing App `secrets[].keys[]` format, never secret values. A false result does
+not authorize installation or waive signatures, runtime checks or owner approval.
+
+When `--previous` compares an update, removed tools or changed effects require
+a higher plugin major version (PLUGIN-SDK.md §13). Any changed input schema is
+conservatively treated as breaking: this validator does not attempt to prove
+inclusion between arbitrary JSON Schemas. New tools and display-only changes do
+not require a major bump. This version check is separate from grant widening;
+a major bump never removes reapproval or artifact verification requirements.
+
+The standalone `sdk/schema/widget-templates.schema.json` publishes the typed
+widget result contract (PLUGIN-SDK.md §6.2); `validate.WidgetData` checks that
+same embedded schema offline. Every result is a closed object with an RFC 3339
+`observed_at`. Stat values are text or numbers; `trend`, when present, is only
+null until a numeric trend contract is specified. Lists carry title/subtitle and
+a status from `ok`, `warn`, `error`, `unknown`; progress is a number in [0, 1];
+status cards carry that state vocabulary and text. There are no host-fetchable
+URL/image fields. The future #179 host renders strings as text and marks stale
+timestamps; this schema publication adds no runtime UI route or renderer.
+
+Declarative plugin manifests may omit `spec.plugin` and `spec.manifests` when
+no tools, iframe widgets or event subscriptions require a backend (PLUGIN-SDK
+P6). Ordinary apps still require manifests; existing App metadata, updates and
+secret entry requirements remain unchanged. Backend-bearing extensions require
+both manifests and `plugin.backend`; declaring both `spec.agent` and
+`spec.plugin` is refused to prevent acquiring an additional agent credential.
+`metadata.publisher` is an optional closed `{id, name}` declaration: its DNS
+label id is not a verified identity or an artifact-signing authorization.
