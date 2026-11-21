@@ -8,7 +8,7 @@ Vector street maps of your region that work with no internet, from OpenStreetMap
 | | |
 |---|---|
 | Version | 1.31.2 (upstream release `v1.31.2`, published 2026-07-22) |
-| Licence | `BSD-3-Clause`, Market class **L1** (licence gate, scan of 2026-11-19) |
+| Licence | `BSD-3-Clause`, Market class **L1** (licence gate, scan of 2026-11-20) |
 | Tier | `verified` (set by CI: sdk/tools/app-gate) |
 | Category | field |
 | GitHub | <https://github.com/protomaps/go-pmtiles> |
@@ -89,11 +89,11 @@ kubectl -n app-offline-maps exec deploy/offline-maps -c viewer -- python3 -c "im
 
 ## Latest security scan
 
-Scanned 2026-11-19T14:41:31Z by `sdk/tools/app-gate`: **pass**. Licence `BSD-3-Clause` class L1; smoke test pass.
+Scanned 2026-11-20T14:07:48Z by `sdk/tools/app-gate`: **pass**. Licence `BSD-3-Clause` class L1; smoke test pass.
 
 | Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
 |---|---|---|---|---|---|---|
-| `docker.io/library/python:3.14.10-slim-trixie@sha256:9aaa474097d094040649f2162a627c0049b408f52138d980916788d80f04802f` | amd64, arm64 | 0 (0) | 53 | 0 infected (daily-28188) | 0 | unsigned |
-| `docker.io/protomaps/go-pmtiles:v1.31.2@sha256:06574f01f55a78f78f887bc7ebf729a5c093c0d6e17d9876300cfcb0758b59d3` | amd64, arm64 | 0 (0) | 36 | 0 infected (daily-28188) | 0 | unsigned |
+| `docker.io/library/python:3.14.10-slim-trixie@sha256:9aaa474097d094040649f2162a627c0049b408f52138d980916788d80f04802f` | amd64, arm64 | 0 (0) | 53 | 0 infected (daily-28189) | 0 | unsigned |
+| `docker.io/protomaps/go-pmtiles:v1.31.2@sha256:06574f01f55a78f78f887bc7ebf729a5c093c0d6e17d9876300cfcb0758b59d3` | amd64, arm64 | 0 (0) | 35 | 0 infected (daily-28189) | 0 | unsigned |
 
 Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.
