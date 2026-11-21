@@ -74,6 +74,7 @@ type Client struct {
 	expiries  expiryMemo   // expires_at fixed per idempotency key
 
 	Instance *InstanceService
+	About    *AboutService
 	Nodes    *NodesService
 	Apps     *AppsService
 	Actions  *ActionsService
@@ -160,6 +161,7 @@ func New(baseURL string, opts ...Option) (*Client, error) {
 		o(c)
 	}
 	c.Instance = &InstanceService{c}
+	c.About = &AboutService{c}
 	c.Nodes = &NodesService{c}
 	c.Apps = &AppsService{c}
 	c.Actions = &ActionsService{c}
@@ -410,6 +412,15 @@ type InstanceService struct{ c *Client }
 func (s *InstanceService) Get(ctx context.Context) (*Instance, error) {
 	var v Instance
 	return &v, s.c.Do(ctx, http.MethodGet, "/v1/instance", nil, &v)
+}
+
+// AboutService is GET /v1/os/about (About this box).
+type AboutService struct{ c *Client }
+
+// Get is operation os.about: the device facts of every node the hub knows, never a serial or an address.
+func (s *AboutService) Get(ctx context.Context) (*About, error) {
+	var v About
+	return &v, s.c.Do(ctx, http.MethodGet, "/v1/os/about", nil, &v)
 }
 
 // NodesService is /v1/nodes.
