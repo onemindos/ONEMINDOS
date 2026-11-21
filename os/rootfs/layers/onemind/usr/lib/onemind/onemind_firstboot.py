@@ -526,7 +526,7 @@ def backup_agent_conf(p: Paths, node_id: str) -> dict:
         "sqlite3_binary": "/usr/bin/sqlite3",
         "listen": "127.0.0.1:7480",
         "job_pubkey_file": f"{s}/job.pub",
-        "storage_roots": ["/var/lib/rancher/k3s/storage"],
+        "storage_roots": ["/data/k3s/storage"],
         "schedule": {"minute": -1, "maintenance_hour": 3, "verify_weekday": 0, "verify_min_age": "1h",
                      "gateway_hourly": True},
         "retention": {"hourly": 24, "daily": 7, "weekly": 4, "monthly": 12},
@@ -535,9 +535,9 @@ def backup_agent_conf(p: Paths, node_id: str) -> dict:
             "system": {"paths": [p.etc, p.tls, p.nats_keys],
                        "sqlite": [{"path": f"{p.gateway}/onemind.db", "name": "gateway.db"}],
                        "audit_log": f"{p.gateway}/audit.jsonl"},
-            "k3s": {"paths": ["/var/lib/rancher/k3s/server/token", "/var/lib/rancher/k3s/server/tls",
-                              "/var/lib/rancher/k3s/server/cred"],
-                    "state_db": "/var/lib/rancher/k3s/server/db/state.db", "version": K3S_BACKUP_VERSION},
+            "k3s": {"paths": ["/data/k3s/server/token", "/data/k3s/server/tls",
+                              "/data/k3s/server/cred"],
+                    "state_db": "/data/k3s/server/db/state.db", "version": K3S_BACKUP_VERSION},
         },
     }
 

@@ -13,7 +13,7 @@
   "listen": "127.0.0.1:7480",
   "job_pubkey_file": "/data/onemind/backup/job.pub",
   "storage_roots": [
-    "/var/lib/rancher/k3s/storage"
+    "/data/k3s/storage"
   ],
   "schedule": {
     "minute": -1,
@@ -46,11 +46,11 @@
     },
     "k3s": {
       "paths": [
-        "/var/lib/rancher/k3s/server/token",
-        "/var/lib/rancher/k3s/server/tls",
-        "/var/lib/rancher/k3s/server/cred"
+        "/data/k3s/server/token",
+        "/data/k3s/server/tls",
+        "/data/k3s/server/cred"
       ],
-      "state_db": "/var/lib/rancher/k3s/server/db/state.db",
+      "state_db": "/data/k3s/server/db/state.db",
       "version": "v1.37.2-k3s1"
     }
   }

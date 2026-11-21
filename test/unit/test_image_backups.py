@@ -55,16 +55,44 @@ class Image(unittest.TestCase):
         self.assertIn("ExecStartPre=-/usr/bin/onemindd backup-init\n", d)
         self.assertNotIn("/usr/local/bin", d)
         self.assertNotIn("CacheDirectory", d)            # /var/cache is on the read-only root
-        for path in ("/data/onemind", "/var/lib/rancher/k3s/storage", "/run/onemind/backup",
-                     "/var/lib/rancher/k3s/server/db"):
+        for path in ("/data/onemind", "/data/k3s/storage", "/run/onemind/backup",
+                     "/data/k3s/server/db"):
             self.assertIn("-" + path, d)
 
     def test_tmpfiles_creates_every_writable_folder(self):
         d = rd("os/rootfs/layers/onemind/usr/lib/systemd/system/onemindd.service.d/backup.conf")
         t = rd("os/rootfs/layers/onemind/usr/lib/tmpfiles.d/onemind-backup.conf")
-        for path in re.findall(r"-(/run/onemind/backup|/var/lib/rancher/k3s/storage)\b", d):
+        for path in re.findall(r"-(/run/onemind/backup|/data/k3s/storage)\b", d):
             self.assertRegex(t, r"(?m)^d %s " % re.escape(path))
         self.assertRegex(t, r"(?m)^d /data/onemind/backup 0700 ")
+
+
+class K3sPaths(unittest.TestCase):
+    """The image runs k3s with --data-dir, so every backup path must live under it (not /var/lib/rancher/k3s)."""
+
+    def data_dir(self):
+        unit = rd("os/rootfs/layers/base/usr/lib/systemd/system/k3s.service")
+        m = re.search(r"k3s server .*?--data-dir (\S+)", unit)
+        self.assertTrue(m)
+        return m.group(1).rstrip("/")
+
+    def test_agent_conf_paths_follow_the_data_dir(self):
+        dd, c = self.data_dir(), fb.backup_agent_conf(fb.Paths("/"), "0123456789ab")
+        k3s = c["units"]["k3s"]
+        self.assertIn(dd + "/storage", c["storage_roots"])
+        self.assertEqual(k3s["state_db"], dd + "/server/db/state.db")
+        for p in list(c["storage_roots"]) + k3s["paths"] + [k3s["state_db"]]:
+            self.assertTrue(p.startswith(dd + "/"), p)
+            self.assertNotIn("/var/lib/rancher", p)
+
+    def test_sandbox_and_tmpfiles_follow_the_data_dir(self):
+        dd = self.data_dir()
+        d = rd("os/rootfs/layers/onemind/usr/lib/systemd/system/onemindd.service.d/backup.conf")
+        t = rd("os/rootfs/layers/onemind/usr/lib/tmpfiles.d/onemind-backup.conf")
+        for path in (dd + "/storage", dd + "/server/db"):
+            self.assertIn("-" + path, d)
+        self.assertRegex(t, r"(?m)^d %s/storage " % re.escape(dd))
+        self.assertNotIn("/var/lib/rancher", d + t)
 
 
 class AgentConf(unittest.TestCase):
