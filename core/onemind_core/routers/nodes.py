@@ -9,6 +9,7 @@ from ..apimodels import Node
 from ..auth import Principal
 from ..context import Gateway
 from ..errors import ApiError, error_responses
+from ..wake import WakeCapability, WakeService
 
 
 # Route order in the app and in /openapi.json (routers/__init__.py).
@@ -18,6 +19,16 @@ ORDER = 110
 def register(app: FastAPI, gw: Gateway) -> None:
     registry = gw.registry
     principal = gw.principal
+    wake = WakeService(gw)
+
+    @app.get(
+        "/v1/nodes/{node_id}/wake", tags=["nodes"], operation_id="nodes.wake_capability",
+        response_model=WakeCapability, responses=error_responses(401, 404),
+    )
+    def wake_capability(node_id: str, _: Principal = Depends(principal)):
+        if registry.get(node_id) is None:
+            raise ApiError(404, "not_found", "no such node")
+        return wake.capability(node_id)
 
     @app.get("/v1/nodes", tags=["nodes"], operation_id="nodes.list", responses={200: {"model": list[Node]}, **error_responses(401)})
     def list_nodes(_: Principal = Depends(principal)):
