@@ -2,6 +2,7 @@
 import type { WiringApi } from './wiring';
 import type * as W from './wiring';
 import { OneMind, OneMindError, type operations } from '@onemind/sdk';
+import type { AppSecrets, SealedInput, SecretsPublicKey } from '@onemind/ui';
 import {
   ApiError,
   type Action,
@@ -36,6 +37,12 @@ export interface OneMindApi extends WiringApi {
   previewAction?(type: ActionType, params: AppParams): Promise<PlanPreview>;
   appSettings?(id: string): Promise<AppSettings>;
   appLogs?(id: string): Promise<string>;
+  /** Which secret keys an app declares and whether each is set. Never a value. */
+  appSecrets?(id: string): Promise<AppSecrets>;
+  /** The box key the browser seals secret values to. */
+  secretsPublicKey?(): Promise<SecretsPublicKey>;
+  /** Files an `app.configure` with sealed secret changes; it waits in Approvals for the owner. */
+  requestSecretsChange?(id: string, body: SecretsChangeBody, key: { idempotency_key: string; expires_at: string }): Promise<Action>;
   appDependencies?(id: string): Promise<AppDependencies>;
   appHostPorts?(id: string): Promise<AppHostPorts>;
   sources?(): Promise<CommunitySource[]>;
@@ -62,6 +69,7 @@ export interface FirstRunSettings extends Omit<FirstRunSettingsBody, 'box_name' 
   time_zone: string | null;
   saved: boolean;
 }
+export interface SecretsChangeBody { sealed?: SealedInput; generate: string[]; clear: string[]; reason?: string }
 export interface SourceAddParams { name: string; url: string; commit: string }
 export interface BackupDestinationRecord { id: string; kind: string; label: string }
 
@@ -206,9 +214,9 @@ export class HttpApi implements OneMindApi {
       return !req.plan_sha256 || action.plan_sha256 === req.plan_sha256;
     });
   }
-  private async sdkCall<T>(method: 'GET' | 'POST', path: string, body?: unknown, array = false): Promise<T> {
+  private async sdkCall<T>(method: 'GET' | 'POST', path: string, body?: unknown, array = false, headers?: Record<string, string>): Promise<T> {
     try {
-      const value = await this.sdk.call<T>({ method, path, body });
+      const value = await this.sdk.call<T>({ method, path, body, ...(headers ? { headers } : {}) });
       if (!value || typeof value !== 'object' || Array.isArray(value) !== array) throw new ApiError(200, 'unknown', 'Unexpected response from the hub');
       return value;
     }
@@ -259,6 +267,29 @@ export class HttpApi implements OneMindApi {
     const raw = await this.sdkCall<ComposeResult>('POST', '/v1/deploy/compose', body);
     if (typeof raw.ok !== 'boolean' || !raw.files || typeof raw.files !== 'object' || !Array.isArray(raw.refusals) || !Array.isArray(raw.warnings) || Object.values(raw.files).some((v) => typeof v !== 'string')) throw new ApiError(200, 'unknown', 'Invalid gateway Compose result');
     return raw;
+  }
+  // ---- app secrets (§12.1 sealed input, §12.18). The SDK types these bodies as unknown, so each is checked here.
+  async appSecrets(id: string) {
+    const raw = await this.sdkCall<AppSecrets>('GET', `/v1/apps/${encodeURIComponent(id)}/secrets`);
+    const okKey = (k: AppSecrets['secrets'][number]['keys'][number]) => !!k && typeof k.key === 'string' && typeof k.set === 'boolean' && typeof k.required === 'boolean' && (k.source === 'owner' || k.source === 'generated');
+    if (raw.app_id !== id || !Array.isArray(raw.secrets) || !Array.isArray(raw.missing_required) || raw.secrets.some((d) => !d || typeof d.name !== 'string' || !Array.isArray(d.keys) || !d.keys.every(okKey))) throw new ApiError(200, 'unknown', 'Invalid gateway secrets');
+    return raw;
+  }
+  async secretsPublicKey() {
+    const raw = await this.sdkCall<SecretsPublicKey>('GET', '/v1/secrets/public-key');
+    if (raw.alg !== 'X25519' || raw.sealed_alg !== 'X25519-AES256GCM' || typeof raw.key !== 'string' || typeof raw.key_id !== 'string') throw new ApiError(200, 'unknown', 'Invalid gateway secrets key');
+    return raw;
+  }
+  async requestSecretsChange(id: string, body: SecretsChangeBody, key: { idempotency_key: string; expires_at: string }) {
+    const ambiguous = () => new ApiError(0, 'outcome_unknown', 'The request may have been recorded, but the gateway did not return it. Check Approvals before sending it again.');
+    let action: Action;
+    try { action = await this.sdkCall<Action>('POST', `/v1/apps/${encodeURIComponent(id)}/secrets`, { ...body, expires_at: key.expires_at }, false, { 'Idempotency-Key': key.idempotency_key }); }
+    catch (e) {
+      if (!(e instanceof ApiError) || e.status === 0 || e.status === 408 || e.status >= 500 || (e.status >= 200 && e.status < 300)) throw ambiguous();
+      throw e;
+    }
+    if (typeof action.id !== 'string' || !action.id || (action.type as string) !== 'app.configure' || action.params?.app_id !== id || action.idempotency_key !== key.idempotency_key) throw ambiguous();
+    return action;
   }
   appLogs(id: string) { return this.req<string>('GET', `/v1/apps/${encodeURIComponent(id)}/logs?tail=200`, undefined, 'text'); }
   actions() {
