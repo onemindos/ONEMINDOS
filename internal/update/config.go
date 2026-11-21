@@ -18,6 +18,14 @@ import (
 // DefaultConfigPath is where the box keeps its update settings.
 const DefaultConfigPath = "/etc/onemind/update.conf"
 
+// DefaultOfflineGrace and MaxOfflineGrace bound how stale mirror metadata may
+// be (Year-1 exit criterion: a box offline 90 days still takes its next update).
+// The cap is the one-year root lifetime of os/update/CHANNEL.md.
+const (
+	DefaultOfflineGrace = 90 * 24 * time.Hour
+	MaxOfflineGrace     = 365 * 24 * time.Hour
+)
+
 // Channels (os/update/CHANNEL.md).
 const (
 	ChannelSecurity = "security"
@@ -72,6 +80,12 @@ type Config struct {
 	// BD-09: a robot or field kit creates it while it must not restart).
 	RebootInhibitFile string
 	CheckInterval     time.Duration
+	// OfflineGrace is how long past its signed expiry TUF metadata may be and
+	// still verify when it comes from a mirror the owner plugged in (USB stick
+	// or LAN share, `--mirror`). Signatures, thresholds and rollback checks are
+	// unchanged; only freshness is relaxed, because a box that was offline
+	// cannot have fresh metadata. Online checks never use it. Default 90 days.
+	OfflineGrace time.Duration
 	// Ignored lists the unknown keys found in the file (sorted).
 	Ignored []string
 }
@@ -92,6 +106,7 @@ func Defaults(channel string) Config {
 		RebootCommand:     []string{"systemctl", "reboot"},
 		RebootInhibitFile: "/run/onemind/reboot-inhibit",
 		CheckInterval:     time.Hour,
+		OfflineGrace:      DefaultOfflineGrace,
 	}
 	c.Policy, c.RequireSnapshot = PolicyNotify, true
 	if channel == ChannelSecurity {
@@ -187,6 +202,11 @@ func ParseConfig(b []byte) (*Config, error) {
 			}
 		case "reboot_inhibit_file":
 			c.RebootInhibitFile = v
+		case "offline_grace":
+			c.OfflineGrace, err = time.ParseDuration(v)
+			if err == nil && (c.OfflineGrace < 0 || c.OfflineGrace > MaxOfflineGrace) {
+				err = fmt.Errorf("must be between 0 and %s", MaxOfflineGrace)
+			}
 		case "check_interval":
 			c.CheckInterval, err = time.ParseDuration(v)
 			if err == nil && c.CheckInterval < time.Minute {
