@@ -17,7 +17,7 @@ from pathlib import Path
 import pytest
 
 from conftest import AGENT, GUEST, OWNER
-from onemind_core.smbshares import FileShareSettings, HostSmbClient, SmbHostError
+from onemind_core.smbshares import FileShareSettings, HostSmbClient, SmbHostError, smb_user
 from test_smb_shares import GIB, approve, ask, box, on  # noqa: F401  (fixtures)
 
 
@@ -36,12 +36,23 @@ def test_a_person_with_a_share_gets_a_password_shown_once_and_sent_only_to_the_h
     r = on.post("/v1/shares/smb/password", headers=OWNER)
     assert r.status_code == 200 and r.headers["cache-control"] == "no-store"
     body = r.json()
-    assert body["user"] == "owner" and body["shown_once"] is True and len(body["password"]) == 19
-    assert on.svc.host.passwords == [("owner", body["password"])]
+    assert body["user"] == smb_user("owner") and body["shown_once"] is True and len(body["password"]) == 19
+    assert on.svc.host.passwords == [(smb_user("owner"), body["password"])]
     assert body["password"] not in on.get("/v1/shares/smb", headers=OWNER).text  # kept nowhere on the gateway
     assert on.post("/v1/shares/smb/password", headers=OWNER).json()["password"] != body["password"]
     for who in (AGENT, GUEST):
         assert on.post("/v1/shares/smb/password", headers=who).status_code == 403
+
+
+def test_a_new_smb_password_needs_a_recent_passkey_once_passkeys_are_active(on, monkeypatch):
+    """A left-open password or token session must not mint an SMB password that opens the whole Files home."""
+    approve(on, ask(on, {"kind": "home", "person_id": "owner"}))
+    monkeypatch.setattr(on.app.state.identity, "passkeys_active", lambda: True)
+    r = on.post("/v1/shares/smb/password", headers=OWNER)
+    assert r.status_code == 401 and r.json()["reason"] == "step_up_required"
+    assert on.svc.host.passwords == []  # nothing reached the host
+    monkeypatch.undo()
+    assert on.post("/v1/shares/smb/password", headers=OWNER).status_code == 200
 
 
 def test_a_password_the_host_cannot_set_is_a_refusal(on):
