@@ -15,17 +15,31 @@ import subprocess
 import sys
 import threading
 import time
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
 
-from conftest import AGENT, OWNER
+from conftest import AGENT, OWNER, fresh_scans
 
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "sdk" / "python" / "src"))
 
 OWNER_TOKEN = OWNER["Authorization"].split()[1]
 AGENT_TOKEN = AGENT["Authorization"].split()[1]
+
+
+def test_conformance_scans_are_fresh_on_the_real_clock(settings):
+    from onemind_core.scan import MAX_AGE, read_scan, scan_problem
+
+    fresh_scans(settings)
+    now = datetime.now(UTC)
+    checked = 0
+    for app_dir in Path(settings.apps_dir).iterdir():
+        if (app_dir / "scan.json").exists():
+            assert scan_problem(app_dir.name, read_scan(app_dir), now) is None
+            checked += 1
+    assert checked and MAX_AGE >= timedelta(days=7)
 
 
 @pytest.fixture
@@ -37,7 +51,10 @@ def gateway(settings, clock, executor):
     with socket.socket() as s:
         s.bind(("127.0.0.1", 0))
         port = s.getsockname()[1]
-    # The SDKs compute expiry from the hub's clock; give the gateway the real one.
+    # The SDKs compute expiry from the hub's clock, so the gateway runs on the real one. The shared
+    # `settings` fixture wrote its scans on the frozen test clock, which ages past the 7-day rule (§10.3)
+    # as the real date moves on; rewrite them relative to the real now so this cannot age out.
+    fresh_scans(settings)
     server = uvicorn.Server(uvicorn.Config(create_app(settings, executor=executor), host="127.0.0.1", port=port,
                                            log_level="warning"))
     t = threading.Thread(target=server.run, daemon=True)

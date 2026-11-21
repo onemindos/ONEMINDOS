@@ -17,3 +17,9 @@ PARTLABEL=onemind-data  /data      ext4  defaults,nofail,x-systemd.device-timeou
 /data/state/var-tmp              /var/tmp              none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0
 /data/state/home                 /home                 none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0
 /data/state/root                 /root                 none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0
+# The mesh (IMG-MESH-01): Tailscale state, Headscale and NATS-leaf state, and /etc/hosts (a file bind;
+# the target exists in the image, and onemind-data-layout seeds the source from /usr/lib/onemind/hosts.default).
+/data/state/var-lib-tailscale         /var/lib/tailscale            none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0
+/data/state/var-lib-onemind-headscale /var/lib/onemind-headscale    none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0
+/data/state/var-lib-onemind-nats-leaf /var/lib/onemind-nats-leaf    none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0
+/data/state/etc-hosts                 /etc/hosts                    none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0

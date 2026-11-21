@@ -77,7 +77,7 @@ These are founder decisions ([CHANNEL.md §6–7](CHANNEL.md)). The pipeline nam
 3. Commit `<dir>/root.json` as `os/rootfs/layers/base/usr/lib/onemind/tuf/security/root.json`.
 4. Store the three online private keys as secrets of the GitHub Environment `tuf-signing` (only `main` may deploy to it, no required reviewer), as in [CEREMONY.md](CEREMONY.md) step 9.
 
-The script refuses to run in CI. Root keys on hardware tokens need a token-backed signer, which is not built yet: `tuf-repo.py` signs with PEM key files, and `securesystemslib` has HSM/PKCS#11 signers to add when the token model is chosen (B4.6 `<HSM-OR-TOKEN-MODEL>`).
+The script refuses to run in CI. Root keys can also live on hardware tokens (a YubiKey, or any PKCS#11 device; ECDSA P-256, made on the device so it never leaves it): `tuf-repo.py` signs through `securesystemslib`'s `HSMSigner` for a key given as `hsm:<id>?label=<token>`, with the module from `$PYKCS11LIB` and the PIN typed at a prompt. `scripts/tuf-bootstrap-root.sh token-pub` exports a token's public key and `rotate-root` moves a channel's root from the sticks onto the tokens (new `<N+1>.root.json`, signed by 2 old and 2 new keys); rehearse it with `rehearse-rotate`. The runbook is [CEREMONY.md](CEREMONY.md#rotate-the-root-onto-hardware-keys-rel-02-272); CI tests it with SoftHSM (`tests/test_tuf_hsm.py`), real devices are the founder's trial.
 
 **Moving the hosting:** see [CHANNEL.md §7](CHANNEL.md). Any static host that serves the flat files works. Change `url` in `channel.json` and `os/rootfs/layers/base/etc/onemind/update.conf`, and keep the old URL serving for a release cycle.
 

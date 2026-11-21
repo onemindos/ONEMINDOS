@@ -22,12 +22,17 @@ from pydantic import BaseModel
 from ..auth import Principal
 from ..context import Gateway
 from ..errors import ApiError, error_responses
+from ..identity.scopes import register_route_scope
 
 # Route order in the app and in /openapi.json (routers/__init__.py).
 ORDER = 175
 
 FLAG_ENV = "ONEMIND_KIOSK_FLAG"
 DEFAULT_FLAG = "/data/onemind/kiosk/enabled"
+
+# Module level so the scope table knows these routes (#323 rule); the handlers also demand the owner.
+register_route_scope("GET,HEAD", r"/v1/instance/kiosk", ("instance:read",))
+register_route_scope("PUT", r"/v1/instance/kiosk", ("users:admin",))
 
 
 class KioskState(BaseModel):

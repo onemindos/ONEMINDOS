@@ -181,7 +181,7 @@ export function toActionSummary(a: Action): ActionSummary {
   return {
     id: a.id,
     type: a.type,
-    params: a.params,
+    params: a.params as Record<string, unknown>,
     state: a.state,
     expires_at: a.expires_at,
     created_at: a.created_at,
@@ -224,7 +224,7 @@ export function toJob(a: Action, appName: string): StoreJob {
     action_id: a.id,
     app_id: appIdOf(a) ?? '',
     app_name: appName,
-    type: a.type,
+    type: a.type as StoreJob['type'],
     state: jobState(a.state),
     message: a.result?.message && RESULT_MESSAGE.has(a.state) ? a.result.message : JOB_MESSAGE[a.state],
     updated_at: a.updated_at ?? a.created_at ?? a.expires_at,
@@ -251,7 +251,8 @@ export function appIdOf(a: Pick<Action, 'params'>): string | undefined {
 function describe(a: Action, names: (id: string) => string): { verb: string; subject: string; what: string } {
   const appId = appIdOf(a);
   const nodeId = (a.params as Record<string, unknown> | undefined)?.node_id;
-  const subject = appId ? names(appId) : typeof nodeId === 'string' ? nodeId : '';
+  const machine = (a.params as Record<string, unknown> | undefined)?.name;
+  const subject = appId ? names(appId) : typeof machine === 'string' ? machine : typeof nodeId === 'string' ? nodeId : '';
   const verb = VERB[a.type] ?? a.type;
   return { verb, subject, what: `${verb} ${subject}`.trim() };
 }

@@ -162,6 +162,17 @@ def write_scan(app_dir: Path, scanned_at: datetime | None, result: str = "pass")
     }))
 
 
+def fresh_scans(settings) -> None:
+    """Re-date every fixture app's scan record to one day before the real wall clock.
+
+    Tests that run a gateway on the real clock need this: the `settings` fixture dates scans on the
+    frozen test clock, which ages past the 7-day scan rule (§10.3) as the real date moves on.
+    """
+    for app_dir in Path(settings.apps_dir).iterdir():
+        if (app_dir / "scan.json").exists():
+            write_scan(app_dir, datetime.now(UTC) - timedelta(days=1))
+
+
 @pytest.fixture
 def settings(tmp_path: Path, clock) -> Settings:
     apps = tmp_path / "apps"

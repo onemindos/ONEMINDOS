@@ -8,13 +8,22 @@ export const href = {
   market: '/market',
   app: (id: string) => `/market/${encodeURIComponent(id)}`,
   installed: '/installed',
+  sources: '/sources',
+  compose: '/compose',
   manage: (id: string) => `/installed/${encodeURIComponent(id)}`,
   approvals: '/approvals',
   approval: (id: string) => `/approvals?highlight=${encodeURIComponent(id)}`,
   activity: '/activity',
   nodes: '/nodes',
+  machines: '/machines',
   alerts: '/alerts',
+  storage: '/storage',
+  backups: '/backups',
+  automation: '/automation',
+  updates: '/updates',
   coming: '/coming',
+  controlHub: '/control-hub',
+  agents: '/agents',
   settings: '/settings',
   setting: (id: string) => `/settings/${id}`,
 };
@@ -48,11 +57,18 @@ export function toRoute(link: string): string | undefined {
       return parts[1] ? `/approvals?highlight=${parts[1]}` : href.approvals + q;
     case 'nodes':
       return href.nodes;
+    case 'machines':
+      return href.machines;
     case 'notifications':
       return href.activity;
     case 'backups':
+      return href.backups;
+    case 'automation':
+      return href.automation;
     case 'updates':
-      return href.setting(parts[0]);
+      return href.updates;
+    case 'storage':
+      return href.storage;
     case 'settings':
       return parts[1] ? href.setting(SETTINGS_ALIAS[parts[1]] ?? parts[1]) : href.settings;
     default:
@@ -64,5 +80,6 @@ export function toRoute(link: string): string | undefined {
 /** Which nav item a path belongs to. */
 export function navId(pathname: string): string {
   const first = pathname.split('/').filter(Boolean)[0] ?? 'home';
-  return first;
+  // Community sources and Compose import are Market tabs.
+  return first === 'sources' || first === 'compose' ? 'market' : first;
 }

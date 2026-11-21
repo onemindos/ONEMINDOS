@@ -2,8 +2,8 @@
 import type { OneMindApi, FirstRunSettings, FirstRunSettingsBody, BackupDestinationRecord } from './client';
 import { MockWiringBase } from './mockWiring';
 import { installBlockReason } from '../lib/scan';
-import { DEMO_TOKENS, INSTANCE, makeActions, makeApps, makeNodes } from './fixtures';
-import { ApiError, type Action, type ActionRequest, type CatalogApp, type Principal } from './types';
+import { DEMO_HOST_PORTS, DEMO_REQUIRES, DEMO_TOKENS, INSTANCE, makeActions, makeApps, makeNodes } from './fixtures';
+import { ApiError, type Action, type ActionRequest, type AppDependencies, type AppHostPorts, type CatalogApp, type Principal } from './types';
 
 /**
  * In-memory stand-in for the gateway (VITE_MOCK=1). It follows the §3 rules that
@@ -131,6 +131,27 @@ export class MockApi extends MockWiringBase implements OneMindApi {
     this.auth();
     this.actionsList.forEach((a) => this.advance(a));
     return this.catalog.map((a) => ({ ...a }));
+  }
+  /** Demo §12.22 dependencies, worked out from the demo catalog's current installed state. */
+  async appDependencies(id: string): Promise<AppDependencies> {
+    this.auth();
+    await this.apps();
+    if (!this.catalog.some((a) => a.id === id)) throw new ApiError(404, 'not_found', `No app ${id}`);
+    const app = (x: string) => this.catalog.find((a) => a.id === x);
+    const requires = (DEMO_REQUIRES[id] ?? []).map((r) => {
+      const choices = [r.id, ...r.alternatives].map((c) => ({ id: c, name: app(c)?.name ?? null, in_catalog: !!app(c), installed: !!app(c)?.installed }));
+      return { ...r, satisfied_by: choices.find((c) => c.installed)?.id ?? null, choices };
+    });
+    const dependents = this.catalog
+      .filter((a) => a.installed && (DEMO_REQUIRES[a.id] ?? []).some((r) => r.id === id || r.alternatives.includes(id)))
+      .map((a) => ({ id: a.id, name: a.name }));
+    return { app_id: id, requires, dependents };
+  }
+  /** Demo §12.22 host ports: nothing else on the demo hub holds them, so there are no conflicts. */
+  async appHostPorts(id: string): Promise<AppHostPorts> {
+    this.auth();
+    if (!this.catalog.some((a) => a.id === id)) throw new ApiError(404, 'not_found', `No app ${id}`);
+    return { app_id: id, node_id: INSTANCE.hub_node_id, declared: (DEMO_HOST_PORTS[id] ?? []).map((p) => ({ ...p })), conflicts: [] };
   }
   async createAction(req: ActionRequest) {
     const p = this.auth();

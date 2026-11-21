@@ -1,0 +1,30 @@
+{
+  "scanned_at": "2026-11-19T14:54:49Z",
+  "result": "pass",
+  "images": [
+    {
+      "ref": "docker.io/prom/prometheus:v3.16.0@sha256:e04987641b57704f408e31f6373ba4138ecf27cb4a165d24aabb6c38fddd0f06",
+      "archs": [
+        "amd64",
+        "arm64"
+      ],
+      "trivy": {
+        "version": "0.76.2",
+        "critical_fixable": 0,
+        "critical": 0,
+        "high": 2
+      },
+      "clamav": {
+        "signatures": "daily-28188",
+        "infected": 0
+      },
+      "secrets": 0,
+      "cosign": "unsigned"
+    }
+  ],
+  "licence": {
+    "spdx": "Apache-2.0",
+    "class": "L1"
+  },
+  "smoke": "pass"
+}

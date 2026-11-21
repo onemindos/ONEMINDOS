@@ -9,6 +9,8 @@
 > Every page keeps one rule: **AI agents and plugins can only ask. You approve. The OS does it. Everything is written down.**
 > Start with [BACKLOG.md](BACKLOG.md) for the order, [STATUS.md](STATUS.md) for where things are, and [DECISIONS-NEEDED.md](DECISIONS-NEEDED.md) for what only you can decide.
 
+> **Current run (from 2026-11-19):** [run-2026-11-19/](run-2026-11-19/README.md) has the one-week leap run: lanes, Codex prompts and how the gate lands PRs.
+
 ## 1. Positioning
 
 **OneMind is the self-hosted OS where AI agents can only ask. The gateway, not the prompt, makes them wait for your tap.**

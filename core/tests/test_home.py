@@ -33,6 +33,16 @@ def test_defaults_then_save_survives_restart(client, settings, clock):
         assert again["appearance"] == saved.json()["appearance"]
 
 
+def test_save_contract_requires_if_match(client):
+    operation = client.app.openapi()["paths"][PATH]["put"]
+    headers = {p["name"]: p for p in operation.get("parameters", []) if p["in"] == "header"}
+    assert "If-Match" in headers
+    assert headers["If-Match"]["required"] is True
+    assert headers["If-Match"]["schema"]["type"] == "string"
+    for status in ("412", "428"):
+        assert operation["responses"][status]["content"]["application/json"]["schema"]["$ref"] == "#/components/schemas/ErrorBody"
+
+
 def test_if_match_is_required_and_checked(client):
     etag = client.get(PATH, headers=ADULT).headers["etag"]
     body = client.get(PATH, headers=ADULT).json()
