@@ -12902,7 +12902,7 @@
     },
     "/v1/machines/{name}/console": {
       "post": {
-        "description": "A one-minute, single-use console ticket. Owner only: an agent never gets a screen.",
+        "description": "A one-minute, single-use console ticket for `GET /v1/machines/{name}/console/ws` (add `view=1` for a screen with no hands). Owner only: an agent never gets a screen.",
         "operationId": "machines.console",
         "parameters": [
           {
