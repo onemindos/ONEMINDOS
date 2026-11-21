@@ -8,7 +8,7 @@ set -eu
 slot=${1:-}
 case $slot in ''|*[!0-9a-z-]*) echo "bad slot" >&2; exit 2 ;; esac
 MAX_JOB_MIN=${MAX_JOB_MIN:-300}
-for rule in "DOCKER-USER -d 169.254.0.0/16 -j DROP" "DOCKER-USER -d 10.0.0.0/8 -j DROP" "INPUT -i docker0 -j DROP"; do
+for rule in "DOCKER-USER -m conntrack --ctstate ESTABLISHED,RELATED -j RETURN" "DOCKER-USER -i docker0 -d 169.254.0.0/16 -j DROP" "DOCKER-USER -i docker0 -d 172.16.0.0/12 -j DROP" "INPUT -i docker0 -j DROP"; do
   # shellcheck disable=SC2086  # $rule is a fixed list of arguments
   iptables -C $rule 2>/dev/null || { echo "container firewall missing ($rule): not starting a job" >&2; exit 3; }
 done

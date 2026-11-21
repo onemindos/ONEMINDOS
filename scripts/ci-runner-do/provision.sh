@@ -13,9 +13,13 @@ export DEBIAN_FRONTEND=noninteractive
 systemctl disable --now apt-daily.timer apt-daily-upgrade.timer 2>/dev/null || true
 apt-get update -qq && apt-get install -y -qq docker.io iptables
 systemctl enable --now docker
+# Drop only traffic that comes FROM the container bridge (-i docker0). Replies from the internet arrive on the
+# uplink, and conntrack has already rewritten their destination to the container's 172.17.x.x address, so a
+# bare "-d 172.16.0.0/12 -j DROP" would kill every reply. The ESTABLISHED/RELATED return rule goes first anyway.
 for d in 169.254.0.0/16 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 100.64.0.0/10; do
-  iptables -C DOCKER-USER -d "$d" -j DROP 2>/dev/null || iptables -I DOCKER-USER 1 -d "$d" -j DROP
+  iptables -C DOCKER-USER -i docker0 -d "$d" -j DROP 2>/dev/null || iptables -I DOCKER-USER 1 -i docker0 -d "$d" -j DROP
 done
+iptables -C DOCKER-USER -m conntrack --ctstate ESTABLISHED,RELATED -j RETURN 2>/dev/null || iptables -I DOCKER-USER 1 -m conntrack --ctstate ESTABLISHED,RELATED -j RETURN
 iptables -C INPUT -i docker0 -j DROP 2>/dev/null || iptables -I INPUT 1 -i docker0 -j DROP
 docker build -q -t onemind-ci-do:job --build-arg "RUNNER_VERSION=$RUNNER_VERSION" --build-arg "RUNNER_SHA256=$RUNNER_SHA256" .
 chmod 0755 start-job.sh

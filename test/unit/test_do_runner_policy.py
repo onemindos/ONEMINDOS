@@ -169,12 +169,26 @@ class Kit(unittest.TestCase):
         prov = (KIT / "provision.sh").read_text()
         for rng in ("169.254.0.0/16", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "100.64.0.0/10"):
             self.assertIn(rng, prov)
-        self.assertIn('iptables -I DOCKER-USER 1 -d "$d" -j DROP', prov)
+        self.assertIn('iptables -I DOCKER-USER 1 -i docker0 -d "$d" -j DROP', prov)
         self.assertIn("iptables -I INPUT 1 -i docker0 -j DROP", prov)
         start = (KIT / "start-job.sh").read_text()
         self.assertIn("container firewall missing", start)   # no job without the rules
-        self.assertIn("DOCKER-USER -d 169.254.0.0/16 -j DROP", start)
+        self.assertIn("DOCKER-USER -i docker0 -d 169.254.0.0/16 -j DROP", start)
+        self.assertIn("DOCKER-USER -i docker0 -d 172.16.0.0/12 -j DROP", start)
+        self.assertIn("DOCKER-USER -m conntrack --ctstate ESTABLISHED,RELATED -j RETURN", start)
         self.assertIn("INPUT -i docker0 -j DROP", start)
+
+    def test_firewall_keeps_replies_flowing(self):
+        # Docker's bridge is 172.17.0.0/16, inside the 172.16.0.0/12 drop. Replies reach DOCKER-USER with the
+        # container as destination, so the drops must be limited to traffic from the bridge, and the
+        # ESTABLISHED,RELATED return must be inserted AFTER the drops (each -I 1 lands first), i.e. end up first.
+        prov = (KIT / "provision.sh").read_text()
+        for line in prov.splitlines():
+            if "-j DROP" in line and "DOCKER-USER" in line:
+                self.assertIn("-i docker0", line, line)
+        ret = prov.index("iptables -I DOCKER-USER 1 -m conntrack --ctstate ESTABLISHED,RELATED -j RETURN")
+        self.assertGreater(ret, prov.index('iptables -I DOCKER-USER 1 -i docker0 -d "$d" -j DROP'))
+        self.assertLess(ret, prov.index("docker build"))
 
     def test_cost_guards_exist(self):
         up = (KIT / "up").read_text()
