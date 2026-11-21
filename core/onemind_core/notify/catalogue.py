@@ -109,6 +109,11 @@ _SPECS = [
          "{free_pct}% free on {mount} ({free_gb} GB).", dedupe="node:{node_id}:disk",
          link="/nodes/{node_id}", notify_resolve=True),
     Spec("disk.ok", "resolve", "storage", resolves=("node:{node_id}:disk",)),
+    Spec("disk.budget_near", "open", "storage", "warning", "Image disk filling up on {hostname}",
+         "{disk_used_pct}% used; the image budget is {budget_pct}%. OneMind already removes only superseded "
+         "app images (never an installed app's, stopped or not); add a disk or remove apps you no longer need.",
+         dedupe="node:{node_id}:disk_budget", link="/nodes/{node_id}", notify_resolve=True),
+    Spec("disk.budget_ok", "resolve", "storage", resolves=("node:{node_id}:disk_budget",)),
     Spec("memory.high", "open", "nodes", "warning", "Memory almost full on {hostname}",
          "{used_pct}% of memory in use.", dedupe="node:{node_id}:memory", link="/nodes/{node_id}"),
     Spec("memory.ok", "resolve", "nodes", resolves=("node:{node_id}:memory",)),
