@@ -628,17 +628,33 @@ def test_a_box_with_no_relay_says_so_plainly(nc, hs):
 def test_a_paired_relay_is_shown_and_the_mode_is_relay(relay_nc, hs):
     hs.users["9"] = {"id": "9", "name": "onemind-machines"}
     view = relay_nc.get("/v1/mesh", headers=OWNER).json()
-    assert view["mode"] == "relay" and view["relay"]["state"] == "configured" and view["relay"]["addr"] == "203.0.113.7"
+    assert view["mode"] == "lan"  # no client uses the relay yet, so the mode must not claim it
+    assert view["relay"]["state"] == "configured" and view["relay"]["addr"] == "203.0.113.7"
+    assert "does not work yet" in view["relay"]["detail"]
     assert relay_nc.get("/v1/mesh").status_code == 401  # still signed-in callers only
 
 
-def test_join_bundle_advertises_lan_first_then_the_relay(relay_nc):
+def test_join_bundle_keeps_the_relay_out_of_control_addrs(relay_nc):
     t = ticket(relay_nc)
     node = Node()
     jr = relay_nc.post("/v1/fabric/join-requests", json=node.body(t["one_time"]["join_code"])).json()
     relay_nc.post(f"/v1/actions/{jr['action']['id']}/approve", headers=OWNER)
     c = node.poll(relay_nc, jr["join_request_id"], t["one_time"]["join_code"]).json()["credentials"]
-    assert c["mesh"]["control_addrs"] == ["192.0.2.10", "203.0.113.7"]
+    assert c["mesh"]["control_addrs"] == ["192.0.2.10"] and c["mesh"]["relay_addrs"] == ["203.0.113.7"]
+
+
+def test_relay_never_replaces_the_home_address_without_a_lan_addr(net_settings, clock):
+    # no lan_addr: control_addrs stays empty so the node keeps the ticket's hub address (works at home, off grid)
+    mesh = replace(net_settings.section(MeshSettings), relay_addr="203.0.113.7")
+    net = replace(net_settings.section(NetSettings), lan_addr=None)
+    sections = {**net_settings.sections, "mesh": mesh, "net": net}
+    c2 = TestClient(create_app(replace(net_settings, sections=sections), clock=clock, executor=ScriptedExecutor()))
+    t = ticket(c2)
+    node = Node()
+    jr = c2.post("/v1/fabric/join-requests", json=node.body(t["one_time"]["join_code"])).json()
+    c2.post(f"/v1/actions/{jr['action']['id']}/approve", headers=OWNER)
+    c = node.poll(c2, jr["join_request_id"], t["one_time"]["join_code"]).json()["credentials"]
+    assert c["mesh"]["control_addrs"] == [] and c["mesh"]["relay_addrs"] == ["203.0.113.7"]
 
 
 @pytest.mark.parametrize("addr", [".".join(("10", "0", "0", "5")), ".".join(("192", "168", "1", "9")), "127.0.0.1", "100.64.0.9", "relay.example.com", ""])

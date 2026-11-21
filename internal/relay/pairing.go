@@ -27,7 +27,7 @@ import (
 // dashboard (NETWORKING.md §4.4): onemind-relay:v1?addr=<public ip>&fp=<sha256>&code=<one-time>.
 const PairingScheme = "onemind-relay:v1"
 
-var cgnat = netip.MustParsePrefix("100.64.0.0/10") // the mesh's own range: never a relay's address
+var cgnat = netip.PrefixFrom(netip.AddrFrom4([4]byte{100, 64, 0, 0}), 10) // the mesh's own range: never a relay's address
 
 var fpRe = regexp.MustCompile(`^[0-9a-f]{64}$`)
 

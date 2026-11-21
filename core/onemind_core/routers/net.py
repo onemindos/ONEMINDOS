@@ -71,8 +71,9 @@ def relay_view(cfg: MeshSettings) -> dict:
     relay only adds reach from outside. The address is the owner's own machine, so it is shown."""
     if cfg.relay_addr:
         return {"state": "configured", "addr": cfg.relay_addr,
-                "detail": "Phones and laptops away from home reach this box through your own relay. "
-                          "The relay passes encrypted traffic only and shows no dashboard."}
+                "detail": "Your relay's address is saved, but reaching this box from outside does not work yet: "
+                          "the relay cannot reach a box behind a home router until the box dials out to it "
+                          "(a later step). At home and off grid everything works as before."}
     return {"state": "none", "addr": None,
             "detail": "No relay is set up. Everything works on your home network, with or without internet. "
                       "To reach this box from outside, turn one of your own machines into a relay."}
@@ -243,7 +244,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         apps = [{"app_id": a, "lan": f"{scheme}://{a}.{box}.local", "lan_alias": f"{scheme}://{a}.onemind.local",
                  "mesh": f"{scheme}://{a}.apps.onemind.internal"} for a in web_apps(gw)]
         out: dict = {
-            "mode": ("relay" if mesh_cfg.relay_addr else "lan") if mesh_cfg.enabled else "off", "box": box,
+            "mode": "lan" if mesh_cfg.enabled else "off", "box": box,
             "control": {"state": "off", "checked_at": None},
             "relay": relay_view(mesh_cfg), "nodes": [], "devices": [],
             "names": {"lan": ["onemind.local", f"{box}.local"], "mesh": ["hub.onemind.internal"] if mesh_cfg.enabled else []},

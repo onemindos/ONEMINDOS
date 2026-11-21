@@ -12,7 +12,7 @@
 ## How a connection is made
 **At home.** The phone or laptop is on the same network as the hub. The join bundle lists the hub's home address first, so the connection never leaves the house. This works with the internet cable pulled out.
 
-**Away.** The same bundle lists your relay's address second. The device opens an HTTPS connection to the relay asking for the hub's control name. The relay looks at that name, opens a connection to the hub, and copies bytes both ways. The device and the hub then do their TLS handshake with each other through it. Once the mesh is up, devices try a direct path first and use the relay as the road only when they cannot.
+**Away.** **This does not work yet.** Today the join bundle carries your relay's address in its own field (`relay_addrs`, never mixed into the home addresses), and the relay program exists and is tested, but no phone or laptop dials it and the relay cannot reach a hub that sits behind a home router. The gaps are the follow-ups below (item 2 and item 7). The design: the device opens an HTTPS connection to the relay asking for the hub's control name; the relay looks at that name, opens a connection to the hub, and copies bytes both ways; the device and the hub do their TLS handshake with each other through it. Until then a laptop that leaves home loses the hub.
 
 **Off grid.** With no internet and no relay, the local network and the LAN mesh keep working: names like `onemind.local` come from the box itself, and nothing needs a company's server. Without a relay the box says so in plain words (`GET /v1/mesh` returns `relay.state = "none"` and an explanation) instead of failing. If the relay is a second box on the same off-grid network, it works the same way.
 
@@ -31,8 +31,8 @@ Mesh tunnels normally use UDP. Hotel and office networks often block it. The rel
 ## What exists now, and what is left
 **Built in this first slice:**
 - `onemindd relay init|serve|status` (`internal/relay`): the relay role. `init` makes the config and prints the pairing text once, keeping only a hash of the one-time code; `serve` is the SNI router; `status` says plainly when the machine is not a relay.
-- Gateway: `ONEMIND_MESH_RELAY_ADDR` (a public IP, validated), the relay shown in `GET /v1/mesh`, and the relay address advertised after the LAN address in the join bundle (`control_addrs`).
-- Tests: Go (traffic through the relay verifies the hub's own certificate, unknown names and non-TLS are closed, config refuses wildcards) and Python (no-relay message, bundle order, address validation).
+- Gateway: `ONEMIND_MESH_RELAY_ADDR` (a public IP, validated), the relay shown in `GET /v1/mesh`, and the relay address carried in the join bundle's own `relay_addrs` field (never in `control_addrs`, which holds the home address a node pins). `GET /v1/mesh` says plainly that away access does not work yet.
+- Tests: Go (traffic through the relay verifies the hub's own certificate, unknown names and non-TLS are closed, config refuses wildcards) and Python (no-relay message, relay kept out of `control_addrs`, no-LAN-address case, address validation).
 
 **Follow-ups, in order:**
 1. `mesh.relay.add`: the owner pastes the pairing text on the dashboard (Network, Relay), the approved action pins the relay's setup certificate, sends the hub's WireGuard public key, and stores the relay address (today it is set in the environment). Critical action, owner only.
@@ -41,6 +41,7 @@ Mesh tunnels normally use UDP. Hotel and office networks often block it. The rel
 4. Public control name with ACME through the passthrough, and the CAA `accounturi` record so the relay cannot get a certificate for the hub's name.
 5. Image: a `onemind-relay.service` unit and the cloud image role switch; phone join QR carrying the relay.
 6. Dashboard card for Network, Relay.
+7. Client fallback: a node that cannot reach the home address dials `relay_addrs` over HTTPS (not built; nothing reads the field yet).
 
 ## Test plan for hub, relay and client (QEMU or compose)
 Extends `test/net/two_vm.py` (its criteria file is preregistered and is not changed here; new criteria go in a new file with a new hash):
