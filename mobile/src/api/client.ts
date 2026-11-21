@@ -76,6 +76,8 @@ export const OP = {
   automationState: 'GET /v1/automation/state',
   filesRoots: 'GET /v1/files/roots',
   filesList: 'GET /v1/files/list',
+  filesDownload: 'GET /v1/files/download',
+  filesUploads: 'POST /v1/files/uploads',
   migratePlans: 'GET /v1/migrate/plans',
 } as const;
 
@@ -198,6 +200,14 @@ export interface OneMindApi {
   // Files and migration, read only on the phone.
   filesRoots(): Promise<FileRoot[]>;
   filesList(root: string, path: string): Promise<FileEntry[]>;
+  /** Where and how to fetch one file's bytes (the native layer streams it to disk; the token never goes to another origin). */
+  filesDownloadRequest(root: string, path: string): { url: string; headers: Record<string, string> };
+  /** tus 1.0.0 (docs/leap/core/FILES.md section 3): create the upload; returns its absolute URL. 403 no write access, 409 name taken, 413 quota. */
+  filesUploadCreate(m: { root: string; path: string; name: string; size: number; sha256?: string }): Promise<string>;
+  /** `HEAD` the upload: how many bytes the hub holds (resume point). */
+  filesUploadOffset(url: string): Promise<number>;
+  /** `PATCH` one chunk at `offset`; returns the new offset and, on the last chunk, the hub's whole-file sha256. */
+  filesUploadChunk(url: string, offset: number, bytes: Uint8Array): Promise<{ offset: number; sha256?: string }>;
   migratePlans(): Promise<MigratePlan[]>;
   /** Where the SSE stream lives and which bearer to send; undefined in demo mode (no stream). */
   eventsEndpoint(): { url: string; bearer: () => string | undefined; refresh?: () => Promise<string | undefined> } | undefined;
@@ -569,6 +579,66 @@ export class HttpApi implements OneMindApi {
   }
   filesList(root: string, path: string) {
     return this.req<FileEntry[]>('GET', `/v1/files/list?root=${enc(root)}&path=${enc(path)}&limit=200`, undefined, 'array');
+  }
+  filesDownloadRequest(root: string, path: string) {
+    const bearer = this.tokens.current();
+    return {
+      url: `${this.base}/v1/files/download?root=${enc(root)}&path=${enc(path)}`,
+      headers: { 'OneMind-API-Version': '1', ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}) },
+    };
+  }
+  /** One tus request. Not `req`: tus answers with headers and no JSON, and the location is an absolute URL on the hub. */
+  private async tus(method: string, url: string, headers: Record<string, string>, body?: Uint8Array, retried = false): Promise<Response> {
+    if (url !== this.base && !url.startsWith(this.base + '/')) throw new ApiError(0, 'unknown', 'The hub sent an upload address on another origin');
+    const bearer = this.tokens.current();
+    const ctl = typeof AbortController !== 'undefined' ? new AbortController() : undefined;
+    const timer = ctl ? setTimeout(() => ctl.abort(), Math.max(this.timeoutMs, 60_000)) : undefined;
+    let res: Response;
+    try {
+      res = await this.fetchFn(url, {
+        signal: ctl?.signal,
+        method,
+        headers: { 'OneMind-API-Version': '1', 'Tus-Resumable': '1.0.0', ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}), ...headers },
+        body: body as unknown as BodyInit | undefined,
+      });
+    } catch (e) {
+      throw new ApiError(0, 'network', e instanceof Error ? e.message : 'Network error');
+    } finally {
+      if (timer !== undefined) clearTimeout(timer);
+    }
+    if (res.ok) return res;
+    let data: unknown;
+    try {
+      data = JSON.parse(await res.text());
+    } catch {
+      data = undefined;
+    }
+    const err = errorFrom(res.status, data, res.headers.get('Retry-After'), res.headers.get('DPoP-Nonce'));
+    if (err.code === 'unauthenticated' && err.reason !== 'step_up_required' && bearer && !retried && this.tokens.refresh && (await this.renew())) {
+      return this.tus(method, url, headers, body, true);
+    }
+    throw err;
+  }
+  async filesUploadCreate(m: { root: string; path: string; name: string; size: number; sha256?: string }) {
+    const b64 = (v: string) => btoa(String.fromCharCode(...new TextEncoder().encode(v)));
+    const pairs: [string, string][] = [['filename', m.name], ['root', m.root], ['path', m.path]];
+    if (m.sha256) pairs.push(['sha256', m.sha256]);
+    const meta = pairs.map(([k, v]) => `${k} ${b64(v)}`).join(',');
+    const res = await this.tus('POST', `${this.base}/v1/files/uploads`, { 'Upload-Length': String(m.size), 'Upload-Metadata': meta });
+    const loc = res.headers.get('Location');
+    if (!loc) throw new ApiError(res.status, 'unknown', 'The hub did not return an upload address');
+    return new URL(loc, this.base + '/').toString();
+  }
+  async filesUploadOffset(url: string) {
+    const res = await this.tus('HEAD', url, {});
+    const n = Number(res.headers.get('Upload-Offset'));
+    if (!Number.isSafeInteger(n) || n < 0) throw new ApiError(res.status, 'unknown', 'The hub sent no valid Upload-Offset');
+    return n;
+  }
+  async filesUploadChunk(url: string, offset: number, bytes: Uint8Array) {
+    const res = await this.tus('PATCH', url, { 'Upload-Offset': String(offset), 'Content-Type': 'application/offset+octet-stream' }, bytes);
+    const n = Number(res.headers.get('Upload-Offset'));
+    return { offset: Number.isSafeInteger(n) ? n : offset + bytes.length, sha256: res.headers.get('OneMind-File-Sha256') ?? undefined };
   }
   migratePlans() {
     return this.req<MigratePlan[]>('GET', '/v1/migrate/plans', undefined, 'array');
