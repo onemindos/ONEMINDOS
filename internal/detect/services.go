@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/onemindos/onemindos/internal/heartbeat"
@@ -124,6 +125,7 @@ func (c *Collector) GPU(ctx context.Context, board string) heartbeat.GPU {
 				}
 			}
 		}
+		c.gpuMemory(ctx, &g)
 		return g
 	}
 	if board == heartbeat.BoardJetsonOrin {
@@ -136,11 +138,44 @@ func (c *Collector) GPU(ctx context.Context, board string) heartbeat.GPU {
 	if c.has("nvidia-smi") {
 		if b, err := c.run(ctx, "nvidia-smi", "--query-gpu=name", "--format=csv,noheader"); err == nil {
 			if m := firstLine(string(b)); m != "" {
-				return heartbeat.GPU{NVIDIA: true, Model: &m}
+				g := heartbeat.GPU{NVIDIA: true, Model: &m}
+				c.gpuMemory(ctx, &g)
+				return g
 			}
 		}
 	}
 	return heartbeat.GPU{}
+}
+
+// gpuMemory fills the card count and the smallest card's memory (MiB) from nvidia-smi,
+// one line per card. Anything it cannot read stays unset: an unknown is never guessed,
+// so an app that asks for more memory than is known is refused, not started on a hope.
+func (c *Collector) gpuMemory(ctx context.Context, g *heartbeat.GPU) {
+	if !c.has("nvidia-smi") {
+		return
+	}
+	b, err := c.run(ctx, "nvidia-smi", "--query-gpu=memory.total", "--format=csv,noheader,nounits")
+	if err != nil {
+		return
+	}
+	count, least := 0, 0
+	for _, line := range strings.Split(string(b), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		mb, err := strconv.Atoi(line)
+		if err != nil || mb <= 0 {
+			return // [N/A] or noise: report nothing rather than a partial answer
+		}
+		count++
+		if least == 0 || mb < least {
+			least = mb
+		}
+	}
+	if count > 0 {
+		g.Count, g.VRAMMB = &count, &least
+	}
 }
 
 func (c *Collector) nvidiaProcModel() string {

@@ -230,6 +230,10 @@ class AppStore:
                 "declared": [h.to_json() for h in hostports.declared(entry.manifest)],
                 "conflicts": self._port_conflicts(entry)}
 
+    def app_schedule(self, app: AppEntry) -> dict | None:
+        """The machine and GPU request an install or update writes into the pods (placement.schedule)."""
+        return placement.schedule(app.manifest, self.gw.registry.list())
+
     def placement_view(self, app_id: str) -> dict:
         """CORE-FABRIC-4 (#171): the Market verdict, from `spec.requires` and every node's capabilities."""
         return {"app_id": app_id, **placement.place(self._app(app_id).manifest, self.gw.registry.list())}
@@ -520,6 +524,7 @@ class AppStore:
         actions.after_dispatch.append(self.after_dispatch)
         actions.settings_transform = self.settings_transform
         actions.dependency_paths = self.dependency_paths
+        actions.placement = self.app_schedule
         self.gw.catalog.providers.append(self.sources)
 
 

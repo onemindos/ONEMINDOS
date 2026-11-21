@@ -187,8 +187,13 @@ type Slot struct {
 	BundleVersion string `json:"bundle_version,omitempty"`
 }
 
-// GPU reports an NVIDIA GPU. Model is null when there is none.
+// GPU reports an NVIDIA GPU. Model is null when there is none. Count and VRAMMB
+// are additive (omitted when nvidia-smi is not there to read them, and always on
+// a Jetson, whose GPU shares system memory): Count is the number of cards and
+// VRAMMB the memory of the smallest one, which is what a placement must trust.
 type GPU struct {
 	NVIDIA bool    `json:"nvidia"`
 	Model  *string `json:"model"`
+	Count  *int    `json:"count,omitempty"`
+	VRAMMB *int    `json:"vram_mb,omitempty"`
 }

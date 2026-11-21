@@ -17,14 +17,35 @@ contract §2), so nothing here touches the cluster:
 
 A GPU here means an NVIDIA GPU, the only kind `onemindd` detects today (`gpu.nvidia`). A node that
 does not report the `gpu` object at all (an older agent) is not counted as having one: an app that
-needs a GPU is refused there rather than started on a guess.
+needs a GPU is refused there rather than started on a guess. An app may also ask for more than one
+card (`requires.gpuCount`) and for card memory (`requires.minVramMb`); the heartbeat's `gpu.count`
+and `gpu.vram_mb` (the smallest card) answer, and a number the node did not report is refused, not
+assumed.
+
+4. **The schedule** (`schedule`, `apply`). The verdict is only advice until the pods carry it. For an
+install or update the chosen machine and the GPU request are written into the app's pod templates
+before the sandbox check: `nodeSelector kubernetes.io/hostname` when the app runs on another
+machine than the hub, and `runtimeClassName: nvidia` plus an `nvidia.com/gpu` limit when it needs a
+GPU. The same facts go into the plan, so they are part of what the owner approves.
 """
 
 from __future__ import annotations
 
+import copy
+
 from . import cpufit
+from .policy import _pod_spec  # the one place that knows where each workload kind keeps its pods
 
 PREFIX = "onemind.io/"
+
+# The hub is the front door: it runs the gateway, k3s and the family's everyday apps. An app that
+# needs at least this share of the hub's memory is "heavy" there. It still runs on the hub when no
+# other machine can take it, but a worker that fits cleanly wins, so Ollama and its like land on the
+# machine with room (the 16 GB hub keeps its headroom).
+HUB_HEAVY_FRACTION = 0.25
+GPU_RUNTIME_CLASS = "nvidia"
+GPU_RESOURCE = "nvidia.com/gpu"
+HOSTNAME_LABEL = "kubernetes.io/hostname"
 
 
 def labels(node: dict) -> dict[str, str]:
@@ -90,12 +111,19 @@ def assess(manifest: dict, node: dict) -> dict:
             add("gpu_unknown", f"{name} needs a graphics card (GPU), and machine {node_id} did not report one.", True)
         elif gpu.get("nvidia") is not True:
             add("gpu_missing", f"{name} needs a graphics card (GPU), and machine {node_id} has none.", True)
+    if requires.get("gpu") is True and isinstance(node.get("gpu"), dict) and node["gpu"].get("nvidia") is True:
+        _gpu_size(requires, node, name, node_id, add)
     need = _number(requires.get("minMemoryMb"))
     total, free = _number(node.get("mem_total_mb")), _number(node.get("mem_available_mb"))
     if need is not None and total is not None and total < need:
         add("memory_too_small", f"{name} needs {need:.0f} MB of memory, and machine {node_id} has {total:.0f} MB in all.", True)
     elif need is not None and free is not None and free < need:
         add("memory_busy", f"{name} needs {need:.0f} MB of memory, and machine {node_id} has {free:.0f} MB free right now.", False)
+
+    if (not any(r["blocking"] for r in reasons) and need is not None and total is not None and node.get("role") == "hub"
+            and total >= need >= total * HUB_HEAVY_FRACTION):
+        add("hub_heavy", f"{name} is a big app for the hub ({need:.0f} of {total:.0f} MB). "
+            "A second machine would keep the hub quick.", False)
 
     if any(r["blocking"] for r in reasons):
         verdict = "no"
@@ -104,6 +132,39 @@ def assess(manifest: dict, node: dict) -> dict:
     else:
         verdict = "fits"
     return {"node_id": node_id, "role": node.get("role"), "verdict": verdict, "labels": labels(node), "reasons": reasons}
+
+
+def gpu_request(manifest: dict) -> dict | None:
+    """What the app asks of GPUs: {count, min_vram_mb}, or None when it needs none."""
+    spec = manifest.get("spec") or {}
+    requires = spec.get("requires") if isinstance(spec.get("requires"), dict) else {}
+    if requires.get("gpu") is not True:
+        return None
+    count, vram = requires.get("gpuCount"), requires.get("minVramMb")
+    ok = lambda v: isinstance(v, int) and not isinstance(v, bool) and v >= 1  # noqa: E731
+    return {"count": count if ok(count) else 1, "min_vram_mb": vram if ok(vram) else None}
+
+
+def _gpu_size(requires: dict, node: dict, name: str, node_id: str, add) -> None:
+    """Card count and card memory against what the node reported. Unknown is refused, never assumed."""
+    gpu = node["gpu"]
+    want = gpu_request({"spec": {"requires": requires}}) or {"count": 1, "min_vram_mb": None}
+    have = _number(gpu.get("count"))
+    if want["count"] > 1:
+        if have is None:
+            add("gpu_count_unknown", f"{name} needs {want['count']} graphics cards, and machine {node_id} "
+                "did not report how many it has.", True)
+        elif have < want["count"]:
+            add("gpu_count_too_low", f"{name} needs {want['count']} graphics cards, and machine {node_id} "
+                f"has {have:.0f}.", True)
+    if want["min_vram_mb"] is not None:
+        vram = _number(gpu.get("vram_mb"))
+        if vram is None:
+            add("gpu_vram_unknown", f"{name} needs {want['min_vram_mb']} MB of graphics memory, and machine "
+                f"{node_id} did not report it.", True)
+        elif vram < want["min_vram_mb"]:
+            add("gpu_vram_too_small", f"{name} needs {want['min_vram_mb']} MB of graphics memory, and the "
+                f"smallest card on machine {node_id} has {vram:.0f} MB.", True)
 
 
 def _rank(line: dict, node: dict) -> tuple:
@@ -133,3 +194,46 @@ def place(manifest: dict, nodes: list[dict]) -> dict:
         if warnings:
             message += " " + " ".join(warnings)
     return {"verdict": verdict, "node_id": node_id, "message": message, "nodes": lines}
+
+
+def schedule(manifest: dict, nodes: list[dict]) -> dict | None:
+    """What an install or update must put into the pods, or None when nothing needs to change.
+
+    {node_id, hostname, pin, gpu: {count} | None}. Pure and deterministic over the registry, and
+    hashed into the plan, so an approval covers exactly this machine and this GPU request.
+    `pin` is only set when the best machine is not the hub and it reported its hostname (k3s names
+    a node after it); without a hostname the pods are left to the scheduler and the plan says so.
+    """
+    where = place(manifest, nodes)
+    want = gpu_request(manifest)
+    if where["verdict"] not in ("here", "elsewhere"):
+        return None
+    node = next((n for n in nodes if n.get("node_id") == where["node_id"]), {})
+    hostname = node.get("hostname") if isinstance(node.get("hostname"), str) and node.get("hostname") else None
+    pin = where["verdict"] == "elsewhere" and hostname is not None
+    if not pin and want is None:
+        return None
+    return {"node_id": where["node_id"], "hostname": hostname.lower() if hostname else None, "pin": pin,
+            "gpu": {"count": want["count"]} if want else None}
+
+
+def apply(docs: list, sched: dict | None) -> list:
+    """The rendered objects with the schedule written into every pod template (a copy)."""
+    if not sched:
+        return docs
+    out = copy.deepcopy(docs)
+    for obj in out:
+        pod, _base = _pod_spec(obj) if isinstance(obj, dict) else (None, "")
+        if not isinstance(pod, dict):
+            continue
+        if sched.get("pin") and sched.get("hostname"):
+            selector = pod.get("nodeSelector") if isinstance(pod.get("nodeSelector"), dict) else {}
+            pod["nodeSelector"] = {**selector, HOSTNAME_LABEL: sched["hostname"]}
+        gpu = sched.get("gpu")
+        containers = pod.get("containers")
+        if gpu and isinstance(containers, list) and containers and isinstance(containers[0], dict):
+            pod["runtimeClassName"] = GPU_RUNTIME_CLASS
+            res = containers[0].setdefault("resources", {})
+            limits = res.setdefault("limits", {})
+            limits[GPU_RESOURCE] = str(gpu["count"])  # the first container is the app; sidecars take none
+    return out

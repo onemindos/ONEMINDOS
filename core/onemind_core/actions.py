@@ -437,6 +437,9 @@ class ActionService:
         # §12.22 dependency network paths: app -> ([{from, to, provider, port, protocol, requirement}],
         # plan warnings). Set by the app store.
         self.dependency_paths: Callable[[AppEntry], tuple[list[dict], list[str]]] | None = None
+        # CORE-FABRIC-4 (#171): app -> placement.schedule (the machine to pin to, the GPU request) or None.
+        # Set by the app store; hashed into the plan so an approval covers exactly that machine.
+        self.placement: Callable[[AppEntry], dict | None] | None = None
 
     def register_type(self, action_type: str, spec: FeatureAction) -> None:
         if action_type in APP_CLAIMS or action_type in self.feature_types or action_type in self.handlers:
@@ -643,7 +646,8 @@ class ActionService:
         network = None
         if self.dependency_paths is not None:
             network = self.dependency_paths(app)
-        rendered = lc.render_plan(action_type, params, app, self.repo.get_runtime(app.id), status, network)
+        sched = self.placement(app) if self.placement is not None and action_type in ("app.install", "app.update") else None
+        rendered = lc.render_plan(action_type, params, app, self.repo.get_runtime(app.id), status, network, sched)
         _, allowed, allow_absent = APP_CLAIMS[action_type]
         problem = None if (status in allowed or (status is None and allow_absent)) else (
             f"app {app.id!r} is {self.shown_status(status)}"
@@ -1082,8 +1086,9 @@ class ActionService:
             if a.type != "app.remove":
                 paths = tuple((p["provider"], p["port"]) for p in (a.plan or {}).get("network_paths") or ())
             sync = a.type != "app.install" or bool(paths)  # a fresh install has nothing to close
+        sched = self.placement(app) if self.placement is not None and a.type in ("app.install", "app.update") else None
         return lc.ExecContext(params=dict(a.params), settings=settings, credentials=grant, restart=restart,
-                              dependency_paths=paths, dependency_sync=sync)
+                              dependency_paths=paths, dependency_sync=sync, placement=sched)
 
     def _progress_reporter(self, a: Action):
         def report(step: str, pct: int) -> None:

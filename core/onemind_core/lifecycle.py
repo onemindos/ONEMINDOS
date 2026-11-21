@@ -143,7 +143,7 @@ OPENS_PATHS = frozenset({"app.install", "app.update", "app.configure"})
 
 
 def render_plan(action_type: str, params: dict, app: AppEntry, runtime: AppRuntime | None, status: str | None,
-                network: tuple[list[dict], list[str]] | None = None) -> dict:
+                network: tuple[list[dict], list[str]] | None = None, sched: dict | None = None) -> dict:
     """The plan for one action, with `plan_sha256`. Pure: no cluster call, no write.
 
     network: (paths, warnings) from the dependency resolver (§12.22); an app without dependencies
@@ -185,13 +185,23 @@ def render_plan(action_type: str, params: dict, app: AppEntry, runtime: AppRunti
             warnings.append(f"Opens a network path: {path['from']} → {path['to']} on TCP {path['port']} "
                             f"(needs {path['requirement']}).")
         warnings.extend(net_warnings)
+    nodes: list[dict] = []
+    if sched and action_type in ("app.install", "app.update"):
+        obj["placement"] = sched  # hashed: another machine or GPU request is a different plan
+        nodes.append({"node_id": sched["node_id"], "pinned": sched["pin"], "gpu": sched["gpu"]})
+        if sched["pin"]:
+            warnings.append(f"Runs on machine {sched['node_id']}, not the hub: the pods are pinned to it.")
+        elif sched["node_id"] and sched["gpu"] is None:
+            warnings.append(f"Best machine is {sched['node_id']}, but it reported no hostname, so the pods are not pinned.")
+        if sched["gpu"]:
+            warnings.append(f"Uses {sched['gpu']['count']} graphics card(s) on machine {sched['node_id']}.")
     if bundle is None:
         warnings.append("The app's manifest folder could not be read.")
     objects = [obj]
     target = {"kind": "app", "id": app.id}
     plan = {
         "summary": _SUMMARY[action_type].format(name=name, to=to_version or "", frm=frm or "the current version"),
-        "objects": objects, "images": [], "volumes": volumes, "nodes": [], "warnings": warnings,
+        "objects": objects, "images": [], "volumes": volumes, "nodes": nodes, "warnings": warnings,
         "app_status": status or "not_installed",
     }
     if paths:
@@ -242,6 +252,8 @@ class ExecContext:
     # closes the ones its own onemind-dependencies policy names but these do not; app.remove closes all).
     dependency_paths: tuple[tuple[str, int], ...] = ()
     dependency_sync: bool = False
+    # CORE-FABRIC-4 (#171): placement.schedule for an install or update (pin to a machine, GPU request).
+    placement: dict | None = None
 
 
 # ---- sealed credentials (PD-07) ----------------------------------------------------------
