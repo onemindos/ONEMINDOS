@@ -35,3 +35,8 @@
 @media (max-width: 720px) {
   .dash-hide-compact { display: none; }
 }
+.dash-health { padding: var(--om-space-2) var(--om-space-3); }
+.dash-health ul { display: flex; flex-wrap: wrap; gap: var(--om-space-2); margin: 0; padding: 0; list-style: none; }
+.dash-health a, .dash-health-row { display: inline-flex; align-items: center; gap: var(--om-space-2); min-height: 44px; padding: 0 var(--om-space-2); color: inherit; text-decoration: none; border-radius: var(--om-radius-pill); }
+.dash-health a:hover { background: var(--om-color-surface-raised, transparent); }
+.dash-health-label { font-size: var(--om-font-size-xs); font-weight: var(--om-font-weight-semibold); }
