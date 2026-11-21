@@ -73,7 +73,7 @@ export function RecoveryKit({ kit, onConfirmed, onSkip }: { kit: OnboardingKit; 
         )}
         {!confirmed && !issued && kit.state === 'issued' && (
           <>
-            <p className="om-hint">A kit was already created on this box. The key cannot be shown again, so type the groups below from the copy you saved. Lost it? Make a new kit: the old key stops working.</p>
+            <p className="om-hint">A kit was already created on this box. The key cannot be shown again, so type the groups below from the copy you saved. Lost it? Make a new kit. The old key keeps working until it is removed (backup.key.rotate), so treat a lost copy as still valid.</p>
             <div className="oms-kit-actions">
               <button type="button" className="om-btn om-btn-secondary" disabled={busy} onClick={() => void run(async () => { setAnswers({}); setIssued(await kit.issue()); })}>
                 <ShellIcon name="key" size={18} /> I lost my copy: make a new kit
