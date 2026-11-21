@@ -8,7 +8,7 @@ Self-hosted video downloader for YouTube and other sites: a web UI for yt-dlp.
 | | |
 |---|---|
 | Version | 2026.11.10 (upstream release `2026.11.10`, published 2026-11-10) |
-| Licence | `AGPL-3.0`, Market class **L2** (licence gate, scan of 2026-11-19) |
+| Licence | `AGPL-3.0`, Market class **L2** (licence gate, scan of 2026-11-20) |
 | Tier | `verified` (set by CI: sdk/tools/app-gate) |
 | Category | media |
 | GitHub | <https://github.com/alexta69/metube> |
@@ -65,10 +65,10 @@ Images:
 
 ## Latest security scan
 
-Scanned 2026-11-19T14:35:22Z by `sdk/tools/app-gate`: **pass**. Licence `AGPL-3.0` class L2; smoke test pass.
+Scanned 2026-11-20T14:00:39Z by `sdk/tools/app-gate`: **pass**. Licence `AGPL-3.0` class L2; smoke test pass.
 
 | Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
 |---|---|---|---|---|---|---|
-| `ghcr.io/alexta69/metube:2026.11.10@sha256:6654866e76eab4228530dc5ed828ccfd702d1ee810feab2d629028272b399e14` | amd64, arm64 | 1 (0) | 123 | 0 infected (daily-28188) | 0 | unsigned |
+| `ghcr.io/alexta69/metube:2026.11.10@sha256:6654866e76eab4228530dc5ed828ccfd702d1ee810feab2d629028272b399e14` | amd64, arm64 | 1 (0) | 123 | 0 infected (daily-28189) | 0 | unsigned |
 
 Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

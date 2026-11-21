@@ -1,5 +1,5 @@
 {
-  "scanned_at": "2026-11-19T14:36:30Z",
+  "scanned_at": "2026-11-20T14:03:29Z",
   "result": "fail",
   "images": [
     {
@@ -10,12 +10,12 @@
       ],
       "trivy": {
         "version": "0.76.2",
-        "critical_fixable": 1,
-        "critical": 2,
-        "high": 370
+        "critical_fixable": 2,
+        "critical": 3,
+        "high": 376
       },
       "clamav": {
-        "signatures": "daily-28188",
+        "signatures": "daily-28189",
         "infected": 0
       },
       "secrets": 45,
