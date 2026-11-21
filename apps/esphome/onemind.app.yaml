@@ -12,6 +12,8 @@ metadata:
   # Market category slug from docs/design/TAXONOMY.md §1; sub-tags (firmware) are listed in README.md
   # until the schema has metadata.tags.
   category: home
+  age_rating: 18   # proposed minimum age (apps/README.md rubric); the owner can override per app
+  age_reason: "Writes firmware onto devices and manages them on the home network."
   icon: icon.svg
   license: "MIT AND GPL-3.0"
   source: https://github.com/esphome/esphome
