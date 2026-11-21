@@ -44,6 +44,20 @@ class FilesAndStorageOnTheImage(unittest.TestCase):
         self.assertIn("/run/onemind/storage.sock", open(os.path.join(ROOT, "core", "onemind_core", "storage.py")).read())
         self.assertIn("/run/onemind/storage.sock", open(os.path.join(ROOT, "cmd", "onemindd", "storage.go")).read())
 
+    def test_storage_service_has_no_mount_namespace_directive(self):
+        # mirror create runs mount/umount here; a private mount namespace (slave propagation) would hide
+        # the mounted btrfs set from the host and the gateway while the operation reports success.
+        u = unit("onemind-storage.service")
+        banned = ("PrivateTmp", "PrivateMounts", "PrivateDevices", "ProtectHome", "ProtectSystem", "ProtectProc",
+                  "ProtectKernelModules", "ProtectKernelLogs", "ProtectControlGroups", "ReadOnlyPaths",
+                  "ReadWritePaths", "InaccessiblePaths", "TemporaryFileSystem", "BindPaths", "BindReadOnlyPaths",
+                  "MountFlags", "RootDirectory", "RootImage", "PrivateUsers")
+        for line in u.splitlines():
+            if line.startswith("#"):
+                continue
+            for d in banned:
+                self.assertFalse(line.strip().startswith(d + "="), line)
+
 
 if __name__ == "__main__":
     unittest.main()

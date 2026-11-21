@@ -4,6 +4,9 @@
 # Unix socket only (/run/onemind/storage.sock, group onemind); it decides nothing: no approval, no
 # operation. The gateway turns its routes on with ONEMIND_STORAGE_ENABLED=1 (gateway.env). Hub role only,
 # started by onemind-firstboot. It needs root to partition, mkfs and balance, so only the network is shut.
+# No mount-namespace directive (PrivateTmp, ProtectHome, ProtectSystem, ProtectKernel*, PrivateDevices, ...):
+# systemd gives those a private slave-propagation mount namespace, so the mount/umount of a created
+# mirror would never reach the host or the gateway.
 # UNVERIFIED on image hardware: the lab proof (research-output/evidence/lab/storage-actions) used the same
 # command line under a lab unit.
 [Unit]
@@ -20,10 +23,6 @@ Restart=on-failure
 RestartSec=2s
 User=root
 NoNewPrivileges=yes
-ProtectHome=yes
-PrivateTmp=yes
-ProtectKernelModules=yes
-ProtectKernelLogs=yes
 ProtectClock=yes
 ProtectHostname=yes
 LockPersonality=yes
