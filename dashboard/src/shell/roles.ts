@@ -4,13 +4,13 @@
 // simple set. The gateway still enforces every route by scope; this only decides what is offered.
 import type { Me } from '../api/wiring';
 import type { Principal } from '../api/types';
+import { PRO_SCREEN_IDS } from '../screens/registry';
 
 /** core/onemind_core/auth.py ROLES: owner, adult, guest, child, agent. */
 export const PRO_ROLES: ReadonlySet<string> = new Set(['owner', 'adult']);
 
-/** Nav ids (routes.ts navId) of the Pro screens: Nodes, Control Hub, AI & Agents, and System
- * (Storage, Backups, Automation, OS updates, Troubleshoot). */
-export const PRO_SCREENS: ReadonlySet<string> = new Set(['nodes', 'control-hub', 'agents', 'storage', 'backups', 'automation', 'updates', 'troubleshoot']);
+/** Nav ids of the Pro screens: every screen that declares `pro: true` in src/screens/<id>/screen.ts. */
+export const PRO_SCREENS: ReadonlySet<string> = PRO_SCREEN_IDS;
 
 export type View = 'pro' | 'simple' | 'unknown';
 

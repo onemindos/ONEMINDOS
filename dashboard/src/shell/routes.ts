@@ -2,6 +2,7 @@
 // Dashboard routes, and the mapping from the hash links @onemind/ui uses by default ("#/apps",
 // "#/app/<id>", "#/settings/people", ...) to the dashboard's real paths. ui components take
 // hrefs as props where they can; this covers the rest (palette commands, notification links).
+import { navIdFor } from '../screens/registry';
 
 export const href = {
   home: '/',
@@ -78,9 +79,7 @@ export function toRoute(link: string): string | undefined {
   }
 }
 
-/** Which nav item a path belongs to. */
+/** Which nav item a path belongs to (the screen registry knows detail pages and tabs). */
 export function navId(pathname: string): string {
-  const first = pathname.split('/').filter(Boolean)[0] ?? 'home';
-  // Community sources and Compose import are Market tabs.
-  return first === 'sources' || first === 'compose' ? 'market' : first;
+  return navIdFor(pathname);
 }

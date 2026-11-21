@@ -1,0 +1,5 @@
+---
+pr: pending
+branch: claude/android-dev-apk
+---
+Every nightly dev release now gets the Android app attached: a new dev-android workflow builds the phone app from the release's commit and uploads a release-mode APK and an AAB signed with an upload key from GitHub secrets, or, while those secrets are absent, a clearly named debug-signed "-dev-unsigned" APK that Zeus can sideload on his Samsung. The Android versionCode is the OS build number (the -dev.N of the images), so each build upgrades the last. The signing secrets are read only by a read-only build job; the job that writes to the release never sees them, and the dev-build workflow stays secret-free. ci-mobile now also builds the release APK on every pull request and keeps the blocked-permission check (now with SYSTEM_ALERT_WINDOW too, since a release build has no developer overlay), and a broken working-directory path in its Play Services check is fixed. New guide mobile/docs/install-android.md covers sideloading and Obtainium-friendly release names.

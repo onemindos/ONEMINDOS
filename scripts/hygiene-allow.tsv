@@ -74,3 +74,6 @@ test/unit/test_kvm_runner_policy.py	(10\.0\.0\.0|10\.10\.0\.0|172\.16\.0\.0|192\
 scripts/hygiene-allow.tsv	(10\.0\.0\.0|10\.10\.0\.0|172\.16\.0\.0|192\.168\.0\.0|100\.64\.0\.0)	B-FP-12
 # B-FP-13: net-2vm harness private link, not a real network.
 test/net/*	172\.31\.250\.[0-9]+(/24)?	B-FP-13
+# B-FP-15: CI-15 DigitalOcean runner kit (scripts/ci-runner-do/): the container firewall blocks whole ranges by their network address (RFC 1918, RFC 6598 CGNAT), the ranges being denied and not any real network; /home/runner is the job container's own user home, not a host path.
+scripts/ci-runner-do/*	(10\.0\.0\.0|172\.16\.0\.0|192\.168\.0\.0|100\.64\.0\.0|/home/runner)	B-FP-15
+test/unit/test_do_runner_policy.py	(10\.0\.0\.0|172\.16\.0\.0|192\.168\.0\.0|100\.64\.0\.0)	B-FP-15

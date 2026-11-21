@@ -45,7 +45,7 @@ it('files a restart as a request and never shows a success', async () => {
   });
   expect(await screen.findByRole('heading', { level: 1, name: 'Troubleshoot' })).toBeInTheDocument();
   expect(screen.queryByText('Not available on this box yet')).not.toBeInTheDocument();
-  await userEvent.setup().click(screen.getByRole('button', { name: 'Restart' }));
+  await userEvent.setup().click(await screen.findByRole('button', { name: 'Restart' }));
   await waitFor(() => expect(posted).toEqual([{ type: 'system.restart' }]));
   expect(await screen.findByRole('link', { name: 'Review in Approvals' })).toHaveAttribute('href', '/approvals?highlight=act_1');
   expect(screen.queryByText(/restarted|succeeded/i)).not.toBeInTheDocument();
