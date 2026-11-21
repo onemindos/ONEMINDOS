@@ -582,3 +582,24 @@ POLICY.update({
         lambda world: w.Req("/v1/plugins/not-installed/tools/missing", json={"arguments": {}}),
         "#178 read tools or pending owner-approved invocation"),
 })
+
+
+def _plugin_key_proposal(world):
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+    public = Ed25519PrivateKey.generate().public_key().public_bytes(
+        serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo).decode()
+    return w.Req("/v1/plugin-trust/keys/requests", json={"name": "Test signing key", "public_key": public,
+        "idempotency_key": world.key(), "expires_at": world.action_body()["expires_at"]})
+
+
+POLICY.update({
+    ("GET", "/v1/plugin-trust/keys"): Row(OWNER_ONLY, w.p_static("/v1/plugin-trust/keys"),
+        "#180 only an owner reads private signing trust"),
+    ("POST", "/v1/plugin-trust/keys/requests"): Row({**OWNER_ONLY, "owner": 202}, _plugin_key_proposal,
+        "#180 owner proposal stays pending until approval"),
+    ("POST", "/v1/plugin-trust/keys/{key_id}/revoke"): Row({**OWNER_ONLY, "owner": 404},
+        lambda x: w.Req("/v1/plugin-trust/keys/sha256:" + "0" * 64 + "/revoke", json={
+            "idempotency_key": x.key(), "expires_at": x.action_body()["expires_at"]}),
+        "#180 owner approval required to revoke enrolled signing trust"),
+})
