@@ -2742,6 +2742,56 @@
         "title": "NodeOS",
         "type": "object"
       },
+      "OnboardingKit": {
+        "properties": {
+          "confirmed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmed At"
+          },
+          "fingerprint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fingerprint"
+          },
+          "positions": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Positions",
+            "type": "array"
+          },
+          "state": {
+            "enum": [
+              "missing",
+              "issued",
+              "confirmed"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "confirmed_at",
+          "fingerprint",
+          "positions"
+        ],
+        "title": "OnboardingKit",
+        "type": "object"
+      },
       "OnboardingSettingsBody": {
         "additionalProperties": false,
         "properties": {
@@ -2847,6 +2897,39 @@
           "saved"
         ],
         "title": "OnboardingSettingsView",
+        "type": "object"
+      },
+      "OnboardingStateView": {
+        "description": "What the first-run wizard needs to decide whether to open: no browser flag involved.",
+        "properties": {
+          "backups_enabled": {
+            "title": "Backups Enabled",
+            "type": "boolean"
+          },
+          "complete": {
+            "title": "Complete",
+            "type": "boolean"
+          },
+          "destinations": {
+            "title": "Destinations",
+            "type": "integer"
+          },
+          "kit": {
+            "$ref": "#/components/schemas/OnboardingKit"
+          },
+          "settings_saved": {
+            "title": "Settings Saved",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "complete",
+          "settings_saved",
+          "backups_enabled",
+          "destinations",
+          "kit"
+        ],
+        "title": "OnboardingStateView",
         "type": "object"
       },
       "Options": {
@@ -15623,6 +15706,48 @@
           }
         },
         "summary": "Save",
+        "tags": [
+          "onboarding"
+        ]
+      }
+    },
+    "/v1/onboarding/state": {
+      "get": {
+        "description": "The wizard is complete once the first-run settings are saved and, when a backup destination exists,\nthe emergency kit is typed back (confirmed). Read-only; the recovery key is never part of this answer.",
+        "operationId": "onboarding.state",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OnboardingStateView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "summary": "State",
         "tags": [
           "onboarding"
         ]

@@ -732,3 +732,24 @@ def test_restore_candidates_other_box_needs_the_recovery_key(client, bk, setting
                         json={"destination_id": did, "box_id": "old-box", "recovery_key": k})
         assert r.status_code == 422
         assert k.strip() not in r.text  # a refused key is not echoed back either
+
+
+# ---- first-run wizard state (driven by the server, not a browser flag) --------------------------------
+def test_onboarding_state_follows_settings_and_kit(client, bk):
+    st = client.get("/v1/onboarding/state", headers=OWNER)
+    assert st.status_code == 200 and st.headers["cache-control"] == "no-store"
+    assert st.json()["complete"] is False and st.json()["kit"]["state"] == "missing" and st.json()["destinations"] == 0
+    settings = {"box_name": "home-hub", "time_zone": "UTC", "backup_choice": "later"}
+    assert client.put("/v1/onboarding/settings", headers=OWNER, json=settings).status_code == 200
+    assert client.get("/v1/onboarding/state", headers=OWNER).json()["complete"] is True, "no destination: no kit needed"
+    add_usb(client, bk)
+    st = client.get("/v1/onboarding/state", headers=OWNER).json()
+    assert st["complete"] is False and st["destinations"] == 1, "a destination makes the kit required"
+    one = client.post("/v1/backups/kit", headers=OWNER).json()["one_time"]
+    st = client.get("/v1/onboarding/state", headers=OWNER).json()
+    assert st["complete"] is False and st["kit"]["state"] == "issued" and len(st["kit"]["positions"]) == 2
+    assert one["owner_key"] not in json.dumps(st), "the recovery key is shown once, never in state"
+    right = {str(p): one["groups"][p - 1] for p in st["kit"]["positions"]}
+    assert client.post("/v1/backups/kit/confirm", headers=OWNER, json={"answers": right}).status_code == 200
+    assert client.get("/v1/onboarding/state", headers=OWNER).json()["complete"] is True
+    assert client.get("/v1/onboarding/state", headers=ADULT).status_code == 403

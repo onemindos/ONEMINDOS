@@ -28,6 +28,11 @@ import {
 export interface OneMindApi extends WiringApi {
   onboardingSettings(): Promise<FirstRunSettings>;
   saveOnboardingSettings(body: FirstRunSettingsBody): Promise<FirstRunSettings>;
+  /** Server-side wizard state: whether to open the wizard and where the emergency kit stands. */
+  onboardingState(): Promise<FirstRunState>;
+  /** Issues the emergency kit. The key is in this one answer only; callers must not store or log it. */
+  issueKit?(): Promise<IssuedKitResponse>;
+  confirmKit?(answers: Record<string, string>): Promise<void>;
   backupDestinations(): Promise<BackupDestinationRecord[]>;
   healthz(): Promise<{ ok: boolean }>;
   instance(): Promise<Instance>;
@@ -86,6 +91,17 @@ export interface FirstRunSettings extends Omit<FirstRunSettingsBody, 'box_name' 
   saved: boolean;
 }
 export interface SecretsChangeBody { sealed?: SealedInput; generate: string[]; clear: string[]; reason?: string }
+export interface FirstRunState {
+  complete: boolean;
+  settings_saved: boolean;
+  backups_enabled: boolean;
+  destinations: number;
+  kit: { state: 'missing' | 'issued' | 'confirmed'; confirmed_at: string | null; fingerprint: string | null; positions: number[] };
+}
+export interface IssuedKitResponse {
+  kit: FirstRunState['kit'];
+  one_time: { groups: string[]; check: string; text: string };
+}
 export interface SourceAddParams { name: string; url: string; commit: string }
 export interface BackupDestinationRecord { id: string; kind: string; label: string }
 
@@ -118,6 +134,9 @@ export class HttpApi implements OneMindApi {
   private readonly sdk: OneMind;
   onboardingSettings = () => this.req<FirstRunSettings>('GET', '/v1/onboarding/settings');
   saveOnboardingSettings = (body: FirstRunSettingsBody) => this.req<FirstRunSettings>('PUT', '/v1/onboarding/settings', body);
+  onboardingState = () => this.req<FirstRunState>('GET', '/v1/onboarding/state');
+  issueKit = () => this.req<IssuedKitResponse>('POST', '/v1/backups/kit');
+  confirmKit = async (answers: Record<string, string>) => { await this.req<unknown>('POST', '/v1/backups/kit/confirm', { answers }); };
   backupDestinations = () => this.req<BackupDestinationRecord[]>('GET', '/v1/backups/destinations', undefined, 'array');
   private readonly base: string;
   private readonly token: string;

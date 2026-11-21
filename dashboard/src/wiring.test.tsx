@@ -5,7 +5,6 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { MOCK_ENROL_CODE, MOCK_SETUP_TOKEN } from './api/mockWiring';
-import { WIZARD_KEY } from './pages/SignIn';
 import { renderApp, seriousViolations } from './test/helpers';
 
 const T = { timeout: 4000 };
@@ -41,7 +40,7 @@ describe('sign-in', () => {
     await u.type(screen.getByLabelText(/^Password/), 'a-long-passphrase');
     await u.click(screen.getByRole('button', { name: 'Create the owner' }));
     expect(await screen.findByRole('heading', { name: 'Name your box' }, T)).toBeInTheDocument();
-    expect(window.sessionStorage.getItem(WIZARD_KEY)).toBe('1');
+    expect(window.sessionStorage.getItem('onemind.wizard')).toBeNull();
     // Opening the wizard installs nothing: every request on the hub is still waiting for a person.
     expect((await getApi().actions()).filter((a) => a.state === 'succeeded' && a.type === 'app.install').every((a) => a.id !== 'new')).toBe(true);
   });
