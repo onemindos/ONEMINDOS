@@ -205,6 +205,37 @@ class IdentityService:
             return None
         if ctx is None:
             return None
+        if ctx.principal.kind == "plugin":
+            # Installation-owned plugins never inherit static-v0 access, self-service
+            # exceptions or the generic scope table's broad route trees.
+            from ..plugins.auth import allows_read, allows_request, plugin_app_id, request_types
+            from ..plugins.auth import allows_own_action_read
+            from ..plugins.principal import PluginPrincipal
+
+            app_id = plugin_app_id(ctx.principal.id)
+            state = self.gw.repo.get_app_state(app_id) if app_id else None
+            row = ctx.token
+            policy = dict(method=request.method, path=request.url.path, principal_id=ctx.principal.id,
+                          source=row.source if row else "", scopes=row.scopes if row else None,
+                          app_status=state.status if state else None,
+                          operation_id=getattr(request.scope.get("route"), "operation_id", None))
+            if allows_request(**policy):
+                # Preserve the owning person's effective cap without ever adding the
+                # broad actions:request scope. The service checks the body type before
+                # either filing or returning an idempotent replay.
+                exact = request_types(list(ctx.scopes))
+                if not exact:
+                    raise self.deny(ctx.principal, "request actions", reason="plugin_policy")
+                ctx.principal = PluginPrincipal(ctx.principal.id, "plugin", "plugin", exact)
+                request.state.identity = ctx
+                return ctx.principal
+            if allows_own_action_read(**policy):
+                if "actions:read:own" not in ctx.scopes:
+                    raise self.deny(ctx.principal, "read own actions", reason="plugin_policy")
+                request.state.identity = ctx
+                return ctx.principal
+            if not allows_read(**policy):
+                raise self.deny(ctx.principal, f"{request.method} {request.url.path}", reason="plugin_policy")
         required = sc.required_scopes(request.method, request.url.path)
         if required is not None and not sc.has_any(ctx.scopes, required):
             raise self.deny(ctx.principal, f"{request.method} {request.url.path}",
@@ -281,7 +312,13 @@ class IdentityService:
             principal = self.principal_for(owner)
         else:
             principal = Principal(id=t.principal_id, kind=t.kind, role=t.kind)
-        granted = frozenset(s for s in t.scopes if sc.allowed_for_kind(s, t.kind))
+        if t.kind == "plugin":
+            # The plugin policy checks the original snapshot and rejects malformed
+            # JSON. Do not let generic scope parsing fail before that denial.
+            raw = t.scopes if isinstance(t.scopes, list) else []
+            granted = frozenset(s for s in raw if isinstance(s, str))
+        else:
+            granted = frozenset(s for s in t.scopes if sc.allowed_for_kind(s, t.kind))
         if owner is not None and self.cfg.enforce_role_scopes:  # never beyond the owning person today
             cap = sc.role_scopes(owner.role)
             granted = frozenset(s for s in granted if sc.within(s, cap) or (s == sc.ALL and sc.ALL in cap))
@@ -865,6 +902,8 @@ class IdentityService:
 
     def rotate_token(self, ctx: AuthContext | None, p: Principal, token_id: str, grace_s: int) -> dict:
         t = self._token_for_write(ctx, p, token_id, "rotate tokens")
+        if t.kind == "plugin" and t.source == "app-install":
+            raise self.deny(p, "rotate an installation-managed plugin token", token_id=t.id)
         uid = ctx.user.id if ctx and ctx.user else None
         if t.owner_user_id is not None and t.owner_user_id != uid:
             # Rotation hands out the new secret: an owner may revoke another person's token, but not

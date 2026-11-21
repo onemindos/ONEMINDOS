@@ -385,6 +385,8 @@ class InstallHook:
     name: str
     prepare: Callable[[AppEntry, "Action"], list[dict]]
     removed: Callable[[AppEntry, "Action"], None] | None = field(default=None)
+    # Security cleanup must precede removal, including a failed executor.
+    removing: Callable[[AppEntry, "Action"], None] | None = field(default=None)
 
 
 class ActionService:
@@ -417,6 +419,8 @@ class ActionService:
         self.owner_override: Any = None  # override.OwnerOverride
         self.feature_types: dict[str, FeatureAction] = {}
         self.install_hooks: list[InstallHook] = []
+        # A feature-owned workload identity, handed only to the executor after preparation.
+        self.workload_credential: Callable[[Action, AppEntry], AgentSecret | None] | None = None
         self._finish_lock = threading.Lock()
         # Contract §12.1 / H-14: most actions one non-owner requester may have awaiting approval.
         # 0 = no cap. Set from the limits settings section (guard.py).
@@ -429,6 +433,9 @@ class ActionService:
         # Extra preconditions for lifecycle types: fn(type, params, app, phase) raises ApiError;
         # phase is "request" or "approve" (§12.22 dependencies, host ports, settings values).
         self.app_checks: list[Callable[[str, dict, AppEntry, str], None]] = []
+        # Feature-owned actor/type policies. Side-effect-free checks must return
+        # True explicitly; evaluate before filing or replaying any request.
+        self.request_checks: list[Callable[[Principal, str], bool]] = []
         # Run after every lifecycle dispatch with (action, outcome); a failing hook is logged and skipped.
         self.after_dispatch: list[Callable[[Action, str], None]] = []
         # §12.22: (app, merged settings by name, changed names) -> (ConfigMap data keyed by env name,
@@ -496,6 +503,12 @@ class ActionService:
             "authz.denied", principal.as_dict(), action_id, {"attempted": what, "reason": "permission_denied"}
         )
         return ApiError(403, "permission_denied", f"{principal.kind}/{principal.role} may not {what}")
+
+    def _check_request(self, principal: Principal, action_type: str) -> None:
+        if not principal.may_request_action(action_type) or any(
+            check(principal, action_type) is not True for check in self.request_checks
+        ):
+            raise self._deny(principal, f"request {action_type}")
 
     def _get(self, action_id: str) -> Action:
         a = self.repo.get(action_id)
@@ -668,6 +681,7 @@ class ActionService:
         }
 
     def _create(self, principal: Principal, req: ActionRequest, reason: str | None = None) -> tuple[dict, bool]:
+        self._check_request(principal, req.type)
         if req.type not in APP_CLAIMS:
             return self._create_feature(principal, req, reason)
         if not principal.can_request_actions:
@@ -974,6 +988,10 @@ class ActionService:
         agent = self._agent_grant(a, app)
         hook_steps: list[dict] = []
         try:
+            if a.type == "app.remove":
+                for hook in self.install_hooks:
+                    if hook.removing is not None:
+                        hook.removing(app, a)
             if a.type == "app.install":
                 for hook in self.install_hooks:
                     hook_steps += [{"hook": hook.name, **st} for st in hook.prepare(app, a)]
@@ -987,6 +1005,12 @@ class ActionService:
             ctx = dataclasses.replace(ctx, secrets=tuple(secrets))
             token = lc.set_progress_callback(self._progress_reporter(a))
             try:
+                if self.workload_credential is not None:
+                    credential = self.workload_credential(a, app)
+                    if credential is not None:
+                        if agent is not None:
+                            raise ValueError("a workload cannot have two principal kinds")
+                        agent = credential
                 result = self._run_executor(a, app, agent, ctx)
             except Exception as exc:  # unknown effect: never retry automatically
                 log.exception("executor crashed")
@@ -1250,6 +1274,7 @@ class ActionService:
         self, principal: Principal, action_type: str, spec: FeatureAction, params: dict,
         idempotency_key: str, expires_at: datetime, reason: str | None, audit_extra: dict | None,
     ) -> tuple[dict, bool]:
+        self._check_request(principal, action_type)
         if not principal.can_request_actions or (not principal.is_owner and principal.kind not in spec.requesters):
             raise self._deny(principal, f"request {action_type}")
         existing = self.repo.get_by_idempotency_key(idempotency_key)
