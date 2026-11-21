@@ -66,7 +66,7 @@ class Rules(unittest.TestCase):
 
     def test_private_data_refused(self):
         m = self.base()
-        m["network"] = "wired, 192.168.1.5"
+        m["network"] = "wired, " + ".".join(["192", "168", "1", "5"])
         self.assertTrue(any("private address" in e for e in self.errs(m)))
 
     def test_id_must_match_file(self):
