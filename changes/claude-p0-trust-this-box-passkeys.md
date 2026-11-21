@@ -1,5 +1,5 @@
 ---
-pr: pending
+pr: 589
 branch: claude/p0-trust-this-box-passkeys
 status_rows:
   - UI-LEAP | in-review | step 0 on sign-in
