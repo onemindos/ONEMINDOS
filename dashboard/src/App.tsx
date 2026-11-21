@@ -3,32 +3,42 @@
 // one shared hub poll (HubProvider), the shell, and the screens of docs/design/IA.md.
 import { useEffect, useMemo, useState } from 'react';
 import { Navigate, Route, Routes } from 'react-router';
-import { CustomizeProvider, ToastProvider, WallpaperLayer, clearPreferences } from '@onemind/ui';
+import { lazy, Suspense, type ComponentType, type LazyExoticComponent } from 'react';
+import { CustomizeProvider, StateView, ToastProvider, WallpaperLayer, clearPreferences } from '@onemind/ui';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { HubProvider, useHub } from './data/hub';
 import { preferenceStores } from './data/prefs';
-import { Activity } from './pages/Activity';
-import { Alerts } from './pages/Alerts';
-import { Storage } from './pages/Storage';
-import { Updates } from './pages/Updates';
-import { Backups } from './pages/Backups';
-import { Automation } from './pages/Automation';
-import { Coming } from './pages/Coming';
 import { FirstRun, wizardPending } from './pages/FirstRun';
-import { Approvals } from './pages/Approvals';
-import { Home } from './pages/Home';
-import { Installed } from './pages/Installed';
-import { Market } from './pages/Market';
-import { ComposeImport, Sources } from './pages/AppSources';
-import { Machines } from './pages/Machines';
-import { Nodes } from './pages/Nodes';
-import { ControlHub } from './pages/ControlHub';
-import { Agents } from './pages/Agents';
 import { ProOnly } from './shell/ProOnly';
-import { Settings } from './pages/Settings';
 import { SignIn } from './pages/SignIn';
 import { useSession, useSignedIn } from './session';
 import { Shell } from './shell/Shell';
+import { SCREENS } from './screens/registry';
+import type { ScreenLoader } from './screens/types';
+
+// One lazy component per distinct loader, made once so a re-render never remounts a screen.
+const lazies = new Map<ScreenLoader, LazyExoticComponent<ComponentType>>();
+function lazyOf(load: ScreenLoader) {
+  let c = lazies.get(load);
+  if (!c) lazies.set(load, (c = lazy(load)));
+  return c;
+}
+
+/** The routes of every screen in the registry (src/screens/<id>/screen.ts). */
+function screenRoutes() {
+  return SCREENS.flatMap((s) => {
+    const rel = (path: string) => path.replace(/^\//, '');
+    const wrap = (load: ScreenLoader) => {
+      const Page = lazyOf(load);
+      return s.pro ? <ProOnly title={s.title}><Page /></ProOnly> : <Page />;
+    };
+    return [
+      s.path === '/' ? <Route key={s.id} index element={wrap(s.load)} /> : <Route key={s.id} path={rel(s.path)} element={wrap(s.load)} />,
+      ...(s.extra ?? []).map((e) => <Route key={`${s.id}${e.path}`} path={rel(e.path)} element={wrap(e.load ?? s.load)} />),
+      ...(s.redirects ?? []).map((r) => <Route key={`${s.id}${r.from}`} path={rel(r.from)} element={<Navigate to={r.to} replace />} />),
+    ];
+  });
+}
 
 function Appearance({ children }: { children: React.ReactNode }) {
   const { person, token, api } = useSignedIn();
@@ -53,33 +63,12 @@ export function SignedInApp() {
           <FirstRun onDone={() => setWizard(false)} />
         ) : (
         <Shell>
-          <Routes>
-            <Route index element={<Home />} />
-            <Route path="market" element={<Market />} />
-            <Route path="market/:appId" element={<Market />} />
-            <Route path="sources" element={<Sources />} />
-            <Route path="compose" element={<ComposeImport />} />
-            <Route path="installed" element={<Installed />} />
-            <Route path="installed/:appId" element={<Installed />} />
-            <Route path="approvals" element={<Approvals />} />
-            <Route path="activity" element={<Activity />} />
-            <Route path="nodes" element={<ProOnly title="Nodes"><Nodes /></ProOnly>} />
-            <Route path="machines" element={<Machines />} />
-            <Route path="alerts" element={<Alerts />} />
-            <Route path="storage" element={<ProOnly title="Storage"><Storage /></ProOnly>} />
-            <Route path="settings/storage" element={<Navigate to="/storage" replace />} />
-            <Route path="backups" element={<ProOnly title="Backups"><Backups /></ProOnly>} />
-            <Route path="settings/backups" element={<Navigate to="/backups" replace />} />
-            <Route path="automation" element={<ProOnly title="Automation"><Automation /></ProOnly>} />
-            <Route path="updates" element={<ProOnly title="OS updates"><Updates /></ProOnly>} />
-            <Route path="settings/updates" element={<Navigate to="/updates" replace />} />
-            <Route path="coming" element={<Coming />} />
-            <Route path="control-hub" element={<ProOnly title="Control Hub"><ControlHub /></ProOnly>} />
-            <Route path="agents" element={<ProOnly title="AI & Agents"><Agents /></ProOnly>} />
-            <Route path="settings" element={<Settings />} />
-            <Route path="settings/:section" element={<Settings />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+          <Suspense fallback={<StateView state="loading" what="This screen" skeleton="list" />}>
+            <Routes>
+              {screenRoutes()}
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </Suspense>
         </Shell>
         )}
       </Appearance>
