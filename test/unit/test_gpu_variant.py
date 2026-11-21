@@ -68,6 +68,17 @@ class Licences(unittest.TestCase):
             self.assertTrue(all(c.strip() for c in r), r)
 
 
+    def test_dependency_components_are_enabled_and_every_closed_package_is_checked(self):
+        # nvidia-kernel-dkms depends on firmware-nvidia-gsp (non-free-firmware) and nvidia-kernel-common (contrib)
+        s = read("os/boards/x86_64-efi-nvidia/post-install.sh")
+        self.assertIn("Components: main contrib non-free non-free-firmware/", s)
+        self.assertIn("dpkg-query -W", s)
+        self.assertRegex(s, r"contrib\|non-free")
+        have = {r[0] for r in rows("os/boards/x86_64-efi-nvidia/gpu/licences.txt")}
+        for p in ("firmware-nvidia-gsp", "nvidia-kernel-common", "nvidia-alternative", "nvidia-installer-cleanup"):
+            self.assertIn(p, have, p)
+
+
 class Pins(unittest.TestCase):
     def test_toolkit_files_equal_the_lock(self):
         got = {a: b for a, b in rows("os/boards/x86_64-efi-nvidia/gpu/toolkit.txt")}

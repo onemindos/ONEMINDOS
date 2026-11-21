@@ -3,7 +3,7 @@
 # The default image contains none of these. The full texts ship in the image under /usr/share/doc/<package>/copyright.
 nvidia-kernel-dkms|closed driver (kernel modules, built here)|NVIDIA proprietary licence, redistribution allowed (Debian non-free)|debian/copyright of nvidia-graphics-drivers
 nvidia-kernel-support|closed driver (support files)|NVIDIA proprietary licence, redistribution allowed (Debian non-free)|debian/copyright of nvidia-graphics-drivers
-nvidia-modprobe|tool|GPL-2.0-or-later (Debian main/non-free)|debian/copyright of nvidia-modprobe
+nvidia-modprobe|tool (Debian contrib)|Expat|debian/copyright of nvidia-modprobe
 nvidia-smi|closed driver (tool)|NVIDIA proprietary licence, redistribution allowed (Debian non-free)|debian/copyright of nvidia-graphics-drivers
 libcuda1|closed driver (library)|NVIDIA proprietary licence, redistribution allowed (Debian non-free)|debian/copyright of nvidia-graphics-drivers
 libnvidia-ml1|closed driver (library)|NVIDIA proprietary licence, redistribution allowed (Debian non-free)|debian/copyright of nvidia-graphics-drivers
@@ -11,3 +11,17 @@ nvidia-container-toolkit|container tooling|Apache-2.0|github.com/NVIDIA/nvidia-c
 nvidia-container-toolkit-base|container tooling|Apache-2.0|github.com/NVIDIA/nvidia-container-toolkit LICENSE
 libnvidia-container1|container tooling|Apache-2.0|github.com/NVIDIA/libnvidia-container LICENSE
 libnvidia-container-tools|container tooling|Apache-2.0|github.com/NVIDIA/libnvidia-container LICENSE
+firmware-nvidia-gsp|closed firmware (non-free-firmware)|NVIDIA-graphics-drivers (proprietary, redistribution allowed) with Expat, GPL-2.0+, zlib/libpng parts|debian/copyright of nvidia-graphics-drivers
+nvidia-alternative|closed driver support (non-free)|NVIDIA-graphics-drivers (proprietary, redistribution allowed) with Expat, GPL-2.0+, zlib/libpng parts|debian/copyright of nvidia-graphics-drivers
+nvidia-legacy-check|closed driver support (non-free)|NVIDIA-graphics-drivers (proprietary, redistribution allowed) with Expat, GPL-2.0+, zlib/libpng parts|debian/copyright of nvidia-graphics-drivers
+libnvidia-ptxjitcompiler1|closed driver (library)|NVIDIA-graphics-drivers (proprietary, redistribution allowed) with Expat, GPL-2.0+, zlib/libpng parts|debian/copyright of nvidia-graphics-drivers
+libnvidia-pkcs11-openssl3|closed driver (library)|NVIDIA-graphics-drivers (proprietary, redistribution allowed) with Expat, GPL-2.0+, zlib/libpng parts|debian/copyright of nvidia-graphics-drivers
+libnvidia-cfg1|closed driver (library)|NVIDIA-graphics-drivers (proprietary, redistribution allowed) with Expat, GPL-2.0+, zlib/libpng parts|debian/copyright of nvidia-graphics-drivers
+nvidia-kernel-common|packaging (Debian contrib)|GPL-2.0-or-later|debian/copyright of nvidia-kernel-common
+nvidia-support|packaging (Debian contrib)|GPL-2.0-or-later|debian/copyright of nvidia-support
+nvidia-installer-cleanup|packaging (Debian contrib)|GPL-2.0-or-later|debian/copyright of nvidia-installer-cleanup
+update-glx|packaging (Debian contrib)|GPL-2.0-or-later|debian/copyright of glx-alternatives
+glx-diversions|packaging (Debian contrib)|GPL-2.0-or-later|debian/copyright of glx-alternatives
+glx-alternative-mesa|packaging (Debian contrib)|GPL-2.0-or-later|debian/copyright of glx-alternatives
+glx-alternative-nvidia|packaging (Debian contrib)|GPL-2.0-or-later|debian/copyright of glx-alternatives
+nvidia-persistenced|tool (Debian contrib)|Expat|debian/copyright of nvidia-persistenced

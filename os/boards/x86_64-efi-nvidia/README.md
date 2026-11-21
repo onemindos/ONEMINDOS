@@ -17,7 +17,7 @@ The normal x86 image plus what a graphics card (GPU) needs to run AI models for 
 
 | Piece | Where it comes from | Pinned by |
 |---|---|---|
-| NVIDIA driver 550 (headless: modules, `nvidia-smi`, CUDA library) | Debian 13 `non-free`, same snapshot as the rest | the snapshot date (`os/versions.lock.yaml`) |
+| NVIDIA driver 550 (headless: modules, `nvidia-smi`, CUDA library) | Debian 13 `non-free` (plus `contrib` and `non-free-firmware` for its dependencies), same snapshot as the rest | the snapshot date (`os/versions.lock.yaml`) |
 | NVIDIA Container Toolkit 1.19.1 (lets a container see the GPU) | NVIDIA's apt repository, which Debian does not mirror | sha256 of each file (`gpu/toolkit.txt`, `gpu.toolkit` in the lock) |
 | `nvidia` RuntimeClass + NVIDIA device plugin v0.20.2 (tells Kubernetes the node has `nvidia.com/gpu`) | `rootfs/usr/lib/onemind/gpu/onemind-gpu.yaml` | image digest |
 

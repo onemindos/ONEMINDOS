@@ -16,10 +16,12 @@ for p in $PKGS; do
   grep -q "^$p|" "$D/licences.txt" || { echo "gpu: package $p has no row in licences.txt" >&2; exit 1; }
 done
 
-# 1. non-free from the same snapshot; the file is restored at the end
+# 1. contrib, non-free and non-free-firmware from the same snapshot (the driver pulls firmware-nvidia-gsp from
+#    non-free-firmware and nvidia-kernel-common, nvidia-modprobe from contrib; read in a trixie container 2026-11-21).
+#    The file is restored at the end
 [ -f "$SRC" ] || { echo "gpu: $SRC not found (the GPU variant is for the Debian leg)" >&2; exit 1; }
 cp "$SRC" /tmp/onemind-sources.orig
-sed -i 's/^Components: .*/Components: main non-free/' "$SRC"
+sed -i 's/^Components: .*/Components: main contrib non-free non-free-firmware/' "$SRC"
 apt-get update
 
 # 2. driver and modules for the image's kernel
@@ -27,6 +29,10 @@ apt-get update
 kver=$(ls /lib/modules | sort -V | tail -n1)
 # shellcheck disable=SC2086  # a word list on purpose
 apt-get install -y $PKGS
+# every package apt pulled in from contrib, non-free or non-free-firmware needs a licence row too
+missing=$(dpkg-query -W -f='${Package}|${Section}\n' | awk -F'|' '$2 ~ /^(contrib|non-free)/ {print $1}' |
+  while read -r p; do grep -q "^$p|" "$D/licences.txt" || echo "$p"; done)
+[ -z "$missing" ] || { echo "gpu: installed non-free/contrib packages without a row in licences.txt: $missing" >&2; exit 1; }
 dkms status | grep -q "^nvidia.*$kver.*installed" || dkms autoinstall -k "$kver"
 dkms status | grep -q "^nvidia.*$kver.*installed" || { echo "gpu: NVIDIA modules not built for $kver" >&2; exit 1; }
 depmod "$kver"
