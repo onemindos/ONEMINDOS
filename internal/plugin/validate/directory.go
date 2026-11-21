@@ -60,6 +60,15 @@ func directory(dir, apiLevel string) error {
 	if _, err := bundlePath(root, metadata["icon"].(string), false); err != nil {
 		return fmt.Errorf("metadata.icon: %w", err)
 	}
+	if _, present := spec["manifests"]; !present {
+		// The gateway falls back to manifests/ when the field is absent, so an undeclared
+		// folder would be rendered and applied without ever being checked or scanned.
+		if _, err := os.Lstat(filepath.Join(root, "manifests")); err == nil {
+			return fmt.Errorf("manifests/ present but spec.manifests is not declared")
+		} else if !os.IsNotExist(err) {
+			return err
+		}
+	}
 	if relative, present := spec["manifests"].(string); present {
 		manifests, err := bundlePath(root, relative, true)
 		if err != nil {

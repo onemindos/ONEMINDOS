@@ -39,6 +39,16 @@ func TestDeclarativeBundleWithoutWorkload(t *testing.T) {
 	if _, err := Compare(manifestBytes(t, value), manifestBytes(t, value)); err != nil {
 		t.Fatal(err)
 	}
+	// An undeclared manifests/ folder would be applied by the gateway unchecked.
+	if err := os.MkdirAll(filepath.Join(root, "manifests"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "manifests", "pod.yaml"), []byte("kind: Pod\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := Directory(root); err == nil {
+		t.Fatal("undeclared manifests/ folder accepted")
+	}
 	spec := value["spec"].(map[string]any)
 	spec["extensions"] = map[string]any{"tiles": []any{map[string]any{"id": "open", "label": "Open", "opens": "web"}}}
 	if err := Manifest(manifestBytes(t, value)); err != nil {

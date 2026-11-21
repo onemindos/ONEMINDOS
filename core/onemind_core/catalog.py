@@ -68,7 +68,13 @@ class AppEntry:
 
     @property
     def manifests_dir(self) -> Path:
-        rel = (self.manifest.get("spec") or {}).get("manifests") or "manifests/"
+        spec = self.manifest.get("spec") or {}
+        rel = spec.get("manifests")
+        if not rel:
+            # Extension apps declare no workload; never fall back to an undeclared folder.
+            if spec.get("extensions"):
+                raise ValueError(f"app {self.id}: extension app declares no spec.manifests")
+            rel = "manifests/"
         path = (self.dir / rel).resolve()
         if not path.is_relative_to(self.dir.resolve()):
             raise ValueError(f"app {self.id}: spec.manifests escapes the app folder")
