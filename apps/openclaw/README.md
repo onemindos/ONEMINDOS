@@ -9,7 +9,7 @@ The AI that really does things. Any OS. Any Platform. The lobster way. 🦞
 |---|---|
 | Version | 2026.11.3 (upstream release `v2026.11.3`, published 2026-11-10) |
 | Licence | `MIT`, Market class **L1** (licence gate, scan of 2026-11-19) |
-| Tier | `blocked` (set by CI: sdk/tools/app-gate) |
+| Tier | `community` (set by CI: sdk/tools/app-gate) |
 | Category | ai |
 | GitHub | <https://github.com/openclaw/openclaw> |
 | Website | <https://openclaw.ai> |
@@ -68,18 +68,9 @@ From the upstream documentation, https://docs.openclaw.ai/web/control-ui/connect
 - Plain HTTP on the LAN works (device identity is signed in the browser), but upstream recommends HTTPS; the token is visible to anyone who can watch that traffic.
 - OneMind does not yet route OpenClaw's actions through its own approvals: treat it as an app with its own permissions, not as a OneMind agent principal (contract §11.2).
 
-## Why this app is blocked
+## Gate status
 
-The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked** for this app on 2026-11-12 (ci-apps run 43216348408, job `gate (openclaw)`). The gateway lists a blocked app in the Market but refuses to install it (§10.3, §11.1). The app is kept, not hidden, and the gate was not weakened. Reasons from that run:
-
-- Vulnerability: `ghcr.io/openclaw/openclaw:2026.11.3`: GHSA-cg2g-xh64-v4q7 in `dompurify` 3.4.16 (fixed 3.4.17).
-- Secret finding (Trivy): `slack-access-token` (HIGH) in `/app/qa/scenarios/channels/slack-blocked-lifecycle-no-restart.yaml` (a QA test scenario shipped in the upstream image).
-- Smoke test failed (ci-apps run 43216348408): the pod never became ready in 10 minutes (0/1, one restart; the exec probe against `/startupz` kept failing, then the kubelet killed the container). Cause, reproduced locally with the same image, init container and settings: the gateway starts fine (`/healthz` returns `{"ok":true,"status":"live"}`, `/startupz` returns 200 `{"ok":true,"status":"started",...}`), but `/startupz` has no `ready` field and the probe required `.ready === true`, so it could never pass. Fix in this change: the probes accept HTTP below 400 with `status === "started"`, the contract in the image's `docs/gateway/health.md` (503 `starting` until startup settles). Not yet confirmed by a gate run.
-- Licence: GitHub MIT matches, but there is no research licence-matrix row, so the app is not preinstallable on sold boxes until one is added (brief 30 B10). ClamAV 0 infected.
-
-To unblock: the probe mismatch is fixed above (rerun the gate to confirm); move the image pin to a release without these findings (tag verified with `crane`). Then rerun `sdk/tools/app-gate`.
-
-**Hold (apps/market-unblock-2, 2026-11-13):** `dompurify` GHSA-cg2g-xh64-v4q7 (fixed in 3.4.17), CRITICALs without a fix in `libsqlite3-0`, `openssh-client` and `zlib1g`, and a Slack-token-shaped string in `/app/qa/scenarios/` (gate run 43405572161). The smoke test now passes. `2026.11.3` is the newest tag. Unblock: a release with `dompurify` 3.4.17 and without the QA fixture string. The registry was re-read on 2026-11-13: the pinned digest is unchanged and no newer fixed tag exists, so nothing is bumped (the gate was not weakened and the tier was not edited). It unblocks when the weekly `apps-rescan` or a manual `apps-gate-all` run computes a pass on a rebuilt image. No upstream issue link was looked up (the GitHub API is not reachable from the worker).
+Earlier gate runs blocked this app (CRITICAL GHSA-cg2g-xh64-v4q7 in `dompurify` 3.4.16, and a startup probe that could never pass; ci-apps run 43216348408). Both are gone: the committed scan of 2026-11-19 (a real gate run, `sdk/tools/app-gate`) records no CRITICAL with a fix and the smoke test passing, so the tier is `community`. It cannot be `verified` yet: Trivy finds a Slack-token-shaped string in `/app/qa/scenarios/channels/slack-blocked-lifecycle-no-restart.yaml`, a QA test fixture shipped inside the upstream image (still present in 2026.11.6, checked with a local Trivy scan on 2026-11-21), so the gate's secrets check fails. The gate was not weakened. There is also no research licence-matrix row, so the app is not preinstallable on sold boxes until one is added (brief 30 B10). Issue #117.
 <!-- onemind:notes:end -->
 
 ## Latest security scan

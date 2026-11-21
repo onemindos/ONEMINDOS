@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 # Scaffolded by sdk/tools/app-scaffold from github.com/go-gitea/gitea (contract §9.2), then
-# completed from upstream: the rootless image docker.io/gitea/gitea:28.3.0-rootless (image config:
+# completed from upstream: the rootless image docker.io/gitea/gitea:28.4.0-rootless (image config:
 # USER 1000:1000, VOLUME /var/lib/gitea and /etc/gitea, EXPOSE 3000 and 2222) and docs.gitea.com
 # ("Installation with Docker (rootless)").
 apiVersion: apps/v1
@@ -38,7 +38,7 @@ spec:
         # missing subPath as root, which the non-root app cannot write on volumes that do not
         # apply fsGroup (k3s local-path).
         - name: volume-dirs
-          image: docker.io/gitea/gitea:28.3.0-rootless@sha256:40c5a68a0463c0940e1ae32626c8300dd0572f3558e390073ad8379ca67c0e1d
+          image: docker.io/gitea/gitea:28.4.0-rootless@sha256:15ab7fadb44981a2b781f40c712cad07066197f395100ea1c6326e14e5bb073a
           command: ["sh", "-c", "mkdir -p /mnt/data /mnt/config"]
           resources:
             requests:
@@ -57,7 +57,7 @@ spec:
       containers:
         - name: gitea
           # The -rootless variant of the release tag, not the scaffolder's default (root + s6) image.
-          image: docker.io/gitea/gitea:28.3.0-rootless@sha256:40c5a68a0463c0940e1ae32626c8300dd0572f3558e390073ad8379ca67c0e1d
+          image: docker.io/gitea/gitea:28.4.0-rootless@sha256:15ab7fadb44981a2b781f40c712cad07066197f395100ea1c6326e14e5bb073a
           ports:
             - name: http
               containerPort: 3000
