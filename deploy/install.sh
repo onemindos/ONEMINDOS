@@ -143,7 +143,7 @@ banner
 uninstall() {
   if [ "$DRY_RUN" = 1 ]; then
     step "Uninstall"
-    plan "systemctl disable --now onemind-gateway-token.timer onemind-gateway onemind-rescue onemindd onemind-nats; remove their unit files"
+    plan "systemctl disable --now onemind-gateway-token.timer onemind-gateway onemind-rescue onemindd onemind-images onemind-nats; remove their unit files"
     plan "rm $BIN/onemindd $BIN/onemind $BIN/nats-server"
     plan "run k3s-uninstall.sh / k3s-agent-uninstall.sh if present (k3s and its data)"
     plan "rm /etc/apt/apt.conf.d/52onemind-security-only /etc/needrestart/conf.d/50-onemind.conf"
@@ -155,7 +155,7 @@ uninstall() {
   systemctl disable --now onemind-gateway-token.timer 2>/dev/null || true
   rm -f /etc/systemd/system/onemind-gateway-token.timer
   # The Tailscale client goes only if OneMind installed it (tailscale_install's marker).
-  local units="onemind-gateway onemind-gateway-token onemindd onemind-nats onemind-nats-leaf onemind-headscale onemind-rescue onemind-nats-accounts.path" ts=0
+  local units="onemind-gateway onemind-gateway-token onemindd onemind-images onemind-nats onemind-nats-leaf onemind-headscale onemind-rescue onemind-nats-accounts.path" ts=0
   [ -f "$ETC/mesh-client" ] && ts=1
   if [ "$ts" = 1 ]; then
     if command -v tailscale >/dev/null 2>&1; then tailscale logout >/dev/null 2>&1 || true; fi
@@ -1224,6 +1224,22 @@ gateway_tokens() {
   fi
 }
 
+# Image cleanup and disk budget (NMD-08, #133): `onemindd images` removes only superseded images,
+# never those of an installed app (stopped included), so an offline box restarts every app.
+images_install() {
+  step "Image cleanup and disk budget (onemind-images.service, superseded images only)"
+  if [ "$DRY_RUN" = 1 ]; then
+    plan "install $SCRIPT_DIR/systemd/onemind-images.service; systemctl enable onemind-images; start it (restart if the unit changed)"
+    return 0
+  fi
+  local changed=0
+  cmp -s "$SCRIPT_DIR/systemd/onemind-images.service" /etc/systemd/system/onemind-images.service 2>/dev/null || changed=1
+  install -m0644 "$SCRIPT_DIR/systemd/onemind-images.service" /etc/systemd/system/onemind-images.service
+  systemctl daemon-reload
+  systemctl enable onemind-images >/dev/null 2>&1
+  if [ "$changed" = 1 ] || ! systemctl is-active --quiet onemind-images; then systemctl restart onemind-images; fi
+}
+
 # The rescue console (CORE-UPDATE-9, #278): its own unit, so the owner has a page on :7443 even when k3s or
 # the gateway is down. Needs the box CA's https.crt/key (box_certs) and the owner's tokens.yaml
 # (gateway_tokens), so it comes after both. LAN only: the console refuses public and mesh clients itself.
@@ -1374,6 +1390,7 @@ if [ "$ROLE" = hub ]; then
   mesh_hub               # the hub joins its own mesh first: k3s and NATS use its mesh address
   box_certs              # + the NATS leaf listener certificate for that address
   k3s_server
+  images_install         # after k3s: it reads the cluster with the k3s admin kubeconfig
   nats_install
   dashboard_build
   gateway_kubeconfig
