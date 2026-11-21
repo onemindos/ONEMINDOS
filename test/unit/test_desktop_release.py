@@ -59,7 +59,15 @@ class DesktopRelease(unittest.TestCase):
         self.assertNotIn("permissions", jobs["build"])
 
     def test_dry_run_builds_without_publishing(self):
-        self.assertEqual(WF["jobs"]["publish"]["if"], "needs.plan.outputs.tag != ''")
+        cond = WF["jobs"]["publish"]["if"]
+        self.assertIn("needs.plan.outputs.tag != ''", cond)
+        self.assertIn("always()", cond)  # one failing platform must not block the others
+
+    def test_size_limit_only_for_dmg_exe_msi(self):
+        steps = WF["jobs"]["build"]["steps"]
+        run = next(x["run"] for x in steps if "25 MB" in x.get("name", ""))
+        self.assertIn("*.dmg|*.exe|*.msi)", run)
+        self.assertNotIn("AppImage", run.split("case")[1])
         self.assertIn("workflow_dispatch", WF["jobs"]["build"]["if"])
 
 
