@@ -11,6 +11,7 @@ import { Activity } from './pages/Activity';
 import { Alerts } from './pages/Alerts';
 import { Storage } from './pages/Storage';
 import { Updates } from './pages/Updates';
+import { FileSharing } from './pages/FileSharing';
 import { Backups } from './pages/Backups';
 import { Automation } from './pages/Automation';
 import { Coming } from './pages/Coming';
@@ -73,6 +74,8 @@ export function SignedInApp() {
             <Route path="automation" element={<ProOnly title="Automation"><Automation /></ProOnly>} />
             <Route path="updates" element={<ProOnly title="OS updates"><Updates /></ProOnly>} />
             <Route path="settings/updates" element={<Navigate to="/updates" replace />} />
+            <Route path="file-sharing" element={<ProOnly title="File sharing"><FileSharing /></ProOnly>} />
+            <Route path="settings/file-sharing" element={<Navigate to="/file-sharing" replace />} />
             <Route path="coming" element={<Coming />} />
             <Route path="control-hub" element={<ProOnly title="Control Hub"><ControlHub /></ProOnly>} />
             <Route path="agents" element={<ProOnly title="AI & Agents"><Agents /></ProOnly>} />
