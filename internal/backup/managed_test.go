@@ -32,6 +32,9 @@ var (
 		Files: []VolumeFile{{VolumeRef: pgVol, Path: "onemind-dumps/app_notes.pgdump"}}}
 )
 
+// wrongPhrase is a made-up stand-in for a wrong recovery phrase; not a real credential.
+var wrongPhrase = strings.Repeat("w", 40)
+
 func newManagedFixture(t *testing.T) *managedFixture {
 	t.Helper()
 	f := newFixture(t)
@@ -506,9 +509,9 @@ func TestSnapshotsJobOpensAnotherBoxsRepoWithTheRecoveryKey(t *testing.T) {
 	if inits != 0 {
 		t.Fatal("browsing another box's repository must never run init")
 	}
-	params["recovery_key"] = "wrong-key-0123456789abcdef0123456789abcd"
+	params["recovery_key"] = wrongPhrase
 	code, res, body := m.do(t, KindSnapshots, params)
-	if res.State != "failed" || strings.Contains(string(body), "wrong-key") {
+	if res.State != "failed" || strings.Contains(string(body), wrongPhrase) {
 		t.Fatalf("a wrong key must fail without echoing it: %d %+v %s", code, res, body)
 	}
 	code, res, _ = m.do(t, KindSnapshots, map[string]any{"box_id": "b", "recovery_key": "short"})
@@ -558,9 +561,9 @@ func TestAppRestoreFromAnotherBoxNeedsTheRecoveryKey(t *testing.T) {
 	}
 	m.write("storage/pvc-1111_app-notes_data/notes.txt", "FRESH BOX")
 	job := map[string]any{"scope": "app", "app_id": "notes", "snapshot_id": snap, "stamp": "20261112T120000Z",
-		"box_id": m.cfg.BoxID, "recovery_key": "wrong-key-0123456789abcdef0123456789abcd"}
+		"box_id": m.cfg.BoxID, "recovery_key": wrongPhrase}
 	_, res, body := m.do(t, KindRestore, job)
-	if res.State != StateFailed || strings.Contains(string(body), "wrong-key") {
+	if res.State != StateFailed || strings.Contains(string(body), wrongPhrase) {
 		t.Fatalf("a wrong key must fail without echoing it: %+v %s", res, body)
 	}
 	if m.read("storage/pvc-1111_app-notes_data/notes.txt") != "FRESH BOX" {
