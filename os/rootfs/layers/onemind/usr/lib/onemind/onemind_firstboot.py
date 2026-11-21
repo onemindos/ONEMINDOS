@@ -664,7 +664,7 @@ def configure(p: Paths, cfg: dict, source: str) -> str | None:
         h = hashlib.sha256(owner.encode()).hexdigest()
         write(os.path.join(p.gateway, "tokens.yaml"),
               "# OneMind gateway principals (written by onemind-firstboot; only sha256 of each token).\n"
-              f"tokens:\n  \"sha256:{h}\": {{id: owner, kind: person, role: owner}}\n", 0o600, ids)
+              f"tokens:\n  \"sha256:{h}\": {{id: owner, kind: person, role: owner, retire_on_setup: true}}\n", 0o600, ids)
         write(os.path.join(p.etc, "gateway.env"), gateway_env(p, st))
         chown_tree(p.gateway, ids)          # BoxCA and natsconf ran as root: the gateway must own its tree
     else:

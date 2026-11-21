@@ -131,6 +131,8 @@ class IdentityService:
         self.gw = gw
         self.cfg = gw.settings.section(IdentitySettings)
         self.repo = IdentityRepository(gw.db)
+        # SECURITY.md §3.2: the first-boot owner token stops working on the API once an owner exists.
+        gw.tokens.retire_when = lambda: self.repo.count(UserRow) > 0
         self.limiter = FailureLimiter(self.cfg.login_failures_per_min, timedelta(minutes=self.cfg.lockout_minutes))
         secure = self.cfg.cookie_secure
         # __Host- cookies must be Secure, path=/ and host-only: they cannot be set by a sibling name.
@@ -478,7 +480,7 @@ class IdentityService:
 
     # ---- first owner (bootstrap) and enrolment -----------------------------------------------------
     def _setup_token_ok(self, token: str) -> bool:
-        p = self.gw.tokens.lookup(token) if token else None
+        p = self.gw.tokens.lookup(token, include_retired=True) if token else None
         if p is not None and p.is_owner:
             return True
         path = self.cfg.setup_token_file
@@ -514,6 +516,10 @@ class IdentityService:
         self.repo.add(u)
         self.emit("auth", "setup.completed", {"user_id": u.id, "username": u.username, "source": src},
                   self.principal_for(u))
+        if self.gw.tokens.has_retiring():
+            self.emit("auth", "setup_token.retired", {"user_id": u.id,
+                      "note": "the first-boot token no longer works on the API; the rescue console still takes it"},
+                      self.principal_for(u), severity="warning")
         return u
 
     def enrol(self, request: Request, code: str, username: str, password: str) -> UserRow:

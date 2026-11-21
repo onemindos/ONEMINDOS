@@ -11,6 +11,10 @@ or a list:
     tokens:
       - {token: "<token>", id: owner, kind: person, role: owner}
 
+An entry may carry `retire_on_setup: true` (onemind-firstboot sets it on the first-boot owner token): the
+gateway stops accepting that token on the API once the first owner account exists (SECURITY.md §3.2,
+break-glass). The file entry stays, so the rescue console still signs in with it (D-008).
+
 A key starting with "sha256:" stores only the hash, so the file need not hold the secret.
 Tokens are looked up by their sha256, which keeps the comparison timing-safe.
 """
@@ -21,6 +25,7 @@ import hashlib
 import logging
 import secrets
 import threading
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -111,6 +116,18 @@ def parse_tokens(doc: object) -> dict[str, Principal]:
     return out
 
 
+def parse_retiring(doc: object) -> set[str]:
+    """sha256 hex of every entry flagged `retire_on_setup: true`. Call after parse_tokens succeeded."""
+    raw = doc["tokens"] or {}  # type: ignore[index]
+    items = list(raw.items()) if isinstance(raw, dict) else [(e["token"], e) for e in raw]
+    out: set[str] = set()
+    for key, entry in items:
+        if entry.get("retire_on_setup") is True:
+            key = str(key)
+            out.add(key[len("sha256:"):].lower() if key.startswith("sha256:") else _hash(key))
+    return out
+
+
 class TokenStore:
     """Loads the tokens file and reloads it when its mtime changes."""
 
@@ -119,6 +136,10 @@ class TokenStore:
         self._lock = threading.Lock()
         self._mtime: float | None = None
         self._by_hash: dict[str, Principal] = {}
+        self._retiring: set[str] = set()
+        # Set by the identity feature: True once the first owner account exists. Never goes back.
+        self.retire_when: Callable[[], bool] | None = None
+        self._retired = False
         self._reload_if_changed()
 
     def _reload_if_changed(self) -> None:
@@ -137,7 +158,9 @@ class TokenStore:
             if mtime == self._mtime:
                 return
             try:
-                by_hash = parse_tokens(yaml.safe_load(self.path.read_text()))
+                doc = yaml.safe_load(self.path.read_text())
+                by_hash = parse_tokens(doc)
+                retiring = parse_retiring(doc)
             except (OSError, ValueError, yaml.YAMLError) as exc:
                 # A bad edit or a half-written file must never turn into a 500. Keep the last good
                 # principals (none at startup, so every request gets 401) and remember this mtime,
@@ -148,7 +171,7 @@ class TokenStore:
                 )
                 self._mtime = mtime
                 return
-            self._by_hash, self._mtime = by_hash, mtime
+            self._by_hash, self._retiring, self._mtime = by_hash, retiring, mtime
             log.info("loaded %d principals from tokens file", len(self._by_hash))
 
     def principals(self) -> list[Principal]:
@@ -159,10 +182,35 @@ class TokenStore:
     def entries(self) -> list[tuple[str, Principal]]:
         """(sha256 hex, principal) of every loaded file token, for read-only listing (§12.6)."""
         self._reload_if_changed()
-        return sorted(self._by_hash.items(), key=lambda kv: kv[1].id)
+        return sorted(((h, p) for h, p in self._by_hash.items() if not self._is_retired(h)),
+                      key=lambda kv: kv[1].id)
 
-    def lookup(self, token: str) -> Principal | None:
+    def has_retiring(self) -> bool:
+        self._reload_if_changed()
+        return bool(self._retiring)
+
+    def _is_retired(self, digest: str) -> bool:
+        if digest not in self._retiring:
+            return False
+        if not self._retired and self.retire_when is not None:
+            try:
+                self._retired = bool(self.retire_when())
+            except Exception:
+                # Fail closed: `_retired` lives in memory and is False after every restart, so on a
+                # failed check we cannot know the owner account does not exist. Deny for this call
+                # (without caching) rather than accept a possibly retired credential, and never 500.
+                log.exception("could not check whether the first-boot token is retired; denying it")
+                return True
+        return self._retired
+
+    def lookup(self, token: str, *, include_retired: bool = False) -> Principal | None:
+        """The principal for a bearer token. A first-boot token is None once the first owner account
+        exists, unless include_retired (only POST /v1/auth/setup asks, to answer 409 not 401)."""
         if not token:
             return None
         self._reload_if_changed()
-        return self._by_hash.get(_hash(token))
+        digest = _hash(token)
+        p = self._by_hash.get(digest)
+        if p is not None and not include_retired and self._is_retired(digest):
+            return None
+        return p
