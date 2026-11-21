@@ -12,6 +12,7 @@ import { useSignedIn } from '../session';
 import { href } from '../shell/routes';
 import { showsNav } from '../shell/roles';
 import { useActivity, useShell } from '../shell/Shell';
+import { HomeHealth } from './HomeHealth';
 
 /** Home's first layout here: only widgets this hub can feed. The rest are in the widget gallery. */
 export const DASHBOARD_HOME_LAYOUT: HomeLayout = {
@@ -69,6 +70,8 @@ export function Home() {
     );
 
   return (
+    <>
+    <HomeHealth pro={pro} />
     <HomeScreen
       data={data}
       now={hub.now}
@@ -99,5 +102,6 @@ export function Home() {
         approval: (id) => href.approval(id),
       }}
     />
+    </>
   );
 }
