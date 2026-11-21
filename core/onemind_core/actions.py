@@ -421,6 +421,8 @@ class ActionService:
         # Contract §12.1 / H-14: most actions one non-owner requester may have awaiting approval.
         # 0 = no cap. Set from the limits settings section (guard.py).
         self.max_pending_per_requester = 10
+        # AIG-03 (#167): fn(principal) raises ApiError to refuse a fresh request (agent budget, cancel).
+        self.requester_checks: list[Callable[[Principal], None]] = []
         self.handlers: dict[str, ActionHandler] = {}
         # How a background feature action's run() is started after approval; tests make it synchronous.
         self.spawn: Callable[[Callable[[], None]], None] = _worker
@@ -769,6 +771,8 @@ class ActionService:
         return None
 
     def _check_pending_cap(self, principal: Principal) -> None:
+        for check in self.requester_checks:
+            check(principal)
         cap = self.max_pending_per_requester
         if principal.is_owner or cap <= 0:
             return
@@ -1264,7 +1268,10 @@ class ActionService:
                 raise ApiError(409, "conflict", "idempotency_key was already used for a different request")
             return self.expire_if_due(existing).to_json(), False
         if pending_cap:
-            self._check_pending_cap(principal)
+            self._check_pending_cap(principal)  # the per-requester cap, plus the requester checks below
+        else:
+            for check in self.requester_checks:  # cancel/budget hold for every filing route, not only POST /v1/actions
+                check(principal)
         now = self.clock()
         exp = utc(expires_at)
         if exp <= now:
