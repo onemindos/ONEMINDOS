@@ -43,10 +43,10 @@ describe('Market and the install loop', () => {
     const u = userEvent.setup();
     renderApp({ token: 'owner-demo', route: '/market' });
     const row = (await screen.findByRole('heading', { name: 'Browsers' }, T)).closest('section')!;
-    expect(within(row).getByText('Firefox')).toBeInTheDocument();
-    expect(within(row).getByText('Chromium')).toBeInTheDocument();
+    expect(within(row).getByRole('link', { name: 'Firefox' })).toBeInTheDocument();
+    expect(within(row).getByRole('link', { name: 'Chromium' })).toBeInTheDocument();
     expect(within(row).queryByText(/Chrome$|Edge/)).toBeNull();
-    await u.click(within(row).getByText('Firefox'));
+    await u.click(within(row).getByRole('link', { name: 'Firefox' }));
     await u.click(await screen.findByRole('button', { name: /Request install/ }, T));
     await u.click(within(await screen.findByRole('dialog', { name: 'Review app request' })).getByRole('button', { name: 'Send request' }));
     const card = await screen.findByRole('article', { name: /Install firefox|Install Firefox/ }, T);

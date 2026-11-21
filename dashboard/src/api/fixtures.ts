@@ -193,7 +193,7 @@ export function makeApps(now: number = Date.now()): CatalogApp[] {
       requires: { gpu: false, minMemoryMb: 1024 },
       web_port: 8080,
       links: { docs: 'https://neko.m1k1o.net/', website: 'https://www.mozilla.org/firefox/', ...gh('m1k1o/neko') },
-      tier: 'community',
+      tier: 'verified', // demo state after the gate passes; the Discover page hides community-tier apps by default,
       scan: { scanned_at: iso(now, 86400), result: 'pass' },
     },
     {
@@ -208,7 +208,7 @@ export function makeApps(now: number = Date.now()): CatalogApp[] {
       requires: { gpu: false, minMemoryMb: 1024 },
       web_port: 8080,
       links: { docs: 'https://neko.m1k1o.net/', website: 'https://www.chromium.org/', ...gh('m1k1o/neko') },
-      tier: 'community',
+      tier: 'verified', // demo state after the gate passes; the Discover page hides community-tier apps by default,
       scan: { scanned_at: iso(now, 86400), result: 'pass' },
     },
     {
