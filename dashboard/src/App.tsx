@@ -11,6 +11,7 @@ import { Activity } from './pages/Activity';
 import { Alerts } from './pages/Alerts';
 import { Storage } from './pages/Storage';
 import { Updates } from './pages/Updates';
+import { Usage } from './pages/Usage';
 import { Backups } from './pages/Backups';
 import { Coming } from './pages/Coming';
 import { FirstRun, wizardPending } from './pages/FirstRun';
@@ -66,6 +67,7 @@ export function SignedInApp() {
             <Route path="settings/storage" element={<Navigate to="/storage" replace />} />
             <Route path="backups" element={<ProOnly title="Backups"><Backups /></ProOnly>} />
             <Route path="settings/backups" element={<Navigate to="/backups" replace />} />
+            <Route path="usage" element={<ProOnly title="Live usage"><Usage /></ProOnly>} />
             <Route path="updates" element={<ProOnly title="OS updates"><Updates /></ProOnly>} />
             <Route path="settings/updates" element={<Navigate to="/updates" replace />} />
             <Route path="coming" element={<Coming />} />

@@ -27,6 +27,7 @@ from ..ledger import iso, utc
 from ..monitoring import MonitoringService
 from ..monitoring import health as H
 from ..monitoring.redact import Redactor, redact_lines
+from ..monitoring.usage import Usage, UsageReader
 from ..identity.scopes import register_route_scope
 from ..notify.store import NotifyRepository
 from .apps import app_rows
@@ -43,6 +44,8 @@ register_route_scope("GET,HEAD", r"/v1/apps/[^/]+/logs", ("logs:read",))
 register_route_scope("GET,HEAD", r"/v1/apps/[^/]+/metrics", ("monitoring:read",))
 register_route_scope("GET,HEAD", r"/v1/nodes/[^/]+/metrics", ("monitoring:read",))
 register_route_scope("GET,HEAD", r"/v1/monitoring/summary", ("monitoring:read",))
+# Live usage (UMB-P11, #429): the same numbers /v1/nodes already shows (memory, disk), so nodes:read.
+register_route_scope("GET,HEAD", r"/v1/usage", ("nodes:read",))
 _DURATION = re.compile(r"^(\d{1,6})([smh]?)$")
 _COMPONENT = re.compile(r"^[a-z0-9]([a-z0-9.-]{0,251}[a-z0-9])?$")
 # Duration strings are bounded in their own units. Absolute instants additionally
@@ -80,6 +83,7 @@ ORDER = 250
 def register(app: FastAPI, gw: Gateway) -> None:
     mon = MonitoringService(gw)
     app.state.monitoring = mon
+    usage = UsageReader(mon)
     gw.on_startup(mon.start)
     gw.on_shutdown(mon.stop)
     principal = gw.principal
@@ -210,6 +214,16 @@ def register(app: FastAPI, gw: Gateway) -> None:
         if not samples and gw.registry.get(node_id) is None:
             raise ApiError(404, "not_found", "no such node")
         return {"node_id": node_id, "source": source, "samples": samples}
+
+    # ---- live usage ---------------------------------------------------------------------
+    @app.get("/v1/usage", operation_id="monitoring.usage", tags=["monitoring"],
+             responses={200: {"model": Usage}, **error_responses(401)})
+    def live_usage(request: Request, p: Principal = Depends(principal)):
+        """Per machine and per app CPU, memory and disk, read-only. Old data says so (`stale`)."""
+        now = gw.clock()
+        apps = usage.apps(now)
+        items = [r for r in apps.pop("rows") if all(f(request, p, r["app_id"]) for f in gw.app_filters)]
+        return {"at": iso(now), "nodes": usage.nodes(now), "apps": {**apps, "items": items}}
 
     # ---- summary ------------------------------------------------------------------------
     @app.get("/v1/monitoring/summary", operation_id="monitoring.summary", tags=["monitoring"], responses=error_responses(401))

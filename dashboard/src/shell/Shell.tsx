@@ -142,6 +142,7 @@ export function Shell({ children }: { children: ReactNode }) {
     { id: 'nodes', label: 'Nodes', href: href.nodes, icon: 'nodes', group: 'Your box' },
     { id: 'machines', label: 'Machines', href: href.machines, icon: 'monitor', group: 'Your box' },
     { id: 'alerts', label: 'Alerts', href: href.alerts, icon: 'bell', group: 'Your box' },
+    { id: 'usage', label: 'Live usage', href: href.usage, icon: 'gauge', group: 'Your box' },
     { id: 'storage', label: 'Storage', href: href.storage, icon: 'storage', group: 'Your box' },
     { id: 'backups', label: 'Backups', href: href.backups, icon: 'backups', group: 'Your box' },
     { id: 'updates', label: 'OS updates', href: href.updates, icon: 'updates', group: 'Your box' },

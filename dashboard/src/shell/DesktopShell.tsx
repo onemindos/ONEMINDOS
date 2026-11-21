@@ -63,6 +63,7 @@ export const SCREEN_HUES: Record<string, readonly [string, string]> = {
   nodes: ['#38a8f0', '#0b5f9a'],
   machines: ['#9b7bf7', '#5b2bc8'],
   alerts: ['#f4637c', '#b0123a'],
+  usage: ['#8cc63f', '#3f7a0c'],
   storage: ['#f6a35c', '#b8460c'],
   backups: ['#3fc6db', '#0c6b80'],
   coming: ['#7d8794', '#3a414b'],
@@ -345,6 +346,11 @@ export function DesktopShell(props: DesktopShellProps) {
           <button type="button" className="dsk-iconbtn" onClick={onSearch} aria-label="Search (Ctrl K)" title="Search (Ctrl K)">
             <Icon name="search" size={18} />
           </button>
+          {nav.some((n) => n.id === 'usage') && (
+            <a href="/usage" className="dsk-iconbtn" aria-label="Live usage" title="Live usage" aria-current={current === 'usage' ? 'page' : undefined}>
+              <Icon name="gauge" size={18} />
+            </a>
+          )}
           {bell}
           <PersonMenu person={person} demo={demo} onConsoleView={onConsoleView} onSignOut={onSignOut} />
         </div>
