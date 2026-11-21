@@ -11,9 +11,22 @@
 - A running hub on the same LAN with the owner token (the owner mints it; paste it into the app, never into this repo).
 - Leg W (Windows, existing install): the desktop installer from CI (`ci-desktop` artifact, `OneMind_0.1.0_x64-setup.exe`; build steps in `desktop/README.md`).
 - Leg L (Linux): a Debian 13 live USB (the installer stick from `os/boards/installer-x86_64/README.md` also boots live). Secure Boot may stay on.
+- Leg L also needs the kit itself on the live system, because a live USB has no checkout of this repo. Before you boot it, copy the folders `lab-kits/LT-X86-05540` and `lab-kits/common` (keep the `lab-kits/` layout) onto a second, small USB stick. The live image will not keep files between boots, so keep that stick plugged in.
 - Placeholders below: `<hub-ip>` is the hub's LAN address. Never paste real addresses, MACs or tokens into the result.
 
+## Which leg runs what
+`client-probe.sh` reads Linux sysfs, `rfkill`, `nmcli` and the audio tools, so it only runs on **Leg L**. Windows (Leg W) runs only the desktop app and has no probe. That means:
+- **Leg L only (probe-backed):** pass rules 3 (radio state), 4 (`snapshot media`), 5 (sleep counters), 6 (display `connected`, charger `online=1`) and 7 (`wan-watch`).
+- **Both legs (by hand):** rules 1 and 2. On Leg W, do the steps marked "Leg W" and write what you saw (for example the tray status, or Device Manager for a missing driver).
+- **Leg W manual equivalents** for steps 3 to 6, noted as "manual" in the result: Wi-Fi and Bluetooth state from Windows Settings, sleep from the tray refresh and Wi-Fi reconnect time, the external display from Settings > Display, the charger from the battery icon. They are observations, not probe numbers, and they do not replace the Leg L pass.
+- Rule 3, 5 and 6 pass on Leg L evidence. A Leg W failure is still recorded and files a client issue.
+
 ## Steps
+### 0. Prepare Leg L (once, before step 1)
+1. Boot the Debian 13 live USB, connect Wi-Fi, and plug in the second stick. Mount it and `cd` to the folder that contains `lab-kits/` (or `git clone` this repo instead if you prefer: `git clone https://github.com/onemindos/ONEMINDOS.git && cd ONEMINDOS`).
+2. A live image may lack the helpers. Install them (needs the internet): `sudo apt-get update && sudo apt-get install -y curl rfkill network-manager v4l-utils pulseaudio-utils`. `wireplumber` (gives `wpctl`) is fine instead of `pulseaudio-utils` if the image runs PipeWire. The probe prints "missing" for any tool it lacks, so a "missing" line means install it, not a fail.
+3. Check: `sh lab-kits/LT-X86-05540/client-probe.sh snapshot start` runs and writes `./snap-start.txt`. Snapshot files live in the live session's RAM; copy them to the second stick before you power off.
+
 Set `export HUB=http://<hub-ip>:8080` on Leg L. Take a snapshot at every stage: `sh lab-kits/LT-X86-05540/client-probe.sh snapshot NAME`. It is read-only, redacted, and written to `./snap-NAME.txt`. Compare two with `... compare A B`.
 
 ### 1. Pair with the hub (both legs)
@@ -26,6 +39,7 @@ Set `export HUB=http://<hub-ip>:8080` on Leg L. Take a snapshot at every stage: 
 - Desktop app (Leg W): open a pending approval (ask the owner to file one, for example an app restart), read its plan, press **Approve** only if you mean it, or **Deny** with a reason. The banner must never approve by itself. **Open dashboard** must open the system browser.
 
 ### 3. Wi-Fi and Bluetooth toggle, then reboot
+Probe-backed on Leg L. On Leg W do it by hand (see "Which leg runs what"). A reboot of a live USB forgets Bluetooth state and pairings, so the reboot checks (items 2 and 3) are meaningful only if the live image has persistence; otherwise run them on the Windows install and mark them manual.
 1. `snapshot wifi-on`. Turn Wi-Fi off with the keyboard key, then `snapshot wifi-off`: `compare wifi-on wifi-off` must show the change. Same for Bluetooth. Turn both on. The hub must read UP again within 30 seconds of Wi-Fi returning.
 2. Turn Bluetooth **off**, reboot, `snapshot after-reboot-bt-off`: it must stay off (state remembered). Turn it on, reboot, check again.
 3. Pair one Bluetooth headset, reboot, confirm it reconnects without re-pairing.
@@ -34,11 +48,13 @@ Set `export HUB=http://<hub-ip>:8080` on Leg L. Take a snapshot at every stage: 
 Play a sound on speakers, then on headphones (the speakers must mute on plug-in). Record 5 seconds on the built-in microphone and play it back. Open the webcam (Cheese or the browser camera test). `snapshot media` must list a sink, a source and `/dev/video0`.
 
 ### 5. Sleep and wake
+Leg L for the counters (`suspend_success`, `suspend_fail`); Leg W is manual (tray refresh, Wi-Fi reconnect).
 1. `snapshot pre-sleep`. Close the lid on battery for 2 minutes, open it. Repeat on the charger.
 2. `snapshot post-sleep`. `suspend_success` must go up by 2 and `suspend_fail` must not change. Wi-Fi must reconnect and the hub read UP within 30 seconds, with no sign-in prompt. Leg W: the tray status must refresh by itself within a minute.
 3. Note the wake time (lid open to usable screen) and any lost audio, camera or Bluetooth.
 
 ### 6. Dock and displays
+Leg L for the display and charger states; Leg W is manual.
 1. `snapshot undocked`. Plug in the dock (power, monitor, Ethernet, keyboard). `snapshot docked`: the external display must read `connected`, the charger `online=1`.
 2. Mirror, extend, then close the lid with the external monitor on: the session must stay up. Unplug the dock with the lid closed: the laptop must sleep or stay locked, not crash.
 3. Wi-Fi and Ethernet both up: unplug Ethernet, the hub must stay reachable (watch with step 7's command).
@@ -52,7 +68,7 @@ The point: the hub on the LAN must stay usable when the internet goes away. On L
 Run any pasted log through `sh lab-kits/common/redact.sh`, then fill [RESULT.template.md](RESULT.template.md) (based on `../common/RESULT-TEMPLATE.md`) and save it as `research-output/evidence/lab/founder-hardware/LT-X86-05540.md`. Do not record serial numbers.
 
 ## Pass / fail
-PASS needs every line below true:
+PASS needs every line below true (rules 3 to 7 on Leg L; see [Which leg runs what](#which-leg-runs-what)):
 1. Pairing works first time on both legs and the token is not stored in a plain file.
 2. The dashboard renders on both screen sizes; the app never approves or actuates without your click.
 3. Radio state changes show in snapshots; Bluetooth state survives a reboot; a paired headset reconnects.
