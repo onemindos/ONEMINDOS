@@ -13,6 +13,8 @@ insmod ext2
 insmod regexp
 insmod loadenv
 insmod test
+insmod gcry_sha512
+insmod password_pbkdf2
 # BIOS boards (vm-do, grub_platform "pc"): GRUB writes to the VGA screen only unless told, while
 # EFI firmware (OVMF, real UEFI) already mirrors GRUB's console to the serial port. Also write to
 # the first serial port, so a cloud serial console and the QEMU battery see the GRUB-RAUC line
@@ -34,6 +36,18 @@ set B_TRY=0
 search --no-floppy --fs-uuid --set=esp @ESP_FSUUID@
 regexp --set=1:disk '^([^,]+),' "$esp"
 load_env --file=($esp)/EFI/BOOT/grubenv
+
+# Boot menu lock (security backlog item 6, H-27 interim). With a superuser set, GRUB asks for a login before it
+# lets anyone edit an entry's command line (`e`) or open the GRUB shell (`c`): without that, adding
+# `init=/bin/sh` gives a root shell on the box. The three entries below are --unrestricted, so a normal boot
+# (and an unattended reboot after a power cut) needs no password. The superuser's PBKDF2 hash is NOT in this
+# file: onemind-firstboot makes a different password for every box on its first boot and writes only the hash
+# to user.cfg on the ESP (os/rootfs/layers/onemind/usr/lib/onemind/onemind_firstboot.py, ensure_boot_lock).
+# Before that file exists nobody has a password, so editing is refused for everyone (locked, never open).
+set superusers="onemind"
+if [ -f ($esp)/EFI/BOOT/user.cfg ]; then
+    source ($esp)/EFI/BOOT/user.cfg
+fi
 
 for SLOT in $ORDER; do
     if [ "$SLOT" == "A" ]; then
@@ -72,15 +86,15 @@ echo "GRUB-RAUC: ORDER=$ORDER A_OK=$A_OK A_TRY=$A_TRY B_OK=$B_OK B_TRY=$B_TRY de
 # consoles, so the serial log the QEMU battery reads is unchanged.
 CMDLINE="@CONSOLE@ panic=10 rootwait ro loglevel=4 splash plymouth.ignore-serial-consoles"
 
-menuentry "No good slot left: A (ungated fallback)" {
+menuentry "No good slot left: A (ungated fallback)" --unrestricted {
     linux ($disk,gpt@IDX_A@)/boot/vmlinuz root=PARTUUID=@PU_A@ $CMDLINE rauc.slot=A
     initrd ($disk,gpt@IDX_A@)/boot/initrd.img
 }
-menuentry "Slot A" {
+menuentry "Slot A" --unrestricted {
     linux ($disk,gpt@IDX_A@)/boot/vmlinuz root=PARTUUID=@PU_A@ $CMDLINE rauc.slot=A
     initrd ($disk,gpt@IDX_A@)/boot/initrd.img
 }
-menuentry "Slot B" {
+menuentry "Slot B" --unrestricted {
     linux ($disk,gpt@IDX_B@)/boot/vmlinuz root=PARTUUID=@PU_B@ $CMDLINE rauc.slot=B
     initrd ($disk,gpt@IDX_B@)/boot/initrd.img
 }

@@ -113,6 +113,8 @@ class Paths:
         self.hosts = j("etc", "hosts")                                   # a bind mount from /data on the image
         self.state = j("data", "onemind", "firstboot", "state.json")
         self.esp_conf = j("boot", "efi", "onemind.conf")
+        self.esp_boot = j("boot", "efi", "EFI", "BOOT")                  # grub.cfg, grubenv and user.cfg live here
+        self.esp_user_cfg = j("boot", "efi", "EFI", "BOOT", "user.cfg")  # the boot menu lock (os/assemble/grub.cfg.in)
         self.cloud_userdata = j("var", "lib", "cloud", "instance", "user-data.txt")
         self.seed_mnt = j("run", "onemind", "seed")
         self.run = j("run", "onemind")
@@ -332,6 +334,44 @@ def chown_tree(path: str, ids: tuple[int, int] | None) -> None:
 
 def token() -> str:
     return secrets.token_hex(32)
+
+
+# ------------------------------------------------------------------ boot menu lock
+# GRUB's menu is locked (os/assemble/grub.cfg.in): the A/B entries boot with no password, but editing an
+# entry's command line or opening the GRUB shell needs the superuser "onemind". The password is made here,
+# once per box, so no two boxes share one and none ships in the image. Only its PBKDF2 hash goes on the ESP
+# (GRUB format, the one grub-mkpasswd-pbkdf2 prints); the password is shown once on the console.
+BOOT_USER = "onemind"
+BOOT_PW_ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789"   # no 0/o, 1/l/i: it is typed at a bare console
+BOOT_PW_GROUPS = 5                                     # 5 groups of 4 from 31 symbols: about 99 bits
+GRUB_PBKDF2_ROUNDS = 10000                             # grub-mkpasswd-pbkdf2's default
+
+
+def boot_password() -> str:
+    return "-".join("".join(secrets.choice(BOOT_PW_ALPHABET) for _ in range(4)) for _ in range(BOOT_PW_GROUPS))
+
+
+def grub_pbkdf2(password: str, salt: bytes | None = None, rounds: int = GRUB_PBKDF2_ROUNDS) -> str:
+    """`grub.pbkdf2.sha512.<rounds>.<salt hex>.<hash hex>`, as GRUB's password_pbkdf2 command expects
+    (grub-core/lib/crypto.c, grub_crypto_pbkdf2 with HMAC-SHA512 and a 64-byte hash)."""
+    salt = salt if salt is not None else secrets.token_bytes(64)
+    h = hashlib.pbkdf2_hmac("sha512", password.encode(), salt, rounds, 64)
+    return f"grub.pbkdf2.sha512.{rounds}.{salt.hex().upper()}.{h.hex().upper()}"
+
+
+def ensure_boot_lock(p: Paths) -> str | None:
+    """Give this box its boot menu password the first time. Returns the password to show, or None when it
+    already has one or the box has no GRUB ESP (a board that boots another way). Never raises: a full or
+    read-only ESP must not stop first boot (the menu then stays locked with no password: nobody can edit it)."""
+    if not os.path.isdir(p.esp_boot) or os.path.exists(p.esp_user_cfg):
+        return None
+    pw = boot_password()
+    try:
+        write(p.esp_user_cfg, f"password_pbkdf2 {BOOT_USER} {grub_pbkdf2(pw)}\n", mode=0o600)
+    except OSError as exc:
+        log(f"could not write the boot menu password hash ({exc}); the boot menu stays locked for everyone")
+        return None
+    return pw
 
 
 def lan_addr() -> str | None:
@@ -789,6 +829,11 @@ def finish(p: Paths, cfg: dict, source: str) -> int:
     st = load_state(p)
     msg = f"ONEMIND-FIRSTBOOT: configured role={cfg['role']} source={source} node_id={st['node_id']}"
     log(msg); console(p, msg)
+    boot_pw = ensure_boot_lock(p)
+    if boot_pw:
+        console(p, f"ONEMIND BOOT MENU PASSWORD (user {BOOT_USER}, shown once, only its hash is stored): {boot_pw}")
+        run_dir(p)
+        write(os.path.join(p.run, "boot-menu-password"), boot_pw + "\n")   # tmpfs: for the recovery kit, gone at reboot
     if owner:
         console(p, "ONEMIND-FIRSTBOOT: the owner token below is shown once; only its sha256 is stored.")
         console(p, f"ONEMIND OWNER TOKEN: {owner}")
