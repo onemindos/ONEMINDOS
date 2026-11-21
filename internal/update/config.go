@@ -61,9 +61,11 @@ type Config struct {
 	StateDir    string // status.json, TUF cache, postpone-until, lock
 	DownloadDir string // bundles (RAUC's data directory)
 	GateDir     string // the health gate's state: pending (trial marker), bad-releases
-	OSRelease   string // ONEMIND_VERSION / ONEMIND_BOARD
-	RAUCConf    string // compatible=
-	RAUCBinary  string
+	// ESPMarker is the pre-install handler's copy of the trial marker on the ESP.
+	ESPMarker  string
+	OSRelease  string // ONEMIND_VERSION / ONEMIND_BOARD
+	RAUCConf   string // compatible=
+	RAUCBinary string
 	// RebootCommand is run (argv, split on spaces) to reboot at a safe point.
 	RebootCommand []string
 	// RebootInhibitFile: while it exists the reboot waits (mission-safe reboot,
@@ -83,6 +85,7 @@ func Defaults(channel string) Config {
 		StateDir:          "/data/onemind/update",
 		DownloadDir:       "/data/rauc",
 		GateDir:           "/data/onemind",
+		ESPMarker:         "/boot/efi/onemind/pending",
 		OSRelease:         "/usr/lib/os-release",
 		RAUCConf:          "/etc/rauc/system.conf",
 		RAUCBinary:        "/usr/bin/rauc",
@@ -169,6 +172,8 @@ func ParseConfig(b []byte) (*Config, error) {
 			c.DownloadDir = v
 		case "gate_dir":
 			c.GateDir = v
+		case "esp_marker":
+			c.ESPMarker = v
 		case "os_release":
 			c.OSRelease = v
 		case "rauc_conf":

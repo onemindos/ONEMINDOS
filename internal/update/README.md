@@ -37,7 +37,7 @@ How the state is read back after a reboot (the gate's files, the same ones the g
 | Path | Owner | What |
 |---|---|---|
 | `/etc/onemind/update.conf` | image / owner | settings ([example](../../deploy/systemd/update.conf.example)) |
-| `/usr/lib/onemind/tuf/<channel>/root.json` | image | the only trust anchor |
+| `/usr/lib/onemind/tuf/<channel>/root.json` | image | the trust anchor; a rotated root is kept as `<state_dir>/tuf/<channel>/roots/N.root.json` and re-verified link by link from this file on every check |
 | `/data/onemind/update/status.json` | this package | state + history; onemindd's heartbeat reads it |
 | `/data/onemind/update/tuf/<channel>/` | go-tuf | last trusted metadata (gives rollback protection between checks) |
 | `/data/onemind/update/postpone-until` | owner | one RFC 3339 time; no auto-install before it |
