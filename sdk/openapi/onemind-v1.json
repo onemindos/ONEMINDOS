@@ -4281,6 +4281,18 @@
       "ScanSummary": {
         "description": "§11.1 apps/<id>/scan.json, reduced to what the catalog shows.",
         "properties": {
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why the scan failed (CRITICAL fixable CVEs, secrets, malware, smoke) from scan.json's own counts, so the owner can see why an app is blocked; null on a pass",
+            "title": "Reason"
+          },
           "result": {
             "enum": [
               "pass",

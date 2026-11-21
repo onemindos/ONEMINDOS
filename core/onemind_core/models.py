@@ -22,6 +22,11 @@ class ScanSummary(BaseModel):
 
     scanned_at: str = Field(description="RFC 3339 time of the last scan")
     result: Literal["pass", "fail"]
+    reason: str | None = Field(
+        default=None,
+        description="Why the scan failed (CRITICAL fixable CVEs, secrets, malware, smoke) from scan.json's own "
+        "counts, so the owner can see why an app is blocked; null on a pass",
+    )
 
 
 class CatalogSource(BaseModel):
