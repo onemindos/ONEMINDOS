@@ -62,7 +62,6 @@ F-1 to F-7 keep the numbers used in [core/README.md](core/README.md). The rest g
 | F-42 | iCloud Drive import at launch? | Experimental flag only (Apple sign-in tokens expire) | UMB-FILES-8 | S3 | umbrel2 files D-F4 |
 | F-43 | Encrypted per-person spaces beyond LUKS2 on `/data` | Not in v1; revisit after H-11 | – | – | umbrel2 files D-F5 |
 | F-44 | Desktop app stack | Tauri 2 (MIT/Apache-2.0), Rust for privileged parts | UMB-CLIENT-8 | S2 | umbrel2 clients §4.2 |
-| F-45 | SMB server: one Samba (GPL-3.0, separate program) or a WebDAV-only server of our own; packaged in the image (files study) or as a system app `apps/samba` (clients study) | Samba, one owner (UMB-FILES-5), as a separately updatable system app; per-person and per-device credentials; WebDAV alongside | UMB-FILES-5, UMB-CLIENT-9 | S3 | umbrel2 clients, files |
 | F-46 | Lift phone photo backup from MOBILE's v1 non-goals into v1 | Yes: photos and storage safety are founder focus | UMB-PHOTO-4 | S2 | umbrel2 clients, photos |
 | F-47 | Where phone photos land: the Photos library (`library/<person>/…`, photos study), `home:<person>/Photos` (files study) or the person's dataset (clients study) | One copy in the Photos library on the Retain storage class, shown in Files as a read-only Photos folder in the person's Home | UMB-PHOTO-1, UMB-PHOTO-3, UMB-FILES-2 | S2 | umbrel2 photos, files, clients (conflict) |
 | F-48 | Certificate for iOS background uploads | A public certificate when remote access exists, else the box CA profile; never plain HTTP | UMB-PHOTO-4 | S2 | umbrel2 photos DN-1 |
