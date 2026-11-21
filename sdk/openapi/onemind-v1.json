@@ -17689,7 +17689,7 @@
     },
     "/v1/shares/smb/password": {
       "post": {
-        "description": "A new SMB password for you, shown once. Replaces the old one; only people with a share of their own.",
+        "description": "A new SMB password for you, shown once. Replaces the old one; only people with a share of their own.\n\nOnce passkeys are active this needs a recent passkey sign-in (step-up), like other credential changes:\nthe password opens the person's whole Files home and Time Machine folder from the LAN or mesh.",
         "operationId": "shares.smb.password",
         "responses": {
           "200": {
