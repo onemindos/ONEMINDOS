@@ -20,6 +20,9 @@
 
 /* wiring pass: sign-in extras, forms and small lists */
 .dash-signin-sub { margin: var(--om-space-2) 0 0; font-size: var(--om-font-size-md); }
+.dash-trust { border: 1px solid var(--om-border, currentColor); border-radius: 8px; padding: var(--om-space-2) var(--om-space-3); }
+.dash-trust summary { cursor: pointer; font-weight: 600; }
+.dash-trust-steps { padding-inline-start: 1.2em; margin: 0; }
 .dash-signin-links { display: flex; flex-direction: column; gap: var(--om-space-2); margin: 0; }
 .om-link { background: none; border: 0; padding: 0; color: var(--om-color-accent-link, var(--om-color-accent)); text-align: start; font: inherit; text-decoration: underline; cursor: pointer; min-height: var(--om-layout-touch-target); }
 .om-link:focus-visible { outline: 2px solid var(--om-color-focus); outline-offset: 2px; }

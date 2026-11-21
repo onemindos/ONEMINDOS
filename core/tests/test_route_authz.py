@@ -47,6 +47,7 @@ PUBLIC = {
     ("POST", "/v1/fabric/join-requests"),      # a joining node: the one-time join code authenticates; files node.join only; rate limited
     ("GET", "/v1/fabric/join-requests/{request_id}"),  # the node polls with its code and a proof signed by its own key
     ("GET", "/v1/tls/ca.crt"),                 # the box CA is public data; a phone or node needs it before sign-in
+    ("GET", "/v1/tls/onemind.mobileconfig"),   # the same public CA as ca.crt, as an Apple profile; no secret
     ("DELETE", "/v1/auth/app-session"),        # only clears the caller's own cookie; no data
     ("GET", "/v1/auth/forward"),               # loopback only (404 elsewhere); decides with the same sign-in + access rule as the proxy
     ("GET", "/{full_path:path}"),              # the dashboard's static files (never the API tree)

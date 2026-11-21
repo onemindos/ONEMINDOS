@@ -18092,6 +18092,29 @@
         ]
       }
     },
+    "/v1/tls/onemind.mobileconfig": {
+      "get": {
+        "description": "Open, like ca.crt: it carries only the public CA certificate. Same trust, one tap on Apple devices.",
+        "operationId": "tls.profile",
+        "responses": {
+          "200": {
+            "content": {
+              "application/x-apple-aspen-config": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Apple configuration profile that makes an iPhone, iPad or Mac trust the box CA"
+          }
+        },
+        "summary": "Ca Profile",
+        "tags": [
+          "tls"
+        ]
+      }
+    },
     "/v1/tokens": {
       "get": {
         "operationId": "tokens.list",

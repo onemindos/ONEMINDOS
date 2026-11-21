@@ -531,6 +531,8 @@ POLICY |= {
                             "contract §12.7: CA fingerprint and names to any signed-in caller; a child's role defaults do not cover it"),
     ("GET", "/v1/tls/ca.crt"): Row(cells(200), w.p_static("/v1/tls/ca.crt"),
                                    "contract §12.7: the box CA is public data; a phone or node needs it before it can sign in"),
+    ("GET", "/v1/tls/onemind.mobileconfig"): Row(cells(200), w.p_static("/v1/tls/onemind.mobileconfig"),
+                                                 "contract §12.7: the same public CA as ca.crt, wrapped as an Apple profile; carries no secret"),
     ("GET", "/v1/auth/forward"): Row(cells(404), w.p_static("/v1/auth/forward"),
                                      "NETWORKING §9.3: forward-auth for the app proxy, loopback only (the test client is not loopback: 404)"),
     ("POST", "/v1/auth/app-session"): Row(

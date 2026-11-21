@@ -12,6 +12,7 @@ import { brand } from '../brand.generated';
 import { t } from '../i18n';
 import { getPasskey, webauthnSupported } from '../lib/webauthn';
 import { useSession } from '../session';
+import { TrustThisBox } from './TrustThisBox';
 
 /** Set after a first-run setup so the signed-in app opens the wizard once (cleared by it). */
 export const WIZARD_KEY = 'onemind.wizard';
@@ -153,6 +154,7 @@ export function SignIn({ mock }: { mock: boolean }) {
           <>
             <h1>{t('signin.title', { name: brand.shortName })}</h1>
             <p className="om-hint">{t('signin.lede')}</p>
+            <TrustThisBox />
             {webauthnSupported() ? (
               <Button variant="primary" onClick={onPasskey} disabled={busy}>
                 {t('signin.passkey')}

@@ -15,7 +15,9 @@ import asyncio
 import contextlib
 import ipaddress
 import logging
+import plistlib
 import socket
+import uuid
 from urllib.parse import urlsplit
 
 from fastapi import Body, Depends, FastAPI, Header, Request, Response
@@ -33,6 +35,29 @@ from ..netpath import PathClassifier, parse_networks
 from ..proxy import (
     SESSION_COOKIE, AppProxy, AppProxyMiddleware, KubectlServiceResolver, gateway_session_resolver, sharing_check,
 )
+
+
+def trust_profile(box: str, ca_der: bytes) -> bytes:
+    """An unsigned Apple configuration profile holding only the box CA as a root certificate.
+
+    Apple shows it as "Not Verified", which is honest: the box signs nothing for Apple. The ids
+    derive from the CA bytes, so installing a profile for the same CA twice replaces, not stacks.
+    The profile cannot set anything but trust; the person still enables full trust in Settings on
+    iOS (the instructions on the sign-in page say so)."""
+    seed = uuid.uuid5(uuid.NAMESPACE_URL, "onemind-ca:" + ca_der.hex())
+    cert_uuid = str(uuid.uuid5(seed, "cert")).upper()
+    doc = {
+        "PayloadType": "Configuration", "PayloadVersion": 1, "PayloadScope": "System",
+        "PayloadIdentifier": f"com.onemindos.ca.{box}", "PayloadUUID": str(seed).upper(),
+        "PayloadDisplayName": f"OneMind box {box}: trust this box",
+        "PayloadDescription": "Lets this device trust the OneMind box at its own address, so passkeys and the dashboard work with no certificate warning.",
+        "PayloadContent": [{
+            "PayloadType": "com.apple.security.root", "PayloadVersion": 1,
+            "PayloadIdentifier": f"com.onemindos.ca.{box}.cert", "PayloadUUID": cert_uuid,
+            "PayloadDisplayName": f"OneMind box {box} CA", "PayloadContent": ca_der,
+        }],
+    }
+    return plistlib.dumps(doc, fmt=plistlib.FMT_XML)
 
 log = logging.getLogger("onemind.net")
 
@@ -220,6 +245,14 @@ def register(app: FastAPI, gw: Gateway) -> None:
             return Response(box_ca.ca_pem(), media_type="application/x-pem-file")
         return Response(box_ca.ca_der(), media_type="application/x-x509-ca-cert",
                         headers={"Content-Disposition": f'attachment; filename="onemind-{box}-ca.crt"'})
+
+    @app.get("/v1/tls/onemind.mobileconfig", operation_id="tls.profile", tags=["tls"], response_class=Response,
+             responses={200: {"description": "Apple configuration profile that makes an iPhone, iPad or Mac trust the box CA",
+                              "content": {"application/x-apple-aspen-config": {"schema": {"type": "string", "format": "binary"}}}}})
+    def ca_profile():
+        """Open, like ca.crt: it carries only the public CA certificate. Same trust, one tap on Apple devices."""
+        return Response(trust_profile(box, box_ca.ca_der()), media_type="application/x-apple-aspen-config",
+                        headers={"Content-Disposition": f'attachment; filename="onemind-{box}-trust.mobileconfig"'})
 
     # ---- mesh view (NETWORKING §15, proposed §12.16) ----------------------------------------------------
     @app.get("/v1/mesh", operation_id="mesh.get", tags=["mesh"], responses=error_responses(401))
