@@ -57,8 +57,17 @@ describe('lifecycle through the HTTP client', () => {
     expect(within(panel).getByText('Gateway result: applied')).toBeInTheDocument();
     expect(within(panel).queryByText('Healthy')).not.toBeInTheDocument();
   });
-  it('keeps the compact jobs island and expands to actual ledger state', async () => {
+  it('on the desktop, an awaiting job is an amber ring in the menu bar, not a floating pill', async () => {
+    setup();
+    const ring = await screen.findByRole('link', { name: '1 job: Ollama, awaiting approval' });
+    expect(ring).toHaveClass('dsk-jobs');
+    expect(ring).toHaveAttribute('href', expect.stringContaining('/approvals?highlight='));
+    expect(screen.queryByRole('complementary', { name: 'Jobs in progress' })).not.toBeInTheDocument();
+  });
+  it('keeps the compact jobs island in Console view and expands to actual ledger state', async () => {
     const { user } = setup();
+    await user.click(await screen.findByRole('button', { name: /^Account/ }));
+    await user.click(screen.getByRole('button', { name: 'Console view' }));
     const tray = await screen.findByRole('complementary', { name: 'Jobs in progress' });
     const toggle = within(tray).getByRole('button', { name: '1 job · Ollama: Awaiting approval' });
     expect(toggle).toHaveAttribute('aria-expanded', 'false');

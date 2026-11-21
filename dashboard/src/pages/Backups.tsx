@@ -8,7 +8,7 @@ import { ApiError } from '../api/types';
 import { usePoll } from '../lib/hooks';
 import { useSignedIn } from '../session';
 import { href } from '../shell/routes';
-import { Load } from './parts';
+import { ConnectEmpty, Load } from './parts';
 
 type PendingBackup = { key: string; body: components['schemas']['RunBody'] };
 // In-tab navigation must not turn a lost reply into a second logical request. No tokens here.
@@ -40,7 +40,7 @@ async function read(sdk: OneMind, path: string) {
 
 export function Backups() {
   const { token, person, mock } = useSignedIn();
-  if (mock) return <><PageHeader title="Backups" /><p role="status">Connect to a real hub to view backups. Demo mode has no backup data.</p></>;
+  if (mock) return <ConnectEmpty title="Backups" icon="backups" heading="Set up your first backup" reason="Connect to a real hub to view backups. Demo mode has no backup data." expect={['The last backup that finished, and when', 'The last time a restore was tested and proved', 'The next run, and where copies are kept']} action={<Link className="om-btn om-btn-primary" to={href.settings}>Set up your first backup</Link>} />;
   return <LiveBackups key={person} token={token} person={person} />;
 }
 function LiveBackups({ token, person }: { token: string; person: string }) {

@@ -117,7 +117,7 @@
 .oms-bell { position: relative; display: grid; place-items: center; width: var(--om-layout-touch-target); height: var(--om-layout-touch-target); border-radius: var(--om-radius-md); border: 1px solid transparent; background: transparent; color: var(--om-color-text-muted); cursor: pointer; }
 .oms-bell:hover, .oms-bell-open { background: var(--om-color-surface-sunken); color: var(--om-color-text); border-color: var(--om-color-border); }
 .oms-bell-badge { position: absolute; top: 4px; right: 3px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: var(--om-radius-pill); background: var(--om-color-accent); color: var(--om-color-accent-text); font-size: 11px; font-weight: var(--om-font-weight-bold); line-height: 18px; text-align: center; box-shadow: 0 0 0 2px var(--om-color-bg); }
-.oms-bell-badge-urgent { background: var(--om-color-warn-fg); color: var(--om-color-surface); }
+.oms-bell-badge-urgent { background: var(--om-color-accent); color: var(--om-color-accent-text); }
 .oms-pop { position: absolute; right: 0; top: calc(100% + 8px); z-index: var(--om-z-dialog); width: min(var(--oms-pop-width), calc(100vw - 32px)); background: var(--om-color-surface-raised); border: 1px solid var(--om-color-border); border-radius: var(--om-radius-xl); box-shadow: var(--om-shadow-3); animation: oms-pop var(--om-motion-duration-base) var(--om-motion-ease-standard); transform-origin: top right; overflow: hidden; }
 .oms-pop[hidden] { display: none; }
 .oms-nc { display: flex; flex-direction: column; max-height: min(640px, calc(100vh - 96px)); }

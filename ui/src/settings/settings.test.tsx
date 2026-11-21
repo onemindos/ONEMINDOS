@@ -290,6 +290,12 @@ describe('AuditTimeline', () => {
     expect(screen.queryByText('approved y')).not.toBeInTheDocument();
     await noAxeViolations(container);
   });
+  it('never renders a result pill without a word (WCAG 1.4.1)', () => {
+    const noLabel = { ...data, entries: ['ok', 'bad', 'warn', 'info'].map((r, i) => ({ seq: i + 1, at: ago(60), actor: { id: 'system:x', kind: 'system' as const }, kind: 'result' as const, text: `r${i}`, hash: `h${i}`, result: r as 'ok' | 'bad' | 'warn' | 'info' })) };
+    const { container } = render(<AuditTimeline data={ready(noLabel)} now={NOW} />);
+    for (const w of ['Done', 'Failed', 'Needs a look', 'Recorded']) expect(screen.getByText(w)).toBeInTheDocument();
+    for (const l of container.querySelectorAll('.om-pill-label')) expect(l.textContent?.trim()).not.toBe('');
+  });
   it('raises a broken chain as an alert', () => {
     render(<AuditTimeline data={ready({ ...data, verify: { ...data.verify, state: 'broken', broken_at: 2 } })} now={NOW} />);
     expect(screen.getByRole('alert')).toHaveTextContent('Chain broken');

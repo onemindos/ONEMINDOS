@@ -31,6 +31,8 @@ export interface DesktopShellProps {
   status?: ReactNode;
   /** The notification bell. */
   bell?: ReactNode;
+  /** Job progress in the menu bar (an amber ring), so nothing floats over content. */
+  jobs?: ReactNode;
   nav: NavItem[];
   /** Nav id of the current route ('home' = the desktop). */
   current: string;
@@ -52,25 +54,16 @@ export interface DesktopShellProps {
 /** Screens that stay in the dock; everything else is one click away in Launchpad. */
 export const DOCK_IDS = ['home', 'market', 'installed', 'approvals', 'activity', 'settings'] as const;
 
-/** One colour per screen, so a place is recognised before its name is read. White glyph on each. */
-export const SCREEN_HUES: Record<string, readonly [string, string]> = {
-  home: ['#f59a5c', '#a8470f'],
-  market: ['#6d84ff', '#3340c4'],
-  installed: ['#34c77b', '#147a45'],
-  approvals: ['#f59e0b', '#b45309'],
-  activity: ['#22c5b0', '#0b7a6c'],
-  settings: ['#8f99a6', '#3e4652'],
-  nodes: ['#38a8f0', '#0b5f9a'],
-  machines: ['#9b7bf7', '#5b2bc8'],
-  alerts: ['#f4637c', '#b0123a'],
-  storage: ['#f6a35c', '#b8460c'],
-  backups: ['#3fc6db', '#0c6b80'],
-  automation: ['#8c7cf0', '#4a3bb8'],
-  coming: ['#7d8794', '#3a414b'],
-  'control-hub': ['#f08a4b', '#7c3410'],
-  agents: ['#d96cf0', '#8a1fa3'],
-};
-const FALLBACK_HUE = ['#7d8794', '#3a414b'] as const;
+/**
+ * System screens share one tonal family: deep ink tiles with a soft inner gradient and a warm ivory
+ * glyph (desktop.css). Only the open screen and Approvals when something needs you turn lantern
+ * amber. Full colour belongs to third-party app icons ("Your apps"), where it is the app's own
+ * identity. The pair is the tile's top and bottom stop; tests read it, so it stays exported.
+ */
+export const SCREEN_HUES: Record<string, readonly [string, string]> = Object.fromEntries(
+  ['home', 'market', 'installed', 'approvals', 'activity', 'settings', 'nodes', 'machines', 'alerts', 'storage', 'backups', 'automation', 'coming', 'control-hub', 'agents'].map((id) => [id, ['#1f3d48', '#0c1d25'] as const]),
+);
+const FALLBACK_HUE = ['#1f3d48', '#0c1d25'] as const;
 
 export function tileStyle(id: string): CSSProperties {
   const [a, b] = SCREEN_HUES[id] ?? FALLBACK_HUE;
@@ -102,10 +95,10 @@ function typingIn(target: EventTarget | null): boolean {
   return target instanceof HTMLElement && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName));
 }
 
-function ScreenTile({ id, icon, size = 44 }: { id: string; icon: NavItem['icon']; size?: number }) {
+function ScreenTile({ id, icon, size = 52 }: { id: string; icon: NavItem['icon']; size?: number }) {
   return (
-    <span className="dsk-tile" style={{ ...tileStyle(id), width: size, height: size }} aria-hidden="true">
-      <Icon name={icon} size={Math.round(size * 0.48)} />
+    <span className="dsk-tile" data-screen={id} style={{ ...tileStyle(id), width: size, height: size }} aria-hidden="true">
+      <Icon name={icon} size={Math.round(size * 0.46)} />
     </span>
   );
 }
@@ -260,7 +253,7 @@ function Launchpad({ nav, apps, onClose }: { nav: NavItem[]; apps: DockApp[]; on
           <ul className="dsk-launchpad-grid">
             {screens.map((n) => (
               <li key={n.id}>
-                <a href={n.href} className="dsk-launchpad-item" onClick={onClose}>
+                <a href={n.href} className="dsk-launchpad-item" data-screen={n.id} data-needs={n.badge ? 'true' : undefined} onClick={onClose}>
                   <ScreenTile id={n.id} icon={n.icon} size={64} />
                   <span className="dsk-launchpad-label">{n.label}</span>
                   <Badge item={n} />
@@ -291,7 +284,7 @@ function Launchpad({ nav, apps, onClose }: { nav: NavItem[]; apps: DockApp[]; on
 }
 
 export function DesktopShell(props: DesktopShellProps) {
-  const { boxName, status, bell, nav, current, pinned = [], apps = [], now, timeZone, person, demo, onSearch, onConsoleView, onSignOut, children } = props;
+  const { boxName, status, bell, jobs, nav, current, pinned = [], apps = [], now, timeZone, person, demo, onSearch, onConsoleView, onSignOut, children } = props;
   const navigate = useNavigate();
   const location = useLocation();
   const atHome = current === 'home';
@@ -346,6 +339,7 @@ export function DesktopShell(props: DesktopShellProps) {
           <button type="button" className="dsk-iconbtn" onClick={onSearch} aria-label="Search (Ctrl K)" title="Search (Ctrl K)">
             <Icon name="search" size={18} />
           </button>
+          {jobs}
           {bell}
           <PersonMenu person={person} demo={demo} onConsoleView={onConsoleView} onSignOut={onSignOut} />
         </div>
@@ -386,7 +380,7 @@ export function DesktopShell(props: DesktopShellProps) {
         <ul className="dsk-dock-group">
           {dock.map((item) => (
             <li key={item.id}>
-              <a href={item.href} className="dsk-dock-item" aria-current={item.id === current ? 'page' : undefined}>
+              <a href={item.href} className="dsk-dock-item" aria-current={item.id === current ? 'page' : undefined} data-screen={item.id} data-needs={item.badge ? 'true' : undefined}>
                 <ScreenTile id={item.id} icon={item.icon} />
                 <span className="dsk-dock-label">{item.label}</span>
                 <Badge item={item} />
@@ -401,7 +395,7 @@ export function DesktopShell(props: DesktopShellProps) {
               {pinned.map((a) => (
                 <li key={a.id}>
                   <a href={a.href} className="dsk-dock-item dsk-dock-app">
-                    <AppIcon app={a} size={44} />
+                    <AppIcon app={a} size={52} />
                     <span className="dsk-dock-label">{a.name}</span>
                   </a>
                 </li>
@@ -410,12 +404,11 @@ export function DesktopShell(props: DesktopShellProps) {
           </>
         )}
         <span className="dsk-dock-sep" aria-hidden="true" />
-        <button type="button" className="dsk-dock-item" aria-haspopup="dialog" aria-expanded={launchpad} onClick={() => setLaunchpad(true)} title="All screens and apps (Ctrl /)">
+        <button type="button" className="dsk-dock-item" aria-haspopup="dialog" aria-expanded={launchpad} onClick={() => setLaunchpad(true)} >
           <span className="dsk-tile dsk-tile-launch" aria-hidden="true">
             <GridGlyph />
           </span>
-          <span className="dsk-dock-label">All</span>
-          <span className="om-visually-hidden">screens and apps</span>
+          <span className="dsk-dock-label">All screens and apps (Ctrl /)</span>
           {moreBadge > 0 && (
             <span className="dsk-badge">
               <span aria-hidden="true">{moreBadge}</span>

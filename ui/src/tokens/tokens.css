@@ -55,7 +55,7 @@
   --om-color-surface-raised: #ffffff;
   --om-color-border: #d9e1e4;
   --om-color-border-strong: #bccacf;
-  --om-color-control-border: #7a8d95;
+  --om-color-control-border: #6f838c;
   --om-color-text: #0d1b22;
   --om-color-text-muted: #3f545e;
   --om-color-text-subtle: #566a73;
@@ -66,8 +66,8 @@
   --om-color-logo-brain: #000000;
   --om-color-logo-circuit: #ff333a;
   --om-color-focus: #1d6fb8;
-  --om-color-danger: #b4231c;
-  --om-color-danger-hover: #8f1b15;
+  --om-color-danger: #a8174a;
+  --om-color-danger-hover: #8a1239;
   --om-color-danger-text: #ffffff;
   --om-color-overlay: rgba(8, 20, 26, 0.45);
   --om-color-ok-fg: #11634b;
@@ -76,7 +76,7 @@
   --om-color-warn-fg: #5e5300;
   --om-color-warn-bg: #f6f1cc;
   --om-color-warn-border: #e4da93;
-  --om-color-bad-fg: #a3201b;
+  --om-color-bad-fg: #a8174a;
   --om-color-bad-bg: #fcebe9;
   --om-color-bad-border: #f4cac6;
   --om-color-info-fg: #1d5d99;
@@ -114,8 +114,8 @@
     --om-color-logo-brain: #ff333a;
     --om-color-logo-circuit: #ffffff;
     --om-color-focus: #7cc4ff;
-    --om-color-danger: #ff8b7f;
-    --om-color-danger-hover: #ffaca3;
+    --om-color-danger: #ff7070;
+    --om-color-danger-hover: #ff9090;
     --om-color-danger-text: #0a1418;
     --om-color-overlay: rgba(2, 8, 10, 0.66);
     --om-color-ok-fg: #6fdcb4;
@@ -124,7 +124,7 @@
     --om-color-warn-fg: #e9dc6a;
     --om-color-warn-bg: #29270b;
     --om-color-warn-border: #4a4615;
-    --om-color-bad-fg: #ff8b7f;
+    --om-color-bad-fg: #ff7070;
     --om-color-bad-bg: #3a1614;
     --om-color-bad-border: #632521;
     --om-color-info-fg: #8cc2ff;
@@ -162,8 +162,8 @@
   --om-color-logo-brain: #ff333a;
   --om-color-logo-circuit: #ffffff;
   --om-color-focus: #7cc4ff;
-  --om-color-danger: #ff8b7f;
-  --om-color-danger-hover: #ffaca3;
+  --om-color-danger: #ff7070;
+  --om-color-danger-hover: #ff9090;
   --om-color-danger-text: #0a1418;
   --om-color-overlay: rgba(2, 8, 10, 0.66);
   --om-color-ok-fg: #6fdcb4;
@@ -172,7 +172,7 @@
   --om-color-warn-fg: #e9dc6a;
   --om-color-warn-bg: #29270b;
   --om-color-warn-border: #4a4615;
-  --om-color-bad-fg: #ff8b7f;
+  --om-color-bad-fg: #ff7070;
   --om-color-bad-bg: #3a1614;
   --om-color-bad-border: #632521;
   --om-color-info-fg: #8cc2ff;

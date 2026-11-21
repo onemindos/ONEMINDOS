@@ -79,9 +79,10 @@
   line-height: 1.6;
   white-space: nowrap;
 }
-.om-pill-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.om-pill-dot { display: inline-grid; place-items: center; width: 14px; height: 14px; flex: none; }
+.om-pill-dot > svg { display: block; }
 .om-pill-detail { font-weight: var(--om-font-weight-regular); }
-.om-pulse { animation: om-pulse 1.6s var(--om-motion-ease-standard) infinite; }
+.om-pulse { animation: om-pulse 2.4s var(--om-motion-ease-standard) infinite; }
 @keyframes om-pulse { 50% { opacity: 0.3; } }
 @media (prefers-reduced-motion: reduce) { .om-pulse { animation: none; } }
 
@@ -273,3 +274,11 @@
   .om-dialog-actions > .om-btn { width: 100%; }
 }
 @media (max-width: 720px) and (prefers-reduced-motion: reduce) { .om-dialog { animation: none; } }
+
+/* ---------- approval request: a plain-language lead ---------- */
+.om-ask { display: flex; align-items: center; gap: var(--om-space-3); }
+.om-ask-icon { flex: none; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 14px; background: var(--om-color-accent-soft); color: var(--om-color-accent); }
+.om-ask-text { margin: 0; font-size: var(--om-font-size-lg); line-height: 1.35; overflow-wrap: anywhere; }
+.om-ask-text strong { font-weight: var(--om-font-weight-semibold); }
+/* The decision bar stays at the bottom of the pane while the details scroll. */
+.om-card-foot:has(.om-decide) { position: sticky; bottom: calc(-1 * var(--om-space-5)); margin: 0 calc(-1 * var(--om-space-5)) calc(-1 * var(--om-space-5)); padding: var(--om-space-4) var(--om-space-5); background: var(--om-color-surface-raised); border-radius: 0 0 var(--om-radius-lg) var(--om-radius-lg); z-index: 1; }

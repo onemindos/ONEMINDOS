@@ -6,7 +6,9 @@ import { Button, Card, PageHeader } from '@onemind/ui';
 import { ApiError } from '../api/types';
 import { usePoll } from '../lib/hooks';
 import { useSignedIn } from '../session';
-import { Load } from './parts';
+import { Link } from 'react-router';
+import { href } from '../shell/routes';
+import { ConnectEmpty, Load } from './parts';
 
 function record(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('The hub returned an invalid storage record.');
@@ -34,7 +36,7 @@ async function read(client: OneMind, path: string) {
 }
 export function Storage() {
   const { token, person, mock } = useSignedIn();
-  return mock ? <><PageHeader title="Storage" /><p role="status">Connect to a real hub to view disks. Demo mode has no storage data.</p></> : <LiveStorage key={person} token={token} />;
+  return mock ? <ConnectEmpty title="Storage" icon="storage" heading="Connect a hub" reason="Connect to a real hub to view disks. Demo mode has no storage data." expect={['Every disk and whether it is healthy', 'Whether your data is encrypted', 'How much each disk holds']} action={<Link className="om-btn om-btn-primary" to={href.settings}>Connect a hub</Link>} /> : <LiveStorage key={person} token={token} />;
 }
 function LiveStorage({ token }: { token: string }) {
   const client = useMemo(() => new OneMind({ baseUrl: window.location.origin, token, retries: 1 }), [token]);

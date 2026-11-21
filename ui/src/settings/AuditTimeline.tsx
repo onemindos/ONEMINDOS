@@ -17,6 +17,8 @@ const FILTERS: Array<[ActorFilter, string]> = [
   ['system', 'System'],
 ];
 const ACTOR_TONE: Record<AuditEntry['actor']['kind'], Tone> = { person: 'neutral', agent: 'agent', system: 'info', device: 'info' };
+/** Words for a result with no label of its own: the pill never shows colour alone (WCAG 1.4.1). */
+const RESULT_LABEL: Record<NonNullable<AuditEntry['result']>, string> = { ok: 'Done', bad: 'Failed', warn: 'Needs a look', info: 'Recorded' };
 const KIND_ICON = { request: 'plus', decision: 'approvals', result: 'check', 'sign-in': 'key', config: 'settings', checkpoint: 'hash' } as const;
 
 export interface AuditTimelineProps {
@@ -121,7 +123,7 @@ export function AuditTimeline({ data, now, onVerify, onRetry, chainNote, calls, 
                               )}
                             </p>
                           </div>
-                          {e.result && <StatusPill tone={e.result} label={e.resultLabel ?? ''} />}
+                          {e.result && <StatusPill tone={e.result} label={e.resultLabel ?? RESULT_LABEL[e.result]} />}
                         </li>
                       ))}
                     </ol>

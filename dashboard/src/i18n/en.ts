@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // English strings for the wiring-pass screens. Keys are dotted: screen.thing.
 export const en = {
-  'signin.title': 'Welcome to {name}',
-  'signin.lede': 'Sign in with a passkey, your account, or the access token your hub gave you.',
+  'signin.title': 'Welcome home',
+  'signin.other': 'Other ways to sign in',
+  'signin.lede': 'Sign in with your passkey. Other ways are just below.',
   'signin.passkey': 'Use my passkey',
   'signin.passkey.unsupported': 'This browser cannot use passkeys here. Use your account or token instead.',
   'signin.account.heading': 'Your account',

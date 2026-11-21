@@ -10,6 +10,7 @@ import {
   Button,
   CommandPalette,
   FreshnessPill,
+  FRESHNESS_LABEL,
 
   NotificationBell,
   PaletteTrigger,
@@ -22,7 +23,7 @@ import {
   type PaletteCommand,
 } from '@onemind/ui';
 import { activityFrom, notificationsFrom, toActionSummary, toPaletteApp } from '../data/adapters';
-import { ActionJobs } from './ActionJobs';
+import { ActionJobs, JobsRing } from './ActionJobs';
 import { useHub } from '../data/hub';
 import { useAppRequest } from './useAppRequest';
 import { homeLayoutStore, personList } from '../data/prefs';
@@ -173,6 +174,14 @@ export function Shell({ children }: { children: ReactNode }) {
       <FreshnessPill state={hub.freshness} detail={hub.freshness === 'live' ? 'hub answering' : `hub last answered ${formatAgo(hub.ageS ?? 0)}`} />
     );
 
+  // On the desktop the connection state is a small dot beside the box's name: the detail is on
+  // hover and in the accessible name, and shape (filled / hollow / dashed) carries it as well as colour.
+  const dotDetail = hub.freshness === 'unknown' ? 'connecting to the hub' : hub.freshness === 'live' ? 'hub answering' : `hub last answered ${formatAgo(hub.ageS ?? 0)}`;
+  const dotLabel = `${FRESHNESS_LABEL[hub.freshness]}, ${dotDetail}`;
+  const statusDot = (
+    <span className={`dsk-dot dsk-dot-${hub.freshness}`} role="img" aria-label={dotLabel} title={dotLabel} />
+  );
+
   const boxName = hub.instance.data?.name ?? brand.shortName;
   const bell = (
     <NotificationBell
@@ -229,8 +238,9 @@ export function Shell({ children }: { children: ReactNode }) {
             boxName={boxName}
             nav={nav}
             current={navId(location.pathname)}
-            status={status}
+            status={statusDot}
             bell={bell}
+            jobs={<JobsRing />}
             pinned={pinned}
             apps={installedApps}
             now={hub.now}
@@ -257,7 +267,7 @@ export function Shell({ children }: { children: ReactNode }) {
           state={hub.freshness === 'stale' || hub.freshness === 'offline' ? hub.freshness : hub.freshness === 'unknown' ? 'loading' : 'ready'}
           ageSeconds={hub.ageS}
         />
-        <ActionJobs />
+        <ActionJobs desktop={layout === 'desktop'} />
         {reviewDialog}
       </div>
     </ShellCtx.Provider>

@@ -96,9 +96,11 @@ export interface ApprovalCardProps {
   /** Highlight a card the person just created or opened from a notification. */
   highlight?: boolean;
   extra?: ReactNode;
+  /** Developer plumbing (notes about the API, plan hashes): folded into "Technical details". */
+  technical?: ReactNode;
 }
 
-export function ApprovalCard({ action, now, canDecide, onApprove, onDeny, busy, highlight, extra }: ApprovalCardProps) {
+export function ApprovalCard({ action, now, canDecide, onApprove, onDeny, busy, highlight, extra, technical }: ApprovalCardProps) {
   const detailsId = useId();
   const title = actionTitle(action);
   const st = ACTION_STATE[action.state];
@@ -132,11 +134,24 @@ export function ApprovalCard({ action, now, canDecide, onApprove, onDeny, busy, 
         ) : undefined
       }
     >
+      <div className="om-ask">
+        <span className="om-ask-icon" aria-hidden="true">
+          <Icon name={who?.kind === 'agent' ? 'agent' : 'approvals'} size={22} />
+        </span>
+        <p className="om-ask-text">
+          {who ? (
+            <>
+              <strong>{who.id}</strong> wants to <strong>{title.charAt(0).toLowerCase() + title.slice(1)}</strong>.
+            </>
+          ) : (
+            <>Someone wants to <strong>{title.charAt(0).toLowerCase() + title.slice(1)}</strong>.</>
+          )}
+        </p>
+      </div>
       <p className="om-requester">
         {who ? (
           <>
-            <StatusPill {...requesterPill(who)} dot={false} />{' '}
-            <strong>{who.id}</strong> asked{action.created_at ? ` ${formatAgo(secondsSince(action.created_at, now))}` : ''}
+            <StatusPill {...requesterPill(who)} dot={false} /> asked{action.created_at ? ` ${formatAgo(secondsSince(action.created_at, now))}` : ''}
           </>
         ) : (
           'Requester unknown'
@@ -152,17 +167,18 @@ export function ApprovalCard({ action, now, canDecide, onApprove, onDeny, busy, 
       {(action.state === 'failed' || action.state === 'outcome_unknown') && (
         <p className="om-note om-tone-bad">{action.message ? `What the hub reported: ${action.message}` : 'The hub gave no reason.'}</p>
       )}
+      {extra}
       <details className="om-details">
-        <summary>Exact request and API equivalent</summary>
+        <summary>Technical details</summary>
         <pre className="om-code">{JSON.stringify({ type: action.type, params: action.params }, null, 2)}</pre>
         <pre className="om-code">{equivalentCall(action)}</pre>
+        {technical}
       </details>
       {action.decided_by && (
         <p className="om-hint">
           Decided by {action.decided_by.kind} <strong>{action.decided_by.id}</strong>
         </p>
       )}
-      {extra}
     </Card>
   );
 }

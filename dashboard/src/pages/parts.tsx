@@ -2,7 +2,7 @@
 // Small shared pieces of the wiring-pass pages: a loader that says what went wrong in words, a
 // "show once" secret dialog, and a runner for button actions that reports errors as a toast.
 import { useCallback, useState, type ReactNode } from 'react';
-import { Button, Dialog, StateView, useToast } from '@onemind/ui';
+import { Button, Dialog, EmptyState, PageHeader, StateView, useToast, type IconName } from '@onemind/ui';
 import { ApiError } from '../api/types';
 import type { Polled } from '../lib/hooks';
 import { errorText } from '../data/hub';
@@ -73,4 +73,28 @@ export function useBusy() {
       setBusy(false);
     }
   }] as const;
+}
+
+/**
+ * A screen with no hub behind it (demo mode): a calm empty state in a window sized to its content,
+ * with one action and a plain list of what appears once a hub is connected. The sentence in
+ * `reason` stays a status line, so it is announced.
+ */
+export function ConnectEmpty({ title, icon, heading, reason, expect, action }: { title: string; icon: IconName; heading: string; reason: string; expect: string[]; action: ReactNode }) {
+  return (
+    <>
+      <PageHeader title={title} />
+      <div className="om-empty-lantern">
+        <EmptyState icon={icon} title={heading} action={action}>
+          <p role="status">{reason}</p>
+          <p className="om-empty-expect-head">Once connected, you will see</p>
+          <ul className="om-empty-expect">
+            {expect.map((e) => (
+              <li key={e}>{e}</li>
+            ))}
+          </ul>
+        </EmptyState>
+      </div>
+    </>
+  );
 }

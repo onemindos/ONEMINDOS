@@ -36,11 +36,36 @@
   .dash-hide-compact { display: none; }
 }
 
-/* Lantern sign-in: the same harbour horizon as the default wallpaper, drawn from tokens. */
-.dash-signin {
-  background:
-    radial-gradient(ellipse 60% 14% at 50% 82%, color-mix(in srgb, var(--om-color-accent) 26%, transparent) 0, transparent 100%),
-    radial-gradient(ellipse 110% 34% at 50% 82%, color-mix(in srgb, var(--om-color-info-fg) 16%, transparent) 0, transparent 100%),
-    var(--om-color-bg);
+/* Lantern sign-in: the Harbour light wallpaper and its glow behind one centred, frosted 400px card. */
+.dash-signin { background: transparent; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--om-space-4); }
+.dash-signin-card {
+  max-width: 400px; background: color-mix(in srgb, var(--om-color-surface) 78%, transparent); border-radius: var(--om-radius-xl);
+  backdrop-filter: blur(28px) saturate(140%); -webkit-backdrop-filter: blur(28px) saturate(140%);
+  box-shadow: 0 1px 0 rgb(255 255 255 / 0.08) inset, var(--om-shadow-3);
 }
-.dash-signin-card { box-shadow: var(--om-shadow-3); border-radius: var(--om-radius-xl); }
+.dash-signin-card h1 { font-size: 2rem; font-weight: var(--om-font-weight-medium); letter-spacing: -0.03em; margin: 0; }
+.dash-signin-passkey { min-height: 52px; font-size: var(--om-font-size-md); box-shadow: var(--om-glow-accent); }
+.dash-signin-more { border-top: 1px solid var(--om-color-border); padding-top: var(--om-space-3); }
+.dash-signin-more > summary { cursor: pointer; color: var(--om-color-text-muted); font-size: var(--om-font-size-sm); min-height: 32px; display: flex; align-items: center; }
+.dash-signin-more[open] > summary { margin-bottom: var(--om-space-3); }
+.dash-signin-more .dash-signin-form + .dash-signin-form { margin-top: var(--om-space-4); }
+.dash-signin-chip {
+  display: flex; align-items: center; gap: var(--om-space-2); max-width: 400px; margin: 0; padding: var(--om-space-2) var(--om-space-3);
+  border-radius: var(--om-radius-pill); font-size: var(--om-font-size-xs); color: var(--om-color-text-muted);
+  background: color-mix(in srgb, var(--om-color-surface) 78%, transparent); border: 1px solid var(--om-color-border);
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+}
+.dash-signin-chip button { all: unset; cursor: pointer; flex: none; width: 24px; height: 24px; display: grid; place-items: center; border-radius: 50%; }
+.dash-signin-chip button:hover { background: var(--om-color-surface-sunken); }
+.dash-signin-chip button:focus-visible { outline: 2px solid var(--om-color-focus); outline-offset: 2px; }
+
+/* Phones: tab rows (Market: Discover, Import Compose, ...) are one scrolling segmented control, never a second line. */
+@media (max-width: 720px) {
+  .dash-tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; max-width: 100%; }
+  .dash-tabs::-webkit-scrollbar { display: none; }
+  .dash-tabs a { flex: none; white-space: nowrap; }
+}
+.dash-signin-more > summary { list-style: none; justify-content: center; gap: var(--om-space-2); }
+.dash-signin-more > summary::-webkit-details-marker { display: none; }
+.dash-signin-more > summary::after { content: ''; width: 7px; height: 7px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(45deg) translateY(-2px); transition: transform 160ms; }
+.dash-signin-more[open] > summary::after { transform: rotate(225deg); }

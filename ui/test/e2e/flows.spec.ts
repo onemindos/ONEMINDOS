@@ -7,6 +7,7 @@ test('dashboard: bad token refused, demo owner signs in, navigates and signs out
   const errors = watchErrors(page);
   await page.clock.setFixedTime(FIXED_TIME);
   await page.goto(DASH_URL);
+  await page.getByText('Other ways to sign in').click();
   const token = page.getByLabel('Access token');
   const signIn = page.getByRole('button', { name: 'Sign in' });
 

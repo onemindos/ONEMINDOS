@@ -194,7 +194,7 @@ function neural(c: Stops, seed: number): string {
  * Colours are the wallpaper's own stop c[3], already blended to what the eye sees, so the
  * contrast guard counts every star pixel.
  */
-function starlight(c: Stops, seed: number): string {
+function starlight(c: Stops, seed: number, faint = false): string {
   const rand = rng(seed);
   const W = 1600;
   const H = 1000;
@@ -214,7 +214,7 @@ function starlight(c: Stops, seed: number): string {
   const dots = pts.map(([x, y], i) => `<circle cx="${x}" cy="${y}" r="${i % 9 === 0 ? 2 : 1.1}"/>`).join('');
   return svgUrl(
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid slice">` +
-      `<g stroke="${c[3]}" stroke-width="1" stroke-opacity="0.5" fill="none">${lines.join('')}</g><g fill="${c[3]}">${dots}</g></svg>`,
+      `<g stroke="${c[3]}" stroke-width="1" stroke-opacity="${faint ? 0.05 : 0.5}" fill="none">${lines.join('')}</g><g fill="${c[3]}" fill-opacity="${faint ? 0.3 : 1}">${dots}</g></svg>`,
   );
 }
 
@@ -226,13 +226,14 @@ export const WALLPAPERS: Record<WallpaperId, Wallpaper> = {
     accent: 'onemind',
     // Stops: [base, horizon glow as painted, sea teal, starlight as painted]. The sky ends are
     // darker (night) or lighter (day) than the base, so they never need more dimming than the stops.
-    colors: { light: ['#f2f5f6', '#f3dccb', '#d6e8ec', '#c9d7dc'], dark: ['#0a1418', '#5c4436', '#0f4a55', '#3a4d53'] },
+    colors: { light: ['#f6f1e7', '#f7e0c8', '#f2e4d2', '#e6dccd'], dark: ['#0a1418', '#5c4436', '#0f4a55', '#3a4d53'] },
     render: (c) => {
       const night = c[0] === '#0a1418';
-      const [top, bottom] = night ? ['#07263a', '#050b0e'] : ['#dfe9ee', '#e6eef1'];
+      // Day is a warm dusk: soft parchment at the top, a light apricot glow behind the fold (about 40% of night's strength).
+      const [top, bottom] = night ? ['#07263a', '#050b0e'] : ['#f3ede2', '#f1e3d1'];
       const reflect = `color-mix(in srgb, ${c[1]} 30%, transparent)`;
       return [
-        `var(--om-wp-stars, ${starlight(c, 21)}) center / cover no-repeat`,
+        `var(--om-wp-stars, ${starlight(c, 21, !night)}) center / cover no-repeat`,
         `radial-gradient(ellipse 62% 11% at 50% 70%, ${c[1]} 0, transparent 100%)`,
         `radial-gradient(ellipse 110% 30% at 50% 70%, ${c[2]} 0, transparent 100%)`,
         `radial-gradient(ellipse 50% 9% at 50% 78%, ${reflect} 0, transparent 100%)`,

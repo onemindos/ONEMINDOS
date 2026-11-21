@@ -189,9 +189,10 @@ export function ApprovalsBoard({ actions, plans, decided = [], now, canDecide, o
                         canDecide={!live ? { allowed: false, reason: 'The hub is not answering; decisions are paused.' } : canDecide}
                         onApprove={onApprove}
                         onDeny={onDeny}
-                        extra={
+                        extra={plans[current.id] || !planNote ? <EffectsCard plan={plans[current.id] ?? { status: 'loading' }} now={now} /> : undefined}
+                        technical={
                           <>
-                            {!plans[current.id] && planNote ? <p className="om-note om-tone-info">{planNote}</p> : <EffectsCard plan={plans[current.id] ?? { status: 'loading' }} now={now} />}
+                            {!plans[current.id] && planNote && <p className="om-hint">{planNote}</p>}
                             <p className="om-hint">{approveHint ?? 'Approving asks for your passkey and signs exactly this plan. If the plan changes, the request has to be approved again.'}</p>
                           </>
                         }
