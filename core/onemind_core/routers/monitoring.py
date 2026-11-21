@@ -44,8 +44,9 @@ register_route_scope("GET,HEAD", r"/v1/apps/[^/]+/logs", ("logs:read",))
 register_route_scope("GET,HEAD", r"/v1/apps/[^/]+/metrics", ("monitoring:read",))
 register_route_scope("GET,HEAD", r"/v1/nodes/[^/]+/metrics", ("monitoring:read",))
 register_route_scope("GET,HEAD", r"/v1/monitoring/summary", ("monitoring:read",))
-# Live usage (UMB-P11, #429): the same numbers /v1/nodes already shows (memory, disk), so nodes:read.
-register_route_scope("GET,HEAD", r"/v1/usage", ("nodes:read",))
+# Live usage (UMB-P11, #429): carries per-app CPU/memory/disk, which /v1/apps/{id}/metrics guards with
+# monitoring:read, so this route needs it too.
+register_route_scope("GET,HEAD", r"/v1/usage", ("monitoring:read",))
 _DURATION = re.compile(r"^(\d{1,6})([smh]?)$")
 _COMPONENT = re.compile(r"^[a-z0-9]([a-z0-9.-]{0,251}[a-z0-9])?$")
 # Duration strings are bounded in their own units. Absolute instants additionally

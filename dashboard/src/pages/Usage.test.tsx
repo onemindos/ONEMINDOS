@@ -17,8 +17,8 @@ const live = {
       mem_used_mb: 1024, mem_total_mb: 4096, disk_used_gb: null, disk_total_gb: null, temp_c: null, cpu_source: 'heartbeat' },
   ],
   apps: { source: 'kubernetes', sampled_at: new Date().toISOString(), stale: false, items: [
-    { app_id: 'kuma', name: 'Uptime Kuma', cpu_millicores: 300, mem_mb: 130, disk_mb: 3000 },
-    { app_id: 'whoami', name: 'Whoami', cpu_millicores: 5, mem_mb: null, disk_mb: null },
+    { app_id: 'kuma', name: 'Uptime Kuma', cpu_millicores: 300, mem_mib: 130, disk_mib: 3000 },
+    { app_id: 'whoami', name: 'Whoami', cpu_millicores: 5, mem_mib: null, disk_mib: null },
   ] },
 };
 function response(value: unknown, code = 200) { return new Response(JSON.stringify(value), { status: code, headers: { 'content-type': 'application/json' } }); }
@@ -41,8 +41,8 @@ it('shows machines and apps from GET /v1/usage, with a dash for what nobody repo
   expect(within(win).getByText(/Temperature: 55 °C/)).toBeInTheDocument();
   const row = within(win).getByRole('row', { name: /Uptime Kuma/ });
   expect(row).toHaveTextContent('300 m');
-  expect(row).toHaveTextContent('130 MB');
-  expect(row).toHaveTextContent('2.9 GB');
+  expect(row).toHaveTextContent('130 MiB');
+  expect(row).toHaveTextContent('2.9 GiB');
   expect(within(win).getByRole('row', { name: /Whoami/ })).toHaveTextContent('5 m––');
   expect(fetch.mock.calls.map(([u]) => new URL(String(u)).pathname)).toContain('/v1/usage');
   expect(await seriousViolations(container)).toEqual([]);

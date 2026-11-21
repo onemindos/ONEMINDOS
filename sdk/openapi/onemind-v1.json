@@ -4453,7 +4453,7 @@
             "description": "null when the runtime reports no figure",
             "title": "Cpu Millicores"
           },
-          "disk_mb": {
+          "disk_mib": {
             "anyOf": [
               {
                 "type": "number"
@@ -4462,10 +4462,10 @@
                 "type": "null"
               }
             ],
-            "description": "Bytes used on the app's volume claims, in MB; null when unknown",
-            "title": "Disk Mb"
+            "description": "MiB used on the app's volume claims; null when unknown",
+            "title": "Disk Mib"
           },
-          "mem_mb": {
+          "mem_mib": {
             "anyOf": [
               {
                 "type": "number"
@@ -4474,7 +4474,8 @@
                 "type": "null"
               }
             ],
-            "title": "Mem Mb"
+            "description": "MiB; null when the runtime reports no figure",
+            "title": "Mem Mib"
           },
           "name": {
             "anyOf": [

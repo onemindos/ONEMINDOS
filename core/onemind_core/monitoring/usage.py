@@ -24,7 +24,7 @@ from ..apimodels import OPEN_ENUM
 from ..ledger import iso
 from .health import parse_time
 from .kube import pvc_usage
-from .metrics import sample_from
+from .metrics import _num, sample_from
 
 APPS_CACHE_S = 5
 APPS_STALE_AFTER_S = 30
@@ -55,8 +55,8 @@ class UsageApp(BaseModel):
     app_id: str
     name: str | None = None
     cpu_millicores: float | None = Field(default=None, description="null when the runtime reports no figure")
-    mem_mb: float | None = None
-    disk_mb: float | None = Field(default=None, description="Bytes used on the app's volume claims, in MB; null when unknown")
+    mem_mib: float | None = Field(default=None, description="MiB; null when the runtime reports no figure")
+    disk_mib: float | None = Field(default=None, description="MiB used on the app's volume claims; null when unknown")
 
 
 class UsageApps(BaseModel):
@@ -74,8 +74,16 @@ class Usage(BaseModel):
     apps: UsageApps
 
 
-def _mb(v: float | None) -> float | None:
-    return None if v is None else round(v / 1e6, 1)
+def _mib(v: float | None) -> float | None:
+    return None if v is None else round(v / 2**20, 1)
+
+
+def _text(v: object, n: int = 128) -> str | None:
+    return v if isinstance(v, str) and 0 < len(v) <= n else None
+
+
+def _nonneg(v: float | None) -> float | None:
+    return v if v is not None and v >= 0 else None
 
 
 class UsageReader:
@@ -84,6 +92,7 @@ class UsageReader:
         self._lock = threading.Lock()
         self._rows: list[dict] | None = None
         self._at: datetime | None = None
+        self._failed_at: datetime | None = None
 
     # ---- machines -----------------------------------------------------------------------
     def nodes(self, now: datetime) -> list[dict]:
@@ -91,18 +100,18 @@ class UsageReader:
         ms = kube.node_metrics() if kube is not None else None
         out = []
         for n in self.mon.gw.registry.list():
-            host = n.get("hostname") or n["node_id"]
-            sample, source = sample_from(n, now, (ms or {}).get(host))
+            hostname = _text(n.get("hostname"))   # a heartbeat is untrusted: never a list, an object or a megabyte
+            sample, source = sample_from(n, now, (ms or {}).get(hostname or n["node_id"]))
             seen = parse_time(n.get("last_seen"))
             age = max(0, int((now - seen).total_seconds())) if seen else 0
-            dt, df = sample["disk_total_gb"], sample["disk_free_gb"]
+            dt, df = _nonneg(sample["disk_total_gb"]), _nonneg(sample["disk_free_gb"])
             out.append({
-                "node_id": n["node_id"], "hostname": n.get("hostname"), "status": n["status"],
+                "node_id": n["node_id"], "hostname": hostname, "status": n["status"],
                 "stale": n["status"] != "online", "last_seen": n["last_seen"], "age_s": age,
-                "cpus": n.get("cpus") if isinstance(n.get("cpus"), (int, float)) else None,
-                "cpu_pct": sample["cpu_pct"], "load1": sample["load1"],
-                "mem_used_mb": sample["mem_used_mb"], "mem_total_mb": sample["mem_total_mb"],
-                "disk_used_gb": None if dt is None or df is None else round(dt - df, 1), "disk_total_gb": dt,
+                "cpus": _nonneg(_num(n.get("cpus"))),
+                "cpu_pct": _nonneg(sample["cpu_pct"]), "load1": _nonneg(sample["load1"]),
+                "mem_used_mb": _nonneg(sample["mem_used_mb"]), "mem_total_mb": _nonneg(sample["mem_total_mb"]),
+                "disk_used_gb": None if dt is None or df is None else _nonneg(round(dt - df, 1)), "disk_total_gb": dt,
                 "temp_c": sample["temp_c"], "cpu_source": source,
             })
         return out
@@ -122,9 +131,11 @@ class UsageReader:
             if pods is not None:
                 reached = True
                 usage = kube.pod_metrics(ns)
-                if usage is not None:
-                    cpu = round(sum(c or 0 for u in usage.values() for c, _ in u.values()), 1)
-                    mem = round(sum(m or 0 for u in usage.values() for _, m in u.values()), 1)
+                if usage is not None:   # no container reported a value: unknown (null), never 0
+                    cs = [c for u in usage.values() for c, _ in u.values() if c is not None]
+                    ms_ = [m for u in usage.values() for _, m in u.values() if m is not None]
+                    cpu = round(sum(cs), 1) if cs else None
+                    mem = round(sum(ms_), 1) if ms_ else None
                 names = {(p.get("spec") or {}).get("nodeName") for p in pods} - {None, ""}
                 vols: dict[str, float] = {}
                 for node in names:
@@ -132,19 +143,21 @@ class UsageReader:
                         node_stats[node] = kube.node_stats(node)
                     vols.update(pvc_usage(node_stats[node], ns))
                 if names and all(node_stats[n] is not None for n in names):
-                    disk = _mb(sum(vols.values()))
+                    disk = _mib(sum(vols.values()))
             entry = self.mon.gw.catalog.get(app_id)
             rows.append({"app_id": app_id, "name": (entry.manifest.get("metadata") or {}).get("name") if entry else None,
-                         "cpu_millicores": cpu, "mem_mb": mem, "disk_mb": disk})
+                         "cpu_millicores": cpu, "mem_mib": mem, "disk_mib": disk})
         return rows if reached or not rows else None
 
     def apps(self, now: datetime) -> dict:
         with self._lock:
-            fresh = self._at is not None and (now - self._at).total_seconds() < APPS_CACHE_S
-            if not fresh:
+            last = max((t for t in (self._at, self._failed_at) if t is not None), default=None)
+            if last is None or (now - last).total_seconds() >= APPS_CACHE_S:   # also after a failure: no kubectl storm
                 rows = self._read_apps()
                 if rows is not None:
                     self._rows, self._at = rows, now
+                else:
+                    self._failed_at = now
             if self._rows is None or self._at is None:
                 return {"source": "unavailable", "sampled_at": None, "stale": True, "rows": []}
             age = (now - self._at).total_seconds()

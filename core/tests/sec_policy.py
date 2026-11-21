@@ -243,7 +243,7 @@ POLICY |= {
                                            "§12.15; a child has no monitoring:read"),
     # UMB-P11 (#429): the heartbeat numbers /v1/nodes shows plus per-app usage; sharing filters the apps.
     ("GET", "/v1/usage"): Row(CHILD_CANNOT, w.p_static("/v1/usage"),
-                              "UMB-P11 live usage: read-only, nodes:read (a child has none); unshared apps are left out"),
+                              "UMB-P11 live usage: read-only, monitoring:read like app metrics (a child has none); unshared apps are left out"),
 }
 
 # ---- audit and events: feat/devsurface (contract §12.8, §12.16) -----------------------------------------

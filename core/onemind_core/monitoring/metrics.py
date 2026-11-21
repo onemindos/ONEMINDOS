@@ -9,6 +9,7 @@ restarts, is a Market app's job).
 
 from __future__ import annotations
 
+import math
 import threading
 from collections import deque
 from datetime import datetime, timedelta
@@ -20,7 +21,11 @@ SAMPLE_EVERY_S = 60
 
 
 def _num(v) -> float | None:
-    return float(v) if isinstance(v, (int, float)) and not isinstance(v, bool) else None
+    """A finite, sane number, else None: NaN/Infinity (json.loads accepts them) must never reach a response."""
+    if isinstance(v, bool) or not isinstance(v, (int, float)):
+        return None
+    f = float(v)
+    return f if math.isfinite(f) and abs(f) <= 1e12 else None
 
 
 def sample_from(hb: dict, at: datetime, metrics_server_cpu_m: float | None = None) -> tuple[dict, str]:

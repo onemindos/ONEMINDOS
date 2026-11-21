@@ -3,9 +3,12 @@
 
 from __future__ import annotations
 
+import json
+
 from conftest import GUEST, OWNER
+from onemind_core.identity.scopes import required_scopes
 from onemind_core.monitoring.kube import KubeReader, pvc_usage
-from test_monitoring import FakeKube, beat, install, mclient, mon, pod  # noqa: F401  (fixture re-export)
+from test_monitoring import FakeKube, beat, hb, install, mclient, mon, pod  # noqa: F401  (fixture re-export)
 
 
 class UsageKube(FakeKube):
@@ -53,8 +56,8 @@ def test_machines_and_apps_from_the_real_sources(mclient, clock):
     assert (n["mem_used_mb"], n["mem_total_mb"], n["disk_used_gb"], n["disk_total_gb"], n["temp_c"]) == (2000, 8000, 40.0, 100.0, 51.0)
     assert body["apps"]["source"] == "kubernetes" and body["apps"]["stale"] is False
     [a] = body["apps"]["items"]
-    assert a["app_id"] == "uptime-kuma" and a["cpu_millicores"] == 300.0 and a["mem_mb"] == 130.0
-    assert a["disk_mb"] == 3000.0   # only the claim-backed volume, only this app's namespace
+    assert a["app_id"] == "uptime-kuma" and a["cpu_millicores"] == 300.0 and a["mem_mib"] == 130.0
+    assert a["disk_mib"] == 2861.0   # only the claim-backed volume, only this app's namespace
 
 
 def test_unreported_numbers_are_null_not_zero(mclient, clock):
@@ -66,7 +69,7 @@ def test_unreported_numbers_are_null_not_zero(mclient, clock):
     n = body["nodes"][0]
     assert n["cpu_pct"] is None and n["temp_c"] is None
     [a] = body["apps"]["items"]
-    assert (a["cpu_millicores"], a["mem_mb"], a["disk_mb"]) == (None, None, None)
+    assert (a["cpu_millicores"], a["mem_mib"], a["disk_mib"]) == (None, None, None)
 
 
 def test_old_heartbeat_is_stale_not_current(mclient, clock):
@@ -148,3 +151,58 @@ def test_kubelet_stats_read_is_a_read_only_raw_get_and_rejects_odd_node_names():
     assert r.node_stats("k1.local") == {"pods": []}
     assert calls == [["kubectl", "get", "--raw", "/api/v1/nodes/k1.local/proxy/stats/summary"]]
     assert r.node_stats("../x") is None and len(calls) == 1
+
+
+def test_hostile_heartbeat_fields_never_break_the_route(mclient):
+    k = mon(mclient).kube = UsageKube()
+    k.nodes = {"n9": 100.0}
+    for node_id, host in (("n8", ["a"]), ("n9", {"x": 1}), ("n7", "h" * 500), ("n6", "")):
+        raw = json.loads(hb(node_id))
+        raw["hostname"] = host
+        assert mclient.app.state.registry.ingest(f"onemind.node.{node_id}.status", json.dumps(raw).encode())
+    body = usage(mclient)
+    assert {n["node_id"]: n["hostname"] for n in body["nodes"]} == {"n6": None, "n7": None, "n8": None, "n9": None}
+    assert [n["cpu_pct"] for n in body["nodes"] if n["node_id"] == "n9"] == [2.5]  # no valid hostname: metrics-server is matched by node id
+
+
+def test_nan_infinity_and_nonsense_numbers_become_null(mclient):
+    mon(mclient).kube = UsageKube()
+    raw = json.loads(hb("n1"))
+    raw.update(mem_total_mb=float("nan"), disk_total_gb=float("inf"), disk_free_gb=-5, cpus=float("-inf"),
+               metrics={"cpu_pct": float("nan"), "temp_c": 1e300, "load1": -1})
+    assert mclient.app.state.registry.ingest("onemind.node.n1.status", json.dumps(raw).encode())
+    n = usage(mclient)["nodes"][0]
+    assert all(n[k] is None for k in ("mem_total_mb", "mem_used_mb", "disk_total_gb", "disk_used_gb", "cpus", "cpu_pct", "temp_c", "load1"))
+
+
+def test_empty_runtime_metrics_are_null_not_zero(mclient, clock):
+    k = mon(mclient).kube = UsageKube()
+    install(mclient, clock)
+    k.pods_by_ns["app-uptime-kuma"] = [with_node(pod("web-1"))]
+    k.usage = {}                        # metrics-server answered, but no pod has a reading
+    [a] = usage(mclient)["apps"]["items"]
+    assert a["cpu_millicores"] is None and a["mem_mib"] is None
+    k.usage = {"web-1": {"main": (None, None)}}
+    clock.advance(10)
+    [a] = usage(mclient)["apps"]["items"]
+    assert a["cpu_millicores"] is None and a["mem_mib"] is None
+
+
+def test_failed_runtime_reads_are_not_retried_inside_the_cache_window(mclient, clock):
+    k = mon(mclient).kube = UsageKube()
+    install(mclient, clock)
+    k.pods_by_ns["app-uptime-kuma"] = None          # kubectl never answers
+    calls = []
+    real = k.pods
+    k.pods = lambda ns: (calls.append(ns), real(ns))[1]
+    for _ in range(3):
+        assert usage(mclient)["apps"]["source"] == "unavailable"
+    assert len(calls) == 1
+    clock.advance(6)
+    usage(mclient)
+    assert len(calls) == 2
+
+
+def test_usage_needs_monitoring_read_like_app_metrics():
+    assert required_scopes("GET", "/v1/usage") == ("monitoring:read",)
+    assert required_scopes("GET", "/v1/apps/x/metrics") == ("monitoring:read",)

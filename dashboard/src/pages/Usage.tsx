@@ -23,7 +23,7 @@ export const USAGE_REFRESH_MS = 5_000;
 const gb = (mb: number) => `${(mb / 1024).toFixed(1)} GB`;
 const dash = (v: number | null | undefined, f: (n: number) => string) => (typeof v === 'number' ? f(v) : '–');
 const cores = (m: number) => (m >= 1000 ? `${(m / 1000).toFixed(2)} cores` : `${Math.round(m)} m`);
-const mem = (m: number) => (m >= 1024 ? gb(m) : `${Math.round(m)} MB`);
+const mem = (m: number) => (m >= 1024 ? `${(m / 1024).toFixed(1)} GiB` : `${Math.round(m)} MiB`);
 const FRESH = { online: 'live', stale: 'stale', offline: 'offline' } as const;
 
 function apiError(e: unknown) {
@@ -78,8 +78,8 @@ function MachineCard({ n }: { n: UsageNode }) {
 const COLUMNS: Column<UsageApp>[] = [
   { key: 'name', header: 'App', render: (a) => a.name ?? a.app_id, sortValue: (a) => (a.name ?? a.app_id).toLowerCase() },
   { key: 'cpu', header: 'Processor', align: 'end', render: (a) => dash(a.cpu_millicores, cores), sortValue: (a) => a.cpu_millicores ?? -1 },
-  { key: 'mem', header: 'Memory', align: 'end', render: (a) => dash(a.mem_mb, mem), sortValue: (a) => a.mem_mb ?? -1 },
-  { key: 'disk', header: 'Disk', align: 'end', render: (a) => dash(a.disk_mb, mem), sortValue: (a) => a.disk_mb ?? -1 },
+  { key: 'mem', header: 'Memory', align: 'end', render: (a) => dash(a.mem_mib, mem), sortValue: (a) => a.mem_mib ?? -1 },
+  { key: 'disk', header: 'Disk', align: 'end', render: (a) => dash(a.disk_mib, mem), sortValue: (a) => a.disk_mib ?? -1 },
 ];
 
 function LiveUsage({ token }: { token: string }) {

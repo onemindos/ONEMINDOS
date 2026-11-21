@@ -78,7 +78,7 @@ func (g *fakeGW) serve(w http.ResponseWriter, r *http.Request) {
 			"nodes": []any{map[string]any{"node_id": "abc", "hostname": "hub", "status": "stale", "stale": true, "last_seen": "2026-11-20T09:59:00Z",
 				"age_s": 60, "cpu_pct": 12.5, "mem_used_mb": 2000, "mem_total_mb": 8000, "disk_used_gb": 40, "disk_total_gb": 100, "cpu_source": "heartbeat"}},
 			"apps": map[string]any{"source": "kubernetes", "sampled_at": "2026-11-20T09:58:00Z", "stale": true,
-				"items": []any{map[string]any{"app_id": "kuma", "cpu_millicores": 300, "mem_mb": 130, "disk_mb": nil}}}})
+				"items": []any{map[string]any{"app_id": "kuma", "cpu_millicores": 300, "mem_mib": 130, "disk_mib": nil}}}})
 	case p == "/v1/nodes":
 		jsonOut(w, 200, []any{map[string]any{"node_id": "abc", "hostname": "hub", "status": "online", "last_seen": "2026-11-12T09:00:00Z", "zeta": 1, "alpha": 2}})
 	case p == "/v1/apps":
@@ -257,13 +257,13 @@ func TestStatusUsageShowsStaleAndMissingNumbersHonestly(t *testing.T) {
 		t.Fatalf("usage %+v", r)
 	}
 	for _, want := range []string{"hub", "12.5%", "2000.0 / 8000.0 MB", "40.0 / 100.0 GB", "STALE: last heard 60s ago",
-		"Apps: STALE, last read 2026-11-20T09:58:00Z", "kuma", "300.0m", "130.0MB"} {
+		"Apps: STALE, last read 2026-11-20T09:58:00Z", "kuma", "300.0m", "130.0MiB"} {
 		if !strings.Contains(r.out, want) {
 			t.Errorf("missing %q in:\n%s", want, r.out)
 		}
 	}
 	// Disk of the app is unknown: a dash, never 0.
-	if !regexp.MustCompile(`kuma\s+300\.0m\s+130\.0MB\s+-\s*\n`).MatchString(r.out) {
+	if !regexp.MustCompile(`kuma\s+300\.0m\s+130\.0MiB\s+-\s*\n`).MatchString(r.out) {
 		t.Errorf("unknown value must be a dash:\n%s", r.out)
 	}
 	if j := run(t, "", false, "status", "--usage", "--json"); j.code != 0 || !strings.Contains(j.out, `"stale": true`) {

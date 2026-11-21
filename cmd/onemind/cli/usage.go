@@ -53,7 +53,7 @@ func (a *App) printUsage(c *onemind.Client) error {
 	}
 	apps := [][]string{}
 	for _, x := range u.Apps.Items {
-		apps = append(apps, []string{x.AppId, num(x.CpuMillicores, "m"), num(x.MemMb, "MB"), num(x.DiskMb, "MB")})
+		apps = append(apps, []string{x.AppId, num(x.CpuMillicores, "m"), num(x.MemMib, "MiB"), num(x.DiskMib, "MiB")})
 	}
 	return table(a.Stdout, "APP\tCPU\tMEMORY\tDISK", apps)
 }
