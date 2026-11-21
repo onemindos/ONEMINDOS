@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: Apache-2.0
+id: digitalocean-droplet
+name: DigitalOcean droplet (cloud image, BIOS boot)
+class: cloud
+board: vm-do
+status: unproven
+cpu: any droplet size with a disk of 25 GB or more
+ram: UNVERIFIED (smallest size that fits the disk is the test target)
+disk: 16 GiB image, data partition grows to the rest at first boot
+network: public IPv4 from cloud-init
+tpm: "none (BIOS droplet, so no Secure Boot and no measured boot)"
+firmware_needed: []
+what_works: []
+what_does_not:
+  - "no Secure Boot, no TPM on a droplet (an expected limit, not a failure)"
+kit: LT-DO-01
+result: null
+proven_on: null
+image_version: null
