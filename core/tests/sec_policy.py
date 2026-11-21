@@ -561,3 +561,12 @@ POLICY |= {
                                                  w.p_static("/v1/machines/ghost/console"),
                                                  f"{_MACH}: only the owner gets a console ticket; an agent never gets a screen"),
 }
+
+# ---- OS updates (UMB-P05, #142: core/onemind_core/routers/osupdates.py) --------------------------------------
+_OSUP = "core/onemind_core/routers/osupdates.py"
+POLICY |= {
+    ("GET", "/v1/os/updates"): Row(CHILD_CANNOT, w.p_static("/v1/os/updates"),
+                                   f"{_OSUP}: versions and A/B slots, the facts /v1/nodes shows; a child has no nodes:read"),
+    ("GET", "/v1/os/updates/history"): Row(CHILD_CANNOT, w.p_static("/v1/os/updates/history"),
+                                           f"{_OSUP}: commits, rollbacks and install requests; same nodes:read gate"),
+}

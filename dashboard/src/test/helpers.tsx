@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
-import { render } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
+import type userEvent from '@testing-library/user-event';
 import axe from 'axe-core';
 import { MemoryRouter } from 'react-router';
 import { App } from '../App';
@@ -56,4 +57,28 @@ export async function seriousViolations(node: Element = document.body) {
   return res.violations
     .filter((v) => v.impact === 'serious' || v.impact === 'critical')
     .map((v) => `${v.id} (${v.impact}): ${v.help} → ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`);
+}
+
+type User = ReturnType<typeof userEvent.setup>;
+
+/**
+ * Every screen the person can reach (D-016): the dock shows the everyday ones and Launchpad
+ * lists all of them, so this opens Launchpad and returns it. In the Console view (sidebar)
+ * it returns the sidebar instead.
+ */
+export async function screensNav(u: User, timeout = 4000) {
+  const nav = await screen.findByRole('navigation', { name: 'Main' }, { timeout });
+  const all = within(nav).queryByRole('button', { name: /screens and apps/ });
+  if (!all) return within(nav);
+  await u.click(all);
+  return within(await screen.findByRole('dialog', { name: 'Launchpad' }, { timeout }));
+}
+
+/** Open a screen the way a person would: from the dock, or from Launchpad when it is not docked. */
+export async function openScreen(u: User, name: string | RegExp) {
+  const nav = await screen.findByRole('navigation', { name: 'Main' }, { timeout: 4000 });
+  const docked = within(nav).queryAllByRole('link', { name });
+  if (docked.length) return u.click(docked[0]!);
+  const lp = await screensNav(u);
+  await u.click(lp.getAllByRole('link', { name })[0]!);
 }

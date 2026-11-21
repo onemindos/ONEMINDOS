@@ -2,6 +2,7 @@
 import { act, fireEvent, render, renderHook, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import userEvent from '@testing-library/user-event';
+import { openScreen } from '../test/helpers';
 import { afterEach, expect, it, vi } from 'vitest';
 import { App } from '../App';
 import { DEMO_TOKENS } from '../api/fixtures';
@@ -43,7 +44,7 @@ it('reaches real backup status, targets and runs without inventing verified rest
   expect(within(summary).getByText('Not verified')).toBeInTheDocument();
   expect(await screen.findByText('run-1')).toBeInTheDocument();
   expect(fetch.mock.calls.every(([, init]) => new Headers(init?.headers).get('authorization') === 'Bearer ' + token)).toBe(true);
-  await userEvent.setup().click(screen.getAllByRole('link', { name: /Coming soon/ })[0]!);
+  await openScreen(userEvent.setup(), /Coming soon/);
   expect(screen.queryByRole('article', { name: 'Backups' })).not.toBeInTheDocument();
 });
 
@@ -215,8 +216,8 @@ it('keeps an unconfirmed network write identity across in-tab navigation', async
   await u.click(screen.getByRole('button', { name: 'Send request' }));
   expect(await screen.findByRole('alert')).toHaveTextContent(/may already have been filed/);
   await u.click(screen.getByRole('button', { name: 'Close' }));
-  await u.click(screen.getAllByRole('link', { name: /Coming soon/ })[0]!);
-  await u.click(screen.getByRole('link', { name: 'Backups' }));
+  await openScreen(u, /Coming soon/);
+  await openScreen(u, 'Backups');
   await u.click(await screen.findByRole('button', { name: 'Request backup' }));
   await u.click(screen.getByRole('button', { name: /Send request|Retry same request/ }));
   expect(await screen.findByText(/network-action: awaiting_approval/)).toBeInTheDocument();

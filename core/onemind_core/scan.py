@@ -17,6 +17,8 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
 
+from .filesig import cache_signature
+
 log = logging.getLogger("onemind.scan")
 
 SCAN_FILE = "scan.json"
@@ -44,7 +46,9 @@ class ScanRecord:
 
 # scan.json path -> (stat signature, record). GET /v1/apps reads every app's scan on every poll; the
 # parsed record only changes when the file does. Freshness (7 days) is judged by the caller with
-# `now`, never cached here, and unreadable or invalid files are not cached at all.
+# `now`, never cached here, and unreadable or invalid files are not cached at all. A file changed in
+# the last moments is not cached either (filesig.cache_signature): a same-size rewrite in the same
+# clock tick would otherwise keep serving the old record.
 _CACHE: dict[Path, tuple[tuple, ScanRecord]] = {}
 
 
@@ -52,9 +56,9 @@ def read_scan(app_dir: Path) -> ScanRecord | None:
     path = app_dir / SCAN_FILE
     try:
         st = path.stat()
-        sig = (st.st_mtime_ns, st.st_ctime_ns, st.st_size, st.st_ino)
+        sig = cache_signature(st)
         hit = _CACHE.get(path)
-        if hit is not None and hit[0] == sig:
+        if sig is not None and hit is not None and hit[0] == sig:
             return hit[1]
     except OSError:
         sig = None
