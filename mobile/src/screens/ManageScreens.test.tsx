@@ -195,6 +195,64 @@ describe('Files screen', () => {
     expect(await screen.findByText('notes.txt')).toBeTruthy();
   });
 
+  const DEV = (over: Partial<import('../lib/filesTransfer').FilesDevice> = {}) => ({
+    pick: jest.fn(async () => undefined),
+    download: jest.fn(async () => 'file:///cache/notes.txt'),
+    share: jest.fn(async () => undefined),
+    ...over,
+  });
+  const HOME = { root: 'home:owner', kind: 'home', name: 'My files', path: '/', writable: true };
+  const FILES = async () => [{ name: 'notes.txt', type: 'file', size: 10 }];
+
+  it('hides Save and Add when the hub does not serve download or uploads', async () => {
+    await mount(<FilesScreen device={DEV()} />, { filesRoots: async () => [HOME], filesList: FILES });
+    await fireEvent.press(await screen.findByTestId('root-home:owner'));
+    await screen.findByText('notes.txt');
+    expect(screen.queryByTestId('save-notes.txt')).toBeNull();
+    expect(screen.queryByTestId('files-add')).toBeNull();
+  });
+
+  it('fetches a file and opens the share sheet', async () => {
+    const device = DEV();
+    const filesDownloadRequest = jest.fn(() => ({ url: 'https://hub.example/v1/files/download?x', headers: { Authorization: 'Bearer t' } }));
+    await mount(<FilesScreen device={device} />, { filesRoots: async () => [HOME], filesList: FILES, filesDownloadRequest, features: async () => new Features([...ALL, OP.filesDownload], 'openapi') });
+    await fireEvent.press(await screen.findByTestId('root-home:owner'));
+    await fireEvent.press(await screen.findByTestId('save-notes.txt'));
+    expect(await screen.findByText('notes.txt was fetched from the hub.')).toBeTruthy();
+    expect(filesDownloadRequest).toHaveBeenCalledWith('home:owner', '/notes.txt');
+    expect(device.share).toHaveBeenCalledWith('file:///cache/notes.txt', 'notes.txt');
+  });
+
+  it('uploads a picked file only into a writable folder', async () => {
+    const device = DEV({ pick: jest.fn(async () => ({ name: 'new.txt', size: 3, read: async () => new Uint8Array(3) })) });
+    const filesUploadCreate = jest.fn(async () => 'https://hub.example/v1/files/uploads/u1');
+    const filesUploadChunk = jest.fn(async (_u: string, o: number, b: Uint8Array) => ({ offset: o + b.length }));
+    const over = { filesList: FILES, filesUploadCreate, filesUploadChunk, features: async () => new Features([...ALL, OP.filesUploads], 'openapi') };
+    await mount(<FilesScreen device={device} />, { ...over, filesRoots: async () => [HOME] });
+    await fireEvent.press(await screen.findByTestId('root-home:owner'));
+    await fireEvent.press(await screen.findByTestId('files-add'));
+    expect(await screen.findByText('new.txt is on the hub.')).toBeTruthy();
+    expect(filesUploadCreate).toHaveBeenCalledWith({ root: 'home:owner', path: '/', name: 'new.txt', size: 3, sha256: undefined });
+  });
+
+  it('offers no upload in a read only folder, and says why a refused upload failed', async () => {
+    await mount(<FilesScreen device={DEV()} />, { filesList: FILES, filesRoots: async () => [{ ...HOME, writable: false }], features: async () => new Features([...ALL, OP.filesUploads], 'openapi') });
+    await fireEvent.press(await screen.findByTestId('root-home:owner'));
+    await screen.findByText('notes.txt');
+    expect(screen.queryByTestId('files-add')).toBeNull();
+  });
+
+  it('shows the box backup badge when the backups route is served', async () => {
+    await mount(<FilesScreen device={DEV()} />, {
+      filesRoots: async () => [HOME],
+      filesList: FILES,
+      features: async () => new Features([...ALL], 'openapi'),
+      backupStatus: async () => ({ health: 'ok', badges: { box: { state: 'verified' } } }),
+    });
+    await fireEvent.press(await screen.findByTestId('root-home:owner'));
+    expect(await screen.findByText('Safe in a backup, restore-checked')).toBeTruthy();
+  });
+
   it('says so when nothing is shared, and when the hub refuses', async () => {
     await mount(<FilesScreen />, { filesRoots: async () => [] });
     expect(await screen.findByText('No folders are shared with you.')).toBeTruthy();
