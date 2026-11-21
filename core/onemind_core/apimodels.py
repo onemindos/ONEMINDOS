@@ -146,3 +146,37 @@ class AppCredentials(BaseModel):
 
     username: str | None
     password: str
+
+
+class AboutNode(BaseModel):
+    """One box in GET /v1/os/about. Never carries a serial number or an address."""
+
+    node_id: str
+    hostname: str | None = None
+    role: str | None = None
+    board: str | None = Field(default=None, json_schema_extra=OPEN_ENUM)
+    arch: str | None = None
+    status: str = Field(description="online | stale | offline", json_schema_extra=OPEN_ENUM)
+    last_seen: str | None = None
+    os_pretty: str | None = Field(default=None, description="The Debian base, from /etc/os-release")
+    os_id: str | None = None
+    os_version_id: str | None = None
+    onemind_version: str | None = Field(default=None, description="The update service's current version")
+    agent_version: str | None = None
+    booted_slot: str | None = Field(default=None, description="The RAUC A/B slot this box booted from")
+    kernel: str | None = None
+    cpu_model: str | None = None
+    cpus: int | None = None
+    mem_total_mb: int | None = None
+    mem_available_mb: int | None = None
+    disk_total_gb: float | None = None
+    disk_free_gb: float | None = None
+    uptime_s: int | None = None
+
+
+class About(BaseModel):
+    """GET /v1/os/about."""
+
+    hub_node_id: str | None
+    node_count: int
+    nodes: list[AboutNode]
