@@ -395,3 +395,33 @@ def test_quantities():
 def test_settings_validation():
     with pytest.raises(ValueError):
         MonitoringSettings(kube="maybe").validate()
+
+
+# ---- Prometheus /v1/metrics ---------------------------------------------------------------
+
+def test_prometheus_metrics_text(mclient, clock):
+    install(mclient, clock)
+    minute(mclient, clock, metrics={"cpu_pct": 12.5, "load1": 0.5, "temp_c": 50.0})
+    beat(mclient)  # minute() moved the clock on: a fresh heartbeat makes the node online again
+    r = mclient.get("/v1/metrics", headers=GUEST)
+    assert r.status_code == 200 and r.headers["content-type"].startswith("text/plain; version=0.0.4")
+    t = r.text
+    assert 'onemind_nodes{status="online"} 1' in t
+    assert 'onemind_node_cpu_percent{node="n1"} 12.5' in t
+    assert 'onemind_node_memory_used_bytes{node="n1"} 2097152000' in t
+    assert 'onemind_node_disk_free_bytes{node="n1"} 60000000000' in t
+    assert 'onemind_alerts_open{severity="critical"} 0' in t
+    assert '# TYPE onemind_node_temperature_celsius gauge' in t
+    assert 'onemind_app_health{app="uptime-kuma",state="' in t
+
+
+def test_prometheus_metrics_needs_a_token(mclient):
+    assert mclient.get("/v1/metrics").status_code == 401
+
+
+def test_prometheus_render_escapes_and_skips_unknowns():
+    from onemind_core.monitoring import prometheus as prom
+    out = prom.render([{"node_id": 'a"b', "status": "online"}], {'a"b': {"cpu_pct": None}}, {"kuma": "healthy"}, {})
+    assert 'onemind_node_cpu_percent' not in out
+    assert 'onemind_app_health{app="kuma",state="healthy"} 1' in out
+    assert 'onemind_app_health{app="kuma",state="unknown"} 0' in out

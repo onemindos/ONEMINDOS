@@ -14005,6 +14005,48 @@
         ]
       }
     },
+    "/v1/metrics": {
+      "get": {
+        "description": "Prometheus text format. Scrape it with `authorization: {credentials: <token>}` and\n`metrics_path: /v1/metrics`; the token needs `monitoring:read`.",
+        "operationId": "monitoring.metrics",
+        "responses": {
+          "200": {
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "summary": "Prometheus Metrics",
+        "tags": [
+          "monitoring"
+        ]
+      }
+    },
     "/v1/migrate/plans": {
       "get": {
         "description": "Owners, adults and agents; guests get 403.",

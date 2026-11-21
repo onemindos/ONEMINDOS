@@ -26,6 +26,7 @@ from ..errors import ApiError, error_responses
 from ..ledger import iso, utc
 from ..monitoring import MonitoringService
 from ..monitoring import health as H
+from ..monitoring import prometheus as prom
 from ..monitoring.redact import Redactor, redact_lines
 from ..identity.scopes import register_route_scope
 from ..notify.store import NotifyRepository
@@ -43,6 +44,7 @@ register_route_scope("GET,HEAD", r"/v1/apps/[^/]+/logs", ("logs:read",))
 register_route_scope("GET,HEAD", r"/v1/apps/[^/]+/metrics", ("monitoring:read",))
 register_route_scope("GET,HEAD", r"/v1/nodes/[^/]+/metrics", ("monitoring:read",))
 register_route_scope("GET,HEAD", r"/v1/monitoring/summary", ("monitoring:read",))
+register_route_scope("GET,HEAD", r"/v1/metrics", ("monitoring:read",))
 _DURATION = re.compile(r"^(\d{1,6})([smh]?)$")
 _COMPONENT = re.compile(r"^[a-z0-9]([a-z0-9.-]{0,251}[a-z0-9])?$")
 # Duration strings are bounded in their own units. Absolute instants additionally
@@ -210,6 +212,19 @@ def register(app: FastAPI, gw: Gateway) -> None:
         if not samples and gw.registry.get(node_id) is None:
             raise ApiError(404, "not_found", "no such node")
         return {"node_id": node_id, "source": source, "samples": samples}
+
+    # ---- Prometheus ---------------------------------------------------------------------
+    @app.get("/v1/metrics", operation_id="monitoring.metrics", tags=["monitoring"], response_class=PlainTextResponse,
+             responses={200: {"content": {"text/plain": {}}}, **error_responses(401, 403)})
+    def prometheus_metrics(request: Request, p: Principal = Depends(principal)):
+        """Prometheus text format. Scrape it with `authorization: {credentials: <token>}` and
+        `metrics_path: /v1/metrics`; the token needs `monitoring:read`."""
+        nodes = gw.registry.list()
+        latest = {n["node_id"]: next(iter(mon.history.recent(n["node_id"], 1)), None) for n in nodes}
+        states = {a: st for a, st in mon.app_states().items()
+                  if a in set(mon.installed_apps()) and all(f(request, p, a) for f in gw.app_filters)}
+        return PlainTextResponse(prom.render(nodes, latest, states, alerts.open_alert_counts()),
+                                 media_type=prom.CONTENT_TYPE)
 
     # ---- summary ------------------------------------------------------------------------
     @app.get("/v1/monitoring/summary", operation_id="monitoring.summary", tags=["monitoring"], responses=error_responses(401))
