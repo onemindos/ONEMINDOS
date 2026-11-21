@@ -556,6 +556,16 @@ POLICY |= {
                                                  f"{_MACH}: only the owner gets a console ticket; an agent never gets a screen"),
 }
 
+# ---- agent kill switch (CORE-SEC-6, #159: core/onemind_core/routers/agents.py) ---------------------------------
+# The matrix world runs with the switch off; test_agent_kill_switch.py covers every kind with it on.
+_STOP = "core/onemind_core/routers/agents.py"
+POLICY |= {
+    ("GET", "/v1/agents/kill-switch"): Row(ANY_PRINCIPAL, w.p_static("/v1/agents/kill-switch"),
+                                           f"{_STOP}: any signed-in caller may see whether agents are stopped (instance:read)"),
+    ("PUT", "/v1/agents/kill-switch"): Row(ONLY_OWNER, w.p_missing("/v1/agents/kill-switch", json={"on": False}),
+                                           f"{_STOP}: only the owner stops or resumes agents; an agent can never turn it off"),
+}
+
 # ---- OS updates (UMB-P05, #142: core/onemind_core/routers/osupdates.py) --------------------------------------
 _OSUP = "core/onemind_core/routers/osupdates.py"
 POLICY |= {
