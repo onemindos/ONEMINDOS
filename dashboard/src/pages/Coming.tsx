@@ -14,7 +14,6 @@ export interface ComingItem {
 }
 
 export const COMING_ITEMS: ComingItem[] = [
-  { id: 'automation', title: 'Automation', what: 'Rules that file requests on a schedule or an event, with standing approvals you set limits on.', need: 'CORE-AUTO (/v1/automation)' },
   { id: 'files', title: 'Files', what: 'Browse, upload and share files stored on the box.', need: 'the files service (UMB-FILES)' },
   { id: 'secrets', title: 'Secrets', what: 'A vault for passwords and keys that apps and agents can be granted, one by one.', need: 'the secrets service (CORE-SECRETS)' },
   { id: 'photos', title: 'Photos', what: 'Your photo timeline, albums and trash.', need: 'UMB-PHOTO' },
