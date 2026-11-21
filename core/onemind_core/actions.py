@@ -365,6 +365,8 @@ class FeatureAction:
     claim: Callable[["Action"], str | None] | None = None
     release: Callable[["Action"], None] | None = None
     background: bool = False
+    # A feature may derive risk from its immutable request; approval must match it.
+    risk_for: Callable[[dict], str] | None = None
 
 
 FEATURE_OUTCOMES = ("succeeded", "failed", "outcome_unknown")
@@ -1286,16 +1288,19 @@ class ActionService:
         exp = utc(expires_at)
         if exp <= now:
             raise ApiError(409, "expired", "expires_at is already in the past")
+        risk = spec.risk_for(params) if spec.risk_for else spec.risk
+        if risk not in {"read", "write", "sensitive", "destructive", "actuate"}:
+            raise ApiError(422, "conflict", "feature returned an invalid risk class")
         action = Action(
             id=new_action_id(), type=action_type, params=params, state="requested",
             requested_by={"id": principal.id, "kind": principal.kind}, idempotency_key=idempotency_key,
-            created_at=now, updated_at=now, expires_at=exp,
+            created_at=now, updated_at=now, expires_at=exp, risk=risk if spec.risk_for else None,
         )
         stored, created = self.repo.create(action)
         if not created:
             return self.expire_if_due(stored).to_json(), False
         self.audit.append("action.requested", principal.as_dict(), stored.id, {
-            "type": action_type, "params": params, "risk": spec.risk, "expires_at": iso(exp),
+            "type": action_type, "params": params, "risk": risk, "expires_at": iso(exp),
             "requested_by": principal.id, **({"reason": reason} if reason else {}), **(audit_extra or {}),
         })
         moved = self.repo.transition(stored.id, {"requested"}, "awaiting_approval", self.clock())
@@ -1305,6 +1310,8 @@ class ActionService:
     def _approve_feature(
         self, principal: Principal, a: Action, spec: FeatureAction, standing: dict | None = None
     ) -> dict:
+        if spec.risk_for and a.risk != spec.risk_for(a.params):
+            raise ApiError(409, "stale_precondition", "the action risk changed after the request")
         problem = spec.check(a) if spec.check else None
         if problem:
             raise ApiError(409, "stale_precondition", problem)
@@ -1321,7 +1328,7 @@ class ActionService:
             raise ApiError(409, "conflict", "action was decided concurrently")
         ids = {"requested_by": a.requested_by.get("id"), "approved_by": principal.id, **(standing or {})}
         self.audit.append("action.approved", principal.as_dict(), a.id,
-                          {"type": a.type, "params": a.params, "risk": spec.risk, **ids})
+                          {"type": a.type, "params": a.params, "risk": a.risk or spec.risk, **ids})
         if self.repo.transition(a.id, {"accepted"}, "dispatched", self.clock()) is None:
             self._mark_outcome_unknown(a, "accepted action could not move to dispatched")
             return self._get(a.id).to_json()
