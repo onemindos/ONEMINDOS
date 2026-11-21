@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 # Host firewall (default-deny input, /usr/lib/onemind/host.nft). Loaded before the network is configured, so
 # there is no window where the box listens on everything. Optional rules (Samba, SSH) go in
-# /etc/onemind/host.local.nft as `add rule inet onemind_host input ...` lines; a missing file is fine.
+# /etc/onemind/host.local.nft as `add rule inet onemind_host input ...` lines; a missing file is fine. Images ship
+# theirs in /etc/onemind/host.d/*.nft (cloud boards: SSH and HTTPS from anywhere). A bad file is logged, never fatal.
 [Unit]
 Description=OneMind host firewall (default-deny)
 DefaultDependencies=no
@@ -16,7 +17,7 @@ Type=oneshot
 RemainAfterExit=yes
 ExecStartPre=/usr/sbin/nft -c -f /usr/lib/onemind/host.nft
 ExecStart=/usr/sbin/nft -f /usr/lib/onemind/host.nft
-ExecStartPost=-/bin/sh -c 'test -r /etc/onemind/host.local.nft && exec /usr/sbin/nft -f /etc/onemind/host.local.nft'
+ExecStartPost=-/bin/sh -c 'for f in /etc/onemind/host.d/*.nft /etc/onemind/host.local.nft; do if [ -r "$f" ]; then /usr/sbin/nft -f "$f" || echo "onemind-firewall: $f failed" >&2; fi; done; true'
 ExecStop=/usr/sbin/nft delete table inet onemind_host
 ProtectHome=yes
 PrivateTmp=yes

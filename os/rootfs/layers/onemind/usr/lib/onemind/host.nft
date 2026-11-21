@@ -9,7 +9,9 @@
 # Reachable from loopback, the mesh and the pod network only:  k3s API 6443, kubelet 10250, flannel 8472/51820/51821,
 #   NATS leaf 7422. A home box has no reason to offer them to the LAN.
 # Everything else is dropped. Outgoing traffic is not filtered here. Pod-to-host filtering (H-04) and
-# optional services (Samba, SSH) are separate steps: they add rules to this table, see /etc/onemind/host.local.nft.
+# optional services (Samba, SSH) are separate steps: they add rules to this table, see /etc/onemind/host.local.nft
+# (the owner's file) and /etc/onemind/host.d/*.nft (shipped by an image: the cloud boards open 22/443/8443 there).
+# The setup wizard (8080) is opened from the LAN only while the box has no role, through the "setup" chain below.
 add table inet onemind_host
 flush table inet onemind_host
 table inet onemind_host {
@@ -43,8 +45,15 @@ table inet onemind_host {
   }
 
   chain lan {
+    jump setup
     tcp dport { 443, 8443, 8444, 7443 } accept
     udp dport { 5353, 3478, 41641 } accept
+  }
+
+  # Empty on purpose. onemind-setup.service adds "tcp dport 8080 accept" here while the box has no role, so the
+  # owner can open http://onemind.local:8080/ from the LAN, and flushes it when the wizard exits. Reached from the
+  # lan chain only, so a public source never sees it. Cloud images never fill it (wizard is local-only there).
+  chain setup {
   }
 
   # Forwarded (pod) traffic is the CNI's and kube-proxy's business; this table does not touch it.

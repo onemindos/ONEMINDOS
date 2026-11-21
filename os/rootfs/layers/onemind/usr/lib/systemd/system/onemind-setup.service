@@ -3,12 +3,18 @@
 # while the box has no role; exits once the owner has picked one. Not enabled in the image.
 [Unit]
 Description=OneMind setup wizard (:8080, until the box has a role)
+After=onemind-firewall.service
 RequiresMountsFor=/data /boot/efi
 ConditionPathExists=!/data/onemind/firstboot/state.json
 
 [Service]
 Type=simple
+# Open :8080 to the LAN while this wizard is the only way to set the box up; closed again when it exits.
+# Cloud images carry /etc/onemind/wizard-local-only: there the wizard stays reachable from the box itself only.
+ExecStartPre=-/usr/sbin/nft flush chain inet onemind_host setup
+ExecStartPre=-/bin/sh -c 'test -e /etc/onemind/wizard-local-only || exec /usr/sbin/nft add rule inet onemind_host setup tcp dport 8080 accept'
 ExecStart=/usr/lib/onemind/onemind-setup
+ExecStopPost=-/usr/sbin/nft flush chain inet onemind_host setup
 UMask=0077
 Restart=on-failure
 RestartSec=3s

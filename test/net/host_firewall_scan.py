@@ -86,6 +86,28 @@ def probe(client, ip):
     return got_t, got_u
 
 
+def tcp_open(client, ip, port):
+    c = ns(client, sys.executable, "-I", "-c",
+           f"import socket;s=socket.socket();s.settimeout(1.5)\n"
+           f"try: s.connect(('{ip}',{port}));print('open')\nexcept Exception: print('closed')")
+    return c.stdout.strip() == "open"
+
+
+def setup_wizard_phase():
+    """The wizard (8080) is open to the LAN only while onemind-setup.service has its rule in the setup chain."""
+    ok = True
+    for label, rule, want_lan in (("no role yet (wizard running)", True, True), ("wizard exited", False, False)):
+        if rule:
+            ns("box", "nft", "add", "rule", "inet", "onemind_host", "setup", "tcp", "dport", "8080", "accept")
+        else:
+            ns("box", "nft", "flush", "chain", "inet", "onemind_host", "setup")
+        lan, pub = tcp_open("lan", "172.31.250.1", 8080), tcp_open("pub", "198.51.100.1", 8080)
+        good = lan == want_lan and not pub
+        ok &= good
+        print(f"8080 {label}: lan={lan} want={want_lan} public={pub} want=False -> {'PASS' if good else 'FAIL'}")
+    return ok
+
+
 def main():
     if os.geteuid() != 0:
         print("needs root"); return 2
@@ -103,6 +125,7 @@ def main():
             ok &= good
             print(f"{client}: tcp open={sorted(t)} want={sorted(wt)} udp open={sorted(u)} want={sorted(wu)} -> "
                   f"{'PASS' if good else 'FAIL'}")
+        ok &= setup_wizard_phase()
         srv.kill()
     finally:
         teardown()
