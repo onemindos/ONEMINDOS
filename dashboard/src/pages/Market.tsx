@@ -96,7 +96,7 @@ export function Market() {
           onOpen={(a) => open(a.id)}
           onRetry={hub.reloadAll}
         />
-        {appJob && <ActionStatus action={appJob} label="App request progress" />}
+        {appJob && <ActionStatus action={appJob} label="App request progress" now={hub.now} />}
         {app && <AppDepth key={appId} appId={appId} />}
         {blockedForYou && <p className="om-note om-tone-info">{blockedForYou}</p>}
       </>

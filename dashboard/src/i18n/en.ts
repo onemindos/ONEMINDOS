@@ -2,7 +2,9 @@
 // English strings for the wiring-pass screens. Keys are dotted: screen.thing.
 export const en = {
   'signin.title': 'Welcome to {name}',
-  'signin.lede': 'Sign in with a passkey, your account, or the access token your hub gave you.',
+  'signin.lede': 'Use your passkey, or pick another way to sign in.',
+  'signin.more': 'Other ways to sign in',
+  'signin.mockHint.dismiss': 'Dismiss the demo note',
   'signin.passkey': 'Use my passkey',
   'signin.passkey.unsupported': 'This browser cannot use passkeys here. Use your account or token instead.',
   'signin.account.heading': 'Your account',
@@ -23,7 +25,7 @@ export const en = {
   'signin.firstTime': 'First time on this box? Set it up',
   'signin.haveCode': 'Have an invite code? Join',
   'signin.back': 'Back to sign in',
-  'signin.mockHint': 'Demo mode: token owner-demo, agent-demo or adult-demo; account owner or alex with password demo-password; setup token setup-demo; invite code enrol-demo.',
+  'signin.mockHint': 'Demo mode. Try token owner-demo, or account owner with password demo-password.',
   'signin.expiry': 'A sign-in with an account lasts one hour on this screen; after that you sign in again.',
   'setup.title': 'Set up this box',
   'setup.lede': 'Create the first owner. You need the setup token from the install (it is printed on the console at first boot). Nothing else on this box can be changed until an owner exists.',

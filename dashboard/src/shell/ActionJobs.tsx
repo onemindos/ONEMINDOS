@@ -5,13 +5,47 @@ import { subjectOf, useHub } from '../data/hub';
 import { href } from './routes';
 import { isActive } from '../data/adapters';
 import type { Action } from '../api/types';
+import { formatAgo, secondsSince } from '../lib/time';
 
-export function ActionStatus({ action: a, label = 'Request progress' }: { action: Action; label?: string }) {
-  return <Card as="section" title={label} variant="sunken">
-    <p role="status">Request status: {a.state.replace(/_/g, ' ')}</p>
-    {a.progress && <p>Executor step: {a.progress.step}</p>}
+/** One plain line per ledger state (§3). The words are ours; the state itself stays under Technical details. */
+const HISTORY: Record<string, string> = {
+  requested: 'Request sent.',
+  awaiting_approval: 'Waiting for the owner to approve.',
+  accepted: 'Approved. Starting soon.',
+  dispatched: 'Working on it.',
+  succeeded: 'Done.',
+  failed: 'It did not work. Technical details below say why.',
+  outcome_unknown: 'We are not sure it finished. Check the app before trying again.',
+  expired: 'The request ran out of time before it was approved.',
+  cancelled: 'Cancelled.',
+};
+
+/** A real history line from the request itself: who asked, who approved, how long ago. Only fields the hub sent. */
+export function historyLine(a: Action, now: number): string {
+  const base = HISTORY[a.state] ?? `Status: ${a.state.replace(/_/g, ' ')}.`;
+  if (a.state !== 'succeeded') return base;
+  const verb = a.type === 'app.remove' ? 'Removed' : a.type === 'app.install' ? 'Installed' : 'Done';
+  const parts: string[] = [];
+  if (a.requested_by) parts.push(`${verb} by ${a.requested_by.role}`);
+  if (a.decided_by) parts.push(`approved by ${a.decided_by.role}`);
+  const when = a.updated_at ?? a.decided_at;
+  if (when && secondsSince(when, now) !== null) parts.push(formatAgo(secondsSince(when, now)));
+  return parts.length ? parts.join(' \u00b7 ') : base;
+}
+
+export function ActionStatus({ action: a, label = 'Request progress', now = Date.now() }: { action: Action; label?: string; now?: number }) {
+  const state = a.state.replace(/_/g, ' ');
+  const hasTech = !!a.progress || !!a.result?.message;
+  return <Card as="section" title={label} variant="sunken" className="dash-status">
+    <p role="status">{historyLine(a, now)}</p>
     {a.progress && Number.isFinite(a.progress.pct) && <progress aria-label={`${a.type} progress`} max={100} value={a.progress.pct}>{a.progress.pct}%</progress>}
-    {a.result?.message && <p>Gateway result: {a.result.message}</p>}
+    <details className="dash-tech">
+      <summary>Technical details</summary>
+      <p>State: {state}</p>
+      {a.progress && <p>Executor step: {a.progress.step}</p>}
+      {a.result?.message && <p>Hub result: {a.result.message}</p>}
+      {!hasTech && <p className="om-hint">The hub has sent nothing more for this request.</p>}
+    </details>
   </Card>;
 }
 
@@ -28,7 +62,7 @@ export function ActionJobs() {
   const state = lead.state.replace(/_/g, ' ');
   return <aside aria-label="Jobs in progress" className={`om-store-tray${open ? ' om-store-tray-open' : ''}`}>
     {open && <div id={panel} className="om-store-tray-panel"><ul>{jobs.map((a) => <li key={a.id}>
-      <div className="om-store-tray-text"><a href={href.approval(a.id)}>{a.type}: {subjectOf(hub, a)}</a><ActionStatus action={a} /></div>
+      <div className="om-store-tray-text"><a href={href.approval(a.id)}>{a.type}: {subjectOf(hub, a)}</a><ActionStatus action={a} now={hub.now} /></div>
       {!isActive(a) && <button type="button" className="om-icon-btn" aria-label={`Dismiss ${subjectOf(hub, a)}`} onClick={() => setDismissed(new Set(dismissed).add(a.id))}><Icon name="x" size={16} /></button>}
     </li>)}</ul></div>}
     <button type="button" className="om-store-tray-pill" aria-expanded={open} aria-controls={panel} onClick={() => setOpen(!open)}>

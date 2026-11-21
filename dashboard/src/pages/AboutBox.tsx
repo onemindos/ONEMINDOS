@@ -15,7 +15,7 @@ export function AboutBox() {
   const [copied, setCopied] = useState<'done' | 'failed'>();
 
   if (!api.about)
-    return <p className="om-hint">Demo mode has no device data. A real hub reports the box it runs on here (GET /v1/os/about).</p>;
+    return <p className="om-hint">Demo mode has no device data. A real hub reports the box it runs on here.</p>;
   // A person without nodes:read (a child) gets 403 from the hub: say so, not "could not read".
   if (about.error?.status === 403) return <p className="om-hint">Device details are not available for your account.</p>;
   if (!about.data)
