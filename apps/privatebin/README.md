@@ -32,7 +32,7 @@ Storage: PVC `privatebin-data` 1Gi.
 
 Images:
 
-- `docker.io/privatebin/nginx-fpm-alpine:2.1.1@sha256:9fbcc4d5671b974cafb55948d6fc3ab9eaf77f0c39271a50a16dd71bd4c4d3e6`
+- `docker.io/privatebin/nginx-fpm-alpine:edge@sha256:f0ade5951258358b7f36ba8b7662f90f17165f60402b99945f3ffe2deb32011a`
 
 <!-- onemind:notes:begin -->
 ## What it is
@@ -67,10 +67,10 @@ Founder decision D25 (2026-11-13, `docs/leap/LANES.md`): PrivateBin ships only b
 
 ## Latest security scan
 
-Scanned 2026-11-20T14:19:56Z by `sdk/tools/app-gate`: **fail**. Licence `Zlib` class L1; smoke test pass.
+Scanned 2026-11-20T22:37:41Z by `sdk/tools/app-gate`: **fail**. Licence `Zlib` class L1; smoke test skipped.
 
 | Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
 |---|---|---|---|---|---|---|
-| `docker.io/privatebin/nginx-fpm-alpine:2.1.1@sha256:9fbcc4d5671b974cafb55948d6fc3ab9eaf77f0c39271a50a16dd71bd4c4d3e6` | amd64, arm64 | 48 (48) | 51 | 0 infected (daily-28189) | 0 | unsigned |
+| `docker.io/privatebin/nginx-fpm-alpine:edge@sha256:f0ade5951258358b7f36ba8b7662f90f17165f60402b99945f3ffe2deb32011a` | amd64, arm64 | 0 (0) | 0 | 0 infected (daily-28189) | 0 | unsigned |
 
 Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

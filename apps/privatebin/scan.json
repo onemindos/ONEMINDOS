@@ -1,18 +1,18 @@
 {
-  "scanned_at": "2026-11-20T14:19:56Z",
+  "scanned_at": "2026-11-20T22:37:41Z",
   "result": "fail",
   "images": [
     {
-      "ref": "docker.io/privatebin/nginx-fpm-alpine:2.1.1@sha256:9fbcc4d5671b974cafb55948d6fc3ab9eaf77f0c39271a50a16dd71bd4c4d3e6",
+      "ref": "docker.io/privatebin/nginx-fpm-alpine:edge@sha256:f0ade5951258358b7f36ba8b7662f90f17165f60402b99945f3ffe2deb32011a",
       "archs": [
         "amd64",
         "arm64"
       ],
       "trivy": {
         "version": "0.76.2",
-        "critical_fixable": 48,
-        "critical": 48,
-        "high": 51
+        "critical_fixable": 0,
+        "critical": 0,
+        "high": 0
       },
       "clamav": {
         "signatures": "daily-28189",
@@ -26,5 +26,5 @@
     "spdx": "Zlib",
     "class": "L1"
   },
-  "smoke": "pass"
+  "smoke": "skipped"
 }
