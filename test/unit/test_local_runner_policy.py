@@ -43,7 +43,7 @@ NEEDS_HOSTED = re.compile(
     r"linux_x64|linux-amd64\b|-amd64 -version|_X64\b|ANDROID_HOME|xcodebuild|make image|make battery|"
     r"battery\.yml|\bk3d\b", re.I)
 # Workflows that build or test the OS image, need KVM or sign/publish: never on the Mac.
-HOSTED_ONLY_WORKFLOWS = {"image.yml", "battery.yml", "nightly.yml", "net-2vm.yml", "perf-smoke.yml",
+HOSTED_ONLY_WORKFLOWS = {"image.yml", "battery.yml", "nightly.yml", "net-2vm.yml", "restore-drill.yml", "perf-smoke.yml",
                          "release.yml", "security-nightly.yml", "apps-rescan.yml", "changes-collect.yml",
                          "dev-build.yml", "apps-gate-all.yml", "ci-desktop.yml"}
 # setup-python has no Python 3.13 build for Debian 13 arm64. PR #352 moves ci-apps `validate` to a venv;
