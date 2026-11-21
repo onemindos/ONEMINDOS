@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import fnmatch
 import json
+import zlib
 from collections.abc import Callable, Iterator
 from datetime import UTC, datetime
 from pathlib import Path
@@ -188,7 +189,14 @@ def verify_lines(lines: Iterator[bytes], from_seq: int | None = None, anchored: 
     """The audit.py rule, reporting the first bad seq. Shared by the API and its tests."""
     prev, n, head = GENESIS, 0, None
     anchor, accounted, first = None, False, True
-    for raw in lines:
+    lines = iter(lines)
+    while True:
+        try:
+            raw = next(lines)
+        except StopIteration:
+            break
+        except (EOFError, OSError, zlib.error) as exc:
+            return _bad(n, head, n + 1, f"seq {n + 1}: audit segment is damaged ({type(exc).__name__})")
         if not raw.strip():
             continue
         bad_seq = n + 1

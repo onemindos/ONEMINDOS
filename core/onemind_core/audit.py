@@ -15,6 +15,7 @@ Every appended line is also published to NATS subject onemind.audit when NATS is
 from __future__ import annotations
 
 import gzip
+import zlib
 import hashlib
 import json
 import logging
@@ -75,11 +76,16 @@ def iter_lines(path: Path, min_seq: int = 0) -> Iterator[bytes]:
 
 
 def _last_record(seg: Path) -> dict | None:
+    """The last readable record. A damaged segment yields what precedes the damage, so the
+    gateway still starts and verify() reports the damage instead of the start-up crashing."""
     rec = None
-    with gzip.open(seg, "rb") as fh:
-        for line in fh:
-            if line.strip():
-                rec = _record(line)
+    try:
+        with gzip.open(seg, "rb") as fh:
+            for line in fh:
+                if line.strip():
+                    rec = _record(line)
+    except (EOFError, OSError, zlib.error):
+        pass
     return rec
 
 
@@ -317,7 +323,16 @@ def verify(path: Path) -> tuple[bool, int, str]:
     accounted = False
     # Decode per line: a text stream may decode a later damaged line while buffering an
     # earlier one, losing the exact verified-prefix count.
-    for lineno, line in enumerate(iter_lines(path), start=1):
+    lines = iter_lines(path)
+    lineno = 0
+    while True:
+        try:
+            line = next(lines)
+        except StopIteration:
+            break
+        except (EOFError, OSError, zlib.error) as exc:
+            return False, n, f"line {lineno + 1}: audit segment is damaged ({type(exc).__name__})"
+        lineno += 1
         if not line.strip():
             continue
         try:

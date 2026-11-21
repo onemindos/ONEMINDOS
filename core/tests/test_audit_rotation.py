@@ -102,3 +102,27 @@ def test_deleting_history_without_a_pruned_event_is_detected(tmp_path):
     ok, _n, reason = verify(path)
     assert not ok and "audit.pruned" in reason
     assert not verify_file(path)["ok"]
+
+
+def test_truncated_segment_is_reported_not_raised(tmp_path):
+    path = tmp_path / "audit.jsonl"
+    log = AuditLog(path, clock, max_bytes=2000)
+    fill(log, 20)
+    segs = segments(path)
+    first = segs[0][2]
+    first.write_bytes(first.read_bytes()[:-20])
+    ok, _n, reason = verify(path)
+    assert not ok and "damaged" in reason
+    res = verify_file(path)
+    assert res["ok"] is False and res["first_bad_seq"] is not None
+
+
+def test_corrupt_newest_segment_does_not_stop_the_gateway_starting(tmp_path):
+    path = tmp_path / "audit.jsonl"
+    log = AuditLog(path, clock, max_bytes=2000)
+    fill(log, 20)
+    path.write_bytes(b"")
+    last = segments(path)[-1][2]
+    last.write_bytes(last.read_bytes()[:-20])
+    AuditLog(path, clock, max_bytes=2000)  # must not raise
+    assert verify(path)[0] is False

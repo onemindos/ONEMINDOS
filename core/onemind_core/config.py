@@ -85,7 +85,7 @@ class Settings:
     agent_url: str | None = None
     # §11.1 dev override: skip the §10.3 scan check. Only honoured with the noop executor.
     allow_unscanned: bool = False
-    # ONEMIND_AUDIT_MAX_BYTES (0 = never rotate) and ONEMIND_AUDIT_KEEP_SEGMENTS (unset = keep all).
+    # ONEMIND_AUDIT_MAX_BYTES (default 0 = never rotate, until the backup unit also copies segments; set e.g. 16777216 to rotate) and ONEMIND_AUDIT_KEEP_SEGMENTS (unset = keep all).
     audit_max_bytes: int = 16 * 1024 * 1024
     audit_keep_segments: int | None = None
     # Per-feature sections (sections.py), keyed by section name. Read them with section().
@@ -165,7 +165,7 @@ class Settings:
             public_url=public_url,
             agent_url=agent_url,
             allow_unscanned=allow in ("1", "true", "yes"),
-            audit_max_bytes=_env_int(env, "ONEMIND_AUDIT_MAX_BYTES", 16 * 1024 * 1024),
+            audit_max_bytes=_env_int(env, "ONEMIND_AUDIT_MAX_BYTES", 0),
             audit_keep_segments=_env_int(env, "ONEMIND_AUDIT_KEEP_SEGMENTS", None),
             sections=load_sections(env),
         )
