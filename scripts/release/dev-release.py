@@ -22,6 +22,9 @@ WANTED = [
     ("update-next", re.compile(r"^onemind-vm-do-[\w.-]+-next\.raucb$"), "RAUC update bundle, the next version to install over it (update tests)"),
     ("dev-ca", re.compile(r"^dev-ca\.cert\.pem$"), "throwaway dev CA certificate that signed both bundles (public part only; no key)"),
 ]
+# image.yml uploads the whole out/image-<board>/ folder, and dev-image.sh puts dev-ca.cert.pem in every one,
+# so the bundles and the CA only count when they sit in the droplet board's artifact folder.
+SCOPE = {w: "image-debian-vm-do" for w in ("update-bundle", "update-next", "dev-ca")}
 MAX_ASSET = 2 * 1024**3 - 1   # GitHub release assets stop at 2 GiB
 
 
@@ -34,8 +37,9 @@ def pick(dl):
     found = {}
     for root, _, files in os.walk(dl):
         for name in sorted(files):
+            top = os.path.relpath(root, dl).split(os.sep)[0]
             for what, rx, _ in WANTED:
-                if rx.match(name):
+                if rx.match(name) and SCOPE.get(what, top) == top:
                     if what in found:
                         refuse(f"two files match the {what} download: {found[what]} and {name}")
                     found[what] = os.path.join(root, name)

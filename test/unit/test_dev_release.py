@@ -27,6 +27,9 @@ class Downloads(unittest.TestCase):
                 for extra in ("onemind-vm-do-0.1.0-dev.7.raucb", "onemind-vm-do-0.1.0-dev.7-next.raucb", "dev-ca.cert.pem"):
                     with open(os.path.join(self.dl, d, extra), "wb") as f:
                         f.write(extra.encode())
+            if d == "image-debian-arm64-efi":   # dev-image.sh copies the CA into every board's folder
+                with open(os.path.join(self.dl, d, "dev-ca.cert.pem"), "wb") as f:
+                    f.write(b"arm64 copy")
             with open(os.path.join(self.dl, d, "SHA256SUMS"), "w") as f:
                 f.write("ignored\n")
 
