@@ -1,25 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 // Settings on @onemind/ui SettingsLayout. Appearance is live (saved per person in this browser
-// until the §12 preferences route lands). About shows GET /v1/instance. Every other section says
-// which work stream brings its API, instead of showing controls that would do nothing.
+// until the §12 preferences route lands). About shows GET /v1/instance. Machines, storage, backups,
+// updates and automation are real screens, so their sections redirect there (App.tsx).
 import { useParams } from 'react-router';
-import { AppearanceSettings, Card, EmptyState, PageHeader, SETTINGS_SECTIONS, SettingsLayout, type SettingsSectionId } from '@onemind/ui';
+import { AppearanceSettings, Card, PageHeader, SETTINGS_SECTIONS, SettingsLayout, type SettingsSectionId } from '@onemind/ui';
 import { useHub } from '../data/hub';
 import { Account } from './Account';
 import { Inbox } from './Inbox';
 import { Tokens } from './Tokens';
 import { Users } from './Users';
 import { href } from '../shell/routes';
-
-/** Section → the work stream (docs/leap/STATUS.md epic) and the §12 API that brings it (§12 owns the paths). */
-export const COMING: Record<Exclude<SettingsSectionId, 'appearance' | 'about' | 'account' | 'users' | 'agents' | 'notifications'>, { stream: string; api: string | null }> = {
-  devices: { stream: 'CORE-FABRIC (core-net)', api: '/v1/fabric/join-tickets' },
-  network: { stream: 'CORE-FABRIC (core-net)', api: '/v1/fabric, /v1/tls' },
-  storage: { stream: 'UMB-STOR', api: null },
-  backups: { stream: 'CORE-BACKUP (a gateway backups route)', api: null },
-  updates: { stream: 'CORE-UPDATE (a gateway OS status route)', api: null },
-  automation: { stream: 'CORE-AUTO', api: '/v1/automation/rules, /v1/approval-policies' },
-};
 
 const IDS = new Set(SETTINGS_SECTIONS.map((s) => s.id));
 
@@ -60,7 +50,6 @@ export function Settings() {
   const { section } = useParams();
   const explicit = !!section && IDS.has(section as SettingsSectionId);
   const current = (explicit ? section : 'appearance') as SettingsSectionId;
-  const meta = SETTINGS_SECTIONS.find((s) => s.id === current)!;
   let body;
   if (current === 'appearance')
     body = (
@@ -69,22 +58,12 @@ export function Settings() {
         <AppearanceSettings />
       </>
     );
-  else if (current === 'about') body = <About />;
   else if (current === 'account') body = <Account />;
   else if (current === 'users') body = <Users />;
   else if (current === 'agents') body = <Tokens />;
   else if (current === 'notifications') body = <Inbox />;
-  else {
-    const c = COMING[current as keyof typeof COMING];
-    body = (
-      <EmptyState icon="settings" title={`${meta.label}: coming with ${c.stream}`} command={c.api ? `GET ${c.api.split(',')[0]!.trim()}` : undefined}>
-        <p>
-          Coming soon. This hub does not serve these settings yet. They arrive with the {c.stream} work stream ({c.api ? `${c.api}, contract §12` : 'its API is not in contract §12 yet'}). Nothing here is a placeholder control that would do
-          nothing.
-        </p>
-      </EmptyState>
-    );
-  }
+  // devices, network, storage, backups, updates and automation have their own screens (App.tsx redirects).
+  else body = <About />;
   return (
     <SettingsLayout current={current} explicit={explicit} hrefFor={(id) => href.setting(id)} indexHref={href.settings}>
       {body}
