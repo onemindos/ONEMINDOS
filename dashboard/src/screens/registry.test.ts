@@ -32,6 +32,7 @@ describe('screen registry', () => {
       ['activity', '/activity', 'primary'],
       ['installed', '/installed', 'Your box'],
       ['nodes', '/nodes', 'Your box'],
+      ['add-machine', '/add-machine', 'Your box'],
       ['machines', '/machines', 'Your box'],
       ['alerts', '/alerts', 'Your box'],
       ['storage', '/storage', 'Your box'],
@@ -43,7 +44,7 @@ describe('screen registry', () => {
       ['agents', '/agents', 'System'],
     ]);
     expect(navItems(2).find((n) => n.id === 'approvals')).toMatchObject({ badge: 2, badgeLabel: '2 waiting' });
-    expect([...PRO_SCREEN_IDS].sort()).toEqual(['agents', 'automation', 'backups', 'control-hub', 'nodes', 'storage', 'updates']);
+    expect([...PRO_SCREEN_IDS].sort()).toEqual(['add-machine', 'agents', 'automation', 'backups', 'control-hub', 'nodes', 'storage', 'updates']);
     expect(DOCK_ORDER).toEqual(['home', 'market', 'installed', 'approvals', 'activity', 'settings']);
     expect(SCREENS.every((s) => s.title.length > 0)).toBe(true);
   });
