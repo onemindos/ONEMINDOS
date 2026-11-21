@@ -32,6 +32,18 @@ class CatalogSource(BaseModel):
     commit: str
 
 
+class AppBuild(BaseModel):
+    """metadata.build: OneMind rebuilt this app's image (sdk/tools/app-factory); upstream did not publish it."""
+
+    builder: str
+    revision: int = Field(description="OneMind rebuild number for this upstream release")
+    upstream_tag: str = Field(description="The upstream release this image was built from")
+    base: str = Field(description="The upstream image the build started from, pinned by digest")
+    patched: list[str] = Field(description="Operating-system packages OneMind upgraded on top of the base")
+    built_at: str = Field(description="RFC 3339 time of the build")
+    image: str = Field(description="The OneMind-built image the app runs, pinned by digest")
+
+
 class CatalogApp(BaseModel):
     """One GET /v1/apps entry: the §3 fields plus links, tier and scan (§11.4)."""
 
@@ -63,6 +75,9 @@ class CatalogApp(BaseModel):
     scan: ScanSummary | None = Field(
         description="Last scan, or null when apps/<id>/scan.json is missing or invalid. Install is "
         "refused (409 stale_precondition) unless result is pass and scanned_at is at most 7 days old"
+    )
+    build: AppBuild | None = Field(
+        default=None, description="Set when OneMind built the image itself; null when the app runs upstream's image"
     )
     catalog_source: CatalogSource | None = Field(
         default=None, description="§12.22: the community source and pinned commit; null for the official catalog"

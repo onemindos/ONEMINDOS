@@ -188,6 +188,60 @@
             "community",
             "blocked"
           ]
+        },
+        "build": {
+          "description": "Present only when OneMind built the image itself (sdk/tools/app-factory): who built it, from which upstream release and base image, and what was patched.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "builder",
+            "revision",
+            "upstreamTag",
+            "base",
+            "builtAt",
+            "image"
+          ],
+          "properties": {
+            "builder": {
+              "const": "onemind-app-factory"
+            },
+            "recipe": {
+              "type": "string",
+              "maxLength": 64
+            },
+            "revision": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "OneMind rebuild number for this upstream release."
+            },
+            "upstreamTag": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "base": {
+              "type": "string",
+              "pattern": "^[^\\s@]+@sha256:[0-9a-f]{64}$",
+              "description": "The upstream image the build started from, by digest."
+            },
+            "patched": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9+.\\-]*$"
+              },
+              "maxItems": 32
+            },
+            "builtAt": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "image": {
+              "type": "string",
+              "pattern": "^[^\\s@]+@sha256:[0-9a-f]{64}$",
+              "description": "The OneMind-built image the manifests run."
+            }
+          }
         }
       },
       "additionalProperties": false
