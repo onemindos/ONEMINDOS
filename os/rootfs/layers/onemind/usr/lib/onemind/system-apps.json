@@ -1,0 +1,9 @@
+{
+  "schema": "onemind.io/system-apps/v1",
+  "apps": [
+    {"id": "files", "name": "Files", "class": "native", "update": "os", "disable": "never"},
+    {"id": "approvals", "name": "Approvals", "class": "native", "update": "os", "disable": "never"},
+    {"id": "settings", "name": "Settings", "class": "native", "update": "os", "disable": "never"},
+    {"id": "market", "name": "Market", "class": "native", "update": "os", "disable": "never"}
+  ]
+}

@@ -468,6 +468,18 @@
             }
           }
         },
+        "system": {
+          "description": "Marks a built-in (system) app. Only honoured for an app that lives in apps/_system/<id>/ AND whose id is on the signed /usr/lib/onemind/system-apps.json in the OS image; anywhere else the manifest is rejected. A system app cannot be uninstalled; it can be switched off (app.disable) unless disable is never. Switching off scales the workload to zero and keeps volumes, secrets and settings.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["class", "update", "disable", "keepDataOnDisable"],
+          "properties": {
+            "class": {"description": "container: a workload in its own namespace. native: part of the OS or dashboard.", "enum": ["container", "native"]},
+            "update": {"description": "os: updated with the OS image. own: updated through its own channel (spec.updates).", "enum": ["os", "own"]},
+            "disable": {"description": "allowed: the owner may switch it off. never: it stays on (Files, Approvals, Settings, Market).", "enum": ["allowed", "never"]},
+            "keepDataOnDisable": {"description": "Data is always kept when an app is switched off; only true is accepted.", "const": true}
+          }
+        },
         "hostPorts": {
           "description": "Host ports the app needs (contract 12.22). Default none. Conflict-checked across the catalog and per node; the install sandbox still refuses hostPort/hostNetwork in the manifests (F-05, F-01).",
           "type": "array",

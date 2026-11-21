@@ -448,6 +448,13 @@ func (s *AppsService) List(ctx context.Context) ([]CatalogApp, error) {
 }
 
 // Get returns one catalog entry (from apps.list until GET /v1/apps/{id} exists).
+// System is operation apps.system: the Built in area, every system app with its on/off switch, version,
+// licence and update channel. A switched-off app is listed only here, not by List.
+func (s *AppsService) System(ctx context.Context) ([]SystemApp, error) {
+	var v []SystemApp
+	return v, s.c.Do(ctx, http.MethodGet, "/v1/system-apps", nil, &v)
+}
+
 func (s *AppsService) Get(ctx context.Context, id string) (*CatalogApp, error) {
 	apps, err := s.List(ctx)
 	if err != nil {

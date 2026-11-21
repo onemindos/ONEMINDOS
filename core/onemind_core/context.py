@@ -69,6 +69,9 @@ class Gateway:
     authenticators: list[Authenticator] = field(default_factory=list)
     approval_guards: list[ApprovalGuard] = field(default_factory=list)
     app_filters: list[AppFilter] = field(default_factory=list)
+    # Ids of built-in apps the owner switched off (appstore/system.py). They are left out of
+    # GET /v1/apps (so the dock, search, MCP tools and phone) and their routes answer 409 app_disabled.
+    disabled_apps: Callable[[], frozenset[str]] = lambda: frozenset()
     people_sources: list[PeopleSource] = field(default_factory=list)
     _startup: list[Hook] = field(default_factory=list)
     _shutdown: list[Hook] = field(default_factory=list)

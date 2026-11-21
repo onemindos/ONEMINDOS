@@ -2036,6 +2036,8 @@
           },
           "type": {
             "enum": [
+              "app.disable",
+              "app.enable",
               "exposure.mesh",
               "exposure.private",
               "exposure.public",
@@ -4632,6 +4634,128 @@
           "id"
         ],
         "title": "Subject",
+        "type": "object"
+      },
+      "SystemAppRow": {
+        "description": "One built-in app (appstore/system.py): the signed list joined with its catalog entry and switch.",
+        "properties": {
+          "action_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Action Id"
+          },
+          "can_disable": {
+            "title": "Can Disable",
+            "type": "boolean"
+          },
+          "disable": {
+            "enum": [
+              "allowed",
+              "never"
+            ],
+            "title": "Disable",
+            "type": "string"
+          },
+          "disabled_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Disabled At"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "container",
+              "native"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "license": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "License"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "update": {
+            "enum": [
+              "os",
+              "own"
+            ],
+            "title": "Update",
+            "type": "string"
+          },
+          "update_channel": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Update Channel"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "kind",
+          "update",
+          "disable",
+          "enabled",
+          "can_disable"
+        ],
+        "title": "SystemAppRow",
         "type": "object"
       },
       "TicketRequest": {
@@ -18010,6 +18134,42 @@
         "summary": "Storage Recovery Key",
         "tags": [
           "storage"
+        ]
+      }
+    },
+    "/v1/system-apps": {
+      "get": {
+        "description": "The Built in area: every system app on the signed list, whether it is on, and its version,\nlicence and update channel. A switched-off app is only listed here, not in GET /v1/apps.",
+        "operationId": "apps.system",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SystemAppRow"
+                  },
+                  "title": "Response Apps.System",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          }
+        },
+        "summary": "System Apps",
+        "tags": [
+          "apps"
         ]
       }
     },

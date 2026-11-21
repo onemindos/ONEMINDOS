@@ -5,6 +5,8 @@ only read, except POST /v1/deploy/compose, which converts and writes nothing."""
 
 from __future__ import annotations
 
+from typing import Literal
+
 from fastapi import Depends, FastAPI, Query, Request
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -14,6 +16,7 @@ from ..auth import Principal
 from ..catalog import APP_ID_RE
 from ..context import Gateway
 from ..errors import error_responses
+from ..identity.scopes import register_route_scope
 from .apps import app_visible
 
 
@@ -23,6 +26,27 @@ class ComposeBody(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=80)
     compose: str = Field(min_length=1, max_length=MAX_COMPOSE_BYTES)
 
+
+class SystemAppRow(BaseModel):
+    """One built-in app (appstore/system.py): the signed list joined with its catalog entry and switch."""
+
+    id: str
+    name: str
+    kind: Literal["container", "native"]
+    update: Literal["os", "own"]
+    disable: Literal["allowed", "never"]
+    enabled: bool
+    can_disable: bool
+    status: str | None = None          # the app's install state; null for a native app
+    version: str | None = None
+    license: str | None = None
+    update_channel: str | None = None  # os | security | stable
+    disabled_at: str | None = None
+    action_id: str | None = None
+
+
+# Same scope as the rest of the app list: `/v1/apps(/.*)?` does not match this path.
+register_route_scope("GET,HEAD", r"/v1/system-apps", ("apps:read",))
 
 # Route order in the app and in /openapi.json (routers/__init__.py).
 ORDER = 130
@@ -58,6 +82,14 @@ def register(app: FastAPI, gw: Gateway) -> None:
     @app.post("/v1/deploy/compose", operation_id="deploy.compose", tags=["deploy"], responses=error_responses(401, 403, 409, 422))
     def deploy_compose(body: ComposeBody, p: Principal = Depends(principal)):
         return store.convert_compose(p, body.app_id, body.name, body.compose)
+
+    @app.get("/v1/system-apps", operation_id="apps.system", tags=["apps"], response_model=list[SystemAppRow],
+             responses=error_responses(401))
+    def system_apps(request: Request, p: Principal = Depends(principal)):
+        """The Built in area: every system app on the signed list, whether it is on, and its version,
+        licence and update channel. A switched-off app is only listed here, not in GET /v1/apps."""
+        # §12.6 sharing, as in GET /v1/apps: a child or agent sees only the apps shared with them.
+        return [r for r in store.system.view() if all(f(request, p, r["id"]) for f in gw.app_filters)]
 
     @app.get("/v1/sources", operation_id="sources.list", tags=["sources"], responses=error_responses(401))
     def list_sources(_: Principal = Depends(principal)):
