@@ -47,6 +47,7 @@ class FakeKubectl:
         self.jobs: dict[str, dict] = {}
         self.fail_scan_with: str | None = None  # a scan Job that does not complete; this is its log
         self.signed: set[str] = set()
+        self.fail_kinds: set[str] = set()  # Job kinds whose Job does not complete (e.g. {"dbsync"})
 
     def __call__(self, argv, input=None, **kw):
         self.calls.append(list(argv))
@@ -59,6 +60,8 @@ class FakeKubectl:
             doc = self.jobs[argv[argv.index("-n") + 3].split("/")[1]]
             kind = doc["metadata"]["labels"]["app.kubernetes.io/component"]
             if kind == "scan" and self.fail_scan_with is not None:
+                rc = 1
+            if kind in self.fail_kinds:
                 rc = 1
             if kind == "cosign" and doc["spec"]["template"]["spec"]["containers"][0]["args"][-1] not in self.signed:
                 rc = 1
@@ -157,6 +160,27 @@ def test_first_use_syncs_the_pinned_database_once_then_scans_offline():
     fake.created.clear()
     assert s.scan([CLEAN])[0] == "pass"
     assert fake.created == ["scan"]  # offline from now on: no sync
+
+
+def test_a_failed_first_sync_is_retried_by_the_next_scan():
+    class NoDbYet(FakeKubectl):
+        synced = False
+
+        def __call__(self, argv, input=None, **kw):
+            if argv[1] == "create":
+                kind = yaml.safe_load(input)["metadata"]["labels"]["app.kubernetes.io/component"]
+                self.synced = self.synced or (kind == "dbsync" and "dbsync" not in self.fail_kinds)
+            self.fail_scan_with = None if self.synced else "FATAL --skip-db-update cannot be specified on the first run"
+            return super().__call__(argv, input, **kw)
+
+    fake = NoDbYet()
+    fake.fail_kinds = {"dbsync"}  # the network is down during the first sync
+    s = scanner(fake, cosign=False)
+    result, detail = s.scan([CLEAN])
+    assert result == "unavailable" and "database sync" in detail
+    fake.fail_kinds = set()  # network is back: no gateway restart needed
+    assert s.scan([CLEAN])[0] == "pass"
+    assert s._synced is True
 
 
 def test_every_job_is_deleted_even_when_it_fails():

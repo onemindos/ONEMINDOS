@@ -295,6 +295,7 @@ class KubeJobImageScanner:
         """Download the pinned vulnerability databases onto the volume (the only step that needs internet)."""
         with self._lock:
             self._sync_locked()
+            self._synced = True
 
     def _sync_locked(self) -> None:
         self.ensure_namespace()
@@ -329,8 +330,11 @@ class KubeJobImageScanner:
                     ok, out = self._scan_one(ref)
                     if not ok and _db_missing(out) and not self._synced:
                         # First use on this box: fetch the pinned database once, then scan offline from then on.
-                        self._synced = True
+                        # Mark it done only after it worked: a network blip must not lock the scanner out
+                        # until the gateway restarts. A failed sync raises ScanError (-> "unavailable") and
+                        # the next scan tries again.
                         self._sync_locked()
+                        self._synced = True
                         ok, out = self._scan_one(ref)
                     if not ok:
                         raise ScanError(f"scan of {ref.split('@')[0]} did not finish: {_last(out)}")
