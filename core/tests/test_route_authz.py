@@ -50,6 +50,8 @@ PUBLIC = {
     ("DELETE", "/v1/auth/app-session"),        # only clears the caller's own cookie; no data
     ("GET", "/v1/auth/forward"),               # loopback only (404 elsewhere); decides with the same sign-in + access rule as the proxy
     ("GET", "/{full_path:path}"),              # the dashboard's static files (never the API tree)
+    ("GET", "/v1/share/{token}"),              # FILES-02 share link: the 256-bit link secret in the path is the credential
+    ("GET", "/v1/share/{token}/items/{index}"),  # FILES-02: one shared item, same secret; expiry, revoke and creator re-checked
 }
 
 
