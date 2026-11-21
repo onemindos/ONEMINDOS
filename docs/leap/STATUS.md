@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 # Leap status tracker
 
-**Last updated:** 2026-11-12 (from `git log`, the worktrees and `gh pr list`). Part of [the leap](README.md). Order and acceptance: [BACKLOG.md](BACKLOG.md). How to claim an epic: [WORKSTREAMS.md](WORKSTREAMS.md) §6.
+**Last updated:** 2026-11-21 (generated UTC from committed main `0ff9085addcb7d78138ecbc4ecacdefddbb684f8`; not a full row truth audit).
 
 > **Explain it like I am the founder**
 > One row per epic, saying where it stands: `todo`, `in-progress` (someone is building it on a branch), `in-review` (a PR is open), `done` (merged), `parked` or `superseded`.
@@ -10,16 +10,16 @@
 
 ## Summary
 
-| State | Epics |
+| State | Rows |
 |---|---|
 | done | 31 |
-| in-review | 4 |
-| in-progress | 37 |
-| todo | 258 |
+| in-progress | 45 |
+| in-review | 47 |
 | parked | 5 |
 | superseded | 1 |
+| todo | 225 |
 
-(Counted from the rows below on 2026-11-12. Re-count after editing rows; do not edit these numbers by hand.)
+(Counted from the rows below on 2026-11-21 UTC: 354 rows, 345 unique IDs; 9 duplicate row(s) retained. 21 row(s) updated by 138 main fragment(s). States are fragment declarations or inherited baseline, not independently audited acceptance. Merged partial work is not automatically done; unmerged approvals are excluded. Historical prose below is not refreshed.)
 
 "in-progress" on a branch with no PR means work exists only in a local worktree or on an unpushed branch. Push it so it is not lost.
 
@@ -138,8 +138,8 @@
 | CORE-DASH-3 | Approvals plan card with passkey approve | todo | – | – |
 | CORE-DASH-4 | Activity (audit) and Agents (suspend) screens | todo | – | – |
 | DEV-MCP-5 | Prompt-injection defences: `<untrusted>` marking, `AgentNote` on th… | in-progress (merged in #48; rest unverified) | `feat/devsurface` | [#48](https://github.com/onemindos/ONEMINDOS/pull/48) |
-| CORE-UPDATE-2 | Local socket, `/v1/os/*`, `os.update` and `os.rollback` actions | todo | – | – |
-| CORE-UPDATE-4 | Metal runs for G1 on the x86 mini PC; start the Pi soak | todo | – | – |
+| CORE-UPDATE-2 | Local socket, `/v1/os/*`, `os.update` and `os.rollback` actions (/v1/os/updates read routes and the os.update.install approval landed; the local update socket is still missing) | in-progress | `claude/142-os-updates` | [#357](https://github.com/onemindos/ONEMINDOS/pull/357) |
+| CORE-UPDATE-4 | Metal runs for G1 on the x86 mini PC; start the Pi soak (kit only; the metal run is the founder's step) | in-review | `feat/215-g1-metal-kit` | PR pending |
 | DEV-CLI-6 | `update status/check/apply` via the onemindd socket on the box, `os… | todo | – | – |
 | DEV-CLI-14 | Headless local context over the onemindd socket with peer-uid check | todo | – | – |
 | PLAN-E6 | Manifest v1 freeze: merge with research 29 §6, converter, one valid… | todo | – | – |
@@ -169,7 +169,7 @@
 | CORE-NET-5 | `onemind-edge`: SNI/host routes, forward-auth, upgrades, ACME | todo | – | – |
 | CORE-NET-6 | LAN names: avahi hosts, conflict check, mesh extra records | todo | – | – |
 | CORE-NET-7 | Relay: SNI router, setup endpoint, WireGuard link, derper build | todo | – | – |
-| CORE-NET-8 | Gateway mesh routes, forward-auth, `mesh.*` handlers | todo | – | – |
+| CORE-NET-8 | Gateway mesh routes, forward-auth, `mesh.*` handlers (app proxy says when an app is stopped or starting; HTTPS open tested end to end (#139 part 1)) (app proxy honours the exposure tier and per-app sharing (#285)) (app exposure tier enforced by network path, not only Host (#285 follow-up)) | in-review | `feat/285-path-tier` | PR pending |
 | CORE-NET-9 | Lima lab NT-1…NT-8, NT-17 | todo | – | – |
 | CORE-NET-10 | Contract §12.22 networking PR | todo | – | – |
 | CORE-NET-11 | Installer and image wiring | todo | – | – |
@@ -198,11 +198,11 @@
 | CORE-NOTIFY-5 | Repairs with fix actions | todo | (alert `fix` → request already works in `feat/notify-monitor`) | – |
 | CORE-NOTIFY-6 | Email, webhook, Matrix, Telegram channels; routing and quiet hours | in-progress (merged in #44; rest unverified) | `feat/notify-monitor`: email, webhook, ntfy, routing, quiet hours, digest; Matrix and Telegram open | [#44](https://github.com/onemindos/ONEMINDOS/pull/44) |
 | CORE-MON-1 | Monitoring: app health, restarts, logs, app and node metrics, thresholds (contract §12.15) | in-progress (merged in #44; rest unverified) | `feat/notify-monitor` | [#44](https://github.com/onemindos/ONEMINDOS/pull/44) |
-| CORE-UPDATE-3 | Updates screen and "What's new" | todo | – | – |
+| CORE-UPDATE-3 | Updates screen and "What's new" (Updates screen reads real heartbeat data) | in-review | `claude/142-os-updates` | [#357](https://github.com/onemindos/ONEMINDOS/pull/357) |
 | CORE-UPDATE-5 | App updates through approval (catalog diff, `app.update`) | todo | – | – |
 | CORE-UPDATE-6 | Health-gated app updates with snapshot and revert | todo | – | – |
 | CORE-UPDATE-7 | Offline grace and USB/LAN mirror installs | todo | – | – |
-| CORE-UPDATE-8 | Rescue console in onemindd | todo | – | – |
+| CORE-UPDATE-8 | Rescue console in onemindd (onemindd rescue, owner token, rollback with k3s stopped) | in-review | `feat/rescue-console` | [#268](https://github.com/onemindos/ONEMINDOS/pull/268) |
 | CORE-DASH-2 | Move the 5 existing screens onto `@onemind/ui` (dashboard v2: Home, Market, Installed, Approvals, Activity, Nodes, Settings, ⌘K, bell; CRITIQUE #19–#26 fixed; PR open) | done | `feat/dashboard-v2` | [#73](https://github.com/onemindos/ONEMINDOS/pull/73) |
 | CORE-DASH-5 | Alerts, Updates and Backups screens | todo | – | – |
 | CORE-DASH-7 | PWA and per-app subdomain launcher | todo | – | – |
@@ -236,19 +236,19 @@
 | C12-C | Contract §12-c: deployments, manifest `health`, `settings`, `secret… | todo | – | – |
 | C12-F | Contract §12-f: automation | todo | – | – |
 | C12-PLG | Contract plugins amendment: `kind: plugin`, `plugin.invoke`, `plugi… | todo | – | – |
-| CORE-AUTO-2 | Scheduler and event/webhook triggers that create actions | todo | – | – |
-| CORE-AUTO-3 | Standing approvals with ledger-counted limits | todo | – | – |
-| CORE-AUTO-4 | Dry run, CLI (`auto`, `policy`) and Automations page | todo | – | – |
-| CORE-AUTO-5 | Failure and recovery notifications, repairs hook-up | todo | – | – |
-| DEV-API-13 | Automation and OS update route shapes | todo | built inside CORE-AUTO-2, CORE-UPDATE-2 | – |
+| CORE-AUTO-2 | Scheduler and event/webhook triggers that create actions (schedule and event rules built; webhook triggers and the NATS JetStream consumer not yet) | in-review | `feat/automation` | [#75](https://github.com/onemindos/ONEMINDOS/pull/75) |
+| CORE-AUTO-3 | Standing approvals with ledger-counted limits (built with windows, F-6 and kill switch; passkey step-up waits for identity) | in-review | `feat/automation` | [#75](https://github.com/onemindos/ONEMINDOS/pull/75) |
+| CORE-AUTO-4 | Dry run, CLI (`auto`, `policy`) and Automations page (dry run and enable gate built; CLI and page not yet) | in-review | `feat/automation` | [#75](https://github.com/onemindos/ONEMINDOS/pull/75) |
+| CORE-AUTO-5 | Failure and recovery notifications, repairs hook-up (breaker publishes automation.breaker.opened; notification routing not yet) | in-review | `feat/automation` | [#75](https://github.com/onemindos/ONEMINDOS/pull/75) |
+| DEV-API-13 | Automation and OS update route shapes (automation routes of contract 12.17) | in-review | `feat/automation` | [#75](https://github.com/onemindos/ONEMINDOS/pull/75) |
 | DEV-CLI-9 | `notify test`, `tokens list/create/revoke`, `rules` alias | todo | – | – |
 | CORE-DASH-6 | Settings (sessions, tokens, pairing) and Automations screens | todo | – | – |
 | CORE-DEPLOY-1 | `onemind deploy` (kustomize, Helm, Compose) → private app | todo | – | – |
 | CORE-DEPLOY-2 | On-box scan Job bound to digests | todo | – | – |
 | CORE-DEPLOY-3 | Revisions, history and rollback | todo | – | – |
-| CORE-DEPLOY-4 | Write-only secrets | todo | – | – |
+| CORE-DEPLOY-4 | Write-only secrets (app secret store built (spec.secrets, sealed owner input, AES-256-GCM at rest, server-side apply, rotation); dashboard wiring still to do) | in-review | `feat/app-secrets` | PR pending |
 | CORE-DEPLOY-5 | Watched Git source with a diff card | todo | – | – |
-| CORE-DEPLOY-6 | Migration kit (`onemind migrate check/import/pin`) | todo | – | – |
+| CORE-DEPLOY-6 | Migration kit (`onemind migrate check/import/pin`) (onemind migrate role/plan/import/copy/cutover/revert) | review | `feat/migrate-kit` | [#76](https://github.com/onemindos/ONEMINDOS/pull/76) |
 | DEV-CLI-10 | `app scaffold/validate/gate/dev`, one validator shared with Python | todo | – | – |
 | DEV-PLG-1 | Manifest `extensions`, `permissions`, `plugin`, `compat` + Go valid… | todo | – | – |
 | DEV-PLG-2 | TypeScript `@onemind/plugin` (server and widget) | todo | – | – |
@@ -341,7 +341,7 @@ From [`docs/umbrel2/`](../umbrel2/README.md). Order and acceptance in [BACKLOG.m
 | UMB-CLIENT-3 | Client kit (TypeScript and Rust) with shared test vectors | todo | – | – |
 | UMB-PHOTO-0 | Photos licence rows and contract §12-p | todo | – | – |
 | UMB-DESK-0 | Contract: `/v1/me/home`, `/v1/wallpapers`, shortcut preview, widget… | todo | – | – |
-| UMB-DESK-1 | Home document store and routes (per person, ETag) | todo | – | – |
+| UMB-DESK-1 | Home document store and routes (per person, ETag) (store and routes for the Home document; the phone applies the theme (#144)) | in-review | `feat/144-me-home` | PR pending |
 | UMB-DESK-7 | `Sheet`, `ImmersiveDialog`, `TargetPicker` | todo | – | – |
 | UMB-SYS-13 | Yank a published OS release | todo | – | – |
 
@@ -350,19 +350,19 @@ From [`docs/umbrel2/`](../umbrel2/README.md). Order and acceptance in [BACKLOG.m
 | Id | Title | State | Branch | PR |
 |---|---|---|---|---|
 | UMB-CLIENT-2 | Device registry, `device.add` action, DPoP tokens, revoke | todo | – | – |
-| UMB-STOR-2 | Initrd assembly and recovery mode markers | todo | – | – |
-| UMB-STOR-4 | Storage operation engine: protect, add, replace, remove, scrub, sepa… | todo | – | – |
-| UMB-STOR-5 | Gateway storage API and action executor | todo | – | – |
+| UMB-STOR-2 | Initrd assembly and recovery mode markers (boot assembly of the data set (onemindd storage assemble) built; image patch for LUKS2 data not applied (F-61, F-62)) | in-review | `feat/storage-actions` | PR pending |
+| UMB-STOR-4 | Storage operation engine: protect, add, replace, remove, scrub, sepa… (journaled operation engine in onemindd storage serve built and lab-proven with power cuts; off unless the service runs) | in-review | `feat/storage-actions` | PR pending |
+| UMB-STOR-5 | Gateway storage API and action executor (gateway storage routes and the five storage.mirror action types built on the feature action registry; off by default (ONEMIND_STORAGE_ENABLED)) | in-review | `feat/storage-actions` | PR pending |
 | UMB-STOR-6 | Scrub scheduler and health alerts | todo | – | – |
 | UMB-STOR-7 | App snapshots: one subvolume per PV, snapshot before app and OS upda… | todo | – | – |
 | UMB-STOR-8 | Storage page, disk detail, protect flow, recovery screen, node-card… | todo | – | – |
 | UMB-STOR-9 | Storage CLI and MCP tools | todo | – | – |
 | UMB-STOR-13 | External USB disks: auto-mount by filesystem UUID as `usb:<uuid>` ro… | todo | – | – |
-| UMB-FILES-1 | Node file server: confined operations, trash, resumable (tus) upload… | todo | – | – |
-| UMB-FILES-2 | Gateway file API, roots, shares; data plane vs action split | todo | – | – |
+| UMB-FILES-1 | Node file server: confined operations, trash, resumable (tus) upload… (resumable uploads (tus, sha256 checks) and confined paths built in the gateway; the node file server in onemindd is not yet) | in-review | `feat/files` | [#77](https://github.com/onemindos/ONEMINDOS/pull/77) |
+| UMB-FILES-2 | Gateway file API, roots, shares; data plane vs action split (gateway file API built: Home and Shared spaces by role, browse, preview, ranged downloads, moves, trash, quotas) | in-review | `feat/files` | [#77](https://github.com/onemindos/ONEMINDOS/pull/77) |
 | UMB-FILES-3 | File index, search, thumbnails and previews in a sandbox | todo | – | – |
 | UMB-FILES-4 | Files page (list, grid, upload queue, preview, search, trash) | todo | – | – |
-| UMB-FILES-6 | Folder grants for apps and agents | todo | – | – |
+| UMB-FILES-6 | Folder grants for apps and agents (folder grants to apps and agents behind owner approval built; executor mount hook and MCP tools not yet) | in-review | `feat/files` | [#77](https://github.com/onemindos/ONEMINDOS/pull/77) |
 | UMB-FILES-7 | Rewind: restore points per path, `files.restore` with undo | todo | – | – |
 | UMB-PHOTO-1 | Photos service skeleton and catalog | todo | – | – |
 | UMB-PHOTO-2 | Photo ingest and indexer | todo | – | – |
@@ -382,7 +382,7 @@ From [`docs/umbrel2/`](../umbrel2/README.md). Order and acceptance in [BACKLOG.m
 | UMB-APP-1 | App gate computes install size, archs, release notes, gallery checks | todo | – | – |
 | UMB-APP-4 | Lifecycle actions start, stop, restart, update, configure with progr… | review | `feat/app-lifecycle` | – |
 | UMB-APP-5 | Remove keeps data; separate owner-only data delete with typed confir… | review | `feat/app-lifecycle` | – |
-| UMB-APP-9 | Host ports with conflict check in the plan; avahi name per app | todo | – | – |
+| UMB-APP-9 | Host ports with conflict check in the plan; avahi name per app (host port declarations, CI and per-node conflict checks; avahi names with CORE-NET) | in-review | `feat/appstore-depth` | [#57](https://github.com/onemindos/ONEMINDOS/pull/57) |
 | UMB-APP-13 | App page and Market polish: facts band, permissions, notes, related… | todo | – | – |
 | UMB-AGT-5 | `onemind mcp pair` and `onemind mcp setup <client>`; keychain; confi… | todo | – | – |
 | UMB-AGT-6 | Troubleshooting tools: app status and logs, node logs, system health… | todo | – | – |
@@ -420,7 +420,7 @@ From [`docs/umbrel2/`](../umbrel2/README.md). Order and acceptance in [BACKLOG.m
 | UMB-PHOTO-10 | Photos CLI | todo | – | – |
 | UMB-PHOTO-11 | Importers: USB and SD card, folder, Google Takeout, iCloud Photos ex… | todo | – | – |
 | UMB-PHOTO-13 | Immich Market app with read-only attach to the OneMind library | todo | – | – |
-| UMB-APP-10 | Community sources pinned to a commit, `source.*` actions, on-box sca… | todo | – | – |
+| UMB-APP-10 | Community sources pinned to a commit, `source.*` actions, on-box sca… (pinned community sources and source actions; install needs the CORE-DEPLOY-2 image scanner) | in-review | `feat/appstore-depth` | [#57](https://github.com/onemindos/ONEMINDOS/pull/57) |
 | UMB-APP-14 | CLI `onemind app` lifecycle verbs and `onemind source` (extends DEV-… | todo | – | – |
 | UMB-APP-17 | Image cleanup on nodes after update and remove | todo | – | – |
 | UMB-AGT-8 | Files read tools and `files.apply_plan` with snapshot and Undo | todo | – | – |
