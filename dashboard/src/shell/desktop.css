@@ -1,0 +1,244 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+/* Desktop frame (D-016): menu bar, desktop, windows over the wallpaper, dock, Launchpad, and the
+   look of every screen inside a window. Only --om-* design tokens, the brand tokens
+   (brand.generated.css), and the per-screen tile colours set inline from DesktopShell's
+   SCREEN_HUES. The wallpaper itself is painted by WallpaperLayer. */
+.dsk {
+  --dsk-bar-h: 44px;
+  --dsk-dock-h: 84px;
+  --dsk-gap: var(--om-space-4);
+  --dsk-radius-window: 22px;
+  --dsk-tile-radius: 28%;
+  --dsk-glass: color-mix(in srgb, var(--om-color-surface) 72%, transparent);
+  --dsk-glass-strong: color-mix(in srgb, var(--om-color-surface) 88%, transparent);
+  --dsk-hairline: color-mix(in srgb, var(--om-color-text) 10%, transparent);
+  --dsk-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  position: relative;
+  min-height: 100vh;
+  overflow-x: clip;
+  color: var(--om-color-text);
+}
+
+/* ── Menu bar ───────────────────────────────────────────────────────────── */
+.dsk-bar {
+  /* Above the dock, so the bell and account popovers are never painted under it. */
+  position: sticky; top: 0; z-index: calc(var(--om-z-nav) + 1);
+  display: flex; align-items: center; gap: var(--om-space-3);
+  min-height: var(--dsk-bar-h); padding: 4px var(--om-space-4);
+  background: var(--dsk-glass); border-bottom: 1px solid var(--dsk-hairline);
+  backdrop-filter: saturate(160%) blur(22px); -webkit-backdrop-filter: saturate(160%) blur(22px);
+  font-size: var(--om-font-size-sm);
+}
+.dsk-brand { display: inline-flex; align-items: center; gap: var(--om-space-2); color: var(--om-color-text); text-decoration: none; font-weight: var(--om-font-weight-semibold); min-width: 0; }
+.dsk-box { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: -0.01em; }
+.dsk-status { min-width: 0; display: flex; }
+.dsk-clock { margin-left: auto; font-variant-numeric: tabular-nums; font-weight: var(--om-font-weight-medium); white-space: nowrap; color: var(--om-color-text); }
+.dsk-clock-day { color: var(--om-color-text-muted); font-weight: 400; }
+.dsk-actions { display: flex; align-items: center; gap: var(--om-space-1); }
+.dsk-iconbtn {
+  all: unset; box-sizing: border-box; display: inline-grid; place-items: center; width: 32px; height: 32px;
+  border-radius: var(--om-radius-pill); color: var(--om-color-text-muted); cursor: pointer;
+}
+.dsk-iconbtn:hover { color: var(--om-color-text); background: var(--dsk-hairline); }
+.dsk-iconbtn:focus-visible, .dsk-avatar:focus-visible, .dsk-brand:focus-visible { outline: 2px solid var(--om-color-focus); outline-offset: 2px; }
+
+/* Person menu */
+.dsk-person { position: relative; }
+.dsk-avatar {
+  all: unset; box-sizing: border-box; display: inline-grid; place-items: center; width: 28px; height: 28px; margin-left: var(--om-space-1);
+  border-radius: 50%; cursor: pointer; color: #fff; font-weight: var(--om-font-weight-bold); font-size: 13px;
+  background: linear-gradient(145deg, var(--brand-red, #ff333a), var(--accent, #d11826));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--om-color-surface) 70%, transparent);
+}
+.dsk-avatar-lg { width: 40px; height: 40px; font-size: 17px; margin: 0; cursor: default; }
+.dsk-menu {
+  position: absolute; right: 0; top: calc(100% + 8px); z-index: calc(var(--om-z-dialog) - 1); min-width: 220px;
+  display: flex; flex-direction: column; gap: 2px; padding: var(--om-space-2);
+  border-radius: 14px; background: var(--dsk-glass-strong); border: 1px solid var(--dsk-hairline); box-shadow: var(--om-shadow-3);
+  backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); animation: dsk-pop 140ms var(--dsk-ease);
+}
+.dsk-menu-who { display: flex; align-items: center; gap: var(--om-space-3); padding: var(--om-space-2); margin-bottom: var(--om-space-1); border-bottom: 1px solid var(--dsk-hairline); }
+.dsk-menu-who > span:last-child { display: flex; flex-direction: column; }
+.dsk-menu-demo { margin: 0 var(--om-space-2) var(--om-space-1); font-size: var(--om-font-size-xs); color: var(--om-color-agent-fg); }
+.dsk-menu-item {
+  all: unset; box-sizing: border-box; display: flex; align-items: center; gap: var(--om-space-2); padding: 8px var(--om-space-2);
+  border-radius: 8px; cursor: pointer; color: var(--om-color-text); font-size: var(--om-font-size-sm); text-decoration: none;
+}
+.dsk-menu-item:hover, .dsk-menu-item:focus-visible { background: var(--om-color-accent); color: var(--om-color-accent-text); }
+
+/* ── Desktop ────────────────────────────────────────────────────────────── */
+.dsk-desktop {
+  width: 100%; max-width: 1120px; margin: 0 auto;
+  padding: var(--om-space-8) var(--dsk-gap) calc(var(--dsk-dock-h) + var(--om-space-10));
+  outline: none;
+}
+/* Home reads as a desktop: centred greeting and search, glass widgets. */
+.dsk-desktop .omh-home { gap: var(--om-space-8); }
+.dsk-desktop .omh-hero { flex-direction: column; align-items: center; text-align: center; padding-top: var(--om-space-6); }
+.dsk-desktop .omh-hero-text { align-items: center; }
+.dsk-desktop .omh-greeting { font-size: clamp(2.25rem, 1.4rem + 3vw, 3.5rem); letter-spacing: -0.035em; text-shadow: 0 1px 24px color-mix(in srgb, var(--om-color-bg) 55%, transparent); }
+.dsk-desktop .omh-date { text-transform: uppercase; letter-spacing: 0.12em; font-size: var(--om-font-size-xs); }
+.dsk-desktop .omh-search { align-self: center; max-width: 560px; min-height: 48px; border-radius: var(--om-radius-pill); background: var(--dsk-glass); border-color: var(--dsk-hairline); }
+.dsk-desktop .omh-widget { background: var(--dsk-glass); border-color: var(--dsk-hairline); border-radius: 20px; backdrop-filter: saturate(150%) blur(26px); -webkit-backdrop-filter: saturate(150%) blur(26px); }
+.dsk-desktop .omh-section-head h2 { font-size: var(--om-font-size-sm); text-transform: uppercase; letter-spacing: 0.1em; color: var(--om-color-text-muted); }
+
+/* ── Window ─────────────────────────────────────────────────────────────── */
+.dsk-stage {
+  position: fixed; inset: var(--dsk-bar-real, var(--dsk-bar-h)) 0 0 0; z-index: calc(var(--om-z-nav) - 1);
+  display: flex; justify-content: center;
+  padding: var(--om-space-5) var(--dsk-gap) calc(var(--dsk-dock-h) + var(--om-space-3));
+}
+.dsk-scrim {
+  position: absolute; inset: 0;
+  background: color-mix(in srgb, var(--om-color-bg) 28%, transparent);
+  backdrop-filter: blur(10px) saturate(120%); -webkit-backdrop-filter: blur(10px) saturate(120%);
+  animation: dsk-fade 180ms var(--dsk-ease);
+}
+.dsk-window {
+  position: relative; display: flex; flex-direction: column;
+  width: min(1180px, 100%); height: 100%;
+  border-radius: var(--dsk-radius-window); overflow: hidden;
+  background: var(--dsk-glass-strong);
+  border: 1px solid var(--dsk-hairline);
+  box-shadow: 0 30px 80px -20px rgb(0 0 0 / 0.45), 0 0 0 1px color-mix(in srgb, #fff 6%, transparent) inset, var(--om-shadow-3);
+  backdrop-filter: saturate(160%) blur(40px); -webkit-backdrop-filter: saturate(160%) blur(40px);
+  animation: dsk-open 220ms var(--dsk-ease);
+}
+.dsk-window-bar {
+  flex: none; display: flex; align-items: center; gap: var(--om-space-3);
+  min-height: 52px; padding: var(--om-space-2) var(--om-space-3) var(--om-space-2) var(--om-space-4);
+  border-bottom: 1px solid var(--dsk-hairline);
+}
+.dsk-window-title { flex: 1; min-width: 0; font-size: var(--om-font-size-md); font-weight: var(--om-font-weight-semibold); letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dsk-wbtn {
+  flex: none; display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: var(--om-radius-pill);
+  color: var(--om-color-text-muted); background: var(--dsk-hairline); text-decoration: none; transition: background 120ms, color 120ms;
+}
+.dsk-wbtn:hover { color: var(--om-color-text); background: color-mix(in srgb, var(--om-color-text) 16%, transparent); }
+.dsk-close:hover { background: var(--om-color-accent); color: var(--om-color-accent-text); }
+.dsk-wbtn:focus-visible, .dsk-dock-item:focus-visible, .dsk-launchpad-item:focus-visible { outline: 2px solid var(--om-color-focus); outline-offset: 2px; }
+.dsk-flip { transform: scaleX(-1); }
+.dsk-window-body { flex: 1; min-height: 0; overflow: auto; padding: var(--om-space-6) clamp(var(--om-space-4), 4vw, var(--om-space-10)) var(--om-space-10); outline: none; scroll-padding-top: var(--om-space-4); }
+
+/* Screens inside a window: one consistent, airy look for every page. */
+.dsk-window-body .om-page-head { margin-bottom: var(--om-space-6); align-items: flex-end; }
+.dsk-window-body .om-page-title { font-size: clamp(1.75rem, 1.3rem + 1.4vw, 2.375rem); font-weight: var(--om-font-weight-bold); letter-spacing: -0.03em; line-height: 1.1; }
+.dsk-window-body .om-page-lede { max-width: 68ch; color: var(--om-color-text-muted); font-size: var(--om-font-size-md); margin-top: var(--om-space-2); }
+.dsk-window-body .om-card {
+  background: color-mix(in srgb, var(--om-color-surface-raised) 82%, transparent);
+  border: 1px solid var(--dsk-hairline); border-radius: 18px;
+  box-shadow: 0 1px 0 color-mix(in srgb, #fff 5%, transparent) inset, 0 8px 24px -16px rgb(0 0 0 / 0.5);
+}
+.dsk-window-body .om-card-attention { box-shadow: inset 3px 0 0 var(--om-color-warn-fg), 0 8px 24px -16px rgb(0 0 0 / 0.5); }
+.dsk-window-body h2 { letter-spacing: -0.015em; }
+.dsk-window-body .om-subhead { text-transform: uppercase; letter-spacing: 0.08em; font-size: var(--om-font-size-xs); font-weight: var(--om-font-weight-semibold); }
+.dsk-window-body .om-table tr + tr td { border-top-color: var(--dsk-hairline); }
+.dsk-window-body .dash-tabs { gap: var(--om-space-1); padding: 4px; border-radius: var(--om-radius-pill); background: var(--dsk-hairline); width: fit-content; max-width: 100%; }
+.dsk-window-body .dash-tabs a { border-color: transparent; min-height: 32px; }
+
+/* ── Dock ───────────────────────────────────────────────────────────────── */
+.dsk-dock {
+  position: fixed; left: 50%; bottom: var(--om-space-3); transform: translateX(-50%); z-index: var(--om-z-nav);
+  display: flex; align-items: flex-end; gap: var(--om-space-1);
+  max-width: calc(100vw - 2 * var(--om-space-3)); overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none;
+  padding: 8px 10px 6px; border-radius: 26px;
+  background: var(--dsk-glass); border: 1px solid var(--dsk-hairline);
+  box-shadow: 0 18px 50px -18px rgb(0 0 0 / 0.55), 0 0 0 1px color-mix(in srgb, #fff 6%, transparent) inset;
+  backdrop-filter: saturate(170%) blur(28px); -webkit-backdrop-filter: saturate(170%) blur(28px);
+}
+.dsk-dock::-webkit-scrollbar { display: none; }
+.dsk-dock-group { list-style: none; margin: 0; padding: 0; display: flex; align-items: flex-end; gap: 2px; }
+.dsk-dock-sep { flex: none; align-self: center; width: 1px; height: 40px; margin: 0 var(--om-space-1); background: var(--dsk-hairline); }
+.dsk-dock-item {
+  all: unset; box-sizing: border-box; cursor: pointer;
+  position: relative; display: inline-flex; flex-direction: column; align-items: center; gap: 4px;
+  min-width: 60px; padding: 2px 4px 8px; border-radius: 14px;
+  color: var(--om-color-text); text-decoration: none;
+}
+.dsk-dock-item > :first-child { transition: transform 160ms var(--dsk-ease); transform-origin: bottom center; }
+.dsk-dock-item:hover > :first-child, .dsk-dock-item:focus-visible > :first-child { transform: translateY(-6px) scale(1.14); }
+.dsk-dock-label { font-size: 11px; line-height: 1.1; color: var(--om-color-text-muted); white-space: nowrap; max-width: 76px; overflow: hidden; text-overflow: ellipsis; }
+.dsk-dock-item[aria-current='page'] .dsk-dock-label { color: var(--om-color-text); font-weight: var(--om-font-weight-semibold); }
+.dsk-dock-item[aria-current='page']::after {
+  content: ''; position: absolute; bottom: 1px; width: 5px; height: 5px; border-radius: 50%; background: var(--om-color-text);
+}
+
+/* Screen tiles: one colour per screen, white glyph, soft light from above. */
+.dsk-tile {
+  flex: none; display: grid; place-items: center; border-radius: var(--dsk-tile-radius); color: #fff;
+  background:
+    radial-gradient(120% 90% at 30% 0%, rgb(255 255 255 / 0.32), transparent 55%),
+    linear-gradient(160deg, var(--dsk-tile-a, #7d8794), var(--dsk-tile-b, #3a414b));
+  box-shadow: 0 1px 0 rgb(255 255 255 / 0.25) inset, 0 6px 14px -6px color-mix(in srgb, var(--dsk-tile-b, #000) 80%, transparent);
+}
+.dsk-tile .om-icon { filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.25)); }
+.dsk-tile-launch {
+  width: 44px; height: 44px; color: var(--om-color-text);
+  background: color-mix(in srgb, var(--om-color-surface-raised) 85%, transparent);
+  box-shadow: 0 0 0 1px var(--dsk-hairline) inset;
+}
+.dsk-badge {
+  position: absolute; top: -2px; right: 4px; min-width: 19px; height: 19px; padding: 0 5px; box-sizing: border-box;
+  display: grid; place-items: center; border-radius: var(--om-radius-pill);
+  background: var(--brand-red, #ff333a); color: #fff; border: 2px solid var(--om-color-surface);
+  font-size: 11px; font-weight: var(--om-font-weight-bold); line-height: 1;
+}
+
+/* ── Launchpad ──────────────────────────────────────────────────────────── */
+.dsk-launchpad {
+  position: fixed; inset: 0; z-index: var(--om-z-dialog); overflow: auto;
+  background: color-mix(in srgb, var(--om-color-bg) 55%, transparent);
+  backdrop-filter: blur(30px) saturate(140%); -webkit-backdrop-filter: blur(30px) saturate(140%);
+  animation: dsk-fade 160ms var(--dsk-ease);
+}
+.dsk-launchpad-inner { max-width: 980px; margin: 0 auto; padding: var(--om-space-10) var(--om-space-5) 120px; display: flex; flex-direction: column; gap: var(--om-space-6); animation: dsk-zoom 220ms var(--dsk-ease); }
+.dsk-launchpad-search {
+  align-self: center; display: flex; align-items: center; gap: var(--om-space-2); width: min(420px, 100%);
+  padding: 0 var(--om-space-4); min-height: 44px; border-radius: var(--om-radius-pill);
+  background: var(--dsk-glass-strong); border: 1px solid var(--dsk-hairline); color: var(--om-color-text-muted);
+}
+.dsk-launchpad-search:focus-within { outline: 2px solid var(--om-color-focus); outline-offset: 2px; }
+.dsk-launchpad-search input { all: unset; flex: 1; color: var(--om-color-text); font-size: var(--om-font-size-md); }
+.dsk-launchpad-head { margin: 0 0 var(--om-space-3); font-size: var(--om-font-size-xs); text-transform: uppercase; letter-spacing: 0.12em; color: var(--om-color-text-muted); }
+.dsk-launchpad-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: var(--om-space-5) var(--om-space-3); }
+.dsk-launchpad-item { position: relative; display: flex; flex-direction: column; align-items: center; gap: var(--om-space-2); padding: var(--om-space-2); border-radius: 16px; color: var(--om-color-text); text-decoration: none; }
+.dsk-launchpad-item > :first-child { transition: transform 160ms var(--dsk-ease); }
+.dsk-launchpad-item:hover > :first-child { transform: scale(1.08); }
+.dsk-launchpad-item .dsk-badge { top: 2px; right: calc(50% - 40px); }
+.dsk-launchpad-label { font-size: var(--om-font-size-sm); text-align: center; }
+.dsk-launchpad-none { text-align: center; color: var(--om-color-text-muted); }
+
+/* The jobs tray sits in the bottom-right corner, clear of the dock and of window content. */
+.dash-desktop .om-store-tray { left: auto; right: var(--om-space-4); transform: none; bottom: calc(var(--dsk-dock-h, 84px) + var(--om-space-3)); width: min(340px, calc(100vw - 32px)); align-items: flex-end; }
+@media (max-width: 720px) { .dash-desktop .om-store-tray { right: 50%; transform: translateX(50%); align-items: center; } }
+
+@keyframes dsk-open { from { opacity: 0; transform: translateY(14px) scale(0.975); } to { opacity: 1; transform: none; } }
+@keyframes dsk-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes dsk-pop { from { opacity: 0; transform: translateY(-4px) scale(0.98); } to { opacity: 1; transform: none; } }
+@keyframes dsk-zoom { from { opacity: 0; transform: scale(1.04); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .dsk-window, .dsk-scrim, .dsk-menu, .dsk-launchpad, .dsk-launchpad-inner { animation: none; }
+  .dsk-dock-item > :first-child, .dsk-launchpad-item > :first-child { transition: none; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .dsk { --dsk-glass: var(--om-color-surface); --dsk-glass-strong: var(--om-color-surface); }
+}
+
+/* Narrow screens: the clock drops the date first. */
+@media (max-width: 1024px) {
+  .dsk-clock-day { display: none; }
+}
+/* Phones: the window is a full sheet; the dock shows icons only and scrolls. */
+@media (max-width: 720px) {
+  .dsk { --dsk-dock-h: 70px; --dsk-gap: var(--om-space-2); }
+  .dsk-bar { padding: 4px var(--om-space-3); gap: var(--om-space-2); }
+  .dsk-box, .dsk-clock { display: none; }
+  .dsk-actions { margin-left: auto; }
+  .dsk-stage { padding: var(--om-space-2) var(--om-space-2) calc(var(--dsk-dock-h) + var(--om-space-3)); }
+  .dsk-window { border-radius: 18px; }
+  .dsk-window-body { padding: var(--om-space-4) var(--om-space-3) var(--om-space-6); }
+  .dsk-dock { bottom: var(--om-space-2); padding: 6px 8px; border-radius: 22px; }
+  .dsk-dock-item { min-width: 50px; padding-bottom: 6px; }
+  .dsk-dock-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .dsk-desktop { padding-top: var(--om-space-4); }
+}
