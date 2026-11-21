@@ -97,6 +97,18 @@ describe('People screen', () => {
     expect(await screen.findByText(/fresh passkey .* Nothing was changed/)).toBeTruthy();
   });
 
+  it('shows the one-time sign-in link after adding a person, then drops it', async () => {
+    const createUser = jest.fn(async () => ({ id: 'u9', username: null, display_name: 'Ana', role: 'teen', one_time: { enrolment_code: 'CODE123', enrolment_url: 'https://hub/signin#enrol=CODE123' } }));
+    await mount(<PeopleScreen />, OWNER_OPS, { ...base, createUser });
+    await fireEvent.changeText(await screen.findByTestId('new-name'), 'Ana');
+    await fireEvent.press(screen.getByTestId('add'));
+    await fireEvent.press(screen.getByTestId('add'));
+    expect(await screen.findByText('https://hub/signin#enrol=CODE123')).toBeTruthy();
+    expect(screen.getByText('Code: CODE123')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('invite-done'));
+    expect(screen.queryByTestId('invite')).toBeNull();
+  });
+
   it('offers no writes to an adult', async () => {
     await mount(<PeopleScreen />, OWNER_OPS, { ...base, me: async () => me('adult'), users: async () => { throw new ApiError(403, 'permission_denied', 'no'); } });
     expect(await screen.findByText('Only an owner can see people.')).toBeTruthy();

@@ -4,9 +4,9 @@
 // avoids offering what will be refused. Each change asks twice and names what it does. Limits (age rating, allowed
 // apps, hours) are read here and edited on the dashboard.
 import { useState } from 'react';
-import { Pressable, Text, TextInput, View } from 'react-native';
+import { Pressable, Share, Text, TextInput, View } from 'react-native';
 import { OP } from '../api/client';
-import type { FamilyProfile, UserInfo } from '../api/types';
+import type { CreatedUser, FamilyProfile, UserInfo } from '../api/types';
 import { requestError } from '../lib/manage';
 import { asksParent, limitsText, ROLE_TEXT, ROLES, roleLabel } from '../lib/people';
 import { useLoad } from '../lib/useLoad';
@@ -51,6 +51,7 @@ export function PeopleScreen() {
   const [newRole, setNewRole] = useState('adult');
   const [armed, setArmed] = useState<string>();
   const [busy, setBusy] = useState(false);
+  const [invite, setInvite] = useState<{ who: string; url: string; code: string; expires?: string }>();
   const [msg, setMsg] = useState<{ text: string; tone: 'ok' | 'bad' }>();
 
   if (users.loading) return <Loading what="people" />;
@@ -63,7 +64,9 @@ export function PeopleScreen() {
     setBusy(true);
     setMsg(undefined);
     try {
-      await fn();
+      const out = await fn();
+      const ot = (out as CreatedUser | undefined)?.one_time;
+      if (ot?.enrolment_code) setInvite({ who: (out as CreatedUser).display_name, url: ot.enrolment_url, code: ot.enrolment_code, expires: ot.expires_at });
       setMsg({ text: done, tone: 'ok' });
       setPick(undefined);
       setName('');
@@ -131,12 +134,22 @@ export function PeopleScreen() {
               testID="add"
               label={armed === 'add' ? `Tap again: add ${name.trim()} as ${roleLabel(newRole)}` : 'Add person'}
               disabled={busy || !name.trim()}
-              onPress={() => void run('add', () => api.createUser({ display_name: name.trim(), role: newRole }), `${name.trim()} was added. Give them a sign-in on the dashboard.`, 'adding a person')}
+              onPress={() => void run('add', () => api.createUser({ display_name: name.trim(), role: newRole }), `${name.trim()} was added. Give them the sign-in link below now; it is shown only once.`, 'adding a person')}
             />
           </Card>
         </>
       )}
       {!isOwner && <P muted small>Only an owner can change people.</P>}
+      {invite && (
+        <Card testID="invite">
+          <H2>{`Sign-in for ${invite.who}`}</H2>
+          <P small>This link is shown only once and the hub cannot issue it again. Send it to {invite.who} now.{invite.expires ? ` It expires ${invite.expires}.` : ''}</P>
+          <Text selectable testID="invite-url" style={{ color: t.text, fontSize: font.sm }}>{invite.url}</Text>
+          <Text selectable testID="invite-code" style={{ color: t.text, fontSize: font.sm }}>{`Code: ${invite.code}`}</Text>
+          <Button testID="invite-share" label="Copy or share" onPress={() => void Share.share({ message: invite.url })} />
+          <Button testID="invite-done" label="I have sent it" onPress={() => setInvite(undefined)} />
+        </Card>
+      )}
       {msg && <Notice tone={msg.tone} text={msg.text} />}
     </Screen>
   );

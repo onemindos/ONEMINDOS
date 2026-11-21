@@ -30,6 +30,7 @@ import {
   type FamilyProfile,
   type KillSwitch,
   type TokenInfo,
+  type CreatedUser,
   type UserInfo,
   type LifecycleType,
   type LoginResult,
@@ -213,7 +214,7 @@ export interface OneMindApi {
   migratePlans(): Promise<MigratePlan[]>;
   // People and agents. Writes are owner-only on the hub, which also asks for a fresh passkey (`step_up_required`).
   users(): Promise<UserInfo[]>;
-  createUser(body: { display_name: string; role: string }): Promise<UserInfo>;
+  createUser(body: { display_name: string; role: string }): Promise<CreatedUser>;
   setUserRole(id: string, role: string): Promise<UserInfo>;
   familyProfile(id: string): Promise<FamilyProfile>;
   apiTokens(): Promise<TokenInfo[]>;
@@ -597,7 +598,7 @@ export class HttpApi implements OneMindApi {
     return this.req<UserInfo[]>('GET', '/v1/users', undefined, 'array');
   }
   createUser(body: { display_name: string; role: string }) {
-    return this.req<UserInfo>('POST', '/v1/users', body);
+    return this.req<CreatedUser>('POST', '/v1/users', body);
   }
   setUserRole(id: string, role: string) {
     return this.req<UserInfo>('PATCH', `/v1/users/${enc(id)}`, { role });

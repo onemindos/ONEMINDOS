@@ -597,6 +597,11 @@ export interface UserInfo {
   passkeys?: number;
 }
 
+/** `POST /v1/users`: the new person plus their sign-in code, returned exactly once (identity/service.py `one_time`). */
+export interface CreatedUser extends UserInfo {
+  one_time?: { enrolment_code: string; enrolment_url: string; expires_at?: string };
+}
+
 /** FAM-01 `GET /v1/family/profiles/{id}` (owner only): the limits on one child or teen. */
 export interface FamilyProfile {
   allowed_apps?: string[] | null;
