@@ -218,9 +218,15 @@ jobs:
           if [ "$signed" = false ]; then echo "::warning::${{ matrix.platform }} build is UNSIGNED (signing secrets not set); files are labelled -UNSIGNED"; fi
           echo "${{ matrix.platform }} signed=$signed" >> "$GITHUB_STEP_SUMMARY"
           ls -l ../out
-      - name: Installers under 25 MB each (CLIENT-8 acceptance)
+      - name: dmg, exe and msi under 25 MB each (CLIENT-8 acceptance)
         run: |
-          for f in ../out/*; do s=$(wc -c < "$f"); echo "$f $s"; test "$s" -lt 26214400; done
+          # AppImage and deb bundle WebKitGTK and are far above 25 MB, so they are only listed, not limited.
+          for f in ../out/*; do
+            s=$(wc -c < "$f"); echo "$f $s"
+            case "$f" in
+              *.dmg|*.exe|*.msi) test "$s" -lt 26214400 || { echo "::error::$f is over 25 MB"; exit 1; } ;;
+            esac
+          done
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: desktop-${{ matrix.platform }}
@@ -230,7 +236,8 @@ jobs:
 
   publish:
     needs: [plan, build]
-    if: needs.plan.outputs.tag != ''
+    # Attach whatever built: one failing platform must not block the others.
+    if: always() && needs.plan.outputs.tag != '' && needs.plan.result == 'success'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
@@ -241,6 +248,9 @@ jobs:
           pattern: desktop-*
           path: dl
           merge-multiple: true
+      - name: Fail if no platform built
+        run: |
+          test -d dl && [ -n "$(ls -A dl)" ] || { echo "::error::no desktop artifacts to publish"; exit 1; }
       - name: Checksums and upload
         env:
           GH_TOKEN: ${{ github.token }}
