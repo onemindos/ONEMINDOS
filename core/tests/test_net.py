@@ -36,7 +36,7 @@ from onemind_core.natsconf import NodeAccount, _crc16, is_user_public_nkey, rend
 from onemind_core.netconf import FabricSettings, MeshSettings, NetSettings
 from onemind_core.mesh import HeadscaleClient
 from onemind_core.serve import redirect_app
-from conftest import AGENT, OWNER, ADULT, ScriptedExecutor
+from conftest import AGENT, OWNER, ADULT, GUEST, ScriptedExecutor
 from test_mesh import FakeHeadscale
 
 GOLDEN = Path(__file__).resolve().parents[2] / "internal" / "leaf" / "testdata" / "hub-accounts.golden.conf"
@@ -620,7 +620,7 @@ def relay_nc(net_settings, clock):
 def test_a_box_with_no_relay_says_so_plainly(nc, hs):
     hs.users["9"] = {"id": "9", "name": "onemind-machines"}
     view = nc.get("/v1/mesh", headers=OWNER).json()
-    assert view["mode"] == "lan" and view["relay"]["state"] == "none" and view["relay"]["addr"] is None
+    assert view["mode"] == "lan" and view["relay"]["state"] == "none" and "addr" not in view["relay"]
     assert "home network" in view["relay"]["detail"] and "internet" in view["relay"]["detail"]
     assert view["control"]["state"] == "up"  # not an error: the mesh itself is fine
 
@@ -629,9 +629,18 @@ def test_a_paired_relay_is_shown_and_the_mode_is_relay(relay_nc, hs):
     hs.users["9"] = {"id": "9", "name": "onemind-machines"}
     view = relay_nc.get("/v1/mesh", headers=OWNER).json()
     assert view["mode"] == "lan"  # no client uses the relay yet, so the mode must not claim it
-    assert view["relay"]["state"] == "configured" and view["relay"]["addr"] == "203.0.113.7"
+    assert view["relay"]["state"] == "configured"
+    assert "addr" not in view["relay"] and "203.0.113.7" not in relay_nc.get("/v1/mesh", headers=OWNER).text
     assert "does not work yet" in view["relay"]["detail"]
     assert relay_nc.get("/v1/mesh").status_code == 401  # still signed-in callers only
+
+
+def test_relay_address_is_owner_only_and_opt_in(relay_nc, hs):
+    hs.users["9"] = {"id": "9", "name": "onemind-machines"}
+    for hdr in (ADULT, GUEST):
+        r = relay_nc.get("/v1/mesh?addresses=1", headers=hdr)
+        assert r.status_code == 200 and "addr" not in r.json()["relay"] and "203.0.113.7" not in r.text
+    assert relay_nc.get("/v1/mesh?addresses=1", headers=OWNER).json()["relay"]["addr"] == "203.0.113.7"
 
 
 def test_join_bundle_keeps_the_relay_out_of_control_addrs(relay_nc):
