@@ -6,6 +6,7 @@
 #            the APK must not request any permission app.json blocks; APK uploaded for sideloading;
 #            then the release-mode build (scripts/android-release-build.sh, debug-signed here) and the same check.
 #            Signed APK + AAB for the nightly dev release: dev-android.yml (secrets live only there)
+#   (release-ios.yml is the signed TestFlight lane; it runs only with Apple secrets, mobile/docs/ios-release.md)
 #   ios:     expo prebuild + CocoaPods + xcodebuild Release for the iOS simulator on macos-26
 #            (unsigned; the JS bundle is embedded, so Metro bundling is proven too)
 # No signing keys, store accounts or secrets are used in this workflow.
@@ -63,6 +64,8 @@ jobs:
       - name: Design tokens match ui/src/tokens/tokens.ts
         run: npm run tokens -- --check
       - run: npm run typecheck
+      - name: iPhone App Store pre-flight (icons, export compliance, privacy manifest)
+        run: npm run check:ios
       - run: npx jest --ci
 
   android:
@@ -167,6 +170,7 @@ jobs:
           xcodebuild -version
           pod --version
           npx expo prebuild --platform ios --no-install
+          test -f ios/OneMind/PrivacyInfo.xcprivacy || { echo "::error::prebuild wrote no PrivacyInfo.xcprivacy"; exit 1; }
           cd ios && pod install
       - name: Build for the iOS simulator (Release, unsigned, JS bundle embedded)
         run: |
