@@ -33,7 +33,7 @@ it('reaches real storage and SMART data without computing fictional free capacit
   expect(screen.getByText('temperature above warning limit')).toBeInTheDocument();
   expect(screen.queryByText(/45 bytes free/)).not.toBeInTheDocument();
   expect(fetch.mock.calls.every(([url]) => new URL(String(url)).pathname.startsWith('/v1/storage'))).toBe(true);
-  await openScreen(userEvent.setup(), /Coming soon/);
+  await openScreen(userEvent.setup(), 'Activity');
   expect(screen.queryByRole('article', { name: 'Storage and disk health' })).not.toBeInTheDocument();
 });
 

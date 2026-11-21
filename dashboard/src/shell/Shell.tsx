@@ -50,7 +50,7 @@ export function useShell(): ShellApi {
   return s;
 }
 
-/** The contract's action types; anything else is shown as "coming", never sent. */
+/** The contract's action types; anything else is never sent. */
 const CONTRACT_TYPES = new Set(['app.install', 'app.remove', 'app.start', 'app.stop', 'app.restart', 'app.update']);
 
 export function Shell({ children }: { children: ReactNode }) {
@@ -147,7 +147,6 @@ export function Shell({ children }: { children: ReactNode }) {
     { id: 'automation', label: 'Automation', href: href.automation, icon: 'clock', group: 'Your box' },
     { id: 'updates', label: 'OS updates', href: href.updates, icon: 'updates', group: 'Your box' },
     { id: 'settings', label: 'Settings', href: href.settings, icon: 'settings', group: 'Your box' },
-    { id: 'coming', label: 'Coming soon', href: href.coming, icon: 'info', group: 'Your box' },
     { id: 'control-hub', label: 'Control Hub', href: href.controlHub, icon: 'hub', group: 'System' },
     { id: 'agents', label: 'AI & Agents', href: href.agents, icon: 'agent', group: 'System' },
   ];

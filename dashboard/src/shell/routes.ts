@@ -21,7 +21,6 @@ export const href = {
   backups: '/backups',
   automation: '/automation',
   updates: '/updates',
-  coming: '/coming',
   controlHub: '/control-hub',
   agents: '/agents',
   settings: '/settings',

@@ -13,7 +13,6 @@ import { Storage } from './pages/Storage';
 import { Updates } from './pages/Updates';
 import { Backups } from './pages/Backups';
 import { Automation } from './pages/Automation';
-import { Coming } from './pages/Coming';
 import { FirstRun, wizardPending } from './pages/FirstRun';
 import { Approvals } from './pages/Approvals';
 import { Home } from './pages/Home';
@@ -72,8 +71,10 @@ export function SignedInApp() {
             <Route path="settings/backups" element={<Navigate to="/backups" replace />} />
             <Route path="automation" element={<ProOnly title="Automation"><Automation /></ProOnly>} />
             <Route path="updates" element={<ProOnly title="OS updates"><Updates /></ProOnly>} />
+            <Route path="settings/automation" element={<Navigate to="/automation" replace />} />
+            <Route path="settings/devices" element={<Navigate to="/nodes" replace />} />
+            <Route path="settings/network" element={<Navigate to="/nodes" replace />} />
             <Route path="settings/updates" element={<Navigate to="/updates" replace />} />
-            <Route path="coming" element={<Coming />} />
             <Route path="control-hub" element={<ProOnly title="Control Hub"><ControlHub /></ProOnly>} />
             <Route path="agents" element={<ProOnly title="AI & Agents"><Agents /></ProOnly>} />
             <Route path="settings" element={<Settings />} />

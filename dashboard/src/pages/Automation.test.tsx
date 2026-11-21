@@ -7,7 +7,6 @@ import { App } from '../App';
 import { DEMO_TOKENS } from '../api/fixtures';
 import { MockApi } from '../api/mock';
 import { SessionProvider } from '../session';
-import { COMING_ITEMS } from './Coming';
 
 const rule = { id: 'rule_1', name: 'Nightly backup check', enabled: true, trigger: { schedule: { cron: '0 3 * * *', tz: 'box' } }, actions: [{}], last_fired_at: '2026-11-19T03:00:00Z', breaker: null, failures: 0 };
 const data: Record<string, unknown> = {
@@ -61,8 +60,4 @@ it('handles a malformed list without crashing', async () => {
   mount((path) => response(path === '/v1/automation/rules' ? {} : data[path]));
   expect(await screen.findByText(/invalid automation list/)).toBeInTheDocument();
   expect(screen.getByRole('heading', { level: 1, name: 'Automation' })).toBeInTheDocument();
-});
-
-it('has left the Coming soon list', () => {
-  expect(COMING_ITEMS.some((i) => i.id === 'automation')).toBe(false);
 });
