@@ -19,6 +19,7 @@ export const href = {
   alerts: '/alerts',
   storage: '/storage',
   backups: '/backups',
+  troubleshoot: '/troubleshoot',
   automation: '/automation',
   updates: '/updates',
   coming: '/coming',
