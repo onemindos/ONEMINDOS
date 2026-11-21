@@ -4,7 +4,10 @@
 One pure-ASGI middleware, added by routers/guard.py:
 - **Body size:** a request body over `max_body_bytes` (256 KiB, §12.1) gets 413
   `payload_too_large`, whether it declares Content-Length or streams chunks (the server enforces
-  a declared Content-Length, so a body cannot be longer than it says).
+  a declared Content-Length, so a body cannot be longer than it says). Streamed bytes are counted as
+  the route reads them; a body of unknown length that a route never reads is drained (counted and
+  discarded, never buffered, 5 s at most) before the route's answer goes out, so over-cap is 413
+  even when a precondition such as Tus-Resumable would have answered first.
 - **Rate:** a token bucket per principal (the bearer token's hash) or, without a token, per
   source address. Reads 20/s burst 60; action requests (`POST /v1/actions`, `/v1/plans`) 2/s
   burst 10. Over the limit: 429 `rate_limited` with Retry-After.
@@ -18,6 +21,7 @@ The pending-action cap (§12.1, H-14) lives in actions.py; this module sets its 
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import math
 import threading
@@ -46,6 +50,8 @@ SECURITY_HEADERS: tuple[tuple[bytes, bytes], ...] = (
 REQUEST_ROUTES = frozenset({("POST", "/v1/actions"), ("POST", "/v1/plans")})
 OPEN_PATHS = frozenset({"/healthz"})
 MAX_KEYS = 10_000
+BODY_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
+DRAIN_TIMEOUT_S = 5.0  # longest a response waits for an unread body of unknown length to finish
 
 
 @config_section("limits")
@@ -168,19 +174,43 @@ class GuardMiddleware:
         if declared is not None and declared > limit:
             return await _reject(scope, receive, send, 413, "payload_too_large",
                                  f"request body is over {limit} bytes", None, None)
-        consumed, exceeded = 0, False
+        consumed, exceeded, finished, touched = 0, False, False, False
 
-        async def limited_receive():
-            nonlocal consumed, exceeded
-            if exceeded:
-                raise _BodyTooLarge
+        async def pull():
+            """One request message from the server, counted against the cap."""
+            nonlocal consumed, exceeded, finished
             msg = await receive()
             if msg["type"] == "http.request":
                 consumed += len(msg.get("body", b""))
+                if not msg.get("more_body", False):
+                    finished = True
                 if consumed > limit:
                     exceeded = True
                     raise _BodyTooLarge
+            else:
+                finished = True
             return msg
+
+        async def limited_receive():
+            nonlocal touched
+            touched = True
+            if exceeded:
+                raise _BodyTooLarge
+            return await pull()
+
+        # A body of unknown length (chunked, or HTTP/2 without Content-Length) that the route
+        # never reads (the route's own read, with its deadline, runs first) cannot be sized without reading it. Before such a route answers, drain the
+        # rest, counting and discarding (never buffering), so an over-cap body is a 413 even when
+        # a precondition (Tus-Resumable, auth, validation) would have answered first (H-20).
+        drain_unread = declared is None and method in BODY_METHODS
+
+        async def drain() -> None:
+            try:
+                async with asyncio.timeout(DRAIN_TIMEOUT_S):
+                    while not finished:
+                        await pull()
+            except (_BodyTooLarge, TimeoutError):
+                pass  # overflow is recorded in `exceeded`; a stalled client just gets the route's answer
 
         status: dict[str, int] = {}
 
@@ -190,6 +220,10 @@ class GuardMiddleware:
             if exceeded:
                 return
             if msg["type"] == "http.response.start":
+                if drain_unread and not touched and not finished:
+                    await drain()
+                    if exceeded:
+                        return
                 status["code"] = msg["status"]
             await send(msg)
 

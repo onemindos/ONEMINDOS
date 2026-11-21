@@ -497,6 +497,59 @@ def test_oversized_chunked_bodies_are_413(world):
         assert r.status_code == 413, (method, path, r.status_code)
 
 
+@pytest.mark.skipif(not HAS_GUARD, reason=GUARD_STREAM)
+@pytest.mark.parametrize("framing", ["chunked", "unframed"])
+def test_every_body_route_caps_the_stream_at_the_limit(world, framing):
+    """One byte over the cap is 413 on every body route, in both framings; exactly the cap never is."""
+    cap = 256 * 1024
+    portal_client = world.client
+
+    def send(method, path, kind, size):
+        headers = {**world.mint(kind), "Content-Type": "application/json"}
+        parts = [b"x" * min(16384, size - i) for i in range(0, size, 16384)]
+        if framing == "chunked":
+            return portal_client.request(method, path, content=iter(parts), headers=headers).status_code
+        return _raw_unframed(live.portal, world.app, method, path, headers, parts)
+
+    routes = body_routes(world)
+    assert len(routes) >= 4
+    with TestClient(world.app) as live:  # starts the app (lifespan) once and gives a portal
+        for method, path, kind in routes:
+            assert send(method, path, kind, cap + 1) == 413, (framing, method, path)
+            assert send(method, path, kind, cap) != 413, (framing, method, path)
+
+
+def _raw_unframed(portal, app, method, path, headers, parts) -> int:
+    """Raw ASGI request with neither Content-Length nor Transfer-Encoding (HTTP/2 style)."""
+    import anyio
+
+    path, _, query = path.partition("?")
+    messages = [{"type": "http.request", "body": p, "more_body": True} for p in parts]
+    messages.append({"type": "http.request", "body": b"", "more_body": False})
+    statuses = []
+
+    async def receive():
+        if messages:
+            return messages.pop(0)
+        await anyio.sleep_forever()
+
+    async def send(message):
+        if message["type"] == "http.response.start":
+            statuses.append(message["status"])
+
+    scope = {"type": "http", "asgi": {"version": "3.0"}, "http_version": "2", "method": method, "scheme": "http",
+             "path": path, "raw_path": path.encode(), "query_string": query.encode(), "root_path": "",
+             "headers": [(k.lower().encode(), v.encode()) for k, v in headers.items()],
+             "client": ("testclient", 50000), "server": ("testserver", 80), "state": {}}
+
+    async def invoke():
+        with anyio.fail_after(10):
+            await app(scope, receive, send)
+
+    portal.call(invoke)
+    return statuses[0]
+
+
 MCP_BOMB = ("finding on main: mcp.py parses with json.loads and catches only ValueError; a 100k-deep array raises "
             "RecursionError, so any agent token gets a 500 instead of a JSON-RPC parse error")
 

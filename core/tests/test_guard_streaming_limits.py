@@ -196,16 +196,22 @@ def test_overflow_cannot_be_hidden_or_restart_response(started):
     """ASGI control: a parser may swallow errors; a started response cannot become 413."""
     sent, reads = [], []
 
+    # started: the route reads a first in-cap piece, answers 200, then overflows; the 200 has gone out.
+    pieces = ([{"type": "http.request", "body": b"x" * 512, "more_body": True},
+               {"type": "http.request", "body": b"x" * 513, "more_body": True}] if started
+              else [{"type": "http.request", "body": b"x" * 1025, "more_body": True}])
+
     async def receive():
         reads.append(True)
-        assert len(reads) == 1  # no draining an unbounded remainder
-        return {"type": "http.request", "body": b"x" * 1025, "more_body": True}
+        assert len(reads) <= len(pieces)  # never drains past the overflow
+        return pieces[len(reads) - 1]
 
     async def send(message):
         sent.append(message)
 
     async def parser(scope, receive, send):
         if started:
+            await receive()
             await send({"type": "http.response.start", "status": 200, "headers": []})
         try:
             await receive()
@@ -224,7 +230,7 @@ def test_overflow_cannot_be_hidden_or_restart_response(started):
         anyio.run(guard, scope, receive, send)
     starts = [m for m in sent if m["type"] == "http.response.start"]
     assert len(starts) == 1 and starts[0]["status"] == (200 if started else 413)
-    assert len(reads) == 1
+    assert len(reads) == len(pieces)
 
 
 def test_post_overflow_cleanup_runtime_error_propagates():
