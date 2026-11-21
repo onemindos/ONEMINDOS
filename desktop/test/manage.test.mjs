@@ -64,3 +64,17 @@ test('every code the Manage view can get has plain words', () => {
   }
   assert.match(errorText('plan_changed'), /Nothing was sent/);
 });
+
+import { backupPlan } from '../src/manage.js';
+
+test('the backup plan names what a request does and blocks when there is nowhere to send it', () => {
+  const view = { last_success_at: null, destinations: [{ label: 'USB disk', kind: 'usb', primary: true }] };
+  const p = backupPlan('run', view);
+  assert.equal(p.canSend, true);
+  assert.deepEqual(p.facts.find(([k]) => k === 'Goes to'), ['Goes to', 'USB disk (usb)']);
+  assert.deepEqual(p.facts.find(([k]) => k === 'Last backup'), ['Last backup', 'never']);
+  const none = backupPlan('run', { destinations: [] });
+  assert.equal(none.canSend, false);
+  assert.match(none.blocked, /destination/);
+  assert.equal(backupPlan('verify', { destinations: [] }).canSend, true);
+});

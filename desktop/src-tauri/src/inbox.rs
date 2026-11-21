@@ -11,7 +11,7 @@ use serde::Serialize;
 use serde_json::Value;
 use std::collections::HashSet;
 
-use crate::api::{self, Pending};
+use crate::api::{self, Alert, Pending};
 
 /// The newest items, read and unread, for the inbox view.
 pub const LIST_PATH: &str = "/v1/notifications?limit=30";
@@ -73,6 +73,11 @@ fn approval_banner(box_name: &str, p: &Pending) -> Banner {
     }
 }
 
+fn alert_banner(box_name: &str, a: &Alert) -> Banner {
+    let lead = if a.severity == "critical" { "Critical alert" } else { "Alert" };
+    Banner { title: format!("{lead} on {box_name}"), body: a.title.clone() }
+}
+
 fn item_banner(box_name: &str, it: &Item) -> Banner {
     let title = if it.title.is_empty() { "New notification".to_string() } else { it.title.clone() };
     let body = if it.body.is_empty() { "Open OneMind for details.".to_string() } else { api::clip(&it.body, 180) };
@@ -87,6 +92,7 @@ pub fn banners(
     box_name: &str,
     pending: &[Pending],
     inbox: Option<&[Item]>,
+    alerts: Option<&[Alert]>,
     seen: &mut HashSet<String>,
     quiet_backlog: bool,
 ) -> Vec<Banner> {
@@ -98,6 +104,18 @@ pub fn banners(
         live.insert(key.clone());
         if seen.insert(key) {
             fresh.push(approval_banner(box_name, p));
+        }
+    }
+    for a in alerts.unwrap_or(&[]) {
+        let key = format!("{box_id}/alert/{}", a.id);
+        live.insert(key.clone());
+        // An acknowledged alert was already seen by a person: never a new banner.
+        if seen.insert(key) && a.state == "open" {
+            if quiet_backlog {
+                quiet += 1;
+            } else {
+                fresh.push(alert_banner(box_name, a));
+            }
         }
     }
     for it in inbox.unwrap_or(&[]) {
@@ -159,32 +177,50 @@ mod tests {
     #[test]
     fn one_banner_per_new_thing_and_approvals_once() {
         let mut seen = HashSet::new();
-        let b = banners("box", "Home", &[pending("a1")], Some(&[item("n1", Some("a1")), item("n2", None)]), &mut seen, false);
+        let b = banners("box", "Home", &[pending("a1")], Some(&[item("n1", Some("a1")), item("n2", None)]), None, &mut seen, false);
         assert_eq!(b.len(), 2, "a1 once (pending and inbox), n2 once");
         assert!(b[0].title.contains("Approval needed on Home"));
         assert_eq!(b[1].title, "Home: tn2");
-        assert!(banners("box", "Home", &[pending("a1")], Some(&[item("n1", Some("a1")), item("n2", None)]), &mut seen, false).is_empty());
+        assert!(banners("box", "Home", &[pending("a1")], Some(&[item("n1", Some("a1")), item("n2", None)]), None, &mut seen, false).is_empty());
     }
 
     #[test]
     fn backlog_at_start_is_one_summary_and_floods_are_capped() {
         let mut seen = HashSet::new();
         let backlog: Vec<Item> = (0..7).map(|i| item(&format!("n{i}"), None)).collect();
-        let b = banners("box", "Home", &[], Some(&backlog), &mut seen, true);
+        let b = banners("box", "Home", &[], Some(&backlog), None, &mut seen, true);
         assert_eq!(b.len(), 1);
         assert!(b[0].body.starts_with("7 more"));
         let many: Vec<Pending> = (0..5).map(|i| pending(&format!("p{i}"))).collect();
-        let b = banners("box", "Home", &many, Some(&backlog), &mut seen, false);
+        let b = banners("box", "Home", &many, Some(&backlog), None, &mut seen, false);
         assert_eq!(b.len(), MAX_BANNERS + 1);
         assert!(b[MAX_BANNERS].body.starts_with("2 more"));
+    }
+
+    fn alert(id: &str, state: &str) -> Alert {
+        Alert { id: id.into(), severity: "critical".into(), title: "Disk failing".into(), state: state.into(), link: None }
+    }
+
+    #[test]
+    fn new_open_alert_gets_one_banner_and_an_acknowledged_one_none() {
+        let mut seen = HashSet::new();
+        let b = banners("box", "Home", &[], None, Some(&[alert("a1", "open"), alert("a2", "acknowledged")]), &mut seen, false);
+        assert_eq!(b.len(), 1);
+        assert_eq!((b[0].title.as_str(), b[0].body.as_str()), ("Critical alert on Home", "Disk failing"));
+        assert!(banners("box", "Home", &[], None, Some(&[alert("a1", "open")]), &mut seen, false).is_empty());
+        // Start-up backlog of alerts is one summary.
+        let mut fresh = HashSet::new();
+        let b = banners("box", "Home", &[], None, Some(&[alert("a1", "open")]), &mut fresh, true);
+        assert_eq!(b.len(), 1);
+        assert!(b[0].body.starts_with("1 more"));
     }
 
     #[test]
     fn seen_is_pruned_per_box() {
         let mut seen = HashSet::new();
-        banners("box", "Home", &[pending("a1")], None, &mut seen, false);
-        banners("other", "Lab", &[pending("a9")], None, &mut seen, false);
-        banners("box", "Home", &[], None, &mut seen, false);
+        banners("box", "Home", &[pending("a1")], None, None, &mut seen, false);
+        banners("other", "Lab", &[pending("a9")], None, None, &mut seen, false);
+        banners("box", "Home", &[], None, None, &mut seen, false);
         assert!(!seen.contains("box/action/a1"));
         assert!(seen.contains("other/action/a9"));
     }
