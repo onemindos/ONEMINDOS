@@ -421,6 +421,8 @@ class ActionService:
         # Contract §12.1 / H-14: most actions one non-owner requester may have awaiting approval.
         # 0 = no cap. Set from the limits settings section (guard.py).
         self.max_pending_per_requester = 10
+        # AIG-03 (#167): fn(principal) raises ApiError to refuse a fresh request (agent budget, cancel).
+        self.requester_checks: list[Callable[[Principal], None]] = []
         self.handlers: dict[str, ActionHandler] = {}
         # How a background feature action's run() is started after approval; tests make it synchronous.
         self.spawn: Callable[[Callable[[], None]], None] = _worker
@@ -769,6 +771,8 @@ class ActionService:
         return None
 
     def _check_pending_cap(self, principal: Principal) -> None:
+        for check in self.requester_checks:
+            check(principal)
         cap = self.max_pending_per_requester
         if principal.is_owner or cap <= 0:
             return
