@@ -15,6 +15,11 @@ body {
   font-family: var(--om-font-sans);
   font-size: var(--om-font-size-md);
   line-height: var(--om-line-height-normal);
+  -webkit-font-smoothing: antialiased;
+}
+/* The 27-inch kiosk is read from across a kitchen: body text steps up to 17px. */
+@media (min-width: 1800px) {
+  html { font-size: 106.25%; }
 }
 h1,
 h2,

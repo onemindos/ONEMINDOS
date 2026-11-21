@@ -151,49 +151,39 @@ function bloom(c: Stops): string {
 const radial = (x: string, y: string, color: string, size = '55%') => `radial-gradient(circle at ${x} ${y}, ${color} 0, transparent ${size})`;
 
 /**
- * OneMind's signature: a quiet neural field. Seeded nodes, each linked to its nearest
- * neighbours with hairlines, densest towards the top left where the brand glow sits.
- * Lines and nodes use the wallpaper's own stops, so the contrast guard sees every colour.
+ * Window light (Hearth, direction B): a domestic landscape at the hour of day. Three soft
+ * overlapping hills, a low sun disc and a warm haze, built from dunes() and radial(). A faint
+ * 2% grain (an SVG feTurbulence filter) keeps the gradients from banding on a large screen.
+ * The four stops are [base, hill 1, hill 2, hill 3]; the sun is a fifth, fixed colour per theme
+ * that only ever lies over the base, so it is lighter than the hills in day and dimmer in night.
  */
-function neural(c: Stops, seed: number): string {
-  const rand = rng(seed);
-  const W = 1600;
-  const H = 1000;
-  const pts = Array.from({ length: 46 }, () => {
-    // bias towards the upper-left third, like the glow
-    const x = Math.pow(rand(), 1.35) * W;
-    const y = Math.pow(rand(), 1.2) * H;
-    return [r1(x), r1(y)] as const;
-  });
-  const lines: string[] = [];
-  pts.forEach(([x, y], i) => {
-    const near = pts
-      .map(([u, v], j) => ({ j, d: (u - x) ** 2 + (v - y) ** 2 }))
-      .filter((n) => n.j > i)
-      .sort((a, b) => a.d - b.d)
-      .slice(0, 2);
-    for (const n of near) {
-      const [u, v] = pts[n.j]!;
-      lines.push(`<line x1="${x}" y1="${y}" x2="${u}" y2="${v}"/>`);
-    }
-  });
-  const dots = pts.map(([x, y], i) => `<circle cx="${x}" cy="${y}" r="${i % 7 === 0 ? 3.2 : 1.6}"/>`).join('');
-  const svg =
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid slice">` +
-    `<g stroke="${c[3]}" stroke-width="1" stroke-opacity="0.55" fill="none">${lines.join('')}</g>` +
-    `<g fill="${c[1]}" fill-opacity="0.9">${dots}</g></svg>`;
-  return svgUrl(svg);
+const HEARTH = {
+  light: ['#efe9e2', '#e6d6c6', '#d9bfa8', '#c99f86'],
+  dark: ['#120e0b', '#2a1d16', '#3a261c', '#4a2f22'],
+} as const satisfies Record<ThemeName, Stops>;
+const HEARTH_SUN = { light: { color: '#f6d9c4', opacity: 0.6 }, dark: { color: '#6a3a2a', opacity: 0.35 } } as const;
+
+function windowLight(c: Stops): string {
+  const night = c[0] === HEARTH.dark[0];
+  const sun = night ? HEARTH_SUN.dark : HEARTH_SUN.light;
+  const disc = `<circle cx="1180" cy="430" r="150" fill="${sun.color}" fill-opacity="${sun.opacity}"/>`;
+  const grain =
+    '<filter id="g" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="2" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 0.5  0 0 0 0 0.45  0 0 0 0 0.4  0 0 0 0.9 0"/></filter>' +
+    '<rect width="1600" height="1000" filter="url(#g)" opacity="0.02"/>';
+  // The sun sits behind the hills: draw dunes first, then redraw only the sun beneath by ordering layers.
+  const hills = dunes(c, 3).replace(/<\/svg>$/, '');
+  const scene = hills.replace(`<rect width="1600" height="1000" fill="${c[0]}"/>`, `<rect width="1600" height="1000" fill="${c[0]}"/>${disc}`) + grain + '</svg>';
+  return `${svgUrl(scene)} center / cover no-repeat, ${radial('78%', '38%', night ? '#3a2118' : '#f9e6d6', '48%')}, ${c[0]}`;
 }
 
 export const WALLPAPERS: Record<WallpaperId, Wallpaper> = {
   onemind: {
     id: 'onemind',
-    name: 'OneMind',
-    kind: 'mesh',
+    name: 'Window light',
+    kind: 'landscape',
     accent: 'onemind',
-    colors: { light: ['#f8f4f3', '#f3c9cc', '#e8e1ef', '#efe2db'], dark: ['#09090c', '#5c0f18', '#1c1029', '#2a1a1f'] },
-    render: (c) =>
-      `${neural(c, 1)} center / cover no-repeat, ${radial('12%', '8%', c[1], '58%')}, ${radial('92%', '96%', c[2], '62%')}, ${radial('80%', '18%', c[3], '45%')}, ${c[0]}`,
+    colors: { light: HEARTH.light, dark: HEARTH.dark },
+    render: (c) => windowLight(c),
   },
   aurora: {
     id: 'aurora',

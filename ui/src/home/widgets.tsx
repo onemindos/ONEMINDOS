@@ -220,7 +220,7 @@ function ApprovalRow({ a, ctx, compact }: { a: ActionSummary; ctx: WidgetContext
       </div>
       {!compact && a.reason && <p className="omh-approval-reason">“{a.reason}”</p>}
       <div className="omh-approval-actions">
-        <Button size="sm" variant="primary" icon="check" busy={busy} disabled={!!blocked || expires === 'expired'} aria-describedby={blocked ? reasonId : undefined} onClick={() => ctx.onApprove?.(a)} title={equivalentCall(a, 'approve')}>
+        <Button size="sm" variant="primary" className="om-btn-ink" icon="check" busy={busy} disabled={!!blocked || expires === 'expired'} aria-describedby={blocked ? reasonId : undefined} onClick={() => ctx.onApprove?.(a)} title={equivalentCall(a, 'approve')}>
           Approve
         </Button>
         <Button size="sm" variant="ghost" disabled={!!blocked || busy || expires === 'expired'} aria-describedby={blocked ? reasonId : undefined} onClick={() => ctx.onDeny?.(a)} title={equivalentCall(a, 'deny')}>

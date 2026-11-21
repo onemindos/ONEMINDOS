@@ -7,12 +7,19 @@
   --dsk-bar-h: 44px;
   --dsk-dock-h: 84px;
   --dsk-gap: var(--om-space-4);
-  --dsk-radius-window: 22px;
+  --dsk-radius-window: 20px;
   --dsk-tile-radius: 28%;
-  --dsk-glass: color-mix(in srgb, var(--om-color-surface) 72%, transparent);
-  --dsk-glass-strong: color-mix(in srgb, var(--om-color-surface) 88%, transparent);
-  --dsk-hairline: color-mix(in srgb, var(--om-color-text) 10%, transparent);
-  --dsk-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  /* Hearth: surfaces are soft and tactile. Only the menu bar is translucent (80%, 16px blur);
+     the dock, windows, cards and widgets are near-solid, like a tray, a drawer, a tabletop. */
+  --dsk-glass: color-mix(in srgb, var(--om-color-surface) 80%, transparent);
+  --dsk-glass-strong: var(--om-color-surface-raised);
+  --dsk-tray: color-mix(in srgb, var(--om-color-surface-raised) 96%, transparent);
+  --dsk-window-bg: var(--om-color-bg);
+  --dsk-card-bg: var(--om-color-surface);
+  --dsk-hairline: color-mix(in srgb, var(--om-color-text) 9%, transparent);
+  --dsk-window-edge: transparent;
+  --dsk-highlight: rgb(255 255 255 / 0.5);
+  --dsk-ease: var(--om-motion-ease-settle, cubic-bezier(0.2, 0.9, 0.25, 1));
   position: relative;
   min-height: 100vh;
   overflow-x: clip;
@@ -26,7 +33,7 @@
   display: flex; align-items: center; gap: var(--om-space-3);
   min-height: var(--dsk-bar-h); padding: 4px var(--om-space-4);
   background: var(--dsk-glass); border-bottom: 1px solid var(--dsk-hairline);
-  backdrop-filter: saturate(160%) blur(22px); -webkit-backdrop-filter: saturate(160%) blur(22px);
+  backdrop-filter: saturate(140%) blur(16px); -webkit-backdrop-filter: saturate(140%) blur(16px);
   font-size: var(--om-font-size-sm);
 }
 .dsk-brand { display: inline-flex; align-items: center; gap: var(--om-space-2); color: var(--om-color-text); text-decoration: none; font-weight: var(--om-font-weight-semibold); min-width: 0; }
@@ -39,6 +46,7 @@
   all: unset; box-sizing: border-box; display: inline-grid; place-items: center; width: 32px; height: 32px;
   border-radius: var(--om-radius-pill); color: var(--om-color-text-muted); cursor: pointer;
 }
+.dsk-iconbtn { width: 36px; height: 36px; }
 .dsk-iconbtn:hover { color: var(--om-color-text); background: var(--dsk-hairline); }
 .dsk-iconbtn:focus-visible, .dsk-avatar:focus-visible, .dsk-brand:focus-visible { outline: 2px solid var(--om-color-focus); outline-offset: 2px; }
 
@@ -54,8 +62,8 @@
 .dsk-menu {
   position: absolute; right: 0; top: calc(100% + 8px); z-index: calc(var(--om-z-dialog) - 1); min-width: 220px;
   display: flex; flex-direction: column; gap: 2px; padding: var(--om-space-2);
-  border-radius: 14px; background: var(--dsk-glass-strong); border: 1px solid var(--dsk-hairline); box-shadow: var(--om-shadow-3);
-  backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); animation: dsk-pop 140ms var(--dsk-ease);
+  border-radius: 16px; background: var(--dsk-glass-strong); border: 1px solid var(--dsk-hairline); box-shadow: var(--om-shadow-3);
+  animation: dsk-pop 140ms var(--dsk-ease);
 }
 .dsk-menu-who { display: flex; align-items: center; gap: var(--om-space-3); padding: var(--om-space-2); margin-bottom: var(--om-space-1); border-bottom: 1px solid var(--dsk-hairline); }
 .dsk-menu-who > span:last-child { display: flex; flex-direction: column; }
@@ -76,10 +84,11 @@
 .dsk-desktop .omh-home { gap: var(--om-space-8); }
 .dsk-desktop .omh-hero { flex-direction: column; align-items: center; text-align: center; padding-top: var(--om-space-6); }
 .dsk-desktop .omh-hero-text { align-items: center; }
-.dsk-desktop .omh-greeting { font-size: clamp(2.25rem, 1.4rem + 3vw, 3.5rem); letter-spacing: -0.035em; text-shadow: 0 1px 24px color-mix(in srgb, var(--om-color-bg) 55%, transparent); }
+.dsk-desktop .omh-greeting { font-size: clamp(2.5rem, 1.6rem + 3vw, 4rem); letter-spacing: -0.02em; text-shadow: 0 1px 24px color-mix(in srgb, var(--om-color-bg) 55%, transparent); }
 .dsk-desktop .omh-date { text-transform: uppercase; letter-spacing: 0.12em; font-size: var(--om-font-size-xs); }
-.dsk-desktop .omh-search { align-self: center; max-width: 560px; min-height: 48px; border-radius: var(--om-radius-pill); background: var(--dsk-glass); border-color: var(--dsk-hairline); }
-.dsk-desktop .omh-widget { background: var(--dsk-glass); border-color: var(--dsk-hairline); border-radius: 20px; backdrop-filter: saturate(150%) blur(26px); -webkit-backdrop-filter: saturate(150%) blur(26px); }
+.dsk-desktop .omh-search { align-self: center; max-width: 560px; min-height: 52px; border-radius: var(--om-radius-pill); background: var(--dsk-tray); border-color: var(--dsk-hairline); box-shadow: var(--om-shadow-1); }
+.dsk-desktop .omh-search:focus-within { outline: 2px solid var(--om-color-focus); outline-offset: 2px; }
+.dsk-desktop .omh-widget { background: var(--dsk-tray); border-color: var(--dsk-hairline); border-radius: 20px; box-shadow: var(--om-shadow-1); }
 .dsk-desktop .omh-section-head h2 { font-size: var(--om-font-size-sm); text-transform: uppercase; letter-spacing: 0.1em; color: var(--om-color-text-muted); }
 
 /* ── Window ─────────────────────────────────────────────────────────────── */
@@ -90,28 +99,28 @@
 }
 .dsk-scrim {
   position: absolute; inset: 0;
-  background: color-mix(in srgb, var(--om-color-bg) 28%, transparent);
-  backdrop-filter: blur(10px) saturate(120%); -webkit-backdrop-filter: blur(10px) saturate(120%);
+  background: color-mix(in srgb, var(--om-color-overlay) 38%, transparent);
   animation: dsk-fade 180ms var(--dsk-ease);
 }
 .dsk-window {
   position: relative; display: flex; flex-direction: column;
   width: min(1180px, 100%); height: 100%;
   border-radius: var(--dsk-radius-window); overflow: hidden;
-  background: var(--dsk-glass-strong);
-  border: 1px solid var(--dsk-hairline);
-  box-shadow: 0 30px 80px -20px rgb(0 0 0 / 0.45), 0 0 0 1px color-mix(in srgb, #fff 6%, transparent) inset, var(--om-shadow-3);
-  backdrop-filter: saturate(160%) blur(40px); -webkit-backdrop-filter: saturate(160%) blur(40px);
-  animation: dsk-open 220ms var(--dsk-ease);
+  /* Opaque. In light the shadow alone defines the edge; in dark a 1px border does (--dsk-window-edge). */
+  background: var(--dsk-window-bg);
+  border: 0;
+  box-shadow: var(--om-shadow-3), 0 0 0 1px var(--dsk-window-edge);
+  transform-origin: var(--dsk-ox, 50%) 100%;
+  animation: dsk-open var(--om-motion-duration-open, 240ms) var(--dsk-ease);
 }
 .dsk-window-bar {
   flex: none; display: flex; align-items: center; gap: var(--om-space-3);
   min-height: 52px; padding: var(--om-space-2) var(--om-space-3) var(--om-space-2) var(--om-space-4);
-  border-bottom: 1px solid var(--dsk-hairline);
+  /* The title bar shares the window colour; no divider until the page scrolls under it. */
 }
-.dsk-window-title { flex: 1; min-width: 0; font-size: var(--om-font-size-md); font-weight: var(--om-font-weight-semibold); letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dsk-window-title { flex: 1; min-width: 0; font-size: var(--om-font-size-lg); font-weight: var(--om-font-weight-semibold); letter-spacing: -0.005em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .dsk-wbtn {
-  flex: none; display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: var(--om-radius-pill);
+  flex: none; display: inline-grid; place-items: center; width: 32px; height: 32px; border-radius: var(--om-radius-pill);
   color: var(--om-color-text-muted); background: var(--dsk-hairline); text-decoration: none; transition: background 120ms, color 120ms;
 }
 .dsk-wbtn:hover { color: var(--om-color-text); background: color-mix(in srgb, var(--om-color-text) 16%, transparent); }
@@ -122,14 +131,19 @@
 
 /* Screens inside a window: one consistent, airy look for every page. */
 .dsk-window-body .om-page-head { margin-bottom: var(--om-space-6); align-items: flex-end; }
-.dsk-window-body .om-page-title { font-size: clamp(1.75rem, 1.3rem + 1.4vw, 2.375rem); font-weight: var(--om-font-weight-bold); letter-spacing: -0.03em; line-height: 1.1; }
+.dsk-window-body .om-page-title { font-size: clamp(1.75rem, 1.3rem + 1.4vw, 2.375rem); font-weight: var(--om-font-weight-semibold); letter-spacing: -0.02em; line-height: 1.1; }
 .dsk-window-body .om-page-lede { max-width: 68ch; color: var(--om-color-text-muted); font-size: var(--om-font-size-md); margin-top: var(--om-space-2); }
 .dsk-window-body .om-card {
-  background: color-mix(in srgb, var(--om-color-surface-raised) 82%, transparent);
-  border: 1px solid var(--dsk-hairline); border-radius: 18px;
-  box-shadow: 0 1px 0 color-mix(in srgb, #fff 5%, transparent) inset, 0 8px 24px -16px rgb(0 0 0 / 0.5);
+  background: var(--dsk-card-bg);
+  border: 1px solid var(--dsk-hairline); border-radius: 16px;
+  box-shadow: none;
+  transition: box-shadow 160ms var(--om-motion-ease-standard);
 }
-.dsk-window-body .om-card-attention { box-shadow: inset 3px 0 0 var(--om-color-warn-fg), 0 8px 24px -16px rgb(0 0 0 / 0.5); }
+/* Cards that open something lift on hover: shadow-1 to shadow-2. */
+.dsk-window-body a.om-card, .dsk-window-body .om-card[role='link'], .dsk-window-body .om-card-link { box-shadow: var(--om-shadow-1); }
+.dsk-window-body a.om-card:hover, .dsk-window-body .om-card[role='link']:hover, .dsk-window-body .om-card-link:hover { box-shadow: var(--om-shadow-2); }
+/* Status and "Needs you" cards: a 4px bar down the left edge in the tone colour. */
+.dsk-window-body .om-card-attention { box-shadow: inset 4px 0 0 var(--om-color-warn-fg); }
 .dsk-window-body h2 { letter-spacing: -0.015em; }
 .dsk-window-body .om-subhead { text-transform: uppercase; letter-spacing: 0.08em; font-size: var(--om-font-size-xs); font-weight: var(--om-font-weight-semibold); }
 .dsk-window-body .om-table tr + tr td { border-top-color: var(--dsk-hairline); }
@@ -141,10 +155,10 @@
   position: fixed; left: 50%; bottom: var(--om-space-3); transform: translateX(-50%); z-index: var(--om-z-nav);
   display: flex; align-items: flex-end; gap: var(--om-space-1);
   max-width: calc(100vw - 2 * var(--om-space-3)); overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none;
-  padding: 8px 10px 6px; border-radius: 26px;
-  background: var(--dsk-glass); border: 1px solid var(--dsk-hairline);
-  box-shadow: 0 18px 50px -18px rgb(0 0 0 / 0.55), 0 0 0 1px color-mix(in srgb, #fff 6%, transparent) inset;
-  backdrop-filter: saturate(170%) blur(28px); -webkit-backdrop-filter: saturate(170%) blur(28px);
+  padding: 8px 10px 6px; border-radius: 24px;
+  /* A raised tray: solid, a warm hairline and a 1px highlight along the top edge. */
+  background: var(--dsk-tray); border: 1px solid var(--dsk-hairline);
+  box-shadow: inset 0 1px 0 var(--dsk-highlight), var(--om-shadow-2);
 }
 .dsk-dock::-webkit-scrollbar { display: none; }
 .dsk-dock-group { list-style: none; margin: 0; padding: 0; display: flex; align-items: flex-end; gap: 2px; }
@@ -156,11 +170,13 @@
   color: var(--om-color-text); text-decoration: none;
 }
 .dsk-dock-item > :first-child { transition: transform 160ms var(--dsk-ease); transform-origin: bottom center; }
-.dsk-dock-item:hover > :first-child, .dsk-dock-item:focus-visible > :first-child { transform: translateY(-6px) scale(1.14); }
-.dsk-dock-label { font-size: 11px; line-height: 1.1; color: var(--om-color-text-muted); white-space: nowrap; max-width: 76px; overflow: hidden; text-overflow: ellipsis; }
+.dsk-dock-item:hover > :first-child, .dsk-dock-item:focus-visible > :first-child { transform: translateY(-4px) scale(1.06); }
+.dsk-dock-label { font-size: 12px; line-height: 1.1; color: var(--om-color-text-muted); white-space: nowrap; max-width: 76px; overflow: hidden; text-overflow: ellipsis; }
 .dsk-dock-item[aria-current='page'] .dsk-dock-label { color: var(--om-color-text); font-weight: var(--om-font-weight-semibold); }
+/* The selected item carries Ember: a soft wash behind the tile and a dot beneath. */
+.dsk-dock-item[aria-current='page'] { background: var(--om-color-accent-soft); }
 .dsk-dock-item[aria-current='page']::after {
-  content: ''; position: absolute; bottom: 1px; width: 5px; height: 5px; border-radius: 50%; background: var(--om-color-text);
+  content: ''; position: absolute; bottom: 1px; width: 5px; height: 5px; border-radius: 50%; background: var(--om-color-accent);
 }
 
 /* Screen tiles: one colour per screen, white glyph, soft light from above. */
@@ -180,15 +196,15 @@
 .dsk-badge {
   position: absolute; top: -2px; right: 4px; min-width: 19px; height: 19px; padding: 0 5px; box-sizing: border-box;
   display: grid; place-items: center; border-radius: var(--om-radius-pill);
-  background: var(--brand-red, #ff333a); color: #fff; border: 2px solid var(--om-color-surface);
+  background: var(--om-color-accent); color: var(--om-color-accent-text); border: 2px solid var(--om-color-surface-raised);
   font-size: 11px; font-weight: var(--om-font-weight-bold); line-height: 1;
 }
 
 /* ── Launchpad ──────────────────────────────────────────────────────────── */
 .dsk-launchpad {
   position: fixed; inset: 0; z-index: var(--om-z-dialog); overflow: auto;
-  background: color-mix(in srgb, var(--om-color-bg) 55%, transparent);
-  backdrop-filter: blur(30px) saturate(140%); -webkit-backdrop-filter: blur(30px) saturate(140%);
+  background: color-mix(in srgb, var(--om-color-bg) 78%, transparent);
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
   animation: dsk-fade 160ms var(--dsk-ease);
 }
 .dsk-launchpad-inner { max-width: 980px; margin: 0 auto; padding: var(--om-space-10) var(--om-space-5) 120px; display: flex; flex-direction: column; gap: var(--om-space-6); animation: dsk-zoom 220ms var(--dsk-ease); }
@@ -212,14 +228,21 @@
 .dash-desktop .om-store-tray { left: auto; right: var(--om-space-4); transform: none; bottom: calc(var(--dsk-dock-h, 84px) + var(--om-space-3)); width: min(340px, calc(100vw - 32px)); align-items: flex-end; }
 @media (max-width: 720px) { .dash-desktop .om-store-tray { right: 50%; transform: translateX(50%); align-items: center; } }
 
-@keyframes dsk-open { from { opacity: 0; transform: translateY(14px) scale(0.975); } to { opacity: 1; transform: none; } }
+@keyframes dsk-open { from { opacity: 0; transform: scale(0.97); } to { opacity: 1; transform: none; } }
 @keyframes dsk-fade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes dsk-pop { from { opacity: 0; transform: translateY(-4px) scale(0.98); } to { opacity: 1; transform: none; } }
 @keyframes dsk-zoom { from { opacity: 0; transform: scale(1.04); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) {
-  .dsk-window, .dsk-scrim, .dsk-menu, .dsk-launchpad, .dsk-launchpad-inner { animation: none; }
+  /* Reduced motion: an instant cross-fade, no spring, no scale. */
+  .dsk-window, .dsk-scrim, .dsk-menu, .dsk-launchpad { animation: dsk-fade 60ms linear; }
+  .dsk-launchpad-inner { animation: none; }
+  .dsk-window-body .om-card { transition: none; }
   .dsk-dock-item > :first-child, .dsk-launchpad-item > :first-child { transition: none; }
 }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .dsk { --dsk-window-edge: var(--om-color-border-strong); --dsk-highlight: rgb(255 255 255 / 0.06); --dsk-window-bg: var(--om-color-surface); --dsk-card-bg: var(--om-color-surface-raised); }
+}
+:root[data-theme='dark'] .dsk { --dsk-window-edge: var(--om-color-border-strong); --dsk-highlight: rgb(255 255 255 / 0.06); --dsk-window-bg: var(--om-color-surface); --dsk-card-bg: var(--om-color-surface-raised); }
 @media (prefers-reduced-transparency: reduce) {
   .dsk { --dsk-glass: var(--om-color-surface); --dsk-glass-strong: var(--om-color-surface); }
 }

@@ -88,7 +88,7 @@
 .omh-hero { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--om-space-4); padding-top: var(--om-space-4); }
 .omh-hero-text { display: flex; flex-direction: column; gap: var(--om-space-1); min-width: 0; }
 .omh-date { color: var(--om-color-text-muted); font-size: var(--om-font-size-sm); font-weight: var(--om-font-weight-medium); letter-spacing: 0.01em; }
-.omh-greeting { font-size: var(--om-font-size-4xl); font-weight: var(--om-font-weight-bold); letter-spacing: -0.02em; line-height: var(--om-line-height-tight); }
+.omh-greeting { font-family: var(--om-font-display); font-size: clamp(2.5rem, 1.6rem + 3vw, 4rem); font-weight: var(--om-font-weight-semibold); letter-spacing: -0.02em; line-height: var(--om-line-height-tight); }
 .omh-summary { color: var(--om-color-text-muted); font-size: var(--om-font-size-md); max-width: 70ch; }
 .omh-weather { display: flex; align-items: center; gap: var(--om-space-3); padding: var(--om-space-2) var(--om-space-4); border-radius: var(--om-radius-pill); background: var(--omh-glass); border: 1px solid var(--omh-glass-border); backdrop-filter: blur(var(--omh-blur)); }
 .omh-weather-temp { font-size: var(--om-font-size-2xl); font-weight: var(--om-font-weight-semibold); }

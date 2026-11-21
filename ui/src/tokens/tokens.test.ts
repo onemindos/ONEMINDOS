@@ -55,6 +55,11 @@ describe('tokens', () => {
       expect(contrast(fg, t.surface)).toBeGreaterThanOrEqual(4.5);
     });
 
+    it('control border (form fields, secondary buttons) ≥ 3:1 on surface and bg (WCAG 1.4.11)', () => {
+      expect(contrast(t['control-border'], t.surface)).toBeGreaterThanOrEqual(3);
+      expect(contrast(t['control-border'], t.bg)).toBeGreaterThanOrEqual(3);
+    });
+
     it('focus ring ≥ 3 against bg and surface', () => {
       expect(contrast(t.focus, t.bg)).toBeGreaterThanOrEqual(3);
       expect(contrast(t.focus, t.surface)).toBeGreaterThanOrEqual(3);

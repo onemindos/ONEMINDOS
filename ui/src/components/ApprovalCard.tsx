@@ -117,7 +117,7 @@ export function ApprovalCard({ action, now, canDecide, onApprove, onDeny, busy, 
       footer={
         pending && (onApprove || onDeny) ? (
           <div className="om-decide">
-            <Button variant="primary" icon="check" disabled={!!blocked} busy={busy} aria-label={`Approve ${title}`} onClick={() => onApprove?.(action)} aria-describedby={blocked ? detailsId : undefined}>
+            <Button variant="primary" className="om-btn-ink" icon="check" disabled={!!blocked} busy={busy} aria-label={`Approve ${title}`} onClick={() => onApprove?.(action)} aria-describedby={blocked ? detailsId : undefined}>
               Approve
             </Button>
             <Button variant="secondary" icon="x" disabled={!!blocked || busy} aria-label={`Deny ${title}`} onClick={() => onDeny?.(action)}>

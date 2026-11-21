@@ -54,23 +54,23 @@ export const DOCK_IDS = ['home', 'market', 'installed', 'approvals', 'activity',
 
 /** One colour per screen, so a place is recognised before its name is read. White glyph on each. */
 export const SCREEN_HUES: Record<string, readonly [string, string]> = {
-  home: ['#ff4d55', '#b3101c'],
-  market: ['#6d84ff', '#3340c4'],
-  installed: ['#34c77b', '#147a45'],
-  approvals: ['#f59e0b', '#b45309'],
-  activity: ['#22c5b0', '#0b7a6c'],
-  settings: ['#8f99a6', '#3e4652'],
-  nodes: ['#38a8f0', '#0b5f9a'],
-  machines: ['#9b7bf7', '#5b2bc8'],
-  alerts: ['#f4637c', '#b0123a'],
-  storage: ['#f6a35c', '#b8460c'],
-  backups: ['#3fc6db', '#0c6b80'],
-  automation: ['#8c7cf0', '#4a3bb8'],
-  coming: ['#7d8794', '#3a414b'],
-  'control-hub': ['#e5484d', '#7c0d16'],
-  agents: ['#d96cf0', '#8a1fa3'],
+  home: ['#e5574c', '#a3221b'],
+  market: ['#6f8fb0', '#35546f'],
+  installed: ['#6fae6a', '#2f6a35'],
+  approvals: ['#e0a03c', '#9a5b0e'],
+  activity: ['#4fb3a4', '#1d6f66'],
+  settings: ['#9a9188', '#4a423b'],
+  nodes: ['#5aa3c4', '#245f7e'],
+  machines: ['#9a86c4', '#58468c'],
+  alerts: ['#d9667f', '#9a1840'],
+  storage: ['#e39a5c', '#a44a14'],
+  backups: ['#5bb4c0', '#24687a'],
+  automation: ['#8a86c8', '#4a4690'],
+  coming: ['#9a9188', '#4a423b'],
+  'control-hub': ['#c9473d', '#6e1a18'],
+  agents: ['#b57fc4', '#74377f'],
 };
-const FALLBACK_HUE = ['#7d8794', '#3a414b'] as const;
+const FALLBACK_HUE = ['#9a9188', '#4a423b'] as const;
 
 export function tileStyle(id: string): CSSProperties {
   const [a, b] = SCREEN_HUES[id] ?? FALLBACK_HUE;
@@ -313,6 +313,23 @@ export function DesktopShell(props: DesktopShellProps) {
     const ro = new ResizeObserver(() => root.style.setProperty('--dsk-bar-real', `${bar.offsetHeight}px`));
     ro.observe(bar);
     return () => ro.disconnect();
+  }, []);
+
+  // The window opens from the dock icon you pressed: remember where it was, as a horizontal offset
+  // inside the (centred) window, for transform-origin in desktop.css. No icon pressed: centre.
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    const onDown = (e: PointerEvent) => {
+      const item = (e.target as Element | null)?.closest?.('.dsk-dock-item');
+      if (!item) return;
+      const r = item.getBoundingClientRect();
+      const vw = window.innerWidth;
+      const ww = Math.min(1180, vw - 32);
+      root.style.setProperty('--dsk-ox', `${Math.round(Math.min(ww, Math.max(0, r.left + r.width / 2 - (vw - ww) / 2)))}px`);
+    };
+    root.addEventListener('pointerdown', onDown, true);
+    return () => root.removeEventListener('pointerdown', onDown, true);
   }, []);
 
   // Esc closes the window (back to the desktop); Ctrl/⌘ + / opens Launchpad.

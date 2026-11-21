@@ -5,7 +5,6 @@
 // as the shipped tokens (ui/src/tokens/tokens.test.ts):
 //   accent >= 4.5:1 on bg, surface, surface-raised and accent-soft;
 //   accent-text >= 4.5:1 on accent and on accent-hover.
-import { brand } from '../tokens/brand.generated.ts';
 import { dark, light } from '../tokens/tokens';
 import { contrast, hexToOklch, mix, normalizeHex, withLightness } from './color';
 
@@ -31,7 +30,8 @@ export interface AccentPreset {
 export const DEFAULT_ACCENT: AccentId = 'onemind';
 
 export const ACCENTS: Record<AccentId, AccentPreset> = {
-  onemind: { id: 'onemind', name: brand.accent.name, light: brand.accent.light.accent, dark: brand.accent.dark.accent },
+  // Hearth: the brand accent is Ember, a deepened OneMind red (tokens.ts); the logo keeps brand colours.
+  onemind: { id: 'onemind', name: 'Ember', light: light.accent, dark: dark.accent },
   teal: { id: 'teal', name: 'Teal', light: '#1f6a66', dark: '#6db8b0' },
   lagoon: { id: 'lagoon', name: 'Lagoon', light: '#0b6283', dark: '#6cc0e0' },
   ink: { id: 'ink', name: 'Ink', light: '#34488f', dark: '#a6b6ec' },
@@ -69,6 +69,11 @@ const TEXT_ON_ACCENT: Record<ThemeName, string> = { light: light['accent-text'],
 const SOFT_ALPHA: Record<ThemeName, number> = { light: 0.1, dark: 0.18 };
 
 function build(accent: string, theme: ThemeName): AccentSet {
+  // The shipped accent keeps its hand-tuned hover and soft (tokens.ts), tested by tokens.test.ts.
+  const shipped = theme === 'light' ? light : dark;
+  if (accent.toLowerCase() === shipped.accent) {
+    return { accent: shipped.accent, hover: shipped['accent-hover'], text: shipped['accent-text'], soft: shipped['accent-soft'] };
+  }
   const l = hexToOklch(accent).l;
   const hover = withLightness(accent, theme === 'light' ? l - 0.06 : Math.min(0.96, l + 0.07));
   const surface = theme === 'light' ? light.surface : dark.surface;

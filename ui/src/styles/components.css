@@ -20,7 +20,7 @@
   gap: var(--om-space-2);
   min-height: var(--om-layout-touch-target);
   padding: 0 var(--om-space-4);
-  border-radius: var(--om-radius-md);
+  border-radius: var(--om-radius-pill);
   border: 1px solid transparent;
   font: inherit;
   font-weight: var(--om-font-weight-semibold);
@@ -29,13 +29,18 @@
   transition: background-color var(--om-motion-duration-fast) var(--om-motion-ease-standard),
     border-color var(--om-motion-duration-fast) var(--om-motion-ease-standard);
 }
-.om-btn-sm { min-height: 32px; padding: 0 var(--om-space-3); }
+.om-btn-sm { min-height: 36px; padding: 0 var(--om-space-3); }
+.om-btn { padding: 0 var(--om-space-5); }
+.om-btn-sm { padding: 0 var(--om-space-4); }
 .om-btn-primary { background: var(--om-color-accent); color: var(--om-color-accent-text); }
 .om-btn-primary:hover:not(:disabled) { background: var(--om-color-accent-hover); }
-.om-btn-secondary { background: var(--om-color-surface); color: var(--om-color-text); border-color: var(--om-color-border-strong); }
+.om-btn-secondary { background: var(--om-color-surface); color: var(--om-color-text); border-color: var(--om-color-control-border); }
 .om-btn-secondary:hover:not(:disabled) { background: var(--om-color-surface-sunken); }
 .om-btn-ghost { background: transparent; color: var(--om-color-accent); }
 .om-btn-ghost:hover:not(:disabled) { background: var(--om-color-accent-soft); }
+/* Hearth: the commit action (Approve) is a solid ink button, so Ember stays for selection and brand. */
+.om-btn-primary.om-btn-ink { background: var(--om-color-text); color: var(--om-color-bg); }
+.om-btn-primary.om-btn-ink:hover:not(:disabled) { background: color-mix(in srgb, var(--om-color-text) 82%, var(--om-color-bg)); }
 .om-btn-danger { background: var(--om-color-danger); color: var(--om-color-danger-text); }
 .om-btn-danger:hover:not(:disabled) { background: var(--om-color-danger-hover); }
 .om-btn:disabled { cursor: not-allowed; opacity: 0.55; }
@@ -98,7 +103,7 @@
   min-width: 0;
 }
 .om-card-stale { border-style: dashed; border-color: var(--om-color-border-strong); box-shadow: none; }
-.om-card-attention { border-color: var(--om-color-warn-border); box-shadow: inset 3px 0 0 var(--om-color-warn-fg), var(--om-shadow-1); }
+.om-card-attention { border-color: var(--om-color-warn-border); box-shadow: inset 4px 0 0 var(--om-color-warn-fg), var(--om-shadow-1); }
 .om-card-sunken { background: var(--om-color-surface-sunken); box-shadow: none; }
 .om-card-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: var(--om-space-2) var(--om-space-3); }
 .om-card-titles { min-width: 0; flex: 1 1 12rem; }
@@ -217,7 +222,7 @@
 .om-topbar-account { margin-left: auto; display: flex; gap: var(--om-space-3); align-items: center; }
 .om-main { outline: none; width: 100%; max-width: var(--om-layout-content-max); margin: 0 auto; padding: var(--om-space-6) var(--om-space-6) var(--om-space-16); display: flex; flex-direction: column; gap: var(--om-space-6); }
 .om-page-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--om-space-4); }
-.om-page-title { font-size: var(--om-font-size-3xl); letter-spacing: -0.01em; }
+.om-page-title { font-family: var(--om-font-display); font-size: var(--om-font-size-3xl); font-weight: var(--om-font-weight-semibold); letter-spacing: -0.015em; }
 .om-page-lede { color: var(--om-color-text-muted); margin-top: var(--om-space-1); max-width: 70ch; }
 .om-page-actions { display: flex; gap: var(--om-space-3); flex-wrap: wrap; }
 .om-tabbar { display: none; }
