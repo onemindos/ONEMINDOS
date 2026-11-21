@@ -6,7 +6,7 @@ from onemind_core.catalog import AppEntry
 
 
 def entry(tmp_path: Path, spec: dict) -> AppEntry:
-    (tmp_path / "manifests").mkdir()
+    (tmp_path / "manifests").mkdir(exist_ok=True)
     return AppEntry(id="x", dir=tmp_path, manifest={"spec": spec})
 
 
