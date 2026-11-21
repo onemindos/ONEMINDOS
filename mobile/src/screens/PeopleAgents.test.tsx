@@ -171,19 +171,10 @@ describe('Ask a parent', () => {
     </Stack.Navigator>
   );
 
-  it('files an install request for a teen as "Ask a parent"', async () => {
-    const createAction = jest.fn(async (r) => ({ ...r, id: 'n', state: 'awaiting_approval' as const }));
-    await mount(<Detail />, [OP.me, OP.familyAsk], { me: async () => me('teen'), createAction });
-    await fireEvent.press(await screen.findByText('Ask a parent'));
-    expect(createAction).toHaveBeenCalledWith(expect.objectContaining({ type: 'app.install', params: { app_id: appId } }));
-    expect(await screen.findByText(/Your request is with a parent/)).toBeTruthy();
-    expect(screen.queryByText('Open Approvals')).toBeNull();
-  });
-
-  it('offers no button when the hub has no route for a teen to ask', async () => {
+  it('offers no Ask a parent button for a teen: no hub route exists for it', async () => {
     const createAction = jest.fn();
     await mount(<Detail />, [OP.me], { me: async () => me('teen'), createAction });
-    expect(await screen.findByText(/cannot pass a request to a parent/)).toBeTruthy();
+    expect(await screen.findByText(/cannot file requests yet/)).toBeTruthy();
     expect(screen.queryByText('Ask a parent')).toBeNull();
     expect(createAction).not.toHaveBeenCalled();
   });

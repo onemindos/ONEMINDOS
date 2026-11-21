@@ -37,8 +37,8 @@ export function AppDetailScreen() {
   const type: ActionType = app.installed ? 'app.remove' : 'app.install';
   const blockReason = type === 'app.install' ? installBlockReason(app, Date.now() + (hubOffsetMs ?? 0)) : undefined;
   const reason =
-    young && !features.has(OP.familyAsk)
-      ? 'This hub cannot pass a request to a parent from this sign-in yet. Ask a parent to add the app for you.'
+    young
+      ? 'Teen and Child sign-ins cannot file requests yet (no hub route for it). Ask a parent to add the app for you.'
       : canRequest === 'no' && !young
         ? 'Only an owner (or an agent) can ask for changes.'
         : waiting
@@ -97,10 +97,10 @@ export function AppDetailScreen() {
         <AppLifecycle app={app} />
       ) : (
         <View style={s.wrap}>
-          {young && !features.has(OP.familyAsk) ? null : (
+          {young ? null : (
             <Button
               testID="request"
-              label={busy ? 'Sending…' : young ? 'Ask a parent' : app.installed ? 'Ask to remove' : 'Ask to install'}
+              label={busy ? 'Sending…' : app.installed ? 'Ask to remove' : 'Ask to install'}
               variant={app.installed ? 'danger' : 'primary'}
               disabled={busy || !!reason}
               onPress={() => void ask()}

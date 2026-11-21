@@ -89,10 +89,6 @@ export const OP = {
   tokens: 'GET /v1/tokens',
   killSwitch: 'GET /v1/agents/kill-switch',
   killSwitchSet: 'PUT /v1/agents/kill-switch',
-  /** A teen or child filing a request into a parent's Approvals. No hub serves a route for this yet (the hub only lets
-   *  owners, agents and automations request actions), so the name is a placeholder until FAM-01 defines it; until a
-   *  hub lists it the phone offers no "Ask a parent" button. */
-  familyAsk: 'POST /v1/family/requests',
 } as const;
 
 export type Op = (typeof OP)[keyof typeof OP];
