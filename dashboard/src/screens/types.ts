@@ -22,15 +22,16 @@ export interface ScreenDef {
   order: number;
   /** Position in the dock when the screen is docked; omit and it is one click away in Launchpad. */
   dock?: number;
-  /** Routable but never offered as a tile (dock, Launchpad, sidebar): a page that only exists to say what is not built yet. */
-  hidden?: boolean;
   /** Tile gradient (two colours) with a white glyph on top. */
   hue: readonly [string, string];
   /** Pro-only: offered to owners and adults, guarded by ProOnly (shell/roles.ts). */
   pro?: boolean;
   /** A live count the shell fills in. Only 'approvals' exists: requests awaiting a decision. */
   badge?: 'approvals';
-  /** Routed and windowed but not offered in the sidebar or Launchpad: a page reached from another screen or a link (a path with a parameter has no nav entry). */
+  /**
+   * Routed and windowed but never offered as a tile (dock, Launchpad, sidebar): a page reached from another screen
+   * or a link (a path with a parameter has no nav entry), or one that only exists to say what is not built yet.
+   */
   hidden?: boolean;
   load: ScreenLoader;
   /** More paths of the same screen (a detail page, a tab). Nav and window title stay this screen's. */

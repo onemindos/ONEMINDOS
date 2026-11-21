@@ -4,7 +4,6 @@ import { useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { OneMind, OneMindError, uuid4, type components } from '@onemind/sdk';
 import { Button, Card, Dialog, EmptyState, PageHeader, StatusPill } from '@onemind/ui';
-import { ApiError } from '../api/types';
 import { usePoll } from '../lib/hooks';
 import { useSignedIn } from '../session';
 import { href } from '../shell/routes';
