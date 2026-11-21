@@ -22,4 +22,6 @@ PARTLABEL=onemind-data  /data      ext4  defaults,nofail,x-systemd.device-timeou
 /data/state/var-lib-tailscale         /var/lib/tailscale            none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0
 /data/state/var-lib-onemind-headscale /var/lib/onemind-headscale    none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0
 /data/state/var-lib-onemind-nats-leaf /var/lib/onemind-nats-leaf    none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0
+# The hub's JetStream store (app event streams), on the data disk so it survives A/B updates.
+/data/state/var-lib-onemind-nats      /var/lib/onemind-nats         none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0
 /data/state/etc-hosts                 /etc/hosts                    none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0

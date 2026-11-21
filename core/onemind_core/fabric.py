@@ -473,7 +473,8 @@ class FabricService:
         if path is None:
             return False
         accounts = [NodeAccount(n["node_id"], n["nats_pubkey"]) for n in self.repo.nodes()]
-        changed = write_accounts(path, accounts, load_service_keys(self.d.fabric.nats_service_keys))
+        changed = write_accounts(path, accounts, load_service_keys(self.d.fabric.nats_service_keys),
+                                 self.d.fabric.jetstream_max_bytes)
         if changed:
             log.info("NATS accounts updated (%d nodes)", len(accounts))
         return changed

@@ -193,6 +193,25 @@ class Files(unittest.TestCase):
         for f in ("nats.crt", "nats.key", "ca.crt"):
             self.assertIn(f'"/run/onemind-nats/{f}"', c)
 
+    def test_hub_nats_conf_has_bounded_jetstream_on_the_data_disk(self):
+        for conf in (fb.hub_nats_conf(None), fb.hub_nats_conf(MESH_IP)):
+            self.assertIn('store_dir: "/var/lib/onemind-nats/jetstream"', conf)
+            self.assertIn(f"max_file_store: {4 << 30}", conf)
+            self.assertIn("max_memory_store: 0", conf)  # a restart must not lose events silently
+        p = fb.Paths("/x")
+        env = fb.gateway_env(p, {"box": "b", "node_id": "n1", "name": "n"})
+        self.assertIn(f"ONEMIND_FABRIC_JETSTREAM_MAX_BYTES={4 << 30}", env)
+        self.assertIn("ONEMIND_FABRIC_JETSTREAM_PATH=/var/lib/onemind-nats\n", env)
+
+    def test_jetstream_store_is_a_bind_from_the_data_disk_owned_for_the_nats_user(self):
+        base = os.path.join(ROOT, "os", "rootfs", "layers")
+        fstab = open(os.path.join(base, "base", "etc", "fstab")).read()
+        self.assertIn("/data/state/var-lib-onemind-nats ", fstab)
+        script = open(os.path.join(LIB, "onemind-nats-files")).read()
+        self.assertIn("/var/lib/onemind-nats/jetstream", script)
+        unit = open(os.path.join(base, "onemind", "usr", "lib", "systemd", "system", "onemind-nats.service")).read()
+        self.assertIn("ReadWritePaths=-/var/lib/onemind-nats", unit)
+
     def test_nats_files_script_copies_what_the_conf_names(self):
         script = open(os.path.join(LIB, "onemind-nats-files")).read()
         unit = open(os.path.join(ROOT, "os", "rootfs", "layers", "onemind", "usr", "lib", "systemd", "system",

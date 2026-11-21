@@ -98,8 +98,18 @@ class ServiceKey:
             raise ValueError(f"service {self.name}: not a NATS user public nkey")
 
 
-def render_accounts(nodes: Iterable[NodeAccount], services: Iterable[ServiceKey] = ()) -> str:
-    """The accounts include file. Deterministic: same nodes and services, same bytes (no reload churn)."""
+# What the hub account may keep in JetStream: file storage only (no memory store: a restart must not
+# lose events silently), capped in total. App streams are carved out of this (streams.py).
+JETSTREAM_MAX_STREAMS = 32
+JETSTREAM_MAX_CONSUMERS = 128
+
+
+def render_accounts(nodes: Iterable[NodeAccount], services: Iterable[ServiceKey] = (),
+                    jetstream_max_bytes: int = 0) -> str:
+    """The accounts include file. Deterministic: same nodes and services, same bytes (no reload churn).
+
+    jetstream_max_bytes > 0 turns JetStream on for the hub account with that file-storage cap. Node
+    accounts never get JetStream: a leaf's events are kept by its own outbox and by the hub account."""
     nodes = sorted({n.node_id: n for n in nodes}.values(), key=lambda n: n.node_id)
     services = sorted({s.name: s for s in services}.values(), key=lambda s: s.name)
     if services:  # strict: every hub-local client signs with its own key
@@ -116,6 +126,9 @@ def render_accounts(nodes: Iterable[NodeAccount], services: Iterable[ServiceKey]
         *hub_users,
         "    ]",
     ]
+    if jetstream_max_bytes > 0:
+        out.append(f"    jetstream: {{max_mem: 0, max_file: {int(jetstream_max_bytes)}, "
+                   f"max_streams: {JETSTREAM_MAX_STREAMS}, max_consumers: {JETSTREAM_MAX_CONSUMERS}}}")
     imports = [
         f'      {{stream: {{account: "{n.account}", subject: "onemind.node.{n.node_id}.{s}"}}}}'
         for n in nodes for s in NODE_EXPORTS
@@ -216,9 +229,10 @@ def make_service_key(directory: Path, name: str) -> str:
     return pub
 
 
-def write_accounts(path: Path, nodes: Iterable[NodeAccount], services: Iterable[ServiceKey] = ()) -> bool:
+def write_accounts(path: Path, nodes: Iterable[NodeAccount], services: Iterable[ServiceKey] = (),
+                   jetstream_max_bytes: int = 0) -> bool:
     """Write the include file atomically (0644: public keys only). True if the content changed."""
-    body = render_accounts(nodes, services).encode()
+    body = render_accounts(nodes, services, jetstream_max_bytes).encode()
     try:
         if path.read_bytes() == body:
             return False
@@ -257,7 +271,8 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     path = Path(args[0])
     if not path.exists():
-        write_accounts(path, [], load_service_keys(Path(args[1])) if len(args) == 2 else [])
+        write_accounts(path, [], load_service_keys(Path(args[1])) if len(args) == 2 else [],
+                       int(os.environ.get("ONEMIND_FABRIC_JETSTREAM_MAX_BYTES") or 0))
     return 0
 
 

@@ -180,6 +180,13 @@ umbrelOS-level app management, with the rule kept: every change is a request an 
 - **Host ports:** `spec.hostPorts` declarations are conflict-checked against OneMind's own ports
   (`sdk/policy/host-ports.yaml`) and other apps, in CI and at request and approval. The install
   sandbox still refuses `hostPort` itself.
+- **Event streams (hub JetStream):** `spec.streams` declares up to 4 bounded streams (`streams.py`). Subjects are
+  relative and the hub puts them under `onemind.app.<id>.`; `maxBytes` (1 MiB to 1 GiB) and `maxAgeSeconds`
+  (60 s to 30 days) are required, storage is file, oldest events go at the limit. The install plan lists the exact
+  limits (hashed). Install is refused (`invalid_stream`, `jetstream_unavailable`, `jetstream_degraded`) for a bad
+  declaration or a store that is off or low on disk. Settings: `ONEMIND_FABRIC_JETSTREAM_MAX_BYTES` (0 = off) and
+  `ONEMIND_FABRIC_JETSTREAM_PATH`. **Left:** creating the streams on the hub after approval, removal on app remove,
+  a status route and a `jetstream.degraded` event, and the same JetStream block in `deploy/install.sh`.
 - **Compose import:** `POST /v1/deploy/compose` (owner) turns a Compose file into a private app
   folder and refuses, with the sandbox's rule ids, anything the sandbox would refuse (privileged,
   host network, bind mounts, unpinned images, root user, …). It writes and installs nothing.
