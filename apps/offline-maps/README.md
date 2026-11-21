@@ -79,6 +79,28 @@ To remove a map (the `pmtiles` container is distroless and has no shell, so this
 kubectl -n app-offline-maps exec deploy/offline-maps -c viewer -- python3 -c "import os; os.remove('/data/maps/home.pmtiles')"
 ```
 
+## Measure distance and add an overlay
+
+Enable **Measure two points**, then click two places. The viewer shows the
+approximate straight-line distance in kilometres; it does not calculate a road
+route or account for terrain. A third click starts a new measurement, and
+**Clear measurement** removes it. Both calculations and drawing work offline.
+
+Choose a local `.geojson` or `.json` file with **GeoJSON overlay** to display
+points, lines or polygons over the map. The file stays in this browser tab and
+is never uploaded. Switching map archives retains the overlay; clearing it or
+closing/reloading the tab removes it. Keep the original file yourself.
+
+Overlays use longitude/latitude degrees ([RFC 7946](https://www.rfc-editor.org/rfc/rfc7946)).
+Files are limited to 2 MiB and 50,000 positions. Point, MultiPoint, LineString,
+MultiLineString, Polygon and MultiPolygon geometries are supported; polygon
+rings must be closed. GeometryCollection is unsupported. Only geometry is
+drawn; properties, links, HTML and remote styles are discarded. This uses the
+existing MapLibre GeoJSON source/layer APIs; no new library is downloaded.
+API reference: [MapLibre GeoJSONSource](https://maplibre.org/maplibre-gl-js/docs/API/classes/GeoJSONSource/).
+Use only overlay data you have permission to use, and keep its attribution and
+licence with the original file; the overlay adds no redistribution rights.
+
 ## Not done yet
 
 - **Cutting a map is a terminal step.** A Market action ("add map for this area") that the owner approves from the dashboard is the next step. It needs a contract action type for app-specific jobs.
