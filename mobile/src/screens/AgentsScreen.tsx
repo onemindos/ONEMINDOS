@@ -52,16 +52,27 @@ export function AgentsScreen() {
       <H1>Agents</H1>
       <P muted small>AI agents such as Hermes only ask. An owner approves each request in Approvals; nothing an agent asks happens before that.</P>
       <Card testID="kill-switch">
-        <View style={s.wrap}>
-          <Badge label={on ? 'All agents stopped' : 'Agents allowed to ask'} tone={on ? 'bad' : 'ok'} />
-        </View>
+        {!sw.data ? (
+          <Notice
+            tone="bad"
+            text={
+              !features.has(OP.killSwitch) || sw.error?.code === 'not_found'
+                ? 'This hub does not serve the agent kill switch yet, so the phone cannot say whether agents are stopped.'
+                : `Could not read the kill switch, so the phone cannot say whether agents are stopped. ${requestError(sw.error, 'reading the kill switch').text}`
+            }
+          />
+        ) : (
+          <View style={s.wrap}>
+            <Badge label={on ? 'All agents stopped' : 'Agents allowed to ask'} tone={on ? 'bad' : 'ok'} />
+          </View>
+        )}
         {sw.data?.changed_at ? (
           <P muted small>
             Changed {formatAgo(secondsSince(sw.data.changed_at, Date.now()))}{sw.data.changed_by ? ` by ${principalLabel(sw.data.changed_by)}` : ''}.
           </P>
         ) : null}
         {sw.data?.reason ? <Row label="Reason" value={sw.data.reason} /> : null}
-        {isOwner ? (
+        {!sw.data ? null : isOwner ? (
           <Button
             testID="kill-switch-toggle"
             variant={on ? 'primary' : 'danger'}

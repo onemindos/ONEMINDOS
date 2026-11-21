@@ -142,6 +142,19 @@ describe('Agents screen', () => {
     expect(await screen.findByText(/fresh passkey/)).toBeTruthy();
   });
 
+  it('shows the error, no badge and no toggle when the kill switch cannot be read', async () => {
+    await mount(<AgentsScreen />, OWNER_OPS, { ...base, killSwitch: async () => { throw new ApiError(500, 'internal', 'boom'); } });
+    expect(await screen.findByText(/cannot say whether agents are stopped/)).toBeTruthy();
+    expect(screen.queryByText('Agents allowed to ask')).toBeNull();
+    expect(screen.queryByTestId('kill-switch-toggle')).toBeNull();
+  });
+
+  it('says the route is missing when the hub does not serve it', async () => {
+    await mount(<AgentsScreen />, [OP.me], { ...base, killSwitch: async () => { throw new ApiError(404, 'not_found', 'no'); } });
+    expect(await screen.findByText(/does not serve the agent kill switch/)).toBeTruthy();
+    expect(screen.queryByText('Agents allowed to ask')).toBeNull();
+  });
+
   it('gives an adult no switch', async () => {
     await mount(<AgentsScreen />, OWNER_OPS, { ...base, me: async () => me('adult') });
     expect(await screen.findByText('Only an owner can stop or restart agents.')).toBeTruthy();
@@ -160,10 +173,18 @@ describe('Ask a parent', () => {
 
   it('files an install request for a teen as "Ask a parent"', async () => {
     const createAction = jest.fn(async (r) => ({ ...r, id: 'n', state: 'awaiting_approval' as const }));
-    await mount(<Detail />, [OP.me], { me: async () => me('teen'), createAction });
+    await mount(<Detail />, [OP.me, OP.familyAsk], { me: async () => me('teen'), createAction });
     await fireEvent.press(await screen.findByText('Ask a parent'));
     expect(createAction).toHaveBeenCalledWith(expect.objectContaining({ type: 'app.install', params: { app_id: appId } }));
     expect(await screen.findByText(/Your request is with a parent/)).toBeTruthy();
     expect(screen.queryByText('Open Approvals')).toBeNull();
+  });
+
+  it('offers no button when the hub has no route for a teen to ask', async () => {
+    const createAction = jest.fn();
+    await mount(<Detail />, [OP.me], { me: async () => me('teen'), createAction });
+    expect(await screen.findByText(/cannot pass a request to a parent/)).toBeTruthy();
+    expect(screen.queryByText('Ask a parent')).toBeNull();
+    expect(createAction).not.toHaveBeenCalled();
   });
 });

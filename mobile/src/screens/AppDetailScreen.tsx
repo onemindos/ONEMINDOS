@@ -37,11 +37,13 @@ export function AppDetailScreen() {
   const type: ActionType = app.installed ? 'app.remove' : 'app.install';
   const blockReason = type === 'app.install' ? installBlockReason(app, Date.now() + (hubOffsetMs ?? 0)) : undefined;
   const reason =
-    canRequest === 'no' && !young
-      ? 'Only an owner (or an agent) can ask for changes.'
-      : waiting
-        ? `A request is already waiting for approval (from ${principalLabel(waiting.requested_by)}).`
-        : blockReason;
+    young && !features.has(OP.familyAsk)
+      ? 'This hub cannot pass a request to a parent from this sign-in yet. Ask a parent to add the app for you.'
+      : canRequest === 'no' && !young
+        ? 'Only an owner (or an agent) can ask for changes.'
+        : waiting
+          ? `A request is already waiting for approval (from ${principalLabel(waiting.requested_by)}).`
+          : blockReason;
   const scan = scanLabel(app);
   // With §12.40 plans the installed app's actions (including remove) go through AppLifecycle.
   const managed = app.installed && features.has(OP.appPlan);
@@ -95,13 +97,15 @@ export function AppDetailScreen() {
         <AppLifecycle app={app} />
       ) : (
         <View style={s.wrap}>
-          <Button
-            testID="request"
-            label={busy ? 'Sending…' : young ? 'Ask a parent' : app.installed ? 'Ask to remove' : 'Ask to install'}
-            variant={app.installed ? 'danger' : 'primary'}
-            disabled={busy || !!reason}
-            onPress={() => void ask()}
-          />
+          {young && !features.has(OP.familyAsk) ? null : (
+            <Button
+              testID="request"
+              label={busy ? 'Sending…' : young ? 'Ask a parent' : app.installed ? 'Ask to remove' : 'Ask to install'}
+              variant={app.installed ? 'danger' : 'primary'}
+              disabled={busy || !!reason}
+              onPress={() => void ask()}
+            />
+          )}
         </View>
       )}
       {msg?.tone === 'ok' && !young && (
