@@ -7,9 +7,10 @@
 import { dark, light } from '../tokens/tokens';
 import type { AccentId, ThemeName } from './accents';
 import { AA } from './accents';
-import { contrast, mix } from './color';
+import { contrast, hexToOklch, mix } from './color';
 
 export const WALLPAPER_IDS = [
+  'plan',
   'onemind',
   'aurora',
   'tide',
@@ -185,7 +186,53 @@ function neural(c: Stops, seed: number): string {
   return svgUrl(svg);
 }
 
+
+/**
+ * "Plan" (direction A, Gallery): a quiet elevation drawing. A fine architectural grid (a line
+ * every 48 units, a stronger one every 240), one soft wedge of window light on the wall (day
+ * only) and a few thin contour arcs in grid cells. No hue in the paper itself. Every colour
+ * painted is c[3] or one of the three base stops, so minDim() sees all of them.
+ */
+function plan(c: Stops, seed: number): string {
+  const rand = rng(seed);
+  const night = hexToOklch(c[0]).l < 0.5;
+  const W = 1600;
+  const H = 1000;
+  const cell = 48;
+  const minor: string[] = [];
+  const major: string[] = [];
+  for (let x = 0; x <= W; x += cell) (x % 240 === 0 ? major : minor).push(`M${x} 0V${H}`);
+  for (let y = 0; y <= H + cell; y += cell) (y % 240 === 0 ? major : minor).push(`M0 ${y}H${W}`);
+  const arcs: string[] = [];
+  for (let i = 0; i < 5; i++) {
+    const cx = Math.floor(rand() * (W / cell - 4) + 2) * cell;
+    const cy = Math.floor(rand() * (H / cell - 4) + 2) * cell;
+    const flip = rand() < 0.5 ? 1 : -1;
+    for (let k = 1; k <= 3; k++) {
+      const r = k * cell;
+      arcs.push(`M${cx + r * flip} ${cy}A${r} ${r} 0 0 ${flip > 0 ? 1 : 0} ${cx} ${cy + r}`);
+    }
+  }
+  const gridOpacity = night ? 0.7 : 0.5;
+  const wedge = night ? '' : `<polygon points="980,0 1600,0 1600,640 1180,640" fill="${c[3]}" fill-opacity="0.4"/>`;
+  return svgUrl(
+    svg(
+      `${wedge}<g fill="none" stroke="${c[3]}" stroke-width="1" stroke-opacity="${gridOpacity}"><path d="${minor.join('')}"/></g>` +
+        `<g fill="none" stroke="${c[3]}" stroke-width="1.5" stroke-opacity="${gridOpacity + 0.3}"><path d="${major.join('')}"/></g>` +
+        `<g fill="none" stroke="${c[3]}" stroke-width="1.25" stroke-opacity="${gridOpacity + 0.25}"><path d="${arcs.join('')}"/></g>`,
+    ),
+  );
+}
+
 export const WALLPAPERS: Record<WallpaperId, Wallpaper> = {
+  plan: {
+    id: 'plan',
+    name: 'Plan',
+    kind: 'pattern',
+    accent: 'graphite',
+    colors: { light: ['#eef0f3', '#e3e6eb', '#f6f7f9', '#d3d8df'], dark: ['#0d0f13', '#151920', '#0b0d10', '#2a303a'] },
+    render: (c) => `${plan(c, 21)} center / cover no-repeat, linear-gradient(168deg, ${c[0]} 0%, ${c[1]} 52%, ${c[2]} 100%)`,
+  },
   onemind: {
     id: 'onemind',
     name: 'OneMind',

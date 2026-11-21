@@ -27,15 +27,15 @@ export interface AccentPreset {
   dark: string;
 }
 
-/** The accent a new box starts with: the brand accent. */
-export const DEFAULT_ACCENT: AccentId = 'onemind';
+/** The accent a new box starts with: ink (direction A, Gallery). OneMind Red stays a preset and the logo colour. */
+export const DEFAULT_ACCENT: AccentId = 'graphite';
 
 export const ACCENTS: Record<AccentId, AccentPreset> = {
   onemind: { id: 'onemind', name: brand.accent.name, light: brand.accent.light.accent, dark: brand.accent.dark.accent },
   teal: { id: 'teal', name: 'Teal', light: '#1f6a66', dark: '#6db8b0' },
   lagoon: { id: 'lagoon', name: 'Lagoon', light: '#0b6283', dark: '#6cc0e0' },
-  ink: { id: 'ink', name: 'Ink', light: '#34488f', dark: '#a6b6ec' },
-  graphite: { id: 'graphite', name: 'Graphite', light: '#3f4b55', dark: '#bcc7cf' },
+  ink: { id: 'ink', name: 'Indigo', light: '#34488f', dark: '#a6b6ec' },
+  graphite: { id: 'graphite', name: 'Ink', light: '#1d2128', dark: '#eceef1' },
   moss: { id: 'moss', name: 'Moss', light: '#4b6420', dark: '#a9c977' },
   copper: { id: 'copper', name: 'Copper', light: '#94461c', dark: '#eba37a' },
   rose: { id: 'rose', name: 'Rose', light: '#a02c5a', dark: '#f29bbd' },

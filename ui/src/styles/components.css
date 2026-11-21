@@ -23,8 +23,9 @@
   border-radius: var(--om-radius-md);
   border: 1px solid transparent;
   font: inherit;
-  font-weight: var(--om-font-weight-semibold);
+  font-weight: var(--om-font-weight-medium);
   font-size: var(--om-font-size-sm);
+  text-decoration: none;
   cursor: pointer;
   transition: background-color var(--om-motion-duration-fast) var(--om-motion-ease-standard),
     border-color var(--om-motion-duration-fast) var(--om-motion-ease-standard);
@@ -33,6 +34,7 @@
 .om-btn-primary { background: var(--om-color-accent); color: var(--om-color-accent-text); }
 .om-btn-primary:hover:not(:disabled) { background: var(--om-color-accent-hover); }
 .om-btn-secondary { background: var(--om-color-surface); color: var(--om-color-text); border-color: var(--om-color-border-strong); }
+.om-btn:hover { text-decoration: none; }
 .om-btn-secondary:hover:not(:disabled) { background: var(--om-color-surface-sunken); }
 .om-btn-ghost { background: transparent; color: var(--om-color-accent); }
 .om-btn-ghost:hover:not(:disabled) { background: var(--om-color-accent-soft); }

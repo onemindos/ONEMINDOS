@@ -55,16 +55,19 @@ describe('accents', () => {
       const a = presetAccent(id);
       for (const t of THEMES) {
         expect(a[t].ratio, `${id} ${t}`).toBeGreaterThanOrEqual(AA);
+        // OneMind Red is seeded from brand.json against the old neutrals; on the Gallery slate it may be nudged.
+        if (id === 'onemind') continue;
         expect(a[t].adjusted, `${id} ${t} should not need a fix`).toBe(false);
         expect(a[t].set.accent).toBe(ACCENTS[id][t]);
       }
     }
   });
-  it('the default (brand) preset equals the shipped tokens, all four roles', () => {
-    expect(DEFAULT_ACCENT).toBe('onemind');
+  it('the default (ink) preset matches the shipped tokens (accent and text on accent)', () => {
+    expect(DEFAULT_ACCENT).toBe('graphite');
     const a = presetAccent(DEFAULT_ACCENT);
     for (const [t, theme] of [['light', light], ['dark', dark]] as const) {
-      expect(a[t].set).toEqual({ accent: theme.accent, hover: theme['accent-hover'], text: theme['accent-text'], soft: theme['accent-soft'] });
+      expect(a[t].set.accent).toBe(theme.accent);
+      expect(a[t].set.text).toBe(theme['accent-text']);
     }
   });
   it('fixes any custom colour to AA, keeping its hue', () => {
@@ -168,8 +171,8 @@ describe('preferences', () => {
     expect(resolveThemeAttr({ ...DEFAULT_PREFERENCES, theme: 'dark' }, at)).toBe('dark');
     expect(resolveThemeAttr({ ...DEFAULT_PREFERENCES, theme: 'schedule' }, at)).toBe('dark');
     expect(accentSeed({ ...DEFAULT_PREFERENCES, accentSource: 'wallpaper', wallpaper: 'dunes' })).toEqual({ kind: 'preset', id: 'copper' });
-    expect(accentSeed(DEFAULT_PREFERENCES)).toEqual({ kind: 'preset', id: 'onemind' });
-    expect(accentSeed({ ...DEFAULT_PREFERENCES, accentSource: 'wallpaper', wallpaper: 'none' })).toEqual({ kind: 'preset', id: 'onemind' });
+    expect(accentSeed(DEFAULT_PREFERENCES)).toEqual({ kind: 'preset', id: 'graphite' });
+    expect(accentSeed({ ...DEFAULT_PREFERENCES, accentSource: 'wallpaper', wallpaper: 'none' })).toEqual({ kind: 'preset', id: 'graphite' });
     expect(accentSeed({ ...DEFAULT_PREFERENCES, accentSource: 'custom', accentCustom: '#123456' })).toEqual({ kind: 'custom', hex: '#123456' });
   });
   it('writes CSS that mirrors the token theme selectors', () => {

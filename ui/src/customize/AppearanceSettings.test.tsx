@@ -145,7 +145,7 @@ describe('AppearanceSettings', () => {
     const user = userEvent.setup();
     mount(new MemoryStore('local', saved({ accentSource: 'preset', accentPreset: 'moss' })));
     await user.click(await screen.findByRole('button', { name: 'Reset to defaults' }));
-    expect(screen.getByRole('radio', { name: 'OneMind Red' })).toBeChecked();
+    expect(screen.getByRole('radio', { name: 'Ink' })).toBeChecked();
     await user.click(screen.getByRole('button', { name: 'Undo' }));
     expect(screen.getByRole('radio', { name: 'Moss' })).toBeChecked();
   });
@@ -155,7 +155,7 @@ describe('AppearanceSettings', () => {
     const hub = new MemoryStore('hub', saved(), true);
     const local = new MemoryStore('local', saved());
     mount(hub, local);
-    await user.click(await screen.findByRole('radio', { name: 'Ink' }));
+    await user.click(await screen.findByRole('radio', { name: 'Indigo' }));
     expect(await screen.findByText('Not saved to your account')).toBeInTheDocument();
     expect(screen.getByText(/Kept on this browser for now/)).toBeInTheDocument();
     await act(async () => undefined);
