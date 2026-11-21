@@ -33,6 +33,7 @@ CRYPTSETUP = "/usr/lib/systemd/systemd-cryptsetup"
 MODHEX = "cbdefghijklnrtuv"
 RECOVERY_RX = re.compile(r"\b([%s]{8}(?:-[%s]{8}){7})\b" % (MODHEX, MODHEX))
 ZERO_BYTES = 1 << 20
+SCRUB_BYTES = 16 << 20                     # a LUKS2 header plus keyslots is up to 16 MiB; wipefs alone leaves it
 
 
 def say(msg, journal=True):
@@ -60,6 +61,25 @@ def signature(node, runner=run):
 def head_is_zero(node):
     with open(node, "rb") as f:
         return not any(f.read(ZERO_BYTES))
+
+
+def zero_head(node, nbytes=SCRUB_BYTES):
+    """Overwrite the first `nbytes` with zeros (stops at the end of a smaller device). wipefs only erases the
+    magic numbers; the LUKS2 JSON header and keyslots would stay and the head would never read as blank again."""
+    try:
+        fd = os.open(node, os.O_WRONLY)
+        try:
+            chunk, left = bytes(1 << 20), nbytes
+            while left > 0:
+                n = os.write(fd, chunk[:left])
+                if n <= 0:
+                    break
+                left -= n
+            os.fsync(fd)
+        finally:
+            os.close(fd)
+    except OSError as e:
+        say(f"could not zero the head of {node} ({e}); the next boot may treat it as unknown data")
 
 
 def classify(sig, zero):
@@ -131,6 +151,7 @@ def first_boot_encrypt(node, has_tpm, runner=run, rand=os.urandom):
         if opened:
             runner(["cryptsetup", "close", NAME], check=False)
         runner(["wipefs", "--all", "--force", node], check=False)
+        zero_head(node)
         raise
     finally:
         try:

@@ -121,6 +121,43 @@ class FirstBoot(unittest.TestCase):
                 if step != "luksFormat":
                     self.assertTrue(any(l.startswith("cryptsetup close onemind-data") for l in r.lines()))
 
+    def test_the_cleanup_leaves_a_head_that_classifies_as_blank(self):
+        """Real file, not a call log: luksFormat leaves a header and keyslots far past the two magics that wipefs
+        erases. After a failed first boot the next boot must see 'blank' again and retry."""
+        node = os.path.join(self.tmp, "part.img")
+        with open(node, "wb") as f:
+            f.truncate(20 << 20)
+
+        class Runner(FakeRunner):
+            def __call__(self, cmd, input=None, check=True):
+                if cmd[:2] == ["cryptsetup", "luksFormat"]:       # header + keyslot area, like real LUKS2
+                    with open(node, "r+b") as f:
+                        f.write(b"LUKS\xba\xbe" + b"\xa5" * ((2 << 20) - 6))
+                        f.seek(0x4000)
+                        f.write(b"SKUL\xba\xbe")
+                if cmd[0] == "wipefs":                             # erases only the two magics
+                    with open(node, "r+b") as f:
+                        f.write(b"\0" * 6)
+                        f.seek(0x4000)
+                        f.write(b"\0" * 6)
+                return super().__call__(cmd, input, check)
+
+        r = Runner(fail="mkfs.ext4")
+        with self.assertRaises(subprocess.CalledProcessError):
+            de.first_boot_encrypt(node, False, r)
+        self.assertTrue(de.head_is_zero(node))
+        self.assertEqual(de.classify("", de.head_is_zero(node)), "blank")
+        with open(node, "rb") as f:
+            self.assertFalse(any(f.read(de.SCRUB_BYTES)))
+
+    def test_wipefs_alone_would_not_have_been_enough(self):
+        node = os.path.join(self.tmp, "p2.img")
+        with open(node, "wb") as f:
+            f.write(b"\0" * 6 + b"\xa5" * 4096)
+        self.assertFalse(de.head_is_zero(node))
+        de.zero_head(node)
+        self.assertTrue(de.head_is_zero(node))
+
     def test_no_recovery_key_in_the_output_is_a_failure_not_a_silent_success(self):
         r = FakeRunner(enroll_out="nothing useful")
         with self.assertRaises(RuntimeError):
