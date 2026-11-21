@@ -382,6 +382,14 @@ def _check_pod(pod: dict, base: str, level: str, caps_allowed: frozenset[str], r
 ROLE_FORBIDDEN_RESOURCES = frozenset({"namespaces", "nodes", "persistentvolumes", "componentstatuses"})
 ROLE_FORBIDDEN_SUBRESOURCES = frozenset({"exec", "attach", "portforward", "proxy", "ephemeralcontainers", "token"})
 RBAC_GROUP = "rbac.authorization.k8s.io"
+# v0: an app Role is read-only on these. The gateway holds write rights in app-<id>, so Kubernetes
+# would allow the Role, but a pod with a token could then publish a NodePort or externalIPs Service
+# (skipping gateway sign-in, CVE-2020-8554 class) or start unscanned workloads at runtime.
+ROLE_WRITE_VERBS = frozenset({"create", "update", "patch", "delete", "deletecollection"})
+ROLE_READ_ONLY_RESOURCES = frozenset({
+    "services", "endpoints", "endpointslices", "pods", "replicationcontrollers", "secrets", "serviceaccounts",
+    "deployments", "statefulsets", "replicasets", "daemonsets", "jobs", "cronjobs",
+})
 
 
 def _role_groups(rules: Rules) -> frozenset[str]:
@@ -405,6 +413,8 @@ def _check_role(obj: dict, rules: Rules, name: str) -> list[Violation]:
             or any(r.partition("/")[0] in ROLE_FORBIDDEN_RESOURCES for r in res)
             or any(r.partition("/")[2] in ROLE_FORBIDDEN_SUBRESOURCES or r.endswith("/*") for r in res)
             or any(vb in ("escalate", "bind", "impersonate") for vb in verbs)
+            or (any(vb in ROLE_WRITE_VERBS for vb in verbs)
+                and any(r.partition("/")[0] in ROLE_READ_ONLY_RESOURCES for r in res))
             or rule.get("nonResourceURLs")
         )
         if bad:
