@@ -242,6 +242,19 @@ def test_destination_rules(client, bk):
 
 
 # ---- runs and hooks ----------------------------------------------------------------------------
+def test_cancelled_or_unbudgeted_agent_is_refused_on_the_backup_routes(client, bk):
+    """AIG-03 (#167): cancel and budget hold on feature routes too, not only POST /v1/actions."""
+    add_usb(client, bk)
+    client.post("/v1/agents/hermes/cancel", headers=OWNER)
+    for path in ("/v1/backups/runs", "/v1/backups/verify"):
+        r = client.post(path, headers=AGENT, json={})
+        assert r.status_code == 403 and r.json()["reason"] == "agent_cancelled", path
+    client.post("/v1/agents/hermes/resume", headers=OWNER)
+    client.put("/v1/agents/hermes/budget", json={"budget_per_day": 0}, headers=OWNER)
+    assert client.post("/v1/backups/runs", headers=AGENT, json={}).status_code == 429
+    assert client.post("/v1/backups/runs", headers=OWNER, json={}).status_code in (200, 202)
+
+
 def test_agent_requests_a_run_but_only_the_owner_approves(client, bk):
     add_usb(client, bk)
     r = client.post("/v1/backups/runs", headers=AGENT, json={"scope": {"app_id": "notes"}})

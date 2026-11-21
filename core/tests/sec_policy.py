@@ -320,6 +320,15 @@ POLICY |= {
                                           "§12.5: agents never change the kill switch"),
     ("POST", "/v1/automation/resume"): Row(ONLY_OWNER, w.p_missing("/v1/automation/resume", json={}),
                                            "§12.5: agents never change the kill switch"),
+    # ---- AI agent principals (AIG-03 #167): the owner's budget, cancel and resume controls -------------------------
+    ("GET", "/v1/agents"): Row(ONLY_OWNER, w.p_static("/v1/agents"), "AIG-03: only the owner lists agents"),
+    ("GET", "/v1/agents/{name}"): Row(ONLY_OWNER, w.p_static("/v1/agents/hermes"), "AIG-03: only the owner reads an agent"),
+    ("PUT", "/v1/agents/{name}/budget"): Row(ONLY_OWNER, w.p_missing("/v1/agents/hermes/budget", json={"budget_per_day": 50}),
+                                             "AIG-03: an agent never raises its own budget"),
+    ("POST", "/v1/agents/{name}/cancel"): Row(ONLY_OWNER, w.p_missing("/v1/agents/hermes/cancel", json={}),
+                                              "AIG-03: only the owner cancels an agent"),
+    ("POST", "/v1/agents/{name}/resume"): Row(ONLY_OWNER, w.p_missing("/v1/agents/hermes/resume", json={}),
+                                              "AIG-03: an agent never resumes itself"),
     ("GET", "/v1/windows"): Row(READ_ANY, w.p_static("/v1/windows"), f"{_AUTOMATION}: any reader"),
     ("PUT", "/v1/windows/{window_id}"): Row(ONLY_OWNER, w.p_window_put, f"{_AUTOMATION}: only the owner edits windows"),
     # ---- backups and restores (an agent may request, never approve; reads are household only) ---------------
