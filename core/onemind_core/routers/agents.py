@@ -23,8 +23,9 @@ ORDER = 155  # right after actions: its approval guard must see the actions it r
 TAGS = ["agents"]
 
 # Scope rows are registered once, at import (#323): register() runs per app and must not grow the
-# global registry. PUT has no row: an unknown route needs every scope, so only the owner role reaches it.
+# global registry. PUT is owner only: its row asks for every scope.
 register_route_scope("GET,HEAD", r"/v1/agents/kill-switch", ("instance:read",))
+register_route_scope("PUT", r"/v1/agents/kill-switch", ("*",))
 
 
 class KillSwitch(BaseModel):

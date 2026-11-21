@@ -16,11 +16,15 @@ from ..context import Gateway
 from ..errors import ApiError, error_responses
 from ..files.access import HOME_ROLES
 from ..identity import ctx_of
+from ..identity.scopes import register_route_scope
 from ..smbshares import ShareService
 
 ORDER = 337
-# No scope rows on purpose: a scoped token falls to "full scope only", like the Files routes. People
-# reach these as themselves; the handlers check who may see and do what.
+# Rows ask for every scope (#323): a scoped token is refused, like the Files routes. People reach these
+# as themselves; the handlers check who may see and do what.
+register_route_scope("GET,HEAD", r"/v1/shares/smb", ("*",))
+register_route_scope("POST", r"/v1/shares/smb/password", ("*",))
+register_route_scope("POST", r"/v1/shares/smb/[^/]+/stop", ("*",))
 
 
 def register(app: FastAPI, gw: Gateway) -> None:

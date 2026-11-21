@@ -13,8 +13,12 @@ from ..auth import Principal
 from ..backups.service import Unavailable
 from ..context import Gateway
 from ..errors import ApiError, error_responses
+from ..identity.scopes import register_route_scope
 from ..ledger import utc
 from ..onboarding import OnboardingService
+
+# Owner only (#323): the row asks for every scope, the same answer as the fail-closed fallback.
+register_route_scope("GET", r"/v1/onboarding/state", ("*",))
 
 
 class OnboardingSettingsBody(BaseModel):

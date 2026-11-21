@@ -21,8 +21,13 @@ from starlette.requests import ClientDisconnect
 from ..auth import Principal
 from ..context import Gateway
 from ..errors import error_response, error_responses
+from ..identity.scopes import register_route_scope
 from ..photos import MAX_CHECK, PhotosError, PhotosRepository, PhotosService, PhotosSettings
 from ..photos.files import LibraryEscape
+
+# Owner only (#323): every scope, the same answer as the fail-closed fallback.
+register_route_scope("GET,HEAD", r"/v1/photos/library", ("*",))
+register_route_scope("GET,HEAD", r"/v1/photos/assets/[^/]+/content", ("*",))
 
 FLUSH_BYTES = 1024 * 1024
 HEX64 = r"^[0-9a-f]{64}$"
