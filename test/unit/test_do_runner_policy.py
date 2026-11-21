@@ -233,7 +233,7 @@ exit 0
 """
     GH = "#!/bin/sh\necho \"$*\" >> %(d)s/gh.log\nexit 0\n"
 
-    def run_kit(self, script, args, env_extra=None, droplets="", stdin=""):
+    def run_kit(self, script, args, env_extra=None, droplets="", stdin="", ssh_stub="#!/bin/sh\nexit 1\n"):
         with tempfile.TemporaryDirectory() as tmp:
             d = Path(tmp)
             (d / "doctl").write_text(self.DOCTL % {"d": tmp})
@@ -243,7 +243,7 @@ exit 0
             (d / "sleep").chmod(0o755)
             for tool in ("doctl", "gh", "ssh"):
                 if tool == "ssh":
-                    (d / tool).write_text("#!/bin/sh\nexit 1\n")
+                    (d / tool).write_text(ssh_stub)
                 (d / tool).chmod(0o755)
             env = {"PATH": f"{tmp}:/usr/bin:/bin:/opt/homebrew/bin:/usr/local/bin", "TMPDIR": tmp, **(env_extra or {})}
             r = subprocess.run(["bash", str(KIT / script), *args], env=env, input=stdin, capture_output=True, text=True,
@@ -295,6 +295,19 @@ exit 0
         self.assertIn("no ssh on onemind-do-1", r.stderr)
         self.assertIn("compute droplet delete --force 901", doctl)
         self.assertIn("compute firewall delete --force fw1", doctl)
+
+    def test_up_provisions_every_droplet_even_when_ssh_reads_stdin(self):
+        # Real ssh reads and forwards its stdin. If the provisioning loop's ssh calls inherit the loop's input, the
+        # first one eats the remaining droplet lines and only droplet 1 is provisioned (the rest bill, unused).
+        with tempfile.TemporaryDirectory() as logdir:
+            log = f"{logdir}/ssh.log"
+            stub = f'#!/bin/sh\necho "$*" >> {log}\ncat >/dev/null\nexit 0\n'
+            r, _, _ = self.run_kit("up", ["2", "c-16", "nyc3", "--no-run"], {**self.OK_ENV, "ASSUME_YES": "1"}, ssh_stub=stub)
+            calls = Path(log).read_text()
+        self.assertEqual(r.returncode, 0, r.stderr)
+        for ip in ("203.0.113.1", "203.0.113.2"):
+            self.assertRegex(calls, rf"root@{ip} sh /opt/onemind-ci/provision.sh", ip)
+        self.assertIn("provisioned 2 droplets", r.stdout + r.stderr)
 
     def test_a_signal_during_up_destroys_what_it_created(self):
         up = (KIT / "up").read_text()

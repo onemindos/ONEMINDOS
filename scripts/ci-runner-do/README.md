@@ -70,5 +70,7 @@ them: run `status`, then `down`. A cloud-side dead-man timer is not built (see "
   gcc, python3 and shellcheck; the jobs install the rest with their setup actions). UNVERIFIED until then.
 - `ubuntu:24.04` is pulled by tag; pin a digest after the first run.
 - SSH host keys are learned on first contact (accept-new), not pinned from the DO console.
+- If the operator's machine dies, `DO_RUNNER` stays `on`: jobs queue with no fallback until `down` is run or the
+  variable is cleared. Nothing on the droplets stops them but the idle guard.
 - A cloud-side dead-man timer (a DO function or scheduled destroy) for the case where the operator's machine dies.
 - Routing more jobs (the PostgreSQL shards need Docker service containers, so they stay hosted).

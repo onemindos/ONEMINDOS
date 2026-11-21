@@ -70,13 +70,15 @@ names=(); i=1; while [ "$i" -le "$n" ]; do names+=("onemind-do-$i"); i=$((i + 1)
 doctl compute droplet create "${names[@]}" --image "$(sed -n 's/^DO_IMAGE=//p' "$here/runner.pin")" --size "$size" \
   --region "$region" --ssh-keys "$DO_SSH_KEY" --tag-name "$TAG" --wait >/dev/null
 KNOWN_HOSTS=$(mktemp); export KNOWN_HOSTS
-while read -r _ name ip; do
+# The droplet list is read from fd 3, and every ssh that is not fed by a pipe gets </dev/null: ssh reads and forwards
+# its stdin, so a call that inherited the loop input would swallow the remaining droplet lines.
+while read -r _ name ip <&3; do
   log "$name: waiting for ssh"
-  k=0; until sshd "$ip" true 2>/dev/null; do k=$((k + 1)); [ "$k" -le 40 ] || { echo "no ssh on $name" >&2; exit 1; }; sleep 5; done
-  sshd "$ip" mkdir -p /opt/onemind-ci
+  k=0; until sshd "$ip" true </dev/null 2>/dev/null; do k=$((k + 1)); [ "$k" -le 40 ] || { echo "no ssh on $name" >&2; exit 1; }; sleep 5; done
+  sshd "$ip" mkdir -p /opt/onemind-ci </dev/null
   tar -C "$here" -cf - Dockerfile job-started.sh run-one.sh start-job.sh provision.sh runner.pin | sshd "$ip" tar -C /opt/onemind-ci -xf -
-  sshd "$ip" sh /opt/onemind-ci/provision.sh | sed "s/^/[$name] /"
-done < <(droplets)
+  sshd "$ip" sh /opt/onemind-ci/provision.sh </dev/null | sed "s/^/[$name] /"
+done 3< <(droplets)
 trap - EXIT INT TERM   # provisioned: from here the cycle loop (or down) owns the droplets
 log "provisioned $n droplets: \$$total per hour"
 if [ "$run" = 1 ]; then SLOTS=$slots exec "$here/cycle"; fi
