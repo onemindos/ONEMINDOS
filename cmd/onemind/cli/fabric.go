@@ -50,12 +50,38 @@ var (
 	}
 	collectFacts = func() (fabric.NodeFacts, error) {
 		st := detect.New().Collect(context.Background())
-		return fabric.NodeFacts{NodeID: st.NodeID, Hostname: hostLabel(st.Hostname), Board: st.Board, Arch: st.Arch,
+		name := st.Hostname
+		if n := seedName(seedStatePath); n != "" {
+			name = n
+		}
+		return fabric.NodeFacts{NodeID: st.NodeID, Hostname: hostLabel(name), Board: st.Board, Arch: st.Arch,
 			OS: map[string]string{"id": st.OS.ID, "version_id": st.OS.VersionID, "pretty": st.OS.Pretty}}, nil
 	}
 	isRoot   = func() bool { return os.Geteuid() == 0 }
 	pollWait = 3 * time.Second
 )
+
+// seedStatePath is firstboot's record of the seed (the name the owner chose for this machine).
+var seedStatePath = "/data/onemind/firstboot/state.json"
+
+// seedName returns the node name from the seed, or "" when there is none (the
+// default "OneMind" is not a choice, so the machine's own hostname is used).
+func seedName(path string) string {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+	var st struct {
+		Name string `json:"name"`
+	}
+	if json.Unmarshal(raw, &st) != nil {
+		return ""
+	}
+	if n := strings.TrimSpace(st.Name); n != "OneMind" {
+		return n
+	}
+	return ""
+}
 
 var labelRe = regexp.MustCompile(`[^A-Za-z0-9-]+`)
 
