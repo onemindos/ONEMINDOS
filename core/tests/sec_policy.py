@@ -379,6 +379,9 @@ POLICY |= {
                                 "desktop-ui.md 4.3: a person reads only their own Home; agents have none"),
     ("PUT", "/v1/me/home"): Row(grid(428, 428, 428, 428, 403), w.p_missing("/v1/me/home", json={}),
                                 "desktop-ui.md 4.3: a person writes only their own Home; If-Match is required"),
+    ("PATCH", "/v1/me"): Row(grid(403, 403, 403, 200, 403), w.p_missing("/v1/me", json={"display_name": "Probe"}),
+                             "a person with a stored account (the household child here) sets only their own display name; the static token "
+                             "probes have no account row to name (the signed-in 200 paths are in test_identity.py)", ID),
     # ---- apps, plans, databases -----------------------------------------------------------------------------
     ("GET", "/v1/databases"): Row(OWNER_ADULT, w.p_static("/v1/databases"), "owner and adult list databases; never a password"),
     ("GET", "/v1/apps/{app_id}/credentials"): Row(OWNER_ONLY_404, w.p_static(f"/v1/apps/{w.TARGET_APP}/credentials"),
