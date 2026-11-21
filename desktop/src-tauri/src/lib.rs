@@ -21,14 +21,20 @@ use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
+use tauri::Wry;
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, Rect, State, WebviewWindow, WindowEvent};
+use tauri_plugin_autostart::ManagerExt as AutostartExt;
 use tauri_plugin_notification::NotificationExt;
 use tauri_plugin_opener::OpenerExt;
 
 const POLL: Duration = Duration::from_secs(20);
 /// At most one event-triggered refresh per box per second.
 const WAKE_GAP: Duration = Duration::from_secs(1);
+
+/// The tray menu's first line ("Needs you: 3"). Linux trays show no title or tooltip text and send
+/// no click events, so the menu is where the count lives there.
+struct NeedsItem(MenuItem<Wry>);
 
 struct App {
     store: store::Store,
@@ -323,6 +329,21 @@ async fn manage_settings_save(app_handle: AppHandle, app: State<'_, App>, id: St
     Ok(out)
 }
 
+// ---- launch at login (opt-in, off until the person turns it on) ----
+
+/// Is OneMind set to start when this person logs in? An error reads as "no".
+#[tauri::command]
+fn autostart_get(app_handle: AppHandle) -> bool {
+    app_handle.autolaunch().is_enabled().unwrap_or(false)
+}
+
+#[tauri::command]
+fn autostart_set(app_handle: AppHandle, on: bool) -> Result<bool, String> {
+    let l = app_handle.autolaunch();
+    if on { l.enable() } else { l.disable() }.map_err(|_| "autostart_failed".to_string())?;
+    Ok(l.is_enabled().unwrap_or(on))
+}
+
 #[tauri::command]
 fn hide(window: WebviewWindow) {
     let _ = window.hide();
@@ -359,11 +380,11 @@ fn notify_new(app_handle: &AppHandle, b: &store::SavedBox, st: &api::Status) {
         return;
     }
     let app = app_handle.state::<App>();
-    let quiet_backlog = st.inbox.is_some() && app.inbox_primed.lock().unwrap().insert(b.id.clone());
+    let quiet_backlog = (st.inbox.is_some() || st.alerts.is_some()) && app.inbox_primed.lock().unwrap().insert(b.id.clone());
     let name = st.name.as_deref().unwrap_or(&b.name);
     let banners = {
         let mut seen = app.notified.lock().unwrap();
-        inbox::banners(&b.id, name, &st.pending, st.inbox.as_deref(), &mut seen, quiet_backlog)
+        inbox::banners(&b.id, name, &st.pending, st.inbox.as_deref(), st.alerts.as_deref(), &mut seen, quiet_backlog)
     };
     for x in banners {
         let _ = app_handle.notification().builder().title(plain(&x.title)).body(plain(&x.body)).show();
@@ -386,10 +407,18 @@ fn update_tray(app_handle: &AppHandle) {
     let pending: usize = last.values().map(|s| s.pending.len()).sum();
     let unread: usize = last.values().map(|s| s.inbox.as_ref().map_or(0, Vec::len)).sum();
     let down = last.values().filter(|s| !s.reachable).count();
+    let alerts: usize = last.values().map(|s| s.alerts.as_ref().map_or(0, |a| a.iter().filter(|x| x.state == "open").count())).sum();
+    let needs = pending + alerts;
+    if let Some(item) = app_handle.try_state::<NeedsItem>() {
+        let _ = item.0.set_text(if needs == 0 { "Nothing needs you".to_string() } else { format!("Needs you: {needs}") });
+    }
     if let Some(tray) = app_handle.tray_by_id("main") {
         let mut parts = Vec::new();
         if pending > 0 {
             parts.push(format!("{pending} waiting for approval"));
+        }
+        if alerts > 0 {
+            parts.push(format!("{alerts} open alert(s)"));
         }
         if unread > 0 {
             parts.push(format!("{unread} unread"));
@@ -400,7 +429,7 @@ fn update_tray(app_handle: &AppHandle) {
         let tip = if parts.is_empty() { "OneMind: nothing needs you".to_string() } else { format!("OneMind: {}", parts.join(", ")) };
         let _ = tray.set_tooltip(Some(&tip));
         #[cfg(target_os = "macos")]
-        let _ = tray.set_title(if pending > 0 { Some(pending.to_string()) } else { None::<String> });
+        let _ = tray.set_title(if needs > 0 { Some(needs.to_string()) } else { None::<String> });
     }
 }
 
@@ -541,6 +570,7 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, None))
         .setup(|app| {
             #[cfg(target_os = "macos")]
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
@@ -558,12 +588,14 @@ pub fn run() {
                 refreshing: Mutex::new(HashMap::new()),
             });
 
+            let needs = MenuItem::with_id(app, "needs", "Nothing needs you", true, None::<&str>)?;
+            app.manage(NeedsItem(needs.clone()));
             let show = MenuItem::with_id(app, "show", "Show OneMind", true, None::<&str>)?;
             let dash = MenuItem::with_id(app, "dashboard", "Open dashboard", true, None::<&str>)?;
             let files = MenuItem::with_id(app, "files", "Files", true, None::<&str>)?;
             let sep = PredefinedMenuItem::separator(app)?;
             let quit = MenuItem::with_id(app, "quit", "Quit OneMind", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&show, &dash, &files, &sep, &quit])?;
+            let menu = Menu::with_items(app, &[&needs, &show, &dash, &files, &sep, &quit])?;
 
             let icon = tauri::image::Image::from_bytes(include_bytes!("../icons/tray/44x44.png"))?;
             TrayIconBuilder::with_id("main")
@@ -571,11 +603,13 @@ pub fn run() {
                 .icon_as_template(true)
                 .tooltip("OneMind")
                 .menu(&menu)
-                .show_menu_on_left_click(false)
+                // Linux trays (StatusNotifier / AppIndicator) send no click events, so the menu
+                // opens on every click there and "Show OneMind" is how the popover is reached.
+                .show_menu_on_left_click(cfg!(target_os = "linux"))
                 .on_menu_event(|app, ev| {
                     let first = app.state::<App>().store.list().into_iter().next();
                     match ev.id().as_ref() {
-                        "show" => toggle_popover(app, None),
+                        "show" | "needs" => toggle_popover(app, None),
                         "dashboard" => {
                             if let Some(b) = first {
                                 let _ = app.opener().open_url(&b.url, None::<&str>);
@@ -643,6 +677,8 @@ pub fn run() {
             manage_settings_save,
             updates::update_check,
             updates::update_install,
+            autostart_get,
+            autostart_set,
             hide,
             quit
         ])

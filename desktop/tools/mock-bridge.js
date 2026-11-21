@@ -26,6 +26,13 @@
       { id: 'ntf_01', severity: 'critical', topic: 'backups', title: 'Backup failing', body: 'The USB disk is full. The last good backup is 26 hours old.', link: '/backups', action_id: null, created_at: new Date((now - 600) * 1000).toISOString(), read_at: null },
       { id: 'ntf_02', severity: 'info', topic: 'approvals', title: 'hermes asks to install home-assistant', body: '', link: '/approvals/e104c3e9', action_id: 'e104c3e9', created_at: new Date((now - 120) * 1000).toISOString(), read_at: null },
     ],
+    // Preview fixtures for the routes added with the companion parity work (shapes from api.rs parse_*).
+    alerts: [
+      { id: 'alr_01', severity: 'critical', title: 'Backup disk is almost full', state: 'open', link: '/backups' },
+      { id: 'alr_02', severity: 'warning', title: 'Photos app restarted twice today', state: 'open', link: '/alerts' },
+    ],
+    os: { version: '0.4.1', booted_slot: 'A', state: 'idle', available_version: '0.4.2', nodes: 1 },
+    storage: { available: true, state: 'healthy', used_bytes: 412e9, total_bytes: 2e12, members: 2, missing: 0, needs_scrub: false },
     updates: { nodes_reporting: 3, available: 1, security: false },
     backups: { health: 'verified', last_success_at: new Date((now - 3 * 3600) * 1000).toISOString() },
     fetched_at: now - 4,
@@ -33,7 +40,7 @@
   const boxes = {
     status: [{ id: 'a1b2c3d4e5f6', name: 'Home box', url: 'https://onemind.local:8080', insecure: false, has_token: true, status }],
     calm: [{ id: 'a1b2c3d4e5f6', name: 'Home box', url: 'https://onemind.local:8080', insecure: false, has_token: true,
-      status: { ...status, pending: [], inbox: [], updates: null, backups: null } }],
+      status: { ...status, pending: [], inbox: [], alerts: null, os: null, storage: null, updates: null, backups: null } }],
     down: [{ id: 'a1b2c3d4e5f6', name: 'Home box', url: 'http://onemind.local:8080', insecure: true, has_token: true,
       status: { ...status, reachable: false, error: 'unreachable', pending: [], fetched_at: now - 200 } }],
   }[scene] || [];
@@ -55,7 +62,10 @@
   };
   const inboxAll = [...status.inbox, { id: 'ntf_00', severity: 'warning', topic: 'updates', title: 'Security update ready', body: 'OneMind OS 0.1.20261112 fixes 2 issues.', link: '/updates', action_id: null, created_at: new Date((now - 86400) * 1000).toISOString(), read_at: new Date((now - 80000) * 1000).toISOString() }];
   const found = [{ name: 'Home box', url: 'http://onemind.local:8080', instance_id: 'demo', via: 'mdns' }];
+  let autostart = false;
   const handlers = {
+    autostart_get: () => autostart,
+    autostart_set: ({ on }) => (autostart = on),
     list_boxes: () => boxes,
     // Scene `update`: an offer is shown; installing does nothing in the preview.
     update_check: () => ({ configured: scene === 'update', channel: 'stable', current: '0.1.0', available: scene === 'update' ? { version: '0.2.0', current: '0.1.0', notes: 'Approvals show the exact plan.\nFixes a tray crash on Windows.', date: null } : null }),

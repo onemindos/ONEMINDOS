@@ -149,3 +149,52 @@ test('updateStrip: dev channel is named, long notes are cut, non-text notes drop
   assert.equal(u.notes.length, 600);
   assert.equal(updateStrip({ configured: true, channel: 'stable', available: { version: '1.0.0', notes: { a: 1 } } }).notes, '');
 });
+
+import { backupRow, bytesText, healthRows, needsYou, osRow, storageRow } from '../src/format.js';
+
+test('needs you lists approvals first, then open alerts worst first, and skips acknowledged ones', () => {
+  const st = {
+    pending: [{ id: 'a1', kind: 'app.install', target: 'ntfy', requested_by: 'hermes' }],
+    alerts: [
+      { id: 'w', severity: 'warning', title: 'Slow disk', state: 'open' },
+      { id: 'c', severity: 'critical', title: 'Disk failing', state: 'open', link: '/storage' },
+      { id: 'k', severity: 'critical', title: 'Seen already', state: 'acknowledged' },
+    ],
+  };
+  const n = needsYou(st);
+  assert.equal(n.count, 3);
+  assert.deepEqual(n.items.map((i) => i.id), ['a1', 'c', 'w']);
+  assert.equal(n.items[1].link, '/storage');
+  assert.equal(n.items[2].link, '/alerts');
+  assert.equal(n.alertsServed, true);
+});
+
+test('needs you says the alerts route is absent when the box did not serve it', () => {
+  const n = needsYou({ pending: [], alerts: null });
+  assert.deepEqual([n.count, n.alertsServed], [0, false]);
+});
+
+test('os row shows the booted slot and never claims up to date while an update is busy or offered', () => {
+  assert.equal(osRow({ os: null }), null);
+  const base = { version: '0.4.1', booted_slot: 'A', state: 'idle', available_version: null };
+  assert.deepEqual([osRow({ os: base }).tone, osRow({ os: base }).value], ['ok', 'v0.4.1 · slot A']);
+  assert.equal(osRow({ os: { ...base, available_version: '0.4.2' } }).tone, 'warn');
+  assert.equal(osRow({ os: { ...base, state: 'installing' } }).tone, 'warn');
+  assert.equal(osRow({ os: { ...base, state: 'rolled_back' } }).tone, 'bad');
+});
+
+test('storage row hides without managed storage and is never green with a missing disk', () => {
+  assert.equal(storageRow({ storage: null }), null);
+  assert.equal(storageRow({ storage: { available: false } }), null);
+  const ok = { available: true, state: 'healthy', used_bytes: 400e9, total_bytes: 2e12, members: 2, missing: 0, needs_scrub: false };
+  assert.equal(storageRow({ storage: ok }).value, '400 GB of 2.0 TB');
+  assert.equal(storageRow({ storage: { ...ok, missing: 1 } }).tone, 'bad');
+  assert.equal(storageRow({ storage: { ...ok, state: 'degraded' } }).tone, 'warn');
+});
+
+test('health rows hide what the box does not report and bytes read plainly', () => {
+  assert.deepEqual(healthRows({ os: null, backups: null, storage: null }), []);
+  assert.equal(backupRow({ backups: { health: 'failing', last_success_at: null } }).tone, 'bad');
+  assert.equal(bytesText(999), '999 B');
+  assert.equal(bytesText(1500), '1.5 KB');
+});
