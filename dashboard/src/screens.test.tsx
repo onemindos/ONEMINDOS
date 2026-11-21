@@ -87,7 +87,9 @@ describe('Market and the install loop', () => {
 
   it('an adult can look but is told they cannot request', async () => {
     renderApp({ token: 'adult-demo', route: '/market' });
-    expect(await screen.findByText(/can look but not request installs/, {}, T)).toBeInTheDocument();
+    // The notice shows once as a banner and again as the reason on each card whose request is blocked (#531).
+    expect((await screen.findAllByText(/can look but not request installs/, {}, T)).length).toBeGreaterThan(0);
+    screen.getAllByRole('button', { name: /^Request install/ }).forEach((b) => expect(b).toBeDisabled());
   });
 });
 
