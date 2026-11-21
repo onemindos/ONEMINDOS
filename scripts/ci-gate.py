@@ -28,7 +28,7 @@ import urllib.parse
 import urllib.request
 
 INFORMATIONAL = frozenset({
-    "api-fuzz", "go-fuzz", "perf-smoke", "security-nightly", "net-2vm", "apps-gate-all",
+    "api-fuzz", "go-fuzz", "perf-smoke", "security-nightly", "net-2vm", "apps-gate-all", "restore-drill",
 })
 PASSING = frozenset({"success", "skipped", "neutral"})
 # Runs older than this, measured from the gate's own start, belong to an earlier event on the same
