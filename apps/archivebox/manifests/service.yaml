@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: Apache-2.0
+# Web UI on Service port 5797 (the port upstream uses).
+apiVersion: v1
+kind: Service
+metadata:
+  name: archivebox
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: archivebox
+  ports:
+  - name: http
+    port: 5797
+    targetPort: http
+    protocol: TCP

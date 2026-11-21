@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: Apache-2.0
+# Downloaded Argos Translate language models; the size depends on LT_LOAD_ONLY (one model per
+# direction, e.g. en->es and es->en).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: libretranslate-models
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
