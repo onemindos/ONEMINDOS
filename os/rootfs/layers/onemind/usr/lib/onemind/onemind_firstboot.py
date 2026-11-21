@@ -1001,6 +1001,9 @@ current-context: onemind-gateway
 """
 
 
+KUBECONFIG_POLL_S = 2  # k3s issues the token seconds after the API is up; 10 s polls added up to 10 s
+
+
 def kubeconfig(p: Paths, timeout: int = 3600) -> int:
     """The gateway's ServiceAccount (manifests/onemind-gateway.yaml) -> its own kubeconfig."""
     dst = os.path.join(p.gateway, "kubeconfig")
@@ -1018,7 +1021,7 @@ def kubeconfig(p: Paths, timeout: int = 3600) -> int:
             write(dst, KUBECONFIG.format(ca=r2.stdout.strip(), token=tok), 0o600, onemind_ids())
             log("gateway kubeconfig written")
             return 0
-        time.sleep(10)
+        time.sleep(KUBECONFIG_POLL_S)
     log("k3s did not issue the gateway's ServiceAccount token in time")
     return 1
 

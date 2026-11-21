@@ -482,29 +482,53 @@ def cmd_sims(a):
 
 def check_ready(api, token, done, addons):
     """Fill `done` (milestone -> uptime seconds) with each readiness milestone reached now."""
-    up = uptime()
+    # Stamp each milestone with the uptime when ITS check passed, not one value taken at the top of
+    # the pass: a kubectl call can take 20 s, which made four milestones read the same number.
     if "k3s_node_ready" not in done:
         d = kubectl_json("get", "nodes", timeout=20)
         if d and d.get("items") and all(is_ready(n) for n in d["items"]):
-            done["k3s_node_ready"] = up
+            done["k3s_node_ready"] = uptime()
     if "k3s_addons_available" not in done and "k3s_node_ready" in done:
         d = kubectl_json("-n", "kube-system", "get", "deployments", timeout=20)
         avail = {x["metadata"]["name"] for x in (d or {}).get("items", [])
                  if x.get("status", {}).get("availableReplicas", 0) >= x.get("spec", {}).get("replicas", 1)}
         if set(addons) <= avail:
-            done["k3s_addons_available"] = up
+            done["k3s_addons_available"] = uptime()
     if "gateway_healthz" not in done and api.call("GET", "/healthz")[0] == 200:
-        done["gateway_healthz"] = up
+        done["gateway_healthz"] = uptime()
     if token and "hub_node_online" not in done and "gateway_healthz" in done:
         st, inst, _ = api.call("GET", "/v1/instance")
         st2, nodes, _ = api.call("GET", "/v1/nodes")
         hub = (inst or {}).get("hub_node_id")
         if st == st2 == 200 and isinstance(nodes, list) and any(
                 isinstance(n, dict) and n.get("node_id") == hub and n.get("status") == "online" for n in nodes):
-            done["hub_node_online"] = up
+            done["hub_node_online"] = uptime()
+
+
+BOOT_UNITS = ("network-online.target", "onemind-firstboot.service", "onemind-nats.service", "k3s.service",
+              "onemind-gateway.service", "onemindd.service")
+
+
+def unit_active_times(units=BOOT_UNITS):
+    """unit -> seconds since boot when systemd marked it active (None if it never was).
+
+    Read from systemd, not from this probe, so a late-starting probe cannot hide which unit
+    held the boot up.
+    """
+    out = {}
+    for u in units:
+        r = subprocess.run(["systemctl", "show", "-p", "ActiveEnterTimestampMonotonic", "--value", u],
+                           capture_output=True, text=True)
+        try:
+            us = int(r.stdout.strip() or 0)
+        except ValueError:
+            us = 0
+        out[u] = round(us / 1e6, 1) if us > 0 else None
+    return out
 
 
 def cmd_ready(a):
+    probe_start = uptime()
     token = read_token(a.token_file) if a.token_file else None
     api = Api(a.url, token, timeout=10)
     want = {"k3s_node_ready", "k3s_addons_available", "gateway_healthz"} | ({"hub_node_online"} if token else set())
@@ -515,9 +539,10 @@ def cmd_ready(a):
             sys.exit(f"perf: not ready after {a.timeout} s; missing {sorted(want - set(done))}")
         time.sleep(1)
     rep = {"kind": "ready", "boot": a.boot, "milestones_uptime_s": {k: round(v, 1) for k, v in done.items()},
-           "waited_s": round(time.monotonic() - t0, 1)}
+           "waited_s": round(time.monotonic() - t0, 1), "probe_started_uptime_s": round(probe_start, 1)}
     if a.boot:  # uptime counts from kernel start; firmware/bootloader time is not in it
         rep["boot_to_ready_s"] = round(max(done.values()), 1)
+        rep["units_active_uptime_s"] = unit_active_times()
         rep["systemd_analyze"] = first_line(["systemd-analyze", "time"])
     log(f"ready: {rep['milestones_uptime_s']}")
     if a.out:
@@ -532,8 +557,10 @@ def cmd_boot_probe(a):
 # Written by test/perf/perf.py boot-probe (throwaway test hubs only).
 [Unit]
 Description=OneMind perf: record boot-to-ready
-After=network-online.target
-Wants=network-online.target
+# Not after network-online.target: the probe must start as early as it can, or its first look
+# is the first milestone it can see (every milestone then reads the same late uptime).
+DefaultDependencies=no
+After=local-fs.target onemind-data-layout.service
 
 [Service]
 Type=exec
