@@ -118,7 +118,7 @@ def keep_recovery_key(key):
 
 def first_boot_encrypt(node, has_tpm, runner=run, rand=os.urandom):
     """Blank partition -> LUKS2 + ext4 + recovery key (+ TPM2). Returns {'recovery_key', 'tpm2'}.
-    On any failure the partition is wiped back to blank (it held nothing) so the next boot retries."""
+    On any failure the partition is wiped (signatures, then the first 16 MiB zeroed) back to blank (it held nothing) so the next boot retries."""
     dev = "/dev/mapper/" + NAME
     fd = os.open(KEYFILE, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     with os.fdopen(fd, "wb") as f:
