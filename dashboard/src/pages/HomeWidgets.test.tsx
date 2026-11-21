@@ -6,7 +6,7 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { App } from '../App';
 import { DEMO_TOKENS } from '../api/fixtures';
 import { MockApi } from '../api/mock';
-import { backupsFromStatus, meshFromHub, updatesFromHub } from '../data/homeExtras';
+import { backupsFromStatus, meshFromHub, osUpdatesFromHub, updatesFromHub } from '../data/homeExtras';
 import { SessionProvider } from '../session';
 
 const NOW = '2026-11-21T10:00:00Z';
@@ -47,4 +47,22 @@ it('maps backups, updates and mesh without inventing values', () => {
   expect(m.links).toEqual([{ hostname: 'node-n1', via: 'mesh', state: 'up' }, { hostname: 'w', via: 'mesh', state: 'degraded' }]);
   expect(m.remote_access).toBe('mesh');
   expect(meshFromHub({ nodes: [] }, NOW).remote_access).toBe('off');
+});
+
+it('keeps Home mounted and shows a widget error when /v1/os/updates has no nodes array', async () => {
+  vi.stubGlobal('fetch', vi.fn(async (url: string | URL | Request) => {
+    const path = new URL(String(url)).pathname;
+    if (path === '/v1/backups/status') return response(backupStatus);
+    if (path === '/v1/os/updates') return response({});
+    if (path === '/v1/mesh') return response({ nodes: [], control: { state: 'off' } });
+    return response({ error: 'not_found', message: path }, 404);
+  }));
+  window.sessionStorage.setItem('onemind.token', 'owner-demo');
+  render(<MemoryRouter initialEntries={['/']}><SessionProvider deps={{ mock: false, makeApi: () => new MockApi('owner-demo'), knownPrincipal: () => DEMO_TOKENS['owner-demo'] }}><App mock={false} /></SessionProvider></MemoryRouter>);
+  expect(await screen.findByText(/invalid update status/i, {}, { timeout: 4000 })).toBeInTheDocument();
+  expect(await screen.findByText('Restore verified')).toBeInTheDocument();
+});
+
+it('osUpdatesFromHub rejects a payload without nodes', () => {
+  expect(() => osUpdatesFromHub({}, NOW)).toThrow(/invalid/);
 });

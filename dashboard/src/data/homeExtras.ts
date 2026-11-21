@@ -23,7 +23,10 @@ export function backupsFromStatus(raw: unknown, observedAt: string): BackupStatu
   return { last_run: str(s.last_success_at), last_verified_restore: str(s.last_verified_restore_at), destinations: [], observed_at: observedAt };
 }
 
-export function updatesFromHub(rawOs: unknown, apps: HomeApp[] | undefined, observedAt: string): UpdatesStatus {
+type OsUpdates = Pick<UpdatesStatus, 'os' | 'checked_at'>;
+
+/** Validates the hub's OS update payload. Throws on a bad shape, so call it inside the poll fn. */
+export function osUpdatesFromHub(rawOs: unknown, observedAt: string): OsUpdates {
   const s = rec(rawOs, 'update status');
   if (!Array.isArray(s.nodes)) throw new Error('The hub returned an invalid update status.');
   const nodes = s.nodes.map((n) => rec(n, 'update status'));
@@ -31,9 +34,17 @@ export function updatesFromHub(rawOs: unknown, apps: HomeApp[] | undefined, obse
   const checks = nodes.map((n) => str(n.last_check)).filter((x): x is string => !!x).sort();
   return {
     os: offer ? { from: str(offer.current_version) ?? 'current', to: str(offer.available_version)!, channel: offer.channel === 'security' ? 'security' : 'stable' } : null,
-    apps: (apps ?? []).filter((a) => a.update_available).map((a) => ({ app_id: a.id, from: a.version, to: a.update_available! })),
     checked_at: checks.length ? checks[checks.length - 1]! : observedAt,
   };
+}
+
+/** Pure, non-throwing: adds the app updates from the apps list to the validated OS part. */
+export function withAppUpdates(os: OsUpdates, apps: HomeApp[] | undefined): UpdatesStatus {
+  return { ...os, apps: (apps ?? []).filter((a) => a.update_available).map((a) => ({ app_id: a.id, from: a.version, to: a.update_available! })) };
+}
+
+export function updatesFromHub(rawOs: unknown, apps: HomeApp[] | undefined, observedAt: string): UpdatesStatus {
+  return withAppUpdates(osUpdatesFromHub(rawOs, observedAt), apps);
 }
 
 export function meshFromHub(raw: unknown, observedAt: string): MeshStatus {
@@ -74,9 +85,9 @@ export function useHomeExtras(apps: HomeApp[] | undefined, observedAt: string) {
   const sdk = useMemo(() => new OneMind({ baseUrl: window.location.origin, token, retries: 1 }), [token]);
   const interval = mock ? 0 : 30_000;
   const backups = usePoll(async () => (mock ? (undefined as never) : backupsFromStatus(await get(sdk, '/v1/backups/status'), observedAt)), interval);
-  const os = usePoll(async () => (mock ? (undefined as never) : await get(sdk, '/v1/os/updates')), interval);
+  const os = usePoll(async () => (mock ? (undefined as never) : osUpdatesFromHub(await get(sdk, '/v1/os/updates'), observedAt)), interval);
   const mesh = usePoll(async () => (mock ? (undefined as never) : meshFromHub(await get(sdk, '/v1/mesh'), observedAt)), interval);
   if (mock) return { backups: DEMO('backups'), updates: DEMO('updates'), mesh: DEMO('network links') };
-  const updates: HomeLoadable<UpdatesStatus> = os.data !== undefined ? { state: 'ready', data: updatesFromHub(os.data, apps, observedAt) } : toLoadable(os as Polled<UpdatesStatus>);
+  const updates: HomeLoadable<UpdatesStatus> = os.data !== undefined ? { state: 'ready', data: withAppUpdates(os.data, apps) } : toLoadable(os as unknown as Polled<UpdatesStatus>);
   return { backups: toLoadable(backups), updates, mesh: toLoadable(mesh) };
 }
