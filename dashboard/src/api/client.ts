@@ -2,6 +2,7 @@
 import type { WiringApi } from './wiring';
 import type * as W from './wiring';
 import { OneMind, OneMindError, type operations } from '@onemind/sdk';
+import type { FabricSummary, JoinTicket, MeshView } from '@onemind/ui';
 import {
   ApiError,
   type Action,
@@ -32,6 +33,13 @@ export interface OneMindApi extends WiringApi {
   /** MACH-01: absent on the mock gateway, which has no machines. */
   machines?(): Promise<MachineRecord[]>;
   machineCapabilities?(): Promise<MachineCapabilities>;
+  /** CORE-FABRIC: mesh and fabric reads, the owner's one-time join ticket, the box CA. Absent on the mock gateway. */
+  meshView?(): Promise<MeshView>;
+  fabricSummary?(): Promise<FabricSummary>;
+  tlsInfo?(): Promise<TlsInfo>;
+  createJoinTicket?(role: 'worker' | 'leaf'): Promise<JoinTicket>;
+  /** Where the open box CA certificate is served (GET /v1/tls/ca.crt); a plain link, no token needed. */
+  caCertUrl?(format: 'der' | 'pem'): string;
   appPlan?(id: string): Promise<PlanPreview>;
   previewAction?(type: ActionType, params: AppParams): Promise<PlanPreview>;
   appSettings?(id: string): Promise<AppSettings>;
@@ -50,6 +58,9 @@ export interface OneMindApi extends WiringApi {
   /** Hub clock minus browser clock (ms), learned from responses; undefined until known. */
   hubOffsetMs(): number | undefined;
 }
+
+/** GET /v1/tls (core routers/net.py). */
+export interface TlsInfo { ca_sha256: string; names: string[]; not_after: string | null; https: boolean }
 
 export interface FirstRunSettingsBody {
   box_name: string;
@@ -216,6 +227,16 @@ export class HttpApi implements OneMindApi {
       if (e instanceof OneMindError) throw new ApiError(e.status, KNOWN_CODES.has(e.code) || e.code === 'network' ? e.code as ApiError['code'] : 'unknown', e.message, e.reason);
       throw e;
     }
+  }
+  meshView() { return this.sdkCall<MeshView>('GET', '/v1/mesh'); }
+  fabricSummary() { return this.sdkCall<FabricSummary>('GET', '/v1/fabric'); }
+  tlsInfo() { return this.sdkCall<TlsInfo>('GET', '/v1/tls'); }
+  caCertUrl(format: 'der' | 'pem') { return `${this.base}/v1/tls/ca.crt?format=${format}`; }
+  /** One POST, never retried: a second ticket would be a second live join code. The code is returned once. */
+  async createJoinTicket(role: 'worker' | 'leaf') {
+    const t = await this.sdkCall<JoinTicket>('POST', '/v1/fabric/join-tickets', { role });
+    if (typeof t.ticket_id !== 'string' || t.role !== role || typeof t.qr_payload !== 'string' || typeof t.hub_ca_sha256 !== 'string' || !Number.isFinite(Date.parse(t.expires_at)) || typeof t.one_time?.join_code !== 'string') throw new ApiError(201, 'unknown', 'Invalid gateway join ticket');
+    return t;
   }
   machines() { return this.req<MachineRecord[]>('GET', '/v1/machines', undefined, 'array'); }
   machineCapabilities() { return this.req<MachineCapabilities>('GET', '/v1/machines/capabilities'); }
