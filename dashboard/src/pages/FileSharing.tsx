@@ -40,7 +40,7 @@ export function FileSharing() {
 }
 
 function LiveSharing({ token }: { token: string }) {
-  const { canDecide } = useSignedIn();
+  const { canDecide, principal } = useSignedIn();
   const client = useMemo(() => new OneMind({ baseUrl: window.location.origin, token, retries: 1 }), [token]);
   const status = usePoll(async () => {
     const s = record(await call(client, 'GET', '/v1/shares/smb'), 'file sharing status');
@@ -51,9 +51,10 @@ function LiveSharing({ token }: { token: string }) {
   const [busy, setBusy] = useState(false);
   const [size, setSize] = useState(String(SIZES[2]));
   const [confirming, setConfirming] = useState<string>();
+  const [secret, setSecret] = useState<{ user: string; password: string }>();
 
   const run = async (job: () => Promise<void>, what: string) => {
-    setBusy(true); setFailed(undefined); setFiled(undefined);
+    setBusy(true); setFailed(undefined); setFiled(undefined); setSecret(undefined);
     try { await job(); void status.reload(); } catch (e) { setFailed(`${what}: ${e instanceof Error ? e.message : String(e)}`); } finally { setBusy(false); }
   };
   const request = (kind: 'home' | 'timemachine', personId: string) => run(async () => {
@@ -64,6 +65,11 @@ function LiveSharing({ token }: { token: string }) {
     if (typeof a.id !== 'string' || typeof a.state !== 'string') throw new Error('The hub returned an invalid action.');
     setFiled({ id: a.id, state: a.state });
   }, 'Could not file the request');
+  const newPassword = () => run(async () => {
+    const r = record(await call(client, 'POST', '/v1/shares/smb/password'), 'password');
+    if (typeof r.user !== 'string' || typeof r.password !== 'string') throw new Error('The hub returned an invalid password.');
+    setSecret({ user: r.user, password: r.password });
+  }, 'Could not set the password');
   const stop = (id: string) => run(async () => { await call(client, 'POST', `/v1/shares/smb/${encodeURIComponent(id)}/stop`); setConfirming(undefined); }, 'Could not stop sharing');
 
   return <div className="dash-stack">
@@ -74,14 +80,20 @@ function LiveSharing({ token }: { token: string }) {
     <Load res={status} what="Loading file sharing">{(s) => {
       const available = s.service.available === true;
       const owner = canDecide === 'yes';
+      const mine = s.shares.some((sh) => sh.person_id === principal?.id && sh.state === 'active');
       return <>
         {!available && <p className="om-note om-tone-warn" role="note">File sharing is not available yet: {text(s.service.message, 'the box reports no file-sharing service.')}</p>}
+        {available && mine && <Card title="Open your files from another computer">
+          <p>Mac: Finder, Go, Connect to Server. Windows: File Explorer, Map network drive. Use your account name <code>{text(principal?.id === undefined ? undefined : s.shares.find((sh) => sh.person_id === principal.id)?.name, '')}</code> and an SMB password; SMB cannot use passkeys, so this password is separate and only for file sharing.</p>
+          <Button disabled={busy} onClick={() => void newPassword()}>Set a new SMB password for me</Button>
+          {secret && <p role="status">Your SMB password for <code>{secret.user}</code> is <code>{secret.password}</code>. It is shown once and cannot be looked up again; setting a new one replaces it.</p>}
+        </Card>}
         {available && !owner && <p role="note">An owner turns sharing on; you can see your own shares here.</p>}
         {s.shares.length === 0 ? <p>Nothing is shared.</p> : <Card title="Shares">
           <ul aria-label="Shares">{s.shares.map((sh) => {
             const id = text(sh.id); const name = text(sh.name);
             return <li key={id}>
-              {name} · {sh.kind === 'timemachine' ? `Time Machine for ${text(sh.person_id)}${typeof sh.quota_bytes === 'number' ? `, up to ${Math.round(sh.quota_bytes / GIB)} GB` : ''}` : `${text(sh.person_id)}'s files`} · {text(sh.state)}
+              {name} · smb://{window.location.hostname}/{name} · {sh.kind === 'timemachine' ? `Time Machine for ${text(sh.person_id)}${typeof sh.quota_bytes === 'number' ? `, up to ${Math.round(sh.quota_bytes / GIB)} GB` : ''}` : `${text(sh.person_id)}'s files`} · {text(sh.state)}
               {owner && (confirming === id
                 ? <> <Button disabled={busy} onClick={() => void stop(id)}>Confirm stop sharing {name}</Button> <Button variant="ghost" onClick={() => setConfirming(undefined)}>Keep sharing</Button></>
                 : <> <Button disabled={busy} onClick={() => setConfirming(id)}>Stop sharing {name}</Button></>)}

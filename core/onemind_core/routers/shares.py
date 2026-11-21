@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Network shares (FILES-SHARE-01, #235): `GET /v1/shares/smb` and `POST /v1/shares/smb/{id}/stop`.
+"""Network shares (FILES-SHARE-01, #235): `GET /v1/shares/smb`, `POST /v1/shares/smb/{id}/stop` and `POST /v1/shares/smb/password`.
 
 Turning a share on is the `files.share.create` action, requested through `POST /v1/actions` and
 approved by an owner (smbshares.py). Until the box has a file-sharing service the list says
@@ -9,6 +9,7 @@ approved by an owner (smbshares.py). Until the box has a file-sharing service th
 from __future__ import annotations
 
 from fastapi import Depends, FastAPI
+from fastapi.responses import JSONResponse
 
 from ..auth import Principal
 from ..context import Gateway
@@ -47,3 +48,10 @@ def register(app: FastAPI, gw: Gateway) -> None:
             gw.audit.append("authz.denied", p.as_dict(), None, {"attempted": "remove a share", "reason": "permission_denied"})
             raise ApiError(403, "permission_denied", "only an owner may remove a share")
         return svc.remove(share_id, p)
+
+    @app.post("/v1/shares/smb/password", tags=["files"], operation_id="shares.smb.password",
+              responses=error_responses(401, 403, 409))
+    def shares_password(p: Principal = Depends(gw.principal)):
+        """A new SMB password for you, shown once. Replaces the old one; only people with a share of their own."""
+        out = svc.new_password(person(p))
+        return JSONResponse(out, headers={"Cache-Control": "no-store"})

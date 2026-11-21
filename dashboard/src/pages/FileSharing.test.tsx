@@ -68,6 +68,27 @@ it('lists shares and stops one only after a second click', async () => {
   expect(fetch.mock.calls.map(([u]) => new URL(String(u)).pathname).filter((p) => p.endsWith('/stop'))).toEqual(['/v1/shares/smb/shr_1/stop']);
 });
 
+it('shows how to connect and sets an SMB password that is shown once', async () => {
+  let n = 0;
+  mount((method, path) => {
+    if (method === 'POST' && path === '/v1/shares/smb/password') { n += 1; return response({ user: 'owner', password: `abcd-efgh-jkmn-pqr${n}`, shown_once: true }); }
+    return response(shared);
+  });
+  const user = userEvent.setup();
+  expect(await screen.findByText(/smb:\/\/localhost\/owner/)).toBeInTheDocument();
+  await user.click(await screen.findByRole('button', { name: 'Set a new SMB password for me' }));
+  expect(await screen.findByText('abcd-efgh-jkmn-pqr1')).toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: 'Set a new SMB password for me' }));
+  expect(await screen.findByText('abcd-efgh-jkmn-pqr2')).toBeInTheDocument();
+  expect(screen.queryByText('abcd-efgh-jkmn-pqr1')).not.toBeInTheDocument();
+});
+
+it('offers no password and no connect card when nothing of mine is shared', async () => {
+  mount(() => response(on));
+  await screen.findByRole('button', { name: "Ask to share owner's files" });
+  expect(screen.queryByRole('button', { name: /SMB password/ })).not.toBeInTheDocument();
+});
+
 it('shows a refused request', async () => {
   mount((method) => method === 'POST' ? response({ error: 'policy_refused', message: 'owner already has this share (owner).' }, 409) : response(on));
   await userEvent.setup().click(await screen.findByRole('button', { name: "Ask to share owner's files" }));
