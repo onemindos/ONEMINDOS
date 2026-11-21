@@ -11,19 +11,25 @@ import { t } from '../i18n';
 import { usePoll } from '../lib/hooks';
 import { formatAgo, secondsSince } from '../lib/time';
 import { href } from '../shell/routes';
+import { useShell } from '../shell/Shell';
 import { useSignedIn } from '../session';
 import { Load, useRun } from './parts';
 
 const TONE: Record<Severity, Tone> = { info: 'info', warning: 'warn', critical: 'bad' };
 
 export function Alerts() {
-  const { api, principal } = useSignedIn();
+  const { api } = useSignedIn();
+  const shell = useShell();
   const hub = useHub();
   const run = useRun();
   const toast = useToast();
   const summary = usePoll(() => api.monitoring(), 30_000);
   const alerts = usePoll(() => api.alerts('open'), 15_000);
-  const isOwner = principal?.role === 'owner' || hub.canDecide === 'unknown';
+  // Buttons follow the scopes from GET /v1/me (session.tsx): Acknowledge is for owners and adults,
+  // Resolve for the owner only, Ask to fix for anyone who may file a request.
+  const canAck = shell.view === 'pro';
+  const canResolve = hub.canDecide === 'yes';
+  const canAsk = hub.canRequest !== 'no';
 
   const fix = (a: AlertInfo) =>
     void run(async () => {
@@ -63,22 +69,22 @@ export function Alerts() {
                       {a.flapping ? ', keeps flapping' : ''}
                     </p>
                     <div className="dash-actions">
-                      {a.state === 'open' && (
+                      {a.state === 'open' && canAck && (
                         <Button size="sm" variant="secondary" aria-label={t('alerts.ack', { title: a.title })} onClick={() => void run(async () => { await api.ackAlert(a.id); await alerts.reload(); }, t('alerts.ack', { title: a.title }))}>
                           Acknowledge
                         </Button>
                       )}
-                      {a.fix && (
+                      {a.fix && canAsk && (
                         <Button size="sm" variant="primary" aria-label={t('alerts.fix', { title: a.title })} onClick={() => fix(a)}>
                           Ask to fix
                         </Button>
                       )}
-                      {isOwner && (
+                      {canResolve && (
                         <Button size="sm" variant="ghost" aria-label={t('alerts.resolve', { title: a.title })} onClick={() => void run(async () => { await api.resolveAlert(a.id); await alerts.reload(); }, t('alerts.resolve', { title: a.title }))}>
                           Resolve
                         </Button>
                       )}
-                      {a.fix && <Link to={href.approvals}>Open Approvals</Link>}
+                      {a.fix && canAsk && <Link to={href.approvals}>Open Approvals</Link>}
                     </div>
                   </Card>
                 </li>

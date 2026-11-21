@@ -10,7 +10,10 @@ export const PRO_ROLES: ReadonlySet<string> = new Set(['owner', 'adult']);
 
 /** Nav ids (routes.ts navId) of the Pro screens: Nodes, Control Hub, AI & Agents, and System
  * (Storage, Backups, OS updates). */
-export const PRO_SCREENS: ReadonlySet<string> = new Set(['nodes', 'control-hub', 'agents', 'storage', 'backups', 'automation', 'updates']);
+export const PRO_SCREENS: ReadonlySet<string> = new Set(['nodes', 'control-hub', 'agents', 'storage', 'backups', 'automation', 'updates', 'machines', 'alerts']);
+
+/** Screens a guest or child is not offered at all: they cannot decide anything, so no Approvals. */
+export const SIMPLE_HIDDEN: ReadonlySet<string> = new Set(['approvals']);
 
 export type View = 'pro' | 'simple' | 'unknown';
 
@@ -28,6 +31,7 @@ export function roleOf(principal: Principal | undefined, me: Me | undefined): st
 
 /** Is this nav item shown to this view? Pro screens stay hidden until the role is known. */
 export function showsNav(id: string, view: View): boolean {
+  if (view === 'simple' && SIMPLE_HIDDEN.has(id)) return false;
   return !PRO_SCREENS.has(id) || view === 'pro';
 }
 
