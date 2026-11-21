@@ -85,12 +85,16 @@ export function toStoreApp(a: CatalogApp): StoreApp {
 }
 
 /**
- * Where "Open" goes. Contract v0 has no per-app address (§12 adds one behind the gateway login),
- * so it is the app's web port on the host that served this page, as in dashboard v0.
+ * Where "Open" goes: the app's own name on the box, `<app>.<box host>`, which the gateway proxies
+ * behind the OneMind sign-in (UMB-P02). Never the app's raw port: that skips the sign-in.
+ * Only a page served from a `.local` name can say it (onemind.local or <box>.local); from an IP
+ * address or any other name there is no app name that resolves, so there is no link.
  */
-export function openUrl(a: Pick<CatalogApp, 'web_port' | 'installed'>, loc: Pick<Location, 'protocol' | 'hostname'> = window.location): string | undefined {
+export function openUrl(a: Pick<CatalogApp, 'id' | 'web_port' | 'installed'>, loc: Pick<Location, 'protocol' | 'hostname'> = window.location): string | undefined {
   if (!a.installed || !a.web_port) return undefined;
-  return `${loc.protocol}//${loc.hostname}:${a.web_port}/`;
+  const host = loc.hostname.toLowerCase();
+  if (!/^[a-z0-9-]+(\.[a-z0-9-]+)*\.local$/.test(host) || !/^[a-z0-9-]+$/.test(a.id)) return undefined;
+  return `${loc.protocol}//${a.id}.${host}/`;
 }
 
 /** Gateway app `status` → run state. `installed` means applied, not "healthy": v0 reports no health. */
@@ -131,8 +135,8 @@ export function toHomeApp(a: CatalogApp, loc?: Pick<Location, 'protocol' | 'host
   };
 }
 
-/** What `openUrl` is: the app's own port, which no OneMind sign-in guards on a v0 hub. */
-export const DIRECT_URL_NOTE = 'the app’s own port on this host, not behind the OneMind sign-in';
+/** Shown when an app is installed but this page's address cannot name it (an IP address, say). */
+export const NO_APP_NAME_NOTE = 'open the dashboard at onemind.local to open apps behind the OneMind sign-in';
 
 /** An installed app for the manager. The hub reports no node or health per app in v0. */
 export function toInstalled(a: CatalogApp, checkedAt: string, loc?: Pick<Location, 'protocol' | 'hostname'>): InstalledApp {
@@ -143,7 +147,7 @@ export function toInstalled(a: CatalogApp, checkedAt: string, loc?: Pick<Locatio
     state: runState(a.status),
     checked_at: checkedAt,
     url,
-    url_note: url ? DIRECT_URL_NOTE : undefined,
+    url_note: !url && a.installed && a.web_port ? NO_APP_NAME_NOTE : undefined,
   };
 }
 
