@@ -30,11 +30,24 @@ log = logging.getLogger("onemind.auth")
 
 KINDS = {"person", "agent"}
 ROLES = {"owner", "adult", "guest", "child", "agent"}
-# Per-tool scopes an agent token may hold on /mcp (docs/leap/dev/MCP.md §4; DEV-MCP-10).
+# Scope strings an agent token may hold on /mcp: the vocabulary of docs/leap/dev/MCP.md §4.1.
+# Only the scopes whose tools exist today are accepted; a string from the plan that is not built yet
+# (docs:read, actions:withdraw:own, ...) is refused, never silently ignored. instance:read is
+# always granted.
 MCP_SCOPES = (
-    "mcp:instance:read", "mcp:nodes:read", "mcp:apps:read",
-    "mcp:actions:read:own", "mcp:audit:read:own", "mcp:actions:request",
+    "instance:read", "nodes:read", "apps:read", "actions:read:own", "audit:read:own",
+    "actions:request:app.install", "actions:request:app.remove",
 )
+ALWAYS_GRANTED = frozenset({"instance:read"})
+_READER = ("instance:read", "nodes:read", "apps:read", "actions:read:own", "audit:read:own")
+_REQUEST = ("actions:request:app.install", "actions:request:app.remove")
+MCP_BUNDLES = {  # §4.1 named bundles, limited to what exists today
+    "reader": frozenset(_READER),
+    "requester": frozenset(_READER + _REQUEST),
+    # Today's behaviour: every tool /mcp already serves (the §4.1 table lists fewer read scopes than
+    # the shipped tools, so v0 here is the full shipped set, not a downgrade). Default with no `scopes:`.
+    "v0": frozenset(MCP_SCOPES),
+}
 
 
 @dataclass(frozen=True)
@@ -42,7 +55,7 @@ class Principal:
     id: str
     kind: str
     role: str
-    # MCP scopes of an agent token (tokens file `mcp_scopes`). None = the v0 bundle: every scope.
+    # MCP scopes of an agent token (tokens file `scopes`). None = the v0 bundle (the §4.1 default for agents with no `scopes:` field).
     scopes: frozenset[str] | None = field(default=None, compare=False)
 
     def as_dict(self) -> dict:
@@ -87,13 +100,21 @@ def _principal(entry: dict, where: str) -> Principal:
     if (p.kind == "agent") != (p.role == "agent"):
         raise ValueError(f"{where}: kind 'agent' goes with role 'agent' and only with it")
     if "mcp_scopes" in entry:
-        scopes = entry["mcp_scopes"]
+        raise ValueError(f"{where}: the field is `scopes` (docs/leap/dev/MCP.md §4.1), not `mcp_scopes`")
+    if "scopes" in entry:
+        scopes = entry["scopes"]
         if p.kind != "agent" or not isinstance(scopes, list) or not all(isinstance(x, str) for x in scopes):
-            raise ValueError(f"{where}: mcp_scopes is a list of strings and belongs to agents only")
-        unknown = sorted(set(scopes) - set(MCP_SCOPES))
-        if unknown:
-            raise ValueError(f"{where}: unknown mcp_scopes {unknown}")
-        p = Principal(id=p.id, kind=p.kind, role=p.role, scopes=frozenset(scopes))
+            raise ValueError(f"{where}: scopes is a list of strings and belongs to agents only")
+        granted: set[str] = set(ALWAYS_GRANTED)
+        for x in scopes:
+            if x in MCP_BUNDLES:
+                granted |= MCP_BUNDLES[x]
+            elif x in MCP_SCOPES:
+                granted.add(x)
+            else:
+                raise ValueError(f"{where}: unknown scopes [{x!r}]; known: {sorted(MCP_SCOPES)} "
+                                 f"and bundles {sorted(MCP_BUNDLES)}")
+        p = Principal(id=p.id, kind=p.kind, role=p.role, scopes=frozenset(granted))
     return p
 
 

@@ -10,9 +10,10 @@ acknowledges without touching the action: an agent has no path to approve, deny 
 
 from __future__ import annotations
 
+import json
 from datetime import datetime, timezone
 
-from .tools import POLL_AFTER_S, REQUEST_TTL, Catalogue, RpcError, result
+from .tools import ACTION_FIELDS, POLL_AFTER_S, REQUEST_TTL, Catalogue, RpcError, _source, result
 from .versions import TASK_DONE
 
 INVALID_PARAMS = -32602
@@ -54,9 +55,14 @@ def get(cat: Catalogue, p, params: dict) -> dict:
         raise RpcError(INVALID_PARAMS, "no such task among your requests")
     out = {"resultType": "complete", **task_of(a)}
     if out["status"] == "completed":
-        out["result"] = result(a)
+        out["result"] = result(a, ACTION_FIELDS, _source(a, "", "id", "action"))
     elif out["status"] == "failed":
-        out["error"] = {"code": -32000, "message": (a.get("result") or {}).get("message") or "action failed"}
+        # The executor message can hold third-party text: mark it exactly as get_action does.
+        failed = result({"id": a["id"], "result": {"message": (a.get("result") or {}).get("message") or "action failed"}},
+                        ACTION_FIELDS, _source(a, "", "id", "action"))
+        out["error"] = {"code": -32000, "message": json.loads(failed["content"][0]["text"])["result"]["message"]}  # the wrapped text
+        if "_meta" in failed:
+            out["error"]["data"] = {"_meta": failed["_meta"]}
     return out
 
 

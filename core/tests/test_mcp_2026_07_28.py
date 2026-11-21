@@ -163,7 +163,7 @@ def scoped(settings, clock, tmp_path):
     f.write_text(yaml.safe_dump({"tokens": {
         "sha256:" + hashlib.sha256(tok.encode()).hexdigest(): {
             "id": "reader", "kind": "agent", "role": "agent",
-            "mcp_scopes": ["mcp:nodes:read", "mcp:actions:read:own"]},
+            "scopes": ["nodes:read", "actions:read:own"]},
         "dev-owner-token-change-me-0123": {"id": "owner", "kind": "person", "role": "owner"},
     }}))
     c = make_client(settings, clock, tokens_file=f)
@@ -173,7 +173,7 @@ def scoped(settings, clock, tmp_path):
 def test_scopes_filter_tools_list_and_resources(scoped):
     c, auth = scoped
     names = [t["name"] for t in mrpc(c, "tools/list", auth=auth).json()["result"]["tools"]]
-    assert names == ["list_nodes", "get_node", "list_actions", "get_action"]
+    assert names == ["get_instance", "list_nodes", "get_node", "list_actions", "get_action"]  # instance:read is always granted
     uris = [r["uri"] for r in mrpc(c, "resources/list", auth=auth).json()["result"]["resources"]]
     assert uris == ["onemind://nodes"]
 
@@ -182,7 +182,7 @@ def test_call_without_scope_is_a_denied_tool_error_and_audited(scoped, settings)
     c, auth = scoped
     res = mrpc(c, "tools/call", REQ, auth=auth, meta=TASKS_META).json()["result"]
     assert res["isError"] and res["structuredContent"]["error"] == "permission_denied"
-    assert res["structuredContent"]["scope"] == "mcp:actions:request"
+    assert res["structuredContent"]["scope"] == "actions:request:app.install"
     assert '"authz.denied"' in settings.audit_path.read_text()
     assert mrpc(c, "tools/call", {"name": "list_nodes", "arguments": {}}, auth=auth).json()["result"]["isError"] is False
     r = mrpc(c, "resources/read", {"uri": "onemind://catalog"}, auth=auth).json()
@@ -199,7 +199,35 @@ def test_legacy_revision_enforces_the_same_scopes(scoped):
 def test_unknown_scope_in_tokens_file_is_refused():
     from onemind_core.auth import parse_tokens
 
-    with pytest.raises(ValueError, match="unknown mcp_scopes"):
-        parse_tokens({"tokens": {"x" * 20: {"id": "a", "kind": "agent", "role": "agent", "mcp_scopes": ["mcp:approve"]}}})
+    with pytest.raises(ValueError, match="unknown scopes"):
+        parse_tokens({"tokens": {"x" * 20: {"id": "a", "kind": "agent", "role": "agent", "scopes": ["approve"]}}})
     with pytest.raises(ValueError, match="agents only"):
-        parse_tokens({"tokens": {"x" * 20: {"id": "o", "kind": "person", "role": "owner", "mcp_scopes": []}}})
+        parse_tokens({"tokens": {"x" * 20: {"id": "o", "kind": "person", "role": "owner", "scopes": []}}})
+
+
+def test_plan_bundles_and_the_old_field_name():
+    from onemind_core.auth import parse_tokens
+
+    def tok(**kw):
+        doc = {"tokens": {"x" * 20: {"id": "a", "kind": "agent", "role": "agent", **kw}}}
+        return next(iter(parse_tokens(doc).values()))
+
+    reader = tok(scopes=["reader"])
+    assert "actions:request:app.install" not in reader.scopes and "instance:read" in reader.scopes
+    assert "actions:request:app.remove" in tok(scopes=["requester"]).scopes
+    assert tok(scopes=["actions:request:app.remove"]).scopes >= {"instance:read", "actions:request:app.remove"}
+    with pytest.raises(ValueError, match="not `mcp_scopes`"):
+        tok(mcp_scopes=["reader"])
+
+
+def test_request_scope_is_per_action_type(settings, clock, tmp_path):
+    tok = "remove-only-agent-token-0123456789"
+    f = tmp_path / "tokens.yaml"
+    f.write_text(yaml.safe_dump({"tokens": {tok: {"id": "r", "kind": "agent", "role": "agent",
+                                                  "scopes": ["actions:request:app.remove"]}}}))
+    c = make_client(settings, clock, tokens_file=f)
+    auth = {"Authorization": f"Bearer {tok}"}
+    names = [t["name"] for t in mrpc(c, "tools/list", auth=auth).json()["result"]["tools"]]
+    assert "request_action" in names
+    res = mrpc(c, "tools/call", REQ, auth=auth).json()["result"]  # app.install
+    assert res["structuredContent"]["error"] == "permission_denied"

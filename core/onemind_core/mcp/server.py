@@ -25,7 +25,7 @@ from fastapi import Request
 from fastapi.responses import JSONResponse, Response
 
 from .. import __version__
-from ..auth import Principal
+from ..auth import MCP_SCOPES, Principal
 from ..errors import ApiError
 from .limits import Limits
 from . import authz, tasks, versions
@@ -174,10 +174,15 @@ class McpEndpoint:
             return {"tools": [t for t in TOOLS if authz.may_call(principal, t["name"])]}
         if method == "tools/call":
             name = params.get("name")
-            if name in authz.TOOL_SCOPES and not authz.may_call(principal, name):
+            targs = params.get("arguments")
+            targs = targs if isinstance(targs, dict) else {}
+            if name in authz.TOOL_SCOPES and not authz.may_call(principal, name, targs):
                 self.refuse(principal, f"call tool {name}")  # audited authz.denied
-                return refusal("permission_denied", f"this token's scopes do not include tool {name}",
-                               scope=authz.TOOL_SCOPES[name])
+                need = authz.TOOL_SCOPES[name]
+                if need == "actions:request:*":
+                    t = authz.request_scope(targs.get("type"))
+                    need = t if t in MCP_SCOPES else "actions:request:<type>"
+                return refusal("permission_denied", f"this token's scopes do not include tool {name}", scope=need)
             if modern and name == "request_action" and versions.client_supports_tasks(params):
                 out = self.catalogue.call(principal, name, params.get("arguments") or {})
                 if out.get("isError"):
