@@ -4,6 +4,9 @@
 # do-firewall.sh applies at creation, with the hub user-data (onemind: role: hub).
 #   DIGITALOCEAN_ACCESS_TOKEN=... sh do-create-droplet.sh <image-id> <ssh-key-fingerprint-or-id> [region] [size]
 # Refuses to run if the firewall does not exist yet. Add DRY_RUN=1 to only print.
+# <image-id>: ID column of `doctl compute image list-user` (your uploaded custom image).
+# <ssh-key-fingerprint-or-id>: from `doctl compute ssh-key list`.
+# [region]: defaults to nyc3; it MUST be the region you uploaded the image to (custom images are per region).
 set -eu
 HERE=$(cd "$(dirname "$0")" && pwd)
 # shellcheck source=do-lib.sh
