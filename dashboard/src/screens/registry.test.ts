@@ -24,6 +24,13 @@ describe('screen registry', () => {
     expect(screenProblems({ './zzz/screen.ts': ok })).toEqual(['./zzz/screen.ts: id "a" must match the folder name']);
   });
 
+  it('a hidden screen is routed and windowed but never offered in the sidebar or Launchpad', () => {
+    const app = SCREENS.find((s) => s.id === 'app');
+    expect(app).toMatchObject({ path: '/apps/:appId', hidden: true });
+    expect(navItems(0).some((n) => n.id === 'app')).toBe(false);
+    expect(navIdFor('/apps/uptime-kuma')).toBe('app');
+  });
+
   it('keeps the nav order, groups, Pro set and dock the shell had before the registry', () => {
     expect(navItems(2).map((n) => [n.id, n.href, n.group ?? 'primary'])).toEqual([
       ['home', '/', 'primary'],
