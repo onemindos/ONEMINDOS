@@ -164,6 +164,7 @@ class T(unittest.TestCase):
         self.assertIn("run: python3 -I scripts/changes.py generate", workflow)
         self.assertIn("git add CHANGELOG.md docs/leap/STATUS.md", workflow)
         self.assertIn("git merge-base --is-ancestor", workflow)
+        self.assertIn("scripts/changes.py audit", workflow)
         self.assertNotIn("scripts/changes.py collect", workflow)
         self.assertNotIn("git merge --", workflow)
 
@@ -209,6 +210,33 @@ class T(unittest.TestCase):
 
     def put(self, name, text):
         (self.r / "changes" / name).write_text(text)
+
+    def test_audit_flags_provable_drift_only(self):
+        pr = lambda n: "[#%d](https://example.invalid/%d)" % (n, n)
+        rows = "".join("| %s | t | %s | `b` | %s |\n" % (i, st, c) for i, st, c in [
+            ("A", "in-review", pr(1)), ("B", "in-progress (merged in #2; rest unverified)", pr(2)),
+            ("C", "done", pr(3)), ("D", "todo", "–"), ("E", "in-review", pr(4)),
+            ("F", "done", pr(5)), ("G", "review", pr(9))])
+        text = "## Every epic\n\n| Id | T | State | Branch | PR |\n|---|---|---|---|---|\n" + rows
+        states = {1: "MERGED", 2: "MERGED", 3: "MERGED", 4: "CLOSED", 5: "OPEN"}
+        got = dict(changes.audit_rows(text, states))
+        self.assertEqual(sorted(got), ["A", "E", "F", "G"])
+        self.assertIn("merged", got["A"])
+        self.assertIn("closed", got["E"])
+        self.assertIn("still open", got["F"])
+        self.assertIn("not on GitHub", got["G"])
+
+    def test_audit_cli_bad_json_and_state_map(self):
+        with tempfile.TemporaryDirectory() as d:
+            ok = Path(d, "prs.json")
+            ok.write_text(json.dumps([{"number": 1, "state": "OPEN"}]))
+            bad = Path(d, "bad.json")
+            bad.write_text("{")
+            r = subprocess.run(["python3", "-I", str(ROOT / "scripts" / "changes.py"),
+                                "audit", "--prs", str(bad)], capture_output=True, text=True)
+            self.assertEqual(r.returncode, 1)
+            self.assertIn("bad PR state JSON", r.stderr)
+            self.assertEqual(changes.pr_states(str(ok)), {1: "OPEN"})
 
     def test_parse(self):
         meta, body = changes.parse(GOOD)
