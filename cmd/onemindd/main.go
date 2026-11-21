@@ -119,6 +119,7 @@ func main() {
 	natsSeed := flag.String("nats-nkey", os.Getenv("ONEMIND_NATS_NKEY_SEED"), "NATS user seed file (empty = no nkey)")
 	role := flag.String("role", env("ONEMIND_NODE_ROLE", "node"), "hub or node")
 	interval := flag.Duration("interval", agent.DefaultInterval, "heartbeat interval")
+	durable := flag.Bool("durable-events", os.Getenv("ONEMIND_AGENT_DURABLE") == "1", "store node events and heartbeats of record in the leaf outbox (NATS URL must be the local leaf)")
 	showVersion := flag.Bool("version", false, "print version and exit")
 	flag.Parse()
 	if flag.NArg() > 0 { // a typo or a missing subcommand must not start a second agent
@@ -148,7 +149,7 @@ func main() {
 
 	log.Info("onemindd starting", "version", version.Version, "node_id", col.ID(), "role", *role, "board", col.Board())
 	meshReport, fabricReport := netReports(*role, log) // net.go
-	a := agent.New(agent.Config{Listen: *listen, NATSURL: *natsURL, NATSNkeySeed: *natsSeed, Interval: *interval, Collector: col, Logger: log,
+	a := agent.New(agent.Config{Listen: *listen, NATSURL: *natsURL, NATSNkeySeed: *natsSeed, Durable: *durable, Interval: *interval, Collector: col, Logger: log,
 		UpdateReport: updateReport(env("ONEMIND_UPDATE_CONF", update.DefaultConfigPath), log),
 		MeshReport:   meshReport,
 		FabricReport: fabricReport,
