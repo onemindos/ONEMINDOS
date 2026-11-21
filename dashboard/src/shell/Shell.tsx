@@ -117,9 +117,9 @@ export function Shell({ children }: { children: ReactNode }) {
         nodes: nodes.map((n) => ({ ...n, status: hub.nodeStatus(n) })),
         pending: pending.map(toActionSummary),
         canApprove: hub.canDecide !== 'no',
-      }).filter((c) => paletteShows(c, view)),
+      }).filter((c) => paletteShows(c, view, role)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [hub.apps.data, hub.nodes.data, hub.actionList, hub.canDecide, view],
+    [hub.apps.data, hub.nodes.data, hub.actionList, hub.canDecide, view, role],
   );
   const runCommand = (c: PaletteCommand) => {
     setPaletteOpen(false);
@@ -136,7 +136,7 @@ export function Shell({ children }: { children: ReactNode }) {
   const waiting = pending.length;
   const allNav: NavItem[] = navItems(waiting);
   // Troubleshoot is owner-only on the hub (system:admin); hidden once we know this principal is not an owner.
-  const nav = allNav.filter((item) => showsNav(item.id, view) && !(item.id === 'troubleshoot' && hub.canDecide === 'no'));
+  const nav = allNav.filter((item) => showsNav(item.id, view, role) && !(item.id === 'troubleshoot' && hub.canDecide === 'no'));
 
   // Route plain in-app links from ui components through the router (no reload).
   const onClickCapture = (e: MouseEvent<HTMLDivElement>) => {
@@ -250,10 +250,10 @@ export function Shell({ children }: { children: ReactNode }) {
 }
 
 /** A palette command is offered when it leads to a screen this view shows (Pro screens: roles.ts). */
-export function paletteShows(c: PaletteCommand, view: View): boolean {
+export function paletteShows(c: PaletteCommand, view: View, role?: string | null): boolean {
   if (!c.href) return true;
   const to = toRoute(c.href);
-  return to === undefined || showsNav(navId(to.split('?')[0] ?? '/'), view);
+  return to === undefined || showsNav(navId(to.split('?')[0] ?? '/'), view, role);
 }
 
 /** Activity entries are needed by Home and Activity; computed once per actions answer. */

@@ -2686,6 +2686,232 @@
         "title": "MoveOp",
         "type": "object"
       },
+      "NetGateway": {
+        "additionalProperties": false,
+        "properties": {
+          "family": {
+            "enum": [
+              "ipv4",
+              "ipv6"
+            ],
+            "title": "Family",
+            "type": "string"
+          },
+          "interface": {
+            "title": "Interface",
+            "type": "string"
+          },
+          "via": {
+            "title": "Via",
+            "type": "string"
+          }
+        },
+        "required": [
+          "interface",
+          "via",
+          "family"
+        ],
+        "title": "NetGateway",
+        "type": "object"
+      },
+      "NetInterface": {
+        "additionalProperties": false,
+        "properties": {
+          "addresses": {
+            "description": "CIDR form, e.g. 192.0.2.10/24",
+            "items": {
+              "type": "string"
+            },
+            "title": "Addresses",
+            "type": "array"
+          },
+          "kind": {
+            "enum": [
+              "ethernet",
+              "wifi",
+              "loopback",
+              "bridge",
+              "virtual"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "mac": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mac"
+          },
+          "mtu": {
+            "title": "Mtu",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "state": {
+            "description": "The kernel's operstate: up, down, unknown, ...",
+            "title": "State",
+            "type": "string"
+          },
+          "wifi": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Wifi"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "kind",
+          "state",
+          "mtu",
+          "addresses"
+        ],
+        "title": "NetInterface",
+        "type": "object"
+      },
+      "NetPort": {
+        "additionalProperties": false,
+        "properties": {
+          "addr": {
+            "title": "Addr",
+            "type": "string"
+          },
+          "port": {
+            "title": "Port",
+            "type": "integer"
+          },
+          "proto": {
+            "enum": [
+              "tcp",
+              "udp"
+            ],
+            "title": "Proto",
+            "type": "string"
+          },
+          "scope": {
+            "description": "any = every interface; loopback = this machine only; address = one address",
+            "enum": [
+              "any",
+              "loopback",
+              "address"
+            ],
+            "title": "Scope",
+            "type": "string"
+          }
+        },
+        "required": [
+          "proto",
+          "addr",
+          "port",
+          "scope"
+        ],
+        "title": "NetPort",
+        "type": "object"
+      },
+      "NetworkView": {
+        "additionalProperties": false,
+        "description": "What the box listens on and how it is connected. It does not include firewall rules.",
+        "properties": {
+          "at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "At"
+          },
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "dns": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Dns",
+            "type": "array"
+          },
+          "dropped": {
+            "default": 0,
+            "description": "Entries the gateway refused because a field failed its checks.",
+            "title": "Dropped",
+            "type": "integer"
+          },
+          "gateways": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/NetGateway"
+            },
+            "title": "Gateways",
+            "type": "array"
+          },
+          "interfaces": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/NetInterface"
+            },
+            "title": "Interfaces",
+            "type": "array"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "ports": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/NetPort"
+            },
+            "title": "Ports",
+            "type": "array"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "enum": [
+                  "host_service_unreachable",
+                  "host_service_error",
+                  "bad_response"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "available"
+        ],
+        "title": "NetworkView",
+        "type": "object"
+      },
       "Node": {
         "additionalProperties": true,
         "description": "One node: the §2 heartbeat plus the gateway's `status` and `last_seen`. More fields may appear.",
@@ -5177,6 +5403,28 @@
           "id"
         ],
         "title": "Widget",
+        "type": "object"
+      },
+      "Wifi": {
+        "additionalProperties": false,
+        "properties": {
+          "signal_dbm": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Signal level in dBm; null when the driver does not report it.",
+            "title": "Signal Dbm"
+          }
+        },
+        "required": [
+          "signal_dbm"
+        ],
+        "title": "Wifi",
         "type": "object"
       },
       "WindowBody": {
@@ -14761,6 +15009,48 @@
         "summary": "Summary",
         "tags": [
           "monitoring"
+        ]
+      }
+    },
+    "/v1/network": {
+      "get": {
+        "description": "This box's interfaces, addresses, gateway, DNS, Wi-Fi signal and listening ports (read only).\n\n`available` is false, with a reason, when the host service cannot be reached: the screen then\nsays so instead of showing nothing. Firewall rules are not part of this view yet.",
+        "operationId": "network.view",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NetworkView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "summary": "Network View",
+        "tags": [
+          "net"
         ]
       }
     },

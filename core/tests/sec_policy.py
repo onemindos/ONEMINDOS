@@ -587,3 +587,9 @@ POLICY |= {
     ("GET", "/v1/os/about"): Row(CHILD_CANNOT, w.p_static("/v1/os/about"),
                                  "core/onemind_core/routers/about.py: device facts the nodes report, as /v1/nodes shows; a child has no nodes:read"),
 }
+
+# ---- Network screen (NET-UI-01, #239: core/onemind_core/routers/network.py) ---------------------------------
+POLICY |= {
+    ("GET", "/v1/network"): Row(grid(200, 403, 403, 403, 403), w.p_static("/v1/network"),
+                                "core/onemind_core/routers/network.py: every address, MAC and open port of the box; owner only"),
+}

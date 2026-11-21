@@ -33,6 +33,17 @@ describe('role → view', () => {
     expect(showsNav('home', 'simple')).toBe(true);
   });
 
+  it('the Network screen is for owners only: an adult is Pro but gets no nav entry or palette command', () => {
+    expect(showsNav('network', 'pro', 'owner')).toBe(true);
+    expect(showsNav('network', 'pro', 'adult')).toBe(false);
+    expect(showsNav('network', 'pro', undefined)).toBe(false);
+    expect(showsNav('network', 'simple', 'owner')).toBe(false);
+    expect(showsNav('storage', 'pro', 'adult')).toBe(true);
+    const go = { id: 'go:network', href: '#/network' } as Parameters<typeof paletteShows>[0];
+    expect(paletteShows(go, 'pro', 'owner')).toBe(true);
+    expect(paletteShows(go, 'pro', 'adult')).toBe(false);
+  });
+
   it('reads the role from GET /v1/me when the session does not carry it', () => {
     const me = (kind: string, role: string | null) => ({ principal: { id: 'x', kind, role } }) as Parameters<typeof roleOf>[1];
     expect(roleOf(undefined, me('person', 'adult'))).toBe('adult');

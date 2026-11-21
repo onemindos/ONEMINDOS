@@ -12,6 +12,9 @@ export const PRO_ROLES: ReadonlySet<string> = new Set(['owner', 'adult']);
 /** Nav ids of the Pro screens: every screen that declares `pro: true` in src/screens/<id>/screen.ts. */
 export const PRO_SCREENS: ReadonlySet<string> = PRO_SCREEN_IDS;
 
+/** Pro screens only an owner may open: the gateway answers 403 to everyone else (GET /v1/network). */
+export const OWNER_SCREENS: ReadonlySet<string> = new Set(['network']);
+
 export type View = 'pro' | 'simple' | 'unknown';
 
 export function viewFor(role: string | null | undefined): View {
@@ -27,7 +30,8 @@ export function roleOf(principal: Principal | undefined, me: Me | undefined): st
 }
 
 /** Is this nav item shown to this view? Pro screens stay hidden until the role is known. */
-export function showsNav(id: string, view: View): boolean {
+export function showsNav(id: string, view: View, role?: string | null): boolean {
+  if (OWNER_SCREENS.has(id) && role !== 'owner') return false;
   return !PRO_SCREENS.has(id) || view === 'pro';
 }
 
