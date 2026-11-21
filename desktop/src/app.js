@@ -23,6 +23,7 @@ import {
   riskInfo,
   severityTone,
   shortHash,
+  updateStrip,
   updatesTile,
 } from './format.js';
 import { backupHealth, CHOICES, destinationsFor, filedText, isOwner, lifecycleLabel, planCard, settingsProblem } from './manage.js';
@@ -31,6 +32,11 @@ const tauri = window.__TAURI__;
 const invoke = (cmd, args) => tauri.core.invoke(cmd, args);
 const $ = (id) => document.getElementById(id);
 const view = $('view');
+
+// Update strip: the last `update_check` result, and whether an install was clicked.
+let update = null;
+let updating = false;
+let updateError = '';
 
 let mode = 'home'; // home | add | approval | inbox | manage
 let boxes = [];
@@ -182,9 +188,49 @@ function boxCard(b) {
   return el;
 }
 
+function updateCard() {
+  const u = updateStrip(update);
+  if (!u) return null;
+  return h(
+    'section',
+    { class: 'card update-strip', 'aria-label': 'App update' },
+    h('div', { class: 'box-name', text: u.title }),
+    h('div', { class: 'box-sub', text: u.detail }),
+    u.notes ? h('div', { class: 'update-notes', text: u.notes }) : null,
+    updateError ? h('div', { class: 'error', role: 'alert', text: errorText(updateError) }) : null,
+    h('button', {
+      class: 'btn primary small',
+      disabled: updating,
+      text: updating ? 'Installing…' : u.action,
+      // The only way an update is installed: this click. The app restarts when it is done.
+      onclick: async () => {
+        updating = true;
+        updateError = '';
+        render();
+        try {
+          await invoke('update_install');
+        } catch (e) {
+          updateError = String(e);
+          updating = false;
+          render();
+        }
+      },
+    }),
+  );
+}
+
+async function checkUpdate() {
+  try {
+    update = await invoke('update_check');
+  } catch {
+    update = null; // offline or a bad manifest: stay quiet, the next check is in six hours
+  }
+  if (mode === 'home') render();
+}
+
 function homeView() {
   if (!boxes.length) return addView(true);
-  return boxes.map(boxCard);
+  return [updateCard(), ...boxes.map(boxCard)].filter(Boolean);
 }
 
 // ---- approval card ----
@@ -770,6 +816,11 @@ tauri.event.listen('live', (ev) => {
   if (b) b.live = ev.payload.live;
   if (mode === 'home') render();
 });
+tauri.event.listen('update', (ev) => {
+  update = ev.payload;
+  if (mode === 'home') render();
+});
 tauri.event.listen('shown', () => load());
 setInterval(() => mode === 'home' && render(), 15000);
 load();
+checkUpdate();
