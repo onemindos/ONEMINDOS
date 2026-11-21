@@ -134,3 +134,15 @@ Founder decisions. Each entry is final until Zeus changes it. Reference these ID
 - **This replaces** IA §1 "sidebar on desktop, bottom tabs on phones" and `docs/strategy/umbrel-parity.md` PU-04 "a dock is not proposed".
 - **Unchanged:** every action is still a request, approvals still come first on Home, and freshness pills still show. umbrelOS is studied for the pattern only (PolyForm NC): no code, asset or text is copied.
 - **Why:** umbrelOS 2.0.1 runs on the same base as OneMind (Debian 13, A/B updates). What makes it feel like an operating system is its desktop frame. OneMind's sidebar made it read as an admin dashboard.
+
+## D-018 · The D-016 desktop is the only front door; Backstage is retired
+**Date:** 2026-11-21 · **Decided by:** Zeus
+> "Backstage is retired everywhere; the D-016 desktop is the only front door, including developer and cluster tiers." (approved by Zeus in a Claude session on 2026-11-21, after the portal-to-OneMind front-door study)
+- **One front door.** The D-016 desktop (wallpaper Home, windows, dock, Launchpad) is the only front door on every tier, including developer and cluster. Nothing ships a second portal with its own sidebar, theme or sign-in.
+- **Typed lists, not a generic catalog.** What the old portal listed comes in as typed lists: apps, plugins, nodes, links, devices and people. Anything else goes to a private archive, outside this repo.
+- **Dropped from core:** the Ops globe, OpenCost, the DigitalOcean page, GitHub cards, Tech Radar, Tech Insights, the Visualizer and DevTools. Any of them may return later as an optional plugin; none is built in core.
+- **OneMind supersedes the portal, it does not copy it.** Only Backstage's open formats are reused (Apache-2.0, with attribution under D-001): the entity YAML for a one-time import and the docs-build approach.
+- **Every change stays an approval request.** Agents read and request; only a person approves.
+- **This supersedes** "Backstage stays a developer portal" in `docs/ARCHITECTURE.md` (Dashboard row) and `docs/APPS.md` (Infrastructure tier row), and the same wording in `research-output/24` Q141 and Q255 (those files are left as written; this entry is the pointer).
+- **Tracking:** the front-door issues FD-00 to FD-20 (parent: FD-00).
+- **Why:** two front doors break D-016 and the "every change is an approval" rule, and the portal's cloud-only pages do not serve a home or small-business box.
