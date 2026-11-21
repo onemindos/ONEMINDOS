@@ -105,18 +105,36 @@ class Io:
             raise Stop(f"you did not type {word}; stopping here. Nothing was changed. Run the guide again to continue.")
 
 
+def _probe(cmd):
+    """Run one routing-table probe. Returns (ran_ok, stdout, stderr); ran_ok is False if it could not run."""
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+    except (OSError, subprocess.SubprocessError):
+        return False, "", ""
+    return r.returncode == 0, r.stdout, r.stderr
+
+
 def default_route():
-    """True when this machine can reach beyond itself (same test as scripts/tuf-bootstrap-root.sh)."""
+    """True when this machine may be online. Deny by default: True also means "could not prove it is offline".
+
+    Checks IPv4 and IPv6 default routes. If a probe cannot run or gives no usable answer, the
+    answer is True (refuse), so a minimal system without iproute2 never passes as offline.
+    """
     if os.environ.get("ONEMIND_GUIDE_TEST_ROUTE") == "present":   # test hook; can only make it stricter
         return True
-    for cmd, pat in ((["ip", "route"], "default"), (["route", "-n", "get", "default"], None)):
-        try:
-            r = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
-        except (OSError, subprocess.SubprocessError):
-            continue
-        if pat and any(l.startswith(pat) for l in r.stdout.splitlines()):
-            return True
-        if pat is None and r.returncode == 0:
+    if sys.platform == "darwin":
+        for fam in ("-inet", "-inet6"):
+            ok, _out, err = _probe(["route", "-n", "get", fam, "default"])
+            if ok:
+                return True
+            if "not in table" not in err:      # failed for some other reason: unknown, so refuse
+                return True
+        return False
+    for fam in ("-4", "-6"):
+        ok, out, _err = _probe(["ip", fam, "route", "show", "default"])
+        if not ok:
+            return True                        # cannot tell (no ip binary, or ip failed): refuse
+        if any(l.split()[:1] == ["default"] for l in out.splitlines()):
             return True
     return False
 

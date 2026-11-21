@@ -50,6 +50,34 @@ class Refusals(unittest.TestCase):
         self.assertIn("default route", str(c.exception))
         self.assertIn("NO network", str(c.exception))
 
+    def _linux_probe(self, v4, v6):
+        """Stub for cg._probe on Linux: each of v4 / v6 is stdout text, or None for 'could not run'."""
+        def probe(cmd):
+            out = v4 if "-4" in cmd else v6
+            return (False, "", "") if out is None else (True, out, "")
+        return probe
+
+    def _route(self, v4, v6):
+        env = {k: v for k, v in os.environ.items() if k != "ONEMIND_GUIDE_TEST_ROUTE"}
+        with unittest.mock.patch.dict(os.environ, env, clear=True), \
+                unittest.mock.patch.object(cg.sys, "platform", "linux"), \
+                unittest.mock.patch.object(cg, "_probe", self._linux_probe(v4, v6)):
+            return cg.default_route()
+
+    def test_route_probe_that_cannot_run_refuses(self):
+        self.assertTrue(self._route(None, None))        # no ip binary
+        self.assertTrue(self._route("", None))          # IPv6 probe fails: unknown
+        self.assertTrue(self._route(None, ""))
+
+    def test_ipv6_only_default_route_refuses(self):
+        self.assertTrue(self._route("", "default via fe80::1 dev wlan0 proto ra metric 600\n"))
+
+    def test_ipv4_default_route_refuses(self):
+        self.assertTrue(self._route("default via 192.0.2.1 dev eth0\n", ""))
+
+    def test_no_route_in_either_family_passes(self):
+        self.assertFalse(self._route("", ""))
+
     def test_rehearsal_only_notes_the_route(self):
         with tempfile.TemporaryDirectory() as d:
             with unittest.mock.patch.dict(os.environ, {"ONEMIND_GUIDE_TEST_ROUTE": "present"}):
