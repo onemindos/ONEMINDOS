@@ -105,7 +105,8 @@ class LocalRunnerPolicy(unittest.TestCase):
 
     def test_every_local_job_can_use_the_merge_queue_pool_on_merge_group_only(self):
         for wf, d, name, job in mac_jobs("onemind-local"):
-            ro, where = job["runs-on"], f"{wf}:{name}"
+            # the DO prefix (CI-15) sits between the merge-queue branch and the Mac branch on its four jobs
+            ro, where = job["runs-on"].replace(DO_PREFIX, "", 1), f"{wf}:{name}"
             self.assertTrue(ro.startswith("${{ " + MQ_FIRST), where)
             self.assertEqual(ro.count("onemind-mq"), 1, where)
             self.assertLess(ro.index("onemind-mq"), ro.index("onemind-local"), where)
