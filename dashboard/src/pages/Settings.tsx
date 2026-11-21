@@ -10,6 +10,8 @@ import { Inbox } from './Inbox';
 import { Tokens } from './Tokens';
 import { Users } from './Users';
 import { href } from '../shell/routes';
+import { ProOnly } from '../shell/ProOnly';
+import { useShell } from '../shell/Shell';
 
 /** Section → the work stream (docs/leap/STATUS.md epic) and the §12 API that brings it (§12 owns the paths). */
 export const COMING: Record<Exclude<SettingsSectionId, 'appearance' | 'about' | 'account' | 'users' | 'agents' | 'notifications'>, { stream: string; api: string | null }> = {
@@ -20,6 +22,10 @@ export const COMING: Record<Exclude<SettingsSectionId, 'appearance' | 'about' | 
   updates: { stream: 'CORE-UPDATE (a gateway OS status route)', api: null },
   automation: { stream: 'CORE-AUTO', api: '/v1/automation/rules, /v1/approval-policies' },
 };
+
+/** Settings sections for the people who run the box (UX-01, #206): hidden from the list for Simple roles and
+ * unknown roles, and a direct link shows the role notice. Appearance, Account, Notifications and About stay for everyone. */
+export const PRO_SETTINGS: ReadonlySet<SettingsSectionId> = new Set<SettingsSectionId>(['users', 'agents', 'devices', 'network', 'storage', 'backups', 'updates', 'automation']);
 
 const IDS = new Set(SETTINGS_SECTIONS.map((s) => s.id));
 
@@ -58,11 +64,13 @@ function About() {
 
 export function Settings() {
   const { section } = useParams();
+  const { view } = useShell();
   const explicit = !!section && IDS.has(section as SettingsSectionId);
   const current = (explicit ? section : 'appearance') as SettingsSectionId;
   const meta = SETTINGS_SECTIONS.find((s) => s.id === current)!;
   let body;
-  if (current === 'appearance')
+  if (view !== 'pro' && PRO_SETTINGS.has(current)) body = <ProOnly title={meta.label}>{null}</ProOnly>;
+  else if (current === 'appearance')
     body = (
       <>
         <PageHeader title="Appearance" lede="Theme, accent, wallpaper and layout. Saved for you only; it changes nothing on the box, so it needs no approval." />
@@ -86,7 +94,7 @@ export function Settings() {
     );
   }
   return (
-    <SettingsLayout current={current} explicit={explicit} hrefFor={(id) => href.setting(id)} indexHref={href.settings}>
+    <SettingsLayout current={current} explicit={explicit} hrefFor={(id) => href.setting(id)} indexHref={href.settings} hidden={view === 'pro' ? undefined : PRO_SETTINGS}>
       {body}
     </SettingsLayout>
   );

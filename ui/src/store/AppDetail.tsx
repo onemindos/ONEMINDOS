@@ -280,9 +280,11 @@ export interface AppDetailProps {
   onOpen: (app: CatalogApp) => void;
   manageHref?: (id: string) => string;
   onRetry?: () => void;
+  /** Why this person cannot request installs (role); disables the request button and says why. */
+  requestBlocked?: string;
 }
 
-export function AppDetail({ app, state, plan, planState, job, now, backHref, onRequestInstall, onOpen, manageHref, onRetry }: AppDetailProps) {
+export function AppDetail({ app, state, plan, planState, job, now, backHref, onRequestInstall, onOpen, manageHref, onRetry, requestBlocked }: AppDetailProps) {
   const whyId = useId();
   return (
     <div className="om-store om-store-detail">
@@ -313,7 +315,9 @@ export function AppDetail({ app, state, plan, planState, job, now, backHref, onR
               ? 'The hub is not answering. Requests wait until it is back.'
               : action.kind === 'blocked' || action.kind === 'none'
                 ? action.reason
-                : busy
+                : (action.kind === 'request-install' || action.kind === 'request-deploy') && requestBlocked
+                  ? requestBlocked
+                  : busy
                   ? 'A request for this app is already in progress.'
                   : undefined;
             const cat = CATEGORY_BY_SLUG[app.category];

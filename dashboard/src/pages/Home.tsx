@@ -3,7 +3,7 @@
 // Widgets whose API is not on this hub yet (backups, updates, mesh) say which work stream brings
 // them instead of showing made-up numbers.
 import { useMemo, useState } from 'react';
-import { HomeScreen, useOptionalCustomize, useToast, type ActionSummary, type HomeData, type HomeLayout, type HomeLoadable } from '@onemind/ui';
+import { StateView, HomeScreen, useOptionalCustomize, useToast, type ActionSummary, type HomeData, type HomeLayout, type HomeLoadable } from '@onemind/ui';
 import { homeActivity, toActionSummary, toHomeApp, toHomeNode } from '../data/adapters';
 import { errorText, useHub, type Hub } from '../data/hub';
 import { homeLayoutStore } from '../data/prefs';
@@ -12,6 +12,7 @@ import { useSignedIn } from '../session';
 import { href } from '../shell/routes';
 import { showsNav } from '../shell/roles';
 import { useActivity, useShell } from '../shell/Shell';
+import { SimpleHome } from './SimpleHome';
 
 /** Home's first layout here: only widgets this hub can feed. The rest are in the widget gallery. */
 export const DASHBOARD_HOME_LAYOUT: HomeLayout = {
@@ -47,7 +48,15 @@ export function homeData(hub: Hub, activity: ReturnType<typeof homeActivity>): H
   };
 }
 
+/** Child and guest get the simple Home; the Pro one is for owners and adults. Fail closed while the role is unknown. */
 export function Home() {
+  const shell = useShell();
+  if (shell.view === 'simple') return <SimpleHome />;
+  if (shell.view === 'unknown') return <StateView state="loading" what="Checking your role" skeleton="list" />;
+  return <ProHome />;
+}
+
+function ProHome() {
   const hub = useHub();
   const { principal, person } = useSignedIn();
   const shell = useShell();

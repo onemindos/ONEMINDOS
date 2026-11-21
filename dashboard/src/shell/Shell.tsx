@@ -40,6 +40,8 @@ interface ShellApi {
   requestApp: ReturnType<typeof useAppRequest>['requestApp'];
   /** Simple or Pro, from the signed-in role (roles.ts); 'unknown' until GET /v1/me answers. */
   view: View;
+  /** The signed-in role ('child', 'guest', ...), null for an agent; undefined until known. */
+  role: string | null | undefined;
   /** Desktop (default) or Console, chosen per person (layoutMode.ts). */
   layout: LayoutMode;
 }
@@ -211,7 +213,7 @@ export function Shell({ children }: { children: ReactNode }) {
       </Button>
     </>
   );
-  const api: ShellApi = { openPalette: () => setPaletteOpen(true), requestApp, view, layout };
+  const api: ShellApi = { openPalette: () => setPaletteOpen(true), requestApp, view, role, layout };
 
   // Apps pinned on Home go in the dock (Home hides its own dock on the desktop).
   const pinnedIds = layout === 'desktop' ? (homeLayoutStore().load(person)?.pinned ?? []) : [];
@@ -257,7 +259,7 @@ export function Shell({ children }: { children: ReactNode }) {
           state={hub.freshness === 'stale' || hub.freshness === 'offline' ? hub.freshness : hub.freshness === 'unknown' ? 'loading' : 'ready'}
           ageSeconds={hub.ageS}
         />
-        <ActionJobs />
+        {view !== 'simple' && <ActionJobs />}
         {reviewDialog}
       </div>
     </ShellCtx.Provider>

@@ -21,6 +21,8 @@ export interface MarketHandlers {
   onRequestRemove?: (app: CatalogApp) => void;
   /** Link to the app page. */
   appHref: (id: string) => string;
+  /** Why this person cannot request installs or removals (role). Disables only those buttons; Open still works. */
+  requestBlocked?: string;
 }
 
 export interface MarketProps extends MarketHandlers {
@@ -41,11 +43,12 @@ export const DISCOVER_RAILS = 4;
 
 // ---------------------------------------------------------------- app card
 
-export function AppCard({ app, now, onRequestInstall, onRequestRemove, onOpen, appHref, disabled }: MarketHandlers & { app: CatalogApp; now: number; disabled?: string }) {
+export function AppCard({ app, now, onRequestInstall, onRequestRemove, onOpen, appHref, disabled, requestBlocked }: MarketHandlers & { app: CatalogApp; now: number; disabled?: string }) {
   const action = primaryAction(app, now);
   const reasonId = useId();
   const cat = CATEGORY_BY_SLUG[app.category];
-  const reason = disabled ?? (action.kind === 'blocked' || action.kind === 'none' ? action.reason : undefined);
+  const wantsRequest = action.kind === 'request-install' || action.kind === 'request-deploy' || (action.kind === 'open' && !!onRequestRemove);
+  const reason = disabled ?? (wantsRequest ? requestBlocked : undefined) ?? (action.kind === 'blocked' || action.kind === 'none' ? action.reason : undefined);
   return (
     <article className={cx('om-store-card', action.kind === 'blocked' && 'om-store-card-muted')} aria-labelledby={`${reasonId}-name`}>
       <div className="om-store-card-top">
@@ -80,7 +83,7 @@ export function AppCard({ app, now, onRequestInstall, onRequestRemove, onOpen, a
                 Open
               </Button>
               {onRequestRemove && (
-                <Button size="sm" variant="ghost" disabled={!!disabled} onClick={() => onRequestRemove(app)}>
+                <Button size="sm" variant="ghost" disabled={!!disabled || !!requestBlocked} aria-describedby={requestBlocked ? reasonId : undefined} onClick={() => onRequestRemove(app)}>
                   Remove<span className="om-visually-hidden"> {app.name}</span>
                 </Button>
               )}
@@ -94,7 +97,7 @@ export function AppCard({ app, now, onRequestInstall, onRequestRemove, onOpen, a
               </a>
             ) : null
           ) : action.kind === 'request-install' || action.kind === 'request-deploy' ? (
-            <Button size="sm" variant="primary" disabled={!!disabled} aria-describedby={disabled ? reasonId : undefined} onClick={() => onRequestInstall(app)}>
+            <Button size="sm" variant="primary" disabled={!!disabled || !!requestBlocked} aria-describedby={reason ? reasonId : undefined} onClick={() => onRequestInstall(app)}>
               {action.kind === 'request-deploy' ? 'Request deploy' : 'Request install'}
               <span className="om-visually-hidden"> {app.name}</span>
             </Button>
@@ -166,7 +169,7 @@ function Featured({ app, headline, blurb, now, ...h }: MarketHandlers & { app: C
         <p className="om-store-hero-blurb">{blurb}</p>
         <div className="om-store-row">
           {action.kind === 'request-install' && (
-            <Button variant="primary" disabled={!!h.disabled} onClick={() => h.onRequestInstall(app)}>
+            <Button variant="primary" disabled={!!h.disabled || !!h.requestBlocked} title={h.requestBlocked} onClick={() => h.onRequestInstall(app)}>
               Request install
             </Button>
           )}

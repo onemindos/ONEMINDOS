@@ -5,6 +5,7 @@
 import { useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { AppDetail, Market as StoreMarket, PageHeader, type Collection, type LoadState } from '@onemind/ui';
+import { useSignedIn } from '../session';
 import { toStoreApp } from '../data/adapters';
 import { ActionStatus } from '../shell/ActionJobs';
 import { AppDepth } from './AppDepth';
@@ -34,6 +35,9 @@ export function loadState<T>(p: Polled<T>, hub: Pick<Hub, 'freshness' | 'asOf'>)
 export const PLACEMENT_NOTE = 'The hub picks the node (Kubernetes places it). A per-node preview comes with §12 plans.';
 
 function StoreTabs({ current }: { current: 'discover' | 'installed' | 'sources' | 'compose' }) {
+  // Community sources and Compose import are owner-only: other roles do not see the tabs.
+  const { canDecide } = useSignedIn();
+  const owner = canDecide !== 'no';
   return (
     <nav aria-label="Market" className="dash-tabs">
       <a href={href.market} aria-current={current === 'discover' ? 'page' : undefined}>
@@ -42,12 +46,16 @@ function StoreTabs({ current }: { current: 'discover' | 'installed' | 'sources' 
       <a href={href.installed} aria-current={current === 'installed' ? 'page' : undefined}>
         Installed
       </a>
-      <a href={href.sources} aria-current={current === 'sources' ? 'page' : undefined}>
-        Sources
-      </a>
-      <a href={href.compose} aria-current={current === 'compose' ? 'page' : undefined}>
-        Import Compose
-      </a>
+      {owner && (
+        <a href={href.sources} aria-current={current === 'sources' ? 'page' : undefined}>
+          Sources
+        </a>
+      )}
+      {owner && (
+        <a href={href.compose} aria-current={current === 'compose' ? 'page' : undefined}>
+          Import Compose
+        </a>
+      )}
     </nav>
   );
 }
@@ -67,7 +75,12 @@ export function Market() {
     else navigate(href.manage(id));
   };
   const appJob = hub.actionList.find((a) => a.params.app_id === appId);
-  const blockedForYou = hub.canRequest === 'no' ? 'Your account can look but not request installs. Ask the owner.' : undefined;
+  const isChild = shell.role === 'child';
+  const blockedForYou =
+    hub.canRequest === 'no' ? (isChild ? 'You cannot install apps yourself. Ask a parent.' : 'Your account can look but not request installs. Ask the owner.') : undefined;
+  // No hub route lets a child file a request yet, so "Ask a parent" is a plain instruction, never a
+  // button that would pretend to send something.
+  const askParent = isChild && blockedForYou ? <p className="om-note om-tone-info" role="note"><strong>Ask a parent.</strong> Tell them which app you would like. A parent can install it from the Market.</p> : null;
 
   // A request goes straight to the hub and lands in Approvals, where the owner sees the exact
   // request (type, app, who asked) before anything runs. Nothing is installed until it is approved.
@@ -91,10 +104,12 @@ export function Market() {
           onRequestInstall={(a) => request('app.install', a.id)}
           onOpen={(a) => open(a.id)}
           onRetry={hub.reloadAll}
+          requestBlocked={blockedForYou}
         />
         {appJob && <ActionStatus action={appJob} label="App request progress" />}
         {app && <AppDepth key={appId} appId={appId} />}
         {blockedForYou && <p className="om-note om-tone-info">{blockedForYou}</p>}
+        {askParent}
       </>
     );
   }
@@ -104,6 +119,7 @@ export function Market() {
       <PageHeader title="Market" lede="Every app is checked for licence, vulnerabilities and malware before it is offered. Installing is a request: the owner approves it first." />
       <StoreTabs current="discover" />
       {blockedForYou && <p className="om-note om-tone-info">{blockedForYou}</p>}
+      {askParent}
       <StoreMarket
         apps={apps}
         state={state}
@@ -117,6 +133,7 @@ export function Market() {
         onRequestRemove={(a) => request('app.remove', a.id)}
         onRequestInstall={(a) => request('app.install', a.id)}
         onRetry={hub.reloadAll}
+        requestBlocked={blockedForYou}
       />
     </>
   );
