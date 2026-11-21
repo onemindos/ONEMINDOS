@@ -31,7 +31,7 @@ Run every command from the repo root. On a Mac, install the tools once:
 |---|---|---|
 | Gateway (Python, FastAPI) | `core/` | `make -C core test`; PostgreSQL + NATS: `make -C core test-integration` (needs Docker) |
 | Node daemon and `onemind` CLI (Go) | `cmd/`, `internal/` | `gofmt -l cmd internal`, `go vet ./...`, `go test -race -count=1 ./...` |
-| SDKs, OpenAPI, schemas | `sdk/` | `make -C sdk check-stale` (generated code is current), `make -C sdk test` |
+| SDKs, OpenAPI, schemas | `sdk/` | `make -C sdk check-stale` (the committed spec matches `core/`, the SDK code generates), `make -C sdk test` |
 | Dashboard (React) | `dashboard/` | `cd dashboard && npm ci && npm run lint && npm run typecheck && npm test && npm run build` |
 | Design system | `ui/` | the same five npm commands in `ui/` |
 | Mobile app (Expo) | `mobile/` | `cd mobile && npm ci && npm run typecheck && npx jest --ci` |
@@ -43,7 +43,7 @@ Run every command from the repo root. On a Mac, install the tools once:
 
 **Rules that keep the code clean** (the full definition of done is [docs/leap/AGENT-QUEUE.md §4](docs/leap/AGENT-QUEUE.md)):
 - **Never export `GIT_DIR` or `GIT_WORK_TREE`.** In a linked worktree use `git -C <worktree> ...`. Git commands run with them set (`git worktree`, `git config`) can write the work tree into the shared `.git/config`, which then redirects every other worktree and sends commits to the wrong folder. `scripts/git-guard.sh` fails when they are set ([docs/learning/mac-dev-loop.md](docs/learning/mac-dev-loop.md#guard-against-committing-into-the-wrong-checkout)).
-- **Use the generated client.** Dashboard and app code call the gateway through `@onemind/sdk` (`sdk/ts`), never hand-written API types. Change the API in `core/`, then run `make -C sdk gen` and commit the result.
+- **Use the generated client.** Dashboard and app code call the gateway through `@onemind/sdk` (`sdk/ts`), never hand-written API types. Change the API in `core/`, then run `make -C sdk gen` and commit only the spec `sdk/openapi/onemind-v1.json`; the generated SDK code is not committed (CI-16), and a fresh clone runs `make -C sdk gen-code` once before building.
 - **Wire it up.** A feature is reachable from a mounted route, a dashboard screen or the `onemind` CLI in the same PR, or the PR says why not. No new mock backend.
 - **Tests in the same PR,** one issue per PR, under about 600 changed lines unless the PR is labelled `large`.
 - **One change fragment per PR:** `changes/<branch-with-dashes>.md` ([changes/README.md](changes/README.md)). `CHANGELOG.md` and `docs/leap/STATUS.md` are filled from the fragments, never edited in a feature PR.

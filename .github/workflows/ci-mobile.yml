@@ -16,6 +16,9 @@ on:
       - 'mobile/**'
       - 'ui/src/tokens/**'
       - 'sdk/openapi/**'
+      # mobile/src/api/types.ts re-exports types from the TS SDK, generated from the spec (CI-16).
+      - 'sdk/ts/src/**'
+      - '.github/actions/sdk-gen/**'
       - '.github/workflows/ci-mobile.yml'
   push:
     branches: [main]
@@ -23,6 +26,9 @@ on:
       - 'mobile/**'
       - 'ui/src/tokens/**'
       - 'sdk/openapi/**'
+      # mobile/src/api/types.ts re-exports types from the TS SDK, generated from the spec (CI-16).
+      - 'sdk/ts/src/**'
+      - '.github/actions/sdk-gen/**'
       - '.github/workflows/ci-mobile.yml'
   workflow_dispatch:
 
@@ -57,6 +63,10 @@ jobs:
           node-version: '22'
           cache: npm
           cache-dependency-path: mobile/package-lock.json
+      - name: Generate the SDK code from the committed spec (CI-16, not committed)
+        uses: ./.github/actions/sdk-gen
+        with:
+          langs: ts
       - run: npm ci
       - name: Design tokens match ui/src/tokens/tokens.ts
         run: npm run tokens -- --check
