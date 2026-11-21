@@ -20,6 +20,7 @@ test('dashboard: bad token refused, demo owner signs in, navigates and signs out
   const homeHeading = /^Good (morning|afternoon|evening), owner$/;
   await expect(page.getByRole('heading', { level: 1, name: homeHeading })).toBeVisible();
 
+  // Desktop (D-016): the dock holds the everyday screens; Launchpad ("All screens and apps") holds every screen.
   const nav = page.getByRole('navigation', { name: 'Main' });
   for (const [link, path, heading] of [
     [/^Nodes/, '/nodes', 'Nodes'],
@@ -27,11 +28,17 @@ test('dashboard: bad token refused, demo owner signs in, navigates and signs out
     [/^Approvals/, '/approvals', 'Approvals'],
     [/^Home/, '/', homeHeading],
   ] as const) {
-    await nav.getByRole('link', { name: link }).click();
+    const docked = nav.getByRole('link', { name: link });
+    if ((await docked.count()) > 0) await docked.first().click();
+    else {
+      await nav.getByRole('button', { name: /screens and apps/ }).click();
+      await page.getByRole('dialog', { name: 'Launchpad' }).getByRole('link', { name: link }).click();
+    }
     await expect(page).toHaveURL(new URL(path, DASH_URL).href);
     await expect(page.getByRole('heading', { level: 1, name: heading })).toBeVisible();
   }
 
+  await page.getByRole('button', { name: /^Account/ }).click();
   await page.getByRole('button', { name: 'Sign out' }).click();
   await expect(page.getByRole('heading', { level: 1, name: 'Welcome to OneMind' })).toBeVisible();
   expect(errors, 'uncaught exceptions or console errors').toEqual([]);

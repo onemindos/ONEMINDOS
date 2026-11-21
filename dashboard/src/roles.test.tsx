@@ -13,13 +13,14 @@ import { agentRecords, agentSummaries } from './data/audit';
 import { AGENTS_WINDOW_NOTE } from './pages/Agents';
 import { meRetryDelay, roleOf, showsNav, viewFor } from './shell/roles';
 import { paletteShows } from './shell/Shell';
-import { renderApp, seriousViolations } from './test/helpers';
+import { renderApp, screensNav, seriousViolations } from './test/helpers';
 
 const T = { timeout: 4000 };
 const PRO_LINKS = ['Nodes', 'Control Hub', 'AI & Agents', 'Storage', 'Backups'];
 
+/** All screens offered to this person: Launchpad on the desktop (D-016). */
 async function mainNav() {
-  return within(await screen.findByRole('navigation', { name: 'Main' }, T));
+  return screensNav(userEvent.setup(), T.timeout);
 }
 
 describe('role → view', () => {
