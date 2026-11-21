@@ -108,6 +108,8 @@ To unblock: verify compatible upstream image tags and multi-architecture digests
 **Hold (apps/market-unblock-2, 2026-11-13):** Debian CVEs and Go `stdlib` in `postgres:14-vectorchord0.4.3-pgvectors0.2.0`, and `libopenexr` in the server image `v3.4.1` (the newest). Postgres tags `17-vectorchord0.4.x` exist, but changing the major version needs a data migration and Immich's supported pairing, so it is not a pin bump. Needs a founder or upstream-pairing decision before any change.
 <!-- onemind:notes:end -->
 
+**Hold (apps/147-household-apps, 2026-11-21):** re-read the registry and scanned the newest upstream tags with Trivy (amd64). `immich-server:v3.4.2` (digest `sha256:fc880c1bf665b4aab1e74c15e56ab871225989cd546536e6b77e771869af06bd`) still has CRITICAL CVE-2026-42216 and CVE-2026-42217 in `libopenexr-3-1-30` 3.1.13-2 (fixed in 3.2.12-1~deb13u1, Debian base layer of the server image) and CVE-2026-6653 in `libxml2` (no fix yet). The database image has a newer upstream tag family (`14-vectorchord1.1.1-pgvector0.8.7`), but moving Immich to a different VectorChord major is an upstream compatibility question we did not verify, so the pin is not changed. Nothing is bumped and the tier stays `blocked`. A OneMind rebuild with fixed packages needs a founder decision. Tracked on #147.
+
 ## Latest security scan
 
 Scanned 2026-11-19T14:23:31Z by `sdk/tools/app-gate`: **fail**. Licence `AGPL-3.0` class L2; smoke test pass.
