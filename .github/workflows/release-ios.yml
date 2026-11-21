@@ -1,0 +1,158 @@
+# SPDX-License-Identifier: Apache-2.0
+# iPhone release lane (mobile/docs/ios-release.md). Builds the signed OneMind app, exports the IPA and uploads
+# it to TestFlight, but ONLY when the Apple secrets exist. Without them the run does the free checks
+# (icon, privacy manifest, expo prebuild output) and stops with a notice; ci-mobile.yml keeps the unsigned
+# simulator build on every PR. Never runs on a PR. Signing material comes from repository secrets and is
+# only read on main or a mobile-v* tag. UNPROVEN end to end until the founder adds the secrets and a
+# TestFlight run succeeds.
+name: release-ios
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['mobile-v*']
+
+permissions: {}
+
+concurrency:
+  group: release-ios
+  cancel-in-progress: false
+
+env:
+  EXPO_NO_TELEMETRY: '1'
+
+jobs:
+  ios:
+    name: iPhone archive and TestFlight
+    runs-on: macos-26
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: mobile
+    env:
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
+      IOS_DIST_CERT_P12_BASE64: ${{ secrets.IOS_DIST_CERT_P12_BASE64 }}
+      IOS_DIST_CERT_PASSWORD: ${{ secrets.IOS_DIST_CERT_PASSWORD }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - run: npm ci
+      - name: Pre-flight (icons, export compliance, privacy manifest in app.json)
+        run: npm run check:ios
+      - name: Do the Apple secrets exist
+        id: secrets
+        run: |
+          set -euo pipefail
+          missing=""
+          for v in APPLE_TEAM_ID ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_P8_BASE64 IOS_DIST_CERT_P12_BASE64 IOS_DIST_CERT_PASSWORD; do
+            [ -n "${!v:-}" ] || missing="$missing $v"
+          done
+          case "$GITHUB_REF" in refs/heads/main|refs/tags/mobile-v*) trusted=yes;; *) trusted=no;; esac
+          if [ -n "$missing" ]; then
+            echo "sign=no" >> "$GITHUB_OUTPUT"
+            echo "::notice title=iPhone signing skipped::Missing secrets:$missing. Only the free checks run; see mobile/docs/ios-release.md."
+          elif [ "$trusted" = no ]; then
+            echo "sign=no" >> "$GITHUB_OUTPUT"
+            echo "::notice title=iPhone signing skipped::Signing runs only on main or a mobile-v* tag, not on $GITHUB_REF."
+          else
+            echo "sign=yes" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Generate ios/ (expo prebuild) and check what it wrote
+        run: |
+          set -euo pipefail
+          npx expo prebuild --platform ios --no-install
+          app=ios/OneMind
+          test -f "$app/PrivacyInfo.xcprivacy" || { echo "::error::prebuild wrote no PrivacyInfo.xcprivacy"; exit 1; }
+          plutil -lint "$app/PrivacyInfo.xcprivacy"
+          [ "$(plutil -extract NSPrivacyTracking raw "$app/PrivacyInfo.xcprivacy")" = false ] || { echo "::error::NSPrivacyTracking is not false"; exit 1; }
+          [ "$(plutil -extract ITSAppUsesNonExemptEncryption raw "$app/Info.plist")" = false ] || { echo "::error::ITSAppUsesNonExemptEncryption is not false"; exit 1; }
+          grep -q 'PrivacyInfo.xcprivacy' ios/OneMind.xcodeproj/project.pbxproj || { echo "::error::PrivacyInfo.xcprivacy is not in the Xcode target"; exit 1; }
+          plutil -extract UILaunchStoryboardName raw "$app/Info.plist" > /dev/null || { echo "::error::no launch screen in Info.plist"; exit 1; }
+          icon=$(find "$app/Images.xcassets/AppIcon.appiconset" -name 'App-Icon-1024x1024?1x.png' | head -1)
+          test -n "$icon" || { echo "::error::no app icon generated"; exit 1; }
+          sips -g pixelWidth -g pixelHeight -g hasAlpha "$icon"
+          [ "$(sips -g hasAlpha "$icon" | awk '/hasAlpha/ {print $2}')" = no ] || { echo "::error::the App Store icon has transparency"; exit 1; }
+      - name: Install the pods
+        run: cd ios && pod install
+      - name: Set the build number (each TestFlight upload needs a higher one)
+        if: steps.secrets.outputs.sign == 'yes'
+        run: /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${GITHUB_RUN_NUMBER}" ios/OneMind/Info.plist
+      - name: Import the signing material into a temporary keychain
+        if: steps.secrets.outputs.sign == 'yes'
+        run: |
+          set -euo pipefail
+          kc="$RUNNER_TEMP/onemind-release.keychain-db"
+          kcpw=$(uuidgen)
+          echo "::add-mask::$kcpw"
+          security create-keychain -p "$kcpw" "$kc"
+          security set-keychain-settings -lut 3600 "$kc"
+          security unlock-keychain -p "$kcpw" "$kc"
+          printf '%s' "$IOS_DIST_CERT_P12_BASE64" | base64 --decode > "$RUNNER_TEMP/dist.p12"
+          security import "$RUNNER_TEMP/dist.p12" -k "$kc" -P "$IOS_DIST_CERT_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$kcpw" "$kc" > /dev/null
+          security list-keychains -d user -s "$kc" login.keychain-db
+          rm -f "$RUNNER_TEMP/dist.p12"
+          # App Store Connect API key: xcodebuild and altool find AuthKey_<id>.p8 here
+          mkdir -p ~/.appstoreconnect/private_keys
+          printf '%s' "$ASC_KEY_P8_BASE64" | base64 --decode > ~/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8
+          echo "KEYCHAIN=$kc" >> "$GITHUB_ENV"
+      - name: Archive (signed; provisioning profile comes from the App Store Connect API)
+        if: steps.secrets.outputs.sign == 'yes'
+        run: |
+          set -euo pipefail
+          xcodebuild -quiet -workspace ios/OneMind.xcworkspace -scheme OneMind -configuration Release \
+            -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/OneMind.xcarchive" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath ~/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8 \
+            -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" CODE_SIGN_STYLE=Automatic \
+            OTHER_CODE_SIGN_FLAGS="--keychain $KEYCHAIN" archive
+      - name: Export the IPA for the App Store
+        if: steps.secrets.outputs.sign == 'yes'
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>teamID</key><string>${APPLE_TEAM_ID}</string>
+            <key>signingStyle</key><string>automatic</string>
+            <key>uploadSymbols</key><true/>
+          </dict></plist>
+          PLIST
+          xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/OneMind.xcarchive" \
+            -exportPath "$RUNNER_TEMP/ipa" -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath ~/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8 \
+            -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+          ls -l "$RUNNER_TEMP/ipa"/*.ipa
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: steps.secrets.outputs.sign == 'yes'
+        with:
+          name: onemind-ios-ipa
+          path: ${{ runner.temp }}/ipa/*.ipa
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload to TestFlight
+        if: steps.secrets.outputs.sign == 'yes'
+        run: |
+          set -euo pipefail
+          xcrun altool --upload-app --type ios --file "$RUNNER_TEMP"/ipa/*.ipa \
+            --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID"
+      - name: Remove the keychain and the API key
+        if: always() && steps.secrets.outputs.sign == 'yes'
+        run: |
+          security delete-keychain "${KEYCHAIN:-/nonexistent}" 2>/dev/null || true
+          rm -rf ~/.appstoreconnect/private_keys
