@@ -30,10 +30,14 @@ AmbientCapabilities=
 
 # --- filesystem: read-only except the data partition ---
 ProtectSystem=strict
-ReadWritePaths=/data
+# /boot/efi: the factory reset marker (docs/leap/core/HOST-ACTIONS.md section 4).
+ReadWritePaths=/data /boot/efi
 ProtectHome=yes
 PrivateTmp=yes
-PrivateDevices=yes
+# The factory reset plan reads the disks' LUKS2 headers: block devices read-only, nothing else.
+PrivateDevices=no
+DevicePolicy=closed
+DeviceAllow=block-* r
 ProtectKernelTunables=yes
 ProtectKernelModules=yes
 ProtectKernelLogs=yes
