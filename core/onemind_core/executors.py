@@ -284,10 +284,14 @@ class KubernetesExecutor(Executor):
         hub_addresses: Callable[[], list[str]] | None = None,
         static_hosts: dict[str, list[str]] | None = None,
         dashboard_url: str | None = None,
+        tor_port: int = 0,
     ):
         self.kubectl = kubectl
-        # The URL the dashboard is served on (the gateway serves it on its own port).
+        # The URL whose host the gateway is reached on, and the port of its Tor listener (netconf
+        # tor_port): plain HTTP, every request classified as the Tor path (netpath.py, serve.py).
+        # The scheme and port of the URL are not used: the onion forward is raw TCP and the origin is http://.
         self.dashboard_url = dashboard_url
+        self.tor_port = tor_port
         self.timeout_s = timeout_s
         self.runner = runner
         self.sandbox = sandbox or SandboxSettings()
@@ -349,16 +353,16 @@ class KubernetesExecutor(Executor):
         return out
 
     def gateway_path(self, app: AppEntry) -> tuple[str, int] | None:
-        """(IPv4 address, port) of the dashboard for an app allowed the gateway path, else None.
+        """(IPv4 address, port of the Tor listener) for an app allowed the gateway path, else None.
 
         Only IPv4, one address: the app's egress opens to exactly that address and port.
         """
-        if app.id not in GATEWAY_PATH_APPS or not self.dashboard_url:
+        if app.id not in GATEWAY_PATH_APPS or not self.dashboard_url or not self.tor_port:
             return None
         parts = urlsplit(self.dashboard_url)
         if not parts.hostname:
             return None
-        port = parts.port or (443 if parts.scheme == "https" else 80)
+        port = self.tor_port
         for ip in self.static_hosts.get(parts.hostname.lower()) or self.resolve(parts.hostname):
             addr = ipaddress.ip_address(ip)
             if addr.version == 4 and not (addr.is_loopback or addr.is_unspecified):
@@ -969,10 +973,10 @@ def mesh_static_hosts(mesh: MeshSettings) -> dict[str, list[str]]:
 
 def make_executor(
     name: str, kubectl: str = "kubectl", timeout_s: float = 300, sandbox: SandboxSettings | None = None,
-    static_hosts: dict[str, list[str]] | None = None, dashboard_url: str | None = None,
+    static_hosts: dict[str, list[str]] | None = None, dashboard_url: str | None = None, tor_port: int = 0,
 ) -> Executor:
     if name == "kubernetes":
         return KubernetesExecutor(kubectl=kubectl, timeout_s=timeout_s, sandbox=sandbox,
                                   hub_addresses=local_flannel_addresses(), static_hosts=static_hosts,
-                                  dashboard_url=dashboard_url)
+                                  dashboard_url=dashboard_url, tor_port=tor_port)
     return NoopExecutor()

@@ -28,6 +28,7 @@ import uvicorn
 from .ca import BoxCA
 from .config import Settings
 from .netconf import NetSettings
+from .netpath import SCOPE_PATH_KEY
 
 log = logging.getLogger("onemind.serve")
 
@@ -104,6 +105,17 @@ def redirect_app(https_port: int):
     return app
 
 
+def pinned_path_app(app, path: str):
+    """ASGI wrapper: every connection this listener accepts is on `path` (netpath.SCOPE_PATH_KEY)."""
+
+    async def wrapped(scope, receive, send):
+        if scope["type"] in ("http", "websocket"):
+            scope = {**scope, SCOPE_PATH_KEY: path}
+        await app(scope, receive, send)
+
+    return wrapped
+
+
 def https_cert(settings: Settings, net: NetSettings) -> tuple[str, str]:
     tls_dir = net.tls_dir or settings.audit_path.parent / "tls"
     cert = BoxCA(tls_dir, net.box()).ensure_https_cert()
@@ -122,6 +134,11 @@ async def serve_all(app, settings: Settings) -> None:
     if net.http_redirect_port:
         redirect = _Server(uvicorn.Config(redirect_app(ports[0]), lifespan="off", proxy_headers=False))
         extra.append((redirect, [_bind(net.https_host, net.http_redirect_port)]))
+    if net.tor_port:
+        # Plain HTTP on purpose: the onion address already encrypts and authenticates the link, and
+        # Tor forwards raw TCP, so a TLS listener here would fail the browser's plain request.
+        tor = _Server(uvicorn.Config(pinned_path_app(app, "tor"), lifespan="off", proxy_headers=False))
+        extra.append((tor, [_bind(net.https_host, net.tor_port)]))
     servers = [main] + [s for s, _ in extra]
 
     loop = asyncio.get_running_loop()

@@ -26,7 +26,7 @@ from .events import EventHub
 from .lifecycle import CredentialStore
 from .executors import Executor, NoopExecutor, make_executor, mesh_static_hosts
 from .ledger import ActionRepository, SqlActionRepository
-from .netconf import FabricSettings
+from .netconf import FabricSettings, NetSettings
 from .nodes import NodeRegistry
 from .netconf import MeshSettings
 from .policy import SandboxSettings
@@ -72,6 +72,7 @@ def create_app(
     executor = executor or make_executor(
         settings.executor, settings.kubectl, settings.executor_timeout_s, settings.section(SandboxSettings),
         static_hosts=mesh_static_hosts(mesh), dashboard_url=settings.agent_gateway_url(),
+        tor_port=settings.section(NetSettings).tor_port,
     )
     # §11.1: the scan check is skipped only on explicit request, and only when nothing real runs.
     skip_scan = settings.allow_unscanned and settings.executor == "noop" and isinstance(executor, NoopExecutor)
