@@ -32,6 +32,9 @@ var (
 		Files: []VolumeFile{{VolumeRef: pgVol, Path: "onemind-dumps/app_notes.pgdump"}}}
 )
 
+// wrongRecoveryKey is a made-up value for the wrong-key tests, not a real secret.
+const wrongRecoveryKey = "wrong-key-0123456789abcdef0123456789abcd"
+
 func newManagedFixture(t *testing.T) *managedFixture {
 	t.Helper()
 	f := newFixture(t)
@@ -506,7 +509,7 @@ func TestSnapshotsJobOpensAnotherBoxsRepoWithTheRecoveryKey(t *testing.T) {
 	if inits != 0 {
 		t.Fatal("browsing another box's repository must never run init")
 	}
-	params["recovery_key"] = "wrong-key-0123456789abcdef0123456789abcd"
+	params["recovery_key"] = wrongRecoveryKey
 	code, res, body := m.do(t, KindSnapshots, params)
 	if res.State != "failed" || strings.Contains(string(body), "wrong-key") {
 		t.Fatalf("a wrong key must fail without echoing it: %d %+v %s", code, res, body)
@@ -558,7 +561,7 @@ func TestAppRestoreFromAnotherBoxNeedsTheRecoveryKey(t *testing.T) {
 	}
 	m.write("storage/pvc-1111_app-notes_data/notes.txt", "FRESH BOX")
 	job := map[string]any{"scope": "app", "app_id": "notes", "snapshot_id": snap, "stamp": "20261112T120000Z",
-		"box_id": m.cfg.BoxID, "recovery_key": "wrong-key-0123456789abcdef0123456789abcd"}
+		"box_id": m.cfg.BoxID, "recovery_key": wrongRecoveryKey}
 	_, res, body := m.do(t, KindRestore, job)
 	if res.State != StateFailed || strings.Contains(string(body), "wrong-key") {
 		t.Fatalf("a wrong key must fail without echoing it: %+v %s", res, body)
