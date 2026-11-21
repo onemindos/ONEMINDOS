@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 # File sharing: SMB shares per person and a Time Machine target
 
-**Date:** 2026-11-20 · **Issue:** #235 (FILES-SHARE-01; backlog UMB-FILES-5, UMB-CLIENT-9 server side) · **Status:** PR 1 built (share model, approval, screen); PR 2 (Samba on the box) designed here, next · **Open decision it touches:** F-45 in [DECISIONS-NEEDED.md](../DECISIONS-NEEDED.md) (not locked; see section 4)
+**Date:** 2026-11-20 · **Issue:** #235 (FILES-SHARE-01; backlog UMB-FILES-5, UMB-CLIENT-9 server side) · **Status:** PR 1 built (share model, approval, screen); PR 2 built (Samba on the box, host operation, passwords, Time Machine folder, lab kit) · **Decision:** F-45 is settled as D-017: Samba ships built into the OS image (PR #445)
 
 > **Explain it like I am the founder**
 > Your Mac or Windows PC can open a folder on the OneMind box like a network drive. The box does that with Samba, the standard program for it. Each person gets their own share that shows only their own files, and a Mac can also back itself up to the box with Time Machine. All of it is off until you approve it, and it only answers on your home network and your mesh, never the internet. Samba runs as root-owned system software, so the gateway (which faces the network) never starts it or edits its settings itself. The gateway only keeps the list of who is shared and who approved it, and hands that list to a small root helper on the box.
@@ -38,6 +38,18 @@ Rules kept: off by default; one share per person and kind; a person's share maps
 
 Per-device SMB users and WebDAV (UMB-FILES-5's later half), NFS, the household `shared` folder as an SMB share (add it as a third kind once per-role read-only mapping is designed), guest access (refused by design).
 
-## 4. A file that conflicts with a decision? No, but one open decision
+## 4. What PR 2 built, and where it differs from the plan above
 
-[DECISIONS-NEEDED.md](../DECISIONS-NEEDED.md) F-45 proposes Samba "as a separately updatable system app `apps/samba`". It is not locked (D-001 to D-014 do not mention SMB). PR 2 above chooses a host package because an app in k3s would need host networking for mDNS and Time Machine discovery, a host bind of the Files tree with the right owner, and a way to be told per-person passwords, all of which the root helper already does safely. Zeus decides; the model, routes and screen in PR 1 work either way, because they only talk to `SmbHost`.
+| Plan | Built |
+|---|---|
+| Samba started by the host service | `onemind-host.service` is sandboxed with `~@privileged` and no network capability, which Samba cannot live in. So the host service only **writes** the config and the accounts and calls `systemctl`; Samba runs as its own unit, `onemind-smb.service`, which starts only while `/data/onemind/samba/smb.conf` exists. `smbd`, `nmbd`, `winbind` and `samba-ad-dc` are masked |
+| nftables include for 445/tcp | The unit's `IPAddressDeny=any` plus `IPAddressAllow=` (LAN, link-local, mesh CGNAT, loopback) restrict it in the kernel in both directions, so default-deny egress holds; `smb.conf` repeats the list in `hosts allow`. `test/unit/test_smb_image.py` checks the two lists are identical |
+| `smb-apply` operation, journaled | Desired-state calls, not one-shot actions: `PUT /v1/smb/shares` (the whole list; `testparm` first, then atomic writes, then `reload-or-restart`; an empty list stops Samba and deletes the config, the accounts and their passwords), `PUT /v1/smb/users/{user}/password`, `GET /v1/smb` (`internal/host/smb.go`, `internal/smb`). The gateway re-sends the whole list on every change, so a box that lost its config converges |
+| Per-person accounts | One locked Unix account per Samba user from `libnss-extrausers`, kept in `/data/onemind/samba/extrausers` (`/var/lib/extrausers` is a `tmpfiles.d` link there), uids stable once given; Samba's own password database is `tdbsam` in `/data/onemind/samba/private`. Files are written as the gateway's Unix user (`force user`), so Files owns and trashes them |
+| Passwords | `POST /v1/shares/smb/password`: generated, shown once (`Cache-Control: no-store`), sent to `smbpasswd` on stdin only; never stored or audited on the gateway, never in a host log or error |
+| Time Machine directory | `.system/timemachine/<dir>` beside `home/` and `shared/`, made by the gateway's own user; the share's `root` reads `timemachine:<person>` |
+| QEMU battery step | **Not added.** The battery's criteria are preregistered (`test/qemu/PREREGISTRATION.sha256`); adding a test is a decision for the gate. The checks that would run there are in `lab-kits/LT-SMB-01/smb-check.sh` (smbclient from Linux) and its README (Mac, Windows, Time Machine, egress), plus Go tests for the renderer and host calls, and `test/unit/test_smb_image.py` for the image wiring |
+
+**Not verified yet (needs the image built and booted, or real machines):** that Samba, `vfs_fruit` and `libnss-extrausers` install from the Debian 13 snapshot and that `smbd` starts under the unit's capability list; that `smbpasswd` and `pdbedit` work inside `onemind-host.service`'s sandbox (`~@privileged`); that avahi accepts the dangling-until-first-share link; that macOS discovers the Time Machine share; Windows and macOS opening a share. The lab kit lists each.
+
+**Still open:** step-up (a passkey check) before setting an SMB password, as for other credential changes; the SMB-versus-Files quota gap in section 2; per-device SMB users and WebDAV.

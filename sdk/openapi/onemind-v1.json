@@ -17358,6 +17358,56 @@
         ]
       }
     },
+    "/v1/shares/smb/password": {
+      "post": {
+        "description": "A new SMB password for you, shown once. Replaces the old one; only people with a share of their own.",
+        "operationId": "shares.smb.password",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          }
+        },
+        "summary": "Shares Password",
+        "tags": [
+          "files"
+        ]
+      }
+    },
     "/v1/shares/smb/{share_id}/stop": {
       "post": {
         "description": "Stop sharing. Owner only; taking exposure away needs no approval, and is audited.",

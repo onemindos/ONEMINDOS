@@ -15,18 +15,22 @@ Rules this module keeps:
 - The row is written before the host is asked, and kept until the host has confirmed the removal, so
   the table never under-reports what the box shares.
 
-The gap, said plainly: no `SmbHost` exists yet. Samba is not in the image and `onemindd host serve`
-has no share operation (docs/leap/core/FILE-SHARING.md has the plan, "part 2"). `NoSmbHost` says so,
-the routes report `available: false`, and a request is refused with `smb_unavailable` instead of
-filing an approval that could not run.
+The box side is `onemindd host serve` (internal/host/smb.go, internal/smb): it renders Samba's config
+from the list this module sends, checks it with testparm and starts or stops Samba. `HostSmbClient` talks
+to it over its Unix socket. When the socket or Samba is missing the routes report `available: false` with
+the reason and a request is refused with `smb_unavailable`, instead of filing an approval that could not run.
 """
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import re
+import secrets
 import threading
+from dataclasses import dataclass
 from datetime import datetime
+from pathlib import Path
 from typing import Protocol
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -39,7 +43,10 @@ from .context import Gateway
 from .errors import ApiError
 from .executors import ExecResult
 from .files.access import HOME_ROLES
+from .files.service import FilesService
 from .ledger import Base, iso
+from .sections import config_section
+from .storage import StorageClient, StorageTimeout, StorageUnavailable
 from .store import FeatureSchema, SqlRepository
 
 log = logging.getLogger("onemind.fileshare")
@@ -53,8 +60,21 @@ MAX_TM_BYTES = 10**15           # 1 PB: far above any box, exact as a JSON numbe
 PERSON_RE = r"^[A-Za-z0-9_.@-]{1,64}$"
 REACH = ["lan", "mesh"]
 UNAVAILABLE = ("smb_unavailable",
-               "This box has no file-sharing service yet, so nothing can be shared over SMB. "
-               "Samba and its host-side service arrive with the second part of FILES-SHARE-01.")
+               "This box cannot share files yet: the host service that runs Samba is not reachable.")
+
+
+@config_section("fileshare")
+@dataclass(frozen=True)
+class FileShareSettings:
+    # The host service's socket (onemindd host serve, docs/leap/core/HOST-ACTIONS.md).
+    host_socket: Path = Path("/run/onemind/host.sock")   # ONEMIND_FILESHARE_HOST_SOCKET
+    host_timeout_s: float = 30.0                         # ONEMIND_FILESHARE_HOST_TIMEOUT_S
+
+    def validate(self) -> None:
+        if not self.host_socket.is_absolute():
+            raise ValueError("ONEMIND_FILESHARE_HOST_SOCKET must be an absolute path")
+        if not 1 <= self.host_timeout_s <= 300:
+            raise ValueError("ONEMIND_FILESHARE_HOST_TIMEOUT_S must be between 1 and 300")
 
 
 class SmbHostError(Exception):
@@ -66,7 +86,7 @@ class SmbHostError(Exception):
 
 
 class SmbHost(Protocol):
-    """The box side. It receives the *whole* desired state each time and makes the box match it."""
+    """The box side. It receives the *whole* desired list each time and makes the box match it."""
 
     def status(self) -> tuple[bool, str, str]:
         """(available, reason, message). Reason and message explain `available == False`."""
@@ -74,13 +94,47 @@ class SmbHost(Protocol):
     def apply(self, desired: list[dict]) -> None:
         """Make the shares on the box exactly `desired`. Raises SmbHostError."""
 
+    def set_password(self, user: str, password: str) -> None:
+        """Set a person's SMB password. Raises SmbHostError. The password is never logged or kept."""
 
-class NoSmbHost:
+
+class HostSmbClient:
+    """The real SmbHost: JSON over the host service's Unix socket (internal/host/smb.go)."""
+
+    def __init__(self, settings: FileShareSettings):
+        self.api = StorageClient(settings.host_socket, settings.host_timeout_s)
+
+    def _call(self, method: str, path: str, body: dict | None = None) -> tuple[int, dict]:
+        try:
+            status, doc = self.api.call(method, path, body)
+        except StorageUnavailable:
+            raise SmbHostError(*UNAVAILABLE) from None
+        except StorageTimeout:
+            raise SmbHostError("host_timeout", "The host service did not answer in time; nothing was changed that you can rely on.") from None
+        return status, doc if isinstance(doc, dict) else {}
+
     def status(self) -> tuple[bool, str, str]:
-        return False, *UNAVAILABLE
+        try:
+            status, doc = self._call("GET", "/v1/smb")
+        except SmbHostError as e:
+            return False, e.reason, e.message
+        if status == 200 and doc.get("available") is True:
+            return True, "", ""
+        why = doc.get("unavailable_reason") if status == 200 else None
+        return False, "smb_unavailable", f"This box cannot share files yet: {why or 'the host service gave no answer.'}"
+
+    def _ok(self, status: int, doc: dict) -> None:
+        if status == 200:
+            return
+        if status == 409 and isinstance(doc.get("reason"), str):
+            raise SmbHostError(doc["reason"], str(doc.get("message") or "The host refused."))
+        raise SmbHostError("host_error", "The host service could not do it; see the box's journal.")
 
     def apply(self, desired: list[dict]) -> None:
-        raise SmbHostError(*UNAVAILABLE)
+        self._ok(*self._call("PUT", "/v1/smb/shares", {"shares": desired}))
+
+    def set_password(self, user: str, password: str) -> None:
+        self._ok(*self._call("PUT", f"/v1/smb/users/{user}/password", {"password": password}))
 
 
 class CreateParams(BaseModel):
@@ -105,7 +159,8 @@ class ShareRow(Base):
 
     @property
     def root(self) -> str:
-        return f"home:{self.person_id}"
+        # A Time Machine share is not in the person's Files home: it has its own folder and no Files root.
+        return f"home:{self.person_id}" if self.kind == "home" else f"timemachine:{self.person_id}"
 
     def to_json(self) -> dict:
         return {"id": self.id, "kind": self.kind, "person_id": self.person_id, "name": self.name, "root": self.root,
@@ -153,18 +208,30 @@ class ShareRepository(SqlRepository):
             s.execute(delete(ShareRow).where(ShareRow.id == share_id))
 
 
-def desired(rows: list[ShareRow]) -> list[dict]:
-    """What the host is told: names, owners, kinds and caps. Never a password or a host path."""
-    return [{"id": r.id, "kind": r.kind, "name": r.name, "person_id": r.person_id, "root": r.root,
-             "quota_bytes": int(r.quota_bytes) if r.quota_bytes is not None else None} for r in rows]
+def smb_user(person_id: str) -> str:
+    """The SMB account name of a person, one account per person.
+
+    Share names fold case and punctuation ("bob.smith" and "bob@smith" both become "bob-smith"), so an account
+    named from the share name would let two people share one Samba user, one password and one set of files. The
+    account is therefore a readable prefix plus a hash of the exact person id: distinct ids never collide, and the
+    hash suffix keeps it clear of reserved system names (root, nobody, onemind)."""
+    base = re.sub(r"[^a-z0-9_-]+", "-", person_id.lower()).strip("-")[:20] or "person"
+    return f"{base}-{hashlib.sha256(person_id.encode()).hexdigest()[:8]}"
 
 
 class ShareService:
     def __init__(self, gw: Gateway, host: SmbHost | None = None):
         self.gw = gw
         self.repo = ShareRepository(gw.db)
-        self.host: SmbHost = host or NoSmbHost()
+        self.host: SmbHost = host or HostSmbClient(gw.settings.section(FileShareSettings))
+        self.files = FilesService(gw)
         self._lock = threading.Lock()
+
+    def desired(self, rows: list[ShareRow]) -> list[dict]:
+        """What the host is told: names, accounts, folders and caps. Never a password or a host path."""
+        return [{"id": r.id, "kind": r.kind, "name": r.name, "user": smb_user(r.person_id),
+                 "path": self.files.share_folder(r.kind, r.person_id),
+                 "quota_bytes": int(r.quota_bytes) if r.quota_bytes is not None else None} for r in rows]
 
     # ---- who the household is ------------------------------------------------------------
     def people(self) -> dict[str, str]:
@@ -236,7 +303,7 @@ class ShareService:
                            approved_by=a.approved_by, created_at=now)
             try:
                 self.repo.add(row)  # recorded first: the table never says less than the box shares
-                self.host.apply(desired(self.repo.all()))
+                self.host.apply(self.desired(self.repo.all()))
                 self.repo.set_state(row.id, "active")
             except Exception as e:  # noqa: BLE001 - an approved action must always end; never leave `applying`
                 # Our own row only (its id comes from this action), so a concurrent twin's row is untouched.
@@ -253,6 +320,22 @@ class ShareService:
         finish(ExecResult("succeeded", f"Share {row.name} is on, for LAN and mesh only.",
                           steps=[{"step": "apply shares", "share": row.name, "result": "active"}]))
 
+    # ---- the SMB password ----------------------------------------------------------------
+    def new_password(self, p: Principal) -> dict:
+        """A new SMB password for the signed-in person, shown once. SMB cannot use passkeys, so each person with a
+        share gets a password of their own; it goes to the host and is kept nowhere else (not here, not in the audit)."""
+        if not any(r.state == "active" for r in self.repo.all(p.id)):
+            raise ApiError(409, "policy_refused", "You have no file share, so there is nothing to open with a password.",
+                           reason="no_share")
+        alphabet = "abcdefghjkmnpqrstuvwxyz23456789"  # no 0/o, 1/l/i
+        pw = "-".join("".join(secrets.choice(alphabet) for _ in range(4)) for _ in range(4))
+        try:
+            self.host.set_password(smb_user(p.id), pw)
+        except SmbHostError as e:
+            raise ApiError(409, "policy_refused", e.message, reason=e.reason) from None
+        self.gw.audit.append("fileshare.password_set", p.as_dict(), None, {"user": smb_user(p.id)})
+        return {"user": smb_user(p.id), "password": pw, "shown_once": True}
+
     # ---- remove: taking exposure away, owner only -----------------------------------------
     def remove(self, share_id: str, p: Principal) -> dict:
         with self._lock:
@@ -261,7 +344,7 @@ class ShareService:
                 raise ApiError(404, "not_found", f"There is no share {share_id}.")
             rest = [r for r in self.repo.all() if r.id != share_id]
             try:
-                self.host.apply(desired(rest))
+                self.host.apply(self.desired(rest))
             except SmbHostError as e:
                 # Not removed: the row stays, because the box may still share it.
                 raise ApiError(409, "policy_refused", e.message, reason=e.reason) from None

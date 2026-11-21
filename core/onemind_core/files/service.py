@@ -137,6 +137,17 @@ class FilesService:
             finally:
                 os.close(top)
 
+    def share_folder(self, kind: str, person_id: str) -> str:
+        """Make (as the gateway's own user) and name, relative to the Files root, the folder an SMB share serves:
+        `home/<dir>` for a person's Home, `.system/timemachine/<dir>` for a Time Machine target, which stays out
+        of Home so a backup never fills a person's Files quota or shows in Files."""
+        name = self.space_dir_name(person_id)
+        if kind == "home":
+            with self._space(Root("home", person_id)):
+                return f"home/{name}"
+        with self._system("timemachine", name):
+            return f".system/timemachine/{name}"
+
     @contextmanager
     def _system(self, *names: str) -> Iterator[int]:
         with self._base() as base:

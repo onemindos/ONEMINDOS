@@ -15,6 +15,7 @@ echo "== python compile"
 for f in $(git ls-files -co --exclude-standard $OURS | grep -E '\.py$'); do python3 -m py_compile "$f" || rc=1; done
 echo "== SPDX headers (Apache-2.0) on OneMind files"
 for f in $(git ls-files -co --exclude-standard $OURS | grep -vE '(\.keep|\.json|\.md|\.txt|\.ext|PREREGISTRATION\.sha256|etc/hostname|etc/hosts)$'); do
+  [ -L "$f" ] && continue  # a symlink (os/rootfs/layers/onemind/etc/avahi/services/onemind-smb.service points into /data) has no text of its own
   head -n 5 "$f" | grep -q 'SPDX-License-Identifier: Apache-2.0' || { echo "missing SPDX header: $f"; rc=1; }
 done
 echo "== no naive gate outside test fixtures (B5)"
