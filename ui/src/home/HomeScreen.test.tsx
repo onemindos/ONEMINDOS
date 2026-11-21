@@ -179,6 +179,18 @@ describe('HomeScreen', () => {
     expect(within(widget('Updates')).getByText('3 available')).toBeInTheDocument();
   });
 
+  it('first paint says it is connecting: no "not answering" banner and no last-known-state age from 1970', () => {
+    const { unmount } = render(<Harness data={{ ...loadingData, hub: { observed_at: new Date(0).toISOString() } }} />);
+    expect(screen.getByText('Connecting to the hub.')).toBeInTheDocument();
+    expect(screen.queryByText(/not answering|last known state/)).not.toBeInTheDocument();
+    unmount();
+    // Once something has answered, a silent hub is still reported as such.
+    render(<Harness data={{ ...errorData, hub: { observed_at: new Date(0).toISOString() } }} />);
+    expect(screen.getByText('The hub is not answering.', { selector: 'strong' })).toBeInTheDocument();
+    expect(screen.getByText(/Nothing has loaded yet/)).toBeInTheDocument();
+    expect(screen.queryByText(/last known state from/)).not.toBeInTheDocument();
+  });
+
   it('a fresh box shows calm empty states and how to get apps', () => {
     render(<Harness data={freshData} start={{ version: 1, widgets: [{ id: 'w-approvals', kind: 'approvals', size: 'M' }, { id: 'w-u', kind: 'updates', size: 'S' }, { id: 'w-b', kind: 'backups', size: 'S' }], pinned: [] }} />);
     expect(screen.getByText('Nothing needs you')).toBeInTheDocument();

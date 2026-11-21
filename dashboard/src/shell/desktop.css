@@ -70,14 +70,28 @@
 
 /* ── Desktop ────────────────────────────────────────────────────────────── */
 .dsk-desktop {
-  width: 100%; max-width: 1120px; margin: 0 auto;
-  /* Clear of the dock: its height, its 12px offset from the edge, and 24px of air. */
-  padding: var(--om-space-8) var(--dsk-gap) calc(var(--dsk-dock-h) + var(--om-space-3) + 24px + env(safe-area-inset-bottom, 0px));
+  width: 100%; max-width: none; margin: 0;
+  /* Content stays 1120px wide and centred; the scrollbar sits at the screen edge. */
+  padding: var(--om-space-6) max(var(--dsk-gap), calc((100% - 1120px) / 2)) var(--om-space-8);
   outline: none;
 }
+/* Home never scrolls the page: the desktop fills the viewport, the wallpaper stays put behind it,
+   and the widgets scroll in a region that ends above the dock, so a button is never under it. */
+/* The page itself never scrolls on Home (the jobs tray sits in the flow below the desktop until the store styles load). */
+.dash-desktop:has(> .dsk-at-home) { height: 100vh; height: 100dvh; overflow: hidden; }
+.dsk-at-home { height: 100vh; height: 100dvh; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+.dsk-at-home .dsk-desktop {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+  /* The dock's height, its offset from the screen edge, and a gap above it. */
+  margin-bottom: calc(var(--dsk-dock-h) + var(--om-space-3) + var(--om-space-3) + env(safe-area-inset-bottom, 0px));
+  scroll-padding-block: var(--om-space-4);
+  /* A soft edge says there is more below, instead of a button cut in half. */
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent);
+}
 /* Home reads as a desktop: centred greeting and search, glass widgets. */
-.dsk-desktop .omh-home { gap: var(--om-space-8); }
-.dsk-desktop .omh-hero { flex-direction: column; align-items: center; text-align: center; padding-top: var(--om-space-6); }
+.dsk-desktop .omh-home { gap: var(--om-space-6); }
+.dsk-desktop .omh-hero { flex-direction: column; align-items: center; text-align: center; padding-top: var(--om-space-3); }
 .dsk-desktop .omh-hero-text { align-items: center; }
 .dsk-desktop .omh-greeting { font-size: clamp(2.25rem, 1.4rem + 3vw, 3.5rem); letter-spacing: -0.035em; text-shadow: 0 1px 24px color-mix(in srgb, var(--om-color-bg) 55%, transparent); }
 .dsk-desktop .omh-date { text-transform: uppercase; letter-spacing: 0.12em; font-size: var(--om-font-size-xs); }
@@ -110,6 +124,8 @@
   backdrop-filter: saturate(160%) blur(40px); -webkit-backdrop-filter: saturate(160%) blur(40px);
   animation: dsk-open 220ms var(--dsk-ease);
 }
+/* Short screens: a narrow window that sizes to its content, with more of the wallpaper showing through. */
+.dsk-window[data-size='compact'] { width: min(640px, 100%); background: color-mix(in srgb, var(--om-color-surface) 74%, transparent); }
 /* Floating back and close buttons over the window's corners; no title bar, so the name is said once (the heading). */
 .dsk-window-bar {
   position: absolute; z-index: 2; top: var(--om-space-3); left: var(--om-space-3); right: var(--om-space-3);
@@ -257,7 +273,7 @@
   .dsk-dock-item { min-width: 48px; padding: 2px 2px 6px; }
   .dsk-dock-sep { margin: 0 2px; }
   .dsk-dock-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-  .dsk-desktop { padding-top: var(--om-space-4); }
+  .dsk-desktop { padding-top: var(--om-space-4); padding-bottom: var(--om-space-5); }
   .dsk-desktop .omh-greeting { font-size: 34px; }
   .dsk-wbtn { width: 44px; height: 44px; }
   .dsk-demo-short { display: inline; }

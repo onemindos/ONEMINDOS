@@ -3,10 +3,11 @@
 // Widgets whose API is not on this hub yet (backups, updates, mesh) say which work stream brings
 // them instead of showing made-up numbers.
 import { useMemo, useState } from 'react';
-import { greetingName, HomeScreen, useOptionalCustomize, useToast, type ActionSummary, type BackupStatus, type StorageStatus, type HomeData, type HomeLayout, type HomeLoadable } from '@onemind/ui';
+import { HomeScreen, useOptionalCustomize, useToast, type ActionSummary, type BackupStatus, type StorageStatus, type HomeData, type HomeLayout, type HomeLoadable } from '@onemind/ui';
 import { homeActivity, toActionSummary, toHomeApp, toHomeNode } from '../data/adapters';
 import { errorText, useHub, type Hub } from '../data/hub';
 import { useHomeBackups } from '../data/homeBackups';
+import { useDisplayName } from '../data/homeMe';
 import { useHomeStorage } from '../data/homeStorage';
 import { homeLayoutStore } from '../data/prefs';
 import type { Polled } from '../lib/hooks';
@@ -64,7 +65,8 @@ export function homeData(hub: Hub, activity: ReturnType<typeof homeActivity>, ba
 
 export function Home() {
   const hub = useHub();
-  const { principal, person } = useSignedIn();
+  const { person } = useSignedIn();
+  const personName = useDisplayName();
   const shell = useShell();
   const toast = useToast();
   const customize = useOptionalCustomize();
@@ -90,7 +92,7 @@ export function Home() {
       data={data}
       now={hub.now}
       timeZone={Intl.DateTimeFormat().resolvedOptions().timeZone}
-      personName={principal?.kind === 'person' ? greetingName(principal.id) : undefined}
+      personName={personName}
       onRetry={() => {
         hub.reloadAll();
         void backups.reload();

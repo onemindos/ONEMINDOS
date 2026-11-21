@@ -88,6 +88,11 @@ export function HomeScreen({
   const hubAge = secondsSince(data.hub.observed_at, now);
   const hubState = freshness(hubAge, HUB_LIMITS);
   const hubLive = hubState === 'live';
+  // First paint: nothing has answered yet. That is "connecting", not "the hub went quiet", so there
+  // is no stale banner and no "last known state" from 1970.
+  // And a hub that never answered has no "last known state" to show at all.
+  const neverSeen = !Number.isFinite(hubAge) || !(Date.parse(data.hub.observed_at) > 0);
+  const connecting = [data.nodes, data.apps, data.approvals].every((s) => s.state === 'loading');
 
   useEffect(() => {
     if (!onOpenSearch) return;
@@ -110,7 +115,7 @@ export function HomeScreen({
   const nodes = data.nodes.state === 'ready' ? data.nodes.data : [];
   const waiting = data.approvals.state === 'ready' ? data.approvals.data.filter((a) => a.state === 'awaiting_approval').length : 0;
   const nodeStates = nodes.map((n) => nodeFreshness(n, now));
-  const summary = summaryLine({
+  const summary = connecting ? 'Connecting to the hub.' : neverSeen ? 'The hub is not answering.' : summaryLine({
     waiting,
     staleNodes: nodeStates.filter((s) => s === 'stale').length,
     offlineNodes: nodeStates.filter((s) => s === 'offline').length,
@@ -159,12 +164,12 @@ export function HomeScreen({
         </kbd>
       </button>
 
-      {!hubLive && (
+      {!hubLive && !connecting && (
         <div className={cx('omh-banner', hubState === 'stale' ? 'om-tone-warn' : 'om-tone-neutral')} role="status">
           <Icon name="alert" size={18} />
           <span>
-            <strong>{hubState === 'stale' ? 'The hub is slow to answer.' : 'The hub is not answering.'}</strong> Showing the last known state from {formatAgo(hubAge)}. Nothing below is live, and
-            decisions wait until it is back.
+            <strong>{hubState === 'stale' ? 'The hub is slow to answer.' : 'The hub is not answering.'}</strong>{' '}
+            {neverSeen ? 'Nothing has loaded yet, so nothing below is live.' : `Showing the last known state from ${formatAgo(hubAge)}. Nothing below is live, and decisions wait until it is back.`}
           </span>
         </div>
       )}

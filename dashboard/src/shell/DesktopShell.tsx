@@ -55,6 +55,9 @@ export const DOCK_IDS = DOCK_ORDER;
 
 /** One colour per screen (each screen's `hue`), so a place is recognised before its name is read. White glyph on each. */
 export const SCREEN_HUES = HUES;
+
+/** Short screens (a few facts and one action) open in a narrow window instead of a wide, mostly empty one. */
+export const COMPACT_WINDOWS: ReadonlySet<string> = new Set(['storage', 'backups']);
 const FALLBACK_HUE = ['#7d8794', '#3a414b'] as const;
 
 export function tileStyle(id: string): CSSProperties {
@@ -353,7 +356,7 @@ export function DesktopShell(props: DesktopShellProps) {
       ) : (
         <div className="dsk-stage">
           <div className="dsk-scrim" aria-hidden="true" onClick={() => navigate('/')} />
-          <section className="dsk-window" aria-labelledby={windowLabel} key={current}>
+          <section className="dsk-window" data-size={COMPACT_WINDOWS.has(current) ? 'compact' : undefined} aria-labelledby={windowLabel} key={current}>
             {/* The screen's name is said once, by its own heading; the window only names itself for assistive tech. */}
             <span id={windowLabel} className="om-visually-hidden">
               {title}
