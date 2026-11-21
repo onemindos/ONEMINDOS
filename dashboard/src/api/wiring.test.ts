@@ -39,3 +39,17 @@ describe('HttpApi §12 routes', () => {
     await expect(api.users()).rejects.toMatchObject({ code: 'unknown' });
   });
 });
+
+describe('approve', () => {
+  it('sends the plan fingerprint so a tainted agent request can be approved', async () => {
+    const { api, calls } = rig({ id: 'a1' });
+    await api.approve('a1', 'sha256:abc');
+    expect(calls[0]!.url).toBe('/v1/actions/a1/approve');
+    expect(JSON.parse(String(calls[0]!.init.body))).toEqual({ plan_sha256: 'sha256:abc' });
+  });
+  it('sends no body when the action has no fingerprint', async () => {
+    const { api, calls } = rig({ id: 'a1' });
+    await api.approve('a1');
+    expect(calls[0]!.init.body).toBeUndefined();
+  });
+});

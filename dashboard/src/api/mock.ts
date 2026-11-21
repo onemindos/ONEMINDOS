@@ -181,9 +181,10 @@ export class MockApi extends MockWiringBase implements OneMindApi {
     this.auth();
     return { ...this.find(id) };
   }
-  async approve(id: string) {
+  async approve(id: string, planSha256?: string) {
     const p = this.ownerOnly();
     const a = this.find(id);
+    if (planSha256 && a.plan_sha256 && planSha256 !== a.plan_sha256) throw new ApiError(409, 'stale_precondition', 'The approval names a different plan');
     if (a.state !== 'awaiting_approval') throw new ApiError(409, 'conflict', `Action is ${a.state}`);
     if (Date.parse(a.expires_at) <= this.now()) {
       a.state = 'expired';
