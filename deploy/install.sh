@@ -1302,6 +1302,8 @@ ONEMIND_NET_TLS=1
 ONEMIND_NET_TLS_DIR=$STATE/tls
 ONEMIND_NET_HTTP_REDIRECT_PORT=80
 # Plain-HTTP listener whose requests are always the Tor path: the Tor app's onion service forwards here (#284).
+# The gateway binds it only to the hub's mesh address (never the LAN), accepts only pod, mesh and
+# loopback peers, and answers 503 until the tor-remote-access app is installed.
 ONEMIND_NET_TOR_PORT=8446
 ONEMIND_NET_MDNS=1
 ONEMIND_MESH_ENABLED=1
