@@ -70,7 +70,10 @@ class AuditLog:
         self.path = path
         self.clock = clock
         self.publish = publish
-        self._lock = threading.Lock()
+        self._lock = threading.Lock()  # orders lines in the chain and the file write
+        self._sync_lock = threading.Lock()  # one fsync at a time; waiters share it (group commit)
+        self._written = 0  # lines written (flushed to the OS), guarded by _lock
+        self._synced = 0  # lines known to be on disk, guarded by _sync_lock
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._seq, self._last_hash, recovered = self._resume()
         if recovered is not None:
@@ -127,6 +130,27 @@ class AuditLog:
             os.fsync(fh.fileno())
         return seq, last_hash, {"moved_bytes": len(tail), "moved_to": corrupt.name}
 
+    def _sync_to(self, mine: int) -> None:
+        """Return once line number `mine` is on disk. Group commit.
+
+        append() returns (and the caller acknowledges the request) only after the line is fsynced,
+        so no acknowledged event is lost on a crash. The fsync runs outside the chain lock: while
+        one thread waits for the disk, other threads write their lines, and the next fsync makes
+        all of them durable together. An unloaded writer still costs one fsync per line; N
+        concurrent writers cost about one fsync per batch instead of N.
+        """
+        with self._sync_lock:
+            if self._synced >= mine:  # an earlier fsync already covered this line
+                return
+            with self._lock:
+                upto = self._written
+            fd = os.open(self.path, os.O_RDONLY)
+            try:
+                os.fsync(fd)
+            finally:
+                os.close(fd)
+            self._synced = upto
+
     def append(
         self,
         event: str,
@@ -149,8 +173,10 @@ class AuditLog:
             with self.path.open("a", encoding="utf-8") as fh:
                 fh.write(line)
                 fh.flush()
-                os.fsync(fh.fileno())
             self._seq, self._last_hash = body["seq"], digest
+            self._written += 1
+            mine = self._written
+        self._sync_to(mine)
         if self.publish is not None:
             try:
                 self.publish(AUDIT_SUBJECT, line.encode("utf-8"))
