@@ -45,5 +45,6 @@ Short answers to founder questions, saved so they are not lost in chat. Folder: 
 | 03 | [Olares, Project NOMAD, k3s vs Docker, and where OneMind goes next](founder/03-competitors-and-where-we-go.md) |
 | 04 | [Before the big build: code check, process fixes, seeing the OS, open decisions](founder/04-before-the-big-build.md) |
 | 05 | [Decision briefs, week of 2026-11-16: Z-41, signing keys, hardware, scoring rules, bootc Pi test, VMs/terminal/Tor](founder/05-decision-briefs-nov-2026.md) |
+| 06 | [The test lab, machine by machine: R530 + Proxmox, which box tests what, what to sell](founder/06-test-lab-hardware.md) |
 
 The "On `main`?" column was checked on 2026-11-12. The leap's live state is in [`docs/leap/STATUS.md`](../leap/STATUS.md).
