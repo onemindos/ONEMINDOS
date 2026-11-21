@@ -212,5 +212,6 @@ describe('Retired screens', () => {
   it('legacy Storage settings reach the new real-hub-only view', async () => {
     renderApp({ token: 'owner-demo', route: '/settings/storage' });
     expect(await screen.findByText(/Demo mode has no storage data/, {}, T)).toBeInTheDocument();
+    expect(screen.getByText('No storage reported yet')).toBeInTheDocument();
   });
 });

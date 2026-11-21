@@ -100,7 +100,7 @@
 .dsk-window {
   position: relative; display: flex; flex-direction: column;
   /* Sizes to its content, up to the stage; a long screen scrolls inside. */
-  width: min(1120px, 100%); height: auto; max-height: 100%; min-height: min(520px, 100%);
+  width: min(1120px, 100%); height: auto; max-height: 100%; min-height: 0;
   border-radius: var(--dsk-radius-window); overflow: hidden;
   /* Slightly see-through, so the wallpaper glows at the edges. */
   background: color-mix(in srgb, var(--om-color-surface) 82%, transparent);
@@ -138,6 +138,7 @@
   box-shadow: 0 1px 0 color-mix(in srgb, #fff 5%, transparent) inset, 0 8px 24px -16px rgb(0 0 0 / 0.5);
 }
 .dsk-window-body .om-card-attention { box-shadow: inset 3px 0 0 var(--om-color-warn-fg), 0 8px 24px -16px rgb(0 0 0 / 0.5); }
+.dsk-window-body a.om-btn { text-decoration: none; }
 .dsk-window-body h2 { letter-spacing: -0.015em; }
 .dsk-window-body .om-subhead { text-transform: uppercase; letter-spacing: 0.08em; font-size: var(--om-font-size-xs); font-weight: var(--om-font-weight-semibold); }
 .dsk-window-body .om-table tr + tr td { border-top-color: var(--dsk-hairline); }
@@ -250,8 +251,11 @@
   .dsk-stage { padding: var(--om-space-2) var(--om-space-2) calc(var(--dsk-dock-h) + var(--om-space-3)); }
   .dsk-window { border-radius: 18px; }
   .dsk-window-body { padding: var(--om-space-4) var(--om-space-3) var(--om-space-6); }
-  .dsk-dock { bottom: var(--om-space-2); padding: 6px 8px; border-radius: 22px; }
-  .dsk-dock-item { min-width: 50px; padding-bottom: 6px; }
+  /* Seven 44px tiles fit a 390px phone without scrolling; more pinned apps scroll inside the pill. */
+  .dsk-dock { bottom: var(--om-space-2); padding: 6px; border-radius: 22px; gap: 0; }
+  .dsk-dock-group { gap: 0; }
+  .dsk-dock-item { min-width: 48px; padding: 2px 2px 6px; }
+  .dsk-dock-sep { margin: 0 2px; }
   .dsk-dock-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .dsk-desktop { padding-top: var(--om-space-4); }
   .dsk-desktop .omh-greeting { font-size: 34px; }
@@ -261,7 +265,10 @@
   .dsk-demo { position: relative; }
   .dsk-iconbtn { width: 44px; height: 44px; }
   .dsk-avatar { width: 36px; height: 36px; }
-  .dsk-status { flex: 1 1 0; min-width: 0; flex-wrap: wrap; gap: 2px 0; }
+  /* Online pill and Demo badge share one line: the pill's hub text stays for screen readers only. */
+  .dsk-status { flex: 1 1 0; min-width: 0; flex-wrap: nowrap; align-items: center; }
+  .dsk-status .om-pill-detail { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .dsk-status .om-pill { position: relative; flex: none; white-space: nowrap; }
   .dsk-window-body { padding-top: 64px; }
   .dsk-launchpad-big { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); }
 }

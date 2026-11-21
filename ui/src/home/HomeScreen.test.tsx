@@ -60,6 +60,37 @@ describe('HomeScreen widget states', () => {
     expect(within(w).getByRole('link', { name: 'Set up backups' })).toHaveAttribute('href', '/backups');
   });
 
+  it('shows the trust tile: nodes online, last proved backup, last signed update', () => {
+    const data: HomeData = {
+      ...homeData,
+      backups: { state: 'ready', data: { last_run: null, last_verified_restore: null, destinations: [], observed_at: homeData.hub.observed_at } },
+    };
+    render(<Harness data={data} start={{ ...demoLayout, widgets: [{ id: 'w-t', kind: 'trust', size: 'S' }] }} />);
+    const w = widget('Trust');
+    expect(within(w).getByText('Nodes online')).toBeInTheDocument();
+    expect(within(w).getByText('None yet')).toBeInTheDocument();
+    expect(within(w).getByText('Not reported')).toBeInTheDocument();
+  });
+
+  it('says No storage reported yet with one action, and shows used data when the hub reports it', () => {
+    const start = { ...demoLayout, widgets: [{ id: 'w-s', kind: 'storage' as const, size: 'S' as const }] };
+    const { unmount } = render(<Harness data={homeData} start={start} links={{ storage: '/storage' }} />);
+    expect(within(widget('Storage')).getByText('No storage reported yet')).toBeInTheDocument();
+    expect(within(widget('Storage')).getByRole('link', { name: 'Open storage' })).toHaveAttribute('href', '/storage');
+    unmount();
+    const data: HomeData = { ...homeData, storage: { state: 'ready', data: { state: 'healthy', encrypted: true, used_bytes: 42_000_000_000, disks: 2, observed_at: homeData.hub.observed_at } } };
+    render(<Harness data={data} start={start} />);
+    expect(within(widget('Storage')).getByText('42 GB')).toBeInTheDocument();
+    expect(within(widget('Storage')).getByText('Healthy')).toBeInTheDocument();
+  });
+
+  it('titles an app widget by its display name while the catalog is still loading', () => {
+    render(<Harness data={loadingData} start={{ ...demoLayout, widgets: [{ id: 'w-a', kind: 'app', size: 'S', appId: 'uptime-kuma', widgetId: 'monitors' }, { id: 'w-n', kind: 'app', size: 'S', appId: 'ntfy', widgetId: 'x' }] }} />);
+    expect(screen.getByRole('region', { name: 'Uptime Kuma' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'ntfy' })).toBeInTheDocument();
+    expect(screen.queryByText(/App widget \(/)).not.toBeInTheDocument();
+  });
+
   it('shows the age of a last-known value in its stale pill', () => {
     render(<Harness data={offlineData} />);
     expect(screen.getAllByText('Last known').length).toBeGreaterThan(0);

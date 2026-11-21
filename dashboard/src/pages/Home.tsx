@@ -3,10 +3,11 @@
 // Widgets whose API is not on this hub yet (backups, updates, mesh) say which work stream brings
 // them instead of showing made-up numbers.
 import { useMemo, useState } from 'react';
-import { greetingName, HomeScreen, useOptionalCustomize, useToast, type ActionSummary, type BackupStatus, type HomeData, type HomeLayout, type HomeLoadable } from '@onemind/ui';
+import { greetingName, HomeScreen, useOptionalCustomize, useToast, type ActionSummary, type BackupStatus, type StorageStatus, type HomeData, type HomeLayout, type HomeLoadable } from '@onemind/ui';
 import { homeActivity, toActionSummary, toHomeApp, toHomeNode } from '../data/adapters';
 import { errorText, useHub, type Hub } from '../data/hub';
 import { useHomeBackups } from '../data/homeBackups';
+import { useHomeStorage } from '../data/homeStorage';
 import { homeLayoutStore } from '../data/prefs';
 import type { Polled } from '../lib/hooks';
 import { useSignedIn } from '../session';
@@ -15,7 +16,8 @@ import { showsNav } from '../shell/roles';
 import { useActivity, useShell } from '../shell/Shell';
 
 /**
- * Home's first layout: "Needs you" and System on top, then Backups for people who may read them.
+ * Home's first layout: "Needs you" and System on top, then a trust tile, Storage and Backups for
+ * people who may read them (two small tiles and one medium one fill the second row).
  * The raw activity log lives in the Activity window (and the widget gallery), not here.
  */
 export function dashboardHomeLayout(pro: boolean): HomeLayout {
@@ -24,7 +26,13 @@ export function dashboardHomeLayout(pro: boolean): HomeLayout {
     widgets: [
       { id: 'w-approvals', kind: 'approvals', size: 'M' },
       { id: 'w-system', kind: 'system', size: 'M' },
-      ...(pro ? [{ id: 'w-backups', kind: 'backups' as const, size: 'M' as const }] : []),
+      ...(pro
+        ? [
+            { id: 'w-trust', kind: 'trust' as const, size: 'S' as const },
+            { id: 'w-storage', kind: 'storage' as const, size: 'S' as const },
+            { id: 'w-backups', kind: 'backups' as const, size: 'M' as const },
+          ]
+        : []),
     ],
     pinned: [],
   };
@@ -38,7 +46,7 @@ function loadable<T, U>(p: Polled<T>, map: (d: T) => U): HomeLoadable<U> {
   return { state: 'loading' };
 }
 
-export function homeData(hub: Hub, activity: ReturnType<typeof homeActivity>, backups: HomeLoadable<BackupStatus>): HomeData {
+export function homeData(hub: Hub, activity: ReturnType<typeof homeActivity>, backups: HomeLoadable<BackupStatus>, storage?: HomeLoadable<StorageStatus>): HomeData {
   return {
     hub: { observed_at: hub.asOf ?? new Date(0).toISOString() },
     nodes: loadable(hub.nodes, (ns) => ns.map((n) => toHomeNode(n, hub.nodeStatus(n)))),
@@ -46,6 +54,7 @@ export function homeData(hub: Hub, activity: ReturnType<typeof homeActivity>, ba
     approvals: hub.actions.data !== undefined ? { state: 'ready', data: hub.actionList.map((a) => toActionSummary(a, hub.appName)) } : loadable(hub.actions, () => [] as ActionSummary[]),
     activity: hub.actions.data !== undefined ? { state: 'ready', data: activity } : loadable(hub.actions, () => activity),
     backups,
+    storage,
     updates: coming('OS and app updates', 'CORE-UPDATE'),
     mesh: coming('Mesh links', 'CORE-FABRIC'),
     appWidgets: {},
@@ -64,7 +73,8 @@ export function Home() {
   const [layout, setLayout] = useState<HomeLayout>(() => store.load(person) ?? dashboardHomeLayout(pro));
   const entries = useActivity();
   const backups = useHomeBackups(pro);
-  const data = homeData(hub, homeActivity(entries), backups.value);
+  const storage = useHomeStorage(pro);
+  const data = homeData(hub, homeActivity(entries), backups.value, storage.value);
 
   const decide = (a: ActionSummary, how: 'approve' | 'deny') =>
     hub.decide(a.id, how).then(
@@ -84,6 +94,7 @@ export function Home() {
       onRetry={() => {
         hub.reloadAll();
         void backups.reload();
+        void storage.reload();
       }}
       layout={layout}
       onLayoutChange={(next) => {
@@ -106,6 +117,7 @@ export function Home() {
         updates: href.setting('updates'),
         mesh: pro ? href.nodes : '',
         apps: href.market,
+        storage: pro ? href.storage : '',
         app: (id) => (hub.apps.data?.find((a) => a.id === id)?.installed ? href.manage(id) : href.app(id)),
         approval: (id) => href.approval(id),
       }}

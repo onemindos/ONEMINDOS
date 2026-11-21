@@ -38,6 +38,7 @@ export type {
   AppWidgetPayload,
   ActivityItem,
   BackupStatus,
+  StorageStatus,
   UpdatesStatus,
   MeshStatus,
   WeatherSlot,

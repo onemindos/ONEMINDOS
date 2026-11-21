@@ -142,6 +142,8 @@ describe('Activity, Nodes, Settings', () => {
     expect(backups).toBeDefined();
     await u.click(backups!);
     expect(await screen.findByText(/Demo mode has no backup data/)).toBeInTheDocument();
+    expect(screen.getByText('No backup proved yet')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Set up backups' })).toBeInTheDocument();
     await u.click(screen.getByRole('link', { name: 'Settings' }));
     await u.click(screen.getByRole('link', { name: /About/ }));
     expect(await screen.findByText('Hub node', {}, T)).toBeInTheDocument();

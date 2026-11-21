@@ -192,6 +192,9 @@
 .omh-facts dt { font-size: var(--om-font-size-xs); color: var(--om-color-text-muted); }
 .omh-facts dd { margin: 0; font-weight: var(--om-font-weight-medium); }
 .omh-facts-big dd { font-size: var(--om-font-size-md); }
+.omh-facts-stack { flex-direction: column; flex-wrap: nowrap; gap: var(--om-space-3); }
+.omh-facts-stack > div { flex-direction: row; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--om-space-1) var(--om-space-3); }
+.omh-facts-stack dd { white-space: nowrap; }
 .omh-node-list, .omh-rows, .omh-feed, .omh-approvals { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
 .omh-node-list > li, .omh-rows > li, .omh-feed > li { display: flex; flex-wrap: wrap; align-items: center; gap: var(--om-space-1) var(--om-space-3); padding: var(--om-space-2) 0; border-bottom: 1px solid var(--om-color-border); font-size: var(--om-font-size-sm); }
 .omh-node-list > li:last-child, .omh-rows > li:last-child, .omh-feed > li:last-child { border-bottom: 0; }
