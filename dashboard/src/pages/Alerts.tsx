@@ -39,10 +39,10 @@ export function Alerts() {
         {(s) => (
           <Card title="Right now" variant="sunken">
             <dl className="om-facts">
-              <div><dt>Nodes online</dt><dd>{s.nodes.online} of {s.nodes.online + s.nodes.stale + s.nodes.offline}</dd></div>
-              <div><dt>Apps healthy</dt><dd>{s.apps.healthy ?? 0}</dd></div>
-              <div><dt>Apps unhealthy</dt><dd>{s.apps.unhealthy ?? 0}</dd></div>
-              <div><dt>Open alerts</dt><dd>{s.open_alerts.critical} critical, {s.open_alerts.warning} warning, {s.open_alerts.info} info</dd></div>
+              <div><dt>{t('alerts.stat.nodes')}</dt><dd>{s.nodes.online} of {s.nodes.online + s.nodes.stale + s.nodes.offline}</dd></div>
+              <div><dt>{t('alerts.stat.healthy')}</dt><dd>{s.apps.healthy ?? 0}</dd></div>
+              <div><dt>{t('alerts.stat.unhealthy')}</dt><dd>{s.apps.unhealthy ?? 0}</dd></div>
+              <div><dt>{t('alerts.stat.open')}</dt><dd>{s.open_alerts.critical} critical, {s.open_alerts.warning} warning, {s.open_alerts.info} info</dd></div>
             </dl>
           </Card>
         )}
@@ -70,7 +70,7 @@ export function Alerts() {
                       )}
                       {a.fix && (
                         <Button size="sm" variant="primary" aria-label={t('alerts.fix', { title: a.title })} onClick={() => fix(a)}>
-                          Ask to fix
+                          {t('alerts.fix.short')}
                         </Button>
                       )}
                       {isOwner && (
