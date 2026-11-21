@@ -44,9 +44,9 @@ def register(app: FastAPI, gw: Gateway) -> None:
         "/mcp",
         tags=["mcp"],
         operation_id="mcp.post",
-        summary="MCP Streamable HTTP endpoint (protocol 2025-06-18 and 2026-07-28), agents only",
+        summary="MCP Streamable HTTP endpoint (protocol 2025-06-18), agents only",
         description=(
-            "One JSON-RPC 2.0 message per request: initialize (2025-06-18), server/discover (2026-07-28), ping, tools/list, tools/call, tasks/get. "
+            "One JSON-RPC 2.0 message per request: initialize, ping, tools/list, tools/call. "
             "Read tools (get_instance, list_nodes, get_node, list_apps, get_app, list_actions, get_action, "
             "search_audit), one request-only tool (request_action) and onemind:// resources. No approve tool. "
             "Notifications get 202; over the per-agent message limit, 429."
