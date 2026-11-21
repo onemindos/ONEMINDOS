@@ -80,7 +80,7 @@ export function Nodes() {
         )
       ) : nodes.length === 0 ? (
         <EmptyState icon="nodes" title="No machines have reported yet" command="onemind node join">
-          <p>The hub lists a machine after its first heartbeat. Adding nodes from here comes with CORE-FABRIC (join codes).</p>
+          <p>The hub lists a machine after its first heartbeat. Run this on the machine you want to add.</p>
         </EmptyState>
       ) : (
         <>

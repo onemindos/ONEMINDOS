@@ -39,7 +39,6 @@ describe('screen registry', () => {
       ['automation', '/automation', 'Your box'],
       ['updates', '/updates', 'Your box'],
       ['settings', '/settings', 'Your box'],
-      ['coming', '/coming', 'Your box'],
       ['control-hub', '/control-hub', 'System'],
       ['agents', '/agents', 'System'],
     ]);

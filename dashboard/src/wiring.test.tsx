@@ -1,12 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // The wiring-pass screens on the mock gateway: sign-in by account, first-run setup and the wizard,
-// invite, Account, People, Tokens, Notifications, Alerts ("ask to fix" is only a request), Coming
-// soon, and the rules that matter (one alert, no token in localStorage, AI never approves).
+// invite, Account, People, Tokens, Notifications, Alerts ("ask to fix" is only a request), and the rules that matter (one alert, no token in localStorage, AI never approves).
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { MOCK_ENROL_CODE, MOCK_SETUP_TOKEN } from './api/mockWiring';
-import { COMING_ITEMS } from './pages/Coming';
 import { WIZARD_KEY } from './pages/SignIn';
 import { renderApp, seriousViolations } from './test/helpers';
 
@@ -204,13 +202,12 @@ describe('Alerts', () => {
   });
 });
 
-describe('Coming soon', () => {
-  it('names every area without an API on main and shows no controls or data', async () => {
+describe('Settings sections', () => {
+  it('has no Coming soon screen or nav entry', async () => {
     renderApp({ token: 'owner-demo', route: '/coming' });
-    const list = await screen.findByRole('list', { name: 'Coming soon' }, T);
-    expect(within(list).getAllByRole('article')).toHaveLength(COMING_ITEMS.length);
-    expect(within(list).queryAllByRole('button')).toHaveLength(0);
-    for (const i of COMING_ITEMS) expect(within(list).getByRole('article', { name: i.title })).toHaveTextContent('Coming soon');
+    expect(await screen.findByRole('navigation', { name: 'Main' }, T)).toBeInTheDocument();
+    expect(screen.queryByText(/Coming soon/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { level: 1, name: 'Coming soon' })).not.toBeInTheDocument();
   });
 
   it('legacy Storage settings reach the new real-hub-only view', async () => {
