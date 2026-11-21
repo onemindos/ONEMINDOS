@@ -45,7 +45,7 @@ NEEDS_HOSTED = re.compile(
 # Workflows that build or test the OS image, need KVM or sign/publish: never on the Mac.
 HOSTED_ONLY_WORKFLOWS = {"image.yml", "battery.yml", "nightly.yml", "net-2vm.yml", "perf-smoke.yml",
                          "release.yml", "security-nightly.yml", "apps-rescan.yml", "changes-collect.yml",
-                         "dev-build.yml", "apps-gate-all.yml", "ci-desktop.yml"}
+                         "dev-build.yml", "apps-gate-all.yml", "ci-desktop.yml", "desktop-release.yml"}
 # setup-python has no Python 3.13 build for Debian 13 arm64. PR #352 moves ci-apps `validate` to a venv;
 # until it merges, that one job is the known exception.
 SETUP_PYTHON_PENDING = {("ci-apps.yml", "validate")}
