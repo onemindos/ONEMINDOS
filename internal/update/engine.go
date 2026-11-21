@@ -295,11 +295,46 @@ func (e *Engine) install(ctx context.Context, st *Status, src source, idx *Index
 	}
 	e.Log.Info("installing", "bundle", bundle, "snapshot", st.Snapshot)
 	if err := e.Installer.Install(ctx, bundle); err != nil {
-		return e.fail(st, from, err.Error())
+		// RAUC's pre-install handler writes the trial marker before it writes
+		// any slot. If the write then failed, the marker is a lie: left in
+		// place the next cycle would report "reboot pending", reboot the box
+		// and let the gate mark a release image-bad that never installed.
+		msg := err.Error()
+		if cerr := e.clearTrialMarker(to); cerr != nil {
+			msg += "; could not clear the trial marker: " + cerr.Error()
+		}
+		return e.fail(st, from, msg)
 	}
 	_ = os.Remove(bundle) // RAUC wrote it into the slot; free /data
 	st.State, st.LastResult = heartbeat.UpdatePendingReboot, "installed "+to+", reboot pending"
 	return st.Save(e.Cfg)
+}
+
+// clearTrialMarker removes the gate's trial marker and its ESP copy when
+// they name version to (the install that just failed). A marker naming any
+// other version is not ours and stays.
+func (e *Engine) clearTrialMarker(to string) error {
+	var errs []error
+	for _, p := range []string{filepath.Join(e.Cfg.GateDir, "pending"), e.Cfg.ESPMarker} {
+		if p == "" {
+			continue
+		}
+		b, err := os.ReadFile(p)
+		if err != nil {
+			if !errors.Is(err, os.ErrNotExist) {
+				errs = append(errs, err)
+			}
+			continue
+		}
+		if f := strings.Fields(string(b)); len(f) > 1 && f[1] == to {
+			if err := os.Remove(p); err != nil && !errors.Is(err, os.ErrNotExist) {
+				errs = append(errs, err)
+			} else {
+				e.Log.Warn("install failed: removed the trial marker so the box does not reboot into a trial that never started", "marker", p)
+			}
+		}
+	}
+	return errors.Join(errs...)
 }
 
 // maybeReboot reboots at a safe point: an explicit apply reboots now (unless
