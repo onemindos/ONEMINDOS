@@ -2,8 +2,8 @@
 # iPhone release lane (mobile/docs/ios-release.md). Builds the signed OneMind app, exports the IPA and uploads
 # it to TestFlight, but ONLY when the Apple secrets exist. Without them the run does the free checks
 # (icon, privacy manifest, expo prebuild output) and stops with a notice; ci-mobile.yml keeps the unsigned
-# simulator build on every PR. Never runs on a PR. Signing material comes from repository secrets and is
-# only read on main or a mobile-v* tag. UNPROVEN end to end until the founder adds the secrets and a
+# simulator build on every PR. Never runs on a PR. Signing material comes from the ios-release Environment secrets, read
+# only by the secrets-check and signing steps (never by npm ci, prebuild or pod install), and only on main or a mobile-v* tag. UNPROVEN end to end until the founder adds the secrets and a
 # TestFlight run succeeds.
 name: release-ios
 
@@ -26,18 +26,13 @@ jobs:
     name: iPhone archive and TestFlight
     runs-on: macos-26
     timeout-minutes: 90
+    # Environment secrets, limited in repo Settings to main and mobile-v* tags (same pattern as release.yml, H-07).
+    environment: ios-release
     permissions:
       contents: read
     defaults:
       run:
         working-directory: mobile
-    env:
-      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
-      ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
-      IOS_DIST_CERT_P12_BASE64: ${{ secrets.IOS_DIST_CERT_P12_BASE64 }}
-      IOS_DIST_CERT_PASSWORD: ${{ secrets.IOS_DIST_CERT_PASSWORD }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -52,6 +47,13 @@ jobs:
         run: npm run check:ios
       - name: Do the Apple secrets exist
         id: secrets
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
+          IOS_DIST_CERT_P12_BASE64: ${{ secrets.IOS_DIST_CERT_P12_BASE64 }}
+          IOS_DIST_CERT_PASSWORD: ${{ secrets.IOS_DIST_CERT_PASSWORD }}
         run: |
           set -euo pipefail
           missing=""
@@ -90,6 +92,11 @@ jobs:
         run: /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${GITHUB_RUN_NUMBER}" ios/OneMind/Info.plist
       - name: Import the signing material into a temporary keychain
         if: steps.secrets.outputs.sign == 'yes'
+        env:
+          IOS_DIST_CERT_P12_BASE64: ${{ secrets.IOS_DIST_CERT_P12_BASE64 }}
+          IOS_DIST_CERT_PASSWORD: ${{ secrets.IOS_DIST_CERT_PASSWORD }}
+          ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
         run: |
           set -euo pipefail
           kc="$RUNNER_TEMP/onemind-release.keychain-db"
@@ -109,6 +116,10 @@ jobs:
           echo "KEYCHAIN=$kc" >> "$GITHUB_ENV"
       - name: Archive (signed; provisioning profile comes from the App Store Connect API)
         if: steps.secrets.outputs.sign == 'yes'
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
         run: |
           set -euo pipefail
           xcodebuild -quiet -workspace ios/OneMind.xcworkspace -scheme OneMind -configuration Release \
@@ -120,6 +131,10 @@ jobs:
             OTHER_CODE_SIGN_FLAGS="--keychain $KEYCHAIN" archive
       - name: Export the IPA for the App Store
         if: steps.secrets.outputs.sign == 'yes'
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
         run: |
           set -euo pipefail
           cat > "$RUNNER_TEMP/ExportOptions.plist" <<PLIST
@@ -147,6 +162,9 @@ jobs:
           retention-days: 14
       - name: Upload to TestFlight
         if: steps.secrets.outputs.sign == 'yes'
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
         run: |
           set -euo pipefail
           xcrun altool --upload-app --type ios --file "$RUNNER_TEMP"/ipa/*.ipa \
