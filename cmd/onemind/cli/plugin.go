@@ -17,7 +17,7 @@ func pluginCommands(a *App) []*cobra.Command {
 	plugin := &cobra.Command{Use: "plugin", Short: "Develop plugins (local, offline checks)"}
 	var previous, apiLevel string
 	command := &cobra.Command{
-		Use: "validate [dir]", Short: "Validate a tool plugin bundle (does not verify signatures)", Args: cobra.MaximumNArgs(1),
+		Use: "validate [dir]", Short: "Validate a plugin bundle (does not verify signatures)", Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			hasPrevious := cmd.Flags().Changed("previous")
 			if hasPrevious && strings.TrimSpace(previous) == "" {
@@ -57,7 +57,7 @@ func pluginCommands(a *App) []*cobra.Command {
 				}
 				return printJSON(a.Stdout, map[string]any{"valid": true})
 			}
-			fmt.Fprintln(a.Stdout, "Plugin tool manifest valid (artifact verification still required).")
+			fmt.Fprintln(a.Stdout, "Plugin bundle valid (artifact verification still required).")
 			if comparison != nil {
 				fmt.Fprintf(a.Stdout, "widens_grants: %t (informational; owner approval still required)\n", comparison.WidensGrants)
 				for _, reason := range comparison.Reasons {
@@ -69,7 +69,7 @@ func pluginCommands(a *App) []*cobra.Command {
 	}
 	command.Flags().StringVar(&previous, "previous", "", "compare grants with a previous plugin directory")
 	command.Flags().StringVar(&apiLevel, "api-level", "", "check against this box plugin API level (offline)")
-	plugin.AddCommand(command)
+	plugin.AddCommand(command, pluginInitCommand(a), pluginPackCommand(a), pluginInspectCommand(a), pluginSignCommand(a), pluginRevocationsCommand(a))
 	return []*cobra.Command{plugin}
 }
 
