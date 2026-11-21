@@ -38,6 +38,40 @@ function Harness(props: Partial<HomeScreenProps> & { data?: HomeData; start?: Ho
 
 const widget = (name: RegExp | string) => screen.getByRole('region', { name });
 
+describe('HomeScreen widget states', () => {
+  it('offers Retry in an error state and asks the host to load again', async () => {
+    const onRetry = vi.fn();
+    render(<Harness data={errorData} onRetry={onRetry} />);
+    const retry = screen.getAllByRole('button', { name: /^Retry/ })[0]!;
+    await userEvent.click(retry);
+    expect(onRetry).toHaveBeenCalledTimes(1);
+  });
+
+  it('has no Retry button when the host gives no way to retry', () => {
+    render(<Harness data={errorData} />);
+    expect(screen.queryByRole('button', { name: /^Retry/ })).not.toBeInTheDocument();
+  });
+
+  it('says No backup proved yet, with one action: Set up backups', () => {
+    const data: HomeData = { ...homeData, backups: { state: 'ready', data: { last_run: null, last_verified_restore: null, destinations: [], observed_at: homeData.hub.observed_at } } };
+    render(<Harness data={data} start={{ ...demoLayout, widgets: [{ id: 'w-b', kind: 'backups', size: 'M' }] }} links={{ backups: '/backups' }} />);
+    const w = widget('Backups');
+    expect(within(w).getByText('No backup proved yet')).toBeInTheDocument();
+    expect(within(w).getByRole('link', { name: 'Set up backups' })).toHaveAttribute('href', '/backups');
+  });
+
+  it('shows the age of a last-known value in its stale pill', () => {
+    render(<Harness data={offlineData} />);
+    expect(screen.getAllByText('Last known').length).toBeGreaterThan(0);
+    expect(document.querySelector('.omh-widget-meta .om-pill-detail')?.textContent).toMatch(/ago/);
+  });
+
+  it('never shows "(proposed)" on a data source', async () => {
+    render(<Harness initialEditing />);
+    expect(document.body.textContent).not.toMatch(/\(proposed\)/);
+  });
+});
+
 describe('HomeScreen', () => {
   it('hides its own dock when the host frame shows pinned apps (showDock=false, D-016)', () => {
     const { unmount } = render(<Harness />);
@@ -50,7 +84,7 @@ describe('HomeScreen', () => {
   it('greets by name and time of day, and says what needs the person', async () => {
     const { container } = render(<Harness />);
     expect(screen.getByRole('heading', { level: 1, name: 'Good afternoon, Robin' })).toBeInTheDocument();
-    expect(screen.getByText('3 requests need your decision; 1 app is unhealthy; 1 stale and 1 offline nodes.')).toBeInTheDocument();
+    expect(screen.getByText('3 requests need your decision; 1 app is unhealthy; 1 stale and 1 offline node.')).toBeInTheDocument();
     expect(screen.getByLabelText('Weather')).toHaveTextContent('Light rain');
     await noAxeViolations(container);
   });
@@ -118,7 +152,7 @@ describe('HomeScreen', () => {
     render(<Harness data={freshData} start={{ version: 1, widgets: [{ id: 'w-approvals', kind: 'approvals', size: 'M' }, { id: 'w-u', kind: 'updates', size: 'S' }, { id: 'w-b', kind: 'backups', size: 'S' }], pinned: [] }} />);
     expect(screen.getByText('Nothing needs you')).toBeInTheDocument();
     expect(screen.getByText('Everything is up to date')).toBeInTheDocument();
-    expect(screen.getByText('No backups set up')).toBeInTheDocument();
+    expect(screen.getByText('No backup proved yet')).toBeInTheDocument();
     expect(screen.getByText('No apps yet')).toBeInTheDocument();
     expect(screen.queryByRole('navigation', { name: 'Dock' })).not.toBeInTheDocument();
   });

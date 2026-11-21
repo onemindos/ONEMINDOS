@@ -7,7 +7,7 @@
   --dsk-bar-h: 44px;
   --dsk-dock-h: 84px;
   --dsk-gap: var(--om-space-4);
-  --dsk-radius-window: 22px;
+  --dsk-radius-window: 24px;
   --dsk-tile-radius: 28%;
   --dsk-glass: color-mix(in srgb, var(--om-color-surface) 72%, transparent);
   --dsk-glass-strong: color-mix(in srgb, var(--om-color-surface) 88%, transparent);
@@ -32,6 +32,8 @@
 .dsk-brand { display: inline-flex; align-items: center; gap: var(--om-space-2); color: var(--om-color-text); text-decoration: none; font-weight: var(--om-font-weight-semibold); min-width: 0; }
 .dsk-box { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: -0.01em; }
 .dsk-status { min-width: 0; display: flex; }
+.dsk-demo { align-self: center; margin-left: var(--om-space-2); padding: 2px 10px; border-radius: var(--om-radius-pill); white-space: nowrap; font-size: var(--om-font-size-xs); font-weight: var(--om-font-weight-semibold); color: var(--om-color-warn-fg); background: var(--om-color-warn-bg); border: 1px solid var(--om-color-warn-border); }
+.dsk-demo-short { display: none; }
 .dsk-clock { margin-left: auto; font-variant-numeric: tabular-nums; font-weight: var(--om-font-weight-medium); white-space: nowrap; color: var(--om-color-text); }
 .dsk-clock-day { color: var(--om-color-text-muted); font-weight: 400; }
 .dsk-actions { display: flex; align-items: center; gap: var(--om-space-1); }
@@ -69,7 +71,8 @@
 /* ── Desktop ────────────────────────────────────────────────────────────── */
 .dsk-desktop {
   width: 100%; max-width: 1120px; margin: 0 auto;
-  padding: var(--om-space-8) var(--dsk-gap) calc(var(--dsk-dock-h) + var(--om-space-10));
+  /* Clear of the dock: its height, its 12px offset from the edge, and 24px of air. */
+  padding: var(--om-space-8) var(--dsk-gap) calc(var(--dsk-dock-h) + var(--om-space-3) + 24px + env(safe-area-inset-bottom, 0px));
   outline: none;
 }
 /* Home reads as a desktop: centred greeting and search, glass widgets. */
@@ -78,14 +81,14 @@
 .dsk-desktop .omh-hero-text { align-items: center; }
 .dsk-desktop .omh-greeting { font-size: clamp(2.25rem, 1.4rem + 3vw, 3.5rem); letter-spacing: -0.035em; text-shadow: 0 1px 24px color-mix(in srgb, var(--om-color-bg) 55%, transparent); }
 .dsk-desktop .omh-date { text-transform: uppercase; letter-spacing: 0.12em; font-size: var(--om-font-size-xs); }
-.dsk-desktop .omh-search { align-self: center; max-width: 560px; min-height: 48px; border-radius: var(--om-radius-pill); background: var(--dsk-glass); border-color: var(--dsk-hairline); }
+.dsk-desktop .omh-search { align-self: center; width: 100%; max-width: 600px; min-height: 52px; border-radius: var(--om-radius-pill); background: var(--dsk-glass); border-color: var(--dsk-hairline); }
 .dsk-desktop .omh-widget { background: var(--dsk-glass); border-color: var(--dsk-hairline); border-radius: 20px; backdrop-filter: saturate(150%) blur(26px); -webkit-backdrop-filter: saturate(150%) blur(26px); }
 .dsk-desktop .omh-section-head h2 { font-size: var(--om-font-size-sm); text-transform: uppercase; letter-spacing: 0.1em; color: var(--om-color-text-muted); }
 
 /* ── Window ─────────────────────────────────────────────────────────────── */
 .dsk-stage {
   position: fixed; inset: var(--dsk-bar-real, var(--dsk-bar-h)) 0 0 0; z-index: calc(var(--om-z-nav) - 1);
-  display: flex; justify-content: center;
+  display: flex; justify-content: center; align-items: center;
   padding: var(--om-space-5) var(--dsk-gap) calc(var(--dsk-dock-h) + var(--om-space-3));
 }
 .dsk-scrim {
@@ -96,29 +99,34 @@
 }
 .dsk-window {
   position: relative; display: flex; flex-direction: column;
-  width: min(1180px, 100%); height: 100%;
+  /* Sizes to its content, up to the stage; a long screen scrolls inside. */
+  width: min(1120px, 100%); height: auto; max-height: 100%; min-height: min(520px, 100%);
   border-radius: var(--dsk-radius-window); overflow: hidden;
-  background: var(--dsk-glass-strong);
+  /* Slightly see-through, so the wallpaper glows at the edges. */
+  background: color-mix(in srgb, var(--om-color-surface) 82%, transparent);
   border: 1px solid var(--dsk-hairline);
-  box-shadow: 0 30px 80px -20px rgb(0 0 0 / 0.45), 0 0 0 1px color-mix(in srgb, #fff 6%, transparent) inset, var(--om-shadow-3);
+  /* Two soft layers: a close, tight one and a wide, faint one. */
+  box-shadow: 0 2px 6px rgb(0 0 0 / 0.10), 0 28px 70px -24px rgb(0 0 0 / 0.38), 0 0 0 1px color-mix(in srgb, #fff 6%, transparent) inset;
   backdrop-filter: saturate(160%) blur(40px); -webkit-backdrop-filter: saturate(160%) blur(40px);
   animation: dsk-open 220ms var(--dsk-ease);
 }
+/* Floating back and close buttons over the window's corners; no title bar, so the name is said once (the heading). */
 .dsk-window-bar {
-  flex: none; display: flex; align-items: center; gap: var(--om-space-3);
-  min-height: 52px; padding: var(--om-space-2) var(--om-space-3) var(--om-space-2) var(--om-space-4);
-  border-bottom: 1px solid var(--dsk-hairline);
+  position: absolute; z-index: 2; top: var(--om-space-3); left: var(--om-space-3); right: var(--om-space-3);
+  display: flex; align-items: center; justify-content: space-between; pointer-events: none;
 }
-.dsk-window-title { flex: 1; min-width: 0; font-size: var(--om-font-size-md); font-weight: var(--om-font-weight-semibold); letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dsk-window-bar > * { pointer-events: auto; }
 .dsk-wbtn {
-  flex: none; display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: var(--om-radius-pill);
-  color: var(--om-color-text-muted); background: var(--dsk-hairline); text-decoration: none; transition: background 120ms, color 120ms;
+  flex: none; display: inline-grid; place-items: center; width: 36px; height: 36px; border-radius: var(--om-radius-pill);
+  color: var(--om-color-text); text-decoration: none; transition: background 120ms, color 120ms;
+  background: var(--dsk-glass-strong); box-shadow: 0 0 0 1px var(--dsk-hairline), 0 2px 8px rgb(0 0 0 / 0.14);
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
 }
-.dsk-wbtn:hover { color: var(--om-color-text); background: color-mix(in srgb, var(--om-color-text) 16%, transparent); }
+.dsk-wbtn:hover { color: var(--om-color-text); background: color-mix(in srgb, var(--om-color-surface-raised) 100%, var(--om-color-text) 8%); }
 .dsk-close:hover { background: var(--om-color-accent); color: var(--om-color-accent-text); }
 .dsk-wbtn:focus-visible, .dsk-dock-item:focus-visible, .dsk-launchpad-item:focus-visible { outline: 2px solid var(--om-color-focus); outline-offset: 2px; }
 .dsk-flip { transform: scaleX(-1); }
-.dsk-window-body { flex: 1; min-height: 0; overflow: auto; padding: var(--om-space-6) clamp(var(--om-space-4), 4vw, var(--om-space-10)) var(--om-space-10); outline: none; scroll-padding-top: var(--om-space-4); }
+.dsk-window-body { flex: 1; min-height: 0; overflow: auto; padding: 60px clamp(var(--om-space-4), 4vw, var(--om-space-10)) var(--om-space-10); outline: none; scroll-padding-top: var(--om-space-4); }
 
 /* Screens inside a window: one consistent, airy look for every page. */
 .dsk-window-body .om-page-head { margin-bottom: var(--om-space-6); align-items: flex-end; }
@@ -193,18 +201,23 @@
 }
 .dsk-launchpad-inner { max-width: 980px; margin: 0 auto; padding: var(--om-space-10) var(--om-space-5) 120px; display: flex; flex-direction: column; gap: var(--om-space-6); animation: dsk-zoom 220ms var(--dsk-ease); }
 .dsk-launchpad-search {
-  align-self: center; display: flex; align-items: center; gap: var(--om-space-2); width: min(420px, 100%);
-  padding: 0 var(--om-space-4); min-height: 44px; border-radius: var(--om-radius-pill);
+  align-self: center; display: flex; align-items: center; gap: var(--om-space-2); width: min(520px, 100%);
+  padding: 0 var(--om-space-5); min-height: 52px; border-radius: var(--om-radius-pill);
   background: var(--dsk-glass-strong); border: 1px solid var(--dsk-hairline); color: var(--om-color-text-muted);
 }
 .dsk-launchpad-search:focus-within { outline: 2px solid var(--om-color-focus); outline-offset: 2px; }
 .dsk-launchpad-search input { all: unset; flex: 1; color: var(--om-color-text); font-size: var(--om-font-size-md); }
 .dsk-launchpad-head { margin: 0 0 var(--om-space-3); font-size: var(--om-font-size-xs); text-transform: uppercase; letter-spacing: 0.12em; color: var(--om-color-text-muted); }
 .dsk-launchpad-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: var(--om-space-5) var(--om-space-3); }
+.dsk-launchpad-big { grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: var(--om-space-6) var(--om-space-4); }
+.dsk-launchpad-big .dsk-launchpad-label { font-size: var(--om-font-size-md); font-weight: var(--om-font-weight-medium); }
+/* System screens: a quieter, smaller row under the apps. */
+.dsk-launchpad-small { grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: var(--om-space-3) var(--om-space-2); }
+.dsk-launchpad-small .dsk-launchpad-label { font-size: var(--om-font-size-xs); color: var(--om-color-text-muted); }
 .dsk-launchpad-item { position: relative; display: flex; flex-direction: column; align-items: center; gap: var(--om-space-2); padding: var(--om-space-2); border-radius: 16px; color: var(--om-color-text); text-decoration: none; }
 .dsk-launchpad-item > :first-child { transition: transform 160ms var(--dsk-ease); }
 .dsk-launchpad-item:hover > :first-child { transform: scale(1.08); }
-.dsk-launchpad-item .dsk-badge { top: 2px; right: calc(50% - 40px); }
+.dsk-launchpad-item .dsk-badge { top: 2px; right: calc(50% - 30px); }
 .dsk-launchpad-label { font-size: var(--om-font-size-sm); text-align: center; }
 .dsk-launchpad-none { text-align: center; color: var(--om-color-text-muted); }
 
@@ -241,4 +254,14 @@
   .dsk-dock-item { min-width: 50px; padding-bottom: 6px; }
   .dsk-dock-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .dsk-desktop { padding-top: var(--om-space-4); }
+  .dsk-desktop .omh-greeting { font-size: 34px; }
+  .dsk-wbtn { width: 44px; height: 44px; }
+  .dsk-demo-short { display: inline; }
+  .dsk-demo-long { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .dsk-demo { position: relative; }
+  .dsk-iconbtn { width: 44px; height: 44px; }
+  .dsk-avatar { width: 36px; height: 36px; }
+  .dsk-status { flex: 1 1 0; min-width: 0; flex-wrap: wrap; gap: 2px 0; }
+  .dsk-window-body { padding-top: 64px; }
+  .dsk-launchpad-big { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); }
 }

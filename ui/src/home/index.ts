@@ -26,7 +26,7 @@ export {
   togglePin,
 } from './layout';
 export type { HomeLayout, LayoutStore as HomeLayoutStore, WidgetInstance, WidgetKind, WidgetSize } from './layout';
-export { greeting as homeGreeting, summaryLine as homeSummaryLine, formatUptime } from './greeting';
+export { greetingName, greeting as homeGreeting, summaryLine as homeSummaryLine, formatUptime } from './greeting';
 export { HOME_WALLPAPER_IDS, homeWallpapers } from './homeTokens';
 export type { HomeWallpaperId } from './homeTokens';
 export type {

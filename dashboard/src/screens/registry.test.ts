@@ -7,7 +7,7 @@ const ok: ScreenDef = { id: 'a', path: '/a', title: 'A', icon: 'home', section: 
 
 describe('screen registry', () => {
   it('every screen file on disk is sound: required fields, one id and one path each', () => {
-    expect(Object.keys(SCREEN_FILES).length).toBeGreaterThanOrEqual(16);
+    expect(Object.keys(SCREEN_FILES).length).toBeGreaterThanOrEqual(15);
     expect(screenProblems(SCREEN_FILES)).toEqual([]);
   });
 
@@ -39,7 +39,6 @@ describe('screen registry', () => {
       ['automation', '/automation', 'Your box'],
       ['updates', '/updates', 'Your box'],
       ['settings', '/settings', 'Your box'],
-      ['coming', '/coming', 'Your box'],
       ['control-hub', '/control-hub', 'System'],
       ['agents', '/agents', 'System'],
     ]);

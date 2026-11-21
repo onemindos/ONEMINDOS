@@ -166,6 +166,8 @@
 .omh-widget-body { display: flex; flex-direction: column; gap: var(--om-space-3); flex: 1; min-width: 0; }
 .omh-widget-error { display: flex; flex-direction: column; gap: var(--om-space-2); align-items: flex-start; font-size: var(--om-font-size-sm); }
 .omh-code, .omh-source code { font-size: var(--om-font-size-xs); color: var(--om-color-text-muted); }
+.omh-empty-action { align-self: flex-start; display: inline-flex; align-items: center; min-height: 36px; margin-top: var(--om-space-1); padding: 0 var(--om-space-3); border-radius: var(--om-radius-pill); background: var(--om-color-accent); color: var(--om-color-accent-text); font-size: var(--om-font-size-sm); font-weight: var(--om-font-weight-semibold); text-decoration: none; }
+.omh-empty-action:focus-visible { outline: 2px solid var(--om-color-focus); outline-offset: 2px; }
 .omh-widget-empty { display: flex; flex-direction: column; gap: var(--om-space-1); justify-content: center; flex: 1; }
 .omh-empty-title { font-weight: var(--om-font-weight-semibold); }
 .omh-source { padding-top: var(--om-space-2); border-top: 1px dashed var(--om-color-border); overflow-wrap: anywhere; }
@@ -313,7 +315,10 @@
 @media (max-width: 720px) {
   .omh-home { gap: var(--om-space-5); }
   .omh-hero { padding-top: 0; }
-  .omh-greeting { font-size: var(--om-font-size-3xl); }
+  /* 34px, one line: a long name shortens with an ellipsis instead of wrapping into three lines. */
+  .omh-greeting { font-size: 34px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+  .omh-hero-text { min-width: 0; max-width: 100%; }
+  .omh-section-actions .om-btn, .omh-widget-error .om-btn { min-height: 44px; }
   .omh-summary { font-size: var(--om-font-size-sm); }
   .omh-search { min-height: 48px; font-size: var(--om-font-size-sm); }
   .omh-kbd { display: none; }

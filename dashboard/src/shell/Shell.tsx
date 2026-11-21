@@ -115,7 +115,7 @@ export function Shell({ children }: { children: ReactNode }) {
         now: hub.now,
         apps: apps.map(toPaletteApp),
         nodes: nodes.map((n) => ({ ...n, status: hub.nodeStatus(n) })),
-        pending: pending.map(toActionSummary),
+        pending: pending.map((a) => toActionSummary(a, hub.appName)),
         canApprove: hub.canDecide !== 'no',
       }).filter((c) => paletteShows(c, view)),
     // eslint-disable-next-line react-hooks/exhaustive-deps

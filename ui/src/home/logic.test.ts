@@ -3,7 +3,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { dark, light } from '../tokens/tokens';
-import { clockText, dayPart, greeting, formatUptime, summaryLine } from './greeting';
+import { clockText, dayPart, greeting, greetingName, formatUptime, summaryLine } from './greeting';
 import { GLASS_ALPHA, HOME_WALLPAPER_IDS, homeWallpapers, wallVar } from './homeTokens';
 import {
   DEFAULT_LAYOUT,
@@ -125,11 +125,27 @@ describe('greeting', () => {
     expect(clockText(at('2026-11-12T15:04:00Z'), 'Europe/London')).toBe('15:04');
   });
 
+  it('greets a person by name, never by role', () => {
+    expect(greetingName('zeus')).toBe('Zeus');
+    expect(greetingName('zeus.delacruz')).toBe('Zeus');
+    expect(greetingName('ana@home')).toBe('Ana');
+    for (const role of ['owner', 'Admin', 'guest', 'child', '', '  ', undefined, null]) expect(greetingName(role)).toBeUndefined();
+    expect(greeting(at('2026-11-12T09:00:00Z'), 'Europe/London', greetingName('owner'))).toBe('Good morning');
+  });
+
+  it('agrees the noun with the number: 1 node, 2 nodes', () => {
+    const base = { waiting: 0, staleNodes: 0, offlineNodes: 0, unhealthyApps: 0, hubLive: true };
+    expect(summaryLine({ ...base, staleNodes: 1 })).toBe('1 stale node.');
+    expect(summaryLine({ ...base, offlineNodes: 2 })).toBe('2 offline nodes.');
+    expect(summaryLine({ ...base, staleNodes: 2, offlineNodes: 1 })).toBe('2 stale and 1 offline node.');
+    expect(summaryLine({ ...base, staleNodes: 1, offlineNodes: 2 })).toBe('1 stale and 2 offline nodes.');
+  });
+
   it('summarises what needs the person, then what is not fine', () => {
     const base = { waiting: 0, staleNodes: 0, offlineNodes: 0, unhealthyApps: 0, hubLive: true };
     expect(summaryLine(base)).toBe('Everything is running. Nothing needs you.');
     expect(summaryLine({ ...base, waiting: 1 })).toBe('1 request needs your decision.');
-    expect(summaryLine({ ...base, waiting: 3, staleNodes: 1, offlineNodes: 1, unhealthyApps: 1 })).toBe('3 requests need your decision; 1 app is unhealthy; 1 stale and 1 offline nodes.');
+    expect(summaryLine({ ...base, waiting: 3, staleNodes: 1, offlineNodes: 1, unhealthyApps: 1 })).toBe('3 requests need your decision; 1 app is unhealthy; 1 stale and 1 offline node.');
     expect(summaryLine({ ...base, hubLive: false, waiting: 3 })).toMatch(/last known state/);
   });
 

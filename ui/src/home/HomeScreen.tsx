@@ -56,6 +56,8 @@ export interface HomeScreenProps {
   initialEditing?: boolean;
   /** Show Home's own dock of pinned apps. Off when the host's frame already shows them (dashboard Desktop, D-016). */
   showDock?: boolean;
+  /** Loads Home's data again: widgets that failed to load offer a Retry button when this is given. */
+  onRetry?: () => void;
 }
 
 export function HomeScreen({
@@ -74,6 +76,7 @@ export function HomeScreen({
   links: linkOverrides,
   initialEditing = false,
   showDock = true,
+  onRetry,
 }: HomeScreenProps) {
   const [editing, setEditing] = useState(initialEditing);
   const [galleryOpen, setGalleryOpen] = useState(false);
@@ -116,7 +119,7 @@ export function HomeScreen({
   });
 
   const hrefFor = (a: HomeApp) => (hubLive && a.status === 'running' && a.open_url ? a.open_url : links.app(a.id));
-  const ctx: WidgetContext = { data, now, hubLive, hubAgo: formatAgo(hubAge), canDecide, onApprove, onDeny, busy, links, showSource: editing };
+  const ctx: WidgetContext = { data, now, hubLive, hubAgo: formatAgo(hubAge), canDecide, onApprove, onDeny, busy, links, showSource: editing, onRetry };
   const docked = dockApps(layout, apps);
   const w = data.weather;
   const weatherAge = w ? secondsSince(w.updated_at, now) : Number.NaN;

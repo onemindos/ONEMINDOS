@@ -56,6 +56,8 @@ export interface WidgetContext {
   busy?: ReadonlySet<string>;
   links: HomeLinks;
   showSource: boolean;
+  /** Loads the data again (the Retry button in a widget's error state). */
+  onRetry?: () => void;
 }
 
 const ROWS: Record<WidgetSize, number> = { S: 2, M: 4, L: 8 };
@@ -69,7 +71,7 @@ function bodyState<T>(l: Loadable<T>): WidgetBodyState {
 
 function hubStale(ctx: WidgetContext) {
   // The page banner already says when the hub last answered; each widget just marks itself.
-  return ctx.hubLive ? null : { label: 'Last known', detail: '' };
+  return ctx.hubLive ? null : { label: 'Last known', detail: '', age: ctx.hubAgo };
 }
 
 /* ---------- System (contract §2 heartbeat) ---------- */
@@ -142,7 +144,7 @@ function SystemWidget({ w, ctx }: { w: WidgetInstance; ctx: WidgetContext }) {
   const nodes = l.state === 'ready' ? l.data : [];
   const one = w.nodeId ? nodes.find((n) => n.node_id === w.nodeId) : undefined;
   const title = w.nodeId ? (one?.hostname ?? 'Node') : 'System';
-  const common = { title, icon: 'nodes' as const, size: w.size, href: ctx.links.nodes, source: w.nodeId ? `GET /v1/nodes/${w.nodeId}` : 'GET /v1/nodes', showSource: ctx.showSource };
+  const common = { title, icon: 'nodes' as const, size: w.size, href: ctx.links.nodes, source: w.nodeId ? `GET /v1/nodes/${w.nodeId}` : 'GET /v1/nodes', showSource: ctx.showSource, onRetry: ctx.onRetry };
 
   if (l.state !== 'ready') return <WidgetFrame {...common} state={bodyState(l)} />;
   if (w.nodeId && !one) return <WidgetFrame {...common} state={{ kind: 'empty', title: 'This node has left the fabric', body: 'Remove this widget, or add one for another node.' }} />;
@@ -240,7 +242,7 @@ function ApprovalsWidget({ w, ctx }: { w: WidgetInstance; ctx: WidgetContext }) 
   const l = ctx.data.approvals;
   const list = l.state === 'ready' ? l.data.filter((a) => a.state === 'awaiting_approval') : [];
   const max = w.size === 'S' ? 1 : w.size === 'M' ? 2 : 4;
-  const common = { title: 'Needs you', icon: 'approvals' as const, size: w.size, href: ctx.links.approvals, hrefLabel: 'All', source: 'GET /v1/actions?state=awaiting_approval', showSource: ctx.showSource };
+  const common = { title: 'Needs you', icon: 'approvals' as const, size: w.size, href: ctx.links.approvals, hrefLabel: 'All', source: 'GET /v1/actions?state=awaiting_approval', showSource: ctx.showSource, onRetry: ctx.onRetry };
   if (l.state !== 'ready') return <WidgetFrame {...common} state={bodyState(l)} />;
   if (!list.length)
     return (
@@ -269,7 +271,7 @@ const ACTOR_TONE = { person: 'neutral', agent: 'agent', system: 'info' } as cons
 
 function ActivityWidget({ w, ctx }: { w: WidgetInstance; ctx: WidgetContext }) {
   const l = ctx.data.activity;
-  const common = { title: 'Recent activity', icon: 'activity' as const, size: w.size, href: ctx.links.activity, hrefLabel: 'Timeline', source: 'GET /v1/audit?limit=8 (proposed)', showSource: ctx.showSource };
+  const common = { title: 'Recent activity', icon: 'activity' as const, size: w.size, href: ctx.links.activity, hrefLabel: 'Timeline', source: 'GET /v1/audit?limit=8', showSource: ctx.showSource, onRetry: ctx.onRetry };
   if (l.state !== 'ready') return <WidgetFrame {...common} state={bodyState(l)} />;
   if (!l.data.length) return <WidgetFrame {...common} state={{ kind: 'empty', title: 'Nothing has happened yet', body: 'Installs, decisions and updates appear here with who did them.' }} />;
   return (
@@ -301,11 +303,11 @@ const DEST: Record<'ok' | 'behind' | 'failing', { tone: Tone; label: string }> =
 
 function BackupsWidget({ w, ctx }: { w: WidgetInstance; ctx: WidgetContext }) {
   const l = ctx.data.backups;
-  const common = { title: 'Backups', icon: 'backups' as const, size: w.size, href: ctx.links.backups, source: 'GET /v1/backups/status (proposed)', showSource: ctx.showSource };
+  const common = { title: 'Backups', icon: 'backups' as const, size: w.size, href: ctx.links.backups, source: 'GET /v1/backups/status', showSource: ctx.showSource, onRetry: ctx.onRetry };
   if (l.state !== 'ready') return <WidgetFrame {...common} state={bodyState(l)} />;
   const b = l.data;
   if (!b.destinations.length && !b.last_run)
-    return <WidgetFrame {...common} state={{ kind: 'empty', title: 'No backups set up', body: 'Add a USB disk, another OneMind or a bucket in Backups.' }} />;
+    return <WidgetFrame {...common} state={{ kind: 'empty', title: 'No backup proved yet', body: 'A backup counts once a restore test has passed. Add a USB disk, another OneMind or a bucket.', action: ctx.links.backups ? { label: 'Set up backups', href: ctx.links.backups } : undefined }} />;
   const runAge = b.last_run ? secondsSince(b.last_run, ctx.now) : Number.POSITIVE_INFINITY;
   const runTone: Tone = runAge > 26 * 3600 ? 'warn' : 'ok';
   const verifyAge = b.last_verified_restore ? secondsSince(b.last_verified_restore, ctx.now) : Number.POSITIVE_INFINITY;
@@ -341,7 +343,7 @@ function BackupsWidget({ w, ctx }: { w: WidgetInstance; ctx: WidgetContext }) {
 
 function UpdatesWidget({ w, ctx }: { w: WidgetInstance; ctx: WidgetContext }) {
   const l = ctx.data.updates;
-  const common = { title: 'Updates', icon: 'updates' as const, size: w.size, href: ctx.links.updates, hrefLabel: 'Review', source: 'GET /v1/os/status (proposed)', showSource: ctx.showSource };
+  const common = { title: 'Updates', icon: 'updates' as const, size: w.size, href: ctx.links.updates, hrefLabel: 'Review', source: 'GET /v1/os/updates', showSource: ctx.showSource, onRetry: ctx.onRetry };
   if (l.state !== 'ready') return <WidgetFrame {...common} state={bodyState(l)} />;
   const u = l.data;
   const checkAge = secondsSince(u.checked_at, ctx.now);
@@ -385,7 +387,7 @@ const REMOTE = { off: 'Remote access is off', mesh: 'Reachable on your mesh', pu
 
 function MeshWidget({ w, ctx }: { w: WidgetInstance; ctx: WidgetContext }) {
   const l = ctx.data.mesh;
-  const common = { title: 'Network', icon: 'link' as const, size: w.size, href: ctx.links.mesh, source: 'GET /v1/fabric (proposed)', showSource: ctx.showSource };
+  const common = { title: 'Network', icon: 'link' as const, size: w.size, href: ctx.links.mesh, source: 'GET /v1/fabric', showSource: ctx.showSource, onRetry: ctx.onRetry };
   if (l.state !== 'ready') return <WidgetFrame {...common} state={bodyState(l)} />;
   const m = l.data;
   if (!m.links.length) return <WidgetFrame {...common} state={{ kind: 'empty', title: 'Only the hub so far', body: 'Add a node to see its link here.' }} />;
@@ -472,7 +474,7 @@ function AppWidget({ w, ctx }: { w: WidgetInstance; ctx: WidgetContext }) {
   const decl = app?.widgets?.find((d) => d.id === w.widgetId);
   const glyph = app ? <AppGlyph app={app} size={20} /> : undefined;
   const title = app && decl ? `${app.name} · ${decl.title}` : `App widget (${w.appId ?? 'unknown'})`;
-  const common = { title, icon: 'apps' as const, glyph, size: w.size, href: app ? ctx.links.app(app.id) : undefined, source: decl ? `GET /v1/apps/${app!.id}/widgets/${decl.id} (proposed)` : undefined, showSource: ctx.showSource };
+  const common = { title, icon: 'apps' as const, glyph, size: w.size, href: app ? ctx.links.app(app.id) : undefined, source: decl ? `GET /v1/apps/${app!.id}/widgets/${decl.id}` : undefined, showSource: ctx.showSource, onRetry: ctx.onRetry };
   if (ctx.data.apps.state !== 'ready') return <WidgetFrame {...common} state={bodyState(ctx.data.apps)} />;
   if (!app || !app.installed) return <WidgetFrame {...common} state={{ kind: 'empty', title: 'This app is no longer installed', body: 'Remove this widget from Home.' }} />;
   if (!decl) return <WidgetFrame {...common} state={{ kind: 'empty', title: 'The app no longer offers this widget', body: 'Its new version dropped it. Remove this widget.' }} />;

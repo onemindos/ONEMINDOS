@@ -240,28 +240,14 @@ function Launchpad({ nav, apps, onClose }: { nav: NavItem[]; apps: DockApp[]; on
           <span className="om-visually-hidden">Find a screen or app</span>
           <input ref={input} type="search" placeholder="Find a screen or app" value={q} onChange={(e) => setQ(e.target.value)} />
         </label>
-        <section aria-label="Screens">
-          <h3 className="dsk-launchpad-head">Screens</h3>
-          <ul className="dsk-launchpad-grid">
-            {screens.map((n) => (
-              <li key={n.id}>
-                <a href={n.href} className="dsk-launchpad-item" onClick={onClose}>
-                  <ScreenTile id={n.id} icon={n.icon} size={64} />
-                  <span className="dsk-launchpad-label">{n.label}</span>
-                  <Badge item={n} />
-                </a>
-              </li>
-            ))}
-          </ul>
-        </section>
         {shownApps.length > 0 && (
           <section aria-label="Your apps">
             <h3 className="dsk-launchpad-head">Your apps</h3>
-            <ul className="dsk-launchpad-grid">
+            <ul className="dsk-launchpad-grid dsk-launchpad-big">
               {shownApps.map((a) => (
                 <li key={a.id}>
                   <a href={a.href} className="dsk-launchpad-item" onClick={onClose}>
-                    <AppIcon app={a} size={64} />
+                    <AppIcon app={a} size={84} />
                     <span className="dsk-launchpad-label">{a.name}</span>
                   </a>
                 </li>
@@ -269,6 +255,20 @@ function Launchpad({ nav, apps, onClose }: { nav: NavItem[]; apps: DockApp[]; on
             </ul>
           </section>
         )}
+        <section aria-label="Screens">
+          <h3 className="dsk-launchpad-head">Screens</h3>
+          <ul className="dsk-launchpad-grid dsk-launchpad-small">
+            {screens.map((n) => (
+              <li key={n.id}>
+                <a href={n.href} className="dsk-launchpad-item" onClick={onClose}>
+                  <ScreenTile id={n.id} icon={n.icon} size={44} />
+                  <span className="dsk-launchpad-label">{n.label}</span>
+                  <Badge item={n} />
+                </a>
+              </li>
+            ))}
+          </ul>
+        </section>
         {screens.length === 0 && shownApps.length === 0 && <p className="dsk-launchpad-none">Nothing matches “{q}”. Try the search (Ctrl K) for settings and actions.</p>}
       </div>
     </div>
@@ -325,7 +325,17 @@ export function DesktopShell(props: DesktopShellProps) {
           <BrandMark size={22} />
           <span className="dsk-box">{boxName}</span>
         </a>
-        <div className="dsk-status">{status}</div>
+        <div className="dsk-status">
+          {status}
+          {demo && (
+            <span className="dsk-demo" title="This screen shows sample data, not a real box">
+              <span className="dsk-demo-short" aria-hidden="true">
+                Demo
+              </span>
+              <span className="dsk-demo-long">Demo data</span>
+            </span>
+          )}
+        </div>
         <Clock now={now} timeZone={timeZone} />
         <div className="dsk-actions">
           <button type="button" className="dsk-iconbtn" onClick={onSearch} aria-label="Search (Ctrl K)" title="Search (Ctrl K)">
@@ -344,19 +354,20 @@ export function DesktopShell(props: DesktopShellProps) {
         <div className="dsk-stage">
           <div className="dsk-scrim" aria-hidden="true" onClick={() => navigate('/')} />
           <section className="dsk-window" aria-labelledby={windowLabel} key={current}>
+            {/* The screen's name is said once, by its own heading; the window only names itself for assistive tech. */}
+            <span id={windowLabel} className="om-visually-hidden">
+              {title}
+            </span>
             <div className="dsk-window-bar">
               {up ? (
                 <a href={up} className="dsk-wbtn" aria-label="Back" title="Back">
-                  <Icon name="chevron" size={16} className="dsk-flip" />
+                  <Icon name="chevron" size={18} className="dsk-flip" />
                 </a>
               ) : (
-                here && <ScreenTile id={here.id} icon={here.icon} size={26} />
+                <span />
               )}
-              <span id={windowLabel} className="dsk-window-title">
-                {title}
-              </span>
               <a href="/" className="dsk-wbtn dsk-close" aria-label={`Close ${title}`} title="Close (Esc)">
-                <Icon name="x" size={16} />
+                <Icon name="x" size={18} />
               </a>
             </div>
             {/* tabIndex 0: the window scrolls, so keyboard users must be able to reach it (axe scrollable-region-focusable). */}
