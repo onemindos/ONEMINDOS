@@ -32,7 +32,7 @@
 .om-btn-sm { min-height: 32px; padding: 0 var(--om-space-3); }
 .om-btn-primary { background: var(--om-color-accent); color: var(--om-color-accent-text); }
 .om-btn-primary:hover:not(:disabled) { background: var(--om-color-accent-hover); }
-.om-btn-secondary { background: var(--om-color-surface); color: var(--om-color-text); border-color: var(--om-color-border-strong); }
+.om-btn-secondary { background: var(--om-color-surface); color: var(--om-color-text); border-color: var(--om-color-control-border); }
 .om-btn-secondary:hover:not(:disabled) { background: var(--om-color-surface-sunken); }
 .om-btn-ghost { background: transparent; color: var(--om-color-accent); }
 .om-btn-ghost:hover:not(:disabled) { background: var(--om-color-accent-soft); }
@@ -186,7 +186,7 @@
 .om-sort-mark { font-size: 0.75em; opacity: 0.7; }
 
 /* ---------- segmented ---------- */
-.om-segmented { display: inline-flex; border: 1px solid var(--om-color-border-strong); border-radius: var(--om-radius-md); padding: 2px; margin: 0; gap: 2px; background: var(--om-color-surface-sunken); }
+.om-segmented { display: inline-flex; border: 1px solid var(--om-color-control-border); border-radius: var(--om-radius-md); padding: 2px; margin: 0; gap: 2px; background: var(--om-color-surface-sunken); }
 .om-segmented label { position: relative; padding: var(--om-space-1) var(--om-space-3); border-radius: var(--om-radius-sm); font-size: var(--om-font-size-sm); cursor: pointer; color: var(--om-color-text-muted); }
 .om-segmented input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
 .om-segmented label.om-seg-on { background: var(--om-color-surface); color: var(--om-color-text); box-shadow: var(--om-shadow-1); }
@@ -273,3 +273,45 @@
   .om-dialog-actions > .om-btn { width: 100%; }
 }
 @media (max-width: 720px) and (prefers-reduced-motion: reduce) { .om-dialog { animation: none; } }
+
+/* ---------- status glyphs: one shape per meaning (never colour alone) ---------- */
+.om-glyph { flex: none; color: var(--om-tone-fg); vertical-align: middle; }
+.om-pill-glyph { margin-inline: -1px; }
+.om-glyph-spin { animation: om-spin 0.9s linear infinite; transform-origin: center; }
+/* On the dark jobs pill the glyph takes the pill's own text colour, which is already AA there. */
+.om-store-tray-pill .om-glyph { color: inherit; }
+@media (prefers-reduced-motion: reduce) { .om-glyph-spin { animation: none; } }
+
+/* ---------- selected is not focused ---------- */
+/* Focus is a two-tone ring (outline plus a gap in the surface colour). Selection is a filled tint with a bar and a check mark,
+   so a selected row that also has focus shows both and the two are never mistaken for each other. */
+:focus-visible { box-shadow: 0 0 0 4px var(--om-color-surface); }
+.om-sort:focus-visible, .om-skip:focus { box-shadow: none; }
+.om-set-qitem[aria-current='true'], .om-seg-on { background-color: var(--om-color-accent-soft); }
+.om-set-qitem[aria-current='true'] { position: relative; }
+.om-set-qitem[aria-current='true']::after { content: ''; position: absolute; top: var(--om-space-3); right: var(--om-space-3); width: 18px; height: 18px; background: var(--om-color-accent);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center / contain no-repeat; }
+
+/* ---------- phones: every tap target is at least 44 px ---------- */
+@media (max-width: 720px) {
+  .om-icon-btn, .om-btn-sm, .om-set-chip, .om-set-switch, .om-sort, .om-details summary { min-height: var(--om-layout-touch-target); }
+  .om-icon-btn { min-width: var(--om-layout-touch-target); width: var(--om-layout-touch-target); }
+  .om-segmented label { min-height: var(--om-layout-touch-target); display: inline-flex; align-items: center; }
+  .om-set-chip { padding-inline: var(--om-space-4); }
+  .om-store-tray-pill { min-height: var(--om-layout-touch-target); }
+}
+
+/* ---------- contrast preferences ---------- */
+@media (prefers-contrast: more) {
+  :root { --om-color-border: var(--om-color-control-border); --om-color-border-strong: var(--om-color-control-border); }
+  .om-pill, .om-note, .om-card { border-width: 2px; }
+}
+@media (forced-colors: active) {
+  .om-pill, .om-note, .om-btn, .om-set-chip, .om-set-qitem { border: 1px solid CanvasText; }
+  .om-btn-primary { background: ButtonText; color: ButtonFace; forced-color-adjust: none; }
+  .om-glyph { color: CanvasText; forced-color-adjust: none; }
+  .om-set-qitem[aria-current='true'] { outline: 3px solid Highlight; }
+  .om-set-qitem[aria-current='true']::after { background: Highlight; }
+  :focus-visible { outline: 3px solid Highlight; box-shadow: none; }
+}

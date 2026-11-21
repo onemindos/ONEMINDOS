@@ -11,7 +11,8 @@ import { Card } from './Card';
 import { Dialog } from './Dialog';
 import { EmptyState } from './EmptyState';
 import { NodeCard, type NodeSummary } from './NodeCard';
-import { StatusPill } from './StatusPill';
+import { FreshnessPill, StatusPill } from './StatusPill';
+import { StatusGlyph } from './StatusGlyph';
 import { Table } from './Table';
 import { ToastProvider, TOAST_MS, useToast } from './Toast';
 import { TrustCard, type AppTrust } from './TrustCard';
@@ -73,6 +74,36 @@ describe('StatusPill', () => {
     render(<StatusPill tone="ok" label="Online" detail="2 nodes" />);
     expect(screen.getByText('Online')).toBeInTheDocument();
     expect(screen.getByText('· 2 nodes')).toBeInTheDocument();
+  });
+});
+
+describe('status shapes', () => {
+  it('never renders a pill without a word', () => {
+    const { container } = render(<StatusPill tone="info" label="" />);
+    expect(container.querySelector('.om-pill-label')).toHaveTextContent('Info');
+  });
+  it('gives every freshness state its own glyph, and unknown is never shaped like ok', () => {
+    const shape = (state: 'live' | 'stale' | 'offline' | 'unknown') => {
+      const { container, unmount } = render(<FreshnessPill state={state} />);
+      const g = container.querySelector('svg.om-glyph');
+      const out = g?.innerHTML;
+      unmount();
+      return out;
+    };
+    const shapes = [shape('live'), shape('stale'), shape('offline'), shape('unknown')];
+    expect(shapes.every(Boolean)).toBe(true);
+    expect(new Set(shapes).size).toBe(4);
+  });
+  it('draws unknown as a dashed ring with a question mark', () => {
+    const { container } = render(<StatusGlyph kind="unknown" />);
+    expect(container.querySelector('circle[stroke-dasharray]')).not.toBeNull();
+    expect(container.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
+  });
+  it('gives progress its own arc, spinning only when asked', () => {
+    const { container, rerender } = render(<StatusGlyph kind="progress" />);
+    expect(container.querySelector('svg')).not.toHaveClass('om-glyph-spin');
+    rerender(<StatusGlyph kind="progress" spin />);
+    expect(container.querySelector('svg')).toHaveClass('om-glyph-spin');
   });
 });
 
