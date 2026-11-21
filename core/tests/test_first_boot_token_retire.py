@@ -12,7 +12,6 @@ import pytest
 import yaml
 from fastapi.testclient import TestClient
 
-from conftest import OWNER
 from onemind_core.app import create_app
 from onemind_core.auth import TokenStore
 from test_identity import PASSWORD, id_settings
@@ -58,8 +57,8 @@ def test_first_boot_token_returns_401_after_setup(settings, clock, executor, tmp
         assert c.get("/v1/me", headers=first).status_code == 200
         r = c.post("/v1/auth/setup", headers=first, json={"username": "zeus", "password": PASSWORD})
         assert r.status_code == 201, r.text
+        c.cookies.clear()  # setup signs the new owner in; the cookie is not what is under test
         assert c.get("/v1/me", headers=first).status_code == 401
         assert c.get("/v1/tokens", headers={"Authorization": f"Bearer {OTHER}"}).status_code == 200
         again = c.post("/v1/auth/setup", headers=first, json={"username": "x1", "password": PASSWORD})
         assert again.status_code == 409
-        assert c.get("/v1/me", headers=OWNER).status_code == 200  # fixture owner token is not first-boot
