@@ -142,6 +142,7 @@ Actions are pinned by commit, as listed in `os/versions.lock.yaml`. Tauri's bund
 | tauri, tauri-build | 2.12.5, 2.7.4 | Apache-2.0 OR MIT | linked |
 | @tauri-apps/cli | 2.12.4 | Apache-2.0 OR MIT | build tool only |
 | tauri-plugin-notification, -opener, -single-instance | 2.8.0, 2.7.2, 2.5.5 | Apache-2.0 OR MIT | linked |
+| tauri-plugin-updater | 2.14.1 (released 2026-10-28) | Apache-2.0 OR MIT | linked |
 | mdns-sd | 0.21.6 | Apache-2.0 OR MIT | linked |
 | reqwest (rustls) | 0.13.5 | MIT OR Apache-2.0 | linked |
 | keyring | 3.6.3 | MIT OR Apache-2.0 | linked |
@@ -153,6 +154,22 @@ The 313 crates in the macOS dependency graph are all permissive licences (MIT, A
 
 keyring 4.x exists, but it splits into separate store crates whose API was not checked for this skeleton. 3.6.3 is the last 3.x release.
 
+## Updates (signed, click to install)
+
+The app can update itself with the Tauri updater plugin. Design and rules: [docs/UPDATER.md](docs/UPDATER.md). In short: the popover shows "Update available" with the notes and installs **only when you click** "Install and restart". Nothing is downloaded or installed silently. The plugin refuses a file whose signature does not match the public key in `tauri.conf.json`, and offers only a newer version.
+
+- **Channels follow the version.** `0.2.0-dev.N` builds follow the `dev` channel, every other version follows `stable`. The two HTTPS manifest URLs are constants in `src-tauri/src/updates.rs` (GitHub releases tagged `desktop-stable` and `desktop-dev`, file `latest.json`); no setting, box or web page can change them.
+- **Off until the key exists.** `plugins.updater.pubkey` is the placeholder `REPLACE_WITH_TAURI_SIGNER_PUBLIC_KEY`. While it is, the app does not contact any update server and shows nothing.
+- **Founder step (once).** Generate the key pair and keep the private key offline with a backup (losing it means every install must be redone by hand):
+
+  ```
+  cd desktop && npx tauri signer generate -w ~/.tauri/onemind-updater.key
+  ```
+
+  Then paste the printed **public** key over the placeholder in `src-tauri/tauri.conf.json` (a one-line PR), and add the GitHub secrets `TAURI_SIGNING_PRIVATE_KEY` (the private key file contents) and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` (its password) to the `desktop-release` environment. Never commit the private key.
+- **Release hook (for the desktop release workflow, CLIENT-12).** `createUpdaterArtifacts` is deliberately not set in `tauri.conf.json`, because an unsigned build (CI, forks) would fail with it on. The release job, only when the secret is set, builds with `npx tauri build --config '{"bundle":{"createUpdaterArtifacts":true}}'`, collects the `.sig` files next to the artifacts, then runs `node tools/make-latest-json.mjs --dir <artifacts> --version <v> --mac-arch <aarch64|x86_64: the macOS runner's CPU> --base-url https://github.com/onemindos/ONEMINDOS/releases/download/desktop-stable/` and uploads `latest.json` and the artifacts to that release (`desktop-dev` for dev builds). The script refuses a missing signature or a non-HTTPS URL. No `desktop-release.yml` existed on main when this was written, so this is described, not wired.
+- **Preview.** `tools/preview.html?scene=update` shows the strip with fixture data.
+
 ## Next steps (in epic order)
 
 1. **CLIENT-2 + CLIENT-3:** replace the pasted token with a device request the owner approves (`device.add`): a non-exportable device key (Secure Enclave on Mac, TPM via CNG on Windows) with DPoP on refresh, and fingerprint words plus a check code for first trust. Pin the box CA per instance id, and refuse a changed CA clearly.
@@ -160,5 +177,5 @@ keyring 4.x exists, but it splits into separate store crates whose API was not c
 3. **Approvals, rest of CLIENT-10:** native platform passkeys (a follow-up spike on macOS AuthenticationServices and Windows `webauthn.dll`, after F-33 settles the passkey domain); in the dashboard (CORE-SEC-2, dashboard stream): the passkey step on the Approvals page and an `/approvals/<id>` route, so the browser hand-off opens the exact request; bringing the popover forward when a banner is clicked (Tauri's desktop notifications report no click today).
 4. **Quiet hours:** banners ignore the person's quiet hours (§12.14 preferences) for now; the box already holds channel deliveries during quiet hours.
 5. **CLIENT-11:** laptop folder backup with restic to the box, with verified restores and a pause on battery or metered networks.
-6. **CLIENT-12:** Developer ID signing and notarization, MSIX or a signed NSIS installer, the Tauri updater as designed in [docs/UPDATER.md](docs/UPDATER.md), and third-party notices.
+6. **CLIENT-12:** Developer ID signing and notarization, MSIX or a signed NSIS installer, the release workflow that builds, OS-signs and publishes `latest.json` (the app side of the updater is done, see Updates), and third-party notices.
 7. Linux (`.deb`, AppImage) in CI, and autostart at login (`tauri-plugin-autostart`).
