@@ -5,6 +5,8 @@
 // makes the browser deliver new notifications in the same frame. WebKit then raises "ResizeObserver
 // loop completed with undelivered notifications" as a page error. The fix is to do the write in the
 // next animation frame (outside the observer's delivery), once per frame, and only when the value changed.
+// The first measurement is written synchronously at setup (not in the observer), so the first paint
+// already has the real height; the observer's own initial notification then finds the same value.
 export function trackBarHeight(bar: HTMLElement, root: HTMLElement, variable: string): () => void {
   if (typeof ResizeObserver === 'undefined') return () => {};
   let frame = 0;
@@ -16,6 +18,7 @@ export function trackBarHeight(bar: HTMLElement, root: HTMLElement, variable: st
     last = next;
     root.style.setProperty(variable, next);
   };
+  write();
   const ro = new ResizeObserver(() => {
     if (frame) cancelAnimationFrame(frame);
     frame = requestAnimationFrame(write);

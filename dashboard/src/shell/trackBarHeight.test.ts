@@ -30,12 +30,21 @@ function setup() {
 }
 
 describe('trackBarHeight', () => {
-  it('defers the write to an animation frame, not the observer callback', () => {
+  it('sets the variable synchronously at setup, before any frame runs', () => {
     const { root, spy } = setup();
-    fire();
-    expect(spy).not.toHaveBeenCalled();
-    flush();
     expect(root.style.getPropertyValue('--h')).toBe('40px');
+    expect(frames.size).toBe(0);
+    fire(); flush(); // observer's initial notification, same value: no second write
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  it('defers later changes to an animation frame, not the observer callback', () => {
+    const { bar, root, spy } = setup();
+    (bar as { offsetHeight: number }).offsetHeight = 56;
+    fire();
+    expect(spy).toHaveBeenCalledTimes(1);
+    flush();
+    expect(root.style.getPropertyValue('--h')).toBe('56px');
   });
 
   it('keeps one pending frame and skips unchanged values', () => {
@@ -51,12 +60,13 @@ describe('trackBarHeight', () => {
   });
 
   it('cleanup disconnects and cancels the pending frame', () => {
-    const { spy, stop } = setup();
+    const { bar, spy, stop } = setup();
+    (bar as { offsetHeight: number }).offsetHeight = 56;
     fire();
     stop();
     expect(disconnected).toBe(true);
     expect(frames.size).toBe(0);
     flush();
-    expect(spy).not.toHaveBeenCalled();
+    expect(spy).toHaveBeenCalledTimes(1); // only the setup write
   });
 });
