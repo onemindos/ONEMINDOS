@@ -1775,6 +1775,7 @@
               "machine.delete",
               "machine.start",
               "machine.stop",
+              "os.update.install",
               "source.add",
               "source.move",
               "source.remove"
@@ -15719,6 +15720,66 @@
         "summary": "Save",
         "tags": [
           "onboarding"
+        ]
+      }
+    },
+    "/v1/os/updates": {
+      "get": {
+        "description": "Per node: running version, booted A/B slot, the update on offer, and whether installing can run.",
+        "operationId": "os.updates.status",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          }
+        },
+        "summary": "Os Updates",
+        "tags": [
+          "os"
+        ]
+      }
+    },
+    "/v1/os/updates/history": {
+      "get": {
+        "description": "Commits and rollbacks the nodes reported, newest first, and the install requests filed.",
+        "operationId": "os.updates.history",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          }
+        },
+        "summary": "Os Updates History",
+        "tags": [
+          "os"
         ]
       }
     },
