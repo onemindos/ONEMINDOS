@@ -231,3 +231,24 @@ def test_request_scope_is_per_action_type(settings, clock, tmp_path):
     assert "request_action" in names
     res = mrpc(c, "tools/call", REQ, auth=auth).json()["result"]  # app.install
     assert res["structuredContent"]["error"] == "permission_denied"
+
+
+def test_every_request_action_type_has_its_own_scope():
+    from onemind_core.actions import APP_CLAIMS
+    from onemind_core.auth import MCP_BUNDLES, MCP_SCOPES
+    assert {s.removeprefix("actions:request:") for s in MCP_SCOPES if s.startswith("actions:request:")} == set(APP_CLAIMS)
+    assert not any(s.startswith("actions:request:") for s in MCP_BUNDLES["reader"])
+
+
+@pytest.mark.parametrize("typ", ["app.start", "app.stop", "app.restart", "app.update", "app.install", "app.configure", "app.delete_data"])
+def test_remove_only_token_is_denied_every_other_type(settings, clock, tmp_path, typ):
+    tok = "remove-only-agent-token-0123456789"
+    f = tmp_path / "tokens.yaml"
+    f.write_text(yaml.safe_dump({"tokens": {tok: {"id": "r", "kind": "agent", "role": "agent",
+                                                  "scopes": ["actions:request:app.remove"]}}}))
+    c = make_client(settings, clock, tokens_file=f)
+    auth = {"Authorization": f"Bearer {tok}"}
+    call = {"name": "request_action", "arguments": {"type": typ, "app_id": "x"}}
+    res = mrpc(c, "tools/call", call, auth=auth).json()["result"]
+    assert res["isError"] and res["structuredContent"]["error"] == "permission_denied"
+    assert res["structuredContent"]["scope"] == f"actions:request:{typ}"

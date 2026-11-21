@@ -36,11 +36,15 @@ ROLES = {"owner", "adult", "guest", "child", "agent"}
 # always granted.
 MCP_SCOPES = (
     "instance:read", "nodes:read", "apps:read", "actions:read:own", "audit:read:own",
-    "actions:request:app.install", "actions:request:app.remove",
+    "actions:request:app.install", "actions:request:app.remove", "actions:request:app.start",
+    "actions:request:app.stop", "actions:request:app.restart", "actions:request:app.update",
+    "actions:request:app.configure", "actions:request:app.delete_data",
 )
 ALWAYS_GRANTED = frozenset({"instance:read"})
 _READER = ("instance:read", "nodes:read", "apps:read", "actions:read:own", "audit:read:own")
-_REQUEST = ("actions:request:app.install", "actions:request:app.remove")
+# One scope per request_action type (the lifecycle.TYPES keys; a test keeps the two in step), so a
+# token holds exactly the types it was granted and the rest are denied by default.
+_REQUEST = tuple(x for x in MCP_SCOPES if x.startswith("actions:request:"))
 MCP_BUNDLES = {  # §4.1 named bundles, limited to what exists today
     "reader": frozenset(_READER),
     "requester": frozenset(_READER + _REQUEST),
