@@ -10,11 +10,14 @@ import re
 from .. import lifecycle as lc
 from ..backups.jobs import load_or_create_job_key, public_pem
 from ..errors import ApiError
+from ..catalog import AppEntry
 from ..executors import AgentSecret
 from ..identity.crypto import new_id, new_secret, sha256_hex
 from ..identity.models import TokenRow
 from .auth import plugin_app_id, request_types
-from .models import PluginInstallRow
+from .models import PluginInstallRow, PluginSettingsRow
+from .settings_schema import load_settings_schema
+from sqlalchemy import delete
 
 _SECRET = re.compile(r"[a-z0-9](?:[-a-z0-9.]*[a-z0-9])?\Z")
 
@@ -60,24 +63,59 @@ class PluginSecret(AgentSecret):
         return json.dumps(doc)
 
 
+def authority(app) -> tuple[dict, dict]:
+    """What the owner approved beyond grants: the backend and each tool's declared effect."""
+    from ..lifecycle import plugin_tools
+    plugin = (app.manifest.get("spec") or {}).get("plugin") or {}
+    return plugin.get("backend") or {}, {t["name"]: (t["effect"], t["rest"]) for t in plugin_tools(app)}
+
+
+def narrows(approved, proposed) -> bool:
+    """An update may drop tools but never add one, change an effect or move the backend."""
+    (old_backend, old_tools), (new_backend, new_tools) = authority(approved), authority(proposed)
+    return old_backend == new_backend and all(old_tools.get(name) == value for name, value in new_tools.items())
+
+
 def register_workloads(gw, identity) -> None:
+    updates = {}
+
     def check(type_, _params, app, _phase):
         if type_ not in {"app.install", "app.update"}:
             return
         try:
             declaration(app)
+            load_settings_schema(app)
         except ValueError as exc:
             raise ApiError(422, "conflict", str(exc), reason="invalid_request") from exc
-        if type_ == "app.update" and app.manifest.get("spec", {}).get("plugin"):
-            # Updating a running identity needs grant-diff approval and receipt migration.
-            # Do not keep a token with stale privileges while changing its workload.
-            raise ApiError(409, "conflict", "plugin updates require removal and a fresh approved install")
+        if type_ == "app.update":
+            installed = identity.repo.get(PluginInstallRow, app.id)
+            current = declaration(app)
+            if installed or current:
+                old = declaration(AppEntry(app.id, app.dir, installed.manifest)) if installed else None
+                if current is None or current != old:
+                    raise ApiError(409, "conflict", "changed plugin identity grants require removal and a fresh approved install")
+                if not narrows(AppEntry(app.id, app.dir, installed.manifest), app):
+                    raise ApiError(409, "conflict",
+                                   "changed plugin tools or backend require removal and a fresh approved install")
+                saved = identity.repo.get(PluginSettingsRow, app.id)
+                schema = load_settings_schema(app)
+                if saved and schema is not None:
+                    from .settings_schema import compile_schema
+                    try:
+                        compile_schema(schema).validate(saved.values)
+                    except Exception as exc:
+                        raise ApiError(409, "conflict", "stored settings do not fit the new plugin schema") from exc
 
     def credential(action, app):
         record = identity.repo.get(PluginInstallRow, app.id)
         if action.type == "app.remove":
             return PluginSecret(record.secret_name, f"plugin:{app.id}") if record else None
         if action.type != "app.install":
+            if action.type == "app.update" and record:
+                digest = lc.bundle_sha256(app)
+                if digest is None:
+                    raise ValueError("plugin update bundle is unavailable")
+                updates[action.id] = (json.loads(json.dumps(app.manifest)), digest, load_settings_schema(app))
             if record:
                 return PluginSecret(record.secret_name, f"plugin:{app.id}", gateway_url=gw.actions.gateway_url)
             return None
@@ -85,6 +123,7 @@ def register_workloads(gw, identity) -> None:
         if parsed is None:
             return None
         name, scopes = parsed
+        settings_schema = load_settings_schema(app)
         digest = lc.bundle_sha256(app)
         if digest is None:
             raise ValueError("plugin workload bundle is unavailable")
@@ -98,8 +137,9 @@ def register_workloads(gw, identity) -> None:
                        scopes=scopes, source="app-install", created_by=approved.approved_by if approved and approved.approved_by else action.requested_by["id"],
                        created_at=now)
         with identity.repo.db.session.begin() as session:
+            session.execute(delete(PluginSettingsRow).where(PluginSettingsRow.app_id == app.id))
             session.merge(PluginInstallRow(app_id=app.id, secret_name=name, bundle_sha256=digest,
-                                           manifest=json.loads(json.dumps(app.manifest))))
+                                           manifest=json.loads(json.dumps(app.manifest)), settings_schema=settings_schema))
             session.add(row)
         gw.audit.append("plugin.principal.issued", None, action.id, {
             "principal_id": row.principal_id, "app_id": app.id, "scopes": scopes,
@@ -107,5 +147,16 @@ def register_workloads(gw, identity) -> None:
         return PluginSecret(name, row.principal_id, gateway_url=gw.actions.gateway_url, token=token,
                             ca_pem=gw.actions.gateway_ca(), dispatch_pubkey=public_pem(key).decode())
 
+    def completed(action, outcome):
+        prepared = updates.pop(action.id, None)
+        if prepared is not None and outcome == "succeeded":
+            manifest, digest, schema = prepared
+            runtime = gw.repo.get_runtime(action.params["app_id"])
+            if runtime is None or runtime.bundle_sha256 != digest:
+                return  # mismatched receipts keep tool/settings authorization closed
+            identity.repo.update(PluginInstallRow, [PluginInstallRow.app_id == action.params["app_id"]],
+                                 {"manifest": manifest, "bundle_sha256": digest, "settings_schema": schema})
+
+    gw.actions.after_dispatch.append(completed)
     gw.actions.app_checks.append(check)
     gw.actions.workload_credential = credential

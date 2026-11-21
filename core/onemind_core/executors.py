@@ -175,6 +175,11 @@ class Executor:
 
 
 class NoopExecutor(Executor):
+    def configure_plugin(self, app: AppEntry, settings: dict) -> ExecResult:
+        return ExecResult("succeeded", "noop executor: plugin settings recorded, nothing changed", [
+            {"would": f"apply ConfigMap plugin-settings in app-{app.id}", "keys": ["settings.json"]},
+        ])
+
     name = "noop"
 
     def run(
@@ -261,6 +266,16 @@ class KubernetesExecutor(Executor):
     (H-04), the agent Secret (§11.2), and finally `kubectl apply -f -` with exactly the rendered
     bytes that were checked. A violation fails the action before kubectl touches the cluster.
     """
+
+    def configure_plugin(self, app: AppEntry, settings: dict) -> ExecResult:
+        ns = f"app-{app.id}"
+        doc = json.dumps({"apiVersion": "v1", "kind": "ConfigMap", "metadata": {
+            "name": "plugin-settings", "namespace": ns, "labels": {"onemind.io/app": app.id}},
+            "data": {"settings.json": json.dumps(settings, sort_keys=True, separators=(",", ":"))}})
+        steps: list[dict] = []
+        _, error = self._exec(_ssa(self.kubectl, ns), doc, app, None, steps, keep_stdout=False)
+        return error or ExecResult("succeeded", "plugin settings applied", steps)
+
 
     name = "kubernetes"
 
