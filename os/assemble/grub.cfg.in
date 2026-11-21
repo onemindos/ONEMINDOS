@@ -71,6 +71,11 @@ echo "GRUB-RAUC: ORDER=$ORDER A_OK=$A_OK A_TRY=$A_TRY B_OK=$B_OK B_TRY=$B_TRY de
 # splash: the brand boot splash on a graphical console (plymouth). No `quiet`, and plymouth ignores serial
 # consoles, so the serial log the QEMU battery reads is unchanged.
 CMDLINE="@CONSOLE@ panic=10 rootwait ro loglevel=4 splash plymouth.ignore-serial-consoles"
+# Kernel hardening switches (KSPP). apparmor=1 security=apparmor makes the mandatory-access-control choice explicit
+# instead of relying on the Debian default. slab_nomerge keeps different kernel object types apart,
+# page_alloc.shuffle and randomize_kstack_offset add randomness, debugfs=off removes a debug interface.
+# Left out on purpose for now: lockdown= (blocks unsigned out-of-tree drivers a power user may load).
+CMDLINE="$CMDLINE apparmor=1 security=apparmor slab_nomerge page_alloc.shuffle=1 randomize_kstack_offset=on debugfs=off"
 
 menuentry "No good slot left: A (ungated fallback)" {
     linux ($disk,gpt@IDX_A@)/boot/vmlinuz root=PARTUUID=@PU_A@ $CMDLINE rauc.slot=A
