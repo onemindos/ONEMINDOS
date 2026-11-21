@@ -46,7 +46,8 @@ def test_action_body_schema_offers_settings_and_confirm_only_where_the_server_ta
                              "app.configure", "app.delete_data"}
     if path == "/v1/actions":
         assert len(feature) == 1, feature
-        assert not {t for t in feature[0].get("enum", []) if t.startswith("app.")}, feature  # no lifecycle type twice
+        # no lifecycle type twice; app.disable and app.enable are the Built in switch (appstore/system.py)
+        assert not {t for t in feature[0].get("enum", []) if t.startswith("app.")} - {"app.disable", "app.enable"}, feature
 
 
 def test_the_server_still_refuses_what_the_schema_no_longer_offers(client):
