@@ -22,6 +22,9 @@ AppId = Annotated[str, Field(pattern=r"^[a-z0-9][a-z0-9-]{0,62}$")]
 Tag = Annotated[str, Field(min_length=1, max_length=64)]
 # Roles that carry per-person limits and a birth date (age assurance, California AB 1043 from 2027).
 AGE_ASSURED_ROLES = ("child", "teen")
+# Starting age-rating limits (founder decision 2026-11-21: teens get a looser default than children).
+# Only a first profile: the owner can edit or clear it, and an existing profile is never overwritten.
+ROLE_PRESETS: dict[str, int] = {"child": 12, "teen": 16}
 
 
 class Window(BaseModel):
@@ -78,6 +81,19 @@ class FamilyService:
     def __init__(self, gw: Gateway, identity):
         self.gw, self.identity = gw, identity
         self.repo = IdentityRepository(gw.db)
+        identity.role_hooks.append(self.apply_preset)
+
+    def apply_preset(self, user_id, role, p):
+        """Give a new child or teen the default age rating, unless a profile already exists."""
+        rating = ROLE_PRESETS.get(role)
+        if rating is None:
+            return
+        with self.repo.db.session.begin() as s:
+            if s.get(ProfileRow, user_id) is not None:
+                return
+            s.add(ProfileRow(user_id=user_id, policy=FamilyProfile(max_age_rating=rating).model_dump(mode="json")))
+        # No birth date or other profile data in the event, only the preset itself.
+        self.identity.emit("family", "profile.preset_applied", {"user_id": user_id, "role": role, "max_age_rating": rating}, p)
 
     def target(self, p, user_id):
         self.identity._owner_only(p, "manage family controls")

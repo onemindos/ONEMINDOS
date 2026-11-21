@@ -17,6 +17,7 @@ import re
 import secrets
 import threading
 from collections import deque
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
@@ -131,6 +132,8 @@ class IdentityService:
         self.gw = gw
         self.cfg = gw.settings.section(IdentitySettings)
         self.repo = IdentityRepository(gw.db)
+        # Features that give a new or re-roled person starting data (FAM-01 age presets): (user_id, role, actor).
+        self.role_hooks: list[Callable[[str, str, Principal], None]] = []
         self.limiter = FailureLimiter(self.cfg.login_failures_per_min, timedelta(minutes=self.cfg.lockout_minutes))
         secure = self.cfg.cookie_secure
         # __Host- cookies must be Secure, path=/ and host-only: they cannot be set by a sibling name.
@@ -720,6 +723,8 @@ class IdentityService:
                     created_at=now, updated_at=now, created_by=p.id)
         self.repo.add(u)
         self.emit("user", "created", {"user_id": u.id, "role": u.role, "step_up": via}, p)
+        for hook in self.role_hooks:
+            hook(u.id, u.role, p)
         base = (self.gw.settings.public_url or str(request.base_url)).rstrip("/")
         return {**self.user_json(u), "one_time": {"enrolment_code": code, "enrolment_url": f"{base}/signin#enrol={code}",
                                                   "expires_at": iso(now + ENROL_TTL)}}
@@ -745,6 +750,9 @@ class IdentityService:
         changed = sorted(k for k in values if k != "updated_at")
         self.emit("user", "updated", {"user_id": u.id, "changed": changed, "role": values.get("role", u.role),
                                       "step_up": via}, p)
+        if "role" in values:
+            for hook in self.role_hooks:
+                hook(u.id, values["role"], p)
         return self.user_json(self.user(u.id))
 
     def disable_user(self, p: Principal, user_id: str) -> dict:
