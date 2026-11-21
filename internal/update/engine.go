@@ -136,6 +136,15 @@ func (e *Engine) Run(ctx context.Context, mode Mode, noReboot bool) (*Result, er
 		return res, e.fail(st, "", "box: "+err.Error())
 	}
 	st.CurrentVersion = box.Version
+	if !box.MarkerPresent && box.Version != "" {
+		// Running and committed: the gate passed this version, so any earlier
+		// bad verdict for it is stale.
+		if cleared, cerr := ClearBadRelease(e.Cfg, box.Version); cerr != nil {
+			e.Log.Warn("cannot clear stale bad-releases entry", "version", box.Version, "err", cerr)
+		} else if cleared {
+			e.Log.Info("cleared stale bad-releases entry for the committed running version", "version", box.Version)
+		}
+	}
 	bad, err := ReadBadReleases(e.Cfg)
 	if err != nil {
 		return res, e.fail(st, "", "bad-releases: "+err.Error())

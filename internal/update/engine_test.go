@@ -528,6 +528,34 @@ func TestVerdictAfterBoot(t *testing.T) {
 	}
 }
 
+// A version that failed once and was later installed and committed must not stay
+// on the bad list (lab finding: 0.1.0-dev.399-next).
+func TestCommittedVersionClearsStaleBadEntry(t *testing.T) {
+	f := newFixture(t, "security", "window = any\n")
+	f.add("vm", "0.1.1", true)
+	f.publish(0)
+	if _, err := f.run(ModeScheduled); err != nil {
+		t.Fatal(err)
+	}
+	os.Remove(filepath.Join(f.dir, "gate", "pending"))
+	f.write("os-release", "ONEMIND_VERSION=\"0.1.1\"\nONEMIND_BOARD=\"vm\"\n")
+	f.write("gate/bad-releases",
+		"2026-11-12T03:05:00Z version=0.1.1 verdict=image-bad\n2026-11-12T04:00:00Z version=0.1.9 verdict=image-bad\n")
+	if _, err := f.run(ModeScheduled); err != nil {
+		t.Fatal(err)
+	}
+	if st := f.status(); st.State != heartbeat.UpdateCommitted {
+		t.Fatalf("status %+v", st)
+	}
+	b, err := os.ReadFile(filepath.Join(f.dir, "gate", "bad-releases"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := string(b); strings.Contains(got, "version=0.1.1 ") || !strings.Contains(got, "version=0.1.9 verdict=image-bad") {
+		t.Fatalf("bad-releases after commit: %q", got)
+	}
+}
+
 func TestTrialStateWhileGateDecides(t *testing.T) {
 	f := newFixture(t, "security", "window = any\n")
 	f.add("vm", "0.1.1", true)
