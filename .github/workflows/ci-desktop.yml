@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 # Desktop client (CLIENT-8): unit tests and an unsigned build on macOS and Windows.
-# Signing, notarization and the signed updater are CLIENT-12 (desktop-release.yml), not here.
+# Signed release builds and the Linux bundles are desktop-release.yml (CLIENT-12); the signed updater is not built yet.
 name: ci-desktop
 
 on:
