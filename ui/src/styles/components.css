@@ -30,8 +30,10 @@
     border-color var(--om-motion-duration-fast) var(--om-motion-ease-standard);
 }
 .om-btn-sm { min-height: 32px; padding: 0 var(--om-space-3); }
-.om-btn-primary { background: var(--om-color-accent); color: var(--om-color-accent-text); }
-.om-btn-primary:hover:not(:disabled) { background: var(--om-color-accent-hover); }
+/* The one main-button colour everywhere: neutral ink (Approve, Request install, passkey, previews). It is never red:
+   red is for Deny and danger actions only, and ink reads the same under any colour direction. */
+.om-btn-primary { background: var(--om-color-text); color: var(--om-color-bg); }
+.om-btn-primary:hover:not(:disabled) { background: color-mix(in srgb, var(--om-color-text) 82%, var(--om-color-bg)); }
 .om-btn-secondary { background: var(--om-color-surface); color: var(--om-color-text); border-color: var(--om-color-control-border); }
 .om-btn-secondary:hover:not(:disabled) { background: var(--om-color-surface-sunken); }
 .om-btn-ghost { background: transparent; color: var(--om-color-accent); }

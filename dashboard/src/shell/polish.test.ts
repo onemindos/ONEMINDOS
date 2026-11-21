@@ -47,3 +47,17 @@ describe('phone layout in CSS', () => {
     expect(components).toMatch(/max-width: 720px\) \{\s*\.om-icon-btn, \.om-btn-sm, \.om-set-chip[^{]*\{ min-height: var\(--om-layout-touch-target\)/);
   });
 });
+
+describe('one main-button colour, and an opaque launchpad', () => {
+  it('the primary button is neutral ink, never the red accent or the danger colour (Approve is never red)', () => {
+    const rule = components.match(/\.om-btn-primary \{[^}]*\}/)?.[0] ?? '';
+    expect(rule).toMatch(/background: var\(--om-color-text\)/);
+    expect(rule).not.toMatch(/accent|danger/);
+  });
+  it('the launchpad scrim is at least 92 percent opaque, hides the dock and clears the safe area', () => {
+    const pct = Number(desktop.match(/\.dsk-launchpad \{ background: color-mix\(in srgb, var\(--om-color-bg\) (\d+)%/)?.[1]);
+    expect(pct).toBeGreaterThanOrEqual(92);
+    expect(desktop).toMatch(/\.dsk:has\(\.dsk-launchpad\) \.dsk-dock \{ visibility: hidden/);
+    expect(desktop).toMatch(/\.dsk-launchpad-inner \{ padding-bottom: calc\(120px \+ env\(safe-area-inset-bottom/);
+  });
+});

@@ -250,7 +250,10 @@
 /* Panes never get thinner than this over a custom wallpaper (text stays AA over a bright photo). */
 .dsk { --dsk-pane-min: 84%; --dsk-glass: color-mix(in srgb, var(--om-color-surface) var(--dsk-pane-min), transparent); --dsk-glass-strong: color-mix(in srgb, var(--om-color-surface) 94%, transparent); }
 .dsk-window-body .om-card { background: color-mix(in srgb, var(--om-color-surface-raised) 90%, transparent); }
-.dsk-launchpad { background: color-mix(in srgb, var(--om-color-bg) 78%, transparent); }
+.dsk-launchpad { background: color-mix(in srgb, var(--om-color-bg) 97%, transparent); }
+/* Opaque floor: Home text and the dock never show through the launchpad; the last row clears the safe area. */
+.dsk-launchpad-inner { padding-bottom: calc(120px + env(safe-area-inset-bottom, 0px)); }
+.dsk:has(.dsk-launchpad) .dsk-dock { visibility: hidden; }
 @media (prefers-contrast: more) {
   .dsk { --dsk-glass: var(--om-color-surface); --dsk-glass-strong: var(--om-color-surface); --dsk-hairline: var(--om-color-control-border); }
   .dsk-window, .dsk-menu, .dsk-dock, .dsk-bar, .omh-widget { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
