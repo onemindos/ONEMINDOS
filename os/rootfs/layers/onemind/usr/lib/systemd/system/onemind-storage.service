@@ -1,0 +1,34 @@
+# SPDX-License-Identifier: Apache-2.0
+# The storage operation service (onemindd storage serve, docs/leap/core/STORAGE-ACTIONS.md): runs the
+# journaled mirror create/add/replace/remove/repair operations the owner approved in the gateway. Local
+# Unix socket only (/run/onemind/storage.sock, group onemind); it decides nothing: no approval, no
+# operation. The gateway turns its routes on with ONEMIND_STORAGE_ENABLED=1 (gateway.env). Hub role only,
+# started by onemind-firstboot. It needs root to partition, mkfs and balance, so only the network is shut.
+# UNVERIFIED on image hardware: the lab proof (research-output/evidence/lab/storage-actions) used the same
+# command line under a lab unit.
+[Unit]
+Description=OneMind storage operations (onemindd storage serve)
+After=onemind-firstboot.service
+RequiresMountsFor=/data
+ConditionPathExists=/data/onemind/firstboot/state.json
+
+[Service]
+Type=simple
+ExecStartPre=/bin/sh -c 'mkdir -p /run/onemind && chmod go+x /run/onemind'
+ExecStart=/usr/bin/onemindd storage serve --group onemind
+Restart=on-failure
+RestartSec=2s
+User=root
+NoNewPrivileges=yes
+ProtectHome=yes
+PrivateTmp=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectClock=yes
+ProtectHostname=yes
+LockPersonality=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+RestrictAddressFamilies=AF_UNIX
+SystemCallArchitectures=native
+UMask=0077
