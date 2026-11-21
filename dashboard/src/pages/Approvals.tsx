@@ -7,9 +7,9 @@ import { ApprovalsBoard, actionTitle, useToast, type ActionSummary, type Setting
 import { toActionSummary } from '../data/adapters';
 import { errorText, subjectOf, useHub } from '../data/hub';
 
-export const PLAN_NOTE =
-  'Review the exact request and its gateway plan before approving. An install still requires the gateway scan check.';
-export const APPROVE_HINT = 'Approving uses your sign-in token for now. Passkey approval, bound to the plan, comes with CORE-SEC-2 (§12.3).';
+export const PLAN_NOTE = 'Check who asked and why before approving. An install is still scanned by the hub first.';
+export const APPROVE_HINT = 'For now, approving uses your sign-in. Passkey approval is coming.';
+export const TECHNICAL_NOTE = 'Passkey approval, bound to the plan, is CORE-SEC-2 (§12.3). The plan route is §12.4.';
 
 export function Approvals() {
   const hub = useHub();
@@ -46,7 +46,7 @@ export function Approvals() {
 
   return (
     <>
-      {hub.actionList.filter((a) => a.state === 'awaiting_approval' && a.plan).map((a) => <details key={a.id}><summary>Gateway plan: {a.type} — {subjectOf(hub, a)}</summary><pre>{JSON.stringify(a.plan, null, 2)}</pre><p>Plan fingerprint: {a.plan_sha256}</p></details>)}
+      {hub.actionList.filter((a) => a.state === 'awaiting_approval' && a.plan).map((a) => <details key={a.id}><summary>Technical details, gateway plan: {a.type} — {subjectOf(hub, a)}</summary><pre>{JSON.stringify(a.plan, null, 2)}</pre><p>Plan fingerprint: {a.plan_sha256}</p></details>)}
       {last && lastNow && (
         <p className="om-note om-tone-info" {...(ended ? { role: 'status' } : {})}>
           {last.title}: {ended ? lastNow.state.replace(/_/g, ' ') : 'approved, the hub is applying it'}.
@@ -57,6 +57,7 @@ export function Approvals() {
       plans={{}}
       planNote={PLAN_NOTE}
       approveHint={APPROVE_HINT}
+      technicalNote={TECHNICAL_NOTE}
       calls={['GET /v1/actions', 'POST /v1/actions/{id}/approve', 'POST /v1/actions/{id}/deny']}
       decided={decided}
       now={hub.now}

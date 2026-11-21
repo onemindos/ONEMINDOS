@@ -113,6 +113,9 @@ export class MockApi extends MockWiringBase implements OneMindApi {
   async healthz() {
     return { ok: true };
   }
+  async instanceName() {
+    return { name: INSTANCE.name };
+  }
   async instance() {
     this.auth();
     return { ...INSTANCE };

@@ -4,7 +4,7 @@
 // setup (POST /v1/auth/setup) and an invite code (POST /v1/auth/enrol). Every path ends in a
 // bearer access token held in sessionStorage only (session.tsx); nothing goes to localStorage.
 // One error line at a time (role=alert) so a screen reader hears exactly one message.
-import { useId, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useId, useState, type FormEvent, type ReactNode } from 'react';
 import { BrandMark, Button, WallpaperSurface, wallpaperLayers, DEFAULT_APPEARANCE } from '@onemind/ui';
 import { ApiError } from '../api/types';
 import type { LoginResult } from '../api/wiring';
@@ -68,6 +68,19 @@ export function SignIn({ mock }: { mock: boolean }) {
   const [displayName, setDisplayName] = useState('');
   const [code, setCode] = useState(hashCode);
   const [chipGone, setChipGone] = useState(false);
+  // The box's own name, read before sign-in (GET /v1/instance/name). Until it arrives, or if the
+  // hub is unreachable, the product name stands in: the page never waits on it.
+  const [boxName, setBoxName] = useState<string>();
+  useEffect(() => {
+    let live = true;
+    void anon.instanceName?.().then(
+      (r) => live && setBoxName(r.name),
+      () => undefined,
+    );
+    return () => {
+      live = false;
+    };
+  }, [anon]);
   const passkeyOk = webauthnSupported();
   const layers = wallpaperLayers(DEFAULT_APPEARANCE.wallpaper, null);
 
@@ -155,7 +168,7 @@ export function SignIn({ mock }: { mock: boolean }) {
         <BrandMark className="om-brand-mark dash-signin-mark" />
         {view === 'signin' && (
           <>
-            <h1>{t('signin.title', { name: brand.shortName })}</h1>
+            <h1>{t('signin.title', { name: boxName || brand.shortName })}</h1>
             <p className="om-hint">{t('signin.lede')}</p>
             {mock && !chipGone && (
               <p id={hintId} className="dash-chip">

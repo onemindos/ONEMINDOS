@@ -42,7 +42,9 @@ describe('About polish', () => {
     renderApp({ token: 'owner-demo', route: '/settings/about' });
     expect(await screen.findByRole('heading', { name: 'About' })).toBeInTheDocument();
     expect(await screen.findByRole('button', { name: 'Log out' })).toBeInTheDocument();
-    for (const dev of [/GET \/v1/, /§\d/, /API call/]) expect(document.body).not.toHaveTextContent(dev);
+    for (const dev of [/§\d/, /API call/]) expect(document.body).not.toHaveTextContent(dev);
+    // API paths are allowed only inside the collapsed Technical details.
+    expect(screen.getByText(/^Read from/).closest('details')).not.toHaveAttribute('open');
   });
 
   it('device card: storage meter from the hub numbers, uptime, memory; a missing number is left out', async () => {
@@ -58,6 +60,20 @@ describe('About polish', () => {
     expect(screen.queryByRole('meter')).not.toBeInTheDocument();
     expect(screen.queryByText('Running for')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Restart|Shut down/ })).not.toBeInTheDocument();
+  });
+});
+
+describe('sign-in names the box', () => {
+  it('shows the name the hub serves before anyone has signed in', async () => {
+    renderApp();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Welcome to Home OneMind' })).toBeInTheDocument();
+  });
+});
+
+describe('device card without device facts', () => {
+  it('says when storage and memory will appear, and offers no power buttons', () => {
+    render(<DeviceCard name="Home OneMind" version="0.1.0" onLogOut={() => {}} />);
+    expect(screen.getByText('Storage and memory appear when OneMind runs on a real box.')).toBeInTheDocument();
   });
 });
 

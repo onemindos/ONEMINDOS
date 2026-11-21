@@ -36,6 +36,7 @@ export function DeviceCard({ name, version, node, onLogOut }: { name: string; ve
           </div>
         )}
       </dl>
+      {!haveDisk && node?.uptime_s == null && node?.mem_total_mb == null && <p className="om-hint">Storage and memory appear when OneMind runs on a real box.</p>}
       {haveDisk && <Meter label="Storage" value={total - free} max={total} valueText={`${diskText(total - free)} of ${diskText(total)} used`} />}
       <div className="dash-actions">
         <Button onClick={onLogOut}>Log out</Button>

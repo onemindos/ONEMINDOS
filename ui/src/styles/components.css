@@ -140,6 +140,10 @@
 .om-reason { margin: 0; padding-left: var(--om-space-3); border-left: 3px solid var(--om-color-agent-border); color: var(--om-color-text-muted); font-size: var(--om-font-size-sm); }
 .om-impact { font-size: var(--om-font-size-sm); }
 .om-details summary { cursor: pointer; color: var(--om-color-accent); font-size: var(--om-font-size-sm); min-height: 32px; display: flex; align-items: center; }
+/* A disclosure shows a chevron, so a collapsed one reads as something to open, not as a bare heading. */
+.om-details summary::after { content: ''; flex: none; width: 8px; height: 8px; margin-left: var(--om-space-2); border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg) translateY(-2px); transition: transform 120ms; }
+.om-details[open] summary::after { transform: rotate(-135deg) translateY(-2px); }
+@media (prefers-reduced-motion: reduce) { .om-details summary::after { transition: none; } }
 .om-code { margin: var(--om-space-2) 0 0; padding: var(--om-space-3); background: var(--om-color-surface-sunken); border: 1px solid var(--om-color-border); border-radius: var(--om-radius-sm); overflow-x: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
 .om-decide { display: flex; flex-wrap: wrap; align-items: center; gap: var(--om-space-3); }
 

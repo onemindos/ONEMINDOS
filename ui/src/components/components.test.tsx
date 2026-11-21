@@ -112,6 +112,17 @@ describe('NodeCard', () => {
   });
 });
 
+describe('ApprovalCard technical details', () => {
+  it('keeps spec ids and the API call inside one collapsed disclosure', () => {
+    render(<ApprovalCard action={action} now={NOW} canDecide={{ allowed: true }} technical="CORE-SEC-2 (§12.3)" />);
+    const tech = screen.getByText('Technical details').closest('details')!;
+    expect(tech).not.toHaveAttribute('open');
+    expect(tech).toHaveTextContent('CORE-SEC-2 (§12.3)');
+    expect(tech).toHaveTextContent('POST /v1/actions/');
+    expect(screen.queryByText('Exact request and API equivalent')).not.toBeInTheDocument();
+  });
+});
+
 describe('ApprovalCard', () => {
   it('shows requester kind, reason, exact params and the API equivalent', async () => {
     const { container } = render(<ApprovalCard action={action} now={NOW} canDecide={{ allowed: true }} onApprove={() => {}} onDeny={() => {}} />);

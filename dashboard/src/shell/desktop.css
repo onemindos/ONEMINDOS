@@ -210,7 +210,7 @@
 
 /* The jobs tray sits in the bottom-right corner, clear of the dock and of window content. */
 .dash-desktop .om-store-tray { left: auto; right: var(--om-space-4); transform: none; bottom: calc(var(--dsk-dock-h, 84px) + var(--om-space-3)); width: min(340px, calc(100vw - 32px)); align-items: flex-end; }
-@media (max-width: 720px) { .dash-desktop .om-store-tray { right: 50%; transform: translateX(50%); align-items: center; } }
+@media (max-width: 720px) { .dash-desktop .om-store-tray { left: 50%; right: auto; transform: translateX(-50%); align-items: center; } }
 
 @keyframes dsk-open { from { opacity: 0; transform: translateY(14px) scale(0.975); } to { opacity: 1; transform: none; } }
 @keyframes dsk-fade { from { opacity: 0; } to { opacity: 1; } }
@@ -241,4 +241,17 @@
   .dsk-dock-item { min-width: 50px; padding-bottom: 6px; }
   .dsk-dock-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .dsk-desktop { padding-top: var(--om-space-4); }
+  /* The menu bar never widens the page: what does not fit is cut, not scrolled to. */
+  .dsk, .dsk-stage, .dsk-window { max-width: 100vw; overflow-x: clip; }
+  .dsk-bar { min-width: 0; overflow: hidden; }
+  .dsk-bar > * { min-width: 0; }
+  /* Approve and Deny stay pinned at the bottom of the sheet, above the dock, while the request scrolls. */
+  .dsk-window-body .om-card-foot {
+    position: sticky; bottom: 0; z-index: 2;
+    margin: 0 calc(-1 * var(--om-space-4)); padding: var(--om-space-3) var(--om-space-4) calc(var(--om-space-3) + env(safe-area-inset-bottom, 0px));
+    background: var(--dsk-glass-strong); border-top: 1px solid var(--dsk-hairline);
+    backdrop-filter: saturate(160%) blur(20px); -webkit-backdrop-filter: saturate(160%) blur(20px);
+  }
+  .dsk-window-body .om-card-foot .om-decide .om-btn { flex: 1; min-height: 48px; justify-content: center; }
+  .dsk-window-body .om-card-foot .om-decide .om-hint { flex-basis: 100%; }
 }

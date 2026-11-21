@@ -29,6 +29,8 @@ export interface OneMindApi extends WiringApi {
   backupDestinations(): Promise<BackupDestinationRecord[]>;
   healthz(): Promise<{ ok: boolean }>;
   instance(): Promise<Instance>;
+  /** GET /v1/instance/name: open, so the sign-in page can say which box this is. Absent on test doubles. */
+  instanceName?(): Promise<{ name: string }>;
   nodes(): Promise<NodeRecord[]>;
   node(nodeId: string): Promise<NodeRecord>;
   apps(): Promise<CatalogApp[]>;
@@ -170,6 +172,9 @@ export class HttpApi implements OneMindApi {
   }
   healthz() {
     return this.req<{ ok: boolean }>('GET', '/healthz');
+  }
+  instanceName() {
+    return this.req<{ name: string }>('GET', '/v1/instance/name');
   }
   instance() {
     return this.req<Instance>('GET', '/v1/instance');

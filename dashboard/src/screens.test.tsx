@@ -56,7 +56,7 @@ describe('Market and the install loop', () => {
     const card = await screen.findByRole('article', { name: /Install vaultwarden|Install Vaultwarden/ }, T);
     expect(within(card).getByText('Person')).toBeInTheDocument();
     expect(card).toHaveTextContent(/awaiting approval/i);
-    expect(screen.getByText(/Review the exact request and its gateway plan/)).toBeInTheDocument();
+    expect(screen.getByText(/Check who asked and why before approving/)).toBeInTheDocument();
     await u.click(screen.getByRole('button', { name: /^Approve/ }));
     expect(await screen.findByText('Approved', {}, T)).toBeInTheDocument();
 

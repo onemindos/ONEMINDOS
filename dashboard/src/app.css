@@ -54,4 +54,7 @@
 /* Settings > About: technical facts behind a disclosure */
 .dash-tech { margin-top: var(--om-space-4); }
 .dash-tech > summary { cursor: pointer; display: flex; align-items: center; min-height: var(--om-layout-touch-target); font-weight: var(--om-font-weight-semibold); }
+.dash-tech > summary::after { content: ''; flex: none; width: 8px; height: 8px; margin-left: var(--om-space-2); border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg) translateY(-2px); transition: transform 120ms; }
+.dash-tech[open] > summary::after { transform: rotate(-135deg) translateY(-2px); }
+@media (prefers-reduced-motion: reduce) { .dash-tech > summary::after { transition: none; } }
 .dash-tech > summary:focus-visible { outline: 2px solid var(--om-color-focus); outline-offset: 2px; }

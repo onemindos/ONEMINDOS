@@ -37,6 +37,9 @@ export function SettingsAbout() {
             <dd>{hub.nodes.data?.length ?? 'unknown'}</dd>
           </div>
         </dl>
+        <p className="om-hint">
+          Read from <code>GET /v1/instance</code>, <code>GET /v1/nodes</code> and <code>GET /v1/os/about</code>.
+        </p>
         <AboutBox />
       </details>
     </>

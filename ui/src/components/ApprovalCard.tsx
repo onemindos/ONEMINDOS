@@ -96,9 +96,11 @@ export interface ApprovalCardProps {
   /** Highlight a card the person just created or opened from a notification. */
   highlight?: boolean;
   extra?: ReactNode;
+  /** Developer-facing notes (spec ids, API paths): shown only inside the collapsed Technical details. */
+  technical?: ReactNode;
 }
 
-export function ApprovalCard({ action, now, canDecide, onApprove, onDeny, busy, highlight, extra }: ApprovalCardProps) {
+export function ApprovalCard({ action, now, canDecide, onApprove, onDeny, busy, highlight, extra, technical }: ApprovalCardProps) {
   const detailsId = useId();
   const title = actionTitle(action);
   const st = ACTION_STATE[action.state];
@@ -153,7 +155,9 @@ export function ApprovalCard({ action, now, canDecide, onApprove, onDeny, busy, 
         <p className="om-note om-tone-bad">{action.message ? `What the hub reported: ${action.message}` : 'The hub gave no reason.'}</p>
       )}
       <details className="om-details">
-        <summary>Exact request and API equivalent</summary>
+        <summary>Technical details</summary>
+        {technical && <p className="om-hint">{technical}</p>}
+        <p className="om-hint">The exact request, and the same decision as an API call.</p>
         <pre className="om-code">{JSON.stringify({ type: action.type, params: action.params }, null, 2)}</pre>
         <pre className="om-code">{equivalentCall(action)}</pre>
       </details>
