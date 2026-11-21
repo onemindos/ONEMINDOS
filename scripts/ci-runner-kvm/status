@@ -1,0 +1,15 @@
+#!/bin/bash
+# SPDX-License-Identifier: Apache-2.0
+# Show the x86 KVM runner's state (CI-14). Run on the Proxmox host as root.
+set -uo pipefail
+[ -f /etc/onemind-ci-kvm.env ] && . /etc/onemind-ci-kvm.env
+REPO=${REPO:-onemindos/ONEMINDOS}
+tok() { printf 'header = "Authorization: Bearer %s"\n' "$(cat /etc/onemind-ci-kvm.token 2>/dev/null)"; }
+echo "KVM_RUNNER variable : $(tok | curl -fsS -K - "https://api.github.com/repos/$REPO/actions/variables/KVM_RUNNER" 2>/dev/null | jq -r .value || echo 'not set (= off)')"
+echo "service             : $(systemctl is-active onemind-ci-kvm.service 2>/dev/null)"
+echo "template            : $(qm status "${TEMPLATE_ID:-9100}" >/dev/null 2>&1 && echo "VM ${TEMPLATE_ID:-9100}" || echo missing)"
+echo "host                : $(nproc) cores, $(free -g | awk '/Mem:/{print $2" GiB, "$7" GiB available"}')"
+echo "job VMs             :"
+qm list | awk -v b="${BASE_ID:-9110}" 'NR > 1 && $1 > b && $1 <= b + 6 {print "  " $1, $2, $3}'
+echo "recent rounds       :"
+journalctl -u onemind-ci-kvm.service -n 8 --no-pager -o cat 2>/dev/null | sed 's/^/  /'
