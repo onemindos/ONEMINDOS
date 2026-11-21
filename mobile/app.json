@@ -69,7 +69,8 @@
         }
       ],
       "expo-background-task",
-      "./plugins/withoutPlayServicesCredentials"
+      "./plugins/withoutPlayServicesCredentials",
+      "./plugins/withReleaseSigning"
     ]
   }
 }
