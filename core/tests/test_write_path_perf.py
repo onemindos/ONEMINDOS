@@ -54,5 +54,5 @@ def test_sqlite_ledger_uses_wal(tmp_path):
     engine = make_engine(f"sqlite:///{tmp_path}/ledger.db")
     with engine.connect() as c:
         assert c.exec_driver_sql("PRAGMA journal_mode").scalar() == "wal"
-        assert c.exec_driver_sql("PRAGMA synchronous").scalar() == 1  # NORMAL
+        assert c.exec_driver_sql("PRAGMA synchronous").scalar() == 2  # FULL
     engine.dispose()

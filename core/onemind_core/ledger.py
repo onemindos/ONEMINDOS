@@ -222,19 +222,20 @@ def _to_action(r: ActionRow) -> Action:
 
 
 def _sqlite_durability(dbapi_conn, _record) -> None:
-    """WAL journal with synchronous=NORMAL for the ledger file.
+    """WAL journal with synchronous=FULL for the gateway database file.
 
-    Default SQLite (rollback journal, synchronous=FULL) syncs the disk several times per commit and
-    blocks readers while a write commits. WAL commits append to one log and readers never wait for
-    a writer. With NORMAL the log is synced at checkpoints, not on every commit. Trade-off: an
-    application crash or clean shutdown loses nothing; a power cut or kernel crash can lose the
-    last few commits (the database stays consistent, never corrupt). The hash-chained audit log
-    (audit.py) is fsynced on every line and is the record of truth, so the crash window is: the
-    ledger row of a request whose audit line is already on disk may be missing after power loss.
+    Default SQLite (rollback journal) syncs the disk several times per commit and blocks readers
+    while a write commits. WAL commits append to one log (one fsync per commit with FULL) and
+    readers never wait for a writer. We deliberately keep FULL, not NORMAL: this engine is shared
+    with every feature table (app.py), including security state that is not rebuilt from the audit
+    log, such as agent token revocations, fabric ticket used/revoked flags and identity session
+    and token revocations. With NORMAL a power cut could roll a committed revocation or
+    single-use marker back, so a revoked token would work again or a used ticket could be
+    replayed. With FULL every acknowledged commit survives power loss.
     """
     cur = dbapi_conn.cursor()
     cur.execute("PRAGMA journal_mode=WAL")
-    cur.execute("PRAGMA synchronous=NORMAL")
+    cur.execute("PRAGMA synchronous=FULL")
     cur.execute("PRAGMA busy_timeout=5000")
     cur.close()
 
