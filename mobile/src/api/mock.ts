@@ -262,6 +262,13 @@ export class MockApi implements OneMindApi {
   filesRoots = unsupported('Files');
   filesList = unsupported('Files');
   migratePlans = unsupported('Migration');
+  users = unsupported('People');
+  createUser = unsupported('People');
+  setUserRole = unsupported('People');
+  familyProfile = unsupported('People');
+  apiTokens = unsupported('Agents');
+  killSwitch = unsupported('Agents');
+  setKillSwitch = unsupported('Agents');
   pushRegister = unsupported('Push');
   pushRegistrations = unsupported('Push');
   pushUnregister = unsupported('Push');

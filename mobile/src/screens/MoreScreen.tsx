@@ -47,6 +47,8 @@ export function MoreScreen() {
       {features.has(OP.automationRules) && <Item to="Automation" label="Automation" detail="Rules, pause and what fired" />}
       {features.has(OP.filesRoots) && <Item to="Files" label="Files" detail="Browse what the box shares with you" />}
       {features.has(OP.migratePlans) && <Item to="Migrate" label="Migration" detail="Plans to move apps from another cluster" />}
+      {features.has(OP.users) && <Item to="People" label="People" detail="Family roles: owner, adult, teen, child, guest" />}
+      {features.has(OP.killSwitch) && <Item to="Agents" label="Agents" detail="What AI agents may do, asked and the stop switch" />}
       <Item to="PhotoBackup" label="Photo backup" detail="This phone's photos to your box" />
       <Item to="Settings" label="Settings" detail="You, this phone, push, connection" />
     </Screen>
