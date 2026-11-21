@@ -252,3 +252,31 @@ def test_remove_only_token_is_denied_every_other_type(settings, clock, tmp_path,
     res = mrpc(c, "tools/call", call, auth=auth).json()["result"]
     assert res["isError"] and res["structuredContent"]["error"] == "permission_denied"
     assert res["structuredContent"]["scope"] == f"actions:request:{typ}"
+
+
+def test_requester_bundle_is_exactly_the_section_4_1_set():
+    from onemind_core.auth import MCP_BUNDLES
+    req = {s for s in MCP_BUNDLES["requester"] if s.startswith("actions:request:")}
+    assert req == {"actions:request:app.install", "actions:request:app.remove"}
+    assert MCP_BUNDLES["requester"] - MCP_BUNDLES["reader"] == req
+    assert MCP_BUNDLES["reader"] <= MCP_BUNDLES["requester"]
+
+
+@pytest.mark.parametrize("typ,allowed", [
+    ("app.install", True), ("app.remove", True),
+    ("app.delete_data", False), ("app.configure", False), ("app.update", False),
+    ("app.start", False), ("app.stop", False), ("app.restart", False),
+])
+def test_requester_token_may_request_only_what_section_4_1_lists(settings, clock, tmp_path, typ, allowed):
+    tok = "requester-agent-token-0123456789"
+    f = tmp_path / "tokens.yaml"
+    f.write_text(yaml.safe_dump({"tokens": {tok: {"id": "r", "kind": "agent", "role": "agent",
+                                                  "scopes": ["requester"]}}}))
+    c = make_client(settings, clock, tokens_file=f)
+    auth = {"Authorization": f"Bearer {tok}"}
+    call = {"name": "request_action", "arguments": {"type": typ, "app_id": "x"}}
+    res = mrpc(c, "tools/call", call, auth=auth).json()["result"]
+    denied = bool(res.get("isError")) and res["structuredContent"].get("error") == "permission_denied"
+    assert denied is (not allowed)
+    if not allowed:
+        assert res["structuredContent"]["scope"] == f"actions:request:{typ}"

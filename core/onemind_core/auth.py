@@ -45,9 +45,13 @@ _READER = ("instance:read", "nodes:read", "apps:read", "actions:read:own", "audi
 # One scope per request_action type (the lifecycle.TYPES keys; a test keeps the two in step), so a
 # token holds exactly the types it was granted and the rest are denied by default.
 _REQUEST = tuple(x for x in MCP_SCOPES if x.startswith("actions:request:"))
+_REQUESTER_REQUEST = ("actions:request:app.install", "actions:request:app.remove")
 MCP_BUNDLES = {  # §4.1 named bundles, limited to what exists today
     "reader": frozenset(_READER),
-    "requester": frozenset(_READER + _REQUEST),
+    # §4.1: reader + exactly app.install and app.remove (actions:withdraw:own is not built yet).
+    # Every other request type (start, stop, restart, update, configure, delete_data) is denied
+    # by default; a token must be granted those scopes by name, or hold v0.
+    "requester": frozenset(_READER + _REQUESTER_REQUEST),
     # Today's behaviour: every tool /mcp already serves (the §4.1 table lists fewer read scopes than
     # the shipped tools, so v0 here is the full shipped set, not a downgrade). Default with no `scopes:`.
     "v0": frozenset(MCP_SCOPES),
