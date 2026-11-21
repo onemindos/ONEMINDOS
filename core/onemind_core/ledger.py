@@ -14,7 +14,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Protocol
 
-from sqlalchemy import JSON, DateTime, Integer, String, create_engine, delete, select, update
+from sqlalchemy import JSON, DateTime, Integer, String, create_engine, delete, event, select, update
 from sqlalchemy.engine import Engine, make_url
 from sqlalchemy.dialects import postgresql, sqlite
 from sqlalchemy.exc import IntegrityError
@@ -221,13 +221,34 @@ def _to_action(r: ActionRow) -> Action:
     )
 
 
+def _sqlite_durability(dbapi_conn, _record) -> None:
+    """WAL journal with synchronous=NORMAL for the ledger file.
+
+    Default SQLite (rollback journal, synchronous=FULL) syncs the disk several times per commit and
+    blocks readers while a write commits. WAL commits append to one log and readers never wait for
+    a writer. With NORMAL the log is synced at checkpoints, not on every commit. Trade-off: an
+    application crash or clean shutdown loses nothing; a power cut or kernel crash can lose the
+    last few commits (the database stays consistent, never corrupt). The hash-chained audit log
+    (audit.py) is fsynced on every line and is the record of truth, so the crash window is: the
+    ledger row of a request whose audit line is already on disk may be missing after power loss.
+    """
+    cur = dbapi_conn.cursor()
+    cur.execute("PRAGMA journal_mode=WAL")
+    cur.execute("PRAGMA synchronous=NORMAL")
+    cur.execute("PRAGMA busy_timeout=5000")
+    cur.close()
+
+
 def make_engine(db_url: str) -> Engine:
     url = make_url(db_url)
     if url.get_backend_name() == "sqlite":
         db = url.database
         if db and db != ":memory:":
             Path(db).parent.mkdir(parents=True, exist_ok=True)
-        return create_engine(db_url, connect_args={"check_same_thread": False})
+        engine = create_engine(db_url, connect_args={"check_same_thread": False})
+        if db and db != ":memory:":
+            event.listen(engine, "connect", _sqlite_durability)
+        return engine
     if url.get_backend_name() == "postgresql" and url.drivername == "postgresql":
         # Plain postgresql:// would pick psycopg2; we ship psycopg (v3).
         url = url.set(drivername="postgresql+psycopg")
