@@ -8,7 +8,7 @@ Eclipse Mosquitto - An open source MQTT broker
 | | |
 |---|---|
 | Version | 2.1.2 (upstream release `v2.1.2`, published 2026-02-09) |
-| Licence | `EPL-2.0 OR BSD-3-Clause`, Market class **L1** (licence gate, scan of 2026-11-19) |
+| Licence | `EPL-2.0 OR BSD-3-Clause`, Market class **L1** (licence gate, scan of 2026-11-21) |
 | Tier | `verified` (set by CI: sdk/tools/app-gate) |
 | Category | iot |
 | GitHub | <https://github.com/eclipse-mosquitto/mosquitto> |

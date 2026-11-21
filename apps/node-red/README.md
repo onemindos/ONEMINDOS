@@ -8,7 +8,7 @@ Low-code programming for event-driven applications
 | | |
 |---|---|
 | Version | 5.0.10 (upstream release `5.0.10`, published 2026-11-17) |
-| Licence | `Apache-2.0`, Market class **L1** (licence gate, scan of 2026-11-19) |
+| Licence | `Apache-2.0`, Market class **L1** (licence gate, scan of 2026-11-21) |
 | Tier | `community` (set by CI: sdk/tools/app-gate) |
 | Category | automation |
 | GitHub | <https://github.com/node-red/node-red> |

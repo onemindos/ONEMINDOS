@@ -8,7 +8,7 @@ The AI that really does things. Any OS. Any Platform. The lobster way. 🦞
 | | |
 |---|---|
 | Version | 2026.11.3 (upstream release `v2026.11.3`, published 2026-11-10) |
-| Licence | `MIT`, Market class **L1** (licence gate, scan of 2026-11-19) |
+| Licence | `MIT`, Market class **L1** (licence gate, scan of 2026-11-21) |
 | Tier | `community` (set by CI: sdk/tools/app-gate) |
 | Category | ai |
 | GitHub | <https://github.com/openclaw/openclaw> |

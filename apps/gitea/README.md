@@ -8,7 +8,7 @@ Git with a cup of tea! Painless self-hosted all-in-one software development serv
 | | |
 |---|---|
 | Version | 28.4.0 (upstream release `v28.4.0`, published 2026-11-15) |
-| Licence | `MIT`, Market class **L1** (licence gate, scan of 2026-11-19) |
+| Licence | `MIT`, Market class **L1** (licence gate, scan of 2026-11-21) |
 | Tier | `community` (set by CI: sdk/tools/app-gate) |
 | Category | developer |
 | GitHub | <https://github.com/go-gitea/gitea> |
