@@ -41,7 +41,7 @@ The first `up` with a token builds the network and the template (about 10 minute
 | watch it work | `journalctl -fu onemind-ci-kvm` |
 | stop taking jobs (KVM_RUNNER off, jobs go to GitHub) | `/opt/ci-runner-kvm/down` |
 | rebuild the template from the pinned image | `/opt/ci-runner-kvm/down --wipe`, then `up` |
-| more or fewer parallel jobs | `INSTANCES=` in `/etc/onemind-ci-kvm.env`, then `systemctl restart onemind-ci-kvm` (each job VM: 4 cores, 8 GiB, a 150 GiB thin disk) |
+| more or fewer parallel jobs | `INSTANCES=` in `/etc/onemind-ci-kvm.env`, then `systemctl restart onemind-ci-kvm` (1 to 16; each job VM: 4 cores, 8 GiB, a 150 GiB thin disk; `instances-check` refuses a count that needs more than host RAM minus 16 GiB or more than 2x the host threads) |
 
 ## Limits and known risks
 - **It only touches its own VMs.** It destroys a VM only if its name is `onemind-kvm-<n>` and uses a template only if it is `onemind-kvm-template`; if `TEMPLATE_ID` or `BASE_ID`+1… are taken by other VMs it refuses to start. Pick free IDs in `/etc/onemind-ci-kvm.env`.

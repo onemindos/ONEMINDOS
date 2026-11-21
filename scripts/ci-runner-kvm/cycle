@@ -49,7 +49,7 @@ qm config "$TID" 2>/dev/null | grep -qx 'name: onemind-kvm-template' && qm confi
   { echo "VM $TID is not the onemind-kvm template (run: up, or set TEMPLATE_ID)" >&2; exit 2; }
 
 if [ -z "$INSTANCE" ]; then   # parent: one loop per instance
-  n=${INSTANCES:-2}; [ "$n" -ge 1 ] && [ "$n" -le 6 ] || { echo "INSTANCES must be 1 to 6" >&2; exit 2; }
+  n=${INSTANCES:-2}; BASE=$BASE TID=$TID bash "$KIT_DIR/instances-check" "$n" || exit 2
   cleanup() {
     local rc=$?
     trap '' EXIT INT TERM
