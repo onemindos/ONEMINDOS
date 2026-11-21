@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: Apache-2.0
+# Generate the SDK code that is not committed (CI-16) from the committed spec, before a job builds,
+# typechecks or tests anything that imports it. One script for every caller: sdk/scripts/gen-code.sh.
+#   - uses: ./.github/actions/sdk-gen
+#     with: {langs: go ts}      # any of go, ts, py (default: all three)
+# It sets up only the toolchains the chosen languages need (Go from go.mod, Node 22, uv), the same pins the jobs use.
+name: sdk-gen
+description: Generate the OneMind SDK code (Go types, TS schema, Python models) from sdk/openapi/onemind-v1.json
+inputs:
+  langs:
+    description: Space-separated languages to generate (go, ts, py)
+    default: go ts py
+runs:
+  using: composite
+  steps:
+    - if: contains(inputs.langs, 'go')
+      uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+      with:
+        go-version-file: go.mod
+        cache: false
+    - if: contains(inputs.langs, 'ts')
+      uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      with:
+        node-version: '22'
+    - if: contains(inputs.langs, 'py')
+      uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
+    - name: sdk/scripts/gen-code.sh ${{ inputs.langs }}
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      env:
+        LANGS: ${{ inputs.langs }}
+      run: sdk/scripts/gen-code.sh $LANGS

@@ -2,6 +2,7 @@
 # binaries for both architectures OneMind ships on.
 #   make build   -> dist/onemindd-linux-{amd64,arm64}, dist/onemind-linux-{amd64,arm64}
 #   make test    -> go vet + go test for all Go code in the repo
+#   (both first generate the Go SDK types the onemind CLI imports; they are not committed, CI-16)
 #   make run     -> run onemindd on this machine (Mac or Linux), API on :7480
 #   make clean
 #
@@ -20,6 +21,7 @@ GO      ?= go
 .PHONY: build test run clean
 
 build:
+	$(REPO)/sdk/scripts/gen-code.sh go
 	@mkdir -p $(DIST)
 	@for arch in $(ARCHES); do \
 	  for bin in onemindd onemind; do \
@@ -32,6 +34,7 @@ build:
 	@cat $(DIST)/SHA256SUMS
 
 test:
+	$(REPO)/sdk/scripts/gen-code.sh go
 	cd $(REPO) && $(GO) vet ./... && $(GO) test -race -count=1 ./...
 
 run:
