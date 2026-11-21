@@ -6,6 +6,7 @@ import { useParams } from 'react-router';
 import { AppearanceSettings, Card, EmptyState, PageHeader, SETTINGS_SECTIONS, SettingsLayout, type SettingsSectionId } from '@onemind/ui';
 import { useHub } from '../data/hub';
 import { Account } from './Account';
+import { LanguagePicker } from './LanguagePicker';
 import { Inbox } from './Inbox';
 import { Tokens } from './Tokens';
 import { Users } from './Users';
@@ -67,6 +68,7 @@ export function Settings() {
       <>
         <PageHeader title="Appearance" lede="Theme, accent, wallpaper and layout. Saved for you only; it changes nothing on the box, so it needs no approval." />
         <AppearanceSettings />
+        <LanguagePicker />
       </>
     );
   else if (current === 'about') body = <About />;

@@ -27,6 +27,7 @@ import { Agents } from './pages/Agents';
 import { ProOnly } from './shell/ProOnly';
 import { Settings } from './pages/Settings';
 import { SignIn } from './pages/SignIn';
+import { LocaleProvider } from './i18n/LocaleProvider';
 import { useSession, useSignedIn } from './session';
 import { Shell } from './shell/Shell';
 
@@ -90,8 +91,10 @@ export function SignedInApp() {
 export function App({ mock }: { mock: boolean }) {
   const { session } = useSession();
   return (
-    <ErrorBoundary>
-      <ToastProvider>{session ? <SignedInApp /> : <SignIn mock={mock} />}</ToastProvider>
-    </ErrorBoundary>
+    <LocaleProvider person={session?.person ?? null}>
+      <ErrorBoundary>
+        <ToastProvider>{session ? <SignedInApp /> : <SignIn mock={mock} />}</ToastProvider>
+      </ErrorBoundary>
+    </LocaleProvider>
   );
 }

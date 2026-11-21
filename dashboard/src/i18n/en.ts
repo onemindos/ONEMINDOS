@@ -103,6 +103,20 @@ export const en = {
   'common.close': 'Close',
   'common.never': 'never',
   'common.save': 'Save',
+  'inbox.markRead': 'Mark as read: {title}',
+  'inbox.markRead.short': 'Mark as read',
+  'inbox.channels.testShort': 'Send test',
+  'tokens.nameRule': 'Use lower-case letters, digits, dots, dashes or underscores.',
+  'alerts.stat.nodes': 'Nodes online',
+  'alerts.stat.healthy': 'Apps healthy',
+  'alerts.stat.unhealthy': 'Apps unhealthy',
+  'alerts.stat.open': 'Open alerts',
+  'alerts.fix.short': 'Ask to fix',
+  'language.title': 'Language',
+  'language.lede': 'The language of this screen. Saved for you only, in this browser; it changes nothing on the box. Dates and numbers follow it.',
+  'language.label': 'Interface language',
+  'language.only': '{name} is the only language so far. Translations are added as catalogues with the same keys; anything not translated shows in English.',
+  'language.current': 'Locale in use: {id}',
 } as const;
 
 export type MessageKey = keyof typeof en;
