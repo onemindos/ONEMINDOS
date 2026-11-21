@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Settings > About: this OneMind as the hub reports it (GET /v1/instance).
+import { Link } from 'react-router';
 import { Card, PageHeader } from '@onemind/ui';
 import { useHub } from '../data/hub';
 import { AboutBox } from './AboutBox';
@@ -33,6 +34,10 @@ export function SettingsAbout() {
         )}
       </Card>
       <AboutBox />
+      <Card title="Plugin signing trust">
+        <p>Owners can enroll public signing keys for private plugins. Changes wait for approval.</p>
+        <Link to="/settings/plugin-keys">Manage plugin signing keys</Link>
+      </Card>
       <p className="om-hint">Diagnostic bundles come with §12 (About &amp; diagnostics).</p>
     </>
   );

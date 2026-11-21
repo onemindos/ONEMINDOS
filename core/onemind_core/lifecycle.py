@@ -115,6 +115,12 @@ def bundle_sha256(app: AppEntry) -> str | None:
     files = [app.dir / "onemind.app.yaml"]
     if root.is_dir():
         files += sorted(p for p in root.rglob("*") if p.is_file() and not p.is_symlink())
+    if "extensions" in (app.manifest.get("spec") or {}):
+        from .plugins.bundle import fingerprint_files
+        try:
+            files += fingerprint_files(app)
+        except (OSError, ValueError, TypeError):
+            return None
     base = app.dir.resolve()
     for p in files:
         try:
@@ -140,6 +146,39 @@ _SUMMARY = {
 
 # Action types whose executor opens the app's dependency network paths (§12.22).
 OPENS_PATHS = frozenset({"app.install", "app.update", "app.configure"})
+
+
+def _plugin_grants(app: AppEntry) -> list[str]:
+    """The scopes a plugin principal's token would carry, or [] for a non-plugin app."""
+    if not (app.manifest.get("spec") or {}).get("plugin"):
+        return []
+    from .plugins.workload import declaration
+    try:
+        parsed = declaration(app)
+    except ValueError:
+        return []  # the app check refuses an invalid declaration before anything is issued
+    return parsed[1] if parsed else []
+
+
+def plugin_tools(app: AppEntry) -> list[dict]:
+    """Each declared REST tool with its declared effect, sorted. The owner approves these labels."""
+    tools = ((app.manifest.get("spec") or {}).get("extensions") or {}).get("tools")
+    rows = []
+    for item in tools if isinstance(tools, list) else []:
+        if isinstance(item, dict) and isinstance(item.get("name"), str):
+            rows.append({"name": item["name"], "effect": str(item.get("effect")),
+                         "rest": bool((item.get("exposure") or {}).get("rest"))
+                         if isinstance(item.get("exposure"), dict) else False})
+    return sorted(rows, key=lambda r: r["name"])
+
+
+def _describe_grant(grant: str) -> str:
+    prefix = "actions:request:"
+    if grant.startswith(prefix):
+        return f"may ask for the action {grant[len(prefix):]}, which still needs your approval"
+    return {"actions:read:own": "may read the status of its own requests",
+            "apps:read": "may read the list of apps", "nodes:read": "may read the list of machines"
+            }.get(grant, f"holds the grant {grant}")
 
 
 def render_plan(action_type: str, params: dict, app: AppEntry, runtime: AppRuntime | None, status: str | None,
@@ -176,6 +215,21 @@ def render_plan(action_type: str, params: dict, app: AppEntry, runtime: AppRunti
         volumes.append({"kind": "PersistentVolumeClaim", "namespace": ns, "selector": "all", "effect": "deleted"})
         obj["namespace"] = ns
         warnings.append("All files and databases of this app are deleted. There is no undo.")
+    if action_type in ("app.install", "app.update"):
+        grants = _plugin_grants(app)
+        if grants:
+            # Hashed with the plan: the owner approves these exact grants, and a different set
+            # is a different plan. They are what the plugin's own token can later request.
+            obj["plugin_grants"] = grants
+            for grant in grants:
+                warnings.append(f"Plugin permission: {_describe_grant(grant)}.")
+            tools = plugin_tools(app)
+            if tools:
+                obj["plugin_tools"] = tools  # hashed: a flipped effect is a different plan
+                for tool in tools:
+                    warnings.append(f"Plugin tool {tool['name']} ({tool['effect']}): " + (
+                        "runs at once with no approval, so only approve it if it truly changes nothing."
+                        if tool["effect"] == "read" else "waits for your approval each time it is used."))
     paths: list[dict] = []
     if network is not None and action_type in OPENS_PATHS:
         paths, net_warnings = network
