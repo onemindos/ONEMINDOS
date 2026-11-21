@@ -103,7 +103,7 @@ class KvmRunnerPolicy(unittest.TestCase):
 class Kit(unittest.TestCase):
     def test_scripts_exist_and_parse(self):
         for f, sh in (("up", "bash"), ("down", "bash"), ("status", "bash"), ("cycle", "bash"),
-                      ("template.sh", "sh"), ("net.sh", "sh"), ("provision.sh", "sh"), ("run-one.sh", "sh"),
+                      ("instances-check", "bash"), ("template.sh", "sh"), ("net.sh", "sh"), ("provision.sh", "sh"), ("run-one.sh", "sh"),
                       ("job-started.sh", "sh")):
             path = KIT / f
             self.assertTrue(path.is_file(), f)
@@ -250,3 +250,43 @@ class Kit(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class InstancesCap(unittest.TestCase):
+    def check(self, n, gib=78, threads=32, **env):
+        import os
+        import tempfile
+        with tempfile.NamedTemporaryFile("w", suffix=".meminfo") as f:
+            f.write(f"MemTotal: {gib * 1048576} kB\n")
+            f.flush()
+            e = {**os.environ, "MEMINFO": f.name, "THREADS": str(threads), **env}
+            return subprocess.run(["bash", str(KIT / "instances-check"), str(n)], env=e,
+                                  capture_output=True, text=True)
+
+    def test_seven_and_sixteen_are_allowed_on_a_big_enough_host(self):
+        self.assertEqual(self.check(7).returncode, 0)          # the R530 today: 78 GB, 32 threads
+        self.assertEqual(self.check(16, gib=256).returncode, 0)  # after the RAM upgrade
+
+    def test_out_of_range_counts_are_refused(self):
+        for n in ("0", "17", "-1", "x", ""):
+            self.assertEqual(self.check(n, gib=512, threads=64).returncode, 2, n)
+
+    def test_ram_is_checked_against_host_memory_minus_16_gib(self):
+        self.assertEqual(self.check(7, gib=72).returncode, 0)   # 56 + 16 = 72
+        r = self.check(7, gib=71)
+        self.assertEqual(r.returncode, 2)
+        self.assertIn("GiB", r.stderr)
+        self.assertEqual(self.check(8, gib=78).returncode, 2)   # 64 + 16 > 78
+
+    def test_cpu_overcommit_is_capped_at_2x(self):
+        self.assertEqual(self.check(8, gib=256, threads=16).returncode, 0)
+        self.assertEqual(self.check(9, gib=256, threads=16).returncode, 2)
+
+    def test_ids_cannot_collide_with_the_template(self):
+        self.assertEqual(self.check(2, BASE="9099").returncode, 2)
+        self.assertEqual(self.check(2, BASE="9100").returncode, 0)
+
+    def test_cycle_uses_it_and_the_old_cap_is_gone(self):
+        text = (KIT / "cycle").read_text()
+        self.assertIn('instances-check" "$n"', text)
+        self.assertNotIn("1 to 6", text)

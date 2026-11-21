@@ -62,8 +62,35 @@ npm run typecheck           # tsc --noEmit
 | `src/data/hub.tsx` | Shared poll of `/v1/instance`, `/v1/nodes`, `/v1/apps`, `/v1/actions`; `request` (idempotency key per app until a definite answer) and `decide` |
 | `src/data/prefs.ts` | Per-person localStorage (appearance, Home layout, read notifications, recent commands). The slot is the principal id, or on a v0 gateway (no `GET /v1/me`) a short fingerprint of the token. A hub copy is not in §12; the switch to it waits behind a PROPOSED `me.preferences` feature |
 | `src/shell/` | `AppShell`, ⌘K palette, notification bell (fed by actions until the notifications API), jobs tray; ui hash links → routes |
+| `src/screens/` | The screen registry: one `screen.ts` per screen, one file per Settings sub-page, `registry.ts` that reads them |
 | `src/pages/` | Home, Market (+ app page), Installed (+ manage), Approvals, Activity, Nodes, Settings, Sign-in |
 | `src/*.test.ts(x)` | vitest: adapters, routes, API client, mock rules, every screen with axe (63 tests) |
+
+## How to add a screen: one file, no shared lists
+
+Create `src/screens/<id>/screen.ts` (the folder name is the id) and nothing else shared:
+
+```ts
+import type { ScreenDef } from '../types';
+const screen: ScreenDef = {
+  id: 'photos', path: '/photos', title: 'Photos', icon: 'apps',
+  section: 'Your box',            // 'primary' | 'Your box' | 'System' (sidebar group and Launchpad section)
+  order: 75,                      // position among screens; the existing ones step by 10
+  hue: ['#6d84ff', '#3340c4'],    // dock and Launchpad tile gradient
+  // dock: 7,                     // only to put it in the dock; omit and it lives in Launchpad
+  // pro: true,                   // owners and adults only (guarded by ProOnly, hidden from guests)
+  load: () => import('../../pages/Photos').then((m) => ({ default: m.Photos })),
+  // extra: [{ path: '/photos/:albumId' }], redirects: [{ from: '/old', to: '/photos' }],
+};
+export default screen;
+```
+
+`src/screens/registry.ts` finds every `screen.ts` with `import.meta.glob`; `App.tsx` builds the
+routes, `Shell.tsx` the sidebar and Launchpad, `roles.ts` the Pro set and `DesktopShell.tsx` the dock
+and tile colours from it. A Settings sub-page is likewise one file, `src/screens/settings-pages/<id>.ts`
+(`load` for a page this hub serves, `coming` for the work stream that brings it); the id must be a
+`@onemind/ui` settings section. `src/screens/registry.test.ts` fails when a field is missing, an id
+or a path is claimed twice, or a folder name differs from its id. Pages load lazily, one chunk each.
 
 Routes: `/`, `/market`, `/market/<app>`, `/installed`, `/installed/<app>`, `/approvals?highlight=<id>`,
 `/activity`, `/nodes`, `/settings/<section>`.

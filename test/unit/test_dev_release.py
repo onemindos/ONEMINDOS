@@ -23,6 +23,13 @@ class Downloads(unittest.TestCase):
             os.makedirs(os.path.join(self.dl, d))
             with open(os.path.join(self.dl, d, name), "wb") as f:
                 f.write(name.encode())
+            if d == "image-debian-vm-do":
+                for extra in ("onemind-vm-do-0.1.0-dev.7.raucb", "onemind-vm-do-0.1.0-dev.7-next.raucb", "dev-ca.cert.pem"):
+                    with open(os.path.join(self.dl, d, extra), "wb") as f:
+                        f.write(extra.encode())
+            if d == "image-debian-arm64-efi":   # dev-image.sh copies the CA into every board's folder
+                with open(os.path.join(self.dl, d, "dev-ca.cert.pem"), "wb") as f:
+                    f.write(b"arm64 copy")
             with open(os.path.join(self.dl, d, "SHA256SUMS"), "w") as f:
                 f.write("ignored\n")
 
@@ -34,10 +41,11 @@ class Downloads(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(r.stdout.strip().splitlines()[-1], "dev-20261115-abcdef1")
         self.assertEqual(sorted(os.listdir(self.out)), [
-            "NOTES.md", "SHA256SUMS", "onemind-arm64-efi-0.1.0-dev.7.qcow2",
-            "onemind-installer-amd64-0.1.0-dev.7.img.xz", "onemind-vm-do-0.1.0-dev.7.qcow2"])
+            "NOTES.md", "SHA256SUMS", "dev-ca.cert.pem", "onemind-arm64-efi-0.1.0-dev.7.qcow2",
+            "onemind-installer-amd64-0.1.0-dev.7.img.xz", "onemind-vm-do-0.1.0-dev.7-next.raucb",
+            "onemind-vm-do-0.1.0-dev.7.qcow2", "onemind-vm-do-0.1.0-dev.7.raucb"])
         sums = read_out(self.out, "SHA256SUMS")
-        self.assertEqual(len(sums.strip().splitlines()), 3)
+        self.assertEqual(len(sums.strip().splitlines()), 6)
         self.assertNotIn("ignored", sums)
 
     def test_notes_start_with_the_warning(self):
@@ -46,6 +54,21 @@ class Downloads(unittest.TestCase):
         self.assertTrue(notes.startswith("# DEVELOPMENT BUILD. NOT FOR PRODUCTION."), notes[:80])
         self.assertIn("throwaway", notes)
         self.assertIn("docs/see-onemind/", notes)
+
+    def test_bundles_are_attached_with_the_throwaway_key_caveat(self):
+        self.go()
+        notes = read_out(self.out, "NOTES.md")
+        self.assertIn("onemind-vm-do-0.1.0-dev.7.raucb", notes)
+        self.assertIn("-next.raucb", notes)
+        self.assertIn("#153", notes)
+        self.assertNotIn("PRIVATE KEY", "".join(read_out(self.out, n) for n in os.listdir(self.out) if n.endswith(".pem")))
+
+    def test_a_missing_bundle_publishes_nothing(self):
+        os.remove(os.path.join(self.dl, "image-debian-vm-do", "onemind-vm-do-0.1.0-dev.7-next.raucb"))
+        r = self.go()
+        self.assertEqual(r.returncode, 2)
+        self.assertIn("update-next download", r.stderr)
+        self.assertFalse(os.path.exists(self.out))
 
     def test_a_missing_download_publishes_nothing(self):
         shutil.rmtree(os.path.join(self.dl, "image-debian-arm64-efi"))
