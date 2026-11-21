@@ -63,9 +63,13 @@ APP_CLAIMS: dict[str, tuple[str, frozenset[str], bool]] = {
 
 
 # Handler action types whose module reconciles them itself when it registers (reconcile_interrupted
-# runs before the routers register, so self.handlers is still empty then). Types of FeatureAction are
-# not in this set: they are marked outcome_unknown here, as before.
-SELF_RECONCILED_TYPES = frozenset({"node.join"})
+# runs before the routers register, so self.handlers is still empty then). Other FeatureAction types
+# are not in this set: they are marked outcome_unknown here, as before. The host actions are: a restart,
+# shutdown or OS install reboots the box and so restarts the gateway while the host executor is still
+# finishing them; hostlink.py reads the verdict from the host's journal at startup (HOST-ACTIONS.md).
+SELF_RECONCILED_TYPES = frozenset({
+    "node.join", "os.update.install", "system.restart", "system.shutdown", "system.factory_reset",
+})
 
 
 class ActionHandler(Protocol):
