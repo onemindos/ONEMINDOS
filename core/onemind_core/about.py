@@ -64,7 +64,10 @@ def about_node(n: dict) -> dict:
 
 def about(gw) -> dict:
     """GET /v1/os/about: this hub's own box first, then the other nodes, and the node count."""
-    nodes = [about_node(n) for n in gw.registry.list()]
     hub_id = gw.settings.node_id
-    nodes.sort(key=lambda x: (x["node_id"] != hub_id, x["node_id"]))
+    # Any LAN device can invent node ids (H-06), so when there are more than we show, the hub comes first,
+    # then online nodes, then the most recently heard from: spoofed ids cannot push real nodes out.
+    nodes = [about_node(n) for n in gw.registry.list()]
+    nodes.sort(key=lambda x: x["last_seen"] or "", reverse=True)  # newest first (RFC 3339 sorts as text)
+    nodes.sort(key=lambda x: (x["node_id"] != hub_id, x["status"] != "online"))  # stable: keeps newest first
     return {"hub_node_id": hub_id, "node_count": len(nodes), "nodes": nodes[:MAX_ABOUT_NODES]}

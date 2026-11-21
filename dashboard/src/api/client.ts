@@ -31,9 +31,9 @@ export interface OneMindApi extends WiringApi {
   nodes(): Promise<NodeRecord[]>;
   node(nodeId: string): Promise<NodeRecord>;
   apps(): Promise<CatalogApp[]>;
-  /** MACH-01: absent on the mock gateway, which has no machines. */
-  /** Absent on the mock gateway: it has no device facts. */
+  /** UMB-P14: absent on the mock gateway, which has no device facts. */
   about?(): Promise<AboutBox>;
+  /** MACH-01: absent on the mock gateway, which has no machines. */
   machines?(): Promise<MachineRecord[]>;
   machineCapabilities?(): Promise<MachineCapabilities>;
   appPlan?(id: string): Promise<PlanPreview>;

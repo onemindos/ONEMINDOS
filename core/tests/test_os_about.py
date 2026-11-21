@@ -33,7 +33,7 @@ def box(settings, clock, executor):
         def report(**changes):
             hb = {**HB, **changes}
             assert app.state.registry.ingest(f"onemind.node.{hb['node_id']}.status", json.dumps(hb).encode())
-        c.report = report
+        c.report, c.clock = report, clock
         yield c
 
 
@@ -83,3 +83,16 @@ def test_hub_comes_first_and_nodes_are_counted(box):
     box.report(node_id=hub, hostname="hubbox")
     body = box.get("/v1/os/about", headers=OWNER).json()
     assert body["node_count"] == 2 and [n["node_id"] for n in body["nodes"]] == [hub, "aaa-first"]
+
+
+def test_spoofed_ids_cannot_push_real_nodes_out_of_the_list(box):
+    hub = box.app.state.settings.node_id
+    for i in range(100):  # a LAN device inventing ids that sort before the real ones
+        box.report(node_id=f"aa-fake-{i:03}", hostname="fake")
+    box.clock.advance(300)  # the fakes go offline; the real boxes keep reporting
+    box.report(node_id="zz-real", hostname="real")
+    box.report(node_id=hub, hostname="hubbox")
+    body = box.get("/v1/os/about", headers=OWNER).json()
+    ids = [n["node_id"] for n in body["nodes"]]
+    assert body["node_count"] == 102 and len(ids) == 64
+    assert ids[:2] == [hub, "zz-real"]  # hub first, then the online node, then the rest

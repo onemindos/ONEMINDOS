@@ -16,6 +16,8 @@ export function AboutBox() {
 
   if (!api.about)
     return <p className="om-hint">Demo mode has no device data. A real hub reports the box it runs on here (GET /v1/os/about).</p>;
+  // A person without nodes:read (a child) gets 403 from the hub: say so, not "could not read".
+  if (about.error?.status === 403) return <p className="om-hint">Device details are not available for your account.</p>;
   if (!about.data)
     return <p className="om-hint">{about.error ? `Could not read the device details: ${about.error.message}` : 'Loading the device details…'}</p>;
 

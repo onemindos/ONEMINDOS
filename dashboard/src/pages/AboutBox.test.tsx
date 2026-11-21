@@ -51,9 +51,15 @@ describe('About this box', () => {
     expect(await screen.findByText('Copied.')).toBeInTheDocument();
   });
 
+  it('tells a person without access that the details are not available for their account', async () => {
+    setup(() => Response.json({ error: 'permission_denied', message: 'needs nodes:read' }, { status: 403 }));
+    expect(await screen.findByText('Device details are not available for your account.')).toBeInTheDocument();
+    expect(screen.queryByText(/Could not read the device details/)).not.toBeInTheDocument();
+  });
+
   it('says so when the hub cannot answer', async () => {
-    setup(() => Response.json({ error: 'permission_denied', message: 'No access to the details' }, { status: 403 }));
-    expect(await screen.findByText(/Could not read the device details: No access to the details/)).toBeInTheDocument();
+    setup(() => Response.json({ error: 'internal', message: 'The hub is busy' }, { status: 500 }));
+    expect(await screen.findByText(/Could not read the device details: HTTP 500/)).toBeInTheDocument();
   });
 });
 

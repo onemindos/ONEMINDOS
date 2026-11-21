@@ -6,7 +6,7 @@ import type { AboutBox } from '../api/client';
 
 type Node = AboutBox['nodes'][number];
 
-const dash = (v: string | null | undefined) => (v ? v.replace(/\p{Cc}/gu, ' ') : '-');
+const dash = (v: string | null | undefined) => (v ? v.replace(/[\p{Cc}\p{Cf}]/gu, ' ') : '-');
 
 export function uptimeText(s: number | null | undefined): string {
   if (s == null) return '-';
