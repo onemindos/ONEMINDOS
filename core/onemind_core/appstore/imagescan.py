@@ -34,6 +34,7 @@ import logging
 import re
 import subprocess
 import threading
+import time
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -88,6 +89,7 @@ def namespace_docs() -> list[dict]:
             "onemind.io/app": "onemind-image-scan",  # the gateway fence (deploy/k8s/gateway-rbac.yaml) requires it
             "pod-security.kubernetes.io/enforce": "restricted",
             "pod-security.kubernetes.io/audit": "restricted",
+            "pod-security.kubernetes.io/warn": "restricted",
         }},
     }
     policy = {
@@ -241,6 +243,9 @@ class KubeJobImageScanner:
     runner: Runner = subprocess.run
     job_timeout_s: int = 1500
     cosign: bool = True
+    poll_s: float = 2.0
+    _clock: Callable[[], float] = field(default=time.monotonic, repr=False)
+    _sleep: Callable[[float], None] = field(default=time.sleep, repr=False)
     name: str = "onbox-trivy"
     last_entries: list[dict] = field(default_factory=list)
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
@@ -276,16 +281,35 @@ class KubeJobImageScanner:
             cp = self._kc("create", "-f", "-", stdin=yaml.safe_dump(doc))
             if cp.returncode != 0:
                 raise ScanError(f"could not start the scan job: {_last(cp.stderr)}")
-            done = self._kc("wait", "-n", NAMESPACE, "--for=condition=complete", f"job/{name}", f"--timeout={wait_s}s",
-                            timeout=wait_s + 30)
-            ok = done.returncode == 0
+            ok, why = self._await_job(name, wait_s)
             logs = self._kc("logs", "-n", NAMESPACE, f"job/{name}", timeout=120)
             out = (logs.stdout or "")[:MAX_LOG_BYTES]
             if not ok and not out.strip():
-                out = logs.stderr or done.stderr or ""
+                out = logs.stderr or why
             return ok, out
         finally:
             self._kc("delete", "-n", NAMESPACE, "job", name, "--ignore-not-found", "--wait=false")
+
+    def _await_job(self, name: str, wait_s: int) -> tuple[bool, str]:
+        """Poll until the Job Succeeded or Failed (whichever comes first); (succeeded, reason if not).
+
+        Not `kubectl wait --for=condition=complete`: a failed Job never becomes Complete, so that
+        command sleeps until its timeout (25 minutes here) while the one global lock is held. Polling
+        `.status` returns the moment either end state is reached. A Job that vanished is an error."""
+        deadline = self._clock() + wait_s
+        while True:
+            cp = self._kc("get", "-n", NAMESPACE, f"job/{name}", "-o",
+                          "jsonpath={.status.succeeded}/{.status.failed}", timeout=30)
+            if cp.returncode != 0:
+                raise ScanError(f"lost track of the scan job: {_last(cp.stderr)}")
+            done, _, failed = (cp.stdout or "").strip().partition("/")
+            if done.isdigit() and int(done) > 0:
+                return True, ""
+            if failed.isdigit() and int(failed) > 0:
+                return False, "the job failed"
+            if self._clock() >= deadline:
+                return False, f"the job did not finish within {wait_s}s"
+            self._sleep(self.poll_s)
 
     @staticmethod
     def _job_name(kind: str, ref: str) -> str:
@@ -356,7 +380,8 @@ class KubeJobImageScanner:
 
 def _db_missing(out: str) -> bool:
     low = (out or "").lower()
-    return "db" in low and ("skip-db-update" in low or "no such file" in low or "database" in low)
+    # Narrow on purpose: a bad image reference ("manifest unknown") must not look like a missing database.
+    return "skip-db-update" in low or "first run" in low or ("db" in low and "no such file" in low)
 
 
 def _last(text: str | None) -> str:

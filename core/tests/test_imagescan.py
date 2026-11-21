@@ -56,15 +56,15 @@ class FakeKubectl:
         if verb == "create":
             doc = yaml.safe_load(input)
             self.jobs[doc["metadata"]["name"]] = doc
-        elif verb == "wait":
-            doc = self.jobs[argv[argv.index("-n") + 3].split("/")[1]]
+        elif verb == "get":
+            doc = self.jobs[argv[argv.index("-n") + 2].split("/")[1]]
             kind = doc["metadata"]["labels"]["app.kubernetes.io/component"]
-            if kind == "scan" and self.fail_scan_with is not None:
-                rc = 1
-            if kind in self.fail_kinds:
-                rc = 1
-            if kind == "cosign" and doc["spec"]["template"]["spec"]["containers"][0]["args"][-1] not in self.signed:
-                rc = 1
+            failed = kind in self.fail_kinds or (kind == "scan" and self.fail_scan_with is not None) or (
+                kind == "cosign" and doc["spec"]["template"]["spec"]["containers"][0]["args"][-1] not in self.signed)
+            out = "/1" if failed else "1/"
+        elif verb == "wait":
+            # The old code waited for "complete"; a failed Job never gets there, so this would hang.
+            raise subprocess.TimeoutExpired(argv, 1500)
         elif verb == "logs":
             doc = self.jobs[argv[argv.index("-n") + 2].split("/")[1]]
             c = doc["spec"]["template"]["spec"]["containers"][0]
@@ -77,6 +77,7 @@ class FakeKubectl:
 
 
 def scanner(fake: FakeKubectl, **kw) -> im.KubeJobImageScanner:
+    kw.setdefault("poll_s", 0)
     return im.KubeJobImageScanner(kubectl="kubectl", runner=fake, **kw)
 
 
@@ -119,6 +120,83 @@ def test_job_that_does_not_finish_is_unavailable():
     fake.fail_scan_with = "FATAL timeout"
     result, detail = scanner(fake).scan([CLEAN])
     assert result == "unavailable" and "did not finish" in detail
+
+
+def test_failed_job_returns_at_once_instead_of_waiting_out_the_timeout():
+    import time
+
+    fake = FakeKubectl()
+    fake.fail_scan_with = "FATAL boom"
+    s = scanner(fake)
+    doc = im.job_doc("scan-x", "scan", im.TRIVY_IMAGE, im.trivy_scan_args(CLEAN), deadline_s=1500)
+    t0 = time.monotonic()
+    ok, out = s._run_job(doc, 1500)
+    assert time.monotonic() - t0 < 2 and ok is False and "boom" in out
+    assert "wait" not in fake.verbs()
+
+
+def test_a_vanished_job_is_an_error_not_a_pass():
+    class Gone(FakeKubectl):
+        def __call__(self, argv, input=None, **kw):
+            if argv[1] == "get":
+                return subprocess.CompletedProcess(argv, 1, "", 'Error from server (NotFound): jobs "x" not found')
+            return super().__call__(argv, input, **kw)
+
+    assert scanner(Gone()).scan([CLEAN])[0] == "unavailable"
+
+
+def test_a_job_that_never_ends_stops_at_the_overall_deadline():
+    class Pending(FakeKubectl):
+        def __call__(self, argv, input=None, **kw):
+            if argv[1] == "get":
+                return subprocess.CompletedProcess(argv, 0, "/", "")
+            return super().__call__(argv, input, **kw)
+
+    ticks = iter(range(0, 10_000, 100))
+    s = im.KubeJobImageScanner(runner=Pending(), poll_s=0, _clock=lambda: next(ticks), _sleep=lambda _s: None)
+    doc = im.job_doc("scan-x", "scan", im.TRIVY_IMAGE, im.trivy_scan_args(CLEAN), deadline_s=300)
+    ok, _ = s._run_job(doc, 300)
+    assert ok is False
+
+
+def test_first_use_with_no_database_goes_straight_to_the_sync_and_is_fast():
+    import time
+
+    class NoDb(FakeKubectl):
+        synced = False
+
+        def __call__(self, argv, input=None, **kw):
+            if argv[1] == "create":
+                self.synced = self.synced or yaml.safe_load(input)["metadata"]["labels"]["app.kubernetes.io/component"] == "dbsync"
+            self.fail_scan_with = None if self.synced else "FATAL --skip-db-update cannot be specified on the first run"
+            return super().__call__(argv, input, **kw)
+
+    fake = NoDb()
+    t0 = time.monotonic()
+    assert scanner(fake, cosign=False).scan([CLEAN])[0] == "pass"
+    assert time.monotonic() - t0 < 2 and "wait" not in fake.verbs()
+
+
+def test_a_nonexistent_digest_is_unavailable_quickly_and_does_not_start_a_sync():
+    import time
+
+    fake = FakeKubectl()
+    fake.fail_scan_with = "FATAL unable to find the specified image: manifest unknown (registry.example.org/lab/mydb)"
+    s = scanner(fake)
+    t0 = time.monotonic()
+    result, detail = s.scan([CLEAN])
+    assert result == "unavailable" and "did not finish" in detail and time.monotonic() - t0 < 2
+    assert not any(c.get("metadata", {}).get("labels", {}).get("app.kubernetes.io/component") == "dbsync"
+                   for c in fake.jobs.values())
+    # the lock was released: the next scan of a good image is not blocked
+    fake.fail_scan_with = None
+    assert s.scan([CLEAN])[0] == "pass"
+
+
+def test_unsigned_image_is_a_quick_normal_result():
+    fake = FakeKubectl()  # nothing is signed
+    result, _ = scanner(fake).scan([CLEAN])
+    assert result == "pass" and "wait" not in fake.verbs()
 
 
 def test_missing_kubectl_is_unavailable():
