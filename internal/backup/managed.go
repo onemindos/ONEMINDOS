@@ -243,6 +243,9 @@ func (s AppSpec) validateVolumes() error {
 			return fmt.Errorf("exclude %q must be a relative pattern", e)
 		}
 	}
+	if s.Content != "" && s.Content != ContentIncluded && s.Content != ContentExcluded {
+		return fmt.Errorf("app %q: content must be included or excluded", s.ID)
+	}
 	return nil
 }
 

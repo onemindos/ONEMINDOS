@@ -56,7 +56,7 @@ Kiwix serves **offline copies of Wikipedia and other reference works** to any br
   5. rebuilds `library.xml` from exactly the listed books (`kiwix-manage add`).
   It never deletes a ZIM file. A book left out of the list simply stops being served.
 - Settings (contract §12.22, delivered as ConfigMap `onemind-settings`): `zims` (the book list), `mirror` (an `https://` Kiwix mirror; checksums still come from that mirror) and `reserve_mb`.
-- Backups keep the library list and skip the ZIM files (`*.zim`), which can be downloaded again.
+- Backups keep the library list. The ZIM files (`*.zim`) are the optional content tier: skipped (they can be downloaded again) until the owner switches the tier on in Backups after seeing their size (`GET /v1/backups/content`, BAK-03).
 - Other apps reach it at `http://kiwix.app-kiwix.svc.cluster.local:8080`. Its search API (`/search?pattern=…&format=xml`) is what Library Chat uses.
 
 ## First run
