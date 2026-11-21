@@ -210,6 +210,7 @@ case "$*" in
   "compute size list --format Slug,PriceHourly --no-header") printf 'c-16 0.50000\ns-1vcpu-1gb 0.00900\n' ;;
   "compute size list --format Slug,VCPUs --no-header") printf 'c-16 16\ns-1vcpu-1gb 1\n' ;;
   "compute region list --format Slug --no-header") echo nyc3 ;;
+  "compute droplet create "*) shift 3; n=1; for a in "$@"; do case $a in --*) break ;; *) echo "$((900+n)) $a 203.0.113.$n" >> "$d/droplets"; n=$((n+1)) ;; esac; done ;;
   "compute droplet list "*) cat "$d/droplets" 2>/dev/null ;;
   "compute droplet delete --force "*) id=${5}; grep -v "^$id " "$d/droplets" > "$d/droplets.new"; mv "$d/droplets.new" "$d/droplets" ;;
   "compute firewall list "*) echo "fw1 onemind-ci-do" ;;
@@ -224,6 +225,8 @@ exit 0
             (d / "doctl").write_text(self.DOCTL % {"d": tmp})
             (d / "gh").write_text(self.GH % {"d": tmp})
             (d / "droplets").write_text(droplets)
+            (d / "sleep").write_text("#!/bin/sh\nexit 0\n")      # the ssh retry loop must not really wait
+            (d / "sleep").chmod(0o755)
             for tool in ("doctl", "gh", "ssh"):
                 if tool == "ssh":
                     (d / tool).write_text("#!/bin/sh\nexit 1\n")
@@ -273,6 +276,18 @@ exit 0
         self.assertIn("compute droplet create onemind-do-1 ", doctl)
         self.assertIn("--tag-name onemind-ci-do", doctl)
         self.assertIn("ports:22,address:198.51.100.7/32", doctl)
+        # ssh never answers: `up` exits 1 (not an ERR), and the droplet it made must still be deleted, then the firewall
+        self.assertEqual(r.returncode, 1, r.stderr)
+        self.assertIn("no ssh on onemind-do-1", r.stderr)
+        self.assertIn("compute droplet delete --force 901", doctl)
+        self.assertIn("compute firewall delete --force fw1", doctl)
+
+    def test_a_signal_during_up_destroys_what_it_created(self):
+        up = (KIT / "up").read_text()
+        self.assertIn("trap cleanup_failed_up EXIT", up)
+        self.assertIn("trap 'exit 130' INT", up)
+        self.assertIn("trap 'exit 143' TERM", up)
+        self.assertNotRegex(up, r"(?m)^trap .* ERR$")      # an ERR-only trap misses `exit 1` and signals
 
     def test_down_destroys_only_our_droplets_and_switches_off(self):
         r, doctl, gh = self.run_kit("down", [], droplets="1 onemind-do-1 host-a\n2 other-box host-b\n3 onemind-do-x host-c\n")

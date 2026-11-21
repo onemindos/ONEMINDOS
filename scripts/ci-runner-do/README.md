@@ -43,7 +43,7 @@ scripts/ci-runner-do/up 2 c-16 nyc3  # prints the $ per hour, asks y/N, then pro
 | Idle | destroy after `IDLE_HOURS=2` with no busy runner (GitHub's busy flag) | `cycle` |
 | Lifetime | destroy after `MAX_HOURS=12` | `cycle` |
 | Exit | loop stops or is interrupted: switch off and destroy (`KEEP=1` keeps droplets) | `cycle` |
-| Failed `up` | destroys what it created | `up` |
+| Failed or interrupted `up` (error, ssh never answers, Ctrl-C, kill) | destroys what it created (EXIT trap) | `up` |
 
 Droplets bill while they exist. If the operator's machine dies (power cut, `kill -9`) the loop cannot destroy
 them: run `status`, then `down`. A cloud-side dead-man timer is not built (see "Left").
