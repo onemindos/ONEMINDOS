@@ -19,6 +19,9 @@ test('dashboard: bad token refused, demo owner signs in, navigates and signs out
   // Home's h1 is the greeting since the dashboard wiring (it was the brand line before).
   const homeHeading = /^Good (morning|afternoon|evening), owner$/;
   await expect(page.getByRole('heading', { level: 1, name: homeHeading })).toBeVisible();
+  // The shell's jobs tray floats on Home from the first paint: its stylesheet must not arrive only with a lazily loaded
+  // screen (it once did: the tray sat unstyled in the page flow and every page grew by 24 px).
+  await expect(page.getByRole('complementary', { name: 'Jobs in progress' })).toHaveCSS('position', 'fixed');
 
   // Desktop (D-016): the dock holds the everyday screens; Launchpad ("All screens and apps") holds every screen.
   const nav = page.getByRole('navigation', { name: 'Main' });

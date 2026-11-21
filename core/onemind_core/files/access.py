@@ -25,9 +25,9 @@ from dataclasses import dataclass
 from ..auth import Principal
 from .errors import FilesError
 
-HOME_ROLES = frozenset({"owner", "adult", "child"})
+HOME_ROLES = frozenset({"owner", "adult", "child", "teen"})
 SHARED_WRITE_ROLES = frozenset({"owner", "adult"})
-SHARED_READ_ROLES = frozenset({"owner", "adult", "child", "guest"})
+SHARED_READ_ROLES = frozenset({"owner", "adult", "child", "teen", "guest"})
 
 
 @dataclass(frozen=True)

@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // @onemind/ui public API. Import the styles once: `import '@onemind/ui/ui.css'`.
 import './styles/index.css';
+// The jobs tray pill is drawn by the dashboard shell (ActionJobs) with these classes, on every screen. Imported here, not
+// from ./store (a .ts barrel the bundler drops when nothing in it is used), so it does not depend on which screen loaded.
+import './store/store.css';
 import { toJson } from './tokens/tokens';
 
 export { palette, light, dark, scale, shadow, TONES, toCss } from './tokens/tokens';
