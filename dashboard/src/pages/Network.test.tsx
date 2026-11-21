@@ -76,5 +76,11 @@ it('tells the person when the gateway left entries out because they failed its c
 
 it('says who may see it when the gateway refuses', async () => {
   mount(() => response({ error: 'permission_denied', message: 'only an owner may see the box\'s network' }, 403));
-  expect(await screen.findByText('Your account is not allowed to see this.')).toBeInTheDocument();
+  expect(await screen.findByText('Only an owner can see the network.')).toBeInTheDocument();
+});
+
+it('tells an adult that only an owner can see the network, without asking the gateway', async () => {
+  const fetch = mount(() => response(view), 'adult-demo');
+  expect(await screen.findByText('Only an owner can see the network.')).toBeInTheDocument();
+  expect(fetch).not.toHaveBeenCalled();
 });

@@ -116,9 +116,9 @@ export function Shell({ children }: { children: ReactNode }) {
         nodes: nodes.map((n) => ({ ...n, status: hub.nodeStatus(n) })),
         pending: pending.map(toActionSummary),
         canApprove: hub.canDecide !== 'no',
-      }).filter((c) => paletteShows(c, view)),
+      }).filter((c) => paletteShows(c, view, role)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [hub.apps.data, hub.nodes.data, hub.actionList, hub.canDecide, view],
+    [hub.apps.data, hub.nodes.data, hub.actionList, hub.canDecide, view, role],
   );
   const runCommand = (c: PaletteCommand) => {
     setPaletteOpen(false);
@@ -144,14 +144,14 @@ export function Shell({ children }: { children: ReactNode }) {
     { id: 'alerts', label: 'Alerts', href: href.alerts, icon: 'bell', group: 'Your box' },
     { id: 'storage', label: 'Storage', href: href.storage, icon: 'storage', group: 'Your box' },
     { id: 'backups', label: 'Backups', href: href.backups, icon: 'backups', group: 'Your box' },
-    { id: 'network', label: 'Network', href: href.network, icon: 'link', group: 'Your box' },
+    { id: 'network', label: 'Network', href: href.network, icon: 'network', group: 'Your box' },
     { id: 'updates', label: 'OS updates', href: href.updates, icon: 'updates', group: 'Your box' },
     { id: 'settings', label: 'Settings', href: href.settings, icon: 'settings', group: 'Your box' },
     { id: 'coming', label: 'Coming soon', href: href.coming, icon: 'info', group: 'Your box' },
     { id: 'control-hub', label: 'Control Hub', href: href.controlHub, icon: 'hub', group: 'System' },
     { id: 'agents', label: 'AI & Agents', href: href.agents, icon: 'agent', group: 'System' },
   ];
-  const nav = allNav.filter((item) => showsNav(item.id, view));
+  const nav = allNav.filter((item) => showsNav(item.id, view, role));
 
   // Route plain in-app links from ui components through the router (no reload).
   const onClickCapture = (e: MouseEvent<HTMLDivElement>) => {
@@ -265,10 +265,10 @@ export function Shell({ children }: { children: ReactNode }) {
 }
 
 /** A palette command is offered when it leads to a screen this view shows (Pro screens: roles.ts). */
-export function paletteShows(c: PaletteCommand, view: View): boolean {
+export function paletteShows(c: PaletteCommand, view: View, role?: string | null): boolean {
   if (!c.href) return true;
   const to = toRoute(c.href);
-  return to === undefined || showsNav(navId(to.split('?')[0] ?? '/'), view);
+  return to === undefined || showsNav(navId(to.split('?')[0] ?? '/'), view, role);
 }
 
 /** Activity entries are needed by Home and Activity; computed once per actions answer. */

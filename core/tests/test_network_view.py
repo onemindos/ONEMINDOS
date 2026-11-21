@@ -131,6 +131,17 @@ def test_every_field_is_rechecked_and_bad_entries_dropped():
     assert v.dropped == 6 + 1 + 2 + 2
 
 
+def test_scope_ids_non_text_addresses_and_too_many_interfaces_are_refused():
+    eth = GOOD["interfaces"][0]
+    v = parse_view({**GOOD, "interfaces": [{**eth, "addresses": ["fe80::1%eth0/64"]}, {**eth, "name": "e1", "addresses": [5]}, eth],
+                    "gateways": [{"interface": "eth0", "via": "fe80::1%eth0", "family": "ipv6"}],
+                    "dns": ["fe80::53%eth0"]})
+    assert [i.name for i in v.interfaces] == ["eth0"] and v.gateways == [] and v.dns == [] and v.dropped == 4
+    many = [{**eth, "name": f"v{i}"} for i in range(70)]
+    v = parse_view({**GOOD, "interfaces": many})
+    assert len(v.interfaces) == 64 and v.dropped == 6
+
+
 def test_wifi_signal_out_of_range_is_not_believed():
     wl = {**GOOD["interfaces"][1], "wifi": {"signal_dbm": 9999}}
     assert parse_view({**GOOD, "interfaces": [wl]}).interfaces[0].wifi.signal_dbm is None

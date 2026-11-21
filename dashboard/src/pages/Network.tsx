@@ -21,14 +21,25 @@ function stateTone(s: string): Tone {
 }
 
 export function Network() {
-  const { token, person, mock } = useSignedIn();
+  const { token, person, mock, canDecide } = useSignedIn();
   return mock ? (
     <>
       <PageHeader title="Network" />
       <p role="status">Connect to a real hub to see its network. Demo mode has no network data.</p>
     </>
+  ) : canDecide === 'no' ? (
+    <OwnerOnly />
   ) : (
     <LiveNetwork key={person} token={token} />
+  );
+}
+
+function OwnerOnly() {
+  return (
+    <>
+      <PageHeader title="Network" />
+      <p className="om-note om-tone-warn" role="status">Only an owner can see the network.</p>
+    </>
   );
 }
 
@@ -43,6 +54,7 @@ function LiveNetwork({ token }: { token: string }) {
     }
   }, 30_000);
   const [virtual, setVirtual] = useState(false);
+  if (view.error?.status === 403 && view.data === undefined) return <OwnerOnly />;
   return (
     <div className="dash-stack">
       <PageHeader title="Network" lede="How this box is connected: its addresses, gateway and DNS, Wi-Fi, and what it listens on. This page only reads; it changes nothing." />

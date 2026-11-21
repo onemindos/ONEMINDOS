@@ -31,6 +31,7 @@ KINDS = ("ethernet", "wifi", "loopback", "bridge", "virtual")
 PROTOS = ("tcp", "udp")
 SCOPES = ("any", "loopback", "address")
 MAX_ITEMS = 400
+MAX_INTERFACES = 64  # the Go side stops at 64 too (internal/netview)
 
 Reason = Literal["host_service_unreachable", "host_service_error", "bad_response"]
 
@@ -115,6 +116,8 @@ class HostNetClient:
 def _ip(v: Any) -> str:
     if not isinstance(v, str):
         raise ValueError("not text")
+    if "%" in v:  # an IPv6 scope id ("fe80::1%eth0") names a local interface; never shown
+        raise ValueError("scope id")
     return str(ipaddress.ip_address(v))
 
 
@@ -122,6 +125,12 @@ def _name(v: Any) -> str:
     if not isinstance(v, str) or not NAME_RE.match(v):
         raise ValueError("bad name")
     return v
+
+
+def _cidr(a: Any) -> str:
+    if not isinstance(a, str) or "%" in a:
+        raise ValueError("bad address")
+    return str(ipaddress.ip_interface(a))
 
 
 def _interface(d: dict) -> NetInterface:
@@ -145,7 +154,7 @@ def _interface(d: dict) -> NetInterface:
         ok = sig is None or (isinstance(sig, int) and not isinstance(sig, bool) and -200 < sig < 0)
         wifi = Wifi(signal_dbm=sig if ok else None)
     return NetInterface(name=_name(d.get("name")), kind=d["kind"], state=state, mac=mac, mtu=mtu,
-                        addresses=[str(ipaddress.ip_interface(a)) for a in addrs], wifi=wifi)
+                        addresses=[_cidr(a) for a in addrs], wifi=wifi)
 
 
 def _gateway(d: dict) -> NetGateway:
@@ -165,25 +174,25 @@ def _port(d: dict) -> NetPort:
     return NetPort(proto=d["proto"], addr=_ip(d.get("addr")), port=port, scope=d["scope"])
 
 
-def _items(raw: Any, build) -> tuple[list, int]:
+def _items(raw: Any, build, limit: int = MAX_ITEMS) -> tuple[list, int]:
     """Each entry checked on its own; a bad one is dropped and counted."""
     out, dropped = [], 0
     if not isinstance(raw, list):
         return out, 1 if raw not in (None, []) else 0
-    for entry in raw[:MAX_ITEMS]:
+    for entry in raw[:limit]:
         try:
             if not isinstance(entry, dict):
                 raise ValueError("not an object")
             out.append(build(entry))
         except (ValueError, TypeError):
             dropped += 1
-    return out, dropped + max(0, len(raw) - MAX_ITEMS)
+    return out, dropped + max(0, len(raw) - limit)
 
 
 def parse_view(body: Any) -> NetworkView:
     if not isinstance(body, dict) or body.get("schema") != "onemind.netview/v1":
         return unavailable("bad_response", "the host service sent something the gateway does not understand")
-    interfaces, d1 = _items(body.get("interfaces"), _interface)
+    interfaces, d1 = _items(body.get("interfaces"), _interface, MAX_INTERFACES)
     gateways, d2 = _items(body.get("gateways"), _gateway)
     ports, d3 = _items(body.get("ports"), _port)
     dns, d4 = _items([{"a": a} for a in body["dns"]] if isinstance(body.get("dns"), list) else body.get("dns"),
