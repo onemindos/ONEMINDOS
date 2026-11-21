@@ -60,8 +60,8 @@ Write down the BIOS version (shown on the setup's first page) for the results. S
 ## E. First boot and owner sign-in
 1. The first start takes **a few minutes** (it makes the box's own certificate authority and starts k3s and the gateway). The screen prints `ONEMIND-FIRSTBOOT:` lines and, for a hub, a line starting **`ONEMIND OWNER TOKEN:`** followed by the token. **Photograph the screen or copy the token now.** It is shown on the console only and the box stores just a hash, so it cannot be shown again.
 2. It also prints the box's LAN address and the box CA fingerprint. Note the address.
-3. On your Mac (same network), open the address shown on the Beelink's screen (try `http://onemind.local:8080/` first; if it is not found, use the Beelink's IP, or look it up in your router's device list). If you chose `setup`, pick **hub** on that page and copy the token it shows once.
-4. After about a minute the dashboard loads. If the browser warns about the certificate, that is the box's own CA (check the fingerprint against the screen) and expected for now.
+3. On your Mac (same network), open the address the Beelink's screen prints. For a `hub` that is **`https://onemind.local`** (or `https://<beelink-ip>` if the name is not found; look the IP up on the screen or in your router's device list). Use `https`, not `http`: for a hub, plain HTTP on `:8080` listens on the box itself only, so `:8080` from the Mac is refused. If you chose `setup`, open `http://onemind.local:8080/` (or `http://<beelink-ip>:8080/`) instead, pick **hub** on that page and copy the token it shows once. If the screen prints a different URL from any of these, use the one on the screen.
+4. After about a minute the dashboard loads. For a hub the browser will show a certificate warning: that is the box's own CA (check the fingerprint against the screen) and expected for now; continue past it.
 5. Sign in with the owner token.
 6. Never paste the token into the results file, a chat, or a commit.
 
@@ -87,7 +87,7 @@ Mark each line. Everything must be true without touching the Beelink's keyboard 
 | Boots straight to the old system | F7 again and choose the USB entry; check Secure Boot is off and boot mode is UEFI |
 | Black screen after GRUB | Wait 2 minutes; then photograph it and note the BIOS version (BLOCKED, with the screenshot) |
 | No disks offered | The internal disk is under 32 GiB, mounted, or read-only |
-| `onemind.local` not found | Use the Beelink's address from its screen with `:8080`; make sure Mac and Beelink are on the same network |
+| `onemind.local` not found | Use the URL printed on the Beelink's screen, or `https://<beelink-ip>` for a hub (`http://<beelink-ip>:8080` only for the `setup` path); make sure Mac and Beelink are on the same network |
 | `FAILED: ...` or "check failed" | Do not use the disk. Write the stick again, retry once, keep the photo |
 | Token missed | Re-run the install (the box stores only a hash); this is a test box |
 
