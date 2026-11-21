@@ -255,9 +255,6 @@
 .dsk-launchpad-label { font-size: var(--om-font-size-sm); text-align: center; }
 .dsk-launchpad-none { text-align: center; color: var(--om-color-text-muted); }
 
-/* The jobs tray sits in the bottom-right corner, clear of the dock and of window content. */
-.dash-desktop .om-store-tray { left: auto; right: var(--om-space-4); transform: none; bottom: calc(var(--dsk-dock-h, 84px) + var(--om-space-3)); width: min(340px, calc(100vw - 32px)); align-items: flex-end; }
-@media (max-width: 720px) { .dash-desktop .om-store-tray { left: 50%; right: auto; transform: translateX(-50%); align-items: center; } }
 /* The jobs pill never covers content or a control. Wide screens: it sits on the dock row, vertically centred on
    the dock, at the right edge, and the dock gives up the room (below). Narrower screens and phones: it sits centred
    directly above the dock (8px gap) and the shell sets --dsk-jobs-stack (only while a job exists), so scrolling
