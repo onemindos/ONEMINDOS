@@ -1113,6 +1113,9 @@ class ActionService:
             self._revoke_agent(a, "app.remove")
             return AgentSecret(name=spec.secret, principal_id=spec.principal_id) if spec else None
         if spec is None:
+            if a.type == "app.update":
+                # A version published without spec.agent must not leave the old credential alive.
+                self._revoke_agent(a, "agent no longer declared")
             return None
         if a.type != "app.install":
             # Only an install issues a credential. Other actions must not rotate it: the app's
