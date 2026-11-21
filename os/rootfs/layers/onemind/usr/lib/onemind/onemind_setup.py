@@ -19,6 +19,7 @@ import os
 import secrets
 import sys
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs
 
@@ -27,7 +28,10 @@ import onemind_firstboot as fb  # noqa: E402
 
 MAX_BODY = 8192
 CODE_FILE = "setup-code"      # in /run/onemind (tmpfs, 0600): the box screen reads it, a reboot clears it
-MAX_WRONG = 5                 # wrong codes from the LAN before the code is changed
+MAX_WRONG = 5                 # wrong codes from the LAN (all clients together) before a back-off
+LOCK_MIN_S, LOCK_MAX_S = 60.0, 900.0   # back-off: 1 min, doubling to 15 min
+ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"   # no 0/O/1/I
+CODE_LEN = 10
 STYLE = ("body{font-family:system-ui,sans-serif;max-width:40rem;margin:2rem auto;padding:0 1rem;line-height:1.5}"
          "label{display:block;margin:.6rem 0}input[type=text]{width:100%;padding:.4rem}"
          "code{word-break:break-all;background:#eee;padding:.2rem .4rem}button{padding:.5rem 1rem}")
@@ -55,8 +59,8 @@ DONE = """<!doctype html><html><head><meta charset="utf-8"><meta name="viewport"
 <p>The OneMind services are starting. {next}</p></body></html>"""
 
 
-CODE_FIELD = ('<label>Setup code shown on the box screen <input type="text" name="code" inputmode="numeric" '
-              'autocomplete="off" maxlength="12" required></label>')
+CODE_FIELD = ('<label>Setup code shown on the box screen <input type="text" name="code" autocapitalize="characters" '
+              'autocomplete="off" maxlength="16" required></label>')
 
 
 def is_local(addr: str) -> bool:
@@ -71,18 +75,31 @@ def is_local(addr: str) -> bool:
 
 
 class Gate:
-    """The one-time setup code. new() makes a fresh 8-digit code and publishes it for the screen."""
+    """The one-time setup code, with a global back-off.
 
-    def __init__(self):
+    new() makes a fresh CODE_LEN-character code (no look-alike letters, 32 symbols = 50 bits) and
+    publishes it for the screen. The code is NOT changed by wrong tries: changing it gives a guesser
+    a fresh target and locks the real owner out. Instead, after MAX_WRONG wrong tries from the LAN
+    (counted across all clients) every LAN try is refused for a back-off that doubles up to
+    LOCK_MAX_S, so a loop of guesses gets about MAX_WRONG tries per LOCK_MAX_S. The box screen
+    (loopback) needs no code, so a locked-out owner still sets up from the box itself.
+    """
+
+    def __init__(self, clock=time.monotonic):
         self.lock = threading.Lock()
+        self.clock = clock
         self.code = ""
         self.wrong = 0
+        self.lock_s = 0.0
+        self.until = 0.0
         self.path = ""
 
     def new(self, run_dir: str) -> str:
         with self.lock:
-            self.code = "".join(secrets.choice("0123456789") for _ in range(8))
+            self.code = "".join(secrets.choice(ALPHABET) for _ in range(CODE_LEN))
             self.wrong = 0
+            self.lock_s = 0.0
+            self.until = 0.0
             self.path = os.path.join(run_dir, CODE_FILE)
             os.makedirs(run_dir, mode=0o711, exist_ok=True)
             fd = os.open(self.path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
@@ -90,17 +107,26 @@ class Gate:
                 f.write(self.code + "\n")
             return self.code
 
-    def check(self, given: str, run_dir: str) -> bool:
+    def locked(self) -> float:
+        """Seconds left of the back-off (0 when tries are allowed)."""
         with self.lock:
-            ok = bool(self.code) and hmac.compare_digest(given.strip().encode(), self.code.encode())
-            if not ok:
-                self.wrong += 1
-                rotate = self.wrong >= MAX_WRONG
-            else:
-                rotate = False
-        if rotate:
-            self.new(run_dir)            # a guesser starts again; the screen shows the new code
-        return ok
+            return max(0.0, self.until - self.clock())
+
+    def check(self, given: str) -> bool:
+        """True for the right code. While locked out, every try is refused, even the right code."""
+        with self.lock:
+            now = self.clock()
+            if now < self.until:
+                return False
+            norm = given.strip().upper().replace("-", "").replace(" ", "")
+            if self.code and hmac.compare_digest(norm.encode(), self.code.encode()):
+                return True
+            self.wrong += 1
+            if self.wrong >= MAX_WRONG:
+                self.wrong = 0
+                self.lock_s = min(max(self.lock_s * 2, LOCK_MIN_S), LOCK_MAX_S)
+                self.until = now + self.lock_s
+            return False
 
     def clear(self) -> None:
         try:
@@ -156,9 +182,12 @@ class Wizard(BaseHTTPRequestHandler):
             return
         if fb.load_state(self.paths):
             return self._send(409, "<p>This box is already set up.</p>")
-        if not self._local() and not self.gate.check(form.get("code", ""), self.paths.run):
-            err = '<p role="alert"><strong>Wrong setup code. Read it on the box screen.</strong></p>'
-            return self._send(403, FORM.format(style=STYLE, error=err, code_field=CODE_FIELD))
+        if not self._local() and not self.gate.check(form.get("code", "")):
+            wait = self.gate.locked()
+            msg = (f"Too many wrong codes. Wait {int(wait) + 1} seconds, or set up on the box screen."
+                   if wait else "Wrong setup code. Read it on the box screen.")
+            err = f'<p role="alert"><strong>{msg}</strong></p>'
+            return self._send(429 if wait else 403, FORM.format(style=STYLE, error=err, code_field=CODE_FIELD))
         try:
             cfg = fb.validate({k: form.get(k, "") for k in fb.KEYS})
         except fb.ConfigError as exc:

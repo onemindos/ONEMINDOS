@@ -36,6 +36,7 @@ RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
 SystemCallArchitectures=native
 SystemCallFilter=@system-service
 SystemCallFilter=~@mount @debug @swap @reboot @raw-io @obsolete @cpu-emulation
+# Still root, tracked in #578: configure() chowns the data tree, so User=/DynamicUser needs a root-helper split.
 # chown/chmod need CHOWN, DAC_OVERRIDE, FOWNER; nothing else.
 CapabilityBoundingSet=CAP_CHOWN CAP_DAC_OVERRIDE CAP_FOWNER
 ProtectSystem=strict

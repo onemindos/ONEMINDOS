@@ -662,13 +662,44 @@ class WizardLockdown(Box):
         self.assertFalse(os.path.exists(self.p.state))
         self.assertEqual(self.post(base, f"role=worker&code={code}".encode()).code, 400)  # code ok, form bad
 
-    def test_wrong_codes_change_the_code(self):
+    def test_wrong_codes_back_off_and_keep_the_code(self):
         base = self.serve()
         first = self.lan()
+        self.assertEqual(len(first), setup.CODE_LEN)
         for _ in range(setup.MAX_WRONG):
             self.post(base, b"role=hub&code=x")
-        self.assertNotEqual(self.read(os.path.join(self.p.run, "setup-code")).strip(), first)
-        self.assertEqual(self.post(base, f"role=hub&code={first}".encode()).code, 403)
+        f = os.path.join(self.p.run, "setup-code")
+        self.assertEqual(self.read(f).strip(), first)      # not rotated: no fresh target for a guesser
+        # locked out: even the right code is refused until the back-off ends
+        self.assertEqual(self.post(base, f"role=worker&code={first}".encode()).code, 429)
+
+    def test_gate_backoff_doubles_and_ends(self):
+        now = [1000.0]
+        g = setup.Gate(clock=lambda: now[0])
+        g.new(self.p.run)
+        right = g.code
+        for _ in range(setup.MAX_WRONG):
+            self.assertFalse(g.check("nope"))
+        self.assertEqual(g.locked(), setup.LOCK_MIN_S)
+        self.assertFalse(g.check(right))
+        now[0] += setup.LOCK_MIN_S + 1
+        for _ in range(setup.MAX_WRONG):
+            self.assertFalse(g.check("nope"))
+        self.assertEqual(g.locked(), setup.LOCK_MIN_S * 2)
+        now[0] += setup.LOCK_MIN_S * 2 + 1
+        self.assertTrue(g.check(right.lower()))            # owner can still get in after the wait
+
+    def test_guess_rate_is_capped(self):
+        now = [0.0]
+        g = setup.Gate(clock=lambda: now[0])
+        g.new(self.p.run)
+        tries = 0
+        for _ in range(100000):                            # a flood of guesses over one simulated hour
+            now[0] += 3600 / 100000
+            if g.locked() == 0:
+                tries += 1
+            g.check("AAAAAAAAAA")
+        self.assertLess(tries, 30)
 
     def test_lan_is_refused_after_the_owner_exists(self):
         base = self.serve()
