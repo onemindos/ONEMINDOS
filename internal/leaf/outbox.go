@@ -58,9 +58,12 @@ func (c OutboxConfig) StreamConfig() jetstream.StreamConfig {
 		c.MaxAge = DefaultOutboxMaxAge
 	}
 	return jetstream.StreamConfig{
-		Name:       OutboxStream,
-		Subjects:   []string{OutboxPrefix + ">"},
-		Retention:  jetstream.LimitsPolicy,
+		Name:     OutboxStream,
+		Subjects: []string{OutboxPrefix + ">"},
+		// WorkQueue: a message is removed from the leaf once the hub's source consumer has it, so
+		// the outbox holds only what the hub has not collected. It also keeps messages while no
+		// consumer exists yet (Interest would discard them), which is the hub-outage case.
+		Retention:  jetstream.WorkQueuePolicy,
 		Storage:    jetstream.FileStorage,
 		MaxBytes:   c.MaxBytes,
 		MaxAge:     c.MaxAge,

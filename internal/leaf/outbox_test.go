@@ -142,6 +142,12 @@ func TestOutboxDeliversEveryMessageOnceThroughHubOutage(t *testing.T) {
 	})
 	time.Sleep(2 * time.Second) // a duplicate, if any, would show up now
 
+	// Delivered messages must leave the leaf: the outbox drains once the hub has collected them.
+	waitUntil(t, 30*time.Second, "leaf outbox to drain after delivery", func() bool {
+		st, err := Status(ctx, leafJS)
+		return err == nil && st.Messages == 0
+	})
+
 	s, err := hubJS.Stream(ctx, src.Name)
 	if err != nil {
 		t.Fatal(err)
