@@ -46,6 +46,25 @@ export function planCard(plan) {
   return { canSend: !!plan.plan_sha256, title: plan.summary || 'The box sent a plan without a summary.', facts };
 }
 
+/**
+ * The plan shown before a backup request is filed (the box has no dry-run route for backups, so this
+ * states exactly what the request body says; src-tauri/src/manage.rs backup_body). Nothing runs until
+ * an owner approves.
+ */
+export function backupPlan(kind, view) {
+  const dests = (view && view.destinations) || [];
+  const primary = dests.find((d) => d.primary) || dests[0];
+  const facts = [['Covers', kind === 'run' ? 'the whole box (apps and their data)' : 'the latest backup, by test-restoring it']];
+  if (kind === 'run') facts.push(['Goes to', primary ? `${primary.label} (${primary.kind})` : 'the box’s backup destination']);
+  facts.push(['Last backup', view && view.last_success_at ? view.last_success_at : 'never']);
+  return {
+    title: kind === 'run' ? 'Back up the whole box now.' : 'Check that the latest backup can be restored.',
+    facts,
+    canSend: kind === 'run' ? dests.length > 0 : true,
+    blocked: kind === 'run' && dests.length === 0 ? 'No backup destination yet. Add one on the dashboard first.' : '',
+  };
+}
+
 /** Words for a request the box accepted. Nothing has happened yet. */
 export function filedText(f) {
   return `Request sent (${(f.state || 'awaiting_approval').replace(/_/g, ' ')}). Nothing has changed yet: it waits in the approval list until an owner decides.`;
