@@ -36,6 +36,7 @@ on:
       - "internal/plugin/**"
       - "go.mod"
       - "go.sum"
+      - ".github/actions/sdk-gen/**"
       - "research-output/evidence/license-matrix.csv"   # only the apps whose rows changed are gated
       - "renovate.json"
       - ".github/workflows/ci-apps.yml"
@@ -68,6 +69,12 @@ jobs:
         uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
         with:
           go-version-file: go.mod
+
+      # cmd/onemind imports sdk/go, whose generated types are not committed (CI-16).
+      - name: Generate the Go SDK code from the committed spec
+        uses: ./.github/actions/sdk-gen
+        with:
+          langs: go
 
       - name: Build the box plugin validator
         run: |
@@ -184,6 +191,12 @@ jobs:
         uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
         with:
           go-version-file: go.mod
+
+      # cmd/onemind imports sdk/go, whose generated types are not committed (CI-16).
+      - name: Generate the Go SDK code from the committed spec
+        uses: ./.github/actions/sdk-gen
+        with:
+          langs: go
 
       - name: Build the box plugin validator
         run: |
