@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
-"""OneMind QEMU battery, first boot (F0-F9). Criteria: test/qemu/CRITERIA-FIRSTBOOT.md
+"""OneMind QEMU battery, first boot (F0-F11). Criteria: test/qemu/CRITERIA-FIRSTBOOT.md
 (pre-registered; never edited to make a result pass). Reuses run-tests.py's VM driver.
 
 Input: the battery's fixtures (`make fixtures`: disk.img = slot A v1 + test overlay, bundles.img with
@@ -379,6 +379,58 @@ def f10(vm, token):
     record("F10", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items()) + f" out={out.strip()[-200:]!r}")
 
 
+# F11's probe, run in the guest (section 7): connect to :443 every 100 ms; the first answer from the gateway itself ends it.
+F11_PY = r'''
+import json, socket, ssl, sys, time
+ctx = ssl.create_default_context(); ctx.check_hostname = False; ctx.verify_mode = ssl.CERT_NONE
+t0, ev, ok_once, bad = time.time(), [], False, []
+while time.time() - t0 < 180:
+    try:
+        raw = socket.create_connection(("127.0.0.1", 443), 3)
+        with ctx.wrap_socket(raw) as s:
+            s.sendall(b"GET /healthz HTTP/1.1\r\nHost: onemind.local\r\nConnection: close\r\n\r\n")
+            buf = b""
+            while True:
+                c = s.recv(4096)
+                if not c: break
+                buf += c
+        ok_once = True
+        head = buf.split(b"\r\n\r\n")[0].decode("latin-1")
+        code = head.split(" ")[1] if head.startswith("HTTP/") else "?"
+        marker = "x-onemind-starting: 1" in head.lower()
+        ev.append("page" if marker else "gw")
+        if marker and code != "503": bad.append("marker-status-" + code)
+        if not marker and code == "200":
+            print("RESULT " + json.dumps({"seconds": round(time.time() - t0, 1), "page_seen": "page" in ev, "first": ev[0],
+                                          "bad": bad, "n": len(ev)})); sys.exit(0)
+    except (ConnectionRefusedError, ConnectionResetError, socket.timeout, ssl.SSLError, OSError) as e:
+        if ok_once: bad.append(type(e).__name__)
+    time.sleep(0.1)
+print("RESULT " + json.dumps({"seconds": None, "page_seen": "page" in ev, "first": ev[0] if ev else None, "bad": bad, "n": len(ev)}))
+'''
+
+
+def f11(vm, results_dir):
+    """The starting page holds :443 while the gateway starts, then hands over with no refused connection (section 7)."""
+    unit = "/usr/lib/systemd/system/onemind-gateway.service"
+    _, out = vm.run(f"grep -E '^(After|Wants|Requires)=' {unit}; echo ---; "
+                    "systemctl stop onemind-gateway.service onemind-starting.service; "
+                    "cat > /run/f10.py <<'PYEOF'\n" + F11_PY + "\nPYEOF\n"
+                    "systemctl start --no-block onemind-starting.service; sleep 1; systemctl start --no-block onemind-gateway.service; "
+                    f"{PY} -I /run/f10.py; rm -f /run/f10.py", 300)
+    order = out.split("---")[0]
+    m = re.findall(r"^RESULT (\{.*\})\s*$", out, re.M)
+    r = json.loads(m[-1]) if m else {}
+    sec = r.get("seconds")
+    budget = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "perf", "budget.json")))
+    limit = budget.get("time_to_dashboard_s")
+    ok = (sec is not None and not r.get("bad") and "network-online" not in order and limit is not None and sec <= limit)
+    if ok and results_dir:
+        json.dump({"kind": "dashboard", "time_to_dashboard_s": sec}, open(os.path.join(results_dir, "perf-dashboard.json"), "w"))
+    record("F11", ok, f"time_to_dashboard_s={sec} budget={limit} page_seen={r.get('page_seen')} first={r.get('first')} "
+                      f"probes={r.get('n')} bad={r.get('bad')} gateway_order={order.strip()!r}")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--board", required=True, choices=sorted(battery.BOARDS))
@@ -433,6 +485,7 @@ def main():
         vm.mark("F8 hub NATS: own keys only, leaf port needs the box CA"); f8(vm, ip)
         vm.mark("F9 one box CA"); f9(vm)
         vm.mark("F10 rescue console with k3s stopped (CORE-UPDATE-9)"); f10(vm, token)
+        vm.mark("F11 starting page, then the gateway, never a refused connection"); f11(vm, (os.path.dirname(a.results) or ".") if a.results else None)
 
         if a.upto in ("F3", "F4"):
             vm.mark("F3 reboot keeps state")
