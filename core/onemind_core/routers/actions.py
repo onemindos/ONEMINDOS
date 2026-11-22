@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from ..actions import ActionRequest, ActionRequestBody, ApprovalInput, FeatureActionRequest
+from ..ai_policy import actions_for_agent, is_agent
 from ..apimodels import Action
 from ..appsecrets.api import SealedInput
 from ..auth import Principal
@@ -16,6 +17,7 @@ from ..context import Gateway
 from ..errors import error_responses
 from ..jsonbody import JsonBody
 from ..plugins.actions import own_actions, own_action
+from .apps import app_rows
 
 
 class OverrideInput(BaseModel):
@@ -48,6 +50,11 @@ ORDER = 150
 def register(app: FastAPI, gw: Gateway) -> None:
     actions = gw.actions
     principal = gw.principal
+
+    def seen_by(p: Principal, rows: list[dict]) -> list[dict]:
+        # aiPolicy (#165): an app's tool output reaches an agent only when the app allows app data
+        # to go to an AI, the same rule as the MCP tools. People and plugins see the action as stored.
+        return actions_for_agent(rows, lambda: app_rows(gw)) if is_agent(p) else rows
 
     def postable_feature_types() -> list[str]:
         # Only a type registered with a params model is filed through POST /v1/actions; the rest
@@ -85,7 +92,8 @@ def register(app: FastAPI, gw: Gateway) -> None:
             raise RequestValidationError([{"type": "literal_error", "loc": ("body", "type"),
                                            "msg": f"unknown action type {req.type!r}", "input": req.type}])
         body, created = actions.create(p, ActionRequest.model_validate(req.model_dump()))
-        return JSONResponse(status_code=201 if created else 200, content=body)
+        # An idempotent replay returns the stored action, result included.
+        return JSONResponse(status_code=201 if created else 200, content=seen_by(p, [body])[0])
 
     @app.get(
         "/v1/actions", tags=["actions"], operation_id="actions.list",
@@ -94,7 +102,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
     def list_actions(p: Principal = Depends(principal)):
         if p.kind == "plugin":
             return own_actions(gw, p)
-        return actions.list()
+        return seen_by(p, actions.list())
 
     @app.get(
         "/v1/actions/{action_id}", tags=["actions"], operation_id="actions.get",
@@ -103,7 +111,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
     def get_action(action_id: str, p: Principal = Depends(principal)):
         if p.kind == "plugin":
             return own_action(gw, p, action_id)
-        return actions.get(action_id)
+        return seen_by(p, [actions.get(action_id)])[0]
 
     @app.post(
         "/v1/actions/{action_id}/approve", tags=["actions"], operation_id="actions.approve",

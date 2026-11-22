@@ -22,7 +22,7 @@ from pydantic import ValidationError
 
 from .. import __version__
 from ..actions import APP_CLAIMS, ActionParams, ActionRequest
-from ..ai_policy import catalog_visible_to_ai, shown_policy, summary_policy, withhold_app_data
+from ..ai_policy import actions_for_agent, catalog_visible_to_ai, shown_policy
 from ..auth import Principal
 from ..errors import ApiError
 from .limits import Limits
@@ -382,9 +382,7 @@ class Catalogue:
     def _for_agent(self, rows: list[dict]) -> list[dict]:
         """aiPolicy (#165) before any action leaves: an app's tool output reaches the agent only when
         the app's catalog policy allows app data to go to an AI. An app outside the catalog has none."""
-        apps = {a.get("id"): a for a in self.svc.list_apps()}
-        return [withhold_app_data(a, summary_policy(apps.get((a.get("params") or {}).get("app_id"))))
-                for a in rows]
+        return actions_for_agent(rows, self.svc.list_apps)  # the same call as the agent REST readers
 
     def t_search_audit(self, p, args):
         _args(args, {"event", "since", "until", "after_seq", "limit"})

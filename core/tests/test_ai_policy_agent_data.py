@@ -2,8 +2,11 @@
 """aiPolicy before app data reaches an agent (#165): one deny-by-default rule.
 
 A plugin tool's output is the app's own data. An agent that requested the tool sees its action
-through MCP (get_action, list_actions, onemind://actions/{id}); the output must be withheld there
-unless the app's catalog aiPolicy is "allowed". GET /v1/apps shows the policy, for `onemind apps`.
+through MCP (get_action, list_actions, onemind://actions/{id}) and through REST (GET /v1/actions,
+GET /v1/actions/{id}, an idempotent replay of the tool call); the output must be withheld on every
+one of them unless the app's catalog aiPolicy is "allowed". A read tool returns app data at once, so
+an agent may not run it at all under any other policy. GET /v1/apps shows the policy, for
+`onemind apps`.
 """
 
 import json
@@ -16,6 +19,8 @@ import yaml
 
 from conftest import AGENT, OWNER, make_client
 from onemind_core import ai_policy
+from onemind_core.identity.crypto import new_secret, sha256_hex
+from onemind_core.identity.models import TokenRow
 from onemind_core.plugins import dispatch
 from test_identity import id_settings
 from test_plugin_credentials import approve, request
@@ -74,12 +79,24 @@ def agent_views(client, action_id):
     return [json.dumps(one), json.dumps(many), json.dumps(res)]
 
 
+def agent_rest_views(client, action_id):
+    """The same action read by the same agent over REST: one action, the ledger, and a replay."""
+    one = client.get(f"/v1/actions/{action_id}", headers=AGENT)
+    many = client.get("/v1/actions", headers=AGENT)
+    replay = client.post("/v1/plugins/uptime-kuma/tools/change", headers=AGENT,
+                         json={"arguments": {}, "idempotency_key": "ai-policy"})
+    for r in (one, many, replay):
+        assert r.status_code == 200, r.text
+    assert replay.json()["id"] == action_id and action_id in {a["id"] for a in many.json()}
+    return [one.text, many.text, replay.text]
+
+
 @pytest.mark.parametrize("request_policy", [
     ABSENT, "display-only", "prohibited", "consent-required", "official-mcp-only", "local-only", None,
 ], indirect=True)
-def test_denied_app_data_never_reaches_mcp_tools(agent_tool_action):
+def test_denied_app_data_never_reaches_an_agent(agent_tool_action):
     client, action_id = agent_tool_action
-    for text in agent_views(client, action_id):
+    for text in agent_views(client, action_id) + agent_rest_views(client, action_id):
         assert str(CANARY) not in text
         assert "output_withheld" in text
     # The agent still learns its request ran.
@@ -89,11 +106,75 @@ def test_denied_app_data_never_reaches_mcp_tools(agent_tool_action):
 
 
 @pytest.mark.parametrize("request_policy", ["allowed"], indirect=True)
-def test_allowed_app_data_reaches_mcp_tools(agent_tool_action):
+def test_allowed_app_data_reaches_an_agent(agent_tool_action):
     client, action_id = agent_tool_action
-    for text in agent_views(client, action_id):
+    for text in agent_views(client, action_id) + agent_rest_views(client, action_id):
         assert str(CANARY) in text
         assert "output_withheld" not in text
+
+
+@pytest.fixture
+def agent_read_tool(plugin_settings, clock, monkeypatch, request_policy):  # noqa: F811
+    """A real install with a read tool, and an agent token holding the exact grant for tools."""
+    path = Path(plugin_settings.apps_dir) / "uptime-kuma" / "onemind.app.yaml"
+    doc = yaml.safe_load(path.read_text())
+    doc["spec"]["extensions"]["tools"] = [{
+        "name": "status", "title": "Status", "description": "untrusted plugin text", "effect": "read",
+        "input": {"type": "object", "additionalProperties": False}, "output": deepcopy(OUTPUT),
+        "exposure": {"rest": True},
+    }]
+    if request_policy != ABSENT:
+        doc["spec"]["aiPolicy"] = request_policy
+    path.write_text(yaml.safe_dump(doc))
+    calls = []
+
+    def backend(req):
+        calls.append(req)
+        return httpx.Response(200, json={"heart_rate": CANARY})
+    monkeypatch.setattr(dispatch, "client", lambda: httpx.Client(transport=httpx.MockTransport(backend), trust_env=False))
+    with make_client(id_settings(plugin_settings, require_passkey_approval=False), clock) as client:
+        approve(client, request(client, clock, "app.install"))
+        token = new_secret("pat")
+        client.app.state.identity.repo.add(TokenRow(
+            id="ai-reader", prefix=token[:11], hash=sha256_hex(token), name="AI reader", kind="agent",
+            principal_id="agent:reader", owner_user_id=None,
+            scopes=["apps:read", "actions:request:plugin.invoke"], source="api", created_by="owner",
+            created_at=clock()))
+        yield client, {"Authorization": "Bearer " + token}, calls
+
+
+@pytest.mark.parametrize("request_policy", [
+    ABSENT, "display-only", "prohibited", "consent-required", "official-mcp-only", "local-only", None,
+], indirect=True)
+def test_agent_cannot_run_a_read_tool_of_a_denied_app(agent_read_tool):
+    client, agent, calls = agent_read_tool
+    refused = client.post("/v1/plugins/uptime-kuma/tools/status", headers=agent, json={"arguments": {}})
+    assert refused.status_code == 403, refused.text
+    assert refused.json()["reason"] == "ai_policy" and str(CANARY) not in refused.text
+    assert calls == []  # the app's backend was never asked
+    # aiPolicy limits AI, never the person: the owner still reads the app's data.
+    mine = client.post("/v1/plugins/uptime-kuma/tools/status", headers=OWNER, json={"arguments": {}})
+    assert mine.status_code == 200 and mine.json() == {"output": {"heart_rate": CANARY}}
+
+
+@pytest.mark.parametrize("request_policy", ["allowed"], indirect=True)
+def test_agent_runs_a_read_tool_of_an_allowed_app(agent_read_tool):
+    client, agent, calls = agent_read_tool
+    got = client.post("/v1/plugins/uptime-kuma/tools/status", headers=agent, json={"arguments": {}})
+    assert got.status_code == 200, got.text
+    assert got.json() == {"output": {"heart_rate": CANARY}} and len(calls) == 1
+
+
+def test_actions_for_agent_reads_the_catalog_only_when_output_is_present():
+    plain = [{"id": "a", "params": {"app_id": "x"}, "result": {"steps": [{"step": "apply"}]}}]
+    assert ai_policy.actions_for_agent(plain, lambda: pytest.fail("catalog read for no output")) is plain
+    rows = [{"id": "b", "params": {"app_id": "x"}, "result": {"steps": [{"tool": "t", "output": CANARY}]}},
+            {"id": "c", "params": {"app_id": "y"}, "result": {"steps": [{"tool": "t", "output": CANARY}]}},
+            {"id": "d", "params": {"app_id": "gone"}, "result": {"steps": [{"tool": "t", "output": CANARY}]}}]
+    seen = ai_policy.actions_for_agent(rows, lambda: [{"id": "x", "aiPolicy": "allowed"}, {"id": "y"}])
+    assert [("output" in a["result"]["steps"][0]) for a in seen] == [True, False, False]
+    assert ai_policy.app_policy([{"id": "x", "aiPolicy": "allowed"}], "x") == "allowed"
+    assert ai_policy.app_policy([], "x") is ai_policy.ABSENT
 
 
 @pytest.mark.parametrize("policy", [ai_policy.ABSENT, None, "unknown", {"allowed": True}, "display-only",
