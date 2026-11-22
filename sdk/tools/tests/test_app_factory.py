@@ -211,12 +211,11 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(JOBS["publish"]["permissions"], {"contents": "write", "pull-requests": "write"})
         self.assertEqual(WORKFLOW["permissions"], {"contents": "read"})
 
-    def test_runs_on_our_runners_with_a_hosted_fallback(self):
+    def test_runs_on_hosted_ubuntu_not_the_local_mac_pool(self):
+        # release/next: these jobs log in to registries and use QEMU/buildx, so they stay on
+        # ubuntu-24.04 (08ff9dcf); the earlier self-hosted + LOCAL_RUNNER expression no longer applies.
         for name in ("plan", "build", "verify"):
-            runs_on = JOBS[name]["runs-on"]
-            self.assertIn("self-hosted", runs_on, name)
-            self.assertIn("ubuntu-24.04", runs_on, name)
-            self.assertIn("LOCAL_RUNNER", runs_on, name)
+            self.assertEqual(JOBS[name]["runs-on"], "ubuntu-24.04", name)
 
     def test_only_the_workflow_token_and_optional_dockerhub_are_used(self):
         import re
