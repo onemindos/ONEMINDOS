@@ -116,7 +116,7 @@ export class OneMind {
     this.onWarning = opts.onWarning ?? ((m) => console.warn(`onemind: warning: ${m}`));
     this.onTrace = opts.onTrace;
     this.sleep = opts.sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms)));
-    this.events = new EventsApi(this);
+    this.events = new EventsApi(this, typeof opts.token === "string" && opts.token.length > 0);
   }
 
   /** ONEMIND_HUB + ONEMIND_TOKEN, else ONEMIND_GATEWAY_URL + ONEMIND_AGENT_TOKEN (contract §11.2).
