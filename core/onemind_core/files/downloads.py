@@ -243,27 +243,39 @@ class Downloads:
                     continue
                 if not stat_mod.S_ISREG(st.st_mode) or time.time() - max(st.st_mtime, st.st_ctime) < self.cfg.settle_s:
                     continue
-                self._process(person_id, inc, held, name)
-                n += 1
+                try:
+                    self._process(person_id, inc, held, name)
+                    n += 1
+                except (OSError, FilesError):  # one unreadable file never stops the others
+                    log.exception("could not take in a download")
         finally:
             os.close(inc)
         return n
 
     def _process(self, person_id: str, inc: int, held: int, name: str) -> None:
+        """Copy the file into a new one the gateway owns (mode 0640: never executable, never a link
+        to another file), then remove it from the intake folder; then check, scan and decide."""
         did = "dl_" + secrets.token_hex(12)
-        os.rename(name, did + ".bin", src_dir_fd=inc, dst_dir_fd=held)
-        fd = os.open(did + ".bin", os.O_RDONLY | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0), dir_fd=held)
+        src, _ = paths.open_file_at(inc, name)  # no symlink, no FIFO, a regular file only
         try:
-            os.fchmod(fd, 0o640)  # a download is never executable
-            h, size, head = hashlib.sha256(), 0, b""
-            while chunk := os.read(fd, READ_CHUNK):
-                if len(head) < 512:
-                    head += chunk[: 512 - len(head)]
-                h.update(chunk)
-                size += len(chunk)
-            kind = type_problem(name, head, fd)
+            dst = os.open(did + ".bin", os.O_RDWR | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o640, dir_fd=held)
+            try:
+                h, size, head = hashlib.sha256(), 0, b""
+                while chunk := os.read(src, READ_CHUNK):
+                    if len(head) < 512:
+                        head += chunk[: 512 - len(head)]
+                    h.update(chunk)
+                    size += len(chunk)
+                    view = memoryview(chunk)
+                    while view:
+                        view = view[os.write(dst, view):]
+                os.fsync(dst)
+                kind = type_problem(name, head, dst)
+            finally:
+                os.close(dst)
         finally:
-            os.close(fd)
+            os.close(src)
+        os.unlink(name, dir_fd=inc)
         try:
             safe = paths.validate_name(name)
         except FilesError:
