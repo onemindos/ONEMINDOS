@@ -120,10 +120,18 @@ class MachineService:
 
     def _release_ext(self, which: str):
         def release(a) -> None:
-            """Only a claim no run ever started (denied, expired) is handed back; a run settles its own state."""
+            """A claim no run ever started (denied, expired) is handed back; a run settles its own state.
+
+            A restart mid-run ends as outcome_unknown: the cluster may be half installed or half
+            removed, so the row becomes `unknown` (never back to the old `ready`/`absent`). The ledger
+            already holds the final state when this runs."""
             row = self.repo.extension()
             now = self.gw.clock()
-            if which == "enable":
+            final = self.gw.actions.repo.get(a.id)
+            if final is not None and final.state == "outcome_unknown":
+                self.repo.move_extension("unknown", now, only_from=("installing", "removing"), owned_by=a.id,
+                                         message=(final.result or {}).get("message", "") if isinstance(final.result, dict) else "")
+            elif which == "enable":
                 self.repo.move_extension("absent", now, only_from=("installing",), owned_by=a.id)
             else:
                 prev = row["message"].removeprefix("was:") if row["message"].startswith("was:") else "ready"

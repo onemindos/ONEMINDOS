@@ -36,7 +36,7 @@ def box(settings, clock, executor):
         def report(**changes):
             hb = {**PC, **changes}
             assert app.state.registry.ingest(f"onemind.node.{hb['node_id']}.status", json.dumps(hb).encode())
-        c.report, c.clock, c.n, c.svc = report, clock, 0, app.state.machines
+        c.report, c.clock, c.n, c.svc, c.app = report, clock, 0, app.state.machines, app
         c.ask = lambda typ, params, who=OWNER: _ask(c, typ, params, who)
         yield c
 
@@ -212,6 +212,23 @@ def test_an_install_with_an_unclear_end_is_marked_unknown_not_ready(box):
     approve(box, box.post("/v1/machines/enable", headers=OWNER).json()["id"])
     c = caps(box)
     assert c["enabled"] is False and c["extension"]["state"] == "unknown"
+
+
+@pytest.mark.parametrize("which", ["enable", "disable"])
+def test_a_gateway_restart_mid_install_or_remove_leaves_unknown_never_ready_or_absent(box, which):
+    box.report()
+    if which == "disable":
+        assert approve(box, box.post("/v1/machines/enable", headers=OWNER).json()["id"]).json()["state"] == "succeeded"
+    queued = box.post(f"/v1/machines/{which}", headers=OWNER).json()
+    actions = box.app.state.actions
+    # approval took the claim and the run was dispatched, then the process died before it settled
+    assert box.svc._claim_ext(which)(actions.repo.get(queued["id"])) is None
+    assert actions.repo.transition(queued["id"], {"awaiting_approval"}, "accepted", box.clock()) is not None
+    assert actions.repo.transition(queued["id"], {"accepted"}, "dispatched", box.clock()) is not None
+    actions.reconcile_interrupted()
+    c = caps(box)
+    assert c["enabled"] is False and c["extension"]["state"] == "unknown"
+    assert actions.repo.get(queued["id"]).state == "outcome_unknown"
 
 
 # ---- the kubectl extension, with a scripted runner ------------------------------------------------

@@ -96,23 +96,6 @@ tools:
     kubeconform: {version: v0.8.0, file: kubeconform-linux-amd64.tar.gz, sha256: 9bc2bffbf71f261128533edaf912153948b7ff238f9a531ae6d34466ec287883, arm64_file: kubeconform-linux-arm64.tar.gz, arm64_sha256: 1f53fc8e81258197a35e8603054162a5af1de8c5af13746c71ab680d9534ed87}
     k3s_image: docker.io/rancher/k3s:v1.37.2-k3s1@sha256:21ea6e0fac4e3930c2ce8aa40ddd41a8b18cb3e9a0222c030dc005e7e88c4332   # k3d smoke cluster, same k3s as above
 
-machines_extension:   # optional machines layer (MACH-2, #281): os/rootfs/fetch-machines.sh, os/rootfs/layers/machines
-  kubevirt:
-    version: v1.9.1
-    licence: Apache-2.0              # LICENSE read at tag v1.9.1 on 2026-11-21
-    files:
-      kubevirt-operator.yaml: 9ac45a436c49d32e6fc21d542bcb7600b970705297b9e6752f3ef9b0a1d292da
-      kubevirt-cr.yaml: 43106136dbce3312bdbfdeae612aacafc6c12da518d233f90645b4685d84a2af
-  cdi:
-    version: v1.66.1
-    licence: Apache-2.0              # LICENSE read at tag v1.66.1 on 2026-11-21 (the spike had carried it forward unread)
-    files:
-      cdi-operator.yaml: c7d92bd1b2ee1a3952a5990000437c08d58109f31c0bd48ab6188ec27a13e224
-      cdi-cr.yaml: a497f90de608c1df26f9ee4095289373f17132d74a2042ca03e00c17c964f8a7
-  source: GitHub release assets, re-downloaded and hashed 2026-11-21; same hashes as the spike (research-output/evidence/lab/machines-spike/scripts/fetch.sh)
-  images: tags only (quay.io/kubevirt/*:v1.9.1 and :v1.66.1), digests UNVERIFIED; offline use needs them preloaded (left for LT-MACH-2). Until the digests are recorded here, the gateway refuses Turn on unless ONEMIND_MACHINES_ALLOW_TAG_IMAGES=1 (lab only)
-  licence_note: virt-launcher bundles QEMU (GPL-2.0) and libvirt (LGPL-2.1+); OneMind pulls the upstream image and does not rebuild or mirror it, so no source-offer duty arises. Mirroring it would create one.
-
 desktop:          # desktop/ (CLIENT-8). Crate and npm pins are exact in desktop/src-tauri/Cargo.toml and
                   # desktop/package.json, each released at least two weeks before 2026-11-12; licences in desktop/README.md.
   rust:
@@ -208,3 +191,20 @@ jetson:             # os/boards/jetson-orin (D-007: NVIDIA L4T on Jetson). Never
 e2e_vm:             # tests/e2e/harness/run.sh --backend qemu (GitHub ubuntu-24.04 runners); read from SHA512SUMS 2026-11-12
   amd64_url: https://cloud.debian.org/images/cloud/trixie/20261103-2651/debian-13-genericcloud-amd64-20261103-2651.qcow2
   amd64_sha512: d25999de0770d4cde1be72c299ba3ad94eac7ea8fd4d18f8cc86c69df69337e2e8a91d64465a9bfd8f2a78c566fcbcb0842eacc91c09efdef72d719d9f13b535
+
+machines_extension:   # optional machines layer (MACH-2, #281): os/rootfs/fetch-machines.sh, os/rootfs/layers/machines
+  kubevirt:
+    version: v1.9.1
+    licence: Apache-2.0              # LICENSE read at tag v1.9.1 on 2026-11-21
+    files:
+      kubevirt-operator.yaml: 9ac45a436c49d32e6fc21d542bcb7600b970705297b9e6752f3ef9b0a1d292da
+      kubevirt-cr.yaml: 43106136dbce3312bdbfdeae612aacafc6c12da518d233f90645b4685d84a2af
+  cdi:
+    version: v1.66.1
+    licence: Apache-2.0              # LICENSE read at tag v1.66.1 on 2026-11-21 (the spike had carried it forward unread)
+    files:
+      cdi-operator.yaml: c7d92bd1b2ee1a3952a5990000437c08d58109f31c0bd48ab6188ec27a13e224
+      cdi-cr.yaml: a497f90de608c1df26f9ee4095289373f17132d74a2042ca03e00c17c964f8a7
+  source: GitHub release assets, re-downloaded and hashed 2026-11-21; same hashes as the spike (research-output/evidence/lab/machines-spike/scripts/fetch.sh)
+  images: tags only (quay.io/kubevirt/*:v1.9.1 and :v1.66.1), digests UNVERIFIED; offline use needs them preloaded (left for LT-MACH-2). Until the digests are recorded here, the gateway refuses Turn on unless ONEMIND_MACHINES_ALLOW_TAG_IMAGES=1 (lab only)
+  licence_note: virt-launcher bundles QEMU (GPL-2.0) and libvirt (LGPL-2.1+); OneMind pulls the upstream image and does not rebuild or mirror it, so no source-offer duty arises. Mirroring it would create one.
