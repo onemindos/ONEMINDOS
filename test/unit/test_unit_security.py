@@ -60,6 +60,10 @@ CEILINGS = {
     "onemind-firewall.service": 9.6,
     "onemind-nvidia-setup.service": 9.6,
     "onemind-storage.service": 8.0,
+    # The kiosk units (#333, UX-07) met this gate only when W0 merged them onto release/next (systemd 255:
+    # kiosk 7.6, kiosk-apply 9.4). Hardening them needs an on-hardware check of the screen switch: follow-up.
+    "onemind-kiosk.service": 7.9,
+    "onemind-kiosk-apply.service": 9.7,
 }
 
 
