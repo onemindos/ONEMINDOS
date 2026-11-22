@@ -42,6 +42,7 @@ export type ColorRole =
   | 'surface-raised'
   | 'border'
   | 'border-strong'
+  | 'control-border'
   | 'text'
   | 'text-muted'
   | 'text-subtle'
@@ -73,6 +74,8 @@ export const light: Theme = {
   'surface-raised': p.neutral[0],
   border: p.neutral[100],
   'border-strong': p.neutral[200],
+  // Edge of an input, chip or switch: 3:1 on every surface (WCAG 1.4.11), unlike the decorative borders above.
+  'control-border': '#7a818c',
   text: p.neutral[900],
   'text-muted': p.neutral[600],
   'text-subtle': p.neutral[500],
@@ -115,6 +118,7 @@ export const dark: Theme = {
   'surface-raised': p.neutral[850],
   border: p.neutral[800],
   'border-strong': p.neutral[700],
+  'control-border': '#5a7884',
   text: '#e8eeef',
   'text-muted': '#a9b6b9',
   'text-subtle': '#8a989c',
@@ -152,7 +156,7 @@ export const dark: Theme = {
 /** Theme-independent scales. Keys become `--om-<group>-<key>`. */
 export const scale = {
   font: {
-    sans: "system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
+    sans: "'Inter Variable', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
     mono: "ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace",
   },
   'font-size': {

@@ -29,6 +29,10 @@ type fakeRAUC struct {
 	c       *calls
 	gateDir string
 	err     error
+	// markerThenErr mimics a failed slot write after the pre-install handler
+	// already wrote the trial marker (here and on the ESP copy).
+	markerThenErr string
+	espMarker     string
 }
 
 // Install mimics RAUC + the pre-install handler: it writes the trial marker
@@ -37,6 +41,17 @@ func (f *fakeRAUC) Install(_ context.Context, bundle string) error {
 	f.c.log = append(f.c.log, "install "+filepath.Base(bundle))
 	if f.err != nil {
 		return f.err
+	}
+	if f.markerThenErr != "" {
+		for _, p := range []string{filepath.Join(f.gateDir, "pending"), f.espMarker} {
+			if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+				return err
+			}
+			if err := os.WriteFile(p, []byte("B "+f.markerThenErr+"\n"), 0o644); err != nil {
+				return err
+			}
+		}
+		return errors.New("rauc: slot write failed")
 	}
 	b, err := os.ReadFile(bundle)
 	if err != nil {
@@ -513,6 +528,34 @@ func TestVerdictAfterBoot(t *testing.T) {
 	}
 }
 
+// A version that failed once and was later installed and committed must not stay
+// on the bad list (lab finding: 0.1.0-dev.399-next).
+func TestCommittedVersionClearsStaleBadEntry(t *testing.T) {
+	f := newFixture(t, "security", "window = any\n")
+	f.add("vm", "0.1.1", true)
+	f.publish(0)
+	if _, err := f.run(ModeScheduled); err != nil {
+		t.Fatal(err)
+	}
+	os.Remove(filepath.Join(f.dir, "gate", "pending"))
+	f.write("os-release", "ONEMIND_VERSION=\"0.1.1\"\nONEMIND_BOARD=\"vm\"\n")
+	f.write("gate/bad-releases",
+		"2026-11-12T03:05:00Z version=0.1.1 verdict=image-bad\n2026-11-12T04:00:00Z version=0.1.9 verdict=image-bad\n")
+	if _, err := f.run(ModeScheduled); err != nil {
+		t.Fatal(err)
+	}
+	if st := f.status(); st.State != heartbeat.UpdateCommitted {
+		t.Fatalf("status %+v", st)
+	}
+	b, err := os.ReadFile(filepath.Join(f.dir, "gate", "bad-releases"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := string(b); strings.Contains(got, "version=0.1.1 ") || !strings.Contains(got, "version=0.1.9 verdict=image-bad") {
+		t.Fatalf("bad-releases after commit: %q", got)
+	}
+}
+
 func TestTrialStateWhileGateDecides(t *testing.T) {
 	f := newFixture(t, "security", "window = any\n")
 	f.add("vm", "0.1.1", true)
@@ -602,5 +645,136 @@ func TestSnapshotExcludesLocalRepository(t *testing.T) {
 		if got != want || ex[0] != c.DownloadDir || ex[1] != c.StateDir {
 			t.Errorf("%s: excludes %v", repo, ex)
 		}
+	}
+}
+
+// A failed `rauc install` after the pre-install handler wrote the trial
+// marker must not leave the marker behind: the next run would report a
+// reboot pending, reboot the box, and the gate would mark the release
+// image-bad although it never installed.
+func TestFailedInstallClearsTrialMarker(t *testing.T) {
+	f := newFixture(t, "security", "window = any\n")
+	f.cfg.ESPMarker = filepath.Join(f.dir, "esp", "pending")
+	f.eng.Installer = &fakeRAUC{c: f.calls, gateDir: filepath.Join(f.dir, "gate"), markerThenErr: "0.1.1", espMarker: f.cfg.ESPMarker}
+	f.add("vm", "0.1.1", true)
+	f.publish(0)
+
+	res, err := f.run(ModeScheduled)
+	if err == nil || !strings.Contains(err.Error(), "slot write failed") || res.Rebooted {
+		t.Fatalf("err = %v rebooted = %v, want the install failure and no reboot", err, res.Rebooted)
+	}
+	for _, p := range []string{filepath.Join(f.dir, "gate", "pending"), f.cfg.ESPMarker} {
+		if _, err := os.Stat(p); !errors.Is(err, os.ErrNotExist) {
+			t.Fatalf("trial marker %s left behind: %v", p, err)
+		}
+	}
+	// The next cycle retries the install; it does not report a pending reboot or reboot.
+	f.calls.log = nil
+	f.eng.Installer = &fakeRAUC{c: f.calls, gateDir: filepath.Join(f.dir, "gate")}
+	if _, err := f.run(ModeScheduled); err != nil {
+		t.Fatal(err)
+	}
+	wantCalls(t, f.calls, "snapshot 0.1.0->0.1.1", "install onemind-vm-0.1.1.raucb", "reboot")
+	if br, _ := ReadBadReleases(f.cfg); br.Excluded("0.1.1") != "" {
+		t.Fatal("release 0.1.1 was marked bad after an install that never started")
+	}
+}
+
+// A marker that names a different version is not ours and stays.
+func TestFailedInstallKeepsForeignMarker(t *testing.T) {
+	f := newFixture(t, "security", "window = any\n")
+	f.cfg.ESPMarker = filepath.Join(f.dir, "esp", "pending")
+	f.eng.Installer = &fakeRAUC{c: f.calls, gateDir: filepath.Join(f.dir, "gate"), markerThenErr: "9.9.9", espMarker: f.cfg.ESPMarker}
+	f.add("vm", "0.1.1", true)
+	f.publish(0)
+	if _, err := f.run(ModeScheduled); err == nil {
+		t.Fatal("want the install failure")
+	}
+	if _, err := os.Stat(filepath.Join(f.dir, "gate", "pending")); err != nil {
+		t.Fatalf("a marker for another version was removed: %v", err)
+	}
+}
+
+// Root rotation must stick: after the box accepted root v2 (which revoked the
+// v1 timestamp, snapshot and targets keys), a path attacker who holds the
+// revoked keys and answers 404 for 2.root.json must not be believed.
+func TestRootRotationSticksAgainstRevokedKeys(t *testing.T) {
+	f := newFixture(t, "security", "window = any\npolicy = off\n")
+	f.add("vm", "0.1.1", true)
+	f.publish(0) // root v1, image ships v1
+	if _, err := f.run(ModeCheck); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.repo.RotateKeys(); err != nil {
+		t.Fatal(err)
+	}
+	f.publish(0) // serves 2.root.json and metadata signed by the new keys
+	if _, err := f.run(ModeCheck); err != nil {
+		t.Fatalf("rotation to root v2 refused: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(f.cfg.StateDir, "tuf", "security", "roots", "2.root.json")); err != nil {
+		t.Fatalf("accepted root v2 was not kept: %v", err)
+	}
+
+	// Attacker: 404 for 2.root.json, fresh metadata signed with the revoked
+	// v1 keys, versions above the cached ones, listing a bundle of their choice.
+	f.repo.UseRevokedKeys()
+	f.add("vm", "0.1.9", true)
+	evil := filepath.Join(f.dir, "evil")
+	if err := f.repo.Publish(evil, 0); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.repo.Publish(evil, 0); err != nil { // versions 4, above the cached 2
+		t.Fatal(err)
+	}
+	for _, n := range []string{"timestamp.json", "snapshot.json", "targets.json", "3.snapshot.json", "3.targets.json", "4.snapshot.json", "4.targets.json"} {
+		b, err := os.ReadFile(filepath.Join(evil, n))
+		if err != nil {
+			t.Fatal(err)
+		}
+		f.write(filepath.Join("repo", n), string(b))
+	}
+	if err := os.Remove(filepath.Join(f.served, "2.root.json")); err != nil {
+		t.Fatal(err)
+	}
+	res, err := f.run(ModeScheduled)
+	if err == nil {
+		t.Fatalf("metadata signed by keys that root v2 revoked was accepted (candidate %+v)", res.Candidate)
+	}
+	wantCalls(t, f.calls)
+}
+
+// A planted roots/N.root.json that the image root does not vouch for is
+// ignored: /data can not become the trust anchor.
+func TestPlantedRootInStateIsNotAnAnchor(t *testing.T) {
+	f := newFixture(t, "security", "window = any\npolicy = off\n")
+	f.add("vm", "0.1.1", true)
+	f.publish(0)
+	other, err := tuftest.New(time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := other.RotateKeys(); err != nil {
+		t.Fatal(err)
+	}
+	other.AddTarget(tuftest.Meta{Board: "vm", Version: "0.1.9", Compatible: "onemind-vm", MinFromVersion: "0.1.0", Security: true}, bundle("0.1.9"))
+	evil := filepath.Join(f.dir, "evil")
+	if err := other.Publish(evil, 0); err != nil {
+		t.Fatal(err)
+	}
+	planted, err := os.ReadFile(filepath.Join(evil, "2.root.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := filepath.Join(f.cfg.StateDir, "tuf", "security", "roots")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "2.root.json"), planted, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	res, err := f.run(ModeCheck)
+	if err != nil || res.Candidate == nil || res.Candidate.Meta.Version != "0.1.1" {
+		t.Fatalf("err = %v candidate = %+v, want the genuine 0.1.1 from the image root", err, res.Candidate)
 	}
 }

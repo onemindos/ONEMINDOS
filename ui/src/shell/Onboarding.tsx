@@ -31,6 +31,7 @@ import {
   type OnboardingDraft,
   type StarterApp,
 } from './firstRun';
+import { RecoveryKit, type OnboardingKit } from './RecoveryKit';
 import './shell.css';
 
 export interface OnboardingProps {
@@ -50,6 +51,10 @@ export interface OnboardingProps {
   /** Software preferences only, not backup enablement or kit issuance. Awaited before summary. */
   onSaveSettings?: (draft: OnboardingDraft) => Promise<void>;
   backupDestinations?: Array<{ id: string; kind: string; label: string }>;
+  /** Connected recovery-kit step: the gateway issues the key once and confirms two typed-back groups. */
+  kit?: OnboardingKit;
+  /** Read-only plan summary for a starter app, shown before Finish files its install request. */
+  previewPlan?: (appId: string) => Promise<string>;
   onFinish: (draft: OnboardingDraft, requests: ReturnType<typeof finishRequests>) => void | Promise<void>;
 }
 
@@ -99,6 +104,17 @@ function Field({ label, hint, error, children, id }: { label: string; hint?: Rea
       )}
     </div>
   );
+}
+
+/** One read-only plan preview. Nothing runs; the owner approves the exact plan later in Approvals. */
+function PlanLine({ appId, name, previewPlan }: { appId: string; name: string; previewPlan: (appId: string) => Promise<string> }) {
+  const [text, setText] = useState<{ ok: boolean; value: string }>();
+  useEffect(() => {
+    let live = true;
+    previewPlan(appId).then((value) => live && setText({ ok: true, value }), (e: unknown) => live && setText({ ok: false, value: e instanceof Error ? e.message : 'No plan available.' }));
+    return () => { live = false; };
+  }, [appId, previewPlan]);
+  return <p className="om-hint" data-plan={appId}><strong>{name}</strong>: {text ? (text.ok ? text.value : `no plan (${text.value})`) : 'Checking the plan…'}</p>;
 }
 
 function ThemeThumb({ t }: { t: ThemeChoice }) {
@@ -151,6 +167,8 @@ export function Onboarding({
   onRestore,
   onSaveSettings,
   backupDestinations = [],
+  kit,
+  previewPlan,
   onFinish,
 }: OnboardingProps) {
   const [d, setD] = useState<OnboardingDraft>(() => ({ ...emptyDraft(Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'), ...initial }));
@@ -159,6 +177,8 @@ export function Onboarding({
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string>();
   const savingRef = useRef(false);
+  const [kitConfirmed, setKitConfirmed] = useState(kit?.state === 'confirmed');
+  const [kitSkipped, setKitSkipped] = useState(false);
   const [kitDownloaded, setKitDownloaded] = useState(!!initial?.backup?.kitSaved);
   const [cat, setCat] = useState<CategorySlug | 'all'>('all');
   const heading = useRef<HTMLHeadingElement>(null);
@@ -169,7 +189,9 @@ export function Onboarding({
 
   const s = ONBOARDING_STEPS[step]!;
   // The connected settings flow cannot issue a kit; it never fabricates kitSaved.
-  const issues = onSaveSettings && s.id === 'backups' ? [] : stepIssues(s.id, d);
+  const issues = onSaveSettings && s.id === 'backups'
+    ? (kit && !kitConfirmed && !kitSkipped ? ['Create and confirm your emergency kit first. Without it nobody can recover this box.'] : [])
+    : stepIssues(s.id, d);
   const reach = onSaveSettings ? Math.min(step, 4) : furthestReachable(d);
   const set = (patch: Partial<OnboardingDraft>) => setD((x) => ({ ...x, ...patch }));
 
@@ -482,6 +504,7 @@ export function Onboarding({
                 <ShellIcon name="alert" size={16} /> Until you choose, a disk failure loses your data. Home will remind you.
               </p>
             )}
+            {onSaveSettings && kit && <RecoveryKit kit={kit} onConfirmed={() => setKitConfirmed(true)} onSkip={() => setKitSkipped(true)} />}
             {!onSaveSettings && <section className="oms-kit" aria-labelledby={`${ids.kit}-t`}>
               <div className="oms-kit-art" aria-hidden="true">
                 <ShellIcon name="key" size={30} />
@@ -560,12 +583,14 @@ export function Onboarding({
               <div>
                 <dt>Backups</dt>
                 <dd>
-                  {onSaveSettings ? `${d.backup.destinationId ? 'Existing destination selected' : 'Intention saved'}; this does not enable backups or issue a recovery kit.` : <>{d.backup.destination === 'later' ? <StatusPill tone="warn" label="Not set up" /> : DESTS.find((x) => x.id === d.backup.destination)!.title} · emergency kit saved</>}
+                  {onSaveSettings ? `${d.backup.destinationId ? 'Existing destination selected' : 'Intention saved'}; ${kitConfirmed ? 'emergency kit confirmed.' : kitSkipped ? 'emergency kit skipped for now; create it from Backups.' : 'this does not enable backups or issue a recovery kit.'}` : <>{d.backup.destination === 'later' ? <StatusPill tone="warn" label="Not set up" /> : DESTS.find((x) => x.id === d.backup.destination)!.title} · emergency kit saved</>}
                 </dd>
               </div>
               <div>
                 <dt>Starter apps</dt>
-                <dd>{reqs.length === 0 ? 'None. Browse the Market from Home.' : `${reqs.length} install ${reqs.length === 1 ? 'request' : 'requests'} will wait for you on Home`}</dd>
+                <dd>{reqs.length === 0 ? 'None. Browse the Market from Home.' : `${reqs.length} install ${reqs.length === 1 ? 'request' : 'requests'} will wait for you on Home`}
+                  {previewPlan && reqs.map((r) => <PlanLine key={r.params.app_id} appId={r.params.app_id} name={apps.find((a) => a.id === r.params.app_id)?.name ?? r.params.app_id} previewPlan={previewPlan} />)}
+                </dd>
               </div>
             </dl>
             <details className="oms-twin">

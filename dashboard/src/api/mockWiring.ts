@@ -8,6 +8,8 @@ import type * as W from './wiring';
 
 const DEMO_PASSWORD = 'demo-password';
 export const MOCK_SETUP_TOKEN = 'setup-demo';
+/** Demo only: set when the demo setup flow created the owner, so the demo wizard opens once. */
+export const MOCK_FRESH_KEY = 'onemind.mock.fresh';
 export const MOCK_ENROL_CODE = 'enrol-demo';
 const PERSONS: Record<string, { token: string; principal: W.PrincipalInfo }> = {
   owner: { token: 'owner-demo', principal: { id: 'owner', kind: 'person', role: 'owner', display_name: 'Owner', username: 'owner' } },
@@ -75,6 +77,7 @@ export abstract class MockWiringBase implements W.WiringApi {
     if (this.setupDone) throw new ApiError(409, 'conflict', 'this box already has accounts; sign in instead', 'already_set_up');
     if (b.password.length < 12) throw new ApiError(422, 'conflict', 'password must be at least 12 characters');
     this.setupDone = true;
+    try { window.sessionStorage.setItem(MOCK_FRESH_KEY, '1'); } catch { /* the demo wizard is then skipped */ }
     return this.result('owner');
   }
   async enrol(b: { code: string; username?: string; password: string }) {
@@ -87,7 +90,8 @@ export abstract class MockWiringBase implements W.WiringApi {
     const p = this.auth();
     const caps = p.role === 'owner' ? ['can_approve', 'can_request', 'can_manage_users', 'can_share_apps', 'can_create_tokens'] : p.kind === 'agent' ? ['can_request'] : ['can_create_tokens'];
     return {
-      principal: { id: p.id, kind: p.kind, role: p.role },
+      // A person carries the display name and username a real gateway adds (Home greets by it).
+      principal: PERSONS[p.id]?.principal ?? { id: p.id, kind: p.kind, role: p.role },
       token: { id: 'tok_mock', scopes: ['*'], expires_at: null, source: 'file' },
       session: null,
       passkeys: this.passkeyRows.length,

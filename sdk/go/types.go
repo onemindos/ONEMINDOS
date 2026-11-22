@@ -18,6 +18,9 @@ type (
 	AuditRecord  = gen.AuditRecord
 	AuditVerify  = gen.AuditVerify
 	AuditHead    = gen.AuditHead
+	StatusView   = gen.StatusView
+	SourceStatus = gen.SourceStatus
+	Usage        = gen.Usage
 )
 
 // Action types the gateway accepts today (contract §3; §12.5 adds more).

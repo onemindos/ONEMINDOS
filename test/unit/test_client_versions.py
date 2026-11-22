@@ -74,8 +74,8 @@ class Stamping(unittest.TestCase):
 
     def test_identifiers_untouched(self):
         run("--root", self.t.name, "--version", "3.0.0")
-        self.assertIn('"bundleIdentifier": "os.onemind.mobile"', open(os.path.join(self.t.name, "mobile/app.json")).read())
-        self.assertIn('"identifier": "io.onemind.desktop"', open(os.path.join(self.t.name, "desktop/src-tauri/tauri.conf.json")).read())
+        self.assertIn('"bundleIdentifier": "com.onemindos.mobile"', open(os.path.join(self.t.name, "mobile/app.json")).read())
+        self.assertIn('"identifier": "com.onemindos.desktop"', open(os.path.join(self.t.name, "desktop/src-tauri/tauri.conf.json")).read())
 
     def test_bad_versions_refused(self):
         for v in ("", "1.2", "v1.2.3", "300.0.0", "1.100.0"):

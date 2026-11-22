@@ -203,7 +203,7 @@ export function Tabs({ tabs, label, initial, onChange }: { tabs: TabDef[]; label
 export function RequestDetails({ api, cli, proposed }: { api: string; cli: string; proposed: boolean }) {
   return (
     <details className="om-details">
-      <summary>Exact request and API equivalent</summary>
+      <summary>Technical details</summary>
       <pre className="om-code">{api}</pre>
       <p className="om-hint">
         CLI (planned): <code>{cli}</code>

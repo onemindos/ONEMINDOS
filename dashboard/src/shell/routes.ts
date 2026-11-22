@@ -22,7 +22,8 @@ export const href = {
   backups: '/backups',
   automation: '/automation',
   updates: '/updates',
-  coming: '/coming',
+  fileSharing: '/file-sharing',
+  usage: '/usage',
   controlHub: '/control-hub',
   agents: '/agents',
   settings: '/settings',
@@ -68,6 +69,10 @@ export function toRoute(link: string): string | undefined {
       return href.automation;
     case 'updates':
       return href.updates;
+    case 'file-sharing':
+      return href.fileSharing;
+    case 'usage':
+      return href.usage;
     case 'storage':
       return href.storage;
     case 'settings':

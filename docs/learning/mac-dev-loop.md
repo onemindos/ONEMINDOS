@@ -21,8 +21,17 @@ make lint
 python3 scripts/changes.py check
 python3 scripts/hygiene.py
 gitleaks detect --no-banner
+make -C sdk gen-code
 go test ./...
 ```
+
+`make -C sdk gen-code` writes the SDK code that is generated from the committed
+OpenAPI spec and is **not committed** (CI-16): the Go types the `onemind` CLI
+imports, the TypeScript schema the dashboard typechecks against, and the Python
+models. A fresh clone has none of them, so run it once before `go test ./...`
+or a dashboard build, and again after you pull an API change. It needs Go, Node
+and `uv`. After changing the API in `core/`, run `make -C sdk gen` instead: it
+also re-exports the spec, which is the one file you commit.
 
 A **virtual environment** keeps Python packages in one project directory, not in
 macOS's Python. `work/` is already ignored by Git. Activation makes `make test`'s

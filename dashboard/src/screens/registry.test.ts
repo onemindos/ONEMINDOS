@@ -7,7 +7,7 @@ const ok: ScreenDef = { id: 'a', path: '/a', title: 'A', icon: 'home', section: 
 
 describe('screen registry', () => {
   it('every screen file on disk is sound: required fields, one id and one path each', () => {
-    expect(Object.keys(SCREEN_FILES).length).toBeGreaterThanOrEqual(16);
+    expect(Object.keys(SCREEN_FILES).length).toBeGreaterThanOrEqual(15);
     expect(screenProblems(SCREEN_FILES)).toEqual([]);
   });
 
@@ -24,27 +24,39 @@ describe('screen registry', () => {
     expect(screenProblems({ './zzz/screen.ts': ok })).toEqual(['./zzz/screen.ts: id "a" must match the folder name']);
   });
 
+  it('a hidden screen is routed and windowed but never offered in the sidebar or Launchpad', () => {
+    const app = SCREENS.find((s) => s.id === 'app');
+    expect(app).toMatchObject({ path: '/apps/:appId', hidden: true });
+    expect(navItems(0).some((n) => n.id === 'app')).toBe(false);
+    expect(navIdFor('/apps/uptime-kuma')).toBe('app');
+  });
+
   it('keeps the nav order, groups, Pro set and dock the shell had before the registry', () => {
     expect(navItems(2).map((n) => [n.id, n.href, n.group ?? 'primary'])).toEqual([
       ['home', '/', 'primary'],
       ['market', '/market', 'primary'],
       ['approvals', '/approvals', 'primary'],
       ['activity', '/activity', 'primary'],
+      ['files', '/files', 'Your box'],
       ['installed', '/installed', 'Your box'],
       ['nodes', '/nodes', 'Your box'],
+      ['add-machine', '/add-machine', 'Your box'],
       ['machines', '/machines', 'Your box'],
+      ['photos', '/photos', 'Your box'],
       ['alerts', '/alerts', 'Your box'],
+      ['usage', '/usage', 'Your box'],
       ['storage', '/storage', 'Your box'],
       ['backups', '/backups', 'Your box'],
+      ['file-sharing', '/file-sharing', 'Your box'],
       ['automation', '/automation', 'Your box'],
       ['updates', '/updates', 'Your box'],
       ['settings', '/settings', 'Your box'],
-      ['coming', '/coming', 'Your box'],
+      ['migrate', '/migrate', 'System'],
       ['control-hub', '/control-hub', 'System'],
       ['agents', '/agents', 'System'],
     ]);
     expect(navItems(2).find((n) => n.id === 'approvals')).toMatchObject({ badge: 2, badgeLabel: '2 waiting' });
-    expect([...PRO_SCREEN_IDS].sort()).toEqual(['agents', 'automation', 'backups', 'control-hub', 'nodes', 'storage', 'updates']);
+    expect([...PRO_SCREEN_IDS].sort()).toEqual(['add-machine', 'agents', 'automation', 'backups', 'control-hub', 'file-sharing', 'machines', 'migrate', 'nodes', 'photos', 'storage', 'updates', 'usage']);
     expect(DOCK_ORDER).toEqual(['home', 'market', 'installed', 'approvals', 'activity', 'settings']);
     expect(SCREENS.every((s) => s.title.length > 0)).toBe(true);
   });

@@ -222,6 +222,7 @@ class Hub(Box):
         self.assertNotIn(toks[0], tokens)
         import hashlib
         self.assertIn("sha256:" + hashlib.sha256(toks[0].encode()).hexdigest(), tokens)
+        self.assertIn("retire_on_setup: true", tokens)   # the gateway retires it once an owner exists
         self.assertTrue(os.path.exists(self.p.esp_conf + ".applied"))
         self.assertEqual((st["box"], st["mesh"]), ("home-box", 1))
         self.assertEqual(st["node_id"], self.etc("node-id").strip())
@@ -313,6 +314,48 @@ class Hub(Box):
                      "ONEMIND_MESH_CONTROL_URL=https://control.onemind.internal:8444",
                      f"ONEMIND_MESH_HEADSCALE_KEY_FILE={self.p.hs_key}", f"ONEMIND_MESH_HUB_IP={MESH_IP}"):
             self.assertIn(line + "\n", with_mesh)
+
+    def test_backup_is_wired_on_a_new_hub(self):
+        st = self.first_boot()
+        self.assertEqual(self.mode(self.p.job_key), 0o600)
+        pub = os.path.join(self.p.backup, "job.pub")
+        self.assertEqual(self.read(pub), self.read(os.path.join(self.p.custodian, "job.pub")))
+        conf = json.load(open(self.p.backup_conf))
+        self.assertEqual(conf, fb.backup_agent_conf(self.p, st["node_id"]))
+        self.assertEqual(conf["targets"], [])               # the owner adds and approves a destination
+        self.assertIn(f"ONEMIND_BACKUP_CONF={self.p.backup_conf}\n", self.etc("onemindd.env"))
+        gw = self.etc("gateway.env")
+        self.assertIn("ONEMIND_BACKUPS_ENABLED=1\n", gw)
+        self.assertIn(f"ONEMIND_BACKUPS_JOB_KEY_FILE={self.p.job_key}\n", gw)
+        self.assertIn("ONEMIND_BACKUPS_ENABLED=1\n", fb.gateway_env(self.p, st, MESH_IP))   # `mesh` rewrites the file
+
+    def test_backup_catches_up_on_a_hub_set_up_before_it_and_keeps_its_key(self):
+        st = self.first_boot()
+        key = self.read(self.p.job_key)
+        os.unlink(self.p.backup_conf)
+        for name, marker in (("onemindd.env", "ONEMIND_BACKUP_CONF"), ("gateway.env", "ONEMIND_BACKUPS")):
+            text = "".join(l for l in self.etc(name).splitlines(True) if marker not in l and "Backups" not in l)
+            open(os.path.join(self.p.etc, name), "w").write(text)
+        fb.apply(self.p)                                    # a reboot of the old box
+        self.assertTrue(os.path.exists(self.p.backup_conf))
+        self.assertEqual(self.read(self.p.job_key), key)    # never a new key: old jobs stay valid
+        self.assertIn("ONEMIND_BACKUP_CONF=", self.etc("onemindd.env"))
+        self.assertEqual(self.etc("gateway.env").count("ONEMIND_BACKUPS_ENABLED=1"), 1)
+        fb.apply(self.p)
+        self.assertEqual(self.etc("gateway.env").count("ONEMIND_BACKUPS_ENABLED=1"), 1)
+        self.assertEqual(json.load(open(self.p.backup_conf))["node_id"], st["node_id"])
+
+    def test_a_failed_job_key_leaves_backups_off_but_the_box_boots(self):
+        with mock.patch("onemind_core.backups.jobs.load_or_create_job_key", side_effect=OSError("disk full")):
+            st = self.first_boot()
+        self.assertEqual(st["role"], "hub")
+        self.assertNotIn("ONEMIND_BACKUPS_ENABLED", self.etc("gateway.env"))
+        self.assertFalse(os.path.exists(self.p.backup_conf))
+        self.assertIn("backups not set up: disk full", self.out.getvalue())
+
+    def test_workers_get_no_backup_files(self):
+        fb.ensure_backup(self.p, {"role": "worker", "node_id": "abc"})
+        self.assertFalse(os.path.exists(self.p.backup))
 
     def test_old_box_keeps_its_units_and_gets_a_note(self):
         os.makedirs(os.path.dirname(self.p.state))

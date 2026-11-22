@@ -5,10 +5,15 @@ systemd systemd-sysv systemd-resolved udev dbus login passwd
 kmod iproute2 iptables nftables procps util-linux mount e2fsprogs dosfstools
 # sfdisk (data_extend.py) is in its own package on Debian 13, not in util-linux
 fdisk
+# backups: online copies of the gateway and k3s SQLite databases (internal/backup, IMG-BACKUP-01)
+sqlite3
 ca-certificates curl socat zstd squashfs-tools
 apparmor
 # OneMind layer: onemind.local over mDNS; openssl for the per-box CA at first boot (docs/leap/core/IMAGES.md)
 avahi-daemon avahi-utils openssl
+# File sharing (D-017): Samba with the vfs_fruit module for Time Machine, and the NSS module that lets Samba name its
+# per-person accounts from /data (the root is read-only). The Debian smbd, nmbd and winbind units are masked below.
+samba samba-vfs-modules libnss-extrausers
 initramfs-tools
 # Boot splash (brand/generated/os/plymouth): graphical console only, the serial console is untouched
 plymouth plymouth-label fontconfig fonts-dejavu-core

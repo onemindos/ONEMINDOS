@@ -37,6 +37,7 @@ from sec_world import DESCRIBE, KINDS, MINTABLE, PENDING_KINDS, World, route_met
 # (method, path) of routes that answer without a bearer token, and why.
 PUBLIC = {
     ("GET", "/healthz"),                       # liveness probe for the health gate
+    ("GET", "/v1/instance/name"),              # the box name alone, so the sign-in page can show it
     ("GET", "/openapi.json"),                  # the contract; reveals the version only
     ("POST", "/v1/auth/setup"),                # first owner; needs the install token in the body
     ("POST", "/v1/auth/login/options"),        # WebAuthn challenge; bounded (MAX_OPEN_LOGIN_CHALLENGES)

@@ -29,7 +29,9 @@ UNTRUSTED_TRIGGERS = {"pull_request_target", "workflow_run", "issue_comment"}
 DO_JOBS = {("ci.yml", "lint"), ("ci.yml", "unit"), ("hygiene.yml", "hygiene"), ("ci-core.yml", "test")}
 TRUST = ("(github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)")
 MAC = f"(vars.LOCAL_RUNNER == 'on' && {TRUST}) && fromJSON('[\"self-hosted\",\"onemind-local\"]') || 'ubuntu-24.04'"
-WANT = f"${{{{ (vars.DO_RUNNER == 'on' && {TRUST}) && fromJSON('[\"self-hosted\",\"onemind-do\"]') || {MAC} }}}}"
+# The merge-queue pool (MQ_RUNNER) is the first branch, only for merge_group; the DO pool follows it.
+MQ = "(vars.MQ_RUNNER == 'on' && github.event_name == 'merge_group') && fromJSON('[\"self-hosted\",\"onemind-mq\"]') || "
+WANT = f"${{{{ {MQ}(vars.DO_RUNNER == 'on' && {TRUST}) && fromJSON('[\"self-hosted\",\"onemind-do\"]') || {MAC} }}}}"
 NEEDS_HOSTED = re.compile(
     r"/dev/kvm|\bkvm\b|qemu-system|setup-qemu-action|setup-buildx-action|docker[ /]|docker\b\s+compose|"
     r"ANDROID_HOME|xcodebuild|make image|make battery|battery\.yml|\bk3d\b", re.I)

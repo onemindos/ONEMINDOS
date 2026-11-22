@@ -12,22 +12,26 @@ import json
 import re
 from datetime import datetime
 from typing import Literal
+from urllib.parse import urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import JSON, DateTime, String
 from sqlalchemy.orm import Mapped, mapped_column
 
+from .jsonbody import JsonBody
 from .ledger import Base
 from .store import FeatureSchema, SqlRepository
 
 SCHEMA = FeatureSchema("home")
 
 # Typed item ids (desktop-ui.md §4.2). Shortcuts and automations are a later step and not accepted yet.
-ITEM_ID = re.compile(r"^(sys:[a-z][a-z0-9-]{0,39}|app:[a-z0-9][a-z0-9-]{0,62}|node:[A-Za-z0-9._-]{1,64})$")
+ITEM_ID = re.compile(r"^(sys:[a-z][a-z0-9-]{0,39}|app:[a-z0-9][a-z0-9-]{0,62}|node:[A-Za-z0-9._-]{1,64}|link:[a-z0-9][a-z0-9-]{0,39})$")
 SLUG = re.compile(r"^[a-z][a-z0-9-]{0,39}$")
 MAX_DOCK = 8
 MAX_WIDGETS = 6
 MAX_LIST = 200
+MAX_LINKS = 50
+MAX_URL = 2048
 APPROVALS = "sys:approvals"
 
 
@@ -35,13 +39,47 @@ def _items(values: list[str]) -> list[str]:
     seen: list[str] = []
     for v in values:
         if not ITEM_ID.match(v):
-            raise ValueError(f"{v!r} is not a valid item id (sys:<screen>, app:<id> or node:<id>)")
+            raise ValueError(f"{v!r} is not a valid item id (sys:<screen>, app:<id>, node:<id> or link:<id>)")
         if v not in seen:
             seen.append(v)
     return seen
 
 
-class Appearance(BaseModel):
+class Link(BaseModel):
+    """FD-02: a personal web link. Shown on Home, the dock and Launchpad as `link:<id>`; it opens a page, never runs anything."""
+    model_config = ConfigDict(extra="forbid")
+    id: str = Field(pattern=r"^[a-z0-9][a-z0-9-]{0,39}$")
+    name: str = Field(min_length=1, max_length=60)
+    url: str = Field(max_length=MAX_URL)
+    icon: str | None = Field(default=None, pattern=r"^[a-z0-9][a-z0-9-]{0,39}$")
+
+    @field_validator("name")
+    @classmethod
+    def plain_name(cls, v: str) -> str:
+        v = v.strip()
+        if not v or any(ord(c) < 32 or ord(c) == 127 for c in v):
+            raise ValueError("a link needs a plain name")
+        return v
+
+    @field_validator("url")
+    @classmethod
+    def https_only(cls, v: str) -> str:
+        if any(c.isspace() or ord(c) < 32 or ord(c) == 127 or c == "\\" for c in v):
+            raise ValueError("the link address must not contain spaces, control characters or backslashes")
+        try:
+            parts = urlsplit(v)
+            host = parts.hostname
+            parts.port  # raises ValueError for a bad port
+        except ValueError as e:
+            raise ValueError("not a valid web address") from e
+        if parts.scheme != "https" or not host:
+            raise ValueError("only https:// links are accepted")
+        if parts.username is not None or parts.password is not None:
+            raise ValueError("a link must not carry a user name or password")
+        return v
+
+
+class Appearance(JsonBody):
     model_config = ConfigDict(extra="forbid")
     theme: Literal["system", "light", "dark"] = "system"
     wallpaper: str = Field(default="om-dusk-01", pattern=SLUG.pattern.replace("{0,39}", "{0,63}"))
@@ -95,6 +133,7 @@ class HomeBody(BaseModel):
     dock: list[str] = Field(default_factory=list, max_length=MAX_DOCK)
     grid: Grid = Field(default_factory=Grid)
     widgets: list[Widget] = Field(default_factory=list, max_length=MAX_WIDGETS)
+    links: list[Link] = Field(default_factory=list, max_length=MAX_LINKS)
     seen: Seen = Field(default_factory=Seen)
     updated_at: str | None = None
 
@@ -102,6 +141,14 @@ class HomeBody(BaseModel):
     @classmethod
     def typed(cls, v: list[str]) -> list[str]:
         return _items(v)
+
+    @field_validator("links")
+    @classmethod
+    def unique_links(cls, v: list[Link]) -> list[Link]:
+        ids = [x.id for x in v]
+        if len(set(ids)) != len(ids):
+            raise ValueError("link ids must be unique")
+        return v
 
 
 class HomeView(HomeBody):
@@ -144,6 +191,10 @@ def drop_invisible(doc: dict, visible) -> dict:
                  "hidden": [d for d in doc["grid"]["hidden"] if visible(d)]},
         "widgets": [w for w in doc["widgets"] if visible(w["id"])],
     }
+
+
+def link_ids(doc: dict) -> set[str]:
+    return {f"link:{x['id']}" for x in doc.get("links", [])}
 
 
 class HomeService(SqlRepository):

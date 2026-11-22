@@ -2,13 +2,8 @@
 # Reviewed false positives for scripts/hygiene.py: <path glob> TAB <regex the whole hit must match> TAB <id in handbook/hygiene.md>
 *	(serial-)?getty@tty[A-Za-z0-9]+\.service	FP-3
 *	git@github\.com	FP-5
-os/boards/vm-do/*	/home/onemind	B-FP-1
-test/qemu/*	/home/onemind	B-FP-1
-lab-kits/*	/home/onemind	B-FP-1
-handbook/*	/home/onemind	B-FP-1
 *	noreply@anthropic\.com	B-FP-2
 scripts/hygiene.py	/home/[a-z]	B-FP-3
-scripts/hygiene-allow.tsv	/home/onemind	B-FP-1
 scripts/hygiene-selftest.sh	t@t\.invalid	B-FP-4
 scripts/hygiene.py	rpi-otp-private-key|odmfuse	B-FP-3
 scripts/hygiene-allow.tsv	rpi-otp-private-key|odmfuse	B-FP-3
@@ -30,13 +25,11 @@ docs/*	/home/(layout|types|fixtures|shoot\.mjs|edit|offline|loading|errors|fresh
 research-output/evidence/lab/fb3-mesh-nat/*	(100\.64\.[0-9]+\.[0-9]+|10\.4[23]\.[0-9]+\.[0-9]+|/home/runner)	B-FP-9
 cmd/onemind/cli/mesh*	100\.64\.[0-9]+\.[0-9]+	B-FP-9
 core/onemind_core/ca.py	100\.64\.[0-9]+\.[0-9]+	B-FP-9
-core/onemind_core/mesh.py	100\.64\.[0-9]+\.[0-9]+	B-FP-9
 core/tests/*	100\.64\.[0-9]+\.[0-9]+	B-FP-9
 internal/mesh/*	(100\.64\.[0-9]+\.[0-9]+|p@control\.onemind\.internal)	B-FP-9
 internal/leaf/*	100\.64\.[0-9]+\.[0-9]+	B-FP-9
 internal/rescue/*	100\.64\.[0-9]+\.[0-9]+	B-FP-9
 docs/architecture/NETWORKING.md	100\.64\.[0-9]+\.[0-9]+	B-FP-9
-docs/leap/core/NETWORKING.md	100\.64\.[0-9]+\.[0-9]+	B-FP-9
 os/rootfs/layers/onemind/usr/lib/onemind/onemind_firstboot.py	100\.64\.[0-9]+\.[0-9]+	B-FP-9
 test/qemu/CRITERIA-FIRSTBOOT.md	100\.64\.[0-9]+\.[0-9]+	B-FP-9
 test/qemu/firstboot.py	100\.64\.[0-9]+\.[0-9]+	B-FP-9
@@ -77,3 +70,7 @@ test/net/*	172\.31\.250\.[0-9]+(/24)?	B-FP-13
 # B-FP-15: CI-15 DigitalOcean runner kit (scripts/ci-runner-do/): the container firewall blocks whole ranges by their network address (RFC 1918, RFC 6598 CGNAT), the ranges being denied and not any real network; /home/runner is the job container's own user home, not a host path.
 scripts/ci-runner-do/*	(10\.0\.0\.0|172\.16\.0\.0|192\.168\.0\.0|100\.64\.0\.0|/home/runner)	B-FP-15
 test/unit/test_do_runner_policy.py	(10\.0\.0\.0|172\.16\.0\.0|192\.168\.0\.0|100\.64\.0\.0)	B-FP-15
+# B-FP-14: the SMB allow list (internal/smb, onemind-smb.service) names the standard private, CGNAT and mesh ranges, like netpath.py; not a real network. The test share paths below the Files root are fixtures.
+internal/smb/*	(10\.0\.0\.0|172\.16\.0\.0|192\.168\.0\.0|100\.64\.0\.0)	B-FP-14
+os/rootfs/layers/onemind/usr/lib/systemd/system/onemind-smb.service	(10\.0\.0\.0|172\.16\.0\.0|192\.168\.0\.0|100\.64\.0\.0)	B-FP-14
+internal/smb/smb_test.go	[/]home[/]al.x	B-FP-14

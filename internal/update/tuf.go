@@ -10,13 +10,16 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/theupdateframework/go-tuf/v2/metadata"
 	"github.com/theupdateframework/go-tuf/v2/metadata/config"
 	"github.com/theupdateframework/go-tuf/v2/metadata/fetcher"
+	"github.com/theupdateframework/go-tuf/v2/metadata/trustedmetadata"
 	"github.com/theupdateframework/go-tuf/v2/metadata/updater"
 )
 
@@ -58,19 +61,27 @@ func fetchIndex(c *Config, hc *http.Client, refTime time.Time) (*Index, error) {
 	if err != nil {
 		return nil, fmt.Errorf("trusted root: %w", err)
 	}
-	ucfg, err := config.New(c.URL, root)
+	// Root rotation must stick (TUF spec 5.3): the root we trust is the newest
+	// one we verified before, so a key a later root revoked stays revoked even
+	// if a mirror answers 404 for N+1.root.json. To keep a planted file in
+	// /data from becoming the anchor, the saved chain is re-verified link by
+	// link from the image's root on every run (verifiedRootChain).
+	anchor, err := verifiedRootChain(c, root)
+	if err != nil {
+		return nil, err
+	}
+	ucfg, err := config.New(c.URL, anchor)
 	if err != nil {
 		return nil, err
 	}
 	// The cache keeps the last trusted timestamp/snapshot/targets, which is
-	// what gives rollback protection across checks. We always start from the
-	// image's root and let the client walk N.root.json rotations, so a planted
-	// root.json in /data cannot become the trust anchor.
+	// what gives rollback protection across checks.
 	ucfg.LocalMetadataDir = filepath.Join(c.StateDir, "tuf", c.Channel)
 	ucfg.LocalTargetsDir = filepath.Join(c.StateDir, "tuf", c.Channel, "targets-unused")
 	f := fetcher.NewDefaultFetcher() // one try per request; the daemon retries next cycle
 	f.SetHTTPClient(hc)
-	ucfg.Fetcher = f
+	rec := &rootRecorder{Fetcher: f}
+	ucfg.Fetcher = rec
 	up, err := updater.New(ucfg)
 	if err != nil {
 		return nil, err
@@ -78,10 +89,16 @@ func fetchIndex(c *Config, hc *http.Client, refTime time.Time) (*Index, error) {
 	if !refTime.IsZero() {
 		up.UnsafeSetRefTime(refTime)
 	}
-	if err := up.Refresh(); err != nil {
-		return nil, fmt.Errorf("tuf refresh: %w", err)
-	}
+	refreshErr := up.Refresh()
 	tm := up.GetTrustedMetadataSet()
+	// Keep every root the client verified, even if a later step failed: a
+	// rotation the box accepted is never forgotten.
+	if err := saveRoots(c, rec, tm.Root.Signed.Version); err != nil {
+		return nil, fmt.Errorf("save rotated root: %w", err)
+	}
+	if refreshErr != nil {
+		return nil, fmt.Errorf("tuf refresh: %w", refreshErr)
+	}
 	idx := &Index{ConsistentSnapshot: tm.Root.Signed.ConsistentSnapshot}
 	if t := tm.Targets[metadata.TARGETS]; t != nil {
 		idx.TargetsExpires = t.Signed.Expires
@@ -100,6 +117,80 @@ func fetchIndex(c *Config, hc *http.Client, refTime time.Time) (*Index, error) {
 	}
 	sort.Slice(idx.Targets, func(i, j int) bool { return idx.Targets[i].Path < idx.Targets[j].Path })
 	return idx, nil
+}
+
+var rootFileRE = regexp.MustCompile(`^([0-9]+)\.root\.json$`)
+
+func rootsDir(c *Config) string { return filepath.Join(c.StateDir, "tuf", c.Channel, "roots") }
+
+// rootRecorder remembers the N.root.json files the client downloads.
+type rootRecorder struct {
+	fetcher.Fetcher
+	got map[int64][]byte
+}
+
+func (r *rootRecorder) DownloadFile(u string, max int64, to time.Duration) ([]byte, error) {
+	b, err := r.Fetcher.DownloadFile(u, max, to)
+	if err == nil {
+		if m := rootFileRE.FindStringSubmatch(path.Base(u)); m != nil {
+			if n, perr := strconv.ParseInt(m[1], 10, 64); perr == nil {
+				if r.got == nil {
+					r.got = map[int64][]byte{}
+				}
+				r.got[n] = b
+			}
+		}
+	}
+	return b, err
+}
+
+// saveRoots writes the recorded roots up to the version the client trusts
+// (never a root it did not accept) as <state>/tuf/<channel>/roots/N.root.json.
+func saveRoots(c *Config, rec *rootRecorder, upTo int64) error {
+	if len(rec.got) == 0 {
+		return nil
+	}
+	dir := rootsDir(c)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	for n, b := range rec.got {
+		if n > upTo {
+			continue
+		}
+		p := filepath.Join(dir, fmt.Sprintf("%d.root.json", n))
+		if err := os.WriteFile(p+".tmp", b, 0o644); err != nil {
+			return err
+		}
+		if err := os.Rename(p+".tmp", p); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// verifiedRootChain returns the newest root the box may trust: the image
+// root, advanced through the saved N+1.root.json, N+2.root.json, ... each
+// checked by the previous root's keys and its own (TUF spec 5.3.4 to 5.3.6).
+// A saved root that does not verify, or a gap, ends the chain there: the
+// files in /data are evidence, never an anchor.
+func verifiedRootChain(c *Config, imageRoot []byte) ([]byte, error) {
+	tm, err := trustedmetadata.New(imageRoot)
+	if err != nil {
+		return nil, fmt.Errorf("trusted root: %w", err)
+	}
+	anchor := imageRoot
+	for {
+		b, err := os.ReadFile(filepath.Join(rootsDir(c), fmt.Sprintf("%d.root.json", tm.Root.Signed.Version+1)))
+		if err != nil {
+			break
+		}
+		if _, err := tm.UpdateRoot(b); err != nil {
+			break
+		}
+		anchor = b
+	}
+	return anchor, nil
 }
 
 // Box is what this machine is and runs.

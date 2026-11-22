@@ -24,6 +24,14 @@ on:
       # SDKs have their own workflows and cannot change an app's gate result).
       - "sdk/tools/**"
       - "sdk/schema/**"
+      # validate-apps runs the gateway's own manifest check (PLAN-E6, #175).
+      - "core/onemind_core/catalog.py"
+      - "core/onemind_core/manifest_convert.py"
+      # ... and everything catalog.py imports at module load (its validation rules and import-time deps).
+      - "core/onemind_core/ai_policy.py"
+      - "core/onemind_core/scan.py"
+      - "core/onemind_core/appsecrets/__init__.py"
+      - "core/onemind_core/appsecrets/spec.py"
       - "research-output/evidence/license-matrix.csv"   # only the apps whose rows changed are gated
       - "renovate.json"
       - ".github/workflows/ci-apps.yml"
@@ -40,7 +48,8 @@ jobs:
     if: ${{ !github.event.pull_request.draft }}
     # CI-10 (#299): arm64-safe, no secrets. Local Mac runner when LOCAL_RUNNER=on and the event is trusted
     # (never a fork PR); otherwise GitHub-hosted. docs/learning/self-hosted-runner.md
-    runs-on: ${{ (vars.LOCAL_RUNNER == 'on' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","onemind-local"]') || 'ubuntu-24.04' }}
+    # merge_group only runs code already approved into the queue, so it is always trusted (no fork check); MQ_RUNNER unset keeps the old routing.
+    runs-on: ${{ (vars.MQ_RUNNER == 'on' && github.event_name == 'merge_group') && fromJSON('["self-hosted","onemind-mq"]') || (vars.LOCAL_RUNNER == 'on' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","onemind-local"]') || 'ubuntu-24.04' }}
     timeout-minutes: 15
     outputs:
       apps: ${{ steps.changed.outputs.apps }}
@@ -104,7 +113,7 @@ jobs:
           matrix=research-output/evidence/license-matrix.csv
           # A change to the gate itself (its tools, pinned tool installer, schema or this workflow) re-gates
           # every app; otherwise only the apps the PR touches (SDK changes that are not gate inputs gate none).
-          if grep -qE '^(sdk/tools/((app-gate|validate-apps|requirements\.txt|ci/install-tools\.sh)$|applib/)|sdk/schema/|\.github/workflows/ci-apps\.yml$)' <<<"$files"; then
+          if grep -qE '^(sdk/tools/((app-gate|validate-apps|requirements\.txt|ci/install-tools\.sh)$|applib/)|sdk/schema/|core/onemind_core/((catalog|manifest_convert|ai_policy|scan)\.py|appsecrets/(__init__|spec)\.py)$|\.github/workflows/ci-apps\.yml$)' <<<"$files"; then
             ids=$(all_apps)
           else
             ids=$(grep -oE '^apps/[^/_.][^/]*/' <<<"$files" | cut -d/ -f2 | sort -u || true)

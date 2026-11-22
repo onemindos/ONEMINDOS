@@ -28,9 +28,14 @@ export interface ScreenDef {
   pro?: boolean;
   /** A live count the shell fills in. Only 'approvals' exists: requests awaiting a decision. */
   badge?: 'approvals';
+  /**
+   * Routed and windowed but never offered as a tile (dock, Launchpad, sidebar): a page reached from another screen
+   * or a link (a path with a parameter has no nav entry), or one that only exists to say what is not built yet.
+   */
+  hidden?: boolean;
   load: ScreenLoader;
   /** More paths of the same screen (a detail page, a tab). Nav and window title stay this screen's. */
-  extra?: { path: string; load?: ScreenLoader }[];
+  extra?: { path: string; load?: ScreenLoader; /** Owner-only page: guarded by OwnerOnly (shell/ProOnly.tsx), titled with this text. */ owner?: string }[];
   /** Old paths that now live here; they replace-redirect to `to`. */
   redirects?: { from: string; to: string }[];
 }

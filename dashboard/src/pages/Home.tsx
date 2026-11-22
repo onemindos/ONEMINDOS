@@ -1,30 +1,45 @@
 // SPDX-License-Identifier: Apache-2.0
 // Home launcher (IA §2.1) on @onemind/ui HomeScreen, fed by /v1/nodes, /v1/apps and /v1/actions.
-// Widgets whose API is not on this hub yet (backups, updates, mesh) say which work stream brings
-// them instead of showing made-up numbers.
+// Backups, updates and mesh read /v1/backups/status, /v1/os/updates and /v1/mesh (data/homeExtras).
 import { useMemo, useState } from 'react';
-import { HomeScreen, useOptionalCustomize, useToast, type ActionSummary, type HomeData, type HomeLayout, type HomeLoadable } from '@onemind/ui';
+import { HomeScreen, StateView, useOptionalCustomize, useToast, type ActionSummary, type BackupStatus, type StorageStatus, type HomeData, type HomeLayout, type HomeLoadable } from '@onemind/ui';
+import { useHomeExtras } from '../data/homeExtras';
 import { homeActivity, toActionSummary, toHomeApp, toHomeNode } from '../data/adapters';
 import { errorText, useHub, type Hub } from '../data/hub';
+import { useHomeBackups } from '../data/homeBackups';
+import { useDisplayName } from '../data/homeMe';
+import { useHomeStorage } from '../data/homeStorage';
 import { homeLayoutStore } from '../data/prefs';
 import type { Polled } from '../lib/hooks';
 import { useSignedIn } from '../session';
 import { href } from '../shell/routes';
 import { showsNav } from '../shell/roles';
 import { useActivity, useShell } from '../shell/Shell';
+import { HomeHealth } from './HomeHealth';
+import { SimpleHome } from './SimpleHome';
 
-/** Home's first layout here: only widgets this hub can feed. The rest are in the widget gallery. */
-export const DASHBOARD_HOME_LAYOUT: HomeLayout = {
-  version: 1,
-  widgets: [
-    { id: 'w-approvals', kind: 'approvals', size: 'M' },
-    { id: 'w-system', kind: 'system', size: 'M' },
-    { id: 'w-activity', kind: 'activity', size: 'M' },
-  ],
-  pinned: [],
-};
-
-const coming = (what: string, stream: string): HomeLoadable<never> => ({ state: 'error', error: 'not_available', message: `${what} come with ${stream}; this hub does not serve them yet.` });
+/**
+ * Home's first layout: "Needs you" and System on top, then a trust tile, Storage and Backups for
+ * people who may read them (two small tiles and one medium one fill the second row).
+ * The raw activity log lives in the Activity window (and the widget gallery), not here.
+ */
+export function dashboardHomeLayout(pro: boolean): HomeLayout {
+  return {
+    version: 1,
+    widgets: [
+      { id: 'w-approvals', kind: 'approvals', size: 'M' },
+      { id: 'w-system', kind: 'system', size: 'M' },
+      ...(pro
+        ? [
+            { id: 'w-trust', kind: 'trust' as const, size: 'S' as const },
+            { id: 'w-storage', kind: 'storage' as const, size: 'S' as const },
+            { id: 'w-backups', kind: 'backups' as const, size: 'M' as const },
+          ]
+        : []),
+    ],
+    pinned: [],
+  };
+}
 
 function loadable<T, U>(p: Polled<T>, map: (d: T) => U): HomeLoadable<U> {
   if (p.data !== undefined) return { state: 'ready', data: map(p.data) };
@@ -32,32 +47,46 @@ function loadable<T, U>(p: Polled<T>, map: (d: T) => U): HomeLoadable<U> {
   return { state: 'loading' };
 }
 
-export function homeData(hub: Hub, activity: ReturnType<typeof homeActivity>): HomeData {
+export function homeData(hub: Hub, activity: ReturnType<typeof homeActivity>, extras: Pick<HomeData, 'updates' | 'mesh'>, backups: HomeLoadable<BackupStatus>, storage?: HomeLoadable<StorageStatus>): HomeData {
   return {
     hub: { observed_at: hub.asOf ?? new Date(0).toISOString() },
     nodes: loadable(hub.nodes, (ns) => ns.map((n) => toHomeNode(n, hub.nodeStatus(n)))),
     apps: loadable(hub.apps, (as) => as.map((a) => toHomeApp(a))),
-    approvals: hub.actions.data !== undefined ? { state: 'ready', data: hub.actionList.map(toActionSummary) } : loadable(hub.actions, () => [] as ActionSummary[]),
+    approvals: hub.actions.data !== undefined ? { state: 'ready', data: hub.actionList.map((a) => toActionSummary(a, hub.appName)) } : loadable(hub.actions, () => [] as ActionSummary[]),
     activity: hub.actions.data !== undefined ? { state: 'ready', data: activity } : loadable(hub.actions, () => activity),
-    backups: coming('Backups', 'CORE-BACKUP'),
-    updates: coming('OS and app updates', 'CORE-UPDATE'),
-    mesh: coming('Mesh links', 'CORE-FABRIC'),
+    backups,
+    storage,
+    updates: extras.updates,
+    mesh: extras.mesh,
     appWidgets: {},
     weather: null,
   };
 }
 
+/** Child and guest get the simple Home; the Pro one is for owners and adults. Fail closed while the role is unknown. */
 export function Home() {
+  const shell = useShell();
+  if (shell.view === 'simple') return <SimpleHome />;
+  if (shell.view === 'unknown') return <StateView state="loading" what="Checking your role" skeleton="list" />;
+  return <ProHome />;
+}
+
+function ProHome() {
   const hub = useHub();
-  const { principal, person } = useSignedIn();
+  const { person } = useSignedIn();
+  const personName = useDisplayName();
   const shell = useShell();
   const toast = useToast();
   const customize = useOptionalCustomize();
   const store = useMemo(() => homeLayoutStore(), []);
-  const [layout, setLayout] = useState<HomeLayout>(() => store.load(person) ?? DASHBOARD_HOME_LAYOUT);
-  const entries = useActivity();
-  const data = homeData(hub, homeActivity(entries));
   const pro = showsNav('nodes', shell.view);
+  const [layout, setLayout] = useState<HomeLayout>(() => store.load(person) ?? dashboardHomeLayout(pro));
+  const entries = useActivity();
+  const backups = useHomeBackups(pro);
+  const storage = useHomeStorage(pro);
+  const apps = useMemo(() => hub.apps.data?.map((a) => toHomeApp(a)), [hub.apps.data]);
+  const extras = useHomeExtras(apps, hub.asOf ?? new Date(0).toISOString());
+  const data = homeData(hub, homeActivity(entries), extras, backups.value, storage.value);
 
   const decide = (a: ActionSummary, how: 'approve' | 'deny') =>
     hub.decide(a.id, how).then(
@@ -69,11 +98,18 @@ export function Home() {
     );
 
   return (
+    <>
+    <HomeHealth pro={pro} />
     <HomeScreen
       data={data}
       now={hub.now}
       timeZone={Intl.DateTimeFormat().resolvedOptions().timeZone}
-      personName={principal?.kind === 'person' ? principal.id : undefined}
+      personName={personName}
+      onRetry={() => {
+        hub.reloadAll();
+        void backups.reload();
+        void storage.reload();
+      }}
       layout={layout}
       onLayoutChange={(next) => {
         setLayout(next);
@@ -91,13 +127,15 @@ export function Home() {
         // Nodes and Backups are Pro screens (roles.ts): a guest or child gets no link to them.
         nodes: pro ? href.nodes : '',
         activity: href.activity,
-        backups: pro ? href.setting('backups') : '',
-        updates: href.setting('updates'),
+        backups: pro ? href.backups : '',
+        updates: href.updates,
         mesh: pro ? href.nodes : '',
         apps: href.market,
+        storage: pro ? href.storage : '',
         app: (id) => (hub.apps.data?.find((a) => a.id === id)?.installed ? href.manage(id) : href.app(id)),
         approval: (id) => href.approval(id),
       }}
     />
+    </>
   );
 }

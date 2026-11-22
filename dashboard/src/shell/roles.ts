@@ -9,8 +9,11 @@ import { PRO_SCREEN_IDS } from '../screens/registry';
 /** core/onemind_core/auth.py ROLES: owner, adult, guest, child, teen, agent. */
 export const PRO_ROLES: ReadonlySet<string> = new Set(['owner', 'adult']);
 
-/** Nav ids of the Pro screens: every screen that declares `pro: true` in src/screens/<id>/screen.ts. */
-export const PRO_SCREENS: ReadonlySet<string> = PRO_SCREEN_IDS;
+/** Nav ids of the Pro screens: every screen that declares `pro: true` in src/screens/<id>/screen.ts, plus Alerts (hidden from the Simple nav, but its route stays open: an agent may ask to fix). */
+export const PRO_SCREENS: ReadonlySet<string> = new Set([...PRO_SCREEN_IDS, 'alerts']);
+
+/** Screens a guest or child is not offered at all: they cannot decide anything, so no Approvals. */
+export const SIMPLE_HIDDEN: ReadonlySet<string> = new Set(['approvals']);
 
 export type View = 'pro' | 'simple' | 'unknown';
 
@@ -28,6 +31,7 @@ export function roleOf(principal: Principal | undefined, me: Me | undefined): st
 
 /** Is this nav item shown to this view? Pro screens stay hidden until the role is known. */
 export function showsNav(id: string, view: View): boolean {
+  if (view === 'simple' && SIMPLE_HIDDEN.has(id)) return false;
   return !PRO_SCREENS.has(id) || view === 'pro';
 }
 

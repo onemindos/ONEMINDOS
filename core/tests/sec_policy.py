@@ -74,6 +74,7 @@ MCP_OTHER = cells(405, **GONE, child=403, plugin=NOT_2XX, automation=NOT_2XX, no
 POLICY: dict[tuple[str, str], Row] = {
     # ---- open (§3: only /healthz and /openapi.json; the dashboard shell is static) ------------------
     ("GET", "/healthz"): Row(OPEN, w.p_static("/healthz"), "§3 open health check"),
+    ("GET", "/v1/instance/name"): Row(OPEN, w.p_static("/v1/instance/name"), "the box name alone, so the sign-in page can show it"),
     ("GET", "/openapi.json"): Row(OPEN, w.p_static("/openapi.json"), "§3 OpenAPI is published"),
     ("HEAD", "/openapi.json"): Row(OPEN, w.p_static("/openapi.json"), "§3 OpenAPI is published"),
     ("GET", "/{full_path:path}"): Row(OPEN, w.p_static("/"), "§3 static dashboard with SPA fallback"),
@@ -245,6 +246,9 @@ POLICY |= {
     ("GET", "/v1/nodes/{node_id}/metrics"): Row(CHILD_CANNOT, w.p_node_metrics, "§12.15; a child has no monitoring:read"),
     ("GET", "/v1/monitoring/summary"): Row(CHILD_CANNOT, w.p_static("/v1/monitoring/summary"),
                                            "§12.15; a child has no monitoring:read"),
+    # UMB-P11 (#429): the heartbeat numbers /v1/nodes shows plus per-app usage; sharing filters the apps.
+    ("GET", "/v1/usage"): Row(CHILD_CANNOT, w.p_static("/v1/usage"),
+                              "UMB-P11 live usage: read-only, monitoring:read like app metrics (a child has none); unshared apps are left out"),
 }
 
 # ---- audit and events: feat/devsurface (contract §12.8, §12.16) -----------------------------------------
@@ -326,7 +330,17 @@ POLICY |= {
                                            "§12.5: agents never change the kill switch"),
     ("GET", "/v1/windows"): Row(READ_ANY, w.p_static("/v1/windows"), f"{_AUTOMATION}: any reader"),
     ("PUT", "/v1/windows/{window_id}"): Row(ONLY_OWNER, w.p_window_put, f"{_AUTOMATION}: only the owner edits windows"),
+    # ---- update policy for apps (NMD-07, #132: core/onemind_core/routers/updatepolicy.py) -------------------
+    ("GET", "/v1/update-policy"): Row(READ_ANY, w.p_static("/v1/update-policy"), "NMD-07: any reader sees the knobs"),
+    ("PUT", "/v1/update-policy"): Row(ONLY_OWNER, w.p_missing("/v1/update-policy", json={}),
+                                      "NMD-07: only the owner changes the update policy"),
+    ("GET", "/v1/update-policy/dry-run"): Row(READ_ANY, w.p_static("/v1/update-policy/dry-run"),
+                                              "NMD-07: any reader sees what would update; it files nothing"),
+    ("POST", "/v1/update-policy/resume"): Row(ONLY_OWNER, w.p_missing("/v1/update-policy/resume", json={"app_id": "whoami"}),
+                                              "NMD-07: only the owner lifts a back-off"),
     # ---- backups and restores (an agent may request, never approve; reads are household only) ---------------
+    ("GET", "/v1/status"): Row(HOUSEHOLD, w.p_static("/v1/status"),
+                               "FD-01: needs-attention view; owner, adult, agent read; guest and child 403"),
     ("GET", "/v1/backups/status"): Row(HOUSEHOLD, w.p_static("/v1/backups/status"), f"{_BACKUPS}: owner, adult, agent read"),
     ("GET", "/v1/backups/destinations"): Row(grid(200, 200, 403, 403, 403), w.p_static("/v1/backups/destinations"),
                                              f"{_BACKUPS}: destination labels are for owner and adult"),
@@ -356,11 +370,15 @@ POLICY |= {
     ("POST", "/v1/backups/kit/confirm"): Row(OWNER_ONLY_404, w.p_missing("/v1/backups/kit/confirm", json={"answers": {}}),
                                              f"{_BACKUPS}: the emergency kit is owner only"),
     # ---- first-run settings (contract 12.41) ----------------------------------------------------------------
+    ("GET", "/v1/onboarding/state"): Row(ONLY_OWNER, w.p_static("/v1/onboarding/state"), "contract 12.41: owner only, read-only wizard state"),
     ("GET", "/v1/onboarding/settings"): Row(ONLY_OWNER, w.p_static("/v1/onboarding/settings"), "contract 12.41: owner only, audited"),
     ("PUT", "/v1/onboarding/settings"): Row(ONLY_OWNER, w.p_missing("/v1/onboarding/settings", json={
         "box_name": "home-hub", "time_zone": "UTC", "backup_choice": "later"}), "contract 12.41: owner only, audited"),
     ("POST", "/v1/onboarding/restore/candidates"): Row(OFF_OWNER_ONLY, w.p_missing("/v1/onboarding/restore/candidates", json={
         "destination_id": "dst_0123456789abcdef"}), "UMB-P08: first-run restore listing is owner only (503: backups off in the matrix)"),
+    ("POST", "/v1/onboarding/restore/apps"): Row(OFF_OWNER_ONLY, w.p_missing("/v1/onboarding/restore/apps", json={
+        "destination_id": "dst_0123456789abcdef", "box_id": "old-box", "recovery_key": "K" * 40, "run_id": "run_old",
+        "app_id": "notes"}), "UMB-P08: restoring an app from another box's backup is owner only (503: backups off in the matrix)"),
     # ---- the person's own Home (UMB-P07, #144) --------------------------------------------------------------
     # Every person has one (child included); an agent has none. The write is probed without If-Match, so a
     # person who is let in gets 428: the route never reaches the store without a validator.
@@ -445,6 +463,8 @@ POLICY |= {
         "/v1/photos/sources/{source}/check", json={"items": []}), f"{_PHOTOS}: your own phone only"),
     ("GET", "/v1/photos/sources/{source_id}/coverage"): Row(PHOTOS_404, w.p_missing("/v1/photos/sources/{source}/coverage"), f"{_PHOTOS}: your own phone only"),
     ("GET", "/v1/photos/sources/{source_id}/receipts"): Row(PHOTOS_404, w.p_missing("/v1/photos/sources/{source}/receipts"), f"{_PHOTOS}: your own phone only"),
+    ("GET", "/v1/photos/library"): Row(grid(200, 200, 403, 403, 403), w.p_static("/v1/photos/library"), f"{_PHOTOS}: your own photos only"),
+    ("GET", "/v1/photos/assets/{asset_id}/content"): Row(PHOTOS_404, w.p_missing("/v1/photos/assets/{asset}/content"), f"{_PHOTOS}: your own photo only"),
     ("POST", "/v1/photos/uploads"): Row(PHOTOS_404, w.p_missing("/v1/photos/uploads", headers={
         "Upload-Length": "1", "Upload-Complete": "?0", "OneMind-Source-Id": w.MISSING["source"],
         "OneMind-Client-Key": "a" * 64, "OneMind-Content-Hash": "sha256:" + "b" * 64}), f"{_PHOTOS}: upload for your own phone only"),
@@ -570,6 +590,27 @@ POLICY |= {
         OWNER_ONLY_404, w.p_static("/v1/family/apps/missing"), "FAM-01: classifications are owner only"),
     ("PUT", "/v1/family/apps/{app_id}"): Row(
         OWNER_ONLY_404, w.p_missing("/v1/family/apps/missing", json={}), "FAM-01: owner manages classifications"),
+}
+
+# ---- agent kill switch (CORE-SEC-6, #159: core/onemind_core/routers/agents.py) ---------------------------------
+# The matrix world runs with the switch off; test_agent_kill_switch.py covers every kind with it on.
+_STOP = "core/onemind_core/routers/agents.py"
+POLICY |= {
+    ("GET", "/v1/agents/kill-switch"): Row(ANY_PRINCIPAL, w.p_static("/v1/agents/kill-switch"),
+                                           f"{_STOP}: any signed-in caller may see whether agents are stopped (instance:read)"),
+    ("PUT", "/v1/agents/kill-switch"): Row(ONLY_OWNER, w.p_missing("/v1/agents/kill-switch", json={"on": False}),
+                                           f"{_STOP}: only the owner stops or resumes agents; an agent can never turn it off"),
+}
+
+# ---- SMB shares (FILES-SHARE-01, #235: core/onemind_core/routers/shares.py) ---------------------------------
+_SHR = "core/onemind_core/routers/shares.py"
+POLICY |= {
+    ("GET", "/v1/shares/smb"): Row(grid(200, 200, 403, 403, 403), w.p_static("/v1/shares/smb"),
+                                   f"{_SHR}: owner sees all shares, an adult their own; a guest has no home, a child has no scope, an agent never"),
+    ("POST", "/v1/shares/smb/password"): Row(grid(409, 409, 403, 403, 403), w.p_missing("/v1/shares/smb/password"),
+                                             f"{_SHR}: a person with files gets their own SMB password (409: none has a share in this world); guest, child and agent never"),
+    ("POST", "/v1/shares/smb/{share_id}/stop"): Row(grid(404, 403, 403, 403, 403), w.p_missing("/v1/shares/smb/shr_0123456789abcdef/stop"),
+                                                 f"{_SHR}: only an owner stops a share; the one probed does not exist"),
 }
 
 # ---- OS updates (UMB-P05, #142: core/onemind_core/routers/osupdates.py) --------------------------------------

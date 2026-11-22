@@ -207,15 +207,25 @@ func (a *Agent) runJobKind(ctx context.Context, j Job) (any, error) {
 			AppID      string `json:"app_id"`
 			Stamp      string `json:"stamp"`
 			Strict     bool   `json:"strict_files"`
+			BoxID      string `json:"box_id"`
+			// RecoveryKey: restore from another box's backup (new hardware); app scope only.
+			RecoveryKey string `json:"recovery_key"`
 		}
 		if err := decodeParams(j.Params, &p); err != nil {
 			return nil, err
+		}
+		if p.BoxID != "" && !tagValueRe.MatchString(p.BoxID) {
+			return nil, badParams{fmt.Errorf("box_id must be tag-safe")}
+		}
+		if p.RecoveryKey != "" && (p.BoxID == "" || p.Scope != "app" || len(p.RecoveryKey) < 32 || strings.ContainsAny(p.RecoveryKey, "\r\n")) {
+			return nil, badParams{fmt.Errorf("recovery_key needs a box_id, scope app and at least 32 characters on one line")}
 		}
 		switch p.Scope {
 		case "path":
 			return a.RestorePath(ctx, RestoreRequest{TargetID: p.TargetID, SnapshotID: p.SnapshotID, Path: p.Path, ActionID: j.ActionID})
 		case "app":
-			return a.RestoreApp(ctx, AppRestoreRequest{TargetID: p.TargetID, SnapshotID: p.SnapshotID, AppID: p.AppID, Stamp: p.Stamp, StrictFiles: p.Strict})
+			return a.RestoreApp(ctx, AppRestoreRequest{TargetID: p.TargetID, SnapshotID: p.SnapshotID, AppID: p.AppID, Stamp: p.Stamp, StrictFiles: p.Strict,
+				BoxID: p.BoxID, RecoveryKey: p.RecoveryKey})
 		}
 		return nil, badParams{fmt.Errorf("scope must be path or app")}
 

@@ -21,8 +21,10 @@ import {
   type NavItem,
   type PaletteCommand,
 } from '@onemind/ui';
+import { isServerId, mergeNotifications, SERVER_PREFIX } from '../data/notificationFeed';
+import { useNotificationFeed } from '../data/useNotificationFeed';
 import { activityFrom, notificationsFrom, toActionSummary, toPaletteApp } from '../data/adapters';
-import { ActionJobs } from './ActionJobs';
+import { ActionJobs, jobsStackStyle } from './ActionJobs';
 import { useHub } from '../data/hub';
 import { useAppRequest } from './useAppRequest';
 import { homeLayoutStore, personList } from '../data/prefs';
@@ -34,6 +36,7 @@ import { navItems } from '../screens/registry';
 import { href, navId, toRoute } from './routes';
 import { meRetryDelay, roleOf, showsNav, viewFor, type View } from './roles';
 import { usePoll } from '../lib/hooks';
+import { useDisplayName } from '../data/homeMe';
 
 interface ShellApi {
   openPalette: () => void;
@@ -41,6 +44,8 @@ interface ShellApi {
   requestApp: ReturnType<typeof useAppRequest>['requestApp'];
   /** Simple or Pro, from the signed-in role (roles.ts); 'unknown' until GET /v1/me answers. */
   view: View;
+  /** The signed-in role ('child', 'guest', ...), null for an agent; undefined until known. */
+  role: string | null | undefined;
   /** Desktop (default) or Console, chosen per person (layoutMode.ts). */
   layout: LayoutMode;
 }
@@ -61,6 +66,7 @@ export function Shell({ children }: { children: ReactNode }) {
   const location = useLocation();
   const { requestApp, reviewDialog } = useAppRequest();
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [jobsShown, setJobsShown] = useState(false);
   const readStore = useMemo(() => personList(person, 'notifications.read'), [person]);
   const recentStore = useMemo(() => personList(person, 'palette.recent', 8), [person]);
   const [read, setRead] = useState(() => new Set(readStore.load()));
@@ -73,6 +79,7 @@ export function Shell({ children }: { children: ReactNode }) {
   // A real gateway session does not carry the role, so ask GET /v1/me once. If that fails the
   // view falls back to Simple (fail closed): the Pro screens are offered only to a known role.
   const me = usePoll(() => (principal ? Promise.resolve(null) : client.me()), 0);
+  const displayName = useDisplayName();
   const role = roleOf(principal, me.data ?? undefined);
   const view = viewFor(role === undefined && me.error ? null : role);
   // A failed lookup is retried with backoff, then slowly, so a network hiccup does not leave an
@@ -97,16 +104,29 @@ export function Shell({ children }: { children: ReactNode }) {
   const nodes = hub.nodes.data ?? [];
   const apps = hub.apps.data ?? [];
   const pending = hub.actionList.filter((a) => a.state === 'awaiting_approval');
+  const feed = useNotificationFeed();
   const notifications = useMemo(
-    () => notificationsFrom(hub.actionList, nodes.map((n) => ({ ...n, status: hub.nodeStatus(n) })), hub.appName, read),
+    () => mergeNotifications(feed.notifications, feed.alerts, notificationsFrom(hub.actionList, nodes.map((n) => ({ ...n, status: hub.nodeStatus(n) })), hub.appName, read), read),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [hub.actionList, hub.nodes.data, hub.appName, read, hub.now - (hub.now % 10_000)],
+    [feed.notifications, feed.alerts, hub.actionList, hub.nodes.data, hub.appName, read, hub.now - (hub.now % 10_000)],
   );
-  const markRead = (ids: string[], value: boolean) => {
+  // Read state: a hub notification is also marked read on the hub (it follows the person to every
+  // device; the hub has no "unread", so un-reading is this browser only). Alerts and derived facts
+  // are remembered in this browser.
+  const remember = (ids: string[], value: boolean) => {
     const next = new Set(read);
     ids.forEach((id) => (value ? next.add(id) : next.delete(id)));
     setRead(next);
     readStore.save([...next]);
+  };
+  const markRead = (ids: string[], value: boolean) => {
+    const hubIds = ids.filter(isServerId);
+    if (value && hubIds.length) void Promise.allSettled(hubIds.map((id) => client.markRead(id.slice(SERVER_PREFIX.length)))).then(feed.reload);
+    remember(ids, value);
+  };
+  const readAll = () => {
+    void client.markAllRead().then(feed.reload, () => undefined);
+    remember(notifications.map((n) => n.id), true);
   };
 
   const commands = useMemo(
@@ -115,7 +135,7 @@ export function Shell({ children }: { children: ReactNode }) {
         now: hub.now,
         apps: apps.map(toPaletteApp),
         nodes: nodes.map((n) => ({ ...n, status: hub.nodeStatus(n) })),
-        pending: pending.map(toActionSummary),
+        pending: pending.map((a) => toActionSummary(a, hub.appName)),
         canApprove: hub.canDecide !== 'no',
       }).filter((c) => paletteShows(c, view)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -170,7 +190,7 @@ export function Shell({ children }: { children: ReactNode }) {
         go(n.href);
       }}
       onSetRead={markRead}
-      onReadAll={() => markRead(notifications.map((n) => n.id), true)}
+      onReadAll={readAll}
       allHref={href.activity}
       settingsHref={href.setting('notifications')}
     />
@@ -195,7 +215,7 @@ export function Shell({ children }: { children: ReactNode }) {
       </Button>
     </>
   );
-  const api: ShellApi = { openPalette: () => setPaletteOpen(true), requestApp, view, layout };
+  const api: ShellApi = { openPalette: () => setPaletteOpen(true), requestApp, view, role, layout };
 
   // Apps pinned on Home go in the dock (Home hides its own dock on the desktop).
   const pinnedIds = layout === 'desktop' ? (homeLayoutStore().load(person)?.pinned ?? []) : [];
@@ -207,7 +227,7 @@ export function Shell({ children }: { children: ReactNode }) {
   const installedApps: DockApp[] = layout === 'desktop' ? apps.filter((a) => a.installed).map(dockApp) : [];
   return (
     <ShellCtx.Provider value={api}>
-      <div onClickCapture={onClickCapture} className={layout === 'desktop' ? 'dash-root dash-desktop' : 'dash-root'}>
+      <div onClickCapture={onClickCapture} className={layout === 'desktop' ? 'dash-root dash-desktop' : 'dash-root'} data-jobs={jobsShown ? '' : undefined} style={jobsStackStyle(jobsShown)}>
         {layout === 'desktop' ? (
           <DesktopShell
             boxName={boxName}
@@ -220,6 +240,7 @@ export function Shell({ children }: { children: ReactNode }) {
             now={hub.now}
             timeZone={Intl.DateTimeFormat().resolvedOptions().timeZone}
             person={principal ? { id: principal.id, role: principal.kind === 'agent' ? 'agent' : principal.role } : undefined}
+            displayName={displayName}
             demo={mock}
             onSearch={() => setPaletteOpen(true)}
             onConsoleView={() => setLayout('console')}
@@ -241,7 +262,7 @@ export function Shell({ children }: { children: ReactNode }) {
           state={hub.freshness === 'stale' || hub.freshness === 'offline' ? hub.freshness : hub.freshness === 'unknown' ? 'loading' : 'ready'}
           ageSeconds={hub.ageS}
         />
-        <ActionJobs />
+        {view !== 'simple' && <ActionJobs onShown={setJobsShown} />}
         {reviewDialog}
       </div>
     </ShellCtx.Provider>

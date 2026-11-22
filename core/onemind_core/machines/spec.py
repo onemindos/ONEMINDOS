@@ -15,6 +15,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from ..jsonbody import JsonBody
+
 NAMESPACE = "machines"
 NAME_PATTERN = r"^[a-z][a-z0-9-]{0,38}[a-z0-9]$"
 RESERVED_NAMES = frozenset({"capabilities", "enable"})  # they would collide with GET /v1/machines/<word>
@@ -33,7 +35,7 @@ MIN_VM_MB = 512
 MAX_VM_MB = 262_144
 
 
-class MachineCreateParams(BaseModel):
+class MachineCreateParams(JsonBody):
     model_config = ConfigDict(extra="forbid")
     name: str = Field(min_length=2, max_length=40, pattern=NAME_PATTERN)
     ram_mb: int = Field(ge=MIN_VM_MB, le=MAX_VM_MB)

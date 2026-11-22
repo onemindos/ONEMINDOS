@@ -262,7 +262,9 @@ export type EffectKind =
   | 'agent-scope'
   | 'restart'
   | 'data-delete'
-  | 'exposure';
+  | 'exposure'
+  /** A plain warning or fact from the gateway that fits no other group. */
+  | 'note';
 export interface Effect {
   kind: EffectKind;
   label: string;

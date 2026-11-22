@@ -269,8 +269,9 @@ class Catalogue:
         _args(args, set())
         inst = dict(self.svc.instance())
         from .server import COMPATIBLE_VERSIONS
+        from .versions import MODERN
 
-        inst["mcp"] = {"revisions": list(COMPATIBLE_VERSIONS), "catalog_version": CATALOG_VERSION}
+        inst["mcp"] = {"revisions": [*COMPATIBLE_VERSIONS, MODERN], "catalog_version": CATALOG_VERSION}
         return result(inst)
 
     def t_list_nodes(self, p, args):

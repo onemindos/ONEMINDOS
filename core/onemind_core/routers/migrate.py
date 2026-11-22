@@ -25,6 +25,7 @@ from ..auth import Principal
 from ..catalog import APP_ID_RE
 from ..context import Gateway
 from ..errors import ApiError, error_responses
+from ..jsonbody import JsonBody
 from ..ledger import utc
 from ..migrate.boxkube import BoxKube
 from ..migrate.repo import V2, Repo, RepoError, parse_range
@@ -44,7 +45,7 @@ class PlanBody(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=80)
 
 
-class StepBody(BaseModel):
+class StepBody(JsonBody):
     model_config = ConfigDict(extra="forbid")
     reason: str | None = Field(default=None, max_length=500)
     expires_at: AwareDatetime | None = None

@@ -131,6 +131,14 @@ def test_unknown_tool_and_method(client):
     assert rpc(client, "prompts/list").json()["error"]["code"] == -32601
 
 
+@pytest.mark.parametrize("bad", [["x"], {"a": 1}])
+def test_unhashable_tool_name_is_invalid_params_on_legacy_path(client, bad):
+    legacy = {**H, "MCP-Protocol-Version": "2025-06-18"}
+    r = rpc(client, "tools/call", {"name": bad}, headers=legacy)
+    assert r.status_code == 200, r.text
+    assert r.json()["error"]["code"] == -32602
+
+
 def test_agent_cannot_approve_through_rest_either(client, clock):
     out = call(client, "request_action", {"type": "app.install", "app_id": "uptime-kuma"})["result"]
     r = client.post(f"/v1/actions/{out['structuredContent']['action_id']}/approve", headers=AGENT)

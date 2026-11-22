@@ -28,6 +28,12 @@ class Instance(BaseModel):
     hub_node_id: str | None
 
 
+class InstanceName(BaseModel):
+    """GET /v1/instance/name: the box name alone, readable before sign-in."""
+
+    name: str
+
+
 class PrincipalRef(BaseModel):
     """{id, kind, role} of contract §3; kind and role may gain values (§12.1). An action's
     `requested_by` carries only {id, kind} (§12.4), so role is optional."""

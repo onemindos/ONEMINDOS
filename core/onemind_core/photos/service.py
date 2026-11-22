@@ -29,7 +29,7 @@ import threading
 import time
 from collections import OrderedDict
 from collections.abc import Callable
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path, PurePosixPath
 from urllib.parse import unquote
 
@@ -46,6 +46,9 @@ log = logging.getLogger("onemind.photos")
 KEY_RE = re.compile(r"^[0-9a-f]{64}$")
 HASH_RE = re.compile(r"^sha256:([0-9a-f]{64})$")
 ID_RE = re.compile(r"^(src|upl)_[0-9A-Z]{26}$")
+ASSET_RE = re.compile(r"^ast_[0-9A-Z]{26}$")
+_EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
+CURSOR_RE = re.compile(r"^(\d{1,17})\.(ast_[0-9A-Z]{26})$")
 PERSON_ROLES = ("owner", "adult")
 MAX_CHECK = 500
 PHOTOS_UNIT = "photos"  # the backup unit that holds ONEMIND_PHOTOS_DIR (PHOTOS.md §5)
@@ -465,6 +468,46 @@ class PhotosService:
                 level = "in_backup"
             items.append({"client_key": key, "hash": "sha256:" + h, "received_at": iso(received_at), "level": level})
         return {"items": items, "next_cursor": rows[limit - 1][0] if len(rows) > limit else None}
+
+    def library(self, p: Principal, cursor: str | None, limit: int) -> dict:
+        """The caller's own photos, newest first, with how safe each one is (the receipt rule, §5)."""
+        owner = self.person(p)
+        after = None
+        if cursor is not None:
+            m = CURSOR_RE.match(cursor)
+            if m is None:
+                raise PhotosError(422, "conflict", "cursor must be a next_cursor value from this list")
+            try:
+                after = (_EPOCH + timedelta(microseconds=int(m.group(1))), m.group(2))
+            except (OverflowError, OSError, ValueError):
+                raise PhotosError(422, "conflict", "cursor must be a next_cursor value from this list") from None
+        backed, verified = self.repo.snapshot_cuts()
+        rows = self.repo.library_page(owner, after, limit + 1)
+        items = []
+        for aid, name, shown, size, stored in rows[:limit]:
+            level = "on_box"
+            if verified is not None and stored <= verified:
+                level = "in_verified_backup"
+            elif backed is not None and stored <= backed:
+                level = "in_backup"
+            items.append({"id": aid, "file_name": name, "taken_at": iso(shown), "size": size, "level": level})
+        nxt = None
+        if len(rows) > limit:
+            last_id, _, shown, _, _ = rows[limit - 1]
+            nxt = f"{(shown - _EPOCH) // timedelta(microseconds=1)}.{last_id}"
+        return {"items": items, "next_cursor": nxt}
+
+    def open_asset(self, p: Principal, asset_id: str) -> tuple[int, str, int]:
+        """(read-only descriptor, file name, size) of the caller's own photo. Gone from disk: 404."""
+        owner = self.person(p)
+        found = self.repo.asset_of(owner, asset_id) if ASSET_RE.match(asset_id) else None
+        if found is None:
+            raise PhotosError(404, "not_found", "no such photo")
+        path, name, size = found
+        try:
+            return self.files.open_library_file(path, size), name, size
+        except FileNotFoundError:
+            raise PhotosError(404, "not_found", "this photo's file is missing on the box") from None
 
     def on_backup_run(self, envelope: dict) -> None:
         """backup.run.finished: a succeeded snapshot that holds the photos unit counts as backed up."""

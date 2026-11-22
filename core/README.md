@@ -52,6 +52,7 @@ is where that rule is enforced in code, not in a prompt:
 | `onemind_core/catalog.py` | App catalog from `ONEMIND_APPS_DIR/*/onemind.app.yaml`, incl. `links`, `tier`, `scan`, `spec.agent` |
 | `onemind_core/scan.py` | Reads `apps/<id>/scan.json` (§11.1) and decides whether an install may run (§10.3) |
 | `onemind_core/photos/` | Phone photo backup, box side: resumable digest-verified uploads, per-person libraries, receipts with backup levels (`/v1/photos/...`, off unless `ONEMIND_PHOTOS_ENABLED=1`; [PHOTOS.md](../docs/leap/core/PHOTOS.md)) |
+| `onemind_core/hostlink.py` | The gateway's link to the host executor (`onemindd host serve` on `/run/onemind/host.sock`): sends an owner-approved restart, shutdown, factory reset or OS install by action id, then closes the ledger action from the host's journal. No socket: the action ends `failed`, never `succeeded`. `ONEMIND_HOSTLINK_SOCKET`, `_POLL_S`, `_TIMEOUT_S`, `_GIVE_UP_S` ([HOST-ACTIONS.md](../docs/leap/core/HOST-ACTIONS.md)) |
 | `onemind_core/mcp/` | `POST /mcp`: MCP Streamable HTTP for agent principals (§11.3, §12.19): `server.py`, `tools.py` (catalogue), `untrusted.py`, `limits.py` |
 | `onemind_core/auditread.py`, `routers/audit.py` | §12.16 `GET /v1/audit/events[/{seq}]`, `/v1/audit/verify` |
 | `onemind_core/eventstream.py`, `routers/events.py` | §12.8 `GET /v1/events` (SSE, audit-derived ids, resume, `node.status`) |

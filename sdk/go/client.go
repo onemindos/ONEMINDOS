@@ -80,6 +80,7 @@ type Client struct {
 	Actions  *ActionsService
 	Audit    *AuditService
 	Events   *EventsService
+	Status   *StatusService
 }
 
 // Option configures a Client.
@@ -167,6 +168,7 @@ func New(baseURL string, opts ...Option) (*Client, error) {
 	c.Actions = &ActionsService{c}
 	c.Audit = &AuditService{c}
 	c.Events = &EventsService{c}
+	c.Status = &StatusService{c}
 	return c, nil
 }
 
@@ -423,6 +425,15 @@ func (s *AboutService) Get(ctx context.Context) (*About, error) {
 	return &v, s.c.Do(ctx, http.MethodGet, "/v1/os/about", nil, &v)
 }
 
+// StatusService is GET /v1/status (FD-01): what needs attention, per source.
+type StatusService struct{ c *Client }
+
+// Get is operation status.get. A source the gateway could not read is "unknown", never "ok".
+func (s *StatusService) Get(ctx context.Context) (*StatusView, error) {
+	var v StatusView
+	return &v, s.c.Do(ctx, http.MethodGet, "/v1/status", nil, &v)
+}
+
 // NodesService is /v1/nodes.
 type NodesService struct{ c *Client }
 
@@ -430,6 +441,12 @@ type NodesService struct{ c *Client }
 func (s *NodesService) List(ctx context.Context) ([]Node, error) {
 	var v []Node
 	return v, s.c.Do(ctx, http.MethodGet, "/v1/nodes", nil, &v)
+}
+
+// Usage is operation monitoring.usage (GET /v1/usage): CPU, memory and disk per machine and per app.
+func (s *NodesService) Usage(ctx context.Context) (*Usage, error) {
+	var v Usage
+	return &v, s.c.Do(ctx, http.MethodGet, "/v1/usage", nil, &v)
 }
 
 // Get is operation nodes.get.

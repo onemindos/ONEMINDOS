@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useEffect, useContext, useMemo, useRef, useState, type ReactNode } from 'react';
 import { HttpApi, type OneMindApi } from './api/client';
 import { DEMO_TOKENS } from './api/fixtures';
 import { MockApi } from './api/mock';
@@ -16,6 +16,16 @@ import { personKey } from './data/prefs';
  */
 export type DecideAbility = 'yes' | 'no' | 'unknown';
 
+/** The abilities GET /v1/me reports: the gateway computes them from the token's scopes. */
+export function abilitiesFromMe(me: { scopes: string[]; capabilities: string[] }): { canDecide: DecideAbility; canRequest: DecideAbility } {
+  const all = me.scopes.includes('*');
+  const has = (scope: string) => all || me.scopes.some((x) => x === scope || x.startsWith(`${scope}:`));
+  return {
+    canDecide: me.capabilities.includes('can_approve') || has('actions:approve') ? 'yes' : 'no',
+    canRequest: me.capabilities.includes('can_request') || has('actions:request') ? 'yes' : 'no',
+  };
+}
+
 export interface Session {
   token: string;
   api: OneMindApi;
@@ -24,6 +34,8 @@ export interface Session {
   person: string;
   canDecide: DecideAbility;
   canRequest: DecideAbility;
+  /** True once GET /v1/me has set the two abilities from the token's scopes (or the role was known). */
+  scoped: boolean;
   mock: boolean;
 }
 
@@ -71,7 +83,7 @@ function build(token: string, deps: SessionDeps): Session {
       ? 'yes'
       : 'no'
     : 'unknown';
-  return { token, api, principal, person: personKey(principal?.id, token), canDecide, canRequest, mock: deps.mock };
+  return { token, api, principal, person: personKey(principal?.id, token), canDecide, canRequest, scoped: !!principal, mock: deps.mock };
 }
 
 export function SessionProvider({ deps, children }: { deps: SessionDeps; children: ReactNode }) {
@@ -82,6 +94,34 @@ export function SessionProvider({ deps, children }: { deps: SessionDeps; childre
 
   const sessionRef = useRef(session);
   sessionRef.current = session;
+
+  // A real gateway session does not carry the role: ask GET /v1/me once and take canDecide and
+  // canRequest from the scopes it reports, so a guest or child is not offered buttons that 403.
+  // If the lookup fails the abilities stay 'unknown' and the gateway still enforces every route.
+  const needsMe = !!session && !session.scoped;
+  const meToken = session?.token;
+  useEffect(() => {
+    if (!needsMe) return;
+    let live = true;
+    const ask = (attempt: number) => {
+      sessionRef.current?.api.me().then(
+        (me) => {
+          if (!live) return;
+          const a = abilitiesFromMe(me);
+          setSession((s) => (s && s.token === meToken ? { ...s, canDecide: s.canDecide === 'no' ? 'no' : a.canDecide, canRequest: a.canRequest, scoped: true } : s));
+        },
+        () => {
+          if (live && attempt < 3) timer = window.setTimeout(() => ask(attempt + 1), 1000 * 2 ** attempt);
+        },
+      );
+    };
+    let timer = 0;
+    ask(0);
+    return () => {
+      live = false;
+      window.clearTimeout(timer);
+    };
+  }, [needsMe, meToken]);
 
   const signIn = useCallback(
     async (token: string) => {

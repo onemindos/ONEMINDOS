@@ -357,6 +357,32 @@ def f9(vm):
            f"out={out.strip()[-300:]!r}")
 
 
+def f10(vm, token):
+    """The rescue console answers with k3s stopped: 401 without the owner token, 200 with it (section 6)."""
+    base = ("curl -s -o /dev/null -w '%{http_code}' --cacert /data/onemind/identity/ca.pem "
+            "--resolve onemind.local:7443:127.0.0.1")
+    url = "https://onemind.local:7443"
+    auth = f"-H 'Authorization: Bearer {token}'"
+    _, out = vm.run("echo ENABLED=$(systemctl is-enabled onemind-rescue); echo ACTIVE=$(systemctl is-active onemind-rescue); "
+                    "systemctl stop k3s; echo K3S=$(systemctl is-active k3s); "
+                    # the unit may still be starting after first boot: give it a minute to answer
+                    f"for i in $(seq 1 30); do c=$({base} {url}/); [ \"$c\" = 401 ] && break; sleep 2; done; echo NOAUTH=$c; "
+                    f"echo WITH=$({base} {auth} {url}/); "
+                    f"echo JSON=$({base} {auth} {url}/status.json); "
+                    f"{base.replace('-o /dev/null', '-o /run/f10.json')} {auth} {url}/status.json >/dev/null; "
+                    f"echo JSONOK=$({PY} -I -c 'import json; json.load(open(\"/run/f10.json\")); print(\"yes\")' 2>/dev/null || echo no); "
+                    "rm -f /run/f10.json; systemctl start k3s; echo AFTER=$(systemctl is-active onemind-rescue)", 400)
+    g = lambda k: (re.findall(rf"^{k}=(\S*)\s*$", out, re.M) or [""])[-1]
+    # The image's root is read-only: first boot starts the unit at runtime on every boot, never enables it in
+    # /etc (F0 holds only onemind-firstboot enabled). So "not enabled, yet active" is the expected state here;
+    # deploy/install.sh is the path that enables it.
+    c = {"runtime_started": g("ENABLED") not in ("", "enabled", "not-found", "masked") and g("ACTIVE") == "active",
+         "active": g("ACTIVE") == "active", "k3s_stopped": g("K3S") != "active",
+         "noauth_401": g("NOAUTH") == "401", "token_200": g("WITH") == "200", "json_200": g("JSON") == "200",
+         "json_valid": g("JSONOK") == "yes", "still_active": g("AFTER") == "active"}
+    record("F10", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items()) + f" out={out.strip()[-200:]!r}")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--board", required=True, choices=sorted(battery.BOARDS))
@@ -410,6 +436,7 @@ def main():
         vm.mark("F7 the hub on its own mesh, HTTPS with the box CA (IMG-MESH-01)"); ip = f7(vm)
         vm.mark("F8 hub NATS: own keys only, leaf port needs the box CA"); f8(vm, ip)
         vm.mark("F9 one box CA"); f9(vm)
+        vm.mark("F10 rescue console with k3s stopped (CORE-UPDATE-9)"); f10(vm, token)
 
         if a.upto in ("F3", "F4"):
             vm.mark("F3 reboot keeps state")

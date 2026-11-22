@@ -31,6 +31,7 @@ import hashlib
 import ipaddress
 import json
 import os
+import pathlib
 import pwd
 import re
 import secrets
@@ -48,7 +49,8 @@ ROLES = ("hub", "worker", "leaf")
 ROLE_UNITS = {
     "hub": ["onemind-nats.service", "onemind-nats-accounts.path", "onemindd.service", "onemind-gateway.service",
             "onemind-gateway-kube.service", "tailscaled.service", "onemind-headscale.service",
-            "onemind-mesh-setup.service", "onemind-rescue.service", "onemind-host.service"],
+            "onemind-mesh-setup.service", "onemind-rescue.service", "onemind-host.service",
+            "onemind-storage.service", "onemind-images.service"],
     # A worker and a leaf both get the mesh and a local NATS leaf (internal/fabric Installer.Apply).
     "worker": ["tailscaled.service", "onemind-nats-leaf.service", "onemindd.service", "onemind-fabric-join.service"],
     "leaf": ["tailscaled.service", "onemind-nats-leaf.service", "onemindd.service", "onemind-fabric-join.service"],
@@ -118,7 +120,12 @@ class Paths:
         self.run = j("run", "onemind")
         self.console = j("dev", "console")
         self.lib = j("usr", "lib", "onemind")
+        self.custodian = j("data", "onemind", "custodian")              # the gateway's backup job key (IMG-BACKUP-01)
+        self.job_key = j("data", "onemind", "custodian", "job.key")
+        self.backup = j("data", "onemind", "backup")                     # the agent's state; agent.json is its settings
+        self.backup_conf = j("data", "onemind", "backup", "agent.json")
         self.rescue_tls = j("data", "onemind", "tls")   # https.crt/https.key for onemind-rescue (CORE-UPDATE-9)
+        self.files = j("data", "onemind", "files")      # the gateway's ONEMIND_FILES_ROOT (and Samba's shares)
 
 
 # ------------------------------------------------------------------ settings
@@ -472,6 +479,9 @@ def gateway_env(p: Paths, st: dict, mesh_ip: str | None = None) -> str:
            "ONEMIND_DASHBOARD_DIST=/usr/lib/onemind/dashboard\nONEMIND_EXECUTOR=kubernetes\n"
            f"ONEMIND_KUBECTL=/usr/lib/onemind/bin/kubectl\nKUBECONFIG={g}/kubeconfig\n"
            "ONEMIND_NATS_URL=nats://127.0.0.1:4222\n"
+           "# Files (core/onemind_core/files) live on the data partition, not in the read-only root; storage\n"
+           "# actions talk to onemind-storage.service (onemindd storage serve) on /run/onemind/storage.sock.\n"
+           "ONEMIND_FILES_ROOT=/data/onemind/files\nONEMIND_STORAGE_ENABLED=1\n"
            f"ONEMIND_NODE_ID={st['node_id']}\nONEMIND_INSTANCE_NAME={st['name']}\n"
            "# Plain HTTP :8080 is loopback only once ONEMIND_NET_TLS=1 (H-05, serve.py): local tools and the gate.\n"
            "ONEMIND_HOST=0.0.0.0\nONEMIND_PORT=8080\nONEMIND_GATEWAY_URL=http://onemind.local:8080\n"
@@ -485,6 +495,7 @@ def gateway_env(p: Paths, st: dict, mesh_ip: str | None = None) -> str:
            f"ONEMIND_FABRIC_NATS_ACCOUNTS_FILE={p.accounts}\n"
            f"ONEMIND_FABRIC_NATS_SERVICE_KEYS={p.nats_keys}\n"
            f"ONEMIND_FABRIC_NATS_NKEY_SEED={p.nats_keys}/gateway.nk\n")
+    out += backup_gateway_env(p)
     if mesh_ip:
         out += ("# The mesh (written by `onemind-firstboot mesh` once the hub has its mesh address).\n"
                 "ONEMIND_MESH_ENABLED=1\n"
@@ -493,6 +504,86 @@ def gateway_env(p: Paths, st: dict, mesh_ip: str | None = None) -> str:
                 f"ONEMIND_MESH_HEADSCALE_KEY_FILE={p.hs_key}\n"
                 f"ONEMIND_MESH_HUB_IP={mesh_ip}\n")
     return out
+
+
+# ------------------------------------------------------------------ hub: backups (IMG-BACKUP-01)
+# restic ships in the image (/usr/lib/onemind/restic). The agent runs inside onemindd and starts when
+# agent.json exists; the gateway drives it when ONEMIND_BACKUPS_ENABLED=1. No destination is set here:
+# the owner adds one and approves it, and setup stays gated on the emergency (recovery) kit.
+K3S_BACKUP_VERSION = "v1.37.2-k3s1"     # os/versions.lock.yaml k3s.version, "+" written as "-"
+
+
+def backup_gateway_env(p: Paths) -> str:
+    """The gateway's backup lines; empty until the job key exists (so a failed key never half-enables it)."""
+    if not os.path.exists(p.job_key):
+        return ""
+    return ("# Backups (core/onemind_core/backups; onemind-firstboot ensure_backup).\n"
+            f"ONEMIND_BACKUPS_ENABLED=1\nONEMIND_BACKUPS_JOB_KEY_FILE={p.job_key}\n")
+
+
+def backup_agent_conf(p: Paths, node_id: str) -> dict:
+    """agent.json for the image (the same keys deploy/backup.sh writes for the developer install)."""
+    s = p.backup
+    return {
+        "box_id": node_id, "node_id": node_id, "generation": 0,
+        "state_dir": s, "scratch_dir": f"{s}/scratch", "device_key_file": f"{s}/secrets/device.key",
+        "restic": {"binary": "/usr/lib/onemind/restic", "cache_dir": f"{s}/cache"},
+        "sqlite3_binary": "/usr/bin/sqlite3",
+        "listen": "127.0.0.1:7480",
+        "job_pubkey_file": f"{s}/job.pub",
+        "storage_roots": ["/data/k3s/storage"],
+        "schedule": {"minute": -1, "maintenance_hour": 3, "verify_weekday": 0, "verify_min_age": "1h",
+                     "gateway_hourly": True},
+        "retention": {"hourly": 24, "daily": 7, "weekly": 4, "monthly": 12},
+        "targets": [],
+        "units": {
+            "system": {"paths": [p.etc, p.tls, p.nats_keys],
+                       "sqlite": [{"path": f"{p.gateway}/onemind.db", "name": "gateway.db"}],
+                       "audit_log": f"{p.gateway}/audit.jsonl"},
+            "k3s": {"paths": ["/data/k3s/server/token", "/data/k3s/server/tls",
+                              "/data/k3s/server/cred"],
+                    "state_db": "/data/k3s/server/db/state.db", "version": K3S_BACKUP_VERSION},
+        },
+    }
+
+
+def _append_missing(path: str, key: str, text: str) -> None:
+    """Append text to an env file unless it already sets key (the file is 0600, so keep the mode)."""
+    old = _read(path)
+    if old is None or re.search(rf"(?m)^{key}=", old):
+        return
+    write(path, old + ("" if old.endswith("\n") else "\n") + text)
+
+
+def ensure_backup(p: Paths, st: dict) -> None:
+    """Make a hub able to back up: the gateway's job key (its public half for the agent), agent.json and the
+    two env files. Idempotent, so boxes set up before backups get it on their next boot. Any failure is
+    logged and leaves backups off; it never stops the box from booting."""
+    if st.get("role") != "hub":
+        return
+    try:
+        ids = onemind_ids()
+        for d, mode, owner in ((p.custodian, 0o700, ids), (p.backup, 0o700, None)):
+            os.makedirs(d, mode=mode, exist_ok=True)
+            os.chmod(d, mode)
+            if owner:
+                os.chown(d, *owner)
+        if not os.path.exists(p.job_key):
+            from onemind_core.backups.jobs import load_or_create_job_key  # the gateway venv
+            load_or_create_job_key(pathlib.Path(p.job_key))
+        if ids:
+            chown_tree(p.custodian, ids)
+        pub = os.path.join(p.backup, "job.pub")
+        with open(os.path.join(p.custodian, "job.pub"), encoding="utf-8") as f:
+            write(pub, f.read(), 0o644)
+        if not os.path.exists(p.backup_conf):
+            write(p.backup_conf, json.dumps(backup_agent_conf(p, st["node_id"]), indent=2) + "\n")
+        _append_missing(os.path.join(p.etc, "onemindd.env"), "ONEMIND_BACKUP_CONF",
+                        f"# Backups (IMG-BACKUP-01): onemindd starts the backup agent from this file.\n"
+                        f"ONEMIND_BACKUP_CONF={p.backup_conf}\n")
+        _append_missing(os.path.join(p.etc, "gateway.env"), "ONEMIND_BACKUPS_ENABLED", backup_gateway_env(p))
+    except Exception as e:  # noqa: BLE001
+        log(f"backups not set up: {e}")
 
 
 def headscale_config(lan: str) -> str:
@@ -664,7 +755,8 @@ def configure(p: Paths, cfg: dict, source: str) -> str | None:
         h = hashlib.sha256(owner.encode()).hexdigest()
         write(os.path.join(p.gateway, "tokens.yaml"),
               "# OneMind gateway principals (written by onemind-firstboot; only sha256 of each token).\n"
-              f"tokens:\n  \"sha256:{h}\": {{id: owner, kind: person, role: owner}}\n", 0o600, ids)
+              f"tokens:\n  \"sha256:{h}\": {{id: owner, kind: person, role: owner, retire_on_setup: true}}\n", 0o600, ids)
+        ensure_backup(p, st)
         write(os.path.join(p.etc, "gateway.env"), gateway_env(p, st))
         chown_tree(p.gateway, ids)          # BoxCA and natsconf ran as root: the gateway must own its tree
     else:
@@ -736,12 +828,26 @@ def run_stream(argv: list[str], env: dict, on_line) -> int:
     return proc.wait()
 
 
+def ensure_files_root(p: Paths) -> None:
+    """Make the files root (ONEMIND_FILES_ROOT) before the gateway starts. Its unit lists the folder in
+    ReadWritePaths=, and systemd refuses to start a unit whose read-write path is missing (226/NAMESPACE):
+    the mount namespace is set up before any ExecStartPre= runs, even a "+" one, so the unit cannot make it
+    itself. Only the folder is (re-)owned, never its contents. Every boot, so updated boxes get it too."""
+    os.makedirs(p.files, mode=0o750, exist_ok=True)
+    os.chmod(p.files, 0o750)
+    ids = onemind_ids()
+    if ids:
+        os.chown(p.files, *ids)
+
+
 def start_units(p: Paths, st: dict) -> None:
     role = st["role"]
     if role == "hub":
+        ensure_files_root(p)               # before the gateway: its sandbox needs the folder to exist
         ensure_rescue_tls(p)               # boxes configured before CORE-UPDATE-9 get their pair now
         # uid of "onemind" is fixed in the image (961), but re-own after an update anyway.
         chown_tree(p.gateway, onemind_ids())
+        ensure_backup(p, st)               # boxes configured before IMG-BACKUP-01 get backups on this boot
     units = ROLE_UNITS if st.get("mesh") else LEGACY_ROLE_UNITS
     systemctl("start", "--no-block", *units[role])
 
@@ -1001,6 +1107,9 @@ current-context: onemind-gateway
 """
 
 
+KUBECONFIG_POLL_S = 2  # k3s issues the token seconds after the API is up; 10 s polls added up to 10 s
+
+
 def kubeconfig(p: Paths, timeout: int = 3600) -> int:
     """The gateway's ServiceAccount (manifests/onemind-gateway.yaml) -> its own kubeconfig."""
     dst = os.path.join(p.gateway, "kubeconfig")
@@ -1018,7 +1127,7 @@ def kubeconfig(p: Paths, timeout: int = 3600) -> int:
             write(dst, KUBECONFIG.format(ca=r2.stdout.strip(), token=tok), 0o600, onemind_ids())
             log("gateway kubeconfig written")
             return 0
-        time.sleep(10)
+        time.sleep(KUBECONFIG_POLL_S)
     log("k3s did not issue the gateway's ServiceAccount token in time")
     return 1
 
