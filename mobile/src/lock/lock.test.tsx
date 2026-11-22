@@ -87,6 +87,19 @@ describe('notification buttons', () => {
     expect(kt).not.toMatch(/"Approve"|approve=/);
     expect(readFileSync(`${dir}/OneMindPushService.kt`, 'utf8')).toMatch(/Notices\.showOpaque/);
   });
+
+  // Jest mocks expo-local-authentication, so only the config can catch this: if app.json blocks
+  // USE_BIOMETRIC, the manifest merger strips it, BiometricPrompt fails on Android, the Lock OneMind
+  // switch stays off and every lock-screen Deny ends as cancelled.
+  it('app.json loads expo-local-authentication and does not block the biometric permissions it needs', () => {
+    const { expo } = JSON.parse(readFileSync(`${__dirname}/../../app.json`, 'utf8')) as {
+      expo: { plugins: (string | [string, unknown])[]; android: { blockedPermissions?: string[] } };
+    };
+    expect(expo.plugins.some((p) => (Array.isArray(p) ? p[0] : p) === 'expo-local-authentication')).toBe(true);
+    const blocked = expo.android.blockedPermissions ?? [];
+    expect(blocked).not.toContain('android.permission.USE_BIOMETRIC');
+    expect(blocked).not.toContain('android.permission.USE_FINGERPRINT');
+  });
 });
 
 describe('Deny after unlock', () => {
