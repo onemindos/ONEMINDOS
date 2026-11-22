@@ -1133,6 +1133,30 @@
       "CatalogApp": {
         "description": "One GET /v1/apps entry: the §3 fields plus links, tier and scan (§11.4).",
         "properties": {
+          "age_rating": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Proposed minimum age from the manifest (0, 7, 12, 16 or 18); the default for family filtering. An owner's classification overrides it",
+            "title": "Age Rating"
+          },
+          "age_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "One line saying why the app has that age_rating",
+            "title": "Age Reason"
+          },
           "archs": {
             "items": {
               "type": "string"

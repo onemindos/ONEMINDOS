@@ -15,6 +15,8 @@ metadata:
   # Market category slug from docs/design/TAXONOMY.md §1 (sub-tags are listed in README.md until
   # the schema has metadata.tags).
   category: notes
+  age_rating: 7   # proposed minimum age (apps/README.md rubric); the owner can override per app
+  age_reason: "A whiteboard for sketches; content is only what the person draws."
   icon: icon.svg
   license: "MIT"
   source: https://github.com/excalidraw/excalidraw

@@ -14,6 +14,8 @@ metadata:
   # Market category slug from docs/design/TAXONOMY.md §1 (sub-tags are listed in README.md until
   # the schema has metadata.tags).
   category: family
+  age_rating: 7   # proposed minimum age (apps/README.md rubric); the owner can override per app
+  age_reason: "Recipes and shopping lists; the only outside link is importing a recipe page."
   icon: icon.svg
   license: "AGPL-3.0"
   source: https://github.com/mealie-recipes/mealie

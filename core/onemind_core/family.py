@@ -145,6 +145,16 @@ class FamilyService:
             else:
                 row.policy = data
 
+    def catalog_age_rating(self, app_id):
+        """The proposed minimum age in the app's manifest (metadata.age_rating), or None when it has none.
+
+        It is only the default: an owner's own min_age for the app (PUT /v1/family/apps/{id}) wins.
+        An app with neither stays hidden under a rating limit.
+        """
+        entry = self.gw.catalog.get(app_id)
+        rating = ((entry.manifest.get("metadata") or {}).get("age_rating") if entry else None)
+        return rating if isinstance(rating, int) and not isinstance(rating, bool) else None
+
     def app_filter(self, request, p, app_id):
         # An owned agent token must not bypass its person's sharing or family restrictions.
         ctx = ctx_of(request)
@@ -168,8 +178,10 @@ class FamilyService:
             return False
         classification = self.repo.get(ClassificationRow, app_id)
         labels = AppClassification.model_validate(classification.policy) if classification else AppClassification()
-        if policy.max_age_rating is not None and (labels.min_age is None or labels.min_age > policy.max_age_rating):
-            return False
+        if policy.max_age_rating is not None:
+            min_age = labels.min_age if labels.min_age is not None else self.catalog_age_rating(app_id)
+            if min_age is None or min_age > policy.max_age_rating:
+                return False
         if {t.casefold() for t in policy.blocked_tags} & {t.casefold() for t in labels.tags}:
             return False
         if policy.windows is None:

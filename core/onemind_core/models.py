@@ -57,6 +57,10 @@ class CatalogApp(BaseModel):
     version: str | None
     description: str | None
     category: str | None
+    age_rating: int | None = Field(
+        default=None, description="Proposed minimum age from the manifest (0, 7, 12, 16 or 18); the default for family filtering. An owner's classification overrides it"
+    )
+    age_reason: str | None = Field(default=None, description="One line saying why the app has that age_rating")
     icon: str | None
     license: str | None
     source: str | None

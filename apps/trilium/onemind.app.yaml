@@ -12,6 +12,8 @@ metadata:
   # Market category slug from docs/design/TAXONOMY.md §1; sub-tags (notes, wiki) are listed in README.md
   # until the schema has metadata.tags.
   category: notes
+  age_rating: 12   # proposed minimum age (apps/README.md rubric); the owner can override per app
+  age_reason: "Personal notes with optional sharing; content is user-made."
   icon: icon.svg
   license: "AGPL-3.0"
   source: https://github.com/TriliumNext/Trilium
