@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # OneMind desktop base (apps/_bases/desktop/base.yaml). Built by sdk/tools/app-factory base-build. An app image adds
-# its program as /etc/neko/supervisord/<app>.conf and ends with USER 1000:1000.
+# its program as /etc/neko/supervisord/<app>.conf and ends with USER 1000:1000. The com.onemindos.* labels are inherited
+# by every image built FROM this one, so the box knows it is a desktop whatever the image is called.
 FROM ghcr.io/m1k1o/neko/base:3.2.0@sha256:587a3389b6b99c8999eb00a768c79205a74647c57cf5b9695a90234a0edaa446
 USER root
 # Upgrade every Debian package to the security archive, add a window manager, then close the doors: no setuid or
@@ -20,7 +21,9 @@ COPY NOTICES.md /usr/share/doc/onemind-desktop/NOTICES.md
 LABEL org.opencontainers.image.title="OneMind desktop base" \
       org.opencontainers.image.source="https://github.com/onemindos/ONEMINDOS" \
       org.opencontainers.image.licenses="Apache-2.0" \
-      org.opencontainers.image.base.name="ghcr.io/m1k1o/neko/base:3.2.0"
+      org.opencontainers.image.base.name="ghcr.io/m1k1o/neko/base:3.2.0" \
+      com.onemindos.base="desktop" \
+      com.onemindos.desktop.runtime="neko"
 ENV USER=neko HOME=/home/neko
 USER 1000:1000
 CMD ["/usr/bin/supervisord", "-c", "/etc/neko/supervisord.conf"]

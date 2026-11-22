@@ -218,6 +218,16 @@ def cmd_base_build(args) -> int:
         raise common.ToolError(f"could not read the built image's identity: {probe.stderr.strip()[-300:]}")
     uid = (re.findall(r"(?m)^UID=(\d+)$", probe.stdout) or [""])[-1]
     errs = desktop.check_identity(probe.stdout, uid)
+    # The labels that mark every image built FROM this base as a desktop (validate-apps check 12, broker, install).
+    # The probe above ran the image, so it is local even when pushed.
+    insp = common.run([argv[0], "image", "inspect", "--format", "{{json .Config.Labels}}", ref], timeout=300)
+    if insp.returncode != 0:
+        raise common.ToolError(f"could not read the built image's labels: {insp.stderr.strip()[-300:]}")
+    try:
+        labels = json.loads(insp.stdout or "null")
+    except ValueError:
+        labels = None
+    errs += desktop.label_problems(labels if isinstance(labels, dict) else {}, doc)
     if errs:
         raise common.ToolError("; ".join(errs))
     src = "remote" if args.push else "docker"

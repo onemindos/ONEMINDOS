@@ -258,6 +258,115 @@ class StreamRuleTests(unittest.TestCase):
         self.assertEqual(got["x"], {"other"})
 
 
+class ReviewProbeTests(unittest.TestCase):
+    """The independent review's probes on PR 799: each was a way past check 12."""
+
+    def setUp(self):
+        self.manifest, self.objs = firefox()
+
+    def check(self, objs, manifest=None, dependents=None, rules=RULES):
+        return desktop.stream_problems(objs, "firefox", manifest or self.manifest, rules, dependents or set())
+
+    def env(self, objs) -> list[dict]:
+        return deployment(objs)["spec"]["template"]["spec"]["containers"][0]["env"]
+
+    def test_the_only_allowed_runtime_is_the_bases(self):
+        self.assertEqual(desktop.base_runtime(), base_doc()["runtime"]["name"])
+        for other in ("selkies", "xpra"):
+            with self.subTest(other=other):
+                objs = copy.deepcopy(self.objs)
+                c = deployment(objs)["spec"]["template"]["spec"]["containers"][0]
+                c["image"] = f"ghcr.io/linuxserver/{other}:1.0@sha256:{'d' * 64}"
+                c["env"] = [{"name": f"{other.upper()}_PORT", "value": "8080"}]
+                for manifest in (self.manifest, {**self.manifest, "spec": {**self.manifest["spec"], "desktop": {"runtime": other}}}):
+                    errs = self.check(objs, manifest)
+                    self.assertTrue(any(f"streaming runtime {other} is refused" in e for e in errs), errs)
+        # A different base runtime moves the allowed one: neko is then refused.
+        self.assertTrue(any("runtime neko is refused" in e for e in
+                            desktop.stream_problems(self.objs, "firefox", self.manifest, RULES, set(), runtime="selkies")))
+
+    def test_login_off_through_a_reference_fails_closed(self):
+        cm = {"apiVersion": "v1", "kind": "ConfigMap", "metadata": {"name": "neko-env"}, "data": {"NEKO_MEMBER_PROVIDER": "noauth"}}
+        cases = {}
+        o = copy.deepcopy(self.objs)                                           # probe B: envFrom a ConfigMap it ships
+        self.env(o)[:] = [e for e in self.env(o) if e["name"] != "NEKO_MEMBER_PROVIDER"]
+        deployment(o)["spec"]["template"]["spec"]["containers"][0]["envFrom"] = [{"configMapRef": {"name": "neko-env"}}]
+        cases["envFrom ConfigMap"] = o + [cm]
+        p = copy.deepcopy(o)                                                   # the same key through a prefix
+        deployment(p)["spec"]["template"]["spec"]["containers"][0]["envFrom"] = [{"prefix": "NEKO_", "configMapRef": {"name": "neko-env"}}]
+        cases["envFrom prefix"] = p + [{**cm, "data": {"MEMBER_PROVIDER": "noauth"}}]
+        q = copy.deepcopy(o)                                                   # a ConfigMap or Secret it does not ship
+        deployment(q)["spec"]["template"]["spec"]["containers"][0]["envFrom"] = [{"secretRef": {"name": "elsewhere"}}]
+        cases["envFrom Secret"] = q
+        d = copy.deepcopy(self.objs)                                           # probe D: valueFrom
+        for e in self.env(d):
+            if e["name"] == "NEKO_MEMBER_PROVIDER":
+                e.pop("value")
+                e["valueFrom"] = {"configMapKeyRef": {"name": "neko-env", "key": "NEKO_MEMBER_PROVIDER"}}
+        cases["valueFrom"] = d + [cm]
+        m = copy.deepcopy(self.objs)                                           # a mounted Neko config file
+        pod = deployment(m)["spec"]["template"]["spec"]
+        pod["volumes"].append({"name": "conf", "configMap": {"name": "neko-yaml"}})
+        pod["containers"][0]["volumeMounts"].append({"name": "conf", "mountPath": "/etc/neko/neko.yaml", "subPath": "neko.yaml"})
+        cases["mounted /etc/neko"] = m + [{"apiVersion": "v1", "kind": "ConfigMap", "metadata": {"name": "neko-yaml"},
+                                            "data": {"neko.yaml": "member:\n  provider: multiuser\n"}}]
+        f = copy.deepcopy(self.objs)                                           # the flag inside the shipped supervisord.conf
+        for obj in f:
+            if obj["kind"] == "ConfigMap":
+                obj["data"]["supervisord.conf"] = obj["data"]["supervisord.conf"].replace(
+                    "neko serve", "neko serve --member.provider noauth")
+        cases["noauth in a mounted ConfigMap"] = f
+        a = copy.deepcopy(self.objs)
+        deployment(a)["spec"]["template"]["spec"]["containers"][0]["args"] = ["--member.provider=noauth"]
+        cases["noauth flag"] = a
+        for want, objs in cases.items():
+            with self.subTest(want=want):
+                self.assertTrue(any("login is off, but apps depending on it" in e for e in
+                                    self.check(objs, dependents={"notes-app"})), want)
+                self.assertTrue(any("login is off and the gateway's policy is unknown" in e for e in
+                                    desktop.stream_problems(objs, "firefox", self.manifest, None)), want)
+                self.assertEqual(self.check(objs), [], want)                # behind the gateway alone it is still allowed
+        self.assertEqual(self.check(self.objs, dependents={"notes-app"}), [])   # login on: dependents are fine
+
+    def test_a_desktop_is_known_by_the_base_not_by_its_name(self):
+        objs = copy.deepcopy(self.objs)
+        pod = deployment(objs)["spec"]["template"]["spec"]
+        c = pod["containers"][0]
+        c["image"] = f"ghcr.io/onemindos/apps/notes-desktop:1.0@sha256:{'e' * 64}"   # built FROM the base, no NEKO_ env
+        c["env"] = []
+        pod["securityContext"].update(runAsUser=0, runAsNonRoot=False)               # probe C
+        manifest = {**self.manifest, "spec": {**self.manifest["spec"], "desktop": {"runtime": "neko", "base": "desktop"}}}
+        errs = self.check(objs, manifest)
+        self.assertTrue(any("runAsNonRoot" in e for e in errs), errs)
+        bare = {**self.manifest, "spec": {k: v for k, v in self.manifest["spec"].items() if k != "desktop"}}
+        self.assertEqual(self.check(objs, bare), [])                                # no field, no base image: invisible
+        c["image"] = f"ghcr.io/onemindos/bases/desktop:local@sha256:{'e' * 64}"
+        errs = self.check(objs, bare)
+        self.assertTrue(any("declare spec.desktop" in e for e in errs), errs)
+        self.assertTrue(any("runAsNonRoot" in e for e in errs), errs)
+        self.assertTrue(any("declare spec.desktop" in e for e in self.check(self.objs, bare)))   # a Neko image too
+
+    def test_base_labels_mark_every_image_built_from_it(self):
+        doc = base_doc()
+        good = {desktop.BASE_LABEL: "desktop", desktop.RUNTIME_LABEL: doc["runtime"]["name"]}
+        self.assertTrue(desktop.image_is_desktop(good))
+        self.assertFalse(desktop.image_is_desktop({}))
+        self.assertEqual(desktop.label_problems(good, doc), [])
+        self.assertTrue(desktop.label_problems({desktop.BASE_LABEL: "desktop"}, doc))
+        text = (BASE_DIR / "Dockerfile").read_text(encoding="utf-8")
+        self.assertTrue(any("com.onemindos.base" in e for e in desktop.dockerfile_problems(
+            text.replace('com.onemindos.base="desktop"', 'com.onemindos.base="other"'), doc)))
+
+    def test_schema_and_shipped_apps_declare_the_desktop(self):
+        schema = json.loads((ROOT / "sdk" / "schema" / "onemind.app.schema.json").read_text(encoding="utf-8"))
+        field = schema["properties"]["spec"]["properties"]["desktop"]
+        self.assertEqual(field["required"], ["runtime"])
+        self.assertEqual(set(field["properties"]["runtime"]["enum"]), set(desktop.RUNTIME_ORDER))
+        for app in ("firefox", "chromium"):
+            doc = yaml.safe_load((ROOT / "apps" / app / "onemind.app.yaml").read_text(encoding="utf-8"))
+            self.assertEqual(doc["spec"]["desktop"], {"runtime": desktop.base_runtime()})
+
+
 class CiTests(unittest.TestCase):
     def test_ci_apps_runs_the_base_check_and_watches_what_check_12_reads(self):
         wf = yaml.safe_load((ROOT / ".github" / "workflows" / "ci-apps.yml").read_text(encoding="utf-8"))

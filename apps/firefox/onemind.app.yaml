@@ -26,6 +26,7 @@ spec:
   archs: [amd64, arm64]
   requires: {gpu: false, minMemoryMb: 1024}   # sum of the memory requests in manifests/
   web: {port: 8080}
+  desktop: {runtime: neko}   # streams a desktop with Neko (checked by validate-apps check 12, #786)
   manifests: manifests/
   updates: {channel: stable, automerge: none}
   # A login the box generates at install; the owner sees it once on the app page (PD-07).

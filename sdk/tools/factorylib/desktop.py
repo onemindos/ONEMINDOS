@@ -10,6 +10,8 @@ admits the gateway's proxy alone. Offline and deterministic; sdk/tools/app-facto
 """
 from __future__ import annotations
 
+import base64
+import binascii
 import re
 from pathlib import Path
 
@@ -38,6 +40,17 @@ RUNTIMES = {
 # v3.2.0). Selkies and Xpra values are UNVERIFIED (not used while Neko passes).
 LOGIN_OFF_ENV = {"NEKO_MEMBER_PROVIDER": {"noauth"}, "SELKIES_ENABLE_BASIC_AUTH": {"false", "0"}}
 LOGIN_OFF_ARG = re.compile(r"(^|[-\s])(tcp-|ws-|bind-)?auth=(none|allow)\b")
+# The noauth provider named anywhere a runtime reads it: a flag (--member.provider noauth), an env line
+# (NEKO_MEMBER_PROVIDER=noauth) or a Neko config file (member: {provider: noauth}).
+LOGIN_OFF_TEXT = re.compile(r"\bnoauth\b", re.IGNORECASE)
+# Where Neko reads its config file (viper config path /etc/neko, file neko.yaml; v3.2.0 cmd/root.go, UNVERIFIED for
+# other names). A mount there or of a neko.* file may switch the login off where this validator cannot see.
+RUNTIME_CONFIG_DIR = "/etc/neko"
+NEKO_CONFIG_FILE = re.compile(r"^neko\.(ya?ml|json|toml)$")
+# Image labels of the desktop base. Labels are inherited, so every image built FROM the base carries them whatever
+# its name (reverse-DNS on the com.onemindos.* app ID namespace).
+BASE_LABEL = "com.onemindos.base"
+RUNTIME_LABEL = "com.onemindos.desktop.runtime"
 
 PINNED_RE = re.compile(r"^[a-z0-9.\-]+(:[0-9]+)?(/[a-z0-9._\-]+)+:[A-Za-z0-9._\-]+@sha256:[0-9a-f]{64}$")
 
@@ -132,10 +145,37 @@ def dockerfile_problems(text: str, doc: dict | None = None) -> list[str]:
             if i in ("RUN", "COPY", "ADD") and re.search(rf"\b{other}\b", low):
                 errs.append(f"a second streaming runtime ({other}) is not allowed: the base uses {rt['name']}")
     if doc is not None:
+        labels = dict(re.findall(r'([A-Za-z0-9_.\-]+)="([^"]*)"', " ".join(a for i, a in ins if i == "LABEL")))
+        if label_problems(labels, doc):
+            errs.append(f'the Dockerfile must set LABEL {BASE_LABEL}="{doc.get("base")}" and {RUNTIME_LABEL}='
+                        f'"{rt.get("name")}" so every image built FROM it is known as a desktop')
         notices = str(((doc.get("build") or {}) if isinstance(doc.get("build"), dict) else {}).get("notices", ""))
         if notices and not any(i == "COPY" and notices in a.split() for i, a in ins):
             errs.append(f"the Dockerfile must COPY {notices} into the image (licence notices)")
     return errs
+
+
+def base_runtime(base_dir: Path | None = None) -> str | None:
+    """The one runtime every desktop app must use: runtime.name in apps/_bases/desktop/base.yaml."""
+    doc = load_base(base_dir or BASES_DIR / "desktop")
+    rt = doc.get("runtime") if isinstance(doc, dict) else None
+    return rt.get("name") if isinstance(rt, dict) and rt.get("name") in RUNTIMES else None
+
+
+def image_is_desktop(labels: dict | None) -> bool:
+    """True for an image built FROM the desktop base: the base's labels are inherited by every image built on it.
+
+    For tools that can read an image's config (app-factory base-build, gui-session-broker, gui-install-from-file).
+    """
+    return (labels or {}).get(BASE_LABEL) == "desktop"
+
+
+def label_problems(labels: dict | None, doc: dict) -> list[str]:
+    """What a built base image must say about itself so every image built FROM it is known as a desktop."""
+    labels = labels or {}
+    rt = doc.get("runtime") if isinstance(doc.get("runtime"), dict) else {}
+    want = {BASE_LABEL: doc.get("base"), RUNTIME_LABEL: rt.get("name")}
+    return [f"built image label {k} is {labels.get(k)!r}, not {v!r}" for k, v in want.items() if labels.get(k) != v]
 
 
 def _env(c: dict) -> dict[str, str]:
@@ -143,6 +183,8 @@ def _env(c: dict) -> dict[str, str]:
 
 
 def _runtime_of(c: dict) -> str | None:
+    """The runtime a container visibly runs (env prefix, upstream image name), or None. A desktop built FROM the
+    OneMind base under another name shows neither; it is found by spec.desktop or the base image name instead."""
     env = _env(c)
     img = str(c.get("image", ""))
     for name, r in RUNTIMES.items():
@@ -151,11 +193,79 @@ def _runtime_of(c: dict) -> str | None:
     return None
 
 
-def _login_off(c: dict) -> bool:
-    env = _env(c)
-    if any(env.get(k, "").lower() in vals for k, vals in LOGIN_OFF_ENV.items()):
+def _from_base(c: dict) -> bool:
+    return str(c.get("image", "")).startswith(f"{BASE_REGISTRY_PREFIX}desktop")
+
+
+def _texts(objects: list[dict]) -> dict[tuple[str, str], list[str] | None]:
+    """(kind, name) -> the string values a ConfigMap or Secret in this app carries; None when they cannot be read."""
+    out: dict[tuple[str, str], list[str] | None] = {}
+    for o in objects:
+        kind, name = o.get("kind"), common.dig(o, ("metadata", "name"))
+        if kind not in ("ConfigMap", "Secret") or not isinstance(name, str):
+            continue
+        vals = [str(v) for v in (o.get("stringData") or {}).values()]
+        data = o.get("data") or {}
+        if kind == "ConfigMap":
+            vals += [str(v) for v in data.values()]
+        else:
+            try:
+                vals += [base64.b64decode(str(v), validate=True).decode("utf-8") for v in data.values()]
+            except (binascii.Error, UnicodeDecodeError):
+                out[(kind, name)] = None
+                continue
+        out[(kind, name)] = vals
+    return out
+
+
+def _source_off(texts: list[str] | None) -> bool:
+    return texts is None or any(LOGIN_OFF_TEXT.search(t) for t in texts)
+
+
+def _login_off(c: dict, pod: dict | None = None, objects: list[dict] | None = None) -> bool:
+    """True when the runtime's own login is, or could be, off. Fails closed: a login switch that is not a literal in
+    the app (valueFrom, envFrom from a Secret or a ConfigMap the app does not carry) or a mounted runtime config counts
+    as off, and so does a ConfigMap or Secret mounted into the container that names the noauth provider."""
+    texts = _texts(objects or [])
+    for e in c.get("env") or []:
+        if not isinstance(e, dict) or e.get("name") not in LOGIN_OFF_ENV:
+            continue
+        if "valueFrom" in e or str(e.get("value", "")).strip().lower() in LOGIN_OFF_ENV[e["name"]]:
+            return True
+    for src in c.get("envFrom") or []:
+        if not isinstance(src, dict):
+            return True
+        name = (src.get("configMapRef") or {}).get("name")
+        cm = next((o for o in objects or [] if o.get("kind") == "ConfigMap" and name
+                   and common.dig(o, ("metadata", "name")) == name), None)
+        if cm is None:
+            return True                                  # a Secret, or a ConfigMap the app does not ship: unknown
+        prefix = str(src.get("prefix", ""))
+        for k, v in (cm.get("data") or {}).items():
+            key = prefix + str(k)
+            if key in LOGIN_OFF_ENV and str(v).strip().lower() in LOGIN_OFF_ENV[key]:
+                return True
+    argv = [str(a) for a in (c.get("command") or []) + (c.get("args") or [])]
+    if any(LOGIN_OFF_ARG.search(a) or LOGIN_OFF_TEXT.search(a) for a in argv):
         return True
-    return any(LOGIN_OFF_ARG.search(str(a)) for a in (c.get("command") or []) + (c.get("args") or []))
+    if any(a == "--config" or a.startswith("--config=") for a in argv) or "NEKO_CONFIG" in _env(c):
+        return True                                      # Neko reads a config file the validator does not see
+    volumes = {v.get("name"): v for v in (pod or {}).get("volumes") or [] if isinstance(v, dict)}
+    for m in c.get("volumeMounts") or []:
+        if not isinstance(m, dict):
+            continue
+        path = str(m.get("mountPath", "")).rstrip("/")
+        leaf = (str(m.get("subPath", "")) or path).rsplit("/", 1)[-1]
+        if path == RUNTIME_CONFIG_DIR or path.startswith(RUNTIME_CONFIG_DIR + "/") or NEKO_CONFIG_FILE.match(leaf):
+            return True                                  # a mounted Neko config may set member.provider
+        vol = volumes.get(m.get("name")) or {}
+        refs = [("ConfigMap", (vol.get("configMap") or {}).get("name")), ("Secret", (vol.get("secret") or {}).get("secretName"))]
+        for s in (vol.get("projected") or {}).get("sources") or []:
+            refs += [("ConfigMap", (s.get("configMap") or {}).get("name")), ("Secret", (s.get("secret") or {}).get("name"))]
+        for kind, name in refs:
+            if name and _source_off(texts.get((kind, name))):
+                return True
+    return False
 
 
 def _peer_problem(peer: dict, rule: dict, proxy: dict, web: set[int], alone: bool) -> str | None:
@@ -211,21 +321,35 @@ def gateway_only_problems(app_id: str, manifest: dict, objects: list[dict], rule
 
 
 def stream_problems(objects: list[dict], app_id: str = "", manifest: dict | None = None, rules=None,
-                    dependents: set[str] | None = None) -> list[str]:
-    """Rules for every app whose pods run a streaming runtime (rendered Kubernetes objects of one app).
+                    dependents: set[str] | None = None, runtime: str | None = None) -> list[str]:
+    """Rules for every app that streams a desktop (rendered Kubernetes objects of one app).
 
-    Not root, not privileged, no added capabilities, one runtime, and the runtime's own login off only when
-    gateway_only_problems finds nothing. rules: the gateway's sandbox rules (onemind_core.policy.load_rules).
+    An app is a desktop when its manifest declares spec.desktop, an image comes from the OneMind desktop base, or a
+    container visibly runs a streaming runtime; the last two must also declare spec.desktop. Then: not root, not
+    privileged, no added capabilities, only `runtime` (default: runtime.name of apps/_bases/desktop/base.yaml), and
+    the runtime's own login off only when gateway_only_problems finds nothing. rules: the gateway's sandbox rules
+    (onemind_core.policy.load_rules).
     """
     errs: list[str] = []
+    allowed = runtime or base_runtime()
+    declared = common.dig(manifest, ("spec", "desktop")) if isinstance(manifest, dict) else None
+    declared = declared if isinstance(declared, dict) else None
     seen: set[str] = set()
+    if declared is not None:
+        seen.add(str(declared.get("runtime")))
     login_off_at: list[str] = []
+    undeclared: list[str] = []
     for obj, pod in common.workloads(objects):
         where = f"{obj.get('kind')}/{common.dig(obj, ('metadata', 'name')) or '?'}"
-        streaming = [c for c in common.containers(pod) if _runtime_of(c)]
-        if not streaming:
+        visible = [c for c in common.containers(pod) if _runtime_of(c) or _from_base(c)]
+        if declared is None and not visible:
             continue
-        seen.update(_runtime_of(c) for c in streaming)
+        if declared is None:
+            undeclared.append(where)
+        streaming = list(common.containers(pod)) if declared is not None else visible
+        seen.update(r for r in (_runtime_of(c) for c in streaming) if r)
+        if any(_from_base(c) for c in streaming) and allowed:
+            seen.add(allowed)
         psc = pod.get("securityContext") or {}
         if psc.get("runAsUser") == 0 or psc.get("runAsNonRoot") is not True:
             errs.append(f"{where}: a desktop pod must set runAsNonRoot: true and a non-zero runAsUser")
@@ -235,10 +359,20 @@ def stream_problems(objects: list[dict], app_id: str = "", manifest: dict | None
                 errs.append(f"{where} container '{c.get('name')}': root, privileged or privilege escalation is refused")
             if (sc.get("capabilities") or {}).get("add"):
                 errs.append(f"{where} container '{c.get('name')}': adding capabilities is refused")
-        if any(_login_off(c) for c in streaming):
+        if any(_login_off(c, pod, objects) for c in streaming):
             login_off_at.append(where)
+    if undeclared:
+        errs.append(f"{', '.join(undeclared)} streams a desktop: declare spec.desktop in the manifest")
+    if declared is not None and declared.get("base") == "desktop" and allowed:
+        seen.add(allowed)
     if len(seen) > 1:
         errs.append(f"one streaming runtime per app: found {', '.join(sorted(seen))}")
+    if allowed is None:
+        if seen:
+            errs.append("the desktop base names no runtime, so no streaming runtime can be allowed")
+    else:
+        errs += [f"streaming runtime {r} is refused: the desktop base uses {allowed} (apps/_bases/desktop/base.yaml)"
+                 for r in sorted(seen - {allowed})]
     if login_off_at:
         if rules is None or manifest is None:
             errs.append(f"{', '.join(login_off_at)}: the runtime's own login is off and the gateway's policy is unknown")
