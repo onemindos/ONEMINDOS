@@ -1120,6 +1120,18 @@
             "title": "App Id",
             "type": "string"
           },
+          "password": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The person's own browser sign-in password (open only; their pod alone accepts it). Never another person's, never the app's shared login, never the admin password",
+            "title": "Password"
+          },
           "person_key": {
             "description": "One-way key of the signed-in person's profile; names their pod and host",
             "title": "Person Key",

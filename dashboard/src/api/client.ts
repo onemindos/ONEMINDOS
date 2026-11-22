@@ -548,6 +548,6 @@ export class HttpApi implements OneMindApi {
 export function checkBrowser(s: BrowserSession, appId: string): BrowserSession {
   let url: URL | undefined;
   try { url = new URL(s.url); } catch { url = undefined; }
-  if (s.app_id !== appId || !/^[0-9a-f]{16}$/.test(s.person_key) || !url || !['http:', 'https:'].includes(url.protocol) || url.hostname.split('.')[0] !== `${appId}--${s.person_key}`) throw new ApiError(200, 'unknown', 'Invalid gateway browser session');
+  if (s.app_id !== appId || !/^[0-9a-f]{16}$/.test(s.person_key) || (s.password != null && typeof s.password !== 'string') || !url || !['http:', 'https:'].includes(url.protocol) || url.hostname.split('.')[0] !== `${appId}--${s.person_key}`) throw new ApiError(200, 'unknown', 'Invalid gateway browser session');
   return s;
 }

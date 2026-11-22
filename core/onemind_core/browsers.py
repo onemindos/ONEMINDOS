@@ -5,10 +5,15 @@ A Market browser app (Neko, apps/firefox and apps/chromium; #593) declares `spec
 manifest. The app's own Deployment is only a template: it runs no replica and its Service is never
 proxied, so there is no shared profile. Each signed-in person gets, in the app's namespace:
 - PersistentVolumeClaim `profile-<key>`, mounted where the template mounts `spec.browser.profileVolume`;
+- Secret `browser-<key>`: the person's own Neko logins (a member password they are shown, and an
+  admin password nobody is shown), in place of the app's shared `<app>-credentials`;
 - Deployment and ClusterIP Service `browser-<key>` (no hostPort, no NodePort, no host network).
 
-`<key>` is person_key(person id): a one-way hash, so no name or id of a person appears in a cluster
-object or an app host name. The person reaches their pod only through the gateway proxy at
+`<key>` is person_key(box secret, person id): an HMAC under a random key file kept next to the
+audit log, so no name or id of a person appears in a cluster object or an app host name, and nobody
+who knows a person id can work out their key. The app's NetworkPolicies (policy.network_policies,
+browser=True) let into a person's pod only the gateway on the web port: not another pod in the
+namespace, so one person's browser cannot open another's Service. The person reaches their pod only through the gateway proxy at
 `<app>--<key>.<box domain>` (proxy.py), which compares the key with the signed-in person and
 refuses any other (403). The claim is created when the person first opens the browser and is
 deleted only by `browser.profile.reset` after an owner approves it (or with the app's namespace, by
@@ -17,21 +22,28 @@ an owner-approved app.remove). Closing the window scales the pod to zero and kee
 
 from __future__ import annotations
 
+import base64
 import copy
 import hashlib
+import hmac
 import json
+import os
 import re
+import secrets
 import subprocess
 import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
+from pathlib import Path
 
 from .catalog import APP_ID_RE
 from .executors import ExecResult
 from .ledger import Action
+from .policy import BROWSER_PROFILE_LABEL
 
-PROFILE_LABEL = "onemind.io/browser-profile"
+PROFILE_LABEL = BROWSER_PROFILE_LABEL
+ADMIN_PASSWORD_ENV_SUFFIX = "ADMIN_PASSWORD"
 HOST_SEP = "--"
 KEY_LEN = 16
 KEY_RE = re.compile(r"^[0-9a-f]{16}$")
@@ -44,9 +56,39 @@ class BrowserError(Exception):
     """The cluster refused or the app's template cannot carry a per-person profile."""
 
 
-def person_key(person_id: str) -> str:
-    """The stable, one-way key of a person's browser profile (16 hex characters)."""
-    return hashlib.sha256(b"onemind-browser-profile\0" + person_id.encode()).hexdigest()[:KEY_LEN]
+def person_key(secret: bytes, person_id: str) -> str:
+    """The stable, one-way key of a person's browser profile (16 hex characters).
+
+    HMAC-SHA256 under the box's secret: without the secret a key cannot be computed from an id.
+    """
+    if len(secret) < 32:
+        raise BrowserError("the browser key secret is too short")
+    return hmac.new(secret, b"onemind-browser-profile\0" + person_id.encode(), hashlib.sha256).hexdigest()[:KEY_LEN]
+
+
+def load_secret(path: Path) -> bytes:
+    """The box's browser key secret (32 random bytes, hex, file mode 0600), created on first use.
+
+    Written to a private temp file and hard-linked into place, so a concurrent reader never sees a
+    half-written key and nobody replaces a key that already named profiles (as CredentialStore).
+    """
+    try:
+        return bytes.fromhex(path.read_text().strip())
+    except FileNotFoundError:
+        pass
+    path.parent.mkdir(parents=True, exist_ok=True)
+    key = secrets.token_bytes(32)
+    tmp = path.with_name(f".{path.name}.{secrets.token_hex(4)}.tmp")
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(fd, "w") as f:
+        f.write(key.hex())
+    try:
+        os.link(tmp, path)
+    except FileExistsError:
+        return bytes.fromhex(path.read_text().strip())
+    finally:
+        tmp.unlink(missing_ok=True)
+    return key
 
 
 def workload_name(key: str) -> str:
@@ -55,6 +97,10 @@ def workload_name(key: str) -> str:
 
 def profile_claim(key: str) -> str:
     return f"profile-{key}"
+
+
+def login_secret(key: str) -> str:
+    return f"browser-{key}"
 
 
 @dataclass(frozen=True)
@@ -118,6 +164,7 @@ def person_objects(app_id: str, key: str, spec: BrowserSpec, template: dict, tem
         raise BrowserError(f"the template has no volume {spec.profile_volume!r} for the profile")
     found[0].clear()
     found[0].update({"name": spec.profile_volume, "persistentVolumeClaim": {"claimName": profile_claim(key)}})
+    _own_logins(app_id, key, pod)
     claim_spec = template_claim.get("spec") or {}
     claim = {"accessModes": claim_spec.get("accessModes") or ["ReadWriteOnce"],
              "resources": {"requests": dict(((claim_spec.get("resources") or {}).get("requests")) or {"storage": "5Gi"})}}
@@ -137,19 +184,65 @@ def person_objects(app_id: str, key: str, spec: BrowserSpec, template: dict, tem
     ]
 
 
+LOGIN_KEYS = ("PASSWORD", "ADMIN_PASSWORD")
+
+
+def _own_logins(app_id: str, key: str, pod: dict) -> None:
+    """Point the pod's logins at the person's own Secret instead of the app's shared `<app>-credentials`.
+
+    An env var whose name ends in ADMIN_PASSWORD gets the person's admin password (shown to nobody),
+    every other reference to the shared login gets their member password. Refuses (BrowserError) a
+    template that would still hand the shared login to the pod: as envFrom or as a volume.
+    """
+    shared, own = f"{app_id}-credentials", login_secret(key)
+    for c in [*(pod.get("containers") or []), *(pod.get("initContainers") or [])]:
+        for src in c.get("envFrom") or []:
+            if (src.get("secretRef") or {}).get("name") == shared:
+                raise BrowserError("the template loads the shared login with envFrom")
+        for env in c.get("env") or []:
+            ref = (env.get("valueFrom") or {}).get("secretKeyRef")
+            if not isinstance(ref, dict) or ref.get("name") != shared:
+                continue
+            want = "ADMIN_PASSWORD" if str(env.get("name", "")).endswith(ADMIN_PASSWORD_ENV_SUFFIX) else ref.get("key")
+            if want not in LOGIN_KEYS:
+                raise BrowserError(f"the template reads {ref.get('key')!r} of the shared login")
+            ref.update({"name": own, "key": want})
+    for vol in pod.get("volumes") or []:
+        names = [(vol.get("secret") or {}).get("secretName")]
+        names += [(p.get("secret") or {}).get("name") for p in (vol.get("projected") or {}).get("sources") or []]
+        if shared in names:
+            raise BrowserError("the template mounts the shared login as a volume")
+
+
+def login_object(app_id: str, key: str) -> dict:
+    """The person's own Neko logins: two fresh random passwords. Created once, never re-applied."""
+    data = {k: base64.b64encode(secrets.token_urlsafe(24).encode()).decode() for k in LOGIN_KEYS}
+    return {"apiVersion": "v1", "kind": "Secret", "type": "Opaque",
+            "metadata": {"name": login_secret(key), "labels": _labels(app_id, key)}, "data": data}
+
+
 Runner = Callable[..., subprocess.CompletedProcess]
 
 
 class BrowserProfiles:
     """The per-person browser objects of installed browser apps, through kubectl."""
 
-    def __init__(self, kubectl: str = "kubectl", *, runner: Runner = subprocess.run, timeout_s: float = 60,
-                 ttl: float = 5.0):
+    def __init__(self, kubectl: str = "kubectl", *, secret: bytes, runner: Runner = subprocess.run,
+                 timeout_s: float = 60, ttl: float = 5.0):
+        """secret: the box's browser key secret (load_secret); every person key is an HMAC under it."""
+        if len(secret) < 32:
+            raise BrowserError("the browser key secret is too short")
         self.kubectl, self.runner, self.timeout_s, self.ttl = kubectl, runner, timeout_s, ttl
+        self._secret = secret
         self._hosts: dict[tuple[str, str], tuple[float, str | None]] = {}
         self._lock = threading.Lock()
 
-    def _run(self, *args: str, stdin: str | None = None, missing_ok: bool = False) -> str | None:
+    def key_of(self, person_id: str) -> str:
+        """The profile key of a person on this box."""
+        return person_key(self._secret, person_id)
+
+    def _run(self, *args: str, stdin: str | None = None, missing_ok: bool = False,
+             exists_ok: bool = False) -> str | None:
         try:
             cp = self.runner([self.kubectl, *args], input=stdin, capture_output=True, text=True,
                              timeout=self.timeout_s, check=False)
@@ -158,6 +251,8 @@ class BrowserProfiles:
         if cp.returncode != 0:
             if missing_ok and "NotFound" in (cp.stderr or ""):
                 return None
+            if exists_ok and "AlreadyExists" in (cp.stderr or ""):
+                return ""
             raise BrowserError((cp.stderr or "kubectl failed").strip()[:300])
         return cp.stdout or ""
 
@@ -179,14 +274,28 @@ class BrowserProfiles:
                     return dep, self._json("get", "pvc", claim, "-n", ns, missing_ok=True) or {}
         raise BrowserError("the app's template Deployment was not found")
 
-    def open(self, app_id: str, key: str, spec: BrowserSpec) -> None:
-        """Create the person's objects if missing and run their pod. The claim is kept as it is."""
+    def open(self, app_id: str, key: str, spec: BrowserSpec) -> str:
+        """Create the person's objects if missing and run their pod. The claim is kept as it is.
+
+        Answers the person's own member password (from their Secret), for the browser's sign-in.
+        """
         ns = f"app-{app_id}"
         template, claim = self._template(ns, spec)
         objects = person_objects(app_id, key, spec, template, claim)
         if self._json("get", "pvc", profile_claim(key), "-n", ns, missing_ok=True) is not None:
             objects = objects[1:]  # never re-apply over an existing profile
+        # `create`, not `apply`: apply would copy the passwords into the last-applied annotation.
+        # Values go on stdin only. An existing Secret is kept (AlreadyExists), so logins stay stable.
+        self._run("create", "-n", ns, "-f", "-", stdin=json.dumps(login_object(app_id, key)), exists_ok=True)
         self._run("apply", "-n", ns, "-f", "-", stdin=json.dumps({"apiVersion": "v1", "kind": "List", "items": objects}))
+        return self._password(ns, key)
+
+    def _password(self, ns: str, key: str) -> str:
+        sec = self._json("get", "secret", login_secret(key), "-n", ns, missing_ok=True) or {}
+        try:
+            return base64.b64decode(((sec.get("data") or {})["PASSWORD"]), validate=True).decode()
+        except (KeyError, TypeError, ValueError) as exc:
+            raise BrowserError("the person's browser login was not found") from exc
 
     def close(self, app_id: str, key: str) -> None:
         """Stop the person's pod. The profile claim stays."""
@@ -197,6 +306,7 @@ class BrowserProfiles:
         ns = f"app-{app_id}"
         self._run("delete", "deployment", workload_name(key), "-n", ns, "--ignore-not-found", "--wait=true")
         self._run("delete", "pvc", profile_claim(key), "-n", ns, "--ignore-not-found", "--wait=true")
+        self._run("delete", "secret", login_secret(key), "-n", ns, "--ignore-not-found", "--wait=true")
         with self._lock:
             self._hosts.pop((app_id, key), None)
 

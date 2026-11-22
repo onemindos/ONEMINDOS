@@ -26,7 +26,7 @@ from pydantic import BaseModel, Field
 from ..apimodels import Action
 from ..auth import Principal
 from ..browsers import (
-    RESET_ACTION, BrowserError, BrowserProfiles, BrowserSpec, ResetHandler, browser_spec, host_label, person_key,
+    RESET_ACTION, BrowserError, BrowserProfiles, BrowserSpec, ResetHandler, browser_spec, host_label, load_secret,
     profile_claim,
 )
 from ..context import Gateway
@@ -48,11 +48,15 @@ class BrowserSession(BaseModel):
     url: str = Field(description="The person's browser host, served by the gateway proxy to this person only")
     profile: str = Field(description="Name of the person's profile volume claim")
     state: Literal["starting", "stopped"] = Field(description="starting: the pod is being started; stopped: closed, the profile kept")
+    password: str | None = Field(default=None, description=(
+        "The person's own browser sign-in password (open only; their pod alone accepts it). Never another "
+        "person's, never the app's shared login, never the admin password"))
 
 
 def register(app: FastAPI, gw: Gateway) -> None:
     net = gw.settings.section(NetSettings)
-    profiles = BrowserProfiles(gw.settings.kubectl)
+    # The box secret every person key is an HMAC under (browsers.py); kept 0600 next to the audit log.
+    profiles = BrowserProfiles(gw.settings.kubectl, secret=load_secret(gw.settings.audit_path.parent / "browser-profile.key"))
     app.state.browsers = profiles
 
     def spec_of(app_id: str) -> BrowserSpec | None:
@@ -81,7 +85,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         access = web.get("access") if web.get("access") in ACCESS_LEVELS else DEFAULT_ACCESS
         if not allowed(p, access):
             raise deny(p, what)
-        return spec, person_key(p.id)
+        return spec, profiles.key_of(p.id)
 
     def url_for(request: Request, app_id: str, key: str) -> str:
         label = host_label(app_id, key)
@@ -99,12 +103,13 @@ def register(app: FastAPI, gw: Gateway) -> None:
         spec, key = caller(request, p, app_id, "open a browser")
         url = url_for(request, app_id, key)
         try:
-            profiles.open(app_id, key, spec)
+            password = profiles.open(app_id, key, spec)
         except BrowserError as exc:
             raise ApiError(503, "unavailable", f"the browser could not be started: {exc}") from exc
         gw.audit.append("browser.session.opened", p.as_dict(), None, {"app_id": app_id, "person_key": key})
         return JSONResponse(BrowserSession(app_id=app_id, person_key=key, url=url, profile=profile_claim(key),
-                                           state="starting").model_dump(), headers={"Cache-Control": "no-store"})
+                                           state="starting", password=password).model_dump(),
+                            headers={"Cache-Control": "no-store"})
 
     @app.post("/v1/browsers/{app_id}/session/close", operation_id="browsers.session_close", tags=["browsers"],
               response_model=BrowserSession, responses=error_responses(401, 403, 404, 409, 503))

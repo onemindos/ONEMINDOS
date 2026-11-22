@@ -49,6 +49,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import hmac
 import html
 import ipaddress
 import json
@@ -67,7 +68,7 @@ from starlette.requests import Request
 from websockets.exceptions import ConnectionClosed, InvalidHandshake, InvalidStatus
 
 from .auth import Principal, TokenStore
-from .browsers import BrowserProfiles, BrowserSpec, browser_spec, person_key, split_host_label
+from .browsers import BrowserProfiles, BrowserSpec, browser_spec, split_host_label
 from .catalog import APP_ID_RE, Catalog
 from .errors import ApiError
 from .netpath import NetPath, PathClassifier, tier_admits
@@ -440,7 +441,8 @@ class AppProxy:
         spec = self.browser_of(app_id)
         if spec is None:
             return Decision.ALLOW, principal, route
-        if key is None or principal.kind != "person" or key != person_key(principal.id):
+        if key is None or principal.kind != "person" or self.browsers is None \
+                or not hmac.compare_digest(key, self.browsers.key_of(principal.id)):
             return Decision.FORBIDDEN, principal, route  # the shared template, or another person's browser
         host = self.browsers.service_host(app_id, key, spec.port) if self.browsers is not None else None
         if host is None:

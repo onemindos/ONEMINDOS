@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // A browser app (Neko, #593) in a desktop window with the person's own profile (#692). The gateway
 // starts this person's pod and answers the URL of their browser host (<app>--<key>.<box domain>),
-// which its proxy serves to them only; the window frames that host. Close stops the pod and keeps the
+// which its proxy serves to them only; the window frames that host and shows the person's own
+// sign-in password (their pod alone accepts it; nobody is shown its admin password). Close stops the pod and keeps the
 // profile. Reset profile only files a request: an owner approves it in Approvals before anything is erased.
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
@@ -53,6 +54,7 @@ export function BrowserWindowView({ appId, name, api, onClosed }: { appId: strin
     </div>
     {error && <p role="alert">{`OneMind could not open ${name}: ${error}`}</p>}
     {!error && !session && <p role="status">Starting {name}…</p>}
+    {session?.password && <p>Sign in with any name and your own password: <code aria-label="Your browser password">{session.password}</code></p>}
     {session && <iframe className="om-browser-frame" title={`${name}, your profile`} src={session.url} allow="clipboard-read; clipboard-write; fullscreen" referrerPolicy="no-referrer" />}
     {confirm && <Dialog open title="Reset your browser profile?" onClose={() => setConfirm(false)} actions={<><Button onClick={() => setConfirm(false)}>Cancel</Button><Button variant="primary" onClick={() => void reset()}>Ask the owner</Button></>}>
       <p>Bookmarks, logins and history in {name} are erased. This waits for an owner to approve it.</p>

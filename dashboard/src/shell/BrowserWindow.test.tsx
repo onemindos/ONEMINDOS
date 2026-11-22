@@ -11,7 +11,7 @@ import screenDef from '../screens/browser/screen';
 import { href } from './routes';
 
 const PK = 'ab'.repeat(8);
-const SESSION: BrowserSession = { app_id: 'firefox', person_key: PK, url: `https://firefox--${PK}.onemind.local/`, profile: `profile-${PK}`, state: 'starting' };
+const SESSION: BrowserSession = { app_id: 'firefox', person_key: PK, url: `https://firefox--${PK}.onemind.local/`, profile: `profile-${PK}`, state: 'starting', password: 'own-member-password' };
 
 function fakeApi() {
   return {
@@ -30,6 +30,7 @@ describe('browser window (#692)', () => {
     expect(frame.getAttribute('src')).toBe(SESSION.url);
     expect(api.openAppSession.mock.invocationCallOrder[0]).toBeLessThan(api.openBrowser.mock.invocationCallOrder[0]!);
     expect(api.openBrowser).toHaveBeenCalledWith('firefox');
+    expect(screen.getByLabelText('Your browser password').textContent).toBe('own-member-password');
   });
 
   it('Close stops the pod and leaves the window; Reset profile only asks the owner', async () => {
@@ -57,6 +58,7 @@ describe('browser window (#692)', () => {
     expect(checkBrowser(SESSION, 'firefox')).toBe(SESSION);
     expect(() => checkBrowser(SESSION, 'chromium')).toThrow();
     expect(() => checkBrowser({ ...SESSION, url: 'https://evil.example/' }, 'firefox')).toThrow();
+    expect(() => checkBrowser({ ...SESSION, password: 7 as unknown as string }, 'firefox')).toThrow();
     expect(() => checkBrowser({ ...SESSION, url: `javascript:alert(1)//firefox--${PK}` }, 'firefox')).toThrow();
   });
 
