@@ -34,6 +34,16 @@ CSP = (
     "font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; "
     "frame-ancestors 'none'; form-action 'self'"
 )
+
+def csp_with_frames(frame_src: tuple[str, ...]) -> str:
+    """CSP plus a frame-src that admits only `frame_src` (the dashboard's browser windows, #692).
+
+    Without it frame-src falls back to default-src 'self' and no other origin can be framed. Only the
+    dashboard page carries this (routers/static.py), and only while a browser app is in the catalog.
+    """
+    return CSP + "; frame-src " + " ".join(frame_src) if frame_src else CSP
+
+
 SECURITY_HEADERS: tuple[tuple[bytes, bytes], ...] = (
     (b"content-security-policy", CSP.encode()),
     (b"x-content-type-options", b"nosniff"),

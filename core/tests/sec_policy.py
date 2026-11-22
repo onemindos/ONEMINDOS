@@ -747,3 +747,17 @@ POLICY.update({
             "idempotency_key": x.key(), "expires_at": x.action_body()["expires_at"]}),
         "#180 owner approval required to revoke enrolled signing trust"),
 })
+
+# ---- browser windows, one profile per person (#692: core/onemind_core/routers/browsers.py) ----------------
+# The probe names an app that is not a browser: a person learns only "no such browser app" (404). Only a
+# signed-in person may ask at all, so every agent, plugin, automation and node is refused (403, audited).
+_BROWSER = "core/onemind_core/routers/browsers.py"
+BROWSER_PERSON = cells(404, **GONE, agent=403, app_agent=403, plugin=403, automation=403, node=403)
+POLICY |= {
+    ("POST", "/v1/browsers/{app_id}/session"): Row(BROWSER_PERSON, w.p_static("/v1/browsers/whoami/session"),
+                                                   f"{_BROWSER}: a person opens their own browser; no token opens a person's"),
+    ("POST", "/v1/browsers/{app_id}/session/close"): Row(BROWSER_PERSON, w.p_static("/v1/browsers/whoami/session/close"),
+                                                         f"{_BROWSER}: a person stops their own browser"),
+    ("POST", "/v1/browsers/{app_id}/profile/reset"): Row(BROWSER_PERSON, w.p_static("/v1/browsers/whoami/profile/reset"),
+                                                         f"{_BROWSER}: files browser.profile.reset; only an owner's approval erases"),
+}

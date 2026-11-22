@@ -133,6 +133,8 @@ class AppEntry:
             "archs": list(archs) if isinstance(archs, list) else [],
             "requires": dict(requires) if isinstance(requires, dict) else {},
             "web_port": web.get("port") if isinstance(web, dict) else None,
+            # #692: opened in a dashboard browser window with a per-person profile (browsers.py), not on its own name.
+            "browser": isinstance(spec.get("browser"), dict) and isinstance(web, dict),
             # §11.4 additions.
             "links": {k: _http_url(links.get(k)) for k in LINK_KEYS},
             "tier": md.get("tier") if md.get("tier") in TIERS else None,

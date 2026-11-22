@@ -43,6 +43,7 @@ from .lifecycle import AppCredentialGrant, ExecContext, report_progress
 from .netconf import MeshSettings
 from .policy import (
     APP_ID,
+    BROWSER_PROFILE_LABEL,
     DEPENDENCIES_POLICY,
     Rules,
     SandboxSettings,
@@ -369,7 +370,9 @@ class KubernetesExecutor(Executor):
         except yaml.YAMLError:
             pass
         sources = self.hub_addresses() if ports else []
-        return network_policies(app.id, egress or [], self.rules, self._gateway_egress(agent), sources, ports)
+        browser = isinstance((app.manifest.get("spec") or {}).get("browser"), dict)
+        return network_policies(app.id, egress or [], self.rules, self._gateway_egress(agent), sources, ports,
+                                browser=browser)
 
     def plan(
         self, action_type: str, app: AppEntry, agent: AgentSecret | None = None, *,
@@ -613,8 +616,15 @@ class KubernetesExecutor(Executor):
             "data": data,
         })
 
-    def _workloads(self, app: AppEntry, steps: list[dict]):
-        """(refs, error): the app's Deployments and StatefulSets as [(ref, replicas, saved_replicas)]."""
+    def _workloads(self, app: AppEntry, steps: list[dict], *, skip: frozenset[str] = frozenset({"person"}),
+                   roles: bool = False):
+        """(refs, error): the app's Deployments and StatefulSets as [(ref, replicas, saved_replicas)].
+
+        A browser app (#692) has two kinds the lifecycle must not treat as its own workloads:
+        "template", its Deployment that mounts the shared profile volume and runs no replica, and
+        "person", each person's browser-<key> Deployment (BROWSER_PROFILE_LABEL). `skip` leaves
+        those roles out; roles=True adds the role (None for an ordinary workload) as a fourth item.
+        """
         cp, err = self._exec([self.kubectl, "get", WORKLOAD_KINDS, "-n", f"app-{app.id}", "-o", "json"],
                              None, app, None, steps, keep_stdout=False)
         if err is not None:
@@ -624,10 +634,14 @@ class KubernetesExecutor(Executor):
             out = []
             for it in items:
                 kind = "statefulset" if it.get("kind") == "StatefulSet" else "deployment"
+                role = _browser_role(app, it)
+                if role in skip:
+                    continue
                 ann = (it.get("metadata") or {}).get("annotations") or {}
                 saved = ann.get(REPLICAS_ANNOTATION)
-                out.append((f"{kind}/{it['metadata']['name']}", int((it.get("spec") or {}).get("replicas", 1)),
-                            int(saved) if saved is not None else None))
+                row = (f"{kind}/{it['metadata']['name']}", int((it.get("spec") or {}).get("replicas", 1)),
+                       int(saved) if saved is not None else None)
+                out.append((*row, role) if roles else row)
             return out, None
         except (ValueError, KeyError, TypeError, AttributeError):
             return None, ExecResult("failed", "could not read the app's workloads", steps)
@@ -665,14 +679,18 @@ class KubernetesExecutor(Executor):
                 report_progress("done", 100)
                 return ExecResult("succeeded", f"app.configure {app.id}: settings applied, no restart needed", steps)
         report_progress("reading workloads", 30)
-        work, err = self._workloads(app, steps)
+        # A browser app's template never runs (its shared profile must not), and a person's browser
+        # is started only by that person (browsers.py): start and restart leave both alone; stop also
+        # stops every person's browser, without a remembered count, so start does not bring it back.
+        skip = frozenset({"template"}) if action_type == "app.stop" else frozenset({"template", "person"})
+        work, err = self._workloads(app, steps, skip=skip, roles=True)
         if err is not None:
             return err
-        for i, (ref, replicas, saved) in enumerate(work):
+        for i, (ref, replicas, saved, role) in enumerate(work):
             report_progress(f"{action_type.split('.')[1]} {ref}", 40 + int(40 * i / max(1, len(work))))
             if action_type == "app.stop":
                 cmds = []
-                if replicas > 0:  # remember the count; a second stop must not overwrite it with 0
+                if replicas > 0 and role is None:  # remember the count; a second stop must not overwrite it with 0
                     cmds.append([k, "annotate", ref, f"{REPLICAS_ANNOTATION}={replicas}", "--overwrite", "-n", ns])
                 cmds.append([k, "scale", ref, "--replicas=0", "-n", ns])
             elif action_type == "app.start":
@@ -805,6 +823,20 @@ class KubernetesExecutor(Executor):
         return ExecResult(
             "succeeded", f"{action_type} {app.id} applied to namespace app-{app.id}", steps, plan=plan_info
         )
+
+
+def _browser_role(app: AppEntry, item: dict) -> str | None:
+    """"person", "template" or None: the role of a workload of a browser app (#692; browsers.py)."""
+    browser = (app.manifest.get("spec") or {}).get("browser")
+    if not isinstance(browser, dict) or item.get("kind", "Deployment") != "Deployment":
+        return None
+    if BROWSER_PROFILE_LABEL in ((item.get("metadata") or {}).get("labels") or {}):
+        return "person"
+    pod = ((item.get("spec") or {}).get("template") or {}).get("spec") or {}
+    for vol in pod.get("volumes") or []:
+        if vol.get("name") == browser.get("profileVolume") and (vol.get("persistentVolumeClaim") or {}).get("claimName"):
+            return "template"
+    return None
 
 
 def _refused(app: AppEntry, violations: list[Violation], plan: dict, steps: list[dict]) -> ExecResult:

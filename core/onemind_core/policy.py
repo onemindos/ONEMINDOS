@@ -554,9 +554,14 @@ def web_ports(manifest: dict, docs: Iterable[Any]) -> list[int]:
     return sorted(out)
 
 
+# The label the gateway puts on a person's own browser pod (browsers.py, #692).
+BROWSER_PROFILE_LABEL = "onemind.io/browser-profile"
+BROWSER_POLICY = "onemind-browser-profiles"
+
+
 def network_policies(
     app_id: str, egress: list[str], rules: Rules, extra_egress: Iterable[tuple[str, int | None]] = (),
-    gateway_sources: Iterable[str] = (), gateway_ports: Iterable[int] = (),
+    gateway_sources: Iterable[str] = (), gateway_ports: Iterable[int] = (), browser: bool = False,
 ) -> list[dict]:
     """Default-deny for app-<id>, then the allowances: own namespace, DNS, the proxy, declared egress.
 
@@ -565,6 +570,11 @@ def network_policies(
     gateway_sources / gateway_ports: the hub's host addresses as a pod on another node sees them
     (the address of the hub's local flannel interface) and the app's web port(s). The gateway runs on the hub host,
     not in a pod, so the namespace rule never matches it; this lets it reach only those TCP ports.
+    browser: a browser app (#692). Each person's browser pod carries BROWSER_PROFILE_LABEL; the
+    namespace-wide allowance then leaves those pods out, and a third policy lets into them only the
+    gateway on the web port(s), never another pod (not another person's browser, not the app's own
+    pods, not the proxy namespace). NetworkPolicies add up, so leaving the pods out of
+    `onemind-allow` is what closes pod-to-pod; a policy of its own could only open more.
     """
     ns = f"app-{app_id}"
     labels = {"onemind.io/app": app_id, "onemind.io/managed-by": "onemind-gateway"}
@@ -613,7 +623,19 @@ def network_policies(
         "metadata": {"name": "onemind-allow", "namespace": ns, "labels": labels},
         "spec": {"podSelector": {}, "policyTypes": ["Ingress", "Egress"], "ingress": ingress, "egress": egress_rules},
     }
-    return [deny, allow]
+    if not browser:
+        return [deny, allow]
+    allow["spec"]["podSelector"] = {"matchExpressions": [{"key": BROWSER_PROFILE_LABEL, "operator": "DoesNotExist"}]}
+    hub = [r for r in ingress if any("ipBlock" in f for f in r["from"])]
+    # Out: DNS, the declared egress and the gateway's own additions, never a pod in the namespace.
+    out = [r for r in egress_rules if r != {"to": [{"podSelector": {}}]}]
+    person = {
+        "apiVersion": "networking.k8s.io/v1", "kind": "NetworkPolicy",
+        "metadata": {"name": BROWSER_POLICY, "namespace": ns, "labels": labels},
+        "spec": {"podSelector": {"matchExpressions": [{"key": BROWSER_PROFILE_LABEL, "operator": "Exists"}]},
+                 "policyTypes": ["Ingress", "Egress"], "ingress": hub, "egress": out},
+    }
+    return [deny, allow, person]
 
 
 # Names of the NetworkPolicies for declared dependencies (contract §12.22, dependency network paths).

@@ -8,7 +8,8 @@ kind: Deployment
 metadata:
   name: firefox
 spec:
-  replicas: 1
+  # A template only (#692, spec.browser): no shared profile ever runs. Each person's copy is made by the gateway.
+  replicas: 0
   revisionHistoryLimit: 2
   strategy:
     type: Recreate
