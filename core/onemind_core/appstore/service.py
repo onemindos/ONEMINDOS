@@ -28,7 +28,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from ..actions import FeatureAction
 from ..auth import Principal
-from .. import cpufit, placement, streams
+from .. import cpufit, gpufit, placement, streams
 from ..catalog import APP_ID_RE, MANIFEST, AppEntry
 from ..context import Gateway
 from ..errors import ApiError
@@ -283,6 +283,13 @@ class AppStore:
             # needs a GPU where no node has one. No node reported yet is unknown, not refused.
             where = placement.place(app.manifest, self.gw.registry.list())
             if where["verdict"] == "nowhere":
+                # S-5: an app that declares spec.requires.accelerator gets the box-level GPU wording.
+                reqs = (app.manifest.get("spec") or {}).get("requires")
+                gpu_fit = (gpufit.refusal(app.manifest, cpufit.hub(self.gw.registry.list()))
+                           if isinstance(reqs, dict) and isinstance(reqs.get("accelerator"), dict) else None)
+                if gpu_fit:
+                    code, message, details = gpu_fit
+                    raise _refuse(409, "stale_precondition", message, reason=code, details=details)
                 raise _refuse(409, "stale_precondition", where["message"], reason="no_node_fits",
                               details=[{"field": f"node:{ln['node_id']}", "problem": r["code"]}
                                        for ln in where["nodes"] for r in ln["reasons"] if r["blocking"]])
