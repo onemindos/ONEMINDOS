@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Cloud box: the owner reaches it over the internet, so SSH (key-only, board sshd_config) and the HTTPS
+# gateway answer from any address. Everything else stays LAN/mesh-only (host.nft). Rescue 7443 and the
+# Headscale join port stay LAN-only; the mesh port 41641/udp is open so direct mesh paths can form.
+add rule inet onemind_host input tcp dport { 22, 443, 8443 } accept
+add rule inet onemind_host input udp dport 41641 accept

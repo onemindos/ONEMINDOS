@@ -8,3 +8,4 @@ c96bbfe38e3480bd085de08c345fed23a6515ef81f5fedca771ef47551b612fd  CRITERIA-FIRST
 bf0fcc842cbb1b1e6bd3e75a9add9e71daa83c81a5aea9de4a69dd8f1c391c89  CRITERIA-FIRSTBOOT.md  2026-11-15T00:00:00Z  (with §5 amendment: F7-F9 mesh in the image, IMG-MESH-01; written before F7-F9 were implemented)
 a4b21f2578294a5398f448761cd04b013de6c917ebf5e01ccca32e3536a75099  CRITERIA-FIRSTBOOT.md  2026-11-21T00:00:00Z  (with §6 amendment: F10 rescue console on the booted hub, #278; written before F10 was implemented)
 2b788ed182eaf477e5895c916e8e62b54fe7cc993b70e63ebf68845d70357eb5  CRITERIA-SECUREBOOT.md  2026-11-21T22:00:00Z  (S-13; status line reworded before the PR merged to say the harness was self-tested on a rootless image before the full-image run; no criterion changed)
+d56cf70920434a075150dd8aca3518a9acfef5a43c40e037055171badfd3d7cd  CRITERIA-FIREWALL.md  2026-11-21T19:49:34Z

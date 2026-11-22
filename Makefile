@@ -73,6 +73,16 @@ firstboot:
 	  --log /out/firstboot-$(BOARD)/serial.log --results /out/firstboot-$(BOARD)/results.json; \
 	  rc=$$?; rm -f $(OUT)/firstboot-$(BOARD)/work/disk.img; exit $$rc
 
+# Host firewall port scan from a second VM (test/qemu/firewall.py, CRITERIA-FIREWALL.md FW1-FW4).
+.PHONY: firewall
+firewall:
+	@test -f $(OUT)/fx-$(BOARD)/disk.img || $(MAKE) fixtures BOARD=$(BOARD)
+	mkdir -p $(OUT)/firewall-$(BOARD)
+	$(DOCKER_RUN) $(KVM) $(TOOLS) python3 -I /src/test/qemu/firewall.py --board $(BOARD) \
+	  --fixtures /out/fx-$(BOARD) --work /out/firewall-$(BOARD)/work \
+	  --log /out/firewall-$(BOARD)/serial.log --results /out/firewall-$(BOARD)/results.json; \
+	  rc=$$?; rm -rf $(OUT)/firewall-$(BOARD)/work; exit $$rc
+
 # Local KVM check of F0-F4 (build + fixtures + firstboot); see test/qemu/README.md "Local first boot".
 .PHONY: local-firstboot
 local-firstboot:

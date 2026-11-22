@@ -78,6 +78,8 @@ class VM:
         # Opt-in fail-fast (failfast.py): the boot harnesses set it; the T-battery must not (T6/T7 panic on purpose).
         self.failfast, self._watch = False, failfast.Watch()
         self.vars = None
+        self.fwd = FWD                  # host port forwarded to the guest :8080 (firewall.py runs two VMs)
+        self.extra_args = []            # more QEMU arguments (firewall.py: a second NIC on a socket link)
         if self.cfg["vars"]:
             self.vars = os.path.join(workdir, "VARS.fd")
             shutil.copy(self.cfg["vars"], self.vars)
@@ -86,8 +88,9 @@ class VM:
         c = self.cfg
         cmd = [c["qemu"], "-machine", c["machine"], "-accel", self.accel, "-cpu", self.cpu,
                "-smp", "4", "-m", "3072", "-nodefaults", "-display", "none", "-vga", "none",
-               "-nic", f"user,model=virtio-net-pci,restrict=on,hostfwd=tcp:127.0.0.1:{FWD}-:8080",
+               "-nic", f"user,model=virtio-net-pci,restrict=on,hostfwd=tcp:127.0.0.1:{self.fwd}-:8080",
                "-device", "i6300esb", "-action", "watchdog=reset"]
+        cmd += self.extra_args
         if c["code"]:
             cmd += ["-drive", f"if=pflash,format=raw,readonly=on,file={c['code']}",
                     "-drive", f"if=pflash,format=raw,file={self.vars}"]

@@ -14,6 +14,7 @@ on:
       snapshot: {type: string, default: ''}
       firstboot: {type: boolean, default: false}
       secureboot: {type: boolean, default: false}
+      firewall: {type: boolean, default: false}
   workflow_dispatch:
     inputs:
       board: {type: string, default: x86_64-efi}
@@ -79,6 +80,9 @@ jobs:
         if: inputs.secureboot
         continue-on-error: true
         run: make secureboot-test TOOLS=onemind-tools:ci
+      - name: Host firewall scan from a second VM (FW1-FW4, test/qemu/CRITERIA-FIREWALL.md)
+        if: inputs.firewall
+        run: make firewall BOARD=${{ inputs.board }} TOOLS=onemind-tools:ci
       - name: Battery up to ${{ inputs.upto }}
         run: |
           sudo rm -f out/rootfs-*.tar
@@ -92,6 +96,9 @@ jobs:
           sb=out/secureboot-${{ inputs.board }}
           if [ -f $sb/results.json ]; then python3 -I test/qemu/summary.py $sb/results.json >> "$GITHUB_STEP_SUMMARY"; fi
           if [ -f $sb/serial.log ]; then test/qemu/trim-log.sh $sb/serial.log > $sb/serial-trimmed.log; rm -f $sb/serial.log; fi
+          w=out/firewall-${{ inputs.board }}
+          if [ -f $w/results.json ]; then python3 -I test/qemu/summary.py $w/results.json >> "$GITHUB_STEP_SUMMARY"; fi
+          if [ -f $w/serial.log ]; then test/qemu/trim-log.sh $w/serial.log > $w/serial-trimmed.log; rm -f $w/serial.log; fi
           f=out/firstboot-${{ inputs.board }}
           if [ -f $f/results.json ]; then python3 -I test/qemu/summary.py $f/results.json >> "$GITHUB_STEP_SUMMARY"; fi
           if [ -f $f/serial.log ]; then test/qemu/trim-log.sh $f/serial.log > $f/serial-trimmed.log; rm -f $f/serial.log; fi
@@ -105,6 +112,8 @@ jobs:
             out/firstboot-${{ inputs.board }}/serial-trimmed.log
             out/secureboot-${{ inputs.board }}/results.json
             out/secureboot-${{ inputs.board }}/serial-trimmed.log
+            out/firewall-${{ inputs.board }}/results.json
+            out/firewall-${{ inputs.board }}/serial-trimmed.log
             out/fx-${{ inputs.board }}/t0.json
             out/fx-${{ inputs.board }}/SHA256SUMS
           retention-days: 30

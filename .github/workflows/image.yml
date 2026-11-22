@@ -173,9 +173,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - {board: x86_64-efi, upto: T5, runner: ubuntu-24.04, firstboot: true}
-          - {board: vm-do,      upto: T5, runner: ubuntu-24.04, firstboot: false}
-          - {board: arm64-efi,  upto: T1, runner: ubuntu-24.04-arm, firstboot: true}
+          - {board: x86_64-efi, upto: T5, runner: ubuntu-24.04, firstboot: true, firewall: true}
+          - {board: vm-do,      upto: T5, runner: ubuntu-24.04, firstboot: false, firewall: false}
+          - {board: arm64-efi,  upto: T1, runner: ubuntu-24.04-arm, firstboot: true, firewall: false}
     uses: ./.github/workflows/battery.yml
     with:
       board: ${{ matrix.board }}
@@ -183,6 +183,7 @@ jobs:
       runner: ${{ matrix.runner }}
       firstboot: ${{ matrix.firstboot }}
       secureboot: ${{ matrix.board == 'x86_64-efi' && needs.scope.outputs.sb == 'true' }}
+      firewall: ${{ matrix.firewall }}
   # Cloud images (docs/leap/core/CLOUD-IMAGES.md): one `cloud` rootfs, one image per cloud in the format
   # that cloud imports, then the cloud test on that exact artifact (test/qemu/CRITERIA-CLOUD.md).
   # Uploading to a cloud account is never done here (os/cloud/*-import.sh, run by the owner).
