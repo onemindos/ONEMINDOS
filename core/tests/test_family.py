@@ -19,6 +19,7 @@ def family(idc):
     uid = child.get("/v1/me").json()["principal"]["id"]
     r = idc.put("/v1/apps/whoami/access", headers=csrf(idc), json={"people": [uid]})
     assert r.status_code == 200
+    assert put(idc, uid).status_code == 200  # clear the default age rating: these tests start unrestricted
     return idc, child, uid
 
 
@@ -213,6 +214,7 @@ def teen_family(idc):
     teen = enrol(idc, "teen", "tess")
     uid = teen.get("/v1/me").json()["principal"]["id"]
     assert idc.put("/v1/apps/whoami/access", headers=csrf(idc), json={"people": [uid]}).status_code == 200
+    assert put(idc, uid).status_code == 200  # clear the default age rating: these tests start unrestricted
     return idc, teen, uid
 
 
@@ -309,3 +311,67 @@ def test_ages_and_minutes_must_be_json_integers(family, value):
     assert put(owner, uid, max_age_rating=value).status_code == 422
     window = {"days": [0], "start_minute": value, "end_minute": 60}
     assert put(owner, uid, windows=[window]).status_code == 422
+
+
+def rating(owner, uid):
+    r = owner.get(f"/v1/family/profiles/{uid}")
+    assert r.status_code == 200, r.text
+    return r.json()["max_age_rating"]
+
+
+def new_person(owner, role, name="Pat"):
+    r = owner.post("/v1/users", headers=csrf(owner), json={"display_name": name, "role": role})
+    assert r.status_code == 201, r.text
+    return r.json()["id"]
+
+
+def test_new_child_and_teen_get_default_age_ratings(idc):
+    setup_owner(idc)
+    child, teen = new_person(idc, "child"), new_person(idc, "teen")
+    assert rating(idc, child) == 12
+    assert rating(idc, teen) == 16
+    for role in ("adult", "guest"):
+        assert rating(idc, new_person(idc, role)) is None
+    # A preset is only a start: the owner can raise it or clear it, and it stays that way.
+    assert put(idc, child, max_age_rating=7).status_code == 200
+    assert put(idc, teen).status_code == 200
+    assert (rating(idc, child), rating(idc, teen)) == (7, None)
+    # An unclassified app is blocked by a preset rating (existing fail-closed rule).
+    kid = enrol(idc, "child", "kid")
+    assert apps(kid) == []
+
+
+def test_preset_events_never_carry_a_birth_date(idc, settings):
+    setup_owner(idc)
+    uid = new_person(idc, "teen")
+    assert put(idc, uid, birth_date="2011-05-06", max_age_rating=16).status_code == 200
+    events = [e for e in audit_events(settings) if "family" in str(e)]
+    preset = [e for e in events if "preset_applied" in str(e)]
+    assert len(preset) == 1 and preset[0]["event"] == "family.profile.preset_applied"
+    assert preset[0]["data"]["payload"] == {"user_id": uid, "role": "teen", "max_age_rating": 16}
+    assert "2011" not in str(events) and "birth" not in str(events)
+
+
+def test_role_change_applies_the_preset_only_when_no_profile_exists(idc):
+    setup_owner(idc)
+    adult = new_person(idc, "adult")
+    assert rating(idc, adult) is None
+    assert idc.patch(f"/v1/users/{adult}", headers=csrf(idc), json={"role": "teen"}).status_code == 200
+    assert rating(idc, adult) == 16
+    # Teen to child keeps the existing profile, even though the child preset is stricter.
+    assert idc.patch(f"/v1/users/{adult}", headers=csrf(idc), json={"role": "child"}).status_code == 200
+    assert rating(idc, adult) == 16
+    # A profile the owner cleared is a profile: a later role change does not bring the preset back.
+    assert put(idc, adult).status_code == 200
+    assert idc.patch(f"/v1/users/{adult}", headers=csrf(idc), json={"role": "teen"}).status_code == 200
+    assert rating(idc, adult) is None
+    # Becoming an adult adds nothing, and renaming alone adds nothing.
+    other = new_person(idc, "adult")
+    assert idc.patch(f"/v1/users/{other}", headers=csrf(idc), json={"display_name": "Sam"}).status_code == 200
+    assert idc.patch(f"/v1/users/{other}", headers=csrf(idc), json={"role": "guest"}).status_code == 200
+    assert rating(idc, other) is None
+    # A person who gets a profile before a role change keeps it.
+    third = new_person(idc, "guest")
+    assert put(idc, third, max_age_rating=10).status_code == 200
+    assert idc.patch(f"/v1/users/{third}", headers=csrf(idc), json={"role": "teen"}).status_code == 200
+    assert rating(idc, third) == 10

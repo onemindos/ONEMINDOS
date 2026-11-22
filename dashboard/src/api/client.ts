@@ -470,6 +470,9 @@ export class HttpApi implements OneMindApi {
   disableUser(id: string) {
     return this.req<W.UserInfo>('POST', `/v1/users/${encodeURIComponent(id)}/disable`, {});
   }
+  familyProfile(id: string) {
+    return this.req<W.FamilyProfile>('GET', `/v1/family/profiles/${encodeURIComponent(id)}`);
+  }
   tokens() {
     return this.req<W.TokenInfo[]>('GET', '/v1/tokens', undefined, 'array');
   }
