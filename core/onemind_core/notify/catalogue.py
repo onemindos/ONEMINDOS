@@ -29,6 +29,7 @@ TOPICS = ("approvals", "backups", "updates", "nodes", "apps", "storage", "securi
 OWNERS = "owners"
 OWNERS_AND_REQUESTER = "owners+requester"
 OWNERS_AND_ADULTS = "owners+adults"
+PERSON = "person"  # only the person named by data.person_id (their own download, #693); never pushed for them by role
 
 
 @dataclass(frozen=True)
@@ -165,6 +166,17 @@ _SPECS = [
          dedupe="verify:{unit}", link="/backups", aliases=("backup.verify.failed",)),
     Spec("backup.verified", "notify", "backups", "info", "Test restore of {unit} passed", "",
          link="/backups", resolves=("verify:{unit}",), aliases=("backup.verify.succeeded",)),
+    # ---- browser downloads (#693; files/downloads.py) ---------------------------------------
+    # A held file is an owner's alert; it clears when the file is released to Files (by a clean
+    # rescan or an owner's approval of the fix) or discarded. Nothing in quarantine is ever opened.
+    Spec("files.download.quarantined", "open", "security", "warning", "Download held: {name}",
+         "{reason} The file stays in quarantine, unopened, until an owner approves moving it to Files "
+         "or discards it.", dedupe="download:{download_id}",
+         fix=_fix("files.download.release", "download_id", "verdict")),
+    Spec("files.download.delivered", "inbox", "storage", "info", "Downloaded: {name}",
+         "Saved to {path} in your Files.", audience=PERSON, link="/files",
+         resolves=("download:{download_id}",)),
+    Spec("files.download.discarded", "resolve", "security", resolves=("download:{download_id}",)),
     # ---- the notifier itself -------------------------------------------------------------
     Spec("notify.channel_failing", "open", "security", "warning", "Notification channel {label} is failing",
          "{reason}", dedupe="channel:{channel_id}", link="/settings/notifications"),
