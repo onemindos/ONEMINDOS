@@ -99,6 +99,17 @@ describe('Home health card', () => {
     expect(screen.getByTestId('health-backups')).toHaveTextContent(/Last backup 1h ago/);
   });
 
+  it('shows no card and no error to a role the gateway refuses the status read (teen, child, guest)', async () => {
+    await mount(<HealthCard />, {
+      status: async () => {
+        throw new ApiError(403, 'permission_denied', 'not allowed');
+      },
+    });
+    await act(async () => new Promise((r) => setTimeout(r, 200)));
+    expect(screen.queryByTestId('health-card')).toBeNull();
+    expect(screen.queryByTestId('health-error')).toBeNull();
+  });
+
   it('shows nothing when the hub has no status route', async () => {
     await mount(<HealthCard />, {}, [OP.me]);
     expect(screen.queryByTestId('health-card')).toBeNull();

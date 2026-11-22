@@ -4,6 +4,8 @@
 // Types for the proof-of-concept v0 contract (sdk/contracts/poc-v0.md).
 // Section numbers below refer to that file.
 
+import type { StatusView as SdkStatusView } from '@onemind/sdk';
+
 /** §2 `board` values. */
 export type Board =
   | 'x86_64-efi'
@@ -719,21 +721,6 @@ export interface SystemPlanPreview {
 }
 
 /** `GET /v1/status`: one state per source; a source that cannot be read is `unknown`, never `ok`. */
-export type HealthState = 'ok' | 'attention' | 'critical' | 'unknown';
-export interface SourceStatus {
-  state: HealthState;
-  observed_at: string | null;
-  summary: string;
-  count?: number | null;
-}
-export interface StatusView {
-  state: HealthState;
-  observed_at: string;
-  alerts: SourceStatus;
-  approvals: SourceStatus;
-  apps: SourceStatus;
-  storage: SourceStatus;
-  backups: SourceStatus;
-  updates: SourceStatus;
-  mesh: SourceStatus;
-}
+export type { StatusView } from '@onemind/sdk';
+export type SourceStatus = SdkStatusView['alerts'];
+export type HealthState = SdkStatusView['state'];

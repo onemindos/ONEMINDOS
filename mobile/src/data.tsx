@@ -104,7 +104,7 @@ export function HubDataProvider({
       const [inboxR, alertsR, statusR] = await Promise.allSettled([
         hasInbox ? api.notifications({ limit: 100 }) : Promise.resolve(undefined),
         hasAlerts ? api.alerts('open') : Promise.resolve(undefined),
-        hasStatus ? api.status() : Promise.resolve(undefined),
+        hasStatus ? unlessForbidden(api.status()) : Promise.resolve(undefined),
       ]);
       if (mine !== seq.current) return; // a newer refresh started; drop this answer
       const inbox = inboxR.status === 'fulfilled' ? inboxR.value : undefined;
