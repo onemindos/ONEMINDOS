@@ -227,3 +227,19 @@ gpu:                # board x86_64-efi-nvidia (S-5): only built when that board 
     image: nvcr.io/nvidia/k8s-device-plugin:v0.20.2
     digest: sha256:7673383d44a84bece724d9ca8feeadf4eee69cd46475fdff614cbbca6732d463
     source: crane digest of the tag, 2026-11-21 (index of amd64 c62cc3a8 and arm64 b336cc06)
+machines_extension:   # optional machines layer (MACH-2, #281): os/rootfs/fetch-machines.sh, os/rootfs/layers/machines
+  kubevirt:
+    version: v1.9.1
+    licence: Apache-2.0              # LICENSE read at tag v1.9.1 on 2026-11-21
+    files:
+      kubevirt-operator.yaml: 9ac45a436c49d32e6fc21d542bcb7600b970705297b9e6752f3ef9b0a1d292da
+      kubevirt-cr.yaml: 43106136dbce3312bdbfdeae612aacafc6c12da518d233f90645b4685d84a2af
+  cdi:
+    version: v1.66.1
+    licence: Apache-2.0              # LICENSE read at tag v1.66.1 on 2026-11-21 (the spike had carried it forward unread)
+    files:
+      cdi-operator.yaml: c7d92bd1b2ee1a3952a5990000437c08d58109f31c0bd48ab6188ec27a13e224
+      cdi-cr.yaml: a497f90de608c1df26f9ee4095289373f17132d74a2042ca03e00c17c964f8a7
+  source: GitHub release assets, re-downloaded and hashed 2026-11-21; same hashes as the spike (research-output/evidence/lab/machines-spike/scripts/fetch.sh)
+  images: tags only (quay.io/kubevirt/*:v1.9.1 and :v1.66.1), digests UNVERIFIED; offline use needs them preloaded (left for LT-MACH-2). Until the digests are recorded here, the gateway refuses Turn on unless ONEMIND_MACHINES_ALLOW_TAG_IMAGES=1 (lab only)
+  licence_note: virt-launcher bundles QEMU (GPL-2.0) and libvirt (LGPL-2.1+); OneMind pulls the upstream image and does not rebuild or mirror it, so no source-offer duty arises. Mirroring it would create one.

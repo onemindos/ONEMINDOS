@@ -54,6 +54,11 @@ RUN fetch-onemind nats "$TARGETARCH" /opt/nats \
  && fetch-onemind headscale "$TARGETARCH" /opt/headscale \
  && fetch-onemind restic "$TARGETARCH" /opt/restic
 
+# Optional machines layer: KubeVirt and CDI manifests, pinned and checked, applied only after owner approval.
+FROM onemind-buildbase AS machines-fetch
+COPY --chmod=755 os/rootfs/fetch-machines.sh /usr/local/sbin/fetch-machines
+RUN fetch-machines /opt/machines
+
 FROM onemind-buildbase AS onemind-go
 ARG BUILDARCH
 ARG TARGETARCH
@@ -202,6 +207,8 @@ COPY sdk/schema/ /usr/lib/onemind/sdk/schema/
 COPY sdk/policy/app-objects.yaml /usr/lib/onemind/sdk/policy/app-objects.yaml
 COPY apps/ /usr/lib/onemind/apps/
 COPY os/rootfs/layers/onemind/ /
+COPY os/rootfs/layers/machines/ /
+COPY --from=machines-fetch /opt/machines/ /usr/lib/onemind/extensions/machines/
 COPY os/boards/${BOARD}/rootfs/ /
 # The boot splash theme: Debian has plymouth-set-default-theme; Ubuntu (the CI hedge, D-007) sets it
 # with update-alternatives instead (#226).

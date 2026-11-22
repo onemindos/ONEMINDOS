@@ -12,18 +12,18 @@ import { MockApi } from '../api/mock';
 import { SessionProvider } from '../session';
 
 const row = (name: string, state: string) => ({ name, node_id: 'hub-1', ram_mb: 2048, cpus: 2, disk_gb: 20, state, created_at: '2026-11-18T00:00:00Z', updated_at: '2026-11-18T00:00:00Z' });
-const caps = (eligible: boolean) => ({
-  enabled: false, extension: { state: 'unavailable', message: 'The machines extension is not part of this version yet.' },
+const caps = (eligible: boolean, ext = 'ready') => ({
+  enabled: ext === 'ready', extension: { state: ext, message: ext === 'ready' ? 'Machines are on.' : 'Machines are off. An owner can turn them on.' },
   requirements: { min_memory_mb: 8192, arch: 'amd64', kvm: true }, eligible_node_ids: eligible ? ['hub-1'] : [],
   nodes: [{ node_id: 'hub-1', eligible, reasons: eligible ? [] : [{ code: 'no_kvm', message: 'This node has no KVM.' }] }],
 });
 
-function setup(opts: { eligible?: boolean; machines?: unknown[]; failFirst?: boolean } = {}) {
+function setup(opts: { eligible?: boolean; machines?: unknown[]; failFirst?: boolean; ext?: string } = {}) {
   const writes: Array<Record<string, unknown> & { idempotency_key: string; expires_at: string }> = [];
   const fetchFn = vi.fn(async (path: string, init?: RequestInit) => {
     const p = new URL(path, window.location.origin).pathname;
     if (p === '/v1/machines') return Response.json(opts.machines ?? []);
-    if (p === '/v1/machines/capabilities') return Response.json(caps(opts.eligible ?? true));
+    if (p === '/v1/machines/capabilities') return Response.json(caps(opts.eligible ?? true, opts.ext));
     if (p === '/v1/actions' && init?.method === 'POST') {
       const body = JSON.parse(init.body as string);
       writes.push(body);
@@ -105,9 +105,24 @@ describe('Machines screen', () => {
     expect(writes[0]).toMatchObject({ type: 'machine.create', params: { name: 'lab', ram_mb: 2048, cpus: 2, disk_gb: 20, image_url: 'https://example.test/img.qcow2' } });
   });
 
-  it('says why a box cannot run machines and does not offer to create one', async () => {
-    setup({ eligible: false });
+  it('says why a box cannot run machines and offers no way to turn them on or create one', async () => {
+    setup({ eligible: false, ext: 'absent' });
     expect(await screen.findByText(/cannot run virtual machines yet/)).toHaveTextContent('This node has no KVM.');
-    expect(screen.getByRole('button', { name: 'Request a machine' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Turn on' })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Request a machine' })).not.toBeInTheDocument();
+  });
+
+  it('files one machines.enable request from Turn on, which waits for an owner', async () => {
+    const { writes, user } = setup({ ext: 'absent' });
+    expect(screen.queryByRole('button', { name: 'Request a machine' })).not.toBeInTheDocument();
+    await user.click(await screen.findByRole('button', { name: 'Turn on' }));
+    await waitFor(() => expect(writes).toHaveLength(1));
+    expect(writes[0]).toMatchObject({ type: 'machines.enable', params: {} });
+    expect(await screen.findByText(/It waits in Approvals/)).toBeInTheDocument();
+  });
+
+  it('keeps Turn on off when this gateway has no machines layer', async () => {
+    setup({ ext: 'unavailable' });
+    expect(await screen.findByRole('button', { name: 'Turn on' })).toBeDisabled();
   });
 });

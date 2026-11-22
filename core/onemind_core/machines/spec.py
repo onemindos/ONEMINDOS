@@ -17,7 +17,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 NAMESPACE = "machines"
 NAME_PATTERN = r"^[a-z][a-z0-9-]{0,38}[a-z0-9]$"
-RESERVED_NAMES = frozenset({"capabilities", "enable"})  # they would collide with GET /v1/machines/<word>
+RESERVED_NAMES = frozenset({"capabilities", "enable", "disable"})  # they would collide with GET /v1/machines/<word>
 
 
 def _not_reserved(name: str) -> str:

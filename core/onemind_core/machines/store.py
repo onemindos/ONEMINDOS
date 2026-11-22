@@ -32,7 +32,38 @@ class MachineRow(Base):
                 "updated_at": iso(self.updated_at)}
 
 
+class ExtensionRow(Base):
+    """One row, id 1: where the KubeVirt + CDI extension is (extension.py)."""
+    __tablename__ = "machines_extension"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    state: Mapped[str] = mapped_column(String(12))  # absent | installing | ready | removing | failed | unknown
+    message: Mapped[str] = mapped_column(String(400), default="")
+    action_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
 class MachinesRepository(SqlRepository):
+    def extension(self) -> dict:
+        with self.db.session() as s:
+            row = s.get(ExtensionRow, 1)
+            return {"state": row.state, "message": row.message, "action_id": row.action_id} if row else \
+                {"state": "absent", "message": "", "action_id": None}
+
+    def move_extension(self, to: str, now: datetime, *, only_from: tuple[str, ...], message: str = "",
+                       action_id: str | None = None, owned_by: str | None = None) -> bool:
+        """Compare-and-swap the extension state; False when it was not in one of `only_from`."""
+        with self.db.session.begin() as s:
+            row = s.get(ExtensionRow, 1)
+            cur = row.state if row else "absent"
+            if cur not in only_from or (owned_by is not None and (row is None or row.action_id != owned_by)):
+                return False
+            if row is None:
+                row = ExtensionRow(id=1, state=to, message=message[:400], action_id=action_id, updated_at=now)
+                s.add(row)
+            else:
+                row.state, row.message, row.action_id, row.updated_at = to, message[:400], action_id, now
+            return True
+
     def all(self) -> list[dict]:
         with self.db.session() as s:
             return [r.to_json() for r in s.scalars(select(MachineRow).order_by(MachineRow.created_at, MachineRow.name))]

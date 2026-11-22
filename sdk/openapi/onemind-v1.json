@@ -2433,6 +2433,8 @@
               "machine.delete",
               "machine.start",
               "machine.stop",
+              "machines.disable",
+              "machines.enable",
               "node.wake",
               "os.update.install",
               "plugin.configure",
@@ -16772,12 +16774,62 @@
         ]
       }
     },
+    "/v1/machines/disable": {
+      "post": {
+        "description": "Turn machines off again: files `machines.disable`. Refused while any machine exists.",
+        "operationId": "machines.disable",
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          }
+        },
+        "summary": "Machines Disable",
+        "tags": [
+          "machines"
+        ]
+      }
+    },
     "/v1/machines/enable": {
       "post": {
-        "description": "The owner's switch for machines. Refused with reasons unless a node can run them.",
+        "description": "The owner's switch for machines. Refused with reasons unless a node can run them; otherwise it\nfiles `machines.enable`, which waits in Approvals and installs KubeVirt and CDI once an owner approves.",
         "operationId": "machines.enable",
         "responses": {
-          "200": {
+          "202": {
             "content": {
               "application/json": {
                 "schema": {}

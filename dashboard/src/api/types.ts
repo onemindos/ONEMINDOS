@@ -169,9 +169,10 @@ export interface Principal {
 }
 
 /** MACH-01 (#281): machine requests. They carry a machine `name`, never an `app_id`. */
-export type MachineActionType = Extract<components['schemas']['FeatureActionRequest']['type'], `machine.${string}`>;
+export type MachineActionType = Extract<components['schemas']['FeatureActionRequest']['type'], `machine.${string}`> | 'machines.enable' | 'machines.disable';
 export interface MachineParams {
-  name: string;
+  /** Absent on machines.enable and machines.disable, which are about the whole extension. */
+  name?: string;
   ram_mb?: number;
   cpus?: number;
   disk_gb?: number;

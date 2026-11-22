@@ -20,7 +20,10 @@ from ..auth import Principal
 from ..context import Gateway
 from ..errors import ApiError
 from ..executors import ExecResult
+from pydantic import BaseModel, ConfigDict
+
 from .capability import refusals
+from .extension import ExtensionRuntime, KubectlExtension, NoopExtension
 from .runtime import KubectlRuntime, MachineRuntime, NoopRuntime
 from .spec import (
     MachineCreateParams, MachineDeleteParams, MachineRefParams, quota_problem,
@@ -28,18 +31,125 @@ from .spec import (
 from .store import MachineRow, MachinesRepository
 
 CONSOLE_TTL_S = 60
+class NoParams(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+
+EXTENSION_WORDS = {
+    "absent": "Machines are off. An owner can turn them on.",
+    "installing": "Machines are being turned on. This takes a few minutes.",
+    "ready": "Machines are on.",
+    "removing": "Machines are being turned off.",
+    "failed": "The last attempt did not finish.",
+    "unknown": "The last attempt ended without a clear answer, so the extension may be half installed. Turning machines on again is safe to retry.",
+}
 REQUESTERS = frozenset({"person", "agent"})  # an agent may ask; approval stays owner-only
 
 
 class MachineService:
-    def __init__(self, gw: Gateway, runtime: MachineRuntime | None = None):
+    def __init__(self, gw: Gateway, runtime: MachineRuntime | None = None, ext: ExtensionRuntime | None = None):
         self.gw = gw
         self.repo = MachinesRepository(gw.db)
         s = gw.settings
         self.runtime: MachineRuntime = runtime or (
             NoopRuntime() if s.executor == "noop" else KubectlRuntime(s.kubectl, timeout_s=s.executor_timeout_s))
+        self.ext: ExtensionRuntime = ext or (
+            NoopExtension() if s.executor == "noop" else KubectlExtension(s.machines_extension_dir, s.kubectl,
+                                                        allow_tag_images=s.machines_allow_tag_images))
         self._lock = threading.Lock()
         self._tickets: dict[str, tuple[str, object, dict | None]] = {}  # sha256(ticket) -> (machine, expires_at, who minted it)
+
+    # ---- the extension: KubeVirt and CDI, on and off ----------------------------------------
+    def extension_status(self) -> dict:
+        st = self.repo.extension()
+        if st["state"] == "absent":
+            ok, why = self.ext.available()
+            if not ok:
+                return {"state": "unavailable", "message": why}
+        return {"state": st["state"], "message": EXTENSION_WORDS[st["state"]] + (f" {st['message']}" if st["state"] == "failed" and st["message"] else "")}
+
+    def enable_problem(self) -> tuple[str, str] | None:
+        state = self.repo.extension()["state"]
+        if state == "ready":
+            return "already_enabled", "Machines are already on."
+        if state in ("installing", "removing"):
+            return "extension_busy", EXTENSION_WORDS[state]
+        if self._host() is None:
+            return "machines_unsupported", self._refusal_text()
+        ok, why = self.ext.available()
+        return None if ok else ("extension_unavailable", why)
+
+    def disable_problem(self) -> tuple[str, str] | None:
+        state = self.repo.extension()["state"]
+        if state == "absent":
+            return "already_off", "Machines are already off."
+        if state in ("installing", "removing"):
+            return "extension_busy", EXTENSION_WORDS[state]
+        if self.repo.all():
+            return "machines_exist", "Remove your machines first: turning machines off would erase them."
+        return None
+
+    def _check_ext_request(self, which: str):
+        def check(params: dict, principal: Principal) -> None:
+            if (found := (self.enable_problem() if which == "enable" else self.disable_problem())) is not None:
+                raise ApiError(409, "policy_refused", found[1], reason=found[0])
+        return check
+
+    def _recheck_ext(self, which: str):
+        def check(a) -> str | None:
+            if self.repo.extension()["action_id"] == a.id:
+                return None  # this action already holds the claim
+            found = self.enable_problem() if which == "enable" else self.disable_problem()
+            return found[1] if found else None
+        return check
+
+    def _claim_ext(self, which: str):
+        def claim(a) -> str | None:
+            with self._lock:
+                found = self.enable_problem() if which == "enable" else self.disable_problem()
+                if found:
+                    return found[1]
+                prev = self.repo.extension()["state"]
+                if which == "enable":
+                    ok = self.repo.move_extension("installing", self.gw.clock(), only_from=("absent", "failed", "unknown"), action_id=a.id)
+                else:
+                    ok = self.repo.move_extension("removing", self.gw.clock(), only_from=("ready", "failed", "unknown"),
+                                                  action_id=a.id, message=f"was:{prev}")
+                return None if ok else EXTENSION_WORDS["installing"]
+        return claim
+
+    def _release_ext(self, which: str):
+        def release(a) -> None:
+            """A claim no run ever started (denied, expired) is handed back; a run settles its own state.
+
+            A restart mid-run ends as outcome_unknown: the cluster may be half installed or half
+            removed, so the row becomes `unknown` (never back to the old `ready`/`absent`). The ledger
+            already holds the final state when this runs."""
+            row = self.repo.extension()
+            now = self.gw.clock()
+            final = self.gw.actions.repo.get(a.id)
+            if final is not None and final.state == "outcome_unknown":
+                self.repo.move_extension("unknown", now, only_from=("installing", "removing"), owned_by=a.id,
+                                         message=(final.result or {}).get("message", "") if isinstance(final.result, dict) else "")
+            elif which == "enable":
+                self.repo.move_extension("absent", now, only_from=("installing",), owned_by=a.id)
+            else:
+                prev = row["message"].removeprefix("was:") if row["message"].startswith("was:") else "ready"
+                self.repo.move_extension(prev if prev in ("ready", "failed", "unknown") else "ready", now,
+                                         only_from=("removing",), owned_by=a.id)
+        return release
+
+    def _run_ext(self, which: str):
+        def run(a, finish) -> None:
+            res = self.ext.install() if which == "enable" else self.ext.remove()
+            if res.outcome == "succeeded":
+                to = "ready" if which == "enable" else "absent"
+            else:
+                to = "unknown" if res.outcome == "outcome_unknown" else "failed"
+            self.repo.move_extension(to, self.gw.clock(), only_from=("installing", "removing"),
+                                     message="" if to in ("ready", "absent") else res.message, action_id=a.id, owned_by=a.id)
+            finish(res)
+        return run
 
     # ---- which node, and does it fit ------------------------------------------------------
     def _host(self) -> dict | None:
@@ -143,6 +253,11 @@ class MachineService:
 
     def register(self) -> None:
         acts = self.gw.actions
+        for which, risk in (("enable", "actuate"), ("disable", "destructive")):
+            acts.register_type(f"machines.{which}", FeatureAction(
+                risk, self._run_ext(which), REQUESTERS, check=self._recheck_ext(which), params_model=NoParams,
+                check_request=self._check_ext_request(which), claim=self._claim_ext(which),
+                release=self._release_ext(which), background=True))
         for verb, model, risk, run in (
             ("create", MachineCreateParams, "actuate", self._run_create),
             ("start", MachineRefParams, "actuate", self._run_toggle(True)),
