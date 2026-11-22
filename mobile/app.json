@@ -83,6 +83,15 @@
     "plugins": [
       "expo-secure-store",
       [
+        "expo-camera",
+        {
+          "cameraPermission": "OneMind uses the camera only to scan the join code your OneMind box shows.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false,
+          "barcodeScannerEnabled": true
+        }
+      ],
+      [
         "expo-sharing",
         {
           "android": {

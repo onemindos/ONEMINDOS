@@ -74,6 +74,8 @@ export const OP = {
   /** Not in §12.6 (it returns a refresh_token but names no route); used only when the gateway lists it. */
   authRefresh: 'POST /v1/auth/refresh',
   deviceRequest: 'POST /v1/devices/requests',
+  /** The person's own devices (issue 716): used instead of /v1/devices/requests once the gateway lists it. */
+  meDevices: 'POST /v1/me/devices',
   deviceToken: 'POST /v1/devices/token',
   /** §12.41 (owner only). */
   onboardingSettings: 'GET /v1/onboarding/settings',
@@ -213,8 +215,9 @@ export interface OneMindApi {
   logout(): Promise<void>;
   passkeyRegisterOptions(): Promise<RegisterOptions>;
   passkeyRegister(body: { credential: WebAuthnAttestation; label: string }): Promise<{ credential_id: string; label: string }>;
-  deviceRequest(body: DeviceRequestBody): Promise<DeviceRequest>;
-  deviceRequestStatus(id: string, pollCode?: string): Promise<DeviceRequest>;
+  /** `me`: the newer `/v1/me/devices` routes (only when `features()` lists OP.meDevices). */
+  deviceRequest(body: DeviceRequestBody, o?: { me?: boolean }): Promise<DeviceRequest>;
+  deviceRequestStatus(id: string, pollCode?: string, o?: { me?: boolean }): Promise<DeviceRequest>;
   /** Device-bound renewal (RFC 9449 DPoP proof in the `DPoP` header). */
   deviceToken(dpopProof: string, refreshToken: string): Promise<LoginResult>;
 
@@ -563,11 +566,11 @@ export class HttpApi implements OneMindApi {
   passkeyRegister(body: { credential: WebAuthnAttestation; label: string }) {
     return this.req<{ credential_id: string; label: string }>('POST', '/v1/auth/passkeys/register', body);
   }
-  deviceRequest(body: DeviceRequestBody) {
-    return this.req<DeviceRequest>('POST', '/v1/devices/requests', body);
+  deviceRequest(body: DeviceRequestBody, o: { me?: boolean } = {}) {
+    return this.req<DeviceRequest>('POST', o.me ? '/v1/me/devices' : '/v1/devices/requests', body);
   }
-  deviceRequestStatus(id: string, pollCode?: string) {
-    return this.req<DeviceRequest>('GET', `/v1/devices/requests/${enc(id)}`, undefined, 'object', {
+  deviceRequestStatus(id: string, pollCode?: string, o: { me?: boolean } = {}) {
+    return this.req<DeviceRequest>('GET', `${o.me ? '/v1/me/devices' : '/v1/devices/requests'}/${enc(id)}`, undefined, 'object', {
       headers: pollCode ? { 'OneMind-Poll-Code': pollCode } : {},
     });
   }
