@@ -64,6 +64,22 @@ def web_apps(gw: Gateway) -> list[str]:
     return sorted(out)
 
 
+def relay_view(cfg: MeshSettings, show_addr: bool = False) -> dict:
+    """What the box says about the owner's relay: plainly, never an error (NETWORKING §4.3).
+
+    The mesh works on the home network with or without a relay, and with no internet at all; the
+    relay only adds reach from outside. The address is an internet-facing machine, so like every
+    address it is left out unless the owner asks (?addresses=1, contract §2)."""
+    if cfg.relay_addr:
+        return {"state": "configured", **({"addr": cfg.relay_addr} if show_addr else {}),
+                "detail": "Your relay's address is saved, but reaching this box from outside does not work yet: "
+                          "the relay cannot reach a box behind a home router until the box dials out to it "
+                          "(a later step). At home and off grid everything works as before."}
+    return {"state": "none",
+            "detail": "No relay is set up. Everything works on your home network, with or without internet. "
+                      "To reach this box from outside, turn one of your own machines into a relay."}
+
+
 # Route order in the app and in /openapi.json (routers/__init__.py).
 ORDER = 270
 
@@ -232,7 +248,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         out: dict = {
             "mode": "lan" if mesh_cfg.enabled else "off", "box": box,
             "control": {"state": "off", "checked_at": None},
-            "relay": None, "nodes": [], "devices": [],
+            "relay": relay_view(mesh_cfg, show_ips), "nodes": [], "devices": [],
             "names": {"lan": ["onemind.local", f"{box}.local"], "mesh": ["hub.onemind.internal"] if mesh_cfg.enabled else []},
             "apps": apps, "https": net.tls, "ca_sha256": box_ca.ca_fingerprint(),
         }

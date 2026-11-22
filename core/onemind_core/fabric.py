@@ -654,7 +654,12 @@ class FabricService:
         if mesh_key is not None:
             creds["mesh"] = {
                 "control_url": self.d.mesh_settings.control_url,
-                "control_addrs": [self.d.net.lan_addr] if self.d.net.lan_addr else [],
+                # Only the hub's LAN address: the node pins the coordinator name to control_addrs[0]. The
+                # relay has no link back to the hub yet (follow-up 2), so it must never replace this.
+                "control_addrs": [a for a in (self.d.net.lan_addr,) if a],
+                # The owner's relay, kept apart so it can never become the home address. No client dials
+                # it yet (follow-up 2); a node stores it for the away fallback.
+                "relay_addrs": [a for a in (self.d.mesh_settings.relay_addr,) if a],
                 "ca_sha256": self.d.box_ca.ca_fingerprint(),
                 "auth_key": mesh_key.key,
                 "hostname": f"node-{req['node_id']}",

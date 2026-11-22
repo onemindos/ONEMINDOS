@@ -17,6 +17,7 @@ var subcommands = map[string]func(args []string) int{
 	"factory-reset": runFactoryReset, // host.go: the early-boot wipe of an armed factory reset (#146)
 	"host":          runHost,         // host.go: approved restart, shutdown, OS install (#146, #142), its own unit
 	"mesh":          runMesh,         // net.go
+	"relay":         runRelay,        // net.go: the owner's relay role (NETWORKING.md §4.4)
 	"rescue":        runRescue,       // rescue.go: the rescue console, its own unit (CORE-UPDATE-8)
 	"images":        runImages,       // images.go: superseded-image cleanup + disk budget, its own unit (NMD-08)
 	// The terminal's shell starts through this hidden mode, which drops every capability first (#273).
