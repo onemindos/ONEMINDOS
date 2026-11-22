@@ -175,6 +175,37 @@ Category names below are facts read from each store at the commits pinned in [`C
 | health, family | `family` |
 | documentation | `notes` #wiki |
 
+**DigitalOcean Marketplace** (the `tags` field of each app in the public feed behind `marketplace.digitalocean.com/category/all`, read 2026-11-21; 325 apps, 25 tag values). Founder-approved on 2026-11-21. DigitalOcean is not yet a source store in `CANDIDATES.md`: it joins as store `d` when its apps are resolved to upstream repos, and the same facts-only rule applies (no summaries, icons, 1-Click scripts or Helm charts). Three tags describe how DigitalOcean sells or licenses an app, not its job, and are ignored like the Cosmos platform tags.
+
+| Store category | Apps | OneMind |
+|---|---|---|
+| Developer Tools | 73 | `developer` #tools; by app: #git, #ci, #ide |
+| Business Apps | 37 | `productivity` #business; helpdesks → #helpdesk (by app) |
+| Databases | 29 | `developer` #database |
+| Security | 25 | `network`; by app: #passwords, #sso, #vpn, #firewall |
+| Monitoring | 24 | `monitoring` #metrics |
+| Frameworks | 18 | `developer` #api-backend; language stacks (LAMP, LEMP, Django, Node.js) are runtimes, not Market apps |
+| AI Agents | 16 | `ai` #agents |
+| Data Science | 15 | `ai` #training; notebooks → `developer` #ide |
+| Blogs and Forums | 14 | `productivity` #website; forums → `communication` #forum |
+| Network Tools | 12 | `network` |
+| Media | 12 | `media` |
+| Storage | 9 | `files` #storage |
+| Analytics | 8 | `monitoring` #analytics |
+| Chat | 7 | `communication` #chat |
+| Gaming | 5 | `learning` #game-server |
+| eCommerce | 4 | `productivity` #shop |
+| AI Tools | 3 | `ai` (by app) |
+| Logging | 3 | `monitoring` #logs |
+| eLearning | 2 | `learning` #courses |
+| Email | 2 | `communication` #email |
+| Functions | 1 | `developer` #api-backend |
+| IoT Tools | 1 | `home` |
+| AI Models | 0 | `ai` #llm-runtime (models ride with the runtime, as for Olares) |
+| Kubernetes | 42 | ignored: a deploy method (Helm chart), not a job; placed by app |
+| Add-Ons | 32 | ignored: hosted paid services (SaaS), nothing to install on a node; list-only at most |
+| Open Source | 3 | ignored: a licence label; the licence class comes from upstream (`CANDIDATES.md` step 3) |
+
 **Research 13 §3.1 and the research run (`category_v0` in the CSV)**
 
 | Research category | OneMind |
