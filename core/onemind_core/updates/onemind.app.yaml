@@ -1,0 +1,27 @@
+# SPDX-License-Identifier: Apache-2.0
+# Built-in descriptor (sdk/schema/onemind.builtin.schema.json). Read only because "updates" is on the
+# signed list. The code is osupdate.py and automation/updatepolicy.py; this folder holds only the descriptor.
+apiVersion: onemind.app/v1
+kind: App
+metadata:
+  id: updates
+  name: Updates
+  description: OS updates (RAUC A/B) and the app update policy.
+spec:
+  routes:
+    owns: [/v1/os, /v1/update-policy]
+    calls:
+      - GET /v1/os/about
+      - GET /v1/os/updates
+      - GET /v1/os/updates/history
+  notifications:
+    topics:
+      - {id: updates, events: [update.available, update.applied, update.rolled_back]}
+  settingsPages:
+    - {id: update-policy, title: Automatic updates, source: GET /v1/update-policy}
+  backup:
+    units:
+      - {kind: table, name: osupdate_events}
+      - {kind: table, name: update_policy}
+  data: {owns: [owner], reads: []}
+  phone: {entry: none}
