@@ -431,6 +431,8 @@ POLICY |= {
     ("GET", "/v1/apps/{app_id}/exposure"): Row(grid(200, 200, 200, 404, 200), w.p_static(f"/v1/apps/{w.TARGET_APP}/exposure"), "12.22: any reader"),
     ("GET", "/v1/system-apps"): Row(grid(200, 200, 200, 200, 200), w.p_static("/v1/system-apps"),
                                     "built-in apps list: any reader; a child or agent sees only the apps shared with them, as in /v1/apps"),
+    ("GET", "/v1/builtins"): Row(grid(200, 200, 200, 200, 200), w.p_static("/v1/builtins"),
+                                 "#603 built-in descriptors: any reader; a child or agent sees only the apps shared with them"),
     ("GET", "/v1/sources"): Row(READ_ANY, w.p_static("/v1/sources"), "12.22: any reader"),
     ("GET", "/v1/sources/{source_id}"): Row(READ_ANY_404, w.p_static("/v1/sources/src_00000000000000000000000000"), "12.22: any reader; missing is 404"),
     ("POST", "/v1/deploy/compose"): Row(grid(422, 403, 403, 403, 403), w.p_missing("/v1/deploy/compose", json={"app_id": "imp", "compose": "x"}),
