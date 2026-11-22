@@ -21,6 +21,7 @@ from .appsecrets.spec import SecretDecl, parse_secrets, secret_spec_errors
 from .filesig import cache_signature
 from .manifest_convert import CURRENT, OLDER
 from .scan import ScanRecord, read_scan
+from .systemlist import SYSTEM_DIR
 
 log = logging.getLogger("onemind.catalog")
 
@@ -180,6 +181,22 @@ def builtin_check(doc: object) -> list[str]:
     return errs
 
 
+def _system_problem(entry: AppEntry, in_system_dir: bool, system_ids: frozenset[str]) -> str | None:
+    """The system apps rules: spec.system, the apps/_system/ folder and the signed list go together."""
+    claims = "system" in (entry.manifest.get("spec") or {})
+    if in_system_dir:
+        if entry.id not in system_ids:
+            return f"{entry.id} is in apps/{SYSTEM_DIR}/ but not on the signed system apps list"
+        if not claims:
+            return f"{entry.id} is a system app and must declare spec.system"
+        return None
+    if claims:
+        return "spec.system is only allowed in apps/_system/ for ids on the signed system apps list"
+    if entry.id in system_ids:
+        return f"{entry.id} is reserved for a system app"
+    return None
+
+
 class Catalog:
     def __init__(self, apps_dir: Path, schema_path: Path | None = None, channel_dir: Path | None = None):
         self.apps_dir = apps_dir
@@ -207,10 +224,18 @@ class Catalog:
         # More apps from elsewhere (community sources, §12.22): fn(official ids) -> {id: AppEntry}.
         # An id the official folder already has always wins.
         self.providers: list[Callable[[set[str]], dict[str, AppEntry]]] = []
+        # The ids on the signed system apps list (systemlist.py), set by the app store. Only these
+        # may live in apps/_system/ and only these may carry spec.system.
+        self.system_ids: Callable[[], frozenset[str]] = lambda: frozenset()
 
     def validate(self, doc: object) -> list[str]:
-        """The same manifest check the apps folder gets (schema, or the built-in one)."""
-        return self._validate(doc)
+        """The same manifest check the apps folder gets (schema, or the built-in one), plus: a manifest
+        that arrives from anywhere else (a community source) may never claim spec.system."""
+        errs = self._validate(doc)
+        spec = doc.get("spec") if isinstance(doc, dict) else None
+        if isinstance(spec, dict) and "system" in spec:
+            errs.append("spec.system: only apps on the signed system apps list may claim it")
+        return errs
 
     @property
     def validation_mode(self) -> str:
@@ -301,13 +326,19 @@ class Catalog:
             self.errors = {}
             self._parsed.clear()
             return apps
-        paths = sorted(self.apps_dir.glob(f"*/{MANIFEST}"))
+        paths = sorted(self.apps_dir.glob(f"*/{MANIFEST}")) + sorted(self.apps_dir.glob(f"{SYSTEM_DIR}/*/{MANIFEST}"))
         channel_paths = self._channel_manifests()
+        system_ids = self.system_ids()
         for stale in set(self._parsed) - set(paths) - set(channel_paths):
             del self._parsed[stale]
         for path in paths:
             outcome = self._outcome(path)
             if isinstance(outcome, AppEntry):
+                problem = _system_problem(outcome, path.parent.parent.name == SYSTEM_DIR, system_ids)
+                if problem:
+                    log.warning("skipping app %s: %s", outcome.id, problem)
+                    errors[path.parent.name] = [problem]
+                    continue
                 apps[outcome.id] = outcome
             else:
                 errors[path.parent.name] = list(outcome)
