@@ -7,6 +7,7 @@
 **Feeds:** CORE-FABRIC [#170](https://github.com/onemindos/ONEMINDOS/issues/170) (hub, leaves, outbox), hardening item H-06 (per-node NATS credentials), contract [§12.9](../../sdk/contracts/poc-v0.md#129-nats) (the OS subjects), and the agent work that waits on the two-door rule (section 11).
 
 **How to read the sources.** Every section ends with a **Sources** line. Three kinds count as primary here:
+
 - a page on [docs.nats.io](https://docs.nats.io/) (the official NATS documentation);
 - a file in the [nats-server source](https://github.com/nats-io/nats-server/tree/v2.15.2/server) at tag `v2.15.2`, the version the image pins;
 - our own lab evidence under [`research-output/evidence/lab/`](../../research-output/evidence/lab/), or our own code.
@@ -16,11 +17,13 @@ Anything nobody could confirm from one of these is marked **UNVERIFIED**.
 ---
 
 ## 1. NATS in one paragraph
+
 NATS is one small server program that carries messages between programs. A program **publishes** a message to an address, and every program that has **subscribed** to that address gets a copy. Nobody needs to know who is on the other end. On its own (called **core NATS**) it delivers a message only to whoever is listening at that moment: "at most once, never replayed". If nobody is listening, the message is gone. **JetStream** (section 5) is the optional part that writes messages to disk so they can be read later. OneMind runs one NATS server on the hub and one small NATS server, a **leaf**, on every other machine.
 
 **Sources:** [JetStream concept page](https://docs.nats.io/concepts/jetstream) (the "at most once, never replayed" wording); [`os/rootfs/layers/onemind/usr/lib/onemind/onemind_firstboot.py`](../../os/rootfs/layers/onemind/usr/lib/onemind/onemind_firstboot.py) `hub_nats_conf` (the hub server); [`internal/leaf/config.go`](../../internal/leaf/config.go) (the leaf server).
 
 ## 2. Subjects: the addresses
+
 - A **subject** is a name made of words joined by dots, like `onemind.node.abc.status`. Subjects are case-sensitive and cannot contain spaces.
 - Two **wildcards** exist, for subscribing only (never inside a published name): `*` matches exactly one word (`onemind.node.*.status` gets every node's status) and `>` matches one or more words at the end (`onemind.node.abc.event.>` gets every event from node `abc`).
 - Names that start with `$` are reserved for NATS itself: `$SYS` (server events), `$JS` (the JetStream control API), `$KV`, `$O`, `$SRV` (service discovery), and `_INBOX` (automatic reply addresses).
@@ -41,6 +44,7 @@ The gateway subscribes to `onemind.node.*.status` today ([`core/onemind_core/bus
 **Sources:** [Subjects concept page](https://docs.nats.io/concepts/subjects) (wildcards, reserved prefixes); [contract §12.9](../../sdk/contracts/poc-v0.md#129-nats).
 
 ## 3. Accounts: sealed rooms
+
 - An **account** is a sealed room inside one NATS server. Two accounts never see each other's messages. The subject `x.y` in account A and the subject `x.y` in account B are two different subjects.
 - The one deliberate way through a wall is a pair: account A **exports** a subject and account B **imports** it. Nothing else crosses.
 - A **user** logs into exactly one account. OneMind users are **nkey** users: a key pair (Ed25519) where the machine keeps the secret half (the **seed**) and the server stores only the public half, a 56-character string starting with `U`.
@@ -59,6 +63,7 @@ Only the hub account may use JetStream (file storage only, at most 32 streams an
 **Sources:** [Accounts and multitenancy](https://docs.nats.io/learn/security/accounts-and-multitenancy); [Authentication basics](https://docs.nats.io/learn/security/authentication-basics) (nkeys); lab [`fb3-mesh-nat/README.md`](../../research-output/evidence/lab/fb3-mesh-nat/README.md) §7.2 (E2); [`natsconf.py`](../../core/onemind_core/natsconf.py) `render_accounts`.
 
 ## 4. Leaf nodes: a server that dials out
+
 - A **leaf node** is a full NATS server on a machine that opens **one outbound connection** to another NATS system (the **hub**) and bridges subscriptions across it. The hub never dials the leaf, so the leaf's machine needs no open inbound port.
 - The hub **listens** for leaves (default port 7422); the leaf declares a **remote** with the hub's address. People often reverse this and nothing connects.
 - Programs on the leaf's machine connect to the leaf as ordinary clients. The hub never sees them: it sees **one leaf link**. Only subjects someone on the other side is interested in cross the link.
@@ -69,6 +74,7 @@ Only the hub account may use JetStream (file storage only, at most 32 streams an
 **Sources:** [Leaf nodes](https://docs.nats.io/learn/topologies/leaf-nodes); nats-server [`server/const.go`](https://github.com/nats-io/nats-server/blob/v2.15.2/server/const.go) (`DEFAULT_LEAFNODE_PORT = 7422`).
 
 ## 5. JetStream: messages kept on disk
+
 - **JetStream** adds storage on top of core NATS: "at least once" delivery, messages survive restarts and can be read again.
 - A **stream** is one kept list. It captures the subjects you tell it to, gives each message a sequence number, and has limits (bytes, age) and a **retention policy**: `Limits` (the limits decide when a message goes), `Interest` (every interested consumer must acknowledge), or `WorkQueue` (the first acknowledgement removes it).
 - A **consumer** is a bookmark on a stream: it remembers how far a reader got.
@@ -79,6 +85,7 @@ On the hub, JetStream is file-only with a 4 GiB cap and `max_memory_store: 0` (n
 **Sources:** [JetStream concept page](https://docs.nats.io/concepts/jetstream); [Retention policies](https://docs.nats.io/learn/jetstream/retention-policies); [Publishing](https://docs.nats.io/learn/jetstream/publishing) ("Avoiding duplicate writes"); nats-server [`server/stream.go`](https://github.com/nats-io/nats-server/blob/v2.15.2/server/stream.go) (`StreamDefaultDuplicatesWindow = 2 * time.Minute`); [`onemind_firstboot.py`](../../os/rootfs/layers/onemind/usr/lib/onemind/onemind_firstboot.py) (`JETSTREAM_MAX_BYTES`).
 
 ## 6. Domains and sources: copying across the link
+
 - A leaf that runs its own JetStream needs its own **JetStream domain**: a name that keeps the leaf's streams separate from the hub's. Without distinct domains the two JetStream systems collide, and a stream created on the leaf may land on the hub instead.
 - OneMind names each leaf's domain `node-<node_id>`, and `config.go` refuses the name `hub`.
 - A **source** is a stream that copies messages out of other streams and keeps copying after a break, resuming where it stopped. Messages from one source keep their order; across several sources there is no ordering guarantee, and the copy gets **new** sequence numbers. (A **mirror** is the exact one-to-one copy; OneMind uses sources.)
@@ -89,6 +96,7 @@ On the hub, JetStream is file-only with a 4 GiB cap and `max_memory_store: 0` (n
 **Sources:** [Leaf nodes](https://docs.nats.io/learn/topologies/leaf-nodes) ("JetStream over a leaf", "Pitfalls"); [Mirrors and sources](https://docs.nats.io/learn/jetstream/mirrors-and-sources) (ordering, fresh sequence numbers, cross-account and cross-domain reach); [`internal/leaf/outbox.go`](../../internal/leaf/outbox.go).
 
 ## 7. The outbox: keep it until the hub has it
+
 The **outbox** is a small JetStream stream on each leaf, on that machine's own disk. Anything the machine must not lose goes there first; the hub's source stream (section 6) collects it.
 
 | Setting | Value in [`outbox.go`](../../internal/leaf/outbox.go) | Why |
@@ -104,6 +112,7 @@ Heartbeats are deliberately **not** put in the outbox: they are latest-wins. Try
 **Proof so far.** Lab W8-1 (pre-registered, nats-server v2.15.2): 100 messages, then the hub stopped, 500 more published at the leaf (all accepted), hub restarted: the hub's sourced stream held all 600, sequence 1 to 600, no gaps, no duplicates, **about 40 seconds** after restart. The leaf link itself was back in about 1 second; the delay was the source retrying. Plain core-NATS messages sent during the outage: 0 arrived.
 
 **What is not proven or not wired yet (checked on `release/next`, 2026-11-21):**
+
 - W8-1 ran in the **default account**, not in the per-machine accounts OneMind ships. `natsconf.py` exports no `$JS.node-<id>.API` or delivery subjects from `NODE_<id>` to `ONEMIND`, so cross-account sourcing is **not configured** and **UNVERIFIED**.
 - Nothing outside tests calls `HubSourceStream` yet: the hub side is not running.
 - Sourcing **from a `WorkQueue` stream** is not covered by the Mirrors and sources page or by W8-1 (which used a plain stream): **UNVERIFIED**.
@@ -143,6 +152,7 @@ The same thing in words: the hub runs one NATS server with one room for its own 
 **Sources:** [`natsconf.py`](../../core/onemind_core/natsconf.py) (`render_accounts`, `NODE_EXPORTS`, `NODE_IMPORTS`, `JETSTREAM_MAX_STREAMS`, `JETSTREAM_MAX_CONSUMERS`); [`internal/leaf/config.go`](../../internal/leaf/config.go); [`onemind_firstboot.py`](../../os/rootfs/layers/onemind/usr/lib/onemind/onemind_firstboot.py).
 
 ## 9. Monitoring: asking a server what it sees
+
 - Each NATS server can answer small JSON pages on a separate **monitoring port** (conventionally 8222). It is plain HTTP, read-only, and answers only when asked. The pages used most: `/varz` (the server: version, uptime, memory, counters such as `slow_consumers`), `/connz` (its connections; `?acc=` filters by account), `/jsz` (JetStream use), `/healthz` (health), `/leafz` (leaf links), `/accountz` (accounts).
 - **`/leafz` exists in nats-server v2.15.2** (it is registered in `server/monitor.go` at that tag), so the image's pinned version has it. OneMind's leaf supervisor reads it for leaf health ([`internal/leaf/supervise.go`](../../internal/leaf/supervise.go)).
 - On both hub and leaf, the monitor binds to **127.0.0.1:8222** only. Nothing off the machine can read it, and screens never read it directly.
@@ -151,6 +161,7 @@ The same thing in words: the hub runs one NATS server with one room for its own 
 **Sources:** [Monitoring endpoints](https://docs.nats.io/learn/monitoring/monitoring-endpoints); [Advisories and events](https://docs.nats.io/learn/monitoring/advisories-and-events) (system account, `$SYS.ACCOUNT.*`); nats-server [`server/monitor.go`](https://github.com/nats-io/nats-server/blob/v2.15.2/server/monitor.go) (`LeafzPath`, `HealthzPath`, `JszPath`).
 
 ## 10. What survives a cut, and what does not
+
 A **cut** is any break in the leaf link: the hub reboots, the mesh drops, a cable is pulled. If the mesh is down, the leaf link is down too.
 
 | What | During the cut | After the link returns | Source |
@@ -168,6 +179,7 @@ A **cut** is any break in the leaf link: the hub reboots, the mesh drops, a cabl
 **Sources:** lab [`w8-nats-leaf-buffer/results.md`](../../research-output/evidence/lab/w8-nats-leaf-buffer/results.md); lab [`fb3-mesh-nat/README.md`](../../research-output/evidence/lab/fb3-mesh-nat/README.md) §7.2 ("Observation, outage detection"); nats-server [`server/const.go`](https://github.com/nats-io/nats-server/blob/v2.15.2/server/const.go) (`DEFAULT_PING_INTERVAL`, `DEFAULT_PING_MAX_OUT`, `DEFAULT_LEAF_NODE_RECONNECT`) and [`server/jetstream.go`](https://github.com/nats-io/nats-server/blob/v2.15.2/server/jetstream.go) (`dynJetStreamConfig`); [Leaf nodes](https://docs.nats.io/learn/topologies/leaf-nodes).
 
 ## 11. Agents and the two-door rule
+
 **Status: a proposal waiting for Zeus. Nothing of it is in the code yet**, except the gateway's MCP door, which is.
 
 - **The agent protocol.** The "NATS agent SDK" the founder asked about is the **Synadia Agent Protocol for NATS**, version 0.3.1, status **Draft**, from Synadia (not from the `nats-io` project). An agent registers as a NATS service and uses subjects such as `agents.prompt.<agent>.<owner>.<name>` (prompts), `agents.hb.<agent>.<owner>.<name>` (heartbeat; recommended every 30 s, offline after 3 missed) and `agents.status...`. The SDKs are Apache-2.0; the spec repository has no licence file, so we read it and do not copy its text.
@@ -181,6 +193,7 @@ A **cut** is any break in the leaf link: the hub reboots, the mesh drops, a cabl
 **Sources:** [synadia-ai/synadia-agents](https://github.com/synadia-ai/synadia-agents) (Apache-2.0 SDKs); [synadia-ai/synadia-agent-sdk-docs `core-protocol.md`](https://github.com/synadia-ai/synadia-agent-sdk-docs/blob/main/core-protocol.md) (§2 subjects, §8 heartbeat; read only); [`core/onemind_core/mcp/tools.py`](../../core/onemind_core/mcp/tools.py); [`docs/DECISIONS.md`](../DECISIONS.md).
 
 ## 12. Where the files disagree (flagged, not changed)
+
 Found while writing this guide. Each needs an owner to settle, so nothing is built on the wrong name.
 
 1. **Outbox names.** Contract §12.9 names the leaf stream `ONEMIND_NODE_OUTBOX` and puts node events on `onemind.node.<node_id>.event.<type>`. The code ([`outbox.go`](../../internal/leaf/outbox.go)) names it `OUTBOX` with subjects `outbox.>`, and the hub copy `NODE_node_<id>_OUTBOX`.
@@ -191,6 +204,7 @@ Found while writing this guide. Each needs an owner to settle, so nothing is bui
 **Sources:** [contract §12.9](../../sdk/contracts/poc-v0.md#129-nats); the files named in each item.
 
 ## 13. Check yourself
+
 1. Node A's leaf publishes `onemind.node.B.status`. Which account does the message land in, and why does the gateway never see it?
 2. The hub is off for an hour. Which of these reach the hub afterwards: A's heartbeats, A's job results, an event A wrote with `onemind fabric outbox send`?
 3. Why does the outbox refuse new messages when full instead of dropping the oldest?
