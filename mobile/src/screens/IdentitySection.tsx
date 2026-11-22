@@ -13,7 +13,7 @@ export function IdentitySection({ deviceName }: { deviceName: string }) {
   const { api, me, principal, features, connection, canDecide, refreshIdentity } = useSignedIn();
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ text: string; ok: boolean }>();
-  const hubUrl = connection.mode === 'live' ? connection.hubUrl : undefined;
+  const hubUrl = connection.hubUrl;
   const canRegister = features.has(OP.passkeyRegisterOptions) && principal?.kind === 'person';
   const passkeys = platformPasskeys();
 
@@ -41,8 +41,7 @@ export function IdentitySection({ deviceName }: { deviceName: string }) {
   }
 
   const who = me?.principal.display_name ?? principal?.id;
-  const signIn =
-    connection.mode === 'mock' ? 'demo' : connection.auth === 'passkey' ? 'passkey (renews itself)' : 'access token (v0)';
+  const signIn = connection.auth === 'passkey' ? 'passkey (renews itself)' : 'access token (v0)';
   return (
     <>
       <H2>You</H2>
@@ -51,7 +50,7 @@ export function IdentitySection({ deviceName }: { deviceName: string }) {
         <Row label="Can approve" value={canDecide === 'yes' ? 'yes' : canDecide === 'no' ? 'no' : 'the hub decides when you try'} />
         <Row label="Signed in with" value={signIn} />
         {me && <Row label="Passkeys on your account" value={String(me.passkeys)} />}
-        {!features.has(OP.me) && connection.mode === 'live' && (
+        {!features.has(OP.me) && (
           <P muted small>This hub has no "who am I" route yet, so the app learns your role from the hub's answers.</P>
         )}
         {canRegister && (

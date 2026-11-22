@@ -2,6 +2,7 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { ApiError } from '../api/types';
 import { v0Api } from '../test/fakes';
+import { mockApi, mockConnection } from '../test/mockHub';
 import { HubDataProvider } from '../data';
 import type { ReactNode } from 'react';
 import { SessionProvider, useSession, type SessionDeps } from '../session';
@@ -32,7 +33,7 @@ async function renderApprovals(d: SessionDeps) {
 
 describe('Approvals screen', () => {
   it('shows the exact request and the agent requester, and the owner approves it', async () => {
-    await renderApprovals(deps({ mode: 'mock', token: 'owner-demo' }));
+    await renderApprovals(deps(mockConnection('owner-demo'), mockApi));
     const params = screen.getByTestId('params-act-0001');
     expect(params).toHaveTextContent(/"type": "app.install"/);
     expect(params).toHaveTextContent(/"app_id": "ollama"/);
@@ -46,13 +47,13 @@ describe('Approvals screen', () => {
   });
 
   it('the owner denies', async () => {
-    await renderApprovals(deps({ mode: 'mock', token: 'owner-demo' }));
+    await renderApprovals(deps(mockConnection('owner-demo'), mockApi));
     await fireEvent.press(screen.getByTestId('deny-act-0001'));
     expect(await screen.findByText('Denied: Install ollama.')).toBeTruthy();
   });
 
   it('an adult sees the request but the buttons are off', async () => {
-    await renderApprovals(deps({ mode: 'mock', token: 'adult-demo' }));
+    await renderApprovals(deps(mockConnection('adult-demo'), mockApi));
     expect(screen.getByText(/only an owner can approve or deny/)).toBeTruthy();
     expect(screen.getByTestId('approve-act-0001')).toBeDisabled();
     expect(screen.getByTestId('deny-act-0001')).toBeDisabled();

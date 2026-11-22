@@ -1,22 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
-import { useEffect, useState } from 'react';
-import { Image, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useColorScheme, View } from 'react-native';
+import { useState } from 'react';
+import { Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useColorScheme, View } from 'react-native';
 import { ApiError } from '../api/types';
 import { deviceInfo } from '../lib/device';
 import { platformPasskeys } from '../lib/passkeys';
 import { passkeySignIn, SignInError } from '../lib/signin';
 import { PasskeyError, passkeyMessage, rpIdFor } from '../lib/webauthn';
 import { useSession } from '../session';
-import { Button, Card, H1, H2, Notice, P, s as base } from '../ui/bits';
+import { Button, Card, H1, Notice, P, s as base } from '../ui/bits';
 import { font, radiusControl, space, useTheme } from '../ui/theme';
 
 const MARK = { light: require('../../assets/brand/mark-color-256.png'), dark: require('../../assets/brand/mark-on-dark-256.png') };
-
-const DEMO_ROLES = [
-  { token: 'owner-demo', label: 'Owner' },
-  { token: 'adult-demo', label: 'Adult' },
-  { token: 'agent-demo', label: 'Agent' },
-] as const;
 
 /** Plain HTTP to anything but this device sends the bearer token readable on the network. */
 export function insecureHub(url: string): boolean {
@@ -68,18 +62,6 @@ export function ConnectScreen() {
   } catch {
     expiredHost = expiredHub;
   }
-
-  // onemind://demo?as=owner opens the demo (mock data only; never a real hub or token).
-  useEffect(() => {
-    const open = (url: string | null | undefined) => {
-      const m = url?.match(/^onemind:\/\/demo(?:\?as=(owner|adult|agent))?/);
-      if (m) void run(() => connect({ mode: 'mock', token: `${m[1] ?? 'owner'}-demo` }));
-    };
-    void Linking.getInitialURL().then(open);
-    const sub = Linking.addEventListener('url', (e) => open(e.url));
-    return () => sub.remove();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const input = [st.input, { color: t.text, borderColor: t.border, backgroundColor: t.card }];
   return (
@@ -155,20 +137,6 @@ export function ConnectScreen() {
             </View>
           )}
         </Card>
-        <H2>Or try the demo</H2>
-        <P muted small>Made-up nodes, apps and requests, so you can see every screen without a hub. Pick who you are:</P>
-        <View style={base.wrap}>
-          {DEMO_ROLES.map((r) => (
-            <Button
-              key={r.token}
-              testID={`demo-${r.token}`}
-              variant="secondary"
-              label={r.label}
-              disabled={busy}
-              onPress={() => void run(() => connect({ mode: 'mock', token: r.token }))}
-            />
-          ))}
-        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );

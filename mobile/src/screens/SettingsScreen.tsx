@@ -5,7 +5,7 @@ import { useHubData } from '../data';
 import { deviceInfo, loadLink, type DeviceLink } from '../lib/device';
 import { setupNotifications, showAlert } from '../notify';
 import { useSignedIn } from '../session';
-import { Button, Card, H1, H2, Notice, P, Row, Screen, s } from '../ui/bits';
+import { Button, Card, H1, H2, P, Row, Screen, s } from '../ui/bits';
 import { AppearanceSection } from './AppearanceSection';
 import { BoxSettingsSection } from './BoxSettingsSection';
 import { DeviceSection } from './DeviceSection';
@@ -29,7 +29,7 @@ export function SettingsScreen() {
   const [notif, setNotif] = useState<boolean>();
   const [link, setLink] = useState<DeviceLink>();
   const [name, setName] = useState(() => deviceInfo('').name);
-  const hubUrl = connection.mode === 'live' ? connection.hubUrl : undefined;
+  const hubUrl = connection.hubUrl;
 
   useEffect(() => {
     void setupNotifications().then(setNotif).catch(() => setNotif(false));
@@ -65,12 +65,10 @@ export function SettingsScreen() {
       <Card>
         <Row label="Hub" value={label} />
         <Row label="Instance" value={instance?.name ?? 'unknown'} />
-        <Row label="Mode" value={connection.mode === 'mock' ? 'demo (made-up data)' : 'live'} />
         <Row label="Updates" value={LIVE_LABEL[live] ?? live} />
         <Row label="Hub API" value={instance?.api?.version ?? (features.source === 'openapi' ? 'v0 routes and some §12 routes' : 'v0')} />
         <Row label="Remembered" value={remembered ? 'yes, in the secure store' : 'no (secure store unavailable); sign in again next time'} />
       </Card>
-      {connection.mode === 'mock' && <Notice text="You are in the demo. Disconnect to connect to a real hub." />}
       <View style={s.wrap}>
         <Button testID="disconnect" variant="danger" label="Disconnect" onPress={() => void disconnect()} />
       </View>
