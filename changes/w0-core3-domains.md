@@ -1,7 +1,5 @@
 ---
 pr: pending
 branch: w0/core3-domains
-status_rows:
-  - NET-DOM-01 | in-review | properties test knows the switched-off domains answer
 ---
-The API property test now accepts the 503 answer with reason domains_disabled for a switched-off bring-your-own-domain feature, the same way it already accepts backups_disabled. The routes already document 503 in the OpenAPI spec, so the spec and SDK do not change.
+The API property test now allows exactly two documented 503 answers for a switched-off optional feature: backups (reason backups_disabled) and bring-your-own-domain (reason domains_disabled), each only on its own route tree, matched by whole path segments, with error unavailable. A 503 with no reason, another error code or another tree's reason still fails, and a table test pins every one of those cases.
