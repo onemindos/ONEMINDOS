@@ -6150,6 +6150,127 @@
         "title": "Subject",
         "type": "object"
       },
+      "SyncChange": {
+        "description": "One entry of the feed: a file, folder or symlink as it is now (or its deletion).",
+        "properties": {
+          "deleted": {
+            "title": "Deleted",
+            "type": "boolean"
+          },
+          "hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hash"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "mtime": {
+            "title": "Mtime",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "size": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Size"
+          },
+          "type": {
+            "enum": [
+              "file",
+              "dir",
+              "symlink"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "parent_id",
+          "path",
+          "name",
+          "type",
+          "size",
+          "mtime",
+          "hash",
+          "revision",
+          "deleted"
+        ],
+        "title": "SyncChange",
+        "type": "object"
+      },
+      "SyncChanges": {
+        "properties": {
+          "changes": {
+            "items": {
+              "$ref": "#/components/schemas/SyncChange"
+            },
+            "title": "Changes",
+            "type": "array"
+          },
+          "has_more": {
+            "title": "Has More",
+            "type": "boolean"
+          },
+          "next_cursor": {
+            "title": "Next Cursor",
+            "type": "string"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "root": {
+            "title": "Root",
+            "type": "string"
+          }
+        },
+        "required": [
+          "root",
+          "revision",
+          "changes",
+          "next_cursor",
+          "has_more"
+        ],
+        "title": "SyncChanges",
+        "type": "object"
+      },
       "SystemActionRequest": {
         "additionalProperties": false,
         "description": "POST /v1/system/actions. `confirm` is the phrase the owner types for a factory reset.",
@@ -22937,6 +23058,86 @@
         "summary": "Storage Recovery Key",
         "tags": [
           "storage"
+        ]
+      }
+    },
+    "/v1/sync/changes": {
+      "get": {
+        "description": "Entries with a revision after the cursor, oldest first, each once at its latest state. No cursor: every live entry. 410 (cursor_expired): list again with no cursor. 422 (invalid_cursor): the cursor was issued for another root or caller.",
+        "operationId": "sync.changes.list",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "root",
+            "required": true,
+            "schema": {
+              "maxLength": 205,
+              "pattern": "^(?:shared|home:[ -~]{1,200})$",
+              "title": "Root",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 500,
+              "maximum": 1000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncChanges"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "description": "Not allowed for this principal (permission_denied)"
+          },
+          "410": {
+            "description": "expired: the cursor is older than the remembered deletions"
+          },
+          "422": {
+            "description": "Invalid root, path or body (conflict, reason invalid_path / invalid_root ...)"
+          },
+          "503": {
+            "description": "unavailable: the files storage is not usable"
+          }
+        },
+        "summary": "What changed in a root since a cursor",
+        "tags": [
+          "sync"
         ]
       }
     },
