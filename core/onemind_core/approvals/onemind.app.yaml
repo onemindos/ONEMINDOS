@@ -2,7 +2,7 @@
 # Built-in descriptor (sdk/schema/onemind.builtin.schema.json). Read only because "approvals" is on the
 # signed list. The code is actions.py and ledger.py; this folder holds only the descriptor.
 apiVersion: onemind.app/v1
-kind: Builtin
+kind: App
 metadata:
   id: approvals
   name: Approvals

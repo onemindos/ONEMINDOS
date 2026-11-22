@@ -2,7 +2,7 @@
 # Built-in descriptor (sdk/schema/onemind.builtin.schema.json). Read only because "updates" is on the
 # signed list. The code is osupdate.py and automation/updatepolicy.py; this folder holds only the descriptor.
 apiVersion: onemind.app/v1
-kind: Builtin
+kind: App
 metadata:
   id: updates
   name: Updates
@@ -17,9 +17,8 @@ spec:
   notifications:
     topics:
       - {id: updates, events: [update.available, update.applied, update.rolled_back]}
-  settings:
-    pages:
-      - {id: update-policy, title: Automatic updates, source: GET /v1/update-policy}
+  settingsPages:
+    - {id: update-policy, title: Automatic updates, source: GET /v1/update-policy}
   backup:
     units:
       - {kind: table, name: osupdate_events}

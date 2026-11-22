@@ -16,7 +16,10 @@ from pathlib import Path
 
 import pytest
 import yaml
+from jsonschema import Draft202012Validator
 from sqlalchemy import inspect
+from starlette.testclient import WebSocketDenialResponse
+from starlette.websockets import WebSocket
 
 from conftest import AGENT, OWNER, make_client
 from onemind_core import builtins, systemlist
@@ -29,6 +32,10 @@ REPO = Path(__file__).resolve().parents[2]
 OPENAPI = json.loads((REPO / "sdk" / "openapi" / "onemind-v1.json").read_text())
 SIGNED = systemlist.load(systemlist.REPO_FILE)
 METHODS = ("get", "post", "put", "patch", "delete")
+APP_SCHEMA = json.loads((REPO / "sdk" / "schema" / "onemind.app.schema.json").read_text())
+BUILTIN_SCHEMA = json.loads(builtins.REPO_SCHEMA.read_text())
+BOGUS = [{"Authorization": "Bearer om_made_up_token"}, {"Authorization": "Basic Zm9vOmJhcg=="},
+         {"Cookie": "__Host-onemind_session=made-up"}]
 
 
 def problems(d: builtins.Descriptor, others: list[builtins.Descriptor], tables: set[str], types: set[str]) -> list[str]:
@@ -248,3 +255,133 @@ def test_descriptor_tools_need_their_scope_file_requests_only_and_vanish_when_of
 
     off = builtins.Builtins(registry.descriptors, lambda: frozenset({"market"}))
     assert "request_app_disable" not in tool_names(endpoint(c, clock, off), scoped)
+
+
+# ---- one manifest: the descriptor is the built-in profile of the App manifest -----------------------------
+
+def app_block_validator(name: str) -> Draft202012Validator:
+    """The App schema's own definition of spec.<name>, with the App schema's $defs."""
+    return Draft202012Validator({**APP_SCHEMA["properties"]["spec"]["properties"][name], "$defs": APP_SCHEMA["$defs"]})
+
+
+def test_descriptors_use_the_app_manifest_api_version_kind_and_file_name():
+    assert BUILTIN_SCHEMA["properties"]["apiVersion"]["const"] in APP_SCHEMA["properties"]["apiVersion"]["enum"]
+    assert BUILTIN_SCHEMA["properties"]["kind"] == APP_SCHEMA["properties"]["kind"] == {"const": "App"}
+    assert builtins.DESCRIPTOR == "onemind.app.yaml"
+    for app_id in sorted(SIGNED.ids()):
+        doc = doc_of(app_id)
+        assert (doc["apiVersion"], doc["kind"]) == ("onemind.app/v1", "App"), app_id
+
+
+def test_no_descriptor_block_reuses_an_app_spec_name_with_another_shape():
+    shared = set(BUILTIN_SCHEMA["properties"]["spec"]["properties"]) & set(APP_SCHEMA["properties"]["spec"]["properties"])
+    assert shared == {"backup"}  # every other block name is new to the App spec and can move there unchanged
+    for app_id in sorted(SIGNED.ids()):
+        spec = doc_of(app_id)["spec"]
+        for name in sorted(shared & set(spec)):
+            errs = [e.message for e in app_block_validator(name).iter_errors(spec[name])]
+            assert errs == [], (app_id, name, errs)
+    strip = lambda d: {k: v for k, v in d.items() if k != "description"}  # noqa: E731
+    assert strip(BUILTIN_SCHEMA["$defs"]["backupUnit"]) == strip(APP_SCHEMA["$defs"]["backupUnit"])
+
+
+@pytest.mark.parametrize("change", ["kind-builtin", "settings-pages-block"])
+def test_the_old_clashing_names_are_refused(tmp_path, change):
+    doc = doc_of("updates")
+    if change == "kind-builtin":
+        doc["kind"] = "Builtin"
+    else:
+        doc["spec"]["settings"] = {"pages": doc["spec"].pop("settingsPages")}
+    found, errors = load_one(tmp_path, "updates", doc)
+    assert "updates" not in found and errors["updates"]
+
+
+def test_a_market_app_may_not_declare_backup_units():
+    manifest = yaml.safe_load((REPO / "apps" / "actual-budget" / "onemind.app.yaml").read_text())
+    validator = Draft202012Validator(APP_SCHEMA)
+    assert list(validator.iter_errors(manifest)) == []
+    manifest["spec"].setdefault("backup", {})["units"] = [{"kind": "table", "name": "actions"}]
+    assert any("system" in e.message for e in validator.iter_errors(manifest))
+
+
+# ---- the gate: no oracle for made-up credentials, no way round it for public or websocket routes -----------
+
+def add_probe_routes(app):
+    """A public HTTP route and a websocket route under /v1/photos, like ones a later slice may add."""
+    @app.get("/v1/photos/public-probe", include_in_schema=False)
+    def public_probe():
+        return {"ok": True}
+
+    @app.websocket("/v1/photos/live-probe")
+    async def live_probe(ws: WebSocket):
+        await ws.accept()
+        await ws.send_json({"ok": True})
+        await ws.close()
+
+    # Ahead of the photo routes and the /v1 fallback, which would otherwise answer first.
+    app.router.routes[:0] = [app.router.routes.pop(), app.router.routes.pop()]
+
+
+@pytest.mark.parametrize("headers", BOGUS, ids=["bearer", "basic", "cookie"])
+def test_a_made_up_credential_is_not_told_the_app_is_off(c, clock, headers):
+    assert run(c, clock, "app.disable", {"app_id": "photos"}).json()["state"] == "succeeded"
+    r = c.get("/v1/photos/library", headers=headers)
+    assert r.status_code == 401 and r.json().get("reason") != "app_disabled", r.text
+    assert c.get("/v1/photos/library", headers=OWNER).json()["reason"] == "app_disabled"
+
+
+def test_public_and_websocket_routes_under_an_owned_prefix_are_shut_when_off(c, clock):
+    add_probe_routes(c.app)
+    assert c.get("/v1/photos/public-probe").status_code == 200
+    with c.websocket_connect("/v1/photos/live-probe", headers=OWNER) as ws:
+        assert ws.receive_json() == {"ok": True}
+
+    assert run(c, clock, "app.disable", {"app_id": "photos"}).json()["state"] == "succeeded"
+    assert c.get("/v1/photos/public-probe").status_code == 401
+    r = c.get("/v1/photos/public-probe", headers=OWNER)
+    assert r.status_code == 409 and r.json()["reason"] == "app_disabled"
+    for headers, status in ((OWNER, 409), ({}, 401), (BOGUS[0], 401)):
+        with pytest.raises(WebSocketDenialResponse) as denied:
+            with c.websocket_connect("/v1/photos/live-probe", headers=headers):
+                pass
+        assert denied.value.status_code == status, headers
+
+    assert run(c, clock, "app.enable", {"app_id": "photos"}).json()["state"] == "succeeded"
+    assert c.get("/v1/photos/public-probe").status_code == 200
+
+
+def test_a_websocket_without_the_denial_extension_is_closed(c):
+    import asyncio
+
+    registry = builtins.Builtins(c.app.state.builtins.descriptors, lambda: frozenset({"photos"}))
+
+    async def never(scope, receive, send):
+        raise AssertionError("the route must not run")
+
+    def go(principal):
+        sent = []
+        gate = builtins.BuiltinGate(never, builtins=registry, principal=principal)
+        scope = {"type": "websocket", "path": "/v1/photos/live-probe", "headers": [], "query_string": b""}
+
+        async def receive():
+            return {"type": "websocket.connect"}
+
+        async def send(message):
+            sent.append(message)
+        asyncio.run(gate(scope, receive, send))
+        return sent
+
+    def refuse(_request):
+        from onemind_core.errors import ApiError
+        raise ApiError(401, "unauthenticated", "missing bearer token")
+
+    assert go(lambda _request: object()) == [{"type": "websocket.close", "code": 4409, "reason": "app_disabled"}]
+    assert go(refuse) == [{"type": "websocket.close", "code": 4401, "reason": ""}]
+
+
+# ---- GET /v1/builtins is provisional: it folds into the surface registry -----------------------------------
+
+def test_builtins_route_is_marked_provisional_in_the_public_openapi(c):
+    for spec in (OPENAPI, c.get("/openapi.json").json()):
+        op = spec["paths"]["/v1/builtins"]["get"]
+        assert "/v1/surfaces" in op["x-onemind-provisional"], op

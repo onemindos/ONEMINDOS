@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Built-in descriptor (sdk/schema/onemind.builtin.schema.json). Read only because "photos" is on the signed list.
 apiVersion: onemind.app/v1
-kind: Builtin
+kind: App
 metadata:
   id: photos
   name: Photos

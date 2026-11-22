@@ -13980,7 +13980,7 @@
     },
     "/v1/builtins": {
       "get": {
-        "description": "The descriptors of the switched-on built-in apps, with the Settings pages, backup units and\nrequest-only MCP tools built from them. A switched-off built-in is left out of every list.",
+        "description": "Provisional: folds into GET /v1/surfaces (the surface registry). The descriptors of the\nswitched-on built-in apps, with the Settings pages, backup units and request-only MCP tools\nbuilt from them. A switched-off built-in is left out of every list.",
         "operationId": "builtins.list",
         "responses": {
           "200": {
@@ -14007,7 +14007,8 @@
         "summary": "List Builtins",
         "tags": [
           "apps"
-        ]
+        ],
+        "x-onemind-provisional": "Folds into GET /v1/surfaces (surface registry) when it lands; do not build on this route."
       }
     },
     "/v1/databases": {

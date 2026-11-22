@@ -7,11 +7,13 @@ other id is ignored, so a file dropped into the package cannot make itself a bui
 
 From the descriptors of the built-ins that are switched on, the gateway builds:
 - the request-only MCP tools (`spec.actions` with `mcp: true`, mcp/tools.py);
-- the Settings pages (`spec.settings.pages`) and the backup set (`spec.backup.units`);
-- GET /v1/builtins (routers/builtins.py), which lists all of that for every client.
+- the Settings pages (`spec.settingsPages`) and the backup set (`spec.backup.units`);
+- GET /v1/builtins (routers/builtins.py), which lists all of that for every client. The route is
+  provisional: it folds into the surface registry (GET /v1/surfaces) when that lands.
 
-`BuiltinGate` is the one place that answers 409 `app_disabled`: every request under a prefix a
-switched-off built-in owns (`spec.routes.owns`) is refused there, so no module reads its own switch.
+`BuiltinGate` is the one place that answers 409 `app_disabled`: every request (HTTP or websocket)
+under a prefix a switched-off built-in owns (`spec.routes.owns`) is refused there, so no module reads
+its own switch and no route under the prefix, public or not, is reachable while it is off.
 """
 
 from __future__ import annotations
@@ -24,8 +26,10 @@ from pathlib import Path
 
 import yaml
 from jsonschema import Draft202012Validator
+from starlette.concurrency import run_in_threadpool
+from starlette.requests import Request
 
-from .errors import error_response
+from .errors import ApiError, error_response
 from .systemlist import SystemList
 
 log = logging.getLogger("onemind.builtins")
@@ -52,7 +56,7 @@ class Descriptor:
         out = list(self.spec["routes"]["calls"])
         out += [c["source"] for c in self.spec.get("cards", [])]
         out += [m["source"] for m in self.spec.get("mapLayers", [])]
-        out += [p["source"] for p in (self.spec.get("settings") or {}).get("pages", [])]
+        out += [p["source"] for p in self.spec.get("settingsPages", [])]
         return out
 
 
@@ -131,7 +135,7 @@ class Builtins:
                 for d in self.enabled() for a in d.spec.get("actions", []) if a["mcp"]}
 
     def settings_pages(self) -> list[dict]:
-        return [{"app_id": d.id, **p} for d in self.enabled() for p in (d.spec.get("settings") or {}).get("pages", [])]
+        return [{"app_id": d.id, **p} for d in self.enabled() for p in d.spec.get("settingsPages", [])]
 
     def backup_units(self) -> list[dict]:
         return [{"app_id": d.id, **u} for d in self.enabled() for u in d.spec["backup"]["units"]]
@@ -148,27 +152,49 @@ class Builtins:
         }
 
 
-def _has_credential(scope) -> bool:
-    return any(k in (b"authorization", b"cookie") for k, _ in scope.get("headers") or [])
-
-
 class BuiltinGate:
-    """ASGI middleware: 409 app_disabled for every route a switched-off built-in owns.
+    """ASGI middleware: every HTTP or websocket request under a prefix a switched-off built-in owns
+    is refused here, before any route runs, so a public or websocket route stays shut too.
 
-    A request without credentials passes through to the route, which answers 401: whether an app
-    is switched off is not told to someone who has not signed in.
+    Whether an app is off is told only to a caller the gateway signs in: the gate runs the same
+    principal check the routes use (bearer token, session cookie, route scopes, kill switch). A
+    caller it signs in gets 409 app_disabled; anyone else gets that check's own refusal (401, or
+    403 without the route's scope), so a made-up credential learns nothing. A websocket gets the
+    same answer as an HTTP denial response, or a close (4409 / 4401) where the server lacks that.
     """
 
-    def __init__(self, app, *, builtins: Builtins):
+    def __init__(self, app, *, builtins: Builtins, principal: Callable[[Request], object]):
         self.app = app
         self.builtins = builtins
+        self.principal = principal
 
     async def __call__(self, scope, receive, send):
-        if scope["type"] == "http" and _has_credential(scope):
+        if scope["type"] in ("http", "websocket"):
             d = self.builtins.owner_of(scope.get("path", ""))
             if d is not None and d.id in self.builtins.disabled():
-                resp = error_response(409, "stale_precondition",
-                                      f"{d.name} is switched off; switch it on first (app.enable)",
-                                      reason="app_disabled")
-                return await resp(scope, receive, send)
+                return await self._refuse(d, scope, receive, send)
         return await self.app(scope, receive, send)
+
+    async def _refuse(self, d: Descriptor, scope, receive, send):
+        ws = scope["type"] == "websocket"
+        # The principal check reads method, path, headers and cookies only, never the body.
+        request = Request({**scope, "type": "http", "method": "GET"} if ws else scope)
+        try:
+            await run_in_threadpool(self.principal, request)
+        except ApiError as exc:
+            resp = error_response(exc.status, exc.error, exc.message, reason=exc.reason,
+                                  details=exc.details, retry_after_s=exc.retry_after_s)
+            code = 4401 if exc.status == 401 else 4403
+        else:
+            resp = error_response(409, "stale_precondition",
+                                  f"{d.name} is switched off; switch it on first (app.enable)",
+                                  reason="app_disabled")
+            code = 4409
+        if not ws:
+            return await resp(scope, receive, send)
+        message = await receive()  # websocket.connect
+        if message.get("type") != "websocket.connect":
+            return None
+        if "websocket.http.response" in (scope.get("extensions") or {}):
+            return await resp(scope, receive, send)
+        return await send({"type": "websocket.close", "code": code, "reason": "app_disabled" if code == 4409 else ""})

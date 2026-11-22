@@ -2,7 +2,7 @@
 # Built-in descriptor (sdk/schema/onemind.builtin.schema.json). Read only because "notifications" is on the
 # signed list. The code is in ../notify/; this folder holds only the descriptor.
 apiVersion: onemind.app/v1
-kind: Builtin
+kind: App
 metadata:
   id: notifications
   name: Notifications
@@ -17,10 +17,9 @@ spec:
   notifications:
     topics:
       - {id: security, events: [notify.channel_failing, notify.channel_ok]}
-  settings:
-    pages:
-      - {id: preferences, title: Notification preferences, source: GET /v1/notifications/preferences}
-      - {id: channels, title: Delivery channels, source: GET /v1/notifications/channels}
+  settingsPages:
+    - {id: preferences, title: Notification preferences, source: GET /v1/notifications/preferences}
+    - {id: channels, title: Delivery channels, source: GET /v1/notifications/channels}
   backup:
     units:
       - {kind: table, name: notify_notifications}

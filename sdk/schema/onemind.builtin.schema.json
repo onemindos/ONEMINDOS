@@ -1,14 +1,14 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://onemind.io/schema/onemind.builtin.schema.json",
-  "title": "OneMind built-in app descriptor",
-  "description": "What one built-in (system) app plugs into: search, share, notifications, map layers, cards, agent actions, settings, backup, data classes and the phone. Lives at core/onemind_core/<id>/onemind.app.yaml and is read only for ids on the signed system apps list (/usr/lib/onemind/system-apps.json). The blocks are $defs so the app manifest schema can reuse them (one schema for built-ins and Market apps). The conformance test core/tests/test_builtin_conformance.py checks every descriptor against the running gateway.",
+  "title": "OneMind built-in app descriptor (the built-in profile of the onemind.app/v1 App manifest)",
+  "description": "What one built-in (system) app plugs into: search, share, notifications, map layers, cards, agent actions, settings, backup, data classes and the phone. Lives at core/onemind_core/<id>/onemind.app.yaml and is read only for ids on the signed system apps list (/usr/lib/onemind/system-apps.json). It is the same manifest as a Market app (apiVersion onemind.app/v1, kind App, one file name) in its built-in profile: metadata carries only id, name and description because a built-in ships inside the OS image (no version, licence, source or tier of its own), and no spec block reuses a name onemind.app.schema.json gives another shape. spec.backup is the App spec.backup block (its units field); every other block name is new to the App spec, so each can move into onemind.app.schema.json unchanged. test_builtin_conformance.py fails if a descriptor block stops validating against the App schema block of the same name. The conformance test core/tests/test_builtin_conformance.py checks every descriptor against the running gateway.",
   "type": "object",
   "additionalProperties": false,
   "required": ["apiVersion", "kind", "metadata", "spec"],
   "properties": {
     "apiVersion": {"const": "onemind.app/v1"},
-    "kind": {"const": "Builtin"},
+    "kind": {"const": "App"},
     "metadata": {
       "type": "object",
       "additionalProperties": false,
@@ -31,7 +31,7 @@
         "mapLayers": {"type": "array", "maxItems": 20, "items": {"$ref": "#/$defs/mapLayer"}},
         "cards": {"type": "array", "maxItems": 20, "items": {"$ref": "#/$defs/card"}},
         "actions": {"type": "array", "maxItems": 40, "items": {"$ref": "#/$defs/action"}},
-        "settings": {"$ref": "#/$defs/settings"},
+        "settingsPages": {"type": "array", "minItems": 1, "maxItems": 10, "items": {"$ref": "#/$defs/settingsPage"}},
         "backup": {"$ref": "#/$defs/backup"},
         "data": {"$ref": "#/$defs/data"},
         "phone": {"$ref": "#/$defs/phone"}
@@ -129,33 +129,25 @@
         "mcp": {"type": "boolean"}
       }
     },
-    "settings": {
+    "settingsPage": {
+      "description": "A Settings page the host draws from one public read operation. Not the App spec.settings field list (owner-editable env values of a container app).",
       "type": "object",
       "additionalProperties": false,
-      "required": ["pages"],
-      "properties": {
-        "pages": {
-          "type": "array", "minItems": 1, "maxItems": 10,
-          "items": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": ["id", "title", "source"],
-            "properties": {"id": {"$ref": "#/$defs/key"}, "title": {"$ref": "#/$defs/title"}, "source": {"$ref": "#/$defs/call"}}
-          }
-        }
-      }
+      "required": ["id", "title", "source"],
+      "properties": {"id": {"$ref": "#/$defs/key"}, "title": {"$ref": "#/$defs/title"}, "source": {"$ref": "#/$defs/call"}}
     },
     "backupUnit": {
+      "description": "Same as onemind.app.schema.json $defs/backupUnit (a test keeps the two equal). table: a gateway database table. dir: the folder a gateway setting (ONEMIND_*) names.",
       "type": "object",
       "additionalProperties": false,
       "required": ["kind", "name"],
       "properties": {
-        "kind": {"enum": ["table", "dir"], "description": "table: a gateway database table. dir: the folder a gateway setting names."},
+        "kind": {"enum": ["table", "dir"]},
         "name": {"type": "string", "pattern": "^([a-z][a-z0-9_]{0,62}|ONEMIND_[A-Z0-9_]{1,60})$"}
       }
     },
     "backup": {
-      "description": "Backup units. Every built-in names at least one; removing them fails the conformance test.",
+      "description": "The App spec.backup block with its units field required: every built-in names at least one unit; removing them fails the conformance test.",
       "type": "object",
       "additionalProperties": false,
       "required": ["units"],

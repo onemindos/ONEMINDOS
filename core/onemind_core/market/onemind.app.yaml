@@ -2,7 +2,7 @@
 # Built-in descriptor (sdk/schema/onemind.builtin.schema.json). Read only because "market" is on the
 # signed list. The code is appstore/ and catalog.py; this folder holds only the descriptor.
 apiVersion: onemind.app/v1
-kind: Builtin
+kind: App
 metadata:
   id: market
   name: Market

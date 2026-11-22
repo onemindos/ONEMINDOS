@@ -1,6 +1,10 @@
 # SPDX-License-Identifier: Apache-2.0
 """GET /v1/builtins and the one switch-off gate for built-in apps (builtins.py, #603).
 
+GET /v1/builtins is PROVISIONAL (x-onemind-provisional in the OpenAPI): the planned surface registry,
+GET /v1/surfaces, serves every enabled manifest, built-in and Market alike, and this list folds into it.
+New clients build on /v1/surfaces once it exists; nothing new should depend on /v1/builtins.
+
 After the app store (ORDER 130), because the signed list and the on/off switch live there; before
 /mcp (ORDER 140), which builds its request-only built-in tools from the same registry.
 """
@@ -58,6 +62,10 @@ class BuiltinsOut(BaseModel):
 
 register_route_scope("GET,HEAD", r"/v1/builtins", ("apps:read",))
 
+# Marks an operation whose name and shape may still change; clients must not build on it.
+PROVISIONAL_KEY = "x-onemind-provisional"
+PROVISIONAL_NOTE = "Folds into GET /v1/surfaces (surface registry) when it lands; do not build on this route."
+
 # Route order in the app and in /openapi.json (routers/__init__.py).
 ORDER = 135
 
@@ -68,11 +76,14 @@ def register(app: FastAPI, gw: Gateway) -> None:
     registry = builtins.Builtins(found, lambda: gw.disabled_apps(), errors)
     app.state.builtins = registry
     # Innermost (appended, not inserted): the guard's limits and headers still wrap a 409 from the gate.
-    app.user_middleware.append(Middleware(builtins.BuiltinGate, builtins=registry))
+    app.user_middleware.append(Middleware(builtins.BuiltinGate, builtins=registry,
+                                          principal=lambda request: gw.principal(request)))
 
     @app.get("/v1/builtins", operation_id="builtins.list", tags=["apps"], response_model=BuiltinsOut,
-             responses=error_responses(401))
+             responses=error_responses(401),
+             openapi_extra={PROVISIONAL_KEY: PROVISIONAL_NOTE})
     def list_builtins(request: Request, p: Principal = Depends(gw.principal)):
-        """The descriptors of the switched-on built-in apps, with the Settings pages, backup units and
-        request-only MCP tools built from them. A switched-off built-in is left out of every list."""
+        """Provisional: folds into GET /v1/surfaces (the surface registry). The descriptors of the
+        switched-on built-in apps, with the Settings pages, backup units and request-only MCP tools
+        built from them. A switched-off built-in is left out of every list."""
         return registry.view(lambda app_id: all(f(request, p, app_id) for f in gw.app_filters))

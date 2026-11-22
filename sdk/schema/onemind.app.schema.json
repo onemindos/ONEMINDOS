@@ -913,6 +913,13 @@
           "type": "object",
           "additionalProperties": false,
           "properties": {
+            "units": {
+              "description": "Built-in apps only (needs spec.system, which only the signed system apps list allows): the gateway tables and folders the app owns. The same block a built-in descriptor (onemind.builtin.schema.json) carries.",
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 40,
+              "items": {"$ref": "#/$defs/backupUnit"}
+            },
             "mode": {
               "enum": [
                 "hot",
@@ -1161,10 +1168,27 @@
           }
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "if": {
+        "required": ["backup"],
+        "properties": {"backup": {"required": ["units"]}}
+      },
+      "then": {
+        "required": ["system"]
+      }
     }
   },
   "$defs": {
+    "backupUnit": {
+      "description": "One thing a built-in module backs up from the gateway itself (#603). table: a gateway database table. dir: the folder a gateway setting (ONEMIND_*) names.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "name"],
+      "properties": {
+        "kind": {"enum": ["table", "dir"]},
+        "name": {"type": "string", "pattern": "^([a-z][a-z0-9_]{0,62}|ONEMIND_[A-Z0-9_]{1,60})$"}
+      }
+    },
     "execHook": {
       "description": "An argv command run inside the app's own container through the Kubernetes API (contract 12.18); never a host shell.",
       "type": "object",

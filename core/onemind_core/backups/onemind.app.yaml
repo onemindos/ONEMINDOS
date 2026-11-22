@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Built-in descriptor (sdk/schema/onemind.builtin.schema.json). Read only because "backups" is on the signed list.
 apiVersion: onemind.app/v1
-kind: Builtin
+kind: App
 metadata:
   id: backups
   name: Backups
@@ -23,9 +23,8 @@ spec:
   actions:
     - {type: backup.run, title: Back up now, mcp: true}
     - {type: backup.verify, title: Test a restore, mcp: true}
-  settings:
-    pages:
-      - {id: destinations, title: Backup destinations, source: GET /v1/backups/destinations}
+  settingsPages:
+    - {id: destinations, title: Backup destinations, source: GET /v1/backups/destinations}
   backup:
     units:
       - {kind: table, name: backups_destinations}
