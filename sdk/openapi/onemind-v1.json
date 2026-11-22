@@ -6465,6 +6465,17 @@
       "ScanSummary": {
         "description": "§11.1 apps/<id>/scan.json, reduced to what the catalog shows.",
         "properties": {
+          "licence": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ScannedLicence"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "SPDX expression and licence class recorded by the app gate. Missing on older scans."
+          },
           "reason": {
             "anyOf": [
               {
@@ -6496,6 +6507,29 @@
           "result"
         ],
         "title": "ScanSummary",
+        "type": "object"
+      },
+      "ScannedLicence": {
+        "properties": {
+          "class": {
+            "enum": [
+              "L1",
+              "L2",
+              "blocked"
+            ],
+            "title": "Class",
+            "type": "string"
+          },
+          "spdx": {
+            "title": "Spdx",
+            "type": "string"
+          }
+        },
+        "required": [
+          "spdx",
+          "class"
+        ],
+        "title": "ScannedLicence",
         "type": "object"
       },
       "SealedInput": {

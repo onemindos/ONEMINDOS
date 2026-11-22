@@ -40,11 +40,12 @@ class ScanRecord:
     malware: int | None = None
     # Why a failed scan failed, in words an owner can read (None on a pass).
     reason: str | None = None
+    licence: dict[str, str] | None = None
 
     def summary(self) -> dict:
-        """The §11.4 catalog field: {scanned_at, result, reason}; reason is set only on a fail."""
+        """The §11.4 catalog scan summary, including the licence evidence the gate recorded."""
         return {"scanned_at": self.scanned_at.isoformat().replace("+00:00", "Z"), "result": self.result,
-                "reason": self.reason}
+                "reason": self.reason, "licence": self.licence}
 
 
 # scan.json path -> (stat signature, record). GET /v1/apps reads every app's scan on every poll; the
@@ -97,7 +98,13 @@ def _read_scan_file(app_dir: Path, path: Path) -> ScanRecord | None:
     if ts is None or ts.tzinfo is None:
         log.warning("ignoring %s/%s: scanned_at is not an RFC 3339 timestamp", app_dir.name, SCAN_FILE)
         return None
-    return ScanRecord(scanned_at=ts, result=result, malware=_malware(doc.get("images")),
+    licence = doc.get("licence")
+    if (isinstance(licence, dict) and isinstance(licence.get("spdx"), str) and licence["spdx"].strip()
+            and licence.get("class") in ("L1", "L2", "blocked")):
+        licence = {"spdx": licence["spdx"], "class": licence["class"]}
+    else:
+        licence = None
+    return ScanRecord(licence=licence, scanned_at=ts, result=result, malware=_malware(doc.get("images")),
                       reason=_reason(doc) if result == "fail" else None)
 
 

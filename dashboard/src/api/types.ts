@@ -71,10 +71,7 @@ export interface AppLinks {
 export type AppTier = 'verified' | 'community' | 'blocked';
 
 /** §11.1 scan record as summarised in the catalog (§11.4). */
-export interface ScanSummary {
-  scanned_at: string;
-  result: 'pass' | 'fail';
-}
+export type ScanSummary = components['schemas']['ScanSummary'];
 
 /** §3 `GET /v1/apps` item, built from §4 `onemind.app.yaml`, plus the §11.4 fields. */
 export interface CatalogApp {

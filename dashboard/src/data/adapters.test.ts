@@ -27,6 +27,16 @@ describe('catalog → Market (TAXONOMY §1, §11.4)', () => {
     expect(deployClass(null)).toBe('market-community');
   });
 
+  it('uses the gate class only for the current manifest licence', () => {
+    const app = makeApps(NOW)[0]!;
+    const scan = { scanned_at: new Date(NOW).toISOString(), result: 'pass' as const };
+    const checked = { ...scan, licence: { spdx: 'MIT', class: 'L1' as const } };
+    expect(toStoreApp({ ...app, license: 'MIT', scan: checked }).licence_class).toBe('L1');
+    expect(toStoreApp({ ...app, license: 'MIT', scan }).licence_class).toBe('L?');
+    expect(toStoreApp({ ...app, license: 'GPL-3.0', scan: checked }).licence_class).toBe('L?');
+    expect(toStoreApp({ ...app, license: 'MIT', scan: { ...scan, licence: { spdx: 'MIT', class: 'blocked' } } }).licence_class).toBe('blocked');
+  });
+
   it('keeps scan, tier, links and licence; tolerates null fields from the gateway', () => {
     const [kuma] = makeApps(NOW);
     const s = toStoreApp(kuma!);

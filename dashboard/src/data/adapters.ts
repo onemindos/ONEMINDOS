@@ -66,6 +66,7 @@ export function iconOf(icon: string | null | undefined): string | undefined {
 
 /** §3 `GET /v1/apps` entry → Market card. `category` keeps an unknown slug, so the card says "Uncategorised". */
 export function toStoreApp(a: CatalogApp): StoreApp {
+  const licence = a.scan?.licence;
   return {
     id: a.id,
     name: nameOf(a),
@@ -74,6 +75,7 @@ export function toStoreApp(a: CatalogApp): StoreApp {
     category: (categorySlug(a.category) ?? a.category ?? 'uncategorised') as CategorySlug,
     icon: iconOf(a.icon) ?? null,
     license: a.license ?? 'unknown',
+    licence_class: licence && licence.spdx === a.license ? licence.class : 'L?',
     source: a.source ?? undefined,
     archs: a.archs.filter((x): x is 'amd64' | 'arm64' => ARCHS.has(x)),
     requires: a.requires,

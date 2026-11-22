@@ -59,6 +59,7 @@ export const LICENCE_CLASSES: Record<LicenceClass, { label: string; sentence: st
   L1: { label: 'Permissive', sentence: 'Permissive licence (MIT, BSD, Apache-2.0 and similar).' },
   L2: { label: 'Copyleft', sentence: 'Copyleft licence that allows OneMind to run it (GPL, AGPL, MPL).' },
   L3: { label: 'Source-available', sentence: 'Source-available: the licence does not allow OneMind to ship it.' },
+  blocked: { label: 'Blocked licence', sentence: 'The Market gate could not confirm an allowed licence for this app.' },
   'L?': { label: 'Unclear licence', sentence: 'The licence is unclear, so OneMind does not ship it.' },
 };
 
