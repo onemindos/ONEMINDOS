@@ -13,7 +13,8 @@
       "class": "npu",
       "vendor": "hailo",
       "model": null,
-      "pci": "1e60:2864",
+      "pci_id": "1e60:2864",
+      "pci_slot": "0001:01:00.0",
       "driver": "hailo",
       "driver_version": "4.20.0",
       "vram_mb": null,
@@ -27,7 +28,7 @@
     {
       "name": "ttyAMA10",
       "kind": "uart",
-      "usb": null,
+      "usb_id": null,
       "usb_port": null
     }
   ],
@@ -46,7 +47,7 @@
       "bus": "csi",
       "device": null,
       "name": "imx708",
-      "usb": null
+      "usb_id": null
     }
   ],
   "power": {

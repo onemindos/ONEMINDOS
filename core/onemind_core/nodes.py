@@ -18,6 +18,9 @@ import threading
 from collections.abc import Callable
 from datetime import datetime
 
+from pydantic import ValidationError
+
+from .apimodels import NodeCapabilities
 from .ledger import iso
 
 log = logging.getLogger("onemind.nodes")
@@ -30,6 +33,21 @@ OFFLINE_AFTER_S = 120
 MAX_NODES = 256  # a household fabric is a handful of machines; more ids than this are noise or an attack
 # Fields the contract forbids in heartbeats; dropped defensively if a node sends them.
 FORBIDDEN_KEYS = {"serial", "serial_number", "mac", "mac_address", "macs", "ip", "ips", "ip_address", "user", "users", "username"}
+
+
+def valid_capabilities(caps: object, subject: str) -> bool:
+    """The hardware profile (#618) is served only if it is exactly a NodeCapabilities document.
+
+    NATS has no users yet (H-06), so any LAN publisher can send a heartbeat; VM device grants and
+    app verdicts read accelerators and device paths from this profile, so a profile with an extra
+    field, a wrong type or a device outside /dev/(hailo|accel/accel|video)N is not trusted at all.
+    """
+    try:
+        NodeCapabilities.model_validate(caps)
+    except ValidationError as e:
+        log.warning("dropping invalid hardware profile on %s: %d error(s)", subject, e.error_count())
+        return False
+    return True
 
 
 def node_status(age_s: float) -> str:
@@ -70,8 +88,8 @@ class NodeRegistry:
             return False
         for k in FORBIDDEN_KEYS & hb.keys():
             hb.pop(k)
-        if not isinstance(hb.get("capabilities", {}), dict):
-            hb.pop("capabilities")  # the hardware profile (#618) is an object or nothing
+        if "capabilities" in hb and not valid_capabilities(hb["capabilities"], subject):
+            hb.pop("capabilities")  # the profile is dropped, never the heartbeat
         hb.pop("status", None)
         hb.pop("last_seen", None)
         now = self.clock()

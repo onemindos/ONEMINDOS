@@ -3744,10 +3744,11 @@
         "type": "object"
       },
       "NodeAccelerator": {
-        "additionalProperties": true,
+        "additionalProperties": false,
         "properties": {
           "class": {
             "description": "gpu | npu",
+            "maxLength": 16,
             "title": "Class",
             "type": "string",
             "x-onemind-open-enum": true
@@ -3755,6 +3756,7 @@
           "compute_capability": {
             "anyOf": [
               {
+                "pattern": "^[0-9]+\\.[0-9]+$",
                 "type": "string"
               },
               {
@@ -3767,18 +3769,20 @@
           "device": {
             "anyOf": [
               {
+                "pattern": "^/dev/(hailo[0-9]+|accel/accel[0-9]+)$",
                 "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "description": "device node an app is granted, e.g. /dev/hailo0",
+            "description": "full path of the device node an app is granted, e.g. /dev/hailo0",
             "title": "Device"
           },
           "driver": {
             "anyOf": [
               {
+                "maxLength": 128,
                 "type": "string"
               },
               {
@@ -3790,6 +3794,7 @@
           "driver_version": {
             "anyOf": [
               {
+                "maxLength": 128,
                 "type": "string"
               },
               {
@@ -3812,6 +3817,7 @@
           "model": {
             "anyOf": [
               {
+                "maxLength": 128,
                 "type": "string"
               },
               {
@@ -3820,20 +3826,35 @@
             ],
             "title": "Model"
           },
-          "pci": {
+          "pci_id": {
             "anyOf": [
               {
+                "pattern": "^[0-9a-f]{4}:[0-9a-f]{4}$",
                 "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "description": "vvvv:dddd; null when not on PCI",
-            "title": "Pci"
+            "description": "PCI vendor:device id vvvv:dddd (which kind of card); null when not on PCI",
+            "title": "Pci Id"
+          },
+          "pci_slot": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{4,8}:[0-9a-f]{2}:[0-9a-f]{2}\\.[0-7]$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "PCI address dddd:bb:dd.f (which card; what a VFIO grant binds); null when not on PCI",
+            "title": "Pci Slot"
           },
           "vendor": {
             "description": "nvidia | amd | intel | hailo",
+            "maxLength": 16,
             "title": "Vendor",
             "type": "string",
             "x-onemind-open-enum": true
@@ -3841,6 +3862,7 @@
           "vram_mb": {
             "anyOf": [
               {
+                "minimum": 0.0,
                 "type": "integer"
               },
               {
@@ -3858,10 +3880,11 @@
         "type": "object"
       },
       "NodeCamera": {
-        "additionalProperties": true,
+        "additionalProperties": false,
         "properties": {
           "bus": {
             "description": "usb | csi",
+            "maxLength": 16,
             "title": "Bus",
             "type": "string",
             "x-onemind-open-enum": true
@@ -3869,17 +3892,20 @@
           "device": {
             "anyOf": [
               {
+                "pattern": "^/dev/video[0-9]+$",
                 "type": "string"
               },
               {
                 "type": "null"
               }
             ],
+            "description": "full path of the video node, e.g. /dev/video0; null for a CSI sensor",
             "title": "Device"
           },
           "name": {
             "anyOf": [
               {
+                "maxLength": 128,
                 "type": "string"
               },
               {
@@ -3888,16 +3914,18 @@
             ],
             "title": "Name"
           },
-          "usb": {
+          "usb_id": {
             "anyOf": [
               {
+                "pattern": "^[0-9a-f]{4}:[0-9a-f]{4}$",
                 "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Usb"
+            "description": "vvvv:pppp of a USB camera",
+            "title": "Usb Id"
           }
         },
         "required": [
@@ -3907,7 +3935,7 @@
         "type": "object"
       },
       "NodeCapabilities": {
-        "additionalProperties": true,
+        "additionalProperties": false,
         "description": "The machine's hardware profile, sent in its heartbeat; read with nodes:read only.",
         "properties": {
           "accelerators": {
@@ -3916,6 +3944,7 @@
                 "items": {
                   "$ref": "#/components/schemas/NodeAccelerator"
                 },
+                "maxItems": 64,
                 "type": "array"
               },
               {
@@ -3930,6 +3959,7 @@
                 "items": {
                   "$ref": "#/components/schemas/NodeCamera"
                 },
+                "maxItems": 64,
                 "type": "array"
               },
               {
@@ -3953,6 +3983,7 @@
                 "items": {
                   "$ref": "#/components/schemas/NodeRadio"
                 },
+                "maxItems": 64,
                 "type": "array"
               },
               {
@@ -3962,7 +3993,7 @@
             "title": "Radios"
           },
           "schema": {
-            "description": "onemind.node.capabilities/v1",
+            "const": "onemind.node.capabilities/v1",
             "title": "Schema",
             "type": "string"
           },
@@ -3975,6 +4006,7 @@
                 "items": {
                   "$ref": "#/components/schemas/NodeTTYPort"
                 },
+                "maxItems": 64,
                 "type": "array"
               },
               {
@@ -3989,6 +4021,7 @@
                 "items": {
                   "$ref": "#/components/schemas/NodeUSBDevice"
                 },
+                "maxItems": 64,
                 "type": "array"
               },
               {
@@ -4014,11 +4047,12 @@
         "type": "object"
       },
       "NodeDataDisk": {
-        "additionalProperties": true,
+        "additionalProperties": false,
         "properties": {
           "kind": {
             "anyOf": [
               {
+                "maxLength": 16,
                 "type": "string"
               },
               {
@@ -4085,11 +4119,12 @@
         "type": "object"
       },
       "NodeMemoryProfile": {
-        "additionalProperties": true,
+        "additionalProperties": false,
         "properties": {
           "total_mb": {
             "anyOf": [
               {
+                "minimum": 0.0,
                 "type": "integer"
               },
               {
@@ -4206,11 +4241,13 @@
         "type": "object"
       },
       "NodePowerProfile": {
-        "additionalProperties": true,
+        "additionalProperties": false,
         "properties": {
           "battery_pct": {
             "anyOf": [
               {
+                "maximum": 100.0,
+                "minimum": 0.0,
                 "type": "integer"
               },
               {
@@ -4222,6 +4259,7 @@
           "source": {
             "anyOf": [
               {
+                "maxLength": 16,
                 "type": "string"
               },
               {
@@ -4248,14 +4286,16 @@
         "type": "object"
       },
       "NodeRadio": {
-        "additionalProperties": true,
+        "additionalProperties": false,
         "properties": {
           "interface": {
+            "pattern": "^[A-Za-z0-9_.-]{1,15}$",
             "title": "Interface",
             "type": "string"
           },
           "kind": {
             "description": "wifi | bluetooth | cellular",
+            "maxLength": 16,
             "title": "Kind",
             "type": "string",
             "x-onemind-open-enum": true
@@ -4269,32 +4309,37 @@
         "type": "object"
       },
       "NodeTTYPort": {
-        "additionalProperties": true,
+        "additionalProperties": false,
         "properties": {
           "kind": {
             "description": "usb | uart",
+            "maxLength": 16,
             "title": "Kind",
             "type": "string",
             "x-onemind-open-enum": true
           },
           "name": {
+            "pattern": "^tty(USB|ACM|AMA|THS|S)[0-9]+$",
             "title": "Name",
             "type": "string"
           },
-          "usb": {
+          "usb_id": {
             "anyOf": [
               {
+                "pattern": "^[0-9a-f]{4}:[0-9a-f]{4}$",
                 "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Usb"
+            "description": "vvvv:pppp of the USB device behind it; null for an on-board UART",
+            "title": "Usb Id"
           },
           "usb_port": {
             "anyOf": [
               {
+                "pattern": "^[0-9]+-[0-9]+(\\.[0-9]+)*$",
                 "type": "string"
               },
               {
@@ -4312,7 +4357,7 @@
         "type": "object"
       },
       "NodeThermalProfile": {
-        "additionalProperties": true,
+        "additionalProperties": false,
         "properties": {
           "max_c": {
             "anyOf": [
@@ -4328,6 +4373,7 @@
           "state": {
             "anyOf": [
               {
+                "maxLength": 16,
                 "type": "string"
               },
               {
@@ -4343,11 +4389,12 @@
         "type": "object"
       },
       "NodeUSBDevice": {
-        "additionalProperties": true,
+        "additionalProperties": false,
         "properties": {
           "class": {
             "anyOf": [
               {
+                "pattern": "^[0-9a-f]{2}$",
                 "type": "string"
               },
               {
@@ -4359,19 +4406,22 @@
           },
           "id": {
             "description": "vvvv:pppp",
+            "pattern": "^[0-9a-f]{4}:[0-9a-f]{4}$",
             "title": "Id",
             "type": "string"
           },
           "interface_classes": {
-            "default": [],
             "items": {
+              "pattern": "^[0-9a-f]{2}$",
               "type": "string"
             },
+            "maxItems": 32,
             "title": "Interface Classes",
             "type": "array"
           },
           "port": {
             "description": "kernel port path, e.g. 1-1.2",
+            "pattern": "^[0-9]+-[0-9]+(\\.[0-9]+)*$",
             "title": "Port",
             "type": "string"
           }

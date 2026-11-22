@@ -64,14 +64,21 @@ const (
 	VendorHailo  = "hailo"
 )
 
-// Accelerator is one GPU or NPU. PCI is "vvvv:dddd" (null when it is not on PCI, like a Jetson
-// GPU); Driver is the bound kernel driver; ComputeCapability is NVIDIA's "major.minor"; Device is
-// the device node an app is granted (/dev/hailo0, /dev/accel/accel0).
+// Accelerator is one GPU or NPU. PCIID is the vendor:device id "vvvv:dddd" (what kind of card,
+// like USBDevice.ID); PCISlot is its PCI address "dddd:bb:dd.f" (which card: the slot a VFIO
+// grant binds, and what tells two identical cards apart). Both are null when it is not on PCI,
+// like a Jetson GPU. Driver is the bound kernel driver; ComputeCapability is NVIDIA's
+// "major.minor"; Device is the full path of the device node an app is granted (/dev/hailo0,
+// /dev/accel/accel0).
+//
+// The naming rule for every list here: a "device" is always a full /dev path, a "..._id" (or
+// "id") is always a "vvvv:pppp" string, and a "..._port" is a USB port path.
 type Accelerator struct {
 	Class             string  `json:"class"`
 	Vendor            string  `json:"vendor"`
 	Model             *string `json:"model"`
-	PCI               *string `json:"pci"`
+	PCIID             *string `json:"pci_id"`
+	PCISlot           *string `json:"pci_slot"`
 	Driver            *string `json:"driver"`
 	DriverVersion     *string `json:"driver_version"`
 	VRAMMB            *int64  `json:"vram_mb"`
@@ -97,11 +104,11 @@ const (
 )
 
 // TTYPort is one serial line (ttyUSB*, ttyACM*, ttyAMA*, ttyTHS*, a ttyS* with a real UART).
-// USB and USBPort name the USB device behind it, null for an on-board UART.
+// USBID ("vvvv:pppp") and USBPort name the USB device behind it, null for an on-board UART.
 type TTYPort struct {
 	Name    string  `json:"name"`
 	Kind    string  `json:"kind"`
-	USB     *string `json:"usb"`
+	USBID   *string `json:"usb_id"`
 	USBPort *string `json:"usb_port"`
 }
 
@@ -125,13 +132,13 @@ const (
 	CameraCSI = "csi"
 )
 
-// Camera is one camera: a USB video-class device (Device "video0", USB "vvvv:pppp") or a CSI
-// sensor bound by its driver (Device null, Name the sensor, e.g. "imx708").
+// Camera is one camera: a USB video-class device (Device "/dev/video0", USBID "vvvv:pppp") or a
+// CSI sensor bound by its driver (Device null, Name the sensor, e.g. "imx708").
 type Camera struct {
 	Bus    string  `json:"bus"`
 	Device *string `json:"device"`
 	Name   *string `json:"name"`
-	USB    *string `json:"usb"`
+	USBID  *string `json:"usb_id"`
 }
 
 // Power sources.

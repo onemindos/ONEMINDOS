@@ -51,7 +51,46 @@ func TestProfileGoldenDocuments(t *testing.T) {
 				t.Fatalf("%s profile differs from %s:\n%s", tc.dir, golden, got)
 			}
 			privacy(t, string(got))
+			deviceRule(t, c.Capabilities(context.Background()))
 		})
+	}
+}
+
+// deviceRule checks the one naming rule of the document: every "device" is a full /dev path and
+// every "..._id" a vvvv:pppp string (never a bare "video0", never a list).
+var (
+	devicePathRe = regexp.MustCompile(`^/dev/(hailo[0-9]+|accel/accel[0-9]+|video[0-9]+)$`)
+	vidPidRe     = regexp.MustCompile(`^[0-9a-f]{4}:[0-9a-f]{4}$`)
+)
+
+func deviceRule(t *testing.T, p *heartbeat.Capabilities) {
+	t.Helper()
+	dev := func(where string, d *string) {
+		if d != nil && !devicePathRe.MatchString(*d) {
+			t.Errorf("%s device %q is not a full /dev path", where, *d)
+		}
+	}
+	id := func(where string, s *string) {
+		if s != nil && !vidPidRe.MatchString(*s) {
+			t.Errorf("%s id %q is not vvvv:pppp", where, *s)
+		}
+	}
+	for _, a := range p.Accelerators {
+		dev("accelerator", a.Device)
+		id("accelerator pci_id", a.PCIID)
+		if a.PCISlot != nil && !pciSlotRe.MatchString(*a.PCISlot) {
+			t.Errorf("accelerator pci_slot %q is not a PCI address", *a.PCISlot)
+		}
+	}
+	for _, c := range p.Cameras {
+		dev("camera", c.Device)
+		id("camera usb_id", c.USBID)
+	}
+	for _, tp := range p.TTYPorts {
+		id("tty usb_id", tp.USBID)
+	}
+	for _, u := range p.USB {
+		id("usb", &u.ID)
 	}
 }
 
@@ -149,6 +188,29 @@ func TestProfileFieldsOneByOne(t *testing.T) {
 			if g.Vendor == heartbeat.VendorNVIDIA && (g.VRAMMB != nil || g.ComputeCapability != nil) {
 				t.Fatalf("rtx without nvidia-smi = %#v", g)
 			}
+		}
+	})
+
+	t.Run("pci_id_and_slot", func(t *testing.T) {
+		// Two identical Hailo cards share a vendor:device id; only the PCI address (what a VFIO
+		// grant binds) tells them apart. A malformed slot or id is unknown, never passed through.
+		c := write(t, t.TempDir(), map[string]string{
+			"sys/bus/pci/devices/0000:01:00.0/uevent": "DRIVER=hailo\nPCI_CLASS=128000\nPCI_ID=1E60:2864\nPCI_SLOT_NAME=0000:01:00.0",
+			"sys/bus/pci/devices/0000:02:00.0/uevent": "DRIVER=hailo\nPCI_CLASS=128000\nPCI_ID=1E60:2864\nPCI_SLOT_NAME=0000:02:00.0",
+			"sys/bus/pci/devices/bad/uevent":          "PCI_CLASS=30000\nPCI_ID=10de:2204 x\nPCI_SLOT_NAME=../../etc",
+			"dev/hailo0":                              "", "dev/hailo1": "",
+		})
+		a := c.accelerators(ctx, heartbeat.BoardX86EFI, heartbeat.GPU{})
+		if len(a) != 3 {
+			t.Fatalf("accelerators = %#v", a)
+		}
+		for i, want := range []struct{ slot, dev string }{{"0000:01:00.0", "/dev/hailo0"}, {"0000:02:00.0", "/dev/hailo1"}} {
+			if deref(a[i].PCIID) != "1e60:2864" || deref(a[i].PCISlot) != want.slot || deref(a[i].Device) != want.dev {
+				t.Errorf("card %d = id %q slot %q device %q, want 1e60:2864 %s %s", i, deref(a[i].PCIID), deref(a[i].PCISlot), deref(a[i].Device), want.slot, want.dev)
+			}
+		}
+		if a[2].PCIID != nil || a[2].PCISlot != nil {
+			t.Errorf("malformed id/slot passed through: %#v", a[2])
 		}
 	})
 

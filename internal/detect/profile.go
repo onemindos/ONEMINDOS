@@ -269,7 +269,12 @@ func (c *Collector) accelerators(ctx context.Context, board string, gpu heartbea
 		default:
 			continue
 		}
-		a.PCI = strPtr(id)
+		if pciIDRe.MatchString(id) {
+			a.PCIID = &id
+		}
+		if pciSlotRe.MatchString(slot) {
+			a.PCISlot = &slot
+		}
 		if drv := kv["DRIVER"]; drv != "" {
 			a.Driver = &drv
 			a.DriverVersion = strPtr(c.readTrim("sys/bus/pci/drivers/" + drv + "/module/version"))
@@ -382,7 +387,7 @@ func (c *Collector) usbDevices() []heartbeat.USBDevice {
 			continue
 		}
 		d := heartbeat.USBDevice{Port: n, ID: strings.ToLower(vid + ":" + pid),
-			Class: strPtr(c.readTrim(rel + "/bDeviceClass")), InterfaceClasses: []string{}}
+			Class: strPtr(strings.ToLower(c.readTrim(rel + "/bDeviceClass"))), InterfaceClasses: []string{}}
 		seen := map[string]bool{}
 		matches, _ := filepath.Glob(filepath.Join(c.path(rel), "*", "bInterfaceClass"))
 		for _, m := range matches {
@@ -400,9 +405,13 @@ func (c *Collector) usbDevices() []heartbeat.USBDevice {
 }
 
 var (
-	ttyRe = regexp.MustCompile(`^tty(USB|ACM|AMA|THS|S)[0-9]+$`)
-	hciRe = regexp.MustCompile(`^hci[0-9]+$`)
-	ccRe  = regexp.MustCompile(`^[0-9]+\.[0-9]+$`)
+	ttyRe   = regexp.MustCompile(`^tty(USB|ACM|AMA|THS|S)[0-9]+$`)
+	hciRe   = regexp.MustCompile(`^hci[0-9]+$`)
+	videoRe = regexp.MustCompile(`^video[0-9]+$`)
+	ccRe    = regexp.MustCompile(`^[0-9]+\.[0-9]+$`)
+	// A PCI vendor:device id and a PCI address (domain:bus:device.function), as sysfs writes them.
+	pciIDRe   = regexp.MustCompile(`^[0-9a-f]{4}:[0-9a-f]{4}$`)
+	pciSlotRe = regexp.MustCompile(`^[0-9a-f]{4,8}:[0-9a-f]{2}:[0-9a-f]{2}\.[0-7]$`)
 )
 
 func (c *Collector) ttyPorts() []heartbeat.TTYPort {
@@ -424,7 +433,7 @@ func (c *Collector) ttyPorts() []heartbeat.TTYPort {
 		if m[1] == "USB" || m[1] == "ACM" {
 			p.Kind = heartbeat.TTYUSB
 			port, id := c.usbParent(rel + "/device")
-			p.USB, p.USBPort = strPtr(id), strPtr(port)
+			p.USBID, p.USBPort = strPtr(id), strPtr(port)
 		}
 		if out = append(out, p); len(out) == maxListed {
 			break
@@ -480,8 +489,11 @@ func (c *Collector) cameras() []heartbeat.Camera {
 			continue
 		}
 		_, id := c.usbParent(rel + "/device")
-		out = append(out, heartbeat.Camera{Bus: heartbeat.CameraUSB, Device: ptr(n),
-			Name: strPtr(c.readTrim(rel + "/name")), USB: strPtr(id)})
+		cam := heartbeat.Camera{Bus: heartbeat.CameraUSB, Name: strPtr(c.readTrim(rel + "/name")), USBID: strPtr(id)}
+		if videoRe.MatchString(n) {
+			cam.Device = ptr("/dev/" + n)
+		}
+		out = append(out, cam)
 	}
 	for _, drv := range csiSensors {
 		devs, _ := c.names("sys/bus/i2c/drivers/" + drv)

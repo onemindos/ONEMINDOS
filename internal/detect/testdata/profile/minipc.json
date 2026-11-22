@@ -13,7 +13,8 @@
       "class": "gpu",
       "vendor": "intel",
       "model": null,
-      "pci": "8086:7d55",
+      "pci_id": "8086:7d55",
+      "pci_slot": "0000:00:02.0",
       "driver": "i915",
       "driver_version": null,
       "vram_mb": null,
@@ -25,7 +26,8 @@
       "class": "npu",
       "vendor": "intel",
       "model": null,
-      "pci": "8086:7d1d",
+      "pci_id": "8086:7d1d",
+      "pci_slot": "0000:00:0b.0",
       "driver": "intel_vpu",
       "driver_version": null,
       "vram_mb": null,
@@ -66,19 +68,19 @@
     {
       "name": "ttyACM0",
       "kind": "usb",
-      "usb": "1cf1:0030",
+      "usb_id": "1cf1:0030",
       "usb_port": "1-2"
     },
     {
       "name": "ttyS0",
       "kind": "uart",
-      "usb": null,
+      "usb_id": null,
       "usb_port": null
     },
     {
       "name": "ttyUSB0",
       "kind": "usb",
-      "usb": "10c4:ea60",
+      "usb_id": "10c4:ea60",
       "usb_port": "1-1"
     }
   ],
@@ -95,9 +97,9 @@
   "cameras": [
     {
       "bus": "usb",
-      "device": "video0",
+      "device": "/dev/video0",
       "name": "C270 HD WEBCAM",
-      "usb": "046d:0825"
+      "usb_id": "046d:0825"
     }
   ],
   "power": {
