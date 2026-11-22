@@ -386,6 +386,23 @@ class Run:
             return dsum + ("; guest answers SSH" if alive else "; guest silent and no SSH (early-boot hang)")
         return "guest answers SSH (console stalled or a unit is stuck)" if alive else "guest silent and no SSH (early-boot hang)"
 
+    def fatal_report(self):
+        """The console showed a fatal sign (a unit failed to start): while the guest still runs, print the failed
+        units and the journal of this boot (a unit's own error is not on the console). Best effort, never raises."""
+        v = self.vm
+        v.mark("FATAL REPORT: probing the guest over SSH")
+        try:
+            _, out = self.ssh("sudo -n sh -c " + shlex.quote(
+                "systemctl --failed --no-legend --no-pager 2>&1 | head -20; "
+                "for u in $(systemctl --failed --no-legend --plain | cut -d' ' -f1 | head -5); do "
+                "echo \"--- $u\"; systemctl status --no-pager -l $u 2>&1 | tail -25; "
+                "journalctl -b -u $u -n 60 --no-pager 2>&1 | tail -60; done; "
+                "echo '--- warnings this boot'; journalctl -b -p warning -n 80 --no-pager 2>&1 | tail -80"), 90)
+            self.logf.write(out + "\n"); self.logf.flush()
+            print(out[-6000:], flush=True)
+        except (subprocess.SubprocessError, OSError) as e:
+            v.mark(f"FATAL REPORT: SSH failed: {e}")
+
     def healthz(self, why="healthz"):
         code, body = wait_http(self.ports["https"], "/healthz", guard=self.guard, tls=True)
         if code != 200:
@@ -489,6 +506,8 @@ def main():
             boot_wizard(R, base)
     except (TimeoutError, RuntimeError, subprocess.SubprocessError) as e:
         record("HARNESS", False, f"aborted: {e}")
+        if R.vm and R.vm.proc and R.vm.proc.poll() is None:
+            R.fatal_report()
         if R.vm and R.vm.proc and R.vm.proc.poll() is None:
             R.vm.kill()
     total = (time.time() - t0) / 60
