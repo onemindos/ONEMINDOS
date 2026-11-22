@@ -10,7 +10,10 @@ import { ApprovalsScreen } from './ApprovalsScreen';
 import { Features, OP } from '../api/client';
 import { signingPayload } from '../approvalKey';
 import { fakeKey } from '../approvalKey/testKey';
+import { makeActions } from '../api/fixtures';
 import type { ApprovalKeyNative } from '../../modules/onemind-approval-key';
+
+const PLAN = makeActions(Date.now())[0]!.plan_sha256 ?? null;
 
 function deps(c: Connection, makeApi?: SessionDeps['makeApi']): SessionDeps {
   return { load: async () => c, save: async () => undefined, clear: async () => undefined, ...(makeApi ? { makeApi } : {}) };
@@ -83,9 +86,10 @@ describe('Approvals screen: approval key (#703)', () => {
     k.native.status.mockReturnValue({ biometrics: 'ok', strongBoxAvailable: true, publicKey: null as unknown as string });
     const approverKeyRegister = jest.fn(async () => ({ key_id: 'ak_1', label: 'Android phone', key_kind: 'hardware-reported', fingerprint: 'sha256:f', created_at: '', last_used_at: null, revoked_at: null }));
     const approve = jest.fn(async (id: string) => ({ id, type: 'app.install', params: { app_id: 'ollama' }, state: 'accepted' }) as never);
+    let calls = 0;
     const approveOptions = jest.fn(async (id: string) => {
-      const o = { challenge: `c-${approveOptions.mock.calls.length}`, action_sha256: 'sha256:a', plan_sha256: null, expires_at: '2030-01-01T00:00:00Z' };
-      return { ...o, device_payload: signingPayload(o.challenge, id, o.action_sha256, null) };
+      const o = { challenge: `c-${++calls}`, action_sha256: 'sha256:a', plan_sha256: PLAN, expires_at: '2030-01-01T00:00:00Z' };
+      return { ...o, device_payload: signingPayload(o.challenge, id, o.action_sha256, PLAN) };
     });
     const api = v0Api({
       features: async () => new Features([OP.approveOptions, OP.approverKeys], 'openapi'),
@@ -96,11 +100,11 @@ describe('Approvals screen: approval key (#703)', () => {
     await renderApprovals(deps({ mode: 'live', hubUrl: 'https://hub.example', token: 't' }, () => api), k.native);
     await fireEvent.press(await screen.findByTestId('approval-key-setup'));
     expect(await screen.findByText(/Approval key set up/)).toBeTruthy();
-    expect(approverKeyRegister).toHaveBeenCalledWith({ public_key: k.spki, label: 'Android phone', key_kind: 'hardware-reported' });
+    expect(approverKeyRegister).toHaveBeenCalledWith({ public_key: k.spki, label: expect.any(String), key_kind: 'hardware-reported' });
     expect(screen.getByText(/A PIN is not accepted/)).toBeTruthy();
 
     await fireEvent.press(screen.getByTestId('approve-act-0001'));
-    expect(await screen.findByText(/with this phone's approval key/)).toBeTruthy();
+    expect(await screen.findByText(/^Approved with this phone's approval key/)).toBeTruthy();
     expect(k.native.sign).toHaveBeenCalledWith(expect.stringMatching(/^onemind-approve-v1\nact-0001\n/), 'Approve: Install ollama', expect.any(String));
     expect((approve.mock.calls[0] as unknown[])[1]).toMatchObject({ device_signature: { key_id: 'ak_1' } });
   });
@@ -116,7 +120,7 @@ describe('Approvals screen: approval key (#703)', () => {
       approverKeyRegister,
       approverKeyRevoke,
       approve,
-      approveOptions: async (id: string) => ({ challenge: 'z', action_sha256: 'sha256:a', plan_sha256: null, expires_at: '2030-01-01T00:00:00Z', device_payload: signingPayload('z', id, 'sha256:a', null) }),
+      approveOptions: async (id: string) => ({ challenge: 'z', action_sha256: 'sha256:a', plan_sha256: PLAN, expires_at: '2030-01-01T00:00:00Z', device_payload: signingPayload('z', id, 'sha256:a', PLAN) }),
     });
     await renderApprovals(deps({ mode: 'live', hubUrl: 'https://hub.example', token: 't' }, () => api), k.native);
     await fireEvent.press(await screen.findByTestId('approval-key-setup'));

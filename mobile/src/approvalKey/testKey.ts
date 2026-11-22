@@ -14,10 +14,11 @@ export function fakeKey() {
   const secret = p256.utils.randomSecretKey();
   const spki = toB64url(Uint8Array.from([...SPKI_HEAD, ...p256.getPublicKey(secret, false)]));
   const signDer = (payload: string) => toB64url(p256.sign(utf8ToBytes(payload), secret, { format: 'der' }));
+  const sign: ApprovalKeyNative['sign'] = async (payload) => signDer(payload);
   const native = {
     status: jest.fn(() => ({ biometrics: 'ok' as const, strongBoxAvailable: true, publicKey: spki })),
     create: jest.fn(async () => ({ publicKey: spki, securityLevel: 'strongbox' as const })),
-    sign: jest.fn(async (payload: string) => signDer(payload)),
+    sign: jest.fn(sign),
     remove: jest.fn(),
   };
   return { spki, signDer, native: native as typeof native & ApprovalKeyNative };

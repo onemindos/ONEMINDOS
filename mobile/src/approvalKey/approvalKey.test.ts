@@ -44,7 +44,7 @@ describe('approving with the approval key', () => {
     const approve = over.approve ?? jest.fn(async () => ({ ...card(), state: 'accepted' as const }));
     const approveOptions = jest.fn(async () => (over.options ?? optsFor)(card()));
     const api = v0Api({ approveOptions, approve });
-    const ctx = { features: v1, ownerHasPasskey: false, approvalKey: makeSigner(rec(k.spki), k.native, new Set()) };
+    const ctx = { features: v1, ownerHasPasskey: false, hubUrl: 'https://hub.example', approvalKey: makeSigner(rec(k.spki), k.native, new Set()) };
     return { k, api, approve, approveOptions, ctx };
   }
 
