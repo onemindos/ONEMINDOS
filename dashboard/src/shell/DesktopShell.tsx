@@ -9,7 +9,13 @@
 // one colour per screen, approvals first.
 // Links are plain anchors: Shell's click handler routes them without a page reload.
 import { useEffect, useId, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { useLocation, useNavigate } from 'react-router';
+import { useLocation } from 'react-router';
+import { flushSync } from 'react-dom';
+import { WindowFrame } from './wm/WindowFrame';
+import { useWindows } from './wm/useWindows';
+import { position, toggleMax } from './wm/store';
+import { routeFor } from './wm/ScreenRoutes';
+import './wm/wm.css';
 import { AppIcon, BrandMark, Icon, type NavItem } from '@onemind/ui';
 import { DOCK_ORDER, HUES } from '../screens/registry';
 import { formatDate } from '../i18n';
@@ -289,17 +295,25 @@ function Launchpad({ nav, apps, onClose }: { nav: NavItem[]; apps: DockApp[]; on
 
 export function DesktopShell(props: DesktopShellProps) {
   const { boxName, status, bell, nav, current, pinned = [], apps = [], now, timeZone, person, displayName, demo, onSearch, onConsoleView, onSignOut, children } = props;
-  const navigate = useNavigate();
   const location = useLocation();
   const atHome = current === 'home';
-  const here = nav.find((n) => n.id === current);
-  const title = here?.label ?? boxName;
-  const up = parentPath(location.pathname);
-  const windowLabel = useId();
+  const wm = useWindows();
+  const managed = !!routeFor(location.pathname);
+  function closeWindow(id: string) {
+    const frame = rootRef.current?.querySelector<HTMLElement>(`[data-window-id="${id}"]`);
+    if (document.startViewTransition && frame && window.matchMedia?.('(prefers-reduced-motion: no-preference)').matches) {
+      frame.style.viewTransitionName = 'wm-dismiss';
+      document.startViewTransition(() => flushSync(() => wm.dismiss(id)));
+    } else wm.dismiss(id);
+  }
   const rootRef = useRef<HTMLDivElement>(null);
   const barRef = useRef<HTMLElement>(null);
   const [launchpad, setLaunchpad] = useState(false);
   const { dock, more } = useMemo(() => dockSplit(nav), [nav]);
+  const openExtras = wm.windows.filter(w => !dock.some(item => item.id === w.id)).map(w => {
+    const screen = routeFor(w.path)!.screen;
+    return { id: w.id, label: screen.title, icon: screen.icon, href: w.path } as NavItem;
+  });
   const moreBadge = more.reduce((s, n) => s + (n.badge ?? 0), 0);
 
   // The window starts under the menu bar, which can wrap on phones: track its height.
@@ -319,11 +333,11 @@ export function DesktopShell(props: DesktopShellProps) {
         setLaunchpad((o) => !o);
         return;
       }
-      if (e.key === 'Escape' && !atHome && !launchpad && !overlayOpen() && !typingIn(e.target)) navigate('/');
+      if (e.key === 'Escape' && wm.active && !launchpad && !overlayOpen() && !typingIn(e.target)) closeWindow(wm.active);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [atHome, launchpad, navigate]);
+  });
 
   return (
     <div ref={rootRef} className={atHome ? 'dsk dsk-at-home' : 'dsk dsk-in-window'}>
@@ -361,43 +375,19 @@ export function DesktopShell(props: DesktopShellProps) {
         </div>
       </header>
 
-      {atHome ? (
-        <main id="om-main" tabIndex={-1} className="dsk-desktop">
-          {children}
-        </main>
-      ) : (
-        <div className="dsk-stage">
-          <div className="dsk-scrim" aria-hidden="true" onClick={() => navigate('/')} />
-          <section className="dsk-window" data-size={COMPACT_WINDOWS.has(current) ? 'compact' : undefined} aria-labelledby={windowLabel} key={current}>
-            {/* The screen's name is said once, by its own heading; the window only names itself for assistive tech. */}
-            <span id={windowLabel} className="om-visually-hidden">
-              {title}
-            </span>
-            <div className="dsk-window-bar">
-              {up ? (
-                <a href={up} className="dsk-wbtn" aria-label="Back" title="Back">
-                  <Icon name="chevron" size={18} className="dsk-flip" />
-                </a>
-              ) : (
-                <span />
-              )}
-              <a href="/" className="dsk-wbtn dsk-close" aria-label={`Close ${title}`} title="Close (Esc)">
-                <Icon name="x" size={18} />
-              </a>
-            </div>
-            {/* tabIndex 0: the window scrolls, so keyboard users must be able to reach it (axe scrollable-region-focusable). */}
-            <main id="om-main" tabIndex={0} className="dsk-window-body">
-              {children}
-            </main>
-          </section>
-        </div>
-      )}
+      {(atHome || !managed) && <main id="om-main" tabIndex={-1} className="dsk-desktop">{children}</main>}
+      <main id={managed ? 'om-main' : undefined} tabIndex={-1} className="dsk-stage wm-stage" hidden={atHome || !managed}>
+        {[...wm.windows].reverse().map((item, index) => <WindowFrame z={wm.windows.length - index} key={item.id} item={item} active={wm.active === item.id} narrow={wm.narrow}
+          onPosition={rect => wm.update(position(wm.windows, item.id, rect))}
+          onMax={() => wm.update(toggleMax(wm.windows, item.id))}
+          onMinimise={() => wm.dismiss(item.id, true)} onClose={() => closeWindow(item.id)} />)}
+      </main>
 
       <nav className="dsk-dock" aria-label="Main">
         <ul className="dsk-dock-group">
-          {dock.map((item) => (
+          {[...dock, ...openExtras].map((item) => (
             <li key={item.id}>
-              <a href={item.href} className="dsk-dock-item" aria-current={item.id === current ? 'page' : undefined}>
+              <a href={wm.windows.find(w => w.id === item.id && w.minimised)?.path ?? item.href} className="dsk-dock-item" data-open={wm.windows.some(w => w.id === item.id) || undefined} aria-current={item.id === current ? 'page' : undefined}>
                 <ScreenTile id={item.id} icon={item.icon} />
                 <span className="dsk-dock-label">{item.label}</span>
                 <Badge item={item} />

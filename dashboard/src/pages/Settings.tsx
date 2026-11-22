@@ -11,10 +11,7 @@ import { SETTINGS_PAGES } from '../screens/registry';
 import { href } from '../shell/routes';
 import { ProOnly } from '../shell/ProOnly';
 import { useShell } from '../shell/Shell';
-
-/** Settings sections for the people who run the box (UX-01, #206): hidden from the list for Simple roles and
- * unknown roles, and a direct link shows the role notice. Appearance, Account, Notifications and About stay for everyone. */
-export const PRO_SETTINGS: ReadonlySet<SettingsSectionId> = new Set<SettingsSectionId>(['users', 'agents', 'devices', 'network', 'storage', 'backups', 'updates', 'automation', 'care']);
+import { PRO_SETTINGS } from '../shell/proSettings';
 
 const IDS = new Set(SETTINGS_SECTIONS.map((s) => s.id));
 
