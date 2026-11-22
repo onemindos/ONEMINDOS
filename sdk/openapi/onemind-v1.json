@@ -310,6 +310,17 @@
         "additionalProperties": true,
         "description": "One action of the ledger (contract §3). §12.4 adds optional fields; ignore what you do not know.",
         "properties": {
+          "approval": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ApprovalCard"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "#723: the approval card; set on every action (hold for destructive or physical)"
+          },
           "approved_by": {
             "anyOf": [
               {
@@ -927,6 +938,56 @@
         "title": "Appearance",
         "type": "object"
       },
+      "ApprovalCard": {
+        "description": "The approval card of every action (#723). The host draws it, never an app.\n\nhold is true for an action that cannot be undone (risk destructive) or that moves something\nphysical; physical says which. A physical card also carries limits and a preview and is part of\nplan_sha256.",
+        "properties": {
+          "hold": {
+            "description": "approve with hold-to-approve (physical, or cannot be undone)",
+            "title": "Hold",
+            "type": "boolean"
+          },
+          "hold_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "how long to hold, in ms; send at least this as hold_ms",
+            "title": "Hold Ms"
+          },
+          "limits": {
+            "items": {
+              "$ref": "#/components/schemas/ApprovalLimit"
+            },
+            "title": "Limits",
+            "type": "array"
+          },
+          "physical": {
+            "description": "moves or switches something physical: passkey, hold, never standing or automated",
+            "title": "Physical",
+            "type": "boolean"
+          },
+          "preview": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ApprovalPreview"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "physical",
+          "hold"
+        ],
+        "title": "ApprovalCard",
+        "type": "object"
+      },
       "ApprovalChallenge": {
         "properties": {
           "action_sha256": {
@@ -966,6 +1027,87 @@
           "publicKey"
         ],
         "title": "ApprovalChallenge",
+        "type": "object"
+      },
+      "ApprovalLimit": {
+        "description": "One limit shown on an approval card, with its unit (#723). The gateway and the device check it again.",
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "name",
+          "value"
+        ],
+        "title": "ApprovalLimit",
+        "type": "object"
+      },
+      "ApprovalPreview": {
+        "description": "The approval card's preview slot (#723): what the action will do, drawn by the host.",
+        "properties": {
+          "kind": {
+            "description": "what the preview is, e.g. image or path",
+            "title": "Kind",
+            "type": "string",
+            "x-onemind-open-enum": true
+          },
+          "ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ref"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "ApprovalPreview",
         "type": "object"
       },
       "AuditHead": {
@@ -3510,6 +3652,80 @@
           "path"
         ],
         "title": "MkdirOp",
+        "type": "object"
+      },
+      "MotionLockoutChange": {
+        "additionalProperties": false,
+        "properties": {
+          "locked": {
+            "title": "Locked",
+            "type": "boolean"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "locked"
+        ],
+        "title": "MotionLockoutChange",
+        "type": "object"
+      },
+      "MotionLockoutState": {
+        "description": "GET/PUT /v1/physical/lockout: whether physical actions are refused, and who set it.",
+        "properties": {
+          "changed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Changed At"
+          },
+          "changed_by": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Changed By"
+          },
+          "locked": {
+            "title": "Locked",
+            "type": "boolean"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "locked"
+        ],
+        "title": "MotionLockoutState",
         "type": "object"
       },
       "MoveOp": {
@@ -7603,6 +7819,19 @@
       "onemind_core__routers__actions__ApproveBody": {
         "description": "§12.4: optional approve body. `webauthn` is the passkey assertion over approve-options' challenge.\n\nsealed: the app's secrets form for app.install (appsecrets/); override: the F-7 owner override.",
         "properties": {
+          "hold_ms": {
+            "anyOf": [
+              {
+                "maximum": 600000.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hold Ms"
+          },
           "override": {
             "anyOf": [
               {
@@ -21822,6 +22051,118 @@
         "summary": "Append",
         "tags": [
           "photos"
+        ]
+      }
+    },
+    "/v1/physical/lockout": {
+      "get": {
+        "description": "Whether the owner's motion lockout refuses every physical action right now.",
+        "operationId": "physical.lockout.get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MotionLockoutState"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "summary": "Get Lockout",
+        "tags": [
+          "physical"
+        ]
+      },
+      "put": {
+        "description": "Turn the motion lockout on (at once) or off (with a fresh passkey once passkeys are active).",
+        "operationId": "physical.lockout.set",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MotionLockoutChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MotionLockoutState"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Set Lockout",
+        "tags": [
+          "physical"
         ]
       }
     },
