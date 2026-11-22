@@ -118,6 +118,9 @@ class CDIUpload:
         # CDI may use a volume populator with a different underlying claim. The token endpoint
         # takes the target PVC name, as virtctl does; CDI resolves the upload pod for that claim.
         phase = dv.get("status", {}).get("phase", "")
+        if phase == "Failed":
+            raise ApiError(409, "conflict", "CDI failed to populate this volume. Check the media and available disk space, "
+                           "then remove the incomplete machine and request it again.", reason="media_failed")
         annotation = "onemind.io/verified-upload"
         receipt = f"{action_id}/{digest}"
         if phase == "Succeeded" and dv_meta.get("annotations", {}).get(annotation) != receipt:

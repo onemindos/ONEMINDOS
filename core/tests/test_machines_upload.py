@@ -111,6 +111,10 @@ def test_transfer_refuses_a_replaced_cluster_target(monkeypatch):
     assert cdi.phase("guest", "approved", "guest-disk", "digest") == "UploadReady"
     with pytest.raises(ApiError):
         cdi.phase("guest", "older-approval", "guest-disk", "digest")
+    objects["datavolume"]["status"]["phase"] = "Failed"
+    with pytest.raises(ApiError) as failed:
+        cdi.phase("guest", "approved", "guest-disk", "digest")
+    assert failed.value.reason == "media_failed"
     objects["datavolume"]["status"]["phase"] = "Succeeded"
     with pytest.raises(ApiError):
         cdi.phase("guest", "approved", "guest-disk", "digest")
