@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { SETTINGS_SECTIONS, useToast } from '@onemind/ui';
-import { PRO_SETTINGS } from '../../pages/Settings';
+import { PRO_SETTINGS } from '../proSettings';
 import { personStorage } from '../../data/prefs';
 import { useSignedIn } from '../../session';
 import { useShell } from '../Shell';
