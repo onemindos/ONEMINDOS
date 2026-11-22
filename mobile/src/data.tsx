@@ -9,7 +9,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { AppState } from 'react-native';
 import { OP } from './api/client';
-import { ApiError, type Action, type AlertRecord, type CatalogApp, type InboxItem, type Instance, type NodeRecord } from './api/types';
+import { ApiError, type Action, type AlertRecord, type CatalogApp, type InboxItem, type Instance, type NodeRecord, type StatusView } from './api/types';
 import { diffAlerts, inboxAlerts, snapshot, type Alert, type Snapshot } from './lib/alerts';
 import { EventStream, staleBy, type StreamState } from './lib/events';
 import { useSession, useSignedIn } from './session';
@@ -23,6 +23,12 @@ export interface HubData {
   inbox?: InboxItem[];
   /** §12.14 open alerts visible to this person. */
   alerts?: AlertRecord[];
+  /** `GET /v1/status`; undefined until the first read or when this hub has no such route. */
+  status?: StatusView;
+  /** Phone time (ms) the status was last read successfully. */
+  statusAt?: number;
+  /** Set when the last status read failed; `status` then still holds the last good data. */
+  statusError?: ApiError;
   /** Phone time (ms) of the last fully successful refresh. */
   fetchedAt?: number;
   /** Hub clock minus phone clock (ms), from the Date header. */
@@ -82,6 +88,7 @@ export function HubDataProvider({
 
   const hasInbox = features.has(OP.notifications) && principal?.kind !== 'agent';
   const hasAlerts = features.has(OP.alerts);
+  const hasStatus = features.has(OP.status);
 
   const load = useCallback(async () => {
     const mine = ++seq.current;
@@ -94,9 +101,10 @@ export function HubDataProvider({
         unlessForbidden(api.actions()),
       ]);
       // Optional §12 parts: a failure here keeps the old values instead of failing the whole refresh.
-      const [inboxR, alertsR] = await Promise.allSettled([
+      const [inboxR, alertsR, statusR] = await Promise.allSettled([
         hasInbox ? api.notifications({ limit: 100 }) : Promise.resolve(undefined),
         hasAlerts ? api.alerts('open') : Promise.resolve(undefined),
+        hasStatus ? api.status() : Promise.resolve(undefined),
       ]);
       if (mine !== seq.current) return; // a newer refresh started; drop this answer
       const inbox = inboxR.status === 'fulfilled' ? inboxR.value : undefined;
@@ -118,6 +126,15 @@ export function HubDataProvider({
         actions,
         inbox: inbox ?? (hasInbox ? s.inbox : undefined),
         alerts: alerts ?? (hasAlerts ? s.alerts : undefined),
+        // A failed status read keeps the last good data and says so; it never turns into ok.
+        status: statusR.status === 'fulfilled' && statusR.value ? statusR.value : hasStatus ? s.status : undefined,
+        statusAt: statusR.status === 'fulfilled' && statusR.value ? Date.now() : hasStatus ? s.statusAt : undefined,
+        statusError:
+          statusR.status === 'rejected'
+            ? statusR.reason instanceof ApiError
+              ? statusR.reason
+              : new ApiError(0, 'unknown', String(statusR.reason))
+            : undefined,
         fetchedAt: Date.now(),
         hubOffsetMs: api.hubOffsetMs(),
         loading: false,
@@ -138,7 +155,7 @@ export function HubDataProvider({
       }
       setState((s) => ({ ...s, error: err, loading: false }));
     }
-  }, [api, hasInbox, hasAlerts, features.source, connection.mode, disconnect, expire, refreshIdentity]);
+  }, [api, hasInbox, hasAlerts, hasStatus, features.source, connection.mode, disconnect, expire, refreshIdentity]);
 
   const reload = useCallback(async () => {
     setRefreshing(true);

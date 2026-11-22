@@ -36,6 +36,7 @@ import {
   type LifecycleType,
   type LoginResult,
   type MeshView,
+  type StatusView,
   type MonitoringSummary,
   type NodeMetrics,
   type AppMetrics,
@@ -107,6 +108,8 @@ export const OP = {
   nodeMetrics: 'GET /v1/nodes/{}/metrics',
   appMetrics: 'GET /v1/apps/{}/metrics',
   mesh: 'GET /v1/mesh',
+  /** Health of every source at a glance. */
+  status: 'GET /v1/status',
   /** UNVERIFIED name: the hub has no restart / shut down / troubleshoot route yet, so System controls stays hidden. */
   systemPlan: 'GET /v1/system/plan',
 } as const;
@@ -266,6 +269,7 @@ export interface OneMindApi {
   nodeMetrics(nodeId: string, window?: string): Promise<NodeMetrics>;
   appMetrics(appId: string): Promise<AppMetrics>;
   mesh(): Promise<MeshView>;
+  status(): Promise<StatusView>;
   systemPlan(type: SystemControlType): Promise<SystemPlanPreview>;
   /** Where the SSE stream lives and which bearer to send; undefined in demo mode (no stream). */
   eventsEndpoint(): { url: string; bearer: () => string | undefined; refresh?: () => Promise<string | undefined> } | undefined;
@@ -738,6 +742,9 @@ export class HttpApi implements OneMindApi {
   }
   mesh() {
     return this.req<MeshView>('GET', '/v1/mesh');
+  }
+  status() {
+    return this.req<StatusView>('GET', '/v1/status');
   }
   systemPlan(type: SystemControlType) {
     return this.req<SystemPlanPreview>('GET', `/v1/system/plan?type=${enc(type)}`);

@@ -717,3 +717,23 @@ export interface SystemPlanPreview {
   plan: Plan;
   plan_sha256: string;
 }
+
+/** `GET /v1/status`: one state per source; a source that cannot be read is `unknown`, never `ok`. */
+export type HealthState = 'ok' | 'attention' | 'critical' | 'unknown';
+export interface SourceStatus {
+  state: HealthState;
+  observed_at: string | null;
+  summary: string;
+  count?: number | null;
+}
+export interface StatusView {
+  state: HealthState;
+  observed_at: string;
+  alerts: SourceStatus;
+  approvals: SourceStatus;
+  apps: SourceStatus;
+  storage: SourceStatus;
+  backups: SourceStatus;
+  updates: SourceStatus;
+  mesh: SourceStatus;
+}
