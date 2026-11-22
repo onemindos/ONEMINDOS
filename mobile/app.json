@@ -19,7 +19,8 @@
       "icon": {
         "light": "./assets/icon.png",
         "dark": "./assets/icon-dark.png"
-      }
+      },
+      "buildNumber": "1"
     },
     "android": {
       "package": "os.onemind.mobile",
@@ -38,7 +39,8 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#FFFFFF"
-      }
+      },
+      "versionCode": 1000001
     },
     "plugins": [
       "expo-secure-store",
@@ -69,7 +71,8 @@
         }
       ],
       "expo-background-task",
-      "./plugins/withoutPlayServicesCredentials"
+      "./plugins/withoutPlayServicesCredentials",
+      "./plugins/withReleaseSigning"
     ]
   }
 }

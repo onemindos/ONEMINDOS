@@ -7,6 +7,7 @@ import { useNavigate, useParams } from 'react-router';
 import { AppDetail, Market as StoreMarket, PageHeader, type Collection, type LoadState } from '@onemind/ui';
 import { toStoreApp } from '../data/adapters';
 import { ActionStatus } from '../shell/ActionJobs';
+import { AppDepth } from './AppDepth';
 import { useHub, type Hub } from '../data/hub';
 import type { Polled } from '../lib/hooks';
 import { href } from '../shell/routes';
@@ -32,7 +33,7 @@ export function loadState<T>(p: Polled<T>, hub: Pick<Hub, 'freshness' | 'asOf'>)
 /** Explains the v0 placement rule wherever a node would be chosen. */
 export const PLACEMENT_NOTE = 'The hub picks the node (Kubernetes places it). A per-node preview comes with §12 plans.';
 
-function StoreTabs({ current }: { current: 'discover' | 'installed' }) {
+function StoreTabs({ current }: { current: 'discover' | 'installed' | 'sources' | 'compose' }) {
   return (
     <nav aria-label="Market" className="dash-tabs">
       <a href={href.market} aria-current={current === 'discover' ? 'page' : undefined}>
@@ -40,6 +41,12 @@ function StoreTabs({ current }: { current: 'discover' | 'installed' }) {
       </a>
       <a href={href.installed} aria-current={current === 'installed' ? 'page' : undefined}>
         Installed
+      </a>
+      <a href={href.sources} aria-current={current === 'sources' ? 'page' : undefined}>
+        Sources
+      </a>
+      <a href={href.compose} aria-current={current === 'compose' ? 'page' : undefined}>
+        Import Compose
       </a>
     </nav>
   );
@@ -86,6 +93,7 @@ export function Market() {
           onRetry={hub.reloadAll}
         />
         {appJob && <ActionStatus action={appJob} label="App request progress" />}
+        {app && <AppDepth key={appId} appId={appId} />}
         {blockedForYou && <p className="om-note om-tone-info">{blockedForYou}</p>}
       </>
     );

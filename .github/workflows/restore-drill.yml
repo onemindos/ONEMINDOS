@@ -1,0 +1,63 @@
+# SPDX-License-Identifier: Apache-2.0
+# BAK-02 (#163): the monthly whole-box restore drill. Back a box up, restore onto a clean VM with only the
+# backup disk and the owner key, check the data byte for byte, and fail if install + restore + verify took
+# more than 60 minutes. Harness: test/restore-drill (README there). Informational like net-2vm: it never
+# decides a merge; a pull request runs it only when it changes the drill's own files.
+name: restore-drill
+on:
+  schedule:
+    - cron: '23 5 1 * *'    # the first of every month, 05:23 UTC
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - 'test/restore-drill/**'
+      - '.github/workflows/restore-drill.yml'
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: 'Commit-ish whose tree is installed in the VMs (default: this checkout)'
+        required: false
+        default: ''
+      payload_mb:
+        description: 'Size of the test payload in MiB (default 256)'
+        required: false
+        default: '256'
+permissions:
+  contents: read
+concurrency:
+  group: restore-drill-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+jobs:
+  restore-drill:
+    if: ${{ !github.event.pull_request.draft }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version-file: go.mod
+      - name: Install QEMU and cloud-init tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends qemu-system-x86 qemu-utils cloud-image-utils
+          sudo chmod 666 /dev/kvm || true
+          ls -l /dev/kvm || echo "no /dev/kvm: the drill refuses to count a run without KVM"
+      - name: Run the drill
+        env:
+          ONEMIND_DRILL_SRC_REF: ${{ github.event.inputs.source_ref }}
+          PAYLOAD_MB: ${{ github.event.inputs.payload_mb || '256' }}
+        run: |
+          mkdir -p test/restore-drill/results
+          python3 -I test/restore-drill/drill.py --payload-mb "$PAYLOAD_MB" --results test/restore-drill/results/run.json
+      - name: Summary
+        if: always()
+        run: cat test/restore-drill/results/run.md >> "$GITHUB_STEP_SUMMARY" || echo "no results file" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: restore-drill-results
+          path: test/restore-drill/results/
+          retention-days: 90

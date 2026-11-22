@@ -1,6 +1,274 @@
 {
   "components": {
     "schemas": {
+      "About": {
+        "description": "GET /v1/os/about.",
+        "properties": {
+          "hub_node_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hub Node Id"
+          },
+          "node_count": {
+            "title": "Node Count",
+            "type": "integer"
+          },
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/AboutNode"
+            },
+            "title": "Nodes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "hub_node_id",
+          "node_count",
+          "nodes"
+        ],
+        "title": "About",
+        "type": "object"
+      },
+      "AboutNode": {
+        "description": "One box in GET /v1/os/about. Never carries a serial number or an address.",
+        "properties": {
+          "agent_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Agent Version"
+          },
+          "arch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Arch"
+          },
+          "board": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Board",
+            "x-onemind-open-enum": true
+          },
+          "booted_slot": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The RAUC A/B slot this box booted from",
+            "title": "Booted Slot"
+          },
+          "cpu_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cpu Model"
+          },
+          "cpus": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cpus"
+          },
+          "disk_free_gb": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Disk Free Gb"
+          },
+          "disk_total_gb": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Disk Total Gb"
+          },
+          "hostname": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hostname"
+          },
+          "kernel": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kernel"
+          },
+          "last_seen": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Seen"
+          },
+          "mem_available_mb": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mem Available Mb"
+          },
+          "mem_total_mb": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mem Total Mb"
+          },
+          "node_id": {
+            "title": "Node Id",
+            "type": "string"
+          },
+          "onemind_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The update service's current version",
+            "title": "Onemind Version"
+          },
+          "os_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Os Id"
+          },
+          "os_pretty": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The Debian base, from /etc/os-release",
+            "title": "Os Pretty"
+          },
+          "os_version_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Os Version Id"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role"
+          },
+          "status": {
+            "description": "online | stale | offline",
+            "title": "Status",
+            "type": "string",
+            "x-onemind-open-enum": true
+          },
+          "uptime_s": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uptime S"
+          }
+        },
+        "required": [
+          "node_id",
+          "status"
+        ],
+        "title": "AboutNode",
+        "type": "object"
+      },
       "AccessBody": {
         "properties": {
           "auth": {
@@ -256,6 +524,36 @@
           "requested_by"
         ],
         "title": "Allow",
+        "type": "object"
+      },
+      "AppClassification": {
+        "additionalProperties": false,
+        "properties": {
+          "min_age": {
+            "anyOf": [
+              {
+                "maximum": 21.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Age"
+          },
+          "tags": {
+            "items": {
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Tags",
+            "type": "array"
+          }
+        },
+        "title": "AppClassification",
         "type": "object"
       },
       "AppCredentials": {
@@ -1622,6 +1920,89 @@
         "title": "ErrorBody",
         "type": "object"
       },
+      "FamilyProfile": {
+        "additionalProperties": false,
+        "properties": {
+          "allowed_apps": {
+            "anyOf": [
+              {
+                "items": {
+                  "pattern": "^[a-z0-9][a-z0-9-]{0,62}$",
+                  "type": "string"
+                },
+                "maxItems": 500,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Null inherits sharing; empty denies all apps; never grants access",
+            "title": "Allowed Apps"
+          },
+          "birth_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Private child or teen profile data; never included in audit events",
+            "title": "Birth Date"
+          },
+          "blocked_tags": {
+            "items": {
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Blocked Tags",
+            "type": "array"
+          },
+          "max_age_rating": {
+            "anyOf": [
+              {
+                "maximum": 21.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Maximum app minimum-age rating; unclassified apps are blocked when set",
+            "title": "Max Age Rating"
+          },
+          "timezone": {
+            "default": "UTC",
+            "maxLength": 100,
+            "title": "Timezone",
+            "type": "string"
+          },
+          "windows": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/Window"
+                },
+                "maxItems": 50,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Null allows all times; empty denies all times; evaluated in timezone",
+            "title": "Windows"
+          }
+        },
+        "title": "FamilyProfile",
+        "type": "object"
+      },
       "FeatureActionRequest": {
         "additionalProperties": false,
         "properties": {
@@ -1662,8 +2043,10 @@
               "machine.delete",
               "machine.start",
               "machine.stop",
+              "node.wake",
               "os.rollout.resume",
               "os.rollout.start",
+              "os.update.install",
               "source.add",
               "source.move",
               "source.remove"
@@ -4537,6 +4920,55 @@
         "title": "VerifyBody",
         "type": "object"
       },
+      "WakeCapability": {
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "params": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WakeParams"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "available",
+          "reason"
+        ],
+        "title": "WakeCapability",
+        "type": "object"
+      },
+      "WakeParams": {
+        "additionalProperties": false,
+        "properties": {
+          "node_id": {
+            "pattern": "^[A-Za-z0-9_-]{1,64}$",
+            "title": "Node Id",
+            "type": "string"
+          },
+          "target_sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Target Sha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "node_id",
+          "target_sha256"
+        ],
+        "title": "WakeParams",
+        "type": "object"
+      },
       "Widget": {
         "additionalProperties": false,
         "properties": {
@@ -4558,6 +4990,43 @@
           "id"
         ],
         "title": "Widget",
+        "type": "object"
+      },
+      "Window": {
+        "additionalProperties": false,
+        "properties": {
+          "days": {
+            "description": "Monday=0; start day for overnight windows",
+            "items": {
+              "maximum": 6.0,
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "maxItems": 7,
+            "minItems": 1,
+            "title": "Days",
+            "type": "array"
+          },
+          "end_minute": {
+            "description": "Exclusive end; less than start means overnight",
+            "maximum": 1440.0,
+            "minimum": 0.0,
+            "title": "End Minute",
+            "type": "integer"
+          },
+          "start_minute": {
+            "maximum": 1439.0,
+            "minimum": 0.0,
+            "title": "Start Minute",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "days",
+          "start_minute",
+          "end_minute"
+        ],
+        "title": "Window",
         "type": "object"
       },
       "WindowBody": {
@@ -11191,6 +11660,331 @@
         ]
       }
     },
+    "/v1/family/apps/{app_id}": {
+      "get": {
+        "operationId": "family.apps.get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "app_id",
+            "required": true,
+            "schema": {
+              "title": "App Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppClassification"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Get Classification",
+        "tags": [
+          "family"
+        ]
+      },
+      "put": {
+        "operationId": "family.apps.set",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "app_id",
+            "required": true,
+            "schema": {
+              "title": "App Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AppClassification"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppClassification"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Put Classification",
+        "tags": [
+          "family"
+        ]
+      }
+    },
+    "/v1/family/profiles/{user_id}": {
+      "get": {
+        "operationId": "family.profiles.get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FamilyProfile"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Get Profile",
+        "tags": [
+          "family"
+        ]
+      },
+      "put": {
+        "description": "Replace a person's controls. Owner only, with the existing passkey step-up rules.",
+        "operationId": "family.profiles.set",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FamilyProfile"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FamilyProfile"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Put Profile",
+        "tags": [
+          "family"
+        ]
+      }
+    },
     "/v1/files/download": {
       "get": {
         "operationId": "files.download",
@@ -14170,6 +14964,68 @@
         ]
       }
     },
+    "/v1/nodes/{node_id}/wake": {
+      "get": {
+        "operationId": "nodes.wake_capability",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "node_id",
+            "required": true,
+            "schema": {
+              "title": "Node Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WakeCapability"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Wake Capability",
+        "tags": [
+          "nodes"
+        ]
+      }
+    },
     "/v1/notifications": {
       "get": {
         "operationId": "notifications.list",
@@ -15249,6 +16105,38 @@
         ]
       }
     },
+    "/v1/os/about": {
+      "get": {
+        "description": "Hostname, OneMind version and A/B slot, Debian base, kernel, CPU, memory, disk, uptime and board\nper node, and how many nodes the hub knows. No serial numbers and no addresses, ever.",
+        "operationId": "os.about",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/About"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          }
+        },
+        "summary": "Os About",
+        "tags": [
+          "os"
+        ]
+      }
+    },
     "/v1/os/fleet": {
       "get": {
         "description": "Every machine's OS version and update state, and how many machines run each version.",
@@ -15476,6 +16364,66 @@
           }
         },
         "summary": "Os Rollout Cancel",
+        "tags": [
+          "os"
+        ]
+      }
+    },
+    "/v1/os/updates": {
+      "get": {
+        "description": "Per node: running version, booted A/B slot, the update on offer, and whether installing can run.",
+        "operationId": "os.updates.status",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          }
+        },
+        "summary": "Os Updates",
+        "tags": [
+          "os"
+        ]
+      }
+    },
+    "/v1/os/updates/history": {
+      "get": {
+        "description": "Commits and rollbacks the nodes reported, newest first, and the install requests filed.",
+        "operationId": "os.updates.history",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          }
+        },
+        "summary": "Os Updates History",
         "tags": [
           "os"
         ]

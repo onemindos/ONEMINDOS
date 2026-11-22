@@ -46,6 +46,16 @@ SCHEMA = FeatureSchema("rollouts")  # version 1 = the shape below
 
 VERSION_RE = r"^[0-9]{1,10}(\.[0-9]{1,20}){0,5}(-dev)?$"  # CHANNEL.md §5: dot-separated integers
 JOB_KIND = "update.apply"
+
+
+def _text(v: object, n: int = 128) -> str | None:
+    """A heartbeat field is whatever a LAN device sent (H-06): only a short non-empty string counts."""
+    return v[:n] if isinstance(v, str) and v else None
+
+
+def _update(node: dict) -> dict | None:
+    up = node.get("update")
+    return up if isinstance(up, dict) else None
 TICK_S = 15.0
 ACTIVE = ("running", "paused")
 DONE_STATES = ("committed", "idle")  # internal/update states once the new slot is the booted one
@@ -156,13 +166,13 @@ class RolloutService:
         """Every machine's OS version and update state, and how many machines run each version."""
         machines, versions = [], {}
         for n in self.gw.registry.list():
-            up = n.get("update") if isinstance(n.get("update"), dict) else None
-            version = (up or {}).get("current_version") or None
+            up = _update(n)
+            version = _text((up or {}).get("current_version"), 64)
             machines.append({
                 "node_id": n["node_id"], "hostname": n.get("hostname"), "board": n.get("board"),
                 "status": n["status"], "last_seen": n["last_seen"], "version": version,
-                "channel": (up or {}).get("channel"), "update_state": (up or {}).get("state"),
-                "available_version": (up or {}).get("available_version"), "updatable": up is not None,
+                "channel": _text((up or {}).get("channel"), 32), "update_state": _text((up or {}).get("state"), 32),
+                "available_version": _text((up or {}).get("available_version"), 64), "updatable": up is not None,
             })
             key = version or "unknown"
             versions[key] = versions.get(key, 0) + 1
@@ -210,7 +220,7 @@ class RolloutService:
             now = self.gw.clock()
             nodes = {}
             for n in sorted(self._eligible(), key=lambda n: n["node_id"]):
-                done = n["update"].get("current_version") == p.version
+                done = _text(n["update"].get("current_version"), 64) == p.version
                 nodes[n["node_id"]] = {"wave": None, "state": "succeeded" if done else "waiting", "sent": False,
                                        "offered_at": None, "finished_at": iso(now) if done else None,
                                        "reason": "already on this version" if done else None, "baseline": None}
@@ -272,11 +282,11 @@ class RolloutService:
             for node_id, n in nodes.items():
                 if n["state"] != "offered":
                     continue
-                up = (beats.get(node_id) or {}).get("update") or {}
-                if up.get("current_version") == row.version and up.get("state") in DONE_STATES:
+                up = _update(beats.get(node_id) or {}) or {}
+                if _text(up.get("current_version"), 64) == row.version and _text(up.get("state"), 32) in DONE_STATES:
                     n.update(state="succeeded", finished_at=iso(now))
-                elif up.get("state") in FAIL_STATES and [up.get("state"), up.get("last_result")] != n["baseline"]:
-                    n.update(state="failed", finished_at=iso(now), reason=f"{up.get('state')}: {up.get('last_result') or ''}"[:200])
+                elif _text(up.get("state"), 32) in FAIL_STATES and [_text(up.get("state"), 32), _text(up.get("last_result"), 200)] != n["baseline"]:
+                    n.update(state="failed", finished_at=iso(now), reason=f"{_text(up.get('state'), 32)}: {_text(up.get('last_result'), 200) or ''}"[:200])
                 elif now - utc(datetime.fromisoformat(n["offered_at"].replace("Z", "+00:00"))) > timedelta(seconds=row.node_timeout_s):
                     n.update(state="failed", finished_at=iso(now), reason="no new version reported in time")
                 if n["state"] == "failed":
@@ -302,9 +312,9 @@ class RolloutService:
                     row.stage += 1
                     continue
                 for node_id in waiting[:need]:
-                    up = (beats.get(node_id) or {}).get("update") or {}
+                    up = _update(beats.get(node_id) or {}) or {}
                     nodes[node_id].update(state="offered", wave=row.stage, offered_at=iso(now), sent=False,
-                                          baseline=[up.get("state"), up.get("last_result")])
+                                          baseline=[_text(up.get("state"), 32), _text(up.get("last_result"), 200)])
                 events.append(("os.rollout.wave", {"rollout_id": rid, "stage": row.stage,
                                                    "percent": row.stages[row.stage], "offered": waiting[:need]}))
             # 4. (re)send the offer to each offered machine the bus has not reached yet

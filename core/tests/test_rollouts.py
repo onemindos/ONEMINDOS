@@ -169,3 +169,38 @@ def test_nothing_to_roll_out_to_is_refused(settings, clock, executor):
         c.clock, c.n = clock, 0
         r = ask(c, "os.rollout.start", {"version": NEW})
         assert r.status_code == 409 and r.json()["reason"] == "no_updatable_nodes"
+
+
+def test_a_junk_heartbeat_update_field_cannot_stall_a_rollout(fleet):
+    """H-06: any LAN device can send any `update` value; the tick must not raise and the node times out."""
+    c = fleet
+    r = ask(c, "os.rollout.start", {"version": NEW, "stages": [20, 100], "node_timeout_s": 600, "max_failures": 1})
+    rid = approve(c, r.json()["id"])["result"]["steps"][0]["rollout_id"]
+    c.svc.tick()
+    assert offered(c, rid) == ["n1"]
+    app_reg = c.svc.gw.registry
+    beat = hb("n1")
+    beat["update"] = "x"
+    assert app_reg.ingest("onemind.node.n1.status", json.dumps(beat).encode())
+    c.svc.tick()  # must not raise
+    c.clock.advance(601)
+    c.svc.tick()
+    ro = c.get(f"/v1/os/rollouts/{rid}", headers=OWNER).json()
+    assert ro["counts"]["failed"] == 1 and ro["state"] == "running"
+    # junk field types inside a valid update object are ignored too
+    beat = hb("n2")
+    beat["update"].update(state=["x"], last_result={"a": 1}, current_version=5)
+    assert app_reg.ingest("onemind.node.n2.status", json.dumps(beat).encode())
+    c.svc.tick()
+
+
+def test_fleet_survives_unhashable_and_mixed_version_values(fleet):
+    c = fleet
+    for node, v in (("n1", ["x"]), ("n2", 7), ("n3", {"a": 1})):
+        beat = hb(node)
+        beat["update"]["current_version"] = v
+        assert c.svc.gw.registry.ingest(f"onemind.node.{node}.status", json.dumps(beat).encode())
+    r = c.get("/v1/os/fleet", headers=OWNER)
+    assert r.status_code == 200
+    counts = {v["version"]: v["count"] for v in r.json()["versions"]}
+    assert counts == {OLD: 2, "unknown": 3}
