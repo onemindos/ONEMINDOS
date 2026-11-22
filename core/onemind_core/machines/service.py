@@ -39,7 +39,7 @@ class MachineService:
         self.runtime: MachineRuntime = runtime or (
             NoopRuntime() if s.executor == "noop" else KubectlRuntime(s.kubectl, timeout_s=s.executor_timeout_s))
         self._lock = threading.Lock()
-        self._tickets: dict[str, tuple[str, object]] = {}  # sha256(ticket) -> (machine, expires_at)
+        self._tickets: dict[str, tuple[str, object, dict | None]] = {}  # sha256(ticket) -> (machine, expires_at, who minted it)
 
     # ---- which node, and does it fit ------------------------------------------------------
     def _host(self) -> dict | None:
@@ -156,7 +156,7 @@ class MachineService:
                 release=self._release_create if verb == "create" else None))
 
     # ---- console (the owner only) ---------------------------------------------------------
-    def console_ticket(self, name: str) -> dict:
+    def console_ticket(self, name: str, actor: dict | None = None) -> dict:
         row = self.repo.get(name)
         if row is None:
             raise ApiError(404, "not_found", f"There is no machine named {name}.")
@@ -166,12 +166,18 @@ class MachineService:
         expires = self.gw.clock() + timedelta(seconds=CONSOLE_TTL_S)
         with self._lock:
             self._tickets = {h: v for h, v in self._tickets.items() if v[1] > self.gw.clock()}
-            self._tickets[hashlib.sha256(ticket.encode()).hexdigest()] = (name, expires)
+            self._tickets[hashlib.sha256(ticket.encode()).hexdigest()] = (name, expires, actor)
         return {"machine": name, "ticket": ticket, "expires_at": expires.isoformat().replace("+00:00", "Z"),
-                "path": f"/v1/machines/{name}/console", "broker": "pending"}
+                "path": f"/v1/machines/{name}/console/ws", "broker": "ready"}
 
-    def redeem_ticket(self, ticket: str, name: str) -> bool:
-        """Single use: the console broker (a later PR) calls this when the owner's browser connects."""
+    def redeem(self, ticket: str, name: str) -> dict | None:
+        """Single use. The broker (console.py) calls this when the owner's browser connects; it gets
+        back who minted the ticket (for the audit line), or None for a used, expired or foreign ticket."""
         with self._lock:
             entry = self._tickets.pop(hashlib.sha256(ticket.encode()).hexdigest(), None)
-        return entry is not None and entry[0] == name and entry[1] > self.gw.clock()
+        if entry is None or entry[0] != name or entry[1] <= self.gw.clock():
+            return None
+        return entry[2] or {}
+
+    def redeem_ticket(self, ticket: str, name: str) -> bool:
+        return self.redeem(ticket, name) is not None

@@ -143,6 +143,7 @@ _R = register_route_scope
 _R("GET,HEAD", r"/v1/instance", ("instance:read",))
 _R("GET,HEAD", r"/v1/me", ("instance:read",))
 _R("GET,HEAD,POST,DELETE,PATCH,PUT", r"/v1/auth/.*", None)  # self-service; handlers check the person
+_R("PATCH", r"/v1/me", None)  # own display name; the handler checks the caller is a person
 _R("GET,HEAD", r"/v1/nodes(/.*)?", ("nodes:read",))
 _R("GET,HEAD", r"/v1/apps/[^/]+/access", ("apps:read",))
 _R("PUT", r"/v1/apps/[^/]+/access", ("users:admin",))

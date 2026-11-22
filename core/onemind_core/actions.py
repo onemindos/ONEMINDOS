@@ -44,6 +44,7 @@ from .catalog import APP_ID_RE, AppEntry, Catalog
 from .errors import ApiError, SemanticValueError
 from .executors import AgentSecret, ExecResult, Executor
 from . import lifecycle as lc
+from . import streams
 from .scan import scan_problem
 from .ledger import Action, ActionRepository, iso, new_action_id, utc
 
@@ -425,6 +426,8 @@ class ActionService:
         # Contract §12.1 / H-14: most actions one non-owner requester may have awaiting approval.
         # 0 = no cap. Set from the limits settings section (guard.py).
         self.max_pending_per_requester = 10
+        # AIG-03 (#167): fn(principal) raises ApiError to refuse a fresh request (agent budget, cancel).
+        self.requester_checks: list[Callable[[Principal], None]] = []
         self.handlers: dict[str, ActionHandler] = {}
         # How a background feature action's run() is started after approval; tests make it synchronous.
         self.spawn: Callable[[Callable[[], None]], None] = _worker
@@ -647,7 +650,8 @@ class ActionService:
         network = None
         if self.dependency_paths is not None:
             network = self.dependency_paths(app)
-        rendered = lc.render_plan(action_type, params, app, self.repo.get_runtime(app.id), status, network)
+        rendered = lc.render_plan(action_type, params, app, self.repo.get_runtime(app.id), status, network,
+                                  streams.plan_entries(app.id, app.manifest))
         _, allowed, allow_absent = APP_CLAIMS[action_type]
         problem = None if (status in allowed or (status is None and allow_absent)) else (
             f"app {app.id!r} is {self.shown_status(status)}"
@@ -773,6 +777,8 @@ class ActionService:
         return None
 
     def _check_pending_cap(self, principal: Principal) -> None:
+        for check in self.requester_checks:
+            check(principal)
         cap = self.max_pending_per_requester
         if principal.is_owner or cap <= 0:
             return
@@ -1216,8 +1222,12 @@ class ActionService:
     def request_feature(
         self, principal: Principal, action_type: str, params: dict, *, idempotency_key: str,
         expires_at: datetime, reason: str | None = None, audit_extra: dict | None = None,
+        pending_cap: bool = False,
     ) -> tuple[dict, bool]:
         """File a feature action: same ledger, idempotency and audit as POST /v1/actions.
+
+        pending_cap applies the per-requester limit on requests awaiting approval that POST /v1/actions
+        enforces (_check_pending_cap), for routes an agent can call in a loop.
 
         params are the feature's already-validated parameters (never secrets: they are stored and
         audited). audit_extra adds facts to the action.requested line, e.g. credentials: provided.
@@ -1227,7 +1237,8 @@ class ActionService:
 
         def create() -> tuple[dict, bool]:
             return self._file_feature(
-                principal, action_type, spec, params, idempotency_key, expires_at, reason, audit_extra)
+                principal, action_type, spec, params, idempotency_key, expires_at, reason, audit_extra,
+                pending_cap=pending_cap)
 
         return self._audited(principal, f"request {action_type}", None, data, create)
 
@@ -1256,6 +1267,7 @@ class ActionService:
     def _file_feature(
         self, principal: Principal, action_type: str, spec: FeatureAction, params: dict,
         idempotency_key: str, expires_at: datetime, reason: str | None, audit_extra: dict | None,
+        pending_cap: bool = False,
     ) -> tuple[dict, bool]:
         if not principal.can_request_actions or (not principal.is_owner and principal.kind not in spec.requesters):
             raise self._deny(principal, f"request {action_type}")
@@ -1264,6 +1276,11 @@ class ActionService:
             if existing.type != action_type or existing.params != params or existing.requested_by.get("id") != principal.id:
                 raise ApiError(409, "conflict", "idempotency_key was already used for a different request")
             return self.expire_if_due(existing).to_json(), False
+        if pending_cap:
+            self._check_pending_cap(principal)  # the per-requester cap, plus the requester checks below
+        else:
+            for check in self.requester_checks:  # cancel/budget hold for every filing route, not only POST /v1/actions
+                check(principal)
         now = self.clock()
         exp = utc(expires_at)
         if exp <= now:

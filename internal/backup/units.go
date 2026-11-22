@@ -70,6 +70,9 @@ func BuildUnits(c *Config, r Runner) []Unit {
 		if a.Revision != "" {
 			u.Tags = append(u.Tags, "rev="+a.Revision)
 		}
+		if a.Content != "" {
+			u.Tags = append(u.Tags, "content="+a.Content)
+		}
 		for _, v := range a.Volumes {
 			u.Paths = append(u.Paths, volumeDir(c.StorageRoots, v))
 		}

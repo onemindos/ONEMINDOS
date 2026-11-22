@@ -143,7 +143,8 @@ OPENS_PATHS = frozenset({"app.install", "app.update", "app.configure"})
 
 
 def render_plan(action_type: str, params: dict, app: AppEntry, runtime: AppRuntime | None, status: str | None,
-                network: tuple[list[dict], list[str]] | None = None) -> dict:
+                network: tuple[list[dict], list[str]] | None = None,
+                streams: list[dict] | None = None) -> dict:
     """The plan for one action, with `plan_sha256`. Pure: no cluster call, no write.
 
     network: (paths, warnings) from the dependency resolver (§12.22); an app without dependencies
@@ -185,6 +186,11 @@ def render_plan(action_type: str, params: dict, app: AppEntry, runtime: AppRunti
             warnings.append(f"Opens a network path: {path['from']} → {path['to']} on TCP {path['port']} "
                             f"(needs {path['requirement']}).")
         warnings.extend(net_warnings)
+    if streams and action_type in ("app.install", "app.update"):
+        obj["streams"] = streams  # hashed: a different limit or subject is a different plan
+        for s in streams:
+            warnings.append(f"Creates an event stream on the hub: {s['name']} keeps up to {s['max_bytes']} bytes "
+                            f"for {s['max_age_s']} seconds on {', '.join(s['subjects'])}; the oldest events are dropped at the limit.")
     if bundle is None:
         warnings.append("The app's manifest folder could not be read.")
     objects = [obj]

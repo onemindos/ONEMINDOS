@@ -20,10 +20,13 @@ export const href = {
   alerts: '/alerts',
   storage: '/storage',
   backups: '/backups',
+  troubleshoot: '/troubleshoot',
   automation: '/automation',
   updates: '/updates',
   fileSharing: '/file-sharing',
   usage: '/usage',
+  network: '/network',
+  coming: '/coming',
   controlHub: '/control-hub',
   agents: '/agents',
   settings: '/settings',
@@ -73,6 +76,8 @@ export function toRoute(link: string): string | undefined {
       return href.fileSharing;
     case 'usage':
       return href.usage;
+    case 'network':
+      return href.network;
     case 'storage':
       return href.storage;
     case 'settings':

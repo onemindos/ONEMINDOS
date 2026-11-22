@@ -30,6 +30,7 @@ const (
 	KindVerify        = "backup.verify"         // scratch restore (badge) or repository check
 	KindKeyAdd        = "backup.key.add"        // owner or escrow key on every destination
 	KindStatus        = "backup.status"         // badges, runs and verifications
+	KindContentSize   = "backup.content.size"   // size of apps' re-downloadable content (content.go)
 )
 
 // JobResult is the reply to every job except a successful backup.file.
@@ -299,6 +300,19 @@ func (a *Agent) runJobKind(ctx context.Context, j Job) (any, error) {
 		}
 		st := a.Store.View()
 		return map[string]any{"status": s, "runs": lastN(st.Runs, 50), "verifications": lastN(st.Verifications, 50)}, nil
+
+	case KindContentSize:
+		var p struct {
+			Apps []ContentSizeApp `json:"apps"`
+		}
+		if err := decodeParams(j.Params, &p); err != nil {
+			return nil, err
+		}
+		out, err := a.ContentSize(ctx, p.Apps)
+		if err != nil && ctx.Err() == nil {
+			return nil, badParams{err}
+		}
+		return out, err
 	}
 	return nil, badParams{fmt.Errorf("unknown job kind %q", j.Kind)}
 }

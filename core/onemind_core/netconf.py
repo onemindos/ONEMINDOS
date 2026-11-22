@@ -33,8 +33,14 @@ class NetSettings:
     # ONEMIND_NET_TRUSTED_PROXIES: comma-separated CIDRs of edges whose X-OneMind-Path is believed
     # (netpath.py). Default none: only the socket peer decides the path.
     trusted_proxies: str = ""
+    # ONEMIND_NET_HOST_SOCKET: the host service's socket (onemindd host serve), where the Network
+    # screen reads the box's interfaces and listening ports (hostnet.py). Missing socket: the screen says so.
+    host_socket: Path = Path("/run/onemind/host.sock")
+    host_timeout_s: float = 5.0          # ONEMIND_NET_HOST_TIMEOUT_S
 
     def validate(self) -> None:
+        if self.host_timeout_s <= 0:
+            raise ValueError("ONEMIND_NET_HOST_TIMEOUT_S must be positive")
         if self.box_name is not None and not BOX_RE.match(self.box_name):
             raise ValueError("ONEMIND_NET_BOX_NAME must be a lowercase DNS label")
         if self.lan_addr is not None:
@@ -93,11 +99,17 @@ class FabricSettings:
     nats_service_keys: Path | None = None   # ONEMIND_FABRIC_NATS_SERVICE_KEYS
     nats_nkey_seed: Path | None = None      # ONEMIND_FABRIC_NATS_NKEY_SEED
     nats_leaf_port: int = 7422              # ONEMIND_FABRIC_NATS_LEAF_PORT
+    # Hub JetStream (app event streams): the hub account's file-storage cap in bytes (0 = JetStream off for
+    # the account) and the mount that holds the store, whose free space the gateway reports.
+    jetstream_max_bytes: int = 0            # ONEMIND_FABRIC_JETSTREAM_MAX_BYTES
+    jetstream_path: Path | None = None      # ONEMIND_FABRIC_JETSTREAM_PATH
     k3s_ca_hash: str | None = None          # ONEMIND_FABRIC_K3S_CA_HASH: "K10<sha256 hex>" of k3s /cacerts
     k3s: bool = False                       # ONEMIND_FABRIC_K3S=1: workers get a 1-hour k3s bootstrap token
     max_pending: int = 20                   # ONEMIND_FABRIC_MAX_PENDING join requests at once
 
     def validate(self) -> None:
+        if self.jetstream_max_bytes < 0:
+            raise ValueError("ONEMIND_FABRIC_JETSTREAM_MAX_BYTES must be 0 or more")
         if self.hub_url is not None and urlsplit(self.hub_url).scheme != "https":
             raise ValueError("ONEMIND_FABRIC_HUB_URL must be an https URL (nodes pin the box CA)")
         if self.k3s_ca_hash is not None and not (

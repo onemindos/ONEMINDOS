@@ -86,6 +86,23 @@ class AuthContext:
     token: TokenRow | None = None
 
 
+PROFILE_NAME_MAX = 60
+
+
+def clean_profile_name(raw: str) -> str:
+    """1 to 60 characters after trimming; no control or format characters, no markup brackets."""
+    import unicodedata
+
+    name = raw.strip()
+    if not 1 <= len(name) <= PROFILE_NAME_MAX:
+        raise ApiError(422, "conflict", f"display name must be 1 to {PROFILE_NAME_MAX} characters",
+                       reason="display_name_length")
+    if any(unicodedata.category(ch)[0] == "C" or ch in "<>" for ch in name):
+        raise ApiError(422, "conflict", "display name cannot contain control characters or markup",
+                       reason="display_name_characters")
+    return name
+
+
 def ctx_of(request: Request) -> AuthContext | None:
     return getattr(request.state, "identity", None)
 
@@ -753,6 +770,19 @@ class IdentityService:
                                       "step_up": via}, p)
         return self.user_json(self.user(u.id))
 
+    def set_profile_name(self, request: Request, p: Principal, name: str | None) -> dict:
+        """A person sets (or, with null, clears) their OWN display name: a direct self write, audited by
+        field name only. It is display text; authorisation and audit keep using the stable id and role."""
+        ctx = ctx_of(request)
+        if p.kind != "person" or ctx is None or ctx.user is None:
+            raise self.deny(p, "set a display name")
+        clean = None
+        if name is not None:
+            clean = clean_profile_name(name)
+        self.repo.update(UserRow, [UserRow.id == ctx.user.id], {"profile_name": clean, "updated_at": self.now()})
+        self.emit("user", "profile_name.changed", {"user_id": ctx.user.id, "cleared": clean is None}, p)
+        return {"display_name": clean}
+
     def disable_user(self, p: Principal, user_id: str) -> dict:
         self._owner_only(p, "disable users")
         u = self.user(user_id)
@@ -1101,6 +1131,7 @@ class IdentityService:
         principal = p.as_dict()
         token = session = None
         n_passkeys = 0
+        profile_name = None
         if ctx is None:  # static-file token, or an app agent token of §11.2
             header = request.headers.get("authorization", "")
             raw = header.partition(" ")[2].strip()
@@ -1111,6 +1142,7 @@ class IdentityService:
             if ctx.user is not None:
                 principal["display_name"] = ctx.user.display_name
                 principal["username"] = ctx.user.username
+                profile_name = ctx.user.profile_name
                 n_passkeys = self.repo.count(PasskeyRow, PasskeyRow.user_id == ctx.user.id)
             if ctx.token is not None:
                 token = {"id": ctx.token.id, "scopes": list(ctx.token.scopes), "expires_at": iso(ctx.token.expires_at),
@@ -1128,7 +1160,8 @@ class IdentityService:
             caps += ["can_manage_users", "can_share_apps"]
         if p.kind == "person" and sc.has_any(scopes, ("tokens:self", "tokens:admin")):
             caps.append("can_create_tokens")
-        return {"principal": principal, "token": token, "session": session, "passkeys": n_passkeys,
+        return {"principal": principal, "display_name": profile_name, "token": token, "session": session,
+                "passkeys": n_passkeys,
                 "scopes": scopes, "capabilities": caps,
                 "step_up": {"passkeys_active": self.passkeys_active(),
                             "require_passkey_approval": self.cfg.require_passkey_approval}}

@@ -199,7 +199,7 @@ func TestHostUnitSandbox(t *testing.T) {
 		"PrivateTmp=yes", "PrivateDevices=no", "DevicePolicy=closed", "DeviceAllow=block-* r", "ProtectKernelTunables=yes", "ProtectKernelModules=yes",
 		"ProtectControlGroups=yes", "RestrictSUIDSGID=yes", "MemoryDenyWriteExecute=yes", "RestrictNamespaces=yes",
 		"SystemCallFilter=~@privileged", "UMask=0022", "Requires=onemind-host.socket", "AmbientCapabilities=", "RequiresMountsFor=/data",
-		"RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX"} {
+		"RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK"} {
 		key, val, _ := strings.Cut(k, "=")
 		found := false
 		for _, v := range u[key] {

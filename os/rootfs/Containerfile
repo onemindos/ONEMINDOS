@@ -218,7 +218,7 @@ RUN set -eu; \
     ln -sf "vmlinuz-$kver" /boot/vmlinuz; ln -sf "initrd.img-$kver" /boot/initrd.img; \
     update-initramfs -u -k "$kver"; \
     mkdir -p /data /boot/efi /etc/rancher/node /var/lib/rancher /var/lib/kubelet /var/lib/cni \
-      /var/lib/tailscale /var/lib/onemind-headscale /var/lib/onemind-nats-leaf; \
+      /var/lib/tailscale /var/lib/onemind-headscale /var/lib/onemind-nats-leaf /var/lib/onemind-nats; \
     dpkg-query -W -f='${Package} ${Version} ${Architecture}\n' | sort > /usr/lib/onemind/packages.txt; \
     printf 'leg=%s board=%s arch=%s kernel=%s\n' "${LEG}" "${BOARD}" "${TARGETARCH}" "$kver" > /usr/lib/onemind/build-info.txt; \
     rm -rf /tmp/onemind /var/cache/apt/*.bin /var/log/apt /var/log/dpkg.log; \

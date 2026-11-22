@@ -430,11 +430,16 @@ def nats_service_keys(p: Paths) -> None:
     if ids:
         os.chown(os.path.join(p.nats_keys, "gateway.nk"), *ids)
     # The first accounts file (hub account with the two service keys); the gateway owns and rewrites it.
+    os.environ.setdefault("ONEMIND_FABRIC_JETSTREAM_MAX_BYTES", str(JETSTREAM_MAX_BYTES))
     natsconf.main([p.accounts, p.nats_keys])
 
 
 # The hub NATS reads copies of these from its runtime dir (onemind-nats.service, onemind-nats-files).
 NATS_RUN = "/run/onemind-nats"
+# The hub's JetStream store: the bind mount /var/lib/onemind-nats (fstab), 4 GiB at most.
+JETSTREAM_MOUNT = "/var/lib/onemind-nats"
+JETSTREAM_DIR = JETSTREAM_MOUNT + "/jetstream"
+JETSTREAM_MAX_BYTES = 4 << 30
 
 
 # onemind-nats.service waits for the mesh address only when this line is in nats.conf. A box set up before
@@ -450,7 +455,10 @@ def hub_nats_conf(mesh_ip: str | None = None) -> str:
            "# No shared secret: every client signs in with its own nkey (nats-accounts.conf, public keys only).\n"
            "server_name: hub\nlisten: 127.0.0.1:4222\nhttp: 127.0.0.1:8222\nmax_payload: 1MB\n"
            "# A dead leaf link shows within about a minute instead of 3-7 (FB-3 lab, observation \"outage detection\").\n"
-           'ping_interval: "20s"\nping_max: 2\nwrite_deadline: "10s"\n')
+           'ping_interval: "20s"\nping_max: 2\nwrite_deadline: "10s"\n'
+           "# JetStream for app event streams (streams.py): file store only on the data disk, capped\n"
+           "# in total; the ONEMIND account gets the same cap in nats-accounts.conf (natsconf.py).\n"
+           f'jetstream {{\n  store_dir: "{JETSTREAM_DIR}"\n  max_file_store: {JETSTREAM_MAX_BYTES}\n  max_memory_store: 0\n}}\n')
     if mesh_ip:
         out += (f"{MESH_LEAF_MARKER}\n"
                 "leafnodes {\n"
@@ -493,7 +501,8 @@ def gateway_env(p: Paths, st: dict, mesh_ip: str | None = None) -> str:
            f"ONEMIND_FABRIC_HUB_URL=https://{box}.local\n"
            f"ONEMIND_FABRIC_NATS_ACCOUNTS_FILE={p.accounts}\n"
            f"ONEMIND_FABRIC_NATS_SERVICE_KEYS={p.nats_keys}\n"
-           f"ONEMIND_FABRIC_NATS_NKEY_SEED={p.nats_keys}/gateway.nk\n")
+           f"ONEMIND_FABRIC_NATS_NKEY_SEED={p.nats_keys}/gateway.nk\n"
+           f"ONEMIND_FABRIC_JETSTREAM_MAX_BYTES={JETSTREAM_MAX_BYTES}\nONEMIND_FABRIC_JETSTREAM_PATH={JETSTREAM_MOUNT}\n")
     out += backup_gateway_env(p)
     if mesh_ip:
         out += ("# The mesh (written by `onemind-firstboot mesh` once the hub has its mesh address).\n"
