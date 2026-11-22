@@ -481,7 +481,7 @@ def gateway_env(p: Paths, st: dict, mesh_ip: str | None = None) -> str:
     out = ("# Written by onemind-firstboot (core/README.md \"Environment\"; deploy/install.sh gateway_env)\n"
            f"ONEMIND_TOKENS_FILE={g}/tokens.yaml\nONEMIND_DATA_DIR={g}\n"
            f"ONEMIND_DB_URL=sqlite:///{g}/onemind.db\nONEMIND_AUDIT_PATH={g}/audit.jsonl\n"
-           "ONEMIND_APPS_DIR=/usr/lib/onemind/apps\nONEMIND_APP_SCHEMA=/usr/lib/onemind/sdk/schema/onemind.app.schema.json\n"
+           "ONEMIND_APPS_DIR=/usr/lib/onemind/apps\nONEMIND_CATALOG_DIR=/data/onemind/catalog\nONEMIND_APP_SCHEMA=/usr/lib/onemind/sdk/schema/onemind.app.schema.json\n"
            "ONEMIND_SANDBOX_RULES=/usr/lib/onemind/sdk/policy/app-objects.yaml\n"
            "ONEMIND_DASHBOARD_DIST=/usr/lib/onemind/dashboard\nONEMIND_EXECUTOR=kubernetes\n"
            f"ONEMIND_KUBECTL=/usr/lib/onemind/bin/kubectl\nKUBECONFIG={g}/kubeconfig\n"

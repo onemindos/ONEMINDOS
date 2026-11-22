@@ -132,6 +132,9 @@ func (r *Repo) AddTarget(m Meta, content []byte) string {
 // AddRaw adds a target at an arbitrary path with arbitrary custom metadata.
 func (r *Repo) AddRaw(p string, m Meta, content []byte) { r.targets[p], r.meta[p] = content, m }
 
+// RemoveTarget drops a target from the next Publish (the channel stops offering it).
+func (r *Repo) RemoveTarget(p string) { delete(r.targets, p); delete(r.meta, p) }
+
 func (r *Repo) sign(role string, s interface {
 	Sign(signature.Signer) (*metadata.Signature, error)
 }) error {

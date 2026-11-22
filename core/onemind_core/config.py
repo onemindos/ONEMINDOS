@@ -88,6 +88,9 @@ class Settings:
     # ONEMIND_AUDIT_MAX_BYTES (default 0 = never rotate, until the backup unit also copies segments; set e.g. 16777216 to rotate) and ONEMIND_AUDIT_KEEP_SEGMENTS (unset = keep all).
     audit_max_bytes: int = 16 * 1024 * 1024
     audit_keep_segments: int | None = None
+    # ONEMIND_CATALOG_DIR: where `onemind catalog sync` keeps the signed Market catalog (None = the
+    # image's apps only).
+    catalog_dir: Path | None = None
     # Per-feature sections (sections.py), keyed by section name. Read them with section().
     sections: dict[str, Any] = field(default_factory=dict, compare=False, repr=False)
 
@@ -167,6 +170,7 @@ class Settings:
             allow_unscanned=allow in ("1", "true", "yes"),
             audit_max_bytes=_env_int(env, "ONEMIND_AUDIT_MAX_BYTES", 0),
             audit_keep_segments=_env_int(env, "ONEMIND_AUDIT_KEEP_SEGMENTS", None),
+            catalog_dir=_opt_path(env.get("ONEMIND_CATALOG_DIR")),
             sections=load_sections(env),
         )
         settings.check()

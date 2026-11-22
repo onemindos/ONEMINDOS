@@ -63,7 +63,7 @@ def create_app(
         settings.audit_path, clock, publish=bus.publish_threadsafe,
         max_bytes=settings.audit_max_bytes or None, keep_segments=settings.audit_keep_segments,
     )
-    catalog = Catalog(settings.apps_dir, settings.app_schema_path)
+    catalog = Catalog(settings.apps_dir, settings.app_schema_path, settings.catalog_dir)
     owns_repo = repo is None
     repo = repo or SqlActionRepository.from_url(settings.db_url)
     # Feature tables share the ledger's engine; a repo without one (a test double) gets its own.
