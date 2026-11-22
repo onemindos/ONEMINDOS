@@ -23,10 +23,12 @@ import threading
 from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime
+from typing import get_args
 
 from ..notify.store import NotifyRepository
 from ..scan import scan_problem
 from ..sections import config_section
+from ..series.store import Metric, SeriesStore
 from . import health as H
 from .kube import KubeReader
 from .metrics import NodeHistory, sample_from
@@ -74,6 +76,7 @@ class MonitoringService:
         use_kube = self.cfg.kube == "kubectl" or (self.cfg.kube == "auto" and gw.settings.executor == "kubernetes")
         self.kube = kube if kube is not None else (KubeReader(gw.settings.kubectl) if use_kube else None)
         self.history = NodeHistory()
+        self.series = SeriesStore(gw.db)
         self.alerts = NotifyRepository(gw.db)
         self._cond: dict[str, bool] = {}
         self._node_status: dict[str, str] = {}
@@ -85,6 +88,7 @@ class MonitoringService:
 
     # ---- lifecycle ----------------------------------------------------------------------
     def start(self) -> None:
+        self.series.record("node", self.gw.clock(), ())
         if not self.cfg.enabled:
             return
         self._stop.clear()
@@ -108,8 +112,12 @@ class MonitoringService:
         with self._lock:
             now = self.gw.clock()
             open_keys = self.alerts.open_alert_keys()
-            self._tick_nodes(now, open_keys)
+            samples = self._tick_nodes(now, open_keys)
             self._tick_apps(now, open_keys)
+            self.series.record("node", now, (
+                (now, node, key, sample[key]) for node, sample in samples
+                for key in get_args(Metric) if sample[key] is not None
+            ))
 
     def _emit(self, domain: str, name: str, data: dict, severity: str = "info") -> None:
         try:
@@ -129,8 +137,9 @@ class MonitoringService:
         self._cond[key] = bad
 
     # ---- nodes --------------------------------------------------------------------------
-    def _tick_nodes(self, now: datetime, open_keys: set[str]) -> None:
+    def _tick_nodes(self, now: datetime, open_keys: set[str]) -> list[tuple[str, dict]]:
         ms = self.kube.node_metrics() if self.kube is not None else None
+        samples = []
         for n in self.gw.registry.list():
             nid = n["node_id"]
             host = n.get("hostname") or nid
@@ -147,8 +156,10 @@ class MonitoringService:
                 continue  # the last heartbeat is old news: no samples, no thresholds
             sample, source = sample_from(n, now, (ms or {}).get(host))
             if self.history.add(nid, sample, source, now):
+                samples.append((nid, sample))
                 self._thresholds(nid, base, sample, open_keys)
             self._heartbeat_objects(nid, base, n, open_keys)
+        return samples
 
     def _thresholds(self, nid: str, base: dict, s: dict, open_keys: set[str]) -> None:
         c = self.cfg

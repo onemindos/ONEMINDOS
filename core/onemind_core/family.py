@@ -26,9 +26,10 @@ AGE_ASSURED_ROLES = ("child", "teen")
 
 class Window(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    days: list[Annotated[int, Field(ge=0, le=6)]] = Field(min_length=1, max_length=7, description="Monday=0; start day for overnight windows")
-    start_minute: int = Field(ge=0, le=1439)
-    end_minute: int = Field(ge=0, le=1440, description="Exclusive end; less than start means overnight")
+    # strict=True on every int and bool here: lax mode turned JSON false into 0 and true into 1 (found by api-fuzz).
+    days: list[Annotated[int, Field(strict=True, ge=0, le=6)]] = Field(min_length=1, max_length=7, description="Monday=0; start day for overnight windows")
+    start_minute: int = Field(strict=True, ge=0, le=1439)
+    end_minute: int = Field(strict=True, ge=0, le=1440, description="Exclusive end; less than start means overnight")
 
     @model_validator(mode="after")
     def nonempty(self):
@@ -41,7 +42,7 @@ class FamilyProfile(BaseModel):
     model_config = ConfigDict(extra="forbid")
     birth_date: date | None = Field(default=None, description="Private child or teen profile data; never included in audit events")
     allowed_apps: list[AppId] | None = Field(default=None, max_length=500, description="Null inherits sharing; empty denies all apps; never grants access")
-    max_age_rating: int | None = Field(default=None, ge=0, le=21, description="Maximum app minimum-age rating; unclassified apps are blocked when set")
+    max_age_rating: int | None = Field(default=None, strict=True, ge=0, le=21, description="Maximum app minimum-age rating; unclassified apps are blocked when set")
     blocked_tags: list[Tag] = Field(default_factory=list, max_length=100)
     timezone: str = Field(default="UTC", max_length=100)
     windows: list[Window] | None = Field(default=None, max_length=50, description="Null allows all times; empty denies all times; evaluated in timezone")
@@ -58,7 +59,7 @@ class FamilyProfile(BaseModel):
 
 class AppClassification(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    min_age: int | None = Field(default=None, ge=0, le=21)
+    min_age: int | None = Field(default=None, strict=True, ge=0, le=21)  # strict: JSON false is not age 0 (api-fuzz)
     tags: list[Tag] = Field(default_factory=list, max_length=100)
 
 

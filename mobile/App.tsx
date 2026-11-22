@@ -24,6 +24,7 @@ import { photoTour, PhotoBackupProvider } from './src/photos/controller';
 import { PhotoAlbumsScreen } from './src/photos/PhotoAlbumsScreen';
 import { PhotoBackupScreen } from './src/photos/PhotoBackupScreen';
 import { usePushPings } from './src/pushPings';
+import { IncomingFiles } from './src/files/IncomingFiles';
 import { ActivityScreen } from './src/screens/ActivityScreen';
 import { AppDetailScreen } from './src/screens/AppDetailScreen';
 import { AgentsScreen } from './src/screens/AgentsScreen';
@@ -187,6 +188,7 @@ function SignedIn() {
   return (
     <HubDataProvider onAlerts={onAlerts}>
       <PushPings />
+      <IncomingFiles />
       <PrefsProvider>
       <PhotoBackupProvider>
         <NavigationContainer ref={navRef} linking={linking} theme={navTheme}>

@@ -246,6 +246,8 @@ POLICY |= {
     ("GET", "/v1/nodes/{node_id}/metrics"): Row(CHILD_CANNOT, w.p_node_metrics, "§12.15; a child has no monitoring:read"),
     ("GET", "/v1/metrics"): Row(CHILD_CANNOT, w.p_static("/v1/metrics"),
                                 "Prometheus text of node, app and alert numbers; a child has no monitoring:read"),
+    ("GET", "/v1/series"): Row(CHILD_CANNOT, w.p_static("/v1/series?node_id=node1&metric=cpu_pct"),
+                               "Node metric history, with the same monitoring:read scope as live metrics"),
     ("GET", "/v1/monitoring/summary"): Row(CHILD_CANNOT, w.p_static("/v1/monitoring/summary"),
                                            "§12.15; a child has no monitoring:read"),
     # UMB-P11 (#429): the heartbeat numbers /v1/nodes shows plus per-app usage; sharing filters the apps.
@@ -604,6 +606,9 @@ POLICY |= {
     ("POST", "/v1/machines/{name}/console"): Row(cells(403, **GONE, owner=404, plugin=DENIED, automation=DENIED, node=DENIED),
                                                  w.p_static("/v1/machines/ghost/console"),
                                                  f"{_MACH}: only the owner gets a console ticket; an agent never gets a screen"),
+    ("POST", "/v1/machines/{name}/upload"): Row(cells(403, **GONE, owner=404, plugin=DENIED, automation=DENIED, node=DENIED),
+                                                w.p_static("/v1/machines/ghost/upload"),
+                                                f"{_MACH}: only the owner can transfer media to an approved machine"),
 }
 
 # ---- system controls (UMB-P09, #146: core/onemind_core/routers/system.py) -----------------------------------

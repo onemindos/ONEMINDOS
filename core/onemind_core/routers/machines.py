@@ -17,6 +17,7 @@ from __future__ import annotations
 from datetime import timedelta
 
 from fastapi import Depends, FastAPI, Response
+from pydantic import BaseModel
 
 from ..auth import Principal
 from ..context import Gateway
@@ -24,11 +25,22 @@ from ..errors import ApiError, error_responses
 from ..identity.scopes import register_route_scope
 from ..machines.capability import MIN_MEMORY_MB, describe
 from ..machines.console import ConsoleBroker, ConsoleMiddleware, KubectlProxyUpstream
+from ..machines.media import MachineUploadResult
 from ..machines.service import MachineService
+from ..machines.spec import IMAGE_CATALOGUE, CatalogueImage
 
 
 # Route order in the app and in /openapi.json (routers/__init__.py).
 ORDER = 330
+
+
+class MachineCapabilities(BaseModel):
+    enabled: bool
+    extension: dict
+    requirements: dict
+    eligible_node_ids: list[str]
+    nodes: list[dict]
+    image_catalogue: list[CatalogueImage]
 
 
 # What a scoped token needs (identity/scopes.py): the capabilities show what /v1/nodes shows, so
@@ -42,6 +54,7 @@ register_route_scope("GET,HEAD", r"/v1/machines", ("nodes:read",))
 register_route_scope("GET,HEAD", r"/v1/machines/[a-z][a-z0-9-]*", ("nodes:read",))
 register_route_scope("GET,HEAD", r"/v1/machines/[a-z][a-z0-9-]*/snapshots", ("nodes:read",))
 register_route_scope("POST", r"/v1/machines/[a-z][a-z0-9-]*/console", ("machines:admin",))
+register_route_scope("POST", r"/v1/machines/[a-z][a-z0-9-]*/upload", ("machines:admin",))
 
 
 def register(app: FastAPI, gw: Gateway) -> None:
@@ -66,9 +79,11 @@ def register(app: FastAPI, gw: Gateway) -> None:
             "requirements": {"min_memory_mb": MIN_MEMORY_MB, "arch": "amd64", "kvm": True},
             "eligible_node_ids": eligible,
             "nodes": nodes,
+            "image_catalogue": IMAGE_CATALOGUE,
         }
 
-    @app.get("/v1/machines/capabilities", tags=["machines"], operation_id="machines.capabilities", responses=error_responses(401))
+    @app.get("/v1/machines/capabilities", tags=["machines"], operation_id="machines.capabilities",
+             response_model=MachineCapabilities, responses=error_responses(401))
     def machines_capabilities(_: Principal = Depends(principal)):
         """Which nodes can run virtual machines, and the reasons the others cannot."""
         return capabilities()
@@ -127,6 +142,12 @@ def register(app: FastAPI, gw: Gateway) -> None:
         if svc.repo.get(name) is None:
             raise ApiError(404, "not_found", f"There is no machine named {name}.")
         return svc.repo.snapshots(name)
+
+    @app.post("/v1/machines/{name}/upload", tags=["machines"], operation_id="machines.upload",
+              response_model=MachineUploadResult, responses=error_responses(401, 403, 404, 409, 413, 503))
+    def machines_upload(name: str, p: Principal = Depends(principal)):
+        """Stream the approved Files uploads to this halted machine's CDI volumes and return their checked SHA-256."""
+        return svc.upload(name, p)
 
     @app.post("/v1/machines/{name}/console", tags=["machines"], operation_id="machines.console", responses=error_responses(401, 403, 404, 409))
     def machines_console(name: str, p: Principal = Depends(principal)):
