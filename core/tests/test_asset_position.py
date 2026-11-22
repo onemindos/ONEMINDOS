@@ -49,6 +49,7 @@ def test_move_persists_and_publishes_registered_asset_state(client, clock, setti
     {"site_id": "missing"}, {"area_id": "unknown"}, {"floor_id": "unknown"},
     {"heading_deg": 360}, {"accuracy_m": -2}, {"y": 4_000_000},
     {"time": "2031-11-11T00:00:00Z"}, {"time": "2026-11-11T21:59:57"},
+    {"time": 0}, {"time": "1700000000"},
 ])
 def test_invalid_position_does_not_write_or_publish(client, change, monkeypatch):
     assert client.post("/v1/sites", json=SITE, headers=OWNER).status_code == 201

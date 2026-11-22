@@ -3,7 +3,7 @@
 from datetime import UTC, datetime
 from typing import Annotated, Literal
 
-from pydantic import AwareDatetime, Field
+from pydantic import AwareDatetime, Field, field_validator
 from sqlalchemy import JSON, BigInteger, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -30,6 +30,14 @@ class GeoObservation(GeoRecord):
     accuracy_m: Annotated[float, Field(strict=True, ge=0)]
     source: Annotated[str, Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$")]
     time: AwareDatetime
+
+    @field_validator("time", mode="before")
+    @classmethod
+    def observation_time(cls, value):
+        # AwareDatetime otherwise also coerces epoch numbers and digit strings.
+        if not isinstance(value, datetime) and not (isinstance(value, str) and value[10:11].upper() == "T"):
+            raise ValueError("time requires an RFC 3339 date-time string with timezone")
+        return value
 
 
 class AssetPosition(GeoObservation):
