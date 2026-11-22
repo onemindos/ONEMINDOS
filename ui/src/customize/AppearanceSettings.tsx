@@ -38,6 +38,12 @@ type Vars = CSSProperties & Record<`--${string}`, string>;
 /** Variables so a swatch or thumbnail shows its light value in light mode and dark in dark. */
 const pair = (name: string, l: string, d: string): Vars => ({ [`--om-cz-${name}-l`]: l, [`--om-cz-${name}-d`]: d }) as Vars;
 
+const ATLAS_PACKS = [
+  { name: 'Contour', wallpaper: 'contour', corners: 'standard' },
+  { name: 'Paper', wallpaper: 'paper', corners: 'sharp' },
+  { name: 'Fjord', wallpaper: 'fjord', corners: 'round' },
+] as const;
+
 const pct = (v: number) => `${Math.round(v * 100)} %`;
 
 function Section({ title, description, children, id }: { title: string; description?: ReactNode; children: ReactNode; id?: string }) {
@@ -202,7 +208,7 @@ function AccentSection() {
   ];
 
   return (
-    <Section title="Accent colour" description="Buttons, links and the current page in the menu. Every choice is checked for readable contrast (WCAG AA).">
+    <Section title="Accent colour" description="Tints your wallpaper. Selection stays teal and primary actions stay red. Every choice is checked for readable contrast (WCAG AA).">
       <fieldset className="om-cz-group">
         <legend className="om-visually-hidden">Accent colour</legend>
         <div className="om-cz-swatches">
@@ -430,6 +436,10 @@ function LayoutSection() {
   const { prefs, update } = useCustomize();
   return (
     <Section title="Layout and text">
+      <label>
+        <input type="checkbox" checked={prefs.commandBar} onChange={(event) => update({ commandBar: event.target.checked })} />
+        Show the Home command bar
+      </label>
       <SettingRow title="Density" description="Compact fits more on a screen; tap targets stay at least 36 px on mouse screens and 44 px on touch.">
         <ChoiceGroup<Density>
           legend="Density"
@@ -636,6 +646,19 @@ export function AppearanceSettings() {
       <div className="om-cz-layout">
         <div className="om-cz-main">
           <ThemeSection />
+          <Section title="Theme pack">
+            <div className="om-cz-swatches">
+              {ATLAS_PACKS.map(({ name, wallpaper, corners }) => (
+                <Button
+                  key={name}
+                  aria-pressed={ctx.prefs.wallpaper === wallpaper && ctx.prefs.corners === corners && ctx.prefs.accentSource === 'preset' && ctx.prefs.accentPreset === 'teal'}
+                  onClick={() => ctx.update({ wallpaper, corners, accentSource: 'preset', accentPreset: 'teal' })}
+                >
+                  {name} pack
+                </Button>
+              ))}
+            </div>
+          </Section>
           <AccentSection />
           <WallpaperSection />
           <LayoutSection />

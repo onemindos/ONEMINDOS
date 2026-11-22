@@ -57,6 +57,19 @@ function mount(store: PreferencesStore, cache?: PreferencesStore) {
 afterEach(() => clearPreferences());
 
 describe('AppearanceSettings', () => {
+  it('starts in Contour with the Home command bar off and applies a pack without resetting text size', async () => {
+    const store = new MemoryStore('local', saved({ fontScale: 1.25 }));
+    mount(store);
+    const bar = await screen.findByRole('checkbox', { name: 'Show the Home command bar' });
+    expect(bar).not.toBeChecked();
+    expect(DEFAULT_PREFERENCES.wallpaper).toBe('contour');
+    await userEvent.click(bar);
+    await userEvent.click(screen.getByRole('button', { name: 'Paper pack' }));
+    await waitFor(() => expect(store.saved.at(-1)).toMatchObject({
+      wallpaper: 'paper', accentPreset: 'teal', commandBar: true, fontScale: 1.25,
+    }));
+  });
+
   it('shows a labelled loading state', () => {
     mount(new PendingStore());
     expect(screen.getByRole('status')).toHaveTextContent('Loading your appearance');
@@ -145,7 +158,7 @@ describe('AppearanceSettings', () => {
     const user = userEvent.setup();
     mount(new MemoryStore('local', saved({ accentSource: 'preset', accentPreset: 'moss' })));
     await user.click(await screen.findByRole('button', { name: 'Reset to defaults' }));
-    expect(screen.getByRole('radio', { name: 'OneMind Red' })).toBeChecked();
+    expect(screen.getByRole('radio', { name: 'Teal' })).toBeChecked();
     await user.click(screen.getByRole('button', { name: 'Undo' }));
     expect(screen.getByRole('radio', { name: 'Moss' })).toBeChecked();
   });
