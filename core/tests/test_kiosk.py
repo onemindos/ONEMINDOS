@@ -3,7 +3,10 @@
 
 import json
 
+import pytest
+
 from conftest import ADULT, AGENT, GUEST, OWNER, make_client
+from onemind_core.identity.scopes import required_scopes
 from onemind_core.routers.kiosk import FLAG_ENV
 
 
@@ -44,3 +47,16 @@ def test_unwritable_flag_is_unavailable_not_a_crash(settings, clock, tmp_path, m
     c = make_client(settings, clock)
     r = c.put("/v1/instance/kiosk", json={"enabled": True}, headers=OWNER)
     assert r.status_code == 503 and r.json()["error"] == "unavailable"
+
+
+@pytest.mark.parametrize(("method", "expected"), [
+    ("GET", ("instance:read",)),
+    ("HEAD", ("instance:read",)),
+    ("PUT", ("users:admin",)),
+    ("POST", ("*",)),     # no such route: the fail-closed fallback (owner only), never a scope grant
+    ("DELETE", ("*",)),
+])
+def test_kiosk_routes_have_their_own_scope_rows(method, expected):
+    # #323 rule: every route registers its scopes at module level in its router. Reading the switch
+    # needs instance:read, changing it an admin scope; the handlers still demand the owner on top.
+    assert required_scopes(method, "/v1/instance/kiosk") == expected
