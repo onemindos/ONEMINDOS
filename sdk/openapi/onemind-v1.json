@@ -1565,6 +1565,18 @@
             "title": "Installed",
             "type": "boolean"
           },
+          "licence_class": {
+            "default": "unknown",
+            "description": "metadata.licenceClass (#173). L1 and L2 are green. blocked and unknown are not: installing one needs accept_licence on the approval",
+            "enum": [
+              "L1",
+              "L2",
+              "blocked",
+              "unknown"
+            ],
+            "title": "Licence Class",
+            "type": "string"
+          },
           "license": {
             "anyOf": [
               {
@@ -9228,6 +9240,19 @@
       "onemind_core__routers__actions__ApproveBody": {
         "description": "§12.4: optional approve body. `webauthn` is the passkey assertion over approve-options' challenge.\n\nsealed: the app's secrets form for app.install (appsecrets/); override: the F-7 owner override.",
         "properties": {
+          "accept_licence": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "#173: the app id typed by the owner to accept a licence class that is not green (blocked or unknown). Required to approve app.install for such an app; ignored otherwise.",
+            "title": "Accept Licence"
+          },
           "hold_ms": {
             "anyOf": [
               {

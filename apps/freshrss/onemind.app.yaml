@@ -14,6 +14,7 @@ metadata:
   category: news
   icon: icon.svg
   license: "AGPL-3.0"
+  licenceClass: L2
   source: https://github.com/FreshRSS/FreshRSS
   links:
     docs: "https://freshrss.github.io/FreshRSS/"

@@ -34,7 +34,7 @@ def add_app(cfg, clock, app_id: str, scan: bool = True, **spec_extra) -> Path:
     doc = {
         "apiVersion": "onemind.app/v1alpha1", "kind": "App",
         "metadata": {"id": app_id, "name": app_id.title(), "version": "1.0.0", "description": "test app",
-                     "category": "developer", "license": "MIT"},
+                     "category": "developer", "license": "MIT", "licenceClass": "L1"},
         "spec": {"archs": ["amd64", "arm64"], "requires": {"gpu": False, "minMemoryMb": 64}, **spec_extra},
     }
     (d / "onemind.app.yaml").write_text(yaml.safe_dump(doc))
@@ -431,7 +431,7 @@ def source_app(root: Path, app_id: str, *, version="1.0.0", host_network=False, 
     (d / "onemind.app.yaml").write_text(yaml.safe_dump({
         "apiVersion": "onemind.app/v1alpha1", "kind": "App",
         "metadata": {"id": app_id, "name": app_id, "version": version, "description": "community app",
-                     "category": "developer", "license": "MIT", "tier": "verified"},
+                     "category": "developer", "license": "MIT", "licenceClass": "L1", "tier": "verified"},
         "spec": {"archs": ["amd64"], "requires": {"gpu": False, "minMemoryMb": 32}},
     }))
     (d / "manifests" / "kustomization.yaml").write_text("resources: [deployment.yaml]\n")

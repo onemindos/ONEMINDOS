@@ -67,6 +67,11 @@ class CatalogApp(BaseModel):
     category: str | None
     icon: str | None
     license: str | None
+    licence_class: Literal["L1", "L2", "blocked", "unknown"] = Field(
+        default="unknown",
+        description="metadata.licenceClass (#173). L1 and L2 are green. blocked and unknown are not: installing "
+        "one needs accept_licence on the approval",
+    )
     source: str | None
     archs: list[str]
     requires: dict

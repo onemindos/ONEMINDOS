@@ -64,9 +64,22 @@ export function iconOf(icon: string | null | undefined): string | undefined {
   }
 }
 
+/**
+ * The Market licence class (#173). The manifest's declared class is the authority; the gate's scan
+ * record can only make it stricter, and only when it was recorded for the current manifest licence.
+ * `unknown` is never shown as green. An older gateway that sends no class falls back to the scan record.
+ */
+export function licenceClassOf(a: CatalogApp): NonNullable<StoreApp['licence_class']> {
+  const seen = a.scan?.licence;
+  const scanned = seen && seen.spdx === a.license ? seen.class : undefined;
+  const declared = a.licence_class;
+  if (declared === undefined) return scanned ?? 'L?';
+  if (declared === 'unknown') return 'L?';
+  return declared === 'blocked' || scanned === 'blocked' ? 'blocked' : declared;
+}
+
 /** §3 `GET /v1/apps` entry → Market card. `category` keeps an unknown slug, so the card says "Uncategorised". */
 export function toStoreApp(a: CatalogApp): StoreApp {
-  const licence = a.scan?.licence;
   return {
     id: a.id,
     name: nameOf(a),
@@ -75,7 +88,7 @@ export function toStoreApp(a: CatalogApp): StoreApp {
     category: (categorySlug(a.category) ?? a.category ?? 'uncategorised') as CategorySlug,
     icon: iconOf(a.icon) ?? null,
     license: a.license ?? 'unknown',
-    licence_class: licence && licence.spdx === a.license ? licence.class : 'L?',
+    licence_class: licenceClassOf(a),
     source: a.source ?? undefined,
     archs: a.archs.filter((x): x is 'amd64' | 'arm64' => ARCHS.has(x)),
     requires: a.requires,
