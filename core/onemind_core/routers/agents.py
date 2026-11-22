@@ -73,7 +73,7 @@ class AgentCancelled(AgentView):
     tokens_revoked: int
 
 
-class BudgetBody(BaseModel):
+class BudgetBody(JsonBody):
     model_config = ConfigDict(extra="forbid")
     budget_per_day: int = Field(ge=0, le=MAX_BUDGET_PER_DAY)
 
