@@ -4,13 +4,18 @@ import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
-from jsonschema import Draft202012Validator
 import yaml
 from test_app_tools import validate
 
+class _AcceptsEverything:
+    """A catalog whose manifest check passes, so only the plugin gate can refuse."""
+    def validate(self, doc):
+        return []
+
+
 class PluginFailClosed(unittest.TestCase):
     def test_every_plugin_entry_point_refused_before_render(self):
-        checker = validate.AppChecker(Draft202012Validator({}), "kustomize", "kubeconform")
+        checker = validate.AppChecker(_AcceptsEverything(), "kustomize", "kubeconform")
         for field in ("extensions", "plugin", "permissions", "compat"):
             with self.subTest(field=field), tempfile.TemporaryDirectory() as tmp:
                 root = Path(tmp)

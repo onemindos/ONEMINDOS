@@ -95,9 +95,9 @@ The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked**
 To unblock: move the pins to upstream releases that fix these findings (tags that exist, checked with `crane`), then rerun `sdk/tools/app-gate` (the daily `apps-rescan` workflow does this too). Nothing is bumped to an unverified tag.
 
 **Hold (apps/market-unblock-2, 2026-11-13):** `libopenexr` CVE-2026-42216/42217, postgres Go `stdlib`, and an Azure key string in a vendored PHP library. No newer `33.x` tag exists (`33.0.10` is the last). Nextcloud `34.0.5` exists but moving to 34 is a founder decision (D9, pending), so it is not bumped here. Unblock: a `33.x` rebuild, or the D9 decision.
-<!-- onemind:notes:end -->
 
 **Hold (2026-11-21, apps/147-household-apps):** `nextcloud:33.0.11-apache` now exists (digest `sha256:293744abb460e5e1b07a3bd730a687003d1e0c45bdce6645e3c54075e83479ae`) and, scanned with Trivy (amd64), clears the `libopenexr` CRITICALs. It still has the `azure-storage-account-key` secret finding in the vendored `azure-storage-common` PHP library (the gate counts any secret finding), and the postgres sidecar still has CRITICAL CVE-2025-68121 (Go `stdlib` v1.24.6): `postgres:18.7-trixie`/`18.7-alpine` (alpine digest `sha256:ff64c9e3bdf8e2120107d3559de8db314e8305f7e38c5105903c6295876738ff`) carries the same stdlib. So no pin move clears the gate; the pins are unchanged and the tier stays `blocked`. Unblock: an upstream postgres built with Go 1.24.13 or newer, and the Azure string removed or allow-listed by a founder decision, or a OneMind rebuild (founder decision). Tracked on #147.
+<!-- onemind:notes:end -->
 
 ## Latest security scan
 

@@ -72,9 +72,9 @@ The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked**
 To unblock: move the pins to upstream releases that fix these findings (tags that exist, checked with `crane`), then rerun `sdk/tools/app-gate` (the daily `apps-rescan` workflow does this too). Nothing is bumped to an unverified tag.
 
 **Hold (apps/market-unblock-2, 2026-11-13):** npm CVEs in `form-data`, `proxy-addr`, `sequelize` and `tar`. `2.37.2` is the newest tag. Unblock: a release that updates those npm packages. The registry was re-read on 2026-11-13: the pinned digest is unchanged and no newer fixed tag exists, so nothing is bumped (the gate was not weakened and the tier was not edited). It unblocks when the weekly `apps-rescan` or a manual `apps-gate-all` run computes a pass on a rebuilt image. No upstream issue link was looked up (the GitHub API is not reachable from the worker).
-<!-- onemind:notes:end -->
 
 **Hold (2026-11-21, apps/147-household-apps):** `2.38.0` exists (digest `sha256:60064c23f32fd9099fd39e82c5132c51701d1221135bbca04cd099b589e1edc3`) and, scanned with Trivy (amd64), still has the same four CRITICALs as `2.37.2` in the app's npm dependencies: CVE-2025-7783 `form-data` 4.0.0 (fixed 4.0.4), CVE-2026-90711 `proxy-addr` 2.0.7 (fixed 2.0.8), CVE-2026-69240 `sequelize` 6.35.2 (fixed 6.37.4), CVE-2026-59873 `tar` 6.1.15 (fixed 7.5.19). Pins unchanged, tier stays `blocked`. Unblock: an upstream release that updates those packages, or a OneMind rebuild (founder decision). Tracked on #147.
+<!-- onemind:notes:end -->
 
 ## Latest security scan
 
