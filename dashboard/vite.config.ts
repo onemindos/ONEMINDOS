@@ -28,6 +28,12 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     globals: true,
+    // 5 s is vitest's default. The userEvent suites (locale, Control Hub secrets, screens, Usage, Agent stop, the
+    // app store depth, Files) take 1.2 to 2.1 s on an idle 4-CPU machine and past 5 s when other test files share
+    // it, while they pass on 16 CPUs. A timeout only decides when a hung test is given up: 15 s still catches a
+    // hang. No test is skipped. (A few tests set their own, longer limit and keep it.)
+    testTimeout: 15_000,
+    hookTimeout: 15_000,
     setupFiles: ['./src/test/setup.ts'],
     // Styles are skipped, except the desktop frame's, which polish.test.ts reads with ?raw.
     css: { include: [/shell\/desktop\.css/] },
