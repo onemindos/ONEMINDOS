@@ -661,6 +661,43 @@
         "title": "Allow",
         "type": "object"
       },
+      "Anchor": {
+        "additionalProperties": false,
+        "properties": {
+          "lat": {
+            "maximum": 90.0,
+            "minimum": -90.0,
+            "title": "Lat",
+            "type": "number"
+          },
+          "lon": {
+            "maximum": 180.0,
+            "minimum": -180.0,
+            "title": "Lon",
+            "type": "number"
+          },
+          "x": {
+            "maximum": 40100000.0,
+            "minimum": -40100000.0,
+            "title": "X",
+            "type": "number"
+          },
+          "y": {
+            "maximum": 40100000.0,
+            "minimum": -40100000.0,
+            "title": "Y",
+            "type": "number"
+          }
+        },
+        "required": [
+          "x",
+          "y",
+          "lat",
+          "lon"
+        ],
+        "title": "Anchor",
+        "type": "object"
+      },
       "AppBuild": {
         "description": "metadata.build: OneMind rebuilt this app's image (sdk/tools/app-factory); upstream did not publish it.",
         "properties": {
@@ -2761,6 +2798,56 @@
         "title": "FixIn",
         "type": "object"
       },
+      "GeoSite": {
+        "additionalProperties": false,
+        "properties": {
+          "anchors": {
+            "items": {
+              "$ref": "#/components/schemas/Anchor"
+            },
+            "maxItems": 128,
+            "minItems": 3,
+            "title": "Anchors",
+            "type": "array"
+          },
+          "areas": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SiteArea"
+            },
+            "maxItems": 512,
+            "title": "Areas",
+            "type": "array"
+          },
+          "floors": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/NamedPlace"
+            },
+            "maxItems": 128,
+            "title": "Floors",
+            "type": "array"
+          },
+          "id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "anchors"
+        ],
+        "title": "GeoSite",
+        "type": "object"
+      },
       "GrantBody": {
         "additionalProperties": false,
         "properties": {
@@ -3773,6 +3860,28 @@
           "to_path"
         ],
         "title": "MoveOp",
+        "type": "object"
+      },
+      "NamedPlace": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "NamedPlace",
         "type": "object"
       },
       "NetGateway": {
@@ -7089,6 +7198,40 @@
           "keys"
         ],
         "title": "SigningKeys",
+        "type": "object"
+      },
+      "SiteArea": {
+        "additionalProperties": false,
+        "properties": {
+          "floor_id": {
+            "anyOf": [
+              {
+                "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Floor Id"
+          },
+          "id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "SiteArea",
         "type": "object"
       },
       "SourceIn": {
@@ -24849,6 +24992,130 @@
         "summary": "Shares Stop",
         "tags": [
           "files"
+        ]
+      }
+    },
+    "/v1/sites": {
+      "get": {
+        "operationId": "geo.list_sites",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/GeoSite"
+                  },
+                  "title": "Response Geo.List Sites",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "summary": "List Sites",
+        "tags": [
+          "geo"
+        ]
+      },
+      "post": {
+        "operationId": "geo.create_site",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GeoSite"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GeoSite"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Create Site",
+        "tags": [
+          "geo"
         ]
       }
     },

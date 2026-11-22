@@ -773,3 +773,10 @@ POLICY |= {
     ("GET", "/v1/subjects/check"): Row(CHILD_CANNOT, w.p_static("/v1/subjects/check?subject=onemind.audit"),
                                        f"{_SUBJ}: read-only what-if check with a reason; never publishes"),
 }
+
+# Asset locations use the node-inventory read scope. Only a human owner can edit map records.
+POLICY |= {
+    ("GET", "/v1/sites"): Row(CHILD_CANNOT, w.p_static("/v1/sites"), "Site inventory, nodes:read"),
+    ("POST", "/v1/sites"): Row({**OWNER_ONLY, "owner": 422}, w.p_missing("/v1/sites", json={}),
+                               "Only an owner may create a site; probe has no anchors"),
+}
