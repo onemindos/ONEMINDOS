@@ -1,0 +1,36 @@
+# SPDX-License-Identifier: Apache-2.0
+# Built-in descriptor (sdk/schema/onemind.builtin.schema.json). Read only because "backups" is on the signed list.
+apiVersion: onemind.app/v1
+kind: App
+metadata:
+  id: backups
+  name: Backups
+  description: Restic backups of the box, test restores and the recovery kit.
+spec:
+  routes:
+    owns: [/v1/backups, /v1/restores]
+    calls:
+      - GET /v1/backups/status
+      - GET /v1/backups/runs
+      - POST /v1/backups/runs
+      - GET /v1/backups/snapshots
+      - POST /v1/backups/verify
+  notifications:
+    topics:
+      - {id: backups, events: [backup.failed, backup.succeeded, backup.verify_failed, backup.verified]}
+  cards:
+    - {id: last-backup, title: Last backup, template: status, source: GET /v1/backups/status}
+  actions:
+    - {type: backup.run, title: Back up now, mcp: true}
+    - {type: backup.verify, title: Test a restore, mcp: true}
+  settingsPages:
+    - {id: destinations, title: Backup destinations, source: GET /v1/backups/destinations}
+  backup:
+    units:
+      - {kind: table, name: backups_destinations}
+      - {kind: table, name: backups_runs}
+      - {kind: table, name: backups_restores}
+      - {kind: table, name: backups_kit}
+      - {kind: table, name: backups_content_tier}
+  data: {owns: [owner], reads: [private]}
+  phone: {entry: native, screen: backups}

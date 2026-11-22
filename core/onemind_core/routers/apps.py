@@ -22,7 +22,10 @@ from ..models import CatalogApp
 def app_rows(gw: Gateway) -> list[dict]:
     states = gw.repo.list_app_states()
     rows = []
+    off = gw.disabled_apps()
     for app_id, entry in gw.catalog.load().items():
+        if app_id in off:
+            continue
         st = states.get(app_id)
         status = st.status if st else "not_installed"
         # A removed app keeps its data (contract §12.5): clients see not_installed plus data_kept.
@@ -39,6 +42,8 @@ def app_visible(gw: Gateway, app_id: str, request: Request, p: Principal) -> Non
         f(request, p, app_id) for f in gw.app_filters
     ):
         raise ApiError(404, "not_found", "no such app")
+    if app_id in gw.disabled_apps():
+        raise ApiError(409, "stale_precondition", f"app {app_id!r} is switched off", reason="app_disabled")
 
 
 # Route order in the app and in /openapi.json (routers/__init__.py).
