@@ -8,6 +8,7 @@ import { homeActivity, toActionSummary, toHomeApp, toHomeNode } from '../data/ad
 import { errorText, useHub, type Hub } from '../data/hub';
 import { useHomeBackups } from '../data/homeBackups';
 import { useDisplayName } from '../data/homeMe';
+import { useBoxStatus } from '../data/homeStatus';
 import { useHomeStorage } from '../data/homeStorage';
 import { homeLayoutStore } from '../data/prefs';
 import type { Polled } from '../lib/hooks';
@@ -15,9 +16,9 @@ import { useSignedIn } from '../session';
 import { href } from '../shell/routes';
 import { showsNav } from '../shell/roles';
 import { useActivity, useShell } from '../shell/Shell';
-import { HomeHealth, useBoxStatus } from './HomeHealth';
-import { HomeRecent } from './HomeRecent';
+import { HomeHealth } from './HomeHealth';
 import { SimpleHome } from './SimpleHome';
+import { HomeRecent } from './HomeRecent';
 
 /**
  * Home's first layout: "Needs you" and System on top, then a trust tile, Storage and Backups for

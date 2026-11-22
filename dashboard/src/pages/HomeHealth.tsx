@@ -1,20 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // The aggregate status is authoritative. Details can add backup ages and available versions.
-import { useMemo } from 'react';
-import { OneMind } from '@onemind/sdk';
-import { BoxHealth, statusRows, type HomeStatusRow } from '@onemind/ui';
+import { BoxHealth, type HomeStatusRow } from '@onemind/ui';
 import { healthRows } from '../data/healthSummary';
 import { useHub } from '../data/hub';
 import { usePoll } from '../lib/hooks';
 import { useSignedIn } from '../session';
 import { href } from '../shell/routes';
-
-export function useBoxStatus() {
-  const { token, mock } = useSignedIn();
-  const sdk = useMemo(() => new OneMind({ baseUrl: window.location.origin, token, retries: 1 }), [token]);
-  const status = usePoll(() => mock ? Promise.resolve(null) : sdk.status.get(), 30_000);
-  return useMemo(() => statusRows(status.error ? null : status.data ?? null), [status.data, status.error]);
-}
 
 const quiet = <T,>(p: Promise<T> | undefined) => (p ?? Promise.resolve(undefined)).catch(() => undefined);
 
