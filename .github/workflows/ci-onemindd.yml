@@ -6,10 +6,10 @@ on:
   workflow_dispatch:   # docs/testing/README.md §2 (test-all)
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
-    paths: ["cmd/**", "internal/**", "go.mod", "go.sum", "deploy/systemd/**", ".github/actions/sdk-gen/**", ".github/workflows/ci-onemindd.yml"]
+    paths: ["cmd/**", "internal/**", "sdk/schema/**", "go.mod", "go.sum", "deploy/systemd/**", ".github/actions/sdk-gen/**", ".github/workflows/ci-onemindd.yml"]
   push:
     branches: [main]
-    paths: ["cmd/**", "internal/**", "go.mod", "go.sum", "deploy/systemd/**", ".github/actions/sdk-gen/**", ".github/workflows/ci-onemindd.yml"]
+    paths: ["cmd/**", "internal/**", "sdk/schema/**", "go.mod", "go.sum", "deploy/systemd/**", ".github/actions/sdk-gen/**", ".github/workflows/ci-onemindd.yml"]
 permissions:
   contents: read
 concurrency:

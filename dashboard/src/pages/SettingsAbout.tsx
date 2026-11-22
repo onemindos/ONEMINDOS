@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Settings > About: this box as a device card, with the technical facts one tap away. Family-facing
 // copy only: no routes, no section numbers (those live under "Technical details").
-import { PageHeader } from '@onemind/ui';
+import { Link } from 'react-router';
+import { Card, PageHeader } from '@onemind/ui';
 import { useHub } from '../data/hub';
 import { usePoll } from '../lib/hooks';
 import { useSignedIn } from '../session';
@@ -42,6 +43,10 @@ export function SettingsAbout() {
         </p>
         <AboutBox />
       </details>
+      <Card title="Plugin signing trust">
+        <p>Owners can enroll public signing keys for private plugins. Changes wait for approval.</p>
+        <Link to="/settings/plugin-keys">Manage plugin signing keys</Link>
+      </Card>
     </>
   );
 }

@@ -19,6 +19,14 @@ from ..identity import IdentityService, ctx_of
 SIGNIN_HTML = Path(__file__).resolve().parent.parent / "identity" / "signin.html"
 
 
+class ApprovalChallenge(BaseModel):
+    challenge: str
+    action_sha256: str
+    plan_sha256: str | None
+    expires_at: str
+    publicKey: dict[str, Any]
+
+
 class LoginBody(BaseModel):
     username: str | None = Field(default=None, max_length=64)
     password: str | None = Field(default=None, max_length=1024)
@@ -272,7 +280,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return svc.put_access(ctx_of(request), p, app_id, body.roles, body.people, body.auth)
 
     # ---- approval step-up challenge (§12.4) ----------------------------------------------------------
-    @app.post("/v1/actions/{action_id}/approve-options", operation_id="actions.approve_options", tags=["actions"], responses=R(401, 403, 404, 409))
+    @app.post("/v1/actions/{action_id}/approve-options", operation_id="actions.approve_options", tags=["actions"], response_model=ApprovalChallenge, responses=R(401, 403, 404, 409))
     def approve_options(action_id: str, request: Request, p: Principal = Depends(principal)):
         return svc.approve_options(request, p, action_id)
 

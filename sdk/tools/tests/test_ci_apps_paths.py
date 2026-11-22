@@ -69,6 +69,8 @@ class CiAppsPathsTests(unittest.TestCase):
             # catalog.py imports these at load time; validate-apps runs their rules
             "core/onemind_core/ai_policy.py", "core/onemind_core/scan.py",
             "core/onemind_core/appsecrets/__init__.py", "core/onemind_core/appsecrets/spec.py",
+            "internal/plugin/validate/validate.go", "cmd/onemind/cli/plugin.go",
+            "go.mod", "go.sum",
             ".github/workflows/ci-apps.yml",
         ):
             with self.subTest(path=path):

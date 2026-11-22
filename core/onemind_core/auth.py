@@ -84,6 +84,10 @@ class Principal:
         # Contract §12.1: an automation rule requests as automation:<rule-id> and never approves.
         return self.is_owner or (self.kind, self.role) in (("agent", "agent"), ("automation", "automation"))
 
+    def may_request_action(self, action_type: str) -> bool:
+        """Actor-bound type authorization; restricted principals override this."""
+        return self.can_request_actions
+
 
 def _hash(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
