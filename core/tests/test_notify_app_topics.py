@@ -197,3 +197,12 @@ def test_notify_schema_v2_upgrades_an_existing_inbox_table():
         cols = {c["name"] for c in inspect(conn).get_columns("notify_notifications")}
         assert {"source_kind", "app_id", "asset_id", "group_key", "actions_json"} <= cols
         assert conn.exec_driver_sql("SELECT source_kind FROM notify_notifications").scalar() == "system"
+
+
+@pytest.mark.parametrize("entry", [{"id": "app:calendar", "kind": "app", "role": "app"},
+                                   {"id": "app:calendar", "kind": "app", "role": "owner"}])
+def test_no_token_can_carry_an_app_principal(entry):
+    """An app principal exists only in-process (Builtins.principal); a tokens file entry of kind app is refused."""
+    from onemind_core import auth
+    with pytest.raises(ValueError):
+        auth.parse_tokens({"tokens": [{"token": "t" * 32, **entry}]})
