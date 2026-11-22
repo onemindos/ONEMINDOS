@@ -1,10 +1,21 @@
 // SPDX-License-Identifier: Apache-2.0
 import { expect, type Page } from '@playwright/test';
 
+/**
+ * The token form sits under "Other ways to sign in", which the screen folds shut when the browser
+ * can use a passkey (and leaves open when it cannot). Open it only when it is shut.
+ */
+export async function openTokenForm(page: Page): Promise<void> {
+  const field = page.getByLabel('Access token');
+  await expect(page.getByRole('heading', { name: 'Welcome to OneMind' })).toBeVisible();
+  if (!(await field.isVisible())) await page.getByText('Other ways to sign in', { exact: true }).click();
+  await expect(field).toBeVisible();
+}
+
 /** Sign in through the real sign-in screen (v0 static token; passkeys come with CORE-SEC-2). */
 export async function signIn(page: Page, token: string): Promise<void> {
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: 'Welcome to OneMind' })).toBeVisible();
+  await openTokenForm(page);
   const field = page.getByLabel('Access token');
   await field.click();
   // Not fill()/type()/keyboard.insertText(): Playwright writes their value into the step title, which
