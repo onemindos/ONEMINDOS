@@ -762,3 +762,12 @@ POLICY |= {
     ("POST", "/v1/browsers/{app_id}/profile/reset"): Row(BROWSER_PERSON, w.p_static("/v1/browsers/whoami/profile/reset"),
                                                          f"{_BROWSER}: files browser.profile.reset; only an owner's approval erases"),
 }
+
+# ---- the NATS subject tree (#600: core/onemind_core/routers/subjects.py) ------------------------------------
+_SUBJ = "core/onemind_core/routers/subjects.py"
+POLICY |= {
+    ("GET", "/v1/subjects"): Row(CHILD_CANNOT, w.p_static("/v1/subjects"),
+                                 f"{_SUBJ}: the public subject registry (§12.9), same events:read gate as /v1/events"),
+    ("GET", "/v1/subjects/check"): Row(CHILD_CANNOT, w.p_static("/v1/subjects/check?subject=onemind.audit"),
+                                       f"{_SUBJ}: read-only what-if check with a reason; never publishes"),
+}
