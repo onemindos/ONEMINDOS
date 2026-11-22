@@ -35,7 +35,7 @@ Use the template (*Why / What / Tests / Not done*) and write `Closes #<issue>` o
 
 ## Treat every commit as public
 
-The repository is private today, but git history keeps everything and the code may be published later (the licence is open-core Apache-2.0, D-001). So the public-repo rules stay: never commit secrets, tokens, private IP addresses, host names, local file paths or personal data. `make hygiene` (gitleaks plus our own greps) catches most of it; you are still responsible for what you push.
+Git history keeps everything and the code is published under Apache-2.0 (D-001), so assume everything you commit is public. The rules: never commit secrets, tokens, private IP addresses, host names, local file paths or personal data. `make hygiene` (gitleaks plus our own greps) catches most of it; you are still responsible for what you push.
 
 ## Licence
 

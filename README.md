@@ -5,9 +5,7 @@
 
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
-> **Access: private repository.** Only invited members of the `onemindos` organisation can see or clone it. Sign in first (`gh auth login`, or an SSH key on your GitHub account); `git clone` over plain HTTPS without credentials fails.
-
-> **Status: pre-alpha.** The pieces below are built and tested in CI, but there is no signed release yet. What a `v0.1.0-alpha` still needs is tracked in [docs/leap/ALPHA-CHECKLIST.md](docs/leap/ALPHA-CHECKLIST.md). Do not run it on data you cannot lose. The update channel in [os/update/channel.json](os/update/channel.json) points at this repo's GitHub Releases; while the repo is private a box cannot download from it, so over-the-air updates need a public host first (founder decision F-5).
+> **Status: pre-alpha.** The pieces below are built and tested in CI, but there is no signed release yet. What a `v0.1.0-alpha` still needs is tracked in [docs/leap/ALPHA-CHECKLIST.md](docs/leap/ALPHA-CHECKLIST.md). Do not run it on data you cannot lose. The update channel in [os/update/channel.json](os/update/channel.json) points at this repo's GitHub Releases; a box can only download updates from it while those releases are publicly readable, so over-the-air updates need a public host (founder decision F-5).
 
 ## What it is made of
 

@@ -3,12 +3,13 @@
 
 ## Reporting a vulnerability
 
-This repository is private, so only members of the `onemindos` organisation can read it. Even so, **do not put the details of a vulnerability in an issue, pull request, commit message or CI log**: every member can read those, they stay in history, and the repository may be made public later.
+**Do not put the details of a vulnerability in a public issue, pull request, commit message or CI log**: anyone who can read them sees them, and they stay in history.
 
-Instead:
-1. **Tell a maintainer directly**, in a private message. The maintainers are listed in [.github/CODEOWNERS](.github/CODEOWNERS).
-2. If you need something to track, open an issue titled only `Security report` with **no details**. The maintainer adds the details once the fix is out.
-3. If the problem is a leaked secret (a token, key or password in the code or history), say so first: the secret is rotated before anything else, because removing it from the code does not remove it from git history.
+Instead, use one of these:
+1. **GitHub private vulnerability reporting.** On the repository page open the *Security* tab and choose *Report a vulnerability*. Only the maintainers see the report. If the button is not there, use the next route.
+2. **Tell a maintainer directly**, in a private message. The maintainers are listed in [.github/CODEOWNERS](.github/CODEOWNERS).
+3. If you need something to track, open an issue titled only `Security report` with **no details**. The maintainer adds the details once the fix is out.
+4. If the problem is a leaked secret (a token, key or password in the code or history), say so first: the secret is rotated before anything else, because removing it from the code does not remove it from git history.
 
 Please include:
 - what is affected (component, file or route, and the commit or version),
@@ -31,10 +32,6 @@ Third-party apps packaged in `apps/` are in scope for how we package and isolate
 ## Supported versions
 
 OneMind OS is **pre-alpha** and has no signed release yet. Fixes land on `main` only. This section will list supported releases from `v0.1.0-alpha` on.
-
-## If the repository becomes public
-
-Replace the reporting steps above with GitHub private vulnerability reporting (repository *Settings*, then *Code security*, then *Private vulnerability reporting*), which works only on public repositories.
 
 ## How we work
 
