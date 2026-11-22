@@ -1,0 +1,9 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+/* The offline help pack: readable with no script, no web fonts and no network. */
+:root { color-scheme: light dark; --accent: #0f8b8d; }
+body { font: 1rem/1.5 system-ui, sans-serif; max-width: 46em; margin: 1em auto; padding: 0 1em; }
+a { color: var(--accent); }
+nav { border-bottom: 1px solid currentColor; padding-bottom: .5em; margin-bottom: 1em; }
+nav a { margin-right: 1em; }
+code, kbd { font-family: ui-monospace, monospace; }
+.note { border-left: 4px solid var(--accent); padding-left: .75em; }
