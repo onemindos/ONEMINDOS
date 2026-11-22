@@ -28,7 +28,7 @@ metadata:
   # mobile build). The date is the pinned image's creation time from its registry config.
   upstream: {release: "26.04.6.1.1", released_at: "2026-11-07T10:25:49Z", archived: false}
   # blocked: the licence gate cannot confirm MPL-2.0 (GitHub NOASSERTION, no matrix row); see README.md
-  tier: blocked     # set by CI (sdk/tools/app-gate --tier write), not by hand
+  tier: blocked     # starting value written by hand; CI (app-gate --tier write) never lifts blocked
 spec:
   archs: [amd64, arm64]
   requires: {gpu: false, minMemoryMb: 512}   # sum of the memory requests in manifests/

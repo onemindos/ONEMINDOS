@@ -23,7 +23,7 @@ metadata:
     website: "https://libretranslate.com"
     support: "https://github.com/LibreTranslate/LibreTranslate/issues"
   upstream: {release: "v1.9.6", released_at: "2026-05-26T17:45:39Z", archived: false}
-  tier: community   # set by CI (sdk/tools/app-gate --tier write), not by hand
+  tier: community   # starting value written by hand, never above the gate verdict; CI (app-gate --tier write) owns it from here
 spec:
   archs: [amd64, arm64]
   requires: {gpu: false, minMemoryMb: 1024}   # sum of the memory requests in manifests/

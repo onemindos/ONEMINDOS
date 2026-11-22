@@ -23,7 +23,7 @@ metadata:
     support: "https://github.com/CorentinTh/it-tools/issues"
   # The newest release is from 2024-10-22, over 18 months old, which caps the tier at community.
   upstream: {release: "v2024.10.22-7ca5933", released_at: "2024-10-22T09:58:03Z", archived: false}
-  tier: community   # set by CI (sdk/tools/app-gate --tier write), not by hand
+  tier: community   # starting value written by hand, never above the gate verdict; CI (app-gate --tier write) owns it from here
 spec:
   archs: [amd64, arm64]
   requires: {gpu: false, minMemoryMb: 16}   # sum of the memory requests in manifests/

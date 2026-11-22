@@ -77,3 +77,7 @@ test/net/*	172\.31\.250\.[0-9]+(/24)?	B-FP-13
 # B-FP-15: CI-15 DigitalOcean runner kit (scripts/ci-runner-do/): the container firewall blocks whole ranges by their network address (RFC 1918, RFC 6598 CGNAT), the ranges being denied and not any real network; /home/runner is the job container's own user home, not a host path.
 scripts/ci-runner-do/*	(10\.0\.0\.0|172\.16\.0\.0|192\.168\.0\.0|100\.64\.0\.0|/home/runner)	B-FP-15
 test/unit/test_do_runner_policy.py	(10\.0\.0\.0|172\.16\.0\.0|192\.168\.0\.0|100\.64\.0\.0)	B-FP-15
+# B-FP-16: Supply Depot apps (issue 129): /home/archivebox and /home/libretranslate are the container image users home directories, named in the manifest and README, not host paths.
+apps/archivebox/*	/home/archivebox	B-FP-16
+apps/libretranslate/*	/home/libretranslate	B-FP-16
+scripts/hygiene-allow.tsv	/home/(archivebox|libretranslate)	B-FP-16

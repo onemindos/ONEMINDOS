@@ -22,7 +22,7 @@ metadata:
     website: "https://gchq.github.io/CyberChef"
     support: "https://github.com/gchq/CyberChef/issues"
   upstream: {release: "v11.5.0", released_at: "2026-09-18T11:54:19Z", archived: false}
-  tier: community   # set by CI (sdk/tools/app-gate --tier write), not by hand
+  tier: community   # starting value written by hand, never above the gate verdict; CI (app-gate --tier write) owns it from here
 spec:
   archs: [amd64, arm64]
   requires: {gpu: false, minMemoryMb: 32}   # sum of the memory requests in manifests/
