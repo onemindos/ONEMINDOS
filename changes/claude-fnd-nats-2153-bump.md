@@ -1,5 +1,5 @@
 ---
-pr: pending
+pr: 795
 branch: claude/fnd-nats-2153-bump
 ---
 Bumps the shipped nats-server from v2.15.2 to v2.15.3 (issue 602) so the image and the deploy bundle run the same patch release as the Go module (go.mod already used v2.15.3 for the in-process test server and the leaf code). os/versions.lock.yaml, os/rootfs/fetch-onemind.sh and deploy/pins.env now carry the v2.15.3 tarball sha256 from the upstream SHA256SUMS, the sha256 of each extracted linux binary and the v2.15.3 tag ref. deploy/check-pins.py and test/unit/test_versions_lock.py now fail when the lock, deploy/pins.env and go.mod name different nats-server versions or tarball hashes. Leaf monitor check: /leafz answers on 2.15.3. The Go leaf tests (in-process server from go.mod v2.15.3) reach StateUp through /leafz on the loopback monitor, and the upstream v2.15.3 release binary run as a hub plus a leaf on 127.0.0.1 answered GET /leafz with HTTP 200 and one leafnode. Still on 2.15.2 and left for a follow-up: the compose image deploy/compose/compose.yaml and the matching test image in deploy/verify/tests (outside this issue's spec).
