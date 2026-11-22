@@ -45,7 +45,7 @@ func TestFabricJoinCodeFile(t *testing.T) {
 	}
 }
 
-// A v2 join QR for a phone (FABRIC §4.2) is refused by `onemind fabric join`; a v2 worker QR parses.
+// A v2 join QR for a phone (FABRIC §4.3) is refused by `onemind fabric join`; a v2 worker QR parses.
 func TestFabricJoinRefusesNonMachineKinds(t *testing.T) {
 	old := isRoot
 	isRoot = func() bool { return false } // stop right after the code is parsed

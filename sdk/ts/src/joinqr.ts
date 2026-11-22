@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// The join QR (docs/architecture/FABRIC.md §4.2): `onemind-join:v2?hub=…[&alt=…][&mdns=…]&ca=…&code=…&kind=…`
+// The join QR (docs/architecture/FABRIC.md §4.3): `onemind-join:v2?hub=…[&alt=…][&mdns=…]&ca=…&code=…&kind=…`
 // and the older `onemind-join:v1?code=…&ca=…[&role=…]&hub=…`. Parses exactly as
 // core/onemind_core/fabric.py parse_join_qr and internal/fabric/join.go ParseQR do; all three run
 // sdk/testdata/join-qr/vectors.json. URL and URLSearchParams are not used on purpose: they accept
@@ -21,7 +21,7 @@ export interface JoinQR {
 }
 
 export type JoinQRReason =
-  | "length" | "prefix" | "version" | "syntax" | "unknown_field" | "duplicate" | "missing_field"
+  | "charset" | "length" | "prefix" | "version" | "syntax" | "unknown_field" | "duplicate" | "missing_field"
   | "code" | "ca" | "kind" | "role" | "hub" | "alt" | "mdns";
 
 /** A refused join QR; `reason` is the same word in Python, Go and TypeScript. */
@@ -34,6 +34,7 @@ export class JoinQRError extends Error {
   }
 }
 
+const NON_ASCII = /[^\x00-\x7f]/;
 const PREFIX = /^onemind-join:v([0-9]+)\?/;
 const KEY = /^[a-z]+$/;
 const VALUE = /^[A-Za-z0-9._~%:/-]+$/;
@@ -86,7 +87,11 @@ const fail = (reason: JoinQRReason, message: string): never => {
 
 /** Parse a scanned or pasted join QR; throws JoinQRError. Nothing is fetched. */
 export function parseJoinQR(payload: string): JoinQR {
-  if (typeof payload !== "string" || payload.length > JOIN_QR_MAX_LENGTH) fail("length", `a join QR is at most ${JOIN_QR_MAX_LENGTH} characters`);
+  if (typeof payload !== "string") fail("length", `a join QR is at most ${JOIN_QR_MAX_LENGTH} characters`);
+  // ASCII first: TS counts UTF-16 units, Python code points and Go bytes, so a length check on a
+  // non-ASCII payload would give a different reason word in each language.
+  if (NON_ASCII.test(payload)) fail("charset", "a join QR is plain ASCII text");
+  if (payload.length > JOIN_QR_MAX_LENGTH) fail("length", `a join QR is at most ${JOIN_QR_MAX_LENGTH} characters`);
   const m = PREFIX.exec(payload) ?? fail("prefix", "not a OneMind join code (expected onemind-join:v2?…)");
   if (m[1] !== "1" && m[1] !== "2") fail("version", `unsupported join QR version v${m[1]} (this build reads v1 and v2)`);
   const version = Number(m[1]) as 1 | 2;

@@ -56,7 +56,7 @@ type Ticket struct {
 	Role  string // worker | leaf (a machine ticket); empty for other kinds
 	Hub   string // https URL of the hub gateway
 
-	// From the QR (docs/architecture/FABRIC.md §4.2). Version is 1 or 2 (0 for a typed --code);
+	// From the QR (docs/architecture/FABRIC.md §4.3). Version is 1 or 2 (0 for a typed --code);
 	// Kind is the v2 kind or the v1 role; Alt (away address) and MDNS exist only in v2.
 	Version int
 	Kind    string
@@ -172,6 +172,13 @@ func qrHTTPS(v string) (string, bool) {
 // parse_join_qr and sdk/ts parseJoinQR do (sdk/testdata/join-qr/vectors.json). Errors are
 // *JoinQRError.
 func ParseQR(payload string) (*Ticket, error) {
+	// ASCII first: Go counts bytes, Python code points and TS UTF-16 units, so a length check on a
+	// non-ASCII payload would give a different reason word in each language.
+	for i := 0; i < len(payload); i++ {
+		if payload[i] >= 0x80 {
+			return nil, qrErr("charset", "a join QR is plain ASCII text")
+		}
+	}
 	if len(payload) > JoinQRMaxLen {
 		return nil, qrErr("length", "a join QR is at most %d characters", JoinQRMaxLen)
 	}

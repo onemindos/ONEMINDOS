@@ -188,7 +188,7 @@ def test_ticket_is_owner_only_and_carries_the_ca(nc):
 
 
 def test_ticket_carries_a_v2_join_qr(nc):
-    """FABRIC §4.2: the same ticket as a v2 QR (hub, mdns, ca, code, kind) next to the v1 one."""
+    """FABRIC §4.3: the same ticket as a v2 QR (hub, mdns, ca, code, kind) next to the v1 one."""
     t = ticket(nc, role="leaf")
     qr = parse_join_qr(t["qr_payload_v2"])
     assert (qr.version, qr.kind, qr.code, qr.ca, qr.hub) == (2, "leaf", t["one_time"]["join_code"], t["hub_ca_sha256"], t["hub_url"])

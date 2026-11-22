@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""The join QR (docs/architecture/FABRIC.md §4.2): one builder (fabric.build_join_qr) and three parsers
+"""The join QR (docs/architecture/FABRIC.md §4.3): one builder (fabric.build_join_qr) and three parsers
 (fabric.parse_join_qr, internal/fabric/join.go ParseQR, sdk/ts parseJoinQR) that all run the shared
 vectors in sdk/testdata/join-qr/vectors.json, so no payload parses differently across languages."""
 from __future__ import annotations
@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from onemind_core.fabric import JOIN_KINDS, JoinQRError, build_join_qr, parse_join_qr
+from onemind_core.fabric import JOIN_KINDS, JOIN_QR_MAX_LEN, JoinQRError, build_join_qr, parse_join_qr
 
 VECTORS = json.loads((Path(__file__).resolve().parents[2] / "sdk" / "testdata" / "join-qr" / "vectors.json").read_text())
 CA = "0123456789abcdef" * 4
@@ -50,3 +50,23 @@ def test_builder_refuses_what_no_parser_would_read():
     with pytest.raises(JoinQRError) as exc:
         build_join_qr(**{**good, "code": "7KQ4-M2XP-9D3F&kind=leaf"})
     assert exc.value.reason == "code"
+
+
+def test_non_ascii_is_refused_before_length_whatever_the_unit():
+    """Python counts code points, Go bytes and TS UTF-16 units; a non-ASCII payload must get `charset`
+    in all three before any length check, short or long, so the shared reason word never splits."""
+    base = VECTORS["valid"][1]["payload"]
+    for ch in ("é", "٢", "７", "\U0001F600", "\ud800", " "):
+        for payload in (ch, ch + base, base + ch, base + ch * 300, ch * 700):
+            with pytest.raises(JoinQRError) as exc:
+                parse_join_qr(payload)
+            assert exc.value.reason == "charset", (ch, len(payload))
+
+
+def test_vectors_pin_the_unit_mismatch():
+    """At least one vector is under the limit in code points but over it in UTF-8 bytes, and the
+    ASCII length limit is pinned at exactly JOIN_QR_MAX_LEN on both sides."""
+    charset = [c["payload"] for c in VECTORS["hostile"] if c["reason"] == "charset"]
+    assert any(len(p) <= JOIN_QR_MAX_LEN < len(p.encode("utf-8", "surrogatepass")) for p in charset)
+    ascii_lengths = {len(c["payload"]): c["reason"] for c in VECTORS["hostile"] if c["payload"].isascii()}
+    assert ascii_lengths.get(JOIN_QR_MAX_LEN) != "length" and ascii_lengths.get(JOIN_QR_MAX_LEN + 1) == "length"

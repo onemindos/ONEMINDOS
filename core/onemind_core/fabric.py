@@ -111,7 +111,7 @@ def match_code(request_id: str, public_key_der: bytes) -> str:
     return f"{c[:2]}-{c[2:]}"
 
 
-# ---- the join QR (docs/architecture/FABRIC.md §4.2; vectors: sdk/testdata/join-qr/vectors.json) ----
+# ---- the join QR (docs/architecture/FABRIC.md §4.3; vectors: sdk/testdata/join-qr/vectors.json) ----
 # One grammar, one builder (here) and three parsers (this one, internal/fabric/join.go ParseQR and
 # sdk/ts/src/joinqr.ts parseJoinQR) that must agree on every vector. Nothing is left to a language's
 # URL or query parser: they disagree on '+', ';', repeated keys, IP literals and trailing newlines.
@@ -198,7 +198,13 @@ def _qr_https(value: str) -> str | None:
 
 def parse_join_qr(payload: str) -> JoinQR:
     """Parse `onemind-join:v1?…` or `onemind-join:v2?…`; raises JoinQRError (reason, message)."""
-    if not isinstance(payload, str) or len(payload) > JOIN_QR_MAX_LEN:
+    if not isinstance(payload, str):
+        raise JoinQRError("length", f"a join QR is at most {JOIN_QR_MAX_LEN} characters")
+    # ASCII first: Python counts code points, Go bytes and TS UTF-16 units, so a length check on a
+    # non-ASCII payload would give a different reason word in each language.
+    if not payload.isascii():
+        raise JoinQRError("charset", "a join QR is plain ASCII text")
+    if len(payload) > JOIN_QR_MAX_LEN:
         raise JoinQRError("length", f"a join QR is at most {JOIN_QR_MAX_LEN} characters")
     m = _QR_PREFIX_RE.match(payload)
     if not m:
@@ -647,7 +653,7 @@ class FabricService:
         ca = self.d.box_ca.ca_fingerprint()
         hub = self.hub_url()
         mdns = f"{self.d.net.box()}.local"
-        try:  # v1 for OS images and install.sh that read only v1; v2 (FABRIC §4.2) for new clients
+        try:  # v1 for OS images and install.sh that read only v1; v2 (FABRIC §4.3) for new clients
             payload = build_join_qr(version=1, hub=hub, ca=ca, code=code, kind=role)
             payload_v2 = build_join_qr(hub=hub, ca=ca, code=code, kind=role,
                                        mdns=mdns if _QR_MDNS_RE.fullmatch(mdns) else "")

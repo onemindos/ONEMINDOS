@@ -7,6 +7,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -32,7 +33,7 @@ type qrVectors struct {
 	} `json:"hostile"`
 }
 
-// The shared vectors (FABRIC §4.2): Python (core/tests/test_join_qr.py) and TypeScript
+// The shared vectors (FABRIC §4.3): Python (core/tests/test_join_qr.py) and TypeScript
 // (sdk/ts/test/joinqr.test.ts) run the same file, so all three parsers agree on every payload.
 func TestParseQRSharedVectors(t *testing.T) {
 	raw, err := os.ReadFile(filepath.Join("..", "..", "sdk", "testdata", "join-qr", "vectors.json"))
@@ -80,5 +81,18 @@ func TestTicketIsMachine(t *testing.T) {
 	}
 	if !(&Ticket{Version: 1}).IsMachine() || (&Ticket{Version: 2}).IsMachine() {
 		t.Error("a v1 ticket without a role is a machine ticket; a v2 one always names its kind")
+	}
+}
+
+// Bytes that are not valid UTF-8 cannot come from the JSON vectors, so pin them here: any byte at
+// or above 0x80 is `charset`, checked before the length (Go counts bytes, Python code points).
+func TestParseQRRefusesNonASCIIBeforeLength(t *testing.T) {
+	base := "onemind-join:v2?hub=https%3A%2F%2Fbox1.local&ca=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&code=7KQ4-M2XP-9D3F&kind=worker"
+	for _, p := range []string{"\xff", base + "\x80", "\xc3" + base, base + strings.Repeat("\u00e9", 300), strings.Repeat("\xfe", 700)} {
+		_, err := ParseQR(p)
+		var qe *JoinQRError
+		if !errors.As(err, &qe) || qe.Reason != "charset" {
+			t.Errorf("%q (%d bytes): want charset, got %v", p[:min(len(p), 20)], len(p), err)
+		}
 	}
 }
