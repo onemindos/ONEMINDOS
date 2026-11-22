@@ -14,7 +14,7 @@ import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { unifiedPush as defaultUp, type UnifiedPushNative, type UpEndpoint } from '../../modules/onemind-unifiedpush';
 import { OP, type Features, type OneMindApi } from '../api/client';
-import { ApiError, type PushRegistration, type PushRegistrationRequest } from '../api/types';
+import { ApiError, type Action, type CatalogApp, type PushRegistration, type PushRegistrationRequest } from '../api/types';
 import { deleteSecret, loadSecret, saveSecret } from '../storage';
 
 export type PushBlocker =
@@ -78,7 +78,12 @@ export function unifiedPushTransport(up: UnifiedPushNative | undefined = default
           subs.forEach((s) => s.remove());
           fn();
         }
-        up.register(vapid ?? null);
+        try {
+          up.register(vapid ?? null);
+        } catch (e) {
+          // The connector throws at once for a VAPID key in the wrong form; do not leave listeners behind.
+          done(() => reject(new PushError('failed', `The distributor could not register: ${String(e)}`)));
+        }
       });
     },
     async release() {
@@ -205,6 +210,46 @@ export async function rotateEndpoint(api: OneMindApi, rec: PushRecord, e: UpEndp
   const next = { ...rec, id: reg.id, handle: e.url };
   await saveSecret(KEY, JSON.stringify(next)).catch(() => undefined);
   return next;
+}
+
+// ---- Android guided setup: the box's own ntfy (Market app `ntfy`) and the ntfy app on the phone ----
+
+/** The Market app that is the box's ntfy server (apps/ntfy). */
+export const NTFY_APP = 'ntfy';
+/** The ntfy Android app on F-Droid: a UnifiedPush distributor that needs no Google services. */
+export const NTFY_FDROID = 'https://f-droid.org/packages/io.heckel.ntfy/';
+
+/**
+ * Where the phone's ntfy app reaches the box's ntfy: the app's own name on the box, `ntfy.<box host>`,
+ * the same rule as the dashboard's Open link (dashboard/src/data/adapters.ts `openUrl`). Only a `.local`
+ * hub name can say it; from an IP address or another name there is no app name that resolves.
+ */
+export function boxNtfyAddress(hubUrl: string): string | undefined {
+  const m = /^(https?):\/\/([^/:?#]+)(?::\d+)?(?:[/?#]|$)/i.exec(hubUrl.trim());
+  const host = m?.[2]?.toLowerCase();
+  if (!m || !host || !/^[a-z0-9-]+(\.[a-z0-9-]+)*\.local$/.test(host)) return undefined;
+  return `${m[1]!.toLowerCase()}://${NTFY_APP}.${host}`;
+}
+
+/** The host of an http(s) URL, lower case; undefined for anything else. */
+export function urlHost(url: string): string | undefined {
+  return /^https?:\/\/([^/:?#]+)/i.exec(url)?.[1]?.toLowerCase();
+}
+
+/**
+ * Is ntfy on the box? `installed`; `requested` (an `app.install` waits in Approvals); `missing` (in the
+ * Market, not installed); `absent` (this box's Market has no ntfy).
+ */
+export type BoxNtfy = 'installed' | 'requested' | 'missing' | 'absent';
+
+export function boxNtfy(apps: CatalogApp[], actions: Action[] = []): BoxNtfy {
+  const app = apps.find((a) => a.id === NTFY_APP);
+  if (!app) return 'absent';
+  if (app.installed) return 'installed';
+  const waiting = actions.some(
+    (a) => a.type === 'app.install' && a.params.app_id === NTFY_APP && (a.state === 'requested' || a.state === 'awaiting_approval' || a.state === 'accepted' || a.state === 'dispatched'),
+  );
+  return waiting ? 'requested' : 'missing';
 }
 
 const ID = /^[A-Za-z0-9_-]{1,64}$/;

@@ -4,10 +4,11 @@
 import * as Notifications from 'expo-notifications';
 import { useEffect } from 'react';
 import { AppState } from 'react-native';
-import { unifiedPush } from '../modules/onemind-unifiedpush';
+import { unifiedPush, type UnifiedPushNative } from '../modules/onemind-unifiedpush';
 import type { OneMindApi } from './api/client';
 import { loadPushRecord, parsePing, rotateEndpoint } from './lib/push';
 import { showAlert } from './notify';
+import { loadSecret, saveSecret } from './storage';
 
 const GENERIC = { title: 'OneMind', body: 'Something new on your box. Open the app to see it.' };
 
@@ -22,11 +23,36 @@ export async function showPinged(api: OneMindApi, id: string | undefined): Promi
   }
 }
 
+const LAST_PING = 'onemind.push.lastping.v1';
+
+/** Remember that a ping reached this phone (only the time; the ping itself carries nothing else). */
+export async function recordPing(now: number = Date.now()): Promise<void> {
+  await saveSecret(LAST_PING, new Date(now).toISOString()).catch(() => undefined);
+}
+
+/**
+ * When the last ping reached this phone: the newer of what the JavaScript saw and what the native
+ * service saw while the app was closed. Settings shows it in place of a test button (the box has no
+ * route that pings one device without filing anything).
+ */
+export async function lastPing(up: Pick<UnifiedPushNative, 'lastPingAt'> | undefined = unifiedPush): Promise<string | undefined> {
+  const js = Date.parse((await loadSecret(LAST_PING)) ?? '');
+  let native = 0;
+  try {
+    native = up?.lastPingAt?.() ?? 0;
+  } catch {
+    /* an older build without the function */
+  }
+  const t = Math.max(Number.isFinite(js) ? js : 0, native);
+  return t > 0 ? new Date(t).toISOString() : undefined;
+}
+
 export function usePushPings(opts: { api: OneMindApi; hubUrl: string | undefined; label: string; reload: () => Promise<void> }) {
   const { api, hubUrl, label, reload } = opts;
   useEffect(() => {
     if (!hubUrl) return; // demo: no push
     const onPing = async (id: string | undefined) => {
+      await recordPing();
       await reload();
       if (AppState.currentState !== 'active') await showPinged(api, id).catch(() => undefined);
     };
