@@ -134,6 +134,7 @@ class SearchIndex:
             raise SearchUnavailable(f"cannot create the search cache folder: {exc.__class__.__name__}") from None
         for attempt in (1, 2):
             try:
+                self._create_private()
                 conn = sqlite3.connect(self.path, check_same_thread=False, isolation_level=None)
                 os.chmod(self.path, 0o600)
                 row = None
@@ -144,6 +145,7 @@ class SearchIndex:
                 if row is None or row[0] != FORMAT:
                     conn.close()
                     self._drop()
+                    self._create_private()
                     conn = sqlite3.connect(self.path, check_same_thread=False, isolation_level=None)
                     os.chmod(self.path, 0o600)
                     conn.executescript("BEGIN;" + _SCHEMA + f"INSERT INTO meta VALUES ('format', '{FORMAT}'); COMMIT;")
@@ -158,6 +160,10 @@ class SearchIndex:
             except OSError as exc:
                 raise SearchUnavailable(f"the search index cannot be opened: {exc.__class__.__name__}") from None
         raise SearchUnavailable("the search index cannot be created")  # pragma: no cover
+
+    def _create_private(self) -> None:
+        """Create the file 0600 before SQLite opens it, so it is never readable by others, even briefly."""
+        os.close(os.open(self.path, os.O_WRONLY | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0), 0o600))
 
     def _drop(self) -> None:
         for suffix in ("", "-journal", "-wal", "-shm"):
