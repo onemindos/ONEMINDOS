@@ -27,7 +27,30 @@ export async function signIn(page: Page, token: string): Promise<void> {
     input.dispatchEvent(new Event('input', { bubbles: true }));
   }, token);
   await page.getByRole('button', { name: 'Sign in' }).click();
-  await expect(page.getByRole('navigation', { name: 'Main' })).toBeVisible();
+  const nav = page.getByRole('navigation', { name: 'Main' });
+  const wizard = page.getByRole('heading', { level: 1, name: 'Name your box' });
+  await expect(nav.or(wizard)).toBeVisible();
+  if (await wizard.isVisible()) await finishFirstRun(page, token);
+  await expect(nav).toBeVisible();
+}
+
+/**
+ * A fresh box opens the first-run wizard after the owner's first sign-in (PR #551: the gateway decides,
+ * GET /v1/onboarding/state). Its owner step needs a real passkey ceremony, which a headless CI browser on
+ * a plain-http hub cannot do, so save the same first-run settings the wizard saves (PUT
+ * /v1/onboarding/settings, the headless twin of the wizard) and reload: the shell must then open.
+ */
+async function finishFirstRun(page: Page, token: string): Promise<void> {
+  const headers = { Authorization: `Bearer ${token}` };
+  const saved = await page.request.put('/v1/onboarding/settings', {
+    headers,
+    data: { box_name: 'home-hub', time_zone: 'UTC', backup_choice: 'later', backup_destination_id: null },
+  });
+  expect(saved.status(), 'PUT /v1/onboarding/settings').toBe(200);
+  const state = await page.request.get('/v1/onboarding/state', { headers });
+  expect(state.status(), 'GET /v1/onboarding/state').toBe(200);
+  expect((await state.json()).complete, 'first-run setup complete after saving its settings').toBe(true);
+  await page.reload();
 }
 
 /**
