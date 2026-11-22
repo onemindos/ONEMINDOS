@@ -74,6 +74,32 @@ class Node(BaseModel):
     last_seen: str = Field(description="RFC 3339 time the gateway last received a heartbeat")
 
 
+class ApprovalLimit(BaseModel):
+    """One limit shown on an approval card, with its unit (#723). The gateway and the device check it again."""
+
+    name: str
+    value: str | int | float | bool
+    unit: str | None = None
+
+
+class ApprovalPreview(BaseModel):
+    """The approval card's preview slot (#723): what the action will do, drawn by the host."""
+
+    kind: str = Field(description="what the preview is, e.g. image or path", json_schema_extra=OPEN_ENUM)
+    ref: str | None = None
+    text: str | None = None
+
+
+class ApprovalCard(BaseModel):
+    """The approval payload of a physical action (#723), part of plan_sha256. The host draws it, never an app."""
+
+    physical: bool = Field(description="moves or switches something physical: passkey, hold, never standing or automated")
+    hold: bool = Field(description="approve with hold-to-approve (physical, or cannot be undone)")
+    hold_ms: int | None = Field(default=None, description="how long to hold, in ms; send at least this as hold_ms")
+    limits: list[ApprovalLimit] = Field(default_factory=list)
+    preview: ApprovalPreview | None = None
+
+
 class Action(BaseModel):
     """One action of the ledger (contract §3). §12.4 adds optional fields; ignore what you do not know."""
 
@@ -100,6 +126,7 @@ class Action(BaseModel):
     plan: dict[str, Any] | None = Field(default=None, description="§12.4: what the action would do, rendered at request time")
     plan_sha256: str | None = Field(default=None, description="§12.4: fingerprint the approval is bound to")
     progress: dict[str, Any] | None = Field(default=None, description="{step, pct} while an executor runs")
+    approval: ApprovalCard | None = Field(default=None, description="#723: the approval card of a physical action, else null")
 
 
 class AuditRecord(BaseModel):

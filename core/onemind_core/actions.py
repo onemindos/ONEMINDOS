@@ -20,13 +20,20 @@ This is where "AI never actuates without human approval" is enforced:
   app's database and its Secret); a hook that fails fails the install before anything is applied;
 - action types that are not about an app and have no executor step (node.join, later mesh.*) plug in a
   handler with register_handler(type, handler): the same ledger, approval rule and audit trail apply,
-  and the handler owns the precondition re-check and the effect (docs/leap/core/PLUMBING.md §2).
+  and the handler owns the precondition re-check and the effect (docs/leap/core/PLUMBING.md §2);
+- a feature type registered with physical=True (it moves or switches something in the world) is
+  fixed as physical at registration and, whatever its risk class: is approved only by an owner with a
+  passkey assertion and a hold of at least HOLD_MIN_MS, bound to its plan_sha256; is never accepted by a
+  standing approval nor filed by an automation; and is refused while the owner's motion lockout is on.
+  It is separate from risk "actuate", which also covers an OS install reboot and node.wake (#723).
 """
 
 from __future__ import annotations
 
 import dataclasses
+import hashlib
 import inspect
+import json
 import logging
 import threading
 from collections.abc import Callable
@@ -102,6 +109,63 @@ class ApprovalInput:
     sealed: dict | None = None
     override: dict | None = None
     webauthn: bool = False
+    # How long the owner held the approve control, in ms (hold-to-approve). A physical action needs
+    # at least HOLD_MIN_MS; the passkey assertion, not this number, is the proof of presence.
+    hold_ms: int | None = None
+
+
+# Hold-to-approve (#723, founder pick): only for actions that cannot be undone or that move something
+# physical. The approval card says hold; the HoldToApprove control (ui/) holds for this long.
+HOLD_MIN_MS = 2000
+APPROVAL_LIMIT_VALUE = (str, int, float, bool)
+
+
+def hold_required(risk: str | None, physical: bool) -> bool:
+    """Whether the approval card asks for hold-to-approve: physical, or cannot be undone."""
+    return physical or risk == "destructive"
+
+
+def approval_card(risk: str | None, physical: bool, limits: list[dict] | None = None,
+                  preview: dict | None = None) -> dict:
+    """The approval payload the host draws (apimodels.ApprovalCard): hold flag, limits, preview slot.
+
+    limits: [{name, value, unit}] with units, shown before the owner approves (the gateway and the
+    device check them again). preview: {kind, ref?, text?}, an optional slot (camera still, path).
+    Raises ValueError on a malformed limit or preview.
+    """
+    out_limits = []
+    for lim in limits or []:
+        if not isinstance(lim, dict) or set(lim) - {"name", "value", "unit"}:
+            raise ValueError("an approval limit is {name, value, unit}")
+        name, value, unit = lim.get("name"), lim.get("value"), lim.get("unit")
+        if not isinstance(name, str) or not 0 < len(name) <= 64:
+            raise ValueError("an approval limit needs a name of 1 to 64 characters")
+        if not isinstance(value, APPROVAL_LIMIT_VALUE) or (isinstance(value, str) and len(value) > 200):
+            raise ValueError(f"approval limit {name!r}: value must be a string, number or boolean")
+        if unit is not None and (not isinstance(unit, str) or len(unit) > 32):
+            raise ValueError(f"approval limit {name!r}: unit must be a string of at most 32 characters")
+        out_limits.append({"name": name, "value": value, "unit": unit})
+    if len(out_limits) > 20:
+        raise ValueError("an approval card shows at most 20 limits")
+    if preview is not None:
+        if not isinstance(preview, dict) or set(preview) - {"kind", "ref", "text"} or \
+                not isinstance(preview.get("kind"), str) or not 0 < len(preview["kind"]) <= 32:
+            raise ValueError("an approval preview is {kind, ref?, text?}")
+        if any(preview.get(k) is not None and (not isinstance(preview[k], str) or len(preview[k]) > 2000)
+               for k in ("ref", "text")):
+            raise ValueError("approval preview ref and text are strings of at most 2000 characters")
+        preview = {"kind": preview["kind"], "ref": preview.get("ref"), "text": preview.get("text")}
+    hold = hold_required(risk, physical)
+    return {"physical": physical, "hold": hold, "hold_ms": HOLD_MIN_MS if hold else None,
+            "limits": out_limits, "preview": preview}
+
+
+def physical_plan(action_type: str, params: dict, card: dict) -> tuple[dict, str]:
+    """(plan, plan_sha256) of a physical request: the fingerprint covers type, params and card, so any
+    changed parameter or limit needs a new approval (contract §12.4)."""
+    plan = {"type": action_type, "params": params, "approval": card}
+    body = json.dumps(plan, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return plan, "sha256:" + hashlib.sha256(body.encode()).hexdigest()
 
 
 class ActionParams(BaseModel):
@@ -372,6 +436,13 @@ class FeatureAction:
     background: bool = False
     # A feature may derive risk from its immutable request; approval must match it.
     risk_for: Callable[[dict], str] | None = None
+    # #723: it moves or switches something physical. Fixed at registration, independent of risk:
+    # passkey and hold-to-approve, plan-bound, never a standing approval or automation, lockout applies.
+    physical: bool = False
+    # Physical types: the limits with units and the optional preview drawn on the approval card,
+    # derived from the request's params (part of plan_sha256).
+    limits_for: Callable[[dict], list[dict]] | None = None
+    preview_for: Callable[[dict], dict | None] | None = None
 
 
 FEATURE_OUTCOMES = ("succeeded", "failed", "outcome_unknown")
@@ -456,13 +527,66 @@ class ActionService:
         # CORE-FABRIC-4 (#171): app -> placement.schedule (the machine to pin to, the GPU request) or None.
         # Set by the app store; hashed into the plan so an approval covers exactly that machine.
         self.placement: Callable[[AppEntry], dict | None] | None = None
+        # #723: the owner's motion lockout (physical.py). True refuses every physical request and
+        # approval; a failing read counts as locked.
+        self.motion_lockout: Callable[[], bool] = lambda: False
 
     def register_type(self, action_type: str, spec: FeatureAction) -> None:
         if action_type in APP_CLAIMS or action_type in self.feature_types or action_type in self.handlers:
             raise ValueError(f"action type {action_type} is already registered")
         if spec.risk not in ("read", "write", "sensitive", "destructive", "actuate"):
             raise ValueError(f"{action_type}: unknown risk class {spec.risk!r}")
+        if spec.physical:
+            if spec.requesters & {"automation", "policy"}:
+                raise ValueError(f"{action_type}: a physical type is never requested by an automation or policy")
+            from .automation import registry  # imported late: the registry imports ActionType from here
+
+            registry.mark_physical(action_type)
         self.feature_types[action_type] = spec
+
+    def is_physical(self, action_type: str) -> bool:
+        spec = self.feature_types.get(action_type)
+        return spec is not None and spec.physical
+
+    def _locked(self) -> bool:
+        try:
+            return bool(self.motion_lockout())
+        except Exception:  # fail closed: a lockout that cannot be read is on
+            log.exception("motion lockout read failed")
+            return True
+
+    def _refuse_if_locked(self) -> None:
+        if self._locked():
+            raise ApiError(409, "conflict", "the owner's motion lockout is on: no physical action is filed or approved",
+                           reason="motion_lockout")
+
+    def _physical_plan(self, action_type: str, spec: FeatureAction, params: dict, risk: str) -> tuple[dict, str]:
+        try:
+            card = approval_card(risk, True, spec.limits_for(params) if spec.limits_for else None,
+                                 spec.preview_for(params) if spec.preview_for else None)
+        except ValueError as exc:
+            raise ApiError(422, "conflict", f"{action_type}: {exc}"[:500]) from None
+        return physical_plan(action_type, params, card)
+
+    def _check_physical_approval(self, principal: Principal, a: Action, spec: FeatureAction,
+                                 plan_sha256: str | None, extra: ApprovalInput, standing: dict | None) -> None:
+        """The extra rules of a physical action (#723), checked before anything is claimed."""
+        if standing is not None or not principal.is_owner:
+            raise self._deny(principal, f"approve physical action {a.type} (only a person, never a standing approval)", a.id)
+        self._refuse_if_locked()
+        if not extra.webauthn:
+            raise ApiError(401, "unauthenticated", f"{a.type} moves something physical: approve it with your passkey",
+                           reason="step_up_required")
+        if extra.hold_ms is None or extra.hold_ms < HOLD_MIN_MS:
+            raise ApiError(409, "conflict", f"{a.type} moves something physical: hold to approve ({HOLD_MIN_MS} ms)",
+                           reason="hold_required")
+        if plan_sha256 is None:
+            raise ApiError(409, "stale_precondition", "send plan_sha256 so the approval is bound to the plan you read",
+                           reason="plan_unchecked")
+        _, fresh = self._physical_plan(a.type, spec, a.params, a.risk or spec.risk)
+        if a.plan_sha256 is None or plan_sha256 != a.plan_sha256 or fresh != a.plan_sha256:
+            raise ApiError(409, "stale_precondition", "the parameters or limits changed since the request; ask again",
+                           reason="plan_changed")
 
     # ---- handlers for non-app action types ---------------------------------------------
     def register_handler(self, action_type: str, handler: ActionHandler) -> None:
@@ -863,7 +987,12 @@ class ActionService:
         if a.state != "awaiting_approval":
             raise ApiError(409, "conflict", f"action is {a.state}, not awaiting_approval")
         if a.type in self.feature_types:
-            return self._approve_feature(principal, a, self.feature_types[a.type], standing)
+            spec = self.feature_types[a.type]
+            facts = None
+            if spec.physical:
+                self._check_physical_approval(principal, a, spec, plan_sha256, extra, standing)
+                facts = {"physical": True, "hold_ms": extra.hold_ms, "approval": "passkey", "plan_sha256": a.plan_sha256}
+            return self._approve_feature(principal, a, spec, standing, facts)
         handler = self.handlers.get(a.type)
         if handler is not None:
             return self._approve_handled(principal, a, handler)
@@ -1303,6 +1432,8 @@ class ActionService:
         self._check_request(principal, action_type)
         if not principal.can_request_actions or (not principal.is_owner and principal.kind not in spec.requesters):
             raise self._deny(principal, f"request {action_type}")
+        if spec.physical and principal.kind not in ("person", "agent"):  # never an automation or plugin
+            raise self._deny(principal, f"request physical action {action_type}")
         existing = self.repo.get_by_idempotency_key(idempotency_key)
         if existing is not None:
             if existing.type != action_type or existing.params != params or existing.requested_by.get("id") != principal.id:
@@ -1320,10 +1451,15 @@ class ActionService:
         risk = spec.risk_for(params) if spec.risk_for else spec.risk
         if risk not in {"read", "write", "sensitive", "destructive", "actuate"}:
             raise ApiError(422, "conflict", "feature returned an invalid risk class")
+        plan, plan_sha = None, None
+        if spec.physical:
+            self._refuse_if_locked()
+            plan, plan_sha = self._physical_plan(action_type, spec, params, risk)
         action = Action(
             id=new_action_id(), type=action_type, params=params, state="requested",
             requested_by={"id": principal.id, "kind": principal.kind}, idempotency_key=idempotency_key,
-            created_at=now, updated_at=now, expires_at=exp, risk=risk if spec.risk_for else None,
+            created_at=now, updated_at=now, expires_at=exp,
+            risk=risk if spec.risk_for or spec.physical else None, plan=plan, plan_sha256=plan_sha,
         )
         stored, created = self.repo.create(action)
         if not created:
@@ -1331,13 +1467,15 @@ class ActionService:
         self.audit.append("action.requested", principal.as_dict(), stored.id, {
             "type": action_type, "params": params, "risk": risk, "expires_at": iso(exp),
             "requested_by": principal.id, **({"reason": reason} if reason else {}), **(audit_extra or {}),
+            **({"physical": True, "plan_sha256": plan_sha} if spec.physical else {}),
         })
         moved = self.repo.transition(stored.id, {"requested"}, "awaiting_approval", self.clock())
         self.audit.append("action.awaiting_approval", None, stored.id, {})
         return (moved or stored).to_json(), True
 
     def _approve_feature(
-        self, principal: Principal, a: Action, spec: FeatureAction, standing: dict | None = None
+        self, principal: Principal, a: Action, spec: FeatureAction, standing: dict | None = None,
+        facts: dict | None = None,
     ) -> dict:
         if spec.risk_for and a.risk != spec.risk_for(a.params):
             raise ApiError(409, "stale_precondition", "the action risk changed after the request")
@@ -1357,7 +1495,7 @@ class ActionService:
             raise ApiError(409, "conflict", "action was decided concurrently")
         ids = {"requested_by": a.requested_by.get("id"), "approved_by": principal.id, **(standing or {})}
         self.audit.append("action.approved", principal.as_dict(), a.id,
-                          {"type": a.type, "params": a.params, "risk": a.risk or spec.risk, **ids})
+                          {"type": a.type, "params": a.params, "risk": a.risk or spec.risk, **ids, **(facts or {})})
         if self.repo.transition(a.id, {"accepted"}, "dispatched", self.clock()) is None:
             self._mark_outcome_unknown(a, "accepted action could not move to dispatched")
             return self._get(a.id).to_json()

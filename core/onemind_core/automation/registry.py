@@ -94,8 +94,20 @@ def at_most(risk: str, ceiling: str) -> bool:
 NEVER_BY_POLICY = frozenset({"automation.rule.create", "automation.rule.update", "automation.rule.enable"})
 
 
+# #723: action types registered as physical (actions.FeatureAction.physical). Whatever their risk
+# class, a standing approval never covers them and an automation never requests them. Filled by
+# ActionService.register_type; a type once physical stays physical for the life of the process.
+PHYSICAL: set[str] = set()
+
+
+def mark_physical(action_type: str) -> None:
+    PHYSICAL.add(action_type)
+
+
 def policy_may_cover(action_type: str, params: dict | None = None) -> str | None:
     """Why no standing approval may accept this request, or None (§12.3: read and write only)."""
+    if action_type in PHYSICAL:
+        return f"{action_type} moves something physical; only a person approves it, never a standing approval"
     if action_type not in TYPES:
         return f"unknown action type {action_type!r}"
     if action_type in NEVER_BY_POLICY:
@@ -108,6 +120,8 @@ def policy_may_cover(action_type: str, params: dict | None = None) -> str | None
 
 def automatable(action_type: str, params: dict | None = None) -> str | None:
     """Why an automation may not request this, or None (§12.1: Au types, never destructive)."""
+    if action_type in PHYSICAL:
+        return f"{action_type} moves something physical; an automation never requests it"
     if action_type not in TYPES:
         return f"unknown action type {action_type!r}"
     if not TYPES[action_type].automation:

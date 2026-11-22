@@ -93,6 +93,8 @@ class Action:
             "plan": self.plan,
             "plan_sha256": self.plan_sha256,
             "progress": self.progress,
+            # #723: the approval card of a physical action (hashed into plan_sha256), else null.
+            "approval": (self.plan or {}).get("approval") if isinstance(self.plan, dict) else None,
         }
 
 
