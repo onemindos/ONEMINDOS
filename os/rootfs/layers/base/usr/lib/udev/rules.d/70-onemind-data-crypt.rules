@@ -1,0 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
+# The unlocked data volume answers to the name /etc/fstab already uses (PARTLABEL=onemind-data). The raw LUKS
+# partition has that name too; the higher link priority makes the unlocked device the one the name points at.
+SUBSYSTEM=="block", ENV{DM_NAME}=="onemind-data", ENV{DM_UUID}=="CRYPT-LUKS2-*", SYMLINK+="disk/by-partlabel/onemind-data", OPTIONS+="link_priority=100"

@@ -5,6 +5,8 @@
 #   make rootfs  BOARD=x86_64-efi [LEG=debian|ubuntu]   -> out/rootfs-<leg>-<board>.tar
 #   make image   BOARD=x86_64-efi [VERSION=...]         -> out/image-<board>/ (disk .img, .raucb, SHA256SUMS)
 #   make fixtures BOARD=x86_64-efi [UPTO=T5] [HW=1]     -> out/fx-<board>/ (battery inputs; HW=1 for founder kits)
+#   make fixtures ... DATA_FS=luks2                      -> data partition left blank, encrypted on first boot
+#   make dataenc BOARD=x86_64-efi                       -> out/dataenc-<board>/ (E1-E4, CRITERIA-DATAENC.md; needs DATA_FS=luks2 fixtures)
 #   make battery BOARD=x86_64-efi [UPTO=T5]             -> out/battery-<board>/ (serial log, results.json)
 #   make firstboot BOARD=x86_64-efi [FUPTO=F4]          -> out/firstboot-<board>/ (F0-F4, CRITERIA-FIRSTBOOT.md)
 #   make secureboot-test                                -> out/secureboot-x86_64-efi/ (SB1-SB4, CRITERIA-SECUREBOOT.md)
@@ -17,6 +19,7 @@ BOARD      ?= x86_64-efi
 LEG        ?= debian
 UPTO       ?= T5
 HW         ?= 0
+DATA_FS    ?=
 FUPTO      ?= F4
 VERSION    ?= 0.1.0-dev
 OUT        ?= out
@@ -30,7 +33,7 @@ ROOTFS      = $(OUT)/rootfs-$(LEG)-$(BOARD).tar
 DOCKER_RUN  = docker run --rm --platform $(PLATFORM) -v "$(CURDIR)":/src:ro -v "$(CURDIR)/$(OUT)":/out
 KVM         = $(shell [ -w /dev/kvm ] && echo --device /dev/kvm)
 
-.PHONY: help tools rootfs image fixtures battery firstboot bootlock convert hygiene hygiene-selftest lint test kit clean secureboot-image secureboot-test
+.PHONY: help tools rootfs image fixtures battery firstboot bootlock dataenc convert hygiene hygiene-selftest lint test kit clean secureboot-image secureboot-test
 
 help:
 	@sed -n 's/^#   make/make/p' Makefile
@@ -55,7 +58,7 @@ image: tools
 
 fixtures: tools
 	@test -f $(ROOTFS) || $(MAKE) rootfs BOARD=$(BOARD) LEG=$(LEG)
-	$(DOCKER_RUN) -e HW=$(HW) $(TOOLS) /src/test/qemu/mkfixtures.sh $(BOARD) /out/$(notdir $(ROOTFS)) /out/fx-$(BOARD) $(UPTO)
+	$(DOCKER_RUN) -e HW=$(HW) -e DATA_FS=$(DATA_FS) $(TOOLS) /src/test/qemu/mkfixtures.sh $(BOARD) /out/$(notdir $(ROOTFS)) /out/fx-$(BOARD) $(UPTO)
 
 battery:
 	@test -f $(OUT)/fx-$(BOARD)/disk.img || $(MAKE) fixtures BOARD=$(BOARD) UPTO=$(UPTO)
@@ -106,6 +109,16 @@ memory-test:
 	  --fixtures /out/fx-$(BOARD) --work /out/memory-$(BOARD)/work \
 	  --log /out/memory-$(BOARD)/serial.log --results /out/memory-$(BOARD)/results.json; \
 	  rc=$$?; rm -f $(OUT)/memory-$(BOARD)/work/disk.img; exit $$rc
+
+
+# Encrypted data (test/qemu/dataenc.py, CRITERIA-DATAENC.md). Needs fixtures made with DATA_FS=luks2.
+dataenc:
+	@test -f $(OUT)/fx-$(BOARD)/disk.img || $(MAKE) fixtures BOARD=$(BOARD) UPTO=T5 DATA_FS=luks2
+	mkdir -p $(OUT)/dataenc-$(BOARD)
+	$(DOCKER_RUN) $(KVM) $(TOOLS) python3 -I /src/test/qemu/dataenc.py --board $(BOARD) \
+	  --fixtures /out/fx-$(BOARD) --work /out/dataenc-$(BOARD)/work \
+	  --log /out/dataenc-$(BOARD)/serial.log --results /out/dataenc-$(BOARD)/results.json; \
+	  rc=$$?; rm -f $(OUT)/dataenc-$(BOARD)/work/disk.img; exit $$rc
 
 # Local KVM check of F0-F4 (build + fixtures + firstboot); see test/qemu/README.md "Local first boot".
 .PHONY: local-firstboot

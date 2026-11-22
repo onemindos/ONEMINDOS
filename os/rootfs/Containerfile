@@ -251,7 +251,7 @@ FROM base AS tools
 RUN apt-get update && apt-get install -y python3 python3-yaml gdisk dosfstools mtools e2fsprogs \
       squashfs-tools openssl openssh-client xz-utils zstd qemu-utils grub-common file cpio \
       libglib2.0-0t64 libssl3t64 libcurl4t64 libjson-glib-1.0-0 libfdisk1 libnl-genl-3-200 \
-      qemu-system-x86 qemu-system-arm ovmf qemu-efi-aarch64 seabios ipxe-qemu \
+      qemu-system-x86 qemu-system-arm ovmf qemu-efi-aarch64 seabios ipxe-qemu swtpm \
       systemd-ukify systemd-boot-efi sbsigntool python3-virt-firmware \
  && rm -rf /var/lib/apt/lists/*
 COPY --from=rauc-build /opt/rauc-dest/ /

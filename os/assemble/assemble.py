@@ -79,11 +79,18 @@ def validate_layout(layout):
     fixed = sum(mib(p["size"]) for p in parts if mib(p["size"]) is not None)
     total = mib(layout["disk_size"])
     assert fixed + 2 < total, f"partitions ({fixed} MiB) do not fit the disk ({total} MiB)"
+    data_fs = part(layout, "onemind-data").get("fs", "ext4")
+    assert data_fs in DATA_FS, f"onemind-data fs must be one of {DATA_FS}, not {data_fs!r}"
     for i, p in enumerate(parts, 1):
         p["index"] = i
         p["partuuid"] = str(uuid.uuid5(PU_NS, p["label"]))
         assert p["type"] in GPT_TYPES, f"unknown type {p['type']}"
     return layout
+
+
+# The data partition ships as ext4 (existing boards) or "luks2": left BLANK in the image, and encrypted on the
+# box's first boot (usr/lib/onemind/data_encrypt.py). A key made at build time would be the same on every box.
+DATA_FS = ("ext4", "luks2")
 
 
 def part(layout, label):
@@ -377,6 +384,8 @@ def cmd_disk(a):
             fat_image(img, size_mib, p.get("fs_label", p["label"][-6:].upper()), files=boot_files.get(p["label"]))
         elif p["label"] == "onemind-system-a":
             img = a.system
+        elif p["label"] == "onemind-data" and (getattr(a, "data_fs", None) or fs) == "luks2":
+            continue  # blank on purpose: the box formats it as LUKS2 on first boot, with keys only it has
         elif p["label"] == "onemind-data":
             datafs = os.path.join(a.work, "datafs")
             shutil.rmtree(datafs, ignore_errors=True)
@@ -475,6 +484,7 @@ def main():
     e.add_argument("--size-mib", type=int)
     d.add_argument("--board", required=True); d.add_argument("--work", required=True)
     d.add_argument("--system", required=True); d.add_argument("--out", required=True)
+    d.add_argument("--data-fs", choices=DATA_FS, help="override the layout's data filesystem (CI: luks2)")
     for p in (b,):
         p.add_argument("--board", required=True); p.add_argument("--system", required=True)
         p.add_argument("--version", required=True); p.add_argument("--out", required=True)

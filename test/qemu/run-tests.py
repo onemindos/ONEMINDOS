@@ -98,6 +98,7 @@ class VM:
                 "-drive", f"if=virtio,format=raw,readonly=on,file={self.fx}/bundles.img"]
         if os.path.exists(f"{self.fx}/seed.img"):
             cmd += ["-drive", f"if=virtio,format=raw,readonly=on,file={self.fx}/seed.img"]
+        cmd += list(getattr(self, "extra_args", []))     # dataenc.py adds a TPM here; empty for every other harness
         cmd += ["-serial", "stdio", "-monitor", "none"]
         self.mark(f"QEMU START {' '.join(cmd)}")
         self.proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
