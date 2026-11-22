@@ -17966,6 +17966,16 @@
             },
             "description": "Missing or unknown bearer token (unauthenticated)"
           },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
           "503": {
             "content": {
               "application/json": {
