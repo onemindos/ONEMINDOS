@@ -30,7 +30,7 @@ describe('Home', () => {
     expect(await seriousViolations(container)).toEqual([]);
   });
 
-  it('records a visit from the mounted Market and reopens it from a fresh Home alongside live box status', async () => {
+  it('records an explicit keyboard launch across clients and keeps a directly loaded screen read-only', async () => {
     let recent: string[] = [];
     const fetch = vi.fn<typeof globalThis.fetch>(async (input, init) => {
       const path = new URL(String(input)).pathname;
@@ -45,9 +45,14 @@ describe('Home', () => {
     });
     vi.stubGlobal('fetch', fetch);
     try {
-      const market = renderApp({ token: 'owner-demo', route: '/market', mock: false });
+      const firstClient = renderApp({ token: 'owner-demo', route: '/installed', mock: false });
+      const dock = within(await screen.findByRole('navigation', { name: 'Main' }, T));
+      const market = dock.getByRole('link', { name: 'Market' });
+      expect(fetch.mock.calls.some(([url]) => new URL(String(url)).pathname === '/v1/me/home')).toBe(false);
+      market.focus();
+      await userEvent.setup().keyboard('{Enter}');
       await waitFor(() => expect(recent).toEqual(['sys:market']), T);
-      market.unmount();
+      firstClient.unmount();
       renderApp({ token: 'owner-demo', mock: false });
       const health = await screen.findByRole('region', { name: 'Box health' }, T);
       expect(await within(health).findByText('Last backup failed')).toBeInTheDocument();

@@ -83,7 +83,7 @@ export function Shell({ children }: { children: ReactNode }) {
   const displayName = useDisplayName();
   const role = roleOf(principal, me.data ?? undefined);
   const view = viewFor(role === undefined && me.error ? null : role);
-  useRecordVisit(view, role);
+  const recordVisit = useRecordVisit(view, role);
   // A failed lookup is retried with backoff, then slowly, so a network hiccup does not leave an
   // owner in the Simple view until a reload. Stops once /v1/me answers.
   const meTries = useRef(0);
@@ -99,7 +99,10 @@ export function Shell({ children }: { children: ReactNode }) {
 
   const go = (link: string) => {
     const to = toRoute(link);
-    if (to) navigate(to);
+    if (!to) return false;
+    recordVisit(to);
+    navigate(to);
+    return true;
   };
 
 
@@ -167,10 +170,7 @@ export function Shell({ children }: { children: ReactNode }) {
     if (!a || a.target || a.hasAttribute('download')) return;
     const raw = a.getAttribute('href') ?? '';
     if (raw === '#om-main' || raw.startsWith('#om')) return;
-    const to = toRoute(raw);
-    if (!to) return;
-    e.preventDefault();
-    navigate(to);
+    if (go(raw)) e.preventDefault();
   };
 
   const status =

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
-import { useEffect, useMemo, useRef } from 'react';
-import { matchPath, useLocation } from 'react-router';
+import { useMemo, useRef } from 'react';
+import { matchPath } from 'react-router';
 import { OneMind, OneMindError } from '@onemind/sdk';
 import { SCREENS, navIdFor } from '../screens/registry';
 import { useSignedIn } from '../session';
@@ -34,17 +34,16 @@ export async function rememberVisit(api: OneMind['me']['home'], item: string): P
   }
 }
 
-/** Record navigation in order. Only registry IDs leave this browser, never a URL or a query. */
+/** Record a person's activated links in order. Direct loads, redirects and browser history stay read-only. */
 export function useRecordVisit(view: View, role?: string | null) {
-  const { pathname } = useLocation();
   const { token, mock } = useSignedIn();
   const sdk = useMemo(() => new OneMind({ baseUrl: window.location.origin, token }), [token]);
   const queue = useRef(Promise.resolve());
-  const item = recentItem(pathname, view, role);
-  useEffect(() => {
+  return (path: string) => {
+    const item = recentItem(path.split(/[?#]/, 1)[0] ?? '', view, role);
     if (!item || mock) return;
     queue.current = queue.current.then(() => rememberVisit(sdk.me.home, item))
       .then(() => { window.dispatchEvent(new Event(RECENT_UPDATED)); })
       .catch(() => { /* Navigation still works if history cannot be saved. */ });
-  }, [item, mock, sdk]);
+  };
 }
