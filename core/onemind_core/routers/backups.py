@@ -312,12 +312,12 @@ def register(app: FastAPI, gw: Gateway) -> None:
 
     @app.post("/v1/backups/content", operation_id="backups.content.set", tags=tags, status_code=202,
               responses=error_responses(401, 403, 404, 409, 422))
-    def set_content(body: ContentBody, p: Principal = Depends(owner), idem: IdemHeader = None):
+    def set_content(request: Request, body: ContentBody, p: Principal = Depends(owner), idem: IdemHeader = None):
         if not svc.enabled:
             raise Unavailable("backups are not switched on (ONEMIND_BACKUPS_ENABLED=1)", "backups_disabled")
         action, created = svc.request_content(p, body.model_dump(), idempotency_key=key(idem),
                                               expires_at=window(body), reason=body.reason)
-        return filed(p, body, action, created)
+        return filed(p, body, action, created, request)
 
     @app.get("/v1/backups/verifications", operation_id="backups.verifications.list", tags=tags, responses=error_responses(401, 403))
     def verifications(_: Principal = Depends(reader)):
