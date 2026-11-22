@@ -5753,6 +5753,25 @@
         "title": "SendIn",
         "type": "object"
       },
+      "SeriesPoint": {
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "number"
+          }
+        },
+        "required": [
+          "at",
+          "value"
+        ],
+        "title": "SeriesPoint",
+        "type": "object"
+      },
       "SettingsRequest": {
         "additionalProperties": false,
         "properties": {
@@ -22467,6 +22486,118 @@
         "summary": "Public Key",
         "tags": [
           "secrets"
+        ]
+      }
+    },
+    "/v1/series": {
+      "get": {
+        "description": "Query a trailing window of up to 30 days. Each node contributes one sample per\nminute. Return at most `points` averages, timestamped at the first observation in\neach bin. Empty bins and unavailable metrics are omitted.",
+        "operationId": "series.query",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "node_id",
+            "required": true,
+            "schema": {
+              "maxLength": 64,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "title": "Node Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "metric",
+            "required": true,
+            "schema": {
+              "enum": [
+                "cpu_pct",
+                "mem_used_mb",
+                "mem_total_mb",
+                "disk_free_gb",
+                "disk_total_gb",
+                "temp_c",
+                "load1"
+              ],
+              "title": "Metric",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "window_s",
+            "required": false,
+            "schema": {
+              "default": 86400,
+              "maximum": 2592000,
+              "minimum": 1,
+              "title": "Window S",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "points",
+            "required": false,
+            "schema": {
+              "default": 60,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Points",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SeriesPoint"
+                  },
+                  "title": "Response Series.Query",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Query",
+        "tags": [
+          "monitoring"
         ]
       }
     },
