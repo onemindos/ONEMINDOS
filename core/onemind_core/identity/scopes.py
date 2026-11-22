@@ -28,6 +28,7 @@ BASE_SCOPES = frozenset({
     "automation:read", "automation:request", "automation:write",
     "audit:read", "audit:admin", "users:read", "users:admin",
     "tokens:self", "tokens:read", "tokens:admin", "events:read", "deploy:write",
+    "work:read", "work:write",
 })
 
 # Narrowing suffixes the contract names; anything else after a base scope is refused.
@@ -51,7 +52,7 @@ READ_SCOPES = frozenset(s for s in BASE_SCOPES if s.endswith(":read"))
 ROLE_SCOPES: dict[str, frozenset[str]] = {
     "owner": frozenset({ALL}),
     "adult": frozenset((READ_SCOPES - {"users:read"}) | {
-        "logs:read", "notifications:write", "tokens:self", "actions:request",
+        "logs:read", "notifications:write", "tokens:self", "actions:request", "work:write",
     }),
     "guest": frozenset({"instance:read", "nodes:read", "apps:read", "notifications:read",
                         "notifications:write", "alerts:read"}),

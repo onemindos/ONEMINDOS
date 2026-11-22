@@ -205,6 +205,8 @@ class NotifyService:
         return out
 
     def _audience(self, spec: Spec, data: dict) -> dict:
+        if spec.type in catalogue.PERSON_ADDRESSED:  # no person named: nobody, never the owners by default
+            return {"roles": [], "persons": [str(data["person_id"])] if data.get("person_id") else []}
         if spec.type in catalogue.INAPP_ONLY_ALERTS and data.get("person_id"):
             return {"roles": [], "persons": [data["person_id"]]}
         roles = ["owner"] + (["adult"] if spec.audience == catalogue.OWNERS_AND_ADULTS else [])

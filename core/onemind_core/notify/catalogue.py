@@ -98,6 +98,10 @@ _SPECS = [
          "Outcome unknown: {action_type} {app_id}",
          "OneMind cannot tell whether this change was applied. Check the app before retrying. {message}",
          dedupe="action:{action_id}", link="/activity/{action_id}", auto_resolve=False),
+    # ---- work (in the app only; addressed to the assignee, see PERSON_ADDRESSED) ---------
+    Spec("work.task.assigned", "inbox", "automation", "info", "Assigned to you: {title}", "", link="/work/tasks/{task_id}"),
+    Spec("work.task.due_soon", "inbox", "automation", "info", "Due soon: {title}", "Due {due_at}.", link="/work/tasks/{task_id}"),
+    Spec("work.task.overdue", "inbox", "automation", "warning", "Overdue: {title}", "Was due {due_at}.", link="/work/tasks/{task_id}"),
     # ---- nodes ---------------------------------------------------------------------------
     Spec("node.stale", "inbox", "nodes", "info", "{hostname} is late",
          "No heartbeat from {hostname} for {age_s} s.", link="/nodes/{node_id}"),
@@ -170,6 +174,9 @@ CATALOGUE: dict[str, Spec] = {}
 for _s in _SPECS:
     for _name in (_s.type, *_s.aliases):
         CATALOGUE[_name] = _s
+
+# Work reminders go to one person: the assignee named in the event's person_id, nobody else.
+PERSON_ADDRESSED = frozenset({"work.task.assigned", "work.task.due_soon", "work.task.overdue"})
 
 # Types whose alerts reach only the in-app inbox (a failing channel must not hide behind itself).
 INAPP_ONLY_ALERTS = {"notify.channel_failing"}

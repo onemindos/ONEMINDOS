@@ -238,6 +238,14 @@ func (c *Client) Do(ctx context.Context, method, path string, body, out any) err
 	return err
 }
 
+// DoHeaders is Do with extra request headers (If-Match, Idempotency-Key). A call that carries an
+// Idempotency-Key is retried like a read, because sending it twice makes one change.
+func (c *Client) DoHeaders(ctx context.Context, method, path string, headers map[string]string, body, out any) error {
+	_, err := c.do(ctx, request{method: method, path: path, body: body, headers: headers,
+		retry: method == http.MethodGet || headers["Idempotency-Key"] != ""}, out)
+	return err
+}
+
 func (c *Client) do(ctx context.Context, r request, out any) (http.Header, error) {
 	c.checkTransport()
 	var payload []byte
