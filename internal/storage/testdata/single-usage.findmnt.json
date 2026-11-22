@@ -1,0 +1,10 @@
+{
+   "filesystems": [
+      {
+         "source": "/dev/loop2",
+         "fstype": "btrfs",
+         "options": "rw,relatime,ssd,discard=async,space_cache=v2,subvolid=5,subvol=/",
+         "uuid": "d1aaeb24-1cab-4a52-803c-8b36f5a73d92"
+      }
+   ]
+}
