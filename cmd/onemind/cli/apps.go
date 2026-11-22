@@ -61,9 +61,9 @@ func appsCommands(a *App) []*cobra.Command {
 				if x.Scan != nil {
 					scan = string(x.Scan.Result) + " " + age(x.Scan.ScannedAt, time.Now()) + " ago"
 				}
-				rows = append(rows, []string{x.Id, deref(x.Name), deref(x.Version), dash(deref(x.Category)), tier, scan, x.Status})
+				rows = append(rows, []string{x.Id, deref(x.Name), deref(x.Version), dash(deref(x.Category)), tier, scan, aiPolicyName(x), x.Status})
 			}
-			return table(a.Stdout, "ID\tNAME\tVERSION\tCATEGORY\tTIER\tSCAN\tSTATUS", rows)
+			return table(a.Stdout, "ID\tNAME\tVERSION\tCATEGORY\tTIER\tSCAN\tAI\tSTATUS", rows)
 		},
 	}
 	list.Flags().BoolVar(&installed, "installed", false, "only installed apps")
@@ -119,7 +119,34 @@ func appFacts(x *onemind.CatalogApp) [][2]string {
 		{"id", x.Id}, {"name", deref(x.Name)}, {"version", deref(x.Version)}, {"category", dash(deref(x.Category))},
 		{"description", deref(x.Description)}, {"licence", dash(deref(x.License))}, {"source", dash(deref(x.Source))},
 		{"archs", strings.Join(x.Archs, ", ")}, {"web", web}, {"tier", tier}, {"scan", scan}, {"status", x.Status},
+		{"ai policy", aiPolicyMeaning(aiPolicyName(*x))},
 	}
+}
+
+// aiPolicyName is the app's aiPolicy (#165) as GET /v1/apps sends it, or "none" when it declares none.
+func aiPolicyName(x onemind.CatalogApp) string {
+	if x.AiPolicy == nil {
+		return "none"
+	}
+	return string(*x.AiPolicy)
+}
+
+func aiPolicyMeaning(name string) string {
+	if text, ok := aiPolicyText[name]; ok {
+		return text
+	}
+	return name
+}
+
+// aiPolicyText says what each aiPolicy means for agents and models (the gateway's ai_policy.py rule).
+var aiPolicyText = map[string]string{
+	"none":              "none declared: agents see this catalog entry, never the app's data",
+	"allowed":           "allowed: agents and models may use the app's data",
+	"consent-required":  "consent-required: nothing goes to AI until the owner consents",
+	"official-mcp-only": "official-mcp-only: data reaches AI only through the provider's own MCP server",
+	"display-only":      "display-only: shown to people, never to AI",
+	"prohibited":        "prohibited: never shown to AI",
+	"unknown":           "unknown value in the manifest: treated as deny",
 }
 
 // requestCommand is `apps install` / `apps remove`: request, then (owners) approve in the same

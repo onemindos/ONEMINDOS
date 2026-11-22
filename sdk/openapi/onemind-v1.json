@@ -1328,6 +1328,26 @@
       "CatalogApp": {
         "description": "One GET /v1/apps entry: the §3 fields plus links, tier and scan (§11.4).",
         "properties": {
+          "aiPolicy": {
+            "anyOf": [
+              {
+                "enum": [
+                  "allowed",
+                  "consent-required",
+                  "official-mcp-only",
+                  "display-only",
+                  "prohibited",
+                  "unknown"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "#165: may this app's data go to an AI. null when the manifest declares none: agents see the catalog entry, never the app's data. Health and wellness apps default to display-only; unknown is a declared value the gateway does not know, treated as deny",
+            "title": "Aipolicy"
+          },
           "archs": {
             "items": {
               "type": "string"

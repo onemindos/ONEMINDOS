@@ -22,7 +22,7 @@ from pydantic import ValidationError
 
 from .. import __version__
 from ..actions import APP_CLAIMS, ActionParams, ActionRequest
-from ..ai_policy import catalog_visible_to_ai
+from ..ai_policy import catalog_visible_to_ai, shown_policy, summary_policy, withhold_app_data
 from ..auth import Principal
 from ..errors import ApiError
 from .limits import Limits
@@ -293,7 +293,8 @@ class Catalogue:
             rows = [a for a in rows if a.get("category") == category]
         if installed is not None:
             rows = [a for a in rows if bool(a.get("installed")) is installed]
-        return rows
+        # aiPolicy shown exactly as GET /v1/apps shows it (models.CatalogApp).
+        return [{**a, "aiPolicy": shown_policy(a)} for a in rows]
 
     def t_list_apps(self, p, args):
         _args(args, {"category", "installed", "cursor"})
@@ -323,7 +324,7 @@ class Catalogue:
         rows = [a for a in self.svc.own_actions(p.id)
                 if (state is None or a["state"] == state) and (type_ is None or a["type"] == type_)]
         rows.sort(key=lambda a: a["created_at"], reverse=True)
-        s = {"actions": rows[:limit]}
+        s = {"actions": self._for_agent(rows[:limit])}
         return result(s, _under("actions", ACTION_FIELDS), _source(s, "actions", "id", "action"))
 
     def _own_action(self, p: Principal, action_id: str) -> dict | None:
@@ -338,7 +339,15 @@ class Catalogue:
         a = self._own_action(p, action_id)
         if a is None:  # someone else's action looks exactly like a missing one
             return refusal("not_found", "no such action among your requests")
+        a = self._for_agent([a])[0]
         return result(a, ACTION_FIELDS, _source(a, "", "id", "action"))
+
+    def _for_agent(self, rows: list[dict]) -> list[dict]:
+        """aiPolicy (#165) before any action leaves: an app's tool output reaches the agent only when
+        the app's catalog policy allows app data to go to an AI. An app outside the catalog has none."""
+        apps = {a.get("id"): a for a in self.svc.list_apps()}
+        return [withhold_app_data(a, summary_policy(apps.get((a.get("params") or {}).get("app_id"))))
+                for a in rows]
 
     def t_search_audit(self, p, args):
         _args(args, {"event", "since", "until", "after_seq", "limit"})

@@ -82,10 +82,21 @@ def decide(policy: object, destination: str, *, consented: bool = False) -> Deci
     return Decision(False, f"aiPolicy {policy}")
 
 
-def decide_for_manifest(manifest: dict, destination: str, *, consented: bool = False) -> Decision:
+def manifest_policy(manifest: dict) -> object:
+    """The app's policy as decide() takes it: ABSENT when the manifest declares none and no
+    sensitive-category default applies. Explicit values (null too) are passed on unchanged."""
     spec = manifest.get("spec") or {}
-    policy = catalog_policy(manifest) if ("aiPolicy" in spec or catalog_policy(manifest) is not None) else ABSENT
-    return decide(policy, destination, consented=consented)
+    policy = catalog_policy(manifest)
+    return policy if ("aiPolicy" in spec or policy is not None) else ABSENT
+
+
+def summary_policy(summary: dict | None) -> object:
+    """The same policy read back from a catalog summary row (catalog.CatalogEntry.summary)."""
+    return ABSENT if summary is None else summary.get("aiPolicy", ABSENT)
+
+
+def decide_for_manifest(manifest: dict, destination: str, *, consented: bool = False) -> Decision:
+    return decide(manifest_policy(manifest), destination, consented=consented)
 
 
 def require(manifest: dict, destination: str, *, consented: bool = False) -> None:
@@ -99,3 +110,45 @@ def catalog_visible_to_ai(summary: dict) -> bool:
     # Absence retains legacy catalog metadata only; it must never authorize
     # future access to an app's provider data. Explicit unknown values fail closed.
     return decide(summary.get("aiPolicy", ABSENT), CATALOG).allowed
+
+
+# ---- App data handed to an agent (#165) ---------------------------------------------------------
+# One rule for both agent surfaces: what a gateway MCP tool returns and what an agent reads over
+# REST are the same destination, app data given to an AI (MCP_TOOL). Absent, unknown and every
+# restrictive policy deny it; only "allowed" passes until owner consent records exist. The MCP
+# tools call it now; the agent REST readers of action results and plugin read tools
+# (routers/actions.py, routers/plugin_tools.py) are to call the same functions (#165 follow-up).
+
+def app_data_to_agent(policy: object) -> Decision:
+    return decide(policy, MCP_TOOL)
+
+
+def withhold_app_data(action: dict, policy: object) -> dict:
+    """The action as an agent may see it. A tool's output (`result.steps[].output`, written by the
+    app's own backend: plugins/tools.py) is the app's data, so it is removed unless the app's
+    aiPolicy lets app data reach an AI. The outcome, message and the gateway's own steps stay, so
+    the agent still learns whether its request ran."""
+    result = action.get("result")
+    steps = result.get("steps") if isinstance(result, dict) else None
+    if not isinstance(steps, list) or not any(isinstance(s, dict) and "output" in s for s in steps):
+        return action
+    decision = app_data_to_agent(policy)
+    if decision.allowed:
+        return action
+    clean = [{**{k: v for k, v in s.items() if k != "output"}, "output_withheld": decision.reason}
+             if isinstance(s, dict) and "output" in s else s for s in steps]
+    return {**action, "result": {**result, "steps": clean}}
+
+
+UNKNOWN = "unknown"  # shown for a declared value the gateway does not know (treated as deny)
+
+
+def policy_label(value: object) -> str:
+    """The aiPolicy as GET /v1/apps shows it: a known policy name, else "unknown"."""
+    return value if isinstance(value, str) and value in POLICIES else UNKNOWN
+
+
+def shown_policy(summary: dict) -> str | None:
+    """The same value for a summary row that MCP returns: null when nothing is declared."""
+    policy = summary_policy(summary)
+    return None if policy is ABSENT else policy_label(policy)

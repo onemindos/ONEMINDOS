@@ -5,7 +5,9 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+from .ai_policy import policy_label
 
 
 class AppLinks(BaseModel):
@@ -65,6 +67,12 @@ class CatalogApp(BaseModel):
     web_port: int | None
     browser: bool = Field(default=False, description="A browser app (#692): open it with POST /v1/browsers/{app_id}/session, "
                           "which gives the person their own profile; its own app name is never served")
+    ai_policy: Literal["allowed", "consent-required", "official-mcp-only", "display-only", "prohibited", "unknown"] | None = Field(
+        default=None, alias="aiPolicy",
+        description="#165: may this app's data go to an AI. null when the manifest declares none: agents see the "
+        "catalog entry, never the app's data. Health and wellness apps default to display-only; unknown is a "
+        "declared value the gateway does not know, treated as deny",
+    )
     installed: bool
     status: str = Field(
         description="not_installed | installing | installed | stopped | starting | stopping | restarting | "
@@ -89,3 +97,9 @@ class CatalogApp(BaseModel):
     catalog_source: CatalogSource | None = Field(
         default=None, description="§12.22: the community source and pinned commit; null for the official catalog"
     )
+
+    @field_validator("ai_policy", mode="before")
+    @classmethod
+    def _known_ai_policy(cls, value: object) -> str:
+        # Runs only when the row carries aiPolicy; a malformed manifest value must not break the list.
+        return policy_label(value)
