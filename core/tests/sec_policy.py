@@ -244,6 +244,8 @@ POLICY |= {
     ("GET", "/v1/apps/{app_id}/metrics"): Row(CHILD_CANNOT, w.p_static(f"/v1/apps/{w.TARGET_APP}/metrics"),
                                               "§12.15 any principal, sharing applies; a child has no monitoring:read"),
     ("GET", "/v1/nodes/{node_id}/metrics"): Row(CHILD_CANNOT, w.p_node_metrics, "§12.15; a child has no monitoring:read"),
+    ("GET", "/v1/metrics"): Row(CHILD_CANNOT, w.p_static("/v1/metrics"),
+                                "Prometheus text of node, app and alert numbers; a child has no monitoring:read"),
     ("GET", "/v1/monitoring/summary"): Row(CHILD_CANNOT, w.p_static("/v1/monitoring/summary"),
                                            "§12.15; a child has no monitoring:read"),
     # UMB-P11 (#429): the heartbeat numbers /v1/nodes shows plus per-app usage; sharing filters the apps.
