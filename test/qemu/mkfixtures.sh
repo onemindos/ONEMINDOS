@@ -44,7 +44,7 @@ bundle() { # $1 ext4 name, $2 version, $3 out name, $4 key prefix, $5 format
 
 log "slot A image v1 and the disk"
 ext4 v1
-$A disk --board "$BOARD" --work "$W" --system "$W/v1.ext4" --out "$OUT/disk.img"
+$A disk --board "$BOARD" --work "$W" --system "$W/v1.ext4" --out "$OUT/disk.img" ${DATA_FS:+--data-fs "$DATA_FS"}
 rm -f "$W/v1.ext4"
 
 log "variants"

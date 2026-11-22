@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 //! Gateway client: the routes in sdk/contracts/poc-v0.md §3, plus the §12 reads the tray uses
-//! (`/v1/me`, `/v1/notifications`, `/v1/os/status`, `/v1/backups/status`). A §12 route exists
+//! (`/v1/me`, `/v1/notifications`, `/v1/os/updates`, `/v1/backups/status`). A §12 route exists
 //! only once its module ships (§12 "Compatibility"), so a 404 on one is shown as "not reported
 //! by this box", never as an error and never as "all good".
 
@@ -149,6 +149,44 @@ pub struct Backups {
     pub last_success_at: Option<String>,
 }
 
+/// One open alert from `GET /v1/alerts?state=open` (contract §12.14), reduced to what the tray shows.
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub struct Alert {
+    pub id: String,
+    /// `info | warning | critical`; anything else is read as `info`.
+    pub severity: String,
+    pub title: String,
+    /// `open | acknowledged`.
+    pub state: String,
+    /// A path on the box's dashboard; opened only on the box's own origin.
+    pub link: Option<String>,
+}
+
+/// OS slot and update state from `GET /v1/os/updates`: the first node that runs an update service
+/// (a one-box home has one; the dashboard shows the rest).
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub struct OsState {
+    pub version: Option<String>,
+    /// The A/B slot the node booted from (`A`/`B`, as RAUC names it).
+    pub booted_slot: Option<String>,
+    /// `idle | checking | downloading | installing | pending_reboot | committed | rolled_back | unknown ...`, as the box says it.
+    pub state: Option<String>,
+    pub available_version: Option<String>,
+    pub nodes: usize,
+}
+
+/// Data-set health from `GET /v1/storage`. `available: false` means this box has no managed storage.
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub struct StorageState {
+    pub available: bool,
+    pub state: Option<String>,
+    pub used_bytes: Option<u64>,
+    pub total_bytes: Option<u64>,
+    pub members: usize,
+    pub missing: usize,
+    pub needs_scrub: bool,
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct Status {
     pub box_id: String,
@@ -167,6 +205,12 @@ pub struct Status {
     /// Unread items of `GET /v1/notifications` (§12.14). `None`: no inbox on this box, or the
     /// token is not a person's (only people have an inbox).
     pub inbox: Option<Vec<inbox::Item>>,
+    /// Open alerts (`GET /v1/alerts`). `None`: this box does not serve the route.
+    pub alerts: Option<Vec<Alert>>,
+    /// `None`: no `/v1/os/updates` on this box, or no node reports an update service.
+    pub os: Option<OsState>,
+    /// `None`: no `/v1/storage` on this box.
+    pub storage: Option<StorageState>,
     /// Unix seconds when this was read, so the UI can say "from 3 min ago".
     pub fetched_at: u64,
 }
@@ -234,14 +278,26 @@ pub fn parse_pending(actions: &Value) -> Vec<Pending> {
         .collect()
 }
 
-/// §12.13 `GET /v1/os/status`: one entry per node, the heartbeat `update` object plus
-/// `available: {version, security} | null`. Older drafts nested it under `update`.
+/// What the gateway serves for OS updates: `GET /v1/os/updates` answers `{nodes: [...], install}`.
+/// (`/v1/os/status`, an older draft's name, is not a gateway route and answered 404.)
+pub const UPDATES_PATH: &str = "/v1/os/updates";
+
+/// The gateway's `GET /v1/os/updates`: one entry per node with `reported` (does it run an update
+/// service) and `available_version` (the update on offer, or null). It does not say whether an
+/// update is a security one, so `security` stays false there. Older drafts' shapes are still read:
+/// the heartbeat `update` object, and `available: {version, security} | null`.
 pub fn parse_updates(v: &Value) -> Updates {
-    let nodes = items(v);
+    let mut nodes = items(v);
+    // Nodes that run no update service say nothing about updates; do not count them as reporting.
+    nodes.retain(|n| n.get("reported").and_then(|r| r.as_bool()) != Some(false));
     let mut available = 0;
     let mut security = false;
     for n in &nodes {
         let u = n.get("update").unwrap_or(n);
+        if s(n, "available_version").is_some() {
+            available += 1;
+            continue;
+        }
         if let Some(a) = u.get("available").filter(|a| !a.is_null()) {
             available += 1;
             security |= a.get("security").and_then(|x| x.as_bool()).unwrap_or(false);
@@ -265,11 +321,65 @@ pub fn parse_backups(v: &Value) -> Backups {
     Backups { health: "unknown".into(), last_success_at: None }
 }
 
+pub fn parse_alerts(v: &Value) -> Vec<Alert> {
+    items(v)
+        .iter()
+        .filter_map(|a| {
+            let id = s(a, "id").filter(|i| safe_id(i))?;
+            let state = s(a, "state").unwrap_or_else(|| "open".into());
+            if state != "open" && state != "acknowledged" {
+                return None;
+            }
+            Some(Alert {
+                id,
+                severity: s(a, "severity").filter(|x| matches!(x.as_str(), "info" | "warning" | "critical")).unwrap_or_else(|| "info".into()),
+                title: clip(&s(a, "title").unwrap_or_else(|| "Alert".into()), 200),
+                state,
+                link: s(a, "link").map(|l| clip(&l, 500)),
+            })
+        })
+        .collect()
+}
+
+/// `GET /v1/os/updates` is `{nodes: [...], install}`; each node has `rauc.booted_slot` and the
+/// update service's `state`, `current_version`, `available_version` (`reported: false` when the
+/// node runs none). Picks the first reporting node. `None` when none reports.
+pub fn parse_os(v: &Value) -> Option<OsState> {
+    let nodes = items(v);
+    let n = nodes.iter().find(|n| n.get("reported").and_then(|x| x.as_bool()) == Some(true))?;
+    let slot = n.get("rauc").and_then(|r| s(r, "booted_slot")).map(|x| clip(&x, 40));
+    Some(OsState {
+        version: s(n, "current_version").map(|x| clip(&x, 60)),
+        booted_slot: slot,
+        state: s(n, "state").map(|x| clip(&x, 40)),
+        available_version: s(n, "available_version").map(|x| clip(&x, 60)),
+        nodes: nodes.len(),
+    })
+}
+
+/// `GET /v1/storage`: `{enabled, available, state, used_bytes, members: [{missing, size_bytes}], needs_scrub}`.
+pub fn parse_storage(v: &Value) -> StorageState {
+    let members = v.get("members").and_then(|m| m.as_array()).cloned().unwrap_or_default();
+    let missing = members.iter().filter(|m| m.get("missing").and_then(|x| x.as_bool()) == Some(true)).count();
+    let total: u64 = members.iter().filter_map(|m| m.get("size_bytes").and_then(|x| x.as_u64())).sum();
+    StorageState {
+        available: v.get("available").and_then(|x| x.as_bool()).unwrap_or(false),
+        state: s(v, "state").map(|x| clip(&x, 40)),
+        used_bytes: v.get("used_bytes").and_then(|x| x.as_u64()),
+        total_bytes: if total > 0 { Some(total) } else { None },
+        members: members.len(),
+        missing,
+        needs_scrub: v.get("needs_scrub").and_then(|x| x.as_bool()).unwrap_or(false),
+    }
+}
+
 /// Pending approvals only (§12.4 filter; older gateways ignore the query and send everything,
 /// which `parse_pending` filters again).
 pub const PENDING_PATH: &str = "/v1/actions?state=awaiting_approval&limit=50";
 /// The newest unread inbox items (§12.14).
 pub const INBOX_UNREAD_PATH: &str = "/v1/notifications?unread=true&limit=20";
+/// Open and acknowledged alerts the token may see (§12.14).
+pub const ALERTS_PATH: &str = "/v1/alerts?state=open";
 
 pub async fn status(c: &reqwest::Client, box_id: &str, base: &str, token: &str) -> Status {
     let mut st = Status {
@@ -285,17 +395,23 @@ pub async fn status(c: &reqwest::Client, box_id: &str, base: &str, token: &str) 
         backups: None,
         me: None,
         inbox: None,
+        alerts: None,
+        os: None,
+        storage: None,
         fetched_at: now(),
     };
     let t = Some(token);
-    let (inst, nodes, actions, upd, bk, me, ntf) = tokio::join!(
+    let (inst, nodes, actions, upd, bk, me, ntf, alr, osu, sto) = tokio::join!(
         get(c, base, t, "/v1/instance"),
         get(c, base, t, "/v1/nodes"),
         get(c, base, t, PENDING_PATH),
-        get(c, base, t, "/v1/os/status"),
+        get(c, base, t, UPDATES_PATH),
         get(c, base, t, "/v1/backups/status"),
         get(c, base, t, "/v1/me"),
         get(c, base, t, INBOX_UNREAD_PATH),
+        get(c, base, t, ALERTS_PATH),
+        get(c, base, t, "/v1/os/updates"),
+        get(c, base, t, "/v1/storage"),
     );
     match inst {
         Ok(Some(i)) => {
@@ -331,6 +447,15 @@ pub async fn status(c: &reqwest::Client, box_id: &str, base: &str, token: &str) 
     }
     if let Ok(Some(n)) = ntf {
         st.inbox = Some(inbox::parse(&n).into_iter().filter(|i| i.read_at.is_none()).collect());
+    }
+    if let Ok(Some(a)) = alr {
+        st.alerts = Some(parse_alerts(&a));
+    }
+    if let Ok(Some(o)) = osu {
+        st.os = parse_os(&o);
+    }
+    if let Ok(Some(x)) = sto {
+        st.storage = Some(parse_storage(&x));
     }
     st
 }
@@ -386,9 +511,57 @@ mod tests {
     }
 
     #[test]
+    fn updates_read_the_gateway_route() {
+        // GET /v1/os/updates, as core/onemind_core/osupdate.py node_view builds it.
+        assert_eq!(UPDATES_PATH, "/v1/os/updates");
+        let v = json!({"nodes": [
+            {"node_id": "hub", "reported": true, "available_version": "0.4.0", "current_version": "0.3.0"},
+            {"node_id": "pi", "reported": true, "available_version": null, "current_version": "0.4.0"},
+            {"node_id": "old", "reported": false, "available_version": null}
+        ], "install": {"available": false}});
+        let u = parse_updates(&v);
+        // The node without an update service is not "reporting"; one update is on offer; security is not said.
+        assert_eq!((u.nodes_reporting, u.available, u.security), (2, 1, false));
+    }
+
+    #[test]
     fn backups_both_drafts() {
         assert_eq!(parse_backups(&json!({"health": "stale"})).health, "stale");
         assert_eq!(parse_backups(&json!({"box": {"state": "verified"}})).health, "verified");
+    }
+
+    #[test]
+    fn alerts_keep_open_ones_with_safe_ids() {
+        let v = json!([
+            {"id": "alr_1", "severity": "critical", "title": "Disk failing", "state": "open", "link": "/storage"},
+            {"id": "alr_2", "severity": "loud", "title": "Seen", "state": "acknowledged"},
+            {"id": "alr_3", "title": "Done", "state": "resolved"},
+            {"id": "../x", "title": "bad", "state": "open"}
+        ]);
+        let a = parse_alerts(&v);
+        assert_eq!(a.len(), 2);
+        assert_eq!((a[0].severity.as_str(), a[0].link.as_deref()), ("critical", Some("/storage")));
+        assert_eq!(a[1].severity, "info");
+    }
+
+    #[test]
+    fn os_state_comes_from_the_first_reporting_node() {
+        let v = json!({"nodes": [
+            {"node_id": "n0", "reported": false, "rauc": {"booted_slot": null}},
+            {"node_id": "n1", "reported": true, "state": "idle", "current_version": "0.4.1", "available_version": "0.4.2", "rauc": {"present": true, "booted_slot": "A"}}
+        ], "install": {}});
+        let o = parse_os(&v).unwrap();
+        assert_eq!((o.booted_slot.as_deref(), o.state.as_deref(), o.available_version.as_deref(), o.nodes), (Some("A"), Some("idle"), Some("0.4.2"), 2));
+        assert!(parse_os(&json!({"nodes": [{"node_id": "n0", "reported": false}]})).is_none());
+    }
+
+    #[test]
+    fn storage_sums_members_and_counts_missing() {
+        let v = json!({"enabled": true, "available": true, "state": "degraded", "used_bytes": 100, "needs_scrub": true,
+            "members": [{"devid": 1, "missing": false, "size_bytes": 500}, {"devid": 2, "missing": true, "size_bytes": 500}]});
+        let st = parse_storage(&v);
+        assert_eq!((st.available, st.members, st.missing, st.total_bytes, st.needs_scrub), (true, 2, 1, Some(1000), true));
+        assert!(!parse_storage(&json!({"enabled": false, "available": false})).available);
     }
 
     #[test]

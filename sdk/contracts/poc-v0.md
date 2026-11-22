@@ -496,7 +496,10 @@ All optional. **Absent means "this agent does not report it", never "false" or "
 "storage": {"state": "protected", "mount": "/data", "used_bytes": 0, "free_bytes": 0,
             "needs_scrub": false, "reasons": []},
 "fabric":  {"role": "worker", "leaf_link": "up", "outbox_pending": 0, "cert_expires_at": "…"},
-"metrics": {"cpu_pct": 12.5, "load1": 0.52, "temp_c": 61.3}
+"metrics": {"cpu_pct": 12.5, "load1": 0.52, "temp_c": 61.3},
+"images":  {"count": 12, "bytes": 0, "superseded_bytes": 0, "disk_used_pct": 41.5, "budget_pct": 80,
+            "warn_pct": 70, "last_cleanup_at": "…", "last_result": "succeeded", "last_removed": 0,
+            "last_freed_bytes": 0}
 ```
 - `update` is exactly the struct in `internal/heartbeat` (PR #15): `state` is `idle|downloading|installing|pending_reboot|trial|committed|rolled_back|error`; `available_version` and `last_check` may be null.
 - `mesh.state` is `up|down|none`, `mesh.path` is `direct|relayed|none`. Mesh addresses are never in the heartbeat; the gateway reads them from the coordinator.
@@ -504,6 +507,7 @@ All optional. **Absent means "this agent does not report it", never "false" or "
 - `storage.state` is `protected|unprotected|degraded|unavailable|unsupported` (`internal/storage`); `reasons` are short slugs; disks are reported only through the owner-only storage API, never in the heartbeat.
 - `fabric.role` is `hub|worker|leaf` (the top-level §2 `role` stays `hub|node`); `leaf_link` is `up|down|none`.
 - `metrics` (added 2026-11-12, CORE-NOTIFY monitoring): `cpu_pct` is busy time since the previous heartbeat, `load1` the 1-minute load average, `temp_c` the hottest thermal zone; each may be null.
+- `images` (added 2026-11-19, NMD-08 #133): the hub's image cleaner (`onemindd images`, `internal/imagegc`). `last_result` is `succeeded|partial|skipped|failed|none`; `last_cleanup_at` may be null; `disk_used_pct` is 0 when the disk could not be read. The gateway opens `disk.budget_near` (topic `storage`) when `disk_used_pct` reaches `warn_pct` and resolves it (`disk.budget_ok`) 2 points below.
 - The gateway adds `received_at` and `clock_skew_s` when it serves nodes; they are not in the published heartbeat.
 
 ### 12.11 Fabric: join ticket → node request → owner approval
@@ -517,8 +521,9 @@ All optional. **Absent means "this agent does not report it", never "false" or "
 | `POST /v1/fabric/nodes/{node_id}/renew` | that node, mutual TLS | `{csr_pem}` → `{node_cert}`; `403` if removed |
 | `GET /v1/fabric` | `fabric:read` | `{hub_node_id, counts: {hub, worker, leaf}, nodes: [{node_id, role, state, leaf_link, mesh, outbox_pending, cert_expires_at}]}` |
 | `POST /v1/nodes/{node_id}/drain`, `/remove`, `/labels` | `fabric:request` | `202` with `node.drain`, `node.remove`, `node.label` |
-| `GET /v1/apps/{id}/placement` | any principal | `[{node_id, verdict: fits\|fits_with_warning\|no, reasons}]` |
+| `GET /v1/apps/{id}/placement` | `nodes:read` (it names the machines; a child has none) | `{app_id, verdict: here\|elsewhere\|nowhere\|unknown, node_id, message, nodes: [{node_id, role, verdict: fits\|fits_with_warning\|no, labels, reasons: [{code, message, blocking}]}]}` (CORE-FABRIC-4) |
 
+- Placement (CORE-FABRIC-4): each node's capability `labels` come from its heartbeat (`onemind.io/arch`, `/board`, `/role`, `/cpu-level`, `/gpu` = `nvidia|none`, `/kvm`, `/memory-mb`); a fact the node does not report gives no label. A node is checked against the app's `spec.archs` and `spec.requires` (`gpu`, `minMemoryMb`, `cpuLevel`); a node without a reported GPU never runs an app that needs one. The best node is a clean fit before a warning, then the hub, then the most free memory: `here` is the hub, `elsewhere` another machine. `app.install` and `app.update` are refused (`409 stale_precondition`, reason `no_node_fits`) when the verdict is `nowhere`; `unknown` (no node reported) refuses nothing. `spec.requires.gpuCount` (default 1) and `minVramMb` are checked against the heartbeat's optional `gpu.count` and `gpu.vram_mb` (the smallest card); a number the node did not report is refused, not assumed. An app needing at least a quarter of the hub's memory is heavy there: the hub gets a warning (`hub_heavy`), so a worker that fits cleanly wins, but the hub still takes it when no other machine can. `app.install` and `app.update` write the winner into the pod templates before the sandbox check (`nodeSelector kubernetes.io/hostname` when it is not the hub; `runtimeClassName: nvidia` and an `nvidia.com/gpu` limit on the first container for a GPU app) and into the plan (`plan.nodes`, hashed), so an approval covers that machine.
 - The approval card shows board, arch, OS, hostname and the ticket's labels; never serials, MAC or IP addresses. The node becomes principal `node:<node_id>` with `nodes:report` only after approval. `node.join` succeeds on the first authenticated heartbeat (and, for a worker, k3s `Ready`).
 - `GET /v1/nodes` and `/v1/nodes/{id}` gain `role`, `state` (`joining|online|degraded|stale|offline|draining|drained|removed`), `degraded_reasons`, `received_at`, `clock_skew_s`, `apps` and filters `?status&role&limit&cursor`. §3's `status` keeps `online|stale|offline`.
 - **Job** (`onemind.job/v1`): `{schema, job_id, action_id, kind, params, params_sha256, issued_at, expires_at, sig}` signed Ed25519 with the gateway's job key. Kinds: `backup.run`, `backup.restore`, `backup.verify`, `backup.prune`, `backup.snapshot.delete`, `update.check`, `update.apply`, `update.postpone`, `update.settings`, `os.rollback`, `node.leave`, `node.renew`, `host.check`, `system.restart_unit`. A node refuses (and reports `failed` with `reason`) a bad signature, an expired job, a `job_id` it has seen, or an unknown kind.
@@ -536,6 +541,8 @@ All optional. **Absent means "this agent does not report it", never "false" or "
 | `DELETE /v1/backups/snapshots/{id}` | owner | `202` with `backup.snapshot.delete` |
 | `POST /v1/backups/verify` | `backups:request` | `202` with `backup.verify` |
 | `GET /v1/backups/verifications` | `backups:read` | `[{id, snapshot_id, unit, mode, result: pass\|fail, probes, started_at, finished_at}]` |
+| `GET /v1/backups/content` | `backups:read` | apps with `spec.backup.content` (BAK-03): `[{app_id, name, patterns, enabled, size_bytes, files, missing_volumes, measured_at, enabled_at, enabled_size_bytes}]`; the size is measured now by the agent (`backup.content.size` job) |
+| `POST /v1/backups/content` | owner (`backups:admin`) | `{app_id, enabled, seen_size_bytes?}` → `202` with `backup.content.set`; switching on needs `seen_size_bytes` (else `422 size_not_seen`) no more than 10 % or 1 GiB below today's size (else `409 size_changed`). App snapshots carry the tag `content=included\|excluded`, and a restore plan says `content` |
 | `POST /v1/restores` | `backups:request` (agents only with the explicit grant) | `202` with `backup.restore` (always `destructive`) |
 | `GET /v1/restores`, `/restores/{id}` | `backups:read` | `{id, state, action_id, snapshot_id, scope, mode, target, started_at, finished_at, health_gate: {verdict, probes}}`; a restore whose fresh-signal gate fails ends `failed`, never `succeeded` |
 | `POST /v1/onboarding/restore/candidates` | **setup mode only** (no owner yet), from the LAN | `{destination: {kind, config, sealed}, sealed_owner_key}` → `[{instance_id, box_name, generation, restore_points: [{run_id, taken_at, units, arch, k3s_version}]}]`; a box restore chosen here is recorded as the first audit entries of the restored box (`owner_initiated: true`, `phase: onboarding`) |
@@ -638,7 +645,7 @@ Triggers: exactly one of `{"schedule": {"cron", "tz"}}` (5 fields, at most once 
 ### 12.18 Deployments and manifest additions
 - `GET /v1/apps/{id}/revisions` (owner, adult, agent) → `[{n, created_at, source, images, plan_sha256, action_id, committed}]`; `GET /v1/apps/{id}/revisions/{n}` (owner) → the rendered objects.
 - `POST /v1/deploy/bundles` (owner, or a token with `deploy:write`) takes `application/x-tar` ≤ 64 MiB → `201 {sha256, app_id, manifest, images_lock, findings}`; it refuses unpinned images. Installing a bundle is `app.install` with `bundle_sha256`, never policy-approved, and needs a passing on-box scan (§11.1, F-7).
-- **Manifest** (`sdk/schema/onemind.app.schema.json` follows): `spec.health: {http: {port, path, expect}, deadline_s ≤ 1800}`; `spec.migrations: reversible|irreversible`; `spec.backup: {mode: hot|cold, pre, post, sqlite, exclude, restore: {post}, verify: {http}}`; `spec.settings: [{name, type, default, description, env}]`; `spec.secrets: [{name, description?, keys: [{key, kind?: api-key|password|token|url, description, required?, generate?}]}]` (values are never in the manifest; the sealed-input construction and the store are in `docs/leap/core/SECRETS.md`); `spec.components: [{name, workload, health}]`; `spec.agent` and `spec.plugin` (§12.6). `metadata.origin: market|private` is set by the gateway, never by hand. Every `exec.command` is an argv list run in the named container through the Kubernetes API; no host shell is involved.
+- **Manifest** (`sdk/schema/onemind.app.schema.json` follows): `spec.health: {http: {port, path, expect}, deadline_s ≤ 1800}`; `spec.migrations: reversible|irreversible`; `spec.backup: {mode: hot|cold, pre, post, sqlite, exclude, content, restore: {post}, verify: {http}}` (`content`: re-downloadable content patterns, the optional content tier of §12.12, BAK-03); `spec.settings: [{name, type, default, description, env}]`; `spec.secrets: [{name, description?, keys: [{key, kind?: api-key|password|token|url, description, required?, generate?}]}]` (values are never in the manifest; the sealed-input construction and the store are in `docs/leap/core/SECRETS.md`); `spec.components: [{name, workload, health}]`; `spec.agent` and `spec.plugin` (§12.6). `metadata.origin: market|private` is set by the gateway, never by hand. Every `exec.command` is an argv list run in the named container through the Kubernetes API; no host shell is involved.
 
 ### 12.19 MCP additions (extends §11.3)
 Still `kind: agent` only and still **no approve, deny, policy, grant or token tool**. Tools are generated from operations tagged `x-onemind-mcp`; CI fails if an operation with `actions:approve` or any `:admin` scope is tagged. New tools: `get_action` (`GET /v1/actions/{id}`), `list_alerts` (`GET /v1/alerts?state=open`), `backup_status` (`GET /v1/backups/status`), `app_status` (`GET /v1/apps/{id}` without settings values), `app_logs` (`GET /v1/apps/{id}/logs?tail=200`, only with `logs:read:<app-id>`), `list_automations` (`GET /v1/automation/rules`), `preview_action` (`POST /v1/plans`), `withdraw_action` (`POST /v1/actions/{id}/cancel`, own requests), `propose_automation` (files `automation.rule.create`). `request_action` accepts every type §12.5 lets the agent's grant request, with `params` in place of only `app_id`. `tools/list` shows only the tools the grant allows.
@@ -753,3 +760,126 @@ approval; §12.40 lifecycle and §12.12 approval/security controls are unchanged
 - **Credentials (PD-07).** A manifest may declare `spec.credentials: {username?, password: generated, showBeforeOpen?}`. The gateway generates the password at the first install, stores it sealed (AES-256-GCM, key file beside the audit log) and hands it to the executor for Secret `<id>-credentials`. `GET /v1/apps/{id}/credentials` returns `{username, password}` to the owner only (`403` and `authz.denied` for anyone else, never an agent; `Cache-Control: no-store`; audited as `app.credentials.revealed` without the value). It survives `app.remove` and is erased by `app.delete_data`.
 - **Request limits by kind.** An agent may request `app.start|stop|restart|update|configure|remove` (no `sealed`), never `app.delete_data`; approval is owner-only as in §3.
 
+
+### Plugin registry read API (DEV-PLG-3, #178, first slice)
+
+`GET /v1/plugins` and `GET /v1/plugins/{plugin_id}` require `apps:read` and apply
+the Market sharing filters. They return installed/stopped tool-backed plugin
+summaries: `id`, `name`, `installed_version`, `status`. The version comes from
+the persisted runtime receipt; null means no receipt exists. Missing, uninstalled,
+non-plugin and unshared IDs are 404. No credential or execution authority is
+created; principal issuance and approved tool dispatch are later slices.
+
+### Plugin tool manifest foundation (DEV-PLG-1, #177)
+
+An App may add `spec.extensions.tools`, `spec.plugin`, `spec.permissions` and
+`spec.compat`, as specified in `docs/leap/dev/PLUGIN-SDK.md` §4–5. The phase-1
+validator accepts tool-backed plugins with optional UI and event declarations.
+Backend-free declarative-only plugins await an App-contract-compatible slice. Tools require a backend, a plugin principal and a
+valid compatibility range. Tool inputs and outputs are closed JSON Schemas;
+remote schema references are forbidden. Permissions are read grants or requests
+for specific action types, never approval or administration grants. Write and
+destructive tools declare effects; execution still requires owner approval.
+
+`onemind plugin validate [dir]` uses `internal/plugin/validate`, the offline Go
+package shared by box tooling and CI. It checks the existing app schema plus
+plugin tool declarations. A passing manifest check is not artifact verification
+or install authorization. Widening comparisons and supply-chain verification remain separate
+validation slices before #177 is done.
+
+The CLI validates the unpacked directory with `validate.Directory`: the manifest
+and icon must be regular files, the declared manifests path must be a directory,
+and no declared path component or workload-tree entry may be a symlink or special
+file. All declared paths stay below the bundle root. This check assumes immutable
+contents during validation/install; it does not extract archives, inspect workload
+permissions or verify signatures.
+
+Box callers can use `ManifestForAPI` or `DirectoryForAPI` to check the plugin's
+`compat.onemind` range against their actual plugin API level. The CLI exposes
+this offline check with `onemind plugin validate --api-level <level> [dir]`.
+Without that flag the CLI checks range syntax only; it does not imply the
+manifest is compatible with a particular box. Explicit empty levels are errors.
+
+The event declaration slice adds optional `spec.extensions.events.publish` and
+`subscribe` arrays alongside the required tools. Published names are local
+`[a-z0-9_-]{1,40}` names only; the gateway supplies the app subject prefix.
+Subscriptions require a covering `events:subscribe:<pattern>` permission. Only
+whole-token `*` and terminal `>` wildcards are accepted; `>` matches one or more
+tokens, and bare `>` is forbidden in both subscriptions and grants. A requested
+pattern must fit inside a single grant; narrower grants are never combined to
+justify a broader subscription. These checks implement P4/P5 only: they do not
+connect plugins to NATS or replace runtime scope enforcement by the gateway.
+
+The egress declaration slice adds optional `spec.egress`, empty/absent meaning
+no internet egress grant. Entries are qualified ASCII hostnames (IDNs must use
+valid punycode), optionally prefixed with `*.`. IP literals, URL components,
+malformed labels, case-equivalent duplicates, special-use/local domains and
+unknown top-level suffixes are rejected. Wildcards must sit below a registrable
+domain according to the embedded Public Suffix List, including its private
+suffixes: `*.example.com` is permitted, `*.com` and `*.github.io` are not.
+Validation is offline and performs no DNS lookups. Runtime enforcement must
+separately reject private or rebound destination addresses; declaring egress
+never authorizes a plugin to act without owner approval.
+
+The UI declaration slice adds optional `spec.extensions.widgets`, `settings`,
+`alerts.actions` and `tiles` alongside the required tools. Template widgets name
+a declared read tool; alert actions name a declared tool and never approve it.
+Iframe widgets target the dashboard only and declare a relative entry under
+`ui/`. Settings schemas and optional tile icons use relative bundle paths, with
+no traversal, absolute paths, unsafe characters or empty path components. UI IDs
+are unique within each surface. These declarations do not execute UI code; the sandboxed widget host is #179.
+
+The directory validator checks actual iframe entry, settings-schema and tile-icon
+files with the same safe bundle-path checks. Referenced SVG/markup icons are
+scanned even outside `ui/`. Every entry under `ui/` must be a
+regular file or directory, including unreferenced entries. Settings schemas are
+JSON Schema documents compiled offline; remote/file references cannot load.
+Markup checks cover all HTML/HTM/SVG/XHTML files and every iframe entry regardless
+of suffix, require UTF-8 without NUL bytes, and reject inline `on*` handlers,
+inline scripts, remote script sources, `base` elements and embedded `srcdoc`.
+Scripts must use an HTML `src` with no inline content; SVG/href and namespaced
+script elements are refused. Sources name existing relative files inside `ui/`; URL
+components, encoded traversal and parent traversal are refused. The tokenizer
+uses browser HTML attribute semantics, including first-duplicate-wins. This is
+not a JavaScript/dependency scan and does not replace CSP or sandboxing.
+
+UI validation is bounded to 4 MiB per file, 32 MiB total and 4096 entries
+(including referenced files outside `ui/`);
+settings schemas are limited to the 256 KiB manifest limit. The unpacked tree
+must remain unchanged during validation/install; archive extraction, signatures,
+workload policy and installation approval remain separate checks.
+
+`onemind plugin validate --previous <dir>` validates both manifests and reports
+P11's informational `widens_grants` flag with sorted reasons. Comparison requires
+the same plugin ID. Added permission and egress strings, new secret name/key grants,
+changed key semantics, and new or stronger write/destructive tools widen grants.
+Display descriptions and grant removals do not. Newly added strings conservatively
+require reapproval even when an older grant might subsume them. Secret fields use
+the existing App `secrets[].keys[]` format, never secret values. A false result does
+not authorize installation or waive signatures, runtime checks or owner approval.
+
+When `--previous` compares an update, removed tools or changed effects require
+a higher plugin major version (PLUGIN-SDK.md §13). Any changed input schema is
+conservatively treated as breaking: this validator does not attempt to prove
+inclusion between arbitrary JSON Schemas. New tools and display-only changes do
+not require a major bump. This version check is separate from grant widening;
+a major bump never removes reapproval or artifact verification requirements.
+
+The standalone `sdk/schema/widget-templates.schema.json` publishes the typed
+widget result contract (PLUGIN-SDK.md §6.2); `validate.WidgetData` checks that
+same embedded schema offline. Every result is a closed object with an RFC 3339
+`observed_at`. Stat values are text or numbers; `trend`, when present, is only
+null until a numeric trend contract is specified. Lists carry title/subtitle and
+a status from `ok`, `warn`, `error`, `unknown`; progress is a number in [0, 1];
+status cards carry that state vocabulary and text. There are no host-fetchable
+URL/image fields. The future #179 host renders strings as text and marks stale
+timestamps; this schema publication adds no runtime UI route or renderer.
+
+Declarative plugin manifests may omit `spec.plugin` and `spec.manifests` when
+no tools, iframe widgets or event subscriptions require a backend (PLUGIN-SDK
+P6). Ordinary apps still require manifests; existing App metadata, updates and
+secret entry requirements remain unchanged. Backend-bearing extensions require
+both manifests and `plugin.backend`; declaring both `spec.agent` and
+`spec.plugin` is refused to prevent acquiring an additional agent credential.
+`metadata.publisher` is an optional closed `{id, name}` declaration: its DNS
+label id is not a verified identity or an artifact-signing authorization.

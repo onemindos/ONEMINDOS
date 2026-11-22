@@ -23,6 +23,13 @@ export type RootParams = {
   Automation: undefined;
   Files: undefined;
   Migrate: undefined;
+  People: undefined;
+  Agents: undefined;
+  OsUpdates: undefined;
+  SystemControls: undefined;
+  DeviceInfo: undefined;
+  LiveUsage: undefined;
+  Network: undefined;
 };
 
 declare global {

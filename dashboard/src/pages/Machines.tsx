@@ -2,12 +2,12 @@
 // Machines (MACH-01, #281): the virtual machines on this box, from GET /v1/machines, and whether the
 // box can run them at all, from GET /v1/machines/capabilities. Create, start, stop and remove are
 // only ever REQUESTS (POST /v1/actions, machine.*): they wait in Approvals and nothing reaches the
-// runtime until an owner approves. States are the gateway's own words (creating, stopped, running,
+// runtime until an owner approves (create, start, stop, restart, force off, snapshot, clone, remove). States are the gateway's own words (creating, stopped, running,
 // unknown); the screen never guesses a better one.
-import { useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link } from 'react-router';
 import { Button, Card, Dialog, EmptyState, PageHeader, StatusPill, useToast, type Tone } from '@onemind/ui';
-import type { Action, MachineActionType, MachineParams, MachineRecord } from '../api/types';
+import type { Action, MachineActionType, MachineParams, MachineRecord, MachineSnapshot } from '../api/types';
 import { isActive } from '../data/adapters';
 import { errorText, useHub } from '../data/hub';
 import { usePoll } from '../lib/hooks';
@@ -21,9 +21,13 @@ const STATE: Record<string, { tone: Tone; label: string; pulse?: boolean; note?:
   running: { tone: 'ok', label: 'Running' },
   unknown: { tone: 'warn', label: 'Unknown', note: 'A request ended without a clear answer, so it may or may not exist in the cluster. Its name and quota stay held until an owner removes it.' },
 };
-const VERB: Record<MachineActionType, string> = { 'machine.create': 'create', 'machine.start': 'start', 'machine.stop': 'stop', 'machine.delete': 'remove' };
+const VERB: Record<MachineActionType, string> = {
+  'machine.create': 'create', 'machine.start': 'start', 'machine.stop': 'stop', 'machine.delete': 'remove',
+  'machine.restart': 'restart', 'machine.force_stop': 'force off', 'machine.snapshot': 'snapshot', 'machine.clone': 'clone',
+  'machines.enable': 'turn on', 'machines.disable': 'turn off',
+};
 const NAME = /^[a-z][a-z0-9-]{0,38}[a-z0-9]$/;
-const RESERVED = new Set(['capabilities', 'enable']);
+const RESERVED = new Set(['capabilities', 'enable', 'disable']);
 
 export function Machines() {
   const { api } = useSignedIn();
@@ -34,6 +38,10 @@ export function Machines() {
   const [creating, setCreating] = useState(false);
   const [removing, setRemoving] = useState<MachineRecord>();
   const [typed, setTyped] = useState('');
+  const [snapping, setSnapping] = useState<MachineRecord>();
+  const [cloning, setCloning] = useState<MachineRecord>();
+  const [viewing, setViewing] = useState<MachineRecord>();
+  const [newName, setNewName] = useState('');
   const [form, setForm] = useState({ name: '', ram_mb: '2048', cpus: '2', disk_gb: '20', image_url: '' });
   const sending = useRef(false);
   const [busy, setBusy] = useState(false);
@@ -61,6 +69,10 @@ export function Machines() {
     }
   };
 
+  const turnOn = async () => {
+    if (await send('machines.enable', {})) void caps.reload();
+  };
+
   const problem = (() => {
     if (!form.name) return undefined;
     if (!NAME.test(form.name)) return 'Use 2 to 40 characters: lower-case letters, digits and dashes, starting with a letter.';
@@ -82,8 +94,29 @@ export function Machines() {
     if (await send('machine.delete', { name: m.name, confirm: typed })) { setRemoving(undefined); setTyped(''); }
   };
 
+  const nameProblem = (n: string) => {
+    if (!n) return undefined;
+    if (!NAME.test(n)) return 'Use 2 to 40 characters: lower-case letters, digits and dashes, starting with a letter.';
+    if (RESERVED.has(n)) return `${n} is reserved: pick another name.`;
+    return undefined;
+  };
+  const snapProblem = nameProblem(newName);
+  const cloneProblem = snapProblem ?? ((list.data ?? []).some((m) => m.name === newName) ? 'A machine with this name already exists.' : undefined);
+  const submitSnapshot = async () => {
+    if (!snapping || !newName || snapProblem) return;
+    if (await send('machine.snapshot', { name: snapping.name, snapshot: newName })) { setSnapping(undefined); setNewName(''); }
+  };
+  const submitClone = async () => {
+    if (!cloning || !newName || cloneProblem) return;
+    if (await send('machine.clone', { source: cloning.name, name: newName })) { setCloning(undefined); setNewName(''); }
+  };
+
   const eligible = caps.data ? caps.data.eligible_node_ids.length > 0 : undefined;
   const reasons = caps.data ? [...new Set(caps.data.nodes.flatMap((n) => n.reasons.map((r) => r.message)))] : [];
+  const ext = caps.data?.extension.state;
+  const on = caps.data?.enabled === true;
+  const turningOn = hub.actionList.some((a) => a.type === 'machines.enable' && isActive(a)) || ext === 'installing';
+  const canTurnOn = !on && !turningOn && eligible === true && !blocked && !busy && ext !== 'unavailable' && ext !== 'removing';
   const waitingCreates = open.filter((a) => a.type === 'machine.create' && !(list.data ?? []).some((m) => m.name === a.params.name));
 
   return (
@@ -91,13 +124,15 @@ export function Machines() {
       <PageHeader
         title="Machines"
         lede="Virtual machines on this box. Every change here is a request: it waits in Approvals and nothing runs until an owner approves it."
-        actions={<Button variant="primary" disabled={!supported || blocked || eligible !== true} onClick={() => setCreating(true)}>Request a machine</Button>}
+        actions={on
+          ? <Button variant="primary" disabled={!supported || blocked || eligible !== true} onClick={() => setCreating(true)}>Request a machine</Button>
+          : <Button variant="primary" disabled={!supported || !canTurnOn} aria-describedby="machines-status" onClick={() => void turnOn()}>{turningOn ? 'Turning on, waiting' : 'Turn on'}</Button>}
       />
       {!supported && <p className="om-note om-tone-warn" role="status">This gateway connection has no machines route (demo data has none). Sign in to a real gateway to see machines.</p>}
       {supported && caps.data && (
-        <p className={`om-note ${eligible ? 'om-tone-ok' : 'om-tone-warn'}`} role="status">
+        <p id="machines-status" className={`om-note ${eligible ? 'om-tone-ok' : 'om-tone-warn'}`} role="status">
           {eligible
-            ? `This box can run virtual machines (${caps.data.eligible_node_ids.length} eligible node${caps.data.eligible_node_ids.length === 1 ? '' : 's'}). ${caps.data.extension.state === 'unavailable' ? caps.data.extension.message : ''}`
+            ? `This box can run virtual machines (${caps.data.eligible_node_ids.length} eligible node${caps.data.eligible_node_ids.length === 1 ? '' : 's'}). ${caps.data.extension.message}${on || turningOn ? '' : ' Turning them on is a request: an owner approves it in Approvals.'}`
             : `This box cannot run virtual machines yet. ${reasons.join(' ') || 'No node has reported yet.'}`}
         </p>
       )}
@@ -117,7 +152,8 @@ export function Machines() {
                   </Card>
                 </li>
               ))}
-              {machines.map((m) => <MachineCard key={m.name} m={m} pending={openFor(m.name)} disabled={blocked || busy} onSend={send} onRemove={() => { setTyped(''); setRemoving(m); }} />)}
+              {machines.map((m) => <MachineCard key={m.name} m={m} pending={openFor(m.name)} disabled={blocked || busy} onSend={send} onRemove={() => { setTyped(''); setRemoving(m); }}
+                onSnapshot={() => { setNewName(''); setSnapping(m); }} onClone={() => { setNewName(''); setCloning(m); }} onSnapshots={() => setViewing(m)} />)}
             </ul>
           )}
         </Load>
@@ -135,15 +171,63 @@ export function Machines() {
         </form>
       </Dialog>
       <Dialog open={!!removing} role="alertdialog" onClose={() => setRemoving(undefined)} title={`Request removal of ${removing?.name ?? ''}`}
-        description="Removing a machine erases its disk and cannot be undone. Type its name to confirm; an owner still has to approve."
+        description="Removing a machine erases its disk and all of its snapshots, and cannot be undone. Type its name to confirm; an owner still has to approve."
         actions={<><Button variant="ghost" onClick={() => setRemoving(undefined)}>Cancel</Button><Button variant="danger" disabled={typed !== removing?.name || busy} onClick={() => void submitRemove()}>Send removal request</Button></>}>
         <TextField id="machine-confirm" label="Machine name" value={typed} onChange={setTyped} />
       </Dialog>
+      <Dialog open={!!snapping} onClose={() => setSnapping(undefined)} title={`Request a snapshot of ${snapping?.name ?? ''}`}
+        description="A snapshot is a saved copy of the disk you can come back to. A running machine is paused briefly through its guest agent; if that fails the copy is best effort. An owner approves this request."
+        actions={<><Button variant="ghost" onClick={() => setSnapping(undefined)}>Cancel</Button><Button variant="primary" disabled={!newName || !!snapProblem || busy} onClick={() => void submitSnapshot()}>Send request</Button></>}>
+        <TextField id="snapshot-name" label="Snapshot name" value={newName} onChange={setNewName} />
+        {snapProblem && <p className="om-note om-tone-bad" role="alert">{snapProblem}</p>}
+      </Dialog>
+      <Dialog open={!!cloning} onClose={() => setCloning(undefined)} title={`Request a copy of ${cloning?.name ?? ''}`}
+        description="The copy has its own disk, counts against this box's memory and core limits like any machine, and starts stopped with no network. An owner approves this request."
+        actions={<><Button variant="ghost" onClick={() => setCloning(undefined)}>Cancel</Button><Button variant="primary" disabled={!newName || !!cloneProblem || busy} onClick={() => void submitClone()}>Send request</Button></>}>
+        <TextField id="clone-name" label="Name of the copy" value={newName} onChange={setNewName} />
+        {cloneProblem && <p className="om-note om-tone-bad" role="alert">{cloneProblem}</p>}
+      </Dialog>
+      <SnapshotsDialog machine={viewing} onClose={() => setViewing(undefined)} />
     </>
   );
 }
 
-function MachineCard({ m, pending, disabled, onSend, onRemove }: { m: MachineRecord; pending: Action[]; disabled: boolean; onSend: (t: MachineActionType, p: MachineParams) => Promise<boolean>; onRemove: () => void }) {
+function SnapshotsDialog({ machine, onClose }: { machine?: MachineRecord; onClose: () => void }) {
+  const { api } = useSignedIn();
+  const [snaps, setSnaps] = useState<MachineSnapshot[]>();
+  const [failed, setFailed] = useState(false);
+  const name = machine?.name;
+  useEffect(() => {
+    setSnaps(undefined);
+    setFailed(false);
+    if (!name || !api.machineSnapshots) return;
+    let live = true;
+    api.machineSnapshots(name).then((r) => { if (live) setSnaps(r); }, () => { if (live) setFailed(true); });
+    return () => { live = false; };
+  }, [name, api]);
+  return (
+    <Dialog open={!!machine} onClose={onClose} title={`Snapshots of ${name ?? ''}`}
+      actions={<Button variant="ghost" onClick={onClose}>Close</Button>}>
+      {failed && <p className="om-note om-tone-bad" role="alert">Could not load the snapshots.</p>}
+      {!failed && !snaps && <p className="om-hint">Loading snapshots</p>}
+      {snaps && snaps.length === 0 && <p>No snapshots yet.</p>}
+      {snaps && snaps.length > 0 && (
+        <ul aria-label="Snapshots">
+          {snaps.map((x) => (
+            <li key={x.name}>
+              <strong>{x.name}</strong>{' '}
+              <StatusPill tone={x.consistency === 'quiesce_failed' || x.consistency === 'best_effort' ? 'warn' : 'ok'}
+                label={x.consistency === 'quiesce_failed' || x.consistency === 'best_effort' ? 'Best effort' : 'Consistent'} />
+              <p className="om-hint">{x.note}</p>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Dialog>
+  );
+}
+
+function MachineCard({ m, pending, disabled, onSend, onRemove, onSnapshot, onClone, onSnapshots }: { m: MachineRecord; pending: Action[]; disabled: boolean; onSend: (t: MachineActionType, p: MachineParams) => Promise<boolean>; onRemove: () => void; onSnapshot: () => void; onClone: () => void; onSnapshots: () => void }) {
   const s = STATE[m.state] ?? { tone: 'warn' as Tone, label: m.state };
   const waiting = pending.length > 0;
   const off = disabled || waiting || m.state === 'creating';
@@ -162,6 +246,11 @@ function MachineCard({ m, pending, disabled, onSend, onRemove }: { m: MachineRec
         <div className="om-row">
           {m.state === 'stopped' && <Button size="sm" disabled={off} aria-label={`Request start of ${m.name}`} onClick={() => void onSend('machine.start', { name: m.name })}>Request start</Button>}
           {m.state === 'running' && <Button size="sm" disabled={off} aria-label={`Request stop of ${m.name}`} onClick={() => void onSend('machine.stop', { name: m.name })}>Request stop</Button>}
+          {m.state === 'running' && <Button size="sm" disabled={off} aria-label={`Request restart of ${m.name}`} onClick={() => void onSend('machine.restart', { name: m.name })}>Request restart</Button>}
+          {m.state === 'running' && <Button size="sm" variant="danger" disabled={off} aria-label={`Request force off of ${m.name}`} onClick={() => void onSend('machine.force_stop', { name: m.name })}>Request force off</Button>}
+          {(m.state === 'running' || m.state === 'stopped') && <Button size="sm" disabled={off} aria-label={`Request snapshot of ${m.name}`} onClick={onSnapshot}>Request snapshot</Button>}
+          {m.state === 'stopped' && <Button size="sm" disabled={off} aria-label={`Request copy of ${m.name}`} onClick={onClone}>Request copy</Button>}
+          <Button size="sm" variant="ghost" aria-label={`Snapshots of ${m.name}`} onClick={onSnapshots}>Snapshots</Button>
           <Button size="sm" variant="danger" disabled={off} aria-label={`Request removal of ${m.name}`} onClick={onRemove}>Request removal</Button>
         </div>
       </Card>

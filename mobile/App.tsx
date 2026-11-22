@@ -24,8 +24,11 @@ import { photoTour, PhotoBackupProvider } from './src/photos/controller';
 import { PhotoAlbumsScreen } from './src/photos/PhotoAlbumsScreen';
 import { PhotoBackupScreen } from './src/photos/PhotoBackupScreen';
 import { usePushPings } from './src/pushPings';
+import { IncomingFiles } from './src/files/IncomingFiles';
 import { ActivityScreen } from './src/screens/ActivityScreen';
 import { AppDetailScreen } from './src/screens/AppDetailScreen';
+import { AgentsScreen } from './src/screens/AgentsScreen';
+import { PeopleScreen } from './src/screens/PeopleScreen';
 import { AutomationScreen } from './src/screens/AutomationScreen';
 import { BackupsScreen } from './src/screens/BackupsScreen';
 import { FilesScreen } from './src/screens/FilesScreen';
@@ -37,6 +40,7 @@ import { HomeScreen } from './src/screens/HomeScreen';
 import { InboxScreen } from './src/screens/InboxScreen';
 import { MoreScreen, useMoreBadge } from './src/screens/MoreScreen';
 import { NodesScreen } from './src/screens/NodesScreen';
+import { DeviceInfoScreen, LiveUsageScreen, NetworkScreen, OsUpdatesScreen, SystemControlsScreen } from './src/screens/SystemScreens';
 import { SettingsScreen } from './src/screens/SettingsScreen';
 import { onForgetHub, SessionProvider, useSession, useSignedIn, type SessionDeps } from './src/session';
 import { TOUR, TOUR_ROLE, TOUR_STEP_MS } from './src/tour';
@@ -70,9 +74,16 @@ const linking: LinkingOptions<RootParams> = {
       Inbox: 'inbox',
       Nodes: 'nodes',
       Backups: 'backups',
+      OsUpdates: 'os-updates',
+      SystemControls: 'system-controls',
+      DeviceInfo: 'device-info',
+      LiveUsage: 'live-usage',
+      Network: 'network',
       Automation: 'automation',
       Files: 'files',
       Migrate: 'migrate',
+      People: 'people',
+      Agents: 'agents',
     },
   },
 };
@@ -177,6 +188,7 @@ function SignedIn() {
   return (
     <HubDataProvider onAlerts={onAlerts}>
       <PushPings />
+      <IncomingFiles />
       <PrefsProvider>
       <PhotoBackupProvider>
         <NavigationContainer ref={navRef} linking={linking} theme={navTheme}>
@@ -187,9 +199,16 @@ function SignedIn() {
             <Stack.Screen name="Inbox" component={InboxScreen} />
             <Stack.Screen name="Nodes" component={NodesScreen} />
             <Stack.Screen name="Backups" component={BackupsScreen} />
+            <Stack.Screen name="OsUpdates" component={OsUpdatesScreen} options={{ title: 'OS updates' }} />
+            <Stack.Screen name="SystemControls" component={SystemControlsScreen} options={{ title: 'System controls' }} />
+            <Stack.Screen name="DeviceInfo" component={DeviceInfoScreen} options={{ title: 'About this box' }} />
+            <Stack.Screen name="LiveUsage" component={LiveUsageScreen} options={{ title: 'Live usage' }} />
+            <Stack.Screen name="Network" component={NetworkScreen} />
             <Stack.Screen name="Automation" component={AutomationScreen} />
             <Stack.Screen name="Files" component={FilesScreen} />
             <Stack.Screen name="Migrate" component={MigrateScreen} options={{ title: 'Migration' }} />
+            <Stack.Screen name="People" component={PeopleScreen} />
+            <Stack.Screen name="Agents" component={AgentsScreen} />
             <Stack.Screen name="PhotoBackup" component={PhotoBackupScreen} options={{ title: 'Photo backup' }} />
             <Stack.Screen name="PhotoAlbums" component={PhotoAlbumsScreen} options={{ title: 'Albums to back up' }} />
           </Stack.Navigator>

@@ -1,5 +1,5 @@
 {
-  "scanned_at": "2026-11-19T14:57:21Z",
+  "scanned_at": "2026-11-21T15:24:20Z",
   "result": "fail",
   "images": [
     {
@@ -10,12 +10,12 @@
       ],
       "trivy": {
         "version": "0.76.2",
-        "critical_fixable": 6,
-        "critical": 7,
-        "high": 257
+        "critical_fixable": 7,
+        "critical": 8,
+        "high": 306
       },
       "clamav": {
-        "signatures": "daily-28188",
+        "signatures": "daily-28190",
         "infected": 0
       },
       "secrets": 1,
@@ -31,10 +31,10 @@
         "version": "0.76.2",
         "critical_fixable": 1,
         "critical": 2,
-        "high": 147
+        "high": 150
       },
       "clamav": {
-        "signatures": "daily-28188",
+        "signatures": "daily-28190",
         "infected": 0
       },
       "secrets": 1,
@@ -50,10 +50,10 @@
         "version": "0.76.2",
         "critical_fixable": 0,
         "critical": 0,
-        "high": 49
+        "high": 51
       },
       "clamav": {
-        "signatures": "daily-28188",
+        "signatures": "daily-28190",
         "infected": 0
       },
       "secrets": 0,

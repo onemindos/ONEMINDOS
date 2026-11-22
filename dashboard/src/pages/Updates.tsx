@@ -6,6 +6,7 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { OneMind, OneMindError } from '@onemind/sdk';
 import { Button, Card, PageHeader } from '@onemind/ui';
+import { UpdatePolicy } from './UpdatePolicy';
 import { ApiError } from '../api/types';
 import { usePoll } from '../lib/hooks';
 import { uuidv4 } from '../lib/uuid';
@@ -95,5 +96,6 @@ function LiveUpdates({ token }: { token: string }) {
       {h.requests.length > 0 && <ul aria-label="Install requests">{h.requests.map((r, i) =>
         <li key={i}>Install {text(r.version)} on {text(r.node_id)} · {text(r.state)}{typeof r.message === 'string' && r.message ? ` · ${r.message}` : ''}</li>)}</ul>}
     </Card>}</Load>
+    <UpdatePolicy />
   </div>;
 }

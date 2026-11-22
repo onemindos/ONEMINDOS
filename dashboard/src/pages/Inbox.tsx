@@ -74,8 +74,8 @@ export function Inbox() {
                       <div className="dash-actions">
                         {to && <Link to={to}>Open</Link>}
                         {!n.read_at && (
-                          <Button size="sm" variant="ghost" aria-label={`Mark as read: ${n.title}`} onClick={() => open(n)}>
-                            Mark as read
+                          <Button size="sm" variant="ghost" aria-label={t('inbox.markRead', { title: n.title })} onClick={() => open(n)}>
+                            {t('inbox.markRead.short')}
                           </Button>
                         )}
                       </div>
@@ -99,7 +99,7 @@ export function Inbox() {
                     <strong>{c.label}</strong>
                     <StatusPill tone={c.last_error ? 'bad' : c.verified ? 'ok' : 'neutral'} label={c.last_error ? 'Failing' : c.verified ? 'Verified' : 'Not tested'} detail={c.kind} />
                     <Button size="sm" variant="ghost" aria-label={t('inbox.channels.test', { label: c.label })} onClick={() => void run(async () => { await api.testChannel(c.id); await channels.reload(); }, t('inbox.channels.test', { label: c.label }))}>
-                      Send test
+                      {t('inbox.channels.testShort')}
                     </Button>
                     <Button size="sm" variant="danger" aria-label={t('inbox.channels.remove', { label: c.label })} onClick={() => void run(async () => { await api.deleteChannel(c.id); await channels.reload(); }, t('inbox.channels.remove', { label: c.label }))}>
                       Remove

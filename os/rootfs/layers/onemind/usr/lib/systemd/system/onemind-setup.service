@@ -1,20 +1,50 @@
 # SPDX-License-Identifier: Apache-2.0
 # Local setup wizard on :8080 (http://onemind.local:8080/). Started by onemind-firstboot only
 # while the box has no role; exits once the owner has picked one. Not enabled in the image.
+# Lockdown (image-security review 07): the LAN needs the one-time code from the box screen, and
+# this unit is sandboxed. It still runs as root because configure() chowns the data tree to the
+# service users; splitting that into a root helper so the web part can be DynamicUser is left.
 [Unit]
 Description=OneMind setup wizard (:8080, until the box has a role)
+After=onemind-firewall.service
 RequiresMountsFor=/data /boot/efi
 ConditionPathExists=!/data/onemind/firstboot/state.json
 
 [Service]
 Type=simple
+# Open :8080 to the LAN while this wizard is the only way to set the box up; closed again when it exits.
+# Cloud images carry /etc/onemind/wizard-local-only: there the wizard stays reachable from the box itself only.
+ExecStartPre=-/usr/sbin/nft flush chain inet onemind_host setup
+ExecStartPre=-/bin/sh -c 'test -e /etc/onemind/wizard-local-only || exec /usr/sbin/nft add rule inet onemind_host setup tcp dport 8080 accept'
 ExecStart=/usr/lib/onemind/onemind-setup
+ExecStopPost=-/usr/sbin/nft flush chain inet onemind_host setup
 UMask=0077
 Restart=on-failure
 RestartSec=3s
 ProtectHome=yes
 PrivateTmp=yes
+PrivateDevices=no
 ProtectKernelTunables=yes
 ProtectKernelModules=yes
+ProtectKernelLogs=yes
 ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+ProcSubset=pid
 NoNewPrivileges=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@mount @debug @swap @reboot @raw-io @obsolete @cpu-emulation
+# Still root, tracked in #578: configure() chowns the data tree, so User=/DynamicUser needs a root-helper split.
+# chown/chmod need CHOWN, DAC_OVERRIDE, FOWNER; nothing else.
+CapabilityBoundingSet=CAP_CHOWN CAP_DAC_OVERRIDE CAP_FOWNER
+ProtectSystem=strict
+ReadWritePaths=/data /run /boot/efi
+ReadWritePaths=-/etc/hosts

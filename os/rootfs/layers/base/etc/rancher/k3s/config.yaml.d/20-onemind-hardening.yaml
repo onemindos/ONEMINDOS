@@ -1,0 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
+# k3s hardening (CIS-style): the kubelet must not change kernel settings itself. The image sets them in
+# etc/sysctl.d/92-onemind-k3s.conf, and test/unit/test_image_hardening.py keeps the two in step.
+protect-kernel-defaults: true

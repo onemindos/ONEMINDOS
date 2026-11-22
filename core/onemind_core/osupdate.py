@@ -11,10 +11,12 @@ last result) and its A/B slots (`rauc`). This module turns those heartbeats into
   survives a gateway restart;
 - `os.update.install`: an owner-approved action. Nothing installs at request time.
 
-The gap, said plainly: the gateway has no path to the update engine yet. `internal/update` says
-"the `/v1/os/*` gateway API and the local Unix socket API come later", and `onemindd` serves no
-update socket. So an approved install finishes `failed` with reason `engine_unreachable` and tells
-the owner to run `onemind update apply` at the box. It never pretends to have installed anything.
+The path to the engine is the host executor (hostlink.py, docs/leap/core/HOST-ACTIONS.md): an approved
+install is sent to `onemindd host serve` on /run/onemind/host.sock, which runs `internal/update` (restic
+snapshot, RAUC install into the other slot, reboot, health gate, automatic rollback). Without that
+socket (a dev box, the compose stack) an approved install finishes `failed` with reason
+`engine_unreachable` and tells the owner to run `onemind update apply` at the box. It never pretends
+to have installed anything, and the host runs only the version the owner approved.
 Heartbeats come from any LAN device (no NATS users yet, H-06), so every field is re-checked here.
 """
 
@@ -33,6 +35,7 @@ from .actions import FeatureAction
 from .auth import Principal
 from .errors import ApiError
 from .executors import ExecResult
+from .hostlink import UNREACHABLE, HostLink
 from .ledger import Base, iso
 from .nodes import MAX_NODES
 from .store import FeatureSchema, SqlRepository
@@ -133,9 +136,18 @@ def node_view(n: dict) -> dict:
     }
 
 
+INSTALL_READY = {
+    "available": True,
+    "reason": None,
+    "message": "An approved install runs on this box through the host service: restic snapshot, install into the "
+               "other A/B slot, reboot, health gate, automatic rollback.",
+}
+
+
 class OsUpdateService:
-    def __init__(self, gw):
+    def __init__(self, gw, link: HostLink | None = None):
         self.gw = gw
+        self.link = link
         self.repo = OsUpdateRepository(gw.db)
         self._lock = threading.Lock()
         # node -> last verdict written, so a heartbeat every 10 s writes once. An LRU of at most
@@ -144,8 +156,15 @@ class OsUpdateService:
         self._seen: OrderedDict[str, tuple | None] = OrderedDict()
 
     # ---- reads -----------------------------------------------------------------------------
+    def install_problem(self) -> tuple[str, str] | None:
+        """(reason, message) why an approved install cannot run on this box now, or None when it can."""
+        return self.link.problem(ACTION) if self.link is not None else (UNREACHABLE, ENGINE["message"])
+
     def status(self) -> dict:
-        return {"nodes": [node_view(n) for n in self.gw.registry.list()], "install": ENGINE}
+        p = self.install_problem()
+        install = INSTALL_READY if p is None else ENGINE if p[0] == UNREACHABLE else \
+            {"available": False, "reason": p[0], "message": p[1]}
+        return {"nodes": [node_view(n) for n in self.gw.registry.list()], "install": install}
 
     def history(self) -> dict:
         reqs = [{"action_id": a["id"], "state": a["state"], "node_id": a["params"].get("node_id"),
@@ -191,6 +210,9 @@ class OsUpdateService:
         if v["available_version"] != params["version"]:
             return "no_such_update", (f"Version {params['version']} is not the update node {v['node_id']} offers "
                                       f"({v['available_version'] or 'none'}).")
+        if self.link is not None and self.link.present() and v["node_id"] != self.gw.settings.node_id:
+            # The host service acts on the box it runs on. Other machines need signed jobs (contract 12.11).
+            return "other_node", "The host service installs updates on this hub only; other machines update at the box."
         return None
 
     def problem(self, params: dict) -> str | None:
@@ -202,9 +224,14 @@ class OsUpdateService:
             raise ApiError(409, "policy_refused", r[1], reason=r[0])
 
     def _run(self, a, finish) -> None:
-        # No gateway path to internal/update yet (see the module docstring): say so, change nothing.
-        finish(ExecResult("failed", ENGINE["message"], steps=[
-            {"step": "reach update engine", "node_id": a.params["node_id"], "result": ENGINE["reason"]}]))
+        """After the owner's approval: hand the approved version to the host service, or say why not."""
+        p = self.install_problem()
+        if p is None:
+            self.link.run(a, finish)  # type: ignore[union-attr]  # install_problem is None only with a link
+            return
+        message = ENGINE["message"] if p[0] == UNREACHABLE else p[1]
+        finish(ExecResult("failed", message, steps=[
+            {"step": "reach update engine", "node_id": a.params["node_id"], "result": p[0]}]))
 
     def register(self) -> None:
         # "actuate": an install reboots the box into the other A/B slot (§12.3).

@@ -231,3 +231,13 @@ describe("me.home (UMB-P07)", () => {
     expect(calls).toHaveLength(1);
   });
 });
+
+describe("network.view", () => {
+  it("reads GET /v1/network", async () => {
+    const view = { available: true, interfaces: [], gateways: [], dns: ["192.0.2.53"], ports: [], dropped: 0 };
+    const { om, calls } = client(() => json(200, view));
+    expect((await om.network.view()).dns).toEqual(["192.0.2.53"]);
+    expect(calls[0]!.url).toBe("http://localhost:8080/v1/network");
+    expect(calls[0]!.init.method).toBe("GET");
+  });
+});

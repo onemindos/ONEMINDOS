@@ -84,7 +84,7 @@ export function Tokens() {
           <TextField id="token-name" label={t('tokens.name')} value={name} onChange={setName} />
           <label><input type="checkbox" checked={agent} onChange={(e) => setAgent(e.target.checked)} /> {t('tokens.agent')}</label>
           {agent && <TextField id="agent-id" label={t('tokens.agentId')} value={agentId} onChange={setAgentId} />}
-          {bad && <p className="om-hint">Use lower-case letters, digits, dots, dashes or underscores.</p>}
+          {bad && <p className="om-hint">{t('tokens.nameRule')}</p>}
         </form>
       </Dialog>
       <OneTimeDialog title={t('tokens.create')} note={t('tokens.shown')} secret={secret} onClose={() => setSecret(undefined)} />

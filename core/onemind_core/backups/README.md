@@ -29,6 +29,8 @@ owner / agent ──REST──▶ gateway ── kubectl exec (hooks, pg_dump, p
 | `GET /v1/backups/snapshots?app_id&unit`, `/snapshots/{id}` | read | restore points, with `verified_at` |
 | `GET /v1/backups/snapshots/{id}/tree?path=`, `/file?path=` | owner | Rewind: browse a snapshot, download one file |
 | `POST /v1/backups/verify` | owner, agent | `{mode: scratch_restore\|check, latest, units?}` → `202` `backup.verify` |
+| `GET /v1/backups/content` | read | apps whose manifest marks re-downloadable content (`spec.backup.content`: ZIMs, maps, models) with the content tier on or off and its size now, measured by the agent |
+| `POST /v1/backups/content` | owner | `{app_id, enabled, seen_size_bytes?}` → `202` `backup.content.set`; on needs the size the owner saw (BAK-03) |
 | `GET /v1/backups/verifications` | read | `{unit, snapshot_id, mode, result: pass\|fail\|error, probes}` |
 | `POST /v1/restores` | owner | `{snapshot_id, scope: {app_id} \| {app_id, path}}` → `202` `backup.restore` plus `restore.plan` |
 | `GET /v1/restores`, `/restores/{id}` | read | state, plan, steps, `pre_restore_snapshot_id`, `health_gate` |
@@ -38,6 +40,12 @@ owner / agent ──REST──▶ gateway ── kubectl exec (hooks, pg_dump, p
 | `GET /v1/databases` | owner, adult | apps' databases on the shared PostgreSQL (no passwords) |
 
 Every request accepts `reason`, `expires_at` (≤ 7 days, default 24 h), the `Idempotency-Key` header and the owner shortcut `"approve": true` (§12.1). Errors: §3 codes, plus `503 unavailable` with `reason: backups_disabled | target_unreachable` (§12.2).
+
+## The content tier (BAK-03)
+
+> **In plain words.** Some apps hold big files they can fetch again by themselves: Kiwix's offline Wikipedia (ZIM files), offline map archives, Ollama's models. Copying them every hour would fill the backup disk, so by default they are left out and only the app's own settings and lists are saved. If you would rather have a restore bring the whole offline library back (say you have no internet where the box lives), switch the content tier on for that app. Before you can, the box shows how big it is, and the request must carry the size you were shown.
+
+The manifest marks the files with `spec.backup.content` patterns. Until the owner approves `backup.content.set` for the app, they are added to the app's excludes; each app snapshot is tagged `content=included|excluded`, and a restore plan says which (with a warning when the content is not in the snapshot: the app downloads it again). A restore from a snapshot without the content leaves the content out of the restored volume; carrying the current files over into the restored volume is a follow-up.
 
 ## The emergency kit cannot be skipped
 

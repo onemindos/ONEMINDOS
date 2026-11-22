@@ -36,6 +36,7 @@ from urllib.parse import urlsplit
 
 import yaml
 
+from . import placement
 from .ca import MESH_DOMAIN
 from .catalog import AppEntry
 from .lifecycle import AppCredentialGrant, ExecContext, report_progress
@@ -175,6 +176,11 @@ class Executor:
 
 
 class NoopExecutor(Executor):
+    def configure_plugin(self, app: AppEntry, settings: dict) -> ExecResult:
+        return ExecResult("succeeded", "noop executor: plugin settings recorded, nothing changed", [
+            {"would": f"apply ConfigMap plugin-settings in app-{app.id}", "keys": ["settings.json"]},
+        ])
+
     name = "noop"
 
     def run(
@@ -189,6 +195,7 @@ class NoopExecutor(Executor):
                 "would": f"create Secret {agent.name} in {ns}",
                 "keys": ["ONEMIND_GATEWAY_URL", "ONEMIND_AGENT_TOKEN", *(["ONEMIND_GATEWAY_CA"] if agent.ca_pem else [])],
                 "principal": agent.principal_id,
+                **({"keys": agent.keys()} if hasattr(agent, "keys") else {}),
             })
         if ctx.credentials is not None and action_type == "app.install":
             steps.append({"would": f"create Secret {ctx.credentials.secret_name} in {ns}", "keys": ["USERNAME", "PASSWORD"]})
@@ -260,6 +267,16 @@ class KubernetesExecutor(Executor):
     (H-04), the agent Secret (§11.2), and finally `kubectl apply -f -` with exactly the rendered
     bytes that were checked. A violation fails the action before kubectl touches the cluster.
     """
+
+    def configure_plugin(self, app: AppEntry, settings: dict) -> ExecResult:
+        ns = f"app-{app.id}"
+        doc = json.dumps({"apiVersion": "v1", "kind": "ConfigMap", "metadata": {
+            "name": "plugin-settings", "namespace": ns, "labels": {"onemind.io/app": app.id}},
+            "data": {"settings.json": json.dumps(settings, sort_keys=True, separators=(",", ":"))}})
+        steps: list[dict] = []
+        _, error = self._exec(_ssa(self.kubectl, ns), doc, app, None, steps, keep_stdout=False)
+        return error or ExecResult("succeeded", "plugin settings applied", steps)
+
 
     name = "kubernetes"
 
@@ -541,7 +558,7 @@ class KubernetesExecutor(Executor):
                 steps[-1]["ignored"] = True
         return None
 
-    def _check(self, app: AppEntry, steps: list[dict]):
+    def _check(self, app: AppEntry, steps: list[dict], sched: dict | None = None):
         """Render and check. Returns (rendered, level, egress, plan) or an ExecResult to return."""
         rules = self.rules
         try:
@@ -564,6 +581,10 @@ class KubernetesExecutor(Executor):
             docs = parse_rendered(rendered)
         except yaml.YAMLError:
             return _refused(app, [Violation("G-02", "?", app.id, rules.msg("G-02"))], plan, steps)
+        if sched:  # CORE-FABRIC-4: the machine and GPU request go in before the sandbox looks at the objects
+            docs = placement.apply(docs, sched)
+            rendered = yaml.safe_dump_all(docs, sort_keys=False)
+            plan["placement"] = sched
         plan.update(summarize(docs))
         plan["rendered_sha256"] = rendered_sha256(rendered)
         violations = check_objects(docs, app.id, app.manifest, rules) + ev
@@ -676,7 +697,7 @@ class KubernetesExecutor(Executor):
         ns = f"app-{app.id}"
         k = self.kubectl
         report_progress("checking the new version against the install rules", 10)
-        checked = self._check(app, steps)
+        checked = self._check(app, steps, ctx.placement if ctx else None)
         if isinstance(checked, ExecResult):
             return checked
         rendered, _level, egress, plan_info = checked
@@ -741,7 +762,7 @@ class KubernetesExecutor(Executor):
         kwargs: dict = {}
         if action_type == "app.install":
             report_progress("checking the app against the install rules", 10)
-            checked = self._check(app, steps)
+            checked = self._check(app, steps, ctx.placement)
             if isinstance(checked, ExecResult):
                 return checked
             rendered, level, egress, plan_info = checked

@@ -11,7 +11,12 @@ reason=""; detail=""
 bad() { reason=$1; detail=$2; }
 
 src=$(findmnt --fstab -n -o SOURCE "$DATA" 2>/dev/null)
-if ! mountpoint -q "$DATA"; then
+ESP=${ONEMIND_ESP:-/boot/efi}
+if [ -e "$ESP/onemind/factory-reset" ]; then
+  # A factory reset is armed and the wipe unit did not clear it (an older system slot without that unit,
+  # or the wipe failed): never run on the old data after the owner approved erasing it (HOST-ACTIONS.md section 4).
+  bad factory-reset-pending "a factory reset is armed but has not run; the old data is not opened"
+elif ! mountpoint -q "$DATA"; then
   if [ -n "$src" ] && ! findfs "$src" >/dev/null 2>&1; then
     bad missing "no partition matches $src"
   else

@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+# Check the signed catalog channel every 6 hours (plus up to 30 minutes of jitter so a fleet does
+# not call at once), and once soon after boot. Not enabled in the image; firstboot decides.
+[Unit]
+Description=OneMind signed Market catalog sync, every 6 hours
+
+[Timer]
+OnBootSec=10min
+OnUnitActiveSec=6h
+RandomizedDelaySec=30min
+Persistent=true
+Unit=onemind-catalog.service

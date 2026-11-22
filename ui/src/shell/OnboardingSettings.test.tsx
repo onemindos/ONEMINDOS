@@ -36,3 +36,23 @@ it('offers only actual matching destinations and clears the binding when the cho
   await user.click(screen.getByRole('button', { name: /Finish setup/ }));
   expect(save).toHaveBeenCalledWith(expect.objectContaining({ backup: { destination: 'later', destinationId: undefined, kitSaved: false } }));
 });
+
+it('a wizard opened with an issued, unconfirmed kit can still skip it and finish, or re-issue', async () => {
+  const user = userEvent.setup();
+  const save = vi.fn().mockResolvedValue(undefined);
+  const finish = vi.fn();
+  const issue = vi.fn().mockResolvedValue({ groups: ['ABCD', 'EFGH', 'JKLM'], check: 'QRST', text: 'KIT', positions: [1, 3] });
+  const kit = { state: 'issued' as const, positions: [2, 4], issue, confirm: vi.fn() };
+  render(<Onboarding apps={[]} initialStep={4} initial={{ ...emptyDraft('UTC'), boxName: 'home-hub', ownerName: 'Owner', passkey: 'registered', backup: { destination: 'later', kitSaved: false } }} kit={kit} onSaveSettings={save} onFinish={finish} />);
+  await user.click(screen.getByRole('button', { name: /Finish setup/ }));
+  expect(screen.getByRole('alert')).toHaveTextContent('Create and confirm your emergency kit first');
+  await user.click(screen.getByRole('button', { name: /I lost my copy/ }));
+  expect(await screen.findByLabelText('Owner recovery key')).toBeInTheDocument();
+  expect(issue).toHaveBeenCalledTimes(1);
+  await user.click(screen.getByRole('button', { name: 'Skip for now' }));
+  await user.click(screen.getByRole('button', { name: /Finish setup/ }));
+  expect(await screen.findByRole('heading', { level: 1, name: 'You are all set' })).toBeInTheDocument();
+  expect(screen.getByText(/skipped for now/)).toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: /Go to Home/ }));
+  expect(finish).toHaveBeenCalledTimes(1);
+});

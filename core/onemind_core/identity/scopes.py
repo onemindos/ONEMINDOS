@@ -56,6 +56,9 @@ ROLE_SCOPES: dict[str, frozenset[str]] = {
     "guest": frozenset({"instance:read", "nodes:read", "apps:read", "notifications:read",
                         "notifications:write", "alerts:read"}),
     "child": frozenset({"instance:read", "apps:read", "notifications:read", "alerts:read"}),
+    # FAM-01 Teen: signs in on their own with the same API scopes as a child. No approval, admin,
+    # users, nodes, tokens or logs scope; what a teen may open is narrowed by family controls only.
+    "teen": frozenset({"instance:read", "apps:read", "notifications:read", "alerts:read"}),
 }
 
 BUNDLES = {
@@ -140,6 +143,7 @@ _R = register_route_scope
 _R("GET,HEAD", r"/v1/instance", ("instance:read",))
 _R("GET,HEAD", r"/v1/me", ("instance:read",))
 _R("GET,HEAD,POST,DELETE,PATCH,PUT", r"/v1/auth/.*", None)  # self-service; handlers check the person
+_R("PATCH", r"/v1/me", None)  # own display name; the handler checks the caller is a person
 _R("GET,HEAD", r"/v1/nodes(/.*)?", ("nodes:read",))
 _R("GET,HEAD", r"/v1/apps/[^/]+/access", ("apps:read",))
 _R("PUT", r"/v1/apps/[^/]+/access", ("users:admin",))

@@ -115,6 +115,40 @@ def test_import_needs_scan_and_owner_approval(client, world, clock, executor):
     assert client.app.state.repo.get_app_state("notes").status == "stopped"
 
 
+class _BundleScanner:
+    """Stands in for the on-box scanner (appstore/imagescan.py): answers scan_images like the real one."""
+
+    def __init__(self, result):
+        self.result, self.seen = result, []
+
+    def scan_images(self, images):
+        self.seen.append(images)
+        return self.result, "test", [{"ref": i, "trivy": {"version": "0", "critical_fixable": 0, "critical": 0,
+                                                          "high": 0}, "secrets": 0, "cosign": "unchecked"}
+                                     for i in images]
+
+
+def test_import_scans_the_bundle_on_the_box_and_the_result_gates(client, world, clock, executor):
+    svc, _, _ = world
+    plan = _plan(client)
+    gw = client.app.state.gateway
+    gw.image_scanner = _BundleScanner("fail")
+    r = client.post(f"/v1/migrate/plans/{plan['id']}/import", headers=OWNER, json={})
+    refused = client.post(f"/v1/actions/{r.json()['id']}/approve", headers=OWNER)
+    assert refused.status_code == 409 and "failed its last scan" in refused.json()["message"]
+    assert gw.image_scanner.seen and all("@sha256:" in i for i in gw.image_scanner.seen[0])
+    assert executor.calls == []  # nothing applied after a failed scan
+    gw.image_scanner = _BundleScanner("pass")
+    assert _approve(client, r.json()["id"])["state"] == "succeeded"
+    assert (svc.bundle_dir(plan["id"]) / "scan.json").is_file()
+    # an unavailable scanner leaves no record, so the import is still refused
+    plan2 = _plan(client, app_id="notes2")
+    gw.image_scanner = _BundleScanner("unavailable")
+    r2 = client.post(f"/v1/migrate/plans/{plan2['id']}/import", headers=OWNER, json={})
+    assert client.post(f"/v1/actions/{r2.json()['id']}/approve", headers=OWNER).status_code == 409
+    assert not (svc.bundle_dir(plan2["id"]) / "scan.json").exists()
+
+
 def test_import_fails_without_the_platform_storage_class(client, world, clock, executor):
     svc, _, box = world
     box.storage_class = False

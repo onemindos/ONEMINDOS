@@ -15,9 +15,9 @@ VALIDATOR = runpy.run_path(str(TOOLS / "validate-apps"))
 
 class LicenceInventoryTests(unittest.TestCase):
     def check_in_memory(self, text):
-        schema = json.loads(VALIDATOR["SCHEMA_PATH"].read_text(encoding="utf-8"))
-        checker = VALIDATOR["AppChecker"](
-            VALIDATOR["Draft202012Validator"](schema), "unused", "unused")
+        # PLAN-E6 (#175): the checker validates with the gateway's own Catalog, as CI does.
+        catalog = VALIDATOR["Catalog"](VALIDATOR["REPO_ROOT"] / "apps", VALIDATOR["SCHEMA_PATH"])
+        checker = VALIDATOR["AppChecker"](catalog, "unused", "unused")
         output = io.StringIO()
         with patch.object(Path, "is_file", return_value=True), \
                 patch.object(Path, "read_text", side_effect=text if isinstance(text, Exception) else None,

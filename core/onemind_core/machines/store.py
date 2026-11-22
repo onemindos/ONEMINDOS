@@ -10,6 +10,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from ..ledger import Base, iso
 from ..store import FeatureSchema, SqlRepository
+from .spec import CONSISTENCY_TEXT
 
 SCHEMA = FeatureSchema("machines")  # version 1 = the shape below
 
@@ -32,7 +33,70 @@ class MachineRow(Base):
                 "updated_at": iso(self.updated_at)}
 
 
+class ExtensionRow(Base):
+    """One row, id 1: where the KubeVirt + CDI extension is (extension.py)."""
+    __tablename__ = "machines_extension"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    state: Mapped[str] = mapped_column(String(12))  # absent | installing | ready | removing | failed | unknown
+    message: Mapped[str] = mapped_column(String(400), default="")
+    action_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class SnapshotRow(Base):
+    """A point-in-time copy of a machine's disk. `consistency` says how safe it is (spec.CONSISTENCY_TEXT)."""
+    __tablename__ = "machines_snapshots"
+    machine: Mapped[str] = mapped_column(String(40), primary_key=True)
+    name: Mapped[str] = mapped_column(String(40), primary_key=True)
+    consistency: Mapped[str] = mapped_column(String(20))  # offline | quiesced | best_effort | quiesce_failed
+    action_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+    def to_json(self) -> dict:
+        return {"machine": self.machine, "name": self.name, "consistency": self.consistency,
+                "note": CONSISTENCY_TEXT.get(self.consistency, ""), "created_at": iso(self.created_at)}
+
+
 class MachinesRepository(SqlRepository):
+    def extension(self) -> dict:
+        with self.db.session() as s:
+            row = s.get(ExtensionRow, 1)
+            return {"state": row.state, "message": row.message, "action_id": row.action_id} if row else \
+                {"state": "absent", "message": "", "action_id": None}
+
+    def move_extension(self, to: str, now: datetime, *, only_from: tuple[str, ...], message: str = "",
+                       action_id: str | None = None, owned_by: str | None = None) -> bool:
+        """Compare-and-swap the extension state; False when it was not in one of `only_from`."""
+        with self.db.session.begin() as s:
+            row = s.get(ExtensionRow, 1)
+            cur = row.state if row else "absent"
+            if cur not in only_from or (owned_by is not None and (row is None or row.action_id != owned_by)):
+                return False
+            if row is None:
+                row = ExtensionRow(id=1, state=to, message=message[:400], action_id=action_id, updated_at=now)
+                s.add(row)
+            else:
+                row.state, row.message, row.action_id, row.updated_at = to, message[:400], action_id, now
+            return True
+
+    def snapshots(self, machine: str) -> list[dict]:
+        with self.db.session() as s:
+            q = select(SnapshotRow).where(SnapshotRow.machine == machine).order_by(SnapshotRow.created_at, SnapshotRow.name)
+            return [r.to_json() for r in s.scalars(q)]
+
+    def add_snapshot(self, row: SnapshotRow) -> bool:
+        """False when this machine already has a snapshot of that name."""
+        with self.db.session.begin() as s:
+            if s.get(SnapshotRow, (row.machine, row.name)) is not None:
+                return False
+            s.add(row)
+            return True
+
+    def remove_snapshots(self, machine: str) -> None:
+        with self.db.session.begin() as s:
+            s.execute(delete(SnapshotRow).where(SnapshotRow.machine == machine))
+
+
     def all(self) -> list[dict]:
         with self.db.session() as s:
             return [r.to_json() for r in s.scalars(select(MachineRow).order_by(MachineRow.created_at, MachineRow.name))]

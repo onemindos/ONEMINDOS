@@ -2,10 +2,12 @@
 // Read-only gateway storage view. No disk mutations, recovery keys or device probing in the browser.
 import { useMemo } from 'react';
 import { OneMind, OneMindError } from '@onemind/sdk';
-import { Button, Card, PageHeader } from '@onemind/ui';
+import { Link } from 'react-router';
+import { Button, Card, EmptyState, PageHeader } from '@onemind/ui';
 import { ApiError } from '../api/types';
 import { usePoll } from '../lib/hooks';
 import { useSignedIn } from '../session';
+import { href } from '../shell/routes';
 import { Load } from './parts';
 
 function record(value: unknown): Record<string, unknown> {
@@ -34,7 +36,7 @@ async function read(client: OneMind, path: string) {
 }
 export function Storage() {
   const { token, person, mock } = useSignedIn();
-  return mock ? <><PageHeader title="Storage" /><p role="status">Connect to a real hub to view disks. Demo mode has no storage data.</p></> : <LiveStorage key={person} token={token} />;
+  return mock ? <><PageHeader title="Storage" lede="Storage and disk health reported by your hub." /><EmptyState icon="storage" title="No storage reported yet" action={<Link className="om-btn om-btn-primary" to={href.settings}>Open Settings</Link>}>A hub lists its disks and their health once its storage service has reported. Demo mode has no storage data; connect a real hub to see them.</EmptyState></> : <LiveStorage key={person} token={token} />;
 }
 function LiveStorage({ token }: { token: string }) {
   const client = useMemo(() => new OneMind({ baseUrl: window.location.origin, token, retries: 1 }), [token]);

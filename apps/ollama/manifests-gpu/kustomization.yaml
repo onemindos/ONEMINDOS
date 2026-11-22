@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: Apache-2.0
+# S-5: the same Ollama, on the GPU. Rendered instead of manifests/ when the gateway sees a box with a big enough
+# accelerator (spec.requires.accelerator.overlay: manifests-gpu; core/onemind_core/gpufit.py). It adds only what a GPU needs:
+# the "nvidia" RuntimeClass and the one-GPU resource limit, both provided by the OneMind OS GPU image
+# (os/rootfs/gpu/README.md). Ollama's image already carries its CUDA libraries (docs/docker.mdx, "Nvidia GPU").
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- ../manifests
+patches:
+- target:
+    kind: Deployment
+    name: ollama
+  patch: |-
+    - op: add
+      path: /spec/template/spec/runtimeClassName
+      value: nvidia
+    - op: add
+      path: /spec/template/spec/containers/0/resources/limits/nvidia.com~1gpu
+      value: 1
+    - op: add
+      path: /spec/template/spec/containers/0/env/-
+      value: {name: NVIDIA_DRIVER_CAPABILITIES, value: "compute,utility"}

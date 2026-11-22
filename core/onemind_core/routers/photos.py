@@ -8,10 +8,12 @@ appends. PATCH streams the body to disk (never whole into memory) and is cut off
 from __future__ import annotations
 
 import asyncio
+import mimetypes
+import os
 from typing import Literal
 
 from fastapi import Depends, FastAPI, Header, Query, Request
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 from starlette.requests import ClientDisconnect
@@ -19,8 +21,13 @@ from starlette.requests import ClientDisconnect
 from ..auth import Principal
 from ..context import Gateway
 from ..errors import error_response, error_responses
+from ..identity.scopes import register_route_scope
 from ..photos import MAX_CHECK, PhotosError, PhotosRepository, PhotosService, PhotosSettings
 from ..photos.files import LibraryEscape
+
+# Owner only (#323): every scope, the same answer as the fail-closed fallback.
+register_route_scope("GET,HEAD", r"/v1/photos/library", ("*",))
+register_route_scope("GET,HEAD", r"/v1/photos/assets/[^/]+/content", ("*",))
 
 FLUSH_BYTES = 1024 * 1024
 HEX64 = r"^[0-9a-f]{64}$"
@@ -90,6 +97,21 @@ class ReceiptPage(BaseModel):
     next_cursor: str | None
 
 
+class LibraryItem(BaseModel):
+    id: str
+    file_name: str
+    taken_at: str = Field(description="When the phone says it was taken; the day the box stored it when the phone sent none")
+    size: int
+    level: Literal["on_box", "in_backup", "in_verified_backup"] = Field(
+        description="in_verified_backup is the only level that means safe in a backup that passed a restore check"
+    )
+
+
+class LibraryPage(BaseModel):
+    items: list[LibraryItem]
+    next_cursor: str | None
+
+
 def _photos_error(_: Request, exc: PhotosError):
     res = error_response(exc.status, exc.error, exc.message)
     for k, v in exc.headers.items():
@@ -150,6 +172,38 @@ def register(app: FastAPI, gw: Gateway) -> None:
         p: Principal = Depends(principal),
     ):
         return svc.receipts(p, source_id, cursor, limit)
+
+    @app.get(
+        "/v1/photos/library", tags=["photos"], operation_id="photos.library", response_model=LibraryPage,
+        responses=error_responses(401, 403, 404, 422),
+    )
+    def library(
+        cursor: str | None = Query(default=None),
+        limit: int = Query(default=60, ge=1, le=200),
+        p: Principal = Depends(principal),
+    ):
+        return svc.library(p, cursor, limit)
+
+    @app.get(
+        "/v1/photos/assets/{asset_id}/content", tags=["photos"], operation_id="photos.asset_content",
+        responses={200: {"description": "The photo's own bytes", "content": {"*/*": {}}}, **error_responses(401, 403, 404)},
+    )
+    def asset_content(asset_id: str, p: Principal = Depends(principal)):
+        fd, name, size = svc.open_asset(p, asset_id)
+        kind = mimetypes.guess_type(name)[0] or ""
+        shown = kind if kind.split("/")[0] in ("image", "video") and kind != "image/svg+xml" else "application/octet-stream"
+
+        def chunks():
+            with os.fdopen(fd, "rb") as f:
+                while block := f.read(FLUSH_BYTES):
+                    yield block
+
+        return StreamingResponse(chunks(), media_type=shown, headers={
+            "Content-Length": str(size),
+            "X-Content-Type-Options": "nosniff",
+            "Content-Security-Policy": "sandbox; default-src 'none'",
+            "Cache-Control": "private, no-store",
+        })
 
     @app.post(
         "/v1/photos/uploads", tags=["photos"], operation_id="photos.create_upload", status_code=201,

@@ -21,13 +21,14 @@ func updateCommands(a *App) []*cobra.Command {
 	upd := &cobra.Command{Use: "update", Short: "OS updates on this box (local engine; needs root except status)"}
 	var conf string
 	var noReboot bool
+	var mirror string
 	sub := func(name, short string) *cobra.Command {
 		return &cobra.Command{
 			Use:   name,
 			Short: short,
 			Args:  cobra.NoArgs,
 			RunE: func(*cobra.Command, []string) error {
-				return updateCmd(&a.Env, name, conf, a.G.JSON, noReboot, a.Stdout, a.Stderr)
+				return updateCmd(&a.Env, name, conf, mirror, a.G.JSON, noReboot, a.Stdout, a.Stderr)
 			},
 		}
 	}
@@ -35,6 +36,10 @@ func updateCommands(a *App) []*cobra.Command {
 		sub("check", "Check for an update now"), sub("apply", "Install an available update")
 	for _, c := range []*cobra.Command{status, check, apply} {
 		c.Flags().StringVar(&conf, "config", envOr("ONEMIND_UPDATE_CONF", update.DefaultConfigPath), "update.conf path")
+	}
+	for _, c := range []*cobra.Command{check, apply} {
+		c.Flags().StringVar(&mirror, "mirror", "", "read the channel from this directory (USB stick or mounted LAN share) instead of the network; "+
+			"signatures and hashes are checked exactly as online, only expiry gets the offline_grace allowance")
 	}
 	apply.Flags().BoolVar(&noReboot, "no-reboot", false, "install but leave the reboot to the maintenance window")
 	upd.AddCommand(status, check, apply)
@@ -44,7 +49,7 @@ func updateCommands(a *App) []*cobra.Command {
 // updateCmd implements `onemind update status|check|apply` (brief 30 B4.2,
 // contract §10.1). check and apply need root: they write the update state
 // under /data and apply installs with RAUC.
-func updateCmd(env *Env, sub, conf string, asJSON, noReboot bool, out, errw io.Writer) error {
+func updateCmd(env *Env, sub, conf, mirror string, asJSON, noReboot bool, out, errw io.Writer) error {
 	c, err := update.LoadConfig(conf)
 	if err != nil {
 		return err
@@ -59,7 +64,9 @@ func updateCmd(env *Env, sub, conf string, asJSON, noReboot bool, out, errw io.W
 	if sub == "apply" {
 		mode = update.ModeApply
 	}
-	res, err := env.NewEngine(c, log).Run(ctx, mode, noReboot)
+	eng := env.NewEngine(c, log)
+	eng.Mirror = mirror
+	res, err := eng.Run(ctx, mode, noReboot)
 	if res != nil && res.Decision != "" {
 		fmt.Fprintf(out, "decision: %s (%s)\n", res.Decision, res.Reason)
 		for _, s := range res.Skips {

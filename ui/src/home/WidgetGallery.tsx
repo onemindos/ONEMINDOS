@@ -20,7 +20,7 @@ interface Option {
 }
 
 export function galleryOptions(data: HomeData): { builtin: Option[]; apps: Option[] } {
-  const builtin: Option[] = (['system', 'activity', 'backups', 'updates', 'mesh'] as const).map((k) => ({
+  const builtin: Option[] = (['system', 'trust', 'storage', 'activity', 'backups', 'updates', 'mesh'] as const).map((k) => ({
     key: k,
     title: k === 'system' ? 'System, every node' : WIDGET_META[k].title,
     blurb: WIDGET_META[k].blurb,

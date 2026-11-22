@@ -101,6 +101,8 @@ export interface CatalogApp {
 export type ActionType = components['schemas']['PlainActionRequest']['type'] | components['schemas']['ConfigureActionRequest']['type'];
 export type AppParams = components['schemas']['PlainActionParams'] & Partial<Pick<components['schemas']['ConfigureActionParams'], 'settings'>> & { name?: undefined };
 export type PlanPreview = components['schemas']['PlanPreview'];
+/** Body of POST /v1/actions/{id}/approve (§12.4): the plan read, the passkey assertion, the sealed secrets form. */
+export type ApproveBody = components['schemas']['onemind_core__routers__actions__ApproveBody'];
 /** Validated dashboard view of the SDK's opaque apps.settings response, not a wire contract. */
 export interface AppSettings {
   fields: Array<{
@@ -157,7 +159,7 @@ export type ActionState =
   | 'cancelled';
 
 export type PrincipalKind = 'person' | 'agent';
-export type PrincipalRole = 'owner' | 'adult' | 'guest' | 'child' | 'agent';
+export type PrincipalRole = 'owner' | 'adult' | 'guest' | 'child' | 'teen' | 'agent';
 
 /** §3 tokens map to principals `{id, kind, role}`. */
 export interface Principal {
@@ -167,15 +169,19 @@ export interface Principal {
 }
 
 /** MACH-01 (#281): machine requests. They carry a machine `name`, never an `app_id`. */
-export type MachineActionType = Extract<components['schemas']['FeatureActionRequest']['type'], `machine.${string}`>;
+export type MachineActionType = Extract<components['schemas']['FeatureActionRequest']['type'], `machine.${string}`> | 'machines.enable' | 'machines.disable';
 export interface MachineParams {
-  name: string;
+  /** Absent on machines.enable and machines.disable, which are about the whole extension. */
+  name?: string;
   ram_mb?: number;
   cpus?: number;
   disk_gb?: number;
   image_url?: string;
   /** Delete only: the machine's name typed again by the owner. */
   confirm?: string;
+  /** Snapshot only: the snapshot's name. Clone only: `source` is the machine to copy and `name` the new one. */
+  snapshot?: string;
+  source?: string;
   app_id?: undefined;
   settings?: undefined;
 }
@@ -190,6 +196,14 @@ export interface MachineRecord {
   state: MachineState | string;
   created_at: string;
   updated_at: string;
+}
+/** GET /v1/machines/{name}/snapshots rows. `consistency` says how safe the copy is; `note` says it in words. */
+export interface MachineSnapshot {
+  machine: string;
+  name: string;
+  consistency: 'offline' | 'quiesced' | 'best_effort' | 'quiesce_failed' | string;
+  note: string;
+  created_at: string;
 }
 /** GET /v1/machines/capabilities, the parts the screen shows. */
 export interface MachineCapabilities {

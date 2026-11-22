@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 /* Copied from ui/src/tokens/tokens.css by `npm run sync:tokens` (OneMind design tokens). Do not edit by hand. */
 :root {
-  --om-font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --om-font-sans: 'Inter Variable', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   --om-font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
   --om-font-size-xs: 0.75rem;
   --om-font-size-sm: 0.875rem;
@@ -54,6 +54,7 @@
   --om-color-surface-raised: #ffffff;
   --om-color-border: #e3e8e9;
   --om-color-border-strong: #cdd5d7;
+  --om-color-control-border: #7a818c;
   --om-color-text: #131a1d;
   --om-color-text-muted: #475459;
   --om-color-text-subtle: #5e6b70;
@@ -100,6 +101,7 @@
     --om-color-surface-raised: #1a2226;
     --om-color-border: #222b2f;
     --om-color-border-strong: #343f44;
+    --om-color-control-border: #5a7884;
     --om-color-text: #e8eeef;
     --om-color-text-muted: #a9b6b9;
     --om-color-text-subtle: #8a989c;
@@ -146,6 +148,7 @@
   --om-color-surface-raised: #1a2226;
   --om-color-border: #222b2f;
   --om-color-border-strong: #343f44;
+  --om-color-control-border: #5a7884;
   --om-color-text: #e8eeef;
   --om-color-text-muted: #a9b6b9;
   --om-color-text-subtle: #8a989c;
