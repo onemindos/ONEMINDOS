@@ -15,9 +15,12 @@ ARG BASE=docker.io/library/debian:trixie@sha256:9c6e381421d0f48d1b8133e573f33c18
 FROM ${BASE} AS base
 ARG LEG=debian
 ARG SNAPSHOT=20261111T000000Z
+# FIRMWARE=yes (default) enables Debian's non-free-firmware component; FIRMWARE=no is the fully open
+# image (os/rootfs/firmware/README.md).
+ARG FIRMWARE=yes
 ENV DEBIAN_FRONTEND=noninteractive LC_ALL=C.UTF-8
 COPY os/rootfs/sources/configure-apt.sh /usr/local/sbin/onemind-configure-apt
-RUN onemind-configure-apt "$LEG" "$SNAPSHOT"
+RUN onemind-configure-apt "$LEG" "$SNAPSHOT" "$FIRMWARE"
 
 # ---------------------------------------------------------------- RAUC from source (B4.1)
 FROM base AS rauc-build
@@ -128,7 +131,9 @@ FROM base AS rootfs
 ARG LEG=debian
 ARG BOARD=x86_64-efi
 ARG TARGETARCH
+ARG FIRMWARE=yes
 COPY os/rootfs/packages/ /tmp/onemind/packages/
+COPY os/rootfs/firmware/ /tmp/onemind/firmware/
 COPY os/boards/${BOARD}/ /tmp/onemind/board/
 # Watchdog drivers must be listed before the kernel's initramfs is generated.
 COPY os/rootfs/layers/base/usr/share/initramfs-tools/ /usr/share/initramfs-tools/
@@ -143,6 +148,22 @@ RUN set -eu; \
     apt-get -y upgrade; \
     apt-get install -y $(cat /tmp/onemind/pkgs); \
     rm -rf /var/lib/apt/lists/*
+
+# Firmware layer (os/rootfs/firmware/README.md): CPU microcode and closed firmware, its own step so it
+# shows as its own packages in the SBOM. FIRMWARE=no installs nothing and proves nothing leaked in.
+RUN set -eu; \
+    sh /tmp/onemind/firmware/resolve.sh "${LEG}" "${TARGETARCH}" "${FIRMWARE}" \
+        $(ls /tmp/onemind/board/packages-firmware-${LEG}.txt 2>/dev/null) > /tmp/onemind/fwpkgs; \
+    if [ -s /tmp/onemind/fwpkgs ]; then \
+      apt-get update; apt-get install -y $(cat /tmp/onemind/fwpkgs); rm -rf /var/lib/apt/lists/*; \
+      mkdir -p /usr/lib/onemind; \
+      grep -E "^($(paste -sd'|' /tmp/onemind/fwpkgs))\\|" /tmp/onemind/firmware/licences.txt > /usr/lib/onemind/firmware-licences.txt; \
+    elif [ "${FIRMWARE}" = no ]; then \
+      if dpkg-query -W -f='${Package}\n' | grep -E "^(intel-microcode|amd64-microcode|firmware-)"; then \
+        echo "ERROR: closed firmware present in the FIRMWARE=no image" >&2; exit 1; fi; \
+      if grep -rq non-free-firmware /etc/apt/sources.list.d 2>/dev/null; then \
+        echo "ERROR: non-free-firmware enabled in the FIRMWARE=no image" >&2; exit 1; fi; \
+    fi
 
 # OneMind's RAUC; the distribution's rauc / rauc-service must be absent (B4.1, T0).
 COPY --from=rauc-build /opt/rauc-dest/ /
@@ -221,7 +242,7 @@ RUN set -eu; \
     mkdir -p /data /boot/efi /etc/rancher/node /var/lib/rancher /var/lib/kubelet /var/lib/cni \
       /var/lib/tailscale /var/lib/onemind-headscale /var/lib/onemind-nats-leaf /var/lib/onemind-nats; \
     dpkg-query -W -f='${Package} ${Version} ${Architecture}\n' | sort > /usr/lib/onemind/packages.txt; \
-    printf 'leg=%s board=%s arch=%s kernel=%s\n' "${LEG}" "${BOARD}" "${TARGETARCH}" "$kver" > /usr/lib/onemind/build-info.txt; \
+    printf 'leg=%s board=%s arch=%s kernel=%s firmware=%s\n' "${LEG}" "${BOARD}" "${TARGETARCH}" "$kver" "${FIRMWARE}" > /usr/lib/onemind/build-info.txt; \
     rm -rf /tmp/onemind /var/cache/apt/*.bin /var/log/apt /var/log/dpkg.log; \
     cat /usr/lib/onemind/build-info.txt
 
