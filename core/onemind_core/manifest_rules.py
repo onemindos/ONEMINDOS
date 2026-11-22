@@ -23,6 +23,21 @@ class ManifestRules:
         self.value_re = re.compile(defs["credentialValue"]["pattern"])
         self.name_re = re.compile(defs["credentialName"]["pattern"])
 
+    @classmethod
+    def for_schema(cls, schema: object) -> ManifestRules | None:
+        """The rules for a manifest v1 schema, or None for a schema without the credential $defs.
+
+        Only the v1 app schema carries the patterns; an older or hand-written schema (tests, a
+        channel's own) still validates manifests, without the v1 cross-field rules.
+        """
+        defs = schema.get("$defs") if isinstance(schema, dict) else None
+        if not isinstance(defs, dict) or not all(
+            isinstance(defs.get(k), dict) and isinstance(defs[k].get("pattern"), str)
+            for k in ("credentialValue", "credentialName")
+        ):
+            return None
+        return cls(schema)
+
     def errors(self, doc: object) -> list[str]:
         if not isinstance(doc, dict):
             return []

@@ -14,6 +14,7 @@ import yaml
 REPO = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO / "core"))
 from onemind_core.catalog import Catalog  # noqa: E402
+from onemind_core.manifest_rules import ManifestRules  # noqa: E402
 
 SCHEMA_PATH = REPO / "sdk" / "schema" / "onemind.app.schema.json"
 SCHEMA = json.loads(SCHEMA_PATH.read_text())
@@ -101,6 +102,14 @@ class ManifestBlocksTests(unittest.TestCase):
         found = self.catalog.load()
         self.assertTrue(found)
         self.assertEqual(self.catalog.errors, {})
+
+    def test_v1_rules_run_for_the_app_schema_and_skip_a_schema_without_its_patterns(self):
+        # The real schema always carries the credential patterns, so the v1 rules are on in CI and on the box;
+        # a hand-written schema without them (tests, an older channel) still loads instead of crashing the catalog.
+        self.assertIsNotNone(ManifestRules.for_schema(SCHEMA))
+        self.assertIsNotNone(self.catalog._rules)
+        self.assertIsNone(ManifestRules.for_schema({"type": "object"}))
+        self.assertIsNone(ManifestRules.for_schema({"$defs": {"credentialValue": {"pattern": "x"}}}))
 
 
 if __name__ == "__main__":

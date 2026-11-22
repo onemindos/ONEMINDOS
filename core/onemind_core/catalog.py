@@ -218,7 +218,9 @@ class Catalog:
             cls.check_schema(schema)
             self._validator = cls(schema, format_checker=cls.FORMAT_CHECKER)
             # Manifest v1 (#604): the rules a schema cannot say, shared with the Go validator.
-            self._rules = ManifestRules(schema)
+            self._rules = ManifestRules.for_schema(schema)
+            if self._rules is None:
+                log.warning("%s has no manifest v1 credential patterns; v1 block rules are off", schema_path.name)
             log.info("validating app manifests against %s", schema_path.name)
         else:
             log.info("no app schema found; using the built-in manifest check")
@@ -256,13 +258,13 @@ class Catalog:
         errs = builtin_check(doc) if self._validator is None else []
         if self._validator is not None:
             rules = self._rules
-            assert rules is not None
             # A schema message quotes the bad value; rules.hide never repeats one that looks like a credential.
             errs = [
-                rules.hide(f"{'/'.join(str(p) for p in e.absolute_path) or '<root>'}: {e.message}")
+                f"{'/'.join(str(p) for p in e.absolute_path) or '<root>'}: {e.message}"
                 for e in self._validator.iter_errors(doc)
             ]
-            errs.extend(rules.errors(doc))
+            if rules is not None:
+                errs = [rules.hide(e) for e in errs] + rules.errors(doc)
             md = doc.get("metadata") if isinstance(doc, dict) else None
             app_id = md.get("id") if isinstance(md, dict) else None
             if not isinstance(app_id, str) or not APP_ID_RE.match(app_id):
