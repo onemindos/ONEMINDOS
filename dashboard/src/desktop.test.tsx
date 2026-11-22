@@ -63,10 +63,10 @@ describe('desktop frame', () => {
     const u = userEvent.setup();
     const { container } = renderApp({ token: 'owner-demo', route: '/market' });
     const win = await screen.findByRole('region', { name: 'Market' }, T);
-    expect(within(win).getByRole('main')).toBeInTheDocument();
+    expect(screen.getByRole('main')).toContainElement(win);
     expect(await seriousViolations(container)).toEqual([]);
 
-    await u.click(within(win).getByRole('link', { name: 'Close Market' }));
+    await u.click(within(win).getByRole('button', { name: 'Close Market' }));
     await waitFor(() => expect(container.querySelector('.dsk-at-home')).not.toBeNull());
 
     const dock = within(screen.getByRole('navigation', { name: 'Main' }));
@@ -82,7 +82,7 @@ describe('desktop frame', () => {
     // The window's own name is for assistive tech only (visually hidden); no visible title text, no title bar.
     expect(container.querySelector('.dsk-window-title')).toBeNull();
     expect(container.querySelector('.dsk-window > .om-visually-hidden')?.textContent).toBe('Market');
-    expect(within(win).getByRole('link', { name: 'Close Market' })).toBeInTheDocument();
+    expect(within(win).getByRole('button', { name: 'Close Market' })).toBeInTheDocument();
   });
 
   it('Home greets without the role word and names apps as the catalog does', async () => {
@@ -176,7 +176,8 @@ describe('desktop frame', () => {
   it('a nested page has a Back button to its screen', async () => {
     renderApp({ token: 'owner-demo', route: '/market/vaultwarden' });
     const win = await screen.findByRole('region', { name: 'Market' }, T);
-    expect(within(win).getByRole('link', { name: 'Back' })).toHaveAttribute('href', '/market');
+    await userEvent.click(within(win).getByRole('button', { name: 'Back' }));
+    expect(await within(win).findByPlaceholderText(/Search apps/)).toBeInTheDocument();
   });
 });
 
