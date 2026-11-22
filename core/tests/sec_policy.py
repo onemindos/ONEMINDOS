@@ -734,3 +734,12 @@ POLICY.update({
             "idempotency_key": x.key(), "expires_at": x.action_body()["expires_at"]}),
         "#180 owner approval required to revoke enrolled signing trust"),
 })
+
+# ---- the NATS subject tree (#600: core/onemind_core/routers/subjects.py) ------------------------------------
+_SUBJ = "core/onemind_core/routers/subjects.py"
+POLICY |= {
+    ("GET", "/v1/subjects"): Row(CHILD_CANNOT, w.p_static("/v1/subjects"),
+                                 f"{_SUBJ}: the public subject registry (§12.9), same events:read gate as /v1/events"),
+    ("GET", "/v1/subjects/check"): Row(CHILD_CANNOT, w.p_static("/v1/subjects/check?subject=onemind.audit"),
+                                       f"{_SUBJ}: read-only what-if check with a reason; never publishes"),
+}
