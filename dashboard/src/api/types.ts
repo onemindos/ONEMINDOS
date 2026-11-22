@@ -99,12 +99,49 @@ export interface CatalogApp {
 }
 
 export type ActionType = components['schemas']['PlainActionRequest']['type'] | components['schemas']['ConfigureActionRequest']['type'];
-export type AppParams = components['schemas']['PlainActionParams'] & Partial<Pick<components['schemas']['ConfigureActionParams'], 'settings'>>;
+export type AppParams = components['schemas']['PlainActionParams'] & Partial<Pick<components['schemas']['ConfigureActionParams'], 'settings'>> & { name?: undefined };
 export type PlanPreview = components['schemas']['PlanPreview'];
 /** Validated dashboard view of the SDK's opaque apps.settings response, not a wire contract. */
 export interface AppSettings {
-  fields: Array<{ name: string; title?: string; type: string; default?: string | number | boolean; enum?: Array<string | number | boolean>; description?: string; restart?: boolean }>;
+  fields: Array<{
+    name: string; title?: string; type: string; default?: string | number | boolean; enum?: Array<string | number | boolean>; description?: string; restart?: boolean;
+    minimum?: number; maximum?: number; minLength?: number; maxLength?: number; pattern?: string;
+  }>;
   values: Record<string, string | number | boolean> | null;
+}
+
+/** Validated view of GET /v1/apps/{id}/dependencies (contract §12.22, PD-10). */
+export interface AppDependencies {
+  app_id: string;
+  requires: Array<{
+    id: string; alternatives: string[]; reason: string | null; port: number | null; satisfied_by: string | null;
+    choices: Array<{ id: string; name: string | null; in_catalog: boolean; installed: boolean }>;
+  }>;
+  dependents: Array<{ id: string; name: string | null }>;
+}
+
+/** Validated view of GET /v1/apps/{id}/host-ports (PD-11). `with` names who already holds the port. */
+export interface AppHostPorts {
+  app_id: string;
+  node_id: string;
+  declared: Array<{ port: number; protocol: string; description: string | null }>;
+  conflicts: Array<{ port: number; protocol: string; with: string }>;
+}
+
+/** Validated view of one GET /v1/sources row (PD-12): a community source pinned at a commit. */
+export interface CommunitySource {
+  id: string; name: string; url: string; commit: string; state: string; added_at: string | null;
+  apps: Array<{ id: string; version: string; scan: { result: string; scanned_at: string | null } | null }>;
+  errors: string[];
+}
+
+/** POST /v1/deploy/compose (PD-13): a conversion only; it writes nothing on the box. */
+export interface ComposeResult {
+  ok: boolean;
+  app_id: string;
+  files: Record<string, string>;
+  refusals: Array<{ service: string | null; rule: string; field: string; message: string }>;
+  warnings: string[];
 }
 
 /** §3 action states. */
@@ -120,7 +157,7 @@ export type ActionState =
   | 'cancelled';
 
 export type PrincipalKind = 'person' | 'agent';
-export type PrincipalRole = 'owner' | 'adult' | 'guest' | 'agent';
+export type PrincipalRole = 'owner' | 'adult' | 'guest' | 'child' | 'teen' | 'agent';
 
 /** §3 tokens map to principals `{id, kind, role}`. */
 export interface Principal {
@@ -129,10 +166,44 @@ export interface Principal {
   role: PrincipalRole;
 }
 
+/** MACH-01 (#281): machine requests. They carry a machine `name`, never an `app_id`. */
+export type MachineActionType = Extract<components['schemas']['FeatureActionRequest']['type'], `machine.${string}`>;
+export interface MachineParams {
+  name: string;
+  ram_mb?: number;
+  cpus?: number;
+  disk_gb?: number;
+  image_url?: string;
+  /** Delete only: the machine's name typed again by the owner. */
+  confirm?: string;
+  app_id?: undefined;
+  settings?: undefined;
+}
+export type MachineState = 'creating' | 'stopped' | 'running' | 'unknown';
+/** GET /v1/machines rows (core/onemind_core/machines/store.py; the OpenAPI response is untyped). */
+export interface MachineRecord {
+  name: string;
+  node_id: string;
+  ram_mb: number;
+  cpus: number;
+  disk_gb: number;
+  state: MachineState | string;
+  created_at: string;
+  updated_at: string;
+}
+/** GET /v1/machines/capabilities, the parts the screen shows. */
+export interface MachineCapabilities {
+  enabled: boolean;
+  extension: { state: string; message: string };
+  requirements: { min_memory_mb: number; arch: string; kvm: boolean };
+  eligible_node_ids: string[];
+  nodes: Array<{ node_id: string; eligible: boolean; reasons: Array<{ code: string; message: string }> }>;
+}
+
 /** §3 `POST /v1/actions` body. */
 export interface ActionRequest {
-  type: ActionType;
-  params: AppParams;
+  type: ActionType | MachineActionType;
+  params: AppParams | MachineParams;
   plan_sha256?: string;
   idempotency_key: string;
   expires_at: string;

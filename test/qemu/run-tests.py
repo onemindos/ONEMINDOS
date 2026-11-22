@@ -144,6 +144,18 @@ class VM:
 
     def wait_gate(self, timeout=1800):
         m = self.expect(GATE, timeout)
+        # The match can fire while the serial line is still arriving (the reader hands over whatever
+        # the pipe holds), which cut "verdict=environment-bad" short and made TD3 read verdict=None
+        # (#324). Wait for the line's newline, then re-read the whole line. The check itself is unchanged.
+        end = time.time() + 30
+        while time.time() < end:
+            with self.lock:
+                if "\n" in self.buf[m.end():]:
+                    break
+            time.sleep(0.05)
+        with self.lock:
+            whole = re.compile(GATE).match(self.buf, m.start())
+        m = whole or m
         self.last_gate = m.group(0)
         return m.group(1), m.group(2), m.group(3)
 

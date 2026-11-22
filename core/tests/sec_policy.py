@@ -51,6 +51,8 @@ def cells(default, **over) -> dict:
         k = k.replace("_", "-")
         assert k in out, f"unknown principal kind {k}"
         out[k] = v
+    if "teen" not in over:
+        out["teen"] = out["child"]  # FAM-01: a teen holds the same API scopes as a child; rows override with teen=
     return out
 
 
@@ -79,6 +81,8 @@ POLICY: dict[tuple[str, str], Row] = {
     ("GET", "/v1/instance"): Row(ANY_PRINCIPAL, w.p_static("/v1/instance"), "§3; §12.6 instance:read for all"),
     ("GET", "/v1/nodes"): Row(CHILD_CANNOT, w.p_static("/v1/nodes"), "§3; §12.6 child has no nodes:read"),
     ("GET", "/v1/nodes/{node_id}"): Row(CHILD_CANNOT, w.p_node, "§3; §12.6 child has no nodes:read"),
+    ("GET", "/v1/nodes/{node_id}/wake"): Row(CHILD_CANNOT, lambda world: w.Req(f"/v1/nodes/{world.heartbeat()}/wake"),
+                                             "#251 wake availability only; nodes:read, no actuation"),
     ("GET", "/v1/apps"): Row(ANY_PRINCIPAL, w.p_static("/v1/apps"), "§3; §12.6 apps:read (shared apps for a child)"),
     ("GET", "/v1/actions"): Row(CHILD_CANNOT, w.p_static("/v1/actions"), "§3; §12.6 child has no actions:read"),
     ("GET", "/v1/actions/{action_id}"): Row(CHILD_CANNOT, w.p_action, "§3; §12.6 child has no actions:read"),
@@ -156,6 +160,12 @@ POLICY |= {
                                              "§12.6 owner; a person sees own entry", ID),
     ("PUT", "/v1/apps/{app_id}/access"): Row(ACCOUNT_ADMIN, w.p_access_put, "§12.6 owner, direct and audited", ID),
     ("POST", "/v1/actions/{action_id}/approve-options"): Row(OWNER_ONLY, w.p_approve_options, "§12.4 owner", ID),
+    # D-014 rescue console step-up: the owner is refused only on the merits (no passkey on the box: 409; a bad
+    # assertion: 401), every other principal 403. They open nothing, so there is no 200 for anyone.
+    ("POST", "/v1/auth/rescue/options"): Row({**OWNER_ONLY, "owner": 409}, w.p_rescue_options,
+                                              "D-014 owner; 409 until a passkey is registered", ID),
+    ("POST", "/v1/auth/rescue/verify"): Row({**OWNER_ONLY, "owner": 401}, w.p_rescue_verify,
+                                             "D-014 owner; the probe's assertion does not verify", ID),
     ("GET", "/signin"): Row(OPEN, w.p_static("/signin"), "the sign-in page is public", ID),
 }
 
@@ -349,6 +359,8 @@ POLICY |= {
     ("GET", "/v1/onboarding/settings"): Row(ONLY_OWNER, w.p_static("/v1/onboarding/settings"), "contract 12.41: owner only, audited"),
     ("PUT", "/v1/onboarding/settings"): Row(ONLY_OWNER, w.p_missing("/v1/onboarding/settings", json={
         "box_name": "home-hub", "time_zone": "UTC", "backup_choice": "later"}), "contract 12.41: owner only, audited"),
+    ("POST", "/v1/onboarding/restore/candidates"): Row(OFF_OWNER_ONLY, w.p_missing("/v1/onboarding/restore/candidates", json={
+        "destination_id": "dst_0123456789abcdef"}), "UMB-P08: first-run restore listing is owner only (503: backups off in the matrix)"),
     # ---- the person's own Home (UMB-P07, #144) --------------------------------------------------------------
     # Every person has one (child included); an agent has none. The write is probed without If-Match, so a
     # person who is let in gets 428: the route never reaches the store without a validator.
@@ -537,4 +549,37 @@ POLICY |= {
     ("POST", "/v1/machines/enable"): Row(cells(403, **GONE, owner=409, plugin=DENIED, automation=DENIED, node=DENIED),
                                          w.p_static("/v1/machines/enable"),
                                          f"{_MACH}: only the owner turns machines on; an agent can never approve its own power-up"),
+    # Part 3 (machine actions). The list shows the same nodes:read facts; a machine that does not exist is a 404.
+    ("GET", "/v1/machines"): Row(CHILD_CANNOT, w.p_static("/v1/machines"), f"{_MACH}: the machines on this box; a child has no nodes:read"),
+    ("GET", "/v1/machines/{name}"): Row(cells(404, **GONE, child=403, plugin=DECIDE, automation=DECIDE, node=DECIDE),
+                                        w.p_static("/v1/machines/ghost"), f"{_MACH}: one machine; none exists in this world"),
+    ("POST", "/v1/machines/{name}/console"): Row(cells(403, **GONE, owner=404, plugin=DENIED, automation=DENIED, node=DENIED),
+                                                 w.p_static("/v1/machines/ghost/console"),
+                                                 f"{_MACH}: only the owner gets a console ticket; an agent never gets a screen"),
+}
+
+# ---- family controls (FAM-01, #204) -------------------------------------------------------
+# The owner passes authorization and gets 404 for these deliberately missing targets.
+# Other people and service identities are refused before target lookup.
+POLICY |= {
+    ("GET", "/v1/family/profiles/{user_id}"): Row(
+        OWNER_ONLY_404, w.p_static("/v1/family/profiles/missing"), "FAM-01: private profiles are owner only"),
+    ("PUT", "/v1/family/profiles/{user_id}"): Row(
+        OWNER_ONLY_404, w.p_missing("/v1/family/profiles/missing", json={}), "FAM-01: owner manages profiles"),
+    ("GET", "/v1/family/apps/{app_id}"): Row(
+        OWNER_ONLY_404, w.p_static("/v1/family/apps/missing"), "FAM-01: classifications are owner only"),
+    ("PUT", "/v1/family/apps/{app_id}"): Row(
+        OWNER_ONLY_404, w.p_missing("/v1/family/apps/missing", json={}), "FAM-01: owner manages classifications"),
+}
+
+# ---- OS updates (UMB-P05, #142: core/onemind_core/routers/osupdates.py) --------------------------------------
+_OSUP = "core/onemind_core/routers/osupdates.py"
+POLICY |= {
+    ("GET", "/v1/os/updates"): Row(CHILD_CANNOT, w.p_static("/v1/os/updates"),
+                                   f"{_OSUP}: versions and A/B slots, the facts /v1/nodes shows; a child has no nodes:read"),
+    ("GET", "/v1/os/updates/history"): Row(CHILD_CANNOT, w.p_static("/v1/os/updates/history"),
+                                           f"{_OSUP}: commits, rollbacks and install requests; same nodes:read gate"),
+    # About this box (UMB-P14, #432: core/onemind_core/routers/about.py)
+    ("GET", "/v1/os/about"): Row(CHILD_CANNOT, w.p_static("/v1/os/about"),
+                                 "core/onemind_core/routers/about.py: device facts the nodes report, as /v1/nodes shows; a child has no nodes:read"),
 }

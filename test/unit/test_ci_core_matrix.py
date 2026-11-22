@@ -65,6 +65,20 @@ class Main(unittest.TestCase):
         self.assertEqual(out["run"], "true")
         self.assertEqual(len(json.loads(out["matrix"])["include"]), 3)
 
+    def test_writes_one_matrix_per_backend(self):
+        """CI-13: the SQLite job (may run on the Mac) and the PostgreSQL job (hosted) each get their own."""
+        for event, want in (("pull_request", (3, 0)), ("push", (3, 4))):
+            out = self.run_main({"EVENT": event})
+            sq, pg = json.loads(out["sqlite"])["include"], json.loads(out["postgresql"])["include"]
+            self.assertEqual((len(sq), len(pg)), want, event)
+            self.assertEqual({j["backend"] for j in sq} | {"sqlite"}, {"sqlite"})
+            self.assertEqual({j["backend"] for j in pg} | {"postgresql"}, {"postgresql"})
+            self.assertEqual(out["run_sqlite"], "true")
+            self.assertEqual(out["run_postgresql"], "true" if want[1] else "false")
+        out = self.run_main({"EVENT": "merge_group", "REPO": "o/r", "BASE_SHA": "a", "HEAD_SHA": "b",
+                             "GH_TOKEN": "t"}, files=["core/x.py"])
+        self.assertEqual((out["run_sqlite"], out["run_postgresql"]), ("false", "true"))
+
     def test_docs_only_merge_skips_the_test_job(self):
         out = self.run_main({"EVENT": "merge_group", "REPO": "o/r", "BASE_SHA": "a", "HEAD_SHA": "b",
                              "GH_TOKEN": "t"}, files=["docs/x.md"])
@@ -77,8 +91,23 @@ class Workflow(unittest.TestCase):
         wf = (ROOT / ".github" / "workflows" / "ci-core.yml").read_text(encoding="utf-8")
         self.assertIn("merge_group:", wf)
         self.assertIn("scripts/ci-core-matrix.py", wf)
-        self.assertRegex(wf, r"matrix: \$\{\{ fromJSON\(needs\.plan\.outputs\.matrix\) \}\}")
         self.assertIsNone(re.search(r"backend: postgresql, shard", wf), "shards live in the script now")
+
+    def test_each_backend_has_its_own_job_and_only_postgresql_has_services(self):
+        """CI-13: the SQLite shards run without Docker (so the Mac can take them); PostgreSQL keeps its services."""
+        import yaml
+        jobs = yaml.safe_load((ROOT / ".github" / "workflows" / "ci-core.yml").read_text(encoding="utf-8"))["jobs"]
+        sq, pg = jobs["test"], jobs["test-postgresql"]
+        self.assertEqual(sq["strategy"]["matrix"], "${{ fromJSON(needs.plan.outputs.sqlite) }}")
+        self.assertEqual(pg["strategy"]["matrix"], "${{ fromJSON(needs.plan.outputs.postgresql) }}")
+        self.assertIn("run_sqlite == 'true'", sq["if"])
+        self.assertIn("run_postgresql == 'true'", pg["if"])
+        self.assertNotIn("services", sq)
+        self.assertEqual(set(pg["services"]), {"nats", "postgres"})
+        self.assertEqual(pg["runs-on"], "ubuntu-24.04")
+        self.assertEqual(sq["name"], pg["name"])  # check names unchanged: test (<backend> <k>/<n>)
+        for out in ("sqlite", "run_sqlite", "postgresql", "run_postgresql"):
+            self.assertIn(out, jobs["plan"]["outputs"])
 
 
 if __name__ == "__main__":

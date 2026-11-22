@@ -149,7 +149,7 @@ class Seeds(unittest.TestCase):
 
 
 class Qemu(unittest.TestCase):
-    PORTS = {"ssh": 2222, "http": 8888}
+    PORTS = {"ssh": 2222, "http": 8888, "https": 8443}
 
     def cmd(self, c):
         return " ".join(cb.qemu_cmd(c, "d.qcow2", "seed.img", ["b.img"], self.PORTS, "tcg", "max"))
@@ -163,7 +163,8 @@ class Qemu(unittest.TestCase):
             self.assertEqual(s.count("bootindex"), 1, c)          # the seed's FAT boot sector is never booted
             self.assertIn("restrict=on", s)
             self.assertIn("hostfwd=tcp:127.0.0.1:2222-:22", s)
-            self.assertIn("hostfwd=tcp:127.0.0.1:8888-:8080", s)
+            self.assertIn("hostfwd=tcp:127.0.0.1:8888-:8080", s)            # the setup wizard (C5)
+            self.assertIn("hostfwd=tcp:127.0.0.1:8443-:8443", s)            # the gateway: HTTPS only off the box (H-05)
             self.assertIn("file=seed.img", s)
 
     def test_machine(self):
@@ -174,6 +175,29 @@ class Qemu(unittest.TestCase):
         self.assertEqual(cb.default_tests("aws"), ["C0", "C1", "C2", "C3", "C4", "C6"])
         self.assertEqual(cb.default_tests("hetzner"), ["C0", "C1", "C2", "C3", "C4", "C5"])
         self.assertEqual(cb.default_tests("gcp"), ["C0", "C1", "C2", "C3", "C4"])
+
+
+class SetupWizardNotPublic(unittest.TestCase):
+    """The first-boot wizard hands out the owner token without a login, so on every cloud image
+    (public address, often no default firewall) it must answer only on the instance itself."""
+    SETUP = os.path.join("usr", "lib", "systemd", "system", "onemind-setup.service.d", "cloud.conf")
+    FIRST = os.path.join("usr", "lib", "systemd", "system", "onemind-firstboot.service.d", "cloud.conf")
+
+    def rootfs_dir(self, name):
+        b = board_yaml(name)
+        return os.path.join(BOARDS, b.get("rootfs_from", name), "rootfs")
+
+    def test_every_cloud_board_denies_the_wizard_off_box(self):
+        names = [d for d in sorted(os.listdir(BOARDS)) if os.path.exists(os.path.join(BOARDS, d, "board.yaml"))
+                 and board_yaml(d).get("cloud")]
+        self.assertIn("vm-do", names)
+        for n in names:
+            with open(os.path.join(self.rootfs_dir(n), self.SETUP)) as f:
+                t = f.read()
+            self.assertRegex(t, r"(?m)^IPAddressDeny=any$", n)
+            self.assertRegex(t, r"(?m)^IPAddressAllow=localhost$", n)
+            with open(os.path.join(self.rootfs_dir(n), self.FIRST)) as f:
+                self.assertIn("cloud-init-network.service", f.read(), n)
 
 
 if __name__ == "__main__":

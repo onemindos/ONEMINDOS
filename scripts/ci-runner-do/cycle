@@ -1,0 +1,81 @@
+#!/bin/bash
+# SPDX-License-Identifier: Apache-2.0
+# The job loop, run on the OPERATOR's machine (by `up`, or by hand after `up --no-run`). For every job slot
+# on every droplet it: mints a just-in-time (JIT) runner config with the operator's own gh login, sends it
+# over SSH on stdin to start-job.sh, which runs ONE fresh container (label onemind-do) for exactly one job
+# and deletes it. Then the slot mints the next config. No GitHub token ever reaches a droplet, and a JIT
+# config registers one runner with fixed labels in a fixed group and works once, so a job that finds it
+# gains nothing reusable (unlike an org registration token).
+# While it runs it keeps the repo variable DO_RUNNER=on; on exit it sets it off AND destroys the droplets
+# (KEEP=1 keeps them). Cost guard: if no job runs for IDLE_HOURS (default 2), or MAX_HOURS (default 12) pass
+# in all, it runs `down` by itself. The idle check uses GitHub's own busy flag, not anything the job says.
+# SLOTS = containers per droplet (default 2). RUNNER_GROUP defaults to onemind-local.
+set -uo pipefail
+here=$(cd "$(dirname "$0")" && pwd)
+# shellcheck source=lib.sh
+. "$here/lib.sh"
+GROUP=${RUNNER_GROUP:-onemind-local}
+SLOTS=${SLOTS:-2}
+IDLE_HOURS=${IDLE_HOURS:-2}
+MAX_HOURS=${MAX_HOURS:-12}
+CYCLE_NAP=${CYCLE_NAP:-30}
+SLOT=${SLOT:-}
+IP=${IP:-}
+case $SLOTS in ''|*[!0-9]*) echo "SLOTS must be a number from 1 to 8" >&2; exit 2 ;; esac
+{ [ "$SLOTS" -ge 1 ] && [ "$SLOTS" -le 8 ]; } || { echo "SLOTS must be a number from 1 to 8" >&2; exit 2; }
+for t in doctl gh jq awk ssh; do need "$t"; done
+gh auth status >/dev/null 2>&1 || { echo "log in first: gh auth login" >&2; exit 1; }
+
+if [ -z "$SLOT" ]; then   # parent: one loop per slot, plus the cost guard
+  [ -n "$(droplets)" ] || { echo "no droplets of ours (run up first)" >&2; exit 2; }
+  KNOWN_HOSTS=$(mktemp); export KNOWN_HOSTS
+  cleanup() {
+    local rc=$?
+    trap '' EXIT INT TERM
+    gh variable set DO_RUNNER --body off --repo "$REPO" >/dev/null 2>&1 && log "DO_RUNNER=off (loop stopped)"
+    kill 0 2>/dev/null
+    if [ "${KEEP:-0}" = 1 ]; then log "KEEP=1: droplets left running and billing; stop them with down"; else destroy_all; fi
+    exit "$rc"
+  }
+  trap cleanup EXIT INT TERM
+  gh variable set DO_RUNNER --body on --repo "$REPO" >/dev/null || { echo "cannot set DO_RUNNER (gh scope?)" >&2; exit 2; }
+  log "DO_RUNNER=on"
+  while read -r _ name ip; do
+    s=1; while [ "$s" -le "$SLOTS" ]; do SLOT="$name-$s" IP=$ip "$0" </dev/null & s=$((s + 1)); done
+  done < <(droplets)
+  last_busy=$SECONDS
+  while sleep 60; do
+    busy=$(gh api --paginate "orgs/$ORG/actions/runners" \
+             --jq '[.runners[] | select(.name | startswith("onemind-do-")) | select(.busy)] | length' 2>/dev/null | awk '{s += $1} END {print s + 0}')
+    [ "$busy" -gt 0 ] && last_busy=$SECONDS
+    if [ $((SECONDS - last_busy)) -gt $((IDLE_HOURS * 3600)) ]; then log "no job for ${IDLE_HOURS}h: destroying the droplets"; exit 0; fi
+    if [ "$SECONDS" -gt $((MAX_HOURS * 3600)) ]; then log "ran ${MAX_HOURS}h: destroying the droplets"; exit 0; fi
+  done
+fi
+
+fail=0
+backoff() { fail=$((fail + 1)); [ "$fail" -lt 6 ] || { log "[$SLOT] 5 failures in a row: this slot stops"; exit 1; }; sleep $((30 * fail)); }
+gid=""
+while :; do
+  [ -n "$gid" ] || gid=$(gh api "orgs/$ORG/actions/runner-groups?per_page=100" --jq ".runner_groups[] | select(.name == \"$GROUP\") | .id" 2>/dev/null)
+  [ -n "$gid" ] || { log "[$SLOT] runner group '$GROUP' not found"; backoff; continue; }
+  name="onemind-do-$SLOT-$(od -An -N3 -tx1 /dev/urandom | tr -d ' \n')"
+  jit=$(printf '{"name":"%s","runner_group_id":%s,"labels":["self-hosted","onemind-do"],"work_folder":"_work"}' "$name" "$gid" |
+        gh api -X POST "orgs/$ORG/actions/runners/generate-jitconfig" --input - 2>/dev/null)
+  rid=$(printf '%s' "$jit" | jq -r '.runner.id // empty' 2>/dev/null)
+  cfg=$(printf '%s' "$jit" | jq -r '.encoded_jit_config // empty' 2>/dev/null); unset jit
+  if [ -z "$cfg" ] || [ -z "$rid" ]; then
+    log "[$SLOT] could not get a JIT runner config"; gid=""
+    [ -n "$rid" ] && gh api -X DELETE "orgs/$ORG/actions/runners/$rid" >/dev/null 2>&1
+    unset cfg; backoff; continue
+  fi
+  t0=$SECONDS
+  log "[$SLOT] $name waiting for one job"
+  printf '%s\n' "$cfg" | sshd "$IP" env MAX_JOB_MIN="${MAX_JOB_MIN:-300}" sh /opt/onemind-ci/start-job.sh "$(printf '%s' "$SLOT" | tr -c 'a-z0-9-' '-')"
+  rc=$?
+  unset cfg
+  gh api -X DELETE "orgs/$ORG/actions/runners/$rid" >/dev/null 2>&1   # usually gone already (ephemeral); 404 is fine
+  if [ "$rc" -eq 0 ] && [ $((SECONDS - t0)) -gt 20 ]; then fail=0; else log "[$SLOT] round ended (rc=$rc) after $((SECONDS - t0))s"; backoff; fi
+  log "[$SLOT] round done in $((SECONDS - t0))s"
+  sleep "$CYCLE_NAP"
+done

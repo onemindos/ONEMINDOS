@@ -5,7 +5,7 @@
 // Every method is one route. The dashboard calls nothing else.
 import type { Action } from './types';
 
-export type PersonRole = 'owner' | 'adult' | 'guest';
+export type PersonRole = 'owner' | 'adult' | 'teen' | 'child' | 'guest';
 
 export interface PrincipalInfo {
   id: string;

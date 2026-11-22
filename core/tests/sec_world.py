@@ -31,7 +31,7 @@ from onemind_core.photos import PhotosSettings
 
 # Columns of the matrix, in the order the report shows them.
 KINDS = (
-    "none", "owner", "adult", "guest", "child", "agent", "app-agent", "plugin", "automation", "node",
+    "none", "owner", "adult", "guest", "child", "teen", "agent", "app-agent", "plugin", "automation", "node",
     "expired", "revoked", "revoked-agent",
 )
 
@@ -42,6 +42,7 @@ DESCRIBE = {
     "adult": "person, role adult (static tokens file)",
     "guest": "person, role guest (static tokens file)",
     "child": "household person, role child (contract §12.6)",
+    "teen": "household person, role teen (FAM-01, #204): child scopes, never approves",
     "agent": "agent principal from the static tokens file (§3)",
     "app-agent": "agent principal issued to an app at install (§11.2)",
     "plugin": "plugin principal plugin:<app-id> (§12.1)",
@@ -55,6 +56,7 @@ DESCRIBE = {
 # Kinds that cannot exist on a tree without their stream. The skip reason names the stream.
 PENDING_KINDS = {
     "child": "role child is created through household accounts: feat/identity (PR #41, CORE-SEC-2/-3, §12.6)",
+    "teen": "role teen is created through household accounts: FAM-01 (#204), same as child",
     "expired": "token expiry arrives with API tokens: feat/identity (PR #41, CORE-SEC-3, §12.6)",
     "plugin": "kind plugin arrives with the plugins stream: feat/plugins-core (PLUGIN-SDK, DEV-API-6, §12.1)",
     "automation": "kind automation arrives with feat/automation (CORE-AUTO-2, §12.1, §12.17)",
@@ -62,7 +64,7 @@ PENDING_KINDS = {
 }
 # Kinds whose mint() is written. A kind or role that appears in onemind_core.auth without being
 # in this set fails test_every_principal_kind_has_a_column: write its mint() first.
-MINTABLE = {"none", "owner", "adult", "guest", "child", "agent", "app-agent", "expired", "revoked", "revoked-agent"}
+MINTABLE = {"none", "owner", "adult", "guest", "child", "teen", "agent", "app-agent", "expired", "revoked", "revoked-agent"}
 
 # The static tokens file: matrix column -> (principal id, kind, role).
 STATIC = {
@@ -292,7 +294,7 @@ class World:
             assert self.client.get("/v1/instance", headers=bearer(token)).status_code == 200
             self.remove_app(AGENT_APP)
             return bearer(token)
-        if kind in ("child", "expired"):
+        if kind in ("child", "teen", "expired"):
             return self._mint_identity(kind)
         pytest.skip(PENDING_KINDS[kind])
 
@@ -331,12 +333,12 @@ class World:
         if not (self.has_route("POST", "/v1/auth/setup") and self.has_route("POST", "/v1/users")):
             pytest.skip(PENDING_KINDS[kind])
         owner = self._identity_owner()
-        if kind == "child":
-            r = self.client.post("/v1/users", headers=owner, json={"display_name": "Kid", "role": "child"})
+        if kind in ("child", "teen"):
+            r = self.client.post("/v1/users", headers=owner, json={"display_name": kind.title(), "role": kind})
             assert r.status_code == 201, r.text
             code = _enrol_code(r.json())
             r = self.client.post("/v1/auth/enrol", json={
-                "code": code, "username": "matrix-kid", "password": ID_PASSWORD, "client": "cli"})
+                "code": code, "username": f"matrix-{kind}", "password": ID_PASSWORD, "client": "cli"})
             assert r.status_code == 201, r.text
             return bearer(r.json()["access_token"])
         # expired: the household owner's own API token, one day after it expired
@@ -466,6 +468,14 @@ def p_token_delete(w: World) -> Req:
 
 def p_access_put(w: World) -> Req:
     return Req(f"/v1/apps/{TARGET_APP}/access", json={"roles": ["owner", "adult"], "people": []})
+
+
+def p_rescue_options(w: World) -> Req:
+    return Req("/v1/auth/rescue/options")
+
+
+def p_rescue_verify(w: World) -> Req:
+    return Req("/v1/auth/rescue/verify", json={"credential": {"id": "probe", "type": "public-key"}})
 
 
 def p_approve_options(w: World) -> Req:

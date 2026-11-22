@@ -173,6 +173,27 @@ func TestDropletServerReady(t *testing.T) {
 	}
 }
 
+// The image hub keeps k3s data in /data/k3s and the kubeconfig in /run/k3s/k3s.yaml (lab finding).
+func TestImageHubIsServerAndReady(t *testing.T) {
+	c := NewFixture(t.TempDir(), "amd64")
+	c.Now = fixedNow
+	for _, d := range []string{"data/k3s/server", "run/k3s", "usr/local/bin"} {
+		if err := os.MkdirAll(c.path(d), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, f := range []string{"run/k3s/k3s.yaml", "usr/local/bin/k3s"} {
+		if err := os.WriteFile(c.path(f), []byte("x"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	fakeTools(c, map[string]string{"k3s kubectl --kubeconfig /run/k3s/k3s.yaml get --raw /readyz": "ok"}, "k3s")
+	k := c.K3s(context.Background())
+	if k.Role == nil || *k.Role != "server" || !k.Ready {
+		t.Fatalf("image hub k3s = %+v", k)
+	}
+}
+
 func TestAgentReadyViaSystemctl(t *testing.T) {
 	c := fixture(t, "rpi5", "arm64")
 	fakeTools(c, map[string]string{"systemctl is-active --quiet k3s-agent": ""}, "systemctl")
@@ -256,7 +277,7 @@ func TestJSONShapeAndPrivacy(t *testing.T) {
 			}
 			for _, k := range []string{"schema", "node_id", "hostname", "role", "board", "arch", "os", "kernel",
 				"cpu_model", "cpus", "mem_total_mb", "mem_available_mb", "disk_total_gb", "disk_free_gb",
-				"tpm2", "kvm", "secure_boot", "k3s", "rauc", "gpu", "uptime_s", "agent_version", "observed_at"} {
+				"cpu_level", "tpm2", "kvm", "secure_boot", "k3s", "rauc", "gpu", "uptime_s", "agent_version", "observed_at"} {
 				if _, ok := m[k]; !ok {
 					t.Errorf("missing key %q", k)
 				}
@@ -273,5 +294,42 @@ func TestJSONShapeAndPrivacy(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// NMD-09 (#134): the gateway refuses an app built for a newer x86-64 level than the box has, so the
+// level must be right, and unknown ("") whenever it cannot be read, never a low guess.
+func TestCPULevel(t *testing.T) {
+	if got := fixture(t, "x86efi", "amd64").Collect(context.Background()).CPULevel; got != "x86-64-v3" {
+		t.Errorf("Intel N100: cpu_level = %q, want x86-64-v3 (AVX2, no AVX-512)", got)
+	}
+	for name, arch := range map[string]string{"rpi5": "arm64", "jetson": "arm64"} {
+		if got := fixture(t, name, arch).Collect(context.Background()).CPULevel; got != "" {
+			t.Errorf("%s: cpu_level = %q, want \"\" on arm64", name, got)
+		}
+	}
+	// The droplet fixture lists only "fpu hypervisor": not even v1's flags, so the level is unknown.
+	if got := fixture(t, "droplet", "amd64").Collect(context.Background()).CPULevel; got != "" {
+		t.Errorf("droplet: cpu_level = %q, want \"\" when the flags do not show a level", got)
+	}
+	for _, tc := range []struct{ flags, want string }{
+		{"cmov cx8 fxsr mmx sse sse2", "x86-64-v1"},
+		{"cmov cx8 fxsr mmx sse sse2 cx16 lahf_lm pni popcnt sse4_1 sse4_2 ssse3", "x86-64-v2"},
+		{"cmov cx8 fxsr mmx sse sse2 cx16 lahf_lm pni popcnt sse4_1 sse4_2 ssse3 avx avx2 bmi1 bmi2 f16c fma abm movbe xsave avx512f avx512bw avx512cd avx512dq avx512vl", "x86-64-v4"},
+		// v2 needs SSE3 too ("pni" in cpuinfo): without it the CPU stays at v1.
+		{"cmov cx8 fxsr mmx sse sse2 cx16 lahf_lm popcnt sse4_1 sse4_2 ssse3", "x86-64-v1"},
+		// v3 needs every flag: an AVX2 CPU without MOVBE stays at v2.
+		{"cmov cx8 fxsr mmx sse sse2 cx16 lahf_lm pni popcnt sse4_1 sse4_2 ssse3 avx avx2 bmi1 bmi2 f16c fma abm xsave", "x86-64-v2"},
+	} {
+		dir := t.TempDir()
+		if err := os.MkdirAll(filepath.Join(dir, "proc"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "proc", "cpuinfo"), []byte("processor\t: 0\nflags\t\t: "+tc.flags+"\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if got := NewFixture(dir, "amd64").CPULevel("amd64"); got != tc.want {
+			t.Errorf("flags %q: level %q, want %q", tc.flags, got, tc.want)
+		}
 	}
 }

@@ -29,7 +29,7 @@ import yaml
 log = logging.getLogger("onemind.auth")
 
 KINDS = {"person", "agent"}
-ROLES = {"owner", "adult", "guest", "child", "agent"}
+ROLES = {"owner", "adult", "guest", "child", "teen", "agent"}
 
 
 @dataclass(frozen=True)

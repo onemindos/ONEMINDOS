@@ -8,6 +8,7 @@ request headers, query parameters and an agent's own policy claims do not.
 
 from __future__ import annotations
 
+from .ai_policy import catalog_policy, catalog_visible_to_ai
 from .auth import Principal
 from .context import Gateway
 
@@ -20,11 +21,10 @@ def agent_catalog_filter(gw: Gateway):
         if entry is None:
             return False
         spec = entry.manifest.get("spec") or {}
-        if "aiPolicy" in spec:
-            # Consent, official MCP and local routing are not yet implemented.
-            return spec["aiPolicy"] == "allowed"
-        category = (entry.manifest.get("metadata") or {}).get("category")
-        # Legacy non-health catalog metadata only, NOT a provider-data grant.
-        return category not in {"health", "wellness"}
+        policy = catalog_policy(entry.manifest)
+        # Match the catalog summary consumed by MCP, including explicit null:
+        # absence is legacy metadata access, but an explicit unknown fails closed.
+        summary = {"aiPolicy": policy} if "aiPolicy" in spec or policy is not None else {}
+        return catalog_visible_to_ai(summary)
 
     return visible

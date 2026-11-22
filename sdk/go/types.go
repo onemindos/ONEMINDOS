@@ -9,6 +9,8 @@ import "github.com/onemindos/onemindos/sdk/go/internal/gen"
 // strings, so a newer gateway never breaks this SDK (SDK.md §5).
 type (
 	Instance     = gen.Instance
+	About        = gen.About
+	AboutNode    = gen.AboutNode
 	Node         = gen.Node
 	CatalogApp   = gen.CatalogApp
 	Action       = gen.Action
