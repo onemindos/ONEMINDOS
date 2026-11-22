@@ -148,7 +148,8 @@ func main() {
 	defer stop()
 
 	log.Info("onemindd starting", "version", version.Version, "node_id", col.ID(), "role", *role, "board", col.Board())
-	meshReport, fabricReport := netReports(*role, log) // net.go
+	optionalServices = append(optionalServices, watchdogService(*natsURL, *natsSeed, *role)) // watchdog.go (#687)
+	meshReport, fabricReport := netReports(*role, log)                                       // net.go
 	a := agent.New(agent.Config{Listen: *listen, NATSURL: *natsURL, NATSNkeySeed: *natsSeed, Durable: *durable, Interval: *interval, Collector: col, Logger: log,
 		UpdateReport: updateReport(env("ONEMIND_UPDATE_CONF", update.DefaultConfigPath), log),
 		MeshReport:   meshReport,
