@@ -4028,6 +4028,17 @@
             "title": "Board",
             "x-onemind-open-enum": true
           },
+          "capabilities": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NodeCapabilities"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "hardware profile (#618); absent from older agents"
+          },
           "hostname": {
             "anyOf": [
               {
@@ -4105,6 +4116,341 @@
         "title": "Node",
         "type": "object"
       },
+      "NodeAccelerator": {
+        "additionalProperties": false,
+        "properties": {
+          "class": {
+            "description": "gpu | npu",
+            "maxLength": 16,
+            "title": "Class",
+            "type": "string",
+            "x-onemind-open-enum": true
+          },
+          "compute_capability": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]+\\.[0-9]+$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "NVIDIA major.minor",
+            "title": "Compute Capability"
+          },
+          "device": {
+            "anyOf": [
+              {
+                "pattern": "^/dev/(hailo[0-9]+|accel/accel[0-9]+)$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "full path of the device node an app is granted, e.g. /dev/hailo0",
+            "title": "Device"
+          },
+          "driver": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Driver"
+          },
+          "driver_version": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Driver Version"
+          },
+          "integrated": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Integrated"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "pci_id": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{4}:[0-9a-f]{4}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "PCI vendor:device id vvvv:dddd (which kind of card); null when not on PCI",
+            "title": "Pci Id"
+          },
+          "pci_slot": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{4,8}:[0-9a-f]{2}:[0-9a-f]{2}\\.[0-7]$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "PCI address dddd:bb:dd.f (which card; what a VFIO grant binds); null when not on PCI",
+            "title": "Pci Slot"
+          },
+          "vendor": {
+            "description": "nvidia | amd | intel | hailo",
+            "maxLength": 16,
+            "title": "Vendor",
+            "type": "string",
+            "x-onemind-open-enum": true
+          },
+          "vram_mb": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vram Mb"
+          }
+        },
+        "required": [
+          "class",
+          "vendor"
+        ],
+        "title": "NodeAccelerator",
+        "type": "object"
+      },
+      "NodeCamera": {
+        "additionalProperties": false,
+        "properties": {
+          "bus": {
+            "description": "usb | csi",
+            "maxLength": 16,
+            "title": "Bus",
+            "type": "string",
+            "x-onemind-open-enum": true
+          },
+          "device": {
+            "anyOf": [
+              {
+                "pattern": "^/dev/video[0-9]+$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "full path of the video node, e.g. /dev/video0; null for a CSI sensor",
+            "title": "Device"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "usb_id": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{4}:[0-9a-f]{4}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "vvvv:pppp of a USB camera",
+            "title": "Usb Id"
+          }
+        },
+        "required": [
+          "bus"
+        ],
+        "title": "NodeCamera",
+        "type": "object"
+      },
+      "NodeCapabilities": {
+        "additionalProperties": false,
+        "description": "The machine's hardware profile, sent in its heartbeat; read with nodes:read only.",
+        "properties": {
+          "accelerators": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/NodeAccelerator"
+                },
+                "maxItems": 64,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accelerators"
+          },
+          "cameras": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/NodeCamera"
+                },
+                "maxItems": 64,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cameras"
+          },
+          "data_disk": {
+            "$ref": "#/components/schemas/NodeDataDisk"
+          },
+          "memory": {
+            "$ref": "#/components/schemas/NodeMemoryProfile"
+          },
+          "power": {
+            "$ref": "#/components/schemas/NodePowerProfile"
+          },
+          "radios": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/NodeRadio"
+                },
+                "maxItems": 64,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Radios"
+          },
+          "schema": {
+            "const": "onemind.node.capabilities/v1",
+            "title": "Schema",
+            "type": "string"
+          },
+          "thermal": {
+            "$ref": "#/components/schemas/NodeThermalProfile"
+          },
+          "tty_ports": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/NodeTTYPort"
+                },
+                "maxItems": 64,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tty Ports"
+          },
+          "usb": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/NodeUSBDevice"
+                },
+                "maxItems": 64,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Usb"
+          }
+        },
+        "required": [
+          "schema",
+          "data_disk",
+          "memory",
+          "accelerators",
+          "usb",
+          "tty_ports",
+          "radios",
+          "cameras",
+          "power",
+          "thermal"
+        ],
+        "title": "NodeCapabilities",
+        "type": "object"
+      },
+      "NodeDataDisk": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "nvme | ssd | hdd | sd | emmc | usb | virtual",
+            "title": "Kind",
+            "x-onemind-open-enum": true
+          },
+          "ssd": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ssd"
+          }
+        },
+        "title": "NodeDataDisk",
+        "type": "object"
+      },
       "NodeK3s": {
         "additionalProperties": true,
         "properties": {
@@ -4143,6 +4489,37 @@
           }
         },
         "title": "NodeK3s",
+        "type": "object"
+      },
+      "NodeMemoryProfile": {
+        "additionalProperties": false,
+        "properties": {
+          "total_mb": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Mb"
+          },
+          "unified": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the main GPU uses system RAM (Jetson, Intel iGPU only)",
+            "title": "Unified"
+          }
+        },
+        "title": "NodeMemoryProfile",
         "type": "object"
       },
       "NodeOS": {
@@ -4234,6 +4611,199 @@
           "reasons"
         ],
         "title": "NodePlacement",
+        "type": "object"
+      },
+      "NodePowerProfile": {
+        "additionalProperties": false,
+        "properties": {
+          "battery_pct": {
+            "anyOf": [
+              {
+                "maximum": 100.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Battery Pct"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "mains | battery | usb",
+            "title": "Source",
+            "x-onemind-open-enum": true
+          },
+          "undervoltage": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Undervoltage"
+          }
+        },
+        "title": "NodePowerProfile",
+        "type": "object"
+      },
+      "NodeRadio": {
+        "additionalProperties": false,
+        "properties": {
+          "interface": {
+            "pattern": "^[A-Za-z0-9_.-]{1,15}$",
+            "title": "Interface",
+            "type": "string"
+          },
+          "kind": {
+            "description": "wifi | bluetooth | cellular",
+            "maxLength": 16,
+            "title": "Kind",
+            "type": "string",
+            "x-onemind-open-enum": true
+          }
+        },
+        "required": [
+          "kind",
+          "interface"
+        ],
+        "title": "NodeRadio",
+        "type": "object"
+      },
+      "NodeTTYPort": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "description": "usb | uart",
+            "maxLength": 16,
+            "title": "Kind",
+            "type": "string",
+            "x-onemind-open-enum": true
+          },
+          "name": {
+            "pattern": "^tty(USB|ACM|AMA|THS|S)[0-9]+$",
+            "title": "Name",
+            "type": "string"
+          },
+          "usb_id": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{4}:[0-9a-f]{4}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "vvvv:pppp of the USB device behind it; null for an on-board UART",
+            "title": "Usb Id"
+          },
+          "usb_port": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]+-[0-9]+(\\.[0-9]+)*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Usb Port"
+          }
+        },
+        "required": [
+          "name",
+          "kind"
+        ],
+        "title": "NodeTTYPort",
+        "type": "object"
+      },
+      "NodeThermalProfile": {
+        "additionalProperties": false,
+        "properties": {
+          "max_c": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max C"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "normal | passive | hot | critical",
+            "title": "State",
+            "x-onemind-open-enum": true
+          }
+        },
+        "title": "NodeThermalProfile",
+        "type": "object"
+      },
+      "NodeUSBDevice": {
+        "additionalProperties": false,
+        "properties": {
+          "class": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{2}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "bDeviceClass, two hex digits",
+            "title": "Class"
+          },
+          "id": {
+            "description": "vvvv:pppp",
+            "pattern": "^[0-9a-f]{4}:[0-9a-f]{4}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "interface_classes": {
+            "items": {
+              "pattern": "^[0-9a-f]{2}$",
+              "type": "string"
+            },
+            "maxItems": 32,
+            "title": "Interface Classes",
+            "type": "array"
+          },
+          "port": {
+            "description": "kernel port path, e.g. 1-1.2",
+            "pattern": "^[0-9]+-[0-9]+(\\.[0-9]+)*$",
+            "title": "Port",
+            "type": "string"
+          }
+        },
+        "required": [
+          "port",
+          "id"
+        ],
+        "title": "NodeUSBDevice",
         "type": "object"
       },
       "OnboardingKit": {
