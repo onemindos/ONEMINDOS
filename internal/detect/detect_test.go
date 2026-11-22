@@ -173,6 +173,27 @@ func TestDropletServerReady(t *testing.T) {
 	}
 }
 
+// The image hub keeps k3s data in /data/k3s and the kubeconfig in /run/k3s/k3s.yaml (lab finding).
+func TestImageHubIsServerAndReady(t *testing.T) {
+	c := NewFixture(t.TempDir(), "amd64")
+	c.Now = fixedNow
+	for _, d := range []string{"data/k3s/server", "run/k3s", "usr/local/bin"} {
+		if err := os.MkdirAll(c.path(d), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, f := range []string{"run/k3s/k3s.yaml", "usr/local/bin/k3s"} {
+		if err := os.WriteFile(c.path(f), []byte("x"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	fakeTools(c, map[string]string{"k3s kubectl --kubeconfig /run/k3s/k3s.yaml get --raw /readyz": "ok"}, "k3s")
+	k := c.K3s(context.Background())
+	if k.Role == nil || *k.Role != "server" || !k.Ready {
+		t.Fatalf("image hub k3s = %+v", k)
+	}
+}
+
 func TestAgentReadyViaSystemctl(t *testing.T) {
 	c := fixture(t, "rpi5", "arm64")
 	fakeTools(c, map[string]string{"systemctl is-active --quiet k3s-agent": ""}, "systemctl")

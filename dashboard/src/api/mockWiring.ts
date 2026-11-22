@@ -145,7 +145,7 @@ export abstract class MockWiringBase implements W.WiringApi {
   }
   async createUser(b: { display_name: string; role: W.PersonRole; username?: string }) {
     this.owner();
-    if (!['owner', 'adult', 'guest'].includes(b.role)) throw new ApiError(422, 'conflict', 'role must be one of owner, adult, guest');
+    if (!['owner', 'adult', 'teen', 'child', 'guest'].includes(b.role)) throw new ApiError(422, 'conflict', 'role must be one of owner, adult, teen, child, guest');
     const u: W.UserInfo = { id: this.id('usr'), username: b.username ?? null, display_name: b.display_name, role: b.role, created_at: this.iso(), last_seen_at: null, disabled: false, enrolled: false, passkeys: 0, totp: false };
     this.users_().push(u);
     return { ...u, one_time: { enrolment_code: MOCK_ENROL_CODE, enrolment_url: `http://box.local/signin#enrol=${MOCK_ENROL_CODE}`, expires_at: this.iso(-86400) } };

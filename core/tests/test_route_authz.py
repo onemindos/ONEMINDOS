@@ -186,7 +186,7 @@ def test_every_row_has_every_column():
 
 def test_every_principal_kind_has_a_column():
     """A kind or role the gateway can authenticate must be a minted column of the matrix."""
-    columns = {"person": {"owner", "adult", "guest", "child"}, "agent": {"agent", "app-agent"}}
+    columns = {"person": {"owner", "adult", "guest", "child", "teen"}, "agent": {"agent", "app-agent"}}
     for kind in auth.KINDS:
         cols = columns.get(kind, {kind})
         assert cols <= set(KINDS), f"principal kind {kind!r} has no matrix column"

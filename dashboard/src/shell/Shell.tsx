@@ -30,6 +30,7 @@ import { DesktopShell, type DockApp } from './DesktopShell';
 import { useLayoutMode, type LayoutMode } from './layoutMode';
 import { brand } from '../brand.generated';
 import { useSignedIn } from '../session';
+import { navItems } from '../screens/registry';
 import { href, navId, toRoute } from './routes';
 import { meRetryDelay, roleOf, showsNav, viewFor, type View } from './roles';
 import { usePoll } from '../lib/hooks';
@@ -133,23 +134,7 @@ export function Shell({ children }: { children: ReactNode }) {
 
 
   const waiting = pending.length;
-  const allNav: NavItem[] = [
-    { id: 'home', label: 'Home', href: href.home, icon: 'home', primary: true },
-    { id: 'market', label: 'Market', href: href.market, icon: 'apps', primary: true },
-    { id: 'approvals', label: 'Approvals', href: href.approvals, icon: 'approvals', primary: true, badge: waiting, badgeLabel: `${waiting} waiting` },
-    { id: 'activity', label: 'Activity', href: href.activity, icon: 'activity', primary: true },
-    { id: 'installed', label: 'Installed', href: href.installed, icon: 'check', group: 'Your box' },
-    { id: 'nodes', label: 'Nodes', href: href.nodes, icon: 'nodes', group: 'Your box' },
-    { id: 'machines', label: 'Machines', href: href.machines, icon: 'monitor', group: 'Your box' },
-    { id: 'alerts', label: 'Alerts', href: href.alerts, icon: 'bell', group: 'Your box' },
-    { id: 'storage', label: 'Storage', href: href.storage, icon: 'storage', group: 'Your box' },
-    { id: 'backups', label: 'Backups', href: href.backups, icon: 'backups', group: 'Your box' },
-    { id: 'updates', label: 'OS updates', href: href.updates, icon: 'updates', group: 'Your box' },
-    { id: 'settings', label: 'Settings', href: href.settings, icon: 'settings', group: 'Your box' },
-    { id: 'coming', label: 'Coming soon', href: href.coming, icon: 'info', group: 'Your box' },
-    { id: 'control-hub', label: 'Control Hub', href: href.controlHub, icon: 'hub', group: 'System' },
-    { id: 'agents', label: 'AI & Agents', href: href.agents, icon: 'agent', group: 'System' },
-  ];
+  const allNav: NavItem[] = navItems(waiting);
   const nav = allNav.filter((item) => showsNav(item.id, view));
 
   // Route plain in-app links from ui components through the router (no reload).

@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import re
 
-from fastapi import Depends, FastAPI, Query, Response
+from fastapi import Depends, FastAPI, Query, Request, Response
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -16,6 +16,7 @@ from ..automation.engine import DryRunBody, PauseBody, RuleBody, RulePatch
 from ..automation.policies import PolicyBody
 from ..context import Gateway
 from ..errors import ApiError, error_responses
+from ..identity import ctx_of
 from ..ledger import iso
 
 WINDOW_ID_RE = re.compile(r"^win_[a-z0-9_]{1,36}$")
@@ -43,6 +44,14 @@ def register(app: FastAPI, gw: Gateway) -> None:
     app.state.automation = svc
 
     tags = ["automation"]
+
+    def step_up(request: Request, p: Principal, what: str) -> str:
+        """F-2: pre-approving agent actions adds power, so once passkeys are active it needs a fresh
+        passkey sign-in, like put_access and create_user. Returns how presence was proved."""
+        ident = getattr(app.state, "identity", None)
+        if ident is None or not p.is_owner:
+            return "token"  # non-owners are refused by the service with 403 right after
+        return ident.require_step_up(ctx_of(request), p, what)
 
     # ---- rules ---------------------------------------------------------------------------------
     @app.get("/v1/automation/rules", operation_id="automation.rules.list", tags=tags, responses=error_responses(401))
@@ -106,8 +115,9 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return [policies.to_json(x) for x in svc.repo.list_policies()]
 
     @app.post("/v1/approval-policies", operation_id="approvals.policies.create", tags=tags, status_code=201, responses=error_responses(401, 403, 404, 422))
-    def create_policy(body: PolicyBody, p: Principal = Depends(principal)):
-        return JSONResponse(status_code=201, content=policies.create(p, body))
+    def create_policy(body: PolicyBody, request: Request, p: Principal = Depends(principal)):
+        via = step_up(request, p, "create standing approval")
+        return JSONResponse(status_code=201, content=policies.create(p, body, approval=via))
 
     @app.delete("/v1/approval-policies/{policy_id}", operation_id="approvals.policies.delete", tags=tags, status_code=204,
                 responses=error_responses(401, 403, 404))
@@ -125,10 +135,11 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return [window_json(w) for w in svc.repo.list_windows()]
 
     @app.put("/v1/windows/{window_id}", operation_id="windows.put", tags=tags, responses=error_responses(401, 403, 422))
-    def put_window(window_id: str, body: WindowBody, p: Principal = Depends(principal)):
+    def put_window(window_id: str, body: WindowBody, request: Request, p: Principal = Depends(principal)):
         if not p.is_owner:
             gw.audit.append("authz.denied", p.as_dict(), None, {"attempted": "edit windows", "reason": "permission_denied"})
             raise ApiError(403, "permission_denied", f"{p.kind}/{p.role} may not edit windows")
+        via = step_up(request, p, "edit a maintenance window")  # a window is what a standing approval waits for
         if not WINDOW_ID_RE.match(window_id):
             raise ApiError(422, "conflict", "window ids look like win_<lower-case name>")
         try:
@@ -140,5 +151,5 @@ def register(app: FastAPI, gw: Gateway) -> None:
         # §12.17: editing a window a standing approval uses bumps that approval's revision.
         bumped = svc.repo.bump_policies_for_window(window_id)
         gw.audit.append("automation.window.updated", p.as_dict(), None,
-                        {"window_id": window_id, "tz": body.tz, "ranges": body.ranges, "policies_bumped": bumped})
+                        {"window_id": window_id, "tz": body.tz, "ranges": body.ranges, "policies_bumped": bumped, "approval": via})
         return window_json(svc.repo.get_window(window_id))  # type: ignore[arg-type]

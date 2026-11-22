@@ -43,12 +43,19 @@ NEEDS_HOSTED = re.compile(
     r"linux_x64|linux-amd64\b|-amd64 -version|_X64\b|ANDROID_HOME|xcodebuild|make image|make battery|"
     r"battery\.yml|\bk3d\b", re.I)
 # Workflows that build or test the OS image, need KVM or sign/publish: never on the Mac.
-HOSTED_ONLY_WORKFLOWS = {"image.yml", "battery.yml", "nightly.yml", "net-2vm.yml", "perf-smoke.yml",
+HOSTED_ONLY_WORKFLOWS = {"image.yml", "battery.yml", "nightly.yml", "net-2vm.yml", "restore-drill.yml", "perf-smoke.yml",
                          "release.yml", "security-nightly.yml", "apps-rescan.yml", "changes-collect.yml",
                          "dev-build.yml", "apps-gate-all.yml", "ci-desktop.yml"}
 # setup-python has no Python 3.13 build for Debian 13 arm64. PR #352 moves ci-apps `validate` to a venv;
 # until it merges, that one job is the known exception.
 SETUP_PYTHON_PENDING = {("ci-apps.yml", "validate")}
+
+
+# CI-15: the first safe jobs may try the DigitalOcean pool (onemind-do, switch DO_RUNNER) before the Mac; that
+# prefix is reviewed by test_do_runner_policy.py, so the Mac check below compares the rest of the expression.
+DO_PREFIX = ("(vars.DO_RUNNER == 'on' && (github.event_name != 'pull_request' || "
+             "github.event.pull_request.head.repo.full_name == github.repository)) && "
+             "fromJSON('[\"self-hosted\",\"onemind-do\"]') || ")
 
 
 def workflows():
@@ -84,7 +91,7 @@ class LocalRunnerPolicy(unittest.TestCase):
 
     def test_selection_is_switchable_fork_safe_and_has_a_hosted_fallback(self):
         for wf, d, name, job in mac_jobs():
-            ro = job["runs-on"]
+            ro = job["runs-on"].replace(DO_PREFIX, "", 1)
             where = f"{wf}:{name}"
             label = next(lab for lab in MAC_LABELS if lab in ro)
             want = "${{ %s && fromJSON('[\"self-hosted\",\"%s\"]') || 'ubuntu-24.04' }}" % (
@@ -200,7 +207,7 @@ class MergeGate(unittest.TestCase):
 
 class Kit(unittest.TestCase):
     def test_scripts_exist_and_parse(self):
-        for f in ("up", "down", "status", "cycle", "provision.sh", "run-one.sh"):
+        for f in ("up", "down", "status", "cycle", "provision.sh", "run-one.sh", "job-started.sh"):
             path = KIT / f
             self.assertTrue(path.is_file(), f)
             self.assertTrue(path.stat().st_mode & 0o111, f"{f} is not executable")
@@ -429,6 +436,62 @@ exit 0
         self.assertIn('grep -e "^$VM-run-" -e "^$GATE_VM-run-"', text)   # gate clones are deleted too
         self.assertIn('limactl stop "$GATE_VM"', text)
         self.assertIn('limactl delete --force "$GATE_VM"', text)
+
+
+class JobStartedHook(unittest.TestCase):
+    """The fail-closed guard the runner runs before every job: fork and deleted-fork PRs are refused."""
+    HOOK = KIT / "job-started.sh"
+    REPO = "onemindos/ONEMINDOS"
+
+    def run_hook(self, payload, repo=REPO, event_file=True):
+        with tempfile.TemporaryDirectory() as tmp:
+            env = {"PATH": os.environ.get("PATH", "/usr/bin:/bin")}
+            if repo is not None:
+                env["GITHUB_REPOSITORY"] = repo
+            if event_file:
+                path = Path(tmp) / "event.json"
+                path.write_text(payload if isinstance(payload, str) else json.dumps(payload))
+                env["GITHUB_EVENT_PATH"] = str(path)
+            return subprocess.run(["sh", str(self.HOOK)], env=env, capture_output=True, text=True, timeout=30)
+
+    def pr(self, head):
+        return {"pull_request": {"head": {"repo": head}}}
+
+    def test_same_repo_pull_request_runs(self):
+        r = self.run_hook(self.pr({"full_name": self.REPO}))
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("onemind-local guard: ok", r.stdout)
+
+    def test_fork_pull_request_is_refused(self):
+        r = self.run_hook(self.pr({"full_name": "someone/ONEMINDOS"}))
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("onemind-local guard: REFUSED", r.stderr)
+
+    def test_deleted_fork_pull_request_is_refused(self):
+        for head in (None, {}):
+            r = self.run_hook(self.pr(head))
+            self.assertEqual(r.returncode, 1, head)
+            self.assertIn("REFUSED", r.stderr)
+        r = self.run_hook({"pull_request": {}})
+        self.assertEqual(r.returncode, 1)
+
+    def test_push_runs(self):
+        r = self.run_hook({"ref": "refs/heads/main"})
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("onemind-local guard: ok", r.stdout)
+
+    def test_missing_environment_is_refused(self):
+        for r in (self.run_hook({}, repo=None), self.run_hook({}, event_file=False),
+                  self.run_hook("not json"), self.run_hook({}, repo="")):
+            self.assertEqual(r.returncode, 1)
+            self.assertIn("onemind-local guard: REFUSED", r.stderr)
+
+    def test_provision_installs_the_hook_for_every_runner(self):
+        text = (KIT / "provision.sh").read_text()
+        self.assertIn("/usr/local/bin/onemind-ci-job-started.sh", text)   # the runner needs the .sh suffix
+        self.assertIn("ACTIONS_RUNNER_HOOK_JOB_STARTED=/usr/local/bin/onemind-ci-job-started.sh", text)
+        self.assertIn('"$R/.env', text)
+        self.assertIn("job-started.sh", (KIT / "up").read_text())
 
 
 if __name__ == "__main__":
