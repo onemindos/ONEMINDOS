@@ -73,10 +73,13 @@ def test_any_body_gets_a_documented_status(property_resources, operations, data,
     # Allocate inside @given: shrinking/replay must not reuse database/guard state.
     with property_resources.example() as sample, sample.http() as gateway:
         r = gateway.post(path, content=body, headers={**who, "Content-Type": "application/json"})
-    # §12.2 documents exactly one deliberate 5xx: a switched-off backup feature answers
-    # 503 unavailable/backups_disabled in the §3 envelope. Any other 5xx is still a failure.
-    switched_off = (r.status_code == 503 and path.startswith("/v1/backups")
-                    and r.json().get("error") == "unavailable" and r.json().get("reason") == "backups_disabled")
+    # §12.2 documents one deliberate 5xx: a switched-off optional feature answers 503 in the §3
+    # envelope with its own reason. Backups: unavailable/backups_disabled. Bring-your-own-domain
+    # (NET-DOM-01, added with the /v1/domains routes): reason domains_disabled. Any other 5xx still fails.
+    switched_off = (r.status_code == 503 and r.json().get("reason") == {
+        "/v1/backups": "backups_disabled", "/v1/domains": "domains_disabled"}.get(
+            next((k for k in ("/v1/backups", "/v1/domains") if path.startswith(k)), ""))
+        and r.json().get("error") in ("unavailable", "domains_disabled"))
     assert r.status_code < 500 or switched_off, (path, body, r.text)
     assert r.status_code in documented or switched_off, (path, body, r.status_code, r.text)
     if r.status_code >= 400:
