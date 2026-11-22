@@ -15,7 +15,8 @@ function FixRequest({ id, client }: { id: string; client: OneMind }) {
   const { api, canDecide } = useSignedIn();
   const [busy, withBusy] = useBusy();
   const run = useRun();
-  const res = usePoll(() => client.call<Action>({ method: 'GET', path: '/v1/actions/' + encodeURIComponent(id) }), 3000);
+  const actionId = encodeURIComponent(id);
+  const res = usePoll(() => client.call<Action>({ method: 'GET', path: `/v1/actions/${actionId}` }), 3000);
   const action = res.data;
   if (res.error || !action?.params || !Object.hasOwn(ACTION_STATE, action.state)) {
     return <p role="status">{res.loading ? 'Reading fix request…' : 'Fix progress unknown.'}</p>;
@@ -46,7 +47,8 @@ export function FixProblem({ client, status, owner }: { client: OneMind; status?
   const [busy, withBusy] = useBusy();
   const run = useRun();
   const fix = (id: string) => void withBusy(() => run(async () => {
-    const action = await client.call<Action>({ method: 'POST', path: '/v1/alerts/' + encodeURIComponent(id) + '/fix' });
+    const alertId = encodeURIComponent(id);
+    const action = await client.call<Action>({ method: 'POST', path: `/v1/alerts/${alertId}/fix` });
     if (!action?.id) throw new Error('The box did not identify the fix request.');
     setRequests(old => ({ ...old, [id]: action.id }));
   }, 'Could not request the fix'));
