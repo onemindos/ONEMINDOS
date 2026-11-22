@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: Apache-2.0
+# The setup wizard's door to its root helper (#578). Pulled in by onemind-setup.service (Requires=) and
+# stopped with it (PartOf=): it exists only while the wizard runs, never enabled on its own.
+# Mode 0666 because the wizard's uid is allocated when it starts (DynamicUser), so no fixed owner or group
+# fits. The helper serves only a non-root process in the wizard's own cgroup (SO_PEERCRED and
+# /proc/<pid>/cgroup, onemind_setup_helper.py) and refuses every change once the box has an owner.
+[Unit]
+Description=OneMind setup wizard root helper socket
+PartOf=onemind-setup.service
+ConditionPathExists=!/data/onemind/firstboot/state.json
+
+[Socket]
+ListenStream=/run/onemind-setup-helper.sock
+SocketUser=root
+SocketGroup=root
+SocketMode=0666
+Accept=yes
+MaxConnections=8

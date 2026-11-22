@@ -14,6 +14,7 @@ sys.path.insert(0, LIB)
 sys.path.insert(1, os.path.join(ROOT, "core"))     # onemind_core, as the gateway venv has it
 import onemind_firstboot as fb  # noqa: E402
 import onemind_setup as setup  # noqa: E402
+import onemind_setup_helper as setup_helper  # noqa: E402
 
 try:
     from cryptography import x509 as _x509
@@ -644,9 +645,14 @@ class Node(Box):
         self.assertEqual(fb.join(self.p), 0)
 
 
+def in_process_helper(p):
+    """The web part's helper client, wired to the root helper's own handle() (the same JSON both ways)."""
+    return setup.Helper(call=lambda req: json.loads(json.dumps(setup_helper.handle(p, json.dumps(req).encode()))))
+
+
 class Wizard(Box):
     def serve(self):
-        setup.Wizard.paths = self.p
+        setup.Wizard.helper = in_process_helper(self.p)
         setup.Wizard.done = threading.Event()
         srv = setup.ThreadingHTTPServer(("127.0.0.1", 0), setup.Wizard)
         threading.Thread(target=srv.serve_forever, daemon=True).start()
@@ -691,7 +697,7 @@ class WizardLockdown(Box):
     """From a device on the LAN the wizard needs the one-time code; after setup it refuses the LAN."""
 
     def serve(self):
-        setup.Wizard.paths = self.p
+        setup.Wizard.helper = in_process_helper(self.p)
         setup.Wizard.done = threading.Event()
         srv = setup.ThreadingHTTPServer(("127.0.0.1", 0), setup.Wizard)
         threading.Thread(target=srv.serve_forever, daemon=True).start()
@@ -703,7 +709,7 @@ class WizardLockdown(Box):
         patcher.start()
         self.addCleanup(patcher.stop)
         setup.Wizard.gate = setup.Gate()
-        return setup.Wizard.gate.new(self.p.run)
+        return setup.Wizard.gate.new(in_process_helper(self.p).publish_code)
 
     def post(self, base, data):
         try:
@@ -738,7 +744,7 @@ class WizardLockdown(Box):
     def test_gate_backoff_doubles_and_ends(self):
         now = [1000.0]
         g = setup.Gate(clock=lambda: now[0])
-        g.new(self.p.run)
+        g.new(in_process_helper(self.p).publish_code)
         right = g.code
         for _ in range(setup.MAX_WRONG):
             self.assertFalse(g.check("nope"))
@@ -754,7 +760,7 @@ class WizardLockdown(Box):
     def test_guess_rate_is_capped(self):
         now = [0.0]
         g = setup.Gate(clock=lambda: now[0])
-        g.new(self.p.run)
+        g.new(in_process_helper(self.p).publish_code)
         tries = 0
         for _ in range(100000):                            # a flood of guesses over one simulated hour
             now[0] += 3600 / 100000
@@ -799,9 +805,14 @@ class WizardUnit(unittest.TestCase):
     def test_directives(self):
         text = open(self.UNIT).read()
         for d in ("ProtectSystem=strict", "NoNewPrivileges=yes", "SystemCallFilter=@system-service",
-                  "CapabilityBoundingSet=CAP_CHOWN CAP_DAC_OVERRIDE CAP_FOWNER", "MemoryDenyWriteExecute=yes",
+                  "DynamicUser=yes", "MemoryDenyWriteExecute=yes",
                   "RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX", "ProtectKernelLogs=yes"):
             self.assertIn(d, text)
+        # #578: the web part holds no capability; the root helper (onemind-setup-helper@.service) holds the three
+        self.assertRegex(text, r"(?m)^CapabilityBoundingSet=$")
+        self.assertNotRegex(text, r"(?m)^[^#]*CAP_(CHOWN|DAC_OVERRIDE|FOWNER)")
+        helper_unit = open(os.path.join(os.path.dirname(self.UNIT), "onemind-setup-helper@.service")).read()
+        self.assertIn("CapabilityBoundingSet=CAP_CHOWN CAP_DAC_OVERRIDE CAP_FOWNER", helper_unit)
 
     @unittest.skipUnless(shutil.which("systemd-analyze"), "needs systemd-analyze")
     def test_security_score_is_under_5(self):
