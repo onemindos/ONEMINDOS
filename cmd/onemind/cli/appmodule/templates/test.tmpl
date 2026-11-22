@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: Apache-2.0
+from importlib import import_module
+
+from fastapi.testclient import TestClient
+
+from onemind_core.app import create_app
+from conftest import OWNER
+
+
+def test_{{.Module}}_lists_only_the_signed_in_persons_items(settings):
+    item = import_module("onemind_core.{{.ID}}.store").Item
+    with TestClient(create_app(settings)) as client:
+        with client.app.state.gateway.db.session.begin() as session:
+            session.add_all([item(owner="owner", name="Mine"), item(owner="another-person", name="Theirs")])
+        assert client.get("/v1/{{.ID}}").status_code == 401
+        response = client.get("/v1/{{.ID}}", headers=OWNER)
+        assert response.status_code == 200
+        assert response.json() == ["Mine"]

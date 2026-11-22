@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: Apache-2.0
+apiVersion: onemind.app/v1
+kind: App
+metadata:
+  id: "{{.ID}}"
+  name: "{{.ID}}"
+spec:
+  routes:
+    owns: [/v1/{{.ID}}]
+    calls: [GET /v1/{{.ID}}]
+  backup:
+    units: [{kind: table, name: {{.Schema}}_items}]
+  data: {owns: [private], reads: []}
+  phone: {entry: web}

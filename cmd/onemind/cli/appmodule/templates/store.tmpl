@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: Apache-2.0
+from sqlalchemy import String, select
+from sqlalchemy.orm import Mapped, mapped_column
+
+from ..ledger import Base
+from ..store import FeatureSchema, SqlRepository
+
+SCHEMA = FeatureSchema("{{.Schema}}")
+
+
+class Item(Base):
+    __tablename__ = "{{.Schema}}_items"
+    owner: Mapped[str] = mapped_column(String(200), primary_key=True)
+    name: Mapped[str] = mapped_column(String(200), primary_key=True)
+
+
+class Items(SqlRepository):
+    def names(self, owner: str) -> list[str]:
+        with self.db.session() as session:
+            return list(session.scalars(select(Item.name).where(Item.owner == owner).order_by(Item.name)))

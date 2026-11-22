@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: Apache-2.0
+from ..auth import Principal
+from ..store import Database
+from .store import Items
+
+
+def list_items(db: Database, person: Principal) -> list[str]:
+    return Items(db).names(person.id)

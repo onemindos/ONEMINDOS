@@ -1,0 +1,17 @@
+// SPDX-License-Identifier: Apache-2.0
+import { OneMind, type paths } from '@onemind/sdk';
+import { usePoll } from '../../lib/hooks';
+import { useSession } from '../../session';
+
+type Items = paths['/v1/{{.ID}}']['get']['responses'][200]['content']['application/json'];
+
+export default function Page() {
+  const { session } = useSession();
+  const items = usePoll(() => new OneMind({ baseUrl: location.origin, token: session?.token })
+    .call<Items>({ method: 'GET', path: '/v1/{{.ID}}' }), 0);
+  return <section><h1>{{.ID}}</h1>
+    {items.error ? <p role="alert">{items.error.message}</p> : items.data ? (
+      items.data.length ? <ul>{items.data.map((name) => <li key={name}>{name}</li>)}</ul> : <p>No items yet.</p>
+    ) : <p role="status">Loading…</p>}
+  </section>;
+}

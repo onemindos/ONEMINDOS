@@ -1,0 +1,8 @@
+// SPDX-License-Identifier: Apache-2.0
+import type { ScreenDef } from '../types';
+
+export default {
+  id: '{{.ID}}', title: '{{.ID}}', path: '/{{.ID}}',
+  section: 'Your box', order: 200, icon: 'apps', hue: ['#176e71', '#145458'],
+  load: () => import('./Page'),
+} satisfies ScreenDef;
