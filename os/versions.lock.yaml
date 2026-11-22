@@ -196,3 +196,22 @@ jetson:             # os/boards/jetson-orin (D-007: NVIDIA L4T on Jetson). Never
 e2e_vm:             # tests/e2e/harness/run.sh --backend qemu (GitHub ubuntu-24.04 runners); read from SHA512SUMS 2026-11-12
   amd64_url: https://cloud.debian.org/images/cloud/trixie/20261103-2651/debian-13-genericcloud-amd64-20261103-2651.qcow2
   amd64_sha512: d25999de0770d4cde1be72c299ba3ad94eac7ea8fd4d18f8cc86c69df69337e2e8a91d64465a9bfd8f2a78c566fcbcb0842eacc91c09efdef72d719d9f13b535
+
+gpu:                # board x86_64-efi-nvidia (S-5): only built when that board is selected; the default image has none of it
+  driver:           # Debian 13 non-free, installed from the same snapshot as everything else
+    branch: "550"
+    version: 550.163.01-2
+    source: packages.debian.org/trixie/nvidia-kernel-dkms, read 2026-11-21 (nvidia-driver, nvidia-open-kernel-dkms same version)
+  toolkit:          # NVIDIA Container Toolkit; Debian 13 has no package for it. os/boards/x86_64-efi-nvidia/gpu/toolkit.txt
+    version: 1.19.1-1
+    base_url: https://nvidia.github.io/libnvidia-container/stable/deb/amd64
+    files:
+      libnvidia-container1_1.19.1-1_amd64.deb: d73bb582af893135198ef81cb22135c790a75d2ad72910446477c6c4430f3e6b
+      libnvidia-container-tools_1.19.1-1_amd64.deb: 5642763d51961a2295dff09990048a5dcee81edbea2a8c5084e47b09ccf17268
+      nvidia-container-toolkit-base_1.19.1-1_amd64.deb: b6c5b4e77a28cde0197cc0e64edf75538604775d9f8aea502cef667e7e5b2132
+      nvidia-container-toolkit_1.19.1-1_amd64.deb: e66acb5b33420a8417429cd217abc8400b4a409a2ae17a3852cf6feb34b5c8e6
+    source: SHA256 fields of the repository's Packages index, each file re-hashed after download, 2026-11-21
+  device_plugin:    # os/boards/x86_64-efi-nvidia/rootfs/usr/lib/onemind/gpu/onemind-gpu.yaml
+    image: nvcr.io/nvidia/k8s-device-plugin:v0.20.2
+    digest: sha256:7673383d44a84bece724d9ca8feeadf4eee69cd46475fdff614cbbca6732d463
+    source: crane digest of the tag, 2026-11-21 (index of amd64 c62cc3a8 and arm64 b336cc06)

@@ -454,6 +454,32 @@
             "gpu",
             "minMemoryMb"
           ],
+          "if": {
+            "required": [
+              "accelerator"
+            ],
+            "properties": {
+              "accelerator": {
+                "not": {
+                  "required": [
+                    "optional"
+                  ],
+                  "properties": {
+                    "optional": {
+                      "const": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "gpu": {
+                "const": true
+              }
+            }
+          },
           "properties": {
             "gpu": {
               "type": "boolean"
@@ -471,6 +497,33 @@
               "description": "Memory the smallest graphics card must have, in MB. Only meaningful with gpu: true. A machine that does not report its card memory is not used (unknown is refused, never assumed).",
               "type": "integer",
               "minimum": 1
+            },
+            "accelerator": {
+              "description": "The accelerator the app needs, in vendor-neutral terms (S-5). The box reports what it has and the gateway maps one to the other; the app never names a vendor or a driver. Without optional: true the app is refused on a box that has none, so gpu must be true. With optional: true the app runs without it and only gains speed; overlay then names a directory next to spec.manifests (a kustomize overlay on it) that is rendered instead of the plain manifests on a box with a big enough accelerator.",
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "capability"
+              ],
+              "properties": {
+                "capability": {
+                  "enum": [
+                    "gpu-compute"
+                  ]
+                },
+                "minMemoryMb": {
+                  "description": "Memory of the accelerator itself, not of the machine.",
+                  "type": "integer",
+                  "minimum": 256
+                },
+                "optional": {
+                  "type": "boolean"
+                },
+                "overlay": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9][a-z0-9-]*$"
+                }
+              }
             },
             "cpuLevel": {
               "description": "Lowest CPU level the pinned images need, per architecture. Install and update are refused on a box below it (NMD-09, #134). x86-64 levels follow the x86-64 psABI (-march=x86-64-vN). Omit when the images run on any CPU of the architecture.",
