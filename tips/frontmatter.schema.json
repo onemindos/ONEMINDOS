@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "OneMind tip front matter",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["title", "collection", "opens", "from"],
+  "properties": {
+    "title": { "type": "string", "minLength": 1 },
+    "collection": { "$ref": "#/$defs/slug" },
+    "from": { "$ref": "#/$defs/version" },
+    "until": { "$ref": "#/$defs/version" },
+    "opens": {
+      "type": "object",
+      "required": ["dashboard", "phone"],
+      "additionalProperties": false,
+      "properties": {
+        "dashboard": { "type": "string", "pattern": "^/" },
+        "phone": { "type": "string", "pattern": "^onemind://" }
+      }
+    },
+    "skip_if_done": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$" }
+    },
+    "clip": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["release", "caption"],
+      "properties": {
+        "release": { "$ref": "#/$defs/slug" },
+        "caption": { "type": "string", "minLength": 1 }
+      }
+    }
+  },
+  "$defs": {
+    "slug": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+    "version": { "type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$" }
+  }
+}
