@@ -302,6 +302,8 @@ BASIC_ONLY = cells(401)
 _AUTOMATION = "docs/leap/dev/API.md §5.5; core/tests/test_automation.py"
 _BACKUPS = "docs/leap/dev/API.md §5.2 backups; core/tests/test_backups.py"
 _FILES = "docs/leap/dev/API.md files; core/tests/test_files_*.py"
+_WOPI = "issue #675; core/tests/test_files_wopi.py"
+_WOPI_FILE = "/v1/files/wopi/files/wf_0123456789abcdef"
 _PHOTOS = "docs/leap/core/PHOTOS.md section 2; core/tests/test_photos.py"
 PHOTOS_404 = grid(404, 404, 403, 403, 403)  # owner and adult own a library; a missing object is 404 for them
 POLICY |= {
@@ -483,6 +485,17 @@ POLICY |= {
         "/v1/files/uploads/{upload}", content=b"x",
         headers={**w.TUS, "Content-Type": "application/offset+octet-stream", "Upload-Offset": "0"}), f"{_FILES}: your own upload"),
     ("DELETE", "/v1/files/uploads/{upload_id}"): Row(READ_ANY_404, w.p_missing("/v1/files/uploads/{upload}", headers=w.TUS), f"{_FILES}: your own upload"),
+    # ---- WOPI host (#675): only a signed-in person's session mints a file token; the static tokens file, API tokens and
+    # agents are 403. The child column is a household session: it reaches the (missing) Shared file, 404. The WOPI
+    # operations take only that file token (access_token), never a bearer token, so every column is 401.
+    ("POST", "/v1/files/wopi/tokens"): Row(grid(403, 403, 403, 404, 403), w.p_missing(
+        "/v1/files/wopi/tokens", json={"root": "shared", "path": "/probe.docx"}), f"{_WOPI}: a signed-in person's own editor only"),
+    ("GET", "/v1/files/wopi/files/{file_id}"): Row(cells(401), w.p_static(_WOPI_FILE), f"{_WOPI}: CheckFileInfo takes the file token"),
+    ("GET", "/v1/files/wopi/files/{file_id}/contents"): Row(cells(401), w.p_static(f"{_WOPI_FILE}/contents"), f"{_WOPI}: GetFile takes the file token"),
+    ("POST", "/v1/files/wopi/files/{file_id}"): Row(cells(401), w.p_missing(_WOPI_FILE, headers={"X-WOPI-Override": "LOCK", "X-WOPI-Lock": "probe"}),
+                                                    f"{_WOPI}: Lock and Unlock take the file token"),
+    ("POST", "/v1/files/wopi/files/{file_id}/contents"): Row(cells(401), w.p_missing(
+        f"{_WOPI_FILE}/contents", content=b"x", headers={"X-WOPI-Override": "PUT", "X-WOPI-Lock": "probe"}), f"{_WOPI}: PutFile takes the file token"),
     # ---- photos (a person's phone backup; PHOTOS.md section 2) -----------------------------------------------
     # The service's own gate (PhotosService.person) runs before any lookup: only a person with role owner or adult has a
     # photo library, so guests, children and agents are 403 and the two library owners reach the (missing) object: 404.
