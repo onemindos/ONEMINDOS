@@ -629,6 +629,24 @@ POLICY |= {
                                         f"{_SYS}: owner or agent requests a restart; only an owner approves it"),
 }
 
+# ---- share links (FILES-02, #237: core/onemind_core/routers/shares.py) ------------------------------------
+# Only an owner or adult publishes files outside the household (files:share); guests, children and agents are
+# refused before any lookup. The /v1/share routes take no principal: the link secret in the path is the only
+# credential, so a secret the box never issued is 404 for every caller, with or without a bearer token.
+_SHARE = "core/onemind_core/files/shares.py"
+POLICY |= {
+    ("POST", "/v1/files/shares"): Row(grid(404, 404, 403, 403, 403), w.p_share_create,
+                                      f"{_SHARE}: owner and adult share what they can read; agents never publish files"),
+    ("GET", "/v1/files/shares"): Row(READ_ANY, w.p_static("/v1/files/shares"),
+                                     f"{_SHARE}: each person their own links, an owner everyone's; others see none"),
+    ("DELETE", "/v1/files/shares/{share_id}"): Row(READ_ANY_404, w.p_static(f"/v1/files/shares/{w.SHARE_ID}"),
+                                                   f"{_SHARE}: the creator or an owner revokes; nobody else sees it"),
+    ("GET", "/v1/share/{token}"): Row(cells(404), w.p_static(f"/v1/share/{w.SHARE_TOKEN}"),
+                                      f"{_SHARE}: anonymous; the link secret is the credential"),
+    ("GET", "/v1/share/{token}/items/{index}"): Row(cells(404), w.p_static(f"/v1/share/{w.SHARE_TOKEN}/items/0"),
+                                                    f"{_SHARE}: anonymous; the link secret is the credential"),
+}
+
 # ---- family controls (FAM-01, #204) -------------------------------------------------------
 # The owner passes authorization and gets 404 for these deliberately missing targets.
 # Other people and service identities are refused before target lookup.

@@ -216,6 +216,50 @@ def content_disposition(name: str, inline: bool) -> str:
     return f"{'inline' if inline else 'attachment'}; filename=\"{ascii_name}\"; filename*=UTF-8''{urllib.parse.quote(name)}"
 
 
+def file_response(request: Request, cm, inline: bool, cache: str = "private, no-cache") -> StreamingResponse:
+    """Stream the (fd, stat, name) that context manager `cm` opens, honouring one Range; the fd closes
+    when the body ends. Shared by /v1/files/download and the share links (/v1/share/...)."""
+    fd, st, name = cm.__enter__()
+    try:
+        etag = f'"{st.st_size:x}-{st.st_mtime_ns:x}"'
+        rng = parse_range(request.headers.get("range"), st.st_size)
+        if_range = request.headers.get("if-range")
+        if rng is not None and if_range is not None and if_range.strip() != etag:
+            rng = None  # the file changed since the client's partial copy: send it whole
+        mime = guess_mime(name)
+        show_inline = inline and mime in INLINE_SAFE
+        headers = {
+            "Accept-Ranges": "bytes", "ETag": etag, "Cache-Control": cache,
+            "Content-Disposition": content_disposition(name, show_inline),
+            "X-Content-Type-Options": "nosniff", "Content-Security-Policy": "sandbox; default-src 'none'",
+        }
+        start, end, status = 0, st.st_size - 1, 200
+        if rng is not None:
+            start, end = rng
+            status = 206
+            headers["Content-Range"] = f"bytes {start}-{end}/{st.st_size}"
+        headers["Content-Length"] = str(max(0, end - start + 1))
+    except BaseException:
+        cm.__exit__(None, None, None)
+        raise
+
+    def body():
+        try:
+            pos, remaining = start, end - start + 1
+            while remaining > 0:
+                chunk = os.pread(fd, min(STREAM_CHUNK, remaining), pos)
+                if not chunk:
+                    break
+                pos += len(chunk)
+                remaining -= len(chunk)
+                yield chunk
+        finally:
+            cm.__exit__(None, None, None)
+
+    media = mime if show_inline else "application/octet-stream"
+    return StreamingResponse(body(), status_code=status, media_type=media, headers=headers)
+
+
 TusResumable = Annotated[Literal["1.0.0"], Header(description="The tus protocol version; anything else is 412.")]
 UPLOAD_METADATA_RE = (
     r"^[A-Za-z0-9_.-]{1,64}(?: [A-Za-z0-9+/]*={0,2})?(?:,[A-Za-z0-9_.-]{1,64}(?: [A-Za-z0-9+/]*={0,2})?)*$"
@@ -296,46 +340,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
                                                          **errs(401, 403, 404, 409, 416, 422, 503)})
     def download(request: Request, root: RootQ, path: str = Query(max_length=4096),
                  inline: bool = False, p: Principal = Depends(principal)):
-        cm = svc.open_file(p, root, path)
-        fd, st, name = cm.__enter__()
-        try:
-            etag = f'"{st.st_size:x}-{st.st_mtime_ns:x}"'
-            rng = parse_range(request.headers.get("range"), st.st_size)
-            if_range = request.headers.get("if-range")
-            if rng is not None and if_range is not None and if_range.strip() != etag:
-                rng = None  # the file changed since the client's partial copy: send it whole
-            mime = guess_mime(name)
-            show_inline = inline and mime in INLINE_SAFE
-            headers = {
-                "Accept-Ranges": "bytes", "ETag": etag, "Cache-Control": "private, no-cache",
-                "Content-Disposition": content_disposition(name, show_inline),
-                "X-Content-Type-Options": "nosniff", "Content-Security-Policy": "sandbox; default-src 'none'",
-            }
-            start, end, status = 0, st.st_size - 1, 200
-            if rng is not None:
-                start, end = rng
-                status = 206
-                headers["Content-Range"] = f"bytes {start}-{end}/{st.st_size}"
-            headers["Content-Length"] = str(max(0, end - start + 1))
-        except BaseException:
-            cm.__exit__(None, None, None)
-            raise
-
-        def body():
-            try:
-                pos, remaining = start, end - start + 1
-                while remaining > 0:
-                    chunk = os.pread(fd, min(STREAM_CHUNK, remaining), pos)
-                    if not chunk:
-                        break
-                    pos += len(chunk)
-                    remaining -= len(chunk)
-                    yield chunk
-            finally:
-                cm.__exit__(None, None, None)
-
-        media = mime if show_inline else "application/octet-stream"
-        return StreamingResponse(body(), status_code=status, media_type=media, headers=headers)
+        return file_response(request, svc.open_file(p, root, path), inline)
 
     # -- data-plane writes --
     @app.post("/v1/files/ops", operation_id="files.ops", tags=TAG, responses=errs(401, 403, 404, 409, 413, 422, 503))
