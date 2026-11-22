@@ -20,6 +20,7 @@ from .ai_policy import catalog_policy
 from .appsecrets.spec import SecretDecl, parse_secrets, secret_spec_errors
 from .filesig import cache_signature
 from .manifest_convert import CURRENT, OLDER
+from .manifest_rules import ManifestRules
 from .scan import ScanRecord, read_scan
 from .systemlist import SYSTEM_DIR
 
@@ -208,6 +209,7 @@ class Catalog:
         self.channel_dir = channel_dir
         self.schema_path = schema_path
         self._validator = None
+        self._rules: ManifestRules | None = None
         if schema_path is not None and schema_path.is_file():
             from jsonschema.validators import validator_for
 
@@ -215,6 +217,8 @@ class Catalog:
             cls = validator_for(schema)
             cls.check_schema(schema)
             self._validator = cls(schema, format_checker=cls.FORMAT_CHECKER)
+            # Manifest v1 (#604): the rules a schema cannot say, shared with the Go validator.
+            self._rules = ManifestRules(schema)
             log.info("validating app manifests against %s", schema_path.name)
         else:
             log.info("no app schema found; using the built-in manifest check")
@@ -251,10 +255,14 @@ class Catalog:
     def _validate(self, doc: object) -> list[str]:
         errs = builtin_check(doc) if self._validator is None else []
         if self._validator is not None:
+            rules = self._rules
+            assert rules is not None
+            # A schema message quotes the bad value; rules.hide never repeats one that looks like a credential.
             errs = [
-                f"{'/'.join(str(p) for p in e.absolute_path) or '<root>'}: {e.message}"
+                rules.hide(f"{'/'.join(str(p) for p in e.absolute_path) or '<root>'}: {e.message}")
                 for e in self._validator.iter_errors(doc)
             ]
+            errs.extend(rules.errors(doc))
             md = doc.get("metadata") if isinstance(doc, dict) else None
             app_id = md.get("id") if isinstance(md, dict) else None
             if not isinstance(app_id, str) or not APP_ID_RE.match(app_id):
