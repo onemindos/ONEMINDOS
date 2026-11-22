@@ -142,7 +142,9 @@ class KubectlRuntime:
     def snapshot(self, name: str, snap: str) -> tuple[ExecResult, list[str]]:
         steps: list[dict] = []
         k, obj = self.kubectl, f"virtualmachinesnapshot/{snapshot_name(name, snap)}"
-        bad = (self._run(steps, [k, "apply", "--server-side", "--field-manager=onemind-gateway", "-f", "-"], render_snapshot(name, snap))
+        # `create`, not `apply`: an existing object fails with AlreadyExists, so a restore point that was
+        # never taken of this machine can never be reported as taken (wait would return at once).
+        bad = (self._run(steps, [k, "create", "-f", "-"], render_snapshot(name, snap))
                or self._run(steps, [k, "wait", "--for=jsonpath={.status.readyToUse}=true", obj, "-n", NAMESPACE, "--timeout=240s"]))
         if bad:
             return bad, []

@@ -10,6 +10,7 @@ Design is written against KubeVirt's public API (Apache-2.0). No code from umbre
 
 from __future__ import annotations
 
+import hashlib
 import json
 from typing import Literal
 
@@ -155,7 +156,13 @@ def _deny_all(name: str) -> dict:
 
 
 def snapshot_name(machine: str, snap: str) -> str:
-    return f"{machine}-{snap}"[:63]
+    """One object name per (machine, snapshot) pair, never shared by two pairs.
+
+    Names allow hyphens, so plain `machine-snap` joining is ambiguous (web + db-1 and web-db + 1 both
+    give web-db-1) and the 63-character cut can merge long names. A digest of the NUL-separated pair
+    (NUL cannot occur in a name) is appended; the readable prefix is only for people."""
+    digest = hashlib.sha256(f"{machine}\0{snap}".encode()).hexdigest()[:12]
+    return f"{machine[:19]}-{snap[:19]}-{digest}".rstrip("-")
 
 
 def render_snapshot(machine: str, snap: str) -> str:

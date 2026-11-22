@@ -421,3 +421,28 @@ def test_kubectl_runtime_lifecycle_commands_and_the_freeze_result():
     calls.clear()
     assert rt.delete("win").outcome == "succeeded" and "virtualmachinesnapshot" in calls[0][0]
     assert KubectlRuntime(runner=lambda a, **k: subprocess.CompletedProcess(a, 1, "", "boom")).snapshot("w", "s")[0].outcome == "failed"
+
+
+def test_snapshot_object_names_never_collide():
+    from onemind_core.machines.spec import snapshot_name
+    # Hyphens made these two pairs the same object ("web-db-1") before.
+    assert snapshot_name("web", "db-1") != snapshot_name("web-db", "1")
+    # Long names that the old 63-character cut turned into one string.
+    long_a, long_b = "a" * 40, "a" * 39 + "b"
+    assert snapshot_name(long_a, "s" * 40) != snapshot_name(long_a, "s" * 39 + "t")
+    assert snapshot_name(long_a, "x1") != snapshot_name(long_b, "x1")
+    for n in (snapshot_name("web", "db-1"), snapshot_name(long_a, "s" * 40)):
+        assert len(n) <= 63 and n[0].isalpha() and not n.endswith("-")
+
+
+def test_snapshot_refuses_an_existing_object():
+    calls = []
+
+    def runner(argv, **kw):
+        calls.append(argv)
+        return subprocess.CompletedProcess(argv, 1, "", 'Error: virtualmachinesnapshots "x" already exists')
+
+    res, ind = KubectlRuntime(runner=runner).snapshot("web", "db-1")
+    assert res.outcome == "failed" and ind == []
+    # create (fails on AlreadyExists), never a server-side apply that would adopt another machine's object
+    assert calls[0][1] == "create" and len(calls) == 1
