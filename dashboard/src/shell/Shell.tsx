@@ -27,6 +27,7 @@ import { activityFrom, notificationsFrom, toActionSummary, toPaletteApp } from '
 import { ActionJobs, jobsStackStyle } from './ActionJobs';
 import { useHub } from '../data/hub';
 import { useAppRequest } from './useAppRequest';
+import { useRecordVisit } from '../data/homeRecent';
 import { homeLayoutStore, personList } from '../data/prefs';
 import { DesktopShell, type DockApp } from './DesktopShell';
 import { useLayoutMode, type LayoutMode } from './layoutMode';
@@ -82,6 +83,7 @@ export function Shell({ children }: { children: ReactNode }) {
   const displayName = useDisplayName();
   const role = roleOf(principal, me.data ?? undefined);
   const view = viewFor(role === undefined && me.error ? null : role);
+  useRecordVisit(view, role);
   // A failed lookup is retried with backoff, then slowly, so a network hiccup does not leave an
   // owner in the Simple view until a reload. Stops once /v1/me answers.
   const meTries = useRef(0);

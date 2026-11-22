@@ -15,7 +15,8 @@ import { useSignedIn } from '../session';
 import { href } from '../shell/routes';
 import { showsNav } from '../shell/roles';
 import { useActivity, useShell } from '../shell/Shell';
-import { HomeHealth } from './HomeHealth';
+import { HomeHealth, useBoxStatus } from './HomeHealth';
+import { HomeRecent } from './HomeRecent';
 import { SimpleHome } from './SimpleHome';
 
 /**
@@ -86,6 +87,7 @@ function ProHome() {
   const storage = useHomeStorage(pro);
   const apps = useMemo(() => hub.apps.data?.map((a) => toHomeApp(a)), [hub.apps.data]);
   const extras = useHomeExtras(apps, hub.asOf ?? new Date(0).toISOString());
+  const boxStatus = useBoxStatus();
   const data = homeData(hub, homeActivity(entries), extras, backups.value, storage.value);
 
   const decide = (a: ActionSummary, how: 'approve' | 'deny') =>
@@ -99,9 +101,10 @@ function ProHome() {
 
   return (
     <>
-    <HomeHealth pro={pro} />
+    <HomeHealth pro={pro} status={boxStatus} />
+    <HomeRecent />
     <HomeScreen
-      data={data}
+      data={{ ...data, boxStatus }}
       now={hub.now}
       timeZone={Intl.DateTimeFormat().resolvedOptions().timeZone}
       personName={personName}
