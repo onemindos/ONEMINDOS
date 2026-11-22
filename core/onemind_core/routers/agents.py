@@ -40,7 +40,8 @@ class KillSwitch(BaseModel):
 
 class KillSwitchBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    on: bool = Field(description="true stops every AI agent; false lets them work again")
+    # strict: JSON true/false only; lax mode took 0 and 1 (found by api-fuzz).
+    on: bool = Field(strict=True, description="true stops every AI agent; false lets them work again")
     reason: str | None = Field(default=None, description="Why, for the audit record (at most 500 characters)")
 
     # Checked here rather than as maxLength in the schema: a constrained `reason` would renumber the
