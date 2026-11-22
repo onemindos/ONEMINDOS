@@ -49,6 +49,12 @@ services:
      description: "Shows a 'starting' page on the web address until the gateway is ready to answer."}
   - {unit: onemind-screen.service, name: Box screen, docs: docs/leap/core/IMAGES.md, restartable: true, risk: low, depends_on: [],
      description: "Draws the status screen on a monitor plugged into the box: its address and whether it is healthy."}
+  - {unit: onemind-kiosk.service, name: Kiosk dashboard, docs: docs/leap/core/IMAGES.md, restartable: true, risk: low, depends_on: [onemind-gateway.service],
+     description: "Shows the dashboard full screen on a monitor plugged into the box, in place of the status screen. Runs only when the owner turns kiosk mode on."}
+  - {unit: onemind-kiosk-apply.service, name: Kiosk switch, docs: docs/leap/core/IMAGES.md, restartable: false, risk: low,
+     depends_on: [onemind-screen.service, onemind-kiosk.service], description: "Restarts the box's screen after the owner turns kiosk mode on or off, so the monitor shows the right one."}
+  - {unit: onemind-kiosk.path, name: Kiosk switch watcher, docs: docs/leap/core/IMAGES.md, restartable: false, risk: low,
+     depends_on: [onemind-kiosk-apply.service], description: "Watches the kiosk switch the owner sets in the dashboard or the CLI and starts the kiosk switch when it changes."}
   - {unit: onemind-firewall.service, name: Firewall, docs: docs/architecture/NETWORKING.md, restartable: false, risk: high, depends_on: [],
      description: "Loads the default-deny firewall at boot, so only the ports OneMind uses are open."}
   - {unit: onemind-health-gate.service, name: Update health check, docs: docs/learning/07-image-ab-updates-health-gate.md, restartable: false, risk: high,
