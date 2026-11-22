@@ -32,11 +32,12 @@ def register(app: FastAPI, gw: Gateway) -> None:
     def visible_fn(request: Request, p: Principal, links: frozenset[str] = frozenset()):
         apps = gw.catalog.load()
         nodes = {n["node_id"] for n in gw.registry.list()}
+        off = gw.disabled_apps()  # a switched-off app has no dock tile
 
         def visible(item: str) -> bool:
             kind, _, ident = item.partition(":")
             if kind == "app":
-                return ident in apps and all(f(request, p, ident) for f in gw.app_filters)
+                return ident in apps and ident not in off and all(f(request, p, ident) for f in gw.app_filters)
             if kind == "node":
                 return ident in nodes
             if kind == "link":
