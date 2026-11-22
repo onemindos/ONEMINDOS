@@ -14,3 +14,9 @@ var App string
 //
 //go:embed widget-templates.schema.json
 var WidgetTemplates string
+
+// Services is the services registry contract (os/.../usr/lib/onemind/services.yaml, #623),
+// read by `onemindd host serve` (internal/svcregistry).
+//
+//go:embed onemind.services.schema.json
+var Services string
