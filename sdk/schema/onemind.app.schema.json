@@ -1648,7 +1648,7 @@
     "credentialValue": {
       "description": "Not applied by the schema: the value patterns the one validator (core/onemind_core/manifest_rules.py and internal/plugin/validate/blocks.go) refuses in every string of a manifest, so no field can hold a credential. Errors name the field, never the value.",
       "type": "string",
-      "pattern": "-----BEGIN [A-Z ]*PRIVATE KEY-----|\\bAKIA[0-9A-Z]{16}\\b|\\bgh[pousr]_[A-Za-z0-9]{36,}|\\bgithub_pat_[A-Za-z0-9_]{22,}|\\bxox[abposr]-[A-Za-z0-9-]{10,}|\\bAIza[0-9A-Za-z_-]{35}|\\b[rs]k_live_[0-9A-Za-z]{16,}|\\bsk-[A-Za-z0-9_-]{20,}|\\bom_[a-z]{3}_[A-Za-z0-9_-]{16,}|\\beyJ[A-Za-z0-9_-]{8,}\\.eyJ[A-Za-z0-9_-]{8,}\\.|[A-Za-z][A-Za-z0-9+.-]*://[^/\\s:@]+:[^/\\s@]+@|[?&](?:api[_-]?key|apikey|access[_-]?token|auth[_-]?token|token|client[_-]?secret|password|passwd)=[^&#\\s]+"
+      "pattern": "-----BEGIN [A-Z ]{0,40}PRIVATE KEY-----|\\bAKIA[0-9A-Z]{16}\\b|\\bgh[pousr]_[A-Za-z0-9]{36,}|\\bgithub_pat_[A-Za-z0-9_]{22,}|\\bxox[abposr]-[A-Za-z0-9-]{10,}|\\bAIza[0-9A-Za-z_-]{35}|\\b[rs]k_live_[0-9A-Za-z]{16,}|\\bsk-[A-Za-z0-9_-]{20,}|\\bom_[a-z]{3}_[A-Za-z0-9_-]{16,}|\\beyJ[A-Za-z0-9_-]{8,}\\.eyJ[A-Za-z0-9_-]{8,}\\.|\\b[A-Za-z][A-Za-z0-9+.-]{0,30}://[^/\\s:@]{1,256}:[^/\\s@]{1,256}@|[?&](?:api[_-]?key|apikey|access[_-]?token|auth[_-]?token|token|client[_-]?secret|password|passwd)=[^&#\\s]"
     },
     "credentialName": {
       "description": "Not applied by the schema: a field with one of these names may not hold a string (except the word generated, spec.credentials.password), anywhere in a manifest.",

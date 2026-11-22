@@ -88,6 +88,15 @@ class ManifestBlocksTests(unittest.TestCase):
         self.assertTrue(errs)
         self.assertFalse([e for e in errs if "ABCDEFGHIJKLMNOP" in e], errs)
 
+    def test_the_credential_scan_stays_fast_on_a_hostile_string(self):
+        # Python's re backtracks; every repeat in credentialValue is bounded, so a long string costs linear time.
+        import time
+        for probe in ("https://" + "a" * 200000 + ":" + "b" * 2000, "a+" * 100000, "-----BEGIN " + "A " * 100000):
+            doc = apply(BASE, [{"op": "set", "path": "/spec/notifications/topics/0/actions/0/args/note", "value": probe}])
+            started = time.monotonic()
+            self.catalog.validate(doc)
+            self.assertLess(time.monotonic() - started, 5)
+
     def test_every_app_in_the_repo_still_validates(self):
         found = self.catalog.load()
         self.assertTrue(found)
