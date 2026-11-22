@@ -69,6 +69,14 @@ func (f *fakeRepo) Backup(_ context.Context, req BackupRequest) (BackupResult, e
 			if err != nil {
 				return err
 			}
+			// Excludes as restic reads relative patterns (patternMatch): a
+			// matched folder is left out with everything inside it.
+			if path != p && patternMatch(req.Excludes, path) {
+				if d.IsDir() {
+					return filepath.SkipDir
+				}
+				return nil
+			}
 			fi, err := d.Info()
 			if err != nil {
 				return err

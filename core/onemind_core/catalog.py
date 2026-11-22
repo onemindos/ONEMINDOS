@@ -19,6 +19,7 @@ import yaml
 from .ai_policy import catalog_policy
 from .appsecrets.spec import SecretDecl, parse_secrets, secret_spec_errors
 from .filesig import cache_signature
+from .manifest_convert import CURRENT, OLDER
 from .scan import ScanRecord, read_scan
 
 log = logging.getLogger("onemind.catalog")
@@ -26,6 +27,8 @@ log = logging.getLogger("onemind.catalog")
 # app-<id> must stay a valid Kubernetes namespace (DNS label, max 63 chars).
 APP_ID_RE = re.compile(r"^[a-z0-9]([a-z0-9-]{0,57}[a-z0-9])?$")
 MANIFEST = "onemind.app.yaml"
+# PLAN-E6: v1 is the frozen manifest; v1alpha1 stays readable until every app is converted.
+API_VERSIONS = (CURRENT, *OLDER)  # one list, shared with the converter (manifest_convert)
 # Kubernetes Secret names are DNS-1123 subdomains.
 SECRET_NAME_RE = re.compile(r"^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$")
 LINK_KEYS = ("docs", "github", "website", "support")
@@ -37,6 +40,18 @@ def _http_url(value: object) -> str | None:
     if isinstance(value, str) and re.match(r"^https?://[^\s/]+", value, re.IGNORECASE):
         return value
     return None
+
+
+def build_summary(raw: object) -> dict | None:
+    """metadata.build for the Market: plain strings only, and only the factory's own fields."""
+    if not isinstance(raw, dict) or raw.get("builder") != "onemind-app-factory":
+        return None
+    try:
+        patched = [str(p) for p in raw.get("patched") or []]
+        return {"builder": "onemind-app-factory", "revision": int(raw["revision"]), "upstream_tag": str(raw["upstreamTag"]),
+                "base": str(raw["base"]), "patched": patched, "built_at": str(raw["builtAt"]), "image": str(raw["image"])}
+    except (KeyError, TypeError, ValueError):
+        return None
 
 
 @dataclass(frozen=True)
@@ -68,7 +83,13 @@ class AppEntry:
 
     @property
     def manifests_dir(self) -> Path:
-        rel = (self.manifest.get("spec") or {}).get("manifests") or "manifests/"
+        spec = self.manifest.get("spec") or {}
+        rel = spec.get("manifests")
+        if not rel:
+            # Extension apps declare no workload; never fall back to an undeclared folder.
+            if spec.get("extensions"):
+                raise ValueError(f"app {self.id}: extension app declares no spec.manifests")
+            rel = "manifests/"
         path = (self.dir / rel).resolve()
         if not path.is_relative_to(self.dir.resolve()):
             raise ValueError(f"app {self.id}: spec.manifests escapes the app folder")
@@ -116,6 +137,7 @@ class AppEntry:
             "links": {k: _http_url(links.get(k)) for k in LINK_KEYS},
             "tier": md.get("tier") if md.get("tier") in TIERS else None,
             "scan": scan.summary() if scan is not None else None,
+            "build": build_summary(md.get("build")),
             # §12.22: set by a community source's entry; the official catalog has none.
             "catalog_source": None,
         }
@@ -125,8 +147,8 @@ def builtin_check(doc: object) -> list[str]:
     errs: list[str] = []
     if not isinstance(doc, dict):
         return ["manifest is not a mapping"]
-    if doc.get("apiVersion") != "onemind.app/v1alpha1":
-        errs.append("apiVersion must be onemind.app/v1alpha1")
+    if doc.get("apiVersion") not in API_VERSIONS:
+        errs.append("apiVersion must be onemind.app/v1 (or onemind.app/v1alpha1, until converted)")
     if doc.get("kind") != "App":
         errs.append("kind must be App")
     md, spec = doc.get("metadata"), doc.get("spec")
@@ -159,8 +181,12 @@ def builtin_check(doc: object) -> list[str]:
 
 
 class Catalog:
-    def __init__(self, apps_dir: Path, schema_path: Path | None = None):
+    def __init__(self, apps_dir: Path, schema_path: Path | None = None, channel_dir: Path | None = None):
         self.apps_dir = apps_dir
+        # The signed catalog channel (`onemind catalog sync`, internal/update/catalog.go) keeps its
+        # newest verified catalog under channel_dir/current -> releases/<version>. An app there
+        # replaces the same id from the image (the image's apps stay the fallback).
+        self.channel_dir = channel_dir
         self.schema_path = schema_path
         self._validator = None
         if schema_path is not None and schema_path.is_file():
@@ -169,7 +195,7 @@ class Catalog:
             schema = json.loads(schema_path.read_text())
             cls = validator_for(schema)
             cls.check_schema(schema)
-            self._validator = cls(schema)
+            self._validator = cls(schema, format_checker=cls.FORMAT_CHECKER)
             log.info("validating app manifests against %s", schema_path.name)
         else:
             log.info("no app schema found; using the built-in manifest check")
@@ -246,6 +272,26 @@ class Catalog:
             self._parsed[path] = (sig, outcome)
         return outcome
 
+    def _channel_manifests(self) -> list[Path]:
+        """Manifests of the active channel catalog, or [] when there is none.
+
+        `current` must be a link that resolves to a folder inside channel_dir/releases: the
+        gateway never follows a link out of the channel's own folder.
+        """
+        if self.channel_dir is None:
+            return []
+        try:
+            real = (self.channel_dir / "current").resolve(strict=True)
+            if not real.is_relative_to((self.channel_dir / "releases").resolve()):
+                log.warning("catalog channel: current points outside releases/; ignored")
+                return []
+            apps = (real / "apps").resolve(strict=True)
+            if not apps.is_relative_to(real):
+                return []
+            return sorted(apps.glob(f"*/{MANIFEST}"))
+        except OSError:
+            return []
+
     def load(self) -> dict[str, AppEntry]:
         """The current catalog. Lists the folder on every call (new and removed apps show at once);
         a manifest is only re-parsed when its file changed."""
@@ -256,7 +302,8 @@ class Catalog:
             self._parsed.clear()
             return apps
         paths = sorted(self.apps_dir.glob(f"*/{MANIFEST}"))
-        for stale in set(self._parsed) - set(paths):
+        channel_paths = self._channel_manifests()
+        for stale in set(self._parsed) - set(paths) - set(channel_paths):
             del self._parsed[stale]
         for path in paths:
             outcome = self._outcome(path)
@@ -264,6 +311,13 @@ class Catalog:
                 apps[outcome.id] = outcome
             else:
                 errors[path.parent.name] = list(outcome)
+        for path in channel_paths:
+            outcome = self._outcome(path)
+            if isinstance(outcome, AppEntry):
+                apps[outcome.id] = outcome  # newer than the image's copy: it wins
+            else:
+                # A bad channel entry never hides the image's app; it is only reported.
+                errors[f"channel/{path.parent.name}"] = list(outcome)
         self.errors = errors
         for provide in self.providers:
             try:

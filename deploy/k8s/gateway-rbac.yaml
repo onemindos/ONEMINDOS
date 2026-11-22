@@ -97,6 +97,46 @@ metadata: {name: onemind-gateway-join-tokens, namespace: kube-system}
 roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: onemind-gateway-join-tokens}
 subjects: [{kind: ServiceAccount, name: onemind-gateway, namespace: onemind-system}]
 ---
+# The on-box image scanner (CORE-DEPLOY-2) runs its Trivy and cosign Jobs in one fixed namespace,
+# onemind-scan. It is pre-created here by the admin install (so the gateway needs no Role-writing
+# rights outside app-*) and the gateway gets exactly what the scanner uses there: Jobs,
+# NetworkPolicies and the database volume, plus read of pods and their logs. Nothing else, and no
+# other namespace is opened up by this block; the admission policy below names this one by hand.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: onemind-scan
+  labels:
+    onemind.io/app: onemind-image-scan
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/audit: restricted
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata: {name: onemind-gateway-image-scan, namespace: onemind-scan}
+rules:
+  - apiGroups: [batch]
+    resources: [jobs]
+    verbs: [get, list, watch, create, delete]
+  - apiGroups: [networking.k8s.io]
+    resources: [networkpolicies]
+    verbs: [get, list, watch, create, update, patch]
+  - apiGroups: [""]
+    resources: [persistentvolumeclaims]
+    verbs: [get, list, watch, create, update, patch]
+  - apiGroups: [""]
+    resources: [pods]
+    verbs: [get, list, watch]
+  - apiGroups: [""]
+    resources: [pods/log]
+    verbs: [get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata: {name: onemind-gateway-image-scan, namespace: onemind-scan}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: onemind-gateway-image-scan}
+subjects: [{kind: ServiceAccount, name: onemind-gateway, namespace: onemind-system}]
+---
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
 metadata: {name: onemind-gateway-fence}
@@ -115,10 +155,13 @@ spec:
     - expression: >-
         request.namespace.startsWith("app-") ||
         (request.resource.resource == "namespaces" && request.subResource == "" && request.name.startsWith("app-")) ||
+        (request.resource.resource == "namespaces" && (!has(request.subResource) || request.subResource == "") && request.name == "onemind-scan") ||
+        (request.namespace == "onemind-scan" && request.resource.resource in ["jobs", "networkpolicies", "persistentvolumeclaims"] &&
+         (!has(request.subResource) || request.subResource == "")) ||
         (request.namespace == "kube-system" && request.resource.resource == "secrets" && (!has(request.subResource) || request.subResource == "") &&
          request.name.startsWith("bootstrap-token-") &&
          (request.operation == "DELETE" || object.type == "bootstrap.kubernetes.io/token"))
-      message: the OneMind gateway may only change app-* namespaces and what is inside them, and node join tokens in kube-system
+      message: the OneMind gateway may only change app-* namespaces and what is inside them, the onemind-scan Jobs, policy and volume, and node join tokens in kube-system
     - expression: >-
         request.resource.resource != "namespaces" || request.operation == "DELETE" ||
         (has(object.metadata.labels) && "onemind.io/app" in object.metadata.labels &&

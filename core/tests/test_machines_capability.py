@@ -113,11 +113,12 @@ def test_enable_is_refused_on_an_8gb_box_and_with_no_node_reporting(box):
     assert "8 GB" in r.json()["message"]
 
 
-def test_enable_on_an_eligible_box_says_the_extension_is_not_there_yet(box):
+def test_enable_on_an_eligible_box_files_a_request_and_installs_nothing(box):
     box.report()
     r = box.post("/v1/machines/enable", headers=OWNER)
-    assert r.status_code == 409 and r.json()["reason"] == "extension_unavailable"
-    assert box.get("/v1/machines/capabilities", headers=OWNER).json()["enabled"] is False  # nothing was switched on
+    assert r.status_code == 202 and r.json()["type"] == "machines.enable" and r.json()["state"] == "awaiting_approval"
+    caps = box.get("/v1/machines/capabilities", headers=OWNER).json()
+    assert caps["enabled"] is False  # nothing is switched on before an owner approves
 
 
 @pytest.mark.parametrize("who", [AGENT, ADULT, GUEST])

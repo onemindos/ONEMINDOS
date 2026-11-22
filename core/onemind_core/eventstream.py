@@ -232,6 +232,11 @@ class EventStream:
             if await is_disconnected():
                 return
             sent = False
+            try:
+                if self.audit_path.stat().st_size < offset:
+                    offset = 0  # the log was rotated: the active file started over
+            except OSError:
+                pass
             for pos, rec in iter_records(self.audit_path, offset):
                 offset = pos
                 ev = selected(rec)

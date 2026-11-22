@@ -19,6 +19,14 @@ from ..identity import IdentityService, ctx_of
 SIGNIN_HTML = Path(__file__).resolve().parent.parent / "identity" / "signin.html"
 
 
+class ApprovalChallenge(BaseModel):
+    challenge: str
+    action_sha256: str
+    plan_sha256: str | None
+    expires_at: str
+    publicKey: dict[str, Any]
+
+
 class LoginBody(BaseModel):
     username: str | None = Field(default=None, max_length=64)
     password: str | None = Field(default=None, max_length=1024)
@@ -67,6 +75,11 @@ class CodeBody(BaseModel):
 
 class PasswordOnlyBody(BaseModel):
     password: str = Field(max_length=1024)
+
+
+class MePatchBody(BaseModel):
+    # Not length-limited tightly here: the service answers 422 with a reason, like the other identity routes.
+    display_name: str | None = Field(default=None, max_length=1000)
 
 
 class UserCreateBody(BaseModel):
@@ -217,6 +230,11 @@ def register(app: FastAPI, gw: Gateway) -> None:
     def me(request: Request, p: Principal = Depends(principal)):
         return svc.me(request, p)
 
+    @app.patch("/v1/me", operation_id="me.update", tags=["auth"], responses=R(401, 403, 422))
+    def update_me(body: MePatchBody, request: Request, p: Principal = Depends(principal)):
+        """Set (or clear, with null) your own display name. Display text only; it grants nothing."""
+        return svc.set_profile_name(request, p, body.display_name)
+
     # ---- users (owner) -------------------------------------------------------------------------------
     @app.get("/v1/users", operation_id="users.list", tags=["users"], responses=R(401, 403))
     def users(p: Principal = Depends(principal)):
@@ -262,7 +280,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return svc.put_access(ctx_of(request), p, app_id, body.roles, body.people, body.auth)
 
     # ---- approval step-up challenge (§12.4) ----------------------------------------------------------
-    @app.post("/v1/actions/{action_id}/approve-options", operation_id="actions.approve_options", tags=["actions"], responses=R(401, 403, 404, 409))
+    @app.post("/v1/actions/{action_id}/approve-options", operation_id="actions.approve_options", tags=["actions"], response_model=ApprovalChallenge, responses=R(401, 403, 404, 409))
     def approve_options(action_id: str, request: Request, p: Principal = Depends(principal)):
         return svc.approve_options(request, p, action_id)
 

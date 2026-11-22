@@ -378,8 +378,8 @@ HTTP 403 permission_denied: agent/agent may not approve
 
 Runs on every PR that touches `core/onemind_core/**`, `sdk/**`, `dashboard/src/api/**`, `mobile/src/api/**` or `cmd/onemind/**`:
 
-1. `python -m onemind_core.openapi > /tmp/spec.json`; **fail if it differs from `sdk/openapi/onemind-v1.json`** ("the gateway changed: run `make -C sdk gen` and commit").
-2. `make -C sdk gen`; **fail if `git diff --exit-code sdk/` is not empty** ("generated SDK code is stale").
+1. `python -m onemind_core.openapi --check`; **fail if it differs from `sdk/openapi/onemind-v1.json`** ("the gateway changed: run `make -C sdk gen` and commit the spec").
+2. `make -C sdk gen-code` must succeed. Since CI-16 the generated SDK code (`types.gen.go`, `_gen/models.py`, `aio.py`, `schema.ts`) is **not committed**: it is in `.gitignore`, and every job that builds or tests something that imports it generates it first (`.github/actions/sdk-gen`, `sdk/scripts/gen-code.sh`; the image build, `deploy/install.sh` and `deploy/bundle.sh` call the same script). Only the spec is committed and reviewed, so two API pull requests no longer conflict on generated code.
 3. `oasdiff breaking` against the spec of the last `sdk-v*` tag; fail without the `api-breaking` label.
 4. Test suites: `vitest` (sdk/ts), `pytest` (sdk/python), `go test ./...` (sdk/go), each running the shared `sdk/conformance` cases against the mock gateway.
 5. Integration job: start the real gateway with the `noop` executor and SQLite, run the three SDKs' smoke scripts (list nodes, request, agent approve → 403, owner approve → succeeded).
@@ -389,10 +389,7 @@ Runs on every PR that touches `core/onemind_core/**`, `sdk/**`, `dashboard/src/a
 Example failure the developer sees:
 
 ```text
-sdk: generated code is stale
-  M sdk/ts/src/gen/schema.ts
-  M sdk/go/internal/gen/types.gen.go
-Run: make -C sdk gen && git add sdk/
+../sdk/openapi/onemind-v1.json is stale: run `make -C sdk openapi` and commit the result
 ```
 
 ---

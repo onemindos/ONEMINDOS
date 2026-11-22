@@ -1,0 +1,25 @@
+# SPDX-License-Identifier: Apache-2.0
+# Runs an armed factory reset (docs/leap/core/HOST-ACTIONS.md section 4, #146). `onemindd host serve`
+# arms it (marker /boot/efi/onemind/factory-reset on the ESP, which is not part of the data set) and
+# reboots; this unit then fast-wipes every disk of the data set (destroys the LUKS2 keys) BEFORE the
+# data set is assembled or mounted, so the old data is never opened after the owner approved a reset.
+# Nothing to do (the condition fails) on every normal boot. If the wipe fails or the marker is stale
+# (expired, or another disk set), onemindd exits 1 after writing /run/onemind-recovery/status, and
+# OnFailure= isolates recovery mode instead of mounting the old data. The next boot tries again.
+[Unit]
+Description=OneMind: run an armed factory reset (before the data disks are opened)
+DefaultDependencies=no
+RequiresMountsFor=/boot/efi
+After=systemd-udevd.service systemd-udev-trigger.service
+Before=data.mount onemind-data-assemble.service onemind-data-layout.service onemind-data-check.service local-fs.target
+ConditionPathExists=/boot/efi/onemind/factory-reset
+OnFailure=onemind-recovery.target
+OnFailureJobMode=isolate
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/onemindd factory-reset wipe --esp /boot/efi
+TimeoutStartSec=15min
+
+[Install]
+WantedBy=local-fs.target

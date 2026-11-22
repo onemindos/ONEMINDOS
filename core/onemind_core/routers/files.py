@@ -15,7 +15,7 @@ import anyio
 from fastapi import Body, Depends, FastAPI, Header, Query, Request, Response
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse, StreamingResponse
-from pydantic import AwareDatetime, BaseModel, BeforeValidator, ConfigDict, Field
+from pydantic import AwareDatetime, BaseModel, BeforeValidator, ConfigDict, Field, StrictBool
 from starlette.requests import ClientDisconnect
 
 from ..auth import Principal
@@ -55,8 +55,9 @@ MAX_QUOTA_BYTES = 10**15  # 1 PB: far above any box, and exact as a JSON float
 
 
 def _not_a_bool(v):
-    if isinstance(v, bool):
-        raise ValueError("expected an integer, not a boolean")
+    # JSON Schema's integer is a number: not true, and not the string "0" that pydantic's lax mode coerces.
+    if isinstance(v, (bool, str)):
+        raise ValueError("expected an integer")
     return v
 
 
@@ -123,7 +124,7 @@ class RequestCommon(BaseModel):
     model_config = ConfigDict(extra="forbid")
     reason: str | None = Field(default=None, max_length=500)
     expires_at: AwareDatetime | None = None
-    approve: bool = False
+    approve: StrictBool = False  # JSON true/false only: lax mode took 1, 0 and "yes" (found by api-fuzz)
 
 
 class GrantBody(RequestCommon):
@@ -244,6 +245,7 @@ ORDER = 300
 def register(app: FastAPI, gw: Gateway) -> None:
     svc = FilesService(gw)
     uploads = Uploads(svc)
+    gw.requester_lookups.append(svc.requester)  # agent kill switch: an agent's frq_ cannot be approved
     principal = gw.principal
     app.add_exception_handler(FilesError, ferrors.handle)
 

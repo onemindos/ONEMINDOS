@@ -57,7 +57,7 @@ from .settings import IdentitySettings
 
 log = logging.getLogger("onemind.identity")
 
-PERSON_ROLES = ("owner", "adult", "guest", "child")
+PERSON_ROLES = ("owner", "adult", "guest", "child", "teen")
 USERNAME_RE = re.compile(r"[a-z][a-z0-9._-]{1,31}")
 AGENT_ID_RE = re.compile(r"agent:[a-z0-9][a-z0-9._-]{0,62}")
 CSRF_HEADER = "onemind-csrf"
@@ -84,6 +84,23 @@ class AuthContext:
     user: UserRow | None = None
     session: SessionRow | None = None
     token: TokenRow | None = None
+
+
+PROFILE_NAME_MAX = 60
+
+
+def clean_profile_name(raw: str) -> str:
+    """1 to 60 characters after trimming; no control or format characters, no markup brackets."""
+    import unicodedata
+
+    name = raw.strip()
+    if not 1 <= len(name) <= PROFILE_NAME_MAX:
+        raise ApiError(422, "conflict", f"display name must be 1 to {PROFILE_NAME_MAX} characters",
+                       reason="display_name_length")
+    if any(unicodedata.category(ch)[0] == "C" or ch in "<>" for ch in name):
+        raise ApiError(422, "conflict", "display name cannot contain control characters or markup",
+                       reason="display_name_characters")
+    return name
 
 
 def ctx_of(request: Request) -> AuthContext | None:
@@ -131,6 +148,8 @@ class IdentityService:
         self.gw = gw
         self.cfg = gw.settings.section(IdentitySettings)
         self.repo = IdentityRepository(gw.db)
+        # SECURITY.md §3.2: the first-boot owner token stops working on the API once an owner exists.
+        gw.tokens.retire_when = lambda: self.repo.count(UserRow) > 0
         self.limiter = FailureLimiter(self.cfg.login_failures_per_min, timedelta(minutes=self.cfg.lockout_minutes))
         secure = self.cfg.cookie_secure
         # __Host- cookies must be Secure, path=/ and host-only: they cannot be set by a sibling name.
@@ -205,6 +224,37 @@ class IdentityService:
             return None
         if ctx is None:
             return None
+        if ctx.principal.kind == "plugin":
+            # Installation-owned plugins never inherit static-v0 access, self-service
+            # exceptions or the generic scope table's broad route trees.
+            from ..plugins.auth import allows_read, allows_request, plugin_app_id, request_types
+            from ..plugins.auth import allows_own_action_read
+            from ..plugins.principal import PluginPrincipal
+
+            app_id = plugin_app_id(ctx.principal.id)
+            state = self.gw.repo.get_app_state(app_id) if app_id else None
+            row = ctx.token
+            policy = dict(method=request.method, path=request.url.path, principal_id=ctx.principal.id,
+                          source=row.source if row else "", scopes=row.scopes if row else None,
+                          app_status=state.status if state else None,
+                          operation_id=getattr(request.scope.get("route"), "operation_id", None))
+            if allows_request(**policy):
+                # Preserve the owning person's effective cap without ever adding the
+                # broad actions:request scope. The service checks the body type before
+                # either filing or returning an idempotent replay.
+                exact = request_types(list(ctx.scopes))
+                if not exact:
+                    raise self.deny(ctx.principal, "request actions", reason="plugin_policy")
+                ctx.principal = PluginPrincipal(ctx.principal.id, "plugin", "plugin", exact)
+                request.state.identity = ctx
+                return ctx.principal
+            if allows_own_action_read(**policy):
+                if "actions:read:own" not in ctx.scopes:
+                    raise self.deny(ctx.principal, "read own actions", reason="plugin_policy")
+                request.state.identity = ctx
+                return ctx.principal
+            if not allows_read(**policy):
+                raise self.deny(ctx.principal, f"{request.method} {request.url.path}", reason="plugin_policy")
         required = sc.required_scopes(request.method, request.url.path)
         if required is not None and not sc.has_any(ctx.scopes, required):
             raise self.deny(ctx.principal, f"{request.method} {request.url.path}",
@@ -281,7 +331,13 @@ class IdentityService:
             principal = self.principal_for(owner)
         else:
             principal = Principal(id=t.principal_id, kind=t.kind, role=t.kind)
-        granted = frozenset(s for s in t.scopes if sc.allowed_for_kind(s, t.kind))
+        if t.kind == "plugin":
+            # The plugin policy checks the original snapshot and rejects malformed
+            # JSON. Do not let generic scope parsing fail before that denial.
+            raw = t.scopes if isinstance(t.scopes, list) else []
+            granted = frozenset(s for s in raw if isinstance(s, str))
+        else:
+            granted = frozenset(s for s in t.scopes if sc.allowed_for_kind(s, t.kind))
         if owner is not None and self.cfg.enforce_role_scopes:  # never beyond the owning person today
             cap = sc.role_scopes(owner.role)
             granted = frozenset(s for s in granted if sc.within(s, cap) or (s == sc.ALL and sc.ALL in cap))
@@ -478,7 +534,7 @@ class IdentityService:
 
     # ---- first owner (bootstrap) and enrolment -----------------------------------------------------
     def _setup_token_ok(self, token: str) -> bool:
-        p = self.gw.tokens.lookup(token) if token else None
+        p = self.gw.tokens.lookup(token, include_retired=True) if token else None
         if p is not None and p.is_owner:
             return True
         path = self.cfg.setup_token_file
@@ -514,6 +570,10 @@ class IdentityService:
         self.repo.add(u)
         self.emit("auth", "setup.completed", {"user_id": u.id, "username": u.username, "source": src},
                   self.principal_for(u))
+        if self.gw.tokens.has_retiring():
+            self.emit("auth", "setup_token.retired", {"user_id": u.id,
+                      "note": "the first-boot token no longer works on the API; the rescue console still takes it"},
+                      self.principal_for(u), severity="warning")
         return u
 
     def enrol(self, request: Request, code: str, username: str, password: str) -> UserRow:
@@ -747,6 +807,19 @@ class IdentityService:
                                       "step_up": via}, p)
         return self.user_json(self.user(u.id))
 
+    def set_profile_name(self, request: Request, p: Principal, name: str | None) -> dict:
+        """A person sets (or, with null, clears) their OWN display name: a direct self write, audited by
+        field name only. It is display text; authorisation and audit keep using the stable id and role."""
+        ctx = ctx_of(request)
+        if p.kind != "person" or ctx is None or ctx.user is None:
+            raise self.deny(p, "set a display name")
+        clean = None
+        if name is not None:
+            clean = clean_profile_name(name)
+        self.repo.update(UserRow, [UserRow.id == ctx.user.id], {"profile_name": clean, "updated_at": self.now()})
+        self.emit("user", "profile_name.changed", {"user_id": ctx.user.id, "cleared": clean is None}, p)
+        return {"display_name": clean}
+
     def disable_user(self, p: Principal, user_id: str) -> dict:
         self._owner_only(p, "disable users")
         u = self.user(user_id)
@@ -802,6 +875,11 @@ class IdentityService:
             kind, principal_id, default_days, max_days = "person", user.id, PAT_DEFAULT_DAYS, PAT_MAX_DAYS
             default_scopes = sorted(actor_scopes)
         elif isinstance(principal, dict) and principal.get("kind") == "agent":
+            if user is None and not p.is_owner:
+                # A static-file adult has no household account, so the token would be owned by no one:
+                # it would outlive the adult's removal and the adult could not list or revoke it.
+                raise ApiError(403, "permission_denied", "a static-file principal cannot hold API tokens; "
+                                                         "set up a household account first")
             principal_id = str(principal.get("id") or "")
             if not AGENT_ID_RE.fullmatch(principal_id):
                 raise ApiError(422, "conflict", "agent id must look like agent:<name> (a-z, 0-9, '.', '_', '-')")
@@ -865,6 +943,8 @@ class IdentityService:
 
     def rotate_token(self, ctx: AuthContext | None, p: Principal, token_id: str, grace_s: int) -> dict:
         t = self._token_for_write(ctx, p, token_id, "rotate tokens")
+        if t.kind == "plugin" and t.source == "app-install":
+            raise self.deny(p, "rotate an installation-managed plugin token", token_id=t.id)
         uid = ctx.user.id if ctx and ctx.user else None
         if t.owner_user_id is not None and t.owner_user_id != uid:
             # Rotation hands out the new secret: an owner may revoke another person's token, but not
@@ -1090,6 +1170,7 @@ class IdentityService:
         principal = p.as_dict()
         token = session = None
         n_passkeys = 0
+        profile_name = None
         if ctx is None:  # static-file token, or an app agent token of §11.2
             header = request.headers.get("authorization", "")
             raw = header.partition(" ")[2].strip()
@@ -1100,6 +1181,7 @@ class IdentityService:
             if ctx.user is not None:
                 principal["display_name"] = ctx.user.display_name
                 principal["username"] = ctx.user.username
+                profile_name = ctx.user.profile_name
                 n_passkeys = self.repo.count(PasskeyRow, PasskeyRow.user_id == ctx.user.id)
             if ctx.token is not None:
                 token = {"id": ctx.token.id, "scopes": list(ctx.token.scopes), "expires_at": iso(ctx.token.expires_at),
@@ -1117,7 +1199,8 @@ class IdentityService:
             caps += ["can_manage_users", "can_share_apps"]
         if p.kind == "person" and sc.has_any(scopes, ("tokens:self", "tokens:admin")):
             caps.append("can_create_tokens")
-        return {"principal": principal, "token": token, "session": session, "passkeys": n_passkeys,
+        return {"principal": principal, "display_name": profile_name, "token": token, "session": session,
+                "passkeys": n_passkeys,
                 "scopes": scopes, "capabilities": caps,
                 "step_up": {"passkeys_active": self.passkeys_active(),
                             "require_passkey_approval": self.cfg.require_passkey_approval}}

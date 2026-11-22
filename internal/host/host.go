@@ -49,6 +49,7 @@ func Terminal(state string) bool { return state == StateSucceeded || state == St
 
 var (
 	actionIDRe = regexp.MustCompile(`^[A-Za-z0-9_.:-]{1,128}$`)
+	planHashRe = regexp.MustCompile(`^[0-9a-f]{64}$`)
 	versionRe  = regexp.MustCompile(`^[0-9A-Za-z.+-]{1,64}$`) // the gateway's InstallParams.version
 )
 
@@ -67,6 +68,10 @@ type Request struct {
 	ActionID string `json:"action_id"`
 	Kind     string `json:"kind"`
 	Version  string `json:"version,omitempty"` // os-install only: the version the owner approved
+	// PlanSHA256 (factory-reset only, required) is the hash of the plan the
+	// owner approved (GET /v1/plans/factory-reset). The box wipes only if its
+	// disks still match that exact plan.
+	PlanSHA256 string `json:"plan_sha256,omitempty"`
 }
 
 // Validate refuses a malformed request (HTTP 400).
@@ -79,7 +84,16 @@ func (r Request) Validate() error {
 		if r.Version != "" {
 			return fmt.Errorf("%s takes no version", r.Kind)
 		}
+		if r.Kind == KindFactoryReset && !planHashRe.MatchString(r.PlanSHA256) {
+			return errors.New("factory-reset needs plan_sha256, the hash of the plan the owner approved (64 hex characters)")
+		}
+		if r.Kind != KindFactoryReset && r.PlanSHA256 != "" {
+			return fmt.Errorf("%s takes no plan_sha256", r.Kind)
+		}
 	case KindOSInstall:
+		if r.PlanSHA256 != "" {
+			return errors.New("os-install takes no plan_sha256")
+		}
 		if !versionRe.MatchString(r.Version) {
 			return errors.New("os-install needs the approved version (1-64 characters of 0-9 A-Z a-z . + -)")
 		}
@@ -94,6 +108,7 @@ type Op struct {
 	ID         string     `json:"action_id"`
 	Kind       string     `json:"kind"`
 	Version    string     `json:"version,omitempty"`
+	PlanSHA256 string     `json:"plan_sha256,omitempty"` // factory-reset: the approved plan
 	State      string     `json:"state"`
 	Reason     string     `json:"reason,omitempty"` // failed: a stable code
 	Message    string     `json:"message,omitempty"`
@@ -126,6 +141,10 @@ type OSInstaller interface {
 // Resetter arms the two-phase factory reset (HOST-ACTIONS.md §4).
 type Resetter interface {
 	Unavailable() string
+	// Plan inspects the disks now and returns exactly what a reset would erase.
+	Plan(ctx context.Context) ResetPlan
+	// Arm re-plans, refuses unless op.PlanSHA256 still matches, and writes the
+	// marker the next boot's wipe unit acts on.
 	Arm(ctx context.Context, op Op) error
 }
 
@@ -136,6 +155,7 @@ type Service struct {
 	Power  Power
 	OS     OSInstaller
 	Reset  Resetter
+	SMB    SMBManager    // file sharing (smb.go); nil: not on this box
 	BootID string        // /proc/sys/kernel/random/boot_id
 	Delay  time.Duration // before the box goes down, so the gateway records "accepted" first
 	Now    func() time.Time
@@ -208,7 +228,7 @@ func (s *Service) Submit(ctx context.Context, req Request) (op Op, created bool,
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if old, err := s.Store.Get(req.ActionID); err == nil {
-		if old.Kind != req.Kind || old.Version != req.Version {
+		if old.Kind != req.Kind || old.Version != req.Version || old.PlanSHA256 != req.PlanSHA256 {
 			return Op{}, false, &Refusal{"action_id_reused", "action " + req.ActionID + " was already sent as a different request"}
 		}
 		if s.active != nil && s.active.ID == old.ID {
@@ -231,8 +251,15 @@ func (s *Service) Submit(ctx context.Context, req Request) (op Op, created bool,
 			return Op{}, false, &Refusal{"update_in_progress", why}
 		}
 	}
+	if req.Kind == KindFactoryReset {
+		// The owner approved one plan. If the disks changed since (a member
+		// added or pulled), nothing is armed: the owner must see the new plan.
+		if p := s.Reset.Plan(ctx); p.SHA256 != req.PlanSHA256 {
+			return Op{}, false, &Refusal{"plan_changed", "the disks changed since the plan you approved; request the factory reset again to see the new plan"}
+		}
+	}
 	now := s.now()
-	op = Op{ID: req.ActionID, Kind: req.Kind, Version: req.Version, State: StateAccepted, BootID: s.BootID,
+	op = Op{ID: req.ActionID, Kind: req.Kind, Version: req.Version, PlanSHA256: req.PlanSHA256, State: StateAccepted, BootID: s.BootID,
 		AcceptedAt: now, UpdatedAt: now, Message: "accepted"}
 	if err := s.Store.Put(op); err != nil {
 		return Op{}, false, err

@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: Apache-2.0
+# Firmware layer, Debian 13, amd64: closed-source firmware and CPU microcode that most x86 boards need.
+# One package name per line or several per line; add a package here to support more hardware.
+# Every package must have a row in licences.txt (the unit test fails otherwise).
+# CPU microcode: security fixes for the CPU itself, applied early in boot by the kernel.
+intel-microcode amd64-microcode
+# Wi-Fi and Bluetooth: Intel (iwlwifi), Qualcomm Atheros (ath10k and older), Broadcom (brcmfmac)
+firmware-iwlwifi firmware-atheros firmware-brcm80211
+# Ethernet and Wi-Fi: Realtek (RTL8111/8168 wired, RTL88xx Wi-Fi)
+firmware-realtek
+# Graphics: Intel GuC/HuC (i915), AMD (amdgpu)
+firmware-intel-graphics firmware-amd-graphics
+# Everything else the kernel loads (sound DSPs, media, storage, sensors)
+firmware-misc-nonfree

@@ -15,6 +15,14 @@ from ..store import FeatureSchema, SqlRepository
 
 SCHEMA = FeatureSchema("identity")  # v1 = the shape below
 
+
+@SCHEMA.step(2, "profile_name: the optional name a person chose, shown on Home")
+def _identity_v2(conn) -> None:
+    from sqlalchemy import inspect, text
+
+    if "profile_name" not in {c["name"] for c in inspect(conn).get_columns("identity_users")}:
+        conn.execute(text("ALTER TABLE identity_users ADD COLUMN profile_name VARCHAR(60)"))
+
 T = TypeVar("T", bound=Base)
 
 
@@ -38,6 +46,9 @@ class UserRow(Base):
     id: Mapped[str] = mapped_column(String(40), primary_key=True)
     username: Mapped[str | None] = mapped_column(String(64), unique=True, nullable=True)
     display_name: Mapped[str] = mapped_column(String(100))
+    # What the person chose to be called ("Good afternoon, Ana"). Display text only: null until set, never
+    # used for authorisation or audit (those use `id` and `role`). Added in identity schema v2.
+    profile_name: Mapped[str | None] = mapped_column(String(60), nullable=True)
     role: Mapped[str] = mapped_column(String(16))
     password_hash: Mapped[str | None] = mapped_column(String(200), nullable=True)
     # TOTP secrets must be readable to check a code; protected by the data-disk encryption (H-11).

@@ -18,7 +18,14 @@ os/versions.lock.yaml:generic-api-key:135
 os/versions.lock.yaml:generic-api-key:138
 # same public fingerprint, dir-scan form (line moved by the Tailscale/Headscale pins, IMG-MESH-01)
 os/versions.lock.yaml:generic-api-key:148
+# same public fingerprint, dir-scan form (line moved by the restic pin block, IMG-BACKUP-01); reviewed false positive, a public GPG fingerprint
+os/versions.lock.yaml:generic-api-key:153
+# same public fingerprint, dir-scan form (line moved by the pin blocks combined on release/next); reviewed false positive, a public GPG fingerprint
+os/versions.lock.yaml:generic-api-key:165
 # NATS user public nkeys in the strict-hub golden (CORE-SEC-4, #161); public by design, no seed is committed
 internal/leaf/testdata/hub-accounts-services.golden.conf:generic-api-key:6
 internal/leaf/testdata/hub-accounts-services.golden.conf:generic-api-key:7
 internal/leaf/testdata/hub-accounts-services.golden.conf:generic-api-key:23
+# fake wrong-recovery-key test value in the #145 restore test (history only; later commits use a low-entropy named variable). Not a secret.
+846fc5aa2ce9e12a005c12a22e95081cc31b870d:internal/backup/managed_test.go:generic-api-key:561
+5b604430ee54180f2fcb0032489cc42d76f87965:internal/backup/managed_test.go:generic-api-key:36

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import subprocess
 import threading
 from collections.abc import Callable, Iterator
@@ -50,6 +51,25 @@ def parse_mem(q: str | None) -> float | None:
         return float(q) / 2 ** 20
     except ValueError:
         return None
+
+
+_NODE_NAME = re.compile(r"^[a-z0-9]([a-z0-9.-]{0,251}[a-z0-9])?$")
+
+
+def pvc_usage(summary: dict | None, namespace: str) -> dict[str, float]:
+    """Pod name -> bytes used on its PersistentVolumeClaim volumes, from a kubelet stats summary.
+
+    Only volumes backed by a claim count (an app's data); emptyDir, secrets and config maps do not.
+    """
+    out: dict[str, float] = {}
+    for pod in (summary or {}).get("pods") or []:
+        ref = pod.get("podRef") or {}
+        if ref.get("namespace") != namespace:
+            continue
+        used = sum(v["usedBytes"] for v in pod.get("volume") or []
+                   if v.get("pvcRef") and isinstance(v.get("usedBytes"), (int, float)))
+        out[ref.get("name", "")] = out.get(ref.get("name", ""), 0.0) + float(used)
+    return out
 
 
 class KubeReader:
@@ -148,3 +168,9 @@ class KubeReader:
             if cpu is not None:
                 out[(n.get("metadata") or {}).get("name", "")] = cpu
         return out
+
+    def node_stats(self, node_name: str) -> dict | None:
+        """The kubelet's stats summary for one k8s node (per-pod volume usage); read-only."""
+        if not _NODE_NAME.match(node_name):
+            return None
+        return self._json(["get", "--raw", f"/api/v1/nodes/{node_name}/proxy/stats/summary"])

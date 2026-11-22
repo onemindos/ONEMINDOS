@@ -1,0 +1,26 @@
+#!/bin/bash
+# SPDX-License-Identifier: Apache-2.0
+# instances-check N: refuse an INSTANCES value the host cannot carry. Run by cycle before any VM starts.
+# Needs BASE (first VM id is BASE+1), TID (template id) and NET's last octet base 10 (job VM n is .10+n).
+#  - 1 to 16 instances (the kit's tested ceiling; raise it here and in test_kvm_runner_policy.py together);
+#  - the last job VM address (.10+N) and the last VM id (BASE+N) must stay in range, and BASE+1 must be
+#    above the template id, so a job VM can never collide with the template or leave the /24;
+#  - RAM: N * 8 GiB (each job VM) must fit in host memory minus 16 GiB for the host itself. MemTotal is
+#    used, not MemAvailable: on a restart the old job VMs still hold memory and would count against themselves.
+#  - CPU: N * 4 vCPU may overcommit the host threads at most 2x.
+# Test hooks: MEMINFO (default /proc/meminfo) and THREADS (default nproc).
+set -u
+n=${1:-}; BASE=${BASE:-9110}; TID=${TID:-9100}
+die() { echo "$*" >&2; exit 2; }
+case $n in ''|*[!0-9]*) die "INSTANCES must be 1 to 16";; esac
+[ "$n" -ge 1 ] && [ "$n" -le 16 ] || die "INSTANCES must be 1 to 16"
+[ $((10 + n)) -le 254 ] || die "INSTANCES $n: job VM address .$((10 + n)) is outside the /24"
+[ $((BASE + 1)) -gt "$TID" ] || die "BASE_ID $BASE must be above TEMPLATE_ID $TID"
+[ $((BASE + n)) -le 999999999 ] || die "INSTANCES $n: VM id $((BASE + n)) is out of range"
+kib=$(awk '/^MemTotal:/ {print $2}' "${MEMINFO:-/proc/meminfo}" 2>/dev/null)
+case $kib in ''|*[!0-9]*) die "cannot read host memory";; esac
+gib=$((kib / 1048576))
+[ $((n * 8)) -le $((gib - 16)) ] ||
+  die "INSTANCES $n needs $((n * 8)) GiB for job VMs plus 16 GiB for the host; this host has $gib GiB (at most $(( (gib - 16) / 8 )))"
+th=${THREADS:-$(nproc 2>/dev/null || echo 1)}
+[ $((n * 4)) -le $((th * 2)) ] || die "INSTANCES $n needs $((n * 4)) vCPUs; this host has $th threads (at most 2x overcommit)"

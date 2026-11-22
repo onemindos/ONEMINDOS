@@ -1,0 +1,156 @@
+{
+  "$comment": "SPDX-License-Identifier: Apache-2.0",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/onemindos/ONEMINDOS/sdk/schema/widget-templates.schema.json",
+  "title": "OneMind typed widget data",
+  "description": "Declarative read-tool results for PLUGIN-SDK.md section 6.2. Closed display-data objects have no host-fetchable URL or image fields. The host handles freshness using observed_at and must render strings as text.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/stat"
+    },
+    {
+      "$ref": "#/$defs/list"
+    },
+    {
+      "$ref": "#/$defs/progress"
+    },
+    {
+      "$ref": "#/$defs/status"
+    }
+  ],
+  "$defs": {
+    "observedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "state": {
+      "enum": [
+        "ok",
+        "warn",
+        "error",
+        "unknown"
+      ]
+    },
+    "stat": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "template": {
+          "const": "stat"
+        },
+        "value": {
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "label": {
+          "type": "string"
+        },
+        "trend": {
+          "type": "null",
+          "description": "Only the null trend sentinel is specified in v1alpha1; numeric trend data is not yet part of the contract."
+        },
+        "observed_at": {
+          "$ref": "#/$defs/observedAt"
+        }
+      },
+      "required": [
+        "template",
+        "value",
+        "label",
+        "observed_at"
+      ]
+    },
+    "list": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "template": {
+          "const": "list"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "title": {
+                "type": "string"
+              },
+              "subtitle": {
+                "type": "string"
+              },
+              "status": {
+                "$ref": "#/$defs/state"
+              }
+            },
+            "required": [
+              "title",
+              "subtitle",
+              "status"
+            ]
+          }
+        },
+        "observed_at": {
+          "$ref": "#/$defs/observedAt"
+        }
+      },
+      "required": [
+        "template",
+        "items",
+        "observed_at"
+      ]
+    },
+    "progress": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "template": {
+          "const": "progress"
+        },
+        "value": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "label": {
+          "type": "string"
+        },
+        "observed_at": {
+          "$ref": "#/$defs/observedAt"
+        }
+      },
+      "required": [
+        "template",
+        "value",
+        "label",
+        "observed_at"
+      ]
+    },
+    "status": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "template": {
+          "const": "status"
+        },
+        "state": {
+          "$ref": "#/$defs/state"
+        },
+        "text": {
+          "type": "string"
+        },
+        "observed_at": {
+          "$ref": "#/$defs/observedAt"
+        }
+      },
+      "required": [
+        "template",
+        "state",
+        "text",
+        "observed_at"
+      ]
+    }
+  }
+}

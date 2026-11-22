@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
-# Desktop client (CLIENT-8): unit tests and an unsigned build on macOS and Windows.
-# Signing, notarization and the signed updater are CLIENT-12 (desktop-release.yml), not here.
+# Desktop client (CLIENT-8): unit tests and an unsigned build on macOS, Windows and Linux.
+# Signed release builds and the signed updater are desktop-release.yml (CLIENT-12), not here.
 name: ci-desktop
 
 on:
@@ -37,6 +37,9 @@ jobs:
           - os: windows-2025    # Windows 11 class; WebView2 is part of the OS
             bundles: nsis
             pattern: '*-setup.exe'
+          - os: ubuntu-24.04    # Linux tray (StatusNotifier / AppIndicator); .deb and AppImage
+            bundles: deb,appimage
+            pattern: '*.deb'
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -52,6 +55,12 @@ jobs:
       - name: Rust toolchain (version from src-tauri/rust-toolchain.toml)
         working-directory: desktop/src-tauri
         run: rustup show active-toolchain || rustup toolchain install
+      - name: Linux build libraries (Tauri 2 needs WebKitGTK 4.1 and the AppIndicator tray library)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libssl-dev libxdo-dev libdbus-1-dev pkg-config build-essential
       - run: npm ci
       - name: Icons from the brand sources (desktop/assets, written by scripts/brand-sync.py)
         run: npm run icons && npm run icons:tray
@@ -75,5 +84,7 @@ jobs:
           path: |
             desktop/src-tauri/target/release/bundle/dmg/*.dmg
             desktop/src-tauri/target/release/bundle/nsis/*-setup.exe
+            desktop/src-tauri/target/release/bundle/deb/*.deb
+            desktop/src-tauri/target/release/bundle/appimage/*.AppImage
           if-no-files-found: error
           retention-days: 14

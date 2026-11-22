@@ -18,10 +18,21 @@ import (
 // DefaultConfigPath is where the box keeps its update settings.
 const DefaultConfigPath = "/etc/onemind/update.conf"
 
+// DefaultOfflineGrace and MaxOfflineGrace bound how stale mirror metadata may
+// be (Year-1 exit criterion: a box offline 90 days still takes its next update).
+// The cap is the one-year root lifetime of os/update/CHANNEL.md.
+const (
+	DefaultOfflineGrace = 90 * 24 * time.Hour
+	MaxOfflineGrace     = 365 * 24 * time.Hour
+)
+
 // Channels (os/update/CHANNEL.md).
 const (
 	ChannelSecurity = "security"
 	ChannelStable   = "stable"
+	// ChannelCatalog is the signed Market catalog (catalog.go): its own TUF repository
+	// and its own image-shipped root, never mixed with the OS channels.
+	ChannelCatalog = "catalog"
 )
 
 // Policy is the owner's update policy (brief 30 BD-09).
@@ -61,15 +72,23 @@ type Config struct {
 	StateDir    string // status.json, TUF cache, postpone-until, lock
 	DownloadDir string // bundles (RAUC's data directory)
 	GateDir     string // the health gate's state: pending (trial marker), bad-releases
-	OSRelease   string // ONEMIND_VERSION / ONEMIND_BOARD
-	RAUCConf    string // compatible=
-	RAUCBinary  string
+	// ESPMarker is the pre-install handler's copy of the trial marker on the ESP.
+	ESPMarker  string
+	OSRelease  string // ONEMIND_VERSION / ONEMIND_BOARD
+	RAUCConf   string // compatible=
+	RAUCBinary string
 	// RebootCommand is run (argv, split on spaces) to reboot at a safe point.
 	RebootCommand []string
 	// RebootInhibitFile: while it exists the reboot waits (mission-safe reboot,
 	// BD-09: a robot or field kit creates it while it must not restart).
 	RebootInhibitFile string
 	CheckInterval     time.Duration
+	// OfflineGrace is how long past its signed expiry TUF metadata may be and
+	// still verify when it comes from a mirror the owner plugged in (USB stick
+	// or LAN share, `--mirror`). Signatures, thresholds and rollback checks are
+	// unchanged; only freshness is relaxed, because a box that was offline
+	// cannot have fresh metadata. Online checks never use it. Default 90 days.
+	OfflineGrace time.Duration
 	// Ignored lists the unknown keys found in the file (sorted).
 	Ignored []string
 }
@@ -83,12 +102,14 @@ func Defaults(channel string) Config {
 		StateDir:          "/data/onemind/update",
 		DownloadDir:       "/data/rauc",
 		GateDir:           "/data/onemind",
+		ESPMarker:         "/boot/efi/onemind/pending",
 		OSRelease:         "/usr/lib/os-release",
 		RAUCConf:          "/etc/rauc/system.conf",
 		RAUCBinary:        "/usr/bin/rauc",
 		RebootCommand:     []string{"systemctl", "reboot"},
 		RebootInhibitFile: "/run/onemind/reboot-inhibit",
 		CheckInterval:     time.Hour,
+		OfflineGrace:      DefaultOfflineGrace,
 	}
 	c.Policy, c.RequireSnapshot = PolicyNotify, true
 	if channel == ChannelSecurity {
@@ -111,7 +132,29 @@ func LoadConfig(path string) (*Config, error) {
 }
 
 // ParseConfig parses update.conf content.
-func ParseConfig(b []byte) (*Config, error) {
+func ParseConfig(b []byte) (*Config, error) { return parseConfig(b, false) }
+
+// DefaultCatalogConfigPath is where the box keeps its catalog channel settings.
+const DefaultCatalogConfigPath = "/etc/onemind/catalog.conf"
+
+// ParseCatalogConfig parses catalog.conf: the same key = value format with
+// channel = catalog (the default when the key is absent). Only url is required.
+func ParseCatalogConfig(b []byte) (*Config, error) { return parseConfig(b, true) }
+
+// LoadCatalogConfig reads and validates the catalog config file at path.
+func LoadCatalogConfig(path string) (*Config, error) {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	c, err := ParseCatalogConfig(b)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", path, err)
+	}
+	return c, nil
+}
+
+func parseConfig(b []byte, catalog bool) (*Config, error) {
 	kv := map[string]string{}
 	sc := bufio.NewScanner(bytes.NewReader(b))
 	for n := 1; sc.Scan(); n++ {
@@ -134,10 +177,21 @@ func ParseConfig(b []byte) (*Config, error) {
 	}
 
 	ch := kv["channel"]
-	if ch != ChannelSecurity && ch != ChannelStable {
+	if catalog {
+		if ch == "" {
+			ch = ChannelCatalog
+			kv["channel"] = ch
+		}
+		if ch != ChannelCatalog {
+			return nil, fmt.Errorf("channel must be %q in catalog.conf, got %q", ChannelCatalog, ch)
+		}
+	} else if ch != ChannelSecurity && ch != ChannelStable {
 		return nil, fmt.Errorf("channel must be %q or %q, got %q", ChannelSecurity, ChannelStable, ch)
 	}
 	c := Defaults(ch)
+	if catalog {
+		c.StateDir = "/data/onemind/catalog"
+	}
 	for k, v := range kv {
 		var err error
 		switch k {
@@ -169,6 +223,8 @@ func ParseConfig(b []byte) (*Config, error) {
 			c.DownloadDir = v
 		case "gate_dir":
 			c.GateDir = v
+		case "esp_marker":
+			c.ESPMarker = v
 		case "os_release":
 			c.OSRelease = v
 		case "rauc_conf":
@@ -182,6 +238,11 @@ func ParseConfig(b []byte) (*Config, error) {
 			}
 		case "reboot_inhibit_file":
 			c.RebootInhibitFile = v
+		case "offline_grace":
+			c.OfflineGrace, err = time.ParseDuration(v)
+			if err == nil && (c.OfflineGrace < 0 || c.OfflineGrace > MaxOfflineGrace) {
+				err = fmt.Errorf("must be between 0 and %s", MaxOfflineGrace)
+			}
 		case "check_interval":
 			c.CheckInterval, err = time.ParseDuration(v)
 			if err == nil && c.CheckInterval < time.Minute {

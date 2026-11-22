@@ -8,8 +8,8 @@ Eclipse Mosquitto - An open source MQTT broker
 | | |
 |---|---|
 | Version | 2.1.2 (upstream release `v2.1.2`, published 2026-02-09) |
-| Licence | `EPL-2.0 OR BSD-3-Clause`, Market class **L1** (licence gate, scan of 2026-11-19) |
-| Tier | `blocked` (set by CI: sdk/tools/app-gate) |
+| Licence | `EPL-2.0 OR BSD-3-Clause`, Market class **L1** (licence gate, scan of 2026-11-21) |
+| Tier | `verified` (set by CI: sdk/tools/app-gate) |
 | Category | iot |
 | GitHub | <https://github.com/eclipse-mosquitto/mosquitto> |
 | Website | <https://mosquitto.org> |
@@ -96,15 +96,15 @@ Source: [Dynamic Security plugin, "Generating the configuration file - 2.1 onwar
 - **Not reachable from outside the cluster.** Devices on the LAN (ESP32 sensors, for example) need a LoadBalancer or NodePort Service, which this v0 package does not create.
 - The upstream HTTP dashboard (port 9883) is not enabled.
 
-**Hold (apps/market-unblock-2, 2026-11-13):** Not a vulnerability: the licence-matrix row says `EDL-1.0`, which is not an SPDX id, so the licence gate cannot confirm it. The fix is a one-line row in `research-output/evidence/license-matrix.csv`, outside `apps/` and outside this change. Licence-blocked apps stay blocked.
+**Gate status:** this app was held as licence-blocked because the licence-matrix row wrote `EDL-1.0`. The gate now matches the licence (class L1) and passes on amd64 and arm64 (apps-gate-all run 43879258129: pass, verified), so the tier is `verified`. Issue #117.
 <!-- onemind:notes:end -->
 
 ## Latest security scan
 
-Scanned 2026-11-19T14:31:31Z by `sdk/tools/app-gate`: **pass**. Licence `EPL-2.0 OR BSD-3-Clause` class L1; smoke test skipped.
+Scanned 2026-11-21T15:02:40Z by `sdk/tools/app-gate`: **pass**. Licence `EPL-2.0 OR BSD-3-Clause` class L1; smoke test skipped.
 
 | Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
 |---|---|---|---|---|---|---|
-| `docker.io/library/eclipse-mosquitto:2.1.2-alpine@sha256:75d6662dee52c947dc9dd9c29f1d8d7ffef78ddaf38001caa09755681e8bbc98` | amd64, arm64 | 0 (0) | 0 | 0 infected (daily-28188) | 0 | unsigned |
+| `docker.io/library/eclipse-mosquitto:2.1.2-alpine@sha256:75d6662dee52c947dc9dd9c29f1d8d7ffef78ddaf38001caa09755681e8bbc98` | amd64, arm64 | 0 (0) | 0 | 0 infected (daily-28190) | 0 | unsigned |
 
 Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

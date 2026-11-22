@@ -13,3 +13,9 @@
 # Python bytecode (lint byte-compiles; never commit or lint it)
 __pycache__/
 *.pyc
+# SDK code generated from the committed spec sdk/openapi/onemind-v1.json (CI-16). Never committed, so
+# two API pull requests never conflict on it. Make it with `make -C sdk gen-code` (sdk/scripts/gen-code.sh).
+/sdk/go/internal/gen/types.gen.go
+/sdk/python/src/onemind_sdk/_gen/models.py
+/sdk/python/src/onemind_sdk/aio.py
+/sdk/ts/src/gen/schema.ts

@@ -15,7 +15,9 @@ import asyncio
 import contextlib
 import ipaddress
 import logging
+import plistlib
 import socket
+import uuid
 from urllib.parse import urlsplit
 
 from fastapi import Body, Depends, FastAPI, Header, Request, Response
@@ -33,6 +35,29 @@ from ..netpath import PathClassifier, parse_networks
 from ..proxy import (
     SESSION_COOKIE, AppProxy, AppProxyMiddleware, KubectlServiceResolver, gateway_session_resolver, sharing_check,
 )
+
+
+def trust_profile(box: str, ca_der: bytes) -> bytes:
+    """An unsigned Apple configuration profile holding only the box CA as a root certificate.
+
+    Apple shows it as "Not Verified", which is honest: the box signs nothing for Apple. The ids
+    derive from the CA bytes, so installing a profile for the same CA twice replaces, not stacks.
+    The profile cannot set anything but trust; the person still enables full trust in Settings on
+    iOS (the instructions on the sign-in page say so)."""
+    seed = uuid.uuid5(uuid.NAMESPACE_URL, "onemind-ca:" + ca_der.hex())
+    cert_uuid = str(uuid.uuid5(seed, "cert")).upper()
+    doc = {
+        "PayloadType": "Configuration", "PayloadVersion": 1, "PayloadScope": "System",
+        "PayloadIdentifier": f"com.onemindos.ca.{box}", "PayloadUUID": str(seed).upper(),
+        "PayloadDisplayName": f"OneMind box {box}: trust this box",
+        "PayloadDescription": "Lets this device trust the OneMind box at its own address, so passkeys and the dashboard work with no certificate warning.",
+        "PayloadContent": [{
+            "PayloadType": "com.apple.security.root", "PayloadVersion": 1,
+            "PayloadIdentifier": f"com.onemindos.ca.{box}.cert", "PayloadUUID": cert_uuid,
+            "PayloadDisplayName": f"OneMind box {box} CA", "PayloadContent": ca_der,
+        }],
+    }
+    return plistlib.dumps(doc, fmt=plistlib.FMT_XML)
 
 log = logging.getLogger("onemind.net")
 
@@ -64,6 +89,22 @@ def web_apps(gw: Gateway) -> list[str]:
     return sorted(out)
 
 
+def relay_view(cfg: MeshSettings, show_addr: bool = False) -> dict:
+    """What the box says about the owner's relay: plainly, never an error (NETWORKING §4.3).
+
+    The mesh works on the home network with or without a relay, and with no internet at all; the
+    relay only adds reach from outside. The address is an internet-facing machine, so like every
+    address it is left out unless the owner asks (?addresses=1, contract §2)."""
+    if cfg.relay_addr:
+        return {"state": "configured", **({"addr": cfg.relay_addr} if show_addr else {}),
+                "detail": "Your relay's address is saved, but reaching this box from outside does not work yet: "
+                          "the relay cannot reach a box behind a home router until the box dials out to it "
+                          "(a later step). At home and off grid everything works as before."}
+    return {"state": "none",
+            "detail": "No relay is set up. Everything works on your home network, with or without internet. "
+                      "To reach this box from outside, turn one of your own machines into a relay."}
+
+
 # Route order in the app and in /openapi.json (routers/__init__.py).
 ORDER = 270
 
@@ -85,6 +126,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
             extra["transport"] = tls_transport(box_ca.dir / "ca.crt", urlsplit(mesh_cfg.control_url).hostname or "")
         mesh = MeshService(HeadscaleClient.from_key_file(mesh_cfg.headscale_url, mesh_cfg.headscale_key_file, **extra),
                            gw.audit, gw.clock)
+    app.state.mesh = mesh  # read by GET /v1/status (FD-01)
     fabric = FabricService(FabricDeps(
         actions=gw.actions, audit=gw.audit, events=gw.events, registry=gw.registry, db=gw.db, clock=gw.clock,
         box_ca=box_ca, net=net, mesh_settings=mesh_cfg, fabric=fab_cfg, mesh=mesh,
@@ -221,6 +263,14 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return Response(box_ca.ca_der(), media_type="application/x-x509-ca-cert",
                         headers={"Content-Disposition": f'attachment; filename="onemind-{box}-ca.crt"'})
 
+    @app.get("/v1/tls/onemind.mobileconfig", operation_id="tls.profile", tags=["tls"], response_class=Response,
+             responses={200: {"description": "Apple configuration profile that makes an iPhone, iPad or Mac trust the box CA",
+                              "content": {"application/x-apple-aspen-config": {"schema": {"type": "string", "format": "binary"}}}}})
+    def ca_profile():
+        """Open, like ca.crt: it carries only the public CA certificate. Same trust, one tap on Apple devices."""
+        return Response(trust_profile(box, box_ca.ca_der()), media_type="application/x-apple-aspen-config",
+                        headers={"Content-Disposition": f'attachment; filename="onemind-{box}-trust.mobileconfig"'})
+
     # ---- mesh view (NETWORKING §15, proposed §12.16) ----------------------------------------------------
     @app.get("/v1/mesh", operation_id="mesh.get", tags=["mesh"], responses=error_responses(401))
     def mesh_view(addresses: bool = False, p: Principal = Depends(principal)):
@@ -231,7 +281,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         out: dict = {
             "mode": "lan" if mesh_cfg.enabled else "off", "box": box,
             "control": {"state": "off", "checked_at": None},
-            "relay": None, "nodes": [], "devices": [],
+            "relay": relay_view(mesh_cfg, show_ips), "nodes": [], "devices": [],
             "names": {"lan": ["onemind.local", f"{box}.local"], "mesh": ["hub.onemind.internal"] if mesh_cfg.enabled else []},
             "apps": apps, "https": net.tls, "ca_sha256": box_ca.ca_fingerprint(),
         }

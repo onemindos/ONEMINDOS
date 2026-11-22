@@ -28,6 +28,12 @@ class Instance(BaseModel):
     hub_node_id: str | None
 
 
+class InstanceName(BaseModel):
+    """GET /v1/instance/name: the box name alone, readable before sign-in."""
+
+    name: str
+
+
 class PrincipalRef(BaseModel):
     """{id, kind, role} of contract §3; kind and role may gain values (§12.1). An action's
     `requested_by` carries only {id, kind} (§12.4), so role is optional."""
@@ -146,3 +152,68 @@ class AppCredentials(BaseModel):
 
     username: str | None
     password: str
+
+
+class AboutNode(BaseModel):
+    """One box in GET /v1/os/about. Never carries a serial number or an address."""
+
+    node_id: str
+    hostname: str | None = None
+    role: str | None = None
+    board: str | None = Field(default=None, json_schema_extra=OPEN_ENUM)
+    arch: str | None = None
+    status: str = Field(description="online | stale | offline", json_schema_extra=OPEN_ENUM)
+    last_seen: str | None = None
+    os_pretty: str | None = Field(default=None, description="The Debian base, from /etc/os-release")
+    os_id: str | None = None
+    os_version_id: str | None = None
+    onemind_version: str | None = Field(default=None, description="The update service's current version")
+    agent_version: str | None = None
+    booted_slot: str | None = Field(default=None, description="The RAUC A/B slot this box booted from")
+    kernel: str | None = None
+    cpu_model: str | None = None
+    cpus: int | None = None
+    mem_total_mb: int | None = None
+    mem_available_mb: int | None = None
+    disk_total_gb: float | None = None
+    disk_free_gb: float | None = None
+    uptime_s: int | None = None
+
+
+class About(BaseModel):
+    """GET /v1/os/about."""
+
+    hub_node_id: str | None
+    node_count: int
+    nodes: list[AboutNode]
+
+
+
+class PlacementReason(BaseModel):
+    """Why a node cannot run an app (`blocking`), or runs it with a warning."""
+
+    code: str = Field(description="gpu_missing | gpu_unknown | memory_too_small | memory_busy | cpu_level_too_low | "
+                                  "arch_unsupported | node_offline | node_stale | no_cluster | cluster_not_ready",
+                      json_schema_extra=OPEN_ENUM)
+    message: str
+    blocking: bool
+
+
+class NodePlacement(BaseModel):
+    """One node's line in the placement (contract §12.11)."""
+
+    node_id: str
+    role: str | None = Field(json_schema_extra=OPEN_ENUM)
+    verdict: str = Field(description="fits | fits_with_warning | no", json_schema_extra=OPEN_ENUM)
+    labels: dict[str, str] = Field(description="capability labels from the node's heartbeat (onemind.io/gpu, /arch, ...)")
+    reasons: list[PlacementReason]
+
+
+class AppPlacement(BaseModel):
+    """GET /v1/apps/{id}/placement (CORE-FABRIC-4): where the app would run, from its `spec.requires`."""
+
+    app_id: str
+    verdict: str = Field(description="here | elsewhere | nowhere | unknown (no node has reported)", json_schema_extra=OPEN_ENUM)
+    node_id: str | None = Field(description="the node it would be placed on; null for nowhere and unknown")
+    message: str
+    nodes: list[NodePlacement]

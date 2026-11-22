@@ -28,13 +28,14 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from ..actions import FeatureAction
 from ..auth import Principal
-from .. import cpufit
+from .. import cpufit, gpufit, placement, streams
 from ..catalog import APP_ID_RE, MANIFEST, AppEntry
 from ..context import Gateway
 from ..errors import ApiError
 from ..executors import ExecResult
 from ..ledger import Action, iso
 from ..scan import MAX_AGE
+from ..netconf import FabricSettings
 from ..sections import config_section
 from . import appsettings, compose, deps, exposure, hostports
 from .sources import (
@@ -58,12 +59,15 @@ class AppStoreSettings:
     git: str = "git"                  # ONEMIND_APPSTORE_GIT
     fetch_timeout_s: int = 120        # ONEMIND_APPSTORE_FETCH_TIMEOUT_S
     max_source_mb: int = 64           # ONEMIND_APPSTORE_MAX_SOURCE_MB
+    scanner: str = "auto"             # ONEMIND_APPSTORE_SCANNER: auto | none | kubernetes (CORE-DEPLOY-2)
 
     def validate(self) -> None:
         if not 5 <= self.fetch_timeout_s <= 900:
             raise ValueError("ONEMIND_APPSTORE_FETCH_TIMEOUT_S must be 5-900")
         if not 1 <= self.max_source_mb <= 1024:
             raise ValueError("ONEMIND_APPSTORE_MAX_SOURCE_MB must be 1-1024")
+        if self.scanner not in ("auto", "none", "kubernetes"):
+            raise ValueError("ONEMIND_APPSTORE_SCANNER must be auto, none or kubernetes")
 
 
 def new_source_id() -> str:
@@ -110,7 +114,7 @@ class AppStore:
         self.fetcher = fetcher or GitFetcher(
             root, git=cfg.git, timeout_s=cfg.fetch_timeout_s, max_bytes=cfg.max_source_mb * 1024 * 1024,
         )
-        self.image_scanner: ImageScanner = image_scanner or NoImageScanner()
+        self.image_scanner: ImageScanner = image_scanner or getattr(gw, "image_scanner", None) or NoImageScanner()
         self.sources = SourceCatalog(self.repo, self.fetcher, gw.catalog.validate)
         self.reserved = hostports.load_reserved()
 
@@ -230,6 +234,34 @@ class AppStore:
                 "declared": [h.to_json() for h in hostports.declared(entry.manifest)],
                 "conflicts": self._port_conflicts(entry)}
 
+    def jetstream_state(self) -> dict:
+        """The hub JetStream store: ok, degraded (disk nearly full) or unavailable (not set up here)."""
+        fab = self.gw.settings.section(FabricSettings)
+        return streams.store_state(fab.jetstream_path if fab.jetstream_max_bytes > 0 else None)
+
+    def _check_streams(self, app: AppEntry, action_type: str) -> None:
+        """spec.streams: a bad declaration, or a store that cannot take events, refuses the request."""
+        bad = streams.validate(app.manifest)
+        if bad:
+            raise _refuse(409, "stale_precondition", f"app {app.id!r} declares an invalid event stream",
+                          reason="invalid_stream", details=bad)
+        if not streams.declared(app.manifest):
+            return
+        state = self.jetstream_state()
+        if state["state"] != "ok":
+            raise _refuse(409, "stale_precondition",
+                          f"app {app.id!r} needs an event stream and the hub JetStream store is {state['state']}: {state['reason']}",
+                          reason=f"jetstream_{state['state']}",
+                          details=[{"field": "spec.streams", "problem": state["reason"]}])
+
+    def app_schedule(self, app: AppEntry) -> dict | None:
+        """The machine and GPU request an install or update writes into the pods (placement.schedule)."""
+        return placement.schedule(app.manifest, self.gw.registry.list())
+
+    def placement_view(self, app_id: str) -> dict:
+        """CORE-FABRIC-4 (#171): the Market verdict, from `spec.requires` and every node's capabilities."""
+        return {"app_id": app_id, **placement.place(self._app(app_id).manifest, self.gw.registry.list())}
+
     def _port_conflicts(self, entry: AppEntry) -> list[dict]:
         # v0 runs every app on the hub node; per-node placement (CORE-FABRIC-4) narrows `others`.
         apps = self.gw.catalog.load()
@@ -247,6 +279,22 @@ class AppStore:
             if fit:
                 code, message, details = fit
                 raise _refuse(409, "stale_precondition", message, reason=code, details=details)
+            # CORE-FABRIC-4 (#171): refused when no machine can run it, for example an app that
+            # needs a GPU where no node has one. No node reported yet is unknown, not refused.
+            where = placement.place(app.manifest, self.gw.registry.list())
+            if where["verdict"] == "nowhere":
+                # S-5: an app that declares spec.requires.accelerator gets the box-level GPU wording.
+                reqs = (app.manifest.get("spec") or {}).get("requires")
+                gpu_fit = (gpufit.refusal(app.manifest, cpufit.hub(self.gw.registry.list()))
+                           if isinstance(reqs, dict) and isinstance(reqs.get("accelerator"), dict) else None)
+                if gpu_fit:
+                    code, message, details = gpu_fit
+                    raise _refuse(409, "stale_precondition", message, reason=code, details=details)
+                raise _refuse(409, "stale_precondition", where["message"], reason="no_node_fits",
+                              details=[{"field": f"node:{ln['node_id']}", "problem": r["code"]}
+                                       for ln in where["nodes"] for r in ln["reasons"] if r["blocking"]])
+        if action_type in ("app.install", "app.update"):
+            self._check_streams(app, action_type)
         statuses = self.statuses()
         if action_type == "app.install":
             missing = deps.unsatisfied(app.manifest, deps.providing(statuses))
@@ -509,6 +557,7 @@ class AppStore:
         actions.after_dispatch.append(self.after_dispatch)
         actions.settings_transform = self.settings_transform
         actions.dependency_paths = self.dependency_paths
+        actions.placement = self.app_schedule
         self.gw.catalog.providers.append(self.sources)
 
 

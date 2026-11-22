@@ -5,12 +5,16 @@ import (
 	"encoding/json"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/onemindos/onemindos/internal/heartbeat"
 )
 
 // ---- k3s ---------------------------------------------------------------------
+
+// imageKubeconfig is where the image's k3s.service writes the admin kubeconfig (relative to root).
+const imageKubeconfig = "run/k3s/k3s.yaml"
 
 // K3s reports whether k3s is installed, its role and readiness.
 //   - present: the k3s binary or /etc/rancher/k3s exists.
@@ -25,12 +29,21 @@ func (c *Collector) K3s(ctx context.Context) heartbeat.K3s {
 		return heartbeat.K3s{}
 	}
 	role := "agent"
-	if c.exists("var/lib/rancher/k3s/server") || c.exists("etc/rancher/k3s/k3s.yaml") {
+	// The Debian package layout (/var/lib/rancher, /etc/rancher) and the OneMind image layout
+	// (--data-dir /data/k3s, kubeconfig written to /run/k3s/k3s.yaml; the root is read-only)
+	// both mean "server". Checking only the first made a healthy image hub report agent/not ready.
+	if c.exists("var/lib/rancher/k3s/server") || c.exists("etc/rancher/k3s/k3s.yaml") ||
+		c.exists("data/k3s/server") || c.exists(imageKubeconfig) {
 		role = "server"
 	}
 	out := heartbeat.K3s{Present: true, Role: &role}
 	if role == "server" && c.has("k3s") {
-		b, err := c.run(ctx, "k3s", "kubectl", "get", "--raw", "/readyz")
+		args := []string{"kubectl", "get", "--raw", "/readyz"}
+		if c.exists(imageKubeconfig) {
+			// Plain `k3s kubectl` reads /etc/rancher/k3s/k3s.yaml, which the image does not have.
+			args = []string{"kubectl", "--kubeconfig", "/" + imageKubeconfig, "get", "--raw", "/readyz"}
+		}
+		b, err := c.run(ctx, "k3s", args...)
 		out.Ready = err == nil && strings.TrimSpace(string(b)) == "ok"
 	} else if role == "agent" && c.has("systemctl") {
 		_, err := c.run(ctx, "systemctl", "is-active", "--quiet", "k3s-agent")
@@ -124,6 +137,7 @@ func (c *Collector) GPU(ctx context.Context, board string) heartbeat.GPU {
 				}
 			}
 		}
+		c.gpuMemory(ctx, &g)
 		return g
 	}
 	if board == heartbeat.BoardJetsonOrin {
@@ -136,11 +150,44 @@ func (c *Collector) GPU(ctx context.Context, board string) heartbeat.GPU {
 	if c.has("nvidia-smi") {
 		if b, err := c.run(ctx, "nvidia-smi", "--query-gpu=name", "--format=csv,noheader"); err == nil {
 			if m := firstLine(string(b)); m != "" {
-				return heartbeat.GPU{NVIDIA: true, Model: &m}
+				g := heartbeat.GPU{NVIDIA: true, Model: &m}
+				c.gpuMemory(ctx, &g)
+				return g
 			}
 		}
 	}
 	return heartbeat.GPU{}
+}
+
+// gpuMemory fills the card count and the smallest card's memory (MiB) from nvidia-smi,
+// one line per card. Anything it cannot read stays unset: an unknown is never guessed,
+// so an app that asks for more memory than is known is refused, not started on a hope.
+func (c *Collector) gpuMemory(ctx context.Context, g *heartbeat.GPU) {
+	if !c.has("nvidia-smi") {
+		return
+	}
+	b, err := c.run(ctx, "nvidia-smi", "--query-gpu=memory.total", "--format=csv,noheader,nounits")
+	if err != nil {
+		return
+	}
+	count, least := 0, 0
+	for _, line := range strings.Split(string(b), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		mb, err := strconv.Atoi(line)
+		if err != nil || mb <= 0 {
+			return // [N/A] or noise: report nothing rather than a partial answer
+		}
+		count++
+		if least == 0 || mb < least {
+			least = mb
+		}
+	}
+	if count > 0 {
+		g.Count, g.VRAMMB = &count, &least
+	}
 }
 
 func (c *Collector) nvidiaProcModel() string {

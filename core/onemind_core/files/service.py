@@ -137,6 +137,17 @@ class FilesService:
             finally:
                 os.close(top)
 
+    def share_folder(self, kind: str, person_id: str) -> str:
+        """Make (as the gateway's own user) and name, relative to the Files root, the folder an SMB share serves:
+        `home/<dir>` for a person's Home, `.system/timemachine/<dir>` for a Time Machine target, which stays out
+        of Home so a backup never fills a person's Files quota or shows in Files."""
+        name = self.space_dir_name(person_id)
+        if kind == "home":
+            with self._space(Root("home", person_id)):
+                return f"home/{name}"
+        with self._system("timemachine", name):
+            return f".system/timemachine/{name}"
+
     @contextmanager
     def _system(self, *names: str) -> Iterator[int]:
         with self._base() as base:
@@ -518,6 +529,11 @@ class FilesService:
         """§12.4's approval binding for a files request: sha256 of the canonical {type, params, plan}."""
         digest = hashlib.sha256(canonical({"type": row.type, "params": row.params, "plan": row.plan}).encode())
         return "sha256:" + digest.hexdigest()
+
+    def requester(self, request_id: str) -> dict | None:
+        """context.RequesterLookup: who filed this files request, or None when it is not one."""
+        row = self.repo.request(request_id) if request_id.startswith("frq_") else None
+        return dict(row.requested_by) if row is not None else None
 
     def _run_guards(self, p: Principal, request_id: str, body: dict, http_request: Any) -> None:
         """Approval guards other features register (identity: passkey step-up, F-2), with the

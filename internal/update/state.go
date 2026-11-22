@@ -105,6 +105,59 @@ func ReadBadReleases(c *Config) (BadReleases, error) {
 	return br, nil
 }
 
+// ClearBadRelease drops every line for version v from the list, atomically. The
+// updater calls it for the version that is running and committed: the gate
+// passed it, so an earlier verdict (a failed first try, a later good install of
+// the same version) is stale and must not hide the release from Select. Other
+// versions' lines are kept as they are. It reports whether anything was removed.
+func ClearBadRelease(c *Config, v string) (bool, error) {
+	path := filepath.Join(c.GateDir, "bad-releases")
+	b, err := os.ReadFile(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return false, nil
+	} else if err != nil {
+		return false, err
+	}
+	var keep []string
+	removed := false
+	for _, line := range strings.Split(strings.TrimRight(string(b), "\n"), "\n") {
+		if line != "" && lineVersion(line) == v {
+			removed = true
+			continue
+		}
+		keep = append(keep, line)
+	}
+	if !removed {
+		return false, nil
+	}
+	out := ""
+	if len(keep) > 0 {
+		out = strings.Join(keep, "\n") + "\n"
+	}
+	fi, err := os.Stat(path)
+	if err != nil {
+		return false, err
+	}
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, []byte(out), fi.Mode().Perm()); err != nil {
+		return false, err
+	}
+	if err := os.Rename(tmp, path); err != nil {
+		os.Remove(tmp)
+		return false, err
+	}
+	return true, nil
+}
+
+func lineVersion(line string) string {
+	for _, f := range strings.Fields(line) {
+		if s, ok := strings.CutPrefix(f, "version="); ok {
+			return s
+		}
+	}
+	return ""
+}
+
 // Excluded returns why version must not be offered, or "".
 func (b BadReleases) Excluded(v string) string {
 	if b.imageBad[v] {

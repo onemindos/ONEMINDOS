@@ -4,15 +4,22 @@ and no /boot/efi/onemind.conf configured it. Served on :8080 (http://onemind.loc
 onemind-setup.service until the owner picks a role; then it shows the owner token once, exits,
 and the gateway takes over the port.
 
-v0 limits: plain HTTP on the LAN and first-come-first-served (the HAOS onboarding model). The
-owner passkey flow of brief 30 D-B9.1 replaces the token page in BM2.
+Lockdown (P0, image-security review 07): the page on the box itself (loopback, which is what the
+box screen asks) is open. A phone or computer on the LAN must type the one-time setup code that the
+box screen and console show, so nobody else on the network can claim the box first. Once an owner
+exists (state.json) every LAN request is refused and the process exits. Plain HTTP on the LAN is
+still v0; the owner passkey flow of brief 30 D-B9.1 replaces the token page in BM2.
 """
 from __future__ import annotations
 
+import hmac
 import html
+import ipaddress
 import os
+import secrets
 import sys
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs
 
@@ -20,6 +27,11 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import onemind_firstboot as fb  # noqa: E402
 
 MAX_BODY = 8192
+CODE_FILE = "setup-code"      # in /run/onemind (tmpfs, 0600): the box screen reads it, a reboot clears it
+MAX_WRONG = 5                 # wrong codes from the LAN (all clients together) before a back-off
+LOCK_MIN_S, LOCK_MAX_S = 60.0, 900.0   # back-off: 1 min, doubling to 15 min
+ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"   # no 0/O/1/I
+CODE_LEN = 10
 STYLE = ("body{font-family:system-ui,sans-serif;max-width:40rem;margin:2rem auto;padding:0 1rem;line-height:1.5}"
          "label{display:block;margin:.6rem 0}input[type=text]{width:100%;padding:.4rem}"
          "code{word-break:break-all;background:#eee;padding:.2rem .4rem}button{padding:.5rem 1rem}")
@@ -28,6 +40,7 @@ FORM = """<!doctype html><html><head><meta charset="utf-8"><meta name="viewport"
 <title>OneMind setup</title><style>{style}</style></head><body>
 <h1>Set up this OneMind box</h1>{error}
 <form method="post" action="/setup">
+{code_field}
 <fieldset><legend>Role</legend>
 <label><input type="radio" name="role" value="hub" checked> Hub: the box that runs the dashboard and the bus</label>
 <label><input type="radio" name="role" value="worker"> Worker: joins a hub and runs workloads</label>
@@ -46,10 +59,87 @@ DONE = """<!doctype html><html><head><meta charset="utf-8"><meta name="viewport"
 <p>The OneMind services are starting. {next}</p></body></html>"""
 
 
+CODE_FIELD = ('<label>Setup code shown on the box screen <input type="text" name="code" autocapitalize="characters" '
+              'autocomplete="off" maxlength="16" required></label>')
+
+
+def is_local(addr: str) -> bool:
+    """True for a request that came from the box itself (the screen, or ssh -L on a cloud image)."""
+    try:
+        ip = ipaddress.ip_address(addr.split("%")[0])
+    except ValueError:
+        return False
+    if getattr(ip, "ipv4_mapped", None):
+        ip = ip.ipv4_mapped
+    return ip.is_loopback
+
+
+class Gate:
+    """The one-time setup code, with a global back-off.
+
+    new() makes a fresh CODE_LEN-character code (no look-alike letters, 32 symbols = 50 bits) and
+    publishes it for the screen. The code is NOT changed by wrong tries: changing it gives a guesser
+    a fresh target and locks the real owner out. Instead, after MAX_WRONG wrong tries from the LAN
+    (counted across all clients) every LAN try is refused for a back-off that doubles up to
+    LOCK_MAX_S, so a loop of guesses gets about MAX_WRONG tries per LOCK_MAX_S. The box screen
+    (loopback) needs no code, so a locked-out owner still sets up from the box itself.
+    """
+
+    def __init__(self, clock=time.monotonic):
+        self.lock = threading.Lock()
+        self.clock = clock
+        self.code = ""
+        self.wrong = 0
+        self.lock_s = 0.0
+        self.until = 0.0
+        self.path = ""
+
+    def new(self, run_dir: str) -> str:
+        with self.lock:
+            self.code = "".join(secrets.choice(ALPHABET) for _ in range(CODE_LEN))
+            self.wrong = 0
+            self.lock_s = 0.0
+            self.until = 0.0
+            self.path = os.path.join(run_dir, CODE_FILE)
+            os.makedirs(run_dir, mode=0o711, exist_ok=True)
+            fd = os.open(self.path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            with os.fdopen(fd, "w") as f:
+                f.write(self.code + "\n")
+            return self.code
+
+    def locked(self) -> float:
+        """Seconds left of the back-off (0 when tries are allowed)."""
+        with self.lock:
+            return max(0.0, self.until - self.clock())
+
+    def check(self, given: str) -> bool:
+        """True for the right code. While locked out, every try is refused, even the right code."""
+        with self.lock:
+            now = self.clock()
+            if now < self.until:
+                return False
+            norm = given.strip().upper().replace("-", "").replace(" ", "")
+            if self.code and hmac.compare_digest(norm.encode(), self.code.encode()):
+                return True
+            self.wrong += 1
+            if self.wrong >= MAX_WRONG:
+                self.wrong = 0
+                self.lock_s = min(max(self.lock_s * 2, LOCK_MIN_S), LOCK_MAX_S)
+                self.until = now + self.lock_s
+            return False
+
+    def clear(self) -> None:
+        try:
+            os.unlink(self.path)
+        except OSError:
+            pass
+
+
 class Wizard(BaseHTTPRequestHandler):
     server_version = "onemind-setup"
     paths: fb.Paths = fb.Paths("/")
     done = threading.Event()
+    gate = Gate()
 
     def log_message(self, fmt, *args):  # no client addresses in the journal
         pass
@@ -63,10 +153,23 @@ class Wizard(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(b)
 
+    def _local(self) -> bool:
+        return is_local(self.client_address[0])
+
+    def _refuse_lan(self) -> bool:
+        """Once an owner exists the wizard answers the box itself only. True when it refused."""
+        if not self._local() and fb.load_state(self.paths):
+            self._send(403, "<p>This box is already set up.</p>")
+            return True
+        return False
+
     def do_GET(self):
+        if self._refuse_lan():
+            return
         if self.path.split("?")[0] == "/healthz":
-            return self._send(200, "setup")
-        self._send(200, FORM.format(style=STYLE, error=""))
+            # the box screen asks from loopback; the LAN learns nothing from this box before the code
+            return self._send(200 if self._local() else 403, "setup" if self._local() else "forbidden")
+        self._send(200, FORM.format(style=STYLE, error="", code_field="" if self._local() else CODE_FIELD))
 
     def do_POST(self):
         if self.path != "/setup":
@@ -75,13 +178,22 @@ class Wizard(BaseHTTPRequestHandler):
         if n > MAX_BODY:
             return self._send(413, "too large")
         form = {k: v[0] for k, v in parse_qs(self.rfile.read(n).decode("utf-8", "replace")).items()}
+        if self._refuse_lan():
+            return
         if fb.load_state(self.paths):
             return self._send(409, "<p>This box is already set up.</p>")
+        if not self._local() and not self.gate.check(form.get("code", "")):
+            wait = self.gate.locked()
+            msg = (f"Too many wrong codes. Wait {int(wait) + 1} seconds, or set up on the box screen."
+                   if wait else "Wrong setup code. Read it on the box screen.")
+            err = f'<p role="alert"><strong>{msg}</strong></p>'
+            return self._send(429 if wait else 403, FORM.format(style=STYLE, error=err, code_field=CODE_FIELD))
         try:
             cfg = fb.validate({k: form.get(k, "") for k in fb.KEYS})
         except fb.ConfigError as exc:
             err = f'<p role="alert"><strong>{html.escape(str(exc))}</strong></p>'
-            return self._send(400, FORM.format(style=STYLE, error=err))
+            return self._send(400, FORM.format(style=STYLE, error=err,
+                                               code_field="" if self._local() else CODE_FIELD))
         fb.finish(self.paths, cfg, "wizard")
         tok_path = os.path.join(self.paths.run, "owner-token")
         token, nxt = "", "This page stops answering in a few seconds."
@@ -99,6 +211,7 @@ class Wizard(BaseHTTPRequestHandler):
             nxt = ("It now asks the hub to join: approve it on the hub's dashboard (Approvals) after checking "
                    "that the code shown there matches the one on this box's console. This page stops answering "
                    "in a few seconds.")
+        self.gate.clear()
         self._send(200, DONE.format(style=STYLE, role=cfg["role"], token=token, next=nxt))
         self.done.set()
 
@@ -109,10 +222,13 @@ def main() -> int:
         print("onemind-setup: already configured; nothing to do")
         return 0
     port = int(os.environ.get("ONEMIND_SETUP_PORT", "8080"))
+    code = Wizard.gate.new(Wizard.paths.run)
+    fb.console(Wizard.paths, f"ONEMIND SETUP CODE: {code} (type it on the setup page from another device)")
     srv = ThreadingHTTPServer((os.environ.get("ONEMIND_SETUP_BIND", "0.0.0.0"), port), Wizard)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     print(f"onemind-setup: waiting on :{port}", flush=True)
     Wizard.done.wait()
+    Wizard.gate.clear()
     srv.shutdown()
     srv.server_close()
     return 0

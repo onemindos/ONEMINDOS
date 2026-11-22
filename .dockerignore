@@ -15,7 +15,10 @@
 !sdk/schema/
 !sdk/policy/
 !sdk/go/
-!sdk/ts/src/
+# sdk/scripts/gen-code.sh makes the SDK code from the spec inside the build (CI-16)
+!sdk/openapi/
+!sdk/scripts/
+!sdk/ts/
 !apps/
 **/node_modules
 **/dist

@@ -82,6 +82,11 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      # The compose dashboard service typechecks against the TS SDK schema.
+      - name: Generate the SDK code from the committed spec (CI-16, not committed)
+        uses: ./.github/actions/sdk-gen
+        with:
+          langs: ts
       - name: compose up
         working-directory: deploy/compose
         run: ./gen-tokens.sh && docker compose up -d --build --wait gateway node-sim sim-rpi5 sim-jetson
@@ -122,5 +127,10 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           persist-credentials: false
+      # bundle.sh builds the onemind CLI and the dashboard from this checkout (it also generates if missing).
+      - name: Generate the SDK code from the committed spec (CI-16, not committed)
+        uses: ./.github/actions/sdk-gen
+        with:
+          langs: go ts
       - name: bundle + hub + node + checks
         run: deploy/verify/tests/e2e-systemd/run.sh

@@ -25,8 +25,18 @@ metadata:
   tier: verified   # set by CI (sdk/tools/app-gate --tier write), not by hand
 spec:
   archs: [amd64, arm64]
-  requires: {gpu: false, minMemoryMb: 4096}
+  # CPU works as it always did; a box with a GPU of 4 GB or more gets manifests-gpu/ instead (S-5).
+  requires:
+    gpu: false
+    minMemoryMb: 4096
+    accelerator: {capability: gpu-compute, minMemoryMb: 4096, optional: true, overlay: manifests-gpu}
   web: {port: 11434}
   manifests: manifests/
   # automerge stays none until renovate.json lists this app (validate-apps check 9).
   updates: {channel: stable, automerge: none}
+  # Models (OLLAMA_MODELS, models/ on the volume) are pulled again from the registry, so they are
+  # the optional content tier (BAK-03, REC-NOMAD-07): the key pair under .ollama/ is always backed
+  # up, the models only when the owner switches the tier on after seeing their size.
+  backup:
+    mode: hot
+    content: ["models/"]

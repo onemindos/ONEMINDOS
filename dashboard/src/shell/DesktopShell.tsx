@@ -11,7 +11,10 @@
 import { useEffect, useId, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { AppIcon, BrandMark, Icon, type NavItem } from '@onemind/ui';
+import { DOCK_ORDER, HUES } from '../screens/registry';
+import { formatDate } from '../i18n';
 import './desktop.css';
+import { trackBarHeight } from './trackBarHeight';
 
 export interface DockApp {
   id: string;
@@ -42,6 +45,8 @@ export interface DesktopShellProps {
   now: number;
   timeZone: string;
   person?: DesktopPerson;
+  /** The greeted first name, when known: its initial fills the avatar while the account is still loading. */
+  displayName?: string;
   demo?: boolean;
   onSearch: () => void;
   onConsoleView: () => void;
@@ -49,27 +54,14 @@ export interface DesktopShellProps {
   children: ReactNode;
 }
 
-/** Screens that stay in the dock; everything else is one click away in Launchpad. */
-export const DOCK_IDS = ['home', 'market', 'installed', 'approvals', 'activity', 'settings'] as const;
+/** Screens that stay in the dock (each screen's `dock` position); everything else is one click away in Launchpad. */
+export const DOCK_IDS = DOCK_ORDER;
 
-/** One colour per screen, so a place is recognised before its name is read. White glyph on each. */
-export const SCREEN_HUES: Record<string, readonly [string, string]> = {
-  home: ['#ff4d55', '#b3101c'],
-  market: ['#6d84ff', '#3340c4'],
-  installed: ['#34c77b', '#147a45'],
-  approvals: ['#f59e0b', '#b45309'],
-  activity: ['#22c5b0', '#0b7a6c'],
-  settings: ['#8f99a6', '#3e4652'],
-  nodes: ['#38a8f0', '#0b5f9a'],
-  machines: ['#9b7bf7', '#5b2bc8'],
-  alerts: ['#f4637c', '#b0123a'],
-  storage: ['#f6a35c', '#b8460c'],
-  backups: ['#3fc6db', '#0c6b80'],
-  automation: ['#8c7cf0', '#4a3bb8'],
-  coming: ['#7d8794', '#3a414b'],
-  'control-hub': ['#e5484d', '#7c0d16'],
-  agents: ['#d96cf0', '#8a1fa3'],
-};
+/** One colour per screen (each screen's `hue`), so a place is recognised before its name is read. White glyph on each. */
+export const SCREEN_HUES = HUES;
+
+/** Short screens (a few facts and one action) open in a narrow window instead of a wide, mostly empty one. */
+export const COMPACT_WINDOWS: ReadonlySet<string> = new Set(['storage', 'backups']);
 const FALLBACK_HUE = ['#7d8794', '#3a414b'] as const;
 
 export function tileStyle(id: string): CSSProperties {
@@ -80,7 +72,7 @@ export function tileStyle(id: string): CSSProperties {
 /** Split the nav into dock items (fixed order) and Launchpad-only items (nav order). */
 export function dockSplit(nav: NavItem[]): { dock: NavItem[]; more: NavItem[] } {
   const dock = DOCK_IDS.flatMap((id) => nav.filter((n) => n.id === id));
-  const more = nav.filter((n) => !(DOCK_IDS as readonly string[]).includes(n.id));
+  const more = nav.filter((n) => !DOCK_IDS.includes(n.id));
   return { dock, more };
 }
 
@@ -130,8 +122,8 @@ function GridGlyph() {
 
 function Clock({ now, timeZone }: { now: number; timeZone: string }) {
   const d = new Date(now);
-  const day = new Intl.DateTimeFormat(undefined, { weekday: 'short', month: 'short', day: 'numeric', timeZone }).format(d);
-  const time = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit', timeZone }).format(d);
+  const day = formatDate(d, { weekday: 'short', month: 'short', day: 'numeric', timeZone });
+  const time = formatDate(d, { hour: 'numeric', minute: '2-digit', timeZone });
   return (
     <time className="dsk-clock" dateTime={d.toISOString()} title="Hub time">
       <span className="dsk-clock-day">{day}</span> {time}
@@ -139,7 +131,12 @@ function Clock({ now, timeZone }: { now: number; timeZone: string }) {
   );
 }
 
-function PersonMenu({ person, demo, onConsoleView, onSignOut }: Pick<DesktopShellProps, 'person' | 'demo' | 'onConsoleView' | 'onSignOut'>) {
+/** The name's initial when a name is known, else the account id's, else "?". */
+export function avatarInitial(displayName?: string, id?: string): string {
+  return (Array.from((displayName ?? '').trim()[0] ? displayName!.trim() : (id ?? '').trim())[0] ?? '?').toUpperCase();
+}
+
+function PersonMenu({ person, displayName, demo, onConsoleView, onSignOut }: Pick<DesktopShellProps, 'person' | 'displayName' | 'demo' | 'onConsoleView' | 'onSignOut'>) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const menuId = useId();
@@ -158,7 +155,7 @@ function PersonMenu({ person, demo, onConsoleView, onSignOut }: Pick<DesktopShel
       document.removeEventListener('keydown', close);
     };
   }, [open]);
-  const initial = (person?.id ?? '?').slice(0, 1).toUpperCase();
+  const initial = avatarInitial(displayName, person?.id);
   return (
     <div className="dsk-person" ref={ref}>
       <button type="button" className="dsk-avatar" aria-expanded={open} aria-controls={menuId} onClick={() => setOpen((o) => !o)}>
@@ -255,28 +252,14 @@ function Launchpad({ nav, apps, onClose }: { nav: NavItem[]; apps: DockApp[]; on
           <span className="om-visually-hidden">Find a screen or app</span>
           <input ref={input} type="search" placeholder="Find a screen or app" value={q} onChange={(e) => setQ(e.target.value)} />
         </label>
-        <section aria-label="Screens">
-          <h3 className="dsk-launchpad-head">Screens</h3>
-          <ul className="dsk-launchpad-grid">
-            {screens.map((n) => (
-              <li key={n.id}>
-                <a href={n.href} className="dsk-launchpad-item" onClick={onClose}>
-                  <ScreenTile id={n.id} icon={n.icon} size={64} />
-                  <span className="dsk-launchpad-label">{n.label}</span>
-                  <Badge item={n} />
-                </a>
-              </li>
-            ))}
-          </ul>
-        </section>
         {shownApps.length > 0 && (
           <section aria-label="Your apps">
             <h3 className="dsk-launchpad-head">Your apps</h3>
-            <ul className="dsk-launchpad-grid">
+            <ul className="dsk-launchpad-grid dsk-launchpad-big">
               {shownApps.map((a) => (
                 <li key={a.id}>
                   <a href={a.href} className="dsk-launchpad-item" onClick={onClose}>
-                    <AppIcon app={a} size={64} />
+                    <AppIcon app={a} size={84} />
                     <span className="dsk-launchpad-label">{a.name}</span>
                   </a>
                 </li>
@@ -284,6 +267,20 @@ function Launchpad({ nav, apps, onClose }: { nav: NavItem[]; apps: DockApp[]; on
             </ul>
           </section>
         )}
+        <section aria-label="Screens">
+          <h3 className="dsk-launchpad-head">Screens</h3>
+          <ul className="dsk-launchpad-grid dsk-launchpad-small">
+            {screens.map((n) => (
+              <li key={n.id}>
+                <a href={n.href} className="dsk-launchpad-item" onClick={onClose}>
+                  <ScreenTile id={n.id} icon={n.icon} size={44} />
+                  <span className="dsk-launchpad-label">{n.label}</span>
+                  <Badge item={n} />
+                </a>
+              </li>
+            ))}
+          </ul>
+        </section>
         {screens.length === 0 && shownApps.length === 0 && <p className="dsk-launchpad-none">Nothing matches “{q}”. Try the search (Ctrl K) for settings and actions.</p>}
       </div>
     </div>
@@ -291,7 +288,7 @@ function Launchpad({ nav, apps, onClose }: { nav: NavItem[]; apps: DockApp[]; on
 }
 
 export function DesktopShell(props: DesktopShellProps) {
-  const { boxName, status, bell, nav, current, pinned = [], apps = [], now, timeZone, person, demo, onSearch, onConsoleView, onSignOut, children } = props;
+  const { boxName, status, bell, nav, current, pinned = [], apps = [], now, timeZone, person, displayName, demo, onSearch, onConsoleView, onSignOut, children } = props;
   const navigate = useNavigate();
   const location = useLocation();
   const atHome = current === 'home';
@@ -309,10 +306,8 @@ export function DesktopShell(props: DesktopShellProps) {
   useEffect(() => {
     const bar = barRef.current;
     const root = rootRef.current;
-    if (!bar || !root || typeof ResizeObserver === 'undefined') return;
-    const ro = new ResizeObserver(() => root.style.setProperty('--dsk-bar-real', `${bar.offsetHeight}px`));
-    ro.observe(bar);
-    return () => ro.disconnect();
+    if (!bar || !root) return;
+    return trackBarHeight(bar, root, '--dsk-bar-real');
   }, []);
 
   // Esc closes the window (back to the desktop); Ctrl/⌘ + / opens Launchpad.
@@ -340,14 +335,29 @@ export function DesktopShell(props: DesktopShellProps) {
           <BrandMark size={22} />
           <span className="dsk-box">{boxName}</span>
         </a>
-        <div className="dsk-status">{status}</div>
+        <div className="dsk-status">
+          {status}
+          {demo && (
+            <span className="dsk-demo" title="This screen shows sample data, not a real box">
+              <span className="dsk-demo-short" aria-hidden="true">
+                Demo
+              </span>
+              <span className="dsk-demo-long">Demo data</span>
+            </span>
+          )}
+        </div>
         <Clock now={now} timeZone={timeZone} />
         <div className="dsk-actions">
           <button type="button" className="dsk-iconbtn" onClick={onSearch} aria-label="Search (Ctrl K)" title="Search (Ctrl K)">
             <Icon name="search" size={18} />
           </button>
+          {nav.some((n) => n.id === 'usage') && (
+            <a href="/usage" className="dsk-iconbtn" aria-label="Live usage" title="Live usage" aria-current={current === 'usage' ? 'page' : undefined}>
+              <Icon name="gauge" size={18} />
+            </a>
+          )}
           {bell}
-          <PersonMenu person={person} demo={demo} onConsoleView={onConsoleView} onSignOut={onSignOut} />
+          <PersonMenu person={person} displayName={displayName} demo={demo} onConsoleView={onConsoleView} onSignOut={onSignOut} />
         </div>
       </header>
 
@@ -358,20 +368,21 @@ export function DesktopShell(props: DesktopShellProps) {
       ) : (
         <div className="dsk-stage">
           <div className="dsk-scrim" aria-hidden="true" onClick={() => navigate('/')} />
-          <section className="dsk-window" aria-labelledby={windowLabel} key={current}>
+          <section className="dsk-window" data-size={COMPACT_WINDOWS.has(current) ? 'compact' : undefined} aria-labelledby={windowLabel} key={current}>
+            {/* The screen's name is said once, by its own heading; the window only names itself for assistive tech. */}
+            <span id={windowLabel} className="om-visually-hidden">
+              {title}
+            </span>
             <div className="dsk-window-bar">
               {up ? (
                 <a href={up} className="dsk-wbtn" aria-label="Back" title="Back">
-                  <Icon name="chevron" size={16} className="dsk-flip" />
+                  <Icon name="chevron" size={18} className="dsk-flip" />
                 </a>
               ) : (
-                here && <ScreenTile id={here.id} icon={here.icon} size={26} />
+                <span />
               )}
-              <span id={windowLabel} className="dsk-window-title">
-                {title}
-              </span>
               <a href="/" className="dsk-wbtn dsk-close" aria-label={`Close ${title}`} title="Close (Esc)">
-                <Icon name="x" size={16} />
+                <Icon name="x" size={18} />
               </a>
             </div>
             {/* tabIndex 0: the window scrolls, so keyboard users must be able to reach it (axe scrollable-region-focusable). */}

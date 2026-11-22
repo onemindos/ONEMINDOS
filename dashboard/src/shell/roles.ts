@@ -1,16 +1,22 @@
 // SPDX-License-Identifier: Apache-2.0
 // Simple and Pro by role (report ch. 3, UX-1, UX-2): there is no global "Pro mode" switch. The
-// Pro screens appear for the roles that run the box (owner, adult); guests and children see the
+// Pro screens appear for the roles that run the box (owner, adult); guests, children and teens see the
 // simple set. The gateway still enforces every route by scope; this only decides what is offered.
 import type { Me } from '../api/wiring';
 import type { Principal } from '../api/types';
+import { PRO_SCREEN_IDS } from '../screens/registry';
 
-/** core/onemind_core/auth.py ROLES: owner, adult, guest, child, agent. */
+/** core/onemind_core/auth.py ROLES: owner, adult, guest, child, teen, agent. */
 export const PRO_ROLES: ReadonlySet<string> = new Set(['owner', 'adult']);
 
-/** Nav ids (routes.ts navId) of the Pro screens: Nodes, Control Hub, AI & Agents, and System
- * (Storage, Backups, OS updates). */
-export const PRO_SCREENS: ReadonlySet<string> = new Set(['nodes', 'control-hub', 'agents', 'storage', 'backups', 'automation', 'updates']);
+/** Nav ids of the Pro screens: every screen that declares `pro: true` in src/screens/<id>/screen.ts, plus Alerts (hidden from the Simple nav, but its route stays open: an agent may ask to fix). */
+export const PRO_SCREENS: ReadonlySet<string> = new Set([...PRO_SCREEN_IDS, 'alerts']);
+
+/** Screens a guest or child is not offered at all: they cannot decide anything, so no Approvals. */
+export const SIMPLE_HIDDEN: ReadonlySet<string> = new Set(['approvals']);
+
+/** Pro screens only an owner may open: the gateway answers 403 to everyone else (GET /v1/network). */
+export const OWNER_SCREENS: ReadonlySet<string> = new Set(['network']);
 
 export type View = 'pro' | 'simple' | 'unknown';
 
@@ -27,7 +33,9 @@ export function roleOf(principal: Principal | undefined, me: Me | undefined): st
 }
 
 /** Is this nav item shown to this view? Pro screens stay hidden until the role is known. */
-export function showsNav(id: string, view: View): boolean {
+export function showsNav(id: string, view: View, role?: string | null): boolean {
+  if (view === 'simple' && SIMPLE_HIDDEN.has(id)) return false;
+  if (OWNER_SCREENS.has(id) && role !== 'owner') return false;
   return !PRO_SCREENS.has(id) || view === 'pro';
 }
 

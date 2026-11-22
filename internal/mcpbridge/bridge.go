@@ -90,8 +90,6 @@ func (b *Bridge) Run(ctx context.Context, in io.Reader, out io.Writer) error {
 	}
 }
 
-var errTooLong = errors.New("message too long")
-
 func readLine(rd *bufio.Reader) ([]byte, error) {
 	var buf []byte
 	for {

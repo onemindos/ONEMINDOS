@@ -233,12 +233,15 @@ type Credentials struct {
 type MeshBlock struct {
 	ControlURL   string   `json:"control_url"`
 	ControlAddrs []string `json:"control_addrs"`
-	CASHA256     string   `json:"ca_sha256"`
-	AuthKey      string   `json:"auth_key"`
-	Hostname     string   `json:"hostname"`
-	HubMeshIP    string   `json:"hub_mesh_ip"`
-	Tags         []string `json:"tags"`
-	ShieldsUp    bool     `json:"shields_up"`
+	// RelayAddrs is the owner's relay, for away. Unused today: the relay has no link back to the hub yet,
+	// so no client dials it. It is kept apart from ControlAddrs so it can never become the home address.
+	RelayAddrs []string `json:"relay_addrs,omitempty"`
+	CASHA256   string   `json:"ca_sha256"`
+	AuthKey    string   `json:"auth_key"`
+	Hostname   string   `json:"hostname"`
+	HubMeshIP  string   `json:"hub_mesh_ip"`
+	Tags       []string `json:"tags"`
+	ShieldsUp  bool     `json:"shields_up"`
 }
 
 // PollResult is one poll answer.

@@ -116,7 +116,7 @@ class WorkflowContract(unittest.TestCase):
         d, _ = workflow()
         for job in d["jobs"].values():
             for s in job["steps"]:
-                if "uses" in s:
+                if "uses" in s and not s["uses"].startswith("./"):   # local actions (sdk-gen, CI-16) live in this repo
                     action, sha = s["uses"].split("@")
                     self.assertEqual(sha, pins[action], s["uses"])
 

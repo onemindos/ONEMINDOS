@@ -14,8 +14,14 @@ extra onemindd processes that pretend to be nodes.
   perf.py boot-probe --token-file F --out O   enable a unit that runs "ready --boot" on the next boots
   perf.py idle --token-file F --out FILE      settle, sample memory and CPU per component, then API latency
   perf.py load --token-file F --out FILE      approvals, app installs, heartbeats: latency, memory, CPU
+  perf.py plan --token-file F --out FILE      plan fixture: --devices N --events-per-s R --seconds S --p95-ms T
   perf.py disk --out FILE                     disk used by each piece of the install
   perf.py check --budget B [--keys K,..] R..  compare reports with the budget; exit 1 if over or missing
+
+Two layouts are supported without options: the developer install (deploy/install.sh) and the shipped
+image (read-only root, state under /data/onemind). `layout()` picks the image when its gateway tokens
+file exists; every path and unit name that differs is in LAYOUTS. The same commands run on the lab
+box and in CI.
 
 Memory is the cgroup v2 "anon" counter (memory.stat): private memory that cannot be dropped
 without swap. Page cache is left out because the kernel gives it back under pressure; the working
@@ -43,8 +49,33 @@ from pathlib import Path
 CGROUP = Path("/sys/fs/cgroup")
 PODLOGS = Path("/var/log/pods")
 K3S = "/usr/local/bin/k3s"
-ONEMINDD = "/usr/local/bin/onemindd"
-TOKENS = Path("/etc/onemind/tokens.yaml")
+# What differs between the developer install and the shipped image (os/rootfs): the image's root is
+# read-only, so state is under /data/onemind and binaries are in /usr/bin; k3s runs with
+# metrics-server off and writes its admin kubeconfig to /run/k3s (the gateway's own kubeconfig is a
+# ServiceAccount that cannot list nodes).
+LAYOUTS = {
+    "install": {"tokens": "/etc/onemind/tokens.yaml", "onemindd": "/usr/local/bin/onemindd",
+                "nats_server": "/usr/local/bin/nats-server", "kubeconfig": None,
+                "addons": ("coredns", "local-path-provisioner", "metrics-server"), "nkey_seed": None},
+    "image": {"tokens": "/data/onemind/gateway/tokens.yaml", "onemindd": "/usr/bin/onemindd",
+              "nats_server": "/usr/bin/nats-server", "kubeconfig": "/run/k3s/k3s.yaml",
+              "addons": ("coredns", "local-path-provisioner"),
+              # The strict hub NATS accepts only keys in its accounts file; sim nodes sign in with onemindd's.
+              "nkey_seed": "/data/onemind/nats/keys/onemindd.nk"},
+}
+
+
+def layout(root="/"):
+    """"image" when the shipped image's gateway tokens file exists, else "install"."""
+    img = Path(root) / LAYOUTS["image"]["tokens"].lstrip("/")
+    return "image" if img.exists() else "install"
+
+
+LAYOUT = LAYOUTS[layout()]
+ONEMINDD = LAYOUT["onemindd"]
+NATS_SERVER = LAYOUT["nats_server"]
+KUBECONFIG = LAYOUT["kubeconfig"]
+TOKENS = Path(LAYOUT["tokens"])
 GATEWAY = "http://127.0.0.1:8080"
 MIB = 1 << 20
 
@@ -54,7 +85,7 @@ UNITS = {
     "gateway": ("onemind-gateway.service",),
     "onemindd": ("onemindd.service",),
     "nats": ("onemind-nats.service",),
-    "mesh": ("tailscaled.service", "headscale.service"),  # deploy/install.sh does not install one yet
+    "mesh": ("tailscaled.service", "headscale.service", "onemind-headscale.service"),  # the image runs Headscale
 }
 # Pods, grouped by namespace (first match wins).
 POD_GROUPS = (
@@ -66,7 +97,8 @@ HUB = ("k3s", "k3s-addons", "gateway", "onemindd", "nats", "mesh")  # what "hub-
 SIM_UNIT = "onemind-perf-sim-{}.service"
 READS = ("/healthz", "/v1/instance", "/v1/nodes", "/v1/apps", "/v1/actions")  # what the dashboard polls
 # k3s default add-ons the hub keeps. Traefik and ServiceLB are off (install.sh k3s config): the gateway owns :80/:443.
-ADDONS = ("coredns", "local-path-provisioner", "metrics-server")
+# The image also turns metrics-server off (k3s.service), so waiting for it would never end.
+ADDONS = LAYOUT["addons"]
 ID_RE = re.compile(r"[A-Za-z0-9_.:-]{1,128}")
 POD_RE = re.compile(r"pod([0-9a-f]{8}[-_][0-9a-f]{4}[-_][0-9a-f]{4}[-_][0-9a-f]{4}[-_][0-9a-f]{12})(?:\.slice)?$")
 
@@ -373,7 +405,8 @@ def read_token(path):
 # ---------------------------------------------------------------------------------------------
 def kubectl_json(*args, timeout=60):
     try:
-        cp = subprocess.run([K3S, "kubectl", *args, "-o", "json"], capture_output=True, text=True, timeout=timeout)
+        kc = ["--kubeconfig", KUBECONFIG] if KUBECONFIG and os.path.exists(KUBECONFIG) else []
+        cp = subprocess.run([K3S, "kubectl", *kc, *args, "-o", "json"], capture_output=True, text=True, timeout=timeout)
     except (OSError, subprocess.TimeoutExpired):
         return None
     if cp.returncode != 0:
@@ -428,7 +461,7 @@ def host_info(api):
     _, inst, _ = api.call("GET", "/v1/instance")
     return {"arch": os.uname().machine, "kernel": os.uname().release, "cpus": os.cpu_count(),
             "mem_total_mib": round(box_sample()["total"] / MIB), "os": osr.get("PRETTY_NAME"),
-            "k3s": first_line([K3S, "--version"]), "nats": first_line(["/usr/local/bin/nats-server", "--version"]),
+            "k3s": first_line([K3S, "--version"]), "nats": first_line([NATS_SERVER, "--version"]),
             "onemindd": first_line([ONEMINDD, "-version"]), "gateway": (inst or {}).get("version")}
 
 
@@ -467,44 +500,77 @@ def cmd_token(a):
     log(f"owner principal perf-probe added; token in {a.out}")
 
 
+def sim_properties(i, a):
+    """systemd-run arguments for simulated node i. With a seed file (the image's strict hub NATS),
+    the unit gets it as a credential, so its DynamicUser can read the root-only key."""
+    args = ["--quiet", f"--unit={SIM_UNIT.format(i)}", "--property=DynamicUser=yes",
+            f"--setenv=ONEMIND_NODE_ID=perf-sim-{i}", "--setenv=ONEMIND_NODE_ROLE=node",
+            f"--setenv=ONEMIND_NATS_URL={a.nats}", f"--setenv=ONEMIND_AGENT_ADDR=127.0.0.1:{7480 + i}"]
+    if a.nkey_seed:
+        args += [f"--property=LoadCredential=nkey:{a.nkey_seed}",
+                 f"--setenv=ONEMIND_NATS_NKEY_SEED=/run/credentials/{SIM_UNIT.format(i)}/nkey"]
+    return args
+
+
 def cmd_sims(a):
     for i in range(1, a.count + 1):
         unit = SIM_UNIT.format(i)
         subprocess.run(["systemctl", "stop", unit], capture_output=True)
         subprocess.run(["systemctl", "reset-failed", unit], capture_output=True)
         if a.action == "start":
-            subprocess.run(["systemd-run", "--quiet", f"--unit={unit}", "--property=DynamicUser=yes",
-                            f"--setenv=ONEMIND_NODE_ID=perf-sim-{i}", "--setenv=ONEMIND_NODE_ROLE=node",
-                            f"--setenv=ONEMIND_NATS_URL={a.nats}", f"--setenv=ONEMIND_AGENT_ADDR=127.0.0.1:{7480 + i}",
-                            ONEMINDD], check=True)
+            subprocess.run(["systemd-run", *sim_properties(i, a), ONEMINDD], check=True)
     log(f"{a.action}: {a.count} simulated node(s)")
 
 
 def check_ready(api, token, done, addons):
     """Fill `done` (milestone -> uptime seconds) with each readiness milestone reached now."""
-    up = uptime()
+    # Stamp each milestone with the uptime when ITS check passed, not one value taken at the top of
+    # the pass: a kubectl call can take 20 s, which made four milestones read the same number.
     if "k3s_node_ready" not in done:
         d = kubectl_json("get", "nodes", timeout=20)
         if d and d.get("items") and all(is_ready(n) for n in d["items"]):
-            done["k3s_node_ready"] = up
+            done["k3s_node_ready"] = uptime()
     if "k3s_addons_available" not in done and "k3s_node_ready" in done:
         d = kubectl_json("-n", "kube-system", "get", "deployments", timeout=20)
         avail = {x["metadata"]["name"] for x in (d or {}).get("items", [])
                  if x.get("status", {}).get("availableReplicas", 0) >= x.get("spec", {}).get("replicas", 1)}
         if set(addons) <= avail:
-            done["k3s_addons_available"] = up
+            done["k3s_addons_available"] = uptime()
     if "gateway_healthz" not in done and api.call("GET", "/healthz")[0] == 200:
-        done["gateway_healthz"] = up
+        done["gateway_healthz"] = uptime()
     if token and "hub_node_online" not in done and "gateway_healthz" in done:
         st, inst, _ = api.call("GET", "/v1/instance")
         st2, nodes, _ = api.call("GET", "/v1/nodes")
         hub = (inst or {}).get("hub_node_id")
         if st == st2 == 200 and isinstance(nodes, list) and any(
                 isinstance(n, dict) and n.get("node_id") == hub and n.get("status") == "online" for n in nodes):
-            done["hub_node_online"] = up
+            done["hub_node_online"] = uptime()
+
+
+BOOT_UNITS = ("network-online.target", "onemind-firstboot.service", "onemind-nats.service", "k3s.service",
+              "onemind-gateway.service", "onemindd.service")
+
+
+def unit_active_times(units=BOOT_UNITS):
+    """unit -> seconds since boot when systemd marked it active (None if it never was).
+
+    Read from systemd, not from this probe, so a late-starting probe cannot hide which unit
+    held the boot up.
+    """
+    out = {}
+    for u in units:
+        r = subprocess.run(["systemctl", "show", "-p", "ActiveEnterTimestampMonotonic", "--value", u],
+                           capture_output=True, text=True)
+        try:
+            us = int(r.stdout.strip() or 0)
+        except ValueError:
+            us = 0
+        out[u] = round(us / 1e6, 1) if us > 0 else None
+    return out
 
 
 def cmd_ready(a):
+    probe_start = uptime()
     token = read_token(a.token_file) if a.token_file else None
     api = Api(a.url, token, timeout=10)
     want = {"k3s_node_ready", "k3s_addons_available", "gateway_healthz"} | ({"hub_node_online"} if token else set())
@@ -515,9 +581,10 @@ def cmd_ready(a):
             sys.exit(f"perf: not ready after {a.timeout} s; missing {sorted(want - set(done))}")
         time.sleep(1)
     rep = {"kind": "ready", "boot": a.boot, "milestones_uptime_s": {k: round(v, 1) for k, v in done.items()},
-           "waited_s": round(time.monotonic() - t0, 1)}
+           "waited_s": round(time.monotonic() - t0, 1), "probe_started_uptime_s": round(probe_start, 1)}
     if a.boot:  # uptime counts from kernel start; firmware/bootloader time is not in it
         rep["boot_to_ready_s"] = round(max(done.values()), 1)
+        rep["units_active_uptime_s"] = unit_active_times()
         rep["systemd_analyze"] = first_line(["systemd-analyze", "time"])
     log(f"ready: {rep['milestones_uptime_s']}")
     if a.out:
@@ -532,8 +599,10 @@ def cmd_boot_probe(a):
 # Written by test/perf/perf.py boot-probe (throwaway test hubs only).
 [Unit]
 Description=OneMind perf: record boot-to-ready
-After=network-online.target
-Wants=network-online.target
+# Not after network-online.target: the probe must start as early as it can, or its first look
+# is the first milestone it can see (every milestone then reads the same late uptime).
+DefaultDependencies=no
+After=local-fs.target onemind-data-layout.service
 
 [Service]
 Type=exec
@@ -615,18 +684,84 @@ def cmd_load(a):
                        "sim_nodes": len(groups()["sim-nodes"])})
 
 
+CAPABILITIES = "/v1/machines/capabilities"
+
+
+def plan_device(url, token, lat, stop, interval, app_id, cap_every):
+    """One simulated device: its own keep-alive connection; one event (an approval request that is
+    then denied, so nothing is actuated) every `interval` s, and a capabilities read every `cap_every` s."""
+    api = Api(url, token)
+    nxt, cap_nxt = time.monotonic() + random_offset(interval), time.monotonic()
+    while not stop.is_set():
+        now = time.monotonic()
+        if now >= cap_nxt:
+            st, _, ms = api.call("GET", CAPABILITIES)
+            lat.add("GET " + CAPABILITIES, ms, st == 200)
+            cap_nxt = now + cap_every
+        if now >= nxt:
+            aid = create(api, lat, "app.install", app_id)
+            if aid:
+                decide(api, lat, aid, "deny")
+            nxt += interval
+            if nxt < now:
+                nxt = now + interval
+        stop.wait(max(0.0, min(nxt, cap_nxt) - time.monotonic()))
+
+
+def random_offset(interval):
+    return secrets.randbelow(1000) / 1000 * interval  # spread the devices so they do not all fire together
+
+
+def plan_report(lat_summary, devices, events_per_s, seconds, p95_ms):
+    """Pass when every kind of call has no errors and its p95 is within the target."""
+    names = [n for n in lat_summary if n != "read"]
+    over = {n: lat_summary[n]["p95"] for n in names if lat_summary[n]["p95"] > p95_ms}
+    errors = {n: lat_summary[n]["errors"] for n in names if lat_summary[n]["errors"]}
+    return {"kind": "plan", "devices": devices, "events_per_s": events_per_s, "seconds": seconds,
+            "p95_target_ms": p95_ms, "latency": lat_summary, "over_target": over, "errors": errors,
+            "pass": bool(names) and not over and not errors}
+
+
+def cmd_plan(a):
+    token = read_token(a.token_file)
+    if a.devices < 1 or a.events_per_s <= 0 or a.seconds <= 0:
+        sys.exit("perf: --devices, --events-per-s and --seconds must be positive")
+    lat, stop = Latency(), threading.Event()
+    interval = a.devices / a.events_per_s  # each device sends one event per interval
+    smp = Sampler(a.interval)
+    smp.start()
+    threads = [threading.Thread(target=plan_device, daemon=True,
+                                args=(a.url, token, lat, stop, interval, a.cycle_app, a.capabilities_every))
+               for _ in range(a.devices)]
+    log(f"plan fixture: {a.devices} devices, {a.events_per_s} events/s, {a.seconds} s, p95 target {a.p95_ms} ms")
+    for t in threads:
+        t.start()
+    time.sleep(a.seconds)
+    stop.set()
+    for t in threads:
+        t.join()
+    smp.stop()
+    rep = plan_report(lat.summary(), a.devices, a.events_per_s, a.seconds, a.p95_ms)
+    rep["host"] = host_info(Api(a.url, token))
+    rep["window"] = summarize(smp.samples)
+    write_json(a.out, rep)
+    if not rep["pass"]:
+        sys.exit(f"perf: plan fixture failed: over target {rep['over_target']}, errors {rep['errors']}")
+
+
 # Piece -> (paths, part of the runtime footprint?). Toolchains and caches exist only because the
 # developer install builds from source; an image ships the built artifacts.
 DISK = {
     "k3s binary": (["/usr/local/bin/k3s"], True),
-    "k3s data (images, datastore, pods)": (["/var/lib/rancher/k3s"], True),
-    "nats-server": (["/usr/local/bin/nats-server"], True),
-    "onemindd and onemind CLI": (["/usr/local/bin/onemindd", "/usr/local/bin/onemind"], True),
+    "k3s data (images, datastore, pods)": (["/var/lib/rancher/k3s", "/data/k3s"], True),
+    "nats-server": (["/usr/local/bin/nats-server", "/usr/bin/nats-server"], True),
+    "onemindd and onemind CLI": (["/usr/local/bin/onemindd", "/usr/local/bin/onemind",
+                                  "/usr/bin/onemindd", "/usr/bin/onemind"], True),
     "gateway (Python, venv, core, apps, schema)": (
         ["/opt/onemind/python", "/opt/onemind/venv", "/opt/onemind/core", "/opt/onemind/apps",
          "/opt/onemind/sdk", "/opt/onemind/bin"], True),
     "dashboard": (["/opt/onemind/dashboard"], True),
-    "gateway data (database, audit)": (["/var/lib/onemind"], True),
+    "gateway data (database, audit)": (["/var/lib/onemind", "/data/onemind"], True),
     "config": (["/etc/onemind", "/etc/rancher"], True),
     "toolchains (developer install only)": (["/opt/onemind/toolchain"], False),
     "download and build cache (developer install only)": (["/var/cache/onemind"], False),
@@ -643,7 +778,7 @@ def du(paths):
 
 def cmd_disk(a):
     pieces = {name: round(du(paths) / MIB, 1) for name, (paths, _) in DISK.items()}
-    images = round(du(["/var/lib/rancher/k3s/agent/containerd"]) / MIB, 1)
+    images = round(du(["/var/lib/rancher/k3s/agent/containerd", "/data/k3s/agent/containerd"]) / MIB, 1)
     st = os.statvfs("/")
     write_json(a.out, {
         "kind": "disk", "pieces_mib": pieces, "containerd_mib": images,
@@ -679,6 +814,8 @@ def measured(reports):
             m["boot_to_ready_s"] = r["boot_to_ready_s"]
         elif kind == "cold":
             m["gateway_cold_start_s"] = r["gateway_cold_start_s"]
+        elif kind == "dashboard":  # test/qemu F10: starting the gateway to its first HTTPS 200
+            m["time_to_dashboard_s"] = r["time_to_dashboard_s"]
         elif kind == "disk":
             m["disk_runtime_mib"] = r["runtime_mib"]
     return m
@@ -732,21 +869,23 @@ def main(argv=None):
     sub = p.add_subparsers(dest="cmd", required=True)
     s = sub.add_parser("token")
     s.add_argument("--out", required=True)
-    s.add_argument("--tokens", default=str(TOKENS))
+    s.add_argument("--tokens", default=str(TOKENS), help="gateway tokens file (default %(default)s)")
     s = sub.add_parser("sims")
     s.add_argument("action", choices=("start", "stop"))
     s.add_argument("--count", type=int, default=3)
     s.add_argument("--nats", default="nats://127.0.0.1:4222")
+    s.add_argument("--nkey-seed", default=LAYOUT["nkey_seed"],
+                   help="NATS nkey seed file for a strict hub (default %(default)s)")
     s = sub.add_parser("ready")
     s.add_argument("--token-file")
     s.add_argument("--boot", action="store_true", help="started at boot: report seconds since kernel start")
-    s.add_argument("--addons", default=",".join(ADDONS))
+    s.add_argument("--addons", default=",".join(ADDONS), help="kube-system deployments that must be available")
     s.add_argument("--timeout", type=float, default=600)
     s.add_argument("--out")
     s = sub.add_parser("boot-probe")
     s.add_argument("--token-file", required=True)
     s.add_argument("--out", required=True)
-    for name in ("idle", "load"):
+    for name in ("idle", "load", "plan"):
         s = sub.add_parser(name)
         s.add_argument("--token-file", required=True)
         s.add_argument("--out", required=True)
@@ -764,6 +903,13 @@ def main(argv=None):
                    help="comma-separated app ids to install, wait for, then remove")
     s.add_argument("--app-timeout", type=float, default=900)
     s.add_argument("--steady", type=float, default=120, help="steady state with the apps running (s)")
+    s = sub.choices["plan"]
+    s.add_argument("--devices", type=int, default=50, help="simulated devices (one connection each)")
+    s.add_argument("--events-per-s", type=float, default=20, help="events per second, all devices together")
+    s.add_argument("--seconds", type=float, default=120, help="duration (s)")
+    s.add_argument("--p95-ms", type=float, default=100, help="p95 target for every call (ms)")
+    s.add_argument("--cycle-app", default="ntfy")
+    s.add_argument("--capabilities-every", type=float, default=5, help="seconds between a device's capabilities reads")
     s = sub.add_parser("disk")
     s.add_argument("--out", required=True)
     s = sub.add_parser("check")
@@ -776,7 +922,7 @@ def main(argv=None):
     if os.geteuid() != 0:
         sys.exit("perf: run as root")
     {"token": cmd_token, "sims": cmd_sims, "ready": cmd_ready, "boot-probe": cmd_boot_probe,
-     "idle": cmd_idle, "load": cmd_load, "disk": cmd_disk}[a.cmd](a)
+     "idle": cmd_idle, "load": cmd_load, "plan": cmd_plan, "disk": cmd_disk}[a.cmd](a)
     return 0
 
 

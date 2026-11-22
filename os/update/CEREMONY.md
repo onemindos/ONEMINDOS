@@ -26,6 +26,8 @@
 | Paper and a printer | To print the sheet from step 7 and the checklist |
 | This repo at a commit you have reviewed | Write the commit hash on the checklist |
 
+**Easiest way:** `python3 scripts/ceremony-guide.py` walks you through all of this below step by step on the offline machine (`--rehearsal` first, with throwaway keys). The manual steps stay the source of truth.
+
 ## Before the day: rehearse (step 0)
 
 On the offline machine (or any Linux machine or container with networking off), once:

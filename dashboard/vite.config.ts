@@ -7,6 +7,7 @@ import react from '@vitejs/plugin-react';
 // ui/ needs no npm install of its own. React is resolved once, from dashboard/node_modules.
 const uiSrc = decodeURIComponent(new URL('../ui/src', import.meta.url).pathname);
 const sdkSrc = decodeURIComponent(new URL('../sdk/ts/src', import.meta.url).pathname);
+const openapiDir = decodeURIComponent(new URL('../sdk/openapi', import.meta.url).pathname); // read by the CI-08 drift test
 
 // The gateway (core/) serves dist/ at "/" with SPA fallback (contract §3 "Static").
 // In dev, /v1 and /healthz are proxied to a local gateway on :8080 (contract §1).
@@ -18,7 +19,7 @@ export default defineConfig({
   },
   build: { outDir: 'dist', sourcemap: false },
   server: {
-    fs: { allow: ['.', uiSrc, sdkSrc] },
+    fs: { allow: ['.', uiSrc, sdkSrc, openapiDir] },
     proxy: {
       '/v1': 'http://localhost:8080',
       '/healthz': 'http://localhost:8080',
@@ -28,6 +29,7 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
-    css: false,
+    // Styles are skipped, except the desktop frame's, which polish.test.ts reads with ?raw.
+    css: { include: [/shell\/desktop\.css/] },
   },
 });

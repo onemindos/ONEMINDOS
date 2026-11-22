@@ -63,6 +63,7 @@ export function HomeLauncher({ variant }: { variant?: string }) {
         onDeny={(a) => decide(a, 'deny')}
         onOpenSearch={() => setPaletteOpen(true)}
         initialEditing={variant === 'edit'}
+        onRetry={() => toast.show({ tone: 'neutral', title: 'Retrying (demo)', body: 'The dashboard asks the hub again.' })}
       />
       <CommandPalette
         open={paletteOpen}

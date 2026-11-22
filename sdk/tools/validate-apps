@@ -19,6 +19,7 @@ Checks, per app directory (directories whose name starts with "_", such as apps/
      (contract §10.2; checked when renovate.json exists and every app is validated)
  10. no two apps declare the same spec.hostPorts port/protocol, and none declares a port OneMind
      itself uses (sdk/policy/host-ports.yaml; contract §12.22). Always checked across every app.
+ 11. plugin extensions pass the same built onemind plugin validate used on the box
 
 Run with: python3 -I sdk/tools/validate-apps [--apps-dir DIR] [APP_ID ...]
 Exit codes: 0 all apps pass, 1 at least one check failed, 2 usage or environment error.
@@ -32,15 +33,21 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import shutil
 import subprocess
 import sys
 from pathlib import Path
 
+REPO_ROOT = Path(__file__).resolve().parents[2]
+# PLAN-E6 (#175): the manifest check is the gateway's own (core/onemind_core/catalog.py), so CI and
+# the box cannot disagree. python3 -I drops the script folder from sys.path, so add core/ here.
+sys.path.insert(0, str(REPO_ROOT / "core"))
 try:
     import yaml
     from jsonschema import Draft202012Validator
+    from onemind_core.catalog import Catalog
 except ImportError as exc:  # pragma: no cover - environment problem
     sys.stderr.write(f"error: missing dependency ({exc.name}); install sdk/tools/requirements.txt\n")
     sys.exit(2)
@@ -49,7 +56,6 @@ except ImportError as exc:  # pragma: no cover - environment problem
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from applib.licence import classify  # noqa: E402
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
 SCHEMA_PATH = REPO_ROOT / "sdk" / "schema" / "onemind.app.schema.json"
 RENOVATE_PATH = REPO_ROOT / "renovate.json"
 HOST_PORTS_PATH = REPO_ROOT / "sdk" / "policy" / "host-ports.yaml"
@@ -124,10 +130,12 @@ def licence_inventory(doc: object, app_dir: Path) -> None:
 
 
 class AppChecker:
-    def __init__(self, validator: Draft202012Validator, kustomize: str, kubeconform: str):
-        self.validator = validator
+    def __init__(self, catalog: Catalog, kustomize: str, kubeconform: str,
+                 plugin_validator: Path | None = None):
+        self.catalog = catalog
         self.kustomize = kustomize
         self.kubeconform = kubeconform
+        self.plugin_validator = plugin_validator
 
     def check(self, app_dir: Path) -> tuple[str | None, list[str]]:
         """Return (metadata.id or None, list of error messages) for one app directory."""
@@ -143,10 +151,8 @@ class AppChecker:
             return None, [f"{MANIFEST_NAME} is not valid YAML: {exc}"]
 
         licence_inventory(doc, app_dir)
-        schema_errors = sorted(self.validator.iter_errors(doc), key=lambda e: list(e.absolute_path))
-        for err in schema_errors:
-            where = "/".join(str(p) for p in err.absolute_path) or "(root)"
-            errors.append(f"schema: {where}: {err.message}")
+        schema_errors = sorted(self.catalog.validate(doc))
+        errors.extend(f"schema: {msg}" for msg in schema_errors)
         if schema_errors:
             # The remaining checks rely on a schema-valid manifest.
             app_id = dig(doc, ("metadata", "id"))
@@ -157,11 +163,23 @@ class AppChecker:
         if app_id != app_dir.name:
             errors.append(f"metadata.id '{app_id}' does not match directory name '{app_dir.name}'")
 
+        plugin_declaration = any(field in spec for field in ("extensions", "plugin", "permissions", "compat"))
+        if plugin_declaration:
+            self.plugin_check(app_dir, errors)
+            if errors:
+                return app_id, errors
+
         icon = app_dir / meta["icon"]
         if not inside(icon, app_dir):
             errors.append(f"icon '{meta['icon']}' points outside the app directory")
         elif not icon.is_file():
             errors.append(f"icon file '{meta['icon']}' does not exist")
+
+        if plugin_declaration:
+            # Declarative plugins need no workload; the Go validator enforces when
+            # tools, iframe widgets and subscriptions require a backend/manifests.
+            if "manifests" not in spec:
+                return app_id, errors
 
         manifests_dir = app_dir / spec["manifests"]
         if not inside(manifests_dir, app_dir):
@@ -184,7 +202,50 @@ class AppChecker:
         self.isolation_checks(objects, errors)
         if "web" in spec:
             self.service_port_check(objects, spec["web"]["port"], errors)
+        self.overlay_checks(app_dir, spec, errors)
         return app_id, errors
+
+    def plugin_check(self, app_dir: Path, errors: list[str]) -> None:
+        if self.plugin_validator is None or not self.plugin_validator.is_absolute():
+            errors.append("plugin: shared validator required; pass an absolute --plugin-validator path "
+                          "or ONEMIND_PLUGIN_VALIDATOR (build with go build -o /path/onemind ./cmd/onemind)")
+            return
+        try:
+            proc = subprocess.run(
+                [str(self.plugin_validator), "plugin", "validate", str(app_dir.resolve())],
+                capture_output=True, text=True, check=False, timeout=60,
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            errors.append(f"plugin: shared validator could not run: {exc}")
+            return
+        if proc.returncode != 0:
+            output = (proc.stdout + proc.stderr).strip()[:4000]
+            errors.append(f"plugin: shared validator failed ({proc.returncode}): {output}")
+
+    def overlay_checks(self, app_dir: Path, spec: dict, errors: list[str]) -> None:
+        """S-5: the accelerator overlay (a directory in the app directory, built on spec.manifests) must render and pass the same
+        checks as the plain manifests, so a GPU box never gets a manifest nobody has validated."""
+        name = dig(spec, ("requires", "accelerator", "overlay"))
+        if not isinstance(name, str):
+            return
+        overlay = app_dir / name
+        if not inside(overlay, app_dir) or not overlay.is_dir():
+            errors.append(f"spec.requires.accelerator.overlay directory '{name}' does not exist in the app directory")
+            return
+        sub: list[str] = []
+        rendered = self.render(overlay, sub)
+        if rendered is not None:
+            self.kubeconform_check(rendered, sub)
+            try:
+                objects = [o for o in yaml.safe_load_all(rendered) if isinstance(o, dict)]
+            except yaml.YAMLError as exc:
+                sub.append(f"kustomize output is not valid YAML: {exc}")
+            else:
+                self.workload_checks(objects, sub)
+                self.isolation_checks(objects, sub)
+                if "web" in spec:
+                    self.service_port_check(objects, spec["web"]["port"], sub)
+        errors.extend(f"overlay '{name}': {e}" for e in sub)
 
     def render(self, manifests_dir: Path, errors: list[str]) -> str | None:
         proc = subprocess.run(
@@ -395,6 +456,8 @@ def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(prog="validate-apps", description=__doc__.split("\n")[0])
     parser.add_argument("--apps-dir", type=Path, default=REPO_ROOT / "apps",
                         help="directory holding apps/<id>/ (default: the repo's apps/)")
+    parser.add_argument("--plugin-validator", type=Path, default=os.environ.get("ONEMIND_PLUGIN_VALIDATOR"),
+                        help="absolute built onemind binary path (or ONEMIND_PLUGIN_VALIDATOR); required for plugins")
     parser.add_argument("app_ids", nargs="*", help="validate only these app ids (default: all)")
     args = parser.parse_args(argv)
 
@@ -430,10 +493,8 @@ def main(argv: list[str]) -> int:
         print("validate-apps: no app directories found; nothing to check")
         return 0
 
-    checker = AppChecker(
-        Draft202012Validator(schema, format_checker=Draft202012Validator.FORMAT_CHECKER),
-        tools["kustomize"], tools["kubeconform"],
-    )
+    checker = AppChecker(Catalog(apps_dir, SCHEMA_PATH), tools["kustomize"], tools["kubeconform"],
+                         args.plugin_validator)
     print("licence inventory: computed/SPDX-derived from metadata.license; "
           "not declared metadata.licenceClass; "
           "not primary-source verification, scan pass, or preinstall permission")

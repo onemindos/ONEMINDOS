@@ -1,0 +1,128 @@
+# SPDX-License-Identifier: Apache-2.0
+# Android app on every nightly dev release (#234 "see OneMind"; mobile/docs/install-android.md).
+# After dev-build.yml publishes `dev-<date>-<sha7>`, this builds the phone app from that same commit and attaches
+#   onemind-android-0.1.0-dev.N.apk / .aab        signed with the upload keystore, when the secrets exist
+#   onemind-android-0.1.0-dev.N-dev-unsigned.apk  debug-signed, sideloadable, when they do not
+# N is the OS build number (the image's `-dev.N`), and is also the Android versionCode, so every dev build
+# upgrades the one before it. Keys: GitHub secrets ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD,
+# ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD. They are read only by the `build` job (read-only token); the job
+# that can write to the release never sees them. dev-build.yml itself stays secret-free.
+name: dev-android
+on:
+  workflow_run:
+    workflows: [dev-build]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'dev-* release to attach to (default: the newest)'
+        required: false
+permissions:
+  contents: read
+concurrency:
+  group: dev-android
+  cancel-in-progress: false
+jobs:
+  pick:
+    if: github.repository == 'onemindos/ONEMINDOS' && (github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      tag: ${{ steps.p.outputs.tag }}
+      sha: ${{ steps.p.outputs.sha }}
+      code: ${{ steps.p.outputs.code }}
+      skip: ${{ steps.p.outputs.skip }}
+    steps:
+      - id: p
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WANT: ${{ inputs.tag }}
+        run: |
+          set -eu
+          tag="$WANT"
+          if [ -z "$tag" ]; then
+            tag=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 30 --json tagName,publishedAt \
+                    --jq '[.[] | select(.tagName | startswith("dev-"))] | sort_by(.publishedAt) | reverse | .[0].tagName // ""')
+          fi
+          [[ "$tag" =~ ^dev-[0-9]{8}-[0-9a-f]{7}$ ]] || { echo "no dev-* release to attach to ('$tag')"; echo "skip=1" >> "$GITHUB_OUTPUT"; exit 0; }
+          assets=$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')
+          if grep -q '^onemind-android-.*\.apk$' <<<"$assets"; then echo "$tag already has an Android APK"; echo "skip=1" >> "$GITHUB_OUTPUT"; exit 0; fi
+          # The OS build number is the `-dev.N` in the image file names of this release.
+          n=$(sed -nE 's/^onemind-.*-0\.1\.0-dev\.([0-9]+)\..*/\1/p' <<<"$assets" | head -n1)
+          [[ "$n" =~ ^[0-9]+$ ]] || { echo "::error::no -dev.N image file in $tag to take the build number from"; exit 1; }
+          sha=$(gh api "repos/$GITHUB_REPOSITORY/commits/$tag" --jq .sha)
+          { echo "tag=$tag"; echo "sha=$sha"; echo "code=$n"; echo "skip=0"; } >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: pick
+    if: needs.pick.outputs.skip == '0'
+    name: Android release build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ needs.pick.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - run: npm ci
+      - name: Android SDK packages (the NDK React Native pins, CMake for expo-modules-core)
+        run: |
+          set -euo pipefail
+          ndk=$(sed -nE 's/^ndkVersion = "([^"]+)"/\1/p' node_modules/react-native/gradle/libs.versions.toml)
+          [ -n "$ndk" ] || { echo "::error::ndkVersion not found in react-native's libs.versions.toml"; exit 1; }
+          sm="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          (yes || true) | "$sm" --licenses > /dev/null
+          "$sm" --install "ndk;$ndk" "cmake;3.22.1" > /dev/null
+      - name: Build the release APK (and AAB when signing secrets exist)
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: scripts/android-release-build.sh "$RUNNER_TEMP/android-out" '${{ needs.pick.outputs.code }}' '0.1.0-dev.${{ needs.pick.outputs.code }}'
+      - name: Checksums
+        run: |
+          cd "$RUNNER_TEMP/android-out"
+          sha256sum onemind-android-* > SHA256SUMS-android
+          cat SHA256SUMS-android
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: android-release
+          path: ${{ runner.temp }}/android-out/*
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    needs: [pick, build]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write     # upload to the dev-* pre-release, nothing else; no signing secrets in this job
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: android-release
+          path: out
+      - name: Attach to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.pick.outputs.tag }}
+        run: |
+          set -eu
+          gh release upload "$TAG" out/* --repo "$GITHUB_REPOSITORY" --clobber
+          if ls out/*-dev-unsigned.apk > /dev/null 2>&1; then kind="debug-signed (sideload only)"; else kind="signed with the upload key"; fi
+          body=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json body --jq .body)
+          printf '%s\n\n- **Android app**: `onemind-android-*.apk`, %s. Steps: `mobile/docs/install-android.md`.\n' "$body" "$kind" > notes.md
+          gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --notes-file notes.md
