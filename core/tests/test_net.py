@@ -441,6 +441,20 @@ def test_ca_routes(nc):
     assert nc.get("/v1/tls/ca.crt?format=pem").text.startswith("-----BEGIN CERTIFICATE-----")
 
 
+def test_trust_profile_carries_only_the_ca(nc):
+    import plistlib
+    r = nc.get("/v1/tls/onemind.mobileconfig")  # open: a phone needs it before it can sign in
+    assert r.status_code == 200 and r.headers["content-type"] == "application/x-apple-aspen-config"
+    assert "attachment" in r.headers["content-disposition"]
+    doc = plistlib.loads(r.content)
+    (payload,) = doc["PayloadContent"]
+    assert payload["PayloadType"] == "com.apple.security.root"
+    assert payload["PayloadContent"] == nc.get("/v1/tls/ca.crt").content  # exactly the public CA, nothing else
+    assert doc["PayloadUUID"] and doc["PayloadIdentifier"].startswith("com.onemindos.ca.")
+    assert b"PRIVATE KEY" not in r.content
+    assert plistlib.loads(nc.get("/v1/tls/onemind.mobileconfig").content)["PayloadUUID"] == doc["PayloadUUID"]  # stable: re-install replaces
+
+
 def test_mesh_view_hides_addresses_by_default(nc, hs):
     hs.users["9"] = {"id": "9", "name": "onemind-machines"}
     hs.add_node("hub", tags=["tag:onemind-hub", "tag:onemind-k3s"])
