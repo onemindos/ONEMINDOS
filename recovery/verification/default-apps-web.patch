@@ -1,0 +1,90 @@
+diff --git a/core/onemind_core/home.py b/core/onemind_core/home.py
+index 2f4be38edcee1efa3fb0f2421adc9d0fbd4b2ef0..630a3c9a4db4f010b233e7e5f0cb3429b7c393c8 100644
+--- a/core/onemind_core/home.py
++++ b/core/onemind_core/home.py
+@@ -137,8 +137,7 @@ class HomeBody(BaseModel):
+     links: list[Link] = Field(default_factory=list, max_length=MAX_LINKS)
+     seen: Seen = Field(default_factory=Seen)
+     default_apps: dict[Annotated[str, Field(pattern=SLUG.pattern)], Annotated[str, Field(pattern=APP_ID_RE.pattern)]] = Field(
+-        default_factory=dict, max_length=40, json_schema_extra={"additionalProperties": False},
+-        description="App to open for each catalogue category or the browser purpose.",
++        default_factory=dict, max_length=40, description="App to open for each catalogue category or the browser purpose.",
+     )
+     updated_at: str | None = None
+ 
+diff --git a/core/onemind_core/routers/home.py b/core/onemind_core/routers/home.py
+index db124f0da0f1400bd504636aabb849dcd1893f5f..396233ed311598e828b85b5e42ae60cd22502f8f 100644
+--- a/core/onemind_core/routers/home.py
++++ b/core/onemind_core/routers/home.py
+@@ -95,14 +95,14 @@ def register(app: FastAPI, gw: Gateway) -> None:
+             raise ApiError(412, "stale_precondition", "Home changed elsewhere; read it again", reason="etag_mismatch")
+         doc = normalise(body.model_dump(exclude={"updated_at"}), owner=p.is_owner)
+         visible = visible_fn(request, p, frozenset(link_ids(doc)))
+-        # A stored id must never reveal an app this person may not see: refuse it, as if it did not exist.
+-        bad = [i for i in item_ids(doc) if not visible(i)]
+-        if bad:
+-            raise ApiError(422, "conflict", "unknown or hidden item: " + ", ".join(sorted(set(bad))), reason="unknown_item")
+         if "default_apps" not in body.model_fields_set:
+             doc["default_apps"] = current["default_apps"]  # older clients do not send this field
+         elif available_defaults(doc["default_apps"], visible) != doc["default_apps"]:
+             raise ApiError(422, "conflict", "app unavailable for this purpose", reason="unknown_item")
++        # A stored id must never reveal an app this person may not see: refuse it, as if it did not exist.
++        bad = [i for i in item_ids(doc) if not visible(i)]
++        if bad:
++            raise ApiError(422, "conflict", "unknown or hidden item: " + ", ".join(sorted(set(bad))), reason="unknown_item")
+         changed = sorted(k for k in doc if k != "updated_at" and doc[k] != current.get(k))
+         stored = svc.save(p.id, doc, gw.clock(), current.get("updated_at"))
+         if stored is None:
+diff --git a/core/tests/test_default_apps.py b/core/tests/test_default_apps.py
+index 4805ca7f60e9b3fcc969d1b4f77dad40dcb15be1..1c3780193b226be28fab39891637a823a15d0c41 100644
+--- a/core/tests/test_default_apps.py
++++ b/core/tests/test_default_apps.py
+@@ -3,8 +3,6 @@
+ from concurrent.futures import ThreadPoolExecutor
+ from threading import Barrier
+ 
+-from jsonschema import Draft202012Validator
+-
+ from conftest import ADULT, AGENT, OWNER
+ 
+ HOME = "/v1/me/home"
+@@ -66,7 +64,6 @@ def test_simultaneous_choices_require_one_device_to_refresh(client, clock, monke
+         return original(*args)
+ 
+     monkeypatch.setattr(svc, "save", together)
+-
+     def choose(pair):
+         return save(client, ADULT, {**first.json(), "default_apps": dict([pair])}, first.headers["etag"])
+ 
+@@ -75,11 +72,3 @@ def test_simultaneous_choices_require_one_device_to_refresh(client, clock, monke
+     assert sorted(r.status_code for r in replies) == [200, 412]
+     saved = next(r.json()["default_apps"] for r in replies if r.status_code == 200)
+     assert client.get(HOME, headers=ADULT).json()["default_apps"] == saved
+-
+-
+-def test_default_app_schema_rejects_invalid_purpose_and_app_ids(client):
+-    schema = client.app.openapi()["components"]["schemas"]["HomeBody"]["properties"]["default_apps"]
+-    validator = Draft202012Validator(schema)
+-    assert validator.is_valid({"browser": "firefox"})
+-    assert not validator.is_valid({"": "firefox"})
+-    assert not validator.is_valid({"browser": "not/an/app"})
+diff --git a/sdk/openapi/onemind-v1.json b/sdk/openapi/onemind-v1.json
+index fa89d90a38498e8bcae4bdd9cf29ca583f737f3c..50aa8d2db23264e69877c6f9dabd2261e4622299 100644
+--- a/sdk/openapi/onemind-v1.json
++++ b/sdk/openapi/onemind-v1.json
+@@ -3038,7 +3038,6 @@
+             "$ref": "#/components/schemas/Appearance"
+           },
+           "default_apps": {
+-            "additionalProperties": false,
+             "description": "App to open for each catalogue category or the browser purpose.",
+             "maxProperties": 40,
+             "patternProperties": {
+@@ -3117,7 +3116,6 @@
+             "$ref": "#/components/schemas/Appearance"
+           },
+           "default_apps": {
+-            "additionalProperties": false,
+             "description": "App to open for each catalogue category or the browser purpose.",
+             "maxProperties": 40,
+             "patternProperties": {

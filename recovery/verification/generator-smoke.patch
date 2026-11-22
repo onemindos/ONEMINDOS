@@ -1,0 +1,208 @@
+diff --git a/core/onemind_core/bird-log/__init__.py b/core/onemind_core/bird-log/__init__.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..650fa02034a9732966134896ff0c66afd1ed5d01
+--- /dev/null
++++ b/core/onemind_core/bird-log/__init__.py
+@@ -0,0 +1,2 @@
++# SPDX-License-Identifier: Apache-2.0
++"""bird-log gateway module."""
+diff --git a/core/onemind_core/bird-log/onemind.app.yaml b/core/onemind_core/bird-log/onemind.app.yaml
+new file mode 100644
+index 0000000000000000000000000000000000000000..8bec40450ee9b41a62c5a24127a42aff5619843f
+--- /dev/null
++++ b/core/onemind_core/bird-log/onemind.app.yaml
+@@ -0,0 +1,14 @@
++# SPDX-License-Identifier: Apache-2.0
++apiVersion: onemind.app/v1
++kind: App
++metadata:
++  id: "bird-log"
++  name: "bird-log"
++spec:
++  routes:
++    owns: [/v1/bird-log]
++    calls: [GET /v1/bird-log]
++  backup:
++    units: [{kind: table, name: bird_log_items}]
++  data: {owns: [private], reads: []}
++  phone: {entry: web}
+diff --git a/core/onemind_core/bird-log/service.py b/core/onemind_core/bird-log/service.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..2c899b403e204b6e4be53354f95c7d2f58aadcc9
+--- /dev/null
++++ b/core/onemind_core/bird-log/service.py
+@@ -0,0 +1,8 @@
++# SPDX-License-Identifier: Apache-2.0
++from ..auth import Principal
++from ..store import Database
++from .store import Items
++
++
++def list_items(db: Database, person: Principal) -> list[str]:
++    return Items(db).names(person.id)
+diff --git a/core/onemind_core/bird-log/store.py b/core/onemind_core/bird-log/store.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..d4399c137ae7c94f3fafdf2af50722f3e8a241a9
+--- /dev/null
++++ b/core/onemind_core/bird-log/store.py
+@@ -0,0 +1,20 @@
++# SPDX-License-Identifier: Apache-2.0
++from sqlalchemy import String, select
++from sqlalchemy.orm import Mapped, mapped_column
++
++from ..ledger import Base
++from ..store import FeatureSchema, SqlRepository
++
++SCHEMA = FeatureSchema("bird_log")
++
++
++class Item(Base):
++    __tablename__ = "bird_log_items"
++    owner: Mapped[str] = mapped_column(String(200), primary_key=True)
++    name: Mapped[str] = mapped_column(String(200), primary_key=True)
++
++
++class Items(SqlRepository):
++    def names(self, owner: str) -> list[str]:
++        with self.db.session() as session:
++            return list(session.scalars(select(Item.name).where(Item.owner == owner).order_by(Item.name)))
+diff --git a/core/onemind_core/routers/bird_log.py b/core/onemind_core/routers/bird_log.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..42235d91244d963870ff20aceb1810de648cfa86
+--- /dev/null
++++ b/core/onemind_core/routers/bird_log.py
+@@ -0,0 +1,20 @@
++# SPDX-License-Identifier: Apache-2.0
++from importlib import import_module
++
++from fastapi import Depends, FastAPI
++
++from ..auth import Principal
++from ..context import Gateway
++from ..errors import error_responses
++from ..identity.scopes import register_route_scope
++
++# Discover the feature tables before the gateway runs migrations, including hyphenated app ids.
++service = import_module("..bird-log.service", __package__)
++ORDER = 400
++register_route_scope("GET,HEAD", r"/v1/bird-log", ("apps:read",))
++
++
++def register(app: FastAPI, gw: Gateway) -> None:
++    @app.get("/v1/bird-log", operation_id="bird-log.list", responses=error_responses(401, 403))
++    def list_items(person: Principal = Depends(gw.principal)) -> list[str]:
++        return service.list_items(gw.db, person)
+diff --git a/core/tests/test_bird_log.py b/core/tests/test_bird_log.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..6f99805572dc72d7a319c65c008fc517cba73277
+--- /dev/null
++++ b/core/tests/test_bird_log.py
+@@ -0,0 +1,18 @@
++# SPDX-License-Identifier: Apache-2.0
++from importlib import import_module
++
++from fastapi.testclient import TestClient
++
++from onemind_core.app import create_app
++from conftest import OWNER
++
++
++def test_bird_log_lists_only_the_signed_in_persons_items(settings):
++    item = import_module("onemind_core.bird-log.store").Item
++    with TestClient(create_app(settings)) as client:
++        with client.app.state.gateway.db.session.begin() as session:
++            session.add_all([item(owner="owner", name="Mine"), item(owner="another-person", name="Theirs")])
++        assert client.get("/v1/bird-log").status_code == 401
++        response = client.get("/v1/bird-log", headers=OWNER)
++        assert response.status_code == 200
++        assert response.json() == ["Mine"]
+diff --git a/dashboard/src/screens/bird-log/Page.tsx b/dashboard/src/screens/bird-log/Page.tsx
+new file mode 100644
+index 0000000000000000000000000000000000000000..71a125c18e799d3570acf6f34b4b7c1e1f5fd6c2
+--- /dev/null
++++ b/dashboard/src/screens/bird-log/Page.tsx
+@@ -0,0 +1,17 @@
++// SPDX-License-Identifier: Apache-2.0
++import { OneMind, type paths } from '@onemind/sdk';
++import { usePoll } from '../../lib/hooks';
++import { useSession } from '../../session';
++
++type Items = paths['/v1/bird-log']['get']['responses'][200]['content']['application/json'];
++
++export default function Page() {
++  const { session } = useSession();
++  const items = usePoll(() => new OneMind({ baseUrl: location.origin, token: session?.token })
++    .call<Items>({ method: 'GET', path: '/v1/bird-log' }), 0);
++  return <section><h1>bird-log</h1>
++    {items.error ? <p role="alert">{items.error.message}</p> : items.data ? (
++      items.data.length ? <ul>{items.data.map((name) => <li key={name}>{name}</li>)}</ul> : <p>No items yet.</p>
++    ) : <p role="status">Loading…</p>}
++  </section>;
++}
+diff --git a/dashboard/src/screens/bird-log/screen.ts b/dashboard/src/screens/bird-log/screen.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..5e4f72606981caa6f02bf41f0cacb6a66080738e
+--- /dev/null
++++ b/dashboard/src/screens/bird-log/screen.ts
+@@ -0,0 +1,8 @@
++// SPDX-License-Identifier: Apache-2.0
++import type { ScreenDef } from '../types';
++
++export default {
++  id: 'bird-log', title: 'bird-log', path: '/bird-log',
++  section: 'Your box', order: 200, icon: 'apps', hue: ['#176e71', '#145458'],
++  load: () => import('./Page'),
++} satisfies ScreenDef;
+diff --git a/sdk/openapi/onemind-v1.json b/sdk/openapi/onemind-v1.json
+index 8db1d979a0610875e8581a83c928c827855a887d..3bec38816ce818609486507b03d3d39102319aa0 100644
+--- a/sdk/openapi/onemind-v1.json
++++ b/sdk/openapi/onemind-v1.json
+@@ -15815,6 +15815,48 @@
+         ]
+       }
+     },
++    "/v1/bird-log": {
++      "get": {
++        "operationId": "bird-log.list",
++        "responses": {
++          "200": {
++            "content": {
++              "application/json": {
++                "schema": {
++                  "items": {
++                    "type": "string"
++                  },
++                  "title": "Response Bird-Log.List",
++                  "type": "array"
++                }
++              }
++            },
++            "description": "Successful Response"
++          },
++          "401": {
++            "content": {
++              "application/json": {
++                "schema": {
++                  "$ref": "#/components/schemas/ErrorBody"
++                }
++              }
++            },
++            "description": "Missing or unknown bearer token (unauthenticated)"
++          },
++          "403": {
++            "content": {
++              "application/json": {
++                "schema": {
++                  "$ref": "#/components/schemas/ErrorBody"
++                }
++              }
++            },
++            "description": "The principal may not do this (permission_denied)"
++          }
++        },
++        "summary": "List Items"
++      }
++    },
+     "/v1/browsers/{app_id}/profile/reset": {
+       "post": {
+         "description": "Ask to erase the caller's profile. Nothing is erased until an owner approves it in Approvals.",
