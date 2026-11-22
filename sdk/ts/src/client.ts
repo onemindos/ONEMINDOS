@@ -6,6 +6,7 @@ import type { components } from "./gen/schema.js";
 import { AmbiguousResultError, errorFor, NetworkError, OneMindError, UnexpectedResponseError } from "./errors.js";
 import { EventsApi } from "./events.js";
 import { caFetch } from "./nodeca.js";
+import { PROTOCOL_HEADER, PROTOCOL_VERSION } from "./protocol.js";
 
 export type Instance = components["schemas"]["Instance"];
 export type StatusView = components["schemas"]["StatusView"];
@@ -317,6 +318,7 @@ export class OneMind {
         method: r.method,
         headers: {
           Accept: "application/json",
+          [PROTOCOL_HEADER]: String(PROTOCOL_VERSION),
           ...(r.body !== undefined ? { "Content-Type": "application/json" } : {}),
           ...(r.headers ?? {}),
           ...(await this.authHeader()),

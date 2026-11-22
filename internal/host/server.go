@@ -28,6 +28,7 @@ const Schema = "onemind.host/v1"
 //	GET  /v1/plans/factory-reset  what a factory reset would erase, keep and warn (read-only)
 //	GET  /v1/smb, PUT /v1/smb/shares, PUT /v1/smb/users/{user}/password   file sharing (smb.go)
 //	GET  /v1/network           read-only network facts (internal/netview; 404 when Network is nil)
+//	GET  /v1/services          service cards: the image's registry joined with systemd (internal/svcregistry; 404 when Services is nil)
 type Server struct {
 	S        *Service
 	AllowUID int // besides root; -1 none
@@ -39,6 +40,8 @@ type Server struct {
 	PeerCred func(*net.UnixConn) (uid, gid int, ok bool)
 	// Network answers GET /v1/network (NET-UI-01). It only reads; nil leaves the route off.
 	Network func() (any, error)
+	// Services answers GET /v1/services (#623). It only reads (systemctl show); nil leaves the route off.
+	Services func(ctx context.Context) (any, error)
 }
 
 // Capability is one kind in GET /v1/status.
@@ -136,6 +139,16 @@ func (s *Server) Handler() http.Handler {
 			v, err := s.Network()
 			if err != nil {
 				apiError(w, http.StatusInternalServerError, "internal", "network", "the network facts could not be read")
+				return
+			}
+			writeJSON(w, http.StatusOK, v)
+		})
+	}
+	if s.Services != nil {
+		mux.HandleFunc("GET /v1/services", func(w http.ResponseWriter, r *http.Request) {
+			v, err := s.Services(r.Context())
+			if err != nil {
+				apiError(w, http.StatusInternalServerError, "internal", "services", "systemd could not be asked about the services")
 				return
 			}
 			writeJSON(w, http.StatusOK, v)

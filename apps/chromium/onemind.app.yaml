@@ -8,7 +8,7 @@ metadata:
   id: chromium
   name: "Chromium"
   version: "3.2.0"
-  description: "Chromium in a window you open from the dashboard, streamed from your box with Neko. One profile that stays on the box."
+  description: "Chromium in a window you open from the dashboard, streamed from your box with Neko. Each person gets their own profile, kept on the box."
   # docs/design/TAXONOMY.md §1 has no browsers category and the sixteen slugs are locked, so this is Developer / vm-desktop
   # (the slot that candidates.csv gives Firefox); the Market's Browsers row is an editorial rail (Market.tsx COLLECTIONS).
   category: developer
@@ -26,6 +26,9 @@ spec:
   archs: [amd64, arm64]
   requires: {gpu: false, minMemoryMb: 1024}   # sum of the memory requests in manifests/
   web: {port: 8080}
+  # #692: one profile per person. manifests/deployment.yaml is the template (replicas 0); the gateway makes
+  # profile-<key>, browser-<key> per signed-in person and serves each person only their own (core/onemind_core/browsers.py).
+  browser: {profileVolume: profile}
   manifests: manifests/
   updates: {channel: stable, automerge: none}
   # A login the box generates at install; the owner sees it once on the app page (PD-07).

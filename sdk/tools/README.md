@@ -7,6 +7,10 @@ Tools for packaging OneMind apps. The binding contract is [`sdk/contracts/poc-v0
 
 `python3 -I sdk/tools/app-manifest validate apps` checks manifests with the gateway's own `Catalog.validate` (`core/onemind_core/catalog.py`), the code the box runs and `validate-apps` calls. `app-manifest convert [--check] PATH...` rewrites `apiVersion: onemind.app/v1alpha1` to `onemind.app/v1` and changes nothing else in the file; v1 keeps every v1alpha1 field.
 
+## subject-lint (#600)
+
+`python3 -I sdk/tools/subject-lint` fails when Python, Go or TypeScript code names a NATS subject that is not in the one subject tree, [`sdk/schema/onemind.subjects.json`](../schema/onemind.subjects.json) (`onemind.<kind>.<scope>.<id>.<field>`, contract §12.9). It uses the gateway's own checker (`core/onemind_core/subjects.py`), and `make lint` runs it. The gateway serves the same tree at `GET /v1/subjects` and answers "may this publisher send here?" with a reason at `GET /v1/subjects/check`.
+
 ## validate-apps
 
 `validate-apps` checks every app directory `apps/<id>/` against the contract. It skips directories whose names start with `_` (such as `apps/_intake`) or `.`. It is the local version of the checks that `.github/workflows/ci-apps.yml` runs on every pull request that touches `apps/` or `sdk/`.

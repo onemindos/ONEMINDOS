@@ -2,6 +2,7 @@
 // Files download request and tus upload calls (docs/leap/core/FILES.md section 3), and the chunk loop on top.
 import { HttpApi, OP, type FetchLike } from './client';
 import { ApiError } from './types';
+import { PROTOCOL_VERSION } from '../lib/protocol';
 import { CHUNK_BYTES, badFileName, uploadLocalFile, uploadProblem, type LocalFile } from '../lib/filesTransfer';
 
 type Call = { url: string; init: RequestInit };
@@ -23,7 +24,7 @@ describe('files download and tus calls', () => {
     const r = hub(() => new Response('{}'));
     expect(r.api.filesDownloadRequest('home:alex', '/a b/c&d.txt')).toEqual({
       url: 'https://hub.test/v1/files/download?root=home%3Aalex&path=%2Fa%20b%2Fc%26d.txt',
-      headers: { 'OneMind-API-Version': '1', Authorization: 'Bearer t' },
+      headers: { 'OneMind-API-Version': '1', 'X-OneMind-Protocol': '2', Authorization: 'Bearer t' },
     });
   });
 
@@ -143,6 +144,14 @@ describe('confirmed share resumption', () => {
     expect(r.calls.map(c => c.init.method)).toEqual(['HEAD']);
     expect(native).toHaveBeenCalledWith(url, expect.objectContaining({ Authorization: 'Bearer t', 'Upload-Offset': '5' }), new Uint8Array([5, 5, 5]));
     expect(created).not.toHaveBeenCalled();
+  });
+
+  it('sends the protocol version on the native transport path as well as the HEAD', async () => {
+    const r = hub(() => new Response(null, { headers: { 'Upload-Offset': '5' } }));
+    native.mockClear();
+    await uploadLocalFile(r.api, fakeFile(8), 'r', '/', undefined, { url, created, transport: native });
+    expect(hdr(r.calls[0]!, 'X-OneMind-Protocol')).toBe(String(PROTOCOL_VERSION));
+    expect(native).toHaveBeenCalledWith(url, expect.objectContaining({ 'X-OneMind-Protocol': String(PROTOCOL_VERSION), 'Tus-Resumable': '1.0.0' }), expect.any(Uint8Array));
   });
 
   it.each([null, 'bad', '-1', '20'])('retains an input when the HEAD offset is invalid (%s)', async offset => {

@@ -66,6 +66,77 @@ class HangReport(unittest.TestCase):
         self.assertIn("early-boot hang", str(e.exception))
 
 
+class DiagUnit(unittest.TestCase):
+    """The test-only unit that prints early-boot evidence on the serial console (issue 391)."""
+
+    def creds(self):
+        import base64
+        args = cb.diag_credentials()
+        out = {}
+        for flag, val in zip(args[::2], args[1::2]):
+            self.assertEqual(flag, "-smbios")
+            self.assertNotIn(",", val.split("type=11,", 1)[1])        # a comma would split the QEMU option
+            name, b64 = val.split("io.systemd.credential.binary:", 1)[1].split("=", 1)
+            out[name] = base64.b64decode(b64).decode()
+        return out
+
+    def test_credentials_define_the_unit_and_pull_it_into_the_boot(self):
+        c = self.creds()
+        unit = c["systemd.extra-unit.onemind-test-diag.service"]
+        self.assertIn("DefaultDependencies=no", unit)                # starts at once, whatever else is stuck
+        self.assertNotIn("$", unit)                                  # systemd would expand it in ExecStart
+        self.assertNotIn("%", unit)
+        self.assertIn("Wants=onemind-test-diag.service", c["systemd.unit-dropin.multi-user.target"])
+
+    def test_script_is_valid_sh_and_collects_the_evidence_the_issue_names(self):
+        import base64, re
+        unit = self.creds()["systemd.extra-unit.onemind-test-diag.service"]
+        script = base64.b64decode(re.search(r"echo (\S+) \| base64", unit).group(1)).decode()
+        subprocess.run(["sh", "-n"], input=script, text=True, check=True)
+        for part in ("rauc.service", "cloud-init-local.service", "journalctl -b -p warning", "lsblk",
+                     "/etc/rauc/system.conf", "ONEMIND-TEST-DIAG BEGIN", "ONEMIND-TEST-DIAG END",
+                     "/data/onemind/firstboot/state.json"):
+            self.assertIn(part, script)
+
+    def test_every_cloud_command_line_carries_it_before_the_serial_args(self):
+        for cloud in cb.PROFILES:
+            cmd = cb.qemu_cmd(cloud, "d", "s", [], {"ssh": 1, "http": 2, "https": 3}, "kvm", "host")
+            self.assertEqual(cmd.count("-smbios"), 2)
+            self.assertEqual(cmd[-4:], ["-serial", "stdio", "-monitor", "none"])
+
+    def test_summary_lists_failed_units_from_the_console(self):
+        console = ("noise\n" + cb.DIAG_BEGIN + "\n--- cat /proc/uptime\n301.2 1200.4\n"
+                   "--- systemctl --failed --no-pager --no-legend\n"
+                   "\u25cf rauc.service loaded failed failed RAUC Update Service\n"
+                   "--- systemctl status x\nignored.service\n" + cb.DIAG_END + "\n")
+        self.assertEqual(cb.diag_summary(console), "diag unit ran; failed units: rauc.service")
+        self.assertIsNone(cb.diag_summary("login: "))
+
+    def test_hang_report_names_the_failed_units(self):
+        r = fake_run(lambda cmd, timeout: (255, "refused"))
+        r.vm.buf += (cb.DIAG_BEGIN + "\n--- systemctl --failed --no-pager --no-legend\n"
+                     "rauc.service loaded failed failed RAUC\n--- next\n" + cb.DIAG_END + "\n")
+        why = cb.Run.hang_report(r, "ONEMIND-FIRSTBOOT")
+        self.assertIn("failed units: rauc.service", why)
+        self.assertIn("early-boot hang", why)
+
+    def test_trim_diag_extracts_and_masks_the_block(self):
+        with tempfile.NamedTemporaryFile("w", suffix=".log", delete=False) as f:
+            f.write("before\r\n" + cb.DIAG_BEGIN + "\r\nip %s\r\n" % IPS[0] + cb.DIAG_END + "\r\nafter\n")
+        try:
+            out = subprocess.run(["sh", TRIM, "--diag", f.name], capture_output=True, text=True, check=True).stdout
+        finally:
+            os.unlink(f.name)
+        self.assertEqual(out.splitlines()[0], cb.DIAG_BEGIN)
+        self.assertIn("<vm-private-ip>", out)
+        self.assertNotIn("before", out)
+        self.assertNotIn("after", out)
+
+    def test_workflow_keeps_the_diag_block(self):
+        with open(os.path.join(ROOT, ".github", "workflows", "image.yml")) as f:
+            self.assertIn("trim-log.sh --diag $d/serial.log > $d/serial-diag.log", f.read())
+
+
 class TrimTail(unittest.TestCase):
     def test_tail_keeps_unfiltered_lines_and_masks_addresses(self):
         with tempfile.NamedTemporaryFile("w", suffix=".log", delete=False) as f:

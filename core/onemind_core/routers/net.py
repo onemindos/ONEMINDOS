@@ -146,7 +146,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         gateway_session_resolver(gw.tokens, gw.authenticators), KubectlServiceResolver(settings.kubectl),
         box_domains=net.box_domains(), audit=gw.audit.append, path_routes=net.path_routes,
         exposure=exposure_of, shared=sharing_check(gw.authenticators, gw.app_filters),
-        classify=classify,
+        classify=classify, browsers=getattr(app.state, "browsers", None),  # routers/browsers.py (#692)
     )
     app.add_middleware(AppProxyMiddleware, proxy=proxy)
 
@@ -211,7 +211,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
     principal = gw.principal
 
     # ---- fabric (§12.11) ------------------------------------------------------------------------------
-    @app.post("/v1/fabric/join-tickets", operation_id="fabric.ticket_create", tags=["fabric"], status_code=201, responses=error_responses(401, 403, 422))
+    @app.post("/v1/fabric/join-tickets", operation_id="fabric.ticket_create", tags=["fabric"], status_code=201, responses=error_responses(401, 403, 409, 422))
     def create_ticket(body: TicketRequest = Body(default_factory=TicketRequest), p: Principal = Depends(principal)):
         return fabric.create_ticket(p, body)
 

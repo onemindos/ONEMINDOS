@@ -20,12 +20,14 @@ from starlette.requests import ClientDisconnect
 
 from ..auth import Principal
 from ..context import Gateway
+from ..guard import reads_body
 from ..files import errors as ferrors
 from ..files.errors import FilesError
 from ..files.preview import INLINE_SAFE, guess_mime
 from ..files.service import FilesService
 from ..files.store import aware
 from ..files.uploads import TUS_EXTENSIONS, TUS_VERSION, Uploads, parse_metadata, parse_repr_digest
+from ..files.watch import IndexWatcher
 
 TAG = ["files"]
 STREAM_CHUNK = 256 * 1024
@@ -272,6 +274,11 @@ def register(app: FastAPI, gw: Gateway) -> None:
             svc.gw.audit.append("files.housekeeping.skipped", None, None, {"reason": exc.reason or exc.error})
 
     gw.on_startup(housekeeping)
+    # The sync index scanner and inotify watcher (files/watch.py): SMB and WebDAV writes reach the index.
+    watcher = IndexWatcher(svc)
+    gw.on_startup(watcher.start)
+    gw.on_shutdown(watcher.stop)
+    app.state.files_index_watcher = watcher
 
     # -- browse --
     @app.get("/v1/files/roots", operation_id="files.roots.list", tags=TAG, responses=errs(401, 503))
@@ -455,6 +462,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
 
     @app.patch("/v1/files/uploads/{upload_id}", operation_id="files.uploads.patch", tags=TAG, status_code=204,
                responses=errs(401, 404, 409, 412, 413, 415, 460, 503))
+    @reads_body
     async def tus_patch(request: Request, upload_id: str, tus_resumable: TusResumable,
                         upload_offset: Annotated[int, Header(ge=0)],
                         content_type: Annotated[str, Header(pattern=r"(?i)^application/offset\+octet-stream(?:\s*;.*)?$")],

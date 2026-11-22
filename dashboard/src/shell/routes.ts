@@ -12,6 +12,7 @@ export const href = {
   sources: '/sources',
   compose: '/compose',
   manage: (id: string) => `/installed/${encodeURIComponent(id)}`,
+  browser: (id: string) => `/browser/${encodeURIComponent(id)}`,
   approvals: '/approvals',
   approval: (id: string) => `/approvals?highlight=${encodeURIComponent(id)}`,
   activity: '/activity',

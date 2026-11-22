@@ -30,6 +30,7 @@ from ..ledger import iso, utc
 from . import paths
 from .access import NONE, READ, READ_WRITE, Access, Root, has_home, is_person, parse_root, person_access
 from .errors import FilesError, conflict, denied, not_found
+from .index import FileIndex
 from .preview import describe, guess_mime
 from .settings import FilesSettings
 from .store import FilesRepository, GrantRow, RequestRow, TrashRow, aware, new_id
@@ -83,6 +84,7 @@ class FilesService:
         self.repo = repo or FilesRepository(gw.db)
         self.clock: Callable[[], datetime] = gw.clock
         self._lock = threading.RLock()
+        self.index = FileIndex(self.repo.db, self.clock)
 
     # ---- events and audit ---------------------------------------------------------------
     def event(self, name: str, p: Principal | None, payload: dict, *, severity: str = "info",
@@ -104,6 +106,28 @@ class FilesService:
             if size is not None:
                 payload["size"] = size
             self.event("read", p, payload)
+
+    def reindex(self, root: Root, parts: tuple[str, ...], **kw) -> None:
+        """Tell the sync index what a write touched. The write already happened on disk, so an
+        index failure is logged, not raised: the scanner (watch.py) repairs the index later."""
+        try:
+            with self._space(root) as space:
+                self.index.reconcile(space, root.id, parts, **kw)
+        except Exception:
+            log.exception("files index: could not record a change in %s", root.id)
+
+    def readable_roots(self, p: Principal) -> list[str]:
+        """Roots this principal may read as a whole: what the change feed and its wake-up cover."""
+        if is_person(p):
+            mine = ([Root("home", p.id)] if has_home(p) else []) + [Root("shared", None)]
+            return [r.id for r in mine if person_access(p, r).read]
+        return sorted({g.root for g in self.grants_for(p) if not paths.split_path(g.path)})
+
+    def sync_changes(self, p: Principal, root: str | None, cursor: str | None, limit: int) -> dict:
+        t = self.target(p, root, "/", "read")
+        out = self.index.changes(p, t.root.id, cursor, limit)
+        self._audit_read(p, "sync.changes", t)
+        return out
 
     # ---- the directory layout -----------------------------------------------------------
     @contextmanager
@@ -275,6 +299,7 @@ class FilesService:
 
     def list(self, p: Principal, root: str | None, path: str | None) -> list[dict]:
         t = self.target(p, root, path, "read")
+        self.reindex(t.root, t.parts, depth=1, hash_max=0)  # a folder of new photos must not be hashed on a list
         entries = []
         unnamed = 0
         with self._space(t.root) as space, paths.dir_at(space, t.parts) as d:
@@ -291,11 +316,18 @@ class FilesService:
         if unnamed:
             log.warning("files list %s: left out %d name(s) that are not valid UTF-8", t.root.id, unnamed)
         entries.sort(key=lambda e: (e["type"] != "dir", e["name"].casefold(), e["name"]))
+        rows = self.index.rows(t.root.id, [e["path"] for e in entries])
+        for e in entries:
+            row = rows.get(e["path"])
+            e.update({"id": row.file_id if row else None, "revision": row.revision if row else None,
+                      "hash": row.hash if row else None})
         self._audit_read(p, "list", t)
         return entries
 
     def stat(self, p: Principal, root: str | None, path: str | None) -> dict:
         t = self.target(p, root, path, "read")
+        if t.parts:
+            self.reindex(t.root, t.parts, depth=0)
         with self._space(t.root) as space:
             if not t.parts:
                 st = os.fstat(space)
@@ -304,6 +336,10 @@ class FilesService:
                 with paths.dir_at(space, t.parts[:-1]) as d:
                     out = self._entry(t.parts[-1], t.parts[:-1], paths.lstat_at(d, t.parts[-1]))
         out.update({"root": t.root.id, "access": t.access.label, "versions_available": False})
+        # The space itself has no row: its revision is the root's, which moves on every change inside.
+        row = self.index.rows(t.root.id, [out["path"]]).get(out["path"]) if t.parts else None
+        out.update({"id": row.file_id if row else None, "hash": row.hash if row else None,
+                    "revision": row.revision if row else (None if t.parts else self.index.revision(t.root.id))})
         self._audit_read(p, "stat", t)
         return out
 
@@ -342,6 +378,7 @@ class FilesService:
             except OSError as exc:
                 raise paths.os_error(exc) from None
             entry = self._entry(t.parts[-1], t.parts[:-1], paths.lstat_at(d, t.parts[-1]))
+        self.reindex(t.root, t.parts, depth=0)
         self.event("folder.created", p, {"root": t.root.id, "path": t.path})
         return entry
 
@@ -365,6 +402,11 @@ class FilesService:
                 except OSError as exc:
                     raise paths.os_error(exc) from None
                 entry = self._entry(dst.parts[-1], dst.parts[:-1], paths.lstat_at(dd, dst.parts[-1]))
+        if src.root.id == dst.root.id:  # ids follow the entry and everything inside it
+            self.reindex(dst.root, dst.parts, also=src.parts)
+        else:  # another space has its own ids and revisions: gone here, new there
+            self.reindex(src.root, src.parts)
+            self.reindex(dst.root, dst.parts)
         kind = paths.kind_of(st)
         self.event("moved" if op == "move" else "renamed", p, {
             "root": src.root.id, "path": src.path, "to_root": dst.root.id, "to_path": dst.path, "type": kind,
@@ -397,7 +439,9 @@ class FilesService:
             "purge_at": iso(trashed + timedelta(days=self.settings.trash_retention_days)),
         }
 
-    def trash(self, p: Principal, root: str | None, path: str | None) -> dict:
+    def trash(self, p: Principal, root: str | None, path: str | None, *, index: bool = True) -> dict:
+        """index=False: the caller puts a new file at the same path and records it (an upload that
+        replaces a file), so the path keeps its id instead of becoming a deletion."""
         t = self.target(p, root, path, "entry")
         if not t.parts:
             raise conflict("a space itself cannot be moved to the trash", "space_root")
@@ -419,6 +463,8 @@ class FilesService:
             except Exception:  # keep disk and ledger in step: put it back
                 os.rename(trash_id, t.parts[-1], src_dir_fd=tr, dst_dir_fd=d)
                 raise
+        if index:
+            self.reindex(t.root, t.parts)
         self.event("trashed", p, {"root": t.root.id, "path": t.path, "trash_id": trash_id, "size": size})
         return self._trash_json(row)
 
@@ -450,6 +496,7 @@ class FilesService:
                     os.rename(dst.parts[-1], row.id, src_dir_fd=d, dst_dir_fd=tr)
                     raise conflict("the item was restored or purged concurrently")
                 entry = self._entry(dst.parts[-1], dst.parts[:-1], paths.lstat_at(d, dst.parts[-1]))
+        self.reindex(dst.root, dst.parts)
         self.event("restored", p, {"trash_id": row.id, "root": dst.root.id, "path": dst.path})
         return entry | {"root": dst.root.id}
 

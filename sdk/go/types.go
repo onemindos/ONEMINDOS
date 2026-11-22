@@ -13,6 +13,7 @@ type (
 	AboutNode    = gen.AboutNode
 	Node         = gen.Node
 	CatalogApp   = gen.CatalogApp
+	SystemApp    = gen.SystemAppRow
 	Action       = gen.Action
 	PrincipalRef = gen.PrincipalRef
 	AuditRecord  = gen.AuditRecord
@@ -21,12 +22,17 @@ type (
 	StatusView   = gen.StatusView
 	SourceStatus = gen.SourceStatus
 	Usage        = gen.Usage
+	ServicesView = gen.ServicesView
+	ServiceCard  = gen.ServiceCard
 )
 
 // Action types the gateway accepts today (contract §3; §12.5 adds more).
 const (
 	ActionAppInstall = "app.install"
 	ActionAppRemove  = "app.remove"
+	// Built-in apps are switched off and on, never removed (appstore/system.py).
+	ActionAppDisable = "app.disable"
+	ActionAppEnable  = "app.enable"
 )
 
 // Terminal reports whether an action state is final.

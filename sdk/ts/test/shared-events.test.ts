@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { OneMind, type OneMindEvent } from "../src/index.js";
+import { OneMind, PROTOCOL_VERSION, type OneMindEvent } from "../src/index.js";
 
 // Web Locks are not present in Node 22. Queue callbacks per name as the browser does.
 const locks = new Map<string, Promise<unknown>>();
@@ -201,5 +201,20 @@ it("bounds a stalled subscriber's backlog while another tab continues receiving 
   } finally {
     stop.abort();
     await fast;
+  }
+});
+
+it("sends the protocol version on the shared feed's leader connection", async () => {
+  const hub = gateway();
+  const ctrl = new AbortController();
+  const om = new OneMind({ baseUrl, token: "session-with-protocol", fetch: hub.fetch });
+  const done = om.events.subscribeShared({ signal: ctrl.signal }, vi.fn());
+  try {
+    await vi.waitFor(() => expect(hub.connected).toBe(1));
+    expect(hub.streams[0]!.headers.get("X-OneMind-Protocol")).toBe(String(PROTOCOL_VERSION));
+    expect(hub.streams[0]!.headers.get("Authorization")).toBe("Bearer session-with-protocol");
+  } finally {
+    ctrl.abort();
+    await done;
   }
 });
