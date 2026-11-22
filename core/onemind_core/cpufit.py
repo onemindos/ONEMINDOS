@@ -17,8 +17,6 @@ Pure functions over the manifest and the node registry's dicts.
 
 from __future__ import annotations
 
-from . import gpufit
-
 X86_LEVELS = ("x86-64-v1", "x86-64-v2", "x86-64-v3", "x86-64-v4")
 ARCH_NAMES = {"amd64": "x86 (amd64)", "arm64": "ARM (arm64)"}
 
@@ -53,4 +51,4 @@ def refusal(manifest: dict, node: dict | None) -> tuple[str, str, list[dict]] | 
                     f"{name} needs a newer processor: its images need {need}, and this box's CPU is {have}. "
                     "It would crash on this box, so it is not installed.",
                     [{"field": "spec.requires.cpuLevel.amd64", "problem": f"needs {need}; box is {have}"}])
-    return gpufit.refusal(manifest, node)  # S-5: a required GPU the box lacks (core/onemind_core/gpufit.py)
+    return None
