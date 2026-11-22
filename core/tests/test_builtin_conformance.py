@@ -9,6 +9,7 @@ notify catalogue. A switched-off built-in is refused by one gate and leaves ever
 
 from __future__ import annotations
 
+import asyncio
 import copy
 import json
 from dataclasses import replace
@@ -24,6 +25,7 @@ from starlette.websockets import WebSocket
 from conftest import AGENT, OWNER, make_client
 from onemind_core import builtins, systemlist
 from onemind_core.actions import APP_CLAIMS
+from onemind_core.errors import ApiError
 from onemind_core.mcp import Catalogue, Limits, McpEndpoint, McpSettings, Services
 from onemind_core.notify.catalogue import lookup
 from test_appstore import request, run
@@ -281,7 +283,8 @@ def test_no_descriptor_block_reuses_an_app_spec_name_with_another_shape():
         for name in sorted(shared & set(spec)):
             errs = [e.message for e in app_block_validator(name).iter_errors(spec[name])]
             assert errs == [], (app_id, name, errs)
-    strip = lambda d: {k: v for k, v in d.items() if k != "description"}  # noqa: E731
+    def strip(d: dict) -> dict:
+        return {k: v for k, v in d.items() if k != "description"}
     assert strip(BUILTIN_SCHEMA["$defs"]["backupUnit"]) == strip(APP_SCHEMA["$defs"]["backupUnit"])
 
 
@@ -341,9 +344,9 @@ def test_public_and_websocket_routes_under_an_owned_prefix_are_shut_when_off(c, 
     r = c.get("/v1/photos/public-probe", headers=OWNER)
     assert r.status_code == 409 and r.json()["reason"] == "app_disabled"
     for headers, status in ((OWNER, 409), ({}, 401), (BOGUS[0], 401)):
-        with pytest.raises(WebSocketDenialResponse) as denied:
-            with c.websocket_connect("/v1/photos/live-probe", headers=headers):
-                pass
+        with pytest.raises(WebSocketDenialResponse) as denied, \
+                c.websocket_connect("/v1/photos/live-probe", headers=headers):
+            pass
         assert denied.value.status_code == status, headers
 
     assert run(c, clock, "app.enable", {"app_id": "photos"}).json()["state"] == "succeeded"
@@ -351,8 +354,6 @@ def test_public_and_websocket_routes_under_an_owned_prefix_are_shut_when_off(c, 
 
 
 def test_a_websocket_without_the_denial_extension_is_closed(c):
-    import asyncio
-
     registry = builtins.Builtins(c.app.state.builtins.descriptors, lambda: frozenset({"photos"}))
 
     async def never(scope, receive, send):
@@ -372,7 +373,6 @@ def test_a_websocket_without_the_denial_extension_is_closed(c):
         return sent
 
     def refuse(_request):
-        from onemind_core.errors import ApiError
         raise ApiError(401, "unauthenticated", "missing bearer token")
 
     assert go(lambda _request: object()) == [{"type": "websocket.close", "code": 4409, "reason": "app_disabled"}]
