@@ -40,6 +40,7 @@ register_route_scope("POST", r"/v1/machines/disable", ("machines:admin",))
 # Part 3: the machines the owner has, and the console ticket (owner-only, like enabling).
 register_route_scope("GET,HEAD", r"/v1/machines", ("nodes:read",))
 register_route_scope("GET,HEAD", r"/v1/machines/[a-z][a-z0-9-]*", ("nodes:read",))
+register_route_scope("GET,HEAD", r"/v1/machines/[a-z][a-z0-9-]*/snapshots", ("nodes:read",))
 register_route_scope("POST", r"/v1/machines/[a-z][a-z0-9-]*/console", ("machines:admin",))
 
 
@@ -119,6 +120,13 @@ def register(app: FastAPI, gw: Gateway) -> None:
         if row is None:
             raise ApiError(404, "not_found", f"There is no machine named {name}.")
         return row
+
+    @app.get("/v1/machines/{name}/snapshots", tags=["machines"], operation_id="machines.snapshots", responses=error_responses(401, 404))
+    def machines_snapshots(name: str, _: Principal = Depends(principal)):
+        """The snapshots of one machine, with how consistent each copy is (a running machine's copy may be best effort)."""
+        if svc.repo.get(name) is None:
+            raise ApiError(404, "not_found", f"There is no machine named {name}.")
+        return svc.repo.snapshots(name)
 
     @app.post("/v1/machines/{name}/console", tags=["machines"], operation_id="machines.console", responses=error_responses(401, 403, 404, 409))
     def machines_console(name: str, p: Principal = Depends(principal)):

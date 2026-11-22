@@ -18,11 +18,12 @@ const caps = (eligible: boolean, ext = 'ready') => ({
   nodes: [{ node_id: 'hub-1', eligible, reasons: eligible ? [] : [{ code: 'no_kvm', message: 'This node has no KVM.' }] }],
 });
 
-function setup(opts: { eligible?: boolean; machines?: unknown[]; failFirst?: boolean; ext?: string } = {}) {
+function setup(opts: { eligible?: boolean; machines?: unknown[]; failFirst?: boolean; ext?: string; snapshots?: unknown[] } = {}) {
   const writes: Array<Record<string, unknown> & { idempotency_key: string; expires_at: string }> = [];
   const fetchFn = vi.fn(async (path: string, init?: RequestInit) => {
     const p = new URL(path, window.location.origin).pathname;
     if (p === '/v1/machines') return Response.json(opts.machines ?? []);
+    if (/^\/v1\/machines\/[a-z-]+\/snapshots$/.test(p)) return Response.json(opts.snapshots ?? []);
     if (p === '/v1/machines/capabilities') return Response.json(caps(opts.eligible ?? true, opts.ext));
     if (p === '/v1/actions' && init?.method === 'POST') {
       const body = JSON.parse(init.body as string);
@@ -34,7 +35,7 @@ function setup(opts: { eligible?: boolean; machines?: unknown[]; failFirst?: boo
   });
   const http = new HttpApi({ token: 'test-only', fetchFn });
   const api = Object.assign(new MockApi('owner-demo'), {
-    machines: http.machines.bind(http), machineCapabilities: http.machineCapabilities.bind(http), createAction: http.createAction.bind(http),
+    machines: http.machines.bind(http), machineSnapshots: http.machineSnapshots.bind(http), machineCapabilities: http.machineCapabilities.bind(http), createAction: http.createAction.bind(http),
   });
   window.sessionStorage.setItem('onemind.token', 'owner-demo');
   render(<MemoryRouter initialEntries={['/machines']}><SessionProvider deps={{ mock: false, makeApi: () => api, knownPrincipal: () => ({ id: 'test-owner', kind: 'person', role: 'owner' }) }}><App mock={false} /></SessionProvider></MemoryRouter>);
@@ -124,5 +125,50 @@ describe('Machines screen', () => {
   it('keeps Turn on off when this gateway has no machines layer', async () => {
     setup({ ext: 'unavailable' });
     expect(await screen.findByRole('button', { name: 'Turn on' })).toBeDisabled();
+  });
+
+  it('files restart and force off for a running machine as requests, with no extra parameters', async () => {
+    const { writes, user } = setup({ machines: [row('web', 'running')] });
+    await user.click(await screen.findByRole('button', { name: 'Request restart of web' }));
+    await waitFor(() => expect(writes).toHaveLength(1));
+    expect(writes[0]).toMatchObject({ type: 'machine.restart', params: { name: 'web' } });
+    expect(await screen.findByText(/restart: awaiting approval/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Request force off of web' })).toBeDisabled(); // one request waits per machine
+  });
+
+  it('files a snapshot with its name, and a copy of a stopped machine with a new name', async () => {
+    const { writes, user } = setup({ machines: [row('db', 'stopped')] });
+    expect(screen.queryByRole('button', { name: 'Request restart of db' })).not.toBeInTheDocument();
+    await user.click(await screen.findByRole('button', { name: 'Request snapshot of db' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.type(within(dialog).getByLabelText('Snapshot name'), 'before-update');
+    await user.click(within(dialog).getByRole('button', { name: 'Send request' }));
+    await waitFor(() => expect(writes).toHaveLength(1));
+    expect(writes[0]).toMatchObject({ type: 'machine.snapshot', params: { name: 'db', snapshot: 'before-update' } });
+  });
+
+  it('files a copy and refuses a name that is already taken', async () => {
+    const { writes, user } = setup({ machines: [row('db', 'stopped'), row('web', 'running')] });
+    expect(screen.queryByRole('button', { name: 'Request copy of web' })).not.toBeInTheDocument(); // stop it first
+    await user.click(await screen.findByRole('button', { name: 'Request copy of db' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.type(within(dialog).getByLabelText('Name of the copy'), 'web');
+    expect(within(dialog).getByRole('alert')).toHaveTextContent('already exists');
+    expect(within(dialog).getByRole('button', { name: 'Send request' })).toBeDisabled();
+    await user.clear(within(dialog).getByLabelText('Name of the copy'));
+    await user.type(within(dialog).getByLabelText('Name of the copy'), 'db-copy');
+    await user.click(within(dialog).getByRole('button', { name: 'Send request' }));
+    await waitFor(() => expect(writes).toHaveLength(1));
+    expect(writes[0]).toMatchObject({ type: 'machine.clone', params: { source: 'db', name: 'db-copy' } });
+  });
+
+  it('lists snapshots and says plainly when a copy is best effort', async () => {
+    const snap = (name: string, consistency: string, note: string) => ({ machine: 'web', name, consistency, note, created_at: '2026-11-21T00:00:00Z' });
+    const { user } = setup({ machines: [row('web', 'running')], snapshots: [snap('good', 'quiesced', 'Paused first.'), snap('risky', 'quiesce_failed', 'QuiesceFailed copy.')] });
+    await user.click(await screen.findByRole('button', { name: 'Snapshots of web' }));
+    const list = await screen.findByRole('list', { name: 'Snapshots' });
+    expect(within(list).getByText('Consistent')).toBeInTheDocument();
+    expect(within(list).getByText('Best effort')).toBeInTheDocument();
+    expect(within(list).getByText('QuiesceFailed copy.')).toBeInTheDocument();
   });
 });

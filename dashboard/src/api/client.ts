@@ -19,6 +19,7 @@ import {
   type Instance,
   type MachineCapabilities,
   type MachineRecord,
+  type MachineSnapshot,
   type NodeRecord,
 } from './types';
 
@@ -61,6 +62,7 @@ export interface OneMindApi extends WiringApi {
   createJoinTicket?(role: 'worker' | 'leaf'): Promise<JoinTicket>;
   /** Where the open box CA certificate is served (GET /v1/tls/ca.crt); a plain link, no token needed. */
   caCertUrl?(format: 'der' | 'pem'): string;
+  machineSnapshots?(name: string): Promise<MachineSnapshot[]>;
   appPlan?(id: string): Promise<PlanPreview>;
   previewAction?(type: ActionType, params: AppParams): Promise<PlanPreview>;
   appSettings?(id: string): Promise<AppSettings>;
@@ -319,6 +321,7 @@ export class HttpApi implements OneMindApi {
   revokePluginSigningKey(keyId: string, body: PluginKeyRevokeInput) { return this.sdkCall<components["schemas"]["Action"]>('POST', `/v1/plugin-trust/keys/${encodeURIComponent(keyId)}/revoke`, body); }
   machines() { return this.req<MachineRecord[]>('GET', '/v1/machines', undefined, 'array'); }
   machineCapabilities() { return this.req<MachineCapabilities>('GET', '/v1/machines/capabilities'); }
+  machineSnapshots(name: string) { return this.req<MachineSnapshot[]>('GET', `/v1/machines/${encodeURIComponent(name)}/snapshots`, undefined, 'array'); }
   appPlan(id: string) { return this.sdkCall<PlanPreview>('GET', `/v1/apps/${encodeURIComponent(id)}/plan`); }
   previewAction(type: ActionType, params: AppParams) { return this.sdkCall<PlanPreview>('POST', '/v1/plans', { type, params }); }
   async appSettings(id: string) {

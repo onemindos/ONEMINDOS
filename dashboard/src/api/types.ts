@@ -179,6 +179,9 @@ export interface MachineParams {
   image_url?: string;
   /** Delete only: the machine's name typed again by the owner. */
   confirm?: string;
+  /** Snapshot only: the snapshot's name. Clone only: `source` is the machine to copy and `name` the new one. */
+  snapshot?: string;
+  source?: string;
   app_id?: undefined;
   settings?: undefined;
 }
@@ -193,6 +196,14 @@ export interface MachineRecord {
   state: MachineState | string;
   created_at: string;
   updated_at: string;
+}
+/** GET /v1/machines/{name}/snapshots rows. `consistency` says how safe the copy is; `note` says it in words. */
+export interface MachineSnapshot {
+  machine: string;
+  name: string;
+  consistency: 'offline' | 'quiesced' | 'best_effort' | 'quiesce_failed' | string;
+  note: string;
+  created_at: string;
 }
 /** GET /v1/machines/capabilities, the parts the screen shows. */
 export interface MachineCapabilities {
