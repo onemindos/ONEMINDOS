@@ -226,6 +226,7 @@ RUN set -eu; \
     systemctl enable onemind-firstboot.service onemind-firewall.service avahi-daemon.service >/dev/null; \
     systemctl mask smbd.service nmbd.service winbind.service samba-ad-dc.service >/dev/null; \
     systemctl enable onemind-smb.service >/dev/null; \
+    systemctl disable rpcbind.service rpcbind.socket nfs-client.target nfs-blkmap.service >/dev/null 2>&1; \
     for db in passwd group shadow; do \
       grep -Eq "^$db:.*extrausers" /etc/nsswitch.conf || sed -i -E "s/^($db:.*)$/\\1 extrausers/" /etc/nsswitch.conf; \
     done; \
@@ -248,7 +249,7 @@ RUN set -eu; \
     update-initramfs -u -k "$kver"; \
     mkdir -p /data /boot/efi /etc/rancher/node /var/lib/rancher /var/lib/kubelet /var/lib/cni \
       /var/lib/tailscale /var/lib/onemind-headscale /var/lib/onemind-nats-leaf /var/lib/onemind-nats; \
-    dpkg-query -W -f='${Package} ${Version} ${Architecture}\n' | sort > /usr/lib/onemind/packages.txt; \
+    dpkg-query -W -f='${Package} ${Version} ${Architecture} ${Installed-Size}\n' | sort > /usr/lib/onemind/packages.txt; \
     printf 'leg=%s board=%s arch=%s kernel=%s firmware=%s\n' "${LEG}" "${BOARD}" "${TARGETARCH}" "$kver" "${FIRMWARE}" > /usr/lib/onemind/build-info.txt; \
     rm -rf /tmp/onemind /var/cache/apt/*.bin /var/log/apt /var/log/dpkg.log; \
     cat /usr/lib/onemind/build-info.txt
