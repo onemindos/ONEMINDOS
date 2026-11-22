@@ -35,6 +35,9 @@ class ApproveBody(BaseModel):
     sealed: SealedInput | None = None
     override: OverrideInput | None = None
     webauthn: dict | None = None
+    # #723 hold-to-approve: how long the approve control was held, in ms (a physical action needs
+    # at least actions.HOLD_MIN_MS, with a passkey assertion and plan_sha256).
+    hold_ms: int | None = Field(default=None, ge=0, le=600000)
 
 
 # Route order in the app and in /openapi.json (routers/__init__.py).
@@ -116,6 +119,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
             sealed=body.sealed.model_dump(exclude_none=True) if body and body.sealed else None,
             override=body.override.model_dump() if body and body.override else None,
             webauthn=bool(body and body.webauthn),
+            hold_ms=body.hold_ms if body else None,
         )
         return actions.approve(p, action_id, body.plan_sha256 if body else None, strict, extra)
 

@@ -75,6 +75,7 @@ POLICY: dict[tuple[str, str], Row] = {
     # ---- open (§3: only /healthz and /openapi.json; the dashboard shell is static) ------------------
     ("GET", "/healthz"): Row(OPEN, w.p_static("/healthz"), "§3 open health check"),
     ("GET", "/v1/instance/name"): Row(OPEN, w.p_static("/v1/instance/name"), "the box name alone, so the sign-in page can show it"),
+    ("GET", "/v1/protocol"): Row(OPEN, w.p_static("/v1/protocol"), "protocol generations served (#697), so an app too old to sign in can say Update needed"),
     ("GET", "/openapi.json"): Row(OPEN, w.p_static("/openapi.json"), "§3 OpenAPI is published"),
     ("HEAD", "/openapi.json"): Row(OPEN, w.p_static("/openapi.json"), "§3 OpenAPI is published"),
     ("GET", "/{full_path:path}"): Row(OPEN, w.p_static("/"), "§3 static dashboard with SPA fallback"),
@@ -246,6 +247,8 @@ POLICY |= {
     ("GET", "/v1/nodes/{node_id}/metrics"): Row(CHILD_CANNOT, w.p_node_metrics, "§12.15; a child has no monitoring:read"),
     ("GET", "/v1/metrics"): Row(CHILD_CANNOT, w.p_static("/v1/metrics"),
                                 "Prometheus text of node, app and alert numbers; a child has no monitoring:read"),
+    ("GET", "/v1/series"): Row(CHILD_CANNOT, w.p_static("/v1/series?node_id=node1&metric=cpu_pct"),
+                               "Node metric history, with the same monitoring:read scope as live metrics"),
     ("GET", "/v1/monitoring/summary"): Row(CHILD_CANNOT, w.p_static("/v1/monitoring/summary"),
                                            "§12.15; a child has no monitoring:read"),
     # UMB-P11 (#429): the heartbeat numbers /v1/nodes shows plus per-app usage; sharing filters the apps.
@@ -443,6 +446,8 @@ POLICY |= {
                                    f"{_FILES}: people browse; an agent needs a grant (none here)"),
     ("GET", "/v1/files/stat"): Row(grid(200, 200, 200, 403, 403), w.p_static("/v1/files/stat?root=shared&path=/"),
                                    f"{_FILES}: people browse; an agent needs a grant"),
+    ("GET", "/v1/sync/changes"): Row(grid(200, 200, 200, 403, 403), w.p_static("/v1/sync/changes?root=shared"),
+                                     f"{_FILES}: the change feed (#698) follows read access to the whole root"),
     ("GET", "/v1/files/preview"): Row(grid(404, 404, 404, 403, 403), w.p_static("/v1/files/preview?root=shared&path=/a"),
                                       f"{_FILES}: people browse; an agent needs a grant"),
     ("GET", "/v1/files/download"): Row(grid(404, 404, 404, 403, 403), w.p_static("/v1/files/download?root=shared&path=/a"),
@@ -608,6 +613,9 @@ POLICY |= {
     ("POST", "/v1/machines/{name}/console"): Row(cells(403, **GONE, owner=404, plugin=DENIED, automation=DENIED, node=DENIED),
                                                  w.p_static("/v1/machines/ghost/console"),
                                                  f"{_MACH}: only the owner gets a console ticket; an agent never gets a screen"),
+    ("POST", "/v1/machines/{name}/upload"): Row(cells(403, **GONE, owner=404, plugin=DENIED, automation=DENIED, node=DENIED),
+                                                w.p_static("/v1/machines/ghost/upload"),
+                                                f"{_MACH}: only the owner can transfer media to an approved machine"),
 }
 
 # ---- system controls (UMB-P09, #146: core/onemind_core/routers/system.py) -----------------------------------
@@ -671,6 +679,14 @@ POLICY |= {
     # About this box (UMB-P14, #432: core/onemind_core/routers/about.py)
     ("GET", "/v1/os/about"): Row(CHILD_CANNOT, w.p_static("/v1/os/about"),
                                  "core/onemind_core/routers/about.py: device facts the nodes report, as /v1/nodes shows; a child has no nodes:read"),
+}
+
+# ---- service cards (#623: core/onemind_core/routers/services.py) ------------------------------------------------
+POLICY |= {
+    # Owner only, read only (scope system:admin, like /v1/system/controls). In this world there is no host
+    # socket, so the owner gets 200 with available=false; everyone else is refused first.
+    ("GET", "/v1/system/services"): Row(OWNER_ONLY, w.p_static("/v1/system/services"),
+                                        "core/onemind_core/routers/services.py: every systemd unit on the box and its state; owner only"),
 }
 
 # ---- Network screen (NET-UI-01, #239: core/onemind_core/routers/network.py) ---------------------------------
@@ -738,3 +754,26 @@ POLICY.update({
             "idempotency_key": x.key(), "expires_at": x.action_body()["expires_at"]}),
         "#180 owner approval required to revoke enrolled signing trust"),
 })
+
+# ---- browser windows, one profile per person (#692: core/onemind_core/routers/browsers.py) ----------------
+# The probe names an app that is not a browser: a person learns only "no such browser app" (404). Only a
+# signed-in person may ask at all, so every agent, plugin, automation and node is refused (403, audited).
+_BROWSER = "core/onemind_core/routers/browsers.py"
+BROWSER_PERSON = cells(404, **GONE, agent=403, app_agent=403, plugin=403, automation=403, node=403)
+POLICY |= {
+    ("POST", "/v1/browsers/{app_id}/session"): Row(BROWSER_PERSON, w.p_static("/v1/browsers/whoami/session"),
+                                                   f"{_BROWSER}: a person opens their own browser; no token opens a person's"),
+    ("POST", "/v1/browsers/{app_id}/session/close"): Row(BROWSER_PERSON, w.p_static("/v1/browsers/whoami/session/close"),
+                                                         f"{_BROWSER}: a person stops their own browser"),
+    ("POST", "/v1/browsers/{app_id}/profile/reset"): Row(BROWSER_PERSON, w.p_static("/v1/browsers/whoami/profile/reset"),
+                                                         f"{_BROWSER}: files browser.profile.reset; only an owner's approval erases"),
+}
+
+# ---- the NATS subject tree (#600: core/onemind_core/routers/subjects.py) ------------------------------------
+_SUBJ = "core/onemind_core/routers/subjects.py"
+POLICY |= {
+    ("GET", "/v1/subjects"): Row(CHILD_CANNOT, w.p_static("/v1/subjects"),
+                                 f"{_SUBJ}: the public subject registry (§12.9), same events:read gate as /v1/events"),
+    ("GET", "/v1/subjects/check"): Row(CHILD_CANNOT, w.p_static("/v1/subjects/check?subject=onemind.audit"),
+                                       f"{_SUBJ}: read-only what-if check with a reason; never publishes"),
+}

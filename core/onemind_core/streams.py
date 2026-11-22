@@ -4,8 +4,10 @@
 An app that needs a durable, replayable event log (sensor readings, a job queue) declares a stream
 instead of running its own broker. The declaration is bounded on purpose, so no app can fill the box:
 
-- `subjects` are written relative to the app. The hub puts them under `onemind.app.<app_id>.`, so an
-  app can never name (or read) `onemind.node.*`, another app's subjects or the audit stream;
+- `subjects` are written relative to the app. The hub puts them under `onemind.plugin.<app_id>.` (the
+  plugin kind of the subject tree, sdk/schema/onemind.subjects.json; `onemind.app.` was this slice's
+  first prefix and is now a reserved, refused kind), so an app can never name (or read)
+  `onemind.node.*`, another app's subjects or the audit stream;
 - `maxBytes` and `maxAgeSeconds` are required: a stream with no limit is not accepted. When a limit
   is hit the oldest messages go (`discard: old`); a stream never blocks the producer;
 - storage is file, replicas 1 (one hub), and the total of all streams is capped by the hub's own
@@ -30,7 +32,7 @@ MAX_SUBJECTS = 8
 MIN_BYTES = 1 << 20                 # 1 MiB
 MAX_BYTES = 1 << 30                 # 1 GiB per stream
 MAX_AGE_S = 30 * 86400              # 30 days
-SUBJECT_ROOT = "onemind.app"
+SUBJECT_ROOT = "onemind.plugin"  # the plugin kind of the subject tree (issue #600)
 
 # Free space the store must keep: below this the hub reports JetStream as degraded and refuses to
 # plan a new stream. NATS itself stops accepting writes when the disk is full; this warns first.

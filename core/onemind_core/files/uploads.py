@@ -321,13 +321,14 @@ class Uploads:
                     if paths.kind_of(paths.lstat_at(d, row.name)) != "file":
                         self._discard(row, "failed", p, reason="exists")
                         raise conflict("only a file can be replaced by an upload", "exists")
-                    replaced = self.files.trash(p, row.root, paths.join(t.parts + (row.name,)))["id"]
+                    replaced = self.files.trash(p, row.root, paths.join(t.parts + (row.name,)), index=False)["id"]
                 with self.files._system("uploads") as up:
                     os.rename(self.part_name(row.id), row.name, src_dir_fd=up, dst_dir_fd=d)
                 os.fsync(d)
             finally:
                 os.close(d)
         self.repo.update_upload(row.id, self.clock(), from_states={"open"}, state="done", sha256=actual)
+        self.files.reindex(t.root, t.parts + (row.name,), depth=0, known_hash="sha256:" + actual)
         self.files.event("upload.completed", p, {
             "upload_id": row.id, "root": row.root, "path": paths.join(t.parts + (row.name,)),
             "size": row.length, "sha256": actual, **({"replaced_trash_id": replaced} if replaced else {}),

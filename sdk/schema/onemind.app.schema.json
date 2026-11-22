@@ -612,6 +612,21 @@
             }
           }
         },
+        "browser": {
+          "description": "#692: a browser shown in a desktop window, one profile per person. The app's Deployment that mounts profileVolume is a template only (no replica, its Service is never proxied); the gateway makes one claim, pod and ClusterIP Service per signed-in person and serves each person only their own on <app>--<key>. Needs spec.web.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "profileVolume"
+          ],
+          "properties": {
+            "profileVolume": {
+              "description": "Name of the pod volume (backed by a PersistentVolumeClaim in the template) that holds the browser profile.",
+              "type": "string",
+              "pattern": "^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$"
+            }
+          }
+        },
         "manifests": {
           "description": "Kustomization directory relative to apps/<id>/ (no leading slash, no '..').",
           "type": "string",
@@ -864,7 +879,7 @@
           }
         },
         "streams": {
-          "description": "Event streams the app keeps on the hub's JetStream (default none). Bounded: every stream needs a byte and an age limit, subjects are relative to the app (the hub puts them under onemind.app.<id>.), and the owner approves the exact limits in the install plan. Enforced in core/onemind_core/streams.py.",
+          "description": "Event streams the app keeps on the hub's JetStream (default none). Bounded: every stream needs a byte and an age limit, subjects are relative to the app (the hub puts them under onemind.plugin.<id>., the plugin kind of sdk/schema/onemind.subjects.json), and the owner approves the exact limits in the install plan. Enforced in core/onemind_core/streams.py.",
           "type": "array",
           "maxItems": 4,
           "items": {

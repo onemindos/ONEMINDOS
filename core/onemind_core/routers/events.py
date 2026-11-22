@@ -12,8 +12,9 @@ from ..auth import Principal
 from ..context import Gateway
 from ..errors import error_responses
 from ..eventstream import EventStream, StreamSlots
+from ..files.service import FilesService
 from ..identity import ctx_of
-from ..identity.scopes import has_any, register_route_scope
+from ..identity.scopes import ALL, has_any, register_route_scope
 from .audit import owned_action_ids
 
 # §12.9: events:read for household accounts and identity tokens (not a guest or child scope).
@@ -44,7 +45,13 @@ ORDER = 230
 
 def register(app: FastAPI, gw: Gateway) -> None:
     principal = gw.principal
-    stream = EventStream(gw.settings.audit_path, gw.registry.list, owned_action_ids(gw), gw.clock)
+    files = FilesService(gw)
+
+    def root_revisions(p: Principal) -> dict[str, int]:
+        return files.index.revisions(files.readable_roots(p))
+
+    stream = EventStream(gw.settings.audit_path, gw.registry.list, owned_action_ids(gw), gw.clock,
+                         root_revisions=root_revisions)
     slots = StreamSlots()
 
     @app.get(
@@ -94,6 +101,8 @@ def register(app: FastAPI, gw: Gateway) -> None:
             if t == "notification.created":
                 row = app.state.notify.repo.get_notification(subject.get("notification_id"))
                 return p.kind == "person" and row is not None and row.person_id == p.id
+            if t.startswith("sync."):  # like GET /v1/sync/changes: no narrower scope covers files yet
+                return ctx is None or has_any(ctx.scopes, (ALL,))
             if t.startswith("app.") or t == "action.progress":
                 app_id = subject.get("app_id")
                 return app_id in gw.catalog.load() and app_id not in gw.disabled_apps() and all(f(request, p, app_id) for f in gw.app_filters)

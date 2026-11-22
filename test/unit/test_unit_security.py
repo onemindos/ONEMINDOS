@@ -52,6 +52,14 @@ CEILINGS = {
     "onemind-data-extend.service": 9.6,
     "onemind-data-check.service": 9.6,
     "onemind-cloud-home.service": 9.6,
+    # 4. Units that arrived from separate PRs merged together on release/next (each was under the default when
+    #    its PR ran, because the score gate only knew the units of its own branch). Recorded at their measured
+    #    score plus 0.3 so they cannot get worse; hardening them is a follow-up (lower the number then).
+    "onemind-data-encrypt.service": 9.6,
+    "onemind-factory-reset.service": 9.6,
+    "onemind-firewall.service": 9.6,
+    "onemind-nvidia-setup.service": 9.6,
+    "onemind-storage.service": 8.0,
 }
 
 

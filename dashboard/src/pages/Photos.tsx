@@ -3,7 +3,7 @@
 // day, one photo large, and how safe each one is. Read only: GET /v1/photos/library and
 // GET /v1/photos/assets/{id}/content. There is no delete here yet (it waits for Trash, UMB-PHOTO-5).
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { OneMind, OneMindError } from '@onemind/sdk';
+import { OneMind, OneMindError, PROTOCOL_HEADER, PROTOCOL_VERSION } from '@onemind/sdk';
 import { Button, Dialog, PageHeader } from '@onemind/ui';
 import { useSignedIn } from '../session';
 
@@ -40,7 +40,7 @@ function usePhotoUrl(token: string, id: string, enabled = true) {
     if (!enabled) return;
     let url: string | undefined;
     let live = true;
-    fetch(`/v1/photos/assets/${id}/content`, { headers: { Authorization: `Bearer ${token}` } })
+    fetch(`/v1/photos/assets/${id}/content`, { headers: { Authorization: `Bearer ${token}`, [PROTOCOL_HEADER]: String(PROTOCOL_VERSION) } })
       .then(async (r) => { if (!r.ok) throw new Error(String(r.status)); return r.blob(); })
       .then((b) => { if (live && b.type.startsWith('image/')) { url = URL.createObjectURL(b); setState({ url }); } else if (live) setState({ failed: true }); })
       .catch(() => { if (live) setState({ failed: true }); });

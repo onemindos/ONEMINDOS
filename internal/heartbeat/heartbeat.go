@@ -107,6 +107,9 @@ type Status struct {
 	// Metrics are the node's live load figures (contract 12.10 "metrics"),
 	// read at each heartbeat. Optional: omitted when none can be read.
 	Metrics *Metrics `json:"metrics,omitempty"`
+	// Capabilities is the hardware profile (NodeCapabilities, #618; capabilities.go). onemindd
+	// always sends it; it is a pointer so heartbeats from older agents stay valid without it.
+	Capabilities *Capabilities `json:"capabilities,omitempty"`
 }
 
 // Fabric is the heartbeat's fabric object (contract §12.10).

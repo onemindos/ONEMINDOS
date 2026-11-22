@@ -310,6 +310,17 @@
         "additionalProperties": true,
         "description": "One action of the ledger (contract §3). §12.4 adds optional fields; ignore what you do not know.",
         "properties": {
+          "approval": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ApprovalCard"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "#723: the approval card; set on every action (hold for destructive or physical)"
+          },
           "approved_by": {
             "anyOf": [
               {
@@ -927,6 +938,56 @@
         "title": "Appearance",
         "type": "object"
       },
+      "ApprovalCard": {
+        "description": "The approval card of every action (#723). The host draws it, never an app.\n\nhold is true for an action that cannot be undone (risk destructive) or that moves something\nphysical; physical says which. A physical card also carries limits and a preview and is part of\nplan_sha256.",
+        "properties": {
+          "hold": {
+            "description": "approve with hold-to-approve (physical, or cannot be undone)",
+            "title": "Hold",
+            "type": "boolean"
+          },
+          "hold_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "how long to hold, in ms; send at least this as hold_ms",
+            "title": "Hold Ms"
+          },
+          "limits": {
+            "items": {
+              "$ref": "#/components/schemas/ApprovalLimit"
+            },
+            "title": "Limits",
+            "type": "array"
+          },
+          "physical": {
+            "description": "moves or switches something physical: passkey, hold, never standing or automated",
+            "title": "Physical",
+            "type": "boolean"
+          },
+          "preview": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ApprovalPreview"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "physical",
+          "hold"
+        ],
+        "title": "ApprovalCard",
+        "type": "object"
+      },
       "ApprovalChallenge": {
         "properties": {
           "action_sha256": {
@@ -966,6 +1027,87 @@
           "publicKey"
         ],
         "title": "ApprovalChallenge",
+        "type": "object"
+      },
+      "ApprovalLimit": {
+        "description": "One limit shown on an approval card, with its unit (#723). The gateway and the device check it again.",
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "name",
+          "value"
+        ],
+        "title": "ApprovalLimit",
+        "type": "object"
+      },
+      "ApprovalPreview": {
+        "description": "The approval card's preview slot (#723): what the action will do, drawn by the host.",
+        "properties": {
+          "kind": {
+            "description": "what the preview is, e.g. image or path",
+            "title": "Kind",
+            "type": "string",
+            "x-onemind-open-enum": true
+          },
+          "ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ref"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "ApprovalPreview",
         "type": "object"
       },
       "AuditHead": {
@@ -1112,6 +1254,59 @@
           "last_checkpoint"
         ],
         "title": "AuditVerify",
+        "type": "object"
+      },
+      "BrowserSession": {
+        "properties": {
+          "app_id": {
+            "title": "App Id",
+            "type": "string"
+          },
+          "password": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The person's own browser sign-in password (open only; their pod alone accepts it). Never another person's, never the app's shared login, never the admin password",
+            "title": "Password"
+          },
+          "person_key": {
+            "description": "One-way key of the signed-in person's profile; names their pod and host",
+            "title": "Person Key",
+            "type": "string"
+          },
+          "profile": {
+            "description": "Name of the person's profile volume claim",
+            "title": "Profile",
+            "type": "string"
+          },
+          "state": {
+            "description": "starting: the pod is being started; stopped: closed, the profile kept",
+            "enum": [
+              "starting",
+              "stopped"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "url": {
+            "description": "The person's browser host, served by the gateway proxy to this person only",
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "app_id",
+          "person_key",
+          "url",
+          "profile",
+          "state"
+        ],
+        "title": "BrowserSession",
         "type": "object"
       },
       "BudgetBody": {
@@ -1294,6 +1489,12 @@
             },
             "title": "Archs",
             "type": "array"
+          },
+          "browser": {
+            "default": false,
+            "description": "A browser app (#692): open it with POST /v1/browsers/{app_id}/session, which gives the person their own profile; its own app name is never served",
+            "title": "Browser",
+            "type": "boolean"
           },
           "build": {
             "anyOf": [
@@ -1504,6 +1705,32 @@
           "commit"
         ],
         "title": "CatalogSource",
+        "type": "object"
+      },
+      "CatalogueImage": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sha256",
+            "type": "string"
+          },
+          "url": {
+            "pattern": "^https://[^\\s]{1,500}$",
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "url",
+          "sha256"
+        ],
+        "title": "CatalogueImage",
         "type": "object"
       },
       "ChannelIn": {
@@ -2472,7 +2699,8 @@
               "rate_limited",
               "payload_too_large",
               "policy_refused",
-              "unavailable"
+              "unavailable",
+              "upgrade_required"
             ],
             "title": "Error",
             "type": "string"
@@ -3466,6 +3694,77 @@
         "title": "LoginBody",
         "type": "object"
       },
+      "MachineCapabilities": {
+        "properties": {
+          "eligible_node_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Eligible Node Ids",
+            "type": "array"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "extension": {
+            "additionalProperties": true,
+            "title": "Extension",
+            "type": "object"
+          },
+          "image_catalogue": {
+            "items": {
+              "$ref": "#/components/schemas/CatalogueImage"
+            },
+            "title": "Image Catalogue",
+            "type": "array"
+          },
+          "nodes": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Nodes",
+            "type": "array"
+          },
+          "requirements": {
+            "additionalProperties": true,
+            "title": "Requirements",
+            "type": "object"
+          }
+        },
+        "required": [
+          "enabled",
+          "extension",
+          "requirements",
+          "eligible_node_ids",
+          "nodes",
+          "image_catalogue"
+        ],
+        "title": "MachineCapabilities",
+        "type": "object"
+      },
+      "MachineUploadResult": {
+        "properties": {
+          "media": {
+            "items": {
+              "$ref": "#/components/schemas/UploadedMedia"
+            },
+            "title": "Media",
+            "type": "array"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "media"
+        ],
+        "title": "MachineUploadResult",
+        "type": "object"
+      },
       "MePatchBody": {
         "properties": {
           "display_name": {
@@ -3510,6 +3809,80 @@
           "path"
         ],
         "title": "MkdirOp",
+        "type": "object"
+      },
+      "MotionLockoutChange": {
+        "additionalProperties": false,
+        "properties": {
+          "locked": {
+            "title": "Locked",
+            "type": "boolean"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "locked"
+        ],
+        "title": "MotionLockoutChange",
+        "type": "object"
+      },
+      "MotionLockoutState": {
+        "description": "GET/PUT /v1/physical/lockout: whether physical actions are refused, and who set it.",
+        "properties": {
+          "changed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Changed At"
+          },
+          "changed_by": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Changed By"
+          },
+          "locked": {
+            "title": "Locked",
+            "type": "boolean"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "locked"
+        ],
+        "title": "MotionLockoutState",
         "type": "object"
       },
       "MoveOp": {
@@ -3812,6 +4185,17 @@
             "title": "Board",
             "x-onemind-open-enum": true
           },
+          "capabilities": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NodeCapabilities"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "hardware profile (#618); absent from older agents"
+          },
           "hostname": {
             "anyOf": [
               {
@@ -3889,6 +4273,341 @@
         "title": "Node",
         "type": "object"
       },
+      "NodeAccelerator": {
+        "additionalProperties": false,
+        "properties": {
+          "class": {
+            "description": "gpu | npu",
+            "maxLength": 16,
+            "title": "Class",
+            "type": "string",
+            "x-onemind-open-enum": true
+          },
+          "compute_capability": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]+\\.[0-9]+$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "NVIDIA major.minor",
+            "title": "Compute Capability"
+          },
+          "device": {
+            "anyOf": [
+              {
+                "pattern": "^/dev/(hailo[0-9]+|accel/accel[0-9]+)$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "full path of the device node an app is granted, e.g. /dev/hailo0",
+            "title": "Device"
+          },
+          "driver": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Driver"
+          },
+          "driver_version": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Driver Version"
+          },
+          "integrated": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Integrated"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "pci_id": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{4}:[0-9a-f]{4}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "PCI vendor:device id vvvv:dddd (which kind of card); null when not on PCI",
+            "title": "Pci Id"
+          },
+          "pci_slot": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{4,8}:[0-9a-f]{2}:[0-9a-f]{2}\\.[0-7]$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "PCI address dddd:bb:dd.f (which card; what a VFIO grant binds); null when not on PCI",
+            "title": "Pci Slot"
+          },
+          "vendor": {
+            "description": "nvidia | amd | intel | hailo",
+            "maxLength": 16,
+            "title": "Vendor",
+            "type": "string",
+            "x-onemind-open-enum": true
+          },
+          "vram_mb": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vram Mb"
+          }
+        },
+        "required": [
+          "class",
+          "vendor"
+        ],
+        "title": "NodeAccelerator",
+        "type": "object"
+      },
+      "NodeCamera": {
+        "additionalProperties": false,
+        "properties": {
+          "bus": {
+            "description": "usb | csi",
+            "maxLength": 16,
+            "title": "Bus",
+            "type": "string",
+            "x-onemind-open-enum": true
+          },
+          "device": {
+            "anyOf": [
+              {
+                "pattern": "^/dev/video[0-9]+$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "full path of the video node, e.g. /dev/video0; null for a CSI sensor",
+            "title": "Device"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "usb_id": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{4}:[0-9a-f]{4}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "vvvv:pppp of a USB camera",
+            "title": "Usb Id"
+          }
+        },
+        "required": [
+          "bus"
+        ],
+        "title": "NodeCamera",
+        "type": "object"
+      },
+      "NodeCapabilities": {
+        "additionalProperties": false,
+        "description": "The machine's hardware profile, sent in its heartbeat; read with nodes:read only.",
+        "properties": {
+          "accelerators": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/NodeAccelerator"
+                },
+                "maxItems": 64,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accelerators"
+          },
+          "cameras": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/NodeCamera"
+                },
+                "maxItems": 64,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cameras"
+          },
+          "data_disk": {
+            "$ref": "#/components/schemas/NodeDataDisk"
+          },
+          "memory": {
+            "$ref": "#/components/schemas/NodeMemoryProfile"
+          },
+          "power": {
+            "$ref": "#/components/schemas/NodePowerProfile"
+          },
+          "radios": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/NodeRadio"
+                },
+                "maxItems": 64,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Radios"
+          },
+          "schema": {
+            "const": "onemind.node.capabilities/v1",
+            "title": "Schema",
+            "type": "string"
+          },
+          "thermal": {
+            "$ref": "#/components/schemas/NodeThermalProfile"
+          },
+          "tty_ports": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/NodeTTYPort"
+                },
+                "maxItems": 64,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tty Ports"
+          },
+          "usb": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/NodeUSBDevice"
+                },
+                "maxItems": 64,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Usb"
+          }
+        },
+        "required": [
+          "schema",
+          "data_disk",
+          "memory",
+          "accelerators",
+          "usb",
+          "tty_ports",
+          "radios",
+          "cameras",
+          "power",
+          "thermal"
+        ],
+        "title": "NodeCapabilities",
+        "type": "object"
+      },
+      "NodeDataDisk": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "nvme | ssd | hdd | sd | emmc | usb | virtual",
+            "title": "Kind",
+            "x-onemind-open-enum": true
+          },
+          "ssd": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ssd"
+          }
+        },
+        "title": "NodeDataDisk",
+        "type": "object"
+      },
       "NodeK3s": {
         "additionalProperties": true,
         "properties": {
@@ -3927,6 +4646,37 @@
           }
         },
         "title": "NodeK3s",
+        "type": "object"
+      },
+      "NodeMemoryProfile": {
+        "additionalProperties": false,
+        "properties": {
+          "total_mb": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Mb"
+          },
+          "unified": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the main GPU uses system RAM (Jetson, Intel iGPU only)",
+            "title": "Unified"
+          }
+        },
+        "title": "NodeMemoryProfile",
         "type": "object"
       },
       "NodeOS": {
@@ -4018,6 +4768,199 @@
           "reasons"
         ],
         "title": "NodePlacement",
+        "type": "object"
+      },
+      "NodePowerProfile": {
+        "additionalProperties": false,
+        "properties": {
+          "battery_pct": {
+            "anyOf": [
+              {
+                "maximum": 100.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Battery Pct"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "mains | battery | usb",
+            "title": "Source",
+            "x-onemind-open-enum": true
+          },
+          "undervoltage": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Undervoltage"
+          }
+        },
+        "title": "NodePowerProfile",
+        "type": "object"
+      },
+      "NodeRadio": {
+        "additionalProperties": false,
+        "properties": {
+          "interface": {
+            "pattern": "^[A-Za-z0-9_.-]{1,15}$",
+            "title": "Interface",
+            "type": "string"
+          },
+          "kind": {
+            "description": "wifi | bluetooth | cellular",
+            "maxLength": 16,
+            "title": "Kind",
+            "type": "string",
+            "x-onemind-open-enum": true
+          }
+        },
+        "required": [
+          "kind",
+          "interface"
+        ],
+        "title": "NodeRadio",
+        "type": "object"
+      },
+      "NodeTTYPort": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "description": "usb | uart",
+            "maxLength": 16,
+            "title": "Kind",
+            "type": "string",
+            "x-onemind-open-enum": true
+          },
+          "name": {
+            "pattern": "^tty(USB|ACM|AMA|THS|S)[0-9]+$",
+            "title": "Name",
+            "type": "string"
+          },
+          "usb_id": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{4}:[0-9a-f]{4}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "vvvv:pppp of the USB device behind it; null for an on-board UART",
+            "title": "Usb Id"
+          },
+          "usb_port": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]+-[0-9]+(\\.[0-9]+)*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Usb Port"
+          }
+        },
+        "required": [
+          "name",
+          "kind"
+        ],
+        "title": "NodeTTYPort",
+        "type": "object"
+      },
+      "NodeThermalProfile": {
+        "additionalProperties": false,
+        "properties": {
+          "max_c": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max C"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "normal | passive | hot | critical",
+            "title": "State",
+            "x-onemind-open-enum": true
+          }
+        },
+        "title": "NodeThermalProfile",
+        "type": "object"
+      },
+      "NodeUSBDevice": {
+        "additionalProperties": false,
+        "properties": {
+          "class": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{2}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "bDeviceClass, two hex digits",
+            "title": "Class"
+          },
+          "id": {
+            "description": "vvvv:pppp",
+            "pattern": "^[0-9a-f]{4}:[0-9a-f]{4}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "interface_classes": {
+            "items": {
+              "pattern": "^[0-9a-f]{2}$",
+              "type": "string"
+            },
+            "maxItems": 32,
+            "title": "Interface Classes",
+            "type": "array"
+          },
+          "port": {
+            "description": "kernel port path, e.g. 1-1.2",
+            "pattern": "^[0-9]+-[0-9]+(\\.[0-9]+)*$",
+            "title": "Port",
+            "type": "string"
+          }
+        },
+        "required": [
+          "port",
+          "id"
+        ],
+        "title": "NodeUSBDevice",
         "type": "object"
       },
       "OnboardingKit": {
@@ -4740,6 +5683,85 @@
           "kind"
         ],
         "title": "PrincipalRef",
+        "type": "object"
+      },
+      "ProtocolInfo": {
+        "description": "GET /v1/protocol: the generations this hub serves (also in every answer's headers).",
+        "properties": {
+          "current": {
+            "title": "Current",
+            "type": "integer"
+          },
+          "header": {
+            "title": "Header",
+            "type": "string"
+          },
+          "maximum": {
+            "title": "Maximum",
+            "type": "integer"
+          },
+          "minimum": {
+            "title": "Minimum",
+            "type": "integer"
+          },
+          "versions": {
+            "items": {
+              "$ref": "#/components/schemas/ProtocolVersionInfo"
+            },
+            "title": "Versions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "header",
+          "current",
+          "minimum",
+          "maximum",
+          "versions"
+        ],
+        "title": "ProtocolInfo",
+        "type": "object"
+      },
+      "ProtocolVersionInfo": {
+        "properties": {
+          "released": {
+            "format": "date",
+            "title": "Released",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "supported": {
+            "title": "Supported",
+            "type": "boolean"
+          },
+          "supported_until": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Supported Until"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version",
+          "released",
+          "summary",
+          "supported",
+          "supported_until"
+        ],
+        "title": "ProtocolVersionInfo",
         "type": "object"
       },
       "PushIn": {
@@ -5813,6 +6835,255 @@
         "title": "SendIn",
         "type": "object"
       },
+      "SeriesPoint": {
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "number"
+          }
+        },
+        "required": [
+          "at",
+          "value"
+        ],
+        "title": "SeriesPoint",
+        "type": "object"
+      },
+      "ServiceCard": {
+        "additionalProperties": false,
+        "description": "One systemd unit on the service cards: the registry's words plus what systemd says now.",
+        "properties": {
+          "active_state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "systemd ActiveState: active, inactive, failed, activating, ...",
+            "title": "Active State"
+          },
+          "depends_on": {
+            "default": [],
+            "description": "Other registry units it needs",
+            "items": {
+              "type": "string"
+            },
+            "title": "Depends On",
+            "type": "array"
+          },
+          "description": {
+            "description": "Plain words: what it does and what stops working without it (empty when unknown)",
+            "title": "Description",
+            "type": "string"
+          },
+          "docs": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Repo path of the page that explains it, e.g. docs/leap/core/HOST-ACTIONS.md",
+            "title": "Docs"
+          },
+          "installed": {
+            "description": "systemd has this unit on this box (boards ship different units)",
+            "title": "Installed",
+            "type": "boolean"
+          },
+          "known": {
+            "description": "false: the registry does not list this unit; name is the unit name and description is empty",
+            "title": "Known",
+            "type": "boolean"
+          },
+          "load_state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "systemd LoadState: loaded, not-found, masked, ...",
+            "title": "Load State"
+          },
+          "memory_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Memory the unit uses now; null when systemd does not count it",
+            "title": "Memory Bytes"
+          },
+          "name": {
+            "description": "Plain name for the card",
+            "title": "Name",
+            "type": "string"
+          },
+          "restartable": {
+            "description": "Whether a person may ask for a restart (an owner-approved action, later work)",
+            "title": "Restartable",
+            "type": "boolean"
+          },
+          "risk": {
+            "description": "low: a background job pauses; medium: a feature stops for everyone; high: boot, data or access at stake",
+            "enum": [
+              "low",
+              "medium",
+              "high",
+              "unknown"
+            ],
+            "title": "Risk",
+            "type": "string"
+          },
+          "sub_state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "systemd SubState: running, dead, exited, waiting, ...",
+            "title": "Sub State"
+          },
+          "unit": {
+            "description": "systemd unit file name, e.g. onemind-gateway.service",
+            "title": "Unit",
+            "type": "string"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The OneMind release that shipped this unit; null when unknown or not installed",
+            "title": "Version"
+          }
+        },
+        "required": [
+          "unit",
+          "known",
+          "name",
+          "description",
+          "restartable",
+          "risk",
+          "installed"
+        ],
+        "title": "ServiceCard",
+        "type": "object"
+      },
+      "ServicesView": {
+        "additionalProperties": false,
+        "description": "GET /v1/system/services: one card per shipped unit, then any unknown OneMind unit.",
+        "properties": {
+          "at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "At"
+          },
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "dropped": {
+            "default": 0,
+            "description": "Cards the gateway refused because a field failed its checks",
+            "title": "Dropped",
+            "type": "integer"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "enum": [
+                  "host_service_unreachable",
+                  "host_service_error",
+                  "bad_response"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "registry": {
+            "anyOf": [
+              {
+                "enum": [
+                  "ok",
+                  "missing",
+                  "invalid"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "ok; missing (the image has no registry); invalid (it failed its checks, so every unit is unknown)",
+            "title": "Registry"
+          },
+          "services": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ServiceCard"
+            },
+            "title": "Services",
+            "type": "array"
+          },
+          "unknown": {
+            "default": 0,
+            "description": "Cards whose unit the registry does not list",
+            "title": "Unknown",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "available"
+        ],
+        "title": "ServicesView",
+        "type": "object"
+      },
       "SettingsRequest": {
         "additionalProperties": false,
         "properties": {
@@ -6305,6 +7576,501 @@
           "id"
         ],
         "title": "Subject",
+        "type": "object"
+      },
+      "SubjectTree": {
+        "description": "GET /v1/subjects.",
+        "properties": {
+          "envelopes": {
+            "items": {
+              "$ref": "#/components/schemas/SubjectTreeEnvelope"
+            },
+            "title": "Envelopes",
+            "type": "array"
+          },
+          "grammar": {
+            "title": "Grammar",
+            "type": "string"
+          },
+          "kinds": {
+            "items": {
+              "$ref": "#/components/schemas/SubjectTreeKind"
+            },
+            "title": "Kinds",
+            "type": "array"
+          },
+          "mappings": {
+            "items": {
+              "$ref": "#/components/schemas/SubjectTreeMapping"
+            },
+            "title": "Mappings",
+            "type": "array"
+          },
+          "reserved": {
+            "items": {
+              "$ref": "#/components/schemas/SubjectTreeReserved"
+            },
+            "title": "Reserved",
+            "type": "array"
+          },
+          "root": {
+            "title": "Root",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "root",
+          "grammar",
+          "kinds",
+          "reserved",
+          "envelopes",
+          "mappings"
+        ],
+        "title": "SubjectTree",
+        "type": "object"
+      },
+      "SubjectTreeCheck": {
+        "description": "GET /v1/subjects/check.",
+        "properties": {
+          "kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "pattern": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pattern"
+          },
+          "publisher": {
+            "title": "Publisher",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "subject": {
+            "title": "Subject",
+            "type": "string"
+          }
+        },
+        "required": [
+          "subject",
+          "publisher",
+          "ok",
+          "reason",
+          "kind",
+          "pattern"
+        ],
+        "title": "SubjectTreeCheck",
+        "type": "object"
+      },
+      "SubjectTreeEnvelope": {
+        "properties": {
+          "contract": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contract"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "file": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "file",
+          "contract",
+          "description"
+        ],
+        "title": "SubjectTreeEnvelope",
+        "type": "object"
+      },
+      "SubjectTreeKind": {
+        "properties": {
+          "core": {
+            "title": "Core",
+            "type": "boolean"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "envelope": {
+            "title": "Envelope",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "retention": {
+            "$ref": "#/components/schemas/SubjectTreeRetention"
+          },
+          "stream": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stream"
+          },
+          "subjects": {
+            "items": {
+              "$ref": "#/components/schemas/SubjectTreePattern"
+            },
+            "title": "Subjects",
+            "type": "array"
+          }
+        },
+        "required": [
+          "kind",
+          "description",
+          "core",
+          "stream",
+          "retention",
+          "envelope",
+          "subjects"
+        ],
+        "title": "SubjectTreeKind",
+        "type": "object"
+      },
+      "SubjectTreeMapping": {
+        "description": "One row of the mapping table: a subject of an older grammar (`old`) and where it lives in the tree (`new`).",
+        "properties": {
+          "grammar": {
+            "title": "Grammar",
+            "type": "string"
+          },
+          "new": {
+            "title": "New",
+            "type": "string"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "old": {
+            "title": "Old",
+            "type": "string"
+          }
+        },
+        "required": [
+          "grammar",
+          "old",
+          "new",
+          "note"
+        ],
+        "title": "SubjectTreeMapping",
+        "type": "object"
+      },
+      "SubjectTreePattern": {
+        "properties": {
+          "envelope": {
+            "title": "Envelope",
+            "type": "string"
+          },
+          "owner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner"
+          },
+          "pattern": {
+            "title": "Pattern",
+            "type": "string"
+          },
+          "publishers": {
+            "items": {
+              "enum": [
+                "gateway",
+                "node",
+                "app",
+                "agent"
+              ],
+              "type": "string"
+            },
+            "title": "Publishers",
+            "type": "array"
+          },
+          "retention": {
+            "$ref": "#/components/schemas/SubjectTreeRetention"
+          },
+          "stream": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stream"
+          }
+        },
+        "required": [
+          "pattern",
+          "publishers",
+          "owner",
+          "stream",
+          "retention",
+          "envelope"
+        ],
+        "title": "SubjectTreePattern",
+        "type": "object"
+      },
+      "SubjectTreeReserved": {
+        "properties": {
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "reason"
+        ],
+        "title": "SubjectTreeReserved",
+        "type": "object"
+      },
+      "SubjectTreeRetention": {
+        "description": "How long a stream keeps messages: policy limits, workqueue, latest (last value per subject) or none.",
+        "properties": {
+          "deny_delete": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deny Delete"
+          },
+          "deny_purge": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deny Purge"
+          },
+          "max_age_s": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Age S"
+          },
+          "max_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Bytes"
+          },
+          "policy": {
+            "enum": [
+              "limits",
+              "workqueue",
+              "latest",
+              "none"
+            ],
+            "title": "Policy",
+            "type": "string"
+          }
+        },
+        "required": [
+          "policy"
+        ],
+        "title": "SubjectTreeRetention",
+        "type": "object"
+      },
+      "SyncChange": {
+        "description": "One entry of the feed: a file, folder or symlink as it is now (or its deletion).",
+        "properties": {
+          "deleted": {
+            "title": "Deleted",
+            "type": "boolean"
+          },
+          "hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hash"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "mtime": {
+            "title": "Mtime",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "size": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Size"
+          },
+          "type": {
+            "enum": [
+              "file",
+              "dir",
+              "symlink"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "parent_id",
+          "path",
+          "name",
+          "type",
+          "size",
+          "mtime",
+          "hash",
+          "revision",
+          "deleted"
+        ],
+        "title": "SyncChange",
+        "type": "object"
+      },
+      "SyncChanges": {
+        "properties": {
+          "changes": {
+            "items": {
+              "$ref": "#/components/schemas/SyncChange"
+            },
+            "title": "Changes",
+            "type": "array"
+          },
+          "has_more": {
+            "title": "Has More",
+            "type": "boolean"
+          },
+          "next_cursor": {
+            "title": "Next Cursor",
+            "type": "string"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "root": {
+            "title": "Root",
+            "type": "string"
+          }
+        },
+        "required": [
+          "root",
+          "revision",
+          "changes",
+          "next_cursor",
+          "has_more"
+        ],
+        "title": "SyncChanges",
         "type": "object"
       },
       "SystemActionRequest": {
@@ -6805,6 +8571,29 @@
           }
         },
         "title": "UpdatePolicyBody",
+        "type": "object"
+      },
+      "UploadedMedia": {
+        "properties": {
+          "sha256": {
+            "title": "Sha256",
+            "type": "string"
+          },
+          "size_bytes": {
+            "title": "Size Bytes",
+            "type": "integer"
+          },
+          "volume": {
+            "title": "Volume",
+            "type": "string"
+          }
+        },
+        "required": [
+          "volume",
+          "sha256",
+          "size_bytes"
+        ],
+        "title": "UploadedMedia",
         "type": "object"
       },
       "Usage": {
@@ -7374,6 +9163,19 @@
       "onemind_core__routers__actions__ApproveBody": {
         "description": "§12.4: optional approve body. `webauthn` is the passkey assertion over approve-options' challenge.\n\nsealed: the app's secrets form for app.install (appsecrets/); override: the F-7 owner override.",
         "properties": {
+          "hold_ms": {
+            "anyOf": [
+              {
+                "maximum": 600000.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hold Ms"
+          },
           "override": {
             "anyOf": [
               {
@@ -7475,7 +9277,11 @@
   "info": {
     "description": "Contract: sdk/contracts/poc-v0.md section 3. AI never actuates without human approval.",
     "title": "OneMind OS Core gateway",
-    "version": "0.1.0"
+    "version": "0.1.0",
+    "x-onemind-protocol": {
+      "current": 2,
+      "header": "X-OneMind-Protocol"
+    }
   },
   "openapi": "3.1.0",
   "paths": {
@@ -13978,6 +15784,275 @@
         ]
       }
     },
+    "/v1/browsers/{app_id}/profile/reset": {
+      "post": {
+        "description": "Ask to erase the caller's profile. Nothing is erased until an owner approves it in Approvals.",
+        "operationId": "browsers.profile_reset",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "app_id",
+            "required": true,
+            "schema": {
+              "title": "App Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Reset Profile",
+        "tags": [
+          "browsers"
+        ]
+      }
+    },
+    "/v1/browsers/{app_id}/session": {
+      "post": {
+        "description": "Open the caller's own browser: their profile is created the first time and kept after.",
+        "operationId": "browsers.session_open",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "app_id",
+            "required": true,
+            "schema": {
+              "title": "App Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrowserSession"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
+          }
+        },
+        "summary": "Open Session",
+        "tags": [
+          "browsers"
+        ]
+      }
+    },
+    "/v1/browsers/{app_id}/session/close": {
+      "post": {
+        "description": "Stop the caller's browser pod. The profile stays for the next open.",
+        "operationId": "browsers.session_close",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "app_id",
+            "required": true,
+            "schema": {
+              "title": "App Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrowserSession"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
+          }
+        },
+        "summary": "Close Session",
+        "tags": [
+          "browsers"
+        ]
+      }
+    },
     "/v1/builtins": {
       "get": {
         "description": "Provisional: folds into GET /v1/surfaces (the surface registry). The descriptors of the\nswitched-on built-in apps, with the Settings pages, backup units and request-only MCP tools\nbuilt from them. A switched-off built-in is left out of every list.",
@@ -15238,6 +17313,16 @@
               }
             },
             "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
           },
           "413": {
             "content": {
@@ -17265,7 +19350,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/MachineCapabilities"
+                }
               }
             },
             "description": "Successful Response"
@@ -17584,6 +19671,109 @@
           }
         },
         "summary": "Machines Snapshots",
+        "tags": [
+          "machines"
+        ]
+      }
+    },
+    "/v1/machines/{name}/upload": {
+      "post": {
+        "description": "Stream the approved Files uploads to this halted machine's CDI volumes and return their checked SHA-256.",
+        "operationId": "machines.upload",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MachineUploadResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
+          }
+        },
+        "summary": "Machines Upload",
         "tags": [
           "machines"
         ]
@@ -21241,6 +23431,118 @@
         ]
       }
     },
+    "/v1/physical/lockout": {
+      "get": {
+        "description": "Whether the owner's motion lockout refuses every physical action right now.",
+        "operationId": "physical.lockout.get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MotionLockoutState"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "summary": "Get Lockout",
+        "tags": [
+          "physical"
+        ]
+      },
+      "put": {
+        "description": "Turn the motion lockout on (at once) or off (with a fresh passkey once passkeys are active).",
+        "operationId": "physical.lockout.set",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MotionLockoutChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MotionLockoutState"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Set Lockout",
+        "tags": [
+          "physical"
+        ]
+      }
+    },
     "/v1/plans": {
       "post": {
         "description": "Preview any app action with its params (for example the settings of app.configure). Files nothing.",
@@ -22082,6 +24384,28 @@
         ]
       }
     },
+    "/v1/protocol": {
+      "get": {
+        "description": "The protocol generations this hub serves, and until when each older one is kept.",
+        "operationId": "meta.protocol",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProtocolInfo"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Protocol",
+        "tags": [
+          "meta"
+        ]
+      }
+    },
     "/v1/push/registrations": {
       "get": {
         "operationId": "push.registrations.list",
@@ -22554,6 +24878,118 @@
         "summary": "Public Key",
         "tags": [
           "secrets"
+        ]
+      }
+    },
+    "/v1/series": {
+      "get": {
+        "description": "Query a trailing window of up to 30 days. Each node contributes one sample per\nminute. Return at most `points` averages, timestamped at the first observation in\neach bin. Empty bins and unavailable metrics are omitted.",
+        "operationId": "series.query",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "node_id",
+            "required": true,
+            "schema": {
+              "maxLength": 64,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "title": "Node Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "metric",
+            "required": true,
+            "schema": {
+              "enum": [
+                "cpu_pct",
+                "mem_used_mb",
+                "mem_total_mb",
+                "disk_free_gb",
+                "disk_total_gb",
+                "temp_c",
+                "load1"
+              ],
+              "title": "Metric",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "window_s",
+            "required": false,
+            "schema": {
+              "default": 86400,
+              "maximum": 2592000,
+              "minimum": 1,
+              "title": "Window S",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "points",
+            "required": false,
+            "schema": {
+              "default": 60,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Points",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SeriesPoint"
+                  },
+                  "title": "Response Series.Query",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Query",
+        "tags": [
+          "monitoring"
         ]
       }
     },
@@ -23252,6 +25688,227 @@
         ]
       }
     },
+    "/v1/subjects": {
+      "get": {
+        "description": "Every subject kind: who may publish, the stream and retention, the envelope schema; the reserved\nkinds with the reason; and the mapping from the older grammars (contract 12.9, plugin SDK, cluster).",
+        "operationId": "subjects.list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubjectTree"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
+          }
+        },
+        "summary": "Subjects List",
+        "tags": [
+          "subjects"
+        ]
+      }
+    },
+    "/v1/subjects/check": {
+      "get": {
+        "description": "Would `publisher` with its own id be allowed to publish on `subject`? Answers with a reason; never publishes.",
+        "operationId": "subjects.check",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "subject",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "title": "Subject",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "publisher",
+            "required": false,
+            "schema": {
+              "default": "app",
+              "enum": [
+                "gateway",
+                "node",
+                "app",
+                "agent"
+              ],
+              "title": "Publisher",
+              "type": "string"
+            }
+          },
+          {
+            "description": "the publisher's own node, app or agent id",
+            "in": "query",
+            "name": "owner_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "the publisher's own node, app or agent id",
+              "title": "Owner Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubjectTreeCheck"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
+          }
+        },
+        "summary": "Subjects Check",
+        "tags": [
+          "subjects"
+        ]
+      }
+    },
+    "/v1/sync/changes": {
+      "get": {
+        "description": "Entries with a revision after the cursor, oldest first, each once at its latest state. No cursor: every live entry. 410 (cursor_expired): list again with no cursor. 422 (invalid_cursor): the cursor was issued for another root or caller.",
+        "operationId": "sync.changes.list",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "root",
+            "required": true,
+            "schema": {
+              "maxLength": 205,
+              "pattern": "^(?:shared|home:[ -~]{1,200})$",
+              "title": "Root",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "pattern": "^[A-Za-z0-9_-]{1,64}$",
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 500,
+              "maximum": 1000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncChanges"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "description": "Not allowed for this principal (permission_denied)"
+          },
+          "410": {
+            "description": "expired: the cursor is older than the remembered deletions"
+          },
+          "422": {
+            "description": "Invalid root, path or body (conflict, reason invalid_path / invalid_root ...)"
+          },
+          "503": {
+            "description": "unavailable: the files storage is not usable"
+          }
+        },
+        "summary": "What changed in a root since a cursor",
+        "tags": [
+          "sync"
+        ]
+      }
+    },
     "/v1/system-apps": {
       "get": {
         "description": "The Built in area: every system app on the signed list, whether it is on, and its version,\nlicence and update channel. A switched-off app is only listed here, not in GET /v1/apps.",
@@ -23469,6 +26126,48 @@
           }
         },
         "summary": "System Diagnostics",
+        "tags": [
+          "system"
+        ]
+      }
+    },
+    "/v1/system/services": {
+      "get": {
+        "description": "Every systemd unit this OS ships, as a service card: plain name and description, docs page,\nrisk, restartable flag, dependencies, and systemd's state, memory and version (read only).\n\nA OneMind unit the image's registry does not list comes back with `known` false. `available` is\nfalse, with a reason, when the host service cannot be reached: the screen says so instead of\nshowing nothing.",
+        "operationId": "system.services.list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServicesView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "summary": "System Services",
         "tags": [
           "system"
         ]

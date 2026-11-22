@@ -6,6 +6,8 @@ import { Navigate, Route, Routes } from 'react-router';
 import { lazy, Suspense, type ComponentType, type LazyExoticComponent } from 'react';
 import { CustomizeProvider, StateView, ToastProvider, WallpaperLayer, clearPreferences } from '@onemind/ui';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { UpdateNeeded } from './components/UpdateNeeded';
+import { useUpdateNeeded } from './lib/protocol';
 import { HubProvider, useHub } from './data/hub';
 import { preferenceStores } from './data/prefs';
 import { FirstRun, useWizardPending } from './pages/FirstRun';
@@ -82,10 +84,11 @@ export function SignedInApp() {
 
 export function App({ mock }: { mock: boolean }) {
   const { session } = useSession();
+  const update = useUpdateNeeded();
   return (
     <LocaleProvider person={session?.person ?? null}>
       <ErrorBoundary>
-        <ToastProvider>{session ? <SignedInApp /> : <SignIn mock={mock} />}</ToastProvider>
+        <ToastProvider>{update ? <UpdateNeeded state={update} /> : session ? <SignedInApp /> : <SignIn mock={mock} />}</ToastProvider>
       </ErrorBoundary>
     </LocaleProvider>
   );

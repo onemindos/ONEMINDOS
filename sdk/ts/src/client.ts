@@ -6,6 +6,7 @@ import type { components } from "./gen/schema.js";
 import { AmbiguousResultError, errorFor, NetworkError, OneMindError, UnexpectedResponseError } from "./errors.js";
 import { EventsApi } from "./events.js";
 import { caFetch } from "./nodeca.js";
+import { PROTOCOL_HEADER, PROTOCOL_VERSION } from "./protocol.js";
 
 export type Instance = components["schemas"]["Instance"];
 export type StatusView = components["schemas"]["StatusView"];
@@ -116,7 +117,7 @@ export class OneMind {
     this.onWarning = opts.onWarning ?? ((m) => console.warn(`onemind: warning: ${m}`));
     this.onTrace = opts.onTrace;
     this.sleep = opts.sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms)));
-    this.events = new EventsApi(this);
+    this.events = new EventsApi(this, typeof opts.token === "string" && opts.token.length > 0);
   }
 
   /** ONEMIND_HUB + ONEMIND_TOKEN, else ONEMIND_GATEWAY_URL + ONEMIND_AGENT_TOKEN (contract §11.2).
@@ -317,6 +318,7 @@ export class OneMind {
         method: r.method,
         headers: {
           Accept: "application/json",
+          [PROTOCOL_HEADER]: String(PROTOCOL_VERSION),
           ...(r.body !== undefined ? { "Content-Type": "application/json" } : {}),
           ...(r.headers ?? {}),
           ...(await this.authHeader()),

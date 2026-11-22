@@ -22,6 +22,8 @@ type (
 	StatusView   = gen.StatusView
 	SourceStatus = gen.SourceStatus
 	Usage        = gen.Usage
+	ServicesView = gen.ServicesView
+	ServiceCard  = gen.ServiceCard
 )
 
 // Action types the gateway accepts today (contract §3; §12.5 adds more).

@@ -30,7 +30,8 @@ from fastapi.testclient import TestClient
 import onemind_core.routers.net as net_router
 from onemind_core.app import create_app
 from onemind_core.ca import BoxCA, box_name_from_hostname
-from onemind_core.fabric import POLL_CONTEXT, SourceLimiter, code_hash, match_code, new_join_code, normalize_code
+from onemind_core.fabric import (POLL_CONTEXT, SourceLimiter, code_hash, match_code, new_join_code, normalize_code,
+                                  parse_join_qr)
 from onemind_core.lan import AvahiPublisher, desired_names
 from onemind_core.natsconf import NodeAccount, _crc16, is_user_public_nkey, render_accounts
 from onemind_core.netconf import FabricSettings, MeshSettings, NetSettings
@@ -184,6 +185,25 @@ def test_ticket_is_owner_only_and_carries_the_ca(nc):
     audit = Path(nc.app.state.settings.audit_path).read_text()
     assert t["one_time"]["join_code"] not in audit and "fabric.ticket.created" in audit
     assert nc.post("/v1/fabric/join-tickets", json={"expires_in_s": 7200}, headers=OWNER).status_code == 422
+
+
+def test_ticket_carries_a_v2_join_qr(nc):
+    """FABRIC §4.3: the same ticket as a v2 QR (hub, mdns, ca, code, kind) next to the v1 one."""
+    t = ticket(nc, role="leaf")
+    qr = parse_join_qr(t["qr_payload_v2"])
+    assert (qr.version, qr.kind, qr.code, qr.ca, qr.hub) == (2, "leaf", t["one_time"]["join_code"], t["hub_ca_sha256"], t["hub_url"])
+    assert qr.mdns == "box1.local" and qr.alt == ""
+    v1 = parse_join_qr(t["qr_payload"])
+    assert (v1.version, v1.kind, v1.code, v1.ca, v1.hub) == (1, "leaf", qr.code, qr.ca, qr.hub)
+
+
+def test_ticket_with_a_bad_hub_url_is_refused_before_it_exists(net_settings, clock):
+    fabric = replace(net_settings.section(FabricSettings), hub_url="https://user@box1/x")
+    c = TestClient(create_app(replace(net_settings, sections={**net_settings.sections, "fabric": fabric}),
+                              clock=clock, executor=ScriptedExecutor()))
+    r = c.post("/v1/fabric/join-tickets", json={"role": "worker"}, headers=OWNER)
+    assert r.status_code == 409 and r.json()["reason"] == "join_qr_hub", r.text
+    assert c.get("/v1/fabric/join-tickets", headers=OWNER).json() == []
 
 
 def test_revoked_ticket_cannot_join(nc):

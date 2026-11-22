@@ -1,10 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { WiringApi } from './wiring';
 import { getPasskey } from '../lib/webauthn';
+import { withProtocol } from '../lib/protocol';
 import type * as W from './wiring';
 import { OneMind, OneMindError, type components, type operations } from '@onemind/sdk';
 import type { FabricSummary, JoinTicket, MeshView } from '@onemind/ui';
 import type { AppSecrets, SealedInput, SecretsPublicKey } from '@onemind/ui';
+
+/** `POST /v1/browsers/{app_id}/session` (#692): the person's own browser host and profile. */
+export type BrowserSession = components['schemas']['BrowserSession'];
 
 /** `GET /v1/os/about` (UMB-P14): device facts per node; never a serial number or an address. */
 export type AboutBox = components['schemas']['About'];
@@ -77,6 +81,12 @@ export interface OneMindApi extends WiringApi {
   appHostPorts?(id: string): Promise<AppHostPorts>;
   /** Sets the sign-in cookie app hosts accept (POST /v1/auth/app-session). Absent on the mock gateway. */
   openAppSession?(): Promise<void>;
+  /** #692: start the signed-in person's own browser pod (their profile is made the first time). Absent on the mock gateway. */
+  openBrowser?(appId: string): Promise<BrowserSession>;
+  /** #692: stop the person's browser pod; the profile stays. */
+  closeBrowser?(appId: string): Promise<BrowserSession>;
+  /** #692: file browser.profile.reset for the person's own profile; nothing is erased until an owner approves. */
+  resetBrowserProfile?(appId: string): Promise<Action>;
   sources?(): Promise<CommunitySource[]>;
   /** Files a `source.add` request; it waits in Approvals until the owner approves it. */
   requestSourceAdd?(params: SourceAddParams, key: { idempotency_key: string; expires_at: string }): Promise<Action>;
@@ -149,6 +159,7 @@ const KNOWN_CODES = new Set([
   'rate_limited',
   'payload_too_large',
   'policy_refused',
+  'upgrade_required',
 ]);
 
 function isErrorBody(v: unknown): v is ApiErrorBody {
@@ -179,7 +190,8 @@ export class HttpApi implements OneMindApi {
   constructor(opts: { token: string; baseUrl?: string; fetchFn?: FetchLike }) {
     this.base = (opts.baseUrl ?? '').replace(/\/$/, '');
     this.token = opts.token;
-    this.fetchFn = opts.fetchFn ?? ((input, init) => fetch(input, init));
+    // Declares this build's protocol generation and watches the hub's range (lib/protocol.ts).
+    this.fetchFn = withProtocol(opts.fetchFn ?? ((input, init) => fetch(input, init)));
     this.sdk = new OneMind({ baseUrl: new URL(this.base || '/', globalThis.location?.origin ?? 'http://localhost').href, token: opts.token, fetch: (input, init) => this.fetchFn(String(input), init), retries: 1 });
   }
 
@@ -340,6 +352,9 @@ export class HttpApi implements OneMindApi {
     if (!Array.isArray(raw.requires) || !Array.isArray(raw.dependents) || raw.requires.some((r) => !r || typeof r.id !== 'string' || !Array.isArray(r.choices) || !r.choices.every(okChoice)) || raw.dependents.some((d) => !d || typeof d.id !== 'string')) throw new ApiError(200, 'unknown', 'Invalid gateway dependencies');
     return raw;
   }
+  async openBrowser(appId: string) { return checkBrowser(await this.sdkCall<BrowserSession>('POST', `/v1/browsers/${encodeURIComponent(appId)}/session`), appId); }
+  async closeBrowser(appId: string) { return checkBrowser(await this.sdkCall<BrowserSession>('POST', `/v1/browsers/${encodeURIComponent(appId)}/session/close`), appId); }
+  resetBrowserProfile(appId: string) { return this.sdkCall<Action>('POST', `/v1/browsers/${encodeURIComponent(appId)}/profile/reset`); }
   async openAppSession() {
     await this.req<void>('POST', '/v1/auth/app-session');
   }
@@ -530,4 +545,12 @@ export class HttpApi implements OneMindApi {
   auditVerify() {
     return this.req<W.AuditVerifyResult>('GET', '/v1/audit/verify');
   }
+}
+
+/** A browser session the window may load: for this app, on an http(s) URL whose first label is `<app>--<key>`. */
+export function checkBrowser(s: BrowserSession, appId: string): BrowserSession {
+  let url: URL | undefined;
+  try { url = new URL(s.url); } catch { url = undefined; }
+  if (s.app_id !== appId || !/^[0-9a-f]{16}$/.test(s.person_key) || (s.password != null && typeof s.password !== 'string') || !url || !['http:', 'https:'].includes(url.protocol) || url.hostname.split('.')[0] !== `${appId}--${s.person_key}`) throw new ApiError(200, 'unknown', 'Invalid gateway browser session');
+  return s;
 }

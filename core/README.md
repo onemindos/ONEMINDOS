@@ -182,7 +182,7 @@ umbrelOS-level app management, with the rule kept: every change is a request an 
   (`sdk/policy/host-ports.yaml`) and other apps, in CI and at request and approval. The install
   sandbox still refuses `hostPort` itself.
 - **Event streams (hub JetStream):** `spec.streams` declares up to 4 bounded streams (`streams.py`). Subjects are
-  relative and the hub puts them under `onemind.app.<id>.`; `maxBytes` (1 MiB to 1 GiB) and `maxAgeSeconds`
+  relative and the hub puts them under `onemind.plugin.<id>.` (subject tree, sdk/schema/onemind.subjects.json); `maxBytes` (1 MiB to 1 GiB) and `maxAgeSeconds`
   (60 s to 30 days) are required, storage is file, oldest events go at the limit. The install plan lists the exact
   limits (hashed). Install is refused (`invalid_stream`, `jetstream_unavailable`, `jetstream_degraded`) for a bad
   declaration or a store that is off or low on disk. Settings: `ONEMIND_FABRIC_JETSTREAM_MAX_BYTES` (0 = off) and

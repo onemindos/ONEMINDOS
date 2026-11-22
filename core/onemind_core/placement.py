@@ -33,7 +33,7 @@ from __future__ import annotations
 
 import copy
 
-from . import cpufit
+from . import cpufit, gpufit
 from .policy import _pod_spec  # the one place that knows where each workload kind keeps its pods
 
 PREFIX = "onemind.io/"
@@ -113,6 +113,9 @@ def assess(manifest: dict, node: dict) -> dict:
             add("gpu_missing", f"{name} needs a graphics card (GPU), and machine {node_id} has none.", True)
     if requires.get("gpu") is True and isinstance(node.get("gpu"), dict) and node["gpu"].get("nvidia") is True:
         _gpu_size(requires, node, name, node_id, add)
+        small = gpufit.refusal(manifest, node)  # S-5: the card's own memory (gpu_missing is said above)
+        if small and small[0] == "gpu_memory_too_small":
+            add(small[0], small[1].replace("this box's", f"machine {node_id}'s").replace("this box", f"machine {node_id}"), True)
     need = _number(requires.get("minMemoryMb"))
     total, free = _number(node.get("mem_total_mb")), _number(node.get("mem_available_mb"))
     if need is not None and total is not None and total < need:

@@ -83,6 +83,33 @@
     "plugins": [
       "expo-secure-store",
       [
+        "expo-sharing",
+        {
+          "android": {
+            "enabled": true,
+            "singleShareMimeTypes": [
+              "image/*",
+              "application/*",
+              "audio/*",
+              "video/*"
+            ],
+            "multipleShareMimeTypes": [
+              "*/*"
+            ]
+          },
+          "ios": {
+            "enabled": true,
+            "appGroupId": "group.com.onemindos.mobile",
+            "activationRule": {
+              "supportsImageWithMaxCount": 32,
+              "supportsFileWithMaxCount": 32,
+              "supportsAttachmentsWithMaxCount": 32,
+              "supportsMovieWithMaxCount": 32
+            }
+          }
+        }
+      ],
+      [
         "expo-media-library",
         {
           "photosPermission": "OneMind backs up the photos and videos you choose to your own OneMind box.",
