@@ -21,6 +21,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from .audit import AuditLog
 from .auth import Principal
 from .errors import ApiError
+from .jsonbody import JsonBody
 from .ledger import Base, iso, utc
 from .store import Database, FeatureSchema, SqlRepository
 
@@ -47,7 +48,7 @@ class MotionLockoutState(BaseModel):
     reason: str | None = None
 
 
-class MotionLockoutChange(BaseModel):
+class MotionLockoutChange(JsonBody):
     model_config = ConfigDict(extra="forbid")
     locked: bool
     reason: str | None = Field(default=None, max_length=500)

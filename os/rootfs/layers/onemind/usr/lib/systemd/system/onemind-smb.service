@@ -5,10 +5,13 @@
 # writes that file from the gateway's approved list and removes it when the last share is gone (internal/smb), then
 # starts, reloads or stops this unit. Nothing else edits it. No outbound traffic: the kernel only lets this unit
 # talk to LAN, link-local, mesh (CGNAT) and loopback addresses (IPAddressAllow; smb.conf repeats it in hosts allow).
+# Host firewall (host.nft): 445/tcp is open from the LAN ranges only while this unit runs (the "samba" chain).
 [Unit]
 Description=OneMind file sharing (Samba, SMB2+ only, approved shares)
 Documentation=https://github.com/onemindos/ONEMINDOS/blob/main/docs/leap/core/FILE-SHARING.md
-After=network-online.target onemind-firstboot.service
+After=network-online.target onemind-firstboot.service onemind-firewall.service
+# A firewall restart reloads host.nft and empties the samba chain: restart with it so the 445 rule comes back.
+PartOf=onemind-firewall.service
 Wants=network-online.target
 RequiresMountsFor=/data
 ConditionPathExists=/data/onemind/samba/smb.conf
@@ -16,8 +19,14 @@ ConditionPathExists=/data/onemind/samba/smb.conf
 [Service]
 Type=notify
 RuntimeDirectory=onemind-smb
+# Open 445/tcp to the LAN (host.nft "samba" chain, reached from LAN source addresses only) while smbd runs; closed
+# again when it stops. "+" runs nft outside the sandbox below (it needs CAP_NET_ADMIN and netlink, which smbd never
+# gets); "-" keeps a box without the firewall table able to share files.
+ExecStartPre=-+/usr/sbin/nft flush chain inet onemind_host samba
+ExecStartPre=-+/usr/sbin/nft add rule inet onemind_host samba tcp dport 445 accept
 ExecStart=/usr/sbin/smbd --foreground --no-process-group --configfile=/data/onemind/samba/smb.conf
 ExecReload=/bin/kill -HUP $MAINPID
+ExecStopPost=-+/usr/sbin/nft flush chain inet onemind_host samba
 Restart=on-failure
 RestartSec=5s
 LimitNOFILE=16384
