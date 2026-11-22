@@ -45,8 +45,25 @@ func nodeCommands(a *App) []*cobra.Command {
 	info.Flags().StringVar(&arch, "arch", runtime.GOARCH, "architecture to report with --root")
 	info.Flags().StringVar(&agentURL, "agent", "", "read from a running onemindd, e.g. http://127.0.0.1:7480")
 	info.Flags().BoolVar(&local, "local", true, "this machine (the default)")
+	var capRoot, capArch string
+	caps := &cobra.Command{
+		Use:   "capabilities",
+		Short: "This machine's hardware profile: disk, memory, accelerators, USB, serial, radios, cameras, power, thermal",
+		Long: "Prints the NodeCapabilities document onemindd sends in its heartbeat (GET /v1/nodes shows it\n" +
+			"for every machine). A null field could not be read on this machine; it is never a guess.",
+		Args: cobra.NoArgs,
+		RunE: func(*cobra.Command, []string) error {
+			col := detect.New()
+			if capRoot != "/" {
+				col = detect.NewFixture(capRoot, capArch)
+			}
+			return printJSON(a.Stdout, col.Capabilities(context.Background()))
+		},
+	}
+	caps.Flags().StringVar(&capRoot, "root", "/", "filesystem root to inspect")
+	caps.Flags().StringVar(&capArch, "arch", runtime.GOARCH, "architecture to report with --root")
 	node := &cobra.Command{Use: "node", Short: "This machine (local, no gateway)"}
-	node.AddCommand(info)
+	node.AddCommand(info, caps)
 
 	var status string
 	list := func(*cobra.Command, []string) error { return a.nodesList(status) }

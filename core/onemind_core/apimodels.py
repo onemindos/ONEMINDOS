@@ -58,6 +58,96 @@ class NodeK3s(BaseModel):
     ready: bool | None = None
 
 
+# ---- the hardware profile (NodeCapabilities, #618; internal/heartbeat/capabilities.go) ----------
+# Every field may be null, which means "could not be read on that machine", never "no" or zero. A
+# list is null when the machine had nothing to read it from and [] when it read and found none.
+
+
+class NodeDataDisk(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    kind: str | None = Field(default=None, description="nvme | ssd | hdd | sd | emmc | usb | virtual", json_schema_extra=OPEN_ENUM)
+    ssd: bool | None = None
+
+
+class NodeMemoryProfile(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    total_mb: int | None = None
+    unified: bool | None = Field(default=None, description="the main GPU uses system RAM (Jetson, Intel iGPU only)")
+
+
+class NodeAccelerator(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    class_: str = Field(alias="class", description="gpu | npu", json_schema_extra=OPEN_ENUM)
+    vendor: str = Field(description="nvidia | amd | intel | hailo", json_schema_extra=OPEN_ENUM)
+    model: str | None = None
+    pci: str | None = Field(default=None, description="vvvv:dddd; null when not on PCI")
+    driver: str | None = None
+    driver_version: str | None = None
+    vram_mb: int | None = None
+    compute_capability: str | None = Field(default=None, description="NVIDIA major.minor")
+    integrated: bool | None = None
+    device: str | None = Field(default=None, description="device node an app is granted, e.g. /dev/hailo0")
+
+
+class NodeUSBDevice(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    port: str = Field(description="kernel port path, e.g. 1-1.2")
+    id: str = Field(description="vvvv:pppp")
+    class_: str | None = Field(default=None, alias="class", description="bDeviceClass, two hex digits")
+    interface_classes: list[str] = []
+
+
+class NodeTTYPort(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    name: str
+    kind: str = Field(description="usb | uart", json_schema_extra=OPEN_ENUM)
+    usb: str | None = None
+    usb_port: str | None = None
+
+
+class NodeRadio(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    kind: str = Field(description="wifi | bluetooth | cellular", json_schema_extra=OPEN_ENUM)
+    interface: str
+
+
+class NodeCamera(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    bus: str = Field(description="usb | csi", json_schema_extra=OPEN_ENUM)
+    device: str | None = None
+    name: str | None = None
+    usb: str | None = None
+
+
+class NodePowerProfile(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    source: str | None = Field(default=None, description="mains | battery | usb", json_schema_extra=OPEN_ENUM)
+    battery_pct: int | None = None
+    undervoltage: bool | None = None
+
+
+class NodeThermalProfile(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    max_c: float | None = None
+    state: str | None = Field(default=None, description="normal | passive | hot | critical", json_schema_extra=OPEN_ENUM)
+
+
+class NodeCapabilities(BaseModel):
+    """The machine's hardware profile, sent in its heartbeat; read with nodes:read only."""
+
+    model_config = ConfigDict(extra="allow")
+    schema_: str = Field(alias="schema", description="onemind.node.capabilities/v1")
+    data_disk: NodeDataDisk
+    memory: NodeMemoryProfile
+    accelerators: list[NodeAccelerator] | None
+    usb: list[NodeUSBDevice] | None
+    tty_ports: list[NodeTTYPort] | None
+    radios: list[NodeRadio] | None
+    cameras: list[NodeCamera] | None
+    power: NodePowerProfile
+    thermal: NodeThermalProfile
+
+
 class Node(BaseModel):
     """One node: the §2 heartbeat plus the gateway's `status` and `last_seen`. More fields may appear."""
 
@@ -70,6 +160,7 @@ class Node(BaseModel):
     arch: str | None = None
     os: NodeOS | None = None
     k3s: NodeK3s | None = None
+    capabilities: NodeCapabilities | None = Field(default=None, description="hardware profile (#618); absent from older agents")
     status: str = Field(description="online | stale | offline", json_schema_extra=OPEN_ENUM)
     last_seen: str = Field(description="RFC 3339 time the gateway last received a heartbeat")
 

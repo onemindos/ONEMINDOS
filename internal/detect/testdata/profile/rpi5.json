@@ -1,0 +1,61 @@
+{
+  "schema": "onemind.node.capabilities/v1",
+  "data_disk": {
+    "kind": "sd",
+    "ssd": false
+  },
+  "memory": {
+    "total_mb": 8052,
+    "unified": null
+  },
+  "accelerators": [
+    {
+      "class": "npu",
+      "vendor": "hailo",
+      "model": null,
+      "pci": "1e60:2864",
+      "driver": "hailo",
+      "driver_version": "4.20.0",
+      "vram_mb": null,
+      "compute_capability": null,
+      "integrated": null,
+      "device": "/dev/hailo0"
+    }
+  ],
+  "usb": [],
+  "tty_ports": [
+    {
+      "name": "ttyAMA10",
+      "kind": "uart",
+      "usb": null,
+      "usb_port": null
+    }
+  ],
+  "radios": [
+    {
+      "kind": "wifi",
+      "interface": "wlan0"
+    },
+    {
+      "kind": "bluetooth",
+      "interface": "hci0"
+    }
+  ],
+  "cameras": [
+    {
+      "bus": "csi",
+      "device": null,
+      "name": "imx708",
+      "usb": null
+    }
+  ],
+  "power": {
+    "source": null,
+    "battery_pct": null,
+    "undervoltage": false
+  },
+  "thermal": {
+    "max_c": 61.9,
+    "state": "normal"
+  }
+}

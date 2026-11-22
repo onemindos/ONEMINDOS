@@ -70,6 +70,8 @@ class NodeRegistry:
             return False
         for k in FORBIDDEN_KEYS & hb.keys():
             hb.pop(k)
+        if not isinstance(hb.get("capabilities", {}), dict):
+            hb.pop("capabilities")  # the hardware profile (#618) is an object or nothing
         hb.pop("status", None)
         hb.pop("last_seen", None)
         now = self.clock()
