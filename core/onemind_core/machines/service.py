@@ -27,7 +27,7 @@ from .extension import ExtensionRuntime, KubectlExtension, NoopExtension
 from .runtime import KubectlRuntime, MachineRuntime, NoopRuntime
 from .spec import (
     MAX_SNAPSHOTS, MachineCloneParams, MachineCreateParams, MachineDeleteParams, MachineRefParams,
-    MachineSnapshotParams, consistency, quota_problem,
+    MachineSnapshotParams, consistency, known_image, quota_problem,
 )
 from .store import MachineRow, MachinesRepository, SnapshotRow
 
@@ -171,6 +171,13 @@ class MachineService:
     def problem(self, verb: str, params: dict, *, reserve_own: str | None = None) -> tuple[str, str] | None:
         """(reason, message) when the action cannot be done now; None when it can."""
         name = params["name"]
+        if verb == "create" and (source := params.get("source")):
+            if source["kind"] == "catalogue":
+                if not known_image(source["url"], source["sha256"]):
+                    return "image_changed", "The catalogue image changed. File a new request with its current checksum."
+            else:
+                # An upload DataVolume waits for its bytes indefinitely without the owner's transfer.
+                return "media_upload_unavailable", "This hub cannot receive machine media yet. Choose a catalogue image."
         row = self.repo.get(name)
         if verb in ("create", "clone"):
             node = self._host()

@@ -219,6 +219,112 @@ def test_the_routes_have_scope_rows():
 
 # ---- what the objects say, and what kubectl is asked to do ---------------------------------------------
 
+def test_catalogue_image_pin_reaches_cdi_after_owner_approval(box):
+    box.report()
+    catalogue = box.get("/v1/machines/capabilities", headers=OWNER).json()["image_catalogue"]
+    image = catalogue[0]
+    source = {"kind": "catalogue", "url": image["url"], "sha256": image["sha256"]}
+    request = {**_guided_params(), "source": source}
+    queued = box.ask("machine.create", request, AGENT)
+    assert queued.status_code == 201, queued.text
+    assert queued.json()["state"] == "awaiting_approval"
+    assert queued.json()["params"]["source"] == source
+    assert box.get("/v1/machines", headers=OWNER).json() == []
+    action_id = queued.json()["id"]
+    assert box.post(f"/v1/actions/{action_id}/approve", headers=AGENT).status_code == 403
+    manifests = []
+
+    def record(argv, *, input, **kwargs):
+        manifests.append(json.loads(input))
+        return subprocess.CompletedProcess(argv, 0, "", "")
+
+    box.app.state.machines.runtime = KubectlRuntime(runner=record)
+    approved = box.post(f"/v1/actions/{action_id}/approve", headers=OWNER)
+    assert approved.json()["state"] == "succeeded", approved.text
+    obj = manifests[0]["items"]
+    dv = obj[-1]["spec"]["dataVolumeTemplates"][0]
+    assert dv["spec"]["source"] == {"http": {"url": image["url"], "checksum": "sha256:" + image["sha256"]}}
+    assert obj[-1]["spec"]["runStrategy"] == "Halted"
+    assert "ingress" not in obj[-2]["spec"] and "egress" not in obj[-2]["spec"]
+    for change in ({"sha256": "0" * 64}, {"sha256": "bad"}, {"url": image["url"].replace("https:", "http:")}):
+        assert box.ask("machine.create", {**request, "source": {**source, **change}}).status_code == 422
+
+
+def _guided_params():
+    return {"name": "guest-os", "ram_mb": 4096, "cpus": 2, "disk_gb": 30}
+
+
+def test_removed_catalogue_pin_is_refused_before_reserving_the_machine(box, monkeypatch):
+    box.report()
+    image = box.get("/v1/machines/capabilities", headers=OWNER).json()["image_catalogue"][0]
+    source = {"kind": "catalogue", "url": image["url"], "sha256": image["sha256"]}
+    queued = box.ask("machine.create", {**_guided_params(), "source": source})
+    assert queued.status_code == 201, queued.text
+    monkeypatch.setattr("onemind_core.machines.spec.IMAGE_CATALOGUE", ())
+    refused = box.post(f"/v1/actions/{queued.json()['id']}/approve", headers=OWNER)
+    assert refused.status_code == 409 and refused.json()["error"] == "stale_precondition"
+    assert box.get("/v1/machines", headers=OWNER).json() == []
+
+
+@pytest.mark.parametrize("windows", [False, True], ids=["bsd-iso", "windows-iso"])
+def test_installer_is_a_read_only_cd_and_owns_a_separate_system_disk(box, windows):
+    box.report()
+    source = {"kind": "iso", "size_bytes": 2 << 30, "sha256": "a" * 64}
+    params = {**_guided_params(), "source": source}
+    if windows:
+        params.update(firmware="uefi", tpm=True, virtio_drivers={"size_bytes": 400 << 20, "sha256": "b" * 64})
+    refused = box.ask("machine.create", params)
+    assert refused.status_code == 409 and refused.json()["reason"] == "media_upload_unavailable"
+    assert box.get("/v1/machines", headers=OWNER).json() == []
+    vm = json.loads(render_create(MachineCreateParams.model_validate(params)))["items"][-1]["spec"]
+    volumes = {dv["metadata"]["name"]: dv["spec"] for dv in vm["dataVolumeTemplates"]}
+    assert volumes["guest-os-disk"]["source"] == {"blank": {}}
+    assert volumes["guest-os-disk"]["storage"]["resources"]["requests"]["storage"] == "30Gi"
+    assert volumes["guest-os-installer"]["source"] == {"upload": {}}
+    domain = vm["template"]["spec"]["domain"]
+    devices = {d["name"]: d for d in domain["devices"]["disks"]}
+    assert devices["installer"]["cdrom"] == {"bus": "sata", "readonly": True}
+    assert devices["root"]["bootOrder"] < devices["installer"]["bootOrder"]
+    if windows:
+        assert domain["firmware"]["bootloader"]["efi"] == {"secureBoot": True, "persistent": True}
+        assert domain["features"]["smm"] == {"enabled": True}
+        assert domain["devices"]["tpm"] == {"persistent": True}
+        assert volumes["guest-os-drivers"]["source"] == {"upload": {}}
+        assert devices["drivers"]["cdrom"] == devices["installer"]["cdrom"]
+    else:
+        assert "tpm" not in domain["devices"] and "drivers" not in devices
+
+
+def test_uploaded_disk_size_and_explicit_peer_network(box):
+    box.report()
+    source = {"kind": "disk", "size_bytes": 1 << 30, "sha256": "c" * 64}
+    params = {**_guided_params(), "source": source, "network": "machine_peers"}
+    refused = box.ask("machine.create", params)
+    assert refused.status_code == 409 and refused.json()["reason"] == "media_upload_unavailable"
+    _, policy, vm = json.loads(render_create(MachineCreateParams.model_validate(params)))["items"]
+    dv, = vm["spec"]["dataVolumeTemplates"]
+    assert dv["metadata"]["name"] == "guest-os-disk" and dv["spec"]["source"] == {"upload": {}}
+    peer = {"podSelector": {"matchExpressions": [{"key": "onemind.io/machine", "operator": "Exists"}]}}
+    assert policy["spec"]["ingress"] == [{"from": [peer]}] and policy["spec"]["egress"] == [{"to": [peer]}]
+    for invalid in (
+        {"disk_gb": 2049}, {"network": "host"}, {"image_url": VM["image_url"]}, {"tpm": True},
+        {"source": {**source, "size_bytes": 31 << 30}}, {"source": {**source, "sha256": "bad"}},
+    ):
+        assert box.ask("machine.create", {**params, **invalid}).status_code == 422
+
+
+def test_legacy_create_keeps_its_stored_params_for_idempotent_retries(box):
+    box.report()
+    action = box.ask("machine.create", VM)
+    assert action.status_code == 201 and action.json()["params"] == VM
+    box.n = 0  # reuse the original idempotency key, as an older client would on a retry
+    replay = box.ask("machine.create", VM)
+    assert replay.status_code == 200 and replay.json()["id"] == action.json()["id"]
+    box.n = 0
+    changed = box.ask("machine.create", {**VM, "network": "machine_peers"})
+    assert changed.status_code == 409 and changed.json()["error"] == "conflict"
+
+
 def test_the_objects_cap_the_machine_and_deny_its_network():
     items = json.loads(render_create(MachineCreateParams.model_validate(VM)))["items"]
     kinds = {i["kind"]: i for i in items}

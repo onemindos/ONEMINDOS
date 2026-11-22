@@ -1351,6 +1351,32 @@
         "title": "CatalogSource",
         "type": "object"
       },
+      "CatalogueImage": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sha256",
+            "type": "string"
+          },
+          "url": {
+            "pattern": "^https://[^\\s]{1,500}$",
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "url",
+          "sha256"
+        ],
+        "title": "CatalogueImage",
+        "type": "object"
+      },
       "ChannelIn": {
         "additionalProperties": false,
         "properties": {
@@ -3307,6 +3333,56 @@
           }
         },
         "title": "LoginBody",
+        "type": "object"
+      },
+      "MachineCapabilities": {
+        "properties": {
+          "eligible_node_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Eligible Node Ids",
+            "type": "array"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "extension": {
+            "additionalProperties": true,
+            "title": "Extension",
+            "type": "object"
+          },
+          "image_catalogue": {
+            "items": {
+              "$ref": "#/components/schemas/CatalogueImage"
+            },
+            "title": "Image Catalogue",
+            "type": "array"
+          },
+          "nodes": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Nodes",
+            "type": "array"
+          },
+          "requirements": {
+            "additionalProperties": true,
+            "title": "Requirements",
+            "type": "object"
+          }
+        },
+        "required": [
+          "enabled",
+          "extension",
+          "requirements",
+          "eligible_node_ids",
+          "nodes",
+          "image_catalogue"
+        ],
+        "title": "MachineCapabilities",
         "type": "object"
       },
       "MePatchBody": {
@@ -16953,7 +17029,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/MachineCapabilities"
+                }
               }
             },
             "description": "Successful Response"
