@@ -5,8 +5,10 @@ Where events come from:
 - the audit log. Every state change the gateway makes is an audit record, so the stream follows
   the file and turns records into `onemind.event/v1` envelopes. The event id is the audit `seq`:
   monotonic, durable, and the resume point (`Last-Event-ID` or `?since_id=`);
-- the node registry, polled every few seconds: a `node.status` event when a node's status
-  changes. These are not durable and carry no SSE `id:`, so they never move the resume point;
+- the node registry, looked at on every poll (it is in memory): a `node.status` event when a
+  node's `status` or `presence` changes (#608: a clean shutdown reaches the stream within one
+  poll, an unplugged node within 15 s). These are not durable and carry no SSE `id:`, so they
+  never move the resume point;
 - the sync index (#698), polled the same way: `sync.root_changed` {root, revision} when a root
   the caller may read has a new revision. It is a wake-up, not the log: at most one per root per
   poll, no id, and the caller reads what changed from GET /v1/sync/changes.
@@ -32,7 +34,7 @@ SCHEMA = "onemind.event/v1"
 REPLAY_MAX = 10_000
 KEEPALIVE_S = 15.0
 POLL_S = 0.5
-NODE_POLL_S = 2.0
+ROOT_POLL_S = 2.0  # the sync index is a database read; nodes are looked at on every poll
 MAX_STREAMS_PER_PRINCIPAL = 5
 # Person roles whose §12.6 defaults include nodes:read (agents have it in every grant bundle).
 NODE_READERS = {"owner", "adult", "guest"}
@@ -48,6 +50,11 @@ ACTION_STATES = {
     "action.expired": "expired",
     "action.outcome_unknown": "outcome_unknown",
 }
+
+
+def node_states(nodes: list[dict]) -> dict[str, tuple[str | None, str | None]]:
+    """node id -> (status, presence), what a `node.status` event reports a change of."""
+    return {n["node_id"]: (n.get("status"), n.get("presence")) for n in nodes}
 
 
 def _envelope(id_: str, type_: str, ts: str, subject: dict, data: dict, actor: str | None = None) -> dict:
@@ -233,10 +240,10 @@ class EventStream:
                         if ev is not None:
                             yield sse(ev)
         del records
-        nodes = {n["node_id"]: n.get("status") for n in self.list_nodes()}
+        nodes = node_states(self.list_nodes())
         roots = self._roots(p)
         loop = asyncio.get_running_loop()
-        last_out = last_nodes = loop.time()
+        last_out = last_roots = loop.time()
         while True:
             if await is_disconnected():
                 return
@@ -253,17 +260,19 @@ class EventStream:
                     yield sse(ev)
                     sent = True
             now = loop.time()
-            if now - last_nodes >= NODE_POLL_S:
-                last_nodes = now
-                current = {n["node_id"]: n.get("status") for n in self.list_nodes()}
-                for node_id, status in sorted(current.items()):
-                    if nodes.get(node_id) != status:
-                        ev = _envelope(f"node:{node_id}:{status}", "node.status", self._now(),
-                                       {"node_id": node_id}, {"status": status, "previous": nodes.get(node_id)})
-                        if wanted(ev):
-                            yield sse(ev, with_id=False)
-                            sent = True
-                nodes = current
+            current = node_states(self.list_nodes())
+            for node_id, (status, presence) in sorted(current.items()):
+                previous = nodes.get(node_id)
+                if previous != (status, presence):
+                    ev = _envelope(f"node:{node_id}:{status}:{presence}", "node.status", self._now(),
+                                   {"node_id": node_id},
+                                   {"status": status, "presence": presence, "previous": previous and previous[0]})
+                    if wanted(ev):
+                        yield sse(ev, with_id=False)
+                        sent = True
+            nodes = current
+            if now - last_roots >= ROOT_POLL_S:
+                last_roots = now
                 current_roots = self._roots(p)
                 for root, revision in sorted(current_roots.items()):
                     if root in roots and revision > roots[root]:

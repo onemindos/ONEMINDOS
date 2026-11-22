@@ -174,6 +174,11 @@ class Node(BaseModel):
     k3s: NodeK3s | None = None
     capabilities: NodeCapabilities | None = Field(default=None, description="hardware profile (#618); absent from older agents")
     status: str = Field(description="online | stale | offline", json_schema_extra=OPEN_ENUM)
+    presence: str | None = Field(default=None, description="online | offline: the fast view for live screens "
+                                 "(#608). Offline once a heartbeat is clearly missed (14 s) or at once after a "
+                                 "clean shutdown. Absent from older gateways", json_schema_extra=OPEN_ENUM)
+    departed_at: str | None = Field(default=None, description="RFC 3339 time the node announced a clean "
+                                    "shutdown; null while it is running or after it came back")
     last_seen: str = Field(description="RFC 3339 time the gateway last received a heartbeat")
 
 
