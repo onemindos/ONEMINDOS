@@ -71,6 +71,7 @@ class CatalogueSource(BaseModel):
 
 class UploadMedia(BaseModel):
     model_config = ConfigDict(extra="forbid")
+    upload_id: str | None = Field(default=None, pattern=r"^upl_[0-9A-Z]{26}$")
     size_bytes: int = Field(gt=0, le=2048 * GIB)
     sha256: Sha256
 
@@ -286,7 +287,7 @@ def render_clone(source: str, target: str) -> str:
     return json.dumps({"apiVersion": "v1", "kind": "List", "items": [_deny_all(target), clone]}, sort_keys=True)
 
 
-def render_create(p: MachineCreateParams) -> str:
+def render_create(p: MachineCreateParams, *, media_action: str | None = None) -> str:
     """The objects `machine.create` applies, as one JSON document list (JSON is YAML)."""
     ns = {"apiVersion": "v1", "kind": "Namespace", "metadata": {"name": NAMESPACE}}
     policy = _deny_all(p.name)
@@ -294,4 +295,10 @@ def render_create(p: MachineCreateParams) -> str:
         # A podSelector alone is scoped to this namespace. Both peers must allow the connection.
         peer = {"podSelector": {"matchExpressions": [{"key": "onemind.io/machine", "operator": "Exists"}]}}
         policy["spec"].update(ingress=[{"from": [peer]}], egress=[{"to": [peer]}])
-    return json.dumps({"apiVersion": "v1", "kind": "List", "items": [ns, policy, _vm(p)]}, sort_keys=True)
+    vm = _vm(p)
+    if media_action:
+        vm["metadata"]["labels"]["onemind.io/create-action"] = media_action
+        for dv in vm["spec"]["dataVolumeTemplates"]:
+            if "upload" in dv["spec"]["source"]:
+                dv["metadata"]["annotations"] = {"cdi.kubevirt.io/storage.bind.immediate.requested": "true"}
+    return json.dumps({"apiVersion": "v1", "kind": "List", "items": [ns, policy, vm]}, sort_keys=True)

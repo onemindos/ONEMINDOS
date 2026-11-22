@@ -20,10 +20,12 @@ from ..auth import Principal
 from ..context import Gateway
 from ..errors import ApiError
 from ..executors import ExecResult
+from ..files.service import FilesService
 from pydantic import BaseModel, ConfigDict
 
 from .capability import refusals
 from .extension import ExtensionRuntime, KubectlExtension, NoopExtension
+from .media import CDIUpload, MachineUploadResult, UploadedMedia, staged, verified_file, volumes
 from .runtime import KubectlRuntime, MachineRuntime, NoopRuntime
 from .spec import (
     MAX_SNAPSHOTS, MachineCloneParams, MachineCreateParams, MachineDeleteParams, MachineRefParams,
@@ -62,6 +64,9 @@ class MachineService:
             NoopExtension() if s.executor == "noop" else KubectlExtension(s.machines_extension_dir, s.kubectl,
                                                         allow_tag_images=s.machines_allow_tag_images))
         self._lock = threading.Lock()
+        self._transfer_lock = threading.Lock()
+        self.files = FilesService(gw)
+        self.cdi = CDIUpload(s.kubectl) if s.executor != "noop" else None
         self._tickets: dict[str, tuple[str, object, dict | None]] = {}  # sha256(ticket) -> (machine, expires_at, who minted it)
 
     # ---- the extension: KubeVirt and CDI, on and off ----------------------------------------
@@ -168,7 +173,8 @@ class MachineService:
         why = sorted({r.message for n in self.gw.registry.list() for r in refusals(n)})
         return "This box cannot run virtual machines: " + (" ".join(why) or "no node has reported yet.")
 
-    def problem(self, verb: str, params: dict, *, reserve_own: str | None = None) -> tuple[str, str] | None:
+    def problem(self, verb: str, params: dict, *, reserve_own: str | None = None,
+                requester: dict | None = None) -> tuple[str, str] | None:
         """(reason, message) when the action cannot be done now; None when it can."""
         name = params["name"]
         if verb == "create" and (source := params.get("source")):
@@ -176,8 +182,17 @@ class MachineService:
                 if not known_image(source["url"], source["sha256"]):
                     return "image_changed", "The catalogue image changed. File a new request with its current checksum."
             else:
-                # An upload DataVolume waits for its bytes indefinitely without the owner's transfer.
-                return "media_upload_unavailable", "This hub cannot receive machine media yet. Choose a catalogue image."
+                if not self.cdi or not source.get("upload_id"):
+                    return "media_upload_unavailable", "Choose media uploaded to your Home on a hub with the Machines extension."
+                if self.extension_status()["state"] != "ready":
+                    return "extension_unavailable", "Turn Machines on before importing media."
+                if not requester or requester.get("kind") != "person":
+                    return "owner_media", "Only the owner who uploaded this media can request its use."
+                try:
+                    for _, media in volumes(MachineCreateParams.model_validate(params)):
+                        staged(self.files, media, requester["id"])
+                except ApiError as exc:
+                    return "media_changed", exc.message
         row = self.repo.get(name)
         if verb in ("create", "clone"):
             node = self._host()
@@ -230,13 +245,13 @@ class MachineService:
                 raise ApiError(422, "conflict", "params.confirm: must equal the machine name, typed by the owner")
             if verb == "clone" and params["source"] == params["name"]:
                 raise ApiError(422, "conflict", "params.name: the copy needs a name of its own")
-            if (found := self.problem(verb, params)) is not None:
+            if (found := self.problem(verb, params, requester=principal.as_dict())) is not None:
                 raise ApiError(409, "policy_refused", found[1], reason=found[0])
         return check
 
     def _recheck(self, verb: str):
         def check(a) -> str | None:
-            found = self.problem(verb, a.params, reserve_own=a.id)
+            found = self.problem(verb, a.params, reserve_own=a.id, requester=a.requested_by)
             return found[1] if found else None
         return check
 
@@ -244,7 +259,7 @@ class MachineService:
     def _claim_create(self, a) -> str | None:
         with self._lock:  # two approved creates never both fit into the same last gigabyte
             verb = "clone" if a.type == "machine.clone" else "create"
-            found = self.problem(verb, a.params)
+            found = self.problem(verb, a.params, requester=a.requested_by)
             if found:
                 return found[1]
             now = self.gw.clock()
@@ -272,10 +287,55 @@ class MachineService:
 
     # ---- what runs after approval ---------------------------------------------------------
     def _run_create(self, a, finish) -> None:
-        res = self.runtime.create(MachineCreateParams.model_validate(a.params))
+        p = MachineCreateParams.model_validate(a.params)
+        media = volumes(p)
+        res = self.runtime.create(p, media_action=a.id) if media else self.runtime.create(p)
         if res.outcome == "succeeded":
-            self.repo.set_state(a.params["name"], "stopped", self.gw.clock(), action_id=a.id)
+            self.repo.set_state(p.name, "needs_media" if media else "stopped", self.gw.clock(), action_id=a.id)
         finish(res)
+
+    def upload(self, name: str, owner: Principal) -> MachineUploadResult:
+        if not owner.is_owner:
+            self.gw.audit.append("authz.denied", owner.as_dict(), None, {"attempted": "transfer machine media", "reason": "owner_only"})
+            raise ApiError(403, "permission_denied", "Only the owner who uploaded the media can transfer it to a machine.")
+        # One immutable staging copy at a time on a home hub. A restart releases the lock. CDI's
+        # volume phase is the durable receipt for each part, so a retry skips an accepted installer.
+        if not self._transfer_lock.acquire(blocking=False):
+            raise ApiError(409, "conflict", "Another machine media transfer is in progress.", reason="transfer_busy")
+        try:
+            row = self.repo.get(name)
+            if not row:
+                raise ApiError(404, "not_found", "No such machine.")
+            action_id = self.repo.owner(name)
+            a = self.gw.actions.repo.get(action_id) if action_id else None
+            if not (a and a.type == "machine.create" and a.approved_by and a.state == "succeeded"
+                    and a.requested_by == {"id": owner.id, "kind": "person"}):
+                self.gw.audit.append("authz.denied", owner.as_dict(), action_id, {"attempted": "transfer machine media", "reason": "not_requester"})
+                raise ApiError(403, "permission_denied", "This machine has no approved media request from this owner.")
+            media = volumes(MachineCreateParams.model_validate(a.params))
+            if not media or not self.cdi or row["state"] not in ("needs_media", "stopped"):
+                raise ApiError(409, "conflict", "The machine is not waiting for approved media.")
+            receipts = []
+            for volume, source in media:
+                staged(self.files, source, owner.id)
+                phase = self.cdi.phase(name, action_id, volume, source.sha256)
+                if phase != "Succeeded":
+                    if phase != "UploadReady" or row["state"] != "needs_media":
+                        raise ApiError(409, "conflict", "CDI is preparing or checking the volume. Retry after it finishes.", reason="media_pending")
+                    with verified_file(self.files, source, owner) as stream:
+                        # Recheck the target after the potentially long local verification.
+                        if self.cdi.phase(name, action_id, volume, source.sha256, authorize=True) != "UploadReady":
+                            raise ApiError(409, "stale_precondition", "The upload target changed; retry to check it.")
+                        self.cdi.send(volume, stream, source.size_bytes)
+                    if self.cdi.phase(name, action_id, volume, source.sha256) != "Succeeded":
+                        raise ApiError(409, "conflict", "CDI is checking the transferred volume. Retry after it finishes.", reason="media_pending")
+                receipts.append(UploadedMedia(volume=volume, sha256=source.sha256, size_bytes=source.size_bytes))
+            if not self.repo.set_state(name, "stopped", self.gw.clock(), only_from=("needs_media", "stopped"), action_id=action_id):
+                raise ApiError(409, "stale_precondition", "The machine changed during the upload.")
+            self.gw.audit.append("machines.media.uploaded", owner.as_dict(), action_id, {"machine": name})
+            return MachineUploadResult(name=name, media=receipts)
+        finally:
+            self._transfer_lock.release()
 
     def _run_toggle(self, running: bool):
         def run(a, finish) -> None:
@@ -288,10 +348,11 @@ class MachineService:
 
     def _run_delete(self, a, finish) -> None:
         name = a.params["name"]
-        res = self.runtime.delete(name)
-        if res.outcome == "succeeded":
-            self.repo.remove(name)
-            self.repo.remove_snapshots(name)
+        with self._transfer_lock:
+            res = self.runtime.delete(name)
+            if res.outcome == "succeeded":
+                self.repo.remove(name)
+                self.repo.remove_snapshots(name)
         finish(res)
 
     def _run_restart(self, a, finish) -> None:

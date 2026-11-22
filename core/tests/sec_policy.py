@@ -606,6 +606,9 @@ POLICY |= {
     ("POST", "/v1/machines/{name}/console"): Row(cells(403, **GONE, owner=404, plugin=DENIED, automation=DENIED, node=DENIED),
                                                  w.p_static("/v1/machines/ghost/console"),
                                                  f"{_MACH}: only the owner gets a console ticket; an agent never gets a screen"),
+    ("POST", "/v1/machines/{name}/upload"): Row(cells(403, **GONE, owner=404, plugin=DENIED, automation=DENIED, node=DENIED),
+                                                w.p_static("/v1/machines/ghost/upload"),
+                                                f"{_MACH}: only the owner can transfer media to an approved machine"),
 }
 
 # ---- system controls (UMB-P09, #146: core/onemind_core/routers/system.py) -----------------------------------
