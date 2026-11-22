@@ -30,7 +30,7 @@ type Config struct {
 // Load accepts a private administrator-owned configuration, never gateway input.
 func Load(path string) (Config, error) {
 	var c Config
-	if err := protected(filepath.Dir(path)); err != nil {
+	if err := protected(filepath.Dir(path), false); err != nil {
 		return c, err
 	}
 	fi, err := os.Lstat(path)
@@ -91,23 +91,54 @@ func field(text, name string) string {
 
 // Paths must be provisioned beforehand. Never create, convert or format a source.
 // Protected ancestors prevent a member swapping a path while btrfs opens it.
-func protected(path string) error {
+// The Files root itself may belong to the gateway user (it creates folders there); only
+// root or this process may own its ancestors. A world- or group-writable ancestor is
+// accepted only with the sticky bit (like /tmp), where nobody can rename an entry they
+// do not own, and never as the direct parent of a leaf that another user owns.
+func protected(path string, gatewayLeaf bool) error {
 	if !filepath.IsAbs(path) || filepath.Clean(path) != path {
 		return fmt.Errorf("snapshot paths must be absolute and clean")
 	}
+	childOwned := true
 	for p := path; ; p = filepath.Dir(p) {
 		fi, err := os.Lstat(p)
 		if err != nil {
 			return err
 		}
-		if !fi.IsDir() || !owned(fi) || fi.Mode().Perm()&0022 != 0 {
+		if !fi.IsDir() {
+			return fmt.Errorf("snapshot path needs real directories, not symlinks: %s", p)
+		}
+		uid, err := ownerOf(fi)
+		if err != nil {
+			return err
+		}
+		leaf := p == path
+		if !safeDir(uid, fi.Mode(), leaf && gatewayLeaf, childOwned) {
 			return fmt.Errorf("snapshot path needs owned, non-writable directory ancestors: %s", p)
 		}
+		childOwned = trustedUID(uid)
 		if p == "/" {
 			return nil
 		}
 	}
 }
+
+// safeDir decides one path element. gatewayLeaf: the Files root, which any owner may hold
+// as long as its ancestors are protected. childOwned: the element below is owned by root or us.
+func safeDir(uid uint32, mode os.FileMode, gatewayLeaf, childOwned bool) bool {
+	if gatewayLeaf {
+		return true
+	}
+	if !trustedUID(uid) {
+		return false
+	}
+	if mode.Perm()&0022 == 0 {
+		return true
+	}
+	return mode&os.ModeSticky != 0 && childOwned
+}
+
+func trustedUID(uid uint32) bool { return uid == 0 || uid == uint32(os.Geteuid()) }
 
 // directoryMode allows 0700, or 0750 so the gateway (group onemind, read-only) can show a member
 // the previous versions of their own files. Nobody but root may write, and others get nothing.
@@ -117,10 +148,11 @@ func directoryMode(perm os.FileMode) bool {
 
 func (m Manager) validate(ctx context.Context) (string, error) {
 	c := m.Config
-	for _, p := range []string{c.Source, c.Directory} {
-		if err := protected(p); err != nil {
-			return "", err
-		}
+	if err := protected(c.Source, true); err != nil {
+		return "", err
+	}
+	if err := protected(c.Directory, false); err != nil {
+		return "", err
 	}
 	if c.Source == "/" || c.Source == c.Directory || strings.HasPrefix(c.Directory, c.Source+"/") || strings.HasPrefix(c.Source, c.Directory+"/") {
 		return "", fmt.Errorf("source and snapshot directory must be disjoint")

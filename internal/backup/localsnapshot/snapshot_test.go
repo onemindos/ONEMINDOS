@@ -42,14 +42,16 @@ func (r *replay) Run(_ context.Context, _ string, a ...string) ([]byte, int, err
 
 func setup(t *testing.T) (Manager, *replay) {
 	t.Helper()
-	// Use the checkout's protected ancestors rather than world-writable /tmp.
-	d, err := os.MkdirTemp(".", ".snapshot-test-")
+	// The temp dir's ancestors are root-owned and either non-writable or sticky (/tmp), so the
+	// test does not depend on how the checkout's folders happen to be permissioned.
+	// t.TempDir() makes its leaf with mode 0777 minus the umask, so pin it to 0700.
+	d, err := filepath.EvalSymlinks(t.TempDir())
+	if err == nil {
+		err = os.Chmod(d, 0700)
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
-	d, _ = filepath.Abs(d)
-	d, _ = filepath.EvalSymlinks(d)
-	t.Cleanup(func() { os.RemoveAll(d) })
 	c := Config{filepath.Join(d, "source"), filepath.Join(d, "versions"), 2, 2}
 	for _, p := range []string{c.Source, c.Directory} {
 		if err = os.Mkdir(p, 0700); err != nil {
@@ -153,6 +155,48 @@ func TestDirectoryModeAllowsOnlyGroupRead(t *testing.T) {
 		if _, err := m.List(context.Background()); (err == nil) != ok {
 			t.Errorf("mode %o: accepted=%v want %v (%v)", perm, err == nil, ok, err)
 		}
+	}
+}
+
+// The Files root belongs to the gateway (it creates folders there); its ancestors and the
+// snapshot directory must still be root- or self-owned, and writable only with the sticky bit.
+func TestSafeDirRules(t *testing.T) {
+	const gateway = 961
+	me := uint32(os.Geteuid())
+	sticky := os.ModeDir | os.ModeSticky | 0777
+	cases := []struct {
+		name               string
+		uid                uint32
+		mode               os.FileMode
+		gatewayLeaf, child bool
+		ok                 bool
+	}{
+		{"gateway-owned files root", gateway, os.ModeDir | 0750, true, false, true},
+		{"gateway-owned ancestor", gateway, os.ModeDir | 0755, false, true, me == gateway},
+		{"root ancestor", 0, os.ModeDir | 0755, false, false, true},
+		{"group-writable ancestor", 0, os.ModeDir | 0775, false, true, false},
+		{"world-writable ancestor", 0, os.ModeDir | 0777, false, true, false},
+		{"sticky /tmp above an owned dir", 0, sticky, false, true, true},
+		{"sticky dir above a gateway-owned root", 0, sticky, false, false, false},
+		{"gateway-owned snapshot directory", gateway, os.ModeDir | 0750, false, true, me == gateway},
+	}
+	for _, c := range cases {
+		if got := safeDir(c.uid, c.mode, c.gatewayLeaf, c.child); got != c.ok {
+			t.Errorf("%s: safeDir=%v want %v", c.name, got, c.ok)
+		}
+	}
+}
+
+// A writable parent of the Files root lets anyone swap it, even if the root is fine.
+func TestSourceParentMustBeProtected(t *testing.T) {
+	m, _ := setup(t)
+	parent := filepath.Dir(m.Config.Source)
+	if err := os.Chmod(parent, 0777); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Chmod(parent, 0700)
+	if _, err := m.List(context.Background()); err == nil {
+		t.Fatal("world-writable parent of the source accepted")
 	}
 }
 

@@ -18,7 +18,9 @@ The RAUC slots, health gate and rollback are unchanged.
 
 On an existing btrfs installation, provision the Files root as a subvolume and
 the snapshot directory outside it on the same filesystem. Both need protected,
-administrator-owned ancestors with no symlinks or group/other write access.
+administrator-owned ancestors with no symlinks or group/other write access (a sticky
+directory such as `/tmp` is the one exception, and never directly above the Files root).
+The Files root itself may be owned by the gateway user `onemind`, which creates folders in it.
 The snapshot directory must be mode 0700, or 0750 with group `onemind` so the
 gateway can show versions in Files (root alone writes it; others get nothing). Nested subvolumes are refused because
 [btrfs snapshots are non-recursive](https://btrfs.readthedocs.io/en/stable/btrfs-subvolume.html).

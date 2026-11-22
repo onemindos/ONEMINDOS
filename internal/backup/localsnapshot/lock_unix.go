@@ -4,14 +4,23 @@
 package localsnapshot
 
 import (
+	"fmt"
 	"golang.org/x/sys/unix"
 	"os"
 	"syscall"
 )
 
 func owned(fi os.FileInfo) bool {
-	uid := fi.Sys().(*syscall.Stat_t).Uid
-	return uid == 0 || uid == uint32(os.Geteuid())
+	uid, err := ownerOf(fi)
+	return err == nil && trustedUID(uid)
+}
+
+func ownerOf(fi os.FileInfo) (uint32, error) {
+	st, ok := fi.Sys().(*syscall.Stat_t)
+	if !ok {
+		return 0, fmt.Errorf("cannot read owner of %s", fi.Name())
+	}
+	return st.Uid, nil
 }
 
 func lock(path string) (func(), error) {
