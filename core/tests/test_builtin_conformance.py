@@ -62,7 +62,9 @@ def problems(d: builtins.Descriptor, others: list[builtins.Descriptor], tables: 
         if a["type"] not in types:
             out.append(f"{d.id} declares action {a['type']}, which the gateway has not registered")
     for topic in (d.spec.get("notifications") or {}).get("topics", []):
-        for ev in topic["events"]:
+        if len(f"app.{d.id}.{topic['id']}") > 80:
+            out.append(f"{d.id} topic {topic['id']} makes app.{d.id}.{topic['id']}, longer than 80 characters")
+        for ev in topic.get("events", []):
             spec = lookup(ev)
             if spec is None or spec.topic != topic["id"]:
                 out.append(f"{d.id} declares {ev} under topic {topic['id']}, which the notify catalogue does not")
