@@ -4,11 +4,24 @@
 // generic banner is suppressed and the app shows the real text instead.
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
+import { unifiedPush } from '../modules/onemind-unifiedpush';
 import type { Alert } from './lib/alerts';
 import { parsePing } from './lib/push';
+import { ACTION_DENY, ACTION_REVIEW, APPROVAL_CATEGORY } from './lock/actions';
 import { TOUR_ROLE } from './tour';
 
 let configured = false;
+
+/**
+ * The buttons on an approval notification (issue #704): Review and Deny, both needing the phone
+ * unlocked (iOS authenticationRequired; on Android expo-notifications cannot set it, so approvals are
+ * shown by the native module with setAuthenticationRequired, and Deny also asks for an in-app unlock
+ * before it records anything). Approve is never a notification button.
+ */
+export const APPROVAL_ACTIONS: Notifications.NotificationAction[] = [
+  { identifier: ACTION_REVIEW, buttonTitle: 'Review', options: { opensAppToForeground: true, isAuthenticationRequired: true } },
+  { identifier: ACTION_DENY, buttonTitle: 'Deny', options: { opensAppToForeground: true, isAuthenticationRequired: true, isDestructive: true } },
+];
 
 export async function setupNotifications(): Promise<boolean> {
   if (TOUR_ROLE) return false; // screenshot tour: the permission prompt would cover the screen
@@ -26,6 +39,7 @@ export async function setupNotifications(): Promise<boolean> {
         importance: Notifications.AndroidImportance.HIGH,
       });
     }
+    await Notifications.setNotificationCategoryAsync(APPROVAL_CATEGORY, APPROVAL_ACTIONS).catch(() => null);
   }
   const current = await Notifications.getPermissionsAsync();
   if (current.granted) return true;
@@ -34,9 +48,19 @@ export async function setupNotifications(): Promise<boolean> {
 }
 
 export async function showAlert(a: Alert): Promise<void> {
+  const actionId = a.route === 'approvals' ? a.actionId : undefined;
+  if (actionId && Platform.OS === 'android' && unifiedPush?.showApproval) {
+    unifiedPush.showApproval(a.id, a.title, a.body, actionId);
+    return;
+  }
   await Notifications.scheduleNotificationAsync({
     identifier: a.id,
-    content: { title: a.title, body: a.body, data: { route: a.route } },
+    content: {
+      title: a.title,
+      body: a.body,
+      data: actionId ? { route: a.route, action_id: actionId } : { route: a.route },
+      ...(actionId ? { categoryIdentifier: APPROVAL_CATEGORY } : {}),
+    },
     trigger: Platform.OS === 'android' ? { channelId: 'hub' } : null,
   });
 }

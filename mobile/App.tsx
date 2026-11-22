@@ -9,7 +9,6 @@ import {
   type Theme as NavTheme,
 } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import * as Notifications from 'expo-notifications';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo } from 'react';
 import { ActivityIndicator, Image, Text, View } from 'react-native';
@@ -25,6 +24,8 @@ import { PhotoAlbumsScreen } from './src/photos/PhotoAlbumsScreen';
 import { PhotoBackupScreen } from './src/photos/PhotoBackupScreen';
 import { usePushPings } from './src/pushPings';
 import { IncomingFiles } from './src/files/IncomingFiles';
+import { LockProvider } from './src/lock/LockProvider';
+import { NotificationActions } from './src/lock/NotificationActions';
 import { ActivityScreen } from './src/screens/ActivityScreen';
 import { AppDetailScreen } from './src/screens/AppDetailScreen';
 import { AgentsScreen } from './src/screens/AgentsScreen';
@@ -131,7 +132,10 @@ function Tabs() {
   );
 }
 
-/** Where a notification tap goes. A ping (ids only) opens the Inbox; nothing is ever approved from a tap. */
+/**
+ * Where a notification tap (or its Review button) goes. A ping (ids only) opens the Inbox; nothing is
+ * ever approved from a notification. Deny is handled in src/lock/NotificationActions, after an unlock.
+ */
 function routeTo(data: Record<string, unknown> | undefined) {
   if (!navRef.isReady()) return;
   const route = data?.route;
@@ -183,12 +187,12 @@ function SignedIn() {
   useEffect(() => {
     if (TOUR_ROLE) return; // the permission prompt would cover the screenshots
     void setupNotifications().catch(() => false);
-    const sub = Notifications.addNotificationResponseReceivedListener((r) => routeTo(r.notification.request.content.data));
-    return () => sub.remove();
   }, []);
 
   return (
+    <LockProvider>
     <HubDataProvider onAlerts={onAlerts}>
+      {!TOUR_ROLE && <NotificationActions open={routeTo} />}
       <PushPings />
       <IncomingFiles />
       <PrefsProvider>
@@ -218,6 +222,7 @@ function SignedIn() {
       </PhotoBackupProvider>
       </PrefsProvider>
     </HubDataProvider>
+    </LockProvider>
   );
 }
 

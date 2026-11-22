@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { useHubData } from '../data';
 import { deviceInfo, loadLink, type DeviceLink } from '../lib/device';
+import { LockSection } from '../lock/LockSection';
 import { setupNotifications, showAlert } from '../notify';
 import { useSignedIn } from '../session';
 import { Button, Card, H1, H2, Notice, P, Row, Screen, s } from '../ui/bits';
@@ -42,6 +43,7 @@ export function SettingsScreen() {
       <H1>Settings</H1>
       <IdentitySection deviceName={name} />
       <AppearanceSection />
+      <LockSection />
       <BoxSettingsSection />
       <DeviceSection link={link} onLink={onLink} name={name} onName={setName} />
       <PushSection deviceApproved={link?.state === 'active'} deviceName={name} />

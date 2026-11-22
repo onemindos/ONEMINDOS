@@ -17,6 +17,8 @@ export interface Alert {
   body: string;
   /** Deep link target inside the app. */
   route: 'approvals' | 'nodes' | 'activity' | 'inbox';
+  /** The action waiting for approval, when there is one: the notification then offers Review and Deny (never Approve). */
+  actionId?: string;
 }
 
 export function snapshot(actions: Action[] | undefined, nodes: NodeRecord[] | undefined): Snapshot {
@@ -44,6 +46,7 @@ export function diffAlerts(prev: Snapshot | undefined, next: Snapshot, actions: 
         title: 'Approval needed',
         body: `${principalLabel(a.requested_by)} asks: ${actionTitle(a)}`,
         route: 'approvals',
+        actionId: a.id,
       });
     } else if (before !== undefined && before !== a.state && FINAL.has(a.state)) {
       out.push({
@@ -80,5 +83,11 @@ export function inboxAlerts(seen: Set<string> | undefined, inbox: InboxItem[]): 
   if (!seen) return [];
   return inbox
     .filter((n) => !seen.has(n.id) && !n.read_at)
-    .map((n) => ({ id: `ntf:${n.id}`, title: n.title, body: n.body, route: n.action_id ? 'approvals' : 'inbox' }));
+    .map((n) => ({
+      id: `ntf:${n.id}`,
+      title: n.title,
+      body: n.body,
+      route: n.action_id ? 'approvals' : 'inbox',
+      ...(n.action_id ? { actionId: n.action_id } : {}),
+    }));
 }

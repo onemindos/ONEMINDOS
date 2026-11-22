@@ -59,6 +59,11 @@ class UnifiedPushModule : Module() {
 
     /** The last endpoint the distributor gave us (so JS does not miss one sent while it was not listening). */
     Function("lastEndpoint") { Store.endpoint(context) }
+
+    /** An approval request with Review and Deny, both behind the phone unlock; never an Approve button (#704). */
+    Function("showApproval") { tag: String, title: String, body: String, actionId: String ->
+      Notices.showApproval(context, tag, title, body, actionId)
+    }
   }
 
   companion object {

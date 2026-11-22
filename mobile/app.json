@@ -83,6 +83,12 @@
     "plugins": [
       "expo-secure-store",
       [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "OneMind uses Face ID to unlock the app and to confirm a Deny from the lock screen."
+        }
+      ],
+      [
         "expo-sharing",
         {
           "android": {

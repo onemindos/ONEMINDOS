@@ -16,7 +16,13 @@ export async function showPinged(api: OneMindApi, id: string | undefined): Promi
   if (!id) return showAlert({ id: 'ntf:ping', ...GENERIC, route: 'inbox' });
   try {
     const n = await api.notification(id);
-    await showAlert({ id: `ntf:${n.id}`, title: n.title, body: n.body, route: n.action_id ? 'approvals' : 'inbox' });
+    await showAlert({
+      id: `ntf:${n.id}`,
+      title: n.title,
+      body: n.body,
+      route: n.action_id ? 'approvals' : 'inbox',
+      ...(n.action_id ? { actionId: n.action_id } : {}),
+    });
   } catch {
     await showAlert({ id: `ntf:${id}`, ...GENERIC, route: 'inbox' });
   }
