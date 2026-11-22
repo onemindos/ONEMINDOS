@@ -1325,6 +1325,55 @@
         "title": "BudgetBody",
         "type": "object"
       },
+      "CareCheck": {
+        "properties": {
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "fix": {
+            "anyOf": [
+              {
+                "const": "backup.run",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fix"
+          },
+          "id": {
+            "enum": [
+              "backup",
+              "probe",
+              "scan",
+              "ownership",
+              "image",
+              "disk",
+              "drill"
+            ],
+            "title": "Id",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "finding",
+              "clear",
+              "unavailable"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "state",
+          "detail"
+        ],
+        "title": "CareCheck",
+        "type": "object"
+      },
       "CatalogApp": {
         "description": "One GET /v1/apps entry: the §3 fields plus links, tier and scan (§11.4).",
         "properties": {
@@ -15771,6 +15820,52 @@
         "summary": "Close Session",
         "tags": [
           "browsers"
+        ]
+      }
+    },
+    "/v1/care/checkup": {
+      "get": {
+        "description": "Inspect seven sources of box drift without making any changes.",
+        "operationId": "care.checkup",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CareCheck"
+                  },
+                  "title": "Response Care.Checkup",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "summary": "Get Checkup",
+        "tags": [
+          "care"
         ]
       }
     },
