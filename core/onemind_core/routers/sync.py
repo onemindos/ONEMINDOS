@@ -22,7 +22,12 @@ from ..files import errors as ferrors
 from ..files.errors import FilesError
 from ..files.index import CHANGES_MAX
 from ..files.service import FilesService
+from ..identity.scopes import ALL, register_route_scope
 from .files import CURSOR_RE, RootQ, errs
+
+# Like /v1/files/*: no narrower scope covers files yet, so a scoped token needs every scope ("*");
+# the handler then checks read access to the whole root (a person's role, or an agent's grant on "/").
+register_route_scope("GET,HEAD", r"/v1/sync/changes", (ALL,))
 
 TAG = ["sync"]
 ORDER = 305  # after files (300)

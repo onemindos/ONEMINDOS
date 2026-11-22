@@ -439,6 +439,8 @@ POLICY |= {
                                    f"{_FILES}: people browse; an agent needs a grant (none here)"),
     ("GET", "/v1/files/stat"): Row(grid(200, 200, 200, 403, 403), w.p_static("/v1/files/stat?root=shared&path=/"),
                                    f"{_FILES}: people browse; an agent needs a grant"),
+    ("GET", "/v1/sync/changes"): Row(grid(200, 200, 200, 403, 403), w.p_static("/v1/sync/changes?root=shared"),
+                                     f"{_FILES}: the change feed (#698) follows read access to the whole root"),
     ("GET", "/v1/files/preview"): Row(grid(404, 404, 404, 403, 403), w.p_static("/v1/files/preview?root=shared&path=/a"),
                                       f"{_FILES}: people browse; an agent needs a grant"),
     ("GET", "/v1/files/download"): Row(grid(404, 404, 404, 403, 403), w.p_static("/v1/files/download?root=shared&path=/a"),
