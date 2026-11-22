@@ -37,6 +37,7 @@ from ..audit import AuditLog
 from ..auth import Principal
 from ..catalog import Catalog
 from ..errors import ApiError
+from ..jsonbody import JsonBody
 from ..ledger import Action, iso, utc
 from ..scan import scan_problem
 from . import registry
@@ -57,7 +58,7 @@ class Allow(BaseModel):
     params: dict[str, dict] = Field(default_factory=dict)
 
 
-class Limits(BaseModel):
+class Limits(JsonBody):
     model_config = ConfigDict(extra="forbid")
     per_day: int = Field(ge=1, le=1000)
 
