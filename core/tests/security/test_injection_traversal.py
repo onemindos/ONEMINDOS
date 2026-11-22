@@ -495,6 +495,9 @@ def test_oversized_chunked_bodies_are_413(world):
     for method, path, kind in body_routes(world):
         r = world.client.request(method, path, content=chunks(), headers={**world.mint(kind), "Content-Type": "application/json"})
         assert r.status_code == 413, (method, path, r.status_code)
+        # the documented error body (API.md §6.2), not a route's own answer
+        assert r.headers.get("content-type", "").startswith("application/json"), (method, path)
+        assert r.json()["error"] == "payload_too_large" and r.json()["message"], (method, path, r.text[:200])
 
 
 @pytest.mark.skipif(not HAS_GUARD, reason=GUARD_STREAM)

@@ -25,6 +25,14 @@ CAP = 256 * 1024
 OCTET = {"Content-Type": "application/offset+octet-stream"}
 
 
+def assert_payload_too_large(content_type: str, body: bytes) -> None:
+    """The documented 413 body (API.md §6.1-6.2, H-20): JSON with `error` = payload_too_large and a message."""
+    assert content_type.startswith("application/json"), content_type
+    doc = json.loads(body)
+    assert doc["error"] == "payload_too_large", doc
+    assert isinstance(doc.get("message"), str) and doc["message"], doc
+
+
 def pieces(n: int, size: int = 16 * 1024):
     left = n
     while left > 0:
@@ -63,7 +71,10 @@ async def answers_without_reading(scope, receive, send):
 def test_unread_over_cap_chunked_body_is_413_not_the_precondition():
     status, reads, sent = run_guard(answers_without_reading, [b"x" * 600, b"x" * 600])
     assert status == 413 and reads == 2  # stops draining at the overflow
-    assert b"precondition" not in b"".join(m.get("body", b"") for m in sent)
+    body = b"".join(m.get("body", b"") for m in sent)
+    assert b"precondition" not in body
+    start = next(m for m in sent if m["type"] == "http.response.start")
+    assert_payload_too_large(dict(start["headers"]).get(b"content-type", b"").decode(), body)
 
 
 def test_unread_in_cap_body_gets_the_routes_own_answer():
@@ -116,10 +127,12 @@ def test_tus_patch_over_cap_is_413_and_stores_nothing(fc, framing, tus):
     headers = {**OWNER, **OCTET, "Upload-Offset": "0", **(TUS if tus else {})}
     if framing == "chunked":
         r = fc.patch(loc, content=pieces(CAP + 1), headers=headers)
-        status = r.status_code
+        status, content_type, body = r.status_code, r.headers.get("content-type", ""), r.content
     else:
-        status, _, _ = raw_request(fc, loc, headers, list(pieces(CAP + 1)), method="PATCH")
-    assert status == 413
+        status, resp_headers, body = raw_request(fc, loc, headers, list(pieces(CAP + 1)), method="PATCH")
+        content_type = resp_headers.get(b"content-type", b"").decode()
+    assert status == 413  # never the 412 a missing Tus-Resumable would get before the body is sized
+    assert_payload_too_large(content_type, body)
     assert fc.head(loc, headers={**OWNER, **TUS}).headers["upload-offset"] == "0"
 
 
