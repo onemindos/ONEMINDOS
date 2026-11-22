@@ -6,8 +6,9 @@
 
 | Workflow | Job | Runner | When | A pass proves | Register rows |
 |---|---|---|---|---|---|
-| [`ui-quality.yml`](../../.github/workflows/ui-quality.yml) | `build` | ubuntu-24.04 | PR or push touching `ui/`, `dashboard/` | The `ui/` demo and the dashboard mock build; the browser-test dependencies are exact pins with allowed licences; the tests typecheck | – |
-| | `chromium`, `firefox`, `webkit` | ubuntu-24.04 | same | In each engine: no new serious/critical axe finding on any of 73 screens (light + dark, 1280 + 375 px); no uncaught exception or `console.error`; sign-in and menus work; 29 screenshots (WebKit: 24, §1.5) match the approved baseline | TR-181, TR-183 |
+| [`ui-quality.yml`](../../.github/workflows/ui-quality.yml) | `build` | ubuntu-24.04 | PR or push touching `ui/`, `dashboard/` | The `ui/` demo and the dashboard mock build (on a PR also from its base, `main`); the browser-test dependencies are exact pins with allowed licences; the tests typecheck | – |
+| | `chromium`, `firefox`, `webkit` | ubuntu-24.04 | same | In each engine: no new serious/critical axe finding on any of 73 screens (light + dark, 1280 + 375 px); no uncaught exception or `console.error`; sign-in and menus work; on a PR, 29 screenshots (WebKit: 24, §1.5) of the PR compared with `main` drawn in the same job | TR-181, TR-183 |
+| | `visual`, `visual-recheck` | ubuntu-24.04 | PR; `visual-recheck` when a label is added or removed | No screen differs from `main`, or the PR carries the label `visual:accepted` (§1.3) | – |
 | [`apps-gate-all.yml`](../../.github/workflows/apps-gate-all.yml) | `gate` (app × arch) | ubuntu-24.04 **and** ubuntu-24.04-arm | Mondays 05:23 UTC, manual | Every app in `apps/` passes `app-gate --smoke` on each CPU architecture: licence, pinning and archs, Trivy, ClamAV, cosign, non-root, and the app **starts** (and answers HTTP, if it has a web UI) on a k3s cluster running natively on amd64 and on arm64 | TR-081, TR-088 |
 | | `report`, `issue` | ubuntu-24.04 | after the gates | The run summary has one table of app × architecture; on full runs one issue lists every failing cell, or is closed when all pass | – |
 | | self-test | both | PR touching the workflow or `sdk/tools/ci/` | The workflow itself works end to end on one canary app (`ntfy`) on both architectures; the issue is not touched | – |
@@ -29,9 +30,9 @@ The unit tests in `ui/` and `dashboard/` run in jsdom, which has no layout or pa
 | axe-core 4.14 (all default rules: WCAG 2.0, 2.1 and 2.2 A/AA plus best practices) | 67 `ui/` demo routes in light and dark, 6 dashboard pages in light (it has no dark theme yet), each at 1280 px and 375 px: 280 page visits | a **serious** or **critical** finding that is not a listed known finding (§1.4), or a listed one that no longer reproduces |
 | Console and exceptions | the same 280 visits | any uncaught exception or `console.error` |
 | Flows | dashboard: bad token refused, `owner-demo` signs in, menu to Nodes, Market, Approvals, Home, sign out; demo: each main menu entry opens its screen with `aria-current` | a step does not happen |
-| Visual | 29 screenshots: 22 whole pages at 1280 px light, 3 dark, 4 phone (390 px); WebKit skips the 5 of Home, Appearance and the App Store (§1.5) | more than 0.1 % of pixels differ from `ui/test/visual/<engine>/` |
+| Visual | 29 screenshots: 22 whole pages at 1280 px light, 3 dark, 4 phone (390 px); WebKit skips the 5 of Home, Appearance and the App Store (§1.5) | on a PR, more than 0.1 % of pixels differ from the same screen drawn from `main` in the same job, and the PR has no `visual:accepted` label (§1.3); not run on a push to `main` |
 
-Determinism: the clock is fixed at 2026-11-12 15:05 UTC, motion is reduced, animations and the caret are off, and time zone and locale are fixed (UTC, en-US). Each engine has its own baseline, drawn on the same runner image, because fonts and anti-aliasing differ between engines. A desktop shot stretches the viewport to the page's height and then captures it. A plain full-page capture draws `position: fixed` layers (the wallpaper, the Home dock, the dashboard background) only within the first 860 px, which put the dock in the middle of the picture. The baseline is about 9 MB per engine (unquantised PNGs). Accepting one changed screen rewrites only its file.
+Determinism: the clock is fixed at 2026-11-12 15:05 UTC, motion is reduced, animations and the caret are off, and time zone and locale are fixed (UTC, en-US). Each engine is compared with itself, base and PR drawn in the same job, because fonts and anti-aliasing differ between engines and machines. A desktop shot stretches the viewport to the page's height and then captures it. A plain full-page capture draws `position: fixed` layers (the wallpaper, the Home dock, the dashboard background) only within the first 860 px, which put the dock in the middle of the picture. No screenshot is committed (CI-17).
 
 Moderate and minor axe findings do not fail. They stay visible in the report (`axe-results.json` is attached to every visit).
 
@@ -41,13 +42,11 @@ Download `playwright-report-<browser>` from the run and open `playwright-report/
 
 ### 1.3 Accepting a visual change
 
-A difference fails the PR on purpose; someone has to look at it. If the change is intended:
+A difference fails the PR on purpose; someone has to look at it. The reference is not a committed picture but `main` itself: the build job also builds the first parent of GitHub's merge commit (`main` as the PR merges into it), and each browser job draws the screenshots from that build before comparing the PR with them. Two PRs that change the same screen therefore never conflict over PNGs.
 
-1. Actions → ui-quality → Run workflow on your branch with `update_baseline` ticked (`gh workflow run ui-quality.yml --ref <branch> -f update_baseline=true`). The run rewrites the snapshots and uploads `visual-baseline-<browser>` artifacts. It never commits.
-2. `ui/test/accept-visual.sh <run-id>` copies them into `ui/test/visual/<browser>/`.
-3. Commit, push. The PR shows each changed PNG as an image diff; **approving the PR approves the baseline**.
-
-A new screenshot has no baseline yet. Its first PR run fails and uploads the candidate automatically, so step 2 works on that run too.
+1. The `visual` job's summary lists the changed screens; `playwright-report-<browser>` → `playwright-report-visual/index.html` shows expected, actual and diff.
+2. The reviewer adds the label `visual:accepted` if the change is intended. The label starts `visual-recheck`, which re-uses the newest full run of the commit (its build, axe and flows must have passed) and decides again with the current labels; then re-run `merge-gate`. The label counts only if it was added after the newest commit or force-push (the PR's timeline), so a later push needs a fresh look and a fresh label.
+3. Locally: `ui/test/visual-vs-main.sh` does the same comparison on your machine ([ui/test/README.md](../../ui/test/README.md)).
 
 ### 1.4 Known findings (defects in `ui/`, for the ui stream to fix)
 
@@ -110,7 +109,7 @@ First run (2026-11-12, local build): 28 pages, 1,252 links, 0 broken, 43 reposit
 
 | Workflow | Manual run |
 |---|---|
-| ui-quality | `gh workflow run ui-quality.yml --ref <branch>` (add `-f update_baseline=true` to redraw the baseline) |
+| ui-quality | `gh workflow run ui-quality.yml --ref <branch>` (axe and flows; the visual comparison runs on pull requests) |
 | apps-gate-all | `gh workflow run apps-gate-all.yml` (all apps; updates the issue) or `-f apps="ntfy mosquitto"` (some apps; summary only) |
 | ci-mobile | `gh workflow run ci-mobile.yml --ref <branch>` |
 | site | runs on PRs; its manual trigger is added on `test/register` |

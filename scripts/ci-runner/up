@@ -1,21 +1,34 @@
 #!/bin/bash
 # SPDX-License-Identifier: Apache-2.0
-# Start the local CI runner (CI-10, issue 299). Usage: scripts/ci-runner/up [--service] [--on]
-#   (no flag)  create/start the VM if needed, then run the job loop in this terminal (Ctrl-C stops it)
+# Start the local CI runner (CI-10 and CI-13, issue 299). Usage: scripts/ci-runner/up [--service] [--on]
+#   (no flag)  create/start the VMs if needed, then run the job loop in this terminal (Ctrl-C stops it)
 #   --service  install and start the launchd agent instead, so it survives logout and restarts
-#   --on       also set the repo variable LOCAL_RUNNER=on (workflows start choosing the local runner)
-# Size (this Mac also runs the agents; the VM is capped): CPUS (default: half the cores), MEMORY in GiB
-# (default 8), INSTANCES = parallel runners, 1 or 2 (default 1; each runs in its own VM,
-# so 2 needs twice the memory). FRESH=clone (default) gives every job a new VM cloned from the provisioned base;
-# FRESH=none reuses one VM (faster, but a job can leave things behind). CPUS and MEMORY apply when the VM is created;
-# to change them later run `down --wipe` and `up` again.
+#   --on       also set the repo variable LOCAL_RUNNER=on (workflows start choosing the worker pool).
+#              LOCAL_GATE is never set on here: the loop sets it on once a gate runner is online.
+# Two pools (docs/learning/self-hosted-runner.md). Both clone a fresh VM from a stopped base VM for every job.
+#   workers  label onemind-local, switch LOCAL_RUNNER: build and test jobs. INSTANCES = parallel workers,
+#            1 to 3 (default 1); 3 workers need three times the memory. CPUS (default: half the cores) and
+#            MEMORY in GiB (default 8) size each worker. FRESH=none reuses one VM (faster, not clean).
+#   gate     label onemind-gate, switch LOCAL_GATE: API-only jobs (merge-gate). GATE_RUNNERS = parallel gate
+#            slots, 0 to 8 (default 4; 0 turns the pool off and sets LOCAL_GATE=off). GATE_CPUS (default 1)
+#            and GATE_MEMORY in GiB (default 1) size each gate clone.
+# The loop sets LOCAL_GATE=on only once a gate runner is online, off after 3 gate failures in a row, and both
+# off when it stops normally (not after SIGKILL, a panic or a power cut: see the doc's off-switch).
+# A 12-core, 32 GB Mac: CPUS=3 MEMORY=6 INSTANCES=3 GATE_RUNNERS=4 (workers 9 vCPU and 18 GB, gate 4 vCPU,
+#   mostly idle, and 4 GB: 22 GB in all).
 # Needs: lima (brew install lima) and gh logged in with the admin:org scope. No token is ever written to disk.
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 REPO=${REPO:-onemindos/ONEMINDOS}
 VM=${VM:-onemind-ci}
+GATE_VM=${GATE_VM:-$VM-gate}
+INSTANCES=${INSTANCES:-1}
+GATE_RUNNERS=${GATE_RUNNERS:-4}
 service=0 on=0
 for a in "$@"; do case $a in --service) service=1;; --on) on=1;; *) echo "usage: up [--service] [--on]" >&2; exit 2;; esac; done
+case $INSTANCES in 1|2|3) ;; *) echo "INSTANCES must be 1, 2 or 3" >&2; exit 2 ;; esac
+case $GATE_RUNNERS in ''|*[!0-9]*) echo "GATE_RUNNERS must be a number from 0 to 8" >&2; exit 2 ;; esac
+[ "$GATE_RUNNERS" -le 8 ] || { echo "GATE_RUNNERS must be a number from 0 to 8" >&2; exit 2; }
 command -v limactl >/dev/null || { echo "install Lima first: brew install lima" >&2; exit 1; }
 command -v gh >/dev/null || { echo "install the GitHub CLI first: brew install gh" >&2; exit 1; }
 gh auth status >/dev/null 2>&1 || { echo "log in first: gh auth login" >&2; exit 1; }
@@ -23,27 +36,55 @@ if ! gh api "orgs/${REPO%%/*}/actions/runner-groups" >/dev/null 2>&1; then
   echo "gh lacks the admin:org scope. Run: gh auth refresh -h github.com -s admin:org" >&2; exit 1
 fi
 
-if ! limactl list -q 2>/dev/null | grep -qx "$VM"; then
-  cores=$(sysctl -n hw.ncpu); CPUS=${CPUS:-$(( cores / 2 > 2 ? cores / 2 : 2 ))}; MEMORY=${MEMORY:-8}
-  limactl create --name "$VM" --tty=false --cpus "$CPUS" --memory "$MEMORY" "$here/lima.yaml"
+cores=$(sysctl -n hw.ncpu); ram=$(( $(sysctl -n hw.memsize) / 1073741824 ))
+mem=${MEMORY:-8}; gmem=${GATE_MEMORY:-1}
+total=$(( INSTANCES * ${mem%.*} + GATE_RUNNERS * ${gmem%.*} ))
+if [ "$total" -gt $(( ram * 3 / 4 )) ]; then
+  echo "warning: the runner VMs may use ${total} GiB of this Mac's ${ram} GiB; agents and apps share the rest" >&2
 fi
-limactl list --format '{{.Name}} {{.Status}}' | grep -qx "$VM Running" || limactl start "$VM"
-limactl shell "$VM" -- sudo mkdir -p /opt/onemind-ci
-for f in provision.sh run-one.sh runner.pin; do
-  limactl copy "$here/$f" "$VM:/tmp/$f"
-  limactl shell "$VM" -- sudo install -m 0755 "/tmp/$f" "/opt/onemind-ci/$f"
-done
-limactl shell "$VM" -- sudo env INSTANCES=1 sh /opt/onemind-ci/provision.sh
-# The base stays stopped: cycle clones it for every job (FRESH=clone, the default).
+
+install_kit() {   # copy the in-VM scripts and run provision.sh with ROLE and INSTANCES
+  limactl shell "$1" -- sudo mkdir -p /opt/onemind-ci
+  for f in provision.sh run-one.sh job-started.sh runner.pin; do
+    limactl copy "$here/$f" "$1:/tmp/$f"
+    limactl shell "$1" -- sudo install -m 0755 "/tmp/$f" "/opt/onemind-ci/$f"
+  done
+  limactl shell "$1" -- sudo env ROLE="$2" INSTANCES="$3" sh /opt/onemind-ci/provision.sh
+}
+running() { limactl list --format '{{.Name}} {{.Status}}' 2>/dev/null | grep -qx "$1 Running"; }
+
+# Worker base VM: provisioned once, then left stopped; cycle clones it for every job (FRESH=clone).
+if ! limactl list -q 2>/dev/null | grep -qx "$VM"; then
+  CPUS=${CPUS:-$(( cores / 2 > 2 ? cores / 2 : 2 ))}
+  limactl create --name "$VM" --tty=false --cpus "$CPUS" --memory "$mem" "$here/lima.yaml"
+fi
+running "$VM" || limactl start "$VM"
+install_kit "$VM" worker 1
 if [ "${FRESH:-clone}" = clone ]; then limactl stop "$VM"; fi
 
+# Gate base VM: small, provisioned once, then left stopped; cycle clones it for every gate job.
+if [ "$GATE_RUNNERS" -gt 0 ]; then
+  if ! limactl list -q 2>/dev/null | grep -qx "$GATE_VM"; then
+    limactl create --name "$GATE_VM" --tty=false --cpus "${GATE_CPUS:-1}" --memory "$gmem" --disk 20 "$here/lima.yaml"
+  fi
+  running "$GATE_VM" || limactl start "$GATE_VM"
+  install_kit "$GATE_VM" gate 1
+  limactl stop "$GATE_VM"
+fi
+
 if [ "$on" = 1 ]; then gh variable set LOCAL_RUNNER --body on --repo "$REPO"; echo "LOCAL_RUNNER=on"; fi
-export INSTANCES=${INSTANCES:-1}
+# merge-gate follows LOCAL_GATE, never LOCAL_RUNNER: with no gate slots it must stay on GitHub.
+if [ "$GATE_RUNNERS" -eq 0 ]; then gh variable set LOCAL_GATE --body off --repo "$REPO"; echo "LOCAL_GATE=off (no gate slots)"
+else echo "LOCAL_GATE: the loop sets it on once a gate runner is online"; fi
+export INSTANCES GATE_RUNNERS GATE_CPUS GATE_MEMORY
 
 if [ "$service" = 1 ]; then
   plist="$HOME/Library/LaunchAgents/dev.onemind.ci-runner.plist"
   mkdir -p "$HOME/Library/LaunchAgents" "$HOME/Library/Logs"
-  sed -e "s|__CYCLE__|$here/cycle|g" -e "s|__HOME__|$HOME|g" -e "s|__INSTANCES__|$INSTANCES|g" -e "s|__PATH__|$(dirname "$(command -v limactl)"):$(dirname "$(command -v gh)"):/usr/bin:/bin|g" \
+  sed -e "s|__CYCLE__|$here/cycle|g" -e "s|__HOME__|$HOME|g" -e "s|__INSTANCES__|$INSTANCES|g" \
+      -e "s|__GATE_RUNNERS__|$GATE_RUNNERS|g" \
+      -e "s|__GATE_CPUS__|${GATE_CPUS:-}|g" -e "s|__GATE_MEMORY__|${GATE_MEMORY:-}|g" -e "s|__CPUS__|${CPUS:-}|g" -e "s|__MEMORY__|${MEMORY:-}|g" \
+      -e "s|__PATH__|$(dirname "$(command -v limactl)"):$(dirname "$(command -v gh)"):/usr/bin:/bin|g" \
     "$here/dev.onemind.ci-runner.plist" > "$plist"
   launchctl bootout "gui/$(id -u)" "$plist" 2>/dev/null || true
   launchctl bootstrap "gui/$(id -u)" "$plist"

@@ -732,3 +732,34 @@ def test_restore_candidates_other_box_needs_the_recovery_key(client, bk, setting
                         json={"destination_id": did, "box_id": "old-box", "recovery_key": k})
         assert r.status_code == 422
         assert k.strip() not in r.text  # a refused key is not echoed back either
+
+
+# ---- owner shortcut passes the same approval guards as the approve route (F-2) -----------------------
+def test_owner_shortcuts_need_a_passkey_once_one_is_registered(client, bk):
+    add_usb(client, bk)
+    assert client.post("/v1/backups/runs", headers=OWNER, json={"approve": True}).json()["state"] == "succeeded"
+    snap = client.get("/v1/backups/snapshots", headers=OWNER, params={"app_id": "notes"}).json()[0]
+    client.app.state.identity.passkeys_active = lambda: True  # as if an owner had registered a passkey
+    jobs = len(bk.agent.jobs)
+    # the control: the normal approve route is refused
+    ctl = client.post("/v1/backups/runs", headers=OWNER, json={})
+    assert client.post(f"/v1/actions/{ctl.json()['id']}/approve", headers=OWNER).status_code == 401
+    attempts = [
+        ("post", "/v1/backups/destinations", {"kind": "usb", "label": "Off box", "config": {"usb_uuid": "9999-ZZZZ"}, "approve": True}),
+        ("post", "/v1/backups/runs", {"approve": True}),
+        ("post", "/v1/backups/verify", {"approve": True}),
+        ("post", "/v1/restores", {"approve": True, "snapshot_id": snap["id"], "scope": {"app_id": "notes"}}),
+    ]
+    for verb, path, body in attempts:
+        r = getattr(client, verb)(path, headers=OWNER, json=body)
+        assert r.status_code == 401 and r.json()["reason"] == "step_up_required", (path, r.text)
+    # the owner key is not minted, and the shortcut approval did not run anything
+    r = client.post("/v1/backups/kit", headers=OWNER)
+    assert r.status_code == 401 and r.json()["reason"] == "step_up_required", r.text
+    assert not any(j[0] in ("backup.key.add", "backup.restore", "backup.configure", "backup.run") for j in bk.agent.jobs[jobs:])
+    acts = client.get("/v1/actions", headers=OWNER).json()
+    assert [a["state"] for a in acts if a["type"] == "backup.kit.issue"] == ["awaiting_approval"]
+    assert [a["state"] for a in acts if a["type"] == "backup.restore"] == ["awaiting_approval"]
+    assert len([a for a in acts if a["type"] == "backup.destination.add"]) == 2 and \
+        [a["state"] for a in acts if a["type"] == "backup.destination.add"].count("awaiting_approval") == 1
+

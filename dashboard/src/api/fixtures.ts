@@ -4,7 +4,7 @@
 // stale and offline nodes stay stale and offline whenever the demo is opened.
 // No real host data: ids, hostnames and models are made up.
 
-import type { Action, CatalogApp, Instance, NodeHeartbeat, NodeRecord, Principal } from './types';
+import type { Action, AppHostPorts, CatalogApp, Instance, NodeHeartbeat, NodeRecord, Principal } from './types';
 
 export const DEMO_TOKENS: Record<string, Principal> = {
   'owner-demo': { id: 'owner', kind: 'person', role: 'owner' },
@@ -12,6 +12,7 @@ export const DEMO_TOKENS: Record<string, Principal> = {
   'agent-demo': { id: 'ops-agent', kind: 'agent', role: 'agent' },
   'guest-demo': { id: 'sam', kind: 'person', role: 'guest' },
   'child-demo': { id: 'kai', kind: 'person', role: 'child' },
+  'teen-demo': { id: 'tess', kind: 'person', role: 'teen' },
 };
 
 const iso = (now: number, secondsAgo: number) => new Date(now - secondsAgo * 1000).toISOString();
@@ -303,6 +304,18 @@ export function makeApps(now: number = Date.now()): CatalogApp[] {
     },
   ];
 }
+
+/**
+ * Demo app-store depth (§12.22): which catalog apps need another app, and which host ports an app
+ * binds. Zigbee2MQTT needs an MQTT broker (Mosquitto, or EMQX, which this catalog does not carry);
+ * Mosquitto binds 1883/TCP on the hub. Every other demo app binds nothing and needs nothing.
+ */
+export const DEMO_REQUIRES: Record<string, Array<{ id: string; alternatives: string[]; reason: string; port: number | null }>> = {
+  zigbee2mqtt: [{ id: 'mosquitto', alternatives: ['emqx'], reason: 'MQTT broker', port: 1883 }],
+};
+export const DEMO_HOST_PORTS: Record<string, AppHostPorts['declared']> = {
+  mosquitto: [{ port: 1883, protocol: 'TCP', description: 'MQTT clients' }],
+};
 
 export function makeActions(now: number): Action[] {
   return [

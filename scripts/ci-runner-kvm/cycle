@@ -1,0 +1,139 @@
+#!/bin/bash
+# SPDX-License-Identifier: Apache-2.0
+# The job loop on the Proxmox host (CI-14), run by onemind-ci-kvm.service as root. One linked clone of
+# the template per job: clone, start, hand it a JIT runner config through the guest agent, let it take
+# exactly one job, wait for it to power off, destroy it and its runner registration.
+# A JIT config (POST .../runners/generate-jitconfig) registers exactly ONE runner with fixed labels in a
+# fixed group and works once, so a job that digs it out of memory gains nothing reusable: unlike an
+# org registration token, it cannot be used to register other runners.
+# While the loop runs it keeps the repo variable KVM_RUNNER=on, and sets it off when it exits, so x86
+# jobs go back to GitHub-hosted runners. When KVM_RUNNER is not "on" it starts no VM.
+# GitHub access: a fine-grained token in /etc/onemind-ci-kvm.token (root, 0600; see README.md), sent to
+# curl on stdin so it never appears in a process list. It can manage org runners and set the switch
+# variable, nothing else.
+set -uo pipefail
+[ -f /etc/onemind-ci-kvm.env ] && . /etc/onemind-ci-kvm.env
+ORG=${ORG:-onemindos}
+REPO=${REPO:-onemindos/ONEMINDOS}
+GROUP=${RUNNER_GROUP:-onemind-local}
+TID=${TEMPLATE_ID:-9100}
+BASE=${BASE_ID:-9110}
+NET=${CI_NET:-10.10.0}
+MAX_JOB_MIN=${MAX_JOB_MIN:-300}        # from the moment a job starts; the longest x86 job allows 240 min
+MAX_IDLE_MIN=${MAX_IDLE_MIN:-360}      # a VM that got no job by then is recycled (fresh clone, fresh config)
+TOKEN_FILE=${TOKEN_FILE:-/etc/onemind-ci-kvm.token}
+INSTANCE=${INSTANCE:-}
+KIT_DIR=$(cd "$(dirname "$0")" && pwd)
+
+api() {   # api METHOD PATH [JSON]: GitHub REST with the token on stdin, never on the command line
+  local m=$1 p=$2 d=${3:-}
+  { printf 'header = "Authorization: Bearer %s"\n' "$(cat "$TOKEN_FILE")"
+    printf 'header = "Accept: application/vnd.github+json"\n'; } |
+    curl -fsS -K - -X "$m" ${d:+-H 'Content-Type: application/json' --data "$d"} "https://api.github.com/$p"
+}
+switch() { api PATCH "repos/$REPO/actions/variables/KVM_RUNNER" "{\"value\":\"$1\"}" >/dev/null 2>&1 ||
+           api POST "repos/$REPO/actions/variables" "{\"name\":\"KVM_RUNNER\",\"value\":\"$1\"}" >/dev/null 2>&1; }
+log() { echo "$(date '+%F %T') ${INSTANCE:+[$INSTANCE] }$*"; }
+ours() {  # true if VM $1 does not exist or is one of our job VMs (never touch anyone else's VM)
+  local n; qm status "$1" >/dev/null 2>&1 || return 0
+  n=$(qm config "$1" 2>/dev/null | sed -n 's/^name: //p'); [[ $n == onemind-kvm-[0-9]* ]]
+}
+gone() {  # remove our VM $1 even if a killed clone left a lock; say so if it survives
+  if ! ours "$1"; then log "REFUSING to destroy VM $1: it is not an onemind-kvm job VM"; return 1; fi
+  qm unlock "$1" >/dev/null 2>&1; qm stop "$1" >/dev/null 2>&1; qm destroy "$1" --purge >/dev/null 2>&1
+  if qm status "$1" >/dev/null 2>&1; then log "WARNING: VM $1 could not be destroyed"; return 1; fi
+}
+
+[ -r "$TOKEN_FILE" ] || { echo "no GitHub token at $TOKEN_FILE (run: up --token)" >&2; exit 2; }
+qm config "$TID" 2>/dev/null | grep -qx 'name: onemind-kvm-template' && qm config "$TID" | grep -qx 'template: 1' ||
+  { echo "VM $TID is not the onemind-kvm template (run: up, or set TEMPLATE_ID)" >&2; exit 2; }
+
+if [ -z "$INSTANCE" ]; then   # parent: one loop per instance
+  n=${INSTANCES:-2}; BASE=$BASE TID=$TID bash "$KIT_DIR/instances-check" "$n" || exit 2
+  cleanup() {
+    local rc=$?
+    trap '' EXIT INT TERM
+    switch off && log "KVM_RUNNER=off (loop stopped)"
+    kill 0 2>/dev/null
+    i=1; while [ "$i" -le "$n" ]; do gone $((BASE + i)); i=$((i + 1)); done
+    exit "$rc"   # a real failure stays a failure, so systemd's Restart=on-failure applies
+  }
+  trap cleanup EXIT INT TERM
+  k=0; until switch on; do k=$((k + 1)); [ "$k" -le 30 ] || { echo "cannot set KVM_RUNNER (token?)" >&2; exit 2; }; sleep 20; done
+  log "KVM_RUNNER=on"
+  i=1; while [ "$i" -le "$n" ]; do
+    ours $((BASE + i)) || { log "VM $((BASE + i)) exists and is not ours: change BASE_ID"; exit 2; }
+    i=$((i + 1))
+  done
+  i=1; while [ "$i" -le "$n" ]; do INSTANCE=$i "$0" & i=$((i + 1)); done
+  wait; exit
+fi
+
+id=$((BASE + INSTANCE))
+fail=0
+backoff() { fail=$((fail + 1)); sleep $((fail < 10 ? 30 * fail : 300)); }
+gid=""
+while :; do
+  sw=$(api GET "repos/$REPO/actions/variables/KVM_RUNNER" 2>/dev/null | jq -r .value 2>/dev/null)
+  if [ "$sw" != on ]; then log "KVM_RUNNER is '${sw:-unset}': not taking jobs"; sleep 60; continue; fi
+  [ -n "$gid" ] || gid=$(api GET "orgs/$ORG/actions/runner-groups?per_page=100" 2>/dev/null |
+                         jq -r --arg g "$GROUP" '.runner_groups[] | select(.name == $g) | .id' 2>/dev/null)
+  [ -n "$gid" ] || { log "runner group '$GROUP' not found"; backoff; continue; }
+  name="onemind-kvm-$INSTANCE-$(od -An -N3 -tx1 /dev/urandom | tr -d ' \n')"
+  jit=$(api POST "orgs/$ORG/actions/runners/generate-jitconfig" \
+        "{\"name\":\"$name\",\"runner_group_id\":$gid,\"labels\":[\"self-hosted\",\"onemind-kvm\"],\"work_folder\":\"_work\"}" 2>/dev/null)
+  rid=$(printf '%s' "$jit" | jq -r '.runner.id // empty' 2>/dev/null)
+  cfg=$(printf '%s' "$jit" | jq -r '.encoded_jit_config // empty' 2>/dev/null); unset jit
+  if [ -z "$cfg" ] || [ -z "$rid" ]; then
+    log "could not get a JIT runner config"; gid=""   # the group may have been recreated: look it up again
+    [ -n "$rid" ] && api DELETE "orgs/$ORG/actions/runners/$rid" >/dev/null 2>&1
+    unset cfg; backoff; continue
+  fi
+
+  t0=$SECONDS
+  # No VM without the job network's firewall: a reload or flush must stop jobs, not leave them open.
+  if ! CI_NET=$NET CI_BRIDGE=${CI_BRIDGE:-vmbr1} CI_UPLINK=${CI_UPLINK:-vmbr0} CI_BLOCK_EXTRA=${CI_BLOCK_EXTRA:-} sh "$KIT_DIR/net.sh" --check; then
+    log "job network not isolated: not starting a VM (run net.sh)"; api DELETE "orgs/$ORG/actions/runners/$rid" >/dev/null 2>&1
+    unset cfg; backoff; continue
+  fi
+  gone "$id" || { api DELETE "orgs/$ORG/actions/runners/$rid" >/dev/null 2>&1; unset cfg; backoff; continue; }
+  if ! qm clone "$TID" "$id" --name "onemind-kvm-$INSTANCE" >/dev/null 2>&1 ||
+     ! qm set "$id" --ipconfig0 "ip=$NET.$((10 + INSTANCE))/24,gw=$NET.1" >/dev/null 2>&1 ||
+     ! qm start "$id" >/dev/null 2>&1; then
+    log "could not clone and start $id from template $TID"; gone "$id"; api DELETE "orgs/$ORG/actions/runners/$rid" >/dev/null 2>&1
+    unset cfg; backoff; continue
+  fi
+  if ! bridge link set dev "tap${id}i0" isolated on 2>/dev/null; then
+    log "tap${id}i0 not isolated: not starting a job on it"; gone "$id"; api DELETE "orgs/$ORG/actions/runners/$rid" >/dev/null 2>&1
+    unset cfg; backoff; continue
+  fi
+  k=0; until qm agent "$id" ping >/dev/null 2>&1; do k=$((k + 1)); [ "$k" -le 60 ] || break; sleep 5; done
+  if ! printf '%s\n' "$cfg" |
+       qm guest exec "$id" --pass-stdin 1 -- sh -c 'install -d -o runner -m 0700 /run/onemind-ci && umask 077 && cat > /run/onemind-ci/job && chown runner /run/onemind-ci/job' >/dev/null 2>&1 ||
+     ! qm guest exec "$id" -- systemctl start --no-block onemind-ci-job.service >/dev/null 2>&1; then
+    log "VM $id did not take the job (no guest agent?)"; gone "$id"; api DELETE "orgs/$ORG/actions/runners/$rid" >/dev/null 2>&1
+    unset cfg; backoff; continue
+  fi
+  unset cfg
+  t1=$SECONDS; tj=""
+  log "$name ready in $((t1 - t0))s; waiting for one job"
+  while qm status "$id" 2>/dev/null | grep -q running; do
+    if [ -z "$tj" ]; then
+      # qm's output is not strict JSON (raw newlines in out-data): match the exit code as text.
+      # The guest's answer can be faked by the job itself; GitHub's own busy flag cannot.
+      if qm guest exec "$id" --timeout 10 -- pgrep -f Runner.Worker 2>/dev/null | grep -Eq '"exitcode" *: *0([^0-9]|$)' ||
+         [ "$(api GET "orgs/$ORG/actions/runners/$rid" 2>/dev/null | jq -r .busy 2>/dev/null)" = true ]; then
+        tj=$SECONDS; log "$name started a job after $(( (tj - t1) / 60 )) min idle"
+      elif [ $((SECONDS - t1)) -gt $((MAX_IDLE_MIN * 60)) ]; then
+        log "$name idle over ${MAX_IDLE_MIN} min: recycling"; break
+      fi
+    elif [ $((SECONDS - tj)) -gt $((MAX_JOB_MIN * 60)) ]; then
+      log "$name job over ${MAX_JOB_MIN} min: stopping"; break
+    fi
+    sleep 15
+  done
+  gone "$id"
+  api DELETE "orgs/$ORG/actions/runners/$rid" >/dev/null 2>&1   # usually gone already (ephemeral); 404 is fine
+  if [ -n "$tj" ]; then fail=0; else log "$name ended without running a job"; backoff; fi
+  log "round done: start $((t1 - t0))s, total $((SECONDS - t1))s"
+done
