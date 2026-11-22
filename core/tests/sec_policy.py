@@ -780,3 +780,9 @@ POLICY |= {
     ("POST", "/v1/sites"): Row({**OWNER_ONLY, "owner": 422}, w.p_missing("/v1/sites", json={}),
                                "Only an owner may create a site; probe has no anchors"),
 }
+POLICY |= {
+    ("PUT", "/v1/assets/{id}/position"): Row({**OWNER_ONLY, "owner": 422},
+        w.p_missing("/v1/assets/probe/position", json={}), "Only an owner may place an asset"),
+    ("GET", "/v1/assets/{id}/position"): Row({k: (404 if v == 200 else v) for k, v in CHILD_CANNOT.items()},
+        w.p_static("/v1/assets/probe/position"), "Read asset position with nodes:read; probe has no observation"),
+}

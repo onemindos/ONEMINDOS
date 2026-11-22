@@ -1147,6 +1147,126 @@
         "title": "ApprovalPreview",
         "type": "object"
       },
+      "AssetPosition": {
+        "additionalProperties": false,
+        "properties": {
+          "accuracy_m": {
+            "minimum": 0.0,
+            "title": "Accuracy M",
+            "type": "number"
+          },
+          "age_s": {
+            "title": "Age S",
+            "type": "number"
+          },
+          "area_id": {
+            "anyOf": [
+              {
+                "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Area Id"
+          },
+          "asset_id": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$",
+            "title": "Asset Id",
+            "type": "string"
+          },
+          "floor_id": {
+            "anyOf": [
+              {
+                "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Floor Id"
+          },
+          "heading_deg": {
+            "exclusiveMaximum": 360.0,
+            "minimum": 0.0,
+            "title": "Heading Deg",
+            "type": "number"
+          },
+          "kind": {
+            "enum": [
+              "camera",
+              "device",
+              "machine",
+              "sensor",
+              "node",
+              "vehicle",
+              "lora"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "lat": {
+            "title": "Lat",
+            "type": "number"
+          },
+          "lon": {
+            "title": "Lon",
+            "type": "number"
+          },
+          "site_id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
+            "title": "Site Id",
+            "type": "string"
+          },
+          "source": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$",
+            "title": "Source",
+            "type": "string"
+          },
+          "time": {
+            "format": "date-time",
+            "title": "Time",
+            "type": "string"
+          },
+          "x": {
+            "maximum": 40100000.0,
+            "minimum": -40100000.0,
+            "title": "X",
+            "type": "number"
+          },
+          "y": {
+            "maximum": 40100000.0,
+            "minimum": -40100000.0,
+            "title": "Y",
+            "type": "number"
+          },
+          "z": {
+            "maximum": 40100000.0,
+            "minimum": -40100000.0,
+            "title": "Z",
+            "type": "number"
+          }
+        },
+        "required": [
+          "kind",
+          "site_id",
+          "x",
+          "y",
+          "z",
+          "heading_deg",
+          "accuracy_m",
+          "source",
+          "time",
+          "asset_id",
+          "lat",
+          "lon",
+          "age_s"
+        ],
+        "title": "AssetPosition",
+        "type": "object"
+      },
       "AuditHead": {
         "properties": {
           "hash": {
@@ -2796,6 +2916,105 @@
           }
         },
         "title": "FixIn",
+        "type": "object"
+      },
+      "GeoObservation": {
+        "additionalProperties": false,
+        "properties": {
+          "accuracy_m": {
+            "minimum": 0.0,
+            "title": "Accuracy M",
+            "type": "number"
+          },
+          "area_id": {
+            "anyOf": [
+              {
+                "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Area Id"
+          },
+          "floor_id": {
+            "anyOf": [
+              {
+                "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Floor Id"
+          },
+          "heading_deg": {
+            "exclusiveMaximum": 360.0,
+            "minimum": 0.0,
+            "title": "Heading Deg",
+            "type": "number"
+          },
+          "kind": {
+            "enum": [
+              "camera",
+              "device",
+              "machine",
+              "sensor",
+              "node",
+              "vehicle",
+              "lora"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "site_id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
+            "title": "Site Id",
+            "type": "string"
+          },
+          "source": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$",
+            "title": "Source",
+            "type": "string"
+          },
+          "time": {
+            "format": "date-time",
+            "title": "Time",
+            "type": "string"
+          },
+          "x": {
+            "maximum": 40100000.0,
+            "minimum": -40100000.0,
+            "title": "X",
+            "type": "number"
+          },
+          "y": {
+            "maximum": 40100000.0,
+            "minimum": -40100000.0,
+            "title": "Y",
+            "type": "number"
+          },
+          "z": {
+            "maximum": 40100000.0,
+            "minimum": -40100000.0,
+            "title": "Z",
+            "type": "number"
+          }
+        },
+        "required": [
+          "kind",
+          "site_id",
+          "x",
+          "y",
+          "z",
+          "heading_deg",
+          "accuracy_m",
+          "source",
+          "time"
+        ],
+        "title": "GeoObservation",
         "type": "object"
       },
       "GeoSite": {
@@ -11910,6 +12129,180 @@
         "summary": "App Settings",
         "tags": [
           "apps"
+        ]
+      }
+    },
+    "/v1/assets/{id}/position": {
+      "get": {
+        "operationId": "geo.get_position",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$",
+              "title": "Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssetPosition"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Get Position",
+        "tags": [
+          "geo"
+        ]
+      },
+      "put": {
+        "operationId": "geo.set_position",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$",
+              "title": "Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GeoObservation"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssetPosition"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Set Position",
+        "tags": [
+          "geo"
         ]
       }
     },

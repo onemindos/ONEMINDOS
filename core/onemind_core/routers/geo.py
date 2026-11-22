@@ -1,15 +1,20 @@
 # SPDX-License-Identifier: Apache-2.0
 """Map site configuration and asset locations (#651)."""
+import json
+
 from fastapi import Depends, FastAPI
 from sqlalchemy import select
 
 from ..auth import Principal
 from ..context import Gateway
 from ..errors import ApiError, error_responses
+from ..geo.positions import AssetId, AssetPosition, GeoObservation, current, observe
 from ..geo.sites import GeoSite, SiteRow
 from ..identity.scopes import register_route_scope
 
 ORDER = 252
+register_route_scope("GET,HEAD", r"/v1/assets/[^/]+/position", ("nodes:read",))
+register_route_scope("PUT", r"/v1/assets/[^/]+/position", ("geo:admin",))
 register_route_scope("GET,HEAD", r"/v1/sites", ("nodes:read",))
 register_route_scope("POST", r"/v1/sites", ("geo:admin",))
 
@@ -36,3 +41,16 @@ def register(app: FastAPI, gw: Gateway) -> None:
     def list_sites(_: Principal = Depends(gw.principal)) -> list[GeoSite]:
         with gw.db.session() as s:
             return [GeoSite.model_validate(row) for row in s.scalars(select(SiteRow.record).order_by(SiteRow.id))]
+
+    @app.put("/v1/assets/{id}/position", tags=["geo"], operation_id="geo.set_position",
+             responses=error_responses(401, 403, 404, 409, 422))
+    def set_position(id: AssetId, body: GeoObservation, _: Principal = Depends(owner)) -> AssetPosition:
+        pos = observe(gw.db, id, body, gw.clock())
+        envelope = pos.datapoint()
+        gw.bus.publish_threadsafe(envelope["nats_subject"], json.dumps(envelope).encode())
+        return pos
+
+    @app.get("/v1/assets/{id}/position", tags=["geo"], operation_id="geo.get_position",
+             responses=error_responses(401, 403, 404))
+    def get_position(id: AssetId, _: Principal = Depends(gw.principal)) -> AssetPosition:
+        return current(gw.db, id, gw.clock())
