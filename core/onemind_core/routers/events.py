@@ -96,7 +96,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
                 return p.kind == "person" and row is not None and row.person_id == p.id
             if t.startswith("app.") or t == "action.progress":
                 app_id = subject.get("app_id")
-                return app_id in gw.catalog.load() and all(f(request, p, app_id) for f in gw.app_filters)
+                return app_id in gw.catalog.load() and app_id not in gw.disabled_apps() and all(f(request, p, app_id) for f in gw.app_filters)
             return True
 
         resume = since_id

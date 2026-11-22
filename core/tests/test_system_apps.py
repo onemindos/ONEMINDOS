@@ -228,3 +228,14 @@ def test_an_agent_disable_waits_for_an_owner_and_cannot_be_approved_by_the_agent
     assert by_id(c)["notebook"]["enabled"] is True and [t for t, _ in ex.calls] == ["app.install"]
     assert c.post(f"/v1/actions/{r.json()['id']}/approve", headers=OWNER).json()["state"] == "succeeded"
     assert by_id(c)["notebook"]["enabled"] is False
+
+
+def test_a_switched_off_app_leaves_the_home_dock(c, clock, ex):
+    install(c, clock)
+    got = c.get("/v1/me/home", headers=OWNER)
+    doc = {**got.json(), "dock": ["app:notebook"]}
+    saved = c.put("/v1/me/home", headers={**OWNER, "If-Match": got.headers["etag"]}, json=doc)
+    assert saved.status_code == 200, saved.text
+    assert "app:notebook" in c.get("/v1/me/home", headers=OWNER).json()["dock"]
+    run(c, clock, "app.disable", {"app_id": "notebook"})
+    assert "app:notebook" not in c.get("/v1/me/home", headers=OWNER).json()["dock"]
