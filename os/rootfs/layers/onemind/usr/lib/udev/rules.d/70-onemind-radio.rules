@@ -1,38 +1,39 @@
 # SPDX-License-Identifier: Apache-2.0
 # Generated from sdk/schema/onemind.radios.json; do not edit. Regenerate with:
 #   go test ./internal/detect -run TestRadioUdevRules -update
-# Known USB radio dongles (issue #732) get a stable name, /dev/onemind/<kind>-<usb port>, owned by group
-# onemind-radio (mode 0660), so a grant can pass exactly one radio into one app. Any other USB serial line
-# keeps the kernel's name and Debian's defaults: listed in the heartbeat, never named, never granted.
+# Known USB radio dongles (issue #732) get a stable name, /dev/onemind/<kind><n> (the first LoRa radio is
+# lora0), owned by group onemind-radio (mode 0660), so a grant can pass exactly one radio into one app.
+# /usr/lib/onemind/radio-name picks <n>; nothing here opens the device. Any other USB serial line keeps the
+# kernel's name and Debian's defaults: listed in the heartbeat, never named, never granted.
 ACTION=="remove", GOTO="onemind_radio_end"
 SUBSYSTEM!="tty", GOTO="onemind_radio_end"
 KERNEL!="ttyUSB[0-9]*|ttyACM[0-9]*", GOTO="onemind_radio_end"
 
 # Home Assistant Connect ZBT-2 (zigbee-thread, matched by product)
-SUBSYSTEMS=="usb", ATTRS{idVendor}=="303a", ATTRS{idProduct}=="831a", ATTRS{product}=="*[Zz][Bb][Tt]-2*", SYMLINK+="onemind/zigbee-thread-$attr{busnum}-$attr{devpath}", GROUP="onemind-radio", MODE="0660", GOTO="onemind_radio_end"
+SUBSYSTEMS=="usb", ATTRS{idVendor}=="303a", ATTRS{idProduct}=="831a", ATTRS{product}=="*[Zz][Bb][Tt]-2*", PROGRAM="/usr/lib/onemind/radio-name zigbee-thread", SYMLINK+="onemind/%c", GROUP="onemind-radio", MODE="0660", GOTO="onemind_radio_end"
 
 # Home Assistant Connect ZBT-2 (zigbee-thread, matched by product)
-SUBSYSTEMS=="usb", ATTRS{idVendor}=="303a", ATTRS{idProduct}=="4001", ATTRS{product}=="*[Zz][Bb][Tt]-2*", SYMLINK+="onemind/zigbee-thread-$attr{busnum}-$attr{devpath}", GROUP="onemind-radio", MODE="0660", GOTO="onemind_radio_end"
+SUBSYSTEMS=="usb", ATTRS{idVendor}=="303a", ATTRS{idProduct}=="4001", ATTRS{product}=="*[Zz][Bb][Tt]-2*", PROGRAM="/usr/lib/onemind/radio-name zigbee-thread", SYMLINK+="onemind/%c", GROUP="onemind-radio", MODE="0660", GOTO="onemind_radio_end"
 
 # Home Assistant Connect ZBT-1 (zigbee-thread, matched by product)
-SUBSYSTEMS=="usb", ATTRS{idVendor}=="10c4", ATTRS{idProduct}=="ea60", ATTRS{product}=="*[Ss][Kk][Yy][Cc][Oo][Nn][Nn][Ee][Cc][Tt] [Vv]1.0*", SYMLINK+="onemind/zigbee-thread-$attr{busnum}-$attr{devpath}", GROUP="onemind-radio", MODE="0660", GOTO="onemind_radio_end"
+SUBSYSTEMS=="usb", ATTRS{idVendor}=="10c4", ATTRS{idProduct}=="ea60", ATTRS{product}=="*[Ss][Kk][Yy][Cc][Oo][Nn][Nn][Ee][Cc][Tt] [Vv]1.0*", PROGRAM="/usr/lib/onemind/radio-name zigbee-thread", SYMLINK+="onemind/%c", GROUP="onemind-radio", MODE="0660", GOTO="onemind_radio_end"
 
 # Home Assistant Connect ZBT-1 (zigbee-thread, matched by product)
-SUBSYSTEMS=="usb", ATTRS{idVendor}=="10c4", ATTRS{idProduct}=="ea60", ATTRS{product}=="*[Hh][Oo][Mm][Ee] [Aa][Ss][Ss][Ii][Ss][Tt][Aa][Nn][Tt] [Cc][Oo][Nn][Nn][Ee][Cc][Tt] [Zz][Bb][Tt]-1*", SYMLINK+="onemind/zigbee-thread-$attr{busnum}-$attr{devpath}", GROUP="onemind-radio", MODE="0660", GOTO="onemind_radio_end"
+SUBSYSTEMS=="usb", ATTRS{idVendor}=="10c4", ATTRS{idProduct}=="ea60", ATTRS{product}=="*[Hh][Oo][Mm][Ee] [Aa][Ss][Ss][Ii][Ss][Tt][Aa][Nn][Tt] [Cc][Oo][Nn][Nn][Ee][Cc][Tt] [Zz][Bb][Tt]-1*", PROGRAM="/usr/lib/onemind/radio-name zigbee-thread", SYMLINK+="onemind/%c", GROUP="onemind-radio", MODE="0660", GOTO="onemind_radio_end"
 
 # SONOFF Zigbee 3.0 USB Dongle Plus V2 (zigbee, matched by product)
-SUBSYSTEMS=="usb", ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="55d4", ATTRS{product}=="*[Ss][Oo][Nn][Oo][Ff][Ff]*[Pp][Ll][Uu][Ss]*", SYMLINK+="onemind/zigbee-$attr{busnum}-$attr{devpath}", GROUP="onemind-radio", MODE="0660", GOTO="onemind_radio_end"
+SUBSYSTEMS=="usb", ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="55d4", ATTRS{product}=="*[Ss][Oo][Nn][Oo][Ff][Ff]*[Pp][Ll][Uu][Ss]*", PROGRAM="/usr/lib/onemind/radio-name zigbee", SYMLINK+="onemind/%c", GROUP="onemind-radio", MODE="0660", GOTO="onemind_radio_end"
 
 # SONOFF Zigbee 3.0 USB Dongle Plus (zigbee, matched by product)
-SUBSYSTEMS=="usb", ATTRS{idVendor}=="10c4", ATTRS{idProduct}=="ea60", ATTRS{product}=="*[Ss][Oo][Nn][Oo][Ff][Ff]*[Pp][Ll][Uu][Ss]*", SYMLINK+="onemind/zigbee-$attr{busnum}-$attr{devpath}", GROUP="onemind-radio", MODE="0660", GOTO="onemind_radio_end"
+SUBSYSTEMS=="usb", ATTRS{idVendor}=="10c4", ATTRS{idProduct}=="ea60", ATTRS{product}=="*[Ss][Oo][Nn][Oo][Ff][Ff]*[Pp][Ll][Uu][Ss]*", PROGRAM="/usr/lib/onemind/radio-name zigbee", SYMLINK+="onemind/%c", GROUP="onemind-radio", MODE="0660", GOTO="onemind_radio_end"
 
 # ConBee II (zigbee, matched by product)
-SUBSYSTEMS=="usb", ATTRS{idVendor}=="1cf1", ATTRS{idProduct}=="0030", ATTRS{product}=="*[Cc][Oo][Nn][Bb][Ee][Ee]*", SYMLINK+="onemind/zigbee-$attr{busnum}-$attr{devpath}", GROUP="onemind-radio", MODE="0660", GOTO="onemind_radio_end"
+SUBSYSTEMS=="usb", ATTRS{idVendor}=="1cf1", ATTRS{idProduct}=="0030", ATTRS{product}=="*[Cc][Oo][Nn][Bb][Ee][Ee]*", PROGRAM="/usr/lib/onemind/radio-name zigbee", SYMLINK+="onemind/%c", GROUP="onemind-radio", MODE="0660", GOTO="onemind_radio_end"
 
 # ConBee III (zigbee, matched by product)
-SUBSYSTEMS=="usb", ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6015", ATTRS{product}=="*[Cc][Oo][Nn][Bb][Ee][Ee]*", SYMLINK+="onemind/zigbee-$attr{busnum}-$attr{devpath}", GROUP="onemind-radio", MODE="0660", GOTO="onemind_radio_end"
+SUBSYSTEMS=="usb", ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6015", ATTRS{product}=="*[Cc][Oo][Nn][Bb][Ee][Ee]*", PROGRAM="/usr/lib/onemind/radio-name zigbee", SYMLINK+="onemind/%c", GROUP="onemind-radio", MODE="0660", GOTO="onemind_radio_end"
 
-# Heltec WiFi LoRa 32 V3 (lora, matched by chip)
-SUBSYSTEMS=="usb", ATTRS{idVendor}=="10c4", ATTRS{idProduct}=="ea60", ATTRS{product}=="[Cc][Pp]2102 [Uu][Ss][Bb] [Tt][Oo] [Uu][Aa][Rr][Tt] [Bb][Rr][Ii][Dd][Gg][Ee] [Cc][Oo][Nn][Tt][Rr][Oo][Ll][Ll][Ee][Rr]", SYMLINK+="onemind/lora-$attr{busnum}-$attr{devpath}", GROUP="onemind-radio", MODE="0660", GOTO="onemind_radio_end"
+# CH340K USB serial (ThinkNode-M2 class) (lora, matched by id)
+SUBSYSTEMS=="usb", ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="7522", PROGRAM="/usr/lib/onemind/radio-name lora", SYMLINK+="onemind/%c", GROUP="onemind-radio", MODE="0660", GOTO="onemind_radio_end"
 
 LABEL="onemind_radio_end"

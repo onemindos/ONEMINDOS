@@ -449,7 +449,8 @@ func (c *Collector) ttyPorts() []heartbeat.TTYPort {
 }
 
 // radios lists Wi-Fi, cellular and Bluetooth interfaces, then the known USB dongles udev named
-// under /dev/onemind (kind zigbee, zigbee-thread or lora; interface the tty, e.g. ttyACM0).
+// under /dev/onemind (kind zigbee, zigbee-thread or lora; interface the tty, e.g. ttyUSB0; device
+// the stable name, e.g. /dev/onemind/lora0).
 func (c *Collector) radios() []heartbeat.Radio {
 	nets, netOK := c.names("sys/class/net")
 	bts, btOK := c.names("sys/class/bluetooth")

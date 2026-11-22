@@ -4661,8 +4661,21 @@
       "NodeRadio": {
         "additionalProperties": false,
         "properties": {
+          "device": {
+            "anyOf": [
+              {
+                "pattern": "^/dev/onemind/(zigbee|zigbee-thread|lora)([0-9]|1[0-5])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "a USB dongle's stable name, /dev/onemind/<kind><n> (lora0); absent for wifi, bluetooth and cellular",
+            "title": "Device"
+          },
           "interface": {
-            "description": "the network interface (wlan0, hci0), or for a USB dongle its serial line (ttyACM0)",
+            "description": "the network interface (wlan0, hci0), or for a USB dongle its serial line (ttyUSB0)",
             "pattern": "^[A-Za-z0-9_.-]{1,15}$",
             "title": "Interface",
             "type": "string"
@@ -5689,19 +5702,30 @@
         "type": "object"
       },
       "RadioCard": {
-        "description": "One radio-found card (GET /v1/radios, #732): a USB serial line on a machine, from its latest heartbeat.\n\nA known radio has a kind and its stable name `device`; any other USB serial line is listed with\nkind and device null: never named, never granted. Unplugging removes the card with the next heartbeat.",
+        "description": "One radio-found card (GET /v1/radios, #732): a USB serial line on a machine, from its latest heartbeat.\n\nA known radio has a kind and its stable name `device`; any other USB serial line is listed with\nkind and device null: never named, never granted. Unplugging removes the card with the next heartbeat.\nOneMind never probes a radio: kind and model come from the USB ids alone.",
         "properties": {
+          "confirm": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RadioConfirmation"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the owner's confirmation this kind needs before a grant; null when none is needed"
+          },
           "device": {
             "anyOf": [
               {
-                "pattern": "^/dev/onemind/[a-z]+(-[a-z]+)*-[0-9]+-[0-9]+(\\.[0-9]+)*$",
+                "pattern": "^/dev/onemind/(zigbee|zigbee-thread|lora)([0-9]|1[0-5])$",
                 "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "description": "the stable name, /dev/onemind/<kind>-<usb_port>; null when not named",
+            "description": "the stable name, /dev/onemind/<kind><n>; null when not named",
             "title": "Device"
           },
           "hostname": {
@@ -5737,7 +5761,7 @@
                 "type": "null"
               }
             ],
-            "description": "product: its USB product string is its own | chip: only the chip maker's default string, any board with that chip looks the same; null when unknown",
+            "description": "product: the USB id and product string name the product | id: a generic USB-serial chip, the id alone proves nothing; null when unknown",
             "title": "Match",
             "x-onemind-open-enum": true
           },
@@ -5764,7 +5788,7 @@
             "x-onemind-open-enum": true
           },
           "tty": {
-            "description": "the kernel's name for the serial line, e.g. ttyACM0",
+            "description": "the kernel's name for the serial line, e.g. ttyUSB0",
             "pattern": "^tty(USB|ACM)[0-9]+$",
             "title": "Tty",
             "type": "string"
@@ -5805,9 +5829,77 @@
           "tty",
           "device",
           "usb_id",
-          "usb_port"
+          "usb_port",
+          "confirm"
         ],
         "title": "RadioCard",
+        "type": "object"
+      },
+      "RadioConfirmRequest": {
+        "additionalProperties": false,
+        "description": "POST /v1/radios/confirm: an owner says the radio at `device` on `node_id` is this profile.",
+        "properties": {
+          "device": {
+            "pattern": "^/dev/onemind/(zigbee|zigbee-thread|lora)([0-9]|1[0-5])$",
+            "title": "Device",
+            "type": "string"
+          },
+          "node_id": {
+            "pattern": "^[A-Za-z0-9_-]{1,64}$",
+            "title": "Node Id",
+            "type": "string"
+          },
+          "profile": {
+            "const": "meshcore-companion-usb",
+            "title": "Profile",
+            "type": "string"
+          }
+        },
+        "required": [
+          "node_id",
+          "device",
+          "profile"
+        ],
+        "title": "RadioConfirmRequest",
+        "type": "object"
+      },
+      "RadioConfirmation": {
+        "description": "What the owner confirms on a radio's card before anything may open it (#732; the grant is #854).",
+        "properties": {
+          "confirmed": {
+            "description": "true once an owner confirmed this radio on this port; cleared when it is unplugged or the gateway restarts",
+            "title": "Confirmed",
+            "type": "boolean"
+          },
+          "confirmed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmed At"
+          },
+          "label": {
+            "description": "what the card asks, e.g. MeshCore companion (USB)",
+            "title": "Label",
+            "type": "string"
+          },
+          "profile": {
+            "description": "meshcore-companion-usb",
+            "title": "Profile",
+            "type": "string",
+            "x-onemind-open-enum": true
+          }
+        },
+        "required": [
+          "profile",
+          "label",
+          "confirmed"
+        ],
+        "title": "RadioConfirmation",
         "type": "object"
       },
       "Receipt": {
@@ -24419,7 +24511,7 @@
     },
     "/v1/radios": {
       "get": {
-        "description": "Radio-found cards: every USB serial line on every machine; known radios carry kind and device (#732).",
+        "description": "Radio-found cards: every USB serial line on every machine. A known radio carries its kind and\nstable name; a LoRa radio's card asks the owner to confirm it. Unknown lines are never named.",
         "operationId": "radios.list",
         "responses": {
           "200": {
@@ -24445,9 +24537,111 @@
               }
             },
             "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
           }
         },
         "summary": "List Radios",
+        "tags": [
+          "nodes"
+        ]
+      }
+    },
+    "/v1/radios/confirm": {
+      "post": {
+        "description": "An owner confirms what a radio on its card is (a LoRa radio: \"MeshCore companion (USB)\").\n\nRefused for anyone but an owner, for a line that is not a known radio (an unknown serial device is\nnever named or granted), for a kind that needs no confirming and for a machine that is not online.\nNothing is opened or sent; the grant is a separate action (#854).",
+        "operationId": "radios.confirm",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RadioConfirmRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RadioCard"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Confirm Radio",
         "tags": [
           "nodes"
         ]

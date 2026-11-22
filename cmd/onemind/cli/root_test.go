@@ -90,15 +90,6 @@ func (g *fakeGW) serve(w http.ResponseWriter, r *http.Request) {
 				"items": []any{map[string]any{"app_id": "kuma", "cpu_millicores": 300, "mem_mib": 130, "disk_mib": nil}}}})
 	case p == "/v1/nodes":
 		jsonOut(w, 200, []any{map[string]any{"node_id": "abc", "hostname": "hub", "status": "online", "last_seen": "2026-11-12T09:00:00Z", "zeta": 1, "alpha": 2}})
-	case p == "/v1/radios":
-		jsonOut(w, 200, []any{
-			map[string]any{"node_id": "abc", "hostname": "hub", "node_status": "online", "kind": "zigbee-thread", "model": "Home Assistant Connect ZBT-2",
-				"match": "product", "tty": "ttyACM0", "device": "/dev/onemind/zigbee-thread-1-2", "usb_id": "303a:831a", "usb_port": "1-2"},
-			map[string]any{"node_id": "abc", "hostname": "hub", "node_status": "online", "kind": "lora", "model": "Heltec WiFi LoRa 32 V3",
-				"match": "chip", "tty": "ttyUSB0", "device": "/dev/onemind/lora-1-1", "usb_id": "10c4:ea60", "usb_port": "1-1"},
-			map[string]any{"node_id": "abc", "hostname": "hub", "node_status": "online", "kind": nil, "model": nil,
-				"match": nil, "tty": "ttyUSB1", "device": nil, "usb_id": "0403:6001", "usb_port": "1-3"},
-		})
 	case p == "/v1/apps":
 		jsonOut(w, 200, []any{
 			map[string]any{"id": "ntfy", "name": "ntfy", "version": "2.14.0", "category": "tools", "installed": false, "status": "not_installed", "archs": []string{"amd64"}, "requires": map[string]any{}, "links": map[string]any{}, "license": "Apache-2.0", "scan": map[string]any{"result": "pass", "scanned_at": "2026-11-11T09:00:00Z"}},

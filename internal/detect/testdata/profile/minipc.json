@@ -92,14 +92,6 @@
     {
       "kind": "bluetooth",
       "interface": "hci0"
-    },
-    {
-      "kind": "lora",
-      "interface": "ttyUSB0"
-    },
-    {
-      "kind": "zigbee",
-      "interface": "ttyACM0"
     }
   ],
   "cameras": [

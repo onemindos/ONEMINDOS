@@ -1,12 +1,15 @@
 {
-  "$comment": "SPDX-License-Identifier: Apache-2.0. The known USB radio dongles of OneMind OS (issue #732). One table, read three ways: Go renders the image's udev rules from it (internal/detect/radios.go, os/rootfs/layers/onemind/usr/lib/udev/rules.d/70-onemind-radio.rules) and checks each named radio against it, and the gateway labels the radio-found cards (core/onemind_core/radios.py, GET /v1/radios). A dongle is matched by its USB vendor and product id AND its USB product string (a lowercase glob over the lowercased string), because cheap USB-serial chips share one id across many products. match=chip marks a row whose product string is the chip maker's default: any board with that chip looks the same, so the card says so. A USB serial line that matches no row is listed but never named and never granted. A new row is a contract change: add it here with its source, then run go test ./internal/detect -run TestRadioUdevRules -update.",
+  "$comment": "SPDX-License-Identifier: Apache-2.0. The known USB radio dongles of OneMind OS (issue #732). One table, read three ways: Go renders the image's udev rules from it (internal/detect/radios.go -> os/rootfs/layers/onemind/usr/lib/udev/rules.d/70-onemind-radio.rules) and checks each named radio against it, and the gateway labels the radio-found cards (core/onemind_core/radios.py, GET /v1/radios). A known dongle gets the stable name /dev/onemind/<kind><n> (n = the lowest free number for that kind, so the first LoRa radio is lora0) and group onemind-radio. match=product: the USB vendor and product id AND the USB product string (a lowercase glob over the lowercased string) identify the product, because cheap USB-serial chips share one id across many products. match=id: only the id is known and it belongs to a generic USB-serial chip, so the radio is named but its card says the id alone proves nothing. A kind listed under confirm needs the owner to confirm the radio (and its firmware) on its card before anything may open it; OneMind never probes a device. A USB serial line that matches no row is listed but never named and never granted. A new row is a contract change: add it here with its source, then run go test ./internal/detect -run TestRadioUdevRules -update.",
   "schema": "onemind.radios/v1",
-  "name": "/dev/onemind/{kind}-{usb_port}",
+  "name": "/dev/onemind/{kind}{n}",
   "group": "onemind-radio",
   "kinds": {
     "zigbee": "a Zigbee coordinator",
     "zigbee-thread": "an IEEE 802.15.4 radio that runs Zigbee or Thread firmware, one at a time; the USB ids do not say which",
-    "lora": "a LoRa radio (Meshtastic or MeshCore firmware)"
+    "lora": "a LoRa radio on a USB serial line"
+  },
+  "confirm": {
+    "lora": {"profile": "meshcore-companion-usb", "label": "MeshCore companion (USB)"}
   },
   "devices": [
     {"kind": "zigbee-thread", "model": "Home Assistant Connect ZBT-2", "id": "303a:831a", "product": "*zbt-2*", "match": "product", "source": "https://github.com/home-assistant/core/blob/dev/homeassistant/components/homeassistant_connect_zbt2/manifest.json"},
@@ -17,6 +20,6 @@
     {"kind": "zigbee", "model": "SONOFF Zigbee 3.0 USB Dongle Plus", "id": "10c4:ea60", "product": "*sonoff*plus*", "match": "product", "source": "https://github.com/home-assistant/core/blob/dev/homeassistant/components/zha/manifest.json"},
     {"kind": "zigbee", "model": "ConBee II", "id": "1cf1:0030", "product": "*conbee*", "match": "product", "source": "https://github.com/home-assistant/core/blob/dev/homeassistant/components/zha/manifest.json"},
     {"kind": "zigbee", "model": "ConBee III", "id": "0403:6015", "product": "*conbee*", "match": "product", "source": "https://github.com/home-assistant/core/blob/dev/homeassistant/components/zha/manifest.json"},
-    {"kind": "lora", "model": "Heltec WiFi LoRa 32 V3", "id": "10c4:ea60", "product": "cp2102 usb to uart bridge controller", "match": "chip", "source": "https://docs.zephyrproject.org/latest/boards/heltec/heltec_wifi_lora32_v3/doc/index.html"}
+    {"kind": "lora", "model": "CH340K USB serial (ThinkNode-M2 class)", "id": "1a86:7522", "product": "", "match": "id", "source": "https://github.com/torvalds/linux/blob/master/drivers/usb/serial/ch341.c"}
   ]
 }
