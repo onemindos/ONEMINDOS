@@ -25,8 +25,13 @@ from ..auth import Principal
 from ..context import Gateway
 from ..errors import ApiError, error_responses
 from ..files.downloads import RELEASE_ACTION, DownloadSettings, Downloads
+from ..identity.scopes import register_route_scope
 
 ORDER = 301  # after files (300): it reads app.state.files
+# Like every other /v1/files route: any scope (owner) for a scoped token; static and signed-in people as below.
+register_route_scope("GET,HEAD", r"/v1/files/downloads", ("*",))
+register_route_scope("POST", r"/v1/files/downloads/[^/]+/release", ("*",))
+register_route_scope("DELETE", r"/v1/files/downloads/[^/]+", ("*",))
 RELEASE_TTL = timedelta(days=7)
 TAG = ["files"]
 
@@ -66,10 +71,16 @@ def register(app: FastAPI, gw: Gateway) -> None:
     gw.on_shutdown(downloads.stop)
     principal = gw.principal
 
+    def refuse(p: Principal, what: str, message: str) -> ApiError:
+        gw.audit.append("authz.denied", p.as_dict(), None, {"attempted": what, "reason": "permission_denied"})
+        return ApiError(403, "permission_denied", message)
+
     @app.get("/v1/files/downloads", operation_id="files.downloads.list", tags=TAG, response_model=HeldDownloads,
-             responses=error_responses(401, 503))
+             responses=error_responses(401, 403, 503))
     def list_downloads(p: Principal = Depends(principal)):
         """Downloads held in quarantine. Nothing listed here is in Files or has been opened."""
+        if p.kind != "person":
+            raise refuse(p, "list held downloads", "only a person lists held downloads")
         return {"items": downloads.list(p)}
 
     @app.post("/v1/files/downloads/{download_id}/release", operation_id="files.downloads.release", tags=TAG,
@@ -77,9 +88,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
     def release(download_id: str, p: Principal = Depends(principal)):
         """Ask to move a held download into its person's Files. Nothing moves until an owner approves it."""
         if not p.is_owner:
-            gw.audit.append("authz.denied", p.as_dict(), None,
-                            {"attempted": "release a held download", "reason": "permission_denied"})
-            raise ApiError(403, "permission_denied", "only an owner may ask to release a held download")
+            raise refuse(p, "release a held download", "only an owner may ask to release a held download")
         rec = downloads.get(p, download_id)
         action, _ = gw.actions.request_feature(
             p, RELEASE_ACTION, {"download_id": rec.id, "verdict": rec.verdict},
@@ -91,4 +100,6 @@ def register(app: FastAPI, gw: Gateway) -> None:
                 responses=error_responses(401, 403, 404))
     def discard(download_id: str, p: Principal = Depends(principal)):
         """Delete a held download for good. It never reaches Files."""
+        if p.kind != "person":
+            raise refuse(p, "discard a held download", "only a person discards a held download")
         return downloads.discard(p, download_id)

@@ -44,7 +44,7 @@ from ..ledger import iso
 from ..sections import config_section
 from . import paths
 from .access import Root
-from .errors import FilesError, denied, not_found
+from .errors import FilesError, not_found
 from .service import SYSTEM_DIR, FilesService, _ensure_dir
 
 log = logging.getLogger("onemind.files.downloads")
@@ -410,8 +410,6 @@ class Downloads:
 
     def discard(self, p: Principal, download_id: str) -> dict:
         """Delete a held file for good: its owner (the person who downloaded it) or an owner."""
-        if p.kind != "person":
-            raise denied("only a person discards a held download", "role")
         with self._lock:
             rec = self.get(p, download_id)
             with self.files._system(DOWNLOADS, self.files.space_dir_name(rec.person_id), HELD) as held:
