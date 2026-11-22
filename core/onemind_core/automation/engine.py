@@ -43,6 +43,7 @@ from ..auth import Principal
 from ..context import Gateway
 from ..errors import ApiError
 from ..events import PATTERN_TOKEN_RE, matches
+from ..jsonbody import JsonBody
 from ..ledger import TERMINAL, iso, utc
 from ..sections import config_section
 from . import registry
@@ -83,7 +84,7 @@ class ActionTemplate(BaseModel):
     params: dict[str, Any] = Field(default_factory=dict)
 
 
-class Options(BaseModel):
+class Options(JsonBody):
     model_config = ConfigDict(extra="forbid")
     catch_up: Literal["none", "last"] = "none"
     debounce_s: int = Field(default=300, ge=0, le=86400)
