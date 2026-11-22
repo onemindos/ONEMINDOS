@@ -55,6 +55,25 @@ def test_stale_revision_is_409_and_nothing_changes(client):
     assert client.patch(f"{W}/tasks/{t['id']}", json={"title": "x"}, headers=OWNER).status_code == 428
 
 
+def test_two_writers_with_the_same_revision_are_serialised(client, monkeypatch):
+    """update_task takes the row lock (FOR UPDATE on PostgreSQL) before it compares the revision."""
+    from sqlalchemy.orm import Session
+    seen = []
+    real = Session.get
+
+    def spy(self, entity, ident, *a, **kw):
+        if getattr(entity, "__tablename__", "").startswith("work_task") or entity.__name__ == "TaskRow":
+            seen.append(kw.get("with_for_update"))
+        return real(self, entity, ident, *a, **kw)
+
+    pid = project(client)
+    t = task(client, pid)
+    monkeypatch.setattr(Session, "get", spy)
+    assert patch(client, t["id"], 1, priority=2).status_code == 200
+    assert patch(client, t["id"], 1, priority=3).status_code == 409
+    assert seen and seen[0] is True
+
+
 def test_dependency_cycles_are_refused(client):
     pid = project(client)
     a, b, c = (task(client, pid, title=x) for x in "abc")
@@ -299,3 +318,18 @@ def test_assigned_due_soon_and_overdue_reach_only_the_assignee(client, clock):
     assert svc.sweep() == 1
     assert "Overdue: Fix the gate" in titles(client, ADULT)
     assert not any("Fix the gate" in x for x in titles(client, OWNER)) and mine
+
+
+def test_titles_never_reach_the_household_audit_log(client, clock):
+    """An adult who is not a member can read every audit line; assigned and due-soon lines carry ids only."""
+    pid = project(client)  # the adult is not a member
+    t = task(client, pid, title="See lawyer", assignee={"kind": "person", "id": "owner"}, due_at=(clock.now + timedelta(hours=5)).isoformat())
+    assert client.get(f"{W}/tasks/{t['id']}", headers=ADULT).status_code == 404
+    assert client.app.state.work.sweep() == 1
+    clock.advance(6 * 3600)
+    assert client.app.state.work.sweep() == 1
+    r = client.get("/v1/audit/events?event=work.*&limit=200", headers=ADULT)
+    assert r.status_code == 200, r.text
+    assert "work.task.due_soon" in r.text and "work.task.overdue" in r.text
+    assert "See lawyer" not in r.text
+    assert "Overdue: See lawyer" in titles(client, OWNER)  # the assignee still reads the title in their inbox

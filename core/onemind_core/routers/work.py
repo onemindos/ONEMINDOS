@@ -143,6 +143,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
     svc = WorkService(WorkRepository(gw.db), gw.clock, gw.events, gw.audit, people)
     principal = gw.principal
     app.state.work = svc
+    gw.notify_enrichers["work"] = svc.notification_fields
     tags = ["work"]
 
     async def sweep_loop() -> None:

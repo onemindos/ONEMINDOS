@@ -150,8 +150,8 @@ class WorkService:
             self.audit.append("authz.denied", p.as_dict(), None, {"attempted": what, "reason": "agent_refused"})
             raise _err(403, "permission_denied", f"an AI agent cannot {what}; a person does that")
 
-    def _project(self, s: Session, p: Principal, pid: str, *, write: bool = False, admin: bool = False) -> ProjectRow:
-        row = s.get(ProjectRow, pid) if ID_RE.match(pid) else None
+    def _project(self, s: Session, p: Principal, pid: str, *, write: bool = False, admin: bool = False, lock: bool = False) -> ProjectRow:
+        row = s.get(ProjectRow, pid, with_for_update=lock) if ID_RE.match(pid) else None
         mem = s.get(MemberRow, (pid, p.id)) if row is not None else None
         if row is None or mem is None or mem.kind != p.kind:
             raise _err(404, "not_found", "no such project")
@@ -165,8 +165,9 @@ class WorkService:
             raise _err(403, "permission_denied", "only a project owner can do this")
         return row
 
-    def _task(self, s: Session, p: Principal, tid: str, *, write: bool = False) -> tuple[TaskRow, ProjectRow | None]:
-        row = s.get(TaskRow, tid) if ID_RE.match(tid) else None
+    def _task(self, s: Session, p: Principal, tid: str, *, write: bool = False, lock: bool = False) -> tuple[TaskRow, ProjectRow | None]:
+        # lock=True: SELECT ... FOR UPDATE on PostgreSQL, so two writers with the same If-Match run one after the other
+        row = s.get(TaskRow, tid, with_for_update=lock) if ID_RE.match(tid) else None
         if row is None:
             raise _err(404, "not_found", "no such task")
         if row.project_id is None:
@@ -202,9 +203,20 @@ class WorkService:
             resource={"kind": kind, "id": rid or (t.id if t else "")},
         )
 
+    def notification_fields(self, data: dict) -> dict:
+        """What the notifier adds to a work event when it renders the assignee's inbox item: the task
+        title, looked up by task_id. Events and the audit log carry ids only, because every adult can read
+        the audit log and a title may belong to a project they are not in."""
+        tid = data.get("task_id")
+        if not isinstance(tid, str) or not ID_RE.match(tid):
+            return {}
+        with self.db.session() as s:
+            row = s.get(TaskRow, tid)
+            return {"title": row.title[:80]} if row is not None else {}
+
     def _notify_assigned(self, p: Principal, t: TaskRow) -> None:
         if t.assignee_kind == "person" and t.assignee_id != p.id:
-            self._emit(p, "task.assigned", t, {"person_id": t.assignee_id, "title": t.title[:80]})
+            self._emit(p, "task.assigned", t, {"person_id": t.assignee_id})
 
     # ---- projects -------------------------------------------------------------------------------
     def create_project(self, p: Principal, name: str, description: str, ai_access: str) -> dict:
@@ -245,7 +257,7 @@ class WorkService:
         self.person_only(p, "change a project")
         now, lowered = self.clock(), False
         with self.db.session.begin() as s:
-            r = self._project(s, p, pid, admin=True)
+            r = self._project(s, p, pid, admin=True, lock=True)
             if r.revision != revision:
                 raise _err(409, "stale_precondition", f"the project is at revision {r.revision}, not {revision}; read it again")
             if "name" in patch:
@@ -450,7 +462,7 @@ class WorkService:
         self.gate(p)
         now, notify = self.clock(), False
         with self.db.session.begin() as s:
-            r, project = self._task(s, p, tid, write=True)
+            r, project = self._task(s, p, tid, write=True, lock=True)
             if r.revision != revision:
                 raise _err(409, "stale_precondition", f"the task is at revision {r.revision}, not {revision}; read it again")
             changed = []
@@ -747,7 +759,7 @@ class WorkService:
                     r.due_soon_sent_for = due
                     todo.append(("task.due_soon", r))
         for name, r in todo:
-            self._emit(system, name, r, {"person_id": r.assignee_id, "title": r.title[:80], "due_at": iso(r.due_at)})
+            self._emit(system, name, r, {"person_id": r.assignee_id, "due_at": iso(r.due_at)})
             sent += 1
         return sent
 
