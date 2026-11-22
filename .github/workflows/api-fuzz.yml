@@ -52,6 +52,9 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
+        with:
+          # Exact version: "latest" resolves through the GitHub API, which times out now and then and fails the job. 0.13.9 is what CI ran when this was pinned.
+          version: "0.13.9"
 
       - name: Install the gateway and the pinned fuzz group (versions and hashes from uv.lock)
         working-directory: core
@@ -165,6 +168,9 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
+        with:
+          # Exact version: "latest" resolves through the GitHub API, which times out now and then and fails the job. 0.13.9 is what CI ran when this was pinned.
+          version: "0.13.9"
       - name: Hypothesis properties, 20x the PR budget
         working-directory: core
         env:

@@ -58,6 +58,9 @@ class Services:
     request: Callable[[Principal, ActionRequest, str | None], tuple[dict, bool]]
     audit_list: Callable[..., tuple[list[dict], bool]]
     clock: Callable[[], datetime]
+    # Request-only tools built from the descriptors of switched-on built-ins (builtins.py, #603):
+    # tool name -> (action type, title, app name). A switched-off built-in's tools are not here.
+    builtin_actions: Callable[[], dict[str, tuple[str, str, str]]] = lambda: {}
 
 
 # ---- schemas ---------------------------------------------------------------------------------
@@ -254,11 +257,45 @@ class Catalogue:
         self.limits = limits
 
     # ---- tools -----------------------------------------------------------------------------
+    # ---- request-only tools from built-in descriptors (#603) ----------------------------------
+    def builtin_tools(self) -> list[tuple[dict, str]]:
+        """(tool, action type) for every switched-on built-in action declared with mcp: true."""
+        out = []
+        for name, (action_type, title, app_name) in sorted(self.svc.builtin_actions().items()):
+            out.append(({
+                "name": name, "title": f"{app_name}: {title}",
+                "description": (
+                    f"Files a request for {title} ({action_type}) in {app_name}. Nothing changes until "
+                    "the owner approves it in the OneMind app; you cannot approve it yourself. The request "
+                    "expires after 24 hours. Returns the action id and its state (awaiting_approval)."
+                ),
+                "inputSchema": _obj({
+                    "params": {"type": "object", "description": f"The parameters of {action_type}."},
+                    "reason": {"type": "string", "maxLength": MAX_REASON,
+                               "description": "Why you ask; shown to the owner, marked as written by an agent."},
+                }),
+                "outputSchema": {
+                    "type": "object",
+                    "properties": {"action_id": {"type": "string"}, "state": {"type": "string"}},
+                    "required": ["action_id", "state"],
+                },
+                "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False,
+                                "openWorldHint": False},
+            }, action_type))
+        return out
+
+    def builtin_type(self, name: object) -> str | None:
+        found = self.svc.builtin_actions().get(name) if isinstance(name, str) else None
+        return found[0] if found else None
+
     def call(self, p: Principal, name: object, args: object) -> dict:
-        if name not in TOOL_NAMES:
+        builtin = None if name in TOOL_NAMES else self.builtin_type(name)
+        if name not in TOOL_NAMES and builtin is None:
             raise RpcError(INVALID_PARAMS, f"unknown tool {name!r}")
         if not isinstance(args, dict):
             raise RpcError(INVALID_PARAMS, "arguments must be an object")
+        if builtin is not None:
+            return self.t_builtin(p, builtin, args)
         if name in READ_TOOLS:
             wait = self.limits.reads.hit(p.id)
             if wait:
@@ -381,8 +418,27 @@ class Catalogue:
         except ValidationError as exc:
             problems = "; ".join(f"{'.'.join(str(x) for x in e['loc'])}: {e['msg']}" for e in exc.errors())
             raise RpcError(INVALID_PARAMS, f"invalid arguments: {problems}") from exc
+        return self._file(p, req, reason, lambda a: a["params"].get("app_id") == req.params.app_id)
+
+    def t_builtin(self, p, action_type: str, args: dict):
+        """A built-in's declared action: files the request, exactly like request_action. The feature's
+        own rules (who may request, its params model) decide; only a person ever approves."""
+        _args(args, {"params", "reason"})
+        reason, params = args.get("reason"), args.get("params", {})
+        if reason is not None and (not isinstance(reason, str) or len(reason) > MAX_REASON):
+            raise RpcError(INVALID_PARAMS, f"reason must be a string of at most {MAX_REASON} characters")
+        if not isinstance(params, dict):
+            raise RpcError(INVALID_PARAMS, "params must be an object")
+        try:
+            req = ActionRequest(type=action_type, params=params, idempotency_key=f"mcp-{uuid.uuid4()}",
+                                expires_at=self.svc.clock() + REQUEST_TTL)
+        except ValidationError as exc:
+            raise RpcError(INVALID_PARAMS, f"invalid arguments: {exc.errors()[0]['msg']}") from exc
+        return self._file(p, req, reason, lambda a: a["params"] == params)
+
+    def _file(self, p, req: ActionRequest, reason: str | None, same_params: Callable[[dict], bool]) -> dict:
         pending = [a for a in self.svc.own_actions(p.id) if a["state"] in ("requested", "awaiting_approval")]
-        same = next((a for a in pending if a["type"] == req.type and a["params"].get("app_id") == req.params.app_id), None)
+        same = next((a for a in pending if a["type"] == req.type and same_params(a)), None)
         if same is not None:  # no duplicate approval cards
             return result(self._filed(same) | {"duplicate": True})
         cap = self.limits.settings.pending_max
