@@ -45,7 +45,7 @@ function Gate({ children }: { children: ReactNode }) {
   return s && s.features.source !== 'unknown' ? children : null;
 }
 
-async function mount(ui: ReactNode, over: Parameters<typeof v0Api>[0] = {}, ops: string[] = [OP.me, OP.status]) {
+async function mount(ui: ReactNode, over: Parameters<typeof v0Api>[0] = {}, ops: string[] = [OP.me, OP.status, OP.events]) {
   const api = v0Api({
     features: async () => new Features(ops, 'openapi'),
     me: async () => OWNER_ME,
@@ -70,17 +70,17 @@ const kuma = (over: Partial<CatalogApp> = {}): CatalogApp => ({ ...makeApps().fi
 
 beforeEach(() => {
   streams.length = 0;
-  jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
+  jest.spyOn(Linking, 'openURL').mockResolvedValue();
 });
 
 describe('Home health card', () => {
   it('renders an unknown source as Unknown, never OK', async () => {
     await mount(<HealthCard />, { status: async () => status as never });
     const row = await screen.findByTestId('health-storage');
-    expect(row).toHaveTextContent('Unknown');
-    expect(row).not.toHaveTextContent('OK');
-    expect(screen.getByTestId('health-mesh')).toHaveTextContent('Unknown');
-    expect(screen.getByTestId('health-alerts')).toHaveTextContent('OK');
+    expect(row).toHaveTextContent(/Unknown/);
+    expect(row).not.toHaveTextContent(/\bOK\b/);
+    expect(screen.getByTestId('health-mesh')).toHaveTextContent(/Unknown/);
+    expect(screen.getByTestId('health-alerts')).toHaveTextContent(/OK/);
   });
 
   it('keeps the last data and says so when a refresh fails', async () => {
@@ -95,8 +95,8 @@ describe('Home health card', () => {
     expect(screen.queryByTestId('health-error')).toBeNull();
     expect(api).toBeTruthy();
     await act(async () => streams[0]!.onEvent({ type: 'action.updated', id: '1', ts: '', schema: 'onemind.event/v1' }));
-    expect(await screen.findByTestId('health-error', undefined, { timeout: 2000 })).toHaveTextContent('Showing the last answer');
-    expect(screen.getByTestId('health-backups')).toHaveTextContent('Last backup 1h ago');
+    expect(await screen.findByTestId('health-error', undefined, { timeout: 2000 })).toHaveTextContent(/Showing the last answer/);
+    expect(screen.getByTestId('health-backups')).toHaveTextContent(/Last backup 1h ago/);
   });
 
   it('shows nothing when the hub has no status route', async () => {
@@ -108,11 +108,11 @@ describe('Home health card', () => {
     const statusFn = jest.fn(async () => status as never);
     await mount(<HealthCard />, { status: statusFn });
     await screen.findByTestId('health-card');
-    expect(screen.getByTestId('live-indicator')).toHaveTextContent('Reconnecting');
+    expect(screen.getByTestId('live-indicator')).toHaveTextContent(/Reconnecting/);
     await act(async () => streams[0]!.onState?.('open'));
-    expect(screen.getByTestId('live-indicator')).toHaveTextContent('Live');
+    expect(screen.getByTestId('live-indicator')).toHaveTextContent(/Live/);
     await act(async () => streams[0]!.onState?.('retrying'));
-    expect(screen.getByTestId('live-indicator')).toHaveTextContent('Reconnecting');
+    expect(screen.getByTestId('live-indicator')).toHaveTextContent(/Reconnecting/);
     const before = statusFn.mock.calls.length;
     await act(async () => streams[0]!.onEvent({ type: 'action.updated', id: '1', ts: '', schema: 'onemind.event/v1' }));
     await screen.findByTestId('health-card');
@@ -123,7 +123,7 @@ describe('Home health card', () => {
   it('says Polling when the hub has no event stream', async () => {
     await mount(<HealthCard />, { status: async () => status as never, eventsEndpoint: () => undefined });
     await screen.findByTestId('health-card');
-    expect(screen.getByTestId('live-indicator')).toHaveTextContent('Polling');
+    expect(screen.getByTestId('live-indicator')).toHaveTextContent(/Polling/);
   });
 });
 
