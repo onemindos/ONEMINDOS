@@ -59,12 +59,15 @@ class AppStoreSettings:
     git: str = "git"                  # ONEMIND_APPSTORE_GIT
     fetch_timeout_s: int = 120        # ONEMIND_APPSTORE_FETCH_TIMEOUT_S
     max_source_mb: int = 64           # ONEMIND_APPSTORE_MAX_SOURCE_MB
+    scanner: str = "auto"             # ONEMIND_APPSTORE_SCANNER: auto | none | kubernetes (CORE-DEPLOY-2)
 
     def validate(self) -> None:
         if not 5 <= self.fetch_timeout_s <= 900:
             raise ValueError("ONEMIND_APPSTORE_FETCH_TIMEOUT_S must be 5-900")
         if not 1 <= self.max_source_mb <= 1024:
             raise ValueError("ONEMIND_APPSTORE_MAX_SOURCE_MB must be 1-1024")
+        if self.scanner not in ("auto", "none", "kubernetes"):
+            raise ValueError("ONEMIND_APPSTORE_SCANNER must be auto, none or kubernetes")
 
 
 def new_source_id() -> str:
@@ -111,7 +114,7 @@ class AppStore:
         self.fetcher = fetcher or GitFetcher(
             root, git=cfg.git, timeout_s=cfg.fetch_timeout_s, max_bytes=cfg.max_source_mb * 1024 * 1024,
         )
-        self.image_scanner: ImageScanner = image_scanner or NoImageScanner()
+        self.image_scanner: ImageScanner = image_scanner or getattr(gw, "image_scanner", None) or NoImageScanner()
         self.sources = SourceCatalog(self.repo, self.fetcher, gw.catalog.validate)
         self.reserved = hostports.load_reserved()
 

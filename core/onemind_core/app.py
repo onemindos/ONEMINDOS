@@ -96,6 +96,10 @@ def create_app(
         events=EventHub(audit, clock, publish=bus.publish_threadsafe, instance_id=settings.node_id),
         catalog=catalog, repo=repo, db=db, executor=executor, actions=actions, skip_scan=skip_scan,
     )
+    from .appstore.imagescan import make_image_scanner
+    from .appstore.service import AppStoreSettings
+
+    gw.image_scanner = make_image_scanner(settings.section(AppStoreSettings).scanner, executor.name, settings.kubectl)
     gw.principal = principal_dependency(gw)
     # PD-03: what an executor reports while it works becomes an event (and is stored on the action).
     actions.progress_listeners.append(lambda action_id, p: gw.events.publish_event(
