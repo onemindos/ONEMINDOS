@@ -10,11 +10,14 @@ Run inside the tools container (os/rootfs/Containerfile target "tools"), as root
 
   assemble.py tree   --board B --rootfs rootfs.tar --work W --version V --keyring ca.pem [--overlay DIR]...
   assemble.py ext4   --work W --out system.ext4 [--size-mib N]
-  assemble.py disk   --board B --work W --system system.ext4 --out disk.img
+  assemble.py disk   --board B --work W --system system.ext4 --out disk.img [--sb-key K --sb-cert C]
   assemble.py bundle --board B --system system.ext4 --version V --cert C --key K --out x.raucb [--format plain]
   assemble.py image  (tree + ext4 + disk + bundle in one go; see --help)
 """
-import argparse, hashlib, os, shutil, struct, subprocess, sys, tempfile, uuid
+import argparse, glob, hashlib, os, shutil, struct, subprocess, sys, tempfile, uuid
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import uki  # noqa: E402  (Secure Boot: signed unified kernel images, S-13)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OS_DIR = os.path.dirname(HERE)
@@ -197,6 +200,29 @@ def esp_fsuuid(lay):
     return f"{v[:4]}-{v[4:]}"
 
 
+def find_kernel(tree):
+    """(kernel, initrd) of the one installed kernel in the rootfs tree."""
+    k = sorted(glob.glob(os.path.join(tree, "boot", "vmlinuz-*")))
+    i = sorted(glob.glob(os.path.join(tree, "boot", "initrd.img-*")))
+    if len(k) != 1 or len(i) != 1:
+        sys.exit(f"ERROR: expected one kernel and one initrd in {tree}/boot, found {len(k)} and {len(i)}")
+    return k[0], i[0]
+
+
+def build_ukis(board, tree, stage, key, cert):
+    """One signed UKI per slot (own root partition in its signed command line), as {boot partition label: file}."""
+    lay = board["layout_data"]
+    kernel, initrd = find_kernel(tree)
+    files = {}
+    for slot in ("A", "B"):
+        root = part(lay, f"onemind-system-{slot.lower()}")
+        out = os.path.join(stage, uki.uki_name(slot))
+        uki.build_uki(kernel, initrd, uki.cmdline(board["console"], root["partuuid"], slot),
+                      os.path.join(tree, "usr/lib/os-release"), out, key, cert)
+        files[f"onemind-boot-{slot.lower()}"] = {f"{uki.UKI_DIR}/{uki.uki_name(slot)}": out}
+    return files
+
+
 def grub_binaries(board, tree, stage):
     """Build GRUB from the rootfs's own GRUB packages (same arch: native runner or emulated container)."""
     lay = board["layout_data"]
@@ -294,9 +320,24 @@ def cmd_disk(a):
     tree = os.path.join(a.work, "tree")
     stage = os.path.join(a.work, "stage")
     os.makedirs(stage, exist_ok=True)
-    files = grub_binaries(board, tree, stage)
-    open(os.path.join(stage, "grub.cfg"), "w").write(render_grub_cfg(board))
-    files["EFI/BOOT/grub.cfg"] = os.path.join(stage, "grub.cfg")
+    sb_key, sb_cert = getattr(a, "sb_key", None), getattr(a, "sb_cert", None)
+    secure = bool(sb_key or sb_cert)
+    boot_files = {}
+    if secure:
+        if board["route"] != "grub-efi" or not (sb_key and sb_cert):
+            sys.exit("ERROR: Secure Boot needs an EFI board and both --sb-key and --sb-cert")
+        boot_files = build_ukis(board, tree, stage, sb_key, sb_cert)
+    if secure:
+        # No GRUB: the firmware starts the signed slot-A UKI as the fallback boot file. GRUB cannot be the
+        # selector under Secure Boot without shim (it refuses to chainload: "shim_lock protocol not found", and
+        # with that check off, "verification requested but nobody cares"; both seen under OVMF). grubenv stays
+        # because RAUC's grub backend and the health gate still read and write it; choosing slot B is the
+        # follow-up (RAUC efi backend / BootOrder, see os/secureboot/README.md).
+        files = {f"EFI/BOOT/{board['efi_binary']}": boot_files["onemind-boot-a"][f"{uki.UKI_DIR}/{uki.uki_name('A')}"]}
+    else:
+        files = grub_binaries(board, tree, stage)
+        open(os.path.join(stage, "grub.cfg"), "w").write(render_grub_cfg(board))
+        files["EFI/BOOT/grub.cfg"] = os.path.join(stage, "grub.cfg")
     env = os.path.join(stage, "grubenv")
     if os.path.exists(env):
         os.remove(env)
@@ -333,7 +374,7 @@ def cmd_disk(a):
         if p["label"] == "onemind-esp":
             fat_image(img, size_mib, "ONEMIND-ESP", esp_volid(lay), files)
         elif fs == "vfat":
-            fat_image(img, size_mib, p.get("fs_label", p["label"][-6:].upper()))
+            fat_image(img, size_mib, p.get("fs_label", p["label"][-6:].upper()), files=boot_files.get(p["label"]))
         elif p["label"] == "onemind-system-a":
             img = a.system
         elif p["label"] == "onemind-data":
@@ -386,7 +427,8 @@ def cmd_image(a):
     system = os.path.join(a.work, "system.ext4")
     cmd_ext4(argparse.Namespace(work=a.work, out=system, size_mib=None))
     disk = os.path.join(a.out_dir, f"onemind-{a.board}-{a.version}.img")
-    cmd_disk(argparse.Namespace(board=a.board, work=a.work, system=system, out=disk))
+    cmd_disk(argparse.Namespace(board=a.board, work=a.work, system=system, out=disk,
+                                sb_key=getattr(a, "sb_key", None), sb_cert=getattr(a, "sb_cert", None)))
     outs = [disk]
     if a.cert and a.key:
         bundle = os.path.join(a.out_dir, f"onemind-{a.board}-{a.version}.raucb")
@@ -440,6 +482,8 @@ def main():
     for p in (b, i):
         p.add_argument("--cert", required=p is b); p.add_argument("--key", required=p is b)
     i.add_argument("--out-dir", required=True)
+    for p in (d, i):   # Secure Boot (S-13): sign GRUB and one UKI per slot; a dev image has no keys here
+        p.add_argument("--sb-key"); p.add_argument("--sb-cert")
     a = ap.parse_args()
     a.fn(a)
 

@@ -7,6 +7,7 @@
 #   make fixtures BOARD=x86_64-efi [UPTO=T5] [HW=1]     -> out/fx-<board>/ (battery inputs; HW=1 for founder kits)
 #   make battery BOARD=x86_64-efi [UPTO=T5]             -> out/battery-<board>/ (serial log, results.json)
 #   make firstboot BOARD=x86_64-efi [FUPTO=F4]          -> out/firstboot-<board>/ (F0-F4, CRITERIA-FIRSTBOOT.md)
+#   make secureboot-test                                -> out/secureboot-x86_64-efi/ (SB1-SB4, CRITERIA-SECUREBOOT.md)
 #   make convert BOARD=vm                               -> qcow2 / vhdx / vmdk / vdi / ova next to the image
 #   make jetson-layer [VERSION=...]                     -> out/onemind-layer-jetson-orin-<version>.tar.gz
 #   make hygiene | hygiene-selftest | lint | test | kit LT=LT-X86-01
@@ -26,7 +27,7 @@ ROOTFS      = $(OUT)/rootfs-$(LEG)-$(BOARD).tar
 DOCKER_RUN  = docker run --rm --platform $(PLATFORM) -v "$(CURDIR)":/src:ro -v "$(CURDIR)/$(OUT)":/out
 KVM         = $(shell [ -w /dev/kvm ] && echo --device /dev/kvm)
 
-.PHONY: help tools rootfs image fixtures battery firstboot convert hygiene hygiene-selftest lint test kit clean
+.PHONY: help tools rootfs image fixtures battery firstboot convert hygiene hygiene-selftest lint test kit clean secureboot-image secureboot-test
 
 help:
 	@sed -n 's/^#   make/make/p' Makefile
@@ -74,6 +75,19 @@ firstboot:
 .PHONY: local-firstboot
 local-firstboot:
 	test/qemu/local-firstboot.sh BOARD=$(BOARD) FUPTO=$(FUPTO)
+
+# Secure Boot + signed UKI (S-13, os/secureboot/README.md): a test image with signed GRUB and UKIs, then SB1-SB4
+# under OVMF Secure Boot with throwaway keys. KVM host (CI image workflow) for the SB1 gate; TCG is BLOCKED-slow.
+secureboot-image: tools
+	@test -f $(OUT)/rootfs-$(LEG)-x86_64-efi.tar || $(MAKE) rootfs BOARD=x86_64-efi LEG=$(LEG)
+	$(DOCKER_RUN) $(TOOLS) /src/test/qemu/secureboot-image.sh /out/rootfs-$(LEG)-x86_64-efi.tar /out/secureboot-image
+
+secureboot-test:
+	@test -f $(OUT)/secureboot-image/disk.img || $(MAKE) secureboot-image BOARD=x86_64-efi
+	mkdir -p $(OUT)/secureboot-x86_64-efi
+	$(DOCKER_RUN) $(KVM) $(TOOLS) python3 -I /src/test/qemu/secureboot.py --disk /out/secureboot-image/disk.img \
+	  --keys /out/secureboot-image --work /out/secureboot-x86_64-efi/work --log /out/secureboot-x86_64-efi/serial.log \
+	  --results /out/secureboot-x86_64-efi/results.json; rc=$$?; rm -rf $(OUT)/secureboot-x86_64-efi/work; exit $$rc
 
 convert: tools
 	$(DOCKER_RUN) $(TOOLS) /src/os/assemble/convert.sh /out/image-$(BOARD)
