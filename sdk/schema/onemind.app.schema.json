@@ -462,6 +462,16 @@
               "type": "integer",
               "minimum": 1
             },
+            "gpuCount": {
+              "description": "How many NVIDIA graphics cards the app needs (default 1). Only meaningful with gpu: true. The Market places the app on a machine that reports at least this many.",
+              "type": "integer",
+              "minimum": 1
+            },
+            "minVramMb": {
+              "description": "Memory the smallest graphics card must have, in MB. Only meaningful with gpu: true. A machine that does not report its card memory is not used (unknown is refused, never assumed).",
+              "type": "integer",
+              "minimum": 1
+            },
             "cpuLevel": {
               "description": "Lowest CPU level the pinned images need, per architecture. Install and update are refused on a box below it (NMD-09, #134). x86-64 levels follow the x86-64 psABI (-march=x86-64-vN). Omit when the images run on any CPU of the architecture.",
               "type": "object",

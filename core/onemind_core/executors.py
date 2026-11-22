@@ -36,6 +36,7 @@ from urllib.parse import urlsplit
 
 import yaml
 
+from . import placement
 from .ca import MESH_DOMAIN
 from .catalog import AppEntry
 from .lifecycle import AppCredentialGrant, ExecContext, report_progress
@@ -557,7 +558,7 @@ class KubernetesExecutor(Executor):
                 steps[-1]["ignored"] = True
         return None
 
-    def _check(self, app: AppEntry, steps: list[dict]):
+    def _check(self, app: AppEntry, steps: list[dict], sched: dict | None = None):
         """Render and check. Returns (rendered, level, egress, plan) or an ExecResult to return."""
         rules = self.rules
         try:
@@ -580,6 +581,10 @@ class KubernetesExecutor(Executor):
             docs = parse_rendered(rendered)
         except yaml.YAMLError:
             return _refused(app, [Violation("G-02", "?", app.id, rules.msg("G-02"))], plan, steps)
+        if sched:  # CORE-FABRIC-4: the machine and GPU request go in before the sandbox looks at the objects
+            docs = placement.apply(docs, sched)
+            rendered = yaml.safe_dump_all(docs, sort_keys=False)
+            plan["placement"] = sched
         plan.update(summarize(docs))
         plan["rendered_sha256"] = rendered_sha256(rendered)
         violations = check_objects(docs, app.id, app.manifest, rules) + ev
@@ -692,7 +697,7 @@ class KubernetesExecutor(Executor):
         ns = f"app-{app.id}"
         k = self.kubectl
         report_progress("checking the new version against the install rules", 10)
-        checked = self._check(app, steps)
+        checked = self._check(app, steps, ctx.placement if ctx else None)
         if isinstance(checked, ExecResult):
             return checked
         rendered, _level, egress, plan_info = checked
@@ -757,7 +762,7 @@ class KubernetesExecutor(Executor):
         kwargs: dict = {}
         if action_type == "app.install":
             report_progress("checking the app against the install rules", 10)
-            checked = self._check(app, steps)
+            checked = self._check(app, steps, ctx.placement)
             if isinstance(checked, ExecResult):
                 return checked
             rendered, level, egress, plan_info = checked
