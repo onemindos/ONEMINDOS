@@ -10,3 +10,4 @@ a4b21f2578294a5398f448761cd04b013de6c917ebf5e01ccca32e3536a75099  CRITERIA-FIRST
 2b788ed182eaf477e5895c916e8e62b54fe7cc993b70e63ebf68845d70357eb5  CRITERIA-SECUREBOOT.md  2026-11-21T22:00:00Z  (S-13; status line reworded before the PR merged to say the harness was self-tested on a rootless image before the full-image run; no criterion changed)
 d56cf70920434a075150dd8aca3518a9acfef5a43c40e037055171badfd3d7cd  CRITERIA-FIREWALL.md  2026-11-21T19:49:34Z
 fb2547dc5497328ed88333e86c7f1de48208193b5eabf3a4b35c54348d3689f8  CRITERIA-BOOTLOCK.md  2026-11-21T00:00:00Z  (written before the GRUB lock and bootlock.py were booted or run)
+a22ef6fa27ffd19b775ed245e094428b7a3eb94b792040943bccfc2a5bcc73c7  CRITERIA-MEMORY.md  2026-11-21T00:00:00Z
