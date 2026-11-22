@@ -140,3 +140,18 @@ it('tiles the open windows of the workspace only while tiling is on, and the sho
   await user.keyboard('?');
   expect(await screen.findByRole('dialog', { name: 'Keyboard shortcuts' })).toBeInTheDocument();
 });
+
+it('visiting an empty workspace and back keeps both windows of workspace 1 open', async () => {
+  const user = userEvent.setup();
+  renderApp({ token: 'owner-demo', route: '/approvals' });
+  await screen.findByRole('region', { name: 'Approvals' });
+  await openScreen(user, /Market/);
+  await waitFor(() => expect(frame('market').hidden).toBe(false));
+  expect(frame('approvals').hidden).toBe(false);
+  const spaces = screen.getByRole('group', { name: 'Workspaces' });
+  await user.click(within(spaces).getByRole('button', { name: 'Workspace 2' }));
+  await waitFor(() => expect(frame('market').hidden).toBe(true));
+  await user.click(within(spaces).getByRole('button', { name: /^Workspace 1/ }));
+  await waitFor(() => expect(frame('market').hidden).toBe(false));
+  expect(frame('approvals').hidden).toBe(false);
+});

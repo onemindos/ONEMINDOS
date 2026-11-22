@@ -106,7 +106,8 @@ export function useWindows() {
     } else if (pathname === '/' && first && top(next, wsRef.current)) {
       navigate(top(next, wsRef.current)!.path, { replace: true });
     } else if (pathname === '/') {
-      next = next.map(w => ({ ...w, minimised: true }));
+      // Only this workspace goes to the desktop; the others keep their windows as they were.
+      next = next.map(w => w.ws === wsRef.current ? { ...w, minimised: true } : w);
     }
     if (narrow) {
       const visible = top(next, wsRef.current);
