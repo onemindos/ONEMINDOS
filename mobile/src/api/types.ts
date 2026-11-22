@@ -227,6 +227,8 @@ export interface ApproveOptions {
   /** null when the action has no plan (the hub's identity module sends null, not ""). */
   plan_sha256: string | null;
   expires_at: string;
+  /** #702: what an approval key signs (UTF-8). Absent on hubs without approver keys. */
+  device_payload?: string;
   /** The hub's challenge record (login and passkey-register options carry it too). */
   challenge_id?: string;
   rpId?: string;
@@ -281,6 +283,26 @@ export interface WebAuthnCreationOptions {
 export interface ApproveBody {
   plan_sha256?: string;
   webauthn?: WebAuthnAssertion;
+  /** #702: or this phone's approval key's signature over approve-options' `device_payload`. */
+  device_signature?: DeviceSignature;
+}
+
+/** #702: an approval key's ECDSA P-256 SHA-256 signature (DER, base64url) over `device_payload`. */
+export interface DeviceSignature {
+  key_id: string;
+  challenge: string;
+  signature: string;
+}
+
+/** #702 `POST/GET /v1/auth/approver-keys`: a phone's approval key as the hub keeps it (public key only). */
+export interface ApproverKey {
+  key_id: string;
+  label: string;
+  key_kind: string;
+  fingerprint: string;
+  created_at: string;
+  last_used_at: string | null;
+  revoked_at: string | null;
 }
 
 /** §12.6 `GET /v1/me`. */

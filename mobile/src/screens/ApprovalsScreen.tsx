@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import { useState } from 'react';
+import { approvalKeyNative, type ApprovalKeyNative } from '../../modules/onemind-approval-key';
+import { forget } from '../approvalKey';
+import { ApprovalKeySection, useApprovalKey } from '../approvalKey/ApprovalKeySection';
 import { Text, View } from 'react-native';
 import type { Action, Risk } from '../api/types';
 import { useHubData, useNow } from '../data';
@@ -81,6 +84,7 @@ function PendingCard({
   busy,
   offline,
   passkey,
+  keyed,
   onDecide,
 }: {
   a: Action;
@@ -89,6 +93,7 @@ function PendingCard({
   busy: boolean;
   offline: boolean;
   passkey: boolean;
+  keyed: boolean;
   onDecide: (a: Action, d: Decision) => void;
 }) {
   const t = useTheme();
@@ -115,7 +120,11 @@ function PendingCard({
       {a.requested_by?.kind === 'agent' && (
         <P muted small>An AI agent asked for this. It cannot approve its own request.</P>
       )}
-      {passkey && canDecide !== 'no' && <P muted small>Approving asks for Face ID, your fingerprint or your screen lock.</P>}
+      {keyed && canDecide !== 'no' ? (
+        <P muted small>Approving asks for your fingerprint or face and signs this plan with this phone's approval key. A PIN is not accepted.</P>
+      ) : (
+        passkey && canDecide !== 'no' && <P muted small>Approving asks for Face ID, your fingerprint or your screen lock.</P>
+      )}
       <View style={s.wrap}>
         <Button testID={`approve-${a.id}`} label="Approve" disabled={off} onPress={() => onDecide(a, 'approve')} />
         <Button testID={`deny-${a.id}`} label="Deny" variant="danger" disabled={off} onPress={() => onDecide(a, 'deny')} />
@@ -124,7 +133,7 @@ function PendingCard({
   );
 }
 
-export function ApprovalsScreen() {
+export function ApprovalsScreen({ keyNative = approvalKeyNative }: { keyNative?: ApprovalKeyNative } = {}) {
   const now = useNow();
   const { api, canDecide, markForbidden, features, me, connection } = useSignedIn();
   const { actions, hubOffsetMs, loading, reload, error } = useHubData();
@@ -132,18 +141,20 @@ export function ApprovalsScreen() {
   const [msg, setMsg] = useState<{ text: string; ok: boolean }>();
   const hubNow = now + (hubOffsetMs ?? 0);
   const ownerHasPasskey = (me?.passkeys ?? 0) > 0;
-  const ctx: StepUp = {
-    features,
-    passkeys: platformPasskeys(),
-    ownerHasPasskey,
-    hubUrl: connection.mode === 'live' ? connection.hubUrl : undefined,
-  };
+  const hubUrl = connection.mode === 'live' ? connection.hubUrl : undefined;
+  const key = useApprovalKey(keyNative, hubUrl);
+  const ctx: StepUp = { features, passkeys: platformPasskeys(), ownerHasPasskey, hubUrl, approvalKey: key.signer };
 
   async function onDecide(a: Action, d: Decision) {
     setBusy(a.id);
     setMsg(undefined);
     const r = await decide(api, a, d, ctx);
     if (!r.ok && r.forbidden) markForbidden();
+    // A new fingerprint or face killed the key: revoke it on the hub (best effort) and offer set-up again.
+    if (!r.ok && r.reason === 'invalidated' && key.rec) {
+      await forget(api, key.rec, keyNative).catch(() => undefined);
+      key.set(null);
+    }
     setMsg({ text: r.message, ok: r.ok });
     await reload();
     setBusy(undefined);
@@ -159,6 +170,7 @@ export function ApprovalsScreen() {
       {canDecide === 'unknown' && <Notice text="The hub checks that you are an owner when you approve or deny." />}
       {error && <Notice tone="warn" text="Not connected to the hub right now, so approving and denying are off. They come back when the hub answers." />}
       {msg && <Notice tone={msg.ok ? 'ok' : 'bad'} text={msg.text} />}
+      <ApprovalKeySection api={api} features={features} native={keyNative} hubUrl={hubUrl} state={key} owner={canDecide !== 'no'} />
       {pending.length === 0 ? (
         <P muted>Nothing is waiting.</P>
       ) : (
@@ -171,6 +183,7 @@ export function ApprovalsScreen() {
             busy={busy !== undefined}
             offline={!!error}
             passkey={needsPasskey(a, ownerHasPasskey)}
+            keyed={!!key.signer}
             onDecide={(x, d) => void onDecide(x, d)}
           />
         ))

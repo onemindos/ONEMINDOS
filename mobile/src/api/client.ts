@@ -10,6 +10,7 @@ import {
   type AlertRecord,
   type ApiErrorBody,
   type ApproveBody,
+  type ApproverKey,
   type ApproveOptions,
   type AutomationRule,
   type AutomationRun,
@@ -71,6 +72,8 @@ export const OP = {
   vapidKey: 'GET /v1/push/vapid-public-key',
   loginOptions: 'POST /v1/auth/login/options',
   passkeyRegisterOptions: 'POST /v1/auth/passkeys/register/options',
+  /** #702: register this phone's approval key. */
+  approverKeys: 'POST /v1/auth/approver-keys',
   /** Not in §12.6 (it returns a refresh_token but names no route); used only when the gateway lists it. */
   authRefresh: 'POST /v1/auth/refresh',
   deviceRequest: 'POST /v1/devices/requests',
@@ -213,6 +216,9 @@ export interface OneMindApi {
   logout(): Promise<void>;
   passkeyRegisterOptions(): Promise<RegisterOptions>;
   passkeyRegister(body: { credential: WebAuthnAttestation; label: string }): Promise<{ credential_id: string; label: string }>;
+  /** #702 (optional: only the live client has them; feature-detect with OP.approverKeys). */
+  approverKeyRegister?(body: { public_key: string; label: string; key_kind: 'hardware-reported' | 'software' }): Promise<ApproverKey>;
+  approverKeyRevoke?(keyId: string): Promise<void>;
   deviceRequest(body: DeviceRequestBody): Promise<DeviceRequest>;
   deviceRequestStatus(id: string, pollCode?: string): Promise<DeviceRequest>;
   /** Device-bound renewal (RFC 9449 DPoP proof in the `DPoP` header). */
@@ -483,7 +489,7 @@ export class HttpApi implements OneMindApi {
     return this.req<Action>('GET', `/v1/actions/${enc(id)}`);
   }
   approve(id: string, body?: ApproveBody) {
-    const b = body && (body.plan_sha256 || body.webauthn) ? body : undefined;
+    const b = body && (body.plan_sha256 || body.webauthn || body.device_signature) ? body : undefined;
     return this.req<Action>('POST', `/v1/actions/${enc(id)}/approve`, b);
   }
   deny(id: string, reason?: string) {
@@ -562,6 +568,12 @@ export class HttpApi implements OneMindApi {
   }
   passkeyRegister(body: { credential: WebAuthnAttestation; label: string }) {
     return this.req<{ credential_id: string; label: string }>('POST', '/v1/auth/passkeys/register', body);
+  }
+  approverKeyRegister(body: { public_key: string; label: string; key_kind: 'hardware-reported' | 'software' }) {
+    return this.req<ApproverKey>('POST', '/v1/auth/approver-keys', body);
+  }
+  async approverKeyRevoke(keyId: string) {
+    await this.req<unknown>('DELETE', `/v1/auth/approver-keys/${enc(keyId)}`, undefined, 'any');
   }
   deviceRequest(body: DeviceRequestBody) {
     return this.req<DeviceRequest>('POST', '/v1/devices/requests', body);
