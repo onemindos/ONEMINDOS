@@ -12,7 +12,7 @@ import { formatAgo, secondsSince } from '../lib/time';
 import { useSignedIn } from '../session';
 import { Load, OneTimeDialog, TextField, useRun } from './parts';
 
-const ROLES: PersonRole[] = ['adult', 'guest', 'owner'];
+const ROLES: PersonRole[] = ['adult', 'teen', 'child', 'guest', 'owner'];
 
 export function Users() {
   const { api } = useSignedIn();

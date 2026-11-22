@@ -17,7 +17,7 @@ jobs:
   lint:
     # CI-10 (#299): arm64-safe, no secrets. Local Mac runner when LOCAL_RUNNER=on and the event is trusted
     # (never a fork PR); otherwise GitHub-hosted. docs/learning/self-hosted-runner.md
-    runs-on: ${{ (vars.LOCAL_RUNNER == 'on' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","onemind-local"]') || 'ubuntu-24.04' }}
+    runs-on: ${{ (vars.DO_RUNNER == 'on' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","onemind-do"]') || (vars.LOCAL_RUNNER == 'on' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","onemind-local"]') || 'ubuntu-24.04' }}
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -27,7 +27,7 @@ jobs:
   unit:
     # CI-10 (#299): arm64-safe, no secrets. Local Mac runner when LOCAL_RUNNER=on and the event is trusted
     # (never a fork PR); otherwise GitHub-hosted. docs/learning/self-hosted-runner.md
-    runs-on: ${{ (vars.LOCAL_RUNNER == 'on' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","onemind-local"]') || 'ubuntu-24.04' }}
+    runs-on: ${{ (vars.DO_RUNNER == 'on' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","onemind-do"]') || (vars.LOCAL_RUNNER == 'on' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","onemind-local"]') || 'ubuntu-24.04' }}
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -57,7 +57,9 @@ jobs:
           MOSQUITTO_BRIDGE_E2E_LOGS: "1"
         run: python3 -I -m unittest discover -s apps/mosquitto/tests -v
   changes:
-    runs-on: ubuntu-24.04
+    # CI-13 (#299): arm64-safe, no secrets, no Docker. Local Mac runner when LOCAL_RUNNER=on and the event is
+    # trusted (never a fork PR); otherwise GitHub-hosted. docs/learning/self-hosted-runner.md
+    runs-on: ${{ (vars.LOCAL_RUNNER == 'on' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","onemind-local"]') || 'ubuntu-24.04' }}
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -73,7 +75,9 @@ jobs:
           fi
   dco:
     if: github.event_name == 'pull_request'
-    runs-on: ubuntu-24.04
+    # CI-13 (#299): arm64-safe, no secrets, no Docker. Local Mac runner when LOCAL_RUNNER=on and the event is
+    # trusted (never a fork PR); otherwise GitHub-hosted. docs/learning/self-hosted-runner.md
+    runs-on: ${{ (vars.LOCAL_RUNNER == 'on' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","onemind-local"]') || 'ubuntu-24.04' }}
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2

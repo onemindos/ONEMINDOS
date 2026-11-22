@@ -3,15 +3,36 @@
 
 Behaviour must stay identical to a fresh read each time: edits, new apps, removed apps, broken
 manifests and changed scan.json files all show up on the very next load().
+
+A file whose ctime is less than two seconds old is never cached (onemind_core.filesig): on Linux
+ctime only moves once per clock tick, so a same-size rewrite in that tick looks unchanged. ctime
+cannot be set back from user space, so tests that check caching shorten the window to 50 ms and
+settle their files by waiting it out, as files on a real box are old by the time they are read.
 """
 
 import shutil
 import time
 from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
 
+import pytest
 from conftest import FIXTURES, write_scan
 from onemind_core.catalog import Catalog
+from onemind_core import filesig
+from onemind_core.filesig import cache_signature
 from onemind_core.scan import read_scan
+
+SHORT_WINDOW_NS = 50_000_000  # still 5x a 10 ms Linux tick, so the racy-tick rule keeps holding
+
+
+@pytest.fixture(autouse=True)
+def short_racy_window(monkeypatch):
+    monkeypatch.setattr(filesig, "RACY_WINDOW_NS", SHORT_WINDOW_NS)
+
+
+def settle():
+    """Wait until every file written so far has a ctime older than the racy window."""
+    time.sleep(2 * SHORT_WINDOW_NS / 1e9)
 
 
 def make_apps(tmp_path, n=40):
@@ -22,6 +43,7 @@ def make_apps(tmp_path, n=40):
         shutil.copytree(FIXTURES / "apps" / "whoami", d)
         text = (d / "onemind.app.yaml").read_text().replace("id: whoami", f"id: app-{i}")
         (d / "onemind.app.yaml").write_text(text)
+    settle()
     return apps
 
 
@@ -77,6 +99,7 @@ def test_edit_add_remove_and_break_show_up_on_next_load(tmp_path):
 def test_wrong_folder_name_stays_an_error_while_cached(tmp_path):
     apps = tmp_path / "apps"
     shutil.copytree(FIXTURES / "apps" / "wrong-folder", apps / "wrong-folder")
+    settle()
     cat = Catalog(apps)
     for _ in range(3):
         assert cat.load() == {}
@@ -88,14 +111,51 @@ def test_scan_record_is_cached_but_changes_are_seen(tmp_path):
     d = tmp_path / "app"
     d.mkdir()
     now = datetime.now(UTC)
-    write_scan(d, now - timedelta(hours=1))
+    # Back-to-back rewrites in place, same length ("pass" <-> "fail"), same inode, on Linux often
+    # within one clock tick: each one must be seen on the very next read.
+    for result in ("pass", "fail", "pass", "fail", "pass"):
+        write_scan(d, now - timedelta(hours=1), result=result)
+        assert read_scan(d).result == result
+
+    settle()
     first = read_scan(d)
     assert first is not None and first.result == "pass"
     assert read_scan(d) is first  # same parsed record, file not re-read
 
     write_scan(d, now - timedelta(hours=1), result="fail")
     assert read_scan(d).result == "fail"
+    settle()
+    failed = read_scan(d)
+    assert failed.result == "fail" and read_scan(d) is failed  # cached again once settled
     (d / "scan.json").write_text("{not json")
     assert read_scan(d) is None  # an unreadable scan is never served from the cache
     (d / "scan.json").unlink()
     assert read_scan(d) is None
+
+
+def test_same_size_manifest_edit_is_seen_at_once(tmp_path):
+    apps = make_apps(tmp_path, 1)
+    cat = Catalog(apps)
+    assert cat.get("app-0").manifest["metadata"]["name"] == "Whoami"
+    path = apps / "app-0" / "onemind.app.yaml"
+    for name in ("Whoamj", "Whoamk", "Whoami"):  # same length, same inode, back to back
+        path.write_text(path.read_text().replace(cat.get("app-0").manifest["metadata"]["name"], name, 1))
+        assert cat.get("app-0").manifest["metadata"]["name"] == name
+
+
+def test_signature_is_withheld_while_a_rewrite_could_share_the_clock_tick():
+    window = filesig.RACY_WINDOW_NS
+    now = 1_800_000_000_000_000_000
+    st = SimpleNamespace(st_mtime_ns=now, st_ctime_ns=now, st_size=10, st_ino=7)
+    assert cache_signature(st, now) is None  # written this tick: a same-size rewrite looks equal
+    st.st_mtime_ns = st.st_ctime_ns = now - window + 1
+    assert cache_signature(st, now) is None
+    st.st_mtime_ns = st.st_ctime_ns = now - window
+    assert cache_signature(st, now) == (st.st_mtime_ns, st.st_ctime_ns, 10, 7)
+    # A copied file (cp -p, shutil.copy2, tar -x, rsync -t): old mtime, fresh ctime. The writer set
+    # that mtime, so a same-size rewrite in this tick can carry it again: only ctime is trusted.
+    st.st_mtime_ns, st.st_ctime_ns = now - 3600 * 10**9, now
+    assert cache_signature(st, now) is None
+    # A ctime in the future (the clock was stepped back) is never counted as old.
+    st.st_mtime_ns, st.st_ctime_ns = now - 3600 * 10**9, now + 3600 * 10**9
+    assert cache_signature(st, now) is None
