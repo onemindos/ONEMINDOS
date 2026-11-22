@@ -27,6 +27,7 @@ from pydantic import AwareDatetime, BaseModel, BeforeValidator, ConfigDict, Fiel
 from ..actions import ActionRequest
 from ..auth import Principal
 from ..context import Gateway
+from ..guard import reads_body
 from ..errors import ApiError, error_responses
 from ..ledger import TERMINAL, utc
 from ..notify import NotifyService, RateLimited
@@ -41,6 +42,7 @@ from ..notify.store import (
     notification_json,
 )
 from ..identity.scopes import ALL, has_any, register_route_scope
+from ..jsonbody import JsonBody
 
 def _rfc3339_text(v):
     # pydantic reads "0.5" or 17 as a Unix time; the published schema says an RFC 3339 date-time string.
@@ -111,7 +113,7 @@ class PushIn(BaseModel):
     label: str = Field(default="device", min_length=1, max_length=120)
 
 
-class FixIn(BaseModel):
+class FixIn(JsonBody):
     model_config = ConfigDict(extra="forbid")
     approve: bool = False
     reason: str | None = Field(default=None, max_length=500)
@@ -381,6 +383,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
 
     @app.put("/v1/notifications/preferences", operation_id="notifications.preferences.set", tags=[TAG], responses=error_responses(401, 403, 409, 422),
              openapi_extra={"requestBody": {"required": True, "content": {"application/json": {"schema": {"type": "object"}}}}})
+    @reads_body
     async def put_preferences(request: Request, if_match: str | None = Header(default=None),
                               p: Principal = Depends(principal)):
         _person(p)
