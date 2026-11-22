@@ -23,7 +23,7 @@ describe('files download and tus calls', () => {
     const r = hub(() => new Response('{}'));
     expect(r.api.filesDownloadRequest('home:alex', '/a b/c&d.txt')).toEqual({
       url: 'https://hub.test/v1/files/download?root=home%3Aalex&path=%2Fa%20b%2Fc%26d.txt',
-      headers: { 'OneMind-API-Version': '1', Authorization: 'Bearer t' },
+      headers: { 'OneMind-API-Version': '1', 'X-OneMind-Protocol': '2', Authorization: 'Bearer t' },
     });
   });
 

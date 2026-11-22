@@ -5,6 +5,7 @@
 
 import type { OneMind } from "./client.js";
 import { errorFor, OneMindError } from "./errors.js";
+import { PROTOCOL_HEADER, PROTOCOL_VERSION } from "./protocol.js";
 
 export interface OneMindEvent {
   schema?: string;
@@ -60,6 +61,7 @@ export class EventsApi {
     const url = `${this.om.baseUrl}/v1/events${qs}`;
     const headers: Record<string, string> = {
       Accept: "text/event-stream",
+      [PROTOCOL_HEADER]: String(PROTOCOL_VERSION),
       ...(await this.om.authHeader()),
       ...(last ? { "Last-Event-ID": last } : {}),
     };

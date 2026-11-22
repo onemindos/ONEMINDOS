@@ -41,6 +41,8 @@ import { MoreScreen, useMoreBadge } from './src/screens/MoreScreen';
 import { NodesScreen } from './src/screens/NodesScreen';
 import { DeviceInfoScreen, LiveUsageScreen, NetworkScreen, OsUpdatesScreen, SystemControlsScreen } from './src/screens/SystemScreens';
 import { SettingsScreen } from './src/screens/SettingsScreen';
+import { useUpdateNeeded } from './src/lib/protocol';
+import { UpdateNeededScreen } from './src/screens/UpdateNeededScreen';
 import { onForgetHub, SessionProvider, useSession, useSignedIn, type SessionDeps } from './src/session';
 import { TOUR, TOUR_ROLE, TOUR_STEP_MS } from './src/tour';
 import { PrefsProvider } from './src/prefs';
@@ -220,6 +222,7 @@ function SignedIn() {
 function Root() {
   const t = useTheme();
   const { ready, session, connect } = useSession();
+  const update = useUpdateNeeded();
   useEffect(() => {
     if (ready && !session && TOUR_ROLE) void connect({ mode: 'mock', token: `${TOUR_ROLE}-demo` });
   }, [ready, session, connect]);
@@ -229,6 +232,7 @@ function Root() {
         <ActivityIndicator color={t.muted} />
       </View>
     );
+  if (update) return <UpdateNeededScreen state={update} />;
   // Keyed by the hub, so switching hubs starts with fresh state and no stale data (a renewed token keeps the screen).
   return session ? <SignedIn key={session.connection.mode === 'live' ? session.connection.hubUrl : session.connection.token} /> : <ConnectScreen />;
 }

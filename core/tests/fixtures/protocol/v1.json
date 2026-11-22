@@ -1,0 +1,530 @@
+{
+ "version": 1,
+ "about": "Requests protocol 1 clients send (the shipped dashboard and phone app: no X-OneMind-Protocol header), with the status and the JSON shape the gateway answered when recorded. Replayed by core/tests/test_protocol.py; re-record only with a reviewed generation bump.",
+ "requests": [
+  {
+   "name": "dashboard health probe",
+   "method": "GET",
+   "path": "/healthz",
+   "as": "none",
+   "headers": {},
+   "status": 200,
+   "shape": {
+    "type": "object",
+    "keys": [
+     "ok"
+    ]
+   }
+  },
+  {
+   "name": "sign-in box name",
+   "method": "GET",
+   "path": "/v1/instance/name",
+   "as": "none",
+   "headers": {
+    "OneMind-API-Version": "1"
+   },
+   "status": 200,
+   "shape": {
+    "type": "object",
+    "keys": [
+     "name"
+    ]
+   }
+  },
+  {
+   "name": "instance",
+   "method": "GET",
+   "path": "/v1/instance",
+   "as": "owner",
+   "headers": {
+    "OneMind-API-Version": "1"
+   },
+   "status": 200,
+   "shape": {
+    "type": "object",
+    "keys": [
+     "hub_node_id",
+     "name",
+     "version"
+    ]
+   }
+  },
+  {
+   "name": "instance without a token",
+   "method": "GET",
+   "path": "/v1/instance",
+   "as": "none",
+   "headers": {
+    "OneMind-API-Version": "1"
+   },
+   "status": 401,
+   "shape": {
+    "type": "object",
+    "keys": [
+     "error",
+     "message"
+    ]
+   }
+  },
+  {
+   "name": "instance as a guest",
+   "method": "GET",
+   "path": "/v1/instance",
+   "as": "guest",
+   "headers": {
+    "OneMind-API-Version": "1"
+   },
+   "status": 200,
+   "shape": {
+    "type": "object",
+    "keys": [
+     "hub_node_id",
+     "name",
+     "version"
+    ]
+   }
+  },
+  {
+   "name": "who am I",
+   "method": "GET",
+   "path": "/v1/me",
+   "as": "owner",
+   "headers": {
+    "OneMind-API-Version": "1"
+   },
+   "status": 200,
+   "shape": {
+    "type": "object",
+    "keys": [
+     "capabilities",
+     "display_name",
+     "passkeys",
+     "principal",
+     "scopes",
+     "session",
+     "step_up",
+     "token"
+    ]
+   }
+  },
+  {
+   "name": "home document",
+   "method": "GET",
+   "path": "/v1/me/home",
+   "as": "owner",
+   "headers": {
+    "OneMind-API-Version": "1"
+   },
+   "status": 200,
+   "shape": {
+    "type": "object",
+    "keys": [
+     "appearance",
+     "dock",
+     "grid",
+     "layout",
+     "links",
+     "seen",
+     "updated_at",
+     "version",
+     "widgets"
+    ]
+   }
+  },
+  {
+   "name": "status",
+   "method": "GET",
+   "path": "/v1/status",
+   "as": "owner",
+   "headers": {
+    "OneMind-API-Version": "1"
+   },
+   "status": 200,
+   "shape": {
+    "type": "object",
+    "keys": [
+     "alerts",
+     "approvals",
+     "apps",
+     "backups",
+     "mesh",
+     "observed_at",
+     "state",
+     "storage",
+     "updates"
+    ]
+   }
+  },
+  {
+   "name": "nodes",
+   "method": "GET",
+   "path": "/v1/nodes",
+   "as": "owner",
+   "headers": {
+    "OneMind-API-Version": "1"
+   },
+   "status": 200,
+   "shape": {
+    "type": "array",
+    "item_keys": []
+   }
+  },
+  {
+   "name": "unknown node",
+   "method": "GET",
+   "path": "/v1/nodes/no-such-node",
+   "as": "owner",
+   "headers": {
+    "OneMind-API-Version": "1"
+   },
+   "status": 404,
+   "shape": {
+    "type": "object",
+    "keys": [
+     "error",
+     "message"
+    ]
+   }
+  },
+  {
+   "name": "apps",
+   "method": "GET",
+   "path": "/v1/apps",
+   "as": "owner",
+   "headers": {
+    "OneMind-API-Version": "1"
+   },
+   "status": 200,
+   "shape": {
+    "type": "array",
+    "item_keys": [
+     "archs",
+     "build",
+     "catalog_source",
+     "category",
+     "data_kept",
+     "description",
+     "icon",
+     "id",
+     "installed",
+     "license",
+     "links",
+     "name",
+     "requires",
+     "scan",
+     "source",
+     "status",
+     "tier",
+     "version",
+     "web_port"
+    ]
+   }
+  },
+  {
+   "name": "actions",
+   "method": "GET",
+   "path": "/v1/actions",
+   "as": "owner",
+   "headers": {
+    "OneMind-API-Version": "1"
+   },
+   "status": 200,
+   "shape": {
+    "type": "array",
+    "item_keys": []
+   }
+  },
+  {
+   "name": "request an install",
+   "method": "POST",
+   "path": "/v1/actions",
+   "as": "owner",
+   "headers": {
+    "OneMind-API-Version": "1"
+   },
+   "body": {
+    "type": "app.install",
+    "params": {
+     "app_id": "uptime-kuma"
+    },
+    "idempotency_key": "corpus-v1-install",
+    "expires_at": "2026-11-11T23:00:00Z"
+   },
+   "status": 201,
+   "shape": {
+    "type": "object",
+    "keys": [
+     "approved_by",
+     "created_at",
+     "decided_at",
+     "decided_by",
+     "expires_at",
+     "id",
+     "idempotency_key",
+     "params",
+     "plan",
+     "plan_sha256",
+     "progress",
+     "requested_by",
+     "result",
+     "risk",
+     "state",
+     "type",
+     "updated_at",
+     "version"
+    ]
+   }
+  },
+  {
+   "name": "guest may not request",
+   "method": "POST",
+   "path": "/v1/actions",
+   "as": "guest",
+   "headers": {
+    "OneMind-API-Version": "1"
+   },
+   "body": {
+    "type": "app.install",
+    "params": {
+     "app_id": "whoami"
+    },
+    "idempotency_key": "corpus-guest",
+    "expires_at": "2026-11-11T23:00:00Z"
+   },
+   "status": 403,
+   "shape": {
+    "type": "object",
+    "keys": [
+     "error",
+     "message"
+    ]
+   }
+  },
+  {
+   "name": "approve an unknown action",
+   "method": "POST",
+   "path": "/v1/actions/00000000-0000-4000-8000-000000000000/approve",
+   "as": "owner",
+   "headers": {
+    "OneMind-API-Version": "1"
+   },
+   "body": {},
+   "status": 404,
+   "shape": {
+    "type": "object",
+    "keys": [
+     "error",
+     "message"
+    ]
+   }
+  },
+  {
+   "name": "audit events",
+   "method": "GET",
+   "path": "/v1/audit/events?limit=5",
+   "as": "owner",
+   "headers": {
+    "OneMind-API-Version": "1"
+   },
+   "status": 200,
+   "shape": {
+    "type": "array",
+    "item_keys": [
+     "action_id",
+     "data",
+     "event",
+     "hash",
+     "prev_hash",
+     "principal",
+     "seq",
+     "ts"
+    ]
+   }
+  },
+  {
+   "name": "audit verify",
+   "method": "GET",
+   "path": "/v1/audit/verify",
+   "as": "owner",
+   "headers": {
+    "OneMind-API-Version": "1"
+   },
+   "status": 200,
+   "shape": {
+    "type": "object",
+    "keys": [
+     "checked_at",
+     "first_bad_seq",
+     "head",
+     "last_checkpoint",
+     "ok",
+     "reason",
+     "records"
+    ]
+   }
+  },
+  {
+   "name": "about this box",
+   "method": "GET",
+   "path": "/v1/os/about",
+   "as": "owner",
+   "headers": {
+    "OneMind-API-Version": "1"
+   },
+   "status": 200,
+   "shape": {
+    "type": "object",
+    "keys": [
+     "hub_node_id",
+     "node_count",
+     "nodes"
+    ]
+   }
+  },
+  {
+   "name": "onboarding state",
+   "method": "GET",
+   "path": "/v1/onboarding/state",
+   "as": "owner",
+   "headers": {
+    "OneMind-API-Version": "1"
+   },
+   "status": 200,
+   "shape": {
+    "type": "object",
+    "keys": [
+     "backups_enabled",
+     "complete",
+     "destinations",
+     "kit",
+     "settings_saved"
+    ]
+   }
+  },
+  {
+   "name": "backup destinations",
+   "method": "GET",
+   "path": "/v1/backups/destinations",
+   "as": "owner",
+   "headers": {
+    "OneMind-API-Version": "1"
+   },
+   "status": 200,
+   "shape": {
+    "type": "array",
+    "item_keys": []
+   }
+  },
+  {
+   "name": "os updates",
+   "method": "GET",
+   "path": "/v1/os/updates",
+   "as": "owner",
+   "headers": {
+    "OneMind-API-Version": "1"
+   },
+   "status": 200,
+   "shape": {
+    "type": "object",
+    "keys": [
+     "install",
+     "nodes"
+    ]
+   }
+  },
+  {
+   "name": "people",
+   "method": "GET",
+   "path": "/v1/users",
+   "as": "owner",
+   "headers": {
+    "OneMind-API-Version": "1"
+   },
+   "status": 200,
+   "shape": {
+    "type": "array",
+    "item_keys": []
+   }
+  },
+  {
+   "name": "tokens",
+   "method": "GET",
+   "path": "/v1/tokens",
+   "as": "owner",
+   "headers": {
+    "OneMind-API-Version": "1"
+   },
+   "status": 200,
+   "shape": {
+    "type": "array",
+    "item_keys": [
+     "created_at",
+     "expires_at",
+     "id",
+     "kind",
+     "last_used_at",
+     "name",
+     "owner_user_id",
+     "prefix",
+     "principal_id",
+     "revoked_at",
+     "scopes",
+     "source"
+    ]
+   }
+  },
+  {
+   "name": "files roots",
+   "method": "GET",
+   "path": "/v1/files/roots",
+   "as": "owner",
+   "headers": {
+    "OneMind-API-Version": "1"
+   },
+   "status": 503,
+   "shape": {
+    "type": "object",
+    "keys": [
+     "error",
+     "message",
+     "reason"
+    ]
+   }
+  },
+  {
+   "name": "monitoring summary",
+   "method": "GET",
+   "path": "/v1/monitoring/summary",
+   "as": "owner",
+   "headers": {
+    "OneMind-API-Version": "1"
+   },
+   "status": 200,
+   "shape": {
+    "type": "object",
+    "keys": [
+     "apps",
+     "at",
+     "nodes",
+     "open_alerts",
+     "storage"
+    ]
+   }
+  },
+  {
+   "name": "automation rules",
+   "method": "GET",
+   "path": "/v1/automation/rules",
+   "as": "owner",
+   "headers": {
+    "OneMind-API-Version": "1"
+   },
+   "status": 200,
+   "shape": {
+    "type": "array",
+    "item_keys": []
+   }
+  }
+ ]
+}

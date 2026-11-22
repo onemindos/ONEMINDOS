@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { WiringApi } from './wiring';
 import { getPasskey } from '../lib/webauthn';
+import { withProtocol } from '../lib/protocol';
 import type * as W from './wiring';
 import { OneMind, OneMindError, type components, type operations } from '@onemind/sdk';
 import type { FabricSummary, JoinTicket, MeshView } from '@onemind/ui';
@@ -149,6 +150,7 @@ const KNOWN_CODES = new Set([
   'rate_limited',
   'payload_too_large',
   'policy_refused',
+  'upgrade_required',
 ]);
 
 function isErrorBody(v: unknown): v is ApiErrorBody {
@@ -179,7 +181,8 @@ export class HttpApi implements OneMindApi {
   constructor(opts: { token: string; baseUrl?: string; fetchFn?: FetchLike }) {
     this.base = (opts.baseUrl ?? '').replace(/\/$/, '');
     this.token = opts.token;
-    this.fetchFn = opts.fetchFn ?? ((input, init) => fetch(input, init));
+    // Declares this build's protocol generation and watches the hub's range (lib/protocol.ts).
+    this.fetchFn = withProtocol(opts.fetchFn ?? ((input, init) => fetch(input, init)));
     this.sdk = new OneMind({ baseUrl: new URL(this.base || '/', globalThis.location?.origin ?? 'http://localhost').href, token: opts.token, fetch: (input, init) => this.fetchFn(String(input), init), retries: 1 });
   }
 

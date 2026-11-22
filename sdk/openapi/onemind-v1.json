@@ -2317,7 +2317,8 @@
               "rate_limited",
               "payload_too_large",
               "policy_refused",
-              "unavailable"
+              "unavailable",
+              "upgrade_required"
             ],
             "title": "Error",
             "type": "string"
@@ -4583,6 +4584,85 @@
           "kind"
         ],
         "title": "PrincipalRef",
+        "type": "object"
+      },
+      "ProtocolInfo": {
+        "description": "GET /v1/protocol: the generations this hub serves (also in every answer's headers).",
+        "properties": {
+          "current": {
+            "title": "Current",
+            "type": "integer"
+          },
+          "header": {
+            "title": "Header",
+            "type": "string"
+          },
+          "maximum": {
+            "title": "Maximum",
+            "type": "integer"
+          },
+          "minimum": {
+            "title": "Minimum",
+            "type": "integer"
+          },
+          "versions": {
+            "items": {
+              "$ref": "#/components/schemas/ProtocolVersionInfo"
+            },
+            "title": "Versions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "header",
+          "current",
+          "minimum",
+          "maximum",
+          "versions"
+        ],
+        "title": "ProtocolInfo",
+        "type": "object"
+      },
+      "ProtocolVersionInfo": {
+        "properties": {
+          "released": {
+            "format": "date",
+            "title": "Released",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "supported": {
+            "title": "Supported",
+            "type": "boolean"
+          },
+          "supported_until": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Supported Until"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version",
+          "released",
+          "summary",
+          "supported",
+          "supported_until"
+        ],
+        "title": "ProtocolVersionInfo",
         "type": "object"
       },
       "PushIn": {
@@ -7196,7 +7276,11 @@
   "info": {
     "description": "Contract: sdk/contracts/poc-v0.md section 3. AI never actuates without human approval.",
     "title": "OneMind OS Core gateway",
-    "version": "0.1.0"
+    "version": "0.1.0",
+    "x-onemind-protocol": {
+      "current": 2,
+      "header": "X-OneMind-Protocol"
+    }
   },
   "openapi": "3.1.0",
   "paths": {
@@ -21767,6 +21851,28 @@
         "summary": "Call",
         "tags": [
           "plugins"
+        ]
+      }
+    },
+    "/v1/protocol": {
+      "get": {
+        "description": "The protocol generations this hub serves, and until when each older one is kept.",
+        "operationId": "meta.protocol",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProtocolInfo"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Protocol",
+        "tags": [
+          "meta"
         ]
       }
     },
