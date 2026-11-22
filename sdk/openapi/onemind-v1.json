@@ -3814,6 +3814,53 @@
         "title": "MePatchBody",
         "type": "object"
       },
+      "MeshSettingsBody": {
+        "additionalProperties": false,
+        "description": "The owner's mesh choice. Fields left out keep their value; provider \"none\" clears the choice.",
+        "properties": {
+          "control_url": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The https URL machines and phones reach the coordinator at",
+            "title": "Control Url"
+          },
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "enum": [
+                  "headscale",
+                  "none"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          }
+        },
+        "title": "MeshSettingsBody",
+        "type": "object"
+      },
       "MkdirOp": {
         "additionalProperties": false,
         "properties": {
@@ -20224,6 +20271,86 @@
           }
         },
         "summary": "Mesh View",
+        "tags": [
+          "mesh"
+        ]
+      }
+    },
+    "/v1/mesh/settings": {
+      "put": {
+        "description": "Change the mesh (owner only, audited): on or off, the provider, the control URL. It applies at once.\n\nTurning the mesh on with no provider chosen is refused with the next step. A provider that is\nchosen but not installed on this box is stored, and GET /v1/mesh says how to install it.",
+        "operationId": "mesh.settings_update",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MeshSettingsBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Put Mesh Settings",
         "tags": [
           "mesh"
         ]

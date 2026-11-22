@@ -801,11 +801,13 @@ class FabricService:
             return None  # a concurrent poll is delivering
         action = self.d.actions.repo.get(req["action_id"])
         k3s_id, k3s_token, mesh_key = None, None, None
+        # Read once: the owner may turn the mesh off or on while this runs (PUT /v1/mesh/settings).
+        mesh_cfg, mesh_svc = self.d.mesh_settings, self.d.mesh
         try:
             if req["role"] == "worker" and self.d.fabric.k3s and self.d.k3s is not None:
                 k3s_id, k3s_token = self.d.k3s.create(req["node_id"], now + K3S_TOKEN_TTL)
-            if self.d.mesh_settings.enabled and self.d.mesh is not None:
-                mesh_key = self.d.mesh.mint_join_key(action)
+            if mesh_cfg.enabled and mesh_svc is not None:
+                mesh_key = mesh_svc.mint_join_key(action)
         except Exception as exc:
             self.repo.move(req["id"], ("delivering",), "approved", self.d.clock())
             if k3s_id and self.d.k3s is not None:
@@ -821,19 +823,22 @@ class FabricService:
             "nats": {"url": self.nats_url(), "account": f"NODE_{req['node_id']}", "user_pubkey": req["nats_pubkey"]},
             "job_pubkey": None,  # signed jobs (§12.11) are a later step
         }
-        if mesh_key is not None:
+        if mesh_key is not None and mesh_svc is not None:
             creds["mesh"] = {
-                "control_url": self.d.mesh_settings.control_url,
+                "control_url": mesh_cfg.control_url,
                 # Only the hub's LAN address: the node pins the coordinator name to control_addrs[0]. The
                 # relay has no link back to the hub yet (follow-up 2), so it must never replace this.
                 "control_addrs": [a for a in (self.d.net.lan_addr,) if a],
                 # The owner's relay, kept apart so it can never become the home address. No client dials
                 # it yet (follow-up 2); a node stores it for the away fallback.
-                "relay_addrs": [a for a in (self.d.mesh_settings.relay_addr,) if a],
+                "relay_addrs": [a for a in (mesh_cfg.relay_addr,) if a],
+                # Beside the relay fields (CORE-NET-8): which coordinator the auth key is for. Added, never
+                # renamed (#697): a node of the previous release ignores it and assumes Headscale.
+                "provider": mesh_svc.provider,
                 "ca_sha256": self.d.box_ca.ca_fingerprint(),
                 "auth_key": mesh_key.key,
                 "hostname": f"node-{req['node_id']}",
-                "hub_mesh_ip": self.d.mesh_settings.hub_ip,
+                "hub_mesh_ip": mesh_cfg.hub_ip,
                 "tags": list(mesh_key.tags),
                 "shields_up": req["role"] == "leaf",
             }
