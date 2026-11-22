@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: Apache-2.0
+[Unit]
+Description=OneMind opt-in local btrfs snapshot schedule
+ConditionPathExists=/data/onemind/snapshots.json
+RequiresMountsFor=/data
+
+[Service]
+Type=oneshot
+User=root
+UMask=0077
+ExecStart=/usr/local/bin/onemindd snapshots-tick
+TimeoutStartSec=6min
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectHome=yes
+ProtectSystem=strict
+ReadWritePaths=/data
+CapabilityBoundingSet=CAP_SYS_ADMIN CAP_DAC_READ_SEARCH
+RestrictAddressFamilies=AF_UNIX

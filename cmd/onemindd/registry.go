@@ -11,11 +11,12 @@ import (
 // subcommands are separate onemindd modes (`onemindd <name> ...`), each its own
 // process with its own systemd unit and privileges. One line per feature.
 var subcommands = map[string]func(args []string) int{
-	"update":      runUpdate,
-	"backup-init": runBackupInit, // backup.go: one-shot, creates the device key; the agent itself is backup.Service() below
-	"storage":     runStorage,
-	"mesh":        runMesh,   // net.go
-	"rescue":      runRescue, // rescue.go: the rescue console, its own unit (CORE-UPDATE-8)
+	"snapshots-tick": runSnapshots,
+	"update":         runUpdate,
+	"backup-init":    runBackupInit, // backup.go: one-shot, creates the device key; the agent itself is backup.Service() below
+	"storage":        runStorage,
+	"mesh":           runMesh,   // net.go
+	"rescue":         runRescue, // rescue.go: the rescue console, its own unit (CORE-UPDATE-8)
 	// The terminal's shell starts through this hidden mode, which drops every capability first (#273).
 	rescue.ShellHelperCommand: rescue.RunShellHelper,
 }
