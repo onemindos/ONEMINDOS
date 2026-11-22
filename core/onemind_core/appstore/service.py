@@ -554,6 +554,7 @@ class AppStore:
         for action_type, spec in self.system.specs().items():
             actions.register_type(action_type, spec)
         actions.app_checks.append(self.system.check_app)
+        actions.id_checks.append(self.system.check_id)
         self.gw.catalog.system_ids = self.system.list.ids
         self.gw.disabled_apps = self.system.disabled_ids
         actions.app_checks.append(self.check_app)

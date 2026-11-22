@@ -1,0 +1,5 @@
+---
+pr: pending
+branch: claude/fnd-builtin-descriptor
+---
+Built-in app descriptors and their conformance test. A new schema, sdk/schema/onemind.builtin.schema.json, says what each built-in plugs into (routes it owns and calls, search provider, share types, notification topics, map layers, cards, actions, settings pages, backup units, data classes, phone entry). The gateway reads core/onemind_core/ID/onemind.app.yaml only for ids on the signed list and builds the request-only MCP tools, the settings pages and the backup set from the switched-on ones (new GET /v1/builtins). One gateway gate answers 409 app_disabled for every route a switched-off built-in owns, and removing any system id is 409 for owner, CLI and agent even when it has no catalog entry. The signed list grows to Updates, Backups, Notifications and Photos; Updates, Backups and Notifications join the never-off set. A conformance test fails CI when a built-in loses its backup units, calls a route missing from the public OpenAPI, names an unknown table, action or event, or owns a prefix another built-in owns.

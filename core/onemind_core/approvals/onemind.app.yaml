@@ -1,0 +1,26 @@
+# SPDX-License-Identifier: Apache-2.0
+# Built-in descriptor (sdk/schema/onemind.builtin.schema.json). Read only because "approvals" is on the
+# signed list. The code is actions.py and ledger.py; this folder holds only the descriptor.
+apiVersion: onemind.app/v1
+kind: Builtin
+metadata:
+  id: approvals
+  name: Approvals
+  description: Every request waiting for a person, and the approval policies.
+spec:
+  routes:
+    owns: [/v1/actions, /v1/plans, /v1/approval-policies]
+    calls:
+      - GET /v1/actions
+      - GET /v1/actions/{action_id}
+      - POST /v1/actions/{action_id}/approve
+      - POST /v1/actions/{action_id}/deny
+  notifications:
+    topics:
+      - {id: approvals, events: [approval.requested, approval.closed]}
+  backup:
+    units:
+      - {kind: table, name: actions}
+      - {kind: table, name: automation_policies}
+  data: {owns: [owner], reads: []}
+  phone: {entry: native, screen: approvals}

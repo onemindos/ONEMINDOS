@@ -442,6 +442,9 @@ class ActionService:
         # Extra preconditions for lifecycle types: fn(type, params, app, phase) raises ApiError;
         # phase is "request" or "approve" (§12.22 dependencies, host ports, settings values).
         self.app_checks: list[Callable[[str, dict, AppEntry, str], None]] = []
+        # Checks on the app id alone, before the catalog is asked: fn(type, app_id) raises ApiError.
+        # A native built-in has no catalog entry, and removing it must still be 409, not 404 (#603).
+        self.id_checks: list[Callable[[str, str], None]] = []
         # Feature-owned actor/type policies. Side-effect-free checks must return
         # True explicitly; evaluate before filing or replaying any request.
         self.request_checks: list[Callable[[Principal, str], bool]] = []
@@ -712,6 +715,8 @@ class ActionService:
         if expires_at <= now:
             raise ApiError(409, "expired", "expires_at is already in the past")
         self._check_pending_cap(principal)
+        for check in self.id_checks:
+            check(req.type, params["app_id"])
         app, problem = self._precondition(req.type, params["app_id"])
         if app is None:
             raise ApiError(404, "not_found", problem or "unknown app")

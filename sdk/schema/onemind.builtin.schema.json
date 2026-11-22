@@ -1,0 +1,186 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://onemind.io/schema/onemind.builtin.schema.json",
+  "title": "OneMind built-in app descriptor",
+  "description": "What one built-in (system) app plugs into: search, share, notifications, map layers, cards, agent actions, settings, backup, data classes and the phone. Lives at core/onemind_core/<id>/onemind.app.yaml and is read only for ids on the signed system apps list (/usr/lib/onemind/system-apps.json). The blocks are $defs so the app manifest schema can reuse them (one schema for built-ins and Market apps). The conformance test core/tests/test_builtin_conformance.py checks every descriptor against the running gateway.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["apiVersion", "kind", "metadata", "spec"],
+  "properties": {
+    "apiVersion": {"const": "onemind.app/v1"},
+    "kind": {"const": "Builtin"},
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name"],
+      "properties": {
+        "id": {"$ref": "#/$defs/id", "description": "The id on the signed list; must equal the folder name."},
+        "name": {"type": "string", "minLength": 1, "maxLength": 80},
+        "description": {"type": "string", "maxLength": 300}
+      }
+    },
+    "spec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["routes", "backup", "data", "phone"],
+      "properties": {
+        "routes": {"$ref": "#/$defs/routes"},
+        "search": {"$ref": "#/$defs/search"},
+        "share": {"$ref": "#/$defs/share"},
+        "notifications": {"$ref": "#/$defs/notifications"},
+        "mapLayers": {"type": "array", "maxItems": 20, "items": {"$ref": "#/$defs/mapLayer"}},
+        "cards": {"type": "array", "maxItems": 20, "items": {"$ref": "#/$defs/card"}},
+        "actions": {"type": "array", "maxItems": 40, "items": {"$ref": "#/$defs/action"}},
+        "settings": {"$ref": "#/$defs/settings"},
+        "backup": {"$ref": "#/$defs/backup"},
+        "data": {"$ref": "#/$defs/data"},
+        "phone": {"$ref": "#/$defs/phone"}
+      }
+    }
+  },
+  "$defs": {
+    "id": {"type": "string", "pattern": "^[a-z]([a-z0-9-]{0,57}[a-z0-9])?$"},
+    "key": {"type": "string", "pattern": "^[a-z][a-z0-9_.-]{0,62}$"},
+    "title": {"type": "string", "minLength": 1, "maxLength": 80},
+    "prefix": {
+      "description": "A public API path prefix such as /v1/photos: the path itself and everything under it.",
+      "type": "string", "pattern": "^/v1(/[a-z0-9][a-z0-9-]*)+$"
+    },
+    "call": {
+      "description": "One public API operation, METHOD and OpenAPI path template, e.g. GET /v1/files/list. It must exist in sdk/openapi/onemind-v1.json (rule 12: a built-in uses only the public door).",
+      "type": "string", "pattern": "^(GET|POST|PUT|PATCH|DELETE) /v1(/[A-Za-z0-9_{}.-]+)+$"
+    },
+    "routes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["owns", "calls"],
+      "properties": {
+        "owns": {
+          "description": "Prefixes that belong to this app. While the app is switched off every request under them answers 409 stale_precondition, reason app_disabled (one gateway gate, builtins.py). Two built-ins never own overlapping prefixes.",
+          "type": "array", "maxItems": 20, "uniqueItems": true, "items": {"$ref": "#/$defs/prefix"}
+        },
+        "calls": {"type": "array", "maxItems": 100, "uniqueItems": true, "items": {"$ref": "#/$defs/call"}}
+      }
+    },
+    "search": {
+      "description": "The app's search provider: the item types it adds to the one local index.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "types"],
+      "properties": {
+        "provider": {"$ref": "#/$defs/key"},
+        "types": {"type": "array", "minItems": 1, "maxItems": 20, "uniqueItems": true, "items": {"$ref": "#/$defs/key"}}
+      }
+    },
+    "shareType": {"enum": ["note", "task", "event", "person", "file", "place", "track", "alert", "clip"]},
+    "share": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["accepts", "verbs"],
+      "properties": {
+        "accepts": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/shareType"}},
+        "verbs": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": ["open", "add"]}}
+      }
+    },
+    "notifications": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["topics"],
+      "properties": {
+        "topics": {
+          "type": "array", "minItems": 1, "maxItems": 20,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "events"],
+            "properties": {
+              "id": {"$ref": "#/$defs/key", "description": "The notification topic (notify/catalogue.py), e.g. backups."},
+              "events": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/key"}}
+            }
+          }
+        }
+      }
+    },
+    "mapLayer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "source"],
+      "properties": {"id": {"$ref": "#/$defs/key"}, "title": {"$ref": "#/$defs/title"}, "source": {"$ref": "#/$defs/call"}}
+    },
+    "card": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "template", "source"],
+      "properties": {
+        "id": {"$ref": "#/$defs/key"},
+        "title": {"$ref": "#/$defs/title"},
+        "template": {"enum": ["stat", "list", "progress", "status", "series"]},
+        "source": {"$ref": "#/$defs/call"}
+      }
+    },
+    "action": {
+      "description": "An action type the gateway has registered (a FeatureAction). mcp: true makes it a request-only MCP tool; an agent can only file the request and a person approves it.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "title", "mcp"],
+      "properties": {
+        "type": {"type": "string", "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$"},
+        "title": {"$ref": "#/$defs/title"},
+        "mcp": {"type": "boolean"}
+      }
+    },
+    "settings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pages"],
+      "properties": {
+        "pages": {
+          "type": "array", "minItems": 1, "maxItems": 10,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "title", "source"],
+            "properties": {"id": {"$ref": "#/$defs/key"}, "title": {"$ref": "#/$defs/title"}, "source": {"$ref": "#/$defs/call"}}
+          }
+        }
+      }
+    },
+    "backupUnit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "name"],
+      "properties": {
+        "kind": {"enum": ["table", "dir"], "description": "table: a gateway database table. dir: the folder a gateway setting names."},
+        "name": {"type": "string", "pattern": "^([a-z][a-z0-9_]{0,62}|ONEMIND_[A-Z0-9_]{1,60})$"}
+      }
+    },
+    "backup": {
+      "description": "Backup units. Every built-in names at least one; removing them fails the conformance test.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["units"],
+      "properties": {"units": {"type": "array", "minItems": 1, "maxItems": 40, "items": {"$ref": "#/$defs/backupUnit"}}}
+    },
+    "dataClass": {"enum": ["public", "owner", "private", "location", "activity"]},
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["owns", "reads"],
+      "properties": {
+        "owns": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/dataClass"}},
+        "reads": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/dataClass"}}
+      }
+    },
+    "phone": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["entry"],
+      "properties": {
+        "entry": {"enum": ["native", "web", "none"]},
+        "screen": {"$ref": "#/$defs/key"}
+      },
+      "if": {"properties": {"entry": {"const": "native"}}},
+      "then": {"required": ["entry", "screen"]}
+    }
+  }
+}

@@ -1130,6 +1130,161 @@
         "title": "BudgetBody",
         "type": "object"
       },
+      "BuiltinApp": {
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "spec": {
+            "additionalProperties": true,
+            "title": "Spec",
+            "type": "object"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "spec"
+        ],
+        "title": "BuiltinApp",
+        "type": "object"
+      },
+      "BuiltinBackupUnit": {
+        "properties": {
+          "app_id": {
+            "title": "App Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "app_id",
+          "kind",
+          "name"
+        ],
+        "title": "BuiltinBackupUnit",
+        "type": "object"
+      },
+      "BuiltinSettingsPage": {
+        "properties": {
+          "app_id": {
+            "title": "App Id",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "app_id",
+          "id",
+          "title",
+          "source"
+        ],
+        "title": "BuiltinSettingsPage",
+        "type": "object"
+      },
+      "BuiltinTool": {
+        "properties": {
+          "action_type": {
+            "title": "Action Type",
+            "type": "string"
+          },
+          "app_id": {
+            "title": "App Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "app_id",
+          "action_type",
+          "title"
+        ],
+        "title": "BuiltinTool",
+        "type": "object"
+      },
+      "BuiltinsOut": {
+        "description": "Every switched-on built-in the caller may see, and what the gateway built from their descriptors.",
+        "properties": {
+          "apps": {
+            "items": {
+              "$ref": "#/components/schemas/BuiltinApp"
+            },
+            "title": "Apps",
+            "type": "array"
+          },
+          "backup_units": {
+            "items": {
+              "$ref": "#/components/schemas/BuiltinBackupUnit"
+            },
+            "title": "Backup Units",
+            "type": "array"
+          },
+          "settings_pages": {
+            "items": {
+              "$ref": "#/components/schemas/BuiltinSettingsPage"
+            },
+            "title": "Settings Pages",
+            "type": "array"
+          },
+          "tools": {
+            "items": {
+              "$ref": "#/components/schemas/BuiltinTool"
+            },
+            "title": "Tools",
+            "type": "array"
+          }
+        },
+        "required": [
+          "apps",
+          "settings_pages",
+          "backup_units",
+          "tools"
+        ],
+        "title": "BuiltinsOut",
+        "type": "object"
+      },
       "CatalogApp": {
         "description": "One GET /v1/apps entry: the §3 fields plus links, tier and scan (§11.4).",
         "properties": {
@@ -13820,6 +13975,38 @@
         "summary": "Verify",
         "tags": [
           "backups"
+        ]
+      }
+    },
+    "/v1/builtins": {
+      "get": {
+        "description": "The descriptors of the switched-on built-in apps, with the Settings pages, backup units and\nrequest-only MCP tools built from them. A switched-off built-in is left out of every list.",
+        "operationId": "builtins.list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BuiltinsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          }
+        },
+        "summary": "List Builtins",
+        "tags": [
+          "apps"
         ]
       }
     },

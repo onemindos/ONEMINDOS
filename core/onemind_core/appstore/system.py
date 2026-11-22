@@ -80,6 +80,13 @@ class SystemApps:
         return rows
 
     # ---- preconditions on the ordinary lifecycle types ---------------------------------------------
+    def check_id(self, action_type: str, app_id: str) -> None:
+        """Any id on the signed list, native or container, in the catalog or not: never removed (#603)."""
+        if action_type in PROTECTED and app_id in self.list.apps:
+            raise _refuse(409, "stale_precondition",
+                          f"{app_id} is a built-in app: it cannot be removed, only switched off",
+                          "system_app_protected")
+
     def check_app(self, action_type: str, params: dict, app: AppEntry, phase: str) -> None:
         if app.id not in self.list.apps:
             return

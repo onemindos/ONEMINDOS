@@ -1,0 +1,37 @@
+# SPDX-License-Identifier: Apache-2.0
+# Built-in descriptor (sdk/schema/onemind.builtin.schema.json). Read only because "market" is on the
+# signed list. The code is appstore/ and catalog.py; this folder holds only the descriptor.
+apiVersion: onemind.app/v1
+kind: Builtin
+metadata:
+  id: market
+  name: Market
+  description: The app catalog, installed apps, Built in apps and community sources.
+spec:
+  routes:
+    owns: [/v1/apps, /v1/system-apps, /v1/builtins, /v1/sources, /v1/deploy]
+    calls:
+      - GET /v1/apps
+      - GET /v1/apps/{app_id}
+      - GET /v1/system-apps
+      - GET /v1/builtins
+      - POST /v1/actions
+  search: {provider: market, types: [app]}
+  notifications:
+    topics:
+      - {id: apps, events: [action.succeeded, action.failed, app.unhealthy, app.healthy]}
+  actions:
+    - {type: app.disable, title: Switch off a built-in app, mcp: true}
+    - {type: app.enable, title: Switch on a built-in app, mcp: true}
+  backup:
+    units:
+      - {kind: table, name: app_states}
+      - {kind: table, name: app_runtime}
+      - {kind: table, name: app_credentials}
+      - {kind: table, name: appstore_settings}
+      - {kind: table, name: appstore_sources}
+      - {kind: table, name: appstore_source_scans}
+      - {kind: table, name: appstore_exposure}
+      - {kind: table, name: appstore_system_disabled}
+  data: {owns: [owner], reads: []}
+  phone: {entry: native, screen: apps}
