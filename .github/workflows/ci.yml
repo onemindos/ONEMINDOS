@@ -41,6 +41,9 @@ jobs:
       # First boot runs with the gateway venv's Python and reuses onemind_core (box CA, NATS keys;
       # IMG-MESH-01): its hub tests need that venv, and skip under the system Python above.
       - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
+        with:
+          # Exact version: "latest" resolves through the GitHub API, which times out now and then and fails the job. 0.13.9 is what CI ran when this was pinned.
+          version: "0.13.9"
       - name: First-boot tests with the gateway's Python (onemind_core)
         run: |
           uv sync --project core --frozen --python 3.12 --quiet
