@@ -306,7 +306,7 @@ func TestConfigValidation(t *testing.T) {
 		os.WriteFile(p, []byte(s), 0o600)
 		return p
 	}
-	if c, err := LoadConfig(write(`{"hook":["/bin/true"],"peers":["10.0.0.5"],"key_file":"/k"}`)); err != nil || c.Peers[0] != "10.0.0.5:7481" {
+	if c, err := LoadConfig(write(`{"hook":["/bin/true"],"peers":["192.0.2.5"],"key_file":"/k"}`)); err != nil || c.Peers[0] != "192.0.2.5:7481" {
 		t.Fatalf("good config: %+v %v", c, err)
 	}
 	for name, s := range map[string]string{
