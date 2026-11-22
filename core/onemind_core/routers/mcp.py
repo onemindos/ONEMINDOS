@@ -36,6 +36,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         request=lambda p, req, reason: actions.create(p, req, reason=reason),
         audit_list=reader.list,
         clock=gw.clock,
+        mark_tainted=lambda p, source: actions.taint.mark(p.id, source),
     )
     limits = Limits(gw.settings.section(McpSettings), gw.clock)
     mcp = McpEndpoint(Catalogue(services, limits), limits, refuse=lambda p, what: actions._deny(p, what))
