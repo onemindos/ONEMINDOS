@@ -3,10 +3,11 @@
 from math import fsum
 from typing import Annotated, Self
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import ConfigDict, Field, model_validator
 from sqlalchemy import JSON, String
 from sqlalchemy.orm import Mapped, mapped_column
 
+from ..jsonbody import JsonBody
 from ..ledger import Base
 from ..store import FeatureSchema
 from ..subjects import position_problems
@@ -17,7 +18,7 @@ FrameId = Annotated[str, Field(pattern=r"^[a-z0-9][a-z0-9_-]{0,63}$")]
 Metres = Annotated[float, Field(strict=True, ge=-40_100_000, le=40_100_000)]
 
 
-class GeoRecord(BaseModel):
+class GeoRecord(JsonBody):
     model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
 

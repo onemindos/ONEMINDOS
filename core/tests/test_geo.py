@@ -42,3 +42,11 @@ def test_bad_site_leaves_no_records(client, bad):
         site["areas"][0]["floor_id"] = "elsewhere"
     assert client.post("/v1/sites", json=site, headers=OWNER).status_code == 422
     assert client.get("/v1/sites", headers=OWNER).json() == []
+
+
+def test_anchor_uses_json_body_number_check(client):
+    site = deepcopy(SITE)
+    site["anchors"][0]["x"] = "3"
+    reply = client.post("/v1/sites", json=site, headers=OWNER)
+    assert reply.status_code == 422
+    assert "x should be a JSON number" in reply.json()["message"]
