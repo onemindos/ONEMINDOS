@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+# The browser profile: bookmarks, logins, history. One profile per install (per-person profiles come later).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: chromium-profile
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi

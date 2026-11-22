@@ -22,6 +22,7 @@ import { useShell } from '../shell/Shell';
 export const COLLECTIONS: Collection[] = [
   { id: 'start', title: 'Start here', blurb: 'Small, useful first apps that run on any node.', app_ids: ['vaultwarden', 'uptime-kuma', 'ntfy', 'actual-budget'] },
   { id: 'smart-home', title: 'For the smart home', blurb: 'Local control, no vendor cloud.', app_ids: ['home-assistant', 'mosquitto', 'zigbee2mqtt', 'node-red'] },
+  { id: 'browsers', title: 'Browsers', blurb: 'A full browser on your box, shown in a window. The profile stays on the box, and you sign in with the login the box made for you.', app_ids: ['firefox', 'chromium'] },
 ];
 export const FEATURED = { app_id: 'vaultwarden', headline: 'Your passwords, on your own box', blurb: 'Vaultwarden works with the Bitwarden apps you already know, and nothing leaves home.' };
 

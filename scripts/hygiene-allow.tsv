@@ -81,3 +81,7 @@ test/qemu/firewall.py	192\.168\.77\.[0-9]+	B-FP-17
 test/qemu/CRITERIA-FIREWALL.md	192\.168\.77\.[0-9]+	B-FP-17
 test/qemu/overlay/etc/onemind/host.d/*	10\.0\.2\.2	B-FP-17
 test/unit/test_host_firewall.py	10\.0\.2\.2	B-FP-17
+# B-FP-browser: Neko browser apps (apps/firefox, apps/chromium): /home/neko is the container image's own user home, not a host path.
+apps/firefox/*	/home/neko	B-FP-browser
+apps/chromium/*	/home/neko	B-FP-browser
+scripts/hygiene-allow.tsv	/home/neko	B-FP-browser

@@ -60,6 +60,20 @@ describe('Market and the install loop', () => {
     expect(screen.getByRole('button', { name: /^Home & IoT/ })).toBeInTheDocument();
   });
 
+  it('Browsers row lists Firefox and Chromium, and installing one is a request that waits for the owner', async () => {
+    const u = userEvent.setup();
+    renderApp({ token: 'owner-demo', route: '/market' });
+    const row = (await screen.findByRole('heading', { name: 'Browsers' }, T)).closest('section')!;
+    expect(within(row).getByRole('link', { name: 'Firefox' })).toBeInTheDocument();
+    expect(within(row).getByRole('link', { name: 'Chromium' })).toBeInTheDocument();
+    expect(within(row).queryByText(/Chrome$|Edge/)).toBeNull();
+    await u.click(within(row).getByRole('link', { name: 'Firefox' }));
+    await u.click(await screen.findByRole('button', { name: /Request install/ }, T));
+    await u.click(within(await screen.findByRole('dialog', { name: 'Review app request' })).getByRole('button', { name: 'Send request' }));
+    const card = await screen.findByRole('article', { name: /Install firefox|Install Firefox/ }, T);
+    expect(card).toHaveTextContent(/awaiting approval/i);
+  });
+
   it('app page shows the trust facts and greys out Install for a stale scan', async () => {
     renderApp({ token: 'owner-demo', route: '/market/node-red' });
     expect(await screen.findByRole('heading', { level: 1, name: 'Node-RED' }, T)).toBeInTheDocument();
