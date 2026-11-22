@@ -23,6 +23,7 @@ from ..auth import Principal
 from ..context import Gateway
 from ..errors import ApiError, error_responses
 from ..identity.scopes import register_route_scope
+from ..jsonbody import JsonBody
 
 # Route order in the app and in /openapi.json (routers/__init__.py).
 ORDER = 175
@@ -41,7 +42,7 @@ class KioskState(BaseModel):
     apply: str = "The box's own screen switches within a few seconds."
 
 
-class KioskChange(BaseModel):
+class KioskChange(JsonBody):
     enabled: bool
 
 
