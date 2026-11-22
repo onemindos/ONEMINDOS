@@ -5,6 +5,7 @@
 import { useId, useState } from 'react';
 import { Button } from '../components/Button';
 import { Icon } from '../components/Icon';
+import { StatusGlyph } from '../components/StatusGlyph';
 import { StatusPill } from '../components/StatusPill';
 import { cx } from '../lib/cx';
 import { formatAgo, secondsSince } from '../lib/time';
@@ -125,7 +126,7 @@ export function JobsTray({ jobs, now, onDismiss }: { jobs: StoreJob[]; now: numb
         </div>
       )}
       <button type="button" className="om-store-tray-pill" aria-expanded={open} aria-controls={panel} onClick={() => setOpen((o) => !o)}>
-        <span className={cx('om-store-tray-ring', isJobActive(lead.state) && lead.state !== 'awaiting_approval' && 'om-store-tray-ring-on')} aria-hidden="true" />
+        <StatusGlyph kind={isJobActive(lead.state) ? 'progress' : 'ok'} size={16} spin={isJobActive(lead.state) && lead.state !== 'awaiting_approval'} className="om-store-tray-glyph" />
         <span aria-live="polite">
           {active.length > 0 ? `${active.length} ${active.length === 1 ? 'job' : 'jobs'}` : 'Jobs done'} · {lead.app_name}: {JOB_LABEL[lead.state]}
           {pct !== undefined && isJobActive(lead.state) && lead.state !== 'awaiting_approval' ? ` ${pct}%` : ''}

@@ -45,8 +45,11 @@ spec:
       title: Map style
       enum: [light, dark, white, grayscale, black]
       default: light
-  # Map archives are cut again from the public build (README "Add a map"), and the viewer assets
-  # are downloaded again on start, so neither is backed up.
+  # Map archives can be cut again from the public build (README "Add a map"), so they are the
+  # optional, size-aware content tier (REC-NOMAD-07, BAK-03): backed up only when the owner
+  # switches the tier on after seeing their size. The viewer assets are downloaded again on
+  # start, so they are never backed up.
   backup:
     mode: hot
-    exclude: ["maps/*.pmtiles", "assets/", "assets.new/"]
+    exclude: ["assets/", "assets.new/"]
+    content: ["maps/*.pmtiles"]

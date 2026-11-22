@@ -1,0 +1,5 @@
+#!/bin/sh
+# SPDX-License-Identifier: Apache-2.0
+# onemind-data-encrypt.service: LUKS2 for /data (data_encrypt.py), with the gateway venv's pinned Python
+# (the image has no system Python, like onemind-data-extend and onemind-firstboot).
+exec /usr/lib/onemind/gateway/venv/bin/python3 -I /usr/lib/onemind/data_encrypt.py "$@"

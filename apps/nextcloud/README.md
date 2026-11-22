@@ -8,7 +8,7 @@ Nextcloud server, a safe home for all your data
 | | |
 |---|---|
 | Version | 33.0.10 (upstream release `v33.0.10`, published 2026-10-15) |
-| Licence | `AGPL-3.0`, Market class **L2** (licence gate, scan of 2026-11-19) |
+| Licence | `AGPL-3.0`, Market class **L2** (licence gate, scan of 2026-11-21) |
 | Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | files |
 | GitHub | <https://github.com/nextcloud/server> |
@@ -95,16 +95,18 @@ The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked**
 To unblock: move the pins to upstream releases that fix these findings (tags that exist, checked with `crane`), then rerun `sdk/tools/app-gate` (the daily `apps-rescan` workflow does this too). Nothing is bumped to an unverified tag.
 
 **Hold (apps/market-unblock-2, 2026-11-13):** `libopenexr` CVE-2026-42216/42217, postgres Go `stdlib`, and an Azure key string in a vendored PHP library. No newer `33.x` tag exists (`33.0.10` is the last). Nextcloud `34.0.5` exists but moving to 34 is a founder decision (D9, pending), so it is not bumped here. Unblock: a `33.x` rebuild, or the D9 decision.
+
+**Hold (2026-11-21, apps/147-household-apps):** `nextcloud:33.0.11-apache` now exists (digest `sha256:293744abb460e5e1b07a3bd730a687003d1e0c45bdce6645e3c54075e83479ae`) and, scanned with Trivy (amd64), clears the `libopenexr` CRITICALs. It still has the `azure-storage-account-key` secret finding in the vendored `azure-storage-common` PHP library (the gate counts any secret finding), and the postgres sidecar still has CRITICAL CVE-2025-68121 (Go `stdlib` v1.24.6): `postgres:18.7-trixie`/`18.7-alpine` (alpine digest `sha256:ff64c9e3bdf8e2120107d3559de8db314e8305f7e38c5105903c6295876738ff`) carries the same stdlib. So no pin move clears the gate; the pins are unchanged and the tier stays `blocked`. Unblock: an upstream postgres built with Go 1.24.13 or newer, and the Azure string removed or allow-listed by a founder decision, or a OneMind rebuild (founder decision). Tracked on #147.
 <!-- onemind:notes:end -->
 
 ## Latest security scan
 
-Scanned 2026-11-19T14:57:21Z by `sdk/tools/app-gate`: **fail**. Licence `AGPL-3.0` class L2; smoke test pass.
+Scanned 2026-11-21T15:24:20Z by `sdk/tools/app-gate`: **fail**. Licence `AGPL-3.0` class L2; smoke test pass.
 
 | Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
 |---|---|---|---|---|---|---|
-| `docker.io/library/nextcloud:33.0.10-apache@sha256:81cb09055a20142521a267cea2bc27e6a81a065871c70850d209f08803567dbc` | amd64, arm64 | 7 (6) | 257 | 0 infected (daily-28188) | 1 | unsigned |
-| `docker.io/library/postgres:18.6-trixie@sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42` | amd64, arm64 | 2 (1) | 147 | 0 infected (daily-28188) | 1 | unsigned |
-| `docker.io/valkey/valkey:9.1.3-trixie@sha256:3add1a336a920ea54770a001ab6feb3da5fceea96a40373a3a2cd469b815f0b7` | amd64, arm64 | 0 (0) | 49 | 0 infected (daily-28188) | 0 | unsigned |
+| `docker.io/library/nextcloud:33.0.10-apache@sha256:81cb09055a20142521a267cea2bc27e6a81a065871c70850d209f08803567dbc` | amd64, arm64 | 8 (7) | 306 | 0 infected (daily-28190) | 1 | unsigned |
+| `docker.io/library/postgres:18.6-trixie@sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42` | amd64, arm64 | 2 (1) | 150 | 0 infected (daily-28190) | 1 | unsigned |
+| `docker.io/valkey/valkey:9.1.3-trixie@sha256:3add1a336a920ea54770a001ab6feb3da5fceea96a40373a3a2cd469b815f0b7` | amd64, arm64 | 0 (0) | 51 | 0 infected (daily-28190) | 0 | unsigned |
 
 Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

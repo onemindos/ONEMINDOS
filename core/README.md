@@ -52,6 +52,7 @@ is where that rule is enforced in code, not in a prompt:
 | `onemind_core/catalog.py` | App catalog from `ONEMIND_APPS_DIR/*/onemind.app.yaml`, incl. `links`, `tier`, `scan`, `spec.agent` |
 | `onemind_core/scan.py` | Reads `apps/<id>/scan.json` (§11.1) and decides whether an install may run (§10.3) |
 | `onemind_core/photos/` | Phone photo backup, box side: resumable digest-verified uploads, per-person libraries, receipts with backup levels (`/v1/photos/...`, off unless `ONEMIND_PHOTOS_ENABLED=1`; [PHOTOS.md](../docs/leap/core/PHOTOS.md)) |
+| `onemind_core/hostlink.py` | The gateway's link to the host executor (`onemindd host serve` on `/run/onemind/host.sock`): sends an owner-approved restart, shutdown, factory reset or OS install by action id, then closes the ledger action from the host's journal. No socket: the action ends `failed`, never `succeeded`. `ONEMIND_HOSTLINK_SOCKET`, `_POLL_S`, `_TIMEOUT_S`, `_GIVE_UP_S` ([HOST-ACTIONS.md](../docs/leap/core/HOST-ACTIONS.md)) |
 | `onemind_core/mcp/` | `POST /mcp`: MCP Streamable HTTP for agent principals (§11.3, §12.19): `server.py`, `tools.py` (catalogue), `untrusted.py`, `limits.py` |
 | `onemind_core/auditread.py`, `routers/audit.py` | §12.16 `GET /v1/audit/events[/{seq}]`, `/v1/audit/verify` |
 | `onemind_core/eventstream.py`, `routers/events.py` | §12.8 `GET /v1/events` (SSE, audit-derived ids, resume, `node.status`) |
@@ -180,6 +181,13 @@ umbrelOS-level app management, with the rule kept: every change is a request an 
 - **Host ports:** `spec.hostPorts` declarations are conflict-checked against OneMind's own ports
   (`sdk/policy/host-ports.yaml`) and other apps, in CI and at request and approval. The install
   sandbox still refuses `hostPort` itself.
+- **Event streams (hub JetStream):** `spec.streams` declares up to 4 bounded streams (`streams.py`). Subjects are
+  relative and the hub puts them under `onemind.plugin.<id>.` (subject tree, sdk/schema/onemind.subjects.json); `maxBytes` (1 MiB to 1 GiB) and `maxAgeSeconds`
+  (60 s to 30 days) are required, storage is file, oldest events go at the limit. The install plan lists the exact
+  limits (hashed). Install is refused (`invalid_stream`, `jetstream_unavailable`, `jetstream_degraded`) for a bad
+  declaration or a store that is off or low on disk. Settings: `ONEMIND_FABRIC_JETSTREAM_MAX_BYTES` (0 = off) and
+  `ONEMIND_FABRIC_JETSTREAM_PATH`. **Left:** creating the streams on the hub after approval, removal on app remove,
+  a status route and a `jetstream.degraded` event, and the same JetStream block in `deploy/install.sh`.
 - **Compose import:** `POST /v1/deploy/compose` (owner) turns a Compose file into a private app
   folder and refuses, with the sandbox's rule ids, anything the sandbox would refuse (privileged,
   host network, bind mounts, unpinned images, root user, …). It writes and installs nothing.

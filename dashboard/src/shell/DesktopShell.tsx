@@ -9,9 +9,21 @@
 // one colour per screen, approvals first.
 // Links are plain anchors: Shell's click handler routes them without a page reload.
 import { useEffect, useId, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { useLocation, useNavigate } from 'react-router';
+import { useLocation } from 'react-router';
+import { flushSync } from 'react-dom';
+import { WindowFrame } from './wm/WindowFrame';
+import { useWindows } from './wm/useWindows';
+import { WORKSPACES, onWorkspace, position, toggleMax } from './wm/store';
+import { LAYOUT_LABELS, nextLayout } from './wm/tiling';
+import { useKeymap } from './keys/useKeymap';
+import { ShortcutSheet } from './keys/ShortcutSheet';
+import { routeFor } from './wm/ScreenRoutes';
+import './wm/wm.css';
 import { AppIcon, BrandMark, Icon, type NavItem } from '@onemind/ui';
+import { DOCK_ORDER, HUES } from '../screens/registry';
+import { formatDate } from '../i18n';
 import './desktop.css';
+import { trackBarHeight } from './trackBarHeight';
 
 export interface DockApp {
   id: string;
@@ -42,6 +54,8 @@ export interface DesktopShellProps {
   now: number;
   timeZone: string;
   person?: DesktopPerson;
+  /** The greeted first name, when known: its initial fills the avatar while the account is still loading. */
+  displayName?: string;
   demo?: boolean;
   onSearch: () => void;
   onConsoleView: () => void;
@@ -49,27 +63,14 @@ export interface DesktopShellProps {
   children: ReactNode;
 }
 
-/** Screens that stay in the dock; everything else is one click away in Launchpad. */
-export const DOCK_IDS = ['home', 'market', 'installed', 'approvals', 'activity', 'settings'] as const;
+/** Screens that stay in the dock (each screen's `dock` position); everything else is one click away in Launchpad. */
+export const DOCK_IDS = DOCK_ORDER;
 
-/** One colour per screen, so a place is recognised before its name is read. White glyph on each. */
-export const SCREEN_HUES: Record<string, readonly [string, string]> = {
-  home: ['#ff4d55', '#b3101c'],
-  market: ['#6d84ff', '#3340c4'],
-  installed: ['#34c77b', '#147a45'],
-  approvals: ['#f59e0b', '#b45309'],
-  activity: ['#22c5b0', '#0b7a6c'],
-  settings: ['#8f99a6', '#3e4652'],
-  nodes: ['#38a8f0', '#0b5f9a'],
-  machines: ['#9b7bf7', '#5b2bc8'],
-  alerts: ['#f4637c', '#b0123a'],
-  storage: ['#f6a35c', '#b8460c'],
-  backups: ['#3fc6db', '#0c6b80'],
-  automation: ['#8c7cf0', '#4a3bb8'],
-  coming: ['#7d8794', '#3a414b'],
-  'control-hub': ['#e5484d', '#7c0d16'],
-  agents: ['#d96cf0', '#8a1fa3'],
-};
+/** One colour per screen (each screen's `hue`), so a place is recognised before its name is read. White glyph on each. */
+export const SCREEN_HUES = HUES;
+
+/** Short screens (a few facts and one action) open in a narrow window instead of a wide, mostly empty one. */
+export const COMPACT_WINDOWS: ReadonlySet<string> = new Set(['storage', 'backups']);
 const FALLBACK_HUE = ['#7d8794', '#3a414b'] as const;
 
 export function tileStyle(id: string): CSSProperties {
@@ -80,7 +81,7 @@ export function tileStyle(id: string): CSSProperties {
 /** Split the nav into dock items (fixed order) and Launchpad-only items (nav order). */
 export function dockSplit(nav: NavItem[]): { dock: NavItem[]; more: NavItem[] } {
   const dock = DOCK_IDS.flatMap((id) => nav.filter((n) => n.id === id));
-  const more = nav.filter((n) => !(DOCK_IDS as readonly string[]).includes(n.id));
+  const more = nav.filter((n) => !DOCK_IDS.includes(n.id));
   return { dock, more };
 }
 
@@ -97,9 +98,6 @@ export function parentPath(pathname: string): string | null {
  */
 function overlayOpen(except?: Element | null): boolean {
   return [...document.querySelectorAll('[aria-modal="true"], dialog[open], .dsk-bar [aria-expanded="true"]')].some((e) => e !== except);
-}
-function typingIn(target: EventTarget | null): boolean {
-  return target instanceof HTMLElement && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName));
 }
 
 function ScreenTile({ id, icon, size = 44 }: { id: string; icon: NavItem['icon']; size?: number }) {
@@ -130,8 +128,8 @@ function GridGlyph() {
 
 function Clock({ now, timeZone }: { now: number; timeZone: string }) {
   const d = new Date(now);
-  const day = new Intl.DateTimeFormat(undefined, { weekday: 'short', month: 'short', day: 'numeric', timeZone }).format(d);
-  const time = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit', timeZone }).format(d);
+  const day = formatDate(d, { weekday: 'short', month: 'short', day: 'numeric', timeZone });
+  const time = formatDate(d, { hour: 'numeric', minute: '2-digit', timeZone });
   return (
     <time className="dsk-clock" dateTime={d.toISOString()} title="Hub time">
       <span className="dsk-clock-day">{day}</span> {time}
@@ -139,7 +137,12 @@ function Clock({ now, timeZone }: { now: number; timeZone: string }) {
   );
 }
 
-function PersonMenu({ person, demo, onConsoleView, onSignOut }: Pick<DesktopShellProps, 'person' | 'demo' | 'onConsoleView' | 'onSignOut'>) {
+/** The name's initial when a name is known, else the account id's, else "?". */
+export function avatarInitial(displayName?: string, id?: string): string {
+  return (Array.from((displayName ?? '').trim()[0] ? displayName!.trim() : (id ?? '').trim())[0] ?? '?').toUpperCase();
+}
+
+function PersonMenu({ person, displayName, demo, onConsoleView, onSignOut }: Pick<DesktopShellProps, 'person' | 'displayName' | 'demo' | 'onConsoleView' | 'onSignOut'>) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const menuId = useId();
@@ -158,7 +161,7 @@ function PersonMenu({ person, demo, onConsoleView, onSignOut }: Pick<DesktopShel
       document.removeEventListener('keydown', close);
     };
   }, [open]);
-  const initial = (person?.id ?? '?').slice(0, 1).toUpperCase();
+  const initial = avatarInitial(displayName, person?.id);
   return (
     <div className="dsk-person" ref={ref}>
       <button type="button" className="dsk-avatar" aria-expanded={open} aria-controls={menuId} onClick={() => setOpen((o) => !o)}>
@@ -201,7 +204,7 @@ function PersonMenu({ person, demo, onConsoleView, onSignOut }: Pick<DesktopShel
   );
 }
 
-function Launchpad({ nav, apps, onClose }: { nav: NavItem[]; apps: DockApp[]; onClose: () => void }) {
+function Launchpad({ nav, apps, onClose, onShortcuts }: { nav: NavItem[]; apps: DockApp[]; onClose: () => void; onShortcuts: () => void }) {
   const [q, setQ] = useState('');
   const ref = useRef<HTMLDivElement>(null);
   const title = useId();
@@ -255,28 +258,14 @@ function Launchpad({ nav, apps, onClose }: { nav: NavItem[]; apps: DockApp[]; on
           <span className="om-visually-hidden">Find a screen or app</span>
           <input ref={input} type="search" placeholder="Find a screen or app" value={q} onChange={(e) => setQ(e.target.value)} />
         </label>
-        <section aria-label="Screens">
-          <h3 className="dsk-launchpad-head">Screens</h3>
-          <ul className="dsk-launchpad-grid">
-            {screens.map((n) => (
-              <li key={n.id}>
-                <a href={n.href} className="dsk-launchpad-item" onClick={onClose}>
-                  <ScreenTile id={n.id} icon={n.icon} size={64} />
-                  <span className="dsk-launchpad-label">{n.label}</span>
-                  <Badge item={n} />
-                </a>
-              </li>
-            ))}
-          </ul>
-        </section>
         {shownApps.length > 0 && (
           <section aria-label="Your apps">
             <h3 className="dsk-launchpad-head">Your apps</h3>
-            <ul className="dsk-launchpad-grid">
+            <ul className="dsk-launchpad-grid dsk-launchpad-big">
               {shownApps.map((a) => (
                 <li key={a.id}>
                   <a href={a.href} className="dsk-launchpad-item" onClick={onClose}>
-                    <AppIcon app={a} size={64} />
+                    <AppIcon app={a} size={84} />
                     <span className="dsk-launchpad-label">{a.name}</span>
                   </a>
                 </li>
@@ -284,6 +273,23 @@ function Launchpad({ nav, apps, onClose }: { nav: NavItem[]; apps: DockApp[]; on
             </ul>
           </section>
         )}
+        <section aria-label="Screens">
+          <h3 className="dsk-launchpad-head">Screens</h3>
+          <ul className="dsk-launchpad-grid dsk-launchpad-small">
+            {screens.map((n) => (
+              <li key={n.id}>
+                <a href={n.href} className="dsk-launchpad-item" onClick={onClose}>
+                  <ScreenTile id={n.id} icon={n.icon} size={44} />
+                  <span className="dsk-launchpad-label">{n.label}</span>
+                  <Badge item={n} />
+                </a>
+              </li>
+            ))}
+          </ul>
+        </section>
+        <button type="button" className="dsk-launchpad-keys" onClick={onShortcuts}>
+          <Icon name="settings" size={16} /> Keyboard shortcuts
+        </button>
         {screens.length === 0 && shownApps.length === 0 && <p className="dsk-launchpad-none">Nothing matches “{q}”. Try the search (Ctrl K) for settings and actions.</p>}
       </div>
     </div>
@@ -291,44 +297,51 @@ function Launchpad({ nav, apps, onClose }: { nav: NavItem[]; apps: DockApp[]; on
 }
 
 export function DesktopShell(props: DesktopShellProps) {
-  const { boxName, status, bell, nav, current, pinned = [], apps = [], now, timeZone, person, demo, onSearch, onConsoleView, onSignOut, children } = props;
-  const navigate = useNavigate();
+  const { boxName, status, bell, nav, current, pinned = [], apps = [], now, timeZone, person, displayName, demo, onSearch, onConsoleView, onSignOut, children } = props;
   const location = useLocation();
   const atHome = current === 'home';
-  const here = nav.find((n) => n.id === current);
-  const title = here?.label ?? boxName;
-  const up = parentPath(location.pathname);
-  const windowLabel = useId();
+  const wm = useWindows();
+  const managed = !!routeFor(location.pathname);
+  function closeWindow(id: string) {
+    const frame = rootRef.current?.querySelector<HTMLElement>(`[data-window-id="${id}"]`);
+    if (document.startViewTransition && frame && window.matchMedia?.('(prefers-reduced-motion: no-preference)').matches) {
+      frame.style.viewTransitionName = 'wm-dismiss';
+      document.startViewTransition(() => flushSync(() => wm.dismiss(id)));
+    } else wm.dismiss(id);
+  }
   const rootRef = useRef<HTMLDivElement>(null);
   const barRef = useRef<HTMLElement>(null);
   const [launchpad, setLaunchpad] = useState(false);
   const { dock, more } = useMemo(() => dockSplit(nav), [nav]);
+  const openExtras = onWorkspace(wm.windows, wm.workspace).filter(w => !dock.some(item => item.id === w.id)).map(w => {
+    const screen = routeFor(w.path)!.screen;
+    return { id: w.id, label: screen.title, icon: screen.icon, href: w.path } as NavItem;
+  });
   const moreBadge = more.reduce((s, n) => s + (n.badge ?? 0), 0);
 
   // The window starts under the menu bar, which can wrap on phones: track its height.
   useEffect(() => {
     const bar = barRef.current;
     const root = rootRef.current;
-    if (!bar || !root || typeof ResizeObserver === 'undefined') return;
-    const ro = new ResizeObserver(() => root.style.setProperty('--dsk-bar-real', `${bar.offsetHeight}px`));
-    ro.observe(bar);
-    return () => ro.disconnect();
+    if (!bar || !root) return;
+    return trackBarHeight(bar, root, '--dsk-bar-real');
   }, []);
 
-  // Esc closes the window (back to the desktop); Ctrl/⌘ + / opens Launchpad.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.defaultPrevented) return;
-      if ((e.ctrlKey || e.metaKey) && e.key === '/') {
-        e.preventDefault();
-        setLaunchpad((o) => !o);
-        return;
-      }
-      if (e.key === 'Escape' && !atHome && !launchpad && !overlayOpen() && !typingIn(e.target)) navigate('/');
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [atHome, launchpad, navigate]);
+  // Every shortcut is an entry of shell/keys/keymap.ts; the palette (Ctrl/⌘ K) is bound in Shell.
+  const [sheet, setSheet] = useState(false);
+  const busy = () => launchpad || sheet || overlayOpen();
+  useKeymap({
+    launchpad: () => setLaunchpad((o) => !o),
+    close: () => (wm.active && !busy() ? closeWindow(wm.active) : false),
+    shortcuts: () => (busy() ? false : setSheet(true)),
+    'cycle-next': () => wm.cycle(1),
+    'cycle-previous': () => wm.cycle(-1),
+    tiling: () => (wm.narrow ? false : wm.toggleTiling()),
+    ...Object.fromEntries(Array.from({ length: WORKSPACES }, (_, n) => [
+      [`workspace-${n + 1}`, () => wm.switchWorkspace(n)],
+      [`send-${n + 1}`, () => (wm.active ? wm.sendWindow(wm.active, n) : false)],
+    ]).flat() as [string, () => void][]),
+  });
 
   return (
     <div ref={rootRef} className={atHome ? 'dsk dsk-at-home' : 'dsk dsk-in-window'}>
@@ -340,53 +353,59 @@ export function DesktopShell(props: DesktopShellProps) {
           <BrandMark size={22} />
           <span className="dsk-box">{boxName}</span>
         </a>
-        <div className="dsk-status">{status}</div>
+        <div className="dsk-status">
+          {status}
+          {demo && (
+            <span className="dsk-demo" title="This screen shows sample data, not a real box">
+              <span className="dsk-demo-short" aria-hidden="true">
+                Demo
+              </span>
+              <span className="dsk-demo-long">Demo data</span>
+            </span>
+          )}
+        </div>
         <Clock now={now} timeZone={timeZone} />
         <div className="dsk-actions">
+          <div className="wm-spaces" role="group" aria-label="Workspaces">
+            {Array.from({ length: WORKSPACES }, (_, n) => (
+              <button key={n} type="button" className="wm-space" aria-pressed={wm.workspace === n} data-busy={onWorkspace(wm.windows, n).length > 0 || undefined}
+                aria-label={`Workspace ${n + 1}${onWorkspace(wm.windows, n).length ? ', has windows' : ''}`} title={`Workspace ${n + 1} (Alt ${n + 1})`} onClick={() => wm.switchWorkspace(n)}>
+                {n + 1}
+              </button>
+            ))}
+          </div>
+          {!wm.narrow && (
+            <button type="button" className="wm-tiling" aria-label={`Tiling: ${wm.tiling ? LAYOUT_LABELS[wm.tiling] : 'off'}, next layout`} title="Tiling: click for the next layout (Alt T turns it on or off)" onClick={() => wm.setTiling(nextLayout(wm.tiling))}>
+              {wm.tiling ? LAYOUT_LABELS[wm.tiling] : 'Tiling off'}
+            </button>
+          )}
           <button type="button" className="dsk-iconbtn" onClick={onSearch} aria-label="Search (Ctrl K)" title="Search (Ctrl K)">
             <Icon name="search" size={18} />
           </button>
+          {nav.some((n) => n.id === 'usage') && (
+            <a href="/usage" className="dsk-iconbtn" aria-label="Live usage" title="Live usage" aria-current={current === 'usage' ? 'page' : undefined}>
+              <Icon name="gauge" size={18} />
+            </a>
+          )}
           {bell}
-          <PersonMenu person={person} demo={demo} onConsoleView={onConsoleView} onSignOut={onSignOut} />
+          <PersonMenu person={person} displayName={displayName} demo={demo} onConsoleView={onConsoleView} onSignOut={onSignOut} />
         </div>
       </header>
 
-      {atHome ? (
-        <main id="om-main" tabIndex={-1} className="dsk-desktop">
-          {children}
-        </main>
-      ) : (
-        <div className="dsk-stage">
-          <div className="dsk-scrim" aria-hidden="true" onClick={() => navigate('/')} />
-          <section className="dsk-window" aria-labelledby={windowLabel} key={current}>
-            <div className="dsk-window-bar">
-              {up ? (
-                <a href={up} className="dsk-wbtn" aria-label="Back" title="Back">
-                  <Icon name="chevron" size={16} className="dsk-flip" />
-                </a>
-              ) : (
-                here && <ScreenTile id={here.id} icon={here.icon} size={26} />
-              )}
-              <span id={windowLabel} className="dsk-window-title">
-                {title}
-              </span>
-              <a href="/" className="dsk-wbtn dsk-close" aria-label={`Close ${title}`} title="Close (Esc)">
-                <Icon name="x" size={16} />
-              </a>
-            </div>
-            {/* tabIndex 0: the window scrolls, so keyboard users must be able to reach it (axe scrollable-region-focusable). */}
-            <main id="om-main" tabIndex={0} className="dsk-window-body">
-              {children}
-            </main>
-          </section>
-        </div>
-      )}
+      {(atHome || !managed) && <main id="om-main" tabIndex={-1} className="dsk-desktop">{children}</main>}
+      <main id={managed ? 'om-main' : undefined} tabIndex={-1} className="dsk-stage wm-stage" hidden={atHome || !managed}>
+        {[...wm.windows].reverse().map((item, index) => <WindowFrame z={wm.windows.length - index} key={item.id} item={item} active={wm.active === item.id} narrow={wm.narrow} here={item.ws === wm.workspace} tile={wm.tiles[item.id]}
+          onSend={n => wm.sendWindow(item.id, n)}
+          onPosition={rect => wm.update(position(wm.windows, item.id, rect))}
+          onMax={() => wm.update(toggleMax(wm.windows, item.id))}
+          onMinimise={() => wm.dismiss(item.id, true)} onClose={() => closeWindow(item.id)} />)}
+      </main>
 
       <nav className="dsk-dock" aria-label="Main">
         <ul className="dsk-dock-group">
-          {dock.map((item) => (
+          {[...dock, ...openExtras].map((item) => (
             <li key={item.id}>
-              <a href={item.href} className="dsk-dock-item" aria-current={item.id === current ? 'page' : undefined}>
+              <a href={wm.windows.find(w => w.id === item.id && w.minimised)?.path ?? item.href} className="dsk-dock-item" data-open={wm.windows.some(w => w.id === item.id) || undefined} aria-current={item.id === current ? 'page' : undefined}>
                 <ScreenTile id={item.id} icon={item.icon} />
                 <span className="dsk-dock-label">{item.label}</span>
                 <Badge item={item} />
@@ -425,7 +444,8 @@ export function DesktopShell(props: DesktopShellProps) {
         </button>
       </nav>
 
-      {launchpad && <Launchpad nav={nav} apps={apps} onClose={() => setLaunchpad(false)} />}
+      {launchpad && <Launchpad nav={nav} apps={apps} onClose={() => setLaunchpad(false)} onShortcuts={() => { setLaunchpad(false); setSheet(true); }} />}
+      <ShortcutSheet open={sheet} onClose={() => setSheet(false)} />
     </div>
   );
 }

@@ -88,7 +88,10 @@
 .omh-hero { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--om-space-4); padding-top: var(--om-space-4); }
 .omh-hero-text { display: flex; flex-direction: column; gap: var(--om-space-1); min-width: 0; }
 .omh-date { color: var(--om-color-text-muted); font-size: var(--om-font-size-sm); font-weight: var(--om-font-weight-medium); letter-spacing: 0.01em; }
-.omh-greeting { font-size: var(--om-font-size-4xl); font-weight: var(--om-font-weight-bold); letter-spacing: -0.02em; line-height: var(--om-line-height-tight); }
+.omh-greeting { font-size: var(--om-font-size-4xl); font-weight: var(--om-font-weight-bold); letter-spacing: -0.02em; line-height: var(--om-line-height-tight); max-width: 100%; overflow-wrap: anywhere; }
+/* A long single-word name (up to 60 characters) wraps inside the hero at every width; on tablets it also gets a smaller, fluid size. */
+.omh-greeting-name { overflow-wrap: anywhere; }
+@media (min-width: 721px) and (max-width: 1100px) { .omh-greeting-name { display: block; font-size: clamp(1.75rem, 1rem + 2.6vw, var(--om-font-size-4xl)); } }
 .omh-summary { color: var(--om-color-text-muted); font-size: var(--om-font-size-md); max-width: 70ch; }
 .omh-weather { display: flex; align-items: center; gap: var(--om-space-3); padding: var(--om-space-2) var(--om-space-4); border-radius: var(--om-radius-pill); background: var(--omh-glass); border: 1px solid var(--omh-glass-border); backdrop-filter: blur(var(--omh-blur)); }
 .omh-weather-temp { font-size: var(--om-font-size-2xl); font-weight: var(--om-font-weight-semibold); }
@@ -166,6 +169,8 @@
 .omh-widget-body { display: flex; flex-direction: column; gap: var(--om-space-3); flex: 1; min-width: 0; }
 .omh-widget-error { display: flex; flex-direction: column; gap: var(--om-space-2); align-items: flex-start; font-size: var(--om-font-size-sm); }
 .omh-code, .omh-source code { font-size: var(--om-font-size-xs); color: var(--om-color-text-muted); }
+.omh-empty-action { align-self: flex-start; display: inline-flex; align-items: center; min-height: 36px; margin-top: var(--om-space-1); padding: 0 var(--om-space-3); border-radius: var(--om-radius-pill); background: var(--om-color-accent); color: var(--om-color-accent-text); font-size: var(--om-font-size-sm); font-weight: var(--om-font-weight-semibold); text-decoration: none; }
+.omh-empty-action:focus-visible { outline: 2px solid var(--om-color-focus); outline-offset: 2px; }
 .omh-widget-empty { display: flex; flex-direction: column; gap: var(--om-space-1); justify-content: center; flex: 1; }
 .omh-empty-title { font-weight: var(--om-font-weight-semibold); }
 .omh-source { padding-top: var(--om-space-2); border-top: 1px dashed var(--om-color-border); overflow-wrap: anywhere; }
@@ -190,6 +195,11 @@
 .omh-facts dt { font-size: var(--om-font-size-xs); color: var(--om-color-text-muted); }
 .omh-facts dd { margin: 0; font-weight: var(--om-font-weight-medium); }
 .omh-facts-big dd { font-size: var(--om-font-size-md); }
+.omh-facts-stack { flex-direction: column; flex-wrap: nowrap; gap: var(--om-space-3); }
+.omh-facts-stack > div { flex-direction: row; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--om-space-1) var(--om-space-3); }
+.omh-facts-stack dd { white-space: nowrap; }
+/* Trust has three short rows: normal row spacing, the tile aligned to the top. */
+.omh-facts-spread { justify-content: flex-start; }
 .omh-node-list, .omh-rows, .omh-feed, .omh-approvals { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
 .omh-node-list > li, .omh-rows > li, .omh-feed > li { display: flex; flex-wrap: wrap; align-items: center; gap: var(--om-space-1) var(--om-space-3); padding: var(--om-space-2) 0; border-bottom: 1px solid var(--om-color-border); font-size: var(--om-font-size-sm); }
 .omh-node-list > li:last-child, .omh-rows > li:last-child, .omh-feed > li:last-child { border-bottom: 0; }
@@ -313,7 +323,14 @@
 @media (max-width: 720px) {
   .omh-home { gap: var(--om-space-5); }
   .omh-hero { padding-top: 0; }
-  .omh-greeting { font-size: var(--om-font-size-3xl); }
+  /* The whole name always shows: "Good afternoon," on one line, the name on the next, sized with
+     clamp() so about 20 characters still fit at 320px. A longer name wraps (breaking inside a word only
+     when one word is wider than the screen) and is never cut with an ellipsis. */
+  .omh-greeting { font-size: clamp(26px, 8.5vw, 34px); max-width: 100%; overflow-wrap: anywhere; hyphens: auto; }
+  .omh-greeting-hello, .omh-greeting-name { display: block; }
+  .omh-greeting-name { font-size: clamp(22px, 7vw, 34px); }
+  .omh-hero-text { min-width: 0; max-width: 100%; }
+  .omh-section-actions .om-btn, .omh-widget-error .om-btn { min-height: 44px; }
   .omh-summary { font-size: var(--om-font-size-sm); }
   .omh-search { min-height: 48px; font-size: var(--om-font-size-sm); }
   .omh-kbd { display: none; }

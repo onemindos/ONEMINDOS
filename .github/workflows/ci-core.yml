@@ -4,10 +4,10 @@ name: ci-core
 on:
   workflow_dispatch:   # docs/testing/README.md §2 (test-all)
   pull_request:
-    paths: ["core/**", "sdk/**", ".github/workflows/ci-core.yml"]
+    paths: ["core/**", "sdk/**", ".github/actions/sdk-gen/**", ".github/workflows/ci-core.yml"]
   push:
     branches: [main]
-    paths: ["core/**", "sdk/**", ".github/workflows/ci-core.yml"]
+    paths: ["core/**", "sdk/**", ".github/actions/sdk-gen/**", ".github/workflows/ci-core.yml"]
   merge_group:   # no paths filter exists for this event; the plan job filters instead
 
 permissions:
@@ -25,7 +25,8 @@ jobs:
   plan:
     # CI-13 (#299): arm64-safe, no secrets, no Docker. Local Mac runner when LOCAL_RUNNER=on and the event is
     # trusted (never a fork PR); otherwise GitHub-hosted. docs/learning/self-hosted-runner.md
-    runs-on: ${{ (vars.LOCAL_RUNNER == 'on' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","onemind-local"]') || 'ubuntu-24.04' }}
+    # merge_group only runs code already approved into the queue, so it is always trusted (no fork check); MQ_RUNNER unset keeps the old routing.
+    runs-on: ${{ (vars.MQ_RUNNER == 'on' && github.event_name == 'merge_group') && fromJSON('["self-hosted","onemind-mq"]') || (vars.LOCAL_RUNNER == 'on' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","onemind-local"]') || 'ubuntu-24.04' }}
     timeout-minutes: 5
     outputs:
       matrix: ${{ steps.pick.outputs.matrix }}
@@ -63,7 +64,8 @@ jobs:
     if: needs.plan.outputs.run_sqlite == 'true'
     # Local Mac runner when LOCAL_RUNNER=on and the event is trusted (never a fork PR); otherwise
     # GitHub-hosted. docs/learning/self-hosted-runner.md
-    runs-on: ${{ (vars.LOCAL_RUNNER == 'on' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","onemind-local"]') || 'ubuntu-24.04' }}
+    # merge_group only runs code already approved into the queue, so it is always trusted (no fork check); MQ_RUNNER unset keeps the old routing.
+    runs-on: ${{ (vars.MQ_RUNNER == 'on' && github.event_name == 'merge_group') && fromJSON('["self-hosted","onemind-mq"]') || (vars.DO_RUNNER == 'on' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","onemind-do"]') || (vars.LOCAL_RUNNER == 'on' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","onemind-local"]') || 'ubuntu-24.04' }}
     timeout-minutes: 40   # a safety net; a shard takes about 15 min (CI-03 target: under 20)
     strategy:
       fail-fast: false
@@ -73,6 +75,9 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
+        with:
+          # Exact version: "latest" resolves through the GitHub API, which times out now and then and fails the job. 0.13.9 is what CI ran when this was pinned.
+          version: "0.13.9"
       # GitHub's image has Go and kustomize preinstalled and some core tests skip without them
       # (test_sdk_conformance, test_policy, security/test_sandbox_escapes). Install both, so the
       # local runner runs the same tests.
@@ -83,6 +88,11 @@ jobs:
         run: |
           sdk/tools/ci/install-tools.sh "$RUNNER_TEMP/bin" kustomize
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+      # test_sdk_conformance and test_mcp import the Python SDK and build the onemind CLI (Go SDK).
+      - name: Generate the SDK code from the committed spec (CI-16, not committed)
+        uses: ./.github/actions/sdk-gen
+        with:
+          langs: go py
       - name: Core suite (${{ matrix.backend }}, shard ${{ matrix.shard }})
         env:
           ONEMIND_TEST_SHARD: ${{ matrix.shard }}
@@ -127,6 +137,14 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
+        with:
+          # Exact version: "latest" resolves through the GitHub API, which times out now and then and fails the job. 0.13.9 is what CI ran when this was pinned.
+          version: "0.13.9"
+      # test_sdk_conformance and test_mcp import the Python SDK and build the onemind CLI (Go SDK).
+      - name: Generate the SDK code from the committed spec (CI-16, not committed)
+        uses: ./.github/actions/sdk-gen
+        with:
+          langs: go py
       - name: Throwaway test database, so skip disk syncs
         env:
           PGPASSWORD: test

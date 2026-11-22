@@ -2,7 +2,7 @@
   "$comment": "SPDX-License-Identifier: Apache-2.0",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/onemindos/ONEMINDOS/sdk/schema/onemind.app.schema.json",
-  "title": "OneMind app manifest (onemind.app/v1alpha1)",
+  "title": "OneMind app manifest (onemind.app/v1, and v1alpha1 until the freeze completes)",
   "description": "apps/<id>/onemind.app.yaml, as fixed by sdk/contracts/poc-v0.md section 4, extended by section 9.3 (metadata.links, metadata.upstream, metadata.tier, spec.updates) section 11.2 (spec.agent) and section 12.18 (spec.backup; spec.database for the shared PostgreSQL, DB-SHARED-1). Every object is closed: a new field is a contract change first. The value UNVERIFIED marks a fact the scaffolder could not confirm from a primary source; it caps the app's tier at community.",
   "type": "object",
   "additionalProperties": false,
@@ -14,7 +14,11 @@
   ],
   "properties": {
     "apiVersion": {
-      "const": "onemind.app/v1alpha1"
+      "description": "onemind.app/v1 is the frozen manifest (PLAN-E6, E1). onemind.app/v1alpha1 is still accepted; app-manifest convert rewrites it to v1 without changing any other field.",
+      "enum": [
+        "onemind.app/v1alpha1",
+        "onemind.app/v1"
+      ]
     },
     "kind": {
       "const": "App"
@@ -41,6 +45,14 @@
           "minLength": 1,
           "maxLength": 59,
           "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+        },
+        "publisher": {
+          "description": "Declared publisher identity; signature/index verification is required separately.",
+          "type": "object", "additionalProperties": false, "required": ["id", "name"],
+          "properties": {
+            "id": {"type": "string", "minLength": 1, "maxLength": 59, "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"},
+            "name": {"type": "string", "minLength": 1, "maxLength": 128}
+          }
         },
         "name": {
           "description": "Display name.",
@@ -188,6 +200,60 @@
             "community",
             "blocked"
           ]
+        },
+        "build": {
+          "description": "Present only when OneMind built the image itself (sdk/tools/app-factory): who built it, from which upstream release and base image, and what was patched.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "builder",
+            "revision",
+            "upstreamTag",
+            "base",
+            "builtAt",
+            "image"
+          ],
+          "properties": {
+            "builder": {
+              "const": "onemind-app-factory"
+            },
+            "recipe": {
+              "type": "string",
+              "maxLength": 64
+            },
+            "revision": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "OneMind rebuild number for this upstream release."
+            },
+            "upstreamTag": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "base": {
+              "type": "string",
+              "pattern": "^[^\\s@]+@sha256:[0-9a-f]{64}$",
+              "description": "The upstream image the build started from, by digest."
+            },
+            "patched": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9+.\\-]*$"
+              },
+              "maxItems": 32
+            },
+            "builtAt": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "image": {
+              "type": "string",
+              "pattern": "^[^\\s@]+@sha256:[0-9a-f]{64}$",
+              "description": "The OneMind-built image the manifests run."
+            }
+          }
         }
       },
       "additionalProperties": false
@@ -197,10 +263,232 @@
       "required": [
         "archs",
         "requires",
-        "manifests",
         "updates"
       ],
       "properties": {
+        "egress": {"description": "Internet egress hostnames (P9); default deny when absent or empty. Wildcards only below a registrable domain; the Go validator checks the embedded Public Suffix List.", "type": "array", "uniqueItems": true, "maxItems": 64, "items": {"type": "string", "minLength": 1, "maxLength": 255}},
+        "permissions": {"type": "array", "uniqueItems": true, "maxItems": 64, "items": {"type": "string", "minLength": 1, "maxLength": 128, "pattern": "^(nodes:read|apps:read|actions:read:self|actions:request:app\\.(install|remove|start|stop|restart|update|configure)|alerts:raise|events:subscribe:[^\\s]+)$"}},
+        "compat": {"type": "object", "additionalProperties": false, "properties": {"onemind": {"type": "string", "minLength": 1, "maxLength": 128}}, "required": ["onemind"]},
+        "plugin": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "principal": {
+              "const": true
+            },
+            "secret": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+            },
+            "backend": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "service": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+                },
+                "port": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 65535
+                }
+              },
+              "required": [
+                "service",
+                "port"
+              ]
+            }
+          },
+          "required": [
+            "principal",
+            "secret"
+          ]
+        },
+        "extensions": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": false,
+          "properties": {
+            "widgets": {
+              "type": "array",
+              "maxItems": 64,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "id": {"type": "string", "pattern": "^[a-z][a-z0-9_-]{0,39}$"},
+                  "title": {"type": "string", "minLength": 1, "maxLength": 128},
+                  "render": {"enum": ["template", "iframe"]},
+                  "template": {"enum": ["stat", "list", "progress", "status"]},
+                  "source": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {"tool": {"type": "string", "pattern": "^[a-z][a-z0-9_-]{0,39}$"}, "args": {"type": "object"}},
+                    "required": ["tool"]
+                  },
+                  "refresh": {"type": "string", "minLength": 1, "maxLength": 128},
+                  "entry": {"type": "string", "minLength": 1, "maxLength": 256, "pattern": "^[A-Za-z0-9._/-]+$"},
+                  "size": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {"w": {"type": "integer", "minimum": 1}, "h": {"type": "integer", "minimum": 1}},
+                    "required": ["w", "h"]
+                  },
+                  "surfaces": {"type": "array", "minItems": 1, "maxItems": 2, "uniqueItems": true, "items": {"enum": ["dashboard", "mobile"]}}
+                },
+                "required": ["id", "title", "render", "surfaces"],
+                "oneOf": [
+                  {
+                    "properties": {"render": {"const": "template"}},
+                    "required": ["template", "source"],
+                    "not": {"anyOf": [{"required": ["entry"]}, {"required": ["size"]}]}
+                  },
+                  {
+                    "properties": {"render": {"const": "iframe"}},
+                    "required": ["entry"],
+                    "not": {"anyOf": [{"required": ["template"]}, {"required": ["source"]}, {"required": ["refresh"]}]}
+                  }
+                ]
+              }
+            },
+            "settings": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {"schema": {"type": "string", "minLength": 1, "maxLength": 256, "pattern": "^[A-Za-z0-9._/-]+$"}},
+              "required": ["schema"]
+            },
+            "alerts": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "actions": {
+                  "type": "array",
+                  "maxItems": 64,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "id": {"type": "string", "pattern": "^[a-z][a-z0-9_-]{0,39}$"},
+                      "label": {"type": "string", "minLength": 1, "maxLength": 128},
+                      "tool": {"type": "string", "pattern": "^[a-z][a-z0-9_-]{0,39}$"},
+                      "args": {"type": "object"}
+                    },
+                    "required": ["id", "label", "tool"]
+                  }
+                }
+              },
+              "required": ["actions"]
+            },
+            "tiles": {
+              "type": "array",
+              "maxItems": 64,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "id": {"type": "string", "pattern": "^[a-z][a-z0-9_-]{0,39}$"},
+                  "label": {"type": "string", "minLength": 1, "maxLength": 128},
+                  "icon": {"type": "string", "minLength": 1, "maxLength": 256, "pattern": "^[A-Za-z0-9._/-]+$"},
+                  "opens": {"const": "web"}
+                },
+                "required": ["id", "label", "opens"]
+              }
+            },
+            "events": {
+              "type": "object",
+              "additionalProperties": false,
+              "minProperties": 1,
+              "properties": {
+                "publish": {
+                  "type": "array",
+                  "uniqueItems": true,
+                  "maxItems": 64,
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9_-]{1,40}$"
+                  }
+                },
+                "subscribe": {
+                  "type": "array",
+                  "uniqueItems": true,
+                  "maxItems": 64,
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  }
+                }
+              }
+            },
+            "tools": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 64,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128,
+                    "pattern": "^[a-z][a-z0-9_-]{0,39}$"
+                  },
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "description": {
+                    "type": "string",
+                    "maxLength": 500
+                  },
+                  "effect": {
+                    "enum": [
+                      "read",
+                      "write",
+                      "destructive"
+                    ]
+                  },
+                  "input": {
+                    "type": "object"
+                  },
+                  "output": {
+                    "type": "object"
+                  },
+                  "exposure": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "mcp": {
+                        "type": "boolean"
+                      },
+                      "rest": {
+                        "type": "boolean"
+                      },
+                      "cli": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": []
+                  }
+                },
+                "required": [
+                  "name",
+                  "title",
+                  "description",
+                  "effect",
+                  "input"
+                ]
+              }
+            }
+          }
+        },
         "archs": {
           "description": "CPU architectures the pinned images support.",
           "type": "array",
@@ -220,6 +508,32 @@
             "gpu",
             "minMemoryMb"
           ],
+          "if": {
+            "required": [
+              "accelerator"
+            ],
+            "properties": {
+              "accelerator": {
+                "not": {
+                  "required": [
+                    "optional"
+                  ],
+                  "properties": {
+                    "optional": {
+                      "const": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "gpu": {
+                "const": true
+              }
+            }
+          },
           "properties": {
             "gpu": {
               "type": "boolean"
@@ -227,6 +541,43 @@
             "minMemoryMb": {
               "type": "integer",
               "minimum": 1
+            },
+            "gpuCount": {
+              "description": "How many NVIDIA graphics cards the app needs (default 1). Only meaningful with gpu: true. The Market places the app on a machine that reports at least this many.",
+              "type": "integer",
+              "minimum": 1
+            },
+            "minVramMb": {
+              "description": "Memory the smallest graphics card must have, in MB. Only meaningful with gpu: true. A machine that does not report its card memory is not used (unknown is refused, never assumed).",
+              "type": "integer",
+              "minimum": 1
+            },
+            "accelerator": {
+              "description": "The accelerator the app needs, in vendor-neutral terms (S-5). The box reports what it has and the gateway maps one to the other; the app never names a vendor or a driver. Without optional: true the app is refused on a box that has none, so gpu must be true. With optional: true the app runs without it and only gains speed; overlay then names a directory next to spec.manifests (a kustomize overlay on it) that is rendered instead of the plain manifests on a box with a big enough accelerator.",
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "capability"
+              ],
+              "properties": {
+                "capability": {
+                  "enum": [
+                    "gpu-compute"
+                  ]
+                },
+                "minMemoryMb": {
+                  "description": "Memory of the accelerator itself, not of the machine.",
+                  "type": "integer",
+                  "minimum": 256
+                },
+                "optional": {
+                  "type": "boolean"
+                },
+                "overlay": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9][a-z0-9-]*$"
+                }
+              }
             },
             "cpuLevel": {
               "description": "Lowest CPU level the pinned images need, per architecture. Install and update are refused on a box below it (NMD-09, #134). x86-64 levels follow the x86-64 psABI (-march=x86-64-vN). Omit when the images run on any CPU of the architecture.",
@@ -258,6 +609,21 @@
               "type": "integer",
               "minimum": 1,
               "maximum": 65535
+            }
+          }
+        },
+        "browser": {
+          "description": "#692: a browser shown in a desktop window, one profile per person. The app's Deployment that mounts profileVolume is a template only (no replica, its Service is never proxied); the gateway makes one claim, pod and ClusterIP Service per signed-in person and serves each person only their own on <app>--<key>. Needs spec.web.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "profileVolume"
+          ],
+          "properties": {
+            "profileVolume": {
+              "description": "Name of the pod volume (backed by a PersistentVolumeClaim in the template) that holds the browser profile.",
+              "type": "string",
+              "pattern": "^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$"
             }
           }
         },
@@ -468,6 +834,18 @@
             }
           }
         },
+        "system": {
+          "description": "Marks a built-in (system) app. Only honoured for an app that lives in apps/_system/<id>/ AND whose id is on the signed /usr/lib/onemind/system-apps.json in the OS image; anywhere else the manifest is rejected. A system app cannot be uninstalled; it can be switched off (app.disable) unless disable is never. Switching off scales the workload to zero and keeps volumes, secrets and settings.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["class", "update", "disable", "keepDataOnDisable"],
+          "properties": {
+            "class": {"description": "container: a workload in its own namespace. native: part of the OS or dashboard.", "enum": ["container", "native"]},
+            "update": {"description": "os: updated with the OS image. own: updated through its own channel (spec.updates).", "enum": ["os", "own"]},
+            "disable": {"description": "allowed: the owner may switch it off. never: it stays on (Files, Approvals, Settings, Market).", "enum": ["allowed", "never"]},
+            "keepDataOnDisable": {"description": "Data is always kept when an app is switched off; only true is accepted.", "const": true}
+          }
+        },
         "hostPorts": {
           "description": "Host ports the app needs (contract 12.22). Default none. Conflict-checked across the catalog and per node; the install sandbox still refuses hostPort/hostNetwork in the manifests (F-05, F-01).",
           "type": "array",
@@ -500,11 +878,63 @@
             }
           }
         },
+        "streams": {
+          "description": "Event streams the app keeps on the hub's JetStream (default none). Bounded: every stream needs a byte and an age limit, subjects are relative to the app (the hub puts them under onemind.plugin.<id>., the plugin kind of sdk/schema/onemind.subjects.json), and the owner approves the exact limits in the install plan. Enforced in core/onemind_core/streams.py.",
+          "type": "array",
+          "maxItems": 4,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "subjects",
+              "maxBytes",
+              "maxAgeSeconds"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]{0,31}$"
+              },
+              "subjects": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 8,
+                "items": {
+                  "type": "string",
+                  "pattern": "^(([a-z0-9_-]{1,32}|\\*)(\\.([a-z0-9_-]{1,32}|\\*))*(\\.>)?|>)$"
+                }
+              },
+              "maxBytes": {
+                "type": "integer",
+                "minimum": 1048576,
+                "maximum": 1073741824
+              },
+              "maxAgeSeconds": {
+                "type": "integer",
+                "minimum": 60,
+                "maximum": 2592000
+              },
+              "description": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 120
+              }
+            }
+          }
+        },
         "backup": {
           "description": "How the app is backed up (contract 12.18; BACKUPS.md 2.2). Without it the app is copied hot and its badge says crash-consistent only.",
           "type": "object",
           "additionalProperties": false,
           "properties": {
+            "units": {
+              "description": "Built-in apps only (needs spec.system, which only the signed system apps list allows): the gateway tables and folders the app owns. The same block a built-in descriptor (onemind.builtin.schema.json) carries.",
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 40,
+              "items": {"$ref": "#/$defs/backupUnit"}
+            },
             "mode": {
               "enum": [
                 "hot",
@@ -572,6 +1002,17 @@
                 "minLength": 1,
                 "maxLength": 1024,
                 "pattern": "^(?!/)(?!.*(^|/)\\.\\.(/|$)).+$"
+              }
+            },
+            "content": {
+              "description": "Large content the app downloads again by itself (offline libraries, map archives, model files): left out of backups like exclude until the owner switches the content tier on for the app after seeing its size (BAK-03, REC-NOMAD-07). Relative patterns, read like a relative restic --exclude.",
+              "type": "array",
+              "maxItems": 64,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024,
+                "pattern": "^(?!/)(?!.*\\.\\.)(?!.*\\*\\*).+$"
               }
             },
             "restore": {
@@ -742,10 +1183,27 @@
           }
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "if": {
+        "required": ["backup"],
+        "properties": {"backup": {"required": ["units"]}}
+      },
+      "then": {
+        "required": ["system"]
+      }
     }
   },
   "$defs": {
+    "backupUnit": {
+      "description": "One thing a built-in module backs up from the gateway itself (#603). table: a gateway database table. dir: the folder a gateway setting (ONEMIND_*) names.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "name"],
+      "properties": {
+        "kind": {"enum": ["table", "dir"]},
+        "name": {"type": "string", "pattern": "^([a-z][a-z0-9_]{0,62}|ONEMIND_[A-Z0-9_]{1,60})$"}
+      }
+    },
     "execHook": {
       "description": "An argv command run inside the app's own container through the Kubernetes API (contract 12.18); never a host shell.",
       "type": "object",
@@ -783,5 +1241,135 @@
         }
       }
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "spec": {
+            "required": [
+              "extensions"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "spec": {
+            "required": [
+              "compat"
+            ]
+          },
+          "metadata": {
+            "properties": {
+              "version": {
+                "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?(\\+[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?$"
+              }
+            }
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "spec": {
+            "required": [
+              "manifests"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "spec": {
+            "required": [
+              "extensions"
+            ],
+            "properties": {
+              "extensions": {
+                "anyOf": [
+                  {
+                    "required": [
+                      "tools"
+                    ],
+                    "properties": {
+                      "tools": {
+                        "minItems": 1
+                      }
+                    }
+                  },
+                  {
+                    "required": [
+                      "widgets"
+                    ],
+                    "properties": {
+                      "widgets": {
+                        "contains": {
+                          "properties": {
+                            "render": {
+                              "const": "iframe"
+                            }
+                          },
+                          "required": [
+                            "render"
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "required": [
+                      "events"
+                    ],
+                    "properties": {
+                      "events": {
+                        "required": [
+                          "subscribe"
+                        ],
+                        "properties": {
+                          "subscribe": {
+                            "minItems": 1
+                          }
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "spec": {
+            "required": [
+              "manifests",
+              "plugin"
+            ],
+            "properties": {
+              "plugin": {
+                "required": [
+                  "backend"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "not": {
+        "properties": {
+          "spec": {
+            "required": [
+              "agent",
+              "plugin"
+            ]
+          }
+        }
+      }
+    }
+  ]
 }

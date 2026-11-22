@@ -107,13 +107,15 @@ export interface ApprovalsBoardProps {
    * as loading.
    */
   planNote?: string;
-  /** The line under the card; defaults to the passkey wording of §12.3. */
+  /** The line under the card; defaults to the passkey wording. Plain words only. */
   approveHint?: string;
+  /** Spec ids and section numbers for developers; shown only inside the card's collapsed Technical details. */
+  technicalNote?: string;
   /** The API calls listed at the bottom; defaults to the §12 set. */
   calls?: string[];
 }
 
-export function ApprovalsBoard({ actions, plans, decided = [], now, canDecide, onApprove, onDeny, onRetry, initialId, planNote, approveHint, calls }: ApprovalsBoardProps) {
+export function ApprovalsBoard({ actions, plans, decided = [], now, canDecide, onApprove, onDeny, onRetry, initialId, planNote, approveHint, technicalNote, calls }: ApprovalsBoardProps) {
   const [from, setFrom] = useState<From>('all');
   const [sel, setSel] = useState<string | undefined>(initialId);
   return (
@@ -189,6 +191,7 @@ export function ApprovalsBoard({ actions, plans, decided = [], now, canDecide, o
                         canDecide={!live ? { allowed: false, reason: 'The hub is not answering; decisions are paused.' } : canDecide}
                         onApprove={onApprove}
                         onDeny={onDeny}
+                        technical={technicalNote}
                         extra={
                           <>
                             {!plans[current.id] && planNote ? <p className="om-note om-tone-info">{planNote}</p> : <EffectsCard plan={plans[current.id] ?? { status: 'loading' }} now={now} />}

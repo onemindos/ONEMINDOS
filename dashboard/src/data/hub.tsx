@@ -5,6 +5,7 @@
 // an action by polling `GET /v1/actions/{id}` until it ends (live install progress).
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ApiError, type Action, type ActionType, type CatalogApp, type MachineActionType, type MachineParams, type Instance, type NodeRecord, type NodeStatus } from '../api/types';
+import { approveWithStepUp, type ApproveOpts } from '../lib/approve';
 import { usePoll, useNow, type Polled } from '../lib/hooks';
 import { effectiveStatus, OFFLINE_AFTER_S, STALE_AFTER_S } from '../lib/time';
 import { uuidv4 } from '../lib/uuid';
@@ -45,7 +46,7 @@ export interface Hub {
   request: (type: ActionType, appId: string, extra?: Omit<AppParams, 'app_id'>, planSha?: string) => Promise<Action>;
   /** MACH-01: files a machine.* request (it waits in Approvals; nothing runs before an owner approves). */
   requestMachine: (type: MachineActionType, params: MachineParams) => Promise<Action>;
-  decide: (id: string, how: 'approve' | 'deny') => Promise<Action>;
+  decide: (id: string, how: 'approve' | 'deny', opts?: ApproveOpts) => Promise<Action>;
   reloadAll: () => void;
 }
 
@@ -144,10 +145,10 @@ export function HubProvider({ children }: { children: ReactNode }) {
   const requestMachine = useCallback((type: MachineActionType, params: MachineParams) => file(type, params), [file]);
 
   const decide = useCallback(
-    async (id: string, how: 'approve' | 'deny') => {
+    async (id: string, how: 'approve' | 'deny', opts?: ApproveOpts) => {
       setBusy((b) => new Set(b).add(id));
       try {
-        const a = how === 'approve' ? await api.approve(id, actionList.find((x) => x.id === id)?.plan_sha256) : await api.deny(id);
+        const a = how === 'approve' ? await approveWithStepUp(api, actionList.find((x) => x.id === id) ?? { id }, opts) : await api.deny(id);
         setFollowed((f) => ({ ...f, [a.id]: a }));
         void reloadActions();
         void reloadApps();

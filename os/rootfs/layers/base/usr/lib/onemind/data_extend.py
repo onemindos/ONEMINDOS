@@ -62,6 +62,29 @@ def run(cmd, **kw):
     return subprocess.run(cmd, check=True, capture_output=True, text=True, **kw).stdout
 
 
+def rewrite_entry(number, disk, script, node):
+    """Rewrite the partition entry and tell the kernel, with udev's event queue paused.
+
+    Why (issue 391): `partx -u` makes the kernel announce a change for the disk and every partition, and
+    udev re-reads the table while it is still being written. For a moment the by-partlabel, by-partuuid
+    and by-path names of the *mounted* data partition vanish, systemd sees those device units go dead
+    and, because data.mount and every bind mount from it require the device, unmounts /data and stops
+    everything that needs it: cloud-init, first boot, rauc. It happened on roughly one first boot in
+    fifty (cloud images, where this always grows the disk). With the queue paused, udev reads the table
+    once, after both steps are done. 240 rewrites on a booted image never dropped /data this way;
+    without the pause it dropped within 30. The queue is always started again, even when a step fails:
+    a queue left stopped would stop every later device event on the box."""
+    paused = subprocess.run(["udevadm", "control", "--stop-exec-queue"], capture_output=True).returncode == 0
+    try:
+        run(["sfdisk", "--quiet", "--no-reread", "--no-tell-kernel", "-N", str(number), disk], input=script)
+        run(["partx", "-u", "--nr", str(number), disk])
+    finally:
+        if paused:
+            subprocess.run(["udevadm", "control", "--start-exec-queue"], capture_output=True)
+            subprocess.run(["udevadm", "settle", "--timeout=30"], capture_output=True)
+    run(["resize2fs", node])
+
+
 def disk_of(node):
     return "/dev/" + run(["lsblk", "-ndo", "PKNAME", node]).strip()
 
@@ -70,6 +93,11 @@ def main():
     node = os.path.realpath(f"/dev/disk/by-partlabel/{LABEL}")
     if not os.path.exists(node):
         say(f"no partition labelled {LABEL} (not a GPT OneMind disk); nothing to do")
+        return 0
+    if os.path.basename(node).startswith("dm-"):
+        # Encrypted /data (data_encrypt.py): the name points at the unlocked volume, not at a partition.
+        # Growing partition + LUKS + ext4 together is its own change; until then the volume keeps its size.
+        say("the data volume is encrypted; not grown yet")
         return 0
     if run(["blkid", "-o", "value", "-s", "TYPE", node]).strip() != "ext4":
         say("the data partition does not hold ext4; nothing to do")
@@ -85,10 +113,7 @@ def main():
         say(f"{todo['node']} is not {node}; refusing")
         return 0
     say(f"growing {node} by {todo['free_mib']} MiB to fill {disk}")
-    run(["sfdisk", "--quiet", "--no-reread", "--no-tell-kernel", "-N", str(todo["number"]), disk],
-        input=todo["script"])
-    run(["partx", "-u", "--nr", str(todo["number"]), disk])
-    run(["resize2fs", node])
+    rewrite_entry(todo["number"], disk, todo["script"], node)
     say("/data is now " + run(["df", "-h", "--output=size", "/data"]).split()[-1])
     return 0
 

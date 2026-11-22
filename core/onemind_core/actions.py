@@ -23,13 +23,20 @@ This is where "AI never actuates without human approval" is enforced:
   app's database and its Secret); a hook that fails fails the install before anything is applied;
 - action types that are not about an app and have no executor step (node.join, later mesh.*) plug in a
   handler with register_handler(type, handler): the same ledger, approval rule and audit trail apply,
-  and the handler owns the precondition re-check and the effect (docs/leap/core/PLUMBING.md §2).
+  and the handler owns the precondition re-check and the effect (docs/leap/core/PLUMBING.md §2);
+- a feature type registered with physical=True (it moves or switches something in the world) is
+  fixed as physical at registration and, whatever its risk class: is approved only by an owner with a
+  passkey assertion and a hold of at least HOLD_MIN_MS, bound to its plan_sha256; is never accepted by a
+  standing approval nor filed by an automation; and is refused while the owner's motion lockout is on.
+  It is separate from risk "actuate", which also covers an OS install reboot and node.wake (#723).
 """
 
 from __future__ import annotations
 
 import dataclasses
+import hashlib
 import inspect
+import json
 import logging
 import threading
 from collections.abc import Callable
@@ -48,7 +55,9 @@ from .catalog import APP_ID_RE, AppEntry, Catalog
 from .errors import ApiError, SemanticValueError
 from .executors import AgentSecret, ExecResult, Executor
 from . import lifecycle as lc
+from . import streams
 from .scan import scan_problem
+from .approvalcard import APPROVAL_LIMIT_VALUE, HOLD_MIN_MS, approval_card, hold_required  # noqa: F401 (re-exported)
 from .ledger import Action, ActionRepository, iso, new_action_id, utc
 from .taint import PLAN_KEY, TaintLedger, plan_taint
 
@@ -68,9 +77,13 @@ APP_CLAIMS: dict[str, tuple[str, frozenset[str], bool]] = {
 
 
 # Handler action types whose module reconciles them itself when it registers (reconcile_interrupted
-# runs before the routers register, so self.handlers is still empty then). Types of FeatureAction are
-# not in this set: they are marked outcome_unknown here, as before.
-SELF_RECONCILED_TYPES = frozenset({"node.join"})
+# runs before the routers register, so self.handlers is still empty then). Other FeatureAction types
+# are not in this set: they are marked outcome_unknown here, as before. The host actions are: a restart,
+# shutdown or OS install reboots the box and so restarts the gateway while the host executor is still
+# finishing them; hostlink.py reads the verdict from the host's journal at startup (HOST-ACTIONS.md).
+SELF_RECONCILED_TYPES = frozenset({
+    "node.join", "os.update.install", "system.restart", "system.shutdown", "system.factory_reset",
+})
 
 
 class ActionHandler(Protocol):
@@ -102,6 +115,17 @@ class ApprovalInput:
     sealed: dict | None = None
     override: dict | None = None
     webauthn: bool = False
+    # How long the owner held the approve control, in ms (hold-to-approve). A physical action needs
+    # at least HOLD_MIN_MS; the passkey assertion, not this number, is the proof of presence.
+    hold_ms: int | None = None
+
+
+def physical_plan(action_type: str, params: dict, card: dict) -> tuple[dict, str]:
+    """(plan, plan_sha256) of a physical request: the fingerprint covers type, params and card, so any
+    changed parameter or limit needs a new approval (contract §12.4)."""
+    plan = {"type": action_type, "params": params, "approval": card}
+    body = json.dumps(plan, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return plan, "sha256:" + hashlib.sha256(body.encode()).hexdigest()
 
 
 class ActionParams(BaseModel):
@@ -370,6 +394,15 @@ class FeatureAction:
     claim: Callable[["Action"], str | None] | None = None
     release: Callable[["Action"], None] | None = None
     background: bool = False
+    # A feature may derive risk from its immutable request; approval must match it.
+    risk_for: Callable[[dict], str] | None = None
+    # #723: it moves or switches something physical. Fixed at registration, independent of risk:
+    # passkey and hold-to-approve, plan-bound, never a standing approval or automation, lockout applies.
+    physical: bool = False
+    # Physical types: the limits with units and the optional preview drawn on the approval card,
+    # derived from the request's params (part of plan_sha256).
+    limits_for: Callable[[dict], list[dict]] | None = None
+    preview_for: Callable[[dict], dict | None] | None = None
 
 
 FEATURE_OUTCOMES = ("succeeded", "failed", "outcome_unknown")
@@ -390,6 +423,8 @@ class InstallHook:
     name: str
     prepare: Callable[[AppEntry, "Action"], list[dict]]
     removed: Callable[[AppEntry, "Action"], None] | None = field(default=None)
+    # Security cleanup must precede removal, including a failed executor.
+    removing: Callable[[AppEntry, "Action"], None] | None = field(default=None)
 
 
 class ActionService:
@@ -422,12 +457,16 @@ class ActionService:
         self.owner_override: Any = None  # override.OwnerOverride
         self.feature_types: dict[str, FeatureAction] = {}
         self.install_hooks: list[InstallHook] = []
+        # A feature-owned workload identity, handed only to the executor after preparation.
+        self.workload_credential: Callable[[Action, AppEntry], AgentSecret | None] | None = None
         self._finish_lock = threading.Lock()
         # Contract §12.1 / H-14: most actions one non-owner requester may have awaiting approval.
         # 0 = no cap. Set from the limits settings section (guard.py).
         self.max_pending_per_requester = 10
         # AIG-04: who read third-party text lately. Fed by the MCP layer; read when a request is filed.
         self.taint = TaintLedger(clock)
+        # AIG-03 (#167): fn(principal) raises ApiError to refuse a fresh request (agent budget, cancel).
+        self.requester_checks: list[Callable[[Principal], None]] = []
         self.handlers: dict[str, ActionHandler] = {}
         # How a background feature action's run() is started after approval; tests make it synchronous.
         self.spawn: Callable[[Callable[[], None]], None] = _worker
@@ -436,6 +475,12 @@ class ActionService:
         # Extra preconditions for lifecycle types: fn(type, params, app, phase) raises ApiError;
         # phase is "request" or "approve" (§12.22 dependencies, host ports, settings values).
         self.app_checks: list[Callable[[str, dict, AppEntry, str], None]] = []
+        # Checks on the app id alone, before the catalog is asked: fn(type, app_id) raises ApiError.
+        # A native built-in has no catalog entry, and removing it must still be 409, not 404 (#603).
+        self.id_checks: list[Callable[[str, str], None]] = []
+        # Feature-owned actor/type policies. Side-effect-free checks must return
+        # True explicitly; evaluate before filing or replaying any request.
+        self.request_checks: list[Callable[[Principal, str], bool]] = []
         # Run after every lifecycle dispatch with (action, outcome); a failing hook is logged and skipped.
         self.after_dispatch: list[Callable[[Action, str], None]] = []
         # §12.22: (app, merged settings by name, changed names) -> (ConfigMap data keyed by env name,
@@ -444,13 +489,69 @@ class ActionService:
         # §12.22 dependency network paths: app -> ([{from, to, provider, port, protocol, requirement}],
         # plan warnings). Set by the app store.
         self.dependency_paths: Callable[[AppEntry], tuple[list[dict], list[str]]] | None = None
+        # CORE-FABRIC-4 (#171): app -> placement.schedule (the machine to pin to, the GPU request) or None.
+        # Set by the app store; hashed into the plan so an approval covers exactly that machine.
+        self.placement: Callable[[AppEntry], dict | None] | None = None
+        # #723: the owner's motion lockout (physical.py). True refuses every physical request and
+        # approval; a failing read counts as locked.
+        self.motion_lockout: Callable[[], bool] = lambda: False
 
     def register_type(self, action_type: str, spec: FeatureAction) -> None:
         if action_type in APP_CLAIMS or action_type in self.feature_types or action_type in self.handlers:
             raise ValueError(f"action type {action_type} is already registered")
         if spec.risk not in ("read", "write", "sensitive", "destructive", "actuate"):
             raise ValueError(f"{action_type}: unknown risk class {spec.risk!r}")
+        if spec.physical:
+            if spec.requesters & {"automation", "policy"}:
+                raise ValueError(f"{action_type}: a physical type is never requested by an automation or policy")
+            from .automation import registry  # imported late: the registry imports ActionType from here
+
+            registry.mark_physical(action_type)
         self.feature_types[action_type] = spec
+
+    def is_physical(self, action_type: str) -> bool:
+        spec = self.feature_types.get(action_type)
+        return spec is not None and spec.physical
+
+    def _locked(self) -> bool:
+        try:
+            return bool(self.motion_lockout())
+        except Exception:  # fail closed: a lockout that cannot be read is on
+            log.exception("motion lockout read failed")
+            return True
+
+    def _refuse_if_locked(self) -> None:
+        if self._locked():
+            raise ApiError(409, "conflict", "the owner's motion lockout is on: no physical action is filed or approved",
+                           reason="motion_lockout")
+
+    def _physical_plan(self, action_type: str, spec: FeatureAction, params: dict, risk: str) -> tuple[dict, str]:
+        try:
+            card = approval_card(risk, True, spec.limits_for(params) if spec.limits_for else None,
+                                 spec.preview_for(params) if spec.preview_for else None)
+        except ValueError as exc:
+            raise ApiError(422, "conflict", f"{action_type}: {exc}"[:500]) from None
+        return physical_plan(action_type, params, card)
+
+    def _check_physical_approval(self, principal: Principal, a: Action, spec: FeatureAction,
+                                 plan_sha256: str | None, extra: ApprovalInput, standing: dict | None) -> None:
+        """The extra rules of a physical action (#723), checked before anything is claimed."""
+        if standing is not None or not principal.is_owner:
+            raise self._deny(principal, f"approve physical action {a.type} (only a person, never a standing approval)", a.id)
+        self._refuse_if_locked()
+        if not extra.webauthn:
+            raise ApiError(401, "unauthenticated", f"{a.type} moves something physical: approve it with your passkey",
+                           reason="step_up_required")
+        if extra.hold_ms is None or extra.hold_ms < HOLD_MIN_MS:
+            raise ApiError(409, "conflict", f"{a.type} moves something physical: hold to approve ({HOLD_MIN_MS} ms)",
+                           reason="hold_required")
+        if plan_sha256 is None:
+            raise ApiError(409, "stale_precondition", "send plan_sha256 so the approval is bound to the plan you read",
+                           reason="plan_unchecked")
+        _, fresh = self._physical_plan(a.type, spec, a.params, a.risk or spec.risk)
+        if a.plan_sha256 is None or plan_sha256 != a.plan_sha256 or fresh != a.plan_sha256:
+            raise ApiError(409, "stale_precondition", "the parameters or limits changed since the request; ask again",
+                           reason="plan_changed")
 
     # ---- handlers for non-app action types ---------------------------------------------
     def register_handler(self, action_type: str, handler: ActionHandler) -> None:
@@ -467,11 +568,15 @@ class ActionService:
         """
         if action_type not in self.handlers:
             raise ValueError(f"no handler for action type {action_type!r}")
+        from .automation import registry  # imported late: the registry imports ActionType from here
+
         now = self.clock()
         action = Action(
             id=new_action_id(), type=action_type, params=params, state="requested",
             requested_by=requested_by, idempotency_key=idempotency_key,
             created_at=now, updated_at=now, expires_at=utc(expires_at),
+            # #723: the §12.5 risk class, so the approval card asks for hold on a destructive type.
+            risk=registry.risk_of(action_type, params) if registry.known(action_type) else None,
         )
         stored, created = self.repo.create(action)
         if not created:
@@ -503,6 +608,12 @@ class ActionService:
             "authz.denied", principal.as_dict(), action_id, {"attempted": what, "reason": "permission_denied"}
         )
         return ApiError(403, "permission_denied", f"{principal.kind}/{principal.role} may not {what}")
+
+    def _check_request(self, principal: Principal, action_type: str) -> None:
+        if not principal.may_request_action(action_type) or any(
+            check(principal, action_type) is not True for check in self.request_checks
+        ):
+            raise self._deny(principal, f"request {action_type}")
 
     def _get(self, action_id: str) -> Action:
         a = self.repo.get(action_id)
@@ -650,7 +761,9 @@ class ActionService:
         network = None
         if self.dependency_paths is not None:
             network = self.dependency_paths(app)
-        rendered = lc.render_plan(action_type, params, app, self.repo.get_runtime(app.id), status, network)
+        sched = self.placement(app) if self.placement is not None and action_type in ("app.install", "app.update") else None
+        rendered = lc.render_plan(action_type, params, app, self.repo.get_runtime(app.id), status, network,
+                                  streams.plan_entries(app.id, app.manifest), sched=sched)
         _, allowed, allow_absent = APP_CLAIMS[action_type]
         problem = None if (status in allowed or (status is None and allow_absent)) else (
             f"app {app.id!r} is {self.shown_status(status)}"
@@ -675,6 +788,7 @@ class ActionService:
         }
 
     def _create(self, principal: Principal, req: ActionRequest, reason: str | None = None) -> tuple[dict, bool]:
+        self._check_request(principal, req.type)
         if req.type not in APP_CLAIMS:
             return self._create_feature(principal, req, reason)
         if not principal.can_request_actions:
@@ -691,6 +805,8 @@ class ActionService:
         if expires_at <= now:
             raise ApiError(409, "expired", "expires_at is already in the past")
         self._check_pending_cap(principal)
+        for check in self.id_checks:
+            check(req.type, params["app_id"])
         app, problem = self._precondition(req.type, params["app_id"])
         if app is None:
             raise ApiError(404, "not_found", problem or "unknown app")
@@ -792,6 +908,8 @@ class ActionService:
                 principal, f"request an action on {app.id!r} after reading third-party text: {exc.decision.reason}")
 
     def _check_pending_cap(self, principal: Principal) -> None:
+        for check in self.requester_checks:
+            check(principal)
         cap = self.max_pending_per_requester
         if principal.is_owner or cap <= 0:
             return
@@ -856,7 +974,12 @@ class ActionService:
         if a.state != "awaiting_approval":
             raise ApiError(409, "conflict", f"action is {a.state}, not awaiting_approval")
         if a.type in self.feature_types:
-            return self._approve_feature(principal, a, self.feature_types[a.type], standing)
+            spec = self.feature_types[a.type]
+            facts = None
+            if spec.physical:
+                self._check_physical_approval(principal, a, spec, plan_sha256, extra, standing)
+                facts = {"physical": True, "hold_ms": extra.hold_ms, "approval": "passkey", "plan_sha256": a.plan_sha256}
+            return self._approve_feature(principal, a, spec, standing, facts)
         handler = self.handlers.get(a.type)
         if handler is not None:
             return self._approve_handled(principal, a, handler)
@@ -1008,6 +1131,10 @@ class ActionService:
         agent = self._agent_grant(a, app)
         hook_steps: list[dict] = []
         try:
+            if a.type == "app.remove":
+                for hook in self.install_hooks:
+                    if hook.removing is not None:
+                        hook.removing(app, a)
             if a.type == "app.install":
                 for hook in self.install_hooks:
                     hook_steps += [{"hook": hook.name, **st} for st in hook.prepare(app, a)]
@@ -1021,6 +1148,12 @@ class ActionService:
             ctx = dataclasses.replace(ctx, secrets=tuple(secrets))
             token = lc.set_progress_callback(self._progress_reporter(a))
             try:
+                if self.workload_credential is not None:
+                    credential = self.workload_credential(a, app)
+                    if credential is not None:
+                        if agent is not None:
+                            raise ValueError("a workload cannot have two principal kinds")
+                        agent = credential
                 result = self._run_executor(a, app, agent, ctx)
             except Exception as exc:  # unknown effect: never retry automatically
                 log.exception("executor crashed")
@@ -1116,8 +1249,9 @@ class ActionService:
             if a.type != "app.remove":
                 paths = tuple((p["provider"], p["port"]) for p in (a.plan or {}).get("network_paths") or ())
             sync = a.type != "app.install" or bool(paths)  # a fresh install has nothing to close
+        sched = self.placement(app) if self.placement is not None and a.type in ("app.install", "app.update") else None
         return lc.ExecContext(params=dict(a.params), settings=settings, credentials=grant, restart=restart,
-                              dependency_paths=paths, dependency_sync=sync)
+                              dependency_paths=paths, dependency_sync=sync, placement=sched)
 
     def _progress_reporter(self, a: Action):
         def report(step: str, pct: int) -> None:
@@ -1147,6 +1281,9 @@ class ActionService:
             self._revoke_agent(a, "app.remove")
             return AgentSecret(name=spec.secret, principal_id=spec.principal_id) if spec else None
         if spec is None:
+            if a.type == "app.update":
+                # A version published without spec.agent must not leave the old credential alive.
+                self._revoke_agent(a, "agent no longer declared")
             return None
         if a.type != "app.install":
             # Only an install issues a credential. Other actions must not rotate it: the app's
@@ -1243,8 +1380,12 @@ class ActionService:
     def request_feature(
         self, principal: Principal, action_type: str, params: dict, *, idempotency_key: str,
         expires_at: datetime, reason: str | None = None, audit_extra: dict | None = None,
+        pending_cap: bool = False,
     ) -> tuple[dict, bool]:
         """File a feature action: same ledger, idempotency and audit as POST /v1/actions.
+
+        pending_cap applies the per-requester limit on requests awaiting approval that POST /v1/actions
+        enforces (_check_pending_cap), for routes an agent can call in a loop.
 
         params are the feature's already-validated parameters (never secrets: they are stored and
         audited). audit_extra adds facts to the action.requested line, e.g. credentials: provided.
@@ -1254,7 +1395,8 @@ class ActionService:
 
         def create() -> tuple[dict, bool]:
             return self._file_feature(
-                principal, action_type, spec, params, idempotency_key, expires_at, reason, audit_extra)
+                principal, action_type, spec, params, idempotency_key, expires_at, reason, audit_extra,
+                pending_cap=pending_cap)
 
         return self._audited(principal, f"request {action_type}", None, data, create)
 
@@ -1283,39 +1425,60 @@ class ActionService:
     def _file_feature(
         self, principal: Principal, action_type: str, spec: FeatureAction, params: dict,
         idempotency_key: str, expires_at: datetime, reason: str | None, audit_extra: dict | None,
+        pending_cap: bool = False,
     ) -> tuple[dict, bool]:
+        self._check_request(principal, action_type)
         if not principal.can_request_actions or (not principal.is_owner and principal.kind not in spec.requesters):
             raise self._deny(principal, f"request {action_type}")
+        if spec.physical and principal.kind not in ("person", "agent"):  # never an automation or plugin
+            raise self._deny(principal, f"request physical action {action_type}")
         existing = self.repo.get_by_idempotency_key(idempotency_key)
         if existing is not None:
             if existing.type != action_type or existing.params != params or existing.requested_by.get("id") != principal.id:
                 raise ApiError(409, "conflict", "idempotency_key was already used for a different request")
             return self.expire_if_due(existing).to_json(), False
+        if pending_cap:
+            self._check_pending_cap(principal)  # the per-requester cap, plus the requester checks below
+        else:
+            for check in self.requester_checks:  # cancel/budget hold for every filing route, not only POST /v1/actions
+                check(principal)
         now = self.clock()
         exp = utc(expires_at)
         if exp <= now:
             raise ApiError(409, "expired", "expires_at is already in the past")
+        risk = spec.risk_for(params) if spec.risk_for else spec.risk
+        if risk not in {"read", "write", "sensitive", "destructive", "actuate"}:
+            raise ApiError(422, "conflict", "feature returned an invalid risk class")
+        plan, plan_sha = None, None
+        if spec.physical:
+            self._refuse_if_locked()
+            plan, plan_sha = self._physical_plan(action_type, spec, params, risk)
         action = Action(
             id=new_action_id(), type=action_type, params=params, state="requested",
             requested_by={"id": principal.id, "kind": principal.kind}, idempotency_key=idempotency_key,
             created_at=now, updated_at=now, expires_at=exp,
+            risk=risk, plan=plan, plan_sha256=plan_sha,  # #723: stored so the approval card can say hold
         )
         stored, created = self.repo.create(action)
         if not created:
             return self.expire_if_due(stored).to_json(), False
         taint = self.taint.get(principal.id)  # feature types never go to a standing approval; record it
         self.audit.append("action.requested", principal.as_dict(), stored.id, {
-            "type": action_type, "params": params, "risk": spec.risk, "expires_at": iso(exp),
+            "type": action_type, "params": params, "risk": risk, "expires_at": iso(exp),
             "requested_by": principal.id, **({"reason": reason} if reason else {}), **(audit_extra or {}),
             **({"tainted_by": list(taint.sources)} if taint else {}),
+            **({"physical": True, "plan_sha256": plan_sha} if spec.physical else {}),
         })
         moved = self.repo.transition(stored.id, {"requested"}, "awaiting_approval", self.clock())
         self.audit.append("action.awaiting_approval", None, stored.id, {})
         return (moved or stored).to_json(), True
 
     def _approve_feature(
-        self, principal: Principal, a: Action, spec: FeatureAction, standing: dict | None = None
+        self, principal: Principal, a: Action, spec: FeatureAction, standing: dict | None = None,
+        facts: dict | None = None,
     ) -> dict:
+        if spec.risk_for and a.risk != spec.risk_for(a.params):
+            raise ApiError(409, "stale_precondition", "the action risk changed after the request")
         problem = spec.check(a) if spec.check else None
         if problem:
             raise ApiError(409, "stale_precondition", problem)
@@ -1332,7 +1495,7 @@ class ActionService:
             raise ApiError(409, "conflict", "action was decided concurrently")
         ids = {"requested_by": a.requested_by.get("id"), "approved_by": principal.id, **(standing or {})}
         self.audit.append("action.approved", principal.as_dict(), a.id,
-                          {"type": a.type, "params": a.params, "risk": spec.risk, **ids})
+                          {"type": a.type, "params": a.params, "risk": a.risk or spec.risk, **ids, **(facts or {})})
         if self.repo.transition(a.id, {"accepted"}, "dispatched", self.clock()) is None:
             self._mark_outcome_unknown(a, "accepted action could not move to dispatched")
             return self._get(a.id).to_json()

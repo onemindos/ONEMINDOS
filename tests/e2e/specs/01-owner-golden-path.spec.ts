@@ -8,7 +8,7 @@ import { expect, test } from '@playwright/test';
 import { APPROVE_TIMEOUT_MS, hubEnv, type HubEnv } from '../lib/env';
 import { Hub } from '../lib/hub';
 import { recordAction } from '../lib/runlog';
-import { approveOnScreen, navTo, signIn } from '../lib/session';
+import { approveOnScreen, navTo, openTokenForm, signIn } from '../lib/session';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -24,6 +24,7 @@ test.beforeAll(async ({ request }) => {
 
 test('a wrong token is refused on the sign-in screen', async ({ page }) => {
   await page.goto('/');
+  await openTokenForm(page);
   await page.getByLabel('Access token').fill('not-a-real-token-0000000000000000');
   await page.getByRole('button', { name: 'Sign in' }).click();
   await expect(page.getByRole('alert')).toHaveText('That token was not accepted by the hub.');

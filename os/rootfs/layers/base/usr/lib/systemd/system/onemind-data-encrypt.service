@@ -1,0 +1,24 @@
+# SPDX-License-Identifier: Apache-2.0
+# First boot: make /data LUKS2 (blank partition only). Every boot: unlock it. Runs before any mount of the
+# data partition (local-fs-pre.target); data_encrypt.py says what it will never do. udev rule
+# 70-onemind-data-crypt.rules makes the unlocked device answer to PARTLABEL=onemind-data, so /etc/fstab is unchanged.
+[Unit]
+Description=OneMind: encrypt (first boot) and unlock the data partition
+DefaultDependencies=no
+After=systemd-udevd.service systemd-udev-trigger.service
+Wants=systemd-udev-trigger.service
+Before=local-fs-pre.target
+Wants=local-fs-pre.target
+Before=shutdown.target
+Conflicts=shutdown.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# Waiting for a person to type the recovery key must not time out; the prompt gives up after three tries.
+TimeoutStartSec=infinity
+# The leading '-' : a locked disk is not a failed unit; the data check turns it into recovery mode.
+ExecStart=-/usr/lib/onemind/data-encrypt
+
+[Install]
+WantedBy=sysinit.target

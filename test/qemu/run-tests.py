@@ -19,7 +19,16 @@ _ff = importlib.util.spec_from_file_location("failfast", os.path.join(os.path.di
 failfast = importlib.util.module_from_spec(_ff)
 _ff.loader.exec_module(failfast)
 
-ANSI = re.compile(rb"\x1b\[[0-9;?]*[A-Za-z]|\x1b[()][0-9A-B]|\r")
+ANSI = re.compile(rb"\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b\[[0-9;?]*[A-Za-z]|\x1b[()][0-9A-B]|\r")
+# Escape sequences that can sit in front of a command's first output line on the serial console.
+# Ubuntu 26.04's systemd (shell integration) emits an OSC 3008 context mark "ESC ] 3008;start=...;cwd=/root ESC \"
+# right before the output, which put "rauc v1.15.2" behind it and broke every "^name" match (#283).
+# Debian 13's systemd does not emit it, so the Debian leg is unchanged.
+ESC_SEQ = re.compile(r"\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b?\[\?[0-9;]*[A-Za-z]|\x1b\[[0-9;]*[A-Za-z]")
+
+
+def strip_escapes(text):
+    return ESC_SEQ.sub("", text)
 # The version stops at whitespace or ";": the fell-back line reads "version=2; slot B (v2) marked bad ...".
 GATE = r"HEALTH-GATE: \S+ RESULT (\S+) slot=(\w) version=([^\s;]+)([^\n]*)"
 ENV = "grub-editenv /boot/efi/EFI/BOOT/grubenv list"
@@ -45,7 +54,7 @@ BOARDS = {  # QEMU settings per board (CRITERIA.md §3 item 6)
 def envkv(out):
     # Compare only grubenv KEY=VALUE lines; escape fragments split across serial reads can leak
     # into captured text (lab rauc-1152 deviation 4).
-    out = re.sub(r"\x1b?\[\?[0-9;]*[A-Za-z]|\x1b\[[0-9;]*[A-Za-z]", "", out)
+    out = strip_escapes(out)
     return sorted(x.strip() for x in re.findall(r"^(?:ORDER=[AB ]+|[AB]_(?:OK|TRY)=\d+)[ \t]*$", out, re.M))
 
 
@@ -69,6 +78,8 @@ class VM:
         # Opt-in fail-fast (failfast.py): the boot harnesses set it; the T-battery must not (T6/T7 panic on purpose).
         self.failfast, self._watch = False, failfast.Watch()
         self.vars = None
+        self.fwd = FWD                  # host port forwarded to the guest :8080 (firewall.py runs two VMs)
+        self.extra_args = []            # more QEMU arguments (firewall.py: a second NIC on a socket link)
         if self.cfg["vars"]:
             self.vars = os.path.join(workdir, "VARS.fd")
             shutil.copy(self.cfg["vars"], self.vars)
@@ -76,9 +87,10 @@ class VM:
     def start(self):
         c = self.cfg
         cmd = [c["qemu"], "-machine", c["machine"], "-accel", self.accel, "-cpu", self.cpu,
-               "-smp", "4", "-m", "3072", "-nodefaults", "-display", "none", "-vga", "none",
-               "-nic", f"user,model=virtio-net-pci,restrict=on,hostfwd=tcp:127.0.0.1:{FWD}-:8080",
+               "-smp", "4", "-m", os.environ.get("ONEMIND_QEMU_MEM", "3072"), "-nodefaults", "-display", "none", "-vga", "none",
+               "-nic", f"user,model=virtio-net-pci,restrict=on,hostfwd=tcp:127.0.0.1:{self.fwd}-:8080",
                "-device", "i6300esb", "-action", "watchdog=reset"]
+        cmd += self.extra_args
         if c["code"]:
             cmd += ["-drive", f"if=pflash,format=raw,readonly=on,file={c['code']}",
                     "-drive", f"if=pflash,format=raw,file={self.vars}"]
@@ -86,6 +98,7 @@ class VM:
                 "-drive", f"if=virtio,format=raw,readonly=on,file={self.fx}/bundles.img"]
         if os.path.exists(f"{self.fx}/seed.img"):
             cmd += ["-drive", f"if=virtio,format=raw,readonly=on,file={self.fx}/seed.img"]
+        cmd += list(getattr(self, "extra_args", []))     # dataenc.py adds a TPM here; empty for every other harness
         cmd += ["-serial", "stdio", "-monitor", "none"]
         self.mark(f"QEMU START {' '.join(cmd)}")
         self.proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
@@ -140,7 +153,7 @@ class VM:
         with self.lock:
             out = self.buf[start:m.start()]
         # Escape fragments split across serial reads survive ANSI stripping (lab deviation 4).
-        return int(m.group(1)), re.sub(r"\x1b?\[\?[0-9;]*[A-Za-z]|\x1b\[[0-9;]*[A-Za-z]", "", out)
+        return int(m.group(1)), strip_escapes(out)
 
     def wait_gate(self, timeout=1800):
         m = self.expect(GATE, timeout)

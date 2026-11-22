@@ -1,18 +1,29 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { WiringApi } from './wiring';
+import { getPasskey } from '../lib/webauthn';
+import { withProtocol } from '../lib/protocol';
 import type * as W from './wiring';
-import { OneMind, OneMindError, type operations } from '@onemind/sdk';
+import { OneMind, OneMindError, type components, type operations } from '@onemind/sdk';
+import type { FabricSummary, JoinTicket, MeshView } from '@onemind/ui';
+import type { AppSecrets, SealedInput, SecretsPublicKey } from '@onemind/ui';
+
+/** `POST /v1/browsers/{app_id}/session` (#692): the person's own browser host and profile. */
+export type BrowserSession = components['schemas']['BrowserSession'];
+
+/** `GET /v1/os/about` (UMB-P14): device facts per node; never a serial number or an address. */
+export type AboutBox = components['schemas']['About'];
 import {
   ApiError,
   type Action,
   type ActionRequest,
-  type ActionType, type AppParams, type PlanPreview, type AppSettings,
+  type ActionType, type AppParams, type ApproveBody, type PlanPreview, type AppSettings,
   type AppDependencies, type AppHostPorts, type CommunitySource, type ComposeResult,
   type ApiErrorBody,
   type CatalogApp,
   type Instance,
   type MachineCapabilities,
   type MachineRecord,
+  type MachineSnapshot,
   type NodeRecord,
 } from './types';
 
@@ -20,24 +31,62 @@ import {
  * Everything the dashboard is allowed to ask the hub. One method per §3 route,
  * nothing else (contract §5: "it calls only the §3 API").
  */
+export type PluginKeyInfo = components["schemas"]["SigningKey"];
+export type PluginKeyInput = components["schemas"]["KeyRequest"];
+export type PluginKeyRevokeInput = components["schemas"]["RevokeRequest"];
+
 export interface OneMindApi extends WiringApi {
+  pluginSigningKeys?(): Promise<components["schemas"]["SigningKeys"]>;
+  requestPluginSigningKey?(body: PluginKeyInput): Promise<components["schemas"]["Action"]>;
+  revokePluginSigningKey?(keyId: string, body: PluginKeyRevokeInput): Promise<components["schemas"]["Action"]>;
   onboardingSettings(): Promise<FirstRunSettings>;
   saveOnboardingSettings(body: FirstRunSettingsBody): Promise<FirstRunSettings>;
+  /** Server-side wizard state: whether to open the wizard and where the emergency kit stands. */
+  onboardingState(): Promise<FirstRunState>;
+  /** Issues the emergency kit. The key is in this one answer only; callers must not store or log it. */
+  issueKit?(): Promise<IssuedKitResponse>;
+  confirmKit?(answers: Record<string, string>): Promise<void>;
   backupDestinations(): Promise<BackupDestinationRecord[]>;
   healthz(): Promise<{ ok: boolean }>;
   instance(): Promise<Instance>;
+  /** GET /v1/instance/name: open, so the sign-in page can say which box this is. Absent on test doubles. */
+  instanceName?(): Promise<{ name: string }>;
   nodes(): Promise<NodeRecord[]>;
   node(nodeId: string): Promise<NodeRecord>;
   apps(): Promise<CatalogApp[]>;
+  /** UMB-P14: absent on the mock gateway, which has no device facts. */
+  about?(): Promise<AboutBox>;
   /** MACH-01: absent on the mock gateway, which has no machines. */
   machines?(): Promise<MachineRecord[]>;
   machineCapabilities?(): Promise<MachineCapabilities>;
+  /** CORE-FABRIC: mesh and fabric reads, the owner's one-time join ticket, the box CA. Absent on the mock gateway. */
+  meshView?(): Promise<MeshView>;
+  fabricSummary?(): Promise<FabricSummary>;
+  tlsInfo?(): Promise<TlsInfo>;
+  createJoinTicket?(role: 'worker' | 'leaf'): Promise<JoinTicket>;
+  /** Where the open box CA certificate is served (GET /v1/tls/ca.crt); a plain link, no token needed. */
+  caCertUrl?(format: 'der' | 'pem'): string;
+  machineSnapshots?(name: string): Promise<MachineSnapshot[]>;
   appPlan?(id: string): Promise<PlanPreview>;
   previewAction?(type: ActionType, params: AppParams): Promise<PlanPreview>;
   appSettings?(id: string): Promise<AppSettings>;
   appLogs?(id: string): Promise<string>;
+  /** Which secret keys an app declares and whether each is set. Never a value. */
+  appSecrets?(id: string): Promise<AppSecrets>;
+  /** The box key the browser seals secret values to. */
+  secretsPublicKey?(): Promise<SecretsPublicKey>;
+  /** Files an `app.configure` with sealed secret changes; it waits in Approvals for the owner. */
+  requestSecretsChange?(id: string, body: SecretsChangeBody, key: { idempotency_key: string; expires_at: string }): Promise<Action>;
   appDependencies?(id: string): Promise<AppDependencies>;
   appHostPorts?(id: string): Promise<AppHostPorts>;
+  /** Sets the sign-in cookie app hosts accept (POST /v1/auth/app-session). Absent on the mock gateway. */
+  openAppSession?(): Promise<void>;
+  /** #692: start the signed-in person's own browser pod (their profile is made the first time). Absent on the mock gateway. */
+  openBrowser?(appId: string): Promise<BrowserSession>;
+  /** #692: stop the person's browser pod; the profile stays. */
+  closeBrowser?(appId: string): Promise<BrowserSession>;
+  /** #692: file browser.profile.reset for the person's own profile; nothing is erased until an owner approves. */
+  resetBrowserProfile?(appId: string): Promise<Action>;
   sources?(): Promise<CommunitySource[]>;
   /** Files a `source.add` request; it waits in Approvals until the owner approves it. */
   requestSourceAdd?(params: SourceAddParams, key: { idempotency_key: string; expires_at: string }): Promise<Action>;
@@ -45,12 +94,34 @@ export interface OneMindApi extends WiringApi {
   createAction(req: ActionRequest): Promise<Action>;
   actions(): Promise<Action[]>;
   action(id: string): Promise<Action>;
-  approve(id: string, planSha256?: string): Promise<Action>;
+  approve(id: string, body?: ApproveBody): Promise<Action>;
+  /** §12.4: the passkey challenge bound to this action and its plan. Absent on the demo gateway. */
+  approveOptions?(id: string): Promise<ApproveOptions>;
   deny(id: string): Promise<Action>;
   /** Hub clock minus browser clock (ms), learned from responses; undefined until known. */
   hubOffsetMs(): number | undefined;
+  /**
+   * GET /v1/events (SSE) through the SDK: calls `onEvent` for each event until `signal` aborts.
+   * Rejects when the hub has no stream (4xx), so the caller keeps polling. Absent on the mock gateway.
+   */
+  watchEvents?(onEvent: (type: string) => void, signal: AbortSignal): Promise<void>;
+  /** GET /v1/backups/status, validated to be an object. Absent on the mock gateway. */
+  backupsStatus?(): Promise<Record<string, unknown>>;
+  /** GET /v1/os/updates, validated to be an object. Absent on the mock gateway. */
+  osUpdates?(): Promise<Record<string, unknown>>;
 }
 
+/** GET /v1/tls (core routers/net.py). */
+export interface TlsInfo { ca_sha256: string; names: string[]; not_after: string | null; https: boolean }
+
+/** POST /v1/actions/{id}/approve-options: sign `publicKey` with a passkey, then approve with the result. */
+export interface ApproveOptions {
+  challenge: string;
+  action_sha256: string;
+  plan_sha256: string | null;
+  expires_at: string;
+  publicKey: Record<string, unknown>;
+}
 export interface FirstRunSettingsBody {
   box_name: string;
   time_zone: string;
@@ -61,6 +132,18 @@ export interface FirstRunSettings extends Omit<FirstRunSettingsBody, 'box_name' 
   box_name: string | null;
   time_zone: string | null;
   saved: boolean;
+}
+export interface SecretsChangeBody { sealed?: SealedInput; generate: string[]; clear: string[]; reason?: string }
+export interface FirstRunState {
+  complete: boolean;
+  settings_saved: boolean;
+  backups_enabled: boolean;
+  destinations: number;
+  kit: { state: 'missing' | 'issued' | 'confirmed'; confirmed_at: string | null; fingerprint: string | null; positions: number[] };
+}
+export interface IssuedKitResponse {
+  kit: FirstRunState['kit'];
+  one_time: { groups: string[]; check: string; text: string };
 }
 export interface SourceAddParams { name: string; url: string; commit: string }
 export interface BackupDestinationRecord { id: string; kind: string; label: string }
@@ -76,6 +159,7 @@ const KNOWN_CODES = new Set([
   'rate_limited',
   'payload_too_large',
   'policy_refused',
+  'upgrade_required',
 ]);
 
 function isErrorBody(v: unknown): v is ApiErrorBody {
@@ -94,6 +178,9 @@ export class HttpApi implements OneMindApi {
   private readonly sdk: OneMind;
   onboardingSettings = () => this.req<FirstRunSettings>('GET', '/v1/onboarding/settings');
   saveOnboardingSettings = (body: FirstRunSettingsBody) => this.req<FirstRunSettings>('PUT', '/v1/onboarding/settings', body);
+  onboardingState = () => this.req<FirstRunState>('GET', '/v1/onboarding/state');
+  issueKit = () => this.req<IssuedKitResponse>('POST', '/v1/backups/kit');
+  confirmKit = async (answers: Record<string, string>) => { await this.req<unknown>('POST', '/v1/backups/kit/confirm', { answers }); };
   backupDestinations = () => this.req<BackupDestinationRecord[]>('GET', '/v1/backups/destinations', undefined, 'array');
   private readonly base: string;
   private readonly token: string;
@@ -103,7 +190,8 @@ export class HttpApi implements OneMindApi {
   constructor(opts: { token: string; baseUrl?: string; fetchFn?: FetchLike }) {
     this.base = (opts.baseUrl ?? '').replace(/\/$/, '');
     this.token = opts.token;
-    this.fetchFn = opts.fetchFn ?? ((input, init) => fetch(input, init));
+    // Declares this build's protocol generation and watches the hub's range (lib/protocol.ts).
+    this.fetchFn = withProtocol(opts.fetchFn ?? ((input, init) => fetch(input, init)));
     this.sdk = new OneMind({ baseUrl: new URL(this.base || '/', globalThis.location?.origin ?? 'http://localhost').href, token: opts.token, fetch: (input, init) => this.fetchFn(String(input), init), retries: 1 });
   }
 
@@ -166,6 +254,9 @@ export class HttpApi implements OneMindApi {
   healthz() {
     return this.req<{ ok: boolean }>('GET', '/healthz');
   }
+  instanceName() {
+    return this.req<{ name: string }>('GET', '/v1/instance/name');
+  }
   instance() {
     return this.req<Instance>('GET', '/v1/instance');
   }
@@ -206,9 +297,9 @@ export class HttpApi implements OneMindApi {
       return !req.plan_sha256 || action.plan_sha256 === req.plan_sha256;
     });
   }
-  private async sdkCall<T>(method: 'GET' | 'POST', path: string, body?: unknown, array = false): Promise<T> {
+  private async sdkCall<T>(method: 'GET' | 'POST', path: string, body?: unknown, array = false, headers?: Record<string, string>, retry?: boolean): Promise<T> {
     try {
-      const value = await this.sdk.call<T>({ method, path, body });
+      const value = await this.sdk.call<T>({ method, path, body, ...(headers ? { headers } : {}), ...(retry !== undefined ? { retry } : {}) });
       if (!value || typeof value !== 'object' || Array.isArray(value) !== array) throw new ApiError(200, 'unknown', 'Unexpected response from the hub');
       return value;
     }
@@ -217,8 +308,32 @@ export class HttpApi implements OneMindApi {
       throw e;
     }
   }
+  meshView() { return this.sdkCall<MeshView>('GET', '/v1/mesh'); }
+  fabricSummary() { return this.sdkCall<FabricSummary>('GET', '/v1/fabric'); }
+  tlsInfo() { return this.sdkCall<TlsInfo>('GET', '/v1/tls'); }
+  caCertUrl(format: 'der' | 'pem') { return `${this.base}/v1/tls/ca.crt?format=${format}`; }
+  /** One POST, never retried: a second ticket would be a second live join code. The code is returned once. */
+  async createJoinTicket(role: 'worker' | 'leaf') {
+    const t = await this.sdkCall<JoinTicket>('POST', '/v1/fabric/join-tickets', { role });
+    if (typeof t.ticket_id !== 'string' || t.role !== role || typeof t.qr_payload !== 'string' || typeof t.hub_ca_sha256 !== 'string' || !Number.isFinite(Date.parse(t.expires_at)) || typeof t.one_time?.join_code !== 'string') throw new ApiError(201, 'unknown', 'Invalid gateway join ticket');
+    return t;
+  }
+  watchEvents(onEvent: (type: string) => void, signal: AbortSignal) {
+    return this.sdk.events.subscribe({ signal }, (e) => onEvent(e.type)).catch((e: unknown) => {
+      if (signal.aborted) return;
+      if (e instanceof OneMindError) throw new ApiError(e.status, KNOWN_CODES.has(e.code) || e.code === 'network' ? e.code as ApiError['code'] : 'unknown', e.message, e.reason);
+      throw e;
+    });
+  }
+  backupsStatus() { return this.sdkCall<Record<string, unknown>>('GET', '/v1/backups/status'); }
+  osUpdates() { return this.sdkCall<Record<string, unknown>>('GET', '/v1/os/updates'); }
+  about() { return this.req<AboutBox>('GET', '/v1/os/about'); }
+  pluginSigningKeys() { return this.sdkCall<components["schemas"]["SigningKeys"]>('GET', '/v1/plugin-trust/keys'); }
+  requestPluginSigningKey(body: PluginKeyInput) { return this.sdkCall<components["schemas"]["Action"]>('POST', '/v1/plugin-trust/keys/requests', body); }
+  revokePluginSigningKey(keyId: string, body: PluginKeyRevokeInput) { return this.sdkCall<components["schemas"]["Action"]>('POST', `/v1/plugin-trust/keys/${encodeURIComponent(keyId)}/revoke`, body); }
   machines() { return this.req<MachineRecord[]>('GET', '/v1/machines', undefined, 'array'); }
   machineCapabilities() { return this.req<MachineCapabilities>('GET', '/v1/machines/capabilities'); }
+  machineSnapshots(name: string) { return this.req<MachineSnapshot[]>('GET', `/v1/machines/${encodeURIComponent(name)}/snapshots`, undefined, 'array'); }
   appPlan(id: string) { return this.sdkCall<PlanPreview>('GET', `/v1/apps/${encodeURIComponent(id)}/plan`); }
   previewAction(type: ActionType, params: AppParams) { return this.sdkCall<PlanPreview>('POST', '/v1/plans', { type, params }); }
   async appSettings(id: string) {
@@ -236,6 +351,12 @@ export class HttpApi implements OneMindApi {
     const okChoice = (c: AppDependencies['requires'][number]['choices'][number]) => !!c && typeof c.id === 'string' && typeof c.installed === 'boolean' && typeof c.in_catalog === 'boolean';
     if (!Array.isArray(raw.requires) || !Array.isArray(raw.dependents) || raw.requires.some((r) => !r || typeof r.id !== 'string' || !Array.isArray(r.choices) || !r.choices.every(okChoice)) || raw.dependents.some((d) => !d || typeof d.id !== 'string')) throw new ApiError(200, 'unknown', 'Invalid gateway dependencies');
     return raw;
+  }
+  async openBrowser(appId: string) { return checkBrowser(await this.sdkCall<BrowserSession>('POST', `/v1/browsers/${encodeURIComponent(appId)}/session`), appId); }
+  async closeBrowser(appId: string) { return checkBrowser(await this.sdkCall<BrowserSession>('POST', `/v1/browsers/${encodeURIComponent(appId)}/session/close`), appId); }
+  resetBrowserProfile(appId: string) { return this.sdkCall<Action>('POST', `/v1/browsers/${encodeURIComponent(appId)}/profile/reset`); }
+  async openAppSession() {
+    await this.req<void>('POST', '/v1/auth/app-session');
   }
   async appHostPorts(id: string) {
     const raw = await this.sdkCall<AppHostPorts>('GET', `/v1/apps/${encodeURIComponent(id)}/host-ports`);
@@ -260,6 +381,29 @@ export class HttpApi implements OneMindApi {
     if (typeof raw.ok !== 'boolean' || !raw.files || typeof raw.files !== 'object' || !Array.isArray(raw.refusals) || !Array.isArray(raw.warnings) || Object.values(raw.files).some((v) => typeof v !== 'string')) throw new ApiError(200, 'unknown', 'Invalid gateway Compose result');
     return raw;
   }
+  // ---- app secrets (§12.1 sealed input, §12.18). The SDK types these bodies as unknown, so each is checked here.
+  async appSecrets(id: string) {
+    const raw = await this.sdkCall<AppSecrets>('GET', `/v1/apps/${encodeURIComponent(id)}/secrets`);
+    const okKey = (k: AppSecrets['secrets'][number]['keys'][number]) => !!k && typeof k.key === 'string' && typeof k.set === 'boolean' && typeof k.required === 'boolean' && (k.source === 'owner' || k.source === 'generated');
+    if (raw.app_id !== id || !Array.isArray(raw.secrets) || !Array.isArray(raw.missing_required) || raw.secrets.some((d) => !d || typeof d.name !== 'string' || !Array.isArray(d.keys) || !d.keys.every(okKey))) throw new ApiError(200, 'unknown', 'Invalid gateway secrets');
+    return raw;
+  }
+  async secretsPublicKey() {
+    const raw = await this.sdkCall<SecretsPublicKey>('GET', '/v1/secrets/public-key');
+    if (raw.alg !== 'X25519' || raw.sealed_alg !== 'X25519-AES256GCM' || typeof raw.key !== 'string' || typeof raw.key_id !== 'string') throw new ApiError(200, 'unknown', 'Invalid gateway secrets key');
+    return raw;
+  }
+  async requestSecretsChange(id: string, body: SecretsChangeBody, key: { idempotency_key: string; expires_at: string }) {
+    const ambiguous = () => new ApiError(0, 'outcome_unknown', 'The request may have been recorded, but the gateway did not return it. Check Approvals before sending it again.');
+    let action: Action;
+    try { action = await this.sdkCall<Action>('POST', `/v1/apps/${encodeURIComponent(id)}/secrets`, { ...body, expires_at: key.expires_at }, false, { 'Idempotency-Key': key.idempotency_key }); }
+    catch (e) {
+      if (!(e instanceof ApiError) || e.status === 0 || e.status === 408 || e.status >= 500 || (e.status >= 200 && e.status < 300)) throw ambiguous();
+      throw e;
+    }
+    if (typeof action.id !== 'string' || !action.id || (action.type as string) !== 'app.configure' || action.params?.app_id !== id || action.idempotency_key !== key.idempotency_key) throw ambiguous();
+    return action;
+  }
   appLogs(id: string) { return this.req<string>('GET', `/v1/apps/${encodeURIComponent(id)}/logs?tail=200`, undefined, 'text'); }
   actions() {
     return this.req<Action[]>('GET', '/v1/actions', undefined, 'array');
@@ -267,9 +411,23 @@ export class HttpApi implements OneMindApi {
   action(id: string) {
     return this.req<Action>('GET', `/v1/actions/${encodeURIComponent(id)}`);
   }
-  /** Pass the card's plan_sha256 so the approval is bound to the plan the owner read (§12.4); a tainted agent request needs it. */
-  approve(id: string, planSha256?: string) {
-    return this.req<Action>('POST', `/v1/actions/${encodeURIComponent(id)}/approve`, planSha256 ? { plan_sha256: planSha256 } : undefined);
+  /** With a body (lib/approve.ts: plan hash, passkey, sealed secrets) it is sent as is. Without one,
+   *  a step_up_required answer is completed here with the action-bound passkey challenge (#180). */
+  async approve(id: string, body?: ApproveBody) {
+    const path = `/v1/actions/${encodeURIComponent(id)}/approve`;
+    if (body !== undefined) return this.req<Action>('POST', path, body);
+    try { return await this.req<Action>('POST', path); }
+    catch (error) {
+      if (!(error instanceof ApiError) || error.reason !== 'step_up_required') throw error;
+      const options = await this.sdkCall<components['schemas']['ApprovalChallenge']>('POST', path + '-options', {}, false, undefined, false);
+      const assertion = await getPasskey(options.publicKey);
+      return this.sdkCall<Action>('POST', path, {
+        webauthn: assertion, ...(options.plan_sha256 ? { plan_sha256: options.plan_sha256 } : {}),
+      }, false, undefined, false); // a consumed authenticator assertion must never be retried automatically
+    }
+  }
+  approveOptions(id: string) {
+    return this.req<ApproveOptions>('POST', `/v1/actions/${encodeURIComponent(id)}/approve-options`, {});
   }
   deny(id: string) {
     return this.req<Action>('POST', `/v1/actions/${encodeURIComponent(id)}/deny`);
@@ -387,4 +545,12 @@ export class HttpApi implements OneMindApi {
   auditVerify() {
     return this.req<W.AuditVerifyResult>('GET', '/v1/audit/verify');
   }
+}
+
+/** A browser session the window may load: for this app, on an http(s) URL whose first label is `<app>--<key>`. */
+export function checkBrowser(s: BrowserSession, appId: string): BrowserSession {
+  let url: URL | undefined;
+  try { url = new URL(s.url); } catch { url = undefined; }
+  if (s.app_id !== appId || !/^[0-9a-f]{16}$/.test(s.person_key) || (s.password != null && typeof s.password !== 'string') || !url || !['http:', 'https:'].includes(url.protocol) || url.hostname.split('.')[0] !== `${appId}--${s.person_key}`) throw new ApiError(200, 'unknown', 'Invalid gateway browser session');
+  return s;
 }

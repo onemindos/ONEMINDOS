@@ -6,13 +6,17 @@ import type { components } from "./gen/schema.js";
 import { AmbiguousResultError, errorFor, NetworkError, OneMindError, UnexpectedResponseError } from "./errors.js";
 import { EventsApi } from "./events.js";
 import { caFetch } from "./nodeca.js";
+import { PROTOCOL_HEADER, PROTOCOL_VERSION } from "./protocol.js";
 
 export type Instance = components["schemas"]["Instance"];
+export type StatusView = components["schemas"]["StatusView"];
 export type Node = components["schemas"]["Node"];
 export type CatalogApp = components["schemas"]["CatalogApp"];
 export type Action = components["schemas"]["Action"];
 export type AuditRecord = components["schemas"]["AuditRecord"];
 export type AuditVerify = components["schemas"]["AuditVerify"];
+/** This box's interfaces, gateway, DNS and listening ports, read only (`/v1/network`, owner only). */
+export type NetworkView = components["schemas"]["NetworkView"];
 /** The caller's own Home document (UMB-P07, `/v1/me/home`). */
 export type HomeView = components["schemas"]["HomeView"];
 export type HomeBody = components["schemas"]["HomeBody"];
@@ -113,7 +117,7 @@ export class OneMind {
     this.onWarning = opts.onWarning ?? ((m) => console.warn(`onemind: warning: ${m}`));
     this.onTrace = opts.onTrace;
     this.sleep = opts.sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms)));
-    this.events = new EventsApi(this);
+    this.events = new EventsApi(this, typeof opts.token === "string" && opts.token.length > 0);
   }
 
   /** ONEMIND_HUB + ONEMIND_TOKEN, else ONEMIND_GATEWAY_URL + ONEMIND_AGENT_TOKEN (contract §11.2).
@@ -161,10 +165,15 @@ export class OneMind {
 
   readonly instance = { get: () => this.call<Instance>({ method: "GET", path: "/v1/instance" }) };
 
+  /** status.get (FD-01): what needs attention, per source. A source that cannot be read is "unknown", never "ok". */
+  readonly status = { get: () => this.call<StatusView>({ method: "GET", path: "/v1/status" }) };
+
   readonly nodes = {
     list: () => this.call<Node[]>({ method: "GET", path: "/v1/nodes" }),
     get: (id: string) => this.call<Node>({ method: "GET", path: `/v1/nodes/${encodeURIComponent(id)}` }),
   };
+
+  readonly network = { view: () => this.call<NetworkView>({ method: "GET", path: "/v1/network" }) };
 
   readonly apps = {
     list: () => this.call<CatalogApp[]>({ method: "GET", path: "/v1/apps" }),
@@ -309,6 +318,7 @@ export class OneMind {
         method: r.method,
         headers: {
           Accept: "application/json",
+          [PROTOCOL_HEADER]: String(PROTOCOL_VERSION),
           ...(r.body !== undefined ? { "Content-Type": "application/json" } : {}),
           ...(r.headers ?? {}),
           ...(await this.authHeader()),

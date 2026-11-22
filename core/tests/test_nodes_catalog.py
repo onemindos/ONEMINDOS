@@ -111,7 +111,9 @@ CATALOG_KEYS = {
     "id", "name", "version", "description", "category", "icon", "license", "source",
     "archs", "requires", "web_port", "installed", "status", "data_kept",
     "links", "tier", "scan",  # §11.4
+    "build",  # app factory provenance
     "catalog_source",  # §12.22
+    "browser",  # #692: opened in a window with a per-person profile
 }
 VALID_APPS = {"uptime-kuma", "whoami", "hermes-like", "vault-like"}
 
@@ -127,6 +129,7 @@ def test_apps_catalog_shape(client):
     assert ku["archs"] == ["amd64", "arm64"]
     assert ku["requires"] == {"gpu": False, "minMemoryMb": 256}
     assert ku["installed"] is False and ku["status"] == "not_installed"
+    assert ku["browser"] is False
 
 
 @pytest.mark.parametrize("path", ["/v1/apps/uptime-kuma/icon"])

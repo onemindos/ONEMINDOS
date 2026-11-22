@@ -37,7 +37,7 @@ How the state is read back after a reboot (the gate's files, the same ones the g
 | Path | Owner | What |
 |---|---|---|
 | `/etc/onemind/update.conf` | image / owner | settings ([example](../../deploy/systemd/update.conf.example)) |
-| `/usr/lib/onemind/tuf/<channel>/root.json` | image | the only trust anchor |
+| `/usr/lib/onemind/tuf/<channel>/root.json` | image | the trust anchor; a rotated root is kept as `<state_dir>/tuf/<channel>/roots/N.root.json` and re-verified link by link from this file on every check |
 | `/data/onemind/update/status.json` | this package | state + history; onemindd's heartbeat reads it |
 | `/data/onemind/update/tuf/<channel>/` | go-tuf | last trusted metadata (gives rollback protection between checks) |
 | `/data/onemind/update/postpone-until` | owner | one RFC 3339 time; no auto-install before it |
@@ -68,7 +68,7 @@ The unit tests do the same in-process (`engine_test.go`): verify OK, expired tim
 
 ## v0 shortcuts and open items
 - **Gateway approval (REC-DEC-13) is not wired.** B4.2 says OS updates are approval-gated through the gateway; v0 follows BD-09's "security auto by default" on the box and treats `onemind update apply` at the console as the owner's approval. The `/v1/os/*` gateway API and the local Unix socket API come later.
-- **Offline grace (B4.3) is not implemented**: an expired timestamp simply fails the check (the box keeps running). USB/LAN mirror installs are not implemented.
+- **Offline grace and mirror installs (B4.3, #155) first slice.** `onemind update check|apply --mirror <dir>` reads the channel from a directory (a USB stick or a mounted LAN share; same flat layout as CHANNEL.md section 3) instead of the network. Nothing about trust is relaxed: the same image-shipped root, the same TUF cache (so a stick cannot replay older metadata), the same length and sha256 checks against the signed targets, and RAUC still verifies the bundle's own signature. The one relaxation is freshness: the TUF reference time is moved back by `offline_grace` (default 90 days, max 1 year, `0` = strict), so a stick built weeks ago still verifies. Online checks never get the grace. Left: automatic detection and mounting of a stick, a gateway/dashboard entry point, a QEMU test with a real RAUC bundle and no network, and root rotation from the stick.
 - **Metadata expiries:** this follows the shared interface (timestamp 1 d, snapshot 7 d, targets 30 d, root 1 y). Brief 30 B4.3 says 7 d / 30 d / 180 d; the pipeline sets them, the box only enforces what is signed. Flagged for the DEC owner.
 - **Environment-bad re-offer** uses the gate's `bad-releases` count; the re-offer of an abandoned trial on Pi 5 / `efi` route and the alert are not done.
 - **Data-migration hold** until commit and the E10 firmware-version record (B4.2) are not done.

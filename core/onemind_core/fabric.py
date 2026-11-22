@@ -52,6 +52,7 @@ from .auth import Principal
 from .ca import MESH_DOMAIN, BoxCA
 from .errors import ApiError
 from .executors import ExecResult
+from .jsonbody import JsonBody
 from .ledger import Action, Base, iso, utc
 from .mesh import ROLE_TAGS, MeshRefused, MeshService
 from .natsconf import NodeAccount, is_user_public_nkey, load_service_keys, write_accounts
@@ -109,6 +110,168 @@ def match_code(request_id: str, public_key_der: bytes) -> str:
     n = int.from_bytes(hashlib.sha256(request_id.encode() + public_key_der).digest()[:4], "big")
     c = _b32(n, 6)
     return f"{c[:2]}-{c[2:]}"
+
+
+# ---- the join QR (docs/architecture/FABRIC.md §4.3; vectors: sdk/testdata/join-qr/vectors.json) ----
+# One grammar, one builder (here) and three parsers (this one, internal/fabric/join.go ParseQR and
+# sdk/ts/src/joinqr.ts parseJoinQR) that must agree on every vector. Nothing is left to a language's
+# URL or query parser: they disagree on '+', ';', repeated keys, IP literals and trailing newlines.
+JOIN_QR_MAX_LEN = 640
+JOIN_QR_VERSIONS = (1, 2)
+JOIN_KINDS = ("worker", "leaf", "phone", "desktop", "browser", "sensor")  # v2 `kind`
+JOIN_MACHINE_KINDS = ("worker", "leaf")
+_QR_PREFIX_RE = re.compile(r"onemind-join:v([0-9]+)\?")
+_QR_KEY_RE = re.compile(r"[a-z]+")
+_QR_VALUE_RE = re.compile(r"[A-Za-z0-9._~%:/-]+")
+_QR_FIELDS = {1: ("code", "ca", "role", "hub"), 2: ("hub", "alt", "mdns", "ca", "code", "kind")}
+_QR_REQUIRED = {1: ("code", "ca", "hub"), 2: ("hub", "ca", "code", "kind")}
+_QR_CODE_V1_RE = re.compile(r"[0-9A-Za-z]{4}-?[0-9A-Za-z]{4}-?[0-9A-Za-z]{4}")
+_QR_CODE_V2_RE = re.compile(f"[{_CROCKFORD}]{{4}}-[{_CROCKFORD}]{{4}}-[{_CROCKFORD}]{{4}}")
+_QR_CA_RE = re.compile(r"[0-9a-f]{64}")
+_QR_HOSTPORT_RE = re.compile(r"([A-Za-z0-9.-]{1,253})(?::([1-9][0-9]{0,4}))?")
+_QR_LABEL_RE = re.compile(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?")
+_QR_OCTET_RE = re.compile(r"0|[1-9][0-9]{0,2}")
+_QR_MDNS_RE = re.compile(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.local")
+
+
+class JoinQRError(ValueError):
+    """A refused join QR; `reason` is the same word in Python, Go and TypeScript."""
+
+    def __init__(self, reason: str, message: str):
+        super().__init__(message)
+        self.reason = reason
+
+
+@dataclass(frozen=True)
+class JoinQR:
+    """A parsed join QR. v1 has no alt or mdns, and its optional `role` lands in `kind`."""
+    version: int
+    code: str
+    ca: str
+    hub: str
+    kind: str = ""
+    alt: str = ""
+    mdns: str = ""
+
+    def as_dict(self) -> dict:
+        return {"version": self.version, "code": self.code, "ca": self.ca, "hub": self.hub,
+                "kind": self.kind, "alt": self.alt, "mdns": self.mdns}
+
+
+def _qr_unescape(value: str) -> str | None:
+    """Strict percent-decoding: every '%' starts two hex digits; the result is printable ASCII."""
+    out, i = [], 0
+    while i < len(value):
+        ch = value[i]
+        if ch == "%":
+            pair = value[i + 1:i + 3]
+            if len(pair) != 2 or not re.fullmatch(r"[0-9A-Fa-f]{2}", pair):
+                return None
+            ch, i = chr(int(pair, 16)), i + 3
+        else:
+            i += 1
+        if not 0x21 <= ord(ch) <= 0x7E:
+            return None
+        out.append(ch)
+    return "".join(out)
+
+
+def _qr_https(value: str) -> str | None:
+    """`https://host[:port][/]` -> `https://host[:port]` (host lower-cased), else None. No userinfo,
+    path, query or fragment; the host is a DNS name or a dotted-quad IPv4 address (no IPv6 literal)."""
+    if not value.startswith("https://"):
+        return None
+    rest = value[len("https://"):]
+    if rest.endswith("/"):
+        rest = rest[:-1]
+    m = _QR_HOSTPORT_RE.fullmatch(rest)
+    if not m or (m.group(2) and int(m.group(2)) > 65535):
+        return None
+    host = m.group(1).lower()
+    labels = host.split(".")
+    if not all(_QR_LABEL_RE.fullmatch(lb) for lb in labels):
+        return None
+    if re.fullmatch(r"[0-9]+", labels[-1]) and not (
+            len(labels) == 4 and all(_QR_OCTET_RE.fullmatch(lb) and int(lb) <= 255 for lb in labels)):
+        return None
+    return "https://" + host + (":" + m.group(2) if m.group(2) else "")
+
+
+def parse_join_qr(payload: str) -> JoinQR:
+    """Parse `onemind-join:v1?…` or `onemind-join:v2?…`; raises JoinQRError (reason, message)."""
+    if not isinstance(payload, str):
+        raise JoinQRError("length", f"a join QR is at most {JOIN_QR_MAX_LEN} characters")
+    # ASCII first: Python counts code points, Go bytes and TS UTF-16 units, so a length check on a
+    # non-ASCII payload would give a different reason word in each language.
+    if not payload.isascii():
+        raise JoinQRError("charset", "a join QR is plain ASCII text")
+    if len(payload) > JOIN_QR_MAX_LEN:
+        raise JoinQRError("length", f"a join QR is at most {JOIN_QR_MAX_LEN} characters")
+    m = _QR_PREFIX_RE.match(payload)
+    if not m:
+        raise JoinQRError("prefix", "not a OneMind join code (expected onemind-join:v2?…)")
+    if m.group(1) not in ("1", "2"):
+        raise JoinQRError("version", f"unsupported join QR version v{m.group(1)} (this build reads v1 and v2)")
+    version = int(m.group(1))
+    allowed = _QR_FIELDS[version]
+    fields: dict[str, str] = {}
+    for part in payload[m.end():].split("&"):
+        key, eq, raw = part.partition("=")
+        value = _qr_unescape(raw) if eq and _QR_KEY_RE.fullmatch(key) and _QR_VALUE_RE.fullmatch(raw) else None
+        if value is None:
+            raise JoinQRError("syntax", "join QR is malformed (expected key=value pairs joined by &)")
+        if key not in allowed:
+            raise JoinQRError("unknown_field", f"join QR v{version} has no field {key!r}")
+        if key in fields:
+            raise JoinQRError("duplicate", f"join QR repeats the field {key!r}")
+        fields[key] = value
+    for key in _QR_REQUIRED[version]:
+        if key not in fields:
+            raise JoinQRError("missing_field", f"join QR v{version} needs the field {key!r}")
+    code, ca = fields["code"], fields["ca"]
+    if version == 1:
+        kind, ca = fields.get("role", ""), ca.lower()
+        if not _QR_CODE_V1_RE.fullmatch(code):
+            raise JoinQRError("code", "join code must look like 7KQ4-M2XP-9D3F")
+    elif not _QR_CODE_V2_RE.fullmatch(code):
+        raise JoinQRError("code", "join code must look like 7KQ4-M2XP-9D3F (Crockford, upper case, two dashes)")
+    if not _QR_CA_RE.fullmatch(ca):
+        raise JoinQRError("ca", "the box CA fingerprint must be 64 lower-case hex characters")
+    if version == 1:
+        if kind not in ("", *JOIN_MACHINE_KINDS):
+            raise JoinQRError("role", "role must be worker or leaf")
+    else:
+        kind = fields["kind"]
+        if kind not in JOIN_KINDS:
+            raise JoinQRError("kind", f"kind must be one of {', '.join(JOIN_KINDS)}")
+    hub = _qr_https(fields["hub"])
+    if hub is None:
+        raise JoinQRError("hub", "hub must be an https URL such as https://box.local (no user, path or query)")
+    alt = _qr_https(fields["alt"]) if "alt" in fields else ""
+    if alt is None:
+        raise JoinQRError("alt", "alt must be an https URL such as https://box.example.net (no user, path or query)")
+    mdns = fields.get("mdns", "")
+    if "mdns" in fields and not _QR_MDNS_RE.fullmatch(mdns):
+        raise JoinQRError("mdns", "mdns must be one lower-case name ending in .local, such as box1.local")
+    return JoinQR(version=version, code=code, ca=ca, hub=hub, kind=kind, alt=alt, mdns=mdns)
+
+
+def build_join_qr(*, hub: str, ca: str, code: str, kind: str, alt: str = "", mdns: str = "",
+                  version: int = 2) -> str:
+    """The one join QR builder. v2: hub, alt, mdns, ca, code, kind. v1 (what OS images up to now and
+    `deploy/install.sh` read): code, ca, role, hub. The result is parsed back, so a bad hub or a
+    fingerprint that is not 64 hex characters raises JoinQRError instead of reaching a screen."""
+    if version == 1:
+        if alt or mdns:
+            raise JoinQRError("unknown_field", "join QR v1 has no alt or mdns")
+        pairs = [("code", code), ("ca", ca), ("role", kind), ("hub", hub)]
+    elif version == 2:
+        pairs = [("hub", hub), ("alt", alt), ("mdns", mdns), ("ca", ca), ("code", code), ("kind", kind)]
+    else:
+        raise JoinQRError("version", f"unsupported join QR version v{version}")
+    payload = f"onemind-join:v{version}?" + "&".join(f"{k}={quote(v, safe='')}" for k, v in pairs if v)
+    parse_join_qr(payload)
+    return payload
 
 
 # ---- tables -------------------------------------------------------------------------------------------
@@ -279,7 +442,7 @@ class FabricRepository(SqlRepository):
 
 
 # ---- request bodies -----------------------------------------------------------------------------------
-class TicketRequest(BaseModel):
+class TicketRequest(JsonBody):
     model_config = ConfigDict(extra="forbid")
     role: str = Field(default="worker", pattern="^(worker|leaf|node)$")
     expires_in_s: int = Field(default=TICKET_DEFAULT_S, ge=60, le=TICKET_MAX_S)
@@ -473,7 +636,8 @@ class FabricService:
         if path is None:
             return False
         accounts = [NodeAccount(n["node_id"], n["nats_pubkey"]) for n in self.repo.nodes()]
-        changed = write_accounts(path, accounts, load_service_keys(self.d.fabric.nats_service_keys))
+        changed = write_accounts(path, accounts, load_service_keys(self.d.fabric.nats_service_keys),
+                                 self.d.fabric.jetstream_max_bytes)
         if changed:
             log.info("NATS accounts updated (%d nodes)", len(accounts))
         return changed
@@ -487,15 +651,22 @@ class FabricService:
         code = new_join_code()
         tid = new_id("tkt_")
         expires = now + timedelta(seconds=body.expires_in_s)
-        self.repo.add_ticket(id=tid, code_sha256=code_hash(code), role=role, labels=dict(body.labels),
-                             created_by=principal.id, created_at=now, expires_at=expires)
         ca = self.d.box_ca.ca_fingerprint()
         hub = self.hub_url()
-        payload = f"onemind-join:v1?code={code}&ca={ca}&role={role}&hub={quote(hub, safe='')}"
+        mdns = f"{self.d.net.box()}.local"
+        try:  # v1 for OS images and install.sh that read only v1; v2 (FABRIC §4.3) for new clients
+            payload = build_join_qr(version=1, hub=hub, ca=ca, code=code, kind=role)
+            payload_v2 = build_join_qr(hub=hub, ca=ca, code=code, kind=role,
+                                       mdns=mdns if _QR_MDNS_RE.fullmatch(mdns) else "")
+        except JoinQRError as exc:  # a misconfigured hub URL: refuse before any ticket exists
+            raise ApiError(409, "conflict", f"cannot make a join QR: {exc}", reason=f"join_qr_{exc.reason}") from None
+        self.repo.add_ticket(id=tid, code_sha256=code_hash(code), role=role, labels=dict(body.labels),
+                             created_by=principal.id, created_at=now, expires_at=expires)
         self.d.events.publish_event("fabric", "ticket.created", {"ticket_id": tid, "role": role,
                                     "expires_at": iso(expires)}, principal=principal.as_dict())
         return {"ticket_id": tid, "role": role, "labels": dict(body.labels), "expires_at": iso(expires),
-                "hub_ca_sha256": ca, "hub_url": hub, "qr_payload": payload, "one_time": {"join_code": code}}
+                "hub_ca_sha256": ca, "hub_url": hub, "qr_payload": payload, "qr_payload_v2": payload_v2,
+                "one_time": {"join_code": code}}
 
     def list_tickets(self, principal: Principal) -> list[dict]:
         if not principal.is_owner:
@@ -653,7 +824,12 @@ class FabricService:
         if mesh_key is not None:
             creds["mesh"] = {
                 "control_url": self.d.mesh_settings.control_url,
-                "control_addrs": [self.d.net.lan_addr] if self.d.net.lan_addr else [],
+                # Only the hub's LAN address: the node pins the coordinator name to control_addrs[0]. The
+                # relay has no link back to the hub yet (follow-up 2), so it must never replace this.
+                "control_addrs": [a for a in (self.d.net.lan_addr,) if a],
+                # The owner's relay, kept apart so it can never become the home address. No client dials
+                # it yet (follow-up 2); a node stores it for the away fallback.
+                "relay_addrs": [a for a in (self.d.mesh_settings.relay_addr,) if a],
                 "ca_sha256": self.d.box_ca.ca_fingerprint(),
                 "auth_key": mesh_key.key,
                 "hostname": f"node-{req['node_id']}",

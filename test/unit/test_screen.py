@@ -67,6 +67,11 @@ class View(unittest.TestCase):
         self.assertIn("onemind.local:8080", text)
         self.assertEqual(url, "http://192.0.2.10:8080/")
 
+    def test_setup_shows_the_one_time_code(self):
+        text = "\n".join(sc.view({**FACTS, "setup_open": True, "setup_code": "12345678"})[1])
+        self.assertIn("Setup code (the page asks for it): 12345678", text)
+        self.assertNotIn("Setup code", "\n".join(sc.view({**FACTS, "setup_open": True})[1]))
+
     def test_a_box_before_anything_answers_is_treated_as_setup(self):
         self.assertEqual(sc.view(FACTS)[0], "FINISH SETUP")
 
@@ -78,7 +83,27 @@ class View(unittest.TestCase):
     def test_a_running_hub_shows_the_dashboard_address(self):
         head, lines, url = sc.view({**FACTS, "role": "hub", "ready": True})
         self.assertEqual(head, "ONEMIND IS RUNNING")
-        self.assertEqual(url, "http://192.0.2.10:8080/")
+        self.assertEqual(url, "https://192.0.2.10/")
+        text = "\n".join(lines)
+        self.assertIn("https://onemind.local/", text)
+        self.assertNotIn("8080", text)
+
+    def test_tls_on_a_non_hub_role_value_still_shows_https(self):
+        head, lines, url = sc.view({**FACTS, "role": "standalone", "tls": True, "ready": True})
+        self.assertEqual(url, "https://192.0.2.10/")
+        self.assertNotIn("8080", "\n".join(lines))
+
+    def test_the_setup_wizard_stays_on_8080_even_with_tls_set(self):
+        self.assertEqual(sc.view({**FACTS, "tls": True, "setup_open": True})[2], "http://192.0.2.10:8080/")
+
+    def test_gather_reads_tls_from_gateway_env(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            os.makedirs(os.path.join(d, "data", "onemind", "etc"))
+            self.assertFalse(sc.gather(d)["tls"])
+            with open(os.path.join(d, "data", "onemind", "etc", "gateway.env"), "w") as f:
+                f.write("ONEMIND_NET_TLS=1\n")
+            self.assertTrue(sc.gather(d)["tls"])
 
     def test_a_hub_that_is_still_starting(self):
         self.assertEqual(sc.view({**FACTS, "role": "hub"})[0], "ONEMIND IS STARTING")

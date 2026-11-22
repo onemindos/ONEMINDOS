@@ -24,6 +24,18 @@ on:
       # SDKs have their own workflows and cannot change an app's gate result).
       - "sdk/tools/**"
       - "sdk/schema/**"
+      # validate-apps runs the gateway's own manifest check (PLAN-E6, #175).
+      - "core/onemind_core/catalog.py"
+      - "core/onemind_core/manifest_convert.py"
+      # ... and everything catalog.py imports at module load (its validation rules and import-time deps).
+      - "core/onemind_core/ai_policy.py"
+      - "core/onemind_core/scan.py"
+      - "core/onemind_core/appsecrets/__init__.py"
+      - "core/onemind_core/appsecrets/spec.py"
+      - "cmd/onemind/**"
+      - "internal/plugin/**"
+      - "go.mod"
+      - "go.sum"
       - "research-output/evidence/license-matrix.csv"   # only the apps whose rows changed are gated
       - "renovate.json"
       - ".github/workflows/ci-apps.yml"
@@ -40,7 +52,8 @@ jobs:
     if: ${{ !github.event.pull_request.draft }}
     # CI-10 (#299): arm64-safe, no secrets. Local Mac runner when LOCAL_RUNNER=on and the event is trusted
     # (never a fork PR); otherwise GitHub-hosted. docs/learning/self-hosted-runner.md
-    runs-on: ${{ (vars.LOCAL_RUNNER == 'on' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","onemind-local"]') || 'ubuntu-24.04' }}
+    # merge_group only runs code already approved into the queue, so it is always trusted (no fork check); MQ_RUNNER unset keeps the old routing.
+    runs-on: ${{ (vars.MQ_RUNNER == 'on' && github.event_name == 'merge_group') && fromJSON('["self-hosted","onemind-mq"]') || (vars.LOCAL_RUNNER == 'on' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","onemind-local"]') || 'ubuntu-24.04' }}
     timeout-minutes: 15
     outputs:
       apps: ${{ steps.changed.outputs.apps }}
@@ -50,6 +63,17 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+
+      - name: Set up Go for the shared plugin validator
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version-file: go.mod
+
+      - name: Build the box plugin validator
+        run: |
+          mkdir -p "$RUNNER_TEMP/bin"
+          go build -trimpath -buildvcs=false -o "$RUNNER_TEMP/bin/onemind" ./cmd/onemind
+          echo "ONEMIND_PLUGIN_VALIDATOR=$RUNNER_TEMP/bin/onemind" >> "$GITHUB_ENV"
 
       # setup-python has no 3.13 build for the local runner (Debian 13, arm64), so that runner uses Debian's
       # own Python 3.13 in a venv instead (the system Python refuses pip installs, PEP 668).
@@ -71,11 +95,19 @@ jobs:
           sdk/tools/ci/install-tools.sh "$RUNNER_TEMP/bin" kustomize kubeconform gitleaks
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
 
+      - name: Install real ClamAV for plugin EICAR tests
+        run: |
+          if ! command -v clamscan >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends clamav
+          fi
+          command -v clamscan
+
       - name: Unit tests (sdk/tools)
         run: python3 -I -m unittest discover -s sdk/tools/tests -v
 
       - name: Validate apps
-        run: python3 -I sdk/tools/validate-apps
+        run: python3 -I sdk/tools/validate-apps --plugin-validator "$ONEMIND_PLUGIN_VALIDATOR"
 
       - name: Generated READMEs are up to date
         run: python3 -I sdk/tools/app-readme --check
@@ -104,7 +136,7 @@ jobs:
           matrix=research-output/evidence/license-matrix.csv
           # A change to the gate itself (its tools, pinned tool installer, schema or this workflow) re-gates
           # every app; otherwise only the apps the PR touches (SDK changes that are not gate inputs gate none).
-          if grep -qE '^(sdk/tools/((app-gate|validate-apps|requirements\.txt|ci/install-tools\.sh)$|applib/)|sdk/schema/|\.github/workflows/ci-apps\.yml$)' <<<"$files"; then
+          if grep -qE '^(sdk/tools/((app-gate|validate-apps|requirements\.txt|ci/install-tools\.sh)$|applib/)|sdk/schema/|core/onemind_core/((catalog|manifest_convert|ai_policy|scan)\.py|appsecrets/(__init__|spec)\.py)$|cmd/onemind/|internal/plugin/|go\.(mod|sum)$|\.github/workflows/ci-apps\.yml$)' <<<"$files"; then
             ids=$(all_apps)
           else
             ids=$(grep -oE '^apps/[^/_.][^/]*/' <<<"$files" | cut -d/ -f2 | sort -u || true)
@@ -147,6 +179,17 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           persist-credentials: false
+
+      - name: Set up Go for the shared plugin validator
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version-file: go.mod
+
+      - name: Build the box plugin validator
+        run: |
+          mkdir -p "$RUNNER_TEMP/bin"
+          go build -trimpath -buildvcs=false -o "$RUNNER_TEMP/bin/onemind" ./cmd/onemind
+          echo "ONEMIND_PLUGIN_VALIDATOR=$RUNNER_TEMP/bin/onemind" >> "$GITHUB_ENV"
 
       - name: Set up Python
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0

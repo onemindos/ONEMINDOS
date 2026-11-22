@@ -170,13 +170,11 @@ describe('app store depth (#143) against the #57 routes', () => {
     ]) await expect(fetchFor(bad).requestSourceAdd(params, key)).rejects.toMatchObject({ code: 'outcome_unknown' });
   });
 
-  it('tells a non-owner up front that sources and Compose import are owner-only, and sends nothing', async () => {
-    const { user, writes } = setup('/sources', { role: 'adult' });
-    expect(await screen.findByText(/Only an owner can add a source/)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Review source' })).toBeDisabled();
-    await user.click(screen.getByRole('link', { name: 'Import Compose' }));
-    expect(await screen.findByText(/Only an owner can import a Compose file/)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Convert' })).toBeDisabled();
+  it('shows a non-owner no Sources or Compose tabs, a calm line on a direct link, and sends nothing', async () => {
+    const { writes } = setup('/sources', { role: 'adult' });
+    expect(await screen.findByText(/Only an owner can use this/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Review source' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Import Compose' })).not.toBeInTheDocument();
     expect(writes).toHaveLength(0);
   });
 });

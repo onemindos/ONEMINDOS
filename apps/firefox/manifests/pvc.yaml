@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+# The browser profile: bookmarks, logins, history. The template claim: each person's profile-<key> copies its size and class (#692); this one is never mounted.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: firefox-profile
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi

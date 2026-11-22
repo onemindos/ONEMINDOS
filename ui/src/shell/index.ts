@@ -41,6 +41,7 @@ export type { Navigate as ShellNavigate } from './toasts';
 
 export { Onboarding, AppGlyph as StarterAppGlyph } from './Onboarding';
 export type { OnboardingProps } from './Onboarding';
+export type { OnboardingKit, IssuedKit } from './RecoveryKit';
 export {
   ONBOARDING_STEPS,
   accentVars as accentStyleVars,

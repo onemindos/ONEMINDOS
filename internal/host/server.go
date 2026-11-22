@@ -25,6 +25,10 @@ const Schema = "onemind.host/v1"
 //	POST /v1/operations        {action_id, kind, version?} → 202 new, 200 known
 //	GET  /v1/operations        recent operations, newest first
 //	GET  /v1/operations/{id}   one operation by action id
+//	GET  /v1/plans/factory-reset  what a factory reset would erase, keep and warn (read-only)
+//	GET  /v1/smb, PUT /v1/smb/shares, PUT /v1/smb/users/{user}/password   file sharing (smb.go)
+//	GET  /v1/network           read-only network facts (internal/netview; 404 when Network is nil)
+//	GET  /v1/services          service cards: the image's registry joined with systemd (internal/svcregistry; 404 when Services is nil)
 type Server struct {
 	S        *Service
 	AllowUID int // besides root; -1 none
@@ -34,6 +38,10 @@ type Server struct {
 	Ctx context.Context
 	// PeerCred reads a connection's uid and gid (default SO_PEERCRED; tests replace it).
 	PeerCred func(*net.UnixConn) (uid, gid int, ok bool)
+	// Network answers GET /v1/network (NET-UI-01). It only reads; nil leaves the route off.
+	Network func() (any, error)
+	// Services answers GET /v1/services (#623). It only reads (systemctl show); nil leaves the route off.
+	Services func(ctx context.Context) (any, error)
 }
 
 // Capability is one kind in GET /v1/status.
@@ -126,6 +134,26 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /v1/status", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, s.Status())
 	})
+	if s.Network != nil {
+		mux.HandleFunc("GET /v1/network", func(w http.ResponseWriter, r *http.Request) {
+			v, err := s.Network()
+			if err != nil {
+				apiError(w, http.StatusInternalServerError, "internal", "network", "the network facts could not be read")
+				return
+			}
+			writeJSON(w, http.StatusOK, v)
+		})
+	}
+	if s.Services != nil {
+		mux.HandleFunc("GET /v1/services", func(w http.ResponseWriter, r *http.Request) {
+			v, err := s.Services(r.Context())
+			if err != nil {
+				apiError(w, http.StatusInternalServerError, "internal", "services", "systemd could not be asked about the services")
+				return
+			}
+			writeJSON(w, http.StatusOK, v)
+		})
+	}
 	mux.HandleFunc("POST /v1/operations", func(w http.ResponseWriter, r *http.Request) {
 		var req Request
 		dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096))
@@ -185,6 +213,14 @@ func (s *Server) Handler() http.Handler {
 			writeJSON(w, http.StatusOK, op)
 		}
 	})
+	mux.HandleFunc("GET /v1/plans/factory-reset", func(w http.ResponseWriter, r *http.Request) {
+		if s.S.Reset == nil {
+			apiError(w, http.StatusServiceUnavailable, "unavailable", "unavailable", s.S.Unavailable(KindFactoryReset))
+			return
+		}
+		writeJSON(w, http.StatusOK, s.S.Reset.Plan(r.Context()))
+	})
+	s.smbRoutes(mux)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !s.peerAllowed(r) {
 			apiError(w, http.StatusForbidden, "permission_denied", "peer", "this socket serves root and the gateway only")

@@ -97,6 +97,18 @@ export interface UpdatesStatus {
   os: { from: string; to: string; channel: 'security' | 'stable'; action_id?: string } | null;
   apps: Array<{ app_id: string; from: string; to: string }>;
   checked_at: string;
+  /** When the last signed OS update was applied; absent or null = the hub does not report it. */
+  last_applied_at?: string | null;
+}
+
+/** Storage health as `GET /v1/storage` reports it; raw device capacity, never a "free space" figure. */
+export interface StorageStatus {
+  state: string | null;
+  encrypted: boolean | null;
+  used_bytes: number | null;
+  /** Number of member disks the hub reports. */
+  disks: number;
+  observed_at: string;
 }
 
 /** PROPOSED (fabric links, FAB-P1). */
@@ -124,6 +136,8 @@ export interface HomeData {
   backups: Loadable<BackupStatus>;
   updates: Loadable<UpdatesStatus>;
   mesh: Loadable<MeshStatus>;
+  /** Optional so a host without a storage route can leave it out: the widget then says nothing is reported. */
+  storage?: Loadable<StorageStatus>;
   /** App widget payloads keyed `${appId}/${widgetId}`. Missing key = not fetched yet. */
   appWidgets: Record<string, Loadable<AppWidgetPayload>>;
   weather?: WeatherSlot | null;

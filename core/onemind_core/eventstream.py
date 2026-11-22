@@ -6,7 +6,10 @@ Where events come from:
   the file and turns records into `onemind.event/v1` envelopes. The event id is the audit `seq`:
   monotonic, durable, and the resume point (`Last-Event-ID` or `?since_id=`);
 - the node registry, polled every few seconds: a `node.status` event when a node's status
-  changes. These are not durable and carry no SSE `id:`, so they never move the resume point.
+  changes. These are not durable and carry no SSE `id:`, so they never move the resume point;
+- the sync index (#698), polled the same way: `sync.root_changed` {root, revision} when a root
+  the caller may read has a new revision. It is a wake-up, not the log: at most one per root per
+  poll, no id, and the caller reads what changed from GET /v1/sync/changes.
 
 Events carry ids and states only; a client reads the full object over REST (SDK.md §3.9).
 Replay reaches back REPLAY_MAX records; an older resume point gets `stream.reset` first.
@@ -130,11 +133,14 @@ class EventStream:
         list_nodes: Callable[[], list[dict]],
         owned_action_ids: Callable[[str], set[str]],
         clock: Callable[[], datetime],
+        root_revisions: Callable[[Principal], dict[str, int]] | None = None,
     ):
         self.audit_path = audit_path
         self.list_nodes = list_nodes
         self.owned_action_ids = owned_action_ids
         self.clock = clock
+        # The roots this principal may read as a whole -> their revision (files sync index).
+        self.root_revisions = root_revisions
 
     def _allowed(self, p: Principal, resource_allowed: Callable[[dict], bool] | None = None) -> Callable[[dict], bool]:
         """Per-principal filter (§12.8): audit.* needs audit:read; agents see their own actions;
@@ -179,6 +185,8 @@ class EventStream:
                 return False
             if t == "node.status":
                 return nodes
+            if t == "sync.root_changed":  # root_revisions already lists only roots this caller may read
+                return True
             return t == "stream.reset"
 
         return ok
@@ -226,12 +234,18 @@ class EventStream:
                             yield sse(ev)
         del records
         nodes = {n["node_id"]: n.get("status") for n in self.list_nodes()}
+        roots = self._roots(p)
         loop = asyncio.get_running_loop()
         last_out = last_nodes = loop.time()
         while True:
             if await is_disconnected():
                 return
             sent = False
+            try:
+                if self.audit_path.stat().st_size < offset:
+                    offset = 0  # the log was rotated: the active file started over
+            except OSError:
+                pass
             for pos, rec in iter_records(self.audit_path, offset):
                 offset = pos
                 ev = selected(rec)
@@ -250,12 +264,29 @@ class EventStream:
                             yield sse(ev, with_id=False)
                             sent = True
                 nodes = current
+                current_roots = self._roots(p)
+                for root, revision in sorted(current_roots.items()):
+                    if root in roots and revision > roots[root]:
+                        ev = _envelope(f"sync:{root}:{revision}", "sync.root_changed", self._now(),
+                                       {"root": root}, {"revision": revision})
+                        if wanted(ev):
+                            yield sse(ev, with_id=False)
+                            sent = True
+                roots = current_roots
             if sent:
                 last_out = now
             elif now - last_out >= keepalive_s:
                 yield b": keepalive\n\n"
                 last_out = now
             await asyncio.sleep(poll_s)
+
+    def _roots(self, p: Principal) -> dict[str, int]:
+        if self.root_revisions is None:
+            return {}
+        try:
+            return self.root_revisions(p)
+        except Exception:  # the files storage or index is not ready: no wake-ups, the stream goes on
+            return {}
 
     def _now(self) -> str:
         return self.clock().isoformat().replace("+00:00", "Z")

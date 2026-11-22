@@ -112,3 +112,60 @@ def test_write_is_audited_with_field_names_only(client, settings):
     event = next(e for e in records if e["event"] == "home.updated")
     assert event["principal"]["id"] == "adult" and event["data"] == {"changed": ["appearance"]}
     assert "om-secret-name" not in settings.audit_path.read_text()
+
+
+def test_personal_links_are_saved_pinned_and_audited_without_values(client, settings):
+    got = client.get(PATH, headers=ADULT)
+    assert got.json()["links"] == []
+    link = {"id": "docs", "name": "Family wiki", "url": "https://wiki.example.org/start?x=1", "icon": "book"}
+    body = {**got.json(), "links": [link], "dock": ["link:docs"], "grid": {"order": ["link:docs"], "hidden": []}}
+    saved = put(client, ADULT, body, got.headers["etag"])
+    assert saved.status_code == 200, saved.text
+    assert saved.json()["links"] == [link] and saved.json()["dock"] == ["link:docs"]
+    assert client.get(PATH, headers=ADULT).json()["grid"]["order"] == ["link:docs"]
+    # Links are per person: another person neither sees it nor can pin it.
+    other = client.get(PATH, headers=OWNER)
+    assert other.json()["links"] == []
+    refused = put(client, OWNER, {**other.json(), "dock": ["link:docs"]}, other.headers["etag"])
+    assert refused.status_code == 422 and refused.json()["reason"] == "unknown_item"
+    log = settings.audit_path.read_text()
+    assert "Family wiki" not in log and "wiki.example.org" not in log
+    event = [json.loads(x) for x in log.splitlines() if "home.updated" in x][-1]
+    assert "links" in event["data"]["changed"]
+
+
+def test_link_addresses_must_be_plain_https(client):
+    got = client.get(PATH, headers=ADULT)
+    etag, base = got.headers["etag"], got.json()
+    for url in ["http://example.org", "javascript:alert(1)", "JAVASCRIPT:alert(1)", "data:text/html,x", "//example.org",
+                "https://", "ftp://example.org", "https://name:secret" + chr(64) + "example.org", "https://exa mple.org",
+                "https://example.org/\nx", "https://example.org:99999", "https:example.org", "https://" + "a" * 2050]:
+        r = put(client, ADULT, {**base, "links": [{"id": "x", "name": "X", "url": url}]}, etag)
+        assert r.status_code == 422, url
+    ok = put(client, ADULT, {**base, "links": [{"id": "x", "name": "X", "url": "https://example.org"}]}, etag)
+    assert ok.status_code == 200 and ok.json()["links"][0]["icon"] is None
+
+
+def test_link_shape_and_limits(client):
+    got = client.get(PATH, headers=ADULT)
+    etag, base = got.headers["etag"], got.json()
+    good = {"id": "a", "name": "A", "url": "https://example.org"}
+    assert put(client, ADULT, {**base, "links": [good, good]}, etag).status_code == 422  # duplicate id
+    assert put(client, ADULT, {**base, "links": [{**good, "name": ""}]}, etag).status_code == 422
+    assert put(client, ADULT, {**base, "links": [{**good, "name": "x" * 61}]}, etag).status_code == 422
+    assert put(client, ADULT, {**base, "links": [{**good, "id": "../x"}]}, etag).status_code == 422
+    assert put(client, ADULT, {**base, "links": [{**good, "icon": "<b>"}]}, etag).status_code == 422
+    assert put(client, ADULT, {**base, "links": [{**good, "extra": 1}]}, etag).status_code == 422
+    many = [{**good, "id": f"l{i}"} for i in range(51)]
+    assert put(client, ADULT, {**base, "links": many}, etag).status_code == 422
+    # A pinned link that the same save removes is refused, not silently kept.
+    assert put(client, ADULT, {**base, "links": [], "dock": ["link:a"]}, etag).status_code == 422
+
+
+def test_removing_a_link_drops_it_from_a_stored_dock(client):
+    got = client.get(PATH, headers=ADULT)
+    link = {"id": "a", "name": "A", "url": "https://example.org"}
+    one = put(client, ADULT, {**got.json(), "links": [link], "dock": ["link:a"]}, got.headers["etag"])
+    assert one.status_code == 200
+    two = put(client, ADULT, {**one.json(), "links": [], "dock": []}, one.headers["etag"])
+    assert two.status_code == 200 and two.json()["links"] == [] and two.json()["dock"] == []

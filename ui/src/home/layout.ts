@@ -9,7 +9,7 @@ export type WidgetSize = 'S' | 'M' | 'L';
 export const WIDGET_SIZES: readonly WidgetSize[] = ['S', 'M', 'L'];
 export const SIZE_LABEL: Record<WidgetSize, string> = { S: 'Small', M: 'Medium', L: 'Large' };
 
-export type BuiltinKind = 'approvals' | 'system' | 'activity' | 'backups' | 'updates' | 'mesh';
+export type BuiltinKind = 'approvals' | 'system' | 'activity' | 'backups' | 'updates' | 'mesh' | 'trust' | 'storage';
 export type WidgetKind = BuiltinKind | 'app';
 
 export interface WidgetInstance {
@@ -117,7 +117,7 @@ export function movePin(layout: HomeLayout, appId: string, to: number): HomeLayo
   return { ...layout, pinned: next };
 }
 
-const KINDS: readonly WidgetKind[] = ['approvals', 'system', 'activity', 'backups', 'updates', 'mesh', 'app'];
+const KINDS: readonly WidgetKind[] = ['approvals', 'system', 'activity', 'backups', 'updates', 'mesh', 'trust', 'storage', 'app'];
 const SAFE_ID = /^[a-z0-9][a-z0-9._:/*-]{0,80}$/i;
 
 /**

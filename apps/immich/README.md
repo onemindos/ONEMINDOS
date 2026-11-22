@@ -8,7 +8,7 @@ High performance self-hosted photo and video management solution.
 | | |
 |---|---|
 | Version | 3.4.1 (upstream release `v3.4.1`, published 2026-11-11) |
-| Licence | `AGPL-3.0`, Market class **L2** (licence gate, scan of 2026-11-19) |
+| Licence | `AGPL-3.0`, Market class **L2** (licence gate, scan of 2026-11-21) |
 | Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | files |
 | GitHub | <https://github.com/immich-app/immich> |
@@ -106,16 +106,18 @@ Licence, pinning, secrets and ClamAV checks passed for amd64 and arm64 (zero inf
 To unblock: verify compatible upstream image tags and multi-architecture digests that fix the findings, rerun the full gate, and review the block explicitly. No pins were changed here; no scan pass is fabricated. The CI scan remains an artifact rather than a committed `scan.json`, so the generated section below describes committed scan availability, not absence of a CI run.
 
 **Hold (apps/market-unblock-2, 2026-11-13):** Debian CVEs and Go `stdlib` in `postgres:14-vectorchord0.4.3-pgvectors0.2.0`, and `libopenexr` in the server image `v3.4.1` (the newest). Postgres tags `17-vectorchord0.4.x` exist, but changing the major version needs a data migration and Immich's supported pairing, so it is not a pin bump. Needs a founder or upstream-pairing decision before any change.
+
+**Hold (apps/147-household-apps, 2026-11-21):** re-read the registry and scanned the newest upstream tags with Trivy (amd64). `immich-server:v3.4.2` (digest `sha256:fc880c1bf665b4aab1e74c15e56ab871225989cd546536e6b77e771869af06bd`) still has CRITICAL CVE-2026-42216 and CVE-2026-42217 in `libopenexr-3-1-30` 3.1.13-2 (fixed in 3.2.12-1~deb13u1, Debian base layer of the server image) and CVE-2026-6653 in `libxml2` (no fix yet). The database image has a newer upstream tag family (`14-vectorchord1.1.1-pgvector0.8.7`), but moving Immich to a different VectorChord major is an upstream compatibility question we did not verify, so the pin is not changed. Nothing is bumped and the tier stays `blocked`. A OneMind rebuild with fixed packages needs a founder decision. Tracked on #147.
 <!-- onemind:notes:end -->
 
 ## Latest security scan
 
-Scanned 2026-11-19T14:23:31Z by `sdk/tools/app-gate`: **fail**. Licence `AGPL-3.0` class L2; smoke test pass.
+Scanned 2026-11-21T14:08:08Z by `sdk/tools/app-gate`: **fail**. Licence `AGPL-3.0` class L2; smoke test pass.
 
 | Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
 |---|---|---|---|---|---|---|
-| `ghcr.io/immich-app/postgres:14-vectorchord0.4.3-pgvectors0.2.0@sha256:bcf63357191b76a916ae5eb93464d65c07511da41e3bf7a8416db519b40b1c23` | amd64, arm64 | 23 (20) | 233 | 0 infected (daily-28188) | 0 | unsigned |
-| `docker.io/valkey/valkey:9.1.3-trixie@sha256:3add1a336a920ea54770a001ab6feb3da5fceea96a40373a3a2cd469b815f0b7` | amd64, arm64 | 0 (0) | 49 | 0 infected (daily-28188) | 0 | unsigned |
-| `ghcr.io/immich-app/immich-server:v3.4.1@sha256:7c489add298fc2f92cda4c777de6462aa206877e04087b815f62c7664af0b53b` | amd64, arm64 | 3 (2) | 212 | 0 infected (daily-28188) | 0 | unsigned |
+| `ghcr.io/immich-app/postgres:14-vectorchord0.4.3-pgvectors0.2.0@sha256:bcf63357191b76a916ae5eb93464d65c07511da41e3bf7a8416db519b40b1c23` | amd64, arm64 | 23 (20) | 232 | 0 infected (daily-28190) | 0 | unsigned |
+| `docker.io/valkey/valkey:9.1.3-trixie@sha256:3add1a336a920ea54770a001ab6feb3da5fceea96a40373a3a2cd469b815f0b7` | amd64, arm64 | 0 (0) | 51 | 0 infected (daily-28190) | 0 | unsigned |
+| `ghcr.io/immich-app/immich-server:v3.4.1@sha256:7c489add298fc2f92cda4c777de6462aa206877e04087b815f62c7664af0b53b` | amd64, arm64 | 3 (2) | 213 | 0 infected (daily-28190) | 0 | unsigned |
 
 Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

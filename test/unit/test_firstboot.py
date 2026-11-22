@@ -5,7 +5,7 @@ The hub tests use the gateway's own box CA and NATS key code (core/onemind_core:
 which needs the `cryptography` package: run them with core's venv, as CI's `unit` job does
 (`uv sync --project core`, then core/.venv/bin/python -I -m unittest ...). Without it they are skipped.
 """
-import contextlib, io, json, os, re, stat, sys, tempfile, threading, unittest, urllib.error, urllib.request
+import contextlib, io, json, os, re, shutil, stat, subprocess, sys, tempfile, threading, unittest, urllib.error, urllib.request
 from unittest import mock
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -193,6 +193,25 @@ class Files(unittest.TestCase):
         for f in ("nats.crt", "nats.key", "ca.crt"):
             self.assertIn(f'"/run/onemind-nats/{f}"', c)
 
+    def test_hub_nats_conf_has_bounded_jetstream_on_the_data_disk(self):
+        for conf in (fb.hub_nats_conf(None), fb.hub_nats_conf(MESH_IP)):
+            self.assertIn('store_dir: "/var/lib/onemind-nats/jetstream"', conf)
+            self.assertIn(f"max_file_store: {4 << 30}", conf)
+            self.assertIn("max_memory_store: 0", conf)  # a restart must not lose events silently
+        p = fb.Paths("/x")
+        env = fb.gateway_env(p, {"box": "b", "node_id": "n1", "name": "n"})
+        self.assertIn(f"ONEMIND_FABRIC_JETSTREAM_MAX_BYTES={4 << 30}", env)
+        self.assertIn("ONEMIND_FABRIC_JETSTREAM_PATH=/var/lib/onemind-nats\n", env)
+
+    def test_jetstream_store_is_a_bind_from_the_data_disk_owned_for_the_nats_user(self):
+        base = os.path.join(ROOT, "os", "rootfs", "layers")
+        fstab = open(os.path.join(base, "base", "etc", "fstab")).read()
+        self.assertIn("/data/state/var-lib-onemind-nats ", fstab)
+        script = open(os.path.join(LIB, "onemind-nats-files")).read()
+        self.assertIn("/var/lib/onemind-nats/jetstream", script)
+        unit = open(os.path.join(base, "onemind", "usr", "lib", "systemd", "system", "onemind-nats.service")).read()
+        self.assertIn("ReadWritePaths=-/var/lib/onemind-nats", unit)
+
     def test_nats_files_script_copies_what_the_conf_names(self):
         script = open(os.path.join(LIB, "onemind-nats-files")).read()
         unit = open(os.path.join(ROOT, "os", "rootfs", "layers", "onemind", "usr", "lib", "systemd", "system",
@@ -222,6 +241,7 @@ class Hub(Box):
         self.assertNotIn(toks[0], tokens)
         import hashlib
         self.assertIn("sha256:" + hashlib.sha256(toks[0].encode()).hexdigest(), tokens)
+        self.assertIn("retire_on_setup: true", tokens)   # the gateway retires it once an owner exists
         self.assertTrue(os.path.exists(self.p.esp_conf + ".applied"))
         self.assertEqual((st["box"], st["mesh"]), ("home-box", 1))
         self.assertEqual(st["node_id"], self.etc("node-id").strip())
@@ -313,6 +333,48 @@ class Hub(Box):
                      "ONEMIND_MESH_CONTROL_URL=https://control.onemind.internal:8444",
                      f"ONEMIND_MESH_HEADSCALE_KEY_FILE={self.p.hs_key}", f"ONEMIND_MESH_HUB_IP={MESH_IP}"):
             self.assertIn(line + "\n", with_mesh)
+
+    def test_backup_is_wired_on_a_new_hub(self):
+        st = self.first_boot()
+        self.assertEqual(self.mode(self.p.job_key), 0o600)
+        pub = os.path.join(self.p.backup, "job.pub")
+        self.assertEqual(self.read(pub), self.read(os.path.join(self.p.custodian, "job.pub")))
+        conf = json.load(open(self.p.backup_conf))
+        self.assertEqual(conf, fb.backup_agent_conf(self.p, st["node_id"]))
+        self.assertEqual(conf["targets"], [])               # the owner adds and approves a destination
+        self.assertIn(f"ONEMIND_BACKUP_CONF={self.p.backup_conf}\n", self.etc("onemindd.env"))
+        gw = self.etc("gateway.env")
+        self.assertIn("ONEMIND_BACKUPS_ENABLED=1\n", gw)
+        self.assertIn(f"ONEMIND_BACKUPS_JOB_KEY_FILE={self.p.job_key}\n", gw)
+        self.assertIn("ONEMIND_BACKUPS_ENABLED=1\n", fb.gateway_env(self.p, st, MESH_IP))   # `mesh` rewrites the file
+
+    def test_backup_catches_up_on_a_hub_set_up_before_it_and_keeps_its_key(self):
+        st = self.first_boot()
+        key = self.read(self.p.job_key)
+        os.unlink(self.p.backup_conf)
+        for name, marker in (("onemindd.env", "ONEMIND_BACKUP_CONF"), ("gateway.env", "ONEMIND_BACKUPS")):
+            text = "".join(l for l in self.etc(name).splitlines(True) if marker not in l and "Backups" not in l)
+            open(os.path.join(self.p.etc, name), "w").write(text)
+        fb.apply(self.p)                                    # a reboot of the old box
+        self.assertTrue(os.path.exists(self.p.backup_conf))
+        self.assertEqual(self.read(self.p.job_key), key)    # never a new key: old jobs stay valid
+        self.assertIn("ONEMIND_BACKUP_CONF=", self.etc("onemindd.env"))
+        self.assertEqual(self.etc("gateway.env").count("ONEMIND_BACKUPS_ENABLED=1"), 1)
+        fb.apply(self.p)
+        self.assertEqual(self.etc("gateway.env").count("ONEMIND_BACKUPS_ENABLED=1"), 1)
+        self.assertEqual(json.load(open(self.p.backup_conf))["node_id"], st["node_id"])
+
+    def test_a_failed_job_key_leaves_backups_off_but_the_box_boots(self):
+        with mock.patch("onemind_core.backups.jobs.load_or_create_job_key", side_effect=OSError("disk full")):
+            st = self.first_boot()
+        self.assertEqual(st["role"], "hub")
+        self.assertNotIn("ONEMIND_BACKUPS_ENABLED", self.etc("gateway.env"))
+        self.assertFalse(os.path.exists(self.p.backup_conf))
+        self.assertIn("backups not set up: disk full", self.out.getvalue())
+
+    def test_workers_get_no_backup_files(self):
+        fb.ensure_backup(self.p, {"role": "worker", "node_id": "abc"})
+        self.assertFalse(os.path.exists(self.p.backup))
 
     def test_old_box_keeps_its_units_and_gets_a_note(self):
         os.makedirs(os.path.dirname(self.p.state))
@@ -623,6 +685,155 @@ class Wizard(Box):
         self.assertIn("Approvals", body)
         self.assertEqual(self.read(self.p.join_code), JOIN + "\n")
         self.assertEqual(json.load(open(self.p.state))["hub_addr"], LAN)
+
+
+class WizardLockdown(Box):
+    """From a device on the LAN the wizard needs the one-time code; after setup it refuses the LAN."""
+
+    def serve(self):
+        setup.Wizard.paths = self.p
+        setup.Wizard.done = threading.Event()
+        srv = setup.ThreadingHTTPServer(("127.0.0.1", 0), setup.Wizard)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        self.addCleanup(srv.shutdown)
+        return f"http://127.0.0.1:{srv.server_address[1]}"
+
+    def lan(self):
+        patcher = mock.patch.object(setup, "is_local", return_value=False)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        setup.Wizard.gate = setup.Gate()
+        return setup.Wizard.gate.new(self.p.run)
+
+    def post(self, base, data):
+        try:
+            return urllib.request.urlopen(base + "/setup", data=data)
+        except urllib.error.HTTPError as e:
+            return e
+
+    def test_lan_needs_the_code_and_the_screen_can_read_it(self):
+        base = self.serve()
+        code = self.lan()
+        f = os.path.join(self.p.run, "setup-code")
+        self.assertEqual(self.read(f).strip(), code)
+        self.assertEqual(os.stat(f).st_mode & 0o777, 0o600)
+        self.assertIn('name="code"', urllib.request.urlopen(base + "/").read().decode())
+        self.assertEqual(self.post(base, b"role=hub&name=Lab").code, 403)
+        wrong = "00000000" if code != "00000000" else "11111111"
+        self.assertEqual(self.post(base, f"role=hub&name=Lab&code={wrong}".encode()).code, 403)
+        self.assertFalse(os.path.exists(self.p.state))
+        self.assertEqual(self.post(base, f"role=worker&code={code}".encode()).code, 400)  # code ok, form bad
+
+    def test_wrong_codes_back_off_and_keep_the_code(self):
+        base = self.serve()
+        first = self.lan()
+        self.assertEqual(len(first), setup.CODE_LEN)
+        for _ in range(setup.MAX_WRONG):
+            self.post(base, b"role=hub&code=x")
+        f = os.path.join(self.p.run, "setup-code")
+        self.assertEqual(self.read(f).strip(), first)      # not rotated: no fresh target for a guesser
+        # locked out: even the right code is refused until the back-off ends
+        self.assertEqual(self.post(base, f"role=worker&code={first}".encode()).code, 429)
+
+    def test_gate_backoff_doubles_and_ends(self):
+        now = [1000.0]
+        g = setup.Gate(clock=lambda: now[0])
+        g.new(self.p.run)
+        right = g.code
+        for _ in range(setup.MAX_WRONG):
+            self.assertFalse(g.check("nope"))
+        self.assertEqual(g.locked(), setup.LOCK_MIN_S)
+        self.assertFalse(g.check(right))
+        now[0] += setup.LOCK_MIN_S + 1
+        for _ in range(setup.MAX_WRONG):
+            self.assertFalse(g.check("nope"))
+        self.assertEqual(g.locked(), setup.LOCK_MIN_S * 2)
+        now[0] += setup.LOCK_MIN_S * 2 + 1
+        self.assertTrue(g.check(right.lower()))            # owner can still get in after the wait
+
+    def test_guess_rate_is_capped(self):
+        now = [0.0]
+        g = setup.Gate(clock=lambda: now[0])
+        g.new(self.p.run)
+        tries = 0
+        for _ in range(100000):                            # a flood of guesses over one simulated hour
+            now[0] += 3600 / 100000
+            if g.locked() == 0:
+                tries += 1
+            g.check("AAAAAAAAAA")
+        self.assertLess(tries, 50)   # unlimited would be 100000
+
+    def test_lan_is_refused_after_the_owner_exists(self):
+        base = self.serve()
+        code = self.lan()
+        self.put("data/onemind/firstboot/state.json", json.dumps({"role": "hub", "node_id": "n"}))
+        self.assertEqual(self.post(base, f"role=hub&code={code}".encode()).code, 403)
+        for path in ("/", "/healthz"):
+            with self.assertRaises(urllib.error.HTTPError) as e:
+                urllib.request.urlopen(base + path)
+            self.assertEqual(e.exception.code, 403)
+
+    def test_lan_cannot_probe_healthz_before_setup(self):
+        base = self.serve()
+        self.lan()
+        with self.assertRaises(urllib.error.HTTPError) as e:
+            urllib.request.urlopen(base + "/healthz")
+        self.assertEqual(e.exception.code, 403)
+
+    def test_the_box_itself_needs_no_code(self):
+        base = self.serve()
+        self.assertEqual(urllib.request.urlopen(base + "/healthz").read(), b"setup")
+        self.assertNotIn('name="code"', urllib.request.urlopen(base + "/").read().decode())
+
+    def test_is_local(self):
+        for a in ("127.0.0.1", "::1", "::ffff:127.0.0.1"):
+            self.assertTrue(setup.is_local(a), a)
+        for a in ("192.0.2.5", "fe80::1%eth0", "nonsense"):
+            self.assertFalse(setup.is_local(a), a)
+
+
+class WizardUnit(unittest.TestCase):
+    UNIT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "os", "rootfs", "layers",
+                        "onemind", "usr", "lib", "systemd", "system", "onemind-setup.service")
+
+    def test_directives(self):
+        text = open(self.UNIT).read()
+        for d in ("ProtectSystem=strict", "NoNewPrivileges=yes", "SystemCallFilter=@system-service",
+                  "CapabilityBoundingSet=CAP_CHOWN CAP_DAC_OVERRIDE CAP_FOWNER", "MemoryDenyWriteExecute=yes",
+                  "RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX", "ProtectKernelLogs=yes"):
+            self.assertIn(d, text)
+
+    @unittest.skipUnless(shutil.which("systemd-analyze"), "needs systemd-analyze")
+    def test_security_score_is_under_5(self):
+        # --threshold is on the 0..100 exposure scale: 49 = under 5.0 on the 0..10 scale of the table
+        r = subprocess.run(["systemd-analyze", "security", "--offline=true", "--threshold=49",
+                            "--no-pager", self.UNIT], capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+
+
+class ChownTreeRace(unittest.TestCase):
+    """Issue #391 (cloud C4): a file that vanishes while the tree is re-owned must not fail first boot."""
+
+    def test_vanished_file_is_skipped(self):
+        with tempfile.TemporaryDirectory() as d:
+            for n in ("a", "gone", "z"):
+                open(os.path.join(d, n), "w").close()
+            seen = []
+
+            def chown(path, uid, gid):
+                if os.path.basename(path) == "gone":
+                    raise FileNotFoundError(path)
+                seen.append(os.path.basename(path))
+
+            with mock.patch.object(fb.os, "chown", chown):
+                fb.chown_tree(d, (961, 961))
+            self.assertEqual(sorted(seen), sorted([os.path.basename(d), "a", "z"]))
+
+    def test_other_errors_still_fail(self):
+        with tempfile.TemporaryDirectory() as d:
+            with mock.patch.object(fb.os, "chown", side_effect=PermissionError("no")):
+                with self.assertRaises(PermissionError):
+                    fb.chown_tree(d, (961, 961))
 
 
 if __name__ == "__main__":

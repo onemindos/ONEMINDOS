@@ -1,0 +1,13 @@
+#!/bin/bash
+# SPDX-License-Identifier: Apache-2.0
+# Stop the DigitalOcean runners: DO_RUNNER goes off (jobs return to the Mac or GitHub-hosted runners) and every
+# droplet of ours (tag onemind-ci-do and name onemind-do-<n>) plus the cloud firewall is destroyed.
+# Nothing else in the DigitalOcean account is touched. Safe to run twice.
+set -uo pipefail
+here=$(cd "$(dirname "$0")" && pwd)
+# shellcheck source=lib.sh
+. "$here/lib.sh"
+for t in doctl gh; do need "$t"; done
+gh variable set DO_RUNNER --body off --repo "$REPO" && echo "DO_RUNNER=off"
+destroy_all
+echo "remaining droplets of ours: $(droplets | wc -l | tr -d ' ')"

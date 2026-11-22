@@ -192,14 +192,14 @@ func TestHostUnitSandbox(t *testing.T) {
 	if v := u["CapabilityBoundingSet"]; len(v) != 1 || v[0] != "CAP_DAC_READ_SEARCH" {
 		t.Errorf("CapabilityBoundingSet = %q, want exactly CAP_DAC_READ_SEARCH", v)
 	}
-	if v := u["ReadWritePaths"]; len(v) != 1 || v[0] != "/data" {
+	if v := u["ReadWritePaths"]; len(v) != 1 || v[0] != "/data /boot/efi" {
 		t.Errorf("ReadWritePaths = %q", v)
 	}
 	for _, k := range []string{"User=root", "NoNewPrivileges=yes", "ProtectSystem=strict", "ProtectHome=yes",
-		"PrivateTmp=yes", "PrivateDevices=yes", "ProtectKernelTunables=yes", "ProtectKernelModules=yes",
+		"PrivateTmp=yes", "PrivateDevices=no", "DevicePolicy=closed", "DeviceAllow=block-* r", "ProtectKernelTunables=yes", "ProtectKernelModules=yes",
 		"ProtectControlGroups=yes", "RestrictSUIDSGID=yes", "MemoryDenyWriteExecute=yes", "RestrictNamespaces=yes",
 		"SystemCallFilter=~@privileged", "UMask=0022", "Requires=onemind-host.socket", "AmbientCapabilities=", "RequiresMountsFor=/data",
-		"RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX"} {
+		"RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK"} {
 		key, val, _ := strings.Cut(k, "=")
 		found := false
 		for _, v := range u[key] {
@@ -244,5 +244,35 @@ func TestSocketNeedsNoChown(t *testing.T) {
 		if b, _ := os.ReadFile(f); strings.Contains(string(b), "Chown(") {
 			t.Errorf("%s chowns", f)
 		}
+	}
+}
+
+// The factory reset unit must run before the data set is assembled or mounted,
+// only when armed, and fall into recovery mode (never the old data) on failure.
+func TestFactoryResetUnitOrdering(t *testing.T) {
+	b, err := os.ReadFile("../../os/recovery/onemind-factory-reset.service")
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(b)
+	for _, want := range []string{"ConditionPathExists=/boot/efi/onemind/factory-reset", "RequiresMountsFor=/boot/efi",
+		"OnFailure=onemind-recovery.target", "OnFailureJobMode=isolate", "DefaultDependencies=no",
+		"ExecStart=/usr/bin/onemindd factory-reset wipe"} {
+		if !strings.Contains(s, want) {
+			t.Errorf("unit lacks %q", want)
+		}
+	}
+	for _, before := range []string{"data.mount", "onemind-data-assemble.service", "onemind-data-check.service", "local-fs.target"} {
+		if !regexp.MustCompile(`(?m)^Before=.*\b` + regexp.QuoteMeta(before) + `\b`).MatchString(s) {
+			t.Errorf("not ordered before %s", before)
+		}
+	}
+	chk, _ := os.ReadFile("../../os/recovery/onemind-data-check")
+	if !strings.Contains(string(chk), "factory-reset-pending") {
+		t.Error("onemind-data-check must refuse while a marker exists")
+	}
+	cf, _ := os.ReadFile("../../os/rootfs/Containerfile")
+	if !strings.Contains(string(cf), "onemind-factory-reset.service >/dev/null") {
+		t.Error("the image does not enable the wipe unit")
 	}
 }

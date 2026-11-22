@@ -25,7 +25,7 @@ describe('installBlockReason (§10.3)', () => {
 
 describe('helpers', () => {
   it('formats the scan day in UTC', () => {
-    expect(formatDay('2026-11-10T23:30:00Z')).toBe('10 Nov 2026');
+    expect(formatDay('2026-11-10T23:30:00Z')).toBe('Nov 10, 2026');
   });
 
   it('only lets http(s) links through', () => {

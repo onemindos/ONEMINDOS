@@ -1,0 +1,111 @@
+# SPDX-License-Identifier: Apache-2.0
+# Neko 3.2.0 firefox image (github.com/m1k1o/neko). Pod: non-root (UID 1000, the image's neko user), RuntimeDefault seccomp,
+# no service-account token; container: no privilege escalation, all capabilities dropped. The image has no sudo and no
+# terminal: the upstream image ships neither, and this package adds none. A 1 Gi memory volume is /dev/shm because
+# browsers crash on the 64 MB default.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: firefox
+spec:
+  # A template only (#692, spec.browser): no shared profile ever runs. Each person's copy is made by the gateway.
+  replicas: 0
+  revisionHistoryLimit: 2
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: firefox
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: firefox
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: firefox
+        image: ghcr.io/m1k1o/neko/firefox:3.2.0@sha256:415730ef9e3c35d850fdbbb95aa150cb9eda0b9c260c61d1974fb3af39cb71c3
+        imagePullPolicy: IfNotPresent
+        command: ["/usr/bin/supervisord", "-c", "/etc/neko-run/supervisord.conf"]
+        env:
+        - name: NEKO_SERVER_BIND
+          value: ":8080"
+        - name: NEKO_DESKTOP_SCREEN
+          value: "1280x720@30"
+        - name: NEKO_MEMBER_PROVIDER
+          value: multiuser
+        - name: NEKO_MEMBER_MULTIUSER_USER_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: firefox-credentials
+              key: PASSWORD
+        - name: NEKO_MEMBER_MULTIUSER_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: firefox-credentials
+              key: PASSWORD
+        ports:
+        - name: http
+          containerPort: 8080
+          protocol: TCP
+        startupProbe:
+          httpGet:
+            path: /health
+            port: http
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 30
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: http
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 5
+        resources:
+          requests:
+            cpu: 250m
+            memory: 1Gi
+          limits:
+            cpu: '4'
+            memory: 3Gi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - name: profile
+          mountPath: /home/neko/.mozilla
+        - name: supervisord
+          mountPath: /etc/neko-run
+          readOnly: true
+        - name: shm
+          mountPath: /dev/shm
+      volumes:
+      - name: profile
+        persistentVolumeClaim:
+          claimName: firefox-profile
+      - name: supervisord
+        configMap:
+          name: firefox-supervisord
+      - name: shm
+        emptyDir:
+          medium: Memory
+          sizeLimit: 1Gi

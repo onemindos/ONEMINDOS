@@ -2,14 +2,14 @@
 """UMB-P07 (#144): `/v1/me/home`, the caller's own Home document (docs/umbrel2/desktop-ui.md §4.3).
 
 A person reads and writes only their own document. A write is a direct self write (API.md P3), audited as
-`home.updated` with the names of the changed fields (never their values). `If-Match` is required on a write.
+`home.updated` with the names of the changed fields (never their values, so link names and addresses are not logged). `If-Match` is required on a write.
 """
 from fastapi import Depends, FastAPI, Request, Response
 
 from ..auth import Principal
 from ..context import Gateway
 from ..errors import ApiError, error_responses
-from ..home import (HomeBody, HomeService, HomeView, drop_invisible, etag_of, item_ids, normalise)
+from ..home import (HomeBody, HomeService, HomeView, drop_invisible, etag_of, item_ids, link_ids, normalise)
 from ..identity.scopes import register_route_scope
 
 # Route order in the app and in /openapi.json (routers/__init__.py).
@@ -29,16 +29,19 @@ def register(app: FastAPI, gw: Gateway) -> None:
             raise ApiError(403, "permission_denied", "only a person has a Home")
         return p
 
-    def visible_fn(request: Request, p: Principal):
+    def visible_fn(request: Request, p: Principal, links: frozenset[str] = frozenset()):
         apps = gw.catalog.load()
         nodes = {n["node_id"] for n in gw.registry.list()}
+        off = gw.disabled_apps()  # a switched-off app has no dock tile
 
         def visible(item: str) -> bool:
             kind, _, ident = item.partition(":")
             if kind == "app":
-                return ident in apps and all(f(request, p, ident) for f in gw.app_filters)
+                return ident in apps and ident not in off and all(f(request, p, ident) for f in gw.app_filters)
             if kind == "node":
                 return ident in nodes
+            if kind == "link":
+                return item in links  # a link exists only because this person's own document defines it
             return kind == "sys"
 
         return visible
@@ -46,7 +49,8 @@ def register(app: FastAPI, gw: Gateway) -> None:
     def resolved(request: Request, p: Principal) -> dict:
         doc = svc.stored(p.id) or HomeBody().model_dump()
         doc = normalise(doc, owner=p.is_owner)
-        return drop_invisible(doc, visible_fn(request, p))
+        doc.setdefault("links", [])
+        return drop_invisible(doc, visible_fn(request, p, frozenset(link_ids(doc))))
 
     def send(response: Response, doc: dict) -> dict:
         response.headers["ETag"] = etag_of(doc)
@@ -72,7 +76,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         if match.strip() != "*" and match.strip().removeprefix("W/") != etag_of(current):
             raise ApiError(412, "stale_precondition", "Home changed elsewhere; read it again", reason="etag_mismatch")
         doc = normalise(body.model_dump(exclude={"updated_at"}), owner=p.is_owner)
-        visible = visible_fn(request, p)
+        visible = visible_fn(request, p, frozenset(link_ids(doc)))
         # A stored id must never reveal an app this person may not see: refuse it, as if it did not exist.
         bad = [i for i in item_ids(doc) if not visible(i)]
         if bad:
