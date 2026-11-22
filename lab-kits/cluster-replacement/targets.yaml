@@ -1,0 +1,58 @@
+# SPDX-License-Identifier: Apache-2.0
+# One row per workload class on the old hosted cluster, and where it goes on the OneMind box.
+# Generic on purpose: this repo is public. The full private inventory lives outside the repo.
+# The test core/tests/test_cluster_replacement_plan.py checks every row.
+#
+# kind: market-app    a Market app in apps/<app>/ (app: names the directory)
+#       os-native     already part of the OS or the gateway (no app to install)
+#       private-deploy  moved with `onemind migrate` as a private app (docs/leap/core/MIGRATE.md)
+#       drop          not carried over; data archived first (archive: true)
+# verify: a repo file whose test or manifest proves the target exists.
+phases:
+  - {id: P0, name: Freeze and prove backups, bus_flip: false}
+  - {id: P1, name: Agent runtime, bus_flip: false}
+  - {id: P2, name: Small daily apps, bus_flip: false}
+  - {id: P3, name: Worker and data, bus_flip: false}
+  - {id: P4, name: Message bus authority flip, bus_flip: true}
+  - {id: P5, name: Decommission, bus_flip: false}
+workloads:
+  - {id: agent-runtime, what: legacy AI agent, kind: market-app, app: hermes-agent, phase: P1,
+     verify: apps/hermes-agent/onemind.app.yaml, note: "tier is blocked today (image scan); fix before the move"}
+  - {id: agent-mcp-and-tool-gateway, what: MCP bridge and tool gateway, kind: os-native, phase: P1,
+     verify: core/tests/test_mcp.py, note: "gateway /mcp replaces both"}
+  - {id: password-manager, what: password manager, kind: market-app, app: vaultwarden, phase: P2,
+     verify: apps/vaultwarden/onemind.app.yaml}
+  - {id: push-notifications, what: push notification server, kind: market-app, app: ntfy, phase: P2,
+     verify: apps/ntfy/onemind.app.yaml}
+  - {id: status-page, what: uptime and status page, kind: market-app, app: uptime-kuma, phase: P2,
+     verify: apps/uptime-kuma/onemind.app.yaml}
+  - {id: home-automation, what: home automation hub, kind: market-app, app: home-assistant, phase: P2,
+     verify: apps/home-assistant/onemind.app.yaml}
+  - {id: bookmarks, what: bookmark and read-later app, kind: market-app, app: karakeep, phase: P2,
+     verify: apps/karakeep/onemind.app.yaml}
+  - {id: metrics-and-dashboards, what: metrics store and dashboards, kind: market-app, app: grafana, phase: P2,
+     verify: apps/grafana/onemind.app.yaml, note: "Prometheus is the second app; log store and operators are dropped"}
+  - {id: git-forge, what: self-hosted git forge, kind: market-app, app: gitea, phase: P3,
+     verify: apps/gitea/onemind.app.yaml, note: "different upstream; move repos by git push"}
+  - {id: workflow-automation, what: workflow automation tool, kind: private-deploy, phase: P3,
+     verify: core/tests/test_migrate_flow.py, note: "licence question open; decide before the move"}
+  - {id: llm-observability, what: LLM tracing and its column store, kind: private-deploy, phase: P3,
+     verify: core/tests/test_migrate_flow.py, note: "RAM heavy: worker node only; licence question open"}
+  - {id: message-bus, what: message bus with durable streams, kind: os-native, phase: P4,
+     verify: core/tests/test_migrate_units.py, note: "bus authority flips last, after every client points at the box"}
+  - {id: sso-identity, what: single sign-on provider with its database and cache, kind: drop, archive: true, phase: P3,
+     verify: core/tests/test_migrate_repo.py, note: "one owner, passkeys in the gateway"}
+  - {id: geo-and-situational-awareness, what: mapping, tracking and sensor-feed stacks (about ten namespaces), kind: drop, archive: true, phase: P3,
+     verify: core/tests/test_migrate_repo.py, note: "parked with robotics and TAK work; archive, do not run"}
+  - {id: iot-platforms, what: two IoT platforms with their databases, kind: drop, archive: true, phase: P3,
+     verify: core/tests/test_migrate_repo.py}
+  - {id: shared-databases, what: managed Postgres cluster and operator, kind: drop, archive: true, phase: P3,
+     verify: core/tests/test_migrate_repo.py, note: "per-app databases travel inside their app volume"}
+  - {id: ci-runners, what: self-hosted CI runners, kind: drop, phase: P5,
+     verify: lab-kits/cluster-replacement/RUNBOOK.md, note: "replaced by the lab runner pool"}
+  - {id: cluster-plumbing, what: GitOps, policy, scanning, mesh, cost and admin UIs, kind: drop, phase: P5,
+     verify: lab-kits/cluster-replacement/RUNBOOK.md, note: "each is replaced by an OS part, see the runbook plumbing table"}
+  - {id: old-front-door, what: developer portal and redirect, kind: drop, phase: P5,
+     verify: lab-kits/cluster-replacement/RUNBOOK.md, note: "the OneMind front door replaces it"}
+  - {id: backup-jobs, what: nightly backup CronJobs and snapshot repos, kind: os-native, phase: P0,
+     verify: core/tests/test_migrate_repo.py, note: "restic in the image; keep old repos read-only 90 days"}
