@@ -427,6 +427,9 @@ export class HttpApi implements OneMindApi {
     if (ex && !ex.auth) delete headers.Authorization;
     // §12.1: clients send the API major version they speak.
     headers['OneMind-API-Version'] = '1';
+    // The phone's own generation, not the SDK's fixed one: a lab "older app" build
+    // (EXPO_PUBLIC_ONEMIND_PROTOCOL) must declare one version on JSON calls, transfers and events alike.
+    headers[PROTOCOL_HEADER] = String(PROTOCOL_VERSION);
     let res: Response;
     try {
       res = await this.fetchFn(url, { ...init, headers });
