@@ -5,7 +5,7 @@ alerts         one row per condition; `open_key` = dedupe_key while open, NULL o
                the unique index allows one open alert per key and any number of resolved ones
 notifications  one person's inbox items
 deliveries     one notification (or summary) to one channel or device: queued, held, sent,
-               failed (retrying), dead, summarised
+               failed (retrying), dead, summarised, dropped (over the channel's daily cap)
 channels       a person's outbound channels; the secret is sealed (SecretBox), never returned
 devices        push registrations (Web Push / UnifiedPush); endpoint and keys sealed
 preferences    a person's routing document (contract §12.14)
@@ -320,6 +320,13 @@ class NotifyRepository(SqlRepository):
                 DeliveryRow.state.in_(("queued", "sent", "failed")),
             )) or 0
 
+    def sent_since(self, target_id: str, since: datetime) -> int:
+        """Texts that really went out to this target since `since` (the daily cap counts these)."""
+        with self.db.session() as s:
+            return s.scalar(select(func.count()).select_from(DeliveryRow).where(
+                DeliveryRow.target_id == target_id, DeliveryRow.state == "sent", DeliveryRow.sent_at >= since,
+            )) or 0
+
     def deliveries_for(self, notification_id: str) -> list[DeliveryRow]:
         with self.db.session() as s:
             return list(s.scalars(select(DeliveryRow).where(DeliveryRow.notification_id == notification_id)))
@@ -411,6 +418,6 @@ class NotifyRepository(SqlRepository):
             s.execute(delete(NotificationRow).where(NotificationRow.created_at < now - timedelta(days=90)))
             s.execute(delete(DeliveryRow).where(
                 DeliveryRow.created_at < now - timedelta(days=30),
-                DeliveryRow.state.in_(("sent", "dead", "summarised"))))
+                DeliveryRow.state.in_(("sent", "dead", "summarised", "dropped"))))
             s.execute(delete(AlertRow).where(
                 AlertRow.state == "resolved", AlertRow.resolved_at < now - timedelta(days=180)))
