@@ -17,6 +17,7 @@ from __future__ import annotations
 from datetime import timedelta
 
 from fastapi import Depends, FastAPI, Response
+from pydantic import BaseModel
 
 from ..auth import Principal
 from ..context import Gateway
@@ -25,10 +26,20 @@ from ..identity.scopes import register_route_scope
 from ..machines.capability import MIN_MEMORY_MB, describe
 from ..machines.console import ConsoleBroker, ConsoleMiddleware, KubectlProxyUpstream
 from ..machines.service import MachineService
+from ..machines.spec import IMAGE_CATALOGUE, CatalogueImage
 
 
 # Route order in the app and in /openapi.json (routers/__init__.py).
 ORDER = 330
+
+
+class MachineCapabilities(BaseModel):
+    enabled: bool
+    extension: dict
+    requirements: dict
+    eligible_node_ids: list[str]
+    nodes: list[dict]
+    image_catalogue: list[CatalogueImage]
 
 
 # What a scoped token needs (identity/scopes.py): the capabilities show what /v1/nodes shows, so
@@ -66,9 +77,11 @@ def register(app: FastAPI, gw: Gateway) -> None:
             "requirements": {"min_memory_mb": MIN_MEMORY_MB, "arch": "amd64", "kvm": True},
             "eligible_node_ids": eligible,
             "nodes": nodes,
+            "image_catalogue": IMAGE_CATALOGUE,
         }
 
-    @app.get("/v1/machines/capabilities", tags=["machines"], operation_id="machines.capabilities", responses=error_responses(401))
+    @app.get("/v1/machines/capabilities", tags=["machines"], operation_id="machines.capabilities",
+             response_model=MachineCapabilities, responses=error_responses(401))
     def machines_capabilities(_: Principal = Depends(principal)):
         """Which nodes can run virtual machines, and the reasons the others cannot."""
         return capabilities()
