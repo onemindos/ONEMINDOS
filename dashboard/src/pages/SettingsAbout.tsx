@@ -6,6 +6,7 @@ import { Card, PageHeader } from '@onemind/ui';
 import { useHub } from '../data/hub';
 import { usePoll } from '../lib/hooks';
 import { useSignedIn } from '../session';
+import { SpatialStatus } from '../screens/spatial/SpatialStatus';
 import { AboutBox } from './AboutBox';
 import { DeviceCard } from './DeviceCard';
 
@@ -43,6 +44,7 @@ export function SettingsAbout() {
         </p>
         <AboutBox />
       </details>
+      <SpatialStatus />
       <Card title="Plugin signing trust">
         <p>Owners can enroll public signing keys for private plugins. Changes wait for approval.</p>
         <Link to="/settings/plugin-keys">Manage plugin signing keys</Link>
