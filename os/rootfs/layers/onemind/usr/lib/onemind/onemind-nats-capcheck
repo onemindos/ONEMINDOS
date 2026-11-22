@@ -1,0 +1,23 @@
+#!/bin/sh
+# SPDX-License-Identifier: Apache-2.0
+# onemind-nats-capcheck NATS_CONF: refuse a hub nats.conf that turns JetStream on without a cap (#601).
+# Run by onemind-nats-files before every start and reload of onemind-nats.service. A jetstream block
+# must name max_file_store (a size above 0) and max_memory_store: 0. Without them nats-server takes the
+# free disk and 75 % of RAM (nats-server v2.15.3 server/jetstream.go, dynJetStreamConfig), and memory
+# streams are lost on a restart. A conf with no jetstream block (a box set up before JetStream) passes.
+set -eu
+conf=${1:?usage: onemind-nats-capcheck NATS_CONF}
+[ -f "$conf" ] || exit 0
+grep -Eq '^[[:space:]]*jetstream[[:space:]]*[:=]?[[:space:]]*(\{|enabled|true)' "$conf" || exit 0
+if ! grep -Eq '^[[:space:]]*max_file_store[[:space:]]*[:=]?[[:space:]]*0*[1-9][0-9]*([KMGT]B?|B)?[[:space:]]*$' "$conf"; then
+  echo "onemind-nats: $conf turns JetStream on without max_file_store; refusing to start (#601)" >&2
+  exit 1
+fi
+if ! grep -Eq '^[[:space:]]*max_memory_store[[:space:]]*[:=]?[[:space:]]*0B?[[:space:]]*$' "$conf"; then
+  echo "onemind-nats: $conf has no max_memory_store: 0 (file storage only); refusing to start (#601)" >&2
+  exit 1
+fi
+if grep -Eq '^[[:space:]]*(max_mem_store|max_mem|max_file)[[:space:]]*[:=]' "$conf"; then
+  echo "onemind-nats: $conf uses a short alias for a JetStream limit; write max_file_store and max_memory_store (#601)" >&2
+  exit 1
+fi

@@ -75,6 +75,8 @@ class Gateway:
     principal: Callable[..., Principal] = None  # type: ignore[assignment]
     # CORE-DEPLOY-2: the on-box image scanner (appstore/imagescan.py); None means none is installed.
     image_scanner: Any = None
+    # #601: the hub's core JetStream streams and buckets (jetstream.JetStreamCore), set by routers/jetstream.py.
+    jetstream: Any = None
     authenticators: list[Authenticator] = field(default_factory=list)
     approval_guards: list[ApprovalGuard] = field(default_factory=list)
     requester_lookups: list[RequesterLookup] = field(default_factory=list)

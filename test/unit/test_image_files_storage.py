@@ -7,6 +7,7 @@ import os, re, sys, tempfile, unittest
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 LIB = os.path.join(ROOT, "os", "rootfs", "layers", "onemind", "usr", "lib")
 sys.path.insert(0, os.path.join(LIB, "onemind"))
+sys.path.insert(1, os.path.join(ROOT, "core"))  # onemind_core.jetstream: the JetStream cap (#601)
 import onemind_firstboot as fb  # noqa: E402
 
 

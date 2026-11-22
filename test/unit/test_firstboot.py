@@ -194,14 +194,61 @@ class Files(unittest.TestCase):
             self.assertIn(f'"/run/onemind-nats/{f}"', c)
 
     def test_hub_nats_conf_has_bounded_jetstream_on_the_data_disk(self):
-        for conf in (fb.hub_nats_conf(None), fb.hub_nats_conf(MESH_IP)):
+        cap = 3 << 30
+        for conf in (fb.hub_nats_conf(None, cap), fb.hub_nats_conf(MESH_IP, cap)):
             self.assertIn('store_dir: "/var/lib/onemind-nats/jetstream"', conf)
-            self.assertIn(f"max_file_store: {4 << 30}", conf)
+            self.assertIn(f"max_file_store: {cap}", conf)
             self.assertIn("max_memory_store: 0", conf)  # a restart must not lose events silently
         p = fb.Paths("/x")
-        env = fb.gateway_env(p, {"box": "b", "node_id": "n1", "name": "n"})
-        self.assertIn(f"ONEMIND_FABRIC_JETSTREAM_MAX_BYTES={4 << 30}", env)
+        env = fb.gateway_env(p, {"box": "b", "node_id": "n1", "name": "n"}, js_max_bytes=cap)
+        self.assertIn(f"ONEMIND_FABRIC_JETSTREAM_MAX_BYTES={cap}", env)
         self.assertIn("ONEMIND_FABRIC_JETSTREAM_PATH=/var/lib/onemind-nats\n", env)
+
+    def test_jetstream_cap_is_a_share_of_the_data_disk_and_never_missing(self):
+        # #601: the cap follows /data (10 %, clamped), not a fixed 4 GiB; nats.conf and gateway.env agree.
+        GIB = 1 << 30
+        usage = lambda total: mock.patch("shutil.disk_usage", return_value=shutil._ntuple_diskusage(total, 0, total))
+        with tempfile.TemporaryDirectory() as d:
+            p = fb.Paths(d)
+            os.makedirs(os.path.join(d, "data"))
+            with usage(24 * GIB):
+                cap = fb.jetstream_max_bytes(p)
+                env = fb.gateway_env(p, {"box": "b", "node_id": "n1", "name": "n"})
+            self.assertEqual(cap, int(24 * GIB * 0.10))
+            self.assertIn(f"ONEMIND_FABRIC_JETSTREAM_MAX_BYTES={cap}\n", env)
+            with usage(2000 * GIB):
+                self.assertEqual(fb.jetstream_max_bytes(p), 64 * GIB)       # the ceiling
+            with usage(1 * GIB), self.assertRaises(ValueError):
+                fb.jetstream_max_bytes(p)                                  # too small: refused, not uncapped
+        for bad in (0, -1):
+            with self.assertRaises(ValueError):
+                fb.hub_nats_conf(None, bad)                                # JetStream without a cap is refused
+
+    def test_hub_nats_refuses_to_start_jetstream_without_a_cap(self):
+        # #601: onemind-nats-files runs the check before every start and reload; it fails the unit.
+        check = os.path.join(LIB, "onemind-nats-capcheck")
+        self.assertIn('/usr/lib/onemind/onemind-nats-capcheck "$d/nats.conf"', open(os.path.join(LIB, "onemind-nats-files")).read())
+        self.assertTrue(os.access(check, os.X_OK))
+        good = fb.hub_nats_conf(MESH_IP, 2 << 30)
+        cases = {
+            "rendered": (good, 0),
+            "no jetstream (old box)": ("server_name: hub\nlisten: 127.0.0.1:4222\n", 0),
+            "no file cap": (good.replace(f"  max_file_store: {2 << 30}\n", ""), 1),
+            "zero file cap": (good.replace(f"max_file_store: {2 << 30}", "max_file_store: 0"), 1),
+            "no memory cap": (good.replace("  max_memory_store: 0\n", ""), 1),
+            "memory store": (good.replace("max_memory_store: 0", "max_memory_store: 1GB"), 1),
+            "alias": (good.replace("max_memory_store: 0", "max_memory_store: 0\n  max_mem: 1G"), 1),
+            "jetstream enabled": ("server_name: hub\njetstream: enabled\n", 1),
+        }
+        with tempfile.TemporaryDirectory() as d:
+            for name, (conf, want) in cases.items():
+                path = os.path.join(d, "nats.conf")
+                with open(path, "w") as f:
+                    f.write(conf)
+                r = subprocess.run(["sh", check, path], capture_output=True, text=True)
+                self.assertEqual(r.returncode, want, f"{name}: {r.stderr}")
+                if want:
+                    self.assertIn("(#601)", r.stderr)
 
     def test_jetstream_store_is_a_bind_from_the_data_disk_owned_for_the_nats_user(self):
         base = os.path.join(ROOT, "os", "rootfs", "layers")

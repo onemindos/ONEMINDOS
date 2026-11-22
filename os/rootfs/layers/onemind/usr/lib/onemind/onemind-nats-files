@@ -17,6 +17,8 @@ copy() { # copy SRC NAME: replace atomically, so a reload never reads half a fil
   mv -f "$d/.$2.new" "$d/$2"
 }
 copy /data/onemind/etc/nats.conf nats.conf
+# No JetStream without a cap (#601): a conf without max_file_store and max_memory_store: 0 stops here.
+/usr/lib/onemind/onemind-nats-capcheck "$d/nats.conf"
 copy /data/onemind/gateway/nats/accounts.conf nats-accounts.conf
 for f in nats.crt nats.key ca.crt; do copy "/data/onemind/gateway/tls/$f" "$f"; done
 for f in nats-server.pem nats-server.key nats-ca.pem; do copy "/data/onemind/etc/$f" "$f"; done
