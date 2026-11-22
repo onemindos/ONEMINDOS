@@ -15708,6 +15708,16 @@
             },
             "description": "The principal may not do this (permission_denied)"
           },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
           "413": {
             "content": {
               "application/json": {

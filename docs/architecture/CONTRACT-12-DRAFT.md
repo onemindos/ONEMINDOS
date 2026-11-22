@@ -136,7 +136,7 @@ Node permissions: FABRIC.md §5.2. App streams and app subjects stay in the lock
 
 | Method and path | Who | Returns |
 |---|---|---|
-| `POST /v1/fabric/join-tickets` | owner | body `{role: worker|leaf, ttl_s ≤ 3600 (default 900)}` → 201 `{id, role, expires_at, qr_text}` + `one_time: {ticket}`. `qr_text` = `onemind-join:v1?hub=<url>&ca=<sha256>&t=<ticket>&role=<role>` |
+| `POST /v1/fabric/join-tickets` | owner | body `{role: worker|leaf, ttl_s ≤ 3600 (default 900)}` → 201 `{id, role, expires_at, qr_text}` + `one_time: {ticket}`. `qr_text` = `onemind-join:v1?code=<ticket>&ca=<sha256>&role=<role>&hub=<url>`; the v2 form (FABRIC.md §4.3) is `onemind-join:v2?hub=<url>&ca=<sha256>&code=<ticket>&kind=<role>` |
 | `GET /v1/fabric/join-tickets` | owner | tickets without secrets: `{id, role, created_by, expires_at, used_at}` |
 | `DELETE /v1/fabric/join-tickets/{id}` | owner | 204; revokes an unused ticket (audited; not an action, it only removes a right to ask) |
 | `POST /v1/fabric/join` | **no session**; the ticket authenticates; `rate_limited` after 10/min per source | body `{ticket, node_id, role, node_pubkey, tls_pubkey, nats_pubkey, facts: <§2 heartbeat>, sig}` (`sig` = Ed25519 by `node_pubkey` over the canonical body without `sig`) → 202 `{join_id, action_id, pairing_code}`. Errors: 409 `conflict` (reason `ticket_used` or `duplicate_node_id`), 409 `expired`, 404 `not_found` (reason `ticket_unknown`) |
