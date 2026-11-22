@@ -131,3 +131,30 @@ describe('uploadLocalFile', () => {
     expect(api.filesUploadCreate).not.toHaveBeenCalled();
   });
 });
+
+describe('confirmed share resumption', () => {
+  const url = 'https://hub.test/v1/files/uploads/u';
+  const created = jest.fn(async () => {});
+  const native = jest.fn(async () => new Response(null, { status: 204, headers: { 'Upload-Offset': '8' } }));
+
+  it('reads the existing offset and hands only remaining bytes to the authenticated native upload', async () => {
+    const r = hub(() => new Response(null, { headers: { 'Upload-Offset': '5' } }));
+    await uploadLocalFile(r.api, fakeFile(8), 'r', '/', undefined, { url, created, transport: native });
+    expect(r.calls.map(c => c.init.method)).toEqual(['HEAD']);
+    expect(native).toHaveBeenCalledWith(url, expect.objectContaining({ Authorization: 'Bearer t', 'Upload-Offset': '5' }), new Uint8Array([5, 5, 5]));
+    expect(created).not.toHaveBeenCalled();
+  });
+
+  it.each([null, 'bad', '-1', '20'])('retains an input when the HEAD offset is invalid (%s)', async offset => {
+    const r = hub(() => new Response(null, { headers: offset === null ? {} : { 'Upload-Offset': offset } }));
+    await expect(uploadLocalFile(r.api, fakeFile(8), 'r', '/', undefined, { url, created, transport: native })).rejects.toThrow();
+  });
+
+  it('rejects non-progress or expired uploads without claiming delivery', async () => {
+    const r = hub(() => new Response(null, { headers: { 'Upload-Offset': '5' } }));
+    const stuck = async () => new Response(null, { status: 204, headers: { 'Upload-Offset': '5' } });
+    await expect(uploadLocalFile(r.api, fakeFile(8), 'r', '/', undefined, { url, created, transport: stuck })).rejects.toThrow(/confirm/);
+    const expired = hub(() => new Response(null, { status: 404 }));
+    await expect(uploadLocalFile(expired.api, fakeFile(8), 'r', '/', undefined, { url, created, transport: native })).rejects.toMatchObject({ status: 404 });
+  });
+});

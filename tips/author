@@ -1,0 +1,17 @@
+#!/bin/sh
+# SPDX-License-Identifier: Apache-2.0
+# One command on a clean developer Mac. Existing environments stay untouched.
+set -eu
+root=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
+tool="$root/cmd/onemind/cli/tips_author.py"
+if python3 -I -c 'import yaml' 2>/dev/null; then
+    exec python3 -I "$tool" "$@" --root "$root"
+fi
+if command -v uv >/dev/null 2>&1; then
+    exec uv run --isolated --no-project --with PyYAML==6.0.3 python -I "$tool" "$@" --root "$root"
+fi
+envdir=$(mktemp -d)
+trap 'rm -rf "$envdir"' EXIT
+python3 -m venv "$envdir"
+"$envdir/bin/python" -m pip --disable-pip-version-check install --quiet 'PyYAML==6.0.3' >&2
+"$envdir/bin/python" -I "$tool" "$@" --root "$root"
