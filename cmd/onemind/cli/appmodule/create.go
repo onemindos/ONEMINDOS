@@ -6,6 +6,7 @@ package appmodule
 import (
 	"crypto/sha256"
 	"embed"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -31,6 +32,33 @@ func checkRoot(root *os.Root) error {
 	return nil
 }
 
+// A feature may share a router source file with others. The public contract is the
+// authority on occupied URLs, even when a matching filename does not exist.
+func checkRoute(root *os.Root, id string) error {
+	f, err := root.Open("sdk/openapi/onemind-v1.json")
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	var doc struct{ Paths map[string]struct{} }
+	if err := json.NewDecoder(f).Decode(&doc); err != nil {
+		return err
+	}
+	if len(doc.Paths) == 0 {
+		return errors.New("the gateway contract has no paths")
+	}
+	screen, api := "/"+id, "/v1/"+id
+	if _, exists := doc.Paths[screen]; exists || screen == "/v1" {
+		return fmt.Errorf("reserved gateway path: %s", screen)
+	}
+	for existing := range doc.Paths {
+		if existing == api || strings.HasPrefix(existing, api+"/") {
+			return fmt.Errorf("gateway already serves %s", existing)
+		}
+	}
+	return nil
+}
+
 func Create(directory, id string) error {
 	if !moduleID.MatchString(id) {
 		return errors.New("use a built-in app id of up to 59 lowercase letters, digits and hyphens, starting with a letter and ending with a letter or digit")
@@ -41,6 +69,9 @@ func Create(directory, id string) error {
 	}
 	defer root.Close()
 	if err := checkRoot(root); err != nil {
+		return err
+	}
+	if err := checkRoute(root, id); err != nil {
 		return err
 	}
 	module := strings.ReplaceAll(id, "-", "_")

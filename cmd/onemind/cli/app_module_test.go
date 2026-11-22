@@ -14,11 +14,15 @@ import (
 func moduleCheckout(t *testing.T) {
 	t.Helper()
 	t.Chdir(t.TempDir())
-	for _, dir := range []string{"core/onemind_core/routers", "dashboard/src/screens", "core/tests", "sdk/schema"} {
+	for _, dir := range []string{"core/onemind_core/routers", "dashboard/src/screens", "core/tests", "sdk/schema", "sdk/openapi"} {
 		if err := os.MkdirAll(dir, 0755); err != nil {
 			t.Fatal(err)
 		}
 	}
+	if err := os.WriteFile("sdk/openapi/onemind-v1.json", []byte(`{"paths":{"/healthz":{},"/v1/system-apps":{},"/v1/storage/volumes":{}}}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+
 }
 
 func TestAppNewModule(t *testing.T) {
@@ -45,7 +49,7 @@ func TestAppNewRefusesPartialAndInvalidModules(t *testing.T) {
 	if err := os.WriteFile(collision, []byte("local work"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	for _, args := range [][]string{{"new", "notes"}, {"new", "../outside"}, {"new", "a/b"}, {"new", "notes", "--kind", "service"}} {
+	for _, args := range [][]string{{"new", "notes"}, {"new", "system-apps"}, {"new", "storage"}, {"new", "healthz"}, {"new", "v1"}, {"new", "../outside"}, {"new", "a/b"}, {"new", "notes", "--kind", "service"}} {
 		if r := run(t, "", false, append([]string{"app"}, args...)...); r.code == 0 {
 			t.Fatalf("accepted %q", args)
 		}
