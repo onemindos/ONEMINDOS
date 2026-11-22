@@ -12,6 +12,8 @@ metadata:
   version: "2.5.11"
   description: Self-hosted uptime monitoring for websites, ports and services, with status pages and notifications
   category: monitoring
+  age_rating: 16   # same as apps/uptime-kuma (apps/README.md rubric)
+  age_reason: "Probes any host or port the user enters and sends alerts; behaves like a scanner."
   icon: icon.svg
   license: MIT
   source: https://github.com/louislam/uptime-kuma

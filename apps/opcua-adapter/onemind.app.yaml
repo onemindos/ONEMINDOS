@@ -17,6 +17,8 @@ metadata:
   description: Reads OPC UA node values from machines and PLCs and publishes them on NATS, read-only
   # Market category slug from docs/design/TAXONOMY.md §1; sub-tags: industrial, energy.
   category: home
+  age_rating: 18   # proposed minimum age (apps/README.md rubric); the owner can override per app
+  age_reason: "Connects to machines and PLCs on the network; device access for adults."
   icon: icon.svg
   license: Apache-2.0
   source: https://github.com/onemindos/ONEMINDOS
