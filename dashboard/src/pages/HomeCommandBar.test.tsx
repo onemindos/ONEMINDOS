@@ -28,6 +28,8 @@ it('restores the Home command bar from the signed-in person’s appearance choic
   await waitFor(async () => expect((await store.load()).prefs.commandBar).toBe(true));
   appearance.unmount();
   renderApp({ token: 'owner-demo', route: '/' });
+  // The desktop restores the open Settings window across sessions. Close it to return Home.
+  fireEvent.click(await screen.findByRole('button', { name: 'Close Settings' }));
   expect(await screen.findByRole('group', { name: 'Home commands' })).toBeVisible();
   fireEvent.click(screen.getByRole('button', { name: 'Run a command' }));
   expect(await screen.findByRole('combobox')).toBeVisible();
