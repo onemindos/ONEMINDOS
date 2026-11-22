@@ -26,7 +26,7 @@ KINDS = ["node", "audit", "event", "alert", "asset", "intel", "metric", "plugin"
 
 
 def point(**changes):
-    return {"schema": "onemind.datapoint/v1", "subject": "onemind.asset.sensor.greenhouse-1.temp",
+    return {"schema": "onemind.datapoint/v1", "nats_subject": "onemind.asset.sensor.greenhouse-1.temp",
             "time": "2026-11-21T10:00:00Z", "seq": 7, "value": 21.5, "unit": "Cel", "quality": "live",
             "source": {"kind": "bridge", "id": "meshtastic"}, "licence": {"id": "Apache-2.0"},
             "position": {"lat": 40.7128, "lon": -74.006}, **changes}
@@ -138,7 +138,8 @@ def test_an_agent_only_asks_under_its_own_id(reg):
     ("onemind.node.aaa111.status", "node", "aaa111"),
     ("onemind.node.aaa111.event.update.staged", "node", "aaa111"),
     ("onemind.node.aaa111.jobresult.j-1", "node", "aaa111"),
-    ("onemind.node.aaa111.job.backup", "gateway", None),
+    ("onemind.node.aaa111.job.backup.run", "gateway", None),
+    ("onemind.node.aaa111.job.system.restart_unit", "gateway", None),
     ("onemind.audit", "gateway", None),
     ("onemind.event.backup.run.finished", "gateway", None),
     ("onemind.alert.storage.disk_budget_near", "gateway", None),
@@ -146,6 +147,77 @@ def test_an_agent_only_asks_under_its_own_id(reg):
 ])
 def test_every_contract_12_9_subject_is_valid_for_its_publisher(reg, subject, publisher, owner):
     assert reg.check(subject, publisher, owner).ok, reg.check(subject, publisher, owner).reason
+
+
+# --- review of #791: real job kinds, real 12.1 ids, agent principals, one meaning of "subject" ---
+
+JOB_KINDS_12_11 = ["backup.run", "backup.restore", "backup.verify", "backup.prune", "backup.snapshot.delete",
+                   "update.check", "update.apply", "update.postpone", "update.settings", "os.rollback",
+                   "node.leave", "node.renew", "host.check", "system.restart_unit"]
+
+
+@pytest.mark.parametrize("kind", JOB_KINDS_12_11)
+def test_every_contract_12_11_job_kind_has_a_job_subject(reg, kind):
+    v = reg.check(f"onemind.node.aaa111.job.{kind}", "gateway")
+    assert v.ok, v.reason
+    assert v.pattern == "onemind.node.{node_id:node_id}.job.{job_kind:type}"
+    assert not reg.check(f"onemind.node.aaa111.job.{kind}", "node", "aaa111").ok
+
+
+@pytest.mark.parametrize("subject,publisher,owner", [
+    ("onemind.node.aaa111.jobresult.job_01HXA7Q2M3K4N5P6R7S8T9V0WX", "node", "aaa111"),
+    ("onemind.node.aaa111.jobresult.3f2b8c1e-4d5a-4b6c-8d7e-9f0a1b2c3d4e", "node", "aaa111"),
+    ("onemind.notification.person.usr_01HXA7Q2M3K4N5P6R7S8T9V0WX.created", "gateway", None),
+    ("onemind.asset.camera.dev_01HXA7Q2M3K4N5P6R7S8T9V0WX.state", "gateway", None),
+    ("onemind.asset.robot.dev_01HXA7Q2M3K4N5P6R7S8T9V0WX.pose", "gateway", None),
+])
+def test_contract_12_1_ids_ride_the_tree_as_they_are(reg, subject, publisher, owner):
+    v = reg.check(subject, publisher, owner)
+    assert v.ok, v.reason
+
+
+def test_an_id_slot_still_refuses_what_is_not_an_id(reg):
+    assert not reg.check("onemind.node.aaa111.jobresult._job", "node", "aaa111").ok
+    assert not reg.check("onemind.notification.person.usr_" + "A" * 130 + ".created", "gateway").ok
+    # Names chosen by OneMind (fields, sources) stay lowercase.
+    assert not reg.check("onemind.notification.person.usr_01HX.Created", "gateway").ok
+
+
+def test_an_agent_principal_with_dots_maps_to_its_subject(reg):
+    owner = reg.agent_owner_id("agent:hermes.v2")
+    assert owner == "hermes.v2"
+    v = reg.check("onemind.request.agent.hermes.v2.action", "agent", owner)
+    assert v.ok, v.reason
+    assert reg.check("onemind.request.agent.hermes.action", "agent", reg.agent_owner_id("agent:hermes")).ok
+    # hermes may not ask as hermes.v2, and hermes.v2 may not ask as hermes.
+    assert not reg.check("onemind.request.agent.hermes.v2.action", "agent", "hermes").ok
+    assert not reg.check("onemind.request.agent.hermes.action", "agent", "hermes.v2").ok
+    # request_type is exactly one last token, so a name cannot borrow a part of it.
+    assert not reg.check("onemind.request.agent.hermes.v2", "agent", "hermes.v2").ok
+
+
+@pytest.mark.parametrize("principal", ["agent:a..b", "agent:a.", "person:hermes", "hermes", "agent:", None])
+def test_an_agent_name_without_a_subject_maps_to_nothing(reg, principal):
+    assert reg.agent_owner_id(principal) is None
+
+
+def test_every_agent_id_the_identity_service_accepts_maps_or_is_named_unmappable(reg):
+    from onemind_core.identity.service import AGENT_ID_RE
+
+    for pid in ("agent:hermes", "agent:hermes.v2", "agent:a-b_c.d-1", "agent:" + "a" * 63):
+        assert AGENT_ID_RE.fullmatch(pid), pid
+        assert reg.agent_owner_id(pid) == pid[len("agent:"):], pid
+    assert AGENT_ID_RE.fullmatch("agent:a..b") and reg.agent_owner_id("agent:a..b") is None
+
+
+def test_the_datapoint_names_the_nats_subject_apart_from_the_event_subject(reg):
+    dp = json.loads((subjects.registry_path().parent / "onemind.datapoint.schema.json").read_text())
+    ev = json.loads((subjects.registry_path().parent / "onemind.event.schema.json").read_text())
+    assert ev["properties"]["subject"]["type"] == "object"
+    assert "subject" not in dp["properties"] and dp["properties"]["nats_subject"]["type"] == "string"
+    assert "nats_subject" in dp["required"]
+    old = {("subject" if k == "nats_subject" else k): v for k, v in point().items()}
+    assert any("nats_subject" in p for p in reg.envelope_problems("onemind.datapoint/v1", old))
 
 
 def test_a_node_names_only_itself(reg):

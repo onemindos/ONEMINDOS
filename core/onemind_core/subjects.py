@@ -206,6 +206,22 @@ class Registry:
         shapes = "; ".join(p.text for p in self.patterns if p.kind == kind)
         return Verdict(False, f"{subject_filter!r} matches nothing registered for kind {kind!r}: {shapes}", kind)
 
+    def agent_owner_id(self, principal_id: str) -> str | None:
+        """The owner id an agent uses on the tree: `agent:hermes.v2` -> `hermes.v2`, else None.
+
+        Each dot-separated part of the name becomes one subject token (placeholder agent_name), so
+        a name with an empty part (`agent:a..b`, `agent:a.`) has no subject and gets None.
+        """
+        if not isinstance(principal_id, str) or not principal_id.startswith("agent:"):
+            return None
+        name = principal_id[len("agent:"):]
+        hole = self.raw["placeholders"]["agent_name"]
+        parts = name.split(".")
+        part_re = re.compile(hole["re"])
+        if not hole.get("min", 1) <= len(parts) <= hole.get("max", 1) or not all(part_re.match(p) for p in parts):
+            return None
+        return name
+
     def pattern_for(self, subject: str) -> Pattern | None:
         tokens, _ = self._split(subject)
         if not tokens or len(tokens) < 2:

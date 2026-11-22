@@ -6,10 +6,10 @@
   "description": "One observed value on the asset, intel, metric and layer subjects (sdk/schema/onemind.subjects.json). The gateway stamps source and licence and is the only writer of those subjects. At most 16 KiB. Video and point clouds never ride the bus.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema", "subject", "time", "quality", "source"],
+  "required": ["schema", "nats_subject", "time", "quality", "source"],
   "properties": {
     "schema": {"const": "onemind.datapoint/v1"},
-    "subject": {"type": "string", "minLength": 1, "maxLength": 255, "description": "the subject it was published on"},
+    "nats_subject": {"type": "string", "minLength": 1, "maxLength": 255, "description": "the NATS subject it was published on; named nats_subject because subject in onemind.event/v1 is an object of ids (contract 12.8)"},
     "time": {"type": "string", "format": "date-time", "description": "when the value was observed (RFC 3339)"},
     "seq": {"type": "integer", "minimum": 0, "description": "per-source sequence number, so a replayed message can be refused"},
     "value": {
