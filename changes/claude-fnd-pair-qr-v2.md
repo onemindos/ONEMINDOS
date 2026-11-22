@@ -1,0 +1,5 @@
+---
+pr: pending
+branch: claude/fnd-pair-qr-v2
+---
+One versioned join QR format, onemind-join:v2 (hub, alt, mdns, ca, code, kind), with one builder in the gateway (build_join_qr) and three parsers that read it the same way: Python (parse_join_qr), Go (fabric.ParseQR, used by onemind fabric join) and TypeScript (parseJoinQR in @onemind/sdk). All three run one shared file of 16 valid and 100 hostile payloads (sdk/testdata/join-qr/vectors.json) and refuse each hostile one with the same reason word: a non-https hub, userinfo, paths, queries, IPv6 literals, a CA fingerprint that is not 64 lower-case hex, a bad code shape, t= in place of code=, repeated or unknown fields, plus signs, semicolons, stray whitespace and unknown versions. None of them uses a language URL parser, because those disagree on exactly these cases. v1 still parses, and join tickets keep their v1 qr_payload for OS images and install.sh while adding qr_payload_v2; a ticket whose configured hub URL would make a bad QR is now refused with 409 before it is stored. onemind fabric join refuses a v2 code meant for a phone, desktop, browser or sensor.

@@ -37,6 +37,8 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -51,8 +53,15 @@ const PollContext = "onemind-join-poll:v1:"
 type Ticket struct {
 	Code  string // the one-time join code
 	CASHA string // sha256 of the box CA certificate (DER), lower-case hex
-	Role  string // worker | leaf
+	Role  string // worker | leaf (a machine ticket); empty for other kinds
 	Hub   string // https URL of the hub gateway
+
+	// From the QR (docs/architecture/FABRIC.md §4.2). Version is 1 or 2 (0 for a typed --code);
+	// Kind is the v2 kind or the v1 role; Alt (away address) and MDNS exist only in v2.
+	Version int
+	Kind    string
+	Alt     string
+	MDNS    string
 }
 
 var (
@@ -60,18 +69,190 @@ var (
 	codeRe = regexp.MustCompile(`^[0-9A-Za-z]{4}-?[0-9A-Za-z]{4}-?[0-9A-Za-z]{4}$`)
 )
 
-// ParseQR reads `onemind-join:v1?code=…&ca=…&role=…[&hub=…]`.
+// JoinQRMaxLen is the longest join QR any parser accepts.
+const JoinQRMaxLen = 640
+
+// JoinKinds are the v2 `kind` values; the first two are machines (`onemind fabric join`).
+var JoinKinds = []string{"worker", "leaf", "phone", "desktop", "browser", "sensor"}
+
+// JoinQRError is a refused join QR. Reason is the same word in Python, Go and TypeScript
+// (sdk/testdata/join-qr/vectors.json "reasons").
+type JoinQRError struct {
+	Reason string
+	Msg    string
+}
+
+func (e *JoinQRError) Error() string { return e.Msg }
+
+var (
+	qrPrefixRe   = regexp.MustCompile(`^onemind-join:v([0-9]+)\?`)
+	qrKeyRe      = regexp.MustCompile(`^[a-z]+$`)
+	qrValueRe    = regexp.MustCompile(`^[A-Za-z0-9._~%:/-]+$`)
+	qrCodeV2Re   = regexp.MustCompile(`^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$`)
+	qrHostPortRe = regexp.MustCompile(`^([A-Za-z0-9.-]{1,253})(?::([1-9][0-9]{0,4}))?$`)
+	qrLabelRe    = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$`)
+	qrDigitsRe   = regexp.MustCompile(`^[0-9]+$`)
+	qrOctetRe    = regexp.MustCompile(`^(?:0|[1-9][0-9]{0,2})$`)
+	qrMDNSRe     = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.local$`)
+	qrFields     = map[int][]string{1: {"code", "ca", "role", "hub"}, 2: {"hub", "alt", "mdns", "ca", "code", "kind"}}
+	qrRequired   = map[int][]string{1: {"code", "ca", "hub"}, 2: {"hub", "ca", "code", "kind"}}
+)
+
+func qrErr(reason, format string, a ...any) error {
+	return &JoinQRError{Reason: reason, Msg: fmt.Sprintf(format, a...)}
+}
+
+// qrUnescape is strict percent-decoding: every '%' starts two hex digits and the result is
+// printable ASCII (url.QueryUnescape would also turn '+' into a space).
+func qrUnescape(v string) (string, bool) {
+	var b strings.Builder
+	for i := 0; i < len(v); i++ {
+		c := v[i]
+		if c == '%' {
+			if i+2 >= len(v) {
+				return "", false
+			}
+			n, err := hex.DecodeString(v[i+1 : i+3])
+			if err != nil {
+				return "", false
+			}
+			c, i = n[0], i+2
+		}
+		if c < 0x21 || c > 0x7e {
+			return "", false
+		}
+		b.WriteByte(c)
+	}
+	return b.String(), true
+}
+
+// qrHTTPS turns https://host[:port][/] into https://host[:port] (host lower-cased). No userinfo,
+// path, query or fragment; a DNS name or a dotted-quad IPv4 address (no IPv6 literal).
+func qrHTTPS(v string) (string, bool) {
+	rest, ok := strings.CutPrefix(v, "https://")
+	if !ok {
+		return "", false
+	}
+	rest = strings.TrimSuffix(rest, "/")
+	m := qrHostPortRe.FindStringSubmatch(rest)
+	if m == nil {
+		return "", false
+	}
+	if m[2] != "" {
+		if p, err := strconv.Atoi(m[2]); err != nil || p > 65535 {
+			return "", false
+		}
+	}
+	host := strings.ToLower(m[1])
+	labels := strings.Split(host, ".")
+	for _, l := range labels {
+		if !qrLabelRe.MatchString(l) {
+			return "", false
+		}
+	}
+	if qrDigitsRe.MatchString(labels[len(labels)-1]) {
+		if len(labels) != 4 {
+			return "", false
+		}
+		for _, l := range labels {
+			if n, err := strconv.Atoi(l); !qrOctetRe.MatchString(l) || err != nil || n > 255 {
+				return "", false
+			}
+		}
+	}
+	out := "https://" + host
+	if m[2] != "" {
+		out += ":" + m[2]
+	}
+	return out, true
+}
+
+// ParseQR reads `onemind-join:v2?hub=…[&alt=…][&mdns=…]&ca=…&code=…&kind=…` and the older
+// `onemind-join:v1?code=…&ca=…[&role=…]&hub=…` exactly as core/onemind_core/fabric.py
+// parse_join_qr and sdk/ts parseJoinQR do (sdk/testdata/join-qr/vectors.json). Errors are
+// *JoinQRError.
 func ParseQR(payload string) (*Ticket, error) {
-	const prefix = "onemind-join:v1?"
-	if !strings.HasPrefix(payload, prefix) {
-		return nil, errors.New("not a OneMind join code (expected onemind-join:v1?…)")
+	if len(payload) > JoinQRMaxLen {
+		return nil, qrErr("length", "a join QR is at most %d characters", JoinQRMaxLen)
 	}
-	q, err := url.ParseQuery(strings.TrimPrefix(payload, prefix))
-	if err != nil {
-		return nil, fmt.Errorf("join code: %w", err)
+	m := qrPrefixRe.FindStringSubmatch(payload)
+	if m == nil {
+		return nil, qrErr("prefix", "not a OneMind join code (expected onemind-join:v2?…)")
 	}
-	t := &Ticket{Code: q.Get("code"), CASHA: strings.ToLower(q.Get("ca")), Role: q.Get("role"), Hub: q.Get("hub")}
-	return t, t.Validate()
+	if m[1] != "1" && m[1] != "2" {
+		return nil, qrErr("version", "unsupported join QR version v%s (this build reads v1 and v2)", m[1])
+	}
+	version := int(m[1][0] - '0')
+	fields := map[string]string{}
+	for _, part := range strings.Split(payload[len(m[0]):], "&") {
+		key, raw, eq := strings.Cut(part, "=")
+		value, ok := "", false
+		if eq && qrKeyRe.MatchString(key) && qrValueRe.MatchString(raw) {
+			value, ok = qrUnescape(raw)
+		}
+		if !ok {
+			return nil, qrErr("syntax", "join QR is malformed (expected key=value pairs joined by &)")
+		}
+		if !slices.Contains(qrFields[version], key) {
+			return nil, qrErr("unknown_field", "join QR v%d has no field %q", version, key)
+		}
+		if _, dup := fields[key]; dup {
+			return nil, qrErr("duplicate", "join QR repeats the field %q", key)
+		}
+		fields[key] = value
+	}
+	for _, key := range qrRequired[version] {
+		if _, ok := fields[key]; !ok {
+			return nil, qrErr("missing_field", "join QR v%d needs the field %q", version, key)
+		}
+	}
+	t := &Ticket{Version: version, Code: fields["code"], CASHA: fields["ca"]}
+	if version == 1 {
+		t.Kind, t.CASHA = fields["role"], strings.ToLower(t.CASHA)
+		if !codeRe.MatchString(t.Code) {
+			return nil, qrErr("code", "join code must look like 7KQ4-M2XP-9D3F")
+		}
+	} else if !qrCodeV2Re.MatchString(t.Code) {
+		return nil, qrErr("code", "join code must look like 7KQ4-M2XP-9D3F (Crockford, upper case, two dashes)")
+	}
+	if !shaRe.MatchString(t.CASHA) {
+		return nil, qrErr("ca", "the box CA fingerprint must be 64 lower-case hex characters")
+	}
+	if version == 1 {
+		if t.Kind != "" && t.Kind != "worker" && t.Kind != "leaf" {
+			return nil, qrErr("role", "role must be worker or leaf")
+		}
+	} else {
+		t.Kind = fields["kind"]
+		if !slices.Contains(JoinKinds, t.Kind) {
+			return nil, qrErr("kind", "kind must be one of %s", strings.Join(JoinKinds, ", "))
+		}
+	}
+	var ok bool
+	if t.Hub, ok = qrHTTPS(fields["hub"]); !ok {
+		return nil, qrErr("hub", "hub must be an https URL such as https://box.local (no user, path or query)")
+	}
+	if v, has := fields["alt"]; has {
+		if t.Alt, ok = qrHTTPS(v); !ok {
+			return nil, qrErr("alt", "alt must be an https URL such as https://box.example.net (no user, path or query)")
+		}
+	}
+	if v, has := fields["mdns"]; has {
+		if !qrMDNSRe.MatchString(v) {
+			return nil, qrErr("mdns", "mdns must be one lower-case name ending in .local, such as box1.local")
+		}
+		t.MDNS = v
+	}
+	if t.IsMachine() {
+		t.Role = t.Kind
+	}
+	return t, nil
+}
+
+// IsMachine reports whether the ticket is for `onemind fabric join` (worker or leaf, or a v1
+// ticket without a role, whose role the hub decides).
+func (t *Ticket) IsMachine() bool {
+	return t.Kind == "worker" || t.Kind == "leaf" || (t.Version < 2 && t.Kind == "")
 }
 
 // Validate checks every field before anything touches the network.

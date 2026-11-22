@@ -211,7 +211,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
     principal = gw.principal
 
     # ---- fabric (§12.11) ------------------------------------------------------------------------------
-    @app.post("/v1/fabric/join-tickets", operation_id="fabric.ticket_create", tags=["fabric"], status_code=201, responses=error_responses(401, 403, 422))
+    @app.post("/v1/fabric/join-tickets", operation_id="fabric.ticket_create", tags=["fabric"], status_code=201, responses=error_responses(401, 403, 409, 422))
     def create_ticket(body: TicketRequest = Body(default_factory=TicketRequest), p: Principal = Depends(principal)):
         return fabric.create_ticket(p, body)
 

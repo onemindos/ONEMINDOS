@@ -44,3 +44,17 @@ func TestFabricJoinCodeFile(t *testing.T) {
 		}
 	}
 }
+
+// A v2 join QR for a phone (FABRIC §4.2) is refused by `onemind fabric join`; a v2 worker QR parses.
+func TestFabricJoinRefusesNonMachineKinds(t *testing.T) {
+	old := isRoot
+	isRoot = func() bool { return false } // stop right after the code is parsed
+	t.Cleanup(func() { isRoot = old })
+	v2 := "onemind-join:v2?hub=https%3A%2F%2Fbox.local&ca=" + strings.Repeat("ab", 32) + "&code=7KQ4-M2XP-9D3F&kind="
+	if err := fabricJoin([]string{v2 + "phone"}, io.Discard); err == nil || !strings.Contains(err.Error(), "not a machine") {
+		t.Errorf("phone kind: got %v", err)
+	}
+	if err := fabricJoin([]string{v2 + "worker"}, io.Discard); err == nil || !strings.Contains(err.Error(), "run as root") {
+		t.Errorf("worker kind: got %v, want it parsed and stopped at the root check", err)
+	}
+}
