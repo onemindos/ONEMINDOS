@@ -9,9 +9,10 @@ strings marked `x-onemind-open-enum`: an SDK must accept a value it does not kno
 
 from __future__ import annotations
 
+import re
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 OPEN_ENUM = {"x-onemind-open-enum": True}
 
@@ -122,9 +123,21 @@ class NodeTTYPort(_Profile):
     usb_port: str | None = Field(default=None, pattern=USB_PORT)
 
 
+# The known USB dongle kinds (sdk/schema/onemind.radios.json, #732). Such a radio's interface is the
+# USB serial line udev named /dev/onemind/<kind>-<usb_port>; a grant derives that path from it.
+SERIAL_RADIO_KINDS = ("zigbee", "zigbee-thread", "lora")
+USB_TTY = r"^tty(USB|ACM)[0-9]+$"
+
+
 class NodeRadio(_Profile):
-    kind: str = Field(max_length=16, description="wifi | bluetooth | cellular", json_schema_extra=OPEN_ENUM)
-    interface: str = Field(pattern=r"^[A-Za-z0-9_.-]{1,15}$")
+    kind: str = Field(max_length=16, description="wifi | bluetooth | cellular | zigbee | zigbee-thread | lora", json_schema_extra=OPEN_ENUM)
+    interface: str = Field(pattern=r"^[A-Za-z0-9_.-]{1,15}$", description="the network interface (wlan0, hci0), or for a USB dongle its serial line (ttyACM0)")
+
+    @model_validator(mode="after")
+    def _dongle_is_a_usb_tty(self):
+        if self.kind in SERIAL_RADIO_KINDS and not re.match(USB_TTY, self.interface):
+            raise ValueError(f"a {self.kind} radio's interface must be a USB serial line")
+        return self
 
 
 class NodeCamera(_Profile):
@@ -158,6 +171,25 @@ class NodeCapabilities(_Profile):
     cameras: list[NodeCamera] | None = Field(max_length=MAX_LISTED)
     power: NodePowerProfile
     thermal: NodeThermalProfile
+
+
+class RadioCard(BaseModel):
+    """One radio-found card (GET /v1/radios, #732): a USB serial line on a machine, from its latest heartbeat.
+
+    A known radio has a kind and its stable name `device`; any other USB serial line is listed with
+    kind and device null: never named, never granted. Unplugging removes the card with the next heartbeat.
+    """
+
+    node_id: str
+    hostname: str | None = None
+    node_status: str = Field(description="online | stale | offline", json_schema_extra=OPEN_ENUM)
+    kind: str | None = Field(description="zigbee | zigbee-thread | lora; null: not a known radio", json_schema_extra=OPEN_ENUM)
+    model: str | None = Field(description="from sdk/schema/onemind.radios.json; null when unknown or several products share the id")
+    match: str | None = Field(description="product: its USB product string is its own | chip: only the chip maker's default string, any board with that chip looks the same; null when unknown", json_schema_extra=OPEN_ENUM)
+    tty: str = Field(pattern=USB_TTY, description="the kernel's name for the serial line, e.g. ttyACM0")
+    device: str | None = Field(pattern=r"^/dev/onemind/[a-z]+(-[a-z]+)*-[0-9]+-[0-9]+(\.[0-9]+)*$", description="the stable name, /dev/onemind/<kind>-<usb_port>; null when not named")
+    usb_id: str | None = Field(pattern=VID_PID, description="vvvv:pppp")
+    usb_port: str | None = Field(pattern=USB_PORT, description="kernel port path, e.g. 1-1.2")
 
 
 class Node(BaseModel):

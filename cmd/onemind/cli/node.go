@@ -93,7 +93,7 @@ func nodeCommands(a *App) []*cobra.Command {
 		},
 	}
 	nodes.AddCommand(ls, get)
-	return []*cobra.Command{nodes, node}
+	return []*cobra.Command{nodes, node, radiosCommand(a)}
 }
 
 // nodeInfo prints this machine's heartbeat. By default it collects locally (the same code
