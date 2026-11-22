@@ -1,0 +1,29 @@
+#!/bin/sh
+# SPDX-License-Identifier: Apache-2.0
+# Prepare a single release clip and its poster; write outside the checkout.
+set -eu
+[ "$#" -ge 3 ] && [ "$#" -le 5 ] || { echo "usage: tips/build-clip TIP-ID SOURCE OUTPUT-DIR [START [SECONDS]]" >&2; exit 2; }
+id=$1
+source=$2
+out=$3
+start=${4:-0}
+duration=${5:-30}
+case "$id" in ''|*[!a-z0-9-]*|-*|*-|*--*) echo "invalid tip id" >&2; exit 2;; esac
+awk -v d="$duration" 'BEGIN {exit !(d ~ /^[0-9]+([.][0-9]+)?$/ && d > 0 && d <= 30)}' || { echo "duration must be between 0 and 30 seconds" >&2; exit 2; }
+command -v ffmpeg >/dev/null || { echo "Install ffmpeg (brew install ffmpeg on Mac)." >&2; exit 1; }
+mkdir -p "$out"
+scratch=$(mktemp -d "$out/.clip.XXXXXXXX")
+trap 'rm -rf "$scratch"' EXIT
+for ext in mp4 webm jpg; do
+    [ ! -e "$out/$id.$ext" ] || { echo "$id.$ext already exists" >&2; exit 1; }
+done
+# Derive both encodings and the poster from the same cut, with no audio or input metadata.
+ffmpeg -nostdin -loglevel error -ss "$start" -i "$source" -t "$duration" -map 0:v:0 -an \
+    -map_metadata -1 -map_chapters -1 -vf 'fps=20,scale=-2:480' -c:v libx264 -pix_fmt yuv420p \
+    -b:v 480k -maxrate 600k -bufsize 900k -movflags +faststart "$scratch/$id.mp4"
+ffmpeg -nostdin -loglevel error -i "$scratch/$id.mp4" -map 0:v:0 -an -c:v libvpx-vp9 -b:v 480k "$scratch/$id.webm"
+ffmpeg -nostdin -loglevel error -i "$scratch/$id.mp4" -frames:v 1 "$scratch/$id.jpg"
+for file in "$scratch"/*; do
+    [ "$(wc -c < "$file")" -le 3000000 ] || { echo "clip exceeds 3 MB; shorten the cut" >&2; exit 1; }
+done
+mv "$scratch"/* "$out/"
