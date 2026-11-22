@@ -298,3 +298,14 @@ def test_teen_proxy_and_birth_date(teen_family):
     guest = enrol(owner, "guest", "gus")
     gid = guest.get("/v1/me").json()["principal"]["id"]
     assert put(owner, gid, birth_date="2000-01-01").status_code == 422
+
+
+@pytest.mark.parametrize("value", [False, True, "12", 12.5])
+def test_ages_and_minutes_must_be_json_integers(family, value):
+    # api-fuzz (schemathesis ST201) sent {"min_age": false, "tags": []}; lax mode stored age 0.
+    owner, _child, uid = family
+    r = owner.put("/v1/family/apps/whoami", headers=csrf(owner), json={"min_age": value, "tags": []})
+    assert r.status_code == 422, r.text
+    assert put(owner, uid, max_age_rating=value).status_code == 422
+    window = {"days": [0], "start_minute": value, "end_minute": 60}
+    assert put(owner, uid, windows=[window]).status_code == 422

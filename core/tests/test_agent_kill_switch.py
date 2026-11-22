@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 
+import pytest
 from fastapi.testclient import TestClient
 
 from conftest import ADULT, AGENT, GUEST, OWNER, action_body, make_client
@@ -165,3 +166,11 @@ def test_an_agents_files_request_cannot_be_approved_while_stopped(fc, settings):
     assert fc.post(f"/v1/files/requests/{mine.json()['id']}/approve", headers=OWNER).json()["state"] == "succeeded"
     assert stop(fc, False).status_code == 200
     assert fc.post(f"/v1/files/requests/{frq}/approve", headers=OWNER).json()["state"] == "succeeded"
+
+
+@pytest.mark.parametrize("on", [0, 1, "true", "no", None])
+def test_on_must_be_a_json_boolean(client, on):
+    # api-fuzz (schemathesis ST201) sent {"on": 0, "reason": null}; lax mode took it as false.
+    r = client.put(PATH, json={"on": on, "reason": None}, headers=OWNER)
+    assert r.status_code == 422, r.text
+    assert client.get(PATH, headers=OWNER).json()["on"] is False

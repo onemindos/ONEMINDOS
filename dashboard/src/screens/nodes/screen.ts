@@ -10,7 +10,7 @@ const screen: ScreenDef = {
   order: 60,
   hue: ['#38a8f0', '#0b5f9a'],
   pro: true,
-  redirects: [{ from: '/settings/devices', to: '/nodes' }, { from: '/settings/network', to: '/nodes' }],
+  redirects: [{ from: '/settings/devices', to: '/nodes' }],
   load: () => import('../../pages/Nodes').then((m) => ({ default: m.Nodes })),
 };
 export default screen;

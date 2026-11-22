@@ -2,5 +2,5 @@
 # Board-specific firmware, added to os/rootfs/firmware/debian-amd64.txt. Dell Inspiron 24 7459 all-in-one
 # (Skylake, 2015). Wi-Fi and GPU chips are UNVERIFIED: retail listings conflict, so the shared list already
 # covers the Intel, Qualcomm Atheros, Broadcom and Realtek families it may carry. The founder's on-hardware
-# test (lspci -nnk, ip link) decides what, if anything, to add here. The NVIDIA 940M needs a closed
-# driver, not firmware: out of scope here (it is not firmware, ADR-001 path).
+# test (lspci -nnk, ip link) decides what, if anything, to add here. The discrete GPU (a 940M) needs a closed
+# driver, not firmware: out of scope here (the GPU board variant owns it, ADR-001 path).
