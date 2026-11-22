@@ -29,6 +29,7 @@ import {
   type TransparencyPref,
 } from './preferences';
 import { API_CONTRACT_STATUS, PREFERENCES_PATH } from './store';
+import { THEME_PACKS, packIsActive, packPatch } from './packs';
 import { prepareWallpaper, checkUpload } from './upload';
 import { WALLPAPERS, WALLPAPER_IDS, type WallpaperChoice } from './wallpapers';
 import { WallpaperSurface, wallpaperLayers } from './WallpaperLayer';
@@ -38,11 +39,6 @@ type Vars = CSSProperties & Record<`--${string}`, string>;
 /** Variables so a swatch or thumbnail shows its light value in light mode and dark in dark. */
 const pair = (name: string, l: string, d: string): Vars => ({ [`--om-cz-${name}-l`]: l, [`--om-cz-${name}-d`]: d }) as Vars;
 
-const ATLAS_PACKS = [
-  { name: 'Contour', wallpaper: 'contour', corners: 'standard' },
-  { name: 'Paper', wallpaper: 'paper', corners: 'sharp' },
-  { name: 'Fjord', wallpaper: 'fjord', corners: 'round' },
-] as const;
 
 const pct = (v: number) => `${Math.round(v * 100)} %`;
 
@@ -648,13 +644,9 @@ export function AppearanceSettings() {
           <ThemeSection />
           <Section title="Theme pack">
             <div className="om-cz-swatches">
-              {ATLAS_PACKS.map(({ name, wallpaper, corners }) => (
-                <Button
-                  key={name}
-                  aria-pressed={ctx.prefs.wallpaper === wallpaper && ctx.prefs.corners === corners && ctx.prefs.accentSource === 'preset' && ctx.prefs.accentPreset === 'teal'}
-                  onClick={() => ctx.update({ wallpaper, corners, accentSource: 'preset', accentPreset: 'teal' })}
-                >
-                  {name} pack
+              {THEME_PACKS.map((p) => (
+                <Button key={p.id} aria-pressed={packIsActive(p, ctx.prefs)} title={`${p.source}: ${p.note}`} onClick={() => ctx.update(packPatch(p))}>
+                  {p.name} pack
                 </Button>
               ))}
             </div>

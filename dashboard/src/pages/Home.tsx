@@ -72,7 +72,7 @@ export function Home() {
   if (shell.view === 'unknown') return <StateView state="loading" what="Checking your role" skeleton="list" />;
   const commandBar = customize?.prefs.commandBar
     ? <HomeCommandBar openPalette={shell.openPalette} apps={shell.role === 'owner' ? apps.data ?? [] : []} />
-    : null;
+    : undefined;
   return shell.view === 'simple' ? <SimpleHome commandBar={commandBar} /> : <ProHome commandBar={commandBar} />;
 }
 

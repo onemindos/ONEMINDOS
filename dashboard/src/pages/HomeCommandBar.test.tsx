@@ -32,3 +32,9 @@ it('restores the Home command bar from the signed-in person’s appearance choic
   fireEvent.click(screen.getByRole('button', { name: 'Run a command' }));
   expect(await screen.findByRole('combobox')).toBeVisible();
 });
+
+it('keeps the Search button on Pro Home while the command bar is off', async () => {
+  renderApp({ token: 'owner-demo', route: '/' });
+  expect(await screen.findByRole('button', { name: /Search apps, nodes and settings/ })).toBeVisible();
+  expect(screen.queryByRole('group', { name: 'Home commands' })).toBeNull();
+});
