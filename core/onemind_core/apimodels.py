@@ -91,7 +91,12 @@ class ApprovalPreview(BaseModel):
 
 
 class ApprovalCard(BaseModel):
-    """The approval payload of a physical action (#723), part of plan_sha256. The host draws it, never an app."""
+    """The approval card of every action (#723). The host draws it, never an app.
+
+    hold is true for an action that cannot be undone (risk destructive) or that moves something
+    physical; physical says which. A physical card also carries limits and a preview and is part of
+    plan_sha256.
+    """
 
     physical: bool = Field(description="moves or switches something physical: passkey, hold, never standing or automated")
     hold: bool = Field(description="approve with hold-to-approve (physical, or cannot be undone)")
@@ -126,7 +131,7 @@ class Action(BaseModel):
     plan: dict[str, Any] | None = Field(default=None, description="§12.4: what the action would do, rendered at request time")
     plan_sha256: str | None = Field(default=None, description="§12.4: fingerprint the approval is bound to")
     progress: dict[str, Any] | None = Field(default=None, description="{step, pct} while an executor runs")
-    approval: ApprovalCard | None = Field(default=None, description="#723: the approval card of a physical action, else null")
+    approval: ApprovalCard | None = Field(default=None, description="#723: the approval card; set on every action (hold for destructive or physical)")
 
 
 class AuditRecord(BaseModel):

@@ -319,7 +319,7 @@
                 "type": "null"
               }
             ],
-            "description": "#723: the approval card of a physical action, else null"
+            "description": "#723: the approval card; set on every action (hold for destructive or physical)"
           },
           "approved_by": {
             "anyOf": [
@@ -939,7 +939,7 @@
         "type": "object"
       },
       "ApprovalCard": {
-        "description": "The approval payload of a physical action (#723), part of plan_sha256. The host draws it, never an app.",
+        "description": "The approval card of every action (#723). The host draws it, never an app.\n\nhold is true for an action that cannot be undone (risk destructive) or that moves something\nphysical; physical says which. A physical card also carries limits and a preview and is part of\nplan_sha256.",
         "properties": {
           "hold": {
             "description": "approve with hold-to-approve (physical, or cannot be undone)",

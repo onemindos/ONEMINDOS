@@ -217,3 +217,57 @@ def test_card_rules():
             approval_card("write", True, bad)
     with pytest.raises(ValueError):
         approval_card("write", True, None, {"kind": "image", "script": "x"})
+
+
+# Review blocker on #723: the card is on every action, not only physical ones, so "card present"
+# never means "physical"; hold is true for an action that cannot be undone (risk destructive).
+HOLD_CARD = {"physical": False, "hold": True, "hold_ms": HOLD_MIN_MS, "limits": [], "preview": None}
+PLAIN_CARD = {"physical": False, "hold": False, "hold_ms": None, "limits": [], "preview": None}
+
+
+def _feature(client, clock, action_type, params, key):
+    return client.app.state.actions.request_feature(
+        OWNER_P, action_type, params, idempotency_key=key, expires_at=clock.now + timedelta(minutes=10))
+
+
+def test_destructive_action_card_asks_for_hold(client, clock):
+    svc = client.app.state.actions
+    svc.register_type("test.disk.wipe", FeatureAction(
+        risk="destructive", run=lambda a, finish: finish(ExecResult("succeeded", "wiped")),
+        requesters=frozenset({"person"})))
+    action, created = _feature(client, clock, "test.disk.wipe", {"disk": "sdb"}, "wipe1")
+    assert created and action["risk"] == "destructive" and action["approval"] == HOLD_CARD
+    assert action["plan"] is None  # not physical: nothing extra is hashed into a plan
+    got = client.get(f"/v1/actions/{action['id']}", headers=OWNER).json()
+    assert got["approval"] == HOLD_CARD
+    listed = next(a for a in client.get("/v1/actions", headers=OWNER).json() if a["id"] == action["id"])
+    assert listed["approval"] == HOLD_CARD
+
+
+def test_card_follows_request_risk_and_is_plain_when_undoable(client, clock):
+    svc = client.app.state.actions
+    svc.register_type("test.note.write", FeatureAction(
+        risk="write", run=lambda a, finish: finish(ExecResult("succeeded", "ok")), requesters=frozenset({"person"})))
+    svc.register_type("test.files.clean", FeatureAction(
+        risk="write", risk_for=lambda p: "destructive" if p.get("delete") else "write",
+        run=lambda a, finish: finish(ExecResult("succeeded", "ok")), requesters=frozenset({"person"})))
+    plain, _ = _feature(client, clock, "test.note.write", {"text": "hi"}, "n1")
+    assert plain["risk"] == "write" and plain["approval"] == PLAIN_CARD
+    keep, _ = _feature(client, clock, "test.files.clean", {"delete": False}, "c1")
+    drop, _ = _feature(client, clock, "test.files.clean", {"delete": True}, "c2")
+    assert keep["approval"] == PLAIN_CARD and drop["approval"] == HOLD_CARD
+
+
+def test_handler_filed_destructive_type_card_asks_for_hold(client, clock):
+    class Remover:
+        def recheck(self, action):
+            return None
+
+        def dispatch(self, action):
+            return ExecResult("succeeded", "removed")
+
+    svc = client.app.state.actions
+    svc.register_handler("node.remove", Remover())  # §12.5: destructive
+    a = svc.file("node.remove", {"node_id": "n2"}, {"id": "person:owner", "kind": "person"},
+                 expires_at=clock.now + timedelta(minutes=10), idempotency_key="rm1")
+    assert a.risk == "destructive" and a.to_json()["approval"] == HOLD_CARD

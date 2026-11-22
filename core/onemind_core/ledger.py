@@ -20,6 +20,8 @@ from sqlalchemy.dialects import postgresql, sqlite
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
 
+from .approvalcard import approval_card
+
 # requested -> awaiting_approval -> accepted -> dispatched -> succeeded | failed | outcome_unknown
 # awaiting_approval -> expired | cancelled (contract section 3). A stale precondition at approval
 # leaves the action in awaiting_approval and answers 409 stale_precondition.
@@ -73,6 +75,10 @@ class Action:
     risk: str | None = None
     approved_by: str | None = None
 
+    def approval_card(self) -> dict:
+        card = self.plan.get("approval") if isinstance(self.plan, dict) else None
+        return card if isinstance(card, dict) else approval_card(self.risk, False)
+
     def to_json(self) -> dict:
         return {
             "id": self.id,
@@ -93,8 +99,9 @@ class Action:
             "plan": self.plan,
             "plan_sha256": self.plan_sha256,
             "progress": self.progress,
-            # #723: the approval card of a physical action (hashed into plan_sha256), else null.
-            "approval": (self.plan or {}).get("approval") if isinstance(self.plan, dict) else None,
+            # #723: every action carries its approval card. A physical one is in the plan (hashed into
+            # plan_sha256); any other is derived from the risk: hold for "destructive" (cannot be undone).
+            "approval": self.approval_card(),
         }
 
 

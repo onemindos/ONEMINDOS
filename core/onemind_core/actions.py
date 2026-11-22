@@ -53,6 +53,7 @@ from .executors import AgentSecret, ExecResult, Executor
 from . import lifecycle as lc
 from . import streams
 from .scan import scan_problem
+from .approvalcard import APPROVAL_LIMIT_VALUE, HOLD_MIN_MS, approval_card, hold_required  # noqa: F401 (re-exported)
 from .ledger import Action, ActionRepository, iso, new_action_id, utc
 
 log = logging.getLogger("onemind.actions")
@@ -112,52 +113,6 @@ class ApprovalInput:
     # How long the owner held the approve control, in ms (hold-to-approve). A physical action needs
     # at least HOLD_MIN_MS; the passkey assertion, not this number, is the proof of presence.
     hold_ms: int | None = None
-
-
-# Hold-to-approve (#723, founder pick): only for actions that cannot be undone or that move something
-# physical. The approval card says hold; the HoldToApprove control (ui/) holds for this long.
-HOLD_MIN_MS = 2000
-APPROVAL_LIMIT_VALUE = (str, int, float, bool)
-
-
-def hold_required(risk: str | None, physical: bool) -> bool:
-    """Whether the approval card asks for hold-to-approve: physical, or cannot be undone."""
-    return physical or risk == "destructive"
-
-
-def approval_card(risk: str | None, physical: bool, limits: list[dict] | None = None,
-                  preview: dict | None = None) -> dict:
-    """The approval payload the host draws (apimodels.ApprovalCard): hold flag, limits, preview slot.
-
-    limits: [{name, value, unit}] with units, shown before the owner approves (the gateway and the
-    device check them again). preview: {kind, ref?, text?}, an optional slot (camera still, path).
-    Raises ValueError on a malformed limit or preview.
-    """
-    out_limits = []
-    for lim in limits or []:
-        if not isinstance(lim, dict) or set(lim) - {"name", "value", "unit"}:
-            raise ValueError("an approval limit is {name, value, unit}")
-        name, value, unit = lim.get("name"), lim.get("value"), lim.get("unit")
-        if not isinstance(name, str) or not 0 < len(name) <= 64:
-            raise ValueError("an approval limit needs a name of 1 to 64 characters")
-        if not isinstance(value, APPROVAL_LIMIT_VALUE) or (isinstance(value, str) and len(value) > 200):
-            raise ValueError(f"approval limit {name!r}: value must be a string, number or boolean")
-        if unit is not None and (not isinstance(unit, str) or len(unit) > 32):
-            raise ValueError(f"approval limit {name!r}: unit must be a string of at most 32 characters")
-        out_limits.append({"name": name, "value": value, "unit": unit})
-    if len(out_limits) > 20:
-        raise ValueError("an approval card shows at most 20 limits")
-    if preview is not None:
-        if not isinstance(preview, dict) or set(preview) - {"kind", "ref", "text"} or \
-                not isinstance(preview.get("kind"), str) or not 0 < len(preview["kind"]) <= 32:
-            raise ValueError("an approval preview is {kind, ref?, text?}")
-        if any(preview.get(k) is not None and (not isinstance(preview[k], str) or len(preview[k]) > 2000)
-               for k in ("ref", "text")):
-            raise ValueError("approval preview ref and text are strings of at most 2000 characters")
-        preview = {"kind": preview["kind"], "ref": preview.get("ref"), "text": preview.get("text")}
-    hold = hold_required(risk, physical)
-    return {"physical": physical, "hold": hold, "hold_ms": HOLD_MIN_MS if hold else None,
-            "limits": out_limits, "preview": preview}
 
 
 def physical_plan(action_type: str, params: dict, card: dict) -> tuple[dict, str]:
@@ -603,11 +558,15 @@ class ActionService:
         """
         if action_type not in self.handlers:
             raise ValueError(f"no handler for action type {action_type!r}")
+        from .automation import registry  # imported late: the registry imports ActionType from here
+
         now = self.clock()
         action = Action(
             id=new_action_id(), type=action_type, params=params, state="requested",
             requested_by=requested_by, idempotency_key=idempotency_key,
             created_at=now, updated_at=now, expires_at=utc(expires_at),
+            # #723: the §12.5 risk class, so the approval card asks for hold on a destructive type.
+            risk=registry.risk_of(action_type, params) if registry.known(action_type) else None,
         )
         stored, created = self.repo.create(action)
         if not created:
@@ -1459,7 +1418,7 @@ class ActionService:
             id=new_action_id(), type=action_type, params=params, state="requested",
             requested_by={"id": principal.id, "kind": principal.kind}, idempotency_key=idempotency_key,
             created_at=now, updated_at=now, expires_at=exp,
-            risk=risk if spec.risk_for or spec.physical else None, plan=plan, plan_sha256=plan_sha,
+            risk=risk, plan=plan, plan_sha256=plan_sha,  # #723: stored so the approval card can say hold
         )
         stored, created = self.repo.create(action)
         if not created:
