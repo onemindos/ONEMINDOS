@@ -4,8 +4,10 @@
 // only ever REQUESTS (POST /v1/actions, machine.*): they wait in Approvals and nothing reaches the
 // runtime until an owner approves (create, start, stop, restart, force off, snapshot, clone, remove). States are the gateway's own words (creating, stopped, running,
 // unknown); the screen never guesses a better one.
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
+import { OneMind, type components, type paths } from '@onemind/sdk';
+import { MachineCreateForm } from './MachineCreateForm';
 import { Button, Card, Dialog, EmptyState, PageHeader, StatusPill, useToast, type Tone } from '@onemind/ui';
 import type { Action, MachineActionType, MachineParams, MachineRecord, MachineSnapshot } from '../api/types';
 import { isActive } from '../data/adapters';
@@ -17,6 +19,7 @@ import { Load, TextField } from './parts';
 
 const STATE: Record<string, { tone: Tone; label: string; pulse?: boolean; note?: string }> = {
   creating: { tone: 'info', label: 'Creating', pulse: true, note: 'The disk is being prepared. Nothing else can be done with it yet.' },
+  needs_media: { tone: 'warn', label: 'Waiting for media', note: 'Transfer the approved files before starting this machine.' },
   stopped: { tone: 'neutral', label: 'Stopped' },
   running: { tone: 'ok', label: 'Running' },
   unknown: { tone: 'warn', label: 'Unknown', note: 'A request ended without a clear answer, so it may or may not exist in the cluster. Its name and quota stay held until an owner removes it.' },
@@ -42,7 +45,6 @@ export function Machines() {
   const [cloning, setCloning] = useState<MachineRecord>();
   const [viewing, setViewing] = useState<MachineRecord>();
   const [newName, setNewName] = useState('');
-  const [form, setForm] = useState({ name: '', ram_mb: '2048', cpus: '2', disk_gb: '20', image_url: '' });
   const sending = useRef(false);
   const [busy, setBusy] = useState(false);
   const blocked = hub.canRequest === 'no';
@@ -73,21 +75,6 @@ export function Machines() {
     if (await send('machines.enable', {})) void caps.reload();
   };
 
-  const problem = (() => {
-    if (!form.name) return undefined;
-    if (!NAME.test(form.name)) return 'Use 2 to 40 characters: lower-case letters, digits and dashes, starting with a letter.';
-    if (RESERVED.has(form.name)) return `${form.name} is reserved: pick another name.`;
-    if ((list.data ?? []).some((m) => m.name === form.name)) return 'A machine with this name already exists.';
-    return undefined;
-  })();
-  const nums = { ram_mb: Number(form.ram_mb), cpus: Number(form.cpus), disk_gb: Number(form.disk_gb) };
-  const valid = !!form.name && !problem && /^https:\/\/\S+$/.test(form.image_url)
-    && Number.isInteger(nums.ram_mb) && nums.ram_mb >= 512 && Number.isInteger(nums.cpus) && nums.cpus >= 1 && Number.isInteger(nums.disk_gb) && nums.disk_gb >= 1;
-  const submitCreate = async (e?: FormEvent) => {
-    e?.preventDefault();
-    if (!valid) return;
-    if (await send('machine.create', { name: form.name, ...nums, image_url: form.image_url })) setCreating(false);
-  };
   const submitRemove = async () => {
     const m = removing;
     if (!m || typed !== m.name) return;
@@ -153,23 +140,13 @@ export function Machines() {
                 </li>
               ))}
               {machines.map((m) => <MachineCard key={m.name} m={m} pending={openFor(m.name)} disabled={blocked || busy} onSend={send} onRemove={() => { setTyped(''); setRemoving(m); }}
-                onSnapshot={() => { setNewName(''); setSnapping(m); }} onClone={() => { setNewName(''); setCloning(m); }} onSnapshots={() => setViewing(m)} />)}
+                onSnapshot={() => { setNewName(''); setSnapping(m); }} onClone={() => { setNewName(''); setCloning(m); }} onSnapshots={() => setViewing(m)} onTransferred={() => void list.reload()} />)}
             </ul>
           )}
         </Load>
       )}
-      <Dialog open={creating} onClose={() => setCreating(false)} title="Request a machine"
-        description="The machine is created stopped, with no network. An owner approves this exact request in Approvals."
-        actions={<><Button variant="ghost" onClick={() => setCreating(false)}>Cancel</Button><Button variant="primary" disabled={!valid || busy} onClick={() => void submitCreate()}>Send request</Button></>}>
-        <form className="dash-form" onSubmit={(e) => void submitCreate(e)}>
-          <TextField id="machine-name" label="Name" value={form.name} onChange={(v) => setForm({ ...form, name: v })} />
-          {problem && <p className="om-note om-tone-bad" role="alert">{problem}</p>}
-          <TextField id="machine-ram" label="Memory (MB)" value={form.ram_mb} onChange={(v) => setForm({ ...form, ram_mb: v })} />
-          <TextField id="machine-cpus" label="Processor cores" value={form.cpus} onChange={(v) => setForm({ ...form, cpus: v })} />
-          <TextField id="machine-disk" label="Disk (GB)" value={form.disk_gb} onChange={(v) => setForm({ ...form, disk_gb: v })} />
-          <TextField id="machine-image" label="Cloud image (https link)" value={form.image_url} onChange={(v) => setForm({ ...form, image_url: v })} />
-        </form>
-      </Dialog>
+      {creating && <MachineCreateForm catalogue={caps.data?.image_catalogue ?? []} names={(list.data ?? []).map((m) => m.name)}
+        busy={busy} onClose={() => setCreating(false)} onSend={(params) => send('machine.create', params)} />}
       <Dialog open={!!removing} role="alertdialog" onClose={() => setRemoving(undefined)} title={`Request removal of ${removing?.name ?? ''}`}
         description="Removing a machine erases its disk and all of its snapshots, and cannot be undone. Type its name to confirm; an owner still has to approve."
         actions={<><Button variant="ghost" onClick={() => setRemoving(undefined)}>Cancel</Button><Button variant="danger" disabled={typed !== removing?.name || busy} onClick={() => void submitRemove()}>Send removal request</Button></>}>
@@ -227,7 +204,7 @@ function SnapshotsDialog({ machine, onClose }: { machine?: MachineRecord; onClos
   );
 }
 
-function MachineCard({ m, pending, disabled, onSend, onRemove, onSnapshot, onClone, onSnapshots }: { m: MachineRecord; pending: Action[]; disabled: boolean; onSend: (t: MachineActionType, p: MachineParams) => Promise<boolean>; onRemove: () => void; onSnapshot: () => void; onClone: () => void; onSnapshots: () => void }) {
+function MachineCard({ m, pending, disabled, onSend, onRemove, onSnapshot, onClone, onSnapshots, onTransferred }: { m: MachineRecord; pending: Action[]; disabled: boolean; onSend: (t: MachineActionType, p: MachineParams) => Promise<boolean>; onRemove: () => void; onSnapshot: () => void; onClone: () => void; onSnapshots: () => void; onTransferred: () => void }) {
   const s = STATE[m.state] ?? { tone: 'warn' as Tone, label: m.state };
   const waiting = pending.length > 0;
   const off = disabled || waiting || m.state === 'creating';
@@ -243,6 +220,7 @@ function MachineCard({ m, pending, disabled, onSend, onRemove, onSnapshot, onClo
             <Link to={href.approval(pending[0]!.id)}>Open in Approvals</Link>
           </p>
         )}
+        <TransferMedia machine={m} disabled={off} onTransferred={onTransferred} />
         <div className="om-row">
           {m.state === 'stopped' && <Button size="sm" disabled={off} aria-label={`Request start of ${m.name}`} onClick={() => void onSend('machine.start', { name: m.name })}>Request start</Button>}
           {m.state === 'running' && <Button size="sm" disabled={off} aria-label={`Request stop of ${m.name}`} onClick={() => void onSend('machine.stop', { name: m.name })}>Request stop</Button>}
@@ -256,4 +234,28 @@ function MachineCard({ m, pending, disabled, onSend, onRemove, onSnapshot, onClo
       </Card>
     </li>
   );
+}
+
+function TransferMedia({ machine, disabled, onTransferred }: { machine: MachineRecord; disabled: boolean; onTransferred: () => void }) {
+  const { token, principal } = useSignedIn();
+  const [transferring, setTransferring] = useState(false);
+  const [result, setResult] = useState('');
+  const waiting = machine.state === 'needs_media';
+  if ((!waiting && !result) || principal?.kind !== 'person' || principal.role !== 'owner') return null;
+  const transfer = async () => {
+    setTransferring(true);
+    setResult('');
+    try {
+      const route = '/v1/machines/{name}/upload' satisfies keyof paths;
+      const sdk = new OneMind({ baseUrl: window.location.origin, token, timeoutMs: 2 * 60 * 60 * 1000, retries: 1 });
+      const response = await sdk.call<components['schemas']['MachineUploadResult']>({ method: 'POST', path: route.replace('{name}', encodeURIComponent(machine.name)) });
+      setResult(response.media.map((m) => `${m.volume} · SHA-256 ${m.sha256}`).join(' · '));
+      onTransferred();
+    } catch (e) { setResult(e instanceof Error ? e.message : 'The media transfer failed.'); }
+    finally { setTransferring(false); }
+  };
+  return <>
+    {waiting && <Button size="sm" disabled={disabled || transferring} onClick={() => void transfer()}>{transferring ? 'Transferring media…' : 'Transfer media'}</Button>}
+    {result && <p role="status">{result}</p>}
+  </>;
 }
