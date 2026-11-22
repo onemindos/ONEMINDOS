@@ -650,6 +650,59 @@
         "title": "Allow",
         "type": "object"
       },
+      "AppBuild": {
+        "description": "metadata.build: OneMind rebuilt this app's image (sdk/tools/app-factory); upstream did not publish it.",
+        "properties": {
+          "base": {
+            "description": "The upstream image the build started from, pinned by digest",
+            "title": "Base",
+            "type": "string"
+          },
+          "builder": {
+            "title": "Builder",
+            "type": "string"
+          },
+          "built_at": {
+            "description": "RFC 3339 time of the build",
+            "title": "Built At",
+            "type": "string"
+          },
+          "image": {
+            "description": "The OneMind-built image the app runs, pinned by digest",
+            "title": "Image",
+            "type": "string"
+          },
+          "patched": {
+            "description": "Operating-system packages OneMind upgraded on top of the base",
+            "items": {
+              "type": "string"
+            },
+            "title": "Patched",
+            "type": "array"
+          },
+          "revision": {
+            "description": "OneMind rebuild number for this upstream release",
+            "title": "Revision",
+            "type": "integer"
+          },
+          "upstream_tag": {
+            "description": "The upstream release this image was built from",
+            "title": "Upstream Tag",
+            "type": "string"
+          }
+        },
+        "required": [
+          "builder",
+          "revision",
+          "upstream_tag",
+          "base",
+          "patched",
+          "built_at",
+          "image"
+        ],
+        "title": "AppBuild",
+        "type": "object"
+      },
       "AppClassification": {
         "additionalProperties": false,
         "properties": {
@@ -1039,6 +1092,17 @@
             },
             "title": "Archs",
             "type": "array"
+          },
+          "build": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AppBuild"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Set when OneMind built the image itself; null when the app runs upstream's image"
           },
           "catalog_source": {
             "anyOf": [

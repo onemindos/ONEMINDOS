@@ -1,0 +1,5 @@
+---
+pr: pending
+branch: claude/p0-app-factory-rebuild-pin
+---
+First slice of the app factory: a declarative recipe per app (apps/hermes-agent and apps/syncthing have one) says which upstream release to watch and which operating-system packages to upgrade, and sdk/tools/app-factory plus a daily app-factory workflow rebuild the image on the upstream image's digest, push it to the OneMind registry namespace, scan it with the unchanged gate and open one pull request per app with a plain-language changelog of the CVEs closed. The manifest now records metadata.build (builder, upstream release, base digest, patched packages, build time) and the Market catalogue returns it as build, so the Market can show that OneMind built the image. A rebuilt image rides the existing owner-approved, health-gated, rollback upgrade path, with tests. The gate and the blocked tier are not weakened: the factory only sets the tier the gate computed, after a clean gate and smoke run, and the pull request review is the human approval.

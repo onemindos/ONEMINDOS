@@ -42,6 +42,18 @@ def _http_url(value: object) -> str | None:
     return None
 
 
+def build_summary(raw: object) -> dict | None:
+    """metadata.build for the Market: plain strings only, and only the factory's own fields."""
+    if not isinstance(raw, dict) or raw.get("builder") != "onemind-app-factory":
+        return None
+    try:
+        patched = [str(p) for p in raw.get("patched") or []]
+        return {"builder": "onemind-app-factory", "revision": int(raw["revision"]), "upstream_tag": str(raw["upstreamTag"]),
+                "base": str(raw["base"]), "patched": patched, "built_at": str(raw["builtAt"]), "image": str(raw["image"])}
+    except (KeyError, TypeError, ValueError):
+        return None
+
+
 @dataclass(frozen=True)
 class AgentSpec:
     """§11.2 spec.agent: the app gets its own agent principal, delivered in Secret `secret`."""
@@ -125,6 +137,7 @@ class AppEntry:
             "links": {k: _http_url(links.get(k)) for k in LINK_KEYS},
             "tier": md.get("tier") if md.get("tier") in TIERS else None,
             "scan": scan.summary() if scan is not None else None,
+            "build": build_summary(md.get("build")),
             # §12.22: set by a community source's entry; the official catalog has none.
             "catalog_source": None,
         }
