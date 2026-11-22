@@ -1325,6 +1325,161 @@
         "title": "BudgetBody",
         "type": "object"
       },
+      "BuiltinApp": {
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "spec": {
+            "additionalProperties": true,
+            "title": "Spec",
+            "type": "object"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "spec"
+        ],
+        "title": "BuiltinApp",
+        "type": "object"
+      },
+      "BuiltinBackupUnit": {
+        "properties": {
+          "app_id": {
+            "title": "App Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "app_id",
+          "kind",
+          "name"
+        ],
+        "title": "BuiltinBackupUnit",
+        "type": "object"
+      },
+      "BuiltinSettingsPage": {
+        "properties": {
+          "app_id": {
+            "title": "App Id",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "app_id",
+          "id",
+          "title",
+          "source"
+        ],
+        "title": "BuiltinSettingsPage",
+        "type": "object"
+      },
+      "BuiltinTool": {
+        "properties": {
+          "action_type": {
+            "title": "Action Type",
+            "type": "string"
+          },
+          "app_id": {
+            "title": "App Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "app_id",
+          "action_type",
+          "title"
+        ],
+        "title": "BuiltinTool",
+        "type": "object"
+      },
+      "BuiltinsOut": {
+        "description": "Every switched-on built-in the caller may see, and what the gateway built from their descriptors.",
+        "properties": {
+          "apps": {
+            "items": {
+              "$ref": "#/components/schemas/BuiltinApp"
+            },
+            "title": "Apps",
+            "type": "array"
+          },
+          "backup_units": {
+            "items": {
+              "$ref": "#/components/schemas/BuiltinBackupUnit"
+            },
+            "title": "Backup Units",
+            "type": "array"
+          },
+          "settings_pages": {
+            "items": {
+              "$ref": "#/components/schemas/BuiltinSettingsPage"
+            },
+            "title": "Settings Pages",
+            "type": "array"
+          },
+          "tools": {
+            "items": {
+              "$ref": "#/components/schemas/BuiltinTool"
+            },
+            "title": "Tools",
+            "type": "array"
+          }
+        },
+        "required": [
+          "apps",
+          "settings_pages",
+          "backup_units",
+          "tools"
+        ],
+        "title": "BuiltinsOut",
+        "type": "object"
+      },
       "CatalogApp": {
         "description": "One GET /v1/apps entry: the §3 fields plus links, tier and scan (§11.4).",
         "properties": {
@@ -2700,6 +2855,8 @@
           },
           "type": {
             "enum": [
+              "app.disable",
+              "app.enable",
               "exposure.mesh",
               "exposure.private",
               "exposure.public",
@@ -8018,6 +8175,128 @@
           "type"
         ],
         "title": "SystemActionRequest",
+        "type": "object"
+      },
+      "SystemAppRow": {
+        "description": "One built-in app (appstore/system.py): the signed list joined with its catalog entry and switch.",
+        "properties": {
+          "action_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Action Id"
+          },
+          "can_disable": {
+            "title": "Can Disable",
+            "type": "boolean"
+          },
+          "disable": {
+            "enum": [
+              "allowed",
+              "never"
+            ],
+            "title": "Disable",
+            "type": "string"
+          },
+          "disabled_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Disabled At"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "container",
+              "native"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "license": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "License"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "update": {
+            "enum": [
+              "os",
+              "own"
+            ],
+            "title": "Update",
+            "type": "string"
+          },
+          "update_channel": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Update Channel"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "kind",
+          "update",
+          "disable",
+          "enabled",
+          "can_disable"
+        ],
+        "title": "SystemAppRow",
         "type": "object"
       },
       "SystemControl": {
@@ -15819,6 +16098,39 @@
         "tags": [
           "browsers"
         ]
+      }
+    },
+    "/v1/builtins": {
+      "get": {
+        "description": "Provisional: folds into GET /v1/surfaces (the surface registry). The descriptors of the\nswitched-on built-in apps, with the Settings pages, backup units and request-only MCP tools\nbuilt from them. A switched-off built-in is left out of every list.",
+        "operationId": "builtins.list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BuiltinsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          }
+        },
+        "summary": "List Builtins",
+        "tags": [
+          "apps"
+        ],
+        "x-onemind-provisional": "Folds into GET /v1/surfaces (surface registry) when it lands; do not build on this route."
       }
     },
     "/v1/databases": {
@@ -25761,6 +26073,42 @@
         "summary": "What changed in a root since a cursor",
         "tags": [
           "sync"
+        ]
+      }
+    },
+    "/v1/system-apps": {
+      "get": {
+        "description": "The Built in area: every system app on the signed list, whether it is on, and its version,\nlicence and update channel. A switched-off app is only listed here, not in GET /v1/apps.",
+        "operationId": "apps.system",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SystemAppRow"
+                  },
+                  "title": "Response Apps.System",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          }
+        },
+        "summary": "System Apps",
+        "tags": [
+          "apps"
         ]
       }
     },
