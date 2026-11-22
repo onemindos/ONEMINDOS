@@ -3,7 +3,7 @@
 
 # Chromium
 
-Chromium in a window you open from the dashboard, streamed from your box with Neko. One profile that stays on the box.
+Chromium in a window you open from the dashboard, streamed from your box with Neko. Each person gets their own profile, kept on the box.
 
 | | |
 |---|---|
@@ -28,7 +28,7 @@ The Market lists `minMemoryMb: 1024`, no GPU.
 |---|---|---|---|
 | Deployment/chromium | chromium | 250m / 1Gi | 4 / 3Gi |
 
-Storage: PVC `chromium-profile` 5Gi.
+Storage: one PVC `profile-<key>` per person, sized like the template `chromium-profile` (5Gi).
 
 Images:
 
@@ -63,7 +63,7 @@ Images:
 - **The pod's start as UID 1000 is checked by running the pinned image; see the PR for the result.** Xorg, PulseAudio and the browser all start as the neko user, but their upstream 3.2.0 supervisord files were not read, only v3.1.4's.
 - **Chromium runs with `--no-sandbox`** as upstream's image does, because the container has no user namespace for its sandbox. The pod's own limits are the boundary.
 - **The app gate has not scanned these images.** Browser images carry many HIGH findings; the tier stays `community` until `sdk/tools/app-gate` runs, and a rebuilt image from the app factory may be needed.
-- **One profile per install,** not per person yet.
+- **One profile per person** (#692): opened from the dashboard window, reset only after an owner approves.
 - **Agent use is not part of this app.** The agent browser is a separate service, off by default, and each site is approved once by the owner.
 <!-- onemind:notes:end -->
 

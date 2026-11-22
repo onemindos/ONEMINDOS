@@ -90,6 +90,8 @@ export interface CatalogApp {
   archs: string[];
   requires: { gpu?: boolean; minMemoryMb?: number };
   web_port: number | null;
+  /** #692: a browser app, opened in a dashboard window with the person's own profile (/browser/<id>). */
+  browser?: boolean;
   installed: boolean;
   status: string;
   links: AppLinks;
