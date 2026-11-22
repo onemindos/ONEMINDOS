@@ -4,11 +4,13 @@ package rescue
 
 import (
 	"io/fs"
+	"math"
 	"net/http/httptest"
 	"os"
 	"path"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -197,6 +199,69 @@ func TestShippedHelpPackIsOfflineAndScriptFree(t *testing.T) {
 		}
 		if w := do(s, "GET", "/help/"+rel, ownerToken, nil); w.Code != 200 {
 			t.Errorf("console does not serve %s: %d", rel, w.Code)
+		}
+	}
+}
+
+var cssVarRe = regexp.MustCompile(`--(bg|fg|accent):\s*(#[0-9a-fA-F]{6})`)
+
+// luminance is the WCAG 2.x relative luminance of a #rrggbb colour.
+func luminance(t *testing.T, hex string) float64 {
+	t.Helper()
+	var ch [3]float64
+	for i := range ch {
+		v, err := strconv.ParseUint(hex[1+2*i:3+2*i], 16, 8)
+		if err != nil {
+			t.Fatalf("bad colour %q: %v", hex, err)
+		}
+		c := float64(v) / 255
+		if c <= 0.04045 {
+			ch[i] = c / 12.92
+		} else {
+			ch[i] = math.Pow((c+0.055)/1.055, 2.4)
+		}
+	}
+	return 0.2126*ch[0] + 0.7152*ch[1] + 0.0722*ch[2]
+}
+
+func contrast(t *testing.T, a, b string) float64 {
+	la, lb := luminance(t, a), luminance(t, b)
+	if la < lb {
+		la, lb = lb, la
+	}
+	return (la + 0.05) / (lb + 0.05)
+}
+
+// Link and body text in the shipped pack must meet WCAG AA (1.4.3, 4.5:1) in both the light and dark
+// schemes, against the page colour the stylesheet pins, using the D-016 teal accent.
+func TestShippedHelpStyleMeetsContrastInBothSchemes(t *testing.T) {
+	b, err := os.ReadFile(filepath.Join(shippedPack, "style.css"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	css := string(b)
+	i := strings.Index(css, "@media (prefers-color-scheme: dark)")
+	if i < 0 {
+		t.Fatal("style.css has no dark-scheme block: one accent cannot pass on both a light and a dark page")
+	}
+	want := map[string]string{"light": "#1f6a66", "dark": "#6db8b0"}
+	for scheme, part := range map[string]string{"light": css[:i], "dark": css[i:]} {
+		vars := map[string]string{}
+		for _, m := range cssVarRe.FindAllStringSubmatch(part, -1) {
+			vars[m[1]] = strings.ToLower(m[2])
+		}
+		for _, k := range []string{"bg", "fg", "accent"} {
+			if vars[k] == "" {
+				t.Fatalf("%s scheme does not set --%s", scheme, k)
+			}
+		}
+		if vars["accent"] != want[scheme] {
+			t.Errorf("%s accent = %s, want the D-016 teal %s", scheme, vars["accent"], want[scheme])
+		}
+		for _, k := range []string{"fg", "accent"} {
+			if r := contrast(t, vars[k], vars["bg"]); r < 4.5 {
+				t.Errorf("%s --%s %s on %s is %.2f:1, below WCAG AA 4.5:1", scheme, k, vars[k], vars["bg"], r)
+			}
 		}
 	}
 }
