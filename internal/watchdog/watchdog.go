@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // Package watchdog is the node-side hub watcher (issue #687, notifications off-grid channels).
-// Every machine that runs onemindd can watch the hub's heartbeat (contract §2, subject
-// onemind.node.<id>.status, role "hub"). When the hub has been silent for longer than the
+// Every joined machine that runs onemindd can watch the hub through its NATS leaf link (the
+// leaf is up while the hub answers; see Service for why the hub's status subject is not used).
+// When the hub has been silent for longer than the
 // timeout the watchdog alerts locally and pushes the alert to its peers over the LAN, with no
 // internet and no cloud service involved.
 //
@@ -115,7 +116,7 @@ func New(o Options) *Monitor {
 	return &Monitor{Options: o, started: o.Clock.Now()}
 }
 
-// Heartbeat records that the hub just published a heartbeat. hubID is its node id. A heartbeat
+// Heartbeat records that the hub was just seen (leaf link up). hubID names it in alerts. A heartbeat
 // after an outage ends it on the next check.
 func (m *Monitor) Heartbeat(hubID string) {
 	m.mu.Lock()

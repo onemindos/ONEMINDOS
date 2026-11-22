@@ -18,18 +18,21 @@ chmod 0755 /usr/local/bin/hub-siren
 cat > /etc/onemind/watchdog.json <<'J'
 {"hub_timeout_s": 60, "hook": ["/usr/local/bin/hub-siren"], "key_file": "/etc/onemind/watchdog.key", "listen": true}
 J
-systemctl restart onemindd
+# the image firewall drops all input; open the alert port for the LAN only (the "lan" chain is reached only from private sources)
+mkdir -p /etc/onemind/host.d
+echo 'add rule inet onemind_host lan udp dport 7481 accept' > /etc/onemind/host.d/20-watchdog.nft
+systemctl restart onemind-firewall onemindd
 ```
 
 ## 2. Optional: a second node that pushes to the peer
 
-Copy the same key to it and set `"peers": ["<peer LAN address>"]` in its `watchdog.json`. Its alert reaches the peer over UDP port 7481 even if the peer's own NATS link is down.
+Copy the same key to it and set `"peers": ["<peer LAN address>"]` in its `watchdog.json`. Do step 1's firewall line on the peer first, because the image drops UDP 7481 by default. The alert then reaches the peer over UDP port 7481 even if the peer's own NATS link is down.
 
 ## 3. The test
 
 1. Confirm the internet is off: `curl -m 3 https://example.com` must fail on both machines.
-2. Wait 30 s so the peer has heard the hub (`journalctl -u onemindd | grep watchdog` shows no alert).
-3. Note the time, then pull the hub's power cord.
+2. Quiet period: wait 3 minutes after the restart, longer than the 60 s timeout. `journalctl -u onemindd | grep watchdog` and `/var/tmp/watchdog-proof.log` must show no alert in that time. If one appears, stop: the peer is not seeing the hub (check `onemind fabric status`), and the test would prove nothing.
+3. Only after the quiet period, note the time, then pull the hub's power cord.
 4. Expected: the siren sounds on the peer and `/var/tmp/watchdog-proof.log` has a `hub_down` line within 2 minutes (normally about 60 to 70 s).
 5. Plug the hub back in. When it beats again the peer logs `hub_recovered`.
 

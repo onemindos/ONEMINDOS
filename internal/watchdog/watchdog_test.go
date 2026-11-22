@@ -12,9 +12,6 @@ import (
 	"sync"
 	"testing"
 	"time"
-
-	natsserver "github.com/nats-io/nats-server/v2/server"
-	"github.com/nats-io/nats.go"
 )
 
 // fakeClock is a manual clock: After channels fire when Advance passes their deadline.
@@ -253,50 +250,51 @@ func TestLANPushErrorNamesNoPeerAddress(t *testing.T) {
 	}
 }
 
-func TestHandleHeartbeatOnlyHubs(t *testing.T) {
-	var got []string
-	on := func(id string) { got = append(got, id) }
-	HandleHeartbeat([]byte(`{"node_id":"n1","role":"node"}`), on)
-	HandleHeartbeat([]byte(`{"node_id":"h1","role":"hub"}`), on)
-	HandleHeartbeat([]byte(`{"node_id":"bad id.","role":"hub"}`), on)
-	HandleHeartbeat([]byte(`nope`), on)
-	if len(got) != 1 || got[0] != "h1" {
-		t.Fatalf("got %v", got)
+// The hub heartbeat comes from the leaf link: "up" feeds the monitor, "down" and "none" do not.
+func TestWatchLinkFeedsOnlyWhileUp(t *testing.T) {
+	var mu sync.Mutex
+	state := "none"
+	link := func() string { mu.Lock(); defer mu.Unlock(); return state }
+	set := func(v string) { mu.Lock(); state = v; mu.Unlock() }
+	beats := make(chan string, 64)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go WatchLink(ctx, link, 5*time.Millisecond, func(id string) {
+		select {
+		case beats <- id:
+		default:
+		}
+	})
+	time.Sleep(60 * time.Millisecond)
+	if len(beats) != 0 {
+		t.Fatalf("beats while link is none: %d", len(beats))
 	}
-}
-
-// Real NATS on loopback: hub heartbeats reach the monitor through the subscription.
-func TestSubscribeHubOverNATS(t *testing.T) {
-	s, err := natsserver.NewServer(&natsserver.Options{Host: "127.0.0.1", Port: -1, NoLog: true, NoSigs: true})
-	if err != nil {
-		t.Fatal(err)
+	set("down")
+	time.Sleep(60 * time.Millisecond)
+	if len(beats) != 0 {
+		t.Fatalf("beats while link is down: %d", len(beats))
 	}
-	go s.Start()
-	defer s.Shutdown()
-	if !s.ReadyForConnections(5 * time.Second) {
-		t.Fatal("nats not ready")
-	}
-	seen := make(chan string, 4)
-	_, closeFn, err := subscribeHub(s.ClientURL(), "", func(id string) { seen <- id }, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer closeFn()
-	nc, err := nats.Connect(s.ClientURL())
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer nc.Close()
-	nc.Publish("onemind.node.n1.status", []byte(`{"node_id":"n1","role":"node"}`))
-	nc.Publish("onemind.node.hub-1.status", []byte(`{"node_id":"hub-1","role":"hub"}`))
-	nc.Flush()
+	set("up")
 	select {
-	case id := <-seen:
-		if id != "hub-1" {
+	case id := <-beats:
+		if id != HubLinkID {
 			t.Fatalf("saw %q", id)
 		}
 	case <-time.After(3 * time.Second):
-		t.Fatal("hub heartbeat not delivered")
+		t.Fatal("no beat while link is up")
+	}
+}
+
+func TestServiceEnabledNeedsJoinedNodeAndConfig(t *testing.T) {
+	link := func() string { return "up" }
+	if Service(link, func() bool { return true }, "hub").Enabled() {
+		t.Fatal("a hub must not watch itself")
+	}
+	if Service(link, func() bool { return false }, "node").Enabled() {
+		t.Fatal("an unjoined node has no hub to watch")
+	}
+	if Service(nil, func() bool { return true }, "node").Enabled() {
+		t.Fatal("no link source, no watchdog")
 	}
 }
 

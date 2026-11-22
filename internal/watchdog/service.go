@@ -13,9 +13,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/nats-io/nats.go"
-
-	"github.com/onemindos/onemindos/internal/heartbeat"
 	"github.com/onemindos/onemindos/internal/service"
 )
 
@@ -84,13 +81,23 @@ func readKey(path string) ([]byte, error) {
 	return k, nil
 }
 
-// Service is the onemindd optional service. natsURL and seedFile are the same values the
-// heartbeat agent uses; role is this machine's role (a hub does not watch itself).
-func Service(natsURL, seedFile, role string) service.Service {
+// LinkFunc reports this node's leaf link to the hub: "up", "down" or "none" (not checked yet).
+// internal/leaf Supervisor.Link is the real one.
+type LinkFunc func() string
+
+// Service is the onemindd optional service. link is the leaf supervisor's link state and joined
+// says whether `onemind fabric join` ran here; role is this machine's role (a hub does not watch
+// itself, and an unjoined machine has no hub to watch).
+//
+// Why the leaf link and not the hub's status subject: a joined node's NATS URL points at its own
+// leaf, and the node's account imports only its own job subjects, so the hub's heartbeat never
+// reaches it. The leaf connection to the hub is up exactly while the hub's NATS answers, which
+// is what a pulled power cord stops.
+func Service(link LinkFunc, joined func() bool, role string) service.Service {
 	return service.Service{
 		Name: "watchdog",
 		Enabled: func() bool {
-			if role == "hub" {
+			if role == "hub" || link == nil || (joined != nil && !joined()) {
 				return false
 			}
 			_, err := os.Stat(DefaultConfigPath)
@@ -101,12 +108,12 @@ func Service(natsURL, seedFile, role string) service.Service {
 			if err != nil {
 				return err
 			}
-			return run(ctx, log, c, natsURL, seedFile)
+			return run(ctx, log, c, link)
 		},
 	}
 }
 
-func run(ctx context.Context, log *slog.Logger, c Config, natsURL, seedFile string) error {
+func run(ctx context.Context, log *slog.Logger, c Config, link LinkFunc) error {
 	var key []byte
 	if c.KeyFile != "" {
 		var err error
@@ -138,52 +145,30 @@ func run(ctx context.Context, log *slog.Logger, c Config, natsURL, seedFile stri
 		go l.Serve(ctx, conn, func(e error) { log.Warn("lan alert rejected or failed", "err", e) })
 	}
 	m := New(Options{Timeout: time.Duration(c.HubTimeoutS) * time.Second, Alerters: alerters, Log: log})
-	if natsURL != "" {
-		_, closeFn, err := subscribeHub(natsURL, seedFile, m.Heartbeat, log)
-		if err != nil {
-			return err
-		}
-		defer closeFn()
-	} else {
-		log.Warn("watchdog has no NATS URL: it will report the hub down once the timeout passes")
-	}
+	go WatchLink(ctx, link, LinkPollEvery, m.Heartbeat)
 	m.Run(ctx)
 	return nil
 }
 
-// subscribeHub listens to every node heartbeat and feeds the ones whose role is hub. It keeps
-// retrying while the hub or the LAN is away: that is exactly the case being watched.
-func subscribeHub(url, seedFile string, onHub func(hubID string), log *slog.Logger) (*nats.Subscription, func(), error) {
-	opts := []nats.Option{
-		nats.Name("onemindd-watchdog"),
-		nats.RetryOnFailedConnect(true),
-		nats.MaxReconnects(-1),
-		nats.ReconnectWait(2 * time.Second),
-	}
-	if seedFile != "" {
-		o, err := nats.NkeyOptionFromSeed(seedFile)
-		if err != nil {
-			return nil, nil, errors.New("watchdog: NATS seed unreadable")
-		}
-		opts = append(opts, o)
-	}
-	nc, err := nats.Connect(url, opts...)
-	if err != nil {
-		return nil, nil, fmt.Errorf("watchdog: %w", err)
-	}
-	sub, err := nc.Subscribe("onemind.node.*.status", func(msg *nats.Msg) { HandleHeartbeat(msg.Data, onHub) })
-	if err != nil {
-		nc.Close()
-		return nil, nil, err
-	}
-	return sub, nc.Close, nil
-}
+// LinkPollEvery is how often the leaf link is read. The supervisor itself checks every 10 s.
+const LinkPollEvery = 2 * time.Second
 
-// HandleHeartbeat parses one heartbeat payload and calls onHub when it came from the hub.
-func HandleHeartbeat(data []byte, onHub func(hubID string)) {
-	var s heartbeat.Status
-	if json.Unmarshal(data, &s) != nil || s.Role != "hub" || heartbeat.ValidateNodeID(s.NodeID) != nil {
-		return
+// HubLinkID names the hub in alerts: the leaf link does not carry the hub's node id.
+const HubLinkID = "hub"
+
+// WatchLink reads the link every period until ctx ends and calls onHub while it is "up". "down"
+// and "none" count as silence, so a leaf that never connects alerts after the timeout too.
+func WatchLink(ctx context.Context, link LinkFunc, every time.Duration, onHub func(hubID string)) {
+	t := time.NewTicker(every)
+	defer t.Stop()
+	for {
+		if link() == "up" {
+			onHub(HubLinkID)
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+		}
 	}
-	onHub(s.NodeID)
 }
