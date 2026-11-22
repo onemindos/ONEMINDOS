@@ -15,6 +15,7 @@ from ..auth import Principal
 from ..context import Gateway
 from ..errors import error_responses
 from ..identity import IdentityService, ctx_of
+from ..jsonbody import JsonBody
 
 SIGNIN_HTML = Path(__file__).resolve().parent.parent / "identity" / "signin.html"
 
@@ -93,7 +94,7 @@ class UserPatchBody(BaseModel):
     role: str | None = Field(default=None, max_length=16)
 
 
-class TokenCreateBody(BaseModel):
+class TokenCreateBody(JsonBody):
     name: str = Field(max_length=100)
     # "self" or {kind: "agent", id: "agent:<name>"}. Go gets `any`: oapi-codegen would need its
     # runtime package for a union, and the Go SDK stays standard-library only (SDK.md §1).
@@ -103,7 +104,7 @@ class TokenCreateBody(BaseModel):
     expires_in_days: int | None = None
 
 
-class RotateBody(BaseModel):
+class RotateBody(JsonBody):
     grace_s: int = 0
 
 
