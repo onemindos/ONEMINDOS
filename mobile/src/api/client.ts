@@ -161,6 +161,18 @@ export type RegisterOptions = Partial<WebAuthnCreationOptions> & { publicKey?: P
  * Everything the phone may ask the hub: the §3 routes plus the §12 routes it uses.
  * The phone never decides anything; every write is a request or a decision the gateway checks.
  */
+function readUploadOffset(res: Response): number {
+  const header = res.headers.get('Upload-Offset');
+  const offset = Number(header);
+  if (!header || !/^\d+$/.test(header) || !Number.isSafeInteger(offset)) {
+    throw new ApiError(res.status, 'unknown', 'The hub sent no valid Upload-Offset.');
+  }
+  return offset;
+}
+
+/** A file-backed PATCH handed to the OS, with the same origin check and token renewal as fetch. */
+export type TusTransport = (url: string, headers: Record<string, string>, bytes: Uint8Array) => Promise<Response>;
+
 export interface OneMindApi {
   healthz(): Promise<{ ok: boolean }>;
   instance(): Promise<Instance>;
@@ -237,7 +249,7 @@ export interface OneMindApi {
   /** `HEAD` the upload: how many bytes the hub holds (resume point). */
   filesUploadOffset(url: string): Promise<number>;
   /** `PATCH` one chunk at `offset`; returns the new offset and, on the last chunk, the hub's whole-file sha256. */
-  filesUploadChunk(url: string, offset: number, bytes: Uint8Array): Promise<{ offset: number; sha256?: string }>;
+  filesUploadChunk(url: string, offset: number, bytes: Uint8Array, transport?: TusTransport): Promise<{ offset: number; sha256?: string }>;
   migratePlans(): Promise<MigratePlan[]>;
   // People and agents. Writes are owner-only on the hub, which also asks for a fresh passkey (`step_up_required`).
   users(): Promise<UserInfo[]>;
@@ -638,18 +650,16 @@ export class HttpApi implements OneMindApi {
     };
   }
   /** One tus request. Not `req`: tus answers with headers and no JSON, and the location is an absolute URL on the hub. */
-  private async tus(method: string, url: string, headers: Record<string, string>, body?: Uint8Array, retried = false): Promise<Response> {
+  private async tus(method: string, url: string, headers: Record<string, string>, body?: Uint8Array, retried = false, transport?: TusTransport): Promise<Response> {
     if (url !== this.base && !url.startsWith(this.base + '/')) throw new ApiError(0, 'unknown', 'The hub sent an upload address on another origin');
     const bearer = this.tokens.current();
-    const ctl = typeof AbortController !== 'undefined' ? new AbortController() : undefined;
+    const ctl = !transport && typeof AbortController !== 'undefined' ? new AbortController() : undefined;
     const timer = ctl ? setTimeout(() => ctl.abort(), Math.max(this.timeoutMs, 60_000)) : undefined;
+    const requestHeaders = { 'OneMind-API-Version': '1', [PROTOCOL_HEADER]: String(PROTOCOL_VERSION), 'Tus-Resumable': '1.0.0', ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}), ...headers };
     let res: Response;
     try {
-      res = await this.fetchFn(url, {
-        signal: ctl?.signal,
-        method,
-        headers: { 'OneMind-API-Version': '1', [PROTOCOL_HEADER]: String(PROTOCOL_VERSION), 'Tus-Resumable': '1.0.0', ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}), ...headers },
-        body: body as unknown as BodyInit | undefined,
+      res = transport && body ? await transport(url, requestHeaders, body) : await this.fetchFn(url, {
+        signal: ctl?.signal, method, headers: requestHeaders, body: body as unknown as BodyInit | undefined,
       });
     } catch (e) {
       throw new ApiError(0, 'network', e instanceof Error ? e.message : 'Network error');
@@ -665,7 +675,7 @@ export class HttpApi implements OneMindApi {
     }
     const err = errorFrom(res.status, data, res.headers.get('Retry-After'), res.headers.get('DPoP-Nonce'));
     if (err.code === 'unauthenticated' && err.reason !== 'step_up_required' && bearer && !retried && this.tokens.refresh && (await this.renew())) {
-      return this.tus(method, url, headers, body, true);
+      return this.tus(method, url, headers, body, true, transport);
     }
     throw err;
   }
@@ -681,14 +691,11 @@ export class HttpApi implements OneMindApi {
   }
   async filesUploadOffset(url: string) {
     const res = await this.tus('HEAD', url, {});
-    const n = Number(res.headers.get('Upload-Offset'));
-    if (!Number.isSafeInteger(n) || n < 0) throw new ApiError(res.status, 'unknown', 'The hub sent no valid Upload-Offset');
-    return n;
+    return readUploadOffset(res);
   }
-  async filesUploadChunk(url: string, offset: number, bytes: Uint8Array) {
-    const res = await this.tus('PATCH', url, { 'Upload-Offset': String(offset), 'Content-Type': 'application/offset+octet-stream' }, bytes);
-    const n = Number(res.headers.get('Upload-Offset'));
-    return { offset: Number.isSafeInteger(n) ? n : offset + bytes.length, sha256: res.headers.get('OneMind-File-Sha256') ?? undefined };
+  async filesUploadChunk(url: string, offset: number, bytes: Uint8Array, transport?: TusTransport) {
+    const res = await this.tus('PATCH', url, { 'Upload-Offset': String(offset), 'Content-Type': 'application/offset+octet-stream' }, bytes, false, transport);
+    return { offset: readUploadOffset(res), sha256: res.headers.get('OneMind-File-Sha256') ?? undefined };
   }
   migratePlans() {
     return this.req<MigratePlan[]>('GET', '/v1/migrate/plans', undefined, 'array');

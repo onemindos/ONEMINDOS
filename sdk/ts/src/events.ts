@@ -6,6 +6,8 @@
 import type { OneMind } from "./client.js";
 import { errorFor, OneMindError } from "./errors.js";
 import { PROTOCOL_HEADER, PROTOCOL_VERSION } from "./protocol.js";
+import { canShareEvents, sharedEvents, type SharedEventOptions } from "./shared-events.js";
+export type { SharedEventOptions } from "./shared-events.js";
 
 export interface OneMindEvent {
   schema?: string;
@@ -28,13 +30,35 @@ export interface SubscribeOptions {
 }
 
 export class EventsApi {
-  constructor(private readonly om: OneMind) {}
+  constructor(private readonly om: OneMind, private readonly fixedBearer = false) {}
 
   /**
    * Calls onEvent for each event until the signal aborts or onEvent throws. A 401/403/404 rejects
    * (404: this hub has no event stream yet; poll instead). `stream.reset` means reload over REST.
    */
   async subscribe(opts: SubscribeOptions, onEvent: (e: OneMindEvent) => void | Promise<void>): Promise<void> {
+    // The dashboard's ordinary live subscription can share one feed. An explicit replay,
+    // server-side type selector or caller-supplied transport retains its original semantics.
+    if (this.fixedBearer && canShareEvents() && !opts.types?.length && opts.sinceId === undefined &&
+        !opts.transport && opts.silenceMs === undefined) {
+      return this.subscribeShared(opts, onEvent);
+    }
+    return this.read(opts, onEvent);
+  }
+
+  /** Subscribe to the browser's single live feed for this hub and bearer session. */
+  async subscribeShared(opts: SharedEventOptions, onEvent: (e: OneMindEvent) => void | Promise<void>): Promise<void> {
+    if (opts.signal?.aborted) return;
+    if (!this.fixedBearer) {
+      throw new OneMindError(0, "stream_unavailable", "Shared events require the current session's fixed bearer token");
+    }
+    const headers = await this.om.authHeader();
+    return sharedEvents(this.om.baseUrl, headers.Authorization!, opts,
+      (signal, sinceId, emit) => this.read({ signal, sinceId }, emit, headers), onEvent);
+  }
+
+  private async read(opts: SubscribeOptions, onEvent: (e: OneMindEvent, id: string) => void | Promise<void>,
+                     auth?: Record<string, string>): Promise<void> {
     let last = opts.sinceId ?? "";
     let delay = 1000;
     for (;;) {
@@ -42,31 +66,41 @@ export class EventsApi {
       try {
         const retry = await this.once(opts, last, async (e, id) => {
           if (id) last = id;
-          await onEvent(e);
-        });
+          await onEvent(e, id);
+        }, auth);
         if (retry) delay = retry;
       } catch (e) {
         if (opts.signal?.aborted) return;
         if (e instanceof OneMindError && e.status >= 400 && e.status < 500 && e.status !== 429) throw e;
         if (!(e instanceof OneMindError)) throw e; // thrown by onEvent: stop
       }
-      await this.om.sleep(delay / 2 + Math.random() * (delay / 2));
+      if (opts.signal?.aborted) return;
+      let wake: (() => void) | undefined;
+      const aborted = new Promise<void>(resolve => { wake = resolve; });
+      opts.signal?.addEventListener("abort", wake!, { once: true });
+      try {
+        await Promise.race([this.om.sleep(delay / 2 + Math.random() * (delay / 2)), aborted]);
+      } finally {
+        opts.signal?.removeEventListener("abort", wake!);
+      }
       delay = Math.min(30_000, delay * 2);
     }
   }
 
-  private async once(opts: SubscribeOptions, last: string, emit: (e: OneMindEvent, id: string) => Promise<void>) {
+  private async once(opts: SubscribeOptions, last: string, emit: (e: OneMindEvent, id: string) => Promise<void>,
+                     auth?: Record<string, string>) {
     this.om.checkTransport();
     const qs = opts.types?.length ? `?types=${encodeURIComponent(opts.types.join(","))}` : "";
     const url = `${this.om.baseUrl}/v1/events${qs}`;
     const headers: Record<string, string> = {
       Accept: "text/event-stream",
       [PROTOCOL_HEADER]: String(PROTOCOL_VERSION),
-      ...(await this.om.authHeader()),
+      ...(auth ?? await this.om.authHeader()),
       ...(last ? { "Last-Event-ID": last } : {}),
     };
     const ctrl = new AbortController();
     const onAbort = () => ctrl.abort();
+    if (opts.signal?.aborted) return 0;
     opts.signal?.addEventListener("abort", onAbort);
     let silence: ReturnType<typeof setTimeout> | undefined;
     const alive = () => {
@@ -110,6 +144,7 @@ export class EventsApi {
         }
       }
     } finally {
+      ctrl.abort();
       clearTimeout(silence);
       opts.signal?.removeEventListener("abort", onAbort);
     }

@@ -61,15 +61,6 @@ export const KNOWN_A11Y: KnownFinding[] = [
     themes: BOTH_THEMES,
     why: 'the App Store screenshot strip (ui/src/store/AppDetail.tsx) scrolls sideways but cannot get keyboard focus',
   },
-  {
-    id: 'A11Y-5',
-    rule: 'scrollable-region-focusable',
-    target: 'section[aria-labelledby="sec-history"] > .om-table-wrap',
-    screens: ['ui-updates'],
-    widths: ['phone'],
-    themes: BOTH_THEMES,
-    why: 'Table (ui/src/components/Table.tsx) scrolls sideways at 375 px but its wrapper cannot get keyboard focus',
-  },
 ];
 
 export function knownFor(screen: string, width: Width, theme: Theme): KnownFinding[] {
