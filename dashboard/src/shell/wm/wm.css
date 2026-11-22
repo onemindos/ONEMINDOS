@@ -27,7 +27,10 @@
 .wm-keys kbd { font: inherit; padding: 0 var(--om-space-2); border: 1px solid var(--om-color-border, currentColor); border-radius: 4px; white-space: nowrap; }
 .wm-spaces { display: inline-flex; gap: 2px; align-items: center; }
 .wm-space { min-width: 28px; min-height: 28px; border: 1px solid transparent; border-radius: 6px; background: transparent; color: inherit; cursor: pointer; }
-.wm-space[aria-pressed="true"] { border-color: var(--om-color-focus); background: color-mix(in srgb, var(--om-color-focus) 18%, transparent); }
+:root { --wm-teal: #237d77; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --wm-teal: #6db8b0; } }
+:root[data-theme="dark"] { --wm-teal: #6db8b0; }
+.wm-space[aria-pressed="true"] { border-color: var(--wm-teal); background: color-mix(in srgb, var(--wm-teal) 18%, transparent); }
 .wm-space:focus-visible, .wm-tiling:focus-visible { outline: 2px solid var(--om-color-focus); outline-offset: 1px; }
 .wm-space[data-busy]::after { content: ''; display: block; width: 4px; height: 4px; margin: 0 auto; border-radius: 50%; background: currentColor; }
 .wm-tiling { min-height: 28px; padding: 0 var(--om-space-2); cursor: pointer; border-radius: 6px; background: transparent; color: inherit; border: 1px solid var(--om-color-border, currentColor); }

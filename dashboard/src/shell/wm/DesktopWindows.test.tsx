@@ -155,3 +155,15 @@ it('visiting an empty workspace and back keeps both windows of workspace 1 open'
   await waitFor(() => expect(frame('market').hidden).toBe(false));
   expect(frame('approvals').hidden).toBe(false);
 });
+
+it('sending the active window away hands focus to the next window instead of blanking the stage', async () => {
+  const user = userEvent.setup();
+  const rect = { x: 3, y: 3, width: 60, height: 60 };
+  personStorage('owner')!.setItem('shell.windows', JSON.stringify(['/approvals', '/market'].map(path => ({ path, rect }))));
+  renderApp({ token: 'owner-demo' });
+  await screen.findByRole('region', { name: 'Market' });
+  fireEvent.keyDown(window, { key: '£', code: 'Digit3', altKey: true, shiftKey: true });
+  await waitFor(() => expect(frame('market').hidden).toBe(true));
+  expect(frame('approvals').hidden).toBe(false);
+  expect(window.location.pathname).toBe('/approvals');
+});

@@ -136,9 +136,11 @@ export function useWindows() {
   }
   function sendWindow(id: string, n: number) {
     if (!validWorkspace(n)) return;
+    // Read the active window before update() replaces latest.current.
+    const wasTop = id === top(latest.current, wsRef.current)?.id;
     const next = sendTo(latest.current, id, n);
     update(next);
-    if (id === top(latest.current, wsRef.current)?.id) navigate(top(next, wsRef.current)?.path ?? '/');
+    if (wasTop) navigate(top(next, wsRef.current)?.path ?? '/');
   }
   function setTiling(layout: Layout | null) {
     if (layout) lastLayout.current = layout;
