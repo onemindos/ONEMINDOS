@@ -3,6 +3,7 @@
 // dashboard speak the same contract types. Keep the two in sync; mobile changes noted inline.
 // Types for the proof-of-concept v0 contract (sdk/contracts/poc-v0.md).
 // Section numbers below refer to that file.
+import type { components } from '@onemind/sdk';
 
 /** §2 `board` values. */
 export type Board =
@@ -203,7 +204,11 @@ export interface Action extends ActionRequest {
   /** `person:<id>` or `policy:<id>@<rev>` (§12.1). */
   approved_by?: string | null;
   approved_via?: 'dashboard' | 'phone' | 'cli' | 'policy' | 'console' | null;
-  approval?: 'passkey' | 'token' | 'policy' | 'console' | null;
+  /**
+   * How the yes was given ('passkey' | 'token' | ...) from a §12.4 hub; the current gateway sends the
+   * approval card object here instead (#723, found by contract.ts). Read the string form with a typeof check.
+   */
+  approval?: 'passkey' | 'token' | 'policy' | 'console' | ApprovalCard | null;
   hold?: { window_id: string; until: string } | null;
 }
 
@@ -583,6 +588,9 @@ export interface MigratePlan {
   last_error?: string | null;
   updated_at?: string | null;
 }
+
+/** #723: the approval card the gateway puts on every action (hold-to-approve, physical limits, preview). */
+export type ApprovalCard = components['schemas']['ApprovalCard'];
 
 /** UMB-P07 `/v1/me/home`: the person's Home document, generated from the gateway's OpenAPI (`@onemind/sdk`). */
 export type { HomeBody, HomeView } from '@onemind/sdk';

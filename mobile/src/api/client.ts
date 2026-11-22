@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
-// Started as a copy of dashboard/src/api/client.ts (feat/gwmcp, commit 951470f). The §3 methods keep the
-// dashboard's behaviour; the §12 methods (identity, notifications, push, devices, events) are mobile
-// additions until the generated `@onemind/sdk` replaces both copies (DEV-SDK-4).
+// The phone's API layer. Every JSON request goes out through the generated client's transport,
+// `OneMind.call` from `@onemind/sdk` (CI-08, issue 233), so the phone and the dashboard share one
+// client; `HttpApi.sdk` hands that client to screens that call generated paths directly. The phone keeps
+// its own error mapping (ApiError), session renewal and response-shape checks on top. Binary transfers
+// (tus uploads, downloads) stay on fetch: the JSON client cannot carry them.
+// contract.ts checks the hand-written types in types.ts against the generated schema at compile time.
+import { OneMind, NetworkError } from '@onemind/sdk';
 import { noteProtocol, PROTOCOL_HEADER, PROTOCOL_VERSION } from '../lib/protocol';
 import {
   ApiError,
@@ -107,7 +111,11 @@ export const OP = {
   nodeMetrics: 'GET /v1/nodes/{}/metrics',
   appMetrics: 'GET /v1/apps/{}/metrics',
   mesh: 'GET /v1/mesh',
-  /** UNVERIFIED name: the hub has no restart / shut down / troubleshoot route yet, so System controls stays hidden. */
+  /**
+   * Never in /openapi.json, so System controls stays hidden: the hub has no plan preview for restart /
+   * shut down / troubleshoot. It serves `GET /v1/system/controls` and `POST /v1/system/actions` instead,
+   * a different flow (confirm phrase, no plan hash); `HttpApi.systemPlan` sends nothing.
+   */
   systemPlan: 'GET /v1/system/plan',
 } as const;
 
@@ -356,8 +364,28 @@ type Shape = 'object' | 'array' | 'any';
 
 const enc = encodeURIComponent;
 
-/** Real client: talks to the gateway over HTTP(S) with a bearer token. */
+/** One request as `OneMind.call` takes it; the transport passes DELETE and PATCH through as well. */
+type SdkRequest = Parameters<OneMind['call']>[0];
+
+/** Ties a request the SDK sends back to the HttpApi call that asked for it; removed before it leaves the phone. */
+const CALL_HEADER = 'X-OneMind-Phone-Call';
+
+/** What came back for one call, read by the transport before the SDK parses it. */
+interface Exchange {
+  auth: boolean;
+  thrown?: unknown;
+  res?: { ok: boolean; status: number; headers: Headers; data: unknown };
+}
+
+/** The generated client behind an API object, or undefined for one that does not talk to a hub. */
+export function sdkOf(api: OneMindApi): OneMind | undefined {
+  return api instanceof HttpApi ? api.sdk : undefined;
+}
+
+/** Real client: talks to the gateway over HTTP(S) with a bearer token, through `@onemind/sdk`. */
 export class HttpApi implements OneMindApi {
+  /** The generated gateway client on the same hub, token and timeout (no retries: the phone shows the error). */
+  readonly sdk: OneMind;
   private readonly base: string;
   private readonly tokens: TokenSource;
   private readonly fetchFn: FetchLike;
@@ -365,6 +393,8 @@ export class HttpApi implements OneMindApi {
   private offsetMs: number | undefined;
   private renewing: Promise<string | undefined> | undefined;
   private featuresCache: Promise<Features> | undefined;
+  private readonly exchanges = new Map<string, Exchange>();
+  private seq = 0;
 
   // Mobile change: the hub URL is required (a phone has no same-origin hub), and
   // every request has a timeout, because a phone off the home network otherwise
@@ -375,6 +405,53 @@ export class HttpApi implements OneMindApi {
     this.tokens = opts.tokens ?? { current: () => fixed };
     this.fetchFn = opts.fetchFn ?? ((input, init) => fetch(input, init));
     this.timeoutMs = opts.timeoutMs ?? 10_000;
+    this.sdk = new OneMind({
+      baseUrl: this.base,
+      token: { token: () => this.tokens.current() ?? '' },
+      timeoutMs: this.timeoutMs,
+      retries: 1,
+      fetch: ((input: string, init?: RequestInit) => this.send(input, init)) as unknown as typeof fetch,
+      // A hub on the home network over plain http is the normal first run (app.json allows cleartext).
+      onWarning: () => undefined,
+    });
+  }
+
+  /**
+   * The fetch the SDK sends through. It adds what the phone sends on every request, drops the bearer
+   * on the calls that must go without one, learns the hub clock, and keeps the answer for `req`.
+   */
+  private async send(url: string, init: RequestInit = {}): Promise<Response> {
+    const headers: Record<string, string> = { ...(init.headers as Record<string, string> | undefined) };
+    const ex = this.exchanges.get(headers[CALL_HEADER] ?? '');
+    delete headers[CALL_HEADER];
+    if (ex && !ex.auth) delete headers.Authorization;
+    // §12.1: clients send the API major version they speak.
+    headers['OneMind-API-Version'] = '1';
+    let res: Response;
+    try {
+      res = await this.fetchFn(url, { ...init, headers });
+    } catch (e) {
+      if (ex) ex.thrown = e;
+      throw e;
+    }
+    // The hub stamps last_seen with its own clock; the Date header lets the UI
+    // age it on that clock instead of the phone's (1 s resolution is enough
+    // for the 30 s / 120 s thresholds).
+    const hubDate = Date.parse(res.headers.get('Date') ?? '');
+    if (!Number.isNaN(hubDate)) this.offsetMs = hubDate - Date.now();
+    noteProtocol(res.headers);
+    const text = await res.text();
+    let data: unknown = undefined;
+    if (text) {
+      try {
+        data = JSON.parse(text);
+      } catch {
+        data = undefined;
+      }
+    }
+    if (ex) ex.res = { ok: res.ok, status: res.status, headers: res.headers, data };
+    // The body was read once here; the SDK reads this copy.
+    return { ok: res.ok, status: res.status, headers: res.headers, text: async () => text } as Response;
   }
 
   /** One renewal at a time, shared by every request that hit the same 401. */
@@ -397,48 +474,28 @@ export class HttpApi implements OneMindApi {
     shape: Shape = 'object',
     opts: { auth?: boolean; headers?: Record<string, string>; retried?: boolean; onHeaders?: (h: Headers) => void } = {},
   ): Promise<T> {
-    let res: Response;
-    const ctl = typeof AbortController !== 'undefined' ? new AbortController() : undefined;
-    const timer = ctl ? setTimeout(() => ctl.abort(), this.timeoutMs) : undefined;
     const bearer = opts.auth === false ? undefined : this.tokens.current();
+    const id = String(++this.seq);
+    const ex: Exchange = { auth: opts.auth !== false };
+    this.exchanges.set(id, ex);
+    let failure: unknown;
     try {
-      res = await this.fetchFn(this.base + path, {
-        signal: ctl?.signal,
-        method,
-        headers: {
-          Accept: 'application/json',
-          // §12.1: clients send the API major version they speak.
-          'OneMind-API-Version': '1',
-          // The protocol generation inside v1 (sdk/contracts/protocol-versions.md).
-          [PROTOCOL_HEADER]: String(PROTOCOL_VERSION),
-          ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}),
-          ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
-          ...opts.headers,
-        },
-        body: body !== undefined ? JSON.stringify(body) : undefined,
-      });
+      const sdkReq = { method, path, body, retry: false, headers: { ...opts.headers, [CALL_HEADER]: id } } as SdkRequest;
+      await this.sdk.call<unknown>(sdkReq);
     } catch (e) {
-      if (ctl?.signal.aborted) throw new ApiError(0, 'network', `The hub did not answer within ${this.timeoutMs / 1000} s`);
-      throw new ApiError(0, 'network', e instanceof Error ? e.message : 'Network error');
+      // The SDK throws for every non-2xx answer and for a 2xx without JSON; the phone decides from the answer itself.
+      failure = e;
     } finally {
-      if (timer !== undefined) clearTimeout(timer);
+      this.exchanges.delete(id);
     }
-    // The hub stamps last_seen with its own clock; the Date header lets the UI
-    // age it on that clock instead of the phone's (1 s resolution is enough
-    // for the 30 s / 120 s thresholds).
-    const hubDate = Date.parse(res.headers.get('Date') ?? '');
-    if (!Number.isNaN(hubDate)) this.offsetMs = hubDate - Date.now();
-    noteProtocol(res.headers);
+    const res = ex.res;
+    if (!res) {
+      if (failure instanceof NetworkError && failure.timedOut) throw new ApiError(0, 'network', `The hub did not answer within ${this.timeoutMs / 1000} s`);
+      const cause = ex.thrown ?? failure;
+      throw new ApiError(0, 'network', cause instanceof Error ? cause.message : 'Network error');
+    }
     opts.onHeaders?.(res.headers);
-    const text = await res.text();
-    let data: unknown = undefined;
-    if (text) {
-      try {
-        data = JSON.parse(text);
-      } catch {
-        data = undefined;
-      }
-    }
+    const data = res.data;
     if (!res.ok) {
       const err = errorFrom(res.status, data, res.headers.get('Retry-After'), res.headers.get('DPoP-Nonce'));
       // A session token may have expired: renew once and repeat. A step-up refusal is not an expiry.
@@ -739,8 +796,9 @@ export class HttpApi implements OneMindApi {
   mesh() {
     return this.req<MeshView>('GET', '/v1/mesh');
   }
-  systemPlan(type: SystemControlType) {
-    return this.req<SystemPlanPreview>('GET', `/v1/system/plan?type=${enc(type)}`);
+  /** Hidden (see `OP.systemPlan`): the hub serves no system plan preview, so nothing is sent. */
+  systemPlan(type: SystemControlType): Promise<SystemPlanPreview> {
+    return Promise.reject(new ApiError(404, 'not_found', `This hub has no plan preview for ${type}.`));
   }
   eventsEndpoint() {
     return {
