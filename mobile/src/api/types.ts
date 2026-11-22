@@ -426,7 +426,9 @@ export type ApiErrorCode =
   | 'rate_limited'
   | 'unavailable'
   | 'payload_too_large'
-  | 'policy_refused';
+  | 'policy_refused'
+  /** The hub no longer serves this app's protocol generation (sdk/contracts/protocol-versions.md). */
+  | 'upgrade_required';
 
 /** §3 envelope with the optional §12.2 fields. Clients branch on `error` (and `reason`) only. */
 export interface ApiErrorBody {

@@ -2,7 +2,7 @@
 // The Files window's client for /v1/files/*. Paths are typed against the generated OpenAPI `paths`
 // (a route renamed in core/ stops compiling here after `make -C sdk gen`); bodies use the generated
 // `components` types. Responses are checked at the edge: the spec leaves most of them as `unknown`.
-import { OneMind, OneMindError, type components, type paths } from '@onemind/sdk';
+import { OneMind, OneMindError, PROTOCOL_HEADER, PROTOCOL_VERSION, type components, type paths } from '@onemind/sdk';
 import { ApiError } from '../api/types';
 
 const P = {
@@ -70,7 +70,7 @@ export class FilesApi {
   private async post(path: string, body: unknown, key?: string) {
     try { return await this.sdk.call<unknown>({ method: 'POST', path, body, retry: key !== undefined, headers: key ? { 'Idempotency-Key': key } : undefined }); } catch (e) { throw toApiError(e); }
   }
-  private auth = (extra: Record<string, string> = {}) => ({ Authorization: `Bearer ${this.token}`, ...extra });
+  private auth = (extra: Record<string, string> = {}) => ({ Authorization: `Bearer ${this.token}`, [PROTOCOL_HEADER]: String(PROTOCOL_VERSION), ...extra });
 
   async roots() { return list<FileRoot>(await this.get(P.roots), 'space', (j) => str(j.root) && str(j.name)); }
   async list(root: string, path: string) { return list<Entry>(await this.get(P.list + q({ root, path, limit: '500' })), 'entry', (j) => str(j.name) && str(j.path) && str(j.type)); }

@@ -2,7 +2,8 @@
 import { describe, expect, it } from "vitest";
 import {
   AmbiguousResultError, ExpiredError, NetworkError, NotFoundError, OneMind, OneMindError, normalizeHubUrl,
-  UnexpectedResponseError, type OneMindEvent,
+  needsUpdate, PROTOCOL_HEADER, PROTOCOL_MAX_HEADER, PROTOCOL_MIN_HEADER, PROTOCOL_VERSION, protocolRange,
+  UnexpectedResponseError, UpgradeRequiredError, type OneMindEvent,
 } from "../src/index.js";
 
 const TOKEN = "test-token-0123456789abcdef";
@@ -239,5 +240,41 @@ describe("network.view", () => {
     expect((await om.network.view()).dns).toEqual(["192.0.2.53"]);
     expect(calls[0]!.url).toBe("http://localhost:8080/v1/network");
     expect(calls[0]!.init.method).toBe("GET");
+  });
+});
+
+describe("protocol generation (sdk/contracts/protocol-versions.md)", () => {
+  it("declares its generation on every request", async () => {
+    const { om, calls } = client(() => json(200, { name: "x", version: "0", hub_node_id: null }));
+    await om.instance.get();
+    expect((calls[0]!.init.headers as Record<string, string>)[PROTOCOL_HEADER]).toBe(String(PROTOCOL_VERSION));
+  });
+
+  it("turns upgrade_required into UpgradeRequiredError without retrying", async () => {
+    const body = { error: "upgrade_required", reason: "protocol_too_old", message: "Update the app." };
+    const { om, calls } = client(() => json(400, body, { [PROTOCOL_MIN_HEADER]: "9", [PROTOCOL_MAX_HEADER]: "9" }));
+    const err = await om.instance.get().catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(UpgradeRequiredError);
+    expect((err as UpgradeRequiredError).reason).toBe("protocol_too_old");
+    expect(calls).toHaveLength(1);
+  });
+
+  it("reads the hub's range from any answer", () => {
+    const h = (min?: string, max?: string) => new Headers({ ...(min ? { [PROTOCOL_MIN_HEADER]: min } : {}), ...(max ? { [PROTOCOL_MAX_HEADER]: max } : {}) });
+    expect(protocolRange(h("1", "2"))).toEqual({ min: 1, max: 2 });
+    expect(protocolRange(h())).toBeUndefined(); // a hub from before the headers: nothing to say
+    expect(protocolRange(h("3", "2"))).toBeUndefined();
+    expect(needsUpdate(h(String(PROTOCOL_VERSION + 1), String(PROTOCOL_VERSION + 1)))).toBe(true);
+    expect(needsUpdate(h("1", String(PROTOCOL_VERSION)))).toBe(false);
+  });
+
+  it("speaks a generation the committed OpenAPI contract serves", async () => {
+    // node:fs without Node types (tsconfig "types": []), as gateway-ca.test.ts does.
+    const fs: any = await import(/* @vite-ignore */ "node:" + "fs");
+    const spec = JSON.parse(fs.readFileSync(new URL("../../openapi/onemind-v1.json", import.meta.url), "utf8"));
+    const proto = spec.info["x-onemind-protocol"];
+    expect(proto.header).toBe(PROTOCOL_HEADER);
+    expect(PROTOCOL_VERSION).toBeLessThanOrEqual(proto.current);
+    expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(proto.current - 1);
   });
 });

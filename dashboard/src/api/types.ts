@@ -266,7 +266,9 @@ export type ApiErrorCode =
   | 'unauthenticated'
   | 'rate_limited'
   | 'payload_too_large'
-  | 'policy_refused';
+  | 'policy_refused'
+  /** The hub no longer serves this dashboard's protocol generation (sdk/contracts/protocol-versions.md). */
+  | 'upgrade_required';
 
 export interface ApiErrorBody {
   error: ApiErrorCode;

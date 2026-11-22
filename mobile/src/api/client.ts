@@ -2,6 +2,7 @@
 // Started as a copy of dashboard/src/api/client.ts (feat/gwmcp, commit 951470f). The §3 methods keep the
 // dashboard's behaviour; the §12 methods (identity, notifications, push, devices, events) are mobile
 // additions until the generated `@onemind/sdk` replaces both copies (DEV-SDK-4).
+import { noteProtocol, PROTOCOL_HEADER, PROTOCOL_VERSION } from '../lib/protocol';
 import {
   ApiError,
   type Action,
@@ -283,6 +284,7 @@ const KNOWN_CODES = new Set([
   'unavailable',
   'payload_too_large',
   'policy_refused',
+  'upgrade_required',
 ]);
 
 function isErrorBody(v: unknown): v is ApiErrorBody {
@@ -407,6 +409,8 @@ export class HttpApi implements OneMindApi {
           Accept: 'application/json',
           // §12.1: clients send the API major version they speak.
           'OneMind-API-Version': '1',
+          // The protocol generation inside v1 (sdk/contracts/protocol-versions.md).
+          [PROTOCOL_HEADER]: String(PROTOCOL_VERSION),
           ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}),
           ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
           ...opts.headers,
@@ -424,6 +428,7 @@ export class HttpApi implements OneMindApi {
     // for the 30 s / 120 s thresholds).
     const hubDate = Date.parse(res.headers.get('Date') ?? '');
     if (!Number.isNaN(hubDate)) this.offsetMs = hubDate - Date.now();
+    noteProtocol(res.headers);
     opts.onHeaders?.(res.headers);
     const text = await res.text();
     let data: unknown = undefined;
@@ -641,7 +646,7 @@ export class HttpApi implements OneMindApi {
     const bearer = this.tokens.current();
     return {
       url: `${this.base}/v1/files/download?root=${enc(root)}&path=${enc(path)}`,
-      headers: { 'OneMind-API-Version': '1', ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}) },
+      headers: { 'OneMind-API-Version': '1', [PROTOCOL_HEADER]: String(PROTOCOL_VERSION), ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}) },
     };
   }
   /** One tus request. Not `req`: tus answers with headers and no JSON, and the location is an absolute URL on the hub. */
@@ -650,7 +655,7 @@ export class HttpApi implements OneMindApi {
     const bearer = this.tokens.current();
     const ctl = !transport && typeof AbortController !== 'undefined' ? new AbortController() : undefined;
     const timer = ctl ? setTimeout(() => ctl.abort(), Math.max(this.timeoutMs, 60_000)) : undefined;
-    const requestHeaders = { 'OneMind-API-Version': '1', 'Tus-Resumable': '1.0.0', ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}), ...headers };
+    const requestHeaders = { 'OneMind-API-Version': '1', [PROTOCOL_HEADER]: String(PROTOCOL_VERSION), 'Tus-Resumable': '1.0.0', ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}), ...headers };
     let res: Response;
     try {
       res = transport && body ? await transport(url, requestHeaders, body) : await this.fetchFn(url, {
