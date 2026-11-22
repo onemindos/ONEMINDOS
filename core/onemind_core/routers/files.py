@@ -27,6 +27,7 @@ from ..files.preview import INLINE_SAFE, guess_mime
 from ..files.service import FilesService
 from ..files.store import aware
 from ..files.uploads import TUS_EXTENSIONS, TUS_VERSION, Uploads, parse_metadata, parse_repr_digest
+from ..files.versions import VERSION_PATTERN
 from ..files.watch import IndexWatcher
 
 TAG = ["files"]
@@ -111,8 +112,17 @@ class RestoreTrashOp(_Op):
     to_path: str | None = Field(default=None, max_length=4096)
 
 
+class RestoreVersionOp(_Op):
+    """Copy an earlier version of a file (GET /v1/files/versions) back as a new file; never overwrites."""
+    op: Literal["restore_version"]
+    root: Root
+    path: str = Field(max_length=4096)
+    version: str = Field(max_length=40, json_schema_extra={"pattern": VERSION_PATTERN})
+    to_path: str | None = Field(default=None, max_length=4096)  # beside the file when absent and the name is taken
+
+
 # One variant per op, each with the fields that op needs: the schema cannot offer a body the server refuses.
-OpBody = Annotated[MkdirOp | MoveOp | RenameOp | TrashOp | RestoreTrashOp, Field(discriminator="op")]
+OpBody = Annotated[MkdirOp | MoveOp | RenameOp | TrashOp | RestoreTrashOp | RestoreVersionOp, Field(discriminator="op")]
 
 
 class Subject(BaseModel):
@@ -344,6 +354,11 @@ def register(app: FastAPI, gw: Gateway) -> None:
         media = mime if show_inline else "application/octet-stream"
         return StreamingResponse(body(), status_code=status, media_type=media, headers=headers)
 
+    @app.get("/v1/files/versions", operation_id="files.versions.list", tags=TAG, responses=errs(401, 403, 404, 409, 422, 503))
+    def versions(root: RootQ, path: str = Query(max_length=4096), p: Principal = Depends(principal)):
+        """Earlier copies of a file in the box's local snapshots (BAK-04). Same disk: not a backup."""
+        return svc.versions.list(p, root, path)
+
     # -- data-plane writes --
     @app.post("/v1/files/ops", operation_id="files.ops", tags=TAG, responses=errs(401, 403, 404, 409, 413, 422, 503))
     def ops(body: OpBody, p: Principal = Depends(principal)):
@@ -355,6 +370,8 @@ def register(app: FastAPI, gw: Gateway) -> None:
             return svc.rename(p, body.root, body.path, body.name)
         if isinstance(body, TrashOp):
             return svc.trash(p, body.root, body.path)
+        if isinstance(body, RestoreVersionOp):
+            return svc.versions.restore(p, body.root, body.path, body.version, body.to_path)
         return svc.restore_trash(p, body.trash_id, body.to_root, body.to_path)
 
     @app.get("/v1/files/trash", operation_id="files.trash.list", tags=TAG, responses=errs(401, 403, 503))

@@ -23,6 +23,10 @@ services:
      depends_on: [], description: "Downloads the signed Market catalog, checks its signatures and swaps it in. A failed check keeps the old catalog."}
   - {unit: onemind-catalog.timer, name: Market catalog schedule, docs: docs/learning/08-security-pipeline-and-tuf.md, restartable: false, risk: low,
      depends_on: [onemind-catalog.service], description: "Starts the Market catalog sync every six hours."}
+  - {unit: onemind-snapshots.service, name: Local file versions, docs: docs/learning/12-backups-and-restore.md, restartable: false, risk: low,
+     depends_on: [], description: "Takes read-only snapshots of Files each hour and day and keeps a set number, so a member can restore an earlier version. Same disk, so not a backup."}
+  - {unit: onemind-snapshots.timer, name: Local file versions schedule, docs: docs/learning/12-backups-and-restore.md, restartable: false, risk: low,
+     depends_on: [onemind-snapshots.service], description: "Starts the local file versions job every hour. It does nothing until an administrator turns versions on."}
   # ---- the bus and the mesh ----
   - {unit: onemind-nats.service, name: Message bus (hub), docs: docs/learning/11-mesh-headscale-derp-nats-leaf.md, restartable: true, risk: medium,
      depends_on: [], description: "Carries events between the gateway, machines, apps and agents on the hub. Live views pause while it is down."}

@@ -34,6 +34,7 @@ from .index import FileIndex
 from .preview import describe, guess_mime
 from .settings import FilesSettings
 from .store import FilesRepository, GrantRow, RequestRow, TrashRow, aware, new_id
+from .versions import Versions
 
 log = logging.getLogger("onemind.files")
 
@@ -85,6 +86,7 @@ class FilesService:
         self.clock: Callable[[], datetime] = gw.clock
         self._lock = threading.RLock()
         self.index = FileIndex(self.repo.db, self.clock)
+        self.versions = Versions(self)
 
     # ---- events and audit ---------------------------------------------------------------
     def event(self, name: str, p: Principal | None, payload: dict, *, severity: str = "info",
@@ -335,7 +337,7 @@ class FilesService:
             else:
                 with paths.dir_at(space, t.parts[:-1]) as d:
                     out = self._entry(t.parts[-1], t.parts[:-1], paths.lstat_at(d, t.parts[-1]))
-        out.update({"root": t.root.id, "access": t.access.label, "versions_available": False})
+        out.update({"root": t.root.id, "access": t.access.label, "versions_available": is_person(p) and self.versions.available()})
         # The space itself has no row: its revision is the root's, which moves on every change inside.
         row = self.index.rows(t.root.id, [out["path"]]).get(out["path"]) if t.parts else None
         out.update({"id": row.file_id if row else None, "hash": row.hash if row else None,

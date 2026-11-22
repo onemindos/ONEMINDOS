@@ -130,3 +130,36 @@ it('lets an owner review and approve a request they filed themselves', async () 
   await waitFor(() => expect(calls.find((c) => c.path === '/v1/files/requests/frq_1/approve')).toBeDefined());
   expect(JSON.parse(calls.find((c) => c.path.endsWith('/approve'))!.body)).toEqual({ plan_sha256: 'sha256:abc' });
 });
+
+it('restores yesterday\'s version as a new file, after a confirmation, and says snapshots are not backups', async () => {
+  const version = { version: 'daily-20261121T030000Z', cadence: 'daily', taken_at: '2026-11-21T03:00:00Z', size: 9, mtime: '2026-11-21T02:10:00Z' };
+  const calls = mount((c) => {
+    if (c.path === '/v1/files/versions') return json({ root: 'home:owner', path: '/notes.txt', enabled: true, exists: true, versions: [version] });
+    if (c.path === '/v1/files/ops') return json({ name: 'notes (version 2026-11-21 03.00 UTC).txt', path: '/notes (version 2026-11-21 03.00 UTC).txt', type: 'file', size: 9, mtime: '2026-11-22T10:00:00Z', root: 'home:owner', restored_from: version.version });
+    return undefined;
+  });
+  const u = userEvent.setup();
+  await u.click(await screen.findByRole('button', { name: 'Preview notes.txt' }));
+  const section = await screen.findByRole('region', { name: 'Previous versions' });
+  expect(within(section).getByText(/not a backup/)).toBeInTheDocument();
+  expect(within(section).getByRole('link', { name: 'Backups' })).toHaveAttribute('href', '/backups');
+  expect(calls.some((c) => c.path === '/v1/files/versions')).toBe(false); // loaded only when asked
+  await u.click(within(section).getByRole('button', { name: 'Show previous versions' }));
+  const restore = await within(section).findByRole('button', { name: /^Restore the version of / });
+  expect(calls.find((c) => c.path === '/v1/files/versions')?.search.get('path')).toBe('/notes.txt');
+  await u.click(restore);
+  expect(calls.some((c) => c.path === '/v1/files/ops')).toBe(false);
+  await u.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Restore as a new file' }));
+  expect(await screen.findByText(/Restored as \/notes \(version 2026-11-21 03\.00 UTC\)\.txt/)).toBeInTheDocument();
+  expect(JSON.parse(calls.find((c) => c.path === '/v1/files/ops')!.body)).toEqual({ op: 'restore_version', root: 'home:owner', path: '/notes.txt', version: 'daily-20261121T030000Z' });
+  expect(await seriousViolations(screen.getByRole('main'))).toEqual([]);
+});
+
+it('says when versions are off instead of offering a restore', async () => {
+  mount((c) => c.path === '/v1/files/versions' ? json({ root: 'home:owner', path: '/notes.txt', enabled: false, exists: true, versions: [] }) : undefined);
+  const u = userEvent.setup();
+  await u.click(await screen.findByRole('button', { name: 'Preview notes.txt' }));
+  await u.click(await screen.findByRole('button', { name: 'Show previous versions' }));
+  expect(await screen.findByText(/Versions are not turned on/)).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: /^Restore the version/ })).not.toBeInTheDocument();
+});

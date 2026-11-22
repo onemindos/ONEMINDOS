@@ -109,6 +109,12 @@ func protected(path string) error {
 	}
 }
 
+// directoryMode allows 0700, or 0750 so the gateway (group onemind, read-only) can show a member
+// the previous versions of their own files. Nobody but root may write, and others get nothing.
+func directoryMode(perm os.FileMode) bool {
+	return perm == 0700 || perm == 0750
+}
+
 func (m Manager) validate(ctx context.Context) (string, error) {
 	c := m.Config
 	for _, p := range []string{c.Source, c.Directory} {
@@ -120,8 +126,8 @@ func (m Manager) validate(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("source and snapshot directory must be disjoint")
 	}
 	fi, _ := os.Stat(c.Directory)
-	if fi.Mode().Perm() != 0700 {
-		return "", fmt.Errorf("snapshot directory must have mode 0700")
+	if !directoryMode(fi.Mode().Perm()) {
+		return "", fmt.Errorf("snapshot directory must have mode 0700 or 0750")
 	}
 	s, err := m.command(ctx, "subvolume", "show", c.Source)
 	if err != nil {

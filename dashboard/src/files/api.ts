@@ -20,16 +20,21 @@ const P = {
   deny: '/v1/files/requests/{request_id}/deny',
   cancel: '/v1/files/requests/{request_id}/cancel',
   uploads: '/v1/files/uploads',
+  versions: '/v1/files/versions',
 } as const satisfies Record<string, keyof paths>;
 
 type Json = Record<string, unknown>;
 export type GrantBody = components['schemas']['GrantBody'];
+type RestoreVersionOp = components['schemas']['RestoreVersionOp'];
 
 export interface FileRoot { root: string; kind: string; name: string; path: string; access: string; writable: boolean; used_bytes: number | null; quota_bytes: number | null; free_bytes: number | null }
 export interface Entry { name: string; path: string; type: 'file' | 'dir' | string; size: number | null; mtime: string; mime?: string }
 export interface TrashItem { id: string; trash: 'home' | 'shared'; root: string; path: string; name: string; type: string; size: number; trashed_at: string; purge_at: string }
 export interface Grant { id: string; subject: { kind: string; id: string }; slot: string | null; root: string; path: string; access: string; revoked_at: string | null }
 export interface FileRequest { id: string; type: string; plan: { summary?: string }; risk: string; state: string; reason: string | null; requested_by: { id: string; kind: string }; expires_at: string; plan_sha256: string; deny_reason: string | null }
+/** An earlier copy of a file in the box's local snapshots (BAK-04). Same disk as the file: not a backup. */
+export interface FileVersion { version: string; cadence: string; taken_at: string; size: number; mtime: string }
+export interface FileVersions { enabled: boolean; exists: boolean; versions: FileVersion[] }
 export interface Preview { mime: string; kind: string; size: number; inline_safe: boolean; image?: { width: number; height: number } | null; text?: { excerpt: string; truncated: boolean } }
 
 function obj(v: unknown, what: string): Json {
@@ -84,6 +89,18 @@ export class FilesApi {
   async preview(root: string, path: string) { return obj(await this.get(P.preview + q({ root, path })), 'preview') as unknown as Preview; }
   async mkdir(root: string, path: string) { await this.post(P.ops, { op: 'mkdir', root, path }); }
   async trash(root: string, path: string) { await this.post(P.ops, { op: 'trash', root, path }); }
+  async versions(root: string, path: string): Promise<FileVersions> {
+    const j = obj(await this.get(P.versions + q({ root, path })), 'version list');
+    const versions = list<FileVersion>(j.versions, 'version', (v) => str(v.version) && str(v.taken_at) && typeof v.size === 'number');
+    return { enabled: j.enabled === true, exists: j.exists === true, versions };
+  }
+  /** Copies an earlier version back as a new file (beside the current one when its name is taken); never overwrites. */
+  async restoreVersion(root: string, path: string, version: string): Promise<Entry> {
+    const body: RestoreVersionOp = { op: 'restore_version', root, path, version };
+    const j = obj(await this.post(P.ops, body), 'restored file');
+    if (!str(j.path) || !str(j.name)) throw new Error('The hub returned an invalid restored file.');
+    return j as unknown as Entry;
+  }
   async restore(trashId: string) { await this.post(P.ops, { op: 'restore_trash', trash_id: trashId }); }
   async trashList(which: 'home' | 'shared') { return list<TrashItem>(await this.get(P.trash + q({ trash: which, limit: '500' })), 'trash item', (j) => str(j.id) && str(j.name)); }
   async grants() { return list<Grant>(await this.get(P.grants), 'grant', (j) => str(j.id) && str(j.root)); }

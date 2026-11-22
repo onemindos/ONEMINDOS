@@ -38,10 +38,15 @@ class FilesSettings:
     index_watch: bool = True                          # ONEMIND_FILES_INDEX_WATCH
     # How long a deletion stays in the change feed; an older cursor gets 410 and walks the tree again.
     index_tombstone_days: int = 30                    # ONEMIND_FILES_INDEX_TOMBSTONE_DAYS
+    # Local versions (BAK-04): where onemind-snapshots.timer keeps read-only btrfs snapshots of the Files root
+    # (internal/backup/localsnapshot). Read only by the gateway; versions are off while it is missing.
+    snapshots_dir: Path = Path("/data/.snapshots/files")  # ONEMIND_FILES_SNAPSHOTS_DIR
 
     def validate(self) -> None:
         if not self.root.is_absolute():
             raise ValueError("ONEMIND_FILES_ROOT must be an absolute path")
+        if not self.snapshots_dir.is_absolute():
+            raise ValueError("ONEMIND_FILES_SNAPSHOTS_DIR must be an absolute path")
         for name in ("default_quota_bytes", "shared_quota_bytes", "min_free_bytes"):
             if getattr(self, name) < 0:
                 raise ValueError(f"ONEMIND_FILES_{name.upper()} must not be negative")

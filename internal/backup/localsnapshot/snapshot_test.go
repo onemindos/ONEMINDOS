@@ -145,6 +145,17 @@ func TestUnsafePathsAndConfig(t *testing.T) {
 	}
 }
 
+// The gateway reads versions through the group bit (0750); write or other access stays refused.
+func TestDirectoryModeAllowsOnlyGroupRead(t *testing.T) {
+	m, _ := setup(t)
+	for perm, ok := range map[os.FileMode]bool{0700: true, 0750: true, 0710: false, 0770: false, 0705: false, 0755: false} {
+		os.Chmod(m.Config.Directory, perm)
+		if _, err := m.List(context.Background()); (err == nil) != ok {
+			t.Errorf("mode %o: accepted=%v want %v (%v)", perm, err == nil, ok, err)
+		}
+	}
+}
+
 func ExampleConfig() {
 	fmt.Println(`{"source":"/data/onemind/files","directory":"/data/.snapshots/files","hourly":24,"daily":7}`)
 	// Output: {"source":"/data/onemind/files","directory":"/data/.snapshots/files","hourly":24,"daily":7}

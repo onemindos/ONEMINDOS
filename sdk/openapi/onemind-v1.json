@@ -6351,6 +6351,54 @@
         "title": "RestoreTrashOp",
         "type": "object"
       },
+      "RestoreVersionOp": {
+        "additionalProperties": false,
+        "description": "Copy an earlier version of a file (GET /v1/files/versions) back as a new file; never overwrites.",
+        "properties": {
+          "op": {
+            "const": "restore_version",
+            "title": "Op",
+            "type": "string"
+          },
+          "path": {
+            "maxLength": 4096,
+            "title": "Path",
+            "type": "string"
+          },
+          "root": {
+            "maxLength": 205,
+            "pattern": "^(?:shared|home:[ -~]{1,200})$",
+            "title": "Root",
+            "type": "string"
+          },
+          "to_path": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "To Path"
+          },
+          "version": {
+            "maxLength": 40,
+            "pattern": "^(?:hourly|daily)-\\d{8}T\\d{6}Z$",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "op",
+          "root",
+          "path",
+          "version"
+        ],
+        "title": "RestoreVersionOp",
+        "type": "object"
+      },
       "ResumeBody": {
         "additionalProperties": false,
         "properties": {
@@ -18132,6 +18180,7 @@
                     "move": "#/components/schemas/MoveOp",
                     "rename": "#/components/schemas/RenameOp",
                     "restore_trash": "#/components/schemas/RestoreTrashOp",
+                    "restore_version": "#/components/schemas/RestoreVersionOp",
                     "trash": "#/components/schemas/TrashOp"
                   },
                   "propertyName": "op"
@@ -18151,6 +18200,9 @@
                   },
                   {
                     "$ref": "#/components/schemas/RestoreTrashOp"
+                  },
+                  {
+                    "$ref": "#/components/schemas/RestoreVersionOp"
                   }
                 ],
                 "title": "Body"
@@ -19286,6 +19338,67 @@
           }
         },
         "summary": "Tus Patch",
+        "tags": [
+          "files"
+        ]
+      }
+    },
+    "/v1/files/versions": {
+      "get": {
+        "description": "Earlier copies of a file in the box's local snapshots (BAK-04). Same disk: not a backup.",
+        "operationId": "files.versions.list",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "root",
+            "required": true,
+            "schema": {
+              "maxLength": 205,
+              "pattern": "^(?:shared|home:[ -~]{1,200})$",
+              "title": "Root",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "path",
+            "required": true,
+            "schema": {
+              "maxLength": 4096,
+              "title": "Path",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "description": "Not allowed for this principal (permission_denied)"
+          },
+          "404": {
+            "description": "No such file, folder, request or upload (not_found)"
+          },
+          "409": {
+            "description": "conflict, stale_precondition or expired; `reason` says which case"
+          },
+          "422": {
+            "description": "Invalid root, path or body (conflict, reason invalid_path / invalid_root ...)"
+          },
+          "503": {
+            "description": "unavailable: the files storage is not usable"
+          }
+        },
+        "summary": "Versions",
         "tags": [
           "files"
         ]
