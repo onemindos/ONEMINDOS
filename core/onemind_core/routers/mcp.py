@@ -8,6 +8,7 @@ from fastapi.responses import Response
 
 from ..auth import Principal
 from ..context import Gateway
+from ..guard import reads_body
 from ..errors import error_responses
 from .. import __version__
 from ..auditread import AuditReader
@@ -54,6 +55,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         openapi_extra={"requestBody": {"required": True, "content": {"application/json": {"schema": {"type": "object"}}}}},
         responses={202: {"description": "Notification or response accepted"}, **error_responses(401, 403, 429)},
     )
+    @reads_body
     async def mcp_post(request: Request, p: Principal = Depends(principal)):
         return await mcp.handle(request, p)
 

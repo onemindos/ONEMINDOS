@@ -24,6 +24,9 @@ runs:
         node-version: '22'
     - if: contains(inputs.langs, 'py')
       uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
+      with:
+        # Exact version: "latest" resolves through the GitHub API, which times out now and then and fails the job. 0.13.9 is what CI ran when this was pinned.
+        version: "0.13.9"
     - name: sdk/scripts/gen-code.sh ${{ inputs.langs }}
       shell: bash
       working-directory: ${{ github.workspace }}
