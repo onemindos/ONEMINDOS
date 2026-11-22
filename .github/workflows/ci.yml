@@ -50,6 +50,7 @@ jobs:
           uv sync --project core --frozen --python 3.12 --quiet
           core/.venv/bin/python -I -m unittest discover -s test/unit -p 'test_firstboot.py' -v
           core/.venv/bin/python -I -m unittest discover -s test/unit -p 'test_rescue_install.py' -v
+          core/.venv/bin/python -I -m unittest discover -s test/unit -p 'test_starting.py' -v
   changes:
     # CI-13 (#299): arm64-safe, no secrets, no Docker. Local Mac runner when LOCAL_RUNNER=on and the event is
     # trusted (never a fork PR); otherwise GitHub-hosted. docs/learning/self-hosted-runner.md
