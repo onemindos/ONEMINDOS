@@ -28,7 +28,7 @@ The Market lists `minMemoryMb: 1024`, no GPU.
 |---|---|---|---|
 | Deployment/firefox | firefox | 250m / 1Gi | 4 / 3Gi |
 
-Storage: one PVC `profile-<key>` per person, sized like the template `firefox-profile` (5Gi).
+Storage: PVC `firefox-profile` 5Gi.
 
 Images:
 
