@@ -1,0 +1,24 @@
+# SPDX-License-Identifier: Apache-2.0
+# Built-in descriptor (sdk/schema/onemind.builtin.schema.json). Read only because "settings" is on the
+# signed list. Settings owns no routes: it is a screen over other areas' public routes.
+apiVersion: onemind.app/v1
+kind: App
+metadata:
+  id: settings
+  name: Settings
+  description: The box name, people, sign-in and every area's settings page.
+spec:
+  routes:
+    owns: []
+    calls:
+      - GET /v1/instance
+      - GET /v1/onboarding/settings
+      - GET /v1/users
+  settingsPages:
+    - {id: box, title: This box, source: GET /v1/onboarding/settings}
+  backup:
+    units:
+      - {kind: table, name: onboarding_settings}
+      - {kind: table, name: home_documents}
+  data: {owns: [owner], reads: [owner]}
+  phone: {entry: native, screen: settings}

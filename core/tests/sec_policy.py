@@ -432,6 +432,10 @@ POLICY |= {
     ("GET", "/v1/apps/{app_id}/placement"): Row(CHILD_CANNOT, w.p_static(f"/v1/apps/{w.TARGET_APP}/placement"),
                                                 "12.11 CORE-FABRIC-4: names the machines, so nodes:read like /v1/nodes"),
     ("GET", "/v1/apps/{app_id}/exposure"): Row(grid(200, 200, 200, 404, 200), w.p_static(f"/v1/apps/{w.TARGET_APP}/exposure"), "12.22: any reader"),
+    ("GET", "/v1/system-apps"): Row(grid(200, 200, 200, 200, 200), w.p_static("/v1/system-apps"),
+                                    "built-in apps list: any reader; a child or agent sees only the apps shared with them, as in /v1/apps"),
+    ("GET", "/v1/builtins"): Row(grid(200, 200, 200, 200, 200), w.p_static("/v1/builtins"),
+                                 "#603 built-in descriptors: any reader; a child or agent sees only the apps shared with them"),
     ("GET", "/v1/sources"): Row(READ_ANY, w.p_static("/v1/sources"), "12.22: any reader"),
     ("GET", "/v1/sources/{source_id}"): Row(READ_ANY_404, w.p_static("/v1/sources/src_00000000000000000000000000"), "12.22: any reader; missing is 404"),
     ("POST", "/v1/deploy/compose"): Row(grid(422, 403, 403, 403, 403), w.p_missing("/v1/deploy/compose", json={"app_id": "imp", "compose": "x"}),
@@ -772,4 +776,14 @@ POLICY |= {
                                  f"{_SUBJ}: the public subject registry (§12.9), same events:read gate as /v1/events"),
     ("GET", "/v1/subjects/check"): Row(CHILD_CANNOT, w.p_static("/v1/subjects/check?subject=onemind.audit"),
                                        f"{_SUBJ}: read-only what-if check with a reason; never publishes"),
+}
+
+# ---- the box's own screen (UX-07, #242: core/onemind_core/routers/kiosk.py) ---------------------------------
+_KIOSK = "core/onemind_core/routers/kiosk.py"
+POLICY |= {
+    ("GET", "/v1/instance/kiosk"): Row(ONLY_OWNER, w.p_static("/v1/instance/kiosk"),
+                                       f"{_KIOSK}: owner only, reading too (the switch is the box's own screen); refusals audited"),
+    # enabled=false only removes a flag file that is not there on a test box, so the probe changes nothing.
+    ("PUT", "/v1/instance/kiosk"): Row(ONLY_OWNER, w.p_kiosk_put,
+                                       f"{_KIOSK}: only the owner changes the screen; an agent can never switch it"),
 }

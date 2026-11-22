@@ -78,7 +78,11 @@ class Page(unittest.TestCase):
 
 try:
     from onemind_core.ca import BoxCA   # noqa: F401
-    HAVE_CA = True
+    from cryptography import x509
+    # ca.py reads Certificate.not_valid_after_utc (cryptography >= 42). An older system cryptography (41.x on
+    # GitHub's ubuntu-24.04 runners) imports fine but fails at issue time, so check the attribute too. The gateway
+    # venv run of this file (ci.yml, gateway Python step) still exercises it with the pinned cryptography.
+    HAVE_CA = hasattr(x509.Certificate, "not_valid_after_utc")
 except Exception:                       # a system cryptography older than the gateway venv's: CI image job runs it
     HAVE_CA = False
 

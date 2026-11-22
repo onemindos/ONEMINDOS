@@ -4,6 +4,7 @@
 # A box with no monitor is not affected. Enabled by the wants symlink in multi-user.target.wants.
 [Unit]
 Description=OneMind: the box's own screen
+ConditionPathExists=!/data/onemind/kiosk/enabled
 After=plymouth-quit.service systemd-user-sessions.service
 Conflicts=getty@tty1.service
 Before=getty@tty1.service
