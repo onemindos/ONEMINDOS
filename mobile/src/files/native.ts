@@ -9,27 +9,30 @@ import type { FilesDevice, LocalFile } from '../lib/filesTransfer';
 
 const safe = (name: string) => name.replace(/[\\/:*?"<>|]/g, '_');
 
+export function asLocalFile(f: File, name: string, size = f.size): LocalFile {
+  return {
+    name,
+    size,
+    async read(offset, length) {
+      const h = f.open(FileMode.ReadOnly);
+      try {
+        h.offset = offset;
+        return await h.readBytes(length);
+      } finally {
+        h.close();
+      }
+    },
+    sha256: async () => (await f.digest('SHA-256')).toLowerCase(),
+  };
+}
+
 export const nativeFiles: FilesDevice = {
   async pick() {
     const r = await DocumentPicker.getDocumentAsync({ copyToCacheDirectory: true, multiple: false });
     const a = r.canceled ? undefined : r.assets[0];
     if (!a) return undefined;
     const f = new File(a.uri);
-    const local: LocalFile = {
-      name: a.name,
-      size: a.size ?? f.size ?? 0,
-      async read(offset, length) {
-        const h = f.open(FileMode.ReadOnly);
-        try {
-          h.offset = offset;
-          return await h.readBytes(length);
-        } finally {
-          h.close();
-        }
-      },
-      sha256: async () => (await f.digest('SHA-256')).toLowerCase(),
-    };
-    return local;
+    return asLocalFile(f, a.name, a.size ?? f.size);
   },
   async download(req, name) {
     const dir = new Directory(Paths.cache, 'onemind-downloads');
