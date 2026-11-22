@@ -10,6 +10,9 @@ import { ApiError } from '../api/types';
 import { usePoll } from '../lib/hooks';
 import { getPasskey, webauthnSupported } from '../lib/webauthn';
 import { useSignedIn } from '../session';
+import { useShell } from '../shell/Shell';
+import { FixProblem } from './troubleshoot/FixProblem';
+import { ReportProblem, saveJson } from './troubleshoot/ReportProblem';
 import { href } from '../shell/routes';
 import { Load, TextField, useRun } from './parts';
 
@@ -33,15 +36,6 @@ async function call<T>(client: OneMind, method: 'GET' | 'POST', path: string, bo
   }
 }
 
-function save(name: string, data: unknown) {
-  const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = name;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
 export function Troubleshoot() {
   const { token, person, mock } = useSignedIn();
   return mock ? <><PageHeader title="Troubleshoot" /><p role="status">Connect to a real hub to collect diagnostics or restart it. Demo mode has no box to control.</p></> : <LiveTroubleshoot key={person} token={token} />;
@@ -49,6 +43,23 @@ export function Troubleshoot() {
 
 function LiveTroubleshoot({ token }: { token: string }) {
   const client = useMemo(() => new OneMind({ baseUrl: window.location.origin, token, retries: 1 }), [token]);
+  const { role } = useShell();
+  const status = usePoll(() => client.status.get(), 15_000);
+  const currentStatus = status.error ? undefined : status.data;
+  const owner = role === 'owner';
+  return <div className="dash-stack">
+    <PageHeader title="Troubleshoot" lede="Review box health, request a fix or prepare a diagnostic report." />
+    <FixProblem client={client} status={currentStatus} owner={owner} />
+    {owner ? <>
+      <ReportProblem client={client} status={currentStatus} />
+      <SystemControls client={client} />
+    </> : <Card title="Report a problem">
+      <p>Ask the owner to collect a report. Your account is not allowed to see this diagnostic bundle.</p>
+    </Card>}
+  </div>;
+}
+
+function SystemControls({ client }: { client: OneMind }) {
   const res = usePoll(async () => controls(await call(client, 'GET', '/v1/system/controls')), 15_000);
   const run = useRun();
   const toast = useToast();
@@ -58,7 +69,7 @@ function LiveTroubleshoot({ token }: { token: string }) {
   const diagnostics = () => void run(async () => {
     const bundle = await call<Bundle>(client, 'GET', '/v1/system/diagnostics');
     setFound(bundle.redaction.found);
-    save('onemind-diagnostics.json', bundle);
+    saveJson('onemind-diagnostics.json', bundle);
   }, 'Could not collect diagnostics');
 
   const request = (type: ControlType, confirm?: string) => void run(async () => {
@@ -78,8 +89,7 @@ function LiveTroubleshoot({ token }: { token: string }) {
     await res.reload();
   }, 'Could not approve the factory reset');
 
-  return <div className="dash-stack">
-    <PageHeader title="Troubleshoot" lede="Collect a diagnostic bundle, or ask to restart, shut down or reset this box. Every control waits for an owner approval." />
+  return <>
     <Card title="Diagnostic bundle">
       <p>Versions, node health, recent actions and audit event names. Home folders, IP addresses, e-mail addresses, network names and secrets are removed before it leaves the box.</p>
       <Button onClick={diagnostics}>Download diagnostics</Button>
@@ -108,5 +118,5 @@ function LiveTroubleshoot({ token }: { token: string }) {
         </li>)}</ul>}
       </Card>
     </>}</Load>
-  </div>;
+  </>;
 }
