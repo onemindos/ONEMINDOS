@@ -373,7 +373,11 @@ def f10(vm, token):
                     f"echo JSONOK=$({PY} -I -c 'import json; json.load(open(\"/run/f10.json\")); print(\"yes\")' 2>/dev/null || echo no); "
                     "rm -f /run/f10.json; systemctl start k3s; echo AFTER=$(systemctl is-active onemind-rescue)", 400)
     g = lambda k: (re.findall(rf"^{k}=(\S*)\s*$", out, re.M) or [""])[-1]
-    c = {"enabled": g("ENABLED") == "enabled", "active": g("ACTIVE") == "active", "k3s_stopped": g("K3S") != "active",
+    # The image's root is read-only: first boot starts the unit at runtime on every boot, never enables it in
+    # /etc (F0 holds only onemind-firstboot enabled). So "not enabled, yet active" is the expected state here;
+    # deploy/install.sh is the path that enables it.
+    c = {"runtime_started": g("ENABLED") not in ("", "enabled", "not-found", "masked") and g("ACTIVE") == "active",
+         "active": g("ACTIVE") == "active", "k3s_stopped": g("K3S") != "active",
          "noauth_401": g("NOAUTH") == "401", "token_200": g("WITH") == "200", "json_200": g("JSON") == "200",
          "json_valid": g("JSONOK") == "yes", "still_active": g("AFTER") == "active"}
     record("F10", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items()) + f" out={out.strip()[-200:]!r}")
