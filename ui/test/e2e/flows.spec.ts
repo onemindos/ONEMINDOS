@@ -23,7 +23,7 @@ test('dashboard: bad token refused, demo owner signs in, navigates and signs out
   await signIn.click();
   // Home's h1 is the greeting since the dashboard wiring (it was the brand line before).
   // The demo owner's display name is the role word "Owner", which Home never greets by (greetingName in
-  // ui/src/home/greeting.ts, #440): the heading carries no name.
+  // greeting.ts in the Home screen folder, #440): the heading carries no name.
   const homeHeading = /^Good (morning|afternoon|evening)$/;
   await expect(page.getByRole('heading', { level: 1, name: homeHeading })).toBeVisible();
   // The shell's jobs tray floats on Home from the first paint: its stylesheet must not arrive only with a lazily loaded
