@@ -3,7 +3,7 @@
 // and one valid join is accepted. The box here is a test double of /v1/tls/ca.crt and /v1/auth/enrol only.
 import type { FetchLike } from '../api/client';
 import { toB64url } from '../lib/device';
-import { addresses, enrolWithCode, loadPin, markUsed, PairError, readJoin, trustBox, wasUsed } from './pair';
+import { addresses, enrolWithCode, loadPin, markUsed, PairError, readJoin, trustBox, trustNotice, wasUsed } from './pair';
 import { caSha256, systemTrust, type BoxProbe, type BoxTrust } from './trust';
 import { parseJoinQR } from './joinqr';
 
@@ -154,5 +154,20 @@ describe('pairing from the join QR (issue 716)', () => {
     const pin = await trustBox(parseJoinQR(qr()), { trust: systemTrust(fetchFn) });
     expect(pin).toMatchObject({ mode: 'system', ca: PIN });
     await expect(trustBox(parseJoinQR(qr({ hub: 'https://elsewhere.local' })), { trust: systemTrust(fetchFn) })).rejects.toMatchObject({ kind: 'unreachable' });
+  });
+});
+
+describe('what the phone says after pairing (issue 716)', () => {
+  it('claims a pin only in pinned mode', () => {
+    expect(trustNotice({ hubUrl: 'https://box1.local:8443', mode: 'pinned' })).toBe(
+      'This phone now trusts the box at box1.local:8443: its certificate matched the code and is pinned here.',
+    );
+  });
+
+  it('in system mode says nothing is pinned and only the phone trust store is used', () => {
+    const text = trustNotice({ hubUrl: 'https://box1.local:8443', mode: 'system' });
+    expect(text).not.toMatch(/is pinned here/);
+    expect(text).toMatch(/does not pin it/);
+    expect(text).toMatch(/only the phone's own trust store/);
   });
 });

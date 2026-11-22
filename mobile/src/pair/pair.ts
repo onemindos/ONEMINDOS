@@ -145,6 +145,18 @@ export async function trustBox(q: JoinQR, o: { trust?: BoxTrust; now?: number } 
 }
 
 /**
+ * What the Connect screen tells the person after pairing. Only `pinned` mode (the Android module) pins the box
+ * CA in the app's own TLS; in `system` mode (iPhone, or a build without the module) nothing is pinned and the
+ * phone's own trust store decides every later connection, so the text must not claim a pin.
+ */
+export function trustNotice(pin: Pick<BoxPin, 'hubUrl' | 'mode'>): string {
+  const at = host(pin.hubUrl);
+  return pin.mode === 'pinned'
+    ? `This phone now trusts the box at ${at}: its certificate matched the code and is pinned here.`
+    : `The box at ${at} served the certificate the code shows. This phone does not pin it: only the phone's own trust store checks later connections.`;
+}
+
+/**
  * Finish with the enrolment code the owner made for this person (People on the dashboard): the box claims
  * the code once and answers with a session that renews itself. Only to an https hub (the pinned box).
  */

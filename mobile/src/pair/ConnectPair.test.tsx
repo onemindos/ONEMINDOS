@@ -61,6 +61,9 @@ describe('Connect: pair from the join QR (issue 716)', () => {
     await act(async () => camera.onBarcodeScanned?.({ data: qr({ code: 'SCAN-0001-AAAA' }) }));
     expect(await screen.findByTestId('join-short-code')).toHaveTextContent('SCAN-0001-AAAA');
     expect(await loadPin()).toMatchObject({ ca: caSha256(BOX_CA), hubUrl: HUB, mode: 'system' });
+    // No native module in tests, so system mode: the screen must not claim a pin it did not make.
+    expect(screen.queryByText(/is pinned here/)).toBeNull();
+    expect(screen.getByText(/only the phone's own trust store/)).toBeTruthy();
     expect(screen.getByTestId('hub-url').props.value).toBe(HUB);
 
     await fireEvent.changeText(screen.getByTestId('enrol-code'), 'enrol-ok');

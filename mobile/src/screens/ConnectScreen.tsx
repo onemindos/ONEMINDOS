@@ -7,7 +7,7 @@ import { platformPasskeys } from '../lib/passkeys';
 import { passkeySignIn, SignInError } from '../lib/signin';
 import { PasskeyError, passkeyMessage, rpIdFor } from '../lib/webauthn';
 import { JoinScanner } from '../pair/JoinScanner';
-import { enrolWithCode, markUsed, PairError, readJoin, trustBox, type BoxPin } from '../pair/pair';
+import { enrolWithCode, markUsed, PairError, readJoin, trustBox, trustNotice, type BoxPin } from '../pair/pair';
 import { useSession } from '../session';
 import type { LiveConnection } from '../storage';
 import { Button, Card, H1, H2, Notice, P, s as base } from '../ui/bits';
@@ -132,7 +132,7 @@ export function ConnectScreen() {
             <JoinScanner onCode={(text) => void pairWith(text)} onCancel={() => setScanning(false)} />
           ) : paired ? (
             <View style={{ gap: space.sm }}>
-              <Notice tone="ok" text={`This phone now trusts the box at ${paired.pin.hubUrl.replace(/^https:\/\//, '')}: its certificate matched the code and is pinned here.`} />
+              <Notice tone="ok" text={trustNotice(paired.pin)} />
               <Text style={{ color: t.muted, fontSize: font.sm }}>Check that the box shows the same code</Text>
               <Text testID="join-short-code" selectable style={{ color: t.text, fontSize: font.lg, fontWeight: font.semibold, letterSpacing: 2 }}>
                 {paired.code}
