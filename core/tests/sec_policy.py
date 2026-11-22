@@ -583,3 +583,52 @@ POLICY |= {
     ("GET", "/v1/os/about"): Row(CHILD_CANNOT, w.p_static("/v1/os/about"),
                                  "core/onemind_core/routers/about.py: device facts the nodes report, as /v1/nodes shows; a child has no nodes:read"),
 }
+
+# ---- work engine (core/onemind_core/routers/work.py; core/tests/test_work.py) -----------------------------------
+# Owners and adults use work; guests and children get 403 before any lookup. A project or task that is not the
+# caller's is 404. An AI agent reaches what its ai_access allows (a missing object is 404), but creating or
+# deleting projects, members and tasks is a person's: those are 403 for it before any lookup. An agent has no Inbox,
+# so capturing or creating a task without a project is 422 for it.
+_WORK = "core/onemind_core/routers/work.py"
+W_LIST = grid(200, 200, 403, 403, 200)
+W_GONE = grid(404, 404, 403, 403, 404)       # a missing object: 404 for people and agents
+W_PERSON_GONE = grid(404, 404, 403, 403, 403)  # a person's act: an agent is refused before the lookup
+W_NO_INBOX = grid(201, 201, 403, 403, 422)
+_IFM = {"If-Match": '"1"'}
+POLICY |= {
+    ("POST", "/v1/work/projects"): Row(grid(201, 201, 403, 403, 403), w.p_missing("/v1/work/projects", json={"name": "Probe"}),
+                                       f"{_WORK}: a person creates a project; an agent never does"),
+    ("GET", "/v1/work/projects"): Row(W_LIST, w.p_static("/v1/work/projects"), f"{_WORK}: your own projects"),
+    ("GET", "/v1/work/projects/{project_id}"): Row(W_GONE, w.p_missing("/v1/work/projects/{project}"), f"{_WORK}: members only"),
+    ("PATCH", "/v1/work/projects/{project_id}"): Row(W_PERSON_GONE, w.p_missing("/v1/work/projects/{project}", json={"name": "x"}, headers=_IFM),
+                                                     f"{_WORK}: a project owner changes it; an agent never decides its own access"),
+    ("DELETE", "/v1/work/projects/{project_id}"): Row(W_PERSON_GONE, w.p_missing("/v1/work/projects/{project}"), f"{_WORK}: an agent never deletes"),
+    ("POST", "/v1/work/projects/{project_id}/members"): Row(W_PERSON_GONE, w.p_missing(
+        "/v1/work/projects/{project}/members", json={"id": "adult", "kind": "person"}), f"{_WORK}: a person adds members"),
+    ("DELETE", "/v1/work/projects/{project_id}/members/{member_id}"): Row(W_PERSON_GONE, w.p_missing(
+        "/v1/work/projects/{project}/members/adult"), f"{_WORK}: a person removes members"),
+    ("POST", "/v1/work/projects/{project_id}/sections"): Row(W_GONE, w.p_missing(
+        "/v1/work/projects/{project}/sections", json={"name": "Probe"}), f"{_WORK}: members who may write"),
+    ("POST", "/v1/work/tasks"): Row(W_GONE, w.p_missing("/v1/work/tasks", json={"title": "Probe", "project_id": w.MISSING["project"]}),
+                                    f"{_WORK}: members who may write; a missing project is 404"),
+    ("GET", "/v1/work/tasks"): Row(W_LIST, w.p_static("/v1/work/tasks"), f"{_WORK}: tasks in your projects"),
+    ("GET", "/v1/work/tasks/{task_id}"): Row(W_GONE, w.p_missing("/v1/work/tasks/{task}"), f"{_WORK}: members only"),
+    ("PATCH", "/v1/work/tasks/{task_id}"): Row(W_GONE, w.p_missing("/v1/work/tasks/{task}", json={"title": "x"}, headers=_IFM),
+                                               f"{_WORK}: members who may write"),
+    ("DELETE", "/v1/work/tasks/{task_id}"): Row(W_PERSON_GONE, w.p_missing("/v1/work/tasks/{task}"), f"{_WORK}: an agent never deletes"),
+    ("POST", "/v1/work/tasks/{task_id}/complete"): Row(W_GONE, w.p_missing("/v1/work/tasks/{task}/complete"), f"{_WORK}: members who may write"),
+    ("POST", "/v1/work/tasks/{task_id}/dependencies"): Row(W_GONE, w.p_missing(
+        "/v1/work/tasks/{task}/dependencies", json={"depends_on": w.MISSING["task"]}), f"{_WORK}: members who may write"),
+    ("DELETE", "/v1/work/tasks/{task_id}/dependencies/{depends_on}"): Row(W_PERSON_GONE, w.p_missing(
+        "/v1/work/tasks/{task}/dependencies/{task}"), f"{_WORK}: a person removes a dependency"),
+    ("POST", "/v1/work/tasks/{task_id}/comments"): Row(W_GONE, w.p_missing("/v1/work/tasks/{task}/comments", json={"body": "Probe"}),
+                                                       f"{_WORK}: members who may write"),
+    ("GET", "/v1/work/tasks/{task_id}/comments"): Row(W_GONE, w.p_missing("/v1/work/tasks/{task}/comments"), f"{_WORK}: members only"),
+    ("GET", "/v1/work/tasks/{task_id}/activity"): Row(W_GONE, w.p_missing("/v1/work/tasks/{task}/activity"), f"{_WORK}: members only"),
+    ("POST", "/v1/work/parse"): Row(W_LIST, w.p_missing("/v1/work/parse", json={"text": "Probe"}), f"{_WORK}: a preview, creates nothing"),
+    ("POST", "/v1/work/capture"): Row(W_NO_INBOX, w.p_missing("/v1/work/capture", json={"text": "Probe"}),
+                                      f"{_WORK}: a person's Inbox; an agent must name a project, which a one-line capture without #Project cannot"),
+    ("GET", "/v1/work/today"): Row(W_LIST, w.p_static("/v1/work/today"), f"{_WORK}: your own tasks due today"),
+    ("GET", "/v1/work/upcoming"): Row(W_LIST, w.p_static("/v1/work/upcoming"), f"{_WORK}: your own tasks due soon"),
+    ("GET", "/v1/work/inbox"): Row(W_LIST, w.p_static("/v1/work/inbox"), f"{_WORK}: your own Inbox (an agent has none: empty)"),
+}

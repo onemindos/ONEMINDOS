@@ -70,6 +70,8 @@ class Gateway:
     approval_guards: list[ApprovalGuard] = field(default_factory=list)
     app_filters: list[AppFilter] = field(default_factory=list)
     people_sources: list[PeopleSource] = field(default_factory=list)
+    # domain -> fn(event data) -> extra fields the notifier may render (never written to audit or the bus)
+    notify_enrichers: dict[str, Callable[[dict], dict]] = field(default_factory=dict)
     _startup: list[Hook] = field(default_factory=list)
     _shutdown: list[Hook] = field(default_factory=list)
 

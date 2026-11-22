@@ -155,6 +155,12 @@ class NotifyService:
         if spec is None:
             return
         data = dict(envelope.get("data") or {})
+        enrich = self.gw.notify_enrichers.get(str(envelope.get("type", "")).split(".", 1)[0])
+        if enrich is not None:
+            try:
+                data.update({k: v for k, v in enrich(data).items() if k not in data})
+            except Exception:
+                log.exception("notification enricher failed for %s", envelope.get("type"))
         self.ingest(spec, data, source=envelope.get("source_id") or "gateway")
 
     def on_audit_line(self, line: bytes) -> None:
@@ -205,6 +211,8 @@ class NotifyService:
         return out
 
     def _audience(self, spec: Spec, data: dict) -> dict:
+        if spec.type in catalogue.PERSON_ADDRESSED:  # no person named: nobody, never the owners by default
+            return {"roles": [], "persons": [str(data["person_id"])] if data.get("person_id") else []}
         if spec.type in catalogue.INAPP_ONLY_ALERTS and data.get("person_id"):
             return {"roles": [], "persons": [data["person_id"]]}
         roles = ["owner"] + (["adult"] if spec.audience == catalogue.OWNERS_AND_ADULTS else [])
