@@ -187,7 +187,7 @@ source_box() {
     k get ns --show-labels 2>&1 | tail -12
     kx env 2>&1 | /usr/bin/grep -i '^PG' | sed 's/PASSWORD=.*/PASSWORD=<hidden>/'
     pgx sh -c 'pg_isready -h "$(hostname -i)"; pg_isready -h 127.0.0.1; psql -U postgres -Atc "show listen_addresses; select rolname from pg_roles where rolname like '"'"'app%'"'"'"' 2>&1 | tail -6
-    kx sh -c 'timeout 3 bash -c "echo > /dev/tcp/10.42.0.7/5432" && echo direct-pod-ip-ok || echo direct-pod-ip-failed; timeout 3 bash -c "echo > /dev/tcp/$PGHOST/5432" && echo svc-ok || echo svc-failed' 2>&1 | tail -3
+    kx sh -c 'timeout 3 bash -c "echo > /dev/tcp/$PGHOST/5432" && echo svc-ok || echo svc-failed' 2>&1 | tail -3
     k -n onemind-db get networkpolicy -o yaml 2>&1 | /usr/bin/grep -c . ; k -n app-backup-probe get networkpolicy 2>&1 | tail -5
     kx sh -c 'getent hosts postgres.onemind-db.svc.cluster.local; (command -v nc && nc -zvw3 postgres.onemind-db.svc.cluster.local 5432)' 2>&1 | tail -5
     return 1
