@@ -1,0 +1,1 @@
+Fix the dashboard typecheck on the combined release branch: demo icons for Firefox and Chromium (the catalog now requires an icon) and one owner for the /settings/network redirect (the Network screen, not Nodes).
