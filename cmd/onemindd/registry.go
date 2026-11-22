@@ -14,6 +14,7 @@ var subcommands = map[string]func(args []string) int{
 	"update":      runUpdate,
 	"backup-init": runBackupInit, // backup.go: one-shot, creates the device key; the agent itself is backup.Service() below
 	"storage":     runStorage,
+	"host":        runHost,   // host.go: approved restart, shutdown, OS install (#146, #142), its own unit
 	"mesh":        runMesh,   // net.go
 	"rescue":      runRescue, // rescue.go: the rescue console, its own unit (CORE-UPDATE-8)
 	// The terminal's shell starts through this hidden mode, which drops every capability first (#273).
