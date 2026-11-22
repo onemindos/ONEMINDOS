@@ -332,11 +332,17 @@ def onemind_ids() -> tuple[int, int] | None:
 
 
 def chown_tree(path: str, ids: tuple[int, int] | None) -> None:
+    """Re-own a tree. A file that is gone by the time it is reached is skipped: something else may be working
+    in the tree (k3s unpacks its binaries into a *-tmp folder and renames it), and one vanished file must not
+    fail first boot, which would leave the box without its role units (cloud C4 reboot, issue #391)."""
     if not ids or not os.path.isdir(path):
         return
     for dirpath, _dirs, files in os.walk(path):
         for n in [dirpath, *(os.path.join(dirpath, f) for f in files)]:
-            os.chown(n, *ids)
+            try:
+                os.chown(n, *ids)
+            except FileNotFoundError:
+                pass
 
 
 def token() -> str:
