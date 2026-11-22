@@ -69,7 +69,8 @@ class Principal:
     kind: str
     role: str
     # MCP scopes of an agent token (tokens file `scopes`). None = the v0 bundle (the §4.1 default for agents with no `scopes:` field).
-    scopes: frozenset[str] | None = field(default=None, compare=False)
+    # Keyword only: subclasses (plugins/principal.py PluginPrincipal) add positional fields after it.
+    scopes: frozenset[str] | None = field(default=None, compare=False, kw_only=True)
 
     def as_dict(self) -> dict:
         return {"id": self.id, "kind": self.kind, "role": self.role}

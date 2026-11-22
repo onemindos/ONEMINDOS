@@ -14,10 +14,14 @@ from ..auth import Principal
 from ..context import Gateway
 from ..errors import ApiError, error_responses
 from ..hostnet import HostNetClient, NetworkView, read_view
+from ..identity.scopes import register_route_scope
 from ..netconf import NetSettings
 
 # Route order in the app and in /openapi.json (routers/__init__.py).
 ORDER = 275
+
+# Owner only (the handler checks too): the row asks for every scope, so no scoped token reads it (#323).
+register_route_scope("GET,HEAD", r"/v1/network", ("*",))
 
 
 def register(app: FastAPI, gw: Gateway) -> None:
