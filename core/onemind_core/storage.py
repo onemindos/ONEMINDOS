@@ -50,6 +50,7 @@ from .auth import Principal
 from .context import Gateway
 from .errors import ApiError
 from .executors import ExecResult
+from .jsonbody import JsonBody
 from .ledger import Action, Base, utc
 from .sections import config_section
 from .store import FeatureSchema, SqlRepository
@@ -107,7 +108,7 @@ def _device_ref(v: str | None) -> str | None:
     return v
 
 
-class StorageParams(BaseModel):
+class StorageParams(JsonBody):
     model_config = ConfigDict(extra="forbid")
     node_id: str | None = Field(default=None, max_length=64)
     device: str | None = Field(default=None, pattern=DEVICE)  # the blank disk (path, WWN or serial)

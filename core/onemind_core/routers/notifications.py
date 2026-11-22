@@ -41,6 +41,7 @@ from ..notify.store import (
     notification_json,
 )
 from ..identity.scopes import ALL, has_any, register_route_scope
+from ..jsonbody import JsonBody
 
 def _rfc3339_text(v):
     # pydantic reads "0.5" or 17 as a Unix time; the published schema says an RFC 3339 date-time string.
@@ -111,7 +112,7 @@ class PushIn(BaseModel):
     label: str = Field(default="device", min_length=1, max_length=120)
 
 
-class FixIn(BaseModel):
+class FixIn(JsonBody):
     model_config = ConfigDict(extra="forbid")
     approve: bool = False
     reason: str | None = Field(default=None, max_length=500)
