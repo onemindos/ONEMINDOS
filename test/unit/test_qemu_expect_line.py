@@ -36,7 +36,7 @@ class ExpectLine(unittest.TestCase):
               "ell-", "back", "\nroot@onemind:~# "]
 
     def test_plain_expect_reads_the_cut_off_value(self):
-        vm = make_vm(); feed(vm, self.CHUNKS)
+        vm = make_vm(); feed(vm, self.CHUNKS[:1]).join()   # only the first chunk: no timing race
         self.assertEqual(vm.expect(rt.RECOV, 5).group(4), "f")   # the bug
 
     def test_expect_line_waits_for_the_newline(self):
