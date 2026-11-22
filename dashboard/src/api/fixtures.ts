@@ -185,6 +185,7 @@ export function makeApps(now: number = Date.now()): CatalogApp[] {
     {
       ...base,
       id: 'firefox',
+      icon: '/mock-icons/firefox.svg', // demo drawing (public/mock-icons); real hubs carry the manifest's own icon
       name: 'Firefox',
       version: '3.2.0',
       description: 'Firefox in a window you open from the dashboard, streamed from your box with Neko. One profile that stays on the box.',
@@ -200,6 +201,7 @@ export function makeApps(now: number = Date.now()): CatalogApp[] {
     {
       ...base,
       id: 'chromium',
+      icon: '/mock-icons/chromium.svg', // demo drawing (public/mock-icons); real hubs carry the manifest's own icon
       name: 'Chromium',
       version: '3.2.0',
       description: 'Chromium in a window you open from the dashboard, streamed from your box with Neko. One profile that stays on the box.',
