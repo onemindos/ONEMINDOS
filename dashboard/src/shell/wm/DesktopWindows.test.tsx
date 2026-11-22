@@ -157,7 +157,6 @@ it('visiting an empty workspace and back keeps both windows of workspace 1 open'
 });
 
 it('sending the active window away hands focus to the next window instead of blanking the stage', async () => {
-  const user = userEvent.setup();
   const rect = { x: 3, y: 3, width: 60, height: 60 };
   personStorage('owner')!.setItem('shell.windows', JSON.stringify(['/approvals', '/market'].map(path => ({ path, rect }))));
   renderApp({ token: 'owner-demo' });
