@@ -23,7 +23,7 @@ Runner = Callable[..., subprocess.CompletedProcess]
 
 
 class MachineRuntime(Protocol):
-    def create(self, p: MachineCreateParams) -> ExecResult: ...
+    def create(self, p: MachineCreateParams, *, media_action: str | None = None) -> ExecResult: ...
 
     def set_running(self, name: str, running: bool) -> ExecResult: ...
 
@@ -43,7 +43,7 @@ class MachineRuntime(Protocol):
 class NoopRuntime:
     name = "noop"
 
-    def create(self, p: MachineCreateParams) -> ExecResult:
+    def create(self, p: MachineCreateParams, *, media_action: str | None = None) -> ExecResult:
         return ExecResult("succeeded", f"noop: machine {p.name} not created", [
             {"would": f"apply namespace {NAMESPACE}, NetworkPolicy {p.name}-deny and VirtualMachine {p.name}",
              "ram_mb": p.ram_mb, "cpus": p.cpus, "disk_gb": p.disk_gb}])
@@ -99,12 +99,27 @@ class KubectlRuntime:
             return ExecResult("failed", f"kubectl exited {cp.returncode}", steps)
         return None
 
-    def create(self, p: MachineCreateParams) -> ExecResult:
+    def create(self, p: MachineCreateParams, *, media_action: str | None = None) -> ExecResult:
         steps: list[dict] = []
         k = self.kubectl
-        bad = self._run(steps, [k, "apply", "--server-side", "--field-manager=onemind-gateway", "--force-conflicts", "-f", "-"],
-                        render_create(p))
-        return bad or ExecResult("succeeded", f"machine {p.name} created, stopped", steps)
+        manifest = render_create(p, media_action=media_action)
+        apply = [k, "apply", "--server-side", "--field-manager=onemind-gateway", "--force-conflicts", "-f", "-"]
+        if media_action:
+            ns, policy, vm = json.loads(manifest)["items"]
+            # A halted VM or disk that pre-dates this ledger entry must never become the destination
+            # of a later upload. The VM create is exclusive even if the cluster changes mid-request.
+            names = [f"virtualmachine/{p.name}"]
+            for dv in vm["spec"]["dataVolumeTemplates"]:
+                names.extend(f"{kind}/{dv['metadata']['name']}" for kind in ("datavolume", "persistentvolumeclaim"))
+            bad = self._run(steps, apply, json.dumps(ns)) or self._run(
+                steps, [k, "get", *names, "-n", NAMESPACE, "--ignore-not-found", "-o", "name"], keep_stdout=True)
+            if not bad and steps[-1].get("stdout", "").strip():
+                return ExecResult("failed", "A machine or disk with this name already exists in the cluster.", steps)
+            bad = bad or self._run(steps, apply, json.dumps(policy)) or self._run(steps, [k, "create", "-f", "-"], json.dumps(vm))
+        else:
+            bad = self._run(steps, apply, manifest)
+        state = "waiting for its media" if media_action else "stopped"
+        return bad or ExecResult("succeeded", f"machine {p.name} created, {state}", steps)
 
     def set_running(self, name: str, running: bool) -> ExecResult:
         steps: list[dict] = []
