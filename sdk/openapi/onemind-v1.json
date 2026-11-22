@@ -6150,6 +6150,380 @@
         "title": "Subject",
         "type": "object"
       },
+      "SubjectTree": {
+        "description": "GET /v1/subjects.",
+        "properties": {
+          "envelopes": {
+            "items": {
+              "$ref": "#/components/schemas/SubjectTreeEnvelope"
+            },
+            "title": "Envelopes",
+            "type": "array"
+          },
+          "grammar": {
+            "title": "Grammar",
+            "type": "string"
+          },
+          "kinds": {
+            "items": {
+              "$ref": "#/components/schemas/SubjectTreeKind"
+            },
+            "title": "Kinds",
+            "type": "array"
+          },
+          "mappings": {
+            "items": {
+              "$ref": "#/components/schemas/SubjectTreeMapping"
+            },
+            "title": "Mappings",
+            "type": "array"
+          },
+          "reserved": {
+            "items": {
+              "$ref": "#/components/schemas/SubjectTreeReserved"
+            },
+            "title": "Reserved",
+            "type": "array"
+          },
+          "root": {
+            "title": "Root",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "root",
+          "grammar",
+          "kinds",
+          "reserved",
+          "envelopes",
+          "mappings"
+        ],
+        "title": "SubjectTree",
+        "type": "object"
+      },
+      "SubjectTreeCheck": {
+        "description": "GET /v1/subjects/check.",
+        "properties": {
+          "kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "pattern": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pattern"
+          },
+          "publisher": {
+            "title": "Publisher",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "subject": {
+            "title": "Subject",
+            "type": "string"
+          }
+        },
+        "required": [
+          "subject",
+          "publisher",
+          "ok",
+          "reason",
+          "kind",
+          "pattern"
+        ],
+        "title": "SubjectTreeCheck",
+        "type": "object"
+      },
+      "SubjectTreeEnvelope": {
+        "properties": {
+          "contract": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contract"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "file": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "file",
+          "contract",
+          "description"
+        ],
+        "title": "SubjectTreeEnvelope",
+        "type": "object"
+      },
+      "SubjectTreeKind": {
+        "properties": {
+          "core": {
+            "title": "Core",
+            "type": "boolean"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "envelope": {
+            "title": "Envelope",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "retention": {
+            "$ref": "#/components/schemas/SubjectTreeRetention"
+          },
+          "stream": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stream"
+          },
+          "subjects": {
+            "items": {
+              "$ref": "#/components/schemas/SubjectTreePattern"
+            },
+            "title": "Subjects",
+            "type": "array"
+          }
+        },
+        "required": [
+          "kind",
+          "description",
+          "core",
+          "stream",
+          "retention",
+          "envelope",
+          "subjects"
+        ],
+        "title": "SubjectTreeKind",
+        "type": "object"
+      },
+      "SubjectTreeMapping": {
+        "description": "One row of the mapping table: a subject of an older grammar (`old`) and where it lives in the tree (`new`).",
+        "properties": {
+          "grammar": {
+            "title": "Grammar",
+            "type": "string"
+          },
+          "new": {
+            "title": "New",
+            "type": "string"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "old": {
+            "title": "Old",
+            "type": "string"
+          }
+        },
+        "required": [
+          "grammar",
+          "old",
+          "new",
+          "note"
+        ],
+        "title": "SubjectTreeMapping",
+        "type": "object"
+      },
+      "SubjectTreePattern": {
+        "properties": {
+          "envelope": {
+            "title": "Envelope",
+            "type": "string"
+          },
+          "owner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner"
+          },
+          "pattern": {
+            "title": "Pattern",
+            "type": "string"
+          },
+          "publishers": {
+            "items": {
+              "enum": [
+                "gateway",
+                "node",
+                "app",
+                "agent"
+              ],
+              "type": "string"
+            },
+            "title": "Publishers",
+            "type": "array"
+          },
+          "retention": {
+            "$ref": "#/components/schemas/SubjectTreeRetention"
+          },
+          "stream": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stream"
+          }
+        },
+        "required": [
+          "pattern",
+          "publishers",
+          "owner",
+          "stream",
+          "retention",
+          "envelope"
+        ],
+        "title": "SubjectTreePattern",
+        "type": "object"
+      },
+      "SubjectTreeReserved": {
+        "properties": {
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "reason"
+        ],
+        "title": "SubjectTreeReserved",
+        "type": "object"
+      },
+      "SubjectTreeRetention": {
+        "description": "How long a stream keeps messages: policy limits, workqueue, latest (last value per subject) or none.",
+        "properties": {
+          "deny_delete": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deny Delete"
+          },
+          "deny_purge": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deny Purge"
+          },
+          "max_age_s": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Age S"
+          },
+          "max_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Bytes"
+          },
+          "policy": {
+            "enum": [
+              "limits",
+              "workqueue",
+              "latest",
+              "none"
+            ],
+            "title": "Policy",
+            "type": "string"
+          }
+        },
+        "required": [
+          "policy"
+        ],
+        "title": "SubjectTreeRetention",
+        "type": "object"
+      },
       "SystemActionRequest": {
         "additionalProperties": false,
         "description": "POST /v1/system/actions. `confirm` is the phrase the owner types for a factory reset.",
@@ -22937,6 +23311,147 @@
         "summary": "Storage Recovery Key",
         "tags": [
           "storage"
+        ]
+      }
+    },
+    "/v1/subjects": {
+      "get": {
+        "description": "Every subject kind: who may publish, the stream and retention, the envelope schema; the reserved\nkinds with the reason; and the mapping from the older grammars (contract 12.9, plugin SDK, cluster).",
+        "operationId": "subjects.list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubjectTree"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
+          }
+        },
+        "summary": "Subjects List",
+        "tags": [
+          "subjects"
+        ]
+      }
+    },
+    "/v1/subjects/check": {
+      "get": {
+        "description": "Would `publisher` with its own id be allowed to publish on `subject`? Answers with a reason; never publishes.",
+        "operationId": "subjects.check",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "subject",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "title": "Subject",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "publisher",
+            "required": false,
+            "schema": {
+              "default": "app",
+              "enum": [
+                "gateway",
+                "node",
+                "app",
+                "agent"
+              ],
+              "title": "Publisher",
+              "type": "string"
+            }
+          },
+          {
+            "description": "the publisher's own node, app or agent id",
+            "in": "query",
+            "name": "owner_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "the publisher's own node, app or agent id",
+              "title": "Owner Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubjectTreeCheck"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
+          }
+        },
+        "summary": "Subjects Check",
+        "tags": [
+          "subjects"
         ]
       }
     },

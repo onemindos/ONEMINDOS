@@ -1,0 +1,28 @@
+{
+  "$comment": "SPDX-License-Identifier: Apache-2.0",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/onemindos/ONEMINDOS/sdk/schema/onemind.event.schema.json",
+  "title": "OneMind event envelope (onemind.event/v1)",
+  "description": "Contract sdk/contracts/poc-v0.md section 12.8, the same on SSE and on NATS (event, plugin, notification and request subjects). Data carries ids and small facts only, never secrets or file contents. Readers ignore fields they do not know.",
+  "type": "object",
+  "required": ["schema", "id", "type", "ts", "subject", "data"],
+  "properties": {
+    "schema": {"const": "onemind.event/v1"},
+    "id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "type": {"type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{0,39}(\\.[a-z0-9][a-z0-9_-]{0,39}){0,4}$"},
+    "ts": {"type": "string", "format": "date-time"},
+    "subject": {"type": "object", "additionalProperties": {"type": ["string", "integer", "null"]}},
+    "data": {"type": "object"},
+    "severity": {"enum": ["info", "warning", "critical"]},
+    "source_id": {"type": ["string", "null"]},
+    "actor_id": {"type": ["string", "null"]},
+    "correlation_id": {"type": ["string", "null"]},
+    "causation_id": {"type": ["string", "null"]},
+    "dedupe_key": {"type": ["string", "null"]},
+    "observed_at": {"type": ["string", "null"], "format": "date-time"},
+    "occurred_at": {"type": ["string", "null"], "format": "date-time"},
+    "instance_id": {"type": ["string", "null"]},
+    "site_id": {"type": ["string", "null"]},
+    "resource": {"type": ["object", "null"]}
+  }
+}
