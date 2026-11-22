@@ -998,6 +998,10 @@
             "title": "Challenge",
             "type": "string"
           },
+          "device_payload": {
+            "title": "Device Payload",
+            "type": "string"
+          },
           "expires_at": {
             "title": "Expires At",
             "type": "string"
@@ -1024,6 +1028,7 @@
           "action_sha256",
           "plan_sha256",
           "expires_at",
+          "device_payload",
           "publicKey"
         ],
         "title": "ApprovalChallenge",
@@ -1108,6 +1113,95 @@
           "kind"
         ],
         "title": "ApprovalPreview",
+        "type": "object"
+      },
+      "ApproverKey": {
+        "properties": {
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "fingerprint": {
+            "title": "Fingerprint",
+            "type": "string"
+          },
+          "key_id": {
+            "title": "Key Id",
+            "type": "string"
+          },
+          "key_kind": {
+            "title": "Key Kind",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "last_used_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Used At"
+          },
+          "revoked_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revoked At"
+          }
+        },
+        "required": [
+          "key_id",
+          "label",
+          "key_kind",
+          "fingerprint",
+          "created_at",
+          "last_used_at",
+          "revoked_at"
+        ],
+        "title": "ApproverKey",
+        "type": "object"
+      },
+      "ApproverKeyBody": {
+        "properties": {
+          "key_kind": {
+            "enum": [
+              "hardware-attested",
+              "hardware-reported",
+              "software"
+            ],
+            "title": "Key Kind",
+            "type": "string"
+          },
+          "label": {
+            "description": "The phone this key lives on, e.g. 'Pixel 9'.",
+            "maxLength": 100,
+            "title": "Label",
+            "type": "string"
+          },
+          "public_key": {
+            "description": "P-256 SubjectPublicKeyInfo, DER, base64url.",
+            "maxLength": 400,
+            "title": "Public Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "public_key",
+          "label",
+          "key_kind"
+        ],
+        "title": "ApproverKeyBody",
         "type": "object"
       },
       "AuditHead": {
@@ -2347,6 +2441,35 @@
           "config"
         ],
         "title": "DestinationBody",
+        "type": "object"
+      },
+      "DeviceSignature": {
+        "description": "An approver key's ECDSA P-256 / SHA-256 signature over approve-options' `device_payload`.",
+        "properties": {
+          "challenge": {
+            "description": "The approve-options challenge (base64url) that was signed.",
+            "maxLength": 128,
+            "title": "Challenge",
+            "type": "string"
+          },
+          "key_id": {
+            "maxLength": 40,
+            "title": "Key Id",
+            "type": "string"
+          },
+          "signature": {
+            "description": "base64url; ASN.1 DER (Android, iOS) or raw r||s (64 bytes).",
+            "maxLength": 200,
+            "title": "Signature",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key_id",
+          "challenge",
+          "signature"
+        ],
+        "title": "DeviceSignature",
         "type": "object"
       },
       "DiagnosticsBundle": {
@@ -8884,6 +9007,16 @@
       "onemind_core__routers__actions__ApproveBody": {
         "description": "§12.4: optional approve body. `webauthn` is the passkey assertion over approve-options' challenge.\n\nsealed: the app's secrets form for app.install (appsecrets/); override: the F-7 owner override.",
         "properties": {
+          "device_signature": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DeviceSignature"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "hold_ms": {
             "anyOf": [
               {
@@ -12156,6 +12289,196 @@
           }
         },
         "summary": "App Session",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/v1/auth/approver-keys": {
+      "get": {
+        "operationId": "auth.approver_keys.list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ApproverKey"
+                  },
+                  "title": "Response Auth.Approver Keys.List",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "summary": "Approver Keys",
+        "tags": [
+          "auth"
+        ]
+      },
+      "post": {
+        "description": "An owner adds a phone's P-256 approver key; needs a passkey sign-in on this session in the last minutes.",
+        "operationId": "auth.approver_keys.register",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApproverKeyBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApproverKey"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Approver Key Register",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/v1/auth/approver-keys/{key_id}": {
+      "delete": {
+        "operationId": "auth.approver_keys.revoke",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key_id",
+            "required": true,
+            "schema": {
+              "title": "Key Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Approver Key Revoke",
         "tags": [
           "auth"
         ]

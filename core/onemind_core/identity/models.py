@@ -76,6 +76,21 @@ class PasskeyRow(Base):
     last_used_at: Mapped[datetime | None] = mapped_column(TS, nullable=True)
 
 
+class ApproverKeyRow(Base):
+    """#702: a phone's device-bound P-256 approver key. Revoked rows stay, so the audit can name them."""
+
+    __tablename__ = "identity_approver_keys"
+    id: Mapped[str] = mapped_column(String(40), primary_key=True)  # apk_<ulid>
+    user_id: Mapped[str] = mapped_column(String(40), index=True)
+    label: Mapped[str] = mapped_column(String(100))  # the phone, as the owner named it
+    key_kind: Mapped[str] = mapped_column(String(24))  # approver_keys.KEY_KINDS
+    public_key: Mapped[bytes] = mapped_column(LargeBinary)  # SubjectPublicKeyInfo DER
+    fingerprint: Mapped[str] = mapped_column(String(80), unique=True)  # sha256:<hex> of the DER
+    created_at: Mapped[datetime] = mapped_column(TS)
+    last_used_at: Mapped[datetime | None] = mapped_column(TS, nullable=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(TS, nullable=True)
+
+
 class SessionRow(Base):
     __tablename__ = "identity_sessions"
     id: Mapped[str] = mapped_column(String(40), primary_key=True)
