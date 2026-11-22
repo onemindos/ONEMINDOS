@@ -5772,6 +5772,236 @@
         "title": "SeriesPoint",
         "type": "object"
       },
+      "ServiceCard": {
+        "additionalProperties": false,
+        "description": "One systemd unit on the service cards: the registry's words plus what systemd says now.",
+        "properties": {
+          "active_state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "systemd ActiveState: active, inactive, failed, activating, ...",
+            "title": "Active State"
+          },
+          "depends_on": {
+            "default": [],
+            "description": "Other registry units it needs",
+            "items": {
+              "type": "string"
+            },
+            "title": "Depends On",
+            "type": "array"
+          },
+          "description": {
+            "description": "Plain words: what it does and what stops working without it (empty when unknown)",
+            "title": "Description",
+            "type": "string"
+          },
+          "docs": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Repo path of the page that explains it, e.g. docs/leap/core/HOST-ACTIONS.md",
+            "title": "Docs"
+          },
+          "installed": {
+            "description": "systemd has this unit on this box (boards ship different units)",
+            "title": "Installed",
+            "type": "boolean"
+          },
+          "known": {
+            "description": "false: the registry does not list this unit; name is the unit name and description is empty",
+            "title": "Known",
+            "type": "boolean"
+          },
+          "load_state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "systemd LoadState: loaded, not-found, masked, ...",
+            "title": "Load State"
+          },
+          "memory_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Memory the unit uses now; null when systemd does not count it",
+            "title": "Memory Bytes"
+          },
+          "name": {
+            "description": "Plain name for the card",
+            "title": "Name",
+            "type": "string"
+          },
+          "restartable": {
+            "description": "Whether a person may ask for a restart (an owner-approved action, later work)",
+            "title": "Restartable",
+            "type": "boolean"
+          },
+          "risk": {
+            "description": "low: a background job pauses; medium: a feature stops for everyone; high: boot, data or access at stake",
+            "enum": [
+              "low",
+              "medium",
+              "high",
+              "unknown"
+            ],
+            "title": "Risk",
+            "type": "string"
+          },
+          "sub_state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "systemd SubState: running, dead, exited, waiting, ...",
+            "title": "Sub State"
+          },
+          "unit": {
+            "description": "systemd unit file name, e.g. onemind-gateway.service",
+            "title": "Unit",
+            "type": "string"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The OneMind release that shipped this unit; null when unknown or not installed",
+            "title": "Version"
+          }
+        },
+        "required": [
+          "unit",
+          "known",
+          "name",
+          "description",
+          "restartable",
+          "risk",
+          "installed"
+        ],
+        "title": "ServiceCard",
+        "type": "object"
+      },
+      "ServicesView": {
+        "additionalProperties": false,
+        "description": "GET /v1/system/services: one card per shipped unit, then any unknown OneMind unit.",
+        "properties": {
+          "at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "At"
+          },
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "dropped": {
+            "default": 0,
+            "description": "Cards the gateway refused because a field failed its checks",
+            "title": "Dropped",
+            "type": "integer"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "enum": [
+                  "host_service_unreachable",
+                  "host_service_error",
+                  "bad_response"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "registry": {
+            "anyOf": [
+              {
+                "enum": [
+                  "ok",
+                  "missing",
+                  "invalid"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "ok; missing (the image has no registry); invalid (it failed its checks, so every unit is unknown)",
+            "title": "Registry"
+          },
+          "services": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ServiceCard"
+            },
+            "title": "Services",
+            "type": "array"
+          },
+          "unknown": {
+            "default": 0,
+            "description": "Cards whose unit the registry does not list",
+            "title": "Unknown",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "available"
+        ],
+        "title": "ServicesView",
+        "type": "object"
+      },
       "SettingsRequest": {
         "additionalProperties": false,
         "properties": {
@@ -23477,6 +23707,48 @@
           }
         },
         "summary": "System Diagnostics",
+        "tags": [
+          "system"
+        ]
+      }
+    },
+    "/v1/system/services": {
+      "get": {
+        "description": "Every systemd unit this OS ships, as a service card: plain name and description, docs page,\nrisk, restartable flag, dependencies, and systemd's state, memory and version (read only).\n\nA OneMind unit the image's registry does not list comes back with `known` false. `available` is\nfalse, with a reason, when the host service cannot be reached: the screen says so instead of\nshowing nothing.",
+        "operationId": "system.services.list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServicesView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "summary": "System Services",
         "tags": [
           "system"
         ]

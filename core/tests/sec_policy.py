@@ -674,6 +674,14 @@ POLICY |= {
                                  "core/onemind_core/routers/about.py: device facts the nodes report, as /v1/nodes shows; a child has no nodes:read"),
 }
 
+# ---- service cards (#623: core/onemind_core/routers/services.py) ------------------------------------------------
+POLICY |= {
+    # Owner only, read only (scope system:admin, like /v1/system/controls). In this world there is no host
+    # socket, so the owner gets 200 with available=false; everyone else is refused first.
+    ("GET", "/v1/system/services"): Row(OWNER_ONLY, w.p_static("/v1/system/services"),
+                                        "core/onemind_core/routers/services.py: every systemd unit on the box and its state; owner only"),
+}
+
 # ---- Network screen (NET-UI-01, #239: core/onemind_core/routers/network.py) ---------------------------------
 POLICY |= {
     ("GET", "/v1/network"): Row(grid(200, 403, 403, 403, 403), w.p_static("/v1/network"),

@@ -66,6 +66,7 @@ var groups = []func(a *App) []*cobra.Command{
 	aboutCommands,
 	meshCommands,
 	storageCommands,
+	servicesCommands,
 	machinesCommands,
 	mcpCommands,
 	migrateCommands,
