@@ -151,6 +151,10 @@ jobs:
         run: make fixtures BOARD=x86_64-efi UPTO=T5 TOOLS=onemind-tools:ci
       - name: First boot into OneMind (F0-F4)
         run: make firstboot BOARD=x86_64-efi FUPTO=F4 TOOLS=onemind-tools:ci
+      # Boot menu lock (B1-B6, test/qemu/CRITERIA-BOOTLOCK.md): `e` at GRUB asks for a login. Runs after firstboot
+      # because `make firstboot` removes the work disk it copied, and this copies the fixture disk again.
+      - name: Boot menu lock (B1-B6)
+        run: make bootlock BOARD=x86_64-efi TOOLS=onemind-tools:ci
       - name: Summary and trimmed log
         if: always()
         run: |
@@ -165,6 +169,7 @@ jobs:
           path: |
             out/firstboot-x86_64-efi/results.json
             out/firstboot-x86_64-efi/serial-trimmed.log
+            out/bootlock-x86_64-efi/results.json
           retention-days: 14
   battery:
     if: ${{ !github.event.pull_request.draft && needs.scope.outputs.os == 'true' }}

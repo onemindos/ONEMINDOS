@@ -8,6 +8,7 @@
 #   make battery BOARD=x86_64-efi [UPTO=T5]             -> out/battery-<board>/ (serial log, results.json)
 #   make firstboot BOARD=x86_64-efi [FUPTO=F4]          -> out/firstboot-<board>/ (F0-F4, CRITERIA-FIRSTBOOT.md)
 #   make secureboot-test                                -> out/secureboot-x86_64-efi/ (SB1-SB4, CRITERIA-SECUREBOOT.md)
+#   make bootlock  BOARD=x86_64-efi                     -> out/bootlock-<board>/ (B1-B6, CRITERIA-BOOTLOCK.md)
 #   make convert BOARD=vm                               -> qcow2 / vhdx / vmdk / vdi / ova next to the image
 #   make jetson-layer [VERSION=...]                     -> out/onemind-layer-jetson-orin-<version>.tar.gz
 #   make hygiene | hygiene-selftest | lint | test | kit LT=LT-X86-01
@@ -29,7 +30,7 @@ ROOTFS      = $(OUT)/rootfs-$(LEG)-$(BOARD).tar
 DOCKER_RUN  = docker run --rm --platform $(PLATFORM) -v "$(CURDIR)":/src:ro -v "$(CURDIR)/$(OUT)":/out
 KVM         = $(shell [ -w /dev/kvm ] && echo --device /dev/kvm)
 
-.PHONY: help tools rootfs image fixtures battery firstboot convert hygiene hygiene-selftest lint test kit clean secureboot-image secureboot-test
+.PHONY: help tools rootfs image fixtures battery firstboot bootlock convert hygiene hygiene-selftest lint test kit clean secureboot-image secureboot-test
 
 help:
 	@sed -n 's/^#   make/make/p' Makefile
@@ -82,6 +83,17 @@ firewall:
 	  --fixtures /out/fx-$(BOARD) --work /out/firewall-$(BOARD)/work \
 	  --log /out/firewall-$(BOARD)/serial.log --results /out/firewall-$(BOARD)/results.json; \
 	  rc=$$?; rm -rf $(OUT)/firewall-$(BOARD)/work; exit $$rc
+
+
+# Boot menu lock (test/qemu/bootlock.py): the GRUB menu asks for a login before it lets anyone edit a kernel
+# command line. Copies the fixture disk like `firstboot`.
+bootlock:
+	@test -f $(OUT)/fx-$(BOARD)/disk.img || $(MAKE) fixtures BOARD=$(BOARD)
+	mkdir -p $(OUT)/bootlock-$(BOARD)
+	$(DOCKER_RUN) $(KVM) $(TOOLS) python3 -I /src/test/qemu/bootlock.py --board $(BOARD) \
+	  --fixtures /out/fx-$(BOARD) --work /out/bootlock-$(BOARD)/work \
+	  --log /out/bootlock-$(BOARD)/serial.log --results /out/bootlock-$(BOARD)/results.json; \
+	  rc=$$?; rm -f $(OUT)/bootlock-$(BOARD)/work/disk.img; exit $$rc
 
 # Local KVM check of F0-F4 (build + fixtures + firstboot); see test/qemu/README.md "Local first boot".
 .PHONY: local-firstboot
