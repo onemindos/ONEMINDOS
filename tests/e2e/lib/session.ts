@@ -1,13 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 import { expect, type Page } from '@playwright/test';
 
+/** The box name the golden path saves when it finishes first-run setup (see finishFirstRun). */
+const FIRST_RUN_BOX = 'home-hub';
+
 /**
  * The token form sits under "Other ways to sign in", which the screen folds shut when the browser
  * can use a passkey (and leaves open when it cannot). Open it only when it is shut.
  */
 export async function openTokenForm(page: Page): Promise<void> {
   const field = page.getByLabel('Access token');
-  await expect(page.getByRole('heading', { name: 'Welcome to OneMind' })).toBeVisible();
+  // The heading names the box once first-run setup saved a box name (PR #563); "OneMind" before that.
+  await expect(page.getByRole('heading', { level: 1, name: new RegExp(`^Welcome to (OneMind|${FIRST_RUN_BOX})$`) })).toBeVisible();
   if (!(await field.isVisible())) await page.getByText('Other ways to sign in', { exact: true }).click();
   await expect(field).toBeVisible();
 }
@@ -44,7 +48,7 @@ async function finishFirstRun(page: Page, token: string): Promise<void> {
   const headers = { Authorization: `Bearer ${token}` };
   const saved = await page.request.put('/v1/onboarding/settings', {
     headers,
-    data: { box_name: 'home-hub', time_zone: 'UTC', backup_choice: 'later', backup_destination_id: null },
+    data: { box_name: FIRST_RUN_BOX, time_zone: 'UTC', backup_choice: 'later', backup_destination_id: null },
   });
   expect(saved.status(), 'PUT /v1/onboarding/settings').toBe(200);
   const state = await page.request.get('/v1/onboarding/state', { headers });
