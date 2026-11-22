@@ -18,6 +18,7 @@ from ..auth import Principal
 from ..context import Gateway
 from ..errors import error_responses
 from ..identity.scopes import register_route_scope
+from ..jsonbody import JsonBody
 
 # Route order in the app and in /openapi.json (routers/__init__.py).
 ORDER = 155  # right after actions: its approval guard must see the actions it refuses
@@ -42,10 +43,10 @@ class KillSwitch(BaseModel):
     reason: str | None = None
 
 
-class KillSwitchBody(BaseModel):
+class KillSwitchBody(JsonBody):
     model_config = ConfigDict(extra="forbid")
-    # strict: JSON true/false only; lax mode took 0 and 1 (found by api-fuzz).
-    on: bool = Field(strict=True, description="true stops every AI agent; false lets them work again")
+    # JsonBody: JSON true/false only; lax mode took 0 and 1 (found by api-fuzz).
+    on: bool = Field(description="true stops every AI agent; false lets them work again")
     reason: str | None = Field(default=None, description="Why, for the audit record (at most 500 characters)")
 
     # Checked here rather than as maxLength in the schema: a constrained `reason` would renumber the

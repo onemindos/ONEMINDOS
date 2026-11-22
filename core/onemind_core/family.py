@@ -6,7 +6,7 @@ from datetime import date
 from typing import Annotated
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import ConfigDict, Field, field_validator, model_validator
 from sqlalchemy import JSON, String
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -14,6 +14,7 @@ from .context import Gateway
 from .errors import ApiError
 from .identity import ctx_of
 from .identity.models import IdentityRepository
+from .jsonbody import JsonBody
 from .ledger import Base
 from .store import FeatureSchema
 
@@ -24,12 +25,12 @@ Tag = Annotated[str, Field(min_length=1, max_length=64)]
 AGE_ASSURED_ROLES = ("child", "teen")
 
 
-class Window(BaseModel):
+class Window(JsonBody):
     model_config = ConfigDict(extra="forbid")
-    # strict=True on every int and bool here: lax mode turned JSON false into 0 and true into 1 (found by api-fuzz).
-    days: list[Annotated[int, Field(strict=True, ge=0, le=6)]] = Field(min_length=1, max_length=7, description="Monday=0; start day for overnight windows")
-    start_minute: int = Field(strict=True, ge=0, le=1439)
-    end_minute: int = Field(strict=True, ge=0, le=1440, description="Exclusive end; less than start means overnight")
+    # JsonBody: JSON false is not day 0 and 3.0 is day 3 (api-fuzz; strict=True wrongly refused 3.0).
+    days: list[Annotated[int, Field(ge=0, le=6)]] = Field(min_length=1, max_length=7, description="Monday=0; start day for overnight windows")
+    start_minute: int = Field(ge=0, le=1439)
+    end_minute: int = Field(ge=0, le=1440, description="Exclusive end; less than start means overnight")
 
     @model_validator(mode="after")
     def nonempty(self):
@@ -38,11 +39,11 @@ class Window(BaseModel):
         return self
 
 
-class FamilyProfile(BaseModel):
+class FamilyProfile(JsonBody):
     model_config = ConfigDict(extra="forbid")
     birth_date: date | None = Field(default=None, description="Private child or teen profile data; never included in audit events")
     allowed_apps: list[AppId] | None = Field(default=None, max_length=500, description="Null inherits sharing; empty denies all apps; never grants access")
-    max_age_rating: int | None = Field(default=None, strict=True, ge=0, le=21, description="Maximum app minimum-age rating; unclassified apps are blocked when set")
+    max_age_rating: int | None = Field(default=None, ge=0, le=21, description="Maximum app minimum-age rating; unclassified apps are blocked when set")
     blocked_tags: list[Tag] = Field(default_factory=list, max_length=100)
     timezone: str = Field(default="UTC", max_length=100)
     windows: list[Window] | None = Field(default=None, max_length=50, description="Null allows all times; empty denies all times; evaluated in timezone")
@@ -57,9 +58,9 @@ class FamilyProfile(BaseModel):
         return value
 
 
-class AppClassification(BaseModel):
+class AppClassification(JsonBody):
     model_config = ConfigDict(extra="forbid")
-    min_age: int | None = Field(default=None, strict=True, ge=0, le=21)  # strict: JSON false is not age 0 (api-fuzz)
+    min_age: int | None = Field(default=None, ge=0, le=21)  # JsonBody: false is not age 0
     tags: list[Tag] = Field(default_factory=list, max_length=100)
 
 
