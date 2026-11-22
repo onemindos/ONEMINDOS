@@ -11,13 +11,14 @@ import hashlib
 import json
 import re
 from datetime import datetime, timedelta
-from typing import Literal
+from typing import Annotated, Literal
 from urllib.parse import urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import JSON, DateTime, String, update
 from sqlalchemy.orm import Mapped, mapped_column
 
+from .catalog import APP_ID_RE
 from .jsonbody import JsonBody
 from .ledger import Base, iso, utc
 from .store import FeatureSchema, SqlRepository
@@ -137,6 +138,10 @@ class HomeBody(BaseModel):
     recent: list[str] = Field(default_factory=list, max_length=MAX_RECENT)
     links: list[Link] = Field(default_factory=list, max_length=MAX_LINKS)
     seen: Seen = Field(default_factory=Seen)
+    default_apps: dict[Annotated[str, Field(pattern=SLUG.pattern)], Annotated[str, Field(pattern=APP_ID_RE.pattern)]] = Field(
+        default_factory=dict, max_length=40, json_schema_extra={"additionalProperties": False},
+        description="App to open for each catalogue category or the browser purpose.",
+    )
     updated_at: str | None = None
 
     @field_validator("dock", "recent")
@@ -207,7 +212,7 @@ class HomeService(SqlRepository):
             return None if row is None else {**row.doc, "updated_at": iso(row.updated_at)}
 
     def save(self, person_id: str, doc: dict, now: datetime, previous: str | None) -> dict | None:
-        """Compare at the database write too, so simultaneous device writes cannot lose a visit."""
+        """Compare at the database write too, so simultaneous device writes cannot overwrite a newer Home."""
         with self.db.session.begin() as s:
             if previous is None:
                 stmt = self.db.insert()(HomeRow).values(person_id=person_id, doc=doc, updated_at=now)
