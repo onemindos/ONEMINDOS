@@ -164,5 +164,5 @@ it('sending the active window away hands focus to the next window instead of bla
   fireEvent.keyDown(window, { key: '£', code: 'Digit3', altKey: true, shiftKey: true });
   await waitFor(() => expect(frame('market').hidden).toBe(true));
   expect(frame('approvals').hidden).toBe(false);
-  await waitFor(() => expect(window.location.pathname).toBe('/approvals'));
+  await waitFor(() => expect(within(screen.getByRole('navigation', { name: 'Main' })).getByRole('link', { name: /Approvals/ })).toHaveAttribute('aria-current', 'page'));
 });
