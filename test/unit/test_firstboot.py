@@ -665,8 +665,13 @@ class LegacyHubAfterUpdate(Box):
         self.assertEqual(fb.apply(self.p), 0)
         self.assertEqual(self.etc("nats.conf"), self.LEGACY_CONF)
         self.assertIn("reinstall", self.console())
-        self.assertEqual(self.started[-1], ("start", "--no-block", "onemind-nats.service", "onemindd.service",
-                                            "onemind-gateway.service", "onemind-gateway-kube.service"))
+        # Assert the four legacy units as a subset, so other hub units main adds later
+        # (rescue console, host serve) do not break this test.
+        started = self.started[-1]
+        self.assertEqual(started[:2], ("start", "--no-block"))
+        for unit in ("onemind-nats.service", "onemindd.service",
+                     "onemind-gateway.service", "onemind-gateway-kube.service"):
+            self.assertIn(unit, started)
         self.assertEqual(fb.mesh(self.p), 0)
         self.assertEqual(self.etc("nats.conf"), self.LEGACY_CONF)    # `mesh` is a no-op for it too
 
