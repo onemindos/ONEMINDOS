@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -20,7 +21,8 @@ from .sections import config_section
 
 log = logging.getLogger("onemind.care")
 PLATFORM = {"kube-public", "kube-node-lease", "kube-system", "onemind-system", "onemind-scan"}
-RESOURCES = "deployments,statefulsets,jobs,cronjobs,pods,persistentvolumeclaims"
+APP_RESOURCES = "deployments,statefulsets,jobs,cronjobs,pods,persistentvolumeclaims"
+CLUSTER_RESOURCES = APP_RESOURCES + ",daemonsets,replicasets"
 
 
 @config_section("care")
@@ -54,7 +56,7 @@ class Inventory:
     app_complete: bool = False
     cluster_complete: bool = False
 
-    def observe(self, item, owned):
+    def observe(self, item, owned, cluster_wide):
         kind, meta, spec = item["kind"], item["metadata"], item.get("spec", {})
         ns, name = meta["namespace"], meta["name"]
         if ns in PLATFORM:
@@ -62,11 +64,12 @@ class Inventory:
         if kind == "PersistentVolumeClaim":
             self.data.add(ns)
             return
-        if kind == "Pod" and meta.get("ownerReferences"):
-            # The controller template covers scaled-to-zero workloads and prospective replicas.
-            # Retain Pods owned by controllers not requested here (e.g. a DaemonSet or custom CR).
-            if all(ref["kind"] in {"Job", "StatefulSet"} for ref in meta["ownerReferences"]):
-                return
+        controllers = {ref["kind"] for ref in meta.get("ownerReferences", []) if ref.get("controller")}
+        if kind == "ReplicaSet" and "Deployment" in controllers or kind == "Job" and "CronJob" in controllers:
+            return
+        covered = {"Job", "StatefulSet"} | ({"ReplicaSet", "DaemonSet"} if cluster_wide else set())
+        if kind == "Pod" and controllers & covered:
+            return
         subject = f"{ns}/{name}"
         if ns not in owned:
             self.unowned.add(subject)
@@ -88,20 +91,23 @@ def inventory(kube, installed):
     if kube is None or installed is None:
         return inv
     owned = {f"app-{app}" for app in installed}
-    def observe(args):
-        doc = kube._json(["get", RESOURCES, *args, "-o", "json"])
+    def absorb(doc, cluster_wide):
         if not isinstance(doc, dict) or not isinstance(doc.get("items"), list):
             return False
         for item in doc["items"]:
-            inv.observe(item, owned)
+            inv.observe(item, owned, cluster_wide)
         return True
-    if observe(["--all-namespaces"]):
+
+    if absorb(kube._json(["get", CLUSTER_RESOURCES, "--all-namespaces", "-o", "json"]), True):
         inv.app_complete = inv.cluster_complete = True
-    else:
+    elif owned:
         # The shipping service account can inspect app namespaces even when cluster-wide reads are denied.
-        inv.app_complete = bool(owned)
-        for ns in sorted(owned):
-            inv.app_complete &= observe(["-n", ns])
+        def namespace(ns):
+            return kube._json(["get", APP_RESOURCES, "-n", ns, "-o", "json"])
+        inv.app_complete = True
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            for doc in pool.map(namespace, sorted(owned)):
+                inv.app_complete &= absorb(doc, False)
     return inv
 
 
@@ -111,7 +117,7 @@ def backup(gw, state, inv, installed):
         return CareCheck(id="backup", state="unavailable", detail="The backup agent has no current report.")
     badges = status["badges"]
     managed = set()
-    complete = inv.app_complete and installed is not None
+    complete = inv.cluster_complete and installed is not None
     for app in installed or ():
         entry = gw.catalog.get(app)
         if entry is None:

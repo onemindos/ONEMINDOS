@@ -50,6 +50,11 @@ def test_live_findings_and_approval_contract(client, clock, settings, monkeypatc
     assert "other/web" in rows["ownership"]["detail"]
     assert rows["backup"]["fix"] == "backup.run"
     assert all(row["fix"] is None for key, row in rows.items() if key != "backup")
+    monkeypatch.setattr(st.backups, "agent", object())  # no agent call is possible before approval
+    reply = client.post("/v1/backups/runs", json={"scope": "box", "approve": False}, headers=OWNER)
+    assert reply.status_code == 202
+    action = reply.json()
+    assert (action["type"], action["state"], action["approved_by"]) == (rows["backup"]["fix"], "awaiting_approval", None)
 
 
 def test_partial_namespace_access_keeps_known_evidence(client, clock, monkeypatch):
@@ -62,7 +67,10 @@ def test_partial_namespace_access_keeps_known_evidence(client, clock, monkeypatc
         assert args[args.index("-n") + 1] == "app-whoami"
         return subprocess.CompletedProcess(args, 0, json.dumps({"items": [obj]}))
     monkeypatch.setattr(st.monitoring, "kube", KubeReader(runner=kubectl))
+    monkeypatch.setattr(st.backups, "status", lambda: {"agent": "ok", "health": "ok", "destinations": [],
+                        "badges": {"system": {"state": "verified", "last_success_at": clock().isoformat()}, "apps": {}}})
     rows = checks(client)
+    assert rows["backup"]["state"] == "unavailable"
     assert rows["probe"]["state"] == rows["image"]["state"] == "clear"
     assert rows["ownership"]["state"] == "unavailable"
     assert rows["scan"]["state"] == "clear"
@@ -83,3 +91,24 @@ def test_restore_drill_uses_dated_kvm_evidence_only(client, clock, tmp_path, mon
         assert checks(client)["drill"]["state"] == expected
     (tmp_path / "run.json").write_text(json.dumps(dict(report, accel="tcg")))
     assert checks(client)["drill"]["state"] == "unavailable"
+
+
+def test_zero_pod_controllers_visible_and_generated_replicas_not_counted(client, monkeypatch):
+    missing = workload("other", "example:daily")
+    missing["kind"] = "DaemonSet"
+    standalone = workload("other", "example:daily")
+    standalone.update(kind="ReplicaSet")
+    standalone["metadata"]["name"] = "standalone"
+    standalone["spec"]["replicas"] = 0
+    generated = workload("other", "example:daily")
+    generated.update(kind="ReplicaSet")
+    generated["metadata"].update(name="generated-hash", ownerReferences=[{"kind": "Deployment", "controller": True}])
+    def kubectl(args, **kwargs):
+        assert {"daemonsets", "replicasets"} <= set(args[2].split(","))
+        return subprocess.CompletedProcess(args, 0, json.dumps({"items": [missing, standalone, generated]}))
+    monkeypatch.setattr(client.app.state.monitoring, "kube", KubeReader(runner=kubectl))
+    rows = checks(client)
+    for key in ("ownership", "image", "probe"):
+        assert rows[key]["state"] == "finding"
+        assert "other/web" in rows[key]["detail"] and "other/standalone" in rows[key]["detail"]
+        assert "generated-hash" not in rows[key]["detail"]

@@ -7,7 +7,7 @@ import { usePoll } from '../lib/hooks';
 import { useSignedIn } from '../session';
 import { href } from '../shell/routes';
 import { useShell } from '../shell/Shell';
-import { useFiling } from './backups/shared';
+import { read, useFiling } from './backups/shared';
 import { Load } from './parts';
 
 type Check = components['schemas']['CareCheck'];
@@ -27,11 +27,18 @@ export function Care() {
 
 function LiveCare({ token }: { token: string }) {
   const sdk = useMemo(() => new OneMind({ baseUrl: window.location.origin, token }), [token]);
-  const report = usePoll(() => sdk.call<Check[]>({ method: 'GET', path: endpoint }), 0);
+  const report = usePoll(async () => {
+    const data = await read(sdk, endpoint);
+    if (!Array.isArray(data) || !data.every(row => row && Object.hasOwn(titles, row.id)
+      && ['finding', 'unavailable', 'clear'].includes(row.state) && typeof row.detail === 'string')) {
+      throw new Error('The hub returned an invalid check-up.');
+    }
+    return data as Check[];
+  }, 0);
   const { file, busy, error } = useFiling(sdk, token);
   const [receipt, setReceipt] = useState('');
   const request = async () => {
-    const filed = await file('/v1/backups/runs', 'backup.run', { scope: 'box' } satisfies components['schemas']['RunBody']);
+    const filed = await file('/v1/backups/runs', 'backup.run', { scope: 'box', approve: false } satisfies components['schemas']['RunBody']);
     if (filed) setReceipt(filed.id);
   };
   return <section className="dash-stack" aria-label="Box check-up">
