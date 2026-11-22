@@ -37,6 +37,8 @@ import {
   type LoginResult,
   type MeshView,
   type MonitoringSummary,
+  type MyDeviceRemoved,
+  type MyDevices,
   type NodeMetrics,
   type AppMetrics,
   type OsUpdateHistory,
@@ -109,6 +111,8 @@ export const OP = {
   mesh: 'GET /v1/mesh',
   /** UNVERIFIED name: the hub has no restart / shut down / troubleshoot route yet, so System controls stays hidden. */
   systemPlan: 'GET /v1/system/plan',
+  myDevices: 'GET /v1/me/devices',
+  myDeviceRemove: 'DELETE /v1/me/devices/{}',
 } as const;
 
 export type Op = (typeof OP)[keyof typeof OP];
@@ -267,6 +271,9 @@ export interface OneMindApi {
   appMetrics(appId: string): Promise<AppMetrics>;
   mesh(): Promise<MeshView>;
   systemPlan(type: SystemControlType): Promise<SystemPlanPreview>;
+  // #715 My devices: the caller's own devices; removing one revokes everything it holds (a fresh passkey once passkeys are on).
+  myDevices(): Promise<MyDevices>;
+  removeMyDevice(id: string): Promise<MyDeviceRemoved>;
   /** Where the SSE stream lives and which bearer to send; undefined in demo mode (no stream). */
   eventsEndpoint(): { url: string; bearer: () => string | undefined; refresh?: () => Promise<string | undefined> } | undefined;
 }
@@ -741,6 +748,12 @@ export class HttpApi implements OneMindApi {
   }
   systemPlan(type: SystemControlType) {
     return this.req<SystemPlanPreview>('GET', `/v1/system/plan?type=${enc(type)}`);
+  }
+  myDevices() {
+    return this.req<MyDevices>('GET', '/v1/me/devices');
+  }
+  removeMyDevice(id: string) {
+    return this.req<MyDeviceRemoved>('DELETE', `/v1/me/devices/${enc(id)}`);
   }
   eventsEndpoint() {
     return {

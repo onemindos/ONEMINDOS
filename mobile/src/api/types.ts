@@ -370,6 +370,37 @@ export interface PushRegistration {
   last_seen_at?: string | null;
 }
 
+/** #715 My devices (`GET /v1/me/devices`): a person's own phones, browsers and apps, each the credentials
+ * that carry its name. Mirrors the gateway's OpenAPI schemas MyDevices / MyDevice / MyDeviceRemoved. */
+export type MyDeviceSource = 'sessions' | 'passkeys' | 'approver_keys' | 'push';
+export interface MyDeviceCredential {
+  source: MyDeviceSource;
+  id: string;
+  label: string;
+  detail: string;
+  created_at: string | null;
+  last_seen_at: string | null;
+}
+export interface MyDevice {
+  id: string;
+  label: string;
+  kind: 'phone' | 'browser' | 'app' | 'unknown';
+  current: boolean;
+  last_seen_at: string | null;
+  first_seen_at: string | null;
+  credentials: MyDeviceCredential[];
+}
+export interface MyDevices {
+  devices: MyDevice[];
+  sources: Record<MyDeviceSource | 'mesh' | 'nats', boolean>;
+}
+/** `DELETE /v1/me/devices/{id}` (Lost this device): `removed` is false when there was nothing left to revoke. */
+export interface MyDeviceRemoved {
+  id: string;
+  removed: boolean;
+  revoked: Record<MyDeviceSource, number>;
+}
+
 /**
  * Device registry (docs/umbrel2/clients.md §4.4, CLIENT-2; not yet in the contract).
  * A device request files the owner-approved action `device.add`.
