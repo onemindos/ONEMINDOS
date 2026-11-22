@@ -20,8 +20,10 @@ from starlette.requests import ClientDisconnect
 
 from ..auth import Principal
 from ..context import Gateway
+from ..guard import reads_body
 from ..errors import error_response, error_responses
 from ..identity.scopes import register_route_scope
+from ..jsonbody import JsonBody
 from ..photos import MAX_CHECK, PhotosError, PhotosRepository, PhotosService, PhotosSettings
 from ..photos.files import LibraryEscape
 
@@ -52,7 +54,7 @@ class SourceOut(BaseModel):
     platform: str
 
 
-class CheckItem(BaseModel):
+class CheckItem(JsonBody):
     client_key: str = Field(pattern=HEX64)
     size: int = Field(ge=0)
     hash: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
@@ -247,6 +249,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
             **error_responses(401, 403, 404, 409, 422),
         },
     )
+    @reads_body
     async def append(
         upload_id: str,
         request: Request,

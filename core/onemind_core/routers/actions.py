@@ -15,6 +15,7 @@ from ..auth import Principal
 from ..context import Gateway
 from ..errors import error_responses
 from ..identity.approver_keys import DeviceSignature
+from ..jsonbody import JsonBody
 from ..plugins.actions import own_actions, own_action
 
 
@@ -26,7 +27,7 @@ class OverrideInput(BaseModel):
     confirm: str = Field(max_length=200)
 
 
-class ApproveBody(BaseModel):
+class ApproveBody(JsonBody):
     """§12.4: optional approve body. `webauthn` is the passkey assertion over approve-options' challenge.
 
     sealed: the app's secrets form for app.install (appsecrets/); override: the F-7 owner override.
