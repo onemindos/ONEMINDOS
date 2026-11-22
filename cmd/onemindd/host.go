@@ -59,9 +59,11 @@ func runHost(args []string) int {
 	log := newLogger()
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	units := &svcregistry.Reader{Version: version.Version} // service cards, logs and approved restarts (#623, #636)
 	svc := &host.Service{Power: host.Systemd{}, OS: &host.UpdateEngine{ConfigPath: *conf, Log: log},
 		BootID: host.BootID(), Delay: *delay, Log: log,
 		Reset: &host.FactoryReset{},
+		Units: units,
 		SMB:   &smb.Manager{P: smb.DefaultPaths(), Run: smb.ExecRunner{}}}
 	if st, err := host.OpenStore(*journal); err != nil {
 		log.Error("host journal unavailable: status only, every action refused", "dir", *journal, "err", err)
@@ -91,7 +93,7 @@ func runHost(args []string) int {
 	}
 	log.Info("host service listening", "socket", *sock, "journal", svc.Store != nil, "boot_id", svc.BootID, "gateway_uid", uid)
 	err = (&host.Server{S: svc, AllowUID: uid, AllowGID: -1, Ctx: ctx, Network: networkView,
-		Services: serviceCards}).Serve(ctx, l)
+		Services: serviceCards, ServiceLogs: units.Logs}).Serve(ctx, l)
 	stop()
 	svc.Wait()
 	if err != nil {
