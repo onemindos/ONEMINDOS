@@ -30,7 +30,10 @@ What it refuses (no open proxy):
   path the request came by (netpath.py), not only the Host header, so a LAN-only app cannot be
   reached from the internet by sending its LAN name; an unknown path is refused;
 - an unauthenticated request gets 401 whether or not the app exists, so installed apps cannot be
-  listed without signing in.
+  listed without signing in;
+- a browser app (`spec.browser`, browsers.py) is never served on its own name, where one shared
+  profile would live (403). It is served on `<app>--<key>.<box domain>`, to the person whose
+  person_key is <key> only (anyone else 403), from that person's own Service (#692).
 
 Honest pages (UMB-P02): a signed-in person who may open an app that is stopped, starting, being
 updated or failed gets 503 with a page that says so (and reloads itself while the app is changing),
@@ -46,6 +49,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import hmac
 import html
 import ipaddress
 import json
@@ -54,7 +58,7 @@ import subprocess
 import threading
 import time
 from collections.abc import Awaitable, Callable, MutableMapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 from urllib.parse import quote, urlsplit
 
@@ -64,6 +68,7 @@ from starlette.requests import Request
 from websockets.exceptions import ConnectionClosed, InvalidHandshake, InvalidStatus
 
 from .auth import Principal, TokenStore
+from .browsers import BrowserProfiles, BrowserSpec, browser_spec, split_host_label
 from .catalog import APP_ID_RE, Catalog
 from .errors import ApiError
 from .netpath import EDGE_PATHS, SCOPE_PATH_KEY, NetPath, PathClassifier, tier_admits
@@ -295,6 +300,7 @@ class AppProxy:
         mesh_domains: tuple[str, ...] = ("apps.onemind.internal",),
         shared: Callable[[Principal, str, dict[str, str]], bool] | None = None,
         classify: PathClassifier | None = None,
+        browsers: BrowserProfiles | None = None,
     ):
         """app_status(app_id) returns the ledger status ("installed", ...) or None.
 
@@ -309,6 +315,7 @@ class AppProxy:
         classify: the network path a request really came from (netpath.py). When set, the tier is
         also enforced by path, not only by Host: a private app answers only to the LAN, a mesh app
         to LAN and mesh, and a path that cannot be told is refused (fails closed). None: host only.
+        browsers: the per-person browser Services (browsers.py). None: browser hosts answer 404.
         """
         self.catalog = catalog
         self.app_status = app_status
@@ -325,6 +332,7 @@ class AppProxy:
         self.mesh_domains = tuple(d.lower().strip(".") for d in mesh_domains)
         self.shared = shared
         self.classify = classify
+        self.browsers = browsers
         self._routes: dict[str, tuple[float, AppRoute | None]] = {}
         self._lock = threading.Lock()
 
@@ -423,13 +431,31 @@ class AppProxy:
         principal = self.resolve_session(headers, parse_cookies(headers.get("cookie", "")))
         if principal is None:
             return Decision.UNAUTHENTICATED, None, None
+        split = split_host_label(app_id)
+        key = None
+        if split is not None and self.browser_of(split[0]) is not None:
+            app_id, key = split  # <app>--<key>: a person's browser host (#692)
         route = self.route_for(app_id)
         if route is None or not self._exposed(headers.get("host", ""), app_id, path) \
                 or not self._shared_with(principal, app_id, headers):
             return Decision.NOT_FOUND, principal, None
         if not allowed(principal, route.access):
             return Decision.FORBIDDEN, principal, route
-        return Decision.ALLOW, principal, route
+        spec = self.browser_of(app_id)
+        if spec is None:
+            return Decision.ALLOW, principal, route
+        if key is None or principal.kind != "person" or self.browsers is None \
+                or not hmac.compare_digest(key, self.browsers.key_of(principal.id)):
+            return Decision.FORBIDDEN, principal, route  # the shared template, or another person's browser
+        host = self.browsers.service_host(app_id, key, spec.port) if self.browsers is not None else None
+        if host is None:
+            return Decision.NOT_FOUND, principal, None
+        return Decision.ALLOW, principal, replace(route, host=host, port=spec.port)
+
+    def browser_of(self, app_id: str) -> BrowserSpec | None:
+        """`spec.browser` of a catalog app (browsers.py), or None."""
+        entry = self.catalog.get(app_id)
+        return browser_spec(entry.manifest) if entry is not None else None
 
     def _shared_with(self, principal: Principal, app_id: str, headers: dict[str, str]) -> bool:
         """False for an app the owner has not shared with this person (§12.6)."""

@@ -137,6 +137,8 @@ class AppEntry:
             "archs": list(archs) if isinstance(archs, list) else [],
             "requires": dict(requires) if isinstance(requires, dict) else {},
             "web_port": web.get("port") if isinstance(web, dict) else None,
+            # #692: opened in a dashboard browser window with a per-person profile (browsers.py), not on its own name.
+            "browser": isinstance(spec.get("browser"), dict) and isinstance(web, dict),
             # §11.4 additions.
             "links": {k: _http_url(links.get(k)) for k in LINK_KEYS},
             "tier": md.get("tier") if md.get("tier") in TIERS else None,
@@ -239,6 +241,11 @@ class Catalog:
         if isinstance(spec, dict) and "system" in spec:
             errs.append("spec.system: only apps on the signed system apps list may claim it")
         return errs
+
+    def check_manifest(self, doc: object) -> list[str]:
+        """The folder check only (schema, or the built-in one), without the community-source rule:
+        validate-apps uses it, because apps/_system/ manifests legitimately carry spec.system."""
+        return self._validate(doc)
 
     @property
     def validation_mode(self) -> str:
@@ -348,6 +355,12 @@ class Catalog:
         for path in channel_paths:
             outcome = self._outcome(path)
             if isinstance(outcome, AppEntry):
+                # System apps update only with the signed image, never from a channel.
+                problem = _system_problem(outcome, False, system_ids)
+                if problem:
+                    log.warning("skipping channel app %s: %s", outcome.id, problem)
+                    errors[f"channel/{path.parent.name}"] = [problem]
+                    continue
                 apps[outcome.id] = outcome  # newer than the image's copy: it wins
             else:
                 # A bad channel entry never hides the image's app; it is only reported.

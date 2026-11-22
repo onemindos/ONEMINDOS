@@ -174,6 +174,13 @@ class AppChecker:
         self.kubeconform = kubeconform
         self.plugin_validator = plugin_validator
 
+    def schema_errors(self, doc: object) -> list[str]:
+        """The core Catalog's folder check (check_manifest: apps/_system/ manifests may carry
+        spec.system); any other checker, such as a plain jsonschema validator the unit tests
+        pass, keeps the validate(doc) call it always had."""
+        check = getattr(self.catalog, "check_manifest", None)
+        return list(check(doc) if callable(check) else self.catalog.validate(doc))
+
     def check(self, app_dir: Path) -> tuple[str | None, list[str]]:
         """Return (metadata.id or None, list of error messages) for one app directory."""
         errors: list[str] = []
@@ -188,7 +195,7 @@ class AppChecker:
             return None, [f"{MANIFEST_NAME} is not valid YAML: {exc}"]
 
         licence_inventory(doc, app_dir)
-        schema_errors = sorted(self.catalog.validate(doc))
+        schema_errors = sorted(self.schema_errors(doc))
         errors.extend(f"schema: {msg}" for msg in schema_errors)
         if schema_errors:
             # The remaining checks rely on a schema-valid manifest.
@@ -201,6 +208,7 @@ class AppChecker:
             errors.append(f"metadata.id '{app_id}' does not match directory name '{app_dir.name}'")
 
         errors.extend(system_errors(app_dir, spec, self.system))
+
         plugin_declaration = any(field in spec for field in ("extensions", "plugin", "permissions", "compat"))
         if plugin_declaration:
             self.plugin_check(app_dir, errors)

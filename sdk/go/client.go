@@ -81,6 +81,7 @@ type Client struct {
 	Audit    *AuditService
 	Events   *EventsService
 	Status   *StatusService
+	Services *ServicesService
 }
 
 // Option configures a Client.
@@ -169,6 +170,7 @@ func New(baseURL string, opts ...Option) (*Client, error) {
 	c.Audit = &AuditService{c}
 	c.Events = &EventsService{c}
 	c.Status = &StatusService{c}
+	c.Services = &ServicesService{c}
 	return c, nil
 }
 
@@ -432,6 +434,16 @@ type StatusService struct{ c *Client }
 func (s *StatusService) Get(ctx context.Context) (*StatusView, error) {
 	var v StatusView
 	return &v, s.c.Do(ctx, http.MethodGet, "/v1/status", nil, &v)
+}
+
+// ServicesService is GET /v1/system/services (#623): the service cards, owner only.
+type ServicesService struct{ c *Client }
+
+// List is operation system.services.list: every systemd unit the OS ships with its plain name, risk and
+// systemd state. A unit the image's registry does not list has Known false. Read only.
+func (s *ServicesService) List(ctx context.Context) (*ServicesView, error) {
+	var v ServicesView
+	return &v, s.c.Do(ctx, http.MethodGet, "/v1/system/services", nil, &v)
 }
 
 // NodesService is /v1/nodes.

@@ -90,6 +90,8 @@ export interface CatalogApp {
   archs: string[];
   requires: { gpu?: boolean; minMemoryMb?: number };
   web_port: number | null;
+  /** #692: a browser app, opened in a dashboard window with the person's own profile (/browser/<id>). */
+  browser?: boolean;
   installed: boolean;
   status: string;
   links: AppLinks;
@@ -170,6 +172,9 @@ export interface Principal {
 
 /** MACH-01 (#281): machine requests. They carry a machine `name`, never an `app_id`. */
 export type MachineActionType = Extract<components['schemas']['FeatureActionRequest']['type'], `machine.${string}`> | 'machines.enable' | 'machines.disable';
+export type MachineMedia = Pick<components['schemas']['UploadedMedia'], 'size_bytes' | 'sha256'> & { upload_id: string };
+export type MachineSource = ({ kind: 'catalogue' } & Pick<components['schemas']['CatalogueImage'], 'url' | 'sha256'>)
+  | ({ kind: 'iso' | 'disk' } & MachineMedia);
 export interface MachineParams {
   /** Absent on machines.enable and machines.disable, which are about the whole extension. */
   name?: string;
@@ -181,7 +186,11 @@ export interface MachineParams {
   confirm?: string;
   /** Snapshot only: the snapshot's name. Clone only: `source` is the machine to copy and `name` the new one. */
   snapshot?: string;
-  source?: string;
+  source?: string | MachineSource;
+  firmware?: 'bios' | 'uefi';
+  tpm?: boolean;
+  virtio_drivers?: MachineMedia;
+  network?: 'isolated' | 'machine_peers';
   app_id?: undefined;
   settings?: undefined;
 }
@@ -207,6 +216,7 @@ export interface MachineSnapshot {
 }
 /** GET /v1/machines/capabilities, the parts the screen shows. */
 export interface MachineCapabilities {
+  image_catalogue?: components['schemas']['MachineCapabilities']['image_catalogue'];
   enabled: boolean;
   extension: { state: string; message: string };
   requirements: { min_memory_mb: number; arch: string; kvm: boolean };
@@ -264,7 +274,9 @@ export type ApiErrorCode =
   | 'unauthenticated'
   | 'rate_limited'
   | 'payload_too_large'
-  | 'policy_refused';
+  | 'policy_refused'
+  /** The hub no longer serves this dashboard's protocol generation (sdk/contracts/protocol-versions.md). */
+  | 'upgrade_required';
 
 export interface ApiErrorBody {
   error: ApiErrorCode;

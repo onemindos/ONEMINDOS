@@ -4,6 +4,10 @@
     {"id": "files", "name": "Files", "class": "native", "update": "os", "disable": "never"},
     {"id": "approvals", "name": "Approvals", "class": "native", "update": "os", "disable": "never"},
     {"id": "settings", "name": "Settings", "class": "native", "update": "os", "disable": "never"},
-    {"id": "market", "name": "Market", "class": "native", "update": "os", "disable": "never"}
+    {"id": "market", "name": "Market", "class": "native", "update": "os", "disable": "never"},
+    {"id": "updates", "name": "Updates", "class": "native", "update": "os", "disable": "never"},
+    {"id": "backups", "name": "Backups", "class": "native", "update": "os", "disable": "never"},
+    {"id": "notifications", "name": "Notifications", "class": "native", "update": "os", "disable": "never"},
+    {"id": "photos", "name": "Photos", "class": "native", "update": "os", "disable": "allowed"}
   ]
 }

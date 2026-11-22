@@ -50,6 +50,17 @@ class Pins(unittest.TestCase):
             self.assertIn(n[arch]["tarball"], s)
             self.assertIn(n[arch]["binary"], s)
 
+    def test_nats_server_matches_go_mod_and_deploy(self):
+        # The image's nats-server, the deploy bundle and the Go module (in-process test server) are one version.
+        n = LOCK["onemind_layer"]["nats_server"]
+        gomod = re.search(r"^\s*github\.com/nats-io/nats-server/v2\s+(\S+)", read("go.mod"), re.M)
+        self.assertIsNotNone(gomod)
+        self.assertEqual(gomod.group(1), n["version"])
+        pins = read("deploy/pins.env")
+        self.assertIn(f'NATS_VERSION="{n["version"]}"', pins)
+        for arch in ("amd64", "arm64"):
+            self.assertIn(f'NATS_SHA256_{arch}="{n[arch]["tarball"]}"', pins)
+
     def test_gitleaks_pin(self):
         g = LOCK["tools"]["gitleaks"]
         s = read(".github/workflows/hygiene.yml")

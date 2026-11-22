@@ -8,8 +8,9 @@ verity-protected root), so only an OS update can change it. The gateway loads it
 
 Rules enforced here, on top of the file being part of the signed image:
 - a file that group or others can write is refused (a tampered or misplaced copy is not trusted);
-- Files, Approvals, Settings and Market can never be switched off, whatever the file says
-  (NEVER_DISABLE is a floor in code, because they are how the owner repairs a box).
+- Files, Approvals, Settings, Market, Updates, Backups and Notifications can never be switched off,
+  whatever the file says (NEVER_DISABLE is a floor in code: they are how the owner repairs a box,
+  gets it back after a failure and hears that something is wrong).
 A bad file never stops the gateway: the list is then empty, so no manifest can claim to be a system
 app and nothing extra can be disabled, and the error is logged.
 """
@@ -28,7 +29,7 @@ SCHEMA = "onemind.io/system-apps/v1"
 IMAGE_FILE = Path("/usr/lib/onemind/system-apps.json")
 REPO_FILE = Path(__file__).resolve().parents[2] / "os/rootfs/layers/onemind/usr/lib/onemind/system-apps.json"
 SYSTEM_DIR = "_system"  # apps/_system/<id>/ is the only folder a container system app may live in
-NEVER_DISABLE = frozenset({"files", "approvals", "settings", "market"})
+NEVER_DISABLE = frozenset({"files", "approvals", "settings", "market", "updates", "backups", "notifications"})
 _ID = re.compile(r"^[a-z]([a-z0-9-]{0,57}[a-z0-9])?$")
 CLASSES = ("container", "native")
 UPDATES = ("os", "own")

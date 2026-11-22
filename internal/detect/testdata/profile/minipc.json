@@ -1,0 +1,114 @@
+{
+  "schema": "onemind.node.capabilities/v1",
+  "data_disk": {
+    "kind": "nvme",
+    "ssd": true
+  },
+  "memory": {
+    "total_mb": 31853,
+    "unified": true
+  },
+  "accelerators": [
+    {
+      "class": "gpu",
+      "vendor": "intel",
+      "model": null,
+      "pci_id": "8086:7d55",
+      "pci_slot": "0000:00:02.0",
+      "driver": "i915",
+      "driver_version": null,
+      "vram_mb": null,
+      "compute_capability": null,
+      "integrated": true,
+      "device": null
+    },
+    {
+      "class": "npu",
+      "vendor": "intel",
+      "model": null,
+      "pci_id": "8086:7d1d",
+      "pci_slot": "0000:00:0b.0",
+      "driver": "intel_vpu",
+      "driver_version": null,
+      "vram_mb": null,
+      "compute_capability": null,
+      "integrated": null,
+      "device": "/dev/accel/accel0"
+    }
+  ],
+  "usb": [
+    {
+      "port": "1-1",
+      "id": "10c4:ea60",
+      "class": "00",
+      "interface_classes": [
+        "ff"
+      ]
+    },
+    {
+      "port": "1-2",
+      "id": "1cf1:0030",
+      "class": "02",
+      "interface_classes": [
+        "02",
+        "0a"
+      ]
+    },
+    {
+      "port": "1-3",
+      "id": "046d:0825",
+      "class": "ef",
+      "interface_classes": [
+        "01",
+        "0e"
+      ]
+    }
+  ],
+  "tty_ports": [
+    {
+      "name": "ttyACM0",
+      "kind": "usb",
+      "usb_id": "1cf1:0030",
+      "usb_port": "1-2"
+    },
+    {
+      "name": "ttyS0",
+      "kind": "uart",
+      "usb_id": null,
+      "usb_port": null
+    },
+    {
+      "name": "ttyUSB0",
+      "kind": "usb",
+      "usb_id": "10c4:ea60",
+      "usb_port": "1-1"
+    }
+  ],
+  "radios": [
+    {
+      "kind": "wifi",
+      "interface": "wlp0s20f3"
+    },
+    {
+      "kind": "bluetooth",
+      "interface": "hci0"
+    }
+  ],
+  "cameras": [
+    {
+      "bus": "usb",
+      "device": "/dev/video0",
+      "name": "C270 HD WEBCAM",
+      "usb_id": "046d:0825"
+    }
+  ],
+  "power": {
+    "source": null,
+    "battery_pct": null,
+    "undervoltage": null
+  },
+  "thermal": {
+    "max_c": 52,
+    "state": "normal"
+  }
+}

@@ -24,7 +24,9 @@ from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 from ..auth import Principal
 from ..catalog import APP_ID_RE
 from ..context import Gateway
+from ..guard import reads_body
 from ..errors import ApiError, error_responses
+from ..jsonbody import JsonBody
 from ..ledger import utc
 from ..migrate.boxkube import BoxKube
 from ..migrate.repo import V2, Repo, RepoError, parse_range
@@ -44,7 +46,7 @@ class PlanBody(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=80)
 
 
-class StepBody(BaseModel):
+class StepBody(JsonBody):
     model_config = ConfigDict(extra="forbid")
     reason: str | None = Field(default=None, max_length=500)
     expires_at: AwareDatetime | None = None
@@ -204,6 +206,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return Response(status_code=200)
 
     @app.api_route("/v1/migrate/repo/{plan_id}/config", methods=["HEAD", "GET", "POST"], include_in_schema=False)
+    @reads_body
     async def repo_config(plan_id: str, request: Request):
         return await object_route(plan_id, "config", None, request)
 
@@ -222,6 +225,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
 
     @app.api_route("/v1/migrate/repo/{plan_id}/{typ}/{name}", methods=["HEAD", "GET", "POST", "DELETE"],
                    include_in_schema=False)
+    @reads_body
     async def repo_object(plan_id: str, typ: str, name: str, request: Request):
         return await object_route(plan_id, typ, name, request)
 

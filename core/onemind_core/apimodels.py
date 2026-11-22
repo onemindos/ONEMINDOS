@@ -9,7 +9,7 @@ strings marked `x-onemind-open-enum`: an SDK must accept a value it does not kno
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -58,6 +58,108 @@ class NodeK3s(BaseModel):
     ready: bool | None = None
 
 
+# ---- the hardware profile (NodeCapabilities, #618; internal/heartbeat/capabilities.go) ----------
+# Every field may be null, which means "could not be read on that machine", never "no" or zero. A
+# list is null when the machine had nothing to read it from and [] when it read and found none.
+#
+# Unlike the rest of this file these models are also the gateway's gate: nodes.py validates every
+# heartbeat's profile against NodeCapabilities and drops the profile when it does not fit. NATS has
+# no users yet (H-06), so a LAN publisher could otherwise plant fake accelerators or device paths
+# that VM grants and app verdicts read. Hence: no extra fields (a new field is a new schema
+# version), strict types, and pinned formats. Naming rule: `device` is always a full /dev path,
+# `id` and `*_id` are always "vvvv:pppp", `*port` is a USB port path.
+
+PROFILE_SCHEMA = "onemind.node.capabilities/v1"
+MAX_LISTED = 64  # the Go probe's maxListed
+VID_PID = r"^[0-9a-f]{4}:[0-9a-f]{4}$"
+PCI_SLOT = r"^[0-9a-f]{4,8}:[0-9a-f]{2}:[0-9a-f]{2}\.[0-7]$"
+USB_PORT = r"^[0-9]+-[0-9]+(\.[0-9]+)*$"
+HEX2 = r"^[0-9a-f]{2}$"
+ACCEL_DEVICE = r"^/dev/(hailo[0-9]+|accel/accel[0-9]+)$"
+CAMERA_DEVICE = r"^/dev/video[0-9]+$"
+SHORT = 128  # model, driver and sensor names
+
+
+class _Profile(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+
+class NodeDataDisk(_Profile):
+    kind: str | None = Field(default=None, max_length=16, description="nvme | ssd | hdd | sd | emmc | usb | virtual", json_schema_extra=OPEN_ENUM)
+    ssd: bool | None = None
+
+
+class NodeMemoryProfile(_Profile):
+    total_mb: int | None = Field(default=None, ge=0)
+    unified: bool | None = Field(default=None, description="the main GPU uses system RAM (Jetson, Intel iGPU only)")
+
+
+class NodeAccelerator(_Profile):
+    class_: str = Field(alias="class", max_length=16, description="gpu | npu", json_schema_extra=OPEN_ENUM)
+    vendor: str = Field(max_length=16, description="nvidia | amd | intel | hailo", json_schema_extra=OPEN_ENUM)
+    model: str | None = Field(default=None, max_length=SHORT)
+    pci_id: str | None = Field(default=None, pattern=VID_PID, description="PCI vendor:device id vvvv:dddd (which kind of card); null when not on PCI")
+    pci_slot: str | None = Field(default=None, pattern=PCI_SLOT, description="PCI address dddd:bb:dd.f (which card; what a VFIO grant binds); null when not on PCI")
+    driver: str | None = Field(default=None, max_length=SHORT)
+    driver_version: str | None = Field(default=None, max_length=SHORT)
+    vram_mb: int | None = Field(default=None, ge=0)
+    compute_capability: str | None = Field(default=None, pattern=r"^[0-9]+\.[0-9]+$", description="NVIDIA major.minor")
+    integrated: bool | None = None
+    device: str | None = Field(default=None, pattern=ACCEL_DEVICE, description="full path of the device node an app is granted, e.g. /dev/hailo0")
+
+
+class NodeUSBDevice(_Profile):
+    port: str = Field(pattern=USB_PORT, description="kernel port path, e.g. 1-1.2")
+    id: str = Field(pattern=VID_PID, description="vvvv:pppp")
+    class_: str | None = Field(default=None, alias="class", pattern=HEX2, description="bDeviceClass, two hex digits")
+    interface_classes: list[Annotated[str, Field(pattern=HEX2)]] = Field(default_factory=list, max_length=32)
+
+
+class NodeTTYPort(_Profile):
+    name: str = Field(pattern=r"^tty(USB|ACM|AMA|THS|S)[0-9]+$")
+    kind: str = Field(max_length=16, description="usb | uart", json_schema_extra=OPEN_ENUM)
+    usb_id: str | None = Field(default=None, pattern=VID_PID, description="vvvv:pppp of the USB device behind it; null for an on-board UART")
+    usb_port: str | None = Field(default=None, pattern=USB_PORT)
+
+
+class NodeRadio(_Profile):
+    kind: str = Field(max_length=16, description="wifi | bluetooth | cellular", json_schema_extra=OPEN_ENUM)
+    interface: str = Field(pattern=r"^[A-Za-z0-9_.-]{1,15}$")
+
+
+class NodeCamera(_Profile):
+    bus: str = Field(max_length=16, description="usb | csi", json_schema_extra=OPEN_ENUM)
+    device: str | None = Field(default=None, pattern=CAMERA_DEVICE, description="full path of the video node, e.g. /dev/video0; null for a CSI sensor")
+    name: str | None = Field(default=None, max_length=SHORT)
+    usb_id: str | None = Field(default=None, pattern=VID_PID, description="vvvv:pppp of a USB camera")
+
+
+class NodePowerProfile(_Profile):
+    source: str | None = Field(default=None, max_length=16, description="mains | battery | usb", json_schema_extra=OPEN_ENUM)
+    battery_pct: int | None = Field(default=None, ge=0, le=100)
+    undervoltage: bool | None = None
+
+
+class NodeThermalProfile(_Profile):
+    max_c: float | None = None
+    state: str | None = Field(default=None, max_length=16, description="normal | passive | hot | critical", json_schema_extra=OPEN_ENUM)
+
+
+class NodeCapabilities(_Profile):
+    """The machine's hardware profile, sent in its heartbeat; read with nodes:read only."""
+
+    schema_: Literal["onemind.node.capabilities/v1"] = Field(alias="schema")
+    data_disk: NodeDataDisk
+    memory: NodeMemoryProfile
+    accelerators: list[NodeAccelerator] | None = Field(max_length=MAX_LISTED)
+    usb: list[NodeUSBDevice] | None = Field(max_length=MAX_LISTED)
+    tty_ports: list[NodeTTYPort] | None = Field(max_length=MAX_LISTED)
+    radios: list[NodeRadio] | None = Field(max_length=MAX_LISTED)
+    cameras: list[NodeCamera] | None = Field(max_length=MAX_LISTED)
+    power: NodePowerProfile
+    thermal: NodeThermalProfile
+
+
 class Node(BaseModel):
     """One node: the §2 heartbeat plus the gateway's `status` and `last_seen`. More fields may appear."""
 
@@ -70,8 +172,40 @@ class Node(BaseModel):
     arch: str | None = None
     os: NodeOS | None = None
     k3s: NodeK3s | None = None
+    capabilities: NodeCapabilities | None = Field(default=None, description="hardware profile (#618); absent from older agents")
     status: str = Field(description="online | stale | offline", json_schema_extra=OPEN_ENUM)
     last_seen: str = Field(description="RFC 3339 time the gateway last received a heartbeat")
+
+
+class ApprovalLimit(BaseModel):
+    """One limit shown on an approval card, with its unit (#723). The gateway and the device check it again."""
+
+    name: str
+    value: str | int | float | bool
+    unit: str | None = None
+
+
+class ApprovalPreview(BaseModel):
+    """The approval card's preview slot (#723): what the action will do, drawn by the host."""
+
+    kind: str = Field(description="what the preview is, e.g. image or path", json_schema_extra=OPEN_ENUM)
+    ref: str | None = None
+    text: str | None = None
+
+
+class ApprovalCard(BaseModel):
+    """The approval card of every action (#723). The host draws it, never an app.
+
+    hold is true for an action that cannot be undone (risk destructive) or that moves something
+    physical; physical says which. A physical card also carries limits and a preview and is part of
+    plan_sha256.
+    """
+
+    physical: bool = Field(description="moves or switches something physical: passkey, hold, never standing or automated")
+    hold: bool = Field(description="approve with hold-to-approve (physical, or cannot be undone)")
+    hold_ms: int | None = Field(default=None, description="how long to hold, in ms; send at least this as hold_ms")
+    limits: list[ApprovalLimit] = Field(default_factory=list)
+    preview: ApprovalPreview | None = None
 
 
 class Action(BaseModel):
@@ -100,6 +234,7 @@ class Action(BaseModel):
     plan: dict[str, Any] | None = Field(default=None, description="§12.4: what the action would do, rendered at request time")
     plan_sha256: str | None = Field(default=None, description="§12.4: fingerprint the approval is bound to")
     progress: dict[str, Any] | None = Field(default=None, description="{step, pct} while an executor runs")
+    approval: ApprovalCard | None = Field(default=None, description="#723: the approval card; set on every action (hold for destructive or physical)")
 
 
 class AuditRecord(BaseModel):

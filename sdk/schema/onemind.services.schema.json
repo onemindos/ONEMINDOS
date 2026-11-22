@@ -1,0 +1,35 @@
+{
+  "$comment": "SPDX-License-Identifier: Apache-2.0",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/onemindos/ONEMINDOS/sdk/schema/onemind.services.schema.json",
+  "title": "OneMind services registry",
+  "description": "The image's services.yaml (/usr/lib/onemind/services.yaml, issue #623): one entry per systemd unit the OS ships, with a plain name and description. It lives on the read-only, signed OS image, so only an OS update changes it. test/unit/test_services_registry.py fails when a unit under os/ has no entry.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "services"],
+  "properties": {
+    "schema": {"const": "onemind.io/services/v1"},
+    "services": {"type": "array", "minItems": 1, "maxItems": 200, "items": {"$ref": "#/$defs/service"}}
+  },
+  "$defs": {
+    "unit": {
+      "type": "string",
+      "description": "A systemd unit file name.",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.@-]{0,90}\\.(service|socket|timer|path)$"
+    },
+    "service": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unit", "name", "description", "docs", "restartable", "risk", "depends_on"],
+      "properties": {
+        "unit": {"$ref": "#/$defs/unit"},
+        "name": {"type": "string", "minLength": 1, "maxLength": 60, "description": "Plain name a person reads on the service card."},
+        "description": {"type": "string", "minLength": 10, "maxLength": 300, "description": "Plain words: what it does and what stops working without it."},
+        "docs": {"type": "string", "pattern": "^docs/([A-Za-z0-9_-]+/)*[A-Za-z0-9_-]+\\.md$", "description": "Repo path of the page that explains it."},
+        "restartable": {"type": "boolean", "description": "Whether a person may ask for a restart (an owner-approved action, later work). Rescue, first boot, host and data-layout units are never restartable."},
+        "risk": {"enum": ["low", "medium", "high"], "description": "low: stopping it pauses a background job; medium: a feature stops for everyone until it is back; high: the box may not boot, lose data or lock people out."},
+        "depends_on": {"type": "array", "maxItems": 20, "uniqueItems": true, "items": {"$ref": "#/$defs/unit"}, "description": "Other registry units it needs."}
+      }
+    }
+  }
+}

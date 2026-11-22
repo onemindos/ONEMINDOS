@@ -899,5 +899,30 @@ class HubAccounts(Box):
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
 
 
+class ChownTreeRace(unittest.TestCase):
+    """Issue #391 (cloud C4): a file that vanishes while the tree is re-owned must not fail first boot."""
+
+    def test_vanished_file_is_skipped(self):
+        with tempfile.TemporaryDirectory() as d:
+            for n in ("a", "gone", "z"):
+                open(os.path.join(d, n), "w").close()
+            seen = []
+
+            def chown(path, uid, gid):
+                if os.path.basename(path) == "gone":
+                    raise FileNotFoundError(path)
+                seen.append(os.path.basename(path))
+
+            with mock.patch.object(fb.os, "chown", chown):
+                fb.chown_tree(d, (961, 961))
+            self.assertEqual(sorted(seen), sorted([os.path.basename(d), "a", "z"]))
+
+    def test_other_errors_still_fail(self):
+        with tempfile.TemporaryDirectory() as d:
+            with mock.patch.object(fb.os, "chown", side_effect=PermissionError("no")):
+                with self.assertRaises(PermissionError):
+                    fb.chown_tree(d, (961, 961))
+
+
 if __name__ == "__main__":
     unittest.main()

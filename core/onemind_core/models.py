@@ -67,6 +67,8 @@ class CatalogApp(BaseModel):
     archs: list[str]
     requires: dict
     web_port: int | None
+    browser: bool = Field(default=False, description="A browser app (#692): open it with POST /v1/browsers/{app_id}/session, "
+                          "which gives the person their own profile; its own app name is never served")
     installed: bool
     status: str = Field(
         description="not_installed | installing | installed | stopped | starting | stopping | restarting | "

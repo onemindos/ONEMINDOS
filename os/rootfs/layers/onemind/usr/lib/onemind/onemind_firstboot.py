@@ -127,6 +127,7 @@ class Paths:
         self.backup = j("data", "onemind", "backup")                     # the agent's state; agent.json is its settings
         self.backup_conf = j("data", "onemind", "backup", "agent.json")
         self.rescue_tls = j("data", "onemind", "tls")   # https.crt/https.key for onemind-rescue (CORE-UPDATE-9)
+        self.files = j("data", "onemind", "files")      # the gateway's ONEMIND_FILES_ROOT (and Samba's shares)
 
 
 # ------------------------------------------------------------------ settings
@@ -331,11 +332,17 @@ def onemind_ids() -> tuple[int, int] | None:
 
 
 def chown_tree(path: str, ids: tuple[int, int] | None) -> None:
+    """Re-own a tree. A file that is gone by the time it is reached is skipped: something else may be working
+    in the tree (k3s unpacks its binaries into a *-tmp folder and renames it), and one vanished file must not
+    fail first boot, which would leave the box without its role units (cloud C4 reboot, issue #391)."""
     if not ids or not os.path.isdir(path):
         return
     for dirpath, _dirs, files in os.walk(path):
         for n in [dirpath, *(os.path.join(dirpath, f) for f in files)]:
-            os.chown(n, *ids)
+            try:
+                os.chown(n, *ids)
+            except FileNotFoundError:
+                pass
 
 
 def token() -> str:
@@ -876,9 +883,22 @@ def run_stream(argv: list[str], env: dict, on_line) -> int:
     return proc.wait()
 
 
+def ensure_files_root(p: Paths) -> None:
+    """Make the files root (ONEMIND_FILES_ROOT) before the gateway starts. Its unit lists the folder in
+    ReadWritePaths=, and systemd refuses to start a unit whose read-write path is missing (226/NAMESPACE):
+    the mount namespace is set up before any ExecStartPre= runs, even a "+" one, so the unit cannot make it
+    itself. Only the folder is (re-)owned, never its contents. Every boot, so updated boxes get it too."""
+    os.makedirs(p.files, mode=0o750, exist_ok=True)
+    os.chmod(p.files, 0o750)
+    ids = onemind_ids()
+    if ids:
+        os.chown(p.files, *ids)
+
+
 def start_units(p: Paths, st: dict) -> None:
     role = st["role"]
     if role == "hub":
+        ensure_files_root(p)               # before the gateway: its sandbox needs the folder to exist
         ensure_rescue_tls(p)               # boxes configured before CORE-UPDATE-9 get their pair now
         # uid of "onemind" is fixed in the image (961), but re-own after an update anyway.
         chown_tree(p.gateway, onemind_ids())

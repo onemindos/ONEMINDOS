@@ -14,6 +14,7 @@ from ..appsecrets.api import SealedInput
 from ..auth import Principal
 from ..context import Gateway
 from ..errors import error_responses
+from ..jsonbody import JsonBody
 from ..plugins.actions import own_actions, own_action
 
 
@@ -25,7 +26,7 @@ class OverrideInput(BaseModel):
     confirm: str = Field(max_length=200)
 
 
-class ApproveBody(BaseModel):
+class ApproveBody(JsonBody):
     """§12.4: optional approve body. `webauthn` is the passkey assertion over approve-options' challenge.
 
     sealed: the app's secrets form for app.install (appsecrets/); override: the F-7 owner override.
@@ -35,6 +36,9 @@ class ApproveBody(BaseModel):
     sealed: SealedInput | None = None
     override: OverrideInput | None = None
     webauthn: dict | None = None
+    # #723 hold-to-approve: how long the approve control was held, in ms (a physical action needs
+    # at least actions.HOLD_MIN_MS, with a passkey assertion and plan_sha256).
+    hold_ms: int | None = Field(default=None, ge=0, le=600000)
 
 
 # Route order in the app and in /openapi.json (routers/__init__.py).
@@ -116,6 +120,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
             sealed=body.sealed.model_dump(exclude_none=True) if body and body.sealed else None,
             override=body.override.model_dump() if body and body.override else None,
             webauthn=bool(body and body.webauthn),
+            hold_ms=body.hold_ms if body else None,
         )
         return actions.approve(p, action_id, body.plan_sha256 if body else None, strict, extra)
 

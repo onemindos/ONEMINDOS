@@ -36,6 +36,12 @@ def request_scope(action_type: object) -> str:
     return f"actions:request:{action_type}"
 
 
+def may_request(p: Principal, action_type: str) -> bool:
+    """A request-only tool built from a built-in descriptor (#603) needs its own type's scope. Feature
+    types are not in MCP_SCOPES yet, so no token can hold one until the scope list grants it."""
+    return request_scope(action_type) in granted(p)
+
+
 def may_call(p: Principal, tool: str, args: dict | None = None) -> bool:
     need = TOOL_SCOPES.get(tool)
     if need == "actions:request:*":

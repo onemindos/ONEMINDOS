@@ -17,7 +17,6 @@ import {
   formatAgo,
   pushRecentCommand,
 
-  usePaletteHotkey,
   type NavItem,
   type PaletteCommand,
 } from '@onemind/ui';
@@ -28,6 +27,7 @@ import { ActionJobs, jobsStackStyle } from './ActionJobs';
 import { useHub } from '../data/hub';
 import { useAppRequest } from './useAppRequest';
 import { homeLayoutStore, personList } from '../data/prefs';
+import { useKeymap } from './keys/useKeymap';
 import { DesktopShell, type DockApp } from './DesktopShell';
 import { useLayoutMode, type LayoutMode } from './layoutMode';
 import { brand } from '../brand.generated';
@@ -74,7 +74,7 @@ export function Shell({ children }: { children: ReactNode }) {
 
   const [layout, setLayout] = useLayoutMode(person);
 
-  usePaletteHotkey(() => setPaletteOpen(true));
+  useKeymap({ palette: () => setPaletteOpen(true) });
 
   // A real gateway session does not carry the role, so ask GET /v1/me once. If that fails the
   // view falls back to Simple (fail closed): the Pro screens are offered only to a known role.

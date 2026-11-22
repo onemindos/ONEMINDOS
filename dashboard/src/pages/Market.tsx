@@ -74,6 +74,7 @@ export function Market() {
   const byId = (id: string) => hub.apps.data?.find((a) => a.id === id);
   const open = (id: string) => {
     const a = byId(id);
+    if (a?.browser && a.installed) return navigate(href.browser(id));  // #692: a window with the person's own profile
     const url = a ? openUrl(a) : undefined;
     if (a && url) openAppOrSay(api, a.name || a.id, url);
     else navigate(href.manage(id));
