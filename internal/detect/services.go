@@ -12,6 +12,9 @@ import (
 
 // ---- k3s ---------------------------------------------------------------------
 
+// imageKubeconfig is where the image's k3s.service writes the admin kubeconfig (relative to root).
+const imageKubeconfig = "run/k3s/k3s.yaml"
+
 // K3s reports whether k3s is installed, its role and readiness.
 //   - present: the k3s binary or /etc/rancher/k3s exists.
 //   - role: "server" if the server data dir or the admin kubeconfig exists,
@@ -25,12 +28,21 @@ func (c *Collector) K3s(ctx context.Context) heartbeat.K3s {
 		return heartbeat.K3s{}
 	}
 	role := "agent"
-	if c.exists("var/lib/rancher/k3s/server") || c.exists("etc/rancher/k3s/k3s.yaml") {
+	// The Debian package layout (/var/lib/rancher, /etc/rancher) and the OneMind image layout
+	// (--data-dir /data/k3s, kubeconfig written to /run/k3s/k3s.yaml; the root is read-only)
+	// both mean "server". Checking only the first made a healthy image hub report agent/not ready.
+	if c.exists("var/lib/rancher/k3s/server") || c.exists("etc/rancher/k3s/k3s.yaml") ||
+		c.exists("data/k3s/server") || c.exists(imageKubeconfig) {
 		role = "server"
 	}
 	out := heartbeat.K3s{Present: true, Role: &role}
 	if role == "server" && c.has("k3s") {
-		b, err := c.run(ctx, "k3s", "kubectl", "get", "--raw", "/readyz")
+		args := []string{"kubectl", "get", "--raw", "/readyz"}
+		if c.exists(imageKubeconfig) {
+			// Plain `k3s kubectl` reads /etc/rancher/k3s/k3s.yaml, which the image does not have.
+			args = []string{"kubectl", "--kubeconfig", "/" + imageKubeconfig, "get", "--raw", "/readyz"}
+		}
+		b, err := c.run(ctx, "k3s", args...)
 		out.Ready = err == nil && strings.TrimSpace(string(b)) == "ok"
 	} else if role == "agent" && c.has("systemctl") {
 		_, err := c.run(ctx, "systemctl", "is-active", "--quiet", "k3s-agent")

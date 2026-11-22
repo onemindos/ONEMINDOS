@@ -51,10 +51,19 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      # setup-python has no 3.13 build for the local runner (Debian 13, arm64), so that runner uses Debian's
+      # own Python 3.13 in a venv instead (the system Python refuses pip installs, PEP 668).
       - name: Set up Python
+        if: runner.environment == 'github-hosted'
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.13"
+
+      - name: Set up Python (local runner)
+        if: runner.environment != 'github-hosted'
+        run: |
+          python3 -m venv "$RUNNER_TEMP/venv"
+          echo "$RUNNER_TEMP/venv/bin" >> "$GITHUB_PATH"
 
       - name: Install Python dependencies and pinned tools
         run: |

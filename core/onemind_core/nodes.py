@@ -45,6 +45,9 @@ class NodeRegistry:
         self.clock = clock
         self._lock = threading.Lock()
         self._nodes: dict[str, tuple[dict, datetime]] = {}
+        # Called with each accepted heartbeat, outside the lock (osupdate.py records commits and
+        # rollbacks). A failing listener is logged and never drops the heartbeat.
+        self.listeners: list[Callable[[dict], None]] = []
 
     def ingest(self, subject: str, data: bytes) -> bool:
         """Accept one heartbeat. Returns False (and drops it) if it is malformed."""
@@ -81,6 +84,11 @@ class NodeRegistry:
                     return False
                 del self._nodes[oldest]
             self._nodes[hb["node_id"]] = (hb, now)
+        for listen in list(self.listeners):
+            try:
+                listen(hb)
+            except Exception:  # noqa: BLE001 - a feature's bookkeeping never costs a heartbeat
+                log.exception("heartbeat listener failed")
         return True
 
     def _view(self, hb: dict, seen: datetime, now: datetime) -> dict:

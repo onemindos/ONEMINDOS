@@ -222,7 +222,7 @@ class PolicyService:
         if body.window_id is not None and self.repo.get_window(body.window_id) is None:
             raise ApiError(404, "not_found", f"no window {body.window_id!r}")
 
-    def create(self, principal: Principal, body: PolicyBody) -> dict:
+    def create(self, principal: Principal, body: PolicyBody, approval: str = "token") -> dict:
         if not principal.is_owner:
             self.audit.append("authz.denied", principal.as_dict(), None,
                               {"attempted": "create standing approval", "reason": "permission_denied"})
@@ -234,11 +234,11 @@ class PolicyService:
             window_id=body.window_id, expires_at=utc(body.expires_at), created_by=principal.as_dict(),
             created_at=now,
         )
-        # F-2 (passkey on owner approvals) is enforced by the identity stream's approval guard once
-        # it lands; until then this is a token-authenticated owner write, recorded as such.
+        # F-2: the route has already required identity step-up (a fresh passkey once passkeys are
+        # active); `approval` records how the owner proved presence. Only an owner reaches here.
         self.audit.append("automation.policy.created", principal.as_dict(), None,
                           {"policy_id": p["id"], "revision": 1, "allow": p["allow"], "per_day": p["per_day"],
-                           "window_id": p["window_id"], "expires_at": iso(p["expires_at"]), "approval": "token"})
+                           "window_id": p["window_id"], "expires_at": iso(p["expires_at"]), "approval": approval})
         return self.to_json(p)
 
     def delete(self, principal: Principal, policy_id: str) -> None:

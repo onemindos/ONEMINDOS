@@ -56,6 +56,9 @@ ROLE_SCOPES: dict[str, frozenset[str]] = {
     "guest": frozenset({"instance:read", "nodes:read", "apps:read", "notifications:read",
                         "notifications:write", "alerts:read"}),
     "child": frozenset({"instance:read", "apps:read", "notifications:read", "alerts:read"}),
+    # FAM-01 Teen: signs in on their own with the same API scopes as a child. No approval, admin,
+    # users, nodes, tokens or logs scope; what a teen may open is narrowed by family controls only.
+    "teen": frozenset({"instance:read", "apps:read", "notifications:read", "alerts:read"}),
 }
 
 BUNDLES = {

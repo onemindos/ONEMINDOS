@@ -103,8 +103,45 @@ export type AppParams = components['schemas']['PlainActionParams'] & Partial<Pic
 export type PlanPreview = components['schemas']['PlanPreview'];
 /** Validated dashboard view of the SDK's opaque apps.settings response, not a wire contract. */
 export interface AppSettings {
-  fields: Array<{ name: string; title?: string; type: string; default?: string | number | boolean; enum?: Array<string | number | boolean>; description?: string; restart?: boolean }>;
+  fields: Array<{
+    name: string; title?: string; type: string; default?: string | number | boolean; enum?: Array<string | number | boolean>; description?: string; restart?: boolean;
+    minimum?: number; maximum?: number; minLength?: number; maxLength?: number; pattern?: string;
+  }>;
   values: Record<string, string | number | boolean> | null;
+}
+
+/** Validated view of GET /v1/apps/{id}/dependencies (contract §12.22, PD-10). */
+export interface AppDependencies {
+  app_id: string;
+  requires: Array<{
+    id: string; alternatives: string[]; reason: string | null; port: number | null; satisfied_by: string | null;
+    choices: Array<{ id: string; name: string | null; in_catalog: boolean; installed: boolean }>;
+  }>;
+  dependents: Array<{ id: string; name: string | null }>;
+}
+
+/** Validated view of GET /v1/apps/{id}/host-ports (PD-11). `with` names who already holds the port. */
+export interface AppHostPorts {
+  app_id: string;
+  node_id: string;
+  declared: Array<{ port: number; protocol: string; description: string | null }>;
+  conflicts: Array<{ port: number; protocol: string; with: string }>;
+}
+
+/** Validated view of one GET /v1/sources row (PD-12): a community source pinned at a commit. */
+export interface CommunitySource {
+  id: string; name: string; url: string; commit: string; state: string; added_at: string | null;
+  apps: Array<{ id: string; version: string; scan: { result: string; scanned_at: string | null } | null }>;
+  errors: string[];
+}
+
+/** POST /v1/deploy/compose (PD-13): a conversion only; it writes nothing on the box. */
+export interface ComposeResult {
+  ok: boolean;
+  app_id: string;
+  files: Record<string, string>;
+  refusals: Array<{ service: string | null; rule: string; field: string; message: string }>;
+  warnings: string[];
 }
 
 /** §3 action states. */
@@ -120,7 +157,7 @@ export type ActionState =
   | 'cancelled';
 
 export type PrincipalKind = 'person' | 'agent';
-export type PrincipalRole = 'owner' | 'adult' | 'guest' | 'agent';
+export type PrincipalRole = 'owner' | 'adult' | 'guest' | 'child' | 'teen' | 'agent';
 
 /** §3 tokens map to principals `{id, kind, role}`. */
 export interface Principal {

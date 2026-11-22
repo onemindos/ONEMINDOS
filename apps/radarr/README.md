@@ -8,7 +8,7 @@ Movie organizer/manager for usenet and torrent users.
 | | |
 |---|---|
 | Version | 6.4.4.10685 (upstream release `v6.4.4.10685`, published 2026-09-16) |
-| Licence | `GPL-3.0`, Market class L2 by SPDX id; not yet confirmed by the licence gate |
+| Licence | `GPL-3.0`, Market class **L2** (licence gate, scan of 2026-11-19) |
 | Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | media |
 | GitHub | <https://github.com/Radarr/Radarr> |
@@ -77,4 +77,10 @@ To unblock: the startup failure is fixed above (rerun the gate to confirm); move
 
 ## Latest security scan
 
-No scan yet. `sdk/tools/app-gate` writes `scan.json` (contract §9.4, §11.1).
+Scanned 2026-11-19T15:03:10Z by `sdk/tools/app-gate`: **fail**. Licence `GPL-3.0` class L2; smoke test pass.
+
+| Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
+|---|---|---|---|---|---|---|
+| `ghcr.io/linuxserver/radarr:6.4.4.10685-ls326@sha256:51a9ac2a9eb47afc833541e5fd6c11b86eb9f810694c22fa2429e3078e9194b2` | amd64, arm64 | 4 (4) | 64 | 0 infected (daily-28188) | 0 | unsigned |
+
+Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

@@ -24,8 +24,15 @@ concurrency:
 
 jobs:
   merge-gate:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 180   # the image battery is the slowest blocking workflow (~60 min)
+    # CI-13 (#299): API-only (it polls this commit's runs), so it runs on the Mac's small gate pool when
+    # LOCAL_GATE=on and the event is trusted (never a fork PR; merge_group is); otherwise GitHub-hosted.
+    # Its own switch, not LOCAL_RUNNER: the runner loop sets LOCAL_GATE=on only while gate slots run, so an
+    # empty or broken gate pool never stalls merges. docs/learning/self-hosted-runner.md
+    runs-on: ${{ (vars.LOCAL_GATE == 'on' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","onemind-gate"]') || 'ubuntu-24.04' }}
+    # The R530 KVM runner (CI-14) runs a PR's 13 x86 image/battery/cloud jobs on 5-6 job VMs, which takes
+    # 3.5-4 h, so the gate waits up to 320 min (GATE_TIMEOUT_S) inside a 330-min job (GitHub-hosted max is 360).
+    # A gate whose workflows finish early still passes early: it only polls while something is running.
+    timeout-minutes: 330
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -40,4 +47,5 @@ jobs:
           RUN_ID: ${{ github.run_id }}
           DRAFT: ${{ github.event.pull_request.draft && 'true' || 'false' }}
           PR: ${{ github.event.pull_request.number }}
+          GATE_TIMEOUT_S: "19200"
         run: python3 -I scripts/ci-gate.py
