@@ -72,6 +72,7 @@ var groups = []func(a *App) []*cobra.Command{
 	syncCommands,
 	mcpCommands,
 	migrateCommands,
+	kioskCommands,
 	pluginCommands,
 	tipsCommands,
 	versionCommands,

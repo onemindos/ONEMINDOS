@@ -12,6 +12,7 @@
 # optional services (Samba, SSH) are separate steps: they add rules to this table, see /etc/onemind/host.local.nft
 # (the owner's file) and /etc/onemind/host.d/*.nft (shipped by an image: the cloud boards open 22/443/8443 there).
 # The setup wizard (8080) is opened from the LAN only while the box has no role, through the "setup" chain below.
+# Samba file sharing (445, D-017) is opened from the LAN only while onemind-smb.service runs, through the "samba" chain.
 add table inet onemind_host
 flush table inet onemind_host
 table inet onemind_host {
@@ -46,6 +47,7 @@ table inet onemind_host {
 
   chain lan {
     jump setup
+    jump samba
     tcp dport { 443, 8443, 8444, 7443 } accept
     udp dport { 5353, 3478, 41641 } accept
   }
@@ -54,6 +56,12 @@ table inet onemind_host {
   # owner can open http://onemind.local:8080/ from the LAN, and flushes it when the wizard exits. Reached from the
   # lan chain only, so a public source never sees it. Cloud images never fill it (wizard is local-only there).
   chain setup {
+  }
+
+  # Empty on purpose. onemind-smb.service adds "tcp dport 445 accept" here when it starts (it starts only while the
+  # owner has approved at least one share) and flushes it when it stops. Reached from the lan chain only, so SMB is
+  # never offered to a public address, and a box with no shares answers nothing on 445.
+  chain samba {
   }
 
   # Forwarded (pod) traffic is the CNI's and kube-proxy's business; this table does not touch it.

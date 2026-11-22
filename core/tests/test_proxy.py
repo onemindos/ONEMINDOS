@@ -319,6 +319,18 @@ def test_post_body_and_limit(env):
     assert c.post("/form", content=b"x" * 2048, headers=bearer(env, "owner")).status_code == 413
 
 
+def test_proxy_body_cap_holds_for_chunked_bodies(env):
+    """proxy.py reads the request itself (its own receive loop): the cap holds with no Content-Length."""
+    c = client(env)
+
+    def chunks(n):
+        for _ in range(0, n, 256):
+            yield b"x" * 256
+
+    assert c.post("/form", content=chunks(1024), headers=bearer(env, "owner")).json()["body"] == "x" * 1024
+    assert c.post("/form", content=chunks(1280), headers=bearer(env, "owner")).status_code == 413
+
+
 def test_streaming_response(env):
     r = client(env).get("/stream", headers=bearer(env, "owner"))
     assert r.status_code == 200 and r.text == "chunk0\nchunk1\nchunk2\n"
