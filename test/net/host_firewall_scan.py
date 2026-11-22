@@ -9,10 +9,11 @@ refused connection would mean "no listener", which is why every port has one. Ne
 
   sudo python3 -I test/net/host_firewall_scan.py          (exit 0 = every expectation held)
 """
-import os, subprocess, sys, time
+import os, re, shlex, subprocess, sys, time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 RULES = os.path.join(ROOT, "os/rootfs/layers/onemind/usr/lib/onemind/host.nft")
+SMB_UNIT = os.path.join(ROOT, "os/rootfs/layers/onemind/usr/lib/systemd/system/onemind-smb.service")
 TCP = [22, 80, 445, 443, 8080, 8443, 8444, 7443, 6443, 10250, 4222, 7422]
 UDP = [5353, 3478, 41641, 8472, 51820, 9999]
 # Expected from each client (everything else must be dropped).
@@ -108,6 +109,29 @@ def setup_wizard_phase():
     return ok
 
 
+def smb_unit_nft(key):
+    """The nft command lines onemind-smb.service runs for one Exec key, prefixes ("-", "+") removed."""
+    with open(SMB_UNIT, encoding="utf-8") as f:
+        lines = re.findall(rf"(?m)^{key}=[-+@:!]*(/usr/sbin/nft .*)$", f.read())
+    assert lines, f"onemind-smb.service has no nft {key}"
+    return [shlex.split(l) for l in lines]
+
+
+def samba_phase():
+    """Samba (445, D-017) is open to the LAN only while onemind-smb.service runs: replay the unit's own nft lines."""
+    ok = True
+    for label, key, want_lan in (("Samba off (no share approved)", None, False),
+                                 ("Samba running", "ExecStartPre", True),
+                                 ("Samba stopped", "ExecStopPost", False)):
+        for cmd in smb_unit_nft(key) if key else []:
+            ns("box", *cmd)
+        lan, pub = tcp_open("lan", "172.31.250.1", 445), tcp_open("pub", "198.51.100.1", 445)
+        good = lan == want_lan and not pub
+        ok &= good
+        print(f"445 {label}: lan={lan} want={want_lan} public={pub} want=False -> {'PASS' if good else 'FAIL'}")
+    return ok
+
+
 def main():
     if os.geteuid() != 0:
         print("needs root"); return 2
@@ -126,6 +150,7 @@ def main():
             print(f"{client}: tcp open={sorted(t)} want={sorted(wt)} udp open={sorted(u)} want={sorted(wu)} -> "
                   f"{'PASS' if good else 'FAIL'}")
         ok &= setup_wizard_phase()
+        ok &= samba_phase()
         srv.kill()
     finally:
         teardown()

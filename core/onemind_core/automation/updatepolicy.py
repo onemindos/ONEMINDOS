@@ -30,6 +30,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from ..auth import Principal
 from ..errors import ApiError
+from ..jsonbody import JsonBody
 from ..ledger import Base, iso, utc
 from ..store import FeatureSchema, SqlRepository
 from .cron import WEEKDAYS, parse_ranges, window_open
@@ -53,14 +54,14 @@ class UpdatePolicyRow(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
-class AiSchedule(BaseModel):
+class AiSchedule(JsonBody):
     model_config = ConfigDict(extra="forbid")
     enabled: bool = False
     tz: str = Field(default="box", max_length=64)
     off: list[dict] = Field(default_factory=lambda: [{"days": list(WEEKDAYS), "start": "23:00", "end": "07:00"}])
 
 
-class UpdatePolicyBody(BaseModel):
+class UpdatePolicyBody(JsonBody):
     model_config = ConfigDict(extra="forbid")
     window_id: str = Field(default="win_nightly", max_length=40)
     cool_off_hours: int = Field(default=48, ge=0, le=720)

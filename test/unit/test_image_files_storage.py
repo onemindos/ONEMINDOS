@@ -25,8 +25,20 @@ class FilesAndStorageOnTheImage(unittest.TestCase):
     def test_gateway_may_write_the_files_root_and_it_exists_before_the_sandbox(self):
         gw = unit("onemind-gateway.service")
         self.assertRegex(gw, r"(?m)^ReadWritePaths=.*/data/onemind/files\b")
-        self.assertRegex(gw, r"(?m)^ExecStartPre=\+.*install -d .*-o onemind .*/data/onemind/files$")
-        self.assertLess(gw.index("ExecStartPre="), gw.index("ExecStart=/usr"))
+        # PR #621 smoke: an ExecStartPre=+install for the folder never ran; systemd set up the ReadWritePaths=
+        # namespace first and failed the unit with 226/NAMESPACE. The folder is made by first boot instead.
+        self.assertNotRegex(gw, r"(?m)^ExecStartPre=.*/data/onemind/files")
+        src = open(fb.__file__).read()
+        start = src[src.index("def start_units("):]
+        self.assertLess(start.index("ensure_files_root(p)"), start.index('systemctl("start"'))
+        with tempfile.TemporaryDirectory() as d:
+            p = fb.Paths(d)
+            fb.ensure_files_root(p)
+            self.assertEqual(p.files, os.path.join(d, "data", "onemind", "files"))
+            self.assertEqual(os.stat(p.files).st_mode & 0o777, 0o750)
+            open(os.path.join(p.files, "keep.txt"), "w").close()
+            fb.ensure_files_root(p)          # idempotent: every boot, contents untouched
+            self.assertTrue(os.path.exists(os.path.join(p.files, "keep.txt")))
 
     def test_storage_service_runs_on_the_hub_only_and_is_not_enabled_at_build(self):
         self.assertIn("onemind-storage.service", fb.ROLE_UNITS["hub"])

@@ -33,7 +33,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Protocol
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import ConfigDict, Field
 from sqlalchemy import BigInteger, DateTime, String, delete, func, select, update
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -44,6 +44,7 @@ from .errors import ApiError
 from .executors import ExecResult
 from .files.access import HOME_ROLES
 from .files.service import FilesService
+from .jsonbody import JsonBody
 from .ledger import Base, iso
 from .sections import config_section
 from .storage import StorageClient, StorageTimeout, StorageUnavailable
@@ -137,7 +138,7 @@ class HostSmbClient:
         self._ok(*self._call("PUT", f"/v1/smb/users/{user}/password", {"password": password}))
 
 
-class CreateParams(BaseModel):
+class CreateParams(JsonBody):
     model_config = ConfigDict(extra="forbid")
     kind: str = Field(pattern=r"^(home|timemachine)$")
     person_id: str = Field(pattern=PERSON_RE)

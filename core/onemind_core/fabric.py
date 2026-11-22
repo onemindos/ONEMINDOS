@@ -52,6 +52,7 @@ from .auth import Principal
 from .ca import MESH_DOMAIN, BoxCA
 from .errors import ApiError
 from .executors import ExecResult
+from .jsonbody import JsonBody
 from .ledger import Action, Base, iso, utc
 from .mesh import ROLE_TAGS, MeshRefused, MeshService
 from .natsconf import NodeAccount, is_user_public_nkey, load_service_keys, write_accounts
@@ -441,7 +442,7 @@ class FabricRepository(SqlRepository):
 
 
 # ---- request bodies -----------------------------------------------------------------------------------
-class TicketRequest(BaseModel):
+class TicketRequest(JsonBody):
     model_config = ConfigDict(extra="forbid")
     role: str = Field(default="worker", pattern="^(worker|leaf|node)$")
     expires_in_s: int = Field(default=TICKET_DEFAULT_S, ge=60, le=TICKET_MAX_S)

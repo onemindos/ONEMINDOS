@@ -1,0 +1,34 @@
+# SPDX-License-Identifier: Apache-2.0
+# Built-in descriptor (sdk/schema/onemind.builtin.schema.json). Read only because "files" is on the signed list.
+apiVersion: onemind.app/v1
+kind: App
+metadata:
+  id: files
+  name: Files
+  description: Every file on the box, with grants, quotas, trash and uploads.
+spec:
+  routes:
+    owns: [/v1/files]
+    calls:
+      - GET /v1/files/roots
+      - GET /v1/files/list
+      - GET /v1/files/stat
+      - GET /v1/files/download
+      - POST /v1/files/uploads
+      - POST /v1/files/ops
+      - GET /v1/files/trash
+  search: {provider: files, types: [file, folder]}
+  share: {accepts: [file], verbs: [open, add]}
+  settingsPages:
+    - {id: quotas, title: Storage quotas, source: GET /v1/files/quotas}
+  backup:
+    units:
+      - {kind: dir, name: ONEMIND_FILES_ROOT}
+      - {kind: table, name: files_spaces}
+      - {kind: table, name: files_grants}
+      - {kind: table, name: files_quotas}
+      - {kind: table, name: files_requests}
+      - {kind: table, name: files_trash}
+      - {kind: table, name: files_uploads}
+  data: {owns: [private], reads: []}
+  phone: {entry: native, screen: files}

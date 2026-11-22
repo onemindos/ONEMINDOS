@@ -1,0 +1,4 @@
+#!/bin/sh
+# SPDX-License-Identifier: Apache-2.0
+# onemind-kiosk.service: the dashboard full screen on the box's monitor (onemind_kiosk.py), with the gateway venv's pinned Python.
+exec /usr/lib/onemind/gateway/venv/bin/python3 -I /usr/lib/onemind/onemind_kiosk.py "$@"

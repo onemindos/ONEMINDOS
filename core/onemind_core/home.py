@@ -18,6 +18,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import JSON, DateTime, String
 from sqlalchemy.orm import Mapped, mapped_column
 
+from .jsonbody import JsonBody
 from .ledger import Base
 from .store import FeatureSchema, SqlRepository
 
@@ -78,7 +79,7 @@ class Link(BaseModel):
         return v
 
 
-class Appearance(BaseModel):
+class Appearance(JsonBody):
     model_config = ConfigDict(extra="forbid")
     theme: Literal["system", "light", "dark"] = "system"
     wallpaper: str = Field(default="om-dusk-01", pattern=SLUG.pattern.replace("{0,39}", "{0,63}"))
