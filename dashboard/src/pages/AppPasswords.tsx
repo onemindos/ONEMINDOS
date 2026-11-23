@@ -6,7 +6,7 @@
 import { useMemo, useState } from 'react';
 import { OneMind, OneMindError } from '@onemind/sdk';
 import { Button, Card, Table } from '@onemind/ui';
-import { ApiError } from '../api/types';
+import { ApiError, type ApiErrorBody } from '../api/types';
 import { usePoll } from '../lib/hooks';
 import { useSignedIn } from '../session';
 import { Load } from './parts';
@@ -19,8 +19,15 @@ const HOLDERS = new Set(['owner', 'adult']);
 function apiError(e: unknown) {
   return e instanceof OneMindError ? new ApiError(e.status, e.status === 401 ? 'unauthenticated' : e.status === 403 ? 'permission_denied' : 'unknown', e.message, e.reason) : e;
 }
-async function call(client: OneMind, method: 'GET' | 'POST' | 'DELETE', path: string, body?: unknown) {
+async function call(client: OneMind, method: 'GET' | 'POST', path: string, body?: unknown) {
   try { return await client.call<unknown>({ method, path, body }); } catch (e) { throw apiError(e); }
+}
+// The SDK transport has no DELETE yet (sdk/ts/src/client.ts), so revoking sends it directly, as files/api.ts does.
+async function remove(token: string, path: string) {
+  const res = await fetch(`${window.location.origin}${path}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+  if (res.ok) return;
+  const body = await res.json().catch(() => ({})) as Partial<ApiErrorBody>;
+  throw new ApiError(res.status, body.error ?? 'unknown', body.message ?? `The hub answered ${res.status}.`, body.reason);
 }
 function rows(v: unknown): Row[] {
   const list = v && typeof v === 'object' ? (v as { app_passwords?: unknown }).app_passwords : undefined;
@@ -66,7 +73,7 @@ function LiveAppPasswords({ token }: { token: string }) {
     setLabel('');
   }, 'Could not make the app password');
   const revoke = (id: string) => run(async () => {
-    await call(client, 'DELETE', `/v1/files/app-passwords/${encodeURIComponent(id)}`);
+    await remove(token, `/v1/files/app-passwords/${encodeURIComponent(id)}`);
     setConfirming(undefined);
   }, 'Could not revoke the app password');
 
