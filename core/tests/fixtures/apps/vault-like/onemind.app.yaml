@@ -10,6 +10,7 @@ metadata:
   category: security
   icon: icon.svg
   license: MIT
+  licenceClass: L1
   source: https://example.com/vault-like
   tier: community
 spec:

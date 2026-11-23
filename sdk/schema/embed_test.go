@@ -35,7 +35,7 @@ func TestSubjectsRegistryEmbedsEveryKind(t *testing.T) {
 			t.Errorf("envelope %s: file %q", id, f)
 		}
 	}
-	for _, s := range []string{Datapoint, Event} {
+	for _, s := range []string{Datapoint, Event, Message, RadioStatus, LoraJob, MessageEvent, MessageImport} {
 		var v map[string]any
 		if err := json.Unmarshal([]byte(s), &v); err != nil {
 			t.Fatalf("envelope schema: %v", err)

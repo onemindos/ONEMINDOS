@@ -16,6 +16,7 @@ metadata:
   category: ai
   icon: icon.svg
   license: "MIT"
+  licenceClass: L1
   source: https://github.com/Mintplex-Labs/anything-llm
   # §9.3 facts from the GitHub API (repos/Mintplex-Labs/anything-llm), read 2026-11-12.
   links:

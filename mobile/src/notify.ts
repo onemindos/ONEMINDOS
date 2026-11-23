@@ -6,12 +6,10 @@ import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import type { Alert } from './lib/alerts';
 import { parsePing } from './lib/push';
-import { TOUR_ROLE } from './tour';
 
 let configured = false;
 
 export async function setupNotifications(): Promise<boolean> {
-  if (TOUR_ROLE) return false; // screenshot tour: the permission prompt would cover the screen
   if (!configured) {
     configured = true;
     Notifications.setNotificationHandler({
@@ -42,7 +40,6 @@ export async function showAlert(a: Alert): Promise<void> {
 }
 
 export async function setBadge(n: number): Promise<void> {
-  if (TOUR_ROLE) return;
   try {
     await Notifications.setBadgeCountAsync(n);
   } catch {

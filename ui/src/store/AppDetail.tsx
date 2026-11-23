@@ -11,11 +11,11 @@ import { StatusPill } from '../components/StatusPill';
 import { cx } from '../lib/cx';
 import { formatAgo, formatDay, secondsSince } from '../lib/time';
 import { installBlockReason, safeHttpUrl } from '../lib/trust';
-import { AppTile, ClassPills, LoadGate, Skeleton } from './bits';
+import { AppTile, ClassPills, LoadGate, QualityPill, Skeleton } from './bits';
 import { CategoryIcon } from './CategoryIcon';
 import { JobProgress } from './Jobs';
-import { formatMb, isJobActive, primaryAction } from './logic';
-import { CATEGORY_BY_SLUG, DEPLOY_CLASSES, DEVICE_LABEL, EXPOSURE_LABEL, LICENCE_CLASSES } from './taxonomy';
+import { formatMb, isJobActive, primaryAction, qualityOf } from './logic';
+import { CATEGORY_BY_SLUG, DEPLOY_CLASSES, DEVICE_LABEL, EXPOSURE_LABEL, LICENCE_CLASSES, QUALITY_CHECKS, QUALITY_TIERS } from './taxonomy';
 import type { AppPlan, CatalogApp, LoadState, Screenshot, StoreJob } from './types';
 
 // ---------------------------------------------------------------- screenshots
@@ -79,6 +79,43 @@ export function Screenshots({ shots, appName }: { shots: Screenshot[]; appName: 
 }
 
 // ---------------------------------------------------------------- trust
+
+/** Quality tier and the checks behind it (#174): each line is a yes or no the app gate recorded. */
+function QualityFact({ app }: { app: CatalogApp }) {
+  const quality = app.scan?.quality;
+  const tier = qualityOf(app);
+  return (
+    <div>
+      <dt>Quality</dt>
+      <dd>
+        {!quality ? (
+          <>Not rated yet <span className="om-hint">(the next gate run rates it)</span></>
+        ) : (
+          <>
+            <QualityPill app={app} />
+            {tier === 'none' && 'Does not reach Bronze'}
+            {tier !== 'none' && <span className="om-hint"> {QUALITY_TIERS[tier].sentence}</span>}
+            <details className="om-store-quality">
+              <summary>What the gate checked</summary>
+              {(['bronze', 'silver', 'gold'] as const).map((level) => (
+                <section key={level} aria-label={`${level} checks`}>
+                  <h4>{level[0]!.toUpperCase() + level.slice(1)}</h4>
+                  <ul>
+                    {QUALITY_CHECKS[level].map((c) => (
+                      <li key={c.name}>
+                        {quality.evidence[level][c.name] ? 'Yes' : 'No'}: {c.label}
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ))}
+            </details>
+          </>
+        )}
+      </dd>
+    </div>
+  );
+}
 
 /** Trust card with deployment class, licence class, scan facts and links (§9.3, §11.1, §11.4). */
 export function StoreTrustCard({ app, now }: { app: CatalogApp; now: number }) {
@@ -159,6 +196,7 @@ export function StoreTrustCard({ app, now }: { app: CatalogApp; now: number }) {
             <dd>{scan.smoke === 'pass' ? 'Passed' : scan.smoke === 'skipped' ? 'Skipped' : 'Failed'}</dd>
           </div>
         )}
+        {!listOnly && scan && <QualityFact app={app} />}
         {app.upstream && (
           <div>
             <dt>Upstream release</dt>

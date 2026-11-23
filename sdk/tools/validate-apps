@@ -29,7 +29,8 @@ Run with: python3 -I sdk/tools/validate-apps [--apps-dir DIR] [APP_ID ...]
 Exit codes: 0 all apps pass, 1 at least one check failed, 2 usage or environment error.
 
 Also reports a deterministic computed/SPDX-derived inventory from metadata.license,
-using the existing L1/L2/blocked classifier. This is not declared metadata.licenceClass,
+using the existing L1/L2/blocked classifier. The declared metadata.licenceClass follows on
+a declared_licence_class row. Neither is
 primary-source verification, a scan pass, or preinstall permission. Missing/non-string
 expressions are reported as unavailable, not as a licence class; validation still fails.
 """
@@ -58,7 +59,7 @@ except ImportError as exc:  # pragma: no cover - environment problem
 
 # Resolve the local library explicitly, including under Python's isolated (-I) mode.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from applib.licence import classify  # noqa: E402
+from applib.licence import GREEN, classify  # noqa: E402
 
 SCHEMA_PATH = REPO_ROOT / "sdk" / "schema" / "onemind.app.schema.json"
 RENOVATE_PATH = REPO_ROOT / "renovate.json"
@@ -135,6 +136,20 @@ def licence_inventory(doc: object, app_dir: Path) -> None:
     print(f"licence apps/{app_dir.name}/ computed_spdx_class={computed}")
 
 
+def licence_class_errors(meta: dict) -> list[str]:
+    """metadata.licenceClass (issue #173): a green claim (L1 or L2) must equal the class computed from
+    metadata.license, so no manifest can mark a source-available licence green. `blocked` and `unknown`
+    are always allowed: they only ever make the Market stricter."""
+    declared, spdx = meta.get("licenceClass"), meta.get("license")
+    if declared not in GREEN:
+        return []
+    computed = classify(spdx) if isinstance(spdx, str) else "blocked"
+    if computed == declared:
+        return []
+    return [f"metadata.licenceClass is {declared} but metadata.license '{spdx}' classifies as {computed}; "
+            f"fix the class (or set it to blocked or unknown)"]
+
+
 def load_system_list(path: Path) -> dict[str, dict]:
     """id -> list entry of the signed system apps list (empty when the file does not exist)."""
     if not path.is_file():
@@ -173,6 +188,7 @@ class AppChecker:
         self.kustomize = kustomize
         self.kubeconform = kubeconform
         self.plugin_validator = plugin_validator
+        self.declared_class: object = None  # metadata.licenceClass of the manifest last checked
 
     def schema_errors(self, doc: object) -> list[str]:
         """The core Catalog's folder check (check_manifest: apps/_system/ manifests may carry
@@ -195,6 +211,7 @@ class AppChecker:
             return None, [f"{MANIFEST_NAME} is not valid YAML: {exc}"]
 
         licence_inventory(doc, app_dir)
+        self.declared_class = dig(doc, ("metadata", "licenceClass"))
         schema_errors = sorted(self.schema_errors(doc))
         errors.extend(f"schema: {msg}" for msg in schema_errors)
         if schema_errors:
@@ -207,6 +224,7 @@ class AppChecker:
         if app_id != app_dir.name:
             errors.append(f"metadata.id '{app_id}' does not match directory name '{app_dir.name}'")
 
+        errors.extend(licence_class_errors(meta))
         errors.extend(system_errors(app_dir, spec, self.system))
 
         plugin_declaration = any(field in spec for field in ("extensions", "plugin", "permissions", "compat"))
@@ -557,12 +575,17 @@ def main(argv: list[str]) -> int:
     checker = AppChecker(Catalog(apps_dir, SCHEMA_PATH), tools["kustomize"], tools["kubeconform"],
                          args.plugin_validator, system_list)
     print("licence inventory: computed/SPDX-derived from metadata.license; "
-          "not declared metadata.licenceClass; "
+          "not declared metadata.licenceClass (that is on the licence-class rows); "
           "not primary-source verification, scan pass, or preinstall permission")
     seen: dict[str, str] = {}
     failed = 0
     for app_dir in app_dirs:
+        checker.declared_class = None
         app_id, errors = checker.check(app_dir)
+        # What the manifest declares, next to the SPDX class computed above (#173): the Market
+        # installs by the declared class, so CI shows both and a mismatch is visible.
+        declared = checker.declared_class if isinstance(checker.declared_class, str) else "unset"
+        print(f"licence-class apps/{app_dir.name}/ declared_licence_class={declared}")
         if app_id is not None:
             if app_id in seen:
                 errors.append(f"duplicate metadata.id '{app_id}' (also used by apps/{seen[app_id]}/)")

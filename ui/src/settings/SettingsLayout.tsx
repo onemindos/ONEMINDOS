@@ -9,7 +9,7 @@ import type { Tone } from '../tokens/tokens';
 import { matchSection } from './logic';
 import { SetIcon, type SetIconName } from './primitives';
 
-export type SettingsSectionId = 'appearance' | 'account' | 'users' | 'devices' | 'network' | 'backups' | 'updates' | 'notifications' | 'automation' | 'agents' | 'storage' | 'care' | 'about';
+export type SettingsSectionId = 'appearance' | 'account' | 'users' | 'devices' | 'network' | 'backups' | 'updates' | 'notifications' | 'automation' | 'agents' | 'storage' | 'apps' | 'care' | 'about';
 
 export interface SettingsSectionMeta {
   id: SettingsSectionId;
@@ -28,11 +28,11 @@ export const SETTINGS_SECTIONS: SettingsSectionMeta[] = [
   { id: 'devices', label: 'Devices & nodes', icon: 'nodes', group: 'Machines', keywords: ['fabric', 'join', 'qr', 'hub', 'worker', 'leaf', 'add node'] },
   { id: 'network', label: 'Network & mesh', icon: 'globe', group: 'Machines', keywords: ['remote', 'vpn', 'mesh', 'dns', 'mdns', 'certificate', 'https', 'tls'] },
   { id: 'storage', label: 'Storage', icon: 'disk', group: 'Machines', keywords: ['disk', 'space', 'usage', 'categories'] },
-  { id: 'care', label: 'Care', icon: 'info', group: 'Keeping it healthy', keywords: ['box check-up', 'health', 'drift'] },
   { id: 'backups', label: 'Backups', icon: 'backups', group: 'Keeping it healthy', keywords: ['restore', 'snapshot', 'usb', 's3', 'emergency kit'] },
   { id: 'updates', label: 'Updates', icon: 'updates', group: 'Keeping it healthy', keywords: ['os', 'version', 'channel', 'rollback', 'release notes', 'slot'] },
   { id: 'notifications', label: 'Notifications', icon: 'bell', group: 'Keeping it healthy', keywords: ['push', 'email', 'quiet hours', 'alerts', 'matrix', 'telegram'] },
   { id: 'automation', label: 'Automation', icon: 'flow', group: 'Keeping it healthy', keywords: ['rules', 'schedule', 'webhook', 'standing approval'] },
+  { id: 'apps', label: 'Apps', icon: 'apps', group: 'Apps', keywords: ['built in', 'built-in', 'system apps', 'switch off', 'disable', 'licence', 'license', 'update channel'] },
   { id: 'about', label: 'About & diagnostics', icon: 'info', group: 'About', keywords: ['version', 'logs', 'diagnostic bundle', 'rescue', 'support'] },
 ];
 

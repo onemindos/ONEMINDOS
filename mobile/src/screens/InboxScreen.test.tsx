@@ -10,6 +10,7 @@ import { HubDataProvider } from '../data';
 import { SessionProvider, useSession, type SessionDeps } from '../session';
 import type { Connection } from '../storage';
 import { v0Api } from '../test/fakes';
+import { mockApi, mockConnection } from '../test/mockHub';
 import { InboxScreen } from './InboxScreen';
 
 const Stack = createNativeStackNavigator();
@@ -49,7 +50,7 @@ async function renderInbox(d: SessionDeps, gate = true) {
 
 describe('Inbox screen', () => {
   it('shows open alerts and the owner\'s notifications, unread first-class, and marks all read', async () => {
-    await renderInbox(deps({ mode: 'mock', token: 'owner-demo' }));
+    await renderInbox(deps(mockConnection('owner-demo'), mockApi));
     expect(await screen.findByTestId('alert-alrt_demo_01')).toBeTruthy();
     expect(screen.getByTestId('ntf-ntf_demo_03')).toBeTruthy();
     expect(screen.getByTestId('unread-ntf_demo_01')).toBeTruthy();
@@ -59,19 +60,19 @@ describe('Inbox screen', () => {
   });
 
   it('a fix is filed as a request for the owner to approve, never applied directly', async () => {
-    await renderInbox(deps({ mode: 'mock', token: 'owner-demo' }));
+    await renderInbox(deps(mockConnection('owner-demo'), mockApi));
     await fireEvent.press(await screen.findByTestId('fix-alrt_demo_02'));
     expect(await screen.findByText('Asked to fix: catalog.refresh. It waits in Approvals.')).toBeTruthy();
   });
 
   it('tapping a notification about a request opens Approvals', async () => {
-    await renderInbox(deps({ mode: 'mock', token: 'owner-demo' }));
+    await renderInbox(deps(mockConnection('owner-demo'), mockApi));
     await fireEvent.press(await screen.findByTestId('ntf-ntf_demo_01'));
     expect(await screen.findByTestId('approvals-tab')).toBeTruthy();
   });
 
   it('an adult sees only their own inbox and no fix button', async () => {
-    await renderInbox(deps({ mode: 'mock', token: 'adult-demo' }));
+    await renderInbox(deps(mockConnection('adult-demo'), mockApi));
     expect(await screen.findByTestId('ntf-ntf_demo_11')).toBeTruthy();
     expect(screen.queryByTestId('alert-alrt_demo_01')).toBeNull();
   });

@@ -5,7 +5,7 @@ import { useNavigation } from '@react-navigation/native';
 import { Pressable, Switch, Text, View } from 'react-native';
 import { useNow } from '../data';
 import { formatAgo } from '../lib/time';
-import { Badge, Button, Card, H2, Notice, P, Row, Screen, s } from '../ui/bits';
+import { Badge, Button, Card, H2, P, Row, Screen, s } from '../ui/bits';
 import { space, useTheme } from '../ui/theme';
 import { usePhotoBackup } from './context';
 import { mb, summarize } from './status';
@@ -54,8 +54,6 @@ export function PhotoBackupScreen() {
 
   return (
     <Screen testID="photo-backup">
-      {b.demo ? <Notice text="Demo: a made-up photo library and an in-memory OneMind. Nothing leaves this phone." /> : null}
-
       <Card testID="photo-status">
         <View style={s.row}>
           <Text accessibilityRole="header" style={{ color: t.text, fontSize: 19, fontWeight: '700', flexShrink: 1 }}>
@@ -139,11 +137,9 @@ export function PhotoBackupScreen() {
       <H2>When the app is closed</H2>
       <Card>
         <P small>
-          {b.demo
-            ? 'The demo only backs up while it is open.'
-            : b.background === 'restricted'
-              ? 'Background backup is off for OneMind in this phone’s settings (Background App Refresh or battery saver). Backup only runs while the app is open.'
-              : 'The phone decides when OneMind may work in the background: at most every 15 minutes, often only overnight while charging on Wi-Fi. A large video can take several turns; each one continues where the last stopped. Opening the app backs up right away.'}
+          {b.background === 'restricted'
+            ? 'Background backup is off for OneMind in this phone’s settings (Background App Refresh or battery saver). Backup only runs while the app is open.'
+            : 'The phone decides when OneMind may work in the background: at most every 15 minutes, often only overnight while charging on Wi-Fi. A large video can take several turns; each one continues where the last stopped. Opening the app backs up right away.'}
         </P>
         {b.host ? (
           <P muted small>
