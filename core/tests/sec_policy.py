@@ -223,6 +223,12 @@ POLICY |= {
                                                   "§12.14 own preferences"),
     ("PUT", "/v1/notifications/preferences"): Row(PEOPLE_WRITE, w.p_preferences_put,
                                                   "§12.14 own preferences; a child holds no notifications:write"),
+    ("GET", "/v1/notifications/sources"): Row(PEOPLE_READ, w.p_static("/v1/notifications/sources"),
+                                              "§12.14 #613 people read the notification sources (App notifications page)"),
+    ("PUT", "/v1/notifications/sources/{source_id}"): Row(
+        cells(403, **GONE, owner=200, **PENDING_DENY),
+        lambda _: w.Req("/v1/notifications/sources/plugin:probe", json={"muted": True}),
+        "§12.14 #613 only owners mute or unmute a source; an agent never lifts its own mute"),
     ("POST", "/v1/notifications/send"): Row(
         cells(403, **GONE, agent=202, **PENDING_DENY), w.p_send,
         "§12.14 agents only, under their own plugin.<id> topic (the probe uses the static agent's)"),
@@ -446,6 +452,8 @@ POLICY |= {
                                    f"{_FILES}: people browse; an agent needs a grant (none here)"),
     ("GET", "/v1/files/stat"): Row(grid(200, 200, 200, 403, 403), w.p_static("/v1/files/stat?root=shared&path=/"),
                                    f"{_FILES}: people browse; an agent needs a grant"),
+    ("GET", "/v1/search"): Row(grid(200, 200, 200, 200, 200), w.p_static("/v1/search?q=report"),
+                               "#611 global search: any signed-in caller; each hit is filtered by the caller's own grants"),
     ("GET", "/v1/sync/changes"): Row(grid(200, 200, 200, 403, 403), w.p_static("/v1/sync/changes?root=shared"),
                                      f"{_FILES}: the change feed (#698) follows read access to the whole root"),
     ("GET", "/v1/files/preview"): Row(grid(404, 404, 404, 403, 403), w.p_static("/v1/files/preview?root=shared&path=/a"),
@@ -786,6 +794,17 @@ POLICY |= {
     # enabled=false only removes a flag file that is not there on a test box, so the probe changes nothing.
     ("PUT", "/v1/instance/kiosk"): Row(ONLY_OWNER, w.p_kiosk_put,
                                        f"{_KIOSK}: only the owner changes the screen; an agent can never switch it"),
+}
+
+# ---- radio-found cards (#732) ---------------------------------------------------------------------------------------
+_RADIO = "core/onemind_core/routers/radios.py (#732)"
+POLICY |= {
+    ("GET", "/v1/radios"): Row(CHILD_CANNOT, w.p_static("/v1/radios"),
+                               f"{_RADIO}: the USB serial lines of the hardware profile /v1/nodes shows; a child has no nodes:read"),
+    # A radio that is not there: the owner reaches the (missing) card, everybody else is refused first.
+    ("POST", "/v1/radios/{radio_id}/confirm"): Row(OWNER_ONLY_404, w.p_missing("/v1/radios/nosuchnode.lora0/confirm", json={
+        "profile": "meshcore-companion-usb"}),
+        f"{_RADIO}: only the owner says what a radio is; an agent never confirms one, and nothing is probed or sent"),
 }
 
 # ---- the agent browser (#694: core/onemind_core/routers/agentbrowser.py) --------------------------------------
