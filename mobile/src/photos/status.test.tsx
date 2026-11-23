@@ -4,6 +4,7 @@ import { render, screen } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 import { HubDataProvider } from '../data';
 import { SessionProvider, useSession } from '../session';
+import { mockDeps } from '../test/mockHub';
 import { PhotoBackupContext, type PhotoBackupState } from './context';
 import { DEFAULT_SETTINGS, type Ledger, type LedgerItem } from './ledger';
 import { PhotoBackupScreen } from './PhotoBackupScreen';
@@ -19,7 +20,7 @@ function ledger(items: LedgerItem[], more: Partial<Ledger> = {}): Ledger {
 }
 
 const base: StatusInput = {
-  availability: { state: 'ok', baseUrl: 'https://box.example', demo: false },
+  availability: { state: 'ok', baseUrl: 'https://box.example' },
   settings: { ...DEFAULT_SETTINGS, enabled: true },
   ledger: null,
   permission: 'granted',
@@ -77,7 +78,6 @@ describe('PhotoBackupScreen', () => {
       running: true,
       progress: { phase: 'uploading', done: 1, total: 2, current: { fileName: 'IMG_9.MOV', sent: 2_000_000, size: 8_000_000 }, bytesThisRun: 2_000_000 },
       host: 'box.example',
-      demo: false,
       runNow: jest.fn(),
       stop: jest.fn(),
       updateSettings: jest.fn(),
@@ -85,7 +85,7 @@ describe('PhotoBackupScreen', () => {
       loadAlbums: jest.fn(),
     };
     await render(
-      <SessionProvider deps={{ load: async () => ({ mode: 'mock', token: 'owner-demo' }), save: async () => undefined, clear: async () => undefined }}>
+      <SessionProvider deps={mockDeps('owner-demo')}>
         <Gate>
           <HubDataProvider intervalMs={0}>
             <PhotoBackupContext.Provider value={value}>

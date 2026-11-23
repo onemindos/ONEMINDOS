@@ -24,10 +24,12 @@ from starlette.responses import JSONResponse, StreamingResponse
 from starlette.routing import Route, WebSocketRoute
 from starlette.websockets import WebSocket, WebSocketDisconnect
 
-from onemind_core.auth import TokenStore
+from conftest import OWNER, make_client
+from onemind_core.auth import Principal, TokenStore
 from onemind_core.catalog import Catalog
 from onemind_core.proxy import (
-    AppProxy, AppProxyMiddleware, KubectlServiceResolver, Timeouts, token_session_resolver,
+    AppProxy, AppProxyMiddleware, KubectlServiceResolver, Timeouts, gateway_session_resolver, sharing_check,
+    token_session_resolver,
 )
 
 # ---- fake upstream ----------------------------------------------------------------------------------
@@ -445,6 +447,110 @@ def test_websocket_refused(env, headers):
         with c.websocket_connect("/ws", headers=ws_headers(**headers)) as ws:
             ws.receive_json()
     assert exc.value.code == 1008
+
+
+# ---- an app's own Authorization header (#824) ----------------------------------------------------------
+# An app such as Fleetbase sends its own bearer token. Behind a valid OneMind session cookie that header
+# belongs to the app: it goes to that app's upstream only, and it never signs anyone in to OneMind.
+APP_TOKEN = "Bearer fleetbase-own-token-1"
+
+
+def signed_in(env, role="owner", host="kuma.onemind.local"):
+    c = client(env, host)
+    c.cookies.set("onemind_session", env["tokens"][role])
+    return c
+
+
+def test_app_authorization_reaches_that_app_behind_a_session(env):
+    r = signed_in(env).get("/api/v1/me", headers={"Authorization": APP_TOKEN})
+    assert r.status_code == 200, r.text
+    h = r.json()["headers"]
+    assert h["authorization"] == APP_TOKEN
+    assert h["x-onemind-principal"] == "person:owner" and "cookie" not in h
+    assert env["resolved"][-1][0] == "app-kuma"  # the app the name points at, nothing else
+    r = signed_in(env, host="open.onemind.local").get("/", headers={"Authorization": "Basic YTpi"})
+    assert r.json()["headers"]["authorization"] == "Basic YTpi" and env["resolved"][-1][0] == "app-open"
+    r = signed_in(env, host="onemind.local").get("/apps/kuma/x", headers={"Authorization": APP_TOKEN})
+    assert r.status_code == 200 and r.json()["headers"]["authorization"] == APP_TOKEN
+
+
+def test_app_token_without_a_session_is_refused(env):
+    for host in ("kuma.onemind.local", "nosuch.onemind.local"):
+        assert client(env, host).get("/", headers={"Authorization": APP_TOKEN}).status_code == 401
+    c = client(env)
+    c.cookies.set("onemind_session", "not-a-session")
+    assert c.get("/", headers={"Authorization": APP_TOKEN}).status_code == 401
+    proxy = env["app"].user_middleware[0].kwargs["proxy"]
+    assert proxy.decide({"host": "kuma.onemind.local", "authorization": APP_TOKEN}, "kuma")[0] == 401
+
+
+def test_session_cookie_decides_who_you_are(env):
+    """The cookie is the OneMind identity; a bearer next to it cannot change who the person is."""
+    proxy = env["app"].user_middleware[0].kwargs["proxy"]
+    cookie = f"onemind_session={env['tokens']['guest']}"
+    owner = bearer(env, "owner")["Authorization"]
+    assert signed_in(env, "guest", "private.onemind.local").get("/", headers={"Authorization": owner}).status_code == 403
+    assert proxy.decide({"host": "kuma.onemind.local", "cookie": cookie, "authorization": APP_TOKEN}, "open")[0] == 204
+    # the forward-auth decision (/v1/auth/forward) takes the same cookie-first view
+    assert proxy.decide({"host": "kuma.onemind.local", "cookie": cookie, "authorization": APP_TOKEN}, "kuma")[0] == 403
+
+
+@pytest.mark.parametrize("token", ["adult", "agent", "om_ses_revoked-or-unknown", "om_pat_whatever"])
+def test_onemind_token_never_forwarded_to_an_app(env, token):
+    value = bearer(env, token)["Authorization"] if token in env["tokens"] else f"Bearer {token}"
+    r = signed_in(env).get("/x", headers={"Authorization": value})
+    assert r.status_code == 200, r.text
+    h = r.json()["headers"]
+    assert "authorization" not in h and h["x-onemind-principal"] == "person:owner"
+
+
+def test_bearer_only_session_is_never_forwarded(env):
+    r = client(env).get("/x", headers=bearer(env, "adult"))
+    assert r.status_code == 200 and "authorization" not in r.json()["headers"]
+
+
+def test_websocket_carries_the_app_authorization(env):
+    cookie = f"onemind_session={env['tokens']['owner']}"
+    headers = ws_headers(Origin="http://kuma.onemind.local", Cookie=cookie, Authorization=APP_TOKEN)
+    with client(env).websocket_connect("/ws", headers=headers) as ws:
+        assert ws.receive_json() == {"principal": "person:owner", "authorization": APP_TOKEN, "path": "/ws"}
+    headers = ws_headers(Origin="http://kuma.onemind.local", Cookie=cookie, **bearer(env, "adult"))
+    with client(env).websocket_connect("/ws", headers=headers) as ws:
+        assert ws.receive_json()["authorization"] is None
+
+
+def test_household_session_cookie_with_app_bearer(env, tmp_path):
+    """The gateway's own resolver and sharing check (routers/net.py): a household session in the cookie
+    opens a shared app while the app's bearer rides along; the same session as a bearer is never sent."""
+    ses = "om_ses_" + secrets.token_urlsafe(16)
+    person = Principal(id="u1", kind="person", role="adult")
+
+    def authenticate(request, token):
+        return person if token == ses else None
+
+    def shared_with_session(request, principal, app_id):  # proves the sharing check saw the session
+        return request.headers.get("authorization") == f"Bearer {ses}"
+
+    proxy = env["app"].user_middleware[0].kwargs["proxy"]
+    proxy.resolve_session = gateway_session_resolver(TokenStore(tmp_path / "no-static-tokens.yaml"), [authenticate])
+    proxy.shared = sharing_check([authenticate], [shared_with_session])
+    c = client(env)
+    c.cookies.set("onemind_session", ses)
+    r = c.get("/x", headers={"Authorization": APP_TOKEN})
+    assert r.status_code == 200, r.text
+    assert r.json()["headers"]["authorization"] == APP_TOKEN
+    r = c.get("/x", headers={"Authorization": f"Bearer {ses}"})
+    assert r.status_code == 200 and "authorization" not in r.json()["headers"]
+    assert client(env).get("/x", headers={"Authorization": APP_TOKEN}).status_code == 401
+
+
+def test_app_token_is_not_a_gateway_credential(settings, clock):
+    """OneMind API routes keep their own rules: an app's token never signs in to the gateway, even next
+    to the app-host session cookie."""
+    with make_client(settings, clock) as gw:
+        gw.cookies.set("onemind_session", OWNER["Authorization"].split(" ", 1)[1])
+        assert gw.get("/v1/me", headers={"Authorization": APP_TOKEN}).status_code == 401
+        assert gw.get("/v1/me", headers=OWNER).status_code == 200
 
 
 # ---- Service resolver ---------------------------------------------------------------------------------

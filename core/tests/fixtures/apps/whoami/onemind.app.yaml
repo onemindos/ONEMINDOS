@@ -7,6 +7,7 @@ metadata:
   description: Tiny HTTP echo service used for tests
   category: developer
   license: Apache-2.0
+  licenceClass: L1
   source: https://github.com/traefik/whoami
 spec:
   archs: [amd64, arm64]

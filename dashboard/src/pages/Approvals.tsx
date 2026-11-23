@@ -4,7 +4,7 @@
 // form sealed in this browser, a passkey signs the exact plan, and the gateway checks all of it.
 import { useState } from 'react';
 import { useSearchParams } from 'react-router';
-import { ApprovalsBoard, Dialog, SecretsForm, actionTitle, sealValues, useToast, type ActionPlan, type ActionSummary, type AppSecrets, type SecretsSubmission, type SettingsLoadable } from '@onemind/ui';
+import { ApprovalsBoard, Button, Dialog, SecretsForm, actionTitle, sealValues, useToast, type ActionPlan, type ActionSummary, type AppSecrets, type SecretsSubmission, type SettingsLoadable } from '@onemind/ui';
 import { ApiError } from '../api/types';
 import { toActionPlan, toActionSummary } from '../data/adapters';
 import { errorText, subjectOf, useHub } from '../data/hub';
@@ -48,19 +48,27 @@ export function Approvals() {
   // The install secrets form, open for one request.
   const [form, setForm] = useState<{ action: ActionSummary; appId: string; name: string; secrets: AppSecrets; error?: string }>();
   const [sealing, setSealing] = useState(false);
+  // #173: the gateway refused an install whose licence is not green until the owner types the app id.
+  const [licence, setLicence] = useState<{ action: ActionSummary; appId: string; message: string; sealed?: ApproveOpts['sealed']; typed: string }>();
 
   const fail = (how: string, e: unknown) => {
     const { code, message } = errorText(e);
     toast.show({ tone: 'bad', title: `Could not ${how}`, body: `${message} (${code})` });
   };
-  const decide = (a: ActionSummary, how: 'approve' | 'deny', sealed?: ApproveOpts['sealed']): Promise<boolean> =>
-    hub.decide(a.id, how, { passkey, sealed }).then(
+  const decide = (a: ActionSummary, how: 'approve' | 'deny', sealed?: ApproveOpts['sealed'], acceptLicence?: string): Promise<boolean> =>
+    hub.decide(a.id, how, { passkey, sealed, acceptLicence }).then(
       () => {
+        setLicence(undefined);
         setLast({ id: a.id, title: actionTitle(a) });
         toast.show({ tone: how === 'approve' ? 'ok' : 'neutral', title: how === 'approve' ? 'Approved' : 'Denied', body: how === 'approve' ? 'The hub is applying it. Progress shows on the app page and in the tray.' : 'Nothing changes.' });
         return true;
       },
       (e: unknown) => {
+        if (how === 'approve' && e instanceof ApiError && e.reason === 'licence_unconfirmed' && typeof a.params.app_id === 'string') {
+          setForm(undefined);
+          setLicence({ action: a, appId: a.params.app_id, message: e.message, sealed, typed: '' });
+          return false;
+        }
         fail(how, e);
         return false;
       },
@@ -126,6 +134,19 @@ export function Approvals() {
     {form && (
       <Dialog open title={`Secrets for ${form.name}`} description="Typed here, encrypted in this browser to your hub, and sent with your approval. They are never shown again." size="lg" onClose={() => (sealing ? undefined : setForm(undefined))}>
         <SecretsForm app={{ id: form.appId, name: form.name }} secrets={form.secrets} mode="install" submitLabel="Approve and install" busy={sealing} error={form.error} onSubmit={(s) => void submitSecrets(s)} onCancel={() => setForm(undefined)} />
+      </Dialog>
+    )}
+    {licence && (
+      <Dialog
+        open role="alertdialog" title={`Accept the licence for ${hub.appName(licence.appId)}?`}
+        description={`${licence.message}. This app's licence is not one the Market marks as safe to install without asking. Read it, then type the app id (${licence.appId}) to accept it.`}
+        onClose={() => setLicence(undefined)}
+        actions={<>
+          <Button onClick={() => setLicence(undefined)}>Cancel</Button>
+          <Button variant="primary" disabled={licence.typed !== licence.appId} onClick={() => void decide(licence.action, 'approve', licence.sealed, licence.appId)}>Accept licence and approve</Button>
+        </>}
+      >
+        <label>App id <input aria-label="App id" value={licence.typed} autoComplete="off" onChange={(e) => setLicence({ ...licence, typed: e.target.value })} /></label>
       </Dialog>
     )}
     </>

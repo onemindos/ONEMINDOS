@@ -9,12 +9,14 @@
 
 | Piece | State | Where |
 |---|---|---|
-| Android: UnifiedPush native module (Kotlin, Expo local module): distributor choice, registration with the box's VAPID key, Web Push keys, endpoint rotation, content-free notification when the app is closed | **written, not yet compiled on a device or in CI** | `mobile/modules/onemind-unifiedpush/` |
+| Android: UnifiedPush native module (Kotlin, Expo local module): distributor choice, registration with the box's VAPID key, Web Push keys, endpoint rotation, content-free notification when the app is closed, time of the last ping | **compiles** against UnifiedPush connector 3.3.5 and Expo 58 (`./gradlew :onemind-unifiedpush:compileReleaseKotlin` after `expo prebuild`, issue #828); **not yet run on a phone** | `mobile/modules/onemind-unifiedpush/` |
+| Android: guided setup in Settings → Push (three steps, §3.1) | built, unit-tested | `mobile/src/screens/PushSection.tsx` |
 | Android and iPhone: register the endpoint or raw APNs token with the box, remember it per hub, turn off, re-register a rotated endpoint | built, unit-tested | `mobile/src/lib/push.ts` |
-| Ping handling while the app runs: refresh from the box, show the text fetched over HTTPS | built | `mobile/src/pushPings.ts` |
+| Ping handling while the app runs: refresh from the box, show the text fetched over HTTPS, remember the time of the last ping | built, unit-tested | `mobile/src/pushPings.ts` |
 | iPhone: Notification Service Extension that replaces the generic text before it is shown | **not built** (needs the Apple developer account and an App Group, F-4) | §6 below |
 | The relay itself | **not built here**: own service, own branch (`feat/push-relay`, `relay/**`) | interface in §4 |
-| The box side (`POST /v1/push/registrations`, sending pings) | not built (notifications module, NOTIFY-3/-4) | contract §12.14 |
+| The box side: `POST/GET/DELETE /v1/push/registrations`, `GET /v1/push/vapid-public-key`, RFC 8291 encrypted pings with VAPID (RFC 8292) | built | `core/onemind_core/routers/notifications.py`, `core/onemind_core/notify/` |
+| A route that pings one device as a test without filing anything | **not built**; Settings shows the last ping time instead | — |
 
 ## 2. Registration: phone → box (contract §12.14)
 
@@ -46,7 +48,21 @@ Urgency: high                             (approvals) | normal
 
 The ntfy app (distributor) wakes `OneMindPushService`. If the app's JavaScript is running it fetches `GET /v1/notifications/{id}` and shows the real title and body; if not, the service shows "OneMind — Something new on your box" and opens the Inbox on tap. Anything in the ping that is not an id is ignored, never displayed.
 
-**Setup for the person:** install ntfy (F-Droid or Google Play), add the box's ntfy server (the `apps/ntfy` seed app) as the default server, then turn on push in OneMind → Settings. No Google account, Play Services or Firebase is involved; the app's manifest blocks the FCM permission.
+No Google account, Play Services or Firebase is involved; the app's manifest blocks the FCM permission.
+
+### 3.1 Guided setup (Settings → Push, Android)
+
+The phone walks the owner through three steps and shows each one's state.
+
+1. **ntfy on the box.** The phone reads `GET /v1/apps`. If the Market app `ntfy` (`apps/ntfy`) is not installed, it offers **Ask to install ntfy on the box**: one `app.install` request (`POST /v1/actions`) that waits in Approvals. Nothing is installed until an owner approves it. While a request waits, the button is not offered again. A person who cannot file requests is told to ask an owner.
+2. **ntfy on this phone.** The box's ntfy address is the app's own name on the box, `ntfy.<box>.local` (the same rule as the dashboard's Open link; it can be shown only when the phone is connected to the box by its `.local` name). The screen shows it with **Copy or share address**. If no UnifiedPush distributor is installed, **Get ntfy (F-Droid)** opens ntfy's F-Droid page; in ntfy, open Settings and set **Default server** to that address. Turn on stays disabled until a distributor exists and ntfy on the box is installed.
+3. **Turn on push.** The phone fetches the box's VAPID key (`GET /v1/push/vapid-public-key`), registers with the distributor, and sends `POST /v1/push/registrations` with `platform: unifiedpush`, the endpoint and the Web Push keys. It then shows the box's registration from `GET /v1/push/registrations` (label, since) and the time the last ping reached the phone, also while the app was closed. If the endpoint is not on the box's ntfy (ntfy still points at another server, such as ntfy.sh), the screen says so.
+
+### 3.2 Open before the device proof
+
+- **The gateway's sign-in sits in front of app names.** `ntfy.<box>.local` is served by the app proxy (`core/onemind_core/proxy.py`), which answers 401 to any request without a OneMind session. The ntfy Android app has no OneMind session, so it cannot subscribe through that name today, and the box's own pings to the endpoint take the same path. A core change is needed (for example, let ntfy's own access control guard its UnifiedPush paths). UNVERIFIED on a device; tracked from issue #828.
+- **TLS for `.local` names.** The ntfy app must trust the box's certificate for `https://ntfy.<box>.local`. Not yet checked on a phone.
+- **Device proof (needs:device-proof):** the dev APK on an Android 14 phone without Google services receives a ping with the app closed.
 
 ## 4. iPhone: the relay interface (for `feat/push-relay`)
 
@@ -89,7 +105,7 @@ The generic text is what an iPhone shows if nothing replaces it. The key, the te
 |---|---|---|
 | App open | module event → refresh; the Inbox and a local notification show the fetched text | APNs delivers to the app; the generic banner is suppressed; refresh as on Android |
 | App in the background, JavaScript alive | module event → fetch `GET /v1/notifications/{id}` → local notification with the text | iOS shows the generic alert (until §6) |
-| App closed | service shows the generic notification; tap opens the Inbox | iOS shows the generic alert (until §6); tap opens the Inbox |
+| App closed | service shows the generic notification and records the ping time (Settings shows it); tap opens the Inbox | iOS shows the generic alert (until §6); tap opens the Inbox |
 
 A notification never approves anything. One about a pending request opens the Approvals tab, where approval needs the owner and, when required, a passkey (NOTIFY-7).
 
