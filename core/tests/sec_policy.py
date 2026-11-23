@@ -917,6 +917,25 @@ POLICY.update({
         "#180 owner approval required to revoke enrolled signing trust"),
 })
 
+# ---- host grants, the E2 capability broker (#186: core/onemind_core/routers/host_grants.py) ----------------
+# An owner or an agent files a request (pending until an owner approves it on POST /v1/actions/{id}/approve);
+# only an owner reads the grants or revokes one. The revoke probe names no grant: the owner learns 404.
+def _host_grant_request(world):
+    return w.Req("/v1/host-grants/requests", json={
+        "app_id": "uptime-kuma", "kind": "device", "device_class": "usb-serial", "path": "/dev/ttyUSB0",
+        "reason": "Zigbee stick", "idempotency_key": world.key(), "expires_at": world.action_body()["expires_at"]})
+
+
+POLICY.update({
+    ("GET", "/v1/host-grants"): Row(OWNER_ONLY, w.p_static("/v1/host-grants"),
+        "#186 only an owner reads which apps hold host grants"),
+    ("POST", "/v1/host-grants/requests"): Row(
+        cells(403, **GONE, owner=202, agent=202, app_agent=202, plugin=DENIED, automation=DENIED, node=DENIED),
+        _host_grant_request, "#186 an owner or agent files a host grant; it stays pending until an owner approves"),
+    ("POST", "/v1/host-grants/{grant_id}/revoke"): Row({**OWNER_ONLY, "owner": 404},
+        lambda x: w.Req("/v1/host-grants/hg_unknown/revoke"), "#186 only an owner revokes a host grant"),
+})
+
 # ---- browser windows, one profile per person (#692: core/onemind_core/routers/browsers.py) ----------------
 # The probe names an app that is not a browser: a person learns only "no such browser app" (404). Only a
 # signed-in person may ask at all, so every agent, plugin, automation and node is refused (403, audited).

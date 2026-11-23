@@ -24,6 +24,8 @@ DELETE /v1/files/shares/{share_id}  # revoking a link twice is the same as once:
 POST /v1/os/rollouts/{rollout_id}/cancel  # cancelling twice leaves the same state: the second answer is 409 wrong_state and changes nothing
 PUT /v1/agents/{name}/nats-key  # sets one agent's one key: the same body twice leaves the same state
 DELETE /v1/agents/{name}/nats-key  # removing an agent's key twice is the same as once
+POST /v1/host-grants/requests  # files a host.grant action and keeps its §3 body field idempotency_key, like POST /v1/actions
+POST /v1/host-grants/{grant_id}/revoke  # revoking twice leaves the grant revoked; the repeat answers 404 and changes nothing
 POST /v1/bridges/{bridge_id}/events  # every event carries its own id and revision: a retried batch counts as duplicates, never twice
 POST /v1/bridges/{bridge_id}/resume  # resuming a bridge that already runs changes nothing
 POST /v1/files/app-passwords  # answers with a fresh app password, which a replay store must never keep

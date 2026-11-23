@@ -114,6 +114,11 @@ HUMAN_ONLY: dict[str, str] = {
     # #690: the USB devices and GPUs an owner may grant a machine, and why one is refused; the owner
     # decides a grant from it (an agent only files machine.attach_device, which the owner approves)
     "GET /v1/machines/{name}/devices": OVERSIGHT,
+    # host grants (#186 E2): the owner alone decides what reaches the host; an agent may file the request
+    # over REST (it stays pending until the owner approves), but no agent tool stands for it
+    "GET /v1/host-grants": OVERSIGHT,
+    "POST /v1/host-grants/requests": OVERSIGHT,
+    "POST /v1/host-grants/{grant_id}/revoke": OVERSIGHT,
     "PUT /v1/physical/lockout": OVERSIGHT,
     "POST /v1/radios/{radio_id}/confirm": OVERSIGHT,
     # ---- credential: sign-in, tokens, keys, secrets, pairing
