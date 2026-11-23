@@ -180,7 +180,11 @@ def leaks(ok: dict) -> list[tuple[str, dict]]:
     for where, change in (("top-level text", {"text": "hello"}), ("text in resource", {"resource": {"kind": "message", "id": "msg_01JABCDEFG", "text": "hello"}}),
                           ("resource as a bag", {"resource": {"text": "hello"}}), ("text in subject", {"subject": {**ok["subject"], "text": "hello"}}),
                           ("peer in subject", {"subject": {"peer_id": "a1b2c3d4e5f6"}}), ("another resource kind", {"resource": {"kind": "contact", "id": "ctc_01JABCDEFG"}}),
-                          ("text in an id field", {"dedupe_key": "see you at noon"}), ("text in source_id", {"source_id": "meet me at the gate"})):
+                          ("text in an id field", {"dedupe_key": "see you at noon"}), ("text in source_id", {"source_id": "meet me at the gate"}),
+                          # format date-time is only enforced when rfc3339-validator is installed; the pattern must refuse text without it
+                          ("text in ts", {"ts": "meet me at the gate"}), ("text in observed_at", {"observed_at": "meet me at the gate"}),
+                          ("text in occurred_at", {"occurred_at": "meet me at the gate"}), ("one word in ts", {"ts": "hello"}),
+                          ("text after a time", {"occurred_at": "2026-11-22T10:00:00Z meet me at the gate"})):
         out.append((where, {**ok, **change}))
     return out
 
@@ -200,6 +204,8 @@ class EventsAndImport(unittest.TestCase):
         self.assertEqual(cases[2]["subject"], {"thread_id": "thr_01JABCDEFG"})
         for where, bad in leaks(cases[0]):
             self.assertTrue(errors(self.v, bad), where)
+        for when in ({"observed_at": None, "occurred_at": None}, {"ts": "2026-11-22T10:00:00.123456+00:00"}):
+            self.assertEqual(errors(self.v, {**cases[0], **when}), [], when)
         self.assertTrue(errors(self.v, gateway_event("status", STATUS, action_id="not-a-uuid")))
 
     def test_events_carry_ids_and_metadata_never_text(self):
