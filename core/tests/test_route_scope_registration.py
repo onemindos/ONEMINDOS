@@ -28,6 +28,10 @@ def test_create_app_twice_keeps_route_scope_registry_stable(settings, clock):
     ("GET", "/v1/me/home", None),
     ("HEAD", "/v1/me/home", None),
     ("PUT", "/v1/me/home", None),
+    ("GET", "/v1/me/devices", None),  # #715: self-service, the handler requires a person's own session
+    ("HEAD", "/v1/me/devices", None),
+    ("DELETE", "/v1/me/devices/mdv_0123", None),
+    ("POST", "/v1/me/devices", ("*",)),
     ("GET", "/v1/machines/capabilities", ("nodes:read",)),
     ("HEAD", "/v1/machines/capabilities", ("nodes:read",)),
     ("POST", "/v1/machines/enable", ("machines:admin",)),

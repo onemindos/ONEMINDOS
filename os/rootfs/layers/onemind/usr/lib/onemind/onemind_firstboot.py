@@ -35,6 +35,7 @@ import pathlib
 import pwd
 import re
 import secrets
+import shutil
 import socket
 import subprocess
 import sys
@@ -128,6 +129,8 @@ class Paths:
         self.backup_conf = j("data", "onemind", "backup", "agent.json")
         self.rescue_tls = j("data", "onemind", "tls")   # https.crt/https.key for onemind-rescue (CORE-UPDATE-9)
         self.files = j("data", "onemind", "files")      # the gateway's ONEMIND_FILES_ROOT (and Samba's shares)
+        self.k3s_data = j("data", "k3s")                # k3s --data-dir (a leaf removes it, retire_k3s)
+        self.k3s_run = j("run", "k3s")                  # tmpfs: exists only if k3s started on this boot
 
 
 # ------------------------------------------------------------------ settings
@@ -911,8 +914,40 @@ def ensure_files_root(p: Paths) -> None:
         os.chown(p.files, *ids)
 
 
+# What k3s writes under its --data-dir. /data/k3s itself and /data/k3s/storage are made on every box by
+# onemind-data-layout.service and tmpfiles.d/onemind-backup.conf, so they stay.
+K3S_WRITES = ("server", "agent", "data")
+
+
+def retire_k3s(p: Paths) -> None:
+    """An edge (role leaf, #751) never runs a k3s server, yet the image boots one before the box has a role.
+    k3s.service skips itself once the role file says leaf (k3s.service.d/20-onemind-leaf.conf); this stops the
+    one that ran on the boot the role was picked, and on a later boot, when k3s never started (no /run/k3s, a
+    tmpfs), removes what it left on /data: its own server token, certificates and datastore. Never while k3s
+    may still hold the folder. Pods it started keep running until the next restart (KillMode=process).
+    Only a k3s that is already running is stopped: a stop sent while its start job still waits (for
+    network-online.target) would cancel that job, so k3s would never reach its condition and the skip would
+    not show (CRITERIA-EDGE.md EG2 found this)."""
+    try:
+        state = run_cmd(["systemctl", "show", "-p", "ActiveState", "--value", "k3s.service"]).stdout.strip()
+    except OSError:
+        state = "unknown"                  # no systemctl: never remove anything on a guess
+    running = os.path.lexists(p.k3s_run) or state in ("active", "activating", "reloading")
+    if running:
+        systemctl("stop", "--no-block", "k3s.service")
+    left = [os.path.join(p.k3s_data, d) for d in K3S_WRITES if os.path.lexists(os.path.join(p.k3s_data, d))]
+    if running or state not in ("inactive", "failed") or not left:
+        return
+    for d in left:
+        shutil.rmtree(d, ignore_errors=True)
+    msg = "ONEMIND-FIRSTBOOT: edge: removed the k3s state left from before the role was picked"
+    log(msg); console(p, msg)
+
+
 def start_units(p: Paths, st: dict) -> None:
     role = st["role"]
+    if role == "leaf":
+        retire_k3s(p)
     if role == "hub":
         ensure_files_root(p)               # before the gateway: its sandbox needs the folder to exist
         ensure_rescue_tls(p)               # boxes configured before CORE-UPDATE-9 get their pair now
