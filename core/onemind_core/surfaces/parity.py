@@ -159,6 +159,13 @@ HUMAN_ONLY: dict[str, str] = {
     "POST /v1/notifications/{notification_id}/read": PERSON,
     "GET /v1/windows": PERSON,
     "PUT /v1/windows/{window_id}": PERSON,
+    # tips (#669): how-to text for a person at a screen, filtered by role, with that person's seen state;
+    # routers/tips.py answers 403 to any caller that is not a person
+    "GET /v1/tips": PERSON,
+    "GET /v1/tips/collections": PERSON,
+    "GET /v1/tips/whats-new": PERSON,
+    "GET /v1/tips/{tip_id}": PERSON,
+    "POST /v1/tips/{tip_id}/state": PERSON,
     # ---- bytes: files, uploads, streams and repository protocols
     "GET /v1/backups/snapshots/{snapshot_id}/file": BYTES,
     "GET /v1/events": BYTES,
