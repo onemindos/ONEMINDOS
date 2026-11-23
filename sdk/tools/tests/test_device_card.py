@@ -20,6 +20,7 @@ from applib import devicecard  # noqa: E402
 
 EXAMPLES = ROOT / "sdk" / "schema" / "examples" / "device-card"
 FIXTURES = json.loads((ROOT / "sdk" / "schema" / "testdata" / "device-card" / "invalid.json").read_text())
+NEAR_MISSES = json.loads((ROOT / "sdk" / "schema" / "testdata" / "device-card" / "valid.json").read_text())
 
 
 def apply(doc, ops):
@@ -80,6 +81,21 @@ class DeviceCard(unittest.TestCase):
             ["set", "/description", "Is it on? It keeps no token or secret: the gateway holds those."],
         ])
         self.assertEqual(devicecard.validate(json.dumps(card).encode()), [])
+
+    def test_near_misses_stay_valid_in_the_validator_and_the_schema(self):
+        for fx in NEAR_MISSES["fixtures"]:
+            card = apply(json.loads((EXAMPLES / f"{fx['base']}.json").read_text()), fx["ops"])
+            self.assertEqual(devicecard.validate(json.dumps(card).encode()), [], fx["name"])
+            self.assertTrue(devicecard._VALIDATOR.is_valid(card), fx["name"])
+
+    def test_every_url_fixture_is_refused_whatever_the_field(self):
+        # A user part or credential key is refused in any string, not only in a form href.
+        base = json.loads((EXAMPLES / "relay.json").read_text())
+        for fx in FIXTURES["fixtures"]:
+            if fx["rules"] == ["credential-field"] and fx["ops"][0][1] == "/actions/switch/forms":
+                card = apply(base, [["set", "/id", fx["ops"][0][2][0]["href"]]])
+                rules = {p.rule for p in devicecard.validate(json.dumps(card).encode())}
+                self.assertIn("credential-field", rules, fx["name"])
 
     def test_class_to_risk_table_matches_the_action_ledger(self):
         # core/onemind_core/actions.py accepts only these risk classes; hold follows approvalcard.hold_required.

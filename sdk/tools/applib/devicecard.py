@@ -4,9 +4,11 @@
 A card (sdk/schema/onemind.device-card.schema.json) says what a device can do and how risky each
 property and action is. Besides the schema, both validators refuse, with the same rule names:
   credential-field     a key that names a credential (password, secret, token, API key ...) anywhere,
-                       a URL with a user part (user:pass@host, also scheme-relative //user@host), or
-                       a URL whose query or fragment has such a key (?access_token=...): a card never
-                       carries a secret
+                       a URL with a user part (scheme://user:pass@host, //user@host, and the forms a
+                       WHATWG parser also reads as one: https:user@host, https:/user@host, any
+                       scheme:user@host), or a URL whose query or fragment has such a key or a short
+                       one (?access_token=, ?pwd=, ?pass=, ?auth=, ?key=, ?sig=, ?Authorization= ...):
+                       a card never carries a secret
   unitless-number      a number or integer value, a limit or a safe quantity without a unit
   physical-limits      a physical action without limits
   physical-safe-state  a physical action without a safe state
@@ -14,7 +16,9 @@ property and action is. Besides the schema, both validators refuse, with the sam
   hold-required        a class whose risk asks for hold-to-approve (physical, irreversible) without needsHold
   agent-approver       an agent listed as approver: AI never approves
   observe-read-only    class observe (risk read, nothing to approve) on anything that can change the
-                       device: allowed only on a readOnly property, an event or a safe:true action
+                       device: allowed only on a readOnly property, an event or a safe:true action, and
+                       never with a form whose op writes (writeproperty, writemultipleproperties,
+                       writeallproperties); an event never has a write form either
   schema               anything else the JSON Schema refuses
 Problems name the rule and the path, never a value, so no secret reaches a log.
 
@@ -45,13 +49,28 @@ RULES = {
     "physical-owner-only": "a physical action is asked for by a person or agent and approved only by an owner",
     "hold-required": "this class is approved with a hold: needsHold must be true",
     "agent-approver": "an agent never approves",
-    "observe-read-only": "observe is only for a read-only property, an event or a safe action",
+    "observe-read-only": "observe is only for a read-only property, an event or a safe action, never with a form that writes",
     "schema": "the card does not match onemind.device-card.schema.json",
 }
 CREDENTIAL_KEY = re.compile(r"password|passwd|passphrase|secret|token|apikey|privatekey|credential|accesskey")
-# A URL with a user part: scheme://user@host, or scheme-relative //user@host (a backslash counts as a
-# slash, as browsers read it). The same patterns are in the Go twin (sdk/schema/devicecard.go).
-URL_USERINFO = re.compile(r"^[ \t\n\r\f\v]*(?:[A-Za-z][A-Za-z0-9+.-]*:)?[/\\]{2}[^/\\?#]*@")
+# In a URL query or fragment a key is also a credential when it names one in short (exact match, so
+# ?monkey= or ?author= stay harmless) or carries authorization or signature (?X-Amz-Signature=).
+URL_SHORT_KEYS = frozenset({"pwd", "pass", "auth", "authorization", "key", "sig", "signature"})
+URL_CREDENTIAL_KEY = re.compile(r"authorization|signature")
+# A URL with a user part, read the way a WHATWG URL parser reads it (after it drops tab and newline
+# and trims C0 controls and spaces; a backslash counts as a slash):
+#   scheme://user@host or //user@host       (two slashes, any user part)
+#   scheme:user@host, scheme:/user@host ... (any scheme, any number of slashes, a user part without space)
+#   https: user@host                        (a special scheme reads everything up to @ as the user part)
+# Case is ASCII only, spelled out, so the Go twin (sdk/schema/devicecard.go) matches character for character.
+URL_USERINFO = re.compile(
+    r"^(?:(?:[A-Za-z][A-Za-z0-9+.-]*:)?[/\\]{2}[^/\\?#]*@"
+    r"|[A-Za-z][A-Za-z0-9+.-]*:[/\\]*[^/\\?#\x00-\x20]*@"
+    r"|(?:[Hh][Tt][Tt][Pp][Ss]?|[Ww][Ss][Ss]?|[Ff][Tt][Pp]|[Ff][Ii][Ll][Ee]):[/\\]*[^/\\?#]*@)")
+URL_TAB_NEWLINE = re.compile(r"[\t\n\r]")
+URL_TRIM = "".join(chr(c) for c in range(0x21))   # C0 controls and space
+# A form op that writes: writeproperty, writemultipleproperties, writeallproperties (any ASCII case).
+WRITE_OP = re.compile(r"[Ww][Rr][Ii][Tt][Ee]")
 WHITESPACE = re.compile(r"[ \t\n\r\f\v]")
 URL_START = re.compile(r"^(?:[A-Za-z][A-Za-z0-9+.-]*:[/\\]{2}|[/\\?#])")
 _VALIDATOR = Draft202012Validator(SCHEMA)
@@ -77,19 +96,25 @@ def _credential_key(key: str) -> bool:
     return CREDENTIAL_KEY.search(re.sub(r"[-_. ]", "", key.lower())) is not None
 
 
+def _url_credential_key(key: str) -> bool:
+    norm = re.sub(r"[-_. ]", "", key.lower())
+    return norm in URL_SHORT_KEYS or CREDENTIAL_KEY.search(norm) is not None or URL_CREDENTIAL_KEY.search(norm) is not None
+
+
 def _url_credential(text: str) -> bool:
     """A user part, or a query or fragment parameter whose (percent-decoded) key names a credential.
 
-    Text with whitespace inside is prose, not a URL, so a description may say "token" or ask a
-    question, unless it starts like a URL (scheme://, /, ?, #)."""
+    Tab and newline are dropped first, as a URL parser drops them. Text with whitespace inside is
+    prose, not a URL, so a description may say "token" or ask a question, unless it starts like a
+    URL (scheme://, /, ?, #)."""
+    text = URL_TAB_NEWLINE.sub("", text).strip(URL_TRIM)
     if URL_USERINFO.search(text):
         return True
-    text = text.strip(" \t\n\r\f\v")
     if WHITESPACE.search(text) and not URL_START.search(text):
         return False
     for part in re.split(r"[?#]", text)[1:]:
         for pair in re.split(r"[&;]", part):
-            if _credential_key(unquote_plus(pair.split("=", 1)[0])):
+            if _url_credential_key(unquote_plus(pair.split("=", 1)[0])):
                 return True
     return False
 
@@ -147,17 +172,34 @@ def _safety(s, path: str, out: list) -> None:
             out.append((path, "physical-owner-only"))
 
 
+def _write_forms(aff: dict, path: str, out: list) -> None:
+    """Every form whose op (a string or a list) writes."""
+    forms = aff.get("forms")
+    if not isinstance(forms, list):
+        return
+    for i, form in enumerate(forms):
+        op = form.get("op") if isinstance(form, dict) else None
+        ops = [op] if isinstance(op, str) else op if isinstance(op, list) else []
+        if any(isinstance(o, str) and WRITE_OP.search(o) for o in ops):
+            out.append((f"{path}/forms/{i}/op", "observe-read-only"))
+
+
 def _observe(kind: str, aff: dict, path: str, out: list) -> None:
-    """Observe maps to risk read, which skips approval: it may label only what cannot change the device."""
+    """Observe maps to risk read, which skips approval: it may label only what cannot change the device,
+    and nothing labelled so may carry a form that writes. An event is always observe."""
     s = aff.get("om:safety")
+    if kind == "events":
+        _write_forms(aff, path, out)
+        return
     if not isinstance(s, dict) or s.get("class") != "observe":
         return
     if kind == "properties":
         writable = aff.get("readOnly") is not True or aff.get("writeOnly") is True
     else:
-        writable = kind == "actions" and aff.get("safe") is not True
+        writable = aff.get("safe") is not True
     if writable:
         out.append((f"{path}/om:safety/class", "observe-read-only"))
+    _write_forms(aff, path, out)
 
 
 def problems(card: dict) -> list[Problem]:
