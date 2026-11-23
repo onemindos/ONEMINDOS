@@ -37,6 +37,7 @@ import {
   type LifecycleType,
   type LoginResult,
   type MeshView,
+  type StatusView,
   type MonitoringSummary,
   type MyDeviceRemoved,
   type MyDevices,
@@ -114,6 +115,8 @@ export const OP = {
   nodeMetrics: 'GET /v1/nodes/{}/metrics',
   appMetrics: 'GET /v1/apps/{}/metrics',
   mesh: 'GET /v1/mesh',
+  /** Health of every source at a glance. */
+  status: 'GET /v1/status',
   /** UNVERIFIED name: the hub has no restart / shut down / troubleshoot route yet, so System controls stays hidden. */
   systemPlan: 'GET /v1/system/plan',
   myDevices: 'GET /v1/me/devices',
@@ -281,6 +284,7 @@ export interface OneMindApi {
   nodeMetrics(nodeId: string, window?: string): Promise<NodeMetrics>;
   appMetrics(appId: string): Promise<AppMetrics>;
   mesh(): Promise<MeshView>;
+  status(): Promise<StatusView>;
   systemPlan(type: SystemControlType): Promise<SystemPlanPreview>;
   // #715 My devices: the caller's own devices; removing one revokes everything it holds (a fresh passkey once passkeys are on).
   myDevices(): Promise<MyDevices>;
@@ -762,6 +766,9 @@ export class HttpApi implements OneMindApi {
   }
   mesh() {
     return this.req<MeshView>('GET', '/v1/mesh');
+  }
+  status() {
+    return this.req<StatusView>('GET', '/v1/status');
   }
   systemPlan(type: SystemControlType) {
     return this.req<SystemPlanPreview>('GET', `/v1/system/plan?type=${enc(type)}`);
