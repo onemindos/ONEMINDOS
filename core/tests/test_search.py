@@ -52,7 +52,10 @@ def test_files_and_settings_providers_return_hits_with_deep_links(fc):
     [page] = search(fc, OWNER, "storage quotas")["hits"]
     assert (page["provider"], page["app_id"], page["type"], page["id"]) == ("settings", "files", "page", "files.quotas")
     assert page["link"] == "onemind://app/settings/files/quotas" and page["subtitle"] == "Files settings"
-    assert {h["id"] for h in search(fc, OWNER, "notification")["hits"]} == {"notifications.preferences", "notifications.channels"}
+    notes = {h["id"] for h in search(fc, OWNER, "notification")["hits"]}
+    assert {"notifications.preferences", "notifications.channels"} <= notes  # every page the descriptor declares
+    declared = {f"notifications.{pg['id']}" for pg in fc.app.state.builtins.descriptors["notifications"].spec["settingsPages"]}
+    assert notes == declared
 
 
 def test_index_follows_renames_and_trash(fc):
