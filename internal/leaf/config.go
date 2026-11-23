@@ -42,7 +42,8 @@ type Config struct {
 	Listen     string // loopback only (H-24); default 127.0.0.1:4222
 	Monitor    string // loopback only; default 127.0.0.1:8222, used by Health
 	StoreDir   string
-	// MaxFileStore caps the outbox on disk (W8-R2); default 256MB.
+	// MaxFileStore caps the outbox on disk (W8-R2); default 256MB. The memory
+	// store is always capped at 0 (max_memory_store: 0, see CheckConf).
 	MaxFileStore string
 	// HubURLs are the hub leaf listeners over the mesh, e.g.
 	// tls://100.64.0.1:7422 (example address). Only tls:// is accepted.
@@ -179,7 +180,7 @@ func (c *Config) Render(confPath string) ([]byte, error) {
 	fmt.Fprintf(&b, "server_name: %q\n", d.ServerName)
 	fmt.Fprintf(&b, "listen: %q\n", d.Listen)
 	fmt.Fprintf(&b, "http: %q\n", d.Monitor)
-	fmt.Fprintf(&b, "jetstream {\n  store_dir: %q\n  domain: %q\n  max_file_store: %s\n}\n", d.StoreDir, d.Domain, d.MaxFileStore)
+	fmt.Fprintf(&b, "jetstream {\n  store_dir: %q\n  domain: %q\n  max_file_store: %s\n  max_memory_store: 0\n}\n", d.StoreDir, d.Domain, d.MaxFileStore)
 	b.WriteString("leafnodes {\n  remotes: [\n    {\n")
 	quoted := make([]string, len(d.HubURLs))
 	for i, u := range d.HubURLs {
@@ -201,5 +202,60 @@ func (c *Config) Render(confPath string) ([]byte, error) {
 		fmt.Fprintf(&b, "        cert_file: %q\n        key_file: %q\n", d.CertFile, d.KeyFile)
 	}
 	b.WriteString("        timeout: 5\n      }\n    }\n  ]\n}\n")
+	if err := CheckConf(b.Bytes()); err != nil {
+		return nil, err
+	}
 	return b.Bytes(), nil
+}
+
+// jsBlockRe finds a `jetstream { ... }` block (newline- or comma-separated
+// items, as nats-server accepts both).
+var jsBlockRe = regexp.MustCompile(`(?m)^\s*jetstream\s*[:=]?\s*\{([^}]*)\}`)
+
+// fileStoreRe is a JetStream size above zero: bytes, or a number with a unit.
+var fileStoreRe = regexp.MustCompile(`(?i)^0*[1-9][0-9]{0,12}(B|KB|MB|GB|TB|K|M|G|T)?$`)
+
+// jsItemRe is one `key: value` (or `key = value`, or `key value`) item.
+var jsItemRe = regexp.MustCompile(`^([A-Za-z_]+)\s*[:=]?\s*"?([^"]*?)"?$`)
+
+// CheckConf refuses a leaf.conf whose JetStream is not capped: it must have
+// exactly one jetstream block with a max_file_store size and
+// max_memory_store: 0. Without the memory cap nats-server lets memory streams
+// take up to 75% of the machine's RAM, and a restart loses whatever they held
+// (NATS sizing docs; #601). Render runs it on every config it produces; tests
+// run it on hand-written lab configs.
+func CheckConf(conf []byte) error {
+	blocks := jsBlockRe.FindAllSubmatch(conf, -1)
+	if len(blocks) != 1 {
+		return fmt.Errorf("leaf.conf must have exactly one jetstream { } block with max_file_store and max_memory_store: 0, found %d", len(blocks))
+	}
+	items := map[string]string{}
+	for _, line := range strings.FieldsFunc(string(blocks[0][1]), func(r rune) bool { return r == '\n' || r == ',' }) {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") || strings.HasPrefix(line, "//") {
+			continue
+		}
+		if m := jsItemRe.FindStringSubmatch(line); m != nil {
+			items[strings.ToLower(m[1])] = strings.TrimSpace(m[2])
+		}
+	}
+	for _, alias := range []string{"max_mem_store", "max_mem", "max_file"} {
+		if _, ok := items[alias]; ok {
+			return fmt.Errorf("leaf.conf jetstream uses %s: write max_memory_store and max_file_store, so one value cannot hide another", alias)
+		}
+	}
+	switch v, ok := items["max_memory_store"]; {
+	case !ok:
+		return errors.New("leaf.conf jetstream block has no max_memory_store: it must be 0 (file store only)")
+	case v != "0" && !strings.EqualFold(v, "0B"):
+		return fmt.Errorf("leaf.conf jetstream max_memory_store must be 0 (file store only), got %q", v)
+	}
+	v, ok := items["max_file_store"]
+	if !ok {
+		return errors.New("leaf.conf jetstream block has no max_file_store: the outbox must be capped on disk")
+	}
+	if !fileStoreRe.MatchString(v) {
+		return fmt.Errorf("leaf.conf jetstream max_file_store must be a size above 0 such as 256MB, got %q", v)
+	}
+	return nil
 }

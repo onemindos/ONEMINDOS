@@ -43,6 +43,7 @@ core/tests/security/test_injection_traversal.py	(10\.0\.0\.1|192\.168\.1\.1|172\
 core/tests/security/test_injection_traversal.py	127\.0\.0\.1@evil\.example	B-FP-7
 research-output/evidence/lab/net-p2/*	(100\.64\.[0-9]+\.[0-9]+|10\.4[23]\.[0-9]+\.[0-9]+)	B-FP-9
 cmd/onemind/cli/mesh*	100\.64\.[0-9]+\.[0-9]+	B-FP-9
+cmd/onemind/cli/device_join*	100\.64\.[0-9]+\.[0-9]+	B-FP-9
 core/onemind_core/netconf.py	100\.64\.0\.0	B-FP-9
 deploy/install.sh	100\.64\.0\.0	B-FP-9
 internal/fabric/*	100\.64\.[0-9]+\.[0-9]+	B-FP-9
