@@ -29064,7 +29064,7 @@
     },
     "/v1/sync/chunks/missing": {
       "post": {
-        "description": "Ask before sending, and again after an interruption: only the missing chunks need sending.",
+        "description": "Ask before sending, and again after an interruption: only the missing chunks need sending. Needs write access to the whole root (an agent: a read-write grant on \"/\"). Chunks named here stay on the hub for a day even if no version uses them yet.",
         "operationId": "sync.chunks.missing",
         "requestBody": {
           "content": {
