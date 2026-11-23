@@ -1,0 +1,62 @@
+{
+  "$comment": "SPDX-License-Identifier: Apache-2.0. The shape of frames.json and guard.json (issue #855).",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/onemindos/ONEMINDOS/sdk/contracts/meshcore/vectors.schema.json",
+  "title": "MeshCore shared test vectors",
+  "oneOf": [{"$ref": "#/$defs/frames"}, {"$ref": "#/$defs/guard"}],
+  "$defs": {
+    "opcode": {"type": "object", "additionalProperties": false, "required": ["code", "name"],
+      "properties": {"code": {"type": "integer", "minimum": 0, "maximum": 255}, "name": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]*$"}, "only": {"type": "string"}}},
+    "hex": {"type": "string", "pattern": "^([0-9a-f]{2})+$"},
+    "frames": {"type": "object", "additionalProperties": false, "required": ["schema", "description", "protocol", "allowlist", "deny", "frames"],
+      "properties": {
+        "schema": {"const": "onemind.meshcore.frames/v1"},
+        "description": {"type": "string"},
+        "protocol": {"type": "object"},
+        "allowlist": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/opcode"}},
+        "deny": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/opcode"}},
+        "frames": {"type": "array", "minItems": 1, "items": {"type": "object", "additionalProperties": false,
+          "required": ["id", "dir", "name", "hex", "decoded", "source"],
+          "properties": {
+            "id": {"type": "string", "pattern": "^[a-z0-9_]+$"},
+            "dir": {"enum": ["to_radio", "from_radio"]},
+            "name": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]*$"},
+            "hex": {"$ref": "#/$defs/hex", "maxLength": 352},
+            "serial_hex": {"$ref": "#/$defs/hex"},
+            "decoded": {"type": "object"},
+            "source": {"type": "string", "minLength": 1}
+          }}}
+      }},
+    "guard": {"type": "object", "additionalProperties": false, "required": ["schema", "description", "reasons", "limits", "grants", "airtime", "cases"],
+      "properties": {
+        "schema": {"const": "onemind.meshcore.guard/v1"},
+        "description": {"type": "string"},
+        "reasons": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z_]+$"}},
+        "limits": {"type": "object"},
+        "grants": {"type": "array", "minItems": 1, "items": {"type": "object", "additionalProperties": false, "required": ["model", "max_dbm", "fcc_id", "source"],
+          "properties": {"model": {"type": "string"}, "max_dbm": {"type": "integer", "maximum": 30}, "fcc_id": {"type": "string"}, "source": {"type": "string", "minLength": 1}}}},
+        "airtime": {"type": "object"},
+        "cases": {"type": "array", "minItems": 1, "items": {"type": "object", "additionalProperties": false,
+          "required": ["id", "why", "radio", "region_confirmed", "public_send_enabled", "send", "used", "expect"],
+          "properties": {
+            "id": {"type": "string", "pattern": "^[a-z0-9_]+$"},
+            "why": {"type": "string", "minLength": 1},
+            "radio": {"type": "object", "additionalProperties": false,
+              "required": ["model", "freq_mhz", "bw_khz", "sf", "cr", "tx_power_dbm", "name", "status_age_s"],
+              "properties": {"model": {"type": "string"}, "freq_mhz": {"type": "number"}, "bw_khz": {"type": "number"},
+                             "sf": {"type": "integer", "minimum": 5, "maximum": 12}, "cr": {"type": "integer", "minimum": 5, "maximum": 8},
+                             "tx_power_dbm": {"type": "integer"}, "name": {"type": "string"}, "status_age_s": {"type": "integer", "minimum": 0}}},
+            "region_confirmed": {"type": "boolean"},
+            "public_send_enabled": {"type": "boolean"},
+            "send": {"type": "object", "additionalProperties": false, "required": ["kind", "attempts"],
+              "properties": {"kind": {"enum": ["direct", "channel", "advert"]}, "text": {"type": "string"},
+                             "channel_public": {"type": "boolean"}, "attempts": {"type": "integer"}}},
+            "used": {"type": "object", "additionalProperties": false, "required": ["airtime_ms", "sends"],
+              "properties": {"airtime_ms": {"type": "integer", "minimum": 0}, "sends": {"type": "integer", "minimum": 0}}},
+            "expect": {"type": "object", "additionalProperties": false, "required": ["ok", "reason"],
+              "properties": {"ok": {"type": "boolean"}, "reason": {"type": ["string", "null"]}, "bytes": {"type": "integer"}, "max_bytes": {"type": "integer"},
+                             "packet_bytes": {"type": "integer"}, "airtime_ms": {"type": "integer"}, "total_airtime_ms": {"type": "integer"}}}
+          }}}
+      }}
+  }
+}

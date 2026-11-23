@@ -1,0 +1,28 @@
+{
+  "$comment": "SPDX-License-Identifier: Apache-2.0. Written from scratch for OneMind (issue #855).",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/onemindos/ONEMINDOS/sdk/schema/onemind.radio.status.schema.json",
+  "title": "OneMind radio status (onemind.radio.status/v1)",
+  "description": "What a LoRa radio reports about itself, in physical units, never vendor preset or region tables. Built by onemindd from MeshCore SELF_INFO (0x05), DEVICE_INFO (0x0D) and BATTERY (0x0C) and returned by the signed lora.status job; served by GET /v1/radios (#854). OneMind only reads these values in 1.0: it never writes frequency, bandwidth, spreading factor, coding rate or power.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "radio_id", "transport", "model", "firmware", "freq_mhz", "bw_khz", "sf", "cr", "tx_power_dbm",
+               "max_tx_power_dbm", "battery_mv", "name", "public_key", "read_at"],
+  "properties": {
+    "schema": {"const": "onemind.radio.status/v1"},
+    "radio_id": {"type": "string", "pattern": "^rad_[A-Za-z0-9]{8,64}$"},
+    "transport": {"enum": ["lora-mc"]},
+    "model": {"type": "string", "minLength": 1, "maxLength": 40, "description": "DEVICE_INFO model (the board's manufacturer name), matched against the guard's grant table"},
+    "firmware": {"type": "string", "minLength": 1, "maxLength": 20},
+    "freq_mhz": {"type": "number", "exclusiveMinimum": 100, "maximum": 3000},
+    "bw_khz": {"type": "number", "exclusiveMinimum": 0, "maximum": 1625},
+    "sf": {"type": "integer", "minimum": 5, "maximum": 12},
+    "cr": {"type": "integer", "minimum": 5, "maximum": 8, "description": "Coding rate denominator: 5 means 4/5"},
+    "tx_power_dbm": {"type": "integer", "minimum": -9, "maximum": 30},
+    "max_tx_power_dbm": {"type": "integer", "minimum": -9, "maximum": 30, "description": "What the firmware build allows, not what the law or the FCC grant allows"},
+    "battery_mv": {"type": ["integer", "null"], "minimum": 0, "maximum": 65535},
+    "name": {"type": "string", "maxLength": 32},
+    "public_key": {"type": "string", "minLength": 1, "maxLength": 128, "description": "An opaque id of the radio's identity; clients never parse it"},
+    "read_at": {"type": "string", "format": "date-time", "description": "When SELF_INFO was read; the guard refuses a send on a stale reading"}
+  }
+}
