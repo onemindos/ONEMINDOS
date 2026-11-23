@@ -124,6 +124,11 @@ func storageCmd(args []string, out io.Writer) error {
 		for _, p := range m.Profiles {
 			fmt.Fprintf(out, "  %-9s %-8s %s used of %s\n", p.Kind, p.Profile, human(p.UsedBytes), human(p.TotalBytes))
 		}
+		if m.AvailableBytes != nil {
+			fmt.Fprintf(out, "  free      %s (measured by btrfs, after mirroring)\n", human(*m.AvailableBytes))
+		} else if m.State != storage.StateUnavailable {
+			fmt.Fprintln(out, "  free      unknown")
+		}
 		for _, mem := range m.Members {
 			path := mem.Path
 			if mem.Missing {

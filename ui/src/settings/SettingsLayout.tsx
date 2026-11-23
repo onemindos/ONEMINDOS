@@ -9,7 +9,7 @@ import type { Tone } from '../tokens/tokens';
 import { matchSection } from './logic';
 import { SetIcon, type SetIconName } from './primitives';
 
-export type SettingsSectionId = 'appearance' | 'account' | 'users' | 'devices' | 'network' | 'backups' | 'updates' | 'notifications' | 'automation' | 'agents' | 'storage' | 'about';
+export type SettingsSectionId = 'appearance' | 'account' | 'users' | 'devices' | 'network' | 'backups' | 'updates' | 'notifications' | 'automation' | 'agents' | 'storage' | 'apps' | 'about';
 
 export interface SettingsSectionMeta {
   id: SettingsSectionId;
@@ -32,6 +32,7 @@ export const SETTINGS_SECTIONS: SettingsSectionMeta[] = [
   { id: 'updates', label: 'Updates', icon: 'updates', group: 'Keeping it healthy', keywords: ['os', 'version', 'channel', 'rollback', 'release notes', 'slot'] },
   { id: 'notifications', label: 'Notifications', icon: 'bell', group: 'Keeping it healthy', keywords: ['push', 'email', 'quiet hours', 'alerts', 'matrix', 'telegram'] },
   { id: 'automation', label: 'Automation', icon: 'flow', group: 'Keeping it healthy', keywords: ['rules', 'schedule', 'webhook', 'standing approval'] },
+  { id: 'apps', label: 'Apps', icon: 'apps', group: 'Apps', keywords: ['built in', 'built-in', 'system apps', 'switch off', 'disable', 'licence', 'license', 'update channel'] },
   { id: 'about', label: 'About & diagnostics', icon: 'info', group: 'About', keywords: ['version', 'logs', 'diagnostic bundle', 'rescue', 'support'] },
 ];
 
