@@ -24,6 +24,11 @@ def read(*p):
         return f.read()
 
 
+def slurp(path):
+    with open(path) as f:
+        return f.read()
+
+
 def unit(name):
     with open(os.path.join(UNITS, name)) as f:
         return f.read()
@@ -111,12 +116,12 @@ class Render(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             conf = os.path.join(d, "ups")
             self.assertEqual(ups.setup(conf, scan=lambda: SCANNER, gid=None), 0)
-            first = open(os.path.join(conf, "upsmon.conf")).read()
+            first = slurp(os.path.join(conf, "upsmon.conf"))
             for name in ups.FILES:
                 self.assertEqual(os.stat(os.path.join(conf, name)).st_mode & 0o777, 0o640, name)
             self.assertEqual(os.stat(conf).st_mode & 0o777, 0o750)
             self.assertEqual(ups.setup(conf, scan=lambda: "", gid=None), 0)    # already set up: no new scan, same file
-            self.assertEqual(open(os.path.join(conf, "upsmon.conf")).read(), first)
+            self.assertEqual(slurp(os.path.join(conf, "upsmon.conf")), first)
             pw = re.search(r"upsmon-onemind (\S+) primary", first).group(1)
             self.assertGreaterEqual(len(pw), 32)
 
@@ -133,7 +138,7 @@ class Shutdown(unittest.TestCase):
                                            "/var/lib/kubelet/pods/p1/volumes/x", "/run/k3s/containerd"])
 
         def kill(sig, pids):
-            r.calls.append(["kill", sig, *pids])
+            r.calls.append(["kill", "-" + sig, *pids])
             fs.killed.append(sig)
         ups.shutdown(runner=r, fs=fs, kill=kill, sleep=lambda s: None)
         return r.joined()
@@ -168,7 +173,7 @@ class Shutdown(unittest.TestCase):
             out = subprocess.run([sys.executable, "-I", SCRIPT, "shutdown", "--dry-run", "--log", log],
                                  capture_output=True, text=True, timeout=30)
             self.assertEqual(out.returncode, 0, out.stderr)
-            steps = [line.split(":", 1)[0] for line in open(log).read().splitlines()]
+            steps = [line.split(":", 1)[0] for line in slurp(log).splitlines()]
             self.assertEqual(sorted(set(steps), key=steps.index), ["apps", "k3s", "data", "poweroff"])
 
 
@@ -191,22 +196,24 @@ class Image(unittest.TestCase):
         self.assertIn("ExecCondition=+/usr/lib/onemind/onemind-ups setup", u)
         self.assertIn("Environment=NUT_CONFPATH=/data/onemind/ups", u)
         self.assertIn("User=nut", u)
-        self.assertIn("ExecStart=/usr/sbin/upsd -F", u)
+        self.assertIn("ExecStart=/usr/lib/nut/upsd -F", u)   # /usr/sbin/upsd is a wrapper that reads /etc/nut
 
     def test_the_monitor_follows_the_server(self):
         u = unit("onemind-ups-monitor.service")
         self.assertIn("BindsTo=onemind-ups.service", u)
-        self.assertIn("ExecStart=/usr/sbin/upsmon -F", u)
+        self.assertIn("ExecStart=/usr/lib/nut/upsmon -F", u)
 
     def test_the_shutdown_unit_never_needs_data(self):
         # Stopping data.mount stops every unit that needs /data: the shutdown must not be one of them.
-        u = unit("onemind-ups-shutdown.service")
+        u = "\n".join(line for line in unit("onemind-ups-shutdown.service").splitlines() if not line.startswith("#"))
         self.assertNotIn("RequiresMountsFor", u)
         self.assertNotIn("[Install]", u)                                   # only upsmon starts it
         self.assertIn("ExecStart=/usr/lib/onemind/onemind-ups shutdown", u)
 
 
-NUT = {"upsd": "/usr/sbin/upsd", "upsmon": "/usr/sbin/upsmon", "dummy": "/usr/lib/nut/dummy-ups"}
+# The real programs, as the units call them (Debian's /usr/sbin/upsd and upsmon are wrappers that read /etc/nut).
+NUT = {"upsd": "/usr/lib/nut/upsd", "upsmon": "/usr/lib/nut/upsmon", "dummy": "/usr/lib/nut/dummy-ups",
+       "upsdrvctl": "/usr/sbin/upsdrvctl"}
 HAVE_NUT = all(os.access(p, os.X_OK) for p in NUT.values())
 
 
@@ -233,10 +240,15 @@ class DummyUpsEndToEnd(unittest.TestCase):
                     f.write(text)
                 os.chmod(path, 0o600)
             env = dict(os.environ, NUT_CONFPATH=d, NUT_STATEPATH=d, NUT_ALTPIDPATH=d)
-            procs, out = [], open(os.path.join(d, "nut.out"), "w")
+            procs, logs = [], {}
             try:
-                for argv in ([NUT["dummy"], "-a", "onemind", "-D"], [NUT["upsd"], "-D"], [NUT["upsmon"], "-D"]):
-                    procs.append(subprocess.Popen(argv, env=env, stdout=out, stderr=subprocess.STDOUT))
+                # As the units start it: upsdrvctl puts the driver in the background, then upsd and upsmon run with -F.
+                logs["upsdrvctl"] = open(os.path.join(d, "upsdrvctl.out"), "w")
+                subprocess.run([NUT["upsdrvctl"], "start"], env=env, stdout=logs["upsdrvctl"], stderr=subprocess.STDOUT,
+                               timeout=60, check=True)
+                for name, argv in (("upsd", [NUT["upsd"], "-F", "-D"]), ("upsmon", [NUT["upsmon"], "-F", "-D"])):
+                    logs[name] = open(os.path.join(d, name + ".out"), "w")
+                    procs.append(subprocess.Popen(argv, env=env, stdout=logs[name], stderr=subprocess.STDOUT))
                     time.sleep(2)
                 time.sleep(3)
                 self.assertFalse(os.path.exists(log), "shut down while the UPS was on mains")
@@ -244,7 +256,7 @@ class DummyUpsEndToEnd(unittest.TestCase):
                     f.write("ups.status: OB LB\nbattery.charge: 5\n")
                 os.utime(dev, (time.time() + 5, time.time() + 5))         # dummy-ups re-reads a file whose mtime moved
                 deadline = time.time() + 60
-                while time.time() < deadline and not (os.path.exists(log) and "poweroff:" in open(log).read()):
+                while time.time() < deadline and not (os.path.exists(log) and "poweroff:" in slurp(log)):
                     time.sleep(1)
             finally:
                 for p in reversed(procs):
@@ -253,9 +265,15 @@ class DummyUpsEndToEnd(unittest.TestCase):
                         p.wait(10)
                     except subprocess.TimeoutExpired:
                         p.kill()
-                out.close()
-            self.assertTrue(os.path.exists(log), "upsmon never ran the shutdown:\n" + open(os.path.join(d, "nut.out")).read()[-3000:])
-            steps = [line.split(":", 1)[0] for line in open(log).read().splitlines()]
+                subprocess.run([NUT["upsdrvctl"], "stop"], env=env, capture_output=True, timeout=30)
+                for f in logs.values():
+                    f.close()
+
+            def tail(name):
+                with open(os.path.join(d, name + ".out")) as f:
+                    return f"--- {name}\n" + f.read()[-2000:]
+            self.assertTrue(os.path.exists(log), "upsmon never ran the shutdown:\n" + tail("upsdrvctl") + tail("upsd") + tail("upsmon"))
+            steps = [line.split(":", 1)[0] for line in slurp(log).splitlines()]
             self.assertEqual(sorted(set(steps), key=steps.index), ["apps", "k3s", "data", "poweroff"])
 
 

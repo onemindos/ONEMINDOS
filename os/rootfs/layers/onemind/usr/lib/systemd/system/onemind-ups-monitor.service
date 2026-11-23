@@ -13,7 +13,7 @@ ConditionPathExists=/data/onemind/ups/upsmon.conf
 [Service]
 Type=simple
 Environment=NUT_CONFPATH=/data/onemind/ups NUT_STATEPATH=/run/onemind-ups NUT_ALTPIDPATH=/run/onemind-ups-monitor
-ExecStart=/usr/sbin/upsmon -F
+ExecStart=/usr/lib/nut/upsmon -F
 Restart=on-failure
 RestartSec=10s
 RuntimeDirectory=onemind-ups-monitor
