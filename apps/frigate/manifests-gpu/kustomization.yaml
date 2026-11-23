@@ -1,0 +1,67 @@
+# SPDX-License-Identifier: Apache-2.0
+# S-5: the same Frigate, with an NVIDIA card for video decoding. Rendered instead of manifests/ when the gateway
+# sees a box with a big enough accelerator (spec.requires.accelerator.overlay; core/onemind_core/gpufit.py). The
+# image does not change, so nothing unscanned runs: the standard image already declares the NVIDIA runtime
+# variables (NVIDIA_VISIBLE_DEVICES, NVIDIA_DRIVER_CAPABILITIES=compute,video,utility in docker/main/Dockerfile).
+# It adds the "nvidia" RuntimeClass and one GPU (both from the OneMind OS GPU image, os/rootfs/gpu/README.md) and
+# seeds ffmpeg's preset-nvidia decoder (configuration/hardware_acceleration_video.md, "NVIDIA GPUs").
+# Object detection stays on the CPU: upstream's GPU detector ships in a separate image this app does not use.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- ../manifests
+patches:
+- target:
+    kind: Deployment
+    name: frigate
+  patch: |-
+    - op: add
+      path: /spec/template/spec/runtimeClassName
+      value: nvidia
+    - op: add
+      path: /spec/template/spec/containers/0/resources/limits/nvidia.com~1gpu
+      value: 1
+- target:
+    kind: ConfigMap
+    name: frigate-seed
+  patch: |-
+    - op: replace
+      path: /data/config.yml
+      value: |
+        mqtt:
+          enabled: false
+        tls:
+          enabled: false
+        telemetry:
+          version_check: false
+        ffmpeg:
+          hwaccel_args: preset-nvidia
+        detectors:
+          ov:
+            type: openvino
+            device: CPU
+        model:
+          width: 300
+          height: 300
+          input_tensor: nhwc
+          input_pixel_format: bgr
+          path: /openvino-model/ssdlite_mobilenet_v2.xml
+          labelmap_path: /openvino-model/coco_91cl_bkgr.txt
+        record:
+          enabled: true
+          continuous:
+            days: 0
+          motion:
+            days: 7
+          alerts:
+            retain:
+              days: 14
+          detections:
+            retain:
+              days: 14
+        snapshots:
+          enabled: true
+          retain:
+            default: 14
+        cameras: {}
+        version: 0.18-0

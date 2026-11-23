@@ -11,6 +11,7 @@
 #   make firstboot BOARD=x86_64-efi [FUPTO=F4]          -> out/firstboot-<board>/ (F0-F4, CRITERIA-FIRSTBOOT.md)
 #   make secureboot-test                                -> out/secureboot-x86_64-efi/ (SB1-SB4, CRITERIA-SECUREBOOT.md)
 #   make bootlock  BOARD=x86_64-efi                     -> out/bootlock-<board>/ (B1-B6, CRITERIA-BOOTLOCK.md)
+#   make edge      BOARD=x86_64-efi                     -> out/edge-<board>/ (EG1-EG7, CRITERIA-EDGE.md; fixtures with EDGE=1)
 #   make convert BOARD=vm                               -> qcow2 / vhdx / vmdk / vdi / ova next to the image
 #   make jetson-layer [VERSION=...]                     -> out/onemind-layer-jetson-orin-<version>.tar.gz
 #   make hygiene | hygiene-selftest | lint | test | kit LT=LT-X86-01
@@ -20,6 +21,7 @@ LEG        ?= debian
 UPTO       ?= T5
 HW         ?= 0
 DATA_FS    ?=
+EDGE       ?= 0
 FUPTO      ?= F4
 VERSION    ?= 0.1.0-dev
 OUT        ?= out
@@ -58,7 +60,7 @@ image: tools
 
 fixtures: tools
 	@test -f $(ROOTFS) || $(MAKE) rootfs BOARD=$(BOARD) LEG=$(LEG)
-	$(DOCKER_RUN) -e HW=$(HW) -e DATA_FS=$(DATA_FS) $(TOOLS) /src/test/qemu/mkfixtures.sh $(BOARD) /out/$(notdir $(ROOTFS)) /out/fx-$(BOARD) $(UPTO)
+	$(DOCKER_RUN) -e HW=$(HW) -e DATA_FS=$(DATA_FS) -e EDGE=$(EDGE) $(TOOLS) /src/test/qemu/mkfixtures.sh $(BOARD) /out/$(notdir $(ROOTFS)) /out/fx-$(BOARD) $(UPTO)
 
 battery:
 	@test -f $(OUT)/fx-$(BOARD)/disk.img || $(MAKE) fixtures BOARD=$(BOARD) UPTO=$(UPTO)
@@ -109,6 +111,18 @@ bootlock:
 	  --log /out/bootlock-$(BOARD)/serial.log --results /out/bootlock-$(BOARD)/results.json; \
 	  rc=$$?; rm -f $(OUT)/bootlock-$(BOARD)/work/disk.img; exit $$rc
 
+
+# Edge profile (test/qemu/edge.py, CRITERIA-EDGE.md, #751): first boot as an edge (role leaf), no hub services,
+# the gate's leaf check, a good and a bad update. Needs fixtures made with EDGE=1 (the bad-leaf bundle), fresh:
+# `make battery` boots the fixture disk itself and leaves it updated, so run `edge` first or remake the fixtures.
+.PHONY: edge
+edge:
+	@test -f $(OUT)/fx-$(BOARD)/disk.img || $(MAKE) fixtures BOARD=$(BOARD) EDGE=1
+	mkdir -p $(OUT)/edge-$(BOARD)
+	$(DOCKER_RUN) $(KVM) $(TOOLS) python3 -I /src/test/qemu/edge.py --board $(BOARD) \
+	  --fixtures /out/fx-$(BOARD) --work /out/edge-$(BOARD)/work \
+	  --log /out/edge-$(BOARD)/serial.log --results /out/edge-$(BOARD)/results.json; \
+	  rc=$$?; rm -f $(OUT)/edge-$(BOARD)/work/disk.img; exit $$rc
 
 # Memory pressure (test/qemu/memorypressure.py, CRITERIA-MEMORY.md): a 6 GiB hog on an 8 GiB hub VM; the gateway
 # /healthz must stay up. Copies the fixture disk like `firstboot`; needs KVM and 8 GiB free for the VM.

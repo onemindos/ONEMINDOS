@@ -183,7 +183,7 @@ COPY os/rootfs/fetch-k3s.sh /tmp/onemind/fetch-k3s.sh
 RUN /tmp/onemind/fetch-k3s.sh "${TARGETARCH}" /
 
 # Gate, handler and the base layer's config files, then the board's own files.
-COPY --chmod=755 os/gate/onemind-health-gate os/gate/onemind-k3s-check os/gate/onemind-local-api-respond \
+COPY --chmod=755 os/gate/onemind-health-gate os/gate/onemind-k3s-check os/gate/onemind-leaf-check os/gate/onemind-local-api-respond \
      os/rauc/handlers/rauc-pre-install /usr/lib/onemind/
 COPY os/gate/onemind-health-gate.service os/gate/onemind-local-api.service /usr/lib/systemd/system/
 # Recovery mode when the data partition cannot be used (os/recovery/README.md).
