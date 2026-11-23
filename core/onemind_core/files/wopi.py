@@ -13,8 +13,9 @@ Who may get a token, and what it reaches:
   never writes a document behind a person's back.
 - A token names one person, one file (root + path) and the session it was minted from. It expires
   after TOKEN_TTL (minutes). Every call re-checks that the session is still live, the person is still
-  enabled, and the Files role table (access.py) still lets them read, or write, that path. Signing out
-  or losing the role ends the token at once.
+  enabled, their role still holds the scope of /v1/files/* (today "*", the owner), and the Files role
+  table (access.py) still lets them read, or write, that path. Signing out or losing the role ends the
+  token at once.
 - Paths go through the same rules as the Files API (paths.py): no `..`, no symlink is ever followed.
 - Every token issue, open (GetFile), lock change and save is audited through the Files event stream.
 
@@ -30,6 +31,7 @@ import hashlib
 import os
 import secrets
 import stat as stat_mod
+from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
@@ -37,6 +39,7 @@ from sqlalchemy import BigInteger, Boolean, DateTime, String, delete, select
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ..auth import Principal
+from ..identity.scopes import has_any, required_scopes, role_scopes
 from ..ledger import Base, iso, utc
 from ..store import FeatureSchema, SqlRepository
 from . import paths
@@ -51,6 +54,7 @@ LOCK_TTL = timedelta(minutes=30)      # WOPI: a lock lasts 30 minutes unless ref
 MAX_LOCK_LEN = 1024                   # WOPI: lock ids are at most 1024 ASCII characters
 TOKEN_PREFIX = "om_wopi_"
 READ_CHUNK = 1024 * 1024
+TOKEN_ROUTE = "/v1/files/wopi/tokens"
 
 
 class WopiTokenRow(Base):
@@ -83,6 +87,16 @@ class WopiLockRow(Base):
 def file_id_for(root: str, path: str) -> str:
     """A stable opaque id for (root, path): every token for one file shares its lock."""
     return "wf_" + hashlib.sha256(f"{root}\x00{path}".encode()).hexdigest()[:40]
+
+
+def role_may_edit(role: str) -> bool:
+    """Whether a person's role holds the scope the token route asks for (routers/wopi.py, like /v1/files/*).
+
+    The gateway checks it when a token is minted; resolve() checks it again on every WOPI call, so a
+    person whose role is lowered loses every open token at once.
+    """
+    need = required_scopes("POST", TOKEN_ROUTE)
+    return need is None or has_any(role_scopes(role), need)
 
 
 def _hash(token: str) -> str:
@@ -154,6 +168,8 @@ class WopiHost:
         if not session_id:
             raise self.files._deny(p, "files wopi token", "open documents from a signed-in session, not with an API token",
                                    "not_a_session")
+        if not role_may_edit(p.role):
+            raise self.files._deny(p, "files wopi token", "this role does not open Files documents", "role_scope")
         t = self.files.target(p, root, path, "read")
         if not t.parts:
             raise conflict("a space is a folder, not a file", "not_a_file")
@@ -183,6 +199,8 @@ class WopiHost:
         p = self._live_person(row, now)
         if p is None:
             raise unauthenticated("the sign-in session behind this WOPI token has ended")
+        if not role_may_edit(p.role):
+            raise unauthenticated("this person's role no longer opens Files documents")
         try:
             t = self.files.target(p, row.root, row.path, "read")
         except FilesError:
@@ -217,20 +235,26 @@ class WopiHost:
                 FilesError(403, "permission_denied", "the path is a symbolic link, which FILES never follows", reason="symlink")
         return st
 
-    def _read(self, t: Target) -> tuple[bytes, os.stat_result]:
+    def _open(self, t: Target) -> tuple[int, os.stat_result]:
         with self.files._space(t.root) as space, paths.dir_at(space, t.parts[:-1]) as d:
-            fd, st = paths.open_file_at(d, t.parts[-1])
-        try:
-            chunks = []
-            while chunk := os.read(fd, READ_CHUNK):
-                chunks.append(chunk)
-        finally:
-            os.close(fd)
-        return b"".join(chunks), st
+            return paths.open_file_at(d, t.parts[-1])
+
+    @staticmethod
+    def _hash_fd(fd: int) -> str:
+        """sha256 of an open file, READ_CHUNK at a time: a multi-GB file never sits in memory."""
+        h = hashlib.sha256()
+        pos = 0
+        while chunk := os.pread(fd, READ_CHUNK, pos):
+            h.update(chunk)
+            pos += len(chunk)
+        return h.hexdigest()
 
     def _version(self, t: Target) -> tuple[str, os.stat_result]:
-        data, st = self._read(t)
-        return hashlib.sha256(data).hexdigest(), st
+        fd, st = self._open(t)
+        try:
+            return self._hash_fd(fd), st
+        finally:
+            os.close(fd)
 
     def check_file_info(self, g: Grant) -> dict:
         version, st = self._version(g.target)
@@ -252,12 +276,18 @@ class WopiHost:
             "SupportsRename": False,
         }
 
-    def get_file(self, g: Grant) -> tuple[bytes, str]:
-        data, st = self._read(g.target)
-        version = hashlib.sha256(data).hexdigest()
+    def get_file(self, g: Grant) -> tuple[Iterator[bytes], str, int]:
+        """The file's bytes as chunks read from one open file, its version and size (never all in memory)."""
+        fd, st = self._open(g.target)
+        f = os.fdopen(fd, "rb", buffering=0)  # closes the fd even if the body is never sent
+        try:
+            version = self._hash_fd(fd)
+        except BaseException:
+            f.close()
+            raise
         self.files.event("wopi.opened", g.principal, {"root": g.target.root.id, "path": g.target.path,
                                                       "file_id": g.file_id, "size": st.st_size, "version": version})
-        return data, version
+        return _chunks(f, st.st_size), version, st.st_size
 
     # ---- locks (WOPI Lock, Unlock, RefreshLock, GetLock, UnlockAndRelock) ---------------------
     @staticmethod
@@ -363,4 +393,14 @@ class WopiHost:
         return version
 
 
-__all__ = ["LOCK_TTL", "SCHEMA", "TOKEN_TTL", "WopiHost", "WopiLockRow", "WopiRepository", "WopiTokenRow", "file_id_for"]
+def _chunks(f, size: int) -> Iterator[bytes]:
+    """Up to `size` bytes of an open file, READ_CHUNK at a time; the file is closed at the end."""
+    with f:
+        pos = 0
+        while pos < size and (chunk := os.pread(f.fileno(), min(READ_CHUNK, size - pos), pos)):
+            pos += len(chunk)
+            yield chunk
+
+
+__all__ = ["LOCK_TTL", "SCHEMA", "TOKEN_ROUTE", "TOKEN_TTL", "WopiHost", "WopiLockRow", "WopiRepository", "WopiTokenRow",
+           "file_id_for", "role_may_edit"]

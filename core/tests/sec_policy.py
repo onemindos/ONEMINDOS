@@ -493,11 +493,12 @@ POLICY |= {
         "/v1/files/uploads/{upload}", content=b"x",
         headers={**w.TUS, "Content-Type": "application/offset+octet-stream", "Upload-Offset": "0"}), f"{_FILES}: your own upload"),
     ("DELETE", "/v1/files/uploads/{upload_id}"): Row(READ_ANY_404, w.p_missing("/v1/files/uploads/{upload}", headers=w.TUS), f"{_FILES}: your own upload"),
-    # ---- WOPI host (#675): only a signed-in person's session mints a file token; the static tokens file, API tokens and
-    # agents are 403. The child column is a household session: it reaches the (missing) Shared file, 404. The WOPI
-    # operations take only that file token (access_token), never a bearer token, so every column is 401.
-    ("POST", "/v1/files/wopi/tokens"): Row(grid(403, 403, 403, 404, 403), w.p_missing(
-        "/v1/files/wopi/tokens", json={"root": "shared", "path": "/probe.docx"}), f"{_WOPI}: a signed-in person's own editor only"),
+    # ---- WOPI host (#675): like every /v1/files/* route the token route needs the "*" scope, so the child (a household
+    # session) is refused by scope; only a signed-in person's session mints a file token, so the static tokens file,
+    # API tokens and agents are 403 too. The WOPI operations take only that file token (access_token), never a bearer
+    # token, so every column is 401.
+    ("POST", "/v1/files/wopi/tokens"): Row(grid(403, 403, 403, 403, 403), w.p_missing(
+        "/v1/files/wopi/tokens", json={"root": "shared", "path": "/probe.docx"}), f"{_WOPI}: the owner's own signed-in editor only"),
     ("GET", "/v1/files/wopi/files/{file_id}"): Row(cells(401), w.p_static(_WOPI_FILE), f"{_WOPI}: CheckFileInfo takes the file token"),
     ("GET", "/v1/files/wopi/files/{file_id}/contents"): Row(cells(401), w.p_static(f"{_WOPI_FILE}/contents"), f"{_WOPI}: GetFile takes the file token"),
     ("POST", "/v1/files/wopi/files/{file_id}"): Row(cells(401), w.p_missing(_WOPI_FILE, headers={"X-WOPI-Override": "LOCK", "X-WOPI-Lock": "probe"}),

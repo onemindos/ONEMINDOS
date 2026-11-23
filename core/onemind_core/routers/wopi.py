@@ -2,8 +2,9 @@
 """WOPI host routes: /v1/files/wopi/* (issue #675; files/wopi.py holds the rules).
 
 POST /v1/files/wopi/tokens is the only route a signed-in person calls: it mints a short-lived token
-for one file. The rest are the WOPI protocol an office engine calls with that token (`access_token`
-query parameter), never with a bearer token:
+for one file. Like every /v1/files/* route it needs the "*" scope (today the owner role). The rest
+are the WOPI protocol an office engine calls with that token (`access_token` query parameter), never
+with a bearer token:
 
     GET  /v1/files/wopi/files/{file_id}            CheckFileInfo
     GET  /v1/files/wopi/files/{file_id}/contents   GetFile
@@ -19,15 +20,16 @@ from typing import Annotated
 
 from fastapi import Depends, FastAPI, Header, Path, Query, Request, Response
 from fastapi.concurrency import run_in_threadpool
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from ..auth import Principal
 from ..context import Gateway
 from ..files.errors import FilesError
 from ..files.service import FilesService
-from ..files.wopi import WopiHost
+from ..files.wopi import TOKEN_ROUTE, WopiHost
 from ..guard import reads_body
-from ..identity.scopes import register_route_scope
+from ..identity.scopes import ALL, register_route_scope
 from ..identity.service import ctx_of
 from .files import Root
 
@@ -35,8 +37,10 @@ TAG = ["files"]
 # Route order in the app and in /openapi.json (routers/__init__.py): right after files (300), whose service it shares.
 ORDER = 305
 
-# The handler decides (a person with a live session and access to the path), as /v1/auth/* does.
-register_route_scope("POST", r"/v1/files/wopi/tokens", None)
+# Like /v1/files/*: no narrower scope covers files yet, so a session needs every scope ("*", the owner).
+# The handler then also needs a person with a live session and access to the path; resolve() re-checks
+# the role on every WOPI call (files/wopi.py role_may_edit).
+register_route_scope("POST", TOKEN_ROUTE, (ALL,))
 # The WOPI operations take only the file token (access_token), never a sign-in credential: no scope applies.
 register_route_scope("GET,POST", r"/v1/files/wopi/files/[^/]+(/contents)?", None)
 
@@ -78,7 +82,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
     host = WopiHost(watcher.files if watcher is not None else FilesService(gw))
     principal = gw.principal
 
-    @app.post("/v1/files/wopi/tokens", operation_id="files.wopi.tokens.create", tags=TAG, status_code=201,
+    @app.post(TOKEN_ROUTE, operation_id="files.wopi.tokens.create", tags=TAG, status_code=201,
               responses=errs(401, 403, 404, 409, 422, 503))
     def create_token(request: Request, body: WopiTokenBody, p: Principal = Depends(principal)):
         """A token for one file, for the signed-in person's editor. Expires in minutes; agents and API tokens are refused."""
@@ -94,9 +98,10 @@ def register(app: FastAPI, gw: Gateway) -> None:
     @app.get("/v1/files/wopi/files/{file_id}/contents", operation_id="files.wopi.get_file", tags=TAG,
              responses={200: {"content": {"application/octet-stream": {}}}, **errs(401, 404, 409, 503)})
     def get_file(file_id: FileId, access_token: AccessToken = None):
-        data, version = host.get_file(host.resolve(access_token, file_id))
-        return Response(data, media_type="application/octet-stream",
-                        headers={"X-WOPI-ItemVersion": version, "Cache-Control": "no-store"})
+        chunks, version, size = host.get_file(host.resolve(access_token, file_id))
+        return StreamingResponse(chunks, media_type="application/octet-stream",
+                                 headers={"X-WOPI-ItemVersion": version, "Cache-Control": "no-store",
+                                          "Content-Length": str(size)})
 
     @app.post("/v1/files/wopi/files/{file_id}", operation_id="files.wopi.lock", tags=TAG,
               responses=errs(401, 403, 404, 409, 422, 501, 503))

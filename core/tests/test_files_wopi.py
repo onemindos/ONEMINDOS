@@ -6,13 +6,16 @@ from __future__ import annotations
 import base64
 import hashlib
 import os
+import tracemalloc
 from dataclasses import replace
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import update
 
 from onemind_core.app import create_app
-from onemind_core.files.wopi import LOCK_TTL, TOKEN_TTL
+from onemind_core.files import wopi as wopi_mod
+from onemind_core.files.wopi import LOCK_TTL, TOKEN_TTL, WopiRepository, WopiTokenRow
 from onemind_core.identity.settings import IdentitySettings
 
 from conftest import AGENT, OWNER
@@ -186,29 +189,82 @@ def test_missing_or_unknown_token_is_401(wc, owner):
 
 
 def test_wrong_user_is_refused(wc, owner):
-    adult = signed_in(wc, owner, "adult", "ana")
+    olive = signed_in(wc, owner, "owner", "olive")  # a second owner: Homes stay private even between owners
     put_doc(wc, owner)
     put_doc(wc, owner, root="shared", name="shared.docx")
     # another person's Home: no token, and the refusal is audited
-    token(wc, adult, home(owner), status=403)
-    # a token is for one file only: the adult's Shared token does not open the owner's Home file
-    mine = token(wc, adult, "shared", "/shared.docx")
+    token(wc, olive, home(owner), status=403)
+    # a token is for one file only: the other owner's Shared token does not open the owner's Home file
+    mine = token(wc, olive, "shared", "/shared.docx")
     theirs = token(wc, owner, home(owner))
     assert wc.get(f"{theirs['wopi_src']}?access_token={mine['access_token']}").status_code == 401
     assert wc.get(f"{theirs['wopi_src']}/contents?access_token={mine['access_token']}").status_code == 401
-    assert ok(wc.get(wopi(mine)))["UserId"] == adult["id"]
+    assert ok(wc.get(wopi(mine)))["UserId"] == olive["id"]
 
 
-def test_read_only_access_gets_a_read_only_token(wc, owner):
-    guest = signed_in(wc, owner, "guest", "gus")
+@pytest.mark.parametrize("role", ["adult", "guest", "child", "teen"])
+def test_a_non_owner_session_gets_no_token(wc, owner, role):
+    """The token route needs "*" like every /v1/files/* route: no side door around the role scopes."""
+    person = signed_in(wc, owner, role, f"{role}x")
     put_doc(wc, owner, root="shared", name="shared.docx")
-    t = token(wc, guest, "shared", "/shared.docx")
-    assert t["can_write"] is False
+    assert wc.get("/v1/files/list", params={"root": "shared", "path": "/"}, headers=person["headers"]).status_code == 403
+    for root, path in (("shared", "/shared.docx"), (home(person), "/budget.docx")):
+        r = wc.post("/v1/files/wopi/tokens", headers=person["headers"], json={"root": root, "path": path})
+        assert r.status_code == 403, (root, r.text)
+
+
+def test_a_demoted_person_loses_the_token_at_once(wc, owner):
+    olive = signed_in(wc, owner, "owner", "olive")
+    put_doc(wc, owner, root="shared", name="shared.docx")
+    t = token(wc, olive, "shared", "/shared.docx")
+    assert ok(wc.get(wopi(t)))["UserCanWrite"] is True
+    assert lock(wc, t).status_code == 200
+    r = wc.patch(f"/v1/users/{olive['id']}", headers=owner["headers"], json={"role": "adult"})
+    assert r.status_code == 200, r.text
+    # her session is still live, but her role no longer holds "*": every WOPI call stops now, not at expiry
+    assert wc.get(wopi(t)).status_code == 401
+    assert wc.get(wopi(t, "/contents")).status_code == 401
+    assert lock(wc, t, override="UNLOCK").status_code == 401
+    assert put(wc, t, b"after the demotion").status_code == 401
+    assert download(wc, owner, "shared", "/shared.docx") == DOC
+
+
+def test_a_read_only_token_cannot_lock_or_save(wc, owner):
+    """A token minted without write access (a future narrower Files scope) stays read-only on every call."""
+    put_doc(wc, owner, root="shared", name="shared.docx")
+    t = token(wc, owner, "shared", "/shared.docx")
+    repo = WopiRepository(wc.app.state.gateway.db)
+    with repo.db.session.begin() as s:
+        s.execute(update(WopiTokenRow).where(WopiTokenRow.file_id == t["file_id"]).values(can_write=False))
     info = ok(wc.get(wopi(t)))
     assert info["UserCanWrite"] is False and info["ReadOnly"] is True
     assert wc.get(wopi(t, "/contents")).content == DOC
     assert lock(wc, t).status_code == 403
-    assert put(wc, t, b"guest edit").status_code == 403
+    assert put(wc, t, b"read-only edit").status_code == 403
+
+
+# ---- big files: hashed and sent a chunk at a time --------------------------------------------------------
+def test_a_big_file_is_hashed_and_sent_in_chunks(wc, owner, files_root, monkeypatch):
+    monkeypatch.setattr(wopi_mod, "READ_CHUNK", 64 * 1024)
+    put_doc(wc, owner)
+    (space,) = [d for d in (files_root / "home").iterdir()]
+    big = os.urandom(1024 * 1024) * 24  # 24 MiB on disk, never read into memory whole
+    (space / "budget.docx").write_bytes(big)
+    sha = hashlib.sha256(big).hexdigest()
+    t = token(wc, owner, home(owner))
+    tracemalloc.start()
+    try:
+        info = ok(wc.get(wopi(t)))
+        assert lock(wc, t).status_code == 200
+        assert lock(wc, t, override="UNLOCK").status_code == 200
+        _, peak = tracemalloc.get_traced_memory()
+    finally:
+        tracemalloc.stop()
+    assert info["Size"] == len(big) and info["Version"] == sha
+    assert peak < 8 * 1024 * 1024, peak  # CheckFileInfo, Lock and Unlock hash 64 KiB at a time
+    r = wc.get(wopi(t, "/contents"))
+    assert r.status_code == 200 and r.headers["x-wopi-itemversion"] == sha
+    assert r.headers["content-length"] == str(len(big)) and hashlib.sha256(r.content).hexdigest() == sha
 
 
 # ---- identities that never get a token -----------------------------------------------------------------
