@@ -53,6 +53,8 @@ describe('Home', () => {
       await userEvent.setup().keyboard('{Enter}');
       await waitFor(() => expect(recent).toEqual(['sys:market']), T);
       firstClient.unmount();
+      // The second browser shares the hub history and starts with its own empty window store.
+      window.localStorage.clear();
       renderApp({ token: 'owner-demo', mock: false });
       const health = await screen.findByRole('region', { name: 'Box health' }, T);
       expect(await within(health).findByText('Last backup failed')).toBeInTheDocument();
