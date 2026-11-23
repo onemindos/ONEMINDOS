@@ -69,8 +69,8 @@ Source: the upstream [README](https://github.com/dani-garcia/vaultwarden/blob/1.
 
 ## Not done yet
 
-- The Bitwarden phone, desktop and browser-extension apps cannot sync through the app proxy yet: the proxy needs a OneMind sign-in on every request and removes the `Authorization` header Vaultwarden's own API uses. A door for apps with their own sign-in (home network and mesh only, owner approved) is a separate gateway change.
-- The CI app gate and the daily rescan look at `apps/<id>/` only, so this folder is not rescanned until they learn `apps/_system/`. The tier stays `blocked` (the last scan failed) until a fixed image passes.
+- The Bitwarden phone, desktop and browser-extension apps cannot sync through the app proxy yet: the proxy needs a OneMind sign-in on every request and removes the `Authorization` header Vaultwarden's own API uses. A door for apps with their own sign-in (home network and mesh only, owner approved, and only once open registration is off) is a separate gateway change, #994.
+- The CI app gate and the daily rescan look at `apps/<id>/` only, so this folder is not rescanned until they learn `apps/_system/` (#993). The tier stays `blocked` (the last scan failed) until a fixed image passes.
 - No HTTPS or `DOMAIN`: OneMind v0 has no ingress or certificates for apps, so the web vault works only through `localhost` until a reverse proxy exists.
 - No SMTP: email verification, invitations by email and password hints by email are off.
 - `readOnlyRootFilesystem` is not set: it has not been tested against this image.
