@@ -4,13 +4,17 @@
 A card (sdk/schema/onemind.device-card.schema.json) says what a device can do and how risky each
 property and action is. Besides the schema, both validators refuse, with the same rule names:
   credential-field     a key that names a credential (password, secret, token, API key ...) anywhere,
-                       or a URL with a user part (user:pass@host): a card never carries a secret
+                       a URL with a user part (user:pass@host, also scheme-relative //user@host), or
+                       a URL whose query or fragment has such a key (?access_token=...): a card never
+                       carries a secret
   unitless-number      a number or integer value, a limit or a safe quantity without a unit
   physical-limits      a physical action without limits
   physical-safe-state  a physical action without a safe state
   physical-owner-only  a physical action an automation may ask for, or anyone but an owner approves
   hold-required        a class whose risk asks for hold-to-approve (physical, irreversible) without needsHold
   agent-approver       an agent listed as approver: AI never approves
+  observe-read-only    class observe (risk read, nothing to approve) on anything that can change the
+                       device: allowed only on a readOnly property, an event or a safe:true action
   schema               anything else the JSON Schema refuses
 Problems name the rule and the path, never a value, so no secret reaches a log.
 
@@ -24,6 +28,7 @@ import re
 import sys
 from pathlib import Path
 from typing import NamedTuple
+from urllib.parse import unquote_plus
 
 from jsonschema import Draft202012Validator
 from jsonschema.exceptions import best_match
@@ -40,10 +45,15 @@ RULES = {
     "physical-owner-only": "a physical action is asked for by a person or agent and approved only by an owner",
     "hold-required": "this class is approved with a hold: needsHold must be true",
     "agent-approver": "an agent never approves",
+    "observe-read-only": "observe is only for a read-only property, an event or a safe action",
     "schema": "the card does not match onemind.device-card.schema.json",
 }
 CREDENTIAL_KEY = re.compile(r"password|passwd|passphrase|secret|token|apikey|privatekey|credential|accesskey")
-URL_USERINFO = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*://[^/?#]*@")
+# A URL with a user part: scheme://user@host, or scheme-relative //user@host (a backslash counts as a
+# slash, as browsers read it). The same patterns are in the Go twin (sdk/schema/devicecard.go).
+URL_USERINFO = re.compile(r"^[ \t\n\r\f\v]*(?:[A-Za-z][A-Za-z0-9+.-]*:)?[/\\]{2}[^/\\?#]*@")
+WHITESPACE = re.compile(r"[ \t\n\r\f\v]")
+URL_START = re.compile(r"^(?:[A-Za-z][A-Za-z0-9+.-]*:[/\\]{2}|[/\\?#])")
 _VALIDATOR = Draft202012Validator(SCHEMA)
 
 
@@ -63,16 +73,37 @@ def _has_unit(node: dict) -> bool:
     return isinstance(unit, str) and unit.strip() != ""
 
 
+def _credential_key(key: str) -> bool:
+    return CREDENTIAL_KEY.search(re.sub(r"[-_. ]", "", key.lower())) is not None
+
+
+def _url_credential(text: str) -> bool:
+    """A user part, or a query or fragment parameter whose (percent-decoded) key names a credential.
+
+    Text with whitespace inside is prose, not a URL, so a description may say "token" or ask a
+    question, unless it starts like a URL (scheme://, /, ?, #)."""
+    if URL_USERINFO.search(text):
+        return True
+    text = text.strip(" \t\n\r\f\v")
+    if WHITESPACE.search(text) and not URL_START.search(text):
+        return False
+    for part in re.split(r"[?#]", text)[1:]:
+        for pair in re.split(r"[&;]", part):
+            if _credential_key(unquote_plus(pair.split("=", 1)[0])):
+                return True
+    return False
+
+
 def _credentials(node, path: str, out: list) -> None:
     if isinstance(node, dict):
         for key in sorted(node):
-            if CREDENTIAL_KEY.search(re.sub(r"[-_. ]", "", key.lower())):
+            if _credential_key(key):
                 out.append((f"{path}/{key}", "credential-field"))
             _credentials(node[key], f"{path}/{key}", out)
     elif isinstance(node, list):
         for i, item in enumerate(node):
             _credentials(item, f"{path}/{i}", out)
-    elif isinstance(node, str) and URL_USERINFO.search(node):
+    elif isinstance(node, str) and _url_credential(node):
         out.append((path, "credential-field"))
 
 
@@ -116,6 +147,19 @@ def _safety(s, path: str, out: list) -> None:
             out.append((path, "physical-owner-only"))
 
 
+def _observe(kind: str, aff: dict, path: str, out: list) -> None:
+    """Observe maps to risk read, which skips approval: it may label only what cannot change the device."""
+    s = aff.get("om:safety")
+    if not isinstance(s, dict) or s.get("class") != "observe":
+        return
+    if kind == "properties":
+        writable = aff.get("readOnly") is not True or aff.get("writeOnly") is True
+    else:
+        writable = kind == "actions" and aff.get("safe") is not True
+    if writable:
+        out.append((f"{path}/om:safety/class", "observe-read-only"))
+
+
 def problems(card: dict) -> list[Problem]:
     """The rule problems of a decoded card, in a stable order (sorted keys, the same walk in Go)."""
     found: list = []
@@ -133,6 +177,7 @@ def problems(card: dict) -> list[Problem]:
             for key in inner:
                 _units(aff.get(key), f"{path}/{key}", found)
             _safety(aff.get("om:safety"), f"{path}/om:safety", found)
+            _observe(kind, aff, path, found)
     return [Problem(rule, path or "/", RULES[rule]) for path, rule in found]
 
 

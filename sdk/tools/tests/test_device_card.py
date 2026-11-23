@@ -59,6 +59,28 @@ class DeviceCard(unittest.TestCase):
         card = apply(base, [["set", "/securityDefinitions/basic_sc", {"scheme": "basic", "password": "do-not-print"}]])
         self.assertNotIn("do-not-print", repr(devicecard.validate(json.dumps(card).encode())))
 
+    def test_observe_on_a_writable_affordance_is_refused_by_the_schema_alone(self):
+        # A registry that only reads the JSON Schema must not take an actuation as risk read either.
+        for fx in FIXTURES["fixtures"]:
+            if fx["rules"] == ["observe-read-only"]:
+                card = apply(json.loads((EXAMPLES / f"{fx['base']}.json").read_text()), fx["ops"])
+                self.assertFalse(devicecard._VALIDATOR.is_valid(card), fx["name"])
+
+    def test_observe_stays_allowed_where_nothing_changes(self):
+        base = json.loads((EXAMPLES / "relay.json").read_text())
+        safe_action = {"title": "Read the meter", "safe": True, "output": {"type": "number", "unit": "W"},
+                       "om:safety": {"class": "observe", "needsHold": False, "askers": ["owner", "automation"]}}
+        card = apply(base, [["set", "/actions/meter", safe_action]])
+        self.assertEqual(devicecard.validate(json.dumps(card).encode()), [])
+
+    def test_harmless_urls_and_prose_are_not_credentials(self):
+        base = json.loads((EXAMPLES / "relay.json").read_text())
+        card = apply(base, [
+            ["set", "/actions/switch/forms", [{"href": "https://relay.example/switch?on=1&unit=s#state"}]],
+            ["set", "/description", "Is it on? It keeps no token or secret: the gateway holds those."],
+        ])
+        self.assertEqual(devicecard.validate(json.dumps(card).encode()), [])
+
     def test_class_to_risk_table_matches_the_action_ledger(self):
         # core/onemind_core/actions.py accepts only these risk classes; hold follows approvalcard.hold_required.
         self.assertEqual(devicecard.CLASS_RISK, {

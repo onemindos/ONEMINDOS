@@ -80,6 +80,7 @@
       "then": {"required": ["unit"]}
     },
     "closedData": {"$ref": "#/$defs/dataSchema", "unevaluatedProperties": false},
+    "isObserve": {"required": ["om:safety"], "properties": {"om:safety": {"type": "object", "required": ["class"], "properties": {"class": {"const": "observe"}}}}},
     "affordance": {
       "properties": {
         "@type": {"$ref": "#/$defs/strings"}, "title": {"$ref": "#/$defs/text"}, "description": {"$ref": "#/$defs/text"},
@@ -87,13 +88,21 @@
       }
     },
     "property": {
-      "allOf": [{"$ref": "#/$defs/dataSchema"}, {"$ref": "#/$defs/affordance"}],
+      "allOf": [
+        {"$ref": "#/$defs/dataSchema"}, {"$ref": "#/$defs/affordance"},
+        {"$comment": "observe is risk read (no approval): only on a property nothing can write",
+         "if": {"$ref": "#/$defs/isObserve"}, "then": {"required": ["readOnly"], "properties": {"readOnly": {"const": true}, "writeOnly": {"const": false}}}}
+      ],
       "required": ["om:safety"],
       "properties": {"observable": {"type": "boolean"}},
       "unevaluatedProperties": false
     },
     "action": {
-      "allOf": [{"$ref": "#/$defs/affordance"}],
+      "allOf": [
+        {"$ref": "#/$defs/affordance"},
+        {"$comment": "observe is risk read (no approval): only on an action that changes nothing (WoT safe)",
+         "if": {"$ref": "#/$defs/isObserve"}, "then": {"required": ["safe"], "properties": {"safe": {"const": true}}}}
+      ],
       "type": "object", "required": ["om:safety"],
       "properties": {
         "input": {"$ref": "#/$defs/closedData"}, "output": {"$ref": "#/$defs/closedData"},
