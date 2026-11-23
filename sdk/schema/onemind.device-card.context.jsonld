@@ -1,0 +1,37 @@
+{
+  "$comment": "SPDX-License-Identifier: Apache-2.0. The om: vocabulary of the OneMind device capability card (issue #727), used next to the W3C WoT TD 1.1 context. Schema: onemind.device-card.schema.json.",
+  "@context": {
+    "@version": 1.1,
+    "om": "https://github.com/onemindos/ONEMINDOS/sdk/schema/om#",
+    "xsd": "http://www.w3.org/2001/XMLSchema#",
+    "om:schema": {"@id": "om:schema", "@type": "xsd:string"},
+    "om:safety": {
+      "@id": "om:safety",
+      "@context": {
+        "class": {"@id": "om:class", "@type": "@vocab"},
+        "observe": "om:Observe",
+        "reversible": "om:Reversible",
+        "irreversible": "om:Irreversible",
+        "physical": "om:Physical",
+        "limits": {"@id": "om:limit", "@container": "@set"},
+        "name": {"@id": "om:name", "@type": "xsd:string"},
+        "min": {"@id": "om:min", "@type": "xsd:decimal"},
+        "max": {"@id": "om:max", "@type": "xsd:decimal"},
+        "unit": {"@id": "om:unit", "@type": "xsd:string"},
+        "needsHold": {"@id": "om:needsHold", "@type": "xsd:boolean"},
+        "dryRun": {"@id": "om:dryRun", "@type": "xsd:boolean"},
+        "sim": {"@id": "om:sim", "@type": "xsd:boolean"},
+        "rate": "om:rate",
+        "per": {"@id": "om:per", "@type": "xsd:string"},
+        "safeState": "om:safeState",
+        "property": {"@id": "om:property", "@type": "xsd:string"},
+        "value": "om:value",
+        "quantity": "om:quantity",
+        "description": {"@id": "om:description", "@type": "xsd:string"},
+        "askers": {"@id": "om:asker", "@container": "@set"},
+        "approvers": {"@id": "om:approver", "@container": "@set"},
+        "requires": {"@id": "om:requires", "@container": "@set"}
+      }
+    }
+  }
+}

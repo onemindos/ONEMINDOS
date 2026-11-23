@@ -1,0 +1,155 @@
+{
+  "$comment": "SPDX-License-Identifier: Apache-2.0",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/onemindos/ONEMINDOS/sdk/schema/onemind.device-card.schema.json",
+  "title": "OneMind device capability card (onemind.device-card/v1)",
+  "description": "What a device can do and how risky each thing is (issue #727). A closed subset of a W3C WoT Thing Description 1.1 (https://www.w3.org/TR/wot-thing-description11/) with an om:safety block on every property and action; the om: terms are in onemind.device-card.context.jsonld. A card never holds a credential. The validators (Go in this package, Python in sdk/tools/applib/devicecard.py) also apply the rules this schema cannot say: no credential field anywhere, no number without a unit.",
+  "x-om-class-risk": {
+    "$comment": "Card class to the action ledger's risk class (core/onemind_core/actions.py) and the physical flag (#723). Both validators read this table.",
+    "observe": {"risk": "read", "physical": false},
+    "reversible": {"risk": "write", "physical": false},
+    "irreversible": {"risk": "destructive", "physical": false},
+    "physical": {"risk": "actuate", "physical": true}
+  },
+  "type": "object",
+  "required": ["@context", "om:schema", "title", "securityDefinitions", "security"],
+  "additionalProperties": false,
+  "properties": {
+    "@context": {
+      "type": "array", "minItems": 2,
+      "prefixItems": [{"const": "https://www.w3.org/2022/wot/td/v1.1"}],
+      "contains": {"type": "object", "required": ["om"], "properties": {"om": {"const": "https://github.com/onemindos/ONEMINDOS/sdk/schema/om#"}}}
+    },
+    "@type": {"$ref": "#/$defs/strings"},
+    "om:schema": {"const": "onemind.device-card/v1"},
+    "id": {"type": "string", "minLength": 1, "maxLength": 512},
+    "title": {"$ref": "#/$defs/text"},
+    "description": {"$ref": "#/$defs/text"},
+    "version": {"type": "object", "required": ["instance"], "properties": {"instance": {"type": "string", "maxLength": 64}}, "additionalProperties": false},
+    "securityDefinitions": {
+      "type": "object", "minProperties": 1, "maxProperties": 8,
+      "additionalProperties": {
+        "type": "object", "required": ["scheme"], "additionalProperties": false,
+        "properties": {
+          "scheme": {"enum": ["nosec", "auto", "basic", "digest", "bearer", "psk", "apikey"]},
+          "description": {"$ref": "#/$defs/text"},
+          "in": {"enum": ["header", "query", "body", "cookie", "uri", "auto"]},
+          "name": {"type": "string", "maxLength": 64}
+        }
+      }
+    },
+    "security": {"$ref": "#/$defs/strings"},
+    "properties": {"type": "object", "maxProperties": 64, "propertyNames": {"$ref": "#/$defs/name"}, "additionalProperties": {"$ref": "#/$defs/property"}},
+    "actions": {"type": "object", "maxProperties": 64, "propertyNames": {"$ref": "#/$defs/name"}, "additionalProperties": {"$ref": "#/$defs/action"}},
+    "events": {"type": "object", "maxProperties": 64, "propertyNames": {"$ref": "#/$defs/name"}, "additionalProperties": {"$ref": "#/$defs/event"}}
+  },
+  "$defs": {
+    "name": {"type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$"},
+    "text": {"type": "string", "minLength": 1, "maxLength": 500},
+    "unit": {"type": "string", "minLength": 1, "maxLength": 32, "pattern": "\\S", "description": "a unit symbol, preferably UCUM (Cel, A, s, %); a count uses 1"},
+    "strings": {"oneOf": [{"type": "string", "maxLength": 128}, {"type": "array", "minItems": 1, "maxItems": 16, "items": {"type": "string", "maxLength": 128}}]},
+    "forms": {
+      "type": "array", "minItems": 1, "maxItems": 8,
+      "items": {
+        "type": "object", "required": ["href"], "additionalProperties": false,
+        "properties": {
+          "href": {"type": "string", "minLength": 1, "maxLength": 2048},
+          "op": {"$ref": "#/$defs/strings"},
+          "contentType": {"type": "string", "maxLength": 128},
+          "subprotocol": {"type": "string", "maxLength": 64}
+        }
+      }
+    },
+    "dataSchema": {
+      "type": "object", "required": ["type"],
+      "properties": {
+        "type": {"enum": ["boolean", "integer", "number", "string", "object", "array", "null"]},
+        "title": {"$ref": "#/$defs/text"}, "description": {"$ref": "#/$defs/text"}, "unit": {"$ref": "#/$defs/unit"},
+        "minimum": {"type": "number"}, "maximum": {"type": "number"},
+        "exclusiveMinimum": {"type": "number"}, "exclusiveMaximum": {"type": "number"}, "multipleOf": {"type": "number", "exclusiveMinimum": 0},
+        "enum": {"type": "array", "minItems": 1, "maxItems": 64}, "const": true, "default": true,
+        "readOnly": {"type": "boolean"}, "writeOnly": {"type": "boolean"},
+        "minLength": {"type": "integer", "minimum": 0}, "maxLength": {"type": "integer", "minimum": 0},
+        "pattern": {"type": "string", "maxLength": 256}, "contentMediaType": {"type": "string", "maxLength": 128},
+        "properties": {"type": "object", "maxProperties": 64, "propertyNames": {"$ref": "#/$defs/name"}, "additionalProperties": {"$ref": "#/$defs/closedData"}},
+        "required": {"type": "array", "items": {"$ref": "#/$defs/name"}, "uniqueItems": true},
+        "items": {"$ref": "#/$defs/closedData"},
+        "minItems": {"type": "integer", "minimum": 0}, "maxItems": {"type": "integer", "minimum": 0}
+      },
+      "if": {"properties": {"type": {"enum": ["number", "integer"]}}},
+      "then": {"required": ["unit"]}
+    },
+    "closedData": {"$ref": "#/$defs/dataSchema", "unevaluatedProperties": false},
+    "affordance": {
+      "properties": {
+        "@type": {"$ref": "#/$defs/strings"}, "title": {"$ref": "#/$defs/text"}, "description": {"$ref": "#/$defs/text"},
+        "forms": {"$ref": "#/$defs/forms"}, "om:safety": {"$ref": "#/$defs/safety"}
+      }
+    },
+    "property": {
+      "allOf": [{"$ref": "#/$defs/dataSchema"}, {"$ref": "#/$defs/affordance"}],
+      "required": ["om:safety"],
+      "properties": {"observable": {"type": "boolean"}},
+      "unevaluatedProperties": false
+    },
+    "action": {
+      "allOf": [{"$ref": "#/$defs/affordance"}],
+      "type": "object", "required": ["om:safety"],
+      "properties": {
+        "input": {"$ref": "#/$defs/closedData"}, "output": {"$ref": "#/$defs/closedData"},
+        "safe": {"type": "boolean"}, "idempotent": {"type": "boolean"}, "synchronous": {"type": "boolean"}
+      },
+      "unevaluatedProperties": false
+    },
+    "event": {
+      "allOf": [{"$ref": "#/$defs/affordance"}],
+      "type": "object",
+      "properties": {"data": {"$ref": "#/$defs/closedData"}, "om:safety": {"properties": {"class": {"const": "observe"}}}},
+      "unevaluatedProperties": false
+    },
+    "limit": {
+      "type": "object", "required": ["name", "unit"], "additionalProperties": false,
+      "anyOf": [{"required": ["min"]}, {"required": ["max"]}],
+      "properties": {
+        "name": {"$ref": "#/$defs/name"}, "min": {"type": "number"}, "max": {"type": "number"},
+        "unit": {"$ref": "#/$defs/unit"}, "description": {"$ref": "#/$defs/text"}
+      }
+    },
+    "safety": {
+      "type": "object", "required": ["class", "needsHold", "askers"], "additionalProperties": false,
+      "properties": {
+        "class": {"enum": ["observe", "reversible", "irreversible", "physical"]},
+        "limits": {"type": "array", "minItems": 1, "maxItems": 20, "items": {"$ref": "#/$defs/limit"}},
+        "needsHold": {"type": "boolean"},
+        "dryRun": {"type": "boolean", "description": "the device can run it as a dry run that changes nothing"},
+        "sim": {"type": "boolean", "description": "a simulator of this affordance exists for tests and previews"},
+        "rate": {
+          "type": "object", "required": ["max", "per"], "additionalProperties": false,
+          "properties": {"max": {"type": "integer", "minimum": 1, "maximum": 100000}, "per": {"enum": ["s", "min", "h", "d"]}}
+        },
+        "safeState": {
+          "type": "object", "required": ["description"], "additionalProperties": false,
+          "properties": {
+            "description": {"$ref": "#/$defs/text"},
+            "property": {"$ref": "#/$defs/name"},
+            "value": {"type": ["boolean", "string", "null"], "maxLength": 200},
+            "quantity": {"type": "object", "required": ["value", "unit"], "additionalProperties": false,
+                         "properties": {"value": {"type": "number"}, "unit": {"$ref": "#/$defs/unit"}}}
+          }
+        },
+        "askers": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": ["owner", "member", "agent", "automation"]}},
+        "approvers": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": ["owner", "member"]}},
+        "requires": {"type": "array", "maxItems": 32, "uniqueItems": true,
+                     "items": {"type": "string", "pattern": "^(properties|actions|events)/[A-Za-z][A-Za-z0-9_-]{0,63}$"}}
+      },
+      "allOf": [
+        {"if": {"properties": {"class": {"enum": ["reversible", "irreversible", "physical"]}}}, "then": {"required": ["approvers"]}},
+        {"if": {"properties": {"class": {"const": "irreversible"}}}, "then": {"properties": {"needsHold": {"const": true}}}},
+        {"if": {"properties": {"class": {"const": "physical"}}},
+         "then": {"required": ["limits", "safeState"],
+                  "properties": {"needsHold": {"const": true}, "approvers": {"const": ["owner"]},
+                                 "askers": {"not": {"contains": {"const": "automation"}}}}}}
+      ]
+    }
+  }
+}
