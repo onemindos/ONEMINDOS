@@ -10,14 +10,26 @@ import (
 	"log/slog"
 	"net"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/onemindos/onemindos/internal/etcdir"
+	"github.com/onemindos/onemindos/internal/leaf"
 	"github.com/onemindos/onemindos/internal/service"
 )
 
-// DefaultConfigPath is the watchdog's settings file. Its presence turns the service on.
-const DefaultConfigPath = "/etc/onemind/watchdog.json"
+// ConfigPath is the watchdog's settings file. Its presence turns the service on. It sits in
+// etcdir.Dir(): /etc/onemind on a deploy/install.sh box, /data/onemind/etc on the image, where /etc
+// is read-only and onemindd.service sets ONEMIND_ETC_DIR.
+func ConfigPath() string { return filepath.Join(etcdir.Dir(), "watchdog.json") }
+
+// WorstCaseAlertLatency is the longest time from a pulled plug to the local alert: the leaf notices
+// the dead link (leaf.LinkDetectBudget), the poll reads it, the timeout runs, and the supervisor
+// check fires. It must stay at or under MaxAlertLatency (120 s).
+func WorstCaseAlertLatency(timeout time.Duration) time.Duration {
+	return leaf.LinkDetectBudget + LinkPollEvery + timeout + DefaultCheckEvery
+}
 
 // Config is the settings file. The alert key lives in its own file (mode 0600, in the secret
 // store); the config only holds the path.
@@ -54,6 +66,9 @@ func LoadConfig(path string) (Config, error) {
 func (c *Config) validate() error {
 	if c.HubTimeoutS != 0 && c.HubTimeoutS < int(minTimeout/time.Second) {
 		return fmt.Errorf("watchdog config: hub_timeout_s must be at least %d", int(minTimeout/time.Second))
+	}
+	if c.HubTimeoutS != 0 && WorstCaseAlertLatency(time.Duration(c.HubTimeoutS)*time.Second) > MaxAlertLatency {
+		return fmt.Errorf("watchdog config: hub_timeout_s %d is too long: with the leaf ping budget the alert would land after more than %s", c.HubTimeoutS, MaxAlertLatency)
 	}
 	if (len(c.Peers) > 0 || c.Listen) && c.KeyFile == "" {
 		return errors.New("watchdog config: key_file is required with peers or listen")
@@ -100,11 +115,11 @@ func Service(link LinkFunc, joined func() bool, role string) service.Service {
 			if role == "hub" || link == nil || (joined != nil && !joined()) {
 				return false
 			}
-			_, err := os.Stat(DefaultConfigPath)
+			_, err := os.Stat(ConfigPath())
 			return err == nil
 		},
 		Run: func(ctx context.Context, log *slog.Logger) error {
-			c, err := LoadConfig(DefaultConfigPath)
+			c, err := LoadConfig(ConfigPath())
 			if err != nil {
 				return err
 			}

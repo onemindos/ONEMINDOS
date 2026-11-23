@@ -324,3 +324,30 @@ func TestNewRaisesTinyTimeout(t *testing.T) {
 		t.Fatalf("timeout %v", m.Timeout)
 	}
 }
+
+// The default timeout plus the leaf ping budget (internal/leaf) must land the alert within 120 s, and a
+// longer configured timeout is refused. Without the leaf ping settings the link took 5m46s to read down.
+func TestAlertBudgetIs120SecondsOrLess(t *testing.T) {
+	if got := WorstCaseAlertLatency(DefaultTimeout); got > MaxAlertLatency {
+		t.Fatalf("default budget %s exceeds %s", got, MaxAlertLatency)
+	}
+	c := Config{HubTimeoutS: 600, Hook: []string{"/bin/true"}}
+	if err := c.validate(); err == nil {
+		t.Fatal("a 600 s hub_timeout_s must be refused: the alert would land after the 2 minute target")
+	}
+	c = Config{HubTimeoutS: int(DefaultTimeout / time.Second), Hook: []string{"/bin/true"}}
+	if err := c.validate(); err != nil {
+		t.Fatalf("default timeout refused: %v", err)
+	}
+}
+
+func TestConfigPathFollowsEtcDir(t *testing.T) {
+	t.Setenv("ONEMIND_ETC_DIR", "/data/onemind/etc")
+	if got := ConfigPath(); got != "/data/onemind/etc/watchdog.json" {
+		t.Fatalf("got %s", got)
+	}
+	t.Setenv("ONEMIND_ETC_DIR", "")
+	if got := ConfigPath(); got != "/etc/onemind/watchdog.json" {
+		t.Fatalf("default got %s", got)
+	}
+}
