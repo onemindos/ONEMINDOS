@@ -1,0 +1,31 @@
+# SPDX-License-Identifier: Apache-2.0
+# Two volumes so the budget is plain and only the small one is backed up (spec.backup in onemind.app.yaml).
+# No storageClassName: the cluster default class, a disk on this box (local-path); video never sits on a
+# network share or leaves the machine.
+#
+# frigate-config (/config): config.yml, users and the event database. Upstream gives no size; 2Gi is a
+# OneMind choice.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: frigate-config
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 2Gi
+---
+# frigate-media (/media/frigate): recordings, snapshots, previews and exports. 100Gi is the storage budget
+# the Market shows (a OneMind choice: about two cameras at the seeded motion-only retention). Retention
+# days do the everyday cleanup; if the disk itself runs low, Frigate deletes the oldest recordings first
+# when less than about an hour of recording space is left (configuration/record.md, "Will Frigate delete
+# old recordings if my storage runs out?").
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: frigate-media
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 100Gi
