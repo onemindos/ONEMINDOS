@@ -89,6 +89,17 @@ class ManifestBlocksTests(unittest.TestCase):
         self.assertTrue(errs)
         self.assertFalse([e for e in errs if "ABCDEFGHIJKLMNOP" in e], errs)
 
+    def test_a_credential_returns_only_the_credential_errors_like_go(self):
+        # A schema message can quote a whole block (not, oneOf, maxItems), so with a credential-named field
+        # inside it the gateway returns the credential errors alone, as validateCredentials does in Go.
+        for case in CASES["invalid"]:
+            if case.get("expect") != "holds a credential value":
+                continue
+            with self.subTest(case["name"]):
+                errs = self.catalog.check_manifest(apply(BASE, case["ops"]))
+                self.assertTrue(errs)
+                self.assertEqual([e for e in errs if "holds a credential value" not in e], [], errs)
+
     def test_the_credential_scan_stays_fast_on_a_hostile_string(self):
         # Python's re backtracks; every repeat in credentialValue is bounded, so a long string costs linear time.
         import time

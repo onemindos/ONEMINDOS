@@ -258,7 +258,14 @@ class Catalog:
         errs = builtin_check(doc) if self._validator is None else []
         if self._validator is not None:
             rules = self._rules
-            # A schema message quotes the bad value; rules.hide never repeats one that looks like a credential.
+            # A schema message can quote a whole block, credential and all, and hide() only spots values
+            # that look like one, not a value under a credential name. So a manifest that holds a
+            # credential gets the credential errors alone (they name the field, never the value), as the
+            # Go validator does by running validateCredentials before the schema.
+            if rules is not None:
+                cred = list(rules.credential_errors(doc))
+                if cred:
+                    return cred
             errs = [
                 f"{'/'.join(str(p) for p in e.absolute_path) or '<root>'}: {e.message}"
                 for e in self._validator.iter_errors(doc)

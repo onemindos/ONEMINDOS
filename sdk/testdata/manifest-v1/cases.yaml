@@ -121,3 +121,26 @@ invalid:
   - name: a field named like a credential
     expect: holds a credential value
     ops: [{op: set, path: /spec/notifications/topics/0/actions/0/args/apiKey, value: abc123}]
+  # A schema error quotes the whole bad block; with a credential-named field inside, only the credential
+  # error may come back (Python and Go alike), so no message repeats the value.
+  - name: a credential-named field inside a block that also breaks the schema
+    expect: holds a credential value
+    ops:
+      - {op: set, path: /spec/extensions/bridge/mode, value: local}
+      - {op: set, path: /spec/extensions/bridge/password, join: ["hunter2", "bridgepw"]}
+  - name: a credential-named field inside a map layer source
+    expect: holds a credential value
+    ops:
+      - {op: set, path: /spec/mapLayers/0/source, value: {}}
+      - {op: set, path: /spec/mapLayers/0/source/token, join: ["tok", "maplayersrc"]}
+  - name: a credential-named field inside a list that is too long
+    expect: holds a credential value
+    ops:
+      - op: set
+        path: /spec/notifications/topics/0/actions
+        value:
+          - {id: show, label: Show on map, tool: recent, args: {}}
+          - {id: list, label: List, tool: recent, args: {}}
+          - {id: open, label: Open, tool: recent, args: {}}
+          - {id: more, label: More, tool: recent, args: {}}
+      - {op: set, path: /spec/notifications/topics/0/actions/3/args/token, join: ["tok", "actionarg"]}

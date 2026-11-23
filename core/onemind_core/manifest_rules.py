@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Manifest v1 rules a JSON Schema cannot say (#604), run by Catalog.validate after the schema.
+"""Manifest v1 rules a JSON Schema cannot say (#604), run by Catalog.validate: the credential scan
+before the schema (a manifest that holds a credential gets those errors alone), the rest after it.
 
 The Go validator behind `onemind plugin validate` (internal/plugin/validate/blocks.go) runs the same
 rules with the same messages, and sdk/testdata/manifest-v1/cases.yaml holds the shared golden cases,
@@ -39,6 +40,8 @@ class ManifestRules:
         return cls(schema)
 
     def errors(self, doc: object) -> list[str]:
+        """The cross-field errors. Catalog.validate checks credential_errors first and stops there,
+        so these run only on a manifest that holds no credential."""
         if not isinstance(doc, dict):
             return []
         errs = list(self.credential_errors(doc))
