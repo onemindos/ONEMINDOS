@@ -324,6 +324,22 @@ class NotifyRepository(SqlRepository):
         with self.db.session() as s:
             return list(s.scalars(q))
 
+    def unread_summary(self, person_id: str) -> dict:
+        """One person's inbox in one answer: unread counts per severity and the two times that
+        move whenever the inbox changes (a new item, or an item read on any device)."""
+        mine = NotificationRow.person_id == person_id
+        with self.db.session() as s:
+            counts = dict(s.execute(
+                select(NotificationRow.severity, func.count())
+                .where(mine, NotificationRow.read_at.is_(None)).group_by(NotificationRow.severity)
+            ).all())
+            latest, last_read = s.execute(
+                select(func.max(NotificationRow.created_at), func.max(NotificationRow.read_at)).where(mine)
+            ).one()
+        by_severity = {sev: int(counts.get(sev, 0)) for sev in ("info", "warning", "critical")}
+        return {"unread": sum(int(n) for n in counts.values()), "by_severity": by_severity,
+                "latest_created_at": iso(latest), "last_read_at": iso(last_read)}
+
     def mark_read(self, person_id: str, nid: str | None, now: datetime) -> int:
         conds = [NotificationRow.person_id == person_id, NotificationRow.read_at.is_(None)]
         if nid is not None:
