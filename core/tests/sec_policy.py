@@ -787,3 +787,15 @@ POLICY |= {
     ("PUT", "/v1/instance/kiosk"): Row(ONLY_OWNER, w.p_kiosk_put,
                                        f"{_KIOSK}: only the owner changes the screen; an agent can never switch it"),
 }
+
+# ---- motion lockout (#723: core/onemind_core/routers/physical.py) ----------------------------------------------
+# Owner only for reading too (MotionLockout.owner_only audits every refusal). The probe turns the lockout on,
+# which never needs a passkey; turning it off needs a fresh passkey once passkeys are active
+# (test_physical_actions.py covers that step-up).
+_PHYS = "core/onemind_core/routers/physical.py"
+POLICY |= {
+    ("GET", "/v1/physical/lockout"): Row(ONLY_OWNER, w.p_static("/v1/physical/lockout"),
+                                         f"{_PHYS}: whether every physical action is refused; owner only, refusals audited"),
+    ("PUT", "/v1/physical/lockout"): Row(ONLY_OWNER, lambda _w: w.Req("/v1/physical/lockout", json={"locked": True, "reason": "matrix probe"}),
+                                         f"{_PHYS}: only the owner locks or lifts motion; an agent can never lift it"),
+}

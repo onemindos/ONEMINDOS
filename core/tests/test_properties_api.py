@@ -24,6 +24,11 @@ from conftest import AGENT, OWNER
 from props import budget
 
 METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "TRACE"]
+# Features that are off unless the owner turns them on, and the reason their 503 carries.
+SWITCHED_OFF = (
+    ("/v1/backups", "backups_disabled"),  # routers/backups.py
+    ("/v1/domains", "domains_disabled"),  # bring your own domain (#238, routers/domains.py documents 503)
+)
 
 
 @pytest.fixture(scope="module")
@@ -73,10 +78,11 @@ def test_any_body_gets_a_documented_status(property_resources, operations, data,
     # Allocate inside @given: shrinking/replay must not reuse database/guard state.
     with property_resources.example() as sample, sample.http() as gateway:
         r = gateway.post(path, content=body, headers={**who, "Content-Type": "application/json"})
-    # §12.2 documents exactly one deliberate 5xx: a switched-off backup feature answers
-    # 503 unavailable/backups_disabled in the §3 envelope. Any other 5xx is still a failure.
-    switched_off = (r.status_code == 503 and path.startswith("/v1/backups")
-                    and r.json().get("error") == "unavailable" and r.json().get("reason") == "backups_disabled")
+    # §12.2 documents one deliberate 5xx: a switched-off feature answers 503 unavailable with its
+    # own reason in the §3 envelope (SWITCHED_OFF). Any other 5xx is still a failure.
+    switched_off = (r.status_code == 503 and r.json().get("error") == "unavailable"
+                    and any(path.startswith(prefix) and r.json().get("reason") == reason
+                            for prefix, reason in SWITCHED_OFF))
     assert r.status_code < 500 or switched_off, (path, body, r.text)
     assert r.status_code in documented or switched_off, (path, body, r.status_code, r.text)
     if r.status_code >= 400:
