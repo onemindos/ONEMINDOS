@@ -8,8 +8,9 @@ File server in one program: browse, upload, download and share files from a brow
 | | |
 |---|---|
 | Version | 1.20.27 (upstream release `v1.20.27`, published 2026-11-22) |
-| Licence | `MIT`, Market class **L1** (licence gate, scan of 2026-11-21) |
+| Licence | `MIT`, Market class **L1** (licence gate, scan of 2026-11-23) |
 | Tier | `community` (set by CI: sdk/tools/app-gate) |
+| Quality | `bronze` (computed by the gate from its evidence, never set by hand) |
 | Category | files |
 | GitHub | <https://github.com/9001/copyparty> |
 | Website | <https://github.com/9001/copyparty#readme> |
@@ -77,21 +78,21 @@ Source: [scripts/docker/README.md](https://github.com/9001/copyparty/blob/v1.20.
 - No HTTPS or LAN hostname: OneMind v0 has no ingress or certificates for apps, so the web UI is reached through a port-forward until the app proxy exists. WebDAV and phone access need that LAN address.
 - `readOnlyRootFilesystem` is not set: it has not been tested against this image.
 - Resource figures are OneMind choices; upstream publishes none. They are checked against real use when the CI smoke test (contract §9.4 check 9) runs.
-- `metadata.tier` stays `community` until `sdk/tools/app-gate` in CI writes a passing `scan.json`. `spec.updates.automerge` is `none` until `renovate.json` lists the app.
+- This release declares tier `community` and leaves `spec.updates.automerge` at `none`.
 
 ## Security gate history
 
 Tier was **blocked** from 2026-11-12 (ci-apps run 43212771377, job `gate (copyparty)`) to 2026-11-23: `docker.io/copyparty/ac:1.20.26` had CRITICAL CVE-2026-111497 in `brotli-libs` 1.2.0-r1 (fixed in 1.2.1-r0, Alpine base).
 
-**Unblocked (2026-11-23, #147):** upstream `v1.20.27` (published 2026-11-22) rebuilt the image with `apk upgrade` (scripts/docker/Dockerfile.ac at that tag). Trivy 0.76.2 on linux/amd64 and linux/arm64 of `docker.io/copyparty/ac:1.20.27@sha256:a49363016be176a6eaaa78c6bb6af04ca22a4dd43806da8f9421c9336b92c8f4` found 0 CRITICAL and 0 HIGH, and no secrets. The tier moves from `blocked` to `community`; the PR's CI app gate (ClamAV, smoke test, Trivy) decides whether `verified` follows. The licence-matrix row is still missing, so the app is not preinstallable on sold boxes until one is added (brief 30 B10). The gate was not changed.
+**Unblocked (2026-11-23, #147):** the [CI app gate](https://github.com/onemindos/ONEMINDOS/actions/runs/45148630564) passed the pinned `v1.20.27` image for amd64 and arm64. Trivy found no fixable CRITICAL findings, ClamAV found no infected files, and the smoke test passed. The tier moves from `blocked` to `community`.
 <!-- onemind:notes:end -->
 
 ## Latest security scan
 
-Scanned 2026-11-21T13:30:35Z by `sdk/tools/app-gate`: **fail**. Licence `MIT` class L1; smoke test pass.
+Scanned 2026-11-23T09:40:53Z by `sdk/tools/app-gate`: **pass**. Licence `MIT` class L1; smoke test pass.
 
 | Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
 |---|---|---|---|---|---|---|
-| `docker.io/copyparty/ac:1.20.26@sha256:b2054d65e05daa8982ca17c26b12b74315c0ce586a03ff9018a59c80731b9e19` | amd64, arm64 | 1 (1) | 8 | 0 infected (daily-28190) | 0 | unsigned |
+| `docker.io/copyparty/ac:1.20.27@sha256:a49363016be176a6eaaa78c6bb6af04ca22a4dd43806da8f9421c9336b92c8f4` | amd64, arm64 | 0 (0) | 0 | 0 infected (daily-28192) | 0 | unsigned |
 
 Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

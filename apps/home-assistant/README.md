@@ -8,8 +8,9 @@ Open source home automation that puts local control and privacy first
 | | |
 |---|---|
 | Version | 2026.11.2 (upstream release `2026.11.2`, published 2026-11-16) |
-| Licence | `Apache-2.0`, Market class **L1** (licence gate, scan of 2026-11-21) |
+| Licence | `Apache-2.0`, Market class **L1** (licence gate, scan of 2026-11-23) |
 | Tier | `blocked` (set by CI: sdk/tools/app-gate) |
+| Quality | `none` (computed by the gate from its evidence, never set by hand) |
 | Category | home-automation |
 | GitHub | <https://github.com/home-assistant/core> |
 | Website | <https://www.home-assistant.io> |
@@ -84,10 +85,10 @@ From upstream's Container install guide (https://www.home-assistant.io/installat
 
 ## Latest security scan
 
-Scanned 2026-11-21T14:37:07Z by `sdk/tools/app-gate`: **fail**. Licence `Apache-2.0` class L1; smoke test pass.
+Scanned 2026-11-23T10:09:05Z by `sdk/tools/app-gate`: **fail**. Licence `Apache-2.0` class L1; smoke test pass.
 
 | Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
 |---|---|---|---|---|---|---|
-| `ghcr.io/home-assistant/home-assistant:2026.11.1@sha256:6785d1eca68747a524c156faae1b139ed415c07357386ae6fe17291986e59e82` | amd64, arm64 | 5 (4) | 63 | 0 infected (daily-28190) | 0 | unsigned |
+| `ghcr.io/home-assistant/home-assistant:2026.11.2@sha256:493a07e8f6530fc640223f4a0a5248f20a61ca2f718bb1d31efbf08a2c5ea28f` | amd64, arm64 | 5 (4) | 63 | 0 infected (daily-28192) | 0 | unsigned |
 
 Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.
