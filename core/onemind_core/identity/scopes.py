@@ -28,6 +28,8 @@ BASE_SCOPES = frozenset({
     "automation:read", "automation:request", "automation:write",
     "audit:read", "audit:admin", "users:read", "users:admin",
     "tokens:self", "tokens:read", "tokens:admin", "events:read", "deploy:write",
+    "files:share",  # FILES-02 (#237): publish household files through an expiring share link
+    "events:write",  # only as events:write:own, minted for an approved bridge block (#610)
     "assets:read",  # #606: asset values on GET /v1/events (owner and adult by default)
 })
 
@@ -39,12 +41,14 @@ _SUFFIX = {
     "audit:read": re.compile(r"own|all"),
     "actions:withdraw": re.compile(r"own"),
     "events:read": re.compile(r"[a-z0-9_.*]{1,100}"),
+    "events:write": re.compile(r"own"),
 }
 
 # Never minted for agent, plugin, automation or node (§12.6).
-_PERSON_ONLY = {"actions:approve", "tokens:admin", "tokens:self", "tokens:read", "notifications:read",
+_PERSON_ONLY = {"actions:approve", "tokens:admin", "tokens:self", "tokens:read", "notifications:read", "files:share",
                 "notifications:write"}
 _KIND_ONLY = {"nodes:report": {"node"}, "notifications:send": {"plugin", "agent", "automation"},
+              "events:write": {"plugin"},
               "automation:request": {"agent", "plugin", "person"}}
 
 READ_SCOPES = frozenset(s for s in BASE_SCOPES if s.endswith(":read"))
@@ -52,7 +56,7 @@ READ_SCOPES = frozenset(s for s in BASE_SCOPES if s.endswith(":read"))
 ROLE_SCOPES: dict[str, frozenset[str]] = {
     "owner": frozenset({ALL}),
     "adult": frozenset((READ_SCOPES - {"users:read"}) | {
-        "logs:read", "notifications:write", "tokens:self", "actions:request",
+        "logs:read", "notifications:write", "tokens:self", "actions:request", "files:share",
     }),
     "guest": frozenset({"instance:read", "nodes:read", "apps:read", "notifications:read",
                         "notifications:write", "alerts:read"}),

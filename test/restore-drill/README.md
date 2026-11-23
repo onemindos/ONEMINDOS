@@ -38,8 +38,10 @@ The VM boot is measured and reported but not counted: the criterion starts when 
 
 | Date | Run | Result |
 |---|---|---|
-| (none yet) | The judging core is unit-tested; the VM drill has **not** been run end to end by its author (no KVM runner on the author's machine). The first CI run is the first real timing. | UNVERIFIED |
+| 2026-11-22 | `drill.py --mem 4096` on a KVM host (16 cores, Debian 13 cloud image, `restore_mode=restic-owner-key`) | **PASS**: restore clock 269.4 s of 3600 (install 140.3 s, restore 108.7 s, verify 20.4 s; seed 309.8 s and VM boot 41 s are off the clock). 15 checks green, including k3s's own datastore (a ConfigMap canary), the gateway database (the old install action), the audit log and 20000 database rows. |
 
 If the first CI run shows a script bug (the in-VM script is adapted from the proven `test/backup-wire/in-vm.sh`, but the clean-box restore half is new), fix it in `in-vm.sh`; do not loosen `drillcore.py`.
 
-**Not covered yet:** a second node, S3 or box destinations, restoring k3s's own datastore and the gateway database onto the new box (the `system` snapshot is only checked for presence), arm64 hardware.
+**Not covered yet:** a second node, S3 or box destinations, restoring k3s's own datastore and the gateway database onto the new box (now done: the `system` and `k3s` snapshots are restored and read back), arm64 hardware.
+
+**Product gaps the drill found (worked around in `in-vm.sh`, marked `db_rbac_workaround` and `db_netpol_workaround` in the results):** the gateway may not create the shared PostgreSQL, its app namespace, the executor binding or the exec role; and an app's default-deny network policy has no path to the shared PostgreSQL. Delete the workarounds when the platform fixes them.

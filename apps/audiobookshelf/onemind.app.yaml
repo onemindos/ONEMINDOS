@@ -12,8 +12,11 @@ metadata:
   # Market category slug from docs/design/TAXONOMY.md §1; sub-tags (books, podcasts) are listed in README.md
   # until the schema has metadata.tags.
   category: media
+  age_rating: 12   # proposed minimum age (apps/README.md rubric); the owner can override per app
+  age_reason: "Plays audiobooks and podcasts; podcast feeds come from the open internet."
   icon: icon.svg
   license: "GPL-3.0"
+  licenceClass: L2
   source: https://github.com/advplyr/audiobookshelf
   links:
     docs: "https://www.audiobookshelf.org/docs"

@@ -1,0 +1,69 @@
+# 2026-11-23T03:15:20Z AK-7 part 2: restore on a fresh Debian 13 install
++ grep -E '^PRETTY_NAME=' /etc/os-release; uptime -s; cat /etc/machine-id | cut -c1-8; dpkg -l | grep -c kanidm || true
+PRETTY_NAME="Debian GNU/Linux 13 (trixie)"
+2026-11-23 02:35:02
+d6c75af9
+0
+  (exit 0)
++ bash /root/aklab/setup.sh /root/aklab/debs
++ sha256sum of the packages
+31de180ee2f93e898fd686a5105444e98f2c8e2f8b2d1740691974a010e36a9e  kanidmd_1.12.0-202611010319+a52b723_amd64.deb
+88112601578ff3bc223188208314a7b347b3f6c990e4588157aaa5f694cf14b7  kanidm_1.12.0-202611010319+a52b723_amd64.deb
++ apt-get install ./kanidmd ./kanidm
+=============================
+Thanks for installing Kanidm!
+=============================
+Please ensure you create a configuration file at /etc/kanidm/config or ~/.config/kanidm. An example file is located in /usr/share/kanidm/
+Setting up kanidmd (1.12.0-202611010319+a52b723) ...
+Creating the kanidmd group for config & cert ownership...
+Creating group 'kanidmd' with GID 987.
+Fixing ownership of server configuration ...
+=============================
+Thanks for installing Kanidm!
+=============================
+Please ensure you modify the configuration file at /etc/kanidmd/server.toml
+Only then: systemctl enable kanidmd.service
+Full examples are in /usr/share/kanidmd/
+kanidmd.service is a disabled or a static unit, not starting it.
++ kanidmd cert-generate (local test CA, not for production)
+00000000-0000-0000-0000-000000000000 INFO     ｉ [info]: Running in certificate generate mode ...
+00000000-0000-0000-0000-000000000000 INFO     ｉ [info]: certificate generation complete
+total 24
+-rw-r--r-- 1 root kanidmd  879 Nov 23 03:15 ca.pem
+-rw-r----- 1 root kanidmd  306 Nov 23 03:15 cakey.pem
+-rw-r----- 1 root kanidmd  843 Nov 23 03:15 cert.pem
+-rw-r----- 1 root kanidmd 1722 Nov 23 03:15 chain.pem
+-rw-r----- 1 root kanidmd  241 Nov 23 03:15 key.pem
+-rw-r----- 1 root kanidmd  508 Nov 23 03:15 server.toml
+  (exit 0)
++ systemctl is-enabled kanidmd || true; systemctl is-active kanidmd || true
+disabled
+inactive
+  (exit 0)
++ grep -E '^(domain|origin)' /etc/kanidmd/server.toml
+domain = "idm.onemind.test"
+origin = "https://idm.onemind.test:8443"
+  (exit 0)
++ sha256sum /root/aklab/restore-input.json.gz
+b18f159265a5f70dd414195c27a07e0eedeeb3fba68c38b688d5e0658bc1a4b1  /root/aklab/restore-input.json.gz
+  (exit 0)
++ install -d -m 0750 /var/lib/private/kanidmd; maxrss kanidmd database restore -c /etc/kanidmd/server.toml /root/aklab/restore-input.json.gz 2>&1 | tail -4
+d9fb4836-a7a4-4c52-ac68-446e213950de INFO     ┕━ ｉ [info]: System reindex: complete 🎉
+00000000-0000-0000-0000-000000000000 INFO     ｉ [info]: Index Phase 2 Success!
+00000000-0000-0000-0000-000000000000 INFO     ｉ [info]: ✅ Restore Success!
+exit 0 elapsed_s 1.38 max_rss_kB 36040
+  (exit 0)
++ systemctl enable --now kanidmd; for i in $(seq 1 30); do systemctl is-active -q kanidmd && break; sleep 1; done; systemctl is-active kanidmd
+Created symlink '/etc/systemd/system/multi-user.target.wants/kanidmd.service' → '/usr/lib/systemd/system/kanidmd.service'.
+active
+  (exit 0)
++ sleep 3; curl -sS --cacert /etc/kanidm/ca.pem https://idm.onemind.test:8443/status; echo
+true
+  (exit 0)
+# the owner's virtual authenticator file is the one from AK-2, copied over unchanged
++ $PY passkey-fp owner
+{"credential_fp": "58d340207caabd97", "step": "passkey_fp", "user": "owner"}
+  (exit 0)
++ $PY signin owner passkey
+{"detail": "success (mech passkey)", "mech": "passkey", "ok": true, "step": "signin", "user": "owner", "whoami": "owner@idm.onemind.test"}
+  (exit 0)

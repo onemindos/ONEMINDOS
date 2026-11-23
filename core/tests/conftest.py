@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
+from onemind_core import systemlist
 from onemind_core.app import create_app
 from onemind_core.config import Settings
 from onemind_core.guard import LimitSettings
@@ -17,6 +18,27 @@ from onemind_core.executors import ExecResult, Executor, NoopExecutor
 
 FIXTURES = Path(__file__).parent / "fixtures"
 EXAMPLES = Path(__file__).parent.parent / "examples"
+
+
+def _signed_list_for_tests() -> None:
+    """systemlist.load() refuses a group- or world-writable list, as it must on the box. A checkout made
+    under umask 0002 leaves the repo copy 0664, which would empty the system apps list in every test.
+    Then the tests read a 0644 copy of the same bytes; test_system_apps.py still checks the refusal."""
+    src = systemlist.REPO_FILE
+    if not src.is_file() or not src.stat().st_mode & 0o022:
+        return
+    import atexit
+    import tempfile
+
+    folder = Path(tempfile.mkdtemp(prefix="onemind-system-apps-"))
+    atexit.register(shutil.rmtree, folder, ignore_errors=True)
+    copy = folder / src.name
+    copy.write_bytes(src.read_bytes())
+    copy.chmod(0o644)
+    systemlist.REPO_FILE = copy
+
+
+_signed_list_for_tests()
 
 OWNER = {"Authorization": "Bearer dev-owner-token-change-me"}
 ADULT = {"Authorization": "Bearer dev-adult-token-change-me"}
@@ -293,5 +315,7 @@ def conform_to_schema(app_dir: Path) -> None:
     }
     meta.setdefault("upstream", {"release": "v" + str(meta["version"]), "released_at": "2026-01-01T00:00:00Z", "archived": False})
     meta.setdefault("tier", "community")
+    meta.setdefault("age_rating", 18)  # FAM-01: required by the schema; the safest value for a fixture
+    meta.setdefault("licenceClass", "L1")  # #173: required by the schema
     spec.setdefault("updates", {"channel": "stable", "automerge": "none"})
     path.write_text(yaml.safe_dump(doc, sort_keys=False))

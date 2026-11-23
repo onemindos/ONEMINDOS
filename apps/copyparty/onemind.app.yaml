@@ -14,8 +14,11 @@ metadata:
   # Market category slug from docs/design/TAXONOMY.md §1 (sub-tags are listed in README.md until
   # the schema has metadata.tags).
   category: files
+  age_rating: 12   # proposed minimum age (apps/README.md rubric); the owner can override per app
+  age_reason: "File server for uploading and sharing files; holds whatever people put in it."
   icon: icon.svg
   license: "MIT"
+  licenceClass: L1
   source: https://github.com/9001/copyparty
   # §9.3 facts from the GitHub API (repos/9001/copyparty), read 2026-11-12. The repo sets no
   # homepage, so the website link is the repo's README.
