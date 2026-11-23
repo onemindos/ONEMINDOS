@@ -280,16 +280,10 @@ func unhex(c byte) byte {
 	return c - 'a' + 10
 }
 
-// urlCredential is a user part, or a query or fragment parameter whose (percent-decoded) key names a
-// credential. Tab and newline are dropped first, as a URL parser drops them. Text with whitespace
-// inside is prose, not a URL, unless it starts like a URL.
-func urlCredential(text string) bool {
-	text = strings.Trim(urlTabNewline.ReplaceAllString(text, ""), urlTrim)
+// urlCredentialParts runs the user-part and query-key checks on one piece of text read as a URL.
+func urlCredentialParts(text string) bool {
 	if urlUserinfo.MatchString(text) {
 		return true
-	}
-	if whitespace.MatchString(text) && !urlStart.MatchString(text) {
-		return false
 	}
 	for _, part := range urlSplit.Split(text, -1)[1:] {
 		for _, pair := range pairSplit.Split(part, -1) {
@@ -297,6 +291,32 @@ func urlCredential(text string) bool {
 			if isURLCredentialKey(unquotePlus(key)) {
 				return true
 			}
+		}
+	}
+	return false
+}
+
+// wordOpeners are the characters a word in prose may open with before a URL starts.
+const wordOpeners = "([{<\"'`"
+
+// urlCredential is a user part, or a query or fragment parameter whose (percent-decoded) key names a
+// credential. Tab and newline are dropped first, as a URL parser drops them. Text with whitespace
+// inside is prose, not a URL, unless it starts like a URL. Prose is still searched for URLs: each
+// whitespace-separated word gets the same checks (the Python twin does the same).
+func urlCredential(text string) bool {
+	text = strings.Trim(urlTabNewline.ReplaceAllString(text, ""), urlTrim)
+	if urlUserinfo.MatchString(text) {
+		return true
+	}
+	if !whitespace.MatchString(text) {
+		return urlCredentialParts(text)
+	}
+	if urlStart.MatchString(text) && urlCredentialParts(text) {
+		return true
+	}
+	for _, word := range whitespace.Split(text, -1) {
+		if word != "" && urlCredentialParts(strings.TrimLeft(word, wordOpeners)) {
+			return true
 		}
 	}
 	return false
