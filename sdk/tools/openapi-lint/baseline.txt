@@ -103,6 +103,7 @@ security GET /v1/bridges/{bridge_id} owner=core:bridges
 security POST /v1/bridges/{bridge_id}/events owner=core:bridges
 security GET /v1/bridges/{bridge_id}/latest owner=core:bridges
 security POST /v1/bridges/{bridge_id}/resume owner=core:bridges
+security GET /v1/care/checkup owner=core:care
 security POST /v1/browsers/{app_id}/profile/reset owner=core:browsers
 security POST /v1/browsers/{app_id}/session owner=core:browsers
 security POST /v1/browsers/{app_id}/session/close owner=core:browsers

@@ -106,6 +106,8 @@ HUMAN_ONLY: dict[str, str] = {
     "GET /v1/approval-policies": OVERSIGHT,
     "POST /v1/approval-policies": OVERSIGHT,
     "DELETE /v1/approval-policies/{policy_id}": OVERSIGHT,
+    # FD-08 is an owner-only report for assessing the box before deciding on maintenance.
+    "GET /v1/care/checkup": OVERSIGHT,
     "POST /v1/domains/hosts/{hostname}/approve": OVERSIGHT,
     "POST /v1/files/requests/{request_id}/approve": OVERSIGHT,
     "POST /v1/files/requests/{request_id}/deny": OVERSIGHT,
