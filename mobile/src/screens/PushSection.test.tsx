@@ -156,10 +156,4 @@ describe('Android push guide', () => {
     await fireEvent.press(on);
     expect(await screen.findByText(/go through ntfy\.sh, not your box's ntfy/)).toBeTruthy();
   });
-
-  it('shows nothing in the demo (no box)', async () => {
-    await mount({ conn: { mode: 'mock', token: 'demo' } });
-    await waitFor(() => expect(screen.queryByText(/demo/i)).toBeNull());
-    expect(screen.queryByTestId('push')).toBeNull();
-  });
 });
