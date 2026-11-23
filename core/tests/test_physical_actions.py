@@ -198,6 +198,7 @@ def test_lifting_the_lockout_needs_a_fresh_passkey_once_passkeys_are_active(clie
     assert client.get("/v1/physical/lockout", headers=OWNER).json()["locked"] is True
     assert "physical.lockout.off" not in [e["event"] for e in _audit(settings)]
 
+
 def test_lockout_that_cannot_be_read_counts_as_on(client, clock, pump):
     svc = client.app.state.actions
 
