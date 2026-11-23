@@ -7,9 +7,9 @@ This is where "AI never actuates without human approval" is enforced:
 - a standing approval the owner set in advance (§12.17, automation/policies.py) may accept a
   matching read or write request; it is recorded as approved_by policy:<id>@<revision>;
 - an app.install is approved only for an app with a passing scan newer than 7 days (§10.3);
-- an agent that read third-party text is tainted (taint.py, AIG-04): its requests are never accepted
-  by a standing approval, the owner's approval must name the plan fingerprint, and the app must be
-  visible to AI under its aiPolicy;
+- an agent that read third-party text (over MCP or REST) is tainted (taint.py, AIG-04): its requests,
+  app and feature types alike, carry a note on the plan, are never accepted by a standing approval,
+  need the owner's approval to name the plan fingerprint, and may only name apps visible to AI;
 - an app that declares spec.agent gets its own agent principal at install, revoked at removal
   (§11.2), so the AI inside it can request actions but, like every agent, never approve them;
 - an app's declared secrets are entered by the owner with the approval itself (or filed as an
@@ -123,12 +123,21 @@ class ApprovalInput:
     hold_ms: int | None = None
 
 
+def _fingerprinted(plan: dict) -> tuple[dict, str]:
+    body = json.dumps(plan, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return plan, "sha256:" + hashlib.sha256(body.encode()).hexdigest()
+
+
 def physical_plan(action_type: str, params: dict, card: dict) -> tuple[dict, str]:
     """(plan, plan_sha256) of a physical request: the fingerprint covers type, params and card, so any
     changed parameter or limit needs a new approval (contract §12.4)."""
-    plan = {"type": action_type, "params": params, "approval": card}
-    body = json.dumps(plan, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
-    return plan, "sha256:" + hashlib.sha256(body.encode()).hexdigest()
+    return _fingerprinted({"type": action_type, "params": params, "approval": card})
+
+
+def feature_plan(action_type: str, params: dict) -> tuple[dict, str]:
+    """(plan, plan_sha256) of a tainted agent's feature request (AIG-04): type and params, so the
+    owner approves exactly the parameters the card showed."""
+    return _fingerprinted({"type": action_type, "params": params})
 
 
 class ActionParams(BaseModel):
@@ -902,6 +911,26 @@ class ActionService:
                 return now.to_json()
         return None
 
+    @staticmethod
+    def _check_tainted_approval(a: Action, plan_sha256: str | None, standing: dict | None,
+                                fresh: str | None = None) -> None:
+        """AIG-04: the requester read third-party text. Only a person, approving this exact plan.
+
+        fresh: the fingerprint rendered again now, when the caller has one; it must still match.
+        """
+        if standing is not None:
+            raise ApiError(409, "stale_precondition", "a request from a tainted agent needs a person",
+                           reason="tainted")
+        if plan_sha256 is None:
+            raise ApiError(
+                409, "stale_precondition",
+                "this agent read third-party text before asking: send plan_sha256 to approve exactly this plan",
+                reason="plan_unchecked",
+            )
+        if a.plan_sha256 is None or plan_sha256 != a.plan_sha256 or (fresh is not None and fresh != a.plan_sha256):
+            raise ApiError(409, "stale_precondition", "the approval names a different plan than the one requested",
+                           reason="plan_changed")
+
     def _tainted_target_check(self, principal: Principal, app: AppEntry) -> None:
         """A tainted agent may only ask about apps the app's own aiPolicy shows to AI (#165, deny by default)."""
         try:
@@ -982,6 +1011,10 @@ class ActionService:
             if spec.physical:
                 self._check_physical_approval(principal, a, spec, plan_sha256, extra, standing)
                 facts = {"physical": True, "hold_ms": extra.hold_ms, "approval": "passkey", "plan_sha256": a.plan_sha256}
+            if plan_taint(a.plan):
+                fresh = None if spec.physical else feature_plan(a.type, a.params)[1]
+                self._check_tainted_approval(a, plan_sha256, standing, fresh)
+                facts = {**(facts or {}), "tainted": True, "plan_sha256": a.plan_sha256}
             return self._approve_feature(principal, a, spec, standing, facts)
         handler = self.handlers.get(a.type)
         if handler is not None:
@@ -1013,16 +1046,7 @@ class ActionService:
                 reason="plan_unchecked",
             )
         if plan_taint(a.plan):
-            # AIG-04: the requester read third-party text. Only a person, looking at this exact plan.
-            if standing is not None:
-                raise ApiError(409, "stale_precondition", "a request from a tainted agent needs a person",
-                               reason="tainted")
-            if plan_sha256 is None:
-                raise ApiError(
-                    409, "stale_precondition",
-                    "this agent read third-party text before asking: send plan_sha256 to approve exactly this plan",
-                    reason="plan_unchecked",
-                )
+            self._check_tainted_approval(a, plan_sha256, standing)
         if a.plan_sha256 is not None and app is not None:
             _, fresh, _ = self.render(a.type, a.params)
             if fresh["plan_sha256"] != a.plan_sha256:
@@ -1479,6 +1503,17 @@ class ActionService:
         if spec.physical:
             self._refuse_if_locked()
             plan, plan_sha = self._physical_plan(action_type, spec, params, risk)
+        taint = self.taint.get(principal.id)
+        if taint is not None:
+            # AIG-04: the same rules as an app action. The app it names must be visible to AI, the
+            # card carries the note (beside the plan, outside the fingerprint), and the plan is
+            # fingerprinted so the owner's approval is bound to exactly these parameters.
+            target = self.catalog.get(params["app_id"]) if isinstance(params.get("app_id"), str) else None
+            if target is not None:
+                self._tainted_target_check(principal, target)
+            if plan is None:
+                plan, plan_sha = feature_plan(action_type, params)
+            plan = {**plan, PLAN_KEY: taint.note()}
         action = Action(
             id=new_action_id(), type=action_type, params=params, state="requested",
             requested_by={"id": principal.id, "kind": principal.kind}, idempotency_key=idempotency_key,
@@ -1488,7 +1523,6 @@ class ActionService:
         stored, created = self.repo.create(action)
         if not created:
             return self.expire_if_due(stored).to_json(), False
-        taint = self.taint.get(principal.id)  # feature types never go to a standing approval; record it
         self.audit.append("action.requested", principal.as_dict(), stored.id, {
             "type": action_type, "params": params, "risk": risk, "expires_at": iso(exp),
             "requested_by": principal.id, **({"reason": reason} if reason else {}), **(audit_extra or {}),
