@@ -1013,3 +1013,10 @@ POLICY |= {
     ("DELETE", "/v1/data/grants/{grant_id}"): Row(OWNER_ONLY_404, w.p_missing("/v1/data/grants/dgr_0123456789abcdef"),
                                                   f"{_DATA}: only an owner revokes; no approval, it only takes access away"),
 }
+
+# Asset locations use the node-inventory read scope. Only a human owner can edit map records.
+POLICY |= {
+    ("GET", "/v1/sites"): Row(CHILD_CANNOT, w.p_static("/v1/sites"), "Site inventory, nodes:read"),
+    ("POST", "/v1/sites"): Row({**OWNER_ONLY, "owner": 422}, w.p_missing("/v1/sites", json={}),
+                               "Only an owner may create a site; probe has no anchors"),
+}
