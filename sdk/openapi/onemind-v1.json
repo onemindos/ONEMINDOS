@@ -4362,6 +4362,75 @@
         "title": "HostBody",
         "type": "object"
       },
+      "HostStatus": {
+        "properties": {
+          "count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Count"
+          },
+          "helper": {
+            "default": "missing",
+            "description": "host helper: reachable | missing; no host action starts while missing",
+            "enum": [
+              "reachable",
+              "missing"
+            ],
+            "title": "Helper",
+            "type": "string"
+          },
+          "hostname": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the box's name as the host helper reported it",
+            "title": "Hostname"
+          },
+          "observed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observed At"
+          },
+          "state": {
+            "enum": [
+              "ok",
+              "attention",
+              "critical",
+              "unknown"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "observed_at",
+          "summary"
+        ],
+        "title": "HostStatus",
+        "type": "object"
+      },
       "ImportBody": {
         "additionalProperties": false,
         "properties": {
@@ -10414,6 +10483,9 @@
           "backups": {
             "$ref": "#/components/schemas/SourceStatus"
           },
+          "host": {
+            "$ref": "#/components/schemas/HostStatus"
+          },
           "mesh": {
             "$ref": "#/components/schemas/SourceStatus"
           },
@@ -10447,7 +10519,8 @@
           "storage",
           "backups",
           "updates",
-          "mesh"
+          "mesh",
+          "host"
         ],
         "title": "StatusView",
         "type": "object"
