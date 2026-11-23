@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: Apache-2.0
+# Operations that are public on purpose, so they carry no security requirement (rule `security`).
+# One line each: METHOD /path  # why. Each matches a row in core/tests/sec_policy.py whose
+# unauthenticated cell (`none`) is 2xx, so the authz suite and this list say the same thing.
+# Adding a line is a security review: say who may call the route without signing in, and why.
+GET /healthz  # contract §3: the open health check
+GET /v1/instance/name  # only the box name, so the sign-in page can show it
+GET /v1/protocol  # protocol generations (#697), so an app too old to sign in can say Update needed
+POST /v1/auth/login/options  # contract §12.6: anyone may start a sign-in ceremony
+POST /v1/auth/login  # contract §12.6: anyone may sign in by password; the body is the credential
+POST /v1/auth/enrol  # contract §12.6: anyone holding an enrolment code; the code is the credential
+POST /v1/auth/refresh  # contract §12.6: anyone holding a refresh token; the token is the credential
+DELETE /v1/auth/app-session  # clears only the caller's own cookie; no data
+OPTIONS /v1/files/uploads  # tus capability discovery is open and read only
+GET /v1/tls/ca.crt  # contract §12.7: the box CA is public data a phone or node needs before it trusts the box
+GET /v1/tls/onemind.mobileconfig  # contract §12.7: the same public CA wrapped as an Apple profile
