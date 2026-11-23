@@ -21,7 +21,7 @@ export default defineConfig({
   server: {
     fs: { allow: ['.', uiSrc, sdkSrc, openapiDir] },
     proxy: {
-      '/v1': 'http://localhost:8080',
+      '/v1': { target: 'http://localhost:8080', ws: true },
       '/healthz': 'http://localhost:8080',
     },
   },

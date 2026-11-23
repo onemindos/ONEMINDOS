@@ -22,7 +22,7 @@ const caps = (eligible: boolean, ext = 'ready') => ({
 });
 afterEach(() => vi.unstubAllGlobals());
 
-function setup(opts: { eligible?: boolean; machines?: unknown[]; failFirst?: boolean; ext?: string; snapshots?: unknown[]; pendingAction?: Action } = {}) {
+function setup(opts: { eligible?: boolean; machines?: unknown[]; failFirst?: boolean; ext?: string; snapshots?: unknown[]; pendingAction?: Action; lookupRole?: boolean } = {}) {
   const writes: Array<Record<string, unknown> & { idempotency_key: string; expires_at: string }> = [];
   const fetchFn = vi.fn(async (path: string, init?: RequestInit) => {
     const p = new URL(path, window.location.origin).pathname;
@@ -44,13 +44,13 @@ function setup(opts: { eligible?: boolean; machines?: unknown[]; failFirst?: boo
     ...(pending ? { actions: async () => [pending], action: async () => pending } : {}),
   });
   window.sessionStorage.setItem('onemind.token', 'owner-demo');
-  render(<MemoryRouter initialEntries={['/machines']}><SessionProvider deps={{ mock: false, makeApi: () => api, knownPrincipal: () => ({ id: 'test-owner', kind: 'person', role: 'owner' }) }}><App mock={false} /></SessionProvider></MemoryRouter>);
+  render(<MemoryRouter initialEntries={['/machines']}><SessionProvider deps={{ mock: false, makeApi: () => api, knownPrincipal: opts.lookupRole ? undefined : () => ({ id: 'test-owner', kind: 'person', role: 'owner' }) }}><App mock={false} /></SessionProvider></MemoryRouter>);
   return { writes, user: userEvent.setup() };
 }
 
 describe('Machines screen', () => {
   it('is in the navigation and shows each state in the gateway words', async () => {
-    setup({ machines: [row('web', 'running'), row('db', 'stopped'), row('new', 'creating'), row('lost', 'unknown')] });
+    setup({ lookupRole: true, machines: [row('web', 'running'), row('db', 'stopped'), row('new', 'creating'), row('lost', 'unknown')] });
     expect((await screensNav(userEvent.setup())).getByRole('link', { name: 'Machines' })).toBeInTheDocument();
     await userEvent.setup().keyboard('{Escape}');
     const list = await screen.findByRole('list', { name: 'Machines' });
@@ -58,11 +58,20 @@ describe('Machines screen', () => {
     expect(within(list).getByText('Stopped')).toBeInTheDocument();
     expect(within(list).getByText('Creating')).toBeInTheDocument();
     expect(within(list).getByText('Unknown')).toBeInTheDocument();
+    const consoles = within(list).getAllByRole('link', { name: /open console/i });
+    expect(consoles).toHaveLength(1);
+    expect(consoles[0]).toHaveAttribute('href', '/machines/web');
     expect(within(list).getByText(/may or may not exist/)).toBeInTheDocument();
     // a machine that is still being created cannot be touched; a stopped one cannot be stopped
     expect(screen.getByRole('button', { name: 'Request removal of new' })).toBeDisabled();
     expect(screen.queryByRole('button', { name: 'Request stop of db' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Request stop of web' })).toBeEnabled();
+    const refuse = vi.fn(async () => Response.json({ error: 'conflict' }, { status: 409 }));
+    vi.stubGlobal('fetch', refuse);
+    await userEvent.setup().click(consoles[0]!);
+    expect(await screen.findByRole('heading', { name: 'web console' })).toBeVisible();
+    expect(await screen.findByText('Start the machine before opening its console.')).toBeVisible();
+    expect(refuse).toHaveBeenCalledTimes(1);
   });
 
   it('files a start as a request and does not change the machine state', async () => {
