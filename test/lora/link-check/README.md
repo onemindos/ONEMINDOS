@@ -6,7 +6,7 @@ This kit checks, on the real hub and the real radio, what the LoRa messenger pla
 
 What it checks:
 1. The hub's kernel has the `ch341` driver and it claims the radio's USB chip (CH340K, USB id `1a86:7522`).
-2. Plugging in the M2 gives a `/dev/ttyUSB*` serial port bound to `ch341`.
+2. Plugging in the M2 gives a `/dev/ttyUSB*` serial port from the `ch341` module: the USB interface is bound to `ch341` and the port to `ch341-uart`.
 3. The radio answers MeshCore's documented handshake at 115200 baud: `APP_START` gets `SELF_INFO` (frequency,
    bandwidth, spreading factor, coding rate, transmit power) and `DEVICE_QUERY` gets `DEVICE_INFO` (firmware).
 4. The no-transmit check: the radio's own packet counters (`GET_STATS`) are read right after the port opens,

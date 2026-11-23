@@ -52,20 +52,26 @@ else
 fi
 
 # 2. The radio is plugged in and its serial port is bound to ch341.
+# The ch341 module registers two drivers: the USB interface (1-1:1.0) binds to
+# "ch341" on the usb bus, and the ttyUSBn port under it binds to "ch341-uart" on
+# the usb-serial bus (linux drivers/usb/serial/ch341.c). Both must hold.
+drvname() { basename "$(readlink -f "$1/driver" 2>/dev/null || echo none)"; }
 found=""
 for t in "$SYSFS"/class/tty/ttyUSB*; do
   [ -e "$t/device" ] || continue
   name=$(basename "$t")
   dev=$(readlink -f "$t/device")
-  drv=$(basename "$(readlink -f "$dev/driver" 2>/dev/null || echo none)")
-  usb=$(dirname "$(dirname "$dev")")  # ttyUSBn -> interface -> USB device
+  intf=$(dirname "$dev")              # ttyUSBn -> USB interface
+  usb=$(dirname "$intf")              # interface -> USB device
+  port_drv=$(drvname "$dev")
+  intf_drv=$(drvname "$intf")
   vid=$(cat "$usb/idVendor" 2>/dev/null || true)
   pid=$(cat "$usb/idProduct" 2>/dev/null || true)
   if [ "$vid:$pid" = "$VID:$PID" ]; then
-    if [ "$drv" = ch341 ]; then
-      say "$name bound to ch341: works (${vid}:${pid})"; found=${found:-$name}
+    if [ "$intf_drv" = ch341 ] && [ "$port_drv" = ch341-uart ]; then
+      say "$name bound to ch341: works (${vid}:${pid}, interface ch341, port ch341-uart)"; found=${found:-$name}
     else
-      say "$name bound to ch341: fails (${vid}:${pid} is bound to $drv)"; rc=1
+      say "$name bound to ch341: fails (${vid}:${pid} interface bound to $intf_drv, port bound to $port_drv)"; rc=1
     fi
   fi
 done

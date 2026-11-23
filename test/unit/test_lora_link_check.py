@@ -231,18 +231,27 @@ class EndToEnd(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
 
 
-def fake_tree(root, driver="ch341", vid="1a86", pid="7522"):
-    usb = os.path.join(root, "sys", "devices", "usb1", "1-1")
+def fake_tree(root, intf_driver="ch341", port_driver="ch341-uart", vid="1a86", pid="7522"):
+    """A /sys laid out as Linux lays it out for a CH340 serial adapter.
+
+    The ch341 module registers two drivers (drivers/usb/serial/ch341.c): the USB
+    interface 1-1:1.0 binds to "ch341" on the usb bus, and the ttyUSB0 port under
+    it binds to "ch341-uart" on the usb-serial bus.
+    """
+    sys_ = os.path.join(root, "sys")
+    usb = os.path.join(sys_, "devices", "usb1", "1-1")
     intf = os.path.join(usb, "1-1:1.0")
-    os.makedirs(os.path.join(intf, "ttyUSB0"))
-    os.makedirs(os.path.join(root, "sys", "bus", "usb-serial", "drivers", driver))
+    port = os.path.join(intf, "ttyUSB0")
+    os.makedirs(port)
     for name, val in (("idVendor", vid), ("idProduct", pid)):
         with open(os.path.join(usb, name), "w") as f:
             f.write(val + "\n")
-    os.symlink(os.path.join(root, "sys", "bus", "usb-serial", "drivers", driver),
-               os.path.join(intf, "ttyUSB0", "driver"))
-    os.makedirs(os.path.join(root, "sys", "class", "tty", "ttyUSB0"))
-    os.symlink(os.path.join(intf, "ttyUSB0"), os.path.join(root, "sys", "class", "tty", "ttyUSB0", "device"))
+    for bus, drv, dev in (("usb", intf_driver, intf), ("usb-serial", port_driver, port)):
+        target = os.path.join(sys_, "bus", bus, "drivers", drv)
+        os.makedirs(target, exist_ok=True)
+        os.symlink(target, os.path.join(dev, "driver"))
+    os.makedirs(os.path.join(sys_, "class", "tty", "ttyUSB0"))
+    os.symlink(port, os.path.join(sys_, "class", "tty", "ttyUSB0", "device"))
 
 
 class Preflight(unittest.TestCase):
@@ -278,12 +287,42 @@ class Preflight(unittest.TestCase):
         self.assertIn("ch341 module: works", r.stdout)
         self.assertIn("ttyUSB0 bound to ch341: works", r.stdout)
 
-    def test_missing_module_or_wrong_driver_fails(self):
+    def test_the_real_layout_names_both_drivers(self):
+        self.modinfo()
+        fake_tree(self.t)
+        r = self.preflight()
+        self.assertIn("interface ch341, port ch341-uart", r.stdout)
+        self.assertEqual(os.path.basename(os.path.realpath(
+            os.path.join(self.t, "sys", "class", "tty", "ttyUSB0", "device", "driver"))), "ch341-uart")
+
+    def test_missing_module_fails(self):
         self.modinfo(ok=False)
-        fake_tree(self.t, driver="cp210x")
+        fake_tree(self.t)
         r = self.preflight()
         self.assertNotEqual(r.returncode, 0)
         self.assertIn("ch341 module: fails", r.stdout)
+
+    def test_a_port_bound_to_another_driver_fails(self):
+        self.modinfo()
+        fake_tree(self.t, intf_driver="cp210x", port_driver="cp210x")
+        r = self.preflight()
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("ttyUSB0 bound to ch341: fails", r.stdout)
+        self.assertIn("radio serial port: fails", r.stdout)
+
+    def test_an_interface_without_the_ch341_driver_fails(self):
+        self.modinfo()
+        fake_tree(self.t, intf_driver="usbfs")
+        r = self.preflight()
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("interface bound to usbfs", r.stdout)
+
+    def test_no_radio_plugged_in_fails(self):
+        self.modinfo()
+        os.makedirs(os.path.join(self.t, "sys", "class", "tty"))
+        r = self.preflight()
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("radio serial port: fails", r.stdout)
 
 
 class KitFiles(unittest.TestCase):
