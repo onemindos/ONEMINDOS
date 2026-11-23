@@ -210,6 +210,8 @@ POLICY |= {
         cells(403, **GONE, owner=202, agent=202, app_agent=202, **PENDING_DENY), w.p_alert("app.scan_blocked", "/fix"),
         "§12.14 owners and agents file the fix as a request (awaiting approval); approve=true is owner only"),
     ("GET", "/v1/notifications"): Row(PEOPLE_READ, w.p_static("/v1/notifications"), "§12.14 own inbox, people only"),
+    ("GET", "/v1/notifications/summary"): Row(PEOPLE_READ, w.p_static("/v1/notifications/summary"),
+                                              "§12.14 own unread summary (#682), people only"),
     ("GET", "/v1/notifications/{notification_id}"): Row(
         cells(404, **GONE, owner=200, **AGENTS_DENIED), w.p_notification(), "§12.14 own inbox; others 404"),
     ("POST", "/v1/notifications/{notification_id}/read"): Row(
@@ -475,6 +477,26 @@ POLICY |= {
                                "#611 global search: any signed-in caller; each hit is filtered by the caller's own grants"),
     ("GET", "/v1/sync/changes"): Row(grid(200, 200, 200, 403, 403), w.p_static("/v1/sync/changes?root=shared"),
                                      f"{_FILES}: the change feed (#698) follows read access to the whole root"),
+    ("POST", "/v1/sync/chunks/missing"): Row(grid(200, 200, 403, 403, 403), w.p_missing(
+        "/v1/sync/chunks/missing", json={"root": "shared", "hashes": ["0" * 64]}),
+        f"{_FILES}: sending a file (#699) needs write access to the root; guests read Shared only"),
+    ("PUT", "/v1/sync/chunks/{chunk_hash}"): Row(grid(200, 200, 403, 403, 403), w.p_missing(
+        "/v1/sync/chunks/2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881?root=shared", content=b"x"),
+        f"{_FILES}: a chunk (#699) needs write access to the root"),
+    ("POST", "/v1/sync/commit"): Row(grid(404, 404, 403, 403, 403), w.p_missing("/v1/sync/commit", json={
+        "root": "shared", "path": "/no-such-folder/probe", "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "chunks": []}),
+        f"{_FILES}: a commit (#699) needs write access to the entry; the probe's folder is missing (404)"),
+    ("POST", "/v1/sync/locks"): Row(grid(404, 404, 403, 403, 403), w.p_missing("/v1/sync/locks", json={"root": "shared", "path": "/no-such-file"}),
+                                   f"{_FILES}: an advisory lock (#699) is a write intent; the probe's file is missing (404)"),
+    ("GET", "/v1/sync/locks"): Row(grid(200, 200, 200, 403, 403), w.p_static("/v1/sync/locks?root=shared"),
+                                  f"{_FILES}: locks (#699) follow read access to the path"),
+    ("POST", "/v1/sync/locks/{lock_id}/refresh"): Row(grid(404, 404, 404, 403, 404), w.p_missing(
+        "/v1/sync/locks/lck_00000000000000000000000000/refresh", json={}), f"{_FILES}: only the holder refreshes (none here)"),
+    ("DELETE", "/v1/sync/locks/{lock_id}"): Row(grid(404, 404, 404, 403, 404), w.p_missing(
+        "/v1/sync/locks/lck_00000000000000000000000000"), f"{_FILES}: the holder or an owner releases (none here)"),
+    ("GET", "/v1/sync/versions"): Row(grid(404, 404, 404, 403, 403), w.p_static("/v1/sync/versions?root=shared&path=/a"),
+                                      f"{_FILES}: versions (#699) follow read access; the probe's file is missing"),
     ("GET", "/v1/files/preview"): Row(grid(404, 404, 404, 403, 403), w.p_static("/v1/files/preview?root=shared&path=/a"),
                                       f"{_FILES}: people browse; an agent needs a grant"),
     ("GET", "/v1/files/download"): Row(grid(404, 404, 404, 403, 403), w.p_static("/v1/files/download?root=shared&path=/a"),
