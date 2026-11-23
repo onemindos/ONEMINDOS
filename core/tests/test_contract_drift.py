@@ -384,7 +384,10 @@ def test_sse_app_outcomes_do_not_leak_foreign_action_ids(event_server, nclient, 
             a = nclient.post('/v1/actions', headers=who,
                              json=action_body(clock, type_=type_, key=key)).json()
             bucket.append(a['id'])
-            approved = nclient.post(f"/v1/actions/{a['id']}/approve", headers=OWNER)
+            # The agent reading the event stream is tainted (AIG-04, #168), so its own request needs the
+            # owner to approve the exact plan; every approval here names it.
+            approved = nclient.post(f"/v1/actions/{a['id']}/approve", headers=OWNER,
+                                    json={'plan_sha256': a['plan_sha256']})
             assert approved.status_code == 200 and approved.json()['state'] == 'succeeded'
         publish(nclient, 'app', 'unhealthy', {'app_id': 'whoami'}, 'warning')
     if replay:
