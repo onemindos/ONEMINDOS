@@ -37,6 +37,12 @@ NAME_PREFIX = "onemind-fleet-"
 OFFLINE_AFTER_S = 120
 OFFLINE_SLACK_S = 45
 
+# Kubernetes moves a pod off a node it cannot reach only after the node is NotReady (about 40 s) and the
+# pod's default `unreachable` toleration (300 s) has run out; give the new pod two minutes to start.
+# F7 watches the placed app this long after the stop before it judges where the work went.
+EVICT_WAIT_S = 40 + 300 + 120
+HOSTNAME_LABEL = "kubernetes.io/hostname"     # the pin core/onemind_core/placement.py `schedule` writes
+
 ENV = {
     "ONEMIND_FLEET_PVE": "ssh target of the Proxmox host (empty: run qm here, on the host)",
     "ONEMIND_FLEET_BRIDGE": "bridge the four VMs share",
@@ -134,6 +140,63 @@ def nodes_list(payload):
     return {n.get("node_id"): n.get("status") for n in items if isinstance(n, dict)}
 
 
+def node_hostname(payload, node_id):
+    """The hostname a node reported in GET /v1/nodes (k3s names the node after it), lower-cased, or None."""
+    items = payload.get("nodes", []) if isinstance(payload, dict) else payload
+    for n in items:
+        if isinstance(n, dict) and n.get("node_id") == node_id and isinstance(n.get("hostname"), str) and n["hostname"]:
+            return n["hostname"].lower()
+    return None
+
+
+def pods(payload):
+    """`kubectl get pods -o json`: [{name, phase, node, pin}]; pin is the nodeSelector hostname, if any."""
+    out = []
+    for p in payload.get("items", []) if isinstance(payload, dict) else []:
+        spec, meta = p.get("spec") or {}, p.get("metadata") or {}
+        terminating = bool(meta.get("deletionTimestamp"))
+        out.append({"name": meta.get("name"), "phase": "Terminating" if terminating else (p.get("status") or {}).get("phase"),
+                    "node": (spec.get("nodeName") or "").lower() or None,
+                    "pin": ((spec.get("nodeSelector") or {}).get(HOSTNAME_LABEL) or "").lower() or None})
+    return out
+
+
+def running_on(pod_list, host=None):
+    """Nodes with a Running pod of the app (only `host` when given)."""
+    return sorted({p["node"] for p in pod_list if p["phase"] == "Running" and p["node"] and (host is None or p["node"] == host)})
+
+
+def moved_elsewhere(pod_list, stopped_host):
+    """Nodes other than the stopped one where the app runs."""
+    return [n for n in running_on(pod_list) if n != stopped_host]
+
+
+def failover(down, took, others, back, work):
+    """F7: (result, evidence). The node must go offline in time while the others stay online and come back;
+    and the work on it must do what the placement designed (issue #864 Spec: "work moves as designed").
+
+    work is None when no app was placed on a node (F6 not PASS): the move cannot be judged, so BLOCKED.
+    Else {app, host, pin, during, after} with the app's pods while the node was down (after EVICT_WAIT_S)
+    and after it rejoined. A pinned app (pin == host: placement chose that machine) must not run anywhere
+    else while it is down and must run on it again after it rejoins. An unpinned app must be running on
+    another node while it is down.
+    """
+    base = bool(down) and offline_in_time(took) and set(others) == {"online"} and bool(back)
+    ev = [f"offline after {took}s (limit {OFFLINE_AFTER_S}+{OFFLINE_SLACK_S}s)" if down else "never marked offline",
+          f"others stayed {sorted(set(others))}", f"rejoined={bool(back)}"]
+    if work is None:
+        return ("BLOCKED" if base else "FAIL"), "; ".join(ev + ["work move not judged: no app was placed on a node (F6)"])
+    host, elsewhere = work["host"], moved_elsewhere(work["during"], work["host"])
+    if work.get("pin") == host:
+        moved_ok = not elsewhere and bool(running_on(work["after"], host))
+        ev.append(f"{work['app']} pinned to its node: ran elsewhere while down={elsewhere or 'no'}; "
+                  f"running there after rejoin={bool(running_on(work['after'], host))}")
+    else:
+        moved_ok = bool(elsewhere)
+        ev.append(f"{work['app']} not pinned: moved to {elsewhere or 'nowhere'} while its node was down")
+    return ("PASS" if base and moved_ok else "FAIL"), "; ".join(ev)
+
+
 def pending_join(fabric, hostname):
     """The awaiting join for hostname in GET /v1/fabric (under "joining" or "pending")."""
     waiting = [j for j in fabric.get("joining", []) + fabric.get("pending", [])
@@ -163,10 +226,15 @@ class Redactor:
         return s
 
 
-def verdict(results, expect_join_fail=False):
-    """GREEN: every check PASS. A broken-image run is NEGATIVE-OK only when the join check FAILED."""
+def verdict(results, expect_join_fail=False, broken=()):
+    """GREEN: every check PASS. A broken-image run is NEGATIVE-OK only when the join check FAILED and every
+    broken node got as far as a join attempt that failed (F2's per-node "failed"), so the F2 code path
+    itself refused it: a node that never booted ("not-tried") proves the boot check, not the join check."""
     if expect_join_fail:
-        return "NEGATIVE-OK" if results.get("F2", {}).get("result") == "FAIL" else "NEGATIVE-MISSED"
+        f2 = results.get("F2", {})
+        per = f2.get("nodes") or {}
+        hit = bool(broken) and all(per.get(n) == "failed" for n in broken)
+        return "NEGATIVE-OK" if f2.get("result") == "FAIL" and hit else "NEGATIVE-MISSED"
     if all(results.get(c, {}).get("result") == "PASS" for c in CHECK_IDS):
         return "GREEN"
     return "RED"
@@ -189,7 +257,8 @@ def report(run):
     out = [f"# Virtual fleet run: {run['verdict']}", "",
            f"- image: `{run['image']}` (sha256 `{run['image_sha256'][:16]}...`)",
            f"- started {run['started']}, {run['minutes']} min; mode: {run['mode']}",
-           f"- green runs in a row on this image: {run['streak']} (acceptance: 3)", "",
+           f"- green runs in a row on this image: {run['streak']} (acceptance: 3)",
+           *([f"- negative control: broken onemind CLI on {', '.join(run['broken'])}"] if run.get("broken") else []), "",
            "| Check | What | Result | Evidence |", "|---|---|---|---|"]
     for cid, what in CHECKS:
         r = res.get(cid, {"result": "BLOCKED", "evidence": "not reached"})

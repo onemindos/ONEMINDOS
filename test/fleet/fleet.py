@@ -19,6 +19,28 @@ HOST_DIR = "import/onemind-fleet"           # under the snippets storage's folde
 GW = "http://127.0.0.1:8080"                # the hub gateway on loopback (plain HTTP stays local, H-05)
 TOK = "/data/onemind-fleet/owner-token"     # the disposable hub's owner token; never leaves that VM
 CON = "/run/onemind-fleet"                  # serial console logs, on the Proxmox host, for the run's evidence
+KUBE = "KUBECONFIG=/run/k3s/k3s.yaml k3s kubectl"
+
+# The negative control (--broken-node-image): node 1's copy of the image keeps booting but its `onemind` CLI
+# (the program `onemind fabric join` is) is replaced, on slot A of its disk, by one that only fails. The node
+# boots and is reachable (F1), so the join check itself (F2) must refuse it. Runs on the Proxmox host, as root,
+# before the VM's first start; a raw disk (zvol, LVM, raw file) only.
+PLANT = r"""set -eu
+dev=$(pvesm path "$(qm config {vmid} | sed -n 's/^scsi0: \([^,]*\).*/\1/p')")
+fmt=$(qemu-img info --output=json "$dev" | python3 -c 'import json,sys; print(json.load(sys.stdin)["format"])')
+[ "$fmt" = raw ] || {{ echo "disk format $fmt: the negative control needs a raw disk"; exit 3; }}
+m=$(mktemp -d); loop=$(losetup -fP --show "$dev")
+trap 'umount -q "$m" 2>/dev/null || true; losetup -d "$loop"; rmdir "$m"' EXIT
+udevadm settle
+part=$(sfdisk -d "$loop" | sed -n 's/^\([^ ]*\) :.*name="onemind-system-a".*/\1/p')
+[ -b "$part" ] || {{ echo "no onemind-system-a partition on the disk"; exit 3; }}
+mount "$part" "$m"
+[ -e "$m/usr/bin/onemind" ] || [ -L "$m/usr/bin/onemind" ] || {{ echo "no /usr/bin/onemind in slot A"; exit 3; }}
+rm -f "$m/usr/bin/onemind"
+printf '#!/bin/sh\necho "FLEET-BAD: broken onemind CLI (negative control)" >&2\nexit 1\n' > "$m/usr/bin/onemind"
+chmod 755 "$m/usr/bin/onemind"
+echo planted
+"""
 
 
 def user_data(role, pubkey):
@@ -52,13 +74,15 @@ class Fleet:
         subprocess.run(["ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-C", "onemind-fleet", "-f", self.key], check=True)
         self.hostdir = os.path.join(cfg["ONEMIND_FLEET_SNIPPETS_DIR"], HOST_DIR)
         self.node_id = {}
+        self.broken = [self.vms[1][0]] if args.broken_node_image else []    # node 1 carries the negative control
+        self.reachable, self.join_state, self.placed = {}, {}, None
 
     # -- plumbing
     def log(self, msg):
         print(f"[{time.strftime('%H:%M:%S')}] {self.red(msg)}", flush=True)
 
-    def set(self, cid, result, evidence):
-        self.results[cid] = {"result": result, "evidence": self.red(evidence)[:480]}
+    def set(self, cid, result, evidence, **extra):
+        self.results[cid] = {"result": result, "evidence": self.red(evidence)[:480], **extra}
         self.log(f"[{cid}] {result}: {evidence}")
 
     def sh(self, argv, inp=None, timeout=600):
@@ -163,13 +187,18 @@ class Fleet:
         for i, vm in enumerate(self.vms):
             snip = os.path.join(self.cfg["ONEMIND_FLEET_SNIPPETS_DIR"], "snippets", f"{core.NAME_PREFIX}{vm[0]}.yaml")
             self.pve(f"mkdir -p {os.path.dirname(snip)} && cat > {snip} <<'EOF'\n{user_data(vm[2], pub)}EOF")
-            rc, out = self.pve(create_cmd(self.cfg, vm, path, i) + f" && qm resize {vm[0]} scsi0 +8G")
+            broken = vm[0] in self.broken
+            # The broken node keeps the image's own disk size: a bigger disk makes the first-boot data-extend race
+            # (#391) likely, and a node that never boots proves nothing about the join check.
+            grow = "" if broken else f" && qm resize {vm[0]} scsi0 +8G"
+            rc, out = self.pve(create_cmd(self.cfg, vm, path, i) + grow)
             if rc:
                 raise RuntimeError(f"qm create {vm[0]}: {out[-300:]}")
-            if self.a.broken_node_image and vm[2] == "node":
-                # The negative control: the node's copy of the image loses its partition table and boot code.
-                self.pve(f"dd if=/dev/zero of=$(pvesm path $(qm config {vm[0]} | sed -n 's/^scsi0: \\([^,]*\\).*/\\1/p')) "
-                         f"bs=1M count=8 conv=notrunc,fsync")
+            if broken:
+                rc, out = self.pve(f"bash -c {shlex.quote(PLANT.format(vmid=vm[0]))}")
+                if rc or not out.endswith("planted"):
+                    raise core.GuardError(f"negative control on {vm[1]}: {out[-200:]}")
+                self.log(f"negative control: {vm[1]} boots with a broken onemind CLI")
 
     def boot(self):
         hub = self.vms[0][0]
@@ -186,6 +215,7 @@ class Fleet:
             ok.update({n: True for n in ok if not ok[n] and self.guest(n, "true")[0] == 0})
             return all(ok.values())
         self.wait("nodes ssh", reach, 600)
+        self.reachable = dict(ok)
         g = self.gate(hub) if up else []
         if up and all(ok.values()) and g and g[0][0] == "committed-boot":
             self.set("F1", "PASS", f"hub up (gate {g[0][0]} slot={g[0][1]} v{g[0][2]}, gateway healthy); "
@@ -215,8 +245,14 @@ class Fleet:
         else:
             return False, "the image refused every QR the hub minted (" + "; ".join(tried) + ")"
         jlog = lambda: self.guest(vmid, "sudo journalctl -u onemind-fabric-join -o cat --no-pager")[1]
-        node_code = self.wait(f"{name} match code", lambda: (re.findall(r"Code\s+(\S+)\s+<-", jlog()) or [None])[-1], 300, 5)
-        pend = self.wait(f"{name} pending join", lambda: core.pending_join(self.api("/v1/fabric"), name), 300, 5)
+        failed = lambda: self.guest(vmid, "systemctl is-failed -q onemind-fabric-join")[0] == 0
+
+        def code():   # the match code the node prints, or "failed" when the join unit already gave up
+            c = (re.findall(r"Code\s+(\S+)\s+<-", jlog()) or [None])[-1]
+            return c or ("failed" if failed() else None)
+        node_code = self.wait(f"{name} match code", code, 300, 5)
+        node_code = None if node_code == "failed" else node_code
+        pend = node_code and self.wait(f"{name} pending join", lambda: core.pending_join(self.api("/v1/fabric"), name), 300, 5)
         if not node_code or not pend:
             errs = [ln.split("join: ", 1)[-1] for ln in jlog().splitlines() if "join: onemind:" in ln]
             return False, f"code={node_code} pending={bool(pend)}: {(errs or [jlog()[-120:]])[-1][:160]}"
@@ -229,16 +265,22 @@ class Fleet:
                             + ("" if done else f": {jlog()[-160:]}"))
 
     def joins(self, booted):
+        """Every node that came up tries the join, so a node that boots but cannot enrol fails here, in the
+        join path (the per-node states feed the negative control's verdict); one that never came up is
+        "not-tried" and F2 cannot pass."""
         if not getattr(self, "hub_up", False):
             return self.set("F2", "BLOCKED", "the hub never came up, so no join could be tried (F1)")
-        if not booted:
-            return self.set("F2", "FAIL", "a node never came up on its image, so it could not join (F1)")
-        ev, ok = [], True
+        ev = []
         for vmid, name, *_ in self.vms[1:]:
+            if not self.reachable.get(vmid):
+                self.join_state[name] = "not-tried"
+                ev.append(f"{name}: never came up on its image (F1), no join tried")
+                continue
             j, why = self.join(vmid, name)
-            ok &= j
-            ev.append(f"{name}: {why}")
-        self.set("F2", "PASS" if ok else "FAIL", "; ".join(ev))
+            self.join_state[name] = "joined" if j else "failed"
+            ev.append(f"{name}{' (broken CLI)' if vmid in self.broken else ''}: {why}")
+        ok = len(self.join_state) == 3 and set(self.join_state.values()) == {"joined"}
+        self.set("F2", "PASS" if ok else "FAIL", "; ".join(ev), nodes=dict(self.join_state))
 
     # -- F3-F6: one system
     def one_system(self):
@@ -254,7 +296,7 @@ class Fleet:
         seen = core.nodes_list(json.loads(lines[1])) if rc == 0 and len(lines) > 1 else {}
         self.set("F5", "PASS" if lines[:1] and lines[0][:1] in "23" and len(seen) >= 4 else "FAIL",
                  f"dashboard HTTP {lines[:1]}; HTTPS node list shows {len(seen)}")
-        rc, kn = self.hub("KUBECONFIG=/run/k3s/k3s.yaml k3s kubectl get nodes --no-headers 2>&1 | grep -cw Ready")
+        rc, kn = self.hub(f"{KUBE} get nodes --no-headers 2>&1 | grep -cw Ready")
         ready = int(kn) if kn.isdigit() else 0
         if ready < 4:
             return self.set("F6", "BLOCKED", f"k3s sees {ready} ready node(s): image workers run no k3s agent yet "
@@ -263,31 +305,59 @@ class Fleet:
         if not app:
             return self.set("F6", "BLOCKED", "set ONEMIND_FLEET_APP to an app whose placement is 'elsewhere'")
         where = self.api(f"/v1/apps/{app}/placement")
+        vmid = next((v for v, nid in self.node_id.items() if nid and nid == where.get("node_id")), None)
+        host = core.node_hostname(self.api("/v1/nodes"), where.get("node_id"))   # k3s names the node after it
+        if where.get("verdict") != "elsewhere" or not vmid:
+            return self.set("F6", "BLOCKED", f"{app}: placement {where.get('verdict')}, not one of the joined nodes; "
+                            "set ONEMIND_FLEET_APP to an app whose placement is 'elsewhere'")
         exp = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(minutes=15)).strftime("%Y-%m-%dT%H:%M:%SZ")
         act = self.api("/v1/actions", "POST", {"type": "app.install", "params": {"app_id": app},
                                                "idempotency_key": f"fleet-{app}-{int(time.time())}", "expires_at": exp})
         self.api(f"/v1/actions/{act['id']}/approve", "POST")
-        names = {self.node_id.get(v): n for v, n, *_ in self.vms}       # node_id -> hostname (the k3s node name)
-        node = names.get(where.get("node_id"))
-        on = self.wait(f"{app} on {node}", lambda: node and node in self.hub(
-            f"KUBECONFIG=/run/k3s/k3s.yaml k3s kubectl get pods -A -o wide 2>/dev/null | grep -i {shlex.quote(app)} | grep -w Running")[1], 900)
-        self.set("F6", "PASS" if on else "FAIL", f"{app}: placement {where.get('verdict')} -> {node}; running there={bool(on)}")
+        on = self.wait(f"{app} on its node", lambda: host and core.running_on(self.app_pods(app), host), 900)
+        if on:
+            self.placed = {"app": app, "vmid": vmid, "host": host}
+        self.set("F6", "PASS" if on else "FAIL", f"{app}: placement elsewhere -> {host}; running there={bool(on)}")
+
+    def app_pods(self, app):
+        rc, out = self.hub(f"{KUBE} get pods -A -l onemind.io/app={shlex.quote(app)} -o json")
+        try:
+            return core.pods(json.loads(out)) if rc == 0 else []
+        except ValueError:
+            return []
 
     # -- F7: failover
     def failover(self):
-        vmid, name = self.vms[3][0], self.vms[3][1]
-        nid = self.node_id.get(vmid)
+        """Stop the node the F6 app runs on (node 3 when nothing was placed), judge offline in time and the
+        others online, then where the app's work went (core.failover), then the rejoin."""
+        p = self.placed
+        vm = next(v for v in self.vms if v[0] == (p["vmid"] if p else self.vms[3][0]))
+        vmid, name, nid = vm[0], vm[1], self.node_id.get(vm[0])
         self.pve(f"qm stop {vmid}")
         t0 = time.time()
         down = self.wait(f"{name} offline", lambda: self.statuses().get(nid) == "offline", 600, 5)
         took = int(time.time() - t0)
         others = {k: v for k, v in self.statuses().items() if k != nid}
-        self.start(vmid, self.vms[3][3])
+        during = []
+        if p:   # until Kubernetes would have moved it (EVICT_WAIT_S after the stop), or until it ran elsewhere
+            def watch():
+                during[:] = self.app_pods(p["app"])
+                return core.moved_elsewhere(during, p["host"])
+            self.wait(f"{p['app']} after its node stopped", watch, max(15, core.EVICT_WAIT_S - (time.time() - t0)), 15)
+        self.start(vmid, vm[3])
         back = self.wait(f"{name} back online", lambda: self.statuses().get(nid) == "online", 900)
-        good = bool(down) and core.offline_in_time(took) and set(others.values()) == {"online"} and bool(back)
-        self.set("F7", "PASS" if good else "FAIL", f"{name} offline after {took}s (limit {core.OFFLINE_AFTER_S}+"
-                 f"{core.OFFLINE_SLACK_S}s); others stayed {sorted(set(others.values()))}; no workload on workers to move "
-                 f"(F6); rejoined={bool(back)}")
+        work = None
+        if p:
+            after = []
+
+            def settled():
+                after[:] = self.app_pods(p["app"])
+                return core.running_on(after, None if core.moved_elsewhere(during, p["host"]) else p["host"])
+            self.wait(f"{p['app']} after the rejoin", settled, 600, 15)
+            pin = next((x["pin"] for x in during + after if x["pin"]), None)
+            work = {"app": p["app"], "host": p["host"], "pin": pin, "during": during, "after": after}
+        result, ev = core.failover(down, took, others.values(), back, work)
+        self.set("F7", result, f"{name}: {ev}")
 
     # -- F8: staged update, F9: forced-bad rollback
     def install(self, vmid, break_it=False):
@@ -372,7 +442,8 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--release", required=True, help="GitHub release tag carrying the vm-do image and -next bundle")
     ap.add_argument("--results", default=os.path.join(HERE, "results"))
-    ap.add_argument("--broken-node-image", action="store_true", help="negative control: the join check must FAIL")
+    ap.add_argument("--broken-node-image", action="store_true",
+                    help="negative control: node 1 boots with a broken onemind CLI; its join must FAIL in F2")
     ap.add_argument("--keep", action="store_true", help="leave the VMs up (they are torn down at the next run)")
     ap.add_argument("--hub-mem", type=int, default=4096)
     ap.add_argument("--node-mem", type=int, default=2048)
@@ -388,7 +459,8 @@ def main():
     f.run()
     os.makedirs(a.results, exist_ok=True)
     hist = os.path.join(a.results, "history.jsonl")
-    v = core.verdict(f.results, a.broken_node_image)
+    broken = [n for v, n, *_ in f.vms if v in f.broken]
+    v = core.verdict(f.results, a.broken_node_image, broken)
     sha = getattr(f, "sha", "")
     lines = open(hist).read().splitlines() if os.path.exists(hist) else []
     if not a.broken_node_image:
@@ -397,7 +469,7 @@ def main():
             h.write("\n".join(lines) + "\n")
     run = {"verdict": v, "image": getattr(f, "image", "?"), "image_sha256": sha or "?" * 16, "started": started,
            "minutes": round((time.time() - t0) / 60, 1), "mode": "broken-node-image" if a.broken_node_image else "normal",
-           "streak": core.streak(lines, sha), "results": f.results}
+           "streak": core.streak(lines, sha), "broken": broken, "results": f.results}
     stamp = started.replace(":", "")
     with open(os.path.join(a.results, f"fleet-{stamp}.json"), "w") as h:
         json.dump(run, h, indent=2)
