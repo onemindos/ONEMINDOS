@@ -35,7 +35,7 @@ REASONS: dict[str, str] = {
     BYTES: "File bytes, uploads, event streams, consoles, Prometheus text or the restic repository protocol, "
            "not a JSON tool result.",
     DOOR: "A door of its own (the MCP endpoint, installed-app tool calls, sign-in page, health probe, OpenAPI "
-          "document, surface registry, sync feed, dashboard files); a tool over it adds nothing.",
+          "document, surface registry, sync feed, the Send to menu, dashboard files); a tool over it adds nothing.",
     WRITE: "Changes the box directly. An agent never writes: it files a request (request_action or a "
            "request_<type> tool) that a person approves.",
 }
@@ -191,6 +191,8 @@ HUMAN_ONLY: dict[str, str] = {
     "GET /signin": DOOR,
     "POST /v1/plugins/{plugin_id}/tools/{tool_name}": DOOR,
     "GET /v1/protocol": DOOR,
+    "GET /v1/share/targets": DOOR,
+    "GET /v1/share/types": DOOR,
     "GET /v1/surfaces": DOOR,
     "GET /v1/sync/changes": DOOR,
     "GET /{full_path:path}": DOOR,
@@ -249,6 +251,7 @@ HUMAN_ONLY: dict[str, str] = {
     "POST /v1/photos/sources/{source_id}/check": WRITE,
     "POST /v1/plugins/{plugin_id}/settings": WRITE,
     "POST /v1/restores": WRITE,
+    "POST /v1/share": WRITE,
     "POST /v1/shares/smb/{share_id}/stop": WRITE,
     "POST /v1/storage/actions": WRITE,
     "POST /v1/storage/plans": WRITE,
