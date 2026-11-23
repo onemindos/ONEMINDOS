@@ -38,6 +38,7 @@ import yaml
 
 from . import placement
 from .ca import MESH_DOMAIN
+from .hostgrants.kinds import NO_HOST, HostAllowance
 from .catalog import AppEntry
 from .lifecycle import AppCredentialGrant, ExecContext, report_progress
 from .netconf import MeshSettings
@@ -53,6 +54,7 @@ from .policy import (
     dependency_policies,
     dependent_policy_name,
     egress_entries,
+    enforce_level,
     load_rules,
     network_policies,
     parse_rendered,
@@ -314,6 +316,8 @@ class KubernetesExecutor(Executor):
         # Names the gateway knows without asking host DNS (hub.onemind.internal -> the hub's mesh IP).
         self.static_hosts = {h.lower(): list(v) for h, v in (static_hosts or {}).items()}
         self.hub_addresses = hub_addresses or (lambda: [])
+        # #186 E2: the app's owner-approved host grants, asked at every render (hostgrants/broker.py sets it).
+        self.host_grants: Callable[[str], HostAllowance] = lambda _app_id: NO_HOST
 
     # ---- the documents the gateway itself writes ---------------------------------------------
     def namespace_doc(self, app: AppEntry, level: str) -> str:
@@ -570,8 +574,12 @@ class KubernetesExecutor(Executor):
             return ExecResult("failed", str(exc), steps)
         violations = check_kustomization(mdir, app.dir, rules)
         level, gv = pod_security_level(app.id, app.manifest, rules)
+        host = self.host_grants(app.id)
+        level = enforce_level(level, host)
         egress, ev = egress_entries(app.id, app.manifest, rules)
         plan = {"policy_version": rules.version, "pod_security": level, "egress": egress}
+        if host:  # the install approval is bound to the grants active at render
+            plan["host_grants"] = host.to_json()
         if violations:  # never render something that could fetch or read outside the app folder
             return _refused(app, violations + ([gv] if gv else []) + ev, plan, steps)
         argv = [self.kubectl, "kustomize", "--load-restrictor=LoadRestrictionsRootOnly", str(mdir)]
@@ -590,7 +598,7 @@ class KubernetesExecutor(Executor):
             plan["placement"] = sched
         plan.update(summarize(docs))
         plan["rendered_sha256"] = rendered_sha256(rendered)
-        violations = check_objects(docs, app.id, app.manifest, rules) + ev
+        violations = check_objects(docs, app.id, app.manifest, rules, host) + ev
         if violations:
             return _refused(app, violations, plan, steps)
         return rendered, level, egress, plan
