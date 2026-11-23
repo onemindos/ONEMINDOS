@@ -693,6 +693,10 @@ POLICY |= {
     # socket, so the owner gets 200 with available=false; everyone else is refused first.
     ("GET", "/v1/system/services"): Row(OWNER_ONLY, w.p_static("/v1/system/services"),
                                         "core/onemind_core/routers/services.py: every systemd unit on the box and its state; owner only"),
+    # The UPS battery (IMG-06, #244: core/onemind_core/routers/ups.py). Read only; no upsd in this world, so a
+    # reader gets 200 with present=false. Device health like /v1/os/about: a child has no nodes:read.
+    ("GET", "/v1/system/ups"): Row(CHILD_CANNOT, w.p_static("/v1/system/ups"),
+                                   "core/onemind_core/routers/ups.py: the UPS on this box, read from upsd on loopback; never a command"),
 }
 
 # ---- Network screen (NET-UI-01, #239: core/onemind_core/routers/network.py) ---------------------------------

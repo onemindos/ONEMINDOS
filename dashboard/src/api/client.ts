@@ -12,6 +12,9 @@ export type BrowserSession = components['schemas']['BrowserSession'];
 
 /** `GET /v1/os/about` (UMB-P14): device facts per node; never a serial number or an address. */
 export type AboutBox = components['schemas']['About'];
+
+/** `GET /v1/system/ups` (IMG-06): the UPS on the box, read only; present=false when it has none. */
+export type UpsStatus = components['schemas']['UpsStatus'];
 import {
   ApiError,
   type Action,
@@ -56,6 +59,8 @@ export interface OneMindApi extends WiringApi {
   apps(): Promise<CatalogApp[]>;
   /** UMB-P14: absent on the mock gateway, which has no device facts. */
   about?(): Promise<AboutBox>;
+  /** IMG-06: absent on the mock gateway, which has no UPS. */
+  ups?(): Promise<UpsStatus>;
   /** MACH-01: absent on the mock gateway, which has no machines. */
   machines?(): Promise<MachineRecord[]>;
   machineCapabilities?(): Promise<MachineCapabilities>;
@@ -328,6 +333,7 @@ export class HttpApi implements OneMindApi {
   backupsStatus() { return this.sdkCall<Record<string, unknown>>('GET', '/v1/backups/status'); }
   osUpdates() { return this.sdkCall<Record<string, unknown>>('GET', '/v1/os/updates'); }
   about() { return this.req<AboutBox>('GET', '/v1/os/about'); }
+  ups() { return this.sdkCall<UpsStatus>('GET', '/v1/system/ups'); }
   pluginSigningKeys() { return this.sdkCall<components["schemas"]["SigningKeys"]>('GET', '/v1/plugin-trust/keys'); }
   requestPluginSigningKey(body: PluginKeyInput) { return this.sdkCall<components["schemas"]["Action"]>('POST', '/v1/plugin-trust/keys/requests', body); }
   revokePluginSigningKey(keyId: string, body: PluginKeyRevokeInput) { return this.sdkCall<components["schemas"]["Action"]>('POST', `/v1/plugin-trust/keys/${encodeURIComponent(keyId)}/revoke`, body); }

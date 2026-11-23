@@ -9083,6 +9083,83 @@
         "title": "UploadedMedia",
         "type": "object"
       },
+      "UpsStatus": {
+        "properties": {
+          "battery_percent": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Battery Percent"
+          },
+          "flags": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Flags",
+            "type": "array"
+          },
+          "load_percent": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Load Percent"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "present": {
+            "title": "Present",
+            "type": "boolean"
+          },
+          "runtime_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Runtime Seconds"
+          },
+          "state": {
+            "enum": [
+              "none",
+              "online",
+              "on_battery",
+              "low_battery",
+              "unknown"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "present",
+          "state"
+        ],
+        "title": "UpsStatus",
+        "type": "object"
+      },
       "Usage": {
         "description": "GET /v1/usage.",
         "properties": {
@@ -26904,6 +26981,48 @@
           }
         },
         "summary": "System Services",
+        "tags": [
+          "system"
+        ]
+      }
+    },
+    "/v1/system/ups": {
+      "get": {
+        "description": "The UPS plugged into this box: on mains or battery, charge, minutes left, load. present=false when\nthe box has no UPS. Read only; the box shuts itself down in order on a low battery.",
+        "operationId": "system.ups",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpsStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "summary": "System Ups",
         "tags": [
           "system"
         ]
