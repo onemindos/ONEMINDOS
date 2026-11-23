@@ -98,7 +98,13 @@ for (const headset of Object.keys(HEADSETS) as Headset[]) {
       await openSpatial(page, headset);
       await page.getByRole('button', { name: 'Enter VR' }).click();
       await expect(stats(page)).toHaveAttribute('data-mode', 'immersive-vr');
-      await page.getByRole('button', { name: 'Exit session' }).click();
+      // The button is for a person at the desk (a tethered headset on desktop Chrome keeps the page on
+      // the monitor). IWER instead draws the headset's view over the whole page while a session runs,
+      // so a pointer click at the button's position lands on the emulator's overlay. Click the button
+      // element itself; the page's own handler still has to end the session.
+      const exit = page.getByRole('button', { name: 'Exit session' });
+      await expect(exit).toBeEnabled();
+      await exit.dispatchEvent('click');
       await expect(stats(page)).toHaveAttribute('data-mode', 'none');
       expect(await headsetSession(page)).toEqual({ active: false, blendMode: null });
     });
