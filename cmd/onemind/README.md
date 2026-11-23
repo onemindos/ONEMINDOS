@@ -44,12 +44,20 @@ onemind completion bash|zsh|fish|powershell
 `--json` works everywhere (gateway objects unchanged; errors as one JSON line on stderr), and the exit codes follow CLI.md §4.2 (3 unauthenticated, 4 permission denied, 5 not found, 6 conflict, 7 unreachable, 8 verify failed, 9 still pending, 10 refused, 11 failed). The config (`~/.config/onemind/config.yaml`) holds no secret; tokens are in `credentials.yaml` next to it, mode 0600 (OS keychain: follow-up).
 
 ### AI agents: `onemind mcp`
+
+Use a scoped agent token issued by the box. Set `HUB_URL` to the gateway URL and run the following from the repository root with `onemind` and your MCP client on PATH. Paste the token at the hidden login prompt.
+
 ```sh
-printf %s "$AGENT_TOKEN" | onemind mcp login --hub http://hub.local:8080 --name laptop --token-stdin
-onemind mcp doctor                        # token, MCP revision, tool list
-claude mcp add onemind -- onemind mcp --context laptop    # or: onemind mcp config claude-desktop
+onemind mcp login --hub "$HUB_URL" --name workstation-agent
+scripts/register-onemind-mcp.sh claude workstation-agent
+scripts/register-onemind-mcp.sh codex workstation-agent
 ```
-The bridge forwards JSON-RPC lines from stdin to the box's `/mcp`. An agent can read and request; only an owner approves.
+
+Run the registration for each client you use. The script checks the saved credential with `onemind mcp doctor` and registers the stdio bridge in Claude Code's user configuration or Codex's user configuration (`~/.codex/config.toml` by default). The client records the command and context name. The token stays in the OneMind CLI's credential file (mode 0600). Launch the client without an exported `ONEMIND_TOKEN` or `ONEMIND_HUB` so the bridge uses the saved credential and its gateway. To generate a Claude Desktop entry, run `onemind mcp config claude-desktop --context workstation-agent`.
+
+The bridge forwards JSON-RPC lines from stdin to the box's `/mcp`. An agent can read and request changes. A person approves requests through OneMind.
+
+Under [D-018](../../docs/DECISIONS.md#d-018--the-d-016-desktop-is-the-only-front-door-backstage-is-retired), the cloud-only views from Backstage are deliberately dropped from core, including the Ops globe, OpenCost, the DigitalOcean page, GitHub cards, Tech Radar, Tech Insights, the Visualizer and DevTools. The replacement MCP server exposes the box's own gateway tools.
 
 Example table:
 ```
