@@ -367,7 +367,7 @@ class NotifyRepository(SqlRepository):
             ))
 
     def sent_outage_delivery(self, d: DeliveryRow, key: str, since: datetime,
-                             severities: tuple[str, ...]) -> str | None:
+                             sibling_window: tuple[datetime, datetime], severities: tuple[str, ...]) -> str | None:
         with self.db.session() as s:
             return s.scalar(
                 select(DeliveryRow.id).join(NotificationRow, NotificationRow.id == DeliveryRow.notification_id)
@@ -378,7 +378,8 @@ class NotifyRepository(SqlRepository):
                     or_(DeliveryRow.held_reason.is_(None), ~DeliveryRow.held_reason.like("summary:%")),
                     NotificationRow.created_at >= since, NotificationRow.severity.in_(severities),
                     or_(AlertRow.type == "node.offline",
-                        and_(AlertRow.type == "app.unhealthy", AlertRow.source_id == "gateway:monitoring")),
+                        and_(AlertRow.type == "app.unhealthy", AlertRow.source_id == "gateway:monitoring",
+                             NotificationRow.created_at.between(*sibling_window))),
                 )
                 .order_by(DeliveryRow.sent_at, DeliveryRow.id).limit(1)
             )

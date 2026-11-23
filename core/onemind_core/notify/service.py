@@ -438,7 +438,9 @@ class NotifyService:
             now = self.clock()
             groups: dict[str, list[DeliveryRow]] = defaultdict(list)
             for d in self.repo.released_held(now):
-                groups[d.target_id].append(d)
+                n = self.repo.get_notification(d.notification_id)
+                if n is None or not self._fold_outage(d, n, now):
+                    groups[d.target_id].append(d)
             for rows in groups.values():
                 if len(rows) == 1:
                     d = rows[0]
@@ -475,11 +477,15 @@ class NotifyService:
         if outage is None or outage.type != "node.offline":
             return False
         since = utc(outage.opened_at) - OUTAGE_GROUP_WINDOW
-        if utc(n.created_at) < since:
+        created = utc(n.created_at)
+        if created < since:
             return False
         # Only a successful send to this person and destination can cover a child.
         # App-only recipients can be covered by an app warning in the same outage.
-        covering = self.repo.sent_outage_delivery(d, n.group_key, since, SEVERITIES[RANK[n.severity]:])
+        covering = self.repo.sent_outage_delivery(
+            d, n.group_key, since, (created - OUTAGE_GROUP_WINDOW, created + OUTAGE_GROUP_WINDOW),
+            SEVERITIES[RANK[n.severity]:],
+        )
         if covering is None:
             return False
         self.repo.mark_summarised([d.id], covering, now)
