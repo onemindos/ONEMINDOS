@@ -15,6 +15,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from datetime import datetime, timezone
 from pathlib import Path
 
 import yaml
@@ -25,6 +26,8 @@ SCHEMA_DIR = ROOT / "sdk" / "schema"
 MESSAGES = ROOT / "core" / "onemind_core" / "messages"
 sys.path.insert(0, str(ROOT / "core"))
 from onemind_core import subjects  # noqa: E402
+from onemind_core.audit import AuditLog  # noqa: E402
+from onemind_core.events import EventHub  # noqa: E402
 
 RF_WORDS = ("freq", "bw", "bandwidth", "sf", "spreading", "cr", "coding", "power", "dbm", "preset", "region_code")
 UUID = "6f1c9e0a-1b2c-4d3e-8f40-5a6b7c8d9e0f"
@@ -156,12 +159,51 @@ def event(type_: str, data: dict) -> dict:
             "subject": {"message_id": "msg_01JABCDEFG"}, "data": data}
 
 
+RECEIVED = {"message_id": "msg_01JABCDEFG", "thread_id": "thr_01JABCDEFG", "kind": "direct", "transport": "lora-mc", "origin": "hub"}
+STATUS = {"message_id": "msg_01JABCDEFG", "thread_id": "thr_01JABCDEFG", "action_id": UUID, "state": "acked", "attempts": 1}
+
+
+def gateway_event(name: str, data: dict, **kw) -> dict:
+    """The envelope exactly as the gateway's only publish path (EventHub.publish_event) puts it on NATS."""
+    clock = lambda: datetime(2026, 11, 22, 10, tzinfo=timezone.utc)  # noqa: E731
+    sent: list[tuple[str, bytes]] = []
+    with tempfile.TemporaryDirectory() as tmp:
+        hub = EventHub(AuditLog(Path(tmp) / "audit.jsonl", clock), clock, lambda s, b: sent.append((s, b)), "inst_01JABCDEFG")
+        hub.publish_event("message", name, data, principal={"id": "agent:hermes"}, **kw)
+    assert [s for s, _ in sent] == [f"onemind.event.message.{name}"], sent
+    return json.loads(sent[0][1])
+
+
+def leaks(ok: dict) -> list[tuple[str, dict]]:
+    """Ways text could ride a valid message event outside data: every one must be refused."""
+    out = []
+    for where, change in (("top-level text", {"text": "hello"}), ("text in resource", {"resource": {"kind": "message", "id": "msg_01JABCDEFG", "text": "hello"}}),
+                          ("resource as a bag", {"resource": {"text": "hello"}}), ("text in subject", {"subject": {**ok["subject"], "text": "hello"}}),
+                          ("peer in subject", {"subject": {"peer_id": "a1b2c3d4e5f6"}}), ("another resource kind", {"resource": {"kind": "contact", "id": "ctc_01JABCDEFG"}}),
+                          ("text in an id field", {"dedupe_key": "see you at noon"}), ("text in source_id", {"source_id": "meet me at the gate"})):
+        out.append((where, {**ok, **change}))
+    return out
+
+
 class EventsAndImport(unittest.TestCase):
     v = validator("onemind.message.event.schema.json")
 
+    def test_the_gateway_publisher_shape_validates(self):
+        # message.status for an approved send: publish_event writes subject.action_id and correlation_id from the action.
+        cases = (gateway_event("status", STATUS, action_id=UUID, resource={"kind": "message", "id": "msg_01JABCDEFG"}),
+                 gateway_event("status", {**STATUS, "state": "failed", "reason": "no_ack", "action_id": None}, severity="warning"),
+                 gateway_event("received", RECEIVED, resource={"kind": "thread", "id": "thr_01JABCDEFG"}, dedupe_key="a1b2c3d4e5f6:1234567890:" + "0" * 64),
+                 gateway_event("received", RECEIVED))
+        for env in cases:
+            self.assertEqual(errors(self.v, env), [], env)
+        self.assertEqual(cases[0]["subject"], {"action_id": UUID, "message_id": "msg_01JABCDEFG"})
+        self.assertEqual(cases[2]["subject"], {"thread_id": "thr_01JABCDEFG"})
+        for where, bad in leaks(cases[0]):
+            self.assertTrue(errors(self.v, bad), where)
+        self.assertTrue(errors(self.v, gateway_event("status", STATUS, action_id="not-a-uuid")))
+
     def test_events_carry_ids_and_metadata_never_text(self):
-        received = {"message_id": "msg_01JABCDEFG", "thread_id": "thr_01JABCDEFG", "kind": "direct", "transport": "lora-mc", "origin": "hub"}
-        status = {"message_id": "msg_01JABCDEFG", "thread_id": "thr_01JABCDEFG", "action_id": UUID, "state": "acked", "attempts": 1}
+        received, status = RECEIVED, STATUS
         self.assertEqual(errors(self.v, event("message.received", received)), [])
         self.assertEqual(errors(self.v, event("message.status", status)), [])
         for leak in ({"text": "hello"}, {"peer": "a1b2c3d4e5f6"}, {"public_key": "x"}):
@@ -217,6 +259,11 @@ class SubjectTree(unittest.TestCase):
         leak = copy.deepcopy(ok)
         leak["data"]["text"] = "hello"
         self.assertTrue(self.reg.envelope_problems("onemind.message.event/v1", leak))
+        # A property named text is not the only way in: the registry must refuse text anywhere in the envelope.
+        for where, bad in leaks(ok):
+            self.assertTrue(self.reg.envelope_problems("onemind.message.event/v1", bad), where)
+        gw = gateway_event("status", STATUS, action_id=UUID, resource={"kind": "message", "id": "msg_01JABCDEFG"})
+        self.assertEqual(self.reg.envelope_problems("onemind.message.event/v1", gw), [])
 
     def test_subject_lint_knows_the_message_events_and_refuses_radio_kinds(self):
         with tempfile.TemporaryDirectory() as tmp:
