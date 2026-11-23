@@ -190,6 +190,76 @@ func TestDeviceCardHarmlessURLsAndProseAreNotCredentials(t *testing.T) {
 	}
 }
 
+type cardFixture struct {
+	Name  string   `json:"name"`
+	Base  string   `json:"base"`
+	Rules []string `json:"rules"`
+	Ops   [][]any  `json:"ops"`
+}
+
+func loadFixtures(t *testing.T, file string) []cardFixture {
+	t.Helper()
+	raw, err := os.ReadFile("testdata/device-card/" + file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var doc struct {
+		Fixtures []cardFixture `json:"fixtures"`
+	}
+	if err := json.Unmarshal(raw, &doc); err != nil {
+		t.Fatal(err)
+	}
+	return doc.Fixtures
+}
+
+// The near misses of invalid.json stay valid, in the validator and in the schema alone (shared with Python).
+func TestDeviceCardNearMissesStayValid(t *testing.T) {
+	sch, err := deviceCardSchema()
+	if err != nil {
+		t.Fatal(err)
+	}
+	fixtures := loadFixtures(t, "valid.json")
+	if len(fixtures) == 0 {
+		t.Fatal("no near-miss fixture")
+	}
+	for _, fx := range fixtures {
+		doc := loadCard(t, fx.Base)
+		applyOps(t, doc, fx.Ops)
+		data, _ := json.Marshal(doc)
+		if err := ValidateDeviceCard(data); err != nil {
+			t.Errorf("%s: %v", fx.Name, err)
+		}
+		inst, err := jsonschema.UnmarshalJSON(bytes.NewReader(data))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := sch.Validate(inst); err != nil {
+			t.Errorf("%s: the schema refuses it: %v", fx.Name, err)
+		}
+	}
+}
+
+// A user part or credential key is refused in any string, not only in a form href.
+func TestDeviceCardEveryURLFixtureIsRefusedWhateverTheField(t *testing.T) {
+	n := 0
+	for _, fx := range loadFixtures(t, "invalid.json") {
+		if len(fx.Rules) != 1 || fx.Rules[0] != "credential-field" || fx.Ops[0][1] != "/actions/switch/forms" {
+			continue
+		}
+		n++
+		href := fx.Ops[0][2].([]any)[0].(map[string]any)["href"]
+		doc := loadCard(t, "relay")
+		applyOps(t, doc, [][]any{{"set", "/id", href}})
+		data, _ := json.Marshal(doc)
+		if !cardRulesOf(ValidateDeviceCard(data))["credential-field"] {
+			t.Errorf("%s: accepted in /id", fx.Name)
+		}
+	}
+	if n == 0 {
+		t.Fatal("no URL fixture")
+	}
+}
+
 func TestUnquotePlusMatchesPython(t *testing.T) {
 	for in, want := range map[string]string{"api%5Fkey": "api_key", "a+b": "a b", "100%": "100%", "%zz": "%zz", "%4": "%4", "%41%42": "AB"} {
 		if got := unquotePlus(in); got != want {

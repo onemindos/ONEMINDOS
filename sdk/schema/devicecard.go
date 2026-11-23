@@ -40,7 +40,7 @@ var deviceCardRules = map[string]string{
 	"physical-owner-only": "a physical action is asked for by a person or agent and approved only by an owner",
 	"hold-required":       "this class is approved with a hold: needsHold must be true",
 	"agent-approver":      "an agent never approves",
-	"observe-read-only":   "observe is only for a read-only property, an event or a safe action",
+	"observe-read-only":   "observe is only for a read-only property, an event or a safe action, never with a form that writes",
 	"schema":              "the card does not match onemind.device-card.schema.json",
 }
 
@@ -48,15 +48,31 @@ var deviceCardRules = map[string]string{
 var (
 	credentialKey = regexp.MustCompile(`password|passwd|passphrase|secret|token|apikey|privatekey|credential|accesskey`)
 	keySeparators = regexp.MustCompile(`[-_. ]`)
-	// a user part: scheme://user@host, or scheme-relative //user@host (a backslash counts as a slash)
-	urlUserinfo = regexp.MustCompile(`^[ \t\n\r\f\v]*(?:[A-Za-z][A-Za-z0-9+.-]*:)?[/\\]{2}[^/\\?#]*@`)
-	whitespace  = regexp.MustCompile(`[ \t\n\r\f\v]`)
-	urlStart    = regexp.MustCompile(`^(?:[A-Za-z][A-Za-z0-9+.-]*:[/\\]{2}|[/\\?#])`)
-	urlSplit    = regexp.MustCompile(`[?#]`)
-	pairSplit   = regexp.MustCompile(`[&;]`)
+	// in a URL query or fragment: short credential keys (exact match) and keys with authorization or signature
+	urlCredentialKey = regexp.MustCompile(`authorization|signature`)
+	// a user part as a WHATWG URL parser reads it, after tab and newline are dropped and C0 controls and
+	// spaces trimmed (a backslash counts as a slash): scheme://user@host or //user@host; any scheme with
+	// any number of slashes and a user part without space (https:user@host, mqtt:user@host); a special
+	// scheme with any user part (https: user@host). ASCII case is spelled out, as in Python.
+	urlUserinfo = regexp.MustCompile(`^(?:(?:[A-Za-z][A-Za-z0-9+.-]*:)?[/\\]{2}[^/\\?#]*@` +
+		`|[A-Za-z][A-Za-z0-9+.-]*:[/\\]*[^/\\?#\x00-\x20]*@` +
+		`|(?:[Hh][Tt][Tt][Pp][Ss]?|[Ww][Ss][Ss]?|[Ff][Tt][Pp]|[Ff][Ii][Ll][Ee]):[/\\]*[^/\\?#]*@)`)
+	urlTabNewline = regexp.MustCompile(`[\t\n\r]`)
+	// a form op that writes: writeproperty, writemultipleproperties, writeallproperties (any ASCII case)
+	writeOp    = regexp.MustCompile(`[Ww][Rr][Ii][Tt][Ee]`)
+	whitespace = regexp.MustCompile(`[ \t\n\r\f\v]`)
+	urlStart   = regexp.MustCompile(`^(?:[A-Za-z][A-Za-z0-9+.-]*:[/\\]{2}|[/\\?#])`)
+	urlSplit   = regexp.MustCompile(`[?#]`)
+	pairSplit  = regexp.MustCompile(`[&;]`)
 )
 
-const urlSpace = " \t\n\r\f\v"
+// urlTrim is what a URL parser trims from both ends: C0 controls and space.
+const urlTrim = "\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f" +
+	"\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f\x20"
+
+// urlShortKeys are credential keys a URL query or fragment names in short (exact match, so ?monkey=
+// or ?author= stay harmless).
+var urlShortKeys = map[string]bool{"pwd": true, "pass": true, "auth": true, "authorization": true, "key": true, "sig": true, "signature": true}
 
 // CardProblem is one refused rule. It names the path, never the value, so no secret reaches a log.
 type CardProblem struct{ Rule, Path, Message string }
@@ -227,6 +243,11 @@ func isCredentialKey(k string) bool {
 	return credentialKey.MatchString(keySeparators.ReplaceAllString(strings.ToLower(k), ""))
 }
 
+func isURLCredentialKey(k string) bool {
+	norm := keySeparators.ReplaceAllString(strings.ToLower(k), "")
+	return urlShortKeys[norm] || credentialKey.MatchString(norm) || urlCredentialKey.MatchString(norm)
+}
+
 // unquotePlus decodes like Python's urllib.parse.unquote_plus: '+' is a space, a %XX with two hex
 // digits is that byte, and anything else (a stray %) is kept as it is.
 func unquotePlus(s string) string {
@@ -260,19 +281,20 @@ func unhex(c byte) byte {
 }
 
 // urlCredential is a user part, or a query or fragment parameter whose (percent-decoded) key names a
-// credential. Text with whitespace inside is prose, not a URL, unless it starts like a URL.
+// credential. Tab and newline are dropped first, as a URL parser drops them. Text with whitespace
+// inside is prose, not a URL, unless it starts like a URL.
 func urlCredential(text string) bool {
+	text = strings.Trim(urlTabNewline.ReplaceAllString(text, ""), urlTrim)
 	if urlUserinfo.MatchString(text) {
 		return true
 	}
-	text = strings.Trim(text, urlSpace)
 	if whitespace.MatchString(text) && !urlStart.MatchString(text) {
 		return false
 	}
 	for _, part := range urlSplit.Split(text, -1)[1:] {
 		for _, pair := range pairSplit.Split(part, -1) {
 			key, _, _ := strings.Cut(pair, "=")
-			if isCredentialKey(unquotePlus(key)) {
+			if isURLCredentialKey(unquotePlus(key)) {
 				return true
 			}
 		}
@@ -280,8 +302,13 @@ func urlCredential(text string) bool {
 	return false
 }
 
-// observe maps to risk read, which skips approval: it may label only what cannot change the device.
+// observe maps to risk read, which skips approval: it may label only what cannot change the device,
+// and nothing labelled so may carry a form that writes. An event is always observe.
 func (w *cardWalk) observe(kind string, aff map[string]any, path string) {
+	if kind == "events" {
+		w.writeForms(aff, path)
+		return
+	}
 	s, _ := aff["om:safety"].(map[string]any)
 	if class, _ := s["class"].(string); class != "observe" {
 		return
@@ -298,6 +325,28 @@ func (w *cardWalk) observe(kind string, aff map[string]any, path string) {
 	}
 	if writable {
 		w.add(path+"/om:safety/class", "observe-read-only")
+	}
+	w.writeForms(aff, path)
+}
+
+// writeForms adds every form whose op (a string or a list) writes.
+func (w *cardWalk) writeForms(aff map[string]any, path string) {
+	forms, _ := aff["forms"].([]any)
+	for i, f := range forms {
+		form, _ := f.(map[string]any)
+		var ops []any
+		switch op := form["op"].(type) {
+		case string:
+			ops = []any{op}
+		case []any:
+			ops = op
+		}
+		for _, o := range ops {
+			if s, ok := o.(string); ok && writeOp.MatchString(s) {
+				w.add(fmt.Sprintf("%s/forms/%d/op", path, i), "observe-read-only")
+				break
+			}
+		}
 	}
 }
 
