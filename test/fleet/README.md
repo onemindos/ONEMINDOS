@@ -52,7 +52,7 @@ Nothing about the lab is in this folder: host names, addresses and storages come
 
 **What blocks three green runs (found by this test, outside test/fleet).**
 - #943: one machine-id for every machine from an image, so only the first node can join.
-- A node sometimes has no network on its first boot (1 of 3 nodes in 2 of 4 runs; it sends nothing on the wire, a power cycle brings it up). The test does not power-cycle for it: F1 fails and shows that node's console.
+- A node sometimes has no network on its first boot: `rauc.service` fails and cloud-init never runs (#391, the data-extend race on a disk bigger than the image; the fleet grows each disk by 8 GiB, so it hits often: 1 to 2 of 3 nodes in 3 of 5 runs). The fix (#868) is on release/next but not in the dev releases, which are built from `main`. The test does not power-cycle: F1 fails and shows that node's console.
 - Image workers have no k3s agent yet (os firstboot keeps `ONEMIND_FABRIC_K3S` off), so F6 cannot pass and failover has no workload to move.
 - The dev releases are built from `main`: their hub mints QR v1 only, and first boot on `release/next` still accepts only v1 join codes (`JOIN_CODE_RE` in onemind_firstboot.py). The join uses the image's own enrolment flow (`onemind-firstboot configure --join-code`, which runs `onemind fabric join`), so it tries v2 first and the report names the version used.
 
