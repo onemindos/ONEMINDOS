@@ -14,6 +14,7 @@ metadata:
   category: notes
   icon: icon.svg
   license: "MIT"
+  licenceClass: L1
   source: https://github.com/usememos/memos
   links:
     docs: "https://github.com/usememos/memos/tree/26.11.0/docs"

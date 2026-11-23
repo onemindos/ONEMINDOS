@@ -54,4 +54,4 @@ A run ends cleanly on a lost connection, a rule change, the OS ending background
 
 ## Mock
 
-`mobile/src/photos/mockServer.ts` implements every route above in memory (receipts per source, offsets, hash check, injected drops). The tests run the real HTTP client and engine against it, and the demo ("Try the demo") uses it with a made-up library, so the demo never talks to a network.
+`mobile/src/photos/mockServer.ts` implements every route above in memory (receipts per source, offsets, hash check, injected drops). The tests run the real HTTP client and engine against it. The app never uses it: there is no demo mode (#827).

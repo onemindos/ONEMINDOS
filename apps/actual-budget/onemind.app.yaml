@@ -13,6 +13,7 @@ metadata:
   category: finance
   icon: icon.svg
   license: "MIT"
+  licenceClass: L1
   source: https://github.com/actualbudget/actual
   links:
     docs: "https://actualbudget.org/docs/"
