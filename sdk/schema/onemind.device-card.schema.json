@@ -80,6 +80,11 @@
       "then": {"required": ["unit"]}
     },
     "closedData": {"$ref": "#/$defs/dataSchema", "unevaluatedProperties": false},
+    "writeOp": {"$comment": "a form op that writes (writeproperty, writemultipleproperties, writeallproperties), any ASCII case",
+                "anyOf": [{"type": "string", "pattern": "[Ww][Rr][Ii][Tt][Ee]"},
+                          {"type": "array", "contains": {"type": "string", "pattern": "[Ww][Rr][Ii][Tt][Ee]"}}]},
+    "readForms": {"$comment": "observe is risk read (no approval): no form of it may write",
+                  "properties": {"forms": {"items": {"properties": {"op": {"not": {"$ref": "#/$defs/writeOp"}}}}}}},
     "isObserve": {"required": ["om:safety"], "properties": {"om:safety": {"type": "object", "required": ["class"], "properties": {"class": {"const": "observe"}}}}},
     "affordance": {
       "properties": {
@@ -91,7 +96,7 @@
       "allOf": [
         {"$ref": "#/$defs/dataSchema"}, {"$ref": "#/$defs/affordance"},
         {"$comment": "observe is risk read (no approval): only on a property nothing can write",
-         "if": {"$ref": "#/$defs/isObserve"}, "then": {"required": ["readOnly"], "properties": {"readOnly": {"const": true}, "writeOnly": {"const": false}}}}
+         "if": {"$ref": "#/$defs/isObserve"}, "then": {"$ref": "#/$defs/readForms", "required": ["readOnly"], "properties": {"readOnly": {"const": true}, "writeOnly": {"const": false}}}}
       ],
       "required": ["om:safety"],
       "properties": {"observable": {"type": "boolean"}},
@@ -101,7 +106,7 @@
       "allOf": [
         {"$ref": "#/$defs/affordance"},
         {"$comment": "observe is risk read (no approval): only on an action that changes nothing (WoT safe)",
-         "if": {"$ref": "#/$defs/isObserve"}, "then": {"required": ["safe"], "properties": {"safe": {"const": true}}}}
+         "if": {"$ref": "#/$defs/isObserve"}, "then": {"$ref": "#/$defs/readForms", "required": ["safe"], "properties": {"safe": {"const": true}}}}
       ],
       "type": "object", "required": ["om:safety"],
       "properties": {
@@ -111,7 +116,7 @@
       "unevaluatedProperties": false
     },
     "event": {
-      "allOf": [{"$ref": "#/$defs/affordance"}],
+      "allOf": [{"$ref": "#/$defs/affordance"}, {"$ref": "#/$defs/readForms"}],
       "type": "object",
       "properties": {"data": {"$ref": "#/$defs/closedData"}, "om:safety": {"properties": {"class": {"const": "observe"}}}},
       "unevaluatedProperties": false
