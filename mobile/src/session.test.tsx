@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 import { act, renderHook } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
+import * as SecureStore from 'expo-secure-store';
 import { Features, HttpApi, OP, type FetchLike } from './api/client';
 import type { InboxItem, Me } from './api/types';
 import { inboxAlerts } from './lib/alerts';
 import { insecureHub } from './screens/ConnectScreen';
-import { abilitiesFromMe, SessionProvider, useSession } from './session';
+import { abilitiesFromMe, buildSession, SessionProvider, useSession } from './session';
 import { v0Api } from './test/fakes';
+import { mockApi, mockConnection } from './test/mockHub';
 import type { Connection } from './storage';
 import { loadConnection, saveConnection, clearConnection } from './storage';
 
@@ -14,32 +16,54 @@ describe('session', () => {
   it('saves the connection only after the hub accepts the token', async () => {
     const save = jest.fn(async (_c: Connection) => undefined);
     const wrapper = ({ children }: { children: ReactNode }) => (
-      <SessionProvider deps={{ load: async () => null, save, clear: async () => undefined }}>{children}</SessionProvider>
+      <SessionProvider deps={{ load: async () => null, save, clear: async () => undefined, makeApi: mockApi }}>{children}</SessionProvider>
     );
     const { result } = await renderHook(() => useSession(), { wrapper });
     await act(async () => {
-      await expect(result.current.connect({ mode: 'mock', token: 'wrong' })).rejects.toMatchObject({ code: 'unauthenticated' });
+      await expect(result.current.connect(mockConnection('wrong'))).rejects.toMatchObject({ code: 'unauthenticated' });
     });
     expect(save).not.toHaveBeenCalled();
     expect(result.current.session).toBeNull();
     await act(async () => {
-      await result.current.connect({ mode: 'mock', token: 'owner-demo' });
+      await result.current.connect(mockConnection('owner-demo'));
     });
-    expect(save).toHaveBeenCalledWith({ mode: 'mock', token: 'owner-demo' });
+    expect(save).toHaveBeenCalledWith(mockConnection('owner-demo'));
     expect(result.current.session?.canDecide).toBe('yes');
   });
 
   it('connects but does not remember when the secure store refuses (never falls back to plain storage)', async () => {
     const wrapper = ({ children }: { children: ReactNode }) => (
-      <SessionProvider deps={{ load: async () => null, save: async () => { throw new Error('-34018'); }, clear: async () => undefined }}>
+      <SessionProvider deps={{ load: async () => null, save: async () => { throw new Error('-34018'); }, clear: async () => undefined, makeApi: mockApi }}>
         {children}
       </SessionProvider>
     );
     const { result } = await renderHook(() => useSession(), { wrapper });
     await act(async () => {
-      await result.current.connect({ mode: 'mock', token: 'owner-demo' });
+      await result.current.connect(mockConnection('owner-demo'));
     });
     expect(result.current.session?.remembered).toBe(false);
+  });
+
+  it('a demo connection stored by an older build loads as signed out', async () => {
+    await SecureStore.setItemAsync('onemind.connection.v1', JSON.stringify({ mode: 'mock', token: 'owner-demo' }));
+    expect(await loadConnection()).toBeNull();
+    // The whole provider, with its real secure-store loader: the app starts at Connect.
+    const wrapper = ({ children }: { children: ReactNode }) => <SessionProvider>{children}</SessionProvider>;
+    const { result } = await renderHook(() => useSession(), { wrapper });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    expect(result.current.ready).toBe(true);
+    expect(result.current.session).toBeNull();
+    await clearConnection();
+  });
+
+  it('the app builds only the HTTP client; who you are comes from the hub, never from a demo token', () => {
+    const s = buildSession({ mode: 'live', hubUrl: 'https://hub.example', token: 'owner-demo' });
+    expect(s.api).toBeInstanceOf(HttpApi);
+    expect(s.principal).toBeUndefined();
+    expect(s.canDecide).toBe('unknown');
+    expect(s.label).toBe('hub.example');
   });
 
   it('round-trips through the secure store and clears', async () => {
