@@ -592,6 +592,8 @@ POLICY |= {
                                f"{_NET}: the fabric summary (nodes, pending joins) like /v1/nodes: a child has no nodes:read (§12.6)"),
     ("GET", "/v1/mesh"): Row(CHILD_CANNOT, w.p_static("/v1/mesh"),
                              f"{_NET}: the mesh view (nodes, devices, app URLs); a child has no nodes:read; mesh addresses are owner only (?addresses)"),
+    ("PUT", "/v1/mesh/settings"): Row(ONLY_OWNER, w.p_missing("/v1/mesh/settings", json={}),
+                                      f"{_NET}: CORE-NET-8, only the owner turns the mesh on or off or picks its provider (refusals audited)"),
     ("GET", "/v1/tls"): Row(CHILD_CANNOT, w.p_static("/v1/tls"),
                             "contract §12.7: CA fingerprint and names to any signed-in caller; a child's role defaults do not cover it"),
     ("GET", "/v1/tls/ca.crt"): Row(cells(200), w.p_static("/v1/tls/ca.crt"),
