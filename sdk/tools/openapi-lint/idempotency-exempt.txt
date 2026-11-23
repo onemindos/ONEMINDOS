@@ -15,6 +15,9 @@ PATCH /v1/files/uploads/{upload_id}  # tus: the Upload-Offset header makes a ret
 PATCH /v1/photos/uploads/{upload_id}  # tus: the Upload-Offset header makes a retried chunk safe
 POST /v1/actions  # contract §12.1: keeps its §3 body field idempotency_key instead of the header
 POST /v1/tips/{tip_id}/state  # sets one tip's state to the given value: setting the same state twice is the same as once
+POST /v1/files/wopi/tokens  # answers with a fresh WOPI access token, which a replay store must not keep; a retry mints another
+POST /v1/files/wopi/files/{file_id}  # WOPI (#675): an office engine sends no Idempotency-Key; Lock, RefreshLock and Unlock repeated with the same X-WOPI-Lock give the same result
+POST /v1/files/wopi/files/{file_id}/contents  # WOPI PutFile (#675): needs the file's current lock and its last-saved version, so a retried save writes the same bytes again
 POST /v1/bridges/{bridge_id}/events  # every event carries its own id and revision: a retried batch counts as duplicates, never twice
 POST /v1/bridges/{bridge_id}/resume  # resuming a bridge that already runs changes nothing
 POST /v1/files/app-passwords  # answers with a fresh app password, which a replay store must never keep
