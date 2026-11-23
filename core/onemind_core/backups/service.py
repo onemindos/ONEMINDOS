@@ -38,6 +38,7 @@ from .kit import answer_ok, challenge, kit_text, new_owner_key
 from .kube import DryKube, Kube, KubeError, Workload
 from .manifest import BackupSpec, backup_spec, database_spec
 from .settings import BackupsSettings
+from .units import public_view, unit_set
 from .store import (
     SCHEMA,  # noqa: F401  (importing the module registers the tables)
     BackupsRepository,
@@ -128,6 +129,7 @@ class BackupService:
             self.agent = AgentClient(settings.agent_url, load_or_create_job_key(Path(key_file)), gw.clock,
                                      settings.job_timeout_s)
         self.worker = Worker(inline)
+        self.builtins = None  # the built-in registry (builtins.py); the router sets it (#616)
         self._pending_secrets: dict[str, dict] = {}  # action id -> destination credentials (memory only)
         self._one_time: dict[str, dict] = {}
         # action id -> (owner recovery key, expiry): a first-run restore from another box's backup. Memory only, never in
@@ -345,6 +347,12 @@ class BackupService:
             for app in self.installed_apps():
                 if (only is None or only == app.id) and f"app:{app.id}" not in failed:
                     self._exec_hooks(app, backup_spec(app).post, "post", hooks)
+        if only is None:
+            # A built-in whose declared tables or folders cannot be found is reported, not skipped silently
+            # (#616). Kept out of skip_units: the agent knows only its own units.
+            for u in self.builtin_units():
+                if u.get("problems"):
+                    failed[u["unit"]] = "; ".join(u["problems"])
         units = units + [{"unit": u, "state": "failed", "error": msg} for u, msg in sorted(failed.items())]
         if failed and state == "succeeded":
             state = "partial"
@@ -398,6 +406,10 @@ class BackupService:
         return {"state": k.state, "issued_at": iso(k.issued_at), "confirmed_at": iso(k.confirmed_at),
                 "fingerprint": k.fingerprint, "positions": k.challenge.get("positions", [])}
 
+    def builtin_units(self) -> list[dict]:
+        """The gateway database and every switched-on built-in's declared tables and folders (#616)."""
+        return unit_set(self.gw, self.builtins)
+
     def _agent_status(self) -> dict:
         return self._job("backup.status", {}) or {}
 
@@ -412,6 +424,7 @@ class BackupService:
                "setup": {"blocking": [] if kit["state"] == "confirmed" else ["emergency_kit"]}, "agent": "off"}
         installed = self.installed_apps()
         out["crash_consistent_apps"] = [a.id for a in installed if not backup_spec(a).declared]
+        out["builtin_units"] = public_view(self.builtin_units())
         if not self.enabled:
             out["reason"] = "backups are not switched on"
             return out
