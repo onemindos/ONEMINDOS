@@ -37,3 +37,5 @@ POST /v1/sync/locks  # advisory (#699): a retried take only gives the same holde
 POST /v1/sync/locks/{lock_id}/refresh  # sets expiry to now + ttl: a retry lands on the same expiry
 DELETE /v1/sync/locks/{lock_id}  # releasing twice changes nothing (the second is 404)
 POST /v1/radios/{radio_id}/confirm  # an upsert of one radio's confirmation (#732): confirming twice stores the same row and changes nothing
+DELETE /v1/agent-browser/sessions/{session_id}  # ending a session twice is the same as once (the second answers the ended session)
+DELETE /v1/agent-browser/sites/{site_id}  # removing an approved site twice leaves the same allowlist (the second answers 404)
