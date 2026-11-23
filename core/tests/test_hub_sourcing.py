@@ -22,7 +22,7 @@ from types import SimpleNamespace
 import pytest
 from fastapi.testclient import TestClient
 
-from onemind_core import jetstream
+from onemind_core import jetstream, subjects
 from onemind_core.app import create_app
 from onemind_core.natsconf import NodeAccount, render_accounts, source_deliver_prefix, source_services
 from onemind_core.netconf import FabricSettings
@@ -100,7 +100,31 @@ def test_hub_source_matches_the_go_golden_and_hub_source_stream():
                                                              "deliver": "onemind.node.aaa111.outbox"}}]
     assert d["retention"].value == "limits" and d["storage"].value == "file"
     assert d["duplicate_window"] == 24 * 3600 * 10**9
+    assert d["max_bytes"] == 256 << 20 and d["max_age"] == 7 * 24 * 3600 * 10**9 and d["discard"].value == "old"
     assert not d.get("subjects")  # a source stream takes no subjects of its own
+
+
+def test_each_node_copy_keeps_the_registry_retention_sized_to_the_cap():
+    """A node's copy is never unbounded (#747): the registry's age and size, less on a small hub disk,
+    so NODE_COPY_SLOTS nodes fit in NODE_SHARE next to the core streams and one node fills only its own."""
+    reg = subjects.load()
+    kept = {p.retention["policy"]: p.retention for p in reg.patterns if p.stream == "ONEMIND_NODE_OUTBOX"}
+    assert set(kept) == {"limits"}
+    assert (kept["limits"]["max_bytes"], kept["limits"]["max_age_s"]) == (
+        jetstream.HUB_COPY_MAX_BYTES, jetstream.HUB_COPY_MAX_AGE_S)
+    assert jetstream.plan(64 * GIB).node_copy_bytes == 256 << 20
+    small = jetstream.plan(jetstream.CAP_MIN_BYTES)
+    assert small.node_copy_bytes == 8 << 20 and small.node_copy_age_s == 7 * 24 * 3600
+    for cap in (jetstream.CAP_MIN_BYTES, GIB, 8 * GIB, 64 * GIB):
+        p = jetstream.plan(cap)
+        fleet = jetstream.NODE_COPY_SLOTS * p.node_copy_bytes
+        assert p.reserved_bytes + fleet <= cap * (jetstream.CORE_SHARE + jetstream.NODE_SHARE)
+        assert p.to_json()["node_copy"] == {"max_bytes": p.node_copy_bytes, "max_age_s": 604800, "discard": "old"}
+    d = small.hub_source("aaa111").config().as_dict()
+    assert d["max_bytes"] == 8 << 20 and d["max_age"] == 604800 * 10**9 and d["discard"].value == "old"
+    for bad in ({"max_bytes": 0}, {"max_bytes": 1024}, {"max_age_s": 0}, {"max_bytes": True}):
+        with pytest.raises(ValueError):
+            jetstream.HubSource("aaa111", **bad)
 
 
 @pytest.mark.parametrize("bad", ["", "Bad", "a.b", "a" * 33, None, "hub-1"])
@@ -128,6 +152,7 @@ def test_core_creates_wanted_sources_retries_errors_and_reensures_after_a_reconn
         assert core.sources == {"aaa111": "created"} and "add NODE_node_aaa111_OUTBOX" in js.calls
         cfg = js.streams["NODE_node_aaa111_OUTBOX"]
         assert cfg.sources[0].external.deliver == "onemind.node.aaa111.outbox"
+        assert (cfg.max_bytes, cfg.max_age) == (core.plan.node_copy_bytes, 604800.0)   # bounded copy
         n = len(js.calls)
         await asyncio.sleep(0.05)
         assert len(js.calls) == n                                    # no churn
@@ -241,6 +266,9 @@ def test_real_server_loads_the_accounts_and_takes_the_source_stream(tmp_path):
         assert await jetstream.ensure_hub_source(js, src) == "updated"   # idempotent
         info = await js.stream_info(src.name)
         assert info.config.sources[0].external.api == "$JS.node-aaa111.API"
+        # the server took the bounded copy: its size is reserved, a full copy drops its own oldest
+        assert info.config.max_bytes == 256 << 20 and info.config.discard == "old"
+        assert info.config.max_age == 604800
         await nc.close()
 
     try:

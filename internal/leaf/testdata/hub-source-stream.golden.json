@@ -1,5 +1,8 @@
 {
+  "discard": "old",
   "duplicate_window": 86400000000000,
+  "max_age": 604800000000000,
+  "max_bytes": 268435456,
   "name": "NODE_node_aaa111_OUTBOX",
   "retention": "limits",
   "sources": [

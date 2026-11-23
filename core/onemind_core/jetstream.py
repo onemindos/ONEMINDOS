@@ -20,8 +20,11 @@ bucket (the last value per key); `ONEMIND_NODE_OUTBOX` is kept per node by the h
 (internal/leaf HubSourceStream), not by one gateway stream; every other named stream is a core stream.
 Together they may reserve CORE_SHARE of the cap (NATS reserves a stream's max_bytes when it is
 created), scaled down evenly on a small disk; the rest is for app `spec.streams` (streams.py) and the
-per-node source streams. Because each stream has its own reserved size, a full stream drops only its
-own oldest messages (or refuses new ones, for a work queue): the audit stream is never touched by it.
+per-node source streams. Each node's source stream keeps that registry retention too (#747): the
+registry's age, and its size or NODE_SHARE / NODE_COPY_SLOTS of the cap, whichever is smaller, so a
+handful of nodes fit in NODE_SHARE and one chatty or compromised node only ever fills its own copy.
+Because each stream has its own reserved size, a full stream drops only its own oldest messages (or
+refuses new ones, for a work queue): the audit stream is never touched by it.
 
 The gateway connects to NATS in the background (bus.py) and `JetStreamCore.run` creates or updates
 the streams whenever it has a connection, again after every reconnect; NATS down never stops it serving.
@@ -51,6 +54,8 @@ CAP_MAX_BYTES = 64 * GIB          # a large disk still gives the store at most t
 CORE_SHARE = 0.5                  # what core streams and buckets may reserve of the cap
 DEFAULT_STREAM_MAX_BYTES = 64 * MIB   # a registry stream that names no max_bytes still gets a cap
 MIN_STREAM_BYTES = 1 * MIB
+NODE_SHARE = 0.25                 # what the per-node hub source streams of NODE_COPY_SLOTS nodes reserve
+NODE_COPY_SLOTS = 8               # a household fabric is a handful of machines; more still fit, from the rest
 
 # Registry streams that are kept per node by the hub's source streams, not created by the gateway.
 PER_NODE_STREAMS = ("ONEMIND_NODE_OUTBOX",)
@@ -59,6 +64,16 @@ KV_BUCKETS = {"ONEMIND_ASSET_STATE": "asset-state", "ONEMIND_LAYER_META": "layer
 
 RETRY_S = 5.0
 HUB_SOURCE_DEDUPE_NS = 24 * 3600 * 10**9   # internal/leaf DefaultDedupeWindow
+# The registry retention of ONEMIND_NODE_OUTBOX (kinds/node), which internal/leaf HubSourceStream also
+# carries (DefaultHubCopyMaxBytes, DefaultOutboxMaxAge); a test checks both against the registry.
+HUB_COPY_MAX_BYTES = 256 * MIB
+HUB_COPY_MAX_AGE_S = 7 * 24 * 3600
+
+
+def node_copy_bytes(cap_bytes: int, wanted: int = HUB_COPY_MAX_BYTES) -> int:
+    """The size of one node's hub source stream for a JetStream cap: the registry's size, or a
+    NODE_COPY_SLOTS-th of NODE_SHARE of the cap on a smaller disk, never under MIN_STREAM_BYTES."""
+    return min(int(wanted), max(MIN_STREAM_BYTES, int(require_cap(cap_bytes) * NODE_SHARE / NODE_COPY_SLOTS)))
 
 
 @dataclass(frozen=True)
@@ -71,27 +86,35 @@ class HubSource:
     test checks it equals HubSourceStream."""
 
     node_id: str
+    max_bytes: int = HUB_COPY_MAX_BYTES
+    max_age_s: int = HUB_COPY_MAX_AGE_S
 
     def __post_init__(self) -> None:
         if not isinstance(self.node_id, str) or not NODE_ID_RE.match(self.node_id):
             raise ValueError(f"node id {self.node_id!r} is not a lowercase id")
+        for what, v, low in (("max_bytes", self.max_bytes, MIN_STREAM_BYTES), ("max_age_s", self.max_age_s, 1)):
+            if isinstance(v, bool) or not isinstance(v, int) or v < low:
+                raise ValueError(f"hub source {what} {v!r} is under {low}: a node's copy is never unbounded")
 
     @property
     def name(self) -> str:
         return "NODE_" + node_domain(self.node_id).replace("-", "_") + "_" + OUTBOX_STREAM
 
     def to_json(self) -> dict:
-        """The stream in the NATS API's JSON shape (what the Go side unmarshals)."""
-        return {"name": self.name, "retention": "limits", "storage": "file",
+        """The stream in the NATS API's JSON shape (what the Go side unmarshals). A full copy drops its
+        own oldest event (discard old, the registry's limits policy); it never refuses the source."""
+        return {"name": self.name, "retention": "limits", "storage": "file", "discard": "old",
+                "max_bytes": self.max_bytes, "max_age": self.max_age_s * 10**9,
                 "sources": [{"name": OUTBOX_STREAM, "external": {"api": node_js_api(self.node_id),
                                                                   "deliver": source_deliver_prefix(self.node_id)}}],
                 "duplicate_window": HUB_SOURCE_DEDUPE_NS}
 
     def config(self):
-        from nats.js.api import ExternalStream, RetentionPolicy, StorageType, StreamConfig, StreamSource
+        from nats.js.api import DiscardPolicy, ExternalStream, RetentionPolicy, StorageType, StreamConfig, StreamSource
 
         return StreamConfig(
             name=self.name, retention=RetentionPolicy.LIMITS, storage=StorageType.FILE,
+            discard=DiscardPolicy.OLD, max_bytes=self.max_bytes, max_age=float(self.max_age_s),
             sources=[StreamSource(name=OUTBOX_STREAM, external=ExternalStream(
                 api=node_js_api(self.node_id), deliver=source_deliver_prefix(self.node_id)))],
             duplicate_window=HUB_SOURCE_DEDUPE_NS / 1e9,
@@ -231,6 +254,12 @@ class CorePlan:
     budget_bytes: int
     streams: tuple[CoreStream, ...]
     buckets: tuple[CoreBucket, ...]
+    node_copy_bytes: int = HUB_COPY_MAX_BYTES   # each node's hub source stream (HubSource)
+    node_copy_age_s: int = HUB_COPY_MAX_AGE_S
+
+    def hub_source(self, node_id: str) -> HubSource:
+        """A node's hub source stream, with the registry retention sized for this cap."""
+        return HubSource(node_id, self.node_copy_bytes, self.node_copy_age_s)
 
     @property
     def reserved_bytes(self) -> int:
@@ -238,7 +267,8 @@ class CorePlan:
 
     def to_json(self) -> dict:
         return {"cap_bytes": self.cap_bytes, "budget_bytes": self.budget_bytes, "reserved_bytes": self.reserved_bytes,
-                "streams": [s.to_json() for s in self.streams], "buckets": [b.to_json() for b in self.buckets]}
+                "streams": [s.to_json() for s in self.streams], "buckets": [b.to_json() for b in self.buckets],
+                "node_copy": {"max_bytes": self.node_copy_bytes, "max_age_s": self.node_copy_age_s, "discard": "old"}}
 
 
 def plan(cap_bytes: int, registry: subjects.Registry | None = None) -> CorePlan:
@@ -250,8 +280,14 @@ def plan(cap_bytes: int, registry: subjects.Registry | None = None) -> CorePlan:
     cap = require_cap(cap_bytes)
     reg = registry or subjects.load()
     groups: dict[str, dict] = {}
+    node_r: dict = {}
     for p in reg.patterns:
-        if not p.stream or p.stream in PER_NODE_STREAMS:
+        if p.stream in PER_NODE_STREAMS:
+            if p.retention.get("policy") != "limits":
+                raise subjects.RegistryError(f"stream {p.stream} is kept per node by limits, not {p.retention!r}")
+            node_r = p.retention
+            continue
+        if not p.stream:
             continue
         g = groups.setdefault(p.stream, {"retention": p.retention, "filters": [], "kinds": []})
         g["filters"].append(_filter(p))
@@ -279,7 +315,9 @@ def plan(cap_bytes: int, registry: subjects.Registry | None = None) -> CorePlan:
                 bool(r.get("deny_delete")), bool(r.get("deny_purge"))))
         else:
             raise subjects.RegistryError(f"stream {name} has retention policy {r['policy']!r}")
-    out = CorePlan(cap, budget, tuple(streams), tuple(buckets))
+    out = CorePlan(cap, budget, tuple(streams), tuple(buckets),
+                   node_copy_bytes(cap, int(node_r.get("max_bytes") or HUB_COPY_MAX_BYTES)),
+                   int(node_r.get("max_age_s") or HUB_COPY_MAX_AGE_S))
     if out.reserved_bytes > budget:  # the MIN_STREAM_BYTES floor can push past the budget on a tiny cap
         raise JetStreamCapError(f"the core streams need {out.reserved_bytes} bytes, more than {budget} of the cap")
     return out
@@ -371,7 +409,7 @@ class JetStreamCore:
             if not every and st.startswith(("created", "updated")):
                 continue
             try:
-                self.sources[node_id] = await ensure_hub_source(js, HubSource(node_id))
+                self.sources[node_id] = await ensure_hub_source(js, self.plan.hub_source(node_id))
             except Exception as exc:  # NATS refused it or the link dropped: retry on the next pass
                 self.sources[node_id] = f"error: {exc.__class__.__name__}: {exc}"[:300]
                 log.warning("hub source stream for node %s not ensured (%s); retrying", node_id, self.sources[node_id])
