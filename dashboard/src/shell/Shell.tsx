@@ -33,6 +33,8 @@ import { homeLayoutStore, personList } from '../data/prefs';
 import { useKeymap } from './keys/useKeymap';
 import { DesktopShell, type DockApp } from './DesktopShell';
 import { useLayoutMode, type LayoutMode } from './layoutMode';
+import { QuickSettings } from './quick/QuickSettings';
+import { effectiveView, useViewChoice } from './quick/viewPref';
 import { brand } from '../brand.generated';
 import { useSignedIn } from '../session';
 import { navItems } from '../screens/registry';
@@ -84,7 +86,9 @@ export function Shell({ children }: { children: ReactNode }) {
   const me = usePoll(() => (principal ? Promise.resolve(null) : client.me()), 0);
   const displayName = useDisplayName();
   const role = roleOf(principal, me.data ?? undefined);
-  const view = viewFor(role === undefined && me.error ? null : role);
+  // The role decides Pro; the person may narrow it to Simple (quick settings), never widen it.
+  const [viewChoice, setViewChoice] = useViewChoice(person);
+  const view = effectiveView(viewFor(role === undefined && me.error ? null : role), viewChoice);
   const recordVisit = useRecordVisit(view, role);
   // A failed lookup is retried with backoff, then slowly, so a network hiccup does not leave an
   // owner in the Simple view until a reload. Stops once /v1/me answers.
@@ -187,6 +191,8 @@ export function Shell({ children }: { children: ReactNode }) {
 
   const boxName = hub.instance.data?.name ?? brand.shortName;
   const bell = (
+    <>
+    <QuickSettings role={role} view={view} viewChoice={viewChoice} onViewChoice={setViewChoice} />
     <NotificationBell
       items={notifications}
       now={hub.now}
@@ -202,6 +208,7 @@ export function Shell({ children }: { children: ReactNode }) {
       allHref={href.activity}
       settingsHref={href.setting('notifications')}
     />
+    </>
   );
   const account = (
     <>
