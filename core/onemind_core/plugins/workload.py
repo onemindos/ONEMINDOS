@@ -14,7 +14,7 @@ from ..catalog import AppEntry
 from ..executors import AgentSecret
 from ..identity.crypto import new_id, new_secret, sha256_hex
 from ..identity.models import TokenRow
-from .auth import plugin_app_id, request_types
+from .auth import EVENTS_WRITE_OWN, plugin_app_id, request_types
 from .models import PluginInstallRow, PluginSettingsRow
 from .settings_schema import load_settings_schema
 from sqlalchemy import delete
@@ -41,9 +41,11 @@ def declaration(app) -> tuple[str, list[str]] | None:
     permissions = spec.get("permissions", [])
     scopes = (["actions:read:own" if item == "actions:read:self" else item for item in permissions]
               if isinstance(permissions, list) else permissions)
-    if request_types(scopes) is None:
+    if request_types(scopes) is None or EVENTS_WRITE_OWN in scopes:
         raise ValueError("plugin requests unsupported runtime permissions")
-    return secret, sorted(set(scopes) | {"actions:read:own"})
+    # The approved bridge block is what grants intake (#610); a manifest cannot ask for it by name.
+    bridge = isinstance(spec.get("extensions"), dict) and isinstance(spec["extensions"].get("bridge"), dict)
+    return secret, sorted(set(scopes) | {"actions:read:own"} | ({EVENTS_WRITE_OWN} if bridge else set()))
 
 
 @dataclass(frozen=True)
