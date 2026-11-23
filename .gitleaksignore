@@ -31,6 +31,11 @@ internal/leaf/testdata/hub-accounts-services.golden.conf:generic-api-key:23
 5b604430ee54180f2fcb0032489cc42d76f87965:internal/backup/managed_test.go:generic-api-key:36
 # NATS user public nkeys in the AGENTS-account golden (#627); public by design, no seed is committed
 internal/leaf/testdata/hub-accounts-agents.golden.conf:generic-api-key:19
+# NATS user public nkeys in the account goldens, lines moved by the hub-sourcing imports (#747); public by design, no seed is committed
+internal/leaf/testdata/hub-accounts.golden.conf:generic-api-key:32
+internal/leaf/testdata/hub-accounts-services.golden.conf:generic-api-key:33
+internal/leaf/testdata/hub-accounts-jetstream.golden.conf:generic-api-key:33
+aa2c44166979a708f9f96ee0dcb9ba29a5fce7dc:internal/leaf/testdata/hub-accounts-jetstream.golden.conf:generic-api-key:33
 # UMB-ACCT-1 lab log (#403): "credential_fp" is a 16-hex public fingerprint of a lab passkey credential id (sha256 prefix), not a secret.
 research-output/evidence/lab/acct-kanidm/run-1/AK-3.txt:generic-api-key:68
 dd47c170b08577f4b352d8a3c1f4792cba9326f4:research-output/evidence/lab/acct-kanidm/run-1/AK-3.txt:generic-api-key:68
