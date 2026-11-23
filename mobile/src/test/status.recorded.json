@@ -1,0 +1,11 @@
+{
+  "state": "attention",
+  "observed_at": "2026-11-22T12:00:00+00:00",
+  "alerts": { "state": "ok", "observed_at": "2026-11-22T11:59:50+00:00", "summary": "No open alerts", "count": 0 },
+  "approvals": { "state": "attention", "observed_at": "2026-11-22T11:59:55+00:00", "summary": "1 waiting for a decision", "count": 1 },
+  "apps": { "state": "ok", "observed_at": "2026-11-22T11:59:00+00:00", "summary": "All installed apps are running", "count": 3 },
+  "storage": { "state": "unknown", "observed_at": null, "summary": "Storage could not be read" },
+  "backups": { "state": "ok", "observed_at": "2026-11-22T11:00:00+00:00", "summary": "Last backup 1h ago" },
+  "updates": { "state": "critical", "observed_at": "2026-11-22T10:00:00+00:00", "summary": "Update failed", "count": 1 },
+  "mesh": { "state": "bogus-new-state", "observed_at": "2026-11-22T11:59:30+00:00", "summary": "From a newer hub" }
+}
