@@ -10488,7 +10488,7 @@
                   "items": {
                     "$ref": "#/components/schemas/AgentBrowserSession"
                   },
-                  "title": "Response 200 Agent Browser.Sessions.List",
+                  "title": "Response 200 Agentbrowser.Sessions.List",
                   "type": "array"
                 }
               }
@@ -10871,7 +10871,7 @@
                   "items": {
                     "$ref": "#/components/schemas/AgentBrowserSite"
                   },
-                  "title": "Response 200 Agent Browser.Sites.List",
+                  "title": "Response 200 Agentbrowser.Sites.List",
                   "type": "array"
                 }
               }
