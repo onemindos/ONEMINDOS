@@ -1,0 +1,50 @@
+# 2026-11-23T02:49:05Z AK-2: host booted with the virtual NIC link down (Proxmox link_down=1)
++ uptime -s; systemctl is-active kanidmd; systemctl show kanidmd -p ActiveEnterTimestamp
+2026-11-23 02:39:00
+active
+ActiveEnterTimestamp=Mon 2026-11-23 02:41:09 UTC
+  (exit 0)
++ for i in $(ls /sys/class/net | grep -v '^lo$'); do ip link set $i down; done; ip -br link; ip -4 route
+lo               UNKNOWN        00:00:00:00:00:00 <LOOPBACK,UP,LOWER_UP> 
+eth0             DOWN           bc:24:11:xx:xx:xx <BROADCAST,MULTICAST> 
+  (exit 0)
++ ping -c1 -W2 1.1.1.1 || echo 'no route out: offline'
+ping: connect: Network is unreachable
+no route out: offline
+  (exit 0)
++ getent ahosts deb.debian.org || echo 'no DNS: offline'
+no DNS: offline
+  (exit 0)
++ curl -sS --cacert /etc/kanidm/ca.pem https://idm.onemind.test:8443/status; echo
+true
+  (exit 0)
+# recover idm_admin (the new password goes straight into the secrets dir; not printed)
++ kanidmd scripting recover-account idm_admin -c /etc/kanidmd/server.toml 2>/dev/null | python3 -I -c 'import json,sys,os; d=json.load(sys.stdin); fd=os.open("/root/aklab/secrets/idm_admin.password",os.O_WRONLY|os.O_CREAT|os.O_TRUNC,0o600); os.write(fd,d["output"].encode()); print("recover-account status:", d["status"])'
+recover-account status: ok
+  (exit 0)
++ admin_login
+idm_admin login ok
+  (exit 0)
++ k person create owner 'Home Owner'
+Successfully created display_name="Home Owner" username=owner
+  (exit 0)
++ reset_token owner owner.reset
+reset link issued for owner (link and token kept in the secrets dir, not printed)
+This token will expire at: 2026-11-23T03:49:07Z
+  (exit 0)
++ $PY enrol owner owner.reset passkey
+{"ok": true, "status": {"can_commit": false, "mfaregstate": "None", "passkeys": [], "primary": null, "warnings": ["NoValidCredentials"]}, "step": "exchange_intent", "user": "owner"}
+{"attestation": "none", "ok": true, "rp_id": "idm.onemind.test", "step": "passkey_init", "user": "owner", "user_verification": "required"}
+{"credential_fp": "58d340207caabd97", "http": 200, "ok": true, "status": {"can_commit": true, "mfaregstate": "None", "passkeys": ["lab-virtual-authenticator"], "primary": null, "warnings": []}, "step": "passkey_finish", "user": "owner"}
+{"http": 200, "ok": true, "step": "commit", "user": "owner"}
+  (exit 0)
++ $PY signin owner passkey
+{"detail": "success (mech passkey)", "mech": "passkey", "ok": true, "step": "signin", "user": "owner", "whoami": "owner@idm.onemind.test"}
+  (exit 0)
++ ip -br link; ping -c1 -W2 1.1.1.1 || echo 'still offline'
+lo               UNKNOWN        00:00:00:00:00:00 <LOOPBACK,UP,LOWER_UP> 
+eth0             DOWN           bc:24:11:xx:xx:xx <BROADCAST,MULTICAST> 
+ping: connect: Network is unreachable
+still offline
+  (exit 0)
+# 2026-11-23T02:49:08Z AK-2 end
