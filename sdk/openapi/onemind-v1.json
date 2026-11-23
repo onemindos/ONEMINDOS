@@ -2419,6 +2419,36 @@
         "title": "Coverage",
         "type": "object"
       },
+      "CreateBody": {
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "description": "Which device or app uses it, e.g. 'MacBook Finder'",
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[^\\x00-\\x1f\\x7f]+$",
+            "title": "Label",
+            "type": "string"
+          },
+          "scopes": {
+            "description": "home:r, home:rw, shared:r or shared:rw; each space once",
+            "items": {
+              "pattern": "^(home|shared):(r|rw)$",
+              "type": "string"
+            },
+            "maxItems": 2,
+            "minItems": 1,
+            "title": "Scopes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "label",
+          "scopes"
+        ],
+        "title": "CreateBody",
+        "type": "object"
+      },
       "CutoverBody": {
         "additionalProperties": false,
         "properties": {
@@ -11061,6 +11091,13 @@
         },
         "title": "ApproveBody",
         "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "bearer": {
+        "description": "A gateway token or a signed-in session (contract §3)",
+        "scheme": "bearer",
+        "type": "http"
       }
     }
   },
@@ -19947,6 +19984,220 @@
         "summary": "Put Profile",
         "tags": [
           "family"
+        ]
+      }
+    },
+    "/v1/files/app-passwords": {
+      "get": {
+        "description": "Your WebDAV app passwords (an owner sees everyone's), and where to connect. The secret is never shown again.",
+        "operationId": "files.app_passwords.list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "tokens:read",
+              "tokens:self",
+              "tokens:admin"
+            ]
+          }
+        ],
+        "summary": "App Passwords List",
+        "tags": [
+          "files"
+        ]
+      },
+      "post": {
+        "description": "Make an app password for a WebDAV client (Finder, GNOME Files), shown once.\n\nThe user name is your person id. Once passkeys are active this needs a recent passkey sign-in (step-up):\nthe password opens your files from the LAN or mesh.",
+        "operationId": "files.app_passwords.create",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "tokens:self",
+              "tokens:admin"
+            ]
+          }
+        ],
+        "summary": "App Passwords Create",
+        "tags": [
+          "files"
+        ]
+      }
+    },
+    "/v1/files/app-passwords/{password_id}/revoke": {
+      "post": {
+        "description": "Revoke an app password. The next WebDAV request with it fails.",
+        "operationId": "files.app_passwords.revoke",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "password_id",
+            "required": true,
+            "schema": {
+              "title": "Password Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "tokens:self",
+              "tokens:admin"
+            ]
+          }
+        ],
+        "summary": "App Passwords Revoke",
+        "tags": [
+          "files"
         ]
       }
     },
