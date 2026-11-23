@@ -381,25 +381,32 @@ pub const INBOX_UNREAD_PATH: &str = "/v1/notifications?unread=true&limit=20";
 /// Open and acknowledged alerts the token may see (§12.14).
 pub const ALERTS_PATH: &str = "/v1/alerts?state=open";
 
+impl Status {
+    /// Nothing known yet: unreachable until the box answers.
+    pub fn unasked(box_id: &str) -> Status {
+        Status {
+            box_id: box_id.to_string(),
+            reachable: false,
+            error: None,
+            name: None,
+            version: None,
+            nodes_total: 0,
+            nodes_online: 0,
+            pending: Vec::new(),
+            updates: None,
+            backups: None,
+            me: None,
+            inbox: None,
+            alerts: None,
+            os: None,
+            storage: None,
+            fetched_at: now(),
+        }
+    }
+}
+
 pub async fn status(c: &reqwest::Client, box_id: &str, base: &str, token: &str) -> Status {
-    let mut st = Status {
-        box_id: box_id.to_string(),
-        reachable: false,
-        error: None,
-        name: None,
-        version: None,
-        nodes_total: 0,
-        nodes_online: 0,
-        pending: Vec::new(),
-        updates: None,
-        backups: None,
-        me: None,
-        inbox: None,
-        alerts: None,
-        os: None,
-        storage: None,
-        fetched_at: now(),
-    };
+    let mut st = Status::unasked(box_id);
     let t = Some(token);
     let (inst, nodes, actions, upd, bk, me, ntf, alr, osu, sto) = tokio::join!(
         get(c, base, t, "/v1/instance"),

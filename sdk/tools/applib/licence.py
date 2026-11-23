@@ -180,3 +180,18 @@ def gate(manifest_licence: str, github_spdx: str | None, rows: list[dict]) -> tu
                          f"can confirm the other terms of {manifest_licence}")
             cls = gh_cls
     return cls, notes
+
+
+DECLARED = ("L1", "L2", "blocked", "unknown")
+GREEN = ("L1", "L2")
+
+
+def declared_class(spdx: str | None) -> str:
+    """The metadata.licenceClass a manifest should carry for this SPDX expression.
+
+    A missing, UNVERIFIED or NOASSERTION licence is `unknown` (never green); anything else is the
+    classifier's L1, L2 or blocked."""
+    value = (spdx or "").strip()
+    if not value or value.upper() in ("UNVERIFIED", "NOASSERTION", "NONE"):
+        return "unknown"
+    return classify(value)

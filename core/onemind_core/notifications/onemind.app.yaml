@@ -30,5 +30,6 @@ spec:
       - {kind: table, name: notify_devices}
       - {kind: table, name: notify_deliveries}
       - {kind: table, name: notify_sources}
+      - {kind: table, name: notify_sends}
   data: {owns: [owner], reads: []}
   phone: {entry: native, screen: inbox}

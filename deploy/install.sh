@@ -437,7 +437,7 @@ apt_setup() {
     plan "debconf: unattended-upgrades/enable_auto_updates=true; dpkg-reconfigure unattended-upgrades"
     apt_security_conf | show_file /etc/apt/apt.conf.d/52onemind-security-only 0644
     needrestart_conf | show_file /etc/needrestart/conf.d/50-onemind.conf 0644
-    plan "systemctl enable --now apt-daily.timer apt-daily-upgrade.timer"
+    plan "systemctl enable --now apt-daily.timer apt-daily-upgrade.timer, as the install's last step (see apt_timers_start)"
     return 0
   fi
   # shellcheck disable=SC2086
@@ -456,6 +456,15 @@ apt_setup() {
   # needrestart: restart services that still use replaced libraries, without asking.
   install -d -m0755 /etc/needrestart/conf.d
   needrestart_conf > /etc/needrestart/conf.d/50-onemind.conf
+}
+
+# The apt timers start last (#275). apt-daily-upgrade.timer is Persistent=true, so on a machine where
+# it was off (a CI runner, a fresh cloud image) it can fire as soon as it starts. unattended-upgrades then
+# replaces systemd or dbus while this script's next `systemctl` call waits for an answer, and that
+# call dies with "D-Bus connection terminated". Started here, after the last unit is up, an upgrade
+# can only restart what is already running, which needrestart handles.
+apt_timers_start() {
+  [ "$DRY_RUN" = 1 ] && return 0
   systemctl enable --now apt-daily.timer apt-daily-upgrade.timer >/dev/null 2>&1 || true
 }
 
@@ -1336,6 +1345,10 @@ ONEMIND_NET_LAN_ADDR=$LAN_ADDR
 ONEMIND_NET_TLS=1
 ONEMIND_NET_TLS_DIR=$STATE/tls
 ONEMIND_NET_HTTP_REDIRECT_PORT=80
+# Plain-HTTP listener whose requests are always the Tor path: the Tor app's onion service forwards here (#284).
+# The gateway binds it only to the hub's mesh address (never the LAN), accepts only pod, mesh and
+# loopback peers, and answers 503 until the tor-remote-access app is installed.
+ONEMIND_NET_TOR_PORT=8446
 ONEMIND_NET_MDNS=1
 ONEMIND_MESH_ENABLED=1
 ONEMIND_MESH_HEADSCALE_URL=https://127.0.0.1:$HS_PORT
@@ -1430,6 +1443,7 @@ if [ "$ROLE" = hub ]; then
     exit 0
   fi
   backup_setup
+  apt_timers_start
   no_raw_tokens_on_disk
   banner
   log "hub ready: https://$BOX.local (and https://onemind.local), box CA sha256 $BOX_CA_SHA"
@@ -1475,7 +1489,8 @@ else
   log "joining: the owner approves this machine on the hub (dashboard Approvals or onemind fabric approve)"
   # shellcheck disable=SC2086
   "$BIN/onemind" fabric join "$JOIN" ${HUB_ADDR:+--hub-addr "$HUB_ADDR"}
-  [ "$NODE_ROLE" = worker ] && k3s_agent
+  [ "$NODE_ROLE" != worker ] || k3s_agent
+  apt_timers_start
   banner
   log "node joined as a $NODE_ROLE: mesh up, NATS leaf to the hub over the mesh"
   log "check it: sudo $SCRIPT_DIR/verify/node-check.sh"

@@ -17,6 +17,7 @@ import re
 import secrets
 import threading
 from collections import deque
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
@@ -26,6 +27,7 @@ from sqlalchemy import or_, select
 from ..auth import Principal
 from ..context import Gateway
 from ..errors import ApiError
+from . import approver_keys as ak
 from . import passkeys as pk
 from . import scopes as sc
 from .crypto import (
@@ -44,6 +46,7 @@ from .crypto import (
 )
 from .models import (
     AppAccessRow,
+    ApproverKeyRow,
     ChallengeRow,
     IdentityRepository,
     PasskeyRow,
@@ -150,6 +153,8 @@ class IdentityService:
         self.repo = IdentityRepository(gw.db)
         # SECURITY.md §3.2: the first-boot owner token stops working on the API once an owner exists.
         gw.tokens.retire_when = lambda: self.repo.count(UserRow) > 0
+        # Features that give a new or re-roled person starting data (FAM-01 age presets): (user_id, role, actor).
+        self.role_hooks: list[Callable[[str, str, Principal], None]] = []
         self.limiter = FailureLimiter(self.cfg.login_failures_per_min, timedelta(minutes=self.cfg.lockout_minutes))
         secure = self.cfg.cookie_secure
         # __Host- cookies must be Secure, path=/ and host-only: they cannot be set by a sibling name.
@@ -482,7 +487,9 @@ class IdentityService:
 
     def _consume_challenge(self, credential: dict, purpose: str) -> ChallengeRow:
         """Single use: the first verifier claims it, verified or not."""
-        value = pk.client_challenge(credential)
+        return self._claim_challenge(pk.client_challenge(credential), purpose)
+
+    def _claim_challenge(self, value: str, purpose: str) -> ChallengeRow:
         row = self.repo.one(select(ChallengeRow).where(ChallengeRow.challenge == value))
         now = self.now()
         if row is None or row.purpose != purpose:
@@ -708,6 +715,72 @@ class IdentityService:
         self.emit("auth", "passkey.removed", {"user_id": user.id, "credential_id": row.id}, ctx.principal)
 
     # ---- password and TOTP -------------------------------------------------------------------------
+    # ---- device-bound approver keys (#702) ------------------------------------------------------
+    def _require_fresh_passkey(self, ctx: AuthContext | None, p: Principal, what: str) -> None:
+        """A passkey sign-in (or registration) on this session in the last step_up_s seconds, always:
+        unlike require_step_up, there is no password-only path while the box has no passkey yet."""
+        s = ctx.session if ctx else None
+        if s is not None and s.passkey_at is not None and \
+                (self.now() - utc(s.passkey_at)).total_seconds() <= self.cfg.step_up_s:
+            return
+        self.emit("auth", "step_up.required", {"attempted": what}, p, severity="warning")
+        raise ApiError(401, "unauthenticated", "sign in again with your passkey to do this", reason="step_up_required")
+
+    @staticmethod
+    def approver_key_json(k: ApproverKeyRow) -> dict:
+        return {"key_id": k.id, "label": k.label, "key_kind": k.key_kind, "fingerprint": k.fingerprint,
+                "created_at": iso(k.created_at), "last_used_at": iso(k.last_used_at), "revoked_at": iso(k.revoked_at)}
+
+    def register_approver_key(self, ctx: AuthContext | None, public_key: str, label: str, key_kind: str) -> dict:
+        user = self._account(ctx, "register an approver key")
+        if user.role != "owner":
+            raise self.deny(ctx.principal, "register an approver key", reason="owner_only")
+        self._require_fresh_passkey(ctx, ctx.principal, "register an approver key")
+        if key_kind not in ak.KEY_KINDS:
+            raise ApiError(422, "conflict", f"key_kind must be one of {', '.join(ak.KEY_KINDS)}")
+        if key_kind == "hardware-attested":  # nothing verifies an attestation chain yet: never claim it
+            raise ApiError(422, "conflict", "hardware attestation is not verified yet; register as hardware-reported",
+                           reason="attestation_unverified")
+        label = " ".join((label or "").split())[:100]
+        if not label:
+            raise ApiError(422, "conflict", "name the phone this key lives on")
+        try:
+            der, fingerprint = ak.parse_public_key(public_key)
+        except ak.ApproverKeyError as exc:
+            raise ApiError(422, "conflict", str(exc)) from None
+        if self.repo.one(select(ApproverKeyRow.id).where(ApproverKeyRow.fingerprint == fingerprint)) is not None:
+            raise ApiError(409, "conflict", "this key is already registered (or was revoked); make a new one")
+        active = self.repo.all(select(ApproverKeyRow).where(ApproverKeyRow.user_id == user.id,
+                                                             ApproverKeyRow.revoked_at.is_(None)))
+        if any(k.label == label for k in active):
+            raise ApiError(409, "conflict", f"{label} already has an approver key; revoke it first", reason="label_taken")
+        if len(active) >= ak.MAX_ACTIVE_PER_USER:
+            raise ApiError(409, "conflict", "too many approver keys; revoke one first")
+        row = ApproverKeyRow(id=new_id("apk"), user_id=user.id, label=label, key_kind=key_kind, public_key=der,
+                             fingerprint=fingerprint, created_at=self.now())
+        self.repo.add(row)
+        self.emit("auth", "approver_key.registered", {"user_id": user.id, "key_id": row.id, "label": label,
+                                                      "key_kind": key_kind, "fingerprint": fingerprint}, ctx.principal)
+        return self.approver_key_json(row)
+
+    def list_approver_keys(self, ctx: AuthContext | None) -> list[dict]:
+        user = self._person(ctx)
+        rows = self.repo.all(select(ApproverKeyRow).where(ApproverKeyRow.user_id == user.id)
+                             .order_by(ApproverKeyRow.created_at))
+        return [self.approver_key_json(r) for r in rows]
+
+    def revoke_approver_key(self, ctx: AuthContext | None, key_id: str) -> None:
+        """Revoking takes power away, so no step-up: a lost phone is cut off from any signed-in device."""
+        user = self._person(ctx)
+        row = self.repo.get(ApproverKeyRow, key_id)
+        if row is None or row.user_id != user.id:
+            raise ApiError(404, "not_found", "no such approver key")
+        if row.revoked_at is not None:
+            return
+        self.repo.update(ApproverKeyRow, [ApproverKeyRow.id == row.id], {"revoked_at": self.now()})
+        self.emit("auth", "approver_key.revoked", {"user_id": user.id, "key_id": row.id, "label": row.label,
+                                                   "key_kind": row.key_kind}, ctx.principal)
+
     def change_password(self, request: Request, ctx: AuthContext | None, current: str, new: str) -> None:
         user = self._account(ctx, "change the password")
         now, src = self.now(), source_of(request)
@@ -789,6 +862,8 @@ class IdentityService:
                     created_at=now, updated_at=now, created_by=p.id)
         self.repo.add(u)
         self.emit("user", "created", {"user_id": u.id, "role": u.role, "step_up": via}, p)
+        for hook in self.role_hooks:
+            hook(u.id, u.role, p)
         base = (self.gw.settings.public_url or str(request.base_url)).rstrip("/")
         return {**self.user_json(u), "one_time": {"enrolment_code": code, "enrolment_url": f"{base}/signin#enrol={code}",
                                                   "expires_at": iso(now + ENROL_TTL)}}
@@ -814,6 +889,9 @@ class IdentityService:
         changed = sorted(k for k in values if k != "updated_at")
         self.emit("user", "updated", {"user_id": u.id, "changed": changed, "role": values.get("role", u.role),
                                       "step_up": via}, p)
+        if "role" in values:
+            for hook in self.role_hooks:
+                hook(u.id, values["role"], p)
         return self.user_json(self.user(u.id))
 
     def set_profile_name(self, request: Request, p: Principal, name: str | None) -> dict:
@@ -1072,6 +1150,7 @@ class IdentityService:
         rp_id, _ = self.rp(request)
         return {"challenge": row.challenge, "action_sha256": a_sha, "plan_sha256": p_sha or None,
                 "expires_at": iso(row.expires_at),
+                "device_payload": ak.signing_payload(row.challenge, action_id, a_sha, p_sha or None).decode(),
                 "publicKey": pk.authentication_options(rp_id=rp_id, challenge=raw, allow=allow)}
 
     def approval_guard(self, p: Principal, action_id: str, body: dict, request: Request) -> None:
@@ -1079,6 +1158,10 @@ class IdentityService:
             return  # actions.approve refuses and audits non-owners itself
         ctx = ctx_of(request)
         assertion = body.get("webauthn")
+        if body.get("device_signature") is not None:
+            if assertion is not None:
+                raise ApiError(422, "conflict", "send a passkey assertion or a device signature, not both")
+            return self._approve_with_device_key(p, ctx, action_id, body)
         if assertion is None:
             if self.cfg.require_passkey_approval and self.passkeys_active():
                 self.emit("auth", "step_up.required", {"attempted": "approve", "action_id": action_id}, p,
@@ -1095,14 +1178,7 @@ class IdentityService:
             raise self._step_up_failed(p, action_id, str(exc)) from None
         except ApiError as exc:
             raise self._step_up_failed(p, action_id, exc.message) from None
-        if row.action_id != action_id:
-            raise self._step_up_failed(p, action_id, "challenge was issued for another action")
-        current = self.gw.actions.get(action_id)
-        if row.data.get("action_sha256") != self.action_sha256(current) or \
-                (row.data.get("plan_sha256") or None) != (current.get("plan_sha256") or None):
-            raise self._step_up_failed(p, action_id, "the action changed since the challenge", reason="plan_changed")
-        if body.get("plan_sha256") and body["plan_sha256"] != (row.data.get("plan_sha256") or None):
-            raise self._step_up_failed(p, action_id, "plan_sha256 differs from the one signed", reason="plan_changed")
+        self._check_bound(p, action_id, row, body)
         try:
             cred = self._assert(request, credential, row)
         except ApiError as exc:
@@ -1116,6 +1192,67 @@ class IdentityService:
             self.repo.update(SessionRow, [SessionRow.id == ctx.session.id], {"passkey_at": self.now()})
         self.emit("auth", "step_up.succeeded", {"action_id": action_id, "credential_id": cred.id,
                                                 "passkey_user_id": owner.id, "approval": "passkey"}, p)
+
+    def _check_bound(self, p: Principal, action_id: str, row: ChallengeRow, body: dict) -> None:
+        """The claimed challenge was made for this action, and neither the action nor its plan changed."""
+        if row.action_id != action_id:
+            raise self._step_up_failed(p, action_id, "challenge was issued for another action")
+        current = self.gw.actions.get(action_id)
+        if row.data.get("action_sha256") != self.action_sha256(current) or \
+                (row.data.get("plan_sha256") or None) != (current.get("plan_sha256") or None):
+            raise self._step_up_failed(p, action_id, "the action changed since the challenge", reason="plan_changed")
+        if body.get("plan_sha256") and body["plan_sha256"] != (row.data.get("plan_sha256") or None):
+            raise self._step_up_failed(p, action_id, "plan_sha256 differs from the one signed", reason="plan_changed")
+
+    def _device_key_refusal(self, action: dict) -> str | None:
+        """Why this action cannot be approved with a device key (F-2), or None when it can."""
+        action_type = str(action.get("type"))
+        if self.gw.actions.is_physical(action_type):
+            return "it moves something physical"
+        risk = action.get("risk")
+        if risk is None:
+            from ..automation import registry  # late, as in actions.py
+
+            risk = registry.risk_of(action_type, action.get("params") or {}) if registry.known(action_type) else None
+        if risk in ("read", "write", "sensitive"):
+            return None
+        if risk in ("destructive", "actuate") and self.cfg.approver_key_high_risk:
+            return None
+        return f"its risk is {risk or 'unknown'}"
+
+    def _approve_with_device_key(self, p: Principal, ctx: AuthContext | None, action_id: str, body: dict) -> None:
+        """#702: an ECDSA signature by the owner's phone key over approve-options' device_payload."""
+        sig = body["device_signature"]
+        why = self._device_key_refusal(self.gw.actions.get(action_id))
+        if why:  # checked before the challenge is claimed, so the phone can fall back to its passkey
+            self.emit("auth", "step_up.required", {"attempted": "approve", "action_id": action_id,
+                                                   "reason": "device_key_not_allowed", "detail": why}, p,
+                      severity="warning")
+            raise ApiError(401, "unauthenticated", f"approve this with your passkey: {why}", reason="step_up_required")
+        try:
+            row = self._claim_challenge(str(sig.get("challenge") or ""), "approve")
+        except ApiError as exc:
+            raise self._step_up_failed(p, action_id, exc.message) from None
+        self._check_bound(p, action_id, row, body)
+        key = self.repo.get(ApproverKeyRow, str(sig.get("key_id") or ""))
+        if key is None or key.revoked_at is not None:
+            raise self._step_up_failed(p, action_id, "unknown or revoked approver key")
+        owner = self._live_user(key.user_id)
+        if owner is None or owner.role != "owner":
+            raise self._step_up_failed(p, action_id, "approver key does not belong to an active owner")
+        if (ctx is not None and ctx.user is not None and ctx.user.id != owner.id) or \
+                (row.user_id is not None and row.user_id != owner.id):
+            raise self._step_up_failed(p, action_id, "approver key belongs to another account")
+        payload = ak.signing_payload(row.challenge, action_id, row.data.get("action_sha256") or "",
+                                     row.data.get("plan_sha256") or None)
+        try:
+            ak.verify(key.public_key, payload, str(sig.get("signature") or ""))
+        except ak.ApproverKeyError as exc:
+            raise self._step_up_failed(p, action_id, str(exc)) from None
+        self.repo.update(ApproverKeyRow, [ApproverKeyRow.id == key.id], {"last_used_at": self.now()})
+        self.emit("auth", "step_up.succeeded", {"action_id": action_id, "approval": "device_key", "key_id": key.id,
+                                                "key_kind": key.key_kind, "device": key.label,
+                                                "approver_user_id": owner.id}, p)
 
     def _step_up_failed(self, p: Principal, action_id: str, why: str, reason: str = "assertion_invalid") -> ApiError:
         self.emit("auth", "step_up.failed", {"action_id": action_id, "reason": reason, "detail": why[:200]}, p,

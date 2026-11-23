@@ -10,14 +10,17 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from ..actions import ActionRequest, ActionRequestBody, ApprovalInput, FeatureActionRequest
 from ..agent_stop import is_agent
+from ..ai_policy import actions_for_agent
 from ..apimodels import Action
 from ..appsecrets.api import SealedInput
 from ..auth import Principal
 from ..context import Gateway
 from ..errors import error_responses
+from ..identity.approver_keys import DeviceSignature
 from ..jsonbody import JsonBody
 from ..plugins.actions import own_actions, own_action
 from ..taint import agent_answer, answer_source, rest_source
+from .apps import app_rows
 
 
 class OverrideInput(BaseModel):
@@ -37,7 +40,14 @@ class ApproveBody(JsonBody):
     plan_sha256: str | None = Field(default=None, max_length=200)
     sealed: SealedInput | None = None
     override: OverrideInput | None = None
+    accept_licence: str | None = Field(
+        default=None, max_length=200,
+        description="#173: the app id typed by the owner to accept a licence class that is not green "
+        "(blocked or unknown). Required to approve app.install for such an app; ignored otherwise.",
+    )
     webauthn: dict | None = None
+    # #702: or a phone approver key's signature over approve-options' device_payload (identity guard).
+    device_signature: DeviceSignature | None = None
     # #723 hold-to-approve: how long the approve control was held, in ms (a physical action needs
     # at least actions.HOLD_MIN_MS, with a passkey assertion and plan_sha256).
     hold_ms: int | None = Field(default=None, ge=0, le=600000)
@@ -63,6 +73,11 @@ def register(app: FastAPI, gw: Gateway) -> None:
                 actions.taint.mark(p.id, source)
 
     gw.principal_guards.append(taint_rest_reads)
+
+    def seen_by(p: Principal, rows: list[dict]) -> list[dict]:
+        # aiPolicy (#165): an app's tool output reaches an agent only when the app allows app data
+        # to go to an AI, the same rule as the MCP tools. People and plugins see the action as stored.
+        return actions_for_agent(rows, lambda: app_rows(gw)) if is_agent(p) else rows
 
     def postable_feature_types() -> list[str]:
         # Only a type registered with a params model is filed through POST /v1/actions; the rest
@@ -104,7 +119,8 @@ def register(app: FastAPI, gw: Gateway) -> None:
             body = agent_answer(body)
             if source := answer_source(request.scope, body):
                 actions.taint.mark(p.id, source)
-        return JSONResponse(status_code=201 if created else 200, content=body)
+        # An idempotent replay returns the stored action, result included.
+        return JSONResponse(status_code=201 if created else 200, content=seen_by(p, [body])[0])
 
     @app.get(
         "/v1/actions", tags=["actions"], operation_id="actions.list",
@@ -113,7 +129,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
     def list_actions(p: Principal = Depends(principal)):
         if p.kind == "plugin":
             return own_actions(gw, p)
-        return actions.list()
+        return seen_by(p, actions.list())
 
     @app.get(
         "/v1/actions/{action_id}", tags=["actions"], operation_id="actions.get",
@@ -122,7 +138,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
     def get_action(action_id: str, p: Principal = Depends(principal)):
         if p.kind == "plugin":
             return own_action(gw, p, action_id)
-        return actions.get(action_id)
+        return seen_by(p, [actions.get(action_id)])[0]
 
     @app.post(
         "/v1/actions/{action_id}/approve", tags=["actions"], operation_id="actions.approve",
@@ -138,6 +154,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         extra = ApprovalInput(
             sealed=body.sealed.model_dump(exclude_none=True) if body and body.sealed else None,
             override=body.override.model_dump() if body and body.override else None,
+            accept_licence=body.accept_licence if body else None,
             webauthn=bool(body and body.webauthn),
             hold_ms=body.hold_ms if body else None,
         )

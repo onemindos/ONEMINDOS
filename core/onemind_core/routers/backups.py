@@ -155,6 +155,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
     settings = gw.settings.section(BackupsSettings)
     svc = BackupService(gw, settings, pg=getattr(app.state, "databases", None))
     app.state.backups = svc
+    svc.builtins = getattr(app.state, "builtins", None)  # registered earlier (ORDER 135): the backup set, #616
     gw.on_startup(svc.startup)
     gw.on_shutdown(svc.shutdown)
     principal = gw.principal

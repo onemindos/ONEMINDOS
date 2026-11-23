@@ -26,7 +26,7 @@ from conftest import ADULT, AGENT, OWNER
 
 NOTES = """apiVersion: onemind.app/v1alpha1
 kind: App
-metadata: {id: notes, name: Notes, version: "1.0.0", description: test, category: productivity, license: MIT,
+metadata: {id: notes, name: Notes, version: "1.0.0", description: test, category: productivity, license: MIT, licenceClass: L1,
            source: "https://example.org/notes"}
 spec:
   archs: [amd64, arm64]

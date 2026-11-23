@@ -15,6 +15,7 @@ import { errorText, useHub } from '../data/hub';
 import { usePoll } from '../lib/hooks';
 import { useSignedIn } from '../session';
 import { href } from '../shell/routes';
+import { useShell } from '../shell/Shell';
 import { Load, TextField } from './parts';
 
 const STATE: Record<string, { tone: Tone; label: string; pulse?: boolean; note?: string }> = {
@@ -27,6 +28,7 @@ const STATE: Record<string, { tone: Tone; label: string; pulse?: boolean; note?:
 const VERB: Record<MachineActionType, string> = {
   'machine.create': 'create', 'machine.start': 'start', 'machine.stop': 'stop', 'machine.delete': 'remove',
   'machine.restart': 'restart', 'machine.force_stop': 'force off', 'machine.snapshot': 'snapshot', 'machine.clone': 'clone',
+  'machine.attach_device': 'attach a device', 'machine.detach_device': 'detach a device',
   'machines.enable': 'turn on', 'machines.disable': 'turn off',
 };
 const NAME = /^[a-z][a-z0-9-]{0,38}[a-z0-9]$/;
@@ -207,6 +209,7 @@ function SnapshotsDialog({ machine, onClose }: { machine?: MachineRecord; onClos
 function MachineCard({ m, pending, disabled, onSend, onRemove, onSnapshot, onClone, onSnapshots, onTransferred }: { m: MachineRecord; pending: Action[]; disabled: boolean; onSend: (t: MachineActionType, p: MachineParams) => Promise<boolean>; onRemove: () => void; onSnapshot: () => void; onClone: () => void; onSnapshots: () => void; onTransferred: () => void }) {
   const s = STATE[m.state] ?? { tone: 'warn' as Tone, label: m.state };
   const waiting = pending.length > 0;
+  const { role } = useShell();
   const off = disabled || waiting || m.state === 'creating';
   return (
     <li>
@@ -222,6 +225,7 @@ function MachineCard({ m, pending, disabled, onSend, onRemove, onSnapshot, onClo
         )}
         <TransferMedia machine={m} disabled={off} onTransferred={onTransferred} />
         <div className="om-row">
+          {m.state === 'running' && role === 'owner' && <Link to={`/machines/${encodeURIComponent(m.name)}`} aria-label={`Open console of ${m.name}`}>Open console</Link>}
           {m.state === 'stopped' && <Button size="sm" disabled={off} aria-label={`Request start of ${m.name}`} onClick={() => void onSend('machine.start', { name: m.name })}>Request start</Button>}
           {m.state === 'running' && <Button size="sm" disabled={off} aria-label={`Request stop of ${m.name}`} onClick={() => void onSend('machine.stop', { name: m.name })}>Request stop</Button>}
           {m.state === 'running' && <Button size="sm" disabled={off} aria-label={`Request restart of ${m.name}`} onClick={() => void onSend('machine.restart', { name: m.name })}>Request restart</Button>}
