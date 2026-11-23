@@ -146,6 +146,8 @@ export interface EnableOpts {
   features: Features;
   hubUrl: string;
   label: string;
+  /** This app install (lib/install.ts), sent only to a hub with My devices: older hubs refuse unknown fields. */
+  installId?: string;
   /** The hub has a device registry (clients.md) and this phone is not approved yet. */
   deviceApproved: boolean;
   now?: number;
@@ -167,7 +169,7 @@ export async function enablePush(api: OneMindApi, t: PushTransport | undefined, 
   const h = await t.obtain(vapid);
   let reg: PushRegistration;
   try {
-    reg = await api.pushRegister({ ...h, label: o.label });
+    reg = await api.pushRegister({ ...h, label: o.label, ...installField(o.features, o.installId) });
   } catch (e) {
     // Today's hub refuses apns with 422 until its iOS relay ships (CORE-NOTIFY-4); say so plainly.
     if (h.platform === 'apns' && e instanceof ApiError && e.status === 422)
@@ -192,8 +194,16 @@ export async function disablePush(api: OneMindApi, t: PushTransport | undefined,
   await deleteSecret(KEY);
 }
 
+/**
+ * `install_id` for a push registration (#715), only when the hub has My devices: the same release taught its
+ * push route the field, and an older hub answers 422 to a field it does not know.
+ */
+export function installField(features: Features, installId: string | undefined): { install_id?: string } {
+  return installId && features.has(OP.myDevices) ? { install_id: installId } : {};
+}
+
 /** The distributor moved this phone to a new endpoint: replace the registration on the box. */
-export async function rotateEndpoint(api: OneMindApi, rec: PushRecord, e: UpEndpoint, label: string): Promise<PushRecord> {
+export async function rotateEndpoint(api: OneMindApi, rec: PushRecord, e: UpEndpoint, label: string, extra: { install_id?: string } = {}): Promise<PushRecord> {
   if (rec.platform !== 'unifiedpush' || e.url === rec.handle) return rec;
   await api.pushUnregister(rec.id).catch(() => undefined);
   const reg = await api.pushRegister({
@@ -201,6 +211,7 @@ export async function rotateEndpoint(api: OneMindApi, rec: PushRecord, e: UpEndp
     endpoint: e.url,
     ...(e.p256dh && e.auth ? { keys: { p256dh: e.p256dh, auth: e.auth } } : {}),
     label,
+    ...extra,
   });
   const next = { ...rec, id: reg.id, handle: e.url };
   await saveSecret(KEY, JSON.stringify(next)).catch(() => undefined);

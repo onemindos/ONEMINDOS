@@ -20,3 +20,4 @@ fb2375a5a405e5d084aea80dbfdff1b5114f2b05391e1875277a8215982fbc20  CRITERIA-SECUR
 ece09c7f8d261e8da30dff5acca3a649c68c080a273506bc65a3f26a3e3ba433  CRITERIA-EDGE.md  2026-11-23T00:49:34Z  (written before edge.py, the leaf check and the k3s leaf skip existed, #751)
 5c92dab78d50f3cddd047bc4b75f582f4e5b50f3e7dfaabc1786254872d7c2a3  CRITERIA-EDGE.md  2026-11-23T00:52:06Z  (with §4 amendment: EG2 checks the folders k3s writes, not /data/k3s itself, which data-layout makes on every box; written before edge.py existed)
 5cc09a8565003c8c27750bdd2e627609ef2fe183e3d2bb22d8093f83f6c4b7b8  CRITERIA-SYSEXT.md  2026-11-23T04:02:01Z  (with §5 amendment: X8 two-dot directory names, PR 972 review; written before the guard fix and before X8 ran)
+adc1cf6619e8b6440e00da65da7ff13c2dfd0f66151facfe30bf8fdafd74c411  CRITERIA-NAS.md  2026-11-22T23:36:45Z  (written before nasmount.py was implemented or run)
