@@ -32,7 +32,9 @@ ORDER = 305  # after files (300)
 # principal at all: the link secret in the path is the only credential.
 register_route_scope("GET,HEAD,POST", r"/v1/files/shares", ("files:share",))
 register_route_scope("DELETE", r"/v1/files/shares/[^/]+", ("files:share",))
-register_route_scope("GET,HEAD", r"/v1/share/[^/]+(/items/[0-9]+)?", None)
+# Only the link-secret shape (TOKEN below) is anonymous: a looser pattern would also match the share sheet's
+# /v1/share/types and /targets (routers/share.py) and, registered later, override their apps:read scope.
+register_route_scope("GET,HEAD", r"/v1/share/oms_[A-Za-z0-9_-]{43}(/items/[0-9]+)?", None)
 
 SHARE_ID = r"^shl_[0-9A-Z]{26}$"
 TOKEN = r"^oms_[A-Za-z0-9_-]{43}$"
