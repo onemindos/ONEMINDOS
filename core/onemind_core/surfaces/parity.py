@@ -27,15 +27,15 @@ DOOR = "door"
 WRITE = "write"
 
 REASONS: dict[str, str] = {
-    OVERSIGHT: "Approving, denying, approval policies, the motion lockout and the controls over agents are a "
-               "person's alone; no agent tool exists for them.",
+    OVERSIGHT: "Approving, denying, approval policies, the motion lockout, confirming what a found radio is and "
+               "the controls over agents are a person's alone; no agent tool exists for them.",
     CREDENTIAL: "Sign-in, sessions, tokens, passkeys, keys, secrets, join tickets and device trust never pass "
                 "through an agent.",
     PERSON: "The signed-in person's own record (profile, Home, inbox, windows); an agent has no such record.",
     BYTES: "File bytes, uploads, event streams, consoles, Prometheus text or the restic repository protocol, "
            "not a JSON tool result.",
     DOOR: "A door of its own (the MCP endpoint, installed-app tool calls, sign-in page, health probe, OpenAPI "
-          "document, sync feed, dashboard files); a tool over it adds nothing.",
+          "document, surface registry, sync feed, dashboard files); a tool over it adds nothing.",
     WRITE: "Changes the box directly. An agent never writes: it files a request (request_action or a "
            "request_<type> tool) that a person approves.",
 }
@@ -96,6 +96,7 @@ HUMAN_ONLY: dict[str, str] = {
     "POST /v1/files/requests/{request_id}/approve": OVERSIGHT,
     "POST /v1/files/requests/{request_id}/deny": OVERSIGHT,
     "PUT /v1/physical/lockout": OVERSIGHT,
+    "POST /v1/radios/{radio_id}/confirm": OVERSIGHT,
     # ---- credential: sign-in, tokens, keys, secrets, pairing
     "GET /v1/apps/{app_id}/credentials": CREDENTIAL,
     "GET /v1/apps/{app_id}/secrets": CREDENTIAL,
@@ -190,6 +191,7 @@ HUMAN_ONLY: dict[str, str] = {
     "GET /signin": DOOR,
     "POST /v1/plugins/{plugin_id}/tools/{tool_name}": DOOR,
     "GET /v1/protocol": DOOR,
+    "GET /v1/surfaces": DOOR,
     "GET /v1/sync/changes": DOOR,
     "GET /{full_path:path}": DOOR,
     # ---- write: direct changes; agents file requests instead
@@ -258,7 +260,8 @@ HUMAN_ONLY: dict[str, str] = {
     "POST /v1/users/{user_id}/disable": WRITE,
 }
 
-# Routes that are to get a generated tool (#632 and the area issues). A ratchet: it may only shrink.
+# Routes that are to get a generated tool (#632 and the area issues). A ratchet: it may only shrink, and
+# tests/test_surfaces.py holds the frozen snapshot it must stay inside.
 AWAITING_TOOL: frozenset[str] = frozenset({
     "GET /v1/agents",
     "GET /v1/agents/{name}",
@@ -336,6 +339,7 @@ AWAITING_TOOL: frozenset[str] = frozenset({
     "GET /v1/plugins/{plugin_id}",
     "GET /v1/plugins/{plugin_id}/settings",
     "GET /v1/plugins/{plugin_id}/tools",
+    "GET /v1/radios",
     "GET /v1/restores",
     "GET /v1/restores/{restore_id}",
     "GET /v1/series",
@@ -348,7 +352,6 @@ AWAITING_TOOL: frozenset[str] = frozenset({
     "GET /v1/storage/operations/{action_id}",
     "GET /v1/subjects",
     "GET /v1/subjects/check",
-    "GET /v1/surfaces",
     "GET /v1/system-apps",
     "GET /v1/system/controls",
     "GET /v1/system/diagnostics",

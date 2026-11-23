@@ -110,6 +110,139 @@ def test_approve_deny_and_credentials_are_human_only():
     assert not [k for k in parity.AWAITING_TOOL if not k.startswith(("GET ", "POST /v1/plans", "POST /v1/notifications/send"))]
 
 
+# AWAITING_TOOL is a ratchet: it may only lose entries. This snapshot is the list as it stood when the
+# ratchet was frozen; an entry leaves both when its tool lands, and a new route never joins either.
+AWAITING_TOOL_SNAPSHOT = frozenset({
+    "GET /v1/agents",
+    "GET /v1/agents/{name}",
+    "GET /v1/alerts",
+    "GET /v1/alerts/{alert_id}",
+    "GET /v1/apps/{app_id}",
+    "GET /v1/apps/{app_id}/access",
+    "GET /v1/apps/{app_id}/dependencies",
+    "GET /v1/apps/{app_id}/exposure",
+    "GET /v1/apps/{app_id}/host-ports",
+    "GET /v1/apps/{app_id}/logs",
+    "GET /v1/apps/{app_id}/metrics",
+    "GET /v1/apps/{app_id}/owner-override",
+    "GET /v1/apps/{app_id}/placement",
+    "GET /v1/apps/{app_id}/plan",
+    "GET /v1/apps/{app_id}/settings",
+    "GET /v1/audit/events/{seq}",
+    "GET /v1/audit/verify",
+    "GET /v1/automation/rules",
+    "GET /v1/automation/rules/{rule_id}",
+    "GET /v1/automation/runs",
+    "GET /v1/automation/schedules",
+    "GET /v1/automation/state",
+    "GET /v1/backups/content",
+    "GET /v1/backups/destinations",
+    "GET /v1/backups/runs",
+    "GET /v1/backups/runs/{run_id}",
+    "GET /v1/backups/snapshots",
+    "GET /v1/backups/snapshots/{snapshot_id}",
+    "GET /v1/backups/snapshots/{snapshot_id}/tree",
+    "GET /v1/backups/status",
+    "GET /v1/backups/verifications",
+    "GET /v1/builtins",
+    "GET /v1/databases",
+    "GET /v1/domains",
+    "GET /v1/fabric",
+    "GET /v1/family/apps/{app_id}",
+    "GET /v1/family/profiles/{user_id}",
+    "GET /v1/files/grants",
+    "GET /v1/files/list",
+    "GET /v1/files/quotas",
+    "GET /v1/files/requests",
+    "GET /v1/files/requests/{request_id}",
+    "GET /v1/files/roots",
+    "GET /v1/files/stat",
+    "GET /v1/files/trash",
+    "GET /v1/instance/kiosk",
+    "GET /v1/instance/name",
+    "GET /v1/machines",
+    "GET /v1/machines/capabilities",
+    "GET /v1/machines/{name}",
+    "GET /v1/machines/{name}/snapshots",
+    "GET /v1/mesh",
+    "GET /v1/migrate/plans",
+    "GET /v1/migrate/plans/{plan_id}",
+    "GET /v1/migrate/plans/{plan_id}/helper",
+    "GET /v1/monitoring/summary",
+    "GET /v1/network",
+    "GET /v1/nodes/{node_id}/metrics",
+    "GET /v1/nodes/{node_id}/wake",
+    "GET /v1/notifications/channels",
+    "POST /v1/notifications/send",
+    "GET /v1/notifications/sources",
+    "GET /v1/onboarding/settings",
+    "GET /v1/onboarding/state",
+    "GET /v1/os/about",
+    "GET /v1/os/updates",
+    "GET /v1/os/updates/history",
+    "GET /v1/photos/library",
+    "GET /v1/photos/sources/{source_id}/coverage",
+    "GET /v1/photos/sources/{source_id}/receipts",
+    "GET /v1/physical/lockout",
+    "POST /v1/plans",
+    "GET /v1/plugins",
+    "GET /v1/plugins/{plugin_id}",
+    "GET /v1/plugins/{plugin_id}/settings",
+    "GET /v1/plugins/{plugin_id}/tools",
+    "GET /v1/radios",
+    "GET /v1/restores",
+    "GET /v1/restores/{restore_id}",
+    "GET /v1/series",
+    "GET /v1/shares/smb",
+    "GET /v1/sources",
+    "GET /v1/sources/{source_id}",
+    "GET /v1/status",
+    "GET /v1/storage",
+    "GET /v1/storage/devices",
+    "GET /v1/storage/operations/{action_id}",
+    "GET /v1/subjects",
+    "GET /v1/subjects/check",
+    "GET /v1/system-apps",
+    "GET /v1/system/controls",
+    "GET /v1/system/diagnostics",
+    "GET /v1/system/services",
+    "GET /v1/tls",
+    "GET /v1/update-policy",
+    "GET /v1/update-policy/dry-run",
+    "GET /v1/usage",
+    "GET /v1/users",
+})
+
+
+def ratchet_problems(awaiting, snapshot=AWAITING_TOOL_SNAPSHOT) -> list[str]:
+    return [f"{k} was added to AWAITING_TOOL, which may only shrink: give it a ToolSurface or a HUMAN_ONLY reason"
+            for k in sorted(set(awaiting) - snapshot)]
+
+
+def test_awaiting_tool_only_shrinks():
+    assert ratchet_problems(parity.AWAITING_TOOL) == []
+
+
+def test_parking_a_new_route_in_awaiting_tool_fails_ci(c, monkeypatch):
+    @c.app.get("/v1/brand-new")
+    def brand_new():
+        return {}
+
+    monkeypatch.setattr(parity, "AWAITING_TOOL", parity.AWAITING_TOOL | {"GET /v1/brand-new"})
+    assert parity.problems(parity.route_keys(c.app), tool_routes()) == []  # parity alone would let it through
+    assert ratchet_problems(parity.AWAITING_TOOL) == [
+        "GET /v1/brand-new was added to AWAITING_TOOL, which may only shrink: give it a ToolSurface or a "
+        "HUMAN_ONLY reason"]
+    assert ratchet_problems(parity.AWAITING_TOOL - {"GET /v1/radios", "GET /v1/brand-new"}) == []
+
+
+def test_the_registry_route_and_radio_confirm_are_not_parked():
+    assert "GET /v1/surfaces" not in parity.AWAITING_TOOL
+    assert parity.HUMAN_ONLY["GET /v1/surfaces"] == parity.DOOR
+    assert parity.HUMAN_ONLY["POST /v1/radios/{radio_id}/confirm"] == parity.OVERSIGHT
+    assert "GET /v1/radios" in parity.AWAITING_TOOL
+
+
 # ---- read tools return the same body as their REST route ---------------------------------------------
 
 def _rows(value):
