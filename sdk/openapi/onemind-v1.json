@@ -9111,6 +9111,441 @@
         "title": "SubjectTreeRetention",
         "type": "object"
       },
+      "SurfaceApp": {
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "origin": {
+            "enum": [
+              "builtin",
+              "market"
+            ],
+            "title": "Origin",
+            "type": "string"
+          },
+          "phone": {
+            "additionalProperties": true,
+            "title": "Phone",
+            "type": "object"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "origin",
+          "phone"
+        ],
+        "title": "SurfaceApp",
+        "type": "object"
+      },
+      "SurfaceBackupUnit": {
+        "properties": {
+          "app_id": {
+            "title": "App Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "app_id",
+          "kind",
+          "name"
+        ],
+        "title": "SurfaceBackupUnit",
+        "type": "object"
+      },
+      "SurfaceCard": {
+        "properties": {
+          "app_id": {
+            "title": "App Id",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "template": {
+            "enum": [
+              "stat",
+              "list",
+              "progress",
+              "status",
+              "series"
+            ],
+            "title": "Template",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "app_id",
+          "id",
+          "title",
+          "template",
+          "source"
+        ],
+        "title": "SurfaceCard",
+        "type": "object"
+      },
+      "SurfaceRefusal": {
+        "properties": {
+          "app_id": {
+            "title": "App Id",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "tool",
+              "card",
+              "topic"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "app_id",
+          "kind",
+          "id",
+          "reason"
+        ],
+        "title": "SurfaceRefusal",
+        "type": "object"
+      },
+      "SurfaceSearch": {
+        "properties": {
+          "app_id": {
+            "title": "App Id",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "types": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Types",
+            "type": "array"
+          }
+        },
+        "required": [
+          "app_id",
+          "provider",
+          "types"
+        ],
+        "title": "SurfaceSearch",
+        "type": "object"
+      },
+      "SurfaceShare": {
+        "properties": {
+          "accepts": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Accepts",
+            "type": "array"
+          },
+          "app_id": {
+            "title": "App Id",
+            "type": "string"
+          },
+          "verbs": {
+            "items": {
+              "enum": [
+                "open",
+                "add"
+              ],
+              "type": "string"
+            },
+            "title": "Verbs",
+            "type": "array"
+          }
+        },
+        "required": [
+          "app_id",
+          "accepts",
+          "verbs"
+        ],
+        "title": "SurfaceShare",
+        "type": "object"
+      },
+      "SurfaceSource": {
+        "description": "A map layer or Settings page: drawn by the host from one public read operation.",
+        "properties": {
+          "app_id": {
+            "title": "App Id",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "app_id",
+          "id",
+          "title",
+          "source"
+        ],
+        "title": "SurfaceSource",
+        "type": "object"
+      },
+      "SurfaceTool": {
+        "properties": {
+          "action_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Action Type"
+          },
+          "app_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "App Id"
+          },
+          "effect": {
+            "enum": [
+              "read",
+              "write",
+              "destructive"
+            ],
+            "title": "Effect",
+            "type": "string"
+          },
+          "exposure": {
+            "items": {
+              "enum": [
+                "mcp",
+                "rest",
+                "cli"
+              ],
+              "type": "string"
+            },
+            "title": "Exposure",
+            "type": "array"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "route": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Route"
+          },
+          "scope": {
+            "title": "Scope",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "app_id",
+          "title",
+          "effect",
+          "exposure",
+          "route",
+          "action_type",
+          "scope"
+        ],
+        "title": "SurfaceTool",
+        "type": "object"
+      },
+      "SurfaceTopic": {
+        "properties": {
+          "app_id": {
+            "title": "App Id",
+            "type": "string"
+          },
+          "events": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Events",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "required": [
+          "app_id",
+          "id",
+          "events"
+        ],
+        "title": "SurfaceTopic",
+        "type": "object"
+      },
+      "SurfacesOut": {
+        "properties": {
+          "apps": {
+            "items": {
+              "$ref": "#/components/schemas/SurfaceApp"
+            },
+            "title": "Apps",
+            "type": "array"
+          },
+          "backup_units": {
+            "items": {
+              "$ref": "#/components/schemas/SurfaceBackupUnit"
+            },
+            "title": "Backup Units",
+            "type": "array"
+          },
+          "cards": {
+            "items": {
+              "$ref": "#/components/schemas/SurfaceCard"
+            },
+            "title": "Cards",
+            "type": "array"
+          },
+          "map_layers": {
+            "items": {
+              "$ref": "#/components/schemas/SurfaceSource"
+            },
+            "title": "Map Layers",
+            "type": "array"
+          },
+          "notifications": {
+            "items": {
+              "$ref": "#/components/schemas/SurfaceTopic"
+            },
+            "title": "Notifications",
+            "type": "array"
+          },
+          "refused": {
+            "items": {
+              "$ref": "#/components/schemas/SurfaceRefusal"
+            },
+            "title": "Refused",
+            "type": "array"
+          },
+          "search": {
+            "items": {
+              "$ref": "#/components/schemas/SurfaceSearch"
+            },
+            "title": "Search",
+            "type": "array"
+          },
+          "settings_pages": {
+            "items": {
+              "$ref": "#/components/schemas/SurfaceSource"
+            },
+            "title": "Settings Pages",
+            "type": "array"
+          },
+          "share": {
+            "items": {
+              "$ref": "#/components/schemas/SurfaceShare"
+            },
+            "title": "Share",
+            "type": "array"
+          },
+          "tools": {
+            "items": {
+              "$ref": "#/components/schemas/SurfaceTool"
+            },
+            "title": "Tools",
+            "type": "array"
+          }
+        },
+        "required": [
+          "apps",
+          "tools",
+          "cards",
+          "search",
+          "share",
+          "notifications",
+          "map_layers",
+          "settings_pages",
+          "backup_units",
+          "refused"
+        ],
+        "title": "SurfacesOut",
+        "type": "object"
+      },
       "SyncChange": {
         "description": "One entry of the feed: a file, folder or symlink as it is now (or its deletion).",
         "properties": {
@@ -28568,6 +29003,48 @@
         "summary": "Subjects Check",
         "tags": [
           "subjects"
+        ]
+      }
+    },
+    "/v1/surfaces": {
+      "get": {
+        "description": "Everything the switched-on apps plug into, read live: a switched-off app is in no list.\nDeclarations the gateway cannot prove (an unregistered action type, an event the notify\ncatalogue does not route to the topic, a card whose source declares no observed_at) are\nunder `refused` and served nowhere.",
+        "operationId": "surfaces.list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SurfacesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "summary": "List Surfaces",
+        "tags": [
+          "apps"
         ]
       }
     },
