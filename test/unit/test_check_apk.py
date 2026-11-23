@@ -205,10 +205,40 @@ class Workflow(unittest.TestCase):
         self.assertEqual(a["environment"], "release")
         self.assertEqual(a["permissions"], {"contents": "read", "actions": "read"})
         self.assertEqual(a["runs-on"], "ubuntu-24.04")
-        body = yaml.dump(a)
-        self.assertIn("headSha", body)
-        self.assertIn("ref: ${{ steps.commit.outputs.sha }}", self.text)
-        self.assertIn("persist-credentials: false", body)
+        steps = a["steps"]
+        checkouts = [s for s in steps if str(s.get("uses", "")).startswith("actions/checkout@")]
+        self.assertEqual([c["with"].get("path") for c in checkouts], ["trusted", "app"])
+        trusted, app = (c["with"] for c in checkouts)
+        self.assertNotIn("ref", trusted)                      # the workflow's own ref
+        self.assertEqual(trusted["fetch-depth"], 0)           # origin/main and origin/release/next for the check
+        self.assertEqual(app["ref"], "${{ steps.commit.outputs.sha }}")
+        for c in (trusted, app):
+            self.assertIs(c["persist-credentials"], False)
+
+    def test_image_run_is_checked_before_its_commit_or_any_secret_is_used(self):
+        steps = self.jobs["android"]["steps"]
+        names = [s.get("name", s.get("uses", "")) for s in steps]
+        i = next(n for n, s in enumerate(steps) if s.get("id") == "commit")
+        run = steps[i]["run"]
+        self.assertIn("trusted/scripts/release/check-image-run.py", run)
+        self.assertIn('--run-id "$RUN_ID"', run)
+        self.assertIn("--git trusted", run)
+        self.assertIn("actions/runs/$RUN_ID", run)
+        self.assertRegex(run, r"\[\[ \"\$RUN_ID\" =~ \^\[1-9\]\[0-9\]\*\$ \]\]")
+        self.assertEqual(steps[i - 1]["with"].get("path"), "trusted", names)
+        self.assertEqual(steps[i + 1]["with"].get("path"), "app", names)
+        for s in steps[:i + 2]:
+            self.assertNotIn("secrets.", yaml.dump(s), s.get("name"))
+
+    def test_checks_run_from_the_workflow_ref_not_the_image_commit(self):
+        a = self.text.split("\n  android:\n")[1].split("\n  publish:\n")[0]
+        self.assertIn("python3 -I trusted/scripts/check-apk --apk", a)
+        self.assertIn("python3 -I trusted/scripts/release/stamp-client-versions.py --root app", a)
+        self.assertNotRegex(a, r"python3 -I (\./)?scripts/")          # nothing from the image commit's scripts/
+        for s in self.jobs["android"]["steps"]:
+            wd = s.get("working-directory")
+            if wd:
+                self.assertEqual(wd, "app/mobile", s.get("name"))
 
     def test_android_signing_secrets_only_in_the_android_job(self):
         for s in ANDROID_SECRETS:
@@ -222,7 +252,7 @@ class Workflow(unittest.TestCase):
     def test_refuses_an_unsigned_build_then_stamps_builds_and_checks(self):
         a = self.text.split("\n  android:\n")[1].split("\n  publish:\n")[0]     # the job's own text, in order
         order = [a.index(s) for s in ("REFUSED: Android signing secrets", "stamp-client-versions.py",
-                                      "android-release-build.sh", "python3 -I scripts/check-apk")]
+                                      "android-release-build.sh", "python3 -I trusted/scripts/check-apk")]
         self.assertEqual(order, sorted(order))
         self.assertIn('--version "$VERSION"', a)
         self.assertIn('--version-code "$CODE"', a)
@@ -239,8 +269,9 @@ class Workflow(unittest.TestCase):
         self.assertIn('--target "$TARGET"', create)
         self.assertLess(self.text.index("apk-assets.py"), self.text.index("gh release create"))
 
-    def test_gate_runs_the_apk_self_test(self):
+    def test_gate_runs_the_apk_and_image_run_self_tests(self):
         self.assertIn("test_check_apk.py", yaml.dump(self.jobs["gate"]))
+        self.assertIn("test_check_image_run.py", yaml.dump(self.jobs["gate"]))
 
     def test_never_echoes_a_secret(self):
         for s in ANDROID_SECRETS + ("RELEASE_SIGNING_KEY",):
