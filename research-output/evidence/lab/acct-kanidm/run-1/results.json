@@ -1,0 +1,121 @@
+{
+ "spike": "acct-kanidm",
+ "serves": [
+  "UMB-ACCT-1",
+  "issue #403",
+  "D-015",
+  "BD-03",
+  "ACCT-3",
+  "#236 SEC-SSO-01"
+ ],
+ "preregistered": {
+  "utc": "2026-11-20T01:00:14Z",
+  "readme_sha256": "683bf13079ab252f25d1113d2ad3f429331d922ff808e7c114125d3343a4a944",
+  "pr": 402,
+  "commits": [
+   "d7dbd7c1",
+   "db10dbb3"
+  ]
+ },
+ "environment": {
+  "hypervisor": "Proxmox VE 9 on a Dell R530 lab server (Intel Xeon E5-2620 v4), VMs 505 (source) and 506 (restore), destroyed after the run",
+  "vm": "fresh Debian 13.7 genericcloud amd64 image 20261116-2664 (sha256 edd2b3fb9de8bc51b29ff8425716180c8f631f23f6b07f9e288a57bd18701116), x86_64, 2 vCPU, 4 GiB RAM, 16 GiB disk",
+  "kernel": "6.12.117+deb13-cloud-amd64",
+  "kanidm": "v1.12.0 (git a52b723ce8efb1f4d0a6bc2a2c36b4071f95317d)",
+  "install_method": "Debian packages built natively on a separate Debian 13 VM with kanidm_ppa_automation d5327e7 (build_native.sh + build_debs.sh, rust 1.96.1, cargo-deb 2.11.2); apt-get install of the two local .deb files; packaged systemd unit kanidmd.service (Type=notify, DynamicUser=yes)",
+  "packages_sha256": {
+   "kanidmd_1.12.0-202611010319+a52b723_amd64.deb": "31de180ee2f93e898fd686a5105444e98f2c8e2f8b2d1740691974a010e36a9e",
+   "kanidm_1.12.0-202611010319+a52b723_amd64.deb": "88112601578ff3bc223188208314a7b347b3f6c990e4588157aaa5f694cf14b7"
+  },
+  "domain": "idm.onemind.test (origin https://idm.onemind.test:8443), the same on both boxes",
+  "tls": "local test CA from kanidmd cert-generate",
+  "authenticator": "software virtual WebAuthn authenticator (tools/aklab.py SoftPasskey: P-256, none attestation, UP+UV flags); not a phone, security key or browser virtual authenticator"
+ },
+ "counted_run": "run-1",
+ "run_utc": {
+  "start": "2026-11-23T02:36:43Z",
+  "end": "2026-11-23T03:15:48Z"
+ },
+ "rehearsal": "the scripts were debugged first on a separate VM (508, destroyed): a setup bug (cert-generate before the state directory existed) and client fixes (MFA required for persons, gateway read group, OIDC scope per group, TOTP step handling, restore timing). See rehearsal-attempt-0-AK-1.txt. The counted run used two VMs created fresh from the cloud image.",
+ "tests": {
+  "AK-1": {
+   "verdict": "PASS",
+   "evidence": "AK-1.txt",
+   "facts": "enabled + active after systemctl reboot (boot_id changed, NRestarts=0), /status true, healthcheck ok, no k3s or container units/binaries"
+  },
+  "AK-2": {
+   "verdict": "PASS",
+   "evidence": [
+    "AK-2.txt",
+    "AK-2-hypervisor.txt"
+   ],
+   "facts": "booted with Proxmox link_down=1, eth0 also set down in the guest, no route and no DNS; idm_admin recovered, owner created, passkey enrolled and owner signed in with it, all through the QEMU guest agent with no network",
+   "note": "kanidmd became active 2 min 9 s after boot when offline (unit waits for network-online.target)"
+  },
+  "AK-3": {
+   "verdict": "PASS",
+   "evidence": "AK-3.txt",
+   "facts": "four onemind_* groups, one person in each, memberof read over REST by a service-account API token (needs membership of idm_account_mail_read)"
+  },
+  "AK-4": {
+   "verdict": "PASS",
+   "evidence": "AK-4.txt",
+   "facts": "auth code + PKCE S256; ES256 ID token signature verified against the client JWKS; claim onemind_role = owner/adult/child per group; scope maps differ (owners get email, adults profile, children only openid groups; a child asking for profile is refused); guest (no mapped group) refused with 403"
+  },
+  "AK-5": {
+   "verdict": "PASS",
+   "evidence": "AK-5.txt",
+   "facts": "reset link used to enrol password + TOTP for child1, sign-in with it works, second use of the same link refused (401 sessionexpired)"
+  },
+  "AK-6": {
+   "verdict": "PASS",
+   "evidence": "AK-6.txt",
+   "facts": "guest signed in before expiry; 30 s after expiry sign-in denied ('account expired') and the earlier session token refused (401 on /v1/self and /v1/auth/valid)"
+  },
+  "AK-7": {
+   "verdict": "PASS",
+   "evidence": [
+    "AK-7.txt",
+    "AK-7-restore-box.txt"
+   ],
+   "facts": "online backup written by the running server (scheduled, PID unchanged, /status true); restored on fresh VM 506 with the same domain; the same owner passkey (credential fingerprint 58d340207caabd97, enrolled in AK-2) signed in"
+  },
+  "AK-8": {
+   "verdict": "FAIL",
+   "evidence": "AK-8.txt",
+   "facts": "the same TOTP code was accepted twice within one 30 s step (both passwordmfa sign-ins succeeded)",
+   "source": "kanidm v1.12.0 server/lib/src/credential/totp.rs Totp::verify (line 246) accepts the current and previous step with no record of used codes; server/lib/src/idm/authsession/mod.rs lines 512-518 call it with no replay check"
+  },
+  "AK-9": {
+   "verdict": "RECORDED",
+   "evidence": [
+    "AK-9.txt",
+    "AK-9-restore-box.txt",
+    "build-provenance.txt"
+   ],
+   "rss_kB": {
+    "idle_after_first_start": 42472,
+    "after_AK3_to_AK6": 67592,
+    "peak_during_online_backup": 68344,
+    "restore_command_peak": 36040,
+    "restored_server_after_start": 43980
+   },
+   "disk": {
+    "kanidmd_deb_installed_KiB": 246640,
+    "kanidm_cli_deb_installed_KiB": 114078,
+    "kanidmd_binary_unstripped_bytes": 250700720,
+    "kanidmd_binary_stripped_bytes": 56919376,
+    "web_static_MB": 1.9,
+    "state_dir_MB_after_run": 5.4,
+    "one_backup_gz_bytes": 20130
+   }
+  },
+  "AK-10": {
+   "verdict": "PASS",
+   "evidence": "AK-10.txt",
+   "facts": "adult1 got an ID token, was removed from onemind_adults, and the next OIDC authorise was refused with 403"
+  }
+ },
+ "verdict": "FAIL",
+ "verdict_reason": "AK-1 to AK-7 and AK-10 PASS in one run on fresh machines; AK-8 FAILS (Kanidm v1.12.0 TOTP has no replay protection). Per the README rule this goes to the founder; the identity provider is not switched (BD-03, D-015)."
+}

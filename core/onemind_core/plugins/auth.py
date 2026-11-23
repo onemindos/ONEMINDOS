@@ -12,6 +12,9 @@ import re
 
 _APP_ID = re.compile(r"plugin:([a-z0-9](?:[-a-z0-9]*[a-z0-9])?)\Z")
 _READ_GRANTS = frozenset({"nodes:read", "apps:read", "actions:read:own"})
+# Minted only for an approved spec.extensions.bridge block (workload.declaration, #610).
+EVENTS_WRITE_OWN = "events:write:own"
+_KNOWN_GRANTS = _READ_GRANTS | {EVENTS_WRITE_OWN}
 
 
 def plugin_app_id(principal_id: str) -> str | None:
@@ -55,7 +58,7 @@ def request_types(scopes: object) -> frozenset[str] | None:
     for scope in scopes:
         if not isinstance(scope, str):
             return None
-        if scope in _READ_GRANTS:
+        if scope in _KNOWN_GRANTS:
             continue
         if not scope.startswith(prefix):
             return None
@@ -73,6 +76,19 @@ def allows_request(*, method: str, path: str, operation_id: str | None, principa
     return (method == "POST" and path == "/v1/actions" and operation_id == "actions.create"
             and source == "app-install" and plugin_app_id(principal_id) is not None
             and app_status in {"installed", "stopped"} and bool(request_types(scopes)))
+
+
+def allows_bridge_intake(*, method: str, path: str, operation_id: str | None, principal_id: str,
+                         source: str, scopes: object, app_status: str | None) -> bool:
+    """POST /v1/bridges/<own app id>/events only, by a running install holding events:write:own.
+
+    The path id must be the token's own app id, so a bridge can never post under another source;
+    the intake (bridges.py) checks the approved bridge block, pause and quotas again."""
+    app_id = plugin_app_id(principal_id)
+    return (method == "POST" and operation_id == "bridges.events.post" and app_id is not None
+            and path == f"/v1/bridges/{app_id}/events" and source == "app-install"
+            and app_status == "installed" and request_types(scopes) is not None
+            and EVENTS_WRITE_OWN in scopes)
 
 
 def allows_own_action_read(*, method: str, path: str, operation_id: str | None, principal_id: str,
