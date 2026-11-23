@@ -442,6 +442,8 @@ POLICY |= {
                                     "built-in apps list: any reader; a child or agent sees only the apps shared with them, as in /v1/apps"),
     ("GET", "/v1/builtins"): Row(grid(200, 200, 200, 200, 200), w.p_static("/v1/builtins"),
                                  "#603 built-in descriptors: any reader; a child or agent sees only the apps shared with them"),
+    ("GET", "/v1/surfaces"): Row(grid(200, 200, 200, 200, 200), w.p_static("/v1/surfaces"),
+                                 "#605 surface registry: any reader; a child or agent sees only the apps shared with them"),
     ("GET", "/v1/sources"): Row(READ_ANY, w.p_static("/v1/sources"), "12.22: any reader"),
     ("GET", "/v1/sources/{source_id}"): Row(READ_ANY_404, w.p_static("/v1/sources/src_00000000000000000000000000"), "12.22: any reader; missing is 404"),
     ("POST", "/v1/deploy/compose"): Row(grid(422, 403, 403, 403, 403), w.p_missing("/v1/deploy/compose", json={"app_id": "imp", "compose": "x"}),
@@ -805,6 +807,27 @@ POLICY |= {
     # enabled=false only removes a flag file that is not there on a test box, so the probe changes nothing.
     ("PUT", "/v1/instance/kiosk"): Row(ONLY_OWNER, w.p_kiosk_put,
                                        f"{_KIOSK}: only the owner changes the screen; an agent can never switch it"),
+}
+
+# ---- bridge intake (#610: core/onemind_core/routers/bridges.py) --------------------------------------------
+# Only the bridge's own installation token posts events (plugins/auth.allows_bridge_intake); every person and
+# agent is refused. Owners and adults read status; the probe names a bridge that is not installed (404).
+_BRIDGE = "core/onemind_core/routers/bridges.py"
+BRIDGE_READ = cells(403, **GONE, owner=404, adult=404, plugin=DENIED, automation=DENIED, node=DENIED)
+POLICY |= {
+    ("POST", "/v1/bridges/{bridge_id}/events"): Row(
+        cells(403, **GONE, plugin=DENIED, automation=DENIED, node=DENIED),
+        lambda _: w.Req("/v1/bridges/whoami/events", json={"events": [{"id": "probe"}]}),
+        f"{_BRIDGE}: a bridge posts only under its own app id; people and agents never post events"),
+    ("GET", "/v1/bridges"): Row(cells(403, **GONE, owner=200, adult=200, plugin=DENIED, automation=DENIED, node=DENIED),
+                                w.p_static("/v1/bridges"), f"{_BRIDGE}: owners and adults read bridge status"),
+    ("GET", "/v1/bridges/{bridge_id}"): Row(BRIDGE_READ, w.p_static("/v1/bridges/not-a-bridge"),
+                                            f"{_BRIDGE}: owners and adults read bridge status"),
+    ("GET", "/v1/bridges/{bridge_id}/latest"): Row(BRIDGE_READ, w.p_static("/v1/bridges/not-a-bridge/latest"),
+                                                   f"{_BRIDGE}: values need owner or adult, then the bridge's data class"),
+    ("POST", "/v1/bridges/{bridge_id}/resume"): Row(
+        cells(403, **GONE, owner=404, plugin=DENIED, automation=DENIED, node=DENIED),
+        w.p_static("/v1/bridges/not-a-bridge/resume"), f"{_BRIDGE}: only an owner lets a paused bridge in again"),
 }
 
 # ---- radio-found cards (#732) ---------------------------------------------------------------------------------------
