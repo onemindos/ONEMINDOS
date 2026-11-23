@@ -44,3 +44,6 @@ export type {
   WeatherSlot,
   Loadable as HomeLoadable,
 } from './types';
+
+export { BoxHealth, statusRows } from './boxStatus';
+export type { HomeStatusRow } from './boxStatus';

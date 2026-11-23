@@ -103,6 +103,22 @@ describe('People', () => {
     expect(JSON.stringify({ ...window.sessionStorage })).not.toContain(MOCK_ENROL_CODE);
   });
 
+  it('shows the default age rating for a new child and a new teen, and keeps an owner-set one', async () => {
+    const u = userEvent.setup();
+    renderApp({ token: 'owner-demo', route: '/settings/users' });
+    for (const [name, role] of [['Kit', 'child'], ['Tess', 'teen']] as const) {
+      await u.click(await screen.findByRole('button', { name: 'Invite a person' }, T));
+      await u.type(screen.getByLabelText('Name'), name);
+      await u.selectOptions(screen.getByLabelText('Role'), role);
+      await u.click(screen.getByRole('button', { name: 'Create invite' }));
+      await screen.findByText(/Give this code to/, {}, T);
+      await u.click(screen.getAllByRole('button', { name: 'Close' }).at(-1)!);
+    }
+    expect(await screen.findByText('Age rating up to 12 (default for children)', {}, T)).toBeInTheDocument();
+    expect(await screen.findByText('Age rating up to 16 (default for teens)', {}, T)).toBeInTheDocument();
+    expect(screen.queryAllByText(/No age limit/)).toHaveLength(0);
+  });
+
   it('the last owner cannot be disabled, and the hub says why', async () => {
     const u = userEvent.setup();
     renderApp({ token: 'owner-demo', route: '/settings/users' });

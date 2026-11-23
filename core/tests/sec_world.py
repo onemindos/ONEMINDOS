@@ -585,6 +585,17 @@ def p_missing(path: str, *, json: Any = None, content: bytes | None = None, head
     return lambda w: Req(concrete, json=json, content=content, headers=dict(headers or {}))
 
 
+# ---- share links (FILES-02, #237) ----------------------------------------------------------------------------
+SHARE_ID = "shl_0123456789ABCDEFGHJKMNPQRS"   # a share link that does not exist
+SHARE_TOKEN = "oms_" + "A" * 43               # a link secret the box never issued
+
+
+def p_share_create(w: World) -> Req:
+    """A well-formed link to a file that is not there: the people allowed to share reach the 404."""
+    return Req("/v1/files/shares", json={"items": [{"root": "shared", "path": "/no-such-file"}],
+                                         "expires_at": _in_a_day(w)})
+
+
 # ---- networking (feat/net-part2: join tickets, join requests, mesh, box CA, app sessions) --------------------
 def p_join_request(w: World) -> Req:
     """A joining node's request with a well-formed body and a join code the hub never issued: the code is the
