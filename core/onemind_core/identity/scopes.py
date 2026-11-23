@@ -29,6 +29,7 @@ BASE_SCOPES = frozenset({
     "audit:read", "audit:admin", "users:read", "users:admin",
     "tokens:self", "tokens:read", "tokens:admin", "events:read", "deploy:write",
     "files:share",  # FILES-02 (#237): publish household files through an expiring share link
+    "assets:read",  # #606: asset values on GET /v1/events (owner and adult by default)
 })
 
 # Narrowing suffixes the contract names; anything else after a base scope is refused.
