@@ -24,13 +24,14 @@ Pure functions over the manifest and the node registry's dicts.
 
 from __future__ import annotations
 
+from .machine_needs import legacy_requires
+
 CAPABILITIES = ("gpu-compute",)
 
 
 def _requires(manifest: dict) -> dict:
-    spec = manifest.get("spec") if isinstance(manifest.get("spec"), dict) else {}
-    req = spec.get("requires")
-    return req if isinstance(req, dict) else {}
+    """spec.requires in the older shape, whichever spelling the manifest uses (#724)."""
+    return legacy_requires(manifest.get("spec"))
 
 
 def _name(manifest: dict) -> str:

@@ -52,6 +52,7 @@ try:
     import yaml
     from jsonschema import Draft202012Validator
     from onemind_core.catalog import Catalog
+    from onemind_core.machine_needs import overlays
 except ImportError as exc:  # pragma: no cover - environment problem
     sys.stderr.write(f"error: missing dependency ({exc.name}); install sdk/tools/requirements.txt\n")
     sys.exit(2)
@@ -269,14 +270,16 @@ class AppChecker:
             errors.append(f"plugin: shared validator failed ({proc.returncode}): {output}")
 
     def overlay_checks(self, app_dir: Path, spec: dict, errors: list[str]) -> None:
-        """S-5: the accelerator overlay (a directory in the app directory, built on spec.manifests) must render and pass the same
-        checks as the plain manifests, so a GPU box never gets a manifest nobody has validated."""
-        name = dig(spec, ("requires", "accelerator", "overlay"))
-        if not isinstance(name, str):
-            return
+        """S-5: every accelerator overlay (a directory in the app directory, built on spec.manifests) must render and pass the
+        same checks as the plain manifests, so a GPU box never gets a manifest nobody has validated. #724: an overlay may sit
+        under requires, recommends or supports (or the older requires.accelerator with optional: true)."""
+        for name in overlays(spec):
+            self.overlay_check(app_dir, spec, name, errors)
+
+    def overlay_check(self, app_dir: Path, spec: dict, name: str, errors: list[str]) -> None:
         overlay = app_dir / name
         if not inside(overlay, app_dir) or not overlay.is_dir():
-            errors.append(f"spec.requires.accelerator.overlay directory '{name}' does not exist in the app directory")
+            errors.append(f"accelerator overlay directory '{name}' does not exist in the app directory")
             return
         sub: list[str] = []
         rendered = self.render(overlay, sub)

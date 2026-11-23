@@ -90,6 +90,8 @@ spec:
   manifests: manifests/   # kustomization.yaml + Deployment/Service, images pinned by digest where possible
 ```
 
+**What a machine needs (#724).** `spec.requires` (must have), `spec.recommends` (runs better with) and `spec.supports` (can use) share one shape, the schema's `$defs/machineNeeds`: `arch` (amd64, arm64, or x86-64-v1 to v4 for amd64 at that CPU level), `memoryMb`, `storageFreeGb`, `accelerator` {vendor-neutral `capability`, `minMemoryMb`, `rtCores`, `count`, `overlay`}, `devices` (vendor-neutral device classes, reserved for bridges), `radios` and `models.quantisations`. The older `requires` keys above stay valid; `core/onemind_core/machine_needs.py` maps them (`minMemoryMb` to `memoryMb`, `gpu`/`gpuCount`/`minVramMb` to `accelerator`, `cpuLevel` to an x86-64 level in `arch`, `accelerator.optional` to `recommends.accelerator`). A manifest says each fact in one spelling only, names no vendor resource (`nvidia.com/gpu`) or host path, and its `requires.arch` names the same architectures as `spec.archs`.
+
 ## 5. Dashboard (`dashboard/`, React + TypeScript + Vite)
 - **Screens:** Home (instance, node count by status, installed apps), Nodes (cards per node with board, arch, OS, k3s and slot, status and `last_seen`; values are never shown as live when stale), Market (catalog, install button → creates an action), Approvals (pending actions with exact params and requester kind person/agent; approve/deny for the owner).
 - **Data:** it calls only the §3 API with the token from a sign-in field (v0). Mock mode (`VITE_MOCK=1`) uses fixtures that match §2–§4.

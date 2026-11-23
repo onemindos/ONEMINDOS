@@ -27,7 +27,7 @@ NOT_IN_GOLDEN_SPEC = {"agent", "system", "credentials", "web", "browser", "setti
                       "streams", "secrets", "database"}
 NOT_IN_GOLDEN_EXT = {"widgets", "settings", "alerts", "tiles", "events"}
 ADDED_SPEC = {"runtime", "placement", "data", "services", "search", "share", "notifications", "mapLayers", "jobs",
-              "roles", "continue", "needs", "terms"}
+              "roles", "continue", "needs", "terms", "recommends", "supports"}
 ADDED_EXT = {"bridge", "connector", "videoSource", "nats"}
 
 
