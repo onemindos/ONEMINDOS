@@ -2,6 +2,7 @@
 // UX-01 (#206): the Home a child or guest gets (roles.ts view 'simple'). Three plain cards, all
 // read from the hub: my apps, my requests, family status. No Needs you widget, no System, no
 // Approvals: they cannot decide anything, and the hub would refuse the data anyway.
+import type { ReactNode } from 'react';
 import { Card, PageHeader, StateView, StatusPill } from '@onemind/ui';
 import { openUrl } from '../data/adapters';
 import { errorText, useHub } from '../data/hub';
@@ -15,7 +16,7 @@ const WORDS: Record<string, string> = {
   succeeded: 'Done', failed: 'Did not work', outcome_unknown: 'Not sure yet', expired: 'Ran out of time', cancelled: 'Cancelled',
 };
 
-export function SimpleHome() {
+export function SimpleHome({ commandBar }: { commandBar?: ReactNode }) {
   const hub = useHub();
   const { principal } = useSignedIn();
   const shell = useShell();
@@ -26,6 +27,7 @@ export function SimpleHome() {
   return (
     <div className="dash-stack">
       <PageHeader title="Home" lede={shell.role === 'child' ? 'Your apps and requests.' : 'Your apps and how the household is doing.'} />
+      {commandBar}
       <Card title="My apps" as="section">
         {hub.apps.error ? (
           <p role="alert">Could not load your apps: {errorText(hub.apps.error).message}</p>
