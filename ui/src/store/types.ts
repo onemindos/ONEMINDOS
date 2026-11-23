@@ -29,7 +29,7 @@ export type CategorySlug =
 export type DeployClass = 'core' | 'market-verified' | 'market-community' | 'list-only' | 'private';
 
 /** Licence class (contract §11.1 plus TAXONOMY §2): L1 permissive, L2 copyleft, L3 source-available, L? unclear. */
-export type LicenceClass = 'L1' | 'L2' | 'L3' | 'L?';
+export type LicenceClass = 'L1' | 'L2' | 'L3' | 'blocked' | 'L?';
 
 export type Arch = 'amd64' | 'arm64';
 export type NodeRole = 'hub' | 'worker' | 'leaf' | 'any';

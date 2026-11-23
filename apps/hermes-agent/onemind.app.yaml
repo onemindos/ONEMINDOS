@@ -13,6 +13,7 @@ metadata:
   category: ai
   icon: icon.svg
   license: MIT
+  licenceClass: L1
   source: https://github.com/NousResearch/hermes-agent
   # §9.3 facts from the GitHub API (repos/NousResearch/hermes-agent and releases/tags/v0.23.0),
   # read 2026-11-12. Contract §7 pins v0.23.0; Renovate proposes newer releases (§10.2).

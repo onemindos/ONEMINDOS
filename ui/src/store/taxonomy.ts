@@ -3,6 +3,7 @@
 // Labels here are the only place the UI names a category or class, so CLI, agents and UI agree.
 import type { Tone } from '../tokens/tokens';
 import type { CategoryIconName } from './CategoryIcon';
+import type { QualityLevel, QualityTier } from '../lib/trust';
 import type { CategorySlug, DeployClass, DeviceClass, Exposure, LicenceClass } from './types';
 
 export interface CategoryInfo {
@@ -59,6 +60,7 @@ export const LICENCE_CLASSES: Record<LicenceClass, { label: string; sentence: st
   L1: { label: 'Permissive', sentence: 'Permissive licence (MIT, BSD, Apache-2.0 and similar).' },
   L2: { label: 'Copyleft', sentence: 'Copyleft licence that allows OneMind to run it (GPL, AGPL, MPL).' },
   L3: { label: 'Source-available', sentence: 'Source-available: the licence does not allow OneMind to ship it.' },
+  blocked: { label: 'Blocked licence', sentence: 'The Market gate could not confirm an allowed licence for this app.' },
   'L?': { label: 'Unclear licence', sentence: 'The licence is unclear, so OneMind does not ship it.' },
 };
 
@@ -89,3 +91,35 @@ export function categoryLabel(slug: string): string {
 export function isKnownTag(slug: CategorySlug, tag: string): boolean {
   return CATEGORY_BY_SLUG[slug]?.tags.includes(tag) ?? false;
 }
+
+/** Quality tiers (#174). The pill always says the tier in words; colour carries nothing alone. */
+export const QUALITY_TIERS: Record<Exclude<QualityTier, 'none'>, { label: string; sentence: string }> = {
+  bronze: { label: 'Bronze', sentence: 'Passed every automatic check: licence, scan, images and upstream health.' },
+  silver: { label: 'Silver', sentence: 'Bronze, plus a passing smoke test, no root rights, confirmed support links and automatic security updates.' },
+  gold: { label: 'Gold', sentence: 'Silver, plus signed images with no CRITICAL vulnerability, automatic patch updates and a declared backup.' },
+};
+
+/** The checks behind each tier, in plain words (same names as sdk/tools/applib/quality.py). */
+export const QUALITY_CHECKS: Record<QualityLevel, { name: string; label: string }[]> = {
+  bronze: [
+    { name: 'gate_pass', label: 'The app gate passed' },
+    { name: 'licence_green', label: 'Licence is permissive or copyleft (L1 or L2)' },
+    { name: 'images_clean', label: 'Images have no fixable CRITICAL, no malware, no secrets' },
+    { name: 'upstream_alive', label: 'Upstream is not archived and released in the last 18 months' },
+    { name: 'nothing_unverified', label: 'No fact in the app files is marked UNVERIFIED' },
+  ],
+  silver: [
+    { name: 'smoke_pass', label: 'The smoke test ran and passed' },
+    { name: 'non_root', label: 'Runs without root rights' },
+    { name: 'support_links', label: 'Docs, source and support links are confirmed' },
+    { name: 'security_updates', label: 'Security updates install automatically' },
+  ],
+  gold: [
+    { name: 'images_signed', label: 'Every image has a verified signature' },
+    { name: 'no_critical', label: 'Images have no CRITICAL vulnerability at all' },
+    { name: 'patch_automerge', label: 'Patch updates are merged automatically' },
+    { name: 'backup_declared', label: 'Declares how the app is backed up' },
+  ],
+};
+
+export const QUALITY_RANK: Record<QualityTier, number> = { none: 0, bronze: 1, silver: 2, gold: 3 };

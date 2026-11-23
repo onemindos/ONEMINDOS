@@ -93,6 +93,7 @@ func (g *fakeGW) serve(w http.ResponseWriter, r *http.Request) {
 	case p == "/v1/apps":
 		jsonOut(w, 200, []any{
 			map[string]any{"id": "ntfy", "name": "ntfy", "version": "2.14.0", "category": "tools", "installed": false, "status": "not_installed", "archs": []string{"amd64"}, "requires": map[string]any{}, "links": map[string]any{}, "license": "Apache-2.0", "scan": map[string]any{"result": "pass", "scanned_at": "2026-11-11T09:00:00Z"}},
+			map[string]any{"id": "esphome", "name": "ESPHome", "version": "1.0", "category": "tools", "installed": false, "status": "not_installed", "archs": []string{"amd64"}, "requires": map[string]any{}, "links": map[string]any{}, "license": "MIT", "licence_class": "unknown"},
 			map[string]any{"id": "kuma", "name": "Uptime Kuma", "version": "1.0", "category": "monitoring", "installed": true, "status": "installed", "archs": []string{"amd64"}, "requires": map[string]any{}, "links": map[string]any{}},
 		})
 	case p == "/v1/actions" && r.Method == http.MethodPost:
@@ -123,6 +124,15 @@ func (g *fakeGW) serve(w http.ResponseWriter, r *http.Request) {
 			if who != "owner" {
 				jsonOut(w, 403, map[string]string{"error": "permission_denied", "message": "agent/agent may not approve action"})
 				return
+			}
+			if parts[1] == "approve" {
+				// #173: a licence that is not green needs accept_licence = the app id.
+				var body map[string]any
+				_ = json.NewDecoder(r.Body).Decode(&body)
+				if params, _ := a["params"].(map[string]any); params["app_id"] == "esphome" && body["accept_licence"] != "esphome" {
+					jsonOut(w, 409, map[string]any{"error": "stale_precondition", "reason": "licence_unconfirmed", "message": "app 'esphome' has licence class unknown, which is not green: send accept_licence with the app id"})
+					return
+				}
 			}
 			a["decided_by"] = map[string]any{"id": "owner", "kind": "person", "role": "owner"}
 			a["state"] = map[string]string{"approve": "succeeded", "deny": "cancelled"}[parts[1]]
@@ -323,6 +333,28 @@ func TestAppsAndTheApprovalFlow(t *testing.T) {
 	t.Setenv("ONEMIND_TOKEN", agentTok)
 	if r := run(t, "", false, "apps", "install", "ntfy", "--yes"); r.code != ExitPermissionDenied || !strings.Contains(r.errOut, "actions approve") {
 		t.Fatalf("agent %+v", r)
+	}
+}
+
+func TestInstallNeedsTypedLicenceAcceptance(t *testing.T) {
+	isolate(t)
+	g := newFakeGW(t)
+	t.Setenv("ONEMIND_HUB", g.srv.URL)
+	t.Setenv("ONEMIND_TOKEN", ownerTok)
+	// Interactive: "y" to approve, then the app id typed to accept the licence.
+	if r := run(t, "y\nesphome\n", true, "apps", "install", "esphome"); r.code != 0 || !strings.Contains(r.errOut, "licence") || !strings.Contains(r.out, "succeeded") {
+		t.Fatalf("typed %+v", r)
+	}
+	// Anything else typed leaves the request waiting.
+	if r := run(t, "y\nnope\n", true, "apps", "install", "esphome"); r.code != ExitPending {
+		t.Fatalf("wrong id %+v", r)
+	}
+	// --yes alone never accepts a licence for the owner; the flag names the app.
+	if r := run(t, "", false, "apps", "install", "esphome", "--yes"); r.code != ExitUsage || !strings.Contains(r.errOut, "--accept-licence esphome") {
+		t.Fatalf("yes only %+v", r)
+	}
+	if r := run(t, "", false, "apps", "install", "esphome", "--yes", "--accept-licence", "esphome"); r.code != 0 {
+		t.Fatalf("flag %+v", r)
 	}
 }
 

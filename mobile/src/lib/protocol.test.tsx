@@ -37,6 +37,27 @@ describe('protocol generation (sdk/contracts/protocol-versions.md)', () => {
     expect((calls[0]!.headers as Record<string, string>)[PROTOCOL_HEADER]).toBe(String(PROTOCOL_VERSION));
   });
 
+  it('a lab build below the SDK generation declares its own on JSON calls, not the SDK one', async () => {
+    const saved = process.env.EXPO_PUBLIC_ONEMIND_PROTOCOL;
+    process.env.EXPO_PUBLIC_ONEMIND_PROTOCOL = '1';
+    try {
+      const calls: RequestInit[] = [];
+      let lab: { HttpApi: typeof HttpApi; version: number } | undefined;
+      jest.isolateModules(() => {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        lab = { HttpApi: require('../api/client').HttpApi, version: require('./protocol').PROTOCOL_VERSION };
+      });
+      expect(lab!.version).toBe(1);
+      const api = new lab!.HttpApi({ baseUrl: 'https://hub.test', token: 't', fetchFn: async (_u, init) => (calls.push(init ?? {}), Response.json(instance, { headers: range(1, BUILT_IN_PROTOCOL) })) });
+      expect((await api.instance()).name).toBe('box');
+      expect((calls[0]!.headers as Record<string, string>)[PROTOCOL_HEADER]).toBe('1');
+      expect(Object.keys(calls[0]!.headers as Record<string, string>).filter((k) => k.toLowerCase() === PROTOCOL_HEADER.toLowerCase())).toHaveLength(1);
+    } finally {
+      if (saved === undefined) delete process.env.EXPO_PUBLIC_ONEMIND_PROTOCOL;
+      else process.env.EXPO_PUBLIC_ONEMIND_PROTOCOL = saved;
+    }
+  });
+
   it('shows Update needed when the hub has moved past this build', async () => {
     const refusal = () => Response.json({ error: 'upgrade_required', reason: 'protocol_too_old', message: 'Update the app.' }, { status: 400, headers: range(PROTOCOL_VERSION + 1) });
     const api = new HttpApi({ baseUrl: 'https://hub.test', token: 't', fetchFn: async () => refusal() });

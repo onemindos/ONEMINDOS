@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Features, HttpApi, normalizeHubUrl, OP, type OneMindApi, type TokenSource } from './api/client';
-import { DEMO_TOKENS } from './api/fixtures';
-import { MockApi } from './api/mock';
 import type { LoginResult, Me, Principal } from './api/types';
 import { clearConnection, loadConnection, saveConnection, type Connection, type LiveConnection } from './storage';
 
@@ -23,13 +21,14 @@ export interface Session {
   features: Features;
   canDecide: Ability;
   canRequest: Ability;
-  /** Shown in the header: hub host, or "Demo". */
+  /** Shown in the header: the hub host. */
   label: string;
   /** False when the secure store refused the save: the session lasts until the app closes. */
   remembered: boolean;
 }
 
 export interface SessionDeps {
+  /** Builds the gateway client. The app always talks HTTP to the hub; tests inject a fake here. */
   makeApi?: (c: Connection, tokens: TokenSource) => OneMindApi;
   load?: () => Promise<Connection | null>;
   save?: (c: Connection) => Promise<void>;
@@ -63,7 +62,7 @@ export function onForgetHub(fn: (api: OneMindApi, hubUrl: string) => Promise<voi
 }
 
 function defaultApi(c: Connection, tokens: TokenSource): OneMindApi {
-  return c.mode === 'mock' ? new MockApi(c.token) : new HttpApi({ tokens, baseUrl: c.hubUrl });
+  return new HttpApi({ tokens, baseUrl: c.hubUrl });
 }
 
 /** Abilities from §12.6 `/v1/me`. Unknown roles count as the least privileged (§12.6). */
@@ -77,19 +76,15 @@ export function abilitiesFromMe(me: Me): { canDecide: Ability; canRequest: Abili
 }
 
 export function buildSession(c: Connection, makeApi: (c: Connection, tokens: TokenSource) => OneMindApi = defaultApi, tokens?: TokenSource): Session {
-  const principal = c.mode === 'mock' ? DEMO_TOKENS[c.token] : undefined;
-  const canDecide: Ability = principal ? (principal.role === 'owner' ? 'yes' : 'no') : 'unknown';
-  const canRequest: Ability = principal ? (principal.role === 'owner' || principal.kind === 'agent' ? 'yes' : 'no') : 'unknown';
-  let label = 'Demo';
-  if (c.mode === 'live') {
-    try {
-      label = new URL(c.hubUrl).host;
-    } catch {
-      label = c.hubUrl;
-    }
+  // Who you are and what you may do come from the hub (/v1/me, see enrich); until then the gateway decides.
+  let label: string;
+  try {
+    label = new URL(c.hubUrl).host;
+  } catch {
+    label = c.hubUrl;
   }
   const t = tokens ?? { current: () => c.token };
-  return { connection: c, api: makeApi(c, t), principal, me: undefined, features: Features.none(), canDecide, canRequest, label, remembered: true };
+  return { connection: c, api: makeApi(c, t), principal: undefined, me: undefined, features: Features.none(), canDecide: 'unknown', canRequest: 'unknown', label, remembered: true };
 }
 
 /** Read features and identity from the hub. Never throws: a v0 hub simply has neither. */
@@ -118,7 +113,7 @@ export function SessionProvider({ deps = {}, children }: { deps?: SessionDeps; c
       refresh: async () => {
         const c = conn.current;
         const s = live.current;
-        if (!c || c.mode !== 'live' || c.auth !== 'passkey' || !s) return undefined;
+        if (!c || c.auth !== 'passkey' || !s) return undefined;
         // Right after start the session may not know the hub's routes yet (enrich still running): ask now.
         const features = s.features.source === 'unknown' ? await s.api.features().catch(() => s.features) : s.features;
         let r: LoginResult | undefined;
@@ -168,7 +163,7 @@ export function SessionProvider({ deps = {}, children }: { deps?: SessionDeps; c
 
   const connect = useCallback(
     async (raw: Connection) => {
-      const c: Connection = raw.mode === 'live' ? { ...raw, hubUrl: normalizeHubUrl(raw.hubUrl), token: raw.token.trim() } : raw;
+      const c: Connection = { ...raw, hubUrl: normalizeHubUrl(raw.hubUrl), token: raw.token.trim() };
       const prev = conn.current;
       const s = adopt(c);
       try {
@@ -194,7 +189,7 @@ export function SessionProvider({ deps = {}, children }: { deps?: SessionDeps; c
 
   const disconnect = useCallback(async () => {
     const s = live.current;
-    if (s && s.connection.mode === 'live') {
+    if (s) {
       for (const fn of forgetHooks) await fn(s.api, s.connection.hubUrl).catch(() => undefined);
       if (s.connection.auth === 'passkey') await s.api.logout().catch(() => undefined);
     }
@@ -208,7 +203,7 @@ export function SessionProvider({ deps = {}, children }: { deps?: SessionDeps; c
     const c = conn.current;
     await clear();
     conn.current = null;
-    setExpiredHub(c?.mode === 'live' ? c.hubUrl : undefined);
+    setExpiredHub(c?.hubUrl);
     setSession(null);
   }, [clear]);
 

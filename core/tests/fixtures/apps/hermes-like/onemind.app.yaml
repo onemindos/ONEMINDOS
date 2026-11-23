@@ -10,6 +10,7 @@ metadata:
   category: ai
   icon: icon.svg
   license: MIT
+  licenceClass: L1
   source: https://example.com/hermes-like
   links:
     docs: https://example.com/docs
