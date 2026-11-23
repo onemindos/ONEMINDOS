@@ -10,9 +10,11 @@ from fastapi import Depends, FastAPI, Header, Request
 from fastapi.responses import JSONResponse
 
 from ..actions import FeatureAction
+from ..agent_stop import is_agent
 from ..auth import Principal
 from ..context import Gateway
 from ..errors import ApiError, error_responses
+from ..taint import answer_source
 from ..storage import TYPES, StorageActionRequest, StoragePlanRequest, StorageService, StorageSettings, StorageSummary
 
 
@@ -94,11 +96,14 @@ def register(app: FastAPI, gw: Gateway) -> None:
         responses={200: {"description": "Idempotent replay"}, **error_responses(401, 403, 409, 422)},
     )
     def storage_request(
-        req: StorageActionRequest, p: Principal = Depends(principal),
+        request: Request, req: StorageActionRequest, p: Principal = Depends(principal),
         idempotency_key: str | None = Header(default=None, alias="Idempotency-Key", max_length=200),
     ):
         """Request a storage action; it waits for the owner's approval with its plan."""
         body, created = svc.request(p, req, idempotency_key)
+        if is_agent(p):  # AIG-04: the plan carries disk text (firmware model, labels): the next request is tainted
+            if source := answer_source(request.scope, {"plan": body.get("plan"), "result": body.get("result")}):
+                gw.actions.taint.mark(p.id, source)
         return JSONResponse(status_code=202 if created else 200, content=body,
                             headers={"Location": f"/v1/actions/{body['action']['id']}"})
 

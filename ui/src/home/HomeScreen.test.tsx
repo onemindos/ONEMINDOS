@@ -104,6 +104,16 @@ describe('HomeScreen widget states', () => {
 });
 
 describe('HomeScreen', () => {
+  it('keeps a missing or critical status source visible in Needs you even without any approvals', () => {
+    render(<Harness data={{ ...freshData, approvals: { state: 'ready', data: [] }, boxStatus: [
+      { source: 'storage', label: 'Storage', state: 'unknown', summary: '' },
+      { source: 'backups', label: 'Backups', state: 'critical', summary: 'backups are failing' },
+    ] }} />);
+    const needs = within(widget('Needs you'));
+    expect(needs.getByText('Storage: Unknown')).toBeVisible();
+    expect(needs.getByText('Backups: backups are failing')).toBeVisible();
+    expect(needs.queryByText('Nothing needs you')).toBeNull();
+  });
   it('hides its own dock when the host frame shows pinned apps (showDock=false, D-016)', () => {
     const { unmount } = render(<Harness />);
     expect(screen.getByRole('navigation', { name: 'Dock' })).toBeInTheDocument();

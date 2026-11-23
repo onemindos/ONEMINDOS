@@ -24,6 +24,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 import sec_world as w
+from onemind_core.natsconf import new_user_key
 from sec_world import IDENTITY_STREAM, KINDS
 
 DECIDE = "decide"
@@ -365,6 +366,13 @@ POLICY |= {
                                               "AIG-03: only the owner cancels an agent"),
     ("POST", "/v1/agents/{name}/resume"): Row(ONLY_OWNER, w.p_missing("/v1/agents/hermes/resume", json={}),
                                               "AIG-03: an agent never resumes itself"),
+    # #627: an agent's NATS user (account AGENTS) is the owner's to add or remove; an agent never keys itself
+    ("GET", "/v1/agents/{name}/nats-key"): Row(ONLY_OWNER, w.p_static("/v1/agents/agent:probe/nats-key"),
+                                               "#627: only the owner reads an agent's NATS key"),
+    ("PUT", "/v1/agents/{name}/nats-key"): Row(ONLY_OWNER, w.p_missing("/v1/agents/agent:probe/nats-key", json={
+        "nkey": new_user_key()[1]}), "#627: an agent never registers its own NATS key"),
+    ("DELETE", "/v1/agents/{name}/nats-key"): Row(ONLY_OWNER, w.p_missing("/v1/agents/agent:probe/nats-key"),
+                                                  "#627: only the owner removes an agent's NATS key"),
     ("GET", "/v1/windows"): Row(READ_ANY, w.p_static("/v1/windows"), f"{_AUTOMATION}: any reader"),
     ("PUT", "/v1/windows/{window_id}"): Row(ONLY_OWNER, w.p_window_put, f"{_AUTOMATION}: only the owner edits windows"),
     # ---- update policy for apps (NMD-07, #132: core/onemind_core/routers/updatepolicy.py) -------------------
@@ -376,6 +384,7 @@ POLICY |= {
     ("POST", "/v1/update-policy/resume"): Row(ONLY_OWNER, w.p_missing("/v1/update-policy/resume", json={"app_id": "whoami"}),
                                               "NMD-07: only the owner lifts a back-off"),
     # ---- backups and restores (an agent may request, never approve; reads are household only) ---------------
+    ("GET", "/v1/care/checkup"): Row(OWNER_ONLY, w.p_static("/v1/care/checkup"), "FD-08 owner-only box check-up"),
     ("GET", "/v1/status"): Row(HOUSEHOLD, w.p_static("/v1/status"),
                                "FD-01: needs-attention view; owner, adult, agent read; guest and child 403"),
     ("GET", "/v1/backups/status"): Row(HOUSEHOLD, w.p_static("/v1/backups/status"), f"{_BACKUPS}: owner, adult, agent read"),
@@ -836,6 +845,10 @@ POLICY |= {
         cells(403, **GONE, owner=409, agent=409, app_agent=409, plugin=DENIED, automation=DENIED, node=DENIED),
         lambda _w: w.Req("/v1/system/services/onemind-gateway.service/restart", json={}),
         "core/onemind_core/routers/services.py: owner or agent asks for a service restart; only an owner approves it"),
+    # The UPS battery (IMG-06, #244: core/onemind_core/routers/ups.py). Read only; no upsd in this world, so a
+    # reader gets 200 with present=false. Device health like /v1/os/about: a child has no nodes:read.
+    ("GET", "/v1/system/ups"): Row(CHILD_CANNOT, w.p_static("/v1/system/ups"),
+                                   "core/onemind_core/routers/ups.py: the UPS on this box, read from upsd on loopback; never a command"),
 }
 
 # ---- Network screen (NET-UI-01, #239: core/onemind_core/routers/network.py) ---------------------------------
@@ -902,6 +915,25 @@ POLICY.update({
         lambda x: w.Req("/v1/plugin-trust/keys/sha256:" + "0" * 64 + "/revoke", json={
             "idempotency_key": x.key(), "expires_at": x.action_body()["expires_at"]}),
         "#180 owner approval required to revoke enrolled signing trust"),
+})
+
+# ---- host grants, the E2 capability broker (#186: core/onemind_core/routers/host_grants.py) ----------------
+# An owner or an agent files a request (pending until an owner approves it on POST /v1/actions/{id}/approve);
+# only an owner reads the grants or revokes one. The revoke probe names no grant: the owner learns 404.
+def _host_grant_request(world):
+    return w.Req("/v1/host-grants/requests", json={
+        "app_id": "uptime-kuma", "kind": "device", "device_class": "usb-serial", "path": "/dev/ttyUSB0",
+        "reason": "Zigbee stick", "idempotency_key": world.key(), "expires_at": world.action_body()["expires_at"]})
+
+
+POLICY.update({
+    ("GET", "/v1/host-grants"): Row(OWNER_ONLY, w.p_static("/v1/host-grants"),
+        "#186 only an owner reads which apps hold host grants"),
+    ("POST", "/v1/host-grants/requests"): Row(
+        cells(403, **GONE, owner=202, agent=202, app_agent=202, plugin=DENIED, automation=DENIED, node=DENIED),
+        _host_grant_request, "#186 an owner or agent files a host grant; it stays pending until an owner approves"),
+    ("POST", "/v1/host-grants/{grant_id}/revoke"): Row({**OWNER_ONLY, "owner": 404},
+        lambda x: w.Req("/v1/host-grants/hg_unknown/revoke"), "#186 only an owner revokes a host grant"),
 })
 
 # ---- browser windows, one profile per person (#692: core/onemind_core/routers/browsers.py) ----------------
@@ -979,4 +1011,62 @@ POLICY |= {
                                          f"{_PHYS}: whether every physical action is refused; owner only, refusals audited"),
     ("PUT", "/v1/physical/lockout"): Row(ONLY_OWNER, lambda _w: w.Req("/v1/physical/lockout", json={"locked": True, "reason": "matrix probe"}),
                                          f"{_PHYS}: only the owner locks or lifts motion; an agent can never lift it"),
+}
+
+# ---- the data commons (#615: core/onemind_core/routers/datagrants.py) -----------------------------------------
+# No token scope opens these doors: everybody signed in reaches them and sees what their data grant allows
+# (nothing, so an empty list or a stream that ends at once). Writing needs a write grant, revoking an owner.
+_DATA = "core/onemind_core/routers/datagrants.py"
+DATA_READ = cells(200, **GONE, plugin=200, automation=frozenset({200, 403}), node=frozenset({200, 403}))
+DATA_OWNER = cells(403, **GONE, owner=201, automation=frozenset({403}), node=DENIED)
+POLICY |= {
+    ("GET", "/v1/data/classes"): Row(DATA_READ, w.p_static("/v1/data/classes"),
+                                     f"{_DATA}: the five classes and the caller's own access"),
+    ("GET", "/v1/data/classes/{data_class}"): Row(DATA_READ, w.p_static("/v1/data/classes/location"),
+                                                  f"{_DATA}: count only with read or aggregate, else null"),
+    ("GET", "/v1/data/classes/{data_class}/records"): Row(DATA_READ, w.p_static("/v1/data/classes/location/records"),
+                                                          f"{_DATA}: empty without a read grant, never an error"),
+    ("POST", "/v1/data/classes/{data_class}/records"): Row(
+        DATA_OWNER, lambda world: w.Req("/v1/data/classes/location/records", json={"kind": "probe", "value": 1}),
+        f"{_DATA}: a write grant (only an owner holds one by default); refusals audited"),
+    ("GET", "/v1/data/classes/{data_class}/stream"): Row(
+        DATA_READ, lambda world: w.Req("/v1/data/classes/location/stream", stream=True),
+        f"{_DATA}: SSE; without read it sends end(no_grant) and closes"),
+    ("GET", "/v1/data/grants"): Row(DATA_READ, w.p_static("/v1/data/grants"),
+                                    f"{_DATA}: the owner sees every grant (the Privacy screen), others their own"),
+    ("DELETE", "/v1/data/grants/{grant_id}"): Row(OWNER_ONLY_404, w.p_missing("/v1/data/grants/dgr_0123456789abcdef"),
+                                                  f"{_DATA}: only an owner revokes; no approval, it only takes access away"),
+}
+
+# Asset locations use the node-inventory read scope. Only a human owner can edit map records.
+POLICY |= {
+    ("GET", "/v1/sites"): Row(CHILD_CANNOT, w.p_static("/v1/sites"), "Site inventory, nodes:read"),
+    ("POST", "/v1/sites"): Row({**OWNER_ONLY, "owner": 422}, w.p_missing("/v1/sites", json={}),
+                               "Only an owner may create a site; probe has no anchors"),
+}
+
+# ---- the agent browser (#694: core/onemind_core/routers/agentbrowser.py) --------------------------------------
+# Only the owner and AI agents use it; every other person is refused (403, audited). The matrix gateway runs with
+# the agent browser switched off, so starting a session is 409 agent_browser_off; test_agentbrowser.py has it on.
+_AB = "core/onemind_core/routers/agentbrowser.py"
+AB_USERS = grid(200, 403, 403, 403, 200)
+POLICY |= {
+    ("GET", "/v1/agent-browser/sites"): Row(AB_USERS, w.p_static("/v1/agent-browser/sites"),
+                                            f"{_AB}: owner sees every agent's allowlist, an agent its own"),
+    ("POST", "/v1/agent-browser/sites"): Row({**grid(201, 403, 403, 403, 201), "app-agent": 403},
+                                             w.p_missing("/v1/agent-browser/sites", json={"entry": "example.org", "agent": "hermes"}),
+                                             f"{_AB}: owner or agent files agentbrowser.site.allow (an app's agent may not ask for hermes); only an owner's approval adds it"),
+    ("DELETE", "/v1/agent-browser/sites/{site_id}"): Row(OWNER_ONLY_404, w.p_missing("/v1/agent-browser/sites/abs_missing"),
+                                                         f"{_AB}: only the owner takes a site away; the one probed does not exist"),
+    ("GET", "/v1/agent-browser/sessions"): Row(AB_USERS, w.p_static("/v1/agent-browser/sessions"),
+                                               f"{_AB}: owner sees all sessions, an agent its own"),
+    ("POST", "/v1/agent-browser/sessions"): Row(grid(409, 403, 403, 403, 409), w.p_missing("/v1/agent-browser/sessions", json={}),
+                                                f"{_AB}: owner or agent; switched off in the matrix world (409 agent_browser_off)"),
+    ("DELETE", "/v1/agent-browser/sessions/{session_id}"): Row(grid(404, 403, 403, 403, 404),
+                                                               w.p_missing("/v1/agent-browser/sessions/abs_missing"),
+                                                               f"{_AB}: owner ends any session, an agent its own; none exists"),
+    ("POST", "/v1/agent-browser/sessions/{session_id}/visit"): Row(
+        grid(404, 403, 403, 403, 404),
+        w.p_missing("/v1/agent-browser/sessions/abs_missing/visit", json={"url": "https://example.org/"}),
+        f"{_AB}: owner or agent opens a page in its own session; none exists"),
 }
