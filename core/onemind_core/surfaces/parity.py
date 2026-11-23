@@ -161,6 +161,7 @@ HUMAN_ONLY: dict[str, str] = {
     "GET /v1/me/home": PERSON,
     "PUT /v1/me/home": PERSON,
     "GET /v1/notifications": PERSON,
+    "GET /v1/notifications/summary": PERSON,
     "GET /v1/notifications/preferences": PERSON,
     "PUT /v1/notifications/preferences": PERSON,
     "POST /v1/notifications/read-all": PERSON,

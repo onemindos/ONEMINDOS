@@ -17,6 +17,9 @@ Where events come from (fanout.py has the one reader per source; each stream has
   node's `status` or `presence` changes (#608: a clean shutdown reaches the stream within one
   poll, an unplugged node within 15 s). These are not durable and carry no SSE `id:`, so they
   never move the resume point;
+- notification read state (#682): `notification.read` {notification_id} and
+  `notification.read_all` {person_id}, delivered only to that person's own streams, so every
+  device of one person refreshes its unread summary the moment one of them reads;
 - the sync index (#698), polled the same way: `sync.root_changed` {root, revision} when a root
   the caller may read has a new revision. It is a wake-up, not the log: at most one per root per
   poll, no id, and the caller reads what changed from GET /v1/sync/changes.
@@ -101,8 +104,11 @@ def events_for_record(rec: dict) -> list[dict]:
         if payload.get("alert_id"):
             mapped = ("alert.updated" if event == "alert.acknowledged" else event,
                       {"alert_id": payload["alert_id"]}, {"state": payload.get("state")})
-    elif event == "notification.created" and payload.get("notification_id"):
+    elif event in {"notification.created", "notification.read"} and payload.get("notification_id"):
         mapped = (event, {"notification_id": payload["notification_id"]}, {})
+    elif event == "notification.read_all" and payload.get("person_id"):
+        # Per person, never broadcast: routers/events.py sends it to that person's streams only.
+        mapped = (event, {"person_id": payload["person_id"]}, {})
     elif event in {"app.status", "app.restarted", "app.healthy", "app.unhealthy"} and payload.get("app_id"):
         subject = {"app_id": payload["app_id"]}
         if action_id:

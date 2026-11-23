@@ -6265,6 +6265,29 @@
         "title": "NotificationActionIn",
         "type": "object"
       },
+      "NotificationSeverityCounts": {
+        "properties": {
+          "critical": {
+            "title": "Critical",
+            "type": "integer"
+          },
+          "info": {
+            "title": "Info",
+            "type": "integer"
+          },
+          "warning": {
+            "title": "Warning",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "info",
+          "warning",
+          "critical"
+        ],
+        "title": "NotificationSeverityCounts",
+        "type": "object"
+      },
       "NotificationSource": {
         "description": "One notification source (notify/topics.py): a built-in app (app:<id>) or a plugin or agent (plugin:<id>).",
         "properties": {
@@ -6400,6 +6423,53 @@
           "topic"
         ],
         "title": "NotificationSourceTopic",
+        "type": "object"
+      },
+      "NotificationSummary": {
+        "description": "GET /v1/notifications/summary: the caller's unread state, kept on the hub (#682).",
+        "properties": {
+          "by_severity": {
+            "$ref": "#/components/schemas/NotificationSeverityCounts"
+          },
+          "last_read_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "latest read on any device; moves when one is read",
+            "format": "date-time",
+            "title": "Last Read At"
+          },
+          "latest_created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "newest item; moves when one arrives",
+            "format": "date-time",
+            "title": "Latest Created At"
+          },
+          "unread": {
+            "description": "unread items in the caller's inbox",
+            "title": "Unread",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "unread",
+          "by_severity",
+          "latest_created_at",
+          "last_read_at"
+        ],
+        "title": "NotificationSummary",
         "type": "object"
       },
       "OnboardingKit": {
@@ -26992,6 +27062,48 @@
           }
         },
         "summary": "Set Source",
+        "tags": [
+          "notifications"
+        ]
+      }
+    },
+    "/v1/notifications/summary": {
+      "get": {
+        "description": "One call for a badge: every client reads it again on a notification.* stream event.",
+        "operationId": "notifications.summary",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationSummary"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "summary": "Summary",
         "tags": [
           "notifications"
         ]

@@ -232,7 +232,7 @@ export abstract class MockWiringBase implements W.WiringApi {
   }
   async createChannel(b: W.ChannelInput) {
     const p = this.person();
-    if (!['unifiedpush', 'webhook', 'email', 'ntfy'].includes(b.kind)) throw new ApiError(422, 'conflict', 'kind must be one of unifiedpush, webhook, email (or ntfy)');
+    if (!['unifiedpush', 'webhook', 'email', 'sms', 'ntfy'].includes(b.kind)) throw new ApiError(422, 'conflict', 'kind must be one of unifiedpush, webhook, email, sms (or ntfy)');
     const c: W.ChannelInfo = { id: this.id('chn'), kind: b.kind, label: b.label, content_level: b.content_level ?? 'title', config: b.config, verified: false, state: 'active', last_error: null, owner_person_id: p.id, secret: b.secret ? 'provided' : null, created_at: this.iso(), updated_at: this.iso() };
     this.channelRows = [...this.channelRows, c];
     return { ...c };
@@ -247,7 +247,7 @@ export abstract class MockWiringBase implements W.WiringApi {
     const c = this.channelRows.find((x) => x.id === id);
     if (!c) throw new ApiError(404, 'not_found', 'no such channel');
     c.verified = true;
-    return { ok: true };
+    return c.kind === 'sms' ? { delivered: true, latency_ms: 1, receipt: { status: 200, provider_id: 'mock-0001' } } : { delivered: true, latency_ms: 1 };
   }
 
   // ---- monitoring --------------------------------------------------------------------------------

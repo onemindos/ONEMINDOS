@@ -150,9 +150,13 @@ def register(app: FastAPI, gw: Gateway) -> None:
                 from .notifications import _can_see
                 row = app.state.notify.repo.get_alert(subject.get("alert_id"))
                 return row is not None and _can_see(p, json.loads(row.audience_json or "{}"))
-            if t == "notification.created":
+            if t in ("notification.created", "notification.read"):
                 row = app.state.notify.repo.get_notification(subject.get("notification_id"))
                 return p.kind == "person" and row is not None and row.person_id == p.id
+            if t == "notification.read_all":
+                return p.kind == "person" and subject.get("person_id") == p.id
+            if t.startswith("notification."):
+                return False  # an inbox event without its own rule here reaches nobody
             if t.startswith("asset."):  # each value is also judged by asset_allowed below
                 return may_read_assets(p, ctx.scopes if ctx is not None else None)
             if t.startswith("sync."):  # like GET /v1/sync/changes: no narrower scope covers files yet
