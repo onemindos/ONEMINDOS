@@ -39,7 +39,7 @@ REASONS: dict[str, str] = {
     BYTES: "File bytes, uploads, event streams, consoles, Prometheus text or the restic repository protocol, "
            "not a JSON tool result.",
     DOOR: "A door of its own (the MCP endpoint, installed-app tool calls, sign-in page, health probe, OpenAPI "
-          "document, surface registry, sync feed and file transfer, the Send to menu, dashboard files, the data commons, an outsider's "
+          "document, surface registry, sync feed and file transfer, the Send to menu, dashboard files, the data commons, the agent browser, an outsider's "
           "share link); a tool over it adds nothing.",
     WRITE: "Changes the box directly. An agent never writes: it files a request (request_action or a "
            "request_<type> tool) that a person approves.",
@@ -352,6 +352,14 @@ HUMAN_ONLY: dict[str, str] = {
     "GET /v1/data/classes/{data_class}/stream": DOOR,
     "GET /v1/data/grants": OVERSIGHT,
     "DELETE /v1/data/grants/{grant_id}": OVERSIGHT,
+    # ---- agent browser (#694): its own door with a per-site and per-step owner approval; removing a site is oversight
+    "GET /v1/agent-browser/sites": DOOR,
+    "POST /v1/agent-browser/sites": DOOR,
+    "DELETE /v1/agent-browser/sites/{site_id}": OVERSIGHT,
+    "GET /v1/agent-browser/sessions": DOOR,
+    "POST /v1/agent-browser/sessions": DOOR,
+    "DELETE /v1/agent-browser/sessions/{session_id}": DOOR,
+    "POST /v1/agent-browser/sessions/{session_id}/visit": DOOR,
 }
 
 # Routes that are to get a generated tool (#632 and the area issues). A ratchet: it may only shrink, and
