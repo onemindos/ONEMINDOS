@@ -126,6 +126,7 @@ class Paths:
         self.job_key = j("data", "onemind", "custodian", "job.key")
         self.backup = j("data", "onemind", "backup")                     # the agent's state; agent.json is its settings
         self.backup_conf = j("data", "onemind", "backup", "agent.json")
+        self.backup_export = j("data", "onemind", "gateway", "backup-export")  # the built-ins' export (#616)
         self.rescue_tls = j("data", "onemind", "tls")   # https.crt/https.key for onemind-rescue (CORE-UPDATE-9)
         self.files = j("data", "onemind", "files")      # the gateway's ONEMIND_FILES_ROOT (and Samba's shares)
 
@@ -584,12 +585,25 @@ def gateway_env(p: Paths, st: dict, mesh_ip: str | None = None, js_max_bytes: in
 K3S_BACKUP_VERSION = "v1.37.2-k3s1"     # os/versions.lock.yaml k3s.version, "+" written as "-"
 
 
+def backup_system_paths(p: Paths) -> list[str]:
+    """What the agent's `system` unit copies as files: settings, the box CA, NATS keys, and (#616) the
+    built-ins' table export the gateway writes before each run plus the built-in folders on this box."""
+    return [p.etc, p.tls, p.nats_keys, p.backup_export, p.files]
+
+
+def builtin_backup_env(p: Paths) -> str:
+    """Tells the gateway where to write the built-ins' export and which built-in folders the agent copies
+    (ONEMIND_FILES_ROOT = p.files above), so GET /v1/backups/status can say they are in a snapshot."""
+    return ("# Built-in apps' data in the system unit (#616; core/onemind_core/backups/units.py).\n"
+            f"ONEMIND_BACKUPS_EXPORT_DIR={p.backup_export}\nONEMIND_BACKUPS_AGENT_DIRS=ONEMIND_FILES_ROOT\n")
+
+
 def backup_gateway_env(p: Paths) -> str:
     """The gateway's backup lines; empty until the job key exists (so a failed key never half-enables it)."""
     if not os.path.exists(p.job_key):
         return ""
     return ("# Backups (core/onemind_core/backups; onemind-firstboot ensure_backup).\n"
-            f"ONEMIND_BACKUPS_ENABLED=1\nONEMIND_BACKUPS_JOB_KEY_FILE={p.job_key}\n")
+            f"ONEMIND_BACKUPS_ENABLED=1\nONEMIND_BACKUPS_JOB_KEY_FILE={p.job_key}\n" + builtin_backup_env(p))
 
 
 def backup_agent_conf(p: Paths, node_id: str) -> dict:
@@ -608,7 +622,7 @@ def backup_agent_conf(p: Paths, node_id: str) -> dict:
         "retention": {"hourly": 24, "daily": 7, "weekly": 4, "monthly": 12},
         "targets": [],
         "units": {
-            "system": {"paths": [p.etc, p.tls, p.nats_keys],
+            "system": {"paths": backup_system_paths(p),
                        "sqlite": [{"path": f"{p.gateway}/onemind.db", "name": "gateway.db"}],
                        "audit_log": f"{p.gateway}/audit.jsonl"},
             "k3s": {"paths": ["/data/k3s/server/token", "/data/k3s/server/tls",
@@ -624,6 +638,19 @@ def _append_missing(path: str, key: str, text: str) -> None:
     if old is None or re.search(rf"(?m)^{key}=", old):
         return
     write(path, old + ("" if old.endswith("\n") else "\n") + text)
+
+
+def upgrade_agent_conf(p: Paths) -> None:
+    """A box set up before #616 keeps its agent.json; add the system paths it lacks, change nothing else."""
+    conf = json.loads(_read(p.backup_conf) or "{}")
+    system = conf.get("units", {}).get("system")
+    if not isinstance(system, dict):
+        return
+    paths = list(system.get("paths") or [])
+    missing = [x for x in backup_system_paths(p) if x not in paths]
+    if missing:
+        system["paths"] = paths + missing
+        write(p.backup_conf, json.dumps(conf, indent=2) + "\n")
 
 
 def ensure_backup(p: Paths, st: dict) -> None:
@@ -647,12 +674,20 @@ def ensure_backup(p: Paths, st: dict) -> None:
         pub = os.path.join(p.backup, "job.pub")
         with open(os.path.join(p.custodian, "job.pub"), encoding="utf-8") as f:
             write(pub, f.read(), 0o644)
+        # The gateway writes the built-ins' export here; the agent must find it at its first run (#616).
+        os.makedirs(p.backup_export, mode=0o700, exist_ok=True)
+        os.chmod(p.backup_export, 0o700)
+        if ids:
+            os.chown(p.backup_export, *ids)
         if not os.path.exists(p.backup_conf):
             write(p.backup_conf, json.dumps(backup_agent_conf(p, st["node_id"]), indent=2) + "\n")
+        else:
+            upgrade_agent_conf(p)
         _append_missing(os.path.join(p.etc, "onemindd.env"), "ONEMIND_BACKUP_CONF",
                         f"# Backups (IMG-BACKUP-01): onemindd starts the backup agent from this file.\n"
                         f"ONEMIND_BACKUP_CONF={p.backup_conf}\n")
         _append_missing(os.path.join(p.etc, "gateway.env"), "ONEMIND_BACKUPS_ENABLED", backup_gateway_env(p))
+        _append_missing(os.path.join(p.etc, "gateway.env"), "ONEMIND_BACKUPS_EXPORT_DIR", builtin_backup_env(p))
     except Exception as e:  # noqa: BLE001
         log(f"backups not set up: {e}")
 
