@@ -153,6 +153,7 @@ security POST /v1/machines/disable owner=core:machines
 security POST /v1/machines/enable owner=core:machines
 security GET /v1/machines/{name} owner=core:machines
 security POST /v1/machines/{name}/console owner=core:machines
+security GET /v1/machines/{name}/devices owner=core:machines
 security GET /v1/machines/{name}/snapshots owner=core:machines
 security POST /v1/machines/{name}/upload owner=core:machines
 security GET /v1/me owner=core:auth
