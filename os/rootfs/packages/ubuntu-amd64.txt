@@ -1,3 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
 # The lab booted linux-image-virtual in QEMU [C-LAB-ubuntu-2604-leg-005]
 linux-image-virtual grub-efi-amd64-bin
+# efibootmgr: RAUC's efi backend switches slots with it on a Secure Boot (efi route) box (S-13, #148)
+efibootmgr

@@ -155,6 +155,7 @@ class PushIn(BaseModel):
     token: str | None = Field(default=None, max_length=2000)
     keys: dict | None = None
     label: str = Field(default="device", min_length=1, max_length=120)
+    install_id: str | None = Field(default=None, pattern=r"^[A-Za-z0-9_-]{16,64}$")  # My devices (#715)
 
 
 class NotificationSeverityCounts(BaseModel):
@@ -585,7 +586,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         row = DeviceRow(
             id=did, person_id=p.id, platform=body.platform, endpoint_enc=svc.box.seal(endpoint, did),
             keys_enc=svc.box.seal(json.dumps({"keys": keys, "lan": p.is_owner}), did),
-            label=body.label, state="ok", created_at=now, last_seen_at=now,
+            label=body.label, state="ok", created_at=now, last_seen_at=now, install_id=body.install_id,
         )
         repo.add_device(row)
         audit(p, "device.added", {"device_id": did, "platform": body.platform})

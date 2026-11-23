@@ -415,6 +415,12 @@ POLICY |= {
     ("PATCH", "/v1/me"): Row(grid(403, 403, 403, 200, 403), w.p_missing("/v1/me", json={"display_name": "Probe"}),
                              "a person with a stored account (the household child here) sets only their own display name; the static token "
                              "probes have no account row to name (the signed-in 200 paths are in test_identity.py)", ID),
+    # ---- My devices (#715): a person's own session only; the static-token probes and agents hold none --------
+    ("GET", "/v1/me/devices"): Row(own_credentials(200), w.p_static("/v1/me/devices"),
+                                   "#715 a signed-in person lists their own devices", ID),
+    ("DELETE", "/v1/me/devices/{device_id}"): Row(own_credentials(200), w.p_static("/v1/me/devices/mdv_no_such_device"),
+                                                  "#715 Lost this device: a person's own session; an id that is gone is a "
+                                                  "no-op 200 (idempotent)", ID),
     # ---- apps, plans, databases -----------------------------------------------------------------------------
     ("GET", "/v1/databases"): Row(OWNER_ADULT, w.p_static("/v1/databases"), "owner and adult list databases; never a password"),
     ("GET", "/v1/apps/{app_id}/credentials"): Row(OWNER_ONLY_404, w.p_static(f"/v1/apps/{w.TARGET_APP}/credentials"),
@@ -444,6 +450,8 @@ POLICY |= {
                                     "built-in apps list: any reader; a child or agent sees only the apps shared with them, as in /v1/apps"),
     ("GET", "/v1/builtins"): Row(grid(200, 200, 200, 200, 200), w.p_static("/v1/builtins"),
                                  "#603 built-in descriptors: any reader; a child or agent sees only the apps shared with them"),
+    ("GET", "/v1/surfaces"): Row(grid(200, 200, 200, 200, 200), w.p_static("/v1/surfaces"),
+                                 "#605 surface registry: any reader; a child or agent sees only the apps shared with them"),
     ("GET", "/v1/sources"): Row(READ_ANY, w.p_static("/v1/sources"), "12.22: any reader"),
     ("GET", "/v1/sources/{source_id}"): Row(READ_ANY_404, w.p_static("/v1/sources/src_00000000000000000000000000"), "12.22: any reader; missing is 404"),
     ("POST", "/v1/deploy/compose"): Row(grid(422, 403, 403, 403, 403), w.p_missing("/v1/deploy/compose", json={"app_id": "imp", "compose": "x"}),
@@ -454,6 +462,8 @@ POLICY |= {
                                    f"{_FILES}: people browse; an agent needs a grant (none here)"),
     ("GET", "/v1/files/stat"): Row(grid(200, 200, 200, 403, 403), w.p_static("/v1/files/stat?root=shared&path=/"),
                                    f"{_FILES}: people browse; an agent needs a grant"),
+    ("GET", "/v1/search"): Row(grid(200, 200, 200, 200, 200), w.p_static("/v1/search?q=report"),
+                               "#611 global search: any signed-in caller; each hit is filtered by the caller's own grants"),
     ("GET", "/v1/sync/changes"): Row(grid(200, 200, 200, 403, 403), w.p_static("/v1/sync/changes?root=shared"),
                                      f"{_FILES}: the change feed (#698) follows read access to the whole root"),
     ("GET", "/v1/files/preview"): Row(grid(404, 404, 404, 403, 403), w.p_static("/v1/files/preview?root=shared&path=/a"),
@@ -794,6 +804,27 @@ POLICY |= {
     # enabled=false only removes a flag file that is not there on a test box, so the probe changes nothing.
     ("PUT", "/v1/instance/kiosk"): Row(ONLY_OWNER, w.p_kiosk_put,
                                        f"{_KIOSK}: only the owner changes the screen; an agent can never switch it"),
+}
+
+# ---- bridge intake (#610: core/onemind_core/routers/bridges.py) --------------------------------------------
+# Only the bridge's own installation token posts events (plugins/auth.allows_bridge_intake); every person and
+# agent is refused. Owners and adults read status; the probe names a bridge that is not installed (404).
+_BRIDGE = "core/onemind_core/routers/bridges.py"
+BRIDGE_READ = cells(403, **GONE, owner=404, adult=404, plugin=DENIED, automation=DENIED, node=DENIED)
+POLICY |= {
+    ("POST", "/v1/bridges/{bridge_id}/events"): Row(
+        cells(403, **GONE, plugin=DENIED, automation=DENIED, node=DENIED),
+        lambda _: w.Req("/v1/bridges/whoami/events", json={"events": [{"id": "probe"}]}),
+        f"{_BRIDGE}: a bridge posts only under its own app id; people and agents never post events"),
+    ("GET", "/v1/bridges"): Row(cells(403, **GONE, owner=200, adult=200, plugin=DENIED, automation=DENIED, node=DENIED),
+                                w.p_static("/v1/bridges"), f"{_BRIDGE}: owners and adults read bridge status"),
+    ("GET", "/v1/bridges/{bridge_id}"): Row(BRIDGE_READ, w.p_static("/v1/bridges/not-a-bridge"),
+                                            f"{_BRIDGE}: owners and adults read bridge status"),
+    ("GET", "/v1/bridges/{bridge_id}/latest"): Row(BRIDGE_READ, w.p_static("/v1/bridges/not-a-bridge/latest"),
+                                                   f"{_BRIDGE}: values need owner or adult, then the bridge's data class"),
+    ("POST", "/v1/bridges/{bridge_id}/resume"): Row(
+        cells(403, **GONE, owner=404, plugin=DENIED, automation=DENIED, node=DENIED),
+        w.p_static("/v1/bridges/not-a-bridge/resume"), f"{_BRIDGE}: only an owner lets a paused bridge in again"),
 }
 
 # ---- radio-found cards (#732) ---------------------------------------------------------------------------------------

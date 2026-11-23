@@ -28,6 +28,12 @@ class ApprovalChallenge(BaseModel):
     publicKey: dict[str, Any]
 
 
+# The random id an app install keeps for itself (#715): My devices groups a phone's sign-ins, passkeys
+# and push registrations by it, so a renamed phone stays one device and two phones with the same
+# default name stay two.
+INSTALL_ID = r"^[A-Za-z0-9_-]{16,64}$"
+
+
 class LoginBody(BaseModel):
     username: str | None = Field(default=None, max_length=64)
     password: str | None = Field(default=None, max_length=1024)
@@ -36,6 +42,7 @@ class LoginBody(BaseModel):
     # browser → HttpOnly cookie + CSRF token; cli/app → bearer access + refresh token
     client: Literal["browser", "cli", "app"] = "browser"
     client_name: str | None = Field(default=None, max_length=200)
+    install_id: str | None = Field(default=None, pattern=INSTALL_ID)
 
 
 class SetupBody(BaseModel):
@@ -59,6 +66,7 @@ class RefreshBody(BaseModel):
 class PasskeyRegisterBody(BaseModel):
     credential: dict[str, Any]
     label: str | None = Field(default=None, max_length=100)
+    install_id: str | None = Field(default=None, pattern=INSTALL_ID)
 
 
 class RescueVerifyBody(BaseModel):
@@ -138,8 +146,10 @@ def register(app: FastAPI, gw: Gateway) -> None:
             resp.set_cookie(svc.csrf_cookie, cookies["csrf"], httponly=False, **common)
         return resp
 
-    def start(request: Request, user, method: str, client: str, name: str | None, passkey: bool, status=200):
-        body = svc.start_session(request, user, method, name, bearer=client != "browser", passkey=passkey)
+    def start(request: Request, user, method: str, client: str, name: str | None, passkey: bool, status=200,
+              install_id: str | None = None):
+        body = svc.start_session(request, user, method, name, bearer=client != "browser", passkey=passkey,
+                                 install_id=install_id)
         return session_response(body, status)
 
     R = error_responses
@@ -159,10 +169,12 @@ def register(app: FastAPI, gw: Gateway) -> None:
     def login(body: LoginBody, request: Request):
         if body.passkey is not None:
             user = svc.login_passkey(request, body.passkey)
-            return start(request, user, "passkey", body.client, body.client_name, passkey=True)
+            return start(request, user, "passkey", body.client, body.client_name, passkey=True,
+                         install_id=body.install_id)
         user = svc.login_password(request, body.username or "", body.password or "", body.totp)
         method = "password+totp" if user.totp_secret else "password"
-        return start(request, user, method, body.client, body.client_name, passkey=False)
+        return start(request, user, method, body.client, body.client_name, passkey=False,
+                     install_id=body.install_id)
 
     @app.post("/v1/auth/enrol", operation_id="auth.enrol", tags=["auth"], status_code=201, responses=R(401, 409, 422, 429))
     def enrol(body: EnrolBody, request: Request):
@@ -197,7 +209,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
 
     @app.post("/v1/auth/passkeys/register", operation_id="auth.passkeys.register", tags=["auth"], status_code=201, responses=R(401, 403, 409, 422))
     def passkey_register(body: PasskeyRegisterBody, request: Request, _: Principal = Depends(principal)):
-        return svc.passkey_register(request, ctx_of(request), body.credential, body.label)
+        return svc.passkey_register(request, ctx_of(request), body.credential, body.label, body.install_id)
 
     @app.get("/v1/auth/passkeys", operation_id="auth.passkeys.list", tags=["auth"], responses=R(401, 403))
     def passkeys(request: Request, _: Principal = Depends(principal)):
