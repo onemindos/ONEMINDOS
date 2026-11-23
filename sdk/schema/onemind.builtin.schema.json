@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://onemind.io/schema/onemind.builtin.schema.json",
   "title": "OneMind built-in app descriptor (the built-in profile of the onemind.app/v1 App manifest)",
-  "description": "What one built-in (system) app plugs into: search, share, notifications, map layers, cards, agent actions, settings, backup, data classes and the phone. Lives at core/onemind_core/<id>/onemind.app.yaml and is read only for ids on the signed system apps list (/usr/lib/onemind/system-apps.json). It is the same manifest as a Market app (apiVersion onemind.app/v1, kind App, one file name) in its built-in profile: metadata carries only id, name and description because a built-in ships inside the OS image (no version, licence, source or tier of its own), and no spec block reuses a name onemind.app.schema.json gives another shape. spec.backup is the App spec.backup block (its units field); every other block name is new to the App spec, so each can move into onemind.app.schema.json unchanged. test_builtin_conformance.py fails if a descriptor block stops validating against the App schema block of the same name. The conformance test core/tests/test_builtin_conformance.py checks every descriptor against the running gateway.",
+  "description": "What one built-in (system) app plugs into: search, share, notifications, map layers, cards, agent actions, settings, backup, data classes and the phone. Lives at core/onemind_core/<id>/onemind.app.yaml and is read only for ids on the signed system apps list (/usr/lib/onemind/system-apps.json). It is the same manifest as a Market app (apiVersion onemind.app/v1, kind App, one file name) in its built-in profile: metadata carries only id, name and description because a built-in ships inside the OS image (no version, licence, source or tier of its own), and no spec block reuses a name onemind.app.schema.json gives another shape. spec.backup is the App spec.backup block (its units field), and search, share, notifications, mapLayers and data are App spec blocks too since manifest v1 (#604); routes, cards, actions, settingsPages and phone are descriptor-only. test_builtin_conformance.py fails if a descriptor block stops validating against the App schema block of the same name. The conformance test core/tests/test_builtin_conformance.py checks every descriptor against the running gateway.",
   "type": "object",
   "additionalProperties": false,
   "required": ["apiVersion", "kind", "metadata", "spec"],
@@ -90,11 +90,14 @@
         "topics": {
           "type": "array", "minItems": 1, "maxItems": 20,
           "items": {
+            "description": "A topic routes catalogue events (events: system topic of that id, notify/catalogue.py), or is one the app posts itself through its app principal (title: shown on Settings > Notifications), or both. Whatever the app posts lands under app.<metadata.id>.<id> (notify/topics.py), at most 80 characters, severity info or warning.",
             "type": "object",
             "additionalProperties": false,
-            "required": ["id", "events"],
+            "required": ["id"],
+            "anyOf": [{"required": ["events"]}, {"required": ["title"]}],
             "properties": {
-              "id": {"$ref": "#/$defs/key", "description": "The notification topic (notify/catalogue.py), e.g. backups."},
+              "id": {"$ref": "#/$defs/key", "description": "The notification topic (notify/catalogue.py), e.g. backups; app posts use app.<app id>.<id>."},
+              "title": {"$ref": "#/$defs/title", "description": "What the topic is called in Settings > Notifications, e.g. Reminders."},
               "events": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/key"}}
             }
           }

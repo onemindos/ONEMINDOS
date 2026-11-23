@@ -35,7 +35,9 @@ type Capabilities struct {
 
 // Passthrough is what an owner-approved device grant (#690) reads. IOMMUGroups lists only the
 // groups that hold an accelerator: a GPU can be handed to a machine only when its group holds
-// nothing but that card's own functions. USBDrivers maps a USB port to the sorted kernel drivers
+// nothing but that card's own functions. A group with any member that is not a PCI address (an
+// ACPI or platform device) is left out whole, so its card is in no listed group and every grant of
+// it is refused. USBDrivers maps a USB port to the sorted kernel drivers
 // bound to its interfaces (usbhid, usb-storage, cdc_acm); a port that is not a key has none bound,
 // so the host is not using it. A port with a driver is busy until the owner confirms.
 type Passthrough struct {
@@ -132,18 +134,26 @@ type TTYPort struct {
 	USBPort *string `json:"usb_port"`
 }
 
-// Radio kinds.
+// Radio kinds. WiFi, Bluetooth and cellular are interfaces the kernel registered; Zigbee,
+// Zigbee-or-Thread and LoRa are known USB dongles (issue #732, sdk/schema/onemind.radios.json).
 const (
-	RadioWiFi      = "wifi"
-	RadioBluetooth = "bluetooth"
-	RadioCellular  = "cellular"
+	RadioWiFi         = "wifi"
+	RadioBluetooth    = "bluetooth"
+	RadioCellular     = "cellular"
+	RadioZigbee       = "zigbee"
+	RadioZigbeeThread = "zigbee-thread"
+	RadioLoRa         = "lora"
 )
 
-// Radio is one radio interface the kernel registered. Zigbee, Thread, Z-Wave and LoRa dongles are
-// USB devices and serial lines here; naming them is the radio-detection issue's job.
+// Radio is one radio. For wifi, bluetooth and cellular, Interface is the kernel's interface
+// (wlan0, hci0) and Device is absent. For a known USB dongle, Interface is its serial line
+// (ttyUSB0, ttyACM0) and Device the stable name udev gave it, /dev/onemind/<kind><n> (lora0):
+// the only path a grant ever passes into an app. A USB serial line that is not a known dongle is
+// in TTYPorts only: never a Radio, never named.
 type Radio struct {
-	Kind      string `json:"kind"`
-	Interface string `json:"interface"`
+	Kind      string  `json:"kind"`
+	Interface string  `json:"interface"`
+	Device    *string `json:"device,omitempty"`
 }
 
 // Camera buses.
