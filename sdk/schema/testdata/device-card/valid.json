@@ -14,6 +14,8 @@
     {"name": "an at sign in a path, not a user part", "base": "relay",
      "ops": [["set", "/actions/switch/forms", [{"href": "https://relay.example/v1/@relay/switch"}]]]},
     {"name": "prose with a colon, a question and an at sign", "base": "relay",
-     "ops": [["set", "/description", "Note: the owner at home@night approves it. Is it on? It keeps no token or secret: the gateway holds those."]]}
+     "ops": [["set", "/description", "Note: the owner at home@night approves it. Is it on? It keeps no token or secret: the gateway holds those."]]},
+    {"name": "prose with a plain URL and a harmless query", "base": "relay",
+     "ops": [["set", "/description", "Web UI at https://relay.example/x?unit=s&page=2#state for setup. Is the token (a secret) kept? No."]]}
   ]
 }

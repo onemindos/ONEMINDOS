@@ -94,6 +94,12 @@
     {"name": "unknown safety class", "base": "relay", "rules": ["schema"],
      "ops": [["set", "/actions/switch/om:safety/class", "dangerous"]]},
     {"name": "affordance without a safety block", "base": "relay", "rules": ["schema"],
-     "ops": [["del", "/properties/on/om:safety"]]}
+     "ops": [["del", "/properties/on/om:safety"]]},
+    {"name": "user part in a URL inside prose", "base": "relay", "rules": ["credential-field"],
+     "ops": [["set", "/description", "Web UI at https://admin:pw@relay/ for setup"]]},
+    {"name": "user part in a bracketed URL inside prose", "base": "relay", "rules": ["credential-field"],
+     "ops": [["set", "/description", "Setup page (https://admin:pw@relay/) is local."]]},
+    {"name": "credential key in a URL query inside prose", "base": "relay", "rules": ["credential-field"],
+     "ops": [["set", "/description", "Open https://relay.example/x?access_token=abc now"]]}
   ]
 }
