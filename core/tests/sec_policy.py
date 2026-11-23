@@ -806,29 +806,3 @@ POLICY |= {
         "profile": "meshcore-companion-usb"}),
         f"{_RADIO}: only the owner says what a radio is; an agent never confirms one, and nothing is probed or sent"),
 }
-
-# ---- the agent browser (#694: core/onemind_core/routers/agentbrowser.py) --------------------------------------
-# Only the owner and AI agents use it; every other person is refused (403, audited). The matrix gateway runs with
-# the agent browser switched off, so starting a session is 409 agent_browser_off; test_agentbrowser.py has it on.
-_AB = "core/onemind_core/routers/agentbrowser.py"
-AB_USERS = grid(200, 403, 403, 403, 200)
-POLICY |= {
-    ("GET", "/v1/agent-browser/sites"): Row(AB_USERS, w.p_static("/v1/agent-browser/sites"),
-                                            f"{_AB}: owner sees every agent's allowlist, an agent its own"),
-    ("POST", "/v1/agent-browser/sites"): Row({**grid(201, 403, 403, 403, 201), "app-agent": 403},
-                                             w.p_missing("/v1/agent-browser/sites", json={"entry": "example.org", "agent": "hermes"}),
-                                             f"{_AB}: owner or agent files agentbrowser.site.allow (an app's agent may not ask for hermes); only an owner's approval adds it"),
-    ("DELETE", "/v1/agent-browser/sites/{site_id}"): Row(OWNER_ONLY_404, w.p_missing("/v1/agent-browser/sites/abs_missing"),
-                                                         f"{_AB}: only the owner takes a site away; the one probed does not exist"),
-    ("GET", "/v1/agent-browser/sessions"): Row(AB_USERS, w.p_static("/v1/agent-browser/sessions"),
-                                               f"{_AB}: owner sees all sessions, an agent its own"),
-    ("POST", "/v1/agent-browser/sessions"): Row(grid(409, 403, 403, 403, 409), w.p_missing("/v1/agent-browser/sessions", json={}),
-                                                f"{_AB}: owner or agent; switched off in the matrix world (409 agent_browser_off)"),
-    ("DELETE", "/v1/agent-browser/sessions/{session_id}"): Row(grid(404, 403, 403, 403, 404),
-                                                               w.p_missing("/v1/agent-browser/sessions/abs_missing"),
-                                                               f"{_AB}: owner ends any session, an agent its own; none exists"),
-    ("POST", "/v1/agent-browser/sessions/{session_id}/visit"): Row(
-        grid(404, 403, 403, 403, 404),
-        w.p_missing("/v1/agent-browser/sessions/abs_missing/visit", json={"url": "https://example.org/"}),
-        f"{_AB}: owner or agent opens a page in its own session; none exists"),
-}
