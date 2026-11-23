@@ -23,7 +23,7 @@ metadata:
     website: "https://frigate.video"
     support: "https://github.com/blakeblackshear/frigate/discussions"
   upstream: {release: "v0.18.3", released_at: "2026-11-19T02:26:02Z", archived: false}
-  tier: community   # set by CI (sdk/tools/app-gate --tier write), not by hand
+  tier: blocked   # set by CI (sdk/tools/app-gate --tier write), not by hand
 spec:
   archs: [amd64, arm64]
   # Detection runs on the CPU (OpenVINO, upstream's default for a new install). A box with an NVIDIA card

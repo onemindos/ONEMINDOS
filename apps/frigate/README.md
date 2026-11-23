@@ -9,7 +9,7 @@ Network video recorder with local object detection for IP cameras. Recordings st
 |---|---|
 | Version | 0.18.3 (upstream release `v0.18.3`, published 2026-11-19) |
 | Licence | `MIT`, Market class L1 by SPDX id; not yet confirmed by the licence gate |
-| Tier | `community` (set by CI: sdk/tools/app-gate) |
+| Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | home |
 | GitHub | <https://github.com/blakeblackshear/frigate> |
 | Website | <https://frigate.video> |
@@ -50,7 +50,7 @@ Frigate is a network video recorder (NVR) for IP cameras with local, real-time o
 ## Market listing
 
 - Category and sub-tags (docs/design/TAXONOMY.md §1): home: cameras.
-- Deployment class (TAXONOMY §2): **Market · community** until CI writes a passing scan (contract §9.4).
+- Deployment class (TAXONOMY §2): **Market · blocked** (see "Why this app is blocked" below): listed, but the gateway refuses to install it until a scan passes (contract §9.4, §10.3).
 
 ## How it runs here
 
@@ -80,6 +80,17 @@ Source: [docs.frigate.video](https://docs.frigate.video) (configuration/authenti
 - `readOnlyRootFilesystem` is not set: s6-overlay writes under `/run` and nginx renders its config at start.
 - Resource figures are OneMind choices where upstream gives none.
 - `metadata.tier` follows what `sdk/tools/app-gate` computes; `spec.updates.automerge` is `none` until `renovate.json` lists the app.
+
+## Why this app is blocked
+
+The app gate (`sdk/tools/app-gate`, contract §9.4 check 4) sets tier **blocked** when an image has a CRITICAL vulnerability with a fix available. Trivy 0.76.2, run the way the gate runs it (remote image, `linux/amd64` and `linux/arm64`, scanners `vuln,secret`) on 2026-11-22 against the pinned `0.18.3` digest, found 41 CRITICAL findings (one per CVE, package and version across both archs), 33 of them with a fix, 710 HIGH and no secrets. The gateway lists a blocked app in the Market but refuses to install it (§10.3, §11.1). The app is kept, not hidden, and the gate was not weakened.
+
+- Fixable CRITICAL, by package: `curl` and `libcurl4` (CVE-2023-38545); `libexpat1` (CVE-2024-45491, CVE-2024-45492); the Mesa drivers `libgl1-mesa-dri`, `libglapi-mesa`, `libglx-mesa0`, `mesa-va-drivers`, `mesa-vulkan-drivers` (CVE-2026-40393); `libglib2.0-0` (CVE-2025-14087); `libgnutls30` (CVE-2026-33845, CVE-2026-42010); Kerberos `libgssapi-krb5-2`, `libk5crypto3`, `libkrb5-3`, `libkrb5support0` (CVE-2024-37371); `liblzma5` (CVE-2024-3094); `libpcre2-8-0` (CVE-2025-58050); `libsqlite3-0` (CVE-2025-3277); `libssl3` and `openssl` (CVE-2026-31789); `libxml2` (CVE-2024-56171); `perl-base` (CVE-2026-13221, CVE-2026-42496, CVE-2026-8376); `wget` (CVE-2024-38428); Go `stdlib` in a bundled binary (CVE-2022-23806, CVE-2023-24538, CVE-2023-24540, CVE-2024-24790, CVE-2025-68121).
+- CRITICAL without a fix (recorded, not counted by the gate): `libglib2.0-0` CVE-2026-58016, `libsqlite3-0` CVE-2025-7458, `libxml2` CVE-2026-6653, `zlib1g` CVE-2023-45853, `libaom3` CVE-2023-6879, `libmbedcrypto7` CVE-2025-47917, CVE-2026-34873, CVE-2026-34875.
+
+These are scanner results, not independently checked against each upstream advisory (UNVERIFIED per finding; for example the `liblzma5` match may be a version-range false positive). `0.18.3` is upstream's latest release (2026-11-19), so no fixed tag exists to move to.
+
+To unblock: move the pin to an upstream Frigate release whose image fixes these findings (a tag that exists, read with `crane`), then rerun `sdk/tools/app-gate` (the `apps-rescan` workflow does this too). Nothing is bumped to an unverified tag, and the tier is never lifted by hand. Issue #245 stays open until the app installs.
 <!-- onemind:notes:end -->
 
 ## Latest security scan
