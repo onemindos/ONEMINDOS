@@ -52,6 +52,7 @@ it('calls only routes the hub serves (or feature-detected ones it does not ship 
     () => api.filesRoots(), () => api.filesList('r', '/'), () => api.migratePlans(),
     () => api.osUpdates(), () => api.osUpdateHistory(), () => api.monitoringSummary(), () => api.nodeMetrics(id), () => api.appMetrics(id),
     () => api.mesh(), () => api.systemPlan('system.restart'),
+    () => api.myDevices(), () => api.removeMyDevice(id),
   ];
   for (const c of calls) await c().catch(() => undefined);
   expect(seen).toHaveLength(calls.length);
