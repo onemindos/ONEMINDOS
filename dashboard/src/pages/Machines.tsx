@@ -28,6 +28,7 @@ const STATE: Record<string, { tone: Tone; label: string; pulse?: boolean; note?:
 const VERB: Record<MachineActionType, string> = {
   'machine.create': 'create', 'machine.start': 'start', 'machine.stop': 'stop', 'machine.delete': 'remove',
   'machine.restart': 'restart', 'machine.force_stop': 'force off', 'machine.snapshot': 'snapshot', 'machine.clone': 'clone',
+  'machine.attach_device': 'attach a device', 'machine.detach_device': 'detach a device',
   'machines.enable': 'turn on', 'machines.disable': 'turn off',
 };
 const NAME = /^[a-z][a-z0-9-]{0,38}[a-z0-9]$/;
