@@ -59,6 +59,9 @@ class UnifiedPushModule : Module() {
 
     /** The last endpoint the distributor gave us (so JS does not miss one sent while it was not listening). */
     Function("lastEndpoint") { Store.endpoint(context) }
+
+    /** When the last ping arrived (ms since epoch), including while the app was closed; null if never. */
+    Function("lastPingAt") { Store.lastPing(context) }
   }
 
   companion object {

@@ -5,7 +5,9 @@ alerts         one row per condition; `open_key` = dedupe_key while open, NULL o
                the unique index allows one open alert per key and any number of resolved ones
 notifications  one person's inbox items
 deliveries     one notification (or summary) to one channel or device: queued, held, sent,
-               failed (retrying), dead, summarised
+               failed (retrying), dead, summarised, dropped (over the channel's daily cap)
+sends          one row per attempt to reach a capped (sms) channel's provider, whatever its outcome:
+               the daily cap counts these, so a retry or a timeout the provider billed is counted
 channels       a person's outbound channels; the secret is sealed (SecretBox), never returned
 devices        push registrations (Web Push / UnifiedPush); endpoint and keys sealed
 preferences    a person's routing document (contract §12.14)
@@ -37,6 +39,14 @@ def _notify_v2(conn) -> None:
                       ("asset_id", "VARCHAR(128)"), ("group_key", "VARCHAR(200)"), ("actions_json", "TEXT")):
         if name not in have:
             conn.execute(text(f"ALTER TABLE notify_notifications ADD COLUMN {name} {ddl}"))
+
+
+@SCHEMA.step(3, "install_id on push registrations: the app install that registered it, for My devices (#715)")
+def _notify_v3(conn) -> None:
+    from sqlalchemy import inspect, text
+
+    if "install_id" not in {c["name"] for c in inspect(conn).get_columns("notify_devices")}:
+        conn.execute(text("ALTER TABLE notify_devices ADD COLUMN install_id VARCHAR(64)"))
 
 
 class AlertRow(Base):
@@ -108,6 +118,16 @@ class DeliveryRow(Base):
     __table_args__ = (Index("notify_deliveries_state_next", "state", "next_attempt_at"),)
 
 
+class SendRow(Base):
+    """One attempt to reach a capped channel's provider (issue #869), written before any byte goes out."""
+    __tablename__ = "notify_sends"
+    id: Mapped[str] = mapped_column(String(40), primary_key=True)
+    target_id: Mapped[str] = mapped_column(String(40))
+    kind: Mapped[str] = mapped_column(String(16))               # delivery | test
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    __table_args__ = (Index("notify_sends_target_at", "target_id", "at"),)
+
+
 class ChannelRow(Base):
     __tablename__ = "notify_channels"
     id: Mapped[str] = mapped_column(String(40), primary_key=True)
@@ -137,6 +157,7 @@ class DeviceRow(Base):
     failing_since: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    install_id: Mapped[str | None] = mapped_column(String(64), nullable=True)  # #715, see devices/service.py
 
 
 class PreferencesRow(Base):
@@ -303,6 +324,22 @@ class NotifyRepository(SqlRepository):
         with self.db.session() as s:
             return list(s.scalars(q))
 
+    def unread_summary(self, person_id: str) -> dict:
+        """One person's inbox in one answer: unread counts per severity and the two times that
+        move whenever the inbox changes (a new item, or an item read on any device)."""
+        mine = NotificationRow.person_id == person_id
+        with self.db.session() as s:
+            counts = dict(s.execute(
+                select(NotificationRow.severity, func.count())
+                .where(mine, NotificationRow.read_at.is_(None)).group_by(NotificationRow.severity)
+            ).all())
+            latest, last_read = s.execute(
+                select(func.max(NotificationRow.created_at), func.max(NotificationRow.read_at)).where(mine)
+            ).one()
+        by_severity = {sev: int(counts.get(sev, 0)) for sev in ("info", "warning", "critical")}
+        return {"unread": sum(int(n) for n in counts.values()), "by_severity": by_severity,
+                "latest_created_at": iso(latest), "last_read_at": iso(last_read)}
+
     def mark_read(self, person_id: str, nid: str | None, now: datetime) -> int:
         conds = [NotificationRow.person_id == person_id, NotificationRow.read_at.is_(None)]
         if nid is not None:
@@ -348,6 +385,24 @@ class NotifyRepository(SqlRepository):
                 DeliveryRow.target_id == target_id, DeliveryRow.created_at >= since,
                 DeliveryRow.state.in_(("queued", "sent", "failed")),
             )) or 0
+
+    def claim_send(self, target_id: str, kind: str, since: datetime, cap: int, now: datetime, send_id: str) -> bool:
+        """Record one provider attempt unless `cap` attempts were made since `since`; False when capped.
+
+        Every attempt counts (a failure, a 5xx, a timeout the provider may already have billed), so a
+        retry loop cannot send more than `cap` in the window. Callers serialise per gateway."""
+        with self.db.session.begin() as s:
+            made = s.scalar(select(func.count()).select_from(SendRow).where(
+                SendRow.target_id == target_id, SendRow.at >= since)) or 0
+            if made >= cap:
+                return False
+            s.add(SendRow(id=send_id, target_id=target_id, kind=kind, at=now))
+            return True
+
+    def sends_since(self, target_id: str, since: datetime) -> int:
+        with self.db.session() as s:
+            return s.scalar(select(func.count()).select_from(SendRow).where(
+                SendRow.target_id == target_id, SendRow.at >= since)) or 0
 
     def deliveries_for(self, notification_id: str) -> list[DeliveryRow]:
         with self.db.session() as s:
@@ -453,6 +508,7 @@ class NotifyRepository(SqlRepository):
             s.execute(delete(NotificationRow).where(NotificationRow.created_at < now - timedelta(days=90)))
             s.execute(delete(DeliveryRow).where(
                 DeliveryRow.created_at < now - timedelta(days=30),
-                DeliveryRow.state.in_(("sent", "dead", "summarised"))))
+                DeliveryRow.state.in_(("sent", "dead", "summarised", "dropped"))))
+            s.execute(delete(SendRow).where(SendRow.at < now - timedelta(days=2)))
             s.execute(delete(AlertRow).where(
                 AlertRow.state == "resolved", AlertRow.resolved_at < now - timedelta(days=180)))

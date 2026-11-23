@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Build the battery's fixtures for one board from a rootfs tar (brief 30 B13; port of the variant
 # and bundle steps of evidence/lab/rauc-1152/scripts/build.sh). Runs as root in the tools container:
-#   mkfixtures.sh <board> <rootfs.tar> <outdir> [T5|T10]
+#   mkfixtures.sh <board> <rootfs.tar> <outdir> [T5|T10]      (EDGE=1 adds bad-leaf.raucb for make edge)
 # Outputs in <outdir>: disk.img (slot A = v1 + test overlay), bundles.img (ext4 "onemind-test"
 # holding bundles/*.raucb), seed.img (vm-do: NoCloud seed), t0.json (T0 checks), dev-ca.cert.pem
 # (public), SHA256SUMS. Throwaway keys live only in this container's /tmp and are deleted.
@@ -65,6 +65,13 @@ if [ "$UPTO" != T5 ]; then
   install -m 755 "$SRC/test/qemu/overlay-naive/usr/lib/onemind/onemind-k3s-check" "$T/usr/lib/onemind/"
   setver 7; k3sargs "--disable-agent"; ext4 v; bundle v 7 naive-noagent dev          # T10 observation
   install -m 755 "$W/k3s-check.real" "$T/usr/lib/onemind/onemind-k3s-check"; k3sargs ""
+fi
+if [ "${EDGE:-0}" = 1 ]; then   # make edge (CRITERIA-EDGE.md EG6), opt-in so the T-battery stays as fast
+  mv "$T/usr/bin/onemindd" "$W/onemindd.real"
+  printf '#!/bin/sh\necho "BAD-LEAF: onemindd replaced by the test bundle" >&2\nexit 1\n' > "$T/usr/bin/onemindd"
+  chmod 755 "$T/usr/bin/onemindd"
+  setver 8; ext4 v; bundle v 8 bad-leaf dev                                          # onemindd exits at start
+  mv -f "$W/onemindd.real" "$T/usr/bin/onemindd"
 fi
 rm -f "$W/v.ext4"
 
