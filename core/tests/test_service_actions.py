@@ -177,6 +177,10 @@ def test_only_owners_and_agents_may_ask_and_the_generic_route_cannot_file_it(set
         assert r.status_code == 422  # only the route that checks the registry files it
         first, again = restart(c, idempotency_key="same"), restart(c, idempotency_key="same")
         assert first.status_code == 202 and again.status_code == 200 and again.json()["id"] == first.json()["id"]
+        hdr = {**OWNER, "Idempotency-Key": "hdr-1"}  # the contract's header (openapi-lint) replays the same way
+        h1 = c.post("/v1/system/services/onemind-gateway.service/restart", headers=hdr)
+        h2 = c.post("/v1/system/services/onemind-gateway.service/restart", headers=hdr)
+        assert h1.status_code == 202 and h2.status_code == 200 and h2.json()["id"] == h1.json()["id"] != first.json()["id"]
 
 
 def test_a_seeded_token_in_a_log_line_is_masked(settings, clock, host):

@@ -27469,7 +27469,14 @@
             "description": "Request failed validation (conflict, with the bad fields in message)"
           },
           "429": {
-            "description": "rate_limited: too many open log streams"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
           }
         },
         "summary": "System Service Logs",
@@ -27480,7 +27487,7 @@
     },
     "/v1/system/services/{unit}/restart": {
       "post": {
-        "description": "Ask for a restart of one service. It waits for the owner, who approves it with a passkey; the\nresponse is the action, whose id is the approval to look for. An agent may ask, never approve.\n\n403 not_restartable for a unit the registry does not mark restartable (rescue, first-boot, host and\ndata-layout units never are); 404 for a unit the registry does not list; 409 host_unavailable while\nthe host service cannot restart services (nothing is filed).",
+        "description": "Ask for a restart of one service. It waits for the owner, who approves it with a passkey; the\nresponse is the action, whose id is the approval to look for. An agent may ask, never approve.\n\n403 not_restartable for a unit the registry does not mark restartable (rescue, first-boot, host and\ndata-layout units never are); 404 for a unit the registry does not list; 409 host_unavailable while\nthe host service cannot restart services (nothing is filed). The `Idempotency-Key` header (or the body's\n`idempotency_key`, the §3 field) makes a retry replay the same action.",
         "operationId": "system.services.restart",
         "parameters": [
           {
@@ -27490,6 +27497,24 @@
             "schema": {
               "title": "Unit",
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
             }
           }
         ],

@@ -18,8 +18,9 @@ import threading
 import uuid
 from collections import defaultdict
 from datetime import timedelta
+from typing import Annotated
 
-from fastapi import Depends, FastAPI, Query, Request
+from fastapi import Depends, FastAPI, Header, Query, Request
 from fastapi.responses import JSONResponse, PlainTextResponse, StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -116,8 +117,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
     @app.get("/v1/system/services/{unit}/logs", tags=["system"], operation_id="system.services.logs",
              response_class=PlainTextResponse,
              responses={200: {"content": {"text/plain": {}, "text/event-stream": {}}},
-                        429: {"description": "rate_limited: too many open log streams"},
-                        **error_responses(401, 403, 404, 409)})
+                        **error_responses(401, 403, 404, 409, 429)})
     def system_service_logs(unit: str, tail: int = Query(default=200, ge=1, le=MAX_LINES), follow: bool = False,
                             p: Principal = Depends(gw.principal)):
         """The last `tail` journal lines of a unit the registry lists, every line redacted (tokens, keys,
@@ -175,13 +175,15 @@ def register(app: FastAPI, gw: Gateway) -> None:
               status_code=202, response_model=Action,
               responses={200: {"model": Action, "description": "Idempotent replay"},
                          **error_responses(401, 403, 404, 409, 422, 429)})
-    def system_service_restart(unit: str, req: ServiceRestartRequest | None = None, p: Principal = Depends(gw.principal)):
+    def system_service_restart(unit: str, req: ServiceRestartRequest | None = None, p: Principal = Depends(gw.principal),
+                               idem: Annotated[str | None, Header(alias="Idempotency-Key", min_length=1, max_length=200)] = None):
         """Ask for a restart of one service. It waits for the owner, who approves it with a passkey; the
         response is the action, whose id is the approval to look for. An agent may ask, never approve.
 
         403 not_restartable for a unit the registry does not mark restartable (rescue, first-boot, host and
         data-layout units never are); 404 for a unit the registry does not list; 409 host_unavailable while
-        the host service cannot restart services (nothing is filed)."""
+        the host service cannot restart services (nothing is filed). The `Idempotency-Key` header (or the body's
+        `idempotency_key`, the §3 field) makes a retry replay the same action."""
         req = req or ServiceRestartRequest()
         if not p.can_request_actions or not (p.is_owner or p.kind in REQUESTERS):
             raise deny(p, f"request {ACTION}", "only an owner or an agent may ask for a service restart")
@@ -198,7 +200,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         if why is not None:
             raise ApiError(409, "conflict", why[1], reason="host_unavailable")
         body, created = gw.actions.request_feature(
-            p, ACTION, {"unit": unit}, idempotency_key=req.idempotency_key or f"service:{uuid.uuid4()}",
+            p, ACTION, {"unit": unit}, idempotency_key=idem or req.idempotency_key or f"service:{uuid.uuid4()}",
             expires_at=gw.clock() + REQUEST_TTL, reason=req.reason, pending_cap=True)
         return JSONResponse(status_code=202 if created else 200, content=body, headers={"Location": f"/v1/actions/{body['id']}"})
 
