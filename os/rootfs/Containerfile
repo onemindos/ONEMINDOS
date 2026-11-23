@@ -236,7 +236,7 @@ RUN set -eu; \
     if [ -x /tmp/onemind/board/post-install.sh ]; then /tmp/onemind/board/post-install.sh; fi; \
     systemctl enable systemd-networkd.service systemd-resolved.service onemind-data-layout.service \
       k3s.service onemind-local-api.service onemind-health-gate.service onemind-data-check.service \
-      onemind-factory-reset.service >/dev/null; \
+      onemind-factory-reset.service systemd-sysext.service systemd-confext.service >/dev/null; \
     systemctl mask systemd-firstboot.service >/dev/null 2>&1 || true; \
     passwd -l root >/dev/null; \
     if command -v plymouth-set-default-theme >/dev/null; then plymouth-set-default-theme onemind; \
@@ -248,6 +248,8 @@ RUN set -eu; \
     update-initramfs -u -k "$kver"; \
     mkdir -p /data /boot/efi /etc/rancher/node /var/lib/rancher /var/lib/kubelet /var/lib/cni \
       /var/lib/tailscale /var/lib/onemind-headscale /var/lib/onemind-nats-leaf /var/lib/onemind-nats; \
+    grep -q '^SYSEXT_LEVEL=' /usr/lib/os-release || grep -E '^[A-Z_]+=' /usr/lib/onemind/os-release.sysext >> /usr/lib/os-release; \
+    test -L /var/lib/extensions && test -L /var/lib/confexts; \
     dpkg-query -W -f='${Package} ${Version} ${Architecture}\n' | sort > /usr/lib/onemind/packages.txt; \
     printf 'leg=%s board=%s arch=%s kernel=%s firmware=%s\n' "${LEG}" "${BOARD}" "${TARGETARCH}" "$kver" "${FIRMWARE}" > /usr/lib/onemind/build-info.txt; \
     rm -rf /tmp/onemind /var/cache/apt/*.bin /var/log/apt /var/log/dpkg.log; \

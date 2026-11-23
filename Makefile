@@ -11,6 +11,7 @@
 #   make firstboot BOARD=x86_64-efi [FUPTO=F4]          -> out/firstboot-<board>/ (F0-F4, CRITERIA-FIRSTBOOT.md)
 #   make secureboot-test                                -> out/secureboot-x86_64-efi/ (SB1-SB4, CRITERIA-SECUREBOOT.md)
 #   make bootlock  BOARD=x86_64-efi                     -> out/bootlock-<board>/ (B1-B6, CRITERIA-BOOTLOCK.md)
+#   make sysextguard BOARD=x86_64-efi                   -> out/sysextguard-<board>/ (T-W19-01 X0-X7, CRITERIA-SYSEXT.md)
 #   make convert BOARD=vm                               -> qcow2 / vhdx / vmdk / vdi / ova next to the image
 #   make jetson-layer [VERSION=...]                     -> out/onemind-layer-jetson-orin-<version>.tar.gz
 #   make hygiene | hygiene-selftest | lint | test | kit LT=LT-X86-01
@@ -33,7 +34,7 @@ ROOTFS      = $(OUT)/rootfs-$(LEG)-$(BOARD).tar
 DOCKER_RUN  = docker run --rm --platform $(PLATFORM) -v "$(CURDIR)":/src:ro -v "$(CURDIR)/$(OUT)":/out
 KVM         = $(shell [ -w /dev/kvm ] && echo --device /dev/kvm)
 
-.PHONY: help tools rootfs image fixtures battery firstboot bootlock dataenc convert hygiene hygiene-selftest lint test kit clean secureboot-image secureboot-test
+.PHONY: help tools rootfs image fixtures battery firstboot bootlock sysextguard dataenc convert hygiene hygiene-selftest lint test kit clean secureboot-image secureboot-test
 
 help:
 	@sed -n 's/^#   make/make/p' Makefile
@@ -98,6 +99,17 @@ bootlock:
 	  --log /out/bootlock-$(BOARD)/serial.log --results /out/bootlock-$(BOARD)/results.json; \
 	  rc=$$?; rm -f $(OUT)/bootlock-$(BOARD)/work/disk.img; exit $$rc
 
+
+# Signed host extensions only (test/qemu/sysextguard.py, T-W19-01 for #186 and founder decision Z-22): unsigned,
+# wrongly signed and directory extensions must never merge after a reboot or an A/B slot switch. Copies the
+# fixture disk like `firstboot`; throwaway keys are made inside the guest and never leave it.
+sysextguard:
+	@test -f $(OUT)/fx-$(BOARD)/disk.img || $(MAKE) fixtures BOARD=$(BOARD)
+	mkdir -p $(OUT)/sysextguard-$(BOARD)
+	$(DOCKER_RUN) $(KVM) $(TOOLS) python3 -I /src/test/qemu/sysextguard.py --board $(BOARD) \
+	  --fixtures /out/fx-$(BOARD) --work /out/sysextguard-$(BOARD)/work \
+	  --log /out/sysextguard-$(BOARD)/serial.log --results /out/sysextguard-$(BOARD)/results.json; \
+	  rc=$$?; rm -rf $(OUT)/sysextguard-$(BOARD)/work; exit $$rc
 
 # Memory pressure (test/qemu/memorypressure.py, CRITERIA-MEMORY.md): a 6 GiB hog on an 8 GiB hub VM; the gateway
 # /healthz must stay up. Copies the fixture disk like `firstboot`; needs KVM and 8 GiB free for the VM.

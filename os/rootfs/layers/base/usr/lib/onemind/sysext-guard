@@ -1,0 +1,46 @@
+#!/bin/sh
+# SPDX-License-Identifier: Apache-2.0
+# sysext-guard sysext|confext: runs before systemd-sysext / systemd-confext merge anything (ExecStartPre in
+# systemd-*ext.service.d/10-onemind-signed-only.conf). T-W19-01 (#186, test/qemu/CRITERIA-SYSEXT.md).
+#
+# Why: the merge itself runs with --image-policy=...signed+absent, so every disk image must carry a dm-verity
+# root hash signed by a certificate the box trusts. Two things that policy does not cover are refused here:
+#   1. plain directories: systemd merges a directory in an extension folder as is, with no image policy;
+#   2. certificates outside the read-only /usr: systemd also trusts /etc/verity.d and /run/verity.d, so a root
+#      that once wrote a key there could get its own images trusted. OneMind trusts /usr/lib/verity.d only.
+# Fail closed: one refused entry means nothing merges in this run; each refusal is logged with its path.
+# The optional second argument is a root prefix, used only by test/unit/test_sysext_guard.py.
+set -u
+kind=${1:-}
+R=${2:-}
+case $kind in
+  sysext)  dirs="/etc/extensions /run/extensions /var/lib/extensions" ;;
+  confext) dirs="/run/confexts /var/lib/confexts /usr/local/lib/confexts /usr/lib/confexts" ;;
+  *) echo "usage: sysext-guard sysext|confext" >&2; exit 2 ;;
+esac
+bad=0
+refuse() {
+  echo "ONEMIND-SYSEXT-GUARD: refused $kind path=$1 reason=$2" >&2
+  bad=1
+}
+for d in $dirs; do
+  [ -d "$R$d" ] || continue
+  for e in "$R$d"/* "$R$d"/.[!.]*; do
+    [ -e "$e" ] || [ -L "$e" ] || continue
+    if [ -d "$e" ]; then
+      refuse "${e#"$R"}" directory-extension
+    fi
+  done
+done
+for d in /etc/verity.d /run/verity.d; do
+  [ -e "$R$d" ] || [ -L "$R$d" ] || continue
+  if [ -n "$(ls -A "$R$d" 2>/dev/null)" ] || [ ! -d "$R$d" ]; then
+    refuse "$d" key-outside-usr
+  fi
+done
+if [ "$bad" -ne 0 ]; then
+  echo "ONEMIND-SYSEXT-GUARD: $kind merge refused (nothing merges until the entries above are removed)" >&2
+  exit 1
+fi
+echo "ONEMIND-SYSEXT-GUARD: $kind ok (disk images only, trusted keys only in /usr)" >&2
+exit 0
