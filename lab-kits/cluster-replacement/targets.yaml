@@ -20,8 +20,8 @@ workloads:
      verify: apps/hermes-agent/onemind.app.yaml, note: "tier is blocked today (image scan); fix before the move"}
   - {id: agent-mcp-and-tool-gateway, what: MCP bridge and tool gateway, kind: os-native, phase: P1,
      verify: core/tests/test_mcp.py, note: "gateway /mcp replaces both"}
-  - {id: password-manager, what: password manager, kind: market-app, app: vaultwarden, phase: P2,
-     verify: apps/vaultwarden/onemind.app.yaml}
+  - {id: password-manager, what: password manager, kind: os-native, phase: P2,
+     verify: apps/_system/vaultwarden/onemind.app.yaml, note: "built in as Passwords (#679)"}
   - {id: push-notifications, what: push notification server, kind: market-app, app: ntfy, phase: P2,
      verify: apps/ntfy/onemind.app.yaml}
   - {id: status-page, what: uptime and status page, kind: market-app, app: uptime-kuma, phase: P2,

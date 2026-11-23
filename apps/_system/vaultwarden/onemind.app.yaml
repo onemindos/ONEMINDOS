@@ -4,6 +4,10 @@
 # Sources: github.com/dani-garcia/vaultwarden release 1.37.5 (LICENSE.txt at that tag, licence row
 # C-LIC-062 in research-output/evidence/license-matrix.csv); the upstream wiki for docs; image
 # digest and archs from crane.
+# Built in as Passwords (#679): it lives in apps/_system/ and its id is on the signed list
+# os/rootfs/layers/onemind/usr/lib/onemind/system-apps.json. It ships unmodified, as a separate
+# program in its own namespace; OneMind links none of its code. Switching it off scales it to zero and
+# keeps the vault volume; nobody can remove it or delete its data.
 apiVersion: onemind.app/v1alpha1
 kind: App
 metadata:
@@ -33,3 +37,4 @@ spec:
   manifests: manifests/
   # automerge stays none until renovate.json lists this app (validate-apps check 9).
   updates: {channel: stable, automerge: none}
+  system: {class: container, update: own, disable: allowed, keepDataOnDisable: true}
