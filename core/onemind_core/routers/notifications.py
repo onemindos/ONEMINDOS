@@ -8,6 +8,9 @@ Who may do what (the handlers; household accounts and identity tokens also need 
 - inbox, channels, preferences, push devices: people only, each their own (owners also list all
   channels). These are personal settings: direct writes, audited, never actions.
 - send: agents only, under their own `plugin.<id>` topic, rate-limited; recipients are the owners.
+  Built-in apps post in-process through their app principal (notify/topics.py), not over HTTP.
+- sources: people read the notification sources; owners mute and unmute them (a direct write,
+  audited); a flooding source is muted by the gateway with one note to the owners.
 """
 
 from __future__ import annotations
@@ -37,6 +40,7 @@ from ..notify.channels import (
     validate_config, validate_device,
 )
 from ..notify.ids import new_id
+from ..notify.topics import SOURCE_ID_RE, TopicRegistry
 from ..notify.store import (
     ChannelRow, DeviceRow, alert_json, channel_json, decode_cursor, device_json, encode_cursor,
     notification_json,
@@ -68,6 +72,7 @@ for _methods, _path, _scopes in (
     ("POST", r"/v1/notifications/[^/]+/read", ("notifications:read", "notifications:write")),
     ("POST,PATCH,DELETE", r"/v1/notifications/channels(/.*)?", ("notifications:write",)),
     ("PUT", r"/v1/notifications/preferences", ("notifications:write",)),
+    ("PUT", r"/v1/notifications/sources/[^/]+", (ALL,)),  # owner only (handler)
     ("POST", r"/v1/notifications/send", ("notifications:send",)),
     ("GET,HEAD", r"/v1/push/vapid-public-key", None),  # any principal: a public key
     ("GET,HEAD", r"/v1/push/registrations", ("notifications:read",)),
@@ -95,6 +100,17 @@ class ChannelPatch(BaseModel):
     secret: str | None = Field(default=None, max_length=4096)
 
 
+class NotificationActionIn(BaseModel):
+    """A button on the notification (notify/topics.py check_actions): open an in-app link, or let the
+    person who taps it file a normal request that still needs an approval. There is no approve kind."""
+    model_config = ConfigDict(extra="forbid")
+    id: str = Field(pattern=r"^[a-z][a-z0-9_-]{0,31}$")
+    label: str = Field(min_length=1, max_length=40)
+    kind: Literal["open", "request"]
+    link: str | None = Field(default=None, max_length=300)
+    request: dict | None = None
+
+
 class SendIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     severity: Literal["info", "warning", "critical"]
@@ -102,6 +118,34 @@ class SendIn(BaseModel):
     title: str = Field(min_length=1, max_length=200)
     body: str = Field(default="", max_length=4096)
     dedupe_key: str | None = Field(default=None, max_length=200)
+    asset_id: str | None = Field(default=None, max_length=128, description="the map asset this is about")
+    group_key: str | None = Field(default=None, max_length=200, description="items with one key belong together")
+    actions: list[NotificationActionIn] = Field(default_factory=list, max_length=3)
+
+
+class NotificationSourceTopic(BaseModel):
+    id: str
+    topic: str            # app.<app_id>.<id> or plugin.<id>
+    title: str | None = None
+
+
+class NotificationSource(BaseModel):
+    """One notification source (notify/topics.py): a built-in app (app:<id>) or a plugin or agent (plugin:<id>)."""
+    id: str
+    kind: Literal["app", "plugin"]
+    app_id: str | None = None
+    name: str
+    topics: list[NotificationSourceTopic]
+    muted: bool
+    muted_reason: Literal["owner", "flood"] | None = None
+    muted_by: str | None = None
+    muted_at: str | None = None
+    posts_last_hour: int  # rate meter: posts tried in the last hour (since the gateway started)
+
+
+class NotificationSourceIn(JsonBody):
+    model_config = ConfigDict(extra="forbid")
+    muted: bool
 
 
 class PushIn(BaseModel):
@@ -173,6 +217,7 @@ ORDER = 240
 
 def register(app: FastAPI, gw: Gateway) -> None:
     svc = NotifyService(gw)
+    svc.topics = TopicRegistry(getattr(app.state, "builtins", None))  # routers/builtins.py, ORDER 135
     svc.attach()
     app.state.notify = svc
     principal = gw.principal
@@ -419,12 +464,32 @@ def register(app: FastAPI, gw: Gateway) -> None:
         audit(p, "preferences.updated", {"person_id": p.id, "etag": tag})
         return JSONResponse(content=doc, headers={"ETag": tag})
 
+    # ---- sources (per-app controls) -------------------------------------------------------
+    @app.get("/v1/notifications/sources", operation_id="notifications.sources.list", tags=[TAG],
+             response_model=list[NotificationSource], responses=error_responses(401, 403))
+    def list_sources(p: Principal = Depends(principal)):
+        _person(p)
+        return svc.sources()
+
+    @app.put("/v1/notifications/sources/{source_id}", operation_id="notifications.sources.set", tags=[TAG],
+             response_model=NotificationSource, responses=error_responses(401, 403, 422))
+    def set_source(source_id: str, body: NotificationSourceIn, p: Principal = Depends(principal)):
+        if not p.is_owner:
+            raise _denied(gw, p, "mute a notification source", "only owners mute or unmute notification sources")
+        if not SOURCE_ID_RE.match(source_id):
+            raise ApiError(422, "conflict", "source id is app:<app-id> or plugin:<id>")
+        svc.set_muted(source_id, body.muted, by=p.id, reason="owner")
+        audit(p, "source.muted" if body.muted else "source.unmuted", {"source_id": source_id})
+        return next(s for s in svc.sources() if s["id"] == source_id)
+
     # ---- send (agents) ------------------------------------------------------------------
     @app.post("/v1/notifications/send", operation_id="notifications.send", tags=[TAG], status_code=202,
               responses={429: {"description": "rate_limited (Retry-After)"}, **error_responses(401, 403, 422)})
     def send(body: SendIn, p: Principal = Depends(principal)):
         try:
-            out = svc.send_from(p, body.severity, body.topic, body.title, body.body, body.dedupe_key)
+            out = svc.post(p, topic=body.topic, severity=body.severity, title=body.title, body=body.body,
+                           asset_id=body.asset_id, group_key=body.group_key, dedupe_key=body.dedupe_key,
+                           actions=[a.model_dump(exclude_none=True) for a in body.actions])
         except PermissionError as exc:
             raise _denied(gw, p, "send a notification", str(exc)) from None
         except ValueError as exc:

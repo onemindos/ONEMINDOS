@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: Apache-2.0
+# Unsafe operations (POST, PUT, PATCH, DELETE) that do not take an Idempotency-Key header on purpose
+# (rule `idempotency`). One line each: METHOD /path  # why. A gateway that replays a stored answer
+# for a repeated key must never store a secret, so routes that answer with fresh credentials are
+# here; so are routes whose own protocol already makes a retry safe.
+POST /v1/auth/login/options  # read only: returns a fresh challenge, nothing changes
+POST /v1/auth/login  # answers with fresh tokens, which a replay store must not keep; a retry signs in again
+POST /v1/auth/refresh  # answers with fresh tokens; refresh-token rotation already rejects a replay
+DELETE /v1/auth/app-session  # clearing the caller's own cookie twice is the same as once
+POST /v1/auth/logout  # ending the caller's own session twice is the same as once
+PATCH /v1/files/uploads/{upload_id}  # tus: the Upload-Offset header makes a retried chunk safe
+PATCH /v1/photos/uploads/{upload_id}  # tus: the Upload-Offset header makes a retried chunk safe
+POST /v1/actions  # contract §12.1: keeps its §3 body field idempotency_key instead of the header

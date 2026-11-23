@@ -22,7 +22,7 @@ func (r replay) Run(_ context.Context, name string, args ...string) ([]byte, int
 		"lsblk": "blank.lsblk.json", "findmnt": r.prefix + ".findmnt.json", "smartctl": "virtio.smartctl.json",
 	}[name]
 	if name == "btrfs" {
-		file = r.prefix + map[string]string{"show": ".show.txt", "df": ".df.txt", "stats": ".stats.txt"}[args[1]]
+		file = r.prefix + map[string]string{"show": ".show.txt", "df": ".df.txt", "stats": ".stats.txt", "usage": ".usage.txt"}[args[1]]
 	}
 	b, err := os.ReadFile(filepath.Join("..", "..", "..", "internal", "storage", "testdata", file))
 	if name == "smartctl" {
@@ -53,6 +53,9 @@ func TestStorageCLI(t *testing.T) {
 		{"unprotected", []string{"health"}, []string{"unknown", "Unable to detect device type"}},
 		{"degraded-written", []string{"status"}, []string{"DEGRADED (mounted degraded)", "MISSING", "Data      single", "reconnect -> scrub -> soft-convert"}},
 		{"repaired", []string{"status", "--json"}, []string{`"state": "protected"`}},
+		{"mirror-usage", []string{"status"}, []string{"PROTECTED", "free      1.7GiB (measured by btrfs, after mirroring)"}},
+		{"mirror-usage", []string{"status", "--json"}, []string{`"available_bytes": 1869611008`}},
+		{"repaired", []string{"status"}, []string{"free      unknown"}},
 		{"unprotected", []string{"plan", "protect", "--device", "/dev/vdc"}, []string{"WILL ERASE: /dev/vdc", "btrfs device add /dev/vdc1 /data", "# ERASES DATA", "plan_sha256:"}},
 		{"unprotected", []string{"plan", "create", "--device", "/dev/vda"}, []string{"[FAIL] not-system:/dev/vda", "BLOCKED"}},
 		{"returned", []string{"plan", "repair", "--json"}, []string{`"kind": "repair"`, `"blocked": false`}},

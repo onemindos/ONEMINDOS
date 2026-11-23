@@ -477,16 +477,26 @@ def nats_service_keys(p: Paths) -> None:
     if ids:
         os.chown(os.path.join(p.nats_keys, "gateway.nk"), *ids)
     # The first accounts file (hub account with the two service keys); the gateway owns and rewrites it.
-    os.environ.setdefault("ONEMIND_FABRIC_JETSTREAM_MAX_BYTES", str(JETSTREAM_MAX_BYTES))
+    os.environ.setdefault("ONEMIND_FABRIC_JETSTREAM_MAX_BYTES", str(jetstream_max_bytes(p)))
     natsconf.main([p.accounts, p.nats_keys])
 
 
 # The hub NATS reads copies of these from its runtime dir (onemind-nats.service, onemind-nats-files).
 NATS_RUN = "/run/onemind-nats"
-# The hub's JetStream store: the bind mount /var/lib/onemind-nats (fstab), 4 GiB at most.
+# The hub's JetStream store: the bind mount /var/lib/onemind-nats (fstab), on the data disk.
 JETSTREAM_MOUNT = "/var/lib/onemind-nats"
 JETSTREAM_DIR = JETSTREAM_MOUNT + "/jetstream"
-JETSTREAM_MAX_BYTES = 4 << 30
+
+
+def jetstream_max_bytes(p: Paths) -> int:
+    """The hub's JetStream cap: a share of the data disk (core/onemind_core/jetstream.py, #601), never a
+    fixed size. Read from the disk's total size, so the same disk always gives the same cap. A disk too
+    small for JetStream raises: the hub is not set up with an uncapped or a useless store."""
+    from onemind_core import jetstream  # the gateway venv (stdlib only at import)
+    d = os.path.dirname(p.data)  # /data
+    while not os.path.exists(d) and os.path.dirname(d) != d:
+        d = os.path.dirname(d)   # not mounted yet (or a test root): the disk that will hold it
+    return jetstream.cap_for_path(d)
 
 
 # onemind-nats.service waits for the mesh address only when this line is in nats.conf. A box set up before
@@ -494,10 +504,15 @@ JETSTREAM_MAX_BYTES = 4 << 30
 MESH_LEAF_MARKER = "# onemind: mesh leaf listener"
 
 
-def hub_nats_conf(mesh_ip: str | None = None) -> str:
+def hub_nats_conf(mesh_ip: str | None = None, js_max_bytes: int | None = None) -> str:
     """The hub NATS as deploy/install.sh nats_install writes it: clients on loopback only, each with its
     own nkey (the included accounts file); with the mesh, the leaf-node listener on the hub's mesh
-    address with TLS from the box CA, and nodes must present a certificate from it (verify)."""
+    address with TLS from the box CA, and nodes must present a certificate from it (verify).
+    `js_max_bytes` is the JetStream cap (default: jetstream_max_bytes of /data); 0 or less is refused (#601)."""
+    if js_max_bytes is None:
+        js_max_bytes = jetstream_max_bytes(Paths("/"))
+    if isinstance(js_max_bytes, bool) or not isinstance(js_max_bytes, int) or js_max_bytes <= 0:
+        raise ValueError("hub nats.conf: JetStream without a cap is refused (#601)")
     out = ("# Written by onemind-firstboot (docs/leap/core/IMAGES.md §3; NETWORKING.md §7). Do not edit.\n"
            "# No shared secret: every client signs in with its own nkey (nats-accounts.conf, public keys only).\n"
            "server_name: hub\nlisten: 127.0.0.1:4222\nhttp: 127.0.0.1:8222\nmax_payload: 1MB\n"
@@ -505,7 +520,7 @@ def hub_nats_conf(mesh_ip: str | None = None) -> str:
            'ping_interval: "20s"\nping_max: 2\nwrite_deadline: "10s"\n'
            "# JetStream for app event streams (streams.py): file store only on the data disk, capped\n"
            "# in total; the ONEMIND account gets the same cap in nats-accounts.conf (natsconf.py).\n"
-           f'jetstream {{\n  store_dir: "{JETSTREAM_DIR}"\n  max_file_store: {JETSTREAM_MAX_BYTES}\n  max_memory_store: 0\n}}\n')
+           f'jetstream {{\n  store_dir: "{JETSTREAM_DIR}"\n  max_file_store: {js_max_bytes}\n  max_memory_store: 0\n}}\n')
     if mesh_ip:
         out += (f"{MESH_LEAF_MARKER}\n"
                 "leafnodes {\n"
@@ -522,9 +537,10 @@ def hub_nats_conf(mesh_ip: str | None = None) -> str:
     return out + 'include "nats-accounts.conf"\n'
 
 
-def gateway_env(p: Paths, st: dict, mesh_ip: str | None = None) -> str:
+def gateway_env(p: Paths, st: dict, mesh_ip: str | None = None, js_max_bytes: int | None = None) -> str:
     """gateway.env, as deploy/install.sh gateway_env, from the state and what `mesh` found."""
     g, box, lan = p.gateway, st["box"], known_lan(p)
+    js_max_bytes = jetstream_max_bytes(p) if js_max_bytes is None else js_max_bytes
     out = ("# Written by onemind-firstboot (core/README.md \"Environment\"; deploy/install.sh gateway_env)\n"
            f"ONEMIND_TOKENS_FILE={g}/tokens.yaml\nONEMIND_DATA_DIR={g}\n"
            f"ONEMIND_DB_URL=sqlite:///{g}/onemind.db\nONEMIND_AUDIT_PATH={g}/audit.jsonl\n"
@@ -549,7 +565,7 @@ def gateway_env(p: Paths, st: dict, mesh_ip: str | None = None) -> str:
            f"ONEMIND_FABRIC_NATS_ACCOUNTS_FILE={p.accounts}\n"
            f"ONEMIND_FABRIC_NATS_SERVICE_KEYS={p.nats_keys}\n"
            f"ONEMIND_FABRIC_NATS_NKEY_SEED={p.nats_keys}/gateway.nk\n"
-           f"ONEMIND_FABRIC_JETSTREAM_MAX_BYTES={JETSTREAM_MAX_BYTES}\nONEMIND_FABRIC_JETSTREAM_PATH={JETSTREAM_MOUNT}\n")
+           f"ONEMIND_FABRIC_JETSTREAM_MAX_BYTES={js_max_bytes}\nONEMIND_FABRIC_JETSTREAM_PATH={JETSTREAM_MOUNT}\n")
     out += backup_gateway_env(p)
     if mesh_ip:
         out += ("# The mesh (written by `onemind-firstboot mesh` once the hub has its mesh address).\n"
@@ -796,7 +812,7 @@ def configure(p: Paths, cfg: dict, source: str) -> str | None:
         st["ca_sha256"] = make_ca(p, box)
         ensure_rescue_tls(p)                # CORE-UPDATE-9: needs the box CA above
         nats_service_keys(p)
-        write(os.path.join(p.etc, "nats.conf"), hub_nats_conf(None))
+        write(os.path.join(p.etc, "nats.conf"), hub_nats_conf(None, jetstream_max_bytes(p)))
         write(os.path.join(p.etc, "onemindd.env"),
               "# Written by onemind-firstboot (contract §1)\n"
               "ONEMIND_NATS_URL=nats://127.0.0.1:4222\n"
@@ -1098,7 +1114,7 @@ def _mesh(p: Paths, st: dict, sleep) -> str:
         log("mesh: gateway Headscale API key written")
     # 9. NATS gets its leaf listener; the gateway its mesh settings. Restart what changed.
     changed = []
-    if write(os.path.join(p.etc, "nats.conf"), hub_nats_conf(ip)):
+    if write(os.path.join(p.etc, "nats.conf"), hub_nats_conf(ip, jetstream_max_bytes(p))):
         changed.append("onemind-nats.service")
     if write(os.path.join(p.etc, "gateway.env"), gateway_env(p, st, ip)):
         changed.append("onemind-gateway.service")

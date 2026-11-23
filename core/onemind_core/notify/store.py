@@ -9,6 +9,7 @@ deliveries     one notification (or summary) to one channel or device: queued, h
 channels       a person's outbound channels; the secret is sealed (SecretBox), never returned
 devices        push registrations (Web Push / UnifiedPush); endpoint and keys sealed
 preferences    a person's routing document (contract §12.14)
+sources        the owner's mute switch per notification source (`app:<id>`, `plugin:<id>`; topics.py)
 """
 
 from __future__ import annotations
@@ -25,6 +26,17 @@ from ..ledger import Base, iso, utc
 from ..store import Database, FeatureSchema, SqlRepository
 
 SCHEMA = FeatureSchema("notify")
+
+
+@SCHEMA.step(2, "where an inbox item came from: source kind, app, asset, group key, actions (#613)")
+def _notify_v2(conn) -> None:
+    from sqlalchemy import inspect, text
+
+    have = {c["name"] for c in inspect(conn).get_columns("notify_notifications")}
+    for name, ddl in (("source_kind", "VARCHAR(16) NOT NULL DEFAULT 'system'"), ("app_id", "VARCHAR(80)"),
+                      ("asset_id", "VARCHAR(128)"), ("group_key", "VARCHAR(200)"), ("actions_json", "TEXT")):
+        if name not in have:
+            conn.execute(text(f"ALTER TABLE notify_notifications ADD COLUMN {name} {ddl}"))
 
 
 class AlertRow(Base):
@@ -69,6 +81,11 @@ class NotificationRow(Base):
     source: Mapped[str] = mapped_column(String(120))
     action_id: Mapped[str | None] = mapped_column(String(40), nullable=True)
     alert_id: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    source_kind: Mapped[str] = mapped_column(String(16), default="system", server_default="system")
+    app_id: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    asset_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    group_key: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    actions_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     __table_args__ = (Index("notify_notifications_person_created", "person_id", "created_at"),)
@@ -130,6 +147,16 @@ class PreferencesRow(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
+class SourceRow(Base):
+    __tablename__ = "notify_sources"
+    source_id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    muted: Mapped[bool] = mapped_column(Boolean, default=False)
+    reason: Mapped[str | None] = mapped_column(String(16), nullable=True)   # owner | flood
+    muted_by: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    muted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
 # ---- JSON views --------------------------------------------------------------------------
 
 def alert_json(r: AlertRow) -> dict:
@@ -150,6 +177,8 @@ def notification_json(r: NotificationRow) -> dict:
     return {
         "id": r.id, "severity": r.severity, "topic": r.topic, "title": r.title, "body": r.body,
         "link": r.link, "source": r.source, "action_id": r.action_id, "alert_id": r.alert_id,
+        "source_kind": r.source_kind or "system", "app_id": r.app_id, "asset_id": r.asset_id,
+        "group_key": r.group_key, "actions": json.loads(r.actions_json) if r.actions_json else [],
         "created_at": iso(r.created_at), "read_at": iso(r.read_at),
     }
 
@@ -420,6 +449,19 @@ class NotifyRepository(SqlRepository):
         ).returning(PreferencesRow.person_id)
         with self.db.session.begin() as s:
             s.execute(stmt).scalar()
+
+    # ---- sources (topics.py) ----------------------------------------------------------------
+    def get_source(self, source_id: str) -> SourceRow | None:
+        with self.db.session() as s:
+            return s.get(SourceRow, source_id)
+
+    def list_sources(self) -> list[SourceRow]:
+        with self.db.session() as s:
+            return list(s.scalars(select(SourceRow).order_by(SourceRow.source_id)))
+
+    def save_source(self, row: SourceRow) -> None:
+        with self.db.session.begin() as s:
+            s.merge(row)
 
     # ---- retention (NOTIFICATIONS.md §9) ---------------------------------------------------
     def prune(self, now: datetime) -> None:

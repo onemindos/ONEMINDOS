@@ -1,10 +1,16 @@
 # SPDX-License-Identifier: Apache-2.0
-"""GET /v1/events: the live stream of contract §12.8 (Server-Sent Events), DEV-API-8.
+"""GET /v1/events: the live stream of contract §12.8 (Server-Sent Events), DEV-API-8 and #606.
 
-Where events come from:
-- the audit log. Every state change the gateway makes is an audit record, so the stream follows
-  the file and turns records into `onemind.event/v1` envelopes. The event id is the audit `seq`:
-  monotonic, durable, and the resume point (`Last-Event-ID` or `?since_id=`);
+Where events come from (fanout.py has the one reader per source; each stream has its own queue):
+- the audit log. Every state change the gateway makes is an audit record; the stream turns records
+  into `onemind.event/v1` envelopes. The event id is the audit `seq`: monotonic, durable, and the
+  resume point (`Last-Event-ID` or `?since_id=`). A replay reads the file; live records come from the
+  one AuditPump, woken by each append, so an idle stream reads nothing;
+- asset values (#606): `asset.value` and `asset.removed` from the hub's asset-state bucket, opt-in
+  with `types=asset.*`. On connect the stream first sends the current value of every asset the caller
+  may see (`data.snapshot: true`), then `stream.snapshot` {count, state}, then changes, latest-wins per
+  key. `?kind=` (asset classes) and `?bbox=` (min_lon,min_lat,max_lon,max_lat) narrow them for a map.
+  They carry no SSE id: a reconnect gets a fresh snapshot instead of a replay;
 - the node registry, polled every few seconds: a `node.status` event when a node's status
   changes. These are not durable and carry no SSE `id:`, so they never move the resume point;
 - notification read state (#682): `notification.read` {notification_id} and
@@ -14,7 +20,8 @@ Where events come from:
   the caller may read has a new revision. It is a wake-up, not the log: at most one per root per
   poll, no id, and the caller reads what changed from GET /v1/sync/changes.
 
-Events carry ids and states only; a client reads the full object over REST (SDK.md §3.9).
+Facts always go before values. A stream that falls FACT_QUEUE_MAX facts (or VALUE_KEYS_MAX asset keys)
+behind gets `stream.reset` {reason: slow_client} and ends; it reconnects with Last-Event-ID.
 Replay reaches back REPLAY_MAX records; an older resume point gets `stream.reset` first.
 """
 
@@ -29,16 +36,20 @@ from pathlib import Path
 
 from .auditread import can_read_all, glob_any, iter_records
 from .auth import Principal
+from .fanout import AssetState, AssetValue, AssetView, AuditPump, Subscriber
+from .identity.scopes import has_any, role_scopes
 
 
 SCHEMA = "onemind.event/v1"
 REPLAY_MAX = 10_000
 KEEPALIVE_S = 15.0
-POLL_S = 0.5
+POLL_S = 2.0          # longest an idle stream sleeps (new facts and values wake it at once)
 NODE_POLL_S = 2.0
+DRAIN_MAX = 256       # items sent between two checks of the connection and the node poll
 MAX_STREAMS_PER_PRINCIPAL = 5
 # Person roles whose §12.6 defaults include nodes:read (agents have it in every grant bundle).
 NODE_READERS = {"owner", "adult", "guest"}
+ASSET_SCOPE = "assets:read"
 
 # audit event -> the action state it moves to (§3 states).
 ACTION_STATES = {
@@ -112,6 +123,29 @@ def sse(event: dict, with_id: bool = True) -> bytes:
     return f"{head}event: {event['type']}\ndata: {data}\n\n".encode()
 
 
+def asset_event(v: AssetValue, ts: str, *, snapshot: bool = False, removed: bool = False) -> dict:
+    """`asset.value` {revision, snapshot, datapoint} or `asset.removed` {revision} for one asset key.
+
+    The envelope id is `asset:<revision>`: the KV revision is the bucket's stream sequence, unique
+    across every key, so the id never outgrows onemind.event/v1's 128 characters (a key alone can be
+    64 + 128 + 64 characters long). The asset is named by `subject`, not by the id."""
+    subject = {"asset_id": v.asset_id, "asset_class": v.asset_class, "field": v.field}
+    if removed:
+        return _envelope(f"asset:{v.revision}", "asset.removed", ts, subject, {"revision": v.revision})
+    return _envelope(f"asset:{v.revision}", "asset.value", ts, subject,
+                     {"revision": v.revision, "snapshot": snapshot, "datapoint": v.datapoint})
+
+
+def may_read_assets(p: Principal, scopes: frozenset[str] | set[str] | None) -> bool:
+    """assets:read: an identity credential's own scopes; otherwise the person's role defaults, or an
+    agent token that lists it. Plugins, nodes, automations, guests and children have no grant."""
+    if scopes is not None:
+        return has_any(scopes, (ASSET_SCOPE,))
+    if p.kind == "person":
+        return has_any(role_scopes(p.role), (ASSET_SCOPE,))
+    return p.kind == "agent" and p.scopes is not None and ASSET_SCOPE in p.scopes
+
+
 class StreamSlots:
     """At most MAX_STREAMS_PER_PRINCIPAL open streams per principal (§12.1 limits)."""
 
@@ -140,6 +174,7 @@ class EventStream:
         owned_action_ids: Callable[[str], set[str]],
         clock: Callable[[], datetime],
         root_revisions: Callable[[Principal], dict[str, int]] | None = None,
+        assets: AssetState | None = None,
     ):
         self.audit_path = audit_path
         self.list_nodes = list_nodes
@@ -147,6 +182,15 @@ class EventStream:
         self.clock = clock
         # The roots this principal may read as a whole -> their revision (files sync index).
         self.root_revisions = root_revisions
+        self.pump = AuditPump(audit_path)
+        self.assets = assets
+        if assets is not None:
+            assets.listeners.append(self._on_asset)
+
+    def _on_asset(self, op: str, v: AssetValue) -> None:
+        for sub in self.pump.subscribers():
+            if sub.wants(v):
+                sub.push_value(op, v)
 
     def _allowed(self, p: Principal, resource_allowed: Callable[[dict], bool] | None = None) -> Callable[[dict], bool]:
         """Per-principal filter (§12.8): audit.* needs audit:read; agents see their own actions;
@@ -179,7 +223,7 @@ class EventStream:
                 return False
             if resource_allowed is not None and not resource_allowed(ev):
                 return False
-            if t.startswith(("alert.", "notification.", "app.")):
+            if t.startswith(("alert.", "notification.", "app.", "asset.")):
                 return resource_allowed is not None
             if t.startswith("audit."):
                 return full
@@ -193,7 +237,7 @@ class EventStream:
                 return nodes
             if t == "sync.root_changed":  # root_revisions already lists only roots this caller may read
                 return True
-            return t == "stream.reset"
+            return t in ("stream.reset", "stream.snapshot")
 
         return ok
 
@@ -207,7 +251,13 @@ class EventStream:
         poll_s: float = POLL_S,
         keepalive_s: float = KEEPALIVE_S,
         resource_allowed: Callable[[dict], bool] | None = None,
+        kinds: frozenset[str] | None = None,
+        bbox: tuple[float, float, float, float] | None = None,
+        asset_allowed: Callable[[AssetValue], bool] | None = None,
     ) -> AsyncIterator[bytes]:
+        """resource_allowed judges each envelope (scopes, audiences); asset_allowed also judges each
+        asset value itself (class, id, field and datapoint: the gateway asset filters), before the
+        snapshot and every change. Without resource_allowed no asset event is sent at all."""
         allowed = self._allowed(p, resource_allowed)
 
         def wanted(ev: dict) -> bool:
@@ -221,70 +271,113 @@ class EventStream:
                 return None
             return next((ev for ev in candidates if wanted(ev)), None)
 
-        yield b"retry: 3000\n\n"
-        # Replay or start at the head.
-        offset, head = 0, 0
-        records = list(iter_records(self.audit_path))
-        if records:
-            offset, head = records[-1][0], records[-1][1]["seq"]
-        if since_id is not None:
-            oldest_kept = max(1, head - REPLAY_MAX + 1)
-            if since_id + 1 < oldest_kept or since_id > head:
-                reset = _envelope(str(head), "stream.reset", self._now(), {}, {"reason": "replay_unavailable"})
-                yield sse(reset, with_id=False)
-            else:
-                for _, rec in records:
-                    if rec["seq"] > since_id:
-                        ev = selected(rec)
-                        if ev is not None:
-                            yield sse(ev)
-        del records
-        nodes = {n["node_id"]: n.get("status") for n in self.list_nodes()}
-        roots = self._roots(p)
+        # Asset values are many and carry values: only a stream that names them gets them.
+        assets_on = self.assets is not None and bool(types) and glob_any(types, "asset.value")
+        view = AssetView(kinds, bbox, self.assets.position if self.assets is not None else lambda c, i: None)
+
+        def asset_out(v: AssetValue, *, snapshot: bool = False, removed: bool = False) -> bytes | None:
+            if not view.passes(v, removed):
+                return None
+            if asset_allowed is not None and not asset_allowed(v):
+                return None
+            ev = asset_event(v, self._now(), snapshot=snapshot, removed=removed)
+            return sse(ev, with_id=False) if wanted(ev) else None
+
         loop = asyncio.get_running_loop()
-        last_out = last_nodes = loop.time()
-        while True:
-            if await is_disconnected():
-                return
-            sent = False
-            try:
-                if self.audit_path.stat().st_size < offset:
-                    offset = 0  # the log was rotated: the active file started over
-            except OSError:
-                pass
-            for pos, rec in iter_records(self.audit_path, offset):
-                offset = pos
-                ev = selected(rec)
-                if ev is not None:
-                    yield sse(ev)
-                    sent = True
-            now = loop.time()
-            if now - last_nodes >= NODE_POLL_S:
-                last_nodes = now
-                current = {n["node_id"]: n.get("status") for n in self.list_nodes()}
-                for node_id, status in sorted(current.items()):
-                    if nodes.get(node_id) != status:
-                        ev = _envelope(f"node:{node_id}:{status}", "node.status", self._now(),
-                                       {"node_id": node_id}, {"status": status, "previous": nodes.get(node_id)})
-                        if wanted(ev):
-                            yield sse(ev, with_id=False)
-                            sent = True
-                nodes = current
-                current_roots = self._roots(p)
-                for root, revision in sorted(current_roots.items()):
-                    if root in roots and revision > roots[root]:
-                        ev = _envelope(f"sync:{root}:{revision}", "sync.root_changed", self._now(),
-                                       {"root": root}, {"revision": revision})
-                        if wanted(ev):
-                            yield sse(ev, with_id=False)
-                            sent = True
-                roots = current_roots
-            if sent:
-                last_out = now
-            elif now - last_out >= keepalive_s:
-                yield b": keepalive\n\n"
-                last_out = now
-            await asyncio.sleep(poll_s)
+        sub = Subscriber(loop, assets=assets_on, kinds=kinds)
+        # Attach before reading the head, so nothing written in between is missed (seq dedupes).
+        self.pump.attach(sub)
+        try:
+            # Replay or start at the head, read right after attaching.
+            head = 0
+            records = list(iter_records(self.audit_path))
+            if records:
+                head = records[-1][1]["seq"]
+            yield b"retry: 3000\n\n"
+            if since_id is not None:
+                oldest_kept = max(1, head - REPLAY_MAX + 1)
+                if since_id + 1 < oldest_kept or since_id > head:
+                    reset = _envelope(str(head), "stream.reset", self._now(), {}, {"reason": "replay_unavailable"})
+                    yield sse(reset, with_id=False)
+                else:
+                    for _, rec in records:
+                        if rec["seq"] > since_id:
+                            ev = selected(rec)
+                            if ev is not None:
+                                yield sse(ev)
+            del records
+            last_seq = head
+            if assets_on:
+                count = 0
+                for v in self.assets.snapshot():
+                    chunk = asset_out(v, snapshot=True)
+                    if chunk is not None:
+                        count += 1
+                        yield chunk
+                # A control event, like stream.reset: sent whatever `types` says.
+                done = _envelope(str(head), "stream.snapshot", self._now(), {},
+                                 {"count": count, "state": self.assets.state})
+                yield sse(done, with_id=False)
+            nodes = {n["node_id"]: n.get("status") for n in self.list_nodes()}
+            roots = self._roots(p)
+            last_out = last_nodes = loop.time()
+            while True:
+                if await is_disconnected():
+                    return
+                sent = False
+                for _ in range(DRAIN_MAX):
+                    if sub.reset:
+                        reset = _envelope(str(last_seq), "stream.reset", self._now(), {}, {"reason": sub.reset})
+                        yield sse(reset, with_id=False)
+                        return
+                    item = sub.next()
+                    if item is None:
+                        break
+                    op, obj = item
+                    if op == "fact":
+                        if obj["seq"] <= last_seq:
+                            continue  # already replayed, or written before this stream started
+                        last_seq = obj["seq"]
+                        ev = selected(obj)
+                        chunk = sse(ev) if ev is not None else None
+                    else:
+                        chunk = asset_out(obj, removed=op == "removed")
+                    if chunk is not None:
+                        yield chunk
+                        sent = True
+                self.pump.poll()
+                now = loop.time()
+                if now - last_nodes >= NODE_POLL_S:
+                    last_nodes = now
+                    current = {n["node_id"]: n.get("status") for n in self.list_nodes()}
+                    for node_id, status in sorted(current.items()):
+                        if nodes.get(node_id) != status:
+                            ev = _envelope(f"node:{node_id}:{status}", "node.status", self._now(),
+                                           {"node_id": node_id}, {"status": status, "previous": nodes.get(node_id)})
+                            if wanted(ev):
+                                yield sse(ev, with_id=False)
+                                sent = True
+                    nodes = current
+                    current_roots = self._roots(p)
+                    for root, revision in sorted(current_roots.items()):
+                        if root in roots and revision > roots[root]:
+                            ev = _envelope(f"sync:{root}:{revision}", "sync.root_changed", self._now(),
+                                           {"root": root}, {"revision": revision})
+                            if wanted(ev):
+                                yield sse(ev, with_id=False)
+                                sent = True
+                    roots = current_roots
+                if sent:
+                    last_out = now
+                elif now - last_out >= keepalive_s:
+                    yield b": keepalive\n\n"
+                    last_out = now
+                if sub.waiting():
+                    continue  # more than DRAIN_MAX was waiting: go on without sleeping
+                await sub.wait(min(poll_s, NODE_POLL_S or poll_s,
+                                   max(0.01, keepalive_s - (loop.time() - last_out))))
+        finally:
+            self.pump.detach(sub)
 
     def _roots(self, p: Principal) -> dict[str, int]:
         if self.root_revisions is None:
