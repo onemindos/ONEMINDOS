@@ -716,6 +716,37 @@ POLICY |= {
                                         f"{_SYS}: owner or agent requests a restart; only an owner approves it"),
 }
 
+# ---- share links (FILES-02, #237: core/onemind_core/routers/shares.py) ------------------------------------
+# Only an owner or adult publishes files outside the household (files:share); guests, children and agents are
+# refused before any lookup. The /v1/share routes take no principal: the link secret in the path is the only
+# credential, so a secret the box never issued is 404 for every caller, with or without a bearer token.
+_SHARE = "core/onemind_core/files/shares.py"
+POLICY |= {
+    ("POST", "/v1/files/shares"): Row(grid(404, 404, 403, 403, 403), w.p_share_create,
+                                      f"{_SHARE}: owner and adult share what they can read; agents never publish files"),
+    ("GET", "/v1/files/shares"): Row(READ_ANY, w.p_static("/v1/files/shares"),
+                                     f"{_SHARE}: each person their own links, an owner everyone's; others see none"),
+    ("DELETE", "/v1/files/shares/{share_id}"): Row(READ_ANY_404, w.p_static(f"/v1/files/shares/{w.SHARE_ID}"),
+                                                   f"{_SHARE}: the creator or an owner revokes; nobody else sees it"),
+    ("GET", "/v1/share/{token}"): Row(cells(404), w.p_static(f"/v1/share/{w.SHARE_TOKEN}"),
+                                      f"{_SHARE}: anonymous; the link secret is the credential"),
+    ("GET", "/v1/share/{token}/items/{index}"): Row(cells(404), w.p_static(f"/v1/share/{w.SHARE_TOKEN}/items/0"),
+                                                    f"{_SHARE}: anonymous; the link secret is the credential"),
+}
+
+# ---- fleet-staged OS updates (CORE-UPDATE-9, #156: core/onemind_core/routers/rollouts.py) ------------------
+_ROLL = "core/onemind_core/routers/rollouts.py"
+POLICY |= {
+    # updates:read (contract §12.6): owner, adult and agents read versions and rollouts; guests and children do not.
+    ("GET", "/v1/os/fleet"): Row(HOUSEHOLD, w.p_static("/v1/os/fleet"), f"{_ROLL}: every machine's OS version, updates:read"),
+    ("GET", "/v1/os/rollouts"): Row(HOUSEHOLD, w.p_static("/v1/os/rollouts"), f"{_ROLL}: the rollouts, updates:read"),
+    ("GET", "/v1/os/rollouts/{rollout_id}"): Row(HOUSEHOLD_404, w.p_static("/v1/os/rollouts/rol_ghost"),
+                                                 f"{_ROLL}: one rollout; none exists in this world"),
+    # Starting and resuming go through POST /v1/actions (owner approval); cancelling is the owner's alone.
+    ("POST", "/v1/os/rollouts/{rollout_id}/cancel"): Row(OWNER_ONLY_404, w.p_static("/v1/os/rollouts/rol_ghost/cancel"),
+                                                         f"{_ROLL}: only the owner cancels a rollout"),
+}
+
 # ---- family controls (FAM-01, #204) -------------------------------------------------------
 # The owner passes authorization and gets 404 for these deliberately missing targets.
 # Other people and service identities are refused before target lookup.

@@ -1751,6 +1751,30 @@
       "CatalogApp": {
         "description": "One GET /v1/apps entry: the §3 fields plus links, tier and scan (§11.4).",
         "properties": {
+          "age_rating": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Proposed minimum age from the manifest (0, 7, 12, 16 or 18); the default for family filtering. An owner's classification overrides it",
+            "title": "Age Rating"
+          },
+          "age_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "One line saying why the app has that age_rating",
+            "title": "Age Reason"
+          },
           "aiPolicy": {
             "anyOf": [
               {
@@ -3380,6 +3404,8 @@
               "machines.disable",
               "machines.enable",
               "node.wake",
+              "os.rollout.resume",
+              "os.rollout.start",
               "os.update.install",
               "plugin.configure",
               "plugin.invoke",
@@ -9300,6 +9326,105 @@
           "password"
         ],
         "title": "SetupBody",
+        "type": "object"
+      },
+      "ShareBody": {
+        "additionalProperties": false,
+        "properties": {
+          "expires_at": {
+            "description": "Between 5 minutes and 30 days from now",
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/ShareFileItem"
+                },
+                {
+                  "$ref": "#/components/schemas/SharePhotoItem"
+                }
+              ]
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Items",
+            "type": "array"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "password": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 8,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional; stored only as a hash",
+            "title": "Password"
+          }
+        },
+        "required": [
+          "items",
+          "expires_at"
+        ],
+        "title": "ShareBody",
+        "type": "object"
+      },
+      "ShareFileItem": {
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Path",
+            "type": "string"
+          },
+          "root": {
+            "maxLength": 205,
+            "pattern": "^(?:shared|home:[ -~]{1,200})$",
+            "title": "Root",
+            "type": "string"
+          }
+        },
+        "required": [
+          "root",
+          "path"
+        ],
+        "title": "ShareFileItem",
+        "type": "object"
+      },
+      "SharePhotoItem": {
+        "additionalProperties": false,
+        "properties": {
+          "photo": {
+            "description": "A photo in your library, by content: sha256:<hex>",
+            "maxLength": 71,
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Photo",
+            "type": "string"
+          }
+        },
+        "required": [
+          "photo"
+        ],
+        "title": "SharePhotoItem",
         "type": "object"
       },
       "SigningKey": {
@@ -23077,6 +23202,207 @@
         ]
       }
     },
+    "/v1/files/shares": {
+      "get": {
+        "description": "Your links, without their secrets. An owner also sees everyone else's, but not the paths,\nphotos or names behind items from that person's Home or photo library.",
+        "operationId": "files.shares.list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not signed in; on /v1/share: the link's password is missing or wrong (unauthenticated)"
+          }
+        },
+        "summary": "List Shares",
+        "tags": [
+          "files"
+        ]
+      },
+      "post": {
+        "description": "Share files or photos outside the household until `expires_at`. The secret comes back once.",
+        "operationId": "files.shares.create",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShareBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not signed in; on /v1/share: the link's password is missing or wrong (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Only an owner or adult shares, and only what they can read (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such link, file, photo or item (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not a regular file (conflict)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Invalid body, expiry or photo hash (conflict)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many live links for this person (rate_limited)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The files storage is not usable (unavailable)"
+          }
+        },
+        "summary": "Create Share",
+        "tags": [
+          "files"
+        ]
+      }
+    },
+    "/v1/files/shares/{share_id}": {
+      "delete": {
+        "description": "End a link now: the creator or an owner.",
+        "operationId": "files.shares.revoke",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "share_id",
+            "required": true,
+            "schema": {
+              "maxLength": 40,
+              "pattern": "^shl_[0-9A-Z]{26}$",
+              "title": "Share Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not signed in; on /v1/share: the link's password is missing or wrong (unauthenticated)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such link, file, photo or item (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Revoke Share",
+        "tags": [
+          "files"
+        ]
+      }
+    },
     "/v1/files/stat": {
       "get": {
         "operationId": "files.stat",
@@ -28054,6 +28380,238 @@
         ]
       }
     },
+    "/v1/os/fleet": {
+      "get": {
+        "description": "Every machine's OS version and update state, and how many machines run each version.",
+        "operationId": "os.fleet",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "summary": "Os Fleet",
+        "tags": [
+          "os"
+        ]
+      }
+    },
+    "/v1/os/rollouts": {
+      "get": {
+        "description": "Fleet-staged rollouts, newest first.",
+        "operationId": "os.rollouts.list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "summary": "Os Rollouts",
+        "tags": [
+          "os"
+        ]
+      }
+    },
+    "/v1/os/rollouts/{rollout_id}": {
+      "get": {
+        "description": "One rollout: its stage, each machine's state, and why it paused.",
+        "operationId": "os.rollouts.get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "rollout_id",
+            "required": true,
+            "schema": {
+              "title": "Rollout Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Os Rollout",
+        "tags": [
+          "os"
+        ]
+      }
+    },
+    "/v1/os/rollouts/{rollout_id}/cancel": {
+      "post": {
+        "description": "Stop offering the version to more machines. Owner only; machines already updated stay updated.",
+        "operationId": "os.rollouts.cancel",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "rollout_id",
+            "required": true,
+            "schema": {
+              "title": "Rollout Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Os Rollout Cancel",
+        "tags": [
+          "os"
+        ]
+      }
+    },
     "/v1/os/updates": {
       "get": {
         "description": "Per node: running version, booted A/B slot, the update on offer, and whether installing can run.",
@@ -30878,6 +31436,210 @@
         "summary": "Query",
         "tags": [
           "monitoring"
+        ]
+      }
+    },
+    "/v1/share/{token}": {
+      "get": {
+        "description": "No account: the link secret is the credential. The items the link shares, by index.",
+        "operationId": "share.open",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "maxLength": 60,
+              "pattern": "^oms_[A-Za-z0-9_-]{43}$",
+              "title": "Token",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "OneMind-Share-Password",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Onemind-Share-Password"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not signed in; on /v1/share: the link's password is missing or wrong (unauthenticated)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such link, file, photo or item (not_found)"
+          },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The link expired, was revoked, or its creator can no longer share (expired)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Open Share",
+        "tags": [
+          "share"
+        ]
+      }
+    },
+    "/v1/share/{token}/items/{index}": {
+      "get": {
+        "description": "One shared item's bytes, read with the creator's current rights.",
+        "operationId": "share.download",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "maxLength": 60,
+              "pattern": "^oms_[A-Za-z0-9_-]{43}$",
+              "title": "Token",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "index",
+            "required": true,
+            "schema": {
+              "exclusiveMaximum": 100,
+              "minimum": 0,
+              "title": "Index",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "inline",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Inline",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "header",
+            "name": "OneMind-Share-Password",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Onemind-Share-Password"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "206": {
+            "description": "Partial content (Range)"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not signed in; on /v1/share: the link's password is missing or wrong (unauthenticated)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such link, file, photo or item (not_found)"
+          },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The link expired, was revoked, or its creator can no longer share (expired)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Download Share Item",
+        "tags": [
+          "share"
         ]
       }
     },

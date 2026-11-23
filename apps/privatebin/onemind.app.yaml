@@ -14,6 +14,8 @@ metadata:
   # Market category slug from docs/design/TAXONOMY.md §1; sub-tags (pastebin) are listed in README.md
   # until the schema has metadata.tags.
   category: files
+  age_rating: 16   # proposed minimum age (apps/README.md rubric); the owner can override per app
+  age_reason: "Anonymous encrypted pastes that the server cannot read or moderate."
   icon: icon.svg
   license: "Zlib"
   licenceClass: L1

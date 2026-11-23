@@ -14,6 +14,8 @@ metadata:
   # Market category slug from docs/design/TAXONOMY.md §1 (sub-tags are listed in README.md until
   # the schema has metadata.tags).
   category: productivity
+  age_rating: 16   # proposed minimum age (apps/README.md rubric); the owner can override per app
+  age_reason: "Publishes a public website with comments and plugins."
   icon: icon.svg
   # license.txt: "either version 2 of the License, or (at your option) any later version".
   license: "GPL-2.0-or-later"

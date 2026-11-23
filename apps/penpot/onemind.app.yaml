@@ -15,6 +15,8 @@ metadata:
   # Market category slug from docs/design/TAXONOMY.md §1 (sub-tags are listed in README.md until
   # the schema has metadata.tags).
   category: developer
+  age_rating: 12   # proposed minimum age (apps/README.md rubric); the owner can override per app
+  age_reason: "Design and prototyping with shared files; content is user-made."
   icon: icon.svg
   license: "MPL-2.0"
   licenceClass: L1
