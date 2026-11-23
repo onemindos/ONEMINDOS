@@ -6777,30 +6777,6 @@
         "title": "SearchHit",
         "type": "object"
       },
-      "SearchOut": {
-        "properties": {
-          "hits": {
-            "items": {
-              "$ref": "#/components/schemas/SearchHit"
-            },
-            "title": "Hits",
-            "type": "array"
-          },
-          "providers": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Providers",
-            "type": "array"
-          }
-        },
-        "required": [
-          "hits",
-          "providers"
-        ],
-        "title": "SearchOut",
-        "type": "object"
-      },
       "SecretsChange": {
         "additionalProperties": false,
         "description": "POST /v1/apps/{id}/secrets: what to change. An empty body re-applies the current values.",
@@ -25307,7 +25283,7 @@
     },
     "/v1/search": {
       "get": {
-        "description": "Search every switched-on built-in's items at once. Each hit carries a deep link that\nopens the exact item, and only hits the caller may open are returned.",
+        "description": "Search every switched-on built-in's items at once, best match first. Each hit carries a deep\nlink that opens the exact item, and only hits the caller may open are returned.",
         "operationId": "search.query",
         "parameters": [
           {
@@ -25354,6 +25330,25 @@
               "title": "Limit",
               "type": "integer"
             }
+          },
+          {
+            "description": "opaque: the next page, from the Link header",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 32,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "opaque: the next page, from the Link header",
+              "title": "Cursor"
+            }
           }
         ],
         "responses": {
@@ -25361,11 +25356,29 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SearchOut"
+                  "items": {
+                    "$ref": "#/components/schemas/SearchHit"
+                  },
+                  "title": "Response Search.Query",
+                  "type": "array"
                 }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful Response",
+            "headers": {
+              "Link": {
+                "description": "RFC 8288 `<...>; rel=\"next\"` when more hits remain (contract §12.1)",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "OneMind-Search-Providers": {
+                "description": "the providers searched, comma-separated: those of switched-on built-ins shared with the caller",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "401": {
             "content": {

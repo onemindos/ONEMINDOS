@@ -7,7 +7,7 @@ providers.py  the first two providers: files and settings.
 """
 
 from .index import Item, SearchIndex, SearchUnavailable, Writer
-from .service import Asker, Provider, SearchService, SearchSettings, register_provider
+from .service import Asker, Provider, SearchPage, SearchService, SearchSettings, register_provider
 
-__all__ = ["Asker", "Item", "Provider", "SearchIndex", "SearchService", "SearchSettings", "SearchUnavailable",
+__all__ = ["Asker", "Item", "Provider", "SearchIndex", "SearchPage", "SearchService", "SearchSettings", "SearchUnavailable",
            "Writer", "register_provider"]

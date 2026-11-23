@@ -31,6 +31,16 @@ from .index import Item, SearchIndex, Writer, match_expression
 log = logging.getLogger("onemind.search")
 
 MAX_LIMIT = 100
+MAX_SKIP = 1000   # deepest page a cursor may ask for: search is for finding, not for listing everything
+
+
+@dataclass(frozen=True)
+class SearchPage:
+    """One page of GET /v1/search: the hits, the providers searched, and whether more hits remain."""
+
+    hits: list[Item]
+    providers: list[str]
+    more: bool = False
 
 
 @config_section("search")
@@ -135,9 +145,10 @@ class SearchService:
                 log.exception("search: provider %s could not refresh", prov.id)
 
     def search(self, asker: Asker, q: str, *, types: frozenset[str] | None = None,
-               limit: int = 20) -> tuple[list[Item], list[str]]:
-        """(hits the asker may see, best first; the provider ids that were searched)."""
+               limit: int = 20, skip: int = 0) -> SearchPage:
+        """The hits the asker may see, best first, after skipping the first `skip` of them."""
         limit = max(1, min(limit, MAX_LIMIT))
+        skip = max(0, min(skip, MAX_SKIP))
         providers = self.providers()
         enabled = {d.id for d in self.builtins.enabled()}
         visible_app: dict[str, bool] = {}
@@ -148,21 +159,26 @@ class SearchService:
             return visible_app[app_id]
 
         live = [p for p in providers if app_ok(p.app_id)]
+        searched = [p.id for p in live]
         expr = match_expression(q)
         if expr is None or not live:
-            return [], [p.id for p in live]
+            return SearchPage([], searched)
         with self.index.lock:
             self.refresh(live)
         by_id = {p.id: p for p in live}
         tests = {p.id: p.visible(asker) for p in live}
         hits: list[Item] = []
+        seen = 0
         for item in self.index.matches(expr, list(by_id)):
             prov = by_id[item.provider]
             if item.type not in prov.types or (types and item.type not in types):
                 continue
             if not app_ok(item.app_id) or not tests[item.provider](item):
                 continue
+            seen += 1
+            if seen <= skip:
+                continue
+            if len(hits) == limit:  # one more visible hit than the page holds: there is a next page
+                return SearchPage(hits, searched, more=skip + limit <= MAX_SKIP)
             hits.append(item)
-            if len(hits) >= limit:
-                break
-        return hits, [p.id for p in live]
+        return SearchPage(hits, searched)

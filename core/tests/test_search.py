@@ -15,7 +15,12 @@ from files_support import ADULT, AGENT, GUEST, OWNER, audit_events, fc, files_ro
 
 
 def search(c, headers, q, **params):
-    return ok(c.get("/v1/search", headers=headers, params={"q": q, **params}))
+    """The hits (the JSON array body) and the providers searched (the OneMind-Search-Providers header)."""
+    r = c.get("/v1/search", headers=headers, params={"q": q, **params})
+    hits = ok(r)
+    assert isinstance(hits, list), hits
+    providers = r.headers["OneMind-Search-Providers"]
+    return {"hits": hits, "providers": providers.split(",") if providers else []}
 
 
 def titles(c, headers, q, **params) -> set[str]:
@@ -145,6 +150,27 @@ def test_the_index_stays_on_the_box_and_is_rebuilt_from_scratch(fc, settings):
     fc.app.state.search.index.close()
     path.write_bytes(b"not a database at all")
     assert titles(fc, OWNER, "quarterly") == {"quarterly-report.txt"}  # so is a corrupt one
+
+
+def test_hits_page_with_a_cursor_and_a_link_header(fc):
+    mkdir(fc, OWNER, "shared", "/Pages")
+    for i in range(5):
+        ok(upload(fc, OWNER, "shared", "/Pages", f"paged-{i}.txt", b"p"), 204)
+    everything = [h["id"] for h in search(fc, OWNER, "paged", types="file")["hits"]]
+    assert len(everything) == 5
+    r = fc.get("/v1/search", headers=OWNER, params={"q": "paged", "types": "file", "limit": 2})
+    seen = [h["id"] for h in ok(r)]
+    pages = 1
+    while "link" in r.headers:
+        link = r.headers["link"]
+        assert link.startswith("</v1/search?") and link.endswith('>; rel="next"') and "q=paged" in link
+        r = fc.get(link[1:link.index(">")], headers=OWNER)
+        seen += [h["id"] for h in ok(r)]
+        pages += 1
+    assert seen == everything and pages == 3                     # the same hits, in order, two at a time
+    for bad in ["nope", "bzotMQ", "eDox", "bzo5OTk5OQ"]:  # not base64 text; "o:-1"; "x:1"; "o:99999" (too deep)
+        r = fc.get("/v1/search", headers=OWNER, params={"q": "paged", "cursor": bad})
+        assert r.status_code == 422 and r.json()["reason"] == "invalid_cursor", (bad, r.text)
 
 
 def test_query_text_is_never_fts_syntax(fc):
