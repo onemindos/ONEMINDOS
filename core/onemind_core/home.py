@@ -10,16 +10,17 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from datetime import datetime
-from typing import Literal
+from datetime import datetime, timedelta
+from typing import Annotated, Literal
 from urllib.parse import urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
-from sqlalchemy import JSON, DateTime, String
+from sqlalchemy import JSON, DateTime, String, update
 from sqlalchemy.orm import Mapped, mapped_column
 
+from .catalog import APP_ID_RE
 from .jsonbody import JsonBody
-from .ledger import Base
+from .ledger import Base, iso, utc
 from .store import FeatureSchema, SqlRepository
 
 SCHEMA = FeatureSchema("home")
@@ -135,6 +136,10 @@ class HomeBody(BaseModel):
     widgets: list[Widget] = Field(default_factory=list, max_length=MAX_WIDGETS)
     links: list[Link] = Field(default_factory=list, max_length=MAX_LINKS)
     seen: Seen = Field(default_factory=Seen)
+    default_apps: dict[Annotated[str, Field(pattern=SLUG.pattern)], Annotated[str, Field(pattern=APP_ID_RE.pattern)]] = Field(
+        default_factory=dict, max_length=40, json_schema_extra={"additionalProperties": False},
+        description="App to open for each catalogue category or the browser purpose.",
+    )
     updated_at: str | None = None
 
     @field_validator("dock")
@@ -201,11 +206,19 @@ class HomeService(SqlRepository):
     def stored(self, person_id: str) -> dict | None:
         with self.db.session() as s:
             row = s.get(HomeRow, person_id)
-            return None if row is None else {**row.doc, "updated_at": row.updated_at.isoformat().replace("+00:00", "Z")}
+            return None if row is None else {**row.doc, "updated_at": iso(row.updated_at)}
 
-    def save(self, person_id: str, doc: dict, now: datetime) -> dict:
-        values = {"doc": doc, "updated_at": now}
-        insert = self.db.insert()(HomeRow).values(person_id=person_id, **values)
+    def save(self, person_id: str, doc: dict, now: datetime, previous: str | None) -> dict | None:
+        """Compare at the database write too, so simultaneous device writes cannot overwrite a newer Home."""
         with self.db.session.begin() as s:
-            s.execute(insert.on_conflict_do_update(index_elements=[HomeRow.person_id], set_=values))
-        return {**doc, "updated_at": now.isoformat().replace("+00:00", "Z")}
+            if previous is None:
+                stmt = self.db.insert()(HomeRow).values(person_id=person_id, doc=doc, updated_at=now)
+                stmt = stmt.on_conflict_do_nothing(index_elements=["person_id"])
+            else:
+                prior = utc(datetime.fromisoformat(previous))
+                now = max(now, prior + timedelta(microseconds=1))
+                stmt = update(HomeRow).where(HomeRow.person_id == person_id, HomeRow.updated_at == prior)
+                stmt = stmt.values(doc=doc, updated_at=now)
+            if s.scalar(stmt.returning(HomeRow.person_id)) is None:
+                return None
+        return {**doc, "updated_at": iso(now)}

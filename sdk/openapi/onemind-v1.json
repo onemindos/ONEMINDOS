@@ -4641,6 +4641,19 @@
           "appearance": {
             "$ref": "#/components/schemas/Appearance"
           },
+          "default_apps": {
+            "additionalProperties": false,
+            "description": "App to open for each catalogue category or the browser purpose.",
+            "maxProperties": 40,
+            "patternProperties": {
+              "^[a-z][a-z0-9-]{0,39}$": {
+                "pattern": "^[a-z0-9]([a-z0-9-]{0,57}[a-z0-9])?$",
+                "type": "string"
+              }
+            },
+            "title": "Default Apps",
+            "type": "object"
+          },
           "dock": {
             "items": {
               "type": "string"
@@ -4706,6 +4719,19 @@
         "properties": {
           "appearance": {
             "$ref": "#/components/schemas/Appearance"
+          },
+          "default_apps": {
+            "additionalProperties": false,
+            "description": "App to open for each catalogue category or the browser purpose.",
+            "maxProperties": 40,
+            "patternProperties": {
+              "^[a-z][a-z0-9-]{0,39}$": {
+                "pattern": "^[a-z0-9]([a-z0-9-]{0,57}[a-z0-9])?$",
+                "type": "string"
+              }
+            },
+            "title": "Default Apps",
+            "type": "object"
           },
           "dock": {
             "items": {
