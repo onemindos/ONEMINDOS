@@ -162,3 +162,64 @@ Founder decisions. Each entry is final until Zeus changes it. Reference these ID
 - **This supersedes** "Backstage stays a developer portal" in `docs/ARCHITECTURE.md` (Dashboard row) and `docs/APPS.md` (Infrastructure tier row), and the same wording in `research-output/24` Q141 and Q255 (those files are left as written; this entry is the pointer).
 - **Tracking:** the front-door issues FD-00 to FD-20 (parent: FD-00).
 - **Why:** two front doors break D-016 and the "every change is an approval" rule, and the portal's cloud-only pages do not serve a home or small-business box.
+
+## D-019 · Z-18 / Z-19: Secure Boot uses the `efi` route with signed UKIs, plus an owner "sovereign mode"
+**Date:** 2026-11-22 · **Decided by:** Zeus
+> Recorded as the founder decision on [#148](https://github.com/onemindos/ONEMINDOS/issues/148) (IMG-01), answering Z-18 and Z-19.
+- **The research recommendation stands:** x86 boxes boot through RAUC's `efi` route with signed unified kernel images (UKIs, the kernel, initrd and command line in one signed file), and OneMind's key is enrolled at the factory.
+- **Sovereign mode:** an owner may take over their box's Secure Boot keys, with guard rails:
+  - it needs physical presence at the machine;
+  - it shows a clear warning first;
+  - the key state is shown in the dashboard;
+  - OneMind updates keep working when OneMind's key stays enrolled next to the owner's.
+- **Test keys until the key ceremony.** Build and test with throwaway keys now; real keys come after the ceremony ([#153](https://github.com/onemindos/ONEMINDOS/issues/153), D-010).
+- **What it changes:** #148 is no longer waiting on Zeus. Slot choice under Secure Boot, anti-downgrade and sovereign mode land as separate PRs on #148.
+- **Why:** a signed boot chain is the default that protects most owners; sovereign mode keeps the box the owner's own without breaking updates.
+
+## D-020 · Disk encryption: on by default with a TPM, opt-in with a passphrase without one
+**Date:** 2026-11-22 · **Decided by:** Zeus
+> Recorded as the founder decision on [#152](https://github.com/onemindos/ONEMINDOS/issues/152) (IMG-05, LUKS2 + btrfs).
+- **With a TPM** (the chip that stores keys inside the machine): the data partition is encrypted by default and unlocks by itself after a restart. The recovery key goes into the emergency kit.
+- **Without a TPM** (for example a Raspberry Pi 5): the data partition stays unencrypted unless the owner turns encryption on and accepts typing a passphrase at every restart. The setup screen says that plainly.
+- **What it changes:** #152 is no longer waiting on Zeus; the TPM / no-TPM rule and the opt-in passphrase backend are built on it.
+- **Why:** a home hub has to come back by itself after a power cut or an update restart.
+
+## D-021 · iPhone push moves to 1.1; 1.0 ships with Android
+**Date:** 2026-11-22 · **Decided by:** Zeus
+> Recorded as the founder decision on [#208](https://github.com/onemindos/ONEMINDOS/issues/208) (UX-03).
+- **1.0 ships with the Android app** (the founder's phone). The Apple Developer account, the push key and the content-free relay are 1.1 work.
+- **What it changes:** #208 and the issues that wait on it move to 1.1. D-005 (content-free Apple push) still holds for when it is built.
+- **Why:** the founder's phone is Android, and the Apple Developer account and push signing identity (F-4) are not in place.
+
+## D-022 · An app's own tokens pass through the gateway; Fleetbase is packaged after that
+**Date:** 2026-11-22 · **Decided by:** Zeus
+> Recorded as the founder decision on [#824](https://github.com/onemindos/ONEMINDOS/issues/824) (Market: Fleetbase).
+- **Fix the gateway first.** The app proxy treated an app's own `Authorization: Bearer` header as a OneMind token and rejected it, which breaks any app that uses its own tokens.
+- **The rule (security-reviewed):** once the person is signed in to OneMind (a valid session cookie), the app proxy passes the app's own Authorization header through to that app only.
+- **Then package Fleetbase** as #824 specifies.
+- **Why:** the blocker is in OneMind, not in Fleetbase, and the same fix unblocks every app that brings its own sign-in tokens.
+
+## D-023 · OpenVitals moves to 1.1, as a OneMind-built on-box copy
+**Date:** 2026-11-22 · **Decided by:** Zeus
+> Recorded as the founder decision on [#826](https://github.com/onemindos/ONEMINDOS/issues/826) (Market: OpenVitals).
+- **Not part of 1.0.** The upstream code (GPL-3.0) sends document text to a hosted AI service and expects hosted email, storage and a worker.
+- **Plan for 1.1:** once the local model router is in, build a OneMind copy from a pinned upstream commit with those parts replaced by on-box ones.
+- **Nothing that sends health data off the box is ever packaged.**
+- **Why:** so no health data leaves the box; packaging the upstream code as it is would send document text to a hosted service.
+
+## D-024 · LoRa messaging: MeshCore in 1.0, the Meshtastic bridge in 1.1
+**Date:** 2026-11-22 · **Decided by:** Zeus
+> Recorded on [#131](https://github.com/onemindos/ONEMINDOS/issues/131) (NMD-06) and its LoRa messenger issues, and in the 1.0 plan's founder additions.
+- **1.0 messenger is MeshCore** (MIT licence): in OneMind and in the Android app, both dock mode (a USB radio on the hub, [#740](https://github.com/onemindos/ONEMINDOS/issues/740)) and direct mode (the phone talks to its own radio over Bluetooth LE, [#865](https://github.com/onemindos/ONEMINDOS/issues/865)). The two-way proof needs a second radio ([#860](https://github.com/onemindos/ONEMINDOS/issues/860)).
+- **Meshtastic is 1.1:** a bridge in its own GPL-3.0 repo feeding the Messages module ([#739](https://github.com/onemindos/ONEMINDOS/issues/739)).
+- **Guard rails:** a radio only ever transmits on the owner's tap; agents only draft. OneMind never writes RF settings (region, frequency, power) in 1.0; the owner sets them once in MeshCore's own tools.
+- **This replaces** D-011's "radios when TAK is unparked" for a radio the owner already has.
+- **Why:** Zeus owns a LoRa radio, so D-011's reason to wait is gone. MeshCore's MIT licence fits D-001; Meshtastic is GPL-3.0, so its bridge lives in its own repo.
+
+## D-025 · Service picks: Backblaze B2 behind neutral S3, Headscale, and no SMS provider yet
+**Date:** 2026-11-22 · **Decided by:** Zeus
+> Recorded in the 1.0 plan's founder additions ("Picks"), answering the B2-checkpoint picks.
+- **Off-site backup: Backblaze B2**, reached through a provider-neutral S3 layer ([#870](https://github.com/onemindos/ONEMINDOS/issues/870)). restic already speaks S3; tests use a local S3-compatible stand-in, and the owner types the bucket keys himself.
+- **Remote access: Headscale** (already on the hub in the image, #292). The neutral mesh layer in the gateway ([#876](https://github.com/onemindos/ONEMINDOS/issues/876)) serves Headscale; NetBird is not built.
+- **SMS: no provider now.** The SMS alert channel is built behind a provider-neutral adapter and tested with a fake transport only ([#869](https://github.com/onemindos/ONEMINDOS/issues/869)). Twilio may come later; the real text proof waits for that pick.
+- **Why:** the code stays provider-neutral so an owner can switch providers, and the picks let the B2 services wave build without waiting.
