@@ -7216,6 +7216,242 @@
         "title": "SetupBody",
         "type": "object"
       },
+      "ShareIn": {
+        "additionalProperties": false,
+        "properties": {
+          "object": {
+            "$ref": "#/components/schemas/ShareObject"
+          },
+          "to": {
+            "description": "The receiving app's id.",
+            "maxLength": 59,
+            "minLength": 1,
+            "title": "To",
+            "type": "string"
+          },
+          "verb": {
+            "default": "open",
+            "enum": [
+              "open",
+              "add"
+            ],
+            "title": "Verb",
+            "type": "string"
+          }
+        },
+        "required": [
+          "to",
+          "object"
+        ],
+        "title": "ShareIn",
+        "type": "object"
+      },
+      "ShareObject": {
+        "additionalProperties": false,
+        "description": "A reference to one object; never its content.",
+        "properties": {
+          "ref": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "pattern": "^[^\\x00-\\x1f\\x7f]+$",
+            "title": "Ref",
+            "type": "string"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "maxLength": 59,
+                "pattern": "^[a-z0-9]([a-z0-9-]{0,57}[a-z0-9])?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The app the object comes from.",
+            "title": "Source"
+          },
+          "type": {
+            "enum": [
+              "note",
+              "task",
+              "event",
+              "person",
+              "file",
+              "place",
+              "track",
+              "alert",
+              "clip"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "ref"
+        ],
+        "title": "ShareObject",
+        "type": "object"
+      },
+      "ShareOut": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "link": {
+            "title": "Link",
+            "type": "string"
+          },
+          "object": {
+            "$ref": "#/components/schemas/ShareObject"
+          },
+          "sent_at": {
+            "title": "Sent At",
+            "type": "string"
+          },
+          "to": {
+            "title": "To",
+            "type": "string"
+          },
+          "verb": {
+            "enum": [
+              "open",
+              "add"
+            ],
+            "title": "Verb",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "to",
+          "verb",
+          "object",
+          "link",
+          "sent_at"
+        ],
+        "title": "ShareOut",
+        "type": "object"
+      },
+      "ShareTarget": {
+        "properties": {
+          "app_id": {
+            "title": "App Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "verbs": {
+            "items": {
+              "enum": [
+                "open",
+                "add"
+              ],
+              "type": "string"
+            },
+            "title": "Verbs",
+            "type": "array"
+          }
+        },
+        "required": [
+          "app_id",
+          "name",
+          "verbs"
+        ],
+        "title": "ShareTarget",
+        "type": "object"
+      },
+      "ShareTargetsOut": {
+        "properties": {
+          "targets": {
+            "items": {
+              "$ref": "#/components/schemas/ShareTarget"
+            },
+            "title": "Targets",
+            "type": "array"
+          },
+          "type": {
+            "enum": [
+              "note",
+              "task",
+              "event",
+              "person",
+              "file",
+              "place",
+              "track",
+              "alert",
+              "clip"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "targets"
+        ],
+        "title": "ShareTargetsOut",
+        "type": "object"
+      },
+      "ShareTypeOut": {
+        "properties": {
+          "data_class": {
+            "title": "Data Class",
+            "type": "string"
+          },
+          "name": {
+            "enum": [
+              "note",
+              "task",
+              "event",
+              "person",
+              "file",
+              "place",
+              "track",
+              "alert",
+              "clip"
+            ],
+            "title": "Name",
+            "type": "string"
+          },
+          "ref": {
+            "title": "Ref",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "title",
+          "data_class",
+          "ref"
+        ],
+        "title": "ShareTypeOut",
+        "type": "object"
+      },
+      "ShareTypesOut": {
+        "properties": {
+          "types": {
+            "items": {
+              "$ref": "#/components/schemas/ShareTypeOut"
+            },
+            "title": "Types",
+            "type": "array"
+          }
+        },
+        "required": [
+          "types"
+        ],
+        "title": "ShareTypesOut",
+        "type": "object"
+      },
       "SigningKey": {
         "properties": {
           "active": {
@@ -25141,6 +25377,214 @@
         "summary": "Query",
         "tags": [
           "monitoring"
+        ]
+      }
+    },
+    "/v1/share": {
+      "post": {
+        "description": "Hand one object to one app. Refused (409) when the app does not accept the type or verb\n(`type_not_accepted`, `verb_not_accepted`) or lacks the type's data grant (`no_grant`);\n404 when you cannot see the app. Only an owner or adult sends.",
+        "operationId": "share.send",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShareIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShareOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Share Send",
+        "tags": [
+          "share"
+        ]
+      }
+    },
+    "/v1/share/targets": {
+      "get": {
+        "description": "The Send to list: switched-on apps you can see that accept this type and hold its grant.",
+        "operationId": "share.targets",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "type",
+            "required": true,
+            "schema": {
+              "enum": [
+                "note",
+                "task",
+                "event",
+                "person",
+                "file",
+                "place",
+                "track",
+                "alert",
+                "clip"
+              ],
+              "title": "Type",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShareTargetsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Share Targets",
+        "tags": [
+          "share"
+        ]
+      }
+    },
+    "/v1/share/types": {
+      "get": {
+        "description": "The share types: what one app can hand another, and the data grant each needs.",
+        "operationId": "share.types",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShareTypesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "summary": "Share Types",
+        "tags": [
+          "share"
         ]
       }
     },
