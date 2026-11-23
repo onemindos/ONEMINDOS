@@ -430,6 +430,18 @@ def p_passkey_register(w: World) -> Req:
     return Req("/v1/auth/passkeys/register", json={"credential": {"id": "probe", "type": "public-key"}})
 
 
+def p_approver_key(w: World) -> Req:
+    """#702: a well-formed P-256 public key, so the probe reaches the authorization checks."""
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric import ec
+
+    from onemind_core.identity.crypto import b64url
+
+    spki = ec.generate_private_key(ec.SECP256R1()).public_key().public_bytes(
+        serialization.Encoding.DER, serialization.PublicFormat.SubjectPublicKeyInfo)
+    return Req("/v1/auth/approver-keys", json={"public_key": b64url(spki), "label": "probe", "key_kind": "software"})
+
+
 def p_password(w: World) -> Req:
     return Req("/v1/auth/password", json={"current_password": ID_PASSWORD, "new_password": "a brand new long passphrase"})
 
