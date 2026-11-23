@@ -344,6 +344,8 @@ func TestRenderGolden(t *testing.T) {
 server_name: "node-3f9c2a1b7d4e"
 listen: "127.0.0.1:4222"
 http: "127.0.0.1:8222"
+ping_interval: "15s"
+ping_max: 2
 jetstream {
   store_dir: "/data/onemind/nats"
   domain: "node-3f9c2a1b7d4e"
