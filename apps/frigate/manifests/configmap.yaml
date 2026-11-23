@@ -1,0 +1,50 @@
+# SPDX-License-Identifier: Apache-2.0
+# The first config.yml, copied to /config only when none exists (the seed-config init container), so the
+# owner's own changes in Frigate's Settings are never overwritten. Built from upstream's default for a new
+# install (frigate/config/config.py DEFAULT_CONFIG at v0.18.3: MQTT off, OpenVINO on the CPU, no cameras)
+# plus what keeps it on the box:
+#   tls off        the OneMind gateway proxy fronts port 8971 inside the box (configuration/tls.md)
+#   version_check  off: otherwise every start asks api.github.com (frigate/network_requirements.md)
+#   record         retention set before the first camera (configuration/record.md): no continuous video,
+#                  motion kept 7 days, alerts and detections 14 days; snapshots 14 days
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: frigate-seed
+data:
+  config.yml: |
+    mqtt:
+      enabled: false
+    tls:
+      enabled: false
+    telemetry:
+      version_check: false
+    detectors:
+      ov:
+        type: openvino
+        device: CPU
+    model:
+      width: 300
+      height: 300
+      input_tensor: nhwc
+      input_pixel_format: bgr
+      path: /openvino-model/ssdlite_mobilenet_v2.xml
+      labelmap_path: /openvino-model/coco_91cl_bkgr.txt
+    record:
+      enabled: true
+      continuous:
+        days: 0
+      motion:
+        days: 7
+      alerts:
+        retain:
+          days: 14
+      detections:
+        retain:
+          days: 14
+    snapshots:
+      enabled: true
+      retain:
+        default: 14
+    cameras: {}
+    version: 0.18-0
