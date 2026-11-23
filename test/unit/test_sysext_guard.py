@@ -111,6 +111,24 @@ class Guard(unittest.TestCase):
             self.assertIn(f"ONEMIND-SYSEXT-GUARD: refused {kind} path=/{rel} reason=directory-extension", r.stderr)
             shutil.rmtree(os.path.join(self.r, rel))
 
+    def test_a_directory_whose_name_starts_with_two_dots_is_refused(self):
+        # PR 972 review: "$d"/* and "$d"/.[!.]* both miss "..evil", and systemd-sysext merges such a directory.
+        for kind, rel in (("sysext", "var/lib/extensions/..evil"), ("sysext", "etc/extensions/...x"),
+                          ("confext", "var/lib/confexts/..evil")):
+            os.makedirs(os.path.join(self.r, rel))
+            r = self.run_guard(kind)
+            self.assertEqual(r.returncode, 1, rel)
+            self.assertIn(f"ONEMIND-SYSEXT-GUARD: refused {kind} path=/{rel} reason=directory-extension", r.stderr)
+            shutil.rmtree(os.path.join(self.r, rel))
+
+    def test_two_dot_disk_images_pass_and_dot_entries_are_never_judged(self):
+        self.put("var/lib/extensions/..x.raw")
+        self.put("var/lib/confexts/..y.raw")
+        for kind in ("sysext", "confext"):
+            r = self.run_guard(kind)
+            self.assertEqual(r.returncode, 0, r.stderr)
+            self.assertNotIn("refused", r.stderr, "'.' and '..' are never extension entries")
+
     def test_a_symlink_to_a_directory_is_refused(self):
         os.makedirs(os.path.join(self.r, "data/tree"))
         os.symlink(os.path.join(self.r, "data/tree"), os.path.join(self.r, "var/lib/extensions/link.raw"))
@@ -151,6 +169,8 @@ class Harness(unittest.TestCase):
         self.assertTrue(m["good"])
         self.assertFalse(m["wrong"], "a marker without a status listing is not a merge")
         self.assertFalse(m["confgood"])
+        dx = base64.b64encode(json.dumps([{"hierarchy": "/usr", "extensions": ["..evil"]}]).encode()).decode()
+        self.assertTrue(h.merged_from(f"M_..evil=1\nSXJ={dx}\n")["..evil"], "X8 reads two-dot names too")
         self.assertEqual(h.listed("not base64!"), set())
         self.assertEqual(h.listed(""), set())
 
@@ -159,11 +179,12 @@ class Harness(unittest.TestCase):
         self.assertEqual(h.tag('echo "M_good=$(test -e x && echo 1)"\nM_good=1\n', "M_good"), "1")
         self.assertEqual(h.tag('echo "VERITY=$(cat x)"\n', "VERITY"), "")
 
-    def test_verdict_needs_x0_to_x7_and_no_fail(self):
+    def test_verdict_needs_x0_to_x8_and_no_fail(self):
         h = harness()
-        ok = [{"test": f"X{i}", "verdict": "PASS"} for i in range(8)] + [{"test": "O1", "verdict": "OBSERVED"}]
+        ok = [{"test": f"X{i}", "verdict": "PASS"} for i in range(9)] + [{"test": "O1", "verdict": "OBSERVED"}]
         self.assertTrue(h.verdict_ok(ok))
         self.assertFalse(h.verdict_ok(ok[:-2]))
+        self.assertFalse(h.verdict_ok([r for r in ok if r["test"] != "X8"]), "X8 counts from section 5 on")
         self.assertFalse(h.verdict_ok(ok + [{"test": "HARNESS", "verdict": "FAIL"}]))
 
     def test_kit_script_signs_the_root_hash_and_uses_the_right_partition_types(self):
@@ -179,6 +200,8 @@ class Harness(unittest.TestCase):
                      "confgood confext trusted", "confunsigned confext none"):
             self.assertIn(f"ddi {name}", s)
         self.assertIn('if [ "$2" = sysext ]; then fsroot="$t/usr"', s, "a usr partition holds the /usr tree itself")
+        self.assertIn('tree ..evil sysext; rm -rf "$O/img/..evil"; cp -a "$W/tree-..evil" "$O/img/..evil"', s)
+        self.assertIn('tree ..confevil confext; rm -rf "$O/img/..confevil"; cp -a "$W/tree-..confevil" "$O/img/..confevil"', s)
         self.assertNotIn("BEGIN", s, "no key material in the script")
         if shutil.which("sh"):
             f = tempfile.NamedTemporaryFile("w", suffix=".sh", delete=False)

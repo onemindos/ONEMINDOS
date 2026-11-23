@@ -25,7 +25,9 @@ refuse() {
 }
 for d in $dirs; do
   [ -d "$R$d" ] || continue
-  for e in "$R$d"/* "$R$d"/.[!.]*; do
+  # Three globs cover every name except "." and "..": plain, ".x" (second char not a dot) and "..x" (PR 972
+  # review: systemd-sysext merges a directory named "..evil", which the first two globs alone would miss).
+  for e in "$R$d"/* "$R$d"/.[!.]* "$R$d"/..?*; do
     [ -e "$e" ] || [ -L "$e" ] || continue
     if [ -d "$e" ]; then
       refuse "${e#"$R"}" directory-extension

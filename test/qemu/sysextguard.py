@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
-"""OneMind QEMU battery, signed host extensions only (T-W19-01, X0-X7, O1-O2). Criteria: test/qemu/CRITERIA-SYSEXT.md
+"""OneMind QEMU battery, signed host extensions only (T-W19-01, X0-X8, O1-O2). Criteria: test/qemu/CRITERIA-SYSEXT.md
 (pre-registered; never edited to make a result pass). Reuses run-tests.py's VM driver and firstboot.py's fixtures.
 
 Why: host add-ons (plugin socket E3) reach the read-only image as systemd system and configuration extensions.
@@ -24,8 +24,9 @@ def _load(name, fn):
 
 
 RESULTS = []
-SYSEXT = ("good", "wrong", "unsigned", "naked", "plaindir")
-CONFEXT = ("confgood", "confunsigned", "confdir")
+SYSEXT = ("good", "wrong", "unsigned", "naked", "plaindir", "..evil")
+CONFEXT = ("confgood", "confunsigned", "confdir", "..confevil")
+DIRS = ("plaindir", "confdir", "..evil", "..confevil")   # plain directories (X4, X8); the rest are .raw files
 NEGATIVE = ("wrong", "unsigned", "naked", "confunsigned")     # must never merge
 DATA = "/data/onemind-tw19"          # images and public test certificates (persistent, not an extension folder)
 KEYS = "/run/tw19-keys"              # throwaway private keys: RAM only, gone at the next boot
@@ -52,7 +53,7 @@ PARTS = {
 def kit_script(arch):
     """The in-guest image builder (POSIX sh; the image has no system Python). Arguments: OUT KEYS WORK.
     Makes two throwaway key pairs, then good/wrong/unsigned (GPT + dm-verity [+ signature]), naked (bare
-    squashfs) and plaindir (directory) sysexts, and confgood/confunsigned/confdir confexts."""
+    squashfs) and plaindir/..evil (directory) sysexts, and confgood/confunsigned/confdir/..confevil confexts."""
     p = PARTS[arch]
     return f"""#!/bin/sh
 # SPDX-License-Identifier: Apache-2.0
@@ -111,8 +112,11 @@ ddi confgood confext trusted; ddi confunsigned confext none
 tree naked sysext; mksquashfs "$W/tree-naked" "$O/img/naked.raw" -noappend -quiet -all-root >/dev/null
 tree plaindir sysext; rm -rf "$O/img/plaindir"; cp -a "$W/tree-plaindir" "$O/img/plaindir"
 tree confdir confext; rm -rf "$O/img/confdir"; cp -a "$W/tree-confdir" "$O/img/confdir"
+# X8 (CRITERIA-SYSEXT.md section 5): directories whose names start with two dots, release file named the same
+tree ..evil sysext; rm -rf "$O/img/..evil"; cp -a "$W/tree-..evil" "$O/img/..evil"
+tree ..confevil confext; rm -rf "$O/img/..confevil"; cp -a "$W/tree-..confevil" "$O/img/..confevil"
 rm -rf "$W"
-echo "TW19-KIT: ok $(ls "$O/img" | tr '\\n' ' ')"
+echo "TW19-KIT: ok $(ls -A "$O/img" | tr '\\n' ' ')"
 """
 
 
@@ -160,11 +164,14 @@ def state(vm):
            "echo \"REFUSED=$(journalctl -b -o cat --no-pager -u systemd-sysext.service -u systemd-confext.service | grep -c 'ONEMIND-SYSEXT-GUARD: refused')\"; "
            "echo \"R_plaindir=$(journalctl -b -o cat --no-pager -u systemd-sysext.service | grep -c 'refused sysext path=/var/lib/extensions/plaindir ')\"; "
            "echo \"R_confdir=$(journalctl -b -o cat --no-pager -u systemd-confext.service | grep -c 'refused confext path=/var/lib/confexts/confdir ')\"; "
+           "echo \"R_dotevil=$(journalctl -b -o cat --no-pager -u systemd-sysext.service | grep -c -F 'refused sysext path=/var/lib/extensions/..evil ')\"; "
+           "echo \"R_dotconfevil=$(journalctl -b -o cat --no-pager -u systemd-confext.service | grep -c -F 'refused confext path=/var/lib/confexts/..confevil ')\"; "
            "echo \"SLOTNOW=$(sed -n 's/.*rauc\\.slot=\\([AB]\\).*/\\1/p' /proc/cmdline)\"")
     _, out = vm.run(cmd, 300)
     vm.run("journalctl -b -o cat --no-pager -u systemd-sysext.service -u systemd-confext.service | tail -n 20", 120)
     m = merged_from(out)
-    extra = {k: tag(out, k) for k in ("VERITY", "SX_UNIT", "CX_UNIT", "SX_AT", "K3S_AT", "REFUSED", "R_plaindir", "R_confdir", "SLOTNOW")}
+    extra = {k: tag(out, k) for k in ("VERITY", "SX_UNIT", "CX_UNIT", "SX_AT", "K3S_AT", "REFUSED", "R_plaindir", "R_confdir",
+                                 "R_dotevil", "R_dotconfevil", "SLOTNOW")}
     return m, extra
 
 
@@ -193,8 +200,8 @@ def reboot(vm, tag_):
 
 
 def place(vm, sx=(), cx=()):
-    cmds = [f"cp -a {DATA}/img/{n}{'' if n.endswith('dir') else '.raw'} /var/lib/extensions/" for n in sx]
-    cmds += [f"cp -a {DATA}/img/{n}{'' if n.endswith('dir') else '.raw'} /var/lib/confexts/" for n in cx]
+    cmds = [f"cp -a {DATA}/img/{n}{'' if n in DIRS else '.raw'} /var/lib/extensions/" for n in sx]
+    cmds += [f"cp -a {DATA}/img/{n}{'' if n in DIRS else '.raw'} /var/lib/confexts/" for n in cx]
     rc, _ = vm.run(" && ".join(cmds), 120) if cmds else (0, "")
     return rc == 0
 
@@ -293,8 +300,18 @@ def main():
                f"setup={ok} gate={g} merged={short(m)} refusals={e['REFUSED']} plaindir_refused={e['R_plaindir']} "
                f"confdir_refused={e['R_confdir']} units={e['SX_UNIT']}/{e['CX_UNIT']}")
 
-        vm.mark("X5 slot-rewriting one-time root on slot A, then a slot switch to B")
+        vm.mark("X8 plain directories whose names start with two dots (CRITERIA-SYSEXT.md section 5)")
         rc, _ = vm.run("rm -rf /var/lib/extensions/plaindir /var/lib/confexts/confdir", 60)
+        ok = rc == 0 and place(vm, ["..evil"], ["..confevil"])
+        g = reboot(vm, "X8 reboot")
+        m, e = state(vm)
+        record("X8", ok and not any(m.values()) and e["R_dotevil"] not in ("", "0") and e["R_dotconfevil"] not in ("", "0"),
+               f"setup={ok} gate={g} merged={short(m)} refusals={e['REFUSED']} dotevil_refused={e['R_dotevil']} "
+               f"dotconfevil_refused={e['R_dotconfevil']} units={e['SX_UNIT']}/{e['CX_UNIT']}")
+
+        vm.mark("X5 slot-rewriting one-time root on slot A, then a slot switch to B")
+        rc, _ = vm.run("rm -rf /var/lib/extensions/plaindir /var/lib/confexts/confdir "
+                       "/var/lib/extensions/..evil /var/lib/confexts/..confevil", 60)
         planted = slot_write(vm, f"mkdir -p $S/etc/verity.d $S/etc/systemd/system/systemd-sysext.service.d && "
                                  f"cp {DATA}/wrong.crt $S/etc/verity.d/tw19-wrong.crt && printf '{PLANT}' > $S/etc/{DROPIN}")
         irc, _ = battery.install(vm, "good.raucb")
@@ -348,8 +365,8 @@ def main():
 
 
 def verdict_ok(results):
-    """T-W19-01 passes when X0-X7 are all PASS and nothing FAILed (CRITERIA-SYSEXT.md §4)."""
-    need = {f"X{i}" for i in range(8)}
+    """T-W19-01 passes when X0-X8 are all PASS and nothing FAILed (CRITERIA-SYSEXT.md §4, X8 from §5)."""
+    need = {f"X{i}" for i in range(9)}
     got = {r["test"] for r in results if r["verdict"] == "PASS"}
     return need <= got and all(r["verdict"] in ("PASS", "OBSERVED") for r in results)
 
