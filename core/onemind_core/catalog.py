@@ -19,6 +19,7 @@ import yaml
 from .ai_policy import catalog_policy
 from .appsecrets.spec import SecretDecl, parse_secrets, secret_spec_errors
 from .filesig import cache_signature
+from .machine_needs import machine_needs
 from .manifest_convert import CURRENT, OLDER
 from .manifest_rules import ManifestRules
 from .scan import ScanRecord, read_scan
@@ -134,6 +135,8 @@ class AppEntry:
             "source": md.get("source"),
             "archs": list(archs) if isinstance(archs, list) else [],
             "requires": dict(requires) if isinstance(requires, dict) else {},
+            # #724: the same facts in one shape whichever spelling the manifest uses, plus recommends / supports.
+            "machine_needs": machine_needs(spec),
             "web_port": web.get("port") if isinstance(web, dict) else None,
             # #692: opened in a dashboard browser window with a per-person profile (browsers.py), not on its own name.
             "browser": isinstance(spec.get("browser"), dict) and isinstance(web, dict),

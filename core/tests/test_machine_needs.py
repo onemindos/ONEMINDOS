@@ -121,7 +121,37 @@ def sim_client(settings, clock, executor):
 def test_the_gateway_lists_and_enforces_the_new_spelling(sim_client):
     apps = {a["id"]: a for a in sim_client.get("/v1/apps", headers=OWNER).json()}
     assert apps["sim"]["requires"]["accelerator"]["rtCores"] is True
+    # requires stays as written; machine_needs carries all three strengths in the one shape.
+    assert apps["sim"]["machine_needs"] == {
+        "requires": {"arch": ["amd64", "arm64"], "memoryMb": 64,
+                     "accelerator": {"capability": "gpu-compute", "rtCores": True}},
+        "recommends": {},
+        "supports": {"radios": ["lora"], "models": {"quantisations": ["q4_k_m"]}},
+    }
     ingest(sim_client, node_id="hub1", gpu={"nvidia": False, "model": None})
     body = sim_client.get("/v1/apps/sim/placement", headers=OWNER).json()
     assert body["verdict"] == "nowhere"
     assert "gpu_missing" in {r["code"] for n in body["nodes"] for r in n["reasons"]}
+
+
+def test_the_gateway_gives_both_spellings_the_same_machine_needs(settings, clock, executor):
+    """The same facts (a GPU, 32 GB) in the older and the newer keys come back as one machine_needs shape."""
+    add_app(settings, clock, "old", requires={"gpu": True, "minMemoryMb": 32768, "minVramMb": 8192,
+                                              "accelerator": {"capability": "npu", "optional": True}})
+    add_app(settings, clock, "new", requires={"memoryMb": 32768,
+                                              "accelerator": {"capability": "gpu-compute", "minMemoryMb": 8192}},
+            recommends={"accelerator": {"capability": "npu"}})
+    with make_client(settings, clock, executor) as c:
+        apps = {a["id"]: a for a in c.get("/v1/apps", headers=OWNER).json()}
+    assert apps["old"]["requires"]["gpu"] is True, "requires is still passed through as written"
+    assert apps["old"]["machine_needs"] == apps["new"]["machine_needs"]
+    assert apps["new"]["machine_needs"]["requires"]["memoryMb"] == 32768
+    assert apps["new"]["machine_needs"]["requires"]["accelerator"]["capability"] == "gpu-compute"
+    assert apps["new"]["machine_needs"]["recommends"] == {"accelerator": {"capability": "npu"}}
+
+
+def test_the_openapi_spec_describes_machine_needs(settings, clock, executor):
+    with make_client(settings, clock, executor) as c:
+        schemas = c.get("/openapi.json").json()["components"]["schemas"]
+    assert "machine_needs" in schemas["CatalogApp"]["properties"]
+    assert set(schemas["MachineNeeds"]["properties"]) == {"requires", "recommends", "supports"}
