@@ -30,3 +30,7 @@
 - The join time with the owner's approval (under 5 minutes on a Pi 5) and the real QR flow: the founder's lab kit.
 - An OCI runner under systemd: not in this image yet (issue #751 lists it; it lands in a later PR on the same issue).
 - Real hardware memory (Pi 5 kernel, 16 KiB pages): EG7 is a VM number, UNVERIFIED on a Pi.
+
+## 4. Amendment, 2026-11-22, before any run and before `edge.py` existed
+
+`onemind-data-layout.service` makes an empty `/data/k3s` on every boot, and `tmpfiles.d/onemind-backup.conf` makes `/data/k3s/storage` (both for every role), so EG2's last item could never pass on any box. It now reads: **`/data/k3s/server`, `/data/k3s/agent` and `/data/k3s/data` do not exist** (the folders k3s itself writes under its `--data-dir`). Nothing else changes.
