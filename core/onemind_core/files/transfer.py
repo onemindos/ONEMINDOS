@@ -21,7 +21,12 @@ revision is refused with 412 and the current revision, so the second of two edit
 overwrites the first one's change; the client keeps its copy as a conflicted copy instead.
 
 Chunks are kept per root (.system/chunks/<root key>/), never shared between roots, so asking
-"missing?" reveals nothing about another person's files. Each commit is recorded as a version
+"missing?" reveals nothing about another person's files. Inside a root the chunk store answers for
+the whole root, so only a caller who may write the whole root uses it: a person by role, an agent by
+a read-write grant on "/" (the same rule as the change feed). An agent granted one folder writes
+through /v1/files instead. A chunk a caller sent or asked about is leased for CHUNK_TTL: pruning a
+version never removes a chunk another device is still uploading or about to commit, and a chunk no
+version names is swept once its lease runs out, so an abandoned upload does not fill the disk. Each commit is recorded as a version
 (files_sync_versions): the file's last VERSIONS_KEEP manifests are kept, and as they share chunks an
 edit of a large file stores only the chunks that changed. A file changed outside sync (SMB, WebDAV,
 the Files app) is cut into chunks by the hub before a commit replaces it, so it becomes a version
@@ -34,6 +39,7 @@ import hashlib
 import os
 import re
 import secrets
+import time
 from datetime import datetime
 
 from sqlalchemy import JSON, BigInteger, DateTime, Index, String, delete, select
@@ -55,6 +61,8 @@ CHUNK_LIMIT = 256 * 1024            # the largest chunk the hub accepts: the gat
 MANIFEST_MAX_CHUNKS = 200_000       # one file: about 12 GiB at the average size, 50 GiB at the largest
 RECORD = 36                         # a binary manifest record: sha256 (32 bytes) + size (4 bytes, big-endian)
 VERSIONS_KEEP = 10                  # manifests kept per file
+CHUNK_TTL = 24 * 3600               # seconds a chunk nobody commits is kept after it was last sent or asked about
+SWEEP_EVERY = 3600                  # seconds between sweeps of one root's unreferenced chunks
 HEX64 = re.compile(r"^[0-9a-f]{64}$")
 
 # The gear table: 256 fixed 64-bit values, derived so every implementation can rebuild it.
@@ -144,17 +152,20 @@ def _hash_error(message: str) -> FilesError:
 class Transfer:
     """Chunk store, commits and versions on top of FilesService (its access checks, spaces and index)."""
 
-    def __init__(self, files, keep: int = VERSIONS_KEEP):
+    def __init__(self, files, keep: int = VERSIONS_KEEP, chunk_ttl: float = CHUNK_TTL):
         self.files = files
         self.db = files.repo.db
         self.keep = keep
+        self.chunk_ttl = chunk_ttl
+        self._swept: dict[str, float] = {}   # root id -> monotonic time of its last sweep
 
     # ---- who may write ------------------------------------------------------------------
     def writable_root(self, p: Principal, root: str | None) -> Root:
-        """A root the caller may write somewhere in: a person by role, an agent by a read-write grant."""
+        """A root the caller may write as a whole: a person by role, an agent by a read-write grant on "/".
+        A grant on one folder is not enough: the chunk store answers for the whole root."""
         r = parse_root(root)
         ok = person_access(p, r).write if is_person(p) else any(
-            g.root == r.id and g.access == "rw" for g in self.files.grants_for(p))
+            g.root == r.id and g.access == "rw" and not paths.split_path(g.path) for g in self.files.grants_for(p))
         if not ok:
             raise self.files._deny(p, f"sync write {r.id}", f"{p.kind}/{p.role} may not write to {r.id}",
                                    "role" if is_person(p) else "no_grant")
@@ -177,8 +188,32 @@ class Transfer:
         bad = [h for h in hashes if not HEX64.match(h)]
         if bad:
             raise FilesError(422, "conflict", "a chunk hash is 64 lowercase hex digits", reason="invalid_hash")
+        out = []
         with self._chunks_dir(r) as d:
-            return [h for h in dict.fromkeys(hashes) if not paths.exists_at(d, self._chunk_name(h))]
+            for h in dict.fromkeys(hashes):
+                if not self._touch(d, self._chunk_name(h)):   # present: leased, so a prune keeps it
+                    out.append(h)
+        return out
+
+    @staticmethod
+    def _touch(d: int, name: str) -> bool:
+        """Renew a chunk's lease (its mtime). False: there is no such chunk."""
+        try:
+            fd = os.open(name, paths.O_FILE_READ, dir_fd=d)
+        except OSError:
+            return False
+        try:
+            os.utime(fd)
+        finally:
+            os.close(fd)
+        return True
+
+    def _leased(self, d: int, name: str, now: float) -> bool:
+        try:
+            st = os.stat(name, dir_fd=d, follow_symlinks=False)
+        except FileNotFoundError:
+            return False
+        return now - st.st_mtime < self.chunk_ttl
 
     def put_chunk(self, p: Principal, root: str | None, digest: str, data: bytes) -> dict:
         r = self.writable_root(p, root)
@@ -197,7 +232,7 @@ class Transfer:
 
     def _write_chunk(self, d: int, digest: str, data: bytes) -> bool:
         name = self._chunk_name(digest)
-        if paths.exists_at(d, name):
+        if self._touch(d, name):
             return False
         tmp = f".{name}.{secrets.token_hex(6)}.part"
         fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600, dir_fd=d)
@@ -218,14 +253,18 @@ class Transfer:
         return self.files.index.rows(root.id, [paths.join(parts)]).get(paths.join(parts))
 
     def _manifest_from_chunks(self, root: Root, pieces: list[str]) -> list[dict]:
+        cap = MANIFEST_MAX_CHUNKS * RECORD
+        blob = bytearray()
         with self._chunks_dir(root) as d:
-            blob = b""
             for h in pieces:
                 data = self._read_chunk(d, h)
                 if data is None:
                     raise ChunksMissing([h])
                 blob += data
-        if len(blob) % RECORD or len(blob) // RECORD > MANIFEST_MAX_CHUNKS:
+                if len(blob) > cap:  # stop at once: repeating one large piece must not cost memory or time
+                    raise FilesError(422, "conflict", f"the binary manifest is over {MANIFEST_MAX_CHUNKS} records",
+                                     reason="invalid_manifest")
+        if len(blob) % RECORD:
             raise FilesError(422, "conflict", "the binary manifest is not whole 36-byte records", reason="invalid_manifest")
         return [{"hash": blob[i:i + 32].hex(), "size": int.from_bytes(blob[i + 32:i + RECORD], "big")}
                 for i in range(0, len(blob), RECORD)]
@@ -269,6 +308,7 @@ class Transfer:
             raise conflict("the file changed while it was committed; ask for changes and retry", "raced")
         version = self._add_version(t.root, row, chunks, size, sha256, "sync", p.id)
         self._prune(t.root, row.file_id)
+        self.sweep(t.root)
         files.event("sync.committed", p, {"root": t.root.id, "path": t.path, "id": row.file_id,
                                           "revision": row.revision, "size": size, "sha256": sha256,
                                           "base_revision": base, "chunks": len(chunks)})
@@ -371,8 +411,8 @@ class Transfer:
         return v
 
     def _prune(self, root: Root, file_id: str) -> int:
-        """Drop the file's versions past `keep`, then the chunks no version of this root still names.
-        A client that was told a dropped chunk was present gets 409 chunks_missing at commit and sends it."""
+        """Drop the file's versions past `keep`, then the chunks no version of this root still names
+        and no device has sent or asked about within CHUNK_TTL (an upload in progress keeps its chunks)."""
         with self.db.session.begin() as s:
             q = select(VersionRow).where(VersionRow.root == root.id, VersionRow.file_id == file_id)
             rows = list(s.scalars(q.order_by(VersionRow.revision.desc(), VersionRow.created_at.desc())))
@@ -383,13 +423,38 @@ class Transfer:
             s.execute(delete(VersionRow).where(VersionRow.id.in_([v.id for v in old])))
             s.flush()
             still = {c[0] for v in s.scalars(select(VersionRow).where(VersionRow.root == root.id)) for c in v.chunks}
+        now = time.time()
         with self._chunks_dir(root) as d:
             for h in dropped - still:
-                try:
-                    os.unlink(h, dir_fd=d)
-                except FileNotFoundError:
-                    pass
+                if not self._leased(d, h, now):
+                    self._unlink(d, h)
         return len(old)
+
+    def sweep(self, root: Root, force: bool = False) -> int:
+        """Remove chunks (and interrupted .part writes) that no version names once their lease ran out:
+        an abandoned upload's chunks do not stay on the disk. Runs at most every SWEEP_EVERY per root."""
+        mono = time.monotonic()
+        last = self._swept.get(root.id)
+        if not force and last is not None and mono - last < SWEEP_EVERY:
+            return 0
+        self._swept[root.id] = mono
+        with self.db.session() as s:
+            named = {c[0] for v in s.scalars(select(VersionRow).where(VersionRow.root == root.id)) for c in v.chunks}
+        now, removed = time.time(), 0
+        with self._chunks_dir(root) as d:
+            for name in os.listdir(d):
+                is_part = name.startswith(".") and name.endswith(".part")
+                if (is_part or (HEX64.match(name) and name not in named)) and not self._leased(d, name, now):
+                    removed += self._unlink(d, name)
+        return removed
+
+    @staticmethod
+    def _unlink(d: int, name: str) -> int:
+        try:
+            os.unlink(name, dir_fd=d)
+            return 1
+        except FileNotFoundError:
+            return 0
 
     def versions(self, p: Principal, root: str | None, path: str | None) -> dict:
         t = self.files.target(p, root, path, "read")
@@ -408,5 +473,5 @@ class Transfer:
                              for v in rows]}
 
 
-__all__ = ["CHUNK_AVG", "CHUNK_LIMIT", "CHUNK_MAX", "CHUNK_MIN", "ChunksMissing", "MANIFEST_MAX_CHUNKS",
+__all__ = ["CHUNK_AVG", "CHUNK_LIMIT", "CHUNK_MAX", "CHUNK_MIN", "CHUNK_TTL", "ChunksMissing", "MANIFEST_MAX_CHUNKS",
            "StaleBase", "Transfer", "VERSIONS_KEEP", "VersionRow", "cut_point", "manifest_of"]

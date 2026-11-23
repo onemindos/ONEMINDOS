@@ -5,8 +5,10 @@ from __future__ import annotations
 
 import hashlib
 import random
+import time
 
-from onemind_core.files.transfer import CHUNK_LIMIT, CHUNK_MAX, CHUNK_MIN, cut_point, manifest_of
+from onemind_core.files.access import parse_root
+from onemind_core.files.transfer import CHUNK_LIMIT, CHUNK_MAX, CHUNK_MIN, MANIFEST_MAX_CHUNKS, RECORD, cut_point, manifest_of
 
 from files_support import ADULT, AGENT, GUEST, OWNER, fc, files_root, files_settings, mkdir, ok  # noqa: F401
 
@@ -127,7 +129,7 @@ def test_the_second_of_two_devices_editing_the_same_file_gets_412(fc, files_root
 
 def test_versions_share_chunks_and_an_outside_edit_is_kept_before_it_is_replaced(fc, files_root):
     transfer = fc.app.state.sync_transfer
-    transfer.keep = 3
+    transfer.keep, transfer.chunk_ttl = 3, 0  # no lease: a pruned version's chunks go at once
     data = blob(400_000, 4)
     rev = ok(sync_up(fc, OWNER, "home:owner", "/novel.md", data, None))["revision"]
     edits = []
@@ -184,16 +186,23 @@ def test_refusals(fc, files_root):
         assert missing(fc, who, "shared", [{"hash": digest}], 403)["error"] == "permission_denied"
         put(fc, who, "shared", data, status=403)
         assert commit(fc, who, "shared", "/a.txt", data, None, 403).json()["error"] == "permission_denied"
-    # an agent with a read-only grant may not commit; a read-write grant may, inside the folder only
+    # an agent with a read-only grant may not commit
     mkdir(fc, OWNER, "shared", "/Inbox")
     grant = {"subject": {"kind": "agent", "id": "hermes"}, "root": "shared", "path": "/Inbox", "access": "r", "approve": True}
     assert ok(fc.post("/v1/files/grants", headers=OWNER, json=grant), 202)["state"] == "succeeded"
     assert missing(fc, AGENT, "shared", [{"hash": digest}], 403)["reason"] == "no_grant"
     assert commit(fc, AGENT, "shared", "/Inbox/a.txt", data, None, 403).status_code == 403
+    ok(sync_up(fc, OWNER, "shared", "/held.txt", data, None))
+    # a read-write grant on one folder is not enough: the chunk store answers for the whole root, so
+    # "missing?" would tell the agent what content exists outside its folder (and PUT would write there)
     ok(fc.post("/v1/files/grants", headers=OWNER, json={**grant, "access": "rw"}), 202)
-    assert send(fc, AGENT, "shared", data) == 1
+    assert missing(fc, AGENT, "shared", [{"hash": digest}], 403)["reason"] == "no_grant"
+    put(fc, AGENT, "shared", b"agent bytes", status=403)
+    assert commit(fc, AGENT, "shared", "/Inbox/a.txt", data, None, 403).status_code == 403
+    # a read-write grant on the whole root may
+    ok(fc.post("/v1/files/grants", headers=OWNER, json={**grant, "path": "/", "access": "rw"}), 202)
+    assert send(fc, AGENT, "shared", data) == 0  # /held.txt holds it already
     ok(commit(fc, AGENT, "shared", "/Inbox/a.txt", data, None))
-    assert commit(fc, AGENT, "shared", "/outside.txt", data, None, 403).status_code == 403
     # a manifest that does not add up, or whose joined bytes do not hash to the file's sha256
     bad = commit(fc, OWNER, "shared", "/b.txt", data, None, 422, manifest=[{"hash": digest, "size": 11}])
     assert bad.json()["reason"] == "invalid_manifest"
@@ -219,3 +228,52 @@ def test_refusals(fc, files_root):
     r = fc.post("/v1/sync/commit", headers={**OWNER, "If-Match": "*"}, json={"root": "shared", "path": "/c.txt",
                 "size": len(data), "sha256": digest, "chunks": manifest_of(data)})
     assert r.status_code == 422 and r.json()["reason"] == "invalid_precondition"
+
+
+def test_a_manifest_of_one_repeated_piece_stops_at_the_record_cap(fc, files_root):
+    """3000 copies of one 256 KiB piece would join about 750 MB; the hub stops past the cap instead."""
+    piece = blob(CHUNK_LIMIT, 8)
+    put(fc, OWNER, "shared", piece)
+    transfer, reads = fc.app.state.sync_transfer, []
+    real = transfer._read_chunk
+    transfer._read_chunk = lambda d, h: reads.append(h) or real(d, h)
+    try:
+        started = time.monotonic()
+        r = fc.post("/v1/sync/commit", headers=OWNER, json={
+            "root": "shared", "path": "/dos.bin", "size": 1, "sha256": "0" * 64,
+            "manifest_chunks": [hashlib.sha256(piece).hexdigest()] * 3000, "base_revision": None})
+    finally:
+        del transfer._read_chunk
+    assert r.status_code == 422 and r.json()["reason"] == "invalid_manifest", r.text
+    assert len(reads) == MANIFEST_MAX_CHUNKS * RECORD // CHUNK_LIMIT + 1  # stopped at the first piece past the cap
+    assert time.monotonic() - started < 30
+
+
+def test_a_prune_keeps_the_chunks_another_device_is_about_to_commit(fc, files_root):
+    transfer = fc.app.state.sync_transfer
+    transfer.keep = 1
+    first = blob(600_000, 9)
+    rev = ok(sync_up(fc, OWNER, "shared", "/a.bin", first, None))["revision"]
+    # The phone wants the same bytes at another path: the hub says every chunk is there already...
+    assert missing(fc, ADULT, "shared", manifest_of(first)) == []
+    # ...then the laptop replaces /a.bin, and keep=1 prunes the version that named those chunks.
+    ok(sync_up(fc, OWNER, "shared", "/a.bin", blob(600_000, 10), rev))
+    # The phone's ask leased them, so its commit still finds every chunk (no 409).
+    ok(commit(fc, ADULT, "shared", "/copy.bin", first, None))
+    assert (files_root / "shared" / "copy.bin").read_bytes() == first
+
+
+def test_chunks_no_version_names_are_swept_when_their_lease_runs_out(fc, files_root):
+    transfer = fc.app.state.sync_transfer
+    abandoned = blob(300_000, 11)
+    manifest = manifest_of(abandoned)
+    send(fc, OWNER, "home:owner", abandoned)            # an upload that is never committed
+    kept = blob(100_000, 12)
+    ok(sync_up(fc, OWNER, "home:owner", "/kept.bin", kept, None))
+    root = parse_root("home:owner")
+    assert transfer.sweep(root, force=True) == 0         # still leased: an upload in progress keeps its chunks
+    assert missing(fc, OWNER, "home:owner", manifest) == []
+    transfer.chunk_ttl = 0
+    assert transfer.sweep(root, force=True) == len({m["hash"] for m in manifest})
+    assert missing(fc, OWNER, "home:owner", manifest) == [m["hash"] for m in manifest]
+    assert missing(fc, OWNER, "home:owner", manifest_of(kept)) == []  # a version still names these

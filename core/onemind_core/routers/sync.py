@@ -166,7 +166,9 @@ def register(app: FastAPI, gw: Gateway) -> None:
 
     @app.post("/v1/sync/chunks/missing", operation_id="sync.chunks.missing", tags=TAG, response_model=MissingChunks,
               summary="Which chunks the root does not hold yet",
-              description="Ask before sending, and again after an interruption: only the missing chunks need sending.",
+              description=("Ask before sending, and again after an interruption: only the missing chunks need sending. "
+                           "Needs write access to the whole root (an agent: a read-write grant on \"/\"). "
+                           "Chunks named here stay on the hub for a day even if no version uses them yet."),
               responses=errs(401, 403, 422, 503))
     def chunks_missing(body: MissingQuestion, p: Principal = Depends(principal)):
         return {"missing": transfer.missing(p, body.root, body.hashes)}
