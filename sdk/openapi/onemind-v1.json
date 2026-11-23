@@ -306,6 +306,29 @@
         "title": "AccessBody",
         "type": "object"
       },
+      "AccessOut": {
+        "properties": {
+          "aggregate": {
+            "title": "Aggregate",
+            "type": "boolean"
+          },
+          "read": {
+            "title": "Read",
+            "type": "boolean"
+          },
+          "write": {
+            "title": "Write",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "read",
+          "write",
+          "aggregate"
+        ],
+        "title": "AccessOut",
+        "type": "object"
+      },
       "Action": {
         "additionalProperties": true,
         "description": "One action of the ledger (contract §3). §12.4 adds optional fields; ignore what you do not know.",
@@ -554,6 +577,81 @@
         "title": "AgentCancelled",
         "type": "object"
       },
+      "AgentNatsKey": {
+        "description": "An agent's NATS user in account AGENTS (#627). `nkey` null: the agent has no NATS user.",
+        "properties": {
+          "account": {
+            "title": "Account",
+            "type": "string"
+          },
+          "added_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Added At"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "inbox_prefix": {
+            "title": "Inbox Prefix",
+            "type": "string"
+          },
+          "nkey": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nkey"
+          },
+          "request_subject": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Request Subject"
+          },
+          "subjects": {
+            "description": "what the agent may publish and subscribe on, besides replies",
+            "items": {
+              "type": "string"
+            },
+            "title": "Subjects",
+            "type": "array"
+          },
+          "tools": {
+            "description": "always empty: talking on the bus grants no tool",
+            "items": {
+              "type": "string"
+            },
+            "title": "Tools",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "account",
+          "inbox_prefix",
+          "subjects",
+          "tools"
+        ],
+        "title": "AgentNatsKey",
+        "type": "object"
+      },
       "AgentView": {
         "properties": {
           "budget_per_day": {
@@ -659,6 +757,43 @@
           "requested_by"
         ],
         "title": "Allow",
+        "type": "object"
+      },
+      "Anchor": {
+        "additionalProperties": false,
+        "properties": {
+          "lat": {
+            "maximum": 90.0,
+            "minimum": -90.0,
+            "title": "Lat",
+            "type": "number"
+          },
+          "lon": {
+            "maximum": 180.0,
+            "minimum": -180.0,
+            "title": "Lon",
+            "type": "number"
+          },
+          "x": {
+            "maximum": 40100000.0,
+            "minimum": -40100000.0,
+            "title": "X",
+            "type": "number"
+          },
+          "y": {
+            "maximum": 40100000.0,
+            "minimum": -40100000.0,
+            "title": "Y",
+            "type": "number"
+          }
+        },
+        "required": [
+          "x",
+          "y",
+          "lat",
+          "lon"
+        ],
+        "title": "Anchor",
         "type": "object"
       },
       "AppBuild": {
@@ -1800,6 +1935,30 @@
       "CatalogApp": {
         "description": "One GET /v1/apps entry: the §3 fields plus links, tier and scan (§11.4).",
         "properties": {
+          "age_rating": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Proposed minimum age from the manifest (0, 7, 12, 16 or 18); the default for family filtering. An owner's classification overrides it",
+            "title": "Age Rating"
+          },
+          "age_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "One line saying why the app has that age_rating",
+            "title": "Age Reason"
+          },
           "aiPolicy": {
             "anyOf": [
               {
@@ -2323,6 +2482,62 @@
           "stored"
         ],
         "title": "ChunkStored",
+        "type": "object"
+      },
+      "ClassOut": {
+        "properties": {
+          "access": {
+            "$ref": "#/components/schemas/AccessOut"
+          },
+          "count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Count"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "id": {
+            "enum": [
+              "public",
+              "owner",
+              "private",
+              "location",
+              "activity"
+            ],
+            "title": "Id",
+            "type": "string"
+          },
+          "owned_by": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Owned By",
+            "type": "array"
+          },
+          "read_by": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Read By",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "description",
+          "owned_by",
+          "read_by",
+          "access"
+        ],
+        "title": "ClassOut",
         "type": "object"
       },
       "CodeBody": {
@@ -3181,6 +3396,573 @@
         "title": "DryRunBody",
         "type": "object"
       },
+      "EngineAccount": {
+        "properties": {
+          "account": {
+            "title": "Account",
+            "type": "string"
+          },
+          "connections": {
+            "title": "Connections",
+            "type": "integer"
+          },
+          "jetstream_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Jetstream Bytes"
+          },
+          "leafnodes": {
+            "title": "Leafnodes",
+            "type": "integer"
+          },
+          "node_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The machine this account belongs to; null for the hub's own",
+            "title": "Node Id"
+          }
+        },
+        "required": [
+          "account",
+          "connections",
+          "leafnodes"
+        ],
+        "title": "EngineAccount",
+        "type": "object"
+      },
+      "EngineHealth": {
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "status": {
+            "description": "ok, unavailable (NATS says it is not healthy) or unknown (no answer)",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "EngineHealth",
+        "type": "object"
+      },
+      "EngineJetStream": {
+        "properties": {
+          "cap_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The file-store cap NATS enforces",
+            "title": "Cap Bytes"
+          },
+          "consumers": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Consumers"
+          },
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What NATS says; null when the monitor did not answer",
+            "title": "Enabled"
+          },
+          "planned_cap_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The cap the gateway planned from the data disk",
+            "title": "Planned Cap Bytes"
+          },
+          "reason": {
+            "default": "",
+            "title": "Reason",
+            "type": "string"
+          },
+          "reserved_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reserved Bytes"
+          },
+          "state": {
+            "description": "off, refused, pending, ready or error (the gateway's core streams, #601), or refused when NATS runs JetStream without a cap",
+            "title": "State",
+            "type": "string"
+          },
+          "streams": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Streams"
+          },
+          "used_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Used Bytes"
+          },
+          "used_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Used Pct"
+          }
+        },
+        "required": [
+          "state"
+        ],
+        "title": "EngineJetStream",
+        "type": "object"
+      },
+      "EngineLinks": {
+        "properties": {
+          "down": {
+            "title": "Down",
+            "type": "integer"
+          },
+          "up": {
+            "title": "Up",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "up",
+          "down"
+        ],
+        "title": "EngineLinks",
+        "type": "object"
+      },
+      "EngineMonitor": {
+        "properties": {
+          "checked_at": {
+            "title": "Checked At",
+            "type": "string"
+          },
+          "errors": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Endpoint -> what failed (owner only)",
+            "title": "Errors",
+            "type": "object"
+          },
+          "state": {
+            "description": "up: the loopback monitor answered; down: it did not",
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "checked_at"
+        ],
+        "title": "EngineMonitor",
+        "type": "object"
+      },
+      "EngineNode": {
+        "properties": {
+          "heartbeat": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "online, stale or offline from the heartbeat registry",
+            "title": "Heartbeat"
+          },
+          "link": {
+            "description": "up: the machine's leaf link is connected; down: it is not; unknown: no leaf data",
+            "title": "Link",
+            "type": "string"
+          },
+          "node_id": {
+            "title": "Node Id",
+            "type": "string"
+          },
+          "outbox": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EngineOutbox"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rtt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rtt"
+          }
+        },
+        "required": [
+          "node_id",
+          "link"
+        ],
+        "title": "EngineNode",
+        "type": "object"
+      },
+      "EngineOutbox": {
+        "properties": {
+          "bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bytes"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "lag": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Messages the hub has still to copy from the machine's outbox",
+            "title": "Lag"
+          },
+          "last_active_s": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Seconds since the hub last heard from the outbox",
+            "title": "Last Active S"
+          },
+          "messages": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Messages"
+          },
+          "stream": {
+            "title": "Stream",
+            "type": "string"
+          }
+        },
+        "required": [
+          "stream"
+        ],
+        "title": "EngineOutbox",
+        "type": "object"
+      },
+      "EngineServer": {
+        "properties": {
+          "connections": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Connections"
+          },
+          "in_msgs": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "In Msgs"
+          },
+          "leafnodes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Leafnodes"
+          },
+          "out_msgs": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Out Msgs"
+          },
+          "total_connections": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Connections"
+          },
+          "uptime": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uptime"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
+          }
+        },
+        "title": "EngineServer",
+        "type": "object"
+      },
+      "EngineSlowConsumers": {
+        "properties": {
+          "clients": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clients"
+          },
+          "gateways": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gateways"
+          },
+          "leafs": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Leafs"
+          },
+          "routes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Routes"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
+          }
+        },
+        "title": "EngineSlowConsumers",
+        "type": "object"
+      },
+      "EngineView": {
+        "description": "GET /v1/engine. Never carries a credential, a client address, a user name, a path or a subject.",
+        "properties": {
+          "accounts": {
+            "items": {
+              "$ref": "#/components/schemas/EngineAccount"
+            },
+            "title": "Accounts",
+            "type": "array"
+          },
+          "at": {
+            "title": "At",
+            "type": "string"
+          },
+          "connections_truncated": {
+            "default": false,
+            "title": "Connections Truncated",
+            "type": "boolean"
+          },
+          "health": {
+            "$ref": "#/components/schemas/EngineHealth"
+          },
+          "jetstream": {
+            "$ref": "#/components/schemas/EngineJetStream"
+          },
+          "links": {
+            "$ref": "#/components/schemas/EngineLinks"
+          },
+          "monitor": {
+            "$ref": "#/components/schemas/EngineMonitor"
+          },
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/EngineNode"
+            },
+            "title": "Nodes",
+            "type": "array"
+          },
+          "scope": {
+            "description": "all (owner), node (a machine: its own account and link) or summary",
+            "title": "Scope",
+            "type": "string"
+          },
+          "server": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EngineServer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "slow_consumers": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EngineSlowConsumers"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "at",
+          "scope",
+          "monitor",
+          "health",
+          "links",
+          "jetstream"
+        ],
+        "title": "EngineView",
+        "type": "object"
+      },
       "EnrolBody": {
         "properties": {
           "client": {
@@ -3411,6 +4193,7 @@
             "enum": [
               "app.disable",
               "app.enable",
+              "data.grant",
               "exposure.mesh",
               "exposure.private",
               "exposure.public",
@@ -3429,6 +4212,8 @@
               "machines.disable",
               "machines.enable",
               "node.wake",
+              "os.rollout.resume",
+              "os.rollout.start",
               "os.update.install",
               "plugin.configure",
               "plugin.invoke",
@@ -3473,6 +4258,56 @@
           }
         },
         "title": "FixIn",
+        "type": "object"
+      },
+      "GeoSite": {
+        "additionalProperties": false,
+        "properties": {
+          "anchors": {
+            "items": {
+              "$ref": "#/components/schemas/Anchor"
+            },
+            "maxItems": 128,
+            "minItems": 3,
+            "title": "Anchors",
+            "type": "array"
+          },
+          "areas": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SiteArea"
+            },
+            "maxItems": 512,
+            "title": "Areas",
+            "type": "array"
+          },
+          "floors": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/NamedPlace"
+            },
+            "maxItems": 128,
+            "title": "Floors",
+            "type": "array"
+          },
+          "id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "anchors"
+        ],
+        "title": "GeoSite",
         "type": "object"
       },
       "GrantBody": {
@@ -3549,6 +4384,136 @@
           "access"
         ],
         "title": "GrantBody",
+        "type": "object"
+      },
+      "GrantOut": {
+        "properties": {
+          "action_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Action Id"
+          },
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "aggregate": {
+            "title": "Aggregate",
+            "type": "boolean"
+          },
+          "approved_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approved By"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "data_class": {
+            "enum": [
+              "public",
+              "owner",
+              "private",
+              "location",
+              "activity"
+            ],
+            "title": "Data Class",
+            "type": "string"
+          },
+          "expires_at": {
+            "title": "Expires At",
+            "type": "string"
+          },
+          "grantee": {
+            "$ref": "#/components/schemas/GranteeOut"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "read": {
+            "title": "Read",
+            "type": "boolean"
+          },
+          "requested_by": {
+            "title": "Requested By",
+            "type": "string"
+          },
+          "revoked_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revoked At"
+          },
+          "revoked_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revoked By"
+          },
+          "write": {
+            "title": "Write",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "data_class",
+          "grantee",
+          "read",
+          "write",
+          "aggregate",
+          "created_at",
+          "expires_at",
+          "requested_by",
+          "approved_by",
+          "action_id",
+          "revoked_at",
+          "revoked_by",
+          "active"
+        ],
+        "title": "GrantOut",
+        "type": "object"
+      },
+      "GranteeOut": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "id"
+        ],
+        "title": "GranteeOut",
         "type": "object"
       },
       "Grid": {
@@ -3816,6 +4781,75 @@
           "app_id"
         ],
         "title": "HostBody",
+        "type": "object"
+      },
+      "HostStatus": {
+        "properties": {
+          "count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Count"
+          },
+          "helper": {
+            "default": "missing",
+            "description": "host helper: reachable | missing; no host action starts while missing",
+            "enum": [
+              "reachable",
+              "missing"
+            ],
+            "title": "Helper",
+            "type": "string"
+          },
+          "hostname": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the box's name as the host helper reported it",
+            "title": "Hostname"
+          },
+          "observed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observed At"
+          },
+          "state": {
+            "enum": [
+              "ok",
+              "attention",
+              "critical",
+              "unknown"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "observed_at",
+          "summary"
+        ],
+        "title": "HostStatus",
         "type": "object"
       },
       "ImportBody": {
@@ -5299,6 +6333,43 @@
           "sources"
         ],
         "title": "MyDevices",
+        "type": "object"
+      },
+      "NamedPlace": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "NamedPlace",
+        "type": "object"
+      },
+      "NatsKeyBody": {
+        "additionalProperties": false,
+        "properties": {
+          "nkey": {
+            "description": "the agent's NATS user public key (U...); the seed stays with the agent",
+            "title": "Nkey",
+            "type": "string"
+          }
+        },
+        "required": [
+          "nkey"
+        ],
+        "title": "NatsKeyBody",
         "type": "object"
       },
       "NetGateway": {
@@ -7934,6 +9005,71 @@
         "title": "ReceiptPage",
         "type": "object"
       },
+      "RecordIn": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "description": "What the value is, e.g. place.visit",
+            "pattern": "^[a-z][a-z0-9_.-]{0,62}$",
+            "title": "Kind",
+            "type": "string"
+          },
+          "value": {
+            "description": "Any JSON value, at most 4096 bytes",
+            "title": "Value"
+          }
+        },
+        "required": [
+          "kind",
+          "value"
+        ],
+        "title": "RecordIn",
+        "type": "object"
+      },
+      "RecordOut": {
+        "properties": {
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "data_class": {
+            "enum": [
+              "public",
+              "owner",
+              "private",
+              "location",
+              "activity"
+            ],
+            "title": "Data Class",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value"
+          }
+        },
+        "required": [
+          "id",
+          "data_class",
+          "kind",
+          "value",
+          "source",
+          "created_at"
+        ],
+        "title": "RecordOut",
+        "type": "object"
+      },
       "Redaction": {
         "properties": {
           "found": {
@@ -9351,6 +10487,341 @@
         "title": "SetupBody",
         "type": "object"
       },
+      "ShareBody": {
+        "additionalProperties": false,
+        "properties": {
+          "expires_at": {
+            "description": "Between 5 minutes and 30 days from now",
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/ShareFileItem"
+                },
+                {
+                  "$ref": "#/components/schemas/SharePhotoItem"
+                }
+              ]
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Items",
+            "type": "array"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "password": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 8,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional; stored only as a hash",
+            "title": "Password"
+          }
+        },
+        "required": [
+          "items",
+          "expires_at"
+        ],
+        "title": "ShareBody",
+        "type": "object"
+      },
+      "ShareFileItem": {
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Path",
+            "type": "string"
+          },
+          "root": {
+            "maxLength": 205,
+            "pattern": "^(?:shared|home:[ -~]{1,200})$",
+            "title": "Root",
+            "type": "string"
+          }
+        },
+        "required": [
+          "root",
+          "path"
+        ],
+        "title": "ShareFileItem",
+        "type": "object"
+      },
+      "ShareIn": {
+        "additionalProperties": false,
+        "properties": {
+          "object": {
+            "$ref": "#/components/schemas/ShareObject"
+          },
+          "to": {
+            "description": "The receiving app's id.",
+            "maxLength": 59,
+            "minLength": 1,
+            "title": "To",
+            "type": "string"
+          },
+          "verb": {
+            "default": "open",
+            "enum": [
+              "open",
+              "add"
+            ],
+            "title": "Verb",
+            "type": "string"
+          }
+        },
+        "required": [
+          "to",
+          "object"
+        ],
+        "title": "ShareIn",
+        "type": "object"
+      },
+      "ShareObject": {
+        "additionalProperties": false,
+        "description": "A reference to one object; never its content.",
+        "properties": {
+          "ref": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "pattern": "^[^\\x00-\\x1f\\x7f]+$",
+            "title": "Ref",
+            "type": "string"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "maxLength": 59,
+                "pattern": "^[a-z0-9]([a-z0-9-]{0,57}[a-z0-9])?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The app the object comes from.",
+            "title": "Source"
+          },
+          "type": {
+            "enum": [
+              "note",
+              "task",
+              "event",
+              "person",
+              "file",
+              "place",
+              "track",
+              "alert",
+              "clip"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "ref"
+        ],
+        "title": "ShareObject",
+        "type": "object"
+      },
+      "ShareOut": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "link": {
+            "title": "Link",
+            "type": "string"
+          },
+          "object": {
+            "$ref": "#/components/schemas/ShareObject"
+          },
+          "sent_at": {
+            "title": "Sent At",
+            "type": "string"
+          },
+          "to": {
+            "title": "To",
+            "type": "string"
+          },
+          "verb": {
+            "enum": [
+              "open",
+              "add"
+            ],
+            "title": "Verb",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "to",
+          "verb",
+          "object",
+          "link",
+          "sent_at"
+        ],
+        "title": "ShareOut",
+        "type": "object"
+      },
+      "SharePhotoItem": {
+        "additionalProperties": false,
+        "properties": {
+          "photo": {
+            "description": "A photo in your library, by content: sha256:<hex>",
+            "maxLength": 71,
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Photo",
+            "type": "string"
+          }
+        },
+        "required": [
+          "photo"
+        ],
+        "title": "SharePhotoItem",
+        "type": "object"
+      },
+      "ShareTarget": {
+        "properties": {
+          "app_id": {
+            "title": "App Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "verbs": {
+            "items": {
+              "enum": [
+                "open",
+                "add"
+              ],
+              "type": "string"
+            },
+            "title": "Verbs",
+            "type": "array"
+          }
+        },
+        "required": [
+          "app_id",
+          "name",
+          "verbs"
+        ],
+        "title": "ShareTarget",
+        "type": "object"
+      },
+      "ShareTargetsOut": {
+        "properties": {
+          "targets": {
+            "items": {
+              "$ref": "#/components/schemas/ShareTarget"
+            },
+            "title": "Targets",
+            "type": "array"
+          },
+          "type": {
+            "enum": [
+              "note",
+              "task",
+              "event",
+              "person",
+              "file",
+              "place",
+              "track",
+              "alert",
+              "clip"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "targets"
+        ],
+        "title": "ShareTargetsOut",
+        "type": "object"
+      },
+      "ShareTypeOut": {
+        "properties": {
+          "data_class": {
+            "title": "Data Class",
+            "type": "string"
+          },
+          "name": {
+            "enum": [
+              "note",
+              "task",
+              "event",
+              "person",
+              "file",
+              "place",
+              "track",
+              "alert",
+              "clip"
+            ],
+            "title": "Name",
+            "type": "string"
+          },
+          "ref": {
+            "title": "Ref",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "title",
+          "data_class",
+          "ref"
+        ],
+        "title": "ShareTypeOut",
+        "type": "object"
+      },
+      "ShareTypesOut": {
+        "properties": {
+          "types": {
+            "items": {
+              "$ref": "#/components/schemas/ShareTypeOut"
+            },
+            "title": "Types",
+            "type": "array"
+          }
+        },
+        "required": [
+          "types"
+        ],
+        "title": "ShareTypesOut",
+        "type": "object"
+      },
       "SigningKey": {
         "properties": {
           "active": {
@@ -9412,6 +10883,40 @@
           "keys"
         ],
         "title": "SigningKeys",
+        "type": "object"
+      },
+      "SiteArea": {
+        "additionalProperties": false,
+        "properties": {
+          "floor_id": {
+            "anyOf": [
+              {
+                "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Floor Id"
+          },
+          "id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "SiteArea",
         "type": "object"
       },
       "SourceIn": {
@@ -9535,6 +11040,9 @@
           "backups": {
             "$ref": "#/components/schemas/SourceStatus"
           },
+          "host": {
+            "$ref": "#/components/schemas/HostStatus"
+          },
           "mesh": {
             "$ref": "#/components/schemas/SourceStatus"
           },
@@ -9568,7 +11076,8 @@
           "storage",
           "backups",
           "updates",
-          "mesh"
+          "mesh",
+          "host"
         ],
         "title": "StatusView",
         "type": "object"
@@ -10420,6 +11929,18 @@
             "title": "App Id",
             "type": "string"
           },
+          "args": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Args"
+          },
           "id": {
             "title": "Id",
             "type": "string"
@@ -10442,6 +11963,17 @@
           "title": {
             "title": "Title",
             "type": "string"
+          },
+          "tool": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tool"
           }
         },
         "required": [
@@ -10468,7 +12000,8 @@
             "enum": [
               "tool",
               "card",
-              "topic"
+              "topic",
+              "layer"
             ],
             "title": "Kind",
             "type": "string"
@@ -10547,7 +12080,7 @@
         "type": "object"
       },
       "SurfaceSource": {
-        "description": "A map layer or Settings page: drawn by the host from one public read operation.",
+        "description": "A map layer or Settings page: drawn by the host from one public read operation (\"GET /v1/...\"), or,\nfor a Market app's map layer, `emits`: the layer emits of that app's own bridge, served by the gateway.",
         "properties": {
           "app_id": {
             "title": "App Id",
@@ -12681,7 +14214,7 @@
     },
     "securitySchemes": {
       "bearer": {
-        "description": "A gateway token or a signed-in session (contract §3)",
+        "description": "A OneMind bearer token or session. Each operation's scopes name what it needs: a token scope (contract §12.6) and `data.grant`, a data grant an owner approved (POST /v1/actions type data.grant). Without the token scope or the grant the answer is `public` only (empty data, or 403 on a write).",
         "scheme": "bearer",
         "type": "http"
       }
@@ -13638,9 +15171,241 @@
               }
             },
             "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
           }
         },
         "summary": "Cancel Agent",
+        "tags": [
+          "agents"
+        ]
+      }
+    },
+    "/v1/agents/{name}/nats-key": {
+      "delete": {
+        "operationId": "agents.nats_key.delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentNatsKey"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
+          }
+        },
+        "summary": "Delete Nats Key",
+        "tags": [
+          "agents"
+        ]
+      },
+      "get": {
+        "operationId": "agents.nats_key.get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentNatsKey"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Get Nats Key",
+        "tags": [
+          "agents"
+        ]
+      },
+      "put": {
+        "operationId": "agents.nats_key.set",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NatsKeyBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentNatsKey"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
+          }
+        },
+        "summary": "Set Nats Key",
         "tags": [
           "agents"
         ]
@@ -20106,6 +21871,651 @@
         ]
       }
     },
+    "/v1/data/classes": {
+      "get": {
+        "description": "The five data classes, which built-ins keep and read each, and what you may do with each.",
+        "operationId": "data.classes.list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ClassOut"
+                  },
+                  "title": "Response Data.Classes.List",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "data:read",
+              "data.grant"
+            ]
+          }
+        ],
+        "summary": "Classes",
+        "tags": [
+          "data"
+        ]
+      }
+    },
+    "/v1/data/classes/{data_class}": {
+      "get": {
+        "description": "One class with your access; `count` (how many records) needs read or aggregate, else null.",
+        "operationId": "data.classes.get",
+        "parameters": [
+          {
+            "description": "public, owner, private, location or activity",
+            "in": "path",
+            "name": "data_class",
+            "required": true,
+            "schema": {
+              "description": "public, owner, private, location or activity",
+              "enum": [
+                "public",
+                "owner",
+                "private",
+                "location",
+                "activity"
+              ],
+              "title": "Data Class",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClassOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "data:read",
+              "data.grant"
+            ]
+          }
+        ],
+        "summary": "One Class",
+        "tags": [
+          "data"
+        ]
+      }
+    },
+    "/v1/data/classes/{data_class}/records": {
+      "get": {
+        "description": "The class's records after `cursor`. Empty without a read grant (aggregate sees only the count).",
+        "operationId": "data.records.list",
+        "parameters": [
+          {
+            "description": "public, owner, private, location or activity",
+            "in": "path",
+            "name": "data_class",
+            "required": true,
+            "schema": {
+              "description": "public, owner, private, location or activity",
+              "enum": [
+                "public",
+                "owner",
+                "private",
+                "location",
+                "activity"
+              ],
+              "title": "Data Class",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 20,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RecordOut"
+                  },
+                  "title": "Response Data.Records.List",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Records, oldest first",
+            "headers": {
+              "Link": {
+                "description": "The next page: `<...?cursor=...>; rel=\"next\"` (contract §12.1)",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "data:read",
+              "data.grant"
+            ]
+          }
+        ],
+        "summary": "Records",
+        "tags": [
+          "data"
+        ]
+      },
+      "post": {
+        "description": "Add one record to the class. Needs a write grant and a session or token holding data:write\n(the owner needs only data:write). Each writer keeps its newest 10,000 records per class.",
+        "operationId": "data.records.create",
+        "parameters": [
+          {
+            "description": "public, owner, private, location or activity",
+            "in": "path",
+            "name": "data_class",
+            "required": true,
+            "schema": {
+              "description": "public, owner, private, location or activity",
+              "enum": [
+                "public",
+                "owner",
+                "private",
+                "location",
+                "activity"
+              ],
+              "title": "Data Class",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Sending the same key again returns the first answer",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 80,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Sending the same key again returns the first answer",
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "data:write",
+              "data.grant"
+            ]
+          }
+        ],
+        "summary": "Write",
+        "tags": [
+          "data"
+        ]
+      }
+    },
+    "/v1/data/classes/{data_class}/stream": {
+      "get": {
+        "description": "Server-Sent Events: `record` for each new record (id = record id; resume with Last-Event-ID), then `end` with a reason when the stream stops: no_grant at once without read, revoked within 2 s of a revoke or expiry. At most 5 open streams per principal (429).",
+        "operationId": "data.records.stream",
+        "parameters": [
+          {
+            "description": "public, owner, private, location or activity",
+            "in": "path",
+            "name": "data_class",
+            "required": true,
+            "schema": {
+              "description": "public, owner, private, location or activity",
+              "enum": [
+                "public",
+                "owner",
+                "private",
+                "location",
+                "activity"
+              ],
+              "title": "Data Class",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Last-Event-ID",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 20,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Last-Event-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The record stream"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "data:read",
+              "data.grant"
+            ]
+          }
+        ],
+        "summary": "New records (text/event-stream)",
+        "tags": [
+          "data"
+        ]
+      }
+    },
+    "/v1/data/grants": {
+      "get": {
+        "description": "Every grant, newest first, for the owner (the Privacy screen); anyone else sees their own.",
+        "operationId": "data.grants.list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/GrantOut"
+                  },
+                  "title": "Response Data.Grants.List",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "data:read",
+              "data.grant"
+            ]
+          }
+        ],
+        "summary": "Grants",
+        "tags": [
+          "data"
+        ]
+      }
+    },
+    "/v1/data/grants/{grant_id}": {
+      "delete": {
+        "description": "Revoke a grant now (owner only, no approval: it only takes access away). Revoking twice is a no-op.",
+        "operationId": "data.grants.revoke",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "grant_id",
+            "required": true,
+            "schema": {
+              "maxLength": 40,
+              "title": "Grant Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Sending the same key again returns the first answer",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 80,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Sending the same key again returns the first answer",
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GrantOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "actions:approve"
+            ]
+          }
+        ],
+        "summary": "Revoke",
+        "tags": [
+          "data"
+        ]
+      }
+    },
     "/v1/databases": {
       "get": {
         "description": "Apps' databases on the shared PostgreSQL. Never a password: those live in each app's Secret.",
@@ -20878,6 +23288,56 @@
         "summary": "Request Host",
         "tags": [
           "domains"
+        ]
+      }
+    },
+    "/v1/engine": {
+      "get": {
+        "description": "Connections per account, leaf links and outbox lag per machine, JetStream used against its cap,\nslow consumers. Cut to the caller: the owner sees all, a machine its own, everyone else a summary.",
+        "operationId": "engine.get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EngineView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "monitoring:read",
+              "nodes:report"
+            ]
+          }
+        ],
+        "summary": "Engine",
+        "tags": [
+          "engine"
         ]
       }
     },
@@ -23167,6 +25627,207 @@
           }
         },
         "summary": "Roots",
+        "tags": [
+          "files"
+        ]
+      }
+    },
+    "/v1/files/shares": {
+      "get": {
+        "description": "Your links, without their secrets. An owner also sees everyone else's, but not the paths,\nphotos or names behind items from that person's Home or photo library.",
+        "operationId": "files.shares.list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not signed in; on /v1/share: the link's password is missing or wrong (unauthenticated)"
+          }
+        },
+        "summary": "List Shares",
+        "tags": [
+          "files"
+        ]
+      },
+      "post": {
+        "description": "Share files or photos outside the household until `expires_at`. The secret comes back once.",
+        "operationId": "files.shares.create",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShareBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not signed in; on /v1/share: the link's password is missing or wrong (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Only an owner or adult shares, and only what they can read (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such link, file, photo or item (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not a regular file (conflict)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Invalid body, expiry or photo hash (conflict)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many live links for this person (rate_limited)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The files storage is not usable (unavailable)"
+          }
+        },
+        "summary": "Create Share",
+        "tags": [
+          "files"
+        ]
+      }
+    },
+    "/v1/files/shares/{share_id}": {
+      "delete": {
+        "description": "End a link now: the creator or an owner.",
+        "operationId": "files.shares.revoke",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "share_id",
+            "required": true,
+            "schema": {
+              "maxLength": 40,
+              "pattern": "^shl_[0-9A-Z]{26}$",
+              "title": "Share Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not signed in; on /v1/share: the link's password is missing or wrong (unauthenticated)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such link, file, photo or item (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Revoke Share",
         "tags": [
           "files"
         ]
@@ -28149,6 +30810,238 @@
         ]
       }
     },
+    "/v1/os/fleet": {
+      "get": {
+        "description": "Every machine's OS version and update state, and how many machines run each version.",
+        "operationId": "os.fleet",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "summary": "Os Fleet",
+        "tags": [
+          "os"
+        ]
+      }
+    },
+    "/v1/os/rollouts": {
+      "get": {
+        "description": "Fleet-staged rollouts, newest first.",
+        "operationId": "os.rollouts.list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "summary": "Os Rollouts",
+        "tags": [
+          "os"
+        ]
+      }
+    },
+    "/v1/os/rollouts/{rollout_id}": {
+      "get": {
+        "description": "One rollout: its stage, each machine's state, and why it paused.",
+        "operationId": "os.rollouts.get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "rollout_id",
+            "required": true,
+            "schema": {
+              "title": "Rollout Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Os Rollout",
+        "tags": [
+          "os"
+        ]
+      }
+    },
+    "/v1/os/rollouts/{rollout_id}/cancel": {
+      "post": {
+        "description": "Stop offering the version to more machines. Owner only; machines already updated stay updated.",
+        "operationId": "os.rollouts.cancel",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "rollout_id",
+            "required": true,
+            "schema": {
+              "title": "Rollout Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Os Rollout Cancel",
+        "tags": [
+          "os"
+        ]
+      }
+    },
     "/v1/os/updates": {
       "get": {
         "description": "Per node: running version, booted A/B slot, the update on offer, and whether installing can run.",
@@ -30976,6 +33869,448 @@
         ]
       }
     },
+    "/v1/share": {
+      "post": {
+        "description": "Hand one object to one app. Refused (409) when the app does not accept the type or verb\n(`type_not_accepted`, `verb_not_accepted`) or lacks the type's data grant (`no_grant`);\n404 when you cannot see the app. Only an owner or adult sends. A repeated `Idempotency-Key`\nreplays the first share (200) for 24 hours; with a different share it is 409 `idempotency_mismatch`.",
+        "operationId": "share.send",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShareIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShareOut"
+                }
+              }
+            },
+            "description": "Idempotent replay: the share sent earlier with this Idempotency-Key (header OneMind-Idempotent-Replay)"
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShareOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Share Send",
+        "tags": [
+          "share"
+        ]
+      }
+    },
+    "/v1/share/targets": {
+      "get": {
+        "description": "The Send to list: switched-on apps you can see that accept this type and hold its grant.",
+        "operationId": "share.targets",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "type",
+            "required": true,
+            "schema": {
+              "enum": [
+                "note",
+                "task",
+                "event",
+                "person",
+                "file",
+                "place",
+                "track",
+                "alert",
+                "clip"
+              ],
+              "title": "Type",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShareTargetsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Share Targets",
+        "tags": [
+          "share"
+        ]
+      }
+    },
+    "/v1/share/types": {
+      "get": {
+        "description": "The share types: what one app can hand another, and the data grant each needs.",
+        "operationId": "share.types",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShareTypesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "summary": "Share Types",
+        "tags": [
+          "share"
+        ]
+      }
+    },
+    "/v1/share/{token}": {
+      "get": {
+        "description": "No account: the link secret is the credential. The items the link shares, by index.",
+        "operationId": "share.open",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "maxLength": 60,
+              "pattern": "^oms_[A-Za-z0-9_-]{43}$",
+              "title": "Token",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "OneMind-Share-Password",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Onemind-Share-Password"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not signed in; on /v1/share: the link's password is missing or wrong (unauthenticated)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such link, file, photo or item (not_found)"
+          },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The link expired, was revoked, or its creator can no longer share (expired)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Open Share",
+        "tags": [
+          "share"
+        ]
+      }
+    },
+    "/v1/share/{token}/items/{index}": {
+      "get": {
+        "description": "One shared item's bytes, read with the creator's current rights.",
+        "operationId": "share.download",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "maxLength": 60,
+              "pattern": "^oms_[A-Za-z0-9_-]{43}$",
+              "title": "Token",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "index",
+            "required": true,
+            "schema": {
+              "exclusiveMaximum": 100,
+              "minimum": 0,
+              "title": "Index",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "inline",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Inline",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "header",
+            "name": "OneMind-Share-Password",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Onemind-Share-Password"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "206": {
+            "description": "Partial content (Range)"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not signed in; on /v1/share: the link's password is missing or wrong (unauthenticated)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such link, file, photo or item (not_found)"
+          },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The link expired, was revoked, or its creator can no longer share (expired)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Download Share Item",
+        "tags": [
+          "share"
+        ]
+      }
+    },
     "/v1/shares/smb": {
       "get": {
         "description": "Whether the box can share over SMB, who could be shared, and the shares that exist.\n\nAn owner sees everyone's shares; anyone else sees their own.",
@@ -31144,6 +34479,130 @@
         "summary": "Shares Stop",
         "tags": [
           "files"
+        ]
+      }
+    },
+    "/v1/sites": {
+      "get": {
+        "operationId": "geo.list_sites",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/GeoSite"
+                  },
+                  "title": "Response Geo.List Sites",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "summary": "List Sites",
+        "tags": [
+          "geo"
+        ]
+      },
+      "post": {
+        "operationId": "geo.create_site",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GeoSite"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GeoSite"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Create Site",
+        "tags": [
+          "geo"
         ]
       }
     },
@@ -31816,7 +35275,7 @@
     },
     "/v1/surfaces": {
       "get": {
-        "description": "Everything the switched-on apps plug into, read live: a switched-off app is in no list.\nDeclarations the gateway cannot prove (an unregistered action type, an event the notify\ncatalogue does not route to the topic, a card whose source declares no observed_at) are\nunder `refused` and served nowhere.",
+        "description": "Everything the switched-on built-ins and running Market apps plug into, read live: a\nswitched-off built-in, or a stopped or removed Market app, is in no list.\nDeclarations the gateway cannot prove (an unregistered action type, an event the notify\ncatalogue does not route to the topic, a card whose source declares no observed_at) are\nunder `refused` and served nowhere.",
         "operationId": "surfaces.list",
         "responses": {
           "200": {
