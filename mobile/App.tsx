@@ -17,7 +17,8 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { HubDataProvider, useHubData } from './src/data';
 import type { Alert } from './src/lib/alerts';
 import { deviceInfo, forgetDevice, renewWithDevice } from './src/lib/device';
-import { disablePush, loadPushRecord, parsePing, platformTransport } from './src/lib/push';
+import { useThisPhone } from './src/lib/install';
+import { disablePush, installField, loadPushRecord, parsePing, platformTransport } from './src/lib/push';
 import type { RootParams, TabParams } from './src/nav';
 import { setBadge, setupNotifications, showAlert } from './src/notify';
 import { photoTour, PhotoBackupProvider } from './src/photos/controller';
@@ -143,9 +144,12 @@ function routeTo(data: Record<string, unknown> | undefined) {
 
 /** Pings from the box while the app runs (mobile/docs/push.md §5). */
 function PushPings() {
-  const { api, connection } = useSignedIn();
+  const { api, connection, features } = useSignedIn();
   const { reload } = useHubData();
-  usePushPings({ api, hubUrl: connection.mode === 'live' ? connection.hubUrl : undefined, label: deviceInfo('').name, reload });
+  // The same name and install id as this phone's sign-in and passkey, so a rotated endpoint stays on its device (#715).
+  const phone = useThisPhone();
+  const install = useMemo(() => installField(features, phone?.installId), [features, phone?.installId]);
+  usePushPings({ api, hubUrl: connection.mode === 'live' ? connection.hubUrl : undefined, label: phone?.name ?? deviceInfo('').name, install, reload });
   return null;
 }
 

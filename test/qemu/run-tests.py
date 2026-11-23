@@ -7,7 +7,7 @@ Criteria: test/qemu/CRITERIA.md (pre-registered; never edited to make a result p
 Boots the board's test disk under QEMU with user-mode networking (restrict=on: no route out; one
 forwarded port to the guest's :8080 for the off-box check) and an i6300esb watchdog, drives the
 serial console, runs T1..T11 (+ TC1 on cloud boards), then TD1..TD3 (test/qemu/CRITERIA-DATAFAIL.md)
-when --upto is T5 or later.
+when --upto is T5 or later; with the same condition TN0..TN2 (CRITERIA-NAS.md, nasmount.py) right after T1.
 Power cut = SIGKILL of the QEMU process. Runs in the tools container (QEMU + firmware pinned):
 
   python3 -I run-tests.py --board x86_64-efi --fixtures DIR --log serial.log [--upto T5] [--results r.json]
@@ -18,6 +18,9 @@ import urllib.error, urllib.request
 _ff = importlib.util.spec_from_file_location("failfast", os.path.join(os.path.dirname(os.path.abspath(__file__)), "failfast.py"))
 failfast = importlib.util.module_from_spec(_ff)
 _ff.loader.exec_module(failfast)
+_nas = importlib.util.spec_from_file_location("nasmount", os.path.join(os.path.dirname(os.path.abspath(__file__)), "nasmount.py"))
+nasmount = importlib.util.module_from_spec(_nas)
+_nas.loader.exec_module(nasmount)
 
 ANSI = re.compile(rb"\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b\[[0-9;?]*[A-Za-z]|\x1b[()][0-9A-B]|\r")
 # Escape sequences that can sit in front of a command's first output line on the serial console.
@@ -419,6 +422,12 @@ def main():
         hostkeys = "/data/onemind/ssh/ssh_host_ed25519_key" in hk and "SLOTKEYS=0" in hk
         record("TC1", done and key and active and hostkeys,
                f"cloud_init_done={done} key_installed={key} sshd_active={active} hostkeys_on_data_only={hostkeys}")
+
+    if upto >= ORDER.index("T5"):   # NAS client step, TN0-TN2 (CRITERIA-NAS.md, #871)
+        try:
+            nasmount.run(vm, record, tag, a.board)
+        except (TimeoutError, RuntimeError, ValueError, OSError) as e:
+            record("TN", False, f"NAS client step aborted: {e}")
 
     if want("T2"):
         vm.mark("T2 wrong-key bundle")
