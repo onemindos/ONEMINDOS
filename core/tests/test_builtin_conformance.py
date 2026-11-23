@@ -279,7 +279,11 @@ def test_descriptors_use_the_app_manifest_api_version_kind_and_file_name():
 
 def test_no_descriptor_block_reuses_an_app_spec_name_with_another_shape():
     shared = set(BUILTIN_SCHEMA["properties"]["spec"]["properties"]) & set(APP_SCHEMA["properties"]["spec"]["properties"])
-    assert shared == {"backup"}  # every other block name is new to the App spec and can move there unchanged
+    # #604 moved search, share, notifications, mapLayers and data into the App spec; every descriptor block
+    # of those names must still validate against the App block, and the rest stay descriptor-only.
+    assert shared == {"backup", "search", "share", "notifications", "mapLayers", "data"}
+    assert set(BUILTIN_SCHEMA["properties"]["spec"]["properties"]) - shared == {"routes", "cards", "actions",
+                                                                                "settingsPages", "phone"}
     for app_id in sorted(SIGNED.ids()):
         spec = doc_of(app_id)["spec"]
         for name in sorted(shared & set(spec)):

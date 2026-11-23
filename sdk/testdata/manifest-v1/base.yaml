@@ -1,0 +1,128 @@
+# SPDX-License-Identifier: Apache-2.0
+# Golden manifest for manifest v1 (#604): one app that declares every spec block and every
+# extension block. A test fixture, never an app in the Market. cases.yaml changes one thing at a
+# time; core (Catalog.validate) and Go (internal/plugin/validate) must give the same verdict.
+apiVersion: onemind.app/v1
+kind: App
+metadata:
+  id: quake-watch
+  name: Quake Watch
+  version: "1.0.0"
+  description: Golden test manifest that declares every manifest v1 block.
+  category: monitoring
+  icon: icon.svg
+  license: Apache-2.0
+  source: https://github.com/onemindos/ONEMINDOS
+  links:
+    docs: https://github.com/onemindos/ONEMINDOS
+    github: https://github.com/onemindos/ONEMINDOS
+    website: https://github.com/onemindos/ONEMINDOS
+    support: https://github.com/onemindos/ONEMINDOS/issues
+  upstream: {release: "1.0.0", released_at: "2026-11-22T00:00:00Z", archived: false}
+  tier: community
+spec:
+  archs: [amd64, arm64]
+  requires: {gpu: false, minMemoryMb: 128}
+  manifests: manifests/
+  updates: {channel: stable, automerge: none}
+  compat: {onemind: ">=0.3 <1.0"}
+  runtime: container
+  placement: hub
+  egress: [earthquake.usgs.gov, api.weather.gov]
+  permissions: [nodes:read]
+  plugin:
+    principal: true
+    secret: quake-watch-onemind
+    backend: {service: quake-watch, port: 8080}
+  data: {owns: [public], reads: [location], retentionDays: 30}
+  services: [notify, search, share, map, series]
+  search: {provider: quake-watch, types: [quake]}
+  share: {accepts: [place, alert], verbs: [open, add]}
+  notifications:
+    topics:
+      - id: quakes
+        events: [quake.strong]
+        level: warning
+        actions:
+          - {id: show, label: Show on map, tool: recent, args: {hours: 24}}
+  mapLayers:
+    - id: quakes
+      title: Earthquakes
+      source: emits
+      style: {type: circle, color: "#7c3aed"}
+      legend: Magnitude 2.5 and above
+      attribution: U.S. Geological Survey
+  jobs:
+    - {id: refresh, tool: recent, everySeconds: 3600, maxRunSeconds: 60}
+  backup:
+    mode: hot
+    pre: {exec: {command: [/app/bin/flush]}, timeout_s: 30}
+    post: {exec: {command: [/app/bin/resume]}}
+    restore: {post: {exec: {command: [/app/bin/reindex]}}}
+    verify: {http: {port: 8080, path: /healthz, expect: 200}}
+  roles: [maps]
+  continue:
+    - {route: "/quakes/{id}", state: [zoom, center]}
+  needs: [internet]
+  terms:
+    personData: false
+    providers:
+      - id: usgs
+        name: USGS Earthquake Hazards Program
+        url: https://www.usgs.gov/information-policies-and-instructions/copyrights-and-credits
+        readOn: "2026-11-21"
+        use: commercial
+        keyNeeded: false
+        rateLimit: {requests: 1, perSeconds: 60}
+        minIntervalSeconds: 60
+        store: keep
+        redistribute: {mesh: true, tak: true, publicShare: true}
+        display: full
+        personScoped: false
+        attribution: U.S. Geological Survey
+      - id: nws
+        name: National Weather Service API
+        url: https://www.weather.gov/documentation/services-web-api
+        readOn: "2026-11-21"
+        use: commercial
+        keyNeeded: false
+        minIntervalSeconds: 300
+        store: cache
+        maxCacheSeconds: 86400
+        redistribute: {mesh: true, tak: false, publicShare: false}
+        display: full
+        personScoped: false
+  extensions:
+    tools:
+      - name: recent
+        title: Recent quakes
+        description: Returns the quakes of the last hours.
+        effect: read
+        input: {type: object, additionalProperties: false, properties: {hours: {type: integer}}}
+    bridge:
+      provider: usgs
+      mode: poll
+      everySeconds: 300
+      hosts: [earthquake.usgs.gov]
+      dataClass: public
+      emits:
+        - {kind: layer, name: quakes}
+        - {kind: intel, name: quake}
+        - {kind: alert, name: strong-quake}
+      limits: {eventsPerSecond: 10, burst: 100, maxEventBytes: 16384}
+    connector:
+      provider: nws
+      auth: none
+      hosts: [api.weather.gov]
+      everySeconds: 600
+    videoSource:
+      provider: usgs
+      protocol: still
+      hosts: [earthquake.usgs.gov]
+      everySeconds: 600
+      record: false
+    nats:
+      publish: [status]
+      subscribe: [status]
+      imports: [onemind.event.app.installed]
+      limits: {maxConnections: 2, maxSubscriptions: 16, maxPayloadBytes: 16384}
