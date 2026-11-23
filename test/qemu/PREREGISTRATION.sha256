@@ -17,3 +17,4 @@ dd1565299e7957ca9f65011de03e2728ea8541c24bee46f4dc0adf848dd1daf2  CRITERIA-DATAE
 d9b08adb44a0cc33a7cea6b84baacdb6128063287a91786478986715349fb705  CRITERIA-WIZARD.md  2026-11-23T00:18:33Z  (#578, PR 921 review: committed before wizard.py was committed or run on any image)
 04087f2885f9ae7369ece1cb8b8f8eda4bb9c66dbec2f59666af06ab4256929a  CRITERIA-SYSEXT.md  2026-11-23T01:24:32Z  (T-W19-01, #186; written before the signed-only extension policy and sysextguard.py existed)
 fb2375a5a405e5d084aea80dbfdff1b5114f2b05391e1875277a8215982fbc20  CRITERIA-SECUREBOOT.md  2026-11-23T01:45:50Z  (with §4 amendment: SB5 slot B under Secure Boot, #148; written before SB5 or the efi route was booted)
+5cc09a8565003c8c27750bdd2e627609ef2fe183e3d2bb22d8093f83f6c4b7b8  CRITERIA-SYSEXT.md  2026-11-23T04:02:01Z  (with §5 amendment: X8 two-dot directory names, PR 972 review; written before the guard fix and before X8 ran)

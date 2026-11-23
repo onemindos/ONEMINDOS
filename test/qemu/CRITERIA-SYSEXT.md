@@ -50,3 +50,14 @@ Observations (recorded, never pass or fail):
 - **x86_64-efi** (OVMF) runs X0-X7, O1 and O2. Other boards are reported, never required.
 - On a host without KVM the run uses TCG and says so; a timeout missed only because TCG is slower is **BLOCKED (TCG timing)**, and the test must then pass on a KVM host before it counts.
 - **T-W19-01 passes** when X0-X7 are all PASS on x86_64-efi. Any FAIL in X1-X7 is a T-W19-01 failure and goes to the founder for Z-22 as is.
+
+## 5. Amendment, 2026-11-23: directory names that start with two dots (X8)
+
+**Why:** the PR 972 review found that the guard's globs (`*` and `.[!.]*`) skip names such as `..evil`, and proved on Debian 13 (systemd 257) that `systemd-sysext refresh` with the signed-only image policy merges a plain directory `/var/lib/extensions/..evil`. X4 never placed such a name, so it could not see this. Written before the fix and before `sysextguard.py` ran X8. Sections 1-4 are unchanged.
+
+| ID | Test | PASS if | FAIL if |
+|---|---|---|---|
+| X8 | A plain directory whose name starts with two dots never merges (reboot, slot A, right after X4) | `plaindir/` and `confdir/` are removed; a plain sysext directory `..evil/` (its extension-release file and marker named `..evil`) is added to `/var/lib/extensions` and a plain confext directory `..confevil/` (named the same way) to `/var/lib/confexts`, with no other directory in any extension folder. After `systemctl reboot`: neither is merged, the journal of each unit shows an `ONEMIND-SYSEXT-GUARD: refused` line naming it, and **nothing** is merged in that boot | A two-dot directory merged, no refusal line naming it, or any extension merged |
+
+- X5 starts after X8: its setup also removes `..evil/` and `..confevil/`.
+- From this amendment on, **T-W19-01 passes** when X0-X8 are all PASS on x86_64-efi; a FAIL in X8 is a T-W19-01 failure like X1-X7.
