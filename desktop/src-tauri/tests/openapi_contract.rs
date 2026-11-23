@@ -5,7 +5,7 @@
 //! (1) a route the desktop calls is missing or loses its method,
 //! (2) a query parameter the desktop sends is dropped from a route that declares parameters,
 //! (3) a response field the desktop reads is no longer in a response schema the spec types.
-//! Where the spec leaves a 200 body untyped, only (1) and (2) can be checked; that is stated per
+//! Where the spec leaves a success body untyped, only (1) and (2) can be checked; that is stated per
 //! row, never hidden. Dashboard and mobile are other issues; this file is the desktop only.
 use serde_json::Value;
 
@@ -21,10 +21,10 @@ fn deref<'a>(spec: &'a Value, mut s: &'a Value) -> &'a Value {
     s
 }
 
-/// Properties of the 200 JSON body; for an array body, of its items. `None` when the spec does
-/// not type the body.
-fn response_fields(spec: &Value, path: &str) -> Option<Vec<String>> {
-    let s = spec["paths"][path]["get"]["responses"]["200"]["content"]["application/json"].get("schema")?;
+/// Properties of the JSON response body; for an array body, of its items. `None` when the spec
+/// does not type the body.
+fn response_fields(spec: &Value, path: &str, method: &str, status: &str) -> Option<Vec<String>> {
+    let s = spec["paths"][path][method]["responses"][status]["content"]["application/json"].get("schema")?;
     let mut s = deref(spec, s);
     if s.get("type").and_then(|t| t.as_str()) == Some("array") {
         s = deref(spec, s.get("items")?);
@@ -39,34 +39,39 @@ fn query_params(spec: &Value, path: &str, method: &str) -> Vec<String> {
         .unwrap_or_default()
 }
 
-/// (method, spec path, query names the desktop sends, response fields the desktop reads).
-/// Fields are the keys read in api.rs, approvals.rs, inbox.rs and manage.rs for that route.
+/// (method, spec path, query names, optional (success statuses, typed response fields)).
+/// Fields are the declared keys read in api.rs, approvals.rs, inbox.rs and manage.rs.
 #[allow(clippy::type_complexity)]
-const ROUTES: &[(&str, &str, &[&str], &[&str])] = &[
-    ("get", "/v1/instance", &[], &["name", "version", "hub_node_id"]),
-    ("get", "/v1/nodes", &[], &["status", "node_id"]),
-    ("get", "/v1/actions", &[], &["id", "type", "state", "risk", "requested_by", "expires_at", "params", "plan_sha256"]),
-    ("get", "/v1/actions/{action_id}", &[], &[]),
-    ("post", "/v1/actions", &[], &[]),
-    ("post", "/v1/actions/{action_id}/approve", &[], &[]),
-    ("post", "/v1/actions/{action_id}/deny", &[], &[]),
-    ("get", "/v1/apps", &[], &["id", "name", "version", "status", "installed"]),
-    ("get", "/v1/apps/{app_id}/plan", &["type"], &[]),
-    ("get", "/v1/os/updates", &[], &[]),
-    ("get", "/v1/storage", &[], &[]),
-    ("get", "/v1/me", &[], &[]),
-    ("get", "/v1/alerts", &["state"], &[]),
-    ("get", "/v1/notifications", &["unread", "limit"], &[]),
-    ("post", "/v1/notifications/{notification_id}/read", &[], &[]),
-    ("post", "/v1/notifications/read-all", &[], &[]),
-    ("get", "/v1/backups/status", &[], &[]),
-    ("get", "/v1/backups/destinations", &[], &[]),
-    ("get", "/v1/backups/runs", &[], &[]),
-    ("post", "/v1/backups/runs", &[], &[]),
-    ("post", "/v1/backups/verify", &[], &[]),
-    ("get", "/v1/onboarding/settings", &[], &["box_name", "time_zone", "backup_choice", "backup_destination_id", "saved"]),
-    ("put", "/v1/onboarding/settings", &[], &[]),
-    ("get", "/v1/events", &["types"], &[]),
+const ROUTES: &[(&str, &str, &[&str], Option<(&[&str], &[&str])>)] = &[
+    ("get", "/v1/instance", &[], Some((&["200"], &["name", "version", "hub_node_id"]))),
+    ("get", "/v1/nodes", &[], Some((&["200"], &["status", "node_id"]))),
+    ("get", "/v1/actions", &[], Some((&["200"], &["id", "type", "state", "risk", "requested_by", "expires_at", "params", "plan_sha256"]))),
+    // Older responses may also supply reason, target or principal_id as undeclared fallbacks.
+    ("get", "/v1/actions/{action_id}", &[], Some((&["200"], &[
+        "approval", "expires_at", "id", "params", "plan", "plan_sha256", "requested_by", "risk", "state", "type",
+    ]))),
+    ("post", "/v1/actions", &[], Some((&["200", "201"], &["id", "state"]))),
+    ("post", "/v1/actions/{action_id}/approve", &[], None),
+    ("post", "/v1/actions/{action_id}/deny", &[], None),
+    ("get", "/v1/apps", &[], Some((&["200"], &["id", "name", "version", "status", "installed"]))),
+    ("get", "/v1/apps/{app_id}/plan", &["type"], Some((&["200"], &[
+        "plan", "plan_sha256", "policy_verdict", "reason", "risk",
+    ]))),
+    ("get", "/v1/os/updates", &[], None),
+    ("get", "/v1/storage", &[], None),
+    ("get", "/v1/me", &[], None),
+    ("get", "/v1/alerts", &["state"], None),
+    ("get", "/v1/notifications", &["unread", "limit"], None),
+    ("post", "/v1/notifications/{notification_id}/read", &[], None),
+    ("post", "/v1/notifications/read-all", &[], None),
+    ("get", "/v1/backups/status", &[], None),
+    ("get", "/v1/backups/destinations", &[], None),
+    ("get", "/v1/backups/runs", &[], None),
+    ("post", "/v1/backups/runs", &[], None),
+    ("post", "/v1/backups/verify", &[], None),
+    ("get", "/v1/onboarding/settings", &[], Some((&["200"], &["box_name", "time_zone", "backup_choice", "backup_destination_id", "saved"]))),
+    ("put", "/v1/onboarding/settings", &[], None),
+    ("get", "/v1/events", &["types"], None),
 ];
 
 /// What the desktop uses that the spec does not declare today. Each is asserted still undeclared,
@@ -101,17 +106,18 @@ fn query_parameters_the_desktop_sends_are_declared() {
 fn response_fields_the_desktop_reads_are_in_typed_schemas() {
     let sp = spec();
     let mut typed = 0;
-    for (m, p, _, fields) in ROUTES {
-        if fields.is_empty() {
-            continue;
+    for (m, p, _, response) in ROUTES {
+        let Some((statuses, fields)) = response else { continue };
+        for status in *statuses {
+            let have = response_fields(&sp, p, m, status)
+                .unwrap_or_else(|| panic!("{m} {p} {status}: the spec no longer types the body but the desktop reads {fields:?}"));
+            for f in *fields {
+                assert!(have.iter().any(|h| h == f), "desktop reads `{f}` from {m} {p} {status}; spec has {have:?}");
+            }
         }
-        let have = response_fields(&sp, p).unwrap_or_else(|| panic!("{m} {p}: the spec no longer types the body but the desktop reads {fields:?}"));
         typed += 1;
-        for f in *fields {
-            assert!(have.iter().any(|h| h == f), "desktop reads `{f}` from {p}; spec has {have:?}");
-        }
     }
-    assert!(typed >= 4, "the field check must cover the typed routes");
+    assert!(typed >= 8, "the field check must cover the typed routes");
 }
 
 #[test]
@@ -134,11 +140,11 @@ fn known_undeclared_list_does_not_go_stale() {
 fn the_checker_detects_a_renamed_field() {
     let mut sp = spec();
     let props = sp["paths"]["/v1/instance"]["get"]["responses"]["200"]["content"]["application/json"]["schema"].clone();
-    assert!(response_fields(&sp, "/v1/instance").unwrap().contains(&"name".to_string()));
+    assert!(response_fields(&sp, "/v1/instance", "get", "200").unwrap().contains(&"name".to_string()));
     let target = deref(&sp, &props).clone();
     let mut renamed = target.clone();
     let v = renamed["properties"].as_object_mut().unwrap().remove("name").unwrap();
     renamed["properties"].as_object_mut().unwrap().insert("box_label".into(), v);
     sp["paths"]["/v1/instance"]["get"]["responses"]["200"]["content"]["application/json"]["schema"] = renamed;
-    assert!(!response_fields(&sp, "/v1/instance").unwrap().contains(&"name".to_string()));
+    assert!(!response_fields(&sp, "/v1/instance", "get", "200").unwrap().contains(&"name".to_string()));
 }
