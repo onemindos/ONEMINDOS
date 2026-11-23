@@ -1,0 +1,135 @@
+# SPDX-License-Identifier: Apache-2.0
+# Frigate NVR from upstream's docker compose example (docs/docs/frigate/installation.md at v0.18.3), with the
+# deliberate differences explained in ../README.md:
+#   - not privileged; no devices (no Coral, no /dev/dri): detection runs on the CPU, an NVIDIA card through
+#     ../manifests-gpu
+#   - only port 8971 (signed in); 5000, 8554 and 8555 are not exposed
+#   - /dev/shm and /tmp/cache are memory-backed emptyDirs with fixed sizes (upstream: shm_size and a tmpfs)
+#   - the model-download libraries are kept offline (frigate/network_requirements.md)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frigate
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  # One writer for /config (SQLite) and the recordings: stop the old pod before the new one starts.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: frigate
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: frigate
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        # Writes the seed config only when /config has none; never touches an existing one.
+        - name: seed-config
+          image: ghcr.io/blakeblackshear/frigate:0.18.3@sha256:d1a3e0008557bb3f3314d442ecd4ba68e9b16ab7872d64612649f7a6e5156635
+          command: ["/bin/sh", "-c", "test -s /config/config.yml || cp /seed/config.yml /config/config.yml"]
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            privileged: false
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: config
+              mountPath: /config
+            - name: seed
+              mountPath: /seed
+              readOnly: true
+      containers:
+        - name: frigate
+          image: ghcr.io/blakeblackshear/frigate:0.18.3@sha256:d1a3e0008557bb3f3314d442ecd4ba68e9b16ab7872d64612649f7a6e5156635
+          env:
+            # Features that download models (semantic search, faces, plates) stay off and cannot reach out.
+            - name: HF_HUB_OFFLINE
+              value: "1"
+            - name: TRANSFORMERS_OFFLINE
+              value: "1"
+          ports:
+            - name: http
+              containerPort: 8971
+              protocol: TCP
+          # The image starts s6-overlay (/init) as root and documents no non-root mode (as a non-root user
+          # it stops at once: "/run belongs to uid 0"). Root here keeps only the four capabilities s6 needs to
+          # hand its log folders to its log user (chown, chmod, setuid, setgid); with all of them dropped the
+          # log service fails to start. It cannot gain any more.
+          securityContext:
+            allowPrivilegeEscalation: false
+            privileged: false
+            capabilities:
+              drop: [ALL]
+              add: [CHOWN, FOWNER, SETGID, SETUID]
+          # Upstream's own HEALTHCHECK (docker/main/Dockerfile): the API answers on the internal port.
+          startupProbe:
+            exec:
+              command: ["/bin/sh", "-c", "curl --fail --silent --show-error http://127.0.0.1:5000/api/version"]
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 30
+          readinessProbe:
+            exec:
+              command: ["/bin/sh", "-c", "curl --fail --silent --show-error http://127.0.0.1:5000/api/version"]
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            exec:
+              command: ["/bin/sh", "-c", "test -f /dev/shm/.frigate-is-stopping && exit 0; curl --fail --silent --show-error http://127.0.0.1:5000/api/version || exit 1"]
+            periodSeconds: 60
+            timeoutSeconds: 10
+            failureThreshold: 3
+          # Upstream gives no fixed sizing: CPU and memory follow the cameras. The figures are OneMind
+          # choices for two 720p cameras on CPU detection; the 4Gi limit includes the two memory volumes below.
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: "4"
+              memory: 4Gi
+          volumeMounts:
+            - name: config
+              mountPath: /config
+            - name: media
+              mountPath: /media/frigate
+            - name: cache
+              mountPath: /tmp/cache
+            - name: shm
+              mountPath: /dev/shm
+      volumes:
+        - name: config
+          persistentVolumeClaim:
+            claimName: frigate-config
+        - name: media
+          persistentVolumeClaim:
+            claimName: frigate-media
+        - name: seed
+          configMap:
+            name: frigate-seed
+        # Upstream: "a tmpfs mount" of 1 GB for recording segments before they are checked and moved.
+        - name: cache
+          emptyDir:
+            medium: Memory
+            sizeLimit: 1Gi
+        # Upstream's shm calculator: about 210 MB for two 720p cameras plus up to 50 MB of logs and nginx
+        # cache; 512Mi leaves room for a few more cameras.
+        - name: shm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 512Mi

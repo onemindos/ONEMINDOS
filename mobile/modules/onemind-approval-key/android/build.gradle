@@ -1,0 +1,22 @@
+// SPDX-License-Identifier: Apache-2.0
+// Android-only Expo module: the phone's hardware approval key (#703). Autolinked from mobile/modules/.
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'os.onemind'
+version = '0.1.0'
+
+android {
+  namespace "os.onemind.approvalkey"
+  defaultConfig {
+    versionCode 1
+    versionName '0.1.0'
+  }
+}
+
+dependencies {
+  // AndroidX Biometric: Apache-2.0 (AOSP). The system biometric prompt that unlocks one signature.
+  implementation "androidx.biometric:biometric:1.1.0"
+}

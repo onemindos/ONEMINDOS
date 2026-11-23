@@ -12,7 +12,7 @@ import (
 
 // servicesCommands is `onemind services`: the service cards (GET /v1/system/services, #623). Every
 // systemd unit the OS ships, with the plain name from the image's services registry, its risk and what
-// systemd says now. Owner only and read only: restarting a unit is a later, owner-approved action.
+// systemd says now. Owner only. `logs` and `restart` (#636) are in services_actions.go.
 func servicesCommands(a *App) []*cobra.Command {
 	g := &cobra.Command{Use: "services", Short: "The services this box runs, with a plain name and their state (owner)"}
 	g.AddCommand(&cobra.Command{
@@ -51,6 +51,7 @@ func servicesCommands(a *App) []*cobra.Command {
 			return nil
 		},
 	})
+	g.AddCommand(serviceActionCommands(a)...)
 	return []*cobra.Command{g}
 }
 

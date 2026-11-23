@@ -97,6 +97,17 @@ class DeviceCard(unittest.TestCase):
                 rules = {p.rule for p in devicecard.validate(json.dumps(card).encode())}
                 self.assertIn("credential-field", rules, fx["name"])
 
+    def test_a_url_inside_prose_is_checked_word_by_word(self):
+        # The shared fixtures cover it; spell out the two the review named, with the near miss beside them.
+        base = json.loads((EXAMPLES / "relay.json").read_text())
+        for text, bad in (("Web UI at https://admin:pw@relay/ for setup", True),
+                          ("Open https://relay.example/x?access_token=abc now", True),
+                          ("Open https://relay.example/x?unit=s now", False),
+                          ("Is it on? It keeps no token or secret.", False)):
+            card = apply(base, [["set", "/description", text]])
+            rules = {p.rule for p in devicecard.validate(json.dumps(card).encode())}
+            self.assertEqual("credential-field" in rules, bad, text)
+
     def test_class_to_risk_table_matches_the_action_ledger(self):
         # core/onemind_core/actions.py accepts only these risk classes; hold follows approvalcard.hold_required.
         self.assertEqual(devicecard.CLASS_RISK, {

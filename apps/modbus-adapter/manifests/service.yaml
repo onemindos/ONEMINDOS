@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: Apache-2.0
+# The read-only status page (latest values, errors). Field traffic is outbound only.
+apiVersion: v1
+kind: Service
+metadata:
+  name: modbus-adapter
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: modbus-adapter
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+      protocol: TCP

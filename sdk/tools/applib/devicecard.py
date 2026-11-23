@@ -72,6 +72,8 @@ URL_TRIM = "".join(chr(c) for c in range(0x21))   # C0 controls and space
 # A form op that writes: writeproperty, writemultipleproperties, writeallproperties (any ASCII case).
 WRITE_OP = re.compile(r"[Ww][Rr][Ii][Tt][Ee]")
 WHITESPACE = re.compile(r"[ \t\n\r\f\v]")
+# Characters a word in prose may open with before a URL starts: "(https://...", '"https://...'.
+WORD_OPENERS = "([{<\"'`"
 URL_START = re.compile(r"^(?:[A-Za-z][A-Za-z0-9+.-]*:[/\\]{2}|[/\\?#])")
 _VALIDATOR = Draft202012Validator(SCHEMA)
 
@@ -101,22 +103,33 @@ def _url_credential_key(key: str) -> bool:
     return norm in URL_SHORT_KEYS or CREDENTIAL_KEY.search(norm) is not None or URL_CREDENTIAL_KEY.search(norm) is not None
 
 
-def _url_credential(text: str) -> bool:
-    """A user part, or a query or fragment parameter whose (percent-decoded) key names a credential.
-
-    Tab and newline are dropped first, as a URL parser drops them. Text with whitespace inside is
-    prose, not a URL, so a description may say "token" or ask a question, unless it starts like a
-    URL (scheme://, /, ?, #)."""
-    text = URL_TAB_NEWLINE.sub("", text).strip(URL_TRIM)
+def _url_credential_parts(text: str) -> bool:
+    """The user-part and query-key checks on one piece of text read as a URL."""
     if URL_USERINFO.search(text):
         return True
-    if WHITESPACE.search(text) and not URL_START.search(text):
-        return False
     for part in re.split(r"[?#]", text)[1:]:
         for pair in re.split(r"[&;]", part):
             if _url_credential_key(unquote_plus(pair.split("=", 1)[0])):
                 return True
     return False
+
+
+def _url_credential(text: str) -> bool:
+    """A user part, or a query or fragment parameter whose (percent-decoded) key names a credential.
+
+    Tab and newline are dropped first, as a URL parser drops them. Text with whitespace inside is
+    prose, not a URL, so a description may say "token" or ask a question, unless it starts like a
+    URL (scheme://, /, ?, #). Prose is still searched for URLs: each whitespace-separated word gets
+    the same user-part and query-key checks, so "Open https://relay.example/x?access_token=abc now"
+    is refused while "Is it on? It keeps no token." is not."""
+    text = URL_TAB_NEWLINE.sub("", text).strip(URL_TRIM)
+    if URL_USERINFO.search(text):
+        return True
+    if not WHITESPACE.search(text):
+        return _url_credential_parts(text)
+    if URL_START.search(text) and _url_credential_parts(text):
+        return True
+    return any(_url_credential_parts(word.lstrip(WORD_OPENERS)) for word in WHITESPACE.split(text) if word)
 
 
 def _credentials(node, path: str, out: list) -> None:

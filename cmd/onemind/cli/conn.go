@@ -124,7 +124,7 @@ func (a *App) confirm(question, flag string) (bool, error) {
 		return false, exitWith(ExitUsage, "usage", fmt.Sprintf("stdin is not a terminal: pass %s to answer %q", flag, question))
 	}
 	fmt.Fprintf(a.Stderr, "%s [y/N] ", question)
-	line, _ := bufio.NewReader(a.Stdin).ReadString('\n')
+	line, _ := a.readLine()
 	ans := strings.ToLower(strings.TrimSpace(line))
 	return ans == "y" || ans == "yes", nil
 }
@@ -135,6 +135,13 @@ func (a *App) confirmTyped(question, want, flag string) (bool, error) {
 		return false, exitWith(ExitUsage, "usage", fmt.Sprintf("stdin is not a terminal: pass %s to answer %q", flag, question))
 	}
 	fmt.Fprintf(a.Stderr, "%s Type %s to confirm: ", question, want)
-	line, _ := bufio.NewReader(a.Stdin).ReadString('\n')
+	line, _ := a.readLine()
 	return strings.TrimSpace(line) == want, nil
+}
+
+func (a *App) readLine() (string, error) {
+	if a.in == nil {
+		a.in = bufio.NewReader(a.Stdin)
+	}
+	return a.in.ReadString('\n')
 }
