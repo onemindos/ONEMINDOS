@@ -27,7 +27,7 @@ export const accentName = (id: AccentId): string => APPEARANCE_ACCENTS[id].name;
 
 /**
  * CSS variables that re-tint a subtree with an accent. `light-dark()` follows the
- * `color-scheme` the token sheet sets for System, Light and Dark. The default (brand) accent returns {}.
+ * `color-scheme` the token sheet sets for System, Light and Dark. The default Atlas accent returns {}.
  */
 export function accentVars(id: AccentId): CSSProperties {
   if (id === DEFAULT_ACCENT) return {};
