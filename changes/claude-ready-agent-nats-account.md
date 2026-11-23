@@ -1,0 +1,5 @@
+---
+pr: pending
+branch: claude/ready-agent-nats-account
+---
+AI agents get their own NATS account (#627). The owner registers an agent's public key with PUT /v1/agents/{name}/nats-key (only `agent:<name>` principals with a one-token name), and the gateway writes one user for it into the hub's accounts file in a new AGENTS account, reloaded like node accounts. Each agent may publish and subscribe only its own Synadia Agent Protocol subjects (agents.prompt, status and hb under its own name), its own inbox and $SRV discovery, answer what it is sent, and ask for things on onemind.request.agent.<name>.<type>, a service the hub exports, so the subject itself names the real sender. It gets no event, asset, node or audit subject, no JetStream and no tools; the account has connection, subscription and payload limits and no leaf connections. Removing the key, or cancelling the agent, removes its user, and the agent is refused on its next connect. A Go test proves all of this against a real nats-server v2.15.
