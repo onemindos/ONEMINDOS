@@ -95,6 +95,9 @@ HUMAN_ONLY: dict[str, str] = {
     "POST /v1/domains/hosts/{hostname}/approve": OVERSIGHT,
     "POST /v1/files/requests/{request_id}/approve": OVERSIGHT,
     "POST /v1/files/requests/{request_id}/deny": OVERSIGHT,
+    # #690: the USB devices and GPUs an owner may grant a machine, and why one is refused; the owner
+    # decides a grant from it (an agent only files machine.attach_device, which the owner approves)
+    "GET /v1/machines/{name}/devices": OVERSIGHT,
     "PUT /v1/physical/lockout": OVERSIGHT,
     "POST /v1/radios/{radio_id}/confirm": OVERSIGHT,
     # ---- credential: sign-in, tokens, keys, secrets, pairing
