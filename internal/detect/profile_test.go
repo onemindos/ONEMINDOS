@@ -24,7 +24,7 @@ const smiRTX = "00000000:01:00.0, 8188, 8.9\n"
 // mini PC (Intel iGPU and NPU, NVMe, USB radios, webcam) and an RTX box produce the documents in
 // testdata/profile/, which are the reviewed shape later work reads. Run with -update to rewrite.
 func TestProfileGoldenDocuments(t *testing.T) {
-	for _, tc := range []struct{ dir, arch string }{{"rpi5", "arm64"}, {"minipc", "amd64"}, {"x86efi", "amd64"}} {
+	for _, tc := range []struct{ dir, arch string }{{"rpi5", "arm64"}, {"minipc", "amd64"}, {"x86efi", "amd64"}, {"radiohub", "amd64"}} {
 		t.Run(tc.dir, func(t *testing.T) {
 			c := fixture(t, tc.dir, tc.arch)
 			if tc.dir == "x86efi" {
@@ -59,7 +59,7 @@ func TestProfileGoldenDocuments(t *testing.T) {
 // deviceRule checks the one naming rule of the document: every "device" is a full /dev path and
 // every "..._id" a vvvv:pppp string (never a bare "video0", never a list).
 var (
-	devicePathRe = regexp.MustCompile(`^/dev/(hailo[0-9]+|accel/accel[0-9]+|video[0-9]+)$`)
+	devicePathRe = regexp.MustCompile(`^/dev/(hailo[0-9]+|accel/accel[0-9]+|video[0-9]+|onemind/(zigbee|zigbee-thread|lora)([0-9]|1[0-5]))$`)
 	vidPidRe     = regexp.MustCompile(`^[0-9a-f]{4}:[0-9a-f]{4}$`)
 )
 
@@ -88,6 +88,9 @@ func deviceRule(t *testing.T, p *heartbeat.Capabilities) {
 	}
 	for _, tp := range p.TTYPorts {
 		id("tty usb_id", tp.USBID)
+	}
+	for _, r := range p.Radios {
+		dev("radio", r.Device)
 	}
 	for _, u := range p.USB {
 		id("usb", &u.ID)

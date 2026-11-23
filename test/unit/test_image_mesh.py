@@ -209,8 +209,9 @@ class NatsMeshWait(unittest.TestCase):
             import onemind_firstboot as fb
         finally:
             sys.path.pop(0)
-        self.assertTrue(self.waits(fb.hub_nats_conf("192.0.2.1")))
-        self.assertFalse(self.waits(fb.hub_nats_conf(None)))
+        cap = 2 << 30  # the JetStream cap is required (#601)
+        self.assertTrue(self.waits(fb.hub_nats_conf("192.0.2.1", cap)))
+        self.assertFalse(self.waits(fb.hub_nats_conf(None, cap)))
 
 
 class JetsonLayer(unittest.TestCase):
