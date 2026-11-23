@@ -3,7 +3,8 @@
 
 One list of everything the enabled apps plug into: the tools agents and buttons call (with effect,
 exposure and the scope each needs), cards, search providers, share targets, notification topics, map
-layers, Settings pages and backup units, plus what was refused and why. Every client reads this one
+layers, Settings pages and backup units, plus what was refused and why. Built-ins come from their
+descriptors; installed Market apps from their approved installation receipts. Every client reads this one
 list, so a new built-in needs no client release for its declared surfaces. It replaces GET /v1/builtins
 (provisional) for new clients.
 
@@ -18,16 +19,18 @@ from typing import Literal
 
 from fastapi import Depends, FastAPI, Request
 from pydantic import BaseModel
+from sqlalchemy import select
 
 from ..actions import APP_CLAIMS
 from ..auth import Principal
 from ..context import Gateway
-from ..errors import error_responses
+from ..errors import ApiError, error_responses
 from ..identity.scopes import register_route_scope
 from ..notify.catalogue import lookup
+from ..plugins.models import PluginInstallRow
 from ..surfaces import parity
 from ..surfaces.core import CORE_TOOLS
-from ..surfaces.registry import SurfaceRegistry
+from ..surfaces.registry import MarketApp, SurfaceRegistry
 
 log = logging.getLogger("onemind.surfaces")
 
@@ -41,18 +44,18 @@ class SurfaceApp(BaseModel):
     name: str
     description: str | None = None
     origin: Literal["builtin", "market"]
-    phone: dict  # the descriptor's spec.phone: entry (native | web | none) and screen
+    phone: dict  # built-in: the descriptor's spec.phone (entry native | web | none, screen); Market: entry web | none
 
 
 class SurfaceTool(BaseModel):
-    name: str            # the MCP tool name
+    name: str            # core and built-in: the MCP tool name; Market: <app_id>.<tool>
     app_id: str | None   # null for the gateway's own tools
     title: str
     effect: Literal["read", "write", "destructive"]
     exposure: list[Literal["mcp", "rest", "cli"]]
-    route: str | None        # "METHOD /path" a core tool projects; its read body equals the route's
-    action_type: str | None  # the action type a request-only tool files; a person approves it
-    scope: str               # the token scope the tool needs on /mcp
+    route: str | None        # "METHOD /path" the tool calls; a core read tool's body equals the route's
+    action_type: str | None  # the action type a request-only or Market write tool files; a person approves it
+    scope: str               # the token scope the tool needs (on /mcp, or on the Market tool route)
 
 
 class SurfaceCard(BaseModel):
@@ -60,7 +63,9 @@ class SurfaceCard(BaseModel):
     id: str
     title: str
     template: Literal["stat", "list", "progress", "status", "series"]
-    source: str  # GET /v1/path; its response declares observed_at
+    source: str  # built-in: GET /v1/path; Market: POST /v1/plugins/{id}/tools/{tool}. Its output declares observed_at
+    tool: str | None = None   # Market: the read tool the card calls (<app_id>.<tool>)
+    args: dict | None = None  # Market: the arguments the widget passes to that tool
 
 
 class SurfaceSearch(BaseModel):
@@ -93,7 +98,7 @@ class SurfaceSource(BaseModel):
 
 class SurfaceBackupUnit(BaseModel):
     app_id: str
-    kind: str  # table | dir
+    kind: str  # table | dir (a built-in's own); app (a whole Market app, copied by the backup service)
     name: str
 
 
@@ -122,11 +127,38 @@ def register(app: FastAPI, gw: Gateway) -> None:
         spec = lookup(event)
         return spec.topic if spec else None
 
+    def market_apps() -> list[MarketApp]:
+        """Installed Market apps running their approved receipt, read now. Tools are what the plugin
+        tool route serves (plugins/tools.py), so a stopped or removed app, or a changed bundle, has none."""
+        tools = getattr(app.state, "plugin_tools", None)  # mounted later (ORDER 275); looked up per call
+        if tools is None:
+            return []
+        with gw.db.session() as session:
+            ids = sorted(session.scalars(select(PluginInstallRow.app_id)))
+        out = []
+        for app_id in ids:
+            try:
+                row = tools.installed(app_id)
+                meta, spec = row.manifest["metadata"], row.manifest["spec"]
+                declared = (spec.get("extensions") or {}).get("tools") or []
+            except (ApiError, KeyError, TypeError):
+                continue
+            served = {}
+            for item in declared if isinstance(declared, list) else []:
+                try:
+                    served[item["name"]] = tools.lookup(app_id, item["name"])[2]
+                except (ApiError, KeyError, TypeError):
+                    continue
+            out.append(MarketApp(id=app_id, name=str(meta.get("name", app_id)),
+                                 description=meta.get("description") if isinstance(meta.get("description"), str) else None, spec=spec, served=served))
+        return out
+
     registry = SurfaceRegistry(
         app.state.builtins,
         known_action=lambda t: t in gw.actions.feature_types or t in APP_CLAIMS,
         event_topic=event_topic,
         openapi=app.openapi,
+        market=market_apps,
     )
     app.state.surfaces = registry
 
@@ -143,7 +175,8 @@ def register(app: FastAPI, gw: Gateway) -> None:
     @app.get("/v1/surfaces", operation_id="surfaces.list", tags=["apps"], response_model=SurfacesOut,
              responses=error_responses(401, 403))
     def list_surfaces(request: Request, p: Principal = Depends(gw.principal)):
-        """Everything the switched-on apps plug into, read live: a switched-off app is in no list.
+        """Everything the switched-on built-ins and running Market apps plug into, read live: a
+        switched-off built-in, or a stopped or removed Market app, is in no list.
         Declarations the gateway cannot prove (an unregistered action type, an event the notify
         catalogue does not route to the topic, a card whose source declares no observed_at) are
         under `refused` and served nowhere."""
