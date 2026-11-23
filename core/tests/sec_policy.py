@@ -793,3 +793,14 @@ POLICY |= {
     ("PUT", "/v1/instance/kiosk"): Row(ONLY_OWNER, w.p_kiosk_put,
                                        f"{_KIOSK}: only the owner changes the screen; an agent can never switch it"),
 }
+
+# ---- radio-found cards (#732) ---------------------------------------------------------------------------------------
+_RADIO = "core/onemind_core/routers/radios.py (#732)"
+POLICY |= {
+    ("GET", "/v1/radios"): Row(CHILD_CANNOT, w.p_static("/v1/radios"),
+                               f"{_RADIO}: the USB serial lines of the hardware profile /v1/nodes shows; a child has no nodes:read"),
+    # A radio that is not there: the owner reaches the (missing) card, everybody else is refused first.
+    ("POST", "/v1/radios/{radio_id}/confirm"): Row(OWNER_ONLY_404, w.p_missing("/v1/radios/nosuchnode.lora0/confirm", json={
+        "profile": "meshcore-companion-usb"}),
+        f"{_RADIO}: only the owner says what a radio is; an agent never confirms one, and nothing is probed or sent"),
+}
