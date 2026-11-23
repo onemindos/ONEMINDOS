@@ -16,6 +16,7 @@ metadata:
   age_reason: "Writes firmware onto devices and manages them on the home network."
   icon: icon.svg
   license: "MIT AND GPL-3.0"
+  licenceClass: unknown
   source: https://github.com/esphome/esphome
   links:
     docs: "https://esphome.io/"

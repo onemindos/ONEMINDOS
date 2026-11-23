@@ -16,6 +16,7 @@ metadata:
   age_reason: "Probes any host or port the user enters and sends alerts; behaves like a scanner."
   icon: icon.svg
   license: MIT
+  licenceClass: L1
   source: https://github.com/louislam/uptime-kuma
   # §9.3 facts from the GitHub API (repos/louislam/uptime-kuma and its releases/latest), read 2026-11-12.
   links:

@@ -16,6 +16,7 @@ metadata:
   age_reason: "Web search across the open internet; results can include adult content."
   icon: icon.svg
   license: "AGPL-3.0"
+  licenceClass: L2
   source: https://github.com/searxng/searxng
   # §9.3 facts from the GitHub API (repos/searxng/searxng), read 2026-11-12.
   links:

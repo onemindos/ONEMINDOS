@@ -20,6 +20,7 @@ metadata:
   age_reason: "Message hub for devices; whoever can publish can control them."
   icon: icon.svg
   license: "EPL-2.0 OR BSD-3-Clause"
+  licenceClass: L1
   source: https://github.com/eclipse-mosquitto/mosquitto
   links:
     docs: "https://mosquitto.org/documentation/"

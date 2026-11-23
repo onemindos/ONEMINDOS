@@ -19,6 +19,7 @@ metadata:
   # LICENSE.txt: "Binaries located at hub.docker.com/metabase/metabase ... are released under the
   # AGPL"; only the separate metabase-enterprise image carries the commercial licence.
   license: "AGPL-3.0"
+  licenceClass: L2
   source: https://github.com/metabase/metabase
   # §9.3 facts from the GitHub API (repos/metabase/metabase), read 2026-11-12.
   links:

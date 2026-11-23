@@ -16,6 +16,7 @@ metadata:
   age_reason: "Reads and downloads ebooks; the library holds whatever the owner added."
   icon: icon.svg
   license: "GPL-3.0"
+  licenceClass: L2
   source: https://github.com/janeczku/calibre-web
   links:
     docs: "https://github.com/janeczku/calibre-web/wiki"

@@ -18,6 +18,7 @@ metadata:
   age_reason: "Anonymous encrypted pastes that the server cannot read or moderate."
   icon: icon.svg
   license: "Zlib"
+  licenceClass: L1
   source: https://github.com/PrivateBin/PrivateBin
   links:
     docs: "https://github.com/PrivateBin/PrivateBin/wiki"

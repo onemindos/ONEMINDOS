@@ -17,6 +17,7 @@ metadata:
   age_reason: "Comics and manga library; mature titles are common and there is no filter."
   icon: icon.svg
   license: "MIT"
+  licenceClass: L1
   source: https://github.com/gotson/komga
   # §9.3 facts from the GitHub API (repos/gotson/komga), read 2026-11-12.
   links:

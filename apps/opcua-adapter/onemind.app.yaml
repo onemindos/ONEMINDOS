@@ -21,6 +21,7 @@ metadata:
   age_reason: "Connects to machines and PLCs on the network; device access for adults."
   icon: icon.svg
   license: Apache-2.0
+  licenceClass: L1
   source: https://github.com/onemindos/ONEMINDOS
   links:
     docs: https://github.com/onemindos/ONEMINDOS/blob/main/apps/opcua-adapter/README.md

@@ -16,6 +16,7 @@ metadata:
   age_reason: "Manages torrent and usenet search sources for the download pipeline."
   icon: icon.svg
   license: "GPL-3.0"
+  licenceClass: L2
   source: https://github.com/Prowlarr/Prowlarr
   links:
     docs: "https://wiki.servarr.com/prowlarr"

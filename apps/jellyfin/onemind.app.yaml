@@ -16,6 +16,7 @@ metadata:
   age_reason: "Plays movies and series from the owner's library; no content filter."
   icon: icon.svg
   license: "GPL-2.0"
+  licenceClass: L2
   source: https://github.com/jellyfin/jellyfin
   links:
     docs: "https://jellyfin.org/docs/"

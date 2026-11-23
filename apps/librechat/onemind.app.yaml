@@ -16,6 +16,7 @@ metadata:
   age_reason: "General AI chat with agents and many models; replies are not filtered."
   icon: icon.svg
   license: "MIT"
+  licenceClass: L1
   source: https://github.com/LibreChat-AI/LibreChat
   # §9.3 facts from the GitHub API (repos/LibreChat-AI/LibreChat), read 2026-11-12.
   links:

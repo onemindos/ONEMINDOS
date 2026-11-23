@@ -16,6 +16,7 @@ metadata:
   age_reason: "Publishes to the public web and sends newsletters; can take payments."
   icon: icon.svg
   license: "MIT"
+  licenceClass: L1
   source: https://github.com/TryGhost/Ghost
   links:
     docs: "https://docs.ghost.org/"

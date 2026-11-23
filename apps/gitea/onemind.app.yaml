@@ -16,6 +16,7 @@ metadata:
   age_reason: "Code hosting with issues and comments; content is user-made."
   icon: icon.svg
   license: "MIT"
+  licenceClass: L1
   source: https://github.com/go-gitea/gitea
   # §9.3 facts from the GitHub API (repos/go-gitea/gitea), read 2026-11-12.
   links:

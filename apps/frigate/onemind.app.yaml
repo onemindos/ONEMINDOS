@@ -17,6 +17,7 @@ metadata:
   age_reason: "Records the home's security cameras and tracks the people they see; changes the recorder for everyone."
   icon: icon.svg
   license: "MIT"
+  licenceClass: L1
   source: https://github.com/blakeblackshear/frigate
   # §9.3 facts from the GitHub API (repos/blakeblackshear/frigate and its releases/latest), read 2026-11-22.
   links:

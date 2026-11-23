@@ -16,6 +16,7 @@ metadata:
   age_reason: "Edits PDFs on the device only; no sharing, no internet, no chat."
   icon: icon.svg
   license: "AGPL-3.0"
+  licenceClass: L2
   source: https://github.com/alam00000/bentopdf
   links:
     docs: "https://github.com/alam00000/bentopdf#readme"

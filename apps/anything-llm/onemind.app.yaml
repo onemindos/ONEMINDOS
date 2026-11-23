@@ -18,6 +18,7 @@ metadata:
   age_reason: "Chat with documents and agents on an AI model that has no age filter."
   icon: icon.svg
   license: "MIT"
+  licenceClass: L1
   source: https://github.com/Mintplex-Labs/anything-llm
   # §9.3 facts from the GitHub API (repos/Mintplex-Labs/anything-llm), read 2026-11-12.
   links:

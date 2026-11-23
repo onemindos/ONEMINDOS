@@ -14,11 +14,15 @@ What it refuses (no open proxy):
 - the upstream is never taken from the request. It is the app's Service in namespace app-<id>,
   found by the port the catalog declares (spec.web.port), and only for an app the ledger says is
   installed; any other name gets 404;
-- every request needs a signed-in *person* (bearer token or the session cookie). Agent tokens
-  are refused on app hosts. The app's access level (owner | adults | signed_in, default adults)
-  decides 403;
-- the client's Authorization header, the gateway session cookie and any X-OneMind-* header are
-  removed; the proxy adds X-OneMind-Principal and X-OneMind-Role itself;
+- every request needs a signed-in *person*: the session cookie first, or else a OneMind bearer token
+  (scripts and the CLI). Agent tokens are refused on app hosts. The app's access level
+  (owner | adults | signed_in, default adults) decides 403;
+- the client's Authorization header belongs to the app only behind a valid session cookie (#824):
+  then it is the app's own credential (Fleetbase, for example, sends its own bearer token), it never
+  signs anyone in to OneMind and it is forwarded to that app's upstream only. A OneMind credential in
+  it (anything the session resolver knows, or any `om_` token, even a revoked one) is never forwarded,
+  and with no session cookie the header is OneMind's and is removed. The gateway session cookie and
+  any X-OneMind-* header are always removed; the proxy adds X-OneMind-Principal and X-OneMind-Role;
 - an app's response cannot set or overwrite the gateway session cookie (Set-Cookie for that name
   is dropped), so one app cannot plant a session for every *.onemind.local name;
 - a WebSocket, or a request with an unsafe method (anything but GET/HEAD/OPTIONS), whose Origin
@@ -97,8 +101,10 @@ HOP_BY_HOP = frozenset({
     "connection", "keep-alive", "proxy-connection", "proxy-authenticate", "proxy-authorization",
     "te", "trailer", "transfer-encoding", "upgrade",
 })
-# Never forwarded upstream: credentials for the gateway and identity headers only we may set.
+# Never forwarded upstream as the client sent them: credentials for the gateway and identity headers only
+# we may set. Authorization goes back in only as Session.app_authorization (the app's own credential).
 STRIP_UP = frozenset({"authorization", "host", "forwarded"})
+ONEMIND_TOKEN_PREFIX = "om_"  # identity/crypto.py: om_ses_, om_pat_... (gateway sessions and API tokens)
 WS_HANDSHAKE = frozenset({
     "sec-websocket-key", "sec-websocket-version", "sec-websocket-extensions", "sec-websocket-protocol",
     "sec-websocket-accept",
@@ -223,6 +229,15 @@ class KubectlServiceResolver:
         with self._lock:
             self._cache[key] = (now, found)
         return found
+
+
+@dataclass(frozen=True)
+class Session:
+    """Who the request is, and which Authorization header (if any) is the app's own (#824)."""
+
+    principal: Principal | None
+    headers: dict[str, str]  # the request headers with only the credential that named the principal
+    app_authorization: str | None = None  # forwarded to the app's upstream, nowhere else
 
 
 @dataclass(frozen=True)
@@ -421,6 +436,31 @@ class AppProxy:
             return None
         return web[2], status
 
+    def session(self, headers: dict[str, str]) -> Session:
+        """The OneMind session of an app request: the session cookie first, a OneMind bearer second (#824).
+
+        Behind a valid cookie the Authorization header is the app's own: it is never asked to sign
+        anyone in, so an app's token cannot stand in for a OneMind one, and it is kept for the app
+        unless it is a OneMind credential. Without a valid cookie a OneMind bearer still signs in
+        (scripts, the CLI); that header is OneMind's and is never forwarded.
+        """
+        cookies = parse_cookies(headers.get("cookie", ""))
+        given = headers.get("authorization")
+        if given is None:
+            return Session(self.resolve_session(headers, cookies), headers)
+        bare = {k: v for k, v in headers.items() if k != "authorization"}
+        principal = self.resolve_session(bare, cookies) if cookies else None
+        if principal is not None:
+            return Session(principal, bare, None if self.onemind_credential(given) else given)
+        return Session(self.resolve_session(headers, cookies), headers)
+
+    def onemind_credential(self, authorization: str) -> bool:
+        """True for an Authorization value that carries a OneMind token, valid or not: never forwarded."""
+        scheme, _, token = authorization.strip().partition(" ")
+        if scheme.startswith(ONEMIND_TOKEN_PREFIX) or token.strip().startswith(ONEMIND_TOKEN_PREFIX):
+            return True
+        return self.resolve_session({"authorization": authorization}, {}) is not None
+
     def decide(self, headers: dict[str, str], app_id: str,
                path: NetPath = "unknown") -> tuple[int, Principal | None, AppRoute | None]:
         """Forward-auth decision: 204 allow, 401 not signed in, 403 not allowed, 404 no such app.
@@ -428,29 +468,41 @@ class AppProxy:
         Sign-in is checked first, so a caller without a session cannot tell installed apps apart.
         `path` is the network path of the request (path_of); it matters only when a classifier is set.
         """
-        principal = self.resolve_session(headers, parse_cookies(headers.get("cookie", "")))
+        status, session, route = self.decide_session(headers, app_id, path)
+        return status, session.principal, route
+
+    def decide_session(self, headers: dict[str, str], app_id: str,
+                       path: NetPath = "unknown") -> tuple[int, Session, AppRoute | None]:
+        """decide(), returning the whole Session (the proxy needs the app's own Authorization)."""
+        session = self.session(headers)
+        status, route = self._decide(session, headers.get("host", ""), app_id, path)
+        return status, session, route
+
+    def _decide(self, session: Session, host_header: str, app_id: str,
+                path: NetPath) -> tuple[int, AppRoute | None]:
+        principal, headers = session.principal, session.headers
         if principal is None:
-            return Decision.UNAUTHENTICATED, None, None
+            return Decision.UNAUTHENTICATED, None
         split = split_host_label(app_id)
         key = None
         if split is not None and self.browser_of(split[0]) is not None:
             app_id, key = split  # <app>--<key>: a person's browser host (#692)
         route = self.route_for(app_id)
-        if route is None or not self._exposed(headers.get("host", ""), app_id, path) \
+        if route is None or not self._exposed(host_header, app_id, path) \
                 or not self._shared_with(principal, app_id, headers):
-            return Decision.NOT_FOUND, principal, None
+            return Decision.NOT_FOUND, None
         if not allowed(principal, route.access):
-            return Decision.FORBIDDEN, principal, route
+            return Decision.FORBIDDEN, route
         spec = self.browser_of(app_id)
         if spec is None:
-            return Decision.ALLOW, principal, route
+            return Decision.ALLOW, route
         if key is None or principal.kind != "person" or self.browsers is None \
                 or not hmac.compare_digest(key, self.browsers.key_of(principal.id)):
-            return Decision.FORBIDDEN, principal, route  # the shared template, or another person's browser
+            return Decision.FORBIDDEN, route  # the shared template, or another person's browser
         host = self.browsers.service_host(app_id, key, spec.port) if self.browsers is not None else None
         if host is None:
-            return Decision.NOT_FOUND, principal, None
-        return Decision.ALLOW, principal, replace(route, host=host, port=spec.port)
+            return Decision.NOT_FOUND, None
+        return Decision.ALLOW, replace(route, host=host, port=spec.port)
 
     def browser_of(self, app_id: str) -> BrowserSpec | None:
         """`spec.browser` of a catalog app (browsers.py), or None."""
@@ -484,7 +536,9 @@ class AppProxy:
 
     # ---- upstream headers ------------------------------------------------------------------------
     def upstream_headers(self, scope: Scope, principal: Principal, route: AppRoute, prefix: str,
-                         *, websocket: bool) -> list[tuple[str, str]]:
+                         *, websocket: bool, app_authorization: str | None = None) -> list[tuple[str, str]]:
+        """Headers for the app's upstream. app_authorization: Session.app_authorization, the only way an
+        Authorization header reaches an app (the client's own copy is in STRIP_UP)."""
         out: list[tuple[str, str]] = []
         for raw_name, raw_value in scope.get("headers", []):
             name = raw_name.decode("latin-1").lower()
@@ -509,6 +563,8 @@ class AppProxy:
         ]
         if prefix:
             out.append(("x-forwarded-prefix", prefix))
+        if app_authorization:
+            out.append(("authorization", app_authorization))
         return out
 
 
@@ -610,15 +666,16 @@ class AppProxyMiddleware:
         app_id, prefix = matched
         headers = {k.decode("latin-1").lower(): v.decode("latin-1") for k, v in scope.get("headers", [])}
         path = self.proxy.path_of(scope, headers)
-        status, principal, route = self.proxy.decide(headers, app_id, path)
+        status, session, route = self.proxy.decide_session(headers, app_id, path)
+        principal = session.principal
         if scope["type"] == "websocket":
-            return await self._websocket(scope, receive, send, app_id, status, principal, route, prefix, headers)
+            return await self._websocket(scope, receive, send, app_id, status, session, route, prefix, headers)
         if status == Decision.ALLOW and scope.get("method", "GET") not in SAFE_METHODS \
                 and not _same_origin(headers.get("origin"), scope):
             status = Decision.FORBIDDEN
         page = _wants_page(headers)
         if status == Decision.NOT_FOUND and principal is not None:
-            down = self.proxy.not_running(principal, headers.get("host", ""), app_id, headers, path)
+            down = self.proxy.not_running(principal, headers.get("host", ""), app_id, session.headers, path)
             if down is not None:
                 text, changing = unavailable_text(*down)
                 return await _plain(send, Decision.UNAVAILABLE, text, page=page, refresh=changing)
@@ -631,11 +688,11 @@ class AppProxyMiddleware:
             loc = (prefix + "/").encode() + (b"?" + qs if qs else b"")
             return await _plain(send, 308, "Moved", [(b"location", loc)])
         assert principal is not None and route is not None
-        await self._http(scope, receive, send, principal, route, prefix, page)
+        await self._http(scope, receive, send, principal, route, prefix, page, session.app_authorization)
 
     # ---- HTTP --------------------------------------------------------------------------------------
     async def _http(self, scope: Scope, receive: Receive, send: Send, principal: Principal,
-                    route: AppRoute, prefix: str, page: bool = False) -> None:
+                    route: AppRoute, prefix: str, page: bool = False, app_authorization: str | None = None) -> None:
         p, t = self.proxy, self.proxy.timeouts
         name = route.name or route.app_id
         try:
@@ -647,7 +704,8 @@ class AppProxyMiddleware:
         started = False
         try:
             client_headers = {k.decode("latin-1").lower(): v for k, v in scope.get("headers", [])}
-            headers = p.upstream_headers(scope, principal, route, prefix, websocket=False)
+            headers = p.upstream_headers(scope, principal, route, prefix, websocket=False,
+                                         app_authorization=app_authorization)
             if "transfer-encoding" in client_headers and not any(k == "content-length" for k, _ in headers):
                 headers.append(("transfer-encoding", "chunked"))
             headers += [("host", f"{route.host}:{route.port}"), ("connection", "close")]
@@ -704,8 +762,9 @@ class AppProxyMiddleware:
 
     # ---- WebSocket ---------------------------------------------------------------------------------
     async def _websocket(self, scope: Scope, receive: Receive, send: Send, app_id: str, status: int,
-                         principal: Principal | None, route: AppRoute | None, prefix: str,
+                         session: Session, route: AppRoute | None, prefix: str,
                          headers: dict[str, str]) -> None:
+        principal = session.principal
         msg = await receive()
         if msg["type"] != "websocket.connect":
             return
@@ -718,7 +777,8 @@ class AppProxyMiddleware:
         assert principal is not None and route is not None
         p, t = self.proxy, self.proxy.timeouts
         uri = f"ws://{route.host}:{route.port}{_upstream_target(scope, prefix).decode('latin-1')}"
-        up_headers = p.upstream_headers(scope, principal, route, prefix, websocket=True)
+        up_headers = p.upstream_headers(scope, principal, route, prefix, websocket=True,
+                                        app_authorization=session.app_authorization)
         try:
             upstream = await ws_connect(
                 uri, additional_headers=up_headers, subprotocols=scope.get("subprotocols") or None,

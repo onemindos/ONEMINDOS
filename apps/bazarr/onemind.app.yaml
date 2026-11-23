@@ -18,6 +18,7 @@ metadata:
   age_reason: "Part of the download pipeline; fetches subtitle files for downloaded films and series."
   icon: icon.svg
   license: "GPL-3.0"
+  licenceClass: L2
   source: https://github.com/morpheus65535/bazarr
   # §9.3 facts from the GitHub API (repos/morpheus65535/bazarr), read 2026-11-12. The newest tags
   # are betas; v1.6.2 is the latest release.

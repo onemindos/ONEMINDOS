@@ -16,6 +16,7 @@ metadata:
   age_reason: "Changes how every device on the network resolves names; an admin tool."
   icon: icon.svg
   license: "GPL-3.0"
+  licenceClass: L2
   source: https://github.com/AdguardTeam/AdGuardHome
   # §9.3 facts from the GitHub API (repos/AdguardTeam/AdGuardHome), read 2026-11-12.
   links:

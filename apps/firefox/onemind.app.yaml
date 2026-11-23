@@ -16,6 +16,7 @@ metadata:
   age_reason: "Unfiltered web browser: opens any site, adult and social ones included, and keeps saved logins."
   icon: icon.svg
   license: "Apache-2.0"
+  licenceClass: L1
   source: https://github.com/m1k1o/neko
   links:
     docs: "https://neko.m1k1o.net/"

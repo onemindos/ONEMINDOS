@@ -16,6 +16,7 @@ metadata:
   age_reason: "Saves links and pages from the open internet; AI adds tags."
   icon: icon.svg
   license: "AGPL-3.0"
+  licenceClass: L2
   source: https://github.com/karakeep-app/karakeep
   links:
     docs: "https://docs.karakeep.app/"

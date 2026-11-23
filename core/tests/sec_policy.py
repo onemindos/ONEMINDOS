@@ -140,6 +140,14 @@ POLICY |= {
     ("GET", "/v1/auth/passkeys"): Row(own_credentials(200), w.p_static("/v1/auth/passkeys"), "§12.6 own passkeys", ID, UNAUDITED),
     ("DELETE", "/v1/auth/passkeys/{credential_id}"): Row(own_credentials(404), w.p_static("/v1/auth/passkeys/no-such-credential"),
                                                          "§12.6 own passkeys", ID, UNAUDITED),
+    # #702 phone approver keys: registering needs an owner session with a fresh passkey (a child is refused
+    # and audited; static tokens hold no session); listing and revoking are the caller's own keys.
+    ("POST", "/v1/auth/approver-keys"): Row(cells(403, **GONE, **PENDING_DENY), w.p_approver_key,
+                                            "#702 an owner session with a fresh passkey", ID, UNAUDITED),
+    ("GET", "/v1/auth/approver-keys"): Row(own_credentials(200), w.p_static("/v1/auth/approver-keys"),
+                                           "#702 own approver keys", ID, UNAUDITED),
+    ("DELETE", "/v1/auth/approver-keys/{key_id}"): Row(own_credentials(404), w.p_static("/v1/auth/approver-keys/apk_none"),
+                                                       "#702 own approver keys", ID, UNAUDITED),
     ("POST", "/v1/auth/password"): Row(own_credentials(204), w.p_password, "§12.6 own credentials", ID, UNAUDITED),
     ("POST", "/v1/auth/totp/setup"): Row(own_credentials(200), w.p_static("/v1/auth/totp/setup"), "§12.6 own credentials", ID, UNAUDITED),
     ("POST", "/v1/auth/totp/confirm"): Row(own_credentials(409), w.p_totp_confirm, "§12.6 own credentials (no setup started: 409)", ID, UNAUDITED),
@@ -202,6 +210,8 @@ POLICY |= {
         cells(403, **GONE, owner=202, agent=202, app_agent=202, **PENDING_DENY), w.p_alert("app.scan_blocked", "/fix"),
         "§12.14 owners and agents file the fix as a request (awaiting approval); approve=true is owner only"),
     ("GET", "/v1/notifications"): Row(PEOPLE_READ, w.p_static("/v1/notifications"), "§12.14 own inbox, people only"),
+    ("GET", "/v1/notifications/summary"): Row(PEOPLE_READ, w.p_static("/v1/notifications/summary"),
+                                              "§12.14 own unread summary (#682), people only"),
     ("GET", "/v1/notifications/{notification_id}"): Row(
         cells(404, **GONE, owner=200, **AGENTS_DENIED), w.p_notification(), "§12.14 own inbox; others 404"),
     ("POST", "/v1/notifications/{notification_id}/read"): Row(
@@ -308,8 +318,11 @@ BASIC_ONLY = cells(401)
 _AUTOMATION = "docs/leap/dev/API.md §5.5; core/tests/test_automation.py"
 _BACKUPS = "docs/leap/dev/API.md §5.2 backups; core/tests/test_backups.py"
 _FILES = "docs/leap/dev/API.md files; core/tests/test_files_*.py"
+_WOPI = "issue #675; core/tests/test_files_wopi.py"
+_WOPI_FILE = "/v1/files/wopi/files/wf_0123456789abcdef"
 _PHOTOS = "docs/leap/core/PHOTOS.md section 2; core/tests/test_photos.py"
 PHOTOS_404 = grid(404, 404, 403, 403, 403)  # owner and adult own a library; a missing object is 404 for them
+_TIPS = "issue #669; core/tests/test_tips.py"
 POLICY |= {
     # ---- automation, standing approvals and windows ------------------------------------------------------
     ("GET", "/v1/approval-policies"): Row(READ_ANY, w.p_static("/v1/approval-policies"), f"{_AUTOMATION}: any reader"),
@@ -489,6 +502,13 @@ POLICY |= {
                                                             f"{_FILES}: a requester cancels their own"),
     ("GET", "/v1/files/grants"): Row(READ_ANY, w.p_static("/v1/files/grants"), f"{_FILES}: each sees their own"),
     ("DELETE", "/v1/files/grants/{grant_id}"): Row(READ_ANY_404, w.p_missing("/v1/files/grants/{grant}"), f"{_FILES}: revoking what you hold"),
+    # #693 browser downloads in quarantine: people see their own (owners all); only an owner asks to release one.
+    ("GET", "/v1/files/downloads"): Row(grid(200, 200, 200, 403, 403), w.p_static("/v1/files/downloads"),
+                                        f"{_FILES}: each person their own held downloads, an owner all; agents refused"),
+    ("POST", "/v1/files/downloads/{download_id}/release"): Row(OWNER_ONLY_404, w.p_missing("/v1/files/downloads/{download}/release"),
+                                                              f"{_FILES}: only an owner asks; an owner approves the action"),
+    ("DELETE", "/v1/files/downloads/{download_id}"): Row(grid(404, 404, 404, 403, 403), w.p_missing("/v1/files/downloads/{download}"),
+                                                         f"{_FILES}: the person who downloaded it or an owner; others see 404"),
     ("OPTIONS", "/v1/files/uploads"): Row(cells(204), w.p_static("/v1/files/uploads"), "tus capability discovery is open and read only"),
     ("POST", "/v1/files/uploads"): Row(grid(201, 201, 403, 403, 403), w.p_missing(
         "/v1/files/uploads", headers={**w.TUS, "Upload-Length": "1", "Upload-Metadata": w.UPLOAD_META}),
@@ -499,6 +519,18 @@ POLICY |= {
         "/v1/files/uploads/{upload}", content=b"x",
         headers={**w.TUS, "Content-Type": "application/offset+octet-stream", "Upload-Offset": "0"}), f"{_FILES}: your own upload"),
     ("DELETE", "/v1/files/uploads/{upload_id}"): Row(READ_ANY_404, w.p_missing("/v1/files/uploads/{upload}", headers=w.TUS), f"{_FILES}: your own upload"),
+    # ---- WOPI host (#675): like every /v1/files/* route the token route needs the "*" scope, so the child (a household
+    # session) is refused by scope; only a signed-in person's session mints a file token, so the static tokens file,
+    # API tokens and agents are 403 too. The WOPI operations take only that file token (access_token), never a bearer
+    # token, so every column is 401.
+    ("POST", "/v1/files/wopi/tokens"): Row(grid(403, 403, 403, 403, 403), w.p_missing(
+        "/v1/files/wopi/tokens", json={"root": "shared", "path": "/probe.docx"}), f"{_WOPI}: the owner's own signed-in editor only"),
+    ("GET", "/v1/files/wopi/files/{file_id}"): Row(cells(401), w.p_static(_WOPI_FILE), f"{_WOPI}: CheckFileInfo takes the file token"),
+    ("GET", "/v1/files/wopi/files/{file_id}/contents"): Row(cells(401), w.p_static(f"{_WOPI_FILE}/contents"), f"{_WOPI}: GetFile takes the file token"),
+    ("POST", "/v1/files/wopi/files/{file_id}"): Row(cells(401), w.p_missing(_WOPI_FILE, headers={"X-WOPI-Override": "LOCK", "X-WOPI-Lock": "probe"}),
+                                                    f"{_WOPI}: Lock and Unlock take the file token"),
+    ("POST", "/v1/files/wopi/files/{file_id}/contents"): Row(cells(401), w.p_missing(
+        f"{_WOPI_FILE}/contents", content=b"x", headers={"X-WOPI-Override": "PUT", "X-WOPI-Lock": "probe"}), f"{_WOPI}: PutFile takes the file token"),
     # ---- photos (a person's phone backup; PHOTOS.md section 2) -----------------------------------------------
     # The service's own gate (PhotosService.person) runs before any lookup: only a person with role owner or adult has a
     # photo library, so guests, children and agents are 403 and the two library owners reach the (missing) object: 404.
@@ -517,6 +549,15 @@ POLICY |= {
     ("PATCH", "/v1/photos/uploads/{upload_id}"): Row(PHOTOS_404, w.p_missing(
         "/v1/photos/uploads/{upload}", content=b"x",
         headers={"Content-Type": "application/partial-upload", "Upload-Offset": "0", "Upload-Complete": "?1"}), f"{_PHOTOS}: your own upload"),
+    # ---- tips (#669: the image tips pack, shown by role; each person's own dismiss state) ---------------------
+    # Every person reads the tips for their role (a child and a teen too); an agent has none. The matrix gateway has
+    # no pack, so a tip id is missing (404) for every person.
+    ("GET", "/v1/tips"): Row(grid(200, 200, 200, 200, 403), w.p_static("/v1/tips"), f"{_TIPS}: every person, filtered by role"),
+    ("GET", "/v1/tips/collections"): Row(grid(200, 200, 200, 200, 403), w.p_static("/v1/tips/collections"), f"{_TIPS}: every person"),
+    ("GET", "/v1/tips/whats-new"): Row(grid(200, 200, 200, 200, 403), w.p_static("/v1/tips/whats-new"), f"{_TIPS}: every person"),
+    ("GET", "/v1/tips/{tip_id}"): Row(grid(404, 404, 404, 404, 403), w.p_static("/v1/tips/no-such-tip"), f"{_TIPS}: a tip for your role"),
+    ("POST", "/v1/tips/{tip_id}/state"): Row(grid(404, 404, 404, 404, 403), w.p_missing(
+        "/v1/tips/no-such-tip/state", json={"state": "dismissed"}), f"{_TIPS}: your own state for a tip you may see"),
     # ---- migration (another cluster's namespace comes in; the owner decides every step) -----------------------
     ("POST", "/v1/migrate/plans"): Row(grid(422, 403, 403, 403, 403), w.p_missing(
         "/v1/migrate/plans", json={"kubeconfig": w.KUBECONFIG, "namespace": "old"}), "only the owner reads another cluster"),
@@ -592,6 +633,8 @@ POLICY |= {
                                f"{_NET}: the fabric summary (nodes, pending joins) like /v1/nodes: a child has no nodes:read (§12.6)"),
     ("GET", "/v1/mesh"): Row(CHILD_CANNOT, w.p_static("/v1/mesh"),
                              f"{_NET}: the mesh view (nodes, devices, app URLs); a child has no nodes:read; mesh addresses are owner only (?addresses)"),
+    ("PUT", "/v1/mesh/settings"): Row(ONLY_OWNER, w.p_missing("/v1/mesh/settings", json={}),
+                                      f"{_NET}: CORE-NET-8, only the owner turns the mesh on or off or picks its provider (refusals audited)"),
     ("GET", "/v1/tls"): Row(CHILD_CANNOT, w.p_static("/v1/tls"),
                             "contract §12.7: CA fingerprint and names to any signed-in caller; a child's role defaults do not cover it"),
     ("GET", "/v1/tls/ca.crt"): Row(cells(200), w.p_static("/v1/tls/ca.crt"),
@@ -626,6 +669,9 @@ POLICY |= {
     ("GET", "/v1/machines/{name}/snapshots"): Row(cells(404, **GONE, child=403, plugin=DECIDE, automation=DECIDE, node=DECIDE),
                                                   w.p_static("/v1/machines/ghost/snapshots"),
                                                   f"{_MACH}: a machine's snapshots; none exists in this world"),
+    ("GET", "/v1/machines/{name}/devices"): Row(cells(404, **GONE, child=403, plugin=DECIDE, automation=DECIDE, node=DECIDE),
+                                                w.p_static("/v1/machines/ghost/devices"),
+                                                f"{_MACH}: the devices a machine could be given (#690); none exists in this world"),
     ("POST", "/v1/machines/{name}/console"): Row(cells(403, **GONE, owner=404, plugin=DENIED, automation=DENIED, node=DENIED),
                                                  w.p_static("/v1/machines/ghost/console"),
                                                  f"{_MACH}: only the owner gets a console ticket; an agent never gets a screen"),
@@ -748,6 +794,17 @@ POLICY |= {
     # socket, so the owner gets 200 with available=false; everyone else is refused first.
     ("GET", "/v1/system/services"): Row(OWNER_ONLY, w.p_static("/v1/system/services"),
                                         "core/onemind_core/routers/services.py: every systemd unit on the box and its state; owner only"),
+    # #636: logs are owner only; with no host socket in this world the owner gets 409 host_unavailable.
+    ("GET", "/v1/system/services/{unit}/logs"): Row(
+        cells(403, **GONE, owner=409, plugin=DENIED, automation=DENIED, node=DENIED),
+        w.p_static("/v1/system/services/onemind-gateway.service/logs"),
+        "core/onemind_core/routers/services.py: a unit's redacted journal; owner only, audited"),
+    # #636: the owner and agents pass authorization and get 409 (no host socket: nothing is filed); with a host
+    # the request is filed and waits for the owner's passkey approval (tests/test_service_actions.py).
+    ("POST", "/v1/system/services/{unit}/restart"): Row(
+        cells(403, **GONE, owner=409, agent=409, app_agent=409, plugin=DENIED, automation=DENIED, node=DENIED),
+        lambda _w: w.Req("/v1/system/services/onemind-gateway.service/restart", json={}),
+        "core/onemind_core/routers/services.py: owner or agent asks for a service restart; only an owner approves it"),
 }
 
 # ---- Network screen (NET-UI-01, #239: core/onemind_core/routers/network.py) ---------------------------------
@@ -879,4 +936,16 @@ POLICY |= {
     ("POST", "/v1/radios/{radio_id}/confirm"): Row(OWNER_ONLY_404, w.p_missing("/v1/radios/nosuchnode.lora0/confirm", json={
         "profile": "meshcore-companion-usb"}),
         f"{_RADIO}: only the owner says what a radio is; an agent never confirms one, and nothing is probed or sent"),
+}
+
+# ---- motion lockout (#723: core/onemind_core/routers/physical.py) ----------------------------------------------
+# Owner only for reading too (MotionLockout.owner_only audits every refusal). The probe turns the lockout on,
+# which never needs a passkey; turning it off needs a fresh passkey once passkeys are active
+# (test_physical_actions.py covers that step-up).
+_PHYS = "core/onemind_core/routers/physical.py"
+POLICY |= {
+    ("GET", "/v1/physical/lockout"): Row(ONLY_OWNER, w.p_static("/v1/physical/lockout"),
+                                         f"{_PHYS}: whether every physical action is refused; owner only, refusals audited"),
+    ("PUT", "/v1/physical/lockout"): Row(ONLY_OWNER, lambda _w: w.Req("/v1/physical/lockout", json={"locked": True, "reason": "matrix probe"}),
+                                         f"{_PHYS}: only the owner locks or lifts motion; an agent can never lift it"),
 }

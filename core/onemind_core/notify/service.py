@@ -10,6 +10,14 @@ Sources (docs/architecture/NOTIFICATIONS.md §2):
 Ingest runs in the caller's thread and only writes rows; network sends happen in the delivery
 worker (`pump`), with retry and backoff (30 s, 2 min, 10 min, 1 h, 6 h, then dead). A channel
 failing for over an hour opens `notify.channel_failing`, in-app only.
+
+Per-channel limits a channel's config may set (the `sms` kind always does, issue #869):
+`min_severity` (below it the channel gets nothing), `per_hour` (instead of channel_per_hour) and
+`daily_cap` (provider attempts in any 24 h; over it a delivery is `dropped`, audited as
+`notify.delivery.dropped`, and never sent or retried). The cap counts every attempt that may reach
+the provider, written before the request goes out: a retry, a 5xx and a timeout after the provider
+already took (and billed) the text all count, and the cap is checked again before each retry, so
+a slow or failing provider cannot be sent more than `daily_cap` texts a day. Test sends count too.
 """
 
 from __future__ import annotations
@@ -82,6 +90,7 @@ class NotifyService:
         self.base_url = gw.settings.gateway_url().rstrip("/")
         self._lock = threading.RLock()
         self._pump_lock = threading.Lock()
+        self._cap_lock = threading.Lock()   # the daily-cap check and its attempt row go together
         self._kick = threading.Event()
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
@@ -210,6 +219,8 @@ class NotifyService:
     def _audience(self, spec: Spec, data: dict) -> dict:
         if spec.type in catalogue.INAPP_ONLY_ALERTS and data.get("person_id"):
             return {"roles": [], "persons": [data["person_id"]]}
+        if spec.audience == catalogue.PERSON:
+            return {"roles": [], "persons": [str(data["person_id"])] if data.get("person_id") else []}
         roles = ["owner"] + (["adult"] if spec.audience == catalogue.OWNERS_AND_ADULTS else [])
         persons = []
         if spec.audience == catalogue.OWNERS_AND_REQUESTER and data.get("requested_by_kind", "person") == "person":
@@ -361,6 +372,10 @@ class NotifyService:
         return ([c.id for c in self.repo.list_channels(person_id)]
                 + [d.id for d in self.repo.list_devices(person_id)])
 
+    def _channel_limits(self, person_id: str) -> dict[str, dict]:
+        """channel id -> its config, for the per-channel limits (min_severity, per_hour)."""
+        return {c.id: json.loads(c.config_json) for c in self.repo.list_channels(person_id)}
+
     def _fanout(self, people: list[str], *, severity: str, topic: str, title: str, body: str,
                 link: str | None, source: str, action_id: str | None, alert_id: str | None,
                 inapp_only: bool, source_kind: str = "system", app_id: str | None = None,
@@ -380,11 +395,15 @@ class NotifyService:
             if not inapp_only:
                 doc, _ = self.preferences(pid)
                 held = routing.hold(doc, topic, severity, now)
+                limits = self._channel_limits(pid)
                 for target in routing.targets(doc, topic, severity, self._targets_of(pid)):
+                    cfg = limits.get(target, {})
+                    if RANK[severity] < RANK.get(cfg.get("min_severity", "info"), 0):
+                        continue                       # below this channel's level: never
                     d = DeliveryRow(id=new_id("dlv"), notification_id=nid, person_id=pid, target_id=target,
                                     state="queued", attempts=0, next_attempt_at=now, created_at=now)
                     window_start = now - timedelta(hours=1)
-                    if self.repo.sent_count(target, window_start) >= self.cfg.channel_per_hour:
+                    if self.repo.sent_count(target, window_start) >= cfg.get("per_hour", self.cfg.channel_per_hour):
                         oldest = self.repo.oldest_in_window(target, window_start) or now
                         d.state, d.held_reason = "held", "rate"
                         d.release_at, d.next_attempt_at = oldest + timedelta(hours=1), None
@@ -443,17 +462,23 @@ class NotifyService:
         return Message(id=n.id, severity=n.severity, topic=n.topic, title=title, body=body, link=link,
                        created_at=iso(n.created_at) or "", box_id=self.box_id, count=count)
 
-    def _send_to(self, target_id: str, msg: Message) -> None:
-        now_s = int(self.clock().timestamp())
+    def _send_to(self, target_id: str, msg: Message, kind: str = "delivery"):
+        """Send now; the provider receipt (sms) or None. Raises Capped before any byte goes out."""
+        now = self.clock()
+        now_s = int(now.timestamp())
         if target_id.startswith("chn_"):
             ch = self.repo.get_channel(target_id)
             if ch is None:
                 raise LookupError("channel deleted")
             cfg = json.loads(ch.config_json)
+            cap = cfg.get("daily_cap")
+            if cap is not None:  # count the attempt before it goes out: a timeout may still be billed
+                with self._cap_lock:
+                    if not self.repo.claim_send(ch.id, kind, now - timedelta(hours=24), cap, now, new_id("snd")):
+                        raise Capped(cap)
             secret = self.box.open(ch.secret_enc, ch.id) if ch.secret_enc else None
-            send_channel(ch.kind, cfg, secret, ch.content_level, msg, timeout=self.cfg.http_timeout_s,
-                         lan_ok=bool(cfg.get("lan")), now_s=now_s)
-            return
+            return send_channel(ch.kind, cfg, secret, ch.content_level, msg, timeout=self.cfg.http_timeout_s,
+                                lan_ok=bool(cfg.get("lan")), now_s=now_s)
         dev = self.repo.get_device(target_id)
         if dev is None:
             raise LookupError("device removed")
@@ -462,6 +487,7 @@ class NotifyService:
         keys = sealed.get("keys")
         send_push(endpoint, keys, self.vapid, self.cfg.vapid_subject, msg, timeout=self.cfg.http_timeout_s,
                   lan_ok=bool(sealed.get("lan")), now_s=now_s)
+        return None
 
     def _deliver(self, d: DeliveryRow, now: datetime) -> None:
         n = self.repo.get_notification(d.notification_id)
@@ -473,6 +499,15 @@ class NotifyService:
         except LookupError as exc:
             d.state, d.last_error = "dead", str(exc)
             self.repo.save_delivery(d)
+            return
+        except Capped as exc:  # a ledger entry, no send, never retried
+            d.state, d.next_attempt_at, d.last_error = "dropped", None, str(exc)
+            self.repo.save_delivery(d)
+            self.gw.events.publish_event(
+                "notify", "delivery.dropped",
+                {"delivery_id": d.id, "notification_id": d.notification_id, "channel_id": d.target_id,
+                 "reason": "daily_cap", "cap": exc.cap},
+                severity="warning", resource={"kind": "notification", "id": d.notification_id})
             return
         except DeliveryError as exc:
             d.attempts += 1
@@ -534,7 +569,7 @@ class NotifyService:
                       box_id=self.box_id)
         start = time.monotonic()
         try:
-            self._send_to(target_id, msg)
+            receipt = self._send_to(target_id, msg, kind="test")
         except (DeliveryError, LookupError) as exc:
             return {"delivered": False, "latency_ms": int((time.monotonic() - start) * 1000), "error": str(exc)[:300]}
         latency = int((time.monotonic() - start) * 1000)
@@ -543,7 +578,10 @@ class NotifyService:
             ch.verified, ch.updated_at = True, now
             self.repo.save_channel(ch)
         self._target_ok(target_id)
-        return {"delivered": True, "latency_ms": latency}
+        out = {"delivered": True, "latency_ms": latency}
+        if receipt is not None:
+            out["receipt"] = receipt.as_json()
+        return out
 
     # ---- POST /v1/notifications/send and built-in app posts (topics.py) ---------------------
     def post(self, principal: Principal, *, topic: str, severity: str, title: str, body: str = "",
@@ -669,6 +707,14 @@ class NotifyService:
                 "posts_last_hour": meter.get(sid, 0),
             })
         return out
+
+
+class Capped(DeliveryError):
+    """The channel's daily cap is reached: drop, do not send (issue #869)."""
+
+    def __init__(self, cap: int):
+        super().__init__(f"daily cap reached ({cap} per day)")
+        self.cap = cap
 
 
 class RateLimited(Exception):

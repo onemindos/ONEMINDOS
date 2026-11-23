@@ -17,6 +17,7 @@ metadata:
   age_reason: "Offline street maps; no accounts, no chat, no internet."
   icon: icon.svg
   license: BSD-3-Clause
+  licenceClass: L1
   source: https://github.com/protomaps/go-pmtiles
   # §9.3 facts from the GitHub API (repos/protomaps/go-pmtiles and its releases/latest), read 2026-11-14.
   links:

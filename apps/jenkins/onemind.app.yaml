@@ -16,6 +16,7 @@ metadata:
   age_reason: "Runs build and deploy scripts; can execute arbitrary code."
   icon: icon.svg
   license: "MIT"
+  licenceClass: L1
   source: https://github.com/jenkinsci/jenkins
   links:
     docs: "https://www.jenkins.io/doc/"

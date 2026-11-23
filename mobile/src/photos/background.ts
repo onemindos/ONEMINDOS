@@ -25,7 +25,7 @@ TaskManager.defineTask(PHOTO_TASK, async () => {
     const settings = await store.loadSettings();
     if (!settings.enabled) return BackgroundTask.BackgroundTaskResult.Success;
     const apps = await new HttpApi({ baseUrl: conn.hubUrl, token: conn.token }).apps();
-    const av = discoverPhotos(conn, apps, '');
+    const av = discoverPhotos(conn, apps);
     if (av.state !== 'ok') return BackgroundTask.BackgroundTaskResult.Success;
     const signal = { aborted: false };
     const sub = BackgroundTask.addExpirationListener(() => {

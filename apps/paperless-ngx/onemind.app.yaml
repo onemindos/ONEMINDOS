@@ -16,6 +16,7 @@ metadata:
   age_reason: "Scanned tax, bank, medical and identity documents."
   icon: icon.svg
   license: "GPL-3.0"
+  licenceClass: L2
   source: https://github.com/paperless-ngx/paperless-ngx
   # §9.3 facts from the GitHub API (repos/paperless-ngx/paperless-ngx), read 2026-11-12.
   links:

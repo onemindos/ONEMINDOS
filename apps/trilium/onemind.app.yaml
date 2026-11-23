@@ -16,6 +16,7 @@ metadata:
   age_reason: "Personal notes with optional sharing; content is user-made."
   icon: icon.svg
   license: "AGPL-3.0"
+  licenceClass: L2
   source: https://github.com/TriliumNext/Trilium
   links:
     docs: "https://docs.triliumnotes.org/"
