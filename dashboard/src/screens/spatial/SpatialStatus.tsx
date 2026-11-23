@@ -20,6 +20,6 @@ export function SpatialStatus() {
       <div><dt>Virtual reality</dt><dd>{info.vr}</dd></div>
       <div><dt>Augmented reality</dt><dd>{info.ar}</dd></div>
     </dl>}
-    <Link to="/spatial/diagnostics">Spatial diagnostics</Link>
+    <Link to="/spatial">Open spatial</Link> · <Link to="/spatial/diagnostics">Spatial diagnostics</Link>
   </Card>;
 }
