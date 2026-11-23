@@ -146,6 +146,44 @@ def test_cancelling_an_agent_removes_its_nats_user(nc):  # noqa: F811
     assert nc.get(KEY_PATH, headers=OWNER).json()["nkey"] is None
 
 
+def fail_next_write(monkeypatch):
+    """The next accounts-file write raises an OSError (a full or read-only disk); later ones work."""
+    from onemind_core import fabric as fabric_mod
+    real = fabric_mod.write_accounts
+    calls = {"n": 0}
+
+    def flaky(*args, **kwargs):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise OSError(28, "No space left on device")
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(fabric_mod, "write_accounts", flaky)
+
+
+def test_a_retried_delete_after_a_failed_write_still_revokes(nc, monkeypatch):  # noqa: F811
+    assert nc.put(KEY_PATH, json={"nkey": PUB_A}, headers=OWNER).status_code == 200
+    fail_next_write(monkeypatch)
+    r = nc.delete(KEY_PATH, headers=OWNER)
+    assert r.status_code == 503, r.text
+    assert r.json()["reason"] == "nats_accounts_unwritable"
+    assert PUB_A in accounts(nc)  # the row is gone but the user line is still there
+    r = nc.delete(KEY_PATH, headers=OWNER)  # the retry must take the line out, not just say 200
+    assert r.status_code == 200 and r.json()["nkey"] is None
+    assert PUB_A not in accounts(nc) and "AGENTS" not in accounts(nc)
+
+
+def test_a_retried_cancel_after_a_failed_write_still_revokes(nc, monkeypatch):  # noqa: F811
+    assert nc.put(KEY_PATH, json={"nkey": PUB_A}, headers=OWNER).status_code == 200
+    fail_next_write(monkeypatch)
+    r = nc.post("/v1/agents/agent:aaa/cancel", json={}, headers=OWNER)
+    assert r.status_code == 503, r.text
+    assert PUB_A in accounts(nc)
+    r = nc.post("/v1/agents/agent:aaa/cancel", json={}, headers=OWNER)
+    assert r.status_code == 200, r.text
+    assert PUB_A not in accounts(nc)
+
+
 @pytest.mark.parametrize("headers", [AGENT, ADULT])
 def test_only_the_owner_sets_an_agent_key(nc, headers):  # noqa: F811
     assert nc.put(KEY_PATH, json={"nkey": PUB_A}, headers=headers).status_code == 403

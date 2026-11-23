@@ -133,7 +133,10 @@ class AgentNatsKeys:
         pid, _ = self._pid(name)
         with self.db.session.begin() as s:
             gone = s.execute(delete(AgentNatsKeyRow).where(AgentNatsKeyRow.principal_id == pid)).rowcount or 0
-        if gone:
-            self._rewrite()
+        if gone:  # the row is gone, so the removal is a fact even if the file write below fails
             self.audit.append("agent.nats_key_removed", p.as_dict() if p else None, None, {"agent": pid, "why": why})
+        # Always rewrite, even when no row was deleted: a first try that failed with an OSError has
+        # already dropped the row, so a retry must still take the user line out or revocation fails
+        # open. write_accounts leaves the file alone when the bytes are the same.
+        self._rewrite()
         return self.view(pid)
