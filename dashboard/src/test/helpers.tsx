@@ -34,11 +34,11 @@ function testApi(token: string) {
  * One MockApi is shared for the whole test (so state changes are visible);
  * when the user signs in through the form, it is rebuilt for the typed token.
  */
-export function renderApp(opts: { token?: string; route?: string; knownRole?: boolean } = {}) {
+export function renderApp(opts: { token?: string; route?: string; knownRole?: boolean; mock?: boolean } = {}) {
   let api = testApi(opts.token ?? '');
   if (opts.token) window.sessionStorage.setItem('onemind.token', opts.token);
   const deps: SessionDeps = {
-    mock: true,
+    mock: opts.mock ?? true,
     makeApi: (t) => {
       if (t === '') return t === (opts.token ?? '') ? api : testApi(''); // the credential-less client
       if (t !== (opts.token ?? '')) api = testApi(t);
@@ -50,7 +50,7 @@ export function renderApp(opts: { token?: string; route?: string; knownRole?: bo
   const utils = render(
     <MemoryRouter initialEntries={[opts.route ?? '/']}>
       <SessionProvider deps={deps}>
-        <App mock />
+        <App mock={deps.mock} />
       </SessionProvider>
     </MemoryRouter>,
   );

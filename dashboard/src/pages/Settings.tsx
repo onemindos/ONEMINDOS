@@ -17,7 +17,7 @@ const IDS = new Set(SETTINGS_SECTIONS.map((s) => s.id));
 
 export function Settings() {
   const { section } = useParams();
-  const { view } = useShell();
+  const { view, role } = useShell();
   const explicit = !!section && IDS.has(section as SettingsSectionId);
   const current = (explicit ? section : 'appearance') as SettingsSectionId;
   const meta = SETTINGS_SECTIONS.find((s) => s.id === current)!;
@@ -38,7 +38,7 @@ export function Settings() {
     );
   }
   return (
-    <SettingsLayout current={current} explicit={explicit} hrefFor={(id) => href.setting(id)} indexHref={href.settings} hidden={view === 'pro' ? undefined : PRO_SETTINGS}>
+    <SettingsLayout current={current} explicit={explicit} hrefFor={(id) => href.setting(id)} indexHref={href.settings} hidden={view !== 'pro' ? PRO_SETTINGS : role === 'owner' ? undefined : new Set<SettingsSectionId>(['care'])}>
       {body}
     </SettingsLayout>
   );

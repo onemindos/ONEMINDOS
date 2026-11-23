@@ -152,4 +152,60 @@ CORE_TOOLS: tuple[ToolSurface, ...] = (
     ),
 )
 
+# ---- area read tools (#632): backups, OS updates, file metadata, machines, storage, alerts, settings, logs ----
+# Served by mcp/read_tools.py, which redacts secrets, marks third-party text untrusted, caps every list at
+# AREA_PAGE_MAX and pages the list tools with cursor/limit. Each calls the same service as its REST route.
+AREA_PAGE_MAX = 100
+LOG_LINES_MAX = 500
+LOG_TAIL_ASK_MAX = 2000  # the REST route's own tail limit; more than LOG_LINES_MAX comes back truncated
+_PAGE = {"cursor": {"type": "string", "maxLength": 20, "description": "next_cursor of the previous page"},
+         "limit": {"type": "integer", "minimum": 1, "maximum": AREA_PAGE_MAX}}
+_SAFE = " Secrets are redacted, third-party text is marked untrusted, lists are capped. Read-only."
+
+
+def _area(name: str, title: str, description: str, route: str, scope: str, args: dict | None = None,
+          required: list[str] | None = None, key: str | None = None) -> ToolSurface:
+    props = {**(args or {}), **(_PAGE if key else {})}
+    return ToolSurface(name, title, description + _SAFE, "read", route, scope, obj(props, required),
+                       list_of(key) if key else dict(ANY_OBJ), body_key=key, adds=("next_cursor",) if key else ())
+
+
+AREA_TOOLS: tuple[ToolSurface, ...] = (
+    _area("get_backup_status", "Backup status", "Whether backups are on, the last run and the next one. "
+          "Same data as GET /v1/backups/status.", "GET /v1/backups/status", "backups:read"),
+    _area("list_backup_runs", "Backup runs", "Backup runs, newest first, with their state and size. "
+          "Same data as GET /v1/backups/runs.", "GET /v1/backups/runs", "backups:read", key="runs"),
+    _area("list_backup_snapshots", "Backup snapshots", "Snapshots in the backup repository; filter by app_id "
+          "or unit. Same data as GET /v1/backups/snapshots.", "GET /v1/backups/snapshots", "backups:read",
+          {"app_id": {"type": "string", "maxLength": 59}, "unit": {"type": "string", "maxLength": 128}},
+          key="snapshots"),
+    _area("get_os_updates", "OS updates", "Per node: running OS version, booted A/B slot and the update on offer. "
+          "Same data as GET /v1/os/updates.", "GET /v1/os/updates", "nodes:read"),
+    _area("get_os_update_history", "OS update history", "Commits and rollbacks the nodes reported and the install "
+          "requests filed. Same data as GET /v1/os/updates/history.", "GET /v1/os/updates/history", "nodes:read"),
+    _area("stat_file", "File details", "Metadata of one file or folder (size, times, revision), never its bytes, "
+          "as far as this agent may see it. Same data as GET /v1/files/stat.", "GET /v1/files/stat", "files:read",
+          {"root": {"type": "string", "maxLength": 205}, "path": {"type": "string", "maxLength": 4096}}, ["root"]),
+    _area("list_machines", "Virtual machines", "The virtual machines on this box with their state and quota. "
+          "Same data as GET /v1/machines.", "GET /v1/machines", "nodes:read", key="machines"),
+    _area("get_machine", "One virtual machine", "One virtual machine by name. Same data as GET /v1/machines/{name}.",
+          "GET /v1/machines/{name}", "nodes:read", {"name": ID}, ["name"]),
+    _area("get_storage", "Storage", "The data set of this box: state, members, running operation, no disk "
+          "identities. Same data as GET /v1/storage.", "GET /v1/storage", "nodes:read"),
+    _area("list_alerts", "Alerts", "Alerts addressed to the owner; state filter: open, acknowledged, resolved "
+          "(comma = or). Same data as GET /v1/alerts.", "GET /v1/alerts", "alerts:read",
+          {"state": {"type": "string", "maxLength": 40}}, key="alerts"),
+    _area("get_alert", "One alert", "One alert by id. Same data as GET /v1/alerts/{alert_id}.",
+          "GET /v1/alerts/{alert_id}", "alerts:read", {"alert_id": ID}, ["alert_id"]),
+    _area("get_update_settings", "Update settings", "The owner's app update settings and the apps whose "
+          "auto-update is paused. Same data as GET /v1/update-policy.", "GET /v1/update-policy", "updates:read"),
+    _area("read_app_logs", "App logs", f"The last lines of an installed app's log for troubleshooting, at most "
+          f"{LOG_LINES_MAX}; asking for more returns {LOG_LINES_MAX} with truncated true. Same lines as "
+          "GET /v1/apps/{app_id}/logs, redacted.", "GET /v1/apps/{app_id}/logs", "logs:read",
+          {"app_id": {"type": "string", "minLength": 1, "maxLength": 59},
+           "component": {"type": "string", "maxLength": 253},
+           "tail": {"type": "integer", "minimum": 1, "maximum": LOG_TAIL_ASK_MAX}}, ["app_id"]),
+)
+CORE_TOOLS = CORE_TOOLS + AREA_TOOLS
+
 CORE_TOOL_NAMES: tuple[str, ...] = tuple(t.name for t in CORE_TOOLS)

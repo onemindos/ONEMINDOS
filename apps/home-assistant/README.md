@@ -7,9 +7,10 @@ Open source home automation that puts local control and privacy first
 
 | | |
 |---|---|
-| Version | 2026.11.1 (upstream release `2026.11.1`, published 2026-11-09) |
-| Licence | `Apache-2.0`, Market class **L1** (licence gate, scan of 2026-11-21) |
+| Version | 2026.11.2 (upstream release `2026.11.2`, published 2026-11-16) |
+| Licence | `Apache-2.0`, Market class **L1** (licence gate, scan of 2026-11-23) |
 | Tier | `blocked` (set by CI: sdk/tools/app-gate) |
+| Quality | `none` (computed by the gate from its evidence, never set by hand) |
 | Category | home-automation |
 | GitHub | <https://github.com/home-assistant/core> |
 | Website | <https://www.home-assistant.io> |
@@ -32,7 +33,7 @@ Storage: PVC `home-assistant-config` 5Gi.
 
 Images:
 
-- `ghcr.io/home-assistant/home-assistant:2026.11.1@sha256:6785d1eca68747a524c156faae1b139ed415c07357386ae6fe17291986e59e82`
+- `ghcr.io/home-assistant/home-assistant:2026.11.2@sha256:493a07e8f6530fc640223f4a0a5248f20a61ca2f718bb1d31efbf08a2c5ea28f`
 
 <!-- onemind:notes:begin -->
 ## What it is
@@ -41,7 +42,7 @@ Home Assistant is open source home automation that puts local control and privac
 
 This package runs **Home Assistant Core** in a container, which upstream calls the "Container" install type. It is not Home Assistant OS and has no Supervisor, so upstream "apps" (formerly add-ons) are not available. OneMind's own Market supplies the companion apps (Mosquitto, Zigbee2MQTT, Node-RED) instead.
 
-**Licence:** Apache-2.0 ([LICENSE.md at the release commit](https://github.com/home-assistant/core/blob/d8a0dc698c8946b44e455d904000db563cfbf1ba/LICENSE.md)). Research licence class **L1** (permissive): it may be preinstalled on a OneMind box ([`research-output/13-apps-market-plugins.md`](../../research-output/13-apps-market-plugins.md), [`license-matrix.csv`](../../research-output/evidence/license-matrix.csv)).
+**Licence:** Apache-2.0 ([LICENSE.md at the release commit](https://github.com/home-assistant/core/blob/ff5d56b825a0fb66b03d01bc297d49e206cdaba3/LICENSE.md)). Research licence class **L1** (permissive): it may be preinstalled on a OneMind box ([`research-output/13-apps-market-plugins.md`](../../research-output/13-apps-market-plugins.md), [`license-matrix.csv`](../../research-output/evidence/license-matrix.csv)).
 
 **Trademark:** "Home Assistant" and its logo are trademarks that Apache-2.0 does not license. The app is listed under the upstream name only, and `icon.svg` is a neutral generated icon with the initials, not the upstream logo.
 
@@ -79,15 +80,15 @@ From upstream's Container install guide (https://www.home-assistant.io/installat
 
 **Hold (apps/market-unblock-2, 2026-11-13):** 5 CRITICAL (4 with a fix) in `2026.11.1`, the newest tag. Unblock: `2026.11.2` or a rebuild with fixed packages. The registry was re-read on 2026-11-13: the pinned digest is unchanged and no newer fixed tag exists, so nothing is bumped (the gate was not weakened and the tier was not edited). It unblocks when the weekly `apps-rescan` or a manual `apps-gate-all` run computes a pass on a rebuilt image. No upstream issue link was looked up (the GitHub API is not reachable from the worker).
 
-**Hold (2026-11-21, apps/147-household-apps):** `2026.11.2` exists (digest `sha256:493a07e8f6530fc640223f4a0a5248f20a61ca2f718bb1d31efbf08a2c5ea28f`) but, scanned with Trivy (amd64), still has CRITICAL CVE-2026-123158 in `openssh-client-common`, `openssh-client-default` and `openssh-keygen` 10.3_p1-r1 (fixed in 10.3_p1-r2, Alpine base layer), CVE-2026-96760 in Python `Authlib` 1.7.2 (fixed in 1.9.0) and CVE-2026-85394 in `python-jose` 3.5.0 (no fix). Pins unchanged, tier stays `blocked`. Unblock: a release with the Alpine openssh and Authlib updates, or a OneMind rebuild (founder decision). Tracked on #147.
+**Hold (2026-11-23, #147):** the pin is now `2026.11.2` (digest `sha256:493a07e8f6530fc640223f4a0a5248f20a61ca2f718bb1d31efbf08a2c5ea28f`, newest upstream release). Trivy 0.76.2 on linux/amd64 and linux/arm64 still finds CRITICAL CVE-2026-123158 in `openssh-client-common`, `openssh-client-default` and `openssh-keygen` 10.3_p1-r1 (fixed in 10.3_p1-r2, Alpine base layer), CVE-2026-96760 in Python `Authlib` 1.7.2 (fixed in 1.9.0) and CVE-2026-85394 in `python-jose` 3.5.0 (no fix); 0 secrets. Tier stays `blocked`. Unblock: a release with the Alpine openssh and Authlib updates, or a OneMind rebuild (founder decision). Tracked on #147.
 <!-- onemind:notes:end -->
 
 ## Latest security scan
 
-Scanned 2026-11-21T14:37:07Z by `sdk/tools/app-gate`: **fail**. Licence `Apache-2.0` class L1; smoke test pass.
+Scanned 2026-11-23T10:09:05Z by `sdk/tools/app-gate`: **fail**. Licence `Apache-2.0` class L1; smoke test pass.
 
 | Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
 |---|---|---|---|---|---|---|
-| `ghcr.io/home-assistant/home-assistant:2026.11.1@sha256:6785d1eca68747a524c156faae1b139ed415c07357386ae6fe17291986e59e82` | amd64, arm64 | 5 (4) | 63 | 0 infected (daily-28190) | 0 | unsigned |
+| `ghcr.io/home-assistant/home-assistant:2026.11.2@sha256:493a07e8f6530fc640223f4a0a5248f20a61ca2f718bb1d31efbf08a2c5ea28f` | amd64, arm64 | 5 (4) | 63 | 0 infected (daily-28192) | 0 | unsigned |
 
 Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.
