@@ -14,6 +14,7 @@ metadata:
   category: developer
   icon: icon.svg
   license: "Apache-2.0"
+  licenceClass: L1
   source: https://github.com/m1k1o/neko
   links:
     docs: "https://neko.m1k1o.net/"

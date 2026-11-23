@@ -7,11 +7,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"os"
 	"strconv"
 	"time"
+
+	"github.com/onemindos/onemindos/internal/svcregistry"
 )
 
 // Schema names the status document's shape.
@@ -29,6 +32,7 @@ const Schema = "onemind.host/v1"
 //	GET  /v1/smb, PUT /v1/smb/shares, PUT /v1/smb/users/{user}/password   file sharing (smb.go)
 //	GET  /v1/network           read-only network facts (internal/netview; 404 when Network is nil)
 //	GET  /v1/services          service cards: the image's registry joined with systemd (internal/svcregistry; 404 when Services is nil)
+//	GET  /v1/services/{unit}/logs?lines=200&follow=1   a registry unit's journal as text lines (404 when ServiceLogs is nil)
 type Server struct {
 	S        *Service
 	AllowUID int // besides root; -1 none
@@ -42,6 +46,10 @@ type Server struct {
 	Network func() (any, error)
 	// Services answers GET /v1/services (#623). It only reads (systemctl show); nil leaves the route off.
 	Services func(ctx context.Context) (any, error)
+	// ServiceLogs answers GET /v1/services/{unit}/logs (#636): journal lines of a unit the registry lists,
+	// unredacted (the gateway redacts every line before anyone sees it). It returns svcregistry.ErrUnknownUnit
+	// before writing anything for an unlisted unit; nil leaves the route off.
+	ServiceLogs func(ctx context.Context, unit string, lines int, follow bool, w io.Writer) error
 }
 
 // Capability is one kind in GET /v1/status.
@@ -154,6 +162,9 @@ func (s *Server) Handler() http.Handler {
 			writeJSON(w, http.StatusOK, v)
 		})
 	}
+	if s.ServiceLogs != nil {
+		mux.HandleFunc("GET /v1/services/{unit}/logs", s.serviceLogs)
+	}
 	mux.HandleFunc("POST /v1/operations", func(w http.ResponseWriter, r *http.Request) {
 		var req Request
 		dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096))
@@ -228,6 +239,55 @@ func (s *Server) Handler() http.Handler {
 		}
 		mux.ServeHTTP(w, r)
 	})
+}
+
+// serviceLogs streams a unit's journal as text/plain, one line per journal entry, flushed as it comes.
+func (s *Server) serviceLogs(w http.ResponseWriter, r *http.Request) {
+	lines := 200
+	if v := r.URL.Query().Get("lines"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 1 || n > svcregistry.MaxLogLines {
+			apiError(w, http.StatusBadRequest, "bad_request", "invalid", fmt.Sprintf("lines must be 1-%d", svcregistry.MaxLogLines))
+			return
+		}
+		lines = n
+	}
+	fw := &flushWriter{w: w}
+	err := s.ServiceLogs(r.Context(), r.PathValue("unit"), lines, r.URL.Query().Get("follow") == "1", fw)
+	switch {
+	case fw.started:
+		return // the stream is under way: an error now just ends it
+	case errors.Is(err, svcregistry.ErrUnknownUnit):
+		apiError(w, http.StatusNotFound, "not_found", "unknown_unit", err.Error())
+	case err != nil:
+		apiError(w, http.StatusInternalServerError, "internal", "journal", "the journal could not be read")
+	default:
+		fw.start()
+	}
+}
+
+// flushWriter sends the 200 header on the first write and flushes after each one.
+type flushWriter struct {
+	w       http.ResponseWriter
+	started bool
+}
+
+func (f *flushWriter) start() {
+	if !f.started {
+		f.started = true
+		f.w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		f.w.Header().Set("Cache-Control", "no-store")
+		f.w.WriteHeader(http.StatusOK)
+	}
+}
+
+func (f *flushWriter) Write(p []byte) (int, error) {
+	f.start()
+	n, err := f.w.Write(p)
+	if fl, ok := f.w.(http.Flusher); ok {
+		fl.Flush()
+	}
+	return n, err
 }
 
 // ActivationListener returns the socket systemd passed (LISTEN_PID, LISTEN_FDS,

@@ -6,10 +6,11 @@ The QEMU harnesses boot the real image and check it against pre-registered crite
 
 | Harness | Criteria | Make target |
 |---|---|---|
-| `run-tests.py` | CRITERIA.md (T1-T11), then CRITERIA-DATAFAIL.md (TD1-TD3, data disk failure; when `UPTO` is T5 or later) | `make battery` |
+| `run-tests.py` | CRITERIA.md (T1-T11), then CRITERIA-DATAFAIL.md (TD1-TD3, data disk failure; when `UPTO` is T5 or later); with the same condition CRITERIA-NAS.md (TN0-TN2, SMB and NFS client loopback mounts, `nasmount.py`) right after T1 | `make battery` |
 | `firstboot.py` | CRITERIA-FIRSTBOOT.md (F0-F4) | `make firstboot` |
 | `firewall.py` | CRITERIA-FIREWALL.md (FW1-FW4, port scan from a second VM) | `make firewall` |
 | `bootlock.py` | CRITERIA-BOOTLOCK.md (B1-B6, GRUB menu lock) | `make bootlock` |
+| `sysextguard.py` | CRITERIA-SYSEXT.md (T-W19-01, X0-X7: only signed host extensions merge, after reboot and slot switch) | `make sysextguard` |
 | `memorypressure.py` | CRITERIA-MEMORY.md (M0-M1: 6 GiB hog on an 8 GiB hub VM, control plane must stay up) | `make memory-test` |
 | `cloudboot.py` | CRITERIA-CLOUD.md (C0-C6) | `make cloud-test` |
 | `installer.py` | CRITERIA-INSTALLER.md (I1-I5) | `make installer-test` |

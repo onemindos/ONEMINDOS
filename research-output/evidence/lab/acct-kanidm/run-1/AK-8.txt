@@ -1,0 +1,4 @@
+# 2026-11-23T03:14:38Z AK-8: TOTP replay (adult2 has password + TOTP, enrolled in AK-3)
++ $PY totp-replay adult2
+{"algo": "sha256", "first": "success (mech passwordmfa)", "first_ok": true, "same_time_step": true, "second": "success (mech passwordmfa)", "second_ok": true, "step": "totp_replay", "step_s": 30, "user": "adult2"}
+  (exit 1)

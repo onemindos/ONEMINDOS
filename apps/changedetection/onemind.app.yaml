@@ -15,6 +15,7 @@ metadata:
   category: news
   icon: icon.svg
   license: "Apache-2.0"
+  licenceClass: L1
   source: https://github.com/dgtlmoon/changedetection.io
   # §9.3 facts from the GitHub API (repos/dgtlmoon/changedetection.io), read 2026-11-12.
   links:

@@ -42,7 +42,7 @@ export function ActivityScreen() {
             </P>
           </View>
           {a.decided_by && <Row label="Decided by" value={`${a.decided_by.kind}: ${a.decided_by.id}`} />}
-          {a.approval && <Row label="Approved" value={APPROVAL_LABEL[a.approval] ?? a.approval} />}
+          {typeof a.approval === 'string' && <Row label="Approved" value={APPROVAL_LABEL[a.approval] ?? a.approval} />}
           {a.result?.message && <Row label="Result" value={a.result.message} />}
           <Row label="Action id" value={a.id} />
         </Card>
