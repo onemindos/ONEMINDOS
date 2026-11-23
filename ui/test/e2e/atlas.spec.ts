@@ -39,6 +39,9 @@ for (const theme of ['light', 'dark'] as const) {
         await expect(mode).toBeChecked();
         await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
         const primary = page.locator('.om-cz-preview .om-btn-primary');
+        // The button fades its background on theme change; wait for the final colour first.
+        await expect(primary).toHaveCSS('background-color', theme === 'light' ? 'rgb(209, 24, 38)' : 'rgb(251, 96, 90)');
+        await expect.poll(() => primary.evaluate((el) => el.getAnimations().length)).toBe(0);
         // Read the painted pixels, including the effects of stylesheet order and theme overrides.
         const png = await primary.screenshot();
         await info.attach(`${pack}-${theme}.png`, { body: png, contentType: 'image/png' });
