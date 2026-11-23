@@ -3156,6 +3156,573 @@
         "title": "DryRunBody",
         "type": "object"
       },
+      "EngineAccount": {
+        "properties": {
+          "account": {
+            "title": "Account",
+            "type": "string"
+          },
+          "connections": {
+            "title": "Connections",
+            "type": "integer"
+          },
+          "jetstream_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Jetstream Bytes"
+          },
+          "leafnodes": {
+            "title": "Leafnodes",
+            "type": "integer"
+          },
+          "node_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The machine this account belongs to; null for the hub's own",
+            "title": "Node Id"
+          }
+        },
+        "required": [
+          "account",
+          "connections",
+          "leafnodes"
+        ],
+        "title": "EngineAccount",
+        "type": "object"
+      },
+      "EngineHealth": {
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "status": {
+            "description": "ok, unavailable (NATS says it is not healthy) or unknown (no answer)",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "EngineHealth",
+        "type": "object"
+      },
+      "EngineJetStream": {
+        "properties": {
+          "cap_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The file-store cap NATS enforces",
+            "title": "Cap Bytes"
+          },
+          "consumers": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Consumers"
+          },
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What NATS says; null when the monitor did not answer",
+            "title": "Enabled"
+          },
+          "planned_cap_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The cap the gateway planned from the data disk",
+            "title": "Planned Cap Bytes"
+          },
+          "reason": {
+            "default": "",
+            "title": "Reason",
+            "type": "string"
+          },
+          "reserved_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reserved Bytes"
+          },
+          "state": {
+            "description": "off, refused, pending, ready or error (the gateway's core streams, #601), or refused when NATS runs JetStream without a cap",
+            "title": "State",
+            "type": "string"
+          },
+          "streams": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Streams"
+          },
+          "used_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Used Bytes"
+          },
+          "used_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Used Pct"
+          }
+        },
+        "required": [
+          "state"
+        ],
+        "title": "EngineJetStream",
+        "type": "object"
+      },
+      "EngineLinks": {
+        "properties": {
+          "down": {
+            "title": "Down",
+            "type": "integer"
+          },
+          "up": {
+            "title": "Up",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "up",
+          "down"
+        ],
+        "title": "EngineLinks",
+        "type": "object"
+      },
+      "EngineMonitor": {
+        "properties": {
+          "checked_at": {
+            "title": "Checked At",
+            "type": "string"
+          },
+          "errors": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Endpoint -> what failed (owner only)",
+            "title": "Errors",
+            "type": "object"
+          },
+          "state": {
+            "description": "up: the loopback monitor answered; down: it did not",
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "checked_at"
+        ],
+        "title": "EngineMonitor",
+        "type": "object"
+      },
+      "EngineNode": {
+        "properties": {
+          "heartbeat": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "online, stale or offline from the heartbeat registry",
+            "title": "Heartbeat"
+          },
+          "link": {
+            "description": "up: the machine's leaf link is connected; down: it is not; unknown: no leaf data",
+            "title": "Link",
+            "type": "string"
+          },
+          "node_id": {
+            "title": "Node Id",
+            "type": "string"
+          },
+          "outbox": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EngineOutbox"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rtt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rtt"
+          }
+        },
+        "required": [
+          "node_id",
+          "link"
+        ],
+        "title": "EngineNode",
+        "type": "object"
+      },
+      "EngineOutbox": {
+        "properties": {
+          "bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bytes"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "lag": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Messages the hub has still to copy from the machine's outbox",
+            "title": "Lag"
+          },
+          "last_active_s": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Seconds since the hub last heard from the outbox",
+            "title": "Last Active S"
+          },
+          "messages": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Messages"
+          },
+          "stream": {
+            "title": "Stream",
+            "type": "string"
+          }
+        },
+        "required": [
+          "stream"
+        ],
+        "title": "EngineOutbox",
+        "type": "object"
+      },
+      "EngineServer": {
+        "properties": {
+          "connections": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Connections"
+          },
+          "in_msgs": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "In Msgs"
+          },
+          "leafnodes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Leafnodes"
+          },
+          "out_msgs": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Out Msgs"
+          },
+          "total_connections": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Connections"
+          },
+          "uptime": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uptime"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
+          }
+        },
+        "title": "EngineServer",
+        "type": "object"
+      },
+      "EngineSlowConsumers": {
+        "properties": {
+          "clients": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clients"
+          },
+          "gateways": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gateways"
+          },
+          "leafs": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Leafs"
+          },
+          "routes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Routes"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
+          }
+        },
+        "title": "EngineSlowConsumers",
+        "type": "object"
+      },
+      "EngineView": {
+        "description": "GET /v1/engine. Never carries a credential, a client address, a user name, a path or a subject.",
+        "properties": {
+          "accounts": {
+            "items": {
+              "$ref": "#/components/schemas/EngineAccount"
+            },
+            "title": "Accounts",
+            "type": "array"
+          },
+          "at": {
+            "title": "At",
+            "type": "string"
+          },
+          "connections_truncated": {
+            "default": false,
+            "title": "Connections Truncated",
+            "type": "boolean"
+          },
+          "health": {
+            "$ref": "#/components/schemas/EngineHealth"
+          },
+          "jetstream": {
+            "$ref": "#/components/schemas/EngineJetStream"
+          },
+          "links": {
+            "$ref": "#/components/schemas/EngineLinks"
+          },
+          "monitor": {
+            "$ref": "#/components/schemas/EngineMonitor"
+          },
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/EngineNode"
+            },
+            "title": "Nodes",
+            "type": "array"
+          },
+          "scope": {
+            "description": "all (owner), node (a machine: its own account and link) or summary",
+            "title": "Scope",
+            "type": "string"
+          },
+          "server": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EngineServer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "slow_consumers": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EngineSlowConsumers"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "at",
+          "scope",
+          "monitor",
+          "health",
+          "links",
+          "jetstream"
+        ],
+        "title": "EngineView",
+        "type": "object"
+      },
       "EnrolBody": {
         "properties": {
           "client": {
@@ -21144,6 +21711,56 @@
         "summary": "Request Host",
         "tags": [
           "domains"
+        ]
+      }
+    },
+    "/v1/engine": {
+      "get": {
+        "description": "Connections per account, leaf links and outbox lag per machine, JetStream used against its cap,\nslow consumers. Cut to the caller: the owner sees all, a machine its own, everyone else a summary.",
+        "operationId": "engine.get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EngineView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "monitoring:read",
+              "nodes:report"
+            ]
+          }
+        ],
+        "summary": "Engine",
+        "tags": [
+          "engine"
         ]
       }
     },

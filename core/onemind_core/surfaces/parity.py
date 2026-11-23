@@ -26,6 +26,7 @@ BYTES = "bytes"
 DOOR = "door"
 WRITE = "write"
 FLEET = "fleet"
+CONSOLE = "console"
 
 REASONS: dict[str, str] = {
     OVERSIGHT: "Approving, denying, approval policies, the motion lockout, confirming what a found radio is and "
@@ -42,6 +43,9 @@ REASONS: dict[str, str] = {
            "request_<type> tool) that a person approves.",
     FLEET: "Fleet OS versions and staged rollouts (#156): a rollout starts only as an owner-approved action "
            "(os.rollout.start), which an agent follows through get_action; this is the owner's update console.",
+    CONSOLE: "The owner's system console: host service logs (which can hold secrets until a redacted read tool "
+             "exists), the message-bus monitor (#619) and bridge status (#610). Agents read the world through the "
+             "data commons doors and request changes as actions.",
 }
 
 SKIP_METHODS = frozenset({"HEAD", "OPTIONS"})
@@ -304,6 +308,25 @@ HUMAN_ONLY: dict[str, str] = {
     "GET /v1/os/fleet": FLEET,
     "GET /v1/os/rollouts": FLEET,
     "GET /v1/os/rollouts/{rollout_id}": FLEET,
+    # ---- classified 2026-11-23 (hand-off gate): routes that landed without an entry
+    "GET /v1/auth/approver-keys": CREDENTIAL,
+    "POST /v1/auth/approver-keys": CREDENTIAL,
+    "DELETE /v1/auth/approver-keys/{key_id}": CREDENTIAL,
+    "GET /v1/me/devices": PERSON,
+    "DELETE /v1/me/devices/{device_id}": PERSON,
+    "GET /v1/sync/locks": DOOR,
+    "POST /v1/sync/locks": DOOR,
+    "POST /v1/sync/locks/{lock_id}/refresh": DOOR,
+    "DELETE /v1/sync/locks/{lock_id}": DOOR,
+    "POST /v1/bridges/{bridge_id}/events": DOOR,
+    "GET /v1/bridges": CONSOLE,
+    "GET /v1/bridges/{bridge_id}": CONSOLE,
+    "GET /v1/bridges/{bridge_id}/latest": CONSOLE,
+    "GET /v1/engine": CONSOLE,
+    "GET /v1/system/services/{unit}/logs": CONSOLE,
+    "POST /v1/bridges/{bridge_id}/resume": WRITE,
+    "POST /v1/system/services/{unit}/restart": WRITE,
+    "PUT /v1/mesh/settings": WRITE,
 }
 
 # Routes that are to get a generated tool (#632 and the area issues). A ratchet: it may only shrink, and
