@@ -68,3 +68,27 @@ def test_a_step_plan_pins_the_exact_url():
         assert policy.step_plan("hermes", "abs_1", "navigate", "payment", o.url, o.query, o.full_sha256)[1] != sha
     long = policy.parse("https://example.org/a?" + "q" * 3000)
     assert len(long.query) == policy.QUERY_SHOWN + 1 and long.query.endswith("\u2026")  # the card cuts, the hash does not
+
+
+@pytest.mark.parametrize("url,reason", [
+    ("https://shop.example.org/%63heckout?amount=9", "payment"),
+    ("https://shop.example.org/%70ay?to=x", "payment"),
+    ("https://shop.example.org/check%6fut/", "payment"),
+    ("https://shop.example.org/%2563heckout", "payment"),           # encoded twice: some servers decode twice
+    ("https://shop.example.org/a%2Fcheckout", "payment"),            # an encoded slash still splits the path
+    ("https://shop.example.org/a\\cart", "payment"),                # a browser reads a backslash as a slash
+    ("https://shop.example.org/%EF%BD%83heckout", "payment"),        # a fullwidth letter folds to plain c
+    ("https://shop.example.org/CheckOut%00", "payment"),             # a NUL byte does not glue a word on
+    ("https://example.org/%6cogin", "sign_in"),
+    ("https://example.org/%4C%4F%47%49%4E/", "sign_in"),
+    ("https://example.org/a;%73ign-in", "sign_in"),
+])
+def test_an_encoded_path_still_needs_the_owner(url, reason):
+    """The server decodes the path before routing it, so the sign-in and payment rules do too (D-001)."""
+    assert policy.classify(policy.parse(url), "navigate") == reason
+
+
+def test_decoding_does_not_flag_an_ordinary_page():
+    for url in ("https://example.org/docs/%E2%9C%93-guide", "https://example.org/checkouts-history-of-tills",
+                "https://example.org/%25", "https://example.org/blog/paying-it-forward"):
+        assert policy.classify(policy.parse(url), "navigate") is None

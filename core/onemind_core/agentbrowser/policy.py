@@ -20,8 +20,9 @@ import hashlib
 import ipaddress
 import json
 import re
+import unicodedata
 from dataclasses import dataclass
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
 
 HOST_RE = re.compile(r"^(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z][a-z0-9-]{0,61}[a-z0-9]$")
 KINDS = ("navigate", "submit", "download")
@@ -127,8 +128,26 @@ def allowed(host: str, entries: set[str] | frozenset[str]) -> bool:
     return any("*." + ".".join(labels[i:]) in entries for i in range(1, len(labels) - 1))
 
 
+def _decoded(path: str) -> str:
+    """The path as the site's server reads it: percent-decoded until it stops changing.
+
+    A server decodes `/%63heckout` to `/checkout` (and some decode twice: `/%2563heckout`), so the
+    sign-in and payment rules must look at the decoded path, or an encoded URL skips the approval.
+    Each pass shortens the string or leaves it alone, so the loop ends. NFKC folds look-alike forms
+    (a fullwidth `ｃheckout`) into the plain letters a lenient server would match.
+    """
+    while True:
+        nxt = unquote(path, errors="replace")
+        if nxt == path:
+            break
+        path = nxt
+    return unicodedata.normalize("NFKC", path).lower()
+
+
 def _segments(path: str) -> list[str]:
-    return [s for s in re.split(r"[/.;]+", path.lower()) if s]
+    """Whole words of the decoded path: anything but a letter, digit, `-` or `_` separates them
+    (`/`, a backslash a browser reads as `/`, `.`, `;`, spaces, NUL and other control bytes)."""
+    return [s for s in re.split(r"[^a-z0-9_-]+", _decoded(path)) if s]
 
 
 def classify(target: Target, kind: str) -> str | None:
