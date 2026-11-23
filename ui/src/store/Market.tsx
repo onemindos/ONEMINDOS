@@ -7,7 +7,7 @@ import { EmptyState } from '../components/EmptyState';
 import { Icon } from '../components/Icon';
 import { StatusPill } from '../components/StatusPill';
 import { cx } from '../lib/cx';
-import { AppTile, ClassPills, FitLine, LoadGate } from './bits';
+import { AppTile, ClassPills, FitLine, LoadGate, QualityPill } from './bits';
 import { CategoryIcon } from './CategoryIcon';
 import { activeFilterCount, countByCategory, DEFAULT_FILTERS, filterApps, JOB_LABEL, primaryAction, tagsInCategory, type MarketFilters } from './logic';
 import { BROWSABLE_CLASSES, CATEGORIES, CATEGORY_BY_SLUG, DEPLOY_CLASSES, LICENCE_CLASSES } from './taxonomy';
@@ -68,6 +68,7 @@ export function AppCard({ app, now, onRequestInstall, onRequestRemove, onOpen, a
       </div>
       <p className="om-store-card-desc">{app.tagline ?? app.description}</p>
       <ClassPills app={app} />
+      <QualityPill app={app} />
       {/* The trust facts the owner decides on, on the card itself (contract §10.3, §11.4). */}
       <p className="om-store-card-trust">
         Licence: {app.license}
@@ -249,6 +250,15 @@ function FilterPanel({ f, set, id }: { f: MarketFilters; set: (p: Partial<Market
             <option value="verified">Verified</option>
             <option value="community">Community</option>
             <option value="blocked">Blocked (cannot install)</option>
+          </select>
+        </label>
+        <label className="om-store-select">
+          <span>Quality</span>
+          <select value={f.quality} onChange={(e) => set({ quality: e.target.value as MarketFilters['quality'] })}>
+            <option value="any">Any</option>
+            <option value="bronze">Bronze or better</option>
+            <option value="silver">Silver or better</option>
+            <option value="gold">Gold only</option>
           </select>
         </label>
       </fieldset>

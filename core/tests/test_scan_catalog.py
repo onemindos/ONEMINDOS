@@ -137,7 +137,7 @@ def test_catalog_links_tier_scan(client, clock, settings):
     }
     assert h["tier"] == "community"
     assert h["scan"] == {"scanned_at": "2026-11-10T22:00:00Z", "result": "pass", "reason": None,
-                         "licence": {"spdx": "MIT", "class": "L1"}}
+                         "licence": {"spdx": "MIT", "class": "L1"}, "quality": None}
     ku = apps["uptime-kuma"]
     assert ku["links"] == {"docs": None, "github": None, "website": None, "support": None}
     assert ku["tier"] is None

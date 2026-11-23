@@ -10,7 +10,8 @@ import { StatusPill } from '../components/StatusPill';
 import { cx } from '../lib/cx';
 import { formatAgo, secondsSince } from '../lib/time';
 import { AppIcon } from '../components/AppIcon';
-import { DEPLOY_CLASSES } from './taxonomy';
+import { DEPLOY_CLASSES, QUALITY_TIERS } from './taxonomy';
+import { qualityOf } from './logic';
 import type { CatalogApp, FitSummary, LoadState } from './types';
 
 /** The app's icon tile: the shared AppIcon (CRITIQUE #20), kept under its store name. */
@@ -29,6 +30,16 @@ export function ClassPills({ app }: { app: Pick<CatalogApp, 'deploy_class' | 'pl
       {app.tier === 'blocked' && <StatusPill tone="bad" label="Blocked" />}
     </span>
   );
+}
+
+/** Quality tier pill (#174). Says "Not rated yet" for a scan from before tiers and nothing for a rated-none app. */
+export function QualityPill({ app }: { app: Pick<CatalogApp, 'scan'> }) {
+  if (!app.scan) return null;
+  const tier = qualityOf(app);
+  if (tier === 'none') {
+    return app.scan.quality ? null : <StatusPill tone="neutral" label="Not rated yet" dot={false} />;
+  }
+  return <StatusPill tone={tier === 'gold' ? 'ok' : 'info'} label={`${QUALITY_TIERS[tier].label} quality`} dot={false} />;
 }
 
 /** One line: where it would run, or why it cannot (TAXONOMY §3.3). The hub's verdict, rendered. */
