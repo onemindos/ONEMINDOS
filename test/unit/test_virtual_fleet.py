@@ -8,6 +8,7 @@ negative control, three green runs in a row) and that nothing from the lab reach
 import importlib.util
 import json
 import os
+import shlex
 import subprocess
 import sys
 import unittest
@@ -194,8 +195,55 @@ class Judge(unittest.TestCase):
         self.assertEqual(core.failover(**{**ok, "took": 200}, work=None)[0], "FAIL")
         self.assertEqual(core.failover(**{**ok, "back": False}, work=work(h, [], ps(pod(h))))[0], "FAIL")
         self.assertEqual(core.failover(**{**ok, "others": ["online", "offline"]}, work=work(h, [], ps(pod(h))))[0], "FAIL")
+        # pinned, but no pod read while the node was down saw the app (every read failed, or no pod): no proof
+        r, ev = core.failover(**ok, work=work(h, [], ps(pod(h))))
+        self.assertNotEqual(r, "PASS", ev)
+        r, ev = core.failover(**ok, work={**work(h, [], ps(pod(h))), "reads": {"ok": 0, "failed": 31}})
+        self.assertEqual(r, "FAIL", ev)
+        self.assertIn("0 pod reads ok, 31 failed", ev)
+        # pinned and still bound to the stopped node (its status not yet updated) is held for it
+        self.assertEqual(core.failover(**ok, work=work(h, ps(pod(h)), ps(pod(h))))[0], "PASS")
+        self.assertFalse(core.held_for(ps(pod(h, "Pending"), pod("onemind-fleet-node2")), h))
         self.assertEqual(core.node_hostname({"nodes": [{"node_id": "n1", "hostname": "Box"}]}, "n1"), "box")
         self.assertIsNone(core.node_hostname([{"node_id": "n1"}], "n1"))
+
+    def test_release_names_and_sums_must_be_plain_before_any_shell_sees_them(self):
+        a, b = "a" * 64, "b" * 64
+        good = (f"{a}  onemind-vm-do-0.1.0-dev.954.qcow2\n{b}  onemind-vm-do-0.1.0-dev.954-next.raucb\n"
+                f"{a}  dev-ca.cert.pem\n")
+        self.assertEqual(core.release_files(good), ("onemind-vm-do-0.1.0-dev.954.qcow2", a,
+                                                    "onemind-vm-do-0.1.0-dev.954-next.raucb", b))
+        for bad in (f"{a}  onemind-vm-do-$(touch x).qcow2\n{b}  x-next.raucb\n",       # a command in a name
+                    f"{a}  onemind-vm-do-1.qcow2\n{b}  x;reboot-next.raucb\n",
+                    f"{a}  onemind-vm-do-1.qcow2\n{b}  ../x-next.raucb\n",
+                    f"{a}  onemind-vm-do-1.qcow2\n{b}  -x-next.raucb\n",
+                    f"{a}  onemind-vm-do-1.qcow2\n{'B' * 64}  x-next.raucb\n",       # not a lowercase sha256
+                    f"$(id)  onemind-vm-do-1.qcow2\n{b}  x-next.raucb\n",
+                    f"{a}  onemind-vm-do-1.qcow2\n",                                 # no bundle
+                    f"{a}  onemind vm-do-1.qcow2\n{b}  x-next.raucb\n"):
+            with self.assertRaises(core.GuardError, msg=bad):
+                core.release_files(bad)
+        self.assertEqual(core.release_tag("dev-20261122-96333e9"), "dev-20261122-96333e9")
+        for bad in ("dev-$(id)", "v1.0;reboot", "../x", "-x", "", "a b", "v1..2"):
+            with self.assertRaises(core.GuardError, msg=bad):
+                core.release_tag(bad)
+
+    def test_preflight_stops_at_an_unsafe_sums_file_before_any_other_host_command(self):
+        fleet = load("fleet")
+        f = object.__new__(fleet.Fleet)
+        sent = []
+        f.hostdir = "/srv/snips/import/onemind-fleet"
+        f.pve = lambda cmd, timeout=900: (sent.append(cmd), (0, f"{'a' * 64}  onemind-vm-do-$(reboot).qcow2\n"))[1]
+        f.a = type("A", (), {"release": "dev-1"})()
+        with self.assertRaises(fleet.core.GuardError):     # fleet.py's own copy of fleetcore
+            f.preflight()
+        self.assertEqual(len(sent), 1)
+        f.a.release = "dev-$(reboot)"
+        with self.assertRaises(fleet.core.GuardError):
+            f.preflight()
+        self.assertEqual(len(sent), 1)
+        cmd = fleet.create_cmd(core.parse_env(ENV), core.plan()[1], "/img dir/onemind-vm-do-1.qcow2", 1)
+        self.assertIn("vmstore:0,import-from=/img dir/onemind-vm-do-1.qcow2,discard=on", shlex.split(cmd))
 
     def test_report_shows_every_check_and_no_lab_detail(self):
         red = core.Redactor(["lab-host.example"])

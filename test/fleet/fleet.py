@@ -54,7 +54,7 @@ def create_cmd(cfg, vm, image, idx):
     vmid, name, _, mib = vm
     st = cfg["ONEMIND_FLEET_STORAGE"]
     return (f"qm create {vmid} --name {name} --ostype l26 --cores 2 --memory {mib} --cpu host "
-            f"--scsihw virtio-scsi-single --scsi0 {st}:0,import-from={image},discard=on --boot order=scsi0 "
+            f"--scsihw virtio-scsi-single --scsi0 {shlex.quote(f'{st}:0,import-from={image},discard=on')} --boot order=scsi0 "
             f"--net0 virtio,bridge={cfg['ONEMIND_FLEET_BRIDGE']} --serial0 socket --vga serial0 "
             f"--ide2 {st}:cloudinit --citype nocloud --ciuser admin "
             f"--cicustom user={cfg['ONEMIND_FLEET_SNIPPETS']}:snippets/{core.NAME_PREFIX}{vmid}.yaml "
@@ -159,14 +159,14 @@ class Fleet:
 
     # -- F0: guards and the image
     def preflight(self):
-        rel = self.a.release
-        rc, sums = self.pve(f"mkdir -p {self.hostdir} && cd {self.hostdir} && curl -fsSL {REPO}/{rel}/SHA256SUMS")
-        names = dict(reversed(ln.split()) for ln in sums.splitlines() if len(ln.split()) == 2) if rc == 0 else {}
-        img = next((n for n in names if n.startswith("onemind-vm-do-") and n.endswith(".qcow2")), None)
-        bundle = next((n for n in names if n.endswith("-next.raucb")), None)
-        if not img or not bundle:
-            raise core.GuardError(f"release {rel}: no vm-do qcow2 and -next.raucb in SHA256SUMS")
-        self.image, self.sha, self.bundle, self.bundle_sha = img, names[img], bundle, names[bundle]
+        rel = core.release_tag(self.a.release)
+        hd = shlex.quote(self.hostdir)
+        rc, sums = self.pve(f"mkdir -p {hd} && cd {hd} && curl -fsSL {shlex.quote(f'{REPO}/{rel}/SHA256SUMS')}")
+        if rc:
+            raise core.GuardError(f"release {rel}: SHA256SUMS could not be downloaded")
+        # Names and sums are checked (plain names, sha256 hex) before any of them reaches a root shell.
+        img, sha, bundle, bundle_sha = core.release_files(sums)
+        self.image, self.sha, self.bundle, self.bundle_sha = img, sha, bundle, bundle_sha
         self.version = img[len("onemind-vm-do-"):-len(".qcow2")]
         rc, qml = self.pve("qm list")
         if core.foreign(qml, self.vms):
@@ -177,8 +177,9 @@ class Fleet:
             raise core.GuardError(f"{len(busy)} fleet address(es) already answer: pick free ones")
         self.memory_guard(sum(v[3] for v in self.vms))
         path = os.path.join(self.hostdir, img)
-        rc, out = self.pve(f"cd {self.hostdir} && {{ [ -s {img} ] || curl -fsSL -o {img} {REPO}/{rel}/{img}; }} "
-                           f"&& echo '{self.sha}  {img}' | sha256sum -c -", timeout=3600)
+        q, url = shlex.quote(img), shlex.quote(f"{REPO}/{rel}/{img}")
+        rc, out = self.pve(f"cd {hd} && {{ [ -s {q} ] || curl -fsSL -o {q} {url}; }} "
+                           f"&& echo {shlex.quote(f'{sha}  {img}')} | sha256sum -c -", timeout=3600)
         if rc:
             raise core.GuardError(f"image checksum: {out[-200:]}")
         self.set("F0", "PASS", f"VM ids {[v[0] for v in self.vms]} free; {sum(v[3] for v in self.vms)} MiB within "
@@ -318,17 +319,18 @@ class Fleet:
         act = self.api("/v1/actions", "POST", {"type": "app.install", "params": {"app_id": app},
                                                "idempotency_key": f"fleet-{app}-{int(time.time())}", "expires_at": exp})
         self.api(f"/v1/actions/{act['id']}/approve", "POST")
-        on = self.wait(f"{app} on its node", lambda: host and core.running_on(self.app_pods(app), host), 900)
+        on = self.wait(f"{app} on its node", lambda: host and core.running_on(self.app_pods(app) or [], host), 900)
         if on:
             self.placed = {"app": app, "vmid": vmid, "host": host}
         self.set("F6", "PASS" if on else "FAIL", f"{app}: placement elsewhere -> {host}; running there={bool(on)}")
 
     def app_pods(self, app):
+        """The app's pods, or None when the read failed (a failed read is never "no pods")."""
         rc, out = self.hub(f"{KUBE} get pods -A -l onemind.io/app={shlex.quote(app)} -o json")
         try:
-            return core.pods(json.loads(out)) if rc == 0 else []
+            return core.pods(json.loads(out)) if rc == 0 else None
         except ValueError:
-            return []
+            return None
 
     # -- F7: failover
     def failover(self):
@@ -342,10 +344,15 @@ class Fleet:
         down = self.wait(f"{name} offline", lambda: self.statuses().get(nid) == "offline", 600, 5)
         took = int(time.time() - t0)
         others = {k: v for k, v in self.statuses().items() if k != nid}
-        during = []
+        during, reads = [], {"ok": 0, "failed": 0}
         if p:   # until Kubernetes would have moved it (EVICT_WAIT_S after the stop), or until it ran elsewhere
-            def watch():
-                during[:] = self.app_pods(p["app"])
+            def watch():   # `during` keeps the last successful read; a failed one is counted, never "no pods"
+                got = self.app_pods(p["app"])
+                if got is None:
+                    reads["failed"] += 1
+                    return False
+                reads["ok"] += 1
+                during[:] = got
                 return core.moved_elsewhere(during, p["host"])
             self.wait(f"{p['app']} after its node stopped", watch, max(15, core.EVICT_WAIT_S - (time.time() - t0)), 15)
         self.start(vmid, vm[3])
@@ -355,17 +362,20 @@ class Fleet:
             after = []
 
             def settled():
-                after[:] = self.app_pods(p["app"])
+                got = self.app_pods(p["app"])
+                if got is None:
+                    return False
+                after[:] = got
                 return core.running_on(after, None if core.moved_elsewhere(during, p["host"]) else p["host"])
             self.wait(f"{p['app']} after the rejoin", settled, 600, 15)
             pin = next((x["pin"] for x in during + after if x["pin"]), None)
-            work = {"app": p["app"], "host": p["host"], "pin": pin, "during": during, "after": after}
+            work = {"app": p["app"], "host": p["host"], "pin": pin, "during": during, "after": after, "reads": reads}
         result, ev = core.failover(down, took, others.values(), back, work)
         self.set("F7", result, f"{name}: {ev}")
 
     # -- F8: staged update, F9: forced-bad rollback
     def install(self, vmid, break_it=False):
-        url = f"{REPO}/{self.a.release}/{self.bundle}"
+        url = shlex.quote(f"{REPO}/{core.release_tag(self.a.release)}/{self.bundle}")
         brk = ""
         if break_it:   # the T6 fixture's broken init (test/qemu/bad-boot-init), written into the slot just installed
             brk = ("d=$(rauc status --output-format=json | python3 -c 'import json,sys; s=json.load(sys.stdin); "
@@ -374,7 +384,7 @@ class Fleet:
                    "printf '#!/bin/sh\\necho \"<2>FLEET-BAD: broken init\" >/dev/kmsg; exit 1\\n' >$m/sbin/init "
                    "&& chmod 755 $m/sbin/init && umount $m && ")
         cmd = (f"mkdir -p /data/onemind-fleet && cd /data/onemind-fleet && {{ [ -s b.raucb ] || curl -fsSL -o b.raucb {url}; }} "
-               f"&& echo '{self.bundle_sha}  b.raucb' | sha256sum -c - && rauc install b.raucb && {brk}"
+               f"&& echo {shlex.quote(f'{self.bundle_sha}  b.raucb')} | sha256sum -c - && rauc install b.raucb && {brk}"
                f"systemd-run --on-active=5s /usr/bin/systemctl reboot")    # the reboot comes after ssh returns
         return self.guest(vmid, f"sudo bash -c {shlex.quote(cmd)}", timeout=1800)
 
@@ -453,6 +463,7 @@ def main():
     ap.add_argument("--node-mem", type=int, default=2048)
     a = ap.parse_args()
     try:
+        core.release_tag(a.release)
         cfg = core.parse_env(os.environ)
         f = Fleet(cfg, a)
     except core.GuardError as e:

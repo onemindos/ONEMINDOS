@@ -126,6 +126,38 @@ def ours(qm_list_text):
     return out
 
 
+# Names and checksums from a downloaded SHA256SUMS (and the --release tag) reach shell commands that run as
+# root on the Proxmox host and in the guests. Only plain file names and lowercase sha256 values are accepted
+# (they are also shlex.quote'd where used): a name like `onemind-vm-do-$(...).qcow2` stops the run in F0.
+SAFE_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._+-]*")
+SHA256 = re.compile(r"[0-9a-f]{64}")
+
+
+def release_tag(tag):
+    """The --release tag, checked: a plain name (it is a URL path part and a shell word). Raises GuardError."""
+    if not isinstance(tag, str) or not SAFE_NAME.fullmatch(tag) or ".." in tag:
+        raise GuardError(f"--release {tag!r}: a release tag is letters, digits and . _ + - only")
+    return tag
+
+
+def release_files(sums_text):
+    """The vm-do image and the -next bundle from a release's SHA256SUMS: (image, sha, bundle, bundle_sha).
+    Every entry must be a lowercase sha256 and a plain file name, or the whole file is refused (GuardError)."""
+    names = {}
+    for ln in sums_text.splitlines():
+        f = ln.split()
+        if not f:
+            continue
+        if len(f) != 2 or not SHA256.fullmatch(f[0]) or not SAFE_NAME.fullmatch(f[1]) or ".." in f[1]:
+            raise GuardError(f"SHA256SUMS: refusing an entry that is not '<sha256>  <plain file name>': {ln[:80]!r}")
+        names[f[1]] = f[0]
+    img = next((n for n in names if n.startswith("onemind-vm-do-") and n.endswith(".qcow2")), None)
+    bundle = next((n for n in names if n.endswith("-next.raucb")), None)
+    if not img or not bundle:
+        raise GuardError("SHA256SUMS: no vm-do qcow2 and -next.raucb")
+    return img, names[img], bundle, names[bundle]
+
+
 GATE = re.compile(r"RESULT (\S+) slot=(\w)\b(?: version=([^\s;]+))?")
 
 
@@ -171,15 +203,22 @@ def moved_elsewhere(pod_list, stopped_host):
     return [n for n in running_on(pod_list) if n != stopped_host]
 
 
+def held_for(pod_list, host):
+    """True when the list shows the app's pod waiting for host: Pending, or still bound to it, and none
+    running anywhere else."""
+    return any(p["phase"] == "Pending" or p["node"] == host for p in pod_list) and not moved_elsewhere(pod_list, host)
+
+
 def failover(down, took, others, back, work):
     """F7: (result, evidence). The node must go offline in time while the others stay online and come back;
     and the work on it must do what the placement designed (issue #864 Spec: "work moves as designed").
 
     work is None when no app was placed on a node (F6 not PASS): the move cannot be judged, so BLOCKED.
-    Else {app, host, pin, during, after} with the app's pods while the node was down (after EVICT_WAIT_S)
-    and after it rejoined. A pinned app (pin == host: placement chose that machine) must not run anywhere
-    else while it is down and must run on it again after it rejoins. An unpinned app must be running on
-    another node while it is down.
+    Else {app, host, pin, during, after[, reads]} with the app's pods from the last successful read while the
+    node was down (after EVICT_WAIT_S) and after it rejoined; reads counts the ok and failed pod reads then.
+    A pinned app (pin == host: placement chose that machine) must be seen held for that machine while it is
+    down (its pod Pending or still bound there), must not run anywhere else then, and must run on it again
+    after it rejoins. An unpinned app must be running on another node while it is down.
     """
     base = bool(down) and offline_in_time(took) and set(others) == {"online"} and bool(back)
     ev = [f"offline after {took}s (limit {OFFLINE_AFTER_S}+{OFFLINE_SLACK_S}s)" if down else "never marked offline",
@@ -187,10 +226,16 @@ def failover(down, took, others, back, work):
     if work is None:
         return ("BLOCKED" if base else "FAIL"), "; ".join(ev + ["work move not judged: no app was placed on a node (F6)"])
     host, elsewhere = work["host"], moved_elsewhere(work["during"], work["host"])
+    reads = work.get("reads")
     if work.get("pin") == host:
-        moved_ok = not elsewhere and bool(running_on(work["after"], host))
+        # "ran elsewhere=no" is only proof when a pod read while the node was down saw the app's pod waiting
+        # (Pending) or still bound to that node; no successful read, or no pod, proves nothing.
+        held = held_for(work["during"], host)
+        moved_ok = held and not elsewhere and bool(running_on(work["after"], host))
         ev.append(f"{work['app']} pinned to its node: ran elsewhere while down={elsewhere or 'no'}; "
-                  f"running there after rejoin={bool(running_on(work['after'], host))}")
+                  f"pod seen held for it while down={held}"
+                  + (f" ({reads['ok']} pod reads ok, {reads['failed']} failed)" if reads else "")
+                  + f"; running there after rejoin={bool(running_on(work['after'], host))}")
     else:
         moved_ok = bool(elsewhere)
         ev.append(f"{work['app']} not pinned: moved to {elsewhere or 'nowhere'} while its node was down")
