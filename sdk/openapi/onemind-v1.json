@@ -10356,7 +10356,8 @@
             "enum": [
               "tool",
               "card",
-              "topic"
+              "topic",
+              "layer"
             ],
             "title": "Kind",
             "type": "string"
@@ -10435,7 +10436,7 @@
         "type": "object"
       },
       "SurfaceSource": {
-        "description": "A map layer or Settings page: drawn by the host from one public read operation.",
+        "description": "A map layer or Settings page: drawn by the host from one public read operation (\"GET /v1/...\"), or,\nfor a Market app's map layer, `emits`: the layer emits of that app's own bridge, served by the gateway.",
         "properties": {
           "app_id": {
             "title": "App Id",
