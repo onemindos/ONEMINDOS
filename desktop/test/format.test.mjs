@@ -198,3 +198,10 @@ test('health rows hide what the box does not report and bytes read plainly', () 
   assert.equal(bytesText(999), '999 B');
   assert.equal(bytesText(1500), '1.5 KB');
 });
+
+test('join errors (issue #717)', () => {
+  assert.match(errorText('ca_mismatch'), /Nothing was sent/);
+  assert.match(errorText('ca_pin_missing'), /fingerprint/);
+  assert.match(errorText('join_link_not_desktop'), /another kind of device/);
+  assert.match(errorText('join_link_hub'), /not a OneMind join link/);
+});

@@ -34,12 +34,19 @@ const ERRORS = {
   unavailable: 'The box cannot do this right now. Try again shortly.',
   autostart_failed: 'The system would not change the start-at-login setting.',
   conflict: 'The box refused: the request is no longer in a state that can be decided.',
+  join_missing: 'Paste the join link from your box, or type its code with the box address and fingerprint.',
+  join_link_not_desktop: 'This join link is for another kind of device. On the box, make a link for a computer.',
+  ca_pin_missing: 'Type the box fingerprint (64 letters and digits) shown next to the code. It proves the box is yours.',
+  ca_mismatch: 'The box at that address does not have the certificate from the join link. Nothing was sent.',
+  ca_invalid: 'The saved box certificate cannot be read. Remove the box and join it again.',
+  password_missing: 'Enter your password.',
 };
 
 /** `message` is the box's own words, used when the code is one this app does not know. */
 export function errorText(code, message = '') {
   if (!code) return '';
   if (ERRORS[code]) return ERRORS[code];
+  if (code.startsWith('join_link_')) return 'That is not a OneMind join link. Copy the whole link from your box.';
   const m = /^http_(\d{3})$/.exec(code);
   if (m) return `The box answered with an error (${m[1]}).`;
   return message || 'Something went wrong.';

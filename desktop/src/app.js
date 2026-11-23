@@ -45,6 +45,9 @@ let boxes = [];
 let found = [];
 let searching = false;
 let pairing = { url: '', token: '', insecure: false, error: '', busy: false };
+// Join by link or typed code (issue #717): the CA is pinned and the tokens go to the keychain.
+const JOIN_EMPTY = { link: '', code: '', address: '', ca: '', username: '', password: '', totp: '', enrolCode: '', typed: false, error: '', busy: false };
+let joining = { ...JOIN_EMPTY };
 // Approval card: { boxId, actionId, detail, error, busy, result, confirm: '' | 'approve' | 'deny', reason }
 let card = null;
 // Inbox: { boxId, items: null | [...], error, loading }
@@ -760,7 +763,7 @@ function addView(first = false) {
       { class: 'hero' },
       h('div', { class: `radar ${searching ? 'searching' : ''}` }, icon('search')),
       h('h1', { text: first ? 'Find your OneMind box' : 'Add a box' }),
-      h('p', { text: searching ? 'Looking on your network…' : found.length ? 'Pick your box, then paste its token.' : 'No box found yet. Type its address below.' }),
+      h('p', { text: searching ? 'Looking on your network…' : 'Paste the join link your box shows for a computer, then sign in.' }),
     ),
   );
   if (found.length) {
@@ -786,6 +789,7 @@ function addView(first = false) {
       ),
     );
   }
+  nodes.push(joinCard());
   const urlIn = h('input', { type: 'text', placeholder: 'onemind.local:8443', value: pairing.url, spellcheck: 'false', autocapitalize: 'off' });
   urlIn.addEventListener('input', () => {
     pairing.url = urlIn.value;
@@ -801,6 +805,7 @@ function addView(first = false) {
     h(
       'section',
       { class: 'card', style: 'display:flex;flex-direction:column;gap:12px' },
+      h('div', { class: 'what', text: 'Or pair with a token' }),
       h('label', { class: 'field' }, 'Box address', urlIn),
       h('label', { class: 'field' }, 'Token', tokIn),
       insecureRow,
@@ -816,6 +821,65 @@ function addView(first = false) {
   );
   if (!first) nodes.push(h('button', { class: 'link small', text: '← Back', onclick: back }));
   return nodes;
+}
+
+function joinInput(key, attrs) {
+  const el = h('input', { type: 'text', spellcheck: 'false', autocapitalize: 'off', autocomplete: 'off', value: joining[key], ...attrs });
+  el.addEventListener('input', () => (joining[key] = el.value));
+  return el;
+}
+
+function joinCard() {
+  const j = joining;
+  const where = j.typed
+    ? [
+        h('label', { class: 'field' }, 'Join code', joinInput('code', { placeholder: '7KQ4-M2XP-9D3F' })),
+        h('label', { class: 'field' }, 'Box address', joinInput('address', { placeholder: 'onemind.local:8443' })),
+        h('label', { class: 'field' }, 'Box fingerprint', joinInput('ca', { placeholder: '64 letters and digits, shown with the code' })),
+      ]
+    : [h('label', { class: 'field' }, 'Join link', joinInput('link', { placeholder: 'onemind-join:v2?…' }))];
+  return h(
+    'section',
+    { class: 'card', style: 'display:flex;flex-direction:column;gap:12px' },
+    h('div', { class: 'what', text: 'Join with the link from your box' }),
+    ...where,
+    h('button', {
+      class: 'link small',
+      text: j.typed ? 'Paste a link instead' : 'Type the code instead',
+      onclick: () => {
+        j.typed = !j.typed;
+        j.error = '';
+        render();
+      },
+    }),
+    h('label', { class: 'field' }, 'User name', joinInput('username', { placeholder: 'Your name on the box' })),
+    h('label', { class: 'field' }, 'Password', joinInput('password', { type: 'password' })),
+    h('label', { class: 'field' }, 'Enrolment code (only if the owner gave you one)', joinInput('enrolCode', {})),
+    j.error ? h('div', { class: 'error', text: errorText(j.error) }) : null,
+    h('div', { class: 'row' }, h('button', { class: 'btn primary', disabled: j.busy, onclick: joinBox, text: j.busy ? 'Joining…' : 'Join' })),
+    h('div', { class: 'note', text: 'The app trusts only the certificate named in the link. Your sign-in is kept in the system keychain, not in a file.' }),
+  );
+}
+
+async function joinBox() {
+  const j = joining;
+  j.busy = true;
+  j.error = '';
+  render();
+  try {
+    const input = j.typed ? { code: j.code, address: j.address, ca: j.ca } : { link: j.link };
+    await invoke('join_box', {
+      input,
+      signIn: { username: j.username, password: j.password, totp: j.totp, enrol_code: j.enrolCode },
+    });
+    joining = { ...JOIN_EMPTY };
+    mode = 'home';
+    await load();
+  } catch (e) {
+    j.busy = false;
+    j.error = String(e);
+    render();
+  }
 }
 
 const VIEWS = { home: homeView, add: () => addView(), approval: approvalView, inbox: inboxView, manage: manageView };
