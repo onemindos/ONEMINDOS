@@ -2504,6 +2504,25 @@
         "title": "DestinationBody",
         "type": "object"
       },
+      "DeviceRefusal": {
+        "properties": {
+          "code": {
+            "description": "device_busy | iommu_group_shared | iommu_off | device_granted | ...",
+            "title": "Code",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "DeviceRefusal",
+        "type": "object"
+      },
       "DiagnosticsBundle": {
         "additionalProperties": true,
         "description": "GET /v1/system/diagnostics: a redacted bundle for support. More fields may appear.",
@@ -2861,9 +2880,11 @@
               "exposure.private",
               "exposure.public",
               "files.share.create",
+              "machine.attach_device",
               "machine.clone",
               "machine.create",
               "machine.delete",
+              "machine.detach_device",
               "machine.force_stop",
               "machine.restart",
               "machine.snapshot",
@@ -3773,6 +3794,153 @@
           "image_catalogue"
         ],
         "title": "MachineCapabilities",
+        "type": "object"
+      },
+      "MachineDevice": {
+        "description": "One USB device or GPU of the machine's box, as a grant sees it.",
+        "properties": {
+          "busy": {
+            "description": "the host is using it (or it cannot be told): a grant needs the owner's confirmation",
+            "title": "Busy",
+            "type": "boolean"
+          },
+          "device": {
+            "description": "usb: port path; gpu: PCI address",
+            "title": "Device",
+            "type": "string"
+          },
+          "drivers": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "host drivers holding it; null when unknown",
+            "title": "Drivers"
+          },
+          "granted_to": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the machine that has it",
+            "title": "Granted To"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "vvvv:pppp",
+            "title": "Id"
+          },
+          "kind": {
+            "enum": [
+              "usb",
+              "gpu"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "refusal": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DeviceRefusal"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "why a grant to this machine is refused now; null when it can be asked"
+          },
+          "vendor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vendor"
+          }
+        },
+        "required": [
+          "kind",
+          "device",
+          "id",
+          "vendor",
+          "model",
+          "drivers",
+          "busy",
+          "granted_to",
+          "refusal"
+        ],
+        "title": "MachineDevice",
+        "type": "object"
+      },
+      "MachineDevices": {
+        "properties": {
+          "applies": {
+            "const": "next_start",
+            "description": "when a grant or a release takes effect",
+            "title": "Applies",
+            "type": "string"
+          },
+          "devices": {
+            "items": {
+              "$ref": "#/components/schemas/MachineDevice"
+            },
+            "title": "Devices",
+            "type": "array"
+          },
+          "iommu": {
+            "description": "the box runs with an IOMMU (VT-d, AMD-Vi); without it nothing can be granted",
+            "title": "Iommu",
+            "type": "boolean"
+          },
+          "machine": {
+            "title": "Machine",
+            "type": "string"
+          },
+          "node_id": {
+            "title": "Node Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "machine",
+          "node_id",
+          "iommu",
+          "applies",
+          "devices"
+        ],
+        "title": "MachineDevices",
         "type": "object"
       },
       "MachineUploadResult": {
@@ -20064,6 +20232,69 @@
           }
         },
         "summary": "Machines Console",
+        "tags": [
+          "machines"
+        ]
+      }
+    },
+    "/v1/machines/{name}/devices": {
+      "get": {
+        "description": "The USB devices and GPUs of the machine's box, who holds each, and why one cannot be granted (#690).\nGrants are the owner-approved actions `machine.attach_device` and `machine.detach_device`; they apply at the machine's next start.",
+        "operationId": "machines.devices",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MachineDevices"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Machines Devices",
         "tags": [
           "machines"
         ]
