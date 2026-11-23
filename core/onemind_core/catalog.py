@@ -271,7 +271,9 @@ class Catalog:
                 for e in self._validator.iter_errors(doc)
             ]
             if rules is not None:
-                errs = [rules.hide(e) for e in errs] + rules.errors(doc)
+                # The cross-field rules read the spec as the schema shapes it, so like validateBlocks in Go
+                # they run only on a schema-valid manifest; a host that is a map is the schema's error alone.
+                errs = [rules.hide(e) for e in errs] if errs else rules.errors(doc)
             md = doc.get("metadata") if isinstance(doc, dict) else None
             app_id = md.get("id") if isinstance(md, dict) else None
             if not isinstance(app_id, str) or not APP_ID_RE.match(app_id):
