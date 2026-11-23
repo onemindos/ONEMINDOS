@@ -458,6 +458,14 @@ POLICY |= {
         "root": "shared", "path": "/no-such-folder/probe", "size": 0,
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "chunks": []}),
         f"{_FILES}: a commit (#699) needs write access to the entry; the probe's folder is missing (404)"),
+    ("POST", "/v1/sync/locks"): Row(grid(404, 404, 403, 403, 403), w.p_missing("/v1/sync/locks", json={"root": "shared", "path": "/no-such-file"}),
+                                   f"{_FILES}: an advisory lock (#699) is a write intent; the probe's file is missing (404)"),
+    ("GET", "/v1/sync/locks"): Row(grid(200, 200, 200, 403, 403), w.p_static("/v1/sync/locks?root=shared"),
+                                  f"{_FILES}: locks (#699) follow read access to the path"),
+    ("POST", "/v1/sync/locks/{lock_id}/refresh"): Row(grid(404, 404, 404, 403, 404), w.p_missing(
+        "/v1/sync/locks/lck_00000000000000000000000000/refresh", json={}), f"{_FILES}: only the holder refreshes (none here)"),
+    ("DELETE", "/v1/sync/locks/{lock_id}"): Row(grid(404, 404, 404, 403, 404), w.p_missing(
+        "/v1/sync/locks/lck_00000000000000000000000000"), f"{_FILES}: the holder or an owner releases (none here)"),
     ("GET", "/v1/sync/versions"): Row(grid(404, 404, 404, 403, 403), w.p_static("/v1/sync/versions?root=shared&path=/a"),
                                       f"{_FILES}: versions (#699) follow read access; the probe's file is missing"),
     ("GET", "/v1/files/preview"): Row(grid(404, 404, 404, 403, 403), w.p_static("/v1/files/preview?root=shared&path=/a"),

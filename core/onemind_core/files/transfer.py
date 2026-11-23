@@ -144,10 +144,11 @@ def _hash_error(message: str) -> FilesError:
 class Transfer:
     """Chunk store, commits and versions on top of FilesService (its access checks, spaces and index)."""
 
-    def __init__(self, files, keep: int = VERSIONS_KEEP):
+    def __init__(self, files, keep: int = VERSIONS_KEEP, locks=None):
         self.files = files
         self.db = files.repo.db
         self.keep = keep
+        self.locks = locks  # locks.Locks: a commit names the advisory locks of others it went over
 
     # ---- who may write ------------------------------------------------------------------
     def writable_root(self, p: Principal, root: str | None) -> Root:
@@ -273,7 +274,8 @@ class Transfer:
                                           "revision": row.revision, "size": size, "sha256": sha256,
                                           "base_revision": base, "chunks": len(chunks)})
         return {"root": t.root.id, "path": t.path, "id": row.file_id, "revision": row.revision,
-                "size": size, "hash": "sha256:" + sha256, "version_id": version.id}
+                "size": size, "hash": "sha256:" + sha256, "version_id": version.id,
+                "locks": self.locks.held_by_others(p, t.root.id, t.path) if self.locks is not None else []}
 
     def _place(self, root: Root, parts: tuple[str, ...], chunks: list[dict], size: int, sha256: str) -> None:
         """Join the chunks into a new file beside the uploads, check it, then rename it into place."""

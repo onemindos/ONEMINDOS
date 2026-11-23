@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import Annotated, Literal
 
-from fastapi import Depends, FastAPI, Header, Path, Query, Request
+from fastapi import Depends, FastAPI, Header, Path, Query, Request, Response
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -27,6 +27,7 @@ from ..files import errors as ferrors
 from ..files.errors import FilesError
 from ..files.index import CHANGES_MAX
 from ..files.service import FilesService
+from ..files.locks import TTL_MAX_S, Locks
 from ..files.transfer import CHUNK_LIMIT, MANIFEST_MAX_CHUNKS, Transfer
 from ..guard import reads_body
 from ..identity.scopes import ALL, register_route_scope
@@ -38,6 +39,9 @@ register_route_scope("GET,HEAD", r"/v1/sync/changes", (ALL,))
 register_route_scope("GET,HEAD", r"/v1/sync/versions", (ALL,))
 register_route_scope("POST", r"/v1/sync/(chunks/missing|commit)", (ALL,))
 register_route_scope("PUT", r"/v1/sync/chunks/[^/]+", (ALL,))
+register_route_scope("GET,HEAD", r"/v1/sync/locks", (ALL,))
+register_route_scope("POST", r"/v1/sync/locks(/[^/]+/refresh)?", (ALL,))
+register_route_scope("DELETE", r"/v1/sync/locks/[^/]+", (ALL,))
 
 TAG = ["sync"]
 ORDER = 305  # after files (300)
@@ -106,6 +110,36 @@ class CommitBody(_Body):
     base_revision: int | None = Field(None, ge=0)
 
 
+class LockHolder(BaseModel):
+    kind: str
+    id: str
+
+
+class SyncLock(BaseModel):
+    id: str                       # lck_...: the lock token; refresh or release it with this id
+    root: str
+    path: str
+    holder: LockHolder
+    note: str | None
+    created_at: str
+    expires_at: str
+
+
+class SyncLocks(BaseModel):
+    locks: list[SyncLock]
+
+
+class LockBody(_Body):
+    root: Root
+    path: str = Field(min_length=1, max_length=4096)
+    ttl_s: int | None = Field(None, ge=1, le=TTL_MAX_S)
+    note: str | None = Field(None, max_length=200)
+
+
+class LockRefresh(_Body):
+    ttl_s: int | None = Field(None, ge=1, le=TTL_MAX_S)
+
+
 class SyncCommitted(BaseModel):
     root: str
     path: str
@@ -114,6 +148,7 @@ class SyncCommitted(BaseModel):
     size: int
     hash: str
     version_id: str
+    locks: list[SyncLock]         # advisory locks of others on this file: the client warns, nothing is refused
 
 
 class SyncVersion(BaseModel):
@@ -146,7 +181,8 @@ def _if_match(value: str | None) -> int | None:
 
 def register(app: FastAPI, gw: Gateway) -> None:
     svc = FilesService(gw)
-    transfer = Transfer(svc)
+    locks = Locks(svc)
+    transfer = Transfer(svc, locks=locks)
     app.state.sync_transfer = transfer
     principal = gw.principal
     app.add_exception_handler(FilesError, ferrors.handle)
@@ -202,3 +238,30 @@ def register(app: FastAPI, gw: Gateway) -> None:
              summary="The kept versions of a file", responses=errs(401, 403, 404, 422, 503))
     def versions(root: RootQ, path: str = Query(..., max_length=4096), p: Principal = Depends(principal)):
         return transfer.versions(p, root, path)
+
+    _423 = {423: {"description": "conflict (locked): someone else holds a lock on this path, or inside it"}}
+
+    @app.post("/v1/sync/locks", operation_id="sync.locks.create", tags=TAG, response_model=SyncLock, status_code=201,
+              summary="Take an advisory lock on a file or folder (WebDAV class 2)",
+              description=f"The lock lasts ttl_s seconds (default 300, at most {TTL_MAX_S}) unless refreshed. Advisory: "
+                          "it warns other clients, it never blocks a write.",
+              responses={**errs(401, 403, 404, 422, 503), **_423})
+    def lock_take(body: LockBody, p: Principal = Depends(principal)):
+        return locks.take(p, body.root, body.path, body.ttl_s, body.note)
+
+    @app.get("/v1/sync/locks", operation_id="sync.locks.list", tags=TAG, response_model=SyncLocks,
+             summary="Live locks at or inside a path", responses=errs(401, 403, 422, 503))
+    def lock_list(root: RootQ, path: str = Query("/", max_length=4096), p: Principal = Depends(principal)):
+        return {"locks": locks.list(p, root, path)}
+
+    @app.post("/v1/sync/locks/{lock_id}/refresh", operation_id="sync.locks.refresh", tags=TAG, response_model=SyncLock,
+              summary="Extend your lock", responses=errs(401, 404, 422))
+    def lock_refresh(lock_id: Annotated[str, Path(max_length=40)], body: LockRefresh | None = None,
+                     p: Principal = Depends(principal)):
+        return locks.refresh(p, lock_id, body.ttl_s if body else None)
+
+    @app.delete("/v1/sync/locks/{lock_id}", operation_id="sync.locks.delete", tags=TAG, status_code=204,
+                summary="Release your lock (an owner may clear anyone's)", responses=errs(401, 404))
+    def lock_release(lock_id: Annotated[str, Path(max_length=40)], p: Principal = Depends(principal)):
+        locks.release(p, lock_id)
+        return Response(status_code=204)
