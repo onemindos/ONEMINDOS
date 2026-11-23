@@ -7138,6 +7138,55 @@
         "title": "SealedInput",
         "type": "object"
       },
+      "SearchHit": {
+        "properties": {
+          "app_id": {
+            "title": "App Id",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "link": {
+            "title": "Link",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "subtitle": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subtitle"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider",
+          "app_id",
+          "type",
+          "id",
+          "title",
+          "link"
+        ],
+        "title": "SearchHit",
+        "type": "object"
+      },
       "SecretsChange": {
         "additionalProperties": false,
         "description": "POST /v1/apps/{id}/secrets: what to change. An empty body re-applies the current values.",
@@ -17567,7 +17616,7 @@
     },
     "/v1/events": {
       "get": {
-        "description": "Server-Sent Events with the onemind.event/v1 envelope. `id` is the audit seq; resume with Last-Event-ID or since_id. node.status events carry no id. `: keepalive` every 15 s. At most 5 open streams per principal (429 rate_limited).",
+        "description": "Server-Sent Events with the onemind.event/v1 envelope. `id` is the audit seq; resume with Last-Event-ID or since_id. node.status events carry no id. `: keepalive` every 15 s. At most 5 open streams per principal (429 rate_limited). Asset values are sent only when types names them (asset.*): first the current value of each asset the caller may see (asset.value, data.snapshot true), then stream.snapshot {count, state}, then changes, latest-wins per key; kind and bbox narrow them. A stream that falls too far behind gets stream.reset {reason: slow_client} and ends.",
         "operationId": "events.stream",
         "parameters": [
           {
@@ -17604,6 +17653,44 @@
                 }
               ],
               "title": "Since Id"
+            }
+          },
+          {
+            "description": "asset.* only: comma-separated asset classes (the asset_class token of onemind.asset.<asset_class>.<asset_id>.<field>), e.g. camera,sensor",
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 600,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "asset.* only: comma-separated asset classes (the asset_class token of onemind.asset.<asset_class>.<asset_id>.<field>), e.g. camera,sensor",
+              "title": "Kind"
+            }
+          },
+          {
+            "description": "asset.* only: min_lon,min_lat,max_lon,max_lat in WGS-84 degrees; an asset is sent while its last known position is inside, and once more when it leaves",
+            "in": "query",
+            "name": "bbox",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 120,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "asset.* only: min_lon,min_lat,max_lon,max_lat in WGS-84 degrees; an asset is sent while its last known position is inside, and once more when it leaves",
+              "title": "Bbox"
             }
           },
           {
@@ -25952,6 +26039,142 @@
         "summary": "Restore",
         "tags": [
           "restores"
+        ]
+      }
+    },
+    "/v1/search": {
+      "get": {
+        "description": "Search every switched-on built-in's items at once, best match first. Each hit carries a deep\nlink that opens the exact item, and only hits the caller may open are returned.",
+        "operationId": "search.query",
+        "parameters": [
+          {
+            "description": "free text; every word must match",
+            "in": "query",
+            "name": "q",
+            "required": true,
+            "schema": {
+              "description": "free text; every word must match",
+              "maxLength": 200,
+              "minLength": 1,
+              "title": "Q",
+              "type": "string"
+            }
+          },
+          {
+            "description": "comma-separated item types, e.g. file,folder",
+            "in": "query",
+            "name": "types",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 1300,
+                  "pattern": "^[a-z][a-z0-9_.-]{0,62}(,[a-z][a-z0-9_.-]{0,62}){0,19}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "comma-separated item types, e.g. file,folder",
+              "title": "Types"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "opaque: the next page, from the Link header",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 32,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "opaque: the next page, from the Link header",
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SearchHit"
+                  },
+                  "title": "Response Search.Query",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response",
+            "headers": {
+              "Link": {
+                "description": "RFC 8288 `<...>; rel=\"next\"` when more hits remain (contract §12.1)",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "OneMind-Search-Providers": {
+                "description": "the providers searched, comma-separated: those of switched-on built-ins shared with the caller",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
+          }
+        },
+        "summary": "Search",
+        "tags": [
+          "search"
         ]
       }
     },
