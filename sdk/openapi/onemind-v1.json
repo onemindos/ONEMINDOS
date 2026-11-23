@@ -17567,7 +17567,7 @@
     },
     "/v1/events": {
       "get": {
-        "description": "Server-Sent Events with the onemind.event/v1 envelope. `id` is the audit seq; resume with Last-Event-ID or since_id. node.status events carry no id. `: keepalive` every 15 s. At most 5 open streams per principal (429 rate_limited).",
+        "description": "Server-Sent Events with the onemind.event/v1 envelope. `id` is the audit seq; resume with Last-Event-ID or since_id. node.status events carry no id. `: keepalive` every 15 s. At most 5 open streams per principal (429 rate_limited). Asset values are sent only when types names them (asset.*): first the current value of each asset the caller may see (asset.value, data.snapshot true), then stream.snapshot {count, state}, then changes, latest-wins per key; kind and bbox narrow them. A stream that falls too far behind gets stream.reset {reason: slow_client} and ends.",
         "operationId": "events.stream",
         "parameters": [
           {
@@ -17604,6 +17604,44 @@
                 }
               ],
               "title": "Since Id"
+            }
+          },
+          {
+            "description": "asset.* only: comma-separated asset classes (the asset_class token of onemind.asset.<asset_class>.<asset_id>.<field>), e.g. camera,sensor",
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 600,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "asset.* only: comma-separated asset classes (the asset_class token of onemind.asset.<asset_class>.<asset_id>.<field>), e.g. camera,sensor",
+              "title": "Kind"
+            }
+          },
+          {
+            "description": "asset.* only: min_lon,min_lat,max_lon,max_lat in WGS-84 degrees; an asset is sent while its last known position is inside, and once more when it leaves",
+            "in": "query",
+            "name": "bbox",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 120,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "asset.* only: min_lon,min_lat,max_lon,max_lat in WGS-84 degrees; an asset is sent while its last known position is inside, and once more when it leaves",
+              "title": "Bbox"
             }
           },
           {
