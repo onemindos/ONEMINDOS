@@ -21,6 +21,11 @@ from ..identity.scopes import register_route_scope
 # After identity (260), whose service this reads, and notifications (240), whose push registrations it joins.
 ORDER = 262
 
+# Self-service: the handler checks for a person's own session (never an API token or agent). At module
+# level, so creating the app twice does not grow the scope registry (#323).
+register_route_scope("GET,HEAD", r"/v1/me/devices", None)
+register_route_scope("DELETE", r"/v1/me/devices/[^/]+", None)
+
 
 class MyDeviceCredential(BaseModel):
     source: Literal["sessions", "passkeys", "approver_keys", "push"]
@@ -72,8 +77,6 @@ def register(app: FastAPI, gw: Gateway) -> None:
     svc = MyDevicesService(app.state.identity, getattr(app.state, "notify", None))
     app.state.my_devices = svc
     principal = gw.principal
-    # Self-service: the handler checks for a person's session (never an API token or agent).
-    register_route_scope("GET,HEAD,DELETE", r"/v1/me/devices(/[^/]+)?", None)
 
     @app.get("/v1/me/devices", operation_id="me.devices.list", tags=["auth"], response_model=MyDevices,
              responses=error_responses(401, 403))
