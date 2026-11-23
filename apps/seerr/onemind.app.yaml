@@ -14,6 +14,7 @@ metadata:
   category: media
   icon: icon.svg
   license: "MIT"
+  licenceClass: L1
   source: https://github.com/seerr-team/seerr
   links:
     docs: "https://docs.seerr.dev"

@@ -140,6 +140,14 @@ POLICY |= {
     ("GET", "/v1/auth/passkeys"): Row(own_credentials(200), w.p_static("/v1/auth/passkeys"), "§12.6 own passkeys", ID, UNAUDITED),
     ("DELETE", "/v1/auth/passkeys/{credential_id}"): Row(own_credentials(404), w.p_static("/v1/auth/passkeys/no-such-credential"),
                                                          "§12.6 own passkeys", ID, UNAUDITED),
+    # #702 phone approver keys: registering needs an owner session with a fresh passkey (a child is refused
+    # and audited; static tokens hold no session); listing and revoking are the caller's own keys.
+    ("POST", "/v1/auth/approver-keys"): Row(cells(403, **GONE, **PENDING_DENY), w.p_approver_key,
+                                            "#702 an owner session with a fresh passkey", ID, UNAUDITED),
+    ("GET", "/v1/auth/approver-keys"): Row(own_credentials(200), w.p_static("/v1/auth/approver-keys"),
+                                           "#702 own approver keys", ID, UNAUDITED),
+    ("DELETE", "/v1/auth/approver-keys/{key_id}"): Row(own_credentials(404), w.p_static("/v1/auth/approver-keys/apk_none"),
+                                                       "#702 own approver keys", ID, UNAUDITED),
     ("POST", "/v1/auth/password"): Row(own_credentials(204), w.p_password, "§12.6 own credentials", ID, UNAUDITED),
     ("POST", "/v1/auth/totp/setup"): Row(own_credentials(200), w.p_static("/v1/auth/totp/setup"), "§12.6 own credentials", ID, UNAUDITED),
     ("POST", "/v1/auth/totp/confirm"): Row(own_credentials(409), w.p_totp_confirm, "§12.6 own credentials (no setup started: 409)", ID, UNAUDITED),
@@ -489,6 +497,13 @@ POLICY |= {
                                                             f"{_FILES}: a requester cancels their own"),
     ("GET", "/v1/files/grants"): Row(READ_ANY, w.p_static("/v1/files/grants"), f"{_FILES}: each sees their own"),
     ("DELETE", "/v1/files/grants/{grant_id}"): Row(READ_ANY_404, w.p_missing("/v1/files/grants/{grant}"), f"{_FILES}: revoking what you hold"),
+    # #693 browser downloads in quarantine: people see their own (owners all); only an owner asks to release one.
+    ("GET", "/v1/files/downloads"): Row(grid(200, 200, 200, 403, 403), w.p_static("/v1/files/downloads"),
+                                        f"{_FILES}: each person their own held downloads, an owner all; agents refused"),
+    ("POST", "/v1/files/downloads/{download_id}/release"): Row(OWNER_ONLY_404, w.p_missing("/v1/files/downloads/{download}/release"),
+                                                              f"{_FILES}: only an owner asks; an owner approves the action"),
+    ("DELETE", "/v1/files/downloads/{download_id}"): Row(grid(404, 404, 404, 403, 403), w.p_missing("/v1/files/downloads/{download}"),
+                                                         f"{_FILES}: the person who downloaded it or an owner; others see 404"),
     ("OPTIONS", "/v1/files/uploads"): Row(cells(204), w.p_static("/v1/files/uploads"), "tus capability discovery is open and read only"),
     ("POST", "/v1/files/uploads"): Row(grid(201, 201, 403, 403, 403), w.p_missing(
         "/v1/files/uploads", headers={**w.TUS, "Upload-Length": "1", "Upload-Metadata": w.UPLOAD_META}),
@@ -592,6 +607,8 @@ POLICY |= {
                                f"{_NET}: the fabric summary (nodes, pending joins) like /v1/nodes: a child has no nodes:read (§12.6)"),
     ("GET", "/v1/mesh"): Row(CHILD_CANNOT, w.p_static("/v1/mesh"),
                              f"{_NET}: the mesh view (nodes, devices, app URLs); a child has no nodes:read; mesh addresses are owner only (?addresses)"),
+    ("PUT", "/v1/mesh/settings"): Row(ONLY_OWNER, w.p_missing("/v1/mesh/settings", json={}),
+                                      f"{_NET}: CORE-NET-8, only the owner turns the mesh on or off or picks its provider (refusals audited)"),
     ("GET", "/v1/tls"): Row(CHILD_CANNOT, w.p_static("/v1/tls"),
                             "contract §12.7: CA fingerprint and names to any signed-in caller; a child's role defaults do not cover it"),
     ("GET", "/v1/tls/ca.crt"): Row(cells(200), w.p_static("/v1/tls/ca.crt"),

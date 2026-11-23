@@ -17,6 +17,7 @@ metadata:
   icon: icon.svg
   # license.txt: "either version 2 of the License, or (at your option) any later version".
   license: "GPL-2.0-or-later"
+  licenceClass: L2
   source: https://github.com/WordPress/WordPress
   # github.com/WordPress/WordPress is a read-only mirror: it has tags (7.1.4, commit date below) but
   # no GitHub releases and no issues; support links point at wordpress.org.

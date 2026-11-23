@@ -868,6 +868,31 @@
         "title": "AppPlacement",
         "type": "object"
       },
+      "AppQuality": {
+        "description": "Quality tier of an app or plugin, computed by the app gate from its own evidence, never set by hand.",
+        "properties": {
+          "evidence": {
+            "$ref": "#/components/schemas/QualityEvidence"
+          },
+          "tier": {
+            "description": "Derived by the gateway from the evidence; none when the evidence does not reach Bronze",
+            "enum": [
+              "none",
+              "bronze",
+              "silver",
+              "gold"
+            ],
+            "title": "Tier",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tier",
+          "evidence"
+        ],
+        "title": "AppQuality",
+        "type": "object"
+      },
       "AppScope": {
         "additionalProperties": false,
         "properties": {
@@ -998,6 +1023,10 @@
             "title": "Challenge",
             "type": "string"
           },
+          "device_payload": {
+            "title": "Device Payload",
+            "type": "string"
+          },
           "expires_at": {
             "title": "Expires At",
             "type": "string"
@@ -1024,6 +1053,7 @@
           "action_sha256",
           "plan_sha256",
           "expires_at",
+          "device_payload",
           "publicKey"
         ],
         "title": "ApprovalChallenge",
@@ -1108,6 +1138,95 @@
           "kind"
         ],
         "title": "ApprovalPreview",
+        "type": "object"
+      },
+      "ApproverKey": {
+        "properties": {
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "fingerprint": {
+            "title": "Fingerprint",
+            "type": "string"
+          },
+          "key_id": {
+            "title": "Key Id",
+            "type": "string"
+          },
+          "key_kind": {
+            "title": "Key Kind",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "last_used_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Used At"
+          },
+          "revoked_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revoked At"
+          }
+        },
+        "required": [
+          "key_id",
+          "label",
+          "key_kind",
+          "fingerprint",
+          "created_at",
+          "last_used_at",
+          "revoked_at"
+        ],
+        "title": "ApproverKey",
+        "type": "object"
+      },
+      "ApproverKeyBody": {
+        "properties": {
+          "key_kind": {
+            "enum": [
+              "hardware-attested",
+              "hardware-reported",
+              "software"
+            ],
+            "title": "Key Kind",
+            "type": "string"
+          },
+          "label": {
+            "description": "The phone this key lives on, e.g. 'Pixel 9'.",
+            "maxLength": 100,
+            "title": "Label",
+            "type": "string"
+          },
+          "public_key": {
+            "description": "P-256 SubjectPublicKeyInfo, DER, base64url.",
+            "maxLength": 400,
+            "title": "Public Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "public_key",
+          "label",
+          "key_kind"
+        ],
+        "title": "ApproverKeyBody",
         "type": "object"
       },
       "AuditHead": {
@@ -1713,6 +1832,18 @@
           "installed": {
             "title": "Installed",
             "type": "boolean"
+          },
+          "licence_class": {
+            "default": "unknown",
+            "description": "metadata.licenceClass (#173). L1 and L2 are green. blocked and unknown are not: installing one needs accept_licence on the approval",
+            "enum": [
+              "L1",
+              "L2",
+              "blocked",
+              "unknown"
+            ],
+            "title": "Licence Class",
+            "type": "string"
           },
           "license": {
             "anyOf": [
@@ -2702,6 +2833,35 @@
         "title": "DeviceRefusal",
         "type": "object"
       },
+      "DeviceSignature": {
+        "description": "An approver key's ECDSA P-256 / SHA-256 signature over approve-options' `device_payload`.",
+        "properties": {
+          "challenge": {
+            "description": "The approve-options challenge (base64url) that was signed.",
+            "maxLength": 128,
+            "title": "Challenge",
+            "type": "string"
+          },
+          "key_id": {
+            "maxLength": 40,
+            "title": "Key Id",
+            "type": "string"
+          },
+          "signature": {
+            "description": "base64url; ASN.1 DER (Android, iOS) or raw r||s (64 bytes).",
+            "maxLength": 200,
+            "title": "Signature",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key_id",
+          "challenge",
+          "signature"
+        ],
+        "title": "DeviceSignature",
+        "type": "object"
+      },
       "DiagnosticsBundle": {
         "additionalProperties": true,
         "description": "GET /v1/system/diagnostics: a redacted bundle for support. More fields may appear.",
@@ -3058,6 +3218,7 @@
               "exposure.mesh",
               "exposure.private",
               "exposure.public",
+              "files.download.release",
               "files.share.create",
               "machine.attach_device",
               "machine.clone",
@@ -3228,6 +3389,88 @@
           "ok"
         ],
         "title": "Healthz",
+        "type": "object"
+      },
+      "HeldDownload": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "description": "The file name it gets in Files (a name Files refuses was replaced)",
+            "title": "Name",
+            "type": "string"
+          },
+          "person_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Who downloaded it (owners only)",
+            "title": "Person Id"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "received_at": {
+            "title": "Received At",
+            "type": "string"
+          },
+          "sha256": {
+            "title": "Sha256",
+            "type": "string"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          },
+          "state": {
+            "enum": [
+              "held",
+              "waiting_for_space"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "verdict": {
+            "description": "Why it is held: infected | name | executable | archive | unscanned; clean = it passed and waits for room in Files",
+            "title": "Verdict",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "size",
+          "sha256",
+          "verdict",
+          "reason",
+          "received_at",
+          "state"
+        ],
+        "title": "HeldDownload",
+        "type": "object"
+      },
+      "HeldDownloads": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/HeldDownload"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "HeldDownloads",
         "type": "object"
       },
       "HomeBody": {
@@ -4303,6 +4546,53 @@
           }
         },
         "title": "MePatchBody",
+        "type": "object"
+      },
+      "MeshSettingsBody": {
+        "additionalProperties": false,
+        "description": "The owner's mesh choice. Fields left out keep their value; provider \"none\" clears the choice.",
+        "properties": {
+          "control_url": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The https URL machines and phones reach the coordinator at",
+            "title": "Control Url"
+          },
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "enum": [
+                  "headscale",
+                  "none"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          }
+        },
+        "title": "MeshSettingsBody",
         "type": "object"
       },
       "MkdirOp": {
@@ -6880,6 +7170,39 @@
         "title": "PushIn",
         "type": "object"
       },
+      "QualityEvidence": {
+        "description": "The yes/no checks behind a quality tier (#174), per level. A tier needs every check of its level and of the levels below.",
+        "properties": {
+          "bronze": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "title": "Bronze",
+            "type": "object"
+          },
+          "gold": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "title": "Gold",
+            "type": "object"
+          },
+          "silver": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "title": "Silver",
+            "type": "object"
+          }
+        },
+        "required": [
+          "bronze",
+          "silver",
+          "gold"
+        ],
+        "title": "QualityEvidence",
+        "type": "object"
+      },
       "QuotaBody": {
         "additionalProperties": false,
         "properties": {
@@ -7884,6 +8207,28 @@
       "ScanSummary": {
         "description": "§11.1 apps/<id>/scan.json, reduced to what the catalog shows.",
         "properties": {
+          "licence": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ScannedLicence"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "SPDX expression and licence class recorded by the app gate. Missing on older scans."
+          },
+          "quality": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AppQuality"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Quality tier (Bronze, Silver, Gold) and the checks that back it (#174). Null on a scan from before quality tiers: not rated yet"
+          },
           "reason": {
             "anyOf": [
               {
@@ -7915,6 +8260,29 @@
           "result"
         ],
         "title": "ScanSummary",
+        "type": "object"
+      },
+      "ScannedLicence": {
+        "properties": {
+          "class": {
+            "enum": [
+              "L1",
+              "L2",
+              "blocked"
+            ],
+            "title": "Class",
+            "type": "string"
+          },
+          "spdx": {
+            "title": "Spdx",
+            "type": "string"
+          }
+        },
+        "required": [
+          "spdx",
+          "class"
+        ],
+        "title": "ScannedLicence",
         "type": "object"
       },
       "SealedInput": {
@@ -11172,6 +11540,29 @@
       "onemind_core__routers__actions__ApproveBody": {
         "description": "§12.4: optional approve body. `webauthn` is the passkey assertion over approve-options' challenge.\n\nsealed: the app's secrets form for app.install (appsecrets/); override: the F-7 owner override.",
         "properties": {
+          "accept_licence": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "#173: the app id typed by the owner to accept a licence class that is not green (blocked or unknown). Required to approve app.install for such an app; ignored otherwise.",
+            "title": "Accept Licence"
+          },
+          "device_signature": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DeviceSignature"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "hold_ms": {
             "anyOf": [
               {
@@ -14451,6 +14842,196 @@
           }
         },
         "summary": "App Session",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/v1/auth/approver-keys": {
+      "get": {
+        "operationId": "auth.approver_keys.list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ApproverKey"
+                  },
+                  "title": "Response Auth.Approver Keys.List",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "summary": "Approver Keys",
+        "tags": [
+          "auth"
+        ]
+      },
+      "post": {
+        "description": "An owner adds a phone's P-256 approver key; needs a passkey sign-in on this session in the last minutes.",
+        "operationId": "auth.approver_keys.register",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApproverKeyBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApproverKey"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Approver Key Register",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/v1/auth/approver-keys/{key_id}": {
+      "delete": {
+        "operationId": "auth.approver_keys.revoke",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key_id",
+            "required": true,
+            "schema": {
+              "title": "Key Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Approver Key Revoke",
         "tags": [
           "auth"
         ]
@@ -20466,6 +21047,248 @@
         ]
       }
     },
+    "/v1/files/downloads": {
+      "get": {
+        "description": "Downloads held in quarantine. Nothing listed here is in Files or has been opened.",
+        "operationId": "files.downloads.list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HeldDownloads"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
+          }
+        },
+        "summary": "List Downloads",
+        "tags": [
+          "files"
+        ]
+      }
+    },
+    "/v1/files/downloads/{download_id}": {
+      "delete": {
+        "description": "Delete a held download for good. It never reaches Files. A repeated discard answers 404\n(the file is gone); the Idempotency-Key is accepted for the contract and needs no replay store.",
+        "operationId": "files.downloads.discard",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "download_id",
+            "required": true,
+            "schema": {
+              "title": "Download Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Discard",
+        "tags": [
+          "files"
+        ]
+      }
+    },
+    "/v1/files/downloads/{download_id}/release": {
+      "post": {
+        "description": "Ask to move a held download into its person's Files. Nothing moves until an owner approves it.",
+        "operationId": "files.downloads.release",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "download_id",
+            "required": true,
+            "schema": {
+              "title": "Download Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Release",
+        "tags": [
+          "files"
+        ]
+      }
+    },
     "/v1/files/grants": {
       "get": {
         "operationId": "files.grants.list",
@@ -23010,6 +23833,86 @@
           }
         },
         "summary": "Mesh View",
+        "tags": [
+          "mesh"
+        ]
+      }
+    },
+    "/v1/mesh/settings": {
+      "put": {
+        "description": "Change the mesh (owner only, audited): on or off, the provider, the control URL. It applies at once.\n\nTurning the mesh on with no provider chosen is refused with the next step. A provider that is\nchosen but not installed on this box is stored, and GET /v1/mesh says how to install it.\nTurning it off stops minting keys and fails joins still waiting for their mesh check; it does not\nstop the coordinator or disconnect machines and phones that already joined.",
+        "operationId": "mesh.settings_update",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MeshSettingsBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Put Mesh Settings",
         "tags": [
           "mesh"
         ]
