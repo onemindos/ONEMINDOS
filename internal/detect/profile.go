@@ -34,17 +34,19 @@ func (c *Collector) Capabilities(ctx context.Context) *heartbeat.Capabilities {
 
 func (c *Collector) capabilities(ctx context.Context, board string, memMB int64, gpu heartbeat.GPU) *heartbeat.Capabilities {
 	accel := c.accelerators(ctx, board, gpu)
+	usb := c.usbDevices()
 	p := &heartbeat.Capabilities{
 		Schema:       heartbeat.CapabilitiesSchema,
 		DataDisk:     c.dataDisk(),
 		Memory:       heartbeat.MemoryProfile{Unified: unifiedMemory(board, accel)},
 		Accelerators: accel,
-		USB:          c.usbDevices(),
+		USB:          usb,
 		TTYPorts:     c.ttyPorts(),
 		Radios:       c.radios(),
 		Cameras:      c.cameras(),
 		Power:        c.power(),
 		Thermal:      c.thermal(),
+		Passthrough:  c.passthrough(accel, usb), // #690
 	}
 	if memMB > 0 {
 		p.Memory.TotalMB = &memMB

@@ -4535,6 +4535,17 @@
           "memory": {
             "$ref": "#/components/schemas/NodeMemoryProfile"
           },
+          "passthrough": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NodePassthrough"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "absent without an IOMMU: no device can be passed to a machine (#690)"
+          },
           "power": {
             "$ref": "#/components/schemas/NodePowerProfile"
           },
@@ -4637,6 +4648,33 @@
           }
         },
         "title": "NodeDataDisk",
+        "type": "object"
+      },
+      "NodeIOMMUGroup": {
+        "additionalProperties": false,
+        "properties": {
+          "devices": {
+            "description": "PCI addresses in the group",
+            "items": {
+              "pattern": "^[0-9a-f]{4,8}:[0-9a-f]{2}:[0-9a-f]{2}\\.[0-7]$",
+              "type": "string"
+            },
+            "maxItems": 32,
+            "title": "Devices",
+            "type": "array"
+          },
+          "group": {
+            "description": "the kernel's IOMMU group number (/sys/kernel/iommu_groups/N)",
+            "minimum": 0.0,
+            "title": "Group",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "group",
+          "devices"
+        ],
+        "title": "NodeIOMMUGroup",
         "type": "object"
       },
       "NodeK3s": {
@@ -4748,6 +4786,42 @@
           }
         },
         "title": "NodeOS",
+        "type": "object"
+      },
+      "NodePassthrough": {
+        "additionalProperties": false,
+        "description": "What a VM device grant reads (#690). Present only when the kernel runs with an IOMMU (VT-d, AMD-Vi).",
+        "properties": {
+          "iommu_groups": {
+            "description": "the groups that hold an accelerator",
+            "items": {
+              "$ref": "#/components/schemas/NodeIOMMUGroup"
+            },
+            "maxItems": 64,
+            "title": "Iommu Groups",
+            "type": "array"
+          },
+          "usb_drivers": {
+            "description": "USB port -> drivers bound to its interfaces; a port that is not a key has none",
+            "maxProperties": 64,
+            "patternProperties": {
+              "^[0-9]+-[0-9]+(\\.[0-9]+)*$": {
+                "items": {
+                  "pattern": "^[A-Za-z0-9_.-]{1,32}$",
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "title": "Usb Drivers",
+            "type": "object"
+          }
+        },
+        "required": [
+          "iommu_groups",
+          "usb_drivers"
+        ],
+        "title": "NodePassthrough",
         "type": "object"
       },
       "NodePlacement": {
