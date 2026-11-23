@@ -179,7 +179,8 @@ _SPECS = [
     # ---- bridges (#610: core/onemind_core/bridges.py) ------------------------------------
     Spec("bridge.paused", "open", "apps", "warning", "{app_id} was paused",
          "It sent {rejects} events OneMind refused within {window_min} minutes (last: {reason}). Nothing more "
-         "is taken from it until you resume it.", dedupe="bridge:{app_id}:paused", link="/apps/{app_id}"),
+         "is taken from it until you resume it.", dedupe="bridge:{app_id}:paused", link="/apps/{app_id}",
+         learn_more="https://github.com/onemindos/ONEMINDOS/blob/release/next/sdk/contracts/connectors.md#the-intake-post-v1bridgesidevents-610"),
     Spec("bridge.resumed", "resolve", "apps", resolves=("bridge:{app_id}:paused",)),
     # ---- OS updates ----------------------------------------------------------------------
     Spec("update.available", "open", "updates", "info", "Update {version} available for {hostname}",
