@@ -16,3 +16,6 @@ POST /v1/bridges/{bridge_id}/events  # every event carries its own id and revisi
 POST /v1/bridges/{bridge_id}/resume  # resuming a bridge that already runs changes nothing
 POST /v1/files/app-passwords  # answers with a fresh app password, which a replay store must never keep
 POST /v1/files/app-passwords/{password_id}/revoke  # revoking twice is the same as once (the second is 404)
+POST /v1/sync/chunks/missing  # read only: asks which chunks the root lacks; nothing changes but a chunk's lease
+PUT /v1/sync/chunks/{chunk_hash}  # content-addressed: the path is the bytes' sha256, so a retried chunk is the same chunk (stored: false)
+POST /v1/sync/commit  # conditional on base_revision / If-Match: a retry after a commit landed is 412 with the new revision, never a second write

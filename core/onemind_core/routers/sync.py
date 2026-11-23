@@ -17,12 +17,14 @@ from __future__ import annotations
 
 from typing import Annotated, Literal
 
-from fastapi import Depends, FastAPI, Header, Path, Query, Request
+from fastapi import Depends, FastAPI, Header, Path, Query, Request, Security
 from fastapi.concurrency import run_in_threadpool
+from fastapi.security import HTTPBearer
 from pydantic import BaseModel, ConfigDict, Field
 
 from ..auth import Principal
 from ..context import Gateway
+from ..errors import ErrorBody
 from ..files import errors as ferrors
 from ..files.errors import FilesError
 from ..files.index import CHANGES_MAX
@@ -45,8 +47,17 @@ ORDER = 305  # after files (300)
 HEX_RE = r"^[0-9a-f]{64}$"
 Hex = Annotated[str, Field(max_length=64, json_schema_extra={"pattern": HEX_RE})]
 MISSING_MAX = 3000  # hashes in one question: the body stays under the gateway's body cap
-_412 = {412: {"description": "stale_precondition (stale_base): the file is not at base_revision; "
-                             "details[0] carries current_revision and current_hash, ETag the revision"}}
+_412 = {412: {"model": ErrorBody, "description": "stale_precondition (stale_base): the file is not at base_revision; "
+                                                 "details[0] carries current_revision and current_hash, ETag the revision"}}
+# Names the bearer scheme and the route's scope in /openapi.json (contract lint rules `security` and `scopes`).
+# It never refuses by itself: gw.principal decides, and a session cookie works as on every other route.
+_BEARER = HTTPBearer(scheme_name="bearer", auto_error=False, description="A gateway token or a signed-in session (contract §3)")
+SECURED = [Security(_BEARER, scopes=[ALL])]
+
+
+def body_errs(*codes: int) -> dict:
+    """The files error descriptions, each answered with the one ErrorBody (contract lint rule `error-schema`)."""
+    return {c: {"model": ErrorBody, **e} for c, e in errs(*codes).items()}
 
 
 class SyncChange(BaseModel):
@@ -169,7 +180,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
               description=("Ask before sending, and again after an interruption: only the missing chunks need sending. "
                            "Needs write access to the whole root (an agent: a read-write grant on \"/\"). "
                            "Chunks named here stay on the hub for a day even if no version uses them yet."),
-              responses=errs(401, 403, 422, 503))
+              dependencies=SECURED, responses=body_errs(401, 403, 422, 503))
     def chunks_missing(body: MissingQuestion, p: Principal = Depends(principal)):
         return {"missing": transfer.missing(p, body.root, body.hashes)}
 
@@ -177,7 +188,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
              summary="Send one chunk",
              description=(f"The raw bytes (1 to {CHUNK_LIMIT}). 422 (hash_mismatch): they do not hash to the name. "
                           "Sending a chunk the root already holds is harmless."),
-             responses=errs(401, 403, 413, 422, 503))
+             dependencies=SECURED, responses=body_errs(401, 403, 413, 422, 503))
     @reads_body
     async def chunk_put(request: Request, root: RootQ,
                         chunk_hash: Annotated[str, Path(max_length=64, json_schema_extra={"pattern": HEX_RE})],
@@ -195,7 +206,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
               description=("409 (chunks_missing): details list the chunks to send first. 412 (stale_base): another "
                            "device changed the file; details carry its revision. 413 (quota_exceeded). "
                            "The replaced content stays as a version."),
-              responses={**errs(401, 403, 404, 409, 413, 422, 503), **_412})
+              dependencies=SECURED, responses={**body_errs(401, 403, 404, 409, 413, 422, 503), **_412})
     def commit(body: CommitBody, if_match: Annotated[str | None, Header(max_length=40)] = None,
                p: Principal = Depends(principal)):
         base = _if_match(if_match) if if_match is not None else body.base_revision
@@ -203,6 +214,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return transfer.commit(p, body.root, body.path, body.size, body.sha256, chunks, base, body.manifest_chunks)
 
     @app.get("/v1/sync/versions", operation_id="sync.versions.list", tags=TAG, response_model=SyncVersions,
-             summary="The kept versions of a file", responses=errs(401, 403, 404, 422, 503))
+             summary="The kept versions of a file", dependencies=SECURED,
+             responses=body_errs(401, 403, 404, 422, 503))
     def versions(root: RootQ, path: str = Query(..., max_length=4096), p: Principal = Depends(principal)):
         return transfer.versions(p, root, path)

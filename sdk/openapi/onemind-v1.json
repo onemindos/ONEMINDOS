@@ -29339,9 +29339,23 @@
             "description": "Successful Response"
           },
           "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
             "description": "Missing or unknown bearer token (unauthenticated)"
           },
           "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
             "description": "Not allowed for this principal (permission_denied)"
           },
           "413": {
@@ -29355,12 +29369,33 @@
             "description": "Request body over its limit (payload_too_large)"
           },
           "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
             "description": "Invalid root, path or body (conflict, reason invalid_path / invalid_root ...)"
           },
           "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
             "description": "unavailable: the files storage is not usable"
           }
         },
+        "security": [
+          {
+            "bearer": [
+              "*"
+            ]
+          }
+        ],
         "summary": "Which chunks the root does not hold yet",
         "tags": [
           "sync"
@@ -29407,21 +29442,63 @@
             "description": "Successful Response"
           },
           "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
             "description": "Missing or unknown bearer token (unauthenticated)"
           },
           "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
             "description": "Not allowed for this principal (permission_denied)"
           },
           "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
             "description": "payload_too_large: quota_exceeded, insufficient_space, upload_too_large or chunk_too_large"
           },
           "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
             "description": "Invalid root, path or body (conflict, reason invalid_path / invalid_root ...)"
           },
           "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
             "description": "unavailable: the files storage is not usable"
           }
         },
+        "security": [
+          {
+            "bearer": [
+              "*"
+            ]
+          }
+        ],
         "summary": "Send one chunk",
         "tags": [
           "sync"
@@ -29473,30 +29550,93 @@
             "description": "Successful Response"
           },
           "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
             "description": "Missing or unknown bearer token (unauthenticated)"
           },
           "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
             "description": "Not allowed for this principal (permission_denied)"
           },
           "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
             "description": "No such file, folder, request or upload (not_found)"
           },
           "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
             "description": "conflict, stale_precondition or expired; `reason` says which case"
           },
           "412": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
             "description": "stale_precondition (stale_base): the file is not at base_revision; details[0] carries current_revision and current_hash, ETag the revision"
           },
           "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
             "description": "payload_too_large: quota_exceeded, insufficient_space, upload_too_large or chunk_too_large"
           },
           "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
             "description": "Invalid root, path or body (conflict, reason invalid_path / invalid_root ...)"
           },
           "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
             "description": "unavailable: the files storage is not usable"
           }
         },
+        "security": [
+          {
+            "bearer": [
+              "*"
+            ]
+          }
+        ],
         "summary": "Make a file from chunks, if it is still at the base revision",
         "tags": [
           "sync"
@@ -29541,21 +29681,63 @@
             "description": "Successful Response"
           },
           "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
             "description": "Missing or unknown bearer token (unauthenticated)"
           },
           "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
             "description": "Not allowed for this principal (permission_denied)"
           },
           "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
             "description": "No such file, folder, request or upload (not_found)"
           },
           "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
             "description": "Invalid root, path or body (conflict, reason invalid_path / invalid_root ...)"
           },
           "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
             "description": "unavailable: the files storage is not usable"
           }
         },
+        "security": [
+          {
+            "bearer": [
+              "*"
+            ]
+          }
+        ],
         "summary": "The kept versions of a file",
         "tags": [
           "sync"
