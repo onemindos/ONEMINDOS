@@ -223,6 +223,12 @@ POLICY |= {
                                                   "§12.14 own preferences"),
     ("PUT", "/v1/notifications/preferences"): Row(PEOPLE_WRITE, w.p_preferences_put,
                                                   "§12.14 own preferences; a child holds no notifications:write"),
+    ("GET", "/v1/notifications/sources"): Row(PEOPLE_READ, w.p_static("/v1/notifications/sources"),
+                                              "§12.14 #613 people read the notification sources (App notifications page)"),
+    ("PUT", "/v1/notifications/sources/{source_id}"): Row(
+        cells(403, **GONE, owner=200, **PENDING_DENY),
+        lambda _: w.Req("/v1/notifications/sources/plugin:probe", json={"muted": True}),
+        "§12.14 #613 only owners mute or unmute a source; an agent never lifts its own mute"),
     ("POST", "/v1/notifications/send"): Row(
         cells(403, **GONE, agent=202, **PENDING_DENY), w.p_send,
         "§12.14 agents only, under their own plugin.<id> topic (the probe uses the static agent's)"),
