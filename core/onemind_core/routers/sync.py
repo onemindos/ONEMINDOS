@@ -261,23 +261,23 @@ def register(app: FastAPI, gw: Gateway) -> None:
               summary="Take an advisory lock on a file or folder (WebDAV class 2)",
               description=f"The lock lasts ttl_s seconds (default 300, at most {TTL_MAX_S}) unless refreshed. Advisory: "
                           "it warns other clients, it never blocks a write.",
-              responses={**errs(401, 403, 404, 422, 503), **_423})
+              dependencies=SECURED, responses={**errs(401, 403, 404, 422, 503), **_423})
     def lock_take(body: LockBody, p: Principal = Depends(principal)):
         return locks.take(p, body.root, body.path, body.ttl_s, body.note)
 
     @app.get("/v1/sync/locks", operation_id="sync.locks.list", tags=TAG, response_model=SyncLocks,
-             summary="Live locks at or inside a path", responses=errs(401, 403, 422, 503))
+             summary="Live locks at or inside a path", dependencies=SECURED, responses=errs(401, 403, 422, 503))
     def lock_list(root: RootQ, path: str = Query("/", max_length=4096), p: Principal = Depends(principal)):
         return {"locks": locks.list(p, root, path)}
 
     @app.post("/v1/sync/locks/{lock_id}/refresh", operation_id="sync.locks.refresh", tags=TAG, response_model=SyncLock,
-              summary="Extend your lock", responses=errs(401, 404, 422))
+              summary="Extend your lock", dependencies=SECURED, responses=errs(401, 404, 422))
     def lock_refresh(lock_id: Annotated[str, Path(max_length=40)], body: LockRefresh | None = None,
                      p: Principal = Depends(principal)):
         return locks.refresh(p, lock_id, body.ttl_s if body else None)
 
     @app.delete("/v1/sync/locks/{lock_id}", operation_id="sync.locks.delete", tags=TAG, status_code=204,
-                summary="Release your lock (an owner may clear anyone's)", responses=errs(401, 404))
+                summary="Release your lock (an owner may clear anyone's)", dependencies=SECURED, responses=errs(401, 404))
     def lock_release(lock_id: Annotated[str, Path(max_length=40)], p: Principal = Depends(principal)):
         locks.release(p, lock_id)
         return Response(status_code=204)

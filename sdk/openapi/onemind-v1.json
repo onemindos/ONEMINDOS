@@ -32222,6 +32222,13 @@
             "description": "unavailable: the files storage is not usable"
           }
         },
+        "security": [
+          {
+            "bearer": [
+              "*"
+            ]
+          }
+        ],
         "summary": "Live locks at or inside a path",
         "tags": [
           "sync"
@@ -32280,6 +32287,13 @@
             "description": "unavailable: the files storage is not usable"
           }
         },
+        "security": [
+          {
+            "bearer": [
+              "*"
+            ]
+          }
+        ],
         "summary": "Take an advisory lock on a file or folder (WebDAV class 2)",
         "tags": [
           "sync"
@@ -32322,6 +32336,13 @@
             "description": "Request failed validation (conflict, with the bad fields in message)"
           }
         },
+        "security": [
+          {
+            "bearer": [
+              "*"
+            ]
+          }
+        ],
         "summary": "Release your lock (an owner may clear anyone's)",
         "tags": [
           "sync"
@@ -32391,6 +32412,13 @@
             "description": "Invalid root, path or body (conflict, reason invalid_path / invalid_root ...)"
           }
         },
+        "security": [
+          {
+            "bearer": [
+              "*"
+            ]
+          }
+        ],
         "summary": "Extend your lock",
         "tags": [
           "sync"
