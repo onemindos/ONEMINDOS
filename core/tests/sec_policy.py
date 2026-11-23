@@ -270,6 +270,10 @@ POLICY |= {
     # UMB-P11 (#429): the heartbeat numbers /v1/nodes shows plus per-app usage; sharing filters the apps.
     ("GET", "/v1/usage"): Row(CHILD_CANNOT, w.p_static("/v1/usage"),
                               "UMB-P11 live usage: read-only, monitoring:read like app metrics (a child has none); unshared apps are left out"),
+    # #619 Engine feed: read-only NATS monitor numbers. The owner sees all; a node its own account, link and outbox
+    # (nodes:report); adults, guests and agents a summary; plugins and automations nothing.
+    ("GET", "/v1/engine"): Row(cells(200, **GONE, child=403, plugin=403, automation=403, node=200), w.p_static("/v1/engine"),
+                               "#619 engine feed: monitoring:read (a child has none) or a node's nodes:report; scope cut in engine/feed.py"),
 }
 
 # ---- audit and events: feat/devsurface (contract §12.8, §12.16) -----------------------------------------
