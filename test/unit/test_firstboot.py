@@ -460,6 +460,36 @@ class Hub(Box):
         self.assertEqual(self.etc("gateway.env").count("ONEMIND_BACKUPS_ENABLED=1"), 1)
         self.assertEqual(json.load(open(self.p.backup_conf))["node_id"], st["node_id"])
 
+    def test_built_in_data_is_in_the_system_unit_on_a_new_hub(self):
+        # #616: the gateway writes the built-ins' table export into backup-export before each run, and the
+        # agent's system unit copies it with the files root, so photos and files reach restic.
+        st = self.first_boot()
+        system = json.load(open(self.p.backup_conf))["units"]["system"]
+        self.assertEqual(system["paths"][-2:], [self.p.backup_export, self.p.files])
+        self.assertEqual(self.mode(self.p.backup_export), 0o700)
+        for gw in (self.etc("gateway.env"), fb.gateway_env(self.p, st, MESH_IP)):
+            self.assertIn(f"ONEMIND_BACKUPS_EXPORT_DIR={self.p.backup_export}\n", gw)
+            self.assertIn("ONEMIND_BACKUPS_AGENT_DIRS=ONEMIND_FILES_ROOT\n", gw)
+        self.assertEqual(self.etc("gateway.env").count("ONEMIND_BACKUPS_EXPORT_DIR="), 1)
+
+    def test_a_hub_set_up_before_616_gets_the_built_in_paths_and_keeps_the_rest(self):
+        self.first_boot()
+        conf = json.load(open(self.p.backup_conf))
+        conf["units"]["system"]["paths"] = [self.p.etc, self.p.tls, self.p.nats_keys]  # the old agent.json
+        conf["retention"]["daily"] = 9                                               # an owner's own change
+        open(self.p.backup_conf, "w").write(json.dumps(conf))
+        text = "".join(l for l in self.etc("gateway.env").splitlines(True)
+                       if "EXPORT_DIR" not in l and "AGENT_DIRS" not in l and "#616" not in l)
+        open(os.path.join(self.p.etc, "gateway.env"), "w").write(text)
+        fb.apply(self.p)                                    # the reboot after the update
+        fb.apply(self.p)
+        got = json.load(open(self.p.backup_conf))
+        self.assertEqual(got["units"]["system"]["paths"], fb.backup_system_paths(self.p))
+        self.assertEqual(got["retention"]["daily"], 9)
+        self.assertEqual({k: v for k, v in got.items() if k != "units"}, {k: v for k, v in conf.items() if k != "units"})
+        self.assertEqual(self.etc("gateway.env").count("ONEMIND_BACKUPS_EXPORT_DIR="), 1)
+        self.assertEqual(self.etc("gateway.env").count("ONEMIND_BACKUPS_ENABLED=1"), 1)
+
     def test_a_failed_job_key_leaves_backups_off_but_the_box_boots(self):
         with mock.patch("onemind_core.backups.jobs.load_or_create_job_key", side_effect=OSError("disk full")):
             st = self.first_boot()

@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import os
 from dataclasses import replace
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -21,6 +22,7 @@ from sqlalchemy import select
 from conftest import AGENT, OWNER, action_body
 from onemind_core.app import create_app
 from onemind_core.backups import units as bu
+from onemind_core.backups.settings import BackupsSettings
 from onemind_core.ledger import Base
 from test_appstore import run
 from test_backups import FakeAgent
@@ -73,20 +75,21 @@ def test_the_set_is_every_switched_on_built_in_plus_the_gateway_database(box_a, 
     assert units["gateway"]["kind"] == "database" and units["gateway"]["snapshot_unit"] == "system"
     photos = units["builtin:photos"]
     assert set(photos["tables"]) == PHOTO_TABLES and photos["problems"] == []
-    assert photos["dirs"] == [{"name": "ONEMIND_PHOTOS_DIR", "path": str(tmp_path / "photos-a")}]
+    assert photos["dirs"] == [{"name": "ONEMIND_PHOTOS_DIR", "path": str(tmp_path / "photos-a"), "carried": False}]
     assert "actions" in units["builtin:approvals"]["tables"]
     assert {f"builtin:{d.id}" for d in reg.enabled()} == set(units) - {"gateway"}
 
     st = c.get("/v1/backups/status", headers=AGENT).json()
     shown = {u["unit"]: u for u in st["builtin_units"]}
     assert set(shown) == set(units)
-    assert shown["builtin:photos"]["dirs"] == [{"name": "ONEMIND_PHOTOS_DIR", "configured": True}]
+    assert shown["builtin:photos"]["dirs"] == [{"name": "ONEMIND_PHOTOS_DIR", "configured": True, "carried": False}]
     assert str(tmp_path) not in json.dumps(st)  # no host path leaves the box through the API
 
 
 def test_no_built_in_reads_as_in_a_snapshot_until_an_agent_unit_carries_it(box_a, clock):
-    """The status must not read as "photos are backed up": no agent unit carries a built-in's export or
-    folders yet, so every built-in says snapshot_unit null, in_snapshot false, even after a good run."""
+    """The status must not read as "photos are backed up": with no export folder set, no agent unit
+    carries a built-in's export, so every built-in says snapshot_unit null, in_snapshot false, even after
+    a good run."""
     c, *_ = box_a
     svc = c.app.state.backups
 
@@ -106,6 +109,72 @@ def test_no_built_in_reads_as_in_a_snapshot_until_an_agent_unit_carries_it(box_a
         if name in after:
             assert after[name]["snapshot_unit"] is None and after[name]["in_snapshot"] is False, after[name]
     assert after["builtin:photos"]["in_snapshot"] is False
+
+
+# ---- on a box: the export lands in the agent's system unit --------------------------------------------
+
+def wired(c, tmp_path, agent_dirs=""):
+    """The settings onemind-firstboot writes: an export folder the system unit copies, and its folders."""
+    svc = c.app.state.backups
+    svc.s = replace(svc.s, export_dir=tmp_path / "backup-export", agent_dirs=agent_dirs)
+    return svc
+
+
+def builtins_shown(c):
+    return {u["unit"]: u for u in c.get("/v1/backups/status", headers=OWNER).json()["builtin_units"]}
+
+
+def test_a_box_run_writes_the_export_and_then_the_built_ins_are_in_the_snapshot(box_a, settings, clock, tmp_path):
+    c, phone, data, action = box_a
+    svc = wired(c, tmp_path)  # the photos folder is set but not carried by the system unit
+    svc.agent = FakeAgent(clock)
+    assert all(u["in_snapshot"] is False for u in builtins_shown(c).values())
+
+    run_out = svc.run_backup("scheduled", "box", None, None)
+    assert run_out["state"] == "succeeded", run_out
+    assert {"unit": "builtins", "phase": "pre", "command": bu.EXPORT_FILE, "ok": True} in run_out["hooks"]
+    tar = tmp_path / "backup-export" / bu.EXPORT_FILE
+    assert oct(tar.stat().st_mode & 0o777) == "0o600" and list(tar.parent.iterdir()) == [tar]
+
+    after = builtins_shown(c)
+    assert after["builtin:approvals"]["snapshot_unit"] == "system" and after["builtin:approvals"]["in_snapshot"] is True
+    # Photos' rows are in the export, but its folder is in no snapshot: not shown as backed up.
+    assert after["builtin:photos"]["in_snapshot"] is False
+    assert after["builtin:photos"]["dirs"] == [{"name": "ONEMIND_PHOTOS_DIR", "configured": True, "carried": False}]
+
+    wired(c, tmp_path, agent_dirs="ONEMIND_PHOTOS_DIR, ONEMIND_FILES_ROOT")
+    assert builtins_shown(c)["builtin:photos"]["in_snapshot"] is True
+
+    # What the snapshot holds is a working export: it restores on a wiped box.
+    with TestClient(fresh_box(settings, clock, tmp_path)) as b:
+        assert bu.restore(*handles(b), tar)["rows"] > 0
+        assert b.get(f"/v1/actions/{action['id']}", headers=OWNER).status_code == 200
+
+
+def test_a_failed_export_fails_the_built_ins_but_not_the_agent_run(box_a, clock, tmp_path, monkeypatch):
+    c, *_ = box_a
+    svc = wired(c, tmp_path, agent_dirs="ONEMIND_PHOTOS_DIR ONEMIND_FILES_ROOT")
+    svc.agent = FakeAgent(clock)
+
+    def full(*a, **k):
+        raise OSError("No space left on device")
+
+    monkeypatch.setattr("onemind_core.backups.service.write_export", full)
+    out = svc.run_backup("scheduled", "box", None, None)
+    failed = {u["unit"]: u for u in out["units"] if u["state"] == "failed"}
+    assert failed["builtin:approvals"]["error"] == "built-in export failed: No space left on device"
+    assert out["state"] == "partial"
+    sent = [p for k, p, _ in svc.agent.jobs if k == "backup.run"][0]
+    assert not [u for u in sent.get("skip_units", []) if u.startswith("builtin:")]  # the system unit still ran
+    assert all(u["in_snapshot"] is False for n, u in builtins_shown(c).items() if n != "gateway")
+
+
+def test_backup_settings_check_the_export_folder_and_names():
+    BackupsSettings(export_dir=Path("/data/onemind/gateway/backup-export"), agent_dirs="ONEMIND_FILES_ROOT").validate()
+    with pytest.raises(ValueError, match="EXPORT_DIR"):
+        BackupsSettings(export_dir=Path("relative")).validate()
+    with pytest.raises(ValueError, match="AGENT_DIRS"):
+        BackupsSettings(agent_dirs="/data/onemind/files").validate()
 
 
 def test_a_switched_off_built_in_leaves_the_set(box_a, clock):

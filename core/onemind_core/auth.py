@@ -46,9 +46,15 @@ MCP_SCOPES = (
     "actions:request:app.install", "actions:request:app.remove", "actions:request:app.start",
     "actions:request:app.stop", "actions:request:app.restart", "actions:request:app.update",
     "actions:request:app.configure", "actions:request:app.delete_data",
+    # Area read tools (#632, surfaces/core.py AREA_TOOLS), named as in identity/scopes.py.
+    "backups:read", "updates:read", "alerts:read", "files:read", "logs:read",
 )
 ALWAYS_GRANTED = frozenset({"instance:read"})
-_READER = ("instance:read", "nodes:read", "apps:read", "actions:read:own", "audit:read:own")
+# File metadata and app logs are granted by name only: never by v0 or a bundle, so an agent that
+# had no `scopes:` before reads exactly what it read before (REST refuses agents app logs, too).
+MCP_BY_NAME_ONLY = frozenset({"files:read", "logs:read"})
+_READER = ("instance:read", "nodes:read", "apps:read", "actions:read:own", "audit:read:own",
+           "backups:read", "updates:read", "alerts:read")
 # One scope per request_action type (the lifecycle.TYPES keys; a test keeps the two in step), so a
 # token holds exactly the types it was granted and the rest are denied by default.
 _REQUEST = tuple(x for x in MCP_SCOPES if x.startswith("actions:request:"))
@@ -61,7 +67,7 @@ MCP_BUNDLES = {  # §4.1 named bundles, limited to what exists today
     "requester": frozenset(_READER + _REQUESTER_REQUEST),
     # Today's behaviour: every tool /mcp already serves (the §4.1 table lists fewer read scopes than
     # the shipped tools, so v0 here is the full shipped set, not a downgrade). Default with no `scopes:`.
-    "v0": frozenset(MCP_SCOPES),
+    "v0": frozenset(MCP_SCOPES) - MCP_BY_NAME_ONLY,
 }
 
 
