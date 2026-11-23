@@ -4,6 +4,8 @@
 // Types for the proof-of-concept v0 contract (sdk/contracts/poc-v0.md).
 // Section numbers below refer to that file.
 
+import type { StatusView as SdkStatusView } from '@onemind/sdk';
+
 /** §2 `board` values. */
 export type Board =
   | 'x86_64-efi'
@@ -227,6 +229,8 @@ export interface ApproveOptions {
   /** null when the action has no plan (the hub's identity module sends null, not ""). */
   plan_sha256: string | null;
   expires_at: string;
+  /** #702: what an approval key signs (UTF-8). Absent on hubs without approver keys. */
+  device_payload?: string;
   /** The hub's challenge record (login and passkey-register options carry it too). */
   challenge_id?: string;
   rpId?: string;
@@ -283,6 +287,26 @@ export interface ApproveBody {
   webauthn?: WebAuthnAssertion;
   /** #173: the app id, typed by the owner, to accept a blocked or unknown licence class. */
   accept_licence?: string;
+  /** #702: or this phone's approval key's signature over approve-options' `device_payload`. */
+  device_signature?: DeviceSignature;
+}
+
+/** #702: an approval key's ECDSA P-256 SHA-256 signature (DER, base64url) over `device_payload`. */
+export interface DeviceSignature {
+  key_id: string;
+  challenge: string;
+  signature: string;
+}
+
+/** #702 `POST/GET /v1/auth/approver-keys`: a phone's approval key as the hub keeps it (public key only). */
+export interface ApproverKey {
+  key_id: string;
+  label: string;
+  key_kind: string;
+  fingerprint: string;
+  created_at: string;
+  last_used_at: string | null;
+  revoked_at: string | null;
 }
 
 /** §12.6 `GET /v1/me`. */
@@ -358,6 +382,8 @@ export interface PushRegistrationRequest {
   token?: string;
   keys?: { p256dh: string; auth: string };
   label: string;
+  /** This app install (#715, lib/install.ts); only hubs with My devices accept it. */
+  install_id?: string;
   environment?: 'sandbox' | 'production';
   bundle_id?: string;
 }
@@ -370,6 +396,37 @@ export interface PushRegistration {
   state?: string;
   created_at?: string;
   last_seen_at?: string | null;
+}
+
+/** #715 My devices (`GET /v1/me/devices`): a person's own phones, browsers and apps, each the credentials
+ * that carry its name. Mirrors the gateway's OpenAPI schemas MyDevices / MyDevice / MyDeviceRemoved. */
+export type MyDeviceSource = 'sessions' | 'passkeys' | 'approver_keys' | 'push';
+export interface MyDeviceCredential {
+  source: MyDeviceSource;
+  id: string;
+  label: string;
+  detail: string;
+  created_at: string | null;
+  last_seen_at: string | null;
+}
+export interface MyDevice {
+  id: string;
+  label: string;
+  kind: 'phone' | 'browser' | 'app' | 'unknown';
+  current: boolean;
+  last_seen_at: string | null;
+  first_seen_at: string | null;
+  credentials: MyDeviceCredential[];
+}
+export interface MyDevices {
+  devices: MyDevice[];
+  sources: Record<MyDeviceSource | 'mesh' | 'nats', boolean>;
+}
+/** `DELETE /v1/me/devices/{id}` (Lost this device): `removed` is false when there was nothing left to revoke. */
+export interface MyDeviceRemoved {
+  id: string;
+  removed: boolean;
+  revoked: Record<MyDeviceSource, number>;
 }
 
 /**
@@ -719,3 +776,8 @@ export interface SystemPlanPreview {
   plan: Plan;
   plan_sha256: string;
 }
+
+/** `GET /v1/status`: one state per source; a source that cannot be read is `unknown`, never `ok`. */
+export type { StatusView } from '@onemind/sdk';
+export type SourceStatus = SdkStatusView['alerts'];
+export type HealthState = SdkStatusView['state'];

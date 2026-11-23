@@ -10,6 +10,7 @@ import {
   type AlertRecord,
   type ApiErrorBody,
   type ApproveBody,
+  type ApproverKey,
   type ApproveOptions,
   type AutomationRule,
   type AutomationRun,
@@ -36,7 +37,10 @@ import {
   type LifecycleType,
   type LoginResult,
   type MeshView,
+  type StatusView,
   type MonitoringSummary,
+  type MyDeviceRemoved,
+  type MyDevices,
   type NodeMetrics,
   type AppMetrics,
   type OsUpdateHistory,
@@ -71,9 +75,13 @@ export const OP = {
   vapidKey: 'GET /v1/push/vapid-public-key',
   loginOptions: 'POST /v1/auth/login/options',
   passkeyRegisterOptions: 'POST /v1/auth/passkeys/register/options',
+  /** #702: register this phone's approval key. */
+  approverKeys: 'POST /v1/auth/approver-keys',
   /** Not in §12.6 (it returns a refresh_token but names no route); used only when the gateway lists it. */
   authRefresh: 'POST /v1/auth/refresh',
   deviceRequest: 'POST /v1/devices/requests',
+  /** The person's own devices (issue 716): used instead of /v1/devices/requests once the gateway lists it. */
+  meDevices: 'POST /v1/me/devices',
   deviceToken: 'POST /v1/devices/token',
   /** §12.41 (owner only). */
   onboardingSettings: 'GET /v1/onboarding/settings',
@@ -107,8 +115,12 @@ export const OP = {
   nodeMetrics: 'GET /v1/nodes/{}/metrics',
   appMetrics: 'GET /v1/apps/{}/metrics',
   mesh: 'GET /v1/mesh',
+  /** Health of every source at a glance. */
+  status: 'GET /v1/status',
   /** UNVERIFIED name: the hub has no restart / shut down / troubleshoot route yet, so System controls stays hidden. */
   systemPlan: 'GET /v1/system/plan',
+  myDevices: 'GET /v1/me/devices',
+  myDeviceRemove: 'DELETE /v1/me/devices/{}',
 } as const;
 
 export type Op = (typeof OP)[keyof typeof OP];
@@ -151,6 +163,8 @@ export interface LoginBody {
   passkey: WebAuthnAssertion;
   client: 'app';
   client_name?: string;
+  /** This app install (#715, lib/install.ts): My devices groups this sign-in with the install's passkeys and push. */
+  install_id?: string;
 }
 
 /** WebAuthn options as the gateway sends them: bare JSON, or wrapped in `publicKey` (both are common). */
@@ -212,9 +226,13 @@ export interface OneMindApi {
   refreshSession(refreshToken: string): Promise<LoginResult>;
   logout(): Promise<void>;
   passkeyRegisterOptions(): Promise<RegisterOptions>;
-  passkeyRegister(body: { credential: WebAuthnAttestation; label: string }): Promise<{ credential_id: string; label: string }>;
-  deviceRequest(body: DeviceRequestBody): Promise<DeviceRequest>;
-  deviceRequestStatus(id: string, pollCode?: string): Promise<DeviceRequest>;
+  passkeyRegister(body: { credential: WebAuthnAttestation; label: string; install_id?: string }): Promise<{ credential_id: string; label: string }>;
+  /** #702 (optional: only the live client has them; feature-detect with OP.approverKeys). */
+  approverKeyRegister?(body: { public_key: string; label: string; key_kind: 'hardware-reported' | 'software' }): Promise<ApproverKey>;
+  approverKeyRevoke?(keyId: string): Promise<void>;
+  /** `me`: the newer `/v1/me/devices` routes (only when `features()` lists OP.meDevices). */
+  deviceRequest(body: DeviceRequestBody, o?: { me?: boolean }): Promise<DeviceRequest>;
+  deviceRequestStatus(id: string, pollCode?: string, o?: { me?: boolean }): Promise<DeviceRequest>;
   /** Device-bound renewal (RFC 9449 DPoP proof in the `DPoP` header). */
   deviceToken(dpopProof: string, refreshToken: string): Promise<LoginResult>;
 
@@ -266,7 +284,11 @@ export interface OneMindApi {
   nodeMetrics(nodeId: string, window?: string): Promise<NodeMetrics>;
   appMetrics(appId: string): Promise<AppMetrics>;
   mesh(): Promise<MeshView>;
+  status(): Promise<StatusView>;
   systemPlan(type: SystemControlType): Promise<SystemPlanPreview>;
+  // #715 My devices: the caller's own devices; removing one revokes everything it holds (a fresh passkey once passkeys are on).
+  myDevices(): Promise<MyDevices>;
+  removeMyDevice(id: string): Promise<MyDeviceRemoved>;
   /** Where the SSE stream lives and which bearer to send; undefined in demo mode (no stream). */
   eventsEndpoint(): { url: string; bearer: () => string | undefined; refresh?: () => Promise<string | undefined> } | undefined;
 }
@@ -483,7 +505,7 @@ export class HttpApi implements OneMindApi {
     return this.req<Action>('GET', `/v1/actions/${enc(id)}`);
   }
   approve(id: string, body?: ApproveBody) {
-    const b = body && (body.plan_sha256 || body.webauthn) ? body : undefined;
+    const b = body && (body.plan_sha256 || body.webauthn || body.device_signature) ? body : undefined;
     return this.req<Action>('POST', `/v1/actions/${enc(id)}/approve`, b);
   }
   deny(id: string, reason?: string) {
@@ -560,14 +582,20 @@ export class HttpApi implements OneMindApi {
   passkeyRegisterOptions() {
     return this.req<RegisterOptions>('POST', '/v1/auth/passkeys/register/options', {});
   }
-  passkeyRegister(body: { credential: WebAuthnAttestation; label: string }) {
+  passkeyRegister(body: { credential: WebAuthnAttestation; label: string; install_id?: string }) {
     return this.req<{ credential_id: string; label: string }>('POST', '/v1/auth/passkeys/register', body);
   }
-  deviceRequest(body: DeviceRequestBody) {
-    return this.req<DeviceRequest>('POST', '/v1/devices/requests', body);
+  approverKeyRegister(body: { public_key: string; label: string; key_kind: 'hardware-reported' | 'software' }) {
+    return this.req<ApproverKey>('POST', '/v1/auth/approver-keys', body);
   }
-  deviceRequestStatus(id: string, pollCode?: string) {
-    return this.req<DeviceRequest>('GET', `/v1/devices/requests/${enc(id)}`, undefined, 'object', {
+  async approverKeyRevoke(keyId: string) {
+    await this.req<unknown>('DELETE', `/v1/auth/approver-keys/${enc(keyId)}`, undefined, 'any');
+  }
+  deviceRequest(body: DeviceRequestBody, o: { me?: boolean } = {}) {
+    return this.req<DeviceRequest>('POST', o.me ? '/v1/me/devices' : '/v1/devices/requests', body);
+  }
+  deviceRequestStatus(id: string, pollCode?: string, o: { me?: boolean } = {}) {
+    return this.req<DeviceRequest>('GET', `${o.me ? '/v1/me/devices' : '/v1/devices/requests'}/${enc(id)}`, undefined, 'object', {
       headers: pollCode ? { 'OneMind-Poll-Code': pollCode } : {},
     });
   }
@@ -739,8 +767,17 @@ export class HttpApi implements OneMindApi {
   mesh() {
     return this.req<MeshView>('GET', '/v1/mesh');
   }
+  status() {
+    return this.req<StatusView>('GET', '/v1/status');
+  }
   systemPlan(type: SystemControlType) {
     return this.req<SystemPlanPreview>('GET', `/v1/system/plan?type=${enc(type)}`);
+  }
+  myDevices() {
+    return this.req<MyDevices>('GET', '/v1/me/devices');
+  }
+  removeMyDevice(id: string) {
+    return this.req<MyDeviceRemoved>('DELETE', `/v1/me/devices/${enc(id)}`);
   }
   eventsEndpoint() {
     return {

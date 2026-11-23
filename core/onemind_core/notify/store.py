@@ -39,6 +39,14 @@ def _notify_v2(conn) -> None:
             conn.execute(text(f"ALTER TABLE notify_notifications ADD COLUMN {name} {ddl}"))
 
 
+@SCHEMA.step(3, "install_id on push registrations: the app install that registered it, for My devices (#715)")
+def _notify_v3(conn) -> None:
+    from sqlalchemy import inspect, text
+
+    if "install_id" not in {c["name"] for c in inspect(conn).get_columns("notify_devices")}:
+        conn.execute(text("ALTER TABLE notify_devices ADD COLUMN install_id VARCHAR(64)"))
+
+
 class AlertRow(Base):
     __tablename__ = "notify_alerts"
     id: Mapped[str] = mapped_column(String(40), primary_key=True)
@@ -137,6 +145,7 @@ class DeviceRow(Base):
     failing_since: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    install_id: Mapped[str | None] = mapped_column(String(64), nullable=True)  # #715, see devices/service.py
 
 
 class PreferencesRow(Base):

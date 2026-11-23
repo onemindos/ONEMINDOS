@@ -4,7 +4,7 @@ import { makeActions } from '../api/fixtures';
 import { MockApi } from '../api/mock';
 import { ApiError, type Action } from '../api/types';
 import { v0Api } from '../test/fakes';
-import { actionTitle, decide, needsPasskey, principalLabel, REQUEST_TTL_MS, requestAction, sortByRecent } from './approvals';
+import { actionTitle, decide, keyCovers, needsPasskey, principalLabel, REQUEST_TTL_MS, requestAction, sortByRecent } from './approvals';
 import { b64url, PasskeyError, type Passkeys } from './webauthn';
 
 const NOW = Date.parse('2026-11-12T12:00:00Z');
@@ -215,6 +215,11 @@ describe('approval card helpers', () => {
     expect(needsPasskey({ risk: 'destructive' }, false)).toBe(true);
     expect(needsPasskey({ risk: 'actuate' }, false)).toBe(true);
     expect(needsPasskey({ risk: 'read' }, true)).toBe(true);
+  });
+  it('promises the approval key only for read, write and sensitive (#838 default, F-2)', () => {
+    for (const risk of ['read', 'write', 'sensitive'] as const) expect(keyCovers({ risk })).toBe(true);
+    for (const risk of ['destructive', 'actuate'] as const) expect(keyCovers({ risk })).toBe(false);
+    expect(keyCovers({})).toBe(false);
   });
   it('maps base64 to unpadded base64url for the authenticator', () => {
     expect(b64url('ab+/c==')).toBe('ab-_c');
