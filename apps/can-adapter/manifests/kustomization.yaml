@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: Apache-2.0
+# Namespace-agnostic: the gateway's kubernetes executor sets namespace app-can-adapter (contract §3).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+labels:
+  - pairs:
+      app.kubernetes.io/name: can-adapter
+      app.kubernetes.io/part-of: onemind-apps
+    includeSelectors: false
+resources:
+  - deployment.yaml
+  - service.yaml
+configMapGenerator:
+  - name: can-adapter-code
+    files:
+      - fieldbus.py
+      - can_adapter.py

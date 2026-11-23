@@ -10,7 +10,7 @@ untrusted heartbeats are parsed. For any sequence of (subject, payload) pairs Hy
   subject tokens never match;
 - the registry then holds, per node, the last heartbeat it kept, and nothing else;
 - a kept heartbeat never carries the privacy-forbidden keys (serials, MACs, IPs, user names), and
-  status and last_seen always come from the hub's clock, never from the sender;
+  status, presence, departed_at and last_seen always come from the hub, never from the sender;
 - the node id rule is the same one onemindd validates (internal/heartbeat nodeIDRe), so a node the
   agent accepts is never silently dropped by the hub, and the reverse.
 
@@ -30,6 +30,8 @@ from hypothesis import strategies as st
 from onemind_core.ledger import iso
 from onemind_core.nodes import FORBIDDEN_KEYS, HEARTBEAT_SCHEMA, MAX_HEARTBEAT_BYTES, NodeRegistry
 from props import budget, json_values
+
+GATEWAY_KEYS = {"status", "last_seen", "presence", "departed_at"}  # the hub's to say (#608)
 
 GO_HEARTBEAT = Path(__file__).resolve().parents[2] / "internal" / "heartbeat" / "heartbeat.go"
 VALID_ID = re.compile(r"[A-Za-z0-9_-]{1,64}")  # contract §2 / §12.9: one NATS token
@@ -64,7 +66,7 @@ def payloads(draw, node_id: str):
         hb["schema"] = HEARTBEAT_SCHEMA if draw(st.integers(0, 5)) else draw(st.text(max_size=20))
     if draw(st.integers(0, 9)):
         hb["node_id"] = node_id if draw(st.integers(0, 4)) else draw(any_ids)
-    for key in draw(st.lists(st.sampled_from(sorted(FORBIDDEN_KEYS | {"status", "last_seen"})), max_size=3)):
+    for key in draw(st.lists(st.sampled_from(sorted(FORBIDDEN_KEYS | GATEWAY_KEYS)), max_size=3)):
         hb[key] = draw(json_values)
     hb.update(draw(st.dictionaries(st.sampled_from(["hostname", "role", "board", "cpus", "k3s", "rauc"]), json_values, max_size=3)))
     form = draw(st.sampled_from(["object"] * 7 + ["not-object", "not-json", "huge"]))
@@ -96,7 +98,7 @@ def expected(subject: str, data: bytes) -> dict | None:
         return None
     if not isinstance(hb, dict) or hb.get("schema") != HEARTBEAT_SCHEMA or hb.get("node_id") != parts[2]:
         return None
-    return {k: v for k, v in hb.items() if k not in FORBIDDEN_KEYS | {"status", "last_seen"}}
+    return {k: v for k, v in hb.items() if k not in FORBIDDEN_KEYS | GATEWAY_KEYS}
 
 
 @budget(100)
@@ -119,9 +121,10 @@ def test_ingest_keeps_exactly_the_valid_heartbeats(msgs):
         hb, seen = model[node["node_id"]]
         assert not FORBIDDEN_KEYS & node.keys()
         assert node["last_seen"] == iso(seen)
-        assert node["status"] == ("online" if (now[0] - seen).total_seconds() <= 30 else
-                                  "stale" if (now[0] - seen).total_seconds() <= 120 else "offline")
-        assert {k: v for k, v in node.items() if k not in ("status", "last_seen")} == hb
+        age = (now[0] - seen).total_seconds()
+        assert node["status"] == ("online" if age <= 30 else "stale" if age <= 120 else "offline")
+        assert node["presence"] == ("online" if age <= 14 else "offline") and node["departed_at"] is None
+        assert {k: v for k, v in node.items() if k not in GATEWAY_KEYS} == hb
 
 
 def go_node_id_pattern() -> re.Pattern[str]:

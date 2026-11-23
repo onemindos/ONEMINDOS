@@ -11,18 +11,11 @@ approve or deny, because no such tool exists.
 from __future__ import annotations
 
 from ..auth import MCP_BUNDLES, MCP_SCOPES, Principal
+from ..surfaces.core import CORE_TOOLS
 
-TOOL_SCOPES = {
-    "get_instance": "instance:read",
-    "list_nodes": "nodes:read",
-    "get_node": "nodes:read",
-    "list_apps": "apps:read",
-    "get_app": "apps:read",
-    "list_actions": "actions:read:own",
-    "get_action": "actions:read:own",
-    "search_audit": "audit:read:own",
-    "request_action": "actions:request:*",  # any actions:request:<type>; the call needs its own type's
-}
+# Generated from the one declaration of each core tool (surfaces/core.py, #605). "actions:request:*"
+# means any actions:request:<type>; a call needs its own type's.
+TOOL_SCOPES = {t.name: t.scope for t in CORE_TOOLS}
 RESOURCE_SCOPES = {"catalog": "apps:read", "nodes": "nodes:read",
                    "actions": "actions:read:own", "audit": "audit:read:own"}
 TASK_SCOPE = "actions:read:own"

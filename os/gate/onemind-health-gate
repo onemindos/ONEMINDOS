@@ -38,18 +38,23 @@ if [ -n "$DF" ]; then
   log "DATA-FAILURES $(printf '%s\n' "$DF" | wc -l) earlier boot(s) ran in recovery mode: $(printf '%s\n' "$DF" | tail -n1)"
 fi
 clear_pending() { rm -f "$PENDING" "$ESP_PENDING"; sync; }
+# One round of checks. An edge (role leaf, #751) runs no k3s server, so it is judged by the leaf check;
+# the role is read on every round, because first boot writes it while the gate is already running.
+leaf_box() { grep -qsx leaf "$STATE/etc/role"; }
+check() { if leaf_box; then /usr/lib/onemind/onemind-leaf-check; else /usr/lib/onemind/onemind-k3s-check; fi; }
 
 commit() { # mark-good booted; never fail silently (LAB-rauc finding 4)
   local e; if e=$(rauc status mark-good booted 2>&1); then return 0; fi
   log "COMMIT-ERROR: $(echo "$e" | tail -n1)"; return 1
 }
-watch_only() { # committed/fell-back boots: report k3s health, no action
+watch_only() { # committed/fell-back boots: report k3s (or, on an edge, leaf) health, no action
   local t0=$SECONDS r
   while [ $((SECONDS - t0)) -lt "$TIMEOUT" ]; do
-    r=$(/usr/lib/onemind/onemind-k3s-check) && { log "K3S-FRESH ok after $((SECONDS - t0))s: $r"; return; }
+    WHAT=K3S; leaf_box && WHAT=LEAF
+    r=$(check) && { log "${WHAT}-FRESH ok after $((SECONDS - t0))s: $r"; return; }
     sleep "$INTERVAL"
   done
-  log "K3S-FRESH ALERT not healthy after ${TIMEOUT}s on a committed slot: $r (no rollback)"
+  log "${WHAT}-FRESH ALERT not healthy after ${TIMEOUT}s on a committed slot: $r (no rollback)"
 }
 remember_bad() { echo "$(date -u +%FT%TZ) version=$1 verdict=$2" >> "$BAD"; sync "$BAD" 2>/dev/null || sync; }
 
@@ -77,7 +82,7 @@ trial)
     r="fail G7: booted version $VER != bundle version $PV"; worst=7
   else
     while [ $((SECONDS - t0)) -lt "$TIMEOUT" ]; do
-      if r=$(/usr/lib/onemind/onemind-k3s-check); then
+      if r=$(check); then
         ok=$((ok + 1)); log "CHECK pass $ok/$STABLE at $((SECONDS - t0))s: $r"
         if [ "$ok" -ge "$STABLE" ]; then
           apps=$(KUBECONFIG=/run/k3s/k3s.yaml /usr/local/bin/k3s kubectl -n apps get pods --no-headers 2>/dev/null | awk '{printf "%s %s %s; ", $1, $2, $3}')
