@@ -1,5 +1,5 @@
 ---
-pr: pending
+pr: 977
 branch: claude/sockets-e2-broker
 ---
 Host socket E2, the capability broker (#186): an app can now get one narrow host grant (one USB serial, raw USB or camera device node, one GPU render node, host networking, or real-time scheduling) only through an owner approval. An owner or an agent files the request at POST /v1/host-grants/requests. It waits as a pending host.grant action that only an owner can approve, never an agent, an automation or a standing approval. The install sandbox then allows exactly that node, host network or SYS_NICE for that app and nothing wider: privileged containers, hostPID, hostIPC, other host paths and other capabilities are still refused. The app's namespace runs at the privileged Pod Security level only while a grant is active, and the install approval is bound to the grants that are active. GET /v1/host-grants lists the grants and POST /v1/host-grants/{id}/revoke switches one off at once. After a revoke, the app's next install or update is refused again. Community-tier apps never get a grant (Z-21). As a result, Home Assistant can use a Zigbee stick only after the owner approves it.
