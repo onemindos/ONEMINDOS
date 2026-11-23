@@ -59,18 +59,18 @@ def register(app: FastAPI, gw: Gateway) -> None:
     broker = HostGrantBroker(gw)
     app.state.host_grants = broker
 
-    @app.get("/v1/host-grants", operation_id="host_grants.list", tags=["plugins"],
+    @app.get("/v1/host-grants", operation_id="plugins.host_grants.list", tags=["plugins"],
              response_model=HostGrants, responses=error_responses(401, 403, 422))
     def grants(app_id: str | None = Query(default=None, pattern=APP_ID_RE.pattern, max_length=59),
                p: Principal = Depends(gw.principal)):
         return {"grants": broker.grants(p, app_id)}
 
-    @app.post("/v1/host-grants/requests", operation_id="host_grants.request", tags=["plugins"],
+    @app.post("/v1/host-grants/requests", operation_id="plugins.host_grants.request", tags=["plugins"],
               response_model=Action, status_code=202, responses=error_responses(401, 403, 404, 409, 422))
     def request(body: HostGrantRequest, p: Principal = Depends(gw.principal)):
         return broker.request(p, body)
 
-    @app.post("/v1/host-grants/{grant_id}/revoke", operation_id="host_grants.revoke", tags=["plugins"],
+    @app.post("/v1/host-grants/{grant_id}/revoke", operation_id="plugins.host_grants.revoke", tags=["plugins"],
               response_model=HostGrant, responses=error_responses(401, 403, 404))
     def revoke(grant_id: str, p: Principal = Depends(gw.principal)):
         return broker.revoke(p, grant_id)

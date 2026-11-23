@@ -19947,7 +19947,7 @@
     },
     "/v1/host-grants": {
       "get": {
-        "operationId": "host_grants.list",
+        "operationId": "plugins.host_grants.list",
         "parameters": [
           {
             "in": "query",
@@ -20018,7 +20018,7 @@
     },
     "/v1/host-grants/requests": {
       "post": {
-        "operationId": "host_grants.request",
+        "operationId": "plugins.host_grants.request",
         "requestBody": {
           "content": {
             "application/json": {
@@ -20109,7 +20109,7 @@
     },
     "/v1/host-grants/{grant_id}/revoke": {
       "post": {
-        "operationId": "host_grants.revoke",
+        "operationId": "plugins.host_grants.revoke",
         "parameters": [
           {
             "in": "path",
