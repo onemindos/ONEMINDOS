@@ -5,9 +5,13 @@
 # mounts), 3. the data volume (journal off /var/log, sync, stop data.mount, close the encrypted disk), 4. poweroff.
 # No RequiresMountsFor=/data: stopping data.mount stops every unit that needs /data, and this one must keep going.
 # Not sandboxed, on purpose: it stops k3s, kills its processes, unmounts /data and powers the box off.
+# Time: onemind_ups.py starts poweroff within BUDGET (185 s) whatever hangs, and tries it twice (20 s each), so it
+# ends before TimeoutStartSec. If it is still killed, or fails, FailureAction forces the poweroff: upsmon is gone
+# by then (stopping data.mount stops it), so nothing else would power the box off before the battery dies.
 [Unit]
 Description=OneMind UPS: ordered shutdown on low battery (apps, k3s, data volume, poweroff)
 DefaultDependencies=no
+FailureAction=poweroff-force
 
 [Service]
 Type=oneshot

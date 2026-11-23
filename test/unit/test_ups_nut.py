@@ -167,6 +167,42 @@ class Shutdown(unittest.TestCase):
         self.assertEqual(calls[-1], "systemctl poweroff")
         self.assertIn("kill -TERM 101 102", calls)
 
+    def test_poweroff_is_forced_when_the_plain_one_fails(self):
+        calls = self.go(fail=("systemctl poweroff",))
+        self.assertEqual(calls[-2:], ["systemctl poweroff", "systemctl poweroff --force"])
+
+    def test_every_step_hanging_still_powers_off_before_systemd_kills_the_unit(self):
+        # Every command runs until its timeout and the k3s processes never exit: the steps run out of time, the
+        # data volume still gets its reserved slice, and poweroff runs (twice) before TimeoutStartSec.
+        now = [0.0]
+        calls, timeouts = [], []
+
+        def hang(cmd, timeout=None):
+            calls.append(" ".join(cmd))
+            timeouts.append(timeout)
+            now[0] += timeout
+            raise subprocess.TimeoutExpired(cmd, timeout)
+
+        def sleep(s):
+            now[0] += s
+        fs = Fs(mounts=["/run/k3s/m%02d" % i for i in range(40)])
+        rc = ups.shutdown(runner=hang, fs=fs, kill=lambda sig, pids: None, sleep=sleep, clock=lambda: now[0])
+        self.assertEqual(rc, 1)                                   # both poweroffs failed: FailureAction is next
+        self.assertEqual(calls[-2:], ["systemctl poweroff", "systemctl poweroff --force"])
+        self.assertIn("sync", calls)
+        self.assertIn("systemctl stop data.mount", calls)
+        self.assertLess(len([c for c in calls if c.startswith("umount ")]), 40)   # k3s ran out of time
+        self.assertTrue(all(t >= 1 for t in timeouts))
+        limit = int(re.search(r"(?m)^TimeoutStartSec=(\d+)$", unit("onemind-ups-shutdown.service")).group(1))
+        self.assertLessEqual(now[0], ups.BUDGET + 2 * ups.POWEROFF_TIMEOUT)
+        self.assertLess(now[0], limit - 10)
+
+    def test_the_budget_fits_the_unit_and_a_failure_forces_the_poweroff(self):
+        u = unit("onemind-ups-shutdown.service")
+        limit = int(re.search(r"(?m)^TimeoutStartSec=(\d+)$", u).group(1))
+        self.assertLess(ups.BUDGET + 2 * ups.POWEROFF_TIMEOUT, limit - 10)
+        self.assertIn("\nFailureAction=poweroff-force\n", u)
+
     def test_dry_run_prints_the_plan_and_runs_nothing(self):
         with tempfile.TemporaryDirectory() as d:
             log = os.path.join(d, "plan.log")

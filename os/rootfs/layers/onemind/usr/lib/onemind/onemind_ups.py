@@ -13,8 +13,13 @@ unit quietly instead of marking it failed. A UPS plugged in later is found at th
   2. k3s: stop the container runtime that is left in k3s's cgroup and unmount its mounts, deepest first;
   3. data: move the journal off /var/log (a bind from /data), sync, stop data.mount (systemd stops every unit and
      bind mount that needs /data first) and close the encrypted data disk;
-  4. poweroff.
-A step that fails is logged and the next one still runs: on a low battery the box must always reach poweroff.
+  4. poweroff (and `systemctl poweroff --force` if that fails).
+A command or step that fails is logged and the next one still runs: on a low battery the box must always reach
+poweroff.
+Every step has a deadline inside one overall budget (STEP_BUDGET), so a step that hangs runs out of time instead of
+eating the battery: apps and k3s can never take the time reserved for the data volume, and step 4 always starts
+within BUDGET seconds. BUDGET plus two poweroff attempts stays under the unit's TimeoutStartSec, and the unit has
+FailureAction=poweroff-force as the last net if this program is killed or fails anyway.
 `--dry-run` prints the plan and runs nothing (the tests and an owner who wants to see what it would do).
 """
 import argparse, os, re, secrets, signal, subprocess, sys, time
@@ -33,6 +38,11 @@ CRYPTSETUP = "/usr/lib/systemd/systemd-cryptsetup"
 MAPPER = "onemind-data"
 APP_GRACE = 30          # seconds each app gets after SIGTERM; a UPS on low battery has a few minutes at best
 RUNTIME_GRACE = 10
+# Seconds each step may use, in order. A step's deadline is the start plus its own slice and all slices before it,
+# so time a fast step leaves over goes to the next one, and a hanging step never takes a later step's slice.
+STEP_BUDGET = (("apps", 80), ("k3s", 30), ("data", 75))
+BUDGET = sum(s for _, s in STEP_BUDGET)
+POWEROFF_TIMEOUT = 20   # each of the two poweroff attempts; BUDGET + 2 * this < TimeoutStartSec=240 in the unit
 KEYS = ("driver", "port", "vendorid", "productid", "serial")
 SAFE = re.compile(r"^[A-Za-z0-9 ._:/+-]{1,128}$")
 
@@ -142,49 +152,89 @@ def send(sig, pids):
             pass
 
 
-def shutdown(runner=run, fs=None, kill=send, sleep=time.sleep, on_step=lambda name: None):
+class OutOfTime(Exception):
+    """The step used up its slice of the budget; the rest of it is skipped."""
+
+
+def shutdown(runner=run, fs=None, kill=send, sleep=time.sleep, on_step=lambda name: None, clock=time.monotonic):
     fs = fs or HostFs()
+    start, end = clock(), {}
+    total = 0
+    for name, slice_ in STEP_BUDGET:
+        total += slice_
+        end[name] = start + total
+    current = ["apps"]
+
+    def left():
+        return end[current[0]] - clock()
+
+    def within(want):
+        """The timeout for one command: what it needs, cut to what is left of the step's slice."""
+        room = left()
+        if room < 1:
+            raise OutOfTime
+        return min(want, room)
+
+    def attempt(cmd, want):
+        """Run one command of a step; a failure or hang is logged and the step goes on with its next command."""
+        try:
+            return runner(cmd, timeout=within(want))
+        except (subprocess.SubprocessError, OSError) as e:
+            say(f"{current[0]}: {' '.join(cmd[:3])}: failed ({type(e).__name__}); going on")
+            return None
 
     def apps():
-        runner(["systemctl", "stop", "k3s.service"], timeout=60)
-        ids = runner([K3S, "crictl", "ps", "-q"], timeout=20).split()
+        attempt(["systemctl", "stop", "k3s.service"], 60)
+        ids = (attempt([K3S, "crictl", "ps", "-q"], 20) or "").split()
         if ids:
-            runner([K3S, "crictl", "stop", "--timeout", str(APP_GRACE), *ids], timeout=APP_GRACE + 30)
+            t = within(APP_GRACE + 30)
+            grace = max(1, min(APP_GRACE, int(t) - 30))
+            runner([K3S, "crictl", "stop", "--timeout", str(grace), *ids], timeout=t)
 
     def k3s():
         pids = fs.k3s_procs()
         if pids:
             kill("TERM", pids)
             for _ in range(RUNTIME_GRACE):
-                if not fs.k3s_procs():
+                if not fs.k3s_procs() or left() < 2:
                     break
                 sleep(1)
-            left = fs.k3s_procs()
-            if left:
-                kill("KILL", left)
+            rest = fs.k3s_procs()
+            if rest:
+                kill("KILL", rest)
         for point in sorted(fs.mounts_under(K3S_MOUNTS), key=len, reverse=True):
-            try:
-                runner(["umount", point], timeout=10)
-            except (subprocess.SubprocessError, OSError) as e:
-                say(f"k3s: could not unmount {point}: {e}")
+            attempt(["umount", point], 10)
 
     def data():
-        runner(["journalctl", "--relinquish-var"], timeout=15)
-        runner(["sync"], timeout=30)
-        runner(["systemctl", "stop", "data.mount"], timeout=60)
+        attempt(["journalctl", "--relinquish-var"], 15)
+        attempt(["sync"], 30)
+        attempt(["systemctl", "stop", "data.mount"], 60)
         if fs.has_mapper():
-            runner([CRYPTSETUP, "detach", MAPPER], timeout=30)
+            attempt([CRYPTSETUP, "detach", MAPPER], 30)
 
-    def poweroff():
-        runner(["systemctl", "poweroff"], timeout=30)
-
-    for name, step in (("apps", apps), ("k3s", k3s), ("data", data), ("poweroff", poweroff)):
+    for name, step in (("apps", apps), ("k3s", k3s), ("data", data)):
         say(f"low battery: step {name}")
         on_step(name)
+        current[0] = name
         try:
             step()
+        except OutOfTime:
+            say(f"{name}: out of time; going on, the box must still power off")
         except (subprocess.SubprocessError, OSError) as e:
             say(f"{name}: failed ({type(e).__name__}); going on, the box must still power off")
+
+    say("low battery: step poweroff")
+    on_step("poweroff")
+    try:
+        runner(["systemctl", "poweroff"], timeout=POWEROFF_TIMEOUT)
+    except (subprocess.SubprocessError, OSError) as e:
+        # --force skips stopping units but still kills every process and unmounts or remounts read-only.
+        say(f"poweroff: failed ({type(e).__name__}); forcing it")
+        try:
+            runner(["systemctl", "poweroff", "--force"], timeout=POWEROFF_TIMEOUT)
+        except (subprocess.SubprocessError, OSError) as e2:
+            say(f"poweroff --force: failed ({type(e2).__name__}); the unit's FailureAction=poweroff-force is next")
+            return 1
     return 0
 
 
