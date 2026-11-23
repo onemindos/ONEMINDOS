@@ -267,6 +267,38 @@ def test_reading_values_checks_the_data_class_when_a_reader_subscribes(client, c
         assert client.get(f"/v1/bridges/{APP}/latest", headers=who).status_code == 403
 
 
+def test_revision_is_required_so_readings_are_never_silently_dropped(client, clock, sent):
+    """Latest-wins keeps only a strictly higher revision: a default of 0 would count every reading
+    after the first as a duplicate. A missing revision is refused out loud instead."""
+    headers, _ = install(client, clock)
+    reading = {"id": "pump-9", "kind": "asset", "name": "sensor", "field": "temp", "time": "2026-11-11T21:59:00Z",
+               "value": 20.0, "unit": "Cel"}
+    for value in (20.0, 21.0):
+        r = post(client, headers, reading | {"value": value}).json()
+        assert r["accepted"] == 0 and r["duplicates"] == 0 and r["rejected"][0]["reason"] == "revision: missing"
+    assert not [s for s, _ in sent if s.startswith("onemind.asset.")]
+    # A sensor sending its reading time in ms as the revision gets every new value through.
+    for n, value in enumerate((20.0, 21.0, 22.5)):
+        assert post(client, headers, reading | {"value": value, "revision": 1763000000000 + n}).json()["accepted"] == 1
+    assert [d["value"] for s, d in sent if s == "onemind.asset.sensor.pump-9.temp"] == [20.0, 21.0, 22.5]
+
+
+@pytest.mark.parametrize("data_class", ["owner", "private", "location", "activity"])
+def test_only_a_public_bridge_feeds_the_shared_asset_state(client, clock, sent, data_class):
+    """The asset-state bucket and onemind.asset.* reach every adult and asset-reading agent on
+    GET /v1/events (#606), which never asks the bridge's data class: a non-public bridge's asset
+    events are refused, so nothing it sends lands there; its other kinds stay owner-only on /latest."""
+    manifest = copy.deepcopy(MANIFEST)
+    manifest["spec"]["extensions"]["bridge"]["dataClass"] = data_class
+    headers, _ = install(client, clock, manifest=manifest)
+    r = post(client, headers, ev("pump-3", kind="asset", name="sensor", value=1, unit="Cel"), ev()).json()
+    assert r["accepted"] == 1 and r["rejected"][0]["index"] == 0
+    assert f"dataClass {data_class} cannot emit them" in r["rejected"][0]["reason"]
+    assert not [s for s, _ in sent if s.startswith(("onemind.asset.", "$KV."))]
+    assert [v["kind"] for v in client.get(f"/v1/bridges/{APP}/latest", headers=OWNER).json()] == ["intel"]
+    assert client.get(f"/v1/bridges/{APP}/latest", headers=ADULT).status_code == 403
+
+
 def test_show_only_terms_keep_nothing(client, clock, sent):
     manifest = copy.deepcopy(MANIFEST)
     manifest["spec"]["terms"]["providers"][0]["store"] = "none"

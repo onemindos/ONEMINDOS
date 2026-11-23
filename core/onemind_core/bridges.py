@@ -10,7 +10,8 @@ install with the grant `events:write:own`. It posts batches of events here; the 
 2. takes one token per event from the bridge's bucket (the manifest's eventsPerSecond and burst,
    capped by the hub maximum) and from the hub-wide bucket; short of tokens the whole batch is
    refused with 429 and Retry-After, before any work, so a flood costs almost nothing;
-3. checks each event: its kind and name are one of the bridge's emits, at most min(maxEventBytes,
+3. checks each event: its kind and name are one of the bridge's emits (kind asset only for a
+   dataClass public bridge), revision is given, at most min(maxEventBytes,
    16 KiB), and the stamped datapoint fits sdk/schema/onemind.datapoint.schema.json;
 4. stamps source (always the app id: a bridge cannot speak for another source) and licence (the
    provider's terms record), dedupes by (id, revision) and coalesces latest-wins per entity;
@@ -106,7 +107,11 @@ class BridgeEvent(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
     id: str = Field(pattern=_ID, description="the item's own id at the source; the entity latest-wins keys on")
-    revision: int = Field(default=0, ge=0, le=2**53 - 1, description="bump it when the same item changes")
+    # Required, never defaulted: latest-wins keeps only a strictly higher revision, so a default of 0
+    # would silently drop every reading after the first. A sensor sends its reading time in ms.
+    revision: int = Field(ge=0, le=2**53 - 1, description=(
+        "required; strictly higher for every new value of the same item (a sensor can send its reading time in "
+        "milliseconds); the same or a lower revision counts as a duplicate"))
     kind: Literal["intel", "article", "alert", "layer", "asset"]
     name: str = Field(pattern=_TOKEN, description="one of the bridge's spec.extensions.bridge.emits names")
     field: str = Field(default="state", pattern=_TOKEN)
@@ -247,8 +252,9 @@ def bridge_from(app_id: str, manifest: object, cfg: BridgeSettings) -> Bridge | 
 def may_read(p: Principal, data_class: str) -> bool:
     """The subscribe-time check: may this person receive a bridge's values at all?
 
-    Checked once when a reader asks for the snapshot (GET /v1/bridges/<id>/latest; the live
-    fan-out will call it on subscribe). Public data: owners and adults. Any other data class
+    Checked once when a reader asks for the snapshot (GET /v1/bridges/<id>/latest). The live
+    asset fan-out (GET /v1/events, #606) does not call it, so intake refuses asset events from
+    any bridge whose data class is not public (BridgeIntake._check). Public data: owners and adults. Any other data class
     (owner, private, location, activity): owners only. Agents, plugins and machines: never here."""
     if p.kind != "person":
         return False
@@ -486,6 +492,11 @@ class BridgeIntake:
             return None, f"{ev.kind} {ev.name} is not one of this bridge's emits"
         if ev.kind == "asset" and ev.name == "robot":
             return None, "robot channels are reserved: no bridge publishes them"
+        if ev.kind == "asset" and b.data_class != "public":
+            # The asset-state bucket and onemind.asset.* reach every adult and every agent holding
+            # assets:read (GET /v1/events, #606) without may_read; only public data may go there.
+            return None, (f"asset values are shared with every adult and asset-reading agent: "
+                          f"dataClass {b.data_class} cannot emit them")
         for subject in self._subjects(b, ev):
             verdict = reg.check(subject, "gateway")
             if not verdict.ok:
