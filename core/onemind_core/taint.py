@@ -13,6 +13,12 @@ suspect:
   exact parameters they were shown, not "whatever this action id means now";
 - the app it targets must be visible to AI under the app's own aiPolicy (ai_policy.require, #165).
 
+Where taint comes from: an MCP tool or resource result that carries `onemind/untrusted` text
+(mcp/tools.py), and every REST read an agent makes (`rest_source` below). The REST routes an agent
+may read (apps, nodes, actions, audit, events ...) return the same third-party text MCP marks, so a
+REST read taints exactly like an MCP read. It is deny by default: a read taints unless its route is
+in `REST_CLEAN_READS`, which serve only what the gateway or the owner wrote.
+
 Taint is held in memory for the gateway process and expires after `TTL` without a new read. Each
 read renews it. A restart forgets who was tainted, but the plan note on an action already filed
 survives in the ledger, so a pending tainted request stays tainted. Nothing an agent sends can
@@ -30,6 +36,10 @@ TTL = timedelta(hours=1)
 MAX_SOURCES = 8
 PLAN_KEY = "taint"  # where the note sits in Action.plan (outside the fingerprint, see actions.py)
 MAX_SOURCE_LEN = 80
+# Agent-readable REST routes that carry no third-party text: the box's own name, version and node id
+# (MCP get_instance, which never taints, serves the same), and the owner's agent kill switch.
+REST_CLEAN_READS = frozenset({"/v1/instance", "/v1/agents/kill-switch"})
+READ_METHODS = frozenset({"GET", "HEAD"})
 
 
 @dataclass(frozen=True)
@@ -84,3 +94,22 @@ def plan_taint(plan: dict | None) -> dict | None:
     """The taint note on a filed action's plan, or None."""
     note = (plan or {}).get(PLAN_KEY)
     return note if isinstance(note, dict) and note else None
+
+
+def rest_source(scope: dict) -> str | None:
+    """The taint source of a REST request (an ASGI scope), or None when it reads nothing third-party.
+
+    A read is GET or HEAD, or any WebSocket (event streams). The route template, not the raw path,
+    names the source: "rest:GET /v1/apps/{app_id}", so the card never repeats text from the URL.
+    """
+    kind = scope.get("type")
+    if kind == "websocket":
+        method = "WS"
+    elif kind == "http" and scope.get("method") in READ_METHODS:
+        method = scope["method"]
+    else:
+        return None
+    path = getattr(scope.get("route"), "path", None) or scope.get("path") or ""
+    if path in REST_CLEAN_READS:
+        return None
+    return f"rest:{method} {path}"

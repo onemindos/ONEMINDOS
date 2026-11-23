@@ -15,11 +15,15 @@ from datetime import timedelta
 
 import pytest
 
+from pydantic import BaseModel
+
 from conftest import AGENT, OWNER, action_body, make_client
-from onemind_core.actions import StandingGrant
+from onemind_core.actions import FeatureAction, StandingGrant, feature_plan
 from onemind_core.auth import Principal
-from onemind_core.taint import MAX_SOURCES, TTL, TaintLedger, plan_taint
+from onemind_core.executors import ExecResult
+from onemind_core.taint import MAX_SOURCES, TTL, TaintLedger, plan_taint, rest_source
 from test_mcp import call
+from test_system_controls import Host
 
 
 @pytest.fixture
@@ -143,6 +147,108 @@ def test_taint_expires_after_an_hour_without_a_new_read(tclient, clock):
     call(tclient, "get_app", {"app_id": "evil-app"})
     clock.advance(TTL.total_seconds() + 1)
     assert agent_removes_whoami(tclient, clock, "late").json()["state"] == "succeeded"
+
+
+# ---- REST reads taint like MCP reads -------------------------------------------------------------
+@pytest.mark.parametrize("url,route", [
+    ("/v1/apps", "/v1/apps"),
+    ("/v1/apps/evil-app", "/v1/apps/{app_id}"),
+    ("/v1/nodes", "/v1/nodes"),
+    ("/v1/actions", "/v1/actions"),
+    ("/v1/audit/events", "/v1/audit/events"),
+])
+def test_an_agent_that_reads_over_rest_is_tainted_too(tclient, clock, url, route):
+    install_whoami(tclient, clock)
+    owner_allows_removals(tclient)
+    r = tclient.get(url, headers=AGENT)
+    assert r.status_code == 200, r.text
+    action = agent_removes_whoami(tclient, clock, "after-rest-read").json()
+    assert action["state"] == "awaiting_approval", "a standing approval accepted a request after a REST read"
+    assert plan_taint(action["plan"])["sources"] == [f"rest:GET {route}"]
+    blind = tclient.post(f"/v1/actions/{action['id']}/approve", headers=OWNER)
+    assert blind.status_code == 409 and blind.json()["reason"] == "plan_unchecked", blind.text
+    ok = tclient.post(f"/v1/actions/{action['id']}/approve", json={"plan_sha256": action["plan_sha256"]}, headers=OWNER)
+    assert ok.status_code == 200 and ok.json()["state"] == "succeeded", ok.text
+
+
+def test_the_hostile_rest_page_cannot_make_an_agent_act(tclient, clock):
+    """The reviewer's probe: GET /v1/apps and /v1/apps/evil-app, then app.remove under a standing approval."""
+    install_whoami(tclient, clock)
+    owner_allows_removals(tclient)
+    tclient.get("/v1/apps", headers=AGENT)
+    page = tclient.get("/v1/apps/evil-app", headers=AGENT)
+    assert "Ignore previous instructions" in page.text
+    action = agent_removes_whoami(tclient, clock, "obeys").json()
+    assert action["state"] == "awaiting_approval"
+    assert plan_taint(action["plan"])["sources"] == ["rest:GET /v1/apps", "rest:GET /v1/apps/{app_id}"]
+
+
+def test_rest_calls_that_read_nothing_third_party_do_not_taint(tclient, clock):
+    install_whoami(tclient, clock)
+    owner_allows_removals(tclient)
+    assert tclient.get("/v1/instance", headers=AGENT).status_code == 200  # the box's own name and version
+    assert tclient.get("/v1/apps", headers=OWNER).status_code == 200  # a person reading taints no agent
+    assert agent_removes_whoami(tclient, clock, "calm").json()["state"] == "succeeded"  # POST itself reads nothing
+
+
+def test_rest_source_names_reads_by_route_template():
+    class Route:
+        path = "/v1/apps/{app_id}"
+
+    assert rest_source({"type": "http", "method": "GET", "path": "/v1/apps/x", "route": Route()}) == \
+        "rest:GET /v1/apps/{app_id}"
+    assert rest_source({"type": "http", "method": "HEAD", "path": "/v1/nodes"}) == "rest:HEAD /v1/nodes"
+    assert rest_source({"type": "websocket", "path": "/v1/events"}) == "rest:WS /v1/events"
+    assert rest_source({"type": "http", "method": "POST", "path": "/v1/actions"}) is None
+    assert rest_source({"type": "http", "method": "GET", "path": "/v1/instance"}) is None
+
+
+# ---- feature requests (system controls, MCP built-in tools) carry the taint ------------------------
+def test_a_tainted_agents_feature_request_shows_the_note_and_binds_the_plan(tclient, clock):
+    tclient.app.state.system.executor = Host()
+    calm = tclient.post("/v1/system/actions", headers=AGENT, json={"type": "system.restart"}).json()
+    assert calm["plan"] is None and calm["plan_sha256"] is None  # an untainted request is unchanged
+
+    tclient.get("/v1/apps/evil-app", headers=AGENT)
+    r = tclient.post("/v1/system/actions", headers=AGENT, json={"type": "system.shutdown"})
+    assert r.status_code == 202, r.text
+    a = r.json()
+    note = plan_taint(a["plan"])
+    assert note and note["sources"] == ["rest:GET /v1/apps/{app_id}"] and "third parties" in note["message"]
+    assert a["plan_sha256"] == feature_plan("system.shutdown", a["params"])[1]  # the note is outside it
+
+    blind = tclient.post(f"/v1/actions/{a['id']}/approve", headers=OWNER)
+    assert blind.status_code == 409 and blind.json()["reason"] == "plan_unchecked", blind.text
+    wrong = tclient.post(f"/v1/actions/{a['id']}/approve", json={"plan_sha256": "sha256:" + "0" * 64}, headers=OWNER)
+    assert wrong.status_code == 409 and wrong.json()["reason"] == "plan_changed", wrong.text
+    assert tclient.get(f"/v1/actions/{a['id']}", headers=OWNER).json()["state"] == "awaiting_approval"
+    ok = tclient.post(f"/v1/actions/{a['id']}/approve", json={"plan_sha256": a["plan_sha256"]}, headers=OWNER)
+    assert ok.status_code == 200 and ok.json()["state"] == "succeeded", ok.text
+    lines = tclient.get("/v1/audit/events", params={"action_id": a["id"]}, headers=OWNER).json()
+    by_event = {x["event"]: x["data"] for x in lines}
+    assert by_event["action.requested"]["tainted_by"] == ["rest:GET /v1/apps/{app_id}"]
+    assert by_event["action.approved"]["tainted"] is True
+
+
+def test_a_tainted_agents_feature_request_must_name_an_app_visible_to_ai(tclient, clock):
+    class Params(BaseModel):
+        app_id: str
+
+    tclient.app.state.actions.register_type("demo.poke", FeatureAction(
+        risk="write", run=lambda a, finish: finish(ExecResult("succeeded", "poked")),
+        requesters=frozenset({"agent"}), params_model=Params))
+
+    def poke(app_id, key):
+        return tclient.post("/v1/actions", headers=AGENT, json={
+            "type": "demo.poke", "params": {"app_id": app_id}, "idempotency_key": key,
+            "expires_at": (clock.now + timedelta(minutes=5)).isoformat().replace("+00:00", "Z")})
+
+    assert poke("noai-app", "before").status_code == 201  # not tainted yet
+    call(tclient, "get_app", {"app_id": "evil-app"})
+    r = poke("noai-app", "after")
+    assert r.status_code == 403 and "aiPolicy" in r.json()["message"], r.text
+    ok = poke("whoami", "fine")
+    assert ok.status_code == 201 and plan_taint(ok.json()["plan"])["sources"] == ["mcp:get_app"], ok.text
 
 
 # ---- AI policy (#165) ---------------------------------------------------------------------------

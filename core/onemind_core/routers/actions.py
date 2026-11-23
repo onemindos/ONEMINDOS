@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from ..actions import ActionRequest, ActionRequestBody, ApprovalInput, FeatureActionRequest
+from ..agent_stop import is_agent
 from ..apimodels import Action
 from ..appsecrets.api import SealedInput
 from ..auth import Principal
@@ -16,6 +17,7 @@ from ..context import Gateway
 from ..errors import error_responses
 from ..jsonbody import JsonBody
 from ..plugins.actions import own_actions, own_action
+from ..taint import rest_source
 
 
 class OverrideInput(BaseModel):
@@ -48,6 +50,19 @@ ORDER = 150
 def register(app: FastAPI, gw: Gateway) -> None:
     actions = gw.actions
     principal = gw.principal
+
+    def taint_rest_reads(request: Request, p: Principal) -> None:
+        """AIG-04: an agent that reads over REST is tainted like one that reads over MCP (taint.py).
+
+        Marked when the caller is known, before the route runs: a read that then fails still counts,
+        which can only make the agent wait for a person, never the other way round.
+        """
+        if is_agent(p):
+            source = rest_source(request.scope)
+            if source is not None:
+                actions.taint.mark(p.id, source)
+
+    gw.principal_guards.append(taint_rest_reads)
 
     def postable_feature_types() -> list[str]:
         # Only a type registered with a params model is filed through POST /v1/actions; the rest
