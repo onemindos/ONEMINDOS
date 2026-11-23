@@ -868,6 +868,31 @@
         "title": "AppPlacement",
         "type": "object"
       },
+      "AppQuality": {
+        "description": "Quality tier of an app or plugin, computed by the app gate from its own evidence, never set by hand.",
+        "properties": {
+          "evidence": {
+            "$ref": "#/components/schemas/QualityEvidence"
+          },
+          "tier": {
+            "description": "Derived by the gateway from the evidence; none when the evidence does not reach Bronze",
+            "enum": [
+              "none",
+              "bronze",
+              "silver",
+              "gold"
+            ],
+            "title": "Tier",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tier",
+          "evidence"
+        ],
+        "title": "AppQuality",
+        "type": "object"
+      },
       "AppScope": {
         "additionalProperties": false,
         "properties": {
@@ -1807,6 +1832,18 @@
           "installed": {
             "title": "Installed",
             "type": "boolean"
+          },
+          "licence_class": {
+            "default": "unknown",
+            "description": "metadata.licenceClass (#173). L1 and L2 are green. blocked and unknown are not: installing one needs accept_licence on the approval",
+            "enum": [
+              "L1",
+              "L2",
+              "blocked",
+              "unknown"
+            ],
+            "title": "Licence Class",
+            "type": "string"
           },
           "license": {
             "anyOf": [
@@ -3162,6 +3199,7 @@
               "exposure.mesh",
               "exposure.private",
               "exposure.public",
+              "files.download.release",
               "files.share.create",
               "machine.clone",
               "machine.create",
@@ -3330,6 +3368,88 @@
           "ok"
         ],
         "title": "Healthz",
+        "type": "object"
+      },
+      "HeldDownload": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "description": "The file name it gets in Files (a name Files refuses was replaced)",
+            "title": "Name",
+            "type": "string"
+          },
+          "person_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Who downloaded it (owners only)",
+            "title": "Person Id"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "received_at": {
+            "title": "Received At",
+            "type": "string"
+          },
+          "sha256": {
+            "title": "Sha256",
+            "type": "string"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          },
+          "state": {
+            "enum": [
+              "held",
+              "waiting_for_space"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "verdict": {
+            "description": "Why it is held: infected | name | executable | archive | unscanned; clean = it passed and waits for room in Files",
+            "title": "Verdict",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "size",
+          "sha256",
+          "verdict",
+          "reason",
+          "received_at",
+          "state"
+        ],
+        "title": "HeldDownload",
+        "type": "object"
+      },
+      "HeldDownloads": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/HeldDownload"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "HeldDownloads",
         "type": "object"
       },
       "HomeBody": {
@@ -6808,6 +6928,39 @@
         "title": "PushIn",
         "type": "object"
       },
+      "QualityEvidence": {
+        "description": "The yes/no checks behind a quality tier (#174), per level. A tier needs every check of its level and of the levels below.",
+        "properties": {
+          "bronze": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "title": "Bronze",
+            "type": "object"
+          },
+          "gold": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "title": "Gold",
+            "type": "object"
+          },
+          "silver": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "title": "Silver",
+            "type": "object"
+          }
+        },
+        "required": [
+          "bronze",
+          "silver",
+          "gold"
+        ],
+        "title": "QualityEvidence",
+        "type": "object"
+      },
       "QuotaBody": {
         "additionalProperties": false,
         "properties": {
@@ -7812,6 +7965,28 @@
       "ScanSummary": {
         "description": "§11.1 apps/<id>/scan.json, reduced to what the catalog shows.",
         "properties": {
+          "licence": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ScannedLicence"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "SPDX expression and licence class recorded by the app gate. Missing on older scans."
+          },
+          "quality": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AppQuality"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Quality tier (Bronze, Silver, Gold) and the checks that back it (#174). Null on a scan from before quality tiers: not rated yet"
+          },
           "reason": {
             "anyOf": [
               {
@@ -7843,6 +8018,29 @@
           "result"
         ],
         "title": "ScanSummary",
+        "type": "object"
+      },
+      "ScannedLicence": {
+        "properties": {
+          "class": {
+            "enum": [
+              "L1",
+              "L2",
+              "blocked"
+            ],
+            "title": "Class",
+            "type": "string"
+          },
+          "spdx": {
+            "title": "Spdx",
+            "type": "string"
+          }
+        },
+        "required": [
+          "spdx",
+          "class"
+        ],
+        "title": "ScannedLicence",
         "type": "object"
       },
       "SealedInput": {
@@ -11100,6 +11298,19 @@
       "onemind_core__routers__actions__ApproveBody": {
         "description": "§12.4: optional approve body. `webauthn` is the passkey assertion over approve-options' challenge.\n\nsealed: the app's secrets form for app.install (appsecrets/); override: the F-7 owner override.",
         "properties": {
+          "accept_licence": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "#173: the app id typed by the owner to accept a licence class that is not green (blocked or unknown). Required to approve app.install for such an app; ignored otherwise.",
+            "title": "Accept Licence"
+          },
           "device_signature": {
             "anyOf": [
               {
@@ -20589,6 +20800,248 @@
           }
         },
         "summary": "Download",
+        "tags": [
+          "files"
+        ]
+      }
+    },
+    "/v1/files/downloads": {
+      "get": {
+        "description": "Downloads held in quarantine. Nothing listed here is in Files or has been opened.",
+        "operationId": "files.downloads.list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HeldDownloads"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
+          }
+        },
+        "summary": "List Downloads",
+        "tags": [
+          "files"
+        ]
+      }
+    },
+    "/v1/files/downloads/{download_id}": {
+      "delete": {
+        "description": "Delete a held download for good. It never reaches Files. A repeated discard answers 404\n(the file is gone); the Idempotency-Key is accepted for the contract and needs no replay store.",
+        "operationId": "files.downloads.discard",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "download_id",
+            "required": true,
+            "schema": {
+              "title": "Download Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Discard",
+        "tags": [
+          "files"
+        ]
+      }
+    },
+    "/v1/files/downloads/{download_id}/release": {
+      "post": {
+        "description": "Ask to move a held download into its person's Files. Nothing moves until an owner approves it.",
+        "operationId": "files.downloads.release",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "download_id",
+            "required": true,
+            "schema": {
+              "title": "Download Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Release",
         "tags": [
           "files"
         ]

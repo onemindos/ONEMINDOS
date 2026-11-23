@@ -26,7 +26,7 @@ func Create(directory, id, template, source string) error {
 	}
 	manifest := map[string]any{
 		"apiVersion": "onemind.app/v1alpha1", "kind": "App",
-		"metadata": map[string]any{"id": id, "name": id, "version": "0.1.0", "description": "Declarative plugin settings", "category": "developer", "icon": "icon.svg", "license": "Apache-2.0", "source": source,
+		"metadata": map[string]any{"id": id, "name": id, "version": "0.1.0", "description": "Declarative plugin settings", "category": "developer", "icon": "icon.svg", "license": "Apache-2.0", "licenceClass": "L1", "source": source,
 			"links":    map[string]any{"docs": "UNVERIFIED", "github": "UNVERIFIED", "website": "UNVERIFIED", "support": "UNVERIFIED"},
 			"upstream": map[string]any{"release": "UNVERIFIED", "released_at": "UNVERIFIED", "archived": false}, "tier": "blocked"},
 		"spec": map[string]any{

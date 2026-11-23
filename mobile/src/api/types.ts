@@ -290,6 +290,8 @@ export interface WebAuthnCreationOptions {
 export interface ApproveBody {
   plan_sha256?: string;
   webauthn?: WebAuthnAssertion;
+  /** #173: the app id, typed by the owner, to accept a blocked or unknown licence class. */
+  accept_licence?: string;
   /** #702: or this phone's approval key's signature over approve-options' `device_payload`. */
   device_signature?: DeviceSignature;
 }

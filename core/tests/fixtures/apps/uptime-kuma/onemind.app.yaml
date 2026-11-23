@@ -8,6 +8,7 @@ metadata:
   category: monitoring
   icon: icon.svg
   license: MIT
+  licenceClass: L1
   source: https://github.com/louislam/uptime-kuma
 spec:
   archs: [amd64, arm64]
