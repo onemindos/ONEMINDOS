@@ -1,0 +1,41 @@
+#!/bin/sh
+# SPDX-License-Identifier: Apache-2.0
+# Secure Boot (efi route) boxes: make sure the firmware has one boot entry per slot, the switch RAUC's efi backend
+# flips (S-13, #148; os/secureboot/README.md). Entry label = the slot's RAUC bootname (A or B, also rauc.slot= in the
+# signed command line); loader = that slot's signed UKI on its own boot partition. RAUC finds an entry by its label
+# (rauc v1.15.2 src/bootloaders/efi.c), sets BootNext to it for the new slot's one trial boot and moves it to the
+# front of BootOrder when the health gate commits (mark-good).
+# Boot entries live in the machine's firmware, not on the disk, so a new box (or one whose firmware was reset)
+# starts without them and boots the ESP's fallback file, the slot-A UKI. This runs on every boot, before the health
+# gate (whose commit needs the booted slot's entry), and only adds what is missing. Only a box that had no A entry
+# gets a new BootOrder: A first, then the firmware's own entries. B stays out of BootOrder (not good yet, like
+# B_OK=0 in grubenv) until RAUC installs it and the gate commits it.
+set -eu
+BY=${ONEMIND_EFI_BYPARTLABEL:-/dev/disk/by-partlabel}
+SYS=${ONEMIND_EFI_SYSBLOCK:-/sys/class/block}
+say() { echo "EFI-ENTRIES: $*"; }
+# Boot number of the entry whose label is exactly $1 (efibootmgr prints "Boot0003* A<TAB>HD(...)").
+num() {
+  efibootmgr | awk -v l="$1" '/^Boot[0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][* ] / {
+    r = substr($0, 11); sub(/\t.*$/, "", r); if (r == l) { print substr($0, 5, 4); exit } }'
+}
+order() { efibootmgr | sed -n 's/^BootOrder: //p'; }
+created=""
+for s in A B; do
+  [ -n "$(num "$s")" ] && continue
+  p=onemind-boot-$(echo "$s" | tr AB ab)
+  [ -e "$BY/$p" ] || { say "ERROR: no partition $p, cannot create the boot entry of slot $s" >&2; exit 1; }
+  dev=$(readlink -f "$BY/$p"); name=${dev##*/}
+  [ -r "$SYS/$name/partition" ] || { say "ERROR: $p ($dev) is not a partition" >&2; exit 1; }
+  part=$(cat "$SYS/$name/partition")
+  disk=$(basename "$(readlink -f "$SYS/$name/..")")
+  efibootmgr -q --create-only --disk "/dev/$disk" --part "$part" --label "$s" --loader "\\EFI\\Linux\\onemind-$s.efi"
+  created="$created $s"
+done
+case "$created" in
+*A*)
+  a=$(num A); b=$(num B)
+  rest=$(order | tr ',' '\n' | grep -vixF -e "$a" -e "${b:-none}" | paste -sd, - || true)
+  efibootmgr -q --bootorder "$a${rest:+,$rest}" ;;
+esac
+say "${created:+created$created; }A=$(num A) B=$(num B) BootOrder=$(order)"

@@ -1,0 +1,17 @@
+# 2026-11-23T02:38:32Z AK-2 hypervisor side (Proxmox VE host, VM 505)
++ qm config 505 | grep net0
+net0: virtio=BC:24:11:xx:xx:xx,bridge=vmbr0
++ qm set 505 --net0 <same>,link_down=1   (virtual cable out)
+update VM 505: -net0 virtio=BC:24:11:xx:xx:xx,bridge=vmbr0,link_down=1
+net0: virtio=BC:24:11:xx:xx:xx,bridge=vmbr0,link_down=1
++ qm reboot 505
+# Note written after the step (not command output): the waiting loop used `qm guest ping`, which this
+# Proxmox version does not have, so it ran its full 120 x 3 s and the remote shell's later lines were lost
+# when the SSH session ended. What the guest itself recorded (run-1/AK-2.txt): booted 02:39:00 UTC with the
+# link down; the AK-2 script ran through `qm guest exec` (QEMU guest agent over virtio-serial, no network)
+# from 02:49:05 to 02:49:08 UTC. The link state after the run is shown below.
++ qm config 505 | grep net0   (2026-11-23T03:09:58Z, before reconnecting)
+net0: virtio=BC:24:11:xx:xx:xx,bridge=vmbr0,link_down=1
++ qm set 505 --net0 <same without link_down>   (cable back in)
+update VM 505: -net0 virtio=BC:24:11:xx:xx:xx,bridge=vmbr0
+net0: virtio=BC:24:11:xx:xx:xx,bridge=vmbr0

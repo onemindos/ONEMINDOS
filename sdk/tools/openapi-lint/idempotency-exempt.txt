@@ -13,3 +13,5 @@ PATCH /v1/photos/uploads/{upload_id}  # tus: the Upload-Offset header makes a re
 POST /v1/actions  # contract §12.1: keeps its §3 body field idempotency_key instead of the header
 POST /v1/host-grants/requests  # files a host.grant action and keeps its §3 body field idempotency_key, like POST /v1/actions
 POST /v1/host-grants/{grant_id}/revoke  # revoking twice leaves the grant revoked; the repeat answers 404 and changes nothing
+POST /v1/bridges/{bridge_id}/events  # every event carries its own id and revision: a retried batch counts as duplicates, never twice
+POST /v1/bridges/{bridge_id}/resume  # resuming a bridge that already runs changes nothing
