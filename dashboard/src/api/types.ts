@@ -71,10 +71,7 @@ export interface AppLinks {
 export type AppTier = 'verified' | 'community' | 'blocked';
 
 /** §11.1 scan record as summarised in the catalog (§11.4). */
-export interface ScanSummary {
-  scanned_at: string;
-  result: 'pass' | 'fail';
-}
+export type ScanSummary = components['schemas']['ScanSummary'];
 
 /** §3 `GET /v1/apps` item, built from §4 `onemind.app.yaml`, plus the §11.4 fields. */
 export interface CatalogApp {
@@ -86,6 +83,8 @@ export interface CatalogApp {
   category: string | null;
   icon: string | null;
   license: string | null;
+  /** #173 metadata.licenceClass: L1 and L2 are green; blocked and unknown are not. Absent on an older gateway. */
+  licence_class?: components['schemas']['CatalogApp']['licence_class'];
   source: string | null;
   archs: string[];
   requires: { gpu?: boolean; minMemoryMb?: number };

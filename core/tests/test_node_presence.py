@@ -16,7 +16,7 @@ from pathlib import Path
 
 from conftest import OWNER, Clock
 from onemind_core.auth import Principal
-from onemind_core.eventstream import POLL_S, EventStream
+from onemind_core.eventstream import NODE_POLL_S, EventStream
 from onemind_core.nodes import DEPARTURE_SCHEMA, HEARTBEAT_SCHEMA, NodeRegistry
 
 SUBJECT = "onemind.node.node-a.status"
@@ -128,12 +128,12 @@ def test_acceptance_clean_shutdown_reaches_the_stream_within_two_seconds(tmp_pat
 
     events = run_stream(tmp_path, reg, step)
     assert [d for _, _, d in events] == [{"status": "offline", "presence": "offline", "previous": "online"}]
-    assert events[0][0] - departed_at[0] < 2.0  # real stream polls (POLL_S), not simulated time
-    assert POLL_S <= 0.5
+    assert events[0][0] - departed_at[0] < 2.0  # real stream polls (NODE_POLL_S), not simulated time
+    assert NODE_POLL_S <= 0.5
 
 
 def test_acceptance_unplugged_node_shows_offline_within_fifteen_seconds(tmp_path):
-    """Simulated gateway time, one POLL_S per poll. node-a's plug comes out right after its
+    """Simulated gateway time, one NODE_POLL_S per poll. node-a's plug comes out right after its
     heartbeat (the worst case); node-b's heartbeats run 3 s late and it never blinks offline."""
     clock = Clock()
     reg = NodeRegistry(clock)
@@ -143,7 +143,7 @@ def test_acceptance_unplugged_node_shows_offline_within_fifteen_seconds(tmp_path
     last_b = [0.0]
 
     def step(i: int) -> bool:
-        t = (i - 1) * POLL_S
+        t = (i - 1) * NODE_POLL_S
         clock.now = start + timedelta(seconds=t)
         if t - last_b[0] >= 13:
             reg.ingest(SUBJECT_B, heartbeat("node-b"))

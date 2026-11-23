@@ -36,7 +36,7 @@ export async function hubOffersPasskeys(hubUrl: string, fetchFn?: FetchLike): Pr
   return (await api.features()).has(OP.loginOptions);
 }
 
-export async function passkeySignIn(rawHubUrl: string, passkeys: Passkeys | undefined, o: { deviceName?: string; fetchFn?: FetchLike } = {}): Promise<LiveConnection> {
+export async function passkeySignIn(rawHubUrl: string, passkeys: Passkeys | undefined, o: { deviceName?: string; installId?: string; fetchFn?: FetchLike } = {}): Promise<LiveConnection> {
   const hubUrl = normalizeHubUrl(rawHubUrl);
   if (plainHttpOffDevice(hubUrl))
     throw new SignInError('insecure', "Passkey sign-in needs the hub's https:// address (port 8443). Over plain HTTP your session could be copied on the network.");
@@ -46,7 +46,12 @@ export async function passkeySignIn(rawHubUrl: string, passkeys: Passkeys | unde
   if (!passkeys || !passkeys.supported()) throw new PasskeyError('not_supported', 'no platform authenticator');
   const options = await api.loginOptions();
   const webauthn = await passkeys.get(requestOptionsFrom(options, rpIdFor(hubUrl)));
-  const r = await api.login({ passkey: webauthn, client: 'app', ...(o.deviceName ? { client_name: o.deviceName } : {}) });
+  const r = await api.login({
+    passkey: webauthn,
+    client: 'app',
+    ...(o.deviceName ? { client_name: o.deviceName } : {}),
+    ...(o.installId ? { install_id: o.installId } : {}),
+  });
   return {
     mode: 'live',
     hubUrl,

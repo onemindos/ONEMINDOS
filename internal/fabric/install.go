@@ -184,34 +184,19 @@ func (in *Installer) Apply(ctx context.Context, id *Identity, cr *Credentials, c
 	in.say("Identity    node-%s certificate until %s", id.NodeID, cert.NotAfter.UTC().Format("2006-01-02"))
 
 	// 2. Coordinator names point at the hub on the LAN (NETWORKING §5.4, LAN first).
-	ctrl := hubAddr
-	if cr.Mesh != nil && len(cr.Mesh.ControlAddrs) > 0 {
-		ctrl = cr.Mesh.ControlAddrs[0]
-	}
-	if ctrl != "" {
-		if _, err := netip.ParseAddr(ctrl); err != nil {
-			return nil, fmt.Errorf("control address %q is not an IP address", ctrl)
-		}
-		if err := in.setHosts(ctrl); err != nil {
-			return nil, fmt.Errorf("/etc/hosts: %w", err)
-		}
+	if err := in.pinControl(cr, hubAddr); err != nil {
+		return nil, err
 	}
 
 	// 3. Mesh: restart tailscaled so it loads the box CA, then enroll with the one-time key.
 	st := &State{Schema: StateSchema, NodeID: id.NodeID, Role: role, HubURL: t.Hub, CASHA256: t.CASHA,
 		CertNotAfter: cert.NotAfter.UTC().Format(time.RFC3339)}
 	if cr.Mesh != nil {
-		if err := in.Sys.Systemctl(ctx, "restart", "tailscaled.service"); err != nil {
-			return nil, err
-		}
-		b := &mesh.Bundle{ControlURL: cr.Mesh.ControlURL, ControlAddrs: cr.Mesh.ControlAddrs, CASHA256: cr.Mesh.CASHA256,
-			AuthKey: cr.Mesh.AuthKey, Hostname: cr.Mesh.Hostname, HubMeshIP: cr.Mesh.HubMeshIP, ShieldsUp: cr.Mesh.ShieldsUp}
-		res, err := in.Mesh.Enroll(ctx, b, mesh.EnrollOptions{KeyDir: in.p(mesh.DefaultKeyDir), Timeout: in.EnrollTimeout})
+		res, err := in.enrollMesh(ctx, cr.Mesh, cr.Mesh.ShieldsUp)
 		if err != nil {
 			return nil, err
 		}
 		st.MeshAddr, st.HubMeshIP = res.Addr, cr.Mesh.HubMeshIP
-		in.say("Mesh        joined as %s (%s)", cr.Mesh.Hostname, strings.Join(cr.Mesh.Tags, ", "))
 	}
 
 	// 4. NATS leaf: TLS pinned to the box CA, node cert, the node's own nkey (its own account on the hub).
@@ -249,6 +234,58 @@ func (in *Installer) Apply(ctx context.Context, id *Identity, cr *Credentials, c
 		in.say("note: %v", err)
 	}
 	return st, nil
+}
+
+// JoinMesh is the mesh part of Apply for a device that keeps the rest of its identity elsewhere (a
+// sensor, `onemind device join`). It runs Apply's steps in Apply's order: the box CA into IdentityDir,
+// where tailscaled.service reads it (its ConditionPathExists and SSL_CERT_FILE), the coordinator names
+// pinned to the hub's LAN address, and only then the tailscaled restart and the enrollment, which uses
+// up the one-time key. A device that joins this way accepts nothing inbound (shields up).
+func (in *Installer) JoinMesh(ctx context.Context, cr *Credentials, hubAddr string) (*mesh.Result, error) {
+	if cr.Mesh == nil {
+		return nil, errors.New("no mesh block in the credentials")
+	}
+	if err := writeFile(filepath.Join(in.p(IdentityDir), "ca.pem"), []byte(cr.CACert), 0o644); err != nil {
+		return nil, fmt.Errorf("identity: %w", err)
+	}
+	if err := in.pinControl(cr, hubAddr); err != nil {
+		return nil, err
+	}
+	return in.enrollMesh(ctx, cr.Mesh, true)
+}
+
+// pinControl points the coordinator names at the mesh block's first control address, or at hubAddr
+// when there is none (NETWORKING §5.4, LAN first).
+func (in *Installer) pinControl(cr *Credentials, hubAddr string) error {
+	ctrl := hubAddr
+	if cr.Mesh != nil && len(cr.Mesh.ControlAddrs) > 0 {
+		ctrl = cr.Mesh.ControlAddrs[0]
+	}
+	if ctrl == "" {
+		return nil
+	}
+	if _, err := netip.ParseAddr(ctrl); err != nil {
+		return fmt.Errorf("control address %q is not an IP address", ctrl)
+	}
+	if err := in.setHosts(ctrl); err != nil {
+		return fmt.Errorf("/etc/hosts: %w", err)
+	}
+	return nil
+}
+
+// enrollMesh restarts tailscaled so it loads the box CA, then enrolls with the one-time key.
+func (in *Installer) enrollMesh(ctx context.Context, m *MeshBlock, shieldsUp bool) (*mesh.Result, error) {
+	if err := in.Sys.Systemctl(ctx, "restart", "tailscaled.service"); err != nil {
+		return nil, err
+	}
+	b := &mesh.Bundle{ControlURL: m.ControlURL, ControlAddrs: m.ControlAddrs, CASHA256: m.CASHA256,
+		AuthKey: m.AuthKey, Hostname: m.Hostname, HubMeshIP: m.HubMeshIP, ShieldsUp: shieldsUp}
+	res, err := in.Mesh.Enroll(ctx, b, mesh.EnrollOptions{KeyDir: in.p(mesh.DefaultKeyDir), Timeout: in.EnrollTimeout})
+	if err != nil {
+		return nil, err
+	}
+	in.say("Mesh        joined as %s (%s)", m.Hostname, strings.Join(m.Tags, ", "))
+	return res, nil
 }
 
 // startLeaf enables and starts the leaf. The OS image's units cannot be enabled (read-only /etc);

@@ -1,18 +1,25 @@
 // SPDX-License-Identifier: Apache-2.0
 // Settings → This phone: ask the owner to add this phone to the box (action `device.add`,
 // docs/umbrel2/clients.md §4.4). The owner approves it like any other request.
+// Settings → My devices (#715): every phone, browser and app signed in as you, from GET /v1/me/devices,
+// with Lost this device, which revokes everything that device holds (sign-ins, passkeys, approver keys,
+// push) in one step. The hub asks for a fresh passkey (biometrics on this phone) once passkeys are on,
+// and refuses the device you are using and an owner's last passkey.
 import { useEffect, useState } from 'react';
 import { Text, TextInput, View } from 'react-native';
 import { OP } from '../api/client';
-import { ApiError } from '../api/types';
+import { ApiError, type MyDevice } from '../api/types';
 import { pollDevice, requestDevice, type DeviceLink } from '../lib/device';
+import { requestError } from '../lib/manage';
+import { formatAgo, secondsSince } from '../lib/time';
+import { useLoad } from '../lib/useLoad';
 import { useSignedIn } from '../session';
-import { Button, Card, H2, Notice, P, Row, s } from '../ui/bits';
+import { Badge, Button, Card, H2, Loading, Notice, P, Row, s } from '../ui/bits';
 import { font, radiusControl, space, useTheme } from '../ui/theme';
 
 const POLL_MS = 5000;
 
-export function DeviceSection({
+function ThisPhone({
   link,
   onLink,
   name,
@@ -27,7 +34,7 @@ export function DeviceSection({
   const { api, features, connection } = useSignedIn();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string>();
-  const hubUrl = connection.mode === 'live' ? connection.hubUrl : undefined;
+  const hubUrl = connection.hubUrl;
   const supported = features.has(OP.deviceRequest);
 
   // While the owner has not answered, look again every few seconds (the screen is open, so it is cheap).
@@ -39,16 +46,12 @@ export function DeviceSection({
     return () => clearInterval(id);
   }, [api, link, onLink]);
 
-  if (!hubUrl || !supported)
+  if (!supported)
     return (
       <>
         <H2>This phone</H2>
         <Card testID="device">
-          <P muted small>
-            {hubUrl
-              ? 'This hub does not register phones yet (device registry, CLIENT-2). The phone works with your sign-in alone until then.'
-              : 'In the demo this phone is not registered with a box.'}
-          </P>
+          <P muted small>This hub does not register phones yet (device registry, CLIENT-2). The phone works with your sign-in alone until then.</P>
         </Card>
       </>
     );
@@ -57,7 +60,7 @@ export function DeviceSection({
     setBusy(true);
     setErr(undefined);
     try {
-      onLink(await requestDevice(api, hubUrl!, name));
+      onLink(await requestDevice(api, hubUrl, name));
     } catch (e) {
       setErr(e instanceof ApiError ? `The hub refused: ${e.message}` : String(e));
     } finally {
@@ -107,6 +110,111 @@ export function DeviceSection({
             <P muted small>The box ties this phone's sign-in to a key that never leaves it. Revoke it on the box if the phone is lost.</P>
           </>
         )}
+      </Card>
+    </>
+  );
+}
+
+export function DeviceSection(props: {
+  link: DeviceLink | undefined;
+  onLink: (l: DeviceLink) => void;
+  name: string;
+  onName: (n: string) => void;
+}) {
+  const { features } = useSignedIn();
+  return (
+    <>
+      <ThisPhone {...props} />
+      {features.has(OP.myDevices) && <MyDevicesList />}
+    </>
+  );
+}
+
+const KIND: Record<MyDevice['kind'], string> = { phone: 'Phone', browser: 'Browser', app: 'App', unknown: 'Device' };
+const SOURCE: Record<string, string> = { sessions: 'sign-in', passkeys: 'passkey', approver_keys: 'approver key', push: 'push registration' };
+
+/** What a device holds, in words: "2 sign-ins, 1 passkey, 1 push registration". */
+export function holds(d: MyDevice): string {
+  const n = new Map<string, number>();
+  for (const c of d.credentials) n.set(c.source, (n.get(c.source) ?? 0) + 1);
+  return [...n].map(([k, v]) => `${v} ${SOURCE[k] ?? k}${v === 1 ? '' : 's'}`).join(', ') || 'nothing';
+}
+
+function removeError(e: unknown): string {
+  if (e instanceof ApiError && e.reason === 'current_device') return 'This is the phone you are using. Sign out here instead.';
+  if (e instanceof ApiError && e.reason === 'last_owner')
+    return 'This device holds the last owner passkey on the box. Add a passkey on another device first.';
+  return requestError(e, 'removing this device').text;
+}
+
+export function MyDevicesList() {
+  const t = useTheme();
+  const { api, features } = useSignedIn();
+  const load = useLoad(() => api.myDevices(), [api]);
+  const [asking, setAsking] = useState<string>();
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ tone: 'ok' | 'bad'; text: string }>();
+  const canRemove = features.has(OP.myDeviceRemove);
+  const now = Date.now();
+
+  async function remove(d: MyDevice) {
+    setBusy(true);
+    setMsg(undefined);
+    try {
+      const r = await api.removeMyDevice(d.id);
+      const total = Object.values(r.revoked).reduce((a, b) => a + b, 0);
+      setMsg(
+        r.removed
+          ? { tone: 'ok', text: `${d.label} is removed: ${total} credential${total === 1 ? '' : 's'} revoked. It has to sign in again to use this box.` }
+          : { tone: 'ok', text: `${d.label} was already removed. Nothing was left to revoke.` },
+      );
+      setAsking(undefined);
+      await load.reload();
+    } catch (e) {
+      setMsg({ tone: 'bad', text: removeError(e) });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <>
+      <H2>My devices</H2>
+      <Card testID="my-devices">
+        {load.loading && !load.data ? (
+          <Loading what="your devices" />
+        ) : load.error && !load.data ? (
+          <Notice tone="bad" text={load.forbidden ? 'Sign in with your passkey on this phone to see your devices.' : `Could not load your devices: ${load.error.message}`} />
+        ) : !load.data?.devices.length ? (
+          <P muted small>No devices are signed in as you.</P>
+        ) : (
+          load.data.devices.map((d) => (
+            <View key={d.id} testID={`my-device-${d.id}`} style={{ gap: 4, paddingVertical: 6 }}>
+              <View style={s.wrap}>
+                <Text style={{ color: t.text, fontWeight: font.semibold }}>{d.label}</Text>
+                <Badge label={KIND[d.kind]} />
+                {d.current && <Badge label="In use here" tone="ok" />}
+              </View>
+              <Row label="Last seen" value={d.last_seen_at ? formatAgo(secondsSince(d.last_seen_at, now)) : 'unknown'} />
+              <Row label="Holds" value={holds(d)} />
+              {canRemove && !d.current && asking !== d.id && (
+                <View style={s.wrap}>
+                  <Button testID={`my-device-lost-${d.id}`} variant="secondary" label="Lost this device" disabled={busy} onPress={() => setAsking(d.id)} />
+                </View>
+              )}
+              {asking === d.id && (
+                <>
+                  <Notice tone="warn" text={`Remove ${d.label}? Its sign-ins, passkeys, approver keys and push are revoked at once. It has to sign in again to come back.`} />
+                  <View style={s.wrap}>
+                    <Button testID={`my-device-confirm-${d.id}`} variant="danger" label={busy ? 'Removing…' : 'Remove it'} disabled={busy} onPress={() => void remove(d)} />
+                    <Button variant="secondary" label="Cancel" disabled={busy} onPress={() => setAsking(undefined)} />
+                  </View>
+                </>
+              )}
+            </View>
+          ))
+        )}
+        {msg && <Notice tone={msg.tone} text={msg.text} />}
       </Card>
     </>
   );
