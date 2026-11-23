@@ -1,0 +1,39 @@
+{
+  "$comment": "SPDX-License-Identifier: Apache-2.0. Written from scratch for OneMind (issue #855).",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/onemindos/ONEMINDOS/sdk/schema/onemind.message.import.schema.json",
+  "title": "Message import body (POST /v1/messages/import)",
+  "description": "Direct mode (#865): the phone hands the history of its own radio to the hub when it is back in reach. Owner only; history only, never a send (nothing here reaches a radio); each message is stored with origin phone-direct. A message whose dedupe key the hub already has is skipped, so uploading twice adds nothing; the reply and the audit carry counts only. The route lands with #865 PR 3.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["radio", "messages"],
+  "properties": {
+    "radio": {"type": "string", "pattern": "^[0-9a-f]{12}$", "description": "The phone radio's own 6-byte public key prefix: the sender of its outgoing messages"},
+    "messages": {"type": "array", "minItems": 1, "maxItems": 500, "items": {"$ref": "#/$defs/item"}}
+  },
+  "$defs": {
+    "item": {"type": "object", "additionalProperties": false, "required": ["direction", "kind", "sender", "sender_ts", "text"],
+      "properties": {
+        "direction": {"enum": ["in", "out"]},
+        "kind": {"enum": ["direct", "channel"]},
+        "sender": {"$ref": "#/$defs/sender"},
+        "peer": {"type": "string", "pattern": "^[0-9a-f]{12}$", "description": "The other contact's key prefix on a direct message"},
+        "channel_index": {"type": "integer", "minimum": 0, "maximum": 39},
+        "sender_ts": {"type": "integer", "minimum": 0, "maximum": 4294967295},
+        "text": {"type": "string", "minLength": 1, "maxLength": 160},
+        "rx_at": {"type": ["string", "null"], "format": "date-time"},
+        "snr_db": {"type": ["number", "null"], "minimum": -32, "maximum": 32},
+        "path_len": {"type": ["integer", "null"], "minimum": 0, "maximum": 255},
+        "state": {"enum": ["sent", "acked", "failed", null], "description": "An outgoing message's last state on the phone"}
+      },
+      "allOf": [
+        {"if": {"properties": {"kind": {"const": "direct"}}}, "then": {"required": ["peer"], "not": {"required": ["channel_index"]}}},
+        {"if": {"properties": {"kind": {"const": "channel"}}}, "then": {"required": ["channel_index"], "not": {"required": ["peer"]}, "properties": {"state": {"not": {"const": "acked"}}}}}
+      ]},
+    "sender": {"type": "string", "pattern": "^([0-9a-f]{12}|ch[0-9]{1,2})$",
+      "description": "The sender's 6-byte key prefix on a direct message; ch<index> on a channel message, whose MeshCore frame carries no sender key (only '<name>: <text>')"},
+    "dedupe_key": {"type": "string", "pattern": "^([0-9a-f]{12}|ch[0-9]{1,2}):[0-9]{1,10}:[0-9a-f]{64}$",
+      "description": "<sender>:<sender_ts>:<sha256 hex of the UTF-8 text>: the same on the hub (#856, radio intake) and in an import, so one message is stored once whichever path brought it",
+      "examples": [{"sender": "a1b2c3d4e5f6", "sender_ts": 1234567890, "text": "Hi", "key": "a1b2c3d4e5f6:1234567890:3639efcd08abb273b1619e82e78c29a7df02c1051b1820e99fc395dcaa3326b8"}]}
+  }
+}

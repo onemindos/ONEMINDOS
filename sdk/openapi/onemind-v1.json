@@ -1256,6 +1256,155 @@
         "title": "AuditVerify",
         "type": "object"
       },
+      "BridgeStatus": {
+        "description": "One bridge as `onemind bridge list|status` shows it; counters are since the gateway started.",
+        "properties": {
+          "accepted": {
+            "default": 0,
+            "title": "Accepted",
+            "type": "integer"
+          },
+          "app_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "App Status"
+          },
+          "burst": {
+            "title": "Burst",
+            "type": "integer"
+          },
+          "data_class": {
+            "title": "Data Class",
+            "type": "string"
+          },
+          "duplicates": {
+            "default": 0,
+            "title": "Duplicates",
+            "type": "integer"
+          },
+          "emits": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Emits",
+            "type": "array"
+          },
+          "entities": {
+            "default": 0,
+            "title": "Entities",
+            "type": "integer"
+          },
+          "events_per_second": {
+            "title": "Events Per Second",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "last_event_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Event At"
+          },
+          "last_reject_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Reject Reason"
+          },
+          "max_event_bytes": {
+            "title": "Max Event Bytes",
+            "type": "integer"
+          },
+          "mode": {
+            "title": "Mode",
+            "type": "string"
+          },
+          "paused_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paused At"
+          },
+          "paused_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paused Reason"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "recent_rejects": {
+            "default": 0,
+            "title": "Recent Rejects",
+            "type": "integer"
+          },
+          "rejected": {
+            "default": 0,
+            "title": "Rejected",
+            "type": "integer"
+          },
+          "state": {
+            "enum": [
+              "active",
+              "paused",
+              "inactive"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "throttled": {
+            "default": 0,
+            "title": "Throttled",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "app_status",
+          "state",
+          "provider",
+          "mode",
+          "data_class",
+          "emits",
+          "events_per_second",
+          "burst",
+          "max_event_bytes"
+        ],
+        "title": "BridgeStatus",
+        "type": "object"
+      },
       "BrowserSession": {
         "properties": {
           "app_id": {
@@ -3273,6 +3422,87 @@
         "title": "InstanceName",
         "type": "object"
       },
+      "IntakeBatch": {
+        "additionalProperties": false,
+        "properties": {
+          "events": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Events",
+            "type": "array"
+          }
+        },
+        "required": [
+          "events"
+        ],
+        "title": "IntakeBatch",
+        "type": "object"
+      },
+      "IntakeReject": {
+        "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "index": {
+            "title": "Index",
+            "type": "integer"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "index",
+          "reason"
+        ],
+        "title": "IntakeReject",
+        "type": "object"
+      },
+      "IntakeResult": {
+        "description": "What happened to a batch: published, already seen (same or older revision) and refused.",
+        "properties": {
+          "accepted": {
+            "title": "Accepted",
+            "type": "integer"
+          },
+          "duplicates": {
+            "title": "Duplicates",
+            "type": "integer"
+          },
+          "paused": {
+            "title": "Paused",
+            "type": "boolean"
+          },
+          "rejected": {
+            "items": {
+              "$ref": "#/components/schemas/IntakeReject"
+            },
+            "title": "Rejected",
+            "type": "array"
+          }
+        },
+        "required": [
+          "accepted",
+          "duplicates",
+          "rejected",
+          "paused"
+        ],
+        "title": "IntakeResult",
+        "type": "object"
+      },
       "JoinNode": {
         "properties": {
           "arch": {
@@ -3529,6 +3759,57 @@
         "title": "KitConfirmBody",
         "type": "object"
       },
+      "LatestValue": {
+        "properties": {
+          "datapoint": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Datapoint"
+          },
+          "field": {
+            "title": "Field",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "received_at": {
+            "title": "Received At",
+            "type": "string"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kind",
+          "name",
+          "id",
+          "field",
+          "revision",
+          "received_at",
+          "datapoint"
+        ],
+        "title": "LatestValue",
+        "type": "object"
+      },
       "LibraryItem": {
         "properties": {
           "file_name": {
@@ -3677,6 +3958,18 @@
               }
             ],
             "title": "Client Name"
+          },
+          "install_id": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Za-z0-9_-]{16,64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Install Id"
           },
           "passkey": {
             "anyOf": [
@@ -3991,6 +4284,238 @@
           "to_path"
         ],
         "title": "MoveOp",
+        "type": "object"
+      },
+      "MyDevice": {
+        "properties": {
+          "credentials": {
+            "items": {
+              "$ref": "#/components/schemas/MyDeviceCredential"
+            },
+            "title": "Credentials",
+            "type": "array"
+          },
+          "current": {
+            "title": "Current",
+            "type": "boolean"
+          },
+          "first_seen_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Seen At"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "phone",
+              "browser",
+              "app",
+              "unknown"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "last_seen_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Seen At"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "kind",
+          "current",
+          "last_seen_at",
+          "first_seen_at",
+          "credentials"
+        ],
+        "title": "MyDevice",
+        "type": "object"
+      },
+      "MyDeviceCredential": {
+        "properties": {
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "last_seen_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Seen At"
+          },
+          "source": {
+            "enum": [
+              "sessions",
+              "passkeys",
+              "approver_keys",
+              "push"
+            ],
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "id",
+          "label",
+          "detail",
+          "created_at",
+          "last_seen_at"
+        ],
+        "title": "MyDeviceCredential",
+        "type": "object"
+      },
+      "MyDeviceRemoved": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "removed": {
+            "title": "Removed",
+            "type": "boolean"
+          },
+          "revoked": {
+            "$ref": "#/components/schemas/MyDeviceRevoked"
+          }
+        },
+        "required": [
+          "id",
+          "removed",
+          "revoked"
+        ],
+        "title": "MyDeviceRemoved",
+        "type": "object"
+      },
+      "MyDeviceRevoked": {
+        "properties": {
+          "approver_keys": {
+            "title": "Approver Keys",
+            "type": "integer"
+          },
+          "passkeys": {
+            "title": "Passkeys",
+            "type": "integer"
+          },
+          "push": {
+            "title": "Push",
+            "type": "integer"
+          },
+          "sessions": {
+            "title": "Sessions",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "sessions",
+          "passkeys",
+          "approver_keys",
+          "push"
+        ],
+        "title": "MyDeviceRevoked",
+        "type": "object"
+      },
+      "MyDeviceSources": {
+        "properties": {
+          "approver_keys": {
+            "title": "Approver Keys",
+            "type": "boolean"
+          },
+          "mesh": {
+            "title": "Mesh",
+            "type": "boolean"
+          },
+          "nats": {
+            "title": "Nats",
+            "type": "boolean"
+          },
+          "passkeys": {
+            "title": "Passkeys",
+            "type": "boolean"
+          },
+          "push": {
+            "title": "Push",
+            "type": "boolean"
+          },
+          "sessions": {
+            "title": "Sessions",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "sessions",
+          "passkeys",
+          "approver_keys",
+          "push",
+          "mesh",
+          "nats"
+        ],
+        "title": "MyDeviceSources",
+        "type": "object"
+      },
+      "MyDevices": {
+        "properties": {
+          "devices": {
+            "items": {
+              "$ref": "#/components/schemas/MyDevice"
+            },
+            "title": "Devices",
+            "type": "array"
+          },
+          "sources": {
+            "$ref": "#/components/schemas/MyDeviceSources"
+          }
+        },
+        "required": [
+          "devices",
+          "sources"
+        ],
+        "title": "MyDevices",
         "type": "object"
       },
       "NetGateway": {
@@ -4879,13 +5404,27 @@
       "NodeRadio": {
         "additionalProperties": false,
         "properties": {
+          "device": {
+            "anyOf": [
+              {
+                "pattern": "^/dev/onemind/(zigbee|zigbee-thread|lora)([0-9]|1[0-5])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "a USB dongle's stable name, /dev/onemind/<kind><n> (lora0); absent for wifi, bluetooth and cellular",
+            "title": "Device"
+          },
           "interface": {
+            "description": "the network interface (wlan0, hci0), or for a USB dongle its serial line (ttyUSB0)",
             "pattern": "^[A-Za-z0-9_.-]{1,15}$",
             "title": "Interface",
             "type": "string"
           },
           "kind": {
-            "description": "wifi | bluetooth | cellular",
+            "description": "wifi | bluetooth | cellular | zigbee | zigbee-thread | lora",
             "maxLength": 16,
             "title": "Kind",
             "type": "string",
@@ -5478,6 +6017,18 @@
             "title": "Credential",
             "type": "object"
           },
+          "install_id": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Za-z0-9_-]{16,64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Install Id"
+          },
           "label": {
             "anyOf": [
               {
@@ -6033,6 +6584,18 @@
             ],
             "title": "Endpoint"
           },
+          "install_id": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Za-z0-9_-]{16,64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Install Id"
+          },
           "keys": {
             "anyOf": [
               {
@@ -6096,6 +6659,209 @@
           "limit_bytes"
         ],
         "title": "QuotaBody",
+        "type": "object"
+      },
+      "RadioCard": {
+        "description": "One radio-found card (GET /v1/radios, #732): a USB serial line on a machine, from its latest heartbeat.\n\nA known radio has a kind and its stable name `device`; any other USB serial line is listed with\nkind and device null: never named, never granted. Unplugging removes the card with the next heartbeat.\nOneMind never probes a radio: kind and model come from the USB ids alone.",
+        "properties": {
+          "confirm": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RadioConfirmation"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the owner's confirmation this kind needs before a grant; null when none is needed"
+          },
+          "device": {
+            "anyOf": [
+              {
+                "pattern": "^/dev/onemind/(zigbee|zigbee-thread|lora)([0-9]|1[0-5])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the stable name, /dev/onemind/<kind><n>; null when not named",
+            "title": "Device"
+          },
+          "hostname": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hostname"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Za-z0-9_-]{1,64}\\.(zigbee|zigbee-thread|lora)([0-9]|1[0-5])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the radio's stable id, <node_id>.<kind><n> (3f9c2a1b7d4e.lora0), used by /v1/radios/{id}/...; null when not a known radio",
+            "title": "Id"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "zigbee | zigbee-thread | lora; null: not a known radio",
+            "title": "Kind",
+            "x-onemind-open-enum": true
+          },
+          "match": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "product: the USB id and product string name the product | id: a generic USB-serial chip, the id alone proves nothing; null when unknown",
+            "title": "Match",
+            "x-onemind-open-enum": true
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "from sdk/schema/onemind.radios.json; null when unknown or several products share the id",
+            "title": "Model"
+          },
+          "node_id": {
+            "title": "Node Id",
+            "type": "string"
+          },
+          "node_status": {
+            "description": "online | stale | offline",
+            "title": "Node Status",
+            "type": "string",
+            "x-onemind-open-enum": true
+          },
+          "tty": {
+            "description": "the kernel's name for the serial line, e.g. ttyUSB0",
+            "pattern": "^tty(USB|ACM)[0-9]+$",
+            "title": "Tty",
+            "type": "string"
+          },
+          "usb_id": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{4}:[0-9a-f]{4}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "vvvv:pppp",
+            "title": "Usb Id"
+          },
+          "usb_port": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]+-[0-9]+(\\.[0-9]+)*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "kernel port path, e.g. 1-1.2",
+            "title": "Usb Port"
+          }
+        },
+        "required": [
+          "id",
+          "node_id",
+          "node_status",
+          "kind",
+          "model",
+          "match",
+          "tty",
+          "device",
+          "usb_id",
+          "usb_port",
+          "confirm"
+        ],
+        "title": "RadioCard",
+        "type": "object"
+      },
+      "RadioConfirmRequest": {
+        "additionalProperties": false,
+        "description": "POST /v1/radios/{id}/confirm: an owner says the radio with this id is this profile.",
+        "properties": {
+          "profile": {
+            "const": "meshcore-companion-usb",
+            "title": "Profile",
+            "type": "string"
+          }
+        },
+        "required": [
+          "profile"
+        ],
+        "title": "RadioConfirmRequest",
+        "type": "object"
+      },
+      "RadioConfirmation": {
+        "description": "What the owner confirms on a radio's card before anything may open it (#732; the grant is #854).",
+        "properties": {
+          "confirmed": {
+            "description": "true once an owner confirmed this radio on this machine and USB port; kept across gateway restarts and replugs into the same port, asked again on another port",
+            "title": "Confirmed",
+            "type": "boolean"
+          },
+          "confirmed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmed At"
+          },
+          "label": {
+            "description": "what the card asks, e.g. MeshCore companion (USB)",
+            "title": "Label",
+            "type": "string"
+          },
+          "profile": {
+            "description": "meshcore-companion-usb",
+            "title": "Profile",
+            "type": "string",
+            "x-onemind-open-enum": true
+          }
+        },
+        "required": [
+          "profile",
+          "label",
+          "confirmed"
+        ],
+        "title": "RadioConfirmation",
         "type": "object"
       },
       "Receipt": {
@@ -6949,6 +7715,55 @@
           "ct"
         ],
         "title": "SealedInput",
+        "type": "object"
+      },
+      "SearchHit": {
+        "properties": {
+          "app_id": {
+            "title": "App Id",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "link": {
+            "title": "Link",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "subtitle": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subtitle"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider",
+          "app_id",
+          "type",
+          "id",
+          "title",
+          "link"
+        ],
+        "title": "SearchHit",
         "type": "object"
       },
       "SecretsChange": {
@@ -8467,6 +9282,441 @@
           "policy"
         ],
         "title": "SubjectTreeRetention",
+        "type": "object"
+      },
+      "SurfaceApp": {
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "origin": {
+            "enum": [
+              "builtin",
+              "market"
+            ],
+            "title": "Origin",
+            "type": "string"
+          },
+          "phone": {
+            "additionalProperties": true,
+            "title": "Phone",
+            "type": "object"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "origin",
+          "phone"
+        ],
+        "title": "SurfaceApp",
+        "type": "object"
+      },
+      "SurfaceBackupUnit": {
+        "properties": {
+          "app_id": {
+            "title": "App Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "app_id",
+          "kind",
+          "name"
+        ],
+        "title": "SurfaceBackupUnit",
+        "type": "object"
+      },
+      "SurfaceCard": {
+        "properties": {
+          "app_id": {
+            "title": "App Id",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "template": {
+            "enum": [
+              "stat",
+              "list",
+              "progress",
+              "status",
+              "series"
+            ],
+            "title": "Template",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "app_id",
+          "id",
+          "title",
+          "template",
+          "source"
+        ],
+        "title": "SurfaceCard",
+        "type": "object"
+      },
+      "SurfaceRefusal": {
+        "properties": {
+          "app_id": {
+            "title": "App Id",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "tool",
+              "card",
+              "topic"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "app_id",
+          "kind",
+          "id",
+          "reason"
+        ],
+        "title": "SurfaceRefusal",
+        "type": "object"
+      },
+      "SurfaceSearch": {
+        "properties": {
+          "app_id": {
+            "title": "App Id",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "types": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Types",
+            "type": "array"
+          }
+        },
+        "required": [
+          "app_id",
+          "provider",
+          "types"
+        ],
+        "title": "SurfaceSearch",
+        "type": "object"
+      },
+      "SurfaceShare": {
+        "properties": {
+          "accepts": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Accepts",
+            "type": "array"
+          },
+          "app_id": {
+            "title": "App Id",
+            "type": "string"
+          },
+          "verbs": {
+            "items": {
+              "enum": [
+                "open",
+                "add"
+              ],
+              "type": "string"
+            },
+            "title": "Verbs",
+            "type": "array"
+          }
+        },
+        "required": [
+          "app_id",
+          "accepts",
+          "verbs"
+        ],
+        "title": "SurfaceShare",
+        "type": "object"
+      },
+      "SurfaceSource": {
+        "description": "A map layer or Settings page: drawn by the host from one public read operation.",
+        "properties": {
+          "app_id": {
+            "title": "App Id",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "app_id",
+          "id",
+          "title",
+          "source"
+        ],
+        "title": "SurfaceSource",
+        "type": "object"
+      },
+      "SurfaceTool": {
+        "properties": {
+          "action_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Action Type"
+          },
+          "app_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "App Id"
+          },
+          "effect": {
+            "enum": [
+              "read",
+              "write",
+              "destructive"
+            ],
+            "title": "Effect",
+            "type": "string"
+          },
+          "exposure": {
+            "items": {
+              "enum": [
+                "mcp",
+                "rest",
+                "cli"
+              ],
+              "type": "string"
+            },
+            "title": "Exposure",
+            "type": "array"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "route": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Route"
+          },
+          "scope": {
+            "title": "Scope",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "app_id",
+          "title",
+          "effect",
+          "exposure",
+          "route",
+          "action_type",
+          "scope"
+        ],
+        "title": "SurfaceTool",
+        "type": "object"
+      },
+      "SurfaceTopic": {
+        "properties": {
+          "app_id": {
+            "title": "App Id",
+            "type": "string"
+          },
+          "events": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Events",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "required": [
+          "app_id",
+          "id",
+          "events"
+        ],
+        "title": "SurfaceTopic",
+        "type": "object"
+      },
+      "SurfacesOut": {
+        "properties": {
+          "apps": {
+            "items": {
+              "$ref": "#/components/schemas/SurfaceApp"
+            },
+            "title": "Apps",
+            "type": "array"
+          },
+          "backup_units": {
+            "items": {
+              "$ref": "#/components/schemas/SurfaceBackupUnit"
+            },
+            "title": "Backup Units",
+            "type": "array"
+          },
+          "cards": {
+            "items": {
+              "$ref": "#/components/schemas/SurfaceCard"
+            },
+            "title": "Cards",
+            "type": "array"
+          },
+          "map_layers": {
+            "items": {
+              "$ref": "#/components/schemas/SurfaceSource"
+            },
+            "title": "Map Layers",
+            "type": "array"
+          },
+          "notifications": {
+            "items": {
+              "$ref": "#/components/schemas/SurfaceTopic"
+            },
+            "title": "Notifications",
+            "type": "array"
+          },
+          "refused": {
+            "items": {
+              "$ref": "#/components/schemas/SurfaceRefusal"
+            },
+            "title": "Refused",
+            "type": "array"
+          },
+          "search": {
+            "items": {
+              "$ref": "#/components/schemas/SurfaceSearch"
+            },
+            "title": "Search",
+            "type": "array"
+          },
+          "settings_pages": {
+            "items": {
+              "$ref": "#/components/schemas/SurfaceSource"
+            },
+            "title": "Settings Pages",
+            "type": "array"
+          },
+          "share": {
+            "items": {
+              "$ref": "#/components/schemas/SurfaceShare"
+            },
+            "title": "Share",
+            "type": "array"
+          },
+          "tools": {
+            "items": {
+              "$ref": "#/components/schemas/SurfaceTool"
+            },
+            "title": "Tools",
+            "type": "array"
+          }
+        },
+        "required": [
+          "apps",
+          "tools",
+          "cards",
+          "search",
+          "share",
+          "notifications",
+          "map_layers",
+          "settings_pages",
+          "backup_units",
+          "refused"
+        ],
+        "title": "SurfacesOut",
         "type": "object"
       },
       "SyncChange": {
@@ -16301,6 +17551,377 @@
         ]
       }
     },
+    "/v1/bridges": {
+      "get": {
+        "description": "Every approved bridge with its limits, state and counters (owners and adults).",
+        "operationId": "bridges.list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/BridgeStatus"
+                  },
+                  "title": "Response Bridges.List",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "summary": "List Bridges",
+        "tags": [
+          "bridges"
+        ]
+      }
+    },
+    "/v1/bridges/{bridge_id}": {
+      "get": {
+        "operationId": "bridges.get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "bridge_id",
+            "required": true,
+            "schema": {
+              "title": "Bridge Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BridgeStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Get Bridge",
+        "tags": [
+          "bridges"
+        ]
+      }
+    },
+    "/v1/bridges/{bridge_id}/events": {
+      "post": {
+        "description": "A bridge posts up to 100 events for its own app id. Each is checked, stamped with the app id\nas source and the provider's licence, deduped by id and revision and published; refused events\nare listed. 429 when over the bridge's rate (nothing taken), 409 while it is paused. Retrying a\nbatch is safe: an id and revision already taken counts as a duplicate.",
+        "operationId": "bridges.events.post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "bridge_id",
+            "required": true,
+            "schema": {
+              "title": "Bridge Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IntakeBatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
+          }
+        },
+        "summary": "Post Events",
+        "tags": [
+          "bridges"
+        ]
+      }
+    },
+    "/v1/bridges/{bridge_id}/latest": {
+      "get": {
+        "description": "The newest 500 latest-per-entity values. Public data: owners and adults; any other data\nclass: owners only (the same check a live subscription makes when it starts).",
+        "operationId": "bridges.latest",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "bridge_id",
+            "required": true,
+            "schema": {
+              "title": "Bridge Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/LatestValue"
+                  },
+                  "title": "Response Bridges.Latest",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Latest",
+        "tags": [
+          "bridges"
+        ]
+      }
+    },
+    "/v1/bridges/{bridge_id}/resume": {
+      "post": {
+        "description": "An owner lets a paused bridge in again (it was paused after 20 refused events in 5 minutes).",
+        "operationId": "bridges.resume",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "bridge_id",
+            "required": true,
+            "schema": {
+              "title": "Bridge Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BridgeStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Resume",
+        "tags": [
+          "bridges"
+        ]
+      }
+    },
     "/v1/browsers/{app_id}/profile/reset": {
       "post": {
         "description": "Ask to erase the caller's profile. Nothing is erased until an owner approves it in Approvals.",
@@ -17380,7 +19001,7 @@
     },
     "/v1/events": {
       "get": {
-        "description": "Server-Sent Events with the onemind.event/v1 envelope. `id` is the audit seq; resume with Last-Event-ID or since_id. node.status events carry no id. `: keepalive` every 15 s. At most 5 open streams per principal (429 rate_limited).",
+        "description": "Server-Sent Events with the onemind.event/v1 envelope. `id` is the audit seq; resume with Last-Event-ID or since_id. node.status events carry no id. `: keepalive` every 15 s. At most 5 open streams per principal (429 rate_limited). Asset values are sent only when types names them (asset.*): first the current value of each asset the caller may see (asset.value, data.snapshot true), then stream.snapshot {count, state}, then changes, latest-wins per key; kind and bbox narrow them. A stream that falls too far behind gets stream.reset {reason: slow_client} and ends.",
         "operationId": "events.stream",
         "parameters": [
           {
@@ -17417,6 +19038,44 @@
                 }
               ],
               "title": "Since Id"
+            }
+          },
+          {
+            "description": "asset.* only: comma-separated asset classes (the asset_class token of onemind.asset.<asset_class>.<asset_id>.<field>), e.g. camera,sensor",
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 600,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "asset.* only: comma-separated asset classes (the asset_class token of onemind.asset.<asset_class>.<asset_id>.<field>), e.g. camera,sensor",
+              "title": "Kind"
+            }
+          },
+          {
+            "description": "asset.* only: min_lon,min_lat,max_lon,max_lat in WGS-84 degrees; an asset is sent while its last known position is inside, and once more when it leaves",
+            "in": "query",
+            "name": "bbox",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 120,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "asset.* only: min_lon,min_lat,max_lon,max_lat in WGS-84 degrees; an asset is sent while its last known position is inside, and once more when it leaves",
+              "title": "Bbox"
             }
           },
           {
@@ -20518,6 +22177,121 @@
           }
         },
         "summary": "Update Me",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/v1/me/devices": {
+      "get": {
+        "description": "Your devices: each joins the sessions, passkeys, approver keys and push registrations of one\napp install (its `install_id`), or, for credentials without one, that carry its name, with when\nit was last seen.",
+        "operationId": "me.devices.list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyDevices"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "summary": "My Devices",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/v1/me/devices/{device_id}": {
+      "delete": {
+        "description": "Lost this device: revoke everything it holds in one step. Needs a fresh passkey once passkeys\nare on; refused for the device you are using and for an owner's last device. Calling it again\nis safe: `removed` is false and nothing is revoked.",
+        "operationId": "me.devices.remove",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "device_id",
+            "required": true,
+            "schema": {
+              "title": "Device Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyDeviceRemoved"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Remove My Device",
         "tags": [
           "auth"
         ]
@@ -25370,6 +27144,158 @@
         ]
       }
     },
+    "/v1/radios": {
+      "get": {
+        "description": "Radio-found cards: every USB serial line on every machine. A known radio carries its kind and\nstable name; a LoRa radio's card asks the owner to confirm it. Unknown lines are never named.",
+        "operationId": "radios.list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RadioCard"
+                  },
+                  "title": "Response Radios.List",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "summary": "List Radios",
+        "tags": [
+          "nodes"
+        ]
+      }
+    },
+    "/v1/radios/{radio_id}/confirm": {
+      "post": {
+        "description": "An owner confirms what a radio on its card is (a LoRa radio: \"MeshCore companion (USB)\").\n\nRefused for anyone but an owner, for a line that is not a known radio (an unknown serial device is\nnever named or granted), for a kind that needs no confirming and for a machine that is not online.\nNothing is opened or sent; the grant is a separate action (#854).",
+        "operationId": "radios.confirm",
+        "parameters": [
+          {
+            "description": "the radio's id from its card, e.g. 3f9c2a1b7d4e.lora0",
+            "in": "path",
+            "name": "radio_id",
+            "required": true,
+            "schema": {
+              "description": "the radio's id from its card, e.g. 3f9c2a1b7d4e.lora0",
+              "pattern": "^[A-Za-z0-9_-]{1,64}\\.(zigbee|zigbee-thread|lora)([0-9]|1[0-5])$",
+              "title": "Radio Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RadioConfirmRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RadioCard"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Confirm Radio",
+        "tags": [
+          "nodes"
+        ]
+      }
+    },
     "/v1/restores": {
       "get": {
         "operationId": "restores.list",
@@ -25613,6 +27539,142 @@
         "summary": "Restore",
         "tags": [
           "restores"
+        ]
+      }
+    },
+    "/v1/search": {
+      "get": {
+        "description": "Search every switched-on built-in's items at once, best match first. Each hit carries a deep\nlink that opens the exact item, and only hits the caller may open are returned.",
+        "operationId": "search.query",
+        "parameters": [
+          {
+            "description": "free text; every word must match",
+            "in": "query",
+            "name": "q",
+            "required": true,
+            "schema": {
+              "description": "free text; every word must match",
+              "maxLength": 200,
+              "minLength": 1,
+              "title": "Q",
+              "type": "string"
+            }
+          },
+          {
+            "description": "comma-separated item types, e.g. file,folder",
+            "in": "query",
+            "name": "types",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 1300,
+                  "pattern": "^[a-z][a-z0-9_.-]{0,62}(,[a-z][a-z0-9_.-]{0,62}){0,19}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "comma-separated item types, e.g. file,folder",
+              "title": "Types"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "opaque: the next page, from the Link header",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 32,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "opaque: the next page, from the Link header",
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SearchHit"
+                  },
+                  "title": "Response Search.Query",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response",
+            "headers": {
+              "Link": {
+                "description": "RFC 8288 `<...>; rel=\"next\"` when more hits remain (contract §12.1)",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "OneMind-Search-Providers": {
+                "description": "the providers searched, comma-separated: those of switched-on built-ins shared with the caller",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
+          }
+        },
+        "summary": "Search",
+        "tags": [
+          "search"
         ]
       }
     },
@@ -26592,6 +28654,48 @@
         "summary": "Subjects Check",
         "tags": [
           "subjects"
+        ]
+      }
+    },
+    "/v1/surfaces": {
+      "get": {
+        "description": "Everything the switched-on apps plug into, read live: a switched-off app is in no list.\nDeclarations the gateway cannot prove (an unregistered action type, an event the notify\ncatalogue does not route to the topic, a card whose source declares no observed_at) are\nunder `refused` and served nowhere.",
+        "operationId": "surfaces.list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SurfacesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "summary": "List Surfaces",
+        "tags": [
+          "apps"
         ]
       }
     },
