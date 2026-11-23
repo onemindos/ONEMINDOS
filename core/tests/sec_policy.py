@@ -413,6 +413,12 @@ POLICY |= {
     ("PATCH", "/v1/me"): Row(grid(403, 403, 403, 200, 403), w.p_missing("/v1/me", json={"display_name": "Probe"}),
                              "a person with a stored account (the household child here) sets only their own display name; the static token "
                              "probes have no account row to name (the signed-in 200 paths are in test_identity.py)", ID),
+    # ---- My devices (#715): a person's own session only; the static-token probes and agents hold none --------
+    ("GET", "/v1/me/devices"): Row(own_credentials(200), w.p_static("/v1/me/devices"),
+                                   "#715 a signed-in person lists their own devices", ID),
+    ("DELETE", "/v1/me/devices/{device_id}"): Row(own_credentials(200), w.p_static("/v1/me/devices/mdv_no_such_device"),
+                                                  "#715 Lost this device: a person's own session; an id that is gone is a "
+                                                  "no-op 200 (idempotent)", ID),
     # ---- apps, plans, databases -----------------------------------------------------------------------------
     ("GET", "/v1/databases"): Row(OWNER_ADULT, w.p_static("/v1/databases"), "owner and adult list databases; never a password"),
     ("GET", "/v1/apps/{app_id}/credentials"): Row(OWNER_ONLY_404, w.p_static(f"/v1/apps/{w.TARGET_APP}/credentials"),

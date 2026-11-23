@@ -2,7 +2,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { useHubData } from '../data';
-import { deviceInfo, loadLink, type DeviceLink } from '../lib/device';
+import { loadLink, type DeviceLink } from '../lib/device';
+import { renameThisPhone, useThisPhone } from '../lib/install';
 import { setupNotifications, showAlert } from '../notify';
 import { useSignedIn } from '../session';
 import { Button, Card, H1, H2, Notice, P, Row, Screen, s } from '../ui/bits';
@@ -28,7 +29,15 @@ export function SettingsScreen() {
   const { instance, live } = useHubData();
   const [notif, setNotif] = useState<boolean>();
   const [link, setLink] = useState<DeviceLink>();
-  const [name, setName] = useState(() => deviceInfo('').name);
+  // One name and one install id for every credential this phone holds (sign-in, passkey, push), so My devices
+  // shows it as one device (#715). `draft` is what is typed; an empty box keeps the stored name until typed.
+  const phone = useThisPhone();
+  const [draft, setDraft] = useState<string>();
+  const name = draft ?? phone?.name ?? '';
+  const onName = useCallback((n: string) => {
+    setDraft(n);
+    if (n.trim()) void renameThisPhone(n);
+  }, []);
   const hubUrl = connection.mode === 'live' ? connection.hubUrl : undefined;
 
   useEffect(() => {
@@ -40,11 +49,11 @@ export function SettingsScreen() {
   return (
     <Screen testID="settings">
       <H1>Settings</H1>
-      <IdentitySection deviceName={name} />
+      <IdentitySection phone={phone} />
       <AppearanceSection />
       <BoxSettingsSection />
-      <DeviceSection link={link} onLink={onLink} name={name} onName={setName} />
-      <PushSection deviceApproved={link?.state === 'active'} deviceName={name} />
+      <DeviceSection link={link} onLink={onLink} name={name} onName={onName} />
+      <PushSection deviceApproved={link?.state === 'active'} phone={phone} />
       <H2>Notifications on this phone</H2>
       <Card>
         <Row label="Allowed" value={notif === undefined ? 'checking…' : notif ? 'yes' : 'no'} />

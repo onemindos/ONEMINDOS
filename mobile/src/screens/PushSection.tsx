@@ -2,11 +2,12 @@
 // Settings → Push: turn content-free push on or off for this phone (mobile/docs/push.md).
 import { useCallback, useEffect, useState } from 'react';
 import { Platform, View } from 'react-native';
+import { loadThisPhone, type ThisPhone } from '../lib/install';
 import { blockerMessage, disablePush, enablePush, loadPushRecord, platformTransport, PushError, pushBlocker, type PushBlocker, type PushRecord } from '../lib/push';
 import { useSignedIn } from '../session';
 import { Button, Card, H2, Notice, P, Row, s } from '../ui/bits';
 
-export function PushSection({ deviceApproved, deviceName }: { deviceApproved: boolean; deviceName: string }) {
+export function PushSection({ deviceApproved, phone }: { deviceApproved: boolean; phone: ThisPhone | undefined }) {
   const { api, features, connection } = useSignedIn();
   const hubUrl = connection.mode === 'live' ? connection.hubUrl : undefined;
   const [rec, setRec] = useState<PushRecord>();
@@ -41,7 +42,8 @@ export function PushSection({ deviceApproved, deviceName }: { deviceApproved: bo
     setBusy(true);
     setMsg(undefined);
     try {
-      setRec(await enablePush(api, transport, { features, hubUrl: hubUrl!, label: deviceName, deviceApproved }));
+      const me = phone ?? (await loadThisPhone());
+      setRec(await enablePush(api, transport, { features, hubUrl: hubUrl!, label: me.name, installId: me.installId, deviceApproved }));
       setMsg({ text: 'Push is on. The box will ping this phone with ids only; the text comes from the box.', ok: true });
     } catch (e) {
       setMsg({ text: e instanceof PushError ? blockerMessage(e.blocker) : `Push could not be turned on: ${String(e)}`, ok: false });
