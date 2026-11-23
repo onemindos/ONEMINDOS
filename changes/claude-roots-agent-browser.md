@@ -1,5 +1,5 @@
 ---
-pr: pending
+pr: 958
 branch: claude/roots-agent-browser
 ---
 Agent browser, first slice (#694): AI agents can open web pages only on sites the owner approved. Each agent session gets its own fresh browser pod with an in-memory profile, no service account token, no shared volume and no DevTools port, boxed in by a default-deny NetworkPolicy whose only way out is a CONNECT proxy inside the gateway. The proxy checks the agent's allowlist on every connection and never dials a private address. A site joins an agent's allowlist only through an agentbrowser.site.allow action that the owner approves (plan hash over agent and site). Sign-in pages, payment pages and downloads need a one-time agentbrowser.step approval even on an approved site. Every visit is audited with the URL minus its query. Sessions have a page budget, a lifetime and a per-agent cap, and the agent kill switch ends them all at once. Routes are under /v1/agent-browser. The feature is off until a browser image pinned by digest is configured (ONEMIND_AGENTBROWSER_ENABLED, ONEMIND_AGENTBROWSER_IMAGE).
