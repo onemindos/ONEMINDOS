@@ -461,6 +461,13 @@ POLICY |= {
                                     "built-in apps list: any reader; a child or agent sees only the apps shared with them, as in /v1/apps"),
     ("GET", "/v1/builtins"): Row(grid(200, 200, 200, 200, 200), w.p_static("/v1/builtins"),
                                  "#603 built-in descriptors: any reader; a child or agent sees only the apps shared with them"),
+    # ---- share (Send to, #612; core/tests/test_share.py) -------------------------------------------------------
+    ("GET", "/v1/share/types"): Row(grid(200, 200, 200, 200, 200), w.p_static("/v1/share/types"), "#612 share type registry: any reader"),
+    ("GET", "/v1/share/targets"): Row(grid(200, 200, 200, 200, 200), w.p_static("/v1/share/targets?type=file"),
+                                      "#612 Send to list: any reader; each sees only the apps shared with them"),
+    ("POST", "/v1/share"): Row(grid(201, 201, 403, 403, 403), w.p_missing(
+        "/v1/share", json={"to": "files", "verb": "open", "object": {"type": "file", "ref": "shared:probe.txt"}}),
+        "#612: an owner or adult hands an object to an app; an agent only drafts (AI never actuates)"),
     ("GET", "/v1/surfaces"): Row(grid(200, 200, 200, 200, 200), w.p_static("/v1/surfaces"),
                                  "#605 surface registry: any reader; a child or agent sees only the apps shared with them"),
     ("GET", "/v1/sources"): Row(READ_ANY, w.p_static("/v1/sources"), "12.22: any reader"),
