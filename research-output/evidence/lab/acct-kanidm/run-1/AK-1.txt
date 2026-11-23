@@ -1,0 +1,100 @@
+# 2026-11-23T02:36:43Z AK-1 part 1: install and first start
++ grep -E '^(PRETTY_NAME|VERSION_ID)=' /etc/os-release; cat /etc/debian_version; uname -rm; nproc; free -m | head -2
+PRETTY_NAME="Debian GNU/Linux 13 (trixie)"
+VERSION_ID="13"
+13.7
+6.12.117+deb13-cloud-amd64 x86_64
+2
+               total        used        free      shared  buff/cache   available
+Mem:            3922         358        3298           0         477        3564
+  (exit 0)
++ bash /root/aklab/setup.sh /root/aklab/debs
++ sha256sum of the packages
+31de180ee2f93e898fd686a5105444e98f2c8e2f8b2d1740691974a010e36a9e  kanidmd_1.12.0-202611010319+a52b723_amd64.deb
+88112601578ff3bc223188208314a7b347b3f6c990e4588157aaa5f694cf14b7  kanidm_1.12.0-202611010319+a52b723_amd64.deb
++ apt-get install ./kanidmd ./kanidm
+=============================
+Thanks for installing Kanidm!
+=============================
+Please ensure you create a configuration file at /etc/kanidm/config or ~/.config/kanidm. An example file is located in /usr/share/kanidm/
+Setting up kanidmd (1.12.0-202611010319+a52b723) ...
+Creating the kanidmd group for config & cert ownership...
+Creating group 'kanidmd' with GID 987.
+Fixing ownership of server configuration ...
+=============================
+Thanks for installing Kanidm!
+=============================
+Please ensure you modify the configuration file at /etc/kanidmd/server.toml
+Only then: systemctl enable kanidmd.service
+Full examples are in /usr/share/kanidmd/
+kanidmd.service is a disabled or a static unit, not starting it.
++ kanidmd cert-generate (local test CA, not for production)
+00000000-0000-0000-0000-000000000000 INFO     ｉ [info]: Running in certificate generate mode ...
+00000000-0000-0000-0000-000000000000 INFO     ｉ [info]: certificate generation complete
+total 24
+-rw-r--r-- 1 root kanidmd  883 Nov 23 02:37 ca.pem
+-rw-r----- 1 root kanidmd  306 Nov 23 02:37 cakey.pem
+-rw-r----- 1 root kanidmd  843 Nov 23 02:37 cert.pem
+-rw-r----- 1 root kanidmd 1726 Nov 23 02:37 chain.pem
+-rw-r----- 1 root kanidmd  241 Nov 23 02:37 key.pem
+-rw-r----- 1 root kanidmd  508 Nov 23 02:37 server.toml
+  (exit 0)
++ dpkg-query -W -f='${Package} ${Version} ${Installed-Size}KiB\n' kanidmd kanidm
+kanidm 1.12.0-202611010319+a52b723 114078KiB
+kanidmd 1.12.0-202611010319+a52b723 246640KiB
+  (exit 0)
++ kanidmd version; kanidm version
+kanidmd 1.12.0 a52b723ce8
+kanidm 1.12.0 a52b723ce8
+  (exit 0)
++ systemctl cat kanidmd | grep -E '^(ExecStart|DynamicUser|StateDirectory|Type)='
+Type=notify
+DynamicUser=yes
+StateDirectory=kanidmd
+ExecStart=/usr/bin/kanidmd server
+  (exit 0)
++ systemctl enable --now kanidmd
+Created symlink '/etc/systemd/system/multi-user.target.wants/kanidmd.service' → '/usr/lib/systemd/system/kanidmd.service'.
+  (exit 0)
++ for i in $(seq 1 30); do systemctl is-active -q kanidmd && break; sleep 1; done; systemctl is-active kanidmd; systemctl is-enabled kanidmd
+active
+enabled
+  (exit 0)
++ sleep 3; curl -sS --cacert /etc/kanidm/ca.pem https://idm.onemind.test:8443/status; echo
+true
+  (exit 0)
++ kanidmd scripting healthcheck -c /etc/kanidmd/server.toml
+{"status":"ok"}
+  (exit 0)
++ systemctl list-unit-files --no-legend | grep -E "k3s|containerd|docker|podman|crio" || echo "no k3s/container units"; for b in k3s kubectl docker podman containerd ctr crio runc; do command -v $b || true; done; echo "(no container binaries listed above = none installed)"
+no k3s/container units
+(no container binaries listed above = none installed)
+  (exit 0)
+# 2026-11-23T02:37:52Z reboot requested: systemctl reboot
+dd8ab5f7-0d94-48a8-86c4-f7769e586905
+# 2026-11-23T02:38:19Z AK-1 part 2: after reboot
++ uptime -s; cat /proc/sys/kernel/random/boot_id; systemctl is-system-running || true
+2026-11-23 02:38:03
+965abdf5-2209-4a80-b952-da9159554963
+running
+  (exit 0)
++ systemctl is-active kanidmd; systemctl is-enabled kanidmd; systemctl show kanidmd -p ActiveEnterTimestamp -p ExecMainStartTimestamp -p NRestarts
+active
+enabled
+NRestarts=0
+ExecMainStartTimestamp=Mon 2026-11-23 02:38:13 UTC
+ActiveEnterTimestamp=Mon 2026-11-23 02:38:14 UTC
+  (exit 0)
++ curl -sS --cacert /etc/kanidm/ca.pem https://idm.onemind.test:8443/status; echo
+true
+  (exit 0)
++ kanidmd scripting healthcheck -c /etc/kanidmd/server.toml
+{"status":"ok"}
+  (exit 0)
++ systemctl list-unit-files --no-legend | grep -E "k3s|containerd|docker|podman|crio" || echo "no k3s/container units"; for b in k3s kubectl docker podman containerd ctr crio runc; do command -v $b || true; done; echo "(no container binaries listed above = none installed)"
+no k3s/container units
+(no container binaries listed above = none installed)
+  (exit 0)
++ systemd-analyze blame --no-pager | grep -E 'kanidmd|network-online|networking' || true
+1.385s kanidmd.service
+  (exit 0)
