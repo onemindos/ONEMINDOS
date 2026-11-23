@@ -68,7 +68,7 @@ def test_the_list_says_where_to_connect(box):
 
 def test_another_adult_cannot_revoke_someone_elses_password(box):
     cred = new_password(box, OWNER)
-    assert box.delete(f"{PW}/{cred['id']}", headers=ADULT).status_code == 404
+    assert box.post(f"{PW}/{cred['id']}/revoke", headers=ADULT).status_code == 404
     assert dav(box, "PROPFIND", "/dav/", cred, headers={"Depth": "0"}).status_code == 207
 
 
@@ -135,7 +135,7 @@ def test_scopes_and_role_both_limit_what_a_password_reaches(box):
 def test_a_revoked_password_fails_on_the_very_next_request(box):
     cred = new_password(box)
     assert dav(box, "PROPFIND", "/dav/", cred, headers={"Depth": "0"}).status_code == 207
-    assert box.delete(f"{PW}/{cred['id']}", headers=OWNER).status_code == 200  # the owner may revoke anyone's
+    assert box.post(f"{PW}/{cred['id']}/revoke", headers=OWNER).status_code == 200  # the owner may revoke anyone's
     r = dav(box, "PROPFIND", "/dav/", cred, headers={"Depth": "0"})
     assert r.status_code == 401 and r.headers["www-authenticate"].startswith("Basic ")
 
