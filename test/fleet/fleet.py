@@ -111,7 +111,7 @@ class Fleet:
                  f"UNIX-CONNECT:/var/run/qemu-server/{vmid}.serial0 OPEN:{CON}/{vmid}.log,creat,append "
                  f">/dev/null 2>&1 &)")
 
-    def console(self, vmid, pattern=r"cloud-init|network|eth0|FIRSTBOOT|HEALTH-GATE|FLEET-BAD|panic|GRUB-RAUC"):
+    def console(self, vmid, pattern=r"cloud-init|network|eth0|FIRSTBOOT|HEALTH-GATE|FLEET-BAD|panic|GRUB-RAUC|Boot failed|bootable"):
         rc, out = self.pve(f"grep -aE {shlex.quote(pattern)} {CON}/{vmid}.log 2>/dev/null | tail -6")
         return out
 
