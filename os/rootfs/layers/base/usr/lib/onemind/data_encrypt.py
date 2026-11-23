@@ -16,6 +16,10 @@ What it does, by what it finds on the onemind-data partition:
       to PCR 7 (TPM) or the owner's passphrase (opt-in), and the random key's slot is wiped; the recovery key is
       printed once on the console and left in /run/onemind/data-recovery-key (RAM only) for the recovery-kit step;
     or plain btrfs on the partition (no TPM, no opt-in).
+    Fail closed: when the firmware announces a TPM (the ACPI TPM2 table or the TPM event log) but /dev/tpmrm0 is not
+    there (its driver probed late or failed), the box is a TPM box, so it gets LUKS2 with the recovery key, never
+    plain: plain btrfs is left alone on every later boot, so a wrong 'plain' would be unencrypted for good. The unit
+    also waits for tpm2.target (systemd-tpm2-generator), so a slow TPM driver normally gets there first.
     The btrfs gets three subvolumes: @ (the default, which /etc/fstab mounts at /data), @storage (files) and
     @snapshots (snapshots of @storage, made by a later step).
   - LUKS2: unlock it. First with the TPM (no prompt), else by asking on the console (passphrase or recovery key).
@@ -46,6 +50,10 @@ MIN_PASSPHRASE = 8
 CRYPTSETUP = "/usr/lib/systemd/systemd-cryptsetup"
 MODHEX = "cbdefghijklnrtuv"
 RECOVERY_RX = re.compile(r"\b([%s]{8}(?:-[%s]{8}){7})\b" % (MODHEX, MODHEX))
+TPM_DEV = "/dev/tpmrm0"
+# What the firmware says before the kernel's TPM driver is up: the ACPI TPM2 table (x86, ARM servers) or the TPM event
+# log the firmware hands over. The same two things systemd-tpm2-generator looks at to decide that a TPM should appear.
+FIRMWARE_TPM = ("/sys/firmware/acpi/tables/TPM2", "/sys/kernel/security/tpm0/binary_bios_measurements")
 ZERO_BYTES = 1 << 20
 SCRUB_BYTES = 16 << 20                     # a LUKS2 header plus keyslots is up to 16 MiB; wipefs alone leaves it
 
@@ -130,11 +138,19 @@ def keep_recovery_key(key):
         f.write(key + "\n")
 
 
-def plan(has_tpm, opted_in):
-    """The founder's rule: 'tpm2' (encrypted, unlocks by itself), 'passphrase' (no TPM, the owner asked) or 'plain'."""
+def plan(has_tpm, opted_in, firmware_tpm=False):
+    """The founder's rule: 'tpm2' (encrypted, unlocks by itself), 'passphrase' (no TPM, the owner asked), 'recovery-key'
+    (the firmware announces a TPM that is not usable this boot: encrypted, never plain) or 'plain'."""
     if has_tpm:
         return "tpm2"
-    return "passphrase" if opted_in else "plain"
+    if opted_in:
+        return "passphrase"
+    return "recovery-key" if firmware_tpm else "plain"
+
+
+def firmware_has_tpm():
+    """True when the firmware says this box has a TPM, whether or not the kernel's driver has made /dev/tpmrm0 yet."""
+    return any(os.path.exists(p) for p in FIRMWARE_TPM)
 
 
 def cmdline():
@@ -275,7 +291,10 @@ def main(runner=run):
     node = os.path.realpath(f"/dev/disk/by-partlabel/{LABEL}")
     if os.path.exists("/dev/mapper/" + NAME):
         return 0                                     # already open (this is not the first run of the boot)
-    has_tpm = os.path.exists("/dev/tpmrm0")
+    has_tpm = os.path.exists(TPM_DEV)
+    firmware_tpm = has_tpm or firmware_has_tpm()
+    if firmware_tpm and not has_tpm:
+        say(f"the firmware announces a TPM but {TPM_DEV} is missing (its driver did not come up); the TPM is not used")
     kind = classify(signature(node, runner), head_is_zero(node))
     if kind == "ext4":
         write_state(state="plain", fs="ext4", reason="installed before encryption; left as it is")
@@ -285,7 +304,7 @@ def main(runner=run):
         say("the data partition is plain btrfs (no TPM); left untouched")
     elif kind == "blank":
         opted_in = wants_passphrase(cmdline())
-        mode = plan(has_tpm, opted_in)
+        mode = plan(has_tpm, opted_in, firmware_tpm)
         if has_tpm and opted_in:
             say("this box has a TPM, so it unlocks by itself; the passphrase option is for boxes without one")
         if mode == "plain":
@@ -304,7 +323,11 @@ def main(runner=run):
                 write_state(state="blank", reason="encryption asked for but no passphrase chosen; asked again next boot")
                 say("no passphrase chosen: the data partition stays blank and is not used this boot")
                 return 0
-        say("blank data partition: making it LUKS2 + btrfs" + (" with TPM2 unlock" if has_tpm else " with your passphrase"))
+        if mode == "recovery-key":
+            say("blank data partition on a TPM box whose TPM is not ready: encrypting anyway (LUKS2 + btrfs), unlocked "
+                "with the recovery key until the TPM is enrolled; never left plain")
+        else:
+            say("blank data partition: making it LUKS2 + btrfs" + (" with TPM2 unlock" if has_tpm else " with your passphrase"))
         res = first_boot_encrypt(node, has_tpm, runner, passphrase=passphrase)
         passphrase = None
         how = "tpm2" if res["tpm2"] else ("passphrase" if res["passphrase"] else "recovery-key")

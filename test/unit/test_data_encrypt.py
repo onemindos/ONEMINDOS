@@ -75,6 +75,20 @@ class FounderRule(unittest.TestCase):
         self.assertEqual(de.plan(False, False), "plain")
         self.assertEqual(de.plan(False, True), "passphrase")
 
+    def test_a_tpm_the_firmware_announces_but_that_is_not_ready_is_never_plain(self):
+        # Fail closed: plain btrfs is left alone on every later boot, so a late TPM driver must not mean "unencrypted".
+        self.assertEqual(de.plan(False, False, firmware_tpm=True), "recovery-key")
+        self.assertEqual(de.plan(False, True, firmware_tpm=True), "passphrase")
+        self.assertEqual(de.plan(True, False, firmware_tpm=True), "tpm2")
+
+    def test_the_firmware_tpm_check_reads_the_acpi_table_or_the_event_log(self):
+        for present in de.FIRMWARE_TPM:
+            with mock.patch.object(de.os.path, "exists", side_effect=lambda p: p == present):
+                self.assertTrue(de.firmware_has_tpm(), present)
+        with mock.patch.object(de.os.path, "exists", return_value=False):
+            self.assertFalse(de.firmware_has_tpm())
+        self.assertIn("/sys/firmware/acpi/tables/TPM2", de.FIRMWARE_TPM)
+
     def test_the_opt_in_is_one_kernel_command_line_word(self):
         self.assertTrue(de.wants_passphrase("quiet onemind.data_encrypt=passphrase console=ttyS0"))
         self.assertTrue(de.wants_passphrase("onemind.data_encrypt=passphrase\n"))
@@ -318,9 +332,9 @@ class Unlock(unittest.TestCase):
 
 class Main(unittest.TestCase):
     """main() with the disk faked: what it finds decides what it does."""
-    def run_main(self, sig, zero, tpm=False, cmdline="quiet", pw=PASSPHRASE):
+    def run_main(self, sig, zero, tpm=False, cmdline="quiet", pw=PASSPHRASE, firmware_tpm=False):
         r = FakeRunner()
-        exists = lambda p: {"/dev/tpmrm0": tpm}.get(p, False)
+        exists = lambda p: {"/dev/tpmrm0": tpm, "/sys/firmware/acpi/tables/TPM2": firmware_tpm}.get(p, False)
         self.plain = mock.patch.object(de, "make_plain").start()
         self.ask = mock.patch.object(de, "ask_passphrase", return_value=pw).start()
         mock.patch.object(de, "cmdline", return_value=cmdline).start()
@@ -372,6 +386,19 @@ class Main(unittest.TestCase):
         self.assertEqual(ws.call_args.kwargs["state"], "plain")
         self.assertEqual(ws.call_args.kwargs["fs"], "btrfs")
 
+    def test_blank_on_a_tpm_box_whose_tpm_device_is_missing_is_encrypted_with_the_recovery_key_never_plain(self):
+        # The firmware announces a TPM (ACPI TPM2 table) but the driver has not made /dev/tpmrm0: before #152 this
+        # was LUKS + recovery key, and it must stay encrypted (a plain btrfs would be left alone for good).
+        rc, r, ws, keep, fb, ul = self.run_main("", True, tpm=False, firmware_tpm=True)
+        self.plain.assert_not_called(); self.ask.assert_not_called()
+        fb.assert_called_once()
+        self.assertFalse(fb.call_args.args[1])                    # no TPM enrolment: the device is not there
+        self.assertIsNone(fb.call_args.kwargs.get("passphrase"))
+        keep.assert_called_once_with(RECOVERY)
+        self.assertEqual(ws.call_args.kwargs["state"], "encrypted")
+        self.assertEqual(ws.call_args.kwargs["unlock"], "recovery-key")
+        self.assertEqual(rc, 0)
+
     def test_blank_without_a_tpm_but_opted_in_asks_for_a_passphrase(self):
         rc, r, ws, keep, fb, ul = self.run_main("", True, tpm=False, cmdline="onemind.data_encrypt=passphrase")
         self.ask.assert_called_once()
@@ -414,6 +441,9 @@ class Wiring(unittest.TestCase):
         self.assertIn("DefaultDependencies=no", u)
         self.assertRegex(u, r"(?m)^ExecStart=-/usr/lib/onemind/data-encrypt$")
         self.assertIn("TimeoutStartSec=infinity", u)         # a person may take a while to find the key
+        # A TPM whose driver probes late must not look like "no TPM": wait for systemd-tpm2-generator's target.
+        self.assertRegex(u, r"(?m)^After=tpm2\.target$")
+        self.assertRegex(u, r"(?m)^Wants=tpm2\.target$")
         self.assertNotIn("Requires=", u)
 
     def test_enabled_by_symlink_and_the_script_is_executable_and_uses_the_gateway_python(self):
