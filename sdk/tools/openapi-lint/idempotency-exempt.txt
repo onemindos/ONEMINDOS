@@ -11,3 +11,5 @@ POST /v1/auth/logout  # ending the caller's own session twice is the same as onc
 PATCH /v1/files/uploads/{upload_id}  # tus: the Upload-Offset header makes a retried chunk safe
 PATCH /v1/photos/uploads/{upload_id}  # tus: the Upload-Offset header makes a retried chunk safe
 POST /v1/actions  # contract §12.1: keeps its §3 body field idempotency_key instead of the header
+PUT /v1/agents/{name}/nats-key  # sets one agent's one key: the same body twice leaves the same state
+DELETE /v1/agents/{name}/nats-key  # removing an agent's key twice is the same as once
