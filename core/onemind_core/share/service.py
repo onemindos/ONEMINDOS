@@ -14,16 +14,26 @@ on NATS, which the receiving app listens to. Its payload carries ids only (app, 
 never a title or content, because audit lines are kept for a year. Only a person sends: an agent
 may list where an object could go, but handing it over is the person's tap (AI never actuates).
 
+A send may carry an `Idempotency-Key` (contract §12.1, docs/leap/dev/API.md): the same key, person
+and share within 24 hours replays the first answer instead of handing the object over twice; the
+same key with a different share is 409 `idempotency_mismatch`. Keys are kept hashed, in this
+gateway process only (a restart forgets them), at most REPLAY_MAX of them.
+
 Apps come from the built-in descriptors (builtins.py) today; a Market app joins once the share
 block moves into onemind.app.schema.json.
 """
 
 from __future__ import annotations
 
+import hashlib
+import threading
+from collections import OrderedDict
 from collections.abc import Callable
+from datetime import datetime, timedelta
 
 from fastapi import Request
 
+from ..audit import canonical_json
 from ..auth import Principal
 from ..builtins import Builtins, Descriptor
 from ..catalog import APP_ID_RE
@@ -32,12 +42,17 @@ from ..errors import ApiError
 from .types import TYPES, deep_link, holds_grant
 
 SENDER_ROLES = frozenset({"owner", "adult"})
+REPLAY_TTL = timedelta(hours=24)
+REPLAY_MAX = 4096
 
 
 class ShareService:
     def __init__(self, gw: Gateway, registry: Callable[[], Builtins | None]):
         self.gw = gw
         self.registry = registry
+        # (principal kind, id, sha256 of the key) -> (expires, sha256 of the share, the first answer)
+        self._replays: OrderedDict[tuple[str, str, str], tuple[datetime, str, dict]] = OrderedDict()
+        self._lock = threading.Lock()
 
     def _apps(self) -> dict[str, Descriptor]:
         reg = self.registry()
@@ -69,11 +84,34 @@ class ShareService:
         self.gw.audit.append("share.refused", p.as_dict(), None, {**facts, "reason": reason})
         return ApiError(status, error, message, reason=reason)
 
-    def send(self, request: Request, p: Principal, to: str, verb: str, obj: dict) -> dict:
-        facts = {"to": to, "verb": verb, "type": obj["type"]}
+    def send(self, request: Request, p: Principal, to: str, verb: str, obj: dict,
+             idempotency_key: str | None = None) -> tuple[dict, bool]:
+        """Hand the object over. Returns (the share, True when it is a replay of an earlier send)."""
         if p.kind != "person" or p.role not in SENDER_ROLES:
             self.gw.audit.append("authz.denied", p.as_dict(), None, {"attempted": "share.send", "reason": "permission_denied"})
             raise ApiError(403, "permission_denied", "only a person sends; an agent may list targets and draft")
+        if idempotency_key is None:
+            return self._send(request, p, to, verb, obj), False
+        slot = (p.kind, p.id, hashlib.sha256(idempotency_key.encode()).hexdigest())
+        digest = hashlib.sha256(canonical_json({"to": to, "verb": verb, "object": obj}).encode()).hexdigest()
+        with self._lock:  # one keyed send at a time, so two racing retries cannot both hand over
+            now = self.gw.clock()
+            while self._replays and next(iter(self._replays.values()))[0] <= now:
+                self._replays.popitem(last=False)
+            hit = self._replays.get(slot)
+            if hit is not None:
+                if hit[1] != digest:
+                    raise ApiError(409, "conflict", "Idempotency-Key was already used for a different share",
+                                   reason="idempotency_mismatch")
+                return hit[2], True
+            out = self._send(request, p, to, verb, obj)
+            self._replays[slot] = (now + REPLAY_TTL, digest, out)
+            while len(self._replays) > REPLAY_MAX:
+                self._replays.popitem(last=False)
+            return out, False
+
+    def _send(self, request: Request, p: Principal, to: str, verb: str, obj: dict) -> dict:
+        facts = {"to": to, "verb": verb, "type": obj["type"]}
         d = self._apps().get(to) if APP_ID_RE.match(to) else None
         if d is None or not self._visible(request, p, to):
             raise self._refuse(p, 404, "not_found", "no such app", "unknown_app", facts)

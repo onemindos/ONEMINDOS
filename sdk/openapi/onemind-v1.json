@@ -26372,8 +26372,28 @@
     },
     "/v1/share": {
       "post": {
-        "description": "Hand one object to one app. Refused (409) when the app does not accept the type or verb\n(`type_not_accepted`, `verb_not_accepted`) or lacks the type's data grant (`no_grant`);\n404 when you cannot see the app. Only an owner or adult sends.",
+        "description": "Hand one object to one app. Refused (409) when the app does not accept the type or verb\n(`type_not_accepted`, `verb_not_accepted`) or lacks the type's data grant (`no_grant`);\n404 when you cannot see the app. Only an owner or adult sends. A repeated `Idempotency-Key`\nreplays the first share (200) for 24 hours; with a different share it is 409 `idempotency_mismatch`.",
         "operationId": "share.send",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -26385,6 +26405,16 @@
           "required": true
         },
         "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShareOut"
+                }
+              }
+            },
+            "description": "Idempotent replay: the share sent earlier with this Idempotency-Key (header OneMind-Idempotent-Replay)"
+          },
           "201": {
             "content": {
               "application/json": {

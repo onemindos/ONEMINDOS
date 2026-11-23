@@ -7,9 +7,10 @@ share/service.py. After builtins (ORDER 135), whose descriptor registry it reads
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Annotated, Literal
 
-from fastapi import Depends, FastAPI, Query, Request
+from fastapi import Depends, FastAPI, Header, Query, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from ..auth import Principal
@@ -93,9 +94,16 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return {"type": type, "targets": svc.targets(request, p, type)}
 
     @app.post("/v1/share", operation_id="share.send", tags=["share"], status_code=201, response_model=ShareOut,
-              responses=error_responses(401, 403, 404, 409, 422))
-    def share_send(body: ShareIn, request: Request, p: Principal = Depends(gw.principal)):
+              responses={200: {"model": ShareOut, "description": "Idempotent replay: the share sent earlier with this "
+                                                                  "Idempotency-Key (header OneMind-Idempotent-Replay)"},
+                         **error_responses(401, 403, 404, 409, 422)})
+    def share_send(body: ShareIn, request: Request, p: Principal = Depends(gw.principal),
+                   idem: Annotated[str | None, Header(alias="Idempotency-Key", min_length=1, max_length=200)] = None):
         """Hand one object to one app. Refused (409) when the app does not accept the type or verb
         (`type_not_accepted`, `verb_not_accepted`) or lacks the type's data grant (`no_grant`);
-        404 when you cannot see the app. Only an owner or adult sends."""
-        return svc.send(request, p, body.to, body.verb, body.object.model_dump())
+        404 when you cannot see the app. Only an owner or adult sends. A repeated `Idempotency-Key`
+        replays the first share (200) for 24 hours; with a different share it is 409 `idempotency_mismatch`."""
+        out, replay = svc.send(request, p, body.to, body.verb, body.object.model_dump(), idempotency_key=idem)
+        if replay:
+            return JSONResponse(status_code=200, content=out, headers={"OneMind-Idempotent-Replay": "true"})
+        return out

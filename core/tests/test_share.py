@@ -122,6 +122,31 @@ def test_only_an_owner_or_adult_sends(client, settings, who):
     assert client.get("/v1/share/targets", params={"type": "file"}, headers=who).status_code == 200
 
 
+def test_a_retried_send_with_the_same_key_hands_over_once(client, gw, clock):
+    seen = []
+    gw.events.subscribe("share.sent", seen.append)
+    key = {**OWNER, "Idempotency-Key": "send-1"}
+    first = send(client, "photos", who=key)
+    assert first.status_code == 201 and "OneMind-Idempotent-Replay" not in first.headers
+    again = send(client, "photos", who=key)
+    assert again.status_code == 200 and again.headers["OneMind-Idempotent-Replay"] == "true"
+    assert again.json() == first.json()
+    assert len(seen) == 1
+    other = send(client, "photos", who={**ADULT, "Idempotency-Key": "send-1"})  # another person: another key
+    assert other.status_code == 201 and other.json()["id"] != first.json()["id"]
+    r = send(client, "files", verb="open", who=key)
+    assert r.status_code == 409 and r.json()["reason"] == "idempotency_mismatch"
+    clock.advance(24 * 3600)
+    assert send(client, "photos", who=key).status_code == 201  # kept for 24 hours
+    assert len(seen) == 3
+
+
+def test_a_key_never_lets_a_refused_sender_through(client, settings):
+    assert send(client, "photos", who={**OWNER, "Idempotency-Key": "k"}).status_code == 201
+    assert send(client, "photos", who={**AGENT, "Idempotency-Key": "k"}).status_code == 403
+    assert send(client, "photos", who={**OWNER, "Idempotency-Key": ""}).status_code == 422
+
+
 @pytest.mark.parametrize("bad", [
     {"to": "photos", "object": {"type": "parcel", "ref": "x"}},
     {"to": "photos", "object": {"type": "file", "ref": ""}},
