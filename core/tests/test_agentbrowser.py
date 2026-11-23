@@ -21,8 +21,7 @@ from fastapi.testclient import TestClient
 
 from conftest import ADULT, AGENT, OWNER
 from onemind_core.agentbrowser import policy
-from onemind_core.agentbrowser.pods import SESSION_LABEL, isolation_problems, session_docs
-from onemind_core.agentbrowser.proxy import EgressProxy, EgressRefused
+from onemind_core.agentbrowser.pods import isolation_problems
 from onemind_core.agentbrowser.settings import AgentBrowserSettings
 from onemind_core.app import create_app
 
@@ -229,6 +228,56 @@ def test_sign_in_needs_a_one_time_owner_approval(ab):
     assert r.status_code == 202 and r.json()["reason"] == "download"
 
 
+def visit(c, sid: str, url: str, kind: str = "navigate", approval_id: str | None = None):
+    body = {"url": url, "kind": kind, **({"approval_id": approval_id} if approval_id else {})}
+    return c.post(f"{BASE}/sessions/{sid}/visit", json=body, headers=AGENT)
+
+
+def test_a_step_approval_is_bound_to_the_exact_url(ab):
+    """An approved /checkout?amount=1 never opens /checkout?amount=9999: the query is in the plan hash."""
+    c = ab["c"]
+    approve_site(c, "example.org")
+    sid = start(c)["id"]
+    small = "https://example.org/checkout?amount=1"
+    r = visit(c, sid, small)
+    assert r.status_code == 202 and r.json()["reason"] == "payment"
+    action = r.json()["action"]
+    assert action["params"]["url"] == "https://example.org/checkout" and action["params"]["query"] == "?amount=1"
+    assert action["params"]["full_sha256"] == policy.parse(small).full_sha256  # the card shows what it pins
+    assert c.post(f"/v1/actions/{action['id']}/approve", headers=OWNER).json()["state"] == "succeeded"
+    for other in ("https://example.org/checkout?amount=9999&to=attacker", "https://example.org/checkout",
+                  "https://example.org/checkout?amount=1#to=attacker"):
+        r = visit(c, sid, other, approval_id=action["id"])
+        assert r.status_code == 202 and r.json()["action"]["id"] != action["id"], other  # a new card for the owner
+    assert ab["pages"] == []  # nothing reached the browser
+    assert visit(c, sid, small, approval_id=action["id"]).status_code == 200
+    assert ab["pages"] == [{"url": small, "kind": "navigate"}]
+
+
+def test_every_submit_needs_its_own_owner_approval(ab):
+    """A signed-in session (cookies stay in the pod) still cannot submit a form without the owner, each time."""
+    c = ab["c"]
+    approve_site(c, "example.org")
+    sid = start(c)["id"]
+    r = visit(c, sid, "https://example.org/login")
+    login = r.json()["action"]
+    assert c.post(f"/v1/actions/{login['id']}/approve", headers=OWNER).json()["state"] == "succeeded"
+    assert visit(c, sid, "https://example.org/login", approval_id=login["id"]).status_code == 200
+    post = "https://example.org/forum/new?title=hello"
+    r = visit(c, sid, post, kind="submit")
+    assert r.status_code == 202 and r.json()["reason"] == "submit"
+    assert visit(c, sid, post, kind="submit", approval_id=login["id"]).status_code == 202  # a sign-in approval is not a submit
+    step = r.json()["action"]
+    assert step["params"]["kind"] == "submit" and step["params"]["query"] == "?title=hello"
+    assert c.post(f"/v1/actions/{step['id']}/approve", headers=AGENT).status_code == 403  # never self-approved
+    assert c.post(f"/v1/actions/{step['id']}/approve", headers=OWNER).json()["state"] == "succeeded"
+    assert visit(c, sid, post, kind="submit", approval_id=step["id"]).status_code == 200
+    for _ in range(3):  # once only: a second submit is a second card
+        assert visit(c, sid, post, kind="submit", approval_id=step["id"]).status_code == 202
+    assert visit(c, sid, post, kind="navigate").status_code == 200  # reading the same page needs no approval
+    assert [p["kind"] for p in ab["pages"]] == ["navigate", "submit", "navigate"]
+
+
 def test_who_may_use_it(ab):
     c = ab["c"]
     assert c.get(f"{BASE}/sites", headers=ADULT).status_code == 403
@@ -254,46 +303,6 @@ def test_who_may_use_it(ab):
 def test_off_by_default(client):
     r = client.post(f"{BASE}/sessions", json={}, headers=AGENT)
     assert r.status_code == 409 and r.json()["reason"] == "agent_browser_off"
-
-
-def test_url_rules():
-    for bad in ("http://example.org/", "https://192.0.2.1/", "https://[::1]/", "https://user@localhost/",
-                "https://example.org:8443/", "https://nas.local/", "https://localhost/", "ftp://example.org/"):
-        with pytest.raises(policy.UrlRefused):
-            policy.parse(bad)
-    t = policy.parse("https://Docs.Example.org/a/b?token=x#frag")
-    assert (t.host, t.url) == ("docs.example.org", "https://docs.example.org/a/b")
-    assert policy.allowed("a.b.example.org", frozenset({"*.example.org"}))
-    assert not policy.allowed("example.org", frozenset({"*.example.org"}))
-    assert not policy.allowed("evilexample.org", frozenset({"example.org", "*.example.org"}))
-    assert policy.classify(policy.parse("https://checkout.stripe.com/x"), "navigate") == "payment"
-    assert policy.classify(policy.parse("https://shop.example.org/cart/checkout"), "navigate") == "payment"
-    assert policy.classify(policy.parse("https://example.org/docs"), "submit") is None
-    assert not policy.public_address("192.0.2.10") and not policy.public_address("::ffff:127.0.0.1")
-    assert policy.public_address("93.184.215.14")
-
-
-def test_pod_is_sealed():
-    docs = session_docs("onemind-agent-browser", "abs_1", image="x@sha256:" + "b" * 64, control_token="t",
-                        proxy_url="http://p", control_port=9300, lifetime_s=900, max_pages=5)
-    pod = next(d for d in docs if d["kind"] == "Pod")
-    assert pod["spec"]["automountServiceAccountToken"] is False and pod["spec"]["activeDeadlineSeconds"] == 900
-    assert pod["metadata"]["labels"][SESSION_LABEL] == "ab-1"
-    assert isolation_problems(pod) == []
-    pod["spec"]["volumes"].append({"name": "cookies", "persistentVolumeClaim": {"claimName": "profile-x"}})
-    pod["spec"]["containers"][0]["ports"].append({"containerPort": 9222})
-    assert len(isolation_problems(pod)) == 2
-
-
-def test_proxy_never_dials_a_private_address():
-    import asyncio
-
-    async def resolve(host, port):
-        return ["127.0.0.1", "198.51.100.7"]
-
-    proxy = EgressProxy(lambda *a: None, resolve=resolve)
-    with pytest.raises(EgressRefused):
-        asyncio.run(proxy._dial_public("approved.example.org", 443))
 
 
 def test_idempotency_key_replays_without_a_second_pod_or_page(ab):

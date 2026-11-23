@@ -6,9 +6,12 @@ apply exactly the same rules:
 - https only, a DNS host name only (no IP literal, no user:password@, no `localhost`), port 443;
 - a host is reachable only when it is on the agent's allowlist (exact name, or a `*.` entry that
   covers its subdomains, never the bare parent);
-- a sign-in page, a payment page and every download need a one-time owner approval even on an
-  approved site, because "AI never actuates without human approval" (D-001).
-- the audit keeps the URL without its query and fragment (they can carry tokens and personal data).
+- a sign-in page, a payment page, every form submit and every download need a one-time owner
+  approval even on an approved site, because "AI never actuates without human approval" (D-001);
+- that approval is bound to the exact URL the browser is sent, query included (`full_sha256` in the
+  step plan), so an approved `/checkout?amount=1` never opens `/checkout?amount=9999`;
+- the visit audit keeps the URL without its query and fragment (they can carry tokens and personal
+  data); only a step card shows the query, because the owner cannot approve what they cannot see.
 """
 
 from __future__ import annotations
@@ -22,6 +25,7 @@ from urllib.parse import urlsplit
 
 HOST_RE = re.compile(r"^(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z][a-z0-9-]{0,61}[a-z0-9]$")
 KINDS = ("navigate", "submit", "download")
+QUERY_SHOWN = 1000  # characters of the query a step card shows; the plan hash covers all of it
 # Suffixes that never name a public site: the box's own names and private-use top-level domains.
 PRIVATE_SUFFIXES = (".local", ".internal", ".lan", ".home", ".arpa", ".localhost", ".onion", ".test", ".invalid")
 
@@ -49,6 +53,18 @@ class Target:
     host: str
     url: str        # scheme://host/path, no query, no fragment, no credentials: what the audit keeps
     full: str       # the URL as given (kept only in memory, handed to the browser pod)
+
+    @property
+    def full_sha256(self) -> str:
+        """The hash a step approval binds: the exact URL the pod is sent, query and fragment included."""
+        return "sha256:" + hashlib.sha256(self.full.encode()).hexdigest()
+
+    @property
+    def query(self) -> str:
+        """The query and fragment as the owner sees them on a step card (cut to QUERY_SHOWN characters)."""
+        parts = urlsplit(self.full)
+        tail = (parts.query and "?" + parts.query) + (parts.fragment and "#" + parts.fragment)
+        return tail if len(tail) <= QUERY_SHOWN else tail[:QUERY_SHOWN] + "\u2026"
 
 
 def normalize_host(raw: str) -> str:
@@ -127,12 +143,19 @@ def classify(target: Target, kind: str) -> str | None:
         return "payment"
     if kind == "download":
         return "download"
+    if kind == "submit":  # a form submit acts on the site (a post, an order, a message): never without the owner
+        return "submit"
     return None
 
 
-def step_plan(agent: str, session_id: str, kind: str, reason: str, url: str) -> tuple[dict, str]:
-    """(plan, plan_sha256) of one step an owner approves once: the hash covers who, where and what."""
-    plan = {"agent": agent, "session_id": session_id, "kind": kind, "reason": reason, "url": url}
+def step_plan(agent: str, session_id: str, kind: str, reason: str, url: str, query: str,
+              full_sha256: str) -> tuple[dict, str]:
+    """(plan, plan_sha256) of one step an owner approves once: the hash covers who, where and what.
+
+    `url` and `query` are what the card shows; `full_sha256` pins the exact URL the pod is sent.
+    """
+    plan = {"agent": agent, "session_id": session_id, "kind": kind, "reason": reason, "url": url,
+            "query": query, "full_sha256": full_sha256}
     body = json.dumps(plan, sort_keys=True, separators=(",", ":"))
     return plan, "sha256:" + hashlib.sha256(body.encode()).hexdigest()
 

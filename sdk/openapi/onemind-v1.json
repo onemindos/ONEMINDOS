@@ -516,6 +516,7 @@
               "site_not_approved",
               "sign_in",
               "payment",
+              "submit",
               "download"
             ],
             "title": "Reason",

@@ -8,8 +8,9 @@
 - A session is one fresh browser pod (pods.py). Sessions live in this process's memory on purpose:
   nothing of a browser outlives its session, and a gateway restart deletes every leftover pod.
 - A visit to a host off the allowlist answers approval_required and files the site request; a
-  sign-in page, a payment page or a download on an approved site answers approval_required and files
-  `agentbrowser.step`, a one-time approval bound by plan hash to that agent, session, kind and URL.
+  sign-in page, a payment page, a form submit or a download on an approved site answers
+  approval_required and files `agentbrowser.step`, a one-time approval bound by plan hash to that
+  agent, session, kind and exact URL (query included: the card shows it, `full_sha256` pins it).
 - Every visit is audited (`agentbrowser.visit`: agent, URL without query, decision); a refused
   CONNECT at the proxy is audited once per host and session.
 - Limits: pages per session (the budget), session lifetime, sessions per agent. The agent kill
@@ -193,11 +194,12 @@ class AgentBrowser:
                                      approved_by=a.approved_by, created_at=self.gw.clock()))
         finish(ExecResult("succeeded", f"{entry} is on {agent}'s agent browser allowlist"))
 
-    # ---- one-time steps (sign-in, payment, download) -----------------------------------------
+    # ---- one-time steps (sign-in, payment, submit, download) ---------------------------------
     def _check_step(self, a: Action) -> str | None:
         prm = a.params
         _, sha = policy.step_plan(prm.get("agent", ""), prm.get("session_id", ""), prm.get("kind", ""),
-                                  prm.get("reason", ""), prm.get("url", ""))
+                                  prm.get("reason", ""), prm.get("url", ""), prm.get("query", ""),
+                                  prm.get("full_sha256", ""))
         return None if hmac.compare_digest(sha, prm.get("plan_sha256", "")) else "the step plan changed; ask again"
 
     def _run_step(self, a: Action, finish) -> None:
@@ -326,11 +328,10 @@ class AgentBrowser:
             self._audit_visit(s, t.url, kind, "approval_required", "site_not_approved", action["id"])
             return self._approval(s, "site_not_approved", action), 202
         reason = policy.classify(t, kind)
-        if reason is not None and not self._step_granted(s, agent, kind, reason, t.url, approval_id):
-            _, sha = policy.step_plan(agent, s.id, kind, reason, t.url)
+        if reason is not None and not self._step_granted(s, agent, kind, reason, t, approval_id):
+            plan, sha = policy.step_plan(agent, s.id, kind, reason, t.url, t.query, t.full_sha256)
             action, _ = self.gw.actions.request_feature(
-                principal, STEP_ACTION,
-                {"agent": agent, "session_id": s.id, "kind": kind, "reason": reason, "url": t.url, "plan_sha256": sha},
+                principal, STEP_ACTION, {**plan, "plan_sha256": sha},
                 idempotency_key=_key("step", s.id, sha, str(len(s.used_steps))), expires_at=self.gw.clock() + STEP_TTL,
                 reason=f"{reason.replace('_', '-')} step in the agent browser", pending_cap=True)
             self._audit_visit(s, t.url, kind, "approval_required", reason, action["id"])
@@ -350,11 +351,12 @@ class AgentBrowser:
     def _approval(self, s: Session, reason: str, action: dict) -> dict:
         return {"decision": "approval_required", "reason": reason, "session": s.view(), "action": action}
 
-    def _step_granted(self, s: Session, agent: str, kind: str, reason: str, url: str, approval_id: str | None) -> bool:
+    def _step_granted(self, s: Session, agent: str, kind: str, reason: str, t: policy.Target,
+                      approval_id: str | None) -> bool:
         if not approval_id or approval_id in s.used_steps:
             return False
         a = self.gw.repo.get(approval_id)
-        _, sha = policy.step_plan(agent, s.id, kind, reason, url)
+        _, sha = policy.step_plan(agent, s.id, kind, reason, t.url, t.query, t.full_sha256)
         if a is None or a.type != STEP_ACTION or a.state != "succeeded" or a.params.get("plan_sha256") != sha:
             return False
         with self._lock:

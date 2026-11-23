@@ -104,7 +104,7 @@ class AgentBrowserVisit(BaseModel):
 
 class AgentBrowserApproval(BaseModel):
     decision: Literal["approval_required"]
-    reason: Literal["site_not_approved", "sign_in", "payment", "download"]
+    reason: Literal["site_not_approved", "sign_in", "payment", "submit", "download"]
     session: AgentBrowserSession
     action: Action = Field(description="The request waiting for the owner (approve it in /v1/actions)")
 
