@@ -46,7 +46,7 @@ REASONS: dict[str, str] = {
     FLEET: "Fleet OS versions and staged rollouts (#156): a rollout starts only as an owner-approved action "
            "(os.rollout.start), which an agent follows through get_action; this is the owner's update console.",
     CONSOLE: "The owner's system console: host service logs (which can hold secrets until a redacted read tool "
-             "exists), the message-bus monitor (#619) and bridge status (#610). Agents read the world through the "
+             "exists), the message-bus monitor (#619), bridge status (#610) and the UPS battery (#244). Agents read the world through the "
              "data commons doors and request changes as actions.",
 }
 
@@ -335,6 +335,7 @@ HUMAN_ONLY: dict[str, str] = {
     "GET /v1/bridges/{bridge_id}/latest": CONSOLE,
     "GET /v1/engine": CONSOLE,
     "GET /v1/system/services/{unit}/logs": CONSOLE,
+    "GET /v1/system/ups": CONSOLE,
     "POST /v1/bridges/{bridge_id}/resume": WRITE,
     "POST /v1/system/services/{unit}/restart": WRITE,
     "PUT /v1/mesh/settings": WRITE,
