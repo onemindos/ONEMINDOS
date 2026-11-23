@@ -150,3 +150,23 @@ export async function exitFromHeadset(page: Page): Promise<void> {
     await device.activeSession?.end();
   });
 }
+
+/** three.js marks itself with `window.__THREE__ = REVISION`; dashboard/src/screens/spatial/bundle-check.mjs looks for the same. */
+const THREE_MARKER = '__THREE__';
+
+/**
+ * Collect every script the page downloads from now on (issue #814 bundle check in the browser). Pass
+ * the result to `threeLoaded` to ask whether any of them carried three.js.
+ */
+export function watchScripts(page: Page): Promise<string>[] {
+  const bodies: Promise<string>[] = [];
+  page.on('response', r => {
+    if (r.request().resourceType() === 'script') bodies.push(r.text().catch(() => ''));
+  });
+  return bodies;
+}
+
+/** Whether any script collected by `watchScripts` so far carried three.js. */
+export async function threeLoaded(scripts: Promise<string>[]): Promise<boolean> {
+  return (await Promise.all(scripts)).some(code => code.includes(THREE_MARKER));
+}
