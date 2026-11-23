@@ -202,6 +202,8 @@ POLICY |= {
         cells(403, **GONE, owner=202, agent=202, app_agent=202, **PENDING_DENY), w.p_alert("app.scan_blocked", "/fix"),
         "§12.14 owners and agents file the fix as a request (awaiting approval); approve=true is owner only"),
     ("GET", "/v1/notifications"): Row(PEOPLE_READ, w.p_static("/v1/notifications"), "§12.14 own inbox, people only"),
+    ("GET", "/v1/notifications/summary"): Row(PEOPLE_READ, w.p_static("/v1/notifications/summary"),
+                                              "§12.14 own unread summary (#682), people only"),
     ("GET", "/v1/notifications/{notification_id}"): Row(
         cells(404, **GONE, owner=200, **AGENTS_DENIED), w.p_notification(), "§12.14 own inbox; others 404"),
     ("POST", "/v1/notifications/{notification_id}/read"): Row(

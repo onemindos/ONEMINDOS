@@ -35,7 +35,12 @@ export type PluginKeyInfo = components["schemas"]["SigningKey"];
 export type PluginKeyInput = components["schemas"]["KeyRequest"];
 export type PluginKeyRevokeInput = components["schemas"]["RevokeRequest"];
 
+/** GET /v1/notifications/summary (#682): the caller's unread state, kept on the hub. */
+export type NotificationSummary = components["schemas"]["NotificationSummary"];
+
 export interface OneMindApi extends WiringApi {
+  /** One call for the bell's unread state. Absent on the mock gateway and test doubles. */
+  notificationSummary?(): Promise<NotificationSummary>;
   pluginSigningKeys?(): Promise<components["schemas"]["SigningKeys"]>;
   requestPluginSigningKey?(body: PluginKeyInput): Promise<components["schemas"]["Action"]>;
   revokePluginSigningKey?(keyId: string, body: PluginKeyRevokeInput): Promise<components["schemas"]["Action"]>;
@@ -509,6 +514,7 @@ export class HttpApi implements OneMindApi {
   markAllRead() {
     return this.req<{ marked: number }>('POST', '/v1/notifications/read-all', {});
   }
+  notificationSummary() { return this.sdkCall<NotificationSummary>('GET', '/v1/notifications/summary'); }
   channels() {
     return this.req<W.ChannelInfo[]>('GET', '/v1/notifications/channels', undefined, 'array');
   }

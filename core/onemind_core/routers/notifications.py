@@ -113,6 +113,22 @@ class PushIn(BaseModel):
     label: str = Field(default="device", min_length=1, max_length=120)
 
 
+class NotificationSeverityCounts(BaseModel):
+    info: int
+    warning: int
+    critical: int
+
+
+class NotificationSummary(BaseModel):
+    """GET /v1/notifications/summary: the caller's unread state, kept on the hub (#682)."""
+    unread: int = Field(description="unread items in the caller's inbox")
+    by_severity: NotificationSeverityCounts
+    latest_created_at: str | None = Field(json_schema_extra={"format": "date-time"},
+                                          description="newest item; moves when one arrives")
+    last_read_at: str | None = Field(json_schema_extra={"format": "date-time"},
+                                     description="latest read on any device; moves when one is read")
+
+
 class FixIn(JsonBody):
     model_config = ConfigDict(extra="forbid")
     approve: bool = False
@@ -449,10 +465,23 @@ def register(app: FastAPI, gw: Gateway) -> None:
             response.headers["Link"] = f'</v1/notifications?limit={n}&cursor={nxt}>; rel="next"'
         return [notification_json(r) for r in rows]
 
+    @app.get("/v1/notifications/summary", operation_id="notifications.summary", tags=[TAG],
+             response_model=NotificationSummary, responses=error_responses(401, 403))
+    def summary(p: Principal = Depends(principal)):
+        """One call for a badge: every client reads it again on a notification.* stream event."""
+        _person(p)
+        return repo.unread_summary(p.id)
+
+    # A read is private: these events reach only the reader's own streams (routers/events.py), so
+    # the person's other devices refresh their bell without waiting for a poll.
     @app.post("/v1/notifications/read-all", operation_id="notifications.read_all", tags=[TAG], responses=error_responses(401, 403))
     def read_all(p: Principal = Depends(principal)):
         _person(p)
-        return {"marked": repo.mark_read(p.id, None, gw.clock())}
+        marked = repo.mark_read(p.id, None, gw.clock())
+        if marked:
+            gw.events.publish_event("notification", "read_all", {"person_id": p.id, "marked": marked},
+                                    principal=p.as_dict(), resource={"kind": "person", "id": p.id})
+        return {"marked": marked}
 
     @app.get("/v1/notifications/{notification_id}", operation_id="notifications.get", tags=[TAG], responses=error_responses(401, 403, 404))
     def get_notification(notification_id: str, p: Principal = Depends(principal)):
@@ -468,7 +497,9 @@ def register(app: FastAPI, gw: Gateway) -> None:
         row = repo.get_notification(notification_id)
         if row is None or row.person_id != p.id:
             raise ApiError(404, "not_found", "no such notification")
-        repo.mark_read(p.id, row.id, gw.clock())
+        if repo.mark_read(p.id, row.id, gw.clock()):
+            gw.events.publish_event("notification", "read", {"notification_id": row.id},
+                                    principal=p.as_dict(), resource={"kind": "notification", "id": row.id})
         return notification_json(repo.get_notification(row.id))
 
     # ---- push registrations -------------------------------------------------------------
