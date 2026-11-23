@@ -18,7 +18,13 @@ join and removal, and a systemd path unit reloads NATS):
   `no_auth_user` "hub-local", also STANDARD only;
 - account NODE_<node_id> per node: one nkey user (the node's own public key, sent at join; the
   seed never leaves the node), allowed on LEAFNODE connections only. It exports its
-  status/event/jobresult subjects to ONEMIND and imports its own job subjects from it.
+  status/event/jobresult subjects to ONEMIND and imports its own job subjects from it;
+- hub sourcing (#747): the hub keeps a copy of each node's leaf outbox in a source stream
+  (jetstream.HubSource, internal/leaf HubSourceStream). Each NODE_<id> exports to ONEMIND only what
+  that needs, in the shape of the NATS "Mirrors and sources" page (cross-account): the consumer API
+  of its outbox in its own JetStream domain and the flow-control replies as service exports, and the
+  delivery subject as a stream export. The delivery subject sits under the node's own prefix, so a
+  node can feed only its own source stream, and ONEMIND exports nothing back for it.
 
 The file holds public keys only; no secret is written.
 """
@@ -43,6 +49,40 @@ SERVICE_RE = re.compile(r"^[a-z][a-z0-9-]{0,31}$")
 NODE_EXPORTS = ("status", "event.>", "jobresult.>")
 # Subjects the hub sends to one node.
 NODE_IMPORTS = ("job.>",)
+
+# Hub sourcing of a leaf's outbox (#747). OUTBOX_STREAM is internal/leaf OutboxStream; a node's leaf
+# runs JetStream in the domain node-<node_id> (internal/leaf Config.Domain).
+OUTBOX_STREAM = "OUTBOX"
+
+
+def node_domain(node_id: str) -> str:
+    """The JetStream domain of a node's leaf."""
+    return f"node-{node_id}"
+
+
+def node_js_api(node_id: str) -> str:
+    """The prefix under which the hub reaches the JetStream API of a node's leaf, over the leaf link."""
+    return f"$JS.{node_domain(node_id)}.API"
+
+
+def source_deliver_prefix(node_id: str) -> str:
+    """Where a node's leaf delivers its outbox to the hub's source stream: under the node's own prefix."""
+    return f"onemind.node.{node_id}.outbox"
+
+
+def source_services(node_id: str) -> tuple[str, ...]:
+    """The service subjects the hub's source stream needs in a node's account: create and delete its
+    consumer on the outbox (nats-server v2.15.3 stream.go setupSourceConsumer, tryDeleteSourcingConsumer:
+    CONSUMER.CREATE.<stream> plain or extended, CONSUMER.DELETE.<stream>.<consumer>) and answer flow
+    control (consumer.go: $JS.FC.<stream>.<consumer>.<n>).
+
+    Known gap: a leaf names its flow-control subject without its domain (the v1 format; v2 needs the
+    leaf's js_ack_fc_v2 feature flag), so every node account imports the same $JS.FC.OUTBOX.> and the
+    hub's empty flow-control replies (two sequence counters, no event) reach every node. Follow-up on
+    #747: turn the flag on in internal/leaf's leaf.conf, then import $JS.FC.node-<id>.> per node."""
+    api = node_js_api(node_id)
+    return (f"{api}.CONSUMER.CREATE.{OUTBOX_STREAM}", f"{api}.CONSUMER.CREATE.{OUTBOX_STREAM}.>",
+            f"{api}.CONSUMER.DELETE.{OUTBOX_STREAM}.>", f"$JS.FC.{OUTBOX_STREAM}.>")
 
 
 def _crc16(data: bytes) -> int:
@@ -129,10 +169,12 @@ def render_accounts(nodes: Iterable[NodeAccount], services: Iterable[ServiceKey]
     if jetstream_max_bytes > 0:
         out.append(f"    jetstream: {{max_mem: 0, max_file: {int(jetstream_max_bytes)}, "
                    f"max_streams: {JETSTREAM_MAX_STREAMS}, max_consumers: {JETSTREAM_MAX_CONSUMERS}}}")
-    imports = [
-        f'      {{stream: {{account: "{n.account}", subject: "onemind.node.{n.node_id}.{s}"}}}}'
-        for n in nodes for s in NODE_EXPORTS
-    ]
+    imports = []
+    for n in nodes:
+        imports += [f'      {{stream: {{account: "{n.account}", subject: "onemind.node.{n.node_id}.{s}"}}}}'
+                    for s in NODE_EXPORTS]
+        imports += [f'      {{service: {{account: "{n.account}", subject: "{s}"}}}}' for s in source_services(n.node_id)]
+        imports.append(f'      {{stream: {{account: "{n.account}", subject: "{source_deliver_prefix(n.node_id)}.>"}}}}')
     exports = [
         f'      {{stream: "onemind.node.{n.node_id}.{s}", accounts: ["{n.account}"]}}'
         for n in nodes for s in NODE_IMPORTS
@@ -146,6 +188,8 @@ def render_accounts(nodes: Iterable[NodeAccount], services: Iterable[ServiceKey]
             f'    users: [{{nkey: "{n.nkey}", allowed_connection_types: ["LEAFNODE"]}}]',
             "    exports: [",
             *[f'      {{stream: "onemind.node.{n.node_id}.{s}", accounts: ["{HUB_ACCOUNT}"]}}' for s in NODE_EXPORTS],
+            *[f'      {{service: "{s}", accounts: ["{HUB_ACCOUNT}"]}}' for s in source_services(n.node_id)],
+            f'      {{stream: "{source_deliver_prefix(n.node_id)}.>", accounts: ["{HUB_ACCOUNT}"]}}',
             "    ]",
             "    imports: [",
             *[f'      {{stream: {{account: "{HUB_ACCOUNT}", subject: "onemind.node.{n.node_id}.{s}"}}}}'

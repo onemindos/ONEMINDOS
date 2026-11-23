@@ -39,6 +39,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from . import subjects
+from .natsconf import NODE_ID_RE, OUTBOX_STREAM, node_domain, node_js_api, source_deliver_prefix
 
 log = logging.getLogger("onemind.jetstream")
 
@@ -57,6 +58,57 @@ PER_NODE_STREAMS = ("ONEMIND_NODE_OUTBOX",)
 KV_BUCKETS = {"ONEMIND_ASSET_STATE": "asset-state", "ONEMIND_LAYER_META": "layer-meta"}
 
 RETRY_S = 5.0
+HUB_SOURCE_DEDUPE_NS = 24 * 3600 * 10**9   # internal/leaf DefaultDedupeWindow
+
+
+@dataclass(frozen=True)
+class HubSource:
+    """The hub's copy of one node's leaf outbox (#747): internal/leaf HubSourceStream for the node's
+    domain, plus the node's own delivery prefix, the one delivery subject tree its NATS account
+    exports to ONEMIND (natsconf.py). The gateway creates it when the node's join is approved; the
+    source reaches the leaf over the leaf link once the node connects, and resumes after every cut.
+    internal/leaf/testdata/hub-source-stream.golden.json is `to_json()` for node aaa111, and the Go
+    test checks it equals HubSourceStream."""
+
+    node_id: str
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.node_id, str) or not NODE_ID_RE.match(self.node_id):
+            raise ValueError(f"node id {self.node_id!r} is not a lowercase id")
+
+    @property
+    def name(self) -> str:
+        return "NODE_" + node_domain(self.node_id).replace("-", "_") + "_" + OUTBOX_STREAM
+
+    def to_json(self) -> dict:
+        """The stream in the NATS API's JSON shape (what the Go side unmarshals)."""
+        return {"name": self.name, "retention": "limits", "storage": "file",
+                "sources": [{"name": OUTBOX_STREAM, "external": {"api": node_js_api(self.node_id),
+                                                                  "deliver": source_deliver_prefix(self.node_id)}}],
+                "duplicate_window": HUB_SOURCE_DEDUPE_NS}
+
+    def config(self):
+        from nats.js.api import ExternalStream, RetentionPolicy, StorageType, StreamConfig, StreamSource
+
+        return StreamConfig(
+            name=self.name, retention=RetentionPolicy.LIMITS, storage=StorageType.FILE,
+            sources=[StreamSource(name=OUTBOX_STREAM, external=ExternalStream(
+                api=node_js_api(self.node_id), deliver=source_deliver_prefix(self.node_id)))],
+            duplicate_window=HUB_SOURCE_DEDUPE_NS / 1e9,
+        )
+
+
+async def ensure_hub_source(js, src: HubSource) -> str:
+    """Create a node's hub source stream, or bring an existing one to its config. Returns what happened."""
+    from nats.js.errors import NotFoundError
+
+    try:
+        await js.stream_info(src.name)
+    except NotFoundError:
+        await js.add_stream(src.config())
+        return "created"
+    await js.update_stream(src.config())
+    return "updated"
 
 
 class JetStreamCapError(ValueError):
@@ -278,6 +330,9 @@ class JetStreamCore:
     reason: str = ""
     ensured_at: datetime | None = None
     results: dict[str, str] = field(default_factory=dict)
+    # node id -> its hub source stream's state: pending (wanted, not yet on NATS), created, updated,
+    # or error: <why> (retried on the next pass). Filled by want_source on join approval (fabric.py).
+    sources: dict[str, str] = field(default_factory=dict)
     _seen: tuple = ()
 
     def __post_init__(self) -> None:
@@ -297,7 +352,29 @@ class JetStreamCore:
     def view(self) -> dict:
         return {"state": self.state, "reason": self.reason,
                 "ensured_at": self.ensured_at.isoformat() if self.ensured_at else None,
-                "results": dict(self.results), "plan": self.plan.to_json() if self.plan else None}
+                "results": dict(self.results), "plan": self.plan.to_json() if self.plan else None,
+                "sources": [{"node_id": n, "stream": HubSource(n).name, "state": st}
+                            for n, st in sorted(self.sources.items())]}
+
+    def want_source(self, node_id: str) -> None:
+        """A node's join was approved (or it is already joined at startup): keep its outbox on the hub.
+        The stream is made by `run` on the next pass with a NATS connection; nothing is made without a cap."""
+        HubSource(node_id)  # refuses a bad id before it is kept
+        if self.plan is not None and not self.sources.get(node_id, "").startswith(("created", "updated")):
+            self.sources[node_id] = "pending"
+
+    async def ensure_sources_on(self, nc, *, every: bool = False) -> None:
+        """Create the wanted hub source streams on a connected client: the pending ones, or all of them
+        after a new connection (`every`). Never raises: a refusal is kept per node and retried."""
+        js = nc.jetstream()
+        for node_id, st in list(self.sources.items()):
+            if not every and st.startswith(("created", "updated")):
+                continue
+            try:
+                self.sources[node_id] = await ensure_hub_source(js, HubSource(node_id))
+            except Exception as exc:  # NATS refused it or the link dropped: retry on the next pass
+                self.sources[node_id] = f"error: {exc.__class__.__name__}: {exc}"[:300]
+                log.warning("hub source stream for node %s not ensured (%s); retrying", node_id, self.sources[node_id])
 
     async def ensure_on(self, nc) -> bool:
         """Ensure the plan on a connected client. Never raises: a failure is kept in `state`."""
@@ -324,6 +401,9 @@ class JetStreamCore:
                     self.state, self.reason = "pending", "waiting for NATS"
             else:
                 key = (id(nc), (getattr(nc, "stats", None) or {}).get("reconnects", 0))
-                if key != self._seen and await self.ensure_on(nc):
+                fresh = key != self._seen
+                if fresh and await self.ensure_on(nc):
                     self._seen = key
+                if self._seen == key:
+                    await self.ensure_sources_on(nc, every=fresh)
             await asyncio.sleep(interval_s)

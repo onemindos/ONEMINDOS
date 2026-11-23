@@ -618,6 +618,14 @@ class FabricService:
         self.repo = FabricRepository(deps.db)
         self.limiter = SourceLimiter(deps.clock)
         self._tick_lock = threading.Lock()
+        # Called with the node id when a join is approved, after its NATS account exists (#747: the
+        # gateway's JetStream side then creates the node's hub source stream, jetstream.HubSource).
+        # A failing hook is logged and never undoes the approval.
+        self.approved_hooks: list[Callable[[str], None]] = []
+
+    def node_ids(self) -> list[str]:
+        """Every node that has a NATS account (approved, joining or joined)."""
+        return [n["node_id"] for n in self.repo.nodes()]
 
     # -- helpers
     def _deny(self, principal: Principal, what: str) -> ApiError:
@@ -883,6 +891,11 @@ class FabricService:
             "cert_not_after": iso(cert.not_valid_after_utc), "nats_account": f"NODE_{req['node_id']}",
             "san": f"node-{req['node_id']}.{MESH_DOMAIN}",
         })
+        for hook in self.approved_hooks:
+            try:
+                hook(req["node_id"])
+            except Exception:
+                log.exception("join-approved hook failed for node %s", req["node_id"])
         return None  # stays dispatched until the node is up (tick)
 
     # -- background: finish or expire joins
