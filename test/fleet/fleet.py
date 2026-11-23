@@ -91,7 +91,11 @@ class Fleet:
 
     def pve(self, cmd, timeout=900):
         h = self.cfg["ONEMIND_FLEET_PVE"]
-        return self.sh(["ssh", "-o", "BatchMode=yes", h, cmd] if h else ["bash", "-c", cmd], timeout=timeout)
+        try:
+            return self.sh(["ssh", "-n", "-o", "BatchMode=yes", h, cmd] if h else ["bash", "-c", cmd], timeout=timeout)
+        except subprocess.TimeoutExpired:   # reported like a failed command; teardown still runs to the end
+            self.log(f"host command timed out after {timeout}s: {cmd[:80]}")
+            return 124, "timeout"
 
     def guest(self, vmid, cmd, inp=None, timeout=300):
         o = ["-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null",
@@ -133,7 +137,7 @@ class Fleet:
         self.memory_guard(mib)
         self.pve(f"mkdir -p {CON} && qm start {vmid} && (nohup timeout 4h socat -u "
                  f"UNIX-CONNECT:/var/run/qemu-server/{vmid}.serial0 OPEN:{CON}/{vmid}.log,creat,append "
-                 f">/dev/null 2>&1 &)")
+                 f"</dev/null >/dev/null 2>&1 &)", timeout=120)     # no fd of the ssh session stays open
 
     def console(self, vmid, pattern=r"Failed to start|rauc.service|cloud-init|FIRSTBOOT|HEALTH-GATE|FLEET-BAD|panic|Boot failed"):
         rc, out = self.pve(f"tr -d '\\r' < {CON}/{vmid}.log 2>/dev/null | grep -aE {shlex.quote(pattern)} | tail -6")
@@ -254,7 +258,7 @@ class Fleet:
         node_code = None if node_code == "failed" else node_code
         pend = node_code and self.wait(f"{name} pending join", lambda: core.pending_join(self.api("/v1/fabric"), name), 300, 5)
         if not node_code or not pend:
-            errs = [ln.split("join: ", 1)[-1] for ln in jlog().splitlines() if "join: onemind:" in ln]
+            errs = [ln.split("join: ", 1)[-1] for ln in jlog().splitlines() if "join: onemind:" in ln or "FLEET-BAD" in ln]
             return False, f"code={node_code} pending={bool(pend)}: {(errs or [jlog()[-120:]])[-1][:160]}"
         if pend.get("match_code") != node_code:
             return False, f"match codes differ: node {node_code}, hub {pend.get('match_code')}"

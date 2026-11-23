@@ -49,6 +49,7 @@ Nothing about the lab is in this folder: host names, addresses and storages come
 | Date | Run | Result |
 |---|---|---|
 | 2026-11-22 | lab, release dev-20261122-96333e9 (vm-do 0.1.0-dev.954), 4 full runs + single steps | **RED, as it should be today.** F0 and F1 pass (first boot about 4 min). F2: node 1 joins (QR v1, match codes agree, mesh and NATS leaf up); nodes 2 and 3 are refused `409 duplicate_node_id`, because every machine from one image has the same machine-id (#943). Single steps on the joined node: F7 PASS (offline after 113 s, back online), the F8 update PASS (`mark-good slot=B version=...-next`), the F9 forced-bad PASS (`fell-back slot=B`, slot A `verdict=image-bad` after 3 tries). F6 BLOCKED (k3s sees only the hub). |
+| 2026-11-22 | lab, same release, `--broken-node-image` (node 1's `onemind` CLI replaced on slot A) | **NEGATIVE-OK** in 6.7 min. F0 and F1 PASS (all four booted, node 1 included). F2 FAIL with node 1 `failed` in the join path: its `onemind-fabric-join.service` failed and no join request reached the hub. Node 2 joined (QR v1, match codes agree); node 3 was refused `409 duplicate_node_id` (#943). An earlier attempt stopped before F1 because one `qm start` ssh session never closed; host commands now run with `ssh -n`, a timeout, and a logged failure instead of a stopped run. |
 
 **What blocks three green runs (found by this test, outside test/fleet).**
 - #943: one machine-id for every machine from an image, so only the first node can join.
