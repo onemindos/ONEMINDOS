@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { p256 } from '@noble/curves/nist.js';
-import { Features, OP } from '../api/client';
+import { Features, HttpApi, OP, type FetchLike } from '../api/client';
 import { ApiError, type DeviceRequestBody } from '../api/types';
 import { v0Api } from '../test/fakes';
 import { dpopProof, forgetDevice, fromB64url, keyFromSecret, loadKey, loadLink, pollDevice, renewWithDevice, requestDevice, thumbprint, toB64url } from './device';
@@ -88,5 +88,26 @@ describe('device request: an owner-approved action (clients.md §4.4)', () => {
     const pending = v0Api({ deviceRequest: async () => ({ id: 'd', state: 'pending' }) });
     await requestDevice(pending, 'https://h', 'p', { random: seed });
     expect(await renewWithDevice(pending, new Features([OP.deviceToken], 'openapi'), 'https://h')).toBeUndefined();
+  });
+
+  it('files and polls on /v1/me/devices when the hub lists it (issue 716), and on the older routes otherwise', async () => {
+    const urls: string[] = [];
+    const hub = (paths: string[]): FetchLike => async (url, init) => {
+      urls.push(`${init?.method ?? 'GET'} ${url}`);
+      if (url.endsWith('/openapi.json')) return new Response(JSON.stringify({ paths: Object.fromEntries(paths.map((p) => [p, { post: {} }])) }), { status: 200 });
+      return new Response(JSON.stringify({ id: 'dreq_1', state: url.includes('dreq_1') ? 'active' : 'pending', poll_code: 'pc' }), { status: 200 });
+    };
+    const meApi = new HttpApi({ baseUrl: 'https://h', token: 't', fetchFn: hub(['/v1/me/devices']) });
+    const link = await requestDevice(meApi, 'https://h', 'p', { random: seed, now: 0 });
+    expect(link).toMatchObject({ me: true, state: 'pending' });
+    expect((await pollDevice(meApi, link)).state).toBe('active');
+    expect(urls.filter((u) => !u.endsWith('/openapi.json'))).toEqual(['POST https://h/v1/me/devices', 'GET https://h/v1/me/devices/dreq_1']);
+    urls.length = 0;
+    await forgetDevice();
+    const oldApi = new HttpApi({ baseUrl: 'https://h', token: 't', fetchFn: hub([]) });
+    const old = await requestDevice(oldApi, 'https://h', 'p', { random: seed, now: 0 });
+    expect(old.me).toBeUndefined();
+    await pollDevice(oldApi, old);
+    expect(urls.filter((u) => !u.endsWith('/openapi.json'))).toEqual(['POST https://h/v1/devices/requests', 'GET https://h/v1/devices/requests/dreq_1']);
   });
 });

@@ -15,6 +15,9 @@ e02799d8ba3889fb61baf9718c6bb298d743c6360e410eedcc39545cba199cd9  CRITERIA-FIRST
 dfb95a8bc02be2d5dcaf87405f7730d797fd3fe7ed8d8f534c5fb53f5eb052ad  CRITERIA-FIRSTBOOT.md  2026-11-21T23:30:00Z  (release/next combination: #574's starting-page amendment renumbered to section 7 / F11 next to #278's section 6 / F10; no criterion changed)
 dd1565299e7957ca9f65011de03e2728ea8541c24bee46f4dc0adf848dd1daf2  CRITERIA-DATAENC.md  2026-11-21T00:00:00Z
 d9b08adb44a0cc33a7cea6b84baacdb6128063287a91786478986715349fb705  CRITERIA-WIZARD.md  2026-11-23T00:18:33Z  (#578, PR 921 review: committed before wizard.py was committed or run on any image)
+04087f2885f9ae7369ece1cb8b8f8eda4bb9c66dbec2f59666af06ab4256929a  CRITERIA-SYSEXT.md  2026-11-23T01:24:32Z  (T-W19-01, #186; written before the signed-only extension policy and sysextguard.py existed)
 fb2375a5a405e5d084aea80dbfdff1b5114f2b05391e1875277a8215982fbc20  CRITERIA-SECUREBOOT.md  2026-11-23T01:45:50Z  (with §4 amendment: SB5 slot B under Secure Boot, #148; written before SB5 or the efi route was booted)
 ece09c7f8d261e8da30dff5acca3a649c68c080a273506bc65a3f26a3e3ba433  CRITERIA-EDGE.md  2026-11-23T00:49:34Z  (written before edge.py, the leaf check and the k3s leaf skip existed, #751)
 5c92dab78d50f3cddd047bc4b75f582f4e5b50f3e7dfaabc1786254872d7c2a3  CRITERIA-EDGE.md  2026-11-23T00:52:06Z  (with §4 amendment: EG2 checks the folders k3s writes, not /data/k3s itself, which data-layout makes on every box; written before edge.py existed)
+5cc09a8565003c8c27750bdd2e627609ef2fe183e3d2bb22d8093f83f6c4b7b8  CRITERIA-SYSEXT.md  2026-11-23T04:02:01Z  (with §5 amendment: X8 two-dot directory names, PR 972 review; written before the guard fix and before X8 ran)
+adc1cf6619e8b6440e00da65da7ff13c2dfd0f66151facfe30bf8fdafd74c411  CRITERIA-NAS.md  2026-11-22T23:36:45Z  (written before nasmount.py was implemented or run)

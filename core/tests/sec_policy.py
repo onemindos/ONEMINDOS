@@ -413,6 +413,12 @@ POLICY |= {
     ("PATCH", "/v1/me"): Row(grid(403, 403, 403, 200, 403), w.p_missing("/v1/me", json={"display_name": "Probe"}),
                              "a person with a stored account (the household child here) sets only their own display name; the static token "
                              "probes have no account row to name (the signed-in 200 paths are in test_identity.py)", ID),
+    # ---- My devices (#715): a person's own session only; the static-token probes and agents hold none --------
+    ("GET", "/v1/me/devices"): Row(own_credentials(200), w.p_static("/v1/me/devices"),
+                                   "#715 a signed-in person lists their own devices", ID),
+    ("DELETE", "/v1/me/devices/{device_id}"): Row(own_credentials(200), w.p_static("/v1/me/devices/mdv_no_such_device"),
+                                                  "#715 Lost this device: a person's own session; an id that is gone is a "
+                                                  "no-op 200 (idempotent)", ID),
     # ---- apps, plans, databases -----------------------------------------------------------------------------
     ("GET", "/v1/databases"): Row(OWNER_ADULT, w.p_static("/v1/databases"), "owner and adult list databases; never a password"),
     ("GET", "/v1/apps/{app_id}/credentials"): Row(OWNER_ONLY_404, w.p_static(f"/v1/apps/{w.TARGET_APP}/credentials"),
@@ -677,6 +683,20 @@ POLICY |= {
                                              f"{_SHR}: a person with files gets their own SMB password (409: none has a share in this world); guest, child and agent never"),
     ("POST", "/v1/shares/smb/{share_id}/stop"): Row(grid(404, 403, 403, 403, 403), w.p_missing("/v1/shares/smb/shr_0123456789abcdef/stop"),
                                                  f"{_SHR}: only an owner stops a share; the one probed does not exist"),
+}
+
+# ---- WebDAV app passwords (files-webdav, #722: core/onemind_core/routers/webdav.py) --------------------------
+# The /dav tree is a middleware outside the router (files/webdav.py): it takes only app passwords, so every
+# bearer token gets 401 there; core/tests/test_files_webdav.py covers it, including each token kind.
+_DAV = "core/onemind_core/routers/webdav.py"
+POLICY |= {
+    ("GET", "/v1/files/app-passwords"): Row(grid(200, 200, 403, 403, 403), w.p_static("/v1/files/app-passwords"),
+                                            f"{_DAV}: owner sees all, an adult their own; guest, child and agent hold none"),
+    ("POST", "/v1/files/app-passwords"): Row(grid(201, 201, 403, 403, 403), w.p_missing(
+        "/v1/files/app-passwords", json={"label": "probe", "scopes": ["shared:r"]}),
+        f"{_DAV}: the owner or an adult makes one for themself (tokens:self); guest, child and agent never"),
+    ("POST", "/v1/files/app-passwords/{password_id}/revoke"): Row(grid(404, 404, 403, 403, 403), w.p_missing(
+        "/v1/files/app-passwords/apw_missing/revoke"), f"{_DAV}: revoking your own (an owner anyone's); the one probed does not exist"),
 }
 
 # ---- OS updates (UMB-P05, #142: core/onemind_core/routers/osupdates.py) --------------------------------------

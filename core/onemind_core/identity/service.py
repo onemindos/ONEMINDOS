@@ -358,13 +358,13 @@ class IdentityService:
         return label[:200]
 
     def start_session(self, request: Request, user: UserRow, method: str, client: str | None,
-                      bearer: bool, passkey: bool) -> dict:
+                      bearer: bool, passkey: bool, install_id: str | None = None) -> dict:
         """Create a session; returns the body, with secrets, and `_cookies` for the router to set."""
         now = self.now()
         sid = new_id("ses")
         out: dict = {}
         common = dict(id=sid, user_id=user.id, client=self._client_label(request, client), auth_method=method,
-                      passkey_at=now if passkey else None, created_at=now, last_seen_at=now)
+                      passkey_at=now if passkey else None, created_at=now, last_seen_at=now, install_id=install_id)
         if bearer:
             access, refresh = new_secret("ses"), new_secret("ref")
             access_exp = now + timedelta(minutes=self.cfg.access_token_minutes)
@@ -654,7 +654,8 @@ class IdentityService:
                                        challenge=raw, exclude=existing)
         return {"challenge_id": row.id, "expires_at": iso(row.expires_at), "publicKey": opts}
 
-    def passkey_register(self, request: Request, ctx: AuthContext | None, credential: dict, label: str | None) -> dict:
+    def passkey_register(self, request: Request, ctx: AuthContext | None, credential: dict, label: str | None,
+                         install_id: str | None = None) -> dict:
         user = self._account(ctx, "register a passkey")
         self._refuse_onion_enrolment(request, ctx)
         try:
@@ -679,7 +680,8 @@ class IdentityService:
         now = self.now()
         label = (label or "passkey").strip()[:100] or "passkey"
         self.repo.add(PasskeyRow(id=v["id"], user_id=user.id, label=label, public_key=v["public_key"],
-                                 sign_count=v["sign_count"], transports=v["transports"], created_at=now))
+                                 sign_count=v["sign_count"], transports=v["transports"], created_at=now,
+                                 install_id=install_id))
         if ctx.session is not None:  # registering just proved presence on this device
             self.repo.update(SessionRow, [SessionRow.id == ctx.session.id], {"passkey_at": now})
         self.emit("auth", "passkey.registered", {"user_id": user.id, "credential_id": v["id"], "label": label},

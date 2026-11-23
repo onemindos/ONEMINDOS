@@ -4,12 +4,13 @@ import { useState } from 'react';
 import { View } from 'react-native';
 import { OP } from '../api/client';
 import { ApiError } from '../api/types';
+import { loadThisPhone, type ThisPhone } from '../lib/install';
 import { platformPasskeys } from '../lib/passkeys';
 import { creationOptionsFrom, PasskeyError, passkeyMessage, rpIdFor } from '../lib/webauthn';
 import { useSignedIn } from '../session';
 import { Button, Card, H2, Notice, P, Row, s } from '../ui/bits';
 
-export function IdentitySection({ deviceName }: { deviceName: string }) {
+export function IdentitySection({ phone }: { phone: ThisPhone | undefined }) {
   const { api, me, principal, features, connection, canDecide, refreshIdentity } = useSignedIn();
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ text: string; ok: boolean }>();
@@ -24,7 +25,9 @@ export function IdentitySection({ deviceName }: { deviceName: string }) {
       if (!passkeys?.supported()) throw new PasskeyError('not_supported', 'no platform authenticator');
       const opts = await api.passkeyRegisterOptions();
       const webauthn = await passkeys.create(creationOptionsFrom(opts, rpIdFor(hubUrl)));
-      const r = await api.passkeyRegister({ credential: webauthn, label: deviceName });
+      // This install's name and id, the same as its sign-in and push, so My devices keeps them together (#715).
+      const me = phone ?? (await loadThisPhone());
+      const r = await api.passkeyRegister({ credential: webauthn, label: me.name, install_id: me.installId });
       setMsg({ text: `Passkey "${r.label}" added. Approvals from this phone now use it.`, ok: true });
       await refreshIdentity();
     } catch (e) {
