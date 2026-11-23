@@ -425,6 +425,7 @@ Agents never request `node.join`, grant or role changes, token creation, policy 
 | `alerts:read` | `/v1/alerts`, filtered by audience | all |
 | `monitoring:read` | §12.15 metrics and health | all |
 | `assets:read` | asset values (`asset.*`) on `/v1/events`, each also checked by the asset filters (#606) | person owner/adult by default; agent only when its token lists it |
+| `data:read` / `:write` | the ceiling on a data grant (#615): beyond `public`, data-commons reads need `data:read` and writes `data:write` on top of an owner-approved grant; neither opens any data alone | every person role by default; agent only when its token lists it; plugin install tokens are capped by their app grant |
 | `logs:read` | §12.15 app logs | person owner/adult; agent and plugin only with the `:<app-id>` suffix |
 | `automation:read` / `:request` / `:write` | §12.17 | read all; request agent, plugin; write owner |
 | `audit:read` / `:admin` | §12.16 | read owner, adult; admin owner |
