@@ -4849,13 +4849,27 @@
       "NodeRadio": {
         "additionalProperties": false,
         "properties": {
+          "device": {
+            "anyOf": [
+              {
+                "pattern": "^/dev/onemind/(zigbee|zigbee-thread|lora)([0-9]|1[0-5])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "a USB dongle's stable name, /dev/onemind/<kind><n> (lora0); absent for wifi, bluetooth and cellular",
+            "title": "Device"
+          },
           "interface": {
+            "description": "the network interface (wlan0, hci0), or for a USB dongle its serial line (ttyUSB0)",
             "pattern": "^[A-Za-z0-9_.-]{1,15}$",
             "title": "Interface",
             "type": "string"
           },
           "kind": {
-            "description": "wifi | bluetooth | cellular",
+            "description": "wifi | bluetooth | cellular | zigbee | zigbee-thread | lora",
             "maxLength": 16,
             "title": "Kind",
             "type": "string",
@@ -4992,6 +5006,199 @@
           "id"
         ],
         "title": "NodeUSBDevice",
+        "type": "object"
+      },
+      "NotificationActionIn": {
+        "additionalProperties": false,
+        "description": "A button on the notification (notify/topics.py check_actions): open an in-app link, or let the\nperson who taps it file a normal request that still needs an approval. There is no approve kind.",
+        "properties": {
+          "id": {
+            "pattern": "^[a-z][a-z0-9_-]{0,31}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "open",
+              "request"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "link": {
+            "anyOf": [
+              {
+                "maxLength": 300,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Link"
+          },
+          "request": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Request"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "kind"
+        ],
+        "title": "NotificationActionIn",
+        "type": "object"
+      },
+      "NotificationSource": {
+        "description": "One notification source (notify/topics.py): a built-in app (app:<id>) or a plugin or agent (plugin:<id>).",
+        "properties": {
+          "app_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "App Id"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "app",
+              "plugin"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "muted": {
+            "title": "Muted",
+            "type": "boolean"
+          },
+          "muted_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Muted At"
+          },
+          "muted_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Muted By"
+          },
+          "muted_reason": {
+            "anyOf": [
+              {
+                "enum": [
+                  "owner",
+                  "flood"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Muted Reason"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "posts_last_hour": {
+            "title": "Posts Last Hour",
+            "type": "integer"
+          },
+          "topics": {
+            "items": {
+              "$ref": "#/components/schemas/NotificationSourceTopic"
+            },
+            "title": "Topics",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "name",
+          "topics",
+          "muted",
+          "posts_last_hour"
+        ],
+        "title": "NotificationSource",
+        "type": "object"
+      },
+      "NotificationSourceIn": {
+        "additionalProperties": false,
+        "properties": {
+          "muted": {
+            "title": "Muted",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "muted"
+        ],
+        "title": "NotificationSourceIn",
+        "type": "object"
+      },
+      "NotificationSourceTopic": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "topic": {
+            "title": "Topic",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "topic"
+        ],
+        "title": "NotificationSourceTopic",
         "type": "object"
       },
       "OnboardingKit": {
@@ -5875,6 +6082,209 @@
         "title": "QuotaBody",
         "type": "object"
       },
+      "RadioCard": {
+        "description": "One radio-found card (GET /v1/radios, #732): a USB serial line on a machine, from its latest heartbeat.\n\nA known radio has a kind and its stable name `device`; any other USB serial line is listed with\nkind and device null: never named, never granted. Unplugging removes the card with the next heartbeat.\nOneMind never probes a radio: kind and model come from the USB ids alone.",
+        "properties": {
+          "confirm": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RadioConfirmation"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the owner's confirmation this kind needs before a grant; null when none is needed"
+          },
+          "device": {
+            "anyOf": [
+              {
+                "pattern": "^/dev/onemind/(zigbee|zigbee-thread|lora)([0-9]|1[0-5])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the stable name, /dev/onemind/<kind><n>; null when not named",
+            "title": "Device"
+          },
+          "hostname": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hostname"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Za-z0-9_-]{1,64}\\.(zigbee|zigbee-thread|lora)([0-9]|1[0-5])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the radio's stable id, <node_id>.<kind><n> (3f9c2a1b7d4e.lora0), used by /v1/radios/{id}/...; null when not a known radio",
+            "title": "Id"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "zigbee | zigbee-thread | lora; null: not a known radio",
+            "title": "Kind",
+            "x-onemind-open-enum": true
+          },
+          "match": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "product: the USB id and product string name the product | id: a generic USB-serial chip, the id alone proves nothing; null when unknown",
+            "title": "Match",
+            "x-onemind-open-enum": true
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "from sdk/schema/onemind.radios.json; null when unknown or several products share the id",
+            "title": "Model"
+          },
+          "node_id": {
+            "title": "Node Id",
+            "type": "string"
+          },
+          "node_status": {
+            "description": "online | stale | offline",
+            "title": "Node Status",
+            "type": "string",
+            "x-onemind-open-enum": true
+          },
+          "tty": {
+            "description": "the kernel's name for the serial line, e.g. ttyUSB0",
+            "pattern": "^tty(USB|ACM)[0-9]+$",
+            "title": "Tty",
+            "type": "string"
+          },
+          "usb_id": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{4}:[0-9a-f]{4}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "vvvv:pppp",
+            "title": "Usb Id"
+          },
+          "usb_port": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]+-[0-9]+(\\.[0-9]+)*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "kernel port path, e.g. 1-1.2",
+            "title": "Usb Port"
+          }
+        },
+        "required": [
+          "id",
+          "node_id",
+          "node_status",
+          "kind",
+          "model",
+          "match",
+          "tty",
+          "device",
+          "usb_id",
+          "usb_port",
+          "confirm"
+        ],
+        "title": "RadioCard",
+        "type": "object"
+      },
+      "RadioConfirmRequest": {
+        "additionalProperties": false,
+        "description": "POST /v1/radios/{id}/confirm: an owner says the radio with this id is this profile.",
+        "properties": {
+          "profile": {
+            "const": "meshcore-companion-usb",
+            "title": "Profile",
+            "type": "string"
+          }
+        },
+        "required": [
+          "profile"
+        ],
+        "title": "RadioConfirmRequest",
+        "type": "object"
+      },
+      "RadioConfirmation": {
+        "description": "What the owner confirms on a radio's card before anything may open it (#732; the grant is #854).",
+        "properties": {
+          "confirmed": {
+            "description": "true once an owner confirmed this radio on this machine and USB port; kept across gateway restarts and replugs into the same port, asked again on another port",
+            "title": "Confirmed",
+            "type": "boolean"
+          },
+          "confirmed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmed At"
+          },
+          "label": {
+            "description": "what the card asks, e.g. MeshCore companion (USB)",
+            "title": "Label",
+            "type": "string"
+          },
+          "profile": {
+            "description": "meshcore-companion-usb",
+            "title": "Profile",
+            "type": "string",
+            "x-onemind-open-enum": true
+          }
+        },
+        "required": [
+          "profile",
+          "label",
+          "confirmed"
+        ],
+        "title": "RadioConfirmation",
+        "type": "object"
+      },
       "Receipt": {
         "properties": {
           "client_key": {
@@ -6728,6 +7138,55 @@
         "title": "SealedInput",
         "type": "object"
       },
+      "SearchHit": {
+        "properties": {
+          "app_id": {
+            "title": "App Id",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "link": {
+            "title": "Link",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "subtitle": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subtitle"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider",
+          "app_id",
+          "type",
+          "id",
+          "title",
+          "link"
+        ],
+        "title": "SearchHit",
+        "type": "object"
+      },
       "SecretsChange": {
         "additionalProperties": false,
         "description": "POST /v1/apps/{id}/secrets: what to change. An empty body re-applies the current values.",
@@ -6818,6 +7277,27 @@
       "SendIn": {
         "additionalProperties": false,
         "properties": {
+          "actions": {
+            "items": {
+              "$ref": "#/components/schemas/NotificationActionIn"
+            },
+            "maxItems": 3,
+            "title": "Actions",
+            "type": "array"
+          },
+          "asset_id": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the map asset this is about",
+            "title": "Asset Id"
+          },
           "body": {
             "default": "",
             "maxLength": 4096,
@@ -6835,6 +7315,19 @@
               }
             ],
             "title": "Dedupe Key"
+          },
+          "group_key": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "items with one key belong together",
+            "title": "Group Key"
           },
           "severity": {
             "enum": [
@@ -17123,7 +17616,7 @@
     },
     "/v1/events": {
       "get": {
-        "description": "Server-Sent Events with the onemind.event/v1 envelope. `id` is the audit seq; resume with Last-Event-ID or since_id. node.status events carry no id. `: keepalive` every 15 s. At most 5 open streams per principal (429 rate_limited).",
+        "description": "Server-Sent Events with the onemind.event/v1 envelope. `id` is the audit seq; resume with Last-Event-ID or since_id. node.status events carry no id. `: keepalive` every 15 s. At most 5 open streams per principal (429 rate_limited). Asset values are sent only when types names them (asset.*): first the current value of each asset the caller may see (asset.value, data.snapshot true), then stream.snapshot {count, state}, then changes, latest-wins per key; kind and bbox narrow them. A stream that falls too far behind gets stream.reset {reason: slow_client} and ends.",
         "operationId": "events.stream",
         "parameters": [
           {
@@ -17160,6 +17653,44 @@
                 }
               ],
               "title": "Since Id"
+            }
+          },
+          {
+            "description": "asset.* only: comma-separated asset classes (the asset_class token of onemind.asset.<asset_class>.<asset_id>.<field>), e.g. camera,sensor",
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 600,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "asset.* only: comma-separated asset classes (the asset_class token of onemind.asset.<asset_class>.<asset_id>.<field>), e.g. camera,sensor",
+              "title": "Kind"
+            }
+          },
+          {
+            "description": "asset.* only: min_lon,min_lat,max_lon,max_lat in WGS-84 degrees; an asset is sent while its last known position is inside, and once more when it leaves",
+            "in": "query",
+            "name": "bbox",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 120,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "asset.* only: min_lon,min_lat,max_lon,max_lat in WGS-84 degrees; an asset is sent while its last known position is inside, and once more when it leaves",
+              "title": "Bbox"
             }
           },
           {
@@ -22288,6 +22819,133 @@
         ]
       }
     },
+    "/v1/notifications/sources": {
+      "get": {
+        "operationId": "notifications.sources.list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/NotificationSource"
+                  },
+                  "title": "Response Notifications.Sources.List",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "summary": "List Sources",
+        "tags": [
+          "notifications"
+        ]
+      }
+    },
+    "/v1/notifications/sources/{source_id}": {
+      "put": {
+        "operationId": "notifications.sources.set",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "title": "Source Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotificationSourceIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationSource"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Set Source",
+        "tags": [
+          "notifications"
+        ]
+      }
+    },
     "/v1/notifications/{notification_id}": {
       "get": {
         "operationId": "notifications.get",
@@ -24986,6 +25644,158 @@
         ]
       }
     },
+    "/v1/radios": {
+      "get": {
+        "description": "Radio-found cards: every USB serial line on every machine. A known radio carries its kind and\nstable name; a LoRa radio's card asks the owner to confirm it. Unknown lines are never named.",
+        "operationId": "radios.list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RadioCard"
+                  },
+                  "title": "Response Radios.List",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "summary": "List Radios",
+        "tags": [
+          "nodes"
+        ]
+      }
+    },
+    "/v1/radios/{radio_id}/confirm": {
+      "post": {
+        "description": "An owner confirms what a radio on its card is (a LoRa radio: \"MeshCore companion (USB)\").\n\nRefused for anyone but an owner, for a line that is not a known radio (an unknown serial device is\nnever named or granted), for a kind that needs no confirming and for a machine that is not online.\nNothing is opened or sent; the grant is a separate action (#854).",
+        "operationId": "radios.confirm",
+        "parameters": [
+          {
+            "description": "the radio's id from its card, e.g. 3f9c2a1b7d4e.lora0",
+            "in": "path",
+            "name": "radio_id",
+            "required": true,
+            "schema": {
+              "description": "the radio's id from its card, e.g. 3f9c2a1b7d4e.lora0",
+              "pattern": "^[A-Za-z0-9_-]{1,64}\\.(zigbee|zigbee-thread|lora)([0-9]|1[0-5])$",
+              "title": "Radio Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RadioConfirmRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RadioCard"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Confirm Radio",
+        "tags": [
+          "nodes"
+        ]
+      }
+    },
     "/v1/restores": {
       "get": {
         "operationId": "restores.list",
@@ -25229,6 +26039,142 @@
         "summary": "Restore",
         "tags": [
           "restores"
+        ]
+      }
+    },
+    "/v1/search": {
+      "get": {
+        "description": "Search every switched-on built-in's items at once, best match first. Each hit carries a deep\nlink that opens the exact item, and only hits the caller may open are returned.",
+        "operationId": "search.query",
+        "parameters": [
+          {
+            "description": "free text; every word must match",
+            "in": "query",
+            "name": "q",
+            "required": true,
+            "schema": {
+              "description": "free text; every word must match",
+              "maxLength": 200,
+              "minLength": 1,
+              "title": "Q",
+              "type": "string"
+            }
+          },
+          {
+            "description": "comma-separated item types, e.g. file,folder",
+            "in": "query",
+            "name": "types",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 1300,
+                  "pattern": "^[a-z][a-z0-9_.-]{0,62}(,[a-z][a-z0-9_.-]{0,62}){0,19}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "comma-separated item types, e.g. file,folder",
+              "title": "Types"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "opaque: the next page, from the Link header",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 32,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "opaque: the next page, from the Link header",
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SearchHit"
+                  },
+                  "title": "Response Search.Query",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response",
+            "headers": {
+              "Link": {
+                "description": "RFC 8288 `<...>; rel=\"next\"` when more hits remain (contract §12.1)",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "OneMind-Search-Providers": {
+                "description": "the providers searched, comma-separated: those of switched-on built-ins shared with the caller",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
+          }
+        },
+        "summary": "Search",
+        "tags": [
+          "search"
         ]
       }
     },
