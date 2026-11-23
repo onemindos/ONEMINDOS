@@ -306,6 +306,29 @@
         "title": "AccessBody",
         "type": "object"
       },
+      "AccessOut": {
+        "properties": {
+          "aggregate": {
+            "title": "Aggregate",
+            "type": "boolean"
+          },
+          "read": {
+            "title": "Read",
+            "type": "boolean"
+          },
+          "write": {
+            "title": "Write",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "read",
+          "write",
+          "aggregate"
+        ],
+        "title": "AccessOut",
+        "type": "object"
+      },
       "Action": {
         "additionalProperties": true,
         "description": "One action of the ledger (contract §3). §12.4 adds optional fields; ignore what you do not know.",
@@ -2300,6 +2323,62 @@
         "title": "ChunkStored",
         "type": "object"
       },
+      "ClassOut": {
+        "properties": {
+          "access": {
+            "$ref": "#/components/schemas/AccessOut"
+          },
+          "count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Count"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "id": {
+            "enum": [
+              "public",
+              "owner",
+              "private",
+              "location",
+              "activity"
+            ],
+            "title": "Id",
+            "type": "string"
+          },
+          "owned_by": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Owned By",
+            "type": "array"
+          },
+          "read_by": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Read By",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "description",
+          "owned_by",
+          "read_by",
+          "access"
+        ],
+        "title": "ClassOut",
+        "type": "object"
+      },
       "CodeBody": {
         "properties": {
           "code": {
@@ -3156,6 +3235,573 @@
         "title": "DryRunBody",
         "type": "object"
       },
+      "EngineAccount": {
+        "properties": {
+          "account": {
+            "title": "Account",
+            "type": "string"
+          },
+          "connections": {
+            "title": "Connections",
+            "type": "integer"
+          },
+          "jetstream_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Jetstream Bytes"
+          },
+          "leafnodes": {
+            "title": "Leafnodes",
+            "type": "integer"
+          },
+          "node_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The machine this account belongs to; null for the hub's own",
+            "title": "Node Id"
+          }
+        },
+        "required": [
+          "account",
+          "connections",
+          "leafnodes"
+        ],
+        "title": "EngineAccount",
+        "type": "object"
+      },
+      "EngineHealth": {
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "status": {
+            "description": "ok, unavailable (NATS says it is not healthy) or unknown (no answer)",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "EngineHealth",
+        "type": "object"
+      },
+      "EngineJetStream": {
+        "properties": {
+          "cap_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The file-store cap NATS enforces",
+            "title": "Cap Bytes"
+          },
+          "consumers": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Consumers"
+          },
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What NATS says; null when the monitor did not answer",
+            "title": "Enabled"
+          },
+          "planned_cap_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The cap the gateway planned from the data disk",
+            "title": "Planned Cap Bytes"
+          },
+          "reason": {
+            "default": "",
+            "title": "Reason",
+            "type": "string"
+          },
+          "reserved_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reserved Bytes"
+          },
+          "state": {
+            "description": "off, refused, pending, ready or error (the gateway's core streams, #601), or refused when NATS runs JetStream without a cap",
+            "title": "State",
+            "type": "string"
+          },
+          "streams": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Streams"
+          },
+          "used_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Used Bytes"
+          },
+          "used_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Used Pct"
+          }
+        },
+        "required": [
+          "state"
+        ],
+        "title": "EngineJetStream",
+        "type": "object"
+      },
+      "EngineLinks": {
+        "properties": {
+          "down": {
+            "title": "Down",
+            "type": "integer"
+          },
+          "up": {
+            "title": "Up",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "up",
+          "down"
+        ],
+        "title": "EngineLinks",
+        "type": "object"
+      },
+      "EngineMonitor": {
+        "properties": {
+          "checked_at": {
+            "title": "Checked At",
+            "type": "string"
+          },
+          "errors": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Endpoint -> what failed (owner only)",
+            "title": "Errors",
+            "type": "object"
+          },
+          "state": {
+            "description": "up: the loopback monitor answered; down: it did not",
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "checked_at"
+        ],
+        "title": "EngineMonitor",
+        "type": "object"
+      },
+      "EngineNode": {
+        "properties": {
+          "heartbeat": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "online, stale or offline from the heartbeat registry",
+            "title": "Heartbeat"
+          },
+          "link": {
+            "description": "up: the machine's leaf link is connected; down: it is not; unknown: no leaf data",
+            "title": "Link",
+            "type": "string"
+          },
+          "node_id": {
+            "title": "Node Id",
+            "type": "string"
+          },
+          "outbox": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EngineOutbox"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rtt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rtt"
+          }
+        },
+        "required": [
+          "node_id",
+          "link"
+        ],
+        "title": "EngineNode",
+        "type": "object"
+      },
+      "EngineOutbox": {
+        "properties": {
+          "bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bytes"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "lag": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Messages the hub has still to copy from the machine's outbox",
+            "title": "Lag"
+          },
+          "last_active_s": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Seconds since the hub last heard from the outbox",
+            "title": "Last Active S"
+          },
+          "messages": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Messages"
+          },
+          "stream": {
+            "title": "Stream",
+            "type": "string"
+          }
+        },
+        "required": [
+          "stream"
+        ],
+        "title": "EngineOutbox",
+        "type": "object"
+      },
+      "EngineServer": {
+        "properties": {
+          "connections": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Connections"
+          },
+          "in_msgs": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "In Msgs"
+          },
+          "leafnodes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Leafnodes"
+          },
+          "out_msgs": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Out Msgs"
+          },
+          "total_connections": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Connections"
+          },
+          "uptime": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uptime"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
+          }
+        },
+        "title": "EngineServer",
+        "type": "object"
+      },
+      "EngineSlowConsumers": {
+        "properties": {
+          "clients": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clients"
+          },
+          "gateways": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gateways"
+          },
+          "leafs": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Leafs"
+          },
+          "routes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Routes"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
+          }
+        },
+        "title": "EngineSlowConsumers",
+        "type": "object"
+      },
+      "EngineView": {
+        "description": "GET /v1/engine. Never carries a credential, a client address, a user name, a path or a subject.",
+        "properties": {
+          "accounts": {
+            "items": {
+              "$ref": "#/components/schemas/EngineAccount"
+            },
+            "title": "Accounts",
+            "type": "array"
+          },
+          "at": {
+            "title": "At",
+            "type": "string"
+          },
+          "connections_truncated": {
+            "default": false,
+            "title": "Connections Truncated",
+            "type": "boolean"
+          },
+          "health": {
+            "$ref": "#/components/schemas/EngineHealth"
+          },
+          "jetstream": {
+            "$ref": "#/components/schemas/EngineJetStream"
+          },
+          "links": {
+            "$ref": "#/components/schemas/EngineLinks"
+          },
+          "monitor": {
+            "$ref": "#/components/schemas/EngineMonitor"
+          },
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/EngineNode"
+            },
+            "title": "Nodes",
+            "type": "array"
+          },
+          "scope": {
+            "description": "all (owner), node (a machine: its own account and link) or summary",
+            "title": "Scope",
+            "type": "string"
+          },
+          "server": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EngineServer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "slow_consumers": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EngineSlowConsumers"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "at",
+          "scope",
+          "monitor",
+          "health",
+          "links",
+          "jetstream"
+        ],
+        "title": "EngineView",
+        "type": "object"
+      },
       "EnrolBody": {
         "properties": {
           "client": {
@@ -3386,6 +4032,7 @@
             "enum": [
               "app.disable",
               "app.enable",
+              "data.grant",
               "exposure.mesh",
               "exposure.private",
               "exposure.public",
@@ -3526,6 +4173,136 @@
           "access"
         ],
         "title": "GrantBody",
+        "type": "object"
+      },
+      "GrantOut": {
+        "properties": {
+          "action_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Action Id"
+          },
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "aggregate": {
+            "title": "Aggregate",
+            "type": "boolean"
+          },
+          "approved_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approved By"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "data_class": {
+            "enum": [
+              "public",
+              "owner",
+              "private",
+              "location",
+              "activity"
+            ],
+            "title": "Data Class",
+            "type": "string"
+          },
+          "expires_at": {
+            "title": "Expires At",
+            "type": "string"
+          },
+          "grantee": {
+            "$ref": "#/components/schemas/GranteeOut"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "read": {
+            "title": "Read",
+            "type": "boolean"
+          },
+          "requested_by": {
+            "title": "Requested By",
+            "type": "string"
+          },
+          "revoked_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revoked At"
+          },
+          "revoked_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revoked By"
+          },
+          "write": {
+            "title": "Write",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "data_class",
+          "grantee",
+          "read",
+          "write",
+          "aggregate",
+          "created_at",
+          "expires_at",
+          "requested_by",
+          "approved_by",
+          "action_id",
+          "revoked_at",
+          "revoked_by",
+          "active"
+        ],
+        "title": "GrantOut",
+        "type": "object"
+      },
+      "GranteeOut": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "id"
+        ],
+        "title": "GranteeOut",
         "type": "object"
       },
       "Grid": {
@@ -3793,6 +4570,75 @@
           "app_id"
         ],
         "title": "HostBody",
+        "type": "object"
+      },
+      "HostStatus": {
+        "properties": {
+          "count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Count"
+          },
+          "helper": {
+            "default": "missing",
+            "description": "host helper: reachable | missing; no host action starts while missing",
+            "enum": [
+              "reachable",
+              "missing"
+            ],
+            "title": "Helper",
+            "type": "string"
+          },
+          "hostname": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the box's name as the host helper reported it",
+            "title": "Hostname"
+          },
+          "observed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observed At"
+          },
+          "state": {
+            "enum": [
+              "ok",
+              "attention",
+              "critical",
+              "unknown"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "observed_at",
+          "summary"
+        ],
+        "title": "HostStatus",
         "type": "object"
       },
       "ImportBody": {
@@ -7911,6 +8757,71 @@
         "title": "ReceiptPage",
         "type": "object"
       },
+      "RecordIn": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "description": "What the value is, e.g. place.visit",
+            "pattern": "^[a-z][a-z0-9_.-]{0,62}$",
+            "title": "Kind",
+            "type": "string"
+          },
+          "value": {
+            "description": "Any JSON value, at most 4096 bytes",
+            "title": "Value"
+          }
+        },
+        "required": [
+          "kind",
+          "value"
+        ],
+        "title": "RecordIn",
+        "type": "object"
+      },
+      "RecordOut": {
+        "properties": {
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "data_class": {
+            "enum": [
+              "public",
+              "owner",
+              "private",
+              "location",
+              "activity"
+            ],
+            "title": "Data Class",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value"
+          }
+        },
+        "required": [
+          "id",
+          "data_class",
+          "kind",
+          "value",
+          "source",
+          "created_at"
+        ],
+        "title": "RecordOut",
+        "type": "object"
+      },
       "Redaction": {
         "properties": {
           "found": {
@@ -9847,6 +10758,9 @@
           "backups": {
             "$ref": "#/components/schemas/SourceStatus"
           },
+          "host": {
+            "$ref": "#/components/schemas/HostStatus"
+          },
           "mesh": {
             "$ref": "#/components/schemas/SourceStatus"
           },
@@ -9880,7 +10794,8 @@
           "storage",
           "backups",
           "updates",
-          "mesh"
+          "mesh",
+          "host"
         ],
         "title": "StatusView",
         "type": "object"
@@ -12993,7 +13908,7 @@
     },
     "securitySchemes": {
       "bearer": {
-        "description": "A gateway token or a signed-in session (contract §3)",
+        "description": "A OneMind bearer token or session. Each operation's scopes name what it needs: a token scope (contract §12.6) and `data.grant`, a data grant an owner approved (POST /v1/actions type data.grant). Without the token scope or the grant the answer is `public` only (empty data, or 403 on a write).",
         "scheme": "bearer",
         "type": "http"
       }
@@ -20372,6 +21287,651 @@
         "x-onemind-provisional": "Folds into GET /v1/surfaces (surface registry) when it lands; do not build on this route."
       }
     },
+    "/v1/data/classes": {
+      "get": {
+        "description": "The five data classes, which built-ins keep and read each, and what you may do with each.",
+        "operationId": "data.classes.list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ClassOut"
+                  },
+                  "title": "Response Data.Classes.List",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "data:read",
+              "data.grant"
+            ]
+          }
+        ],
+        "summary": "Classes",
+        "tags": [
+          "data"
+        ]
+      }
+    },
+    "/v1/data/classes/{data_class}": {
+      "get": {
+        "description": "One class with your access; `count` (how many records) needs read or aggregate, else null.",
+        "operationId": "data.classes.get",
+        "parameters": [
+          {
+            "description": "public, owner, private, location or activity",
+            "in": "path",
+            "name": "data_class",
+            "required": true,
+            "schema": {
+              "description": "public, owner, private, location or activity",
+              "enum": [
+                "public",
+                "owner",
+                "private",
+                "location",
+                "activity"
+              ],
+              "title": "Data Class",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClassOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "data:read",
+              "data.grant"
+            ]
+          }
+        ],
+        "summary": "One Class",
+        "tags": [
+          "data"
+        ]
+      }
+    },
+    "/v1/data/classes/{data_class}/records": {
+      "get": {
+        "description": "The class's records after `cursor`. Empty without a read grant (aggregate sees only the count).",
+        "operationId": "data.records.list",
+        "parameters": [
+          {
+            "description": "public, owner, private, location or activity",
+            "in": "path",
+            "name": "data_class",
+            "required": true,
+            "schema": {
+              "description": "public, owner, private, location or activity",
+              "enum": [
+                "public",
+                "owner",
+                "private",
+                "location",
+                "activity"
+              ],
+              "title": "Data Class",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 20,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RecordOut"
+                  },
+                  "title": "Response Data.Records.List",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Records, oldest first",
+            "headers": {
+              "Link": {
+                "description": "The next page: `<...?cursor=...>; rel=\"next\"` (contract §12.1)",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "data:read",
+              "data.grant"
+            ]
+          }
+        ],
+        "summary": "Records",
+        "tags": [
+          "data"
+        ]
+      },
+      "post": {
+        "description": "Add one record to the class. Needs a write grant and a session or token holding data:write\n(the owner needs only data:write). Each writer keeps its newest 10,000 records per class.",
+        "operationId": "data.records.create",
+        "parameters": [
+          {
+            "description": "public, owner, private, location or activity",
+            "in": "path",
+            "name": "data_class",
+            "required": true,
+            "schema": {
+              "description": "public, owner, private, location or activity",
+              "enum": [
+                "public",
+                "owner",
+                "private",
+                "location",
+                "activity"
+              ],
+              "title": "Data Class",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Sending the same key again returns the first answer",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 80,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Sending the same key again returns the first answer",
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "data:write",
+              "data.grant"
+            ]
+          }
+        ],
+        "summary": "Write",
+        "tags": [
+          "data"
+        ]
+      }
+    },
+    "/v1/data/classes/{data_class}/stream": {
+      "get": {
+        "description": "Server-Sent Events: `record` for each new record (id = record id; resume with Last-Event-ID), then `end` with a reason when the stream stops: no_grant at once without read, revoked within 2 s of a revoke or expiry. At most 5 open streams per principal (429).",
+        "operationId": "data.records.stream",
+        "parameters": [
+          {
+            "description": "public, owner, private, location or activity",
+            "in": "path",
+            "name": "data_class",
+            "required": true,
+            "schema": {
+              "description": "public, owner, private, location or activity",
+              "enum": [
+                "public",
+                "owner",
+                "private",
+                "location",
+                "activity"
+              ],
+              "title": "Data Class",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Last-Event-ID",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 20,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Last-Event-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The record stream"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "data:read",
+              "data.grant"
+            ]
+          }
+        ],
+        "summary": "New records (text/event-stream)",
+        "tags": [
+          "data"
+        ]
+      }
+    },
+    "/v1/data/grants": {
+      "get": {
+        "description": "Every grant, newest first, for the owner (the Privacy screen); anyone else sees their own.",
+        "operationId": "data.grants.list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/GrantOut"
+                  },
+                  "title": "Response Data.Grants.List",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "data:read",
+              "data.grant"
+            ]
+          }
+        ],
+        "summary": "Grants",
+        "tags": [
+          "data"
+        ]
+      }
+    },
+    "/v1/data/grants/{grant_id}": {
+      "delete": {
+        "description": "Revoke a grant now (owner only, no approval: it only takes access away). Revoking twice is a no-op.",
+        "operationId": "data.grants.revoke",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "grant_id",
+            "required": true,
+            "schema": {
+              "maxLength": 40,
+              "title": "Grant Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Sending the same key again returns the first answer",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 80,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Sending the same key again returns the first answer",
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GrantOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "actions:approve"
+            ]
+          }
+        ],
+        "summary": "Revoke",
+        "tags": [
+          "data"
+        ]
+      }
+    },
     "/v1/databases": {
       "get": {
         "description": "Apps' databases on the shared PostgreSQL. Never a password: those live in each app's Secret.",
@@ -21144,6 +22704,56 @@
         "summary": "Request Host",
         "tags": [
           "domains"
+        ]
+      }
+    },
+    "/v1/engine": {
+      "get": {
+        "description": "Connections per account, leaf links and outbox lag per machine, JetStream used against its cap,\nslow consumers. Cut to the caller: the owner sees all, a machine its own, everyone else a summary.",
+        "operationId": "engine.get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EngineView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "monitoring:read",
+              "nodes:report"
+            ]
+          }
+        ],
+        "summary": "Engine",
+        "tags": [
+          "engine"
         ]
       }
     },

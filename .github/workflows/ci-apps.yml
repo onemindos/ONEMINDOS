@@ -69,6 +69,12 @@ jobs:
         with:
           go-version-file: go.mod
 
+      # cmd/onemind imports sdk/go, whose generated types are not committed (CI-16).
+      - name: Generate the Go SDK code from the committed spec
+        uses: ./.github/actions/sdk-gen
+        with:
+          langs: go
+
       - name: Build the box plugin validator
         run: |
           mkdir -p "$RUNNER_TEMP/bin"
@@ -102,6 +108,18 @@ jobs:
             sudo apt-get install -y --no-install-recommends clamav
           fi
           command -v clamscan
+
+      # The offline-map regression tests run the app's shipped JS in Node (#126, #299). Same pin as ci-sdk;
+      # setup-node has a linux-arm64 build, so this one step serves the hosted and the local Debian runner.
+      - name: Set up Node 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+
+      - name: Check Node 22
+        run: |
+          node --version
+          node --version | grep -q '^v22\.'
 
       - name: Unit tests (sdk/tools)
         run: python3 -I -m unittest discover -s sdk/tools/tests -v
@@ -184,6 +202,12 @@ jobs:
         uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
         with:
           go-version-file: go.mod
+
+      # cmd/onemind imports sdk/go, whose generated types are not committed (CI-16).
+      - name: Generate the Go SDK code from the committed spec
+        uses: ./.github/actions/sdk-gen
+        with:
+          langs: go
 
       - name: Build the box plugin validator
         run: |

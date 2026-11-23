@@ -270,6 +270,10 @@ POLICY |= {
     # UMB-P11 (#429): the heartbeat numbers /v1/nodes shows plus per-app usage; sharing filters the apps.
     ("GET", "/v1/usage"): Row(CHILD_CANNOT, w.p_static("/v1/usage"),
                               "UMB-P11 live usage: read-only, monitoring:read like app metrics (a child has none); unshared apps are left out"),
+    # #619 Engine feed: read-only NATS monitor numbers. The owner sees all; a node its own account, link and outbox
+    # (nodes:report); adults, guests and agents a summary; plugins and automations nothing.
+    ("GET", "/v1/engine"): Row(cells(200, **GONE, child=403, plugin=403, automation=403, node=200), w.p_static("/v1/engine"),
+                               "#619 engine feed: monitoring:read (a child has none) or a node's nodes:report; scope cut in engine/feed.py"),
 }
 
 # ---- audit and events: feat/devsurface (contract §12.8, §12.16) -----------------------------------------
@@ -975,4 +979,29 @@ POLICY |= {
                                          f"{_PHYS}: whether every physical action is refused; owner only, refusals audited"),
     ("PUT", "/v1/physical/lockout"): Row(ONLY_OWNER, lambda _w: w.Req("/v1/physical/lockout", json={"locked": True, "reason": "matrix probe"}),
                                          f"{_PHYS}: only the owner locks or lifts motion; an agent can never lift it"),
+}
+
+# ---- the data commons (#615: core/onemind_core/routers/datagrants.py) -----------------------------------------
+# No token scope opens these doors: everybody signed in reaches them and sees what their data grant allows
+# (nothing, so an empty list or a stream that ends at once). Writing needs a write grant, revoking an owner.
+_DATA = "core/onemind_core/routers/datagrants.py"
+DATA_READ = cells(200, **GONE, plugin=200, automation=frozenset({200, 403}), node=frozenset({200, 403}))
+DATA_OWNER = cells(403, **GONE, owner=201, automation=frozenset({403}), node=DENIED)
+POLICY |= {
+    ("GET", "/v1/data/classes"): Row(DATA_READ, w.p_static("/v1/data/classes"),
+                                     f"{_DATA}: the five classes and the caller's own access"),
+    ("GET", "/v1/data/classes/{data_class}"): Row(DATA_READ, w.p_static("/v1/data/classes/location"),
+                                                  f"{_DATA}: count only with read or aggregate, else null"),
+    ("GET", "/v1/data/classes/{data_class}/records"): Row(DATA_READ, w.p_static("/v1/data/classes/location/records"),
+                                                          f"{_DATA}: empty without a read grant, never an error"),
+    ("POST", "/v1/data/classes/{data_class}/records"): Row(
+        DATA_OWNER, lambda world: w.Req("/v1/data/classes/location/records", json={"kind": "probe", "value": 1}),
+        f"{_DATA}: a write grant (only an owner holds one by default); refusals audited"),
+    ("GET", "/v1/data/classes/{data_class}/stream"): Row(
+        DATA_READ, lambda world: w.Req("/v1/data/classes/location/stream", stream=True),
+        f"{_DATA}: SSE; without read it sends end(no_grant) and closes"),
+    ("GET", "/v1/data/grants"): Row(DATA_READ, w.p_static("/v1/data/grants"),
+                                    f"{_DATA}: the owner sees every grant (the Privacy screen), others their own"),
+    ("DELETE", "/v1/data/grants/{grant_id}"): Row(OWNER_ONLY_404, w.p_missing("/v1/data/grants/dgr_0123456789abcdef"),
+                                                  f"{_DATA}: only an owner revokes; no approval, it only takes access away"),
 }
