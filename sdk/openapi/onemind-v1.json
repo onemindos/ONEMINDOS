@@ -10479,7 +10479,7 @@
     },
     "/v1/agent-browser/sessions": {
       "get": {
-        "operationId": "agent_browser.sessions.list",
+        "operationId": "agentbrowser.sessions.list",
         "responses": {
           "200": {
             "content": {
@@ -10522,7 +10522,7 @@
         ]
       },
       "post": {
-        "operationId": "agent_browser.sessions.start",
+        "operationId": "agentbrowser.sessions.start",
         "parameters": [
           {
             "in": "header",
@@ -10640,7 +10640,7 @@
     },
     "/v1/agent-browser/sessions/{session_id}": {
       "delete": {
-        "operationId": "agent_browser.sessions.end",
+        "operationId": "agentbrowser.sessions.end",
         "parameters": [
           {
             "in": "path",
@@ -10712,7 +10712,7 @@
     },
     "/v1/agent-browser/sessions/{session_id}/visit": {
       "post": {
-        "operationId": "agent_browser.sessions.visit",
+        "operationId": "agentbrowser.sessions.visit",
         "parameters": [
           {
             "in": "path",
@@ -10862,7 +10862,7 @@
     },
     "/v1/agent-browser/sites": {
       "get": {
-        "operationId": "agent_browser.sites.list",
+        "operationId": "agentbrowser.sites.list",
         "responses": {
           "200": {
             "content": {
@@ -10905,7 +10905,7 @@
         ]
       },
       "post": {
-        "operationId": "agent_browser.sites.request",
+        "operationId": "agentbrowser.sites.request",
         "parameters": [
           {
             "in": "header",
@@ -11026,7 +11026,7 @@
     },
     "/v1/agent-browser/sites/{site_id}": {
       "delete": {
-        "operationId": "agent_browser.sites.remove",
+        "operationId": "agentbrowser.sites.remove",
         "parameters": [
           {
             "in": "path",

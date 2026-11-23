@@ -145,39 +145,39 @@ def register(app: FastAPI, gw: Gateway) -> None:
     gw.on_startup(startup)
     gw.on_shutdown(shutdown)
 
-    @app.get("/v1/agent-browser/sites", operation_id="agent_browser.sites.list", tags=TAGS,
+    @app.get("/v1/agent-browser/sites", operation_id="agentbrowser.sites.list", tags=TAGS,
              responses={200: {"model": list[AgentBrowserSite]}, **error_responses(401, 403)})
     def list_sites(p: Principal = Depends(principal)):
         return svc.sites(p)
 
-    @app.post("/v1/agent-browser/sites", operation_id="agent_browser.sites.request", tags=TAGS, status_code=201,
+    @app.post("/v1/agent-browser/sites", operation_id="agentbrowser.sites.request", tags=TAGS, status_code=201,
               responses={200: {"model": Action, "description": "The same request was already filed"},
                          201: {"model": Action}, **error_responses(401, 403, 409, 422, 429)})
     def request_site(body: SiteBody, idem: IdemHeader = None, p: Principal = Depends(principal)):
         action, created = svc.request_site(p, body.entry, body.agent, body.note, idem)
         return JSONResponse(action, status_code=201 if created else 200)
 
-    @app.delete("/v1/agent-browser/sites/{site_id}", operation_id="agent_browser.sites.remove", tags=TAGS,
+    @app.delete("/v1/agent-browser/sites/{site_id}", operation_id="agentbrowser.sites.remove", tags=TAGS,
                 responses={200: {"model": SiteRemoved}, **error_responses(401, 403, 404)})
     def remove_site(site_id: str, p: Principal = Depends(principal)):
         return svc.remove_site(p, site_id)
 
-    @app.get("/v1/agent-browser/sessions", operation_id="agent_browser.sessions.list", tags=TAGS,
+    @app.get("/v1/agent-browser/sessions", operation_id="agentbrowser.sessions.list", tags=TAGS,
              responses={200: {"model": list[AgentBrowserSession]}, **error_responses(401, 403)})
     def list_sessions(p: Principal = Depends(principal)):
         return svc.list(p)
 
-    @app.post("/v1/agent-browser/sessions", operation_id="agent_browser.sessions.start", tags=TAGS, status_code=201,
+    @app.post("/v1/agent-browser/sessions", operation_id="agentbrowser.sessions.start", tags=TAGS, status_code=201,
               responses={201: {"model": AgentBrowserSession}, **error_responses(401, 403, 409, 422, 503)})
     def start_session(body: SessionBody | None = None, idem: IdemHeader = None, p: Principal = Depends(principal)):
         return JSONResponse(svc.start(p, body.max_pages if body else None, idem), status_code=201)
 
-    @app.delete("/v1/agent-browser/sessions/{session_id}", operation_id="agent_browser.sessions.end", tags=TAGS,
+    @app.delete("/v1/agent-browser/sessions/{session_id}", operation_id="agentbrowser.sessions.end", tags=TAGS,
                 responses={200: {"model": AgentBrowserSession}, **error_responses(401, 403, 404)})
     def end_session(session_id: str, p: Principal = Depends(principal)):
         return svc.end(p, session_id)
 
-    @app.post("/v1/agent-browser/sessions/{session_id}/visit", operation_id="agent_browser.sessions.visit", tags=TAGS,
+    @app.post("/v1/agent-browser/sessions/{session_id}/visit", operation_id="agentbrowser.sessions.visit", tags=TAGS,
               responses={200: {"model": AgentBrowserVisit},
                          202: {"model": AgentBrowserApproval, "description": "approval_required: the owner decides first"},
                          **error_responses(401, 403, 404, 409, 422, 429, 503)})
