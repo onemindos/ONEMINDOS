@@ -1,18 +1,20 @@
 // SPDX-License-Identifier: Apache-2.0
-// Control Hub (report ch. 3, as in Olares): the cluster-level view of the box for owners and
-// adults. Machines with their k3s role and readiness (GET /v1/nodes), every workload with its state
-// (GET /v1/apps), and the monitoring summary (GET /v1/monitoring/summary). Start, stop and restart
-// file a request through the shared review dialog: nothing changes until an owner approves it.
+// Control Hub (report ch. 3, as in Olares): the live board of the box for owners and adults (FD-05,
+// #502). Open alerts, app health, machines, storage, backups, the A/B system slots and (Pro only)
+// Kubernetes, kept current by the event stream with a 30 s poll behind it (ControlHubLive.tsx).
+// Start, stop and restart file a request through the shared review dialog: nothing changes until
+// an owner approves it.
 import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
-import { Button, Card, PageHeader, StatusPill, Table, formatAgo, secondsSince, type Column, type Tone } from '@onemind/ui';
+import { Button, PageHeader, StatusPill, Table, formatAgo, secondsSince, type Column, type Tone } from '@onemind/ui';
 import type { ActionType, CatalogApp, NodeRecord, NodeStatus } from '../api/types';
 import { useHub } from '../data/hub';
-import { usePoll } from '../lib/hooks';
+import { useNow } from '../lib/hooks';
 import { href } from '../shell/routes';
 import { useShell } from '../shell/Shell';
-import { useSignedIn } from '../session';
 import { Load } from './parts';
+import { boardPanels, useBoard } from './ControlHubLive';
+import { AlertsList, BackupFacts, KubernetesList, Panel, SlotList, StorageFacts } from './ControlHubPanels';
 import { LogsPanel } from './ControlHubLogs';
 import { SecretsPanel } from './ControlHubSecrets';
 
@@ -85,21 +87,20 @@ function AppTab({ kind }: { kind: 'secrets' | 'logs' }) {
 
 function Overview() {
   const hub = useHub();
-  const { api } = useSignedIn();
-  const { requestApp } = useShell();
-  const summary = usePoll(() => api.monitoring(), 30_000);
+  const { requestApp, view } = useShell();
+  const board = useBoard();
   const nodes = hub.nodes.data ?? [];
   const apps = workloads(hub.apps.data ?? []);
   const waiting = hub.actionList.filter((a) => a.state === 'awaiting_approval').length;
   const canAsk = hub.canRequest !== 'no';
+  const shown = new Set(boardPanels(view));
+  const now = useNow(1000); // the browser clock, the one each answer's fetch time is on
 
   const ask = (type: ActionType, a: CatalogApp) => void requestApp(type, a.id);
 
   const nodeCols: Column<NodeRecord>[] = [
     { key: 'host', header: 'Machine', render: (n) => n.hostname, sortValue: (n) => n.hostname },
     { key: 'status', header: 'State', render: (n) => { const s = hub.nodeStatus(n); return <StatusPill tone={NODE_TONE[s]} label={s} detail={`last seen ${formatAgo(secondsSince(n.last_seen, hub.now))}`} />; } },
-    { key: 'k3s', header: 'Cluster', render: (n) => (n.k3s.present ? `${n.k3s.role ?? 'member'}, ${n.k3s.ready ? 'ready' : 'not ready'}` : 'not in the cluster') },
-    { key: 'slot', header: 'A/B slot', render: (n) => (n.rauc.present ? n.rauc.booted_slot ?? 'unknown' : 'no A/B'), secondary: true },
     { key: 'mem', header: 'Memory free', render: (n) => `${n.mem_available_mb} of ${n.mem_total_mb} MB`, secondary: true },
   ];
   const appCols: Column<CatalogApp>[] = [
@@ -129,24 +130,38 @@ function Overview() {
 
   return (
     <>
-      <Load res={summary} what="Loading the summary">
-        {(s) => (
-          <Card title="Right now" variant="sunken">
+      <p role="status" aria-label="Board updates">
+        {board.live ? <StatusPill tone="ok" label="Live" detail="updates as the hub reports them" /> : <StatusPill tone="neutral" label="Refreshing every 30 s" detail="live updates are not available" />}
+      </p>
+      {shown.has('summary') && (
+        <Panel title="Right now" res={board.summary} now={now} what="Loading the summary">
+          {(s) => (
             <dl className="om-facts">
               <div><dt>Machines online</dt><dd>{s.nodes.online} of {s.nodes.online + s.nodes.stale + s.nodes.offline}</dd></div>
               <div><dt>Workloads</dt><dd>{Object.entries(s.apps).map(([k, v]) => `${v} ${k}`).join(', ') || 'none'}</dd></div>
               <div><dt>Open alerts</dt><dd>{s.open_alerts.critical} critical, {s.open_alerts.warning} warning, {s.open_alerts.info} info</dd></div>
               <div><dt>Waiting for approval</dt><dd><Link to={href.approvals}>{waiting}</Link></dd></div>
             </dl>
-          </Card>
-        )}
-      </Load>
-      <Load res={hub.nodes} what="Loading machines">
-        {() => <Table caption="Machines" columns={nodeCols} rows={nodes} rowKey={(n) => n.node_id} empty="No machines have reported yet." />}
-      </Load>
-      <Load res={hub.apps} what="Loading workloads">
-        {() => <Table caption="Workloads" columns={appCols} rows={apps} rowKey={(a) => a.id} empty="Nothing is installed yet." />}
-      </Load>
+          )}
+        </Panel>
+      )}
+      <div className="dash-grid">
+        {shown.has('alerts') && <Panel title="Alerts" res={board.alerts} now={now} what="Loading alerts">{(a) => <AlertsList alerts={a} now={hub.now} />}</Panel>}
+        {shown.has('storage') && <Panel title="Storage" res={board.storage} now={now} what="Loading storage">{(st) => <StorageFacts s={st} />}</Panel>}
+        {shown.has('backups') && <Panel title="Backups" res={board.backups} now={now} what="Loading backups">{(b) => <BackupFacts b={b} now={hub.now} />}</Panel>}
+        {shown.has('slots') && <Panel title="System slots" res={hub.nodes} now={now} what="Loading machines">{(ns) => <SlotList nodes={ns} />}</Panel>}
+        {shown.has('kubernetes') && <Panel title="Kubernetes" res={hub.nodes} now={now} what="Loading machines">{(ns) => <KubernetesList nodes={ns} />}</Panel>}
+      </div>
+      {shown.has('nodes') && (
+        <Panel title="Machines" res={hub.nodes} now={now} what="Loading machines">
+          {() => <Table caption="Machines" hideCaption columns={nodeCols} rows={nodes} rowKey={(n) => n.node_id} empty="No machines have reported yet." />}
+        </Panel>
+      )}
+      {shown.has('apps') && (
+        <Panel title="App health" res={hub.apps} now={now} what="Loading workloads">
+          {() => <Table caption="Workloads" hideCaption columns={appCols} rows={apps} rowKey={(a) => a.id} empty="Nothing is installed yet." />}
+        </Panel>
+      )}
     </>
   );
 }
