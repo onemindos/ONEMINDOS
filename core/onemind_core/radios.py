@@ -7,11 +7,15 @@ table in sdk/schema/onemind.radios.json. Here each machine's USB serial lines (t
 those radios. A line with no radio is listed with kind and device null: never named, never granted.
 Cards come from the latest heartbeat, so an unplugged radio is gone with the next one.
 
+A card for a known radio carries a stable id, `<node_id>.<kind><n>` (3f9c2a1b7d4e.lora0): the machine plus
+the stable name udev gave it. Every later radio route addresses a radio by it (/v1/radios/{id}/...).
+
 A kind the table lists under `confirm` (lora) needs an owner to say what it is on its card ("MeshCore
 companion (USB)") before a grant (#854) may pass it to an app: the ThinkNode-M2's CH340K id is a generic
 USB-serial chip, and OneMind never probes a device to find out. The confirmation is a statement, not an
-action: it opens nothing and sends nothing. It is kept in memory for that radio on that port and dropped
-when a heartbeat no longer shows it (unplugged, moved, renamed) and when the gateway restarts.
+action: it opens nothing and sends nothing. It is stored in the gateway database for that radio on that
+machine and USB port (kind, port, USB id), so a gateway restart, an OS update or unplugging and plugging
+the radio back into the same port keeps it; the same radio on another port needs a new one.
 
 Only validated profiles reach this (nodes.py drops a profile that is not exactly NodeCapabilities).
 """
@@ -20,18 +24,24 @@ from __future__ import annotations
 
 import json
 import logging
-import threading
+import re
 from collections.abc import Callable
 from datetime import datetime
 from functools import lru_cache
 
-from .apimodels import SERIAL_RADIO_KINDS
-from .ledger import iso
+from sqlalchemy import DateTime, String, select
+from sqlalchemy.orm import Mapped, mapped_column
+
+from .apimodels import RADIO_ID, SERIAL_RADIO_KINDS
+from .ledger import Base, iso
+from .store import Database, FeatureSchema, SqlRepository
 from .subjects import _SCHEMA_DIR_CANDIDATES
 
 log = logging.getLogger("onemind.radios")
 
 TABLE_FILE = "onemind.radios.json"
+
+SCHEMA = FeatureSchema("radios")  # v1 = the shape below
 
 
 @lru_cache(maxsize=1)
@@ -65,24 +75,55 @@ def label(usb_id: str | None, kind: str) -> tuple[str | None, str | None]:
     return model, match
 
 
-Key = tuple[str, str, str, str]  # node_id, device, usb_port, usb_id
+def radio_id(node_id: str, device: str) -> str:
+    """The stable id of the radio named `device` on `node_id`: 3f9c2a1b7d4e.lora0 (apimodels.RADIO_ID)."""
+    return f"{node_id}.{device.rsplit('/', 1)[-1]}"
 
 
-class RadioService:
-    """The cards and the owners' confirmations. One per gateway (routers/nodes.py)."""
+def parse_radio_id(rid: str) -> tuple[str, str] | None:
+    """(node_id, device) of a radio id, None when it is not one."""
+    if not re.match(RADIO_ID, rid):
+        return None
+    node_id, name = rid.rsplit(".", 1)
+    return node_id, f"/dev/onemind/{name}"
 
-    def __init__(self, clock: Callable[[], datetime]):
+
+class RadioConfirmationRow(Base):
+    """An owner's confirmation of a radio: the machine, the kind and the physical USB port and id it is on."""
+
+    __tablename__ = "radios_confirmations"
+    node_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    kind: Mapped[str] = mapped_column(String(16), primary_key=True)
+    usb_port: Mapped[str] = mapped_column(String(64), primary_key=True)
+    usb_id: Mapped[str] = mapped_column(String(9), primary_key=True)
+    profile: Mapped[str] = mapped_column(String(64))
+    confirmed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    confirmed_by: Mapped[str] = mapped_column(String(200))
+
+
+Key = tuple[str, str, str, str]  # node_id, kind, usb_port, usb_id
+
+
+class RadioService(SqlRepository):
+    """The cards and the owners' confirmations. One per gateway (routers/radios.py)."""
+
+    def __init__(self, db: Database, clock: Callable[[], datetime]):
+        super().__init__(db)
         self.clock = clock
-        self._lock = threading.Lock()
-        self._confirmed: dict[Key, dict] = {}
 
     @staticmethod
     def _key(card: dict) -> Key:
-        return (card["node_id"], card["device"] or "", card["usb_port"] or "", card["usb_id"] or "")
+        return (card["node_id"], card["kind"] or "", card["usb_port"] or "", card["usb_id"] or "")
+
+    def _confirmed(self, node_id: str) -> dict[Key, RadioConfirmationRow]:
+        with self.db.session() as s:
+            rows = s.scalars(select(RadioConfirmationRow).where(RadioConfirmationRow.node_id == node_id)).all()
+        return {(r.node_id, r.kind, r.usb_port, r.usb_id): r for r in rows}
 
     def node_cards(self, n: dict) -> list[dict]:
         caps = n.get("capabilities") or {}
         named = {r["interface"]: r for r in caps.get("radios") or [] if r.get("kind") in SERIAL_RADIO_KINDS and r.get("device")}
+        confirmed: dict[Key, RadioConfirmationRow] | None = None
         out: list[dict] = []
         for tp in caps.get("tty_ports") or []:
             if tp.get("kind") != "usb" or not str(tp.get("name", "")).startswith(("ttyUSB", "ttyACM")):
@@ -91,6 +132,7 @@ class RadioService:
             kind = radio["kind"] if radio else None
             model, match = label(tp.get("usb_id"), kind) if kind else (None, None)
             card = {
+                "id": radio_id(n["node_id"], radio["device"]) if radio else None,
                 "node_id": n["node_id"],
                 "hostname": n.get("hostname"),
                 "node_status": n["status"],
@@ -104,26 +146,25 @@ class RadioService:
                 "confirm": None,
             }
             if kind in CONFIRM:
-                with self._lock:
-                    done = self._confirmed.get(self._key(card))
-                card["confirm"] = {**CONFIRM[kind], "confirmed": done is not None,
-                                   "confirmed_at": done["confirmed_at"] if done else None}
+                if confirmed is None:
+                    confirmed = self._confirmed(n["node_id"])
+                done = confirmed.get(self._key(card))
+                ok = done is not None and done.profile == CONFIRM[kind]["profile"]
+                card["confirm"] = {**CONFIRM[kind], "confirmed": ok, "confirmed_at": iso(done.confirmed_at) if ok else None}
             out.append(card)
         return out
 
     def cards(self, nodes: list[dict]) -> list[dict]:
         return [c for n in nodes for c in self.node_cards(n)]
 
-    def on_heartbeat(self, hb: dict) -> None:
-        """Drop a node's confirmations for radios its latest heartbeat no longer shows (registry listener)."""
-        present = {self._key(c) for c in self.node_cards({**hb, "status": "online"}) if c["kind"]}
-        with self._lock:
-            for k in [k for k in self._confirmed if k[0] == hb.get("node_id") and k not in present]:
-                del self._confirmed[k]
-
     def confirm(self, card: dict, profile: str, by: dict) -> dict:
         """Record an owner's confirmation of this card. The caller checked the card is a current radio of a
         kind that needs it; this opens nothing and sends nothing."""
-        with self._lock:
-            self._confirmed[self._key(card)] = {"profile": profile, "confirmed_at": iso(self.clock()), "by": by["id"]}
+        node_id, kind, usb_port, usb_id = self._key(card)
+        values = {"profile": profile, "confirmed_at": self.clock(), "confirmed_by": by["id"]}
+        insert = self.db.insert()(RadioConfirmationRow).values(node_id=node_id, kind=kind, usb_port=usb_port, usb_id=usb_id, **values)
+        with self.db.session.begin() as s:
+            s.execute(insert.on_conflict_do_update(
+                index_elements=[RadioConfirmationRow.node_id, RadioConfirmationRow.kind,
+                                RadioConfirmationRow.usb_port, RadioConfirmationRow.usb_id], set_=values))
         return card

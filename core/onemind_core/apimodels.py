@@ -129,6 +129,8 @@ class NodeTTYPort(_Profile):
 SERIAL_RADIO_KINDS = ("zigbee", "zigbee-thread", "lora")
 USB_TTY = r"^tty(USB|ACM)[0-9]+$"
 RADIO_DEVICE = r"^/dev/onemind/(zigbee|zigbee-thread|lora)([0-9]|1[0-5])$"
+# A radio's stable id: the machine's node id, a dot, the stable name's last part (3f9c2a1b7d4e.lora0).
+RADIO_ID = r"^[A-Za-z0-9_-]{1,64}\.(zigbee|zigbee-thread|lora)([0-9]|1[0-5])$"
 
 
 class NodeRadio(_Profile):
@@ -186,7 +188,7 @@ class RadioConfirmation(BaseModel):
 
     profile: str = Field(description="meshcore-companion-usb", json_schema_extra=OPEN_ENUM)
     label: str = Field(description="what the card asks, e.g. MeshCore companion (USB)")
-    confirmed: bool = Field(description="true once an owner confirmed this radio on this port; cleared when it is unplugged or the gateway restarts")
+    confirmed: bool = Field(description="true once an owner confirmed this radio on this machine and USB port; kept across gateway restarts and replugs into the same port, asked again on another port")
     confirmed_at: str | None = None
 
 
@@ -198,6 +200,7 @@ class RadioCard(BaseModel):
     OneMind never probes a radio: kind and model come from the USB ids alone.
     """
 
+    id: str | None = Field(pattern=RADIO_ID, description="the radio's stable id, <node_id>.<kind><n> (3f9c2a1b7d4e.lora0), used by /v1/radios/{id}/...; null when not a known radio")
     node_id: str
     hostname: str | None = None
     node_status: str = Field(description="online | stale | offline", json_schema_extra=OPEN_ENUM)
@@ -212,11 +215,9 @@ class RadioCard(BaseModel):
 
 
 class RadioConfirmRequest(BaseModel):
-    """POST /v1/radios/confirm: an owner says the radio at `device` on `node_id` is this profile."""
+    """POST /v1/radios/{id}/confirm: an owner says the radio with this id is this profile."""
 
     model_config = ConfigDict(extra="forbid")
-    node_id: str = Field(pattern=r"^[A-Za-z0-9_-]{1,64}$")
-    device: str = Field(pattern=RADIO_DEVICE)
     profile: Literal["meshcore-companion-usb"]
 
 

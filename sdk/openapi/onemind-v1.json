@@ -5927,6 +5927,19 @@
             ],
             "title": "Hostname"
           },
+          "id": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Za-z0-9_-]{1,64}\\.(zigbee|zigbee-thread|lora)([0-9]|1[0-5])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the radio's stable id, <node_id>.<kind><n> (3f9c2a1b7d4e.lora0), used by /v1/radios/{id}/...; null when not a known radio",
+            "title": "Id"
+          },
           "kind": {
             "anyOf": [
               {
@@ -6009,6 +6022,7 @@
           }
         },
         "required": [
+          "id",
           "node_id",
           "node_status",
           "kind",
@@ -6025,18 +6039,8 @@
       },
       "RadioConfirmRequest": {
         "additionalProperties": false,
-        "description": "POST /v1/radios/confirm: an owner says the radio at `device` on `node_id` is this profile.",
+        "description": "POST /v1/radios/{id}/confirm: an owner says the radio with this id is this profile.",
         "properties": {
-          "device": {
-            "pattern": "^/dev/onemind/(zigbee|zigbee-thread|lora)([0-9]|1[0-5])$",
-            "title": "Device",
-            "type": "string"
-          },
-          "node_id": {
-            "pattern": "^[A-Za-z0-9_-]{1,64}$",
-            "title": "Node Id",
-            "type": "string"
-          },
           "profile": {
             "const": "meshcore-companion-usb",
             "title": "Profile",
@@ -6044,8 +6048,6 @@
           }
         },
         "required": [
-          "node_id",
-          "device",
           "profile"
         ],
         "title": "RadioConfirmRequest",
@@ -6055,7 +6057,7 @@
         "description": "What the owner confirms on a radio's card before anything may open it (#732; the grant is #854).",
         "properties": {
           "confirmed": {
-            "description": "true once an owner confirmed this radio on this port; cleared when it is unplugged or the gateway restarts",
+            "description": "true once an owner confirmed this radio on this machine and USB port; kept across gateway restarts and replugs into the same port, asked again on another port",
             "title": "Confirmed",
             "type": "boolean"
           },
@@ -25018,10 +25020,24 @@
         ]
       }
     },
-    "/v1/radios/confirm": {
+    "/v1/radios/{radio_id}/confirm": {
       "post": {
         "description": "An owner confirms what a radio on its card is (a LoRa radio: \"MeshCore companion (USB)\").\n\nRefused for anyone but an owner, for a line that is not a known radio (an unknown serial device is\nnever named or granted), for a kind that needs no confirming and for a machine that is not online.\nNothing is opened or sent; the grant is a separate action (#854).",
         "operationId": "radios.confirm",
+        "parameters": [
+          {
+            "description": "the radio's id from its card, e.g. 3f9c2a1b7d4e.lora0",
+            "in": "path",
+            "name": "radio_id",
+            "required": true,
+            "schema": {
+              "description": "the radio's id from its card, e.g. 3f9c2a1b7d4e.lora0",
+              "pattern": "^[A-Za-z0-9_-]{1,64}\\.(zigbee|zigbee-thread|lora)([0-9]|1[0-5])$",
+              "title": "Radio Id",
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
