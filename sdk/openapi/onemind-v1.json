@@ -11880,6 +11880,18 @@
             "title": "App Id",
             "type": "string"
           },
+          "args": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Args"
+          },
           "id": {
             "title": "Id",
             "type": "string"
@@ -11902,6 +11914,17 @@
           "title": {
             "title": "Title",
             "type": "string"
+          },
+          "tool": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tool"
           }
         },
         "required": [
@@ -11928,7 +11951,8 @@
             "enum": [
               "tool",
               "card",
-              "topic"
+              "topic",
+              "layer"
             ],
             "title": "Kind",
             "type": "string"
@@ -12007,7 +12031,7 @@
         "type": "object"
       },
       "SurfaceSource": {
-        "description": "A map layer or Settings page: drawn by the host from one public read operation.",
+        "description": "A map layer or Settings page: drawn by the host from one public read operation (\"GET /v1/...\"), or,\nfor a Market app's map layer, `emits`: the layer emits of that app's own bridge, served by the gateway.",
         "properties": {
           "app_id": {
             "title": "App Id",
@@ -35156,7 +35180,7 @@
     },
     "/v1/surfaces": {
       "get": {
-        "description": "Everything the switched-on apps plug into, read live: a switched-off app is in no list.\nDeclarations the gateway cannot prove (an unregistered action type, an event the notify\ncatalogue does not route to the topic, a card whose source declares no observed_at) are\nunder `refused` and served nowhere.",
+        "description": "Everything the switched-on built-ins and running Market apps plug into, read live: a\nswitched-off built-in, or a stopped or removed Market app, is in no list.\nDeclarations the gateway cannot prove (an unregistered action type, an event the notify\ncatalogue does not route to the topic, a card whose source declares no observed_at) are\nunder `refused` and served nowhere.",
         "operationId": "surfaces.list",
         "responses": {
           "200": {
