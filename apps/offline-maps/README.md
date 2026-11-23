@@ -49,7 +49,7 @@ Images:
 
 - One `Deployment` (`Recreate`) with two containers sharing the 16 GiB volume `offline-maps-data`. Both run as UID 65532 (the distroless `nonroot` user) with a read-only root filesystem, no privilege escalation and all capabilities dropped.
 - **`viewer`** (python 3.14 slim image, standard library only, port 8080):
-  - It serves the map page and the archives in `/data/maps` with HTTP range requests (PMTiles is read in small ranges by the browser).
+  - It serves the map page and the archives in `/data/maps` with HTTP range requests. The viewer's same-origin `/api/maps` lists local PMTiles v3 basemaps with byte size, bounds, zoom range and attribution when available. The list reads declared attribution from uncompressed or gzip metadata as plain text, and uses the [PMTiles header](https://github.com/protomaps/PMTiles/blob/main/spec/v3/spec.md#3-header) and skips incomplete archives.
   - On first start it downloads the browser libraries, fonts and icons once, **each checked against a pinned SHA-512 or SHA-256**, into `/data/assets`. A file that does not match is refused and the page says why. After that the box needs no internet.
   - It never writes, renames or deletes a map.
 - **`pmtiles`** (`go-pmtiles serve`, port 8081): a Z/X/Y tile API (`/<map name>/{z}/{x}/{y}.mvt`) for other map clients. It is also the tool the owner uses to cut a map (below).

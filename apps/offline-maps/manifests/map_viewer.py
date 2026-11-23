@@ -15,6 +15,7 @@ owner's step (README, "Add a map"). Python standard library only.
 from __future__ import annotations
 
 import base64
+import gzip
 import hashlib
 import io
 import json
@@ -22,13 +23,18 @@ import mimetypes
 import os
 import re
 import shutil
+import stat
+import struct
 import sys
 import tarfile
 import threading
 import urllib.parse
 import urllib.request
+import zlib
+from html.parser import HTMLParser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from typing import BinaryIO
 
 PORT = int(os.environ.get("PORT", "8080"))
 MAPS_DIR = Path(os.environ.get("MAPS_DIR", "/data/maps"))
@@ -62,6 +68,11 @@ ASSETS = [
 READY = ASSETS_DIR / ".ready-v1"
 STATE = {"assets": "missing", "detail": ""}
 NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,99}\.pmtiles$")
+PMTILES_HEADER_SIZE = 127
+PMTILES_TYPE = "application/vnd.pmtiles"
+PMTILES_UNCOMPRESSED = 1
+PMTILES_GZIP = 2
+MAX_METADATA_BYTES = 256 * 1024
 
 
 def digest_ok(data: bytes, algo: str, want: str) -> bool:
@@ -116,17 +127,102 @@ def fetch_assets() -> None:
         print(f"offline-maps: viewer assets not ready: {e}", file=sys.stderr, flush=True)
 
 
+def open_map(name: str) -> BinaryIO | None:
+    if not NAME_RE.fullmatch(name):
+        return None
+    try:
+        # Serve only regular archives on the maps volume, even when a writer
+        # renames or replaces a directory entry concurrently with a request.
+        fd = os.open(MAPS_DIR / name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    except OSError:
+        return None
+    if not stat.S_ISREG(os.fstat(fd).st_mode):
+        os.close(fd)
+        return None
+    return os.fdopen(fd, "rb")
+
+
+class AttributionText(HTMLParser):
+    """Collect a plain-text label from archive attribution, which may contain links."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.parts: list[str] = []
+
+    def handle_data(self, data: str) -> None:
+        self.parts.append(data)
+
+
+def map_attribution(archive: BinaryIO, offset: int, length: int, compression: int) -> str | None:
+    if length > MAX_METADATA_BYTES or compression not in (PMTILES_UNCOMPRESSED, PMTILES_GZIP):
+        return None
+    try:
+        archive.seek(offset)
+        data = archive.read(length)
+        if len(data) != length:
+            return None
+        if compression == PMTILES_GZIP:
+            with gzip.GzipFile(fileobj=io.BytesIO(data)) as compressed:
+                data = compressed.read(MAX_METADATA_BYTES + 1)
+        if len(data) > MAX_METADATA_BYTES:
+            return None
+        metadata = json.loads(data)
+        attribution = metadata.get("attribution") if isinstance(metadata, dict) else None
+        if not isinstance(attribution, str) or len(attribution) > 4096:
+            return None
+        text = AttributionText()
+        text.feed(attribution)
+        text.close()
+        return " ".join("".join(text.parts).split()) or None
+    except (EOFError, OSError, ValueError, RecursionError, zlib.error, AssertionError):
+        return None
+
+
+def map_entry(name: str, archive: BinaryIO) -> dict | None:
+    # PMTiles v3 fixed header. Reads are limited to the header and bounded metadata.
+    # https://github.com/protomaps/PMTiles/blob/main/spec/v3/spec.md#3-header
+    header = archive.read(PMTILES_HEADER_SIZE)
+    size = os.fstat(archive.fileno()).st_size
+    if len(header) != PMTILES_HEADER_SIZE or header[:8] != b"PMTiles\x03":
+        return None
+    root_offset, root_bytes, metadata_offset, metadata_bytes, leaf_offset, leaf_bytes, tile_offset, tile_bytes = (
+        struct.unpack_from("<8Q", header, 8)
+    )
+    sections = ((root_offset, root_bytes), (metadata_offset, metadata_bytes),
+                (leaf_offset, leaf_bytes), (tile_offset, tile_bytes))
+    if not root_bytes or not tile_bytes or not metadata_bytes or root_offset + root_bytes > 16_384:
+        return None
+    if any(length and not PMTILES_HEADER_SIZE <= offset < offset + length <= size
+           for offset, length in sections):
+        return None
+    west, south, east, north = (value / 10_000_000 for value in struct.unpack_from("<4i", header, 102))
+    min_zoom, max_zoom = header[100:102]
+    if not (-180 <= west <= east <= 180 and -90 <= south <= north <= 90 and min_zoom <= max_zoom):
+        return None
+    return {"name": name, "bytes": size, "bounds": [west, south, east, north],
+            "min_zoom": min_zoom, "max_zoom": max_zoom,
+            "attribution": map_attribution(archive, metadata_offset, metadata_bytes, header[97])}
+
+
 def list_maps() -> list[dict]:
     try:
-        files = sorted(p for p in MAPS_DIR.iterdir() if p.is_file() and NAME_RE.match(p.name))
+        filenames = sorted(path.name for path in MAPS_DIR.iterdir())
     except FileNotFoundError:
         return []
-    return [{"name": p.name, "bytes": p.stat().st_size} for p in files]
+    maps = []
+    for name in filenames:
+        archive = open_map(name)
+        if archive is not None:
+            with archive:
+                entry = map_entry(name, archive)
+            if entry is not None:
+                maps.append(entry)
+    return maps
 
 
 def parse_range(header: str, size: int) -> tuple[int, int] | None:
     """One 'bytes=a-b' / 'bytes=a-' / 'bytes=-n' range, clamped; None if unusable."""
-    m = re.fullmatch(r"bytes=(\d*)-(\d*)", header.strip())
+    m = re.fullmatch(r"bytes=([0-9]{0,20})-([0-9]{0,20})", header.strip())
     if not m or (not m.group(1) and not m.group(2)) or size == 0:
         return None
     if m.group(1):
@@ -260,14 +356,19 @@ class Handler(BaseHTTPRequestHandler):
         if self.command != "HEAD":
             self.wfile.write(body)
 
-    def _file(self, path: Path, ranged: bool) -> None:
-        size = path.stat().st_size
+    def _file(self, path: Path) -> None:
         ctype = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
         if path.suffix == ".pbf":
             ctype = "application/x-protobuf"
-        rng = parse_range(self.headers.get("Range", ""), size) if ranged and self.headers.get("Range") else None
-        if ranged and self.headers.get("Range") and rng is None:
-            return self._headers(416, "text/plain", 0, {"Content-Range": f"bytes */{size}"})
+        with path.open("rb") as file:
+            self._stream(file, ctype, ranged=False)
+
+    def _stream(self, file: BinaryIO, ctype: str, ranged: bool) -> None:
+        size = os.fstat(file.fileno()).st_size
+        range_header = self.headers.get("Range") if ranged else None
+        rng = parse_range(range_header, size) if range_header is not None else None
+        if range_header is not None and rng is None:
+            return self._headers(416, "text/plain", 0, {"Content-Range": f"bytes */{size}", "Accept-Ranges": "bytes"})
         start, end = rng or (0, size - 1)
         length = end - start + 1 if size else 0
         extra = {"Accept-Ranges": "bytes", "Cache-Control": "no-cache" if ranged else "max-age=86400"}
@@ -276,15 +377,14 @@ class Handler(BaseHTTPRequestHandler):
         self._headers(206 if rng else 200, ctype, length, extra)
         if self.command == "HEAD" or not length:
             return
-        with open(path, "rb") as f:
-            f.seek(start)
-            left = length
-            while left:
-                chunk = f.read(min(left, 256 * 1024))
-                if not chunk:
-                    break
-                self.wfile.write(chunk)
-                left -= len(chunk)
+        file.seek(start)
+        left = length
+        while left:
+            chunk = file.read(min(left, 256 * 1024))
+            if not chunk:
+                break
+            self.wfile.write(chunk)
+            left -= len(chunk)
 
     def do_GET(self):  # noqa: N802
         path = urllib.parse.unquote(urllib.parse.urlsplit(self.path).path)
@@ -297,15 +397,17 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/maps":
             return self._send(200, json.dumps(list_maps()).encode(), "application/json")
         if path == "/map_tools.js":
-            return self._file(Path(__file__).with_name("map_tools.js"), ranged=False)
+            return self._file(Path(__file__).with_name("map_tools.js"))
         if path.startswith("/maps/"):
             name = path[len("/maps/"):]
-            if NAME_RE.match(name) and (MAPS_DIR / name).is_file():
-                return self._file(MAPS_DIR / name, ranged=True)
+            archive = open_map(name)
+            if archive is not None:
+                with archive:
+                    return self._stream(archive, PMTILES_TYPE, ranged=True)
         elif path.startswith("/assets/") and STATE["assets"] == "ready":
             target = (ASSETS_DIR / path[len("/assets/"):]).resolve()
             if ASSETS_DIR.resolve() in target.parents and target.is_file() and not target.name.startswith("."):
-                return self._file(target, ranged=False)
+                return self._file(target)
         self._send(404, b"not found\n", "text/plain")
 
     do_HEAD = do_GET
