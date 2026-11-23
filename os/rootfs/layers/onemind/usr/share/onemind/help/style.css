@@ -1,0 +1,13 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+/* The offline help pack: readable with no script, no web fonts and no network. */
+/* D-016 teal (ui/src/customize/accents.ts): the page colours are pinned so link text passes WCAG AA 4.5:1. */
+:root { color-scheme: light dark; --bg: #ffffff; --fg: #1a1a1a; --accent: #1f6a66; }
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #121212; --fg: #e8e8e8; --accent: #6db8b0; }
+}
+body { font: 1rem/1.5 system-ui, sans-serif; max-width: 46em; margin: 1em auto; padding: 0 1em; background: var(--bg); color: var(--fg); }
+a { color: var(--accent); }
+nav { border-bottom: 1px solid currentColor; padding-bottom: .5em; margin-bottom: 1em; }
+nav a { margin-right: 1em; }
+code, kbd { font-family: ui-monospace, monospace; }
+.note { border-left: 4px solid var(--accent); padding-left: .75em; }
