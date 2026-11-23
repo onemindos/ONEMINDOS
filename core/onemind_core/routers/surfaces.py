@@ -48,7 +48,7 @@ class SurfaceApp(BaseModel):
 
 
 class SurfaceTool(BaseModel):
-    name: str            # core and built-in: the MCP tool name; Market: <app_id>.<tool>
+    name: str            # core and built-in: the MCP tool name; Market: <app_id>__<tool> (market_tool_name)
     app_id: str | None   # null for the gateway's own tools
     title: str
     effect: Literal["read", "write", "destructive"]
@@ -64,7 +64,7 @@ class SurfaceCard(BaseModel):
     title: str
     template: Literal["stat", "list", "progress", "status", "series"]
     source: str  # built-in: GET /v1/path; Market: POST /v1/plugins/{id}/tools/{tool}. Its output declares observed_at
-    tool: str | None = None   # Market: the read tool the card calls (<app_id>.<tool>)
+    tool: str | None = None   # Market: the read tool the card calls (<app_id>__<tool>)
     args: dict | None = None  # Market: the arguments the widget passes to that tool
 
 
