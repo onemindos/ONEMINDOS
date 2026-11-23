@@ -139,6 +139,8 @@ class AuditLog:
         self.path = path
         self.clock = clock
         self.publish = publish
+        # Called with no argument after each line is on disk (the live event fan-out reads it, #606).
+        self.listeners: list[Callable[[], None]] = []
         self._lock = threading.Lock()  # orders lines in the chain and the file write
         self._sync_lock = threading.Lock()  # one fsync at a time; waiters share it (group commit)
         self._written = 0  # lines written (flushed to the OS), guarded by _lock
@@ -298,6 +300,11 @@ class AuditLog:
                 self.publish(AUDIT_SUBJECT, line.encode("utf-8"))
             except Exception:  # the file is the record of truth; the bus is best effort
                 log.exception("audit publish failed")
+        for listener in self.listeners:
+            try:
+                listener()
+            except Exception:  # a live reader failing never fails the write
+                log.exception("audit listener failed")
         return record
 
     def _append_locked(self, event, principal, action_id, data) -> tuple[dict, str]:
