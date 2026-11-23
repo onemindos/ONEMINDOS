@@ -281,6 +281,8 @@ export interface WebAuthnCreationOptions {
 export interface ApproveBody {
   plan_sha256?: string;
   webauthn?: WebAuthnAssertion;
+  /** #173: the app id, typed by the owner, to accept a blocked or unknown licence class. */
+  accept_licence?: string;
 }
 
 /** §12.6 `GET /v1/me`. */
