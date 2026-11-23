@@ -66,6 +66,17 @@ NODE_ID       HOSTNAME  ROLE  BOARD       ARCH   OS         K3S    STATUS  LAST_
 ```
 Gateway errors are printed with the contract's error code, e.g. `HTTP 401 unauthenticated: …`.
 
+### Backstage retirement plan
+
+```sh
+onemind import backstage --plan catalog-export.yaml
+onemind import backstage --plan --json < catalog-export.json
+```
+
+Use a private local catalog export, up to 16 MiB. The plan reads entity YAML, JSON arrays, or a single Backstage catalog API page. It identifies each entry by its document and item number and flags additional pages when the export has a next cursor. Absolute HTTPS metadata links without URL userinfo map to Links candidates. TechDocs references need a resolved destination. Other entries are candidates for private archiving, including app and device entries without a verified OneMind match.
+
+The command keeps export contents out of the report and works offline. The plan is read-only. Execution requires one separately approved, audited action under D-018.
+
 ## Build and test
 `make -C cmd/onemindd build` builds this tool too (`dist/onemind-linux-{amd64,arm64}`). Tests: `go test ./cmd/onemind/...` (a fake gateway: tables, `--json`, contexts and file modes, the approval flow, exit codes, the bridge); end to end against a live gateway in `core/tests/test_sdk_conformance.py`.
 
