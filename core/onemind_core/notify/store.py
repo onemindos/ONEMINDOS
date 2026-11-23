@@ -5,7 +5,9 @@ alerts         one row per condition; `open_key` = dedupe_key while open, NULL o
                the unique index allows one open alert per key and any number of resolved ones
 notifications  one person's inbox items
 deliveries     one notification (or summary) to one channel or device: queued, held, sent,
-               failed (retrying), dead, summarised
+               failed (retrying), dead, summarised, dropped (over the channel's daily cap)
+sends          one row per attempt to reach a capped (sms) channel's provider, whatever its outcome:
+               the daily cap counts these, so a retry or a timeout the provider billed is counted
 channels       a person's outbound channels; the secret is sealed (SecretBox), never returned
 devices        push registrations (Web Push / UnifiedPush); endpoint and keys sealed
 preferences    a person's routing document (contract §12.14)
@@ -114,6 +116,16 @@ class DeliveryRow(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     __table_args__ = (Index("notify_deliveries_state_next", "state", "next_attempt_at"),)
+
+
+class SendRow(Base):
+    """One attempt to reach a capped channel's provider (issue #869), written before any byte goes out."""
+    __tablename__ = "notify_sends"
+    id: Mapped[str] = mapped_column(String(40), primary_key=True)
+    target_id: Mapped[str] = mapped_column(String(40))
+    kind: Mapped[str] = mapped_column(String(16))               # delivery | test
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    __table_args__ = (Index("notify_sends_target_at", "target_id", "at"),)
 
 
 class ChannelRow(Base):
@@ -358,6 +370,24 @@ class NotifyRepository(SqlRepository):
                 DeliveryRow.state.in_(("queued", "sent", "failed")),
             )) or 0
 
+    def claim_send(self, target_id: str, kind: str, since: datetime, cap: int, now: datetime, send_id: str) -> bool:
+        """Record one provider attempt unless `cap` attempts were made since `since`; False when capped.
+
+        Every attempt counts (a failure, a 5xx, a timeout the provider may already have billed), so a
+        retry loop cannot send more than `cap` in the window. Callers serialise per gateway."""
+        with self.db.session.begin() as s:
+            made = s.scalar(select(func.count()).select_from(SendRow).where(
+                SendRow.target_id == target_id, SendRow.at >= since)) or 0
+            if made >= cap:
+                return False
+            s.add(SendRow(id=send_id, target_id=target_id, kind=kind, at=now))
+            return True
+
+    def sends_since(self, target_id: str, since: datetime) -> int:
+        with self.db.session() as s:
+            return s.scalar(select(func.count()).select_from(SendRow).where(
+                SendRow.target_id == target_id, SendRow.at >= since)) or 0
+
     def deliveries_for(self, notification_id: str) -> list[DeliveryRow]:
         with self.db.session() as s:
             return list(s.scalars(select(DeliveryRow).where(DeliveryRow.notification_id == notification_id)))
@@ -462,6 +492,7 @@ class NotifyRepository(SqlRepository):
             s.execute(delete(NotificationRow).where(NotificationRow.created_at < now - timedelta(days=90)))
             s.execute(delete(DeliveryRow).where(
                 DeliveryRow.created_at < now - timedelta(days=30),
-                DeliveryRow.state.in_(("sent", "dead", "summarised"))))
+                DeliveryRow.state.in_(("sent", "dead", "summarised", "dropped"))))
+            s.execute(delete(SendRow).where(SendRow.at < now - timedelta(days=2)))
             s.execute(delete(AlertRow).where(
                 AlertRow.state == "resolved", AlertRow.resolved_at < now - timedelta(days=180)))
