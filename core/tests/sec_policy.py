@@ -747,6 +747,17 @@ POLICY |= {
     # socket, so the owner gets 200 with available=false; everyone else is refused first.
     ("GET", "/v1/system/services"): Row(OWNER_ONLY, w.p_static("/v1/system/services"),
                                         "core/onemind_core/routers/services.py: every systemd unit on the box and its state; owner only"),
+    # #636: logs are owner only; with no host socket in this world the owner gets 409 host_unavailable.
+    ("GET", "/v1/system/services/{unit}/logs"): Row(
+        cells(403, **GONE, owner=409, plugin=DENIED, automation=DENIED, node=DENIED),
+        w.p_static("/v1/system/services/onemind-gateway.service/logs"),
+        "core/onemind_core/routers/services.py: a unit's redacted journal; owner only, audited"),
+    # #636: the owner and agents pass authorization and get 409 (no host socket: nothing is filed); with a host
+    # the request is filed and waits for the owner's passkey approval (tests/test_service_actions.py).
+    ("POST", "/v1/system/services/{unit}/restart"): Row(
+        cells(403, **GONE, owner=409, agent=409, app_agent=409, plugin=DENIED, automation=DENIED, node=DENIED),
+        lambda _w: w.Req("/v1/system/services/onemind-gateway.service/restart", json={}),
+        "core/onemind_core/routers/services.py: owner or agent asks for a service restart; only an owner approves it"),
 }
 
 # ---- Network screen (NET-UI-01, #239: core/onemind_core/routers/network.py) ---------------------------------
