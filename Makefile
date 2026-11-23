@@ -109,7 +109,7 @@ sysextguard:
 	$(DOCKER_RUN) $(KVM) $(TOOLS) python3 -I /src/test/qemu/sysextguard.py --board $(BOARD) \
 	  --fixtures /out/fx-$(BOARD) --work /out/sysextguard-$(BOARD)/work \
 	  --log /out/sysextguard-$(BOARD)/serial.log --results /out/sysextguard-$(BOARD)/results.json; \
-	  rc=$$?; rm -rf $(OUT)/sysextguard-$(BOARD)/work; exit $$rc
+	  rc=$$?; rm -f $(OUT)/sysextguard-$(BOARD)/work/disk.img; exit $$rc
 
 # Memory pressure (test/qemu/memorypressure.py, CRITERIA-MEMORY.md): a 6 GiB hog on an 8 GiB hub VM; the gateway
 # /healthz must stay up. Copies the fixture disk like `firstboot`; needs KVM and 8 GiB free for the VM.

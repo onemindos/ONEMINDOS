@@ -178,6 +178,7 @@ class Harness(unittest.TestCase):
         for name in ("good sysext trusted", "wrong sysext wrong", "unsigned sysext none",
                      "confgood confext trusted", "confunsigned confext none"):
             self.assertIn(f"ddi {name}", s)
+        self.assertIn('if [ "$2" = sysext ]; then fsroot="$t/usr"', s, "a usr partition holds the /usr tree itself")
         self.assertNotIn("BEGIN", s, "no key material in the script")
         if shutil.which("sh"):
             f = tempfile.NamedTemporaryFile("w", suffix=".sh", delete=False)

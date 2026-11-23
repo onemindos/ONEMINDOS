@@ -82,7 +82,9 @@ tree() {{ # NAME sysext|confext -> $W/tree-NAME
 start() {{ sfdisk -d "$1" | grep '^/' | sed -n "$2p" | sed 's/.*start= *\\([0-9]*\\),.*/\\1/'; }}
 ddi() {{ # NAME sysext|confext trusted|wrong|none
   tree "$1" "$2"; t="$W/tree-$1"; f="$W/$1"
-  mksquashfs "$t" "$f.fs" -noappend -quiet -all-root >/dev/null
+  # A usr partition holds the /usr tree itself (mounted at /usr); a confext's root partition holds /etc inside.
+  if [ "$2" = sysext ]; then fsroot="$t/usr"; else fsroot="$t"; fi
+  mksquashfs "$fsroot" "$f.fs" -noappend -quiet -all-root >/dev/null
   veritysetup format "$f.fs" "$f.vy" > "$f.vs"
   rh=$(sed -n 's/^Root hash:[[:space:]]*//p' "$f.vs"); [ "${{#rh}}" -eq 64 ]
   if [ "$2" = sysext ]; then D={p['usr']}; V={p['usrv']}; S={p['usrs']}
