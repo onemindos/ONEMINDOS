@@ -35,7 +35,7 @@ REASONS: dict[str, str] = {
     BYTES: "File bytes, uploads, event streams, consoles, Prometheus text or the restic repository protocol, "
            "not a JSON tool result.",
     DOOR: "A door of its own (the MCP endpoint, installed-app tool calls, sign-in page, health probe, OpenAPI "
-          "document, surface registry, sync feed, dashboard files); a tool over it adds nothing.",
+          "document, surface registry, sync feed and file transfer, dashboard files); a tool over it adds nothing.",
     WRITE: "Changes the box directly. An agent never writes: it files a request (request_action or a "
            "request_<type> tool) that a person approves.",
 }
@@ -204,6 +204,7 @@ HUMAN_ONLY: dict[str, str] = {
     "GET /v1/photos/assets/{asset_id}/content": BYTES,
     "POST /v1/photos/uploads": BYTES,
     "PATCH /v1/photos/uploads/{upload_id}": BYTES,
+    "PUT /v1/sync/chunks/{chunk_hash}": BYTES,
     # ---- door: routes that are doors of their own
     "GET /healthz": DOOR,
     "DELETE /mcp": DOOR,
@@ -215,6 +216,9 @@ HUMAN_ONLY: dict[str, str] = {
     "GET /v1/protocol": DOOR,
     "GET /v1/surfaces": DOOR,
     "GET /v1/sync/changes": DOOR,
+    "POST /v1/sync/chunks/missing": DOOR,
+    "POST /v1/sync/commit": DOOR,
+    "GET /v1/sync/versions": DOOR,
     "GET /{full_path:path}": DOOR,
     # ---- write: direct changes; agents file requests instead
     "POST /v1/alerts/{alert_id}/ack": WRITE,

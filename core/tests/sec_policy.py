@@ -477,6 +477,18 @@ POLICY |= {
                                "#611 global search: any signed-in caller; each hit is filtered by the caller's own grants"),
     ("GET", "/v1/sync/changes"): Row(grid(200, 200, 200, 403, 403), w.p_static("/v1/sync/changes?root=shared"),
                                      f"{_FILES}: the change feed (#698) follows read access to the whole root"),
+    ("POST", "/v1/sync/chunks/missing"): Row(grid(200, 200, 403, 403, 403), w.p_missing(
+        "/v1/sync/chunks/missing", json={"root": "shared", "hashes": ["0" * 64]}),
+        f"{_FILES}: sending a file (#699) needs write access to the root; guests read Shared only"),
+    ("PUT", "/v1/sync/chunks/{chunk_hash}"): Row(grid(200, 200, 403, 403, 403), w.p_missing(
+        "/v1/sync/chunks/2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881?root=shared", content=b"x"),
+        f"{_FILES}: a chunk (#699) needs write access to the root"),
+    ("POST", "/v1/sync/commit"): Row(grid(404, 404, 403, 403, 403), w.p_missing("/v1/sync/commit", json={
+        "root": "shared", "path": "/no-such-folder/probe", "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "chunks": []}),
+        f"{_FILES}: a commit (#699) needs write access to the entry; the probe's folder is missing (404)"),
+    ("GET", "/v1/sync/versions"): Row(grid(404, 404, 404, 403, 403), w.p_static("/v1/sync/versions?root=shared&path=/a"),
+                                      f"{_FILES}: versions (#699) follow read access; the probe's file is missing"),
     ("GET", "/v1/files/preview"): Row(grid(404, 404, 404, 403, 403), w.p_static("/v1/files/preview?root=shared&path=/a"),
                                       f"{_FILES}: people browse; an agent needs a grant"),
     ("GET", "/v1/files/download"): Row(grid(404, 404, 404, 403, 403), w.p_static("/v1/files/download?root=shared&path=/a"),
