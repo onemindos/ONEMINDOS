@@ -14,3 +14,5 @@ DELETE /v1/auth/app-session  # clears only the caller's own cookie; no data
 OPTIONS /v1/files/uploads  # tus capability discovery is open and read only
 GET /v1/tls/ca.crt  # contract §12.7: the box CA is public data a phone or node needs before it trusts the box
 GET /v1/tls/onemind.mobileconfig  # contract §12.7: the same public CA wrapped as an Apple profile
+GET /v1/share/{token}  # FILES-02 (#237): someone outside the household opens a share link without an account; the link secret in the path is the credential (sec_policy.py: anonymous)
+GET /v1/share/{token}/items/{index}  # FILES-02 (#237): one item of that share link, same credential: the link secret in the path, read with the creator's current rights

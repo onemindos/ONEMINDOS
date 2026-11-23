@@ -25,7 +25,7 @@ Drafts run only the fast CI checks; each needs a full green CI run before it lea
 - #156 follow-up: node-side update.apply consumer in onemindd.
 
 ## Blocked (waiting on the founder, hardware or another lane)
-- #236 SEC-SSO-01 single sign-on (OIDC + forward-auth): needs founder decision F-34 (where Kanidm runs), the Kanidm lab test UMB-ACCT-1, and #139 (draft PR #347). Kanidm is not in the repo yet. Explainer: docs/learning/founder/06-kanidm-and-single-sign-on.md (PR #399).
+- #236 SEC-SSO-01 single sign-on (OIDC + forward-auth): needs founder decision F-34 (where Kanidm runs), the Kanidm lab test UMB-ACCT-1, and #139 (draft PR #347). Kanidm is not in the repo yet. Explainer: docs/learning/founder/07-kanidm-and-single-sign-on.md (PR #399).
 
 ## Notes
 - 2026-11-19: Codex built #204 (PR #369) and claimed #237 (draft #375). Zeus then moved the whole lane to Claude, which built the rest with parallel agents, one worktree and one draft PR per issue, each followed by a reviewer.

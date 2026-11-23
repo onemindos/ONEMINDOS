@@ -12,6 +12,8 @@ metadata:
   description: Offline learning platform with courses, videos, exercises and classes that work without internet
   # Market category slug from docs/design/TAXONOMY.md §1; sub-tags: courses, offline-knowledge.
   category: learning
+  age_rating: 0   # proposed minimum age (apps/README.md rubric); the owner can override per app
+  age_reason: "Offline classroom lessons and exercises; no internet, no chat."
   icon: icon.svg
   license: MIT
   licenceClass: L1
