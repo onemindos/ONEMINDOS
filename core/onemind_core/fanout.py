@@ -361,28 +361,52 @@ class AssetState:
             self.ingest(key, revision, msg.data)
 
     async def run(self, bus, bucket_ready: Callable[[], bool], interval_s: float = RETRY_S) -> None:
-        """Keep one ordered consumer on the bucket while NATS is up; subscribe again on a new connection."""
+        """Keep one ordered consumer on the bucket while NATS is up; subscribe again on a new connection
+        and after each reconnect.
+
+        A connection is (id(nc), reconnects), as JetStreamCore.run tracks it: nats-py keeps the same
+        `nc` object when it reconnects (allow_reconnect), so the object alone would leave the state at
+        pending for good after the first NATS drop. After a reconnect the old subscription is dropped
+        and a fresh one starts from the last value per key (the server may have restarted and lost the
+        ephemeral consumer); `ingest` skips revisions it already holds, so nothing is sent twice."""
         from nats.js.api import DeliverPolicy
 
         self.state, self.reason = "pending", "waiting for NATS and the asset-state bucket"
         seen = None
-        while True:
-            nc = bus.nc if bus.connected else None
-            if nc is None:
-                if self.state == "ready":
-                    self.state, self.reason = "pending", "NATS is down; the last values are kept"
-            elif id(nc) != seen and bucket_ready():
-                try:
-                    # Last value per key first (the snapshot), then every change, in order. The ordered
-                    # consumer is ephemeral and re-creates itself from the next sequence after a gap.
-                    await nc.jetstream().subscribe(
-                        f"$KV.{ASSET_BUCKET}.>", stream=f"KV_{ASSET_BUCKET}", cb=self.on_kv_message,
-                        ordered_consumer=True, deliver_policy=DeliverPolicy.LAST_PER_SUBJECT)
-                except Exception as exc:  # NATS answered but refused: keep serving, retry
-                    self.state, self.reason = "error", f"{exc.__class__.__name__}: {exc}"[:300]
+        sub = None
+        try:
+            while True:
+                nc = bus.nc if bus.connected else None
+                if nc is None:
+                    if self.state == "ready":
+                        self.state, self.reason = "pending", "NATS is down; the last values are kept"
                 else:
-                    seen, self.state, self.reason = id(nc), "ready", ""
-            await asyncio.sleep(interval_s)
+                    key = (id(nc), (getattr(nc, "stats", None) or {}).get("reconnects", 0))
+                    if key != seen and bucket_ready():
+                        if sub is not None:
+                            await _unsubscribe(sub)
+                            sub = None
+                        try:
+                            # Last value per key first (the snapshot), then every change, in order. The
+                            # ordered consumer is ephemeral and re-creates itself after a sequence gap.
+                            sub = await nc.jetstream().subscribe(
+                                f"$KV.{ASSET_BUCKET}.>", stream=f"KV_{ASSET_BUCKET}", cb=self.on_kv_message,
+                                ordered_consumer=True, deliver_policy=DeliverPolicy.LAST_PER_SUBJECT)
+                        except Exception as exc:  # NATS answered but refused: keep serving, retry
+                            self.state, self.reason = "error", f"{exc.__class__.__name__}: {exc}"[:300]
+                        else:
+                            seen, self.state, self.reason = key, "ready", ""
+                await asyncio.sleep(interval_s)
+        finally:
+            if sub is not None:
+                await _unsubscribe(sub)
+
+
+async def _unsubscribe(sub) -> None:
+    try:
+        await sub.unsubscribe()
+    except Exception:  # the old connection is gone or closed: nothing left to stop
+        log.debug("asset-state: the old subscription could not be stopped", exc_info=True)
 
 
 # ---------------------------------------------------------------- ?kind= and ?bbox=

@@ -118,11 +118,15 @@ def sse(event: dict, with_id: bool = True) -> bytes:
 
 
 def asset_event(v: AssetValue, ts: str, *, snapshot: bool = False, removed: bool = False) -> dict:
-    """`asset.value` {revision, snapshot, datapoint} or `asset.removed` {revision} for one asset key."""
+    """`asset.value` {revision, snapshot, datapoint} or `asset.removed` {revision} for one asset key.
+
+    The envelope id is `asset:<revision>`: the KV revision is the bucket's stream sequence, unique
+    across every key, so the id never outgrows onemind.event/v1's 128 characters (a key alone can be
+    64 + 128 + 64 characters long). The asset is named by `subject`, not by the id."""
     subject = {"asset_id": v.asset_id, "asset_class": v.asset_class, "field": v.field}
     if removed:
-        return _envelope(f"asset:{v.key}:{v.revision}", "asset.removed", ts, subject, {"revision": v.revision})
-    return _envelope(f"asset:{v.key}:{v.revision}", "asset.value", ts, subject,
+        return _envelope(f"asset:{v.revision}", "asset.removed", ts, subject, {"revision": v.revision})
+    return _envelope(f"asset:{v.revision}", "asset.value", ts, subject,
                      {"revision": v.revision, "snapshot": snapshot, "datapoint": v.datapoint})
 
 
@@ -243,7 +247,11 @@ class EventStream:
         resource_allowed: Callable[[dict], bool] | None = None,
         kinds: frozenset[str] | None = None,
         bbox: tuple[float, float, float, float] | None = None,
+        asset_allowed: Callable[[AssetValue], bool] | None = None,
     ) -> AsyncIterator[bytes]:
+        """resource_allowed judges each envelope (scopes, audiences); asset_allowed also judges each
+        asset value itself (class, id, field and datapoint: the gateway asset filters), before the
+        snapshot and every change. Without resource_allowed no asset event is sent at all."""
         allowed = self._allowed(p, resource_allowed)
 
         def wanted(ev: dict) -> bool:
@@ -263,6 +271,8 @@ class EventStream:
 
         def asset_out(v: AssetValue, *, snapshot: bool = False, removed: bool = False) -> bytes | None:
             if not view.passes(v, removed):
+                return None
+            if asset_allowed is not None and not asset_allowed(v):
                 return None
             ev = asset_event(v, self._now(), snapshot=snapshot, removed=removed)
             return sse(ev, with_id=False) if wanted(ev) else None

@@ -12,6 +12,7 @@ import json
 import threading
 import time
 from datetime import UTC, datetime
+from pathlib import Path
 from types import SimpleNamespace
 
 import httpx
@@ -21,9 +22,10 @@ from conftest import ADULT, AGENT, GUEST, OWNER
 from onemind_core import fanout, jetstream
 from onemind_core.audit import AuditLog
 from onemind_core.auth import Principal
-from onemind_core.eventstream import EventStream, may_read_assets
-from onemind_core.fanout import AssetState, AssetView, Subscriber, asset_key, parse_bbox, parse_kinds
+from onemind_core.eventstream import EventStream, asset_event, may_read_assets
+from onemind_core.fanout import AssetState, AssetValue, AssetView, Subscriber, asset_key, parse_bbox, parse_kinds
 
+REPO = Path(__file__).resolve().parents[2]
 OWNER_P = Principal("owner", "person", "owner")
 WHO = {"id": "owner", "kind": "person", "role": "owner"}
 
@@ -332,7 +334,7 @@ def test_a_person_without_the_grant_never_receives_that_asset(served):
     put(assets, "onemind.asset.camera.cam-2.status", 2, value="on", unit=None, position=(52.6, 13.5))
     put(assets, "onemind.asset.sensor.s-1.temp", 3, position=(48.1, 11.6))
     hidden = {"cam-2"}  # what a data-class grant would hide from the adult
-    app.state.gateway.asset_filters.append(lambda req, p, cls, aid: p.id == "owner" or aid not in hidden)
+    app.state.gateway.asset_filters.append(lambda req, p, v: p.id == "owner" or v.asset_id not in hidden)
     with httpx.Client(base_url=url, timeout=10) as c:
         with c.stream("GET", "/v1/events?types=asset.*", headers=OWNER) as r:
             assert {e["subject"]["asset_id"] for e in _until_snapshot(r.iter_lines())[:-1]} == {"cam-1", "cam-2", "s-1"}
@@ -344,6 +346,17 @@ def test_a_person_without_the_grant_never_receives_that_asset(served):
             put(assets, "onemind.asset.camera.cam-1.status", 5, value="off", unit=None, position=(52.5, 13.4))
             live = next(json.loads(ln[6:]) for ln in lines if ln.startswith("data: "))
             assert live["subject"]["asset_id"] == "cam-1" and live["data"]["revision"] == 5
+        # A data class judged per field (location on position, design rule 8): the filter gets the
+        # value itself, so it can hide one field and every datapoint carrying a position.
+        app.state.gateway.asset_filters.append(
+            lambda req, p, v: p.id == "owner" or (v.field != "temp" and "position" not in v.datapoint))
+        put(assets, "onemind.asset.sensor.s-2.humidity", 6, value=40.0, unit="%")
+        with c.stream("GET", "/v1/events?types=asset.*", headers=ADULT) as r:
+            evs = _until_snapshot(r.iter_lines())
+            assert [(e["subject"]["asset_id"], e["subject"]["field"]) for e in evs[:-1]] == [("s-2", "humidity")]
+            assert evs[-1]["data"]["count"] == 1
+        with c.stream("GET", "/v1/events?types=asset.*", headers=OWNER) as r:
+            assert len(_until_snapshot(r.iter_lines())) == 5             # four values and the marker
         for who in (GUEST, AGENT):                                 # no assets:read: not even a count
             with c.stream("GET", "/v1/events?types=asset.*", headers=who) as r:
                 evs = _until_snapshot(r.iter_lines())
@@ -351,6 +364,93 @@ def test_a_person_without_the_grant_never_receives_that_asset(served):
         for bad in ("kind=Camera", "bbox=1,2,3", "bbox=0,10,5,5"):
             r = c.get(f"/v1/events?types=asset.*&{bad}", headers=OWNER)
             assert r.status_code == 422 and r.json()["error"] == "conflict"
+
+
+def test_asset_event_id_is_the_revision_and_fits_the_envelope_at_the_longest_key():
+    import jsonschema
+
+    schema = json.loads((REPO / "sdk/schema/onemind.event.schema.json").read_text())
+    cls, aid, fld = "c" * 64, "a" * 128, "f" * 64                       # the registry's longest tokens
+    v = AssetValue(f"{cls}.{aid}.{fld}", cls, aid, fld, 2**53, dp(f"onemind.asset.{cls}.{aid}.{fld}"))
+    for ev in (asset_event(v, "2026-11-22T10:00:00Z"), asset_event(v, "2026-11-22T10:00:00Z", removed=True)):
+        assert ev["id"] == f"asset:{2**53}" and len(ev["id"]) <= 128
+        assert ev["subject"] == {"asset_id": aid, "asset_class": cls, "field": fld}
+        jsonschema.validate(ev, schema)
+
+
+def test_asset_allowed_sees_the_field_and_datapoint_in_snapshot_and_live(tmp_path):
+    assets = AssetState()
+    assets.state = "ready"
+    put(assets, "onemind.asset.camera.cam-1.status", 1, value="on", unit=None)
+    put(assets, "onemind.asset.camera.cam-1.position", 2, value=None, unit=None, position=(52.5, 13.4))
+    _log, es = make(tmp_path, assets)
+    asked = []
+
+    def no_location(v: AssetValue) -> bool:
+        asked.append((v.field, v.revision))
+        return "position" not in v.datapoint
+
+    async def scenario():
+        gen = es.stream(OWNER_P, "asset.*", None, never, resource_allowed=lambda ev: True,
+                        asset_allowed=no_location, keepalive_s=60)
+        first = [parse(await gen.__anext__()) for _ in range(3)][1:]
+        assert [(e["type"], e["subject"].get("field")) for e in first] == [("asset.value", "status"), ("stream.snapshot", None)]
+        assert first[1]["data"]["count"] == 1
+        put(assets, "onemind.asset.camera.cam-1.position", 3, value=None, unit=None, position=(52.6, 13.5))
+        put(assets, "onemind.asset.camera.cam-1.status", 4, value="off", unit=None)
+        live = parse(await asyncio.wait_for(gen.__anext__(), 2))
+        assert live["subject"]["field"] == "status" and live["data"]["revision"] == 4
+        await gen.aclose()
+
+    asyncio.run(scenario())
+    assert ("position", 2) in asked and ("position", 3) in asked
+
+
+def test_asset_state_is_ready_again_after_a_nats_reconnect_on_the_same_connection():
+    """nats-py keeps the same nc object across a reconnect: the state must follow stats, not id(nc)."""
+    subs = []
+
+    class Sub:
+        def __init__(self):
+            self.stopped = False
+
+        async def unsubscribe(self):
+            self.stopped = True
+
+    class JS:
+        async def subscribe(self, *a, **kw):
+            subs.append(Sub())
+            return subs[-1]
+
+    nc = SimpleNamespace(jetstream=JS, stats={"reconnects": 0})
+    bus = SimpleNamespace(nc=nc, connected=True)
+    assets = AssetState()
+
+    async def until(pred):
+        for _ in range(200):
+            if pred():
+                return True
+            await asyncio.sleep(0.01)
+        return False
+
+    async def scenario():
+        task = asyncio.create_task(assets.run(bus, lambda: True, interval_s=0.01))
+        assert await until(lambda: assets.state == "ready") and len(subs) == 1
+        bus.connected = False                                       # NATS drops
+        assert await until(lambda: assets.state == "pending") and "NATS is down" in assets.reason
+        nc.stats["reconnects"] = 1                                  # nats-py reconnected the same nc
+        bus.connected = True
+        assert await until(lambda: assets.state == "ready")
+        assert assets.reason == "" and len(subs) == 2               # subscribed again, fresh snapshot
+        assert subs[0].stopped and not subs[1].stopped              # the old subscription is dropped
+        await asyncio.sleep(0.05)
+        assert len(subs) == 2                                       # once per connection, not per tick
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        assert subs[1].stopped
+
+    asyncio.run(scenario())
 
 
 def test_assets_read_is_an_owner_and_adult_default_only():

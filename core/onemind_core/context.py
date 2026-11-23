@@ -14,7 +14,7 @@ import threading
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from fastapi import Request
 
@@ -30,6 +30,9 @@ from .executors import Executor
 from .ledger import ActionRepository
 from .nodes import NodeRegistry
 from .store import Database
+
+if TYPE_CHECKING:
+    from .fanout import AssetValue
 
 log = logging.getLogger("onemind.gateway")
 
@@ -48,9 +51,11 @@ ApprovalGuard = Callable[[Principal, str, dict, Request], None]
 RequesterLookup = Callable[[str], dict | None]
 # Whether this principal may see and open an installed app (identity: per-app sharing, §12.6).
 AppFilter = Callable[[Request, Principal, str], bool]
-# (request, principal, asset_class, asset_id) -> may this caller see that asset? Every filter must say
-# yes before an asset value reaches a stream (#606); data classes and grants add theirs here.
-AssetFilter = Callable[[Request, Principal, str, str], bool]
+# (request, principal, value) -> may this caller see that asset value? `value` is a fanout.AssetValue:
+# asset_class, asset_id, field, revision and the stored onemind.datapoint/v1, so a data class can be
+# judged per stream (e.g. location on a position field) without changing this signature (#606).
+# Every filter must say yes before an asset value reaches a stream; data classes and grants add theirs.
+AssetFilter = Callable[[Request, Principal, "AssetValue"], bool]
 # Person id -> role of every active person a feature knows, beyond the tokens file (identity:
 # household accounts, §12.6). Notifications use it to find who to notify.
 PeopleSource = Callable[[], dict[str, str]]

@@ -126,6 +126,9 @@ def register(app: FastAPI, gw: Gateway) -> None:
         except ValueError as exc:
             raise ApiError(422, "conflict", str(exc)) from None
 
+        def asset_allowed(v) -> bool:  # every gateway asset filter, on the value itself (class, id, field, datapoint)
+            return all(f(request, p, v) for f in gw.asset_filters)
+
         def resource_allowed(ev: dict) -> bool:
             t, subject = ev["type"], ev["subject"]
             if ctx is not None and subject.get("action_id"):
@@ -149,11 +152,8 @@ def register(app: FastAPI, gw: Gateway) -> None:
             if t == "notification.created":
                 row = app.state.notify.repo.get_notification(subject.get("notification_id"))
                 return p.kind == "person" and row is not None and row.person_id == p.id
-            if t.startswith("asset."):
-                if not may_read_assets(p, ctx.scopes if ctx is not None else None):
-                    return False
-                cls, aid = subject.get("asset_class"), subject.get("asset_id")
-                return all(f(request, p, cls, aid) for f in gw.asset_filters)
+            if t.startswith("asset."):  # each value is also judged by asset_allowed below
+                return may_read_assets(p, ctx.scopes if ctx is not None else None)
             if t.startswith("sync."):  # like GET /v1/sync/changes: no narrower scope covers files yet
                 return ctx is None or has_any(ctx.scopes, (ALL,))
             if t.startswith("app.") or t == "action.progress":
@@ -174,7 +174,8 @@ def register(app: FastAPI, gw: Gateway) -> None:
         async def body():
             try:
                 async for chunk in stream.stream(p, types, resume, request.is_disconnected,
-                                                 resource_allowed=resource_allowed, kinds=kinds, bbox=box):
+                                                 resource_allowed=resource_allowed, kinds=kinds, bbox=box,
+                                                 asset_allowed=asset_allowed):
                     yield chunk
             finally:
                 slots.give(key)
