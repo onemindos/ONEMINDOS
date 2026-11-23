@@ -35,3 +35,9 @@ var Datapoint string
 //
 //go:embed onemind.event.schema.json
 var Event string
+
+// Radios is the table of known USB radio dongles (issue #732): the image's udev rules are rendered
+// from it (internal/detect/radios.go) and the gateway labels the radio-found cards with it.
+//
+//go:embed onemind.radios.json
+var Radios string

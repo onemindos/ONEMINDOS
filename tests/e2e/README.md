@@ -90,6 +90,30 @@ step titles. Traces record every Authorization header, so CI does not keep them 
 per browser test; a trace on failure, locally only), `junit.xml`, `audit.jsonl`, `journal.txt` (gateway, onemindd,
 NATS), `k8s.txt`.
 
+## Spatial: WebXR without a headset (issue #813)
+
+> **In plain words.** A WebXR page needs a headset to enter VR or AR. IWER (Meta's Immersive Web
+> Emulation Runtime, MIT, npm `iwer` pinned in `package.json`) is a pretend headset inside a normal
+> browser: it replaces the browser's WebXR API before the page loads, reports itself as a Quest Pro
+> or a Quest 3, and lets a test move the controllers, pull a trigger, switch to hand tracking and
+> pinch. It copies the API, not the speed, so these tests check what the page shows and what it drew,
+> never frames per second.
+
+| File | Needs | Proves |
+|---|---|---|
+| [`lib/xr.ts`](lib/xr.ts) | | the helper any dashboard spec can reuse: `emulateHeadset(page, 'metaQuestPro')` before `page.goto`, then `headsetSession`, `scriptControllersAndHands`, `exitFromHeadset`, and `rendererInfo` (draw calls on every WebGL context, in the shape of three.js `renderer.info.render`: calls, triangles, points, lines) |
+| [`spatial/emulator.spec.ts`](spatial/emulator.spec.ts) | Chromium only | the helper on a blank secure page: both profiles offer immersive-vr and immersive-ar, the right controller profiles, hand joints only with `hand-tracking`, selects from trigger and pinch, draw counts, exit |
+| [`spatial/diagnostics.spec.ts`](spatial/diagnostics.spec.ts) | a hub (`E2E_HUB_URL`, skipped without) | per profile: Settings › About says "Ready for VR and AR" and links to `/spatial/diagnostics`; each mode enters, draws the 100, 500 and 2,000 marker loads and exits on its own; each mode again with scripted controllers and hands (nothing on the page changes) and an exit from the headset mid-run, reported as interrupted; the page sends no write request in any of them |
+
+Run it: `cd tests/e2e && npm ci && npx playwright install chromium && npx playwright test spatial`
+(the hub specs skip without a hub). On a real hub: `E2E_PW_PROJECTS=spatial tests/e2e/harness/run.sh
+--backend qemu --no-verify` (`E2E_PW_PROJECTS` picks the Playwright projects; the default stays
+`unit golden`). CI: [`.github/workflows/xr-emulator.yml`](../../.github/workflows/xr-emulator.yml), on
+pull requests that touch the spatial screens or this suite, and nightly.
+
+The emulator proves behaviour, not the device: a real Quest Pro still runs the #803 kit by hand and
+its JSON report is attached to the pull request (label `needs:device-proof`).
+
 ## CI
 [`.github/workflows/e2e.yml`](../../.github/workflows/e2e.yml): on pull requests that touch `core/`,
 `dashboard/`, `deploy/`, `cmd/`, `internal/`, `apps/` or `tests/e2e/`, and nightly. Job `unit`

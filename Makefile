@@ -89,6 +89,17 @@ firewall:
 	  rc=$$?; rm -rf $(OUT)/firewall-$(BOARD)/work; exit $$rc
 
 
+# Setup wizard on the booted image (test/qemu/wizard.py, CRITERIA-WIZARD.md WZ1-WZ5): two VMs without a seed, the
+# unprivileged web part and its root helper, a LAN flood, then wizard to hub (LAN, with the code) and to worker.
+.PHONY: wizard
+wizard:
+	@test -f $(OUT)/fx-$(BOARD)/disk.img || $(MAKE) fixtures BOARD=$(BOARD)
+	mkdir -p $(OUT)/wizard-$(BOARD)
+	$(DOCKER_RUN) $(KVM) $(TOOLS) python3 -I /src/test/qemu/wizard.py --board $(BOARD) \
+	  --fixtures /out/fx-$(BOARD) --work /out/wizard-$(BOARD)/work \
+	  --log /out/wizard-$(BOARD)/serial.log --results /out/wizard-$(BOARD)/results.json; \
+	  rc=$$?; rm -rf $(OUT)/wizard-$(BOARD)/work; exit $$rc
+
 # Boot menu lock (test/qemu/bootlock.py): the GRUB menu asks for a login before it lets anyone edit a kernel
 # command line. Copies the fixture disk like `firstboot`.
 bootlock:
