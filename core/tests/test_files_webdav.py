@@ -21,7 +21,7 @@ from files_support import audit_events
 from onemind_core.app import create_app
 from onemind_core.files.settings import FilesSettings
 
-LAN_PEER, LAN_BOX = "192.168.1.20", "http://192.168.1.10"
+LAN_PEER, LAN_BOX = "169.254.1.20", "http://169.254.1.10"  # link-local: LAN to netpath.py
 PW = "/v1/files/app-passwords"
 
 
