@@ -19,7 +19,8 @@ below). The REST routes an agent may read (apps, nodes, actions, audit, events .
 third-party text MCP marks, so a REST read taints exactly like an MCP read. It is deny by default: a
 read taints unless its route is in `REST_CLEAN_READS`, which serve only what the gateway or the owner
 wrote. A read is GET, HEAD, a WebSocket, or a POST that only previews (`REST_READ_POSTS`: POST
-/v1/plans returns a plan built from the app's manifest and files nothing).
+/v1/plans returns a plan built from the app's manifest and files nothing; POST /v1/storage/plans
+returns a storage plan that carries disk text, a firmware model and filesystem labels, and files nothing).
 
 An agent's own request (POST /v1/actions, POST /v1/alerts/{id}/fix) is answered without
 third-party text (`agent_answer`), as MCP request_action answers with only the id and the state:
@@ -52,7 +53,7 @@ MAX_SOURCE_LEN = 80
 REST_CLEAN_READS = frozenset({"/v1/instance", "/v1/agents/kill-switch"})
 READ_METHODS = frozenset({"GET", "HEAD"})
 # POST routes an agent may call that only read: they file nothing and answer with third-party text.
-REST_READ_POSTS = frozenset({"/v1/plans"})
+REST_READ_POSTS = frozenset({"/v1/plans", "/v1/storage/plans"})
 
 
 @dataclass(frozen=True)
