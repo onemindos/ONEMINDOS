@@ -13,9 +13,11 @@ from ..errors import error_responses
 from .. import __version__
 from ..auditread import AuditReader
 from ..mcp import Catalogue, Limits, McpEndpoint, McpSettings, Services
+from ..mcp.read_tools import AreaReads
 from ..surfaces.core import CORE_TOOLS
 from .apps import app_rows
 from .audit import owned_action_ids
+from .notifications import _can_see as can_see_alert
 
 
 # Route order in the app and in /openapi.json (routers/__init__.py).
@@ -45,6 +47,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         # Request-only tools of switched-on built-ins, from the surface registry (#605): read on every
         # call, so a switched-off app's tools leave tools/list at once; refused declarations never appear.
         builtin_actions=app.state.surfaces.mcp_actions,
+        area_reads=AreaReads(app.state, gw, lambda: app_rows(gw), can_see_alert),  # backups, logs, ... (#632)
     )
     limits = Limits(gw.settings.section(McpSettings), gw.clock)
     mcp = McpEndpoint(Catalogue(services, limits), limits, refuse=lambda p, what: actions._deny(p, what))

@@ -25,7 +25,7 @@ from ..actions import APP_CLAIMS, ActionParams, ActionRequest
 from ..ai_policy import catalog_visible_to_ai
 from ..auth import Principal
 from ..errors import ApiError
-from ..surfaces.core import AUDIT_MAX, CORE_TOOLS, LIST_ACTIONS_MAX, MAX_REASON, obj
+from ..surfaces.core import AREA_TOOLS, AUDIT_MAX, CORE_TOOLS, LIST_ACTIONS_MAX, MAX_REASON, obj
 from .limits import Limits
 from .untrusted import META_KEY, mark
 
@@ -59,6 +59,8 @@ class Services:
     # Request-only tools built from the descriptors of switched-on built-ins (builtins.py, #603):
     # tool name -> (action type, title, app name). A switched-off built-in's tools are not here.
     builtin_actions: Callable[[], dict[str, tuple[str, str, str]]] = lambda: {}
+    # The area read tools' services (mcp/read_tools.py AreaReads, #632); None serves them as unavailable.
+    area_reads: Any = None
 
 
 # ---- the catalogue: generated from the surface registry (surfaces/core.py, #605) -------------------
@@ -68,6 +70,7 @@ _obj = obj
 TOOLS: list[dict] = [t.mcp_tool() for t in CORE_TOOLS if "mcp" in t.exposure]
 TOOL_NAMES = [t["name"] for t in TOOLS]
 READ_TOOLS = {t.name for t in CORE_TOOLS if t.effect == "read" and t.name in TOOL_NAMES}
+AREA_TOOL_NAMES = frozenset(t.name for t in AREA_TOOLS)
 
 RESOURCES = [
     {"uri": "onemind://catalog", "name": "catalog", "title": "App catalog",
@@ -203,6 +206,10 @@ class Catalogue:
             wait = self.limits.reads.hit(p.id)
             if wait:
                 return refusal("rate_limited", "too many read calls; slow down", retry_after_s=wait)
+        if name in AREA_TOOL_NAMES:  # registration hook for the area read tools (#632)
+            from .read_tools import call as area_call
+
+            return area_call(self.svc.area_reads, p, name, args)
         return getattr(self, f"t_{name}")(p, args)
 
     def t_get_instance(self, p, args):

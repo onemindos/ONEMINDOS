@@ -4,7 +4,7 @@
 Three lists, and CI (tests/test_surfaces.py) fails on any route that is in none of them:
 - a tool: the `route` of a ToolSurface in surfaces/core.py (the MCP catalogue is generated from it);
 - HUMAN_ONLY: routes no agent tool may stand for, each with its reason (REASONS);
-- AWAITING_TOOL: read routes that are to get a generated read tool (#632 and the area issues). It is a
+- AWAITING_TOOL: read routes that are to get a generated read tool (the area issues; #632 landed the first). It is a
   ratchet: a new route never goes here, and an entry leaves it when its tool lands.
 
 A route is one "METHOD /path" with the path as FastAPI declares it. HEAD follows GET and OPTIONS is the
@@ -265,14 +265,11 @@ HUMAN_ONLY: dict[str, str] = {
 AWAITING_TOOL: frozenset[str] = frozenset({
     "GET /v1/agents",
     "GET /v1/agents/{name}",
-    "GET /v1/alerts",
-    "GET /v1/alerts/{alert_id}",
     "GET /v1/apps/{app_id}",
     "GET /v1/apps/{app_id}/access",
     "GET /v1/apps/{app_id}/dependencies",
     "GET /v1/apps/{app_id}/exposure",
     "GET /v1/apps/{app_id}/host-ports",
-    "GET /v1/apps/{app_id}/logs",
     "GET /v1/apps/{app_id}/metrics",
     "GET /v1/apps/{app_id}/owner-override",
     "GET /v1/apps/{app_id}/placement",
@@ -287,12 +284,9 @@ AWAITING_TOOL: frozenset[str] = frozenset({
     "GET /v1/automation/state",
     "GET /v1/backups/content",
     "GET /v1/backups/destinations",
-    "GET /v1/backups/runs",
     "GET /v1/backups/runs/{run_id}",
-    "GET /v1/backups/snapshots",
     "GET /v1/backups/snapshots/{snapshot_id}",
     "GET /v1/backups/snapshots/{snapshot_id}/tree",
-    "GET /v1/backups/status",
     "GET /v1/backups/verifications",
     "GET /v1/builtins",
     "GET /v1/databases",
@@ -306,13 +300,10 @@ AWAITING_TOOL: frozenset[str] = frozenset({
     "GET /v1/files/requests",
     "GET /v1/files/requests/{request_id}",
     "GET /v1/files/roots",
-    "GET /v1/files/stat",
     "GET /v1/files/trash",
     "GET /v1/instance/kiosk",
     "GET /v1/instance/name",
-    "GET /v1/machines",
     "GET /v1/machines/capabilities",
-    "GET /v1/machines/{name}",
     "GET /v1/machines/{name}/snapshots",
     "GET /v1/mesh",
     "GET /v1/migrate/plans",
@@ -328,8 +319,6 @@ AWAITING_TOOL: frozenset[str] = frozenset({
     "GET /v1/onboarding/settings",
     "GET /v1/onboarding/state",
     "GET /v1/os/about",
-    "GET /v1/os/updates",
-    "GET /v1/os/updates/history",
     "GET /v1/photos/library",
     "GET /v1/photos/sources/{source_id}/coverage",
     "GET /v1/photos/sources/{source_id}/receipts",
@@ -348,7 +337,6 @@ AWAITING_TOOL: frozenset[str] = frozenset({
     "GET /v1/sources",
     "GET /v1/sources/{source_id}",
     "GET /v1/status",
-    "GET /v1/storage",
     "GET /v1/storage/devices",
     "GET /v1/storage/operations/{action_id}",
     "GET /v1/subjects",
@@ -358,8 +346,24 @@ AWAITING_TOOL: frozenset[str] = frozenset({
     "GET /v1/system/diagnostics",
     "GET /v1/system/services",
     "GET /v1/tls",
-    "GET /v1/update-policy",
     "GET /v1/update-policy/dry-run",
     "GET /v1/usage",
     "GET /v1/users",
 })
+
+# The read areas #632 names, each with the routes that read it. tests/test_mcp_read_tools.py fails when an area
+# has no tool, or when one of its routes is neither a tool nor listed above with its reason.
+READ_AREAS: dict[str, tuple[str, ...]] = {
+    "backups": ("GET /v1/backups/status", "GET /v1/backups/runs", "GET /v1/backups/runs/{run_id}",
+                "GET /v1/backups/snapshots", "GET /v1/backups/snapshots/{snapshot_id}",
+                "GET /v1/backups/snapshots/{snapshot_id}/tree", "GET /v1/backups/verifications",
+                "GET /v1/backups/destinations", "GET /v1/backups/content"),
+    "os_updates": ("GET /v1/os/updates", "GET /v1/os/updates/history", "GET /v1/os/about"),
+    "files_metadata": ("GET /v1/files/stat", "GET /v1/files/list", "GET /v1/files/roots"),
+    "machines": ("GET /v1/machines", "GET /v1/machines/{name}", "GET /v1/machines/{name}/snapshots",
+                 "GET /v1/machines/capabilities"),
+    "storage": ("GET /v1/storage", "GET /v1/storage/devices", "GET /v1/storage/operations/{action_id}"),
+    "alerts": ("GET /v1/alerts", "GET /v1/alerts/{alert_id}"),
+    "settings": ("GET /v1/update-policy", "GET /v1/update-policy/dry-run", "GET /v1/onboarding/settings"),
+    "logs": ("GET /v1/apps/{app_id}/logs", "GET /v1/system/diagnostics"),
+}
