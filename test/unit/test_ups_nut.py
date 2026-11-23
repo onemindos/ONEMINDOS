@@ -185,7 +185,7 @@ class Shutdown(unittest.TestCase):
 
         def sleep(s):
             now[0] += s
-        fs = Fs(mounts=["/run/k3s/m%02d" % i for i in range(40)])
+        fs = Fs(mounts=[f"/run/k3s/m{i:02d}" for i in range(40)])
         rc = ups.shutdown(runner=hang, fs=fs, kill=lambda sig, pids: None, sleep=sleep, clock=lambda: now[0])
         self.assertEqual(rc, 1)                                   # both poweroffs failed: FailureAction is next
         self.assertEqual(calls[-2:], ["systemctl poweroff", "systemctl poweroff --force"])
