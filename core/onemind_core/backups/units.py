@@ -97,15 +97,26 @@ def unit_set(gw, registry) -> list[dict]:
                 if not known:
                     problems.append(f"{u['name']} is not a gateway setting")
                 dirs.append({"name": u["name"], "path": str(path) if path else None})
+        # snapshot_unit None: no agent unit carries this built-in's export or folders yet (the agent.json
+        # wiring in os/ is a follow-up on #616), so its rows live only in the whole-database copy and its
+        # folders are in no snapshot at all. The status must not read as "backed up".
         out.append({"unit": f"builtin:{d.id}", "kind": "builtin", "app_id": d.id, "tables": tables, "dirs": dirs,
-                    "problems": problems})
+                    "problems": problems, "snapshot_unit": None})
     return out
 
 
-def public_view(units: list[dict]) -> list[dict]:
-    """The set as GET /v1/backups/status shows it: whether each folder is set, never its host path."""
-    return [{**u, "dirs": [{"name": x["name"], "configured": x["path"] is not None} for x in u["dirs"]]}
-            if "dirs" in u else dict(u) for u in units]
+def public_view(units: list[dict], snapshotted: set[str] = frozenset()) -> list[dict]:
+    """The set as GET /v1/backups/status shows it: whether each folder is set, never its host path.
+
+    `in_snapshot` is true only for a unit whose `snapshot_unit` is one of `snapshotted` (the agent units
+    with a successful snapshot); a built-in with no snapshot unit is never shown as in a snapshot."""
+    out = []
+    for u in units:
+        v = {**u, "dirs": [{"name": x["name"], "configured": x["path"] is not None} for x in u["dirs"]]} \
+            if "dirs" in u else dict(u)
+        v["in_snapshot"] = u.get("snapshot_unit") is not None and u["snapshot_unit"] in snapshotted
+        out.append(v)
+    return out
 
 
 def feature_of(table: str) -> str:

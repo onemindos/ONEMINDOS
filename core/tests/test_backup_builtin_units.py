@@ -84,6 +84,30 @@ def test_the_set_is_every_switched_on_built_in_plus_the_gateway_database(box_a, 
     assert str(tmp_path) not in json.dumps(st)  # no host path leaves the box through the API
 
 
+def test_no_built_in_reads_as_in_a_snapshot_until_an_agent_unit_carries_it(box_a, clock):
+    """The status must not read as "photos are backed up": no agent unit carries a built-in's export or
+    folders yet, so every built-in says snapshot_unit null, in_snapshot false, even after a good run."""
+    c, *_ = box_a
+    svc = c.app.state.backups
+
+    def shown():
+        return {u["unit"]: u for u in c.get("/v1/backups/status", headers=OWNER).json()["builtin_units"]}
+
+    before = shown()  # backups off: nothing is in a snapshot
+    assert all(u["in_snapshot"] is False for u in before.values())
+    assert all(u["snapshot_unit"] is None for n, u in before.items() if n != "gateway")
+
+    svc.agent = FakeAgent(clock)
+    assert all(u["in_snapshot"] is False for u in shown().values())  # agent on, no snapshot yet
+    assert svc.run_backup("manual", "box", None, None)["state"] == "succeeded"
+    after = shown()
+    assert after["gateway"]["snapshot_unit"] == "system" and after["gateway"]["in_snapshot"] is True
+    for name in ("builtin:photos", "builtin:approvals", "builtin:files"):
+        if name in after:
+            assert after[name]["snapshot_unit"] is None and after[name]["in_snapshot"] is False, after[name]
+    assert after["builtin:photos"]["in_snapshot"] is False
+
+
 def test_a_switched_off_built_in_leaves_the_set(box_a, clock):
     c, *_ = box_a
     assert run(c, clock, "app.disable", {"app_id": "photos"}).json()["state"] == "succeeded"

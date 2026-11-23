@@ -424,7 +424,8 @@ class BackupService:
                "setup": {"blocking": [] if kit["state"] == "confirmed" else ["emergency_kit"]}, "agent": "off"}
         installed = self.installed_apps()
         out["crash_consistent_apps"] = [a.id for a in installed if not backup_spec(a).declared]
-        out["builtin_units"] = public_view(self.builtin_units())
+        units_set = self.builtin_units()
+        out["builtin_units"] = public_view(units_set)  # in_snapshot false until the agent reports a snapshot
         if not self.enabled:
             out["reason"] = "backups are not switched on"
             return out
@@ -442,6 +443,7 @@ class BackupService:
                 apps[name[4:]] = b
         out["badges"] = {"box": s.get("box") or {"state": "none"}, "system": units.get("system") or {"state": "none"},
                          "apps": apps}
+        out["builtin_units"] = public_view(units_set, {n for n, b in units.items() if _ts(b.get("last_success_at"))})
         succ = [t for t in (_ts(b.get("last_success_at")) for b in units.values()) if t]
         ver = [t for t in (_ts(v.get("finished_at")) for v in (s.get("last_verified") or {}).values()) if t]
         out["last_success_at"] = iso(max(succ)) if succ else None
