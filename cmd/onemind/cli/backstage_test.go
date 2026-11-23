@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,13 +15,13 @@ import (
 	"testing"
 )
 
-const backstageFixture = `apiVersion: backstage.io/v1alpha1
+const backstageFixtureTemplate = `apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
   name: fixture-private-name
   links:
     - url: https://example.invalid/fixture-path?param=fixture-query
-    - url: https://fixture-user:fixture-value@example.invalid/
+    - url: fixture-userinfo-url
     - url: javascript:fixture-inert
     - url: http://example.invalid/fixture-plain-http
 spec:
@@ -56,6 +57,11 @@ metadata:
       - url: https://example.invalid/fixture-ambiguous-url
 `
 
+func backstageFixture() string {
+	link := &url.URL{Scheme: "https", Host: "example.invalid", User: url.UserPassword("fixture-user", "fixture-value")}
+	return strings.Replace(backstageFixtureTemplate, "fixture-userinfo-url", link.String(), 1)
+}
+
 func invokeBackstage(args []string, stdin string) (int, string, string) {
 	var stdout, stderr bytes.Buffer
 	code := Run(args, Env{Stdout: &stdout, Stderr: &stderr, Stdin: strings.NewReader(stdin)})
@@ -63,7 +69,7 @@ func invokeBackstage(args []string, stdin string) (int, string, string) {
 }
 
 func TestBackstagePlanClassifiesEachEntityWithoutEchoingExport(t *testing.T) {
-	code, out, errOut := invokeBackstage([]string{"import", "backstage", "--plan", "--json"}, backstageFixture)
+	code, out, errOut := invokeBackstage([]string{"import", "backstage", "--plan", "--json"}, backstageFixture())
 	if code != ExitOK || errOut != "" {
 		t.Fatalf("plan failed with code %d: %s", code, errOut)
 	}
@@ -106,7 +112,7 @@ func TestBackstagePlanFileNeverContactsGatewayOrCatalogLinks(t *testing.T) {
 	srv := httptest.NewTLSServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { calls.Add(1) }))
 	defer srv.Close()
 	path := filepath.Join(t.TempDir(), "catalog.yaml")
-	fixture := strings.ReplaceAll(backstageFixture, "https://example.invalid", srv.URL)
+	fixture := strings.ReplaceAll(backstageFixture(), "https://example.invalid", srv.URL)
 	if err := os.WriteFile(path, []byte(fixture), 0600); err != nil {
 		t.Fatal(err)
 	}
@@ -144,11 +150,11 @@ func TestBackstagePlanCatalogJSON(t *testing.T) {
 }
 
 func TestBackstagePlanRequiresPlanFlagAndRedactsErrors(t *testing.T) {
-	code, out, errOut := invokeBackstage([]string{"import", "backstage"}, backstageFixture)
+	code, out, errOut := invokeBackstage([]string{"import", "backstage"}, backstageFixture())
 	if code != ExitUsage || out != "" || !strings.Contains(errOut, "--plan is required") {
 		t.Fatalf("unexpected refusal: %d %q %q", code, out, errOut)
 	}
-	code, out, errOut = invokeBackstage([]string{"import", "backstage", "--plan", "--json"}, backstageFixture+"---\n[fixture-invalid")
+	code, out, errOut = invokeBackstage([]string{"import", "backstage", "--plan", "--json"}, backstageFixture()+"---\n[fixture-invalid")
 	if code == ExitOK || out != "" || !strings.Contains(errOut, "invalid Backstage YAML or JSON in document 4") || strings.Contains(errOut, "fixture-") {
 		t.Fatalf("unexpected parse error: %d %q %q", code, out, errOut)
 	}
