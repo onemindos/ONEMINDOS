@@ -543,6 +543,10 @@ func (m *Manager) Mount(ctx context.Context, id string, s Spec) (Status, error) 
 	}
 	if s.access() == "rw" {
 		m.umount(ctx, dir, false)
+		if still, _ := m.mounted(dir); still { // never stack the rw mount on the test mount
+			m.umount(ctx, dir, true)
+			return Status{}, refuse("busy", "The test mount could not be released; nothing was mounted.")
+		}
 		if err := m.mountOnce(ctx, dir, s, cred, "rw"); err != nil {
 			return Status{}, err
 		}

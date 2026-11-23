@@ -189,6 +189,18 @@ func TestMountTestsReadOnlyThenMountsAndDeletesCredentials(t *testing.T) {
 			t.Errorf("log shows %q: %s", v, logs)
 		}
 	}
+	// A test mount that cannot be released is never stacked under the rw mount.
+	m2, f2, _ := newManager(t)
+	stuck := true
+	m2.IsMounted = func(d string) (bool, error) { return f2.mounted[d] || (stuck && len(f2.argv) > 1), nil }
+	if _, err := m2.Mount(context.Background(), "nas2", s); reason(err) != "busy" {
+		t.Errorf("stuck test mount: %v", err)
+	}
+	for _, a := range f2.argv {
+		if a[0] == "mount" && strings.HasPrefix(a[6], "rw") {
+			t.Errorf("rw mount stacked on a stuck test mount: %v", a)
+		}
+	}
 	// Mounting a healthy mount again changes nothing.
 	n := len(f.argv)
 	if _, err := m.Mount(context.Background(), "nas1", s); err != nil || len(f.argv) != n {
@@ -232,7 +244,7 @@ func TestFailedMountIsClassifiedAndRedacted(t *testing.T) {
 		"mount error(2): No such file or directory":             "share_not_found",
 		"mount error(95): Operation not supported":              "protocol_refused",
 		"mount error(112): Host is down":                        "unreachable",
-		"mount error(111): could not connect to 192.0.2.10":       "unreachable",
+		"mount error(111): could not connect to 192.0.2.10":     "unreachable",
 		"mount.nfs: access denied by server":                    "auth_failed",
 		"something else":                                        "mount_failed",
 	} {
