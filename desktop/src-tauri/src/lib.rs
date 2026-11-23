@@ -10,6 +10,7 @@ mod api;
 mod approvals;
 mod discovery;
 mod events;
+mod files;
 mod inbox;
 mod manage;
 mod store;
@@ -35,6 +36,8 @@ const WAKE_GAP: Duration = Duration::from_secs(1);
 /// The tray menu's first line ("Needs you: 3"). Linux trays show no title or tooltip text and send
 /// no click events, so the menu is where the count lives there.
 struct NeedsItem(MenuItem<Wry>);
+/// The tray line with the first box's connection state ("Home box: online"), files.rs.
+struct StateItem(MenuItem<Wry>);
 
 struct App {
     store: store::Store,
@@ -239,25 +242,18 @@ async fn inbox_read(app_handle: AppHandle, app: State<'_, App>, id: String, item
     Ok(())
 }
 
-/// Opens the box's file share in Finder / File Explorer. Shares (Samba app, per-device SMB
-/// users) and a real mount are CLIENT-9 and UMB-FILES-5; docs/FILES.md has the WebDAV plan.
+/// Open in Finder / Explorer / Files (files.rs, #722): Finder mounts the box's WebDAV door, a Linux
+/// file manager opens davs://, Windows opens the SMB share. The person signs in with an app password.
 #[tauri::command]
 fn open_files(app_handle: AppHandle, app: State<'_, App>, id: String) -> Result<(), String> {
     let b = app.store.get(&id).ok_or("unknown_box")?;
-    let host = address::host_of(&b.url).ok_or("invalid_address")?;
-    #[cfg(target_os = "windows")]
-    {
-        app_handle
-            .opener()
-            .open_path(format!(r"\\{host}\"), None::<&str>)
-            .map_err(|_| "open_failed".to_string())
-    }
-    #[cfg(not(target_os = "windows"))]
-    {
-        app_handle
-            .opener()
-            .open_url(format!("smb://{host}/"), None::<&str>)
-            .map_err(|_| "open_failed".to_string())
+    match files::target(std::env::consts::OS, &b.url).ok_or("invalid_address")? {
+        files::Target::Mount(url) => {
+            let script = files::mount_script(&url).ok_or("invalid_address")?;
+            std::process::Command::new("/usr/bin/osascript").args(["-e", &script]).spawn().map(|_| ()).map_err(|_| "open_failed".to_string())
+        }
+        files::Target::Url(url) => app_handle.opener().open_url(url, None::<&str>).map_err(|_| "open_failed".to_string()),
+        files::Target::Path(path) => app_handle.opener().open_path(path, None::<&str>).map_err(|_| "open_failed".to_string()),
     }
 }
 
@@ -411,6 +407,12 @@ fn update_tray(app_handle: &AppHandle) {
     let needs = pending + alerts;
     if let Some(item) = app_handle.try_state::<NeedsItem>() {
         let _ = item.0.set_text(if needs == 0 { "Nothing needs you".to_string() } else { format!("Needs you: {needs}") });
+    }
+    if let Some(item) = app_handle.try_state::<StateItem>() {
+        let first = app.store.list().into_iter().next();
+        let st = first.as_ref().and_then(|b| last.get(&b.id));
+        let name = first.as_ref().map(|b| st.and_then(|s| s.name.clone()).unwrap_or_else(|| b.name.clone()));
+        let _ = item.0.set_text(files::state_line(name.as_deref(), st.map(|s| s.reachable)));
     }
     if let Some(tray) = app_handle.tray_by_id("main") {
         let mut parts = Vec::new();
@@ -592,10 +594,13 @@ pub fn run() {
             app.manage(NeedsItem(needs.clone()));
             let show = MenuItem::with_id(app, "show", "Show OneMind", true, None::<&str>)?;
             let dash = MenuItem::with_id(app, "dashboard", "Open dashboard", true, None::<&str>)?;
-            let files = MenuItem::with_id(app, "files", "Files", true, None::<&str>)?;
+            let first_name = app.state::<App>().store.list().into_iter().next().map(|b| b.name);
+            let state = MenuItem::with_id(app, "state", files::state_line(first_name.as_deref(), None), false, None::<&str>)?;
+            app.manage(StateItem(state.clone()));
+            let files = MenuItem::with_id(app, "files", files::label(std::env::consts::OS), true, None::<&str>)?;
             let sep = PredefinedMenuItem::separator(app)?;
             let quit = MenuItem::with_id(app, "quit", "Quit OneMind", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&needs, &show, &dash, &files, &sep, &quit])?;
+            let menu = Menu::with_items(app, &[&needs, &state, &show, &dash, &files, &sep, &quit])?;
 
             let icon = tauri::image::Image::from_bytes(include_bytes!("../icons/tray/44x44.png"))?;
             TrayIconBuilder::with_id("main")

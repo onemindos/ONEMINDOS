@@ -22,8 +22,16 @@ export async function showPinged(api: OneMindApi, id: string | undefined): Promi
   }
 }
 
-export function usePushPings(opts: { api: OneMindApi; hubUrl: string | undefined; label: string; reload: () => Promise<void> }) {
+export function usePushPings(opts: {
+  api: OneMindApi;
+  hubUrl: string | undefined;
+  label: string;
+  /** `install_id` for a re-registration (lib/push installField): empty for a hub without My devices. */
+  install?: { install_id?: string };
+  reload: () => Promise<void>;
+}) {
   const { api, hubUrl, label, reload } = opts;
+  const installId = opts.install?.install_id;
   useEffect(() => {
     if (!hubUrl) return; // demo: no push
     const onPing = async (id: string | undefined) => {
@@ -40,10 +48,10 @@ export function usePushPings(opts: { api: OneMindApi; hubUrl: string | undefined
       subs.push(unifiedPush.addListener('onMessage', (e) => void onPing(e.id ?? undefined)));
       subs.push(
         unifiedPush.addListener('onNewEndpoint', (e) => {
-          void loadPushRecord(hubUrl).then((rec) => (rec ? rotateEndpoint(api, rec, e, label) : undefined)).catch(() => undefined);
+          void loadPushRecord(hubUrl).then((rec) => (rec ? rotateEndpoint(api, rec, e, label, installId ? { install_id: installId } : {}) : undefined)).catch(() => undefined);
         }),
       );
     }
     return () => subs.forEach((s) => s.remove());
-  }, [api, hubUrl, label, reload]);
+  }, [api, hubUrl, label, installId, reload]);
 }
