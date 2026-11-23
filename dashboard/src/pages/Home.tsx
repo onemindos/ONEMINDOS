@@ -9,6 +9,7 @@ import { homeActivity, toActionSummary, toHomeApp, toHomeNode } from '../data/ad
 import { errorText, useHub, type Hub } from '../data/hub';
 import { useHomeBackups } from '../data/homeBackups';
 import { useDisplayName } from '../data/homeMe';
+import { useBoxStatus } from '../data/homeStatus';
 import { useHomeStorage } from '../data/homeStorage';
 import { homeLayoutStore } from '../data/prefs';
 import type { Polled } from '../lib/hooks';
@@ -18,6 +19,7 @@ import { showsNav } from '../shell/roles';
 import { useActivity, useShell } from '../shell/Shell';
 import { HomeHealth } from './HomeHealth';
 import { SimpleHome } from './SimpleHome';
+import { HomeRecent } from './HomeRecent';
 
 /**
  * Home's first layout: "Needs you" and System on top, then a trust tile, Storage and Backups for
@@ -87,6 +89,7 @@ function ProHome() {
   const storage = useHomeStorage(pro);
   const apps = useMemo(() => hub.apps.data?.map((a) => toHomeApp(a)), [hub.apps.data]);
   const extras = useHomeExtras(apps, hub.asOf ?? new Date(0).toISOString());
+  const boxStatus = useBoxStatus();
   const data = homeData(hub, homeActivity(entries), extras, backups.value, storage.value);
 
   const decide = (a: ActionSummary, how: 'approve' | 'deny') =>
@@ -101,9 +104,10 @@ function ProHome() {
 
   return (
     <>
-    <HomeHealth pro={pro} />
+    <HomeHealth pro={pro} status={boxStatus} />
+    <HomeRecent />
     <HomeScreen
-      data={data}
+      data={{ ...data, boxStatus }}
       now={hub.now}
       timeZone={Intl.DateTimeFormat().resolvedOptions().timeZone}
       personName={personName}

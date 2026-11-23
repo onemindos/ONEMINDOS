@@ -7,6 +7,7 @@ import { openUrl } from '../data/adapters';
 import { errorText, useHub } from '../data/hub';
 import { useSignedIn } from '../session';
 import { href } from '../shell/routes';
+import { HomeRecent } from './HomeRecent';
 import { useShell } from '../shell/Shell';
 
 const WORDS: Record<string, string> = {
@@ -75,6 +76,7 @@ export function SimpleHome() {
           </p>
         )}
       </Card>
+      {shell.role && shell.role !== 'agent' && <HomeRecent />}
     </div>
   );
 }

@@ -29,7 +29,8 @@ SCHEMA = FeatureSchema("home")
 ITEM_ID = re.compile(r"^(sys:[a-z][a-z0-9-]{0,39}|app:[a-z0-9][a-z0-9-]{0,62}|node:[A-Za-z0-9._-]{1,64}|link:[a-z0-9][a-z0-9-]{0,39})$")
 SLUG = re.compile(r"^[a-z][a-z0-9-]{0,39}$")
 MAX_DOCK = 8
-MAX_WIDGETS = 6
+MAX_WIDGETS = 12
+MAX_RECENT = 8
 MAX_LIST = 200
 MAX_LINKS = 50
 MAX_URL = 2048
@@ -134,6 +135,7 @@ class HomeBody(BaseModel):
     dock: list[str] = Field(default_factory=list, max_length=MAX_DOCK)
     grid: Grid = Field(default_factory=Grid)
     widgets: list[Widget] = Field(default_factory=list, max_length=MAX_WIDGETS)
+    recent: list[str] = Field(default_factory=list, max_length=MAX_RECENT)
     links: list[Link] = Field(default_factory=list, max_length=MAX_LINKS)
     seen: Seen = Field(default_factory=Seen)
     default_apps: dict[Annotated[str, Field(pattern=SLUG.pattern)], Annotated[str, Field(pattern=APP_ID_RE.pattern)]] = Field(
@@ -142,7 +144,7 @@ class HomeBody(BaseModel):
     )
     updated_at: str | None = None
 
-    @field_validator("dock")
+    @field_validator("dock", "recent")
     @classmethod
     def typed(cls, v: list[str]) -> list[str]:
         return _items(v)
@@ -176,7 +178,7 @@ def etag_of(doc: dict) -> str:
 
 def item_ids(doc: dict) -> list[str]:
     ids = list(doc["dock"]) + list(doc["grid"]["order"]) + list(doc["grid"]["hidden"])
-    return ids + [w["id"] for w in doc["widgets"]]
+    return ids + [w["id"] for w in doc["widgets"]] + doc.get("recent", [])
 
 
 def normalise(doc: dict, *, owner: bool) -> dict:
@@ -195,6 +197,7 @@ def drop_invisible(doc: dict, visible) -> dict:
         "grid": {"order": [d for d in doc["grid"]["order"] if visible(d)],
                  "hidden": [d for d in doc["grid"]["hidden"] if visible(d)]},
         "widgets": [w for w in doc["widgets"] if visible(w["id"])],
+        "recent": [item for item in doc.get("recent", []) if visible(item)],
     }
 
 
@@ -209,7 +212,7 @@ class HomeService(SqlRepository):
             return None if row is None else {**row.doc, "updated_at": iso(row.updated_at)}
 
     def save(self, person_id: str, doc: dict, now: datetime, previous: str | None) -> dict | None:
-        """Compare at the database write too, so simultaneous device writes cannot overwrite a newer Home."""
+        """Compare at the database write too, so simultaneous device writes cannot overwrite a newer Home or lose a visit."""
         with self.db.session.begin() as s:
             if previous is None:
                 stmt = self.db.insert()(HomeRow).values(person_id=person_id, doc=doc, updated_at=now)

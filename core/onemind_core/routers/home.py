@@ -95,6 +95,9 @@ def register(app: FastAPI, gw: Gateway) -> None:
             raise ApiError(412, "stale_precondition", "Home changed elsewhere; read it again", reason="etag_mismatch")
         doc = normalise(body.model_dump(exclude={"updated_at"}), owner=p.is_owner)
         visible = visible_fn(request, p, frozenset(link_ids(doc)))
+        if "recent" not in body.model_fields_set:
+            # Older clients replace the document without knowing its history field.
+            doc["recent"] = [item for item in current["recent"] if visible(item)]
         # A stored id must never reveal an app this person may not see: refuse it, as if it did not exist.
         bad = [i for i in item_ids(doc) if not visible(i)]
         if bad:

@@ -4682,6 +4682,14 @@
             "title": "Links",
             "type": "array"
           },
+          "recent": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 8,
+            "title": "Recent",
+            "type": "array"
+          },
           "seen": {
             "$ref": "#/components/schemas/Seen"
           },
@@ -4706,7 +4714,7 @@
             "items": {
               "$ref": "#/components/schemas/Widget"
             },
-            "maxItems": 6,
+            "maxItems": 12,
             "title": "Widgets",
             "type": "array"
           }
@@ -4761,6 +4769,14 @@
             "title": "Links",
             "type": "array"
           },
+          "recent": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 8,
+            "title": "Recent",
+            "type": "array"
+          },
           "seen": {
             "$ref": "#/components/schemas/Seen"
           },
@@ -4785,7 +4801,7 @@
             "items": {
               "$ref": "#/components/schemas/Widget"
             },
-            "maxItems": 6,
+            "maxItems": 12,
             "title": "Widgets",
             "type": "array"
           }
