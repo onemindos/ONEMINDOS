@@ -5,7 +5,9 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+from .ai_policy import policy_label
 
 
 class AppLinks(BaseModel):
@@ -17,11 +19,41 @@ class AppLinks(BaseModel):
     support: str | None = None
 
 
+class ScannedLicence(BaseModel):
+    spdx: str
+    licence_class: Literal["L1", "L2", "blocked"] = Field(alias="class")
+
+
+class QualityEvidence(BaseModel):
+    """The yes/no checks behind a quality tier (#174), per level. A tier needs every check of its level and of the levels below."""
+
+    bronze: dict[str, bool]
+    silver: dict[str, bool]
+    gold: dict[str, bool]
+
+
+class AppQuality(BaseModel):
+    """Quality tier of an app or plugin, computed by the app gate from its own evidence, never set by hand."""
+
+    tier: Literal["none", "bronze", "silver", "gold"] = Field(
+        description="Derived by the gateway from the evidence; none when the evidence does not reach Bronze"
+    )
+    evidence: QualityEvidence
+
+
 class ScanSummary(BaseModel):
     """§11.1 apps/<id>/scan.json, reduced to what the catalog shows."""
 
     scanned_at: str = Field(description="RFC 3339 time of the last scan")
     result: Literal["pass", "fail"]
+    licence: ScannedLicence | None = Field(
+        default=None, description="SPDX expression and licence class recorded by the app gate. Missing on older scans.",
+    )
+    quality: AppQuality | None = Field(
+        default=None,
+        description="Quality tier (Bronze, Silver, Gold) and the checks that back it (#174). Null on a scan from "
+        "before quality tiers: not rated yet",
+    )
     reason: str | None = Field(
         default=None,
         description="Why the scan failed (CRITICAL fixable CVEs, secrets, malware, smoke) from scan.json's own "
@@ -59,12 +91,23 @@ class CatalogApp(BaseModel):
     category: str | None
     icon: str | None
     license: str | None
+    licence_class: Literal["L1", "L2", "blocked", "unknown"] = Field(
+        default="unknown",
+        description="metadata.licenceClass (#173). L1 and L2 are green. blocked and unknown are not: installing "
+        "one needs accept_licence on the approval",
+    )
     source: str | None
     archs: list[str]
     requires: dict
     web_port: int | None
     browser: bool = Field(default=False, description="A browser app (#692): open it with POST /v1/browsers/{app_id}/session, "
                           "which gives the person their own profile; its own app name is never served")
+    ai_policy: Literal["allowed", "consent-required", "official-mcp-only", "display-only", "prohibited", "unknown"] | None = Field(
+        default=None, alias="aiPolicy",
+        description="#165: may this app's data go to an AI. null when the manifest declares none: agents see the "
+        "catalog entry, never the app's data. Health and wellness apps default to display-only; unknown is a "
+        "declared value the gateway does not know, treated as deny",
+    )
     installed: bool
     status: str = Field(
         description="not_installed | installing | installed | stopped | starting | stopping | restarting | "
@@ -89,3 +132,9 @@ class CatalogApp(BaseModel):
     catalog_source: CatalogSource | None = Field(
         default=None, description="§12.22: the community source and pinned commit; null for the official catalog"
     )
+
+    @field_validator("ai_policy", mode="before")
+    @classmethod
+    def _known_ai_policy(cls, value: object) -> str:
+        # Runs only when the row carries aiPolicy; a malformed manifest value must not break the list.
+        return policy_label(value)

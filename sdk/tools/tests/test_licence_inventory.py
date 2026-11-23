@@ -77,6 +77,14 @@ class LicenceInventoryTests(unittest.TestCase):
         self.assertIn("not declared metadata.licenceClass", output)
         self.assertIn("not primary-source verification, scan pass, or preinstall permission", output)
 
+    def test_main_prints_the_declared_class_beside_the_computed_one(self):
+        docs = {"chromium": {"metadata": {"id": "chromium", "license": "BSD-3-Clause", "licenceClass": "unknown"}},
+                "plain": {"metadata": {"id": "plain", "license": "MIT"}}}
+        _, output = self.run_in_memory(documents=docs)
+        rows = [line for line in output.splitlines() if line.startswith("licence-class apps/")]
+        self.assertEqual(rows, ["licence-class apps/chromium/ declared_licence_class=unknown",
+                                "licence-class apps/plain/ declared_licence_class=unset"])
+
     def test_main_target_filter_and_repeat_are_stable(self):
         first = self.run_in_memory(("zeta",))
         self.assertEqual(first, self.run_in_memory(("zeta",)))

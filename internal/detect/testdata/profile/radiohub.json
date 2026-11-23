@@ -1,0 +1,81 @@
+{
+  "schema": "onemind.node.capabilities/v1",
+  "data_disk": {
+    "kind": null,
+    "ssd": null
+  },
+  "memory": {
+    "total_mb": null,
+    "unified": null
+  },
+  "accelerators": null,
+  "usb": [
+    {
+      "port": "1-1",
+      "id": "1a86:7522",
+      "class": "ff",
+      "interface_classes": [
+        "ff"
+      ]
+    },
+    {
+      "port": "1-2",
+      "id": "303a:831a",
+      "class": "ef",
+      "interface_classes": [
+        "02",
+        "0a"
+      ]
+    },
+    {
+      "port": "1-3",
+      "id": "0403:6001",
+      "class": "00",
+      "interface_classes": [
+        "ff"
+      ]
+    }
+  ],
+  "tty_ports": [
+    {
+      "name": "ttyACM0",
+      "kind": "usb",
+      "usb_id": "303a:831a",
+      "usb_port": "1-2"
+    },
+    {
+      "name": "ttyUSB0",
+      "kind": "usb",
+      "usb_id": "1a86:7522",
+      "usb_port": "1-1"
+    },
+    {
+      "name": "ttyUSB1",
+      "kind": "usb",
+      "usb_id": "0403:6001",
+      "usb_port": "1-3"
+    }
+  ],
+  "radios": [
+    {
+      "kind": "lora",
+      "interface": "ttyUSB0",
+      "device": "/dev/onemind/lora0"
+    },
+    {
+      "kind": "zigbee-thread",
+      "interface": "ttyACM0",
+      "device": "/dev/onemind/zigbee-thread0"
+    }
+  ],
+  "cameras": [],
+  "power": {
+    "source": null,
+    "battery_pct": null,
+    "undervoltage": null
+  },
+  "thermal": {
+    "max_c": null,
+    "state": null
+  }
+}

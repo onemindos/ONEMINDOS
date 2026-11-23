@@ -25,6 +25,23 @@ from props import budget
 
 METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "TRACE"]
 
+# §12.2 documents one deliberate 5xx: a switched-off optional feature answers 503 unavailable in
+# the §3 envelope, with the feature's own reason. Only these route trees may do so.
+SWITCHED_OFF_REASON = {
+    "/v1/backups": "backups_disabled",
+    "/v1/domains": "domains_disabled",  # bring-your-own-domain, NET-DOM-01
+}
+
+
+def switched_off(path: str, status: int, body: dict) -> bool:
+    """True only for the documented 503: a listed route tree (whole path segments), error
+    'unavailable' and exactly that tree's reason. A missing reason, another error code, another
+    tree's reason or any other path is still a failure."""
+    want = next((reason for prefix, reason in SWITCHED_OFF_REASON.items()
+                 if path == prefix or path.startswith(prefix + "/")), None)
+    return (status == 503 and want is not None
+            and body.get("error") == "unavailable" and body.get("reason") == want)
+
 
 @pytest.fixture(scope="module")
 def operations(property_resources):
@@ -73,11 +90,33 @@ def test_any_body_gets_a_documented_status(property_resources, operations, data,
     # Allocate inside @given: shrinking/replay must not reuse database/guard state.
     with property_resources.example() as sample, sample.http() as gateway:
         r = gateway.post(path, content=body, headers={**who, "Content-Type": "application/json"})
-    # §12.2 documents exactly one deliberate 5xx: a switched-off backup feature answers
-    # 503 unavailable/backups_disabled in the §3 envelope. Any other 5xx is still a failure.
-    switched_off = (r.status_code == 503 and path.startswith("/v1/backups")
-                    and r.json().get("error") == "unavailable" and r.json().get("reason") == "backups_disabled")
-    assert r.status_code < 500 or switched_off, (path, body, r.text)
-    assert r.status_code in documented or switched_off, (path, body, r.status_code, r.text)
+    off = r.status_code == 503 and switched_off(path, r.status_code, r.json())
+    assert r.status_code < 500 or off, (path, body, r.text)
+    assert r.status_code in documented or off, (path, body, r.status_code, r.text)
     if r.status_code >= 400:
         assert r.json()["error"], r.text  # always the §3 envelope
+
+
+@pytest.mark.parametrize("path, status, body, ok", [
+    ("/v1/backups/run", 503, {"error": "unavailable", "reason": "backups_disabled"}, True),
+    ("/v1/backups", 503, {"error": "unavailable", "reason": "backups_disabled"}, True),
+    ("/v1/domains/{domain}/check", 503, {"error": "unavailable", "reason": "domains_disabled"}, True),
+    ("/v1/domains", 503, {"error": "unavailable", "reason": "domains_disabled"}, True),
+    # a 503 with no reason, anywhere, is not the documented answer
+    ("/v1/machines/node-x/media", 503, {"error": "unavailable"}, False),
+    ("/v1/domains", 503, {"error": "unavailable"}, False),
+    # the reason belongs in `reason`; the error code is always `unavailable`
+    ("/v1/domains", 503, {"error": "domains_disabled", "reason": "domains_disabled"}, False),
+    ("/v1/backups/run", 503, {"error": "domains_disabled", "reason": "backups_disabled"}, False),
+    # each tree has its own reason
+    ("/v1/backups/run", 503, {"error": "unavailable", "reason": "domains_disabled"}, False),
+    ("/v1/domains", 503, {"error": "unavailable", "reason": "backups_disabled"}, False),
+    # whole path segments only, and no other tree
+    ("/v1/backupsx", 503, {"error": "unavailable", "reason": "backups_disabled"}, False),
+    ("/v1/domains-extra/x", 503, {"error": "unavailable", "reason": "domains_disabled"}, False),
+    ("/v1/apps/x", 503, {"error": "unavailable", "reason": "backups_disabled"}, False),
+    # only a 503 qualifies
+    ("/v1/backups/run", 500, {"error": "unavailable", "reason": "backups_disabled"}, False),
+])
+def test_only_the_documented_switched_off_503_is_allowed(path, status, body, ok):
+    assert switched_off(path, status, body) is ok
