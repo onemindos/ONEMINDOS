@@ -19284,6 +19284,13 @@
             "description": "Successful Response"
           },
           "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
             "description": "Not signed in; on /v1/share: the link's password is missing or wrong (unauthenticated)"
           }
         },
@@ -19315,15 +19322,43 @@
             "description": "Successful Response"
           },
           "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
             "description": "Not signed in; on /v1/share: the link's password is missing or wrong (unauthenticated)"
           },
           "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
             "description": "Only an owner or adult shares, and only what they can read (permission_denied)"
           },
           "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
             "description": "No such link, file, photo or item (not_found)"
           },
           "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
             "description": "Not a regular file (conflict)"
           },
           "413": {
@@ -19337,12 +19372,33 @@
             "description": "Request body over its limit (payload_too_large)"
           },
           "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
             "description": "Invalid body, expiry or photo hash (conflict)"
           },
           "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
             "description": "Too many live links for this person (rate_limited)"
           },
           "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
             "description": "The files storage is not usable (unavailable)"
           }
         },
@@ -19379,9 +19435,23 @@
             "description": "Successful Response"
           },
           "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
             "description": "Not signed in; on /v1/share: the link's password is missing or wrong (unauthenticated)"
           },
           "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
             "description": "No such link, file, photo or item (not_found)"
           },
           "422": {
@@ -26259,12 +26329,33 @@
             "description": "Successful Response"
           },
           "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
             "description": "Not signed in; on /v1/share: the link's password is missing or wrong (unauthenticated)"
           },
           "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
             "description": "No such link, file, photo or item (not_found)"
           },
           "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
             "description": "The link expired, was revoked, or its creator can no longer share (expired)"
           },
           "422": {
@@ -26352,12 +26443,33 @@
             "description": "Partial content (Range)"
           },
           "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
             "description": "Not signed in; on /v1/share: the link's password is missing or wrong (unauthenticated)"
           },
           "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
             "description": "No such link, file, photo or item (not_found)"
           },
           "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
             "description": "The link expired, was revoked, or its creator can no longer share (expired)"
           },
           "422": {

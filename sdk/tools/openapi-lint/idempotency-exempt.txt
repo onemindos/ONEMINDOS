@@ -11,3 +11,6 @@ POST /v1/auth/logout  # ending the caller's own session twice is the same as onc
 PATCH /v1/files/uploads/{upload_id}  # tus: the Upload-Offset header makes a retried chunk safe
 PATCH /v1/photos/uploads/{upload_id}  # tus: the Upload-Offset header makes a retried chunk safe
 POST /v1/actions  # contract §12.1: keeps its §3 body field idempotency_key instead of the header
+POST /v1/files/shares  # answers with the link secret once, which a replay store must not keep; a retry makes a second link the creator can revoke
+DELETE /v1/files/shares/{share_id}  # revoking a link twice is the same as once: the second answer is the same revoked link
+POST /v1/os/rollouts/{rollout_id}/cancel  # cancelling twice leaves the same state: the second answer is 409 wrong_state and changes nothing

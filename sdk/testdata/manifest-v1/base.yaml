@@ -10,6 +10,8 @@ metadata:
   version: "1.0.0"
   description: Golden test manifest that declares every manifest v1 block.
   category: monitoring
+  age_rating: 12   # apps/README.md rubric: shows public internet data and can share it, cannot change the box
+  age_reason: "Shows public earthquake and weather data on a map and can share an alert."
   icon: icon.svg
   license: Apache-2.0
   source: https://github.com/onemindos/ONEMINDOS

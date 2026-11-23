@@ -16,6 +16,7 @@ from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 
 from ..auth import Principal
 from ..context import Gateway
+from ..errors import ErrorBody
 from ..files import errors as ferrors
 from ..files.errors import FilesError
 from ..files.service import FilesService
@@ -49,7 +50,8 @@ _ERR = {
 
 
 def errs(*codes: int) -> dict:
-    return {c: _ERR[c] for c in codes}
+    """OpenAPI `responses=` entries: every error body is the one ErrorBody (FilesError.body() is that shape)."""
+    return {c: {"model": ErrorBody, **_ERR[c]} for c in codes}
 
 
 class _ShareItem(BaseModel):
