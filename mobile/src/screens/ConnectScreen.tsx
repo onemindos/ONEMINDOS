@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { Image, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useColorScheme, View } from 'react-native';
 import { ApiError } from '../api/types';
-import { deviceInfo } from '../lib/device';
+import { loadThisPhone } from '../lib/install';
 import { platformPasskeys } from '../lib/passkeys';
 import { passkeySignIn, SignInError } from '../lib/signin';
 import { PasskeyError, passkeyMessage, rpIdFor } from '../lib/webauthn';
@@ -84,7 +84,12 @@ export function ConnectScreen() {
     await connect(c);
   }
 
-  const signInWithPasskey = () => run(async () => finish(await passkeySignIn(hubUrl, platformPasskeys(), { deviceName: deviceInfo('').name })));
+  const signInWithPasskey = () =>
+    run(async () => {
+      // The name and install id this phone's passkey and push also carry, so My devices shows one device (#715).
+      const phone = await loadThisPhone();
+      await finish(await passkeySignIn(hubUrl, platformPasskeys(), { deviceName: phone.name, installId: phone.installId }));
+    });
 
   const joinWithEnrolment = () =>
     run(async () => {

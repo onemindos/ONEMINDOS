@@ -282,6 +282,8 @@ export class MockApi implements OneMindApi {
   appMetrics = unsupported('Live usage');
   mesh = unsupported('Network');
   systemPlan = unsupported('System controls');
+  myDevices = unsupported('My devices');
+  removeMyDevice = unsupported('My devices');
   pushRegister = unsupported('Push');
   pushRegistrations = unsupported('Push');
   pushUnregister = unsupported('Push');

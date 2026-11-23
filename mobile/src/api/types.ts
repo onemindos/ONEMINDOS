@@ -356,6 +356,8 @@ export interface PushRegistrationRequest {
   token?: string;
   keys?: { p256dh: string; auth: string };
   label: string;
+  /** This app install (#715, lib/install.ts); only hubs with My devices accept it. */
+  install_id?: string;
   environment?: 'sandbox' | 'production';
   bundle_id?: string;
 }
@@ -368,6 +370,37 @@ export interface PushRegistration {
   state?: string;
   created_at?: string;
   last_seen_at?: string | null;
+}
+
+/** #715 My devices (`GET /v1/me/devices`): a person's own phones, browsers and apps, each the credentials
+ * that carry its name. Mirrors the gateway's OpenAPI schemas MyDevices / MyDevice / MyDeviceRemoved. */
+export type MyDeviceSource = 'sessions' | 'passkeys' | 'approver_keys' | 'push';
+export interface MyDeviceCredential {
+  source: MyDeviceSource;
+  id: string;
+  label: string;
+  detail: string;
+  created_at: string | null;
+  last_seen_at: string | null;
+}
+export interface MyDevice {
+  id: string;
+  label: string;
+  kind: 'phone' | 'browser' | 'app' | 'unknown';
+  current: boolean;
+  last_seen_at: string | null;
+  first_seen_at: string | null;
+  credentials: MyDeviceCredential[];
+}
+export interface MyDevices {
+  devices: MyDevice[];
+  sources: Record<MyDeviceSource | 'mesh' | 'nats', boolean>;
+}
+/** `DELETE /v1/me/devices/{id}` (Lost this device): `removed` is false when there was nothing left to revoke. */
+export interface MyDeviceRemoved {
+  id: string;
+  removed: boolean;
+  revoked: Record<MyDeviceSource, number>;
 }
 
 /**

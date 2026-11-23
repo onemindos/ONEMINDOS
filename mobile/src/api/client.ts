@@ -37,6 +37,8 @@ import {
   type LoginResult,
   type MeshView,
   type MonitoringSummary,
+  type MyDeviceRemoved,
+  type MyDevices,
   type NodeMetrics,
   type AppMetrics,
   type OsUpdateHistory,
@@ -111,6 +113,8 @@ export const OP = {
   mesh: 'GET /v1/mesh',
   /** UNVERIFIED name: the hub has no restart / shut down / troubleshoot route yet, so System controls stays hidden. */
   systemPlan: 'GET /v1/system/plan',
+  myDevices: 'GET /v1/me/devices',
+  myDeviceRemove: 'DELETE /v1/me/devices/{}',
 } as const;
 
 export type Op = (typeof OP)[keyof typeof OP];
@@ -153,6 +157,8 @@ export interface LoginBody {
   passkey: WebAuthnAssertion;
   client: 'app';
   client_name?: string;
+  /** This app install (#715, lib/install.ts): My devices groups this sign-in with the install's passkeys and push. */
+  install_id?: string;
 }
 
 /** WebAuthn options as the gateway sends them: bare JSON, or wrapped in `publicKey` (both are common). */
@@ -214,7 +220,7 @@ export interface OneMindApi {
   refreshSession(refreshToken: string): Promise<LoginResult>;
   logout(): Promise<void>;
   passkeyRegisterOptions(): Promise<RegisterOptions>;
-  passkeyRegister(body: { credential: WebAuthnAttestation; label: string }): Promise<{ credential_id: string; label: string }>;
+  passkeyRegister(body: { credential: WebAuthnAttestation; label: string; install_id?: string }): Promise<{ credential_id: string; label: string }>;
   /** `me`: the newer `/v1/me/devices` routes (only when `features()` lists OP.meDevices). */
   deviceRequest(body: DeviceRequestBody, o?: { me?: boolean }): Promise<DeviceRequest>;
   deviceRequestStatus(id: string, pollCode?: string, o?: { me?: boolean }): Promise<DeviceRequest>;
@@ -270,6 +276,9 @@ export interface OneMindApi {
   appMetrics(appId: string): Promise<AppMetrics>;
   mesh(): Promise<MeshView>;
   systemPlan(type: SystemControlType): Promise<SystemPlanPreview>;
+  // #715 My devices: the caller's own devices; removing one revokes everything it holds (a fresh passkey once passkeys are on).
+  myDevices(): Promise<MyDevices>;
+  removeMyDevice(id: string): Promise<MyDeviceRemoved>;
   /** Where the SSE stream lives and which bearer to send; undefined in demo mode (no stream). */
   eventsEndpoint(): { url: string; bearer: () => string | undefined; refresh?: () => Promise<string | undefined> } | undefined;
 }
@@ -563,7 +572,7 @@ export class HttpApi implements OneMindApi {
   passkeyRegisterOptions() {
     return this.req<RegisterOptions>('POST', '/v1/auth/passkeys/register/options', {});
   }
-  passkeyRegister(body: { credential: WebAuthnAttestation; label: string }) {
+  passkeyRegister(body: { credential: WebAuthnAttestation; label: string; install_id?: string }) {
     return this.req<{ credential_id: string; label: string }>('POST', '/v1/auth/passkeys/register', body);
   }
   deviceRequest(body: DeviceRequestBody, o: { me?: boolean } = {}) {
@@ -744,6 +753,12 @@ export class HttpApi implements OneMindApi {
   }
   systemPlan(type: SystemControlType) {
     return this.req<SystemPlanPreview>('GET', `/v1/system/plan?type=${enc(type)}`);
+  }
+  myDevices() {
+    return this.req<MyDevices>('GET', '/v1/me/devices');
+  }
+  removeMyDevice(id: string) {
+    return this.req<MyDeviceRemoved>('DELETE', `/v1/me/devices/${enc(id)}`);
   }
   eventsEndpoint() {
     return {
