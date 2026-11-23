@@ -11,3 +11,4 @@ POST /v1/auth/logout  # ending the caller's own session twice is the same as onc
 PATCH /v1/files/uploads/{upload_id}  # tus: the Upload-Offset header makes a retried chunk safe
 PATCH /v1/photos/uploads/{upload_id}  # tus: the Upload-Offset header makes a retried chunk safe
 POST /v1/actions  # contract §12.1: keeps its §3 body field idempotency_key instead of the header
+POST /v1/tips/{tip_id}/state  # sets one tip's state to the given value: setting the same state twice is the same as once
