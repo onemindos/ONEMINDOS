@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Home launcher (IA §2.1) on @onemind/ui HomeScreen, fed by /v1/nodes, /v1/apps and /v1/actions.
 // Backups, updates and mesh read /v1/backups/status, /v1/os/updates and /v1/mesh (data/homeExtras).
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { HomeScreen, StateView, useOptionalCustomize, useToast, type ActionSummary, type BackupStatus, type StorageStatus, type HomeData, type HomeLayout, type HomeLoadable } from '@onemind/ui';
 import { ApiError } from '../api/types';
 import { useHomeExtras } from '../data/homeExtras';
@@ -17,6 +17,7 @@ import { useSignedIn } from '../session';
 import { href } from '../shell/routes';
 import { showsNav } from '../shell/roles';
 import { useActivity, useShell } from '../shell/Shell';
+import { HomeCommandBar } from './HomeCommandBar';
 import { HomeHealth } from './HomeHealth';
 import { SimpleHome } from './SimpleHome';
 import { HomeRecent } from './HomeRecent';
@@ -69,12 +70,16 @@ export function homeData(hub: Hub, activity: ReturnType<typeof homeActivity>, ex
 /** Child and guest get the simple Home; the Pro one is for owners and adults. Fail closed while the role is unknown. */
 export function Home() {
   const shell = useShell();
-  if (shell.view === 'simple') return <SimpleHome />;
+  const customize = useOptionalCustomize();
+  const { apps } = useHub();
   if (shell.view === 'unknown') return <StateView state="loading" what="Checking your role" skeleton="list" />;
-  return <ProHome />;
+  const commandBar = customize?.prefs.commandBar
+    ? <HomeCommandBar openPalette={shell.openPalette} apps={shell.role === 'owner' ? apps.data ?? [] : []} />
+    : undefined;
+  return shell.view === 'simple' ? <SimpleHome commandBar={commandBar} /> : <ProHome commandBar={commandBar} />;
 }
 
-function ProHome() {
+function ProHome({ commandBar }: { commandBar: ReactNode }) {
   const hub = useHub();
   const { person } = useSignedIn();
   const personName = useDisplayName();
@@ -126,6 +131,7 @@ function ProHome() {
       onApprove={(a) => void decide(a, 'approve')}
       onDeny={(a) => void decide(a, 'deny')}
       busy={hub.busy}
+      commandBar={commandBar}
       onOpenSearch={shell.openPalette}
       showDock={shell.layout === 'console'}
       links={{
