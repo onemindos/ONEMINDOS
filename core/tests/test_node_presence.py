@@ -16,11 +16,12 @@ from pathlib import Path
 
 from conftest import OWNER, Clock
 from onemind_core.auth import Principal
-from onemind_core.eventstream import NODE_POLL_S, EventStream
+from onemind_core.eventstream import EventStream
 from onemind_core.nodes import DEPARTURE_SCHEMA, HEARTBEAT_SCHEMA, NodeRegistry
 
 SUBJECT = "onemind.node.node-a.status"
 SUBJECT_B = "onemind.node.node-b.status"
+STEP = 0.5  # simulated seconds per loop of the stand-in clock in the 15 s test
 
 
 def heartbeat(node_id: str = "node-a", **extra) -> bytes:
@@ -86,13 +87,14 @@ def test_departures_that_are_not_exactly_from_a_known_node_are_dropped():
     assert (n["presence"], n["departed_at"]) == ("offline", None)
 
 
-def run_stream(tmp_path: Path, reg: NodeRegistry, step) -> list[tuple[float, float, dict]]:
+def run_stream(tmp_path: Path, reg: NodeRegistry, step, **opts) -> list[tuple[float, float, dict]]:
     """Run the live stream, calling step(i) before each poll.
 
     Returns (wall time, gateway clock time, event data) for each node.status event."""
     audit = tmp_path / "audit.jsonl"
     audit.write_text("")
-    stream = EventStream(audit, reg.list, lambda _id: set(), reg.clock)
+    stream = EventStream(audit, reg.list, lambda _id: set(), reg.clock, next_node_change=reg.next_change_in)
+    reg.change_listeners.append(stream.wake_nodes)  # as routers/events.py wires it
     p = Principal("owner", "person", "owner")
     start = reg.clock()
 
@@ -104,7 +106,7 @@ def run_stream(tmp_path: Path, reg: NodeRegistry, step) -> list[tuple[float, flo
             n["i"] += 1
             return step(n["i"])
 
-        async for chunk in stream.stream(p, "node.status", None, gone, keepalive_s=60):
+        async for chunk in stream.stream(p, "node.status", None, gone, keepalive_s=60, **opts):
             text = chunk.decode()
             if "node.status" in text:
                 assert "id: " not in text  # never moves the resume point
@@ -128,12 +130,11 @@ def test_acceptance_clean_shutdown_reaches_the_stream_within_two_seconds(tmp_pat
 
     events = run_stream(tmp_path, reg, step)
     assert [d for _, _, d in events] == [{"status": "offline", "presence": "offline", "previous": "online"}]
-    assert events[0][0] - departed_at[0] < 2.0  # real stream polls (NODE_POLL_S), not simulated time
-    assert NODE_POLL_S <= 0.5
+    assert events[0][0] - departed_at[0] < 2.0  # a departure wakes the stream (idle sleep is 2 s), not simulated time
 
 
 def test_acceptance_unplugged_node_shows_offline_within_fifteen_seconds(tmp_path):
-    """Simulated gateway time, one NODE_POLL_S per poll. node-a's plug comes out right after its
+    """Simulated gateway time, one STEP per loop. node-a's plug comes out right after its
     heartbeat (the worst case); node-b's heartbeats run 3 s late and it never blinks offline."""
     clock = Clock()
     reg = NodeRegistry(clock)
@@ -143,14 +144,14 @@ def test_acceptance_unplugged_node_shows_offline_within_fifteen_seconds(tmp_path
     last_b = [0.0]
 
     def step(i: int) -> bool:
-        t = (i - 1) * NODE_POLL_S
+        t = (i - 1) * STEP
         clock.now = start + timedelta(seconds=t)
         if t - last_b[0] >= 13:
             reg.ingest(SUBJECT_B, heartbeat("node-b"))
             last_b[0] = t
         return t > 40
 
-    events = run_stream(tmp_path, reg, lambda i: step(i))
+    events = run_stream(tmp_path, reg, lambda i: step(i), poll_s=STEP)  # loops run on the stand-in clock
     assert [(round(t, 1), d) for _, t, d in events] == [
         (14.5, {"status": "online", "presence": "offline", "previous": "online"}),
         (30.5, {"status": "stale", "presence": "offline", "previous": "online"}),
@@ -165,3 +166,15 @@ def test_nodes_api_serves_presence(client):
     assert reg.ingest(SUBJECT, departure())
     node = client.get("/v1/nodes/node-a", headers=OWNER).json()
     assert (node["presence"], node["status"]) == ("offline", "offline") and node["departed_at"]
+
+
+def test_next_change_in_names_the_next_age_boundary():
+    clock = Clock()
+    reg = NodeRegistry(clock)
+    assert reg.next_change_in() is None  # no nodes: nothing to wake for
+    reg.ingest(SUBJECT, heartbeat())
+    assert reg.next_change_in() == 14  # presence lost
+    clock.now += timedelta(seconds=20)
+    assert reg.next_change_in() == 10  # then stale at 30 s
+    reg.ingest(SUBJECT, departure())
+    assert reg.next_change_in() is None  # departed: already offline in both

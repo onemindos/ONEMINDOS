@@ -40,8 +40,8 @@ MAX_HEARTBEAT_BYTES = 64 * 1024
 STALE_AFTER_S = 30
 OFFLINE_AFTER_S = 120
 # Heartbeats come every 10 s. An unplugged node must read offline within 15 s of the plug coming
-# out (#608): the last heartbeat is at most 10 s older than that, the event stream looks every
-# 0.5 s, so 14 s after the last heartbeat is the latest that still holds, and it still allows a
+# out (#608): the last heartbeat is at most 10 s older than that, the event stream wakes at the
+# 14 s mark itself (next_change_in), so 14 s after the last heartbeat is the latest that still holds, and it still allows a
 # heartbeat to run 4 s late without a healthy node blinking offline.
 PRESENCE_LOST_S = 14
 DEPARTURE_SCHEMA = "onemind.node.departure/v1"
@@ -88,6 +88,9 @@ class NodeRegistry:
         # Called with each accepted heartbeat, outside the lock (osupdate.py records commits and
         # rollbacks). A failing listener is logged and never drops the heartbeat.
         self.listeners: list[Callable[[dict], None]] = []
+        # Called, with no arguments, after every accepted heartbeat and departure: the event stream
+        # wakes on it (#608), so it never has to poll the registry on a timer.
+        self.change_listeners: list[Callable[[], None]] = []
 
     def ingest(self, subject: str, data: bytes) -> bool:
         """Accept one heartbeat. Returns False (and drops it) if it is malformed."""
@@ -135,7 +138,30 @@ class NodeRegistry:
                 listen(hb)
             except Exception:  # noqa: BLE001 - a feature's bookkeeping never costs a heartbeat
                 log.exception("heartbeat listener failed")
+        self._changed()
         return True
+
+    def _changed(self) -> None:
+        for listen in list(self.change_listeners):
+            try:
+                listen()
+            except Exception:  # noqa: BLE001 - a waking stream never costs a heartbeat
+                log.exception("node change listener failed")
+
+    def next_change_in(self) -> float | None:
+        """Seconds until the soonest time a node's status or presence changes by itself (age alone),
+        or None when none will. A departed node is already offline in both. The event stream sleeps
+        for this long, so a missed heartbeat shows at once without polling."""
+        now = self.clock()
+        soonest: float | None = None
+        with self._lock:
+            seen = [s for n, (_, s) in self._nodes.items() if n not in self._departed]
+        for s in seen:
+            age = (now - s).total_seconds()
+            left = [t - age for t in (PRESENCE_LOST_S, STALE_AFTER_S, OFFLINE_AFTER_S) if t >= age]
+            if left and (soonest is None or min(left) < soonest):
+                soonest = min(left)
+        return soonest
 
     def _depart(self, subject: str, node_id: str, msg: dict) -> bool:
         """Accept one departure: exactly the three fields, for a node already known, else dropped."""
@@ -149,6 +175,7 @@ class NodeRegistry:
                 return False  # never heard of it: nothing to take offline, and no new entry
             self._departed.setdefault(node_id, now)
         log.info("node %s departed (clean shutdown)", node_id)
+        self._changed()
         return True
 
     def _view(self, hb: dict, seen: datetime, departed: datetime | None, now: datetime) -> dict:

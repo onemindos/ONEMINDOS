@@ -22,7 +22,7 @@ from conftest import ADULT, AGENT, GUEST, OWNER
 from onemind_core import fanout, jetstream
 from onemind_core.audit import AuditLog
 from onemind_core.auth import Principal
-from onemind_core.eventstream import NODE_POLL_S, EventStream, asset_event, may_read_assets
+from onemind_core.eventstream import EventStream, asset_event, may_read_assets
 from onemind_core.fanout import AssetState, AssetValue, AssetView, Subscriber, asset_key, parse_bbox, parse_kinds
 
 REPO = Path(__file__).resolve().parents[2]
@@ -88,8 +88,7 @@ def test_fifty_streams_share_one_reader_idle_costs_nothing_and_p95_under_250ms(t
         reads, before = es.pump.reads, sum(checks)
         await asyncio.sleep(1.0)                                 # idle: nothing written
         assert es.pump.reads == reads                            # no stream read the file
-        # each wakes only for the in-memory node check (#608), at most every NODE_POLL_S (+1 for the edge)
-        assert sum(checks) - before <= 50 * (int(1.0 / NODE_POLL_S) + 1)
+        assert sum(checks) - before <= 50                        # each woke at most once (2 s idle sleep)
         sent: dict[int, float] = {}
         for _ in range(20):
             t0 = time.perf_counter()
