@@ -1,0 +1,5 @@
+---
+pr: pending
+branch: claude/sockets-e3-sysext
+---
+Adds plugin socket E3, host extensions (issue 186): `onemind ext stage IMAGE.raw [--confext]`, `onemind ext list` and `onemind ext remove NAME`, run as root on the box. Stage copies the image into a quarantine folder on /data and installs it into /var/lib/extensions or /var/lib/confexts only when it is a raw verity-signed disk image (directories and links are refused), its PKCS#7 root-hash signature checks out against the OneMind key set in the read-only image (/usr/lib/verity.d), the signed root hash matches the image partitions, and its extension-release ID and SYSEXT_LEVEL (CONFEXT_LEVEL) equal the host's. Every systemd-sysext or systemd-confext refresh runs with the signed-only image policy. Remove deletes the image and refreshes, so nothing it added stays in /usr or /etc. Tests refuse unsigned, wrong-key, tampered, wrong-level, other-OS, other-architecture and directory images, check the signature parser against real OpenSSL output and the partition reader against a table written by sfdisk.
