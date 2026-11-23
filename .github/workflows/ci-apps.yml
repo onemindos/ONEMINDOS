@@ -67,10 +67,15 @@ jobs:
         with:
           go-version-file: go.mod
 
+      # cmd/onemind imports sdk/go, whose generated types are not committed (CI-16).
+      - name: Generate the Go SDK code from the committed spec
+        uses: ./.github/actions/sdk-gen
+        with:
+          langs: go
+
       - name: Build the box plugin validator
         run: |
           mkdir -p "$RUNNER_TEMP/bin"
-          make -C sdk gen-go
           go build -trimpath -buildvcs=false -o "$RUNNER_TEMP/bin/onemind" ./cmd/onemind
           echo "ONEMIND_PLUGIN_VALIDATOR=$RUNNER_TEMP/bin/onemind" >> "$GITHUB_ENV"
 
@@ -203,10 +208,15 @@ jobs:
         with:
           go-version-file: go.mod
 
+      # cmd/onemind imports sdk/go, whose generated types are not committed (CI-16).
+      - name: Generate the Go SDK code from the committed spec
+        uses: ./.github/actions/sdk-gen
+        with:
+          langs: go
+
       - name: Build the box plugin validator
         run: |
           mkdir -p "$RUNNER_TEMP/bin"
-          make -C sdk gen-go
           go build -trimpath -buildvcs=false -o "$RUNNER_TEMP/bin/onemind" ./cmd/onemind
           echo "ONEMIND_PLUGIN_VALIDATOR=$RUNNER_TEMP/bin/onemind" >> "$GITHUB_ENV"
 
