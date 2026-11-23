@@ -2267,6 +2267,52 @@
         "title": "CheckOut",
         "type": "object"
       },
+      "ChunkRef": {
+        "additionalProperties": false,
+        "properties": {
+          "hash": {
+            "maxLength": 64,
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Hash",
+            "type": "string"
+          },
+          "size": {
+            "maximum": 262144.0,
+            "minimum": 1.0,
+            "title": "Size",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "hash",
+          "size"
+        ],
+        "title": "ChunkRef",
+        "type": "object"
+      },
+      "ChunkStored": {
+        "properties": {
+          "hash": {
+            "title": "Hash",
+            "type": "string"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          },
+          "stored": {
+            "title": "Stored",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "hash",
+          "size",
+          "stored"
+        ],
+        "title": "ChunkStored",
+        "type": "object"
+      },
       "CodeBody": {
         "properties": {
           "code": {
@@ -2279,6 +2325,87 @@
           "code"
         ],
         "title": "CodeBody",
+        "type": "object"
+      },
+      "CommitBody": {
+        "additionalProperties": false,
+        "properties": {
+          "base_revision": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Revision"
+          },
+          "chunks": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ChunkRef"
+                },
+                "maxItems": 200000,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chunks"
+          },
+          "manifest_chunks": {
+            "anyOf": [
+              {
+                "items": {
+                  "maxLength": 64,
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                },
+                "maxItems": 3000,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Manifest Chunks"
+          },
+          "path": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Path",
+            "type": "string"
+          },
+          "root": {
+            "maxLength": 205,
+            "pattern": "^(?:shared|home:[ -~]{1,200})$",
+            "title": "Root",
+            "type": "string"
+          },
+          "sha256": {
+            "maxLength": 64,
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sha256",
+            "type": "string"
+          },
+          "size": {
+            "maximum": 1000000000000000.0,
+            "minimum": 0.0,
+            "title": "Size",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "root",
+          "path",
+          "size",
+          "sha256"
+        ],
+        "title": "CommitBody",
         "type": "object"
       },
       "ComposeBody": {
@@ -4702,6 +4829,49 @@
         "title": "MeshSettingsBody",
         "type": "object"
       },
+      "MissingChunks": {
+        "properties": {
+          "missing": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Missing",
+            "type": "array"
+          }
+        },
+        "required": [
+          "missing"
+        ],
+        "title": "MissingChunks",
+        "type": "object"
+      },
+      "MissingQuestion": {
+        "additionalProperties": false,
+        "properties": {
+          "hashes": {
+            "items": {
+              "maxLength": 64,
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            "maxItems": 3000,
+            "title": "Hashes",
+            "type": "array"
+          },
+          "root": {
+            "maxLength": 205,
+            "pattern": "^(?:shared|home:[ -~]{1,200})$",
+            "title": "Root",
+            "type": "string"
+          }
+        },
+        "required": [
+          "root",
+          "hashes"
+        ],
+        "title": "MissingQuestion",
+        "type": "object"
+      },
       "MkdirOp": {
         "additionalProperties": false,
         "properties": {
@@ -5369,6 +5539,18 @@
             ],
             "description": "hardware profile (#618); absent from older agents"
           },
+          "departed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "RFC 3339 time the node announced a clean shutdown; null while it is running or after it came back",
+            "title": "Departed At"
+          },
           "hostname": {
             "anyOf": [
               {
@@ -5408,6 +5590,19 @@
                 "type": "null"
               }
             ]
+          },
+          "presence": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "online | offline: the fast view for live screens (#608). Offline once a heartbeat is clearly missed (14 s) or at once after a clean shutdown. Absent from older gateways",
+            "title": "Presence",
+            "x-onemind-open-enum": true
           },
           "role": {
             "anyOf": [
@@ -6280,6 +6475,29 @@
         "title": "NotificationActionIn",
         "type": "object"
       },
+      "NotificationSeverityCounts": {
+        "properties": {
+          "critical": {
+            "title": "Critical",
+            "type": "integer"
+          },
+          "info": {
+            "title": "Info",
+            "type": "integer"
+          },
+          "warning": {
+            "title": "Warning",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "info",
+          "warning",
+          "critical"
+        ],
+        "title": "NotificationSeverityCounts",
+        "type": "object"
+      },
       "NotificationSource": {
         "description": "One notification source (notify/topics.py): a built-in app (app:<id>) or a plugin or agent (plugin:<id>).",
         "properties": {
@@ -6415,6 +6633,53 @@
           "topic"
         ],
         "title": "NotificationSourceTopic",
+        "type": "object"
+      },
+      "NotificationSummary": {
+        "description": "GET /v1/notifications/summary: the caller's unread state, kept on the hub (#682).",
+        "properties": {
+          "by_severity": {
+            "$ref": "#/components/schemas/NotificationSeverityCounts"
+          },
+          "last_read_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "latest read on any device; moves when one is read",
+            "format": "date-time",
+            "title": "Last Read At"
+          },
+          "latest_created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "newest item; moves when one arrives",
+            "format": "date-time",
+            "title": "Latest Created At"
+          },
+          "unread": {
+            "description": "unread items in the caller's inbox",
+            "title": "Unread",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "unread",
+          "by_severity",
+          "latest_created_at",
+          "last_read_at"
+        ],
+        "title": "NotificationSummary",
         "type": "object"
       },
       "OnboardingKit": {
@@ -10644,6 +10909,149 @@
           "has_more"
         ],
         "title": "SyncChanges",
+        "type": "object"
+      },
+      "SyncCommitted": {
+        "properties": {
+          "hash": {
+            "title": "Hash",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "root": {
+            "title": "Root",
+            "type": "string"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          },
+          "version_id": {
+            "title": "Version Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "root",
+          "path",
+          "id",
+          "revision",
+          "size",
+          "hash",
+          "version_id"
+        ],
+        "title": "SyncCommitted",
+        "type": "object"
+      },
+      "SyncVersion": {
+        "properties": {
+          "chunks": {
+            "title": "Chunks",
+            "type": "integer"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "created_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By"
+          },
+          "current": {
+            "title": "Current",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "origin": {
+            "enum": [
+              "sync",
+              "hub"
+            ],
+            "title": "Origin",
+            "type": "string"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "sha256": {
+            "title": "Sha256",
+            "type": "string"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "revision",
+          "size",
+          "sha256",
+          "chunks",
+          "origin",
+          "created_by",
+          "created_at",
+          "current"
+        ],
+        "title": "SyncVersion",
+        "type": "object"
+      },
+      "SyncVersions": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "root": {
+            "title": "Root",
+            "type": "string"
+          },
+          "versions": {
+            "items": {
+              "$ref": "#/components/schemas/SyncVersion"
+            },
+            "title": "Versions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "root",
+          "path",
+          "id",
+          "revision",
+          "versions"
+        ],
+        "title": "SyncVersions",
         "type": "object"
       },
       "SystemActionRequest": {
@@ -27042,6 +27450,48 @@
         ]
       }
     },
+    "/v1/notifications/summary": {
+      "get": {
+        "description": "One call for a badge: every client reads it again on a notification.* stream event.",
+        "operationId": "notifications.summary",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationSummary"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "summary": "Summary",
+        "tags": [
+          "notifications"
+        ]
+      }
+    },
     "/v1/notifications/{notification_id}": {
       "get": {
         "operationId": "notifications.get",
@@ -31494,6 +31944,437 @@
           }
         },
         "summary": "What changed in a root since a cursor",
+        "tags": [
+          "sync"
+        ]
+      }
+    },
+    "/v1/sync/chunks/missing": {
+      "post": {
+        "description": "Ask before sending, and again after an interruption: only the missing chunks need sending. Needs write access to the whole root (an agent: a read-write grant on \"/\"). Chunks named here stay on the hub for a day even if no version uses them yet.",
+        "operationId": "sync.chunks.missing",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MissingQuestion"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MissingChunks"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not allowed for this principal (permission_denied)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Invalid root, path or body (conflict, reason invalid_path / invalid_root ...)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: the files storage is not usable"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "*"
+            ]
+          }
+        ],
+        "summary": "Which chunks the root does not hold yet",
+        "tags": [
+          "sync"
+        ]
+      }
+    },
+    "/v1/sync/chunks/{chunk_hash}": {
+      "put": {
+        "description": "The raw bytes (1 to 262144). 422 (hash_mismatch): they do not hash to the name. Sending a chunk the root already holds is harmless.",
+        "operationId": "sync.chunks.put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "chunk_hash",
+            "required": true,
+            "schema": {
+              "maxLength": 64,
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Chunk Hash",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "root",
+            "required": true,
+            "schema": {
+              "maxLength": 205,
+              "pattern": "^(?:shared|home:[ -~]{1,200})$",
+              "title": "Root",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChunkStored"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not allowed for this principal (permission_denied)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "payload_too_large: quota_exceeded, insufficient_space, upload_too_large or chunk_too_large"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Invalid root, path or body (conflict, reason invalid_path / invalid_root ...)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: the files storage is not usable"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "*"
+            ]
+          }
+        ],
+        "summary": "Send one chunk",
+        "tags": [
+          "sync"
+        ]
+      }
+    },
+    "/v1/sync/commit": {
+      "post": {
+        "description": "409 (chunks_missing): details list the chunks to send first. 412 (stale_base): another device changed the file; details carry its revision. 413 (quota_exceeded). The replaced content stays as a version.",
+        "operationId": "sync.commit",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "if-match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 40,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommitBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncCommitted"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not allowed for this principal (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such file, folder, request or upload (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "conflict, stale_precondition or expired; `reason` says which case"
+          },
+          "412": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition (stale_base): the file is not at base_revision; details[0] carries current_revision and current_hash, ETag the revision"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "payload_too_large: quota_exceeded, insufficient_space, upload_too_large or chunk_too_large"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Invalid root, path or body (conflict, reason invalid_path / invalid_root ...)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: the files storage is not usable"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "*"
+            ]
+          }
+        ],
+        "summary": "Make a file from chunks, if it is still at the base revision",
+        "tags": [
+          "sync"
+        ]
+      }
+    },
+    "/v1/sync/versions": {
+      "get": {
+        "operationId": "sync.versions.list",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "root",
+            "required": true,
+            "schema": {
+              "maxLength": 205,
+              "pattern": "^(?:shared|home:[ -~]{1,200})$",
+              "title": "Root",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "path",
+            "required": true,
+            "schema": {
+              "maxLength": 4096,
+              "title": "Path",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncVersions"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not allowed for this principal (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such file, folder, request or upload (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Invalid root, path or body (conflict, reason invalid_path / invalid_root ...)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: the files storage is not usable"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "*"
+            ]
+          }
+        ],
+        "summary": "The kept versions of a file",
         "tags": [
           "sync"
         ]

@@ -25,7 +25,9 @@ Type=simple
 User=onemind
 Group=onemind
 EnvironmentFile=/data/onemind/etc/gateway.env
-Environment=HOME=/data/onemind/gateway PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
+# MALLOC_ARENA_MAX=2: at most two glibc malloc arenas (private heaps) instead of one per allocating thread;
+# keeps the idle gateway under its 100 MiB budget (test/perf/budget.json, issue #849). Same in deploy/systemd.
+Environment=HOME=/data/onemind/gateway PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 MALLOC_ARENA_MAX=2
 WorkingDirectory=/data/onemind/gateway
 # The files root (ONEMIND_FILES_ROOT) must exist before this unit starts: systemd sets up the namespace for
 # ReadWritePaths= below before any ExecStartPre= (even "+"), and a missing path fails it with 226/NAMESPACE.

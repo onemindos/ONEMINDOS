@@ -124,6 +124,12 @@ export interface ChannelInfo {
   created_at: string;
   updated_at: string;
 }
+export interface ChannelTestResult {
+  delivered: boolean;
+  latency_ms: number;
+  error?: string | null;
+  receipt?: { status: number; provider_id: string | null };
+}
 export interface ChannelInput {
   kind: string;
   label: string;
@@ -219,7 +225,7 @@ export interface WiringApi {
   channels(): Promise<ChannelInfo[]>;
   createChannel(body: ChannelInput): Promise<ChannelInfo>;
   deleteChannel(id: string): Promise<void>;
-  testChannel(id: string): Promise<{ ok?: boolean; error?: string | null }>;
+  testChannel(id: string): Promise<ChannelTestResult>;
   // monitoring
   monitoring(): Promise<MonitoringSummary>;
   alerts(state?: string): Promise<AlertInfo[]>;

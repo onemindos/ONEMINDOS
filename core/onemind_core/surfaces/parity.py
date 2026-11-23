@@ -22,6 +22,7 @@ from starlette.routing import Route, WebSocketRoute
 OVERSIGHT = "oversight"
 CREDENTIAL = "credential"
 PERSON = "person"
+SITE_MAP = "site-map"
 BYTES = "bytes"
 DOOR = "door"
 WRITE = "write"
@@ -32,10 +33,11 @@ REASONS: dict[str, str] = {
     CREDENTIAL: "Sign-in, sessions, tokens, passkeys, keys, secrets, join tickets and device trust never pass "
                 "through an agent.",
     PERSON: "The signed-in person's own record (profile, Home, inbox, windows); an agent has no such record.",
+    SITE_MAP: "Shared site map configuration and surveyed anchors have no agent tool.",
     BYTES: "File bytes, uploads, event streams, consoles, Prometheus text or the restic repository protocol, "
            "not a JSON tool result.",
     DOOR: "A door of its own (the MCP endpoint, installed-app tool calls, sign-in page, health probe, OpenAPI "
-          "document, surface registry, sync feed, dashboard files); a tool over it adds nothing.",
+          "document, surface registry, sync feed and file transfer, dashboard files); a tool over it adds nothing.",
     WRITE: "Changes the box directly. An agent never writes: it files a request (request_action or a "
            "request_<type> tool) that a person approves.",
 }
@@ -161,6 +163,7 @@ HUMAN_ONLY: dict[str, str] = {
     "GET /v1/me/home": PERSON,
     "PUT /v1/me/home": PERSON,
     "GET /v1/notifications": PERSON,
+    "GET /v1/notifications/summary": PERSON,
     "GET /v1/notifications/preferences": PERSON,
     "PUT /v1/notifications/preferences": PERSON,
     "POST /v1/notifications/read-all": PERSON,
@@ -175,6 +178,8 @@ HUMAN_ONLY: dict[str, str] = {
     "GET /v1/tips/whats-new": PERSON,
     "GET /v1/tips/{tip_id}": PERSON,
     "POST /v1/tips/{tip_id}/state": PERSON,
+    # ---- shared map configuration
+    "GET /v1/sites": SITE_MAP,
     # ---- bytes: files, uploads, streams and repository protocols
     "GET /v1/backups/snapshots/{snapshot_id}/file": BYTES,
     "GET /v1/events": BYTES,
@@ -203,6 +208,7 @@ HUMAN_ONLY: dict[str, str] = {
     "GET /v1/photos/assets/{asset_id}/content": BYTES,
     "POST /v1/photos/uploads": BYTES,
     "PATCH /v1/photos/uploads/{upload_id}": BYTES,
+    "PUT /v1/sync/chunks/{chunk_hash}": BYTES,
     # ---- door: routes that are doors of their own
     "GET /healthz": DOOR,
     "DELETE /mcp": DOOR,
@@ -214,6 +220,9 @@ HUMAN_ONLY: dict[str, str] = {
     "GET /v1/protocol": DOOR,
     "GET /v1/surfaces": DOOR,
     "GET /v1/sync/changes": DOOR,
+    "POST /v1/sync/chunks/missing": DOOR,
+    "POST /v1/sync/commit": DOOR,
+    "GET /v1/sync/versions": DOOR,
     "GET /{full_path:path}": DOOR,
     # ---- write: direct changes; agents file requests instead
     "POST /v1/alerts/{alert_id}/ack": WRITE,
@@ -273,6 +282,7 @@ HUMAN_ONLY: dict[str, str] = {
     "POST /v1/plugins/{plugin_id}/settings": WRITE,
     "POST /v1/restores": WRITE,
     "POST /v1/shares/smb/{share_id}/stop": WRITE,
+    "POST /v1/sites": WRITE,
     "POST /v1/storage/actions": WRITE,
     "POST /v1/storage/plans": WRITE,
     "POST /v1/system/actions": WRITE,

@@ -208,3 +208,10 @@ test('the Files button names the file manager of this computer (#722)', () => {
   assert.equal(filesLabel('Linux x86_64').text, 'Open in Files');
   assert.equal(filesLabel(undefined).text, 'Open in Files');
 });
+
+test('join errors (issue #717)', () => {
+  assert.match(errorText('ca_mismatch'), /Nothing was sent/);
+  assert.match(errorText('ca_pin_missing'), /fingerprint/);
+  assert.match(errorText('join_link_not_desktop'), /another kind of device/);
+  assert.match(errorText('join_link_hub'), /not a OneMind join link/);
+});
