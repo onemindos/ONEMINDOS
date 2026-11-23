@@ -1,0 +1,5 @@
+---
+pr: pending
+branch: claude/roots-frigate-nvr
+---
+Adds Frigate NVR 0.18.3 to the Market (MKT-NVR-01, #245): the camera recorder for the video wall. Licence checked first: Frigate core is MIT; only upstream's standard image is used (pinned by digest, amd64 and arm64), with no Frigate+ key and no hardware-specific image, and a neutral icon because the Frigate logo is a trademark outside the MIT licence. Recordings stay on the box: video sits on a box-local 100 GiB volume that every backup leaves out, only the signed-in UI port 8971 is exposed, and the seeded config turns off the GitHub version check, MQTT and model downloads. Retention is set before the first camera (motion 7 days, alerts and detections 14 days, no continuous video). Detection runs on the CPU; a box with an NVIDIA card gets the same scanned image with hardware video decoding. The app still needs a reviewed sandbox row (baseline plus four capabilities s6-overlay needs, proven by running the image) and a LAN egress field in the app schema before it can record a LAN camera; both are follow-ups.
