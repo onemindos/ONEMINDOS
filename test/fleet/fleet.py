@@ -111,9 +111,9 @@ class Fleet:
                  f"UNIX-CONNECT:/var/run/qemu-server/{vmid}.serial0 OPEN:{CON}/{vmid}.log,creat,append "
                  f">/dev/null 2>&1 &)")
 
-    def console(self, vmid, pattern=r"cloud-init|network|eth0|FIRSTBOOT|HEALTH-GATE|FLEET-BAD|panic|GRUB-RAUC|Boot failed|bootable"):
-        rc, out = self.pve(f"grep -aE {shlex.quote(pattern)} {CON}/{vmid}.log 2>/dev/null | tail -6")
-        return out
+    def console(self, vmid, pattern=r"Failed to start|rauc.service|cloud-init|FIRSTBOOT|HEALTH-GATE|FLEET-BAD|panic|Boot failed"):
+        rc, out = self.pve(f"tr -d '\\r' < {CON}/{vmid}.log 2>/dev/null | grep -aE {shlex.quote(pattern)} | tail -6")
+        return re.sub(r"\x1b\[[0-9;?]*[A-Za-z]|\x1b\][^\x07]*\x07?|[^\x20-\x7e\n]", "", out)
 
     def gate(self, vmid):
         return core.gate_results(self.guest(vmid, "sudo cat /data/onemind/gate.log")[1])
