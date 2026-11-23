@@ -63,6 +63,11 @@ func validateMachine(spec map[string]any) error {
 			return fmt.Errorf("spec/requires: %s and %s say the same thing; keep %s", old, newer, newer)
 		}
 	}
+	// The older optional accelerator is recommends.accelerator in the new shape: with both, the fit code and
+	// the overlay check would each read a different one.
+	if _, both := asMap(spec["recommends"])["accelerator"]; both && asMap(raw["accelerator"])["optional"] == true {
+		return fmt.Errorf("spec: requires.accelerator.optional and recommends.accelerator say the same thing; keep recommends.accelerator")
+	}
 	for _, name := range machineStrengths {
 		seen := map[string]bool{}
 		for _, a := range asList(asMap(spec[name])["arch"]) {

@@ -147,7 +147,8 @@ def vendor_errors(spec: object) -> list[str]:
 
 
 def errors(spec: object) -> list[str]:
-    """The rules the schema cannot say: one spelling per fact, each architecture once, and requires.arch
+    """The rules the schema cannot say: one spelling per fact (an optional requires.accelerator is the older
+    spelling of recommends.accelerator), each architecture once, and requires.arch
     names the same architectures as spec.archs (the images' own list, which the app gate checks)."""
     spec = _dict(spec)
     errs = vendor_errors(spec)
@@ -156,6 +157,11 @@ def errors(spec: object) -> list[str]:
         head, _, tail = new.partition(".")
         if old in raw and head in raw and (not tail or tail in _dict(raw[head])):
             errs.append(f"spec/requires: {old} and {new} say the same thing; keep {new}")
+    if _dict(raw.get("accelerator")).get("optional") is True and "accelerator" in _dict(spec.get("recommends")):
+        # The older optional accelerator is the recommends.accelerator of the new shape: with both, the fit code
+        # (legacy_requires) and the overlay check (overlays) would each read a different one.
+        errs.append("spec: requires.accelerator.optional and recommends.accelerator say the same thing; "
+                    "keep recommends.accelerator")
     for name in STRENGTHS:
         seen: set[str] = set()
         for _, arch in _strings(_dict(spec.get(name)).get("arch")):

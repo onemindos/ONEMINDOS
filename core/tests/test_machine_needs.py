@@ -110,6 +110,27 @@ def test_rules_the_schema_cannot_say():
     assert errors(app({"memoryMb": 1, "arch": ["x86-64-v3", "arm64"]})["spec"]) == []
 
 
+def test_an_optional_accelerator_and_a_recommended_one_are_refused():
+    """S-5: requires.accelerator {optional} is the older spelling of recommends.accelerator. With both, overlays()
+    (what validate-apps renders and checks) kept only B while the fit code (legacy_requires, gpufit) used A."""
+    both = app({"memoryMb": 1, "accelerator": {"capability": "gpu-compute", "optional": True, "overlay": "manifests-a"}},
+               recommends={"accelerator": {"capability": "gpu-compute", "overlay": "manifests-b"}})
+    assert errors(both["spec"]) == ["spec: requires.accelerator.optional and recommends.accelerator say the same "
+                                    "thing; keep recommends.accelerator"]
+    # The real catalog check (what validate-apps and the gateway run) refuses it on a repo app too.
+    real = copy.deepcopy(repo_apps()[0])
+    real["spec"]["requires"]["accelerator"] = {"capability": "gpu-compute", "optional": True, "overlay": "manifests-a"}
+    real["spec"]["recommends"] = {"accelerator": {"capability": "gpu-compute", "overlay": "manifests-b"}}
+    assert any("requires.accelerator.optional and recommends.accelerator" in e
+               for e in Catalog(REPO / "apps", SCHEMA).check_manifest(real))
+    # Either spelling alone is fine, and a required (not optional) accelerator may sit next to a recommended one.
+    del both["spec"]["recommends"]
+    assert errors(both["spec"]) == []
+    required = app({"memoryMb": 1, "accelerator": {"capability": "gpu-compute"}},
+                   recommends={"accelerator": {"capability": "npu"}})
+    assert errors(required["spec"]) == []
+
+
 @pytest.fixture
 def sim_client(settings, clock, executor):
     add_app(settings, clock, "sim", requires={"memoryMb": 64, "accelerator": {"capability": "gpu-compute", "rtCores": True}},

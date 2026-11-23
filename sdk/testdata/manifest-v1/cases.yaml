@@ -91,6 +91,11 @@ invalid:
       - op: set
         path: /spec/requires
         value: {gpu: true, minMemoryMb: 128, gpuCount: 2, accelerator: {capability: gpu-compute, count: 2}}
+  - name: an optional accelerator in requires and a recommended one
+    expect: requires.accelerator.optional and recommends.accelerator say the same thing
+    ops:
+      - {op: set, path: /spec/requires/accelerator, value: {capability: gpu-compute, optional: true, overlay: manifests-a}}
+      - {op: set, path: /spec/recommends/accelerator, value: {capability: gpu-compute, overlay: manifests-b}}
   - name: an architecture named twice
     expect: amd64 is named twice
     ops: [{op: set, path: /spec/requires/arch, value: [amd64, x86-64-v3, arm64]}]
