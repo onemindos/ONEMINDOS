@@ -6,7 +6,7 @@ from datetime import date
 from typing import Annotated
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import ConfigDict, Field, field_validator, model_validator
 from sqlalchemy import JSON, String
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -14,6 +14,7 @@ from .context import Gateway
 from .errors import ApiError
 from .identity import ctx_of
 from .identity.models import IdentityRepository
+from .jsonbody import JsonBody
 from .ledger import Base
 from .store import FeatureSchema
 
@@ -22,14 +23,17 @@ AppId = Annotated[str, Field(pattern=r"^[a-z0-9][a-z0-9-]{0,62}$")]
 Tag = Annotated[str, Field(min_length=1, max_length=64)]
 # Roles that carry per-person limits and a birth date (age assurance, California AB 1043 from 2027).
 AGE_ASSURED_ROLES = ("child", "teen")
+# Starting age-rating limits (founder decision 2026-11-21: teens get a looser default than children).
+# Only a first profile: the owner can edit or clear it, and an existing profile is never overwritten.
+ROLE_PRESETS: dict[str, int] = {"child": 12, "teen": 16}
 
 
-class Window(BaseModel):
+class Window(JsonBody):
     model_config = ConfigDict(extra="forbid")
-    # strict=True on every int and bool here: lax mode turned JSON false into 0 and true into 1 (found by api-fuzz).
-    days: list[Annotated[int, Field(strict=True, ge=0, le=6)]] = Field(min_length=1, max_length=7, description="Monday=0; start day for overnight windows")
-    start_minute: int = Field(strict=True, ge=0, le=1439)
-    end_minute: int = Field(strict=True, ge=0, le=1440, description="Exclusive end; less than start means overnight")
+    # JsonBody: JSON false is not day 0 and 3.0 is day 3 (api-fuzz; strict=True wrongly refused 3.0).
+    days: list[Annotated[int, Field(ge=0, le=6)]] = Field(min_length=1, max_length=7, description="Monday=0; start day for overnight windows")
+    start_minute: int = Field(ge=0, le=1439)
+    end_minute: int = Field(ge=0, le=1440, description="Exclusive end; less than start means overnight")
 
     @model_validator(mode="after")
     def nonempty(self):
@@ -38,11 +42,11 @@ class Window(BaseModel):
         return self
 
 
-class FamilyProfile(BaseModel):
+class FamilyProfile(JsonBody):
     model_config = ConfigDict(extra="forbid")
     birth_date: date | None = Field(default=None, description="Private child or teen profile data; never included in audit events")
     allowed_apps: list[AppId] | None = Field(default=None, max_length=500, description="Null inherits sharing; empty denies all apps; never grants access")
-    max_age_rating: int | None = Field(default=None, strict=True, ge=0, le=21, description="Maximum app minimum-age rating; unclassified apps are blocked when set")
+    max_age_rating: int | None = Field(default=None, ge=0, le=21, description="Maximum app minimum-age rating; unclassified apps are blocked when set")
     blocked_tags: list[Tag] = Field(default_factory=list, max_length=100)
     timezone: str = Field(default="UTC", max_length=100)
     windows: list[Window] | None = Field(default=None, max_length=50, description="Null allows all times; empty denies all times; evaluated in timezone")
@@ -57,9 +61,9 @@ class FamilyProfile(BaseModel):
         return value
 
 
-class AppClassification(BaseModel):
+class AppClassification(JsonBody):
     model_config = ConfigDict(extra="forbid")
-    min_age: int | None = Field(default=None, strict=True, ge=0, le=21)  # strict: JSON false is not age 0 (api-fuzz)
+    min_age: int | None = Field(default=None, ge=0, le=21)  # JsonBody: false is not age 0
     tags: list[Tag] = Field(default_factory=list, max_length=100)
 
 
@@ -79,6 +83,19 @@ class FamilyService:
     def __init__(self, gw: Gateway, identity):
         self.gw, self.identity = gw, identity
         self.repo = IdentityRepository(gw.db)
+        identity.role_hooks.append(self.apply_preset)
+
+    def apply_preset(self, user_id, role, p):
+        """Give a new child or teen the default age rating, unless a profile already exists."""
+        rating = ROLE_PRESETS.get(role)
+        if rating is None:
+            return
+        with self.repo.db.session.begin() as s:
+            if s.get(ProfileRow, user_id) is not None:
+                return
+            s.add(ProfileRow(user_id=user_id, policy=FamilyProfile(max_age_rating=rating).model_dump(mode="json")))
+        # No birth date or other profile data in the event, only the preset itself.
+        self.identity.emit("family", "profile.preset_applied", {"user_id": user_id, "role": role, "max_age_rating": rating}, p)
 
     def target(self, p, user_id):
         self.identity._owner_only(p, "manage family controls")
@@ -129,6 +146,16 @@ class FamilyService:
             else:
                 row.policy = data
 
+    def catalog_age_rating(self, app_id):
+        """The proposed minimum age in the app's manifest (metadata.age_rating), or None when it has none.
+
+        It is only the default: an owner's own min_age for the app (PUT /v1/family/apps/{id}) wins.
+        An app with neither stays hidden under a rating limit.
+        """
+        entry = self.gw.catalog.get(app_id)
+        rating = ((entry.manifest.get("metadata") or {}).get("age_rating") if entry else None)
+        return rating if isinstance(rating, int) and not isinstance(rating, bool) else None
+
     def app_filter(self, request, p, app_id):
         # An owned agent token must not bypass its person's sharing or family restrictions.
         ctx = ctx_of(request)
@@ -152,8 +179,10 @@ class FamilyService:
             return False
         classification = self.repo.get(ClassificationRow, app_id)
         labels = AppClassification.model_validate(classification.policy) if classification else AppClassification()
-        if policy.max_age_rating is not None and (labels.min_age is None or labels.min_age > policy.max_age_rating):
-            return False
+        if policy.max_age_rating is not None:
+            min_age = labels.min_age if labels.min_age is not None else self.catalog_age_rating(app_id)
+            if min_age is None or min_age > policy.max_age_rating:
+                return False
         if {t.casefold() for t in policy.blocked_tags} & {t.casefold() for t in labels.tags}:
             return False
         if policy.windows is None:

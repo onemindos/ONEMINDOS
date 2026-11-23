@@ -12,8 +12,11 @@ metadata:
   # docs/design/TAXONOMY.md §1 has no browsers category and the sixteen slugs are locked, so this is Developer / vm-desktop
   # (the slot that candidates.csv gives Firefox); the Market's Browsers row is an editorial rail (Market.tsx COLLECTIONS).
   category: developer
+  age_rating: 18   # proposed minimum age (apps/README.md rubric); the owner can override per app
+  age_reason: "Unfiltered web browser: opens any site, adult and social ones included, and keeps saved logins."
   icon: icon.svg
   license: "Apache-2.0"
+  licenceClass: L1
   source: https://github.com/m1k1o/neko
   links:
     docs: "https://neko.m1k1o.net/"

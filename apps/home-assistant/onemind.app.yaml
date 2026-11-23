@@ -10,8 +10,11 @@ metadata:
   version: "2026.11.1"
   description: Open source home automation that puts local control and privacy first
   category: home-automation
+  age_rating: 18   # proposed minimum age (apps/README.md rubric); the owner can override per app
+  age_reason: "Controls the home: locks, heating, cameras and automations."
   icon: icon.svg
   license: Apache-2.0
+  licenceClass: L1
   source: https://github.com/home-assistant/core
   # §9.3 facts from the GitHub API (repos/home-assistant/core and its releases/latest), read 2026-11-12.
   links:

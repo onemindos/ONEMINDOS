@@ -1,0 +1,7 @@
+# 2026-11-23T03:15:48Z restored box
++ rss
+VmHWM:	 43980 kB VmRSS:	 43980 kB 
+  (exit 0)
++ du -sh /var/lib/private/kanidmd /var/lib/private/kanidmd/kanidm.db* 2>/dev/null
+1.6M	/var/lib/private/kanidmd
+  (exit 0)

@@ -22,18 +22,16 @@ from pydantic import ValidationError
 
 from .. import __version__
 from ..actions import APP_CLAIMS, ActionParams, ActionRequest
-from ..ai_policy import catalog_visible_to_ai
+from ..ai_policy import actions_for_agent, catalog_visible_to_ai, shown_policy
 from ..auth import Principal
 from ..errors import ApiError
+from ..surfaces.core import AUDIT_MAX, CORE_TOOLS, LIST_ACTIONS_MAX, MAX_REASON, obj
 from .limits import Limits
 from .untrusted import META_KEY, mark
 
 CATALOG_VERSION = "1.1.0"
 REQUEST_TTL = timedelta(hours=24)
-MAX_REASON = 500
 POLL_AFTER_S = 10
-LIST_ACTIONS_MAX = 50
-AUDIT_MAX = 100
 APPS_PAGE = 100
 INVALID_PARAMS = -32602
 
@@ -58,110 +56,21 @@ class Services:
     request: Callable[[Principal, ActionRequest, str | None], tuple[dict, bool]]
     audit_list: Callable[..., tuple[list[dict], bool]]
     clock: Callable[[], datetime]
+    # AIG-04: called as (principal, source) when a result carried third-party text; the gateway then
+    # treats every later request from that agent as tainted (taint.py). None in a bare Services.
+    mark_tainted: Callable[[Principal, str], None] | None = None
+    # Request-only tools built from the descriptors of switched-on built-ins (builtins.py, #603):
+    # tool name -> (action type, title, app name). A switched-off built-in's tools are not here.
+    builtin_actions: Callable[[], dict[str, tuple[str, str, str]]] = lambda: {}
 
 
-# ---- schemas ---------------------------------------------------------------------------------
-def _obj(props: dict | None = None, required: list[str] | None = None) -> dict:
-    s: dict[str, Any] = {"type": "object", "properties": props or {}, "additionalProperties": False}
-    if required:
-        s["required"] = required
-    return s
-
-
-READ = {"readOnlyHint": True, "openWorldHint": False}
-ID = {"type": "string", "minLength": 1, "maxLength": 200}
-LIST_OF = lambda key: {"type": "object", "properties": {key: {"type": "array", "items": {"type": "object"}},  # noqa: E731
-                                                        "next_cursor": {"type": ["string", "null"]}}, "required": [key]}
-ANY_OBJ = {"type": "object"}
-
-TOOLS: list[dict] = [
-    {
-        "name": "get_instance", "title": "About this OneMind",
-        "description": "The box name, gateway version, hub node id and the MCP revisions it speaks. "
-                       "Same data as GET /v1/instance. Read-only.",
-        "inputSchema": _obj(), "outputSchema": ANY_OBJ, "annotations": READ,
-    },
-    {
-        "name": "list_nodes", "title": "List OneMind nodes",
-        "description": "Every machine that has joined this OneMind, with its hardware, OS, k3s state and "
-                       "status (online, stale or offline). Same data as GET /v1/nodes. Read-only.",
-        "inputSchema": _obj(), "outputSchema": LIST_OF("nodes"), "annotations": READ,
-    },
-    {
-        "name": "get_node", "title": "One node",
-        "description": "One machine by node_id. Same data as GET /v1/nodes/{node_id}. Read-only.",
-        "inputSchema": _obj({"node_id": ID}, ["node_id"]), "outputSchema": ANY_OBJ, "annotations": READ,
-    },
-    {
-        "name": "list_apps", "title": "List Market apps",
-        "description": "The app catalog with install status, links, licence, tier and last scan. Same data "
-                       "as GET /v1/apps. Optional filters: category, installed. Read-only.",
-        "inputSchema": _obj({
-            "category": {"type": "string", "maxLength": 80},
-            "installed": {"type": "boolean"},
-            "cursor": {"type": "string", "maxLength": 20},
-        }),
-        "outputSchema": LIST_OF("apps"), "annotations": READ,
-    },
-    {
-        "name": "get_app", "title": "One Market app",
-        "description": "One catalog entry with its links, tier, scan result and requirements. Read-only.",
-        "inputSchema": _obj({"app_id": ID}, ["app_id"]), "outputSchema": ANY_OBJ, "annotations": READ,
-    },
-    {
-        "name": "list_actions", "title": "List my requests",
-        "description": "Actions this agent requested, newest first, with their state "
-                       "(awaiting_approval, accepted, succeeded, cancelled, expired, ...). Read-only.",
-        "inputSchema": _obj({
-            "state": {"type": "string", "maxLength": 40},
-            "type": {"type": "string", "maxLength": 40},
-            "limit": {"type": "integer", "minimum": 1, "maximum": LIST_ACTIONS_MAX},
-        }),
-        "outputSchema": LIST_OF("actions"), "annotations": READ,
-    },
-    {
-        "name": "get_action", "title": "One of my requests",
-        "description": "One action this agent requested, by id: its state, who decided it and the result. "
-                       "Use it to see whether the owner approved a request. Read-only.",
-        "inputSchema": _obj({"action_id": ID}, ["action_id"]), "outputSchema": ANY_OBJ, "annotations": READ,
-    },
-    {
-        "name": "search_audit", "title": "Search my audit records",
-        "description": "Hash-chained audit records about this agent and its requests, oldest first. "
-                       "Filters: event (glob, e.g. action.*), since/until (RFC 3339), after_seq. Read-only.",
-        "inputSchema": _obj({
-            "event": {"type": "string", "maxLength": 200},
-            "since": {"type": "string", "maxLength": 40},
-            "until": {"type": "string", "maxLength": 40},
-            "after_seq": {"type": "integer", "minimum": 0},
-            "limit": {"type": "integer", "minimum": 1, "maximum": AUDIT_MAX},
-        }),
-        "outputSchema": LIST_OF("entries"), "annotations": READ,
-    },
-    {
-        "name": "request_action", "title": "Request an app install or removal",
-        "description": (
-            "Files a request to install, remove, start, stop, restart or update an app. Removing keeps its data. Nothing changes until the owner approves "
-            "it in the OneMind app; you cannot approve it yourself. The request expires after 24 hours. "
-            "Returns the action id and its state (awaiting_approval); check it later with get_action. "
-            "If the same request is already waiting, its id is returned instead of a new one."
-        ),
-        "inputSchema": _obj({
-            "type": {"type": "string", "enum": ["app.install", "app.remove", "app.start", "app.stop", "app.restart", "app.update"]},
-            "app_id": {"type": "string", "minLength": 1, "maxLength": 59},
-            "reason": {"type": "string", "maxLength": MAX_REASON,
-                       "description": "Why you ask; shown to the owner, marked as written by an agent."},
-        }, ["type", "app_id"]),
-        "outputSchema": {
-            "type": "object",
-            "properties": {"action_id": {"type": "string"}, "state": {"type": "string"}},
-            "required": ["action_id", "state"],
-        },
-        "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": False},
-    },
-]
+# ---- the catalogue: generated from the surface registry (surfaces/core.py, #605) -------------------
+_obj = obj
+# Every core tool is declared once in surfaces/core.py with its route, effect, exposure and scope;
+# this list is generated from it. Do not add a tool here: add a ToolSurface there.
+TOOLS: list[dict] = [t.mcp_tool() for t in CORE_TOOLS if "mcp" in t.exposure]
 TOOL_NAMES = [t["name"] for t in TOOLS]
-READ_TOOLS = set(TOOL_NAMES) - {"request_action"}
+READ_TOOLS = {t.name for t in CORE_TOOLS if t.effect == "read" and t.name in TOOL_NAMES}
 
 RESOURCES = [
     {"uri": "onemind://catalog", "name": "catalog", "title": "App catalog",
@@ -254,16 +163,57 @@ class Catalogue:
         self.limits = limits
 
     # ---- tools -----------------------------------------------------------------------------
+    # ---- request-only tools from built-in descriptors (#603) ----------------------------------
+    def builtin_tools(self) -> list[tuple[dict, str]]:
+        """(tool, action type) for every switched-on built-in action declared with mcp: true."""
+        out = []
+        for name, (action_type, title, app_name) in sorted(self.svc.builtin_actions().items()):
+            out.append(({
+                "name": name, "title": f"{app_name}: {title}",
+                "description": (
+                    f"Files a request for {title} ({action_type}) in {app_name}. Nothing changes until "
+                    "the owner approves it in the OneMind app; you cannot approve it yourself. The request "
+                    "expires after 24 hours. Returns the action id and its state (awaiting_approval)."
+                ),
+                "inputSchema": _obj({
+                    "params": {"type": "object", "description": f"The parameters of {action_type}."},
+                    "reason": {"type": "string", "maxLength": MAX_REASON,
+                               "description": "Why you ask; shown to the owner, marked as written by an agent."},
+                }),
+                "outputSchema": {
+                    "type": "object",
+                    "properties": {"action_id": {"type": "string"}, "state": {"type": "string"}},
+                    "required": ["action_id", "state"],
+                },
+                "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False,
+                                "openWorldHint": False},
+            }, action_type))
+        return out
+
+    def builtin_type(self, name: object) -> str | None:
+        found = self.svc.builtin_actions().get(name) if isinstance(name, str) else None
+        return found[0] if found else None
+
     def call(self, p: Principal, name: object, args: object) -> dict:
-        if name not in TOOL_NAMES:
+        builtin = None if name in TOOL_NAMES else self.builtin_type(name)
+        if name not in TOOL_NAMES and builtin is None:
             raise RpcError(INVALID_PARAMS, f"unknown tool {name!r}")
         if not isinstance(args, dict):
             raise RpcError(INVALID_PARAMS, "arguments must be an object")
+        if builtin is not None:
+            return self.t_builtin(p, builtin, args)
         if name in READ_TOOLS:
             wait = self.limits.reads.hit(p.id)
             if wait:
                 return refusal("rate_limited", "too many read calls; slow down", retry_after_s=wait)
-        return getattr(self, f"t_{name}")(p, args)
+        out = getattr(self, f"t_{name}")(p, args)
+        self._taint(p, out, f"mcp:{name}")
+        return out
+
+    def _taint(self, p: Principal, out: dict, source: str) -> None:
+        """An agent that was handed third-party text is tainted, whether or not it obeys it (AIG-04)."""
+        if self.svc.mark_tainted is not None and not out.get("isError") and (out.get("_meta") or {}).get(META_KEY):
+            self.svc.mark_tainted(p, source)
 
     def t_get_instance(self, p, args):
         _args(args, set())
@@ -293,7 +243,8 @@ class Catalogue:
             rows = [a for a in rows if a.get("category") == category]
         if installed is not None:
             rows = [a for a in rows if bool(a.get("installed")) is installed]
-        return rows
+        # aiPolicy shown exactly as GET /v1/apps shows it (models.CatalogApp).
+        return [{**a, "aiPolicy": shown_policy(a)} for a in rows]
 
     def t_list_apps(self, p, args):
         _args(args, {"category", "installed", "cursor"})
@@ -323,15 +274,19 @@ class Catalogue:
         rows = [a for a in self.svc.own_actions(p.id)
                 if (state is None or a["state"] == state) and (type_ is None or a["type"] == type_)]
         rows.sort(key=lambda a: a["created_at"], reverse=True)
-        s = {"actions": rows[:limit]}
+        s = {"actions": self._for_agent(rows[:limit])}
         return result(s, _under("actions", ACTION_FIELDS), _source(s, "actions", "id", "action"))
 
     def _own_action(self, p: Principal, action_id: str) -> dict | None:
+        """The agent's own action, already as the agent may see it (aiPolicy, #165): get_action,
+        onemind://actions/{id} and the tasks extension (tasks/get) all read it through here."""
         try:
             a = self.svc.get_action(action_id)
         except ApiError:
             return None
-        return a if (a.get("requested_by") or {}).get("id") == p.id else None
+        if (a.get("requested_by") or {}).get("id") != p.id:
+            return None
+        return self._for_agent([a])[0]
 
     def t_get_action(self, p, args):
         action_id = _str(_args(args, {"action_id"}), "action_id", True)
@@ -339,6 +294,11 @@ class Catalogue:
         if a is None:  # someone else's action looks exactly like a missing one
             return refusal("not_found", "no such action among your requests")
         return result(a, ACTION_FIELDS, _source(a, "", "id", "action"))
+
+    def _for_agent(self, rows: list[dict]) -> list[dict]:
+        """aiPolicy (#165) before any action leaves: an app's tool output reaches the agent only when
+        the app's catalog policy allows app data to go to an AI. An app outside the catalog has none."""
+        return actions_for_agent(rows, self.svc.list_apps)  # the same call as the agent REST readers
 
     def t_search_audit(self, p, args):
         _args(args, {"event", "since", "until", "after_seq", "limit"})
@@ -372,8 +332,27 @@ class Catalogue:
         except ValidationError as exc:
             problems = "; ".join(f"{'.'.join(str(x) for x in e['loc'])}: {e['msg']}" for e in exc.errors())
             raise RpcError(INVALID_PARAMS, f"invalid arguments: {problems}") from exc
+        return self._file(p, req, reason, lambda a: a["params"].get("app_id") == req.params.app_id)
+
+    def t_builtin(self, p, action_type: str, args: dict):
+        """A built-in's declared action: files the request, exactly like request_action. The feature's
+        own rules (who may request, its params model) decide; only a person ever approves."""
+        _args(args, {"params", "reason"})
+        reason, params = args.get("reason"), args.get("params", {})
+        if reason is not None and (not isinstance(reason, str) or len(reason) > MAX_REASON):
+            raise RpcError(INVALID_PARAMS, f"reason must be a string of at most {MAX_REASON} characters")
+        if not isinstance(params, dict):
+            raise RpcError(INVALID_PARAMS, "params must be an object")
+        try:
+            req = ActionRequest(type=action_type, params=params, idempotency_key=f"mcp-{uuid.uuid4()}",
+                                expires_at=self.svc.clock() + REQUEST_TTL)
+        except ValidationError as exc:
+            raise RpcError(INVALID_PARAMS, f"invalid arguments: {exc.errors()[0]['msg']}") from exc
+        return self._file(p, req, reason, lambda a: a["params"] == params)
+
+    def _file(self, p, req: ActionRequest, reason: str | None, same_params: Callable[[dict], bool]) -> dict:
         pending = [a for a in self.svc.own_actions(p.id) if a["state"] in ("requested", "awaiting_approval")]
-        same = next((a for a in pending if a["type"] == req.type and a["params"].get("app_id") == req.params.app_id), None)
+        same = next((a for a in pending if a["type"] == req.type and same_params(a)), None)
         if same is not None:  # no duplicate approval cards
             return result(self._filed(same) | {"duplicate": True})
         cap = self.limits.settings.pending_max
@@ -431,6 +410,7 @@ class Catalogue:
             raise RpcError(-32002, f"resource not found: {uri}")
         if r["isError"]:
             raise RpcError(-32002, f"resource not found: {uri}")
+        self._taint(p, r, f"mcp:resource:{parts[0]}")
         content = {"uri": uri, "mimeType": "application/json", "text": r["content"][0]["text"]}
         if "_meta" in r:
             content["_meta"] = r["_meta"]

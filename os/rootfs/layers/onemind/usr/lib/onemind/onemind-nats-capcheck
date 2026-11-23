@@ -1,0 +1,6 @@
+#!/bin/sh
+# SPDX-License-Identifier: Apache-2.0
+# onemind-nats-capcheck NATS_CONF: refuse a hub nats.conf that turns JetStream on without a cap (#601).
+# Run by onemind-nats-files before every start and reload of onemind-nats.service. The rules, and why
+# the file is parsed as nats-server parses it instead of grepped, are in onemind_nats_capcheck.py.
+exec /usr/lib/onemind/gateway/venv/bin/python3 -I /usr/lib/onemind/onemind_nats_capcheck.py "$@"

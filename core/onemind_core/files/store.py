@@ -9,6 +9,9 @@ files_requests  action-shaped records for changes that need an owner approval
                 (folder grants, emptying a trash): awaiting_approval -> succeeded | failed |
                 cancelled | expired
 files_grants    approved folder grants to an app or an agent; revoked_at set when removed
+files_shares    expiring share links (FILES-02, #237): only the link secret's and the password's
+                hashes are kept; revoked_at set when the creator, an owner or too many wrong
+                passwords end it
 """
 
 from __future__ import annotations
@@ -17,7 +20,7 @@ import secrets
 import time
 from datetime import datetime
 
-from sqlalchemy import JSON, BigInteger, Boolean, DateTime, Index, String, select, update
+from sqlalchemy import JSON, BigInteger, Boolean, DateTime, Index, Integer, String, select, update
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ..ledger import Base, utc
@@ -121,6 +124,23 @@ class GrantRow(Base):
     approved_by: Mapped[str] = mapped_column(String(200))
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     revoked_by: Mapped[str | None] = mapped_column(String(200), nullable=True)
+
+
+class ShareRow(Base):
+    __tablename__ = "files_shares"
+    id: Mapped[str] = mapped_column(String(40), primary_key=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)  # sha256 of the link secret
+    created_by: Mapped[str] = mapped_column(String(200), index=True)   # the person whose rights it uses
+    name: Mapped[str] = mapped_column(String(120))
+    items: Mapped[list] = mapped_column(JSON)  # [{"kind": "file", "root", "path"} | {"kind": "photo", "hash"}]
+    password_hash: Mapped[str | None] = mapped_column(String(200), nullable=True)  # scrypt, never the password
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    revoked_by: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    failed_attempts: Mapped[int] = mapped_column(Integer, default=0)
+    opened_count: Mapped[int] = mapped_column(Integer, default=0)
+    last_opened_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 def _safe_dir_name(person_id: str) -> str:
@@ -302,6 +322,46 @@ class FilesRepository(SqlRepository):
             )
             return res.first() is not None
 
+    # ---- share links ------------------------------------------------------------------------
+    def add_share(self, row: ShareRow) -> None:
+        with self.db.session.begin() as s:
+            s.add(row)
+
+    def share(self, share_id: str) -> ShareRow | None:
+        with self.db.session() as s:
+            return s.get(ShareRow, share_id)
+
+    def share_by_token(self, token_hash: str) -> ShareRow | None:
+        with self.db.session() as s:
+            return s.scalars(select(ShareRow).where(ShareRow.token_hash == token_hash)).first()
+
+    def shares(self, created_by: str | None = None) -> list[ShareRow]:
+        with self.db.session() as s:
+            q = select(ShareRow)
+            if created_by is not None:
+                q = q.where(ShareRow.created_by == created_by)
+            return list(s.scalars(q.order_by(ShareRow.created_at.desc(), ShareRow.id)))
+
+    def revoke_share(self, share_id: str, by: str, now: datetime) -> bool:
+        with self.db.session.begin() as s:
+            res = s.execute(
+                update(ShareRow).where(ShareRow.id == share_id, ShareRow.revoked_at.is_(None))
+                .values(revoked_at=now, revoked_by=by).returning(ShareRow.id)
+            )
+            return res.first() is not None
+
+    def share_failed(self, share_id: str) -> int:
+        """Count one wrong password; returns the new count."""
+        with self.db.session.begin() as s:
+            s.execute(update(ShareRow).where(ShareRow.id == share_id)
+                      .values(failed_attempts=ShareRow.failed_attempts + 1))
+            return s.get(ShareRow, share_id).failed_attempts
+
+    def share_opened(self, share_id: str, now: datetime) -> None:
+        with self.db.session.begin() as s:
+            s.execute(update(ShareRow).where(ShareRow.id == share_id)
+                      .values(opened_count=ShareRow.opened_count + 1, last_opened_at=now))
+
 
 def aware(dt: datetime | None) -> datetime | None:
     """SQLite returns naive datetimes; treat them as UTC."""
@@ -309,6 +369,6 @@ def aware(dt: datetime | None) -> datetime | None:
 
 
 __all__ = [
-    "SCHEMA", "FilesRepository", "GrantRow", "QuotaRow", "RequestRow", "SpaceRow", "TrashRow", "UploadRow",
+    "SCHEMA", "FilesRepository", "GrantRow", "QuotaRow", "RequestRow", "ShareRow", "SpaceRow", "TrashRow", "UploadRow",
     "aware", "new_id",
 ]

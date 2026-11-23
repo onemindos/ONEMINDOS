@@ -28,6 +28,10 @@ def test_create_app_twice_keeps_route_scope_registry_stable(settings, clock):
     ("GET", "/v1/me/home", None),
     ("HEAD", "/v1/me/home", None),
     ("PUT", "/v1/me/home", None),
+    ("GET", "/v1/me/devices", None),  # #715: self-service, the handler requires a person's own session
+    ("HEAD", "/v1/me/devices", None),
+    ("DELETE", "/v1/me/devices/mdv_0123", None),
+    ("POST", "/v1/me/devices", ("*",)),
     ("GET", "/v1/machines/capabilities", ("nodes:read",)),
     ("HEAD", "/v1/machines/capabilities", ("nodes:read",)),
     ("POST", "/v1/machines/enable", ("machines:admin",)),
@@ -185,3 +189,19 @@ def test_new_routes_must_register_a_scope(settings, clock):
     )
     stale = sorted(FALLBACK_BASELINE - _unregistered(app))
     assert not stale, f"now registered (or gone): delete from FALLBACK_BASELINE: {stale}"
+
+
+_LINK = "oms_" + "A" * 43  # the share-link secret shape (routers/share_links.py TOKEN)
+
+
+@pytest.mark.parametrize(("method", "path", "expected"), [
+    # The share sheet (#612) keeps apps:read although the anonymous share links (#237) register later.
+    ("GET", "/v1/share/types", ("apps:read",)),
+    ("GET", "/v1/share/targets", ("apps:read",)),
+    # Only the link-secret shape takes no principal at all.
+    ("GET", f"/v1/share/{_LINK}", None),
+    ("HEAD", f"/v1/share/{_LINK}/items/0", None),
+])
+def test_share_sheet_keeps_its_scope_beside_anonymous_share_links(settings, clock, method, path, expected):
+    with TestClient(create_app(settings, clock=clock)):  # every router registers its route scopes
+        assert required_scopes(method, path) == expected

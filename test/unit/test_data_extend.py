@@ -148,11 +148,56 @@ class NeverFailsTheBoot(unittest.TestCase):
         self.assertRegex(unit, r"(?m)^ExecStart=-/usr/lib/onemind/data-extend$")
 
 
+class PausesUdevWhileTheTableChanges(unittest.TestCase):
+    """Issue 391: udev must not read the table while it is rewritten. Without the pause, systemd saw the
+    data partition's device names vanish and unmounted /data on about one cloud first boot in fifty."""
+
+    def run_rewrite(self, fail_at=None, udevadm_ok=True):
+        calls = []
+
+        def fake_run(cmd, **kw):
+            calls.append(cmd[0])
+            if cmd[0] == fail_at:
+                raise subprocess.CalledProcessError(1, cmd, "", "boom")
+            return ""
+
+        def fake_subprocess_run(cmd, **kw):
+            calls.append(" ".join(cmd[:3]))
+            return subprocess.CompletedProcess(cmd, 0 if udevadm_ok or cmd[2] != "--stop-exec-queue" else 1)
+
+        old_run, old_sub = de.run, de.subprocess.run
+        de.run, de.subprocess.run = fake_run, fake_subprocess_run
+        try:
+            try:
+                de.rewrite_entry(7, "/dev/vda", "script", "/dev/vda7")
+            except subprocess.CalledProcessError:
+                pass
+        finally:
+            de.run, de.subprocess.run = old_run, old_sub
+        return calls
+
+    def test_queue_is_paused_around_both_table_steps_and_settled_after(self):
+        calls = self.run_rewrite()
+        self.assertEqual(calls, ["udevadm control --stop-exec-queue", "sfdisk", "partx",
+                                 "udevadm control --start-exec-queue", "udevadm settle --timeout=30", "resize2fs"])
+
+    def test_queue_is_started_again_when_a_step_fails(self):
+        for failing in ("sfdisk", "partx"):
+            calls = self.run_rewrite(fail_at=failing)
+            self.assertIn("udevadm control --start-exec-queue", calls, failing)
+            self.assertNotIn("resize2fs", calls, failing)
+
+    def test_no_start_when_the_pause_did_not_happen(self):
+        calls = self.run_rewrite(udevadm_ok=False)
+        self.assertNotIn("udevadm control --start-exec-queue", calls)
+        self.assertIn("resize2fs", calls)
+
+
 class ToolsAreInTheImage(unittest.TestCase):
     """The first CI boot failed because sfdisk was not installed: Debian 13 ships it in `fdisk`, not util-linux.
     Every tool data_extend.py runs must come from a package the image lists."""
     PACKAGE = {"lsblk": "util-linux", "blkid": "util-linux", "blockdev": "util-linux", "partx": "util-linux",
-               "sfdisk": "fdisk", "resize2fs": "e2fsprogs", "df": None}     # None: coreutils, always there
+               "sfdisk": "fdisk", "resize2fs": "e2fsprogs", "udevadm": "udev", "df": None}     # None: coreutils, always there
 
     def test_every_tool_it_runs_is_mapped_to_a_package(self):
         with open(os.path.join(BASE, "onemind", "data_extend.py")) as f:

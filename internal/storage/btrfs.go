@@ -65,6 +65,11 @@ type Mirror struct {
 	Repair       []string  `json:"repair,omitempty"` // what PlanRepair would do: "reconnect", "scrub", "soft-convert"
 	Encrypted    bool      `json:"encrypted"`        // members are dm-crypt (Collector.LUKS)
 	Generation   int       `json:"generation"`       // newest OneMind LUKS2 token generation; 0 = none
+	// AvailableBytes is how much more data a person can still write, as the
+	// filesystem itself measures it (parseUsageFree). nil (JSON null) when it
+	// could not be measured: never computed from the members' sizes, which
+	// count every mirrored byte twice.
+	AvailableBytes *uint64 `json:"available_bytes"`
 }
 
 // NeedsScrubMarker (relative to the mount) records that the set was mounted
@@ -116,6 +121,11 @@ func (c *Collector) MirrorStatus(ctx context.Context, mount string) (*Mirror, er
 		if err := step.parse(out, m); err != nil {
 			return nil, err
 		}
+	}
+	// Free space is extra: a failure leaves it unknown instead of failing
+	// the whole status, so the safety facts above still reach the owner.
+	if out, code, err := c.Run.Run(ctx, "btrfs", "filesystem", "usage", "-b", mount); err == nil && code == 0 {
+		m.AvailableBytes = parseUsageFree(out)
 	}
 	if _, err := statFile(filepath.Join(mount, NeedsScrubMarker)); err == nil {
 		m.NeedsScrub = true
@@ -203,6 +213,49 @@ func parseDF(data []byte, m *Mirror) error {
 		m.Profiles = append(m.Profiles, Profile{Kind: g[1], Profile: strings.ToLower(g[2]), TotalBytes: total, UsedBytes: used})
 	}
 	return nil
+}
+
+var (
+	reFreeEst    = regexp.MustCompile(`(?m)^[ \t]*Free \(estimated\):[ \t]+(\d+)(?:[ \t]|$)`)
+	reFreeStatfs = regexp.MustCompile(`(?m)^[ \t]*Free \(statfs, df\):[ \t]+(\d+)(?:[ \t]|$)`)
+)
+
+// parseUsageFree reads `btrfs filesystem usage -b` and returns the bytes a
+// person can still write, or nil when the output has no free-space figure.
+//
+// btrfs-progs documents both lines it uses (btrfs-filesystem(8), "usage",
+// https://btrfs.readthedocs.io/en/latest/btrfs-filesystem.html):
+//
+//   - "Free (estimated)": "approximate size of the remaining free space
+//     usable for data, including currently allocated space", "estimating the
+//     usage of the unallocated space based on the block group profiles". A
+//     raid1 set (data ratio 2.00) therefore reports half its raw free space.
+//   - "Free (statfs, df)": "the amount of space available for data as
+//     reported by the statfs/statvfs syscall", "calculated in a different way
+//     and may not match the estimate in some cases".
+//
+// The smaller of the two is returned. On a healthy set they agree to within
+// a megabyte; on a set mounted degraded the estimate still counts the
+// unallocated space of the missing disk, which cannot be written, while
+// statfs does not (testdata/degraded-usage.*: 1.71 GB estimated, 0.68 GB by
+// statfs). The "(min: ...)" bound is not used: it assumes all new space goes
+// to a two-copy profile, so a single-disk box would show half its space.
+// Older btrfs-progs without the statfs line fall back to the estimate.
+func parseUsageFree(data []byte) *uint64 {
+	g := reFreeEst.FindSubmatch(data)
+	if g == nil {
+		return nil
+	}
+	free, err := strconv.ParseUint(string(g[1]), 10, 64)
+	if err != nil {
+		return nil
+	}
+	if g := reFreeStatfs.FindSubmatch(data); g != nil {
+		if v, err := strconv.ParseUint(string(g[1]), 10, 64); err == nil && v < free {
+			free = v
+		}
+	}
+	return &free
 }
 
 // parseStats reads `btrfs device stats`: lines "[/dev/x].write_io_errs 0",

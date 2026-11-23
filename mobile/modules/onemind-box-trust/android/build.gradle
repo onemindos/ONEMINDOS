@@ -1,0 +1,22 @@
+// SPDX-License-Identifier: Apache-2.0
+// Android-only Expo module: trust the paired box CA in the app's own HTTPS (issue 716). Autolinked from mobile/modules/.
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'os.onemind'
+version = '0.1.0'
+
+android {
+  namespace "os.onemind.boxtrust"
+  defaultConfig {
+    versionCode 1
+    versionName '0.1.0'
+  }
+}
+
+dependencies {
+  // React Native's networking (OkHttpClientProvider, and OkHttp itself as its api dependency). Nothing new is downloaded.
+  implementation 'com.facebook.react:react-android'
+}

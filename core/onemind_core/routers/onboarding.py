@@ -14,6 +14,7 @@ from ..backups.service import Unavailable
 from ..context import Gateway
 from ..errors import ApiError, error_responses
 from ..identity.scopes import register_route_scope
+from ..jsonbody import JsonBody
 from ..ledger import utc
 from ..onboarding import OnboardingService
 
@@ -54,7 +55,7 @@ class RestoreCandidatesBody(BaseModel):
         return self
 
 
-class RestoreAppBody(BaseModel):
+class RestoreAppBody(JsonBody):
     """Put one app's data back from another box's backup. The app is installed first, then this restores its data."""
     model_config = ConfigDict(extra="forbid")
     destination_id: str = Field(pattern=r"^dst_[0-9a-f]{16}$")

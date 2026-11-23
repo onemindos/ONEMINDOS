@@ -61,9 +61,9 @@ func appsCommands(a *App) []*cobra.Command {
 				if x.Scan != nil {
 					scan = string(x.Scan.Result) + " " + age(x.Scan.ScannedAt, time.Now()) + " ago"
 				}
-				rows = append(rows, []string{x.Id, deref(x.Name), deref(x.Version), dash(deref(x.Category)), tier, scan, x.Status})
+				rows = append(rows, []string{x.Id, deref(x.Name), deref(x.Version), dash(deref(x.Category)), tier, scan, aiPolicyName(x), x.Status})
 			}
-			return table(a.Stdout, "ID\tNAME\tVERSION\tCATEGORY\tTIER\tSCAN\tSTATUS", rows)
+			return table(a.Stdout, "ID\tNAME\tVERSION\tCATEGORY\tTIER\tSCAN\tAI\tSTATUS", rows)
 		},
 	}
 	list.Flags().BoolVar(&installed, "installed", false, "only installed apps")
@@ -100,6 +100,7 @@ func appsCommands(a *App) []*cobra.Command {
 	install := requestCommand(a, onemind.ActionAppInstall, "install APP_ID", "Request an install, then approve it (owners)")
 	remove := requestCommand(a, onemind.ActionAppRemove, "remove APP_ID", "Request a removal, then approve it (owners)")
 	apps.AddCommand(list, info, install, remove)
+	apps.AddCommand(systemAppsCommands(a)...)
 	return []*cobra.Command{apps}
 }
 
@@ -119,13 +120,41 @@ func appFacts(x *onemind.CatalogApp) [][2]string {
 		{"id", x.Id}, {"name", deref(x.Name)}, {"version", deref(x.Version)}, {"category", dash(deref(x.Category))},
 		{"description", deref(x.Description)}, {"licence", dash(deref(x.License))}, {"source", dash(deref(x.Source))},
 		{"archs", strings.Join(x.Archs, ", ")}, {"web", web}, {"tier", tier}, {"scan", scan}, {"status", x.Status},
+		{"ai policy", aiPolicyMeaning(aiPolicyName(*x))},
 	}
+}
+
+// aiPolicyName is the app's aiPolicy (#165) as GET /v1/apps sends it, or "none" when it declares none.
+func aiPolicyName(x onemind.CatalogApp) string {
+	if x.AiPolicy == nil {
+		return "none"
+	}
+	return string(*x.AiPolicy)
+}
+
+func aiPolicyMeaning(name string) string {
+	if text, ok := aiPolicyText[name]; ok {
+		return text
+	}
+	return name
+}
+
+// aiPolicyText says what each aiPolicy means for agents and models (the gateway's ai_policy.py rule).
+var aiPolicyText = map[string]string{
+	"none":              "none declared: agents see this catalog entry, never the app's data",
+	"allowed":           "allowed: agents and models may use the app's data",
+	"consent-required":  "consent-required: nothing goes to AI until the owner consents",
+	"official-mcp-only": "official-mcp-only: data reaches AI only through the provider's own MCP server",
+	"display-only":      "display-only: shown to people, never to AI",
+	"prohibited":        "prohibited: never shown to AI",
+	"unknown":           "unknown value in the manifest: treated as deny",
 }
 
 // requestCommand is `apps install` / `apps remove`: request, then (owners) approve in the same
 // session. Two audit entries: requested by you, approved by you (CLI.md §6.3).
 func requestCommand(a *App, typ, use, short string) *cobra.Command {
 	var noApprove, yes bool
+	var acceptLicence string
 	var wait time.Duration
 	cmd := &cobra.Command{
 		Use:   use,
@@ -187,7 +216,7 @@ func requestCommand(a *App, typ, use, short string) *cobra.Command {
 			if !ok {
 				return exitWith(ExitPending, "pending", fmt.Sprintf("left waiting for approval: onemind actions approve %s", act.Id))
 			}
-			if _, err := c.Actions.Approve(bg(), act.Id); err != nil {
+			if _, err := a.approveOrConfirmLicence(c, act, acceptLicence, yes); err != nil {
 				if errors.Is(err, onemind.ErrPermissionDenied) {
 					return exitWith(ExitPermissionDenied, "permission_denied",
 						fmt.Sprintf("requested %s, but this principal may not approve; an owner runs: onemind actions approve %s", act.Id, act.Id))
@@ -200,6 +229,7 @@ func requestCommand(a *App, typ, use, short string) *cobra.Command {
 			return a.waitAction(c, act.Id, wait)
 		},
 	}
+	cmd.Flags().StringVar(&acceptLicence, "accept-licence", "", "APP_ID: accept a blocked or unknown licence class for this install (the owner, in person)")
 	cmd.Flags().BoolVar(&noApprove, "no-approve", false, "only file the request (scripts, agents, non-owners)")
 	cmd.Flags().BoolVar(&yes, "yes", false, "approve without asking (v0: owner token approvals; passkey step-up replaces this, §12.3)")
 	cmd.Flags().DurationVar(&wait, "wait", 10*time.Minute, "wait for the outcome (default 10m)")

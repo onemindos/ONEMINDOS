@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -271,5 +272,89 @@ func TestDefaultListenIsLoopback(t *testing.T) {
 	}
 	if ip := net.ParseIP(host); ip == nil || !ip.IsLoopback() {
 		t.Fatalf("DefaultListen %q is not a loopback address", DefaultListen)
+	}
+}
+
+// #608: a clean stop ends with a departure on the node's own status subject, after every
+// heartbeat, so the hub can show the node offline within two seconds instead of 30.
+func TestCleanStopPublishesDepartureLast(t *testing.T) {
+	port := freePort(t)
+	url := fmt.Sprintf("nats://127.0.0.1:%d", port)
+	startNATS(t, port)
+	sub, err := nats.Connect(url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer sub.Close()
+	ch := make(chan *nats.Msg, 256)
+	if _, err := sub.ChanSubscribe("onemind.node.*.status", ch); err != nil {
+		t.Fatal(err)
+	}
+	if err := sub.Flush(); err != nil {
+		t.Fatal(err)
+	}
+
+	col := detect.NewFixture(filepath.Join("..", "detect", "testdata", "rpi5"), "arm64")
+	a := New(Config{NATSURL: url, Interval: 20 * time.Millisecond, Collector: col, Logger: quietLogger()})
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- a.Serve(ctx, ln) }()
+	waitFor(t, func() bool { return a.Sent() >= 3 }, "heartbeats")
+	cancel()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("serve: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("agent did not stop")
+	}
+	if err := sub.Flush(); err != nil {
+		t.Fatal(err)
+	}
+
+	var msgs []*nats.Msg
+	for drained := false; !drained; {
+		select {
+		case m := <-ch:
+			msgs = append(msgs, m)
+		case <-time.After(300 * time.Millisecond):
+			drained = true
+		}
+	}
+	if len(msgs) < 2 {
+		t.Fatalf("got %d messages, want heartbeats then a departure", len(msgs))
+	}
+	var hb heartbeat.Status
+	if err := json.Unmarshal(msgs[0].Data, &hb); err != nil || hb.Schema != heartbeat.Schema {
+		t.Fatalf("first message is not a heartbeat: %s", msgs[0].Data)
+	}
+	last := msgs[len(msgs)-1]
+	var dep map[string]any
+	if err := json.Unmarshal(last.Data, &dep); err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]any{"schema": heartbeat.DepartureSchema, "node_id": hb.NodeID, "reason": "shutdown"}
+	if fmt.Sprint(dep) != fmt.Sprint(want) || last.Subject != heartbeat.Subject(hb.NodeID) {
+		t.Fatalf("last message on %s = %v, want %v on %s", last.Subject, dep, want, heartbeat.Subject(hb.NodeID))
+	}
+	for _, m := range msgs[:len(msgs)-1] {
+		if strings.Contains(string(m.Data), heartbeat.DepartureSchema) {
+			t.Fatalf("departure sent before the last heartbeat: %s", m.Data)
+		}
+	}
+}
+
+// No heartbeat ever went out (NATS was never reachable): a stop sends nothing.
+func TestStopWithoutNATSSendsNoDeparture(t *testing.T) {
+	a, _ := startAgent(t, fmt.Sprintf("nats://127.0.0.1:%d", freePort(t)))
+	time.Sleep(100 * time.Millisecond)
+	a.depart() // must not panic or block with no connection and no published id
+	if a.Sent() != 0 || a.pubID.Load() != nil {
+		t.Fatalf("sent=%d id=%v with NATS down", a.Sent(), a.pubID.Load())
 	}
 }

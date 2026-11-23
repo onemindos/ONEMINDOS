@@ -1,0 +1,35 @@
+# SPDX-License-Identifier: Apache-2.0
+# Built-in descriptor (sdk/schema/onemind.builtin.schema.json). Read only because "notifications" is on the
+# signed list. The code is in ../notify/; this folder holds only the descriptor.
+apiVersion: onemind.app/v1
+kind: App
+metadata:
+  id: notifications
+  name: Notifications
+  description: The one inbox, alerts, delivery channels and phone push.
+spec:
+  routes:
+    owns: [/v1/notifications, /v1/alerts, /v1/push]
+    calls:
+      - GET /v1/notifications
+      - POST /v1/notifications/{notification_id}/read
+      - GET /v1/alerts
+  notifications:
+    topics:
+      - {id: security, events: [notify.channel_failing, notify.channel_ok]}
+  settingsPages:
+    - {id: preferences, title: Notification preferences, source: GET /v1/notifications/preferences}
+    - {id: channels, title: Delivery channels, source: GET /v1/notifications/channels}
+    - {id: sources, title: App notifications, source: GET /v1/notifications/sources}
+  backup:
+    units:
+      - {kind: table, name: notify_notifications}
+      - {kind: table, name: notify_alerts}
+      - {kind: table, name: notify_channels}
+      - {kind: table, name: notify_preferences}
+      - {kind: table, name: notify_devices}
+      - {kind: table, name: notify_deliveries}
+      - {kind: table, name: notify_sources}
+      - {kind: table, name: notify_sends}
+  data: {owns: [owner], reads: []}
+  phone: {entry: native, screen: inbox}

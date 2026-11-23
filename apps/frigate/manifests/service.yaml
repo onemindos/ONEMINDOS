@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: Apache-2.0
+# Only the signed-in UI and API (8971). Upstream's other ports stay closed: 5000 is unauthenticated, 8554
+# (RTSP restream) and 8555 (WebRTC) are unauthenticated by default (frigate/installation.md, "Ports").
+# Live view in the browser works over 8971 (MSE/HLS).
+apiVersion: v1
+kind: Service
+metadata:
+  name: frigate
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: frigate
+  ports:
+    - name: http
+      port: 8971
+      targetPort: http
+      protocol: TCP

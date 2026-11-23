@@ -75,6 +75,9 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
+        with:
+          # Exact version: "latest" resolves through the GitHub API, which times out now and then and fails the job. 0.13.9 is what CI ran when this was pinned.
+          version: "0.13.9"
       # GitHub's image has Go and kustomize preinstalled and some core tests skip without them
       # (test_sdk_conformance, test_policy, security/test_sandbox_escapes). Install both, so the
       # local runner runs the same tests.
@@ -134,6 +137,9 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
+        with:
+          # Exact version: "latest" resolves through the GitHub API, which times out now and then and fails the job. 0.13.9 is what CI ran when this was pinned.
+          version: "0.13.9"
       # test_sdk_conformance and test_mcp import the Python SDK and build the onemind CLI (Go SDK).
       - name: Generate the SDK code from the committed spec (CI-16, not committed)
         uses: ./.github/actions/sdk-gen
