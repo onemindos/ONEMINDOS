@@ -147,6 +147,11 @@ _SPECS = [
          "{reason}", dedupe="app:{app_id}:scan_stale", link="/apps/{app_id}",
          fix=lambda _d: {"type": "catalog.refresh", "params": {}}),
     Spec("app.scan_ok", "resolve", "security", resolves=("app:{app_id}:scan", "app:{app_id}:scan_stale")),
+    # ---- bridges (#610: core/onemind_core/bridges.py) ------------------------------------
+    Spec("bridge.paused", "open", "apps", "warning", "{app_id} was paused",
+         "It sent {rejects} events OneMind refused within {window_min} minutes (last: {reason}). Nothing more "
+         "is taken from it until you resume it.", dedupe="bridge:{app_id}:paused", link="/apps/{app_id}"),
+    Spec("bridge.resumed", "resolve", "apps", resolves=("bridge:{app_id}:paused",)),
     # ---- OS updates ----------------------------------------------------------------------
     Spec("update.available", "open", "updates", "info", "Update {version} available for {hostname}",
          "", dedupe="os:{node_id}:available", link="/updates",
