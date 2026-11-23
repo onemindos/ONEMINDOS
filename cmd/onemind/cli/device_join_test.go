@@ -3,6 +3,7 @@
 package cli
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -32,6 +33,7 @@ import (
 
 	"github.com/onemindos/onemindos/internal/fabric"
 	"github.com/onemindos/onemindos/internal/leaf"
+	"github.com/onemindos/onemindos/internal/mesh"
 )
 
 const sensorCode = "7KQ4-M2XP-9D3F"
@@ -79,6 +81,13 @@ func (ca *testCA) issue(t *testing.T, pub any, dns string) []byte {
 // The owner's approval is assumed (the first poll delivers), so the test is about the sensor's side.
 func hubStandIn(t *testing.T, ca *testCA, role string) *httptest.Server {
 	t.Helper()
+	return hubStandInMesh(t, ca, role, nil, "tls://127.0.0.1:7422")
+}
+
+// hubStandInMesh is hubStandIn for a hub with Headscale on: the credentials carry meshBlock and a NATS
+// URL on the hub's mesh address, as core/onemind_core/fabric.py sends them.
+func hubStandInMesh(t *testing.T, ca *testCA, role string, meshBlock map[string]any, natsURL string) *httptest.Server {
+	t.Helper()
 	var csrPEM, natsPub string
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /v1/fabric/join-requests", func(w http.ResponseWriter, r *http.Request) {
@@ -103,9 +112,12 @@ func hubStandIn(t *testing.T, ca *testCA, role string) *httptest.Server {
 			return
 		}
 		node := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: ca.issue(t, csr.PublicKey, "")})
-		_ = json.NewEncoder(w).Encode(map[string]any{"state": "approved", "credentials": map[string]any{
-			"role": role, "node_cert": string(node), "ca_cert": string(ca.pem),
-			"nats": map[string]string{"url": "tls://127.0.0.1:7422", "account": "NODE_abc123", "user_pubkey": natsPub}}})
+		creds := map[string]any{"role": role, "node_cert": string(node), "ca_cert": string(ca.pem),
+			"nats": map[string]string{"url": natsURL, "account": "NODE_abc123", "user_pubkey": natsPub}}
+		if meshBlock != nil {
+			creds["mesh"] = meshBlock
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"state": "approved", "credentials": creds})
 	})
 	srv := httptest.NewUnstartedServer(mux)
 	key, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
@@ -214,6 +226,87 @@ func TestDeviceJoinRefusesWrongPinAndWorkerRole(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(dir, "sensor", "sensor.json")); !errors.Is(err, os.ErrNotExist) {
 		t.Errorf("a refused join wrote sensor.json: %v", err)
+	}
+}
+
+// meshOrder records, in order, what the mesh join did to the machine.
+type meshOrder struct {
+	root, caPEM string
+	steps       []string
+	up          bool
+	upArgs      []string
+}
+
+// Systemctl is the fake systemd: at the tailscaled restart it notes whether the box CA is already where
+// tailscaled.service reads it and whether the control names are already pinned.
+func (m *meshOrder) Systemctl(_ context.Context, args ...string) error {
+	call := strings.Join(args, " ")
+	if call == "restart tailscaled.service" {
+		ca, _ := os.ReadFile(filepath.Join(m.root, fabric.IdentityDir, "ca.pem"))
+		hosts, _ := os.ReadFile(filepath.Join(m.root, fabric.HostsFile))
+		call += fmt.Sprintf(" (ca=%t hosts=%t)", string(ca) == m.caPEM,
+			strings.Contains(string(hosts), "192.0.2.10 control.onemind.internal join.onemind.internal"))
+	}
+	m.steps = append(m.steps, "systemctl "+call)
+	return nil
+}
+func (m *meshOrder) Chown(string, string) error { return nil }
+
+// Run is the fake tailscale CLI: logged out until `up` runs.
+func (m *meshOrder) Run(_ context.Context, args ...string) ([]byte, error) {
+	switch args[0] {
+	case "status":
+		if m.up {
+			return []byte(`{"BackendState":"Running","Self":{"TailscaleIPs":["100.64.0.7"]},"Peer":{}}`), nil
+		}
+		return []byte(`{"BackendState":"NeedsLogin"}`), nil
+	case "up":
+		m.steps, m.up, m.upArgs = append(m.steps, "tailscale up"), true, args
+	}
+	return nil, nil
+}
+
+// With Headscale on, the hub sends a sensor a mesh block and a NATS URL on its mesh address. The join
+// must put the box CA where tailscaled.service reads it (fabric.IdentityDir) and pin the control
+// address before tailscaled restarts and the one-time key is spent, as fabric.Installer.Apply does.
+func TestDeviceJoinWithMeshWritesCAAndHostsBeforeEnrolling(t *testing.T) {
+	dir := t.TempDir()
+	sensorSeams(t, dir)
+	ca := newTestCA(t)
+	root := filepath.Join(dir, "root")
+	rec := &meshOrder{root: root, caPEM: string(ca.pem)}
+	old := sensorInstaller
+	sensorInstaller = func() *fabric.Installer {
+		return &fabric.Installer{Root: root, Sys: rec, Mesh: &mesh.Client{Runner: rec, Now: time.Now}, EnrollTimeout: 5 * time.Second}
+	}
+	t.Cleanup(func() { sensorInstaller = old })
+	meshBlock := map[string]any{"control_url": "https://control.onemind.internal:8444", "control_addrs": []string{"192.0.2.10"},
+		"ca_sha256": ca.sha, "auth_key": "hskey-auth-test-only", "hostname": "node-abc123", "hub_mesh_ip": "100.64.0.1",
+		"tags": []string{"tag:leaf"}, "shields_up": true}
+	srv := hubStandInMesh(t, ca, "leaf", meshBlock, "tls://100.64.0.1:7422")
+	var out strings.Builder
+	if err := deviceJoin([]string{sensorQR(srv, ca.sha, "sensor"), "--hub-addr", "127.0.0.1"}, &out); err != nil {
+		t.Fatalf("join: %v\n%s", err, out.String())
+	}
+	want := []string{"systemctl restart tailscaled.service (ca=true hosts=true)", "tailscale up"}
+	if strings.Join(rec.steps, "; ") != strings.Join(want, "; ") {
+		t.Fatalf("mesh steps = %q, want %q", rec.steps, want)
+	}
+	if fi, err := os.Stat(filepath.Join(root, fabric.IdentityDir, "ca.pem")); err != nil || fi.Mode().Perm() != 0o644 {
+		t.Errorf("box CA for tailscaled: %v %v", err, fi)
+	}
+	args := strings.Join(rec.upArgs, " ")
+	if strings.Contains(args, "hskey-auth") || !strings.Contains(args, "--shields-up") || !strings.Contains(args, "--hostname=node-abc123") {
+		t.Errorf("tailscale up args: %s", args)
+	}
+	var st SensorState
+	raw, _ := os.ReadFile(filepath.Join(dir, "sensor", "sensor.json"))
+	if err := json.Unmarshal(raw, &st); err != nil || st.MeshAddr != "100.64.0.7" || st.NATSURL != "tls://100.64.0.1:7422" {
+		t.Errorf("sensor.json = %+v (%v)", st, err)
+	}
+	conf, _ := os.ReadFile(filepath.Join(dir, "sensor", "sensor.conf"))
+	if !strings.Contains(string(conf), `urls: ["tls://100.64.0.1:7422"]`) {
+		t.Errorf("the leaf does not dial the hub's mesh address:\n%s", conf)
 	}
 }
 

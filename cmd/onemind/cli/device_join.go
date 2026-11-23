@@ -106,20 +106,12 @@ type SensorState struct {
 
 // Test seams.
 var (
-	sensorDir        = func() string { return filepath.Join(etcdir.Dir(), "sensor") }
-	sensorStoreDir   = "/var/lib/onemind-sensor"
-	sensorMeshEnroll = func(ctx context.Context, b *fabric.MeshBlock) (string, error) {
-		// tailscaled must load the box CA first (the same order as fabric.Installer).
-		if err := (fabric.RealSystem{}).Systemctl(ctx, "restart", "tailscaled.service"); err != nil {
-			return "", err
-		}
-		res, err := mesh.NewClient().Enroll(ctx, &mesh.Bundle{ControlURL: b.ControlURL, ControlAddrs: b.ControlAddrs,
-			CASHA256: b.CASHA256, AuthKey: b.AuthKey, Hostname: b.Hostname, HubMeshIP: b.HubMeshIP, ShieldsUp: true},
-			mesh.EnrollOptions{})
-		if err != nil {
-			return "", err
-		}
-		return res.Addr, nil
+	sensorDir      = func() string { return filepath.Join(etcdir.Dir(), "sensor") }
+	sensorStoreDir = "/var/lib/onemind-sensor"
+	// sensorInstaller is what joins the mesh when the hub has Headscale on. It is fabric.Installer, so the
+	// box CA lands where tailscaled reads it and the control names are pinned before the enrollment.
+	sensorInstaller = func() *fabric.Installer {
+		return &fabric.Installer{Root: "/", Sys: fabric.RealSystem{}, Mesh: mesh.NewClient()}
 	}
 )
 
@@ -235,7 +227,7 @@ func deviceJoin(args []string, out io.Writer) error {
 		return err
 	}
 	fmt.Fprintln(out, "Approved.")
-	st, err := writeSensor(ctx, d, id, creds, t)
+	st, err := writeSensor(ctx, d, id, creds, t, *hubAddr)
 	if err != nil {
 		return err
 	}
@@ -245,9 +237,10 @@ func deviceJoin(args []string, out io.Writer) error {
 }
 
 // writeSensor writes the identity, the nkey seed (0600, never printed), the leaf config with the
-// publish-only rule, and sensor.json. With a mesh block it enrolls in the mesh first, since the
-// hub's leaf port is then on the mesh.
-func writeSensor(ctx context.Context, dir string, id *fabric.Identity, cr *fabric.Credentials, t *fabric.Ticket) (*SensorState, error) {
+// publish-only rule, and sensor.json. With a mesh block it joins the mesh first, since the hub's leaf
+// port (the NATS URL in the credentials) is then on the mesh: fabric.Installer.JoinMesh writes the box
+// CA to fabric.IdentityDir and pins the control address before it restarts tailscaled and enrolls.
+func writeSensor(ctx context.Context, dir string, id *fabric.Identity, cr *fabric.Credentials, t *fabric.Ticket, hubAddr string) (*SensorState, error) {
 	subjects, err := SensorSubjects(id.NodeID)
 	if err != nil {
 		return nil, err
@@ -255,9 +248,11 @@ func writeSensor(ctx context.Context, dir string, id *fabric.Identity, cr *fabri
 	st := &SensorState{Schema: SensorStateSchema, NodeID: id.NodeID, Role: "leaf", HubURL: t.Hub, CASHA256: t.CASHA,
 		NATSURL: cr.NATS.URL, Publish: subjects, Subscribe: []string{}}
 	if cr.Mesh != nil {
-		if st.MeshAddr, err = sensorMeshEnroll(ctx, cr.Mesh); err != nil {
+		res, err := sensorInstaller().JoinMesh(ctx, cr, hubAddr)
+		if err != nil {
 			return nil, fmt.Errorf("mesh: %w", err)
 		}
+		st.MeshAddr = res.Addr
 	}
 	for _, f := range []struct {
 		name string
