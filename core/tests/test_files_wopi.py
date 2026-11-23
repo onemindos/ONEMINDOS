@@ -5,14 +5,21 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import logging
 import os
+import socket
+import threading
+import time
 import tracemalloc
 from dataclasses import replace
 
+import httpx
 import pytest
+import uvicorn
 from fastapi.testclient import TestClient
 from sqlalchemy import update
 
+from onemind_core import serve
 from onemind_core.app import create_app
 from onemind_core.files import wopi as wopi_mod
 from onemind_core.files.wopi import LOCK_TTL, TOKEN_TTL, WopiRepository, WopiTokenRow
@@ -314,3 +321,58 @@ def test_unknown_override_is_501(wc, owner):
     t = token(wc, owner, home(owner))
     assert wc.post(wopi(t), headers={"X-WOPI-Override": "PUT_RELATIVE"}).status_code == 501
     assert wc.post(wopi(t, "/contents"), content=b"x", headers={"X-WOPI-Override": "LOCK"}).status_code == 501
+
+
+# ---- the access log ---------------------------------------------------------------------------------------
+class _Records(logging.Handler):
+    def __init__(self) -> None:
+        super().__init__()
+        self.records: list[logging.LogRecord] = []
+
+    def emit(self, record: logging.LogRecord) -> None:
+        self.records.append(record)
+
+
+def test_wopi_calls_leave_no_access_token_in_the_uvicorn_access_log(settings, clock, executor, files_settings):
+    """The token rides in ?access_token=; a real uvicorn listener with the gateway's log config must not log it."""
+    s = replace(settings, sections={**settings.sections, "files": files_settings,
+                                    "identity": IdentitySettings(cookie_secure=False)})
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        port = sock.getsockname()[1]
+    server = serve._Server(uvicorn.Config(create_app(s, clock=clock, executor=executor), host="127.0.0.1",
+                                          port=port, lifespan="on", log_config=serve.log_config()))
+    captured = _Records()
+    access = logging.getLogger("uvicorn.access")
+    access.addHandler(captured)
+    thread = threading.Thread(target=server.run, daemon=True)
+    thread.start()
+    try:
+        deadline = time.monotonic() + 30
+        while not server.started:
+            assert thread.is_alive() and time.monotonic() < deadline, "uvicorn did not start"
+            time.sleep(0.05)
+        with httpx.Client(base_url=f"http://127.0.0.1:{port}", timeout=30) as c:
+            r = c.post("/v1/auth/setup", headers=OWNER, json={"username": "zeus", "password": PASSWORD, "client": "cli"})
+            assert r.status_code == 201, r.text
+            person = {"id": r.json()["principal"]["id"], "headers": bearer(r.json()["access_token"])}
+            put_doc(c, person)
+            t = token(c, person, home(person))
+            assert t["access_token"].startswith("om_wopi_")
+            assert c.get(wopi(t)).status_code == 200                       # CheckFileInfo
+            assert c.get(wopi(t, "/contents")).content == DOC              # GetFile
+            assert lock(c, t).status_code == 200                           # Lock
+            assert put(c, t, b"PK\x03\x04 second draft").status_code == 200  # PutFile
+    finally:
+        server.should_exit = True
+        thread.join(timeout=30)
+        access.removeHandler(captured)
+    lines = [r.getMessage() for r in captured.records]
+    wopi_lines = [line for line in lines if "/v1/files/wopi/files/" in line]
+    assert len(wopi_lines) >= 4, lines
+    assert all("access_token=[redacted]" in line for line in wopi_lines), wopi_lines
+    for record in captured.records:
+        for handler in access.handlers:
+            if handler is not captured and handler.formatter is not None:
+                assert "om_wopi_" not in handler.format(record)
+        assert "om_wopi_" not in record.getMessage() and "om_wopi_" not in repr(record.args)
