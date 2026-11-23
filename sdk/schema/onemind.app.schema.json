@@ -33,6 +33,7 @@
         "category",
         "icon",
         "license",
+        "licenceClass",
         "source",
         "links",
         "upstream",
@@ -88,6 +89,10 @@
           "description": "SPDX license identifier or SPDX expression (e.g. MIT, Apache-2.0, 'Apache-2.0 OR GPL-2.0').",
           "type": "string",
           "pattern": "^\\(?(LicenseRef-)?[A-Za-z0-9][A-Za-z0-9.+-]*\\)?( (AND|OR|WITH) \\(?(LicenseRef-)?[A-Za-z0-9][A-Za-z0-9.+-]*\\)?)*$"
+        },
+        "licenceClass": {
+          "description": "Market licence class of the app: L1 permissive and L2 copyleft are the green classes the Market shows and installs by default; blocked (source-available, non-commercial, proprietary) and unknown (not confirmed from the upstream licence) need an explicit owner confirmation to install. validate-apps checks that an L1 or L2 claim equals the class computed from metadata.license.",
+          "enum": ["L1", "L2", "blocked", "unknown"]
         },
         "source": {
           "description": "Upstream source repository URL (https only).",
