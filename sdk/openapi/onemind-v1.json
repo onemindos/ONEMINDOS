@@ -18050,7 +18050,7 @@
     },
     "/v1/files/app-passwords": {
       "get": {
-        "description": "Your WebDAV app passwords (an owner sees everyone's). The secret is never shown again.",
+        "description": "Your WebDAV app passwords (an owner sees everyone's), and where to connect. The secret is never shown again.",
         "operationId": "files.app_passwords.list",
         "responses": {
           "200": {

@@ -1,14 +1,17 @@
 # SPDX-License-Identifier: Apache-2.0
-"""WebDAV app passwords (files-webdav, #722).
+"""WebDAV and its app passwords (files-webdav, #722).
 
 Routes (bearer token or session, like the rest of the API):
-- `GET /v1/files/app-passwords`: your app passwords (an owner sees everyone's), never the secret.
+- `GET /v1/files/app-passwords`: your app passwords (an owner sees everyone's), never the secret, and
+  where to connect.
 - `POST /v1/files/app-passwords`: make one for yourself, shown once. Owner or adult only.
 - `DELETE /v1/files/app-passwords/{password_id}`: revoke yours (an owner may revoke anyone's).
 
-The WebDAV tree they open (`/dav/...`, files/webdav.py, the next PR on #722) is answered by a
-middleware outside the guard, so this module sits before net (270): the app proxy must stay outside
-it, so that an app's own `/dav` on its app host name still reaches the app.
+The WebDAV tree itself (`/dav/...`, files/webdav.py) is answered by a middleware outside the guard:
+it streams whole files, which the guard's 256 KiB body cap would refuse, and it takes only app
+passwords (HTTP Basic), never a bearer token. It is LAN and mesh only and has its own rate limit and
+wrong-password back-off. ORDER sits before net (270), so the app proxy stays outside this middleware
+and an app's own `/dav` on its app host name still reaches the app.
 """
 
 from __future__ import annotations
@@ -20,7 +23,8 @@ from fastapi.security import HTTPBearer
 from ..auth import Principal
 from ..context import Gateway
 from ..errors import ApiError, error_responses
-from ..files.apppasswords import AppPasswords, CreateBody
+from ..files.apppasswords import CreateBody
+from ..files.webdav import WebDav, WebDavMiddleware
 from ..identity import ctx_of
 from ..identity.scopes import register_route_scope
 
@@ -37,8 +41,11 @@ WRITE = [Security(_BEARER, scopes=["tokens:self", "tokens:admin"])]
 
 
 def register(app: FastAPI, gw: Gateway) -> None:
-    passwords = AppPasswords(gw)
+    dav = WebDav(gw)
+    passwords = dav.passwords
+    app.state.webdav = dav
     app.state.app_passwords = passwords
+    app.add_middleware(WebDavMiddleware, dav=dav)
 
     def holder(p: Principal, attempted: str) -> Principal:
         if not passwords.may_hold(p):
@@ -49,9 +56,11 @@ def register(app: FastAPI, gw: Gateway) -> None:
     @app.get("/v1/files/app-passwords", tags=["files"], operation_id="files.app_passwords.list", dependencies=READ,
              responses=error_responses(401, 403))
     def app_passwords_list(p: Principal = Depends(gw.principal)):
-        """Your WebDAV app passwords (an owner sees everyone's). The secret is never shown again."""
+        """Your WebDAV app passwords (an owner sees everyone's), and where to connect. The secret is never shown again."""
         holder(p, "list app passwords")
-        return {"app_passwords": passwords.list(p)}
+        return {"app_passwords": passwords.list(p), "webdav": {
+            "enabled": dav.settings.enabled, "path": "/dav/", "reach": ["lan", "mesh"],
+            "spaces": {"home": "Home", "shared": "Shared"}, "windows": "smb"}}
 
     @app.post("/v1/files/app-passwords", tags=["files"], operation_id="files.app_passwords.create", status_code=201, dependencies=WRITE,
               responses=error_responses(401, 403, 409, 422))
