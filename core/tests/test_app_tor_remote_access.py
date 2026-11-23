@@ -226,6 +226,85 @@ def test_network_policy_has_no_lan_egress_and_no_extra_ingress():
     ]
 
 
+# ---- the gateway path to the dashboard (#284 PR B2) -------------------------------------------------------
+
+DASHBOARD = "https://hub.example.test:8443"  # the https URL pods use; the Tor path ignores its port
+TOR_PORT = 8446  # the gateway's plain-HTTP Tor listener (netconf tor_port)
+
+
+def executor_with_path(url: str | None = DASHBOARD, ips=("192.0.2.10",), runner=None):
+    return KubernetesExecutor(runner=runner or FakeKubectl(), rules=RULES, dashboard_url=url,
+                              resolve=lambda host: list(ips), tor_port=TOR_PORT)
+
+
+def applied(plan) -> list[dict]:
+    return [d for _, stdin in plan if stdin for d in yaml.safe_load_all(stdin) if isinstance(d, dict)]
+
+
+def test_install_gives_the_app_the_dashboard_address_and_one_egress_allowance():
+    ex = executor_with_path()
+    plan = ex.plan("app.install", entry(), rendered=fake_kustomize(APP_DIR / "manifests"), egress=["internet"])
+    docs = applied(plan)
+    cm = next(d for d in docs if d["kind"] == "ConfigMap")
+    assert cm["metadata"] == {"name": "onemind-gateway-path", "namespace": f"app-{APP_ID}",
+                              "labels": {"onemind.io/app": APP_ID, "onemind.io/managed-by": "onemind-gateway"}}
+    assert cm["data"] == {"ONEMIND_DASHBOARD_TARGET": "192.0.2.10:8446"}
+    # the pod reads exactly this ConfigMap, and the key the app's init step expects
+    pod = next(d for d in rendered() if d["kind"] == "Deployment")["spec"]["template"]["spec"]
+    refs = [e["configMapRef"]["name"] for c in pod["initContainers"] for e in c.get("envFrom", [])]
+    assert refs == ["onemind-gateway-path"] and tor.TARGET_ENV == "ONEMIND_DASHBOARD_TARGET"
+    # written before the manifests, so the pod starts with it
+    kinds = [d["kind"] for _, stdin in plan if stdin for d in yaml.safe_load_all(stdin) if isinstance(d, dict)]
+    assert kinds.index("ConfigMap") < kinds.index("Deployment")
+    # egress: internet (LAN excluded) plus that one address and port, nothing else
+    allow = next(d for d in docs if d["kind"] == "NetworkPolicy" and d["metadata"]["name"] == "onemind-allow")
+    extra = [r for r in allow["spec"]["egress"] if r.get("to") == [{"ipBlock": {"cidr": "192.0.2.10/32"}}]]
+    assert extra == [{"to": [{"ipBlock": {"cidr": "192.0.2.10/32"}}], "ports": [{"protocol": "TCP", "port": 8446}]}]
+    cidrs = {b["ipBlock"]["cidr"] for r in allow["spec"]["egress"] for b in r["to"] if "ipBlock" in b}
+    assert cidrs == {"0.0.0.0/0", "::/0", "192.0.2.10/32"}
+    assert allow["spec"]["ingress"][0] == {"from": [{"podSelector": {}}]} and len(allow["spec"]["ingress"]) == 2
+
+
+def test_the_hub_name_uses_the_static_mesh_mapping():
+    boom = lambda host: (_ for _ in ()).throw(AssertionError("host DNS consulted"))
+    ex = KubernetesExecutor(runner=FakeKubectl(), rules=RULES, dashboard_url="https://hub.onemind.internal:8443",
+                            resolve=boom, static_hosts={"hub.onemind.internal": ["100.64.0.1"]}, tor_port=TOR_PORT)
+    assert ex.gateway_path(entry()) == ("100.64.0.1", TOR_PORT)
+
+
+def test_the_target_is_never_the_tls_port_and_needs_the_tor_listener():
+    # a raw-TCP onion forward to the https listener fails the handshake and the path would not be tor
+    ex = executor_with_path()
+    assert ex.gateway_path(entry())[1] != 8443
+    # no Tor listener configured: no address, so the app reports failed instead of serving over the wrong path
+    off = KubernetesExecutor(runner=FakeKubectl(), rules=RULES, dashboard_url=DASHBOARD, resolve=lambda h: ["192.0.2.10"])
+    assert off.gateway_path(entry()) is None and off.gateway_path_doc(entry()) is None
+
+
+def test_no_path_without_an_address_and_never_for_another_app():
+    other = AppEntry(id="other-app", dir=APP_DIR, manifest=entry().manifest)
+    assert executor_with_path().gateway_path(other) is None
+    assert executor_with_path().gateway_path_doc(other) is None
+    # no dashboard URL, an unresolvable name, only IPv6 or loopback: no ConfigMap and no extra egress
+    for ex in (executor_with_path(None), executor_with_path(ips=()), executor_with_path(ips=("2001:db8::1",)),
+               executor_with_path(ips=("127.0.0.1",))):
+        assert ex.gateway_path_doc(entry()) is None
+        plan = ex.plan("app.install", entry(), rendered=fake_kustomize(APP_DIR / "manifests"), egress=["internet"])
+        assert "ConfigMap" not in {d["kind"] for d in applied(plan)}
+        allow = next(d for d in applied(plan) if d["metadata"]["name"] == "onemind-allow")
+        assert {b["ipBlock"]["cidr"] for r in allow["spec"]["egress"] for b in r["to"] if "ipBlock" in b} == {"0.0.0.0/0", "::/0"}
+
+
+def test_a_running_install_applies_the_address_before_the_manifests():
+    kubectl = FakeKubectl()
+    res = executor_with_path(runner=kubectl).run("app.install", entry())
+    assert res.outcome == "succeeded", res
+    stdins = [i or "" for _, i in kubectl.cluster_calls]
+    first_cm = next(n for n, i in enumerate(stdins) if '"onemind-gateway-path"' in i)
+    first_dep = next(n for n, i in enumerate(stdins) if "kind: Deployment" in i or '"Deployment"' in i)
+    assert first_cm < first_dep
+
+
 # ---- install, remove, delete data: owner-approved; the key survives a plain uninstall ------------------
 
 @pytest.fixture
