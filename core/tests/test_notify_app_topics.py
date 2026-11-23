@@ -21,7 +21,8 @@ SEND = "/v1/notifications/send"
 
 @pytest.fixture
 def nclient(settings, clock, executor, tmp_path):
-    s = replace(settings, sections={"notify": NotifySettings(worker=False, dir=tmp_path / "keys")})
+    # Keep the wide-open guard buckets of conftest: the flood test fires more requests than a person.
+    s = replace(settings, sections={**settings.sections, "notify": NotifySettings(worker=False, dir=tmp_path / "keys")})
     with TestClient(create_app(s, clock=clock, executor=executor)) as c:
         yield c
 
