@@ -38,6 +38,14 @@ if [ -n "$DF" ]; then
   log "DATA-FAILURES $(printf '%s\n' "$DF" | wc -l) earlier boot(s) ran in recovery mode: $(printf '%s\n' "$DF" | tail -n1)"
 fi
 clear_pending() { rm -f "$PENDING" "$ESP_PENDING"; sync; }
+# The host helper (#875): the gateway's way to restart, shut down and install updates. Reported only, never
+# part of a verdict. Never connect here: onemind-host.service is ordered After= this gate, so a connect would
+# wait on the gate itself. A listening socket (systemd starts the helper on the first connect) is what the
+# gateway needs; GET /v1/status then reports whether the helper answers.
+HOST_SOCK=${ONEMIND_HOST_SOCKET:-/run/onemind/host.sock}
+host_helper() {
+  if [ -S "$HOST_SOCK" ] && systemctl is-active --quiet onemind-host.socket; then echo reachable; else echo missing; fi
+}
 
 commit() { # mark-good booted; never fail silently (LAB-rauc finding 4)
   local e; if e=$(rauc status mark-good booted 2>&1); then return 0; fi
@@ -46,11 +54,13 @@ commit() { # mark-good booted; never fail silently (LAB-rauc finding 4)
 watch_only() { # committed/fell-back boots: report k3s health, no action
   local t0=$SECONDS r
   while [ $((SECONDS - t0)) -lt "$TIMEOUT" ]; do
-    r=$(/usr/lib/onemind/onemind-k3s-check) && { log "K3S-FRESH ok after $((SECONDS - t0))s: $r"; return; }
+    r=$(/usr/lib/onemind/onemind-k3s-check) && { log "K3S-FRESH ok after $((SECONDS - t0))s: $r"; report_host; return; }
     sleep "$INTERVAL"
   done
   log "K3S-FRESH ALERT not healthy after ${TIMEOUT}s on a committed slot: $r (no rollback)"
+  report_host
 }
+report_host() { log "HOST-HELPER $(host_helper) (report only; hubs serve it, other roles say missing)"; }
 remember_bad() { echo "$(date -u +%FT%TZ) version=$1 verdict=$2" >> "$BAD"; sync "$BAD" 2>/dev/null || sync; }
 
 case $MODE in
@@ -83,6 +93,7 @@ trial)
           apps=$(KUBECONFIG=/run/k3s/k3s.yaml /usr/local/bin/k3s kubectl -n apps get pods --no-headers 2>/dev/null | awk '{printf "%s %s %s; ", $1, $2, $3}')
           log "APPS (excluded from gate): ${apps:-none}"
           log "G8 n/a: no extensions in v0"
+          report_host
           if commit; then
             clear_pending
             log "RESULT mark-good slot=$SLOT version=$VER after $((SECONDS - t0))s"; exit 0

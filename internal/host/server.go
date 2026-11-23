@@ -42,6 +42,9 @@ type Server struct {
 	Network func() (any, error)
 	// Services answers GET /v1/services (#623). It only reads (systemctl show); nil leaves the route off.
 	Services func(ctx context.Context) (any, error)
+	// Hostname names the box in GET /v1/status (#875; default os.Hostname): the harmless read the gateway
+	// and the boot battery use to prove the socket reaches this service. An error leaves the field out.
+	Hostname func() (string, error)
 }
 
 // Capability is one kind in GET /v1/status.
@@ -59,6 +62,7 @@ type Status struct {
 	Operations []Capability `json:"operations"`
 	Active     *Op          `json:"active_operation"`
 	At         time.Time    `json:"at"`
+	Hostname   string       `json:"hostname,omitempty"`
 }
 
 type ctxKey struct{}
@@ -118,6 +122,13 @@ func apiError(w http.ResponseWriter, code int, kind, reason, msg string) {
 // Status reports every kind with whether it can run now.
 func (s *Server) Status() Status {
 	st := Status{Schema: Schema, BootID: s.S.BootID, Journal: s.S.Store != nil, Active: s.S.Active(), At: s.S.now()}
+	name := s.Hostname
+	if name == nil {
+		name = os.Hostname
+	}
+	if h, err := name(); err == nil {
+		st.Hostname = h
+	}
 	for _, k := range Kinds {
 		c := Capability{Kind: k, Available: true}
 		if why := s.S.Unavailable(k); why != "" {
