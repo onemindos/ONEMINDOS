@@ -61,6 +61,8 @@ def render(app_dir: Path, objects: list[dict] | None = None) -> str:
                     f"published {released[:10] if released != common.UNVERIFIED else released})"),
         ("Licence", f"`{meta['license']}`, Market class {lic_class}"),
         ("Tier", f"`{meta.get('tier', common.UNVERIFIED)}` (set by CI: sdk/tools/app-gate)"),
+        *([("Quality", f"`{scan['quality']['tier']}` (computed by the gate from its evidence, never set by hand)")]
+          if scan and isinstance(scan.get("quality"), dict) and scan["quality"].get("tier") else []),
         ("Category", meta["category"]),
         ("GitHub", link(links.get("github") or meta.get("source"))),
         ("Website", link(links.get("website"))),

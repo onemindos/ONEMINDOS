@@ -3,7 +3,7 @@
 
 `onemindd host serve` runs as root on the box and listens on /run/onemind/host.sock (mode 0660,
 root:onemind). It does what an owner already approved, from the id of the approved action, and
-nothing else: restart, shut down, factory reset, install an OS update. This module is the gateway's
+nothing else: restart, shut down, factory reset, install an OS update, restart one service (#636). This module is the gateway's
 half of that contract:
 
 - `HostLink.problem(type)`: can this box do it now? (`GET /v1/status`)
@@ -50,11 +50,13 @@ KINDS = {
     "system.shutdown": "shutdown",
     "system.factory_reset": "factory-reset",
     "os.update.install": "os-install",
+    "service.restart": "service-restart",  # #636: one registry unit; the host checks it is restartable
 }
 ACTION_ID = re.compile(r"^[A-Za-z0-9_.:-]{1,128}$")
 # RFC 1123 labels: what the host helper may call the box (H-06: the answer is checked, not trusted).
 HOSTNAME = re.compile(r"(?=.{1,253}\Z)[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*")
 PROBE_TIMEOUT_S = 2.0  # GET /v1/status reads the helper on every call: a silent socket must not hold it up
+UNIT = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.@-]{0,90}\.(service|socket|timer|path)$")
 UNREACHABLE = "engine_unreachable"  # the reason when nothing answers on the socket
 NO_HOST = ("The gateway cannot reach the host service on this box (onemind-host.socket), so the action did not run. "
            "Your approval is recorded; use the rescue console or the box itself.")
@@ -172,6 +174,11 @@ class HostLink:
             if not isinstance(version, str) or not version:
                 return ExecResult("failed", "the install has no approved version", steps=[{"step": "host", "result": "bad_request"}])
             body["version"] = version
+        if kind == "service-restart":
+            unit = (a.params or {}).get("unit")
+            if not isinstance(unit, str) or not UNIT.fullmatch(unit):
+                return ExecResult("failed", "the restart has no approved unit", steps=[{"step": "host", "result": "bad_request"}])
+            body["unit"] = unit
         with self._lock:
             self._inflight.add(a.id)
         try:

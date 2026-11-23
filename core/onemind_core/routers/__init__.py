@@ -4,8 +4,9 @@
 Each module exposes `register(app: FastAPI, gw: Gateway) -> None` and `ORDER: int`, its place in
 the route order (and in /openapi.json). `discover()` finds every module in this package, so a new
 feature adds only its own file: no shared list to edit, no merge conflict in app.py (CI-06, #231).
-Equal ORDER values run in module-name order. `guard` is ORDER 0 (it wraps every route) and
-`static` is the highest (its SPA fallback matches every path).
+Equal ORDER values run in module-name order. `protocol` is ORDER -1 and `guard` ORDER 0: middleware
+added later wraps middleware added earlier, so guard's limits and security headers also wrap the
+protocol gate's refusals (#697). `static` is the highest (its SPA fallback matches every path).
 """
 
 from __future__ import annotations

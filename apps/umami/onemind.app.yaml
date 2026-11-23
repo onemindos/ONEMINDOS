@@ -16,6 +16,7 @@ metadata:
   category: monitoring
   icon: icon.svg
   license: "MIT"
+  licenceClass: L1
   source: https://github.com/umami-software/umami
   # §9.3 facts from the GitHub API (repos/umami-software/umami), read 2026-11-12.
   links:

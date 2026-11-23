@@ -5,6 +5,8 @@ import { ApiError } from '../api/types';
 import { v0Api } from '../test/fakes';
 import {
   apnsTransport,
+  boxNtfy,
+  boxNtfyAddress,
   disablePush,
   enablePush,
   installField,
@@ -14,6 +16,7 @@ import {
   pushBlocker,
   rotateEndpoint,
   unifiedPushTransport,
+  urlHost,
 } from './push';
 
 type Listener = (e: never) => void;
@@ -175,5 +178,34 @@ describe('pings carry ids only (D-005)', () => {
     expect(parsePing({ notification_id: 'Your backup failed: disk full', box_id: 'b' })).toEqual({ id: undefined });
     expect(parsePing({ route: 'approvals' })).toBeUndefined();
     expect(parsePing(null)).toBeUndefined();
+  });
+});
+
+describe('the box ntfy for the Android guide', () => {
+  it('names the box ntfy only from a .local hub name, like the dashboard Open link', () => {
+    expect(boxNtfyAddress('https://onemind.local')).toBe('https://ntfy.onemind.local');
+    expect(boxNtfyAddress('http://Home-Box.local:8080/')).toBe('http://ntfy.home-box.local');
+    expect(boxNtfyAddress('http://192.0.2.10:8080')).toBeUndefined();
+    expect(boxNtfyAddress('https://box.example.net')).toBeUndefined();
+    expect(boxNtfyAddress('not a url')).toBeUndefined();
+    expect(urlHost('https://ntfy.onemind.local/upAbc')).toBe('ntfy.onemind.local');
+  });
+
+  it('tells installed, requested, missing and absent apart', () => {
+    const app = { id: 'ntfy', installed: false } as never;
+    const req = (state: string) => ({ type: 'app.install', params: { app_id: 'ntfy' }, state }) as never;
+    expect(boxNtfy([])).toBe('absent');
+    expect(boxNtfy([app])).toBe('missing');
+    expect(boxNtfy([app], [req('awaiting_approval')])).toBe('requested');
+    expect(boxNtfy([app], [req('cancelled')])).toBe('missing');
+    expect(boxNtfy([{ id: 'ntfy', installed: true } as never], [req('awaiting_approval')])).toBe('installed');
+  });
+
+  it('fails cleanly when the connector refuses the VAPID key at once', async () => {
+    const up = fakeUp();
+    up.register = () => {
+      throw new Error('VapidNotValidException');
+    };
+    await expect(unifiedPushTransport(up, 10).obtain('bad')).rejects.toMatchObject({ blocker: 'failed' });
   });
 });

@@ -95,6 +95,9 @@ HUMAN_ONLY: dict[str, str] = {
     "POST /v1/domains/hosts/{hostname}/approve": OVERSIGHT,
     "POST /v1/files/requests/{request_id}/approve": OVERSIGHT,
     "POST /v1/files/requests/{request_id}/deny": OVERSIGHT,
+    # #690: the USB devices and GPUs an owner may grant a machine, and why one is refused; the owner
+    # decides a grant from it (an agent only files machine.attach_device, which the owner approves)
+    "GET /v1/machines/{name}/devices": OVERSIGHT,
     "PUT /v1/physical/lockout": OVERSIGHT,
     "POST /v1/radios/{radio_id}/confirm": OVERSIGHT,
     # ---- credential: sign-in, tokens, keys, secrets, pairing
@@ -130,6 +133,10 @@ HUMAN_ONLY: dict[str, str] = {
     "GET /v1/fabric/join-tickets": CREDENTIAL,
     "POST /v1/fabric/join-tickets": CREDENTIAL,
     "DELETE /v1/fabric/join-tickets/{ticket_id}": CREDENTIAL,
+    "GET /v1/files/app-passwords": CREDENTIAL,
+    "POST /v1/files/app-passwords": CREDENTIAL,
+    "POST /v1/files/app-passwords/{password_id}/revoke": CREDENTIAL,
+    "POST /v1/files/wopi/tokens": CREDENTIAL,
     "GET /v1/plugin-trust/keys": CREDENTIAL,
     "POST /v1/plugin-trust/keys/requests": CREDENTIAL,
     "POST /v1/plugin-trust/keys/{key_id}/revoke": CREDENTIAL,
@@ -147,6 +154,8 @@ HUMAN_ONLY: dict[str, str] = {
     "DELETE /v1/tokens/{token_id}": CREDENTIAL,
     "POST /v1/tokens/{token_id}/rotate": CREDENTIAL,
     # ---- person: the signed-in person's own record
+    # #693: the signed-in person's own quarantined browser downloads (an owner sees everyone's).
+    "GET /v1/files/downloads": PERSON,
     "GET /v1/me": PERSON,
     "PATCH /v1/me": PERSON,
     "GET /v1/me/home": PERSON,
@@ -159,6 +168,13 @@ HUMAN_ONLY: dict[str, str] = {
     "POST /v1/notifications/{notification_id}/read": PERSON,
     "GET /v1/windows": PERSON,
     "PUT /v1/windows/{window_id}": PERSON,
+    # tips (#669): how-to text for a person at a screen, filtered by role, with that person's seen state;
+    # routers/tips.py answers 403 to any caller that is not a person
+    "GET /v1/tips": PERSON,
+    "GET /v1/tips/collections": PERSON,
+    "GET /v1/tips/whats-new": PERSON,
+    "GET /v1/tips/{tip_id}": PERSON,
+    "POST /v1/tips/{tip_id}/state": PERSON,
     # ---- bytes: files, uploads, streams and repository protocols
     "GET /v1/backups/snapshots/{snapshot_id}/file": BYTES,
     "GET /v1/events": BYTES,
@@ -168,6 +184,11 @@ HUMAN_ONLY: dict[str, str] = {
     "DELETE /v1/files/uploads/{upload_id}": BYTES,
     "GET /v1/files/uploads/{upload_id}": BYTES,
     "PATCH /v1/files/uploads/{upload_id}": BYTES,
+    # WOPI (#675): the office engine's file protocol, reached only with a person's om_wopi_ token
+    "GET /v1/files/wopi/files/{file_id}": BYTES,
+    "POST /v1/files/wopi/files/{file_id}": BYTES,
+    "GET /v1/files/wopi/files/{file_id}/contents": BYTES,
+    "POST /v1/files/wopi/files/{file_id}/contents": BYTES,
     "POST /v1/machines/{name}/console": BYTES,
     "POST /v1/machines/{name}/upload": BYTES,
     "GET /v1/metrics": BYTES,
@@ -229,6 +250,8 @@ HUMAN_ONLY: dict[str, str] = {
     "PUT /v1/files/quotas/{person_id}": WRITE,
     "POST /v1/files/requests/{request_id}/cancel": WRITE,
     "POST /v1/files/trash/empty": WRITE,
+    "POST /v1/files/downloads/{download_id}/release": WRITE,
+    "DELETE /v1/files/downloads/{download_id}": WRITE,
     "PUT /v1/instance/kiosk": WRITE,
     "POST /v1/machines/disable": WRITE,
     "POST /v1/machines/enable": WRITE,

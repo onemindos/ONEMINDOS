@@ -34,7 +34,7 @@ def add_app(cfg, clock, app_id: str, scan: bool = True, **spec_extra) -> Path:
     doc = {
         "apiVersion": "onemind.app/v1alpha1", "kind": "App",
         "metadata": {"id": app_id, "name": app_id.title(), "version": "1.0.0", "description": "test app",
-                     "category": "developer", "license": "MIT"},
+                     "category": "developer", "license": "MIT", "licenceClass": "L1"},
         "spec": {"archs": ["amd64", "arm64"], "requires": {"gpu": False, "minMemoryMb": 64}, **spec_extra},
     }
     (d / "onemind.app.yaml").write_text(yaml.safe_dump(doc))
@@ -431,7 +431,7 @@ def source_app(root: Path, app_id: str, *, version="1.0.0", host_network=False, 
     (d / "onemind.app.yaml").write_text(yaml.safe_dump({
         "apiVersion": "onemind.app/v1alpha1", "kind": "App",
         "metadata": {"id": app_id, "name": app_id, "version": version, "description": "community app",
-                     "category": "developer", "license": "MIT", "tier": "verified"},
+                     "category": "developer", "license": "MIT", "licenceClass": "L1", "tier": "verified"},
         "spec": {"archs": ["amd64"], "requires": {"gpu": False, "minMemoryMb": 32}},
     }))
     (d / "manifests" / "kustomization.yaml").write_text("resources: [deployment.yaml]\n")
@@ -443,7 +443,9 @@ def source_app(root: Path, app_id: str, *, version="1.0.0", host_network=False, 
         "spec": {"selector": {"matchLabels": {"a": "b"}}, "template": {"metadata": {"labels": {"a": "b"}}, "spec": pod}},
     }))
     if scan_pass:  # a community repo's own scan.json is never trusted
-        (d / "scan.json").write_text(json.dumps({"scanned_at": "2026-11-11T21:00:00Z", "result": "pass"}))
+        (d / "scan.json").write_text(json.dumps({
+            "scanned_at": "2026-11-11T21:00:00Z", "result": "pass", "licence": {"spdx": "MIT", "class": "L1"},
+        }))
 
 
 class FakeFetcher(GitFetcher):
@@ -535,6 +537,9 @@ def test_source_app_installs_after_a_passing_on_box_scan(src_client, clock, sett
     scanner = PassScanner()
     store_of(src_client).image_scanner = scanner
     add_source(src_client, clock)
+    hello = next(a for a in src_client.get("/v1/apps", headers=GUEST).json() if a["id"] == "comm-hello")
+    assert hello["scan"]["result"] == "pass"
+    assert hello["scan"]["licence"] is None  # the on-box scan cannot attest the source's own licence claim
     install(src_client, clock, "comm-hello")
     assert ["ghcr.io/example/comm-hello:1@" + DIGEST] in scanner.seen
     # comm-net fails its static checks whatever the image scanner says

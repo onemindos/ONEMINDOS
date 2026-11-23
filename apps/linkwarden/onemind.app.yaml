@@ -15,6 +15,7 @@ metadata:
   category: notes
   icon: icon.svg
   license: "AGPL-3.0"
+  licenceClass: L2
   source: https://github.com/linkwarden/linkwarden
   # §9.3 facts from the GitHub API (repos/linkwarden/linkwarden), read 2026-11-12.
   links:
