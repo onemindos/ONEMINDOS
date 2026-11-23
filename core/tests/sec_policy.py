@@ -793,3 +793,24 @@ POLICY |= {
     ("PUT", "/v1/instance/kiosk"): Row(ONLY_OWNER, w.p_kiosk_put,
                                        f"{_KIOSK}: only the owner changes the screen; an agent can never switch it"),
 }
+
+# ---- bridge intake (#610: core/onemind_core/routers/bridges.py) --------------------------------------------
+# Only the bridge's own installation token posts events (plugins/auth.allows_bridge_intake); every person and
+# agent is refused. Owners and adults read status; the probe names a bridge that is not installed (404).
+_BRIDGE = "core/onemind_core/routers/bridges.py"
+BRIDGE_READ = cells(403, **GONE, owner=404, adult=404, plugin=DENIED, automation=DENIED, node=DENIED)
+POLICY |= {
+    ("POST", "/v1/bridges/{bridge_id}/events"): Row(
+        cells(403, **GONE, plugin=DENIED, automation=DENIED, node=DENIED),
+        lambda _: w.Req("/v1/bridges/whoami/events", json={"events": [{"id": "probe"}]}),
+        f"{_BRIDGE}: a bridge posts only under its own app id; people and agents never post events"),
+    ("GET", "/v1/bridges"): Row(cells(403, **GONE, owner=200, adult=200, plugin=DENIED, automation=DENIED, node=DENIED),
+                                w.p_static("/v1/bridges"), f"{_BRIDGE}: owners and adults read bridge status"),
+    ("GET", "/v1/bridges/{bridge_id}"): Row(BRIDGE_READ, w.p_static("/v1/bridges/not-a-bridge"),
+                                            f"{_BRIDGE}: owners and adults read bridge status"),
+    ("GET", "/v1/bridges/{bridge_id}/latest"): Row(BRIDGE_READ, w.p_static("/v1/bridges/not-a-bridge/latest"),
+                                                   f"{_BRIDGE}: values need owner or adult, then the bridge's data class"),
+    ("POST", "/v1/bridges/{bridge_id}/resume"): Row(
+        cells(403, **GONE, owner=404, plugin=DENIED, automation=DENIED, node=DENIED),
+        w.p_static("/v1/bridges/not-a-bridge/resume"), f"{_BRIDGE}: only an owner lets a paused bridge in again"),
+}
