@@ -306,6 +306,29 @@
         "title": "AccessBody",
         "type": "object"
       },
+      "AccessOut": {
+        "properties": {
+          "aggregate": {
+            "title": "Aggregate",
+            "type": "boolean"
+          },
+          "read": {
+            "title": "Read",
+            "type": "boolean"
+          },
+          "write": {
+            "title": "Write",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "read",
+          "write",
+          "aggregate"
+        ],
+        "title": "AccessOut",
+        "type": "object"
+      },
       "Action": {
         "additionalProperties": true,
         "description": "One action of the ledger (contract §3). §12.4 adds optional fields; ignore what you do not know.",
@@ -1930,6 +1953,62 @@
         "title": "CheckOut",
         "type": "object"
       },
+      "ClassOut": {
+        "properties": {
+          "access": {
+            "$ref": "#/components/schemas/AccessOut"
+          },
+          "count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Count"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "id": {
+            "enum": [
+              "public",
+              "owner",
+              "private",
+              "location",
+              "activity"
+            ],
+            "title": "Id",
+            "type": "string"
+          },
+          "owned_by": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Owned By",
+            "type": "array"
+          },
+          "read_by": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Read By",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "description",
+          "owned_by",
+          "read_by",
+          "access"
+        ],
+        "title": "ClassOut",
+        "type": "object"
+      },
       "CodeBody": {
         "properties": {
           "code": {
@@ -2857,6 +2936,7 @@
             "enum": [
               "app.disable",
               "app.enable",
+              "data.grant",
               "exposure.mesh",
               "exposure.private",
               "exposure.public",
@@ -2992,6 +3072,136 @@
           "access"
         ],
         "title": "GrantBody",
+        "type": "object"
+      },
+      "GrantOut": {
+        "properties": {
+          "action_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Action Id"
+          },
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "aggregate": {
+            "title": "Aggregate",
+            "type": "boolean"
+          },
+          "approved_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approved By"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "data_class": {
+            "enum": [
+              "public",
+              "owner",
+              "private",
+              "location",
+              "activity"
+            ],
+            "title": "Data Class",
+            "type": "string"
+          },
+          "expires_at": {
+            "title": "Expires At",
+            "type": "string"
+          },
+          "grantee": {
+            "$ref": "#/components/schemas/GranteeOut"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "read": {
+            "title": "Read",
+            "type": "boolean"
+          },
+          "requested_by": {
+            "title": "Requested By",
+            "type": "string"
+          },
+          "revoked_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revoked At"
+          },
+          "revoked_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revoked By"
+          },
+          "write": {
+            "title": "Write",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "data_class",
+          "grantee",
+          "read",
+          "write",
+          "aggregate",
+          "created_at",
+          "expires_at",
+          "requested_by",
+          "approved_by",
+          "action_id",
+          "revoked_at",
+          "revoked_by",
+          "active"
+        ],
+        "title": "GrantOut",
+        "type": "object"
+      },
+      "GranteeOut": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "id"
+        ],
+        "title": "GranteeOut",
         "type": "object"
       },
       "Grid": {
@@ -5958,6 +6168,71 @@
           "next_cursor"
         ],
         "title": "ReceiptPage",
+        "type": "object"
+      },
+      "RecordIn": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "description": "What the value is, e.g. place.visit",
+            "pattern": "^[a-z][a-z0-9_.-]{0,62}$",
+            "title": "Kind",
+            "type": "string"
+          },
+          "value": {
+            "description": "Any JSON value, at most 4096 bytes",
+            "title": "Value"
+          }
+        },
+        "required": [
+          "kind",
+          "value"
+        ],
+        "title": "RecordIn",
+        "type": "object"
+      },
+      "RecordOut": {
+        "properties": {
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "data_class": {
+            "enum": [
+              "public",
+              "owner",
+              "private",
+              "location",
+              "activity"
+            ],
+            "title": "Data Class",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value"
+          }
+        },
+        "required": [
+          "id",
+          "data_class",
+          "kind",
+          "value",
+          "source",
+          "created_at"
+        ],
+        "title": "RecordOut",
         "type": "object"
       },
       "Redaction": {
@@ -9531,6 +9806,13 @@
         },
         "title": "ApproveBody",
         "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "bearer": {
+        "description": "A OneMind bearer token or session. Each operation's scopes name what it needs: a token scope (contract §12.6) or `data.grant`, a data grant an owner approved (POST /v1/actions type data.grant).",
+        "scheme": "bearer",
+        "type": "http"
       }
     }
   },
@@ -16344,6 +16626,645 @@
           "apps"
         ],
         "x-onemind-provisional": "Folds into GET /v1/surfaces (surface registry) when it lands; do not build on this route."
+      }
+    },
+    "/v1/data/classes": {
+      "get": {
+        "description": "The five data classes, which built-ins keep and read each, and what you may do with each.",
+        "operationId": "data.classes.list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ClassOut"
+                  },
+                  "title": "Response Data.Classes.List",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "data.grant"
+            ]
+          }
+        ],
+        "summary": "Classes",
+        "tags": [
+          "data"
+        ]
+      }
+    },
+    "/v1/data/classes/{data_class}": {
+      "get": {
+        "description": "One class with your access; `count` (how many records) needs read or aggregate, else null.",
+        "operationId": "data.classes.get",
+        "parameters": [
+          {
+            "description": "public, owner, private, location or activity",
+            "in": "path",
+            "name": "data_class",
+            "required": true,
+            "schema": {
+              "description": "public, owner, private, location or activity",
+              "enum": [
+                "public",
+                "owner",
+                "private",
+                "location",
+                "activity"
+              ],
+              "title": "Data Class",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClassOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "data.grant"
+            ]
+          }
+        ],
+        "summary": "One Class",
+        "tags": [
+          "data"
+        ]
+      }
+    },
+    "/v1/data/classes/{data_class}/records": {
+      "get": {
+        "description": "The class's records after `cursor`. Empty without a read grant (aggregate sees only the count).",
+        "operationId": "data.records.list",
+        "parameters": [
+          {
+            "description": "public, owner, private, location or activity",
+            "in": "path",
+            "name": "data_class",
+            "required": true,
+            "schema": {
+              "description": "public, owner, private, location or activity",
+              "enum": [
+                "public",
+                "owner",
+                "private",
+                "location",
+                "activity"
+              ],
+              "title": "Data Class",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 20,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RecordOut"
+                  },
+                  "title": "Response Data.Records.List",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Records, oldest first",
+            "headers": {
+              "Link": {
+                "description": "The next page: `<...?cursor=...>; rel=\"next\"` (contract §12.1)",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "data.grant"
+            ]
+          }
+        ],
+        "summary": "Records",
+        "tags": [
+          "data"
+        ]
+      },
+      "post": {
+        "description": "Add one record to the class. Needs a write grant (the owner always may).",
+        "operationId": "data.records.create",
+        "parameters": [
+          {
+            "description": "public, owner, private, location or activity",
+            "in": "path",
+            "name": "data_class",
+            "required": true,
+            "schema": {
+              "description": "public, owner, private, location or activity",
+              "enum": [
+                "public",
+                "owner",
+                "private",
+                "location",
+                "activity"
+              ],
+              "title": "Data Class",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Sending the same key again returns the first answer",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 80,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Sending the same key again returns the first answer",
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "data.grant"
+            ]
+          }
+        ],
+        "summary": "Write",
+        "tags": [
+          "data"
+        ]
+      }
+    },
+    "/v1/data/classes/{data_class}/stream": {
+      "get": {
+        "description": "Server-Sent Events: `record` for each new record (id = record id; resume with Last-Event-ID), then `end` with a reason when the stream stops: no_grant at once without read, revoked within 2 s of a revoke or expiry. At most 5 open streams per principal (429).",
+        "operationId": "data.records.stream",
+        "parameters": [
+          {
+            "description": "public, owner, private, location or activity",
+            "in": "path",
+            "name": "data_class",
+            "required": true,
+            "schema": {
+              "description": "public, owner, private, location or activity",
+              "enum": [
+                "public",
+                "owner",
+                "private",
+                "location",
+                "activity"
+              ],
+              "title": "Data Class",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Last-Event-ID",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 20,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Last-Event-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The record stream"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "data.grant"
+            ]
+          }
+        ],
+        "summary": "New records (text/event-stream)",
+        "tags": [
+          "data"
+        ]
+      }
+    },
+    "/v1/data/grants": {
+      "get": {
+        "description": "Every grant, newest first, for the owner (the Privacy screen); anyone else sees their own.",
+        "operationId": "data.grants.list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/GrantOut"
+                  },
+                  "title": "Response Data.Grants.List",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "data.grant"
+            ]
+          }
+        ],
+        "summary": "Grants",
+        "tags": [
+          "data"
+        ]
+      }
+    },
+    "/v1/data/grants/{grant_id}": {
+      "delete": {
+        "description": "Revoke a grant now (owner only, no approval: it only takes access away). Revoking twice is a no-op.",
+        "operationId": "data.grants.revoke",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "grant_id",
+            "required": true,
+            "schema": {
+              "maxLength": 40,
+              "title": "Grant Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Sending the same key again returns the first answer",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 80,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Sending the same key again returns the first answer",
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GrantOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "actions:approve"
+            ]
+          }
+        ],
+        "summary": "Revoke",
+        "tags": [
+          "data"
+        ]
       }
     },
     "/v1/databases": {

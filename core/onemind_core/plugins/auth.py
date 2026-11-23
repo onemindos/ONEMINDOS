@@ -12,6 +12,7 @@ import re
 
 _APP_ID = re.compile(r"plugin:([a-z0-9](?:[-a-z0-9]*[a-z0-9])?)\Z")
 _READ_GRANTS = frozenset({"nodes:read", "apps:read", "actions:read:own"})
+_DATA_READS = frozenset({"data.classes.list", "data.classes.get", "data.records.list", "data.records.stream"})
 
 
 def plugin_app_id(principal_id: str) -> str | None:
@@ -40,6 +41,9 @@ def allows_read(*, method: str, path: str, principal_id: str, source: str,
         return "nodes:read" in scopes
     if operation_id == "nodes.get" and re.fullmatch(r"/v1/nodes/[A-Za-z0-9_-]{1,64}", path):
         return "nodes:read" in scopes
+    # The data commons (#615): the door is open, the data grant decides what comes back (empty without one).
+    if operation_id in _DATA_READS and path.startswith("/v1/data/classes"):
+        return True
     # No /apps/* wildcard: that tree includes credentials, access and plans.
     return False
 
