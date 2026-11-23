@@ -97,6 +97,10 @@ HUMAN_ONLY: dict[str, str] = {
     "PUT /v1/agents/{name}/budget": OVERSIGHT,
     "POST /v1/agents/{name}/cancel": OVERSIGHT,
     "POST /v1/agents/{name}/resume": OVERSIGHT,
+    # an agent never gets a tool that issues, reads or revokes its own NATS key
+    "GET /v1/agents/{name}/nats-key": CREDENTIAL,
+    "PUT /v1/agents/{name}/nats-key": CREDENTIAL,
+    "DELETE /v1/agents/{name}/nats-key": CREDENTIAL,
     "GET /v1/approval-policies": OVERSIGHT,
     "POST /v1/approval-policies": OVERSIGHT,
     "DELETE /v1/approval-policies/{policy_id}": OVERSIGHT,

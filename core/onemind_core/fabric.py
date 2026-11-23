@@ -48,6 +48,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import JSON, DateTime, String, Text, delete, func, select, update
 from sqlalchemy.orm import Mapped, mapped_column
 
+from .agents_nats import agent_users
 from .auth import Principal
 from .ca import MESH_DOMAIN, BoxCA
 from .errors import ApiError
@@ -641,10 +642,11 @@ class FabricService:
         if path is None:
             return False
         accounts = [NodeAccount(n["node_id"], n["nats_pubkey"]) for n in self.repo.nodes()]
+        agents = agent_users(self.d.db)  # the AGENTS account (#627): one user per registered agent key
         changed = write_accounts(path, accounts, load_service_keys(self.d.fabric.nats_service_keys),
-                                 self.d.fabric.jetstream_max_bytes)
+                                 self.d.fabric.jetstream_max_bytes, agents)
         if changed:
-            log.info("NATS accounts updated (%d nodes)", len(accounts))
+            log.info("NATS accounts updated (%d nodes, %d agents)", len(accounts), len(agents))
         return changed
 
     # -- tickets (owner)

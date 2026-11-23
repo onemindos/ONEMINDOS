@@ -24,6 +24,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 import sec_world as w
+from onemind_core.natsconf import new_user_key
 from sec_world import IDENTITY_STREAM, KINDS
 
 DECIDE = "decide"
@@ -365,6 +366,13 @@ POLICY |= {
                                               "AIG-03: only the owner cancels an agent"),
     ("POST", "/v1/agents/{name}/resume"): Row(ONLY_OWNER, w.p_missing("/v1/agents/hermes/resume", json={}),
                                               "AIG-03: an agent never resumes itself"),
+    # #627: an agent's NATS user (account AGENTS) is the owner's to add or remove; an agent never keys itself
+    ("GET", "/v1/agents/{name}/nats-key"): Row(ONLY_OWNER, w.p_static("/v1/agents/agent:probe/nats-key"),
+                                               "#627: only the owner reads an agent's NATS key"),
+    ("PUT", "/v1/agents/{name}/nats-key"): Row(ONLY_OWNER, w.p_missing("/v1/agents/agent:probe/nats-key", json={
+        "nkey": new_user_key()[1]}), "#627: an agent never registers its own NATS key"),
+    ("DELETE", "/v1/agents/{name}/nats-key"): Row(ONLY_OWNER, w.p_missing("/v1/agents/agent:probe/nats-key"),
+                                                  "#627: only the owner removes an agent's NATS key"),
     ("GET", "/v1/windows"): Row(READ_ANY, w.p_static("/v1/windows"), f"{_AUTOMATION}: any reader"),
     ("PUT", "/v1/windows/{window_id}"): Row(ONLY_OWNER, w.p_window_put, f"{_AUTOMATION}: only the owner edits windows"),
     # ---- update policy for apps (NMD-07, #132: core/onemind_core/routers/updatepolicy.py) -------------------
