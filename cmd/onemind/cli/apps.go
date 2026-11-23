@@ -127,6 +127,7 @@ func appFacts(x *onemind.CatalogApp) [][2]string {
 // session. Two audit entries: requested by you, approved by you (CLI.md §6.3).
 func requestCommand(a *App, typ, use, short string) *cobra.Command {
 	var noApprove, yes bool
+	var acceptLicence string
 	var wait time.Duration
 	cmd := &cobra.Command{
 		Use:   use,
@@ -188,7 +189,7 @@ func requestCommand(a *App, typ, use, short string) *cobra.Command {
 			if !ok {
 				return exitWith(ExitPending, "pending", fmt.Sprintf("left waiting for approval: onemind actions approve %s", act.Id))
 			}
-			if _, err := c.Actions.Approve(bg(), act.Id); err != nil {
+			if _, err := a.approveOrConfirmLicence(c, act, acceptLicence, yes); err != nil {
 				if errors.Is(err, onemind.ErrPermissionDenied) {
 					return exitWith(ExitPermissionDenied, "permission_denied",
 						fmt.Sprintf("requested %s, but this principal may not approve; an owner runs: onemind actions approve %s", act.Id, act.Id))
@@ -201,6 +202,7 @@ func requestCommand(a *App, typ, use, short string) *cobra.Command {
 			return a.waitAction(c, act.Id, wait)
 		},
 	}
+	cmd.Flags().StringVar(&acceptLicence, "accept-licence", "", "APP_ID: accept a blocked or unknown licence class for this install (the owner, in person)")
 	cmd.Flags().BoolVar(&noApprove, "no-approve", false, "only file the request (scripts, agents, non-owners)")
 	cmd.Flags().BoolVar(&yes, "yes", false, "approve without asking (v0: owner token approvals; passkey step-up replaces this, §12.3)")
 	cmd.Flags().DurationVar(&wait, "wait", 10*time.Minute, "wait for the outcome (default 10m)")

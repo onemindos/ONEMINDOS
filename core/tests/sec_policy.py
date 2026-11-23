@@ -140,6 +140,14 @@ POLICY |= {
     ("GET", "/v1/auth/passkeys"): Row(own_credentials(200), w.p_static("/v1/auth/passkeys"), "§12.6 own passkeys", ID, UNAUDITED),
     ("DELETE", "/v1/auth/passkeys/{credential_id}"): Row(own_credentials(404), w.p_static("/v1/auth/passkeys/no-such-credential"),
                                                          "§12.6 own passkeys", ID, UNAUDITED),
+    # #702 phone approver keys: registering needs an owner session with a fresh passkey (a child is refused
+    # and audited; static tokens hold no session); listing and revoking are the caller's own keys.
+    ("POST", "/v1/auth/approver-keys"): Row(cells(403, **GONE, **PENDING_DENY), w.p_approver_key,
+                                            "#702 an owner session with a fresh passkey", ID, UNAUDITED),
+    ("GET", "/v1/auth/approver-keys"): Row(own_credentials(200), w.p_static("/v1/auth/approver-keys"),
+                                           "#702 own approver keys", ID, UNAUDITED),
+    ("DELETE", "/v1/auth/approver-keys/{key_id}"): Row(own_credentials(404), w.p_static("/v1/auth/approver-keys/apk_none"),
+                                                       "#702 own approver keys", ID, UNAUDITED),
     ("POST", "/v1/auth/password"): Row(own_credentials(204), w.p_password, "§12.6 own credentials", ID, UNAUDITED),
     ("POST", "/v1/auth/totp/setup"): Row(own_credentials(200), w.p_static("/v1/auth/totp/setup"), "§12.6 own credentials", ID, UNAUDITED),
     ("POST", "/v1/auth/totp/confirm"): Row(own_credentials(409), w.p_totp_confirm, "§12.6 own credentials (no setup started: 409)", ID, UNAUDITED),
@@ -413,6 +421,12 @@ POLICY |= {
     ("PATCH", "/v1/me"): Row(grid(403, 403, 403, 200, 403), w.p_missing("/v1/me", json={"display_name": "Probe"}),
                              "a person with a stored account (the household child here) sets only their own display name; the static token "
                              "probes have no account row to name (the signed-in 200 paths are in test_identity.py)", ID),
+    # ---- My devices (#715): a person's own session only; the static-token probes and agents hold none --------
+    ("GET", "/v1/me/devices"): Row(own_credentials(200), w.p_static("/v1/me/devices"),
+                                   "#715 a signed-in person lists their own devices", ID),
+    ("DELETE", "/v1/me/devices/{device_id}"): Row(own_credentials(200), w.p_static("/v1/me/devices/mdv_no_such_device"),
+                                                  "#715 Lost this device: a person's own session; an id that is gone is a "
+                                                  "no-op 200 (idempotent)", ID),
     # ---- apps, plans, databases -----------------------------------------------------------------------------
     ("GET", "/v1/databases"): Row(OWNER_ADULT, w.p_static("/v1/databases"), "owner and adult list databases; never a password"),
     ("GET", "/v1/apps/{app_id}/credentials"): Row(OWNER_ONLY_404, w.p_static(f"/v1/apps/{w.TARGET_APP}/credentials"),
@@ -483,6 +497,13 @@ POLICY |= {
                                                             f"{_FILES}: a requester cancels their own"),
     ("GET", "/v1/files/grants"): Row(READ_ANY, w.p_static("/v1/files/grants"), f"{_FILES}: each sees their own"),
     ("DELETE", "/v1/files/grants/{grant_id}"): Row(READ_ANY_404, w.p_missing("/v1/files/grants/{grant}"), f"{_FILES}: revoking what you hold"),
+    # #693 browser downloads in quarantine: people see their own (owners all); only an owner asks to release one.
+    ("GET", "/v1/files/downloads"): Row(grid(200, 200, 200, 403, 403), w.p_static("/v1/files/downloads"),
+                                        f"{_FILES}: each person their own held downloads, an owner all; agents refused"),
+    ("POST", "/v1/files/downloads/{download_id}/release"): Row(OWNER_ONLY_404, w.p_missing("/v1/files/downloads/{download}/release"),
+                                                              f"{_FILES}: only an owner asks; an owner approves the action"),
+    ("DELETE", "/v1/files/downloads/{download_id}"): Row(grid(404, 404, 404, 403, 403), w.p_missing("/v1/files/downloads/{download}"),
+                                                         f"{_FILES}: the person who downloaded it or an owner; others see 404"),
     ("OPTIONS", "/v1/files/uploads"): Row(cells(204), w.p_static("/v1/files/uploads"), "tus capability discovery is open and read only"),
     ("POST", "/v1/files/uploads"): Row(grid(201, 201, 403, 403, 403), w.p_missing(
         "/v1/files/uploads", headers={**w.TUS, "Upload-Length": "1", "Upload-Metadata": w.UPLOAD_META}),
@@ -586,6 +607,8 @@ POLICY |= {
                                f"{_NET}: the fabric summary (nodes, pending joins) like /v1/nodes: a child has no nodes:read (§12.6)"),
     ("GET", "/v1/mesh"): Row(CHILD_CANNOT, w.p_static("/v1/mesh"),
                              f"{_NET}: the mesh view (nodes, devices, app URLs); a child has no nodes:read; mesh addresses are owner only (?addresses)"),
+    ("PUT", "/v1/mesh/settings"): Row(ONLY_OWNER, w.p_missing("/v1/mesh/settings", json={}),
+                                      f"{_NET}: CORE-NET-8, only the owner turns the mesh on or off or picks its provider (refusals audited)"),
     ("GET", "/v1/tls"): Row(CHILD_CANNOT, w.p_static("/v1/tls"),
                             "contract §12.7: CA fingerprint and names to any signed-in caller; a child's role defaults do not cover it"),
     ("GET", "/v1/tls/ca.crt"): Row(cells(200), w.p_static("/v1/tls/ca.crt"),
@@ -677,6 +700,20 @@ POLICY |= {
                                              f"{_SHR}: a person with files gets their own SMB password (409: none has a share in this world); guest, child and agent never"),
     ("POST", "/v1/shares/smb/{share_id}/stop"): Row(grid(404, 403, 403, 403, 403), w.p_missing("/v1/shares/smb/shr_0123456789abcdef/stop"),
                                                  f"{_SHR}: only an owner stops a share; the one probed does not exist"),
+}
+
+# ---- WebDAV app passwords (files-webdav, #722: core/onemind_core/routers/webdav.py) --------------------------
+# The /dav tree is a middleware outside the router (files/webdav.py): it takes only app passwords, so every
+# bearer token gets 401 there; core/tests/test_files_webdav.py covers it, including each token kind.
+_DAV = "core/onemind_core/routers/webdav.py"
+POLICY |= {
+    ("GET", "/v1/files/app-passwords"): Row(grid(200, 200, 403, 403, 403), w.p_static("/v1/files/app-passwords"),
+                                            f"{_DAV}: owner sees all, an adult their own; guest, child and agent hold none"),
+    ("POST", "/v1/files/app-passwords"): Row(grid(201, 201, 403, 403, 403), w.p_missing(
+        "/v1/files/app-passwords", json={"label": "probe", "scopes": ["shared:r"]}),
+        f"{_DAV}: the owner or an adult makes one for themself (tokens:self); guest, child and agent never"),
+    ("POST", "/v1/files/app-passwords/{password_id}/revoke"): Row(grid(404, 404, 403, 403, 403), w.p_missing(
+        "/v1/files/app-passwords/apw_missing/revoke"), f"{_DAV}: revoking your own (an owner anyone's); the one probed does not exist"),
 }
 
 # ---- OS updates (UMB-P05, #142: core/onemind_core/routers/osupdates.py) --------------------------------------

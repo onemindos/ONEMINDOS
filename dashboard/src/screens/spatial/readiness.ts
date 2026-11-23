@@ -24,7 +24,8 @@ interface XRSystem extends EventTarget {
   requestSession(mode: Mode): Promise<XRSession>;
 }
 export function browserXR() {
-  return (navigator as Navigator & {xr?: XRSystem}).xr;
+  // Through unknown: @types/webxr (with @types/three) declares a global navigator.xr; this file keeps its own narrow types.
+  return (navigator as unknown as {xr?: XRSystem}).xr;
 }
 type Support = 'available' | 'unavailable' | 'unknown';
 export async function probe() {

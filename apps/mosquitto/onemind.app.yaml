@@ -17,6 +17,7 @@ metadata:
   category: iot   # GitHub topics: iot, mqtt, mqtt-broker, messaging
   icon: icon.svg
   license: "EPL-2.0 OR BSD-3-Clause"
+  licenceClass: L1
   source: https://github.com/eclipse-mosquitto/mosquitto
   links:
     docs: "https://mosquitto.org/documentation/"

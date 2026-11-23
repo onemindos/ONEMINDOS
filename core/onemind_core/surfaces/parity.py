@@ -130,6 +130,9 @@ HUMAN_ONLY: dict[str, str] = {
     "GET /v1/fabric/join-tickets": CREDENTIAL,
     "POST /v1/fabric/join-tickets": CREDENTIAL,
     "DELETE /v1/fabric/join-tickets/{ticket_id}": CREDENTIAL,
+    "GET /v1/files/app-passwords": CREDENTIAL,
+    "POST /v1/files/app-passwords": CREDENTIAL,
+    "POST /v1/files/app-passwords/{password_id}/revoke": CREDENTIAL,
     "GET /v1/plugin-trust/keys": CREDENTIAL,
     "POST /v1/plugin-trust/keys/requests": CREDENTIAL,
     "POST /v1/plugin-trust/keys/{key_id}/revoke": CREDENTIAL,
@@ -147,6 +150,8 @@ HUMAN_ONLY: dict[str, str] = {
     "DELETE /v1/tokens/{token_id}": CREDENTIAL,
     "POST /v1/tokens/{token_id}/rotate": CREDENTIAL,
     # ---- person: the signed-in person's own record
+    # #693: the signed-in person's own quarantined browser downloads (an owner sees everyone's).
+    "GET /v1/files/downloads": PERSON,
     "GET /v1/me": PERSON,
     "PATCH /v1/me": PERSON,
     "GET /v1/me/home": PERSON,
@@ -229,6 +234,8 @@ HUMAN_ONLY: dict[str, str] = {
     "PUT /v1/files/quotas/{person_id}": WRITE,
     "POST /v1/files/requests/{request_id}/cancel": WRITE,
     "POST /v1/files/trash/empty": WRITE,
+    "POST /v1/files/downloads/{download_id}/release": WRITE,
+    "DELETE /v1/files/downloads/{download_id}": WRITE,
     "PUT /v1/instance/kiosk": WRITE,
     "POST /v1/machines/disable": WRITE,
     "POST /v1/machines/enable": WRITE,
