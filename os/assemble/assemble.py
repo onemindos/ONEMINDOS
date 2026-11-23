@@ -162,6 +162,24 @@ def install_efi_route(tree):
     shutil.copyfile(os.path.join(OS_DIR, "gate", "gate-slot-env-efi"), j("usr/lib/onemind/gate-slot-env"))
 
 
+def reset_machine_id(tree):
+    """Leave no machine id in the image, so every machine built from it gets its own (#943).
+
+    /etc/machine-id stays an empty file: on the read-only root systemd then makes a transient id at each boot
+    (handbook/findings.md F-05). /var/lib/dbus/machine-id becomes the upstream symlink to /etc/machine-id: when it is
+    a filled file, systemd seeds the transient id from it (machine-id(5), "Initialization"), so every machine from one
+    image boots with the build container's id and only the first one can join a hub (409 duplicate_node_id)."""
+    etc = os.path.join(tree, "etc", "machine-id")
+    if os.path.lexists(etc):
+        os.remove(etc)
+    open(etc, "w").close()
+    dbus = os.path.join(tree, "var", "lib", "dbus", "machine-id")
+    os.makedirs(os.path.dirname(dbus), exist_ok=True)
+    if os.path.lexists(dbus):
+        os.remove(dbus)
+    os.symlink("/etc/machine-id", dbus)
+
+
 def finalize(tree, board, version, keyring, overlays, boot="grub"):
     j = lambda p: os.path.join(tree, p.lstrip("/"))
     # Version (brief 30 B5 G7): ONEMIND_VERSION in /usr/lib/os-release.
@@ -184,8 +202,7 @@ def finalize(tree, board, version, keyring, overlays, boot="grub"):
     os.symlink("../run/systemd/resolve/stub-resolv.conf", j("/etc/resolv.conf"))
     shutil.copyfile(os.path.join(OS_DIR, "rootfs", "layers", "base", "etc", "hostname"), j("/etc/hostname"))
     shutil.copyfile(os.path.join(OS_DIR, "rootfs", "layers", "base", "etc", "hosts"), j("/etc/hosts"))
-    # Empty machine-id: systemd makes a transient one on the read-only root (handbook/findings.md F-05).
-    open(j("/etc/machine-id"), "w").close()
+    reset_machine_id(tree)
     for ov in overlays:
         log(f"overlay {ov}")
         run("cp", "-a", "--no-preserve=ownership", os.path.join(ov, "."), tree)
