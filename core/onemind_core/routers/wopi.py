@@ -25,6 +25,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from ..auth import Principal
 from ..context import Gateway
+from ..errors import ErrorBody
 from ..files.errors import FilesError
 from ..files.service import FilesService
 from ..files.wopi import TOKEN_ROUTE, WopiHost
@@ -57,7 +58,8 @@ _ERR = {
 
 
 def errs(*codes: int) -> dict:
-    return {c: _ERR[c] for c in codes}
+    """Every error answer is the section 3 envelope (ErrorBody), WOPI's X-WOPI-Lock header aside."""
+    return {c: {"model": ErrorBody, **_ERR[c]} for c in codes}
 
 
 class WopiTokenBody(BaseModel):

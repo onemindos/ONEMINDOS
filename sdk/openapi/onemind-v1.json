@@ -20118,12 +20118,33 @@
             "description": "Successful Response"
           },
           "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
             "description": "Missing, unknown or expired token, or the session behind it ended (unauthenticated)"
           },
           "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
             "description": "No such file (not_found)"
           },
           "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
             "description": "Lock mismatch, not locked, stale version or not a file; X-WOPI-Lock names the current lock"
           },
           "422": {
@@ -20137,6 +20158,13 @@
             "description": "Request failed validation (conflict, with the bad fields in message)"
           },
           "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
             "description": "unavailable: the files storage is not usable"
           }
         },
@@ -20240,24 +20268,73 @@
             "description": "Successful Response"
           },
           "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
             "description": "Missing, unknown or expired token, or the session behind it ended (unauthenticated)"
           },
           "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
             "description": "Not a signed-in person, no access to the path, or the document is read-only (permission_denied)"
           },
           "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
             "description": "No such file (not_found)"
           },
           "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
             "description": "Lock mismatch, not locked, stale version or not a file; X-WOPI-Lock names the current lock"
           },
           "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
             "description": "Invalid root, path, body or X-WOPI-Lock"
           },
           "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
             "description": "X-WOPI-Override names an operation this host does not support"
           },
           "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
             "description": "unavailable: the files storage is not usable"
           }
         },
@@ -20312,12 +20389,33 @@
             "description": "Successful Response"
           },
           "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
             "description": "Missing, unknown or expired token, or the session behind it ended (unauthenticated)"
           },
           "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
             "description": "No such file (not_found)"
           },
           "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
             "description": "Lock mismatch, not locked, stale version or not a file; X-WOPI-Lock names the current lock"
           },
           "422": {
@@ -20331,6 +20429,13 @@
             "description": "Request failed validation (conflict, with the bad fields in message)"
           },
           "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
             "description": "unavailable: the files storage is not usable"
           }
         },
@@ -20417,27 +20522,83 @@
             "description": "Successful Response"
           },
           "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
             "description": "Missing, unknown or expired token, or the session behind it ended (unauthenticated)"
           },
           "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
             "description": "Not a signed-in person, no access to the path, or the document is read-only (permission_denied)"
           },
           "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
             "description": "No such file (not_found)"
           },
           "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
             "description": "Lock mismatch, not locked, stale version or not a file; X-WOPI-Lock names the current lock"
           },
           "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
             "description": "payload_too_large: the save would pass the space's quota or the disk's free space"
           },
           "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
             "description": "Invalid root, path, body or X-WOPI-Lock"
           },
           "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
             "description": "X-WOPI-Override names an operation this host does not support"
           },
           "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
             "description": "unavailable: the files storage is not usable"
           }
         },
@@ -20471,15 +20632,43 @@
             "description": "Successful Response"
           },
           "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
             "description": "Missing, unknown or expired token, or the session behind it ended (unauthenticated)"
           },
           "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
             "description": "Not a signed-in person, no access to the path, or the document is read-only (permission_denied)"
           },
           "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
             "description": "No such file (not_found)"
           },
           "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
             "description": "Lock mismatch, not locked, stale version or not a file; X-WOPI-Lock names the current lock"
           },
           "413": {
@@ -20493,9 +20682,23 @@
             "description": "Request body over its limit (payload_too_large)"
           },
           "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
             "description": "Invalid root, path, body or X-WOPI-Lock"
           },
           "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
             "description": "unavailable: the files storage is not usable"
           }
         },

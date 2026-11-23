@@ -11,3 +11,6 @@ POST /v1/auth/logout  # ending the caller's own session twice is the same as onc
 PATCH /v1/files/uploads/{upload_id}  # tus: the Upload-Offset header makes a retried chunk safe
 PATCH /v1/photos/uploads/{upload_id}  # tus: the Upload-Offset header makes a retried chunk safe
 POST /v1/actions  # contract §12.1: keeps its §3 body field idempotency_key instead of the header
+POST /v1/files/wopi/tokens  # answers with a fresh WOPI access token, which a replay store must not keep; a retry mints another
+POST /v1/files/wopi/files/{file_id}  # WOPI (#675): an office engine sends no Idempotency-Key; Lock, RefreshLock and Unlock repeated with the same X-WOPI-Lock give the same result
+POST /v1/files/wopi/files/{file_id}/contents  # WOPI PutFile (#675): needs the file's current lock and its last-saved version, so a retried save writes the same bytes again
