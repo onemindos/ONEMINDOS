@@ -1,0 +1,1 @@
+bsize=4096 blocks=786432 bfree=391304 bavail=165144
