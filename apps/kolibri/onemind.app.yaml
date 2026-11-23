@@ -14,6 +14,7 @@ metadata:
   category: learning
   icon: icon.svg
   license: MIT
+  licenceClass: L1
   source: https://github.com/learningequality/kolibri
   # §9.3 facts from the GitHub API (repos/learningequality/kolibri and its releases/latest), read 2026-11-14.
   links:

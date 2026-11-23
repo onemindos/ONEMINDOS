@@ -1,0 +1,46 @@
+# SPDX-License-Identifier: Apache-2.0
+# Secure Boot (efi route) only: installed and enabled by os/assemble/assemble.py tree --boot efi (S-13, #148).
+[Unit]
+Description=OneMind firmware boot entries for slots A and B (RAUC efi backend)
+After=local-fs.target sys-firmware-efi-efivars.mount
+After=dev-disk-by\x2dpartlabel-onemind\x2dboot\x2da.device dev-disk-by\x2dpartlabel-onemind\x2dboot\x2db.device
+Wants=dev-disk-by\x2dpartlabel-onemind\x2dboot\x2da.device dev-disk-by\x2dpartlabel-onemind\x2dboot\x2db.device
+# The gate's commit (rauc status mark-good) moves the booted slot's entry to the front of BootOrder, so it must exist.
+Before=onemind-health-gate.service
+ConditionPathIsDirectory=/sys/firmware/efi/efivars
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/lib/onemind/onemind-efi-entries
+StandardOutput=journal+console
+# Sandbox (test/unit/test_unit_security.py): efibootmgr needs to read the disk's partition table and write firmware
+# variables (efivarfs under /sys stays writable: no ProtectKernelTunables), nothing else.
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateNetwork=yes
+RestrictAddressFamilies=AF_UNIX
+IPAddressDeny=any
+NoNewPrivileges=yes
+CapabilityBoundingSet=CAP_LINUX_IMMUTABLE
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+ProcSubset=pid
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+PrivateUsers=no
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

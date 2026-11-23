@@ -29,3 +29,6 @@ internal/leaf/testdata/hub-accounts-services.golden.conf:generic-api-key:23
 # fake wrong-recovery-key test value in the #145 restore test (history only; later commits use a low-entropy named variable). Not a secret.
 846fc5aa2ce9e12a005c12a22e95081cc31b870d:internal/backup/managed_test.go:generic-api-key:561
 5b604430ee54180f2fcb0032489cc42d76f87965:internal/backup/managed_test.go:generic-api-key:36
+# UMB-ACCT-1 lab log (#403): "credential_fp" is a 16-hex public fingerprint of a lab passkey credential id (sha256 prefix), not a secret.
+research-output/evidence/lab/acct-kanidm/run-1/AK-3.txt:generic-api-key:68
+dd47c170b08577f4b352d8a3c1f4792cba9326f4:research-output/evidence/lab/acct-kanidm/run-1/AK-3.txt:generic-api-key:68

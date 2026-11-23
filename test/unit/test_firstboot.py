@@ -14,6 +14,7 @@ sys.path.insert(0, LIB)
 sys.path.insert(1, os.path.join(ROOT, "core"))     # onemind_core, as the gateway venv has it
 import onemind_firstboot as fb  # noqa: E402
 import onemind_setup as setup  # noqa: E402
+import onemind_setup_helper as setup_helper  # noqa: E402
 
 try:
     from cryptography import x509 as _x509
@@ -194,14 +195,109 @@ class Files(unittest.TestCase):
             self.assertIn(f'"/run/onemind-nats/{f}"', c)
 
     def test_hub_nats_conf_has_bounded_jetstream_on_the_data_disk(self):
-        for conf in (fb.hub_nats_conf(None), fb.hub_nats_conf(MESH_IP)):
+        cap = 3 << 30
+        for conf in (fb.hub_nats_conf(None, cap), fb.hub_nats_conf(MESH_IP, cap)):
             self.assertIn('store_dir: "/var/lib/onemind-nats/jetstream"', conf)
-            self.assertIn(f"max_file_store: {4 << 30}", conf)
+            self.assertIn(f"max_file_store: {cap}", conf)
             self.assertIn("max_memory_store: 0", conf)  # a restart must not lose events silently
         p = fb.Paths("/x")
-        env = fb.gateway_env(p, {"box": "b", "node_id": "n1", "name": "n"})
-        self.assertIn(f"ONEMIND_FABRIC_JETSTREAM_MAX_BYTES={4 << 30}", env)
+        env = fb.gateway_env(p, {"box": "b", "node_id": "n1", "name": "n"}, js_max_bytes=cap)
+        self.assertIn(f"ONEMIND_FABRIC_JETSTREAM_MAX_BYTES={cap}", env)
         self.assertIn("ONEMIND_FABRIC_JETSTREAM_PATH=/var/lib/onemind-nats\n", env)
+
+    def test_jetstream_cap_is_a_share_of_the_data_disk_and_never_missing(self):
+        # #601: the cap follows /data (10 %, clamped), not a fixed 4 GiB; nats.conf and gateway.env agree.
+        GIB = 1 << 30
+        usage = lambda total: mock.patch("shutil.disk_usage", return_value=shutil._ntuple_diskusage(total, 0, total))
+        with tempfile.TemporaryDirectory() as d:
+            p = fb.Paths(d)
+            os.makedirs(os.path.join(d, "data"))
+            with usage(24 * GIB):
+                cap = fb.jetstream_max_bytes(p)
+                env = fb.gateway_env(p, {"box": "b", "node_id": "n1", "name": "n"})
+            self.assertEqual(cap, int(24 * GIB * 0.10))
+            self.assertIn(f"ONEMIND_FABRIC_JETSTREAM_MAX_BYTES={cap}\n", env)
+            with usage(2000 * GIB):
+                self.assertEqual(fb.jetstream_max_bytes(p), 64 * GIB)       # the ceiling
+            with usage(1 * GIB), self.assertRaises(ValueError):
+                fb.jetstream_max_bytes(p)                                  # too small: refused, not uncapped
+        for bad in (0, -1):
+            with self.assertRaises(ValueError):
+                fb.hub_nats_conf(None, bad)                                # JetStream without a cap is refused
+
+    def test_hub_nats_refuses_to_start_jetstream_without_a_cap(self):
+        # #601: onemind-nats-files runs the check before every start and reload, after the copies (it reads
+        # the include too); a refusal fails the unit. The wrapper runs the parser with the gateway venv.
+        wrapper = os.path.join(LIB, "onemind-nats-capcheck")
+        files = open(os.path.join(LIB, "onemind-nats-files")).read()
+        self.assertIn('/usr/lib/onemind/onemind-nats-capcheck "$d/nats.conf"', files)
+        self.assertLess(files.index("copy /data/onemind/gateway/nats/accounts.conf"),
+                        files.index('/usr/lib/onemind/onemind-nats-capcheck "$d/nats.conf"'))
+        self.assertTrue(os.access(wrapper, os.X_OK))
+        self.assertIn("venv/bin/python3 -I /usr/lib/onemind/onemind_nats_capcheck.py", open(wrapper).read())
+        from onemind_core import natsconf
+        cap = 2 << 30
+        good = fb.hub_nats_conf(MESH_IP, cap)
+        blk = 'jetstream {\n  store_dir: "/var/lib/onemind-nats/jetstream"\n  max_file_store: %s\n  max_memory_store: 0\n}\n' % cap
+        self.assertIn(blk, good)
+        base = good.replace(blk, "")  # the rest of the rendered conf, includes and the leaf listener too
+        js = lambda text: base + text  # noqa: E731
+        cases = {
+            "rendered": (good, 0),
+            "no jetstream (old box)": ("server_name: hub\nlisten: 127.0.0.1:4222\n", 0),
+            "no file cap": (good.replace(f"  max_file_store: {cap}\n", ""), 1),
+            "zero file cap": (good.replace(f"max_file_store: {cap}", "max_file_store: 0"), 1),
+            "negative file cap (dynamic)": (good.replace(f"max_file_store: {cap}", "max_file_store: -1"), 1),
+            "no memory cap": (good.replace("  max_memory_store: 0\n", ""), 1),
+            "memory store": (good.replace("max_memory_store: 0", "max_memory_store: 1GB"), 1),
+            "negative memory (dynamic)": (good.replace("max_memory_store: 0", "max_memory_store: -1"), 1),
+            "alias": (good.replace("max_memory_store: 0", "max_memory_store: 0\n  max_mem: 1G"), 1),
+            "alias only": (good.replace("max_memory_store: 0", "max_mem: 0"), 1),
+            # nats-server turns JetStream on for all of these (conf/parse.go itemBool, opts.go parseJetStream)
+            "jetstream enabled": ("server_name: hub\njetstream: enabled\n", 1),
+            **{f"jetstream: {w}": (js(f"jetstream: {w}\n"), 1) for w in ("on", "yes", "enable", "True", "ENABLED")},
+            "jetstream = on, comment": (js("jetstream = on  # no cap\n"), 1),
+            "jetstream true, space separator": (js("jetstream true\n"), 1),
+            "quoted key": (js('"jetstream": enabled\n'), 1),
+            # off is off: nats-server starts without JetStream
+            **{f"jetstream: {w}": (js(f"jetstream: {w}\n"), 0) for w in ("off", "false", "NO", "disabled")},
+            # NATS lowercases keys: the check does too
+            "JetStream block, no cap": (js("JetStream {\n  store_dir: /x\n}\n"), 1),
+            "upper-case keys, capped": (js("JETSTREAM {\n  MAX_FILE_STORE: 4GB\n  Max_Memory_Store: 0\n}\n"), 0),
+            "upper-case memory store": (good.replace("max_memory_store: 0", "MAX_MEMORY_STORE: 1GB"), 1),
+            "jetstream twice, cases differ": (good + "JetStream: on\n", 1),
+            # the limits count only inside the block
+            "stray memory cap outside": (js("max_memory_store: 0\njetstream {\n  max_file_store: 4GB\n"
+                                            "  max_memory_store: 4GB\n}\n"), 1),
+            "stray file cap outside": (js("max_file_store: 4GB\njetstream {\n  max_memory_store: 0\n}\n"), 1),
+            "cap only in a comment": (good.replace("max_memory_store: 0", "max_memory_store: 1GB # max_memory_store: 0"), 1),
+            "last same-case key wins": (good.replace("max_memory_store: 0", "max_memory_store: 0\n  max_memory_store: 1G"), 1),
+            "later block wins": (good + "jetstream: on\n", 1),
+            "later capped block wins": (js("jetstream: on\n") + blk, 0),
+            "inline block, = and space": (js("jetstream {max_file_store = 1G, max_memory_store 0}\n"), 0),
+            "quoted size": (js('jetstream: {max_file_store: "4G", max_memory_store: "0K"}\n'), 0),
+            "overflowing size": (js("jetstream {max_file_store: 9223372036854775807G, max_memory_store: 0}\n"), 1),
+            "variable": (js("CAP: 4GB\njetstream {max_file_store: $CAP, max_memory_store: 0}\n"), 1),
+            "size nats-server cannot read": (good.replace("max_memory_store: 0", "max_memory_store: 0B"), 1),
+            "jetstream in an include": (good + 'include "more.conf"\n', 1),
+            "missing include": (good.replace('include "nats-accounts.conf"', 'include "gone.conf"'), 1),
+            "parse error": (good + "jetstream {\n", 1),
+        }
+        with tempfile.TemporaryDirectory() as d:
+            # the real include, as the gateway writes it: its account-level max_mem must not count
+            with open(os.path.join(d, "nats-accounts.conf"), "w") as f:
+                f.write(natsconf.render_accounts([], (), jetstream_max_bytes=cap // 2))
+            with open(os.path.join(d, "more.conf"), "w") as f:
+                f.write("jetstream: on\n")
+            for name, (conf, want) in cases.items():
+                path = os.path.join(d, "nats.conf")
+                with open(path, "w") as f:
+                    f.write(conf)
+                r = subprocess.run([sys.executable, "-I", os.path.join(LIB, "onemind_nats_capcheck.py"), path],
+                                   capture_output=True, text=True)
+                self.assertEqual(r.returncode, want, f"{name}: {r.stderr}")
+                if want:
+                    self.assertIn("(#601)", r.stderr)
 
     def test_jetstream_store_is_a_bind_from_the_data_disk_owned_for_the_nats_user(self):
         base = os.path.join(ROOT, "os", "rootfs", "layers")
@@ -644,9 +740,14 @@ class Node(Box):
         self.assertEqual(fb.join(self.p), 0)
 
 
+def in_process_helper(p):
+    """The web part's helper client, wired to the root helper's own handle() (the same JSON both ways)."""
+    return setup.Helper(call=lambda req: json.loads(json.dumps(setup_helper.handle(p, json.dumps(req).encode()))))
+
+
 class Wizard(Box):
     def serve(self):
-        setup.Wizard.paths = self.p
+        setup.Wizard.helper = in_process_helper(self.p)
         setup.Wizard.done = threading.Event()
         srv = setup.ThreadingHTTPServer(("127.0.0.1", 0), setup.Wizard)
         threading.Thread(target=srv.serve_forever, daemon=True).start()
@@ -691,7 +792,7 @@ class WizardLockdown(Box):
     """From a device on the LAN the wizard needs the one-time code; after setup it refuses the LAN."""
 
     def serve(self):
-        setup.Wizard.paths = self.p
+        setup.Wizard.helper = in_process_helper(self.p)
         setup.Wizard.done = threading.Event()
         srv = setup.ThreadingHTTPServer(("127.0.0.1", 0), setup.Wizard)
         threading.Thread(target=srv.serve_forever, daemon=True).start()
@@ -703,7 +804,7 @@ class WizardLockdown(Box):
         patcher.start()
         self.addCleanup(patcher.stop)
         setup.Wizard.gate = setup.Gate()
-        return setup.Wizard.gate.new(self.p.run)
+        return setup.Wizard.gate.new(in_process_helper(self.p).publish_code)
 
     def post(self, base, data):
         try:
@@ -738,7 +839,7 @@ class WizardLockdown(Box):
     def test_gate_backoff_doubles_and_ends(self):
         now = [1000.0]
         g = setup.Gate(clock=lambda: now[0])
-        g.new(self.p.run)
+        g.new(in_process_helper(self.p).publish_code)
         right = g.code
         for _ in range(setup.MAX_WRONG):
             self.assertFalse(g.check("nope"))
@@ -754,7 +855,7 @@ class WizardLockdown(Box):
     def test_guess_rate_is_capped(self):
         now = [0.0]
         g = setup.Gate(clock=lambda: now[0])
-        g.new(self.p.run)
+        g.new(in_process_helper(self.p).publish_code)
         tries = 0
         for _ in range(100000):                            # a flood of guesses over one simulated hour
             now[0] += 3600 / 100000
@@ -799,9 +900,14 @@ class WizardUnit(unittest.TestCase):
     def test_directives(self):
         text = open(self.UNIT).read()
         for d in ("ProtectSystem=strict", "NoNewPrivileges=yes", "SystemCallFilter=@system-service",
-                  "CapabilityBoundingSet=CAP_CHOWN CAP_DAC_OVERRIDE CAP_FOWNER", "MemoryDenyWriteExecute=yes",
+                  "DynamicUser=yes", "MemoryDenyWriteExecute=yes",
                   "RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX", "ProtectKernelLogs=yes"):
             self.assertIn(d, text)
+        # #578: the web part holds no capability; the root helper (onemind-setup-helper@.service) holds the three
+        self.assertRegex(text, r"(?m)^CapabilityBoundingSet=$")
+        self.assertNotRegex(text, r"(?m)^[^#]*CAP_(CHOWN|DAC_OVERRIDE|FOWNER)")
+        helper_unit = open(os.path.join(os.path.dirname(self.UNIT), "onemind-setup-helper@.service")).read()
+        self.assertIn("CapabilityBoundingSet=CAP_CHOWN CAP_DAC_OVERRIDE CAP_FOWNER", helper_unit)
 
     @unittest.skipUnless(shutil.which("systemd-analyze"), "needs systemd-analyze")
     def test_security_score_is_under_5(self):
@@ -809,6 +915,31 @@ class WizardUnit(unittest.TestCase):
         r = subprocess.run(["systemd-analyze", "security", "--offline=true", "--threshold=49",
                             "--no-pager", self.UNIT], capture_output=True, text=True)
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+
+
+class ChownTreeRace(unittest.TestCase):
+    """Issue #391 (cloud C4): a file that vanishes while the tree is re-owned must not fail first boot."""
+
+    def test_vanished_file_is_skipped(self):
+        with tempfile.TemporaryDirectory() as d:
+            for n in ("a", "gone", "z"):
+                open(os.path.join(d, n), "w").close()
+            seen = []
+
+            def chown(path, uid, gid):
+                if os.path.basename(path) == "gone":
+                    raise FileNotFoundError(path)
+                seen.append(os.path.basename(path))
+
+            with mock.patch.object(fb.os, "chown", chown):
+                fb.chown_tree(d, (961, 961))
+            self.assertEqual(sorted(seen), sorted([os.path.basename(d), "a", "z"]))
+
+    def test_other_errors_still_fail(self):
+        with tempfile.TemporaryDirectory() as d:
+            with mock.patch.object(fb.os, "chown", side_effect=PermissionError("no")):
+                with self.assertRaises(PermissionError):
+                    fb.chown_tree(d, (961, 961))
 
 
 if __name__ == "__main__":

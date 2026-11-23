@@ -1,0 +1,38 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Rescue console</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<nav><a href="index.html">Help home</a><a href="rescue.html">Rescue console</a><a href="emergency-kit.html">Emergency kit</a></nav>
+<h1>Rescue console</h1>
+<p>The rescue console is a small page that runs on the box itself, outside the apps and the OneMind desktop.
+It keeps working when those are down.</p>
+<h2>Open it</h2>
+<ol>
+<li>Use a computer or phone on the same home network as the box. The console refuses visitors from the
+internet and from your other OneMind places.</li>
+<li>Open <code>https://</code> followed by the box's network address and <code>:7443</code>. Your router's
+list of connected devices shows the box's address.</li>
+<li>When the browser asks you to sign in, type any user name. The password is your owner token.</li>
+</ol>
+<p class="note">After five wrong passwords in one minute, that device has to wait a minute before it can try
+again.</p>
+<h2>What it can do</h2>
+<ul>
+<li><b>Slots.</b> The box keeps two copies of the operating system, slot A and slot B. The console shows which
+one is running and the version in each.</li>
+<li><b>Roll back.</b> Starts the other slot, which holds the previous OS version, and restarts the box. Type
+<kbd>rollback</kbd> to confirm. Reconnect after a few minutes.</li>
+<li><b>Logs.</b> Downloads the recent system logs (OneMind, updates, the health check, RAUC and k3s) as a text
+file you can keep or send to someone who helps you.</li>
+<li><b>Terminal.</b> Shown only when the owner has switched it on at the box with
+<code>onemindd rescue terminal enable</code>. Opening a shell needs a fresh passkey sign-in.</li>
+<li><b>Help.</b> These pages.</li>
+</ul>
+</body>
+</html>

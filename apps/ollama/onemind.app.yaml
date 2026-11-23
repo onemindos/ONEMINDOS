@@ -14,6 +14,7 @@ metadata:
   category: ai
   icon: icon.svg
   license: "MIT"
+  licenceClass: L1
   source: https://github.com/ollama/ollama
   # §9.3 facts from the GitHub API (repos/ollama/ollama), read 2026-11-12.
   links:

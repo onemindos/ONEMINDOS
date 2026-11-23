@@ -35,3 +35,28 @@ var Datapoint string
 //
 //go:embed onemind.event.schema.json
 var Event string
+
+// Message, RadioStatus, LoraJob, MessageEvent and MessageImport are the Messages contract (#855):
+// the stored message, the radio's own report in physical units, the LoRa kinds of the signed job
+// envelope that onemindd verifies (#740), the ids-only message events and the direct-mode import body.
+//
+//go:embed onemind.message.schema.json
+var Message string
+
+//go:embed onemind.radio.status.schema.json
+var RadioStatus string
+
+//go:embed onemind.job.lora.schema.json
+var LoraJob string
+
+//go:embed onemind.message.event.schema.json
+var MessageEvent string
+
+//go:embed onemind.message.import.schema.json
+var MessageImport string
+
+// Radios is the table of known USB radio dongles (issue #732): the image's udev rules are rendered
+// from it (internal/detect/radios.go) and the gateway labels the radio-found cards with it.
+//
+//go:embed onemind.radios.json
+var Radios string

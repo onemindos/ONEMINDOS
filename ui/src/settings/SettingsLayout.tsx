@@ -9,7 +9,7 @@ import type { Tone } from '../tokens/tokens';
 import { matchSection } from './logic';
 import { SetIcon, type SetIconName } from './primitives';
 
-export type SettingsSectionId = 'default-apps' | 'appearance' | 'account' | 'users' | 'devices' | 'network' | 'backups' | 'updates' | 'notifications' | 'automation' | 'agents' | 'storage' | 'about';
+export type SettingsSectionId = 'default-apps' | 'appearance' | 'account' | 'users' | 'devices' | 'network' | 'backups' | 'updates' | 'notifications' | 'automation' | 'agents' | 'storage' | 'apps' | 'about';
 
 export interface SettingsSectionMeta {
   id: SettingsSectionId;
@@ -22,7 +22,6 @@ export interface SettingsSectionMeta {
 
 export const SETTINGS_SECTIONS: SettingsSectionMeta[] = [
   { id: 'appearance', label: 'Appearance', icon: 'eye', group: 'You', keywords: ['theme', 'dark', 'light', 'accent', 'wallpaper', 'colour', 'color', 'density', 'font'] },
-  { id: 'default-apps', label: 'Default apps', icon: 'settings', group: 'You', keywords: ['open with', 'preferred', 'browser'] },
   { id: 'account', label: 'Account & security', icon: 'lock', group: 'People and access', keywords: ['passkey', 'password', 'sessions', 'tokens', 'sign in', '2fa', 'totp'] },
   { id: 'users', label: 'Users & roles', icon: 'users', group: 'People and access', keywords: ['people', 'family', 'invite', 'owner', 'guest'] },
   { id: 'agents', label: 'Agents & MCP', icon: 'agent', group: 'People and access', keywords: ['ai', 'hermes', 'mcp', 'tools', 'revoke', 'suspend'] },
@@ -33,6 +32,7 @@ export const SETTINGS_SECTIONS: SettingsSectionMeta[] = [
   { id: 'updates', label: 'Updates', icon: 'updates', group: 'Keeping it healthy', keywords: ['os', 'version', 'channel', 'rollback', 'release notes', 'slot'] },
   { id: 'notifications', label: 'Notifications', icon: 'bell', group: 'Keeping it healthy', keywords: ['push', 'email', 'quiet hours', 'alerts', 'matrix', 'telegram'] },
   { id: 'automation', label: 'Automation', icon: 'flow', group: 'Keeping it healthy', keywords: ['rules', 'schedule', 'webhook', 'standing approval'] },
+  { id: 'apps', label: 'Apps', icon: 'apps', group: 'Apps', keywords: ['built in', 'built-in', 'system apps', 'switch off', 'disable', 'licence', 'license', 'update channel'] },
   { id: 'about', label: 'About & diagnostics', icon: 'info', group: 'About', keywords: ['version', 'logs', 'diagnostic bundle', 'rescue', 'support'] },
 ];
 
