@@ -13,6 +13,7 @@ whose request-only built-in tools come from this registry.
 
 from __future__ import annotations
 
+import logging
 from typing import Literal
 
 from fastapi import Depends, FastAPI, Request
@@ -24,7 +25,11 @@ from ..context import Gateway
 from ..errors import error_responses
 from ..identity.scopes import register_route_scope
 from ..notify.catalogue import lookup
+from ..surfaces import parity
+from ..surfaces.core import CORE_TOOLS
 from ..surfaces.registry import SurfaceRegistry
+
+log = logging.getLogger("onemind.surfaces")
 
 register_route_scope("GET,HEAD", r"/v1/surfaces", ("apps:read",))
 
@@ -124,6 +129,16 @@ def register(app: FastAPI, gw: Gateway) -> None:
         openapi=app.openapi,
     )
     app.state.surfaces = registry
+
+    def check_parity() -> None:
+        """Once every route is mounted: name any route with no tool and no human-only entry (CI fails
+        on these; a box built with an extra router says so in its log instead of serving it silently)."""
+        keys = parity.route_keys(app)
+        gaps = [p for p in parity.problems(keys, {t.route: t.name for t in CORE_TOOLS}) if p.split(" has no tool")[0] in keys]
+        if gaps:
+            log.warning("surface parity: %d route(s) have no tool and no human-only entry: %s", len(gaps),
+                        "; ".join(g.split(" has no tool")[0] for g in gaps))
+    gw.on_startup(check_parity)
 
     @app.get("/v1/surfaces", operation_id="surfaces.list", tags=["apps"], response_model=SurfacesOut,
              responses=error_responses(401, 403))

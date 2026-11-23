@@ -82,6 +82,16 @@ def test_a_new_route_with_no_tool_and_no_human_only_entry_fails_ci(c):
     assert len(out) == 1 and out[0].startswith("GET /v1/brand-new has no tool and no human-only entry"), out
 
 
+def test_the_gateway_names_unlisted_routes_in_its_log_at_startup(settings, clock, monkeypatch, caplog):
+    with make_client(settings, clock):
+        pass
+    assert "surface parity" not in caplog.text
+    monkeypatch.delitem(parity.HUMAN_ONLY, "POST /v1/tokens")
+    with make_client(settings, clock):
+        pass
+    assert "surface parity: 1 route(s) have no tool and no human-only entry: POST /v1/tokens" in caplog.text
+
+
 def test_stale_double_and_unknown_entries_fail(c, monkeypatch):
     keys = parity.route_keys(c.app)
     monkeypatch.setitem(parity.HUMAN_ONLY, "GET /v1/gone", parity.WRITE)
