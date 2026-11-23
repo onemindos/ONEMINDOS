@@ -1,0 +1,60 @@
+# SPDX-License-Identifier: Apache-2.0
+# The setup wizard's root helper (#578): one instance per connection on onemind-setup-helper.socket. Takes
+# three fixed requests from the wizard's web part (status, publish the setup code for the screen, apply the
+# form), checks every field again (onemind_setup_helper.py) and applies the form with onemind_firstboot:
+# configure() chowns the data tree to the service users and writes /boot/efi, so this part stays root.
+# It holds only the three capabilities that needs; the web part holds none.
+[Unit]
+Description=OneMind setup wizard root helper (applies the checked form)
+RequiresMountsFor=/data /boot/efi
+CollectMode=inactive-or-failed
+
+[Service]
+Type=simple
+ExecStart=/usr/lib/onemind/onemind-setup-helper
+# The connection is stdin; stdout and stderr go to the journal so log lines never reach the caller.
+StandardInput=socket
+StandardOutput=journal
+StandardError=journal
+RuntimeMaxSec=300
+UMask=0077
+
+# --- identity / privileges: root, but only chown/chmod on files it does not own ---
+User=root
+CapabilityBoundingSet=CAP_CHOWN CAP_DAC_OVERRIDE CAP_FOWNER
+AmbientCapabilities=
+NoNewPrivileges=yes
+
+# --- filesystem: read-only except the data tree, /run (setup code, owner token) and the ESP (boot lock) ---
+ProtectSystem=strict
+ReadWritePaths=/data /run /boot/efi
+ReadWritePaths=-/etc/hosts
+ProtectHome=yes
+PrivateTmp=yes
+# The setup code and the owner token are printed on /dev/console.
+PrivateDevices=no
+DevicePolicy=closed
+DeviceAllow=/dev/console w
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+# The peer check reads the caller's /proc/<pid>/cgroup; "invisible" would hide another uid's process.
+ProtectProc=default
+ProcSubset=pid
+
+# --- kernel / syscalls ---
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@mount @debug @swap @reboot @raw-io @obsolete @cpu-emulation
+SystemCallErrorNumber=EPERM
+
+# --- network: lan_addr() asks the kernel for the route (UDP connect, no packet); AF_UNIX for systemd ---
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX

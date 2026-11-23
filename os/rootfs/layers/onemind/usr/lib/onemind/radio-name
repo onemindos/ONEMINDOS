@@ -1,0 +1,53 @@
+#!/bin/sh
+# SPDX-License-Identifier: Apache-2.0
+# radio-name <kind>: run by udev (PROGRAM in 70-onemind-radio.rules, issue #732) for a known USB radio
+# dongle. Prints the stable name udev links under /dev/onemind: <kind><n>, where n is the lowest number
+# that no other radio still plugged in holds, so the first LoRa radio is lora0. The same line asking
+# again (a change event, udevadm trigger) gets the name it already has.
+#
+# Claims are one file per name in /run/onemind-radio holding the kernel's DEVPATH of the line; /run is
+# empty at every boot, and a claim whose line is gone from /sys is free. It never opens the device:
+# nothing probes a radio before its owner confirms it.
+#
+# Tests pass a claims directory and a sysfs root as $2 and $3; the udev rule never does.
+set -eu
+kind=${1:-}
+run=${2:-/run/onemind-radio}
+sys=${3:-/sys}
+max=16
+
+case $kind in
+zigbee | zigbee-thread | lora) ;;
+*) exit 2 ;;
+esac
+dev=${DEVPATH:-}
+case $dev in
+/devices/*) ;;
+*) exit 2 ;;
+esac
+case $dev in
+*[!A-Za-z0-9/:._-]* | */../* | */..) exit 2 ;;
+esac
+
+umask 077
+mkdir -p "$run"
+exec 9>"$run/.lock"
+flock -w 10 9
+
+free=
+n=0
+while [ "$n" -lt "$max" ]; do
+	held=
+	[ -f "$run/$kind$n" ] && held=$(cat "$run/$kind$n")
+	if [ "$held" = "$dev" ]; then
+		echo "$kind$n"
+		exit 0
+	fi
+	if [ -z "$free" ] && { [ -z "$held" ] || [ ! -e "$sys$held" ]; }; then
+		free=$n
+	fi
+	n=$((n + 1))
+done
+[ -n "$free" ] || exit 1
+printf '%s\n' "$dev" >"$run/$kind$free"
+echo "$kind$free"

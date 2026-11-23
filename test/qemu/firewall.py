@@ -73,7 +73,7 @@ def addr_cmd(who):
 
 def probe(vm, src, dst, tcp, udp):
     fb.send_file(vm, "/run/fwprobe.py", PROBE_PY)
-    _, out = vm.run(f"{fb.PY} -I /run/fwprobe.py {src} {dst} {','.join(map(str, tcp))} {','.join(map(str, udp))}; rm -f /run/fwprobe.py", 120)
+    _, out = vm.run(f"{fb.PY} -I /run/fwprobe.py {src} {dst} '{','.join(map(str, tcp))}' '{','.join(map(str, udp))}'; rm -f /run/fwprobe.py", 120)
     return out
 
 
