@@ -15,7 +15,7 @@ import argparse, datetime, json, os, select, struct, sys, time
 
 # The allowlist: opcode -> name. Nothing else can be framed (see frame()).
 ALLOWED_COMMANDS = {0x01: "APP_START", 0x16: "DEVICE_QUERY", 0x38: "GET_STATS"}
-STATS_TYPES = {"core": 0, "radio": 1, "packets": 2}
+STATS_TYPES = {"core": 0, "packets": 2}
 APP_NAME = b"onemind-linkcheck"
 MAX_FRAME = 300  # meshcore_py drops frames longer than this
 
@@ -123,12 +123,6 @@ def decode(p):
                 raise ValueError("STATS core too short")
             mv, up, err, q = struct.unpack("<HIHB", p[2:11])
             return {"kind": "STATS_CORE", "battery_mv": mv, "uptime_s": up, "errors": err, "queue_len": q}
-        if p[1] == 1:
-            if len(p) < 14:
-                raise ValueError("STATS radio too short")
-            nf, rssi, snr, tx, rx = struct.unpack("<hbbII", p[2:14])
-            return {"kind": "STATS_RADIO", "noise_floor": nf, "last_rssi": rssi, "last_snr": snr / 4.0,
-                    "tx_air_s": tx, "rx_air_s": rx}
         if p[1] == 2:
             if len(p) < 26:
                 raise ValueError("STATS packets too short")

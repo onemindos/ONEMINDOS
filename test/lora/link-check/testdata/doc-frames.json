@@ -1,104 +1,12 @@
 {
   "source": "Built by hand from the MeshCore companion protocol layouts (docs/companion_protocol.md, MIT) and meshcore_py 2.3.19 reader.py (MIT) for STATS. Example values only: NOT captured from a radio. The founder's captured frames replace these as vectors for #855.",
   "frames": [
-    {
-      "name": "self_info_us_preset",
-      "hex": "05011316202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f000000000000000000000000bde40d0024f4000007054578616d706c6520526164696f",
-      "decoded": {
-        "kind": "SELF_INFO",
-        "adv_type": 1,
-        "tx_power_dbm": 19,
-        "max_tx_power_dbm": 22,
-        "public_key": "202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
-        "lat": 0.0,
-        "lon": 0.0,
-        "freq_mhz": 910.525,
-        "bw_khz": 62.5,
-        "sf": 7,
-        "cr": 5,
-        "name": "Example Radio"
-      }
-    },
-    {
-      "name": "self_info_firmware_default_eu",
-      "hex": "05011616202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f000000000000000000000000f2440d0024f4000008054578616d706c6520526164696f",
-      "decoded": {
-        "kind": "SELF_INFO",
-        "adv_type": 1,
-        "tx_power_dbm": 22,
-        "max_tx_power_dbm": 22,
-        "public_key": "202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
-        "lat": 0.0,
-        "lon": 0.0,
-        "freq_mhz": 869.618,
-        "bw_khz": 62.5,
-        "sf": 8,
-        "cr": 5,
-        "name": "Example Radio"
-      }
-    },
-    {
-      "name": "device_info_v10",
-      "hex": "0d0aaf28f1fb090030312d4a616e2d3230323600456c6563726f77205468696e6b4e6f6465204d32000000000000000000000000000000000000000076312e31322e30000000000000000000000000000000",
-      "decoded": {
-        "kind": "DEVICE_INFO",
-        "fw_ver": 10,
-        "max_contacts": 350,
-        "max_channels": 40,
-        "ble_pin": 654321,
-        "fw_build": "01-Jan-2026",
-        "model": "Elecrow ThinkNode M2",
-        "version": "v1.12.0",
-        "client_repeat": false,
-        "path_hash_mode": 0
-      }
-    },
-    {
-      "name": "stats_core",
-      "hex": "1800041078000000000000",
-      "decoded": {
-        "kind": "STATS_CORE",
-        "battery_mv": 4100,
-        "uptime_s": 120,
-        "errors": 0,
-        "queue_len": 0
-      }
-    },
-    {
-      "name": "stats_packets",
-      "hex": "18020c0000000000000000000000000000000a0000000200000001000000",
-      "decoded": {
-        "kind": "STATS_PACKETS",
-        "recv": 12,
-        "sent": 0,
-        "flood_tx": 0,
-        "direct_tx": 0,
-        "flood_rx": 10,
-        "direct_rx": 2,
-        "recv_errors": 1
-      }
-    },
-    {
-      "name": "stats_packets_legacy_26_bytes",
-      "hex": "1802050000000000000000000000000000000500000000000000",
-      "decoded": {
-        "kind": "STATS_PACKETS",
-        "recv": 5,
-        "sent": 0,
-        "flood_tx": 0,
-        "direct_tx": 0,
-        "flood_rx": 5,
-        "direct_rx": 0,
-        "recv_errors": null
-      }
-    },
-    {
-      "name": "error_unsupported",
-      "hex": "0101",
-      "decoded": {
-        "kind": "ERROR",
-        "error_code": 1
-      }
-    }
+    {"name": "self_info_us_preset", "hex": "05011316202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f000000000000000000000000bde40d0024f4000007054578616d706c6520526164696f", "decoded": {"kind": "SELF_INFO", "adv_type": 1, "tx_power_dbm": 19, "max_tx_power_dbm": 22, "public_key": "202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f", "lat": 0.0, "lon": 0.0, "freq_mhz": 910.525, "bw_khz": 62.5, "sf": 7, "cr": 5, "name": "Example Radio"}},
+    {"name": "self_info_firmware_default_eu", "hex": "05011616202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f000000000000000000000000f2440d0024f4000008054578616d706c6520526164696f", "decoded": {"kind": "SELF_INFO", "adv_type": 1, "tx_power_dbm": 22, "max_tx_power_dbm": 22, "public_key": "202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f", "lat": 0.0, "lon": 0.0, "freq_mhz": 869.618, "bw_khz": 62.5, "sf": 8, "cr": 5, "name": "Example Radio"}},
+    {"name": "device_info_v10", "hex": "0d0aaf28f1fb090030312d4a616e2d3230323600456c6563726f77205468696e6b4e6f6465204d32000000000000000000000000000000000000000076312e31322e30000000000000000000000000000000", "decoded": {"kind": "DEVICE_INFO", "fw_ver": 10, "max_contacts": 350, "max_channels": 40, "ble_pin": 654321, "fw_build": "01-Jan-2026", "model": "Elecrow ThinkNode M2", "version": "v1.12.0", "client_repeat": false, "path_hash_mode": 0}},
+    {"name": "stats_core", "hex": "1800041078000000000000", "decoded": {"kind": "STATS_CORE", "battery_mv": 4100, "uptime_s": 120, "errors": 0, "queue_len": 0}},
+    {"name": "stats_packets", "hex": "18020c0000000000000000000000000000000a0000000200000001000000", "decoded": {"kind": "STATS_PACKETS", "recv": 12, "sent": 0, "flood_tx": 0, "direct_tx": 0, "flood_rx": 10, "direct_rx": 2, "recv_errors": 1}},
+    {"name": "stats_packets_legacy_26_bytes", "hex": "1802050000000000000000000000000000000500000000000000", "decoded": {"kind": "STATS_PACKETS", "recv": 5, "sent": 0, "flood_tx": 0, "direct_tx": 0, "flood_rx": 5, "direct_rx": 0, "recv_errors": null}},
+    {"name": "error_unsupported", "hex": "0101", "decoded": {"kind": "ERROR", "error_code": 1}}
   ]
 }
