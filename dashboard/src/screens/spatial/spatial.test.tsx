@@ -5,18 +5,12 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { SpatialStatus } from './SpatialStatus';
 import Diagnostics from './Diagnostics';
 import { benchmark, measureFrames } from './benchmark';
-import type { XRFrame, XRSession } from './readiness';
+import type { XRSession } from './readiness';
+import { HEADSETS, emulateXR, emulatedSession, recordingGL } from './xrTestKit';
 
 afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
-function browser(secure: boolean, vr: boolean, ar: boolean) {
-  const isSessionSupported = vi.fn(async (mode: string) => mode === 'immersive-vr' ? vr : ar);
-  const requestSession = vi.fn().mockRejectedValue(new DOMException('Permission denied', 'NotAllowedError'));
-  vi.stubGlobal('isSecureContext', secure);
-  vi.stubGlobal('navigator', {userAgent: 'test browser', xr: {isSessionSupported, requestSession}});
-  vi.stubGlobal('fetch', vi.fn());
-  return {isSessionSupported, requestSession};
-}
+const browser = (secure: boolean, vr: boolean, ar: boolean) => emulateXR({secure, vr, ar});
 
 it.each([
   [true, false, false, 'No immersive modes available'],
@@ -82,29 +76,8 @@ it('handles a headset exit while obtaining tracking space', async () => {
 it('renders the requested marker counts for a granted session and exports the measured FPS', async () => {
   const xr = browser(true, true, false);
   vi.stubGlobal('matchMedia', () => ({matches: true}));
-  const gl = {
-    createProgram: () => ({}), createShader: () => ({}), createBuffer: () => ({}),
-    getProgramParameter: () => true, getAttribLocation: () => 0, getUniformLocation: () => ({}),
-    attachShader: vi.fn(), shaderSource: vi.fn(), compileShader: vi.fn(), deleteShader: vi.fn(),
-    linkProgram: vi.fn(), useProgram: vi.fn(), bindBuffer: vi.fn(), bufferData: vi.fn(),
-    enableVertexAttribArray: vi.fn(), vertexAttribPointer: vi.fn(), bindFramebuffer: vi.fn(),
-    clearColor: vi.fn(), clear: vi.fn(), viewport: vi.fn(), uniformMatrix4fv: vi.fn(), drawArrays: vi.fn(),
-    getExtension: () => null,
-  };
-  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(gl as unknown as WebGLRenderingContext);
-  vi.stubGlobal('XRWebGLLayer', class {
-    getViewport() {return {x: 0, y: 0, width: 128, height: 128};}
-  });
-  const matrix = new Float32Array(16);
-  const frame: XRFrame = {getViewerPose: () => ({views: [{projectionMatrix: matrix, transform: {inverse: {matrix}}}]})};
-  let timestamp = 0;
-  const session = Object.assign(new EventTarget(), {
-    requestReferenceSpace: async () => ({}), updateRenderState: vi.fn(), end: vi.fn(async () => {}),
-    requestAnimationFrame(callback: (time: number, frame: XRFrame) => void) {
-      queueMicrotask(() => callback(timestamp += 20, frame));
-      return timestamp;
-    },
-  }) satisfies XRSession;
+  const {info} = recordingGL();
+  const {session} = emulatedSession();
   xr.requestSession.mockResolvedValue(session);
   render(<Diagnostics />);
   const start = screen.getByRole('button', {name: 'Start VR test'});
@@ -115,7 +88,31 @@ it('renders the requested marker counts for a granted session and exports the me
   expect(report.readiness.standalone).toBe(true);
   expect(report.session.startedAt).toEqual(expect.any(String));
   expect(report.session.frameRates).toEqual([100, 500, 2000].map(assets => ({assets, fps: 50})));
-  expect([...new Set(gl.drawArrays.mock.calls.map(call => call[2]))]).toEqual([100, 500, 2000]);
+  expect(info().pointBatches).toEqual([100, 500, 2000]);
   expect(session.end).toHaveBeenCalledOnce();
+  expect(fetch).not.toHaveBeenCalled();
+});
+
+it.each(Object.entries(HEADSETS))('reports a headset exit mid-run as interrupted (%s)', async (_name, userAgent) => {
+  const xr = emulateXR({userAgent});
+  const {info} = recordingGL();
+  const headset = emulatedSession();
+  xr.requestSession.mockResolvedValue(headset.session);
+  headset.hold();
+  render(<Diagnostics />);
+  const start = screen.getByRole('button', {name: 'Start AR test'});
+  await waitFor(() => expect(start).toBeEnabled());
+  fireEvent.click(start);
+  await screen.findByText('Session running.');
+  await waitFor(() => expect(headset.waiting()).toBe(1));
+  headset.step(40); // fewer than the 90 frames of the first sample
+  headset.exit();
+  await screen.findByText('Session interrupted.');
+  const report = JSON.parse(screen.getByTestId('spatial-report').textContent!);
+  expect(report.browser).toBe(userAgent);
+  expect(report.session).toMatchObject({mode: 'immersive-ar', status: 'interrupted', frameRates: []});
+  expect(info()).toMatchObject({pointBatches: [100]});
+  expect(info().calls).toBe(40);
+  expect(start).toBeEnabled();
   expect(fetch).not.toHaveBeenCalled();
 });

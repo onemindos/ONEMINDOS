@@ -1,0 +1,25 @@
+# SPDX-License-Identifier: Apache-2.0
+# A tiny Rust library exported to Swift with UniFFI: the #705 test of linking a shared Rust core into
+# the Mac File Provider extension. scripts/build-core-ffi.sh builds it from Xcode.
+[package]
+name = "onemind-core-ffi"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+
+[lib]
+name = "onemind_core_ffi"
+crate-type = ["staticlib", "lib"]
+
+[[bin]]
+name = "uniffi-bindgen"
+path = "uniffi-bindgen.rs"
+
+[dependencies]
+uniffi = { version = "=0.29.4", features = ["cli"] }
+
+# Build-time crates (proc macros) are loaded by rustc as dylibs. Stripped ones fail to load on
+# Xcode 27 / macOS 27 ("mis-aligned LINKEDIT string pool") when cross-building with --target.
+[profile.release.build-override]
+strip = false
