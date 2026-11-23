@@ -342,6 +342,7 @@ AWAITING_TOOL: frozenset[str] = frozenset({
     "GET /v1/radios",
     "GET /v1/restores",
     "GET /v1/restores/{restore_id}",
+    "GET /v1/search",
     "GET /v1/series",
     "GET /v1/shares/smb",
     "GET /v1/sources",

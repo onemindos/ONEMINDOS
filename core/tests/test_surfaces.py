@@ -192,6 +192,7 @@ AWAITING_TOOL_SNAPSHOT = frozenset({
     "GET /v1/radios",
     "GET /v1/restores",
     "GET /v1/restores/{restore_id}",
+    "GET /v1/search",
     "GET /v1/series",
     "GET /v1/shares/smb",
     "GET /v1/sources",
@@ -240,7 +241,7 @@ def test_the_registry_route_and_radio_confirm_are_not_parked():
     assert "GET /v1/surfaces" not in parity.AWAITING_TOOL
     assert parity.HUMAN_ONLY["GET /v1/surfaces"] == parity.DOOR
     assert parity.HUMAN_ONLY["POST /v1/radios/{radio_id}/confirm"] == parity.OVERSIGHT
-    assert "GET /v1/radios" in parity.AWAITING_TOOL
+    assert {"GET /v1/radios", "GET /v1/search"} <= parity.AWAITING_TOOL  # reads served before the freeze
 
 
 # ---- read tools return the same body as their REST route ---------------------------------------------
