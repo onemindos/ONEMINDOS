@@ -55,11 +55,11 @@ SPARE = {"name": "win", "kind": "gpu", "device": "0000:01:00.0"}
 def box(settings, clock, executor):
     app = create_app(settings, clock=clock, executor=executor)
     with TestClient(app) as c:
-        def report(caps=CAPS):
-            hb = {**PC, "capabilities": caps}
+        def report(caps=CAPS, box=PC):
+            hb = {**box, "capabilities": caps}
             if caps is None:
                 hb.pop("capabilities")
-            assert app.state.registry.ingest(f"onemind.node.{PC['node_id']}.status", json.dumps(hb).encode())
+            assert app.state.registry.ingest(f"onemind.node.{box['node_id']}.status", json.dumps(hb).encode())
         c.report, c.n = report, 0
 
         def ask(typ, params, who=OWNER):
@@ -184,6 +184,58 @@ def test_the_device_is_checked_again_at_approval(box):
     r = box.post(f"/v1/actions/{queued['id']}/approve", headers=OWNER)
     assert r.status_code == 409 and r.json()["error"] == "stale_precondition", r.text
     assert box.get(f"/v1/actions/{queued['id']}", headers=OWNER).json()["state"] == "awaiting_approval"
+
+
+def test_two_identical_usb_devices_are_refused_because_kubevirt_cannot_tell_them_apart(box):
+    # Two identical CH340 adapters: port 1-4 is the host's radio (ch341 holds it), port 1-5 is free.
+    # KubeVirt permits USB devices by vendor:product only, so a grant of the free one could hand the
+    # machine the radio the host is using, past the device_busy refusal.
+    caps = copy.deepcopy(CAPS)
+    caps["usb"] += [{"port": "1-4", "id": "1a86:7523", "class": "ff", "interface_classes": ["ff"]},
+                    {"port": "1-5", "id": "1a86:7523", "class": "ff", "interface_classes": ["ff"]}]
+    caps["passthrough"]["usb_drivers"]["1-4"] = ["ch341"]
+    box.report(caps)
+    free = {"name": "win", "kind": "usb", "device": "1-5"}
+    r = box.ask("machine.attach_device", free)
+    refused(r, "device_ambiguous")
+    assert "1-4" in r.json()["message"]
+    refused(box.ask("machine.attach_device", {**free, "confirm_busy": True}), "device_ambiguous")
+    refused(box.ask("machine.attach_device", {**free, "device": "1-4", "confirm_busy": True}), "device_ambiguous")
+    assert device(box, "usb", "1-5")["refusal"]["code"] == "device_ambiguous"
+    assert device(box, "usb", "1-3")["refusal"] is None  # another id on the same box is not affected
+    # Once the radio is unplugged the free adapter is the only one with its id, and it can be granted.
+    caps["usb"] = [u for u in caps["usb"] if u["port"] != "1-4"]
+    box.report(caps)
+    done(box, "machine.attach_device", free)
+    assert device(box, "usb", "1-5")["granted_to"] == "win"
+
+
+def test_a_twin_plugged_in_before_approval_refuses_the_grant(box):
+    queued = box.ask("machine.attach_device", {"name": "win", "kind": "usb", "device": "1-3"}).json()
+    caps = copy.deepcopy(CAPS)
+    caps["usb"].append({"port": "1-4", "id": "1a86:55d4", "class": "ff", "interface_classes": ["ff"]})
+    box.report(caps)
+    r = box.post(f"/v1/actions/{queued['id']}/approve", headers=OWNER)
+    assert r.status_code == 409 and r.json()["error"] == "stale_precondition", r.text
+    assert device(box, "usb", "1-3")["granted_to"] is None
+
+
+def test_an_identical_gpu_on_another_box_is_ambiguous_too(box):
+    # pciVendorSelector is cluster-wide and the machine is not pinned to its box, so a card with
+    # the same id on any box of the cluster could be the one KubeVirt hands out.
+    other = {**PC, "node_id": "lab0123456789", "hostname": "bench"}
+    caps = copy.deepcopy(CAPS)
+    caps["accelerators"] = [{**GPU, "vendor": "nvidia", "pci_id": "10de:2882", "pci_slot": "0000:03:00.0", "driver": "nvidia",
+                             "integrated": False}]
+    caps["usb"] = []
+    queued = box.ask("machine.attach_device", SPARE).json()
+    box.report(caps, other)
+    r = box.ask("machine.attach_device", SPARE)
+    refused(r, "device_ambiguous")
+    assert "0000:03:00.0 on box bench" in r.json()["message"]
+    a = box.post(f"/v1/actions/{queued['id']}/approve", headers=OWNER)
+    assert a.status_code == 409 and a.json()["error"] == "stale_precondition", a.text
+    assert device(box, "gpu", "0000:01:00.0")["granted_to"] is None
 
 
 def test_params_are_strict(box):

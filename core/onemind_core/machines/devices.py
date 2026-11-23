@@ -15,11 +15,15 @@ approval:
 - `owner_confirms`: an agent set `confirm_busy`; taking a device from the host is the owner's word;
 - `iommu_group_shared`: the GPU's IOMMU group holds another card's device, so passing it through
   would hand that device to the machine too (even with `confirm_busy`);
+- `device_ambiguous`: a box of the cluster reports another device with the same vendor:device id
+  that this machine does not hold (two identical CH340 adapters, two identical cards). KubeVirt
+  picks by that id alone, cluster-wide, so it could hand the machine the other one, a device the
+  host is using, past the `device_busy` refusal (even with `confirm_busy`);
 - `iommu_off`, `no_profile`, `device_unknown`, `iommu_group_unknown`, `already_granted`,
   `device_granted` (another machine holds it), `machine_unknown`, `not_granted` (detach).
 
 What runs after approval: KubeVirt's `permittedHostDevices` lists every granted device (by
-vendor:device id, the only selector KubeVirt has) and the machine's VirtualMachine lists its own
+vendor:device id, the only selector KubeVirt has; hence `device_ambiguous`) and the machine's VirtualMachine lists its own
 under `gpus` and `hostDevices`. KubeVirt reads those when the machine's instance starts, so a grant
 applies the next time the machine starts. A GPU must also be bound to vfio-pci on the host; that is
 the lab kit's step (lab-kits/LT-MACH-DEV-01), not the gateway's. Machines stay gated off on real
@@ -215,6 +219,16 @@ def _busy(d: dict) -> bool:
     return bool([x for x in held if x not in FREE_GPU_DRIVERS] if d["kind"] == "gpu" else held)
 
 
+def _same_id(node: dict, kind: str, hw_id: str) -> list[str | None]:
+    """Every device of the node KubeVirt's selector for `kind` and `hw_id` would match: USB devices by
+    vendor:product, any accelerator by its PCI vendor:device (pciVendorSelector is not limited to GPUs).
+    An entry is the port path or PCI address, None for a card that reported no address."""
+    caps = node.get("capabilities") or {}
+    if kind == "usb":
+        return [u["port"] for u in caps.get("usb") or [] if (u.get("id") or "").lower() == hw_id]
+    return [a.get("pci_slot") for a in caps.get("accelerators") or [] if (a.get("pci_id") or "").lower() == hw_id]
+
+
 def _group_peers(node: dict, slot: str) -> list[str] | None:
     """Devices of other cards in the GPU's IOMMU group ([] when it is alone); None when no group lists it."""
     card = slot.rsplit(".", 1)[0]  # functions of one card (VGA, HDMI audio) travel together
@@ -241,6 +255,22 @@ class DeviceGrants:
         g = self.repo.get(node_id, kind, device)
         return g["machine"] if g and self.machines.repo.get(g["machine"]) is not None else None
 
+    def _twins(self, machine: str, node: dict, d: dict) -> list[str]:
+        """Other devices on any reported box that KubeVirt could hand out in place of `d` (same kind and
+        vendor:device id) and that `machine` does not hold. Grants are only ever made on the machine's
+        own box, so a twin on another box always counts: the VirtualMachine is not pinned to a node."""
+        out = []
+        for n in self.gw.registry.list():
+            here = n["node_id"] == node["node_id"]
+            for dev in _same_id(n, d["kind"], d["id"].lower()):
+                if here and dev == d["device"]:
+                    continue
+                if dev is not None and self._holder(n["node_id"], d["kind"], dev) == machine:
+                    continue
+                where = dev or "a card with no PCI address"
+                out.append(where if here else f"{where} on box {n.get('hostname') or n['node_id']}")
+        return out
+
     def _verdict(self, machine: str, node: dict, d: dict, confirm: bool, requester: dict | None) -> tuple[str, str] | None:
         holder = self._holder(node["node_id"], d["kind"], d["device"])
         if holder == machine:
@@ -249,6 +279,10 @@ class DeviceGrants:
             return "device_granted", f"Machine {holder} has this device. Take it back from {holder} first."
         if not d["id"]:
             return "device_unknown", "This card did not report its vendor and device id, so it cannot be passed through."
+        if twins := self._twins(machine, node, d):
+            return "device_ambiguous", (f"Another device with the same id ({d['id']}) is at " + ", ".join(twins) + ". KubeVirt "
+                                        "picks devices by that id alone, so the machine could get the other one, even one "
+                                        "the host is using. Unplug the other device to grant this one.")
         if d["kind"] == "gpu":
             peers = _group_peers(node, d["device"])
             if peers is None:
