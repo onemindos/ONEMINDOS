@@ -30,6 +30,9 @@ BASE_SCOPES = frozenset({
     "tokens:self", "tokens:read", "tokens:admin", "events:read", "deploy:write",
     "events:write",  # only as events:write:own, minted for an approved bridge block (#610)
     "assets:read",  # #606: asset values on GET /v1/events (owner and adult by default)
+    # #615 data commons: a token's ceiling on its data grants. Neither opens any data by itself (an owner
+    # approves each grant); a token without them reads `public` only and never writes (datagrants/).
+    "data:read", "data:write",
 })
 
 # Narrowing suffixes the contract names; anything else after a base scope is refused.
@@ -55,14 +58,18 @@ READ_SCOPES = frozenset(s for s in BASE_SCOPES if s.endswith(":read"))
 ROLE_SCOPES: dict[str, frozenset[str]] = {
     "owner": frozenset({ALL}),
     "adult": frozenset((READ_SCOPES - {"users:read"}) | {
-        "logs:read", "notifications:write", "tokens:self", "actions:request",
+        "logs:read", "notifications:write", "tokens:self", "actions:request", "data:write",
     }),
+    # Every household role carries the data ceiling so a grant the owner approved for that person works
+    # in their own session; with no grant they still see `public` only (datagrants/ access()).
     "guest": frozenset({"instance:read", "nodes:read", "apps:read", "notifications:read",
-                        "notifications:write", "alerts:read"}),
-    "child": frozenset({"instance:read", "apps:read", "notifications:read", "alerts:read"}),
+                        "notifications:write", "alerts:read", "data:read", "data:write"}),
+    "child": frozenset({"instance:read", "apps:read", "notifications:read", "alerts:read",
+                        "data:read", "data:write"}),
     # FAM-01 Teen: signs in on their own with the same API scopes as a child. No approval, admin,
     # users, nodes, tokens or logs scope; what a teen may open is narrowed by family controls only.
-    "teen": frozenset({"instance:read", "apps:read", "notifications:read", "alerts:read"}),
+    "teen": frozenset({"instance:read", "apps:read", "notifications:read", "alerts:read",
+                       "data:read", "data:write"}),
 }
 
 BUNDLES = {

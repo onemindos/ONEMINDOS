@@ -5,11 +5,18 @@ A data class is one of the five the built-in descriptors already name (sdk/schem
 $defs/dataClass). A grant gives one subject (an app's plugin, an agent, a person) some of read, write
 and aggregate on one class until it expires or the owner revokes it. The rules:
 
-- The owner holds every mode on every class, but only through a full owner session or token (or the
-  static owner token): an owner API token narrowed to other scopes is a token's ceiling like anywhere
-  else (identity/service.py _owner_wide), so it holds only what an ordinary caller holds. Every other
-  principal starts with nothing, except read and aggregate on `public`. A caller without read gets
-  empty data, not an error.
+- Every principal may read and aggregate `public`. A caller without read gets empty data, not an error.
+- A token's scopes are its ceiling here as everywhere (identity/service.py _owner_wide): read and
+  aggregate beyond `public` need `data:read` on the session or token, write needs `data:write`. A
+  person or agent token narrowed to, say, instance:read therefore holds `public` only, whatever grants
+  its subject has. Household sessions carry both (identity/scopes.py ROLE_SCOPES); agent tokens only
+  when minted with them. Static-file tokens (scopes None) keep contract v0 and are not capped. Plugin
+  install tokens are not either: the install mints one fixed snapshot per app and the app grant is the
+  whole of its data access, so there is no narrower copy of the same subject to cap.
+- The owner holds every mode on every class up to that ceiling: a full owner session or token (or the
+  static owner token) holds all three; an owner token with only data:read reads every class but writes
+  none; one with neither holds what any other caller holds. Every other principal starts with nothing
+  beyond `public` and gets the rest only from grants.
 - A grant only comes from an approval: the subject (or the owner on its behalf) files a `data.grant`
   action, the approval card shows exactly what it would get, and only an owner approves it. Agents and
   plugins can file, never approve; no standing approval covers the type (it is not an automation type).
@@ -37,7 +44,7 @@ from ..actions import FeatureAction
 from ..auth import Principal
 from ..errors import ApiError
 from ..executors import ExecResult
-from ..identity.scopes import ALL
+from ..identity.scopes import ALL, has_any
 from ..ledger import Base, iso, utc
 from ..plugins.auth import plugin_app_id
 from ..store import FeatureSchema, SqlRepository
@@ -142,9 +149,15 @@ def subject_of(kind: str, principal_id: str) -> tuple[str, str] | None:
 
 
 def full_owner(p: Principal, scopes: frozenset[str] | None) -> bool:
-    """The owner's standing access: a static owner token (scopes None) or an owner session or token
-    holding every scope. A narrowed owner token is not one (scopes are the token's ceiling)."""
+    """The owner's whole view (every grant, the Privacy screen): a static owner token (scopes None) or
+    an owner session or token holding every scope. A narrowed owner token is not one."""
     return p.is_owner and (scopes is None or ALL in scopes)
+
+
+def ceiling(p: Principal, scopes: frozenset[str] | None, scope: str) -> bool:
+    """Whether the caller's session or token lets its grants reach `scope` (data:read or data:write).
+    Static-file tokens (None) and plugin install tokens are not capped (module docstring)."""
+    return scopes is None or p.kind == "plugin" or has_any(scopes, (scope,))
 
 
 def grant_json(row: DataGrantRow, now: datetime) -> dict:
@@ -179,20 +192,23 @@ class DataGrants(SqlRepository):
     def access(self, p: Principal, data_class: str, *, scopes: frozenset[str] | None) -> Access:
         """What `p` may do with the class. `scopes` is the caller's token or session ceiling
         (identity AuthContext.scopes), None for a static-file token."""
-        if full_owner(p, scopes):
-            return Access(True, True, True)
+        may_read, may_write = ceiling(p, scopes, "data:read"), ceiling(p, scopes, "data:write")
         public = data_class == "public"
+        if p.is_owner:  # standing access to every class, up to the token's ceiling
+            return Access(may_read or public, may_write, may_read or public)
         read, write, aggregate = public, False, public
         subject = subject_of(p.kind, p.id)
-        if subject is not None:
+        if subject is not None and (may_read or may_write):
             now = self.gw.clock()
             with self.db.session() as s:
                 rows = s.scalars(select(DataGrantRow).where(
                     DataGrantRow.data_class == data_class, DataGrantRow.grantee_kind == subject[0],
                     DataGrantRow.grantee_id == subject[1], DataGrantRow.revoked_at.is_(None))).all()
             for g in rows:
-                if utc(g.expires_at) > now:
-                    read, write, aggregate = read or g.can_read, write or g.can_write, aggregate or g.can_aggregate
+                if utc(g.expires_at) > now:  # each mode only as far as the token's ceiling reaches
+                    read = read or (g.can_read and may_read)
+                    write = write or (g.can_write and may_write)
+                    aggregate = aggregate or (g.can_aggregate and may_read)
         return Access(read, write, aggregate or read)
 
     # ---- grants --------------------------------------------------------------------------------
@@ -244,7 +260,7 @@ class DataGrants(SqlRepository):
         q = select(DataGrantRow).order_by(DataGrantRow.created_at.desc(), DataGrantRow.id)
         if not full_owner(p, scopes):
             subject = subject_of(p.kind, p.id)
-            if subject is None:
+            if subject is None or not (ceiling(p, scopes, "data:read") or ceiling(p, scopes, "data:write")):
                 return []
             q = q.where(DataGrantRow.grantee_kind == subject[0], DataGrantRow.grantee_id == subject[1])
         with self.db.session() as s:

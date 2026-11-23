@@ -11019,7 +11019,7 @@
     },
     "securitySchemes": {
       "bearer": {
-        "description": "A OneMind bearer token or session. Each operation's scopes name what it needs: a token scope (contract §12.6) or `data.grant`, a data grant an owner approved (POST /v1/actions type data.grant).",
+        "description": "A OneMind bearer token or session. Each operation's scopes name what it needs: a token scope (contract §12.6) and `data.grant`, a data grant an owner approved (POST /v1/actions type data.grant). Without the token scope or the grant the answer is `public` only (empty data, or 403 on a write).",
         "scheme": "bearer",
         "type": "http"
       }
@@ -18251,6 +18251,7 @@
         "security": [
           {
             "bearer": [
+              "data:read",
               "data.grant"
             ]
           }
@@ -18330,6 +18331,7 @@
         "security": [
           {
             "bearer": [
+              "data:read",
               "data.grant"
             ]
           }
@@ -18450,6 +18452,7 @@
         "security": [
           {
             "bearer": [
+              "data:read",
               "data.grant"
             ]
           }
@@ -18460,7 +18463,7 @@
         ]
       },
       "post": {
-        "description": "Add one record to the class. Needs a write grant (the owner always may, with a full owner\nsession or token). Each writer keeps its newest 10,000 records per class.",
+        "description": "Add one record to the class. Needs a write grant and a session or token holding data:write\n(the owner needs only data:write). Each writer keeps its newest 10,000 records per class.",
         "operationId": "data.records.create",
         "parameters": [
           {
@@ -18577,6 +18580,7 @@
         "security": [
           {
             "bearer": [
+              "data:write",
               "data.grant"
             ]
           }
@@ -18683,6 +18687,7 @@
         "security": [
           {
             "bearer": [
+              "data:read",
               "data.grant"
             ]
           }
@@ -18736,6 +18741,7 @@
         "security": [
           {
             "bearer": [
+              "data:read",
               "data.grant"
             ]
           }

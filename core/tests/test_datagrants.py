@@ -164,6 +164,83 @@ def test_a_narrow_owner_token_holds_no_standing_access(client, clock):
     assert [g["id"] for g in client.get("/v1/data/grants", headers=full).json()] == [gid]
 
 
+def person_token(c, clock, user_id: str, role: str, scopes: list[str], name: str) -> dict:
+    """A real person API token for a household account `user_id` with `role`, holding exactly `scopes`."""
+    from onemind_core.identity.models import UserRow
+
+    if c.app.state.identity.user(user_id) is None:
+        c.app.state.identity.repo.add(UserRow(id=user_id, display_name="Fixture person", role=role,
+                                              created_at=clock(), updated_at=clock()))
+    token = new_secret("pat")
+    c.app.state.identity.repo.add(TokenRow(
+        id=f"tok_{name}", prefix=token[:11], name=name, hash=sha256_hex(token), kind="person",
+        principal_id=user_id, owner_user_id=user_id, scopes=scopes, source="api",
+        created_by=user_id, created_at=clock()))
+    return {"Authorization": "Bearer " + token}
+
+
+def agent_token(c, clock, agent_id: str, scopes: list[str], name: str) -> dict:
+    """A real agent API token, minted by the fixture owner, holding exactly `scopes`."""
+    person_token(c, clock, "pat-owner", "owner", ["*"], name=f"{name}-minter")
+    token = new_secret("agt")
+    c.app.state.identity.repo.add(TokenRow(
+        id=f"tok_{name}", prefix=token[:11], name=name, hash=sha256_hex(token), kind="agent",
+        principal_id=agent_id, owner_user_id="pat-owner", scopes=scopes, source="api",
+        created_by="pat-owner", created_at=clock()))
+    return {"Authorization": "Bearer " + token}
+
+
+def test_a_narrowed_person_token_gets_no_data_even_with_a_person_grant(client, clock):
+    """Least privilege for grantees: a grant reaches only as far as the token's data:read / data:write."""
+    assert write(client).status_code == 201
+    assert write(client, "public", value={"note": "hi"}).status_code == 201
+    narrow = person_token(client, clock, "probe-adult", "adult", ["instance:read"], name="adult-narrow")
+    assert client.get("/v1/apps", headers=narrow).status_code == 403  # the token really is narrow
+    gid = granted(client, clock, "g1", data_class="location", read=True, write=True,
+                  grantee={"kind": "person", "id": "probe-adult"})
+
+    assert records(client, narrow) == []
+    one = client.get("/v1/data/classes/location", headers=narrow).json()
+    assert one["count"] is None and one["access"] == {"read": False, "write": False, "aggregate": False}
+    refused = write(client, headers=narrow)
+    assert refused.status_code == 403 and refused.json()["error"] == "permission_denied", refused.text
+    assert [r["value"] for r in records(client, narrow, "public")] == [{"note": "hi"}]  # public stays open
+    assert client.get("/v1/data/grants", headers=narrow).json() == []
+
+    reader = person_token(client, clock, "probe-adult", "adult", ["data:read"], name="adult-reader")
+    assert len(records(client, reader)) == 1  # data:read lets the grant read, never write
+    assert write(client, headers=reader).status_code == 403
+    assert [g["id"] for g in client.get("/v1/data/grants", headers=reader).json()] == [gid]
+    both = person_token(client, clock, "probe-adult", "adult", ["data:read", "data:write"], name="adult-both")
+    assert write(client, headers=both).status_code == 201
+    assert client.get("/v1/data/classes/location", headers=OWNER).json()["count"] == 2
+
+
+def test_an_agent_token_needs_the_data_scopes_its_grant_uses(client, clock):
+    assert write(client).status_code == 201
+    granted(client, clock, "g1", data_class="location", read=True, write=True,
+            grantee={"kind": "agent", "id": "agent:probe"})
+    from onemind_core.identity.scopes import BUNDLES
+
+    default = agent_token(client, clock, "agent:probe", list(BUNDLES["reader"]), name="agent-default")  # F-15
+    assert records(client, default) == [] and write(client, headers=default).status_code == 403
+    with_data = agent_token(client, clock, "agent:probe", ["instance:read", "data:read", "data:write"],
+                            name="agent-data")
+    assert len(records(client, with_data)) == 1 and write(client, headers=with_data).status_code == 201
+
+
+def test_household_roles_carry_the_data_ceiling_and_an_owner_reader_token_writes_nothing(client, clock):
+    from onemind_core.identity.scopes import role_scopes
+
+    for role in ("adult", "guest", "child", "teen"):  # an approved person grant works in their session
+        assert {"data:read", "data:write"} <= role_scopes(role), role
+    assert write(client).status_code == 201
+    owner_reader = owner_token(client, clock, ["data:read"], name="owner-reader")
+    assert len(records(client, owner_reader)) == 1  # every class to read, up to the token's ceiling
+    assert write(client, "private", headers=owner_reader).status_code == 403
+    assert client.get("/v1/data/grants", headers=owner_reader).json() == []  # the Privacy screen needs *
+
+
 def test_one_writer_never_pushes_out_another_writers_records(client, clock, monkeypatch):
     import onemind_core.datagrants as dg
 

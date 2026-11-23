@@ -26,18 +26,21 @@ from ..identity.scopes import register_route_scope
 
 ORDER = 320
 TAG = "data"
-# No token scope opens the data doors: the caller's data grant decides what comes back (datagrants/),
-# so a household child, an agent and an installed plugin all reach them and see only what was granted.
-# The owner's standing access to every class needs a full owner session or token (scopes() below):
-# an owner token narrowed to, say, monitoring:read sees only what any other caller sees.
-# Revoking asks for the approver's scope; the handler also checks the caller is an owner.
+# No token scope opens the data doors: everybody signed in reaches them and reads `public`. Beyond that
+# the caller's data grant decides, capped by its token (scopes() below): grants reach read and aggregate
+# only with data:read, write only with data:write (datagrants/ ceiling()). Household sessions carry
+# both, so a child, an agent and an installed plugin see only what was granted; a person or agent token
+# narrowed to, say, instance:read sees `public` only, whatever its grants (and the owner's standing
+# access needs them too). Revoking asks for the approver's scope; the handler also checks for an owner.
 register_route_scope("GET,HEAD", r"/v1/data/(classes|grants)(/.*)?", None)
 register_route_scope("POST", r"/v1/data/classes/[^/]+/records", None)
 register_route_scope("DELETE", r"/v1/data/grants/[^/]+", ("actions:approve",))
 BEARER = HTTPBearer(scheme_name="bearer", auto_error=False, description=(
     "A OneMind bearer token or session. Each operation's scopes name what it needs: a token scope "
-    "(contract §12.6) or `data.grant`, a data grant an owner approved (POST /v1/actions type data.grant)."))
-READ = [Security(BEARER, scopes=["data.grant"])]
+    "(contract §12.6) and `data.grant`, a data grant an owner approved (POST /v1/actions type data.grant). "
+    "Without the token scope or the grant the answer is `public` only (empty data, or 403 on a write)."))
+READ = [Security(BEARER, scopes=["data:read", "data.grant"])]
+WRITE = [Security(BEARER, scopes=["data:write", "data.grant"])]
 PAGE = 100
 
 
@@ -140,12 +143,12 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return rows
 
     @app.post("/v1/data/classes/{data_class}/records", tags=[TAG], operation_id="data.records.create",
-              status_code=201, response_model=RecordOut, dependencies=READ,
+              status_code=201, response_model=RecordOut, dependencies=WRITE,
               responses=error_responses(401, 403, 409, 422))
     def write(body: RecordIn, request: Request, data_class: DataClass = CLASS,
               idempotency_key: str | None = IDEMPOTENCY, p: Principal = Depends(gw.principal)):
-        """Add one record to the class. Needs a write grant (the owner always may, with a full owner
-        session or token). Each writer keeps its newest 10,000 records per class."""
+        """Add one record to the class. Needs a write grant and a session or token holding data:write
+        (the owner needs only data:write). Each writer keeps its newest 10,000 records per class."""
         return svc.write(p, data_class, body, idempotency_key, scopes=scopes(request))
 
     @app.get("/v1/data/classes/{data_class}/stream", tags=[TAG], operation_id="data.records.stream",
