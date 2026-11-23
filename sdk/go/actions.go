@@ -134,17 +134,23 @@ func (s *ActionsService) Get(ctx context.Context, id string) (*Action, error) {
 // Approve is operation actions.approve (owner only). Never retried blindly: after an ambiguous
 // failure the action is read back (SDK.md §3.7).
 func (s *ActionsService) Approve(ctx context.Context, id string) (*Action, error) {
-	return s.decide(ctx, id, "approve")
+	return s.decide(ctx, id, "approve", nil)
+}
+
+// ApproveAcceptingLicence is Approve with accept_licence set to the app id: the owner's typed
+// confirmation that a blocked or unknown licence class is accepted (#173). Same read-back rule.
+func (s *ActionsService) ApproveAcceptingLicence(ctx context.Context, id, appID string) (*Action, error) {
+	return s.decide(ctx, id, "approve", map[string]string{"accept_licence": appID})
 }
 
 // Deny is operation actions.deny (owner only), with the same read-back rule as Approve.
 func (s *ActionsService) Deny(ctx context.Context, id string) (*Action, error) {
-	return s.decide(ctx, id, "deny")
+	return s.decide(ctx, id, "deny", nil)
 }
 
-func (s *ActionsService) decide(ctx context.Context, id, verb string) (*Action, error) {
+func (s *ActionsService) decide(ctx context.Context, id, verb string, body any) (*Action, error) {
 	var a Action
-	_, err := s.c.do(ctx, request{method: http.MethodPost, path: "/v1/actions/" + url.PathEscape(id) + "/" + verb}, &a)
+	_, err := s.c.do(ctx, request{method: http.MethodPost, path: "/v1/actions/" + url.PathEscape(id) + "/" + verb, body: body}, &a)
 	if err == nil {
 		return &a, nil
 	}

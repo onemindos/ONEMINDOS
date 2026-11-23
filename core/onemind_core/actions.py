@@ -47,7 +47,7 @@ from pydantic import (
 
 from .audit import AuditLog
 from .auth import Principal, new_agent_token, token_hash
-from .catalog import APP_ID_RE, AppEntry, Catalog
+from .catalog import APP_ID_RE, GREEN_LICENCE_CLASSES, AppEntry, Catalog
 from .errors import ApiError, SemanticValueError
 from .executors import AgentSecret, ExecResult, Executor
 from . import lifecycle as lc
@@ -109,6 +109,8 @@ class ApprovalInput:
 
     sealed: dict | None = None
     override: dict | None = None
+    # #173: the app id the owner typed to accept a licence class that is not green.
+    accept_licence: str | None = None
     webauthn: bool = False
     # How long the owner held the approve control, in ms (hold-to-approve). A physical action needs
     # at least HOLD_MIN_MS; the passkey assertion, not this number, is the proof of presence.
@@ -996,6 +998,8 @@ class ActionService:
                 )
         prior_state = self.repo.get_app_state(app_id)
         prior = prior_state.status if prior_state else None
+        if a.type == "app.install" and app is not None:
+            self._check_licence_class(principal, a, app, standing, extra)
         override = None
         if extra.override is not None and a.type != "app.install":
             raise ApiError(422, "conflict", "an owner override applies only to app.install")
@@ -1052,6 +1056,27 @@ class ActionService:
                 details=[_detail(v) for v in violations],
             )
         return out
+
+    def _check_licence_class(self, principal: Principal, a: Action, app: AppEntry, standing: dict | None,
+                             extra: ApprovalInput) -> None:
+        """#173: only a green licence class (L1 permissive, L2 copyleft) installs on an ordinary approval.
+        blocked and unknown need the owner, in person, to type the app id as accept_licence. A standing
+        approval never covers it, and nothing lifts it for an agent. Refusals are audited."""
+        cls = app.licence_class
+        if cls in GREEN_LICENCE_CLASSES:
+            return
+        if standing is not None or not principal.is_owner:
+            raise self._deny(principal, f"approve app.install for {a.params['app_id']!r} (licence class {cls}: only the owner, in person)", a.id)
+        if extra.accept_licence != app.id:
+            self.audit.append("authz.denied", principal.as_dict(), a.id,
+                              {"attempted": "approve app.install", "app_id": app.id, "licence_class": cls,
+                               "reason": "licence_unconfirmed"})
+            raise ApiError(
+                409, "stale_precondition",
+                f"app {app.id!r} has licence class {cls}, which is not green: send accept_licence with the app id "
+                "to confirm you accept its licence", reason="licence_unconfirmed",
+            )
+        self.audit.append("app.licence_accepted", principal.as_dict(), a.id, {"app_id": app.id, "licence_class": cls})
 
     def _approve_handled(self, principal: Principal, a: Action, handler: ActionHandler) -> dict:
         problem = handler.recheck(a)

@@ -14,6 +14,7 @@ metadata:
   category: media
   icon: icon.svg
   license: "AGPL-3.0"
+  licenceClass: L2
   source: https://github.com/alexta69/metube
   links:
     docs: "https://github.com/alexta69/metube#readme"

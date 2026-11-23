@@ -1,0 +1,52 @@
+#!/usr/bin/env -S python3 -I
+# SPDX-License-Identifier: Apache-2.0
+"""Fill metadata.licenceClass in every apps/<id>/onemind.app.yaml that lacks it (issue #173).
+
+The class comes from the manifest's own metadata.license (the upstream SPDX licence that
+app-scaffold read from the GitHub API or the upstream licence file) through the same classifier
+the app gate uses (applib/licence.py). No network, no guessing: an app whose licence the gate
+record disagrees with, or whose image mixes licences the manifest does not spell out, is listed in
+UNKNOWN below with the reason, and gets `unknown`, which is never green.
+
+Run: python3 -I sdk/tools/app-licence-class [--check]   (--check changes nothing; exit 1 if any file lacks it)
+"""
+from __future__ import annotations
+
+import re
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from applib.licence import declared_class  # noqa: E402
+
+REPO = Path(__file__).resolve().parents[2]
+# id -> why the class is `unknown` although metadata.license classifies as green.
+UNKNOWN = {
+    "esphome": "metadata.license is 'MIT AND GPL-3.0' but the recorded scan.json licence evidence classifies it blocked; the two disagree",
+    "chromium": "metadata.license names Neko (Apache-2.0) but the image runs Chromium with bundled components the manifest does not spell out",
+}
+LICENSE_LINE = re.compile(r'^(  license: .*)$', re.M)
+
+
+def main(argv: list[str]) -> int:
+    check = "--check" in argv
+    missing = 0
+    for path in sorted((REPO / "apps").glob("*/onemind.app.yaml")):
+        text = path.read_text(encoding="utf-8")
+        if re.search(r"^  licenceClass:", text, re.M):
+            continue
+        m = re.search(r'^  license: "?([^"\n]*?)"?\s*$', text, re.M)
+        if m is None:
+            print(f"{path.parent.name}: no metadata.license line", file=sys.stderr)
+            missing += 1
+            continue
+        cls = "unknown" if path.parent.name in UNKNOWN else declared_class(m.group(1))
+        missing += 1
+        print(f"{path.parent.name}: licenceClass {cls}" + (f"  ({UNKNOWN[path.parent.name]})" if path.parent.name in UNKNOWN else ""))
+        if not check:
+            path.write_text(LICENSE_LINE.sub(lambda mm: f"{mm.group(1)}\n  licenceClass: {cls}", text, count=1), encoding="utf-8")
+    return 1 if check and missing else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
