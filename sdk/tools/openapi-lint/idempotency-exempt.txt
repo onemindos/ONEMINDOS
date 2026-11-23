@@ -14,3 +14,5 @@ POST /v1/actions  # contract §12.1: keeps its §3 body field idempotency_key in
 POST /v1/files/shares  # answers with the link secret once, which a replay store must not keep; a retry makes a second link the creator can revoke
 DELETE /v1/files/shares/{share_id}  # revoking a link twice is the same as once: the second answer is the same revoked link
 POST /v1/os/rollouts/{rollout_id}/cancel  # cancelling twice leaves the same state: the second answer is 409 wrong_state and changes nothing
+POST /v1/bridges/{bridge_id}/events  # every event carries its own id and revision: a retried batch counts as duplicates, never twice
+POST /v1/bridges/{bridge_id}/resume  # resuming a bridge that already runs changes nothing

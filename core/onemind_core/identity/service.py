@@ -256,6 +256,13 @@ class IdentityService:
                     raise self.deny(ctx.principal, "read own actions", reason="plugin_policy")
                 request.state.identity = ctx
                 return ctx.principal
+            from ..plugins.auth import EVENTS_WRITE_OWN, allows_bridge_intake
+
+            if allows_bridge_intake(**policy):
+                if EVENTS_WRITE_OWN not in ctx.scopes:
+                    raise self.deny(ctx.principal, "post bridge events", reason="plugin_policy")
+                request.state.identity = ctx
+                return ctx.principal
             if not allows_read(**policy):
                 raise self.deny(ctx.principal, f"{request.method} {request.url.path}", reason="plugin_policy")
         required = sc.required_scopes(request.method, request.url.path)
