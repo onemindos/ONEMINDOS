@@ -81,13 +81,35 @@ class FounderRule(unittest.TestCase):
         self.assertEqual(de.plan(False, True, firmware_tpm=True), "passphrase")
         self.assertEqual(de.plan(True, False, firmware_tpm=True), "tpm2")
 
-    def test_the_firmware_tpm_check_reads_the_acpi_table_or_the_event_log(self):
-        for present in de.FIRMWARE_TPM:
-            with mock.patch.object(de.os.path, "exists", side_effect=lambda p: p == present):
-                self.assertTrue(de.firmware_has_tpm(), present)
-        with mock.patch.object(de.os.path, "exists", return_value=False):
-            self.assertFalse(de.firmware_has_tpm())
-        self.assertIn("/sys/firmware/acpi/tables/TPM2", de.FIRMWARE_TPM)
+    def firmware(self, present, major):
+        """firmware_has_tpm() with only the paths in `present` there and tpm_version_major reading `major`."""
+        with mock.patch.object(de.os.path, "exists", side_effect=lambda p: p in present), \
+             mock.patch.object(de, "read_sysfs", side_effect=lambda p: major if p == de.TPM_VERSION_MAJOR else None):
+            return de.firmware_has_tpm()
+
+    def test_the_firmware_tpm_check_reads_the_acpi_table_or_a_tpm2_event_log(self):
+        self.assertEqual(de.ACPI_TPM2, "/sys/firmware/acpi/tables/TPM2")
+        self.assertEqual(de.EVENT_LOG, "/sys/kernel/security/tpm0/binary_bios_measurements")
+        self.assertEqual(de.TPM_VERSION_MAJOR, "/sys/class/tpm/tpm0/tpm_version_major")
+        self.assertTrue(self.firmware({de.ACPI_TPM2}, None))       # the ACPI TPM2 table alone is a TPM 2.0
+        self.assertTrue(self.firmware({de.EVENT_LOG}, "2"))
+        self.assertFalse(self.firmware(set(), "2"))
+        self.assertFalse(self.firmware(set(), None))
+
+    def test_an_event_log_from_a_tpm_1_2_or_of_unknown_version_is_not_a_tpm2(self):
+        # The kernel makes the event log for a TPM 1.2 too, and a TPM 1.2 never gets /dev/tpmrm0 (systemd's
+        # efi_has_tpm2() checks tpm_version_major for the same reason).
+        self.assertFalse(self.firmware({de.EVENT_LOG}, "1"))
+        self.assertFalse(self.firmware({de.EVENT_LOG}, None))      # the version cannot be read: not a TPM2
+        self.assertFalse(self.firmware({de.EVENT_LOG}, ""))
+
+    def test_read_sysfs_strips_and_gives_none_when_the_file_is_missing(self):
+        with tempfile.TemporaryDirectory() as d:
+            p = os.path.join(d, "tpm_version_major")
+            with open(p, "w") as f:
+                f.write("2\n")
+            self.assertEqual(de.read_sysfs(p), "2")
+            self.assertIsNone(de.read_sysfs(os.path.join(d, "missing")))
 
     def test_the_opt_in_is_one_kernel_command_line_word(self):
         self.assertTrue(de.wants_passphrase("quiet onemind.data_encrypt=passphrase console=ttyS0"))
@@ -332,9 +354,13 @@ class Unlock(unittest.TestCase):
 
 class Main(unittest.TestCase):
     """main() with the disk faked: what it finds decides what it does."""
-    def run_main(self, sig, zero, tpm=False, cmdline="quiet", pw=PASSPHRASE, firmware_tpm=False):
+    def run_main(self, sig, zero, tpm=False, cmdline="quiet", pw=PASSPHRASE, firmware_tpm=False, event_log=None):
+        """`event_log` is None (no firmware event log) or what tpm_version_major reads ("1", "2")."""
         r = FakeRunner()
-        exists = lambda p: {"/dev/tpmrm0": tpm, "/sys/firmware/acpi/tables/TPM2": firmware_tpm}.get(p, False)
+        exists = lambda p: {"/dev/tpmrm0": tpm, "/sys/firmware/acpi/tables/TPM2": firmware_tpm,
+                            "/sys/kernel/security/tpm0/binary_bios_measurements": event_log is not None}.get(p, False)
+        mock.patch.object(de, "read_sysfs", side_effect=lambda p: event_log
+                          if p == "/sys/class/tpm/tpm0/tpm_version_major" else None).start()
         self.plain = mock.patch.object(de, "make_plain").start()
         self.ask = mock.patch.object(de, "ask_passphrase", return_value=pw).start()
         mock.patch.object(de, "cmdline", return_value=cmdline).start()
@@ -398,6 +424,32 @@ class Main(unittest.TestCase):
         self.assertEqual(ws.call_args.kwargs["state"], "encrypted")
         self.assertEqual(ws.call_args.kwargs["unlock"], "recovery-key")
         self.assertEqual(rc, 0)
+
+    def test_blank_with_a_tpm2_event_log_but_no_tpm_device_is_encrypted_with_the_recovery_key(self):
+        rc, r, ws, keep, fb, ul = self.run_main("", True, tpm=False, event_log="2")
+        self.plain.assert_not_called(); self.ask.assert_not_called()
+        fb.assert_called_once()
+        self.assertFalse(fb.call_args.args[1])
+        keep.assert_called_once_with(RECOVERY)
+        self.assertEqual(ws.call_args.kwargs["state"], "encrypted")
+        self.assertEqual(ws.call_args.kwargs["unlock"], "recovery-key")
+
+    def test_blank_on_a_tpm_1_2_box_stays_unencrypted_with_no_key_to_type(self):
+        # An older office PC with a TPM 1.2: the kernel makes the event log, but there is no /dev/tpmrm0 and never
+        # will be. The founder's rule: no usable TPM means plain unless the owner asks, so it comes back by itself.
+        rc, r, ws, keep, fb, ul = self.run_main("", True, tpm=False, event_log="1")
+        self.plain.assert_called_once()
+        fb.assert_not_called(); keep.assert_not_called(); self.ask.assert_not_called()
+        self.assertEqual(ws.call_args.kwargs["state"], "plain")
+        self.assertEqual(ws.call_args.kwargs["fs"], "btrfs")
+        self.assertEqual(rc, 0)
+
+    def test_a_tpm_1_2_box_can_still_opt_in_to_a_passphrase(self):
+        rc, r, ws, keep, fb, ul = self.run_main("", True, tpm=False, event_log="1",
+                                                cmdline="onemind.data_encrypt=passphrase")
+        self.ask.assert_called_once(); self.plain.assert_not_called()
+        self.assertEqual(fb.call_args.kwargs["passphrase"], PASSPHRASE)
+        self.assertEqual(ws.call_args.kwargs["unlock"], "passphrase")
 
     def test_blank_without_a_tpm_but_opted_in_asks_for_a_passphrase(self):
         rc, r, ws, keep, fb, ul = self.run_main("", True, tpm=False, cmdline="onemind.data_encrypt=passphrase")

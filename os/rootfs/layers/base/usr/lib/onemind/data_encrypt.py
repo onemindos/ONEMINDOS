@@ -16,9 +16,11 @@ What it does, by what it finds on the onemind-data partition:
       to PCR 7 (TPM) or the owner's passphrase (opt-in), and the random key's slot is wiped; the recovery key is
       printed once on the console and left in /run/onemind/data-recovery-key (RAM only) for the recovery-kit step;
     or plain btrfs on the partition (no TPM, no opt-in).
-    Fail closed: when the firmware announces a TPM (the ACPI TPM2 table or the TPM event log) but /dev/tpmrm0 is not
-    there (its driver probed late or failed), the box is a TPM box, so it gets LUKS2 with the recovery key, never
-    plain: plain btrfs is left alone on every later boot, so a wrong 'plain' would be unencrypted for good. The unit
+    Fail closed: when the firmware announces a TPM 2.0 (the ACPI TPM2 table, or the TPM event log with a kernel-reported
+    major version of 2, as systemd's efi_has_tpm2() checks) but /dev/tpmrm0 is not there (its driver probed late or
+    failed), the box is a TPM box, so it gets LUKS2 with the recovery key, never plain: plain btrfs is left alone on
+    every later boot, so a wrong 'plain' would be unencrypted for good. A TPM 1.2 does not count (it can never unlock
+    the disk by itself), so that box follows the no-TPM rule. The unit
     also waits for tpm2.target (systemd-tpm2-generator), so a slow TPM driver normally gets there first.
     The btrfs gets three subvolumes: @ (the default, which /etc/fstab mounts at /data), @storage (files) and
     @snapshots (snapshots of @storage, made by a later step).
@@ -51,9 +53,15 @@ CRYPTSETUP = "/usr/lib/systemd/systemd-cryptsetup"
 MODHEX = "cbdefghijklnrtuv"
 RECOVERY_RX = re.compile(r"\b([%s]{8}(?:-[%s]{8}){7})\b" % (MODHEX, MODHEX))
 TPM_DEV = "/dev/tpmrm0"
-# What the firmware says before the kernel's TPM driver is up: the ACPI TPM2 table (x86, ARM servers) or the TPM event
-# log the firmware hands over. The same two things systemd-tpm2-generator looks at to decide that a TPM should appear.
-FIRMWARE_TPM = ("/sys/firmware/acpi/tables/TPM2", "/sys/kernel/security/tpm0/binary_bios_measurements")
+# How the firmware announces a TPM 2.0, the same checks as systemd's efi_has_tpm2() (src/shared/efi-api.c), which
+# systemd-tpm2-generator uses to decide that a TPM2 should appear:
+#   1. the ACPI TPM2 table (x86, ARM servers): only a TPM 2.0 has one (a TPM 1.2 has the TCPA table instead);
+#   2. else the firmware's TPM event log, but ONLY when the kernel reports TPM major version 2. The kernel makes that
+#      event log for a TPM 1.2 too, and a TPM 1.2 never gets /dev/tpmrm0, so without the version check an older office
+#      PC with a TPM 1.2 would be taken for a TPM2 box whose TPM is late, and get a recovery key typed at every restart.
+ACPI_TPM2 = "/sys/firmware/acpi/tables/TPM2"
+EVENT_LOG = "/sys/kernel/security/tpm0/binary_bios_measurements"
+TPM_VERSION_MAJOR = "/sys/class/tpm/tpm0/tpm_version_major"
 ZERO_BYTES = 1 << 20
 SCRUB_BYTES = 16 << 20                     # a LUKS2 header plus keyslots is up to 16 MiB; wipefs alone leaves it
 
@@ -148,9 +156,22 @@ def plan(has_tpm, opted_in, firmware_tpm=False):
     return "recovery-key" if firmware_tpm else "plain"
 
 
+def read_sysfs(path):
+    """The stripped text of a small sysfs file, or None when it cannot be read."""
+    try:
+        with open(path) as f:
+            return f.read().strip()
+    except OSError:
+        return None
+
+
 def firmware_has_tpm():
-    """True when the firmware says this box has a TPM, whether or not the kernel's driver has made /dev/tpmrm0 yet."""
-    return any(os.path.exists(p) for p in FIRMWARE_TPM)
+    """True when the firmware says this box has a TPM 2.0, whether or not the kernel's driver has made /dev/tpmrm0 yet.
+    A TPM 1.2 (or a version that cannot be read) is False, as in systemd's efi_has_tpm2(): such a box follows the
+    no-TPM rule (plain unless the owner asks), because a TPM 1.2 can never unlock the disk by itself."""
+    if os.path.exists(ACPI_TPM2):
+        return True
+    return os.path.exists(EVENT_LOG) and read_sysfs(TPM_VERSION_MAJOR) == "2"
 
 
 def cmdline():
@@ -294,7 +315,8 @@ def main(runner=run):
     has_tpm = os.path.exists(TPM_DEV)
     firmware_tpm = has_tpm or firmware_has_tpm()
     if firmware_tpm and not has_tpm:
-        say(f"the firmware announces a TPM but {TPM_DEV} is missing (its driver did not come up); the TPM is not used")
+        say(f"the firmware announces a TPM 2.0 but {TPM_DEV} is missing (its driver did not come up); the TPM is not "
+            "used this boot and the disk is encrypted with the recovery key, never left plain")
     kind = classify(signature(node, runner), head_is_zero(node))
     if kind == "ext4":
         write_state(state="plain", fs="ext4", reason="installed before encryption; left as it is")
