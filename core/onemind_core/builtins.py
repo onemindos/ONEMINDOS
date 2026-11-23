@@ -11,6 +11,10 @@ From the descriptors of the built-ins that are switched on, the gateway builds:
 - GET /v1/builtins (routers/builtins.py), which lists all of that for every client. The route is
   provisional: it folds into the surface registry (GET /v1/surfaces) when that lands.
 
+Each built-in also has an app principal (`AppPrincipal`, id `app:<id>`): the in-process identity its
+engine uses to post to the one inbox under the topics its descriptor declares (notify/topics.py). It
+is never a token and never requests or approves anything.
+
 `BuiltinGate` is the one place that answers 409 `app_disabled`: every request (HTTP or websocket)
 under a prefix a switched-off built-in owns (`spec.routes.owns`) is refused there, so no module reads
 its own switch and no route under the prefix, public or not, is reachable while it is off.
@@ -29,6 +33,7 @@ from jsonschema import Draft202012Validator
 from starlette.concurrency import run_in_threadpool
 from starlette.requests import Request
 
+from .auth import Principal
 from .errors import ApiError, error_response
 from .systemlist import SystemList
 
@@ -39,6 +44,7 @@ PACKAGE_DIR = Path(__file__).resolve().parent
 SCHEMA_NAME = "onemind.builtin.schema.json"
 REPO_SCHEMA = PACKAGE_DIR.parents[1] / "sdk" / "schema" / SCHEMA_NAME
 MCP_PREFIX = "request_"
+APP_PRINCIPAL_PREFIX = "app:"
 
 
 @dataclass(frozen=True)
@@ -58,6 +64,22 @@ class Descriptor:
         out += [m["source"] for m in self.spec.get("mapLayers", [])]
         out += [p["source"] for p in self.spec.get("settingsPages", [])]
         return out
+
+
+@dataclass(frozen=True)
+class AppPrincipal(Principal):
+    """A built-in app's own principal (#613): kind and role `app`, id `app:<id>`.
+
+    Made only in-process by `Builtins.principal` for a loaded descriptor; no token, tokens file or
+    identity credential can carry kind `app`. It is not an owner and cannot request actions."""
+
+    def __post_init__(self) -> None:
+        if self.kind != "app" or self.role != "app" or not self.id.startswith(APP_PRINCIPAL_PREFIX):
+            raise ValueError("an app principal has kind and role app and id app:<id>")
+
+    @property
+    def app_id(self) -> str:
+        return self.id[len(APP_PRINCIPAL_PREFIX):]
 
 
 def schema_path(app_schema_path: Path | None) -> Path | None:
@@ -122,6 +144,12 @@ class Builtins:
     def enabled(self) -> list[Descriptor]:
         off = self.disabled()
         return [d for app_id, d in sorted(self.descriptors.items()) if app_id not in off]
+
+    def principal(self, app_id: str) -> AppPrincipal | None:
+        """The app principal of a built-in with a loaded descriptor (switched on or not), else None."""
+        if app_id not in self.descriptors:
+            return None
+        return AppPrincipal(id=APP_PRINCIPAL_PREFIX + app_id, kind="app", role="app")
 
     def owner_of(self, path: str) -> Descriptor | None:
         for d in self.descriptors.values():

@@ -1,0 +1,3 @@
+Label: 'onemind-data'  uuid: d1aaeb24-1cab-4a52-803c-8b36f5a73d92
+	Total devices 1 FS bytes used 537575424
+	devid    1 size 3221225472 used 1233125376 path /dev/loop2
