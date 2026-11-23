@@ -18183,8 +18183,8 @@
         ]
       }
     },
-    "/v1/files/app-passwords/{password_id}": {
-      "delete": {
+    "/v1/files/app-passwords/{password_id}/revoke": {
+      "post": {
         "description": "Revoke an app password. The next WebDAV request with it fails.",
         "operationId": "files.app_passwords.revoke",
         "parameters": [
