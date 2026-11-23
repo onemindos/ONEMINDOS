@@ -13,6 +13,16 @@ from onemind_core.agentbrowser.pods import SESSION_LABEL, isolation_problems, se
 from onemind_core.agentbrowser.proxy import EgressProxy, EgressRefused
 
 
+def test_a_long_path_cannot_hide_a_sign_in_or_payment_page():
+    """parse() cuts the audit copy of the URL to 2048 characters; classify() reads the URL the pod gets."""
+    pad = "a/" * 1100
+    for tail, reason in (("checkout?amount=9", "payment"), ("login", "sign_in")):
+        t = policy.parse(f"https://shop.example.org/{pad}{tail}")
+        assert len(t.full) > 2048 and len(t.url) == 2048 and tail.split("?")[0] not in t.url
+        assert policy.classify(t, "navigate") == reason
+    assert policy.classify(policy.parse(f"https://shop.example.org/{pad}docs"), "navigate") is None
+
+
 def test_url_rules():
     for bad in ("http://example.org/", "https://192.0.2.1/", "https://[::1]/", "https://user@localhost/",
                 "https://example.org:8443/", "https://nas.local/", "https://localhost/", "ftp://example.org/"):

@@ -152,7 +152,9 @@ def _segments(path: str) -> list[str]:
 
 def classify(target: Target, kind: str) -> str | None:
     """The reason this step needs a one-time owner approval on an approved site, or None."""
-    path = urlsplit(target.url).path
+    # The path of the URL the pod is sent (target.full), never of the audit copy target.url, which parse()
+    # cuts to 2048 characters: a long path must not push "login" or "checkout" out of sight.
+    path = urlsplit(target.full).path
     segs = set(_segments(path))
     host = target.host
     if segs & SIGN_IN_SEGMENTS or host.startswith(SIGN_IN_HOSTS):
