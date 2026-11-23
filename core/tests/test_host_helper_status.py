@@ -20,7 +20,7 @@ from fastapi.testclient import TestClient
 from conftest import OWNER
 from onemind_core.app import create_app
 from onemind_core.osupdate import ENGINE
-from test_hostlink import ask, link_settings, state
+from test_hostlink import ask, box, host, link_settings, state  # noqa: F401  (box, host: fixtures)
 
 MISSING = "host helper: missing"
 
@@ -86,9 +86,10 @@ def test_a_silent_socket_is_missing_without_holding_the_status_up(settings, cloc
         app = create_app(link_settings(settings, path), clock=clock, executor=executor)
         with TestClient(app) as c:
             t = time.monotonic()
+            assert app.state.hostlink.probe().reachable is False
+            assert time.monotonic() - t < 5  # a short probe, not the 10 s action timeout
             h = host_part(c)
             assert h["helper"] == "missing" and h["state"] != "ok"
-            assert time.monotonic() - t < 5  # a short probe, not the 10 s action timeout
     finally:
         stop.set()
         for s in held:
