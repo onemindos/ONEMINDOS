@@ -3,6 +3,7 @@ import { useNavigation } from '@react-navigation/native';
 import { Pressable, Text, View } from 'react-native';
 import type { NodeStatus } from '../api/types';
 import { useHubData, useNow } from '../data';
+import { HEALTH_TONE, HEALTH_WORD, LIVE_WORD, healthRows, liveIndicator, type HealthTarget } from '../lib/health';
 import { actionTitle, principalLabel, sortByRecent } from '../lib/approvals';
 import { effectiveStatus, formatAgo, secondsSince } from '../lib/time';
 import { usePhotoBackup } from '../photos/context';
@@ -10,6 +11,51 @@ import { summarize } from '../photos/status';
 import { useSignedIn } from '../session';
 import { Badge, Card, H1, H2, Loading, P, Row, Screen, STATUS_TONE, StateBadge, s } from '../ui/bits';
 import { space, useTheme } from '../ui/theme';
+
+/** Health at a glance from `GET /v1/status`: one row per source, an unknown source is never shown as ok. */
+export function HealthCard() {
+  const t = useTheme();
+  const nav = useNavigation();
+  const now = useNow();
+  const { status, statusAt, statusError, hubOffsetMs, live } = useHubData();
+  if (!status && !statusError) return null;
+  const go = (to: HealthTarget) => ('tab' in to ? nav.navigate('Tabs', { screen: to.tab }) : nav.navigate(to.screen));
+  const rows = status ? healthRows(status, now, hubOffsetMs) : [];
+  const indicator = liveIndicator(live);
+  return (
+    <Card testID="health-card">
+      <View style={s.row}>
+        <Text style={{ color: t.text, fontSize: 17, fontWeight: '600' }}>Health</Text>
+        <View style={s.wrap}>
+          <Badge label={HEALTH_WORD[status?.state ?? 'unknown']} tone={HEALTH_TONE[status?.state ?? 'unknown']} />
+          <View testID="live-indicator" accessibilityLabel={`Updates: ${LIVE_WORD[indicator]}`}>
+            <Badge label={LIVE_WORD[indicator]} tone={indicator === 'live' ? 'ok' : indicator === 'reconnecting' ? 'warn' : 'neutral'} />
+          </View>
+        </View>
+      </View>
+      {statusError && (
+        <View testID="health-error">
+          <P muted small>
+            {status && statusAt
+              ? `Could not refresh health. Showing the last answer, read ${formatAgo(secondsSince(new Date(statusAt).toISOString(), now))}.`
+              : 'Could not read health from the box.'}
+          </P>
+        </View>
+      )}
+      {rows.map((r) => (
+        <Pressable key={r.source} accessibilityRole="button" testID={`health-${r.source}`} onPress={() => go(r.to)}>
+          <View style={s.row}>
+            <Text style={{ color: t.text }}>{r.label}</Text>
+            <Badge label={HEALTH_WORD[r.state]} tone={HEALTH_TONE[r.state]} />
+          </View>
+          <P muted small>
+            {r.summary ? `${r.summary} · ` : ''}read {r.age}
+          </P>
+        </Pressable>
+      ))}
+    </Card>
+  );
+}
 
 export function HomeScreen() {
   const t = useTheme();
@@ -33,6 +79,8 @@ export function HomeScreen() {
           {label} · version {instance?.version ?? 'unknown'} · hub node {instance?.hub_node_id ?? 'unknown'}
         </P>
       </View>
+
+      <HealthCard />
 
       <Pressable accessibilityRole="button" onPress={() => nav.navigate('Tabs', { screen: 'Approvals' })}>
         <Card testID="pending-card">

@@ -92,3 +92,66 @@ it('follows browser history and restores the same owner under a newly issued tok
   expect(screen.getByRole('region', { name: 'Approvals' })).toBeInTheDocument();
   expect(personStorage('owner')!.getItem('shell.windows')).not.toContain('highlight');
 });
+
+const frame = (id: string) => document.querySelector<HTMLElement>(`[data-window-id="${id}"]`)!;
+
+it('switches workspaces from the menu bar and Alt+digit, keeping each set of windows, and remembers tiling', async () => {
+  const user = userEvent.setup();
+  renderApp({ token: 'owner-demo', route: '/approvals' });
+  await screen.findByRole('region', { name: 'Approvals' });
+  const spaces = screen.getByRole('group', { name: 'Workspaces' });
+  expect(within(spaces).getAllByRole('button')).toHaveLength(4);
+  await user.click(within(spaces).getByRole('button', { name: 'Workspace 2' }));
+  expect(within(spaces).getByRole('button', { name: 'Workspace 2' })).toHaveAttribute('aria-pressed', 'true');
+  expect(frame('approvals').hidden).toBe(true);
+  await openScreen(user, /Market/);
+  await waitFor(() => expect(frame('market').hidden).toBe(false));
+  const market = frame('market');
+  expect(market.hidden).toBe(false);
+  fireEvent.keyDown(window, { key: '¡', code: 'Digit1', altKey: true });
+  await waitFor(() => expect(frame('approvals').hidden).toBe(false));
+  expect(frame('market').hidden).toBe(true);
+  // Send the window to workspace 3 with Alt+Shift+3: it leaves this workspace.
+  fireEvent.keyDown(window, { key: '£', code: 'Digit3', altKey: true, shiftKey: true });
+  await waitFor(() => expect(frame('approvals').hidden).toBe(true));
+  fireEvent.keyDown(window, { key: '£', code: 'Digit3', altKey: true });
+  await waitFor(() => expect(frame('approvals').hidden).toBe(false));
+  const stored = JSON.parse(personStorage('owner')!.getItem('shell.windows')!);
+  expect(stored.map((w: { ws: number }) => w.ws).sort()).toEqual([1, 2]);
+  expect(personStorage('owner')!.getItem('shell.workspace')).toBe('2');
+  await user.click(screen.getByRole('button', { name: /^Tiling: off/ }));
+  expect(personStorage('owner')!.getItem('shell.tiling')).toBe('halves');
+});
+
+it('tiles the open windows of the workspace only while tiling is on, and the shortcuts sheet opens with ?', async () => {
+  const user = userEvent.setup();
+  personStorage('owner')!.setItem('shell.tiling', 'halves');
+  const rect = { x: 3, y: 3, width: 60, height: 60 };
+  personStorage('owner')!.setItem('shell.windows', JSON.stringify(['/approvals', '/market'].map(path => ({ path, rect }))));
+  renderApp({ token: 'owner-demo' });
+  const market = await screen.findByRole('region', { name: 'Market' });
+  const approvals = frame('approvals');
+  expect([approvals.style.width, market.style.width]).toEqual(['50%', '50%']);
+  expect(new Set([approvals.style.left, market.style.left])).toEqual(new Set(['0%', '50%']));
+  for (let i = 0; i < 4; i++) await user.click(screen.getByRole('button', { name: /^Tiling: / }));
+  expect(screen.getByRole('button', { name: /^Tiling: off/ })).toBeInTheDocument();
+  expect(market.style.width).toBe('60%');
+  (document.activeElement as HTMLElement).blur();
+  await user.keyboard('?');
+  expect(await screen.findByRole('dialog', { name: 'Keyboard shortcuts' })).toBeInTheDocument();
+});
+
+it('visiting an empty workspace and back keeps both windows of workspace 1 open', async () => {
+  const user = userEvent.setup();
+  renderApp({ token: 'owner-demo', route: '/approvals' });
+  await screen.findByRole('region', { name: 'Approvals' });
+  await openScreen(user, /Market/);
+  await waitFor(() => expect(frame('market').hidden).toBe(false));
+  expect(frame('approvals').hidden).toBe(false);
+  const spaces = screen.getByRole('group', { name: 'Workspaces' });
+  await user.click(within(spaces).getByRole('button', { name: 'Workspace 2' }));
+  await waitFor(() => expect(frame('market').hidden).toBe(true));
+  await user.click(within(spaces).getByRole('button', { name: /^Workspace 1/ }));
+  await waitFor(() => expect(frame('market').hidden).toBe(false));
+  expect(frame('approvals').hidden).toBe(false);
+});

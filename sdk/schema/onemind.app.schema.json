@@ -33,6 +33,7 @@
         "category",
         "icon",
         "license",
+        "licenceClass",
         "source",
         "links",
         "upstream",
@@ -88,6 +89,10 @@
           "description": "SPDX license identifier or SPDX expression (e.g. MIT, Apache-2.0, 'Apache-2.0 OR GPL-2.0').",
           "type": "string",
           "pattern": "^\\(?(LicenseRef-)?[A-Za-z0-9][A-Za-z0-9.+-]*\\)?( (AND|OR|WITH) \\(?(LicenseRef-)?[A-Za-z0-9][A-Za-z0-9.+-]*\\)?)*$"
+        },
+        "licenceClass": {
+          "description": "Market licence class of the app: L1 permissive and L2 copyleft are the green classes the Market shows and installs by default; blocked (source-available, non-commercial, proprietary) and unknown (not confirmed from the upstream licence) need an explicit owner confirmation to install. validate-apps checks that an L1 or L2 claim equals the class computed from metadata.license.",
+          "enum": ["L1", "L2", "blocked", "unknown"]
         },
         "source": {
           "description": "Upstream source repository URL (https only).",
@@ -485,6 +490,111 @@
                   "effect",
                   "input"
                 ]
+              }
+            },
+            "bridge": {
+              "description": "Brings outside data in through gateway intake (POST /v1/bridges/<id>/events), never straight onto the map or another app (sdk/contracts/connectors.md). The source token is always the app id, so emits stay inside the app's own source.",
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["provider", "mode", "dataClass", "emits", "limits"],
+              "properties": {
+                "provider": {"$ref": "#/$defs/token"},
+                "mode": {
+                  "description": "poll: fetches on a schedule. push: holds a stream open. dataset: a versioned file. local: the owner's own receiver, no internet.",
+                  "enum": ["poll", "push", "dataset", "local"]
+                },
+                "everySeconds": {"type": "integer", "minimum": 60, "maximum": 604800},
+                "hosts": {"$ref": "#/$defs/hosts"},
+                "dataClass": {"$ref": "#/$defs/dataClass"},
+                "emits": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 16,
+                  "uniqueItems": true,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["kind", "name"],
+                    "properties": {
+                      "kind": {"enum": ["intel", "article", "alert", "layer", "asset"]},
+                      "name": {"$ref": "#/$defs/token"}
+                    }
+                  }
+                },
+                "limits": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["eventsPerSecond", "maxEventBytes"],
+                  "properties": {
+                    "eventsPerSecond": {"type": "integer", "minimum": 1, "maximum": 100},
+                    "burst": {"type": "integer", "minimum": 1, "maximum": 1000},
+                    "maxEventBytes": {"type": "integer", "minimum": 256, "maximum": 16384}
+                  }
+                }
+              },
+              "allOf": [
+                {"if": {"properties": {"mode": {"const": "poll"}}}, "then": {"required": ["everySeconds", "hosts"]}},
+                {"if": {"properties": {"mode": {"const": "push"}}}, "then": {"required": ["hosts"]}},
+                {"if": {"properties": {"mode": {"const": "local"}}}, "then": {"not": {"required": ["hosts"]}}}
+              ]
+            },
+            "connector": {
+              "description": "An outside account the owner connects (sdk/contracts/connectors.md): the gateway holds the credential and runs it; the manifest names only the auth type.",
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["provider", "auth", "hosts"],
+              "properties": {
+                "provider": {"$ref": "#/$defs/token"},
+                "auth": {"enum": ["none", "api-key", "oauth-code", "oauth-device"]},
+                "hosts": {"$ref": "#/$defs/hosts"},
+                "everySeconds": {"type": "integer", "minimum": 60, "maximum": 604800},
+                "scopes": {
+                  "type": "array",
+                  "maxItems": 32,
+                  "uniqueItems": true,
+                  "items": {"type": "string", "pattern": "^[A-Za-z0-9:._/-]{1,128}$"}
+                }
+              }
+            },
+            "videoSource": {
+              "description": "A camera or video feed for the video engine. Metadata travels on the bus, frames never do. record needs a provider whose terms allow full display and storage.",
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["provider", "protocol"],
+              "properties": {
+                "provider": {"$ref": "#/$defs/token"},
+                "protocol": {"enum": ["rtsp", "rtmp", "hls", "webrtc", "mjpeg", "still"]},
+                "hosts": {"$ref": "#/$defs/hosts"},
+                "everySeconds": {"type": "integer", "minimum": 60, "maximum": 604800},
+                "record": {"type": "boolean"}
+              }
+            },
+            "nats": {
+              "description": "The app's own NATS account (APP_<id>): exact subjects under its own prefix, imports of named core subjects the owner approves, and limits shown in the install plan. No wildcards, no audit, requests or another app's subjects.",
+              "type": "object",
+              "additionalProperties": false,
+              "minProperties": 1,
+              "properties": {
+                "publish": {"type": "array", "maxItems": 32, "uniqueItems": true, "items": {"$ref": "#/$defs/natsSubject"}},
+                "subscribe": {"type": "array", "maxItems": 32, "uniqueItems": true, "items": {"$ref": "#/$defs/natsSubject"}},
+                "imports": {
+                  "type": "array",
+                  "maxItems": 16,
+                  "uniqueItems": true,
+                  "items": {
+                    "type": "string",
+                    "pattern": "^onemind\\.(event|alert|intel|layer|asset|metric)(\\.[A-Za-z0-9_-]{1,128}){1,4}$"
+                  }
+                },
+                "limits": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "maxConnections": {"type": "integer", "minimum": 1, "maximum": 16},
+                    "maxSubscriptions": {"type": "integer", "minimum": 1, "maximum": 1000},
+                    "maxPayloadBytes": {"type": "integer", "minimum": 256, "maximum": 16384}
+                  }
+                }
               }
             }
           }
@@ -1181,6 +1291,179 @@
               "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
             }
           }
+        },
+        "runtime": {
+          "description": "How the app runs (#604). module: in-process gateway code, only for an app on the signed system apps list (needs spec.system; plugin validate refuses it). container: its own workload (spec.manifests). none: declarative, drawn by the host.",
+          "enum": ["module", "container", "none"]
+        },
+        "placement": {"description": "Where it may run: the hub, an edge machine, or either.", "enum": ["hub", "edge", "any"]},
+        "data": {
+          "description": "Data classes the app owns and reads (the same block a built-in descriptor carries), and how long it keeps them.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["owns", "reads"],
+          "properties": {
+            "owns": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/dataClass"}},
+            "reads": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/dataClass"}},
+            "retentionDays": {"type": "integer", "minimum": 1, "maximum": 3650}
+          }
+        },
+        "services": {
+          "description": "Shared services the app uses; the install card lists them.",
+          "type": "array",
+          "uniqueItems": true,
+          "maxItems": 9,
+          "items": {"enum": ["files", "notify", "search", "share", "map", "time", "people", "series", "secrets"]}
+        },
+        "search": {
+          "description": "The app's search provider: the item types it adds to the one local index (same as the built-in descriptor).",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["provider", "types"],
+          "properties": {
+            "provider": {"$ref": "#/$defs/key"},
+            "types": {"type": "array", "minItems": 1, "maxItems": 20, "uniqueItems": true, "items": {"$ref": "#/$defs/key"}}
+          }
+        },
+        "share": {
+          "description": "Share types the app accepts and what it does with them (same as the built-in descriptor).",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["accepts", "verbs"],
+          "properties": {
+            "accepts": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/shareType"}},
+            "verbs": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": ["open", "add"]}}
+          }
+        },
+        "notifications": {
+          "description": "Notification topics (same as the built-in descriptor). An app's ceiling is warning; action buttons call one of its own tools, and the host alone draws Review and Deny, never an Approve button.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["topics"],
+          "properties": {
+            "topics": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 20,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["id", "events"],
+                "properties": {
+                  "id": {"$ref": "#/$defs/key"},
+                  "events": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/key"}},
+                  "level": {"enum": ["info", "warning"]},
+                  "actions": {
+                    "type": "array",
+                    "maxItems": 3,
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["id", "label", "tool"],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "pattern": "^[a-z][a-z0-9_-]{0,39}$",
+                          "not": {"enum": ["approve", "allow", "accept"]}
+                        },
+                        "label": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 40,
+                          "not": {
+                            "pattern": "^\\s*(?:[Aa][Pp][Pp][Rr][Oo][Vv][Ee]|[Aa][Ll][Ll][Oo][Ww]|[Aa][Cc][Cc][Ee][Pp][Tt])"
+                          }
+                        },
+                        "tool": {"$ref": "#/$defs/toolRef"},
+                        "args": {"type": "object"}
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "mapLayers": {
+          "description": "Declarative map layers the shell draws (namespaced plug:<app>:<id>; no app JavaScript). source is a public read operation (built-ins) or emits: the layer emits of this app's bridge, served by the gateway.",
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "title", "source"],
+            "properties": {
+              "id": {"$ref": "#/$defs/key"},
+              "title": {"$ref": "#/$defs/title"},
+              "source": {"oneOf": [{"$ref": "#/$defs/call"}, {"const": "emits"}]},
+              "style": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["type"],
+                "properties": {
+                  "type": {"enum": ["circle", "symbol", "line", "fill", "heatmap"]},
+                  "color": {"type": "string", "pattern": "^#[0-9a-fA-F]{6}$"}
+                }
+              },
+              "legend": {"type": "string", "minLength": 1, "maxLength": 120},
+              "attribution": {"type": "string", "minLength": 1, "maxLength": 200}
+            }
+          }
+        },
+        "jobs": {
+          "description": "Background runs of one of the app's own tools, as the app principal, within a time quota. A job never calls a destructive tool, and a write it makes is still a request a person approves.",
+          "type": "array",
+          "maxItems": 8,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "tool", "everySeconds"],
+            "properties": {
+              "id": {"$ref": "#/$defs/key"},
+              "tool": {"$ref": "#/$defs/toolRef"},
+              "everySeconds": {"type": "integer", "minimum": 60, "maximum": 604800},
+              "maxRunSeconds": {"type": "integer", "minimum": 1, "maximum": 3600}
+            }
+          }
+        },
+        "roles": {
+          "description": "Default-app roles the app can fill; the owner picks one app per role.",
+          "type": "array",
+          "uniqueItems": true,
+          "maxItems": 10,
+          "items": {
+            "enum": ["notes", "tasks", "calendar", "contacts", "maps", "passwords", "photos", "files", "mail", "messages"]
+          }
+        },
+        "continue": {
+          "description": "Screens that can continue on another device: the deep link onemind://app/<id><route> and the view-state keys handed over (never content).",
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["route", "state"],
+            "properties": {
+              "route": {"type": "string", "pattern": "^/[a-z0-9_/{}-]{0,127}$"},
+              "state": {"type": "array", "maxItems": 16, "uniqueItems": true, "items": {"$ref": "#/$defs/key"}}
+            }
+          }
+        },
+        "needs": {
+          "description": "internet: a feature that cannot work offline, so the UI says so.",
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"enum": ["internet"]}
+        },
+        "terms": {
+          "description": "The terms record (map-intel rule 2): the code licence is metadata.license; this holds every data provider's terms. Mandatory for an app with a bridge, connector or videoSource. personData is always false: no app tracks private individuals.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["personData", "providers"],
+          "properties": {
+            "personData": {"const": false},
+            "providers": {"type": "array", "maxItems": 8, "items": {"$ref": "#/$defs/provider"}}
+          }
         }
       },
       "additionalProperties": false,
@@ -1240,6 +1523,142 @@
           "maximum": 3600
         }
       }
+    },
+    "key": {"type": "string", "pattern": "^[a-z][a-z0-9_.-]{0,62}$"},
+    "title": {"type": "string", "minLength": 1, "maxLength": 80},
+    "call": {
+      "description": "One public API operation, METHOD and OpenAPI path template (the same as onemind.builtin.schema.json $defs/call).",
+      "type": "string",
+      "pattern": "^(GET|POST|PUT|PATCH|DELETE) /v1(/[A-Za-z0-9_{}.-]+)+$"
+    },
+    "token": {
+      "description": "One lowercase NATS subject token (the token placeholder of sdk/schema/onemind.subjects.json).",
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+    },
+    "toolRef": {
+      "description": "The name of a tool declared in spec.extensions.tools.",
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_-]{0,39}$"
+    },
+    "dataClass": {"enum": ["public", "owner", "private", "location", "activity"]},
+    "shareType": {"enum": ["note", "task", "event", "person", "file", "place", "track", "alert", "clip"]},
+    "hostname": {
+      "description": "A plain internet hostname: lowercase, no wildcard, no port, no IP literal (the last label starts with a letter). It must also be listed in spec.egress.",
+      "type": "string",
+      "maxLength": 253,
+      "pattern": "^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]([a-z0-9-]{0,61}[a-z0-9])?$"
+    },
+    "hosts": {"type": "array", "minItems": 1, "maxItems": 16, "uniqueItems": true, "items": {"$ref": "#/$defs/hostname"}},
+    "natsSubject": {
+      "description": "A subject relative to the app's own prefix onemind.plugin.<id>. (the plugin kind of sdk/schema/onemind.subjects.json). No wildcards: NATS permissions are exact.",
+      "type": "string",
+      "pattern": "^[a-z0-9_-]{1,32}(\\.[a-z0-9_-]{1,32}){0,7}$"
+    },
+    "provider": {
+      "description": "One data provider's terms, as read by a person on readOn (map-intel rule 2). Install is refused without it; the gateway stamps licence and attribution on every value from this provider.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "url", "readOn", "use", "keyNeeded", "store", "redistribute", "display", "personScoped"],
+      "properties": {
+        "id": {"$ref": "#/$defs/token"},
+        "name": {"type": "string", "minLength": 1, "maxLength": 120},
+        "url": {
+          "description": "The provider's terms page.",
+          "type": "string",
+          "maxLength": 2048,
+          "pattern": "^https://[^\\s/?#@]+(/[^\\s]*)?$"
+        },
+        "readOn": {
+          "description": "The date a person read the terms (YYYY-MM-DD, quoted in YAML).",
+          "type": "string",
+          "format": "date",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        "use": {
+          "description": "What the terms allow: commercial use, non-commercial use only, or personal use only.",
+          "enum": ["commercial", "non-commercial", "personal"]
+        },
+        "keyNeeded": {
+          "description": "The provider needs a key the owner enters (a spec.secrets entry, never a value here).",
+          "type": "boolean"
+        },
+        "rateLimit": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["requests", "perSeconds"],
+          "properties": {
+            "requests": {"type": "integer", "minimum": 1, "maximum": 100000},
+            "perSeconds": {"type": "integer", "minimum": 1, "maximum": 86400}
+          }
+        },
+        "minIntervalSeconds": {
+          "description": "The provider's own polling floor; every block that reads this provider polls no faster.",
+          "type": "integer",
+          "minimum": 60,
+          "maximum": 604800
+        },
+        "store": {
+          "description": "none: show only. cache: keep for at most maxCacheSeconds. keep: may keep history.",
+          "enum": ["none", "cache", "keep"]
+        },
+        "maxCacheSeconds": {"type": "integer", "minimum": 1, "maximum": 31536000},
+        "redistribute": {
+          "description": "Whether values may leave the box: over the mesh, to TAK, or in a public share.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mesh", "tak", "publicShare"],
+          "properties": {"mesh": {"type": "boolean"}, "tak": {"type": "boolean"}, "publicShare": {"type": "boolean"}}
+        },
+        "display": {
+          "description": "full: may be shown and restreamed. embed-only: only the provider's own player. link-only: a link out.",
+          "enum": ["full", "embed-only", "link-only"]
+        },
+        "personScoped": {
+          "description": "Data belongs to one person's own account (such as an activity tracker) and is never shared on.",
+          "type": "boolean"
+        },
+        "attribution": {"type": "string", "minLength": 1, "maxLength": 200}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"use": {"enum": ["non-commercial", "personal"]}}},
+          "then": {
+            "properties": {
+              "redistribute": {"properties": {"mesh": {"const": false}, "tak": {"const": false}, "publicShare": {"const": false}}}
+            }
+          }
+        },
+        {
+          "if": {"properties": {"personScoped": {"const": true}}},
+          "then": {
+            "properties": {
+              "redistribute": {"properties": {"mesh": {"const": false}, "tak": {"const": false}, "publicShare": {"const": false}}}
+            }
+          }
+        },
+        {
+          "if": {"properties": {"display": {"enum": ["embed-only", "link-only"]}}},
+          "then": {
+            "properties": {
+              "store": {"const": "none"},
+              "redistribute": {"properties": {"mesh": {"const": false}, "tak": {"const": false}, "publicShare": {"const": false}}}
+            }
+          }
+        },
+        {"if": {"properties": {"store": {"const": "none"}}}, "then": {"not": {"required": ["maxCacheSeconds"]}}},
+        {"if": {"properties": {"store": {"const": "cache"}}}, "then": {"required": ["maxCacheSeconds"]}}
+      ]
+    },
+    "credentialValue": {
+      "description": "Not applied by the schema: the value patterns the one validator (core/onemind_core/manifest_rules.py and internal/plugin/validate/blocks.go) refuses in every string of a manifest, so no field can hold a credential. Errors name the field, never the value.",
+      "type": "string",
+      "pattern": "-----BEGIN [A-Z ]{0,40}PRIVATE KEY-----|\\bAKIA[0-9A-Z]{16}\\b|\\bgh[pousr]_[A-Za-z0-9]{36,}|\\bgithub_pat_[A-Za-z0-9_]{22,}|\\bxox[abposr]-[A-Za-z0-9-]{10,}|\\bAIza[0-9A-Za-z_-]{35}|\\b[rs]k_live_[0-9A-Za-z]{16,}|\\bsk-[A-Za-z0-9_-]{20,}|\\bom_[a-z]{3}_[A-Za-z0-9_-]{16,}|\\beyJ[A-Za-z0-9_-]{8,}\\.eyJ[A-Za-z0-9_-]{8,}\\.|\\b[A-Za-z][A-Za-z0-9+.-]{0,30}://[^/\\s:@]{1,256}:[^/\\s@]{1,256}@|[?&](?:api[_-]?key|apikey|access[_-]?token|auth[_-]?token|token|client[_-]?secret|password|passwd)=[^&#\\s]"
+    },
+    "credentialName": {
+      "description": "Not applied by the schema: a field with one of these names may not hold a string (except the word generated, spec.credentials.password), anywhere in a manifest.",
+      "type": "string",
+      "pattern": "^(?:[pP][aA][sS][sS][wW][oO][rR][dD]|[pP][aA][sS][sS][wW][dD]|[aA][pP][iI][_-]?[kK][eE][yY]|[aA][cC][cC][eE][sS][sS][_-]?[tT][oO][kK][eE][nN]|[aA][uU][tT][hH][_-]?[tT][oO][kK][eE][nN]|[rR][eE][fF][rR][eE][sS][hH][_-]?[tT][oO][kK][eE][nN]|[sS][eE][sS][sS][iI][oO][nN][_-]?[tT][oO][kK][eE][nN]|[bB][eE][aA][rR][eE][rR][_-]?[tT][oO][kK][eE][nN]|[bB][eE][aA][rR][eE][rR]|[cC][lL][iI][eE][nN][tT][_-]?[sS][eE][cC][rR][eE][tT]|[pP][rR][iI][vV][aA][tT][eE][_-]?[kK][eE][yY]|[sS][eE][cC][rR][eE][tT][_-]?[kK][eE][yY]|[tT][oO][kK][eE][nN])$"
     }
   },
   "allOf": [
@@ -1370,6 +1789,37 @@
           }
         }
       }
+    },
+    {
+      "$comment": "#604: runtime module is in-process gateway code, only for apps on the signed system apps list.",
+      "if": {"properties": {"spec": {"required": ["runtime"], "properties": {"runtime": {"const": "module"}}}}},
+      "then": {"properties": {"spec": {"required": ["system"]}}}
+    },
+    {
+      "$comment": "#604: the terms record is mandatory for every block that brings outside data in.",
+      "if": {
+        "properties": {
+          "spec": {
+            "required": ["extensions"],
+            "properties": {
+              "extensions": {"anyOf": [{"required": ["bridge"]}, {"required": ["connector"]}, {"required": ["videoSource"]}]}
+            }
+          }
+        }
+      },
+      "then": {"properties": {"spec": {"required": ["terms"]}}}
+    },
+    {
+      "$comment": "#604: a bridge or a NATS account is code that runs as the app principal in its own workload.",
+      "if": {
+        "properties": {
+          "spec": {
+            "required": ["extensions"],
+            "properties": {"extensions": {"anyOf": [{"required": ["bridge"]}, {"required": ["nats"]}]}}
+          }
+        }
+      },
+      "then": {"properties": {"spec": {"required": ["manifests", "plugin"]}}}
     }
   ]
 }

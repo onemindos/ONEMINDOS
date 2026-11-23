@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { useState } from 'react';
-import { Text, View } from 'react-native';
+import { Linking, Text, View } from 'react-native';
 import { OP } from '../api/client';
 import { ApiError, type ActionType } from '../api/types';
 import { useHubData } from '../data';
 import { principalLabel, requestAction } from '../lib/approvals';
 import { asksParent } from '../lib/people';
+import { appOpenUrl } from '../lib/health';
 import { installBlockReason } from '../lib/scan';
 import type { RootParams } from '../nav';
 import { useSignedIn } from '../session';
@@ -19,7 +20,7 @@ export function AppDetailScreen() {
   const t = useTheme();
   const nav = useNavigation();
   const { params } = useRoute<RouteProp<RootParams, 'AppDetail'>>();
-  const { api, canRequest, features, principal } = useSignedIn();
+  const { api, canRequest, connection, features, principal } = useSignedIn();
   // Teen and Child never decide anything: their request goes to a parent's Approvals (FAM-01).
   const young = asksParent(principal?.role);
   const { apps, actions, hubOffsetMs, reload } = useHubData();
@@ -45,6 +46,7 @@ export function AppDetailScreen() {
           ? `A request is already waiting for approval (from ${principalLabel(waiting.requested_by)}).`
           : blockReason;
   const scan = scanLabel(app);
+  const openUrl = appOpenUrl(app, connection.mode === 'live' ? connection.hubUrl : undefined);
   // With §12.40 plans the installed app's actions (including remove) go through AppLifecycle.
   const managed = app.installed && features.has(OP.appPlan);
 
@@ -91,6 +93,7 @@ export function AppDetailScreen() {
         <LinkChip label="Website" url={app.links.website} />
         <LinkChip label="Support" url={app.links.support} />
       </View>
+      {openUrl ? <Button testID="open-app" label="Open app" onPress={() => void Linking.openURL(openUrl)} /> : null}
       {reason && !managed && <Notice tone="warn" text={reason} />}
       {msg && <Notice tone={msg.tone} text={msg.text} />}
       {managed && !young ? (

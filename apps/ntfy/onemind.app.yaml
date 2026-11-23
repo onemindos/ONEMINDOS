@@ -12,6 +12,7 @@ metadata:
   category: notifications
   icon: icon.svg
   license: Apache-2.0 OR GPL-2.0
+  licenceClass: L1
   source: https://github.com/binwiederhier/ntfy
   # §9.3 facts from the GitHub API (repos/binwiederhier/ntfy and its releases/latest), read 2026-11-12.
   links:

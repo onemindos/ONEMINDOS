@@ -8,7 +8,7 @@ request headers, query parameters and an agent's own policy claims do not.
 
 from __future__ import annotations
 
-from .ai_policy import catalog_policy, catalog_visible_to_ai
+from .ai_policy import CATALOG, decide, manifest_policy
 from .auth import Principal
 from .context import Gateway
 
@@ -20,11 +20,8 @@ def agent_catalog_filter(gw: Gateway):
         entry = gw.catalog.load().get(app_id)
         if entry is None:
             return False
-        spec = entry.manifest.get("spec") or {}
-        policy = catalog_policy(entry.manifest)
-        # Match the catalog summary consumed by MCP, including explicit null:
+        # The same policy the MCP catalogue reads from the summary row, including explicit null:
         # absence is legacy metadata access, but an explicit unknown fails closed.
-        summary = {"aiPolicy": policy} if "aiPolicy" in spec or policy is not None else {}
-        return catalog_visible_to_ai(summary)
+        return decide(manifest_policy(entry.manifest), CATALOG).allowed
 
     return visible

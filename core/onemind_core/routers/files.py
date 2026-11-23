@@ -245,6 +245,9 @@ ORDER = 300
 
 def register(app: FastAPI, gw: Gateway) -> None:
     svc = FilesService(gw)
+    # shared with search/providers.py (its index and grants) and routers/downloads.py
+    # (one lock over every write into a space)
+    app.state.files_service = svc
     uploads = Uploads(svc)
     gw.requester_lookups.append(svc.requester)  # agent kill switch: an agent's frq_ cannot be approved
     principal = gw.principal

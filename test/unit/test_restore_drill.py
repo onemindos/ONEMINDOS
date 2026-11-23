@@ -18,7 +18,7 @@ core = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(core)
 
 
-def run_text(install=(0, 300), restore=(300, 900), verify=(900, 1000), fails=0, seed=True, passes=5, extra=""):
+def run_text(install=(0, 300), restore=(300, 900), verify=(900, 1000), fails=0, seed=True, passes=5, extra="", required=True):
     lines = []
     if seed:
         lines += ["DRILL-PHASE seed start 10", "DRILL-PHASE seed end 200"]
@@ -28,6 +28,8 @@ def run_text(install=(0, 300), restore=(300, 900), verify=(900, 1000), fails=0, 
             lines.append(f"DRILL-PHASE {name} end {1000 + rng[1]}")
     lines += ["DRILL-INFO restore_mode=restic-owner-key"]
     lines += [f"PASS  check {i}" for i in range(passes)]
+    if required:
+        lines += [f"PASS  {r} (system restore)" for r in core.REQUIRED_CHECKS]
     lines += [f"FAIL  broken {i}" for i in range(fails)]
     return "\n".join(lines) + "\n" + extra
 
@@ -92,8 +94,28 @@ class Verdict(unittest.TestCase):
         self.assertTrue(any("verify" in x for x in r["reasons"]))
 
     def test_no_checks_at_all_fails(self):
-        self.assertEqual(core.evaluate(run_text(passes=0))["verdict"], "FAIL")
+        self.assertEqual(core.evaluate(run_text(passes=0, required=False))["verdict"], "FAIL")
         self.assertEqual(core.evaluate("")["verdict"], "FAIL")
+
+    def test_a_run_without_the_system_restore_checks_cannot_pass(self):
+        """The system snapshot (k3s datastore, gateway database, audit log) must be restored and read back."""
+        r = core.evaluate(run_text(required=False))
+        self.assertEqual(r["verdict"], "FAIL")
+        self.assertTrue(any("required check did not pass" in x and "datastore" in x for x in r["reasons"]), r["reasons"])
+        self.assertEqual(core.exit_code(r), 1)
+
+    def test_each_system_restore_check_is_required_on_its_own(self):
+        for dropped in core.REQUIRED_CHECKS:
+            text = run_text(required=False) + "".join(f"PASS  {r}\n" for r in core.REQUIRED_CHECKS if r != dropped)
+            r = core.evaluate(text)
+            self.assertEqual(r["verdict"], "FAIL", dropped)
+            self.assertIn(dropped, " ".join(r["reasons"]))
+
+    def test_a_failed_required_check_is_reported_as_a_failed_check(self):
+        text = run_text(required=False) + "".join(f"PASS  {r}\n" for r in core.REQUIRED_CHECKS[1:]) + f"FAIL  {core.REQUIRED_CHECKS[0]}\n"
+        r = core.evaluate(text)
+        self.assertEqual(r["verdict"], "FAIL")
+        self.assertEqual(r["checks_failed"], [core.REQUIRED_CHECKS[0]])
 
     def test_abort_fails_with_the_reason(self):
         r = core.evaluate(run_text(), abort="clean VM did not boot")
@@ -117,6 +139,37 @@ class Wiring(unittest.TestCase):
             self.assertIn(f"phase {name} start", sh)
             self.assertIn(f"phase {name} end", sh)
         self.assertIn("info restore_mode", sh)
+
+    def test_in_vm_script_prints_every_required_check(self):
+        sh = (DRILL / "in-vm.sh").read_text()
+        for needle in core.REQUIRED_CHECKS:
+            self.assertTrue(needle in sh, needle)
+
+    def test_system_snapshot_is_restored_not_just_found(self):
+        """The restore half puts the gateway database, audit log, /etc/onemind and k3s's datastore back, then checks canaries."""
+        sh = (DRILL / "in-vm.sh").read_text()
+        body = sh[sh.index("restore_system() {"):sh.index("restore_box() {")]
+        for needle in ("gateway.db", "audit.jsonl", "state.db", "/etc/onemind", "systemctl stop k3s", "systemctl start k3s",
+                       "$SRV/$f", "onemind.db"):
+            self.assertTrue(needle in body, f"restore_system must handle {needle}")
+        for unit in ("system", "k3s"):
+            self.assertTrue(f"fetch_unit {unit} " in body, f"restore_system must restore the {unit} unit")
+        self.assertTrue("integrity_check" in sh)
+        for needle in ("drill-canary", "K3S_CANARY", "GW_ACTION"):
+            self.assertTrue(needle in sh, needle)
+        # the old "present in the snapshot" check is gone
+        self.assertFalse("find /var/tmp/drill-restore/system" in sh)
+
+    def test_clean_box_gets_the_old_boxes_name_and_boots_from_its_system_disk(self):
+        src = (DRILL / "drill.py").read_text()
+        self.assertEqual(src.count("hostname=BOX_HOSTNAME"), 2)   # source and clean: same name
+        self.assertIn("bootindex=1", src)                         # with the empty second disk present the guest must still boot
+
+    def test_budget_default_is_sixty_minutes_and_the_run_is_bounded(self):
+        src = (DRILL / "drill.py").read_text()
+        self.assertIn("default=core.BUDGET_SECONDS", src)
+        self.assertEqual(core.BUDGET_SECONDS, 3600)
+        self.assertIn("a.budget + 900", src)   # the restore half is killed shortly after the budget, never left to run
 
     def test_in_vm_script_is_valid_bash(self):
         r = subprocess.run(["bash", "-n", str(DRILL / "in-vm.sh")], capture_output=True, text=True)

@@ -1,9 +1,14 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Mesh coordinator client: Headscale's REST API, driven only by owner-approved actions.
+"""The mesh in the gateway: the owner's mesh state and the coordinator client (Headscale's REST API).
 
-Not mounted yet (CORE-NET-8): no router imports this module.
+Mounted by routers/net.py (CORE-NET-8, #876): GET /v1/mesh shows the mesh, PUT /v1/mesh/settings
+(owner only, audited) changes the stored state below, and fabric joins hand the mesh block out.
 
 Design: docs/architecture/NETWORKING.md §5 (enrollment), §6 (access rules), §13 (S3, S4, S7).
+
+- The owner's mesh state (enabled, provider, control URL) is a row in the settings store (table
+  mesh_state). With no row the install settings (netconf.MeshSettings) decide. With no provider
+  every mesh answer says 'not set up' and names the next step (setup_view).
 
 - HeadscaleClient speaks Headscale's REST API at a pinned version (HEADSCALE_VERSION, API prefix
   /api/v1). The endpoint and field names were read from the generated OpenAPI file at that tag
@@ -35,8 +40,12 @@ from ipaddress import ip_address
 from pathlib import Path
 from urllib.parse import quote, urlencode, urlsplit
 
+from sqlalchemy import JSON, Boolean, DateTime, String
+from sqlalchemy.orm import Mapped, mapped_column
+
 from .audit import AuditLog
-from .ledger import Action, iso, utc
+from .ledger import Action, Base, iso, utc
+from .store import FeatureSchema, SqlRepository
 
 log = logging.getLogger("onemind.mesh")
 
@@ -70,6 +79,89 @@ HS_ID_RE = re.compile(r"^[0-9]{1,20}$")
 # States in which an action has been approved by an owner and is being carried out.
 APPROVED_STATES = frozenset({"accepted", "dispatched"})
 _MAX_ERROR = 300
+
+
+# ---- the owner's mesh state (CORE-NET-8) ------------------------------------------------------------
+SCHEMA = FeatureSchema("mesh")  # version 1 = the shape below
+# Providers the gateway has a client for. Remote access is Headscale (founder decision); another
+# product would be one more entry here and one more client behind the same MeshService calls.
+MESH_PROVIDERS = ("headscale",)
+STATE_FIELDS = ("enabled", "provider", "control_url")
+
+
+class MeshStateRow(Base):
+    """One row, id "box": the owner's mesh choice. No row: the install settings decide."""
+
+    __tablename__ = "mesh_state"
+    id: Mapped[str] = mapped_column(String(8), primary_key=True)
+    enabled: Mapped[bool] = mapped_column(Boolean)
+    provider: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    control_url: Mapped[str] = mapped_column(String(255))
+    updated_by: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+@dataclass(frozen=True)
+class MeshState:
+    enabled: bool
+    provider: str | None
+    control_url: str
+    saved: bool = False  # False: nobody changed it yet, these are the install settings
+    updated_by: dict | None = None
+    updated_at: datetime | None = None
+
+    def values(self) -> dict:
+        """The three fields an owner changes (what the audit entry records before and after)."""
+        return {k: getattr(self, k) for k in STATE_FIELDS}
+
+    def to_json(self) -> dict:
+        return {**self.values(), "saved": self.saved, "updated_by": self.updated_by,
+                "updated_at": iso(self.updated_at) if self.updated_at else None}
+
+
+class MeshStateRepository(SqlRepository):
+    def get(self) -> MeshState | None:
+        with self.db.session() as s:
+            r = s.get(MeshStateRow, "box")
+            if r is None:
+                return None
+            return MeshState(enabled=r.enabled, provider=r.provider, control_url=r.control_url, saved=True,
+                             updated_by=r.updated_by, updated_at=utc(r.updated_at))
+
+    def put(self, values: dict, *, by: dict, now: datetime) -> None:
+        row = {**{k: values[k] for k in STATE_FIELDS}, "updated_by": by, "updated_at": now}
+        with self.db.session.begin() as s:
+            s.execute(self.db.insert()(MeshStateRow).values(id="box", **row)
+                      .on_conflict_do_update(index_elements=[MeshStateRow.id], set_=row))
+
+
+NEXT_PICK = "Choose the mesh provider: onemind mesh settings --provider headscale --enable (owner only)."
+NEXT_INSTALL = ("Install Headscale on this box: run the box installer (deploy/install.sh), which installs it and "
+                "writes its key file, then restart the gateway.")
+NEXT_ENABLE = "Turn the mesh on: onemind mesh settings --enable (owner only)."
+# Off stops this box minting mesh keys and managing the coordinator; it does not stop the coordinator
+# or disconnect anyone. Say so, so nobody turns it off believing a lost phone is cut off.
+MESH_OFF_DETAIL = ("The mesh is off: this box mints no new mesh keys and no longer manages {provider}, and joins "
+                   "still waiting for their mesh check were stopped. {provider} keeps running, and machines and "
+                   "phones that already joined stay connected over the mesh: off does not remove them. {home}")
+
+
+def setup_view(state: MeshState, installed: bool) -> dict:
+    """Where the mesh stands, in plain words, with the one next step (NETWORKING §4.3: never an error).
+
+    `installed`: the provider's pieces are on this box (Headscale's key file and the hub mesh IP)."""
+    home = "This box works on your home network as before."
+    if state.provider is None:
+        return {"state": "not_set_up", "reason": "no_provider", "next_step": NEXT_PICK,
+                "detail": f"No mesh provider is chosen, so machines and phones cannot reach this box over the mesh. {home}"}
+    if not installed:
+        return {"state": "not_set_up", "reason": "provider_not_installed", "next_step": NEXT_INSTALL,
+                "detail": f"{state.provider.capitalize()} is chosen but not installed on this box. {home}"}
+    if not state.enabled:
+        return {"state": "off", "reason": "disabled", "next_step": NEXT_ENABLE, "detail": MESH_OFF_DETAIL.format(
+                provider=state.provider.capitalize(), home=home)}
+    return {"state": "ready", "reason": None, "next_step": None,
+            "detail": f"The mesh is on ({state.provider}). Machines and phones you approve join it."}
 
 
 class HeadscaleError(Exception):
@@ -385,6 +477,8 @@ class MintedKey:
 
 
 class MeshService:
+    provider = "headscale"  # the coordinator this service drives; named in the join bundle's mesh block
+
     def __init__(self, client: HeadscaleClient, audit: AuditLog, clock: Callable[[], datetime]):
         self.client = client
         self.audit = audit
@@ -493,6 +587,18 @@ class MeshService:
             raise MeshRefused("pre-auth key id must be numeric")
         self.client.expire_preauth_key(key_id)
         self.audit.append("mesh.key.expired", principal, action_id, {"key_id": key_id, "reason": reason})
+
+    def abandon_join(self, key_id: str, *, reason: str, action_id: str | None = None) -> list[str]:
+        """A join that can no longer be bind-checked (the owner turned the mesh off while it ran):
+        expire its key and take any machine that already used it off the mesh, unchecked as it is.
+        Removal only reduces reach (§5.3). Returns the removed mesh node ids."""
+        self.expire_key(key_id, reason=reason, action_id=action_id)
+        removed = []
+        for node in self.client.list_nodes():
+            if node.pre_auth_key_id == key_id:
+                self.remove_node(node.id, reason=reason, action_id=action_id)
+                removed.append(node.id)
+        return removed
 
     def check_join(self, key_id: str, node_id: str, role: str) -> MeshNode | None:
         """§5.1 bind check: the node that used our key has the expected name and exactly the role tags.

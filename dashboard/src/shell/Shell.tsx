@@ -16,19 +16,21 @@ import {
   buildPaletteCommands,
   formatAgo,
   pushRecentCommand,
+  useToast,
 
-  usePaletteHotkey,
   type NavItem,
   type PaletteCommand,
 } from '@onemind/ui';
 import { isServerId, mergeNotifications, SERVER_PREFIX } from '../data/notificationFeed';
 import { useNotificationFeed } from '../data/useNotificationFeed';
+import { useDownloadToasts } from '../data/useDownloadToasts';
 import { activityFrom, notificationsFrom, toActionSummary, toPaletteApp } from '../data/adapters';
 import { ActionJobs, jobsStackStyle } from './ActionJobs';
 import { useHub } from '../data/hub';
 import { useAppRequest } from './useAppRequest';
 import { useRecordVisit } from '../data/homeRecent';
 import { homeLayoutStore, personList } from '../data/prefs';
+import { useKeymap } from './keys/useKeymap';
 import { DesktopShell, type DockApp } from './DesktopShell';
 import { useLayoutMode, type LayoutMode } from './layoutMode';
 import { brand } from '../brand.generated';
@@ -75,7 +77,7 @@ export function Shell({ children }: { children: ReactNode }) {
 
   const [layout, setLayout] = useLayoutMode(person);
 
-  usePaletteHotkey(() => setPaletteOpen(true));
+  useKeymap({ palette: () => setPaletteOpen(true) });
 
   // A real gateway session does not carry the role, so ask GET /v1/me once. If that fails the
   // view falls back to Simple (fail closed): the Pro screens are offered only to a known role.
@@ -110,6 +112,9 @@ export function Shell({ children }: { children: ReactNode }) {
   const apps = hub.apps.data ?? [];
   const pending = hub.actionList.filter((a) => a.state === 'awaiting_approval');
   const feed = useNotificationFeed();
+  const toast = useToast();
+  // #693: a browser download that passed quarantine and reached Files shows once as a toast.
+  useDownloadToasts(feed.notifications, (t) => toast.show({ tone: 'ok', ...t }), () => navigate('/files'));
   const notifications = useMemo(
     () => mergeNotifications(feed.notifications, feed.alerts, notificationsFrom(hub.actionList, nodes.map((n) => ({ ...n, status: hub.nodeStatus(n) })), hub.appName, read), read),
     // eslint-disable-next-line react-hooks/exhaustive-deps

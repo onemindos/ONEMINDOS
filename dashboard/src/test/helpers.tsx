@@ -12,7 +12,18 @@ import type { ActionType, AppParams } from '../api/types';
 /** Lifecycle fixtures belong only in tests, not in the user-reachable demo gateway. */
 function testApi(token: string) {
   const preview = async (type: ActionType, params: AppParams) => ({ plan: { summary: `${type}: ${params.app_id}`, objects: [], volumes: [], warnings: [] }, plan_sha256: 'sha256:test-fixture', app_id: params.app_id, type, risk: 'write', policy_verdict: 'needs_approval', reason: null });
-  return Object.assign(new MockApi(token), {
+  const api = new MockApi(token);
+  const listApps = api.apps.bind(api);
+  // Licence gate responses for the SPDX expressions in the dashboard test catalogue.
+  const licenceClasses: Record<string, 'L1' | 'L2'> = {
+    MIT: 'L1', 'Apache-2.0': 'L1', 'GPL-2.0-only': 'L2', 'GPL-3.0-only': 'L2', 'AGPL-3.0-only': 'L2',
+  };
+  return Object.assign(api, {
+    apps: async () => (await listApps()).map((app) => {
+      const cls = app.license && licenceClasses[app.license];
+      return app.scan && cls && app.license
+        ? { ...app, scan: { ...app.scan, licence: { class: cls, spdx: app.license } } } : app;
+    }),
     appPlan: (id: string) => preview('app.install', { app_id: id }), previewAction: preview,
     appSettings: async () => ({ fields: [], values: {} }), appLogs: async () => '',
   });
