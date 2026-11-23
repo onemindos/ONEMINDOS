@@ -227,6 +227,63 @@ def test_kind_and_bbox_filters_and_leaving_the_box():
     assert parse_kinds(None) is None and parse_bbox("") is None
 
 
+def test_position_comes_only_from_values_the_caller_may_see_and_goes_when_removed():
+    """Design rule 8: a caller blocked from location must not learn it from which values a box keeps."""
+    assets = AssetState()
+    put(assets, "onemind.asset.camera.cam-1.status", 1, value="on", unit=None)
+    put(assets, "onemind.asset.camera.cam-1.location", 2, value=None, unit=None, position=(52.5, 13.4))
+    no_location = lambda v: "position" not in v.datapoint  # noqa: E731
+    assert assets.position("camera", "cam-1") == (52.5, 13.4)
+    assert assets.position("camera", "cam-1", no_location) is None
+    status = assets.snapshot()[0]
+    for box in ("13,52,14,53", "13.3,52.4,13.5,52.6", "13.39,52.49,13.41,52.51"):  # shrinking boxes
+        assert not AssetView(None, parse_bbox(box), lambda c, i: assets.position(c, i, no_location)).passes(status)
+    # The newest allowed value wins; a value that stops carrying a position no longer places it.
+    put(assets, "onemind.asset.camera.cam-1.gps", 3, value=None, unit=None, position=(48.1, 11.6))
+    assert assets.position("camera", "cam-1") == (48.1, 11.6)
+    assert assets.position("camera", "cam-1", lambda v: v.field != "gps") == (52.5, 13.4)
+    put(assets, "onemind.asset.camera.cam-1.gps", 4, value=None, unit=None)
+    assert assets.position("camera", "cam-1") == (52.5, 13.4)
+    assert assets.remove(asset_key("onemind.asset.camera.cam-1.location"), 5) is not None
+    assert assets.position("camera", "cam-1") is None and assets._pos == {}
+
+
+def test_bbox_stream_does_not_reveal_a_hidden_location(tmp_path):
+    assets = AssetState()
+    assets.state = "ready"
+    put(assets, "onemind.asset.camera.cam-1.status", 1, value="on", unit=None)
+    put(assets, "onemind.asset.camera.cam-1.location", 2, value=None, unit=None, position=(52.5, 13.4))
+    _log, es = make(tmp_path, assets)
+
+    def no_location(v: AssetValue) -> bool:
+        return "position" not in v.datapoint
+
+    async def snapshot(bbox, allowed):
+        gen = es.stream(OWNER_P, "asset.*", None, never, resource_allowed=lambda ev: True,
+                        bbox=parse_bbox(bbox), asset_allowed=allowed, keepalive_s=60)
+        out = []
+        async for chunk in gen:
+            ev = parse(chunk)
+            if ev is not None:
+                out.append(ev)
+                if ev["type"] == "stream.snapshot":
+                    break
+        await gen.aclose()
+        return out
+
+    async def scenario():
+        for box in ("13,52,14,53", "13.39,52.49,13.41,52.51", "0,0,1,1"):  # inside, tight, far away
+            evs = await snapshot(box, no_location)
+            assert [e["type"] for e in evs] == ["stream.snapshot"] and evs[0]["data"]["count"] == 0
+        evs = await snapshot("13.39,52.49,13.41,52.51", None)                # allowed to see location
+        assert {e["subject"].get("field") for e in evs[:-1]} == {"status", "location"}
+        assets.remove(asset_key("onemind.asset.camera.cam-1.location"), 3)   # the place is gone
+        evs = await snapshot("13,52,14,53", None)
+        assert [e["type"] for e in evs] == ["stream.snapshot"]
+
+    asyncio.run(scenario())
+
+
 # ---------------------------------------------------------------- slow clients and priority
 def test_slow_client_gets_stream_reset_and_the_stream_ends(tmp_path, monkeypatch):
     monkeypatch.setattr(fanout, "FACT_QUEUE_MAX", 8)

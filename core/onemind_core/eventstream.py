@@ -267,12 +267,20 @@ class EventStream:
 
         # Asset values are many and carry values: only a stream that names them gets them.
         assets_on = self.assets is not None and bool(types) and glob_any(types, "asset.value")
-        view = AssetView(kinds, bbox, self.assets.position if self.assets is not None else lambda c, i: None)
+        state = self.assets
+
+        def position(asset_class: str, asset_id: str) -> tuple[float, float] | None:
+            # Per stream, and only from values this caller may see: a hidden location must not
+            # leak through ?bbox= (a caller narrowing the box and watching what shows up).
+            return state.position(asset_class, asset_id, asset_allowed) if state is not None else None
+
+        view = AssetView(kinds, bbox, position)
 
         def asset_out(v: AssetValue, *, snapshot: bool = False, removed: bool = False) -> bytes | None:
-            if not view.passes(v, removed):
-                return None
+            # The caller's asset filters first, so a hidden value never moves this stream's box state.
             if asset_allowed is not None and not asset_allowed(v):
+                return None
+            if not view.passes(v, removed):
                 return None
             ev = asset_event(v, self._now(), snapshot=snapshot, removed=removed)
             return sse(ev, with_id=False) if wanted(ev) else None
