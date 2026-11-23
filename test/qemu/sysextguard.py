@@ -222,6 +222,8 @@ def main():
         vm.mark("X0 first boot: the image is wired for signed-only extensions")
         vm.start()
         vm.expect(fb.CONFIGURED, 900)
+        time.sleep(3)
+        vm.pos = 0              # on a fast host the gate line comes before CONFIGURED (as in firstboot.py)
         g = vm.wait_gate()
         vm.shell_ready()
         alive = True
