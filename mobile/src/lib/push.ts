@@ -14,7 +14,7 @@ import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { unifiedPush as defaultUp, type UnifiedPushNative, type UpEndpoint } from '../../modules/onemind-unifiedpush';
 import { OP, type Features, type OneMindApi } from '../api/client';
-import { ApiError, type PushRegistration, type PushRegistrationRequest } from '../api/types';
+import { ApiError, type Action, type CatalogApp, type PushRegistration, type PushRegistrationRequest } from '../api/types';
 import { deleteSecret, loadSecret, saveSecret } from '../storage';
 
 export type PushBlocker =
@@ -78,7 +78,12 @@ export function unifiedPushTransport(up: UnifiedPushNative | undefined = default
           subs.forEach((s) => s.remove());
           fn();
         }
-        up.register(vapid ?? null);
+        try {
+          up.register(vapid ?? null);
+        } catch (e) {
+          // The connector throws at once for a VAPID key in the wrong form; do not leave listeners behind.
+          done(() => reject(new PushError('failed', `The distributor could not register: ${String(e)}`)));
+        }
       });
     },
     async release() {
@@ -146,6 +151,8 @@ export interface EnableOpts {
   features: Features;
   hubUrl: string;
   label: string;
+  /** This app install (lib/install.ts), sent only to a hub with My devices: older hubs refuse unknown fields. */
+  installId?: string;
   /** The hub has a device registry (clients.md) and this phone is not approved yet. */
   deviceApproved: boolean;
   now?: number;
@@ -167,7 +174,7 @@ export async function enablePush(api: OneMindApi, t: PushTransport | undefined, 
   const h = await t.obtain(vapid);
   let reg: PushRegistration;
   try {
-    reg = await api.pushRegister({ ...h, label: o.label });
+    reg = await api.pushRegister({ ...h, label: o.label, ...installField(o.features, o.installId) });
   } catch (e) {
     // Today's hub refuses apns with 422 until its iOS relay ships (CORE-NOTIFY-4); say so plainly.
     if (h.platform === 'apns' && e instanceof ApiError && e.status === 422)
@@ -192,8 +199,16 @@ export async function disablePush(api: OneMindApi, t: PushTransport | undefined,
   await deleteSecret(KEY);
 }
 
+/**
+ * `install_id` for a push registration (#715), only when the hub has My devices: the same release taught its
+ * push route the field, and an older hub answers 422 to a field it does not know.
+ */
+export function installField(features: Features, installId: string | undefined): { install_id?: string } {
+  return installId && features.has(OP.myDevices) ? { install_id: installId } : {};
+}
+
 /** The distributor moved this phone to a new endpoint: replace the registration on the box. */
-export async function rotateEndpoint(api: OneMindApi, rec: PushRecord, e: UpEndpoint, label: string): Promise<PushRecord> {
+export async function rotateEndpoint(api: OneMindApi, rec: PushRecord, e: UpEndpoint, label: string, extra: { install_id?: string } = {}): Promise<PushRecord> {
   if (rec.platform !== 'unifiedpush' || e.url === rec.handle) return rec;
   await api.pushUnregister(rec.id).catch(() => undefined);
   const reg = await api.pushRegister({
@@ -201,10 +216,51 @@ export async function rotateEndpoint(api: OneMindApi, rec: PushRecord, e: UpEndp
     endpoint: e.url,
     ...(e.p256dh && e.auth ? { keys: { p256dh: e.p256dh, auth: e.auth } } : {}),
     label,
+    ...extra,
   });
   const next = { ...rec, id: reg.id, handle: e.url };
   await saveSecret(KEY, JSON.stringify(next)).catch(() => undefined);
   return next;
+}
+
+// ---- Android guided setup: the box's own ntfy (Market app `ntfy`) and the ntfy app on the phone ----
+
+/** The Market app that is the box's ntfy server (apps/ntfy). */
+export const NTFY_APP = 'ntfy';
+/** The ntfy Android app on F-Droid: a UnifiedPush distributor that needs no Google services. */
+export const NTFY_FDROID = 'https://f-droid.org/packages/io.heckel.ntfy/';
+
+/**
+ * Where the phone's ntfy app reaches the box's ntfy: the app's own name on the box, `ntfy.<box host>`,
+ * the same rule as the dashboard's Open link (dashboard/src/data/adapters.ts `openUrl`). Only a `.local`
+ * hub name can say it; from an IP address or another name there is no app name that resolves.
+ */
+export function boxNtfyAddress(hubUrl: string): string | undefined {
+  const m = /^(https?):\/\/([^/:?#]+)(?::\d+)?(?:[/?#]|$)/i.exec(hubUrl.trim());
+  const host = m?.[2]?.toLowerCase();
+  if (!m || !host || !/^[a-z0-9-]+(\.[a-z0-9-]+)*\.local$/.test(host)) return undefined;
+  return `${m[1]!.toLowerCase()}://${NTFY_APP}.${host}`;
+}
+
+/** The host of an http(s) URL, lower case; undefined for anything else. */
+export function urlHost(url: string): string | undefined {
+  return /^https?:\/\/([^/:?#]+)/i.exec(url)?.[1]?.toLowerCase();
+}
+
+/**
+ * Is ntfy on the box? `installed`; `requested` (an `app.install` waits in Approvals); `missing` (in the
+ * Market, not installed); `absent` (this box's Market has no ntfy).
+ */
+export type BoxNtfy = 'installed' | 'requested' | 'missing' | 'absent';
+
+export function boxNtfy(apps: CatalogApp[], actions: Action[] = []): BoxNtfy {
+  const app = apps.find((a) => a.id === NTFY_APP);
+  if (!app) return 'absent';
+  if (app.installed) return 'installed';
+  const waiting = actions.some(
+    (a) => a.type === 'app.install' && a.params.app_id === NTFY_APP && (a.state === 'requested' || a.state === 'awaiting_approval' || a.state === 'accepted' || a.state === 'dispatched'),
+  );
+  return waiting ? 'requested' : 'missing';
 }
 
 const ID = /^[A-Za-z0-9_-]{1,64}$/;

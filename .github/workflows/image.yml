@@ -290,6 +290,7 @@ jobs:
           if [ -f $d/serial.log ]; then
             test/qemu/trim-log.sh $d/serial.log > $d/serial-trimmed.log
             test/qemu/trim-log.sh --tail 400 $d/serial.log > $d/serial-tail.log
+            test/qemu/trim-log.sh --diag $d/serial.log > $d/serial-diag.log
             rm -f $d/serial.log
           fi
           rm -rf $d/work

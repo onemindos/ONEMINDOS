@@ -13,7 +13,7 @@ from ..actions import FeatureAction
 from ..auth import Principal
 from ..context import Gateway
 from ..errors import ApiError, error_responses
-from ..storage import TYPES, StorageActionRequest, StoragePlanRequest, StorageService, StorageSettings
+from ..storage import TYPES, StorageActionRequest, StoragePlanRequest, StorageService, StorageSettings, StorageSummary
 
 
 def destructive_step_up(gw: Gateway):
@@ -72,7 +72,8 @@ def register(app: FastAPI, gw: Gateway) -> None:
             gw.audit.append("authz.denied", p.as_dict(), None, {"attempted": "storage owner read", "reason": "permission_denied"})
             raise ApiError(403, "permission_denied", "only an owner may do this")
 
-    @app.get("/v1/storage", tags=["storage"], operation_id="storage.summary", responses=error_responses(401))
+    @app.get("/v1/storage", tags=["storage"], operation_id="storage.summary", responses=error_responses(401),
+             response_model=StorageSummary, response_model_exclude_unset=True)
     def storage_summary(_: Principal = Depends(principal)):
         """The data set of this box: state, members, running operation. No disk identities."""
         return svc.summary()

@@ -149,24 +149,80 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font:15px/1.
 #bar h1{font-size:1rem;margin:0 0 .25rem}select{max-width:100%;font:inherit}.muted{color:var(--muted);font-size:.85rem}
 #map{position:absolute;inset:0}
 </style></head><body>
-<div id="bar"><h1>Offline Maps</h1><div id="msg" class="muted">Loading…</div><select id="pick" hidden></select></div>
+<div id="bar"><h1>Offline Maps</h1><div id="msg" class="muted">Loading…</div><select id="pick" aria-label="Map archive" hidden></select>
+<fieldset id="tools" disabled><legend>Local map tools</legend>
+<label><input id="measure" type="checkbox"> Measure two points</label>
+<button id="reset" type="button">Clear measurement</button>
+<p id="distance" role="status">Enable measurement, then click two places on the map.</p>
+<label>GeoJSON overlay <input id="overlay" type="file" accept=".geojson,.json,application/geo+json,application/json"></label>
+<button id="clear-overlay" type="button">Clear overlay</button>
+<p id="overlay-status" role="status">Stays in this tab; never uploaded. Maximum 2 MiB.</p>
+</fieldset></div>
 <div id="map"></div>
 <script src="assets/maplibre-gl.js"></script><script src="assets/pmtiles.js"></script><script src="assets/basemaps.js"></script>
+<script src="map_tools.js"></script>
 <script>
 const msg=document.getElementById('msg'),pick=document.getElementById('pick');
 const CONF=__CONF__;let map;
+const tools=document.getElementById('tools'),measure=document.getElementById('measure');
+const distance=document.getElementById('distance'),overlayStatus=document.getElementById('overlay-status');
+const empty=()=>({type:'FeatureCollection',features:[]});
+let points=[],overlayData=empty(),showGeneration=0,overlayGeneration=0;
+function drawMeasurement(){
+  const features=points.map(p=>({type:'Feature',properties:{},geometry:{type:'Point',coordinates:p}}));
+  if(points.length===2){
+    const end=points[1].slice();
+    while(end[0]-points[0][0]>180)end[0]-=360;
+    while(end[0]-points[0][0]<-180)end[0]+=360;
+    features.push({type:'Feature',properties:{},geometry:{type:'LineString',coordinates:[points[0],end]}});
+  }
+  OneMindMapTools.draw(map,'measurement',{type:'FeatureCollection',features},'#b54d17');
+}
+document.getElementById('reset').onclick=()=>{points=[];drawMeasurement();distance.textContent='Enable measurement, then click two places on the map.'};
+document.getElementById('overlay').onchange=async(e)=>{
+  const generation=++overlayGeneration;
+  const file=e.target.files[0];if(!file)return;
+  try{
+    if(file.size>2*1024*1024)throw new Error('Choose a GeoJSON file smaller than 2 MiB.');
+    const data=OneMindMapTools.overlay(await file.text());
+    if(generation!==overlayGeneration)return;
+    overlayData=data;
+    if(!tools.disabled)OneMindMapTools.draw(map,'overlay',overlayData,'#176ba0');
+    overlayStatus.textContent=file.name+' · '+data.features.length+' features (this tab only)';
+  }catch(error){if(generation===overlayGeneration)overlayStatus.textContent='Could not add overlay: '+error.message}
+  if(generation===overlayGeneration)e.target.value='';
+};
+document.getElementById('clear-overlay').onclick=()=>{
+  ++overlayGeneration;
+  overlayData=empty();OneMindMapTools.draw(map,'overlay',overlayData,'#176ba0');overlayStatus.textContent='Overlay cleared.';
+};
 function say(t){msg.textContent=t}
 async function show(name){
+  const generation=++showGeneration;
+  tools.disabled=true;points=[];distance.textContent='Enable measurement, then click two places on the map.';
   const url=new URL('maps/'+encodeURIComponent(name),location.href).href;
   const p=new pmtiles.PMTiles(url);const h=await p.getHeader();
+  if(generation!==showGeneration)return;
   const base=new URL('.',location.href).href;  // the {tokens} must stay unescaped
   const style={version:8,glyphs:base+'assets/fonts/{fontstack}/{range}.pbf',
     sprite:base+'assets/sprites/v3/'+CONF.flavor,
     sources:{protomaps:{type:'vector',url:'pmtiles://'+url,attribution:'<a href="https://openstreetmap.org/copyright">© OpenStreetMap contributors</a>, Protomaps'}},
     layers:basemaps.layers('protomaps',basemaps.namedFlavor(CONF.flavor),{lang:CONF.lang})};
   if(map)map.remove();
-  map=new maplibregl.Map({container:'map',style,bounds:[[h.minLon,h.minLat],[h.maxLon,h.maxLat]],maxZoom:Math.max(h.maxZoom+2,4)});
+  const currentMap=new maplibregl.Map({container:'map',style,bounds:[[h.minLon,h.minLat],[h.maxLon,h.maxLat]],maxZoom:Math.max(h.maxZoom+2,4)});
+  map=currentMap;
   map.addControl(new maplibregl.NavigationControl());map.addControl(new maplibregl.ScaleControl());
+  map.on('load',()=>{
+    if(generation!==showGeneration)return;
+    drawMeasurement();OneMindMapTools.draw(map,'overlay',overlayData,'#176ba0');tools.disabled=false;
+  });
+  map.on('click',(e)=>{
+    if(generation!==showGeneration||!measure.checked||tools.disabled)return;
+    if(points.length===2)points=[];
+    points.push([e.lngLat.wrap().lng,e.lngLat.lat]);drawMeasurement();
+    distance.textContent=points.length<2?'Choose the second point.':
+      'Approximate straight-line distance: '+(OneMindMapTools.distance(...points)/1000).toFixed(2)+' km. Not a route.';
+  });
   say(name+' · zoom '+h.minZoom+'–'+h.maxZoom);
 }
 (async()=>{
@@ -240,6 +296,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, b"ok\n", "text/plain")
         if path == "/api/maps":
             return self._send(200, json.dumps(list_maps()).encode(), "application/json")
+        if path == "/map_tools.js":
+            return self._file(Path(__file__).with_name("map_tools.js"), ranged=False)
         if path.startswith("/maps/"):
             name = path[len("/maps/"):]
             if NAME_RE.match(name) and (MAPS_DIR / name).is_file():

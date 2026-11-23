@@ -372,12 +372,18 @@ def test_three_dropped_connections_then_one_stored_copy(pc, root):
     url = phone.create(key, data).headers["Location"]
     hdr = {**OWNER, **INTEROP, "Upload-Complete": "?1"}
     offset = 0
-    for cut in (700_000, 1_400_000, 2_100_000):
+    for cut in (200_000, 400_000, 600_000):
         part = data[offset:cut]
         status, _ = asgi_patch(pc, url, {**hdr, "Upload-Offset": str(offset)}, [part[:100_000], part[100_000:]], "disconnect")
+        assert status == 204
         h = phone.head(url)
         assert h.headers["Upload-Offset"] == str(cut)  # every byte that arrived was kept
         offset = cut
+    chunk = 256 * 1024
+    while len(data) - offset > chunk:
+        r = phone.patch(url, offset, data[offset:offset + chunk], last=False)
+        offset += chunk
+        assert r.status_code == 204 and r.headers["Upload-Offset"] == str(offset)
     status, headers = asgi_patch(pc, url, {**hdr, "Upload-Offset": str(offset)}, [data[offset:]], "done")
     assert status == 200 and headers["upload-complete"] == "?1"
     assert phone.check([(key, data)]) == ["have"]

@@ -1,0 +1,181 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://onemind.io/schema/onemind.builtin.schema.json",
+  "title": "OneMind built-in app descriptor (the built-in profile of the onemind.app/v1 App manifest)",
+  "description": "What one built-in (system) app plugs into: search, share, notifications, map layers, cards, agent actions, settings, backup, data classes and the phone. Lives at core/onemind_core/<id>/onemind.app.yaml and is read only for ids on the signed system apps list (/usr/lib/onemind/system-apps.json). It is the same manifest as a Market app (apiVersion onemind.app/v1, kind App, one file name) in its built-in profile: metadata carries only id, name and description because a built-in ships inside the OS image (no version, licence, source or tier of its own), and no spec block reuses a name onemind.app.schema.json gives another shape. spec.backup is the App spec.backup block (its units field), and search, share, notifications, mapLayers and data are App spec blocks too since manifest v1 (#604); routes, cards, actions, settingsPages and phone are descriptor-only. test_builtin_conformance.py fails if a descriptor block stops validating against the App schema block of the same name. The conformance test core/tests/test_builtin_conformance.py checks every descriptor against the running gateway.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["apiVersion", "kind", "metadata", "spec"],
+  "properties": {
+    "apiVersion": {"const": "onemind.app/v1"},
+    "kind": {"const": "App"},
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name"],
+      "properties": {
+        "id": {"$ref": "#/$defs/id", "description": "The id on the signed list; must equal the folder name."},
+        "name": {"type": "string", "minLength": 1, "maxLength": 80},
+        "description": {"type": "string", "maxLength": 300}
+      }
+    },
+    "spec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["routes", "backup", "data", "phone"],
+      "properties": {
+        "routes": {"$ref": "#/$defs/routes"},
+        "search": {"$ref": "#/$defs/search"},
+        "share": {"$ref": "#/$defs/share"},
+        "notifications": {"$ref": "#/$defs/notifications"},
+        "mapLayers": {"type": "array", "maxItems": 20, "items": {"$ref": "#/$defs/mapLayer"}},
+        "cards": {"type": "array", "maxItems": 20, "items": {"$ref": "#/$defs/card"}},
+        "actions": {"type": "array", "maxItems": 40, "items": {"$ref": "#/$defs/action"}},
+        "settingsPages": {"type": "array", "minItems": 1, "maxItems": 10, "items": {"$ref": "#/$defs/settingsPage"}},
+        "backup": {"$ref": "#/$defs/backup"},
+        "data": {"$ref": "#/$defs/data"},
+        "phone": {"$ref": "#/$defs/phone"}
+      }
+    }
+  },
+  "$defs": {
+    "id": {"type": "string", "pattern": "^[a-z]([a-z0-9-]{0,57}[a-z0-9])?$"},
+    "key": {"type": "string", "pattern": "^[a-z][a-z0-9_.-]{0,62}$"},
+    "title": {"type": "string", "minLength": 1, "maxLength": 80},
+    "prefix": {
+      "description": "A public API path prefix such as /v1/photos: the path itself and everything under it.",
+      "type": "string", "pattern": "^/v1(/[a-z0-9][a-z0-9-]*)+$"
+    },
+    "call": {
+      "description": "One public API operation, METHOD and OpenAPI path template, e.g. GET /v1/files/list. It must exist in sdk/openapi/onemind-v1.json (rule 12: a built-in uses only the public door).",
+      "type": "string", "pattern": "^(GET|POST|PUT|PATCH|DELETE) /v1(/[A-Za-z0-9_{}.-]+)+$"
+    },
+    "routes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["owns", "calls"],
+      "properties": {
+        "owns": {
+          "description": "Prefixes that belong to this app. While the app is switched off every request under them answers 409 stale_precondition, reason app_disabled (one gateway gate, builtins.py). Two built-ins never own overlapping prefixes.",
+          "type": "array", "maxItems": 20, "uniqueItems": true, "items": {"$ref": "#/$defs/prefix"}
+        },
+        "calls": {"type": "array", "maxItems": 100, "uniqueItems": true, "items": {"$ref": "#/$defs/call"}}
+      }
+    },
+    "search": {
+      "description": "The app's search provider: the item types it adds to the one local index.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "types"],
+      "properties": {
+        "provider": {"$ref": "#/$defs/key"},
+        "types": {"type": "array", "minItems": 1, "maxItems": 20, "uniqueItems": true, "items": {"$ref": "#/$defs/key"}}
+      }
+    },
+    "shareType": {"enum": ["note", "task", "event", "person", "file", "place", "track", "alert", "clip"]},
+    "share": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["accepts", "verbs"],
+      "properties": {
+        "accepts": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/shareType"}},
+        "verbs": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": ["open", "add"]}}
+      }
+    },
+    "notifications": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["topics"],
+      "properties": {
+        "topics": {
+          "type": "array", "minItems": 1, "maxItems": 20,
+          "items": {
+            "description": "A topic routes catalogue events (events: system topic of that id, notify/catalogue.py), or is one the app posts itself through its app principal (title: shown on Settings > Notifications), or both. Whatever the app posts lands under app.<metadata.id>.<id> (notify/topics.py), at most 80 characters, severity info or warning.",
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id"],
+            "anyOf": [{"required": ["events"]}, {"required": ["title"]}],
+            "properties": {
+              "id": {"$ref": "#/$defs/key", "description": "The notification topic (notify/catalogue.py), e.g. backups; app posts use app.<app id>.<id>."},
+              "title": {"$ref": "#/$defs/title", "description": "What the topic is called in Settings > Notifications, e.g. Reminders."},
+              "events": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/key"}}
+            }
+          }
+        }
+      }
+    },
+    "mapLayer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "source"],
+      "properties": {"id": {"$ref": "#/$defs/key"}, "title": {"$ref": "#/$defs/title"}, "source": {"$ref": "#/$defs/call"}}
+    },
+    "card": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "template", "source"],
+      "properties": {
+        "id": {"$ref": "#/$defs/key"},
+        "title": {"$ref": "#/$defs/title"},
+        "template": {"enum": ["stat", "list", "progress", "status", "series"]},
+        "source": {"$ref": "#/$defs/call"}
+      }
+    },
+    "action": {
+      "description": "An action type the gateway has registered (a FeatureAction). mcp: true makes it a request-only MCP tool; an agent can only file the request and a person approves it.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "title", "mcp"],
+      "properties": {
+        "type": {"type": "string", "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$"},
+        "title": {"$ref": "#/$defs/title"},
+        "mcp": {"type": "boolean"}
+      }
+    },
+    "settingsPage": {
+      "description": "A Settings page the host draws from one public read operation. Not the App spec.settings field list (owner-editable env values of a container app).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "source"],
+      "properties": {"id": {"$ref": "#/$defs/key"}, "title": {"$ref": "#/$defs/title"}, "source": {"$ref": "#/$defs/call"}}
+    },
+    "backupUnit": {
+      "description": "Same as onemind.app.schema.json $defs/backupUnit (a test keeps the two equal). table: a gateway database table. dir: the folder a gateway setting (ONEMIND_*) names.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "name"],
+      "properties": {
+        "kind": {"enum": ["table", "dir"]},
+        "name": {"type": "string", "pattern": "^([a-z][a-z0-9_]{0,62}|ONEMIND_[A-Z0-9_]{1,60})$"}
+      }
+    },
+    "backup": {
+      "description": "The App spec.backup block with its units field required: every built-in names at least one unit; removing them fails the conformance test.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["units"],
+      "properties": {"units": {"type": "array", "minItems": 1, "maxItems": 40, "items": {"$ref": "#/$defs/backupUnit"}}}
+    },
+    "dataClass": {"enum": ["public", "owner", "private", "location", "activity"]},
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["owns", "reads"],
+      "properties": {
+        "owns": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/dataClass"}},
+        "reads": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/dataClass"}}
+      }
+    },
+    "phone": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["entry"],
+      "properties": {
+        "entry": {"enum": ["native", "web", "none"]},
+        "screen": {"$ref": "#/$defs/key"}
+      },
+      "if": {"properties": {"entry": {"const": "native"}}},
+      "then": {"required": ["entry", "screen"]}
+    }
+  }
+}

@@ -10,7 +10,6 @@ const NOT_YET = new Set([
   'POST /v1/devices/requests', // device registry (clients.md §4.4)
   'GET /v1/devices/requests/{}',
   'POST /v1/devices/token',
-  'GET /v1/system/plan', // restart / shut down / troubleshoot: no hub module yet, the screen stays hidden
 ]);
 
 function served(): Set<string> {
@@ -51,9 +50,13 @@ it('calls only routes the hub serves (or feature-detected ones it does not ship 
     () => api.setRuleEnabled(id, true), () => api.setRuleEnabled(id, false), () => api.setAutomationPaused(true), () => api.setAutomationPaused(false),
     () => api.filesRoots(), () => api.filesList('r', '/'), () => api.migratePlans(),
     () => api.osUpdates(), () => api.osUpdateHistory(), () => api.monitoringSummary(), () => api.nodeMetrics(id), () => api.appMetrics(id),
-    () => api.mesh(), () => api.systemPlan('system.restart'),
+    () => api.mesh(),
+    () => api.myDevices(), () => api.removeMyDevice(id),
   ];
   for (const c of calls) await c().catch(() => undefined);
+  expect(seen).toHaveLength(calls.length);
+  // System controls stay hidden: the hub serves no system plan preview, so systemPlan sends nothing at all.
+  await api.systemPlan('system.restart').catch(() => undefined);
   expect(seen).toHaveLength(calls.length);
   const ok = served();
   const missing = seen.filter((op) => !ok.has(op) && !NOT_YET.has(op));

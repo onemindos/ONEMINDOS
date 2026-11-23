@@ -24,6 +24,16 @@ Passkey sign-in needs Android 14 or newer (the app leaves out Google Play Servic
 
 Plain `http://` works on a home network and the Connect screen warns about it.
 
+## Push notifications without Google
+
+The app gets alerts while it is closed through UnifiedPush, with the ntfy app as the go-between and the box's own ntfy server behind it. No Google services are needed. In OneMind open **Settings → Push** and follow the three steps:
+
+1. **ntfy on the box:** if it is missing, tap **Ask to install ntfy on the box** and approve the request in Approvals.
+2. **ntfy on this phone:** tap **Get ntfy (F-Droid)**, install it, then in ntfy open Settings and set **Default server** to the address the OneMind screen shows (**Copy or share address**).
+3. **Turn on push.** The screen then shows the box's registration for this phone and when the last ping arrived.
+
+Details and what is still open (the box's sign-in in front of `ntfy.<box>.local`, no device proof yet) are in [push.md](push.md) §3.
+
 ## Updates with Obtainium
 
 [Obtainium](https://obtainium.imranr.dev/) can follow the releases without an app store:
