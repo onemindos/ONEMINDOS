@@ -290,6 +290,7 @@ security GET /v1/tips/collections owner=core:tips
 security GET /v1/tips/whats-new owner=core:tips
 security GET /v1/tips/{tip_id} owner=core:tips
 security POST /v1/tips/{tip_id}/state owner=core:tips
+security GET /v1/system/ups owner=core:system
 security GET /v1/tls owner=core:tls
 security GET /v1/tokens owner=core:tokens
 security POST /v1/tokens owner=core:tokens
