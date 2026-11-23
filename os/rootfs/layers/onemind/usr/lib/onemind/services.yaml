@@ -45,6 +45,10 @@ services:
      description: "Gives the box its role and its own secrets on the first start, then turns on the services that role needs."}
   - {unit: onemind-setup.service, name: Setup wizard, docs: docs/leap/core/IMAGES.md, restartable: false, risk: medium, depends_on: [onemind-firewall.service],
      description: "The page on port 8080 that sets up a new box. It stops once the box has a role."}
+  - {unit: onemind-setup-helper.socket, name: Setup wizard helper socket, docs: docs/leap/core/IMAGES.md, restartable: false, risk: medium, depends_on: [],
+     description: "The private door between the setup page and its helper. It exists only while the setup page runs."}
+  - {unit: onemind-setup-helper@.service, name: Setup wizard helper, docs: docs/leap/core/IMAGES.md, restartable: false, risk: medium, depends_on: [onemind-setup-helper.socket],
+     description: "Applies what the owner chose on the setup page. The page itself has no special rights; only this small part does."}
   - {unit: onemind-starting.service, name: Starting page, docs: docs/leap/core/IMAGES.md, restartable: false, risk: low, depends_on: [],
      description: "Shows a 'starting' page on the web address until the gateway is ready to answer."}
   - {unit: onemind-screen.service, name: Box screen, docs: docs/leap/core/IMAGES.md, restartable: true, risk: low, depends_on: [],
