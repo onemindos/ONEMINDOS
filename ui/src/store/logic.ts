@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Pure rules for the App Store: search and filters, the single primary action per app,
 // request building with its API equivalent, and job progress. No React, fully unit-tested.
-import { installBlockReason, safeHttpUrl, type AppTier } from '../lib/trust';
-import { CATEGORIES, CATEGORY_BY_SLUG } from './taxonomy';
+import { installBlockReason, safeHttpUrl, type AppTier, type QualityTier } from '../lib/trust';
+import { CATEGORIES, CATEGORY_BY_SLUG, QUALITY_RANK } from './taxonomy';
 import type {
   Arch,
   CatalogApp,
@@ -29,6 +29,8 @@ export interface MarketFilters {
   /** Empty means any licence class. */
   licences: LicenceClass[];
   tier: AppTier | 'any';
+  /** Lowest quality tier shown (#174). An app not rated yet counts as none. */
+  quality: Exclude<QualityTier, 'none'> | 'any';
   pluginsOnly: boolean;
   noGpu: boolean;
 }
@@ -42,6 +44,7 @@ export const DEFAULT_FILTERS: MarketFilters = {
   arch: null,
   licences: ['L1', 'L2'],
   tier: 'any',
+  quality: 'any',
   pluginsOnly: false,
   noGpu: false,
 };
@@ -80,6 +83,11 @@ export function searchScore(app: CatalogApp, words: string[]): number {
 
 const FIT_ORDER = { fits: 0, stale: 1, none: 2 } as const;
 
+/** The quality tier the gate's evidence backs, or 'none' when the app is not rated (yet). */
+export function qualityOf(app: Pick<CatalogApp, 'scan'>): QualityTier {
+  return app.scan?.quality?.tier ?? 'none';
+}
+
 function passesFacets(app: CatalogApp, f: MarketFilters): boolean {
   if (app.deploy_class === 'core') return false;
   if (!f.classes.includes(app.deploy_class)) return false;
@@ -88,6 +96,7 @@ function passesFacets(app: CatalogApp, f: MarketFilters): boolean {
   if (f.arch && !app.archs.includes(f.arch)) return false;
   if (f.licences.length > 0 && !f.licences.includes(app.licence_class ?? 'L?')) return false;
   if (f.tier !== 'any' && app.tier !== f.tier) return false;
+  if (f.quality !== 'any' && QUALITY_RANK[qualityOf(app)] < QUALITY_RANK[f.quality]) return false;
   if (f.pluginsOnly && !app.plugin) return false;
   if (f.noGpu && (app.requires?.gpu || app.placement?.gpu === 'required')) return false;
   return true;
@@ -153,6 +162,7 @@ export function activeFilterCount(f: MarketFilters): number {
   if (f.arch) n++;
   if (!same(f.licences, DEFAULT_FILTERS.licences)) n++;
   if (f.tier !== 'any') n++;
+  if (f.quality !== 'any') n++;
   if (f.pluginsOnly) n++;
   if (f.noGpu) n++;
   return n;

@@ -868,6 +868,31 @@
         "title": "AppPlacement",
         "type": "object"
       },
+      "AppQuality": {
+        "description": "Quality tier of an app or plugin, computed by the app gate from its own evidence, never set by hand.",
+        "properties": {
+          "evidence": {
+            "$ref": "#/components/schemas/QualityEvidence"
+          },
+          "tier": {
+            "description": "Derived by the gateway from the evidence; none when the evidence does not reach Bronze",
+            "enum": [
+              "none",
+              "bronze",
+              "silver",
+              "gold"
+            ],
+            "title": "Tier",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tier",
+          "evidence"
+        ],
+        "title": "AppQuality",
+        "type": "object"
+      },
       "AppScope": {
         "additionalProperties": false,
         "properties": {
@@ -6435,6 +6460,39 @@
         "title": "PushIn",
         "type": "object"
       },
+      "QualityEvidence": {
+        "description": "The yes/no checks behind a quality tier (#174), per level. A tier needs every check of its level and of the levels below.",
+        "properties": {
+          "bronze": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "title": "Bronze",
+            "type": "object"
+          },
+          "gold": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "title": "Gold",
+            "type": "object"
+          },
+          "silver": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "title": "Silver",
+            "type": "object"
+          }
+        },
+        "required": [
+          "bronze",
+          "silver",
+          "gold"
+        ],
+        "title": "QualityEvidence",
+        "type": "object"
+      },
       "QuotaBody": {
         "additionalProperties": false,
         "properties": {
@@ -7449,6 +7507,17 @@
               }
             ],
             "description": "SPDX expression and licence class recorded by the app gate. Missing on older scans."
+          },
+          "quality": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AppQuality"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Quality tier (Bronze, Silver, Gold) and the checks that back it (#174). Null on a scan from before quality tiers: not rated yet"
           },
           "reason": {
             "anyOf": [
