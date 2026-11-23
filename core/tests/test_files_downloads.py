@@ -202,6 +202,18 @@ def test_a_held_file_leaves_only_after_an_owner_approves(dc):
     assert dc.post(f"/v1/files/downloads/{h['id']}/release", headers=OWNER).status_code == 404
 
 
+def test_a_retried_release_with_the_same_idempotency_key_files_one_action(dc):
+    drop(dc, "adult", "setup.exe", b"MZ\x90\x00")
+    dc.app.state.downloads.sweep()
+    [h] = held(dc)
+    key = {**OWNER, "Idempotency-Key": "release-once"}
+    first = ok(dc.post(f"/v1/files/downloads/{h['id']}/release", headers=key), 202)
+    again = dc.post(f"/v1/files/downloads/{h['id']}/release", headers=key)
+    assert again.status_code in (200, 202) and again.json()["id"] == first["id"]
+    other = ok(dc.post(f"/v1/files/downloads/{h['id']}/release", headers=OWNER), 202)
+    assert other["id"] != first["id"]
+
+
 def test_the_alert_fix_files_the_release_for_an_owner_to_approve(dc):
     drop(dc, "adult", "setup.exe", b"MZ\x90\x00")
     dc.app.state.downloads.sweep()

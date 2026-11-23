@@ -18451,7 +18451,7 @@
     },
     "/v1/files/downloads/{download_id}": {
       "delete": {
-        "description": "Delete a held download for good. It never reaches Files.",
+        "description": "Delete a held download for good. It never reaches Files. A repeated discard answers 404\n(the file is gone); the Idempotency-Key is accepted for the contract and needs no replay store.",
         "operationId": "files.downloads.discard",
         "parameters": [
           {
@@ -18461,6 +18461,24 @@
             "schema": {
               "title": "Download Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
             }
           }
         ],
@@ -18532,6 +18550,24 @@
             "schema": {
               "title": "Download Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
             }
           }
         ],

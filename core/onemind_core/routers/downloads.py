@@ -13,9 +13,9 @@ from __future__ import annotations
 
 import uuid
 from datetime import timedelta
-from typing import Literal
+from typing import Annotated, Literal
 
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, Header
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -34,6 +34,8 @@ register_route_scope("POST", r"/v1/files/downloads/[^/]+/release", ("*",))
 register_route_scope("DELETE", r"/v1/files/downloads/[^/]+", ("*",))
 RELEASE_TTL = timedelta(days=7)
 TAG = ["files"]
+# Contract §12.1: unsafe routes take an Idempotency-Key; a retried release files one action, not two.
+IdemKey = Annotated[str | None, Header(alias="Idempotency-Key", min_length=1, max_length=200)]
 
 
 class ReleaseParams(BaseModel):
@@ -85,21 +87,22 @@ def register(app: FastAPI, gw: Gateway) -> None:
 
     @app.post("/v1/files/downloads/{download_id}/release", operation_id="files.downloads.release", tags=TAG,
               status_code=202, response_model=Action, responses=error_responses(401, 403, 404, 409))
-    def release(download_id: str, p: Principal = Depends(principal)):
+    def release(download_id: str, idem: IdemKey = None, p: Principal = Depends(principal)):
         """Ask to move a held download into its person's Files. Nothing moves until an owner approves it."""
         if not p.is_owner:
             raise refuse(p, "release a held download", "only an owner may ask to release a held download")
         rec = downloads.get(p, download_id)
         action, _ = gw.actions.request_feature(
             p, RELEASE_ACTION, {"download_id": rec.id, "verdict": rec.verdict},
-            idempotency_key=f"download-release-{uuid.uuid4().hex}", expires_at=gw.clock() + RELEASE_TTL,
+            idempotency_key=f"download-release-{p.id}-{idem or uuid.uuid4().hex}", expires_at=gw.clock() + RELEASE_TTL,
             reason=f"release held download {rec.name}")
         return JSONResponse(status_code=202, content=action)
 
     @app.delete("/v1/files/downloads/{download_id}", operation_id="files.downloads.discard", tags=TAG,
                 responses=error_responses(401, 403, 404))
-    def discard(download_id: str, p: Principal = Depends(principal)):
-        """Delete a held download for good. It never reaches Files."""
+    def discard(download_id: str, idem: IdemKey = None, p: Principal = Depends(principal)):
+        """Delete a held download for good. It never reaches Files. A repeated discard answers 404
+        (the file is gone); the Idempotency-Key is accepted for the contract and needs no replay store."""
         if p.kind != "person":
             raise refuse(p, "discard a held download", "only a person discards a held download")
         return downloads.discard(p, download_id)
