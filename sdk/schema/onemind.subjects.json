@@ -23,6 +23,7 @@
   "envelopes": {
     "onemind.datapoint/v1": {"file": "onemind.datapoint.schema.json", "description": "one observed value: value, unit, time, quality, source, licence, sequence, optional WGS-84 position or framed pose"},
     "onemind.event/v1": {"file": "onemind.event.schema.json", "description": "the event envelope of contract section 12.8"},
+    "onemind.message.event/v1": {"file": "onemind.message.event.schema.json", "description": "the onemind.event/v1 envelope of the two message events: ids and metadata only, never the text (#855)"},
     "onemind.node.status/v1": {"contract": "sdk/contracts/poc-v0.md section 2 and 12.10", "description": "the node heartbeat"},
     "onemind.node.event/v1": {"contract": "internal/agent/events.go", "description": "a durable node event, re-published by the gateway as onemind.event.<type>"},
     "onemind.job/v1": {"contract": "sdk/contracts/poc-v0.md section 12.11", "description": "a signed job for one node"},
@@ -40,8 +41,8 @@
       "subjects": [
         {"pattern": "onemind.node.{node_id:node_id}.status", "publishers": ["node"], "owner": "node_id", "stream": null, "retention": {"policy": "none"}, "envelope": "onemind.node.status/v1"},
         {"pattern": "onemind.node.{node_id:node_id}.event.{type:type}", "publishers": ["node"], "owner": "node_id"},
-        {"pattern": "onemind.node.{node_id:node_id}.job.{job_kind:type}", "publishers": ["gateway"], "stream": "ONEMIND_JOBS", "retention": {"policy": "workqueue", "max_age_s": 86400}, "envelope": "onemind.job/v1"},
-        {"pattern": "onemind.node.{node_id:node_id}.jobresult.{job_id:id}", "publishers": ["node"], "owner": "node_id", "stream": "ONEMIND_JOBRESULTS", "retention": {"policy": "limits", "max_age_s": 2592000}, "envelope": "jobresult"}
+        {"pattern": "onemind.node.{node_id:node_id}.job.{job_kind:type}", "publishers": ["gateway"], "stream": "ONEMIND_JOBS", "retention": {"policy": "workqueue", "max_age_s": 86400, "max_bytes": 67108864}, "envelope": "onemind.job/v1"},
+        {"pattern": "onemind.node.{node_id:node_id}.jobresult.{job_id:id}", "publishers": ["node"], "owner": "node_id", "stream": "ONEMIND_JOBRESULTS", "retention": {"policy": "limits", "max_age_s": 2592000, "max_bytes": 134217728}, "envelope": "jobresult"}
       ]
     },
     "audit": {
@@ -61,6 +62,8 @@
       "retention": {"policy": "limits", "max_age_s": 604800, "max_bytes": 1073741824},
       "envelope": "onemind.event/v1",
       "subjects": [
+        {"pattern": "onemind.event.message.received", "publishers": ["gateway"], "envelope": "onemind.message.event/v1"},
+        {"pattern": "onemind.event.message.status", "publishers": ["gateway"], "envelope": "onemind.message.event/v1"},
         {"pattern": "onemind.event.{type:type}", "publishers": ["gateway"]}
       ]
     },
@@ -152,6 +155,9 @@
     "app": "retired prefix of the first spec.streams slice (PR #540): an app's subjects live under onemind.plugin.<app_id>.",
     "cmd": "commands never travel on the bus: an agent or app sends onemind.request.* and a person approves",
     "device": "a device is an asset: onemind.asset.device.<asset_id>.<field>",
+    "lora": "a radio is driven only by Ed25519-signed jobs from the gateway to onemindd on its loopback job API (#855); nothing on the bus makes a radio transmit",
+    "message": "message text never rides the bus: the gateway publishes ids only on onemind.event.message.received and onemind.event.message.status (#855)",
+    "radio": "a radio is driven only by signed jobs (see lora); its status is served by GET /v1/radios, not published (#855)",
     "robot": "a robot is an asset with reserved channels: onemind.asset.robot.<asset_id>.<channel>",
     "state": "state is the asset kind: onemind.asset.<asset_class>.<asset_id>.state"
   },

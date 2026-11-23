@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { expect, it } from 'vitest';
-import { close, focus, minimise, open, position, restore, save, toggleMax, type Windows } from './store';
+import { close, focus, minimise, onWorkspace, open, position, restore, save, sendTo, toggleMax, top, type Windows } from './store';
 
 it('focus orders windows and the ninth distinct screen evicts the least recently focused', () => {
   let windows: Windows = [];
@@ -27,4 +27,19 @@ it('restores only valid screens, geometry and pathnames, in saved order', () => 
   expect(data).not.toContain('private');
   expect(restore(data, path => path === '/market' ? 'market' : undefined)).toEqual(open([], 'market', '/market').map(w => ({ ...w, rect: windows[1]!.rect })));
   expect(restore('invalid', () => 'market')).toEqual([]);
+});
+
+it('keeps each workspace’s windows apart, moves a window between them and saves the workspace', () => {
+  let windows: Windows = open(open([], 'market', '/market', 0), 'nodes', '/nodes', 1);
+  expect(onWorkspace(windows, 0).map(w => w.id)).toEqual(['market']);
+  expect(onWorkspace(windows, 1).map(w => w.id)).toEqual(['nodes']);
+  expect(top(windows, 0)?.id).toBe('market');
+  expect(top(windows, 2)).toBeUndefined();
+  expect(focus(windows, 'market').find(w => w.id === 'market')?.ws).toBe(0);
+  windows = sendTo(windows, 'market', 3);
+  expect(onWorkspace(windows, 3).map(w => w.id)).toEqual(['market']);
+  expect(sendTo(windows, 'market', 4)).toBe(windows);
+  const back = restore(save(windows), path => path.slice(1));
+  expect(back.map(w => [w.id, w.ws])).toEqual([['market', 3], ['nodes', 1]]);
+  expect(restore(JSON.stringify([{ path: '/market', rect: windows[0]!.rect, ws: 9 }]), path => path.slice(1))[0]?.ws).toBe(0);
 });

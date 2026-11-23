@@ -1,0 +1,28 @@
+# 2026-11-23T03:14:59Z AK-7 part 1: online backup on the running source box
++ systemctl is-active kanidmd; grep -A4 online_backup /etc/kanidmd/server.toml
+active
+[online_backup]
+path = "/var/lib/private/kanidmd/backups/"
+# every minute (the README needs a backup taken while the service runs)
+schedule = "* * * * *"
+versions = 3
+  (exit 0)
+# backup file written while running: /var/lib/private/kanidmd/backups/backup-2026-11-23T03:15:00.621983988Z.json.gz (waited 0 s); kanidmd PID unchanged: yes
++ systemctl is-active kanidmd; curl -sS --cacert /etc/kanidm/ca.pem https://idm.onemind.test:8443/status; echo
+active
+true
+  (exit 0)
++ ls -l --time-style=+%FT%TZ /var/lib/private/kanidmd/backups; journalctl -u kanidmd --no-pager -o cat | grep -iE 'backup' | tail -4
+total 60
+-rw-r----- 1 nobody nogroup 19774 2026-11-23T03:13:00Z backup-2026-11-23T03:13:00.593010944Z.json.gz
+-rw-r----- 1 nobody nogroup 19774 2026-11-23T03:14:00Z backup-2026-11-23T03:14:00.604414929Z.json.gz
+-rw-r----- 1 nobody nogroup 20130 2026-11-23T03:15:00Z backup-2026-11-23T03:15:00.621983988Z.json.gz
+8727b2a2-8fdd-4d78-9148-f1f85e1c8554 INFO     online_backup [ 20.7ms | 100.00% ]
+8727b2a2-8fdd-4d78-9148-f1f85e1c8554 INFO     ┝━ ｉ [info]: Online backup created /var/lib/private/kanidmd/backups/backup-2026-11-23T03:15:00.621983988Z.json.gz successfully
+8727b2a2-8fdd-4d78-9148-f1f85e1c8554 INFO     ┕━ ｉ [info]: Online backup cleanup found 4 versions, should keep 3, will remove 1
+00000000-0000-0000-0000-000000000000 INFO     ｉ [info]: Online backup next run on 2026-11-23 03:16:00 UTC, wait_time = 60s
+  (exit 0)
++ cp '/var/lib/private/kanidmd/backups/backup-2026-11-23T03:15:00.621983988Z.json.gz' /root/aklab/restore-input.json.gz; sha256sum /root/aklab/restore-input.json.gz; stat -c '%s bytes' /root/aklab/restore-input.json.gz
+b18f159265a5f70dd414195c27a07e0eedeeb3fba68c38b688d5e0658bc1a4b1  /root/aklab/restore-input.json.gz
+20130 bytes
+  (exit 0)

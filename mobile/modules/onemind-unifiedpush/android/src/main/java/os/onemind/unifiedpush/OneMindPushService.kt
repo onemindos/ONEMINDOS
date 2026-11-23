@@ -59,6 +59,14 @@ internal object Store {
   fun clear(context: Context) {
     context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().clear().apply()
   }
+
+  /** Only the time a ping arrived, so Settings can show it even when the app was closed. */
+  fun savePing(context: Context, at: Long) {
+    context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putLong("ping", at).apply()
+  }
+
+  fun lastPing(context: Context): Double? =
+    context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getLong("ping", 0L).takeIf { it > 0L }?.toDouble()
 }
 
 class OneMindPushService : PushService() {
@@ -74,6 +82,7 @@ class OneMindPushService : PushService() {
   override fun onMessage(message: PushMessage, instance: String) {
     // The box sends only ids (D-005). Anything else is ignored rather than shown.
     val id = parseId(message.content.toString(Charsets.UTF_8))
+    Store.savePing(this, System.currentTimeMillis())
     if (!Bridge.emit(UnifiedPushModule.EVENT_MESSAGE, mapOf("id" to id))) showOpaque(this, id)
   }
 

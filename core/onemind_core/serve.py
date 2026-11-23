@@ -17,11 +17,14 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import copy
 import ipaddress
 import logging
+import re
 import signal
 import socket
 from collections.abc import Iterator
+from typing import Any
 
 import uvicorn
 
@@ -30,6 +33,41 @@ from .config import Settings
 from .netconf import NetSettings
 
 log = logging.getLogger("onemind.serve")
+
+# A query-string secret uvicorn's access log must never write: WOPI hands the office engine its
+# om_wopi_ bearer token as ?access_token= (routers/wopi.py), and the access log prints each path
+# with its query string to stdout and so to journald.
+_SECRET_QUERY = re.compile(r"(?i)((?:^|[?&])access_token=)[^&\s\"]*")
+
+
+def redact_query(text: str) -> str:
+    """The text with every access_token query value replaced by [redacted]."""
+    return _SECRET_QUERY.sub(r"\1[redacted]", text)
+
+
+class RedactAccessToken(logging.Filter):
+    """Redacts access_token query values from uvicorn.access records before any handler sees them."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if isinstance(record.args, tuple):
+            record.args = tuple(redact_query(a) if isinstance(a, str) else a for a in record.args)
+        elif isinstance(record.args, dict):
+            record.args = {k: redact_query(v) if isinstance(v, str) else v for k, v in record.args.items()}
+        if isinstance(record.msg, str):
+            record.msg = redact_query(record.msg)
+        return True
+
+
+def log_config() -> dict[str, Any]:
+    """uvicorn's default logging config with RedactAccessToken on the uvicorn.access logger.
+
+    Every uvicorn.Config and uvicorn.run here takes it (log_config=...), so no listener writes a
+    WOPI access token, whichever port or handler the record reaches."""
+    cfg = copy.deepcopy(uvicorn.config.LOGGING_CONFIG)
+    cfg.setdefault("filters", {})["redact_access_token"] = {"()": RedactAccessToken}
+    access = cfg["loggers"].setdefault("uvicorn.access", {})
+    access["filters"] = [*access.get("filters", []), "redact_access_token"]
+    return cfg
 
 
 class _Server(uvicorn.Server):
@@ -118,12 +156,14 @@ async def serve_all(app, settings: Settings) -> None:
     certfile, keyfile = https_cert(settings, net)
     ports = [int(p) for p in net.https_ports]
     main = _Server(uvicorn.Config(app, host=plain_http_host(settings.host), port=settings.port,
-                                  proxy_headers=False, lifespan="on"))
-    https = _Server(uvicorn.Config(app, lifespan="off", proxy_headers=False, ssl_certfile=certfile, ssl_keyfile=keyfile))
+                                  proxy_headers=False, lifespan="on", log_config=log_config()))
+    https = _Server(uvicorn.Config(app, lifespan="off", proxy_headers=False, ssl_certfile=certfile, ssl_keyfile=keyfile,
+                                   log_config=log_config()))
     https_socks = [_bind(net.https_host, p) for p in ports]
     extra: list[tuple[_Server, list[socket.socket] | None]] = [(https, https_socks)]
     if net.http_redirect_port:
-        redirect = _Server(uvicorn.Config(redirect_app(ports[0]), lifespan="off", proxy_headers=False))
+        redirect = _Server(uvicorn.Config(redirect_app(ports[0]), lifespan="off", proxy_headers=False,
+                                         log_config=log_config()))
         extra.append((redirect, [_bind(net.https_host, net.http_redirect_port)]))
     servers = [main] + [s for s, _ in extra]
 
@@ -155,6 +195,6 @@ async def serve_all(app, settings: Settings) -> None:
 def run(app, settings: Settings) -> None:
     net = settings.section(NetSettings)
     if not net.tls:
-        uvicorn.run(app, host=settings.host, port=settings.port, proxy_headers=False)
+        uvicorn.run(app, host=settings.host, port=settings.port, proxy_headers=False, log_config=log_config())
         return
     asyncio.run(serve_all(app, settings))

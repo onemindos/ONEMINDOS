@@ -1,0 +1,9 @@
+#cloud-config
+# user-data snippet for the lab VMs (Proxmox cicustom). The SSH key was a throwaway key made for this run.
+ssh_authorized_keys:
+  - ssh-ed25519 <throwaway lab key>
+package_update: true
+packages:
+  - qemu-guest-agent
+runcmd:
+  - [systemctl, enable, --now, qemu-guest-agent]
