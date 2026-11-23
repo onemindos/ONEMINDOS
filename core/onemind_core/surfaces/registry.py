@@ -17,13 +17,18 @@ Installed Market apps join from their installation receipt (the manifest a perso
 mutable catalog file), and only while installed and running that receipt (`MarketApp`). A Market tool is
 served over REST (POST /v1/plugins/{id}/tools/{tool}); its write or destructive call files a
 plugin.invoke request a person approves. A Market card is a template widget whose source tool is one of
-the app's own served read tools with `observed_at` in its output schema; anything else is refused.
+the app's own served read tools with `observed_at` in its output schema; anything else is refused. A
+Market map layer is served only with source `emits` (the layer emits of the app's own bridge, served by the
+gateway); a call source would have the host fetch a core route of the app's choosing with the viewer's
+token, so it is refused (`kind: layer`).
 
 GET /v1/surfaces (routers/surfaces.py) serves `view`.
 """
 
 from __future__ import annotations
 
+import hashlib
+import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
@@ -35,9 +40,25 @@ PLUGIN_INVOKE = "plugin.invoke"
 PLUGIN_SCOPE = "actions:request:plugin.invoke"
 
 
+TOOL_NAME_MAX = 64
+TOOL_NAME_RE = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")  # the strictest LLM tool-name rule (UNVERIFIED)
+MARKET_SEP = "__"  # app ids never hold "_" and no core or built-in tool name holds "__"
+LAYER_EMITS = "emits"
+
+
 def market_tool_name(app_id: str, tool: str) -> str:
-    """A Market tool's name on every surface: `<app_id>.<tool>` (no core or built-in name has a dot)."""
-    return f"{app_id}.{tool}"
+    """A Market tool's one name on every surface (REST listing, cards, and /mcp once Market tools join it).
+
+    `<app_id>__<tool>`: only letters, digits, `_` and `-`, at most 64 characters, so it passes the
+    tool-name rules LLM tool APIs apply (no dots). An app id is a DNS label (up to 59 characters, no
+    `_`) and a tool name up to 40, so a pair that would pass 64 keeps the start of the app id and adds 8
+    hex characters of sha256("<app_id>/<tool>"), which keeps names distinct and stable."""
+    name = f"{app_id}{MARKET_SEP}{tool}"
+    if len(name) <= TOOL_NAME_MAX:
+        return name
+    digest = hashlib.sha256(f"{app_id}/{tool}".encode()).hexdigest()[:8]
+    keep = max(1, TOOL_NAME_MAX - len(MARKET_SEP) - len(tool) - len(digest) - 1)
+    return f"{app_id[:keep]}-{digest}{MARKET_SEP}{tool}"[:TOOL_NAME_MAX]
 
 
 def market_tool_route(app_id: str, tool: str) -> str:
@@ -162,6 +183,20 @@ class SurfaceRegistry:
             refused.append({"app_id": m.id, "kind": "card", "id": str(w.get("id")), "reason": problem})
         return out
 
+    @staticmethod
+    def _market_layers(m: MarketApp, refused: list[dict]) -> list[dict]:
+        out = []
+        for x in m.spec.get("mapLayers") or []:
+            if not isinstance(x, dict):
+                continue
+            if x.get("source") != LAYER_EMITS:
+                refused.append({"app_id": m.id, "kind": "layer", "id": str(x.get("id")),
+                                "reason": f"source {x.get('source')} is not {LAYER_EMITS}: a Market layer draws "
+                                          "only its own bridge's emits, never a gateway route"})
+                continue
+            out.append({"app_id": m.id, "id": x["id"], "title": x["title"], "source": LAYER_EMITS})
+        return out
+
     def mcp_actions(self) -> dict[str, tuple[str, str, str]]:
         """MCP tool name -> (action type, title, app name): the request-only tools of switched-on
         built-ins whose action type is registered. Nothing refused is ever an MCP tool."""
@@ -226,8 +261,7 @@ class SurfaceRegistry:
                 out["search"].append({"app_id": m.id, **spec["search"]})
             if "share" in spec:
                 out["share"].append({"app_id": m.id, **spec["share"]})
-            out["map_layers"] += [{"app_id": m.id, "id": x["id"], "title": x["title"], "source": x["source"]}
-                                  for x in spec.get("mapLayers", [])]
+            out["map_layers"] += self._market_layers(m, refused)
             if ((spec.get("extensions") or {}).get("settings")):
                 out["settings_pages"].append({"app_id": m.id, "id": "settings", "title": f"{m.name} settings",
                                               "source": f"GET /v1/plugins/{m.id}/settings"})

@@ -88,7 +88,8 @@ class SurfaceTopic(BaseModel):
 
 
 class SurfaceSource(BaseModel):
-    """A map layer or Settings page: drawn by the host from one public read operation."""
+    """A map layer or Settings page: drawn by the host from one public read operation ("GET /v1/..."), or,
+    for a Market app's map layer, `emits`: the layer emits of that app's own bridge, served by the gateway."""
 
     app_id: str
     id: str
@@ -104,7 +105,7 @@ class SurfaceBackupUnit(BaseModel):
 
 class SurfaceRefusal(BaseModel):
     app_id: str
-    kind: Literal["tool", "card", "topic"]
+    kind: Literal["tool", "card", "topic", "layer"]
     id: str
     reason: str
 
