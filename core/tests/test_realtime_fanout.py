@@ -232,7 +232,10 @@ def test_position_comes_only_from_values_the_caller_may_see_and_goes_when_remove
     assets = AssetState()
     put(assets, "onemind.asset.camera.cam-1.status", 1, value="on", unit=None)
     put(assets, "onemind.asset.camera.cam-1.location", 2, value=None, unit=None, position=(52.5, 13.4))
-    no_location = lambda v: "position" not in v.datapoint  # noqa: E731
+
+    def no_location(v: AssetValue) -> bool:
+        return "position" not in v.datapoint
+
     assert assets.position("camera", "cam-1") == (52.5, 13.4)
     assert assets.position("camera", "cam-1", no_location) is None
     status = assets.snapshot()[0]
