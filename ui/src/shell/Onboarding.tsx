@@ -124,7 +124,7 @@ function ThemeThumb({ t }: { t: ThemeChoice }) {
       <span className="oms-thumb-card" style={{ background: th.surface, borderColor: th.border }}>
         <span style={{ background: th.text }} />
         <span style={{ background: th['text-subtle'] }} />
-        <span className="oms-thumb-btn" style={{ background: 'var(--om-color-accent)' }} />
+        <span className="oms-thumb-btn" style={{ background: 'var(--om-color-action)' }} />
       </span>
     </>
   );
@@ -616,7 +616,7 @@ export function Onboarding({
   };
 
   return (
-    <div className="oms-onb" style={accentVars(d.accent)}>
+    <div className="oms-onb">
       <aside className="oms-onb-side" aria-label="Setup progress">
         <div className="oms-onb-brand">
           <BrandMark className="om-brand-mark" />
