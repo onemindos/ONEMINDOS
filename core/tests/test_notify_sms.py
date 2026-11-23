@@ -279,6 +279,50 @@ def test_a_capped_channel_drops_with_a_ledger_entry_and_no_send(nclient, provide
     assert len(provider.requests) == 3                         # the window rolled over
 
 
+@pytest.fixture
+def slow_client(settings, clock, executor, tmp_path):
+    """A gateway whose provider timeout is short, so a slow fake provider times out quickly."""
+    s = replace(settings, sections={"notify": NotifySettings(worker=False, dir=tmp_path / "keys", http_timeout_s=0.3)})
+    with TestClient(create_app(s, clock=clock, executor=executor)) as c:
+        yield c
+
+
+@pytest.mark.parametrize("failure", ["timeout", "http_503"])
+def test_retries_and_billed_timeouts_never_send_more_than_the_daily_cap(slow_client, provider, clock, failure):
+    """A provider that takes (and bills) each text but answers too late, or answers 5xx, is retried
+    on the backoff schedule; every attempt counts, so total POSTs stay at the cap (blocker on #932)."""
+    if failure == "timeout":
+        provider.delay = 0.8                      # longer than the gateway's 0.3 s timeout
+    else:
+        provider.status = 503
+    cap = 3
+    ch = add_sms(slow_client, provider, daily_cap=cap)          # per_hour stays at its default (5)
+    route_everything(slow_client, ch["id"])
+    s = svc(slow_client)
+    for i in range(4):
+        publish(slow_client, "app", "oom_killed", {"app_id": f"a{i}", "component": "web"}, "warning")
+    for rnd in range(3):                          # pump passes across every backoff step (30 s … 6 h)
+        for step in (0, 31, 121, 601, 3601, 6 * 3600 + 1):
+            clock.advance(step)
+            s.pump()
+            assert len(provider.requests) <= cap
+        publish(slow_client, "app", "oom_killed", {"app_id": f"b{rnd}", "component": "web"}, "warning")
+    s.pump()
+    assert len(provider.requests) == cap
+    assert s.repo.sends_since(ch["id"], clock() - timedelta(hours=24)) == cap
+    r = slow_client.post(f"/v1/notifications/channels/{ch['id']}/test", headers=OWNER).json()
+    assert r["delivered"] is False and r["error"] == f"daily cap reached ({cap} per day)"
+    assert len(provider.requests) == cap
+    states = {d.state for n in slow_client.get("/v1/notifications", headers=OWNER).json()
+              for d in s.repo.deliveries_for(n["id"])}
+    assert states <= {"dropped", "dead", "summarised"} and "dropped" in states   # nothing left to retry
+    clock.advance(int(timedelta(hours=24).total_seconds()) + 1)                 # the window rolls over
+    provider.delay, provider.status = 0.0, 200
+    publish(slow_client, "app", "oom_killed", {"app_id": "later", "component": "web"}, "warning")
+    s.pump()
+    assert len(provider.requests) == cap + 1
+
+
 def test_test_send_shows_the_receipt_and_counts_toward_the_cap(nclient, provider):
     ch = add_sms(nclient, provider, daily_cap=1)
     r = nclient.post(f"/v1/notifications/channels/{ch['id']}/test", headers=OWNER).json()

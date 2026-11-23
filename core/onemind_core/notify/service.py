@@ -13,8 +13,11 @@ failing for over an hour opens `notify.channel_failing`, in-app only.
 
 Per-channel limits a channel's config may set (the `sms` kind always does, issue #869):
 `min_severity` (below it the channel gets nothing), `per_hour` (instead of channel_per_hour) and
-`daily_cap` (sends in any 24 h; over it a delivery is `dropped`, audited as
-`notify.delivery.dropped`, and never sent or retried). Test sends count toward the cap.
+`daily_cap` (provider attempts in any 24 h; over it a delivery is `dropped`, audited as
+`notify.delivery.dropped`, and never sent or retried). The cap counts every attempt that may reach
+the provider, written before the request goes out: a retry, a 5xx and a timeout after the provider
+already took (and billed) the text all count, and the cap is checked again before each retry, so
+a slow or failing provider cannot be sent more than `daily_cap` texts a day. Test sends count too.
 """
 
 from __future__ import annotations
@@ -87,6 +90,7 @@ class NotifyService:
         self.base_url = gw.settings.gateway_url().rstrip("/")
         self._lock = threading.RLock()
         self._pump_lock = threading.Lock()
+        self._cap_lock = threading.Lock()   # the daily-cap check and its attempt row go together
         self._kick = threading.Event()
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
@@ -456,7 +460,7 @@ class NotifyService:
         return Message(id=n.id, severity=n.severity, topic=n.topic, title=title, body=body, link=link,
                        created_at=iso(n.created_at) or "", box_id=self.box_id, count=count)
 
-    def _send_to(self, target_id: str, msg: Message):
+    def _send_to(self, target_id: str, msg: Message, kind: str = "delivery"):
         """Send now; the provider receipt (sms) or None. Raises Capped before any byte goes out."""
         now = self.clock()
         now_s = int(now.timestamp())
@@ -466,8 +470,10 @@ class NotifyService:
                 raise LookupError("channel deleted")
             cfg = json.loads(ch.config_json)
             cap = cfg.get("daily_cap")
-            if cap is not None and self.repo.sent_since(ch.id, now - timedelta(hours=24)) >= cap:
-                raise Capped(cap)
+            if cap is not None:  # count the attempt before it goes out: a timeout may still be billed
+                with self._cap_lock:
+                    if not self.repo.claim_send(ch.id, kind, now - timedelta(hours=24), cap, now, new_id("snd")):
+                        raise Capped(cap)
             secret = self.box.open(ch.secret_enc, ch.id) if ch.secret_enc else None
             return send_channel(ch.kind, cfg, secret, ch.content_level, msg, timeout=self.cfg.http_timeout_s,
                                 lan_ok=bool(cfg.get("lan")), now_s=now_s)
@@ -561,7 +567,7 @@ class NotifyService:
                       box_id=self.box_id)
         start = time.monotonic()
         try:
-            receipt = self._send_to(target_id, msg)
+            receipt = self._send_to(target_id, msg, kind="test")
         except (DeliveryError, LookupError) as exc:
             return {"delivered": False, "latency_ms": int((time.monotonic() - start) * 1000), "error": str(exc)[:300]}
         latency = int((time.monotonic() - start) * 1000)
@@ -569,10 +575,6 @@ class NotifyService:
         if ch is not None:
             ch.verified, ch.updated_at = True, now
             self.repo.save_channel(ch)
-            if json.loads(ch.config_json).get("daily_cap") is not None:  # a test text is billed too
-                self.repo.add_delivery(DeliveryRow(
-                    id=new_id("dlv"), notification_id=msg.id, person_id=person_id, target_id=target_id,
-                    state="sent", attempts=1, held_reason="test", created_at=now, sent_at=now))
         self._target_ok(target_id)
         out = {"delivered": True, "latency_ms": latency}
         if receipt is not None:
