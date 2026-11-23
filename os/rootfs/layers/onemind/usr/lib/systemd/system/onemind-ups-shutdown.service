@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: Apache-2.0
+# UPS support (IMG-06, #244): the ordered shutdown on a low UPS battery, started only by upsmon's SHUTDOWNCMD
+# (onemind-ups-monitor.service), never at boot. onemind_ups.py: 1. apps (the k3s server stops so nothing restarts
+# them, then every container gets SIGTERM and 30 s), 2. k3s (the container runtime left in its cgroup and its
+# mounts), 3. the data volume (journal off /var/log, sync, stop data.mount, close the encrypted disk), 4. poweroff.
+# No RequiresMountsFor=/data: stopping data.mount stops every unit that needs /data, and this one must keep going.
+# Not sandboxed, on purpose: it stops k3s, kills its processes, unmounts /data and powers the box off.
+[Unit]
+Description=OneMind UPS: ordered shutdown on low battery (apps, k3s, data volume, poweroff)
+DefaultDependencies=no
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/onemind/onemind-ups shutdown
+TimeoutStartSec=240

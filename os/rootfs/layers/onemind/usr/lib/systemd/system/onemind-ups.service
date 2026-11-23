@@ -1,0 +1,57 @@
+# SPDX-License-Identifier: Apache-2.0
+# UPS support (IMG-06, #244): NUT's driver and server for a UPS plugged into this box by USB. Off on a box without
+# one: ExecCondition runs `onemind-ups setup`, which finds a USB UPS with nut-scanner and writes the NUT config to
+# /data/onemind/ups (exit 0), or finds none (exit 1, and systemd skips this unit without marking it failed). The
+# Debian nut-* units are masked in the image; NUT_CONFPATH points the NUT programs at /data instead of /etc.
+# The driver and upsd run as the nut user (Debian's udev rule gives that group the UPS's USB device). upsd listens
+# on loopback only: onemind-ups-monitor.service and the gateway (GET /v1/system/ups) read it there.
+[Unit]
+Description=OneMind UPS: NUT driver and server for a UPS on USB
+After=onemind-firstboot.service
+RequiresMountsFor=/data
+
+[Service]
+Type=simple
+Environment=NUT_CONFPATH=/data/onemind/ups NUT_STATEPATH=/run/onemind-ups NUT_ALTPIDPATH=/run/onemind-ups
+ExecCondition=+/usr/lib/onemind/onemind-ups setup
+# upsdrvctl starts the driver in the background inside this unit's cgroup; stopping the unit stops both. "-": a UPS
+# that was unplugged must not crash-loop the unit; upsd still runs and reports stale data (the dashboard says so).
+ExecStartPre=-/usr/sbin/upsdrvctl start
+ExecStart=/usr/sbin/upsd -F
+Restart=on-failure
+RestartSec=10s
+User=nut
+Group=nut
+RuntimeDirectory=onemind-ups
+RuntimeDirectoryMode=0750
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+# The USB device of the UPS: no PrivateDevices; only USB character devices are allowed.
+DeviceAllow=char-usb_device rw
+DevicePolicy=closed
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+IPAddressDeny=any
+IPAddressAllow=localhost
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged
+UMask=0027
+
+[Install]
+WantedBy=multi-user.target
