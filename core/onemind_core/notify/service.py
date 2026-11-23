@@ -32,16 +32,17 @@ from pathlib import Path
 
 from ..audit import AUDIT_SUBJECT
 from ..auth import Principal
+from ..builtins import AppPrincipal
 from ..ledger import iso, utc
 from ..sections import config_section
-from . import catalogue, routing
+from . import catalogue, routing, topics
 from .catalogue import RANK, SEVERITIES, Spec
 from .channels import (
     DeliveryError, Message, send_channel, send_push,
 )
 from .crypto import SecretBox, Vapid
 from .ids import new_id
-from .store import AlertRow, ChannelRow, DeliveryRow, NotificationRow, NotifyRepository
+from .store import AlertRow, ChannelRow, DeliveryRow, NotificationRow, NotifyRepository, SourceRow
 
 log = logging.getLogger("onemind.notify")
 
@@ -93,6 +94,8 @@ class NotifyService:
         self._sends: dict[str, deque] = defaultdict(deque)
         self._send_dedupe: dict[tuple[str, str], datetime] = {}
         self._last_prune: datetime | None = None
+        self.topics = topics.TopicRegistry()  # the built-ins' topics; routers/notifications.py wires the registry
+        self._meter: dict[str, deque] = defaultdict(lambda: deque(maxlen=4096))  # source id -> post times, 1 h
 
     # ---- wiring -------------------------------------------------------------------------
     def attach(self) -> None:
@@ -240,7 +243,13 @@ class NotifyService:
                     topic=catalogue.topic_for(spec, data), title=catalogue.render(spec.title, data),
                     body=catalogue.render(spec.body, data), link=self._link(spec, data), source=source,
                     action_id=data.get("action_id"), alert_id=None, inapp_only=spec.kind == "inbox",
+                    **self._chip(spec.type, source),
                 )
+
+    def _chip(self, event_type: str, source: str) -> dict:
+        """Where a catalogue item came from: the node or the gateway, and the built-in that routes it."""
+        return {"source_kind": "node" if source.startswith("node:") else "system",
+                "app_id": self.topics.app_for_event(event_type)}
 
     def _severity(self, spec: Spec, data: dict) -> str:
         sev = data.get("severity") if isinstance(data.get("severity"), str) else None
@@ -311,7 +320,7 @@ class NotifyService:
         self._fanout(
             self._recipients(audience), severity=row.severity, topic=row.topic, title=row.title,
             body=row.body, link=row.link, source=row.source_id, action_id=data.get("action_id"),
-            alert_id=row.id, inapp_only=row.type in catalogue.INAPP_ONLY_ALERTS,
+            alert_id=row.id, inapp_only=row.type in catalogue.INAPP_ONLY_ALERTS, **self._chip(row.type, row.source_id),
         )
         row.last_notified_at, row.last_notified_severity = now, row.severity
         self.repo.save_alert(row)
@@ -330,7 +339,7 @@ class NotifyService:
             self._fanout(
                 self._recipients(json.loads(row.audience_json or "{}")), severity="info", topic=row.topic,
                 title=f"Resolved: {row.title}"[:MAX_TITLE], body="", link=row.link, source=row.source_id,
-                action_id=None, alert_id=row.id, inapp_only=False,
+                action_id=None, alert_id=row.id, inapp_only=False, **self._chip(row.type, row.source_id),
             )
         return row
 
@@ -363,7 +372,9 @@ class NotifyService:
 
     def _fanout(self, people: list[str], *, severity: str, topic: str, title: str, body: str,
                 link: str | None, source: str, action_id: str | None, alert_id: str | None,
-                inapp_only: bool) -> list[str]:
+                inapp_only: bool, source_kind: str = "system", app_id: str | None = None,
+                asset_id: str | None = None, group_key: str | None = None,
+                actions: list[dict] | None = None) -> list[str]:
         now = self.clock()
         created = []
         for pid in people:
@@ -371,7 +382,8 @@ class NotifyService:
             row = NotificationRow(
                 id=nid, person_id=pid, severity=severity, topic=topic, title=title[:MAX_TITLE],
                 body=body[:MAX_BODY], link=link, source=source[:120], action_id=action_id,
-                alert_id=alert_id, created_at=now,
+                alert_id=alert_id, source_kind=source_kind, app_id=app_id, asset_id=asset_id,
+                group_key=group_key, actions_json=json.dumps(actions) if actions else None, created_at=now,
             )
             deliveries = []
             if not inapp_only:
@@ -394,7 +406,9 @@ class NotifyService:
                     deliveries.append(d)
             self.repo.add_notification(row, deliveries)
             self.gw.events.publish_event(
-                "notification", "created", {"notification_id": nid}, severity=severity,
+                "notification", "created",
+                {"notification_id": nid, "source_kind": source_kind, "app_id": app_id, "asset_id": asset_id,
+                 "group_key": group_key}, severity=severity,
                 resource={"kind": "notification", "id": nid},
             )
             created.append(nid)
@@ -565,20 +579,34 @@ class NotifyService:
             out["receipt"] = receipt.as_json()
         return out
 
-    # ---- POST /v1/notifications/send -----------------------------------------------------
-    def send_from(self, principal: Principal, severity: str, topic: str, title: str, body: str,
-                  dedupe_key: str | None) -> dict:
-        """An agent's own notice to the owners (contract §12.14). Returns {queued, deduplicated}.
+    # ---- POST /v1/notifications/send and built-in app posts (topics.py) ---------------------
+    def post(self, principal: Principal, *, topic: str, severity: str, title: str, body: str = "",
+             link: str | None = None, asset_id: str | None = None, group_key: str | None = None,
+             actions: list[dict] | None = None, dedupe_key: str | None = None) -> dict:
+        """A notice from a built-in app, a plugin or an agent to the owners (contract §12.14, #613).
 
-        Raises PermissionError (403), ValueError (422) or RateLimited."""
-        if principal.kind != "agent":
-            raise PermissionError("only agents, plugins and automations send notifications")
-        own = principal.id.split(":", 1)[-1]
-        if topic != f"plugin.{own}":
-            raise PermissionError(f"an agent sends only under its own topic plugin.{own}")
-        if severity not in ("info", "warning"):
+        Returns {queued, deduplicated, muted}. Raises PermissionError (403), ValueError (422) or RateLimited."""
+        source_id, source_kind, app_id = self._source_of(principal, topic)
+        if len(topic) > topics.MAX_TOPIC:
+            raise ValueError(f"topic is longer than {topics.MAX_TOPIC} characters")
+        if severity not in topics.SOURCE_SEVERITIES:
             raise ValueError("severity must be info or warning (critical is reserved for the system)")
+        if asset_id is not None and not topics.ASSET_ID_RE.match(asset_id):
+            raise ValueError("asset_id must be an asset id (letters, digits, _ and -, up to 128)")
+        if group_key is not None and not topics.GROUP_KEY_RE.match(group_key):
+            raise ValueError("group_key must be letters, digits and _ . : - (up to 200)")
+        if link is not None and (not link.startswith("/") or link.startswith("//") or len(link) > 300):
+            raise ValueError("link must be an in-app path starting with /")
+        acts = topics.check_actions(actions, self._known_action_type)
         now = self.clock()
+        with self._lock:
+            posts = self._count(source_id, now)
+            row = self.repo.get_source(source_id)
+            if row is not None and row.muted:
+                return {"queued": 0, "deduplicated": False, "muted": True}
+            if posts > topics.FLOOD_POSTS:
+                self._auto_mute(source_id, app_id, posts)
+                return {"queued": 0, "deduplicated": False, "muted": True}
         q = self._sends[principal.id]
         while q and (now - q[0]).total_seconds() >= 60:
             q.popleft()
@@ -589,13 +617,92 @@ class NotifyService:
             k = (principal.id, dedupe_key)
             last = self._send_dedupe.get(k)
             if last is not None and (now - last).total_seconds() < self.cfg.renotify_s:
-                return {"queued": 0, "deduplicated": True}
+                return {"queued": 0, "deduplicated": True, "muted": False}
             self._send_dedupe[k] = now
         people = self._recipients({"roles": ["owner"], "persons": []})
         with self._lock:
-            ids = self._fanout(people, severity=severity, topic=topic, title=title, body=body, link=None,
-                               source=principal.id, action_id=None, alert_id=None, inapp_only=False)
-        return {"queued": len(ids), "deduplicated": False}
+            ids = self._fanout(people, severity=severity, topic=topic, title=title, body=body, link=link,
+                               source=principal.id, action_id=None, alert_id=None, inapp_only=False,
+                               source_kind=source_kind, app_id=app_id, asset_id=asset_id,
+                               group_key=group_key, actions=acts)
+        return {"queued": len(ids), "deduplicated": False, "muted": False}
+
+    def _source_of(self, p: Principal, topic: str) -> tuple[str, str, str | None]:
+        """(source id, source kind, app id for the chip) of a poster, or PermissionError."""
+        if isinstance(p, AppPrincipal):
+            if self.topics.get(p.app_id, topic) is None:
+                raise PermissionError(f"a built-in posts only under a topic its descriptor declares "
+                                      f"(app.{p.app_id}.<topic>) while it is switched on")
+            return f"app:{p.app_id}", "app", p.app_id
+        if p.kind != "agent":
+            raise PermissionError("only built-in apps, agents and plugins send notifications")
+        own = p.id.split(":", 1)[-1]
+        if topic != f"{topics.PLUGIN_TOPIC_PREFIX}{own}":
+            raise PermissionError(f"an agent sends only under its own topic plugin.{own}")
+        if self.gw.repo.get_app_state(own) is not None:  # an installed app's agent: its plugin chip
+            return f"plugin:{own}", "plugin", own
+        return f"plugin:{own}", "agent", None
+
+    def _known_action_type(self, action_type: str) -> bool:
+        from ..actions import APP_CLAIMS
+        return action_type in self.gw.actions.feature_types or action_type in APP_CLAIMS
+
+    def _count(self, source_id: str, now: datetime) -> int:
+        """Record one post attempt; return the attempts in the last FLOOD_WINDOW_S (the rate meter keeps 1 h)."""
+        q = self._meter[source_id]
+        while q and (now - q[0]).total_seconds() >= 3600:
+            q.popleft()
+        q.append(now)
+        return sum(1 for t in q if (now - t).total_seconds() < topics.FLOOD_WINDOW_S)
+
+    def _auto_mute(self, source_id: str, app_id: str | None, posts: int) -> None:
+        """Mute a flooding source and tell the owners once (os-completeness N7)."""
+        self.set_muted(source_id, True, by=None, reason="flood")
+        label = (self.topics.name(app_id) if app_id else None) or source_id.split(":", 1)[1]
+        self.gw.events.publish_event("notify", "source.muted", {"source_id": source_id, "reason": "flood", "posts": posts})
+        self._fanout(
+            self._recipients({"roles": ["owner"], "persons": []}), severity="warning", topic="apps",
+            title=f"{label} was muted: too many notifications",
+            body=f"It sent {posts} notifications in {topics.FLOOD_WINDOW_S // 60} minutes. "
+                 "Unmute it in Settings > Notifications > App notifications.",
+            link="/settings/notifications", source="gateway", action_id=None, alert_id=None,
+            inapp_only=False, source_kind="system", app_id=app_id,
+        )
+
+    def set_muted(self, source_id: str, muted: bool, by: str | None, reason: str) -> SourceRow:
+        with self._lock:
+            now = self.clock()
+            row = self.repo.get_source(source_id) or SourceRow(source_id=source_id, muted=False, updated_at=now)
+            row.muted, row.updated_at = muted, now
+            row.reason, row.muted_by, row.muted_at = (reason, by, now) if muted else (None, None, None)
+            self.repo.save_source(row)
+            if not muted:
+                self._meter.pop(source_id, None)  # a fresh start: the old burst no longer counts
+            return row
+
+    def sources(self) -> list[dict]:
+        """Every source the owner can mute: switched-on built-ins with topics, plus any that posted or has a row."""
+        now = self.clock()
+        with self._lock:
+            rows = {r.source_id: r for r in self.repo.list_sources()}
+            meter = {k: sum(1 for t in q if (now - t).total_seconds() < 3600) for k, q in self._meter.items()}
+        declared: dict[str, list[dict]] = defaultdict(list)
+        for t in self.topics.topics():
+            declared[f"app:{t.app_id}"].append({"id": t.id, "topic": t.topic, "title": t.title})
+        out = []
+        for sid in sorted(set(declared) | set(rows) | set(meter)):
+            kind, own = sid.split(":", 1)
+            r = rows.get(sid)
+            out.append({
+                "id": sid, "kind": kind, "app_id": own if kind == "app" else None,
+                "name": (self.topics.name(own) if kind == "app" else None) or own,
+                "topics": declared.get(sid) or ([] if kind == "app" else
+                                                [{"id": own, "topic": f"{topics.PLUGIN_TOPIC_PREFIX}{own}", "title": None}]),
+                "muted": bool(r and r.muted), "muted_reason": r.reason if r else None,
+                "muted_by": r.muted_by if r else None, "muted_at": iso(r.muted_at) if r else None,
+                "posts_last_hour": meter.get(sid, 0),
+            })
+        return out
 
 
 class Capped(DeliveryError):
