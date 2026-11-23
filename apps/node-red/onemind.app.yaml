@@ -12,6 +12,7 @@ metadata:
   category: automation
   icon: icon.svg
   license: "Apache-2.0"
+  licenceClass: L1
   source: https://github.com/node-red/node-red
   links:
     docs: "https://nodered.org/docs/"

@@ -35,6 +35,11 @@ class ApproveBody(JsonBody):
     plan_sha256: str | None = Field(default=None, max_length=200)
     sealed: SealedInput | None = None
     override: OverrideInput | None = None
+    accept_licence: str | None = Field(
+        default=None, max_length=200,
+        description="#173: the app id typed by the owner to accept a licence class that is not green "
+        "(blocked or unknown). Required to approve app.install for such an app; ignored otherwise.",
+    )
     webauthn: dict | None = None
     # #723 hold-to-approve: how long the approve control was held, in ms (a physical action needs
     # at least actions.HOLD_MIN_MS, with a passkey assertion and plan_sha256).
@@ -119,6 +124,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         extra = ApprovalInput(
             sealed=body.sealed.model_dump(exclude_none=True) if body and body.sealed else None,
             override=body.override.model_dump() if body and body.override else None,
+            accept_licence=body.accept_licence if body else None,
             webauthn=bool(body and body.webauthn),
             hold_ms=body.hold_ms if body else None,
         )
