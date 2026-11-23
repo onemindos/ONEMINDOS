@@ -28,6 +28,7 @@ from fastapi.responses import JSONResponse
 from pydantic import AwareDatetime, BaseModel, BeforeValidator, ConfigDict, Field, ValidationError
 
 from ..actions import ActionRequest
+from ..agent_stop import is_agent
 from ..auth import Principal
 from ..context import Gateway
 from ..guard import reads_body
@@ -47,6 +48,7 @@ from ..notify.store import (
 )
 from ..identity.scopes import ALL, has_any, register_route_scope
 from ..jsonbody import JsonBody
+from ..taint import agent_answer, answer_source
 
 def _rfc3339_text(v):
     # pydantic reads "0.5" or 17 as a Unix time; the published schema says an RFC 3339 date-time string.
@@ -269,6 +271,15 @@ def register(app: FastAPI, gw: Gateway) -> None:
             row = svc._resolve(row, by=p.id)
         return alert_json(row)
 
+    def answer(request: Request, p: Principal, action: dict) -> dict:
+        """AIG-04: an agent's fix is answered without plan or result text, as POST /v1/actions is (taint.py)."""
+        if not is_agent(p):
+            return action
+        action = agent_answer(action)
+        if source := answer_source(request.scope, action):
+            gw.actions.taint.mark(p.id, source)
+        return action
+
     @app.post("/v1/alerts/{alert_id}/fix", operation_id="alerts.fix", tags=["alerts"], status_code=202,
               responses=error_responses(401, 403, 404, 409, 422))
     def fix_alert(alert_id: str, request: Request, body: FixIn | None = None, p: Principal = Depends(principal)):
@@ -297,7 +308,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
             if existing is None:
                 break
             if existing.state not in TERMINAL:
-                return JSONResponse(status_code=202, content=gw.actions.get(existing.id),
+                return JSONResponse(status_code=202, content=answer(request, p, gw.actions.get(existing.id)),
                                     headers={"Location": f"/v1/actions/{existing.id}"})
         else:
             raise ApiError(409, "conflict", "this alert's fix was already tried too many times")
@@ -314,7 +325,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
             for guard in gw.approval_guards:
                 guard(p, action["id"], {}, request)
             action = gw.actions.approve(p, action["id"])
-        return JSONResponse(status_code=202, content=action, headers={"Location": f"/v1/actions/{action['id']}"})
+        return JSONResponse(status_code=202, content=answer(request, p, action), headers={"Location": f"/v1/actions/{action['id']}"})
 
     # ---- channels (before /v1/notifications/{id}) ----------------------------------------
     @app.get("/v1/notifications/channels", operation_id="notifications.channels.list", tags=[TAG], responses=error_responses(401, 403))

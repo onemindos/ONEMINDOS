@@ -17,7 +17,7 @@ from ..context import Gateway
 from ..errors import error_responses
 from ..jsonbody import JsonBody
 from ..plugins.actions import own_actions, own_action
-from ..taint import rest_source
+from ..taint import agent_answer, answer_source, rest_source
 
 
 class OverrideInput(BaseModel):
@@ -94,12 +94,16 @@ def register(app: FastAPI, gw: Gateway) -> None:
             **error_responses(401, 403, 404, 409, 422, 429),
         },
     )
-    def create_action(req: ActionRequestBody, p: Principal = Depends(principal)):
+    def create_action(req: ActionRequestBody, request: Request, p: Principal = Depends(principal)):
         if isinstance(req, FeatureActionRequest) and req.type not in postable_feature_types():
             # Same 422 a lifecycle body with a bad type gets: only registered types are requests.
             raise RequestValidationError([{"type": "literal_error", "loc": ("body", "type"),
                                            "msg": f"unknown action type {req.type!r}", "input": req.type}])
         body, created = actions.create(p, ActionRequest.model_validate(req.model_dump()))
+        if is_agent(p):  # AIG-04: the agent's answer carries no third-party text (taint.agent_answer)
+            body = agent_answer(body)
+            if source := answer_source(request.scope, body):
+                actions.taint.mark(p.id, source)
         return JSONResponse(status_code=201 if created else 200, content=body)
 
     @app.get(
