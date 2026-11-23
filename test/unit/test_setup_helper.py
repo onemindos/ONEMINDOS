@@ -6,6 +6,7 @@ Runs with plain python3 (no core venv): the hub path, which needs onemind_core, 
 test_firstboot.py. The unit-file checks here read the files only; the score checks need systemd-analyze.
 """
 import contextlib, io, json, os, shutil, socket, stat, subprocess, sys, tempfile, threading, unittest
+import urllib.error, urllib.request
 from unittest import mock
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -205,6 +206,109 @@ class OverTheSocket(Root):
         self.assertEqual(e.exception.kind, "unavailable")
 
 
+class StatusIsBounded(Root):
+    """Fix round 1 of PR 921: each helper connection starts a root process, and systemd fails a socket that is
+    activated too often. A flood of LAN requests must cost the helper a bounded number of connections."""
+
+    def counting(self, now, fail=False):
+        self.ops = []
+
+        def call(r):
+            self.ops.append(r["op"])
+            if fail:
+                raise setup.HelperError("unavailable", "down")
+            return json.loads(json.dumps(helper.handle(self.p, json.dumps(r).encode())))
+        return setup.Helper(call=call, clock=lambda: now[0])
+
+    def wizard(self, h):
+        for pt in (mock.patch.object(setup.Wizard, "helper", h), mock.patch.object(setup.Wizard, "done", threading.Event()),
+                   mock.patch.object(setup.Wizard, "gate", setup.Gate()), mock.patch.object(setup, "is_local", return_value=False)):
+            pt.start()
+            self.addCleanup(pt.stop)
+        srv = setup.ThreadingHTTPServer(("127.0.0.1", 0), setup.Wizard)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        self.addCleanup(srv.server_close)
+        self.addCleanup(srv.shutdown)
+        return f"http://127.0.0.1:{srv.server_address[1]}"
+
+    def get(self, url):
+        try:
+            return urllib.request.urlopen(url).status
+        except urllib.error.HTTPError as e:
+            return e.code
+
+    def test_a_lan_flood_asks_the_helper_once_per_ttl(self):
+        now = [100.0]
+        base = self.wizard(self.counting(now))
+        codes = []
+
+        def flood():
+            for _ in range(25):
+                codes.append(self.get(base + "/"))
+        threads = [threading.Thread(target=flood) for _ in range(8)]
+        [t.start() for t in threads]
+        [t.join() for t in threads]
+        self.assertEqual(len(codes), 200)
+        self.assertLessEqual(self.ops.count("status"), 2)     # one question; a second only if two raced the first
+        self.assertEqual(codes.count(200), 200 - codes.count(403))
+        self.assertGreater(codes.count(200), 190)             # at most the requests racing the first answer fail closed
+        now[0] += setup.STATUS_TTL_S
+        for _ in range(50):
+            self.assertEqual(self.get(base + "/"), 200)
+        self.assertLessEqual(self.ops.count("status"), 3)
+
+    def test_lan_posts_with_wrong_codes_never_reach_the_helper(self):
+        now = [0.0]
+        h = self.counting(now)
+        base = self.wizard(h)
+        setup.Wizard.gate.new(h.publish_code)
+        for _ in range(200):
+            try:
+                urllib.request.urlopen(base + "/setup", data=b"role=hub&code=AAAAAAAAAA")
+            except urllib.error.HTTPError as e:
+                self.assertIn(e.code, (403, 429))
+        self.assertEqual([op for op in self.ops if op != "publish-code"], ["status"])
+        self.assertFalse(os.path.exists(self.p.state))
+
+    def test_no_answer_fails_closed_and_is_asked_again_after_the_ttl(self):
+        now = [0.0]
+        h = self.counting(now, fail=True)
+        for _ in range(100):
+            with self.assertRaises(setup.HelperError):
+                h.configured()
+        self.assertEqual(self.ops, ["status"])
+        now[0] += setup.STATUS_TTL_S
+        with self.assertRaises(setup.HelperError):
+            h.configured()
+        self.assertEqual(self.ops, ["status", "status"])
+
+    def test_an_owner_is_sticky_and_seen_within_the_ttl(self):
+        now = [0.0]
+        h = self.counting(now)
+        self.assertFalse(h.configured())
+        self.configured()                                     # set up some other way while the wizard runs
+        self.assertFalse(h.configured())                      # the cached answer, for at most STATUS_TTL_S
+        now[0] += setup.STATUS_TTL_S
+        self.assertTrue(h.configured())
+        os.remove(self.p.state)
+        now[0] += 10 * setup.STATUS_TTL_S
+        self.assertTrue(h.configured())                       # an owner never goes away for the wizard
+        self.assertEqual(self.ops, ["status", "status"])
+
+    def test_apply_and_a_configured_refusal_mark_the_owner(self):
+        now = [0.0]
+        h = self.counting(now)
+        self.assertFalse(h.configured())
+        h.apply({"role": "worker", "join_code": JOIN})
+        self.assertTrue(h.configured())
+        h2 = self.counting(now)
+        with self.assertRaises(setup.HelperError) as e:
+            h2.publish_code(CODE)
+        self.assertEqual(e.exception.kind, "configured")
+        self.assertTrue(h2.configured())
+        self.assertEqual(self.ops, ["publish-code"])
+
+
 def unit(name):
     """A unit file as {section: [(key, value), ...]} (repeated keys kept, comments dropped)."""
     out, sec = {}, None
@@ -267,6 +371,22 @@ class HelperUnits(unittest.TestCase):
         self.assertEqual(values(u, "Socket", "SocketMode"), ["0666"])        # peer check in the helper (cgroup)
         self.assertIn("onemind-setup.service", values(u, "Unit", "PartOf"))  # gone when the wizard stops
         self.assertNotIn("Install", u)                                       # never enabled on its own
+
+    def test_socket_flood_limits_are_set_on_purpose(self):
+        # systemd.socket(5): the trigger limit puts the socket in a failure state until a restart (no owner can
+        # set the box up); the poll limit only pauses. Poll limit far under the trigger limit: never fatal.
+        u = unit("onemind-setup-helper.socket")
+        def dur(v):                                   # the unit uses plain seconds ("2s")
+            self.assertRegex(v, r"^[0-9]+s$")
+            return float(v[:-1])
+        poll_i, poll_b = dur(values(u, "Socket", "PollLimitIntervalSec")[0]), int(values(u, "Socket", "PollLimitBurst")[0])
+        trig_i, trig_b = dur(values(u, "Socket", "TriggerLimitIntervalSec")[0]), int(values(u, "Socket", "TriggerLimitBurst")[0])
+        self.assertTrue(poll_i > 0 and poll_b > 0 and trig_i > 0 and trig_b > 0)
+        # the most activations polling allows within one trigger window, with windows misaligned
+        worst = poll_b * (int(trig_i // poll_i) + 1)
+        self.assertLess(worst, trig_b)
+        # the web part's own pace fits in the poll limit many times over
+        self.assertLessEqual(poll_i / setup.STATUS_TTL_S * 4, poll_b)
 
     def test_helper_keeps_the_root_part_small_and_sandboxed(self):
         u = unit("onemind-setup-helper@.service")

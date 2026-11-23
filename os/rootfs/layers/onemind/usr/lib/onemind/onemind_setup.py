@@ -37,6 +37,9 @@ from onemind_setup_helper import ALPHABET, CODE_LEN  # noqa: E402,F401  (one def
 MAX_BODY = 8192
 HELPER_SOCK = "/run/onemind-setup-helper.sock"   # onemind-setup-helper.socket
 MAX_REPLY = 65536
+# Every helper connection starts a root process (Accept=yes), so page requests never ask it directly: the
+# owner question goes to the helper at most once per STATUS_TTL_S, however many requests the LAN sends.
+STATUS_TTL_S = 5.0
 MAX_WRONG = 5                 # wrong codes from the LAN (all clients together) before a back-off
 LOCK_MIN_S, LOCK_MAX_S = 60.0, 900.0   # back-off: 1 min, doubling to 15 min
 STYLE = ("body{font-family:system-ui,sans-serif;max-width:40rem;margin:2rem auto;padding:0 1rem;line-height:1.5}"
@@ -91,11 +94,21 @@ class HelperError(RuntimeError):
 
 class Helper:
     """Client of the root helper: one JSON line out, one back, one connection per request.
-    `call` replaces the socket transport (the tests run the helper's handle() in-process)."""
+    `call` replaces the socket transport (the tests run the helper's handle() in-process).
 
-    def __init__(self, path: str = HELPER_SOCK, call=None):
+    configured() keeps the helper's answer: "set up" never changes back (a box gets an owner once), and
+    "not set up yet" (or no answer) is asked again at most once per STATUS_TTL_S. A flood of LAN requests
+    therefore costs the helper a bounded number of connections and never trips the socket's limits."""
+
+    def __init__(self, path: str = HELPER_SOCK, call=None, clock=time.monotonic):
         self.path = path
         self._call = call or self._socket_call
+        self.clock = clock
+        self._lock = threading.Lock()
+        self._owner = False                      # sticky: the box has an owner
+        self._asking = False                     # one status question at a time
+        self._next = 0.0                         # no new status question before this time
+        self._err: HelperError | None = HelperError("unavailable", "the setup helper has not answered yet")
 
     def _socket_call(self, req: dict) -> dict:
         try:
@@ -118,17 +131,50 @@ class Helper:
         resp = self._call({"op": op, **fields})
         if not isinstance(resp, dict) or resp.get("ok") is not True:
             resp = resp if isinstance(resp, dict) else {}
-            raise HelperError(str(resp.get("kind", "unavailable")), str(resp.get("error", "the setup helper failed")))
+            kind = str(resp.get("kind", "unavailable"))
+            if kind == "configured":
+                self._set_owner()
+            raise HelperError(kind, str(resp.get("error", "the setup helper failed")))
         return resp
 
+    def _set_owner(self) -> None:
+        with self._lock:
+            self._owner = True
+
     def configured(self) -> bool:
-        return self.call("status").get("configured") is True
+        """Whether the box has an owner. Raises HelperError while the helper's last answer is missing, so the
+        caller fails closed. At most one question per STATUS_TTL_S; meanwhile the last answer stands."""
+        with self._lock:
+            if self._owner:
+                return True
+            if self._asking or self.clock() < self._next:
+                if self._err is not None:
+                    raise self._err
+                return False
+            self._asking = True
+            self._next = self.clock() + STATUS_TTL_S
+        owner, err = False, None
+        try:
+            owner = self.call("status").get("configured") is True
+        except HelperError as exc:
+            err = exc
+        with self._lock:
+            self._asking = False
+            self._owner = self._owner or owner
+            self._err = None if self._owner else err
+            if self._owner:
+                return True
+        if err is not None:
+            raise err
+        return False
 
     def publish_code(self, code: str) -> None:
         self.call("publish-code", code=code)
 
     def apply(self, cfg: dict) -> dict:
-        return self.call("apply", config=cfg)
+        res = self.call("apply", config=cfg)
+        self._set_owner()                        # the box has its owner now: no more status questions
+        return res
 
 
 class Gate:
