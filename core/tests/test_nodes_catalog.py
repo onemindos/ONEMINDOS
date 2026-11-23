@@ -114,6 +114,7 @@ CATALOG_KEYS = {
     "build",  # app factory provenance
     "catalog_source",  # §12.22
     "browser",  # #692: opened in a window with a per-person profile
+    "aiPolicy",  # #165: may this app's data go to AI (null when the manifest declares none)
     "licence_class",  # #173: metadata.licenceClass, L1 and L2 are green
 }
 VALID_APPS = {"uptime-kuma", "whoami", "hermes-like", "vault-like"}

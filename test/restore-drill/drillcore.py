@@ -23,6 +23,15 @@ BUDGET_SECONDS = 3600
 SOURCE_PHASES = ("seed",)
 RESTORE_PHASES = ("install", "restore", "verify")
 
+# A PASS must include a passing check for each of these (a substring of the check text printed by in-vm.sh): the
+# system snapshot is restored onto the new box and read back, not just found in the repository. A run whose script
+# lost one of these checks cannot go green by silence.
+REQUIRED_CHECKS = (
+    "k3s runs from the old box's datastore",
+    "gateway database is the old box's",
+    "audit log is back",
+)
+
 _PHASE = re.compile(r"^DRILL-PHASE (?P<name>[a-z][a-z0-9_-]*) (?P<edge>start|end) (?P<t>\d+(?:\.\d+)?)\s*$")
 _CHECK = re.compile(r"^(?P<res>PASS|FAIL) {1,2}(?P<text>.+?)\s*$")
 _INFO = re.compile(r"^DRILL-INFO (?P<k>[a-z_]+)=(?P<v>.*?)\s*$")
@@ -99,6 +108,9 @@ def evaluate(text, budget_s=BUDGET_SECONDS, boot_seconds=None, abort=None, resto
         reasons.append("restore phase not finished: " + ", ".join(missing))
     if not any(c["result"] == "PASS" for c in checks):
         reasons.append("no check passed")
+    absent = [r for r in REQUIRED_CHECKS if not any(c["result"] == "PASS" and r in c["text"] for c in checks)]
+    if absent and not abort and not failed:
+        reasons.append("required check did not pass: " + "; ".join(absent))
     over = clock is not None and clock > budget_s
     if reasons:
         verdict = "FAIL"
