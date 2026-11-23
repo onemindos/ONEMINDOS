@@ -110,7 +110,11 @@ def require(manifest: dict, destination: str, *, consented: bool = False) -> Non
 def catalog_visible_to_ai(summary: dict) -> bool:
     # Absence retains legacy catalog metadata only; it must never authorize
     # future access to an app's provider data. Explicit unknown values fail closed.
-    return decide(summary.get("aiPolicy", ABSENT), CATALOG).allowed
+    # A row as GET /v1/apps and MCP list_apps show it carries null for "none declared"
+    # (shown_policy), so null reads as absent here. Catalog summary rows never carry null:
+    # catalog.py records an explicit manifest null as "unknown", which stays hidden.
+    policy = summary.get("aiPolicy", ABSENT)
+    return decide(ABSENT if policy is None else policy, CATALOG).allowed
 
 
 # ---- App data handed to an agent (#165) ---------------------------------------------------------

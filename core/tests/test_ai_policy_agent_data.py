@@ -244,3 +244,20 @@ def test_apps_list_shows_ai_policy(settings, clock, executor, category, declared
             assert got["structuredContent"]["aiPolicy"] == shown
         else:
             assert got["isError"] is True
+
+
+def test_catalog_visibility_reads_shown_null_as_none_declared(tmp_path):
+    # GET /v1/apps and MCP list_apps show null for "none declared"; the catalog summary row
+    # records an explicit manifest null as "unknown" so it stays hidden (#165 with #605 parity).
+    from onemind_core.catalog import AppEntry
+    assert ai_policy.catalog_visible_to_ai({})
+    assert ai_policy.catalog_visible_to_ai({"aiPolicy": None})
+    assert not ai_policy.catalog_visible_to_ai({"aiPolicy": "unknown"})
+    assert ai_policy.catalog_visible_to_ai({"aiPolicy": ai_policy.shown_policy({})})
+    assert not ai_policy.catalog_visible_to_ai({"aiPolicy": "prohibited"})
+    def row(spec):
+        return AppEntry(id="x", dir=tmp_path, manifest={"metadata": {"name": "x"}, "spec": spec}).summary()
+    assert row({"aiPolicy": None})["aiPolicy"] == "unknown"
+    assert not ai_policy.catalog_visible_to_ai(row({"aiPolicy": None}))
+    assert "aiPolicy" not in row({}) and ai_policy.catalog_visible_to_ai(row({}))
+    assert ai_policy.catalog_visible_to_ai(row({"aiPolicy": "allowed"}))

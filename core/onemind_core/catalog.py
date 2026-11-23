@@ -16,7 +16,7 @@ from pathlib import Path
 
 import yaml
 
-from .ai_policy import catalog_policy
+from .ai_policy import UNKNOWN, catalog_policy
 from .appsecrets.spec import SecretDecl, parse_secrets, secret_spec_errors
 from .filesig import cache_signature
 from .manifest_convert import CURRENT, OLDER
@@ -122,7 +122,9 @@ class AppEntry:
         links = md.get("links") if isinstance(md.get("links"), dict) else {}
         scan = self.scan
         return {
-            **({"aiPolicy": catalog_policy(self.manifest)}
+            # An explicit null is a declared value the gateway does not know: "unknown" (deny), so a
+            # null in a row always means "none declared" (ai_policy.catalog_visible_to_ai).
+            **({"aiPolicy": UNKNOWN if catalog_policy(self.manifest) is None else catalog_policy(self.manifest)}
                if "aiPolicy" in spec or catalog_policy(self.manifest) is not None else {}),
             "id": self.id,
             "name": md.get("name"),
