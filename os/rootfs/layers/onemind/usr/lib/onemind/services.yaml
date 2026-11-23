@@ -61,6 +61,8 @@ services:
      depends_on: [onemind-local-api.service], description: "After an update, keeps the new system only if it boots healthy; otherwise the next boot goes back to the old one."}
   - {unit: onemind-local-api.service, name: Boot check helper, docs: docs/learning/07-image-ab-updates-health-gate.md, restartable: false, risk: low,
      depends_on: [], description: "Answers the update health check with this boot's ID on the box itself."}
+  - {unit: onemind-efi-entries.service, name: Secure Boot slot entries, docs: docs/learning/07-image-ab-updates-health-gate.md, restartable: false,
+     risk: high, depends_on: [], description: "Secure Boot boxes only: makes sure the firmware has a boot entry for each system copy, so updates can switch between them and roll back."}
   # ---- the data disk ----
   - {unit: onemind-data-encrypt.service, name: Data disk encryption, docs: docs/learning/07-image-ab-updates-health-gate.md, restartable: false, risk: high,
      depends_on: [], description: "Encrypts the data partition on the first boot and unlocks it on every boot after."}

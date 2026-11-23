@@ -14,3 +14,4 @@ a22ef6fa27ffd19b775ed245e094428b7a3eb94b792040943bccfc2a5bcc73c7  CRITERIA-MEMOR
 e02799d8ba3889fb61baf9718c6bb298d743c6360e410eedcc39545cba199cd9  CRITERIA-FIRSTBOOT.md  2026-11-21T00:00:00Z  (with §6 amendment: F10 starting page hand-over; written before F10 was implemented)
 dfb95a8bc02be2d5dcaf87405f7730d797fd3fe7ed8d8f534c5fb53f5eb052ad  CRITERIA-FIRSTBOOT.md  2026-11-21T23:30:00Z  (release/next combination: #574's starting-page amendment renumbered to section 7 / F11 next to #278's section 6 / F10; no criterion changed)
 dd1565299e7957ca9f65011de03e2728ea8541c24bee46f4dc0adf848dd1daf2  CRITERIA-DATAENC.md  2026-11-21T00:00:00Z
+fb2375a5a405e5d084aea80dbfdff1b5114f2b05391e1875277a8215982fbc20  CRITERIA-SECUREBOOT.md  2026-11-23T01:45:50Z  (with §4 amendment: SB5 slot B under Secure Boot, #148; written before SB5 or the efi route was booted)
