@@ -1,0 +1,55 @@
+#!/bin/bash
+# SPDX-License-Identifier: Apache-2.0
+# OneMind health gate on an edge (role leaf, #751): one round of checks, the edge's twin of
+# onemind-k3s-check. An edge runs no k3s server, so the k3s check would reject every update on it.
+# The gate (onemind-health-gate) calls this instead when /data/onemind/etc/role says leaf; the
+# trial, commit, rollback and verdict logic stay the same. Exit 0 only if the edge is healthy *on
+# this boot*. Prints one line: "ok (...)" or "fail G<n>: <reason>".
+#   G1 onemindd answers with this boot's boot_id     G2 no hub service runs (k3s, gateway, hub NATS...)
+#   G3 the NATS leaf (once joined) is healthy with JetStream and started on this boot
+#   G5 /data read-write                              G6 the local OneMind API answers for this boot
+# There is no G4 (core pods): G4 is the only "environment-bad" verdict, and an edge has no pods to blame.
+# Like the k3s check there is NO switch that turns freshness off. ONEMIND_GATE_ROOT only moves the
+# files it reads under another root, for the unit tests (test/unit/test_edge_profile.py).
+[ -f /etc/default/onemind-health-gate ] && . /etc/default/onemind-health-gate
+R=${ONEMIND_GATE_ROOT:-}
+fail() { echo "fail G$1: $2"; exit 1; }
+BOOT=$(awk '/^btime/{print $2}' "$R/proc/stat")
+BOOT_ID=$(cat "$R/proc/sys/kernel/random/boot_id")
+fresh() { [ -n "$1" ] && [ "$(date -d "$1" +%s 2>/dev/null || echo 0)" -ge "$BOOT" ]; }
+HUB="k3s onemind-gateway onemind-gateway-kube onemind-nats onemind-headscale onemind-mesh-setup onemind-starting"
+
+# G1. onemindd runs and its local API reports this boot (a process from before a reboot cannot).
+systemctl is-active --quiet onemindd.service || fail 1 "onemindd is not active"
+H=$(curl -fsS -m 3 http://127.0.0.1:7480/healthz 2>/dev/null) || fail 1 "onemindd /healthz not answering"
+case $H in *"\"boot_id\":\"$BOOT_ID\""*|*"\"boot_id\": \"$BOOT_ID\""*) ;; *) fail 1 "onemindd /healthz is not from this boot" ;; esac
+
+# G2. No hub service: an update that brings k3s, the gateway or the hub's bus back onto an edge is bad.
+for u in $HUB; do
+  systemctl is-active --quiet "$u.service" && fail 2 "hub service $u is running on an edge"
+done
+
+# G3. The NATS leaf, once `onemind fabric join` wrote leaf.conf: active, healthy with JetStream (its
+# own domain, the outbox lives there), and started on this boot. Before the join there is no leaf.
+CONF=$R/data/onemind/etc/nats/leaf.conf
+leaf="not joined yet"
+if [ -f "$CONF" ]; then
+  MON=$(sed -n 's/^http: *"\{0,1\}\([0-9.:]*\)"\{0,1\} *$/\1/p' "$CONF" | head -n1); MON=${MON:-127.0.0.1:8222}
+  systemctl is-active --quiet onemind-nats-leaf.service || fail 3 "NATS leaf is not active"
+  curl -fsS -m 3 "http://$MON/healthz?js-enabled-only=true" 2>/dev/null | grep -q '"status": *"ok"' \
+    || fail 3 "NATS leaf /healthz (JetStream) not ok"
+  ST=$(curl -fsS -m 3 "http://$MON/varz" 2>/dev/null | grep -o '"start": *"[^"]*"' | head -n1 | sed 's/.*"\([^"]*\)"$/\1/')
+  fresh "$ST" || fail 3 "NATS leaf start ${ST:-unknown} is older than this boot (stale)"
+  leaf="leaf + JetStream since $ST"
+fi
+
+# G5. Data partition read-write: mount flag and a real write + fsync + read-back.
+findmnt -no OPTIONS /data | grep -qE '(^|,)rw(,|$)' || fail 5 "/data not mounted rw"
+P=$R/data/onemind/.rw-probe
+echo "$BOOT_ID $(date +%s%N)" > "$P.new" 2>/dev/null && sync "$P.new" && mv "$P.new" "$P" \
+  && grep -q "$BOOT_ID" "$P" || fail 5 "/data write/read-back failed"
+
+# G6. Local OneMind API answers with this boot's ID (as in the k3s check).
+curl -fsS -m 3 http://127.0.0.1:7070/health 2>/dev/null | grep -q "boot_id=$BOOT_ID" || fail 6 "local OneMind API not answering for this boot"
+
+echo "ok (fresh: onemindd boot_id, no hub services, $leaf, data rw, api)"

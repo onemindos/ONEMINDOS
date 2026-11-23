@@ -1,0 +1,84 @@
+00000000-0000-0000-0000-000000000000 INFO     ｉ [info]: Running in server mode ...
+00000000-0000-0000-0000-000000000000 ERROR    🚨 [error]: Unable to read metadata for TLS chain file '/etc/kanidmd/chain.pem' - Os { code: 2, kind: NotFound, message: "No such file or directory" }
+00000000-0000-0000-0000-000000000000 INFO     ｉ [info]:  | diag: -- diagnosis for path: /etc/kanidmd/chain.pem
+unable to canonicalise path
+running as: 63376:987
+path permissions
+  /                      : DIR access: true owner: 0 group: 0 mode: rwxr-xr-x
+  /etc                   : DIR access: true owner: 0 group: 0 mode: rwxr-xr-x
+  /etc/kanidmd           : DIR access: true owner: 0 group: 0 mode: rwxr-xr-x
+  /etc/kanidmd/chain.pem : ERROR: Os { code: 2, kind: NotFound, message: "No such file or directory" }
+  note that accessibility does not account for ACL's or MAC
+-- end diagnosis
+kanidmd.service: Main process exited, code=exited, status=1/FAILURE
+kanidmd.service: Failed with result 'exit-code'.
+Failed to start kanidmd.service - Kanidm Identity Server.
+# 2026-11-23T02:13:42Z AK-1 part 1: install and first start
++ grep -E '^(PRETTY_NAME|VERSION_ID)=' /etc/os-release; cat /etc/debian_version; uname -rm; nproc; free -m | head -2
+PRETTY_NAME="Debian GNU/Linux 13 (trixie)"
+VERSION_ID="13"
+13.7
+6.12.117+deb13-cloud-amd64 x86_64
+2
+               total        used        free      shared  buff/cache   available
+Mem:            3922         353        3295           0         485        3568
+  (exit 0)
++ bash /root/aklab/setup.sh /root/aklab/debs
++ sha256sum of the packages
+31de180ee2f93e898fd686a5105444e98f2c8e2f8b2d1740691974a010e36a9e  kanidmd_1.12.0-202611010319+a52b723_amd64.deb
+88112601578ff3bc223188208314a7b347b3f6c990e4588157aaa5f694cf14b7  kanidm_1.12.0-202611010319+a52b723_amd64.deb
++ apt-get install ./kanidmd ./kanidm
+=============================
+Thanks for installing Kanidm!
+=============================
+Please ensure you create a configuration file at /etc/kanidm/config or ~/.config/kanidm. An example file is located in /usr/share/kanidm/
+Setting up kanidmd (1.12.0-202611010319+a52b723) ...
+Creating the kanidmd group for config & cert ownership...
+Creating group 'kanidmd' with GID 987.
+Fixing ownership of server configuration ...
+=============================
+Thanks for installing Kanidm!
+=============================
+Please ensure you modify the configuration file at /etc/kanidmd/server.toml
+Only then: systemctl enable kanidmd.service
+Full examples are in /usr/share/kanidmd/
+kanidmd.service is a disabled or a static unit, not starting it.
++ kanidmd cert-generate (local test CA, not for production)
+-- end diagnosis
+
+00000000-0000-0000-0000-000000000000 ERROR    🚨 [error]: Unable to read metadata for database folder '/var/lib/private/kanidmd' - Os { code: 2, kind: NotFound, message: "No such file or directory" }
+  (exit 1)
++ dpkg-query -W -f='${Package} ${Version} ${Installed-Size}KiB\n' kanidmd kanidm
+kanidm 1.12.0-202611010319+a52b723 114078KiB
+kanidmd 1.12.0-202611010319+a52b723 246640KiB
+  (exit 0)
++ kanidmd version; kanidm version
+kanidmd 1.12.0 a52b723ce8
+kanidm 1.12.0 a52b723ce8
+  (exit 0)
++ systemctl cat kanidmd | grep -E '^(ExecStart|DynamicUser|StateDirectory|Type)='
+Type=notify
+DynamicUser=yes
+StateDirectory=kanidmd
+ExecStart=/usr/bin/kanidmd server
+  (exit 0)
++ systemctl enable --now kanidmd
+Created symlink '/etc/systemd/system/multi-user.target.wants/kanidmd.service' → '/usr/lib/systemd/system/kanidmd.service'.
+Job for kanidmd.service failed because the control process exited with error code.
+See "systemctl status kanidmd.service" and "journalctl -xeu kanidmd.service" for details.
+  (exit 1)
++ for i in $(seq 1 30); do systemctl is-active -q kanidmd && break; sleep 1; done; systemctl is-active kanidmd; systemctl is-enabled kanidmd
+failed
+enabled
+  (exit 0)
++ sleep 3; curl -sS --cacert /etc/kanidm/ca.pem https://idm.onemind.test:8443/status; echo
+curl: (7) Failed to connect to idm.onemind.test port 8443 after 2 ms: Could not connect to server
+
+  (exit 0)
++ kanidmd scripting healthcheck -c /etc/kanidmd/server.toml
+{"context":"/etc/kanidmd/chain.pem","message":"Requested ca file does not exist.","reason":"NoSuchFile","status":"error"}
+  (exit 1)
++ systemctl list-unit-files --no-legend | grep -E "k3s|containerd|docker|podman|crio" || echo "no k3s/container units"; for b in k3s kubectl docker podman containerd ctr crio runc; do command -v $b || true; done; echo "(no container binaries listed above = none installed)"
+no k3s/container units
+(no container binaries listed above = none installed)
+  (exit 0)
