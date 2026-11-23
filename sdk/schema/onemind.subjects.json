@@ -40,8 +40,8 @@
       "subjects": [
         {"pattern": "onemind.node.{node_id:node_id}.status", "publishers": ["node"], "owner": "node_id", "stream": null, "retention": {"policy": "none"}, "envelope": "onemind.node.status/v1"},
         {"pattern": "onemind.node.{node_id:node_id}.event.{type:type}", "publishers": ["node"], "owner": "node_id"},
-        {"pattern": "onemind.node.{node_id:node_id}.job.{job_kind:type}", "publishers": ["gateway"], "stream": "ONEMIND_JOBS", "retention": {"policy": "workqueue", "max_age_s": 86400}, "envelope": "onemind.job/v1"},
-        {"pattern": "onemind.node.{node_id:node_id}.jobresult.{job_id:id}", "publishers": ["node"], "owner": "node_id", "stream": "ONEMIND_JOBRESULTS", "retention": {"policy": "limits", "max_age_s": 2592000}, "envelope": "jobresult"}
+        {"pattern": "onemind.node.{node_id:node_id}.job.{job_kind:type}", "publishers": ["gateway"], "stream": "ONEMIND_JOBS", "retention": {"policy": "workqueue", "max_age_s": 86400, "max_bytes": 67108864}, "envelope": "onemind.job/v1"},
+        {"pattern": "onemind.node.{node_id:node_id}.jobresult.{job_id:id}", "publishers": ["node"], "owner": "node_id", "stream": "ONEMIND_JOBRESULTS", "retention": {"policy": "limits", "max_age_s": 2592000, "max_bytes": 134217728}, "envelope": "jobresult"}
       ]
     },
     "audit": {
