@@ -57,11 +57,9 @@ class ScanRecord:
 
     def summary(self) -> dict:
         """The §11.4 catalog scan summary, including the licence evidence the gate recorded."""
-        out = {"scanned_at": self.scanned_at.isoformat().replace("+00:00", "Z"), "result": self.result,
-               "reason": self.reason, "licence": self.licence}
-        if self.quality is not None:
-            out["quality"] = self.quality
-        return out
+        # quality is always present (null before quality tiers), so MCP list_apps and GET /v1/apps show the same body.
+        return {"scanned_at": self.scanned_at.isoformat().replace("+00:00", "Z"), "result": self.result,
+                "reason": self.reason, "licence": self.licence, "quality": self.quality}
 
 
 # scan.json path -> (stat signature, record). GET /v1/apps reads every app's scan on every poll; the
