@@ -452,6 +452,8 @@ POLICY |= {
                                    f"{_FILES}: people browse; an agent needs a grant (none here)"),
     ("GET", "/v1/files/stat"): Row(grid(200, 200, 200, 403, 403), w.p_static("/v1/files/stat?root=shared&path=/"),
                                    f"{_FILES}: people browse; an agent needs a grant"),
+    ("GET", "/v1/search"): Row(grid(200, 200, 200, 200, 200), w.p_static("/v1/search?q=report"),
+                               "#611 global search: any signed-in caller; each hit is filtered by the caller's own grants"),
     ("GET", "/v1/sync/changes"): Row(grid(200, 200, 200, 403, 403), w.p_static("/v1/sync/changes?root=shared"),
                                      f"{_FILES}: the change feed (#698) follows read access to the whole root"),
     ("GET", "/v1/files/preview"): Row(grid(404, 404, 404, 403, 403), w.p_static("/v1/files/preview?root=shared&path=/a"),
@@ -813,4 +815,15 @@ POLICY |= {
     ("POST", "/v1/bridges/{bridge_id}/resume"): Row(
         cells(403, **GONE, owner=404, plugin=DENIED, automation=DENIED, node=DENIED),
         w.p_static("/v1/bridges/not-a-bridge/resume"), f"{_BRIDGE}: only an owner lets a paused bridge in again"),
+}
+
+# ---- radio-found cards (#732) ---------------------------------------------------------------------------------------
+_RADIO = "core/onemind_core/routers/radios.py (#732)"
+POLICY |= {
+    ("GET", "/v1/radios"): Row(CHILD_CANNOT, w.p_static("/v1/radios"),
+                               f"{_RADIO}: the USB serial lines of the hardware profile /v1/nodes shows; a child has no nodes:read"),
+    # A radio that is not there: the owner reaches the (missing) card, everybody else is refused first.
+    ("POST", "/v1/radios/{radio_id}/confirm"): Row(OWNER_ONLY_404, w.p_missing("/v1/radios/nosuchnode.lora0/confirm", json={
+        "profile": "meshcore-companion-usb"}),
+        f"{_RADIO}: only the owner says what a radio is; an agent never confirms one, and nothing is probed or sent"),
 }

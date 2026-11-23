@@ -225,6 +225,7 @@ security GET /v1/push/vapid-public-key owner=core:push
 security GET /v1/restores owner=core:restores
 security POST /v1/restores owner=core:restores
 security GET /v1/restores/{restore_id} owner=core:restores
+security GET /v1/search owner=core:search
 security GET /v1/secrets/public-key owner=core:secrets
 security GET /v1/series owner=core:monitoring
 security GET /v1/shares/smb owner=core:files

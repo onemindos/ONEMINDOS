@@ -29,6 +29,7 @@ BASE_SCOPES = frozenset({
     "audit:read", "audit:admin", "users:read", "users:admin",
     "tokens:self", "tokens:read", "tokens:admin", "events:read", "deploy:write",
     "events:write",  # only as events:write:own, minted for an approved bridge block (#610)
+    "assets:read",  # #606: asset values on GET /v1/events (owner and adult by default)
 })
 
 # Narrowing suffixes the contract names; anything else after a base scope is refused.
