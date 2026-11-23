@@ -80,6 +80,8 @@ metadata:
   version: "2.0.2"
   description: Self-hosted uptime monitoring
   category: monitoring
+  age_rating: 16   # proposed minimum age: 0, 7, 12, 16 or 18 (required; rubric in apps/README.md)
+  age_reason: "Probes any host or port the user enters and sends alerts; behaves like a scanner."
   icon: icon.svg
   license: MIT
   source: https://github.com/louislam/uptime-kuma
@@ -89,6 +91,7 @@ spec:
   web: {port: 3001}
   manifests: manifests/   # kustomization.yaml + Deployment/Service, images pinned by digest where possible
 ```
+`metadata.age_rating` (required, one of 0, 7, 12, 16, 18) and `metadata.age_reason` (optional one line) are the catalog's proposed minimum age (FAM-01, #204). The gateway uses the rating as the default classification for family filtering when the owner has not set a `min_age` for the app; an owner's `PUT /v1/family/apps/{id}` always wins; an app with neither is hidden from a person who has a rating limit. `GET /v1/apps` returns both fields.
 
 ## 5. Dashboard (`dashboard/`, React + TypeScript + Vite)
 - **Screens:** Home (instance, node count by status, installed apps), Nodes (cards per node with board, arch, OS, k3s and slot, status and `last_seen`; values are never shown as live when stale), Market (catalog, install button → creates an action), Approvals (pending actions with exact params and requester kind person/agent; approve/deny for the owner).
@@ -422,6 +425,7 @@ Agents never request `node.join`, grant or role changes, token creation, policy 
 | `alerts:read` | `/v1/alerts`, filtered by audience | all |
 | `monitoring:read` | §12.15 metrics and health | all |
 | `assets:read` | asset values (`asset.*`) on `/v1/events`, each also checked by the asset filters (#606) | person owner/adult by default; agent only when its token lists it |
+| `data:read` / `:write` | the ceiling on a data grant (#615): beyond `public`, data-commons reads need `data:read` and writes `data:write` on top of an owner-approved grant; neither opens any data alone | every person role by default; agent only when its token lists it; plugin install tokens are capped by their app grant |
 | `logs:read` | §12.15 app logs | person owner/adult; agent and plugin only with the `:<app-id>` suffix |
 | `automation:read` / `:request` / `:write` | §12.17 | read all; request agent, plugin; write owner |
 | `audit:read` / `:admin` | §12.16 | read owner, adult; admin owner |
