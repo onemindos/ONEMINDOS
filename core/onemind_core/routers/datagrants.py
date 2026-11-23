@@ -21,12 +21,15 @@ from ..context import Gateway
 from ..datagrants import STREAM_POLL_S, DataClass, DataGrants, RecordIn
 from ..errors import ApiError, error_responses
 from ..eventstream import KEEPALIVE_S, StreamSlots
+from ..identity import ctx_of
 from ..identity.scopes import register_route_scope
 
 ORDER = 320
 TAG = "data"
 # No token scope opens the data doors: the caller's data grant decides what comes back (datagrants/),
 # so a household child, an agent and an installed plugin all reach them and see only what was granted.
+# The owner's standing access to every class needs a full owner session or token (scopes() below):
+# an owner token narrowed to, say, monitoring:read sees only what any other caller sees.
 # Revoking asks for the approver's scope; the handler also checks the caller is an owner.
 register_route_scope("GET,HEAD", r"/v1/data/(classes|grants)(/.*)?", None)
 register_route_scope("POST", r"/v1/data/classes/[^/]+/records", None)
@@ -96,22 +99,28 @@ def register(app: FastAPI, gw: Gateway) -> None:
     app.state.datagrants = svc
     slots = StreamSlots()
 
+    def scopes(request: Request) -> frozenset[str] | None:
+        """The caller's ceiling: its session or token scopes; None for a static-file token (v0)."""
+        ctx = ctx_of(request)
+        return ctx.scopes if ctx is not None else None
+
     def descriptors() -> dict:
         reg = getattr(app.state, "builtins", None)
         return getattr(reg, "descriptors", None) or {}
 
     @app.get("/v1/data/classes", tags=[TAG], operation_id="data.classes.list", dependencies=READ,
              response_model=list[ClassOut], responses=error_responses(401, 403))
-    def classes(p: Principal = Depends(gw.principal)):
+    def classes(request: Request, p: Principal = Depends(gw.principal)):
         """The five data classes, which built-ins keep and read each, and what you may do with each."""
-        return svc.classes(p, descriptors())
+        return svc.classes(p, descriptors(), scopes=scopes(request))
 
     @app.get("/v1/data/classes/{data_class}", tags=[TAG], operation_id="data.classes.get", dependencies=READ,
              response_model=ClassOut, responses=error_responses(401, 403, 422))
-    def one_class(data_class: DataClass = CLASS, p: Principal = Depends(gw.principal)):
+    def one_class(request: Request, data_class: DataClass = CLASS, p: Principal = Depends(gw.principal)):
         """One class with your access; `count` (how many records) needs read or aggregate, else null."""
-        out = next(c for c in svc.classes(p, descriptors()) if c["id"] == data_class)
-        out["count"] = svc.read(p, data_class, limit=0)["count"]
+        ceiling = scopes(request)
+        out = next(c for c in svc.classes(p, descriptors(), scopes=ceiling) if c["id"] == data_class)
+        out["count"] = svc.read(p, data_class, limit=0, scopes=ceiling)["count"]
         return out
 
     @app.get("/v1/data/classes/{data_class}/records", tags=[TAG], operation_id="data.records.list",
@@ -124,7 +133,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         """The class's records after `cursor`. Empty without a read grant (aggregate sees only the count)."""
         if cursor is not None and not cursor.isdigit():
             raise ApiError(422, "conflict", "bad cursor", reason="invalid_cursor")
-        rows = svc.read(p, data_class, after_id=int(cursor or 0), limit=limit + 1)["records"]
+        rows = svc.read(p, data_class, after_id=int(cursor or 0), limit=limit + 1, scopes=scopes(request))["records"]
         if len(rows) > limit:
             rows = rows[:limit]
             response.headers["Link"] = f'<{request.url.path}?limit={limit}&cursor={rows[-1]["id"]}>; rel="next"'
@@ -133,10 +142,11 @@ def register(app: FastAPI, gw: Gateway) -> None:
     @app.post("/v1/data/classes/{data_class}/records", tags=[TAG], operation_id="data.records.create",
               status_code=201, response_model=RecordOut, dependencies=READ,
               responses=error_responses(401, 403, 409, 422))
-    def write(body: RecordIn, data_class: DataClass = CLASS, idempotency_key: str | None = IDEMPOTENCY,
-              p: Principal = Depends(gw.principal)):
-        """Add one record to the class. Needs a write grant (the owner always may)."""
-        return svc.write(p, data_class, body, idempotency_key)
+    def write(body: RecordIn, request: Request, data_class: DataClass = CLASS,
+              idempotency_key: str | None = IDEMPOTENCY, p: Principal = Depends(gw.principal)):
+        """Add one record to the class. Needs a write grant (the owner always may, with a full owner
+        session or token). Each writer keeps its newest 10,000 records per class."""
+        return svc.write(p, data_class, body, idempotency_key, scopes=scopes(request))
 
     @app.get("/v1/data/classes/{data_class}/stream", tags=[TAG], operation_id="data.records.stream",
              dependencies=READ, response_class=StreamingResponse, summary="New records (text/event-stream)",
@@ -150,6 +160,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
                      last_event_id: str | None = Header(None, alias="Last-Event-ID", max_length=20),
                      p: Principal = Depends(gw.principal)):
         key = f"{p.kind}:{p.id}"
+        ceiling = scopes(request)
         if not slots.take(key):
             return JSONResponse({"error": "rate_limited", "message": "too many open data streams", "retry_after_s": 30},
                                 status_code=429, headers={"Retry-After": "30"})
@@ -164,11 +175,11 @@ def register(app: FastAPI, gw: Gateway) -> None:
                 yield b"retry: 5000\n\n"
                 quiet, first = 0.0, True
                 while True:
-                    if not svc.access(p, data_class).read:
+                    if not svc.access(p, data_class, scopes=ceiling).read:
                         yield end("no_grant" if first else "revoked")
                         return
                     first = False
-                    rows = svc.read(p, data_class, after_id=last, limit=PAGE)["records"]
+                    rows = svc.read(p, data_class, after_id=last, limit=PAGE, scopes=ceiling)["records"]
                     for r in rows:
                         last = r["id"]
                         yield f"event: record\nid: {r['id']}\ndata: {json.dumps(r)}\n\n".encode()
@@ -187,9 +198,9 @@ def register(app: FastAPI, gw: Gateway) -> None:
 
     @app.get("/v1/data/grants", tags=[TAG], operation_id="data.grants.list", dependencies=READ,
              response_model=list[GrantOut], responses=error_responses(401, 403))
-    def grants(p: Principal = Depends(gw.principal)):
+    def grants(request: Request, p: Principal = Depends(gw.principal)):
         """Every grant, newest first, for the owner (the Privacy screen); anyone else sees their own."""
-        return svc.grants(p)
+        return svc.grants(p, scopes=scopes(request))
 
     @app.delete("/v1/data/grants/{grant_id}", tags=[TAG], operation_id="data.grants.revoke",
                 response_model=GrantOut, dependencies=[Security(BEARER, scopes=["actions:approve"])],

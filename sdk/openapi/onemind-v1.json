@@ -17373,7 +17373,7 @@
         ]
       },
       "post": {
-        "description": "Add one record to the class. Needs a write grant (the owner always may).",
+        "description": "Add one record to the class. Needs a write grant (the owner always may, with a full owner\nsession or token). Each writer keeps its newest 10,000 records per class.",
         "operationId": "data.records.create",
         "parameters": [
           {

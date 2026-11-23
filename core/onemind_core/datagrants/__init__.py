@@ -5,8 +5,11 @@ A data class is one of the five the built-in descriptors already name (sdk/schem
 $defs/dataClass). A grant gives one subject (an app's plugin, an agent, a person) some of read, write
 and aggregate on one class until it expires or the owner revokes it. The rules:
 
-- The owner holds every mode on every class. Every other principal starts with nothing, except
-  read and aggregate on `public`. A caller without read gets empty data, not an error.
+- The owner holds every mode on every class, but only through a full owner session or token (or the
+  static owner token): an owner API token narrowed to other scopes is a token's ceiling like anywhere
+  else (identity/service.py _owner_wide), so it holds only what an ordinary caller holds. Every other
+  principal starts with nothing, except read and aggregate on `public`. A caller without read gets
+  empty data, not an error.
 - A grant only comes from an approval: the subject (or the owner on its behalf) files a `data.grant`
   action, the approval card shows exactly what it would get, and only an owner approves it. Agents and
   plugins can file, never approve; no standing approval covers the type (it is not an automation type).
@@ -14,7 +17,8 @@ and aggregate on one class until it expires or the owner revokes it. The rules:
   open stream ends within STREAM_POLL_S (the acceptance bound is 5 s).
 
 Records are the commons itself: small JSON values in one class, written by a subject with write and
-read back by subjects with read (aggregate sees only the count).
+read back by subjects with read (aggregate sees only the count). Each writer keeps at most KEEP_RECORDS
+per class; a full writer pushes out only its own oldest, never another writer's.
 """
 
 from __future__ import annotations
@@ -33,6 +37,7 @@ from ..actions import FeatureAction
 from ..auth import Principal
 from ..errors import ApiError
 from ..executors import ExecResult
+from ..identity.scopes import ALL
 from ..ledger import Base, iso, utc
 from ..plugins.auth import plugin_app_id
 from ..store import FeatureSchema, SqlRepository
@@ -52,7 +57,7 @@ GRANTEE_KINDS = ("app", "agent", "person")
 ACTION_TYPE = "data.grant"
 MAX_GRANT_DAYS = 365
 MAX_VALUE_BYTES = 4096
-KEEP_RECORDS = 10_000  # per class; the oldest go first
+KEEP_RECORDS = 10_000  # per class and writer; that writer's oldest go first
 STREAM_POLL_S = 1.0
 
 
@@ -80,7 +85,7 @@ class DataRecordRow(Base):
     data_class: Mapped[str] = mapped_column(String(16), index=True)
     kind: Mapped[str] = mapped_column(String(64))
     value: Mapped[Any] = mapped_column(JSON)
-    source: Mapped[str] = mapped_column(String(200))
+    source: Mapped[str] = mapped_column(String(200), index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     idempotency_key: Mapped[str | None] = mapped_column(String(80), nullable=True)
 
@@ -136,6 +141,12 @@ def subject_of(kind: str, principal_id: str) -> tuple[str, str] | None:
     return None
 
 
+def full_owner(p: Principal, scopes: frozenset[str] | None) -> bool:
+    """The owner's standing access: a static owner token (scopes None) or an owner session or token
+    holding every scope. A narrowed owner token is not one (scopes are the token's ceiling)."""
+    return p.is_owner and (scopes is None or ALL in scopes)
+
+
 def grant_json(row: DataGrantRow, now: datetime) -> dict:
     return {
         "id": row.id, "data_class": row.data_class,
@@ -165,8 +176,10 @@ class DataGrants(SqlRepository):
         ))
 
     # ---- the check -----------------------------------------------------------------------------
-    def access(self, p: Principal, data_class: str) -> Access:
-        if p.is_owner:
+    def access(self, p: Principal, data_class: str, *, scopes: frozenset[str] | None) -> Access:
+        """What `p` may do with the class. `scopes` is the caller's token or session ceiling
+        (identity AuthContext.scopes), None for a static-file token."""
+        if full_owner(p, scopes):
             return Access(True, True, True)
         public = data_class == "public"
         read, write, aggregate = public, False, public
@@ -226,10 +239,10 @@ class DataGrants(SqlRepository):
         finish(ExecResult("succeeded", f"granted {row.data_class} to {row.grantee_kind} {row.grantee_id}",
                           steps=[{"step": "grant", "grant_id": row.id}]))
 
-    def grants(self, p: Principal) -> list[dict]:
+    def grants(self, p: Principal, *, scopes: frozenset[str] | None) -> list[dict]:
         now = self.gw.clock()
         q = select(DataGrantRow).order_by(DataGrantRow.created_at.desc(), DataGrantRow.id)
-        if not p.is_owner:
+        if not full_owner(p, scopes):
             subject = subject_of(p.kind, p.id)
             if subject is None:
                 return []
@@ -258,8 +271,9 @@ class DataGrants(SqlRepository):
         return out
 
     # ---- records -------------------------------------------------------------------------------
-    def write(self, p: Principal, data_class: str, body: RecordIn, idempotency_key: str | None = None) -> dict:
-        if not self.access(p, data_class).write:
+    def write(self, p: Principal, data_class: str, body: RecordIn, idempotency_key: str | None = None, *,
+              scopes: frozenset[str] | None) -> dict:
+        if not self.access(p, data_class, scopes=scopes).write:
             self.gw.audit.append("authz.denied", p.as_dict(), None,
                                  {"attempted": f"write {data_class} data", "reason": "no_grant"})
             raise ApiError(403, "permission_denied", f"no write grant on {data_class}", reason="no_grant")
@@ -281,17 +295,19 @@ class DataGrants(SqlRepository):
                     return record_json(seen)
             s.add(row)
             s.flush()
-            floor = s.scalar(select(DataRecordRow.id).where(DataRecordRow.data_class == data_class)
+            # The cap is per writer: a writer that is full pushes out its own oldest, never anyone else's.
+            mine = (DataRecordRow.data_class == data_class, DataRecordRow.source == p.id)
+            floor = s.scalar(select(DataRecordRow.id).where(*mine)
                              .order_by(DataRecordRow.id.desc()).offset(KEEP_RECORDS).limit(1))
             if floor is not None:
-                s.execute(DataRecordRow.__table__.delete().where(
-                    DataRecordRow.data_class == data_class, DataRecordRow.id <= floor))
+                s.execute(DataRecordRow.__table__.delete().where(*mine, DataRecordRow.id <= floor))
         self.gw.audit.append("data.record.written", p.as_dict(), None,
                              {"data_class": data_class, "record_id": row.id, "kind": row.kind})
         return record_json(row)
 
-    def read(self, p: Principal, data_class: str, after_id: int = 0, limit: int = 100) -> dict:
-        acc = self.access(p, data_class)
+    def read(self, p: Principal, data_class: str, after_id: int = 0, limit: int = 100, *,
+             scopes: frozenset[str] | None) -> dict:
+        acc = self.access(p, data_class, scopes=scopes)
         out: dict = {"data_class": data_class, "access": acc.as_dict(), "count": None, "records": []}
         if not (acc.read or acc.aggregate):
             return out  # no grant: empty data, not an error
@@ -304,11 +320,11 @@ class DataGrants(SqlRepository):
                     .order_by(DataRecordRow.id).limit(limit)).all()]
         return out
 
-    def classes(self, p: Principal, descriptors: dict) -> list[dict]:
+    def classes(self, p: Principal, descriptors: dict, *, scopes: frozenset[str] | None) -> list[dict]:
         out = []
         for name, about in CLASSES.items():
             owned = sorted(d.id for d in descriptors.values() if name in d.spec.get("data", {}).get("owns", []))
             reads = sorted(d.id for d in descriptors.values() if name in d.spec.get("data", {}).get("reads", []))
             out.append({"id": name, "description": about, "owned_by": owned, "read_by": reads,
-                        "access": self.access(p, name).as_dict()})
+                        "access": self.access(p, name, scopes=scopes).as_dict()})
         return out

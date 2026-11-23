@@ -124,6 +124,64 @@ def test_records_page_with_limit_cursor_and_link(client):
     assert len(rest.json()) == 1 and "link" not in rest.headers
 
 
+def owner_token(c, clock, scopes: list[str], name: str = "owner-pat") -> dict:
+    """A real owner API token (hashed into the identity store) holding exactly `scopes`."""
+    from onemind_core.identity.models import UserRow
+
+    if c.app.state.identity.user("pat-owner") is None:
+        c.app.state.identity.repo.add(UserRow(id="pat-owner", display_name="Fixture owner", role="owner",
+                                              created_at=clock(), updated_at=clock()))
+    token = new_secret("pat")
+    c.app.state.identity.repo.add(TokenRow(
+        id=f"tok_{name}", prefix=token[:11], name=name, hash=sha256_hex(token), kind="person",
+        principal_id="pat-owner", owner_user_id="pat-owner", scopes=scopes, source="api",
+        created_by="pat-owner", created_at=clock()))
+    return {"Authorization": "Bearer " + token}
+
+
+def test_a_narrow_owner_token_holds_no_standing_access(client, clock):
+    """Least privilege: the owner's every-class access needs a full owner token, not monitoring:read."""
+    assert write(client).status_code == 201
+    assert write(client, "public", value={"note": "hi"}).status_code == 201
+    gid = granted(client, clock, "g1", data_class="location", read=True, grantee={"kind": "agent", "id": "hermes"})
+    narrow = owner_token(client, clock, ["monitoring:read"])
+    assert client.get("/v1/users", headers=narrow).status_code == 403  # the token really is narrow
+
+    assert records(client, narrow) == []
+    one = client.get("/v1/data/classes/location", headers=narrow).json()
+    assert one["count"] is None and one["access"] == {"read": False, "write": False, "aggregate": False}
+    assert all(c["access"]["read"] is (c["id"] == "public") and not c["access"]["write"]
+               for c in client.get("/v1/data/classes", headers=narrow).json())
+    assert [r["value"] for r in records(client, narrow, "public")] == [{"note": "hi"}]
+    for cls in ("private", "location", "public"):
+        refused = write(client, cls, headers=narrow)
+        assert refused.status_code == 403 and refused.json()["error"] == "permission_denied", refused.text
+    assert client.get("/v1/data/grants", headers=narrow).json() == []  # not the Privacy screen either
+    assert client.get("/v1/data/classes/location", headers=OWNER).json()["count"] == 1
+
+    full = owner_token(client, clock, ["*"], name="owner-full")  # a full owner token keeps every class
+    assert len(records(client, full)) == 1 and write(client, "private", headers=full).status_code == 201
+    assert [g["id"] for g in client.get("/v1/data/grants", headers=full).json()] == [gid]
+
+
+def test_one_writer_never_pushes_out_another_writers_records(client, clock, monkeypatch):
+    import onemind_core.datagrants as dg
+
+    monkeypatch.setattr(dg, "KEEP_RECORDS", 3)
+    for n in range(2):
+        assert write(client, value={"owner": n}).status_code == 201
+    granted(client, clock, "g1", data_class="location", read=True, write=True,
+            grantee={"kind": "agent", "id": "hermes"})
+    for n in range(6):
+        assert write(client, headers=AGENT, value={"agent": n}).status_code == 201
+    left = [r["value"] for r in records(client, OWNER)]
+    assert left == [{"owner": 0}, {"owner": 1}, {"agent": 3}, {"agent": 4}, {"agent": 5}]
+    for n in range(2, 5):  # the owner, when full, loses only its own oldest
+        write(client, value={"owner": n})
+    left = [r["value"] for r in records(client, OWNER)]
+    assert left == [{"agent": 3}, {"agent": 4}, {"agent": 5}, {"owner": 2}, {"owner": 3}, {"owner": 4}]
+
+
 # ---- a request is an approval card; agents never approve their own ---------------------------------------
 
 def test_an_agent_request_is_an_approval_card_the_agent_cannot_approve(client, clock):
