@@ -4371,6 +4371,92 @@
         "title": "Link",
         "type": "object"
       },
+      "LockBody": {
+        "additionalProperties": false,
+        "properties": {
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "path": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Path",
+            "type": "string"
+          },
+          "root": {
+            "maxLength": 205,
+            "pattern": "^(?:shared|home:[ -~]{1,200})$",
+            "title": "Root",
+            "type": "string"
+          },
+          "ttl_s": {
+            "anyOf": [
+              {
+                "maximum": 3600.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ttl S"
+          }
+        },
+        "required": [
+          "root",
+          "path"
+        ],
+        "title": "LockBody",
+        "type": "object"
+      },
+      "LockHolder": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "id"
+        ],
+        "title": "LockHolder",
+        "type": "object"
+      },
+      "LockRefresh": {
+        "additionalProperties": false,
+        "properties": {
+          "ttl_s": {
+            "anyOf": [
+              {
+                "maximum": 3600.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ttl S"
+          }
+        },
+        "title": "LockRefresh",
+        "type": "object"
+      },
       "LoginBody": {
         "properties": {
           "client": {
@@ -10778,6 +10864,13 @@
             "title": "Id",
             "type": "string"
           },
+          "locks": {
+            "items": {
+              "$ref": "#/components/schemas/SyncLock"
+            },
+            "title": "Locks",
+            "type": "array"
+          },
           "path": {
             "title": "Path",
             "type": "string"
@@ -10806,9 +10899,75 @@
           "revision",
           "size",
           "hash",
-          "version_id"
+          "version_id",
+          "locks"
         ],
         "title": "SyncCommitted",
+        "type": "object"
+      },
+      "SyncLock": {
+        "properties": {
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "expires_at": {
+            "title": "Expires At",
+            "type": "string"
+          },
+          "holder": {
+            "$ref": "#/components/schemas/LockHolder"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "root": {
+            "title": "Root",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "root",
+          "path",
+          "holder",
+          "note",
+          "created_at",
+          "expires_at"
+        ],
+        "title": "SyncLock",
+        "type": "object"
+      },
+      "SyncLocks": {
+        "properties": {
+          "locks": {
+            "items": {
+              "$ref": "#/components/schemas/SyncLock"
+            },
+            "title": "Locks",
+            "type": "array"
+          }
+        },
+        "required": [
+          "locks"
+        ],
+        "title": "SyncLocks",
         "type": "object"
       },
       "SyncVersion": {
@@ -32007,6 +32166,365 @@
           }
         ],
         "summary": "Make a file from chunks, if it is still at the base revision",
+        "tags": [
+          "sync"
+        ]
+      }
+    },
+    "/v1/sync/locks": {
+      "get": {
+        "operationId": "sync.locks.list",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "root",
+            "required": true,
+            "schema": {
+              "maxLength": 205,
+              "pattern": "^(?:shared|home:[ -~]{1,200})$",
+              "title": "Root",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "path",
+            "required": false,
+            "schema": {
+              "default": "/",
+              "maxLength": 4096,
+              "title": "Path",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncLocks"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not allowed for this principal (permission_denied)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Invalid root, path or body (conflict, reason invalid_path / invalid_root ...)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: the files storage is not usable"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "*"
+            ]
+          }
+        ],
+        "summary": "Live locks at or inside a path",
+        "tags": [
+          "sync"
+        ]
+      },
+      "post": {
+        "description": "The lock lasts ttl_s seconds (default 300, at most 3600) unless refreshed. Advisory: it warns other clients, it never blocks a write.",
+        "operationId": "sync.locks.create",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LockBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncLock"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not allowed for this principal (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such file, folder, request or upload (not_found)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Invalid root, path or body (conflict, reason invalid_path / invalid_root ...)"
+          },
+          "423": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "conflict (locked): someone else holds a lock on this path, or inside it"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: the files storage is not usable"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "*"
+            ]
+          }
+        ],
+        "summary": "Take an advisory lock on a file or folder (WebDAV class 2)",
+        "tags": [
+          "sync"
+        ]
+      }
+    },
+    "/v1/sync/locks/{lock_id}": {
+      "delete": {
+        "operationId": "sync.locks.delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "lock_id",
+            "required": true,
+            "schema": {
+              "maxLength": 40,
+              "title": "Lock Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such file, folder, request or upload (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "*"
+            ]
+          }
+        ],
+        "summary": "Release your lock (an owner may clear anyone's)",
+        "tags": [
+          "sync"
+        ]
+      }
+    },
+    "/v1/sync/locks/{lock_id}/refresh": {
+      "post": {
+        "operationId": "sync.locks.refresh",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "lock_id",
+            "required": true,
+            "schema": {
+              "maxLength": 40,
+              "title": "Lock Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/LockRefresh"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncLock"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such file, folder, request or upload (not_found)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Invalid root, path or body (conflict, reason invalid_path / invalid_root ...)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "*"
+            ]
+          }
+        ],
+        "summary": "Extend your lock",
         "tags": [
           "sync"
         ]
