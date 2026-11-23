@@ -519,7 +519,7 @@ export class HttpApi implements OneMindApi {
     await this.req<void>('DELETE', `/v1/notifications/channels/${encodeURIComponent(id)}`);
   }
   testChannel(id: string) {
-    return this.req<{ ok?: boolean; error?: string | null }>('POST', `/v1/notifications/channels/${encodeURIComponent(id)}/test`, {});
+    return this.req<W.ChannelTestResult>('POST', `/v1/notifications/channels/${encodeURIComponent(id)}/test`, {});
   }
   monitoring() {
     return this.req<W.MonitoringSummary>('GET', '/v1/monitoring/summary');
