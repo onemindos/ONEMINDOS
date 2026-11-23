@@ -20,6 +20,8 @@ for f in $(git ls-files -co --exclude-standard $OURS | grep -vE '(\.keep|\.json|
 done
 echo "== every NATS subject in code is in the subject tree (#600, sdk/schema/onemind.subjects.json)"
 python3 -I sdk/tools/subject-lint || rc=1
+echo "== notification alerts have a fix action or help link (#684)"
+python3 -I core/onemind_core/notify/catalogue.py || rc=1
 echo "== no naive gate outside test fixtures (B5)"
 if git grep -n 'NAIVE' -- os/ | grep -v 'assemble.py'; then echo "naive gate code in os/"; rc=1; fi
 echo "== no Ubuntu image is uploaded (Z-01)"

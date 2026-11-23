@@ -300,16 +300,35 @@ class AssetState:
         self.rejected = 0
         self.listeners: list[Callable[[str, AssetValue], None]] = []
         self._latest: dict[str, AssetValue] = {}
-        self._pos: dict[tuple[str, str], tuple[float, float]] = {}
+        # The current values of each asset that carry a position, by key. A stream picks its own
+        # position from these, so a value it may not see never places an asset on its map.
+        self._pos: dict[tuple[str, str], dict[str, AssetValue]] = {}
         self._lock = threading.Lock()
 
     def snapshot(self) -> list[AssetValue]:
         with self._lock:
             return list(self._latest.values())
 
-    def position(self, asset_class: str, asset_id: str) -> tuple[float, float] | None:
-        """The last known (lat, lon) of an asset, from any of its values that carried one."""
-        return self._pos.get((asset_class, asset_id))
+    def position(self, asset_class: str, asset_id: str,
+                 allowed: Callable[[AssetValue], bool] | None = None) -> tuple[float, float] | None:
+        """The (lat, lon) of an asset from the newest of its current values that carries a position,
+        counting only values `allowed` passes (the caller's asset filters, design rule 8). A value the
+        caller may not see never gives away where the asset is, not even through a ?bbox= test."""
+        with self._lock:
+            held = list(self._pos.get((asset_class, asset_id), {}).values())
+        for v in sorted(held, key=lambda x: x.revision, reverse=True):
+            if allowed is None or allowed(v):
+                return float(v.datapoint["position"]["lat"]), float(v.datapoint["position"]["lon"])
+        return None
+
+    def _keep_pos_locked(self, v: AssetValue | None, key: str, asset: tuple[str, str]) -> None:
+        held = self._pos.get(asset)
+        if v is not None and "position" in v.datapoint:
+            self._pos.setdefault(asset, {})[key] = v
+        elif held is not None:
+            held.pop(key, None)  # this key no longer carries a position (a new value, or removed)
+            if not held:
+                del self._pos[asset]
 
     def ingest(self, key: str, revision: int, raw: bytes | dict) -> AssetValue | None:
         """Keep a value read from the bucket and hand it on. An invalid one is counted and dropped."""
@@ -330,14 +349,15 @@ class AssetState:
             if old is not None and old.revision >= revision:
                 return None  # already have this or a newer one
             self._latest[key] = v
-            if "position" in dp:
-                self._pos[(cls, aid)] = (float(dp["position"]["lat"]), float(dp["position"]["lon"]))
+            self._keep_pos_locked(v, key, (cls, aid))
         self._emit("value", v)
         return v
 
     def remove(self, key: str, revision: int) -> AssetValue | None:
         with self._lock:
             old = self._latest.pop(key, None)
+            if old is not None:
+                self._keep_pos_locked(None, key, (old.asset_class, old.asset_id))
         if old is None:
             return None
         gone = AssetValue(key, old.asset_class, old.asset_id, old.field, revision, old.datapoint)

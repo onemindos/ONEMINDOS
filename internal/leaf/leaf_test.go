@@ -12,6 +12,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"math/big"
+	mrand "math/rand/v2"
 	"net"
 	"net/http"
 	"os"
@@ -90,8 +91,19 @@ func (p *pki) issue(t *testing.T, name string, server bool) (string, string) {
 	return c, k
 }
 
+// freePort picks a port a lab server listens on a moment later. It comes from below the kernels'
+// ephemeral ranges (Linux 32768-60999, macOS 49152-65535): a port 0 pick is an ephemeral port, which
+// any outgoing connection on a busy CI machine may take before the server binds it ("server not
+// ready"); a port from 20000-32767 is never handed to an outgoing connection.
 func freePort(t *testing.T) int {
 	t.Helper()
+	for i := 0; i < 200; i++ {
+		port := 20000 + mrand.IntN(12768)
+		if l, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port)); err == nil {
+			l.Close()
+			return port
+		}
+	}
 	l, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
@@ -118,9 +130,25 @@ func startServer(t *testing.T, conf string) *server.Server {
 		t.Fatalf("config %s: %v", filepath.Base(conf), err)
 	}
 	opts.NoSigs, opts.NoLog = true, true
+	// ONEMIND_LAB_LOGDIR=<dir> keeps a debug log of every lab server and copies those of a failed
+	// test into <dir> (for chasing a flaky lab run; off in CI).
+	logDir := os.Getenv("ONEMIND_LAB_LOGDIR")
+	if logDir != "" {
+		opts.NoLog, opts.Debug, opts.Logtime = false, true, true
+		opts.LogFile = conf + ".log"
+	}
 	s, err := server.NewServer(opts)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if logDir != "" {
+		s.ConfigureLogger()
+		t.Cleanup(func() {
+			if t.Failed() {
+				b, _ := os.ReadFile(opts.LogFile)
+				_ = os.WriteFile(filepath.Join(logDir, fmt.Sprintf("%d-%s.log", time.Now().UnixNano(), opts.ServerName)), b, 0o600)
+			}
+		})
 	}
 	go s.Start()
 	if !s.ReadyForConnections(10 * time.Second) {
@@ -344,6 +372,8 @@ func TestRenderGolden(t *testing.T) {
 server_name: "node-3f9c2a1b7d4e"
 listen: "127.0.0.1:4222"
 http: "127.0.0.1:8222"
+ping_interval: "15s"
+ping_max: 2
 jetstream {
   store_dir: "/data/onemind/nats"
   domain: "node-3f9c2a1b7d4e"

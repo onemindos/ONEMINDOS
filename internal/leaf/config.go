@@ -23,6 +23,18 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
+)
+
+// LinkPingInterval and LinkPingMax make a dead hub link visible fast. nats-server's own defaults
+// (2 minute interval, 2 pings out) kept /leafz reporting the link up for about 5m46s after a
+// blackhole (a pulled plug). The leaf now sends a ping every 15 s and drops the link after 2 go
+// unanswered, so a silent hub is seen within LinkDetectBudget (45 s). The hub config uses the same
+// idea (20 s, 2). internal/watchdog adds its own timeout on top and keeps the total under 120 s.
+const (
+	LinkPingInterval = 15 * time.Second
+	LinkPingMax      = 2
+	LinkDetectBudget = LinkPingInterval * (LinkPingMax + 1)
 )
 
 // Defaults (§3 ports table, §7 leaf.conf).
@@ -180,6 +192,7 @@ func (c *Config) Render(confPath string) ([]byte, error) {
 	fmt.Fprintf(&b, "server_name: %q\n", d.ServerName)
 	fmt.Fprintf(&b, "listen: %q\n", d.Listen)
 	fmt.Fprintf(&b, "http: %q\n", d.Monitor)
+	fmt.Fprintf(&b, "ping_interval: %q\nping_max: %d\n", LinkPingInterval.String(), LinkPingMax)
 	fmt.Fprintf(&b, "jetstream {\n  store_dir: %q\n  domain: %q\n  max_file_store: %s\n  max_memory_store: 0\n}\n", d.StoreDir, d.Domain, d.MaxFileStore)
 	b.WriteString("leafnodes {\n  remotes: [\n    {\n")
 	quoted := make([]string, len(d.HubURLs))

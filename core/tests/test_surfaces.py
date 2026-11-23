@@ -12,13 +12,14 @@ import pytest
 
 from conftest import AGENT, OWNER, action_body, make_client
 from onemind_core import builtins
+from onemind_core.auth import MCP_BY_NAME_ONLY
 from onemind_core.ai_policy import catalog_visible_to_ai
 from onemind_core.mcp import TOOLS, Catalogue, Limits, McpEndpoint, McpSettings, Services
 from onemind_core.mcp.authz import TOOL_SCOPES
 from onemind_core.mcp.tools import RpcError
 from onemind_core.notify.catalogue import lookup
 from onemind_core.surfaces import parity
-from onemind_core.surfaces.core import CORE_TOOLS, ToolSurface
+from onemind_core.surfaces.core import AREA_TOOLS, CORE_TOOLS, ToolSurface
 from onemind_core.surfaces.registry import SurfaceRegistry, card_problem
 from test_appstore import run
 from test_builtin_conformance import doc_of, load_one
@@ -55,7 +56,10 @@ def test_mcp_tools_and_scopes_are_generated_from_the_registry(c):
         tool = next(x for x in TOOLS if x["name"] == t.name)
         assert tool["annotations"]["readOnlyHint"] is (t.effect == "read")
     listed = rpc(c, "tools/list").json()["result"]["tools"]
-    assert {t["name"] for t in listed} == {t.name for t in CORE_TOOLS}
+    # A token with no `scopes:` (v0) lists every tool but those granted by name only (logs, file details, #632).
+    by_name = {t.name for t in CORE_TOOLS if t.scope in MCP_BY_NAME_ONLY}
+    assert by_name == {"read_app_logs", "stat_file"}
+    assert {t["name"] for t in listed} == {t.name for t in CORE_TOOLS} - by_name
     described = c.app.openapi()["paths"]["/mcp"]["post"]["description"]
     assert all(t.name in described for t in CORE_TOOLS)
 
@@ -255,7 +259,8 @@ def test_read_tools_return_the_same_body_as_their_rest_route(c, clock):
     assert gw.registry.ingest("onemind.node.3f9c2a1b7d4e.status", heartbeat())
     filed = c.post("/v1/actions", json=action_body(clock, key="parity"), headers=AGENT).json()
     ids = {"node_id": "3f9c2a1b7d4e", "app_id": "whoami", "action_id": filed["id"]}
-    for t in (t for t in CORE_TOOLS if t.effect == "read"):
+    # The area read tools (#632) redact, cap and page: tests/test_mcp_read_tools.py compares them with REST.
+    for t in (t for t in CORE_TOOLS if t.effect == "read" and t not in AREA_TOOLS):
         method, path = t.route.split(" ", 1)
         args = {k: ids[k] for k in re.findall(r"{(\w+)}", path)}
         rest = c.request(method, path.format(**args), headers=AGENT)

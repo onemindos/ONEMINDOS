@@ -19,6 +19,7 @@ def family(idc):
     uid = child.get("/v1/me").json()["principal"]["id"]
     r = idc.put("/v1/apps/whoami/access", headers=csrf(idc), json={"people": [uid]})
     assert r.status_code == 200
+    assert put(idc, uid).status_code == 200  # clear the default age rating: these tests start unrestricted
     return idc, child, uid
 
 
@@ -213,6 +214,7 @@ def teen_family(idc):
     teen = enrol(idc, "teen", "tess")
     uid = teen.get("/v1/me").json()["principal"]["id"]
     assert idc.put("/v1/apps/whoami/access", headers=csrf(idc), json={"people": [uid]}).status_code == 200
+    assert put(idc, uid).status_code == 200  # clear the default age rating: these tests start unrestricted
     return idc, teen, uid
 
 
@@ -309,3 +311,128 @@ def test_ages_and_minutes_must_be_json_integers(family, value):
     assert put(owner, uid, max_age_rating=value).status_code == 422
     window = {"days": [0], "start_minute": value, "end_minute": 60}
     assert put(owner, uid, windows=[window]).status_code == 422
+
+
+def rating(owner, uid):
+    r = owner.get(f"/v1/family/profiles/{uid}")
+    assert r.status_code == 200, r.text
+    return r.json()["max_age_rating"]
+
+
+def new_person(owner, role, name="Pat"):
+    r = owner.post("/v1/users", headers=csrf(owner), json={"display_name": name, "role": role})
+    assert r.status_code == 201, r.text
+    return r.json()["id"]
+
+
+def test_new_child_and_teen_get_default_age_ratings(idc):
+    setup_owner(idc)
+    child, teen = new_person(idc, "child"), new_person(idc, "teen")
+    assert rating(idc, child) == 12
+    assert rating(idc, teen) == 16
+    for role in ("adult", "guest"):
+        assert rating(idc, new_person(idc, role)) is None
+    # A preset is only a start: the owner can raise it or clear it, and it stays that way.
+    assert put(idc, child, max_age_rating=7).status_code == 200
+    assert put(idc, teen).status_code == 200
+    assert (rating(idc, child), rating(idc, teen)) == (7, None)
+    # An unclassified app is blocked by a preset rating (existing fail-closed rule).
+    kid = enrol(idc, "child", "kid")
+    assert apps(kid) == []
+
+
+def test_preset_events_never_carry_a_birth_date(idc, settings):
+    setup_owner(idc)
+    uid = new_person(idc, "teen")
+    assert put(idc, uid, birth_date="2011-05-06", max_age_rating=16).status_code == 200
+    events = [e for e in audit_events(settings) if "family" in str(e)]
+    preset = [e for e in events if "preset_applied" in str(e)]
+    assert len(preset) == 1 and preset[0]["event"] == "family.profile.preset_applied"
+    assert preset[0]["data"]["payload"] == {"user_id": uid, "role": "teen", "max_age_rating": 16}
+    assert "2011" not in str(events) and "birth" not in str(events)
+
+
+def test_role_change_applies_the_preset_only_when_no_profile_exists(idc):
+    setup_owner(idc)
+    adult = new_person(idc, "adult")
+    assert rating(idc, adult) is None
+    assert idc.patch(f"/v1/users/{adult}", headers=csrf(idc), json={"role": "teen"}).status_code == 200
+    assert rating(idc, adult) == 16
+    # Teen to child keeps the existing profile, even though the child preset is stricter.
+    assert idc.patch(f"/v1/users/{adult}", headers=csrf(idc), json={"role": "child"}).status_code == 200
+    assert rating(idc, adult) == 16
+    # A profile the owner cleared is a profile: a later role change does not bring the preset back.
+    assert put(idc, adult).status_code == 200
+    assert idc.patch(f"/v1/users/{adult}", headers=csrf(idc), json={"role": "teen"}).status_code == 200
+    assert rating(idc, adult) is None
+    # Becoming an adult adds nothing, and renaming alone adds nothing.
+    other = new_person(idc, "adult")
+    assert idc.patch(f"/v1/users/{other}", headers=csrf(idc), json={"display_name": "Sam"}).status_code == 200
+    assert idc.patch(f"/v1/users/{other}", headers=csrf(idc), json={"role": "guest"}).status_code == 200
+    assert rating(idc, other) is None
+    # A person who gets a profile before a role change keeps it.
+    third = new_person(idc, "guest")
+    assert put(idc, third, max_age_rating=10).status_code == 200
+    assert idc.patch(f"/v1/users/{third}", headers=csrf(idc), json={"role": "teen"}).status_code == 200
+    assert rating(idc, third) == 10
+
+
+def rate_manifest(settings, rating):
+    """Give the whoami test app a manifest age_rating (or none), as a catalog entry would carry."""
+    path = settings.apps_dir / "whoami" / "onemind.app.yaml"
+    lines = [ln for ln in path.read_text().splitlines() if not ln.startswith("  age_")]
+    if rating is not None:
+        i = next(n for n, ln in enumerate(lines) if ln.startswith("  category:"))
+        lines[i + 1:i + 1] = [f"  age_rating: {rating}", '  age_reason: "Test reason."']
+    path.write_text("\n".join(lines) + "\n")
+
+
+@pytest.fixture
+def preset_kids(idc):
+    """A child (preset 12) and a teen (preset 16), both with whoami shared, presets left in place."""
+    setup_owner(idc)
+    clients, ids = [], []
+    for role in ("child", "teen"):
+        client = enrol(idc, role, role)
+        ids.append(client.get("/v1/me").json()["principal"]["id"])
+        clients.append(client)
+    assert idc.put("/v1/apps/whoami/access", headers=csrf(idc), json={"people": ids}).status_code == 200
+    return idc, clients[0], clients[1]
+
+
+def test_unrated_app_stays_hidden_under_a_limit(preset_kids, settings):
+    _, child, teen = preset_kids
+    rate_manifest(settings, None)
+    assert apps(child) == [] and apps(teen) == []
+
+
+def test_manifest_rating_is_the_default_classification(preset_kids, settings):
+    owner, child, teen = preset_kids
+    for rating, child_sees, teen_sees in [(0, True, True), (12, True, True), (16, False, True), (18, False, False)]:
+        rate_manifest(settings, rating)
+        assert (apps(child) == ["whoami"], apps(teen) == ["whoami"]) == (child_sees, teen_sees), rating
+    # The owner sees the rating in the catalog; it is the manifest's own value.
+    rate_manifest(settings, 12)
+    entry = next(a for a in owner.get("/v1/apps").json() if a["id"] == "whoami")
+    assert (entry["age_rating"], entry["age_reason"]) == (12, "Test reason.")
+    rate_manifest(settings, None)
+    entry = next(a for a in owner.get("/v1/apps").json() if a["id"] == "whoami")
+    assert (entry["age_rating"], entry["age_reason"]) == (None, None)
+
+
+def test_owner_classification_overrides_the_manifest_rating(preset_kids, settings):
+    owner, child, teen = preset_kids
+    path = "/v1/family/apps/whoami"
+    # Manifest says 12 (a child may see it); the owner says 16: the owner wins and the child loses it.
+    rate_manifest(settings, 12)
+    assert owner.put(path, headers=csrf(owner), json={"min_age": 16}).status_code == 200
+    assert apps(child) == [] and apps(teen) == ["whoami"]
+    # Manifest says 18 (nobody under a limit); the owner says 0: the owner wins and both see it.
+    rate_manifest(settings, 18)
+    assert owner.put(path, headers=csrf(owner), json={"min_age": 0}).status_code == 200
+    assert apps(child) == ["whoami"] and apps(teen) == ["whoami"]
+    # An owner classification with only tags leaves the age to the manifest.
+    assert owner.put(path, headers=csrf(owner), json={"tags": ["games"]}).status_code == 200
+    assert apps(child) == [] and apps(teen) == []
+    rate_manifest(settings, 12)
+    assert apps(child) == ["whoami"]

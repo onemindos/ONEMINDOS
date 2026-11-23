@@ -10,6 +10,7 @@ DELETE /v1/auth/app-session  # clearing the caller's own cookie twice is the sam
 POST /v1/auth/logout  # ending the caller's own session twice is the same as once
 POST /v1/auth/approver-keys  # a retry with the same public key answers 409 (already registered), so a repeat never adds a second key (#702)
 DELETE /v1/auth/approver-keys/{key_id}  # revoking twice is the same as once: a repeat finds no live key and changes nothing (#702)
+POST /v1/sites  # The caller supplies a unique site ID. A retry with that ID returns 409 before writing a site or a second creation audit record.
 DELETE /v1/me/devices/{device_id}  # Lost this device (#715) is idempotent by design: a repeat revokes nothing and answers removed: false
 PATCH /v1/files/uploads/{upload_id}  # tus: the Upload-Offset header makes a retried chunk safe
 PATCH /v1/photos/uploads/{upload_id}  # tus: the Upload-Offset header makes a retried chunk safe
@@ -18,6 +19,13 @@ POST /v1/tips/{tip_id}/state  # sets one tip's state to the given value: setting
 POST /v1/files/wopi/tokens  # answers with a fresh WOPI access token, which a replay store must not keep; a retry mints another
 POST /v1/files/wopi/files/{file_id}  # WOPI (#675): an office engine sends no Idempotency-Key; Lock, RefreshLock and Unlock repeated with the same X-WOPI-Lock give the same result
 POST /v1/files/wopi/files/{file_id}/contents  # WOPI PutFile (#675): needs the file's current lock and its last-saved version, so a retried save writes the same bytes again
+POST /v1/files/shares  # answers with the link secret once, which a replay store must not keep; a retry makes a second link the creator can revoke
+DELETE /v1/files/shares/{share_id}  # revoking a link twice is the same as once: the second answer is the same revoked link
+POST /v1/os/rollouts/{rollout_id}/cancel  # cancelling twice leaves the same state: the second answer is 409 wrong_state and changes nothing
+PUT /v1/agents/{name}/nats-key  # sets one agent's one key: the same body twice leaves the same state
+DELETE /v1/agents/{name}/nats-key  # removing an agent's key twice is the same as once
+POST /v1/host-grants/requests  # files a host.grant action and keeps its §3 body field idempotency_key, like POST /v1/actions
+POST /v1/host-grants/{grant_id}/revoke  # revoking twice leaves the grant revoked; the repeat answers 404 and changes nothing
 POST /v1/bridges/{bridge_id}/events  # every event carries its own id and revision: a retried batch counts as duplicates, never twice
 POST /v1/bridges/{bridge_id}/resume  # resuming a bridge that already runs changes nothing
 POST /v1/files/app-passwords  # answers with a fresh app password, which a replay store must never keep
@@ -29,3 +37,5 @@ POST /v1/sync/locks  # advisory (#699): a retried take only gives the same holde
 POST /v1/sync/locks/{lock_id}/refresh  # sets expiry to now + ttl: a retry lands on the same expiry
 DELETE /v1/sync/locks/{lock_id}  # releasing twice changes nothing (the second is 404)
 POST /v1/radios/{radio_id}/confirm  # an upsert of one radio's confirmation (#732): confirming twice stores the same row and changes nothing
+DELETE /v1/agent-browser/sessions/{session_id}  # ending a session twice is the same as once (the second answers the ended session)
+DELETE /v1/agent-browser/sites/{site_id}  # removing an approved site twice leaves the same allowlist (the second answers 404)

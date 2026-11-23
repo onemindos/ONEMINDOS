@@ -9,7 +9,7 @@ Chromium in a window you open from the dashboard, streamed from your box with Ne
 |---|---|
 | Version | 3.2.0 (upstream release `v3.2.0`, published 2026-10-15) |
 | Licence | `Apache-2.0`, Market class L1 by SPDX id; not yet confirmed by the licence gate |
-| Tier | `community` (set by CI: sdk/tools/app-gate) |
+| Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | developer |
 | GitHub | <https://github.com/m1k1o/neko> |
 | Website | <https://www.chromium.org/> |
@@ -62,7 +62,7 @@ Images:
 - **Stream media path is not solved yet.** Neko sends video over WebRTC, which needs its own media port reachable from the viewer (UDP or TCP mux, `NEKO_WEBRTC_*` settings). This package does not open one, because the rule is that only the gateway proxy is reachable. Until the gateway proxy carries or relays that media port, the page loads and signs in but the video may not connect. UNVERIFIED on a running box.
 - **The pod's start as UID 1000 is checked by running the pinned image; see the PR for the result.** Xorg, PulseAudio and the browser all start as the neko user, but their upstream 3.2.0 supervisord files were not read, only v3.1.4's.
 - **Chromium runs with `--no-sandbox`** as upstream's image does, because the container has no user namespace for its sandbox. The pod's own limits are the boundary.
-- **The app gate has not scanned these images.** Browser images carry many HIGH findings; the tier stays `community` until `sdk/tools/app-gate` runs, and a rebuilt image from the app factory may be needed.
+- **Blocked by the [CI app gate](https://github.com/onemindos/ONEMINDOS/actions/runs/45095626573/job/137443744363).** The pinned n.eko `3.2.0` image has fixable critical vulnerabilities. CVE-2026-111497 affects `libbrotli1` `1.1.0-2+b7` (fixed in `1.1.0-2+deb13u1`). CVE-2026-42216 and CVE-2026-42217 affect `libopenexr-3-1-30` `3.1.13-2` (fixed in `3.2.12-1~deb13u1`). CVE-2026-118333 and CVE-2026-118337 also affect `chromium`, `chromium-common`, and `chromium-sandbox` `155.0.8059.79-1~deb13u1` (fixed in `156.0.8078.73-1~deb13u1`). Keep tier `blocked` until a rebuilt image passes the gate.
 - **One profile per person** (#692): opened from the dashboard window, reset only after an owner approves.
 - **Agent use is not part of this app.** The agent browser is a separate service, off by default, and each site is approved once by the owner.
 <!-- onemind:notes:end -->

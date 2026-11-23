@@ -66,6 +66,10 @@ CEILINGS = {
     # kiosk 7.6, kiosk-apply 9.4). Hardening them needs an on-hardware check of the screen switch: follow-up.
     "onemind-kiosk.service": 7.9,
     "onemind-kiosk-apply.service": 9.7,
+    # The UPS low-battery shutdown (IMG-06, #244; measured 9.4 with systemd 255). Cannot be sandboxed: it stops
+    # k3s, kills what is left in its cgroup, unmounts /data, closes the encrypted disk and powers the box off. It
+    # runs only when upsmon starts it on a low battery (onemind-ups.service and -monitor are under the default).
+    "onemind-ups-shutdown.service": 9.7,
 }
 
 

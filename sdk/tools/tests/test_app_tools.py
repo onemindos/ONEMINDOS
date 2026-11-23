@@ -397,6 +397,58 @@ class IsolationTests(unittest.TestCase):
         self.assertTrue(errs({"containers": [{"name": "c", "ports": [{"containerPort": 1, "hostPort": 1}]}]}))
 
 
+class AgeRatingTests(unittest.TestCase):
+    """FAM-01: metadata.age_rating is required, one of 0/7/12/16/18, in every manifest."""
+
+    APPS = TOOLS.parents[1] / "apps"
+
+    def errors(self, doc):
+        return [e.message for e in Draft202012Validator(SCHEMA).iter_errors(doc)]
+
+    def base(self):
+        return yaml.safe_load((self.APPS / "ntfy" / "onemind.app.yaml").read_text())
+
+    def test_every_value_in_the_rubric_is_valid(self):
+        for rating in (0, 7, 12, 16, 18):
+            doc = self.base()
+            doc["metadata"]["age_rating"] = rating
+            self.assertEqual(self.errors(doc), [], rating)
+
+    def test_missing_or_bad_rating_is_rejected(self):
+        doc = self.base()
+        del doc["metadata"]["age_rating"]
+        self.assertTrue(any("age_rating" in e for e in self.errors(doc)))
+        for bad in (10, -1, 21, "12", 12.5, True, None):
+            doc = self.base()
+            doc["metadata"]["age_rating"] = bad
+            self.assertTrue(self.errors(doc), repr(bad))
+
+    def test_reason_is_a_short_nonempty_string(self):
+        doc = self.base()
+        doc["metadata"]["age_reason"] = ""
+        self.assertTrue(self.errors(doc))
+        doc["metadata"]["age_reason"] = "x" * 141
+        self.assertTrue(self.errors(doc))
+        doc["metadata"]["age_reason"] = "One short reason."
+        self.assertEqual(self.errors(doc), [])
+
+    def test_every_committed_app_has_a_rating_and_a_reason(self):
+        dirs = sorted(p for p in self.APPS.iterdir() if p.is_dir() and not p.name.startswith("_"))
+        self.assertTrue(dirs)
+        for app_dir in dirs:
+            meta = yaml.safe_load((app_dir / "onemind.app.yaml").read_text())["metadata"]
+            self.assertIn(meta.get("age_rating"), (0, 7, 12, 16, 18), app_dir.name)
+            self.assertTrue(meta.get("age_reason"), app_dir.name)
+
+    def test_scaffold_starts_at_the_safest_rating_and_flags_it(self):
+        tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, tmp)
+        s = scaffold.Scaffold(REPO, common.GitHub(fake_fetch()), FakeRegistry(), tmp, name="Uptime Kuma")
+        m = yaml.safe_load((s.write(s.build()) / "onemind.app.yaml").read_text())
+        self.assertEqual(m["metadata"]["age_rating"], 18)
+        self.assertIn(common.UNVERIFIED, m["metadata"]["age_reason"])
+
+
 class ReadmeTests(unittest.TestCase):
     def test_notes_roundtrip(self):
         text = f"head\n{readme.NOTES_BEGIN}\n## First run\n\n1. Open it.\n{readme.NOTES_END}\ntail\n"
