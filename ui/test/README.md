@@ -12,6 +12,7 @@ What runs (CI: [`.github/workflows/ui-quality.yml`](../../.github/workflows/ui-q
 | `e2e/a11y.spec.ts` | axe-core on every screen, light and dark, at 1280 px and 375 px. Any **serious** or **critical** finding fails, and so does an uncaught exception or a `console.error`. The full axe result is attached to the report, so moderate and minor findings stay visible. |
 | `e2e/known-a11y.ts` | The defects the first run found in `ui/` (A11Y-1 to A11Y-5, [CI-MATRIX §1.4](../../docs/testing/CI-MATRIX.md)). The list is a ratchet: a finding that is not on it fails, and a listed one that no longer reproduces fails too, so **the PR that fixes one deletes its entry**. |
 | `e2e/flows.spec.ts` | Dashboard: a bad token is refused, `owner-demo` signs in, the menu reaches Nodes, Market, Approvals and Home, then sign-out. Demo: every main menu entry opens its screen. The WK-1 ratchet. |
+| `e2e/visual-vs-main.spec.ts` | No browser: fails when `visual-vs-main.sh` skips a step CI runs on the base (SDK schema before the dashboard build, the redraw of a failed base screenshot, the default base branch). |
 | `e2e/visual.spec.ts` | 29 screenshots per engine (24 in WebKit, see WK-1 below). On a PR they are drawn from `main` first, then the PR is compared with them; more than 0.1 % of pixels different counts as a change (next section). Desktop shots stretch the viewport to the page's height, so fixed layers (wallpaper, Home dock) sit where a person sees them. |
 
 The clock is fixed at 2026-11-12 15:05 UTC, so every "5 min ago" renders the same way each run. Animations are off.
@@ -31,7 +32,7 @@ npx playwright test --project=chromium --grep-invert @visual   # axe and flows
 npx playwright show-report
 ```
 
-**The visual check, locally:** `ui/test/visual-vs-main.sh [base-ref] [browser]` does what CI does. It builds the base (default: where your branch left `origin/main`) in a temporary git worktree, draws its screenshots into `ui/test/visual/` (gitignored), builds your working tree and compares it with them. Open the result with `npx playwright show-report playwright-report-visual`. Both sides render on the same machine, so the comparison is fair anywhere. On macOS the fonts differ from CI's, so the pictures only look like CI's on Linux.
+**The visual check, locally:** `ui/test/visual-vs-main.sh [base-ref] [browser]` does what CI does. It builds the base (default: where your branch left the branch PRs merge into, `origin/release/next` while it exists, else `origin/main`) in a temporary git worktree, generating the SDK schema first as CI does, draws its screenshots into `ui/test/visual/` (gitignored), builds your working tree and compares it with them. Open the result with `npx playwright show-report playwright-report-visual`. Both sides render on the same machine, so the comparison is fair anywhere. On macOS the fonts differ from CI's, so the pictures only look like CI's on Linux.
 
 ## Visual changes: how a PR gets them accepted (CI-17)
 
