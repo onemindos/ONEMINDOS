@@ -59,10 +59,10 @@ class MarketUnblockTests(unittest.TestCase):
                 self.assertEqual(scan_tier_ceiling(scan(app)), "blocked")
                 self.assertEqual(declared_tier(APPS / app), "blocked")
                 readme = (APPS / app / "README.md").read_text(encoding="utf-8")
-                self.assertIn("## Why this app is blocked", readme)
-                for image in scan(app)["images"]:
-                    if image["trivy"]["critical_fixable"]:
-                        self.assertIn(image["ref"].split("@")[0], readme)
+                notes = readme.split("<!-- onemind:notes:begin -->")[1].split("<!-- onemind:notes:end -->")[0]
+                tag = BUMPED[app][1]
+                self.assertRegex(notes, rf"pin is now `{re.escape(tag)}`.*CVE-.*Tier stays `blocked`",
+                                 f"{app}: the README notes must give the real reason {tag} stays blocked")
 
 
 if __name__ == "__main__":

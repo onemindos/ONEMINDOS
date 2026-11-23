@@ -41,7 +41,7 @@ Home Assistant is open source home automation that puts local control and privac
 
 This package runs **Home Assistant Core** in a container, which upstream calls the "Container" install type. It is not Home Assistant OS and has no Supervisor, so upstream "apps" (formerly add-ons) are not available. OneMind's own Market supplies the companion apps (Mosquitto, Zigbee2MQTT, Node-RED) instead.
 
-**Licence:** Apache-2.0 ([LICENSE.md at the release commit](https://github.com/home-assistant/core/blob/d8a0dc698c8946b44e455d904000db563cfbf1ba/LICENSE.md)). Research licence class **L1** (permissive): it may be preinstalled on a OneMind box ([`research-output/13-apps-market-plugins.md`](../../research-output/13-apps-market-plugins.md), [`license-matrix.csv`](../../research-output/evidence/license-matrix.csv)).
+**Licence:** Apache-2.0 ([LICENSE.md at the release commit](https://github.com/home-assistant/core/blob/ff5d56b825a0fb66b03d01bc297d49e206cdaba3/LICENSE.md)). Research licence class **L1** (permissive): it may be preinstalled on a OneMind box ([`research-output/13-apps-market-plugins.md`](../../research-output/13-apps-market-plugins.md), [`license-matrix.csv`](../../research-output/evidence/license-matrix.csv)).
 
 **Trademark:** "Home Assistant" and its logo are trademarks that Apache-2.0 does not license. The app is listed under the upstream name only, and `icon.svg` is a neutral generated icon with the initials, not the upstream logo.
 
