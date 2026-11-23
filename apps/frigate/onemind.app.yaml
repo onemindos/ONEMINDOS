@@ -1,0 +1,47 @@
+# SPDX-License-Identifier: Apache-2.0
+# Frigate NVR: MKT-NVR-01 (#245), the video wall's recorder (plan row C2).
+# Sources, all at tag v0.18.3: docs/docs/frigate/installation.md (volumes, ports, shm), configuration/record.md
+# (retention, the free-space cleanup), configuration/authentication.md (first admin), configuration/tls.md,
+# frigate/network_requirements.md (every outbound call and how to switch it off), docker/main/Dockerfile and
+# frigate/config/config.py (the default config). Image digest and archs from crane, 2026-11-22.
+apiVersion: onemind.app/v1alpha1
+kind: App
+metadata:
+  id: frigate
+  name: "Frigate NVR"
+  version: "0.18.3"
+  description: "Network video recorder with local object detection for IP cameras. Recordings stay on the box."
+  # Market category slug from docs/design/TAXONOMY.md §1 (Home & IoT lists Frigate); sub-tag: cameras.
+  category: home
+  icon: icon.svg
+  license: "MIT"
+  source: https://github.com/blakeblackshear/frigate
+  # §9.3 facts from the GitHub API (repos/blakeblackshear/frigate and its releases/latest), read 2026-11-22.
+  links:
+    docs: "https://docs.frigate.video"
+    github: "https://github.com/blakeblackshear/frigate"
+    website: "https://frigate.video"
+    support: "https://github.com/blakeblackshear/frigate/discussions"
+  upstream: {release: "v0.18.3", released_at: "2026-11-19T02:26:02Z", archived: false}
+  tier: blocked   # set by CI (sdk/tools/app-gate --tier write), not by hand
+spec:
+  archs: [amd64, arm64]
+  # Detection runs on the CPU (OpenVINO, upstream's default for a new install). A box with an NVIDIA card
+  # gets manifests-gpu/ instead: the same image, with hardware video decoding (S-5).
+  requires:
+    gpu: false
+    minMemoryMb: 4096
+    accelerator: {capability: gpu-compute, minMemoryMb: 1024, optional: true, overlay: manifests-gpu}
+  # 8971 is upstream's signed-in UI and API ("Reverse proxies should use this port"). 5000, the unauthenticated
+  # port, is never exposed.
+  web: {port: 8971}
+  manifests: manifests/
+  # automerge stays none until renovate.json lists this app (validate-apps check 9).
+  updates: {channel: stable, automerge: none}
+  # Recordings stay on the box: video (recordings/, snapshots and previews in clips/, exports/) is never
+  # copied into a backup, local or off-site. The backup keeps the frigate-config volume: the config, users
+  # and the event database, which Frigate writes continuously, so it is copied online as SQLite.
+  backup:
+    mode: hot
+    exclude: ["recordings/", "clips/", "exports/", "model_cache/"]
+    sqlite: [{claim: frigate-config, path: frigate.db}]
