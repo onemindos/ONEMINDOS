@@ -22,18 +22,10 @@ import (
 var newHostext = hostext.New
 
 func extCommands(a *App) []*cobra.Command {
+	// The trust anchor (the key set in /usr/lib/verity.d) and the host os-release are never flags:
+	// nothing the caller passes can add a key or change the extension level an image is checked against.
 	var c hostext.Config
-	var keyDir, osRelease string
-	mgr := func() *hostext.Manager {
-		cfg := c
-		if keyDir != "" {
-			cfg.KeyDirs = []string{keyDir}
-		}
-		if osRelease != "" {
-			cfg.OSRelease = []string{osRelease}
-		}
-		return newHostext(cfg)
-	}
+	mgr := func() *hostext.Manager { return newHostext(c) }
 	kind := func(confext bool) hostext.Kind {
 		if confext {
 			return hostext.Confext
@@ -45,10 +37,6 @@ func extCommands(a *App) []*cobra.Command {
 	pf.StringVar(&c.Quarantine, "quarantine", "", "staging folder on /data (default /data/onemind/hostext/quarantine)")
 	pf.StringVar(&c.SysextDir, "sysext-dir", "", "system extensions folder (default /var/lib/extensions)")
 	pf.StringVar(&c.ConfextDir, "confext-dir", "", "configuration extensions folder (default /var/lib/confexts)")
-	pf.StringVar(&keyDir, "keys", "", "folder of trusted signing certificates (default /usr/lib/verity.d, in the read-only image)")
-	pf.StringVar(&osRelease, "os-release", "", "host os-release file (default /etc/os-release)")
-	_ = pf.MarkHidden("keys")
-	_ = pf.MarkHidden("os-release")
 
 	var stageConf bool
 	stage := &cobra.Command{

@@ -96,6 +96,8 @@ func extBox(t *testing.T) (root string, flags []string, calls *[]string) {
 	old := newHostext
 	newHostext = func(c hostext.Config) *hostext.Manager {
 		c.Arch = "x86-64"
+		c.KeyDirs = []string{keys}
+		c.OSRelease = []string{osr}
 		c.ReadRelease = func(context.Context, string, hostext.Kind, string) (map[string]string, error) {
 			return map[string]string{"ID": "onemind", "SYSEXT_LEVEL": "1.0"}, nil
 		}
@@ -107,7 +109,7 @@ func extBox(t *testing.T) (root string, flags []string, calls *[]string) {
 	}
 	t.Cleanup(func() { newHostext = old })
 	flags = []string{"--quarantine", filepath.Join(root, "q"), "--sysext-dir", filepath.Join(root, "ext"),
-		"--confext-dir", filepath.Join(root, "conf"), "--keys", keys, "--os-release", osr}
+		"--confext-dir", filepath.Join(root, "conf")}
 	return root, flags, calls
 }
 
@@ -169,5 +171,21 @@ func TestExtStageRefusals(t *testing.T) {
 	}
 	if es, _ := os.ReadDir(filepath.Join(root, "ext")); len(es) != 0 {
 		t.Fatalf("refused images installed: %v", es)
+	}
+}
+
+// The trust anchor and the host release are never flags: a caller cannot point stage at its own
+// key folder or its own os-release to skip the OneMind key-set or SYSEXT_LEVEL checks.
+func TestExtHasNoTrustOverrideFlags(t *testing.T) {
+	root, flags, calls := extBox(t)
+	img := extImage(t, root, "onemind-hello.raw", true)
+	for _, f := range []string{"--keys", "--os-release"} {
+		r := run(t, "", false, append([]string{"ext", "stage", img, f, root}, flags...)...)
+		if r.code == 0 || !strings.Contains(r.errOut+r.out, "unknown flag: "+f) {
+			t.Errorf("%s accepted: %+v", f, r)
+		}
+	}
+	if len(*calls) != 0 {
+		t.Fatalf("stage ran with an override flag: %v", *calls)
 	}
 }
