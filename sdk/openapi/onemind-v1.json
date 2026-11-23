@@ -4994,6 +4994,199 @@
         "title": "NodeUSBDevice",
         "type": "object"
       },
+      "NotificationActionIn": {
+        "additionalProperties": false,
+        "description": "A button on the notification (notify/topics.py check_actions): open an in-app link, or let the\nperson who taps it file a normal request that still needs an approval. There is no approve kind.",
+        "properties": {
+          "id": {
+            "pattern": "^[a-z][a-z0-9_-]{0,31}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "open",
+              "request"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "link": {
+            "anyOf": [
+              {
+                "maxLength": 300,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Link"
+          },
+          "request": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Request"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "kind"
+        ],
+        "title": "NotificationActionIn",
+        "type": "object"
+      },
+      "NotificationSource": {
+        "description": "One notification source (notify/topics.py): a built-in app (app:<id>) or a plugin or agent (plugin:<id>).",
+        "properties": {
+          "app_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "App Id"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "app",
+              "plugin"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "muted": {
+            "title": "Muted",
+            "type": "boolean"
+          },
+          "muted_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Muted At"
+          },
+          "muted_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Muted By"
+          },
+          "muted_reason": {
+            "anyOf": [
+              {
+                "enum": [
+                  "owner",
+                  "flood"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Muted Reason"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "posts_last_hour": {
+            "title": "Posts Last Hour",
+            "type": "integer"
+          },
+          "topics": {
+            "items": {
+              "$ref": "#/components/schemas/NotificationSourceTopic"
+            },
+            "title": "Topics",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "name",
+          "topics",
+          "muted",
+          "posts_last_hour"
+        ],
+        "title": "NotificationSource",
+        "type": "object"
+      },
+      "NotificationSourceIn": {
+        "additionalProperties": false,
+        "properties": {
+          "muted": {
+            "title": "Muted",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "muted"
+        ],
+        "title": "NotificationSourceIn",
+        "type": "object"
+      },
+      "NotificationSourceTopic": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "topic": {
+            "title": "Topic",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "topic"
+        ],
+        "title": "NotificationSourceTopic",
+        "type": "object"
+      },
       "OnboardingKit": {
         "properties": {
           "confirmed_at": {
@@ -6818,6 +7011,27 @@
       "SendIn": {
         "additionalProperties": false,
         "properties": {
+          "actions": {
+            "items": {
+              "$ref": "#/components/schemas/NotificationActionIn"
+            },
+            "maxItems": 3,
+            "title": "Actions",
+            "type": "array"
+          },
+          "asset_id": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the map asset this is about",
+            "title": "Asset Id"
+          },
           "body": {
             "default": "",
             "maxLength": 4096,
@@ -6835,6 +7049,19 @@
               }
             ],
             "title": "Dedupe Key"
+          },
+          "group_key": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "items with one key belong together",
+            "title": "Group Key"
           },
           "severity": {
             "enum": [
@@ -22283,6 +22510,133 @@
           }
         },
         "summary": "Send",
+        "tags": [
+          "notifications"
+        ]
+      }
+    },
+    "/v1/notifications/sources": {
+      "get": {
+        "operationId": "notifications.sources.list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/NotificationSource"
+                  },
+                  "title": "Response Notifications.Sources.List",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "summary": "List Sources",
+        "tags": [
+          "notifications"
+        ]
+      }
+    },
+    "/v1/notifications/sources/{source_id}": {
+      "put": {
+        "operationId": "notifications.sources.set",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "title": "Source Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotificationSourceIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationSource"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Set Source",
         "tags": [
           "notifications"
         ]

@@ -65,7 +65,9 @@ def problems(d: builtins.Descriptor, others: list[builtins.Descriptor], tables: 
         if a["type"] not in types:
             out.append(f"{d.id} declares action {a['type']}, which the gateway has not registered")
     for topic in (d.spec.get("notifications") or {}).get("topics", []):
-        for ev in topic["events"]:
+        if len(f"app.{d.id}.{topic['id']}") > 80:
+            out.append(f"{d.id} topic {topic['id']} makes app.{d.id}.{topic['id']}, longer than 80 characters")
+        for ev in topic.get("events", []):
             spec = lookup(ev)
             if spec is None or spec.topic != topic["id"]:
                 out.append(f"{d.id} declares {ev} under topic {topic['id']}, which the notify catalogue does not")
@@ -281,7 +283,11 @@ def test_descriptors_use_the_app_manifest_api_version_kind_and_file_name():
 
 def test_no_descriptor_block_reuses_an_app_spec_name_with_another_shape():
     shared = set(BUILTIN_SCHEMA["properties"]["spec"]["properties"]) & set(APP_SCHEMA["properties"]["spec"]["properties"])
-    assert shared == {"backup"}  # every other block name is new to the App spec and can move there unchanged
+    # #604 moved search, share, notifications, mapLayers and data into the App spec; every descriptor block
+    # of those names must still validate against the App block, and the rest stay descriptor-only.
+    assert shared == {"backup", "search", "share", "notifications", "mapLayers", "data"}
+    assert set(BUILTIN_SCHEMA["properties"]["spec"]["properties"]) - shared == {"routes", "cards", "actions",
+                                                                                "settingsPages", "phone"}
     for app_id in sorted(NATIVE):
         spec = doc_of(app_id)["spec"]
         for name in sorted(shared & set(spec)):
