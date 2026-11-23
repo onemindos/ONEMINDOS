@@ -22,7 +22,7 @@ from pydantic import ValidationError
 
 from .. import __version__
 from ..actions import APP_CLAIMS, ActionParams, ActionRequest
-from ..ai_policy import catalog_visible_to_ai
+from ..ai_policy import actions_for_agent, catalog_visible_to_ai, shown_policy
 from ..auth import Principal
 from ..errors import ApiError
 from ..surfaces.core import AUDIT_MAX, CORE_TOOLS, LIST_ACTIONS_MAX, MAX_REASON, obj
@@ -56,6 +56,9 @@ class Services:
     request: Callable[[Principal, ActionRequest, str | None], tuple[dict, bool]]
     audit_list: Callable[..., tuple[list[dict], bool]]
     clock: Callable[[], datetime]
+    # AIG-04: called as (principal, source) when a result carried third-party text; the gateway then
+    # treats every later request from that agent as tainted (taint.py). None in a bare Services.
+    mark_tainted: Callable[[Principal, str], None] | None = None
     # Request-only tools built from the descriptors of switched-on built-ins (builtins.py, #603):
     # tool name -> (action type, title, app name). A switched-off built-in's tools are not here.
     builtin_actions: Callable[[], dict[str, tuple[str, str, str]]] = lambda: {}
@@ -203,7 +206,14 @@ class Catalogue:
             wait = self.limits.reads.hit(p.id)
             if wait:
                 return refusal("rate_limited", "too many read calls; slow down", retry_after_s=wait)
-        return getattr(self, f"t_{name}")(p, args)
+        out = getattr(self, f"t_{name}")(p, args)
+        self._taint(p, out, f"mcp:{name}")
+        return out
+
+    def _taint(self, p: Principal, out: dict, source: str) -> None:
+        """An agent that was handed third-party text is tainted, whether or not it obeys it (AIG-04)."""
+        if self.svc.mark_tainted is not None and not out.get("isError") and (out.get("_meta") or {}).get(META_KEY):
+            self.svc.mark_tainted(p, source)
 
     def t_get_instance(self, p, args):
         _args(args, set())
@@ -233,7 +243,8 @@ class Catalogue:
             rows = [a for a in rows if a.get("category") == category]
         if installed is not None:
             rows = [a for a in rows if bool(a.get("installed")) is installed]
-        return rows
+        # aiPolicy shown exactly as GET /v1/apps shows it (models.CatalogApp).
+        return [{**a, "aiPolicy": shown_policy(a)} for a in rows]
 
     def t_list_apps(self, p, args):
         _args(args, {"category", "installed", "cursor"})
@@ -263,15 +274,19 @@ class Catalogue:
         rows = [a for a in self.svc.own_actions(p.id)
                 if (state is None or a["state"] == state) and (type_ is None or a["type"] == type_)]
         rows.sort(key=lambda a: a["created_at"], reverse=True)
-        s = {"actions": rows[:limit]}
+        s = {"actions": self._for_agent(rows[:limit])}
         return result(s, _under("actions", ACTION_FIELDS), _source(s, "actions", "id", "action"))
 
     def _own_action(self, p: Principal, action_id: str) -> dict | None:
+        """The agent's own action, already as the agent may see it (aiPolicy, #165): get_action,
+        onemind://actions/{id} and the tasks extension (tasks/get) all read it through here."""
         try:
             a = self.svc.get_action(action_id)
         except ApiError:
             return None
-        return a if (a.get("requested_by") or {}).get("id") == p.id else None
+        if (a.get("requested_by") or {}).get("id") != p.id:
+            return None
+        return self._for_agent([a])[0]
 
     def t_get_action(self, p, args):
         action_id = _str(_args(args, {"action_id"}), "action_id", True)
@@ -279,6 +294,11 @@ class Catalogue:
         if a is None:  # someone else's action looks exactly like a missing one
             return refusal("not_found", "no such action among your requests")
         return result(a, ACTION_FIELDS, _source(a, "", "id", "action"))
+
+    def _for_agent(self, rows: list[dict]) -> list[dict]:
+        """aiPolicy (#165) before any action leaves: an app's tool output reaches the agent only when
+        the app's catalog policy allows app data to go to an AI. An app outside the catalog has none."""
+        return actions_for_agent(rows, self.svc.list_apps)  # the same call as the agent REST readers
 
     def t_search_audit(self, p, args):
         _args(args, {"event", "since", "until", "after_seq", "limit"})
@@ -390,6 +410,7 @@ class Catalogue:
             raise RpcError(-32002, f"resource not found: {uri}")
         if r["isError"]:
             raise RpcError(-32002, f"resource not found: {uri}")
+        self._taint(p, r, f"mcp:resource:{parts[0]}")
         content = {"uri": uri, "mimeType": "application/json", "text": r["content"][0]["text"]}
         if "_meta" in r:
             content["_meta"] = r["_meta"]

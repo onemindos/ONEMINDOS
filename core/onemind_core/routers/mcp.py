@@ -42,6 +42,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         request=lambda p, req, reason: actions.create(p, req, reason=reason),
         audit_list=reader.list,
         clock=gw.clock,
+        mark_tainted=lambda p, source: actions.taint.mark(p.id, source),
         # Request-only tools of switched-on built-ins, from the surface registry (#605): read on every
         # call, so a switched-off app's tools leave tools/list at once; refused declarations never appear.
         builtin_actions=app.state.surfaces.mcp_actions,

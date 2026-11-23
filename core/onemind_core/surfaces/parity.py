@@ -25,6 +25,7 @@ PERSON = "person"
 BYTES = "bytes"
 DOOR = "door"
 WRITE = "write"
+FLEET = "fleet"
 
 REASONS: dict[str, str] = {
     OVERSIGHT: "Approving, denying, approval policies, the motion lockout, confirming what a found radio is and "
@@ -35,9 +36,12 @@ REASONS: dict[str, str] = {
     BYTES: "File bytes, uploads, event streams, consoles, Prometheus text or the restic repository protocol, "
            "not a JSON tool result.",
     DOOR: "A door of its own (the MCP endpoint, installed-app tool calls, sign-in page, health probe, OpenAPI "
-          "document, surface registry, sync feed, dashboard files); a tool over it adds nothing.",
+          "document, surface registry, sync feed and file transfer, the Send to menu, dashboard files, an outsider's "
+          "share link); a tool over it adds nothing.",
     WRITE: "Changes the box directly. An agent never writes: it files a request (request_action or a "
            "request_<type> tool) that a person approves.",
+    FLEET: "Fleet OS versions and staged rollouts (#156): a rollout starts only as an owner-approved action "
+           "(os.rollout.start), which an agent follows through get_action; this is the owner's update console.",
 }
 
 SKIP_METHODS = frozenset({"HEAD", "OPTIONS"})
@@ -95,6 +99,9 @@ HUMAN_ONLY: dict[str, str] = {
     "POST /v1/domains/hosts/{hostname}/approve": OVERSIGHT,
     "POST /v1/files/requests/{request_id}/approve": OVERSIGHT,
     "POST /v1/files/requests/{request_id}/deny": OVERSIGHT,
+    # #690: the USB devices and GPUs an owner may grant a machine, and why one is refused; the owner
+    # decides a grant from it (an agent only files machine.attach_device, which the owner approves)
+    "GET /v1/machines/{name}/devices": OVERSIGHT,
     "PUT /v1/physical/lockout": OVERSIGHT,
     "POST /v1/radios/{radio_id}/confirm": OVERSIGHT,
     # ---- credential: sign-in, tokens, keys, secrets, pairing
@@ -130,6 +137,10 @@ HUMAN_ONLY: dict[str, str] = {
     "GET /v1/fabric/join-tickets": CREDENTIAL,
     "POST /v1/fabric/join-tickets": CREDENTIAL,
     "DELETE /v1/fabric/join-tickets/{ticket_id}": CREDENTIAL,
+    "GET /v1/files/app-passwords": CREDENTIAL,
+    "POST /v1/files/app-passwords": CREDENTIAL,
+    "POST /v1/files/app-passwords/{password_id}/revoke": CREDENTIAL,
+    "POST /v1/files/wopi/tokens": CREDENTIAL,
     "GET /v1/plugin-trust/keys": CREDENTIAL,
     "POST /v1/plugin-trust/keys/requests": CREDENTIAL,
     "POST /v1/plugin-trust/keys/{key_id}/revoke": CREDENTIAL,
@@ -143,15 +154,22 @@ HUMAN_ONLY: dict[str, str] = {
     "GET /v1/tls/ca.crt": CREDENTIAL,
     "GET /v1/tls/onemind.mobileconfig": CREDENTIAL,
     "GET /v1/tokens": CREDENTIAL,
+    # share links (#237): each link secret is a bearer credential handed to someone outside the household
+    "GET /v1/files/shares": CREDENTIAL,
+    "POST /v1/files/shares": CREDENTIAL,
+    "DELETE /v1/files/shares/{share_id}": CREDENTIAL,
     "POST /v1/tokens": CREDENTIAL,
     "DELETE /v1/tokens/{token_id}": CREDENTIAL,
     "POST /v1/tokens/{token_id}/rotate": CREDENTIAL,
     # ---- person: the signed-in person's own record
+    # #693: the signed-in person's own quarantined browser downloads (an owner sees everyone's).
+    "GET /v1/files/downloads": PERSON,
     "GET /v1/me": PERSON,
     "PATCH /v1/me": PERSON,
     "GET /v1/me/home": PERSON,
     "PUT /v1/me/home": PERSON,
     "GET /v1/notifications": PERSON,
+    "GET /v1/notifications/summary": PERSON,
     "GET /v1/notifications/preferences": PERSON,
     "PUT /v1/notifications/preferences": PERSON,
     "POST /v1/notifications/read-all": PERSON,
@@ -159,15 +177,28 @@ HUMAN_ONLY: dict[str, str] = {
     "POST /v1/notifications/{notification_id}/read": PERSON,
     "GET /v1/windows": PERSON,
     "PUT /v1/windows/{window_id}": PERSON,
+    # tips (#669): how-to text for a person at a screen, filtered by role, with that person's seen state;
+    # routers/tips.py answers 403 to any caller that is not a person
+    "GET /v1/tips": PERSON,
+    "GET /v1/tips/collections": PERSON,
+    "GET /v1/tips/whats-new": PERSON,
+    "GET /v1/tips/{tip_id}": PERSON,
+    "POST /v1/tips/{tip_id}/state": PERSON,
     # ---- bytes: files, uploads, streams and repository protocols
     "GET /v1/backups/snapshots/{snapshot_id}/file": BYTES,
     "GET /v1/events": BYTES,
     "GET /v1/files/download": BYTES,
     "GET /v1/files/preview": BYTES,
+    "GET /v1/share/{token}/items/{index}": BYTES,
     "POST /v1/files/uploads": BYTES,
     "DELETE /v1/files/uploads/{upload_id}": BYTES,
     "GET /v1/files/uploads/{upload_id}": BYTES,
     "PATCH /v1/files/uploads/{upload_id}": BYTES,
+    # WOPI (#675): the office engine's file protocol, reached only with a person's om_wopi_ token
+    "GET /v1/files/wopi/files/{file_id}": BYTES,
+    "POST /v1/files/wopi/files/{file_id}": BYTES,
+    "GET /v1/files/wopi/files/{file_id}/contents": BYTES,
+    "POST /v1/files/wopi/files/{file_id}/contents": BYTES,
     "POST /v1/machines/{name}/console": BYTES,
     "POST /v1/machines/{name}/upload": BYTES,
     "GET /v1/metrics": BYTES,
@@ -182,6 +213,7 @@ HUMAN_ONLY: dict[str, str] = {
     "GET /v1/photos/assets/{asset_id}/content": BYTES,
     "POST /v1/photos/uploads": BYTES,
     "PATCH /v1/photos/uploads/{upload_id}": BYTES,
+    "PUT /v1/sync/chunks/{chunk_hash}": BYTES,
     # ---- door: routes that are doors of their own
     "GET /healthz": DOOR,
     "DELETE /mcp": DOOR,
@@ -191,8 +223,14 @@ HUMAN_ONLY: dict[str, str] = {
     "GET /signin": DOOR,
     "POST /v1/plugins/{plugin_id}/tools/{tool_name}": DOOR,
     "GET /v1/protocol": DOOR,
+    "GET /v1/share/{token}": DOOR,
+    "GET /v1/share/targets": DOOR,
+    "GET /v1/share/types": DOOR,
     "GET /v1/surfaces": DOOR,
     "GET /v1/sync/changes": DOOR,
+    "POST /v1/sync/chunks/missing": DOOR,
+    "POST /v1/sync/commit": DOOR,
+    "GET /v1/sync/versions": DOOR,
     "GET /{full_path:path}": DOOR,
     # ---- write: direct changes; agents file requests instead
     "POST /v1/alerts/{alert_id}/ack": WRITE,
@@ -226,9 +264,12 @@ HUMAN_ONLY: dict[str, str] = {
     "POST /v1/files/grants": WRITE,
     "DELETE /v1/files/grants/{grant_id}": WRITE,
     "POST /v1/files/ops": WRITE,
+    "POST /v1/os/rollouts/{rollout_id}/cancel": WRITE,
     "PUT /v1/files/quotas/{person_id}": WRITE,
     "POST /v1/files/requests/{request_id}/cancel": WRITE,
     "POST /v1/files/trash/empty": WRITE,
+    "POST /v1/files/downloads/{download_id}/release": WRITE,
+    "DELETE /v1/files/downloads/{download_id}": WRITE,
     "PUT /v1/instance/kiosk": WRITE,
     "POST /v1/machines/disable": WRITE,
     "POST /v1/machines/enable": WRITE,
@@ -249,6 +290,7 @@ HUMAN_ONLY: dict[str, str] = {
     "POST /v1/photos/sources/{source_id}/check": WRITE,
     "POST /v1/plugins/{plugin_id}/settings": WRITE,
     "POST /v1/restores": WRITE,
+    "POST /v1/share": WRITE,
     "POST /v1/shares/smb/{share_id}/stop": WRITE,
     "POST /v1/storage/actions": WRITE,
     "POST /v1/storage/plans": WRITE,
@@ -258,6 +300,10 @@ HUMAN_ONLY: dict[str, str] = {
     "POST /v1/users": WRITE,
     "PATCH /v1/users/{user_id}": WRITE,
     "POST /v1/users/{user_id}/disable": WRITE,
+    # ---- fleet: OS versions and staged rollouts
+    "GET /v1/os/fleet": FLEET,
+    "GET /v1/os/rollouts": FLEET,
+    "GET /v1/os/rollouts/{rollout_id}": FLEET,
 }
 
 # Routes that are to get a generated tool (#632 and the area issues). A ratchet: it may only shrink, and

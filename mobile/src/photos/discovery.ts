@@ -8,7 +8,7 @@ import type { Connection } from '../storage';
 export const PHOTOS_APP_ID = 'photos';
 
 export type Availability =
-  | { state: 'ok'; baseUrl: string; demo: boolean }
+  | { state: 'ok'; baseUrl: string }
   | { state: 'checking' }
   | { state: 'not_in_catalog' }
   | { state: 'not_installed' }
@@ -18,8 +18,7 @@ export type Availability =
 /** App statuses that mean the service can take requests. */
 const UP = new Set(['running', 'installed', 'healthy']);
 
-export function discoverPhotos(conn: Connection, apps: CatalogApp[] | undefined, demoOrigin: string): Availability {
-  if (conn.mode === 'mock') return { state: 'ok', baseUrl: demoOrigin, demo: true };
+export function discoverPhotos(conn: Connection, apps: CatalogApp[] | undefined): Availability {
   if (!apps) return { state: 'checking' };
   const app = apps.find((a) => a.id === PHOTOS_APP_ID);
   if (!app) return { state: 'not_in_catalog' };
@@ -27,5 +26,5 @@ export function discoverPhotos(conn: Connection, apps: CatalogApp[] | undefined,
   if (!UP.has(app.status)) return { state: 'not_running', status: app.status };
   // B3 / DN-1: never plain HTTP for photos, even on the home network.
   if (!conn.hubUrl.startsWith('https://')) return { state: 'needs_https', hubUrl: conn.hubUrl };
-  return { state: 'ok', baseUrl: conn.hubUrl, demo: false };
+  return { state: 'ok', baseUrl: conn.hubUrl };
 }

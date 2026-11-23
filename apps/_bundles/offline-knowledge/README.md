@@ -50,7 +50,7 @@ export ONEMIND_TOKEN=…   # your owner token; never put it on the command line
 python3 -I apps/_bundles/offline-knowledge/install.py --gateway https://<your box>:8443 --profile greenhouse-offgrid
 ```
 
-It requests the apps one by one in a safe order. Library Chat needs Kiwix and Ollama installed first. It waits until you approve each request on the dashboard or phone. `--dry-run` shows what it would request, and `--skip kolibri` leaves an app out.
+Before requesting anything, it checks the gateway catalogue for missing apps, blocked tiers, failed or stale scans and incompatible app states. Optional unavailable apps are skipped with a reason; any required problem stops the bundle before installation begins. Already installed apps are configured without reinstalling. The gateway rechecks safety at approval. Redirects are refused so the owner token stays with the supplied gateway. It requests each app install, then a separate configuration action for the selected profile. Settings use the manifest field names and declared types; the gateway turns them into environment variables. Each action requires owner approval. If an optional app fails, it reports the failure and continues; any required failure stops the bundle. A timeout leaves the action pending on the gateway: check Approvals before retrying. It requests the apps one by one in a safe order. Library Chat needs Kiwix and Ollama installed first. It waits until you approve each request on the dashboard or phone. `--dry-run` shows what it would request, and `--skip kolibri` leaves an app out.
 
 Then finish two things by hand (each app's README has the exact command):
 1. **Pull the model:** `kubectl -n app-ollama exec deploy/ollama -- ollama pull qwen3:1.7b`.
@@ -58,11 +58,18 @@ Then finish two things by hand (each app's README has the exact command):
 
 Kiwix downloads its books by itself, checking each one. Follow it with `kubectl -n app-kiwix logs deploy/kiwix -c library-sync -f`.
 
-## Known gap: Library Chat cannot reach Kiwix and Ollama on a OneMind box yet
+## Library Chat network access
 
-The gateway gives every app its own namespace behind a **default-deny network policy** (H-04, `core/onemind_core/policy.py`). An app can talk to itself, to DNS, to the app proxy and to the internet, but **not to another app**. That is the right default, but it means Library Chat's questions cannot reach Kiwix or Ollama yet. Each app works on its own; the chat answers "not reachable".
+The gateway opens only the Service ports declared by approved dependencies: Library Chat
+can reach Kiwix and Ollama after they are installed. All other app-to-app traffic remains
+behind the default-deny policy (`core/onemind_core/appstore/deps.py` and
+`core/tests/test_dependency_paths.py`). Pull the selected model before going offline.
 
-The fix belongs in the gateway, not in these manifests. When an app declares `spec.dependencies: [kiwix, ollama]` and the owner approves the install, the gateway should open exactly the provider's Service port: egress from `app-library-chat`, and ingress into `app-kiwix` and `app-ollama` from that one namespace. That is a contract change (§12.22) and a security review, and it is proposed in onemindos/ONEMINDOS#220. Nothing here weakens the policy.
+## Market installation status
+
+This bundle currently installs through the command above. A one-click Market bundle
+entry still needs coordinated gateway/dashboard work; the existing Market requests
+individual app installs. The command does not auto-approve installs or settings changes.
 
 ## Licences in short
 

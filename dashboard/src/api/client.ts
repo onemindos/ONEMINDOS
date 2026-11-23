@@ -35,7 +35,12 @@ export type PluginKeyInfo = components["schemas"]["SigningKey"];
 export type PluginKeyInput = components["schemas"]["KeyRequest"];
 export type PluginKeyRevokeInput = components["schemas"]["RevokeRequest"];
 
+/** GET /v1/notifications/summary (#682): the caller's unread state, kept on the hub. */
+export type NotificationSummary = components["schemas"]["NotificationSummary"];
+
 export interface OneMindApi extends WiringApi {
+  /** One call for the bell's unread state. Absent on the mock gateway and test doubles. */
+  notificationSummary?(): Promise<NotificationSummary>;
   pluginSigningKeys?(): Promise<components["schemas"]["SigningKeys"]>;
   requestPluginSigningKey?(body: PluginKeyInput): Promise<components["schemas"]["Action"]>;
   revokePluginSigningKey?(keyId: string, body: PluginKeyRevokeInput): Promise<components["schemas"]["Action"]>;
@@ -485,6 +490,9 @@ export class HttpApi implements OneMindApi {
   disableUser(id: string) {
     return this.req<W.UserInfo>('POST', `/v1/users/${encodeURIComponent(id)}/disable`, {});
   }
+  familyProfile(id: string) {
+    return this.req<W.FamilyProfile>('GET', `/v1/family/profiles/${encodeURIComponent(id)}`);
+  }
   tokens() {
     return this.req<W.TokenInfo[]>('GET', '/v1/tokens', undefined, 'array');
   }
@@ -509,6 +517,7 @@ export class HttpApi implements OneMindApi {
   markAllRead() {
     return this.req<{ marked: number }>('POST', '/v1/notifications/read-all', {});
   }
+  notificationSummary() { return this.sdkCall<NotificationSummary>('GET', '/v1/notifications/summary'); }
   channels() {
     return this.req<W.ChannelInfo[]>('GET', '/v1/notifications/channels', undefined, 'array');
   }
@@ -519,7 +528,7 @@ export class HttpApi implements OneMindApi {
     await this.req<void>('DELETE', `/v1/notifications/channels/${encodeURIComponent(id)}`);
   }
   testChannel(id: string) {
-    return this.req<{ ok?: boolean; error?: string | null }>('POST', `/v1/notifications/channels/${encodeURIComponent(id)}/test`, {});
+    return this.req<W.ChannelTestResult>('POST', `/v1/notifications/channels/${encodeURIComponent(id)}/test`, {});
   }
   monitoring() {
     return this.req<W.MonitoringSummary>('GET', '/v1/monitoring/summary');

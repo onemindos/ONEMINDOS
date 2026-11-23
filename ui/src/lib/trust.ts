@@ -5,6 +5,15 @@
 export type AppTier = 'verified' | 'community' | 'blocked';
 export type CosignState = 'verified' | 'unsigned' | 'failed';
 
+/** Quality tier (issue #174): computed by the app gate from its evidence, never set by hand. */
+export type QualityTier = 'none' | 'bronze' | 'silver' | 'gold';
+export type QualityLevel = 'bronze' | 'silver' | 'gold';
+export interface AppQuality {
+  tier: QualityTier;
+  /** Yes/no checks per level. A tier needs every check of its level and of the levels below. */
+  evidence: Record<QualityLevel, Record<string, boolean>>;
+}
+
 export interface ScanSummary {
   scanned_at: string;
   result: 'pass' | 'fail';
@@ -12,6 +21,8 @@ export interface ScanSummary {
   high?: number;
   malware?: number;
   cosign?: CosignState;
+  /** Null or absent on a scan from before quality tiers: not rated yet. */
+  quality?: AppQuality | null;
 }
 
 export const SCAN_MAX_AGE_MS = 7 * 86_400_000;
