@@ -1,0 +1,90 @@
+{
+  "$comment": "SPDX-License-Identifier: Apache-2.0. Written from scratch for OneMind (issue #855).",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/onemindos/ONEMINDOS/sdk/schema/onemind.job.lora.schema.json",
+  "title": "LoRa job kinds of the signed onemind.job/v1 envelope",
+  "description": "The radio is driven only by Ed25519-signed jobs from the gateway to onemindd (contract sdk/contracts/poc-v0.md section 12.11; core/onemind_core/backups/jobs.py signs, internal/backup/job.go verifies): no command subject, no app NATS account. These jobs go over the onemindd loopback job API on the hub that owns the radio, like backup jobs, and never over onemind.node.<id>.job or jobresult, because a lora.inbox reply carries message text and text never rides NATS. lora.send, lora.advert and lora.channel.set each carry the approved action (params.action_id equals the envelope action_id); lora.inbox and lora.status are reads with action_id null. There is no job kind that sets frequency, bandwidth, spreading factor, coding rate, power or keys, and onemindd refuses every kind not listed here. Signed params hold no floats. Replies are the $defs/result_* shapes.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "job_id", "action_id", "kind", "params", "params_sha256", "issued_at", "expires_at", "sig"],
+  "properties": {
+    "schema": {"const": "onemind.job/v1"},
+    "job_id": {"type": "string", "pattern": "^job_[A-Za-z0-9]{8,64}$"},
+    "action_id": {"type": ["string", "null"], "format": "uuid"},
+    "kind": {"enum": ["lora.inbox", "lora.status", "lora.send", "lora.advert", "lora.channel.set"]},
+    "params": {"type": "object"},
+    "params_sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "issued_at": {"type": "string", "format": "date-time"},
+    "expires_at": {"type": "string", "format": "date-time", "description": "10 minutes after issued_at: a send not taken in 10 minutes expires"},
+    "sig": {"type": "string", "minLength": 1}
+  },
+  "allOf": [
+    {"if": {"properties": {"kind": {"const": "lora.inbox"}}}, "then": {"properties": {"action_id": {"type": "null"}, "params": {"$ref": "#/$defs/inbox"}}}},
+    {"if": {"properties": {"kind": {"const": "lora.status"}}}, "then": {"properties": {"action_id": {"type": "null"}, "params": {"$ref": "#/$defs/status"}}}},
+    {"if": {"properties": {"kind": {"const": "lora.send"}}}, "then": {"properties": {"action_id": {"type": "string"}, "params": {"$ref": "#/$defs/send"}}}},
+    {"if": {"properties": {"kind": {"const": "lora.advert"}}}, "then": {"properties": {"action_id": {"type": "string"}, "params": {"$ref": "#/$defs/advert"}}}},
+    {"if": {"properties": {"kind": {"const": "lora.channel.set"}}}, "then": {"properties": {"action_id": {"type": "string"}, "params": {"$ref": "#/$defs/channel_set"}}}}
+  ],
+  "$defs": {
+    "action_id": {"type": "string", "format": "uuid"},
+    "inbox": {"type": "object", "additionalProperties": false, "required": ["after"],
+      "properties": {"after": {"type": ["string", "null"], "maxLength": 64, "description": "The opaque cursor of the last reply; null for the oldest buffered message"}}},
+    "status": {"type": "object", "additionalProperties": false, "maxProperties": 0},
+    "send": {"type": "object", "additionalProperties": false, "required": ["action_id", "kind", "text", "max_attempts"],
+      "properties": {
+        "action_id": {"$ref": "#/$defs/action_id"},
+        "kind": {"enum": ["direct", "channel"]},
+        "to": {"type": "string", "pattern": "^[0-9a-f]{12}$", "description": "The contact's 6-byte public key prefix (MeshCore SEND_TXT_MSG)"},
+        "channel_index": {"type": "integer", "minimum": 0, "maximum": 39},
+        "text": {"type": "string", "minLength": 1, "maxLength": 160},
+        "max_attempts": {"type": "integer", "minimum": 1, "maximum": 3}
+      },
+      "oneOf": [
+        {"properties": {"kind": {"const": "direct"}}, "required": ["to"], "not": {"required": ["channel_index"]}},
+        {"properties": {"kind": {"const": "channel"}, "max_attempts": {"const": 1}}, "required": ["channel_index"], "not": {"required": ["to"]}}
+      ]},
+    "advert": {"type": "object", "additionalProperties": false, "required": ["action_id", "scope"],
+      "properties": {"action_id": {"$ref": "#/$defs/action_id"}, "scope": {"const": "zero_hop", "description": "Flood adverts are not sent in 1.0"}}},
+    "channel_set": {"type": "object", "additionalProperties": false, "required": ["action_id", "index", "name", "secret_ref"],
+      "properties": {
+        "action_id": {"$ref": "#/$defs/action_id"},
+        "index": {"type": "integer", "minimum": 0, "maximum": 39},
+        "name": {"type": "string", "minLength": 1, "maxLength": 32},
+        "secret_ref": {"type": "string", "pattern": "^sec_[A-Za-z0-9]{8,64}$", "description": "A reference onemindd resolves in the secret store (#743); the 16-byte secret itself is never in a job"}
+      }},
+    "reason": {"type": "string", "pattern": "^[a-z][a-z0-9_]{0,39}$", "description": "not_granted, radio_away, out_of_band, power_over_grant, unknown_peer, channel_not_found, queue_full, timeout, radio_error ..."},
+    "inbound": {"type": "object", "additionalProperties": false, "required": ["kind", "text", "sender_ts", "rx_at", "snr_db", "path_len"],
+      "properties": {
+        "kind": {"enum": ["direct", "channel"]},
+        "from": {"type": "string", "pattern": "^[0-9a-f]{12}$", "description": "Sender key prefix of a direct message"},
+        "channel_index": {"type": "integer", "minimum": 0, "maximum": 39},
+        "text": {"type": "string", "minLength": 1, "maxLength": 160},
+        "sender_ts": {"type": "integer", "minimum": 0, "maximum": 4294967295},
+        "rx_at": {"type": "string", "format": "date-time"},
+        "snr_db": {"type": ["number", "null"]},
+        "path_len": {"type": "integer", "minimum": 0, "maximum": 255}
+      },
+      "oneOf": [{"properties": {"kind": {"const": "direct"}}, "required": ["from"]},
+                {"properties": {"kind": {"const": "channel"}}, "required": ["channel_index"]}]},
+    "result_inbox": {"type": "object", "additionalProperties": false, "required": ["state", "messages", "acks", "next", "more"],
+      "properties": {
+        "state": {"const": "succeeded"},
+        "messages": {"type": "array", "maxItems": 100, "items": {"$ref": "#/$defs/inbound"}},
+        "acks": {"type": "array", "maxItems": 100, "items": {"type": "object", "additionalProperties": false, "required": ["expected_ack", "trip_ms"],
+          "properties": {"expected_ack": {"type": "integer", "minimum": 0, "maximum": 4294967295}, "trip_ms": {"type": "integer", "minimum": 0}}}},
+        "next": {"type": ["string", "null"], "maxLength": 64},
+        "more": {"type": "boolean"}
+      }},
+    "result_status": {"type": "object", "additionalProperties": false, "required": ["state", "radio"],
+      "properties": {"state": {"const": "succeeded"}, "radio": {"type": "object", "description": "An onemind.radio.status/v1 object"}}},
+    "result_send": {"oneOf": [
+      {"type": "object", "additionalProperties": false, "required": ["state", "expected_ack", "est_timeout_ms"],
+       "properties": {"state": {"const": "sent"}, "expected_ack": {"type": ["integer", "null"], "minimum": 0, "maximum": 4294967295, "description": "null for a channel message (no ack)"},
+                      "est_timeout_ms": {"type": "integer", "minimum": 0}}},
+      {"type": "object", "additionalProperties": false, "required": ["state", "trip_ms"],
+       "properties": {"state": {"const": "acked"}, "trip_ms": {"type": "integer", "minimum": 0}}},
+      {"type": "object", "additionalProperties": false, "required": ["state", "reason"],
+       "properties": {"state": {"const": "failed"}, "reason": {"$ref": "#/$defs/reason"}}}
+    ]}
+  }
+}
