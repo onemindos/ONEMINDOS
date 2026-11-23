@@ -188,14 +188,27 @@ class MonitorReader:
                  timeout: float = TIMEOUT_S):
         self.url = check_url(url)
         self.ttl, self.clock, self.monotonic = ttl, clock, monotonic
-        self._client = httpx.Client(base_url=self.url, timeout=timeout, transport=transport, follow_redirects=False,
-                                    trust_env=False)
+        # The client is built on the first read, not here: httpx.Client loads the TLS trust store (certifi, ssl
+        # context, httpcore) even for plain http, a few MiB the idle gateway never needs (perf budget, issue #849).
+        self._client_args = dict(base_url=self.url, timeout=timeout, transport=transport, follow_redirects=False,
+                                 trust_env=False)
+        self._client_obj: httpx.Client | None = None
+        self._client_lock = threading.Lock()
         self._lock = threading.Lock()
         self._cached: tuple[float, Snapshot] | None = None
         self.fetches = 0
 
+    @property
+    def _client(self) -> httpx.Client:
+        with self._client_lock:
+            if self._client_obj is None:
+                self._client_obj = httpx.Client(**self._client_args)
+            return self._client_obj
+
     def close(self) -> None:
-        self._client.close()
+        with self._client_lock:
+            if self._client_obj is not None:
+                self._client_obj.close()
 
     def read(self) -> Snapshot:
         with self._lock:
