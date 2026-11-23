@@ -924,10 +924,19 @@ def retire_k3s(p: Paths) -> None:
     k3s.service skips itself once the role file says leaf (k3s.service.d/20-onemind-leaf.conf); this stops the
     one that ran on the boot the role was picked, and on a later boot, when k3s never started (no /run/k3s, a
     tmpfs), removes what it left on /data: its own server token, certificates and datastore. Never while k3s
-    may still hold the folder. Pods it started keep running until the next restart (KillMode=process)."""
-    systemctl("stop", "--no-block", "k3s.service")
+    may still hold the folder. Pods it started keep running until the next restart (KillMode=process).
+    Only a k3s that is already running is stopped: a stop sent while its start job still waits (for
+    network-online.target) would cancel that job, so k3s would never reach its condition and the skip would
+    not show (CRITERIA-EDGE.md EG2 found this)."""
+    try:
+        state = run_cmd(["systemctl", "show", "-p", "ActiveState", "--value", "k3s.service"]).stdout.strip()
+    except OSError:
+        state = "unknown"                  # no systemctl: never remove anything on a guess
+    running = os.path.lexists(p.k3s_run) or state in ("active", "activating", "reloading")
+    if running:
+        systemctl("stop", "--no-block", "k3s.service")
     left = [os.path.join(p.k3s_data, d) for d in K3S_WRITES if os.path.lexists(os.path.join(p.k3s_data, d))]
-    if os.path.lexists(p.k3s_run) or not left:
+    if running or state not in ("inactive", "failed") or not left:
         return
     for d in left:
         shutil.rmtree(d, ignore_errors=True)

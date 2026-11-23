@@ -77,7 +77,10 @@ class FirstBootRetiresK3s(unittest.TestCase):
         os.makedirs(os.path.join(self.tmp.name, "dev"))
         put(self.p.console, "")
         self.calls = []
+        self.k3s = "inactive"                              # k3s.service ActiveState as systemctl shows it
+        show = lambda argv, env=None: subprocess.CompletedProcess(argv, 0, self.k3s + "\n", "")
         for pt in (mock.patch.object(fb, "systemctl", lambda *a: self.calls.append(a) or 0),
+                   mock.patch.object(fb, "run_cmd", show),
                    mock.patch.object(fb, "find_seed_device", lambda: None),
                    mock.patch.object(fb, "lan_addr", lambda: "192.0.2.10"),
                    mock.patch.object(fb, "ensure_boot_lock", lambda p: None),
@@ -102,6 +105,7 @@ class FirstBootRetiresK3s(unittest.TestCase):
     def test_configure_boot_stops_k3s_and_keeps_its_state_while_it_ran(self):
         self.k3s_state()
         os.makedirs(self.p.k3s_run)                    # k3s ran on this boot (before the role was picked)
+        self.k3s = "active"
         self.leaf()
         stops = [c for c in self.calls if c[0] == "stop"]
         self.assertEqual(len(stops), 1)
@@ -121,9 +125,29 @@ class FirstBootRetiresK3s(unittest.TestCase):
         for d in fb.K3S_WRITES:
             self.assertFalse(os.path.exists(os.path.join(self.p.k3s_data, d)), d)
         self.assertTrue(os.path.isdir(os.path.join(self.p.k3s_data, "storage")))
+        self.assertIn("removed the k3s state", self.console())
         self.calls.clear()
         self.assertEqual(fb.apply(self.p), 0)          # nothing left: a quiet no-op
-        self.assertIn("k3s", self.console())
+        self.assertFalse([c for c in self.calls if c[0] == "stop"])
+
+    def test_a_waiting_k3s_is_left_to_its_condition(self):
+        """The restart: k3s's start job still waits for the network. A stop now would cancel it, and k3s would
+        never reach the ExecCondition that skips it (CRITERIA-EDGE.md EG2)."""
+        self.leaf()
+        self.calls.clear()
+        self.k3s = "inactive"
+        self.assertEqual(fb.apply(self.p), 0)
+        self.assertFalse([c for c in self.calls if c[0] == "stop"], self.calls)
+
+    def test_activating_k3s_is_stopped_and_its_state_kept(self):
+        self.leaf()
+        self.k3s_state()
+        self.calls.clear()
+        self.k3s = "activating"                        # started before the role file existed
+        self.assertEqual(fb.apply(self.p), 0)
+        self.assertTrue([c for c in self.calls if c[0] == "stop" and "k3s.service" in c])
+        self.assertTrue(os.path.isfile(os.path.join(self.p.k3s_data, "server", "token")))
+        self.assertNotIn("removed the k3s state", self.console())
 
     def test_no_hub_unit_is_started_on_a_leaf(self):
         self.leaf()

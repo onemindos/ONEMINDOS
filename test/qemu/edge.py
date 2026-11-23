@@ -82,6 +82,7 @@ def eg2_eg3_eg4(vm, seg):
     units = " ".join(HUB_UNITS)
     _, o = vm.run(f"for u in {units}; do echo \"UNIT $u $(systemctl is-active $u 2>/dev/null)\"; done; "
                   "echo \"K3SRESULT $(systemctl show -p Result --value k3s)\"; "
+                  "journalctl -b -u k3s --no-pager -o cat 2>/dev/null | tail -3 | sed 's/^/K3SLOG /'; "
                   "ss -H -ltn | awk '{n=split($4,a,\":\"); print \"LISTEN \" a[n]}'; "
                   f"for d in {' '.join(K3S_WRITES)}; do [ -e $d ] && echo \"K3SDIR $d present\"; done; true", 120)
     active = sorted(u for u, s in kv_lines(o, "UNIT").items() if s == "active")
@@ -97,10 +98,11 @@ def eg2_eg3_eg4(vm, seg):
                   "echo \"HZ $(curl -s -m 5 http://127.0.0.1:7480/healthz)\"; "
                   f"for s in {' '.join(HUB_SECRETS)}; do [ -e $s ] && echo \"SECRET $s present\"; done; true", 120)
     boot = (re.findall(r"^BOOT (\S+)", o, re.M) or ["?"])[-1]
-    hz = (re.findall(r"^HZ (.*)$", o, re.M) or [""])[-1]
+    # onemindd pretty-prints its JSON (one field per line), so read the field, not one compact line.
+    hz = (re.findall(r'"boot_id":\s*"([^"]*)"', o[o.find("HZ "):]) or [""])[0]
     secrets = re.findall(r"^SECRET (\S+) present", o, re.M)
     on = "ACTIVE active" in o
-    match = len(boot) == 36 and ('"boot_id":"%s"' % boot) in hz
+    match = len(boot) == 36 and hz == boot
     record("EG3", on and match and not secrets,
            f"onemindd_active={on} healthz_boot_id_matches={match} hub_secrets_present={secrets}")
     text = vm.since(seg)

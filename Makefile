@@ -102,7 +102,8 @@ bootlock:
 
 
 # Edge profile (test/qemu/edge.py, CRITERIA-EDGE.md, #751): first boot as an edge (role leaf), no hub services,
-# the gate's leaf check, a good and a bad update. Needs fixtures made with EDGE=1 (the bad-leaf bundle).
+# the gate's leaf check, a good and a bad update. Needs fixtures made with EDGE=1 (the bad-leaf bundle), fresh:
+# `make battery` boots the fixture disk itself and leaves it updated, so run `edge` first or remake the fixtures.
 .PHONY: edge
 edge:
 	@test -f $(OUT)/fx-$(BOARD)/disk.img || $(MAKE) fixtures BOARD=$(BOARD) EDGE=1
