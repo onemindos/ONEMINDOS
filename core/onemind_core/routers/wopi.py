@@ -37,6 +37,8 @@ ORDER = 305
 
 # The handler decides (a person with a live session and access to the path), as /v1/auth/* does.
 register_route_scope("POST", r"/v1/files/wopi/tokens", None)
+# The WOPI operations take only the file token (access_token), never a sign-in credential: no scope applies.
+register_route_scope("GET,POST", r"/v1/files/wopi/files/[^/]+(/contents)?", None)
 
 _ERR = {
     401: {"description": "Missing, unknown or expired token, or the session behind it ended (unauthenticated)"},
