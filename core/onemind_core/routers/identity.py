@@ -15,6 +15,7 @@ from ..auth import Principal
 from ..context import Gateway
 from ..errors import error_responses
 from ..identity import IdentityService, ctx_of
+from ..identity.approver_keys import KeyKind
 from ..jsonbody import JsonBody
 
 SIGNIN_HTML = Path(__file__).resolve().parent.parent / "identity" / "signin.html"
@@ -25,6 +26,8 @@ class ApprovalChallenge(BaseModel):
     action_sha256: str
     plan_sha256: str | None
     expires_at: str
+    # #702: what a phone's approver key signs (UTF-8, ECDSA P-256 SHA-256) instead of a passkey assertion.
+    device_payload: str
     publicKey: dict[str, Any]
 
 
@@ -67,6 +70,22 @@ class PasskeyRegisterBody(BaseModel):
     credential: dict[str, Any]
     label: str | None = Field(default=None, max_length=100)
     install_id: str | None = Field(default=None, pattern=INSTALL_ID)
+
+
+class ApproverKeyBody(BaseModel):
+    public_key: str = Field(max_length=400, description="P-256 SubjectPublicKeyInfo, DER, base64url.")
+    label: str = Field(max_length=100, description="The phone this key lives on, e.g. 'Pixel 9'.")
+    key_kind: KeyKind
+
+
+class ApproverKey(BaseModel):
+    key_id: str
+    label: str
+    key_kind: str
+    fingerprint: str
+    created_at: str
+    last_used_at: str | None
+    revoked_at: str | None
 
 
 class RescueVerifyBody(BaseModel):
@@ -218,6 +237,21 @@ def register(app: FastAPI, gw: Gateway) -> None:
     @app.delete("/v1/auth/passkeys/{credential_id}", operation_id="auth.passkeys.delete", tags=["auth"], status_code=204, responses=R(401, 403, 404, 409))
     def passkey_delete(credential_id: str, request: Request, _: Principal = Depends(principal)):
         svc.delete_passkey(ctx_of(request), credential_id)
+        return Response(status_code=204)
+
+    # ---- device-bound approver keys (#702): the phone's biometric-gated signing key -------------------
+    @app.post("/v1/auth/approver-keys", operation_id="auth.approver_keys.register", tags=["auth"], status_code=201, response_model=ApproverKey, responses=R(401, 403, 409, 422))
+    def approver_key_register(body: ApproverKeyBody, request: Request, _: Principal = Depends(principal)):
+        """An owner adds a phone's P-256 approver key; needs a passkey sign-in on this session in the last minutes."""
+        return svc.register_approver_key(ctx_of(request), body.public_key, body.label, body.key_kind)
+
+    @app.get("/v1/auth/approver-keys", operation_id="auth.approver_keys.list", tags=["auth"], response_model=list[ApproverKey], responses=R(401, 403))
+    def approver_keys(request: Request, _: Principal = Depends(principal)):
+        return svc.list_approver_keys(ctx_of(request))
+
+    @app.delete("/v1/auth/approver-keys/{key_id}", operation_id="auth.approver_keys.revoke", tags=["auth"], status_code=204, responses=R(401, 403, 404))
+    def approver_key_revoke(key_id: str, request: Request, _: Principal = Depends(principal)):
+        svc.revoke_approver_key(ctx_of(request), key_id)
         return Response(status_code=204)
 
     @app.post("/v1/auth/password", operation_id="auth.password.change", tags=["auth"], status_code=204, responses=R(401, 403, 422, 429))

@@ -140,6 +140,14 @@ POLICY |= {
     ("GET", "/v1/auth/passkeys"): Row(own_credentials(200), w.p_static("/v1/auth/passkeys"), "§12.6 own passkeys", ID, UNAUDITED),
     ("DELETE", "/v1/auth/passkeys/{credential_id}"): Row(own_credentials(404), w.p_static("/v1/auth/passkeys/no-such-credential"),
                                                          "§12.6 own passkeys", ID, UNAUDITED),
+    # #702 phone approver keys: registering needs an owner session with a fresh passkey (a child is refused
+    # and audited; static tokens hold no session); listing and revoking are the caller's own keys.
+    ("POST", "/v1/auth/approver-keys"): Row(cells(403, **GONE, **PENDING_DENY), w.p_approver_key,
+                                            "#702 an owner session with a fresh passkey", ID, UNAUDITED),
+    ("GET", "/v1/auth/approver-keys"): Row(own_credentials(200), w.p_static("/v1/auth/approver-keys"),
+                                           "#702 own approver keys", ID, UNAUDITED),
+    ("DELETE", "/v1/auth/approver-keys/{key_id}"): Row(own_credentials(404), w.p_static("/v1/auth/approver-keys/apk_none"),
+                                                       "#702 own approver keys", ID, UNAUDITED),
     ("POST", "/v1/auth/password"): Row(own_credentials(204), w.p_password, "§12.6 own credentials", ID, UNAUDITED),
     ("POST", "/v1/auth/totp/setup"): Row(own_credentials(200), w.p_static("/v1/auth/totp/setup"), "§12.6 own credentials", ID, UNAUDITED),
     ("POST", "/v1/auth/totp/confirm"): Row(own_credentials(409), w.p_totp_confirm, "§12.6 own credentials (no setup started: 409)", ID, UNAUDITED),
