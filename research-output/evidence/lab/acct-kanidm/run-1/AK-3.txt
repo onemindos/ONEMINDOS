@@ -1,0 +1,103 @@
+# 2026-11-23T03:10:35Z AK-3: household groups
++ admin_relogin
+idm_admin login ok
+  (exit 0)
++ k group create onemind_owners
+Successfully created group 'onemind_owners'
+  (exit 0)
++ k group create onemind_adults
+Successfully created group 'onemind_adults'
+  (exit 0)
++ k group create onemind_children
+Successfully created group 'onemind_children'
+  (exit 0)
++ k group create onemind_guests
+Successfully created group 'onemind_guests'
+  (exit 0)
++ k person create adult1 'Adult One'
+Successfully created display_name="Adult One" username=adult1
+  (exit 0)
++ k person create adult2 'Adult Two'
+Successfully created display_name="Adult Two" username=adult2
+  (exit 0)
++ k person create child1 'Child One'
+Successfully created display_name="Child One" username=child1
+  (exit 0)
++ k person create guest1 'Guest One'
+Successfully created display_name="Guest One" username=guest1
+  (exit 0)
++ k group add-members onemind_owners owner
+Successfully added ["owner"] to group "onemind_owners"
+  (exit 0)
++ k group add-members onemind_adults adult1 adult2
+Successfully added ["adult1", "adult2"] to group "onemind_adults"
+  (exit 0)
++ k group add-members onemind_children child1
+Successfully added ["child1"] to group "onemind_children"
+  (exit 0)
++ k group add-members onemind_guests guest1
+Successfully added ["guest1"] to group "onemind_guests"
+  (exit 0)
++ reset_token adult1 adult1.reset
+reset link issued for adult1 (link and token kept in the secrets dir, not printed)
+This token will expire at: 2026-11-23T04:10:39Z
+  (exit 0)
++ $PY enrol adult1 adult1.reset passkey
+{"ok": true, "status": {"can_commit": false, "mfaregstate": "None", "passkeys": [], "primary": null, "warnings": ["NoValidCredentials"]}, "step": "exchange_intent", "user": "adult1"}
+{"attestation": "none", "ok": true, "rp_id": "idm.onemind.test", "step": "passkey_init", "user": "adult1", "user_verification": "required"}
+{"credential_fp": "6fcefb60a6924d95", "http": 200, "ok": true, "status": {"can_commit": true, "mfaregstate": "None", "passkeys": ["lab-virtual-authenticator"], "primary": null, "warnings": []}, "step": "passkey_finish", "user": "adult1"}
+{"http": 200, "ok": true, "step": "commit", "user": "adult1"}
+  (exit 0)
++ reset_token child1 child1.reset
+reset link issued for child1 (link and token kept in the secrets dir, not printed)
+This token will expire at: 2026-11-23T04:10:41Z
+  (exit 0)
++ $PY enrol child1 child1.reset passkey
+{"ok": true, "status": {"can_commit": false, "mfaregstate": "None", "passkeys": [], "primary": null, "warnings": ["NoValidCredentials"]}, "step": "exchange_intent", "user": "child1"}
+{"attestation": "none", "ok": true, "rp_id": "idm.onemind.test", "step": "passkey_init", "user": "child1", "user_verification": "required"}
+{"credential_fp": "cc3e4d5f31165cf0", "http": 200, "ok": true, "status": {"can_commit": true, "mfaregstate": "None", "passkeys": ["lab-virtual-authenticator"], "primary": null, "warnings": []}, "step": "passkey_finish", "user": "child1"}
+{"http": 200, "ok": true, "step": "commit", "user": "child1"}
+  (exit 0)
++ reset_token guest1 guest1.reset
+reset link issued for guest1 (link and token kept in the secrets dir, not printed)
+This token will expire at: 2026-11-23T04:10:42Z
+  (exit 0)
++ $PY enrol guest1 guest1.reset passkey
+{"ok": true, "status": {"can_commit": false, "mfaregstate": "None", "passkeys": [], "primary": null, "warnings": ["NoValidCredentials"]}, "step": "exchange_intent", "user": "guest1"}
+{"attestation": "none", "ok": true, "rp_id": "idm.onemind.test", "step": "passkey_init", "user": "guest1", "user_verification": "required"}
+{"credential_fp": "d98d4ec74936fa20", "http": 200, "ok": true, "status": {"can_commit": true, "mfaregstate": "None", "passkeys": ["lab-virtual-authenticator"], "primary": null, "warnings": []}, "step": "passkey_finish", "user": "guest1"}
+{"http": 200, "ok": true, "step": "commit", "user": "guest1"}
+  (exit 0)
++ reset_token adult2 adult2.reset
+reset link issued for adult2 (link and token kept in the secrets dir, not printed)
+This token will expire at: 2026-11-23T04:10:43Z
+  (exit 0)
++ $PY enrol adult2 adult2.reset password+totp
+{"ok": true, "status": {"can_commit": false, "mfaregstate": "None", "passkeys": [], "primary": null, "warnings": ["NoValidCredentials"]}, "step": "exchange_intent", "user": "adult2"}
+{"ok": true, "status": {"can_commit": false, "mfaregstate": "None", "passkeys": [], "primary": null, "warnings": ["MfaRequired"]}, "step": "set_password", "user": "adult2"}
+{"algo": "sha256", "digits": 6, "ok": true, "status": {"can_commit": true, "mfaregstate": "None", "passkeys": [], "primary": null, "warnings": []}, "step": "totp_enrol", "step_s": 30, "user": "adult2"}
+{"http": 200, "ok": true, "step": "commit", "user": "adult2"}
+  (exit 0)
+# gateway read path: a service account with an API token, reading memberof over REST
++ k service-account create onemind_gateway 'OneMind gateway (lab)' idm_admins
+  (exit 0)
+# read rights: idm_account_mail_read is the narrowest built-in group whose ACP (idm_acp_people_read) lets a service account read memberof of persons
++ k group add-members idm_account_mail_read onemind_gateway
+Successfully added ["onemind_gateway"] to group "idm_account_mail_read"
+  (exit 0)
++ kanidm service-account api-token generate onemind_gateway gateway-read -D idm_admin 2>&1 | grep -oE '[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}' | head -1 > /root/aklab/secrets/gateway.api_token; chmod 600 /root/aklab/secrets/gateway.api_token; test -s /root/aklab/secrets/gateway.api_token && echo 'api token issued (kept in the secrets dir)'
+api token issued (kept in the secrets dir)
+  (exit 0)
++ $PY memberof gateway.api_token owner adult1 child1 guest1
+{"http": 200, "onemind_groups": ["onemind_owners"], "step": "memberof", "user": "owner"}
+{"http": 200, "onemind_groups": ["onemind_adults"], "step": "memberof", "user": "adult1"}
+{"http": 200, "onemind_groups": ["onemind_children"], "step": "memberof", "user": "child1"}
+{"http": 200, "onemind_groups": ["onemind_guests"], "step": "memberof", "user": "guest1"}
+  (exit 0)
++ for g in onemind_owners onemind_adults onemind_children onemind_guests; do k group list-members $g; done
+"owner@idm.onemind.test"
+"adult1@idm.onemind.test"
+"adult2@idm.onemind.test"
+"child1@idm.onemind.test"
+"guest1@idm.onemind.test"
+  (exit 0)

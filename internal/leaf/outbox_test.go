@@ -59,9 +59,12 @@ leafnodes { listen: "127.0.0.1:%d" }
 	leafConf := filepath.Join(l.dir, "leaf.conf")
 	leaf := fmt.Sprintf(`server_name: node-n1
 listen: "127.0.0.1:%d"
-jetstream { store_dir: %q, domain: "node-n1", max_file_store: 256MB }
+jetstream { store_dir: %q, domain: "node-n1", max_file_store: 256MB, max_memory_store: 0 }
 leafnodes { remotes: [ { urls: ["nats-leaf://127.0.0.1:%d"] } ] }
 `, l.leafClient, filepath.Join(l.dir, "leaf-store"), l.hubLeaf)
+	if err := CheckConf([]byte(leaf)); err != nil { // the lab leaf is capped like a real one (#601)
+		t.Fatal(err)
+	}
 	if err := os.WriteFile(leafConf, []byte(leaf), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -198,6 +201,58 @@ func TestOutboxRefusesWhenFullInsteadOfDropping(t *testing.T) {
 	st, _ := Status(ctx, js)
 	if int(st.Messages) != stored {
 		t.Fatalf("outbox holds %d, enqueue accepted %d: an unread message was dropped", st.Messages, stored)
+	}
+}
+
+// #601: the outbox retention, discard policy, size and age are pinned. A change here is a
+// contract change for every small device (and for the hub's source of it, #747).
+func TestOutboxStreamConfigIsPinned(t *testing.T) {
+	c := OutboxConfig{}.StreamConfig()
+	if c.Name != "OUTBOX" || len(c.Subjects) != 1 || c.Subjects[0] != "outbox.>" {
+		t.Fatalf("name or subjects changed: %+v", c)
+	}
+	if c.Retention != jetstream.WorkQueuePolicy {
+		t.Errorf("retention %v: want work queue (delivered messages leave the leaf)", c.Retention)
+	}
+	if c.Discard != jetstream.DiscardNew {
+		t.Errorf("discard %v: want new (refuse when full, never drop an unread message)", c.Discard)
+	}
+	if c.Storage != jetstream.FileStorage {
+		t.Errorf("storage %v: want file (the leaf has no memory store)", c.Storage)
+	}
+	if c.MaxBytes != 128<<20 || c.MaxAge != 7*24*time.Hour || c.Duplicates != 24*time.Hour {
+		t.Errorf("size %d, age %v, dedupe %v: want 128 MiB, 7 days, 24 hours", c.MaxBytes, c.MaxAge, c.Duplicates)
+	}
+	if c.MaxBytes >= 256<<20 {
+		t.Error("the outbox must fit inside the leaf's 256MB file store with room to spare")
+	}
+	own := OutboxConfig{MaxBytes: 1 << 20, MaxAge: time.Hour}.StreamConfig()
+	if own.MaxBytes != 1<<20 || own.MaxAge != time.Hour {
+		t.Errorf("explicit size and age not used: %+v", own)
+	}
+}
+
+// #601: the server keeps exactly the pinned policy (not just the struct we send).
+func TestOutboxStreamOnServerKeepsPolicy(t *testing.T) {
+	l := newOutboxLab(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	js := connectJS(t, l.leafURL())
+	if err := EnsureOutbox(ctx, js, OutboxConfig{}); err != nil {
+		t.Fatal(err)
+	}
+	s, err := js.Stream(ctx, OutboxStream)
+	if err != nil {
+		t.Fatal(err)
+	}
+	info, err := s.Info(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := info.Config
+	if c.Retention != jetstream.WorkQueuePolicy || c.Discard != jetstream.DiscardNew || c.Storage != jetstream.FileStorage ||
+		c.MaxBytes != DefaultOutboxMaxBytes || c.MaxAge != DefaultOutboxMaxAge || c.Duplicates != DefaultDedupeWindow {
+		t.Fatalf("server config differs from the pinned outbox: %+v", c)
 	}
 }
 

@@ -13,7 +13,9 @@ import (
 )
 
 // notWiredYet maps an internal package to the epic that wires it. Remove the line when it is wired.
-var notWiredYet = map[string]string{}
+var notWiredYet = map[string]string{
+	"storage/netmount": "#718 NAS mounts: parts 2-4 add the mount manager and storage-socket routes that wire it",
+}
 
 // Package-level reachability is coarse: internal/leaf is imported (its health check backs
 // `onemind mesh status`), so TestSymbolsAreCalled below checks the symbols it names (slop CS2-06).

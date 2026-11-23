@@ -11,6 +11,12 @@ const byName = (name: string): Screen => {
   return s;
 };
 
+// Drawing a reference takes two identical captures in a row. Under four parallel workers WebKit sometimes
+// needs more than the default 5 s for them: dash-market (the Market with its app icons, a run's first test)
+// timed out on its second capture, got no reference and so showed as changed (#883). Only the time limit
+// is longer; what counts as a difference (maxDiffPixelRatio in playwright.config.ts) is not touched.
+const WHOLE_PAGE_SHOT_MS = 20_000;
+
 /**
  * The whole page at 1280 px. The viewport is stretched to the page's height instead of using a
  * full-page capture: a full-page capture draws position: fixed layers (wallpaper, Home dock, page
@@ -20,7 +26,7 @@ async function wholePage(page: Page, file: string) {
   const height = await page.evaluate(() => document.documentElement.scrollHeight);
   await page.setViewportSize({ width: 1280, height: Math.min(Math.max(height, 860), 8000) });
   await settle(page);
-  await expect(page).toHaveScreenshot(file);
+  await expect(page).toHaveScreenshot(file, { timeout: WHOLE_PAGE_SHOT_MS });
 }
 
 // Whole pages at 1280 px: every primary screen, the component gallery and the main flows.

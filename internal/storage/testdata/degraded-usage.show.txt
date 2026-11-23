@@ -1,0 +1,4 @@
+Label: 'onemind-data'  uuid: 4d389616-bb46-438e-8b58-e9e1f78d0dcc
+	Total devices 2 FS bytes used 1881112576
+	devid    1 size 3221225472 used 3199205376 path /dev/loop0
+	devid    2 size 0 used 0 path  MISSING
