@@ -211,6 +211,10 @@ def test_refusals(fc, files_root):
     assert sync_up(fc, OWNER, "shared", "/Inbox", data, None, 409).json()["reason"] == "not_a_file"
     leftovers = list((files_root / ".system" / "uploads").glob("sync-*")) if (files_root / ".system" / "uploads").exists() else []
     assert leftovers == []
+    # numbers must be JSON numbers
+    r = fc.post("/v1/sync/commit", headers=OWNER, json={"root": "shared", "path": "/c.txt", "size": str(len(data)),
+                "sha256": digest, "chunks": manifest_of(data)})
+    assert r.status_code == 422
     # a bad If-Match
     r = fc.post("/v1/sync/commit", headers={**OWNER, "If-Match": "*"}, json={"root": "shared", "path": "/c.txt",
                 "size": len(data), "sha256": digest, "chunks": manifest_of(data)})

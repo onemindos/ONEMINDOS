@@ -31,6 +31,7 @@ from ..files.locks import TTL_MAX_S, Locks
 from ..files.transfer import CHUNK_LIMIT, MANIFEST_MAX_CHUNKS, Transfer
 from ..guard import reads_body
 from ..identity.scopes import ALL, register_route_scope
+from ..jsonbody import JsonBody
 from .files import CURSOR_RE, MAX_QUOTA_BYTES, Root, RootQ, errs
 
 # Like /v1/files/*: no narrower scope covers files yet, so a scoped token needs every scope ("*");
@@ -74,7 +75,8 @@ class SyncChanges(BaseModel):
     has_more: bool                # true: ask again at once with next_cursor
 
 
-class _Body(BaseModel):
+class _Body(JsonBody):
+    """Request bodies: unknown keys refused, numbers must arrive as JSON numbers (not "12" or true)."""
     model_config = ConfigDict(extra="forbid")
 
 
