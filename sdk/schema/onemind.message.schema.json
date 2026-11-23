@@ -1,0 +1,41 @@
+{
+  "$comment": "SPDX-License-Identifier: Apache-2.0. Written from scratch for OneMind (issue #855); no Meshtastic code or tables.",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/onemindos/ONEMINDOS/sdk/schema/onemind.message.schema.json",
+  "title": "OneMind message (onemind.message/v1)",
+  "description": "One LoRa message as the gateway stores and serves it (/v1/messages, #856). The text lives only in the gateway database and in signed-job replies on the loopback job API; it never rides NATS (events carry ids only, onemind.message.event.schema.json). Transport lora-mc is MeshCore; lora-mt is reserved for the 1.1 Meshtastic bridge (#739) and refused in 1.0. text maxLength is MeshCore MAX_TEXT_LEN (160, src/helpers/BaseChatMesh.h) in characters; the send guard also caps the UTF-8 bytes (sdk/contracts/meshcore/guard.json).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "id", "thread_id", "direction", "kind", "transport", "origin", "peer", "channel_index", "text",
+               "sender_ts", "rx_at", "snr_db", "path_len", "attempts", "state"],
+  "properties": {
+    "schema": {"const": "onemind.message/v1"},
+    "id": {"type": "string", "pattern": "^msg_[A-Za-z0-9]{8,64}$"},
+    "thread_id": {"type": "string", "pattern": "^thr_[A-Za-z0-9]{8,64}$"},
+    "direction": {"enum": ["in", "out"]},
+    "kind": {"enum": ["direct", "channel"], "description": "direct: one contact, encrypted per pair, acknowledged; channel: a group channel slot, never acknowledged"},
+    "transport": {"enum": ["lora-mc"], "description": "lora-mc = MeshCore. lora-mt (Meshtastic) is reserved for 1.1 and refused here."},
+    "origin": {"enum": ["hub", "phone-direct"], "description": "hub: the radio docked on the hub (onemindd); phone-direct: imported from the phone's own radio (POST /v1/messages/import, #865)"},
+    "peer": {"type": ["string", "null"], "minLength": 1, "maxLength": 64, "description": "An opaque peer id (a direct contact); clients never parse it. null on a channel message."},
+    "channel_index": {"type": ["integer", "null"], "minimum": 0, "maximum": 39, "description": "The radio's channel slot; null on a direct message"},
+    "text": {"type": "string", "minLength": 1, "maxLength": 160},
+    "sender_ts": {"type": "integer", "minimum": 0, "maximum": 4294967295, "description": "The sender's own clock in Unix seconds, as the frame carried it (may be wrong)"},
+    "rx_at": {"type": ["string", "null"], "format": "date-time", "description": "When the radio handed it to OneMind (RFC 3339 UTC); null on an outgoing message"},
+    "snr_db": {"type": ["number", "null"], "minimum": -32, "maximum": 32},
+    "path_len": {"type": ["integer", "null"], "minimum": 0, "maximum": 255, "description": "The encoded path length byte as received; null on an outgoing message"},
+    "attempts": {"type": "integer", "minimum": 0, "maximum": 3, "description": "Send attempts used, every one counted against the airtime budget"},
+    "state": {"enum": ["queued", "sent", "acked", "failed", "expired", null], "description": "Delivery state of an outgoing message; null on an incoming one"},
+    "action_id": {"type": ["string", "null"], "format": "uuid", "description": "The approved message.send action that sent it"},
+    "reason": {"type": ["string", "null"], "pattern": "^[a-z][a-z0-9_]{0,39}$", "description": "Why it failed or expired"}
+  },
+  "allOf": [
+    {"if": {"properties": {"kind": {"const": "direct"}}},
+     "then": {"properties": {"peer": {"type": "string"}, "channel_index": {"type": "null"}}}},
+    {"if": {"properties": {"kind": {"const": "channel"}}},
+     "then": {"properties": {"peer": {"type": "null"}, "channel_index": {"type": "integer"}, "state": {"not": {"const": "acked"}}}}},
+    {"if": {"properties": {"direction": {"const": "in"}}},
+     "then": {"properties": {"state": {"type": "null"}, "rx_at": {"type": "string"}, "attempts": {"const": 0}}}},
+    {"if": {"properties": {"direction": {"const": "out"}}},
+     "then": {"properties": {"state": {"type": "string"}, "rx_at": {"type": "null"}}}}
+  ]
+}

@@ -19,3 +19,17 @@
   ::view-transition-old(wm-dismiss) { animation: wm-dismiss var(--dsk-t-fast, 120ms) ease-in both; }
   @keyframes wm-dismiss { to { opacity: 0; transform: scale(.96); } }
 }
+.wm-keys { margin: 0 0 var(--om-space-3); }
+.wm-keys-head { margin: var(--om-space-3) 0 var(--om-space-1); font-size: var(--om-font-size-sm, .875rem); }
+.wm-keys-row { display: flex; justify-content: space-between; gap: var(--om-space-3); padding: var(--om-space-1) 0; }
+.wm-keys-row dt { margin: 0; }
+.wm-keys-row dd { margin: 0; }
+.wm-keys kbd { font: inherit; padding: 0 var(--om-space-2); border: 1px solid var(--om-color-border, currentColor); border-radius: 4px; white-space: nowrap; }
+.wm-spaces { display: inline-flex; gap: 2px; align-items: center; }
+.wm-space { min-width: 28px; min-height: 28px; border: 1px solid transparent; border-radius: 6px; background: transparent; color: inherit; cursor: pointer; }
+.wm-space[aria-pressed="true"] { border-color: var(--om-color-focus); background: color-mix(in srgb, var(--om-color-focus) 18%, transparent); }
+.wm-space:focus-visible, .wm-tiling:focus-visible { outline: 2px solid var(--om-color-focus); outline-offset: 1px; }
+.wm-space[data-busy]::after { content: ''; display: block; width: 4px; height: 4px; margin: 0 auto; border-radius: 50%; background: currentColor; }
+.wm-tiling { min-height: 28px; padding: 0 var(--om-space-2); cursor: pointer; border-radius: 6px; background: transparent; color: inherit; border: 1px solid var(--om-color-border, currentColor); }
+.wm-frame[data-tiled] { transition: none; }
+@media (max-width: 720px) { .wm-spaces, .wm-tiling, .wm-send { display: none; } }

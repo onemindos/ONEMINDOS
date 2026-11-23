@@ -30,7 +30,8 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from .catalogue import RANK, SEVERITIES, TOPICS
 
 HHMM = re.compile(r"^([01]\d|2[0-3]):([0-5]\d)$")
-TOPIC_RE = re.compile(r"^(?:(?:%s)(?:\.\*)?|plugin(?:\.[a-z0-9][a-z0-9-]{0,58})?(?:\.\*)?)$" % "|".join(TOPICS))
+TOPIC_RE = re.compile(r"^(?:(?:%s)(?:\.\*)?|plugin(?:\.[a-z0-9][a-z0-9-]{0,58})?(?:\.\*)?"
+                      r"|app(?:\.[a-z][a-z0-9-]{0,58}(?:\.[a-z][a-z0-9_.-]{0,62})?)?(?:\.\*)?)$" % "|".join(TOPICS))
 TARGET_RE = re.compile(r"^(\*|(chn|dev)_[0-9A-Z]{26})$")
 MAX_ROUTES = 50
 
@@ -122,7 +123,7 @@ def validate(doc: object) -> dict:
 
 def _topics(values, where: str) -> list[str]:
     if not isinstance(values, list) or not all(isinstance(t, str) and TOPIC_RE.match(t) for t in values):
-        raise ValueError(f"{where}: topics are {', '.join(TOPICS)} or plugin.<app-id>, optionally ending in .*")
+        raise ValueError(f"{where}: topics are {', '.join(TOPICS)}, plugin.<app-id> or app.<app-id>.<topic>, optionally ending in .*")
     return list(values)
 
 

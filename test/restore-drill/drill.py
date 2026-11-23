@@ -41,6 +41,11 @@ core = _load("drillcore", os.path.join(HERE, "drillcore.py"))
 net = _load("two_vm", os.path.join(ROOT, "test", "net", "two_vm.py"))   # image pin, source tree build, console guard
 
 
+# The new machine gets the old box's name: the restored cluster state names its node (and the local volumes' node
+# affinity) by hostname, and a person rebuilding a box gives it the same name (the box is <name>.local).
+BOX_HOSTNAME = "drillbox"
+
+
 def log(msg):
     print(f"[{time.strftime('%H:%M:%S')}] {msg}", flush=True)
 
@@ -48,7 +53,8 @@ def log(msg):
 class VM:
     """One Debian 13 VM on QEMU user networking (SSH forwarded to loopback) with an optional USB-style disk."""
 
-    def __init__(self, name, work, key, mem, cpus, accel, usb=None):
+    def __init__(self, name, work, key, mem, cpus, accel, usb=None, hostname=None):
+        self.hostname = hostname or name
         self.name, self.work, self.key, self.mem, self.cpus, self.accel, self.usb = name, work, key, mem, cpus, accel, usb
         self.ssh_port, self.proc, self.scanned = net.free_port(), None, 0
         self.console = os.path.join(work, f"{name}-console.log")
@@ -61,8 +67,8 @@ class VM:
         pub = open(self.key + ".pub").read().strip()
         open(os.path.join(d, "user-data"), "w").write(
             "#cloud-config\nhostname: %s\nmanage_etc_hosts: true\nssh_pwauth: false\nusers:\n  - name: debian\n"
-            "    sudo: ALL=(ALL) NOPASSWD:ALL\n    shell: /bin/bash\n    lock_passwd: true\n    ssh_authorized_keys:\n      - %s\n" % (self.name, pub))
-        open(os.path.join(d, "meta-data"), "w").write(f"instance-id: drill-{self.name}\nlocal-hostname: {self.name}\n")
+            "    sudo: ALL=(ALL) NOPASSWD:ALL\n    shell: /bin/bash\n    lock_passwd: true\n    ssh_authorized_keys:\n      - %s\n" % (self.hostname, pub))
+        open(os.path.join(d, "meta-data"), "w").write(f"instance-id: drill-{self.name}\nlocal-hostname: {self.hostname}\n")
         self.seed = os.path.join(d, "seed.iso")
         subprocess.run(["cloud-localds", self.seed, os.path.join(d, "user-data"), os.path.join(d, "meta-data")], check=True)
 
@@ -70,8 +76,11 @@ class VM:
         cmd = ["qemu-system-x86_64", "-machine", f"q35,accel={self.accel}", "-cpu", "host" if self.accel == "kvm" else "max",
                "-smp", str(self.cpus), "-m", str(self.mem), "-display", "none", "-monitor", "none",
                "-serial", f"file:{self.console}", "-no-reboot",
-               "-drive", f"file={self.disk},if=virtio,format=qcow2", "-drive", f"file={self.seed},if=virtio,format=raw,readonly=on",
+               "-drive", f"file={self.disk},if=none,id=root,format=qcow2,cache=unsafe", "-device", "virtio-blk-pci,drive=root,bootindex=1",
+               "-drive", f"file={self.seed},if=virtio,format=raw,readonly=on",
                "-netdev", f"user,id=wan,hostfwd=tcp:127.0.0.1:{self.ssh_port}-:22", "-device", "virtio-net-pci,netdev=wan"]
+        # bootindex=1 on the system disk: with a second, empty virtio disk present SeaBIOS otherwise tries it first and
+        # the guest never prints a byte (found on the first real run, 2026-11-22).
         if self.usb:   # serial=drillusb shows up as /dev/disk/by-id/virtio-drillusb in the guest
             cmd += ["-drive", f"file={self.usb},if=none,id=usb,format=raw", "-device", "virtio-blk-pci,drive=usb,serial=drillusb"]
         self.proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=open(os.path.join(self.work, f"{self.name}-qemu.err"), "w"))
@@ -153,6 +162,7 @@ def main():
     ap.add_argument("--cpus", type=int, default=4)
     ap.add_argument("--budget", type=int, default=core.BUDGET_SECONDS, help="restore clock limit in seconds (default 3600)")
     ap.add_argument("--payload-mb", type=int, default=256)
+    ap.add_argument("--reuse", help="work dir kept by an earlier ONEMIND_DRILL_KEEP=1 run: skip the source half (development only; no timing evidence of the whole drill)")
     ap.add_argument("--tcg", action="store_true", help="no KVM (slow; never counts for the timing proof)")
     ap.add_argument("--cache", default=os.environ.get("ONEMIND_DRILL_CACHE") or os.path.join(tempfile.gettempdir(), "onemind-net-cache"))
     a = ap.parse_args()
@@ -175,31 +185,40 @@ def main():
             f.truncate(4 << 30)   # sparse
         env = f"DRILL_PAYLOAD_MB={a.payload_mb} "
 
-        log(f"source box: boot ({a.mem} MiB, accel={accel})")
-        src = VM("source", work, key, a.mem, a.cpus, accel, usb)
-        vms.append(src)
-        src.prepare(img)
-        src.start()
-        if not src.wait_ready(300):
-            raise net.Abort("source VM did not finish cloud-init with SSH within 300 s")
-        src.put(tgz, "rm -rf /opt/src && mkdir -p /opt/src && tar -xzf - -C /opt/src")
-        log("source box: install, seed data, back up (several minutes)")
-        rc, out = src.run(f"{env}bash /opt/src/test/restore-drill/in-vm.sh source /opt/src /opt/src/onemindd 2>&1", 2700)
-        transcript.append(out)
-        open(os.path.join(logs, "source.log"), "w").write(net.mask(out))
-        if rc != 0:
-            raise net.Abort(f"source half exited {rc} (see {os.path.basename(logs)}/source.log)")
-        owner_key, expected = src.get("/run/drill/owner.key"), src.get("/root/drill-expected.env")
-        src.run("sync; systemctl poweroff --no-block", 60)
-        for _ in range(60):
-            if src.proc.poll() is not None:
-                break
-            time.sleep(1)
-        src.stop()   # the old box is gone: only the USB disk and the owner key survive
-        log("source box destroyed; booting a clean machine")
+        if a.reuse:   # development: run only the clean-box half against a kept work dir (ONEMIND_DRILL_KEEP=1 of an earlier run)
+            usb = os.path.join(a.reuse, "usb.img")
+            owner_key, expected = (open(os.path.join(a.reuse, n), "rb").read() for n in ("owner.key", "expected.env"))
+            log(f"reusing the source box's backup disk and owner key from {a.reuse}")
+        else:
+            log(f"source box: boot ({a.mem} MiB, accel={accel})")
+            src = VM("source", work, key, a.mem, a.cpus, accel, usb, hostname=BOX_HOSTNAME)
+            vms.append(src)
+            src.prepare(img)
+            src.start()
+            if not src.wait_ready(300):
+                raise net.Abort("source VM did not finish cloud-init with SSH within 300 s")
+            src.put(tgz, "rm -rf /opt/src && mkdir -p /opt/src && tar -xzf - -C /opt/src")
+            log("source box: install, seed data, back up (several minutes)")
+            rc, out = src.run(f"{env}bash /opt/src/test/restore-drill/in-vm.sh source /opt/src /opt/src/onemindd 2>&1", 2700)
+            transcript.append(out)
+            open(os.path.join(logs, "source.log"), "w").write(net.mask(out))
+            if rc != 0:
+                raise net.Abort(f"source half exited {rc} (see {os.path.basename(logs)}/source.log)")
+            owner_key, expected = src.get("/run/drill/owner.key"), src.get("/root/drill-expected.env")
+            if os.environ.get("ONEMIND_DRILL_KEEP") == "1":   # so a later --reuse run can start from this backup disk
+                for n, data in (("owner.key", owner_key), ("expected.env", expected)):
+                    with open(os.open(os.path.join(work, n), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600), "wb") as f:
+                        f.write(data)
+            src.run("sync; systemctl poweroff --no-block", 60)
+            for _ in range(60):
+                if src.proc.poll() is not None:
+                    break
+                time.sleep(1)
+            src.stop()   # the old box is gone: only the USB disk and the owner key survive
+            log("source box destroyed; booting a clean machine")
 
         t0 = time.time()
-        new = VM("clean", work, key, a.mem, a.cpus, accel, usb)
+        new = VM("clean", work, key, a.mem, a.cpus, accel, usb, hostname=BOX_HOSTNAME)
         vms.append(new)
         new.prepare(img)
         new.start()

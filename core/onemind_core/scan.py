@@ -29,6 +29,16 @@ MAX_FUTURE_SKEW = timedelta(minutes=5)
 MAX_BYTES = 1024 * 1024
 RESULTS = ("pass", "fail")
 
+# Quality tiers (#174). The app gate writes scan.json "quality": {tier, evidence}, where evidence is
+# yes/no checks per level. The gateway never trusts the written tier: it derives the tier from the
+# evidence with the same rule as sdk/tools/applib/quality.py, so a tier the evidence does not back is
+# never shown, and a failed scan has none.
+QUALITY_CHECKS: dict[str, tuple[str, ...]] = {
+    "bronze": ("gate_pass", "licence_green", "images_clean", "upstream_alive", "nothing_unverified"),
+    "silver": ("smoke_pass", "non_root", "support_links", "security_updates"),
+    "gold": ("images_signed", "no_critical", "patch_automerge", "backup_declared"),
+}
+
 
 @dataclass(frozen=True)
 class ScanRecord:
@@ -40,11 +50,16 @@ class ScanRecord:
     malware: int | None = None
     # Why a failed scan failed, in words an owner can read (None on a pass).
     reason: str | None = None
+    licence: dict[str, str] | None = None
+    # {"tier": "none|bronze|silver|gold", "evidence": {level: {check: bool}}}; None on a scan from
+    # before quality tiers (the Market shows "not rated yet", never a guessed tier).
+    quality: dict | None = None
 
     def summary(self) -> dict:
-        """The §11.4 catalog field: {scanned_at, result, reason}; reason is set only on a fail."""
+        """The §11.4 catalog scan summary, including the licence evidence the gate recorded."""
+        # quality is always present (null before quality tiers), so MCP list_apps and GET /v1/apps show the same body.
         return {"scanned_at": self.scanned_at.isoformat().replace("+00:00", "Z"), "result": self.result,
-                "reason": self.reason}
+                "reason": self.reason, "licence": self.licence, "quality": self.quality}
 
 
 # scan.json path -> (stat signature, record). GET /v1/apps reads every app's scan on every poll; the
@@ -97,8 +112,34 @@ def _read_scan_file(app_dir: Path, path: Path) -> ScanRecord | None:
     if ts is None or ts.tzinfo is None:
         log.warning("ignoring %s/%s: scanned_at is not an RFC 3339 timestamp", app_dir.name, SCAN_FILE)
         return None
-    return ScanRecord(scanned_at=ts, result=result, malware=_malware(doc.get("images")),
+    licence = doc.get("licence")
+    if (isinstance(licence, dict) and isinstance(licence.get("spdx"), str) and licence["spdx"].strip()
+            and licence.get("class") in ("L1", "L2", "blocked")):
+        licence = {"spdx": licence["spdx"], "class": licence["class"]}
+    else:
+        licence = None
+    return ScanRecord(licence=licence, quality=_quality(doc.get("quality"), result), scanned_at=ts, result=result, malware=_malware(doc.get("images")),
                       reason=_reason(doc) if result == "fail" else None)
+
+
+def _quality(raw: object, result: str) -> dict | None:
+    """Keep only the evidence (real booleans for known checks) and derive the tier from it."""
+    if not isinstance(raw, dict) or not isinstance(raw.get("evidence"), dict):
+        return None
+    evidence: dict[str, dict[str, bool]] = {}
+    tier = "none"
+    intact = True
+    for level, names in QUALITY_CHECKS.items():
+        row = raw["evidence"].get(level)
+        row = row if isinstance(row, dict) else {}
+        evidence[level] = {n: row.get(n) is True for n in names}
+        if intact and all(evidence[level].values()):
+            tier = level
+        else:
+            intact = False
+    if result != "pass":
+        tier = "none"
+    return {"tier": tier, "evidence": evidence}
 
 
 def _count(v: object) -> int:

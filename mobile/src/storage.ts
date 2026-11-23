@@ -17,7 +17,8 @@ export type LiveConnection = {
   expiresAt?: string;
 };
 
-export type Connection = LiveConnection | { mode: 'mock'; token: string };
+/** Only a real hub. A stored demo entry from an older build (`mode: 'mock'`) loads as signed out. */
+export type Connection = LiveConnection;
 
 const KEY = 'onemind.connection.v1';
 const OPTS: SecureStore.SecureStoreOptions = {
@@ -30,7 +31,6 @@ function parse(raw: string | null): Connection | null {
   if (!raw) return null;
   try {
     const v = JSON.parse(raw) as Partial<Connection> & { hubUrl?: string };
-    if (v.mode === 'mock' && typeof v.token === 'string') return { mode: 'mock', token: v.token };
     if (v.mode === 'live' && typeof v.token === 'string' && typeof v.hubUrl === 'string') {
       const c: LiveConnection = { mode: 'live', hubUrl: v.hubUrl, token: v.token };
       const l = v as Partial<LiveConnection>;

@@ -1,0 +1,114 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: Apache-2.0
+"""Check a phone APK before it is attached to a release (release.yml android job; issue #880).
+
+  check-apk --apk FILE --version 1.2.0 [--version-code N] [--aapt2 PATH] [--apksigner PATH]
+
+Refuses (exit 1) unless every check holds:
+  - the package name is com.onemindos.<something> (founder decision: app IDs are com.onemindos.*);
+  - versionName equals the release tag (a leading "v" is ignored; for a pre-release tag such as 1.2.0-rc.1 it
+    equals 1.2.0, because scripts/release/stamp-client-versions.py drops the suffix the app stores reject);
+  - versionCode equals --version-code when given;
+  - the app is not debuggable (no android:debuggable in the manifest);
+  - the APK verifies and is not signed with the Android debug key;
+  - the JavaScript bundle carries no demo-data module (the fixtures, the mock photo server or the demo buttons:
+    issue #827 keeps them for tests only).
+aapt2 and apksigner come from the newest Android SDK build-tools under $ANDROID_HOME unless named.
+Exit 2 on bad input or a missing tool. This script only reads the APK; it never sees a signing key.
+"""
+import argparse, glob, os, re, subprocess, sys, zipfile
+
+PACKAGE = re.compile(r"^com\.onemindos(\.[a-z][a-z0-9_]*)+$")
+VERSION = re.compile(r"^v?((0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*))(-[0-9A-Za-z.-]+)?$")
+BUNDLE = "assets/index.android.bundle"
+# Strings only the demo path carries (mobile/src/api/fixtures.ts tokens, photos/mockServer.ts origin, the
+# Connect screen's demo section). Literals survive minification and Hermes bytecode keeps them in its string table.
+DEMO_MARKERS = (b"owner-demo", b"adult-demo", b"agent-demo", b"photos.demo.invalid", b"Or try the demo")
+DEBUG_CERT = "CN=Android Debug"
+
+
+def build_tool(name, given):
+    if given:
+        return given
+    home = os.environ.get("ANDROID_HOME") or os.environ.get("ANDROID_SDK_ROOT") or ""
+    found = sorted(glob.glob(os.path.join(home, "build-tools", "*", name)),
+                   key=lambda p: [int(x) if x.isdigit() else x for x in re.split(r"[.-]", p.split(os.sep)[-2])])
+    return found[-1] if found else name
+
+
+def run_tool(path, *args):
+    try:
+        return subprocess.run([path, *args], capture_output=True, text=True, timeout=300)
+    except (OSError, subprocess.TimeoutExpired) as e:
+        print(f"check-apk: cannot run {path}: {e}", file=sys.stderr)
+        sys.exit(2)
+
+
+def badging_fields(text):
+    m = re.search(r"^package: (.*)$", text, re.M)
+    if not m:
+        return None
+    return dict(re.findall(r"(\w+)='([^']*)'", m.group(1)))
+
+
+def main(argv=None):
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--apk", required=True)
+    ap.add_argument("--version", required=True, help="the release tag or version, e.g. v1.2.0 or 1.2.0")
+    ap.add_argument("--version-code", type=int)
+    ap.add_argument("--aapt2")
+    ap.add_argument("--apksigner")
+    a = ap.parse_args(argv)
+
+    v = VERSION.match(a.version)
+    if not v:
+        print(f"check-apk: '{a.version}' is not a version like 1.2.0 or v1.2.0", file=sys.stderr)
+        return 2
+    want = {a.version.lstrip("v"), v.group(1)}
+    problems = []
+
+    try:
+        with zipfile.ZipFile(a.apk) as z:
+            names = set(z.namelist())
+            bundle = z.read(BUNDLE) if BUNDLE in names else None
+    except (OSError, zipfile.BadZipFile) as e:
+        print(f"check-apk: REFUSED: {a.apk} is not a readable APK ({e})", file=sys.stderr)
+        return 1
+    if bundle is None:
+        problems.append(f"no {BUNDLE}: cannot prove the app carries no demo module (a release APK embeds its bundle)")
+    else:
+        hits = [m.decode() for m in DEMO_MARKERS if m in bundle]
+        if hits:
+            problems.append(f"the JavaScript bundle carries the demo-data module ({', '.join(hits)}); see issue #827")
+
+    r = run_tool(build_tool("aapt2", a.aapt2), "dump", "badging", a.apk)
+    fields = badging_fields(r.stdout) if r.returncode == 0 else None
+    if fields is None:
+        print(f"check-apk: REFUSED: aapt2 could not read the manifest: {r.stderr.strip()[:300]}", file=sys.stderr)
+        return 1
+    pkg, name, code = fields.get("name", ""), fields.get("versionName", ""), fields.get("versionCode", "")
+    if not PACKAGE.match(pkg):
+        problems.append(f"package '{pkg}' is not com.onemindos.*")
+    if name not in want:
+        problems.append(f"versionName '{name}' does not match the release version {a.version}")
+    if a.version_code is not None and code != str(a.version_code):
+        problems.append(f"versionCode '{code}' is not {a.version_code}")
+    if re.search(r"^application-debuggable\b", r.stdout, re.M):
+        problems.append("the app is debuggable (a debug build): release builds only")
+
+    s = run_tool(build_tool("apksigner", a.apksigner), "verify", "--print-certs", a.apk)
+    if s.returncode != 0:
+        problems.append(f"the APK signature does not verify: {(s.stdout + s.stderr).strip()[:300]}")
+    elif DEBUG_CERT in s.stdout:
+        problems.append("the APK is signed with the Android debug key, not the release key")
+
+    if problems:
+        for p in problems:
+            print(f"check-apk: REFUSED: {p}", file=sys.stderr)
+        return 1
+    print(f"check-apk: ok: {pkg} {name} (versionCode {code}), release-signed, not debuggable, no demo module")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
