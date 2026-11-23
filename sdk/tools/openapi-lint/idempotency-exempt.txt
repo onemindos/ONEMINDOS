@@ -14,6 +14,7 @@ DELETE /v1/me/devices/{device_id}  # Lost this device (#715) is idempotent by de
 PATCH /v1/files/uploads/{upload_id}  # tus: the Upload-Offset header makes a retried chunk safe
 PATCH /v1/photos/uploads/{upload_id}  # tus: the Upload-Offset header makes a retried chunk safe
 POST /v1/actions  # contract §12.1: keeps its §3 body field idempotency_key instead of the header
+POST /v1/tips/{tip_id}/state  # sets one tip's state to the given value: setting the same state twice is the same as once
 POST /v1/bridges/{bridge_id}/events  # every event carries its own id and revision: a retried batch counts as duplicates, never twice
 POST /v1/bridges/{bridge_id}/resume  # resuming a bridge that already runs changes nothing
 POST /v1/files/app-passwords  # answers with a fresh app password, which a replay store must never keep

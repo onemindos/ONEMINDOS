@@ -318,6 +318,7 @@ _BACKUPS = "docs/leap/dev/API.md §5.2 backups; core/tests/test_backups.py"
 _FILES = "docs/leap/dev/API.md files; core/tests/test_files_*.py"
 _PHOTOS = "docs/leap/core/PHOTOS.md section 2; core/tests/test_photos.py"
 PHOTOS_404 = grid(404, 404, 403, 403, 403)  # owner and adult own a library; a missing object is 404 for them
+_TIPS = "issue #669; core/tests/test_tips.py"
 POLICY |= {
     # ---- automation, standing approvals and windows ------------------------------------------------------
     ("GET", "/v1/approval-policies"): Row(READ_ANY, w.p_static("/v1/approval-policies"), f"{_AUTOMATION}: any reader"),
@@ -532,6 +533,15 @@ POLICY |= {
     ("PATCH", "/v1/photos/uploads/{upload_id}"): Row(PHOTOS_404, w.p_missing(
         "/v1/photos/uploads/{upload}", content=b"x",
         headers={"Content-Type": "application/partial-upload", "Upload-Offset": "0", "Upload-Complete": "?1"}), f"{_PHOTOS}: your own upload"),
+    # ---- tips (#669: the image tips pack, shown by role; each person's own dismiss state) ---------------------
+    # Every person reads the tips for their role (a child and a teen too); an agent has none. The matrix gateway has
+    # no pack, so a tip id is missing (404) for every person.
+    ("GET", "/v1/tips"): Row(grid(200, 200, 200, 200, 403), w.p_static("/v1/tips"), f"{_TIPS}: every person, filtered by role"),
+    ("GET", "/v1/tips/collections"): Row(grid(200, 200, 200, 200, 403), w.p_static("/v1/tips/collections"), f"{_TIPS}: every person"),
+    ("GET", "/v1/tips/whats-new"): Row(grid(200, 200, 200, 200, 403), w.p_static("/v1/tips/whats-new"), f"{_TIPS}: every person"),
+    ("GET", "/v1/tips/{tip_id}"): Row(grid(404, 404, 404, 404, 403), w.p_static("/v1/tips/no-such-tip"), f"{_TIPS}: a tip for your role"),
+    ("POST", "/v1/tips/{tip_id}/state"): Row(grid(404, 404, 404, 404, 403), w.p_missing(
+        "/v1/tips/no-such-tip/state", json={"state": "dismissed"}), f"{_TIPS}: your own state for a tip you may see"),
     # ---- migration (another cluster's namespace comes in; the owner decides every step) -----------------------
     ("POST", "/v1/migrate/plans"): Row(grid(422, 403, 403, 403, 403), w.p_missing(
         "/v1/migrate/plans", json={"kubeconfig": w.KUBECONFIG, "namespace": "old"}), "only the owner reads another cluster"),
@@ -643,6 +653,9 @@ POLICY |= {
     ("GET", "/v1/machines/{name}/snapshots"): Row(cells(404, **GONE, child=403, plugin=DECIDE, automation=DECIDE, node=DECIDE),
                                                   w.p_static("/v1/machines/ghost/snapshots"),
                                                   f"{_MACH}: a machine's snapshots; none exists in this world"),
+    ("GET", "/v1/machines/{name}/devices"): Row(cells(404, **GONE, child=403, plugin=DECIDE, automation=DECIDE, node=DECIDE),
+                                                w.p_static("/v1/machines/ghost/devices"),
+                                                f"{_MACH}: the devices a machine could be given (#690); none exists in this world"),
     ("POST", "/v1/machines/{name}/console"): Row(cells(403, **GONE, owner=404, plugin=DENIED, automation=DENIED, node=DENIED),
                                                  w.p_static("/v1/machines/ghost/console"),
                                                  f"{_MACH}: only the owner gets a console ticket; an agent never gets a screen"),

@@ -2814,6 +2814,25 @@
         "title": "DestinationBody",
         "type": "object"
       },
+      "DeviceRefusal": {
+        "properties": {
+          "code": {
+            "description": "device_busy | iommu_group_shared | iommu_off | device_granted | ...",
+            "title": "Code",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "DeviceRefusal",
+        "type": "object"
+      },
       "DeviceSignature": {
         "description": "An approver key's ECDSA P-256 / SHA-256 signature over approve-options' `device_payload`.",
         "properties": {
@@ -3201,9 +3220,11 @@
               "exposure.public",
               "files.download.release",
               "files.share.create",
+              "machine.attach_device",
               "machine.clone",
               "machine.create",
               "machine.delete",
+              "machine.detach_device",
               "machine.force_stop",
               "machine.restart",
               "machine.snapshot",
@@ -4341,6 +4362,153 @@
         "title": "MachineCapabilities",
         "type": "object"
       },
+      "MachineDevice": {
+        "description": "One USB device or GPU of the machine's box, as a grant sees it.",
+        "properties": {
+          "busy": {
+            "description": "the host is using it (or it cannot be told): a grant needs the owner's confirmation",
+            "title": "Busy",
+            "type": "boolean"
+          },
+          "device": {
+            "description": "usb: port path; gpu: PCI address",
+            "title": "Device",
+            "type": "string"
+          },
+          "drivers": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "host drivers holding it; null when unknown",
+            "title": "Drivers"
+          },
+          "granted_to": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the machine that has it",
+            "title": "Granted To"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "vvvv:pppp",
+            "title": "Id"
+          },
+          "kind": {
+            "enum": [
+              "usb",
+              "gpu"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "refusal": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DeviceRefusal"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "why a grant to this machine is refused now; null when it can be asked"
+          },
+          "vendor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vendor"
+          }
+        },
+        "required": [
+          "kind",
+          "device",
+          "id",
+          "vendor",
+          "model",
+          "drivers",
+          "busy",
+          "granted_to",
+          "refusal"
+        ],
+        "title": "MachineDevice",
+        "type": "object"
+      },
+      "MachineDevices": {
+        "properties": {
+          "applies": {
+            "const": "next_start",
+            "description": "when a grant or a release takes effect",
+            "title": "Applies",
+            "type": "string"
+          },
+          "devices": {
+            "items": {
+              "$ref": "#/components/schemas/MachineDevice"
+            },
+            "title": "Devices",
+            "type": "array"
+          },
+          "iommu": {
+            "description": "the box runs with an IOMMU (VT-d, AMD-Vi); without it nothing can be granted",
+            "title": "Iommu",
+            "type": "boolean"
+          },
+          "machine": {
+            "title": "Machine",
+            "type": "string"
+          },
+          "node_id": {
+            "title": "Node Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "machine",
+          "node_id",
+          "iommu",
+          "applies",
+          "devices"
+        ],
+        "title": "MachineDevices",
+        "type": "object"
+      },
       "MachineUploadResult": {
         "properties": {
           "media": {
@@ -5380,6 +5548,17 @@
           "memory": {
             "$ref": "#/components/schemas/NodeMemoryProfile"
           },
+          "passthrough": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NodePassthrough"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "absent without an IOMMU: no device can be passed to a machine (#690)"
+          },
           "power": {
             "$ref": "#/components/schemas/NodePowerProfile"
           },
@@ -5482,6 +5661,33 @@
           }
         },
         "title": "NodeDataDisk",
+        "type": "object"
+      },
+      "NodeIOMMUGroup": {
+        "additionalProperties": false,
+        "properties": {
+          "devices": {
+            "description": "PCI addresses in the group",
+            "items": {
+              "pattern": "^[0-9a-f]{4,8}:[0-9a-f]{2}:[0-9a-f]{2}\\.[0-7]$",
+              "type": "string"
+            },
+            "maxItems": 32,
+            "title": "Devices",
+            "type": "array"
+          },
+          "group": {
+            "description": "the kernel's IOMMU group number (/sys/kernel/iommu_groups/N)",
+            "minimum": 0.0,
+            "title": "Group",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "group",
+          "devices"
+        ],
+        "title": "NodeIOMMUGroup",
         "type": "object"
       },
       "NodeK3s": {
@@ -5593,6 +5799,42 @@
           }
         },
         "title": "NodeOS",
+        "type": "object"
+      },
+      "NodePassthrough": {
+        "additionalProperties": false,
+        "description": "What a VM device grant reads (#690). Present only when the kernel runs with an IOMMU (VT-d, AMD-Vi).",
+        "properties": {
+          "iommu_groups": {
+            "description": "the groups that hold an accelerator",
+            "items": {
+              "$ref": "#/components/schemas/NodeIOMMUGroup"
+            },
+            "maxItems": 64,
+            "title": "Iommu Groups",
+            "type": "array"
+          },
+          "usb_drivers": {
+            "description": "USB port -> drivers bound to its interfaces; a port that is not a key has none",
+            "maxProperties": 64,
+            "patternProperties": {
+              "^[0-9]+-[0-9]+(\\.[0-9]+)*$": {
+                "items": {
+                  "pattern": "^[A-Za-z0-9_.-]{1,32}$",
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "title": "Usb Drivers",
+            "type": "object"
+          }
+        },
+        "required": [
+          "iommu_groups",
+          "usb_drivers"
+        ],
+        "title": "NodePassthrough",
         "type": "object"
       },
       "NodePlacement": {
@@ -10505,6 +10747,320 @@
           }
         },
         "title": "TicketRequest",
+        "type": "object"
+      },
+      "TipClip": {
+        "properties": {
+          "caption": {
+            "title": "Caption",
+            "type": "string"
+          },
+          "release": {
+            "title": "Release",
+            "type": "string"
+          }
+        },
+        "required": [
+          "release",
+          "caption"
+        ],
+        "title": "TipClip",
+        "type": "object"
+      },
+      "TipCollection": {
+        "properties": {
+          "count": {
+            "description": "Tips in this collection that the caller may see",
+            "title": "Count",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "count"
+        ],
+        "title": "TipCollection",
+        "type": "object"
+      },
+      "TipCollections": {
+        "properties": {
+          "checklist": {
+            "description": "Ids of the getting-started checklist tips the caller may see",
+            "items": {
+              "type": "string"
+            },
+            "title": "Checklist",
+            "type": "array"
+          },
+          "collections": {
+            "items": {
+              "$ref": "#/components/schemas/TipCollection"
+            },
+            "title": "Collections",
+            "type": "array"
+          }
+        },
+        "required": [
+          "collections",
+          "checklist"
+        ],
+        "title": "TipCollections",
+        "type": "object"
+      },
+      "TipList": {
+        "properties": {
+          "pack": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TipsPackInfo"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "None when no signed pack for this OS version was found"
+          },
+          "tips": {
+            "items": {
+              "$ref": "#/components/schemas/TipView"
+            },
+            "title": "Tips",
+            "type": "array"
+          }
+        },
+        "required": [
+          "pack",
+          "tips"
+        ],
+        "title": "TipList",
+        "type": "object"
+      },
+      "TipOpens": {
+        "properties": {
+          "dashboard": {
+            "description": "Dashboard path the Open button goes to",
+            "title": "Dashboard",
+            "type": "string"
+          },
+          "phone": {
+            "description": "Phone deep link (onemind://...)",
+            "title": "Phone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "dashboard",
+          "phone"
+        ],
+        "title": "TipOpens",
+        "type": "object"
+      },
+      "TipStateIn": {
+        "additionalProperties": false,
+        "properties": {
+          "state": {
+            "description": "new clears the stored state",
+            "enum": [
+              "new",
+              "seen",
+              "dismissed",
+              "done"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state"
+        ],
+        "title": "TipStateIn",
+        "type": "object"
+      },
+      "TipStateOut": {
+        "properties": {
+          "state": {
+            "enum": [
+              "new",
+              "seen",
+              "dismissed",
+              "done"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "tip_id": {
+            "title": "Tip Id",
+            "type": "string"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "required": [
+          "tip_id",
+          "state",
+          "updated_at"
+        ],
+        "title": "TipStateOut",
+        "type": "object"
+      },
+      "TipView": {
+        "properties": {
+          "body": {
+            "description": "The tip text (Markdown)",
+            "title": "Body",
+            "type": "string"
+          },
+          "clip": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TipClip"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "collection": {
+            "title": "Collection",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "opens": {
+            "$ref": "#/components/schemas/TipOpens"
+          },
+          "skip_if_done": {
+            "description": "Audit events that make this tip unnecessary",
+            "items": {
+              "type": "string"
+            },
+            "title": "Skip If Done",
+            "type": "array"
+          },
+          "state": {
+            "description": "This person's state for the tip",
+            "enum": [
+              "new",
+              "seen",
+              "dismissed",
+              "done"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "state_updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "State Updated At"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "collection",
+          "body",
+          "opens",
+          "skip_if_done",
+          "clip",
+          "state",
+          "state_updated_at"
+        ],
+        "title": "TipView",
+        "type": "object"
+      },
+      "TipWhatsNew": {
+        "properties": {
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/TipWhatsNewEntry"
+            },
+            "title": "Entries",
+            "type": "array"
+          },
+          "os_version": {
+            "description": "The running OneMind version (MAJOR.MINOR.PATCH)",
+            "title": "Os Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "os_version",
+          "entries"
+        ],
+        "title": "TipWhatsNew",
+        "type": "object"
+      },
+      "TipWhatsNewEntry": {
+        "properties": {
+          "body": {
+            "title": "Body",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "title",
+          "body"
+        ],
+        "title": "TipWhatsNewEntry",
+        "type": "object"
+      },
+      "TipsPackInfo": {
+        "properties": {
+          "source": {
+            "const": "image",
+            "description": "Where the pack came from (v1: the OS image)",
+            "title": "Source",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "source"
+        ],
+        "title": "TipsPackInfo",
         "type": "object"
       },
       "TokenCreateBody": {
@@ -22955,6 +23511,69 @@
         ]
       }
     },
+    "/v1/machines/{name}/devices": {
+      "get": {
+        "description": "The USB devices and GPUs of the machine's box, who holds each, and why one cannot be granted (#690).\nGrants are the owner-approved actions `machine.attach_device` and `machine.detach_device`; they apply at the machine's next start.",
+        "operationId": "machines.devices",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MachineDevices"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Machines Devices",
+        "tags": [
+          "machines"
+        ]
+      }
+    },
     "/v1/machines/{name}/snapshots": {
       "get": {
         "description": "The snapshots of one machine, with how consistent each copy is (a running machine's copy may be best effort).",
@@ -30164,6 +30783,373 @@
         "summary": "System Services",
         "tags": [
           "system"
+        ]
+      }
+    },
+    "/v1/tips": {
+      "get": {
+        "operationId": "tips.list",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "collection",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Collection"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TipList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "List Tips",
+        "tags": [
+          "tips"
+        ]
+      }
+    },
+    "/v1/tips/collections": {
+      "get": {
+        "operationId": "tips.collections",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TipCollections"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          }
+        },
+        "summary": "Collections",
+        "tags": [
+          "tips"
+        ]
+      }
+    },
+    "/v1/tips/whats-new": {
+      "get": {
+        "operationId": "tips.whats_new",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TipWhatsNew"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          }
+        },
+        "summary": "Whats New",
+        "tags": [
+          "tips"
+        ]
+      }
+    },
+    "/v1/tips/{tip_id}": {
+      "get": {
+        "operationId": "tips.get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tip_id",
+            "required": true,
+            "schema": {
+              "title": "Tip Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TipView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Get Tip",
+        "tags": [
+          "tips"
+        ]
+      }
+    },
+    "/v1/tips/{tip_id}/state": {
+      "post": {
+        "operationId": "tips.set_state",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tip_id",
+            "required": true,
+            "schema": {
+              "title": "Tip Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TipStateIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TipStateOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Set State",
+        "tags": [
+          "tips"
         ]
       }
     },
