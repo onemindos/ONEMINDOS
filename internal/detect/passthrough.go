@@ -8,7 +8,6 @@ import (
 	"regexp"
 	"sort"
 	"strconv"
-	"strings"
 
 	"github.com/onemindos/onemindos/internal/heartbeat"
 )
@@ -42,17 +41,23 @@ func (c *Collector) passthrough(accel []heartbeat.Accelerator, usb []heartbeat.U
 		if err != nil || n < 0 {
 			continue
 		}
-		devs, _ := c.names("sys/kernel/iommu_groups/" + g + "/devices")
-		slots, hit := []string{}, false
+		devs, ok := c.names("sys/kernel/iommu_groups/" + g + "/devices")
+		if !ok {
+			continue
+		}
+		slots, hit, other := []string{}, false, false
 		for _, d := range devs {
-			// Fixtures write ':' as '-'; a real PCI address never holds '-'.
-			s := strings.ToLower(strings.ReplaceAll(d, "-", ":"))
-			if !pciSlotRe.MatchString(s) {
+			if !pciSlotRe.MatchString(d) {
+				// Not a PCI address: an ACPI or platform device (VT-d ANDD, an ARM SMMU client) or a
+				// planted name. It would go to the machine with the card, so the group cannot be
+				// vouched for and is left out whole: the gateway then refuses the grant
+				// (iommu_group_unknown). Dropping only the member would fail open.
+				other = true
 				continue
 			}
-			slots, hit = append(slots, s), hit || want[s]
+			slots, hit = append(slots, d), hit || want[d]
 		}
-		if !hit || len(slots) > maxGroupDevices {
+		if !hit || other || len(slots) > maxGroupDevices {
 			continue
 		}
 		sort.Strings(slots)

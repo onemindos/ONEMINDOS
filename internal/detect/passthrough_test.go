@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"reflect"
 	"testing"
+
+	"github.com/onemindos/onemindos/internal/heartbeat"
 )
 
 // vfioBox builds a sysfs tree like an x86 PC with VT-d on (#690): an RTX card whose group holds
@@ -93,23 +95,35 @@ func TestPassthroughAbsentWithoutIOMMU(t *testing.T) {
 	}
 }
 
-// A planted group entry or driver link with a name outside the kernel's shapes is dropped, never
-// passed to the gateway (the hub trusts only what fits the schema).
-func TestPassthroughDropsMalformedNames(t *testing.T) {
-	c := vfioBox(t, true)
-	for _, f := range []string{"sys/kernel/iommu_groups/1/devices/not-a-slot", "sys/kernel/iommu_groups/x/devices/0000:01:00.2"} {
-		p := filepath.Join(c.Root, f)
-		_ = os.MkdirAll(filepath.Dir(p), 0o755)
-		_ = os.WriteFile(p, nil, 0o644)
-	}
-	if err := os.Symlink("../../../drivers/bad name!", filepath.Join(c.Root, "sys/bus/usb/devices/1-3/1-3:1.0/driver")); err != nil {
-		t.Fatal(err)
-	}
-	pt := c.Capabilities(context.Background()).Passthrough
-	if pt == nil || len(pt.IOMMUGroups) != 2 || !reflect.DeepEqual(pt.IOMMUGroups[0].Devices, []string{"0000:01:00.0", "0000:01:00.1"}) {
-		t.Fatalf("groups = %#v", pt)
-	}
-	if _, ok := pt.USBDrivers["1-3"]; ok {
-		t.Fatalf("malformed driver name passed through: %#v", pt.USBDrivers)
+// A group member whose name is not a PCI address (an ACPI or platform device under VT-d ANDD or
+// an ARM SMMU, or a planted entry) would go to the machine with the card. Dropping only that
+// member would make the group look isolated, so the whole group is left out and the gateway
+// refuses the grant (iommu_group_unknown). A group directory that is not a number is ignored, and
+// a driver link with a name outside the kernel's shapes is never passed on.
+func TestPassthroughLeavesOutAGroupWithANonPCIMember(t *testing.T) {
+	for _, member := range []string{"ACPI0007:00", "not-a-slot", "0000-01-00.2", "0000:01:00.2 ", "0000:0A:00.0"} {
+		t.Run(member, func(t *testing.T) {
+			c := vfioBox(t, true)
+			for _, f := range []string{"sys/kernel/iommu_groups/1/devices/" + member, "sys/kernel/iommu_groups/x/devices/0000:01:00.2"} {
+				p := filepath.Join(c.Root, f)
+				if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(p, nil, 0o644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err := os.Symlink("../../../drivers/bad name!", filepath.Join(c.Root, "sys/bus/usb/devices/1-3/1-3:1.0/driver")); err != nil {
+				t.Fatal(err)
+			}
+			pt := c.Capabilities(context.Background()).Passthrough
+			want := []heartbeat.IOMMUGroup{{Group: 7, Devices: []string{"0000:05:00.0", "0000:06:00.0"}}}
+			if pt == nil || !reflect.DeepEqual(pt.IOMMUGroups, want) {
+				t.Fatalf("groups = %#v, want only group 7 (group 1 holds %q)", pt, member)
+			}
+			if _, ok := pt.USBDrivers["1-3"]; ok {
+				t.Fatalf("malformed driver name passed through: %#v", pt.USBDrivers)
+			}
+		})
 	}
 }
