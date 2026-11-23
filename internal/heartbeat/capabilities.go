@@ -132,18 +132,26 @@ type TTYPort struct {
 	USBPort *string `json:"usb_port"`
 }
 
-// Radio kinds.
+// Radio kinds. WiFi, Bluetooth and cellular are interfaces the kernel registered; Zigbee,
+// Zigbee-or-Thread and LoRa are known USB dongles (issue #732, sdk/schema/onemind.radios.json).
 const (
-	RadioWiFi      = "wifi"
-	RadioBluetooth = "bluetooth"
-	RadioCellular  = "cellular"
+	RadioWiFi         = "wifi"
+	RadioBluetooth    = "bluetooth"
+	RadioCellular     = "cellular"
+	RadioZigbee       = "zigbee"
+	RadioZigbeeThread = "zigbee-thread"
+	RadioLoRa         = "lora"
 )
 
-// Radio is one radio interface the kernel registered. Zigbee, Thread, Z-Wave and LoRa dongles are
-// USB devices and serial lines here; naming them is the radio-detection issue's job.
+// Radio is one radio. For wifi, bluetooth and cellular, Interface is the kernel's interface
+// (wlan0, hci0) and Device is absent. For a known USB dongle, Interface is its serial line
+// (ttyUSB0, ttyACM0) and Device the stable name udev gave it, /dev/onemind/<kind><n> (lora0):
+// the only path a grant ever passes into an app. A USB serial line that is not a known dongle is
+// in TTYPorts only: never a Radio, never named.
 type Radio struct {
-	Kind      string `json:"kind"`
-	Interface string `json:"interface"`
+	Kind      string  `json:"kind"`
+	Interface string  `json:"interface"`
+	Device    *string `json:"device,omitempty"`
 }
 
 // Camera buses.

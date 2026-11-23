@@ -88,13 +88,19 @@ func readAbs(p string) string {
 // usbParent follows a sysfs "device" link up to the USB device that owns it and returns its port
 // path ("1-1.2") and "vvvv:pppp". It never leaves Root.
 func (c *Collector) usbParent(rel string) (port, id string) {
+	port, id, _ = c.usbDevice(rel)
+	return port, id
+}
+
+// usbDevice is usbParent plus the USB device's sysfs directory (for its product string).
+func (c *Collector) usbDevice(rel string) (port, id, dir string) {
 	root, err := filepath.EvalSymlinks(c.path(""))
 	if err != nil {
-		return "", ""
+		return "", "", ""
 	}
 	p, err := filepath.EvalSymlinks(c.path(rel))
 	if err != nil {
-		return "", ""
+		return "", "", ""
 	}
 	inside := func(p string) bool {
 		return p != root && (root == string(filepath.Separator) || strings.HasPrefix(p, root+string(filepath.Separator)))
@@ -102,12 +108,12 @@ func (c *Collector) usbParent(rel string) (port, id string) {
 	for i := 0; i < 5 && inside(p); i++ {
 		if v := readAbs(filepath.Join(p, "idVendor")); v != "" {
 			if pid := readAbs(filepath.Join(p, "idProduct")); pid != "" {
-				return filepath.Base(p), strings.ToLower(v + ":" + pid)
+				return filepath.Base(p), strings.ToLower(v + ":" + pid), p
 			}
 		}
 		p = filepath.Dir(p)
 	}
-	return "", ""
+	return "", "", ""
 }
 
 // ---- data disk -------------------------------------------------------------------
@@ -444,10 +450,14 @@ func (c *Collector) ttyPorts() []heartbeat.TTYPort {
 	return out
 }
 
+// radios lists Wi-Fi, cellular and Bluetooth interfaces, then the known USB dongles udev named
+// under /dev/onemind (kind zigbee, zigbee-thread or lora; interface the tty, e.g. ttyUSB0; device
+// the stable name, e.g. /dev/onemind/lora0).
 func (c *Collector) radios() []heartbeat.Radio {
 	nets, netOK := c.names("sys/class/net")
 	bts, btOK := c.names("sys/class/bluetooth")
-	if !netOK && !btOK {
+	serial, devOK := c.serialRadios()
+	if !netOK && !btOK && !devOK {
 		return nil
 	}
 	out := []heartbeat.Radio{}
@@ -464,6 +474,10 @@ func (c *Collector) radios() []heartbeat.Radio {
 		if hciRe.MatchString(n) {
 			out = append(out, heartbeat.Radio{Kind: heartbeat.RadioBluetooth, Interface: n})
 		}
+	}
+	out = append(out, serial...)
+	if len(out) > maxListed {
+		out = out[:maxListed]
 	}
 	return out
 }

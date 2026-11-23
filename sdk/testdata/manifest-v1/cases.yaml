@@ -1,0 +1,146 @@
+# SPDX-License-Identifier: Apache-2.0
+# Golden cases for manifest v1 (#604), applied to base.yaml. Read by core
+# (sdk/tools/tests/test_manifest_blocks.py through Catalog.validate, the gateway's own check) and Go
+# (internal/plugin/validate/blocks_test.go, the check behind `onemind plugin validate`): both must
+# accept every valid case and refuse every invalid one, so CI and the box agree.
+#
+# ops: {op: set, path: <JSON pointer>, value: <any>} or {op: set, path, join: [<str>...]} (the parts are
+# joined at test time, so no credential-looking string sits in the repo) or {op: remove, path}.
+# expect: a substring both validators print (only for the rules JSON Schema cannot say).
+valid:
+  - name: every block (base as is)
+    ops: []
+  - name: a poll bridge alone
+    ops:
+      - {op: remove, path: /spec/extensions/connector}
+      - {op: remove, path: /spec/extensions/videoSource}
+  - name: a local receiver bridge needs no hosts
+    ops:
+      - {op: set, path: /spec/extensions/bridge/mode, value: local}
+      - {op: remove, path: /spec/extensions/bridge/hosts}
+      - {op: remove, path: /spec/extensions/bridge/everySeconds}
+  - name: a person-scoped connector that never shares on
+    ops:
+      - {op: set, path: /spec/extensions/connector/auth, value: oauth-code}
+      - {op: set, path: /spec/extensions/connector/scopes, value: ["activity:read"]}
+      - {op: set, path: /spec/terms/providers/1/personScoped, value: true}
+      - {op: set, path: /spec/terms/providers/1/redistribute/mesh, value: false}
+  - name: an embed-only video provider that is never recorded
+    ops:
+      - {op: set, path: /spec/extensions/videoSource/provider, value: nws}
+      - {op: set, path: /spec/terms/providers/1/display, value: embed-only}
+      - {op: set, path: /spec/terms/providers/1/store, value: none}
+      - {op: remove, path: /spec/terms/providers/1/maxCacheSeconds}
+      - {op: set, path: /spec/terms/providers/1/redistribute/mesh, value: false}
+  - name: the word generated is not a credential
+    ops:
+      - {op: set, path: /spec/notifications/topics/0/actions/0/args/password, value: generated}
+  - name: edge placement
+    ops:
+      - {op: set, path: /spec/placement, value: edge}
+invalid:
+  - {name: unknown spec block, ops: [{op: set, path: /spec/widgets, value: {}}]}
+  - {name: unknown extension block, ops: [{op: set, path: /spec/extensions/map_layer, value: {}}]}
+  - {name: terms record missing, ops: [{op: remove, path: /spec/terms}]}
+  - {name: person data, ops: [{op: set, path: /spec/terms/personData, value: true}]}
+  - {name: non-commercial terms allow redistribution, ops: [{op: set, path: /spec/terms/providers/0/use, value: non-commercial}]}
+  - {name: personal-use terms allow redistribution, ops: [{op: set, path: /spec/terms/providers/0/use, value: personal}]}
+  - {name: person-scoped data redistributed, ops: [{op: set, path: /spec/terms/providers/0/personScoped, value: true}]}
+  - {name: embed-only provider stored, ops: [{op: set, path: /spec/terms/providers/0/display, value: embed-only}]}
+  - {name: cache without a limit, ops: [{op: set, path: /spec/terms/providers/0/store, value: cache}]}
+  - {name: terms never read, ops: [{op: remove, path: /spec/terms/providers/0/readOn}]}
+  - {name: terms page not https, ops: [{op: set, path: /spec/terms/providers/0/url, value: "http://www.usgs.gov/"}]}
+  - {name: wildcard host, ops: [{op: set, path: /spec/extensions/bridge/hosts/0, value: "*.usgs.gov"}]}
+  - {name: IP literal host, ops: [{op: set, path: /spec/extensions/bridge/hosts/0, value: "203.0.113.7"}]}
+  - {name: host with a port, ops: [{op: set, path: /spec/extensions/bridge/hosts/0, value: "earthquake.usgs.gov:443"}]}
+  - name: host not in egress
+    expect: is not in spec.egress
+    ops: [{op: set, path: /spec/extensions/connector/hosts/0, value: api.github.com}]
+  - name: provider without a terms record
+    expect: has no terms record
+    ops: [{op: set, path: /spec/extensions/bridge/provider, value: gdelt}]
+  - name: polls faster than the provider allows
+    expect: is below the provider's minIntervalSeconds
+    ops: [{op: set, path: /spec/extensions/connector/everySeconds, value: 120}]
+  - {name: polls faster than the hub floor, ops: [{op: set, path: /spec/extensions/bridge/everySeconds, value: 10}]}
+  - {name: poll bridge without a schedule, ops: [{op: remove, path: /spec/extensions/bridge/everySeconds}]}
+  - {name: emit names another source, ops: [{op: set, path: /spec/extensions/bridge/emits/1/source, value: usgs}]}
+  - name: layer emit outside the app's own layers
+    expect: is not one of this app's mapLayers
+    ops: [{op: set, path: /spec/extensions/bridge/emits/0/name, value: fires}]
+  - name: job calls an undeclared tool
+    expect: is not a declared tool
+    ops: [{op: set, path: /spec/jobs/0/tool, value: purge}]
+  - name: notification action calls an undeclared tool
+    expect: is not a declared tool
+    ops: [{op: set, path: /spec/notifications/topics/0/actions/0/tool, value: purge}]
+  - name: job calls a destructive tool
+    expect: a job may not call a destructive tool
+    ops: [{op: set, path: /spec/extensions/tools/0/effect, value: destructive}]
+  - name: recording a provider that forbids it
+    expect: record needs a provider with display full and a store
+    ops:
+      - {op: set, path: /spec/extensions/videoSource/provider, value: nws}
+      - {op: set, path: /spec/terms/providers/1/display, value: embed-only}
+      - {op: set, path: /spec/terms/providers/1/store, value: none}
+      - {op: remove, path: /spec/terms/providers/1/maxCacheSeconds}
+      - {op: set, path: /spec/terms/providers/1/redistribute/mesh, value: false}
+      - {op: set, path: /spec/extensions/videoSource/record, value: true}
+  - {name: an Approve button, ops: [{op: set, path: /spec/notifications/topics/0/actions/0/label, value: Approve now}]}
+  - {name: an approve action id, ops: [{op: set, path: /spec/notifications/topics/0/actions/0/id, value: approve}]}
+  - {name: notification above the app ceiling, ops: [{op: set, path: /spec/notifications/topics/0/level, value: critical}]}
+  - {name: runtime module outside the signed list, ops: [{op: set, path: /spec/runtime, value: module}]}
+  - name: runtime module claimed by a plugin
+    ops:
+      - {op: set, path: /spec/runtime, value: module}
+      - {op: set, path: /spec/system, value: {class: native, update: os, disable: allowed, keepDataOnDisable: true}}
+  - {name: effect actuate outside a lab build, ops: [{op: set, path: /spec/extensions/tools/0/effect, value: actuate}]}
+  - {name: NATS wildcard, ops: [{op: set, path: /spec/extensions/nats/subscribe/0, value: "status.>"}]}
+  - {name: NATS import of the audit log, ops: [{op: set, path: /spec/extensions/nats/imports/0, value: onemind.audit}]}
+  - {name: NATS import of another app, ops: [{op: set, path: /spec/extensions/nats/imports/0, value: onemind.plugin.other-app.status}]}
+  - {name: bridge without its own workload principal, ops: [{op: remove, path: /spec/plugin}]}
+  - {name: custom map style key, ops: [{op: set, path: /spec/mapLayers/0/style/paint, value: {}}]}
+  - {name: unknown data class, ops: [{op: set, path: /spec/data/owns/0, value: medical}]}
+  - {name: unknown share type, ops: [{op: set, path: /spec/share/accepts/0, value: video}]}
+  - {name: unknown role, ops: [{op: set, path: /spec/roles/0, value: browser}]}
+  - {name: unknown need, ops: [{op: set, path: /spec/needs/0, value: gps}]}
+  - {name: unknown placement, ops: [{op: set, path: /spec/placement, value: cloud}]}
+  - {name: continue route without a slash, ops: [{op: set, path: /spec/continue/0/route, value: quakes}]}
+  - name: private key in a description
+    expect: holds a credential value
+    ops: [{op: set, path: /metadata/description, join: ["-----BEGIN ", "PRIVATE KEY----- MIIE"]}]
+  - name: cloud access key in a tool description
+    expect: holds a credential value
+    ops: [{op: set, path: /spec/extensions/tools/0/description, join: ["AKIA", "ABCDEFGHIJKLMNOP"]}]
+  - name: password inside a URL
+    expect: holds a credential value
+    ops: [{op: set, path: /spec/notifications/topics/0/actions/0/args/url, join: ["https://bob:hunter2", "@earthquake.usgs.gov/"]}]
+  - name: key in a URL query
+    expect: holds a credential value
+    ops: [{op: set, path: /spec/mapLayers/0/legend, join: ["https://earthquake.usgs.gov/feed?api_key", "=abc123"]}]
+  - name: a field named like a credential
+    expect: holds a credential value
+    ops: [{op: set, path: /spec/notifications/topics/0/actions/0/args/apiKey, value: abc123}]
+  # A schema error quotes the whole bad block; with a credential-named field inside, only the credential
+  # error may come back (Python and Go alike), so no message repeats the value.
+  - name: a credential-named field inside a block that also breaks the schema
+    expect: holds a credential value
+    ops:
+      - {op: set, path: /spec/extensions/bridge/mode, value: local}
+      - {op: set, path: /spec/extensions/bridge/password, join: ["hunter2", "bridgepw"]}
+  - name: a credential-named field inside a map layer source
+    expect: holds a credential value
+    ops:
+      - {op: set, path: /spec/mapLayers/0/source, value: {}}
+      - {op: set, path: /spec/mapLayers/0/source/token, join: ["tok", "maplayersrc"]}
+  - name: a credential-named field inside a list that is too long
+    expect: holds a credential value
+    ops:
+      - op: set
+        path: /spec/notifications/topics/0/actions
+        value:
+          - {id: show, label: Show on map, tool: recent, args: {}}
+          - {id: list, label: List, tool: recent, args: {}}
+          - {id: open, label: Open, tool: recent, args: {}}
+          - {id: more, label: More, tool: recent, args: {}}
+      - {op: set, path: /spec/notifications/topics/0/actions/3/args/token, join: ["tok", "actionarg"]}
