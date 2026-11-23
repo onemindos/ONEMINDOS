@@ -52,6 +52,7 @@ log = logging.getLogger("onemind.notify")
 BACKOFF_S = (30, 120, 600, 3600, 6 * 3600)
 FAILING_ALERT_AFTER_S = 3600
 FLAP_WINDOW_S = 600
+OUTAGE_GROUP_WINDOW = timedelta(seconds=30)
 NODE_EVENT_SUBJECT = "onemind.node.*.event.>"
 ALERT_SUBJECT_PREFIX = "onemind.alert."
 MAX_BODY = 4096
@@ -323,10 +324,19 @@ class NotifyService:
 
     def _notify_alert(self, row: AlertRow, spec: Spec | None, data: dict, now: datetime) -> None:
         audience = json.loads(row.audience_json or "{}")
+        group_key = None
+        if row.type == "node.offline":
+            group_key = row.dedupe_key
+        elif row.type == "app.unhealthy" and row.source_id == "gateway:monitoring":
+            node_id = data.get("node_id")
+            if isinstance(node_id, str) and node_id:
+                group_key = f"node:{node_id}:offline"
+        delay = OUTAGE_GROUP_WINDOW if group_key and row.type == "app.unhealthy" else timedelta()
         self._fanout(
             self._recipients(audience), severity=row.severity, topic=row.topic, title=row.title,
             body=row.body, link=row.link, source=row.source_id, action_id=data.get("action_id"),
-            alert_id=row.id, inapp_only=row.type in catalogue.INAPP_ONLY_ALERTS, **self._chip(row.type, row.source_id),
+            alert_id=row.id, inapp_only=row.type in catalogue.INAPP_ONLY_ALERTS, group_key=group_key,
+            delivery_delay=delay, **self._chip(row.type, row.source_id),
         )
         row.last_notified_at, row.last_notified_severity = now, row.severity
         self.repo.save_alert(row)
@@ -380,7 +390,7 @@ class NotifyService:
                 link: str | None, source: str, action_id: str | None, alert_id: str | None,
                 inapp_only: bool, source_kind: str = "system", app_id: str | None = None,
                 asset_id: str | None = None, group_key: str | None = None,
-                actions: list[dict] | None = None) -> list[str]:
+                actions: list[dict] | None = None, delivery_delay: timedelta = timedelta()) -> list[str]:
         now = self.clock()
         created = []
         for pid in people:
@@ -401,7 +411,7 @@ class NotifyService:
                     if RANK[severity] < RANK.get(cfg.get("min_severity", "info"), 0):
                         continue                       # below this channel's level: never
                     d = DeliveryRow(id=new_id("dlv"), notification_id=nid, person_id=pid, target_id=target,
-                                    state="queued", attempts=0, next_attempt_at=now, created_at=now)
+                                    state="queued", attempts=0, next_attempt_at=now + delivery_delay, created_at=now)
                     window_start = now - timedelta(hours=1)
                     if self.repo.sent_count(target, window_start) >= cfg.get("per_hour", self.cfg.channel_per_hour):
                         oldest = self.repo.oldest_in_window(target, window_start) or now
@@ -445,12 +455,35 @@ class NotifyService:
                 self.repo.mark_summarised([r.id for r in rows], summary.id, now)
             tried = 0
             for d in self.repo.due_deliveries(now):
+                n = self.repo.get_notification(d.notification_id)
+                if n is not None and self._fold_outage(d, n, now):
+                    continue
                 tried += 1
-                self._deliver(d, now)
+                self._deliver(d, n, now)
             if self._last_prune is None or (now - self._last_prune).total_seconds() >= 3600:
                 self.repo.prune(now)
                 self._last_prune = now
             return tried
+
+    def _fold_outage(self, d: DeliveryRow, n: NotificationRow, now: datetime) -> bool:
+        if d.attempts or (d.held_reason or "").startswith("summary:") or not n.group_key or not n.alert_id:
+            return False
+        alert = self.repo.get_alert(n.alert_id)
+        if alert is None or alert.type != "app.unhealthy" or alert.source_id != "gateway:monitoring":
+            return False
+        outage = self.repo.open_alert(n.group_key)
+        if outage is None or outage.type != "node.offline":
+            return False
+        since = utc(outage.opened_at) - OUTAGE_GROUP_WINDOW
+        if utc(n.created_at) < since:
+            return False
+        # Only a successful send to this person and destination can cover a child.
+        # App-only recipients can be covered by an app warning in the same outage.
+        covering = self.repo.sent_outage_delivery(d, n.group_key, since, SEVERITIES[RANK[n.severity]:])
+        if covering is None:
+            return False
+        self.repo.mark_summarised([d.id], covering, now)
+        return True
 
     def _message(self, n: NotificationRow, count: int) -> Message:
         title, body = n.title, n.body
@@ -489,8 +522,7 @@ class NotifyService:
                   lan_ok=bool(sealed.get("lan")), now_s=now_s)
         return None
 
-    def _deliver(self, d: DeliveryRow, now: datetime) -> None:
-        n = self.repo.get_notification(d.notification_id)
+    def _deliver(self, d: DeliveryRow, n: NotificationRow | None, now: datetime) -> None:
         count = int(d.held_reason.split(":", 1)[1]) if d.held_reason and d.held_reason.startswith("summary:") else 1
         try:
             if n is None:
