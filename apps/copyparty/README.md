@@ -7,9 +7,9 @@ File server in one program: browse, upload, download and share files from a brow
 
 | | |
 |---|---|
-| Version | 1.20.26 (upstream release `v1.20.26`, published 2026-10-14) |
+| Version | 1.20.27 (upstream release `v1.20.27`, published 2026-11-22) |
 | Licence | `MIT`, Market class **L1** (licence gate, scan of 2026-11-21) |
-| Tier | `blocked` (set by CI: sdk/tools/app-gate) |
+| Tier | `community` (set by CI: sdk/tools/app-gate) |
 | Category | files |
 | GitHub | <https://github.com/9001/copyparty> |
 | Website | <https://github.com/9001/copyparty#readme> |
@@ -33,7 +33,7 @@ Storage: PVC `copyparty-config` 1Gi, PVC `copyparty-data` 100Gi.
 
 Images:
 
-- `docker.io/copyparty/ac:1.20.26@sha256:b2054d65e05daa8982ca17c26b12b74315c0ce586a03ff9018a59c80731b9e19`
+- `docker.io/copyparty/ac:1.20.27@sha256:a49363016be176a6eaaa78c6bb6af04ca22a4dd43806da8f9421c9336b92c8f4`
 
 <!-- onemind:notes:begin -->
 ## What it is
@@ -79,17 +79,11 @@ Source: [scripts/docker/README.md](https://github.com/9001/copyparty/blob/v1.20.
 - Resource figures are OneMind choices; upstream publishes none. They are checked against real use when the CI smoke test (contract §9.4 check 9) runs.
 - `metadata.tier` stays `community` until `sdk/tools/app-gate` in CI writes a passing `scan.json`. `spec.updates.automerge` is `none` until `renovate.json` lists the app.
 
-## Why this app is blocked
+## Security gate history
 
-The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked** for this app on 2026-11-12 (ci-apps run 43212771377, job `gate (copyparty)`). The gateway lists a blocked app in the Market but refuses to install it (§10.3, §11.1). The app is kept, not hidden, and the gate was not weakened. Reasons from that run:
+Tier was **blocked** from 2026-11-12 (ci-apps run 43212771377, job `gate (copyparty)`) to 2026-11-23: `docker.io/copyparty/ac:1.20.26` had CRITICAL CVE-2026-111497 in `brotli-libs` 1.2.0-r1 (fixed in 1.2.1-r0, Alpine base).
 
-- Vulnerability: `docker.io/copyparty/ac:1.20.26`: CVE-2026-111497 in `brotli-libs` 1.2.0-r1, fixed in 1.2.1-r0.
-- Licence: GitHub MIT matches, but there is no research licence-matrix row, so the app is not preinstallable on sold boxes until one is added (brief 30 B10).
-- Passed: ClamAV (0 infected), smoke test (GET / returned 200).
-
-To unblock: move the pins to upstream releases that fix these findings (tags that exist, checked with `crane`), then rerun `sdk/tools/app-gate` (the daily `apps-rescan` workflow does this too). Nothing is bumped to an unverified tag.
-
-**Hold (apps/market-unblock-2, 2026-11-13):** `brotli-libs` CVE-2026-111497 (fixed in 1.2.1-r0, Alpine base). `1.20.26` is the newest tag. Unblock: a rebuild on a newer Alpine. The registry was re-read on 2026-11-13: the pinned digest is unchanged and no newer fixed tag exists, so nothing is bumped (the gate was not weakened and the tier was not edited). It unblocks when the weekly `apps-rescan` or a manual `apps-gate-all` run computes a pass on a rebuilt image. No upstream issue link was looked up (the GitHub API is not reachable from the worker).
+**Unblocked (2026-11-23, #147):** upstream `v1.20.27` (published 2026-11-22) rebuilt the image with `apk upgrade` (scripts/docker/Dockerfile.ac at that tag). Trivy 0.76.2 on linux/amd64 and linux/arm64 of `docker.io/copyparty/ac:1.20.27@sha256:a49363016be176a6eaaa78c6bb6af04ca22a4dd43806da8f9421c9336b92c8f4` found 0 CRITICAL and 0 HIGH, and no secrets. The tier moves from `blocked` to `community`; the PR's CI app gate (ClamAV, smoke test, Trivy) decides whether `verified` follows. The licence-matrix row is still missing, so the app is not preinstallable on sold boxes until one is added (brief 30 B10). The gate was not changed.
 <!-- onemind:notes:end -->
 
 ## Latest security scan

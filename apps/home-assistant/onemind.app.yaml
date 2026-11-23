@@ -1,25 +1,25 @@
 # SPDX-License-Identifier: Apache-2.0
 # OneMind app manifest (contract sdk/contracts/poc-v0.md section 4).
-# Sources: github.com/home-assistant/core release 2026.11.1 (tag commit d8a0dc698c89),
-# LICENSE.md at that tag (Apache-2.0), image index digest read with crane on 2026-11-12.
+# Sources: github.com/home-assistant/core release 2026.11.2 (tag commit ff5d56b825a0),
+# LICENSE.md at that tag (Apache-2.0), image index digest read with crane on 2026-11-23.
 apiVersion: onemind.app/v1alpha1
 kind: App
 metadata:
   id: home-assistant
   name: Home Assistant
-  version: "2026.11.1"
+  version: "2026.11.2"
   description: Open source home automation that puts local control and privacy first
   category: home-automation
   icon: icon.svg
   license: Apache-2.0
   source: https://github.com/home-assistant/core
-  # §9.3 facts from the GitHub API (repos/home-assistant/core and its releases/latest), read 2026-11-12.
+  # §9.3 facts from the GitHub API (repos/home-assistant/core and its releases/latest), read 2026-11-23.
   links:
     docs: https://www.home-assistant.io/docs/
     github: https://github.com/home-assistant/core
     website: https://www.home-assistant.io
     support: https://github.com/home-assistant/core/issues
-  upstream: {release: "2026.11.1", released_at: "2026-11-09T18:52:28Z", archived: false}
+  upstream: {release: "2026.11.2", released_at: "2026-11-16T20:03:59Z", archived: false}
   tier: blocked   # set by CI (sdk/tools/app-gate --tier write), not by hand
 spec:
   archs: [amd64, arm64]

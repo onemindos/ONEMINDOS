@@ -1,13 +1,13 @@
 # SPDX-License-Identifier: Apache-2.0
 # audiobookshelf: Market batch 2 (contract sdk/contracts/poc-v0.md §9.5), scaffolded by sdk/tools/app-scaffold
-# (§9.2) and completed from primary sources: Dockerfile, docker-compose.yml and server/Server.js (/healthcheck) at v2.37.2.
-# Image digests and archs from crane; GitHub facts from the GitHub API, read 2026-11-12.
+# (§9.2) and completed from primary sources: Dockerfile, docker-compose.yml and server/Server.js (/healthcheck) at v2.38.0.
+# Image digests and archs from crane; GitHub facts from the GitHub API, read 2026-11-23.
 apiVersion: onemind.app/v1alpha1
 kind: App
 metadata:
   id: audiobookshelf
   name: "Audiobookshelf"
-  version: "2.37.2"
+  version: "2.38.0"
   description: "Self-hosted audiobook and podcast server"
   # Market category slug from docs/design/TAXONOMY.md §1; sub-tags (books, podcasts) are listed in README.md
   # until the schema has metadata.tags.
@@ -20,7 +20,7 @@ metadata:
     github: "https://github.com/advplyr/audiobookshelf"
     website: "https://audiobookshelf.org"
     support: "https://github.com/advplyr/audiobookshelf/issues"
-  upstream: {release: "v2.37.2", released_at: "2026-10-23T20:18:17Z", archived: false}
+  upstream: {release: "v2.38.0", released_at: "2026-11-17T23:41:19Z", archived: false}
   # blocked by the CI app gate: CRITICAL CVEs in node dependencies of the image, fixes exist (details in README.md)
   tier: blocked   # set by CI (sdk/tools/app-gate --tier write), not by hand
 spec:
