@@ -7,6 +7,9 @@ This is where "AI never actuates without human approval" is enforced:
 - a standing approval the owner set in advance (§12.17, automation/policies.py) may accept a
   matching read or write request; it is recorded as approved_by policy:<id>@<revision>;
 - an app.install is approved only for an app with a passing scan newer than 7 days (§10.3);
+- an agent that read third-party text is tainted (taint.py, AIG-04): its requests are never accepted
+  by a standing approval, the owner's approval must name the plan fingerprint, and the app must be
+  visible to AI under its aiPolicy;
 - an app that declares spec.agent gets its own agent principal at install, revoked at removal
   (§11.2), so the AI inside it can request actions but, like every agent, never approve them;
 - an app's declared secrets are entered by the owner with the approval itself (or filed as an
@@ -45,6 +48,7 @@ from pydantic import (
     AwareDatetime, BaseModel, ConfigDict, Discriminator, Field, Tag, ValidationError, field_validator, model_validator,
 )
 
+from . import ai_policy
 from .audit import AuditLog
 from .auth import Principal, new_agent_token, token_hash
 from .catalog import APP_ID_RE, GREEN_LICENCE_CLASSES, AppEntry, Catalog
@@ -55,6 +59,7 @@ from . import streams
 from .scan import scan_problem
 from .approvalcard import APPROVAL_LIMIT_VALUE, HOLD_MIN_MS, approval_card, hold_required  # noqa: F401 (re-exported)
 from .ledger import Action, ActionRepository, iso, new_action_id, utc
+from .taint import PLAN_KEY, TaintLedger, plan_taint
 
 log = logging.getLogger("onemind.actions")
 
@@ -463,6 +468,8 @@ class ActionService:
         self.max_pending_per_requester = 10
         # AIG-03 (#167): fn(principal) raises ApiError to refuse a fresh request (agent budget, cancel).
         self.requester_checks: list[Callable[[Principal], None]] = []
+        # AIG-04: who read third-party text lately. Fed by the MCP layer; read when a request is filed.
+        self.taint = TaintLedger(clock)
         self.handlers: dict[str, ActionHandler] = {}
         # How a background feature action's run() is started after approval; tests make it synchronous.
         self.spawn: Callable[[Callable[[], None]], None] = _worker
@@ -816,6 +823,9 @@ class ActionService:
                 409, "stale_precondition", "the plan changed since you read it; read it again",
                 reason="plan_changed",
             )
+        taint = self.taint.get(principal.id)
+        if taint is not None:
+            self._tainted_target_check(principal, app)
         action = Action(
             id=new_action_id(),
             type=req.type,
@@ -826,7 +836,9 @@ class ActionService:
             created_at=now,
             updated_at=now,
             expires_at=expires_at,
-            plan=rendered["plan"],
+            # The taint note sits beside the plan, not inside the fingerprint: the fingerprint says
+            # what would change; the note says where the requester's context came from.
+            plan={**rendered["plan"], PLAN_KEY: taint.note()} if taint else rendered["plan"],
             plan_sha256=rendered["plan_sha256"],
             risk=lc.TYPES[req.type].risk,
         )
@@ -842,6 +854,7 @@ class ActionService:
                 "requested_by": principal.id, "risk": lc.TYPES[req.type].risk,
                 "plan_sha256": stored.plan_sha256,
                 **({"reason": reason} if reason else {}),
+                **({"tainted_by": list(taint.sources)} if taint else {}),
             },
         )
         moved = self.repo.transition(stored.id, {"requested"}, "awaiting_approval", self.clock())
@@ -856,6 +869,8 @@ class ActionService:
         policy accept a sensitive, destructive or actuate request (docs/leap/core/AUTOMATION.md §4).
         """
         if not self.standing_approvals or _never_by_policy(a):
+            return None
+        if plan_taint(a.plan):  # AIG-04: a requester that read third-party text always waits for a person
             return None
         if (a.plan or {}).get("network_paths"):  # §12.22: opening a path between apps needs a person
             return None
@@ -886,6 +901,14 @@ class ActionService:
                     return None
                 return now.to_json()
         return None
+
+    def _tainted_target_check(self, principal: Principal, app: AppEntry) -> None:
+        """A tainted agent may only ask about apps the app's own aiPolicy shows to AI (#165, deny by default)."""
+        try:
+            ai_policy.require(app.manifest, ai_policy.CATALOG)
+        except ai_policy.AIPolicyDenied as exc:
+            raise self._deny(
+                principal, f"request an action on {app.id!r} after reading third-party text: {exc.decision.reason}")
 
     def _check_pending_cap(self, principal: Principal) -> None:
         for check in self.requester_checks:
@@ -989,6 +1012,17 @@ class ActionService:
                 409, "stale_precondition", "send plan_sha256 so the approval is bound to the plan you read",
                 reason="plan_unchecked",
             )
+        if plan_taint(a.plan):
+            # AIG-04: the requester read third-party text. Only a person, looking at this exact plan.
+            if standing is not None:
+                raise ApiError(409, "stale_precondition", "a request from a tainted agent needs a person",
+                               reason="tainted")
+            if plan_sha256 is None:
+                raise ApiError(
+                    409, "stale_precondition",
+                    "this agent read third-party text before asking: send plan_sha256 to approve exactly this plan",
+                    reason="plan_unchecked",
+                )
         if a.plan_sha256 is not None and app is not None:
             _, fresh, _ = self.render(a.type, a.params)
             if fresh["plan_sha256"] != a.plan_sha256:
@@ -1454,9 +1488,11 @@ class ActionService:
         stored, created = self.repo.create(action)
         if not created:
             return self.expire_if_due(stored).to_json(), False
+        taint = self.taint.get(principal.id)  # feature types never go to a standing approval; record it
         self.audit.append("action.requested", principal.as_dict(), stored.id, {
             "type": action_type, "params": params, "risk": risk, "expires_at": iso(exp),
             "requested_by": principal.id, **({"reason": reason} if reason else {}), **(audit_extra or {}),
+            **({"tainted_by": list(taint.sources)} if taint else {}),
             **({"physical": True, "plan_sha256": plan_sha} if spec.physical else {}),
         })
         moved = self.repo.transition(stored.id, {"requested"}, "awaiting_approval", self.clock())

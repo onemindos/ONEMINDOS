@@ -54,7 +54,11 @@ var (
 		if n := seedName(seedStatePath); n != "" {
 			name = n
 		}
-		return fabric.NodeFacts{NodeID: st.NodeID, Hostname: hostLabel(name), Board: st.Board, Arch: st.Arch,
+		id, err := fabricNodeID(os.Getenv("ONEMIND_NODE_ID"), seedStatePath, st.NodeID)
+		if err != nil {
+			return fabric.NodeFacts{}, err
+		}
+		return fabric.NodeFacts{NodeID: id, Hostname: hostLabel(name), Board: st.Board, Arch: st.Arch,
 			OS: map[string]string{"id": st.OS.ID, "version_id": st.OS.VersionID, "pretty": st.OS.Pretty}}, nil
 	}
 	isRoot   = func() bool { return os.Geteuid() == 0 }
@@ -81,6 +85,41 @@ func seedName(path string) string {
 		return n
 	}
 	return ""
+}
+
+// fabricIDRe is the hub's node id rule (core/onemind_core/natsconf.py NODE_ID_RE).
+var fabricIDRe = sensorNodeIDRe
+
+// fabricNodeID picks the id this machine asks to join with (#943): ONEMIND_NODE_ID when set (as
+// `onemind node info` does), else the node_id first boot drew at random on this machine, else the
+// detected id. The detected id is sha256(machine-id), which every machine built from one image can
+// share, so it is only the fallback for a machine that never ran first boot.
+func fabricNodeID(env, statePath, detected string) (string, error) {
+	if env != "" {
+		if !fabricIDRe.MatchString(env) {
+			return "", fmt.Errorf("ONEMIND_NODE_ID must be 1-32 characters of a-z and 0-9, got %q", env)
+		}
+		return env, nil
+	}
+	if id := seedNodeID(statePath); id != "" {
+		return id, nil
+	}
+	return detected, nil
+}
+
+// seedNodeID returns first boot's node_id, or "" when there is none the hub would accept.
+func seedNodeID(path string) string {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+	var st struct {
+		NodeID string `json:"node_id"`
+	}
+	if json.Unmarshal(raw, &st) != nil || !fabricIDRe.MatchString(st.NodeID) {
+		return ""
+	}
+	return st.NodeID
 }
 
 var labelRe = regexp.MustCompile(`[^A-Za-z0-9-]+`)

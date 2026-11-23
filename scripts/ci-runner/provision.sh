@@ -36,6 +36,17 @@ if [ "$ROLE" = worker ] && ! command -v gitleaks >/dev/null; then
   rm -f /tmp/gl.tgz
 fi
 
+# Node 22 for ci-apps (#299): Debian 13 ships Node 20, so take the pinned official build. The job also runs
+# setup-node; this keeps `node` on PATH for any local job that does not.
+if [ "$ROLE" = worker ] && ! node --version 2>/dev/null | grep -q "^v${NODE_VERSION}$"; then
+  curl -fsSL -o /tmp/node.txz "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-arm64.tar.xz"
+  echo "${NODE_SHA256}  /tmp/node.txz" | sha256sum -c -
+  rm -rf /usr/local/lib/nodejs && mkdir -p /usr/local/lib/nodejs
+  tar -xJf /tmp/node.txz -C /usr/local/lib/nodejs --strip-components=1
+  for b in node npm npx corepack; do ln -sf "/usr/local/lib/nodejs/bin/$b" "/usr/local/bin/$b"; done
+  rm -f /tmp/node.txz
+fi
+
 RH=$(getent passwd runner | cut -d: -f6)
 N=${INSTANCES:-1}
 if [ ! -f "$RH/runner-$RUNNER_VERSION.tgz" ]; then

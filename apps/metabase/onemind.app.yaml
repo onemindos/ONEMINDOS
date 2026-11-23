@@ -13,6 +13,8 @@ metadata:
   # Market category slug from docs/design/TAXONOMY.md §1 (sub-tags are listed in README.md until
   # the schema has metadata.tags).
   category: monitoring
+  age_rating: 18   # proposed minimum age (apps/README.md rubric); the owner can override per app
+  age_reason: "Connects to databases and runs queries on them; an admin and data tool."
   icon: icon.svg
   # LICENSE.txt: "Binaries located at hub.docker.com/metabase/metabase ... are released under the
   # AGPL"; only the separate metabase-enterprise image carries the commercial licence.
