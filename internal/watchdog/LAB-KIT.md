@@ -14,7 +14,7 @@ E=/data/onemind/etc
 umask 077; head -c 32 /dev/urandom | base64 > $E/watchdog.key
 cat > $E/hub-siren <<'S'
 #!/bin/sh
-# log to the journal: onemindd has PrivateTmp, so a file in /var/tmp would be invisible to your shell
+# log to the journal: onemindd has PrivateTmp, so a temp file would be invisible to your shell
 logger -t hub-siren "$ONEMIND_WATCHDOG_EVENT after $ONEMIND_WATCHDOG_SILENT_S s"
 [ "$ONEMIND_WATCHDOG_EVENT" = hub_down ] && speaker-test -t sine -f 880 -l 1 >/dev/null 2>&1
 S
