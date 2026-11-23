@@ -8,6 +8,20 @@ POST /v1/auth/login  # answers with fresh tokens, which a replay store must not 
 POST /v1/auth/refresh  # answers with fresh tokens; refresh-token rotation already rejects a replay
 DELETE /v1/auth/app-session  # clearing the caller's own cookie twice is the same as once
 POST /v1/auth/logout  # ending the caller's own session twice is the same as once
+POST /v1/auth/approver-keys  # a retry with the same public key answers 409 (already registered), so a repeat never adds a second key (#702)
+DELETE /v1/auth/approver-keys/{key_id}  # revoking twice is the same as once: a repeat finds no live key and changes nothing (#702)
+DELETE /v1/me/devices/{device_id}  # Lost this device (#715) is idempotent by design: a repeat revokes nothing and answers removed: false
 PATCH /v1/files/uploads/{upload_id}  # tus: the Upload-Offset header makes a retried chunk safe
 PATCH /v1/photos/uploads/{upload_id}  # tus: the Upload-Offset header makes a retried chunk safe
 POST /v1/actions  # contract §12.1: keeps its §3 body field idempotency_key instead of the header
+POST /v1/tips/{tip_id}/state  # sets one tip's state to the given value: setting the same state twice is the same as once
+POST /v1/files/wopi/tokens  # answers with a fresh WOPI access token, which a replay store must not keep; a retry mints another
+POST /v1/files/wopi/files/{file_id}  # WOPI (#675): an office engine sends no Idempotency-Key; Lock, RefreshLock and Unlock repeated with the same X-WOPI-Lock give the same result
+POST /v1/files/wopi/files/{file_id}/contents  # WOPI PutFile (#675): needs the file's current lock and its last-saved version, so a retried save writes the same bytes again
+POST /v1/bridges/{bridge_id}/events  # every event carries its own id and revision: a retried batch counts as duplicates, never twice
+POST /v1/bridges/{bridge_id}/resume  # resuming a bridge that already runs changes nothing
+POST /v1/files/app-passwords  # answers with a fresh app password, which a replay store must never keep
+POST /v1/files/app-passwords/{password_id}/revoke  # revoking twice is the same as once (the second is 404)
+POST /v1/sync/chunks/missing  # read only: asks which chunks the root lacks; nothing changes but a chunk's lease
+PUT /v1/sync/chunks/{chunk_hash}  # content-addressed: the path is the bytes' sha256, so a retried chunk is the same chunk (stored: false)
+POST /v1/sync/commit  # conditional on base_revision / If-Match: a retry after a commit landed is 412 with the new revision, never a second write

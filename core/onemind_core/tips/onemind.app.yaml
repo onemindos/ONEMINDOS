@@ -1,0 +1,22 @@
+# SPDX-License-Identifier: Apache-2.0
+# Built-in descriptor (sdk/schema/onemind.builtin.schema.json). Read only because "tips" is on the signed list.
+apiVersion: onemind.app/v1
+kind: App
+metadata:
+  id: tips
+  name: Tips
+  description: Short how-to tips that ship with the OS, shown by role, with each person's dismissed ones.
+spec:
+  routes:
+    owns: [/v1/tips]
+    calls:
+      - GET /v1/tips
+      - GET /v1/tips/collections
+      - GET /v1/tips/whats-new
+      - GET /v1/tips/{tip_id}
+      - POST /v1/tips/{tip_id}/state
+  backup:
+    units:
+      - {kind: table, name: tips_state}
+  data: {owns: [activity], reads: []}
+  phone: {entry: native, screen: tips}

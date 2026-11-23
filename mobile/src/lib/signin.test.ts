@@ -26,10 +26,10 @@ describe('passkey sign-in (§12.6)', () => {
   it('signs the hub challenge and returns a renewable passkey session; no token is typed or sent first', async () => {
     const { fn, calls } = hub(['/v1/auth/login/options', '/v1/auth/login']);
     const pk = passkeys();
-    const c = await passkeySignIn('https://onemind.local:8443/', pk, { fetchFn: fn, deviceName: 'Pixel' });
+    const c = await passkeySignIn('https://onemind.local:8443/', pk, { fetchFn: fn, deviceName: 'Pixel', installId: 'inst_new_phone_0002' });
     expect(c).toEqual({ mode: 'live', hubUrl: 'https://onemind.local:8443', token: 'at', auth: 'passkey', expiresAt: '2030-01-01T00:00:00Z', refreshToken: 'rt' });
     expect(pk.get).toHaveBeenCalledWith({ challenge: 'Q2g-', rpId: 'onemind.local', timeout: 60_000, userVerification: 'required' });
-    expect(calls.at(-1)).toMatchObject({ url: 'https://onemind.local:8443/v1/auth/login', body: { passkey: assertion, client: 'app', client_name: 'Pixel' } });
+    expect(calls.at(-1)).toMatchObject({ url: 'https://onemind.local:8443/v1/auth/login', body: { passkey: assertion, client: 'app', client_name: 'Pixel', install_id: 'inst_new_phone_0002' } });
     expect(calls.every((x) => x.auth === undefined)).toBe(true);
   });
 

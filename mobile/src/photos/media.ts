@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // What the backup engine needs from the phone's photo library. The real implementation is
-// expoMedia.ts (PhotoKit / MediaStore through expo-media-library); the demo and the tests use
-// DemoMedia below, which makes deterministic bytes and never touches the real library.
+// expoMedia.ts (PhotoKit / MediaStore through expo-media-library); the tests use DemoMedia
+// below, which makes deterministic bytes and never touches the real library.
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
 
@@ -133,33 +133,4 @@ export class DemoMedia implements MediaSource {
     if (patch === null) this.specs.splice(i, 1);
     else this.specs[i] = { ...this.specs[i]!, ...patch };
   }
-}
-
-/** The demo library shown in "Try the demo" and the screenshots: 48 items, two duplicates. */
-export function demoLibrary(now = Date.now()): DemoMedia {
-  const albums = [
-    { id: 'camera', title: 'Camera' },
-    { id: 'family', title: 'Family' },
-    { id: 'trips', title: 'Trips' },
-    { id: 'screens', title: 'Screenshots' },
-    { id: 'receipts', title: 'Receipts' },
-  ];
-  const specs: DemoAssetSpec[] = [];
-  const day = 86_400_000;
-  for (let i = 0; i < 48; i++) {
-    const video = i % 11 === 5;
-    const album = i % 9 === 0 ? 'screens' : i % 7 === 0 ? 'receipts' : 'camera';
-    const extra = i % 3 === 0 ? ['family'] : i % 5 === 0 ? ['trips'] : [];
-    specs.push({
-      id: `demo-${i}`,
-      fileName: video ? `IMG_${4100 + i}.MOV` : album === 'screens' ? `Screenshot ${i}.png` : `IMG_${4100 + i}.HEIC`,
-      kind: video ? 'video' : 'photo',
-      size: video ? 2_500_000 + (i % 4) * 600_000 : 150_000 + ((i * 7919) % 650_000),
-      // Items 20 and 21 are the same picture saved twice.
-      seed: i === 21 ? 20 : i,
-      albums: [album, ...extra],
-      createdAt: now - (48 - i) * day,
-    });
-  }
-  return new DemoMedia(specs, albums);
 }

@@ -1,0 +1,5 @@
+---
+pr: 961
+branch: claude/roots-edge-profile
+---
+Edge profile, part 1 (#751): an edge is the same image as every other box with the role leaf picked at install, and it now really runs no hub service. k3s skips itself on a leaf (an ExecCondition on the role file, so it is not counted as failed or restarted), first boot stops the k3s that ran before the role was picked and removes its server token, certificates and datastore on the next boot, and the RAUC health gate judges a leaf with a new onemind-leaf-check instead of the k3s check, which would have rolled back every update on a box without k3s. The leaf check proves onemindd answers for this boot, no hub service runs, the NATS leaf (once joined) is healthy with JetStream and started on this boot, /data is writable and the local API answers. New pre-registered QEMU criteria EG1-EG7 and make edge boot the image as an edge, check no hub service or secret, a good update, a bad update that rolls back, and record memory against the 300 MiB target; make fixtures EDGE=1 adds the bad-leaf bundle only when asked, so the T-battery is not slower.

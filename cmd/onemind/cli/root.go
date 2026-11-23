@@ -6,6 +6,7 @@
 package cli
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
 	"io"
@@ -48,6 +49,8 @@ type Global struct {
 type App struct {
 	Env
 	G Global
+	// in is one buffered reader over Stdin, so two questions in a row do not lose the second answer.
+	in *bufio.Reader
 }
 
 // groups is the registry, in help order. One line per command group.
@@ -68,6 +71,8 @@ var groups = []func(a *App) []*cobra.Command{
 	meshCommands,
 	storageCommands,
 	servicesCommands,
+	bridgeCommands,
+	notifyCommands,
 	machinesCommands,
 	syncCommands,
 	mcpCommands,
