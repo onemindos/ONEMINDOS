@@ -64,7 +64,8 @@ def register(app: FastAPI, gw: Gateway) -> None:
     gw.assets = assets
     app.state.assets = assets
     stream = EventStream(gw.settings.audit_path, gw.registry.list, owned_action_ids(gw), gw.clock,
-                         root_revisions=root_revisions, assets=assets)
+                         root_revisions=root_revisions, assets=assets, next_node_change=gw.registry.next_change_in)
+    gw.registry.change_listeners.append(stream.wake_nodes)
     gw.audit.listeners.append(stream.pump.kick)
     slots = StreamSlots()
     task: dict[str, asyncio.Task] = {}

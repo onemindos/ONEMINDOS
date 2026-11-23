@@ -5260,6 +5260,18 @@
             ],
             "description": "hardware profile (#618); absent from older agents"
           },
+          "departed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "RFC 3339 time the node announced a clean shutdown; null while it is running or after it came back",
+            "title": "Departed At"
+          },
           "hostname": {
             "anyOf": [
               {
@@ -5299,6 +5311,19 @@
                 "type": "null"
               }
             ]
+          },
+          "presence": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "online | offline: the fast view for live screens (#608). Offline once a heartbeat is clearly missed (14 s) or at once after a clean shutdown. Absent from older gateways",
+            "title": "Presence",
+            "x-onemind-open-enum": true
           },
           "role": {
             "anyOf": [
