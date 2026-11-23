@@ -17,11 +17,19 @@ class AppLinks(BaseModel):
     support: str | None = None
 
 
+class ScannedLicence(BaseModel):
+    spdx: str
+    licence_class: Literal["L1", "L2", "blocked"] = Field(alias="class")
+
+
 class ScanSummary(BaseModel):
     """§11.1 apps/<id>/scan.json, reduced to what the catalog shows."""
 
     scanned_at: str = Field(description="RFC 3339 time of the last scan")
     result: Literal["pass", "fail"]
+    licence: ScannedLicence | None = Field(
+        default=None, description="SPDX expression and licence class recorded by the app gate. Missing on older scans.",
+    )
     reason: str | None = Field(
         default=None,
         description="Why the scan failed (CRITICAL fixable CVEs, secrets, malware, smoke) from scan.json's own "
@@ -59,6 +67,11 @@ class CatalogApp(BaseModel):
     category: str | None
     icon: str | None
     license: str | None
+    licence_class: Literal["L1", "L2", "blocked", "unknown"] = Field(
+        default="unknown",
+        description="metadata.licenceClass (#173). L1 and L2 are green. blocked and unknown are not: installing "
+        "one needs accept_licence on the approval",
+    )
     source: str | None
     archs: list[str]
     requires: dict

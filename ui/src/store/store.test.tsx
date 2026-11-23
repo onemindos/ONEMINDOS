@@ -44,6 +44,26 @@ describe('Market', () => {
     expect(within(screen.getByRole('list', { name: 'Apps' })).getAllByRole('article')).toHaveLength(1);
   });
 
+  it('shows only green licence classes in search, featured cards and collections by default', async () => {
+    const user = userEvent.setup();
+    const base = catalog[0]!;
+    const apps = [
+      { ...base, id: 'green', name: 'Green licence', licence_class: 'L2' as const },
+      { ...base, id: 'unassessed', name: 'Unknown licence', licence_class: 'L?' as const },
+    ];
+    render(<Market apps={apps} state={READY} now={NOW} {...handlers()}
+      featured={{ app_id: 'unassessed', headline: 'Unassessed feature', blurb: '' }}
+      collections={[{ id: 'both', title: 'Both', blurb: '', app_ids: ['green', 'unassessed'] }]} />);
+    expect(screen.getByRole('link', { name: 'Green licence' })).toBeInTheDocument();
+    expect(screen.queryByText('Unassessed feature')).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Unknown licence' })).not.toBeInTheDocument();
+    await user.type(screen.getByRole('searchbox'), 'Unknown licence');
+    expect(screen.queryByRole('link', { name: 'Unknown licence' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Filters' }));
+    await user.click(screen.getByRole('checkbox', { name: /Unclear licence/ }));
+    expect(screen.getByRole('link', { name: 'Unknown licence' })).toBeInTheDocument();
+  });
+
   it('leaves out categories that have no apps', () => {
     const one = catalog.filter((a) => a.category === catalog[0]!.category);
     render(<Market apps={one} state={READY} now={NOW} {...handlers()} />);

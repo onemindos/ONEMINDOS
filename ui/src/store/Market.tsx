@@ -270,7 +270,7 @@ export function Market({ apps, state, now, collections = [], featured, jobs = []
   const result = useMemo(() => filterApps(apps, f), [apps, f]);
   const counts = useMemo(() => countByCategory(apps, f), [apps, f]);
   const tags = useMemo(() => (f.category ? tagsInCategory(apps, f.category, f) : []), [apps, f]);
-  const byId = useMemo(() => new Map(apps.map((a) => [a.id, a])), [apps]);
+  const byId = useMemo(() => new Map(result.apps.map((a) => [a.id, a])), [result]);
   const nFilters = activeFilterCount(f);
   const discover = !f.q && !f.category && !f.tag;
   const waiting = jobs.filter((j) => j.type === 'app.install' && j.state === 'awaiting_approval');
@@ -283,10 +283,7 @@ export function Market({ apps, state, now, collections = [], featured, jobs = []
   const railCats = withApps.filter((c) => fullest.has(c));
   const moreCats = withApps.filter((c) => !railCats.includes(c));
 
-  const visible = (ids: string[]) => {
-    const shown = new Set(result.apps.map((a) => a.id));
-    return ids.map((id) => byId.get(id)).filter((a): a is CatalogApp => !!a && shown.has(a.id));
-  };
+  const visible = (ids: string[]) => ids.map((id) => byId.get(id)).filter((a): a is CatalogApp => !!a);
 
   // On Discover an app is shown once: in the first rail that has it. The same card twice would
   // list the same Install button twice and make a page of rails look longer than the catalog.

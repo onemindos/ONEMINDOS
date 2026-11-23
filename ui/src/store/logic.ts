@@ -40,7 +40,7 @@ export const DEFAULT_FILTERS: MarketFilters = {
   classes: ['market-verified', 'list-only', 'private'],
   fitsOnly: true,
   arch: null,
-  licences: [],
+  licences: ['L1', 'L2'],
   tier: 'any',
   pluginsOnly: false,
   noGpu: false,
@@ -86,7 +86,7 @@ function passesFacets(app: CatalogApp, f: MarketFilters): boolean {
   if (f.category && app.category !== f.category) return false;
   if (f.tag && !(app.tags ?? []).includes(f.tag)) return false;
   if (f.arch && !app.archs.includes(f.arch)) return false;
-  if (f.licences.length > 0 && (!app.licence_class || !f.licences.includes(app.licence_class))) return false;
+  if (f.licences.length > 0 && !f.licences.includes(app.licence_class ?? 'L?')) return false;
   if (f.tier !== 'any' && app.tier !== f.tier) return false;
   if (f.pluginsOnly && !app.plugin) return false;
   if (f.noGpu && (app.requires?.gpu || app.placement?.gpu === 'required')) return false;
@@ -151,7 +151,7 @@ export function activeFilterCount(f: MarketFilters): number {
   if (!same(f.classes, DEFAULT_FILTERS.classes)) n++;
   if (f.fitsOnly !== DEFAULT_FILTERS.fitsOnly) n++;
   if (f.arch) n++;
-  if (f.licences.length) n++;
+  if (!same(f.licences, DEFAULT_FILTERS.licences)) n++;
   if (f.tier !== 'any') n++;
   if (f.pluginsOnly) n++;
   if (f.noGpu) n++;

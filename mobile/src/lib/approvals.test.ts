@@ -129,6 +129,13 @@ describe('approval with passkey step-up (§12.3, §12.4)', () => {
     expect(approve).toHaveBeenCalledWith('act-0001', {});
   });
 
+  it('says a licence that is not green is accepted on the dashboard or CLI, never silently', async () => {
+    const approve = jest.fn().mockRejectedValue(new ApiError(409, 'stale_precondition', 'licence class unknown', { reason: 'licence_unconfirmed' }));
+    const r = await decide(v0Api({ approve }), pending(), 'approve');
+    expect(r).toMatchObject({ ok: false, reason: 'licence_unconfirmed' });
+    expect(r.message).toMatch(/typing the app id/);
+  });
+
   it('refuses locally when the hub plan is not the plan on the card', async () => {
     const approve = jest.fn();
     const api = v0Api({ approveOptions: async () => opts, approve });
