@@ -95,6 +95,11 @@ HUMAN_ONLY: dict[str, str] = {
     "POST /v1/domains/hosts/{hostname}/approve": OVERSIGHT,
     "POST /v1/files/requests/{request_id}/approve": OVERSIGHT,
     "POST /v1/files/requests/{request_id}/deny": OVERSIGHT,
+    # host grants (#186 E2): the owner alone decides what reaches the host; an agent may file the request
+    # over REST (it stays pending until the owner approves), but no agent tool stands for it
+    "GET /v1/host-grants": OVERSIGHT,
+    "POST /v1/host-grants/requests": OVERSIGHT,
+    "POST /v1/host-grants/{grant_id}/revoke": OVERSIGHT,
     "PUT /v1/physical/lockout": OVERSIGHT,
     "POST /v1/radios/{radio_id}/confirm": OVERSIGHT,
     # ---- credential: sign-in, tokens, keys, secrets, pairing
