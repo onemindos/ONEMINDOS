@@ -145,14 +145,19 @@ jobs:
           else
             files=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")
           fi
-          all_apps() { find apps -mindepth 1 -maxdepth 1 -type d ! -name '_*' ! -name '.*' -printf '%f\n' | sort; }
+          changed_apps=$(grep -oE '^apps/[^/_.][^/]*/' <<<"$files" | cut -d/ -f2 | sort -u || true)
+          all_apps() {
+            # Start scans of the PR's app pins first, even when a gate change requires the full catalogue.
+            { printf '%s\n' "$changed_apps"; find apps -mindepth 1 -maxdepth 1 -type d ! -name '_*' ! -name '.*' -printf '%f\n' | sort; } |
+              awk 'NF && !seen[$0]++'
+          }
           matrix=research-output/evidence/license-matrix.csv
           # A change to the gate itself (its tools, pinned tool installer, schema or this workflow) re-gates
           # every app; otherwise only the apps the PR touches (SDK changes that are not gate inputs gate none).
           if grep -qE '^(sdk/tools/((app-gate|validate-apps|requirements\.txt|ci/install-tools\.sh)$|applib/)|sdk/schema/|core/onemind_core/((catalog|manifest_convert|ai_policy|scan)\.py|appsecrets/(__init__|spec)\.py)$|cmd/onemind/|internal/plugin/|go\.(mod|sum)$|\.github/workflows/ci-apps\.yml$)' <<<"$files"; then
             ids=$(all_apps)
           else
-            ids=$(grep -oE '^apps/[^/_.][^/]*/' <<<"$files" | cut -d/ -f2 | sort -u || true)
+            ids=$changed_apps
             # The licence matrix is read by the licence check only, through the rows that cite an app's own
             # upstream repository. So a matrix-only change gates just the apps whose rows changed (every Market
             # PR adds rows; gating all apps for that took ~45 min). If the rows cannot be compared, gate all.
