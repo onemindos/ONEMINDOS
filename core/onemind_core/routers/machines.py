@@ -25,8 +25,9 @@ from ..errors import ApiError, error_responses
 from ..identity.scopes import register_route_scope
 from ..machines.capability import MIN_MEMORY_MB, describe
 from ..machines.console import ConsoleBroker, ConsoleMiddleware, KubectlProxyUpstream
+from ..machines.devices import DeviceGrants, MachineDevices
 from ..machines.media import MachineUploadResult
-from ..machines.service import MachineService
+from ..machines.service import REQUESTERS, MachineService
 from ..machines.spec import IMAGE_CATALOGUE, CatalogueImage
 
 
@@ -55,6 +56,8 @@ register_route_scope("GET,HEAD", r"/v1/machines/[a-z][a-z0-9-]*", ("nodes:read",
 register_route_scope("GET,HEAD", r"/v1/machines/[a-z][a-z0-9-]*/snapshots", ("nodes:read",))
 register_route_scope("POST", r"/v1/machines/[a-z][a-z0-9-]*/console", ("machines:admin",))
 register_route_scope("POST", r"/v1/machines/[a-z][a-z0-9-]*/upload", ("machines:admin",))
+# #690: the devices a machine could be given, with the refusals; grants themselves are actions.
+register_route_scope("GET,HEAD", r"/v1/machines/[a-z][a-z0-9-]*/devices", ("nodes:read",))
 
 
 def register(app: FastAPI, gw: Gateway) -> None:
@@ -62,6 +65,9 @@ def register(app: FastAPI, gw: Gateway) -> None:
     svc = MachineService(gw)
     svc.register()  # machine.create|start|stop|delete: requested by an owner or an agent, approved by an owner
     app.state.machines = svc
+    devices = DeviceGrants(gw, svc)
+    devices.register(REQUESTERS)  # machine.attach_device|detach_device (#690): requested by an owner or an agent, approved by an owner
+    app.state.machine_devices = devices
     # The console screen: a WebSocket whose credential is the ticket below (console.py). Only a real
     # runtime has a display to show; the noop executor (demos, tests) closes it with a plain reason.
     upstream = None if gw.settings.executor == "noop" else KubectlProxyUpstream(gw.settings.kubectl)
@@ -142,6 +148,13 @@ def register(app: FastAPI, gw: Gateway) -> None:
         if svc.repo.get(name) is None:
             raise ApiError(404, "not_found", f"There is no machine named {name}.")
         return svc.repo.snapshots(name)
+
+    @app.get("/v1/machines/{name}/devices", tags=["machines"], operation_id="machines.devices",
+             response_model=MachineDevices, responses=error_responses(401, 404))
+    def machines_devices(name: str, _: Principal = Depends(principal)):
+        """The USB devices and GPUs of the machine's box, who holds each, and why one cannot be granted (#690).
+        Grants are the owner-approved actions `machine.attach_device` and `machine.detach_device`; they apply at the machine's next start."""
+        return devices.inventory(name)
 
     @app.post("/v1/machines/{name}/upload", tags=["machines"], operation_id="machines.upload",
               response_model=MachineUploadResult, responses=error_responses(401, 403, 404, 409, 413, 503))

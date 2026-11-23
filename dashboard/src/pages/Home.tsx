@@ -3,6 +3,7 @@
 // Backups, updates and mesh read /v1/backups/status, /v1/os/updates and /v1/mesh (data/homeExtras).
 import { useMemo, useState, type ReactNode } from 'react';
 import { HomeScreen, StateView, useOptionalCustomize, useToast, type ActionSummary, type BackupStatus, type StorageStatus, type HomeData, type HomeLayout, type HomeLoadable } from '@onemind/ui';
+import { ApiError } from '../api/types';
 import { useHomeExtras } from '../data/homeExtras';
 import { homeActivity, toActionSummary, toHomeApp, toHomeNode } from '../data/adapters';
 import { errorText, useHub, type Hub } from '../data/hub';
@@ -98,7 +99,8 @@ function ProHome({ commandBar }: { commandBar: ReactNode }) {
       () => toast.show({ tone: how === 'approve' ? 'ok' : 'neutral', title: how === 'approve' ? 'Approved' : 'Denied', body: how === 'approve' ? 'The hub is applying it.' : 'Nothing changes.' }),
       (e: unknown) => {
         const { code, message } = errorText(e);
-        toast.show({ tone: 'bad', title: `Could not ${how}`, body: `${message} (${code})` });
+        const licence = e instanceof ApiError && e.reason === 'licence_unconfirmed';
+        toast.show({ tone: 'bad', title: `Could not ${how}`, body: licence ? 'This app needs its licence accepted. Open Approvals to read it and confirm.' : `${message} (${code})` });
       },
     );
 

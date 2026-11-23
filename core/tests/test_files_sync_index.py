@@ -143,7 +143,7 @@ def test_a_cursor_older_than_the_pruned_deletions_gets_410(fc):
 
 
 def test_root_changed_wake_up_is_bounded_and_carries_no_changes(tmp_path, clock, monkeypatch):
-    monkeypatch.setattr(eventstream, "NODE_POLL_S", 0.0)  # poll the roots on every loop
+    monkeypatch.setattr(eventstream, "ROOT_POLL_S", 0.0)  # poll the roots on every loop
     revs = {"shared": 3}
     audit = tmp_path / "audit.jsonl"
     audit.write_text("")

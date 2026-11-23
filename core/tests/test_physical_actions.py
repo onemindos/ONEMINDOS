@@ -187,6 +187,18 @@ def test_motion_lockout_refuses_every_physical_request(client, clock, pump, sett
     assert _approve(client, pending)["state"] == "succeeded"
 
 
+def test_lifting_the_lockout_needs_a_fresh_passkey_once_passkeys_are_active(client, settings, monkeypatch):
+    monkeypatch.setattr(client.app.state.identity, "passkeys_active", lambda: True)  # an owner has a passkey
+    # turning motion off stays one step: no passkey needed to make the box safer
+    r = client.put("/v1/physical/lockout", headers=OWNER, json={"locked": True})
+    assert r.status_code == 200 and r.json()["locked"] is True, r.text
+    # lifting it with a bare token is refused, and the lockout holds
+    r = client.put("/v1/physical/lockout", headers=OWNER, json={"locked": False})
+    assert r.status_code == 401 and r.json()["reason"] == "step_up_required", r.text
+    assert client.get("/v1/physical/lockout", headers=OWNER).json()["locked"] is True
+    assert "physical.lockout.off" not in [e["event"] for e in _audit(settings)]
+
+
 def test_lockout_that_cannot_be_read_counts_as_on(client, clock, pump):
     svc = client.app.state.actions
 

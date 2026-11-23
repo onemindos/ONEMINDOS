@@ -23,6 +23,15 @@ def _identity_v2(conn) -> None:
     if "profile_name" not in {c["name"] for c in inspect(conn).get_columns("identity_users")}:
         conn.execute(text("ALTER TABLE identity_users ADD COLUMN profile_name VARCHAR(60)"))
 
+
+@SCHEMA.step(3, "install_id: the random id one app install sends, so My devices groups its sign-ins and passkeys (#715)")
+def _identity_v3(conn) -> None:
+    from sqlalchemy import inspect, text
+
+    for table in ("identity_sessions", "identity_passkeys"):
+        if "install_id" not in {c["name"] for c in inspect(conn).get_columns(table)}:
+            conn.execute(text(f"ALTER TABLE {table} ADD COLUMN install_id VARCHAR(64)"))
+
 T = TypeVar("T", bound=Base)
 
 
@@ -74,6 +83,22 @@ class PasskeyRow(Base):
     transports: Mapped[list] = mapped_column(JSON, default=list)
     created_at: Mapped[datetime] = mapped_column(TS)
     last_used_at: Mapped[datetime | None] = mapped_column(TS, nullable=True)
+    install_id: Mapped[str | None] = mapped_column(String(64), nullable=True)  # #715, see devices/service.py
+
+
+class ApproverKeyRow(Base):
+    """#702: a phone's device-bound P-256 approver key. Revoked rows stay, so the audit can name them."""
+
+    __tablename__ = "identity_approver_keys"
+    id: Mapped[str] = mapped_column(String(40), primary_key=True)  # apk_<ulid>
+    user_id: Mapped[str] = mapped_column(String(40), index=True)
+    label: Mapped[str] = mapped_column(String(100))  # the phone, as the owner named it
+    key_kind: Mapped[str] = mapped_column(String(24))  # approver_keys.KEY_KINDS
+    public_key: Mapped[bytes] = mapped_column(LargeBinary)  # SubjectPublicKeyInfo DER
+    fingerprint: Mapped[str] = mapped_column(String(80), unique=True)  # sha256:<hex> of the DER
+    created_at: Mapped[datetime] = mapped_column(TS)
+    last_used_at: Mapped[datetime | None] = mapped_column(TS, nullable=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(TS, nullable=True)
 
 
 class SessionRow(Base):
@@ -92,6 +117,7 @@ class SessionRow(Base):
     last_seen_at: Mapped[datetime] = mapped_column(TS)
     expires_at: Mapped[datetime] = mapped_column(TS)
     revoked_at: Mapped[datetime | None] = mapped_column(TS, nullable=True)
+    install_id: Mapped[str | None] = mapped_column(String(64), nullable=True)  # #715, see devices/service.py
 
 
 class TokenRow(Base):

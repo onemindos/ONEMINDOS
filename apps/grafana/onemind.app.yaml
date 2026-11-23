@@ -12,8 +12,11 @@ metadata:
   # Market category slug from docs/design/TAXONOMY.md §1 (sub-tags are listed in README.md until
   # the schema has metadata.tags).
   category: monitoring
+  age_rating: 18   # proposed minimum age (apps/README.md rubric); the owner can override per app
+  age_reason: "Reads the box's data sources and can query databases; an admin dashboard."
   icon: icon.svg
   license: "AGPL-3.0"
+  licenceClass: L2
   source: https://github.com/grafana/grafana
   # §9.3 facts from the GitHub API (repos/grafana/grafana), read 2026-11-12.
   links:

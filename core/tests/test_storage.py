@@ -45,6 +45,7 @@ class FakeNode:
         self.recovery_key: str | None = "FAKE-RECOVERY-KEY-FOR-TESTS-ONLY"
         self.state = "unprotected"
         self.verdict = "ok"
+        self.mirror: dict = {}  # replaces fields of the mirror the node reports
 
     def plan(self, req: dict) -> dict:
         self.plans += 1
@@ -67,7 +68,7 @@ class FakeNode:
             "mirror": {"state": self.state, "encrypted": True, "generation": 3, "needs_scrub": False,
                        "reasons": [] if self.state != "degraded" else ["1 of 2 disks missing"],
                        "members": [{"devid": 1, "path": "/dev/mapper/x", "missing": False, "size_bytes": 1, "allocated_bytes": 1, "errors": {}}],
-                       "profiles": [{"kind": "Data", "profile": "single"}]},
+                       "profiles": [{"kind": "Data", "profile": "single"}], **self.mirror},
             "disks": [{"path": "/dev/vdc", "id": SERIAL, "serial": SERIAL, "serial_tail": SERIAL[-4:], "model": "Disk", "role": "unused"}],
             "health": {"/dev/vdc": {"verdict": self.verdict, "reasons": ["SMART failed"] if self.verdict == "critical" else []}},
         }
@@ -310,6 +311,59 @@ def test_summary_has_no_disk_identities(settings, clock, node, no_poller):
         assert SERIAL not in s.text and SERIAL[-4:] not in s.text
         d = c.get("/v1/storage/devices", headers=OWNER).json()
         assert d[0]["serial"] == SERIAL and d[0]["health"]["verdict"] == "ok"
+
+
+# A two-disk raid1 set as the node reports it (internal/storage/testdata/mirror-usage.*, Debian 13,
+# btrfs-progs 6.14): two 3 GiB members with 2 627 338 240 raw bytes unallocated, of which a person can
+# write 1 869 611 008, because every byte is stored twice.
+MIRRORED = {
+    "state": "protected", "used_bytes": 1074987008, "available_bytes": 1869611008,
+    "profiles": [{"kind": "Data", "profile": "raid1", "total_bytes": 1630732288, "used_bytes": 1073741824}],
+    "members": [
+        {"devid": 1, "path": "/dev/loop0", "missing": False, "size_bytes": 3221225472, "allocated_bytes": 1907556352, "errors": {}},
+        {"devid": 2, "path": "/dev/loop1", "missing": False, "size_bytes": 3221225472, "allocated_bytes": 1907556352, "errors": {}},
+    ],
+}
+
+
+def test_summary_forwards_measured_available_bytes_on_a_mirror(settings, clock, node, no_poller):
+    node.mirror = MIRRORED
+    with storage_client(settings, clock, node) as c:
+        s = c.get("/v1/storage", headers=GUEST).json()
+        assert s["state"] == "protected" and s["available_bytes"] == 1869611008
+        raw_free = sum(m["size_bytes"] - m["allocated_bytes"] for m in s["members"])
+        assert raw_free == 2627338240 and s["available_bytes"] < raw_free  # not derived from the members
+        assert s["used_bytes"] == 1074987008
+
+
+@pytest.mark.parametrize("reported", ["absent", None, -1, "1869611008", True, 1.5])
+def test_summary_available_bytes_unknown_is_null(settings, clock, node, no_poller, reported):
+    """An older node without the field, a reading the node could not take (null), or anything that is
+    not a whole byte count: the gateway says null (unknown), and never fills in a guess."""
+    node.mirror = {k: v for k, v in MIRRORED.items() if k != "available_bytes"}
+    if reported != "absent":
+        node.mirror["available_bytes"] = reported
+    with storage_client(settings, clock, node) as c:
+        s = c.get("/v1/storage", headers=GUEST)
+        assert s.status_code == 200
+        assert "available_bytes" in s.json() and s.json()["available_bytes"] is None
+        assert s.json()["state"] == "protected"
+
+
+def test_summary_shape_unchanged_when_node_unreachable(settings, clock, node, no_poller):
+    node.mirror = MIRRORED
+    with storage_client(settings, clock, node) as c:
+        node.sock.unlink()
+        s = c.get("/v1/storage", headers=GUEST).json()
+        assert set(s) == {"node_id", "enabled", "available", "error"} and s["available"] is False
+
+
+def test_summary_schema_documents_nullable_available_bytes(settings, clock, node, no_poller):
+    with storage_client(settings, clock, node) as c:
+        spec = c.get("/openapi.json").json()
+    ref = spec["paths"]["/v1/storage"]["get"]["responses"]["200"]["content"]["application/json"]["schema"]["$ref"]
+    field = spec["components"]["schemas"][ref.rsplit("/", 1)[1]]["properties"]["available_bytes"]
+    assert {"type": "null"} in field["anyOf"] and "never estimated" in field["description"]
 
 
 def test_recovery_key_shown_once_to_owners(settings, clock, node, no_poller):

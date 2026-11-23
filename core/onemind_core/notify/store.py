@@ -5,10 +5,13 @@ alerts         one row per condition; `open_key` = dedupe_key while open, NULL o
                the unique index allows one open alert per key and any number of resolved ones
 notifications  one person's inbox items
 deliveries     one notification (or summary) to one channel or device: queued, held, sent,
-               failed (retrying), dead, summarised
+               failed (retrying), dead, summarised, dropped (over the channel's daily cap)
+sends          one row per attempt to reach a capped (sms) channel's provider, whatever its outcome:
+               the daily cap counts these, so a retry or a timeout the provider billed is counted
 channels       a person's outbound channels; the secret is sealed (SecretBox), never returned
 devices        push registrations (Web Push / UnifiedPush); endpoint and keys sealed
 preferences    a person's routing document (contract §12.14)
+sources        the owner's mute switch per notification source (`app:<id>`, `plugin:<id>`; topics.py)
 """
 
 from __future__ import annotations
@@ -25,6 +28,25 @@ from ..ledger import Base, iso, utc
 from ..store import Database, FeatureSchema, SqlRepository
 
 SCHEMA = FeatureSchema("notify")
+
+
+@SCHEMA.step(2, "where an inbox item came from: source kind, app, asset, group key, actions (#613)")
+def _notify_v2(conn) -> None:
+    from sqlalchemy import inspect, text
+
+    have = {c["name"] for c in inspect(conn).get_columns("notify_notifications")}
+    for name, ddl in (("source_kind", "VARCHAR(16) NOT NULL DEFAULT 'system'"), ("app_id", "VARCHAR(80)"),
+                      ("asset_id", "VARCHAR(128)"), ("group_key", "VARCHAR(200)"), ("actions_json", "TEXT")):
+        if name not in have:
+            conn.execute(text(f"ALTER TABLE notify_notifications ADD COLUMN {name} {ddl}"))
+
+
+@SCHEMA.step(3, "install_id on push registrations: the app install that registered it, for My devices (#715)")
+def _notify_v3(conn) -> None:
+    from sqlalchemy import inspect, text
+
+    if "install_id" not in {c["name"] for c in inspect(conn).get_columns("notify_devices")}:
+        conn.execute(text("ALTER TABLE notify_devices ADD COLUMN install_id VARCHAR(64)"))
 
 
 class AlertRow(Base):
@@ -69,6 +91,11 @@ class NotificationRow(Base):
     source: Mapped[str] = mapped_column(String(120))
     action_id: Mapped[str | None] = mapped_column(String(40), nullable=True)
     alert_id: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    source_kind: Mapped[str] = mapped_column(String(16), default="system", server_default="system")
+    app_id: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    asset_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    group_key: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    actions_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     __table_args__ = (Index("notify_notifications_person_created", "person_id", "created_at"),)
@@ -89,6 +116,16 @@ class DeliveryRow(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     __table_args__ = (Index("notify_deliveries_state_next", "state", "next_attempt_at"),)
+
+
+class SendRow(Base):
+    """One attempt to reach a capped channel's provider (issue #869), written before any byte goes out."""
+    __tablename__ = "notify_sends"
+    id: Mapped[str] = mapped_column(String(40), primary_key=True)
+    target_id: Mapped[str] = mapped_column(String(40))
+    kind: Mapped[str] = mapped_column(String(16))               # delivery | test
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    __table_args__ = (Index("notify_sends_target_at", "target_id", "at"),)
 
 
 class ChannelRow(Base):
@@ -120,6 +157,7 @@ class DeviceRow(Base):
     failing_since: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    install_id: Mapped[str | None] = mapped_column(String(64), nullable=True)  # #715, see devices/service.py
 
 
 class PreferencesRow(Base):
@@ -127,6 +165,16 @@ class PreferencesRow(Base):
     person_id: Mapped[str] = mapped_column(String(120), primary_key=True)
     doc_json: Mapped[str] = mapped_column(Text)
     etag: Mapped[str] = mapped_column(String(80))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class SourceRow(Base):
+    __tablename__ = "notify_sources"
+    source_id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    muted: Mapped[bool] = mapped_column(Boolean, default=False)
+    reason: Mapped[str | None] = mapped_column(String(16), nullable=True)   # owner | flood
+    muted_by: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    muted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
@@ -150,6 +198,8 @@ def notification_json(r: NotificationRow) -> dict:
     return {
         "id": r.id, "severity": r.severity, "topic": r.topic, "title": r.title, "body": r.body,
         "link": r.link, "source": r.source, "action_id": r.action_id, "alert_id": r.alert_id,
+        "source_kind": r.source_kind or "system", "app_id": r.app_id, "asset_id": r.asset_id,
+        "group_key": r.group_key, "actions": json.loads(r.actions_json) if r.actions_json else [],
         "created_at": iso(r.created_at), "read_at": iso(r.read_at),
     }
 
@@ -274,6 +324,22 @@ class NotifyRepository(SqlRepository):
         with self.db.session() as s:
             return list(s.scalars(q))
 
+    def unread_summary(self, person_id: str) -> dict:
+        """One person's inbox in one answer: unread counts per severity and the two times that
+        move whenever the inbox changes (a new item, or an item read on any device)."""
+        mine = NotificationRow.person_id == person_id
+        with self.db.session() as s:
+            counts = dict(s.execute(
+                select(NotificationRow.severity, func.count())
+                .where(mine, NotificationRow.read_at.is_(None)).group_by(NotificationRow.severity)
+            ).all())
+            latest, last_read = s.execute(
+                select(func.max(NotificationRow.created_at), func.max(NotificationRow.read_at)).where(mine)
+            ).one()
+        by_severity = {sev: int(counts.get(sev, 0)) for sev in ("info", "warning", "critical")}
+        return {"unread": sum(int(n) for n in counts.values()), "by_severity": by_severity,
+                "latest_created_at": iso(latest), "last_read_at": iso(last_read)}
+
     def mark_read(self, person_id: str, nid: str | None, now: datetime) -> int:
         conds = [NotificationRow.person_id == person_id, NotificationRow.read_at.is_(None)]
         if nid is not None:
@@ -319,6 +385,24 @@ class NotifyRepository(SqlRepository):
                 DeliveryRow.target_id == target_id, DeliveryRow.created_at >= since,
                 DeliveryRow.state.in_(("queued", "sent", "failed")),
             )) or 0
+
+    def claim_send(self, target_id: str, kind: str, since: datetime, cap: int, now: datetime, send_id: str) -> bool:
+        """Record one provider attempt unless `cap` attempts were made since `since`; False when capped.
+
+        Every attempt counts (a failure, a 5xx, a timeout the provider may already have billed), so a
+        retry loop cannot send more than `cap` in the window. Callers serialise per gateway."""
+        with self.db.session.begin() as s:
+            made = s.scalar(select(func.count()).select_from(SendRow).where(
+                SendRow.target_id == target_id, SendRow.at >= since)) or 0
+            if made >= cap:
+                return False
+            s.add(SendRow(id=send_id, target_id=target_id, kind=kind, at=now))
+            return True
+
+    def sends_since(self, target_id: str, since: datetime) -> int:
+        with self.db.session() as s:
+            return s.scalar(select(func.count()).select_from(SendRow).where(
+                SendRow.target_id == target_id, SendRow.at >= since)) or 0
 
     def deliveries_for(self, notification_id: str) -> list[DeliveryRow]:
         with self.db.session() as s:
@@ -405,12 +489,26 @@ class NotifyRepository(SqlRepository):
         with self.db.session.begin() as s:
             s.execute(stmt).scalar()
 
+    # ---- sources (topics.py) ----------------------------------------------------------------
+    def get_source(self, source_id: str) -> SourceRow | None:
+        with self.db.session() as s:
+            return s.get(SourceRow, source_id)
+
+    def list_sources(self) -> list[SourceRow]:
+        with self.db.session() as s:
+            return list(s.scalars(select(SourceRow).order_by(SourceRow.source_id)))
+
+    def save_source(self, row: SourceRow) -> None:
+        with self.db.session.begin() as s:
+            s.merge(row)
+
     # ---- retention (NOTIFICATIONS.md §9) ---------------------------------------------------
     def prune(self, now: datetime) -> None:
         with self.db.session.begin() as s:
             s.execute(delete(NotificationRow).where(NotificationRow.created_at < now - timedelta(days=90)))
             s.execute(delete(DeliveryRow).where(
                 DeliveryRow.created_at < now - timedelta(days=30),
-                DeliveryRow.state.in_(("sent", "dead", "summarised"))))
+                DeliveryRow.state.in_(("sent", "dead", "summarised", "dropped"))))
+            s.execute(delete(SendRow).where(SendRow.at < now - timedelta(days=2)))
             s.execute(delete(AlertRow).where(
                 AlertRow.state == "resolved", AlertRow.resolved_at < now - timedelta(days=180)))

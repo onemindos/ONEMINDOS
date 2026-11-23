@@ -136,7 +136,8 @@ def test_catalog_links_tier_scan(client, clock, settings):
         "support": None,
     }
     assert h["tier"] == "community"
-    assert h["scan"] == {"scanned_at": "2026-11-10T22:00:00Z", "result": "pass", "reason": None}
+    assert h["scan"] == {"scanned_at": "2026-11-10T22:00:00Z", "result": "pass", "reason": None,
+                         "licence": {"spdx": "MIT", "class": "L1"}, "quality": None}
     ku = apps["uptime-kuma"]
     assert ku["links"] == {"docs": None, "github": None, "website": None, "support": None}
     assert ku["tier"] is None
@@ -172,6 +173,25 @@ def test_catalog_scan_reason_for_failed_scan(client, clock, settings):
     write_scan(d, clock.now)
     apps = {a["id"]: a for a in client.get("/v1/apps", headers=GUEST).json()}
     assert apps["whoami"]["scan"]["reason"] is None
+
+
+@pytest.mark.parametrize("licence,expected", [
+    ({"spdx": "GPL-3.0", "class": "L2"}, {"spdx": "GPL-3.0", "class": "L2"}),
+    ({"spdx": "LicenseRef-Proprietary", "class": "blocked"}, {"spdx": "LicenseRef-Proprietary", "class": "blocked"}),
+    ({"spdx": "MIT", "class": "unrecognised"}, None),
+    ({"class": "L1"}, None),
+    (None, None),
+])
+def test_catalog_reports_only_recorded_licence_evidence(client, settings, licence, expected):
+    path = settings.apps_dir / "uptime-kuma" / "scan.json"
+    doc = json.loads(path.read_text())
+    if licence is None:
+        doc.pop("licence")
+    else:
+        doc["licence"] = licence
+    path.write_text(json.dumps(doc))
+    entry = next(a for a in client.get("/v1/apps", headers=GUEST).json() if a["id"] == "uptime-kuma")
+    assert entry["scan"]["licence"] == expected
 
 
 def test_unknown_tier_is_null(client, settings):

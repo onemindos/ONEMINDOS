@@ -126,6 +126,8 @@ def test_the_profile_is_in_the_published_api_contract():
     caps = schemas["NodeCapabilities"]
     assert set(caps["required"]) == {"schema", "data_disk", "memory", "accelerators", "usb", "tty_ports",
                                      "radios", "cameras", "power", "thermal"}
-    # Every field the Go probe writes is described (no silent drift between the two).
+    # Every field the Go probe writes is described (no silent drift between the two). The golden
+    # fixtures have no IOMMU, so they leave out `passthrough` (#690), the one field written only on a
+    # box with VT-d or AMD-Vi on; internal/detect/passthrough_test.go produces it.
     for name in ("x86efi", "minipc", "rpi5"):
-        assert set(profile(name)) == set(caps["properties"])
+        assert set(profile(name)) | {"passthrough"} == set(caps["properties"])

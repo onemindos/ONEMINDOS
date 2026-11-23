@@ -2,6 +2,7 @@
 // Settings > Account and security: who you are (GET /v1/me), your passkeys and where you are
 // signed in. Adding a passkey runs the browser's WebAuthn ceremony; removing a passkey or signing
 // a device out only takes power away, so it happens at once (the gateway still audits it).
+// App passwords (WebDAV for Finder and Linux file managers, #722) are in AppPasswords.tsx.
 import { Button, Card, PageHeader, StatusPill, Table, useToast } from '@onemind/ui';
 import { useHub } from '../data/hub';
 import { t } from '../i18n';
@@ -9,6 +10,7 @@ import { usePoll } from '../lib/hooks';
 import { createPasskey, webauthnSupported } from '../lib/webauthn';
 import { formatAgo, secondsSince } from '../lib/time';
 import { useSignedIn } from '../session';
+import { AppPasswords } from './AppPasswords';
 import { Load, useRun } from './parts';
 
 const ago = (iso: string | null | undefined, now: number) => (iso ? formatAgo(secondsSince(iso, now)) : t('common.never'));
@@ -99,6 +101,7 @@ export function Account() {
           )}
         </Load>
       </Card>
+      <AppPasswords />
     </div>
   );
 }
