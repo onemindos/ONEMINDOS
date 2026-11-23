@@ -697,6 +697,20 @@ POLICY |= {
                                                  f"{_SHR}: only an owner stops a share; the one probed does not exist"),
 }
 
+# ---- WebDAV app passwords (files-webdav, #722: core/onemind_core/routers/webdav.py) --------------------------
+# The /dav tree is a middleware outside the router (files/webdav.py): it takes only app passwords, so every
+# bearer token gets 401 there; core/tests/test_files_webdav.py covers it, including each token kind.
+_DAV = "core/onemind_core/routers/webdav.py"
+POLICY |= {
+    ("GET", "/v1/files/app-passwords"): Row(grid(200, 200, 403, 403, 403), w.p_static("/v1/files/app-passwords"),
+                                            f"{_DAV}: owner sees all, an adult their own; guest, child and agent hold none"),
+    ("POST", "/v1/files/app-passwords"): Row(grid(201, 201, 403, 403, 403), w.p_missing(
+        "/v1/files/app-passwords", json={"label": "probe", "scopes": ["shared:r"]}),
+        f"{_DAV}: the owner or an adult makes one for themself (tokens:self); guest, child and agent never"),
+    ("POST", "/v1/files/app-passwords/{password_id}/revoke"): Row(grid(404, 404, 403, 403, 403), w.p_missing(
+        "/v1/files/app-passwords/apw_missing/revoke"), f"{_DAV}: revoking your own (an owner anyone's); the one probed does not exist"),
+}
+
 # ---- OS updates (UMB-P05, #142: core/onemind_core/routers/osupdates.py) --------------------------------------
 _OSUP = "core/onemind_core/routers/osupdates.py"
 POLICY |= {
