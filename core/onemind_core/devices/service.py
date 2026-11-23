@@ -10,11 +10,15 @@ What a device holds, per credential kind ("source"):
 - mesh, nats     reported as absent: the mesh coordinator is not mounted and there are no
                  per-person NATS accounts yet, so there is nothing of theirs to revoke
 
-There is no shared device id across these tables yet, so a device is the set of a person's
-credentials that carry the same label (trimmed, case-folded). The phone sends its device name as
-the session's client_name, the push label and the passkey label, so its credentials meet. The
-device id is a hash of (person, label): stable while the credentials exist, opaque, and the same
-id on every call, which makes Lost this device idempotent: a second call finds nothing and says so.
+A device is keyed by its install id when the credential carries one: a random id the phone app
+makes once per install and keeps in its secure store (never synced or restored onto another phone).
+It sends it with sign-in, passkey registration and push registration, so a phone renamed in Settings
+stays one device, and an old and a new phone that both carry the default name ("Android phone") stay
+two. Credentials without an install id (browsers, the CLI, and anything from before #715) fall back
+to their label (trimmed, case-folded); they never join an install-keyed device. A device's label is
+the label of its newest credential. The device id is a hash of (person, key): stable while the
+credentials exist, opaque, and the same id on every call, which makes Lost this device idempotent:
+a second call finds nothing and says so.
 
 Lost this device is one person-approved step: a signed-in household session (never an API token,
 so never an agent), a fresh passkey once passkeys are on (biometrics on the phone), and never the
@@ -25,7 +29,7 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 
@@ -43,6 +47,11 @@ def label_key(label: str | None) -> str:
     return key or "unknown"
 
 
+def group_key(c: Credential) -> str:
+    """install:<id> when the credential names its app install, else label:<trimmed, case-folded label>."""
+    return f"install:{c.install_id}" if c.install_id else f"label:{label_key(c.label)}"
+
+
 def device_id(user_id: str, key: str) -> str:
     return "mdv_" + hashlib.sha256(f"{user_id}\0{key}".encode()).hexdigest()[:24]
 
@@ -55,6 +64,7 @@ class Credential:
     created_at: datetime | None
     last_seen_at: datetime | None
     detail: str = ""  # transport for sessions, platform for push, key kind for approver keys
+    install_id: str | None = None
 
     def json(self) -> dict:
         return {"source": self.source, "id": self.id, "label": self.label, "detail": self.detail,
@@ -109,26 +119,34 @@ class MyDevicesService:
         out: list[Credential] = []
         for s in self.repo.all(select(SessionRow).where(SessionRow.user_id == user_id, SessionRow.revoked_at.is_(None))):
             if self.identity._session_live(s, now):
-                out.append(Credential("sessions", s.id, s.client, s.created_at, s.last_seen_at, s.transport))
+                out.append(Credential("sessions", s.id, s.client, s.created_at, s.last_seen_at, s.transport,
+                                      s.install_id))
         for k in self.repo.all(select(PasskeyRow).where(PasskeyRow.user_id == user_id)):
-            out.append(Credential("passkeys", k.id, k.label, k.created_at, k.last_used_at))
+            out.append(Credential("passkeys", k.id, k.label, k.created_at, k.last_used_at, "", k.install_id))
         if self.approver_rows is not None:
             row = self.approver_rows
             for a in self.repo.all(select(row).where(row.user_id == user_id, row.revoked_at.is_(None))):
-                out.append(Credential("approver_keys", a.id, a.label, a.created_at, a.last_used_at, a.key_kind))
+                out.append(Credential("approver_keys", a.id, a.label, a.created_at, a.last_used_at, a.key_kind,
+                                      getattr(a, "install_id", None)))
         if self.notify is not None:
             for d in self.notify.repo.list_devices(user_id):
-                out.append(Credential("push", d.id, d.label, d.created_at, d.last_seen_at, d.platform))
+                out.append(Credential("push", d.id, d.label, d.created_at, d.last_seen_at, d.platform,
+                                      getattr(d, "install_id", None)))
         return out
 
     def devices(self, user_id: str, current_session: str | None = None) -> list[Device]:
         groups: dict[str, Device] = {}
         for c in self._credentials(user_id):
-            key = label_key(c.label)
-            dev = groups.setdefault(key, Device(device_id(user_id, key), " ".join(c.label.split()) or "unknown"))
+            key = group_key(c)
+            dev = groups.setdefault(key, Device(device_id(user_id, key), ""))
             dev.credentials.append(c)
             if c.source == "sessions" and c.id == current_session:
                 dev.current = True
+        never = datetime.min.replace(tzinfo=UTC)
+        for dev in groups.values():  # the newest credential names the device, so a rename shows at once;
+            # on a tie the later source wins (push and passkeys carry the name typed in Settings)
+            newest = max(enumerate(dev.credentials), key=lambda ic: (utc(ic[1].created_at) or never, ic[0]))[1]
+            dev.label = " ".join(newest.label.split()) or "unknown"
         out = list(groups.values())
         out.sort(key=lambda d: (d.last_seen() is None, -(d.last_seen().timestamp() if d.last_seen() else 0), d.label))
         return out

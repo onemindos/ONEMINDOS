@@ -81,8 +81,9 @@ def register(app: FastAPI, gw: Gateway) -> None:
     @app.get("/v1/me/devices", operation_id="me.devices.list", tags=["auth"], response_model=MyDevices,
              responses=error_responses(401, 403))
     def my_devices(request: Request, p: Principal = Depends(principal)):
-        """Your devices: each joins the sessions, passkeys, approver keys and push registrations that
-        carry its name, with when it was last seen."""
+        """Your devices: each joins the sessions, passkeys, approver keys and push registrations of one
+        app install (its `install_id`), or, for credentials without one, that carry its name, with when
+        it was last seen."""
         return svc.list(ctx_of(request), p)
 
     @app.delete("/v1/me/devices/{device_id}", operation_id="me.devices.remove", tags=["auth"],

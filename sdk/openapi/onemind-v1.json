@@ -3673,6 +3673,18 @@
             ],
             "title": "Client Name"
           },
+          "install_id": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Za-z0-9_-]{16,64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Install Id"
+          },
           "passkey": {
             "anyOf": [
               {
@@ -5694,6 +5706,18 @@
             "title": "Credential",
             "type": "object"
           },
+          "install_id": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Za-z0-9_-]{16,64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Install Id"
+          },
           "label": {
             "anyOf": [
               {
@@ -6248,6 +6272,18 @@
               }
             ],
             "title": "Endpoint"
+          },
+          "install_id": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Za-z0-9_-]{16,64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Install Id"
           },
           "keys": {
             "anyOf": [
@@ -20982,7 +21018,7 @@
     },
     "/v1/me/devices": {
       "get": {
-        "description": "Your devices: each joins the sessions, passkeys, approver keys and push registrations that\ncarry its name, with when it was last seen.",
+        "description": "Your devices: each joins the sessions, passkeys, approver keys and push registrations of one\napp install (its `install_id`), or, for credentials without one, that carry its name, with when\nit was last seen.",
         "operationId": "me.devices.list",
         "responses": {
           "200": {

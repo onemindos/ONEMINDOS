@@ -155,6 +155,8 @@ export interface LoginBody {
   passkey: WebAuthnAssertion;
   client: 'app';
   client_name?: string;
+  /** This app install (#715, lib/install.ts): My devices groups this sign-in with the install's passkeys and push. */
+  install_id?: string;
 }
 
 /** WebAuthn options as the gateway sends them: bare JSON, or wrapped in `publicKey` (both are common). */
@@ -216,7 +218,7 @@ export interface OneMindApi {
   refreshSession(refreshToken: string): Promise<LoginResult>;
   logout(): Promise<void>;
   passkeyRegisterOptions(): Promise<RegisterOptions>;
-  passkeyRegister(body: { credential: WebAuthnAttestation; label: string }): Promise<{ credential_id: string; label: string }>;
+  passkeyRegister(body: { credential: WebAuthnAttestation; label: string; install_id?: string }): Promise<{ credential_id: string; label: string }>;
   deviceRequest(body: DeviceRequestBody): Promise<DeviceRequest>;
   deviceRequestStatus(id: string, pollCode?: string): Promise<DeviceRequest>;
   /** Device-bound renewal (RFC 9449 DPoP proof in the `DPoP` header). */
@@ -567,7 +569,7 @@ export class HttpApi implements OneMindApi {
   passkeyRegisterOptions() {
     return this.req<RegisterOptions>('POST', '/v1/auth/passkeys/register/options', {});
   }
-  passkeyRegister(body: { credential: WebAuthnAttestation; label: string }) {
+  passkeyRegister(body: { credential: WebAuthnAttestation; label: string; install_id?: string }) {
     return this.req<{ credential_id: string; label: string }>('POST', '/v1/auth/passkeys/register', body);
   }
   deviceRequest(body: DeviceRequestBody) {

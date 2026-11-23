@@ -356,6 +356,8 @@ export interface PushRegistrationRequest {
   token?: string;
   keys?: { p256dh: string; auth: string };
   label: string;
+  /** This app install (#715, lib/install.ts); only hubs with My devices accept it. */
+  install_id?: string;
   environment?: 'sandbox' | 'production';
   bundle_id?: string;
 }

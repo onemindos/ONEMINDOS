@@ -28,10 +28,16 @@ def hc(settings, clock, executor, tmp_path):
         yield c
 
 
-def phone_login(hc: TestClient, name: str = "Pixel 9", username: str = "zeus") -> tuple[TestClient, dict]:
+OLD_PHONE, NEW_PHONE = "inst_old_phone_0001", "inst_new_phone_0002"  # what each app install makes for itself
+
+
+def phone_login(hc: TestClient, name: str = "Pixel 9", username: str = "zeus",
+                install_id: str | None = None) -> tuple[TestClient, dict]:
     """The phone app's sign-in: a bearer session with a refresh token, named after the phone."""
     phone = new_session_client(hc)
-    r = phone.post("/v1/auth/login", json={"username": username, "password": PASSWORD, "client": "app", "client_name": name})
+    extra = {"install_id": install_id} if install_id else {}
+    r = phone.post("/v1/auth/login", json={"username": username, "password": PASSWORD, "client": "app",
+                                           "client_name": name, **extra})
     assert r.status_code == 200, r.text
     return phone, r.json()
 
@@ -40,9 +46,11 @@ def bearer(body: dict) -> dict:
     return {"Authorization": "Bearer " + body["access_token"]}
 
 
-def add_push(c: TestClient, headers: dict, label: str = "Pixel 9") -> str:
+def add_push(c: TestClient, headers: dict, label: str = "Pixel 9", install_id: str | None = None) -> str:
+    extra = {"install_id": install_id} if install_id else {}
     r = c.post("/v1/push/registrations", headers=headers,
-               json={"platform": "unifiedpush", "endpoint": f"https://{ip(1, 1, 1, 1)}/push/phone", "label": label})
+               json={"platform": "unifiedpush", "endpoint": f"https://{ip(1, 1, 1, 1)}/push/phone", "label": label,
+                     **extra})
     assert r.status_code == 201, r.text
     return r.json()["id"]
 
@@ -125,6 +133,61 @@ def test_passkey_on_the_lost_device_needs_a_fresh_passkey_and_never_the_last_own
     login = new_session_client(hc).post("/v1/auth/login/options").json()
     assert new_session_client(hc).post(
         "/v1/auth/login", json={"passkey": key.assert_(login["publicKey"]["challenge"])}).status_code == 401
+
+
+def test_an_old_and_a_new_phone_with_the_default_name_stay_two_devices(hc):
+    """Upgrade day: both phones carry the default name. Each install's id keeps them apart, so the new
+    phone can remove the old one, and removing the old one never signs the new one out."""
+    setup_owner(hc)
+    old, old_body = phone_login(hc, "Android phone", install_id=OLD_PHONE)
+    old_push = add_push(old, bearer(old_body), "Android phone", OLD_PHONE)
+    new, new_body = phone_login(hc, "Android phone", install_id=NEW_PHONE)
+    new_push = add_push(new, bearer(new_body), "Android phone", NEW_PHONE)
+    seen = [d for d in devices(new, bearer(new_body)) if d["label"] == "Android phone"]
+    assert len(seen) == 2 and seen[0]["id"] != seen[1]["id"]
+    lost = next(d for d in seen if not d["current"])  # the new phone sees the old one as not in use: Lost is offered
+    assert {(c["source"], c["id"]) for c in lost["credentials"]} == {("sessions", old_body["session"]["id"]), ("push", old_push)}
+    r = new.delete(f"/v1/me/devices/{lost['id']}", headers=bearer(new_body))
+    assert r.status_code == 200, r.text
+    assert r.json()["revoked"] == {"sessions": 1, "passkeys": 0, "approver_keys": 0, "push": 1}
+    assert old.post("/v1/auth/refresh", json={"refresh_token": old_body["refresh_token"]}).status_code == 401
+    assert new.get("/v1/me", headers=bearer(new_body)).status_code == 200  # the new phone is untouched
+    assert hc.app.state.notify.repo.get_device(new_push) is not None
+
+
+def test_a_renamed_phone_stays_one_device_and_lost_revokes_everything_it_holds(hc, clock):
+    """Sign-in used the default name, push the name typed later in Settings: one install, one device."""
+    setup_owner(hc)
+    phone, body = phone_login(hc, "Android phone", install_id=NEW_PHONE)
+    clock.advance(60)
+    push_id = add_push(phone, bearer(body), "Zeus's Pixel", NEW_PHONE)
+    mine = [d for d in devices(hc) if not d["current"]]
+    assert len(mine) == 1 and mine[0]["label"] == "Zeus's Pixel"  # the newest name shows
+    assert {c["source"] for c in mine[0]["credentials"]} == {"sessions", "push"}
+    r = hc.delete(f"/v1/me/devices/{mine[0]['id']}", headers=csrf(hc))
+    assert r.status_code == 200 and r.json()["revoked"] == {"sessions": 1, "passkeys": 0, "approver_keys": 0, "push": 1}
+    assert phone.post("/v1/auth/refresh", json={"refresh_token": body["refresh_token"]}).status_code == 401
+    assert hc.app.state.notify.repo.get_device(push_id) is None
+    assert [d for d in devices(hc) if not d["current"]] == []
+
+
+def test_a_passkey_joins_its_install_whatever_its_label(hc):
+    setup_owner(hc)
+    phone, body = phone_login(hc, "Android phone", install_id=NEW_PHONE)
+    opts = phone.post("/v1/auth/passkeys/register/options", headers=bearer(body)).json()
+    r = phone.post("/v1/auth/passkeys/register", headers=bearer(body),
+                   json={"credential": SoftAuthenticator().register(opts), "label": "Zeus's Pixel", "install_id": NEW_PHONE})
+    assert r.status_code == 201, r.text
+    mine = [d for d in devices(hc) if not d["current"]]
+    assert len(mine) == 1 and {c["source"] for c in mine[0]["credentials"]} == {"sessions", "passkeys"}
+
+
+def test_install_id_must_look_like_one(hc):
+    setup_owner(hc)
+    for bad in ("short", "has spaces in it, sixteen+", "x" * 65):
+        r = new_session_client(hc).post("/v1/auth/login", json={"username": "zeus", "password": PASSWORD,
+                                                                "client": "app", "install_id": bad})
+        assert r.status_code == 422, bad
 
 
 def test_refuses_the_current_device_tokens_and_agents(hc):
