@@ -9,6 +9,8 @@ import { useSignedIn } from '../session';
 import { SpatialStatus } from '../screens/spatial/SpatialStatus';
 import { AboutBox } from './AboutBox';
 import { DeviceCard } from './DeviceCard';
+import { SettingsEngine } from './SettingsEngine';
+import { UpsCard } from './UpsCard';
 
 export function SettingsAbout() {
   const hub = useHub();
@@ -25,6 +27,7 @@ export function SettingsAbout() {
       ) : (
         <p className="om-hint">{hub.instance.error ? `Could not read this box: ${hub.instance.error.message}` : 'Loading…'}</p>
       )}
+      <UpsCard />
       <details className="dash-tech">
         <summary>Technical details</summary>
         <dl className="om-facts">
@@ -44,6 +47,7 @@ export function SettingsAbout() {
         </p>
         <AboutBox />
       </details>
+      <SettingsEngine />
       <SpatialStatus />
       <Card title="Plugin signing trust">
         <p>Owners can enroll public signing keys for private plugins. Changes wait for approval.</p>

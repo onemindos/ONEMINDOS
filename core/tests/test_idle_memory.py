@@ -26,7 +26,7 @@ UNITS = (
     ROOT / "os" / "rootfs" / "layers" / "onemind" / "usr" / "lib" / "systemd" / "system" / "onemind-gateway.service",
 )
 # Imported only by routes that need them, never at gateway startup (the idle hub never pays for them).
-LAZY = ("webauthn",)
+LAZY = ("webauthn", "httpcore", "certifi")
 
 
 def _environment(unit: Path) -> dict[str, str]:

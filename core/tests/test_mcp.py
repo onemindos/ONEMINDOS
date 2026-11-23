@@ -13,6 +13,10 @@ import pytest
 from conftest import ADULT, AGENT, OWNER, action_body
 from onemind_core.mcp import PROTOCOL_VERSION
 
+# The area read tools (#632) a token with no `scopes:` holds; read_app_logs and stat_file need a scope by name.
+V0_AREA_TOOLS = ["get_backup_status", "list_backup_runs", "list_backup_snapshots", "get_os_updates",
+                 "get_os_update_history", "list_machines", "get_machine", "get_storage", "list_alerts", "get_alert",
+                 "get_update_settings"]
 H = {**AGENT, "Accept": "application/json, text/event-stream", "MCP-Protocol-Version": PROTOCOL_VERSION}
 
 
@@ -62,7 +66,7 @@ def test_ping(client):
 
 def test_tools_list_is_exactly_the_contract_set(client):
     tools = rpc(client, "tools/list").json()["result"]["tools"]
-    assert [t["name"] for t in tools] == ["get_instance", "list_nodes", "get_node", "list_apps", "get_app", "list_actions", "get_action", "search_audit", "request_action"]
+    assert [t["name"] for t in tools] == ["get_instance", "list_nodes", "get_node", "list_apps", "get_app", "list_actions", "get_action", "search_audit", "request_action", *V0_AREA_TOOLS]
     for t in tools:
         assert t["inputSchema"]["type"] == "object"
     names = json.dumps(tools)
@@ -234,7 +238,7 @@ def test_official_mcp_client(live_gateway, executor):
                 assert init.protocolVersion == PROTOCOL_VERSION
                 await session.send_ping()
                 tools = await session.list_tools()
-                assert [t.name for t in tools.tools] == ["get_instance", "list_nodes", "get_node", "list_apps", "get_app", "list_actions", "get_action", "search_audit", "request_action"]
+                assert [t.name for t in tools.tools] == ["get_instance", "list_nodes", "get_node", "list_apps", "get_app", "list_actions", "get_action", "search_audit", "request_action", *V0_AREA_TOOLS]
                 apps = await session.call_tool("list_apps", {})
                 assert not apps.isError
                 assert "uptime-kuma" in {a["id"] for a in apps.structuredContent["apps"]}
