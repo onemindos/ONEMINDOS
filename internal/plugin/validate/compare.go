@@ -98,6 +98,7 @@ func compareSpecs(previous, current map[string]any) (*GrantDiff, error) {
 			result.Reasons = append(result.Reasons, "alert action added or changed: "+id)
 		}
 	}
+	result.Reasons = append(result.Reasons, loosenedBlocks(previous, current)...)
 	// Workload bytes are outside this manifest-only API. The lifecycle plan
 	// fingerprint must bind those bytes and image pins before owner approval.
 	for _, field := range []string{"manifests", "plugin"} {
