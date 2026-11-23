@@ -1,0 +1,21 @@
+{
+  "$comment": "Cards that must stay valid (issue #727): the near misses of invalid.json, so a stricter rule cannot refuse what is harmless. Each starts from an example card in ../../examples/device-card and applies ops (JSON Pointer set or del). The Python test (sdk/tools/tests/test_device_card.py) and the Go validator's test in this package read this same file.",
+  "fixtures": [
+    {"name": "read and observe forms on an observe property", "base": "relay",
+     "ops": [["set", "/properties/on/forms", [{"href": "https://relay.example/on", "op": ["readproperty", "observeproperty", "unobserveproperty"]}, {"href": "https://relay.example/on"}]]]},
+    {"name": "invoke form on a safe observe action", "base": "relay",
+     "ops": [["set", "/actions/meter", {"title": "Read the meter", "safe": true, "output": {"type": "number", "unit": "W"},
+              "forms": [{"href": "https://relay.example/meter", "op": "invokeaction"}],
+              "om:safety": {"class": "observe", "needsHold": false, "askers": ["owner", "automation"]}}]]},
+    {"name": "subscribe form on an event", "base": "temperature-sensor",
+     "ops": [["set", "/events/overheat/forms", [{"href": "https://sensor.example/overheat", "op": ["subscribeevent", "unsubscribeevent"]}]]]},
+    {"name": "query keys that only contain a short credential key", "base": "relay",
+     "ops": [["set", "/actions/switch/forms", [{"href": "https://relay.example/switch?on=1&unit=s&monkey=1&author=x&keyboard=us&passage=2#state"}]]]},
+    {"name": "an at sign in a path, not a user part", "base": "relay",
+     "ops": [["set", "/actions/switch/forms", [{"href": "https://relay.example/v1/@relay/switch"}]]]},
+    {"name": "prose with a colon, a question and an at sign", "base": "relay",
+     "ops": [["set", "/description", "Note: the owner at home@night approves it. Is it on? It keeps no token or secret: the gateway holds those."]]},
+    {"name": "prose with a plain URL and a harmless query", "base": "relay",
+     "ops": [["set", "/description", "Web UI at https://relay.example/x?unit=s&page=2#state for setup. Is the token (a secret) kept? No."]]}
+  ]
+}
