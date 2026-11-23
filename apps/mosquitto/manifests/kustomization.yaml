@@ -7,11 +7,13 @@ labels:
     app.kubernetes.io/name: mosquitto
     app.kubernetes.io/part-of: onemind-apps
   includeSelectors: false
-# The name gets a content hash, so a config change rolls the Deployment.
+# The name gets a content hash, so a config change rolls the Deployment. start.sh writes the runtime
+# config (with the optional NATS bridge) from it; see the README, "Bridge to NATS".
 configMapGenerator:
 - name: mosquitto-config
   files:
   - mosquitto.conf
+  - start.sh
 resources:
 - pvc.yaml
 - deployment.yaml

@@ -27,6 +27,8 @@ from collections.abc import Callable
 from datetime import datetime, timedelta
 from pathlib import Path
 
+from sqlalchemy.exc import SQLAlchemyError
+
 from ..actions import FeatureAction
 from ..catalog import AppEntry
 from ..context import Gateway
@@ -38,7 +40,7 @@ from .kit import answer_ok, challenge, kit_text, new_owner_key
 from .kube import DryKube, Kube, KubeError, Workload
 from .manifest import BackupSpec, backup_spec, database_spec
 from .settings import BackupsSettings
-from .units import public_view, unit_set
+from .units import EXPORT_FILE, public_view, unit_set, write_export
 from .store import (
     SCHEMA,  # noqa: F401  (importing the module registers the tables)
     BackupsRepository,
@@ -286,6 +288,7 @@ class BackupService:
         failed: dict[str, str] = {}
         apps: list[dict] = []
         cold: list[tuple[AppEntry, list[Workload]]] = []
+        builtin_failed: dict[str, str] = {}
         state, error, units, added = "failed", None, [], None
         try:
             for app in self.installed_apps():
@@ -323,6 +326,8 @@ class BackupService:
                     failed[unit] = problem
             if only is not None and f"app:{only}" not in failed and not any(a["id"] == only for a in apps):
                 failed[f"app:{only}"] = "the app is not installed or has no volumes or database"
+            if only is None:  # kept out of `failed` until the agent has run: skip_units is for its own units
+                self._export_builtins(hooks, builtin_failed)
             params: dict = {"reason": reason, "run_id": run_id, "apps": apps}
             if destination_id:
                 params["target_id"] = destination_id
@@ -350,6 +355,7 @@ class BackupService:
         if only is None:
             # A built-in whose declared tables or folders cannot be found is reported, not skipped silently
             # (#616). Kept out of skip_units: the agent knows only its own units.
+            failed.update(builtin_failed)
             for u in self.builtin_units():
                 if u.get("problems"):
                     failed[u["unit"]] = "; ".join(u["problems"])
@@ -408,7 +414,32 @@ class BackupService:
 
     def builtin_units(self) -> list[dict]:
         """The gateway database and every switched-on built-in's declared tables and folders (#616)."""
-        return unit_set(self.gw, self.builtins)
+        return unit_set(self.gw, self.builtins, export=self.s.export_dir is not None,
+                        agent_dirs=self.s.agent_dir_names())
+
+    def _export_builtins(self, hooks: list[dict], failed: dict[str, str]) -> None:
+        """Write the built-ins' table export where the agent's `system` unit copies it (#616). A failure
+        fails every built-in unit of the run; the snapshot then holds the previous export."""
+        if self.s.export_dir is None or self.builtins is None:
+            return
+        rec = {"unit": "builtins", "phase": "pre", "command": EXPORT_FILE}
+        try:
+            write_export(self.gw, self.builtins, Path(self.s.export_dir))
+            rec["ok"] = True
+        except (OSError, ValueError, SQLAlchemyError) as e:
+            rec.update(ok=False, error=str(e)[:300])
+            for u in self.builtin_units():
+                if u["kind"] == "builtin":
+                    failed.setdefault(u["unit"], f"built-in export failed: {str(e)[:200]}")
+        hooks.append(rec)
+
+    def _export_in_last_system_snapshot(self) -> bool:
+        """The newest run whose `system` unit succeeded also wrote the built-ins' export before it."""
+        for r in self.repo.runs(50):
+            if any(u.get("unit") == "system" and u.get("state") == "succeeded" for u in r.units or []):
+                return any(h.get("unit") == "builtins" and h.get("command") == EXPORT_FILE and h.get("ok")
+                           for h in r.hooks or [])
+        return False
 
     def _agent_status(self) -> dict:
         return self._job("backup.status", {}) or {}
@@ -443,7 +474,9 @@ class BackupService:
                 apps[name[4:]] = b
         out["badges"] = {"box": s.get("box") or {"state": "none"}, "system": units.get("system") or {"state": "none"},
                          "apps": apps}
-        out["builtin_units"] = public_view(units_set, {n for n, b in units.items() if _ts(b.get("last_success_at"))})
+        snapped = {n for n, b in units.items() if _ts(b.get("last_success_at"))}
+        out["builtin_units"] = public_view(units_set, snapped,
+                                           snapped & {"system"} if self._export_in_last_system_snapshot() else set())
         succ = [t for t in (_ts(b.get("last_success_at")) for b in units.values()) if t]
         ver = [t for t in (_ts(v.get("finished_at")) for v in (s.get("last_verified") or {}).values()) if t]
         out["last_success_at"] = iso(max(succ)) if succ else None

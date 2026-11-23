@@ -13,6 +13,8 @@ metadata:
   description: "Network video recorder with local object detection for IP cameras. Recordings stay on the box."
   # Market category slug from docs/design/TAXONOMY.md §1 (Home & IoT lists Frigate); sub-tag: cameras.
   category: home
+  age_rating: 18   # proposed minimum age (apps/README.md rubric); the owner can override per app
+  age_reason: "Records the home's security cameras and tracks the people they see; changes the recorder for everyone."
   icon: icon.svg
   license: "MIT"
   licenceClass: L1

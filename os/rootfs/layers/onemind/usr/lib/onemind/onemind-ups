@@ -1,0 +1,4 @@
+#!/bin/sh
+# SPDX-License-Identifier: Apache-2.0
+# onemind-ups.service (setup) and onemind-ups-shutdown.service (shutdown): onemind_ups.py with the gateway venv's pinned Python.
+exec /usr/lib/onemind/gateway/venv/bin/python3 -I /usr/lib/onemind/onemind_ups.py "$@"
