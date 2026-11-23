@@ -33,10 +33,12 @@ CEILINGS = {
     "tailscaled.service": 5.3,
     "onemind-local-api.service": 1.7,
     "onemind-recovery-web.service": 5.3,
+    # The setup wizard's web part runs as a dynamic user with no capabilities since #578 (was 8.4 as root);
+    # its root helper is a template (onemind-setup-helper@.service), scored in test_setup_helper.py.
+    "onemind-setup.service": 1.5,
     # 3. Not sandboxed yet. Each is a boot-time or board-specific oneshot that needs its own on-hardware check
     #    before it can be locked down (see the PR's follow-up list). The ceiling stops it getting worse, and a
-    #    PR that hardens one should lower its number. onemind-setup.service is sandboxed by its own open PR.
-    "onemind-setup.service": 8.4,
+    #    PR that hardens one should lower its number.
     "onemind-screen.service": 8.9,
     "onemind-ssh-hostkeys.service": 9.6,
     "onemind-rpi5-grow.service": 9.6,

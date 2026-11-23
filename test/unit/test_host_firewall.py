@@ -49,7 +49,7 @@ class HostFirewall(unittest.TestCase):
         self.assertNotRegex(lan_chain(), r"\b8080\b")
         u = rd("os/rootfs/layers/onemind/usr/lib/systemd/system/onemind-setup.service")
         self.assertIn("nft add rule inet onemind_host setup tcp dport 8080 accept", u)
-        self.assertIn("ExecStopPost=-/usr/sbin/nft flush chain inet onemind_host setup", u)
+        self.assertIn("ExecStopPost=-+/usr/sbin/nft flush chain inet onemind_host setup", u)   # "+": the web part is unprivileged (#578)
         self.assertIn("wizard-local-only", u)
         self.assertIn("After=onemind-firewall.service", u)
 
