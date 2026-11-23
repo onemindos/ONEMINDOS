@@ -365,18 +365,21 @@ class Catalogue:
         return result(s, _under("actions", ACTION_FIELDS), _source(s, "actions", "id", "action"))
 
     def _own_action(self, p: Principal, action_id: str) -> dict | None:
+        """The agent's own action, already as the agent may see it (aiPolicy, #165): get_action,
+        onemind://actions/{id} and the tasks extension (tasks/get) all read it through here."""
         try:
             a = self.svc.get_action(action_id)
         except ApiError:
             return None
-        return a if (a.get("requested_by") or {}).get("id") == p.id else None
+        if (a.get("requested_by") or {}).get("id") != p.id:
+            return None
+        return self._for_agent([a])[0]
 
     def t_get_action(self, p, args):
         action_id = _str(_args(args, {"action_id"}), "action_id", True)
         a = self._own_action(p, action_id)
         if a is None:  # someone else's action looks exactly like a missing one
             return refusal("not_found", "no such action among your requests")
-        a = self._for_agent([a])[0]
         return result(a, ACTION_FIELDS, _source(a, "", "id", "action"))
 
     def _for_agent(self, rows: list[dict]) -> list[dict]:

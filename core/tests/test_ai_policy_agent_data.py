@@ -2,7 +2,8 @@
 """aiPolicy before app data reaches an agent (#165): one deny-by-default rule.
 
 A plugin tool's output is the app's own data. An agent that requested the tool sees its action
-through MCP (get_action, list_actions, onemind://actions/{id}) and through REST (GET /v1/actions,
+through MCP (get_action, list_actions, onemind://actions/{id}, tasks/get of the 2026-07-28 tasks
+extension) and through REST (GET /v1/actions,
 GET /v1/actions/{id}, an idempotent replay of the tool call); the output must be withheld on every
 one of them unless the app's catalog aiPolicy is "allowed". A read tool returns app data at once, so
 an agent may not run it at all under any other policy. GET /v1/apps shows the policy, for
@@ -23,6 +24,7 @@ from onemind_core.identity.crypto import new_secret, sha256_hex
 from onemind_core.identity.models import TokenRow
 from onemind_core.plugins import dispatch
 from test_identity import id_settings
+from test_mcp_2026_07_28 import TASKS_META, mrpc
 from test_plugin_credentials import approve, request
 from test_plugin_workload import plugin_settings  # noqa: F401
 
@@ -76,7 +78,12 @@ def agent_views(client, action_id):
     many = mcp(client, "tools/call", {"name": "list_actions", "arguments": {}})
     assert action_id in {a["id"] for a in many["structuredContent"]["actions"]}
     res = mcp(client, "resources/read", {"uri": f"onemind://actions/{action_id}"})
-    return [json.dumps(one), json.dumps(many), json.dumps(res)]
+    # The task id is the action id: a 2026-07-28 client reads the finished action with tasks/get.
+    task = mrpc(client, "tasks/get", {"taskId": action_id}, meta=TASKS_META)
+    assert task.status_code == 200, task.text
+    task = task.json()["result"]
+    assert task["status"] == "completed" and task["result"]["structuredContent"]["id"] == action_id
+    return [json.dumps(one), json.dumps(many), json.dumps(res), json.dumps(task)]
 
 
 def agent_rest_views(client, action_id):
