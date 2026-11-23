@@ -10,6 +10,7 @@ import {
   backupsTile,
   confirmText,
   errorText,
+  filesLabel,
   expiresText,
   footText,
   healthRows,
@@ -190,7 +191,7 @@ function boxCard(b) {
       'div',
       { class: 'actions' },
       h('button', { class: 'btn primary', onclick: () => run('open_dashboard', { id: b.id }) }, icon('globe'), 'Open dashboard'),
-      h('button', { class: 'btn', title: "Opens the box's file share in your file manager", onclick: () => run('open_files', { id: b.id }) }, icon('folder'), 'Files'),
+      h('button', { class: 'btn', title: filesLabel(navigator.platform).title, onclick: () => run('open_files', { id: b.id }) }, icon('folder'), filesLabel(navigator.platform).text),
     ),
   );
   if (online) {
