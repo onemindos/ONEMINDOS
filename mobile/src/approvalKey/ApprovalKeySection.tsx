@@ -85,7 +85,7 @@ export function ApprovalKeySection({
       {rec ? (
         <>
           <Row label="Kept in" value={WHERE[rec.securityLevel]} />
-          <P muted small>Every approval asks for your fingerprint or face and signs the exact plan. A PIN or pattern is never accepted. Adding a new fingerprint or face turns the key off until you set it up again.</P>
+          <P muted small>Read, write and sensitive approvals ask for your fingerprint or face and sign the exact plan; a PIN or pattern is not accepted for them. Destructive requests use your passkey unless the hub allows the key for them, and physical actions always use the passkey, which also takes your screen lock. Adding a new fingerprint or face turns the key off until you set it up again.</P>
           <Button
             testID="approval-key-remove"
             label="Remove approval key"
@@ -102,7 +102,7 @@ export function ApprovalKeySection({
         </>
       ) : (
         <>
-          <P muted small>Approve with your fingerprint or face: a key in this phone's secure hardware signs each plan you approve. The hub keeps only the public half.</P>
+          <P muted small>Approve read, write and sensitive requests with your fingerprint or face: a key in this phone's secure hardware signs each plan you approve. Destructive and physical requests still use your passkey. The hub keeps only the public half.</P>
           <Button
             testID="approval-key-setup"
             label="Set up approval key"
@@ -110,7 +110,7 @@ export function ApprovalKeySection({
             onPress={() =>
               void run(async () => {
                 state.set(await enrol(api, hubUrl, deviceInfo('').name, native));
-                return 'Approval key set up. Approvals now ask for your fingerprint or face.';
+                return 'Approval key set up. Read, write and sensitive approvals now ask for your fingerprint or face.';
               })
             }
           />

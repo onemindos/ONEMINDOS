@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen, within } from '@testing-library/react-native';
 import { ApiError } from '../api/types';
 import { v0Api } from '../test/fakes';
 import { HubDataProvider } from '../data';
@@ -107,6 +107,30 @@ describe('Approvals screen: approval key (#703)', () => {
     expect(await screen.findByText(/^Approved with this phone's approval key/)).toBeTruthy();
     expect(k.native.sign).toHaveBeenCalledWith(expect.stringMatching(/^onemind-approve-v1\nact-0001\n/), 'Approve: Install ollama', expect.any(String));
     expect((approve.mock.calls[0] as unknown[])[1]).toMatchObject({ device_signature: { key_id: 'ak_1' } });
+  });
+
+  it('only read, write and sensitive cards promise the key; destructive and actuate cards say the passkey', async () => {
+    const k = fakeKey();
+    const base = makeActions(Date.now())[0]!;
+    const actions = jest.fn(async () => [
+      base,
+      { ...base, id: 'act-d', type: 'app.remove', params: { app_id: 'ollama' }, risk: 'destructive' as const },
+      { ...base, id: 'act-p', risk: 'actuate' as const },
+    ]);
+    const api = v0Api({
+      features: async () => new Features([OP.approveOptions, OP.approverKeys], 'openapi'),
+      approverKeyRegister: jest.fn(async () => ({ key_id: 'ak_3', label: 'p', key_kind: 'hardware-reported', fingerprint: 'f', created_at: '', last_used_at: null, revoked_at: null })),
+      actions,
+    });
+    await renderApprovals(deps({ mode: 'live', hubUrl: 'https://hub.example', token: 't' }, () => api), k.native);
+    await fireEvent.press(await screen.findByTestId('approval-key-setup'));
+    await screen.findByTestId('approval-key-remove');
+    expect(within(screen.getByTestId('pending-act-0001')).getByText(/A PIN is not accepted/)).toBeTruthy();
+    for (const id of ['act-d', 'act-p']) {
+      const card = within(screen.getByTestId(`pending-${id}`));
+      expect(card.queryByText(/A PIN is not accepted/)).toBeNull();
+      expect(card.getByText(/may ask for your passkey instead of the approval key/)).toBeTruthy();
+    }
   });
 
   it('a new fingerprint kills the key: the approval is refused and set-up is offered again', async () => {

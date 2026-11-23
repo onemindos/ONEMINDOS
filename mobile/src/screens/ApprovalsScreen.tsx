@@ -6,7 +6,7 @@ import { ApprovalKeySection, useApprovalKey } from '../approvalKey/ApprovalKeySe
 import { Text, View } from 'react-native';
 import type { Action, Risk } from '../api/types';
 import { useHubData, useNow } from '../data';
-import { actionTitle, decide, isPending, needsPasskey, RISK_LABEL, sortByRecent, type Decision, type StepUp } from '../lib/approvals';
+import { actionTitle, decide, isPending, keyCovers, needsPasskey, RISK_LABEL, sortByRecent, type Decision, type StepUp } from '../lib/approvals';
 import { platformPasskeys } from '../lib/passkeys';
 import { formatAgo, formatIn, secondsSince } from '../lib/time';
 import { useSignedIn, type Ability } from '../session';
@@ -120,11 +120,14 @@ function PendingCard({
       {a.requested_by?.kind === 'agent' && (
         <P muted small>An AI agent asked for this. It cannot approve its own request.</P>
       )}
-      {keyed && canDecide !== 'no' ? (
-        <P muted small>Approving asks for your fingerprint or face and signs this plan with this phone's approval key. A PIN is not accepted.</P>
-      ) : (
-        passkey && canDecide !== 'no' && <P muted small>Approving asks for Face ID, your fingerprint or your screen lock.</P>
-      )}
+      {canDecide !== 'no' &&
+        (keyed && keyCovers(a) ? (
+          <P muted small>Approving asks for your fingerprint or face and signs this plan with this phone's approval key. A PIN is not accepted.</P>
+        ) : keyed ? (
+          <P muted small>Approving may ask for your passkey instead of the approval key: Face ID, your fingerprint or your screen lock. Physical actions always take the passkey.</P>
+        ) : (
+          passkey && <P muted small>Approving asks for Face ID, your fingerprint or your screen lock.</P>
+        ))}
       <View style={s.wrap}>
         <Button testID={`approve-${a.id}`} label="Approve" disabled={off} onPress={() => onDecide(a, 'approve')} />
         <Button testID={`deny-${a.id}`} label="Deny" variant="danger" disabled={off} onPress={() => onDecide(a, 'deny')} />

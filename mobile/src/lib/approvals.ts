@@ -41,6 +41,15 @@ export function needsPasskey(a: Pick<Action, 'risk'>, ownerHasPasskey: boolean):
   return ownerHasPasskey || a.risk === 'destructive' || a.risk === 'actuate';
 }
 
+/**
+ * Whether the hub takes this phone's approval key for the action under its default policy (#838, F-2):
+ * read, write and sensitive only. Destructive and actuate fall back to the passkey (which also takes
+ * the screen lock) unless the hub turns on `approver_key_high_risk`; physical actions always do.
+ */
+export function keyCovers(a: Pick<Action, 'risk'>): boolean {
+  return a.risk === 'read' || a.risk === 'write' || a.risk === 'sensitive';
+}
+
 /** "agent ops-agent" / "person owner" / "unknown requester". */
 export function principalLabel(p: PrincipalRef | null | undefined): string {
   if (!p) return 'unknown requester';
