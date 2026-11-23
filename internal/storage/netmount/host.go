@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -71,6 +72,13 @@ type Manager struct {
 	Probe     func(ctx context.Context, dir string) error
 	LookPath  func(string) (string, error)
 	Now       func() time.Time
+
+	op      sync.Mutex // one Mount or Unmount at a time
+	mu      sync.Mutex // guards mounts and applied
+	mounts  map[string]*Status
+	applied map[string]string // id -> fingerprint of the mount in place (see fingerprint)
+	keyOnce sync.Once
+	key     [32]byte
 }
 
 func (m *Manager) now() time.Time {
