@@ -13,6 +13,7 @@
 #   --keep         leave the VM running afterwards (print how to reach and delete it)
 #   --reuse        lima: use an existing VM of the same name (install.sh re-runs; it is idempotent)
 #   --no-verify    skip deploy/verify/verify.sh      --no-playwright  skip the Playwright suite
+#   E2E_PW_PROJECTS  Playwright projects to run (default "unit golden"; "spatial" is the XR suite, #813)
 #
 # Secrets: the owner token (printed once by install.sh) and a generated agent token are kept in
 # <out>/secrets (0700, never uploaded) and inside the VM under /root/e2e; on GitHub they are masked.
@@ -28,6 +29,11 @@ NAME=${E2E_VM_NAME:-onemind-e2e} SSH_PORT=${E2E_SSH_PORT:-2222} APP=${E2E_APP:-n
 
 die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 log() { printf '[e2e %s] %s\n' "$(date -u +%H:%M:%S)" "$*"; }
+PW_PROJECTS=()
+for p in ${E2E_PW_PROJECTS:-unit golden}; do
+  printf '%s' "$p" | grep -Eqx '[a-z]+' || die "E2E_PW_PROJECTS: '$p' is not a project name"
+  PW_PROJECTS+=("--project=$p")
+done
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -38,7 +44,7 @@ while [ $# -gt 0 ]; do
     --reuse) REUSE=1; shift ;;
     --no-verify) VERIFY=0; shift ;;
     --no-playwright) PLAYWRIGHT=0; shift ;;
-    -h|--help) sed -n '4,19p' "$0"; exit 0 ;;
+    -h|--help) sed -n '4,20p' "$0"; exit 0 ;;
     *) die "unknown argument: $1" ;;
   esac
 done
@@ -246,7 +252,7 @@ if [ "$PLAYWRIGHT" = 1 ]; then
     E2E_CHROMIUM_ARGS="[\"--ignore-certificate-errors-spki-list=$CA_SPKI\"]" \
     E2E_HUB_URL="$HUB" E2E_OWNER_TOKEN_FILE="$SECRETS/owner.token" \
     E2E_AGENT_TOKEN_FILE="$SECRETS/agent.token" E2E_AGENT_ID="$AGENT_ID" E2E_APP="$APP" \
-    E2E_AUDIT_FETCH="$WORK/fetch-audit.sh" E2E_OUT="$OUT" npx playwright test --project=unit --project=golden)
+    E2E_AUDIT_FETCH="$WORK/fetch-audit.sh" E2E_OUT="$OUT" npx playwright test "${PW_PROJECTS[@]}")
   PW_RC=$?
   set -e
 fi
