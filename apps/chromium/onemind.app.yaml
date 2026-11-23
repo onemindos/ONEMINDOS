@@ -22,7 +22,7 @@ metadata:
     website: "https://www.chromium.org/"
     support: "https://github.com/m1k1o/neko/issues"
   upstream: {release: "v3.2.0", released_at: "2026-10-15T22:08:07Z", archived: false}
-  tier: community   # set by CI (sdk/tools/app-gate --tier write); no scan has run yet
+  tier: blocked   # CI found fixable CRITICAL vulnerabilities in the pinned image
 spec:
   archs: [amd64, arm64]
   requires: {gpu: false, minMemoryMb: 1024}   # sum of the memory requests in manifests/
