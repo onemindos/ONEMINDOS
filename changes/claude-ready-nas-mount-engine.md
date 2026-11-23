@@ -1,5 +1,5 @@
 ---
-pr: pending
+pr: 950
 branch: claude/ready-nas-mount-engine
 ---
 The hub can mount a NAS share, the engine half of #718: internal/storage/netmount mounts SMB (always SMB 3, never SMB1, never guest or anonymous) or NFS (always v4) at a fixed folder per mount, first read-only as a test and then with the access asked for. The password goes into a 0600 credentials file in memory (tmpfs) that is deleted as soon as mount returns, so it is never on a command line, in a log line or in an error; mount output is redacted and turned into reasons the owner can act on (wrong password, share not found, old protocol, NAS unreachable). A mount point holds a marker file while nothing is mounted, a mount point with files written into it is refused, admin shares and NAS system folders are refused, and a NAS that goes away reads as failing and as mounted again when it is back. The storage service (onemindd storage serve) offers it on its local socket under /v1/netmounts. An acceptance script runs it against real Samba and NFS servers in a throwaway Debian 13 container. The gateway side (net: roots in Files, the owner-approved action, sealed input) comes in the next PR on #718.
