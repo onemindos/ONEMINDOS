@@ -90,11 +90,14 @@
         "topics": {
           "type": "array", "minItems": 1, "maxItems": 20,
           "items": {
+            "description": "A topic routes catalogue events (events: system topic of that id, notify/catalogue.py), or is one the app posts itself through its app principal (title: shown on Settings > Notifications), or both. Whatever the app posts lands under app.<metadata.id>.<id> (notify/topics.py), at most 80 characters, severity info or warning.",
             "type": "object",
             "additionalProperties": false,
-            "required": ["id", "events"],
+            "required": ["id"],
+            "anyOf": [{"required": ["events"]}, {"required": ["title"]}],
             "properties": {
-              "id": {"$ref": "#/$defs/key", "description": "The notification topic (notify/catalogue.py), e.g. backups."},
+              "id": {"$ref": "#/$defs/key", "description": "The notification topic (notify/catalogue.py), e.g. backups; app posts use app.<app id>.<id>."},
+              "title": {"$ref": "#/$defs/title", "description": "What the topic is called in Settings > Notifications, e.g. Reminders."},
               "events": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/key"}}
             }
           }
