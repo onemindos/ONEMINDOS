@@ -679,8 +679,8 @@ POLICY |= {
     ("POST", "/v1/files/app-passwords"): Row(grid(201, 201, 403, 403, 403), w.p_missing(
         "/v1/files/app-passwords", json={"label": "probe", "scopes": ["shared:r"]}),
         f"{_DAV}: the owner or an adult makes one for themself (tokens:self); guest, child and agent never"),
-    ("DELETE", "/v1/files/app-passwords/{password_id}"): Row(grid(404, 404, 403, 403, 403), w.p_missing(
-        "/v1/files/app-passwords/apw_missing"), f"{_DAV}: revoking your own (an owner anyone's); the one probed does not exist"),
+    ("POST", "/v1/files/app-passwords/{password_id}/revoke"): Row(grid(404, 404, 403, 403, 403), w.p_missing(
+        "/v1/files/app-passwords/apw_missing/revoke"), f"{_DAV}: revoking your own (an owner anyone's); the one probed does not exist"),
 }
 
 # ---- OS updates (UMB-P05, #142: core/onemind_core/routers/osupdates.py) --------------------------------------

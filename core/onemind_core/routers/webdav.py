@@ -5,7 +5,7 @@ Routes (bearer token or session, like the rest of the API):
 - `GET /v1/files/app-passwords`: your app passwords (an owner sees everyone's), never the secret, and
   where to connect.
 - `POST /v1/files/app-passwords`: make one for yourself, shown once. Owner or adult only.
-- `DELETE /v1/files/app-passwords/{password_id}`: revoke yours (an owner may revoke anyone's).
+- `POST /v1/files/app-passwords/{password_id}/revoke`: revoke yours (an owner may revoke anyone's).
 
 The WebDAV tree itself (`/dav/...`, files/webdav.py) is answered by a middleware outside the guard:
 it streams whole files, which the guard's 256 KiB body cap would refuse, and it takes only app
@@ -32,7 +32,7 @@ ORDER = 268  # after identity (260, step-up); before net (270), whose app proxy 
 # Minting a credential for yourself is tokens:self, as for API tokens: a narrowly scoped token cannot make one.
 register_route_scope("GET,HEAD", r"/v1/files/app-passwords", ("tokens:read", "tokens:self", "tokens:admin"))
 register_route_scope("POST", r"/v1/files/app-passwords", ("tokens:self", "tokens:admin"))
-register_route_scope("DELETE", r"/v1/files/app-passwords/[^/]+", ("tokens:self", "tokens:admin"))
+register_route_scope("POST", r"/v1/files/app-passwords/[^/]+/revoke", ("tokens:self", "tokens:admin"))
 # Names the bearer scheme and these scopes in /openapi.json (contract lint rules `security` and `scopes`).
 # It never refuses by itself: gw.principal decides, and a session cookie works as on every other route.
 _BEARER = HTTPBearer(scheme_name="bearer", auto_error=False, description="A gateway token or a signed-in session (contract §3)")
@@ -75,7 +75,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
             identity.require_step_up(ctx_of(request), p, "create an app password")
         return JSONResponse(passwords.create(p, body), status_code=201, headers={"Cache-Control": "no-store"})
 
-    @app.delete("/v1/files/app-passwords/{password_id}", tags=["files"], operation_id="files.app_passwords.revoke", dependencies=WRITE,
+    @app.post("/v1/files/app-passwords/{password_id}/revoke", tags=["files"], operation_id="files.app_passwords.revoke", dependencies=WRITE,
                 responses=error_responses(401, 403, 404))
     def app_passwords_revoke(password_id: str, p: Principal = Depends(gw.principal)):
         """Revoke an app password. The next WebDAV request with it fails."""

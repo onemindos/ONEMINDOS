@@ -48,13 +48,13 @@ it('makes an app password with the chosen scopes and shows it once', async () =>
 it('revokes only after a second click', async () => {
   let revoked = false;
   const fetch = mount((method, path) => {
-    if (method === 'DELETE' && path === `${PW}/apw_1`) { revoked = true; return response({ revoked: true, id: 'apw_1' }); }
+    if (method === 'POST' && path === `${PW}/apw_1/revoke`) { revoked = true; return response({ revoked: true, id: 'apw_1' }); }
     if (path === PW) return response({ app_passwords: revoked ? [] : [row] });
     return undefined;
   });
   const user = userEvent.setup();
   await user.click(await screen.findByRole('button', { name: 'Revoke MacBook Finder' }));
-  expect(fetch.mock.calls.some(([, i]) => (i as RequestInit | undefined)?.method === 'DELETE')).toBe(false);
+  expect(fetch.mock.calls.some(([u]) => String(u).endsWith('/revoke'))).toBe(false);
   await user.click(screen.getByRole('button', { name: 'Confirm revoke MacBook Finder' }));
   expect(await screen.findByText('No app passwords yet.')).toBeInTheDocument();
   expect(revoked).toBe(true);

@@ -32,9 +32,9 @@ def test_a_person_makes_lists_and_revokes_their_own(client):
     listed = client.get(PW, headers=ADULT).json()["app_passwords"]
     assert [p["id"] for p in listed] == [cred["id"]]
     assert "password" not in listed[0] and cred["password"] not in str(listed)
-    assert client.delete(f"{PW}/{cred['id']}", headers=ADULT).json() == {"revoked": True, "id": cred["id"]}
+    assert client.post(f"{PW}/{cred['id']}/revoke", headers=ADULT).json() == {"revoked": True, "id": cred["id"]}
     assert client.get(PW, headers=ADULT).json()["app_passwords"] == []
-    assert client.delete(f"{PW}/{cred['id']}", headers=ADULT).status_code == 404
+    assert client.post(f"{PW}/{cred['id']}/revoke", headers=ADULT).status_code == 404
 
 
 def test_the_secret_is_kept_only_as_a_hash_and_never_audited(client, settings):
@@ -51,8 +51,8 @@ def test_the_owner_sees_and_revokes_everyones_and_an_adult_only_their_own(client
     theirs = new_password(client, ADULT)
     assert {p["id"] for p in client.get(PW, headers=OWNER).json()["app_passwords"]} == {mine["id"], theirs["id"]}
     assert [p["id"] for p in client.get(PW, headers=ADULT).json()["app_passwords"]] == [theirs["id"]]
-    assert client.delete(f"{PW}/{mine['id']}", headers=ADULT).status_code == 404  # not even told it exists
-    assert client.delete(f"{PW}/{theirs['id']}", headers=OWNER).status_code == 200
+    assert client.post(f"{PW}/{mine['id']}/revoke", headers=ADULT).status_code == 404  # not even told it exists
+    assert client.post(f"{PW}/{theirs['id']}/revoke", headers=OWNER).status_code == 200
 
 
 @pytest.mark.parametrize("headers", [GUEST, AGENT])
@@ -73,7 +73,7 @@ def test_the_live_check_refuses_revoked_passwords_other_users_and_gateway_tokens
     assert passwords.check("adult", cred["password"]).id == cred["id"]
     assert passwords.check("owner", cred["password"]) is None  # a password works only with its own user name
     assert passwords.check("owner", OWNER["Authorization"].split(" ", 1)[1]) is None
-    client.delete(f"{PW}/{cred['id']}", headers=ADULT)
+    client.post(f"{PW}/{cred['id']}/revoke", headers=ADULT)
     assert passwords.check("adult", cred["password"]) is None  # no cache: the next lookup fails
 
 
