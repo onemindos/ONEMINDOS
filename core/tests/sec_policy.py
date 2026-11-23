@@ -270,6 +270,10 @@ POLICY |= {
     # UMB-P11 (#429): the heartbeat numbers /v1/nodes shows plus per-app usage; sharing filters the apps.
     ("GET", "/v1/usage"): Row(CHILD_CANNOT, w.p_static("/v1/usage"),
                               "UMB-P11 live usage: read-only, monitoring:read like app metrics (a child has none); unshared apps are left out"),
+    # #619 Engine feed: read-only NATS monitor numbers. The owner sees all; a node its own account, link and outbox
+    # (nodes:report); adults, guests and agents a summary; plugins and automations nothing.
+    ("GET", "/v1/engine"): Row(cells(200, **GONE, child=403, plugin=403, automation=403, node=200), w.p_static("/v1/engine"),
+                               "#619 engine feed: monitoring:read (a child has none) or a node's nodes:report; scope cut in engine/feed.py"),
 }
 
 # ---- audit and events: feat/devsurface (contract §12.8, §12.16) -----------------------------------------
@@ -461,6 +465,13 @@ POLICY |= {
                                     "built-in apps list: any reader; a child or agent sees only the apps shared with them, as in /v1/apps"),
     ("GET", "/v1/builtins"): Row(grid(200, 200, 200, 200, 200), w.p_static("/v1/builtins"),
                                  "#603 built-in descriptors: any reader; a child or agent sees only the apps shared with them"),
+    # ---- share (Send to, #612; core/tests/test_share.py) -------------------------------------------------------
+    ("GET", "/v1/share/types"): Row(grid(200, 200, 200, 200, 200), w.p_static("/v1/share/types"), "#612 share type registry: any reader"),
+    ("GET", "/v1/share/targets"): Row(grid(200, 200, 200, 200, 200), w.p_static("/v1/share/targets?type=file"),
+                                      "#612 Send to list: any reader; each sees only the apps shared with them"),
+    ("POST", "/v1/share"): Row(grid(201, 201, 403, 403, 403), w.p_missing(
+        "/v1/share", json={"to": "files", "verb": "open", "object": {"type": "file", "ref": "shared:probe.txt"}}),
+        "#612: an owner or adult hands an object to an app; an agent only drafts (AI never actuates)"),
     ("GET", "/v1/surfaces"): Row(grid(200, 200, 200, 200, 200), w.p_static("/v1/surfaces"),
                                  "#605 surface registry: any reader; a child or agent sees only the apps shared with them"),
     ("GET", "/v1/sources"): Row(READ_ANY, w.p_static("/v1/sources"), "12.22: any reader"),
@@ -714,6 +725,37 @@ POLICY |= {
                                               automation=DENIED, node=DENIED),
                                         lambda _w: w.Req("/v1/system/actions", json={"type": "system.restart"}),
                                         f"{_SYS}: owner or agent requests a restart; only an owner approves it"),
+}
+
+# ---- share links (FILES-02, #237: core/onemind_core/routers/shares.py) ------------------------------------
+# Only an owner or adult publishes files outside the household (files:share); guests, children and agents are
+# refused before any lookup. The /v1/share routes take no principal: the link secret in the path is the only
+# credential, so a secret the box never issued is 404 for every caller, with or without a bearer token.
+_SHARE = "core/onemind_core/files/shares.py"
+POLICY |= {
+    ("POST", "/v1/files/shares"): Row(grid(404, 404, 403, 403, 403), w.p_share_create,
+                                      f"{_SHARE}: owner and adult share what they can read; agents never publish files"),
+    ("GET", "/v1/files/shares"): Row(READ_ANY, w.p_static("/v1/files/shares"),
+                                     f"{_SHARE}: each person their own links, an owner everyone's; others see none"),
+    ("DELETE", "/v1/files/shares/{share_id}"): Row(READ_ANY_404, w.p_static(f"/v1/files/shares/{w.SHARE_ID}"),
+                                                   f"{_SHARE}: the creator or an owner revokes; nobody else sees it"),
+    ("GET", "/v1/share/{token}"): Row(cells(404), w.p_static(f"/v1/share/{w.SHARE_TOKEN}"),
+                                      f"{_SHARE}: anonymous; the link secret is the credential"),
+    ("GET", "/v1/share/{token}/items/{index}"): Row(cells(404), w.p_static(f"/v1/share/{w.SHARE_TOKEN}/items/0"),
+                                                    f"{_SHARE}: anonymous; the link secret is the credential"),
+}
+
+# ---- fleet-staged OS updates (CORE-UPDATE-9, #156: core/onemind_core/routers/rollouts.py) ------------------
+_ROLL = "core/onemind_core/routers/rollouts.py"
+POLICY |= {
+    # updates:read (contract §12.6): owner, adult and agents read versions and rollouts; guests and children do not.
+    ("GET", "/v1/os/fleet"): Row(HOUSEHOLD, w.p_static("/v1/os/fleet"), f"{_ROLL}: every machine's OS version, updates:read"),
+    ("GET", "/v1/os/rollouts"): Row(HOUSEHOLD, w.p_static("/v1/os/rollouts"), f"{_ROLL}: the rollouts, updates:read"),
+    ("GET", "/v1/os/rollouts/{rollout_id}"): Row(HOUSEHOLD_404, w.p_static("/v1/os/rollouts/rol_ghost"),
+                                                 f"{_ROLL}: one rollout; none exists in this world"),
+    # Starting and resuming go through POST /v1/actions (owner approval); cancelling is the owner's alone.
+    ("POST", "/v1/os/rollouts/{rollout_id}/cancel"): Row(OWNER_ONLY_404, w.p_static("/v1/os/rollouts/rol_ghost/cancel"),
+                                                         f"{_ROLL}: only the owner cancels a rollout"),
 }
 
 # ---- family controls (FAM-01, #204) -------------------------------------------------------

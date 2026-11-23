@@ -25,6 +25,8 @@ PERSON = "person"
 BYTES = "bytes"
 DOOR = "door"
 WRITE = "write"
+FLEET = "fleet"
+CONSOLE = "console"
 
 REASONS: dict[str, str] = {
     OVERSIGHT: "Approving, denying, approval policies, the motion lockout, confirming what a found radio is and "
@@ -35,9 +37,15 @@ REASONS: dict[str, str] = {
     BYTES: "File bytes, uploads, event streams, consoles, Prometheus text or the restic repository protocol, "
            "not a JSON tool result.",
     DOOR: "A door of its own (the MCP endpoint, installed-app tool calls, sign-in page, health probe, OpenAPI "
-          "document, surface registry, sync feed and file transfer, dashboard files); a tool over it adds nothing.",
+          "document, surface registry, sync feed and file transfer, the Send to menu, dashboard files, an outsider's "
+          "share link); a tool over it adds nothing.",
     WRITE: "Changes the box directly. An agent never writes: it files a request (request_action or a "
            "request_<type> tool) that a person approves.",
+    FLEET: "Fleet OS versions and staged rollouts (#156): a rollout starts only as an owner-approved action "
+           "(os.rollout.start), which an agent follows through get_action; this is the owner's update console.",
+    CONSOLE: "The owner's system console: host service logs (which can hold secrets until a redacted read tool "
+             "exists), the message-bus monitor (#619) and bridge status (#610). Agents read the world through the "
+             "data commons doors and request changes as actions.",
 }
 
 SKIP_METHODS = frozenset({"HEAD", "OPTIONS"})
@@ -150,6 +158,10 @@ HUMAN_ONLY: dict[str, str] = {
     "GET /v1/tls/ca.crt": CREDENTIAL,
     "GET /v1/tls/onemind.mobileconfig": CREDENTIAL,
     "GET /v1/tokens": CREDENTIAL,
+    # share links (#237): each link secret is a bearer credential handed to someone outside the household
+    "GET /v1/files/shares": CREDENTIAL,
+    "POST /v1/files/shares": CREDENTIAL,
+    "DELETE /v1/files/shares/{share_id}": CREDENTIAL,
     "POST /v1/tokens": CREDENTIAL,
     "DELETE /v1/tokens/{token_id}": CREDENTIAL,
     "POST /v1/tokens/{token_id}/rotate": CREDENTIAL,
@@ -181,6 +193,7 @@ HUMAN_ONLY: dict[str, str] = {
     "GET /v1/events": BYTES,
     "GET /v1/files/download": BYTES,
     "GET /v1/files/preview": BYTES,
+    "GET /v1/share/{token}/items/{index}": BYTES,
     "POST /v1/files/uploads": BYTES,
     "DELETE /v1/files/uploads/{upload_id}": BYTES,
     "GET /v1/files/uploads/{upload_id}": BYTES,
@@ -214,6 +227,9 @@ HUMAN_ONLY: dict[str, str] = {
     "GET /signin": DOOR,
     "POST /v1/plugins/{plugin_id}/tools/{tool_name}": DOOR,
     "GET /v1/protocol": DOOR,
+    "GET /v1/share/{token}": DOOR,
+    "GET /v1/share/targets": DOOR,
+    "GET /v1/share/types": DOOR,
     "GET /v1/surfaces": DOOR,
     "GET /v1/sync/changes": DOOR,
     "POST /v1/sync/chunks/missing": DOOR,
@@ -252,6 +268,7 @@ HUMAN_ONLY: dict[str, str] = {
     "POST /v1/files/grants": WRITE,
     "DELETE /v1/files/grants/{grant_id}": WRITE,
     "POST /v1/files/ops": WRITE,
+    "POST /v1/os/rollouts/{rollout_id}/cancel": WRITE,
     "PUT /v1/files/quotas/{person_id}": WRITE,
     "POST /v1/files/requests/{request_id}/cancel": WRITE,
     "POST /v1/files/trash/empty": WRITE,
@@ -277,6 +294,7 @@ HUMAN_ONLY: dict[str, str] = {
     "POST /v1/photos/sources/{source_id}/check": WRITE,
     "POST /v1/plugins/{plugin_id}/settings": WRITE,
     "POST /v1/restores": WRITE,
+    "POST /v1/share": WRITE,
     "POST /v1/shares/smb/{share_id}/stop": WRITE,
     "POST /v1/storage/actions": WRITE,
     "POST /v1/storage/plans": WRITE,
@@ -286,6 +304,29 @@ HUMAN_ONLY: dict[str, str] = {
     "POST /v1/users": WRITE,
     "PATCH /v1/users/{user_id}": WRITE,
     "POST /v1/users/{user_id}/disable": WRITE,
+    # ---- fleet: OS versions and staged rollouts
+    "GET /v1/os/fleet": FLEET,
+    "GET /v1/os/rollouts": FLEET,
+    "GET /v1/os/rollouts/{rollout_id}": FLEET,
+    # ---- classified 2026-11-23 (hand-off gate): routes that landed without an entry
+    "GET /v1/auth/approver-keys": CREDENTIAL,
+    "POST /v1/auth/approver-keys": CREDENTIAL,
+    "DELETE /v1/auth/approver-keys/{key_id}": CREDENTIAL,
+    "GET /v1/me/devices": PERSON,
+    "DELETE /v1/me/devices/{device_id}": PERSON,
+    "GET /v1/sync/locks": DOOR,
+    "POST /v1/sync/locks": DOOR,
+    "POST /v1/sync/locks/{lock_id}/refresh": DOOR,
+    "DELETE /v1/sync/locks/{lock_id}": DOOR,
+    "POST /v1/bridges/{bridge_id}/events": DOOR,
+    "GET /v1/bridges": CONSOLE,
+    "GET /v1/bridges/{bridge_id}": CONSOLE,
+    "GET /v1/bridges/{bridge_id}/latest": CONSOLE,
+    "GET /v1/engine": CONSOLE,
+    "GET /v1/system/services/{unit}/logs": CONSOLE,
+    "POST /v1/bridges/{bridge_id}/resume": WRITE,
+    "POST /v1/system/services/{unit}/restart": WRITE,
+    "PUT /v1/mesh/settings": WRITE,
 }
 
 # Routes that are to get a generated tool (#632 and the area issues). A ratchet: it may only shrink, and

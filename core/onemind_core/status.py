@@ -1,11 +1,14 @@
 # SPDX-License-Identifier: Apache-2.0
 """FD-01 (#498, D-018): `GET /v1/status`, the one "needs attention" answer for the Front Door.
 
-Seven sources (alerts, approvals, apps, storage, backups, updates, mesh) each report
+Eight sources (alerts, approvals, apps, storage, backups, updates, mesh, host) each report
 `state` (ok | attention | critical | unknown) and `observed_at`. The contract is one rule:
 a source that cannot be read is `unknown` with `observed_at: null`, never `ok`. Every source is
 read on its own, so one broken reader cannot hide or fake another. Failure text is logged, never
 sent to the client (it can hold paths and addresses). Nothing here changes anything.
+
+`host` (#875) also says `helper: reachable | missing` and the box's `hostname` as the host helper
+reported it: the gateway's link to restart, shut down and OS install (hostlink.py). Missing is never `ok`.
 """
 from __future__ import annotations
 
@@ -13,7 +16,7 @@ import logging
 from collections.abc import Callable
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from .ledger import iso
 from .notify.store import NotifyRepository
@@ -33,6 +36,12 @@ class SourceStatus(BaseModel):
     count: int | None = None  # how many things need attention, where that is a number
 
 
+class HostStatus(SourceStatus):
+    helper: Literal["reachable", "missing"] = Field(
+        default="missing", description="host helper: reachable | missing; no host action starts while missing")
+    hostname: str | None = Field(default=None, description="the box's name as the host helper reported it")
+
+
 class StatusView(BaseModel):
     state: State
     observed_at: str
@@ -43,6 +52,7 @@ class StatusView(BaseModel):
     backups: SourceStatus
     updates: SourceStatus
     mesh: SourceStatus
+    host: HostStatus
 
 
 class Unreadable(Exception):
@@ -135,22 +145,36 @@ def read_mesh(gw, state) -> tuple[State, str, int | None]:
     return "ok", "the mesh control server answers", 0
 
 
+HOST_MISSING = "host helper: missing; restart, shut down and OS install from here will not run"
+
+
+def read_host(gw, state) -> tuple[State, str, int | None, dict]:
+    link = getattr(state, "hostlink", None)
+    found = link.probe() if link is not None else None
+    if found is None or not found.reachable:
+        return "attention", HOST_MISSING, 1, {"helper": "missing"}
+    return "ok", "host helper: reachable", 0, {"helper": "reachable", "hostname": found.hostname}
+
+
 SOURCES: dict[str, Callable] = {
     "alerts": read_alerts, "approvals": read_approvals, "apps": read_apps, "storage": read_storage,
-    "backups": read_backups, "updates": read_updates, "mesh": read_mesh,
+    "backups": read_backups, "updates": read_updates, "mesh": read_mesh, "host": read_host,
 }
+MODELS: dict[str, type[SourceStatus]] = {"host": HostStatus}  # sources with fields of their own
 
 
 def read_source(name: str, gw, state) -> SourceStatus:
-    """One source's verdict. Anything that goes wrong becomes `unknown`, never `ok`."""
+    """One source's verdict. Anything that goes wrong becomes `unknown`, never `ok`. A reader may return a
+    fourth item, the fields its own model adds (`MODELS`)."""
+    model = MODELS.get(name, SourceStatus)
     try:
-        verdict, summary, count = SOURCES[name](gw, state)
+        verdict, summary, count, *more = SOURCES[name](gw, state)
     except Unreadable as exc:
-        return SourceStatus(state="unknown", observed_at=None, summary=str(exc))
+        return model(state="unknown", observed_at=None, summary=str(exc))
     except Exception:  # a failing reader must not take the whole endpoint down, or read as fine
         log.exception("status source %s could not be read", name)
-        return SourceStatus(state="unknown", observed_at=None, summary=f"the {name} source could not be read")
-    return SourceStatus(state=verdict, observed_at=iso(gw.clock()), summary=summary, count=count)
+        return model(state="unknown", observed_at=None, summary=f"the {name} source could not be read")
+    return model(state=verdict, observed_at=iso(gw.clock()), summary=summary, count=count, **(more[0] if more else {}))
 
 
 def build_status(gw, state) -> StatusView:
