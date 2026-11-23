@@ -49,6 +49,7 @@ describe('screen registry', () => {
       ['backups', '/backups', 'Your box'],
       ['file-sharing', '/file-sharing', 'Your box'],
       ['troubleshoot', '/troubleshoot', 'Your box'],
+      ['tips', '/tips', 'Your box'],
       ['network', '/network', 'Your box'],
       ['automation', '/automation', 'Your box'],
       ['updates', '/updates', 'Your box'],
@@ -70,6 +71,7 @@ describe('screen registry', () => {
     expect(navIdFor('/compose')).toBe('market');
     expect(navIdFor('/installed/x')).toBe('installed');
     expect(navIdFor('/settings/users')).toBe('settings');
+    expect(navIdFor('/tips/find-an-app')).toBe('tips');
     expect(navIdFor('/nowhere')).toBe('nowhere');
   });
 });
