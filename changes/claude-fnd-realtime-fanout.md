@@ -1,0 +1,5 @@
+---
+pr: pending
+branch: claude/fnd-realtime-fanout
+---
+The live event stream (GET /v1/events) no longer has every open stream re-read the audit file twice a second. One reader per source now feeds every stream in process: the audit log is read once, right after each write, so idle streams cost nothing, and one JetStream ordered consumer keeps the latest value of every asset from the hub's asset-state bucket. A stream that asks for asset.* first gets a snapshot of the assets the person may see, then changes merged latest-wins, with kind= and bbox= filters for the map. Approvals and other facts always go first, and a client that falls too far behind gets stream.reset and reconnects. Asset values need the new assets:read scope (owner and adult by default) plus every asset filter, so a person without the grant never receives that asset. Issue #606.

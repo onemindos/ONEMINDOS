@@ -48,6 +48,9 @@ ApprovalGuard = Callable[[Principal, str, dict, Request], None]
 RequesterLookup = Callable[[str], dict | None]
 # Whether this principal may see and open an installed app (identity: per-app sharing, §12.6).
 AppFilter = Callable[[Request, Principal, str], bool]
+# (request, principal, asset_class, asset_id) -> may this caller see that asset? Every filter must say
+# yes before an asset value reaches a stream (#606); data classes and grants add theirs here.
+AssetFilter = Callable[[Request, Principal, str, str], bool]
 # Person id -> role of every active person a feature knows, beyond the tokens file (identity:
 # household accounts, §12.6). Notifications use it to find who to notify.
 PeopleSource = Callable[[], dict[str, str]]
@@ -81,6 +84,9 @@ class Gateway:
     approval_guards: list[ApprovalGuard] = field(default_factory=list)
     requester_lookups: list[RequesterLookup] = field(default_factory=list)
     app_filters: list[AppFilter] = field(default_factory=list)
+    asset_filters: list[AssetFilter] = field(default_factory=list)
+    # #606: the current asset values from the hub's asset-state bucket (fanout.AssetState), set by routers/events.py.
+    assets: Any = None
     # Ids of built-in apps the owner switched off (appstore/system.py). They are left out of
     # GET /v1/apps (so the dock, search, MCP tools and phone) and their routes answer 409 app_disabled.
     disabled_apps: Callable[[], frozenset[str]] = lambda: frozenset()
