@@ -3,9 +3,9 @@
 
 Real gateway, real routes, real ledger and approval rule; the device runtime is the noop one the
 gateway picks with the noop executor, and the kubectl one runs against a scripted runner. One test
-per refusal of the issue: a busy device until the owner confirms, a GPU sharing its IOMMU group,
-and an agent's request that no person approved. Virtual machines stay gated off on real hardware
-until LT-MACH-2; lab-kits/LT-MACH-DEV-01 is the VT-d test.
+per refusal of the issue: a busy device until the owner confirms, a GPU sharing its IOMMU group or
+in no group the box reported, and an agent's request that no person approved. Virtual machines
+stay gated off on real hardware until LT-MACH-2; lab-kits/LT-MACH-DEV-01 is the VT-d test.
 """
 
 from __future__ import annotations
@@ -128,6 +128,23 @@ def test_a_gpu_sharing_its_iommu_group_is_refused_even_when_confirmed(box):
     refused(r, "iommu_group_shared")
     assert "0000:06:00.0" in r.json()["message"]
     assert device(box, "gpu", "0000:05:00.0")["refusal"]["code"] == "iommu_group_shared"
+
+
+def test_a_gpu_in_no_reported_group_is_refused_even_when_confirmed(box):
+    # The Go probe leaves out a group whose members are not all PCI addresses (an ACPI or platform
+    # device under VT-d ANDD, an ARM SMMU client): such a member would go to the machine with the
+    # card, so the group cannot be vouched for. The card then sits in no reported group.
+    queued = box.ask("machine.attach_device", SPARE).json()
+    caps = copy.deepcopy(CAPS)
+    caps["passthrough"]["iommu_groups"] = [g for g in caps["passthrough"]["iommu_groups"] if g["group"] != 1]
+    box.report(caps)
+    r = box.ask("machine.attach_device", {**SPARE, "confirm_busy": True})
+    refused(r, "iommu_group_unknown")
+    assert device(box, "gpu", "0000:01:00.0")["refusal"]["code"] == "iommu_group_unknown"
+    # A grant queued while the group still looked isolated is checked again at approval.
+    a = box.post(f"/v1/actions/{queued['id']}/approve", headers=OWNER)
+    assert a.status_code == 409 and a.json()["error"] == "stale_precondition", a.text
+    assert device(box, "gpu", "0000:01:00.0")["granted_to"] is None
 
 
 def test_an_agent_request_is_never_granted_without_a_person(box):
