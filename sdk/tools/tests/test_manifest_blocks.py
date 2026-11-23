@@ -15,6 +15,7 @@ REPO = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO / "core"))
 from onemind_core.catalog import Catalog  # noqa: E402
 from onemind_core.manifest_rules import ManifestRules  # noqa: E402
+from onemind_core import systemlist  # noqa: E402
 
 SCHEMA_PATH = REPO / "sdk" / "schema" / "onemind.app.schema.json"
 SCHEMA = json.loads(SCHEMA_PATH.read_text())
@@ -110,7 +111,10 @@ class ManifestBlocksTests(unittest.TestCase):
             self.assertLess(time.monotonic() - started, 5)
 
     def test_every_app_in_the_repo_still_validates(self):
+        # as the gateway does: apps/_system/ apps (Passwords, #679) load only for ids on the signed list
+        self.catalog.system_ids = systemlist.load(systemlist.REPO_FILE).ids
         found = self.catalog.load()
+        self.assertIn("vaultwarden", found)
         self.assertTrue(found)
         self.assertEqual(self.catalog.errors, {})
 
