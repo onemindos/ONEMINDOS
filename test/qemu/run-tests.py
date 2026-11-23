@@ -79,7 +79,7 @@ class VM:
         self.failfast, self._watch = False, failfast.Watch()
         self.vars = None
         self.fwd = FWD                  # host port forwarded to the guest :8080 (firewall.py runs two VMs)
-        self.extra_args = []            # more QEMU arguments (firewall.py: a second NIC on a socket link)
+        self.extra_args = []            # more QEMU arguments, passed once (firewall.py/wizard.py: a socket link NIC; dataenc.py: a TPM)
         if self.cfg["vars"]:
             self.vars = os.path.join(workdir, "VARS.fd")
             shutil.copy(self.cfg["vars"], self.vars)
@@ -98,7 +98,6 @@ class VM:
                 "-drive", f"if=virtio,format=raw,readonly=on,file={self.fx}/bundles.img"]
         if os.path.exists(f"{self.fx}/seed.img"):
             cmd += ["-drive", f"if=virtio,format=raw,readonly=on,file={self.fx}/seed.img"]
-        cmd += list(getattr(self, "extra_args", []))     # dataenc.py adds a TPM here; empty for every other harness
         cmd += ["-serial", "stdio", "-monitor", "none"]
         self.mark(f"QEMU START {' '.join(cmd)}")
         self.proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,

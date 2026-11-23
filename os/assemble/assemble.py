@@ -8,10 +8,11 @@ devices and no privileges beyond root inside the tools container (tar ownership,
 
 Run inside the tools container (os/rootfs/Containerfile target "tools"), as root, with python3 -I:
 
-  assemble.py tree   --board B --rootfs rootfs.tar --work W --version V --keyring ca.pem [--overlay DIR]...
+  assemble.py tree   --board B --rootfs rootfs.tar --work W --version V --keyring ca.pem [--overlay DIR]... [--boot efi]
   assemble.py ext4   --work W --out system.ext4 [--size-mib N]
   assemble.py disk   --board B --work W --system system.ext4 --out disk.img [--sb-key K --sb-cert C]
   assemble.py bundle --board B --system system.ext4 --version V --cert C --key K --out x.raucb [--format plain]
+                     [--sb-key K --sb-cert C --work W]
   assemble.py image  (tree + ext4 + disk + bundle in one go; see --help)
 """
 import argparse, glob, hashlib, os, shutil, struct, subprocess, sys, tempfile, uuid
@@ -105,10 +106,63 @@ def cmd_tree(a):
         shutil.rmtree(tree)
     os.makedirs(tree)
     run("tar", "--numeric-owner", "-xpf", a.rootfs, "-C", tree)
-    finalize(tree, board, a.version, a.keyring, a.overlay or [])
+    finalize(tree, board, a.version, a.keyring, a.overlay or [], getattr(a, "boot", None) or "grub")
 
 
-def finalize(tree, board, version, keyring, overlays):
+# Secure Boot route (S-13, #148): RAUC's efi backend picks the slot by switching firmware boot entries (BootNext for the
+# one trial boot of a new slot, BootOrder for the committed ones), each entry starting that slot's signed UKI on its own
+# boot partition. GRUB cannot pick slots under Secure Boot without shim (os/secureboot/README.md).
+BOOT_ROUTES = ("grub", "efi")
+EFI_SLOT_PARTS = ("onemind-boot-a", "onemind-boot-b")
+
+
+def render_rauc_conf(board, boot="grub"):
+    """/etc/rauc/system.conf for this board: the GRUB backend (default), or the efi backend for a Secure Boot image."""
+    conf = open(os.path.join(OS_DIR, "rauc", "system.conf.in")).read().replace("@COMPATIBLE@", board["compatible"])
+    if boot == "grub":
+        return conf.replace("@BOOTLOADER@", board["rauc_bootloader"])
+    if boot != "efi":
+        raise ValueError(f"boot route must be one of {BOOT_ROUTES}: {boot!r}")
+    labels = [p["label"] for p in board["layout_data"]["partitions"]]
+    if board.get("route") != "grub-efi" or not all(l in labels for l in EFI_SLOT_PARTS):
+        sys.exit(f"ERROR: the efi boot route needs an EFI board with {' and '.join(EFI_SLOT_PARTS)} ({board['name']})")
+    lines = []
+    for l in conf.splitlines():
+        if l.startswith("grubenv="):
+            continue    # no grubenv: slot state lives in firmware variables (os/gate/gate-slot-env-efi reads them)
+        if l.startswith("bootloader="):
+            l = ("bootloader=efi\n# BootNext gives a new slot exactly one trial boot; a crash, hang or power cut in it lands in"
+                 "\n# BootOrder's first entry, the committed slot (rauc v1.15.2 docs, efi-use-bootnext).\nefi-use-bootnext=true")
+        lines.append(l)
+    return "\n".join(lines) + "\n\n" + open(os.path.join(OS_DIR, "rauc", "efi-slots.conf.in")).read()
+
+
+def tree_bootloader(tree):
+    """The RAUC backend a built tree was configured for ("grub", "efi", ...)."""
+    for l in open(os.path.join(tree, "etc", "rauc", "system.conf")).read().splitlines():
+        if l.startswith("bootloader="):
+            return l.split("=", 1)[1].strip()
+    return None
+
+
+def install_efi_route(tree):
+    """The box-side half of the efi route: the first-boot unit that creates one firmware entry per slot (before the
+    health gate, whose commit needs it) and the gate's reader for slot state in firmware variables."""
+    j = lambda p: os.path.join(tree, p)
+    for d in ("usr/lib/onemind", "usr/lib/systemd/system", "etc/systemd/system/multi-user.target.wants"):
+        os.makedirs(j(d), exist_ok=True)
+    shutil.copyfile(os.path.join(OS_DIR, "rauc", "onemind-efi-entries"), j("usr/lib/onemind/onemind-efi-entries"))
+    os.chmod(j("usr/lib/onemind/onemind-efi-entries"), 0o755)
+    unit = "onemind-efi-entries.service"
+    shutil.copyfile(os.path.join(OS_DIR, "rauc", unit), j(f"usr/lib/systemd/system/{unit}"))
+    link = j(f"etc/systemd/system/multi-user.target.wants/{unit}")
+    if os.path.lexists(link):
+        os.remove(link)
+    os.symlink(f"/usr/lib/systemd/system/{unit}", link)
+    shutil.copyfile(os.path.join(OS_DIR, "gate", "gate-slot-env-efi"), j("usr/lib/onemind/gate-slot-env"))
+
+
+def finalize(tree, board, version, keyring, overlays, boot="grub"):
     j = lambda p: os.path.join(tree, p.lstrip("/"))
     # Version (brief 30 B5 G7): ONEMIND_VERSION in /usr/lib/os-release.
     osr = j("/usr/lib/os-release")
@@ -117,11 +171,12 @@ def finalize(tree, board, version, keyring, overlays):
     open(osr, "w").write("\n".join(lines) + "\n")
     apply_brand(tree)
     # RAUC: system.conf from the template + the keyring (public CA cert only).
-    conf = open(os.path.join(OS_DIR, "rauc", "system.conf.in")).read()
-    conf = conf.replace("@COMPATIBLE@", board["compatible"]).replace("@BOOTLOADER@", board["rauc_bootloader"])
+    conf = render_rauc_conf(board, boot)
     os.makedirs(j("/etc/rauc"), exist_ok=True)
     open(j("/etc/rauc/system.conf"), "w").write(conf)
     shutil.copyfile(keyring, j("/etc/rauc/keyring.pem"))
+    if boot == "efi":
+        install_efi_route(tree)
     # Files a container build cannot set (they are bind mounts during RUN).
     for f in ("/etc/resolv.conf",):
         if os.path.lexists(j(f)):
@@ -217,7 +272,9 @@ def find_kernel(tree):
 
 
 def build_ukis(board, tree, stage, key, cert):
-    """One signed UKI per slot (own root partition in its signed command line), as {boot partition label: file}."""
+    """One signed UKI per slot (own root partition and rauc.slot= in its signed command line), as the files of one
+    boot-partition image {path in the vfat: file}. The same image goes to whichever slot an update targets (RAUC
+    writes it to the target's boot partition), so it holds both; each slot's firmware entry loads its own file."""
     lay = board["layout_data"]
     kernel, initrd = find_kernel(tree)
     files = {}
@@ -226,8 +283,25 @@ def build_ukis(board, tree, stage, key, cert):
         out = os.path.join(stage, uki.uki_name(slot))
         uki.build_uki(kernel, initrd, uki.cmdline(board["console"], root["partuuid"], slot),
                       os.path.join(tree, "usr/lib/os-release"), out, key, cert)
-        files[f"onemind-boot-{slot.lower()}"] = {f"{uki.UKI_DIR}/{uki.uki_name(slot)}": out}
+        files[f"{uki.UKI_DIR}/{uki.uki_name(slot)}"] = out
     return files
+
+
+def boot_partition_files(efi_files):
+    """A fresh disk: the UKIs on onemind-boot-a only. Slot B's root is empty until the first update, so its boot
+    partition stays empty too (a firmware entry "B" then fails to load and the firmware moves on); the first
+    bundle writes B's partition together with B's root."""
+    return {"onemind-boot-a": efi_files}
+
+
+def efi_vfat_mib(total_bytes, part_mib):
+    """Size of a bundle's boot-partition image: the UKIs plus a fifth and 16 MiB for FAT, at least 64 MiB (FAT32),
+    in 8 MiB steps, and never more than the boot partition."""
+    size = max(64, -(-(total_bytes * 6 // 5) // (1 << 20)) + 16)
+    size = -(-size // 8) * 8
+    if size > part_mib:
+        sys.exit(f"ERROR: the UKIs need a {size} MiB boot image; the boot partition has {part_mib} MiB")
+    return size
 
 
 def grub_binaries(board, tree, stage):
@@ -333,24 +407,26 @@ def cmd_disk(a):
     if secure:
         if board["route"] != "grub-efi" or not (sb_key and sb_cert):
             sys.exit("ERROR: Secure Boot needs an EFI board and both --sb-key and --sb-cert")
-        boot_files = build_ukis(board, tree, stage, sb_key, sb_cert)
-    if secure:
-        # No GRUB: the firmware starts the signed slot-A UKI as the fallback boot file. GRUB cannot be the
-        # selector under Secure Boot without shim (it refuses to chainload: "shim_lock protocol not found", and
-        # with that check off, "verification requested but nobody cares"; both seen under OVMF). grubenv stays
-        # because RAUC's grub backend and the health gate still read and write it; choosing slot B is the
-        # follow-up (RAUC efi backend / BootOrder, see os/secureboot/README.md).
-        files = {f"EFI/BOOT/{board['efi_binary']}": boot_files["onemind-boot-a"][f"{uki.UKI_DIR}/{uki.uki_name('A')}"]}
+        if tree_bootloader(tree) != "efi":
+            sys.exit("ERROR: a Secure Boot disk needs a tree built with --boot efi (RAUC's efi backend picks the slot)")
+        efi = build_ukis(board, tree, stage, sb_key, sb_cert)
+        boot_files = boot_partition_files(efi)
+        # No GRUB: GRUB cannot pick slots under Secure Boot without shim (it refuses to chainload: "shim_lock protocol
+        # not found", and with that check off, "verification requested but nobody cares"; both seen under OVMF).
+        # The firmware's boot entries pick the slot (RAUC efi backend); the box creates them on its first boot
+        # (os/rauc/onemind-efi-entries). Until then, and after a firmware reset, the firmware starts the fallback file:
+        # the signed slot-A UKI. No grubenv: the slot state lives in firmware variables.
+        files = {f"EFI/BOOT/{board['efi_binary']}": efi[f"{uki.UKI_DIR}/{uki.uki_name('A')}"]}
     else:
         files = grub_binaries(board, tree, stage)
         open(os.path.join(stage, "grub.cfg"), "w").write(render_grub_cfg(board))
         files["EFI/BOOT/grub.cfg"] = os.path.join(stage, "grub.cfg")
-    env = os.path.join(stage, "grubenv")
-    if os.path.exists(env):
-        os.remove(env)
-    run("grub-editenv", env, "create")
-    run("grub-editenv", env, "set", "ORDER=A B", "A_OK=1", "A_TRY=0", "B_OK=0", "B_TRY=0")
-    files["EFI/BOOT/grubenv"] = env
+        env = os.path.join(stage, "grubenv")
+        if os.path.exists(env):
+            os.remove(env)
+        run("grub-editenv", env, "create")
+        run("grub-editenv", env, "set", "ORDER=A B", "A_OK=1", "A_TRY=0", "B_OK=0", "B_TRY=0")
+        files["EFI/BOOT/grubenv"] = env
     # First-boot settings a user can edit after flashing (all commented out: the wizard runs).
     files["onemind.conf"] = os.path.join(HERE, "onemind.conf.in")
 
@@ -410,14 +486,33 @@ def cmd_disk(a):
 
 
 # ------------------------------------------------------------------ bundle
+def bundle_manifest(board, version, fmt, efi=False):
+    m = (f"[update]\ncompatible={board['compatible']}\nversion={version}\n\n"
+         f"[bundle]\nformat={fmt}\n\n[image.rootfs]\nfilename=rootfs.ext4\n")
+    if efi:   # the slot's signed UKIs, written to the target's boot partition (system.conf: [slot.efi.N] parent=rootfs.N)
+        m += "\n[image.efi]\nfilename=efi.vfat\n"
+    return m
+
+
 def cmd_bundle(a):
     board = load_board(a.board)
+    sb_key, sb_cert, work = getattr(a, "sb_key", None), getattr(a, "sb_cert", None), getattr(a, "work", None)
+    efi = bool(sb_key or sb_cert)
+    if efi and not (sb_key and sb_cert and work):
+        sys.exit("ERROR: a Secure Boot bundle needs --sb-key, --sb-cert and --work (the tree its kernel comes from)")
     d = tempfile.mkdtemp(prefix="bundle-", dir=os.path.dirname(os.path.abspath(a.out)))
     try:
         os.link(a.system, os.path.join(d, "rootfs.ext4")) if same_fs(a.system, d) else shutil.copyfile(a.system, os.path.join(d, "rootfs.ext4"))
-        open(os.path.join(d, "manifest.raucm"), "w").write(
-            f"[update]\ncompatible={board['compatible']}\nversion={a.version}\n\n"
-            f"[bundle]\nformat={a.format}\n\n[image.rootfs]\nfilename=rootfs.ext4\n")
+        if efi:
+            # Signed at build time, never on the box (the box does not hold the key; os/secureboot/README.md).
+            stage = os.path.join(d, "uki")
+            os.makedirs(stage)
+            files = build_ukis(board, os.path.join(work, "tree"), stage, sb_key, sb_cert)
+            size = efi_vfat_mib(sum(os.path.getsize(f) for f in files.values()),
+                                mib(part(board["layout_data"], "onemind-boot-a")["size"]))
+            fat_image(os.path.join(d, "efi.vfat"), size, "ONEMIND-UKI", files=files)
+            shutil.rmtree(stage)
+        open(os.path.join(d, "manifest.raucm"), "w").write(bundle_manifest(board, a.version, a.format, efi))
         if os.path.exists(a.out):
             os.remove(a.out)
         run("rauc", "bundle", f"--cert={a.cert}", f"--key={a.key}", d, a.out, stdout=subprocess.DEVNULL)
@@ -432,17 +527,21 @@ def same_fs(p, d):
 # ------------------------------------------------------------------ image
 def cmd_image(a):
     os.makedirs(a.out_dir, exist_ok=True)
+    sb = dict(sb_key=getattr(a, "sb_key", None), sb_cert=getattr(a, "sb_cert", None))
+    if sb["sb_key"] or sb["sb_cert"]:
+        a.boot = "efi"     # a Secure Boot image picks its slot with RAUC's efi backend
+        sb["work"] = a.work
     cmd_tree(a)
     system = os.path.join(a.work, "system.ext4")
     cmd_ext4(argparse.Namespace(work=a.work, out=system, size_mib=None))
     disk = os.path.join(a.out_dir, f"onemind-{a.board}-{a.version}.img")
     cmd_disk(argparse.Namespace(board=a.board, work=a.work, system=system, out=disk,
-                                sb_key=getattr(a, "sb_key", None), sb_cert=getattr(a, "sb_cert", None)))
+                                sb_key=sb["sb_key"], sb_cert=sb["sb_cert"]))
     outs = [disk]
     if a.cert and a.key:
         bundle = os.path.join(a.out_dir, f"onemind-{a.board}-{a.version}.raucb")
         cmd_bundle(argparse.Namespace(board=a.board, system=system, version=a.version, cert=a.cert,
-                                      key=a.key, out=bundle, format="verity"))
+                                      key=a.key, out=bundle, format="verity", **sb))
         outs.append(bundle)
         # A second bundle one version later, signed by the same throwaway CA, so a founder kit
         # (LT-DO-01, LT-X86-01) can run a real A -> B update on the image it just flashed.
@@ -453,7 +552,7 @@ def cmd_image(a):
         cmd_ext4(argparse.Namespace(work=a.work, out=system, size_mib=None))
         nbundle = os.path.join(a.out_dir, f"onemind-{a.board}-{nxt}.raucb")
         cmd_bundle(argparse.Namespace(board=a.board, system=system, version=nxt, cert=a.cert,
-                                      key=a.key, out=nbundle, format="verity"))
+                                      key=a.key, out=nbundle, format="verity", **sb))
         outs.append(nbundle)
     shutil.copyfile(os.path.join(a.work, "tree", "usr/lib/onemind/packages.txt"),
                     os.path.join(a.out_dir, f"onemind-{a.board}-{a.version}.packages.txt"))
@@ -480,6 +579,7 @@ def main():
         p.add_argument("--board", required=True); p.add_argument("--rootfs", required=True)
         p.add_argument("--work", required=True); p.add_argument("--version", required=True)
         p.add_argument("--keyring", required=True); p.add_argument("--overlay", action="append")
+        p.add_argument("--boot", choices=BOOT_ROUTES, help="RAUC backend: grub (default) or efi (Secure Boot image)")
     e.add_argument("--work", required=True); e.add_argument("--out", required=True)
     e.add_argument("--size-mib", type=int)
     d.add_argument("--board", required=True); d.add_argument("--work", required=True)
@@ -492,8 +592,9 @@ def main():
     for p in (b, i):
         p.add_argument("--cert", required=p is b); p.add_argument("--key", required=p is b)
     i.add_argument("--out-dir", required=True)
-    for p in (d, i):   # Secure Boot (S-13): sign GRUB and one UKI per slot; a dev image has no keys here
+    for p in (d, i, b):   # Secure Boot (S-13): one signed UKI per slot on the disk and in the bundle; a dev image has none
         p.add_argument("--sb-key"); p.add_argument("--sb-cert")
+    b.add_argument("--work", help="Secure Boot bundle: the assembler work dir whose tree/ holds the kernel and initrd")
     a = ap.parse_args()
     a.fn(a)
 

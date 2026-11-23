@@ -223,6 +223,12 @@ POLICY |= {
                                                   "§12.14 own preferences"),
     ("PUT", "/v1/notifications/preferences"): Row(PEOPLE_WRITE, w.p_preferences_put,
                                                   "§12.14 own preferences; a child holds no notifications:write"),
+    ("GET", "/v1/notifications/sources"): Row(PEOPLE_READ, w.p_static("/v1/notifications/sources"),
+                                              "§12.14 #613 people read the notification sources (App notifications page)"),
+    ("PUT", "/v1/notifications/sources/{source_id}"): Row(
+        cells(403, **GONE, owner=200, **PENDING_DENY),
+        lambda _: w.Req("/v1/notifications/sources/plugin:probe", json={"muted": True}),
+        "§12.14 #613 only owners mute or unmute a source; an agent never lifts its own mute"),
     ("POST", "/v1/notifications/send"): Row(
         cells(403, **GONE, agent=202, **PENDING_DENY), w.p_send,
         "§12.14 agents only, under their own plugin.<id> topic (the probe uses the static agent's)"),
@@ -436,6 +442,8 @@ POLICY |= {
                                     "built-in apps list: any reader; a child or agent sees only the apps shared with them, as in /v1/apps"),
     ("GET", "/v1/builtins"): Row(grid(200, 200, 200, 200, 200), w.p_static("/v1/builtins"),
                                  "#603 built-in descriptors: any reader; a child or agent sees only the apps shared with them"),
+    ("GET", "/v1/surfaces"): Row(grid(200, 200, 200, 200, 200), w.p_static("/v1/surfaces"),
+                                 "#605 surface registry: any reader; a child or agent sees only the apps shared with them"),
     ("GET", "/v1/sources"): Row(READ_ANY, w.p_static("/v1/sources"), "12.22: any reader"),
     ("GET", "/v1/sources/{source_id}"): Row(READ_ANY_404, w.p_static("/v1/sources/src_00000000000000000000000000"), "12.22: any reader; missing is 404"),
     ("POST", "/v1/deploy/compose"): Row(grid(422, 403, 403, 403, 403), w.p_missing("/v1/deploy/compose", json={"app_id": "imp", "compose": "x"}),
@@ -446,6 +454,8 @@ POLICY |= {
                                    f"{_FILES}: people browse; an agent needs a grant (none here)"),
     ("GET", "/v1/files/stat"): Row(grid(200, 200, 200, 403, 403), w.p_static("/v1/files/stat?root=shared&path=/"),
                                    f"{_FILES}: people browse; an agent needs a grant"),
+    ("GET", "/v1/search"): Row(grid(200, 200, 200, 200, 200), w.p_static("/v1/search?q=report"),
+                               "#611 global search: any signed-in caller; each hit is filtered by the caller's own grants"),
     ("GET", "/v1/sync/changes"): Row(grid(200, 200, 200, 403, 403), w.p_static("/v1/sync/changes?root=shared"),
                                      f"{_FILES}: the change feed (#698) follows read access to the whole root"),
     ("GET", "/v1/files/preview"): Row(grid(404, 404, 404, 403, 403), w.p_static("/v1/files/preview?root=shared&path=/a"),
@@ -786,4 +796,36 @@ POLICY |= {
     # enabled=false only removes a flag file that is not there on a test box, so the probe changes nothing.
     ("PUT", "/v1/instance/kiosk"): Row(ONLY_OWNER, w.p_kiosk_put,
                                        f"{_KIOSK}: only the owner changes the screen; an agent can never switch it"),
+}
+
+# ---- bridge intake (#610: core/onemind_core/routers/bridges.py) --------------------------------------------
+# Only the bridge's own installation token posts events (plugins/auth.allows_bridge_intake); every person and
+# agent is refused. Owners and adults read status; the probe names a bridge that is not installed (404).
+_BRIDGE = "core/onemind_core/routers/bridges.py"
+BRIDGE_READ = cells(403, **GONE, owner=404, adult=404, plugin=DENIED, automation=DENIED, node=DENIED)
+POLICY |= {
+    ("POST", "/v1/bridges/{bridge_id}/events"): Row(
+        cells(403, **GONE, plugin=DENIED, automation=DENIED, node=DENIED),
+        lambda _: w.Req("/v1/bridges/whoami/events", json={"events": [{"id": "probe"}]}),
+        f"{_BRIDGE}: a bridge posts only under its own app id; people and agents never post events"),
+    ("GET", "/v1/bridges"): Row(cells(403, **GONE, owner=200, adult=200, plugin=DENIED, automation=DENIED, node=DENIED),
+                                w.p_static("/v1/bridges"), f"{_BRIDGE}: owners and adults read bridge status"),
+    ("GET", "/v1/bridges/{bridge_id}"): Row(BRIDGE_READ, w.p_static("/v1/bridges/not-a-bridge"),
+                                            f"{_BRIDGE}: owners and adults read bridge status"),
+    ("GET", "/v1/bridges/{bridge_id}/latest"): Row(BRIDGE_READ, w.p_static("/v1/bridges/not-a-bridge/latest"),
+                                                   f"{_BRIDGE}: values need owner or adult, then the bridge's data class"),
+    ("POST", "/v1/bridges/{bridge_id}/resume"): Row(
+        cells(403, **GONE, owner=404, plugin=DENIED, automation=DENIED, node=DENIED),
+        w.p_static("/v1/bridges/not-a-bridge/resume"), f"{_BRIDGE}: only an owner lets a paused bridge in again"),
+}
+
+# ---- radio-found cards (#732) ---------------------------------------------------------------------------------------
+_RADIO = "core/onemind_core/routers/radios.py (#732)"
+POLICY |= {
+    ("GET", "/v1/radios"): Row(CHILD_CANNOT, w.p_static("/v1/radios"),
+                               f"{_RADIO}: the USB serial lines of the hardware profile /v1/nodes shows; a child has no nodes:read"),
+    # A radio that is not there: the owner reaches the (missing) card, everybody else is refused first.
+    ("POST", "/v1/radios/{radio_id}/confirm"): Row(OWNER_ONLY_404, w.p_missing("/v1/radios/nosuchnode.lora0/confirm", json={
+        "profile": "meshcore-companion-usb"}),
+        f"{_RADIO}: only the owner says what a radio is; an agent never confirms one, and nothing is probed or sent"),
 }

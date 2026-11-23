@@ -1,0 +1,66 @@
+{
+  "$comment": "SPDX-License-Identifier: Apache-2.0. Written from scratch for OneMind (issue #855).",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/onemindos/ONEMINDOS/sdk/schema/onemind.message.event.schema.json",
+  "title": "Message events (onemind.event/v1 on onemind.event.message.received and .status)",
+  "description": "The onemind.event/v1 envelope (onemind.event.schema.json) narrowed for the two message events the gateway alone publishes through EventHub.publish_event (core/onemind_core/events.py). Like the notification kind, data carries ids and metadata only, never the text, the peer or a key: a reader fetches the message from /v1/messages with its own rights. Closed at every level so nothing can ride along: the envelope lists exactly the fields publish_event writes, subject holds only the ids publish_event derives (action_id from the approved action, message_id or thread_id from resource), resource names one message or thread, every free string is id-shaped (no whitespace) and every time is pattern-checked RFC 3339. Self-contained (no $ref to another file) so the registry can validate it offline.",
+  "type": "object",
+  "required": ["schema", "id", "type", "ts", "subject", "data"],
+  "additionalProperties": false,
+  "properties": {
+    "schema": {"const": "onemind.event/v1"},
+    "id": {"$ref": "#/$defs/token"},
+    "type": {"enum": ["message.received", "message.status"]},
+    "ts": {"$ref": "#/$defs/timestamp"},
+    "subject": {"type": "object", "additionalProperties": false,
+      "properties": {"message_id": {"$ref": "#/$defs/message_id"}, "thread_id": {"$ref": "#/$defs/thread_id"}, "action_id": {"type": "string", "format": "uuid"}}},
+    "data": {"type": "object"},
+    "severity": {"enum": ["info", "warning", "critical"]},
+    "source_id": {"$ref": "#/$defs/token_or_null"},
+    "actor_id": {"$ref": "#/$defs/token_or_null"},
+    "correlation_id": {"type": ["string", "null"], "format": "uuid"},
+    "causation_id": {"$ref": "#/$defs/token_or_null"},
+    "dedupe_key": {"$ref": "#/$defs/token_or_null"},
+    "observed_at": {"$ref": "#/$defs/timestamp_or_null"},
+    "occurred_at": {"$ref": "#/$defs/timestamp_or_null"},
+    "instance_id": {"$ref": "#/$defs/token_or_null"},
+    "site_id": {"$ref": "#/$defs/token_or_null"},
+    "resource": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/resource"}]}
+  },
+  "allOf": [
+    {"if": {"properties": {"type": {"const": "message.received"}}}, "then": {"properties": {"data": {"$ref": "#/$defs/received"}}}},
+    {"if": {"properties": {"type": {"const": "message.status"}}}, "then": {"properties": {"data": {"$ref": "#/$defs/status"}}}}
+  ],
+  "$defs": {
+    "message_id": {"type": "string", "pattern": "^msg_[A-Za-z0-9]{8,64}$"},
+    "thread_id": {"type": "string", "pattern": "^thr_[A-Za-z0-9]{8,64}$"},
+    "token": {"type": "string", "pattern": "^\\S{1,128}$"},
+    "timestamp": {"type": "string", "format": "date-time", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+      "description": "RFC 3339 date-time. The pattern does the check on its own: jsonschema only enforces format date-time when the optional rfc3339-validator package is installed, so without it any text would pass."},
+    "timestamp_or_null": {"type": ["string", "null"], "format": "date-time", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"},
+    "token_or_null": {"type": ["string", "null"], "pattern": "^\\S{1,128}$"},
+    "resource": {"type": "object", "additionalProperties": false, "required": ["kind", "id"],
+      "properties": {"kind": {"enum": ["message", "thread"]}, "id": {"type": "string"}},
+      "description": "The one message or thread the event concerns; publish_event copies it into subject as <kind>_id.",
+      "oneOf": [{"properties": {"kind": {"const": "message"}, "id": {"$ref": "#/$defs/message_id"}}},
+                {"properties": {"kind": {"const": "thread"}, "id": {"$ref": "#/$defs/thread_id"}}}]},
+    "received": {"type": "object", "additionalProperties": false, "required": ["message_id", "thread_id", "kind", "transport", "origin"],
+      "properties": {
+        "message_id": {"$ref": "#/$defs/message_id"},
+        "thread_id": {"$ref": "#/$defs/thread_id"},
+        "kind": {"enum": ["direct", "channel"]},
+        "transport": {"enum": ["lora-mc"]},
+        "origin": {"enum": ["hub", "phone-direct"]},
+        "channel_index": {"type": ["integer", "null"], "minimum": 0, "maximum": 39}
+      }},
+    "status": {"type": "object", "additionalProperties": false, "required": ["message_id", "thread_id", "state", "attempts"],
+      "properties": {
+        "message_id": {"$ref": "#/$defs/message_id"},
+        "thread_id": {"$ref": "#/$defs/thread_id"},
+        "action_id": {"type": ["string", "null"], "format": "uuid"},
+        "state": {"enum": ["queued", "sent", "acked", "failed", "expired"]},
+        "attempts": {"type": "integer", "minimum": 0, "maximum": 3},
+        "reason": {"type": ["string", "null"], "pattern": "^[a-z][a-z0-9_]{0,39}$"}
+      }}
+  }
+}
