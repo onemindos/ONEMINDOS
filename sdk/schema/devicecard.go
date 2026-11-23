@@ -40,14 +40,23 @@ var deviceCardRules = map[string]string{
 	"physical-owner-only": "a physical action is asked for by a person or agent and approved only by an owner",
 	"hold-required":       "this class is approved with a hold: needsHold must be true",
 	"agent-approver":      "an agent never approves",
+	"observe-read-only":   "observe is only for a read-only property, an event or a safe action",
 	"schema":              "the card does not match onemind.device-card.schema.json",
 }
 
+// The patterns are the ones in sdk/tools/applib/devicecard.py, character for character.
 var (
 	credentialKey = regexp.MustCompile(`password|passwd|passphrase|secret|token|apikey|privatekey|credential|accesskey`)
 	keySeparators = regexp.MustCompile(`[-_. ]`)
-	urlUserinfo   = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9+.-]*://[^/?#]*@`)
+	// a user part: scheme://user@host, or scheme-relative //user@host (a backslash counts as a slash)
+	urlUserinfo = regexp.MustCompile(`^[ \t\n\r\f\v]*(?:[A-Za-z][A-Za-z0-9+.-]*:)?[/\\]{2}[^/\\?#]*@`)
+	whitespace  = regexp.MustCompile(`[ \t\n\r\f\v]`)
+	urlStart    = regexp.MustCompile(`^(?:[A-Za-z][A-Za-z0-9+.-]*:[/\\]{2}|[/\\?#])`)
+	urlSplit    = regexp.MustCompile(`[?#]`)
+	pairSplit   = regexp.MustCompile(`[&;]`)
 )
+
+const urlSpace = " \t\n\r\f\v"
 
 // CardProblem is one refused rule. It names the path, never the value, so no secret reaches a log.
 type CardProblem struct{ Rule, Path, Message string }
@@ -162,6 +171,7 @@ func ValidateDeviceCard(data []byte) error {
 				w.units(aff["data"], path+"/data")
 			}
 			w.safety(aff["om:safety"], path+"/om:safety")
+			w.observe(kind, aff, path)
 		}
 	}
 	if len(w.found) > 0 {
@@ -213,11 +223,89 @@ func hasUnit(m map[string]any) bool {
 	return ok && strings.TrimSpace(u) != ""
 }
 
+func isCredentialKey(k string) bool {
+	return credentialKey.MatchString(keySeparators.ReplaceAllString(strings.ToLower(k), ""))
+}
+
+// unquotePlus decodes like Python's urllib.parse.unquote_plus: '+' is a space, a %XX with two hex
+// digits is that byte, and anything else (a stray %) is kept as it is.
+func unquotePlus(s string) string {
+	var b strings.Builder
+	for i := 0; i < len(s); i++ {
+		switch {
+		case s[i] == '+':
+			b.WriteByte(' ')
+		case s[i] == '%' && i+2 < len(s) && isHex(s[i+1]) && isHex(s[i+2]):
+			b.WriteByte(unhex(s[i+1])<<4 | unhex(s[i+2]))
+			i += 2
+		default:
+			b.WriteByte(s[i])
+		}
+	}
+	return b.String()
+}
+
+func isHex(c byte) bool {
+	return '0' <= c && c <= '9' || 'a' <= c && c <= 'f' || 'A' <= c && c <= 'F'
+}
+
+func unhex(c byte) byte {
+	switch {
+	case c <= '9':
+		return c - '0'
+	case c <= 'F':
+		return c - 'A' + 10
+	}
+	return c - 'a' + 10
+}
+
+// urlCredential is a user part, or a query or fragment parameter whose (percent-decoded) key names a
+// credential. Text with whitespace inside is prose, not a URL, unless it starts like a URL.
+func urlCredential(text string) bool {
+	if urlUserinfo.MatchString(text) {
+		return true
+	}
+	text = strings.Trim(text, urlSpace)
+	if whitespace.MatchString(text) && !urlStart.MatchString(text) {
+		return false
+	}
+	for _, part := range urlSplit.Split(text, -1)[1:] {
+		for _, pair := range pairSplit.Split(part, -1) {
+			key, _, _ := strings.Cut(pair, "=")
+			if isCredentialKey(unquotePlus(key)) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// observe maps to risk read, which skips approval: it may label only what cannot change the device.
+func (w *cardWalk) observe(kind string, aff map[string]any, path string) {
+	s, _ := aff["om:safety"].(map[string]any)
+	if class, _ := s["class"].(string); class != "observe" {
+		return
+	}
+	writable := false
+	switch kind {
+	case "properties":
+		ro, _ := aff["readOnly"].(bool)
+		wo, _ := aff["writeOnly"].(bool)
+		writable = !ro || wo
+	case "actions":
+		safe, _ := aff["safe"].(bool)
+		writable = !safe
+	}
+	if writable {
+		w.add(path+"/om:safety/class", "observe-read-only")
+	}
+}
+
 func (w *cardWalk) credentials(node any, path string) {
 	switch n := node.(type) {
 	case map[string]any:
 		for _, k := range sortedKeys(n) {
-			if credentialKey.MatchString(keySeparators.ReplaceAllString(strings.ToLower(k), "")) {
+			if isCredentialKey(k) {
 				w.add(path+"/"+k, "credential-field")
 			}
 			w.credentials(n[k], path+"/"+k)
@@ -227,7 +315,7 @@ func (w *cardWalk) credentials(node any, path string) {
 			w.credentials(v, fmt.Sprintf("%s/%d", path, i))
 		}
 	case string:
-		if urlUserinfo.MatchString(n) {
+		if urlCredential(n) {
 			w.add(path, "credential-field")
 		}
 	}

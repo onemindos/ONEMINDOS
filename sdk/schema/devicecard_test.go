@@ -3,6 +3,7 @@
 package schema
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"os"
@@ -10,6 +11,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/santhosh-tekuri/jsonschema/v6"
 )
 
 func loadCard(t *testing.T, name string) map[string]any {
@@ -116,6 +119,81 @@ func TestDeviceCardFixturesFailWithTheirRule(t *testing.T) {
 	for r := range deviceCardRules {
 		if !seen[r] {
 			t.Errorf("rule %s has no failing fixture", r)
+		}
+	}
+}
+
+// The same checks as the Python twin's observe and URL tests (sdk/tools/tests/test_device_card.py).
+func TestDeviceCardObserveOnAWritableAffordanceIsRefusedByTheSchemaAlone(t *testing.T) {
+	raw, err := os.ReadFile("testdata/device-card/invalid.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var file struct {
+		Fixtures []struct {
+			Name  string   `json:"name"`
+			Base  string   `json:"base"`
+			Rules []string `json:"rules"`
+			Ops   [][]any  `json:"ops"`
+		} `json:"fixtures"`
+	}
+	if err := json.Unmarshal(raw, &file); err != nil {
+		t.Fatal(err)
+	}
+	sch, err := deviceCardSchema()
+	if err != nil {
+		t.Fatal(err)
+	}
+	n := 0
+	for _, fx := range file.Fixtures {
+		if len(fx.Rules) != 1 || fx.Rules[0] != "observe-read-only" {
+			continue
+		}
+		n++
+		doc := loadCard(t, fx.Base)
+		applyOps(t, doc, fx.Ops)
+		data, _ := json.Marshal(doc)
+		inst, err := jsonschema.UnmarshalJSON(bytes.NewReader(data))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if sch.Validate(inst) == nil {
+			t.Errorf("%s: the schema alone accepts it", fx.Name)
+		}
+	}
+	if n == 0 {
+		t.Fatal("no observe-read-only fixture")
+	}
+}
+
+func TestDeviceCardObserveStaysAllowedWhereNothingChanges(t *testing.T) {
+	doc := loadCard(t, "relay")
+	applyOps(t, doc, [][]any{{"set", "/actions/meter", map[string]any{
+		"title": "Read the meter", "safe": true, "output": map[string]any{"type": "number", "unit": "W"},
+		"om:safety": map[string]any{"class": "observe", "needsHold": false, "askers": []any{"owner", "automation"}},
+	}}})
+	data, _ := json.Marshal(doc)
+	if err := ValidateDeviceCard(data); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestDeviceCardHarmlessURLsAndProseAreNotCredentials(t *testing.T) {
+	doc := loadCard(t, "relay")
+	applyOps(t, doc, [][]any{
+		{"set", "/actions/switch/forms", []any{map[string]any{"href": "https://relay.example/switch?on=1&unit=s#state"}}},
+		{"set", "/description", "Is it on? It keeps no token or secret: the gateway holds those."},
+	})
+	data, _ := json.Marshal(doc)
+	if err := ValidateDeviceCard(data); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestUnquotePlusMatchesPython(t *testing.T) {
+	for in, want := range map[string]string{"api%5Fkey": "api_key", "a+b": "a b", "100%": "100%", "%zz": "%zz", "%4": "%4", "%41%42": "AB"} {
+		if got := unquotePlus(in); got != want {
+			t.Errorf("%q: %q, want %q", in, got, want)
 		}
 	}
 }
