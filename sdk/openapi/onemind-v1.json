@@ -14373,7 +14373,7 @@
     },
     "/mcp": {
       "post": {
-        "description": "One JSON-RPC 2.0 message per request: initialize, ping, tools/list, tools/call. Read tools (get_instance, list_nodes, get_node, list_apps, get_app, list_actions, get_action, search_audit), one request-only tool (request_action) and onemind:// resources. No approve tool. Notifications get 202; over the per-agent message limit, 429.",
+        "description": "One JSON-RPC 2.0 message per request: initialize, ping, tools/list, tools/call. Read tools (get_instance, list_nodes, get_node, list_apps, get_app, list_actions, get_action, search_audit, get_backup_status, list_backup_runs, list_backup_snapshots, get_os_updates, get_os_update_history, stat_file, list_machines, get_machine, get_storage, list_alerts, get_alert, get_update_settings, read_app_logs), one request-only tool (request_action) and onemind:// resources. No approve tool. Notifications get 202; over the per-agent message limit, 429.",
         "operationId": "mcp.post",
         "requestBody": {
           "content": {
