@@ -177,8 +177,7 @@ jobs:
           fi
           # Deleted apps have nothing left to gate.
           ids=$(for id in $ids; do [ -f "apps/$id/onemind.app.yaml" ] && echo "$id"; done || true)
-          mapfile -t apps < <(printf '%s\n' "$ids" | sed '/^$/d')
-          echo "apps=$(jq -cn '$ARGS.positional' --args "${apps[@]}")" >> "$GITHUB_OUTPUT"
+          echo "apps=$(jq -cn --arg ids "$ids" '$ids | split("\n") | map(select(length > 0))')" >> "$GITHUB_OUTPUT"
           echo "apps to gate: ${ids:-none}"
 
   gate:
