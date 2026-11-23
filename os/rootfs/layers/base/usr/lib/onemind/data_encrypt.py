@@ -1,20 +1,30 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Encrypt /data with LUKS2 on first boot and unlock it on every boot (IMG-LUKS-01; SB-5, finding F-04, H-11).
+"""Make /data on first boot (btrfs, encrypted when the box has a TPM) and unlock it on every boot
+(IMG-LUKS-01, IMG-05 #152; SB-5, finding F-04, H-11).
 
 Why the box does this itself: an image built in CI is copied to every machine. A disk key made at build time
 would be the same on every box, so the image ships the data partition BLANK and the box makes its own key.
 
+The founder's rule (2026-11-22, #152): a home hub has to come back by itself after a power cut or an update restart.
+  - TPM present: encrypt by default; the TPM unlocks it after every restart, the recovery key goes into the kit.
+  - no TPM (a Raspberry Pi 5, say): leave it UNENCRYPTED, unless the owner opts in with the kernel command line word
+    `onemind.data_encrypt=passphrase` and accepts typing a passphrase at every restart.
+
 What it does, by what it finds on the onemind-data partition:
-  - blank (the first 1 MiB is all zero and blkid sees no signature): make a LUKS2 volume with a random key that only
-    ever exists in RAM, put ext4 on it, add a recovery key and (when the machine has a TPM) a TPM2 key bound to
-    PCR 7, then drop the random key. The recovery key is printed once on the console and left in
-    /run/onemind/data-recovery-key (RAM only) for the recovery-kit step to show and then delete.
-  - LUKS2: unlock it. First with the TPM (no prompt), else by asking for the recovery key on the console.
-  - ext4 (every box installed before this change): do NOTHING. Existing data is never touched or converted here;
-    migrating a live box needs its own design (backup, re-create, restore).
+  - blank (the first 1 MiB is all zero and blkid sees no signature): by the rule above, either
+      LUKS2 with a random key that only ever exists in RAM, btrfs inside it, a recovery key, then a TPM2 key bound
+      to PCR 7 (TPM) or the owner's passphrase (opt-in), and the random key's slot is wiped; the recovery key is
+      printed once on the console and left in /run/onemind/data-recovery-key (RAM only) for the recovery-kit step;
+    or plain btrfs on the partition (no TPM, no opt-in).
+    The btrfs gets three subvolumes: @ (the default, which /etc/fstab mounts at /data), @storage (files) and
+    @snapshots (snapshots of @storage, made by a later step).
+  - LUKS2: unlock it. First with the TPM (no prompt), else by asking on the console (passphrase or recovery key).
+  - ext4 (every box installed before this change) or btrfs (a box without a TPM): do NOTHING. Existing data is
+    never touched or converted here; migrating a live box needs its own design (backup, re-create, restore).
   - anything else: do nothing and say so (the data check then puts the box in recovery mode).
 
-What it will never do: format a partition that holds anything, or write the recovery key to disk or the journal.
+What it will never do: format a partition that holds anything, or write the recovery key or the passphrase to disk,
+the journal or a command line (secrets go on stdin or in a 0600 file in RAM).
 Exit status is always 0: a locked disk is reported by the data check (recovery mode), not by a failed unit.
 
 PCR 7 alone is a weak binding on a box without Secure Boot (anyone who boots another OS on the same
@@ -29,6 +39,10 @@ RUN = "/run/onemind"
 STATE = RUN + "/data-crypt.json"           # no secrets: what happened, for the dashboard and the data check
 KEYFILE = "/run/onemind-data-crypt.key"    # random volume key, RAM only, removed before this exits
 RECOVERY_FILE = RUN + "/data-recovery-key"
+MKFS_MNT = "/run/onemind-data-mkfs"        # where the new btrfs is mounted (top level) to make its subvolumes
+SUBVOLS = ("@", "@storage", "@snapshots")  # @ first: it becomes the default subvolume, which /data mounts
+OPT_IN = "onemind.data_encrypt=passphrase"
+MIN_PASSPHRASE = 8
 CRYPTSETUP = "/usr/lib/systemd/systemd-cryptsetup"
 MODHEX = "cbdefghijklnrtuv"
 RECOVERY_RX = re.compile(r"\b([%s]{8}(?:-[%s]{8}){7})\b" % (MODHEX, MODHEX))
@@ -86,8 +100,8 @@ def classify(sig, zero):
     """'blank' only when there is no signature AND the head is zero; unknown data is never formatted."""
     if sig == "crypto_LUKS":
         return "luks"
-    if sig == "ext4":
-        return "ext4"
+    if sig in ("ext4", "btrfs"):
+        return sig
     if sig == "" and zero:
         return "blank"
     return "unknown"
@@ -116,9 +130,75 @@ def keep_recovery_key(key):
         f.write(key + "\n")
 
 
-def first_boot_encrypt(node, has_tpm, runner=run, rand=os.urandom):
-    """Blank partition -> LUKS2 + ext4 + recovery key (+ TPM2). Returns {'recovery_key', 'tpm2'}.
-    On any failure the partition is wiped (signatures, then the first 16 MiB zeroed) back to blank (it held nothing) so the next boot retries."""
+def plan(has_tpm, opted_in):
+    """The founder's rule: 'tpm2' (encrypted, unlocks by itself), 'passphrase' (no TPM, the owner asked) or 'plain'."""
+    if has_tpm:
+        return "tpm2"
+    return "passphrase" if opted_in else "plain"
+
+
+def cmdline():
+    try:
+        with open("/proc/cmdline") as f:
+            return f.read()
+    except OSError:
+        return ""
+
+
+def wants_passphrase(text):
+    return OPT_IN in text.split()
+
+
+def ask_passphrase(runner=run, tries=3):
+    """Ask the owner at the console (systemd's password agents; no timeout) for a new passphrase, twice.
+    Returns it, or None after `tries` failed rounds. It is held in memory only and never said or logged."""
+    ask = lambda prompt: runner(["systemd-ask-password", "--timeout=0", "--id=onemind-data-new", prompt], check=False)
+    for _ in range(tries):
+        a = ask("Choose a passphrase for the OneMind data disk (it is asked at every restart):")
+        if a.returncode != 0:
+            say("no passphrase was given")
+            continue
+        first = a.stdout.rstrip("\n")
+        if len(first) < MIN_PASSPHRASE:
+            say(f"that passphrase is shorter than {MIN_PASSPHRASE} characters; try again")
+            continue
+        b = ask("Type the same passphrase again:")
+        if b.returncode != 0 or b.stdout.rstrip("\n") != first:
+            say("the two passphrases did not match; try again")
+            continue
+        return first
+    return None
+
+
+def make_btrfs(dev, runner=run, force=False):
+    """btrfs on `dev` with the subvolumes in SUBVOLS, @ set as the default (so /etc/fstab needs no subvol= option and
+    the same line still mounts the ext4 of older boxes). `force` only for a LUKS volume made seconds ago, whose
+    content is random-looking; on a raw partition mkfs must refuse anything it recognises."""
+    runner(["mkfs.btrfs", "-q", "--nodiscard", "-L", LABEL] + (["-f"] if force else []) + [dev])
+    os.makedirs(MKFS_MNT, mode=0o700, exist_ok=True)
+    runner(["mount", "-t", "btrfs", "-o", "subvolid=5", dev, MKFS_MNT])
+    try:
+        for sv in SUBVOLS:
+            runner(["btrfs", "subvolume", "create", f"{MKFS_MNT}/{sv}"])
+        runner(["btrfs", "subvolume", "set-default", f"{MKFS_MNT}/{SUBVOLS[0]}"])
+    finally:
+        runner(["umount", MKFS_MNT], check=False)
+
+
+def make_plain(node, runner=run):
+    """No TPM and no opt-in: btrfs straight on the blank partition. On failure, back to blank for the next boot."""
+    try:
+        make_btrfs(node, runner)
+    except BaseException:
+        runner(["wipefs", "--all", "--force", node], check=False)
+        zero_head(node)
+        raise
+
+
+def first_boot_encrypt(node, has_tpm, runner=run, rand=os.urandom, passphrase=None):
+    """Blank partition -> LUKS2 + btrfs + recovery key (+ TPM2, + the owner's passphrase).
+    Returns {'recovery_key', 'tpm2', 'passphrase'}. On any failure the partition is wiped (signatures, then the
+    first 16 MiB zeroed) back to blank (it held nothing) so the next boot retries."""
     dev = "/dev/mapper/" + NAME
     fd = os.open(KEYFILE, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     with os.fdopen(fd, "wb") as f:
@@ -132,11 +212,15 @@ def first_boot_encrypt(node, has_tpm, runner=run, rand=os.urandom):
         runner(["cryptsetup", "open", "--key-file", KEYFILE, "--perf-no_read_workqueue",
                 "--perf-no_write_workqueue", "--persistent", node, NAME])
         opened = True
-        runner(["mkfs.ext4", "-q", "-L", LABEL, "-E", "root_owner=0:0,lazy_itable_init=1", dev])
+        make_btrfs(dev, runner, force=True)
         out = runner(["systemd-cryptenroll", "--unlock-key-file=" + KEYFILE, "--recovery-key", node]).stdout
         key = parse_recovery_key(out)
         if not key:
             raise RuntimeError("systemd-cryptenroll printed no recovery key")
+        if passphrase:
+            # Read from stdin to EOF (no newline added): the boot prompt hands systemd-cryptsetup the same bytes.
+            runner(["cryptsetup", "luksAddKey", "--batch-mode", "--pbkdf", "argon2id", "--key-file", KEYFILE, node, "-"],
+                   input=passphrase)
         tpm2 = False
         if has_tpm:
             r = runner(["systemd-cryptenroll", "--unlock-key-file=" + KEYFILE, "--tpm2-device=auto",
@@ -144,9 +228,10 @@ def first_boot_encrypt(node, has_tpm, runner=run, rand=os.urandom):
             tpm2 = r.returncode == 0
             if not tpm2:
                 say("the TPM would not take the key; this box unlocks with the recovery key only")
-        # Hygiene: the random key is about to be deleted, so its slot is dead weight. Best effort.
-        runner(["cryptsetup", "luksKillSlot", "--batch-mode", "--key-file", KEYFILE, node, "0"], check=False)
-        return {"recovery_key": key, "tpm2": tpm2}
+        # Hygiene: the random key is about to be deleted, so its slot is dead weight. Best effort. luksKillSlot
+        # checks the key it is given against the OTHER slots, so the recovery key (a passphrase slot) goes on stdin.
+        runner(["cryptsetup", "luksKillSlot", "--batch-mode", "--key-file", "-", node, "0"], input=key, check=False)
+        return {"recovery_key": key, "tpm2": tpm2, "passphrase": bool(passphrase)}
     except BaseException:
         if opened:
             runner(["cryptsetup", "close", NAME], check=False)
@@ -169,7 +254,7 @@ def unlock(node, has_tpm, runner=run):
             return "tpm2"
         say("the TPM did not unlock the data disk (moved disk, firmware change or no key); asking for the recovery key")
     else:
-        say("no TPM here: enter the recovery key to unlock the data disk")
+        say("no TPM here: type the passphrase or the recovery key to unlock the data disk")
     r = runner([CRYPTSETUP, "attach", NAME, node, "none", "luks,tries=3"], check=False)
     return "recovery-key" if r.returncode == 0 else None
 
@@ -193,13 +278,38 @@ def main(runner=run):
     has_tpm = os.path.exists("/dev/tpmrm0")
     kind = classify(signature(node, runner), head_is_zero(node))
     if kind == "ext4":
-        write_state(state="plain", reason="installed before encryption; left as it is")
+        write_state(state="plain", fs="ext4", reason="installed before encryption; left as it is")
         say("the data partition is plain ext4 (an earlier install); left untouched")
+    elif kind == "btrfs":
+        write_state(state="plain", fs="btrfs", reason="unencrypted (no TPM and no passphrase asked for)")
+        say("the data partition is plain btrfs (no TPM); left untouched")
     elif kind == "blank":
-        say("blank data partition: making it LUKS2" + (" with TPM2 unlock" if has_tpm else " (no TPM: recovery key only)"))
-        res = first_boot_encrypt(node, has_tpm, runner)
+        opted_in = wants_passphrase(cmdline())
+        mode = plan(has_tpm, opted_in)
+        if has_tpm and opted_in:
+            say("this box has a TPM, so it unlocks by itself; the passphrase option is for boxes without one")
+        if mode == "plain":
+            say("blank data partition, no TPM: making it plain btrfs, NOT encrypted (a box without a TPM could not "
+                f"come back by itself after a power cut; to encrypt, boot the first time with {OPT_IN})")
+            make_plain(node, runner)
+            write_state(state="plain", fs="btrfs", reason="no TPM; encryption not asked for")
+            say("data partition ready (btrfs, unencrypted)")
+            runner(["udevadm", "settle", "--timeout=20"], check=False)
+            return 0
+        passphrase = None
+        if mode == "passphrase":
+            say("blank data partition, no TPM, encryption asked for: choose the passphrase you will type at every restart")
+            passphrase = ask_passphrase(runner)
+            if not passphrase:
+                write_state(state="blank", reason="encryption asked for but no passphrase chosen; asked again next boot")
+                say("no passphrase chosen: the data partition stays blank and is not used this boot")
+                return 0
+        say("blank data partition: making it LUKS2 + btrfs" + (" with TPM2 unlock" if has_tpm else " with your passphrase"))
+        res = first_boot_encrypt(node, has_tpm, runner, passphrase=passphrase)
+        passphrase = None
+        how = "tpm2" if res["tpm2"] else ("passphrase" if res["passphrase"] else "recovery-key")
         keep_recovery_key(res["recovery_key"])
-        write_state(state="encrypted", unlock="tpm2" if res["tpm2"] else "recovery-key", tpm2=res["tpm2"])
+        write_state(state="encrypted", fs="btrfs", unlock=how, tpm2=res["tpm2"])
         say("RECOVERY KEY (write it down now, it is shown once): " + res["recovery_key"], journal=False)
         runner(["udevadm", "settle", "--timeout=20"], check=False)
     elif kind == "luks":
@@ -212,7 +322,7 @@ def main(runner=run):
             write_state(state="locked", reason="could not unlock")
             say("the data disk is locked: starting recovery mode")
     else:
-        write_state(state="unknown", reason="the partition holds something that is neither blank, ext4 nor LUKS2")
+        write_state(state="unknown", reason="the partition holds something that is neither blank, ext4, btrfs nor LUKS2")
         say("the data partition holds something unexpected; not touching it")
     return 0
 
