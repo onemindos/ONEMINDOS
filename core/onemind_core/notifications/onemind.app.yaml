@@ -20,6 +20,7 @@ spec:
   settingsPages:
     - {id: preferences, title: Notification preferences, source: GET /v1/notifications/preferences}
     - {id: channels, title: Delivery channels, source: GET /v1/notifications/channels}
+    - {id: sources, title: App notifications, source: GET /v1/notifications/sources}
   backup:
     units:
       - {kind: table, name: notify_notifications}
@@ -28,5 +29,6 @@ spec:
       - {kind: table, name: notify_preferences}
       - {kind: table, name: notify_devices}
       - {kind: table, name: notify_deliveries}
+      - {kind: table, name: notify_sources}
   data: {owns: [owner], reads: []}
   phone: {entry: native, screen: inbox}
