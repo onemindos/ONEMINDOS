@@ -143,7 +143,8 @@ func meshSettingsCommand(a *App) *cobra.Command {
 	}
 	f := cmd.Flags()
 	f.BoolVar(&enable, "enable", false, "turn the mesh on (needs a provider)")
-	f.BoolVar(&disable, "disable", false, "turn the mesh off (the home network keeps working)")
+	f.BoolVar(&disable, "disable", false,
+		"stop minting mesh keys and managing the coordinator; machines and phones that already joined stay connected")
 	f.StringVar(&provider, "provider", "", "the mesh provider: headscale, or none to clear the choice")
 	f.StringVar(&controlURL, "control-url", "", "the https URL machines and phones reach the coordinator at")
 	return cmd

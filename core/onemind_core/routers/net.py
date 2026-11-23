@@ -189,9 +189,16 @@ def register(app: FastAPI, gw: Gateway) -> None:
     def apply(cfg: MeshSettings, svc: MeshService | None) -> None:
         """Swap the running mesh: the view, GET /v1/status and fabric joins read these on every request."""
         nonlocal mesh_cfg, mesh
+        old = mesh
         mesh_cfg, mesh = cfg, svc
         app.state.mesh = svc
         fabric.d.mesh_settings, fabric.d.mesh = cfg, svc
+        if old is not None and svc is None:
+            # Off: joins handed a key can no longer be bind-checked (§5.1), so they fail now, cleaned up
+            # with the old client. Members that already joined stay (setup_view says so).
+            stopped = fabric.mesh_switched_off(old)
+            if stopped:
+                log.info("mesh turned off: %d join(s) awaiting the mesh check were stopped", stopped)
 
     def mesh_settings_json() -> dict:
         state = mesh_state()
@@ -387,7 +394,9 @@ def register(app: FastAPI, gw: Gateway) -> None:
         """Change the mesh (owner only, audited): on or off, the provider, the control URL. It applies at once.
 
         Turning the mesh on with no provider chosen is refused with the next step. A provider that is
-        chosen but not installed on this box is stored, and GET /v1/mesh says how to install it."""
+        chosen but not installed on this box is stored, and GET /v1/mesh says how to install it.
+        Turning it off stops minting keys and fails joins still waiting for their mesh check; it does not
+        stop the coordinator or disconnect machines and phones that already joined."""
         if not p.is_owner:
             gw.audit.append("authz.denied", p.as_dict(), None,
                             {"attempted": "change the mesh settings", "reason": "permission_denied"})

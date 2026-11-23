@@ -72,7 +72,10 @@ func (h *fakeMeshHub) view() map[string]any {
 	setup := map[string]any{"state": "not_set_up", "reason": "no_provider", "detail": "No mesh provider is chosen.",
 		"next_step": "Choose the mesh provider: onemind mesh settings --provider headscale --enable (owner only)."}
 	if h.settings["provider"] != nil {
-		setup = map[string]any{"state": "off", "reason": "disabled", "detail": "The mesh is off.",
+		setup = map[string]any{"state": "off", "reason": "disabled",
+			"detail": "The mesh is off: this box mints no new mesh keys and no longer manages Headscale, and joins " +
+				"still waiting for their mesh check were stopped. Headscale keeps running, and machines and phones " +
+				"that already joined stay connected over the mesh: off does not remove them.",
 			"next_step": "Turn the mesh on: onemind mesh settings --enable (owner only)."}
 		if h.settings["enabled"] == true {
 			setup = map[string]any{"state": "ready", "reason": nil, "detail": "The mesh is on (headscale).", "next_step": nil}
@@ -144,8 +147,13 @@ func TestMeshSettingsShowsAndChangesTheHubsMesh(t *testing.T) {
 	if last := h.puts[len(h.puts)-1]; len(last) != 2 || last["provider"] != "headscale" || last["enabled"] != true {
 		t.Fatalf("PUT body %v", last)
 	}
-	if r := run(t, "", false, "mesh", "settings", "--disable"); r.code != 0 || !strings.Contains(r.out, "off") {
+	// off is honest: the CLI shows that members who already joined stay connected (core mesh.setup_view)
+	if r := run(t, "", false, "mesh", "settings", "--disable"); r.code != 0 || !strings.Contains(r.out, "off") ||
+		!strings.Contains(r.out, "stay connected") {
 		t.Fatalf("disable: %+v", r)
+	}
+	if r := run(t, "", false, "mesh", "settings", "--help"); r.code != 0 || !strings.Contains(r.out, "already joined stay connected") {
+		t.Fatalf("--disable help must say joined members stay connected: %+v", r)
 	}
 	if r := run(t, "", false, "mesh", "settings", "--enable", "--disable"); r.code != ExitUsage {
 		t.Fatalf("both flags: %+v", r)

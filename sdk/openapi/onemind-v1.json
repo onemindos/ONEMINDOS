@@ -21038,7 +21038,7 @@
     },
     "/v1/mesh/settings": {
       "put": {
-        "description": "Change the mesh (owner only, audited): on or off, the provider, the control URL. It applies at once.\n\nTurning the mesh on with no provider chosen is refused with the next step. A provider that is\nchosen but not installed on this box is stored, and GET /v1/mesh says how to install it.",
+        "description": "Change the mesh (owner only, audited): on or off, the provider, the control URL. It applies at once.\n\nTurning the mesh on with no provider chosen is refused with the next step. A provider that is\nchosen but not installed on this box is stored, and GET /v1/mesh says how to install it.\nTurning it off stops minting keys and fails joins still waiting for their mesh check; it does not\nstop the coordinator or disconnect machines and phones that already joined.",
         "operationId": "mesh.settings_update",
         "requestBody": {
           "content": {

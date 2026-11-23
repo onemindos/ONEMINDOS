@@ -447,6 +447,8 @@ def test_owner_turns_the_installed_mesh_off_and_on_live(mesh_box, hs):
     assert c.app.state.mesh is not None
     off = c.put("/v1/mesh/settings", json={"enabled": False}, headers=OWNER).json()
     assert off["setup"]["state"] == "off" and "onemind mesh settings --enable" in off["setup"]["next_step"]
+    # honest about what off does: Headscale keeps running and members who already joined stay connected
+    assert "Headscale keeps running" in off["setup"]["detail"] and "stay connected" in off["setup"]["detail"]
     assert c.app.state.mesh is None  # GET /v1/status reads this: the mesh is not enabled
     view = c.get("/v1/mesh", headers=OWNER).json()
     assert view["mode"] == "off" and view["control"]["state"] == "off" and view["names"]["mesh"] == []
@@ -500,3 +502,87 @@ def test_join_bundle_has_no_mesh_block_when_the_owner_turned_it_off(mesh_box, hs
     creds = _join(c)
     assert "mesh" not in creds and not hs.keys  # no key minted for a mesh that is off
     assert {"role", "node_cert", "ca_cert", "nats"} <= set(creds)  # the rest of the bundle is unchanged
+
+
+# ---- turning the mesh off while a join waits for its §5.1 bind check ----------------------------------
+def _mesh_join(mesh_box, hs):
+    """A gateway with the mesh on and the fabric handler; the machines user exists in Headscale."""
+    hs.users["9"] = {"id": "9", "name": "onemind-machines"}
+    s, c = mesh_box(installed=True, enabled=True)
+    return s, c, c.app.state.gateway.actions.handlers["node.join"]
+
+
+def _action(c, action_id) -> dict:
+    return c.get(f"/v1/actions/{action_id}", headers=OWNER).json()
+
+
+def test_turning_the_mesh_off_fails_a_join_awaiting_its_mesh_check(mesh_box, hs):
+    """Review blocker (PR #946): a join delivered with a mesh key must never succeed without the bind
+    check. Here an impostor used the key, then the owner turned the mesh off before the first heartbeat."""
+    from test_net import heartbeat
+
+    s, c, fab = _mesh_join(mesh_box, hs)
+    creds = _join(c)
+    (req,) = fab.repo.requests(("delivered",))
+    key = next(k for k in hs.keys.values() if k["key"] == creds["mesh"]["auth_key"])
+    hs.add_node("node-impostor", key_id=key["id"], tags=["tag:onemind-worker", "tag:onemind-k3s"])
+    assert c.put("/v1/mesh/settings", json={"enabled": False}, headers=OWNER).status_code == 200
+    # failed at once, with the old client: the key expired and the unchecked machine is off the mesh
+    assert _action(c, req["action_id"])["state"] == "failed"
+    assert "mesh was turned off" in json.dumps(_action(c, req["action_id"]))
+    assert not [n for n in hs.nodes.values() if n["name"] == "node-impostor"]
+    assert hs.keys[key["id"]]["expiration"].startswith("1970")
+    assert fab.repo.node(req["node_id"]) is None
+    assert [e["data"]["key_id"] for e in _events(s, "mesh.key.expired")] == [key["id"]]
+    assert len(_events(s, "mesh.node.removed")) == 1
+    # the heartbeat that arrives afterwards changes nothing, and neither does turning the mesh back on
+    heartbeat(c, req["node_id"])
+    fab.tick()
+    assert c.put("/v1/mesh/settings", json={"enabled": True}, headers=OWNER).status_code == 200
+    fab.tick()
+    assert _action(c, req["action_id"])["state"] == "failed"
+    assert not _events(s, "mesh.node.bound")
+
+
+def test_a_delivery_that_lands_after_the_switch_off_still_never_joins(mesh_box, hs, monkeypatch):
+    """The race the sweep cannot see: the key was minted with the old client, the owner turned the mesh
+    off while the delivery ran, and the request reached 'delivered' after the sweep. The tick fails it."""
+    from test_net import heartbeat
+
+    s, c, fab = _mesh_join(mesh_box, hs)
+    svc = c.app.state.mesh
+    real_mint = svc.mint_join_key
+
+    def mint_then_switch_off(action):
+        minted = real_mint(action)
+        assert c.put("/v1/mesh/settings", json={"enabled": False}, headers=OWNER).status_code == 200
+        return minted
+
+    monkeypatch.setattr(svc, "mint_join_key", mint_then_switch_off)
+    creds = _join(c)
+    assert c.app.state.mesh is None and "mesh" in creds  # the bundle was built from the snapshot it read
+    (req,) = fab.repo.requests(("delivered",))
+    key = next(k for k in hs.keys.values() if k["key"] == creds["mesh"]["auth_key"])
+    hs.add_node("node-impostor", key_id=key["id"], tags=["tag:onemind-worker", "tag:onemind-k3s"])
+    heartbeat(c, req["node_id"])
+    fab.tick()
+    assert _action(c, req["action_id"])["state"] == "failed"
+    assert not [n for n in hs.nodes.values() if n["name"] == "node-impostor"]  # cleaned up by the retired client
+    assert hs.keys[key["id"]]["expiration"].startswith("1970")
+
+
+def test_switch_off_with_headscale_down_still_fails_the_join(mesh_box, hs):
+    from test_net import heartbeat
+
+    s, c, fab = _mesh_join(mesh_box, hs)
+    _join(c)
+    (req,) = fab.repo.requests(("delivered",))
+    hs.down = True
+    assert c.put("/v1/mesh/settings", json={"enabled": False}, headers=OWNER).status_code == 200
+    assert _action(c, req["action_id"])["state"] == "failed"  # never joined, even though cleanup could not run
+    (ev,) = _events(s, "mesh.join.cleanup_failed")
+    assert ev["data"]["key_id"] == req["mesh_key_id"] and ev["data"]["node_id"] == req["node_id"]
+    hs.down = False
+    heartbeat(c, req["node_id"])
+    fab.tick()
+    assert _action(c, req["action_id"])["state"] == "failed"

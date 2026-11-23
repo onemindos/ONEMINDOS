@@ -139,6 +139,11 @@ NEXT_PICK = "Choose the mesh provider: onemind mesh settings --provider headscal
 NEXT_INSTALL = ("Install Headscale on this box: run the box installer (deploy/install.sh), which installs it and "
                 "writes its key file, then restart the gateway.")
 NEXT_ENABLE = "Turn the mesh on: onemind mesh settings --enable (owner only)."
+# Off stops this box minting mesh keys and managing the coordinator; it does not stop the coordinator
+# or disconnect anyone. Say so, so nobody turns it off believing a lost phone is cut off.
+MESH_OFF_DETAIL = ("The mesh is off: this box mints no new mesh keys and no longer manages {provider}, and joins "
+                   "still waiting for their mesh check were stopped. {provider} keeps running, and machines and "
+                   "phones that already joined stay connected over the mesh: off does not remove them. {home}")
 
 
 def setup_view(state: MeshState, installed: bool) -> dict:
@@ -153,8 +158,8 @@ def setup_view(state: MeshState, installed: bool) -> dict:
         return {"state": "not_set_up", "reason": "provider_not_installed", "next_step": NEXT_INSTALL,
                 "detail": f"{state.provider.capitalize()} is chosen but not installed on this box. {home}"}
     if not state.enabled:
-        return {"state": "off", "reason": "disabled", "next_step": NEXT_ENABLE,
-                "detail": f"The mesh is off. {home}"}
+        return {"state": "off", "reason": "disabled", "next_step": NEXT_ENABLE, "detail": MESH_OFF_DETAIL.format(
+                provider=state.provider.capitalize(), home=home)}
     return {"state": "ready", "reason": None, "next_step": None,
             "detail": f"The mesh is on ({state.provider}). Machines and phones you approve join it."}
 
@@ -582,6 +587,18 @@ class MeshService:
             raise MeshRefused("pre-auth key id must be numeric")
         self.client.expire_preauth_key(key_id)
         self.audit.append("mesh.key.expired", principal, action_id, {"key_id": key_id, "reason": reason})
+
+    def abandon_join(self, key_id: str, *, reason: str, action_id: str | None = None) -> list[str]:
+        """A join that can no longer be bind-checked (the owner turned the mesh off while it ran):
+        expire its key and take any machine that already used it off the mesh, unchecked as it is.
+        Removal only reduces reach (§5.3). Returns the removed mesh node ids."""
+        self.expire_key(key_id, reason=reason, action_id=action_id)
+        removed = []
+        for node in self.client.list_nodes():
+            if node.pre_auth_key_id == key_id:
+                self.remove_node(node.id, reason=reason, action_id=action_id)
+                removed.append(node.id)
+        return removed
 
     def check_join(self, key_id: str, node_id: str, role: str) -> MeshNode | None:
         """§5.1 bind check: the node that used our key has the expected name and exactly the role tags.

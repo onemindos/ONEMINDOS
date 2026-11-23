@@ -70,6 +70,8 @@ REQUEST_TTL = timedelta(minutes=15)       # an unapproved join request expires (
 COLLECT_TTL = timedelta(minutes=15)       # approved credentials not collected in time
 FIRST_HEARTBEAT_TTL = timedelta(minutes=30)
 K3S_TOKEN_TTL = timedelta(hours=1)
+# A join handed a mesh key is joined only after the §5.1 bind check; with the mesh off nothing can run it.
+MESH_OFF_REASON = "the mesh was turned off before this machine's mesh check; make a new join code"
 POLL_CONTEXT = b"onemind-join-poll:v1:"
 _CROCKFORD = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
 NODE_ID_RE = re.compile(r"^[a-z0-9]{1,32}$")
@@ -618,6 +620,9 @@ class FabricService:
         self.repo = FabricRepository(deps.db)
         self.limiter = SourceLimiter(deps.clock)
         self._tick_lock = threading.Lock()
+        # The client the owner last switched off (PUT /v1/mesh/settings): it still cleans up the joins
+        # that were handed one of its keys, since d.mesh is None from then on.
+        self._retired_mesh: MeshService | None = None
 
     # -- helpers
     def _deny(self, principal: Principal, what: str) -> ApiError:
@@ -905,7 +910,21 @@ class FabricService:
                            outcome="outcome_unknown")
         self.write_accounts()
 
-    def _fail(self, req: dict, state: str, why: str, *, outcome: str = "failed") -> None:
+    def mesh_switched_off(self, old: MeshService) -> int:
+        """The owner turned the mesh off (PUT /v1/mesh/settings, after d.mesh became None). A join that was
+        handed a mesh key and is not bound yet can never pass the §5.1 bind check now, so it fails here:
+        its key is expired and a machine that already used the key is taken off the mesh, while `old`
+        can still reach the coordinator. Returns how many joins were stopped."""
+        self._retired_mesh = old
+        n = 0
+        with self._tick_lock:  # not in the middle of a tick's _check_joined
+            for req in self.repo.requests(("delivered",)):
+                if req.get("mesh_key_id"):
+                    self._fail(req, "failed", MESH_OFF_REASON, drop_mesh_node=True)
+                    n += 1
+        return n
+
+    def _fail(self, req: dict, state: str, why: str, *, outcome: str = "failed", drop_mesh_node: bool = False) -> None:
         if not self.repo.move(req["id"], (req["state"],), state, self.d.clock(), reason=why[:200]):
             return
         self.repo.delete_node(req["node_id"], req["id"])
@@ -913,11 +932,18 @@ class FabricService:
             self.write_accounts()
         except OSError:
             log.exception("rewriting NATS accounts after a failed join")
-        if req.get("mesh_key_id") and self.d.mesh is not None:
+        svc = self.d.mesh or self._retired_mesh
+        if req.get("mesh_key_id") and svc is not None:
             try:
-                self.d.mesh.expire_key(req["mesh_key_id"], reason=why, action_id=req["action_id"])
+                if drop_mesh_node:
+                    svc.abandon_join(req["mesh_key_id"], reason=why, action_id=req["action_id"])
+                else:
+                    svc.expire_key(req["mesh_key_id"], reason=why, action_id=req["action_id"])
             except Exception:  # Headscale down: the key expires by itself within 15 minutes
                 log.warning("could not expire mesh key of %s", req["id"])
+                if drop_mesh_node:
+                    self.d.audit.append("mesh.join.cleanup_failed", None, req["action_id"], {
+                        "key_id": req["mesh_key_id"], "node_id": req["node_id"], "reason": why[:200]})
         if req.get("k3s_token_id") and self.d.k3s is not None:
             self.d.k3s.delete(req["k3s_token_id"])
         self.d.actions.finish(req["action_id"], outcome, why, from_states=frozenset({"accepted", "dispatched"}))
@@ -954,15 +980,21 @@ class FabricService:
         return bool(k3s.get("ready"))
 
     def _check_joined(self, req: dict, now: datetime) -> None:
+        svc = self.d.mesh  # read once: PUT /v1/mesh/settings swaps it at any time
+        if req.get("mesh_key_id") and svc is None:
+            # Handed a mesh key, but the mesh is off now (a delivery that finished after the owner's switch):
+            # never joined without the bind check.
+            self._fail(req, "failed", MESH_OFF_REASON, drop_mesh_node=True)
+            return
         if not self._heard_from(req["node_id"], req["delivered_at"]) or not self._k3s_ready(req):
             if req["delivered_at"] and now - req["delivered_at"] > FIRST_HEARTBEAT_TTL:
                 self._fail(req, "failed", "the node did not come up (heartbeat, and k3s for a worker) "
                                           "after it collected its credentials")
             return
         mesh_node = None
-        if self.d.mesh_settings.enabled and self.d.mesh is not None and req.get("mesh_key_id"):
+        if req.get("mesh_key_id") and svc is not None:
             try:
-                mesh_node = self.d.mesh.check_join(req["mesh_key_id"], req["node_id"], req["role"])
+                mesh_node = svc.check_join(req["mesh_key_id"], req["node_id"], req["role"])
             except MeshRefused as exc:
                 self._fail(req, "failed", str(exc))
                 return
