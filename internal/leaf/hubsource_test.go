@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net"
 	"os"
 	"path/filepath"
@@ -15,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -60,85 +60,106 @@ func TestHubSourceStreamMatchesTheGateway(t *testing.T) {
 	}
 }
 
-// cutRelay forwards TCP from a fixed local port to the hub's leaf port until it is cut.
+// cutRelay forwards TCP from a fixed local port to the hub's leaf port until it is cut. A cut
+// relay keeps listening and closes every new connection at once, so the leaf keeps redialling and
+// is refused, and the port never goes free for another process to take while the link is down.
+// A blackholed relay keeps the connections open but drops every byte, as a link that dies silently.
 type cutRelay struct {
-	t      *testing.T
 	addr   string
 	target string
 	mu     sync.Mutex
-	ln     net.Listener
+	up     bool
 	conns  map[net.Conn]struct{}
+	hole   atomic.Bool
 }
 
 func newCutRelay(t *testing.T, target string) *cutRelay {
-	r := &cutRelay{t: t, addr: fmt.Sprintf("127.0.0.1:%d", freePort(t)), target: target, conns: map[net.Conn]struct{}{}}
-	r.restore()
-	t.Cleanup(r.cut)
+	t.Helper()
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("relay listen: %v", err)
+	}
+	r := &cutRelay{addr: ln.Addr().String(), target: target, up: true, conns: map[net.Conn]struct{}{}}
+	t.Cleanup(func() {
+		ln.Close()
+		r.cut()
+	})
+	go r.serve(ln)
 	return r
 }
 
-func (r *cutRelay) track(c net.Conn, add bool) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if add {
-		r.conns[c] = struct{}{}
-	} else {
-		delete(r.conns, c)
+func (r *cutRelay) serve(ln net.Listener) {
+	for {
+		c, err := ln.Accept()
+		if err != nil {
+			return
+		}
+		r.mu.Lock()
+		up := r.up
+		r.mu.Unlock()
+		if !up {
+			c.Close()
+			continue
+		}
+		d, err := net.Dial("tcp", r.target)
+		if err != nil {
+			c.Close()
+			continue
+		}
+		r.mu.Lock()
+		if !r.up { // cut while dialling: this pair must not outlive the cut
+			r.mu.Unlock()
+			c.Close()
+			d.Close()
+			continue
+		}
+		r.conns[c], r.conns[d] = struct{}{}, struct{}{}
+		r.mu.Unlock()
+		go r.pipe(c, d)
+		go r.pipe(d, c)
 	}
 }
 
-func (r *cutRelay) restore() {
-	var ln net.Listener
-	var err error
-	for i := 0; i < 50; i++ { // the port was ours a moment ago; give the kernel a little time
-		if ln, err = net.Listen("tcp", r.addr); err == nil {
+func (r *cutRelay) pipe(dst, src net.Conn) {
+	buf := make([]byte, 32<<10)
+	for {
+		n, err := src.Read(buf)
+		if n > 0 && !r.hole.Load() {
+			if _, werr := dst.Write(buf[:n]); werr != nil {
+				break
+			}
+		}
+		if err != nil {
 			break
 		}
-		time.Sleep(100 * time.Millisecond)
 	}
-	if err != nil {
-		r.t.Fatalf("relay listen: %v", err)
-	}
+	dst.Close()
+	src.Close()
 	r.mu.Lock()
-	r.ln = ln
+	delete(r.conns, dst)
+	delete(r.conns, src)
 	r.mu.Unlock()
-	go func() {
-		for {
-			c, err := ln.Accept()
-			if err != nil {
-				return
-			}
-			d, err := net.Dial("tcp", r.target)
-			if err != nil {
-				c.Close()
-				continue
-			}
-			r.track(c, true)
-			r.track(d, true)
-			pipe := func(dst, src net.Conn) {
-				_, _ = io.Copy(dst, src)
-				dst.Close()
-				src.Close()
-				r.track(dst, false)
-				r.track(src, false)
-			}
-			go pipe(c, d)
-			go pipe(d, c)
-		}
-	}()
 }
 
+// blackhole drops every byte in both directions from now on; the TCP connections stay open.
+func (r *cutRelay) blackhole() { r.hole.Store(true) }
+
+// cut closes every relayed connection and refuses new ones until restore.
 func (r *cutRelay) cut() {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if r.ln != nil {
-		r.ln.Close()
-		r.ln = nil
-	}
+	r.up = false
 	for c := range r.conns {
 		c.Close()
 	}
 	r.conns = map[net.Conn]struct{}{}
+	r.hole.Store(false)
+}
+
+func (r *cutRelay) restore() {
+	r.mu.Lock()
+	r.up = true
+	r.mu.Unlock()
 }
 
 type sourcingLab struct {
@@ -269,6 +290,7 @@ func readAll(t *testing.T, ctx context.Context, js jetstream.JetStream, name str
 // hub's copy holds exactly those 600, in order; the other node's copy is untouched, and node A can
 // reach neither node B's stream nor its JetStream API.
 func TestHubSourcesEachNodeAcrossAccountsThroughACut(t *testing.T) {
+	t.Parallel()
 	cut := labCut(t)
 	l := newSourcingLab(t)
 	ctx, cancel := context.WithTimeout(context.Background(), cut+10*time.Minute)
@@ -301,18 +323,7 @@ func TestHubSourcesEachNodeAcrossAccountsThroughACut(t *testing.T) {
 		return n == 20
 	})
 	// Node A's source is live (its consumer on the leaf answers) before the cut.
-	waitUntil(t, 90*time.Second, "node A's source to reach its leaf", func() bool {
-		s, err := hub.Stream(ctx, srcA.Name)
-		if err != nil {
-			return false
-		}
-		info, err := s.Info(ctx)
-		if err != nil || len(info.Sources) != 1 {
-			return false
-		}
-		si := info.Sources[0]
-		return si.Error == nil && si.Active > 0 && si.Active < 3*time.Second
-	})
+	waitSourceLive(t, ctx, hub, srcA.Name)
 
 	// Cut node A and write 600 events spread over the cut, each acknowledged by its own leaf.
 	l.relayA.cut()
@@ -338,10 +349,7 @@ func TestHubSourcesEachNodeAcrossAccountsThroughACut(t *testing.T) {
 	}
 
 	l.relayA.restore()
-	waitUntil(t, 5*time.Minute, "node A's 600 events at the hub", func() bool {
-		n, _, _ := streamMsgs(ctx, hub, srcA.Name)
-		return n >= total
-	})
+	waitCopy(t, ctx, hub, jsA, srcA.Name, total, 5*time.Minute)
 	time.Sleep(3 * time.Second) // nothing more may arrive: no duplicate
 	n, last, err := streamMsgs(ctx, hub, srcA.Name)
 	if err != nil || n != total || last != total {
@@ -362,6 +370,140 @@ func TestHubSourcesEachNodeAcrossAccountsThroughACut(t *testing.T) {
 	})
 
 	assertNodeCannotReachOther(t, ctx, l)
+}
+
+// waitSourceLive waits until the hub's source stream hears its leaf consumer (heartbeats every second).
+func waitSourceLive(t *testing.T, ctx context.Context, hub jetstream.JetStream, name string) {
+	t.Helper()
+	waitUntil(t, 90*time.Second, name+"'s source to reach its leaf", func() bool {
+		s, err := hub.Stream(ctx, name)
+		if err != nil {
+			return false
+		}
+		info, err := s.Info(ctx)
+		if err != nil || len(info.Sources) != 1 {
+			return false
+		}
+		si := info.Sources[0]
+		return si.Error == nil && si.Active > 0 && si.Active < 3*time.Second
+	})
+}
+
+// #747 spec, "test sourcing from WorkQueue": nothing is lost when the link dies with events in
+// flight. Sourcing does not use an AckNone consumer on the WorkQueue outbox: nats-server v2.15.3
+// turns the source's consumer on a standalone server's WorkQueue (any non-Limits) stream into a
+// durable one with AckFlowControl (server/jetstream_api.go, the direct sourcing consumer
+// "upgrade"). The leaf then removes an event only when the hub's flow-control reply names a stream
+// sequence the hub has stored (server/consumer.go processFlowControl), and a store the hub fails
+// rolls its position back and asks again from there (server/stream.go processInboundSourceMsg).
+//
+// Node A writes without pause while its link first goes silent (every byte dropped, connections
+// open, so deliveries and flow-control replies vanish mid-stream), is then closed, and comes back
+// before the hub has even noticed the stall. The hub's copy must hold every event once, in order.
+func TestHubSourceLosesNothingWhenTheLinkDiesMidStream(t *testing.T) {
+	t.Parallel()
+	l := newSourcingLab(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
+
+	jsA := connectJS(t, l.leafA)
+	if err := EnsureOutbox(ctx, jsA, OutboxConfig{}); err != nil {
+		t.Fatal(err)
+	}
+	hub := connectJS(t, l.hubURL)
+	srcA := hubSourceFor(t, "aaa111")
+	if _, err := hub.CreateOrUpdateStream(ctx, srcA); err != nil {
+		t.Fatal(err)
+	}
+	waitSourceLive(t, ctx, hub, srcA.Name)
+	if ci := sourceConsumerInfo(t, ctx, jsA); ci.Config.AckPolicy != jetstream.AckFlowControlPolicy || ci.Config.Durable == "" {
+		t.Fatalf("the hub's consumer on the WorkQueue outbox is %s (durable %q): the leaf would drop events the hub never stored",
+			ci.Config.AckPolicy, ci.Config.Durable)
+	}
+
+	const total, silentAt, closedAt = 3000, 1000, 2000
+	body := strings.Repeat("e", 200)
+	for i := 0; i < total; i++ {
+		switch i {
+		case silentAt: // deliveries are flowing when the link goes silent
+			waitUntil(t, 60*time.Second, "the first events at the hub", func() bool {
+				n, _, _ := streamMsgs(ctx, hub, srcA.Name)
+				return n >= 100
+			})
+			l.relayA.blackhole()
+		case closedAt:
+			l.relayA.cut()
+		}
+		if _, err := Enqueue(ctx, jsA, "events.sensor", []byte(strconv.Itoa(i)+" "+body), fmt.Sprintf("a-%05d", i)); err != nil {
+			t.Fatalf("enqueue %d: %v", i, err)
+		}
+		if i%10 == 0 {
+			time.Sleep(time.Millisecond) // let deliveries flow between writes
+		}
+	}
+	if n, _, _ := streamMsgs(ctx, hub, srcA.Name); n >= total {
+		t.Fatalf("hub copy holds all %d events through a dead link", n)
+	}
+	l.relayA.restore()
+	waitCopy(t, ctx, hub, jsA, srcA.Name, total, 5*time.Minute)
+	time.Sleep(3 * time.Second) // nothing more may arrive: no duplicate
+	n, last, err := streamMsgs(ctx, hub, srcA.Name)
+	if err != nil || n != total || last != total {
+		t.Fatalf("hub copy of A: %d messages, last seq %d, err %v; want exactly %d", n, last, err, total)
+	}
+	for i, got := range readAll(t, ctx, hub, srcA.Name, total) {
+		if want := strconv.Itoa(i) + " " + body; got != want {
+			t.Fatalf("hub copy of A at seq %d holds %.12q..., want event %d (lost, reordered or duplicated)", i+1, got, i)
+		}
+	}
+	waitUntil(t, 60*time.Second, "leaf A outbox drained", func() bool {
+		st, err := Status(ctx, jsA)
+		return err == nil && st.Messages == 0
+	})
+}
+
+// waitCopy waits until the hub's copy holds want events; on a timeout it fails with the state of
+// the hub's source and of the leaf's source consumer, so a stuck source says why.
+func waitCopy(t *testing.T, ctx context.Context, hub, leafJS jetstream.JetStream, name string, want uint64, d time.Duration) {
+	t.Helper()
+	end := time.Now().Add(d)
+	for time.Now().Before(end) {
+		if n, _, _ := streamMsgs(ctx, hub, name); n >= want {
+			return
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+	t.Fatalf("timed out waiting for %d events in %s: %s", want, name, sourceDiag(ctx, hub, leafJS, name))
+}
+
+// sourceDiag describes a hub source stream and the consumers on the leaf's outbox.
+func sourceDiag(ctx context.Context, hub, leafJS jetstream.JetStream, name string) string {
+	var b strings.Builder
+	if s, err := hub.Stream(ctx, name); err != nil {
+		fmt.Fprintf(&b, "hub stream: %v; ", err)
+	} else if info, err := s.Info(ctx); err != nil {
+		fmt.Fprintf(&b, "hub info: %v; ", err)
+	} else {
+		fmt.Fprintf(&b, "hub msgs=%d last=%d", info.State.Msgs, info.State.LastSeq)
+		for _, si := range info.Sources {
+			fmt.Fprintf(&b, " source active=%s lag=%d err=%v", si.Active, si.Lag, si.Error)
+		}
+		b.WriteString("; ")
+	}
+	s, err := leafJS.Stream(ctx, OutboxStream)
+	if err != nil {
+		fmt.Fprintf(&b, "leaf outbox: %v", err)
+		return b.String()
+	}
+	if info, err := s.Info(ctx); err == nil {
+		fmt.Fprintf(&b, "leaf outbox msgs=%d first=%d last=%d;", info.State.Msgs, info.State.FirstSeq, info.State.LastSeq)
+	}
+	for ci := range s.ListConsumers(ctx).Info() {
+		fmt.Fprintf(&b, " consumer %s ack=%s deliver=%s bound=%v delivered=%d/%d ackfloor=%d/%d ackpending=%d pending=%d;",
+			ci.Name, ci.Config.AckPolicy, ci.Config.DeliverSubject, ci.PushBound, ci.Delivered.Consumer, ci.Delivered.Stream,
+			ci.AckFloor.Consumer, ci.AckFloor.Stream, ci.NumAckPending, ci.NumPending)
+	}
+	return b.String()
 }
 
 // assertNodeCannotReachOther: a client on node A's leaf asks node B's JetStream API and the hub's
@@ -456,17 +598,30 @@ func assertNodeCannotReachOther(t *testing.T, ctx context.Context, l *sourcingLa
 // ownSourceConsumer is the name of the consumer the hub's source made on a leaf's outbox.
 func ownSourceConsumer(t *testing.T, ctx context.Context, js jetstream.JetStream) string {
 	t.Helper()
+	return sourceConsumerInfo(t, ctx, js).Name
+}
+
+// sourceConsumerInfo is the one consumer the hub's source made on a leaf's outbox.
+func sourceConsumerInfo(t *testing.T, ctx context.Context, js jetstream.JetStream) *jetstream.ConsumerInfo {
+	t.Helper()
 	s, err := js.Stream(ctx, OutboxStream)
 	if err != nil {
 		t.Fatal(err)
 	}
-	names := s.ConsumerNames(ctx)
-	var found []string
-	for n := range names.Name() {
-		found = append(found, n)
+	lister := s.ListConsumers(ctx)
+	var found []*jetstream.ConsumerInfo
+	for ci := range lister.Info() {
+		found = append(found, ci)
 	}
-	if len(found) != 1 || !strings.HasPrefix(found[0], "JS_SRC_") {
-		t.Fatalf("leaf outbox consumers %v, want the hub's one source consumer", found)
+	if err := lister.Err(); err != nil {
+		t.Fatal(err)
+	}
+	if len(found) != 1 || !strings.HasPrefix(found[0].Name, "JS_SRC_") {
+		names := make([]string, 0, len(found))
+		for _, ci := range found {
+			names = append(names, ci.Name)
+		}
+		t.Fatalf("leaf outbox consumers %v, want the hub's one source consumer", names)
 	}
 	return found[0]
 }
