@@ -8,6 +8,7 @@ POST /v1/auth/login  # answers with fresh tokens, which a replay store must not 
 POST /v1/auth/refresh  # answers with fresh tokens; refresh-token rotation already rejects a replay
 DELETE /v1/auth/app-session  # clearing the caller's own cookie twice is the same as once
 POST /v1/auth/logout  # ending the caller's own session twice is the same as once
+DELETE /v1/me/devices/{device_id}  # Lost this device (#715) is idempotent by design: a repeat revokes nothing and answers removed: false
 PATCH /v1/files/uploads/{upload_id}  # tus: the Upload-Offset header makes a retried chunk safe
 PATCH /v1/photos/uploads/{upload_id}  # tus: the Upload-Offset header makes a retried chunk safe
 POST /v1/actions  # contract §12.1: keeps its §3 body field idempotency_key instead of the header
@@ -16,3 +17,5 @@ DELETE /v1/files/shares/{share_id}  # revoking a link twice is the same as once:
 POST /v1/os/rollouts/{rollout_id}/cancel  # cancelling twice leaves the same state: the second answer is 409 wrong_state and changes nothing
 POST /v1/bridges/{bridge_id}/events  # every event carries its own id and revision: a retried batch counts as duplicates, never twice
 POST /v1/bridges/{bridge_id}/resume  # resuming a bridge that already runs changes nothing
+POST /v1/files/app-passwords  # answers with a fresh app password, which a replay store must never keep
+POST /v1/files/app-passwords/{password_id}/revoke  # revoking twice is the same as once (the second is 404)

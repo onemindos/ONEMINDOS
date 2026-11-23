@@ -2423,6 +2423,36 @@
         "title": "Coverage",
         "type": "object"
       },
+      "CreateBody": {
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "description": "Which device or app uses it, e.g. 'MacBook Finder'",
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[^\\x00-\\x1f\\x7f]+$",
+            "title": "Label",
+            "type": "string"
+          },
+          "scopes": {
+            "description": "home:r, home:rw, shared:r or shared:rw; each space once",
+            "items": {
+              "pattern": "^(home|shared):(r|rw)$",
+              "type": "string"
+            },
+            "maxItems": 2,
+            "minItems": 1,
+            "title": "Scopes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "label",
+          "scopes"
+        ],
+        "title": "CreateBody",
+        "type": "object"
+      },
       "CutoverBody": {
         "additionalProperties": false,
         "properties": {
@@ -3980,6 +4010,18 @@
             ],
             "title": "Client Name"
           },
+          "install_id": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Za-z0-9_-]{16,64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Install Id"
+          },
           "passkey": {
             "anyOf": [
               {
@@ -4268,6 +4310,238 @@
           "to_path"
         ],
         "title": "MoveOp",
+        "type": "object"
+      },
+      "MyDevice": {
+        "properties": {
+          "credentials": {
+            "items": {
+              "$ref": "#/components/schemas/MyDeviceCredential"
+            },
+            "title": "Credentials",
+            "type": "array"
+          },
+          "current": {
+            "title": "Current",
+            "type": "boolean"
+          },
+          "first_seen_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Seen At"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "phone",
+              "browser",
+              "app",
+              "unknown"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "last_seen_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Seen At"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "kind",
+          "current",
+          "last_seen_at",
+          "first_seen_at",
+          "credentials"
+        ],
+        "title": "MyDevice",
+        "type": "object"
+      },
+      "MyDeviceCredential": {
+        "properties": {
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "last_seen_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Seen At"
+          },
+          "source": {
+            "enum": [
+              "sessions",
+              "passkeys",
+              "approver_keys",
+              "push"
+            ],
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "id",
+          "label",
+          "detail",
+          "created_at",
+          "last_seen_at"
+        ],
+        "title": "MyDeviceCredential",
+        "type": "object"
+      },
+      "MyDeviceRemoved": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "removed": {
+            "title": "Removed",
+            "type": "boolean"
+          },
+          "revoked": {
+            "$ref": "#/components/schemas/MyDeviceRevoked"
+          }
+        },
+        "required": [
+          "id",
+          "removed",
+          "revoked"
+        ],
+        "title": "MyDeviceRemoved",
+        "type": "object"
+      },
+      "MyDeviceRevoked": {
+        "properties": {
+          "approver_keys": {
+            "title": "Approver Keys",
+            "type": "integer"
+          },
+          "passkeys": {
+            "title": "Passkeys",
+            "type": "integer"
+          },
+          "push": {
+            "title": "Push",
+            "type": "integer"
+          },
+          "sessions": {
+            "title": "Sessions",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "sessions",
+          "passkeys",
+          "approver_keys",
+          "push"
+        ],
+        "title": "MyDeviceRevoked",
+        "type": "object"
+      },
+      "MyDeviceSources": {
+        "properties": {
+          "approver_keys": {
+            "title": "Approver Keys",
+            "type": "boolean"
+          },
+          "mesh": {
+            "title": "Mesh",
+            "type": "boolean"
+          },
+          "nats": {
+            "title": "Nats",
+            "type": "boolean"
+          },
+          "passkeys": {
+            "title": "Passkeys",
+            "type": "boolean"
+          },
+          "push": {
+            "title": "Push",
+            "type": "boolean"
+          },
+          "sessions": {
+            "title": "Sessions",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "sessions",
+          "passkeys",
+          "approver_keys",
+          "push",
+          "mesh",
+          "nats"
+        ],
+        "title": "MyDeviceSources",
+        "type": "object"
+      },
+      "MyDevices": {
+        "properties": {
+          "devices": {
+            "items": {
+              "$ref": "#/components/schemas/MyDevice"
+            },
+            "title": "Devices",
+            "type": "array"
+          },
+          "sources": {
+            "$ref": "#/components/schemas/MyDeviceSources"
+          }
+        },
+        "required": [
+          "devices",
+          "sources"
+        ],
+        "title": "MyDevices",
         "type": "object"
       },
       "NetGateway": {
@@ -5769,6 +6043,18 @@
             "title": "Credential",
             "type": "object"
           },
+          "install_id": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Za-z0-9_-]{16,64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Install Id"
+          },
           "label": {
             "anyOf": [
               {
@@ -6323,6 +6609,18 @@
               }
             ],
             "title": "Endpoint"
+          },
+          "install_id": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Za-z0-9_-]{16,64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Install Id"
           },
           "keys": {
             "anyOf": [
@@ -10865,6 +11163,13 @@
         },
         "title": "ApproveBody",
         "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "bearer": {
+        "description": "A gateway token or a signed-in session (contract §3)",
+        "scheme": "bearer",
+        "type": "http"
       }
     }
   },
@@ -19754,6 +20059,220 @@
         ]
       }
     },
+    "/v1/files/app-passwords": {
+      "get": {
+        "description": "Your WebDAV app passwords (an owner sees everyone's), and where to connect. The secret is never shown again.",
+        "operationId": "files.app_passwords.list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "tokens:read",
+              "tokens:self",
+              "tokens:admin"
+            ]
+          }
+        ],
+        "summary": "App Passwords List",
+        "tags": [
+          "files"
+        ]
+      },
+      "post": {
+        "description": "Make an app password for a WebDAV client (Finder, GNOME Files), shown once.\n\nThe user name is your person id. Once passkeys are active this needs a recent passkey sign-in (step-up):\nthe password opens your files from the LAN or mesh.",
+        "operationId": "files.app_passwords.create",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "tokens:self",
+              "tokens:admin"
+            ]
+          }
+        ],
+        "summary": "App Passwords Create",
+        "tags": [
+          "files"
+        ]
+      }
+    },
+    "/v1/files/app-passwords/{password_id}/revoke": {
+      "post": {
+        "description": "Revoke an app password. The next WebDAV request with it fails.",
+        "operationId": "files.app_passwords.revoke",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "password_id",
+            "required": true,
+            "schema": {
+              "title": "Password Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "tokens:self",
+              "tokens:admin"
+            ]
+          }
+        ],
+        "summary": "App Passwords Revoke",
+        "tags": [
+          "files"
+        ]
+      }
+    },
     "/v1/files/download": {
       "get": {
         "operationId": "files.download",
@@ -22205,6 +22724,121 @@
           }
         },
         "summary": "Update Me",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/v1/me/devices": {
+      "get": {
+        "description": "Your devices: each joins the sessions, passkeys, approver keys and push registrations of one\napp install (its `install_id`), or, for credentials without one, that carry its name, with when\nit was last seen.",
+        "operationId": "me.devices.list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyDevices"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "summary": "My Devices",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/v1/me/devices/{device_id}": {
+      "delete": {
+        "description": "Lost this device: revoke everything it holds in one step. Needs a fresh passkey once passkeys\nare on; refused for the device you are using and for an owner's last device. Calling it again\nis safe: `removed` is false and nothing is revoked.",
+        "operationId": "me.devices.remove",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "device_id",
+            "required": true,
+            "schema": {
+              "title": "Device Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyDeviceRemoved"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Remove My Device",
         "tags": [
           "auth"
         ]

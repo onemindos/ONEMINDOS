@@ -299,3 +299,12 @@ export function backupRow(st, now = Date.now() / 1000) {
 export function healthRows(st, now = Date.now() / 1000) {
   return [osRow(st), backupRow(st, now), storageRow(st)].filter(Boolean);
 }
+
+/** The Files button for this computer (files-webdav, #722): Finder mounts the box over WebDAV, a Linux
+ * file manager opens davs://, Windows opens the SMB share. `platform` is navigator.platform. */
+export function filesLabel(platform = '') {
+  const p = String(platform).toLowerCase();
+  if (p.startsWith('mac')) return { text: 'Open in Finder', title: 'Mounts your files from the box in Finder. Sign in with an app password (Settings, Account and security, on the box).' };
+  if (p.startsWith('win')) return { text: 'Open in Explorer', title: "Opens the box's file share (SMB) in File Explorer." };
+  return { text: 'Open in Files', title: 'Opens your files from the box in your file manager (davs://). Sign in with an app password from the box.' };
+}
