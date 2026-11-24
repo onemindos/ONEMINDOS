@@ -15,12 +15,16 @@ export interface ApproveOpts {
   sealed?: ApproveBody['sealed'];
   /** #173: the app id the owner typed to accept a licence that is not green (blocked or unknown). */
   acceptLicence?: string;
+  hold?: { ms: number; plan: string };
   /** Test seam; defaults to the browser's WebAuthn. */
   sign?: (publicKey: Record<string, unknown>) => Promise<Record<string, unknown>>;
 }
 
 export async function approveWithStepUp(api: OneMindApi, action: Pick<Action, 'id' | 'plan_sha256'>, opts: ApproveOpts = {}): Promise<Action> {
-  const extra: ApproveBody = { ...(opts.sealed ? { sealed: opts.sealed } : {}), ...(opts.acceptLicence ? { accept_licence: opts.acceptLicence } : {}) };
+  const extra: ApproveBody = { ...(opts.sealed ? { sealed: opts.sealed } : {}), ...(opts.acceptLicence ? { accept_licence: opts.acceptLicence } : {}),
+    ...(opts.hold ? { hold_ms: opts.hold.ms } : {}) };
+  if (opts.hold && (!api.approveOptions || action.plan_sha256 !== opts.hold.plan))
+    throw new ApiError(409, 'stale_precondition', 'Review the current plan before approving.', 'plan_changed');
   if (!api.approveOptions) return api.approve(action.id, Object.keys(extra).length ? extra : undefined);
   const sign = opts.sign ?? getPasskey;
   const challenge = await api.approveOptions(action.id);
@@ -30,7 +34,7 @@ export async function approveWithStepUp(api: OneMindApi, action: Pick<Action, 'i
   const body: ApproveBody = { ...extra };
   if (challenge.plan_sha256) body.plan_sha256 = challenge.plan_sha256;
   const signed = async () => ({ ...body, webauthn: await sign(challenge.publicKey) });
-  if (opts.passkey) return api.approve(action.id, await signed());
+  if (opts.passkey || opts.hold) return api.approve(action.id, await signed());
   try {
     return await api.approve(action.id, body);
   } catch (e) {

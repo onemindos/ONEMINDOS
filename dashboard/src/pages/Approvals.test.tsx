@@ -47,6 +47,12 @@ function setup(opts: { passkey?: boolean; secrets?: boolean; serverSha?: string 
 }
 
 describe('Approvals page', () => {
+  it('practices an approval locally', async () => {
+    const { calls, user } = setup();
+    await user.click(await screen.findByRole('button', { name: 'Practice: Approve' }, T));
+    expect(screen.getByText('Practice approved.')).toBeInTheDocument();
+    expect(calls).toEqual([]);
+  });
   it('shows the plan as plain effects, with the raw JSON only under Advanced and no developer copy', async () => {
     setup();
     expect(await screen.findByText('Keeps this app\'s files and databases', {}, T)).toBeInTheDocument();
@@ -96,6 +102,16 @@ describe('Approvals page', () => {
 describe('approveWithStepUp', () => {
   const opts = { challenge: 'c', action_sha256: 'a', plan_sha256: SHA, expires_at: '', publicKey: { challenge: 'c' } };
   const act = { id: 'x', plan_sha256: SHA };
+
+  it('sends a measured hold with the passkey and reviewed fingerprint', async () => {
+    const approve = vi.fn(async () => ({ id: 'x' }));
+    const sign = vi.fn(async () => ({ id: 'sig' }));
+    const api = { approveOptions: async () => opts, approve } as never;
+    await approveWithStepUp(api, act, { hold: { ms: 2000, plan: SHA }, sign });
+    expect(approve).toHaveBeenCalledExactlyOnceWith('x', { plan_sha256: SHA, hold_ms: 2000, webauthn: { id: 'sig' } });
+    await expect(approveWithStepUp(api, act, { hold: { ms: 2000, plan: 'old' }, sign })).rejects.toThrow('current plan');
+    expect(approve).toHaveBeenCalledTimes(1);
+  });
 
   it('retries once with a passkey when the gateway asks for step-up', async () => {
     const approve = vi.fn()
