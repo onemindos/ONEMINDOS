@@ -101,9 +101,24 @@ API reference: [MapLibre GeoJSONSource](https://maplibre.org/maplibre-gl-js/docs
 Use only overlay data you have permission to use, and keep its attribution and
 licence with the original file; the overlay adds no redistribution rights.
 
+## Gateway-managed packs
+
+The gateway lists verified packs at `GET /v1/map/packs`. Add and remove go
+through the standard action approval flow using `map.pack.add` with a
+`region_id` or `map.pack.remove` with a `pack_id`. The app proxy serves bytes
+from `packs/<id>` with Range support.
+
+Provision the same directory for the gateway's `[map].packs_dir` and the
+viewer's `maps/packs` on the Offline Maps volume. Configure `region_catalog`
+with the signed `onemind.map.regions/v1` JSON and `region_key_file` with its
+trusted Ed25519 public key in PEM form. The adjacent `.sig` contains a base64
+signature over the exact JSON bytes. Each entry supplies `id`, `region`,
+`url`, `sha256` and `bytes`. Managed downloads require the shared mount and
+signed catalog.
+
 ## Not done yet
 
-- **Cutting a map is a terminal step.** A Market action ("add map for this area") that the owner approves from the dashboard is the next step. It needs a contract action type for app-specific jobs.
+- Cutting a custom region outside the signed catalog is a terminal step.
 - The tile API's TileJSON needs `--public-url`, which waits for the app proxy's LAN hostname.
 - No HTTPS or LAN hostname: the map is reached through a port-forward until the app proxy exists.
 - No search box (geocoding): finding a place by name offline needs a separate index.
@@ -119,9 +134,3 @@ Scanned 2026-11-21T15:16:44Z by `sdk/tools/app-gate`: **pass**. Licence `BSD-3-C
 | `docker.io/protomaps/go-pmtiles:v1.31.2@sha256:06574f01f55a78f78f887bc7ebf729a5c093c0d6e17d9876300cfcb0758b59d3` | amd64, arm64 | 0 (0) | 36 | 0 infected (daily-28190) | 0 | unsigned |
 
 Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.
-
-### Gateway-managed packs
-
-The gateway lists verified packs at `GET /v1/map/packs`. Add and remove go through the standard action approval flow using `map.pack.add` with a `region_id`, or `map.pack.remove` with a `pack_id`. The app proxy serves bytes from `packs/<id>` with Range support.
-
-Provision the same directory for the gateway's `[map].packs_dir` and the viewer's `maps/packs` on the Offline Maps volume. Configure `region_catalog` with the signed `onemind.map.regions/v1` JSON and `region_key_file` with its trusted Ed25519 public key in PEM form. The adjacent `.sig` contains a base64 signature over the exact JSON bytes. Each entry supplies `id`, `region`, `url`, `sha256` and `bytes`. Managed downloads are unavailable until the shared mount and signed catalog are provisioned.
