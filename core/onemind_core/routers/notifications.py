@@ -160,6 +160,15 @@ class PushIn(BaseModel):
     install_id: str | None = Field(default=None, pattern=r"^[A-Za-z0-9_-]{16,64}$")  # My devices (#715)
 
 
+class PushRegistration(BaseModel):
+    id: str
+    platform: str
+    label: str
+    state: str
+    created_at: str
+    last_seen_at: str | None
+
+
 class NotificationSeverityCounts(BaseModel):
     info: int
     warning: int
@@ -223,6 +232,10 @@ PREFERENCES_SCHEMA = {"type": "object", "properties": {
               "description": "Suppress delivery to a channel, device, in_app or all (*) while keeping the inbox item."},
     "retention_days": {"type": "integer", "minimum": 1, "maximum": routing.MAX_INBOX_DAYS,
                        "description": "Days to keep the person's inbox, defaulting to 90."},
+    "silence": {"anyOf": [{"type": "object", "required": ["until", "reason"], "additionalProperties": False,
+                           "properties": {"until": {"type": "string", "format": "date-time"},
+                                          "reason": {"type": "string", "minLength": 1, "maxLength": 200}}},
+                          {"type": "null"}]},
 }}
 
 
@@ -614,7 +627,8 @@ def register(app: FastAPI, gw: Gateway) -> None:
         audit(p, "device.added", {"device_id": did, "platform": body.platform})
         return device_json(row)
 
-    @app.get("/v1/push/registrations", operation_id="push.registrations.list", tags=["push"], responses=error_responses(401, 403))
+    @app.get("/v1/push/registrations", operation_id="push.registrations.list", tags=["push"],
+             response_model=list[PushRegistration], responses=error_responses(401, 403))
     def list_devices(p: Principal = Depends(principal)):
         _person(p)
         return [device_json(d) for d in repo.list_devices(p.id)]
