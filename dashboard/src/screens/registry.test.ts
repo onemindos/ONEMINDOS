@@ -45,6 +45,7 @@ describe('screen registry', () => {
       ['photos', '/photos', 'Your box'],
       ['alerts', '/alerts', 'Your box'],
       ['usage', '/usage', 'Your box'],
+      ['work', '/work', 'Your box'],
       ['storage', '/storage', 'Your box'],
       ['backups', '/backups', 'Your box'],
       ['file-sharing', '/file-sharing', 'Your box'],

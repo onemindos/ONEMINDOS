@@ -28,6 +28,7 @@ from ..auth import Principal
 from ..errors import ApiError
 from ..monitoring.redact import Redactor
 from ..surfaces.core import AREA_PAGE_MAX, AREA_TOOLS, LOG_LINES_MAX, LOG_TAIL_ASK_MAX
+from ..work.access import current_delegated_reader
 from .tools import INVALID_PARAMS, RpcError, _source, refusal, result
 
 AREA_TOOL_NAMES = frozenset(t.name for t in AREA_TOOLS)
@@ -114,6 +115,15 @@ class AreaReads:
         if found is None:
             raise ApiError(503, "unavailable", f"{attr} is not running on this box")
         return found
+
+    def work_tasks_list(self, p: Principal, a: dict):
+        rows = self.svc("work").list_tasks(p, limit=AREA_PAGE_MAX + 1, delegated=current_delegated_reader(p))
+        return {"tasks": [row.model_dump(mode="json") for row in rows]}
+
+    def work_task_get(self, p: Principal, a: dict):
+        project = _opt(a, "project_id", 40, required=True)
+        task = _opt(a, "task_id", 40, required=True)
+        return self.svc("work").get_task(p, project, task, delegated=current_delegated_reader(p)).model_dump(mode="json")
 
     def get_backup_status(self, p: Principal, a: dict):
         self._backup_reader(p)
@@ -237,6 +247,8 @@ class Shape:
 
 
 SHAPES: dict[str, Shape] = {
+    "work_tasks_list": Shape(("tasks.*.title", "tasks.*.body", "tasks.*.labels.*")),
+    "work_task_get": Shape(("title", "body", "labels.*")),
     "get_backup_status": Shape(("last_run.error", "last_run.message")),
     "list_backup_runs": Shape(("error", "message"), kind="run"),
     "list_backup_snapshots": Shape(("paths.*", "tags.*"), kind="snapshot"),

@@ -3,13 +3,19 @@
 
 from datetime import datetime
 
-from sqlalchemy import JSON, CheckConstraint, DateTime, ForeignKey, ForeignKeyConstraint, String, Text
+from sqlalchemy import JSON, CheckConstraint, DateTime, ForeignKey, ForeignKeyConstraint, String, Text, inspect, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ..ledger import Base
 from ..store import FeatureSchema
 
 SCHEMA = FeatureSchema("work")
+
+
+@SCHEMA.step(2, "Record the owner of each new task; ambiguous legacy tasks stay inaccessible to children")
+def _task_owner(conn) -> None:
+    if "owner_id" not in {column["name"] for column in inspect(conn).get_columns("work_tasks")}:
+        conn.execute(text("ALTER TABLE work_tasks ADD COLUMN owner_id VARCHAR(128)"))
 
 
 class ProjectRow(Base):
@@ -39,6 +45,7 @@ class TaskRow(Base):
 
     project_id: Mapped[str] = mapped_column(ForeignKey("work_projects.id", ondelete="CASCADE"), primary_key=True)
     id: Mapped[str] = mapped_column(String(40), primary_key=True)
+    owner_id: Mapped[str | None] = mapped_column(String(128))
     revision: Mapped[int]
     title: Mapped[str] = mapped_column(String(160))
     body: Mapped[str] = mapped_column(Text)
@@ -63,3 +70,24 @@ class DependencyRow(Base):
     project_id: Mapped[str] = mapped_column(String(40), primary_key=True)
     task_id: Mapped[str] = mapped_column(String(40), primary_key=True)
     required_id: Mapped[str] = mapped_column(String(40), primary_key=True)
+
+
+
+class InboxRow(Base):
+    __tablename__ = "work_inboxes"
+
+    person_id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    project_id: Mapped[str] = mapped_column(ForeignKey("work_projects.id"), unique=True)
+
+
+class WorkCreateRow(Base):
+    """A key is unique to the actor and operation. Persist only request fingerprints and result IDs."""
+
+    __tablename__ = "work_create_receipts"
+
+    person_id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    operation: Mapped[str] = mapped_column(String(16), primary_key=True)
+    key_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    fingerprint: Mapped[str] = mapped_column(String(64))
+    project_id: Mapped[str | None] = mapped_column(String(40))
+    result_id: Mapped[str | None] = mapped_column(String(40))

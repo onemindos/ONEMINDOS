@@ -42,6 +42,7 @@ from .auditread import can_read_all, glob_any, iter_records
 from .auth import Principal
 from .fanout import AssetState, AssetValue, AssetView, AuditPump, Subscriber
 from .identity.scopes import has_any, role_scopes
+from .work.service import WORK_EVENTS
 
 
 SCHEMA = "onemind.event/v1"
@@ -119,6 +120,10 @@ def events_for_record(rec: dict) -> list[dict]:
             mapped = (event, subject, {k: payload[k] for k in ("status", "data_kept") if k in payload})
         else:
             mapped = (event, subject, {})
+    if event in WORK_EVENTS and data.get("event_id"):
+        ids = {key: payload.get(key) for key in ("project_id", "task_id")}
+        if all(isinstance(value, str) for value in ids.values()):
+            mapped = (event, {}, ids)
     if mapped:
         ev = _envelope(seq, mapped[0], ts, mapped[1], mapped[2], actor)
         ev["severity"] = data.get("severity", "info")
