@@ -60,3 +60,4 @@ export * from './network';
 export * from './store';
 export * from './shell';
 export * from './secrets';
+export { animate, useReducedMotion } from './motion';
