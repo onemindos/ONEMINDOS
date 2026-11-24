@@ -9,7 +9,7 @@ import type { Tone } from '../tokens/tokens';
 import { matchSection } from './logic';
 import { SetIcon, type SetIconName } from './primitives';
 
-export type SettingsSectionId = 'appearance' | 'account' | 'users' | 'devices' | 'network' | 'backups' | 'updates' | 'notifications' | 'automation' | 'agents' | 'storage' | 'apps' | 'about';
+export type SettingsSectionId = 'appearance' | 'account' | 'users' | 'devices' | 'network' | 'backups' | 'updates' | 'notifications' | 'automation' | 'agents' | 'storage' | 'apps' | 'about' | 'accessibility';
 
 export interface SettingsSectionMeta {
   id: SettingsSectionId;
@@ -21,6 +21,7 @@ export interface SettingsSectionMeta {
 }
 
 export const SETTINGS_SECTIONS: SettingsSectionMeta[] = [
+  { id: 'accessibility', label: 'Accessibility and motion', icon: 'eye', group: 'You', keywords: ['reduce motion', 'text size', 'contrast', 'focus', 'underline'] },
   { id: 'appearance', label: 'Appearance', icon: 'eye', group: 'You', keywords: ['theme', 'dark', 'light', 'accent', 'wallpaper', 'colour', 'color', 'density', 'font'] },
   { id: 'account', label: 'Account & security', icon: 'lock', group: 'People and access', keywords: ['passkey', 'password', 'sessions', 'tokens', 'sign in', '2fa', 'totp'] },
   { id: 'users', label: 'Users & roles', icon: 'users', group: 'People and access', keywords: ['people', 'family', 'invite', 'owner', 'guest'] },
