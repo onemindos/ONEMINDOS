@@ -235,7 +235,7 @@ class T(unittest.TestCase):
         rows = "".join("| %s | t | %s | `b` | %s |\n" % (i, st, c) for i, st, c in [
             ("A", "in-review", pr(1)), ("B", "in-progress (merged in #2; rest unverified)", pr(2)),
             ("C", "done", pr(3)), ("D", "todo", "–"), ("E", "in-review", pr(4)),
-            ("F", "done", pr(5)), ("G", "review", pr(9))])
+            ("F", "done", pr(5)), ("G", "review", "[#9]")])
         text = "## Every epic\n\n| Id | T | State | Branch | PR |\n|---|---|---|---|---|\n" + rows
         states = {1: "MERGED", 2: "MERGED", 3: "MERGED", 4: "CLOSED", 5: "OPEN"}
         got = dict(changes.audit_rows(text, states))

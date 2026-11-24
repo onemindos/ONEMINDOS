@@ -332,7 +332,7 @@ def audit_rows(status_text, states):
         if not m:
             continue
         state = m.group(1)
-        for pr in re.findall(r"\[#?(\d+)\]\(", pr_cell_text):
+        for pr in re.findall(r"\[#?(\d+)\]", pr_cell_text):
             number = int(pr)
             live = states.get(number)
             if live is None:
