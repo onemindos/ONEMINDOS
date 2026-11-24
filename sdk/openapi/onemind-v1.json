@@ -828,6 +828,16 @@
             "title": "App Id",
             "type": "string"
           },
+          "fit": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MachineFitReport"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "message": {
             "title": "Message",
             "type": "string"
@@ -4071,6 +4081,62 @@
           "image_catalogue"
         ],
         "title": "MachineCapabilities",
+        "type": "object"
+      },
+      "MachineFit": {
+        "properties": {
+          "node_id": {
+            "title": "Node Id",
+            "type": "string"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
+          },
+          "verdict": {
+            "enum": [
+              "yes",
+              "yes-but-slow",
+              "not-on-this-machine",
+              "not-checked"
+            ],
+            "title": "Verdict",
+            "type": "string"
+          }
+        },
+        "required": [
+          "node_id",
+          "verdict",
+          "reasons"
+        ],
+        "title": "MachineFit",
+        "type": "object"
+      },
+      "MachineFitReport": {
+        "properties": {
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/MachineFit"
+            },
+            "title": "Nodes",
+            "type": "array"
+          },
+          "passing_nodes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Passing Nodes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "nodes",
+          "passing_nodes"
+        ],
+        "title": "MachineFitReport",
         "type": "object"
       },
       "MachineNeeds": {
