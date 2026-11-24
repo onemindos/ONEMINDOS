@@ -32,6 +32,8 @@ import {
   type StarterApp,
 } from './firstRun';
 import { RecoveryKit, type OnboardingKit } from './RecoveryKit';
+import { animate, useReducedMotion } from '../motion';
+import { SetupMap } from './onboarding/SetupMap';
 import './shell.css';
 
 export interface OnboardingProps {
@@ -50,6 +52,7 @@ export interface OnboardingProps {
   onRestore?: () => void;
   /** Software preferences only, not backup enablement or kit issuance. Awaited before summary. */
   onSaveSettings?: (draft: OnboardingDraft) => Promise<void>;
+  localAddress?: string;
   backupDestinations?: Array<{ id: string; kind: string; label: string }>;
   /** Connected recovery-kit step: the gateway issues the key once and confirms two typed-back groups. */
   kit?: OnboardingKit;
@@ -161,12 +164,13 @@ export function Onboarding({
   initialStep = 0,
   timeZones,
   hub,
-  onCreatePasskey = () => new Promise((r) => setTimeout(() => r(true), 700)),
+  onCreatePasskey,
   onDownloadKit,
   onThemeChange = applyTheme,
   onRestore,
   onSaveSettings,
   backupDestinations = [],
+  localAddress,
   kit,
   previewPlan,
   onFinish,
@@ -182,6 +186,9 @@ export function Onboarding({
   const [kitDownloaded, setKitDownloaded] = useState(!!initial?.backup?.kitSaved);
   const [cat, setCat] = useState<CategorySlug | 'all'>('all');
   const heading = useRef<HTMLHeadingElement>(null);
+  const form = useRef<HTMLFormElement>(null);
+  const changingStep = useRef(false);
+  const reduced = useReducedMotion();
   const first = useRef(true);
   const ids = { name: useId(), tz: useId(), owner: useId(), kit: useId(), issues: useId() };
   const tzList = useMemo(() => timeZones ?? zones(), [timeZones]);
@@ -204,9 +211,37 @@ export function Onboarding({
     setTried(false);
   }, [step]);
 
+  useEffect(() => {
+    const card = form.current;
+    if (!card) return;
+    const enter = animate(card, [{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }],
+      { duration: 240, fill: 'backwards', easing: 'ease-out' }, reduced);
+    const content = card.querySelector('.oms-onb-body');
+    const stagger = content && !reduced ? animate(content, [{ opacity: 0 }, { opacity: 1 }],
+      { duration: 240, delay: 50, fill: 'backwards', easing: 'ease-out' }, false) : undefined;
+    return () => { enter?.cancel(); stagger?.cancel(); };
+  }, [s.id, reduced]);
+
+  const moveTo = async (target: number) => {
+    if (target === step || changingStep.current) return;
+    changingStep.current = true;
+    const card = form.current;
+    const exit = card && animate(card, [{ opacity: 1 }, { opacity: 0 }],
+      { duration: 140, fill: 'forwards', easing: 'ease-in' }, reduced);
+    try {
+      if (exit) await exit.finished;
+      setStep(target);
+    } catch {
+      // The card was removed before completing this transition.
+    } finally {
+      exit?.cancel();
+      changingStep.current = false;
+    }
+  };
+
   const next = async (e?: FormEvent) => {
     e?.preventDefault();
-    if (savingRef.current) return;
+    if (savingRef.current || changingStep.current) return;
     if (issues.length) {
       setTried(true);
       return;
@@ -217,7 +252,7 @@ export function Onboarding({
     try {
       if (s.id === 'backups') await onSaveSettings?.(d);
       if (s.id === 'done') await onFinish(d, finishRequests(d));
-      else setStep((i) => Math.min(i + 1, ONBOARDING_STEPS.length - 1));
+      else await moveTo(Math.min(step + 1, ONBOARDING_STEPS.length - 1));
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : 'Settings were not saved. Try again.');
     } finally {
@@ -234,7 +269,9 @@ export function Onboarding({
       case 'box':
         return (
           <>
-            <Field id={ids.name} label="Box name" error={nameErr} hint={onSaveSettings ? 'Software display name only. This does not change the network hostname.' : <>People on your network open it at <strong>{(d.boxName || 'your-name') + '.local'}</strong></>}>
+            <Field id={ids.name} label="Box name" error={nameErr} hint={onSaveSettings ? (localAddress
+              ? <>Current local address <strong>{localAddress}</strong>. The display name does not change it.</>
+              : 'Software display name only. This does not change the network hostname.') : <>People on your network open it at <strong>{(d.boxName || 'your-name') + '.local'}</strong></>}>
               <div className="oms-input-wrap">
                 <ShellIcon name="box" size={18} />
                 <input
@@ -305,14 +342,16 @@ export function Onboarding({
                     : 'Your device unlock (fingerprint, face or PIN) or a security key proves it is you. There is no password to leak or forget.'}
                 </p>
                 {d.passkey === 'failed' && <p className="oms-field-msg">The passkey was not saved. Try again, or use a security key.</p>}
+                {!onCreatePasskey && <p className="oms-field-msg">Use a browser and connection that support passkeys to continue.</p>}
               </div>
               {d.passkey !== 'registered' && (
                 <button
                   type="button"
                   className="om-btn om-btn-primary"
                   aria-busy={d.passkey === 'waiting' || undefined}
-                  disabled={d.passkey === 'waiting'}
+                  disabled={!onCreatePasskey || d.passkey === 'waiting'}
                   onClick={async () => {
+                    if (!onCreatePasskey) return;
                     set({ passkey: 'waiting' });
                     const ok = await onCreatePasskey().catch(() => false);
                     set({ passkey: ok ? 'registered' : 'failed' });
@@ -617,6 +656,7 @@ export function Onboarding({
 
   return (
     <div className="oms-onb" style={accentVars(d.accent)}>
+      <h1 className="om-visually-hidden">Set up OneMind</h1>
       <aside className="oms-onb-side" aria-label="Setup progress">
         <div className="oms-onb-brand">
           <BrandMark className="om-brand-mark" />
@@ -631,7 +671,7 @@ export function Onboarding({
             const can = !saving && i <= Math.max(reach, step) && i !== step && !(onSaveSettings && i === 5);
             return (
               <li key={x.id} className={cx('oms-step', i === step && 'oms-step-on', done && 'oms-step-done')}>
-                <button type="button" className="oms-step-btn" aria-current={i === step ? 'step' : undefined} disabled={!can} onClick={() => setStep(i)}>
+                <button type="button" className="oms-step-btn" aria-current={i === step ? 'step' : undefined} disabled={!can} onClick={() => void moveTo(i)}>
                   <span className="oms-step-num" aria-hidden="true">
                     {done ? <ShellIcon name="check" size={14} /> : i + 1}
                   </span>
@@ -644,6 +684,7 @@ export function Onboarding({
             );
           })}
         </ol>
+        <SetupMap boxName={d.boxName} timeZone={d.timeZone} ready={s.id === 'done'} />
         <p className="oms-onb-side-foot">Everything here can also be done with <code>onemind init</code>.</p>
       </aside>
       <div className="oms-onb-main">
@@ -652,14 +693,14 @@ export function Onboarding({
             Step {step + 1} of {ONBOARDING_STEPS.length}
           </span>
           <div className="oms-progress" role="progressbar" aria-label="Setup progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}>
-            <span style={{ width: `${pct}%` }} />
+            {ONBOARDING_STEPS.map(({ id }, index) => <span key={id} data-reached={index <= step} />)}
           </div>
         </div>
-        <form className="oms-onb-form" onSubmit={next} noValidate key={s.id}>
+        <form ref={form} className="oms-onb-form" onSubmit={next} noValidate key={s.id}>
           <header className="oms-onb-head">
-            <h1 ref={heading} tabIndex={-1} className="oms-onb-title">
+            <h2 ref={heading} tabIndex={-1} className="oms-onb-title">
               {s.id === 'done' ? 'You are all set' : s.title}
-            </h1>
+            </h2>
             <p className="oms-onb-lede">{lede[s.id]}</p>
           </header>
           <div className="oms-onb-body">{body}</div>
@@ -676,7 +717,7 @@ export function Onboarding({
           )}
           <footer className="oms-onb-foot">
             {step > 0 ? (
-              <button type="button" disabled={saving} className="om-btn om-btn-ghost" onClick={() => setStep((i) => i - 1)}>
+              <button type="button" disabled={saving} className="om-btn om-btn-ghost" onClick={() => void moveTo(step - 1)}>
                 Back
               </button>
             ) : (
