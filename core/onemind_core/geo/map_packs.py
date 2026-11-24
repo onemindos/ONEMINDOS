@@ -160,16 +160,17 @@ class MapPacks:
             raise ApiError(503, "unavailable", "The map packs volume could not be read",
                            reason="map_storage_unavailable") from None
 
-    def _region(self, region_id: str) -> Region:
+    def _catalog(self) -> dict[str, Region]:
         path = self.settings.region_catalog
         try:
             if path is None:
                 raise ValueError("no region catalog configured")
-            regions = _load_catalog(path, self.settings.region_key_file)
+            return _load_catalog(path, self.settings.region_key_file)
         except (OSError, ValueError, InvalidSignature, UnsupportedAlgorithm, RecursionError):
             raise ApiError(503, "unavailable", "No verified map region catalog is available",
                            reason="map_catalog_unavailable") from None
-        region = regions.get(region_id)
+    def _region(self, region_id: str) -> Region:
+        region = self._catalog().get(region_id)
         if region is None:
             raise ApiError(404, "not_found", "Map region not found")
         return region
@@ -190,6 +191,7 @@ class MapPacks:
 
     def list(self) -> Packs:
         root = self._root()
+        self._catalog()
         try:
             packs = [pack for folder in sorted(root.iterdir()) if not folder.name.startswith(".")
                      if (pack := self._installed(folder)) is not None]
@@ -213,6 +215,7 @@ class MapPacks:
 
     def _remove_plan(self, pack_id: str) -> tuple[Path, InstalledPack]:
         root = self._root()
+        self._catalog()
         # Action params are checked against the strict identifier model before reaching here.
         installed = self._installed(root / pack_id)
         if installed is None:

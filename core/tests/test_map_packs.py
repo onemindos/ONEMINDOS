@@ -100,3 +100,13 @@ def test_full_disk_and_unsigned_catalog_never_download(box, clock, monkeypatch):
     response = request_pack(client, clock, "add", {"region_id": REGION_ID})
     assert response.status_code == 503 and response.json()["reason"] == "map_catalog_unavailable", response.text
     assert list(root.iterdir()) == []
+
+
+def test_missing_key_keeps_the_configured_pack_volume_dormant(box, clock):
+    client, root, catalog = box
+    catalog.with_suffix(".pub").unlink()
+    for response in (client.get("/v1/map/packs", headers=OWNER),
+                     request_pack(client, clock, "add", {"region_id": REGION_ID}),
+                     request_pack(client, clock, "remove", {"pack_id": REGION_ID})):
+        assert response.status_code == 503 and response.json()["reason"] == "map_catalog_unavailable", response.text
+    assert list(root.iterdir()) == []

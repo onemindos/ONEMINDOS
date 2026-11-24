@@ -1327,6 +1327,9 @@ KUBECONFIG=$ETC/gateway.kubeconfig
 ONEMIND_SANDBOX_RULES=$PREFIX/sdk/policy/app-objects.yaml
 ONEMIND_SANDBOX_GATEWAY_SA=onemind-system/onemind-gateway
 ONEMIND_NATS_URL=nats://127.0.0.1:4222
+ONEMIND_MAP_PACKS_DIR=/data/onemind/maps/packs
+ONEMIND_MAP_REGION_CATALOG=/usr/lib/onemind/maps/regions.json
+ONEMIND_MAP_REGION_KEY_FILE=/usr/lib/onemind/keys/map-regions.pub
 ONEMIND_HOST=$BIND
 ONEMIND_PORT=8080
 # §11.2: the URL app pods use to reach this gateway (written into each agent app's Secret as
@@ -1369,12 +1372,14 @@ gateway_service() {
   local url=$1
   if [ "$DRY_RUN" = 1 ]; then
     step "Gateway service (:8080, systemd unit onemind-gateway, user onemind)"
+    plan "install -d -m0755 -o onemind -g onemind /data/onemind/maps/packs"
     gateway_env "$url" | show_file "$ETC/gateway.env" 0640 root:onemind
     kubectl_wrapper | show_file "$PREFIX/bin/kubectl" 0755
     plan "install $SCRIPT_DIR/systemd/onemind-gateway.service; systemctl enable onemind-gateway; restart"
     plan "wait for http://127.0.0.1:8080/healthz (up to 60 s)"
     return 0
   fi
+  install -d -m0755 -o onemind -g onemind /data/onemind/maps/packs
   gateway_env "$url" > "$ETC/gateway.env"
   chmod 0640 "$ETC/gateway.env"; chgrp onemind "$ETC/gateway.env"
   # kubectl for the gateway: the k3s multi-call binary run as "kubectl" (same version as the
