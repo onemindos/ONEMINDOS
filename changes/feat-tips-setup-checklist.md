@@ -1,5 +1,5 @@
 ---
-pr: pending
+pr: 1074
 branch: feat/tips-setup-checklist
 ---
 Report passkey, people, verified restore, and recovery kit setup status in Tips from existing gateway reads (Refs #671).
