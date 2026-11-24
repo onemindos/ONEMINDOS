@@ -323,6 +323,7 @@ def test_local_flannel_addresses_reads_only_flannel_interfaces():
 
 
 def test_only_offline_maps_may_request_its_classless_platform_claim(rules):
+    assert "persistentvolumes" in policy.ROLE_FORBIDDEN_RESOURCES
     claim = {"apiVersion": "v1", "kind": "PersistentVolumeClaim",
              "metadata": {"name": "offline-maps-packs"},
              "spec": {"storageClassName": "", "volumeName": "offline-maps-packs"}}

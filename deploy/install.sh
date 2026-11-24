@@ -144,6 +144,7 @@ uninstall() {
   if [ "$DRY_RUN" = 1 ]; then
     step "Uninstall"
     plan "systemctl disable --now onemind-gateway-token.timer onemind-gateway onemind-rescue onemindd onemind-images onemind-nats; remove their unit files"
+    plan "stop and remove the Offline Maps rebind timer, service and helper"
     plan "rm $BIN/onemindd $BIN/onemind $BIN/nats-server"
     plan "run k3s-uninstall.sh / k3s-agent-uninstall.sh if present (k3s and its data)"
     plan "rm /etc/apt/apt.conf.d/52onemind-security-only /etc/needrestart/conf.d/50-onemind.conf"
