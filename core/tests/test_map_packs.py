@@ -64,6 +64,8 @@ def test_agent_requests_but_owner_approves_verified_add_and_remove(box, clock, m
     done = client.post(action, headers=OWNER)
     assert done.json()["state"] == "succeeded", done.text
     assert (root / REGION_ID / "archive.pmtiles").read_bytes() == ARCHIVE
+    assert (root / REGION_ID).stat().st_mode & 0o777 == 0o755
+    assert all(entry.stat().st_mode & 0o777 == 0o644 for entry in (root / REGION_ID).iterdir())
     rows = client.get("/v1/map/packs", headers=OWNER).json()["packs"]
     assert [(r["id"], r["bytes"]) for r in rows] == [(REGION_ID, len(ARCHIVE))]
     response = request_pack(client, clock, "remove", {"pack_id": REGION_ID})

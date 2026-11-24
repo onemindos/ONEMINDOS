@@ -152,6 +152,9 @@ uninstall() {
     return 0
   fi
   log "stopping and removing OneMind services"
+  systemctl disable --now onemind-offline-maps-rebind.timer 2>/dev/null || true
+  systemctl stop onemind-offline-maps-rebind.service 2>/dev/null || true
+  rm -f /etc/systemd/system/onemind-offline-maps-rebind.{service,timer} /usr/lib/onemind/offline_maps_rebind.py
   systemctl disable --now onemind-gateway-token.timer 2>/dev/null || true
   rm -f /etc/systemd/system/onemind-gateway-token.timer
   # The Tailscale client goes only if OneMind installed it (tailscale_install's marker).
@@ -1136,6 +1139,22 @@ dashboard_build() {
 }
 copy_tree_plain() { rm -rf "$2.new"; mkdir -p "$2.new"; cp -R "$1/." "$2.new/"; rm -rf "$2"; mv "$2.new" "$2"; chmod -R a+rX "$2"; }
 
+offline_maps_platform() {
+  local layer="$SRC/os/rootfs/layers/onemind/usr/lib"
+  local manifest="$layer/onemind/manifests/offline-maps-packs-pv.yaml"
+  local rebind=onemind-offline-maps-rebind
+  if [ "$DRY_RUN" = 1 ]; then
+    plan "kubectl apply -f $manifest (platform-owned offline maps)"
+    plan "install and enable $rebind.timer"
+    return 0
+  fi
+  "$BIN/k3s" kubectl apply -f "$manifest"
+  install -D -m0644 "$layer/onemind/offline_maps_rebind.py" /usr/lib/onemind/offline_maps_rebind.py
+  install -m0644 "$layer/systemd/system/$rebind.service" "$layer/systemd/system/$rebind.timer" /etc/systemd/system/
+  systemctl daemon-reload
+  systemctl enable --now "$rebind.timer"
+}
+
 # The gateway's own Kubernetes identity (H-03): deploy/k8s/gateway-rbac.yaml. Cluster-wide it may
 # only manage app-* namespaces and bind onemind-app-deployer inside them (fenced by a
 # ValidatingAdmissionPolicy); its token is a 24-hour bound token renewed every 6 hours by
@@ -1431,6 +1450,7 @@ if [ "$ROLE" = hub ]; then
   nats_install
   dashboard_build
   gateway_kubeconfig
+  offline_maps_platform
   coredns_hub_name
   gateway_tokens
   rescue_install         # after the CA pair and the tokens file it needs

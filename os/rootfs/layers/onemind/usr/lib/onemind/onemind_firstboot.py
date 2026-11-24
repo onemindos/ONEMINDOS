@@ -958,6 +958,7 @@ def ensure_files_root(p: Paths) -> None:
 
 def ensure_map_storage(p: Paths, ids: tuple[int, int] | None) -> None:
     os.makedirs(p.map_packs, mode=0o755, exist_ok=True)
+    os.chmod(p.map_packs, 0o755)
     if ids:
         os.chown(p.map_packs, *ids)
     # Images updated after initial setup already have a gateway.env. Keep explicit settings.

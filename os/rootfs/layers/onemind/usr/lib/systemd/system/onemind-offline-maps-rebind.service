@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: Apache-2.0
+[Unit]
+Description=Re-reserve the retained Offline Maps volume after an app uninstall
+After=k3s.service
+Requisite=k3s.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 -I /usr/lib/onemind/offline_maps_rebind.py
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes

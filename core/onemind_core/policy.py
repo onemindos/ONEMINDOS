@@ -483,7 +483,10 @@ def check_objects(docs: Iterable[Any], app_id: str, manifest: dict, rules: Rules
                 out.append(Violation("V-02", kind, name, rules.msg("V-02"), "spec.externalIPs"))
         elif kind == "PersistentVolumeClaim":
             sc = spec.get("storageClassName")
-            if sc not in rules.storage_classes:
+            # This app alone can reserve the classless PV pre-bound by the platform.
+            map_packs = (app_id == "offline-maps" and name == spec.get("volumeName") == "offline-maps-packs"
+                         and sc == "")
+            if sc not in rules.storage_classes and not map_packs:
                 out.append(Violation("P-01", kind, name, rules.msg("P-01", str(sc)), "spec.storageClassName"))
         elif kind == "Role":
             out.extend(_check_role(obj, rules, name))

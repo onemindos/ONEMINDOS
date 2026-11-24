@@ -40,6 +40,8 @@ spec:
               value: "8080"
             - name: MAPS_DIR
               value: /data/maps
+            - name: MAP_PACKS_DIR
+              value: /packs
             - name: ASSETS_DIR
               value: /data/assets
           envFrom:
@@ -78,6 +80,9 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /data
+            - name: packs
+              mountPath: /packs
+              readOnly: true
             - name: viewer
               mountPath: /opt/onemind
               readOnly: true
@@ -117,6 +122,10 @@ spec:
         - name: data
           persistentVolumeClaim:
             claimName: offline-maps-data
+        - name: packs
+          persistentVolumeClaim:
+            claimName: offline-maps-packs
+            readOnly: true
         - name: viewer
           configMap:
             name: offline-maps-viewer

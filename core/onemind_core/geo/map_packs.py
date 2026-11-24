@@ -269,6 +269,9 @@ class MapPacks:
                     staged.mkdir()
                     self._download(region, staged / PACK_FILE)
                     (staged / RECORD_FILE).write_text(pack.model_dump_json(), encoding="utf-8")
+                    staged.chmod(0o755)
+                    for file in (PACK_FILE, RECORD_FILE):
+                        (staged / file).chmod(0o644)
                     staged.rename(root / region.id)
             except ApiError as exc:
                 finish(ExecResult("failed", str(exc)))

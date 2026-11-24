@@ -208,6 +208,14 @@ else
     | tar -C "$OUT/src" -xf -
 fi
 
+# Use the exact image resources for the offline map volume and its rebind service.
+for file in onemind/manifests/offline-maps-packs-pv.yaml onemind/offline_maps_rebind.py \
+    systemd/system/onemind-offline-maps-rebind.service systemd/system/onemind-offline-maps-rebind.timer; do
+  path="os/rootfs/layers/onemind/usr/lib/$file"
+  mkdir -p "$(dirname "$OUT/src/$path")"
+  install -m0644 "$REPO/$path" "$OUT/src/$path"
+done
+
 # ---- 6. BUNDLE.txt + SHA256SUMS -------------------------------------------------------------
 cat > "$OUT/BUNDLE.txt" <<EOF
 # OneMind offline bundle (deploy/bundle.sh). deploy/install.sh --bundle checks SHA256SUMS first.
