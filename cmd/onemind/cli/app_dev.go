@@ -17,5 +17,6 @@ func moduleCommands(a *App) []*cobra.Command {
 			return appmodule.Dev(cmd.Context(), ".", a.Stdout, a.Stderr)
 		},
 	})
+	app.AddCommand(appTestCommand(a))
 	return []*cobra.Command{app}
 }
