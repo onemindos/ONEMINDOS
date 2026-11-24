@@ -29,7 +29,7 @@ The Market lists `minMemoryMb: 256`, no GPU.
 | Deployment/offline-maps | viewer | 20m / 32Mi | 500m / 192Mi |
 | Deployment/offline-maps | pmtiles | 10m / 32Mi | 1 / 256Mi |
 
-Storage: PVC `offline-maps-data` 16Gi.
+Storage: PVC `offline-maps-data` 16Gi, PVC `offline-maps-packs` 16Gi.
 
 Images:
 
