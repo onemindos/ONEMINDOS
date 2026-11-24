@@ -9,6 +9,7 @@ import { ApiError } from '../api/types';
 import { useNow, usePoll } from '../lib/hooks';
 import { useSignedIn } from '../session';
 import { Load } from './parts';
+import { SubjectCardPanel } from './SubjectCardPanel';
 
 type Query = operations['series.query']['parameters']['query'];
 type Series = operations['series.query']['responses'][200]['content']['application/json'];
@@ -51,6 +52,15 @@ function HistoryCard({ client, document }: { client: OneMind; document: SeriesCa
 
 function LiveDashboards({ token }: { token: string }) {
   const client = useMemo(() => new OneMind({ baseUrl: window.location.origin, token, retries: 1 }), [token]);
+  return (
+    <>
+      <SubjectCardPanel client={client} />
+      <MachineHistory client={client} />
+    </>
+  );
+}
+
+function MachineHistory({ client }: { client: OneMind }) {
   const nodes = usePoll(() => read(client.nodes.list()), SERIES_INTERVAL_S * 1000);
   const [nodeId, setNodeId] = useState('');
   const [metric, setMetric] = useState('cpu_pct');

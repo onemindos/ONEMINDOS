@@ -14,6 +14,7 @@ export interface OneMindEvent {
   id: string;
   type: string;
   ts?: string;
+  severity?: string;
   subject?: Record<string, unknown>;
   data?: Record<string, unknown>;
   actor_id?: string;
@@ -46,6 +47,12 @@ export class EventsApi {
     return this.read(opts, onEvent);
   }
 
+  /** Read the current person's saved subject card through the gateway's filtered feed. */
+  async subscribeDashboardCard(opts: Pick<SubscribeOptions, "signal">,
+                               onEvent: (e: OneMindEvent) => void | Promise<void>): Promise<void> {
+    return this.read(opts, onEvent, undefined, "/v1/me/dashboard-card/events");
+  }
+
   /** Subscribe to the browser's single live feed for this hub and bearer session. */
   async subscribeShared(opts: SharedEventOptions, onEvent: (e: OneMindEvent) => void | Promise<void>): Promise<void> {
     if (opts.signal?.aborted) return;
@@ -58,7 +65,7 @@ export class EventsApi {
   }
 
   private async read(opts: SubscribeOptions, onEvent: (e: OneMindEvent, id: string) => void | Promise<void>,
-                     auth?: Record<string, string>): Promise<void> {
+                     auth?: Record<string, string>, route = "/v1/events"): Promise<void> {
     let last = opts.sinceId ?? "";
     let delay = 1000;
     for (;;) {
@@ -67,7 +74,7 @@ export class EventsApi {
         const retry = await this.once(opts, last, async (e, id) => {
           if (id) last = id;
           await onEvent(e, id);
-        }, auth);
+        }, auth, route);
         if (retry) delay = retry;
       } catch (e) {
         if (opts.signal?.aborted) return;
@@ -88,10 +95,10 @@ export class EventsApi {
   }
 
   private async once(opts: SubscribeOptions, last: string, emit: (e: OneMindEvent, id: string) => Promise<void>,
-                     auth?: Record<string, string>) {
+                     auth: Record<string, string> | undefined, route: string) {
     this.om.checkTransport();
     const qs = opts.types?.length ? `?types=${encodeURIComponent(opts.types.join(","))}` : "";
-    const url = `${this.om.baseUrl}/v1/events${qs}`;
+    const url = `${this.om.baseUrl}${route}${qs}`;
     const headers: Record<string, string> = {
       Accept: "text/event-stream",
       [PROTOCOL_HEADER]: String(PROTOCOL_VERSION),
