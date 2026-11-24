@@ -382,6 +382,17 @@ class NotifyService:
         return ([c.id for c in self.repo.list_channels(person_id)]
                 + [d.id for d in self.repo.list_devices(person_id)])
 
+    def muted(self, person_id: str, topic: str, target: str = routing.IN_APP) -> bool:
+        doc, _ = self.preferences(person_id)
+        return routing.muted(doc, topic, target)
+
+    def _drop_muted(self, delivery: DeliveryRow, notification: NotificationRow | None) -> bool:
+        if notification is None or not self.muted(delivery.person_id, notification.topic, delivery.target_id):
+            return False
+        delivery.state, delivery.next_attempt_at, delivery.last_error = "dropped", None, "topic muted"
+        self.repo.save_delivery(delivery)
+        return True
+
     def _channel_limits(self, person_id: str) -> dict[str, dict]:
         """channel id -> its config, for the per-channel limits (min_severity, per_hour)."""
         return {c.id: json.loads(c.config_json) for c in self.repo.list_channels(person_id)}
@@ -439,6 +450,8 @@ class NotifyService:
             groups: dict[str, list[DeliveryRow]] = defaultdict(list)
             for d in self.repo.released_held(now):
                 n = self.repo.get_notification(d.notification_id)
+                if self._drop_muted(d, n):
+                    continue
                 if n is None or not self._fold_outage(d, n, now):
                     groups[d.target_id].append(d)
             for rows in groups.values():
@@ -458,6 +471,8 @@ class NotifyService:
             tried = 0
             for d in self.repo.due_deliveries(now):
                 n = self.repo.get_notification(d.notification_id)
+                if self._drop_muted(d, n):
+                    continue
                 if n is not None and self._fold_outage(d, n, now):
                     continue
                 tried += 1

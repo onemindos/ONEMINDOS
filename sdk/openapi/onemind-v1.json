@@ -31791,7 +31791,38 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "properties": {
+                    "mutes": {
+                      "description": "Suppress delivery to a channel, device, in_app or all (*) while keeping the inbox item.",
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "channel": {
+                            "type": "string"
+                          },
+                          "topic": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "topic",
+                          "channel"
+                        ],
+                        "type": "object"
+                      },
+                      "maxItems": 50,
+                      "type": "array"
+                    },
+                    "retention_days": {
+                      "description": "Days to keep the person's inbox, defaulting to 90.",
+                      "maximum": 90,
+                      "minimum": 1,
+                      "type": "integer"
+                    }
+                  },
+                  "type": "object"
+                }
               }
             },
             "description": "Successful Response"
@@ -31846,6 +31877,35 @@
           "content": {
             "application/json": {
               "schema": {
+                "properties": {
+                  "mutes": {
+                    "description": "Suppress delivery to a channel, device, in_app or all (*) while keeping the inbox item.",
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "channel": {
+                          "type": "string"
+                        },
+                        "topic": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "topic",
+                        "channel"
+                      ],
+                      "type": "object"
+                    },
+                    "maxItems": 50,
+                    "type": "array"
+                  },
+                  "retention_days": {
+                    "description": "Days to keep the person's inbox, defaulting to 90.",
+                    "maximum": 90,
+                    "minimum": 1,
+                    "type": "integer"
+                  }
+                },
                 "type": "object"
               }
             }

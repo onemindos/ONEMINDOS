@@ -240,8 +240,10 @@ def register(app: FastAPI, gw: Gateway) -> None:
                 row = app.state.notify.repo.get_alert(subject.get("alert_id"))
                 return row is not None and _can_see(p, json.loads(row.audience_json or "{}"))
             if t in ("notification.created", "notification.read"):
-                row = app.state.notify.repo.get_notification(subject.get("notification_id"))
-                return p.kind == "person" and row is not None and row.person_id == p.id
+                service = app.state.notify
+                row = service.repo.get_notification(subject.get("notification_id"))
+                return (p.kind == "person" and row is not None and row.person_id == p.id
+                        and (t != "notification.created" or not service.muted(p.id, row.topic)))
             if t == "notification.read_all":
                 return p.kind == "person" and subject.get("person_id") == p.id
             if t.startswith("notification."):

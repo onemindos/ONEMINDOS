@@ -16,6 +16,7 @@ import { toRoute } from '../shell/routes';
 import { useSignedIn } from '../session';
 import { Link } from 'react-router';
 import { Load, TextField, useRun } from './parts';
+import { TopicDeliverySettings } from './TopicDeliverySettings';
 
 const TONE: Record<Severity, Tone> = { info: 'info', warning: 'warn', critical: 'bad' };
 const KINDS = [
@@ -30,8 +31,8 @@ function capOf(c: ChannelInfo): number | null {
   return typeof v === 'number' ? v : null;
 }
 
-export function Inbox() {
-  const { api } = useSignedIn();
+export function Inbox({ preferences = false }: { preferences?: boolean }) {
+  const { api, person, mock } = useSignedIn();
   const hub = useHub();
   const run = useRun();
   const inbox = usePoll(() => api.notifications({ limit: 100 }), 30_000);
@@ -73,6 +74,7 @@ export function Inbox() {
   return (
     <div className="dash-stack">
       <PageHeader title={t('inbox.title')} lede={t('inbox.lede')} actions={<Button size="sm" variant="secondary" onClick={() => void run(async () => { await api.markAllRead(); await inbox.reload(); }, t('inbox.readAll'))}>{t('inbox.readAll')}</Button>} />
+      {preferences && !mock && <TopicDeliverySettings key={person} channels={channels.data ?? []} />}
       <Load res={inbox} what="Loading notifications">
         {(rows) =>
           rows.length === 0 ? (
@@ -154,4 +156,8 @@ export function Inbox() {
       </Dialog>
     </div>
   );
+}
+
+export function NotificationSettings() {
+  return <Inbox preferences />;
 }
