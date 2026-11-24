@@ -1,0 +1,387 @@
+// SPDX-License-Identifier: Apache-2.0
+
+// Package host runs owner-approved host actions (#146, #142): restart,
+// shutdown, OS install and factory reset. It is `onemindd host serve`, its own
+// privileged unit, reached by the gateway over a Unix socket
+// (docs/leap/core/HOST-ACTIONS.md).
+//
+// It never decides policy: the gateway approves (an owner, never an agent
+// alone), then sends the approved action's id. This service checks the request
+// is well formed and that the box can do it, journals it by action id before
+// anything happens (so a retry never runs it twice and the result survives the
+// reboot it causes), and reports what happened.
+package host
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"log/slog"
+	"regexp"
+	"sync"
+	"time"
+)
+
+// Kinds of host action. The gateway's action types map onto them:
+// system.restart, system.shutdown, system.factory_reset, os.update.install.
+const (
+	KindRestart      = "restart"
+	KindShutdown     = "shutdown"
+	KindFactoryReset = "factory-reset"
+	KindOSInstall    = "os-install"
+)
+
+// Kinds lists every kind in a stable order (GET /v1/status).
+var Kinds = []string{KindRestart, KindShutdown, KindFactoryReset, KindOSInstall}
+
+// Operation states. going_down: the box was told to reboot or power off; the
+// next boot turns it into succeeded.
+const (
+	StateAccepted  = "accepted"
+	StateRunning   = "running"
+	StateGoingDown = "going_down"
+	StateSucceeded = "succeeded"
+	StateFailed    = "failed"
+)
+
+// Terminal reports whether an operation state is final.
+func Terminal(state string) bool { return state == StateSucceeded || state == StateFailed }
+
+var (
+	actionIDRe = regexp.MustCompile(`^[A-Za-z0-9_.:-]{1,128}$`)
+	planHashRe = regexp.MustCompile(`^[0-9a-f]{64}$`)
+	versionRe  = regexp.MustCompile(`^[0-9A-Za-z.+-]{1,64}$`) // the gateway's InstallParams.version
+)
+
+// ErrNoJournal: the journal is not open, so nothing may start (a result that
+// cannot be recorded must not be acted on).
+var ErrNoJournal = errors.New("the host action journal is not available (is /data mounted?)")
+
+// Refusal is a well-formed request the box will not run now. Reason is a
+// stable code for the gateway; Message is for the owner.
+type Refusal struct{ Reason, Message string }
+
+func (r *Refusal) Error() string { return r.Reason + ": " + r.Message }
+
+// Request is POST /v1/operations: the action the owner approved.
+type Request struct {
+	ActionID string `json:"action_id"`
+	Kind     string `json:"kind"`
+	Version  string `json:"version,omitempty"` // os-install only: the version the owner approved
+	// PlanSHA256 (factory-reset only, required) is the hash of the plan the
+	// owner approved (GET /v1/plans/factory-reset). The box wipes only if its
+	// disks still match that exact plan.
+	PlanSHA256 string `json:"plan_sha256,omitempty"`
+}
+
+// Validate refuses a malformed request (HTTP 400).
+func (r Request) Validate() error {
+	if !actionIDRe.MatchString(r.ActionID) {
+		return errors.New("action_id must be 1-128 characters of A-Z a-z 0-9 _ . : -")
+	}
+	switch r.Kind {
+	case KindRestart, KindShutdown, KindFactoryReset:
+		if r.Version != "" {
+			return fmt.Errorf("%s takes no version", r.Kind)
+		}
+		if r.Kind == KindFactoryReset && !planHashRe.MatchString(r.PlanSHA256) {
+			return errors.New("factory-reset needs plan_sha256, the hash of the plan the owner approved (64 hex characters)")
+		}
+		if r.Kind != KindFactoryReset && r.PlanSHA256 != "" {
+			return fmt.Errorf("%s takes no plan_sha256", r.Kind)
+		}
+	case KindOSInstall:
+		if r.PlanSHA256 != "" {
+			return errors.New("os-install takes no plan_sha256")
+		}
+		if !versionRe.MatchString(r.Version) {
+			return errors.New("os-install needs the approved version (1-64 characters of 0-9 A-Z a-z . + -)")
+		}
+	default:
+		return fmt.Errorf("unknown kind %q (restart, shutdown, factory-reset, os-install)", r.Kind)
+	}
+	return nil
+}
+
+// Op is the journal record of one action, keyed by the gateway's action id.
+type Op struct {
+	ID         string     `json:"action_id"`
+	Kind       string     `json:"kind"`
+	Version    string     `json:"version,omitempty"`
+	PlanSHA256 string     `json:"plan_sha256,omitempty"` // factory-reset: the approved plan
+	State      string     `json:"state"`
+	Reason     string     `json:"reason,omitempty"` // failed: a stable code
+	Message    string     `json:"message,omitempty"`
+	BootID     string     `json:"boot_id"` // the boot it was accepted on
+	AcceptedAt time.Time  `json:"accepted_at"`
+	UpdatedAt  time.Time  `json:"updated_at"`
+	FinishedAt *time.Time `json:"finished_at,omitempty"`
+}
+
+// Power turns the box off or restarts it (systemd in production).
+type Power interface {
+	Reboot(ctx context.Context) error
+	PowerOff(ctx context.Context) error
+}
+
+// OSInstaller hands an approved version to the update engine (internal/update).
+type OSInstaller interface {
+	// Unavailable says why this box cannot install OS updates, or "".
+	Unavailable() string
+	// UpdateBusy says why the box must not go down now (an install is
+	// downloading, installing, waiting to reboot or on its health-gate trial), or "".
+	UpdateBusy() string
+	// Install installs version through the engine's normal path (snapshot,
+	// RAUC into the other slot, health-gated trial). goingDown is called just
+	// before the engine reboots. A *Refusal is returned when version is not the
+	// update on offer. With rebooted false, note says why the box stays up.
+	Install(ctx context.Context, version string, goingDown func()) (note string, rebooted bool, err error)
+}
+
+// Resetter arms the two-phase factory reset (HOST-ACTIONS.md §4).
+type Resetter interface {
+	Unavailable() string
+	// Plan inspects the disks now and returns exactly what a reset would erase.
+	Plan(ctx context.Context) ResetPlan
+	// Arm re-plans, refuses unless op.PlanSHA256 still matches, and writes the
+	// marker the next boot's wipe unit acts on.
+	Arm(ctx context.Context, op Op) error
+}
+
+// Service runs the actions. Power, OS and Reset may be nil: that kind is then
+// reported unavailable and refused.
+type Service struct {
+	Store  *Store // nil: status only, every action refused
+	Power  Power
+	OS     OSInstaller
+	Reset  Resetter
+	SMB    SMBManager    // file sharing (smb.go); nil: not on this box
+	BootID string        // /proc/sys/kernel/random/boot_id
+	Delay  time.Duration // before the box goes down, so the gateway records "accepted" first
+	Now    func() time.Time
+	Log    *slog.Logger
+
+	mu     sync.Mutex
+	active *Op
+	wg     sync.WaitGroup
+}
+
+func (s *Service) now() time.Time {
+	if s.Now != nil {
+		return s.Now().UTC()
+	}
+	return time.Now().UTC()
+}
+
+func (s *Service) log() *slog.Logger {
+	if s.Log != nil {
+		return s.Log
+	}
+	return slog.New(slog.DiscardHandler)
+}
+
+// Unavailable says why kind cannot run on this box now, or "".
+func (s *Service) Unavailable(kind string) string {
+	if s.Store == nil {
+		return ErrNoJournal.Error()
+	}
+	switch kind {
+	case KindRestart, KindShutdown:
+		if s.Power == nil {
+			return "this host service has no power control"
+		}
+	case KindOSInstall:
+		if s.OS == nil {
+			return "this box has no OS update engine"
+		}
+		return s.OS.Unavailable()
+	case KindFactoryReset:
+		if s.Reset == nil {
+			return "factory reset is not in this OneMind version yet: the early-boot wipe ships separately (HOST-ACTIONS.md §4)"
+		}
+		return s.Reset.Unavailable()
+	}
+	return ""
+}
+
+// Active is the action running or taking the box down, or nil.
+func (s *Service) Active() *Op {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.active == nil {
+		return nil
+	}
+	c := *s.active
+	return &c
+}
+
+// Submit records and starts an approved action. A repeat of a known action id
+// with the same request returns the journaled operation (created false) and
+// starts nothing.
+func (s *Service) Submit(ctx context.Context, req Request) (op Op, created bool, err error) {
+	if err := req.Validate(); err != nil {
+		return Op{}, false, err
+	}
+	if s.Store == nil {
+		return Op{}, false, ErrNoJournal
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if old, err := s.Store.Get(req.ActionID); err == nil {
+		if old.Kind != req.Kind || old.Version != req.Version || old.PlanSHA256 != req.PlanSHA256 {
+			return Op{}, false, &Refusal{"action_id_reused", "action " + req.ActionID + " was already sent as a different request"}
+		}
+		if s.active != nil && s.active.ID == old.ID {
+			return *s.active, false, nil
+		}
+		return old, false, nil
+	} else if !errors.Is(err, ErrNotFound) {
+		return Op{}, false, err
+	}
+	if s.active != nil {
+		return Op{}, false, &Refusal{"busy", fmt.Sprintf("%s (action %s) is still %s", s.active.Kind, s.active.ID, s.active.State)}
+	}
+	if why := s.Unavailable(req.Kind); why != "" {
+		return Op{}, false, &Refusal{"unavailable", why}
+	}
+	// A restart, shutdown or reset in the middle of an OS update would cut the
+	// install short or spend one of the health gate's trial boots.
+	if req.Kind != KindOSInstall && s.OS != nil {
+		if why := s.OS.UpdateBusy(); why != "" {
+			return Op{}, false, &Refusal{"update_in_progress", why}
+		}
+	}
+	if req.Kind == KindFactoryReset {
+		// The owner approved one plan. If the disks changed since (a member
+		// added or pulled), nothing is armed: the owner must see the new plan.
+		if p := s.Reset.Plan(ctx); p.SHA256 != req.PlanSHA256 {
+			return Op{}, false, &Refusal{"plan_changed", "the disks changed since the plan you approved; request the factory reset again to see the new plan"}
+		}
+	}
+	now := s.now()
+	op = Op{ID: req.ActionID, Kind: req.Kind, Version: req.Version, PlanSHA256: req.PlanSHA256, State: StateAccepted, BootID: s.BootID,
+		AcceptedAt: now, UpdatedAt: now, Message: "accepted"}
+	if err := s.Store.Put(op); err != nil {
+		return Op{}, false, err
+	}
+	s.active = &op
+	cp := op
+	s.wg.Add(1)
+	go func() {
+		defer s.wg.Done()
+		s.run(ctx, cp)
+	}()
+	s.log().Info("host action accepted", "action_id", op.ID, "kind", op.Kind, "version", op.Version)
+	return op, true, nil
+}
+
+// Wait blocks until running actions return (tests, shutdown).
+func (s *Service) Wait() { s.wg.Wait() }
+
+// set journals a state change of the active operation.
+func (s *Service) set(op *Op, state, reason, msg string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	op.State, op.Reason, op.Message, op.UpdatedAt = state, reason, msg, s.now()
+	if Terminal(state) {
+		t := op.UpdatedAt
+		op.FinishedAt = &t
+	}
+	if err := s.Store.Put(*op); err != nil {
+		s.log().Error("host journal write failed", "action_id", op.ID, "err", err)
+	}
+	if Terminal(state) {
+		s.active = nil
+	} else {
+		c := *op
+		s.active = &c
+	}
+	s.log().Info("host action", "action_id", op.ID, "kind", op.Kind, "state", state, "reason", reason, "message", msg)
+}
+
+func (s *Service) run(ctx context.Context, op Op) {
+	switch op.Kind {
+	case KindRestart, KindShutdown:
+		select {
+		case <-ctx.Done(): // the service is stopping: Resume reports it on the next start
+			return
+		case <-time.After(s.Delay):
+		}
+		down, msg := s.Power.Reboot, "restarting"
+		if op.Kind == KindShutdown {
+			down, msg = s.Power.PowerOff, "shutting down"
+		}
+		s.set(&op, StateGoingDown, "", msg)
+		if err := down(ctx); err != nil {
+			s.set(&op, StateFailed, "host_error", msg+" failed: "+err.Error())
+		}
+	case KindOSInstall:
+		s.set(&op, StateRunning, "", "installing "+op.Version+" through the update engine")
+		note, rebooted, err := s.OS.Install(ctx, op.Version, func() {
+			s.set(&op, StateGoingDown, "", "installed "+op.Version+"; rebooting into it for the health gate's trial")
+		})
+		var r *Refusal
+		switch {
+		case errors.As(err, &r):
+			s.set(&op, StateFailed, r.Reason, r.Message)
+		case err != nil:
+			s.set(&op, StateFailed, "engine_error", err.Error())
+		case !rebooted:
+			s.set(&op, StateSucceeded, "", note)
+		}
+	case KindFactoryReset:
+		s.set(&op, StateRunning, "", "arming the factory reset")
+		if err := s.Reset.Arm(ctx, op); err != nil {
+			s.set(&op, StateFailed, "host_error", "the factory reset could not be armed; nothing was wiped: "+err.Error())
+			return
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(s.Delay):
+		}
+		s.set(&op, StateGoingDown, "", "restarting to wipe the box")
+		if err := s.Power.Reboot(ctx); err != nil {
+			s.set(&op, StateFailed, "host_error", "restart failed: "+err.Error()+"; the reset stays armed for the next boot")
+		}
+	}
+}
+
+// Resume settles what the last run left open, at start: an action that took
+// the box down on an earlier boot succeeded; anything else left open was
+// interrupted, and is reported failed rather than run again unasked.
+func (s *Service) Resume() error {
+	if s.Store == nil {
+		return nil
+	}
+	all, err := s.Store.List()
+	if err != nil {
+		return err
+	}
+	for i := range all {
+		op := all[i]
+		if Terminal(op.State) {
+			continue
+		}
+		earlier := op.BootID != s.BootID
+		switch {
+		case op.Kind == KindFactoryReset && earlier:
+			// The journal lives on /data, which the wipe erases: a record that
+			// survived a reboot means the box was not wiped.
+			s.set(&op, StateFailed, "not_wiped", "the box restarted but was not wiped (the early-boot wipe did not run)")
+		case op.State == StateGoingDown && earlier:
+			msg := map[string]string{
+				KindRestart:  "the box restarted",
+				KindShutdown: "the box shut down (and has been started again)",
+				KindOSInstall: "rebooted into " + op.Version +
+					"; the health gate decides whether it is kept (OS updates screen)",
+			}[op.Kind]
+			s.set(&op, StateSucceeded, "", msg)
+		case earlier:
+			s.set(&op, StateFailed, "interrupted", "the box restarted before this action finished (a power cut?)")
+		default:
+			s.set(&op, StateFailed, "interrupted", "the host service restarted before this action finished")
+		}
+	}
+	return nil
+}

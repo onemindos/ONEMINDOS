@@ -2,25 +2,26 @@
 """UMB-P07 (#144): `/v1/me/home`, the caller's own Home document (docs/umbrel2/desktop-ui.md §4.3).
 
 A person reads and writes only their own document. A write is a direct self write (API.md P3), audited as
-`home.updated` with the names of the changed fields (never their values). `If-Match` is required on a write.
+`home.updated` with the names of the changed fields (never their values, so link names and addresses are not logged). `If-Match` is required on a write.
 """
 from fastapi import Depends, FastAPI, Request, Response
 
 from ..auth import Principal
 from ..context import Gateway
 from ..errors import ApiError, error_responses
-from ..home import (HomeBody, HomeService, HomeView, drop_invisible, etag_of, item_ids, normalise)
+from ..home import (HomeBody, HomeService, HomeView, drop_invisible, etag_of, item_ids, link_ids, normalise)
 from ..identity.scopes import register_route_scope
 
 # Route order in the app and in /openapi.json (routers/__init__.py).
 ORDER = 215
 
+# Self-service like /v1/auth/*: the handler checks the caller is a person.
+register_route_scope("GET,HEAD,PUT", r"/v1/me/home", None)
+
 
 def register(app: FastAPI, gw: Gateway) -> None:
     svc = HomeService(gw.db)
     app.state.home = svc
-    # Self-service like /v1/auth/*: the handler checks the caller is a person.
-    register_route_scope("GET,HEAD,PUT", r"/v1/me/home", None)
 
     def person(p: Principal = Depends(gw.principal)) -> Principal:
         if p.kind != "person":
@@ -28,7 +29,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
             raise ApiError(403, "permission_denied", "only a person has a Home")
         return p
 
-    def visible_fn(request: Request, p: Principal):
+    def visible_fn(request: Request, p: Principal, links: frozenset[str] = frozenset()):
         apps = gw.catalog.load()
         nodes = {n["node_id"] for n in gw.registry.list()}
 
@@ -38,6 +39,8 @@ def register(app: FastAPI, gw: Gateway) -> None:
                 return ident in apps and all(f(request, p, ident) for f in gw.app_filters)
             if kind == "node":
                 return ident in nodes
+            if kind == "link":
+                return item in links  # a link exists only because this person's own document defines it
             return kind == "sys"
 
         return visible
@@ -45,7 +48,8 @@ def register(app: FastAPI, gw: Gateway) -> None:
     def resolved(request: Request, p: Principal) -> dict:
         doc = svc.stored(p.id) or HomeBody().model_dump()
         doc = normalise(doc, owner=p.is_owner)
-        return drop_invisible(doc, visible_fn(request, p))
+        doc.setdefault("links", [])
+        return drop_invisible(doc, visible_fn(request, p, frozenset(link_ids(doc))))
 
     def send(response: Response, doc: dict) -> dict:
         response.headers["ETag"] = etag_of(doc)
@@ -58,7 +62,11 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return send(response, resolved(request, p))
 
     @app.put("/v1/me/home", operation_id="me.home.save", tags=["me"], response_model=HomeView,
-             responses=error_responses(401, 403, 412, 422, 428))
+             responses=error_responses(401, 403, 412, 422, 428),
+             # Keep the handler's 428 for a missing header, rather than FastAPI's validation 422.
+             openapi_extra={"parameters": [{"name": "If-Match", "in": "header", "required": True,
+                                            "schema": {"type": "string"},
+                                            "description": "The ETag read from GET /v1/me/home."}]})
     def save(body: HomeBody, request: Request, response: Response, p: Principal = Depends(person)):
         match = request.headers.get("if-match")
         if match is None:
@@ -67,7 +75,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         if match.strip() != "*" and match.strip().removeprefix("W/") != etag_of(current):
             raise ApiError(412, "stale_precondition", "Home changed elsewhere; read it again", reason="etag_mismatch")
         doc = normalise(body.model_dump(exclude={"updated_at"}), owner=p.is_owner)
-        visible = visible_fn(request, p)
+        visible = visible_fn(request, p, frozenset(link_ids(doc)))
         # A stored id must never reveal an app this person may not see: refuse it, as if it did not exist.
         bad = [i for i in item_ids(doc) if not visible(i)]
         if bad:

@@ -8,7 +8,7 @@ Reach your OneMind from anywhere through Tor, even behind CGNAT, with no server 
 | | |
 |---|---|
 | Version | 0.1.0 (upstream release `0.1.0`, published 2026-11-15) |
-| Licence | `Apache-2.0`, Market class L1 by SPDX id; not yet confirmed by the licence gate |
+| Licence | `Apache-2.0`, Market class **L1** (licence gate, scan of 2026-11-21) |
 | Tier | `community` (set by CI: sdk/tools/app-gate) |
 | Category | network |
 | GitHub | <https://github.com/onemindos/ONEMINDOS> |
@@ -67,9 +67,16 @@ Terms: an **onion service** is an address ending in `.onion` that is reachable o
 
 - The gateway path is not built yet (#284, the next PR). The onion service forwards to the dashboard at `ONEMIND_DASHBOARD_TARGET` (`ip:port`), which the gateway will provide as ConfigMap `onemind-gateway-path`, together with an egress allowance to that port only. Until then the init container stops with a clear message, so the app reports failed rather than pretending to work.
 - QR codes for the address and the keys are not in this version: copy the text instead.
-- Accepting the box's own `.onion` host in the gateway's Host and Origin checks is also the next PR. Whether the sign-in cookies work over `.onion` stays UNVERIFIED until that PR tests it in Tor Browser.
+- The sign-in now accepts a well-formed `.onion` address as its WebAuthn origin over `http://` (#284 PR B1; the gateway has no other Host allow-list, and it does not yet compare the address with this box's own, which waits for `onemind-gateway-path`). **Over Tor, sign in with the password.** A passkey works only on the address it was made for, so a home-network passkey does not work on the `.onion`. **Registering a passkey over the `.onion` is refused** (403, `passkey_enrolment_unavailable_on_onion`): an onion-bound passkey could not be used at home, and once an owner has any passkey, owner approvals need one, so it would lock approvals at home. Add passkeys on the home network. A follow-up on #284 must add an owner-approved, single-use onion enrolment. A box that sets `ONEMIND_IDENTITY_ORIGINS` does not get the onion origin. Whether the sign-in cookies work over `.onion` stays UNVERIFIED until it is tested in Tor Browser (a hardware step on #284).
 <!-- onemind:notes:end -->
 
 ## Latest security scan
 
-No scan yet. `sdk/tools/app-gate` writes `scan.json` (contract §9.4, §11.1).
+Scanned 2026-11-21T16:03:20Z by `sdk/tools/app-gate`: **fail**. Licence `Apache-2.0` class L1; smoke test fail.
+
+| Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
+|---|---|---|---|---|---|---|
+| `docker.io/library/python:3.14.10-slim-trixie@sha256:9aaa474097d094040649f2162a627c0049b408f52138d980916788d80f04802f` | amd64, arm64 | 0 (0) | 56 | 0 infected (daily-28190) | 0 | unsigned |
+| `docker.io/leplusorg/tor:4.9.17@sha256:276c6c28bf5e888195004fd13786fedeb30173169279158b3a4dfc0ae7e67cfe` | amd64, arm64 | 0 (0) | 1 | 0 infected (daily-28190) | 0 | unsigned |
+
+Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

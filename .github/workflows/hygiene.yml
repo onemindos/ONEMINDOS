@@ -4,23 +4,36 @@ name: hygiene
 on:
   workflow_dispatch:   # docs/testing/README.md §2 (test-all)
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
   merge_group:   # lets a GitHub merge queue be enabled later
   push:
     branches: [main]
 permissions:
   contents: read
+concurrency:
+  group: hygiene-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   hygiene:
-    runs-on: ubuntu-24.04
+    # CI-13 (#299): arm64-safe, no secrets, no Docker. Local Mac runner when LOCAL_RUNNER=on and the event is
+    # trusted (never a fork PR); otherwise GitHub-hosted. docs/learning/self-hosted-runner.md
+    # merge_group only runs code already approved into the queue, so it is always trusted (no fork check); MQ_RUNNER unset keeps the old routing.
+    runs-on: ${{ (vars.MQ_RUNNER == 'on' && github.event_name == 'merge_group') && fromJSON('["self-hosted","onemind-mq"]') || (vars.DO_RUNNER == 'on' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","onemind-do"]') || (vars.LOCAL_RUNNER == 'on' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","onemind-local"]') || 'ubuntu-24.04' }}
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           fetch-depth: 0
-      - name: Install gitleaks 8.30.1 (pinned, sha256-checked)
+      - name: Install gitleaks 8.30.1 (pinned, sha256-checked; x64 on GitHub, arm64 on the Mac runner)
         run: |
-          curl -fsSL -o /tmp/gl.tgz https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz
-          echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  /tmp/gl.tgz" | sha256sum -c -
+          case "$(uname -m)" in
+            x86_64) arch=x64 sum=551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb ;;
+            aarch64|arm64) arch=arm64 sum=e4a487ee7ccd7d3a7f7ec08657610aa3606637dab924210b3aee62570fb4b080 ;;
+            *) echo "unsupported architecture: $(uname -m)" >&2; exit 1 ;;
+          esac
+          curl -fsSL -o /tmp/gl.tgz "https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_${arch}.tar.gz"
+          echo "${sum}  /tmp/gl.tgz" | sha256sum -c -
           sudo tar -xzf /tmp/gl.tgz -C /usr/local/bin gitleaks && gitleaks version
       - name: make hygiene
         env:

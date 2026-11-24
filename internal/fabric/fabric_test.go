@@ -17,6 +17,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"math/big"
 	"net"
@@ -190,10 +191,17 @@ func (f *fakeTS) Run(_ context.Context, args ...string) ([]byte, error) {
 	return nil, nil
 }
 
-type fakeSys struct{ calls []string }
+type fakeSys struct {
+	calls []string
+	fail  string // a call that starts with this fails (e.g. "enable" on the read-only OS image)
+}
 
 func (s *fakeSys) Systemctl(_ context.Context, args ...string) error {
-	s.calls = append(s.calls, strings.Join(args, " "))
+	call := strings.Join(args, " ")
+	s.calls = append(s.calls, call)
+	if s.fail != "" && strings.HasPrefix(call, s.fail) {
+		return errors.New("systemctl " + call + ": Read-only file system")
+	}
 	return nil
 }
 func (s *fakeSys) Chown(string, string) error { return nil }
@@ -250,7 +258,7 @@ func TestJoinEndToEnd(t *testing.T) {
 	os.MkdirAll(filepath.Join(root, "etc"), 0o755)
 	os.WriteFile(filepath.Join(root, HostsFile), []byte("127.0.0.1 localhost\n"), 0o644)
 	os.MkdirAll(filepath.Join(root, "etc/onemind"), 0o755)
-	os.WriteFile(filepath.Join(root, OnemindEnv), []byte("ONEMIND_NATS_URL=nats://old:4222\nONEMIND_NODE_ROLE=node\nOTHER=1\n"), 0o644)
+	os.WriteFile(filepath.Join(root, OnemindEnv), []byte("ONEMIND_NATS_URL=nats://old:4222\nONEMIND_NODE_ROLE=node\nONEMIND_NODE_ID=prejoin000000\nOTHER=1\n"), 0o644)
 	ts, sys := &fakeTS{}, &fakeSys{}
 	var out bytes.Buffer
 	in := &Installer{Root: root, Sys: sys, Mesh: &mesh.Client{Runner: ts, Now: time.Now}, Out: &out, EnrollTimeout: 5 * time.Second}
@@ -296,6 +304,10 @@ func TestJoinEndToEnd(t *testing.T) {
 	env := read(OnemindEnv)
 	if !strings.Contains(env, "ONEMIND_NATS_URL=nats://127.0.0.1:4222") || strings.Contains(env, "nats://old") || !strings.Contains(env, "OTHER=1") {
 		t.Fatalf("env:\n%s", env)
+	}
+	// onemindd must publish under the joined identity, not the id firstboot wrote before the join
+	if !strings.Contains(env, "ONEMIND_NODE_ID=n1\n") || strings.Contains(env, "prejoin000000") || strings.Count(env, "ONEMIND_NODE_ID=") != 1 {
+		t.Fatalf("node id in env:\n%s", env)
 	}
 	if got := strings.Join(sys.calls, "; "); !strings.Contains(got, "restart tailscaled.service") ||
 		!strings.Contains(got, "enable --now onemind-nats-leaf.service") || !strings.Contains(got, "restart onemindd.service") {
@@ -361,3 +373,24 @@ func contains(list []string, s string) bool {
 	}
 	return false
 }
+
+// On the OS image `systemctl enable` fails (read-only /etc): the leaf is started anyway (#292).
+func TestStartLeafWhenEnableFails(t *testing.T) {
+	sys := &fakeSys{fail: "enable"}
+	var out bytes.Buffer
+	in := &Installer{Sys: sys, Out: &out}
+	if err := in.startLeaf(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Join(sys.calls, "; "); got != "enable --now onemind-nats-leaf.service; start onemind-nats-leaf.service" {
+		t.Fatalf("systemctl calls: %s", got)
+	}
+	if err := (&Installer{Sys: failAll{}, Out: &out}).startLeaf(context.Background()); err == nil {
+		t.Fatal("a start that fails too must fail the join")
+	}
+}
+
+type failAll struct{}
+
+func (failAll) Systemctl(context.Context, ...string) error { return errors.New("no systemd") }
+func (failAll) Chown(string, string) error                 { return nil }

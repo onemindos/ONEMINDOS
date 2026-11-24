@@ -1,0 +1,30 @@
+{
+  "scanned_at": "2026-11-21T15:56:02Z",
+  "result": "pass",
+  "images": [
+    {
+      "ref": "docker.io/vikunja/vikunja:2.8.0@sha256:35d937baf3b5d5803bed6b9e11d007448b7b536df9e4346dc35551e1072636c3",
+      "archs": [
+        "amd64",
+        "arm64"
+      ],
+      "trivy": {
+        "version": "0.76.2",
+        "critical_fixable": 0,
+        "critical": 0,
+        "high": 1
+      },
+      "clamav": {
+        "signatures": "daily-28190",
+        "infected": 0
+      },
+      "secrets": 0,
+      "cosign": "unsigned"
+    }
+  ],
+  "licence": {
+    "spdx": "AGPL-3.0",
+    "class": "L2"
+  },
+  "smoke": "pass"
+}

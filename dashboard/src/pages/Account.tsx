@@ -90,7 +90,7 @@ export function Account() {
                   render: (r) =>
                     r.current ? null : (
                       <Button size="sm" variant="ghost" aria-label={t('account.sessions.revoke', { name: r.client })} onClick={() => void run(async () => { await api.revokeSession(r.id); await sessions.reload(); }, t('account.sessions.revoke', { name: r.client }))}>
-                        Sign out
+                        {t('account.signout')}
                       </Button>
                     ),
                 },

@@ -2,6 +2,7 @@
 
 **Status:** kit-ready (blocked: founder-hardware) · **Time:** about 1 hour on the box, plus about 30 min of image build on the Mac · **Milestone:** BM1 (brief 30 §7, never-cut list) · **Serves:** REC-DEC-05, -07, -23, -31, -34; DC-12; Z-03; R-1, R-2, P-7
 **Criteria:** [CRITERIA-22.md](CRITERIA-22.md), copied verbatim from `research-output/22-HARDWARE-LAB-TEST-PLAN.md` §3. They are not edited here. **Prerequisite:** LT-X86-00 done on the same box.
+**Part 1, the real install:** to put the shipping installer image on the Beelink first (macOS stick steps, BIOS settings, first boot, owner sign-in, pass checks), follow [INSTALL-BEELINK.md](INSTALL-BEELINK.md) and fill [RESULT-INSTALL.md](RESULT-INSTALL.md). The rest of this README (rollback tests) is **part 2** and uses a separate test-only image.
 
 > **Explain it like I'm the founder.** The QEMU battery already proves, inside a virtual machine, that a bad update rolls itself back. This kit proves the same on your **real Beelink**: real firmware, a real USB SSD, a real watchdog chip. You write a test image to a **spare** USB SSD and a stick of test updates to a second USB stick, boot the Beelink from the SSD, and run one command per test. After each reboot you touch nothing: the box must decide by itself whether the update is good (keep it) or bad (go back). Nothing on the Beelink's internal disk is touched.
 
@@ -60,6 +61,8 @@ rauc install /run/onemind-test/bundles/plain-good.raucb                         
 curl -s localhost:10248/healthz; echo                                          # "ok" on the committed slot
 cat /data/onemind/gate.log /data/onemind/bad-releases
 ```
+> Shortcut: [`../G1/`](../G1/README.md) runs this section C sequence for you (plus 10 rollback rounds), resumes after each reboot and writes `result.json`. Nothing there has run on hardware yet.
+
 ### D. Record
 1. Copy the gate log off the box (the stick is read-only; use a third stick or a photo), run it through `sh lab-kits/common/redact.sh`, and write `research-output/evidence/lab/founder-hardware/LT-X86-01.md` from [`../common/RESULT-TEMPLATE.md`](../common/RESULT-TEMPLATE.md).
 2. Write down the **good-commit time** (`RESULT mark-good … after Ns`) and the **bad-k3s decision time**. 22 says: set the production gate deadline to about 3× the good-commit time (`ONEMIND_GATE_TIMEOUT` in `os/gate/onemind-health-gate.default`).

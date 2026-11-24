@@ -29,7 +29,7 @@
   "arch": "amd64",
   "os": {"id": "debian", "version_id": "13", "pretty": "Debian GNU/Linux 13 (trixie)"},
   "kernel": "6.12.0-amd64",
-  "cpu_model": "…", "cpus": 4,
+  "cpu_model": "…", "cpus": 4, "cpu_level": "x86-64-v3",
   "mem_total_mb": 7800, "mem_available_mb": 5100,
   "disk_total_gb": 238.0, "disk_free_gb": 190.2,
   "tpm2": false,
@@ -496,7 +496,10 @@ All optional. **Absent means "this agent does not report it", never "false" or "
 "storage": {"state": "protected", "mount": "/data", "used_bytes": 0, "free_bytes": 0,
             "needs_scrub": false, "reasons": []},
 "fabric":  {"role": "worker", "leaf_link": "up", "outbox_pending": 0, "cert_expires_at": "…"},
-"metrics": {"cpu_pct": 12.5, "load1": 0.52, "temp_c": 61.3}
+"metrics": {"cpu_pct": 12.5, "load1": 0.52, "temp_c": 61.3},
+"images":  {"count": 12, "bytes": 0, "superseded_bytes": 0, "disk_used_pct": 41.5, "budget_pct": 80,
+            "warn_pct": 70, "last_cleanup_at": "…", "last_result": "succeeded", "last_removed": 0,
+            "last_freed_bytes": 0}
 ```
 - `update` is exactly the struct in `internal/heartbeat` (PR #15): `state` is `idle|downloading|installing|pending_reboot|trial|committed|rolled_back|error`; `available_version` and `last_check` may be null.
 - `mesh.state` is `up|down|none`, `mesh.path` is `direct|relayed|none`. Mesh addresses are never in the heartbeat; the gateway reads them from the coordinator.
@@ -504,6 +507,7 @@ All optional. **Absent means "this agent does not report it", never "false" or "
 - `storage.state` is `protected|unprotected|degraded|unavailable|unsupported` (`internal/storage`); `reasons` are short slugs; disks are reported only through the owner-only storage API, never in the heartbeat.
 - `fabric.role` is `hub|worker|leaf` (the top-level §2 `role` stays `hub|node`); `leaf_link` is `up|down|none`.
 - `metrics` (added 2026-11-12, CORE-NOTIFY monitoring): `cpu_pct` is busy time since the previous heartbeat, `load1` the 1-minute load average, `temp_c` the hottest thermal zone; each may be null.
+- `images` (added 2026-11-19, NMD-08 #133): the hub's image cleaner (`onemindd images`, `internal/imagegc`). `last_result` is `succeeded|partial|skipped|failed|none`; `last_cleanup_at` may be null; `disk_used_pct` is 0 when the disk could not be read. The gateway opens `disk.budget_near` (topic `storage`) when `disk_used_pct` reaches `warn_pct` and resolves it (`disk.budget_ok`) 2 points below.
 - The gateway adds `received_at` and `clock_skew_s` when it serves nodes; they are not in the published heartbeat.
 
 ### 12.11 Fabric: join ticket → node request → owner approval
@@ -676,7 +680,7 @@ Gaps PD-09…PD-13 and PD-17 of [`docs/strategy/umbrel-parity.md`](../../docs/st
 
 **Manifest** (`spec`, the schema follows; each list is optional):
 - `spec.settings` (≤ 50): `{name, env, type, title?, description?, default?, enum?, minimum?, maximum?, minLength?, maxLength?, pattern?, restart?}`, a JSON Schema subset per field. `type` is `string|integer|number|boolean`; §12.18's `int`, `bool` and `enum` are accepted as aliases (`enum` is a `string` with `enum`). `name` matches `^[a-z][a-z0-9_]{0,62}$`, `env` matches `^[A-Z][A-Z0-9_]{0,62}$`, both unique. `restart` (default `true`) says a change restarts the app's workloads. Python's `re` has no time limit, so `pattern` (≤ 200 characters) must not quantify a group (`?` excepted), use back-references or lookarounds, or have more than two unbounded quantifiers, and a value checked against a pattern is at most 256 characters. **Settings are not secret** (they are kept in the action ledger and the audit log): a `name` or `env` containing `password`, `secret`, `token`, `api_key`, `apikey` or `private_key` (any case) is refused; secrets go through `spec.secrets` and `sealed` (§12.1). The gateway delivers the values as ConfigMap `onemind-settings` in `app-<id>` (one key per `env`, booleans as `true`/`false`); workloads read it with `envFrom: [{configMapRef: {name: onemind-settings, optional: true}}]`.
-- `spec.dependencies` (≤ 10): `{id, alternatives?: [app ids], reason?}`. Satisfied when `id` or any alternative is installed.
+- `spec.dependencies` (≤ 10): `{id, alternatives?: [app ids], reason?, port?}`. Satisfied when `id` or any alternative is installed. `port` is the provider's Service port the app calls (see **Dependency network paths** below).
 - `spec.hostPorts` (≤ 10): `{port, protocol: tcp|udp, description}`. The default is no host port: apps are reached through the gateway. A declaration is conflict-checked against every other app's declaration and the ports OneMind itself uses (`sdk/policy/host-ports.yaml`): by the app CI gate across the catalog, and by the gateway per node at request and at approval. **Declaring a port does not let the manifests bind it:** the install sandbox still refuses `hostPort` and `hostNetwork` (rules F-05, F-01) until a reviewed exception exists.
 
 **Catalog entries** (`GET /v1/apps`, `GET /v1/apps/{id}`) gain `catalog_source: {id, name, commit} | null` (null for the official catalog).
@@ -684,7 +688,7 @@ Gaps PD-09…PD-13 and PD-17 of [`docs/strategy/umbrel-parity.md`](../../docs/st
 | Method and path | Who | Returns |
 |---|---|---|
 | `GET /v1/apps/{id}/settings` | any principal; `values` only for person owner or adult (others get `null`) | `{app_id, fields: [<spec.settings field>], values: {name: value} \| null, updated_at, action_id}` |
-| `GET /v1/apps/{id}/dependencies` | any principal | `{app_id, requires: [{id, alternatives, reason, satisfied_by: <app id> \| null, choices: [{id, name, in_catalog, installed}]}], dependents: [{id, name}]}`; `dependents` are installed apps that would lose their last provider if this app were removed |
+| `GET /v1/apps/{id}/dependencies` | any principal | `{app_id, requires: [{id, alternatives, reason, port, satisfied_by: <app id> \| null, choices: [{id, name, in_catalog, installed}]}], dependents: [{id, name}]}`; `dependents` are installed apps that would lose their last provider if this app were removed |
 | `GET /v1/apps/{id}/host-ports?node_id=` | any principal | `{app_id, node_id, declared: [{port, protocol, description}], conflicts: [{port, protocol, with}]}`; `with` is an app id or `onemind:<what>` |
 | `GET /v1/apps/{id}/exposure` | any principal | `{app_id, tier: private\|mesh\|public, names: [host names], updated_at, action_id}` |
 | `POST /v1/deploy/compose` | person owner | body `{app_id, name?, compose}` (Compose YAML text ≤ 256 KiB, at most 100 levels deep, read with a safe loader) → `200 {ok, app_id, files: {path: text}, refusals: [{service, rule, field, message}], warnings: [..]}`. Converts to a private app folder (manifest with `metadata.origin: private`, kustomization, Deployments, Services, PVCs). **No side effects**: nothing is written or installed. Anything the install sandbox would refuse is a refusal naming its rule (F-01…F-07, S-01, I-01) and `ok` is `false`; keys it does not understand are refused too. Audited `deploy.compose.converted` |
@@ -707,6 +711,12 @@ Gaps PD-09…PD-13 and PD-17 of [`docs/strategy/umbrel-parity.md`](../../docs/st
 **Community sources.** `name` is a DNS label of at most 20 characters, unique; `url` is `https://` with no user info, query or fragment; `commit` is 40 hex characters. The host must not resolve to a link-local, loopback, multicast, unspecified or reserved address (`422`, reason `source_host_refused`, checked at request, at approval and again at fetch); a host on the local network is allowed because an owner names and approves it. The gateway fetches exactly that commit (never a branch head) with hooks, symlinks, submodules and LFS off, and refuses a checkout over its size limits. App ids from a source must start with `<name>-`; an id the official catalog already has is ignored. A source app's tier is at most `community`, and its repository's `scan.json` is ignored: `app.install` needs an **on-box scan record** for the pinned commit (static checks plus an image scan) that passed and is at most 7 days old (§10.3). The box scans when a source is added or moved and again at an install request when the record is missing or stale. Without an image scanner on the box (CORE-DEPLOY-2) the record is `fail` and the install is refused. Moving a source reports which apps were added, removed or changed.
 
 **Exposure.** `private`: the LAN names only (`<app>.onemind.local`); `mesh`: also the mesh name `<app>.apps.onemind.internal` (§12.11, NETWORKING §9); `public`: parked. Every install starts `private`; a removal resets it. The gateway's app proxy and forward-auth answer `404` for a mesh name of an app that is not `mesh` or `public`. A change is published as event `app.exposure.changed`.
+
+**Dependency network paths** (amendment 2026-11-14; additive). The per-app default-deny NetworkPolicy (H-04) stays; a satisfied dependency adds one narrow, owner-approved path and nothing else.
+- **Field.** A `spec.dependencies` entry may add `port` (integer 1–65535): the Service port the dependent calls on its provider. Without it the port is the provider's `spec.web.port`; with neither, no path is opened and the plan says so in `warnings`.
+- **What opens.** For an `app.install`, `app.update` or `app.configure` of app D, each requirement satisfied by an installed provider P (P ≠ D) gives one path `app-D → app-P`, TCP, on that port. The gateway writes NetworkPolicy `onemind-dependencies` in `app-D` (egress to every pod of namespace `app-P` on the port, one rule per path) and NetworkPolicy `onemind-dependent-<D>` in `app-P` (ingress from every pod of namespace `app-D` on the port). Both carry `onemind.io/managed-by: onemind-gateway`, `onemind.io/app: <namespace's app>` and `onemind.io/dependent: D`. Namespaces are matched by their exact `kubernetes.io/metadata.name` label (set by the API server, not by the app); there is no wildcard namespace, no `ipBlock`, no UDP, and nothing on the host or node ports. NetworkPolicy matches the pod's port after Service translation, so the executor looks up the provider Service that exposes the port and uses its `targetPort` (a named `targetPort` is resolved to the container port of that name; one that cannot be resolved opens no path, and the step says why).
+- **What closes.** `app.remove` of D deletes `onemind-dependencies` in `app-D` and `onemind-dependent-<D>` in every installed app's namespace. An `app.update` or `app.configure` that no longer links D to an installed app deletes its `onemind-dependent-<D>` there. Removing a provider is still refused while a dependent has no other provider (`has_dependents`). A dependent that loses its linked provider while an alternative remains is relinked by its next `app.update` or `app.configure`.
+- **Plan and approval.** The opened paths are part of the plan: `plan.network_paths: [{from, to, provider, port, protocol, requirement}]` (also in the hashed `objects`, so a different provider or port is `plan_changed`) and one line each in `warnings` ("Opens a network path: app-D → app-P on TCP <port> (needs <requirement>)"). An app without dependencies gets no key, so its `plan_sha256` is unchanged. A request whose plan opens a path is never accepted by a standing approval (§12.17); a person approves it.
 
 **Builds on §12.40.** `app.configure` is §12.40's action (its plan, `plan_sha256` binding, progress and `configuring` status apply); this section only adds the value checks against `spec.settings`. `app.install` and `app.remove` keep §12.40's plan and add the `dependency_missing`, `host_port_conflict` and `has_dependents` preconditions. The `source.*` and `exposure.*` types are requested with `POST /v1/actions` like any type, are owner-only and carry no plan (the approval card shows the URL, commit or tier); an agent or automation request for one is `403 permission_denied` before anything is filed. Nothing here changes §12.40's credentials or request limits.
 

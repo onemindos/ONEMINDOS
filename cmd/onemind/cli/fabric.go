@@ -34,10 +34,11 @@ func fabricCommands(a *App) []*cobra.Command {
 	}
 	fab := &cobra.Command{Use: "fabric", Short: "Join this machine to a OneMind, or add one (the owner's side)"}
 	fab.AddCommand(
-		sub("join 'onemind-join:v1?…' [--hub-addr IP] [--timeout 20m]", "Join this machine to a hub (run as root)", fabricJoin),
+		sub("join 'onemind-join:v1?…' | --code-file F [--hub-addr IP] [--timeout 20m]", "Join this machine to a hub (run as root)", fabricJoin),
 		sub("ticket [--hub URL] [--role worker|leaf] [--ttl 15m] [--token T] [--json]", "Mint a one-use join code", fabricTicket),
 		sub("approve ACTION_ID [--hub URL] [--token T]", "Approve a node join request", fabricApprove),
 		sub("status [--hub URL] [--token T] [--json]", "Nodes and pending joins", fabricStatus),
+		sub("outbox init|status|send", "Leaf node: queue messages for the hub through hub outages", fabricOutbox),
 	)
 	return []*cobra.Command{fab}
 }
@@ -49,12 +50,38 @@ var (
 	}
 	collectFacts = func() (fabric.NodeFacts, error) {
 		st := detect.New().Collect(context.Background())
-		return fabric.NodeFacts{NodeID: st.NodeID, Hostname: hostLabel(st.Hostname), Board: st.Board, Arch: st.Arch,
+		name := st.Hostname
+		if n := seedName(seedStatePath); n != "" {
+			name = n
+		}
+		return fabric.NodeFacts{NodeID: st.NodeID, Hostname: hostLabel(name), Board: st.Board, Arch: st.Arch,
 			OS: map[string]string{"id": st.OS.ID, "version_id": st.OS.VersionID, "pretty": st.OS.Pretty}}, nil
 	}
 	isRoot   = func() bool { return os.Geteuid() == 0 }
 	pollWait = 3 * time.Second
 )
+
+// seedStatePath is firstboot's record of the seed (the name the owner chose for this machine).
+var seedStatePath = "/data/onemind/firstboot/state.json"
+
+// seedName returns the node name from the seed, or "" when there is none (the
+// default "OneMind" is not a choice, so the machine's own hostname is used).
+func seedName(path string) string {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+	var st struct {
+		Name string `json:"name"`
+	}
+	if json.Unmarshal(raw, &st) != nil {
+		return ""
+	}
+	if n := strings.TrimSpace(st.Name); n != "OneMind" {
+		return n
+	}
+	return ""
+}
 
 var labelRe = regexp.MustCompile(`[^A-Za-z0-9-]+`)
 
@@ -76,12 +103,27 @@ func fabricJoin(args []string, out io.Writer) error {
 	ca := fs.String("ca", "", "box CA sha256 (with --code)")
 	hubAddr := fs.String("hub-addr", "", "dial this IP for the hub instead of resolving its name (mDNS not working)")
 	timeout := fs.Duration("timeout", 20*time.Minute, "how long to wait for the owner's approval")
+	// The OS image's first boot keeps the code in a 0600 file: an argument is visible to every local
+	// user in the process list for as long as the join waits (IMG-MESH-01, #292).
+	codeFile := fs.String("code-file", "", "read the 'onemind-join:v1?...' text from this file")
 	var payload string
 	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
 		payload, args = args[0], args[1:]
 	}
 	if err := fs.Parse(args); err != nil {
 		return err
+	}
+	if *codeFile != "" {
+		if payload != "" || *code != "" {
+			return errors.New("--code-file replaces the join text and --code; give only one")
+		}
+		raw, err := os.ReadFile(*codeFile)
+		if err != nil {
+			return fmt.Errorf("--code-file: %w", err)
+		}
+		if payload = strings.TrimSpace(string(raw)); payload == "" {
+			return errors.New("--code-file: the file is empty")
+		}
 	}
 	var t *fabric.Ticket
 	var err error

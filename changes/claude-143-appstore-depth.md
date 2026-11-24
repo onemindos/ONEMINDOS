@@ -1,0 +1,5 @@
+---
+pr: 353
+branch: claude/143-appstore-depth
+---
+App store depth in the dashboard (UMB-P06, #143), on the gateway routes from #57. Each app page (Market and Installed) now shows what the app needs, with alternatives, which one is installed and a button to request the missing one, plus the apps that depend on it and the host ports it binds with any conflict named. The settings form now follows the typed schema (minimum, maximum, length and pattern) and refuses a bad value before any request is filed. Two new Market tabs: Sources lists pinned community sources with their apps and scan results and files a source.add request with a full commit id, which waits in Approvals for the owner; Import Compose converts a docker-compose file and shows the generated files, warnings and sandbox refusals, writing nothing on the box. Every change is a request an owner approves. A source.add request follows the same retry rules as other requests: a timed-out or unclear reply keeps its idempotency key, so retrying cannot file a second one. Sources and Import Compose tell a non-owner up front that they are owner-only. The demo mode shows dependencies and host ports too.

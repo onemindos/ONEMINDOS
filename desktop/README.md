@@ -24,12 +24,17 @@ The screenshots are the real `src/` files rendered in a browser through `tools/m
 | Lives in the menu bar / tray | Tauri tray icon (template icon on macOS, no Dock icon). Left click opens the popover under the icon; right click opens a menu (Show, Open dashboard, Files, Quit). On macOS, the number of pending approvals shows next to the icon. |
 | Find boxes | mDNS browse of `_onemind._tcp` for 2.5 s (`mdns-sd`), plus a probe of `onemind.local:8080/healthz`. You can also type an address. Discovery only suggests an address. It creates no trust. |
 | Pair | Paste a token. The app checks it with `GET /v1/instance`, then stores it in the **OS keychain** (macOS Keychain, Windows Credential Manager) under the box's hub node id. The box list (name, address) is a JSON file in the app's config folder and holds no secrets. |
-| Box status | Every 20 s, on demand, and within about a second of a box event (below): `GET /v1/instance`, `/v1/nodes` (online/total), `/v1/actions?state=awaiting_approval`, and the contract §12 reads `/v1/os/status`, `/v1/backups/status`, `/v1/me` and `/v1/notifications?unread=true`. A §12 route answers 404 until its module ships; the app then shows "not reported yet" in grey, never a green tick. Every card says how old its data is. |
+| Box status | Every 20 s, on demand, and within about a second of a box event (below): `GET /v1/instance`, `/v1/nodes` (online/total), `/v1/actions?state=awaiting_approval`, and the contract §12 reads `/v1/os/updates`, `/v1/backups/status`, `/v1/me` and `/v1/notifications?unread=true`. A §12 route answers 404 until its module ships; the app then shows "not reported yet" in grey, never a green tick. Every card says how old its data is. |
 | Live updates | One `GET /v1/events` stream per box (§12.8, server-sent events), resumed with `Last-Event-ID`. An `action.*`, `alert.*`, `notification.created` or `node.status` event triggers a status refresh, so a new request shows within seconds. Event data is never shown or trusted as state; it only wakes a REST refresh. The card shows **Live** while the stream is open. A box without the route is polled as before. |
 | Notifications | Native banners from the person's **inbox** (§12.14) and from pending approvals, one per new item, an approval announced once even when both sources carry it, at most three per refresh plus one summary, and the unread backlog found at start-up as one summary. A banner only informs: it never approves and carries no action buttons. The **Notifications** view lists the inbox; opening an item marks it read and opens its approval card or, for a link, the box's page in the browser. |
 | Approvals | **Review** opens an approval card: risk class (§12.3), who asked and their reason (an agent's words marked as unchecked), the plan (summary, warnings, images, storage, machines, plan hash), expiry, and the exact request with its API equivalent. **Approve** needs a second click that names the consequence. **Deny** takes an optional reason. See "Approvals and passkeys" below. |
 | Open dashboard | Opens the box address in the system browser. Box pages never load inside the app's web view (the study's DESK-S1 rule, until pinned trust in web views is proven). A link from the box (an inbox item) opens only if it stays on the box's own scheme, host and port. |
 | Manage | **Manage…** on a box card opens three tabs. **Apps**: Start, Stop, Restart, Update, Remove on an installed app; each shows the box's plan first (`GET /v1/apps/{id}/plan?type=`, files nothing), then files the request bound to the plan hash (`POST /v1/actions`). **Backups**: health, last backup and restore check, destinations, recent runs; **Back up now** and **Check latest backup** file a request with `approve: false`. A restore is not offered (it needs a passkey, see below). **Box**: owner-only first-run preferences (name, time zone, backup choice; `GET`/`PUT /v1/onboarding/settings`, contract §12.41), which start no backup. Nothing here approves anything: every request waits in the approval list. Code: `src-tauri/src/manage.rs`, `src/manage.js`. Automation, files and migration views are not in the tray yet. |
+| Needs you | One list on each box card: pending approvals first, then open alerts (`GET /v1/alerts?state=open`), worst first. An acknowledged alert is not counted. **Review** opens the approval card; **Open** opens the alert's dashboard page (box origin only). The tray menu's first line carries the same count, which is how Linux shows it (Linux trays have no title text or click events). The alerts part hides when the box serves no `/v1/alerts`. |
+| Box health | Rows for the OS (`GET /v1/os/updates`: version, booted A/B slot, update state; shown amber while an update is offered or busy and red after a rollback), backups (`/v1/backups/status`) and storage (`GET /v1/storage`: used and total bytes, missing disks, state). A row is absent when the box does not serve its route; a missing disk is never green. |
+| Quick requests | **Back up now…** and **Restart an app…** on the box card. Both show the plan first (the app plan from `GET /v1/apps/{id}/plan`; for a backup, the box's destination and last backup, since the box has no backup dry-run route) and then file a request with `approve: false`. There is no whole-box restart: the hub registers no such action type, so only app restarts are offered. Hidden for a token that `/v1/me` says is not an owner. |
+| Launch at login | Opt-in checkbox at the bottom of the popover (`tauri-plugin-autostart`: a LaunchAgent on macOS, the Run registry key on Windows, an XDG autostart entry on Linux). Off until turned on; the OS holds the setting. |
+| Linux | The same tray code builds `.deb` and AppImage on `ubuntu-24.04` in `ci-desktop` (needs `libwebkit2gtk-4.1-dev`, `libayatana-appindicator3-dev`). The icon menu opens on every click and has **Show OneMind**; the popover is centred, since a Linux tray gives no icon position. Builds are proven by CI only; no Linux desktop session was available to click through it (UNVERIFIED on GNOME and KDE). |
 | Files | Opens `smb://<box>/` in Finder (macOS) or `\\<box>\` in File Explorer (Windows). There is no mount yet: the gateway serves no WebDAV or SMB. [docs/FILES.md](docs/FILES.md) is the WebDAV mount plan for when UMB-FILES-5 ships. |
 | Updates of this app | None yet, on purpose. [docs/UPDATER.md](docs/UPDATER.md) is the channel and signing design (Tauri updater, our Ed25519 key, `stable`/`beta`); the key and the host are founder decisions (F-59, F-61). |
 
@@ -141,7 +146,8 @@ Actions are pinned by commit, as listed in `os/versions.lock.yaml`. Tauri's bund
 |---|---|---|---|
 | tauri, tauri-build | 2.12.5, 2.7.4 | Apache-2.0 OR MIT | linked |
 | @tauri-apps/cli | 2.12.4 | Apache-2.0 OR MIT | build tool only |
-| tauri-plugin-notification, -opener, -single-instance | 2.8.0, 2.7.2, 2.5.5 | Apache-2.0 OR MIT | linked |
+| tauri-plugin-notification, -opener, -single-instance, -autostart | 2.8.0, 2.7.2, 2.5.5, 2.7.0 | Apache-2.0 OR MIT | linked |
+| tauri-plugin-updater | 2.14.1 (released 2026-10-28) | Apache-2.0 OR MIT | linked |
 | mdns-sd | 0.21.6 | Apache-2.0 OR MIT | linked |
 | reqwest (rustls) | 0.13.5 | MIT OR Apache-2.0 | linked |
 | keyring | 3.6.3 | MIT OR Apache-2.0 | linked |
@@ -153,6 +159,22 @@ The 313 crates in the macOS dependency graph are all permissive licences (MIT, A
 
 keyring 4.x exists, but it splits into separate store crates whose API was not checked for this skeleton. 3.6.3 is the last 3.x release.
 
+## Updates (signed, click to install)
+
+The app can update itself with the Tauri updater plugin. Design and rules: [docs/UPDATER.md](docs/UPDATER.md). In short: the popover shows "Update available" with the notes and installs **only when you click** "Install and restart". Nothing is downloaded or installed silently. The plugin refuses a file whose signature does not match the public key in `tauri.conf.json`, and offers only a newer version.
+
+- **Channels follow the version.** `0.2.0-dev.N` builds follow the `dev` channel, every other version follows `stable`. The two HTTPS manifest URLs are constants in `src-tauri/src/updates.rs` (GitHub releases tagged `desktop-stable` and `desktop-dev`, file `latest.json`); no setting, box or web page can change them.
+- **Off until the key exists.** `plugins.updater.pubkey` is the placeholder `REPLACE_WITH_TAURI_SIGNER_PUBLIC_KEY`. While it is, the app does not contact any update server and shows nothing.
+- **Founder step (once).** Generate the key pair and keep the private key offline with a backup (losing it means every install must be redone by hand):
+
+  ```
+  cd desktop && npx tauri signer generate -w ~/.tauri/onemind-updater.key
+  ```
+
+  Then paste the printed **public** key over the placeholder in `src-tauri/tauri.conf.json` (a one-line PR), and add the GitHub secrets `TAURI_SIGNING_PRIVATE_KEY` (the private key file contents) and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` (its password) to the `desktop-release` environment. Never commit the private key.
+- **Release hook (for the desktop release workflow, CLIENT-12).** `createUpdaterArtifacts` is deliberately not set in `tauri.conf.json`, because an unsigned build (CI, forks) would fail with it on. The release job, only when the secret is set, builds with `npx tauri build --config '{"bundle":{"createUpdaterArtifacts":true}}'`, collects the `.sig` files next to the artifacts, then runs `node tools/make-latest-json.mjs --dir <artifacts> --version <v> --mac-arch <aarch64|x86_64: the macOS runner's CPU> --base-url https://github.com/onemindos/ONEMINDOS/releases/download/desktop-stable/` and uploads `latest.json` and the artifacts to that release (`desktop-dev` for dev builds). The script refuses a missing signature or a non-HTTPS URL. No `desktop-release.yml` existed on main when this was written, so this is described, not wired.
+- **Preview.** `tools/preview.html?scene=update` shows the strip with fixture data.
+
 ## Next steps (in epic order)
 
 1. **CLIENT-2 + CLIENT-3:** replace the pasted token with a device request the owner approves (`device.add`): a non-exportable device key (Secure Enclave on Mac, TPM via CNG on Windows) with DPoP on refresh, and fingerprint words plus a check code for first trust. Pin the box CA per instance id, and refuse a changed CA clearly.
@@ -160,5 +182,5 @@ keyring 4.x exists, but it splits into separate store crates whose API was not c
 3. **Approvals, rest of CLIENT-10:** native platform passkeys (a follow-up spike on macOS AuthenticationServices and Windows `webauthn.dll`, after F-33 settles the passkey domain); in the dashboard (CORE-SEC-2, dashboard stream): the passkey step on the Approvals page and an `/approvals/<id>` route, so the browser hand-off opens the exact request; bringing the popover forward when a banner is clicked (Tauri's desktop notifications report no click today).
 4. **Quiet hours:** banners ignore the person's quiet hours (§12.14 preferences) for now; the box already holds channel deliveries during quiet hours.
 5. **CLIENT-11:** laptop folder backup with restic to the box, with verified restores and a pause on battery or metered networks.
-6. **CLIENT-12:** Developer ID signing and notarization, MSIX or a signed NSIS installer, the Tauri updater as designed in [docs/UPDATER.md](docs/UPDATER.md), and third-party notices.
-7. Linux (`.deb`, AppImage) in CI, and autostart at login (`tauri-plugin-autostart`).
+6. **CLIENT-12:** Developer ID signing and notarization, MSIX or a signed NSIS installer, the release workflow that builds, OS-signs and publishes `latest.json` (the app side of the updater is done, see Updates), and third-party notices.
+7. Linux signing (a GPG-signed `.deb` repo, AppImage update info), a Files page on the dashboard to link to instead of `smb://` once it ships, and a whole-box restart once the hub registers a node-restart action type.

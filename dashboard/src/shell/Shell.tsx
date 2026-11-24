@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
-// The frame around every signed-in screen: @onemind/ui AppShell (sidebar, phone tab bar), the hub
+// The frame around every signed-in screen: the Desktop (DesktopShell: wallpaper desktop, windows,
+// dock; the default, D-016) or the Console (@onemind/ui AppShell: sidebar, phone tab bar), the hub
 // connection pill, the ⌘K palette, the notification bell and the jobs tray. In-app links from ui
 // components are routed here, so the page never reloads (mock state and polls survive).
-import { createContext, useContext, useMemo, useState, type MouseEvent, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import {
   AppShell,
@@ -20,19 +21,33 @@ import {
   type NavItem,
   type PaletteCommand,
 } from '@onemind/ui';
+import { isServerId, mergeNotifications, SERVER_PREFIX } from '../data/notificationFeed';
+import { useNotificationFeed } from '../data/useNotificationFeed';
 import { activityFrom, notificationsFrom, toActionSummary, toPaletteApp } from '../data/adapters';
-import { ActionJobs } from './ActionJobs';
+import { ActionJobs, jobsStackStyle } from './ActionJobs';
 import { useHub } from '../data/hub';
 import { useAppRequest } from './useAppRequest';
-import { personList } from '../data/prefs';
+import { homeLayoutStore, personList } from '../data/prefs';
+import { DesktopShell, type DockApp } from './DesktopShell';
+import { useLayoutMode, type LayoutMode } from './layoutMode';
 import { brand } from '../brand.generated';
 import { useSignedIn } from '../session';
+import { navItems } from '../screens/registry';
 import { href, navId, toRoute } from './routes';
+import { meRetryDelay, roleOf, showsNav, viewFor, type View } from './roles';
+import { usePoll } from '../lib/hooks';
+import { useDisplayName } from '../data/homeMe';
 
 interface ShellApi {
   openPalette: () => void;
   /** Request an app action from anywhere, with the toasts; resolves to the action id. */
   requestApp: ReturnType<typeof useAppRequest>['requestApp'];
+  /** Simple or Pro, from the signed-in role (roles.ts); 'unknown' until GET /v1/me answers. */
+  view: View;
+  /** The signed-in role ('child', 'guest', ...), null for an agent; undefined until known. */
+  role: string | null | undefined;
+  /** Desktop (default) or Console, chosen per person (layoutMode.ts). */
+  layout: LayoutMode;
 }
 const ShellCtx = createContext<ShellApi | null>(null);
 export function useShell(): ShellApi {
@@ -46,17 +61,39 @@ const CONTRACT_TYPES = new Set(['app.install', 'app.remove', 'app.start', 'app.s
 
 export function Shell({ children }: { children: ReactNode }) {
   const hub = useHub();
-  const { principal, person, signOut, mock } = useSignedIn();
+  const { principal, person, signOut, mock, api: client } = useSignedIn();
   const navigate = useNavigate();
   const location = useLocation();
   const { requestApp, reviewDialog } = useAppRequest();
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [jobsShown, setJobsShown] = useState(false);
   const readStore = useMemo(() => personList(person, 'notifications.read'), [person]);
   const recentStore = useMemo(() => personList(person, 'palette.recent', 8), [person]);
   const [read, setRead] = useState(() => new Set(readStore.load()));
   const [recent, setRecent] = useState(() => recentStore.load());
 
+  const [layout, setLayout] = useLayoutMode(person);
+
   usePaletteHotkey(() => setPaletteOpen(true));
+
+  // A real gateway session does not carry the role, so ask GET /v1/me once. If that fails the
+  // view falls back to Simple (fail closed): the Pro screens are offered only to a known role.
+  const me = usePoll(() => (principal ? Promise.resolve(null) : client.me()), 0);
+  const displayName = useDisplayName();
+  const role = roleOf(principal, me.data ?? undefined);
+  const view = viewFor(role === undefined && me.error ? null : role);
+  // A failed lookup is retried with backoff, then slowly, so a network hiccup does not leave an
+  // owner in the Simple view until a reload. Stops once /v1/me answers.
+  const meTries = useRef(0);
+  const { error: meError, reload: meReload } = me;
+  useEffect(() => {
+    if (!meError) {
+      meTries.current = 0;
+      return;
+    }
+    const id = window.setTimeout(() => void meReload(), meRetryDelay(meTries.current++));
+    return () => window.clearTimeout(id);
+  }, [meError, meReload]);
 
   const go = (link: string) => {
     const to = toRoute(link);
@@ -67,16 +104,29 @@ export function Shell({ children }: { children: ReactNode }) {
   const nodes = hub.nodes.data ?? [];
   const apps = hub.apps.data ?? [];
   const pending = hub.actionList.filter((a) => a.state === 'awaiting_approval');
+  const feed = useNotificationFeed();
   const notifications = useMemo(
-    () => notificationsFrom(hub.actionList, nodes.map((n) => ({ ...n, status: hub.nodeStatus(n) })), hub.appName, read),
+    () => mergeNotifications(feed.notifications, feed.alerts, notificationsFrom(hub.actionList, nodes.map((n) => ({ ...n, status: hub.nodeStatus(n) })), hub.appName, read), read),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [hub.actionList, hub.nodes.data, hub.appName, read, hub.now - (hub.now % 10_000)],
+    [feed.notifications, feed.alerts, hub.actionList, hub.nodes.data, hub.appName, read, hub.now - (hub.now % 10_000)],
   );
-  const markRead = (ids: string[], value: boolean) => {
+  // Read state: a hub notification is also marked read on the hub (it follows the person to every
+  // device; the hub has no "unread", so un-reading is this browser only). Alerts and derived facts
+  // are remembered in this browser.
+  const remember = (ids: string[], value: boolean) => {
     const next = new Set(read);
     ids.forEach((id) => (value ? next.add(id) : next.delete(id)));
     setRead(next);
     readStore.save([...next]);
+  };
+  const markRead = (ids: string[], value: boolean) => {
+    const hubIds = ids.filter(isServerId);
+    if (value && hubIds.length) void Promise.allSettled(hubIds.map((id) => client.markRead(id.slice(SERVER_PREFIX.length)))).then(feed.reload);
+    remember(ids, value);
+  };
+  const readAll = () => {
+    void client.markAllRead().then(feed.reload, () => undefined);
+    remember(notifications.map((n) => n.id), true);
   };
 
   const commands = useMemo(
@@ -85,11 +135,11 @@ export function Shell({ children }: { children: ReactNode }) {
         now: hub.now,
         apps: apps.map(toPaletteApp),
         nodes: nodes.map((n) => ({ ...n, status: hub.nodeStatus(n) })),
-        pending: pending.map(toActionSummary),
+        pending: pending.map((a) => toActionSummary(a, hub.appName)),
         canApprove: hub.canDecide !== 'no',
-      }),
+      }).filter((c) => paletteShows(c, view)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [hub.apps.data, hub.nodes.data, hub.actionList, hub.canDecide],
+    [hub.apps.data, hub.nodes.data, hub.actionList, hub.canDecide, view],
   );
   const runCommand = (c: PaletteCommand) => {
     setPaletteOpen(false);
@@ -104,17 +154,8 @@ export function Shell({ children }: { children: ReactNode }) {
 
 
   const waiting = pending.length;
-  const nav: NavItem[] = [
-    { id: 'home', label: 'Home', href: href.home, icon: 'home', primary: true },
-    { id: 'market', label: 'Market', href: href.market, icon: 'apps', primary: true },
-    { id: 'approvals', label: 'Approvals', href: href.approvals, icon: 'approvals', primary: true, badge: waiting, badgeLabel: `${waiting} waiting` },
-    { id: 'activity', label: 'Activity', href: href.activity, icon: 'activity', primary: true },
-    { id: 'installed', label: 'Installed', href: href.installed, icon: 'check', group: 'Your box' },
-    { id: 'nodes', label: 'Nodes', href: href.nodes, icon: 'nodes', group: 'Your box' },
-    { id: 'alerts', label: 'Alerts', href: href.alerts, icon: 'bell', group: 'Your box' },
-    { id: 'settings', label: 'Settings', href: href.settings, icon: 'settings', group: 'Your box' },
-    { id: 'coming', label: 'Coming soon', href: href.coming, icon: 'info', group: 'Your box' },
-  ];
+  const allNav: NavItem[] = navItems(waiting);
+  const nav = allNav.filter((item) => showsNav(item.id, view));
 
   // Route plain in-app links from ui components through the router (no reload).
   const onClickCapture = (e: MouseEvent<HTMLDivElement>) => {
@@ -137,49 +178,81 @@ export function Shell({ children }: { children: ReactNode }) {
     );
 
   const boxName = hub.instance.data?.name ?? brand.shortName;
-  const api: ShellApi = { openPalette: () => setPaletteOpen(true), requestApp };
+  const bell = (
+    <NotificationBell
+      items={notifications}
+      now={hub.now}
+      state={hub.freshness === 'stale' || hub.freshness === 'offline' ? hub.freshness : 'ready'}
+      ageSeconds={hub.ageS}
+      onRetry={hub.reloadAll}
+      onOpen={(n) => {
+        markRead([n.id], true);
+        go(n.href);
+      }}
+      onSetRead={markRead}
+      onReadAll={readAll}
+      allHref={href.activity}
+      settingsHref={href.setting('notifications')}
+    />
+  );
+  const account = (
+    <>
+      <span className="dash-hide-compact">
+        <PaletteTrigger onOpen={() => setPaletteOpen(true)} label="Search" />
+      </span>
+      {bell}
+      {mock && <span className="dash-demo-flag">Demo data</span>}
+      {principal && (
+        <span className="dash-who dash-hide-compact">
+          {principal.id} <span className="om-hint">({principal.kind === 'agent' ? 'agent' : principal.role})</span>
+        </span>
+      )}
+      <Button size="sm" variant="ghost" onClick={() => setLayout('desktop')} title="Switch to the desktop layout">
+        Desktop view
+      </Button>
+      <Button size="sm" variant="ghost" onClick={signOut}>
+        Sign out
+      </Button>
+    </>
+  );
+  const api: ShellApi = { openPalette: () => setPaletteOpen(true), requestApp, view, role, layout };
+
+  // Apps pinned on Home go in the dock (Home hides its own dock on the desktop).
+  const pinnedIds = layout === 'desktop' ? (homeLayoutStore().load(person)?.pinned ?? []) : [];
+  const dockApp = (a: (typeof apps)[number]): DockApp => ({ id: a.id, name: a.name ?? a.id, icon: a.icon, href: a.installed ? href.manage(a.id) : href.app(a.id) });
+  const pinned: DockApp[] = pinnedIds.flatMap((id) => {
+    const a = apps.find((x) => x.id === id);
+    return a ? [dockApp(a)] : [];
+  });
+  const installedApps: DockApp[] = layout === 'desktop' ? apps.filter((a) => a.installed).map(dockApp) : [];
   return (
     <ShellCtx.Provider value={api}>
-      <div onClickCapture={onClickCapture} className="dash-root">
-        <AppShell
-          boxName={boxName}
-          nav={nav}
-          current={navId(location.pathname)}
-          status={status}
-          account={
-            <>
-              <span className="dash-hide-compact">
-                <PaletteTrigger onOpen={() => setPaletteOpen(true)} label="Search" />
-              </span>
-              <NotificationBell
-                items={notifications}
-                now={hub.now}
-                state={hub.freshness === 'stale' || hub.freshness === 'offline' ? hub.freshness : 'ready'}
-                ageSeconds={hub.ageS}
-                onRetry={hub.reloadAll}
-                onOpen={(n) => {
-                  markRead([n.id], true);
-                  go(n.href);
-                }}
-                onSetRead={markRead}
-                onReadAll={() => markRead(notifications.map((n) => n.id), true)}
-                allHref={href.activity}
-                settingsHref={href.setting('notifications')}
-              />
-              {mock && <span className="dash-demo-flag">Demo data</span>}
-              {principal && (
-                <span className="dash-who dash-hide-compact">
-                  {principal.id} <span className="om-hint">({principal.kind === 'agent' ? 'agent' : principal.role})</span>
-                </span>
-              )}
-              <Button size="sm" variant="ghost" onClick={signOut}>
-                Sign out
-              </Button>
-            </>
-          }
-        >
-          {children}
-        </AppShell>
+      <div onClickCapture={onClickCapture} className={layout === 'desktop' ? 'dash-root dash-desktop' : 'dash-root'} data-jobs={jobsShown ? '' : undefined} style={jobsStackStyle(jobsShown)}>
+        {layout === 'desktop' ? (
+          <DesktopShell
+            boxName={boxName}
+            nav={nav}
+            current={navId(location.pathname)}
+            status={status}
+            bell={bell}
+            pinned={pinned}
+            apps={installedApps}
+            now={hub.now}
+            timeZone={Intl.DateTimeFormat().resolvedOptions().timeZone}
+            person={principal ? { id: principal.id, role: principal.kind === 'agent' ? 'agent' : principal.role } : undefined}
+            displayName={displayName}
+            demo={mock}
+            onSearch={() => setPaletteOpen(true)}
+            onConsoleView={() => setLayout('console')}
+            onSignOut={signOut}
+          >
+            {children}
+          </DesktopShell>
+        ) : (
+          <AppShell boxName={boxName} nav={nav} current={navId(location.pathname)} status={status} account={account}>
+            {children}
+          </AppShell>
+        )}
         <CommandPalette
           open={paletteOpen}
           onClose={() => setPaletteOpen(false)}
@@ -189,11 +262,18 @@ export function Shell({ children }: { children: ReactNode }) {
           state={hub.freshness === 'stale' || hub.freshness === 'offline' ? hub.freshness : hub.freshness === 'unknown' ? 'loading' : 'ready'}
           ageSeconds={hub.ageS}
         />
-        <ActionJobs />
+        {view !== 'simple' && <ActionJobs onShown={setJobsShown} />}
         {reviewDialog}
       </div>
     </ShellCtx.Provider>
   );
+}
+
+/** A palette command is offered when it leads to a screen this view shows (Pro screens: roles.ts). */
+export function paletteShows(c: PaletteCommand, view: View): boolean {
+  if (!c.href) return true;
+  const to = toRoute(c.href);
+  return to === undefined || showsNav(navId(to.split('?')[0] ?? '/'), view);
 }
 
 /** Activity entries are needed by Home and Activity; computed once per actions answer. */

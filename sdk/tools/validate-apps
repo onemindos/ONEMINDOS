@@ -22,6 +22,11 @@ Checks, per app directory (directories whose name starts with "_", such as apps/
 
 Run with: python3 -I sdk/tools/validate-apps [--apps-dir DIR] [APP_ID ...]
 Exit codes: 0 all apps pass, 1 at least one check failed, 2 usage or environment error.
+
+Also reports a deterministic computed/SPDX-derived inventory from metadata.license,
+using the existing L1/L2/blocked classifier. This is not declared metadata.licenceClass,
+primary-source verification, a scan pass, or preinstall permission. Missing/non-string
+expressions are reported as unavailable, not as a licence class; validation still fails.
 """
 from __future__ import annotations
 
@@ -33,14 +38,22 @@ import subprocess
 import sys
 from pathlib import Path
 
+REPO_ROOT = Path(__file__).resolve().parents[2]
+# PLAN-E6 (#175): the manifest check is the gateway's own (core/onemind_core/catalog.py), so CI and
+# the box cannot disagree. python3 -I drops the script folder from sys.path, so add core/ here.
+sys.path.insert(0, str(REPO_ROOT / "core"))
 try:
     import yaml
     from jsonschema import Draft202012Validator
+    from onemind_core.catalog import Catalog
 except ImportError as exc:  # pragma: no cover - environment problem
     sys.stderr.write(f"error: missing dependency ({exc.name}); install sdk/tools/requirements.txt\n")
     sys.exit(2)
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+# Resolve the local library explicitly, including under Python's isolated (-I) mode.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from applib.licence import classify  # noqa: E402
+
 SCHEMA_PATH = REPO_ROOT / "sdk" / "schema" / "onemind.app.schema.json"
 RENOVATE_PATH = REPO_ROOT / "renovate.json"
 HOST_PORTS_PATH = REPO_ROOT / "sdk" / "policy" / "host-ports.yaml"
@@ -106,9 +119,17 @@ def inside(child: Path, parent: Path) -> bool:
         return False
 
 
+def licence_inventory(doc: object, app_dir: Path) -> None:
+    """Report only the computed SPDX class, never installation eligibility."""
+    expression = dig(doc, ("metadata", "license"))
+    computed = (classify(expression) if isinstance(expression, str) else
+                "unavailable (metadata.license missing or not a string)")
+    print(f"licence apps/{app_dir.name}/ computed_spdx_class={computed}")
+
+
 class AppChecker:
-    def __init__(self, validator: Draft202012Validator, kustomize: str, kubeconform: str):
-        self.validator = validator
+    def __init__(self, catalog: Catalog, kustomize: str, kubeconform: str):
+        self.catalog = catalog
         self.kustomize = kustomize
         self.kubeconform = kubeconform
 
@@ -120,13 +141,14 @@ class AppChecker:
             return None, [f"{MANIFEST_NAME} not found"]
         try:
             doc = yaml.safe_load(manifest_path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeError) as exc:
+            return None, [f"{MANIFEST_NAME} cannot be read: {exc}"]
         except yaml.YAMLError as exc:
             return None, [f"{MANIFEST_NAME} is not valid YAML: {exc}"]
 
-        schema_errors = sorted(self.validator.iter_errors(doc), key=lambda e: list(e.absolute_path))
-        for err in schema_errors:
-            where = "/".join(str(p) for p in err.absolute_path) or "(root)"
-            errors.append(f"schema: {where}: {err.message}")
+        licence_inventory(doc, app_dir)
+        schema_errors = sorted(self.catalog.validate(doc))
+        errors.extend(f"schema: {msg}" for msg in schema_errors)
         if schema_errors:
             # The remaining checks rely on a schema-valid manifest.
             app_id = dig(doc, ("metadata", "id"))
@@ -325,7 +347,7 @@ def renovate_check(renovate_path: Path, apps_dir: Path, app_dirs: list[Path]) ->
     for d in app_dirs:
         try:
             doc = yaml.safe_load((d / MANIFEST_NAME).read_text(encoding="utf-8"))
-        except (OSError, yaml.YAMLError):
+        except (OSError, UnicodeError, yaml.YAMLError):
             continue
         if dig(doc, ("metadata", "tier")) == "verified" and dig(doc, ("spec", "updates", "automerge")) == "patch":
             expected.add(d.name)
@@ -352,9 +374,12 @@ def host_ports_check(app_dirs: list[Path], reserved_path: Path) -> list[str]:
     for d in app_dirs:
         try:
             manifest = yaml.safe_load((d / MANIFEST_NAME).read_text(encoding="utf-8"))
-        except (OSError, yaml.YAMLError):
+        except (OSError, UnicodeError, yaml.YAMLError):
             continue
-        for e in dig(manifest, ("spec", "hostPorts")) or []:
+        entries = dig(manifest, ("spec", "hostPorts"))
+        if not isinstance(entries, list):
+            continue  # the schema check reports invalid structures
+        for e in entries:
             if not isinstance(e, dict) or not isinstance(e.get("port"), int):
                 continue  # the schema check reports it
             key = (e["port"], str(e.get("protocol")))
@@ -407,10 +432,10 @@ def main(argv: list[str]) -> int:
         print("validate-apps: no app directories found; nothing to check")
         return 0
 
-    checker = AppChecker(
-        Draft202012Validator(schema, format_checker=Draft202012Validator.FORMAT_CHECKER),
-        tools["kustomize"], tools["kubeconform"],
-    )
+    checker = AppChecker(Catalog(apps_dir, SCHEMA_PATH), tools["kustomize"], tools["kubeconform"])
+    print("licence inventory: computed/SPDX-derived from metadata.license; "
+          "not declared metadata.licenceClass; "
+          "not primary-source verification, scan pass, or preinstall permission")
     seen: dict[str, str] = {}
     failed = 0
     for app_dir in app_dirs:

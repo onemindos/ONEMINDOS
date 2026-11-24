@@ -16,7 +16,11 @@ import argparse, hashlib, ipaddress, json, os, re, secrets, shutil, socket, subp
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
-LAN_NET, HUB_LAN, NODE_LAN, BOX = "198.51.100", "198.51.100.1", "198.51.100.2", "box1"
+LAN_NET, HUB_LAN, NODE_LAN, BOX = "172.31.250", "172.31.250.1", "172.31.250.2", "box1"
+# The app N2-6/N2-7 install through the per-app proxy. It must be one whose scan.json passes today: the
+# daily rescan can fail an app on a new fixable CRITICAL, and the gateway then refuses its install
+# (409 stale_precondition), which says nothing about the network. The proxy is the same for any app.
+APP = os.environ.get("ONEMIND_NET_APP", "ntfy")
 CRITERIA = [
     ("N2-0", "two VMs boot and see each other on the private link"),
     ("N2-1", "hub install"),
@@ -222,6 +226,11 @@ def build_tree(work, ref):
         open(lst, "w").write("\n".join(names) + "\n")
         subprocess.run(["tar", "-c", "-C", ROOT, "-T", lst, "-f", os.path.join(work, "t.tar")], check=True)
         subprocess.run(["tar", "-x", "-C", src, "-f", os.path.join(work, "t.tar")], check=True)
+    # The onemind CLI imports the Go SDK, whose types are generated from the spec, not committed (CI-16).
+    if shutil.which("go"):
+        subprocess.run(["sh", "sdk/scripts/gen-code.sh", "go"], cwd=src, check=True)
+    else:
+        subprocess.run(["docker", "run", "--rm", "-v", f"{src}:/s", "-w", "/s", "golang:1.26", "sh", "sdk/scripts/gen-code.sh", "go"], check=True)
     env = dict(os.environ, CGO_ENABLED="0", GOOS="linux", GOARCH="amd64")
     flags = ["-trimpath", "-ldflags", "-s -w"]
     for out, pkg in (("onemindd", "./cmd/onemindd"), ("onemind-linux-amd64", "./cmd/onemind")):
@@ -469,22 +478,22 @@ class Suite:
             return self.block(["N2-6", "N2-7"], "N2-2 did not pass: the app proxy test needs the joined box")
         import datetime
         exp = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(minutes=10)).strftime("%Y-%m-%dT%H:%M:%SZ")
-        body = json.dumps({"type": "app.install", "params": {"app_id": "vaultwarden"}, "idempotency_key": "net2vm-vw", "expires_at": exp})
+        body = json.dumps({"type": "app.install", "params": {"app_id": APP}, "idempotency_key": "net2vm-app", "expires_at": exp})
         code, out = self.api("/v1/actions", f"-H 'Content-Type: application/json' -d {sh_q(body)}")
         try:
             aid = json.loads(out)["id"]
         except Exception:
             return self.block(["N2-6", "N2-7"], f"app.install could not be filed (HTTP {code}): {out[:150]}")
         code, out = self.api(f"/v1/actions/{aid}/approve", "-X POST")
-        rc, pods = self.hubrun("for i in $(seq 1 60); do k3s kubectl -n app-vaultwarden get pods --no-headers 2>/dev/null | grep -q '1/1 *Running' && echo ready && break; sleep 5; done", 330)
+        rc, pods = self.hubrun(f"for i in $(seq 1 60); do k3s kubectl -n app-{APP} get pods --no-headers 2>/dev/null | grep -q '1/1 *Running' && echo ready && break; sleep 5; done", 330)
         if "ready" not in pods:
-            return self.R.set("N2-6", "FAIL", f"vaultwarden not running after approved app.install (approve HTTP {code})") or self.block(["N2-7"], "N2-6 failed")
+            return self.R.set("N2-6", "FAIL", f"{APP} not running after approved app.install (approve HTTP {code})") or self.block(["N2-7"], "N2-6 failed")
         # Running is not yet serving: wait for the Deployment to be Available (procedure, not criteria).
-        self.hubrun("k3s kubectl -n app-vaultwarden wait --for=condition=Available deploy --all --timeout=180s", 200)
+        self.hubrun(f"k3s kubectl -n app-{APP} wait --for=condition=Available deploy --all --timeout=180s", 200)
         ca = "/etc/onemind/identity/ca.pem"
-        base = f"curl -s -m 10 --resolve vaultwarden.{BOX}.local:443:{HUB_LAN} -o /dev/null -w '%{{http_code}}'"
+        base = f"curl -s -m 10 --resolve {APP}.{BOX}.local:443:{HUB_LAN} -o /dev/null -w '%{{http_code}}'"
         def get(extra, cafile=True):
-            return self.noderun(f"{base} {'--cacert ' + ca if cafile else ''} {extra} https://vaultwarden.{BOX}.local/ || true", 60)[1].strip()[-3:]
+            return self.noderun(f"{base} {'--cacert ' + ca if cafile else ''} {extra} https://{APP}.{BOX}.local/ || true", 60)[1].strip()[-3:]
         nos, bearer, noca = get(""), "", get("", False)
         for _ in range(24):  # the app may need a few seconds after Available; the criterion is the final answer
             bearer = get(f"-H 'Authorization: Bearer {self.token}'")
@@ -492,9 +501,9 @@ class Suite:
                 break
             time.sleep(5)
         ok = nos == "401" and bearer == "200" and noca == "000"
-        self.R.set("N2-6", "PASS" if ok else "FAIL", f"https://vaultwarden.{BOX}.local: signed out {nos} (want 401), bearer {bearer} (want 200), no box CA {noca} (want 000 = handshake refused)")
+        self.R.set("N2-6", "PASS" if ok else "FAIL", f"https://{APP}.{BOX}.local: signed out {nos} (want 401), bearer {bearer} (want 200), no box CA {noca} (want 000 = handshake refused)")
         if not ok:
-            k = "k3s kubectl -n app-vaultwarden"
+            k = f"k3s kubectl -n app-{APP}"
             rc, diag = self.hubrun(
                 f"{k} get pods,svc,netpol,endpoints -o wide 2>&1; {k} get networkpolicy onemind-allow -o yaml 2>&1; "
                 f"for ip in $({k} get pods,svc -o jsonpath='{{range .items[*]}}{{.status.podIP}} {{.spec.clusterIP}} {{end}}'); do "
@@ -508,7 +517,7 @@ class Suite:
         self.n27_echo(base, ca)
 
     def n27_echo(self, base, ca):
-        ns = "app-vaultwarden"
+        ns = f"app-{APP}"
         rc, svc = self.hubrun(f"k3s kubectl -n {ns} get svc -o json", 60)
         try:
             s0 = json.loads(svc)["items"][0]
@@ -543,7 +552,7 @@ class Suite:
             return self.R.set("N2-7", "BLOCKED", f"echo pod did not become Ready (harness limit, not a product result): {out.strip()[-200:]}")
         cookies = "__Host-onemind_session=x; __Host-onemind_csrf=y; onemind_session=z; keep=1"
         for _ in range(18):  # like N2-6: the Service endpoints follow the new pod a few seconds after Ready
-            rc, echo = self.noderun(f"curl -s -m 10 --resolve vaultwarden.{BOX}.local:443:{HUB_LAN} --cacert {ca} -H 'Authorization: Bearer {self.token}' -H 'Cookie: {cookies}' https://vaultwarden.{BOX}.local/cgi-bin/echo || true", 60)
+            rc, echo = self.noderun(f"curl -s -m 10 --resolve {APP}.{BOX}.local:443:{HUB_LAN} --cacert {ca} -H 'Authorization: Bearer {self.token}' -H 'Cookie: {cookies}' https://{APP}.{BOX}.local/cgi-bin/echo || true", 60)
             m = re.search(r"cookie=\[(.*)\]", echo)
             if m:
                 break

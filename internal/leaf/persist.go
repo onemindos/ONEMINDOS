@@ -9,18 +9,21 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"time"
 
+	"github.com/onemindos/onemindos/internal/etcdir"
 	"github.com/onemindos/onemindos/internal/service"
 )
 
-// DefaultConfPath is where `onemind fabric join` writes the node's leaf.conf.
-const DefaultConfPath = "/etc/onemind/nats/leaf.conf"
+// DefaultConfPath is where `onemind fabric join` writes the node's leaf.conf
+// (<ONEMIND_ETC_DIR>/nats/leaf.conf; /etc/onemind unless the OS image moves it, #292).
+var DefaultConfPath = filepath.Join(etcdir.Dir(), "nats", "leaf.conf")
 
 // DefaultConfigPath is the persisted Config of this node's leaf. `onemind fabric join` writes it
 // beside fabric.json (0644: paths and names only, the nkey seed stays in its own 0600 file), and
 // onemindd, whose sandbox cannot read /etc/onemind/nats, loads it at start (CORE-NET-12).
-const DefaultConfigPath = "/etc/onemind/leaf-config.json"
+var DefaultConfigPath = filepath.Join(etcdir.Dir(), "leaf-config.json")
 
 // DefaultUnit is the leaf's systemd unit (deploy/systemd/onemind-nats-leaf.service).
 const DefaultUnit = "onemind-nats-leaf.service"

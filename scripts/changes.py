@@ -8,9 +8,20 @@ usage (Python standard library only):
   python3 -I scripts/changes.py check     validate every fragment (CI)
   python3 -I scripts/changes.py render    print what collect would write
   python3 -I scripts/changes.py collect   merge fragments into CHANGELOG.md / docs/leap/STATUS.md, delete them
+  python3 -I scripts/changes.py collect --preserve   collect local fragments without deleting them
+  python3 -I scripts/changes.py preview   JSON preview from committed origin/main; no writes
+  python3 -I scripts/changes.py generate  write that preview's documents; retain all fragments
+  python3 -I scripts/changes.py audit [--prs FILE]
+                                          compare STATUS rows with GitHub PR state (gh, or a
+                                          `gh pr list --state all --json number,state` file); exit 1 on drift
+Fetch origin/main first. Fragment states are declarations, not proof of full epic acceptance.
 """
+from collections import Counter
+from datetime import datetime, timezone
+import json
 import os
 import re
+import subprocess
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -64,12 +75,14 @@ def parse(text):
     return meta, body
 
 
-def validate(path, known_ids=None):
+def validate(path, known_ids=None, text=None):
     name = os.path.basename(path)
     errs = []
     try:
-        with open(path, encoding="utf-8") as f:
-            meta, body = parse(f.read())
+        if text is None:
+            with open(path, encoding="utf-8") as f:
+                text = f.read()
+        meta, body = parse(text)
     except (FragmentError, OSError, UnicodeDecodeError) as e:
         return None, None, [str(e)]
     pr, branch = meta.get("pr", ""), meta.get("branch", "")
@@ -164,13 +177,177 @@ def apply_status(text, items):
                 if len(cells) >= 7 and cells[1].strip() == rid:
                     cells[3] = " %s " % state
                     cells[4] = " `%s` " % meta["branch"]
-                    if meta["pr"].isdigit():
-                        cells[5] = " %s " % pr_cell(meta["pr"])
+                    cells[5] = " %s " % pr_cell(meta["pr"])
                     if note and note not in cells[2]:
                         cells[2] = cells[2].rstrip() + " (%s) " % note
                     lines[i] = "|".join(cells)
-                    break
     return "\n".join(lines)
+
+
+def git(*args):
+    """Read source objects without checking out or modifying another worktree."""
+    result = subprocess.run(["git", "-C", ROOT, *args], capture_output=True, text=True)
+    if result.returncode:
+        raise FragmentError("cannot read committed origin/main: " + result.stderr.strip())
+    return result.stdout
+
+
+def epic_rows(text):
+    """Only five-column epic rows, never the foundation PR or summary tables."""
+    if "## Every epic\n" not in text:
+        raise FragmentError("STATUS.md has no 'Every epic' heading")
+    rows = []
+    for line in text.split("## Every epic\n", 1)[1].splitlines():
+        cells = [c.strip() for c in line.split("|")]
+        if len(cells) != 7 or not cells[1] or cells[1].lower() == "id" or cells[1].startswith("-"):
+            continue
+        match = STATE_RE.fullmatch(cells[3])
+        if not match:
+            raise FragmentError("unknown epic state for " + cells[1])
+        state = match.group(1)
+        rows.append((cells[1], "in-review" if state == "review" else state))
+    return rows
+
+
+def main_preview() -> dict:
+    """Render immutable main inputs, including coverage limits, retaining duplicate rows."""
+    source = git("rev-parse", "--verify", "refs/remotes/origin/main^{commit}").strip()
+    status = git("show", source + ":docs/leap/STATUS.md")
+    changelog = git("show", source + ":CHANGELOG.md")
+    ids = {rid for rid, _ in epic_rows(status)}
+    paths = git("ls-tree", "-r", "--name-only", source, "--", "changes/").splitlines()
+    # First-parent history reflects landing order, not branch author timestamps.
+    history = git("log", "--first-parent", "--diff-merges=first-parent", "--format=%H",
+                  "--name-only", source, "--", "changes/").splitlines()
+    ranks, rank = {}, 0
+    for line in history:
+        if re.fullmatch(r"[0-9a-f]{40,64}", line):
+            rank += 1
+        elif line.startswith("changes/"):
+            ranks.setdefault(line, rank)
+    items, declarations = [], {}
+    for path in sorted(paths, key=lambda p: (-ranks.get(p, 0), p)):
+        if not path.endswith(".md") or path == "changes/README.md":
+            continue
+        meta, body, errors = validate(path, ids, git("show", source + ":" + path))
+        if errors:
+            raise FragmentError(path + ": " + "; ".join(errors))
+        assert meta is not None
+        for rid, state, note in meta["status_rows"]:
+            key = (ranks.get(path, 0), rid)
+            value = (state, note, meta["branch"], meta["pr"])
+            if key in declarations and declarations[key] != value:
+                raise FragmentError("conflicting declarations in one main landing for " + rid)
+            declarations[key] = value
+        items.append((meta, body))
+    status = apply_status(status, items)
+    rows = epic_rows(status)
+    counts = dict(sorted(Counter(state for _, state in rows).items()))
+    updated_ids = {rid for meta, _ in items for rid, _, _ in meta["status_rows"]}
+    updated_rows = sum(rid in updated_ids for rid, _ in rows)
+    unique_ids = len({rid for rid, _ in rows})
+    today = datetime.now(timezone.utc).date().isoformat()
+    stamp = ("**Last updated:** %s (generated UTC from committed main `%s`; "
+             "not a full row truth audit)." % (today, source))
+    status, n = re.subn(r"^\*\*Last updated:\*\*.*$", stamp, status, count=1, flags=re.M)
+    if n != 1:
+        raise FragmentError("STATUS.md has no Last updated field")
+    summary = ["## Summary", "", "| State | Rows |", "|---|---|"]
+    summary.extend("| %s | %d |" % pair for pair in counts.items())
+    coverage = ("(Counted from the rows below on %s UTC: %d rows, %d unique IDs; "
+                "%d duplicate row(s) retained. %d row(s) updated by %d main fragment(s). "
+                "States are fragment declarations or inherited baseline, not independently audited "
+                "acceptance. Merged partial work is not automatically done; unmerged approvals "
+                "are excluded. Historical prose below is not refreshed.)" %
+                (today, len(rows), unique_ids, len(rows) - unique_ids, updated_rows, len(items)))
+    pattern = r"## Summary\n.*?\(Counted from the rows below[^\n]*\)"
+    status, n = re.subn(pattern, "\n".join(summary) + "\n\n" + coverage, status, count=1, flags=re.S)
+    if n != 1:
+        raise FragmentError("STATUS.md summary/count marker not found")
+    return dict(source=source, fragments=len(items), counts=counts, rows=len(rows),
+                unique_ids=unique_ids, updated_rows=updated_rows,
+                status=status, changelog=apply_changelog(changelog, items))
+
+
+def cmd_preview():
+    print(json.dumps(main_preview(), indent=2))
+    return 0
+
+
+def cmd_generate():
+    data = main_preview()
+    if git("rev-parse", "HEAD").strip() != data["source"]:
+        raise FragmentError("generate requires HEAD at origin/main; use preview on feature branches")
+    outputs = [(CHANGELOG, "CHANGELOG.md", data["changelog"]),
+               (STATUS, "docs/leap/STATUS.md", data["status"])]
+    # Preflight both targets before writing either; never overwrite unrelated edits.
+    for path, relative, rendered in outputs:
+        with open(path, encoding="utf-8") as f:
+            if f.read() not in (rendered, git("show", data["source"] + ":" + relative)):
+                raise FragmentError("refusing to overwrite edited " + relative)
+    for path, _, rendered in outputs:
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(rendered)
+    print("changes: generated %d rows from %d main fragment(s); all fragments retained" %
+          (data["rows"], data["fragments"]))
+    return 0
+
+
+def pr_states(path=None):
+    """Return {pr number: OPEN|MERGED|CLOSED} from a gh JSON file, or from `gh pr list` live."""
+    if path:
+        with open(path, encoding="utf-8") as f:
+            raw = f.read()
+    else:
+        result = subprocess.run(["gh", "pr", "list", "--state", "all", "--limit", "2000",
+                                 "--json", "number,state"], capture_output=True, text=True)
+        if result.returncode:
+            raise FragmentError("cannot read PR state from gh: " + result.stderr.strip())
+        raw = result.stdout
+    try:
+        return {int(p["number"]): p["state"] for p in json.loads(raw)}
+    except (ValueError, KeyError, TypeError) as e:
+        raise FragmentError("bad PR state JSON: %s" % e)
+
+
+def audit_rows(status_text, states):
+    """Return drift findings (id, message) between epic rows and GitHub PR state.
+
+    Only provable contradictions are reported: a row that says work is open while its own PR is
+    merged or closed, or says done while its PR is still open. Rows whose state already says
+    `(merged in #N ...)` declare a partial landing and are left alone. Rows without a PR are not judged.
+    """
+    findings = []
+    for line in status_text.split("## Every epic\n", 1)[-1].splitlines():
+        cells = [c.strip() for c in line.split("|")]
+        if len(cells) != 7 or not cells[1] or cells[1].lower() == "id" or cells[1].startswith("-"):
+            continue
+        rid, raw_state, pr_cell_text = cells[1], cells[3], cells[5]
+        m = STATE_RE.fullmatch(raw_state)
+        pr = re.match(r"\[#?(\d+)\]", pr_cell_text)
+        if not m or not pr:
+            continue
+        state, number = m.group(1), int(pr.group(1))
+        live = states.get(number)
+        if live is None:
+            findings.append((rid, "PR #%d is not on GitHub" % number))
+        elif live == "MERGED" and state in ("todo", "in-progress", "in-review", "review") \
+                and "merged in" not in raw_state:
+            findings.append((rid, "row says %s but PR #%d is merged" % (state, number)))
+        elif live == "CLOSED" and state in ("in-progress", "in-review", "review", "done"):
+            findings.append((rid, "row says %s but PR #%d was closed unmerged" % (state, number)))
+        elif live == "OPEN" and state == "done":
+            findings.append((rid, "row says done but PR #%d is still open" % number))
+    return findings
+
+
+def cmd_audit(prs_file=None):
+    with open(STATUS, encoding="utf-8") as f:
+        findings = audit_rows(f.read(), pr_states(prs_file))
+    for rid, msg in findings:
+        print("%s: %s" % (rid, msg))
+    print("changes: audit found %d drifting row(s)" % len(findings))
+    return 1 if findings else 0
 
 
 def cmd_check():
@@ -195,7 +372,7 @@ def cmd_render():
     return 0
 
 
-def cmd_collect():
+def cmd_collect(preserve=False):
     items, bad = load_all()
     if bad:
         return 1
@@ -210,14 +387,24 @@ def cmd_collect():
         f.write(cl)
     with open(STATUS, "w", encoding="utf-8") as f:
         f.write(st)
-    for p in fragments():
-        os.remove(p)
+    if not preserve:
+        for p in fragments():
+            os.remove(p)
     print("changes: collected %d fragment(s)" % len(items))
     return 0
 
 
 def main(argv):
-    cmds = {"check": cmd_check, "render": cmd_render, "collect": cmd_collect}
+    if argv[1:] == ["collect", "--preserve"]:
+        return cmd_collect(preserve=True)
+    if len(argv) >= 2 and argv[1] == "audit" and (len(argv) == 2 or (len(argv) == 4 and argv[2] == "--prs")):
+        try:
+            return cmd_audit(argv[3] if len(argv) == 4 else None)
+        except (FragmentError, OSError) as e:
+            print("changes: " + str(e), file=sys.stderr)
+            return 1
+    cmds = {"check": cmd_check, "render": cmd_render, "collect": cmd_collect,
+            "preview": cmd_preview, "generate": cmd_generate}
     if len(argv) != 2 or argv[1] not in cmds:
         print(__doc__, file=sys.stderr)
         return 2

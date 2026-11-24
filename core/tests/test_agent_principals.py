@@ -311,3 +311,18 @@ def test_noop_executor_records_what_it_would_do(settings, clock):
         assert steps[0]["principal"] == f"agent:{APP}"
         removal = run_action(c, clock, type_="app.remove", key="k2")
         assert removal["result"]["steps"][0]["would"] == f"delete Secret {SECRET} in app-{APP}"
+
+
+def test_update_that_drops_spec_agent_revokes_the_principal(client, clock, executor, settings):
+    run_action(client, clock)
+    token = executor.agents[-1].token
+    assert client.get("/v1/nodes", headers=bearer(token)).status_code == 200
+    manifest = Path(settings.apps_dir) / APP / "onemind.app.yaml"
+    manifest.write_text("".join(
+        line for line in manifest.read_text().splitlines(keepends=True) if not line.lstrip().startswith("agent:")))
+    run_action(client, clock, type_="app.update", key="k2")
+    assert executor.agents[-1] is None  # the new version declares no agent
+    assert client.get("/v1/nodes", headers=bearer(token)).status_code == 401
+    (row,) = stored_rows(client)
+    assert row.revoked_at is not None
+    assert "agent.principal.revoked" in [rec["event"] for rec in audit_lines(settings)]

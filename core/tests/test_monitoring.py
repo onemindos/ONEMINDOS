@@ -152,6 +152,33 @@ def test_disk_threshold_with_hysteresis(mclient, clock):
     assert "node:n1:disk" not in alerts(mclient)
 
 
+def images(used, warn=70.0, budget=80.0, **extra):
+    return {"count": 12, "bytes": 9e9, "superseded_bytes": 0, "disk_used_pct": used, "budget_pct": budget,
+            "warn_pct": warn, "last_cleanup_at": "2026-11-11T21:00:00Z", "last_result": "succeeded",
+            "last_removed": 3, "last_freed_bytes": 2e9, **extra}
+
+
+def test_disk_budget_warns_before_it_fills(mclient, clock):
+    """NMD-08 (#133): the image cleaner's heartbeat object opens a warning at warn_pct, before the budget."""
+    minute(mclient, clock, images=images(65.0))
+    assert "node:n1:disk_budget" not in alerts(mclient)
+    minute(mclient, clock, images=images(71.5))
+    a = alerts(mclient)["node:n1:disk_budget"]
+    assert a["type"] == "disk.budget_near" and a["topic"] == "storage" and a["severity"] == "warning"
+    assert "71.5% used" in a["body"] and "budget is 80.0%" in a["body"]
+    minute(mclient, clock, images=images(69.0))   # within 2 points: still near
+    assert "node:n1:disk_budget" in alerts(mclient)
+    minute(mclient, clock, images=images(60.0))   # the cleanup freed space
+    assert "node:n1:disk_budget" not in alerts(mclient)
+
+
+@pytest.mark.parametrize("obj", [None, "x", images(0), images("90"), images(90.0, warn=0), images(95.0, warn=90, budget=80)])
+def test_disk_budget_ignores_missing_or_bad_figures(mclient, clock, obj):
+    extra = {} if obj is None else {"images": obj}
+    minute(mclient, clock, **extra)
+    assert "node:n1:disk_budget" not in alerts(mclient)
+
+
 def test_storage_object_wins_over_root_disk(mclient, clock):
     minute(mclient, clock, storage={"state": "protected", "mount": "/data", "used_bytes": 95e9, "free_bytes": 5e9})
     assert "node:n1:disk" in alerts(mclient)

@@ -26,6 +26,7 @@ from typing import Any
 
 import yaml
 
+from .catalog import APP_ID_RE as APP_ID
 from .sections import config_section
 
 # Repo-relative and image locations of the rule file, found the same way as the app schema.
@@ -381,6 +382,14 @@ def _check_pod(pod: dict, base: str, level: str, caps_allowed: frozenset[str], r
 ROLE_FORBIDDEN_RESOURCES = frozenset({"namespaces", "nodes", "persistentvolumes", "componentstatuses"})
 ROLE_FORBIDDEN_SUBRESOURCES = frozenset({"exec", "attach", "portforward", "proxy", "ephemeralcontainers", "token"})
 RBAC_GROUP = "rbac.authorization.k8s.io"
+# v0: an app Role is read-only on these. The gateway holds write rights in app-<id>, so Kubernetes
+# would allow the Role, but a pod with a token could then publish a NodePort or externalIPs Service
+# (skipping gateway sign-in, CVE-2020-8554 class) or start unscanned workloads at runtime.
+ROLE_WRITE_VERBS = frozenset({"create", "update", "patch", "delete", "deletecollection"})
+ROLE_READ_ONLY_RESOURCES = frozenset({
+    "services", "endpoints", "endpointslices", "pods", "replicationcontrollers", "secrets", "serviceaccounts",
+    "deployments", "statefulsets", "replicasets", "daemonsets", "jobs", "cronjobs",
+})
 
 
 def _role_groups(rules: Rules) -> frozenset[str]:
@@ -404,6 +413,8 @@ def _check_role(obj: dict, rules: Rules, name: str) -> list[Violation]:
             or any(r.partition("/")[0] in ROLE_FORBIDDEN_RESOURCES for r in res)
             or any(r.partition("/")[2] in ROLE_FORBIDDEN_SUBRESOURCES or r.endswith("/*") for r in res)
             or any(vb in ("escalate", "bind", "impersonate") for vb in verbs)
+            or (any(vb in ROLE_WRITE_VERBS for vb in verbs)
+                and any(r.partition("/")[0] in ROLE_READ_ONLY_RESOURCES for r in res))
             or rule.get("nonResourceURLs")
         )
         if bad:
@@ -603,3 +614,64 @@ def network_policies(
         "spec": {"podSelector": {}, "policyTypes": ["Ingress", "Egress"], "ingress": ingress, "egress": egress_rules},
     }
     return [deny, allow]
+
+
+# Names of the NetworkPolicies for declared dependencies (contract §12.22, dependency network paths).
+DEPENDENCIES_POLICY = "onemind-dependencies"
+
+
+def dependent_policy_name(dependent: str) -> str:
+    return f"onemind-dependent-{dependent}"
+
+
+def _ns_selector(app_id: str) -> dict:
+    # kubernetes.io/metadata.name is set by the API server from the namespace's name; an app cannot
+    # put it on another namespace, so this selects exactly one namespace.
+    return {"namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": f"app-{app_id}"}}}
+
+
+def dependency_policies(dependent: str, paths: Iterable[tuple[str, int]]) -> list[dict]:
+    """The NetworkPolicies opening app-<dependent> -> app-<provider> on TCP port, for each path.
+
+    paths: (provider app id, pod port after Service translation). One egress policy in the dependent's
+    namespace (all paths), then one ingress policy per provider in that provider's namespace. Every
+    peer is one exact namespace; no ipBlock, no UDP, nothing on the host. An empty `paths` gives []
+    (the caller deletes what an earlier run wrote).
+    """
+    if not APP_ID.match(dependent):
+        raise ValueError(f"not an app id: {dependent!r}")
+    by_provider: dict[str, list[int]] = {}
+    for provider, port in paths:
+        if not APP_ID.match(provider) or provider == dependent:
+            raise ValueError(f"not a provider for {dependent}: {provider!r}")
+        if isinstance(port, bool) or not isinstance(port, int) or not 1 <= port <= 65535:
+            raise ValueError(f"not a port: {port!r}")
+        ports = by_provider.setdefault(provider, [])
+        if port not in ports:
+            ports.append(port)
+    if not by_provider:
+        return []
+
+    def labels(app_id: str) -> dict:
+        return {"onemind.io/app": app_id, "onemind.io/managed-by": "onemind-gateway", "onemind.io/dependent": dependent}
+
+    def tcp(ports: list[int]) -> list[dict]:
+        return [{"protocol": "TCP", "port": p} for p in sorted(ports)]
+
+    out = [{
+        "apiVersion": "networking.k8s.io/v1", "kind": "NetworkPolicy",
+        "metadata": {"name": DEPENDENCIES_POLICY, "namespace": f"app-{dependent}", "labels": labels(dependent)},
+        "spec": {"podSelector": {}, "policyTypes": ["Egress"], "egress": [
+            {"to": [{**_ns_selector(p), "podSelector": {}}], "ports": tcp(ports)}
+            for p, ports in sorted(by_provider.items())
+        ]},
+    }]
+    for p, ports in sorted(by_provider.items()):
+        out.append({
+            "apiVersion": "networking.k8s.io/v1", "kind": "NetworkPolicy",
+            "metadata": {"name": dependent_policy_name(dependent), "namespace": f"app-{p}", "labels": labels(p)},
+            "spec": {"podSelector": {}, "policyTypes": ["Ingress"], "ingress": [
+                {"from": [{**_ns_selector(dependent), "podSelector": {}}], "ports": tcp(ports)}
+            ]},
+        })
+    return out

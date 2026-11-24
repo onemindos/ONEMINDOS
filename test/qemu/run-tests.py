@@ -19,7 +19,16 @@ _ff = importlib.util.spec_from_file_location("failfast", os.path.join(os.path.di
 failfast = importlib.util.module_from_spec(_ff)
 _ff.loader.exec_module(failfast)
 
-ANSI = re.compile(rb"\x1b\[[0-9;?]*[A-Za-z]|\x1b[()][0-9A-B]|\r")
+ANSI = re.compile(rb"\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b\[[0-9;?]*[A-Za-z]|\x1b[()][0-9A-B]|\r")
+# Escape sequences that can sit in front of a command's first output line on the serial console.
+# Ubuntu 26.04's systemd (shell integration) emits an OSC 3008 context mark "ESC ] 3008;start=...;cwd=/root ESC \"
+# right before the output, which put "rauc v1.15.2" behind it and broke every "^name" match (#283).
+# Debian 13's systemd does not emit it, so the Debian leg is unchanged.
+ESC_SEQ = re.compile(r"\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b?\[\?[0-9;]*[A-Za-z]|\x1b\[[0-9;]*[A-Za-z]")
+
+
+def strip_escapes(text):
+    return ESC_SEQ.sub("", text)
 # The version stops at whitespace or ";": the fell-back line reads "version=2; slot B (v2) marked bad ...".
 GATE = r"HEALTH-GATE: \S+ RESULT (\S+) slot=(\w) version=([^\s;]+)([^\n]*)"
 ENV = "grub-editenv /boot/efi/EFI/BOOT/grubenv list"
@@ -45,7 +54,7 @@ BOARDS = {  # QEMU settings per board (CRITERIA.md §3 item 6)
 def envkv(out):
     # Compare only grubenv KEY=VALUE lines; escape fragments split across serial reads can leak
     # into captured text (lab rauc-1152 deviation 4).
-    out = re.sub(r"\x1b?\[\?[0-9;]*[A-Za-z]|\x1b\[[0-9;]*[A-Za-z]", "", out)
+    out = strip_escapes(out)
     return sorted(x.strip() for x in re.findall(r"^(?:ORDER=[AB ]+|[AB]_(?:OK|TRY)=\d+)[ \t]*$", out, re.M))
 
 
@@ -140,10 +149,22 @@ class VM:
         with self.lock:
             out = self.buf[start:m.start()]
         # Escape fragments split across serial reads survive ANSI stripping (lab deviation 4).
-        return int(m.group(1)), re.sub(r"\x1b?\[\?[0-9;]*[A-Za-z]|\x1b\[[0-9;]*[A-Za-z]", "", out)
+        return int(m.group(1)), strip_escapes(out)
 
     def wait_gate(self, timeout=1800):
         m = self.expect(GATE, timeout)
+        # The match can fire while the serial line is still arriving (the reader hands over whatever
+        # the pipe holds), which cut "verdict=environment-bad" short and made TD3 read verdict=None
+        # (#324). Wait for the line's newline, then re-read the whole line. The check itself is unchanged.
+        end = time.time() + 30
+        while time.time() < end:
+            with self.lock:
+                if "\n" in self.buf[m.end():]:
+                    break
+            time.sleep(0.05)
+        with self.lock:
+            whole = re.compile(GATE).match(self.buf, m.start())
+        m = whole or m
         self.last_gate = m.group(0)
         return m.group(1), m.group(2), m.group(3)
 

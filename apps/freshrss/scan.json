@@ -1,0 +1,30 @@
+{
+  "scanned_at": "2026-11-21T13:36:13Z",
+  "result": "fail",
+  "images": [
+    {
+      "ref": "docker.io/freshrss/freshrss:1.30.4@sha256:af44385229541bee24aa9148d0ff8f3b40e095373c63a2c0f74e09a27d3c59df",
+      "archs": [
+        "amd64",
+        "arm64"
+      ],
+      "trivy": {
+        "version": "0.76.2",
+        "critical_fixable": 61,
+        "critical": 62,
+        "high": 221
+      },
+      "clamav": {
+        "signatures": "daily-28190",
+        "infected": 0
+      },
+      "secrets": 0,
+      "cosign": "unsigned"
+    }
+  ],
+  "licence": {
+    "spdx": "AGPL-3.0",
+    "class": "L2"
+  },
+  "smoke": "pass"
+}

@@ -1,0 +1,64 @@
+# SPDX-License-Identifier: Apache-2.0
+# The host action service (onemindd host serve, #146 #142, docs/leap/core/HOST-ACTIONS.md): restarts,
+# shuts down and installs OS updates for actions the owner approved in the gateway. Local Unix socket
+# only: onemind-host.socket (/run/onemind/host.sock, mode 0660, group onemind); peer credentials are checked
+# on every connection, and only root and the gateway's user are served. It decides nothing: no approval, no action. Its journal is on /data. Started by
+# onemind-firstboot on the hub role. The OS install runs the update engine (internal/update) in this
+# process, so the sandbox is the update service's; systemd makes the socket, so nothing here chowns.
+[Unit]
+Description=OneMind host actions (approved restart, shutdown, OS install)
+Requires=onemind-host.socket
+After=onemind-host.socket network-online.target rauc.service onemind-health-gate.service onemind-firstboot.service
+Wants=network-online.target
+RequiresMountsFor=/data
+ConditionPathExists=/data/onemind/firstboot/state.json
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/onemindd host serve --user onemind
+Restart=always
+RestartSec=2s
+Environment=HOME=/data/onemind/update-home
+Environment=RESTIC_CACHE_DIR=/data/onemind/update-cache
+ExecStartPre=/bin/mkdir -p /data/onemind/update-home /data/onemind/update-cache
+
+# --- identity / privileges: root; read the gateway's files (restic snapshot) ---
+User=root
+NoNewPrivileges=yes
+CapabilityBoundingSet=CAP_DAC_READ_SEARCH
+AmbientCapabilities=
+
+# --- filesystem: read-only except the data partition ---
+ProtectSystem=strict
+# /boot/efi: the factory reset marker (docs/leap/core/HOST-ACTIONS.md section 4).
+ReadWritePaths=/data /boot/efi
+ProtectHome=yes
+PrivateTmp=yes
+# The factory reset plan reads the disks' LUKS2 headers: block devices read-only, nothing else.
+PrivateDevices=no
+DevicePolicy=closed
+DeviceAllow=block-* r
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+UMask=0022
+
+# --- kernel / syscalls: reboot and poweroff go to PID 1 over D-Bus, never as syscalls here ---
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged
+SystemCallErrorNumber=EPERM
+
+# --- network: HTTPS for the update channel, AF_UNIX for D-Bus (systemd, rauc) ---
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+
+[Install]
+WantedBy=multi-user.target

@@ -37,6 +37,7 @@ from sec_world import DESCRIBE, KINDS, MINTABLE, PENDING_KINDS, World, route_met
 # (method, path) of routes that answer without a bearer token, and why.
 PUBLIC = {
     ("GET", "/healthz"),                       # liveness probe for the health gate
+    ("GET", "/v1/instance/name"),              # the box name alone, so the sign-in page can show it
     ("GET", "/openapi.json"),                  # the contract; reveals the version only
     ("POST", "/v1/auth/setup"),                # first owner; needs the install token in the body
     ("POST", "/v1/auth/login/options"),        # WebAuthn challenge; bounded (MAX_OPEN_LOGIN_CHALLENGES)
@@ -184,7 +185,7 @@ def test_every_row_has_every_column():
 
 def test_every_principal_kind_has_a_column():
     """A kind or role the gateway can authenticate must be a minted column of the matrix."""
-    columns = {"person": {"owner", "adult", "guest", "child"}, "agent": {"agent", "app-agent"}}
+    columns = {"person": {"owner", "adult", "guest", "child", "teen"}, "agent": {"agent", "app-agent"}}
     for kind in auth.KINDS:
         cols = columns.get(kind, {kind})
         assert cols <= set(KINDS), f"principal kind {kind!r} has no matrix column"

@@ -6,7 +6,7 @@ from __future__ import annotations
 from fastapi import Depends, FastAPI
 
 from .. import __version__
-from ..apimodels import Healthz, Instance
+from ..apimodels import Healthz, Instance, InstanceName
 from ..auth import Principal
 from ..context import Gateway
 from ..errors import error_responses
@@ -25,6 +25,15 @@ def register(app: FastAPI, gw: Gateway) -> None:
     @app.get("/healthz", tags=["meta"], operation_id="meta.healthz", responses={200: {"model": Healthz}})
     def healthz():
         return {"ok": True}
+
+    # The sign-in screen says which box it belongs to ("Home OneMind"). Only the display name the
+    # owner chose is served, nothing else: no version, no node id (those stay behind sign-in).
+    @app.get(
+        "/v1/instance/name", tags=["instance"], operation_id="instance.name",
+        responses={200: {"model": InstanceName}},
+    )
+    def instance_name():
+        return {"name": OnboardingService(gw.db).read()["box_name"] or settings.instance_name}
 
     # ---- instance -----------------------------------------------------------------------
     @app.get(

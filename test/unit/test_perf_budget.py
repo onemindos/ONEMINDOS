@@ -161,6 +161,69 @@ class Budget(unittest.TestCase):
         self.assertTrue(all(v >= 0 for v in flat.values()))
 
 
+class ImageLayout(unittest.TestCase):
+    """The harness runs unmodified on the shipped image (lab finding: paths, unit names, add-ons, seed)."""
+
+    def test_layout_detection(self):
+        with tempfile.TemporaryDirectory() as d:
+            self.assertEqual(perf.layout(d), "install")
+            f = Path(d) / "data/onemind/gateway/tokens.yaml"
+            f.parent.mkdir(parents=True)
+            f.write_text("tokens:\n")
+            self.assertEqual(perf.layout(d), "image")
+
+    def test_image_values_match_the_image(self):
+        img = perf.LAYOUTS["image"]
+        self.assertEqual(img["tokens"], "/data/onemind/gateway/tokens.yaml")
+        self.assertEqual(img["onemindd"], "/usr/bin/onemindd")
+        self.assertEqual(img["kubeconfig"], "/run/k3s/k3s.yaml")
+        # k3s.service starts with --disable=metrics-server: waiting for it would never end.
+        self.assertNotIn("metrics-server", img["addons"])
+        self.assertIn("onemind-headscale.service", perf.UNITS["mesh"])
+        for unit in ("onemind-gateway.service", "onemindd.service", "onemind-nats.service", "k3s.service"):
+            self.assertTrue(any(unit in u for u in perf.UNITS.values()), unit)
+
+    def test_image_files_agree(self):
+        """The paths above are the ones the image's own units use."""
+        units = ROOT / "os/rootfs/layers"
+        self.assertIn("ExecStart=/usr/bin/onemindd", (units / "onemind/usr/lib/systemd/system/onemindd.service").read_text())
+        k3s = (units / "base/usr/lib/systemd/system/k3s.service").read_text()
+        self.assertIn("--disable=metrics-server", k3s)
+        self.assertIn("--write-kubeconfig /run/k3s/k3s.yaml", k3s)
+
+    def test_sim_nodes_get_the_seed(self):
+        import argparse
+        a = argparse.Namespace(nats="nats://127.0.0.1:4222", nkey_seed="/data/onemind/nats/keys/onemindd.nk")
+        args = perf.sim_properties(2, a)
+        self.assertIn("--property=LoadCredential=nkey:/data/onemind/nats/keys/onemindd.nk", args)
+        self.assertIn("--setenv=ONEMIND_NATS_NKEY_SEED=/run/credentials/onemind-perf-sim-2.service/nkey", args)
+        a.nkey_seed = None
+        self.assertFalse([x for x in perf.sim_properties(2, a) if "NKEY" in x or "LoadCredential" in x])
+
+
+class PlanFixture(unittest.TestCase):
+    def lat(self, p95, errors=0):
+        return {"create": {"n": 10, "errors": errors, "p95": p95}, "deny": {"n": 10, "errors": 0, "p95": 5.0},
+                "GET " + perf.CAPABILITIES: {"n": 10, "errors": 0, "p95": 3.0}}
+
+    def test_pass_and_fail(self):
+        self.assertTrue(perf.plan_report(self.lat(50), 20, 10, 60, 100)["pass"])
+        r = perf.plan_report(self.lat(150), 20, 10, 60, 100)
+        self.assertFalse(r["pass"])
+        self.assertEqual(r["over_target"], {"create": 150})
+        self.assertFalse(perf.plan_report(self.lat(5, errors=1), 20, 10, 60, 100)["pass"])
+        self.assertFalse(perf.plan_report({}, 20, 10, 60, 100)["pass"])  # nothing was measured
+
+    def test_parameters_reach_the_report(self):
+        r = perf.plan_report(self.lat(1), 7, 3.5, 30, 80)
+        self.assertEqual((r["devices"], r["events_per_s"], r["seconds"], r["p95_target_ms"]), (7, 3.5, 30, 80))
+
+    def test_cli_takes_the_fixture_parameters(self):
+        with self.assertRaises(SystemExit):  # not root / bad numbers: it parsed the options and refused
+            perf.main(["plan", "--token-file", "/nonexistent", "--out", "/dev/null", "--devices", "0",
+                       "--events-per-s", "5", "--seconds", "1", "--p95-ms", "50"])
+
+
 class Tokens(unittest.TestCase):
     def test_add_principal(self):
         with tempfile.TemporaryDirectory() as d:

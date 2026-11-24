@@ -32,6 +32,9 @@ var (
 		Files: []VolumeFile{{VolumeRef: pgVol, Path: "onemind-dumps/app_notes.pgdump"}}}
 )
 
+// wrongPhrase is a made-up stand-in for a wrong recovery phrase; not a real credential.
+var wrongPhrase = strings.Repeat("w", 40)
+
 func newManagedFixture(t *testing.T) *managedFixture {
 	t.Helper()
 	f := newFixture(t)
@@ -450,5 +453,136 @@ func TestAppRestorePutsTheOnlineSQLiteCopyBack(t *testing.T) {
 	m.ok(t, KindRestoreFinish, map[string]any{"app_id": "notes", "stamp": stamp, "commit": false})
 	if m.read("storage/pvc-1111_app-notes_data/db/app.db") != "SQLITE-broken" {
 		t.Fatal("rollback must bring the live database back")
+	}
+}
+
+// A fresh box lists the old box's restore points by box id; a bad id is refused.
+func TestSnapshotsJobListsAnotherBoxsPoints(t *testing.T) {
+	m := newManagedFixture(t)
+	m.ok(t, KindConfigure, usbTarget())
+	snap := appRun(t, m, ReasonManual).Units[0].SnapshotID
+
+	own, _ := json.Marshal(m.ok(t, KindSnapshots, map[string]any{}).Result)
+	if !strings.Contains(string(own), snap) {
+		t.Fatalf("this box's own points are missing: %s", own)
+	}
+	other, _ := json.Marshal(m.ok(t, KindSnapshots, map[string]any{"box_id": "some-other-box"}).Result)
+	if strings.Contains(string(other), snap) {
+		t.Fatalf("another box's listing leaked this box's snapshot: %s", other)
+	}
+	same, _ := json.Marshal(m.ok(t, KindSnapshots, map[string]any{"box_id": m.cfg.BoxID}).Result)
+	if !strings.Contains(string(same), snap) {
+		t.Fatalf("listing by this box's own id should match: %s", same)
+	}
+	code, res, _ := m.do(t, KindSnapshots, map[string]any{"box_id": "bad id;rm"})
+	if code == 200 || res.Error != "bad_job" {
+		t.Fatalf("a malformed box_id was accepted: %d %+v", code, res)
+	}
+}
+
+// New hardware: the old box's repository is sealed with the OLD box's device
+// key, which the fresh box does not have. Only the owner recovery key from the
+// kit opens it; with the fresh box's own key the listing must fail, and a
+// listing must never create a repository.
+func TestSnapshotsJobOpensAnotherBoxsRepoWithTheRecoveryKey(t *testing.T) {
+	m := newManagedFixture(t)
+	m.ok(t, KindConfigure, usbTarget())
+	snap := appRun(t, m, ReasonManual).Units[0].SnapshotID
+	const recovery = "owner-recovery-key-0123456789abcdef0123456789"
+	inits := 0
+	m.agent.OpenRepoWithKeyFile = func(_ Target, keyFile string) (Repo, error) {
+		b, err := os.ReadFile(keyFile)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.TrimSpace(string(b)) != recovery {
+			return &sealedRepo{Repo: m.repo, wrong: true}, nil
+		}
+		return &sealedRepo{Repo: m.repo, inits: &inits}, nil
+	}
+
+	params := map[string]any{"box_id": m.cfg.BoxID, "recovery_key": recovery}
+	got, _ := json.Marshal(m.ok(t, KindSnapshots, params).Result)
+	if !strings.Contains(string(got), snap) {
+		t.Fatalf("the recovery key should open the repository: %s", got)
+	}
+	if inits != 0 {
+		t.Fatal("browsing another box's repository must never run init")
+	}
+	params["recovery_key"] = wrongPhrase
+	code, res, body := m.do(t, KindSnapshots, params)
+	if res.State != "failed" || strings.Contains(string(body), wrongPhrase) {
+		t.Fatalf("a wrong key must fail without echoing it: %d %+v %s", code, res, body)
+	}
+	code, res, _ = m.do(t, KindSnapshots, map[string]any{"box_id": "b", "recovery_key": "short"})
+	if code == 200 || res.Error != "bad_job" {
+		t.Fatalf("a short key was accepted: %d %+v", code, res)
+	}
+	if left, _ := filepath.Glob(filepath.Join(m.cfg.StateDir, ".key-*")); len(left) != 0 {
+		t.Fatalf("the key file must be removed: %v", left)
+	}
+}
+
+// sealedRepo is a repository that only answers when opened with the right key.
+type sealedRepo struct {
+	Repo
+	wrong bool
+	inits *int
+}
+
+func (s *sealedRepo) Init(ctx context.Context) error {
+	if s.inits != nil {
+		*s.inits++
+	}
+	return s.Repo.Init(ctx)
+}
+
+func (s *sealedRepo) Snapshots(ctx context.Context, f []string) ([]Snapshot, error) {
+	if s.wrong {
+		return nil, &ResticError{Op: "snapshots", ExitCode: exitWrongKey, Stderr: "wrong password or no key found"}
+	}
+	return s.Repo.Snapshots(ctx, f)
+}
+
+// New hardware (UMB-P08): an app is restored from the OLD box's repository with
+// the owner recovery key. The wrong key changes nothing, and the key file is
+// removed afterwards.
+func TestAppRestoreFromAnotherBoxNeedsTheRecoveryKey(t *testing.T) {
+	m := newManagedFixture(t)
+	m.ok(t, KindConfigure, usbTarget())
+	snap := appRun(t, m, ReasonManual).Units[0].SnapshotID
+	const recovery = "owner-recovery-key-0123456789abcdef0123456789"
+	m.agent.OpenRepoWithKeyFile = func(_ Target, keyFile string) (Repo, error) {
+		b, err := os.ReadFile(keyFile)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return &sealedRepo{Repo: m.repo, wrong: strings.TrimSpace(string(b)) != recovery}, nil
+	}
+	m.write("storage/pvc-1111_app-notes_data/notes.txt", "FRESH BOX")
+	job := map[string]any{"scope": "app", "app_id": "notes", "snapshot_id": snap, "stamp": "20261112T120000Z",
+		"box_id": m.cfg.BoxID, "recovery_key": wrongPhrase}
+	_, res, body := m.do(t, KindRestore, job)
+	if res.State != StateFailed || strings.Contains(string(body), wrongPhrase) {
+		t.Fatalf("a wrong key must fail without echoing it: %+v %s", res, body)
+	}
+	if m.read("storage/pvc-1111_app-notes_data/notes.txt") != "FRESH BOX" {
+		t.Fatal("a refused restore changed the volume")
+	}
+	job["recovery_key"] = recovery
+	m.ok(t, KindRestore, job)
+	if m.read("storage/pvc-1111_app-notes_data/notes.txt") != "v1" {
+		t.Fatal("the other box's snapshot was not restored")
+	}
+	if left, _ := filepath.Glob(filepath.Join(m.cfg.StateDir, ".key-*")); len(left) != 0 {
+		t.Fatalf("the key file must be removed: %v", left)
+	}
+	for _, bad := range []map[string]any{
+		{"scope": "path", "path": "/x", "snapshot_id": snap, "box_id": "b", "recovery_key": recovery},
+		{"scope": "app", "app_id": "notes", "snapshot_id": snap, "stamp": "20261112T120000Z", "recovery_key": recovery},
+	} {
+		if code, r, _ := m.do(t, KindRestore, bad); code == 200 || r.Error != "bad_job" {
+			t.Fatalf("a malformed key restore was accepted: %d %+v", code, r)
+		}
 	}
 }

@@ -39,14 +39,25 @@ OPEN_APP, STOPPED_APP = "actual-budget", "audiobookshelf"
 pytestmark = pytest.mark.skipif(sys.platform == "win32", reason="the gateway runs on Linux and macOS")
 
 
+HITS: list[str] = []  # every request that reached the app's upstream
+
+
 class Echo(BaseHTTPRequestHandler):
     def do_GET(self):  # noqa: N802 (http.server API)
+        HITS.append(f"GET {self.path}")
         body = json.dumps({"path": self.path, "headers": {k.lower(): v for k, v in self.headers.items()}}).encode()
         self.send_response(200)
         self.send_header("content-type", "application/json")
         self.send_header("content-length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
+
+    def _other(self):
+        HITS.append(f"{self.command} {self.path}")
+        self.send_response(204)
+        self.end_headers()
+
+    do_POST = do_PUT = do_DELETE = do_PATCH = do_HEAD = _other  # noqa: N815 (http.server API)
 
     def log_message(self, *_):
         pass
@@ -101,6 +112,9 @@ def box(settings, tmp_path, upstream, clock):
         "ONEMIND_HOST": "127.0.0.1", "ONEMIND_PORT": str(plain_port),
         "ONEMIND_NET_TLS": "1", "ONEMIND_NET_BOX_NAME": "box1", "ONEMIND_NET_TLS_DIR": str(tmp_path / "tls"),
         "ONEMIND_NET_HTTPS_HOST": "127.0.0.1", "ONEMIND_NET_HTTPS_PORTS": str(https_port),
+        # The test client connects over loopback, which says nothing about the real path (#285): it plays
+        # the trusted edge and states the path itself with X-OneMind-Path.
+        "ONEMIND_NET_TRUSTED_PROXIES": "127.0.0.0/8",
     }
     proc = subprocess.Popen([sys.executable, "-m", "onemind_core"], cwd=CORE, env=env,
                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
@@ -135,7 +149,7 @@ class Box:
 
     def request(self, method: str, host: str, path: str = "/", **kw) -> httpx.Response:
         """A request to https://<host>/, connecting to the gateway's loopback port; TLS checks <host>."""
-        headers = {"Host": host, **kw.pop("headers", {})}
+        headers = {"Host": host, "X-OneMind-Path": "lan", **kw.pop("headers", {})}
         return self.client.request(method, f"https://127.0.0.1:{self.port}{path}", headers=headers,
                                    extensions={"sni_hostname": host}, **kw)
 
@@ -177,3 +191,28 @@ def test_stopped_app_says_so(box):
     assert r.status_code == 503
     assert "is stopped. Start it from the OneMind dashboard." in r.text
     assert box.request("GET", "nosuch.onemind.local", headers={"Cookie": cookie}).status_code == 404
+
+
+SIGNED_OUT_URLS = ["/", "/dashboard?x=1", "/v1/instance", "/apps/actual-budget/", "/%2e%2e/", "//evil/", "/a/../../b", "/.well-known/x"]
+
+
+@pytest.mark.parametrize("method", ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"])
+def test_every_app_url_needs_sign_in_and_the_app_never_sees_it(box, method):
+    """Auth is enforced for every app URL: any method, any path, a forged or empty credential."""
+    HITS.clear()
+    credentials = [{}, {"Cookie": "onemind_session=not-a-token"}, {"Authorization": "Bearer not-a-token"}]
+    for host in (f"{OPEN_APP}.onemind.local", f"{OPEN_APP}.box1.local", f"{STOPPED_APP}.onemind.local"):
+        for path in SIGNED_OUT_URLS:
+            for creds in credentials:
+                r = box.request(method, host, path, headers={**creds, "Origin": f"https://{host}"})
+                assert r.status_code == 401, (method, host, path, creds, r.status_code)
+    assert HITS == []  # not one request reached the app
+
+
+def test_signed_in_person_still_reaches_the_app_on_the_same_urls(box):
+    """The refusal above is about sign-in, not the paths: the same URLs open once signed in."""
+    HITS.clear()
+    cookie = box.app_cookie(OWNER)
+    for path in ("/", "/dashboard?x=1", "/v1/instance"):
+        assert box.request("GET", f"{OPEN_APP}.onemind.local", path, headers={"Cookie": cookie}).status_code == 200
+    assert HITS == ["GET /", "GET /dashboard?x=1", "GET /v1/instance"]

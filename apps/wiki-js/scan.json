@@ -1,0 +1,49 @@
+{
+  "scanned_at": "2026-11-21T16:23:18Z",
+  "result": "fail",
+  "images": [
+    {
+      "ref": "docker.io/library/postgres:18.6-alpine@sha256:9ba53c7d41ea093baf5c1ba635ba5434c4f979880527d49bb7d9237d3193085b",
+      "archs": [
+        "amd64",
+        "arm64"
+      ],
+      "trivy": {
+        "version": "0.76.2",
+        "critical_fixable": 1,
+        "critical": 1,
+        "high": 46
+      },
+      "clamav": {
+        "signatures": "daily-28190",
+        "infected": 0
+      },
+      "secrets": 0,
+      "cosign": "unsigned"
+    },
+    {
+      "ref": "ghcr.io/requarks/wiki:3.3.1@sha256:2bdfa19d02d3f0ce18020648cc38ca138c5467fe1cfc4765d4b5f2a59c8efcad",
+      "archs": [
+        "amd64",
+        "arm64"
+      ],
+      "trivy": {
+        "version": "0.76.2",
+        "critical_fixable": 13,
+        "critical": 16,
+        "high": 563
+      },
+      "clamav": {
+        "signatures": "daily-28190",
+        "infected": 0
+      },
+      "secrets": 0,
+      "cosign": "unsigned"
+    }
+  ],
+  "licence": {
+    "spdx": "AGPL-3.0",
+    "class": "L2"
+  },
+  "smoke": "pass"
+}

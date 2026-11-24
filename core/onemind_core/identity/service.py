@@ -57,10 +57,12 @@ from .settings import IdentitySettings
 
 log = logging.getLogger("onemind.identity")
 
-PERSON_ROLES = ("owner", "adult", "guest", "child")
+PERSON_ROLES = ("owner", "adult", "guest", "child", "teen")
 USERNAME_RE = re.compile(r"[a-z][a-z0-9._-]{1,31}")
 AGENT_ID_RE = re.compile(r"agent:[a-z0-9][a-z0-9._-]{0,62}")
 CSRF_HEADER = "onemind-csrf"
+# A version 3 onion address: 56 base32 characters, then ".onion" (lower case, as Tor Browser sends it).
+ONION_V3 = re.compile(r"[a-z2-7]{56}\.onion")
 SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
 TOUCH_EVERY = timedelta(seconds=60)  # last_seen / last_used are written at most once a minute
 CHALLENGE_TTL = timedelta(seconds=120)
@@ -68,6 +70,7 @@ ENROL_TTL = timedelta(hours=24)
 PAT_DEFAULT_DAYS, PAT_MAX_DAYS = 90, 365
 AGENT_DEFAULT_DAYS = AGENT_MAX_DAYS = 90  # F-15: personal agent tokens, renewable
 MAX_GRACE_S = 3600
+MAX_OPEN_RESCUE_CHALLENGES = 20  # an owner credential is needed, so far fewer than for login
 MAX_OPEN_LOGIN_CHALLENGES = 1000  # unauthenticated: bound the rows an anonymous caller can create
 MAX_CREDENTIAL_ID = 512  # PasskeyRow.id width; WebAuthn allows longer ids, which we refuse with a 422
 
@@ -128,6 +131,8 @@ class IdentityService:
         self.gw = gw
         self.cfg = gw.settings.section(IdentitySettings)
         self.repo = IdentityRepository(gw.db)
+        # SECURITY.md §3.2: the first-boot owner token stops working on the API once an owner exists.
+        gw.tokens.retire_when = lambda: self.repo.count(UserRow) > 0
         self.limiter = FailureLimiter(self.cfg.login_failures_per_min, timedelta(minutes=self.cfg.lockout_minutes))
         secure = self.cfg.cookie_secure
         # __Host- cookies must be Secure, path=/ and host-only: they cannot be set by a sibling name.
@@ -171,6 +176,12 @@ class IdentityService:
             return rp_id, list(self.cfg.origins)
         origins = {f"https://{rp_id}", f"https://{host}"}
         if rp_id in ("localhost", "127.0.0.1"):
+            origins |= {f"http://{rp_id}", f"http://{host}"}
+        elif ONION_V3.fullmatch(rp_id):
+            # Tor onion service (NET-TOR-01, #284): the .onion link is already end-to-end encrypted
+            # and authenticated by the address itself, and Tor Browser treats it as a secure
+            # context, so it is served over http://. The relying party stays the exact address;
+            # a lookalike or another onion gets a different rp_id and never matches.
             origins |= {f"http://{rp_id}", f"http://{host}"}
         return rp_id, sorted(origins)
 
@@ -469,7 +480,7 @@ class IdentityService:
 
     # ---- first owner (bootstrap) and enrolment -----------------------------------------------------
     def _setup_token_ok(self, token: str) -> bool:
-        p = self.gw.tokens.lookup(token) if token else None
+        p = self.gw.tokens.lookup(token, include_retired=True) if token else None
         if p is not None and p.is_owner:
             return True
         path = self.cfg.setup_token_file
@@ -505,6 +516,10 @@ class IdentityService:
         self.repo.add(u)
         self.emit("auth", "setup.completed", {"user_id": u.id, "username": u.username, "source": src},
                   self.principal_for(u))
+        if self.gw.tokens.has_retiring():
+            self.emit("auth", "setup_token.retired", {"user_id": u.id,
+                      "note": "the first-boot token no longer works on the API; the rescue console still takes it"},
+                      self.principal_for(u), severity="warning")
         return u
 
     def enrol(self, request: Request, code: str, username: str, password: str) -> UserRow:
@@ -552,8 +567,22 @@ class IdentityService:
             raise self.deny(ctx.principal, what, reason="session_required")
         return user
 
+    def _refuse_onion_enrolment(self, request: Request, ctx: AuthContext | None) -> None:
+        """#284: an onion-bound passkey cannot assert on the LAN origin, yet its existence turns
+        passkeys_active() on for the whole box and would lock LAN approvals. Until the owner-approved
+        enrolment design lands, passkeys are not registered over an onion address (sign-in by
+        password still works there)."""
+        rp_id, _ = self.rp(request)
+        if ONION_V3.fullmatch(rp_id):
+            self.emit("authz", "denied", {"attempted": "register a passkey", "reason": "onion_origin"},
+                      ctx.principal if ctx else None, severity="warning")
+            raise ApiError(403, "permission_denied",
+                           "passkeys cannot be added over a .onion address yet; add it on your home network "
+                           "(password sign-in works over Tor)", reason="passkey_enrolment_unavailable_on_onion")
+
     def passkey_register_options(self, request: Request, ctx: AuthContext | None) -> dict:
         user = self._account(ctx, "register a passkey")
+        self._refuse_onion_enrolment(request, ctx)
         existing = list(self.repo.all(select(PasskeyRow.id).where(PasskeyRow.user_id == user.id)))
         if existing:  # adding a second key is adding power: prove you hold the first
             self.require_step_up(ctx, ctx.principal, "register a passkey")
@@ -566,6 +595,7 @@ class IdentityService:
 
     def passkey_register(self, request: Request, ctx: AuthContext | None, credential: dict, label: str | None) -> dict:
         user = self._account(ctx, "register a passkey")
+        self._refuse_onion_enrolment(request, ctx)
         try:
             credential = pk.normalize(credential)
             row = self._consume_challenge(credential, "register")
@@ -778,6 +808,11 @@ class IdentityService:
             kind, principal_id, default_days, max_days = "person", user.id, PAT_DEFAULT_DAYS, PAT_MAX_DAYS
             default_scopes = sorted(actor_scopes)
         elif isinstance(principal, dict) and principal.get("kind") == "agent":
+            if user is None and not p.is_owner:
+                # A static-file adult has no household account, so the token would be owned by no one:
+                # it would outlive the adult's removal and the adult could not list or revoke it.
+                raise ApiError(403, "permission_denied", "a static-file principal cannot hold API tokens; "
+                                                         "set up a household account first")
             principal_id = str(principal.get("id") or "")
             if not AGENT_ID_RE.fullmatch(principal_id):
                 raise ApiError(422, "conflict", "agent id must look like agent:<name> (a-z, 0-9, '.', '_', '-')")
@@ -1010,6 +1045,55 @@ class IdentityService:
         if reason == "plan_changed":
             return ApiError(409, "stale_precondition", why, reason=reason)
         return ApiError(401, "unauthenticated", f"passkey check failed: {why}"[:300], reason="step_up_required")
+
+    # ---- rescue console step-up (SEC-TERM-01, D-014) -----------------------------------------------
+    # The rescue console (a separate Go process) opens a root shell only after the owner proves a fresh
+    # passkey here. It forwards the owner's own credential; these two calls are not in the OpenAPI, the
+    # SDK or the MCP tools, and they open nothing themselves: they only check and audit the assertion.
+    def rescue_options(self, request: Request, p: Principal) -> dict:
+        if not p.is_owner:
+            raise self.deny(p, "start a rescue session")
+        if not self.passkeys_active():
+            raise ApiError(409, "conflict", "no owner passkey is registered on this box", reason="no_passkey")
+        now = self.now()
+        if self.repo.count(ChallengeRow, ChallengeRow.purpose == "rescue", ChallengeRow.used_at.is_(None),
+                           ChallengeRow.expires_at > now) >= MAX_OPEN_RESCUE_CHALLENGES:
+            raise ApiError(429, "rate_limited", "too many rescue sign-ins in progress; try again shortly",
+                           reason="too_many_pending", retry_after_s=int(CHALLENGE_TTL.total_seconds()))
+        ctx = ctx_of(request)
+        user_id = ctx.user.id if ctx and ctx.user else None
+        allow_users = [user_id] if user_id else self.active_owner_ids()
+        allow = list(self.repo.all(select(PasskeyRow.id).where(PasskeyRow.user_id.in_(allow_users))))
+        row, raw = self._new_challenge("rescue", user_id=user_id)
+        rp_id, _ = self.rp(request)
+        return {"challenge_id": row.id, "expires_at": iso(row.expires_at),
+                "publicKey": pk.authentication_options(rp_id=rp_id, challenge=raw, allow=allow)}
+
+    def rescue_verify(self, request: Request, p: Principal, credential: dict) -> dict:
+        """Single-use, two minutes: the assertion must answer a challenge made by rescue_options and
+        come from an active owner's passkey. Audited either way."""
+        if not p.is_owner:
+            raise self.deny(p, "start a rescue session")
+        ctx = ctx_of(request)
+        try:
+            credential = pk.normalize(credential)
+            row = self._consume_challenge(credential, "rescue")
+            cred = self._assert(request, credential, row)
+            owner = self._live_user(cred.user_id)
+            if owner is None or owner.role != "owner":
+                raise ApiError(401, "unauthenticated", "passkey does not belong to an active owner")
+            if row.user_id is not None and row.user_id != owner.id:
+                raise ApiError(401, "unauthenticated", "passkey belongs to another account")
+            if ctx is not None and ctx.user is not None and ctx.user.id != owner.id:
+                raise ApiError(401, "unauthenticated", "passkey belongs to another account")
+        except (ApiError, pk.PasskeyError) as exc:
+            why = exc.message if isinstance(exc, ApiError) else str(exc)
+            self.emit("auth", "step_up.failed", {"attempted": "rescue session", "detail": why[:200]}, p,
+                      severity="warning")
+            raise ApiError(401, "unauthenticated", f"passkey check failed: {why}"[:300], reason="step_up_required") from None
+        self.emit("auth", "step_up.succeeded", {"attempted": "rescue session", "credential_id": cred.id,
+                                                "passkey_user_id": owner.id, "approval": "passkey"}, p)
+        return {"credential_id": cred.id, "user_id": owner.id, "verified_at": iso(self.now())}
 
     # ---- /v1/me ------------------------------------------------------------------------------------
     def me(self, request: Request, p: Principal) -> dict:

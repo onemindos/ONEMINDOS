@@ -43,6 +43,7 @@ from ..auth import Principal
 from ..context import Gateway
 from ..errors import ApiError
 from ..events import PATTERN_TOKEN_RE, matches
+from ..jsonbody import JsonBody
 from ..ledger import TERMINAL, iso, utc
 from ..sections import config_section
 from . import registry
@@ -83,7 +84,7 @@ class ActionTemplate(BaseModel):
     params: dict[str, Any] = Field(default_factory=dict)
 
 
-class Options(BaseModel):
+class Options(JsonBody):
     model_config = ConfigDict(extra="forbid")
     catch_up: Literal["none", "last"] = "none"
     debounce_s: int = Field(default=300, ge=0, le=86400)
@@ -186,7 +187,8 @@ class AutomationService:
         self.clock = gw.clock
         self.audit = gw.audit
         self.repo = AutomationRepository(gw.db)
-        self.policies = PolicyService(self.repo, gw.audit, gw.catalog, gw.clock, box_tz=self.settings.tz)
+        self.policies = PolicyService(self.repo, gw.audit, gw.catalog, gw.clock, box_tz=self.settings.tz,
+                                      installed_version=self._installed_version)
         self._lock = threading.RLock()
         self._queue: queue.Queue[dict] = queue.Queue(maxsize=1000)
         self._recent: deque[dict] = deque(maxlen=2000)  # events seen since start, for dry runs
@@ -205,6 +207,10 @@ class AutomationService:
         if rule is None:
             raise ApiError(404, "not_found", "no such automation rule")
         return rule
+
+    def _installed_version(self, app_id: str) -> str | None:
+        runtime = self.gw.repo.get_runtime(app_id)
+        return runtime.version if runtime else None
 
     def paused(self) -> bool:
         return bool(self.repo.state()["paused"])

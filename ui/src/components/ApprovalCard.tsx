@@ -36,6 +36,8 @@ export interface ActionSummary {
   impact?: string;
   /** Failure text from the hub. */
   message?: string;
+  /** What the target is called in the catalog ("Ollama", not its id "ollama"); the id is shown when absent. */
+  target_name?: string;
 }
 
 export const ACTION_STATE: Record<ActionState, { tone: Tone; label: string }> = {
@@ -63,8 +65,8 @@ const VERB: Record<string, string> = {
   'exposure.enable': 'Expose to the internet',
 };
 
-export function actionTitle(a: Pick<ActionSummary, 'type' | 'params'>): string {
-  const target = (a.params.app_id ?? a.params.node_id ?? a.params.target ?? '') as string;
+export function actionTitle(a: Pick<ActionSummary, 'type' | 'params'> & { target_name?: string }): string {
+  const target = a.target_name ?? ((a.params.app_id ?? a.params.node_id ?? a.params.target ?? '') as string);
   return `${VERB[a.type] ?? a.type} ${target}`.trim();
 }
 
@@ -96,9 +98,11 @@ export interface ApprovalCardProps {
   /** Highlight a card the person just created or opened from a notification. */
   highlight?: boolean;
   extra?: ReactNode;
+  /** Developer-facing notes (spec ids, API paths): shown only inside the collapsed Technical details. */
+  technical?: ReactNode;
 }
 
-export function ApprovalCard({ action, now, canDecide, onApprove, onDeny, busy, highlight, extra }: ApprovalCardProps) {
+export function ApprovalCard({ action, now, canDecide, onApprove, onDeny, busy, highlight, extra, technical }: ApprovalCardProps) {
   const detailsId = useId();
   const title = actionTitle(action);
   const st = ACTION_STATE[action.state];
@@ -153,7 +157,9 @@ export function ApprovalCard({ action, now, canDecide, onApprove, onDeny, busy, 
         <p className="om-note om-tone-bad">{action.message ? `What the hub reported: ${action.message}` : 'The hub gave no reason.'}</p>
       )}
       <details className="om-details">
-        <summary>Exact request and API equivalent</summary>
+        <summary>Technical details</summary>
+        {technical && <p className="om-hint">{technical}</p>}
+        <p className="om-hint">The exact request, and the same decision as an API call.</p>
         <pre className="om-code">{JSON.stringify({ type: action.type, params: action.params }, null, 2)}</pre>
         <pre className="om-code">{equivalentCall(action)}</pre>
       </details>

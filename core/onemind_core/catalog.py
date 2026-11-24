@@ -16,7 +16,10 @@ from pathlib import Path
 
 import yaml
 
+from .ai_policy import catalog_policy
 from .appsecrets.spec import SecretDecl, parse_secrets, secret_spec_errors
+from .filesig import cache_signature
+from .manifest_convert import CURRENT, OLDER
 from .scan import ScanRecord, read_scan
 
 log = logging.getLogger("onemind.catalog")
@@ -24,6 +27,8 @@ log = logging.getLogger("onemind.catalog")
 # app-<id> must stay a valid Kubernetes namespace (DNS label, max 63 chars).
 APP_ID_RE = re.compile(r"^[a-z0-9]([a-z0-9-]{0,57}[a-z0-9])?$")
 MANIFEST = "onemind.app.yaml"
+# PLAN-E6: v1 is the frozen manifest; v1alpha1 stays readable until every app is converted.
+API_VERSIONS = (CURRENT, *OLDER)  # one list, shared with the converter (manifest_convert)
 # Kubernetes Secret names are DNS-1123 subdomains.
 SECRET_NAME_RE = re.compile(r"^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$")
 LINK_KEYS = ("docs", "github", "website", "support")
@@ -97,6 +102,8 @@ class AppEntry:
         links = md.get("links") if isinstance(md.get("links"), dict) else {}
         scan = self.scan
         return {
+            **({"aiPolicy": catalog_policy(self.manifest)}
+               if "aiPolicy" in spec or catalog_policy(self.manifest) is not None else {}),
             "id": self.id,
             "name": md.get("name"),
             "version": str(md.get("version")) if md.get("version") is not None else None,
@@ -121,8 +128,8 @@ def builtin_check(doc: object) -> list[str]:
     errs: list[str] = []
     if not isinstance(doc, dict):
         return ["manifest is not a mapping"]
-    if doc.get("apiVersion") != "onemind.app/v1alpha1":
-        errs.append("apiVersion must be onemind.app/v1alpha1")
+    if doc.get("apiVersion") not in API_VERSIONS:
+        errs.append("apiVersion must be onemind.app/v1 (or onemind.app/v1alpha1, until converted)")
     if doc.get("kind") != "App":
         errs.append("kind must be App")
     md, spec = doc.get("metadata"), doc.get("spec")
@@ -165,7 +172,7 @@ class Catalog:
             schema = json.loads(schema_path.read_text())
             cls = validator_for(schema)
             cls.check_schema(schema)
-            self._validator = cls(schema)
+            self._validator = cls(schema, format_checker=cls.FORMAT_CHECKER)
             log.info("validating app manifests against %s", schema_path.name)
         else:
             log.info("no app schema found; using the built-in manifest check")
@@ -208,16 +215,18 @@ class Catalog:
         Why: yaml.safe_load is pure Python and the JSON Schema check is slow, so re-reading every
         manifest on every request made GET /v1/apps cost about 2 ms per app (perf-smoke p95 grew
         with the catalog). A file's identity (mtime, ctime, size, inode) changes whenever it is
-        edited or replaced, so an edit is picked up on the next request, same as before.
+        edited or replaced, so an edit is picked up on the next request, same as before. A manifest
+        changed in the last moments is parsed but not cached (filesig.cache_signature), because a
+        same-size edit within one clock tick leaves that identity unchanged.
         """
         folder = path.parent.name
         try:
             st = path.stat()
         except OSError as exc:
             return [f"cannot parse: {exc.__class__.__name__}"]
-        sig = (st.st_mtime_ns, st.st_ctime_ns, st.st_size, st.st_ino)
+        sig = cache_signature(st)
         hit = self._parsed.get(path)
-        if hit is not None and hit[0] == sig:
+        if sig is not None and hit is not None and hit[0] == sig:
             return hit[1]
         self.parse_count += 1
         outcome: AppEntry | list[str]
@@ -234,7 +243,10 @@ class Catalog:
                 outcome = errs
             else:
                 outcome = AppEntry(id=folder, dir=path.parent, manifest=doc)
-        self._parsed[path] = (sig, outcome)
+        if sig is None:
+            self._parsed.pop(path, None)
+        else:
+            self._parsed[path] = (sig, outcome)
         return outcome
 
     def load(self) -> dict[str, AppEntry]:

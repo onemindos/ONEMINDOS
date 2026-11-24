@@ -26,6 +26,7 @@ on:
       force_rebuild: {type: boolean, default: false, description: 'Rebuild even if no new fix is found'}
       dry_run: {type: boolean, default: true, description: 'Never publish, even with keys and the switch on'}
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths: ['os/update/**', '.github/workflows/security-nightly.yml']
 permissions:
   contents: read
@@ -42,17 +43,23 @@ jobs:
   # Not named `unit`: main's required checks match by job name, so a failed or cancelled job of that name
   # here would block every PR like ci's `unit` does.
   update-unit:
-    if: github.event.schedule != '41 */6 * * *'
+    if: ${{ !github.event.pull_request.draft && github.event.schedule != '41 */6 * * *' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - name: Unit tests (stdlib scripts, then TUF with the pinned python-tuf)
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version-file: go.mod          # test_tuf_hsm.py also runs the box's go-tuf verifier on a rotated root
+      - name: SoftHSM (a software PKCS#11 token for the hardware-root-key tests, REL-02 #272; no real key anywhere)
+        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends softhsm2
+      - name: Unit tests (stdlib scripts, then TUF with the pinned python-tuf and python-pkcs11)
         run: |
           python3 -I -m unittest discover -s os/update/tests -p 'test_*.py' -v
           python3 -m venv "$RUNNER_TEMP/tuf"
           "$RUNNER_TEMP/tuf/bin/pip" install -q --require-hashes --only-binary :all: -r os/update/requirements-tuf.txt
-          "$RUNNER_TEMP/tuf/bin/python" -I -m unittest discover -s os/update/tests -p 'test_tuf_*.py' -v
+          # ONEMIND_TUF_REQUIRE_HSM: a missing SoftHSM or PyPKCS11 fails here instead of skipping the token tests
+          ONEMIND_TUF_REQUIRE_HSM=1 "$RUNNER_TEMP/tuf/bin/python" -I -m unittest discover -s os/update/tests -p 'test_tuf_*.py' -v
 
   check:
     needs: update-unit

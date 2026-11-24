@@ -24,7 +24,7 @@ Authorization: Bearer <the person's session>
 {"platform": "unifiedpush", "endpoint": "https://ntfy.<box>/upAbC…", "keys": {"p256dh": "…", "auth": "…"}, "label": "Pixel 9"}
 
 POST /v1/push/registrations
-{"platform": "apns", "token": "<64 hex>", "label": "iPhone", "environment": "production", "bundle_id": "os.onemind.mobile"}
+{"platform": "apns", "token": "<64 hex>", "label": "iPhone", "environment": "production", "bundle_id": "com.onemindos.mobile"}
 → 201 {"id": "…", …}
 ```
 
@@ -74,7 +74,7 @@ Content-Type: application/json
 ```http
 POST https://api.push.apple.com/3/device/<device_token>      (api.sandbox.push.apple.com for "sandbox")
 authorization: bearer <ES256 JWT from the team's .p8 key>
-apns-topic: os.onemind.mobile
+apns-topic: com.onemindos.mobile
 apns-push-type: alert
 apns-priority: 10
 apns-expiration: <now + 1 h>

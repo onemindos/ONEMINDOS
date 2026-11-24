@@ -9,6 +9,8 @@ import "github.com/onemindos/onemindos/sdk/go/internal/gen"
 // strings, so a newer gateway never breaks this SDK (SDK.md §5).
 type (
 	Instance     = gen.Instance
+	About        = gen.About
+	AboutNode    = gen.AboutNode
 	Node         = gen.Node
 	CatalogApp   = gen.CatalogApp
 	Action       = gen.Action
@@ -16,6 +18,9 @@ type (
 	AuditRecord  = gen.AuditRecord
 	AuditVerify  = gen.AuditVerify
 	AuditHead    = gen.AuditHead
+	StatusView   = gen.StatusView
+	SourceStatus = gen.SourceStatus
+	Usage        = gen.Usage
 )
 
 // Action types the gateway accepts today (contract §3; §12.5 adds more).

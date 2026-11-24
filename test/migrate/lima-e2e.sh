@@ -47,6 +47,7 @@ k3s_sha=$(awk -v key="    $k3s_file:" '/^k3s:/{f=1} f&&index($0,key)==1{print $2
 [ -n "$k3s_url" ] && [ -n "$k3s_sha" ] || { echo "k3s pin not found in $lock" >&2; exit 2; }
 
 echo "building onemind for linux/$goarch"
+sh "$REPO/sdk/scripts/gen-code.sh" go   # the Go SDK types are generated, not committed (CI-16)
 (cd "$REPO" && CGO_ENABLED=0 GOOS=linux GOARCH=$goarch go build -o "$WORK/kit/onemind" ./cmd/onemind)
 mkdir -p "$WORK/kit/test"
 COPYFILE_DISABLE=1 tar --no-mac-metadata --no-xattrs -C "$REPO" --exclude=.venv --exclude=__pycache__ --exclude=.pytest_cache --exclude=data -cf - core test/migrate \

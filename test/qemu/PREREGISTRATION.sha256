@@ -5,3 +5,5 @@ c17d9800a912c1cc0ca04930c588dc8ce2061941e3ca660a702fa5adbdd8bbc6  CRITERIA.md  2
 8159f12e1057cb5d31d977301cced52cee1d8cdcaf0b12c1f229ae1ce2d910d9  CRITERIA-CLOUD.md  2026-11-12T10:28:46Z  (with §6 amendment)
 c96bbfe38e3480bd085de08c345fed23a6515ef81f5fedca771ef47551b612fd  CRITERIA-FIRSTBOOT.md  2026-11-13T00:00:00Z  (with §4 amendment: F5 H-01, F6 H-12; written before F5/F6 were implemented)
 4a65990cb3bc0f95c8b7fe411dba6dc5d77dcbd583baf766b63f0b8d6bf36e8f  CRITERIA-DATAFAIL.md  2026-11-14T11:29:39Z
+bf0fcc842cbb1b1e6bd3e75a9add9e71daa83c81a5aea9de4a69dd8f1c391c89  CRITERIA-FIRSTBOOT.md  2026-11-15T00:00:00Z  (with §5 amendment: F7-F9 mesh in the image, IMG-MESH-01; written before F7-F9 were implemented)
+a4b21f2578294a5398f448761cd04b013de6c917ebf5e01ccca32e3536a75099  CRITERIA-FIRSTBOOT.md  2026-11-21T00:00:00Z  (with §6 amendment: F10 rescue console on the booted hub, #278; written before F10 was implemented)

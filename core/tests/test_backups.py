@@ -71,6 +71,9 @@ class FakeAgent:
                 out.append({"unit": u, "state": "succeeded", "snapshot_id": sid})
             return {"id": params["run_id"], "state": self.run_state, "units": out, "bytes_added": 42, "target_id": "dst_x"}
         if kind == "backup.snapshots":
+            if params.get("box_id") and params.get("recovery_key") != getattr(self, "recovery_key", None):
+                # the repository is sealed with the old box's device key: only the recovery key opens it
+                raise AgentError(kind, "restic snapshots: exit 12: wrong password or no key found", reason="failed")
             return [s for s in reversed(self.snaps) if not params.get("unit") or s["unit"] == params["unit"]]
         if kind == "backup.status":
             units = {s["unit"]: {"state": "unverified", "last_success_at": s["taken_at"], "verified_at": None} for s in self.snaps}
@@ -647,3 +650,194 @@ def test_dump_file_is_created_private_and_a_failed_dump_leaves_no_tmp(client, bk
         bk.pg.dump("notes")
     last = [c[2] for c in bk.kube.calls if c[0] == "exec"][-1]
     assert last[:2] == ("rm", "-f") and last[2].endswith(".pgdump.tmp"), "the half-written dump is deleted"
+
+
+# ---- first-run restore candidates (UMB-P08) -------------------------------------------------
+def _fresh(client, bk):
+    """A fresh box: a destination is configured but no app is installed."""
+    dst = add_usb(client, bk)
+    did = client.get("/v1/backups/destinations", headers=OWNER).json()[0]["id"]
+    bk.gw.repo.set_app_state("notes", "uninstalled", bk.gw.clock())
+    return did
+
+
+def test_restore_candidates_group_by_run_and_refuse_a_box_with_apps(client, bk):
+    add_usb(client, bk)
+    did = client.get("/v1/backups/destinations", headers=OWNER).json()[0]["id"]
+    body = {"destination_id": did}
+    # notes is installed (the fixture): a populated box restores per app, not at first run.
+    r = client.post("/v1/onboarding/restore/candidates", headers=OWNER, json=body)
+    assert r.status_code == 409, r.text
+    assert "already has apps" in r.json()["message"]
+
+    bk.gw.repo.set_app_state("notes", "uninstalled", bk.gw.clock())
+    r = client.post("/v1/backups/runs", headers=OWNER, json={"approve": True})
+    assert r.status_code == 202, r.text
+    bk.agent.snaps.extend([
+        {"id": "a" * 64, "short_id": "aaaaaaaa", "unit": "system", "app_id": "", "node_id": "old", "taken_at": "2026-11-10T10:00:00Z",
+         "reason": "scheduled", "run_id": "run_old", "tags": [], "paths": ["/etc"]},
+        {"id": "b" * 64, "short_id": "bbbbbbbb", "unit": "app:notes", "app_id": "notes", "node_id": "old", "taken_at": "2026-11-10T10:01:00Z",
+         "reason": "scheduled", "run_id": "run_old", "tags": [], "paths": ["/x"]},
+    ])
+    r = client.post("/v1/onboarding/restore/candidates", headers=OWNER, json=body)
+    assert r.status_code == 200, r.text
+    assert r.headers["cache-control"] == "no-store"
+    pts = r.json()["points"]
+    old = next(p for p in pts if p["run_id"] == "run_old")
+    assert old["system"] is True and old["apps"] == ["notes"] and len(old["snapshot_ids"]) == 2
+    assert [p["taken_at"] for p in pts] == sorted((p["taken_at"] for p in pts), reverse=True)
+    sent = [j for j in bk.agent.jobs if j[0] == "backup.snapshots" and j[1].get("target_id") == did]
+    assert sent, "the destination id must reach the agent"
+
+
+def test_restore_candidates_passes_box_id_and_is_owner_only(client, bk):
+    did = _fresh(client, bk)
+    bk.agent.recovery_key = "K" * 40
+    r = client.post("/v1/onboarding/restore/candidates", headers=OWNER, json={"destination_id": did, "box_id": "old-box", "recovery_key": "K" * 40})
+    assert r.status_code == 200, r.text
+    assert any(j[0] == "backup.snapshots" and j[1].get("box_id") == "old-box" for j in bk.agent.jobs)
+    for who in (ADULT, AGENT):
+        assert client.post("/v1/onboarding/restore/candidates", headers=who, json={"destination_id": did}).status_code == 403
+    assert client.post("/v1/onboarding/restore/candidates", headers=OWNER, json={"destination_id": "dst_0000000000000000"}).status_code == 404
+    assert client.post("/v1/onboarding/restore/candidates", headers=OWNER, json={"destination_id": did, "box_id": "a b;"}).status_code == 422
+
+
+def test_restore_candidates_unavailable_when_backups_off(client):
+    r = client.post("/v1/onboarding/restore/candidates", headers=OWNER, json={"destination_id": "dst_0000000000000000"})
+    assert r.status_code == 503 and r.json()["reason"] == "backups_disabled"
+
+
+def test_restore_candidates_other_box_needs_the_recovery_key(client, bk, settings):
+    did = _fresh(client, bk)
+    bk.agent.recovery_key = "RK" * 20
+    # a box id without the key cannot open the repository: refused before the agent is asked
+    r = client.post("/v1/onboarding/restore/candidates", headers=OWNER, json={"destination_id": did, "box_id": "old-box"})
+    assert r.status_code == 422, r.text
+    assert not any(j[0] == "backup.snapshots" for j in bk.agent.jobs)
+    # the wrong key: the agent's failure is a 409, and the key is never echoed or audited
+    bad = "XX" * 20
+    r = client.post("/v1/onboarding/restore/candidates", headers=OWNER,
+                    json={"destination_id": did, "box_id": "old-box", "recovery_key": bad})
+    assert r.status_code == 409 and bad not in r.text, r.text
+    # the right key reaches the agent with the box id and lists the points
+    r = client.post("/v1/onboarding/restore/candidates", headers=OWNER,
+                    json={"destination_id": did, "box_id": "old-box", "recovery_key": bk.agent.recovery_key})
+    assert r.status_code == 200, r.text
+    assert "RK" * 20 not in r.text and r.headers["cache-control"] == "no-store"
+    audit = settings.audit_path.read_text()
+    assert "onboarding.restore.candidates" in audit and "RK" * 20 not in audit and bad not in audit
+    # short or multi-line keys are refused
+    for k in ("short", "A" * 40 + "\nB"):
+        r = client.post("/v1/onboarding/restore/candidates", headers=OWNER,
+                        json={"destination_id": did, "box_id": "old-box", "recovery_key": k})
+        assert r.status_code == 422
+        assert k.strip() not in r.text  # a refused key is not echoed back either
+
+
+# ---- first-run restore of an app from another box's backup (UMB-P08, #145) --------------------------
+def _other_box(client, bk, key="RK" * 20):
+    """The old box's points sit on the destination; `notes` is installed on this fresh box."""
+    add_usb(client, bk)
+    did = client.get("/v1/backups/destinations", headers=OWNER).json()[0]["id"]
+    bk.agent.recovery_key = key
+    bk.agent.snaps.append({"id": "c" * 64, "short_id": "cccccccc", "unit": "app:notes", "app_id": "notes", "node_id": "old",
+                           "taken_at": "2026-11-10T10:01:00Z", "reason": "scheduled", "run_id": "run_old", "tags": [],
+                           "paths": ["/x"]})
+    return did, {"destination_id": did, "box_id": "old-box", "recovery_key": key, "run_id": "run_old", "app_id": "notes"}
+
+
+def test_restore_app_from_another_box_uses_the_key_once_and_never_stores_it(client, bk, settings):
+    did, body = _other_box(client, bk)
+    r = client.post("/v1/onboarding/restore/apps", headers=OWNER, json=body)
+    assert r.status_code == 202, r.text
+    act = r.json()
+    assert act["state"] == "awaiting_approval" and act["restore"]["plan"]["source"]["box_id"] == "old-box"
+    assert r.headers["cache-control"] == "no-store"
+    key = body["recovery_key"]
+    assert key not in r.text and key not in str(act["params"]), "the key is not part of the action"
+    assert "backup.restore" not in bk.agent.kinds(), "nothing is restored before approval"
+
+    done = approve(client, act["id"])
+    assert done["state"] == "succeeded", done
+    job = next(p for k, p, _ in bk.agent.jobs if k == "backup.restore" and p.get("scope") == "app")
+    assert job["box_id"] == "old-box" and job["recovery_key"] == key and job["target_id"] == did
+    assert job["snapshot_id"] == "c" * 64
+    assert not any(p.get("recovery_key") for k, p, _ in bk.agent.jobs if k == "backup.run"), "the undo snapshot is of this box"
+    assert key not in settings.audit_path.read_text()
+    assert key not in client.get(f"/v1/actions/{act['id']}", headers=OWNER).text
+    assert key not in client.get("/v1/restores", headers=OWNER).text
+
+
+def test_restore_app_from_another_box_is_refused_cleanly(client, bk):
+    did, body = _other_box(client, bk)
+    for who in (ADULT, AGENT):
+        assert client.post("/v1/onboarding/restore/apps", headers=who, json=body).status_code == 403
+    bad = client.post("/v1/onboarding/restore/apps", headers=OWNER, json={**body, "recovery_key": "XX" * 20})
+    assert bad.status_code == 409 and "XX" * 20 not in bad.text
+    assert client.post("/v1/onboarding/restore/apps", headers=OWNER, json={**body, "run_id": "nope"}).status_code == 404
+    assert client.post("/v1/onboarding/restore/apps", headers=OWNER,
+                       json={**body, "destination_id": "dst_0000000000000000"}).status_code == 404
+    short = client.post("/v1/onboarding/restore/apps", headers=OWNER, json={**body, "recovery_key": "short"})
+    assert short.status_code == 422 and "short" not in short.json().get("message", "")
+    assert "backup.restore" not in bk.agent.kinds()
+
+
+def test_restore_app_key_is_gone_after_a_restart_and_nothing_changes(client, bk):
+    did, body = _other_box(client, bk)
+    act = client.post("/v1/onboarding/restore/apps", headers=OWNER, json=body).json()
+    client.app.state.backups._pending_keys.clear()
+    done = approve(client, act["id"])
+    assert done["state"] == "failed" and "gone" in done["result"]["message"]
+    assert "backup.restore" not in bk.agent.kinds() and not any(
+        c[0] == "scale" and c[3] == 0 for c in bk.kube.calls if c[0] == "scale")
+
+
+# ---- owner shortcut passes the same approval guards as the approve route (F-2) -----------------------
+def test_owner_shortcuts_need_a_passkey_once_one_is_registered(client, bk):
+    add_usb(client, bk)
+    assert client.post("/v1/backups/runs", headers=OWNER, json={"approve": True}).json()["state"] == "succeeded"
+    snap = client.get("/v1/backups/snapshots", headers=OWNER, params={"app_id": "notes"}).json()[0]
+    client.app.state.identity.passkeys_active = lambda: True  # as if an owner had registered a passkey
+    jobs = len(bk.agent.jobs)
+    # the control: the normal approve route is refused
+    ctl = client.post("/v1/backups/runs", headers=OWNER, json={})
+    assert client.post(f"/v1/actions/{ctl.json()['id']}/approve", headers=OWNER).status_code == 401
+    attempts = [
+        ("post", "/v1/backups/destinations", {"kind": "usb", "label": "Off box", "config": {"usb_uuid": "9999-ZZZZ"}, "approve": True}),
+        ("post", "/v1/backups/runs", {"approve": True}),
+        ("post", "/v1/backups/verify", {"approve": True}),
+        ("post", "/v1/restores", {"approve": True, "snapshot_id": snap["id"], "scope": {"app_id": "notes"}}),
+    ]
+    for verb, path, body in attempts:
+        r = getattr(client, verb)(path, headers=OWNER, json=body)
+        assert r.status_code == 401 and r.json()["reason"] == "step_up_required", (path, r.text)
+    # the owner key is not minted, and the shortcut approval did not run anything
+    r = client.post("/v1/backups/kit", headers=OWNER)
+    assert r.status_code == 401 and r.json()["reason"] == "step_up_required", r.text
+    assert not any(j[0] in ("backup.key.add", "backup.restore", "backup.configure", "backup.run") for j in bk.agent.jobs[jobs:])
+    acts = client.get("/v1/actions", headers=OWNER).json()
+    assert [a["state"] for a in acts if a["type"] == "backup.kit.issue"] == ["awaiting_approval"]
+    assert [a["state"] for a in acts if a["type"] == "backup.restore"] == ["awaiting_approval"]
+    assert len([a for a in acts if a["type"] == "backup.destination.add"]) == 2 and \
+        [a["state"] for a in acts if a["type"] == "backup.destination.add"].count("awaiting_approval") == 1
+
+
+# ---- first-run wizard state (driven by the server, not a browser flag) --------------------------------
+def test_onboarding_state_follows_settings_and_kit(client, bk):
+    st = client.get("/v1/onboarding/state", headers=OWNER)
+    assert st.status_code == 200 and st.headers["cache-control"] == "no-store"
+    assert st.json()["complete"] is False and st.json()["kit"]["state"] == "missing" and st.json()["destinations"] == 0
+    settings = {"box_name": "home-hub", "time_zone": "UTC", "backup_choice": "later"}
+    assert client.put("/v1/onboarding/settings", headers=OWNER, json=settings).status_code == 200
+    assert client.get("/v1/onboarding/state", headers=OWNER).json()["complete"] is True, "no destination: no kit needed"
+    add_usb(client, bk)
+    st = client.get("/v1/onboarding/state", headers=OWNER).json()
+    assert st["complete"] is False and st["destinations"] == 1, "a destination makes the kit required"
+    one = client.post("/v1/backups/kit", headers=OWNER).json()["one_time"]
+    st = client.get("/v1/onboarding/state", headers=OWNER).json()
+    assert st["complete"] is False and st["kit"]["state"] == "issued" and len(st["kit"]["positions"]) == 2
+    assert one["owner_key"] not in json.dumps(st), "the recovery key is shown once, never in state"
+    right = {str(p): one["groups"][p - 1] for p in st["kit"]["positions"]}
+    assert client.post("/v1/backups/kit/confirm", headers=OWNER, json={"answers": right}).status_code == 200
+    assert client.get("/v1/onboarding/state", headers=OWNER).json()["complete"] is True
+    assert client.get("/v1/onboarding/state", headers=ADULT).status_code == 403

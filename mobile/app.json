@@ -8,7 +8,7 @@
     "userInterfaceStyle": "automatic",
     "icon": "./assets/icon.png",
     "ios": {
-      "bundleIdentifier": "os.onemind.mobile",
+      "bundleIdentifier": "com.onemindos.mobile",
       "supportsTablet": true,
       "infoPlist": {
         "NSAppTransportSecurity": {
@@ -19,10 +19,49 @@
       "icon": {
         "light": "./assets/icon.png",
         "dark": "./assets/icon-dark.png"
+      },
+      "buildNumber": "1",
+      "config": {
+        "usesNonExemptEncryption": false
+      },
+      "privacyManifests": {
+        "NSPrivacyTracking": false,
+        "NSPrivacyTrackingDomains": [],
+        "NSPrivacyCollectedDataTypes": [],
+        "NSPrivacyAccessedAPITypes": [
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryFileTimestamp",
+            "NSPrivacyAccessedAPITypeReasons": [
+              "C617.1",
+              "0A2A.1",
+              "3B52.1"
+            ]
+          },
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults",
+            "NSPrivacyAccessedAPITypeReasons": [
+              "CA92.1",
+              "1C8F.1"
+            ]
+          },
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategorySystemBootTime",
+            "NSPrivacyAccessedAPITypeReasons": [
+              "35F9.1"
+            ]
+          },
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryDiskSpace",
+            "NSPrivacyAccessedAPITypeReasons": [
+              "E174.1",
+              "85F4.1"
+            ]
+          }
+        ]
       }
     },
     "android": {
-      "package": "os.onemind.mobile",
+      "package": "com.onemindos.mobile",
       "permissions": [
         "android.permission.POST_NOTIFICATIONS"
       ],
@@ -38,7 +77,8 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#FFFFFF"
-      }
+      },
+      "versionCode": 1000001
     },
     "plugins": [
       "expo-secure-store",
@@ -69,7 +109,8 @@
         }
       ],
       "expo-background-task",
-      "./plugins/withoutPlayServicesCredentials"
+      "./plugins/withoutPlayServicesCredentials",
+      "./plugins/withReleaseSigning"
     ]
   }
 }

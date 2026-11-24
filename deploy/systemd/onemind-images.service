@@ -1,0 +1,69 @@
+# SPDX-License-Identifier: Apache-2.0
+# OneMind image cleanup and disk budget (NMD-08, #133). Same binary as the heartbeat agent,
+# separate process: `onemindd images` (internal/imagegc).
+#
+# It removes only superseded container images (an app's older versions that no workload,
+# previous revision or container uses), never the images of an installed app, stopped or not,
+# so an offline box can always start its apps again. It runs once at start, daily, and at once
+# when the image disk passes the budget (ONEMIND_IMAGES_BUDGET_PCT, default 80, below kubelet's
+# own 85 % collector). The heartbeat agent publishes its report (the "images" object), and the
+# gateway warns the owner at ONEMIND_IMAGES_WARN_PCT (default budget - 10).
+#
+# Why a second unit instead of more rights for onemindd.service: the heartbeat agent stays
+# read-only. This one asks containerd (crictl, over its Unix socket) to remove images and reads
+# the cluster with the k3s admin kubeconfig, so it runs on the k3s server (the hub) only: a worker
+# has no admin kubeconfig, and without the cluster's view the cleaner removes nothing.
+# See deploy/systemd/README.md.
+
+[Unit]
+Description=OneMind image cleanup and disk budget (superseded images only)
+Documentation=https://github.com/onemindos/ONEMINDOS/tree/main/internal/imagegc
+After=k3s.service
+ConditionPathExists=/etc/rancher/k3s/k3s.yaml
+
+[Service]
+Type=simple
+EnvironmentFile=-/etc/onemind/onemindd.env
+Environment=HOME=/var/lib/onemind-images
+ExecStart=/usr/local/bin/onemindd images
+Restart=on-failure
+RestartSec=60s
+StateDirectory=onemind-images
+RuntimeDirectory=onemind-images
+RuntimeDirectoryMode=0755
+
+# --- identity / privileges ---
+User=root
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+
+# --- filesystem: read-only; containerd itself deletes the image files ---
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+UMask=0022
+
+# --- kernel / syscalls ---
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged
+SystemCallErrorNumber=EPERM
+
+# --- network: the k3s API (TCP), containerd (AF_UNIX) ---
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+
+[Install]
+WantedBy=multi-user.target

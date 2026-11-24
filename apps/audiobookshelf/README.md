@@ -8,7 +8,7 @@ Self-hosted audiobook and podcast server
 | | |
 |---|---|
 | Version | 2.37.2 (upstream release `v2.37.2`, published 2026-10-23) |
-| Licence | `GPL-3.0`, Market class L2 by SPDX id; not yet confirmed by the licence gate |
+| Licence | `GPL-3.0`, Market class **L2** (licence gate, scan of 2026-11-21) |
 | Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | media |
 | GitHub | <https://github.com/advplyr/audiobookshelf> |
@@ -72,8 +72,16 @@ The CI app gate (`sdk/tools/app-gate`, contract §9.4) computed tier **blocked**
 To unblock: move the pins to upstream releases that fix these findings (tags that exist, checked with `crane`), then rerun `sdk/tools/app-gate` (the daily `apps-rescan` workflow does this too). Nothing is bumped to an unverified tag.
 
 **Hold (apps/market-unblock-2, 2026-11-13):** npm CVEs in `form-data`, `proxy-addr`, `sequelize` and `tar`. `2.37.2` is the newest tag. Unblock: a release that updates those npm packages. The registry was re-read on 2026-11-13: the pinned digest is unchanged and no newer fixed tag exists, so nothing is bumped (the gate was not weakened and the tier was not edited). It unblocks when the weekly `apps-rescan` or a manual `apps-gate-all` run computes a pass on a rebuilt image. No upstream issue link was looked up (the GitHub API is not reachable from the worker).
+
+**Hold (2026-11-21, apps/147-household-apps):** `2.38.0` exists (digest `sha256:60064c23f32fd9099fd39e82c5132c51701d1221135bbca04cd099b589e1edc3`) and, scanned with Trivy (amd64), still has the same four CRITICALs as `2.37.2` in the app's npm dependencies: CVE-2025-7783 `form-data` 4.0.0 (fixed 4.0.4), CVE-2026-90711 `proxy-addr` 2.0.7 (fixed 2.0.8), CVE-2026-69240 `sequelize` 6.35.2 (fixed 6.37.4), CVE-2026-59873 `tar` 6.1.15 (fixed 7.5.19). Pins unchanged, tier stays `blocked`. Unblock: an upstream release that updates those packages, or a OneMind rebuild (founder decision). Tracked on #147.
 <!-- onemind:notes:end -->
 
 ## Latest security scan
 
-No scan yet. `sdk/tools/app-gate` writes `scan.json` (contract §9.4, §11.1).
+Scanned 2026-11-21T13:19:46Z by `sdk/tools/app-gate`: **fail**. Licence `GPL-3.0` class L2; smoke test pass.
+
+| Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
+|---|---|---|---|---|---|---|
+| `ghcr.io/advplyr/audiobookshelf:2.37.2@sha256:b897c33f05972fb1bf484f7487bc878fa91ec8691335c1db6e2929c3a7658efa` | amd64, arm64 | 4 (4) | 58 | 0 infected (daily-28190) | 0 | unsigned |
+
+Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

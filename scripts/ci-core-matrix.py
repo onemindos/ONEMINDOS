@@ -13,8 +13,13 @@ still run all seven.
                    workflow (merge_group events have no `paths:` filter, so we filter here)
   push, workflow_dispatch -> all 7
 
+CI-13 (issue 299): the SQLite shards need no Docker services, so they may run on the Mac's local
+runner; the PostgreSQL shards need the postgres and nats service containers and stay GitHub-hosted.
+So the workflow has one job per backend, and this script also writes each backend's own matrix.
+
 Environment: EVENT; for merge_group also GH_TOKEN, REPO, BASE_SHA, HEAD_SHA.
-Writes `matrix=<json>` and `run=true|false` to $GITHUB_OUTPUT (or stdout without it).
+Writes `matrix=<json>` and `run=true|false` (all shards), plus `sqlite=<json>`, `run_sqlite=`,
+`postgresql=<json>` and `run_postgresql=` (one backend each) to $GITHUB_OUTPUT (or stdout without it).
 Standard library only.
 """
 from __future__ import annotations
@@ -65,6 +70,9 @@ def main() -> int:
         files = changed_files(env["REPO"], env["BASE_SHA"], env["HEAD_SHA"], env["GH_TOKEN"])
     include = shards(event, files)
     lines = [f"matrix={json.dumps({'include': include})}", f"run={'true' if include else 'false'}"]
+    for backend in ("sqlite", "postgresql"):
+        part = [j for j in include if j["backend"] == backend]
+        lines += [f"{backend}={json.dumps({'include': part})}", f"run_{backend}={'true' if part else 'false'}"]
     print("\n".join(lines))
     if out := env.get("GITHUB_OUTPUT"):
         with open(out, "a", encoding="utf-8") as f:

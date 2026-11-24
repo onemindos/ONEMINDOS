@@ -8,8 +8,8 @@ The Prometheus monitoring system and time series database.
 | | |
 |---|---|
 | Version | 3.16.0 (upstream release `3.16.0`, published 2026-11-05) |
-| Licence | `Apache-2.0`, Market class L1 by SPDX id; not yet confirmed by the licence gate |
-| Tier | `community` (set by CI: sdk/tools/app-gate) |
+| Licence | `Apache-2.0`, Market class **L1** (licence gate, scan of 2026-11-21) |
+| Tier | `verified` (set by CI: sdk/tools/app-gate) |
 | Category | monitoring |
 | GitHub | <https://github.com/prometheus/prometheus> |
 | Website | <https://prometheus.io/> |
@@ -68,4 +68,10 @@ From the upstream documentation, https://prometheus.io/docs/:
 
 ## Latest security scan
 
-No scan yet. `sdk/tools/app-gate` writes `scan.json` (contract §9.4, §11.1).
+Scanned 2026-11-21T15:35:58Z by `sdk/tools/app-gate`: **pass**. Licence `Apache-2.0` class L1; smoke test pass.
+
+| Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
+|---|---|---|---|---|---|---|
+| `docker.io/prom/prometheus:v3.16.0@sha256:e04987641b57704f408e31f6373ba4138ecf27cb4a165d24aabb6c38fddd0f06` | amd64, arm64 | 0 (0) | 2 | 0 infected (daily-28190) | 0 | unsigned |
+
+Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

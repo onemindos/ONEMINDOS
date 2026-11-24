@@ -1,0 +1,30 @@
+{
+  "scanned_at": "2026-11-21T13:37:07Z",
+  "result": "fail",
+  "images": [
+    {
+      "ref": "ghcr.io/esphome/esphome:2026.10.2@sha256:4a918585150e95e7675be84a347384ff308fde1bd32d0e4472666e1252cc0e8f",
+      "archs": [
+        "amd64",
+        "arm64"
+      ],
+      "trivy": {
+        "version": "0.76.2",
+        "critical_fixable": 22,
+        "critical": 23,
+        "high": 665
+      },
+      "clamav": {
+        "signatures": "daily-28190",
+        "infected": 0
+      },
+      "secrets": 0,
+      "cosign": "unsigned"
+    }
+  ],
+  "licence": {
+    "spdx": "MIT AND GPL-3.0",
+    "class": "blocked"
+  },
+  "smoke": "pass"
+}

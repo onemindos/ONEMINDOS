@@ -57,3 +57,43 @@ export function toAuditVerify(v: AuditVerifyResult): AuditVerify {
 export function toActivity(records: AuditRecord[], verify: AuditVerifyResult | undefined): ActivityData {
   return { ...(verify ? { verify: toAuditVerify(verify) } : {}), entries: [...records].sort((a, b) => b.seq - a.seq).map(toAuditEntry) };
 }
+
+/**
+ * The AI & Agents view of the chain: records an agent wrote, plus every record about an action an
+ * agent requested (the owner's decision and the executor's result), oldest first as the API sends.
+ */
+export function agentRecords(records: AuditRecord[]): AuditRecord[] {
+  const agentActions = new Set(records.filter((r) => r.principal?.kind === 'agent' && r.action_id).map((r) => r.action_id!));
+  return records.filter((r) => r.principal?.kind === 'agent' || (r.action_id !== null && agentActions.has(r.action_id)));
+}
+
+export interface AgentSummary {
+  id: string;
+  requests: number;
+  approved: number;
+  denied: number;
+  last: string;
+}
+
+/** One row per agent: how often it asked, and how often a person said yes or no. */
+export function agentSummaries(records: AuditRecord[]): AgentSummary[] {
+  const byAction = new Map<string, string>();
+  const rows = new Map<string, AgentSummary>();
+  for (const r of records) {
+    if (r.principal?.kind === 'agent') {
+      const row = rows.get(r.principal.id) ?? { id: r.principal.id, requests: 0, approved: 0, denied: 0, last: r.ts };
+      if (r.event === 'action.requested') row.requests += 1;
+      if (r.ts > row.last) row.last = r.ts;
+      rows.set(row.id, row);
+      if (r.action_id) byAction.set(r.action_id, row.id);
+    }
+  }
+  for (const r of records) {
+    const agent = r.action_id ? byAction.get(r.action_id) : undefined;
+    const row = agent ? rows.get(agent) : undefined;
+    if (!row) continue;
+    if (r.event === 'action.approved') row.approved += 1;
+    if (r.event === 'action.denied') row.denied += 1;
+  }
+  return [...rows.values()].sort((a, b) => (a.last < b.last ? 1 : -1));
+}

@@ -5,6 +5,7 @@
 // down only means heartbeats are skipped (not queued: an old heartbeat
 // replayed later would make a node look alive when it was not). The local
 // API keeps answering so a person at the box can still see its state.
+// Node events are the exception: with Config.Durable they go through the leaf outbox (events.go).
 package agent
 
 import (
@@ -53,6 +54,14 @@ type Config struct {
 	// BackupReport, when set, supplies the optional "backup" object (read
 	// from the backup agent's state file). nil = omit.
 	BackupReport func() *heartbeat.Backup
+	// ImagesReport, when set, supplies the optional "images" object (read
+	// from the image cleaner's report file, NMD-08). nil = omit.
+	ImagesReport func() *heartbeat.Images
+	// Durable turns on store-and-forward node events: POST /api/v1/events and a heartbeat of
+	// record every RecordEvery go into the leaf outbox (events.go). It needs the NATS URL to be
+	// the local leaf (JetStream with the outbox stream).
+	Durable     bool
+	RecordEvery time.Duration // default 5 min
 	// Mounts adds optional services' HTTP APIs under their path prefix (service.Mounts).
 	Mounts map[string]http.Handler
 }
@@ -87,6 +96,9 @@ func New(cfg Config) *Agent {
 	}
 	if cfg.Interval <= 0 {
 		cfg.Interval = DefaultInterval
+	}
+	if cfg.RecordEvery <= 0 {
+		cfg.RecordEvery = DefaultRecordEvery
 	}
 	if cfg.Collector == nil {
 		cfg.Collector = detect.New()
@@ -145,6 +157,9 @@ func (a *Agent) collect(c *collection) {
 	if a.cfg.BackupReport != nil {
 		c.st.Backup = a.cfg.BackupReport()
 	}
+	if a.cfg.ImagesReport != nil {
+		c.st.Images = a.cfg.ImagesReport()
+	}
 	a.stMu.Lock()
 	a.last, a.at, a.inflight = c.st, time.Now(), nil
 	a.stMu.Unlock()
@@ -154,6 +169,7 @@ func (a *Agent) collect(c *collection) {
 // Handler serves the local API:
 //
 //	GET /api/v1/node  -> the heartbeat object (contract §2)
+//	POST /api/v1/events -> store a durable node event (only with Config.Durable)
 //	GET /healthz      -> {"ok":true,"boot_id":...,"agent_version":...,"nats_connected":...}
 func (a *Agent) Handler() http.Handler {
 	mux := http.NewServeMux()
@@ -172,6 +188,9 @@ func (a *Agent) Handler() http.Handler {
 			"nats_connected": a.natsConnected(),
 		})
 	})
+	if a.cfg.Durable {
+		mux.HandleFunc("POST /api/v1/events", a.handleEvent)
+	}
 	for prefix, h := range a.cfg.Mounts {
 		mux.Handle(prefix, h)
 	}
@@ -221,6 +240,9 @@ func (a *Agent) Serve(ctx context.Context, ln net.Listener) error {
 	if a.cfg.NATSURL != "" {
 		a.connectNATS()
 		go a.publishLoop(ctx)
+		if a.cfg.Durable {
+			go a.recordLoop(ctx)
+		}
 	} else {
 		a.log.Warn("ONEMIND_NATS_URL not set: heartbeats are not published, local API only")
 	}

@@ -74,11 +74,38 @@ func toInfo(s Snapshot) SnapshotInfo {
 // ListSnapshots lists this box's snapshots on a target, newest first,
 // optionally only one unit. Fence records are not restore points.
 func (a *Agent) ListSnapshots(ctx context.Context, targetID, unit string) ([]SnapshotInfo, error) {
-	repo, _, err := a.browseRepo(ctx, targetID)
-	if err != nil {
-		return nil, err
+	return a.ListSnapshotsOfBox(ctx, targetID, "", unit, "")
+}
+
+// ListSnapshotsOfBox is ListSnapshots for another box's restore points (boxID
+// empty means this box). It only lists: a fresh box uses it to offer "restore
+// from this backup" before it has the old box's identity.
+//
+// recoveryKey is the owner recovery key from the kit. The old box's
+// repository is sealed with that box's own device key, which new hardware does
+// not have, so the repository is opened with the recovery key instead. The key
+// exists on disk only in a 0600 temporary file while restic reads it, and that
+// path never runs init: a wrong disk or wrong key must not create a repository.
+func (a *Agent) ListSnapshotsOfBox(ctx context.Context, targetID, boxID, unit, recoveryKey string) ([]SnapshotInfo, error) {
+	var repo Repo
+	if recoveryKey == "" {
+		r, _, err := a.browseRepo(ctx, targetID)
+		if err != nil {
+			return nil, err
+		}
+		repo = r
+	} else {
+		r, cleanup, err := a.openWithKey(targetID, recoveryKey)
+		if err != nil {
+			return nil, err
+		}
+		defer cleanup()
+		repo = r
 	}
-	filter := []string{"onemind", "box=" + a.Cfg.BoxID}
+	if boxID == "" {
+		boxID = a.Cfg.BoxID
+	}
+	filter := []string{"onemind", "box=" + boxID}
 	if unit != "" {
 		filter = append(filter, "unit="+unit)
 	}
@@ -341,6 +368,45 @@ func lookupNode(ctx context.Context, repo Repo, id, p string) (Node, error) {
 	return Node{}, fmt.Errorf("%s: %w", p, os.ErrNotExist)
 }
 
+// openWithKey opens target targetID with a caller-supplied password and never
+// creates the repository. The caller must call cleanup (it removes the key file).
+func (a *Agent) openWithKey(targetID, key string) (Repo, func(), error) {
+	t, ok := a.target(targetID)
+	if !ok {
+		return nil, nil, errUnknownTarget(targetID)
+	}
+	if t.Kind == KindUSB && !t.AllowNonMountDir {
+		mount := filepath.Join(t.MountRoot, t.USBUUID)
+		if m, err := a.IsMount(mount); err != nil || !m {
+			return nil, nil, fmt.Errorf("backup disk %s is not mounted", t.USBUUID)
+		}
+	}
+	c := a.conf()
+	if err := os.MkdirAll(c.StateDir, 0o700); err != nil {
+		return nil, nil, err
+	}
+	f, err := os.CreateTemp(c.StateDir, ".key-*")
+	if err != nil {
+		return nil, nil, err
+	}
+	cleanup := func() { os.Remove(f.Name()) }
+	if _, err := f.WriteString(key + "\n"); err != nil {
+		f.Close()
+		cleanup()
+		return nil, nil, err
+	}
+	if err := f.Close(); err != nil {
+		cleanup()
+		return nil, nil, err
+	}
+	repo, err := a.OpenRepoWithKeyFile(t, f.Name())
+	if err != nil {
+		cleanup()
+		return nil, nil, err
+	}
+	return repo, cleanup, nil
+}
+
 func (a *Agent) browseRepo(ctx context.Context, targetID string) (Repo, Target, error) {
 	t, ok := a.target(targetID)
 	if !ok {
@@ -353,16 +419,43 @@ func (a *Agent) browseRepo(ctx context.Context, targetID string) (Repo, Target, 
 // findSnapshot resolves a full id or a short id (at least 8 characters)
 // among this box's snapshots.
 func (a *Agent) findSnapshot(ctx context.Context, targetID, id string) (Repo, Snapshot, error) {
+	repo, snap, cleanup, err := a.findSnapshotOfBox(ctx, targetID, "", "", id)
+	cleanup()
+	return repo, snap, err
+}
+
+// findSnapshotOfBox is findSnapshot for a snapshot another box made: new
+// hardware restoring from the old box's backup (UMB-P08). With a recovery key
+// the repository is opened with it (the old device key is gone) and the
+// snapshots of boxID are searched. The caller must call cleanup, which removes
+// the temporary key file, when it is done with the repository; it is never nil.
+func (a *Agent) findSnapshotOfBox(ctx context.Context, targetID, boxID, recoveryKey, id string) (Repo, Snapshot, func(), error) {
+	noop := func() {}
 	if len(id) < 8 || !tagValueRe.MatchString(id) {
-		return nil, Snapshot{}, fmt.Errorf("snapshot id %q is too short or malformed", id)
+		return nil, Snapshot{}, noop, fmt.Errorf("snapshot id %q is too short or malformed", id)
 	}
-	repo, _, err := a.browseRepo(ctx, targetID)
-	if err != nil {
-		return nil, Snapshot{}, err
+	var repo Repo
+	cleanup := noop
+	if recoveryKey == "" {
+		r, _, err := a.browseRepo(ctx, targetID)
+		if err != nil {
+			return nil, Snapshot{}, noop, err
+		}
+		repo = r
+	} else {
+		r, c, err := a.openWithKey(targetID, recoveryKey)
+		if err != nil {
+			return nil, Snapshot{}, noop, err
+		}
+		repo, cleanup = r, c
 	}
-	snaps, err := repo.Snapshots(ctx, []string{"onemind", "box=" + a.Cfg.BoxID})
+	if boxID == "" {
+		boxID = a.Cfg.BoxID
+	}
+	snaps, err := repo.Snapshots(ctx, []string{"onemind", "box=" + boxID})
 	if err != nil {
-		return nil, Snapshot{}, err
+		cleanup()
+		return nil, Snapshot{}, noop, err
 	}
 	var found []Snapshot
 	for _, s := range snaps {
@@ -372,9 +465,11 @@ func (a *Agent) findSnapshot(ctx context.Context, targetID, id string) (Repo, Sn
 	}
 	switch len(found) {
 	case 0:
-		return nil, Snapshot{}, fmt.Errorf("snapshot %s: %w", id, os.ErrNotExist)
+		cleanup()
+		return nil, Snapshot{}, noop, fmt.Errorf("snapshot %s: %w", id, os.ErrNotExist)
 	case 1:
-		return repo, found[0], nil
+		return repo, found[0], cleanup, nil
 	}
-	return nil, Snapshot{}, fmt.Errorf("snapshot id %q is ambiguous", id)
+	cleanup()
+	return nil, Snapshot{}, noop, fmt.Errorf("snapshot id %q is ambiguous", id)
 }

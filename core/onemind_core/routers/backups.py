@@ -27,6 +27,7 @@ from ..backups.settings import BackupsSettings
 from ..catalog import APP_ID_RE
 from ..context import Gateway
 from ..errors import ApiError, error_responses as _error_responses
+from ..jsonbody import JsonBody
 from ..ledger import utc
 
 
@@ -43,7 +44,7 @@ USER_RE = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
 IdemHeader = Annotated[str | None, Header(alias="Idempotency-Key", min_length=1, max_length=200)]
 
 
-class _Request(BaseModel):
+class _Request(JsonBody):
     model_config = ConfigDict(extra="forbid")
     reason: str | None = Field(default=None, max_length=500)
     expires_at: AwareDatetime | None = None
@@ -184,10 +185,20 @@ def register(app: FastAPI, gw: Gateway) -> None:
         if body.approve and not p.is_owner:
             raise deny(p, "approve (owner shortcut)")
 
-    def filed(p: Principal, body: _Request, action: dict, created: bool, extra: dict | None = None) -> JSONResponse:
+    def approve_as_owner(p: Principal, action_id: str, request: Request) -> dict:
+        """The owner shortcut passes the same gates as POST /v1/actions/{id}/approve (passkey step-up F-2,
+        destructive storage guard). The shortcut cannot carry an assertion, so once a passkey is
+        registered it is refused (401 step_up_required) and the action stays awaiting_approval for the
+        normal approve route."""
+        for guard in gw.approval_guards:
+            guard(p, action_id, {}, request)
+        return gw.actions.approve(p, action_id)
+
+    def filed(p: Principal, body: _Request, action: dict, created: bool, request: Request,
+              extra: dict | None = None) -> JSONResponse:
         if body.approve and created:
             shortcut(p, body)
-            action = gw.actions.approve(p, action["id"])
+            action = approve_as_owner(p, action["id"], request)
         headers = {"Location": f"/v1/actions/{action['id']}"}
         if not created:
             headers["OneMind-Idempotent-Replay"] = "true"
@@ -209,25 +220,25 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return svc.destinations()
 
     @app.post("/v1/backups/destinations", operation_id="backups.destinations.add", tags=tags, status_code=202, responses=error_responses(401, 403, 409, 422))
-    def add_destination(body: DestinationBody, p: Principal = Depends(owner),
+    def add_destination(request: Request, body: DestinationBody, p: Principal = Depends(owner),
                         idem: IdemHeader = None):
         b = body.model_dump()
         b["config"] = _check_destination(body)
         action, created = svc.request_destination(p, b, idempotency_key=key(idem), expires_at=window(body), reason=body.reason)
-        return filed(p, body, action, created)
+        return filed(p, body, action, created, request)
 
     @app.delete("/v1/backups/destinations/{dest_id}", operation_id="backups.destinations.remove", tags=tags, status_code=202, responses=error_responses(401, 403, 404))
-    def remove_destination(dest_id: str, p: Principal = Depends(owner),
+    def remove_destination(request: Request, dest_id: str, p: Principal = Depends(owner),
                            idem: IdemHeader = None):
         if not any(d.id == dest_id for d in svc.repo.destinations()):
             raise ApiError(404, "not_found", "no such destination")
         body = _Request()
         action, created = gw.actions.request_feature(p, "backup.destination.remove", {"destination_id": dest_id},
                                                      idempotency_key=key(idem), expires_at=window(body))
-        return filed(p, body, action, created)
+        return filed(p, body, action, created, request)
 
     @app.post("/v1/backups/runs", operation_id="backups.runs.request", tags=tags, status_code=202, responses=error_responses(401, 403, 409, 422))
-    def request_run(body: RunBody, p: Principal = Depends(principal),
+    def request_run(request: Request, body: RunBody, p: Principal = Depends(principal),
                     idem: IdemHeader = None):
         shortcut(p, body)
         if not svc.enabled:
@@ -236,7 +247,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         params = {"scope": scope, **({"destination_id": body.destination_id} if body.destination_id else {})}
         action, created = gw.actions.request_feature(p, "backup.run", params, idempotency_key=key(idem),
                                                      expires_at=window(body), reason=body.reason)
-        return filed(p, body, action, created)
+        return filed(p, body, action, created, request)
 
     @app.get("/v1/backups/runs", operation_id="backups.runs.list", tags=tags, responses=error_responses(401, 403))
     def runs(_: Principal = Depends(reader)):
@@ -269,7 +280,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
             "Content-Length": headers["Content-Length"], "Content-Disposition": f'attachment; filename="{name}"'})
 
     @app.post("/v1/backups/verify", operation_id="backups.verify", tags=tags, status_code=202, responses=error_responses(401, 403, 409, 422))
-    def verify(body: VerifyBody, p: Principal = Depends(principal),
+    def verify(request: Request, body: VerifyBody, p: Principal = Depends(principal),
                idem: IdemHeader = None):
         shortcut(p, body)
         if not svc.enabled:
@@ -277,14 +288,14 @@ def register(app: FastAPI, gw: Gateway) -> None:
         params = {"mode": body.mode, "latest": body.latest, **({"units": body.units} if body.units else {})}
         action, created = gw.actions.request_feature(p, "backup.verify", params, idempotency_key=key(idem),
                                                      expires_at=window(body), reason=body.reason)
-        return filed(p, body, action, created)
+        return filed(p, body, action, created, request)
 
     @app.get("/v1/backups/verifications", operation_id="backups.verifications.list", tags=tags, responses=error_responses(401, 403))
     def verifications(_: Principal = Depends(reader)):
         return svc.verifications()
 
     @app.post("/v1/restores", operation_id="restores.request", tags=["restores"], status_code=202, responses=error_responses(401, 403, 404, 409, 422))
-    def request_restore(body: RestoreBody, p: Principal = Depends(principal),
+    def request_restore(request: Request, body: RestoreBody, p: Principal = Depends(principal),
                         idem: IdemHeader = None):
         if not p.is_owner:  # agents need the explicit grant actions:request:backup.restore (not in v0)
             raise deny(p, "request backup.restore")
@@ -296,7 +307,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         b = {"snapshot_id": body.snapshot_id, "scope": body.scope.model_dump(), "mode": body.mode, "target": body.target}
         action, created = svc.request_restore(p, b, idempotency_key=key(idem), expires_at=window(body), reason=body.reason)
         restore = next((r for r in svc.restores() if r["action_id"] == action["id"]), None)
-        return filed(p, body, action, created, {"restore": restore})
+        return filed(p, body, action, created, request, {"restore": restore})
 
     @app.get("/v1/restores", operation_id="restores.list", tags=["restores"], responses=error_responses(401, 403))
     def restores(_: Principal = Depends(reader)):
@@ -311,7 +322,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return svc.kit_state()
 
     @app.post("/v1/backups/kit", operation_id="backups.kit.issue", tags=tags, status_code=201, responses=error_responses(401, 403, 409))
-    def issue_kit(p: Principal = Depends(owner), idem: IdemHeader = None):
+    def issue_kit(request: Request, p: Principal = Depends(owner), idem: IdemHeader = None):
         """Owner shortcut: files backup.kit.issue and approves it; the key is in this response only."""
         if not svc.enabled:
             raise Unavailable("backups are not switched on (ONEMIND_BACKUPS_ENABLED=1)", "backups_disabled")
@@ -319,7 +330,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
                                                      expires_at=gw.clock() + timedelta(minutes=10))
         if not created:
             raise ApiError(409, "conflict", "this kit was already issued; it is never shown twice")
-        action = gw.actions.approve(p, action["id"])
+        action = approve_as_owner(p, action["id"], request)
         one_time = svc.take_one_time(action["id"])
         if action["state"] != "succeeded" or one_time is None:
             raise ApiError(409, "stale_precondition", (action.get("result") or {}).get("message") or "the kit was not issued")

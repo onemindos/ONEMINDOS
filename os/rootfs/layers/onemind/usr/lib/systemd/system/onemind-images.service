@@ -1,0 +1,50 @@
+# SPDX-License-Identifier: Apache-2.0
+# Image cleanup and disk budget in the image (deploy/systemd/onemind-images.service, adapted:
+# binary in /usr/bin, k3s data in /data/k3s, kubeconfig in /run/k3s). Hub only; started by
+# onemind-firstboot. Removes only superseded images, never an installed app's, stopped or not
+# (NMD-08, #133). Until k3s answers it retries every 5 minutes and removes nothing.
+[Unit]
+Description=OneMind image cleanup and disk budget (superseded images only)
+After=k3s.service onemind-firstboot.service
+RequiresMountsFor=/data
+
+[Service]
+Type=simple
+EnvironmentFile=-/data/onemind/etc/onemindd.env
+Environment=HOME=/run/onemind-images
+Environment="ONEMIND_CRICTL=/usr/local/bin/k3s crictl"
+Environment="ONEMIND_KUBECTL=/usr/local/bin/k3s kubectl --kubeconfig /run/k3s/k3s.yaml"
+Environment=ONEMIND_IMAGES_DISK=/data/k3s
+RuntimeDirectory=onemind-images
+RuntimeDirectoryMode=0755
+ExecStart=/usr/bin/onemindd images
+Restart=on-failure
+RestartSec=60s
+User=root
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+UMask=0022
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged
+SystemCallErrorNumber=EPERM
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+
+[Install]
+WantedBy=multi-user.target

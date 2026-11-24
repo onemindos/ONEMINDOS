@@ -1,6 +1,274 @@
 {
   "components": {
     "schemas": {
+      "About": {
+        "description": "GET /v1/os/about.",
+        "properties": {
+          "hub_node_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hub Node Id"
+          },
+          "node_count": {
+            "title": "Node Count",
+            "type": "integer"
+          },
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/AboutNode"
+            },
+            "title": "Nodes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "hub_node_id",
+          "node_count",
+          "nodes"
+        ],
+        "title": "About",
+        "type": "object"
+      },
+      "AboutNode": {
+        "description": "One box in GET /v1/os/about. Never carries a serial number or an address.",
+        "properties": {
+          "agent_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Agent Version"
+          },
+          "arch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Arch"
+          },
+          "board": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Board",
+            "x-onemind-open-enum": true
+          },
+          "booted_slot": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The RAUC A/B slot this box booted from",
+            "title": "Booted Slot"
+          },
+          "cpu_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cpu Model"
+          },
+          "cpus": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cpus"
+          },
+          "disk_free_gb": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Disk Free Gb"
+          },
+          "disk_total_gb": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Disk Total Gb"
+          },
+          "hostname": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hostname"
+          },
+          "kernel": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kernel"
+          },
+          "last_seen": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Seen"
+          },
+          "mem_available_mb": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mem Available Mb"
+          },
+          "mem_total_mb": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mem Total Mb"
+          },
+          "node_id": {
+            "title": "Node Id",
+            "type": "string"
+          },
+          "onemind_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The update service's current version",
+            "title": "Onemind Version"
+          },
+          "os_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Os Id"
+          },
+          "os_pretty": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The Debian base, from /etc/os-release",
+            "title": "Os Pretty"
+          },
+          "os_version_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Os Version Id"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role"
+          },
+          "status": {
+            "description": "online | stale | offline",
+            "title": "Status",
+            "type": "string",
+            "x-onemind-open-enum": true
+          },
+          "uptime_s": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uptime S"
+          }
+        },
+        "required": [
+          "node_id",
+          "status"
+        ],
+        "title": "AboutNode",
+        "type": "object"
+      },
       "AccessBody": {
         "properties": {
           "auth": {
@@ -221,6 +489,32 @@
         "title": "ActionTemplate",
         "type": "object"
       },
+      "AiSchedule": {
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "default": false,
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "off": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Off",
+            "type": "array"
+          },
+          "tz": {
+            "default": "box",
+            "maxLength": 64,
+            "title": "Tz",
+            "type": "string"
+          }
+        },
+        "title": "AiSchedule",
+        "type": "object"
+      },
       "Allow": {
         "additionalProperties": false,
         "properties": {
@@ -256,6 +550,36 @@
           "requested_by"
         ],
         "title": "Allow",
+        "type": "object"
+      },
+      "AppClassification": {
+        "additionalProperties": false,
+        "properties": {
+          "min_age": {
+            "anyOf": [
+              {
+                "maximum": 21.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Age"
+          },
+          "tags": {
+            "items": {
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Tags",
+            "type": "array"
+          }
+        },
+        "title": "AppClassification",
         "type": "object"
       },
       "AppCredentials": {
@@ -1622,6 +1946,89 @@
         "title": "ErrorBody",
         "type": "object"
       },
+      "FamilyProfile": {
+        "additionalProperties": false,
+        "properties": {
+          "allowed_apps": {
+            "anyOf": [
+              {
+                "items": {
+                  "pattern": "^[a-z0-9][a-z0-9-]{0,62}$",
+                  "type": "string"
+                },
+                "maxItems": 500,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Null inherits sharing; empty denies all apps; never grants access",
+            "title": "Allowed Apps"
+          },
+          "birth_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Private child or teen profile data; never included in audit events",
+            "title": "Birth Date"
+          },
+          "blocked_tags": {
+            "items": {
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Blocked Tags",
+            "type": "array"
+          },
+          "max_age_rating": {
+            "anyOf": [
+              {
+                "maximum": 21.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Maximum app minimum-age rating; unclassified apps are blocked when set",
+            "title": "Max Age Rating"
+          },
+          "timezone": {
+            "default": "UTC",
+            "maxLength": 100,
+            "title": "Timezone",
+            "type": "string"
+          },
+          "windows": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/Window"
+                },
+                "maxItems": 50,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Null allows all times; empty denies all times; evaluated in timezone",
+            "title": "Windows"
+          }
+        },
+        "title": "FamilyProfile",
+        "type": "object"
+      },
       "FeatureActionRequest": {
         "additionalProperties": false,
         "properties": {
@@ -1658,6 +2065,13 @@
               "exposure.mesh",
               "exposure.private",
               "exposure.public",
+              "files.share.create",
+              "machine.create",
+              "machine.delete",
+              "machine.start",
+              "machine.stop",
+              "node.wake",
+              "os.update.install",
               "source.add",
               "source.move",
               "source.remove"
@@ -1838,6 +2252,14 @@
             "title": "Layout",
             "type": "string"
           },
+          "links": {
+            "items": {
+              "$ref": "#/components/schemas/Link"
+            },
+            "maxItems": 50,
+            "title": "Links",
+            "type": "array"
+          },
           "seen": {
             "$ref": "#/components/schemas/Seen"
           },
@@ -1895,6 +2317,14 @@
             ],
             "title": "Layout",
             "type": "string"
+          },
+          "links": {
+            "items": {
+              "$ref": "#/components/schemas/Link"
+            },
+            "maxItems": 50,
+            "title": "Links",
+            "type": "array"
           },
           "seen": {
             "$ref": "#/components/schemas/Seen"
@@ -2003,6 +2433,20 @@
         "title": "Instance",
         "type": "object"
       },
+      "InstanceName": {
+        "description": "GET /v1/instance/name: the box name alone, readable before sign-in.",
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "InstanceName",
+        "type": "object"
+      },
       "JoinNode": {
         "properties": {
           "arch": {
@@ -2099,6 +2543,81 @@
         "title": "JoinRequestBody",
         "type": "object"
       },
+      "KillSwitch": {
+        "additionalProperties": true,
+        "description": "The agent kill switch. `on: true` means every AI agent is refused until the owner turns it off.",
+        "properties": {
+          "changed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "RFC 3339 time of the last change; null if never changed",
+            "title": "Changed At"
+          },
+          "changed_by": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PrincipalRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "on": {
+            "title": "On",
+            "type": "boolean"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "on"
+        ],
+        "title": "KillSwitch",
+        "type": "object"
+      },
+      "KillSwitchBody": {
+        "additionalProperties": false,
+        "properties": {
+          "on": {
+            "description": "true stops every AI agent; false lets them work again",
+            "title": "On",
+            "type": "boolean"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why, for the audit record (at most 500 characters)",
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "on"
+        ],
+        "title": "KillSwitchBody",
+        "type": "object"
+      },
       "KitConfirmBody": {
         "additionalProperties": false,
         "properties": {
@@ -2117,6 +2636,74 @@
         "title": "KitConfirmBody",
         "type": "object"
       },
+      "LibraryItem": {
+        "properties": {
+          "file_name": {
+            "title": "File Name",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "level": {
+            "description": "in_verified_backup is the only level that means safe in a backup that passed a restore check",
+            "enum": [
+              "on_box",
+              "in_backup",
+              "in_verified_backup"
+            ],
+            "title": "Level",
+            "type": "string"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          },
+          "taken_at": {
+            "description": "When the phone says it was taken; the day the box stored it when the phone sent none",
+            "title": "Taken At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "file_name",
+          "taken_at",
+          "size",
+          "level"
+        ],
+        "title": "LibraryItem",
+        "type": "object"
+      },
+      "LibraryPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/LibraryItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "title": "LibraryPage",
+        "type": "object"
+      },
       "Limits": {
         "additionalProperties": false,
         "properties": {
@@ -2131,6 +2718,47 @@
           "per_day"
         ],
         "title": "Limits",
+        "type": "object"
+      },
+      "Link": {
+        "additionalProperties": false,
+        "description": "FD-02: a personal web link. Shown on Home, the dock and Launchpad as `link:<id>`; it opens a page, never runs anything.",
+        "properties": {
+          "icon": {
+            "anyOf": [
+              {
+                "pattern": "^[a-z0-9][a-z0-9-]{0,39}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Icon"
+          },
+          "id": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,39}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 60,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "url": {
+            "maxLength": 2048,
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "url"
+        ],
+        "title": "Link",
         "type": "object"
       },
       "LoginBody": {
@@ -2468,6 +3096,56 @@
         "title": "NodeOS",
         "type": "object"
       },
+      "OnboardingKit": {
+        "properties": {
+          "confirmed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmed At"
+          },
+          "fingerprint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fingerprint"
+          },
+          "positions": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Positions",
+            "type": "array"
+          },
+          "state": {
+            "enum": [
+              "missing",
+              "issued",
+              "confirmed"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "confirmed_at",
+          "fingerprint",
+          "positions"
+        ],
+        "title": "OnboardingKit",
+        "type": "object"
+      },
       "OnboardingSettingsBody": {
         "additionalProperties": false,
         "properties": {
@@ -2573,6 +3251,39 @@
           "saved"
         ],
         "title": "OnboardingSettingsView",
+        "type": "object"
+      },
+      "OnboardingStateView": {
+        "description": "What the first-run wizard needs to decide whether to open: no browser flag involved.",
+        "properties": {
+          "backups_enabled": {
+            "title": "Backups Enabled",
+            "type": "boolean"
+          },
+          "complete": {
+            "title": "Complete",
+            "type": "boolean"
+          },
+          "destinations": {
+            "title": "Destinations",
+            "type": "integer"
+          },
+          "kit": {
+            "$ref": "#/components/schemas/OnboardingKit"
+          },
+          "settings_saved": {
+            "title": "Settings Saved",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "complete",
+          "settings_saved",
+          "backups_enabled",
+          "destinations",
+          "kit"
+        ],
+        "title": "OnboardingStateView",
         "type": "object"
       },
       "Options": {
@@ -3255,6 +3966,70 @@
         "title": "RenameOp",
         "type": "object"
       },
+      "RestoreAppBody": {
+        "additionalProperties": false,
+        "description": "Put one app's data back from another box's backup. The app is installed first, then this restores its data.",
+        "properties": {
+          "app_id": {
+            "maxLength": 59,
+            "minLength": 1,
+            "pattern": "^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$",
+            "title": "App Id",
+            "type": "string"
+          },
+          "approve": {
+            "default": false,
+            "title": "Approve",
+            "type": "boolean"
+          },
+          "box_id": {
+            "pattern": "^[A-Za-z0-9._:-]{1,128}$",
+            "title": "Box Id",
+            "type": "string"
+          },
+          "destination_id": {
+            "pattern": "^dst_[0-9a-f]{16}$",
+            "title": "Destination Id",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "recovery_key": {
+            "maxLength": 256,
+            "minLength": 32,
+            "pattern": "^[^\\r\\n]+$",
+            "title": "Recovery Key",
+            "type": "string",
+            "writeOnly": true
+          },
+          "run_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9._:-]+$",
+            "title": "Run Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "destination_id",
+          "box_id",
+          "recovery_key",
+          "run_id",
+          "app_id"
+        ],
+        "title": "RestoreAppBody",
+        "type": "object"
+      },
       "RestoreBody": {
         "additionalProperties": false,
         "properties": {
@@ -3333,6 +4108,134 @@
         "title": "RestoreBody",
         "type": "object"
       },
+      "RestoreCandidatesBody": {
+        "additionalProperties": false,
+        "properties": {
+          "box_id": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Za-z0-9._:-]{1,128}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Box Id"
+          },
+          "destination_id": {
+            "pattern": "^dst_[0-9a-f]{16}$",
+            "title": "Destination Id",
+            "type": "string"
+          },
+          "recovery_key": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "minLength": 32,
+                "pattern": "^[^\\r\\n]+$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recovery Key",
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "destination_id"
+        ],
+        "title": "RestoreCandidatesBody",
+        "type": "object"
+      },
+      "RestoreCandidatesView": {
+        "properties": {
+          "destination_id": {
+            "title": "Destination Id",
+            "type": "string"
+          },
+          "points": {
+            "items": {
+              "$ref": "#/components/schemas/RestorePoint"
+            },
+            "title": "Points",
+            "type": "array"
+          }
+        },
+        "required": [
+          "destination_id",
+          "points"
+        ],
+        "title": "RestoreCandidatesView",
+        "type": "object"
+      },
+      "RestorePoint": {
+        "properties": {
+          "apps": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Apps",
+            "type": "array"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id"
+          },
+          "snapshot_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Snapshot Ids",
+            "type": "array"
+          },
+          "system": {
+            "title": "System",
+            "type": "boolean"
+          },
+          "taken_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Taken At"
+          }
+        },
+        "required": [
+          "run_id",
+          "taken_at",
+          "reason",
+          "system",
+          "apps",
+          "snapshot_ids"
+        ],
+        "title": "RestorePoint",
+        "type": "object"
+      },
       "RestoreTrashOp": {
         "additionalProperties": false,
         "properties": {
@@ -3378,6 +4281,21 @@
           "trash_id"
         ],
         "title": "RestoreTrashOp",
+        "type": "object"
+      },
+      "ResumeBody": {
+        "additionalProperties": false,
+        "properties": {
+          "app_id": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,62}$",
+            "title": "App Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "app_id"
+        ],
+        "title": "ResumeBody",
         "type": "object"
       },
       "RevertBody": {
@@ -3645,6 +4563,18 @@
       "ScanSummary": {
         "description": "§11.1 apps/<id>/scan.json, reduced to what the catalog shows.",
         "properties": {
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why the scan failed (CRITICAL fixable CVEs, secrets, malware, smoke) from scan.json's own counts, so the owner can see why an app is blocked; null on a pass",
+            "title": "Reason"
+          },
           "result": {
             "enum": [
               "pass",
@@ -3946,6 +4876,105 @@
           "platform"
         ],
         "title": "SourceOut",
+        "type": "object"
+      },
+      "SourceStatus": {
+        "properties": {
+          "count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Count"
+          },
+          "observed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observed At"
+          },
+          "state": {
+            "enum": [
+              "ok",
+              "attention",
+              "critical",
+              "unknown"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "observed_at",
+          "summary"
+        ],
+        "title": "SourceStatus",
+        "type": "object"
+      },
+      "StatusView": {
+        "properties": {
+          "alerts": {
+            "$ref": "#/components/schemas/SourceStatus"
+          },
+          "approvals": {
+            "$ref": "#/components/schemas/SourceStatus"
+          },
+          "apps": {
+            "$ref": "#/components/schemas/SourceStatus"
+          },
+          "backups": {
+            "$ref": "#/components/schemas/SourceStatus"
+          },
+          "mesh": {
+            "$ref": "#/components/schemas/SourceStatus"
+          },
+          "observed_at": {
+            "title": "Observed At",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "ok",
+              "attention",
+              "critical",
+              "unknown"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "storage": {
+            "$ref": "#/components/schemas/SourceStatus"
+          },
+          "updates": {
+            "$ref": "#/components/schemas/SourceStatus"
+          }
+        },
+        "required": [
+          "state",
+          "observed_at",
+          "alerts",
+          "approvals",
+          "apps",
+          "storage",
+          "backups",
+          "updates",
+          "mesh"
+        ],
+        "title": "StatusView",
         "type": "object"
       },
       "StorageActionRequest": {
@@ -4276,6 +5305,316 @@
         "title": "TrashOp",
         "type": "object"
       },
+      "UpdatePolicyBody": {
+        "additionalProperties": false,
+        "properties": {
+          "ai_schedule": {
+            "$ref": "#/components/schemas/AiSchedule"
+          },
+          "backoff_after_failures": {
+            "default": 3,
+            "maximum": 10.0,
+            "minimum": 1.0,
+            "title": "Backoff After Failures",
+            "type": "integer"
+          },
+          "cool_off_hours": {
+            "default": 48,
+            "maximum": 720.0,
+            "minimum": 0.0,
+            "title": "Cool Off Hours",
+            "type": "integer"
+          },
+          "same_major_only": {
+            "default": true,
+            "title": "Same Major Only",
+            "type": "boolean"
+          },
+          "window_id": {
+            "default": "win_nightly",
+            "maxLength": 40,
+            "title": "Window Id",
+            "type": "string"
+          }
+        },
+        "title": "UpdatePolicyBody",
+        "type": "object"
+      },
+      "Usage": {
+        "description": "GET /v1/usage.",
+        "properties": {
+          "apps": {
+            "$ref": "#/components/schemas/UsageApps"
+          },
+          "at": {
+            "title": "At",
+            "type": "string"
+          },
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/UsageNode"
+            },
+            "title": "Nodes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "at",
+          "nodes",
+          "apps"
+        ],
+        "title": "Usage",
+        "type": "object"
+      },
+      "UsageApp": {
+        "properties": {
+          "app_id": {
+            "title": "App Id",
+            "type": "string"
+          },
+          "cpu_millicores": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null when the runtime reports no figure",
+            "title": "Cpu Millicores"
+          },
+          "disk_mib": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "MiB used on the app's volume claims; null when unknown",
+            "title": "Disk Mib"
+          },
+          "mem_mib": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "MiB; null when the runtime reports no figure",
+            "title": "Mem Mib"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "required": [
+          "app_id"
+        ],
+        "title": "UsageApp",
+        "type": "object"
+      },
+      "UsageApps": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/UsageApp"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "sampled_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When these numbers were read from the runtime; null if never",
+            "title": "Sampled At"
+          },
+          "source": {
+            "description": "kubernetes | unavailable",
+            "title": "Source",
+            "type": "string",
+            "x-onemind-open-enum": true
+          },
+          "stale": {
+            "description": "True when sampled_at is older than 30 s, or nothing was ever read",
+            "title": "Stale",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "source",
+          "sampled_at",
+          "stale",
+          "items"
+        ],
+        "title": "UsageApps",
+        "type": "object"
+      },
+      "UsageNode": {
+        "additionalProperties": true,
+        "description": "One machine's latest heartbeat reading.",
+        "properties": {
+          "age_s": {
+            "description": "Seconds since the gateway last heard from the machine",
+            "title": "Age S",
+            "type": "integer"
+          },
+          "cpu_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null when the machine reports no CPU figure",
+            "title": "Cpu Pct"
+          },
+          "cpu_source": {
+            "description": "heartbeat | metrics-server",
+            "title": "Cpu Source",
+            "type": "string",
+            "x-onemind-open-enum": true
+          },
+          "cpus": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cpus"
+          },
+          "disk_total_gb": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Disk Total Gb"
+          },
+          "disk_used_gb": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Disk Used Gb"
+          },
+          "hostname": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hostname"
+          },
+          "last_seen": {
+            "title": "Last Seen",
+            "type": "string"
+          },
+          "load1": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Load1"
+          },
+          "mem_total_mb": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mem Total Mb"
+          },
+          "mem_used_mb": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mem Used Mb"
+          },
+          "node_id": {
+            "title": "Node Id",
+            "type": "string"
+          },
+          "stale": {
+            "description": "True when the last heartbeat is older than 30 s: the numbers are not current",
+            "title": "Stale",
+            "type": "boolean"
+          },
+          "status": {
+            "description": "online | stale | offline (from the heartbeat age)",
+            "title": "Status",
+            "type": "string",
+            "x-onemind-open-enum": true
+          },
+          "temp_c": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null when the hardware reports no temperature",
+            "title": "Temp C"
+          }
+        },
+        "required": [
+          "node_id",
+          "status",
+          "stale",
+          "last_seen",
+          "age_s",
+          "cpu_source"
+        ],
+        "title": "UsageNode",
+        "type": "object"
+      },
       "UserCreateBody": {
         "properties": {
           "display_name": {
@@ -4403,6 +5742,55 @@
         "title": "VerifyBody",
         "type": "object"
       },
+      "WakeCapability": {
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "params": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WakeParams"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "available",
+          "reason"
+        ],
+        "title": "WakeCapability",
+        "type": "object"
+      },
+      "WakeParams": {
+        "additionalProperties": false,
+        "properties": {
+          "node_id": {
+            "pattern": "^[A-Za-z0-9_-]{1,64}$",
+            "title": "Node Id",
+            "type": "string"
+          },
+          "target_sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Target Sha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "node_id",
+          "target_sha256"
+        ],
+        "title": "WakeParams",
+        "type": "object"
+      },
       "Widget": {
         "additionalProperties": false,
         "properties": {
@@ -4424,6 +5812,43 @@
           "id"
         ],
         "title": "Widget",
+        "type": "object"
+      },
+      "Window": {
+        "additionalProperties": false,
+        "properties": {
+          "days": {
+            "description": "Monday=0; start day for overnight windows",
+            "items": {
+              "maximum": 6.0,
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "maxItems": 7,
+            "minItems": 1,
+            "title": "Days",
+            "type": "array"
+          },
+          "end_minute": {
+            "description": "Exclusive end; less than start means overnight",
+            "maximum": 1440.0,
+            "minimum": 0.0,
+            "title": "End Minute",
+            "type": "integer"
+          },
+          "start_minute": {
+            "maximum": 1439.0,
+            "minimum": 0.0,
+            "title": "Start Minute",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "days",
+          "start_minute",
+          "end_minute"
+        ],
+        "title": "Window",
         "type": "object"
       },
       "WindowBody": {
@@ -5131,6 +6556,116 @@
         "summary": "Deny Action",
         "tags": [
           "actions"
+        ]
+      }
+    },
+    "/v1/agents/kill-switch": {
+      "get": {
+        "operationId": "agents.kill_switch.get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KillSwitch"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "summary": "Get Kill Switch",
+        "tags": [
+          "agents"
+        ]
+      },
+      "put": {
+        "operationId": "agents.kill_switch.set",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KillSwitchBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KillSwitch"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Set Kill Switch",
+        "tags": [
+          "agents"
         ]
       }
     },
@@ -11057,6 +12592,331 @@
         ]
       }
     },
+    "/v1/family/apps/{app_id}": {
+      "get": {
+        "operationId": "family.apps.get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "app_id",
+            "required": true,
+            "schema": {
+              "title": "App Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppClassification"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Get Classification",
+        "tags": [
+          "family"
+        ]
+      },
+      "put": {
+        "operationId": "family.apps.set",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "app_id",
+            "required": true,
+            "schema": {
+              "title": "App Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AppClassification"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppClassification"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Put Classification",
+        "tags": [
+          "family"
+        ]
+      }
+    },
+    "/v1/family/profiles/{user_id}": {
+      "get": {
+        "operationId": "family.profiles.get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FamilyProfile"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Get Profile",
+        "tags": [
+          "family"
+        ]
+      },
+      "put": {
+        "description": "Replace a person's controls. Owner only, with the existing passkey step-up rules.",
+        "operationId": "family.profiles.set",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FamilyProfile"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FamilyProfile"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Put Profile",
+        "tags": [
+          "family"
+        ]
+      }
+    },
     "/v1/files/download": {
       "get": {
         "operationId": "files.download",
@@ -12597,6 +14457,57 @@
         ]
       }
     },
+    "/v1/instance/name": {
+      "get": {
+        "operationId": "instance.name",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstanceName"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Instance Name",
+        "tags": [
+          "instance"
+        ]
+      }
+    },
+    "/v1/machines": {
+      "get": {
+        "description": "The machines on this box, with their state and the quota they hold.",
+        "operationId": "machines.list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          }
+        },
+        "summary": "Machines List",
+        "tags": [
+          "machines"
+        ]
+      }
+    },
     "/v1/machines/capabilities": {
       "get": {
         "description": "Which nodes can run virtual machines, and the reasons the others cannot.",
@@ -12672,6 +14583,147 @@
           }
         },
         "summary": "Machines Enable",
+        "tags": [
+          "machines"
+        ]
+      }
+    },
+    "/v1/machines/{name}": {
+      "get": {
+        "operationId": "machines.get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Machines Get",
+        "tags": [
+          "machines"
+        ]
+      }
+    },
+    "/v1/machines/{name}/console": {
+      "post": {
+        "description": "A one-minute, single-use console ticket. Owner only: an agent never gets a screen.",
+        "operationId": "machines.console",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Machines Console",
         "tags": [
           "machines"
         ]
@@ -12758,6 +14810,17 @@
       },
       "put": {
         "operationId": "me.home.save",
+        "parameters": [
+          {
+            "description": "The ETag read from GET /v1/me/home.",
+            "in": "header",
+            "name": "If-Match",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -13854,6 +15917,68 @@
         ]
       }
     },
+    "/v1/nodes/{node_id}/wake": {
+      "get": {
+        "operationId": "nodes.wake_capability",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "node_id",
+            "required": true,
+            "schema": {
+              "title": "Node Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WakeCapability"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Wake Capability",
+        "tags": [
+          "nodes"
+        ]
+      }
+    },
     "/v1/notifications": {
       "get": {
         "operationId": "notifications.list",
@@ -14721,6 +16846,228 @@
         ]
       }
     },
+    "/v1/onboarding/restore/apps": {
+      "post": {
+        "description": "Restore one installed app's data from another box's backup point (new hardware, UMB-P08).\n\nFiles the ordinary `backup.restore` action (undo snapshot, stop, swap, start, health gate, roll back), with the\nowner recovery key held in memory for that one action only: never in the action, the audit log or a response.\nSend `approve: true` to approve it in the same call; otherwise approve it at POST /v1/actions/{id}/approve.",
+        "operationId": "onboarding.restore.app",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RestoreAppBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
+          }
+        },
+        "summary": "Restore App",
+        "tags": [
+          "onboarding"
+        ]
+      }
+    },
+    "/v1/onboarding/restore/candidates": {
+      "post": {
+        "description": "The first-run wizard's \"restore from a backup\" step: list what a destination holds. Read-only.\n\nBackup made by this box's hardware: send only `destination_id`. Backup made by another (dead or replaced) box:\nalso send its `box_id` and the owner `recovery_key` from the recovery kit (the kit QR carries both); a fresh box\nhas no way to discover the old box id, and its own device key cannot open the old repository.",
+        "operationId": "onboarding.restore.candidates",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RestoreCandidatesBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RestoreCandidatesView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
+          }
+        },
+        "summary": "Restore Candidates",
+        "tags": [
+          "onboarding"
+        ]
+      }
+    },
     "/v1/onboarding/settings": {
       "get": {
         "operationId": "onboarding.settings.get",
@@ -14828,6 +17175,302 @@
         "summary": "Save",
         "tags": [
           "onboarding"
+        ]
+      }
+    },
+    "/v1/onboarding/state": {
+      "get": {
+        "description": "The wizard is complete once the first-run settings are saved and, when a backup destination exists,\nthe emergency kit is typed back (confirmed). Read-only; the recovery key is never part of this answer.",
+        "operationId": "onboarding.state",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OnboardingStateView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "summary": "State",
+        "tags": [
+          "onboarding"
+        ]
+      }
+    },
+    "/v1/os/about": {
+      "get": {
+        "description": "Hostname, OneMind version and A/B slot, Debian base, kernel, CPU, memory, disk, uptime and board\nper node, and how many nodes the hub knows. No serial numbers and no addresses, ever.",
+        "operationId": "os.about",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/About"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          }
+        },
+        "summary": "Os About",
+        "tags": [
+          "os"
+        ]
+      }
+    },
+    "/v1/os/updates": {
+      "get": {
+        "description": "Per node: running version, booted A/B slot, the update on offer, and whether installing can run.",
+        "operationId": "os.updates.status",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          }
+        },
+        "summary": "Os Updates",
+        "tags": [
+          "os"
+        ]
+      }
+    },
+    "/v1/os/updates/history": {
+      "get": {
+        "description": "Commits and rollbacks the nodes reported, newest first, and the install requests filed.",
+        "operationId": "os.updates.history",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          }
+        },
+        "summary": "Os Updates History",
+        "tags": [
+          "os"
+        ]
+      }
+    },
+    "/v1/photos/assets/{asset_id}/content": {
+      "get": {
+        "operationId": "photos.asset_content",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "asset_id",
+            "required": true,
+            "schema": {
+              "title": "Asset Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "*/*": {},
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "The photo's own bytes"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Asset Content",
+        "tags": [
+          "photos"
+        ]
+      }
+    },
+    "/v1/photos/library": {
+      "get": {
+        "operationId": "photos.library",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 60,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibraryPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Library",
+        "tags": [
+          "photos"
         ]
       }
     },
@@ -16167,6 +18810,177 @@
         ]
       }
     },
+    "/v1/shares/smb": {
+      "get": {
+        "description": "Whether the box can share over SMB, who could be shared, and the shares that exist.\n\nAn owner sees everyone's shares; anyone else sees their own.",
+        "operationId": "shares.smb.list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "summary": "Shares List",
+        "tags": [
+          "files"
+        ]
+      }
+    },
+    "/v1/shares/smb/password": {
+      "post": {
+        "description": "A new SMB password for you, shown once. Replaces the old one; only people with a share of their own.\n\nOnce passkeys are active this needs a recent passkey sign-in (step-up), like other credential changes:\nthe password opens the person's whole Files home and Time Machine folder from the LAN or mesh.",
+        "operationId": "shares.smb.password",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          }
+        },
+        "summary": "Shares Password",
+        "tags": [
+          "files"
+        ]
+      }
+    },
+    "/v1/shares/smb/{share_id}/stop": {
+      "post": {
+        "description": "Stop sharing. Owner only; taking exposure away needs no approval, and is audited.",
+        "operationId": "shares.smb.stop",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "share_id",
+            "required": true,
+            "schema": {
+              "title": "Share Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Shares Stop",
+        "tags": [
+          "files"
+        ]
+      }
+    },
     "/v1/sources": {
       "get": {
         "operationId": "sources.list",
@@ -16253,6 +19067,48 @@
         "summary": "Get Source",
         "tags": [
           "sources"
+        ]
+      }
+    },
+    "/v1/status": {
+      "get": {
+        "description": "Alerts, approvals, app health, storage, backups, updates and mesh, each with a state and when it was read.\n\nA source that cannot be read is `unknown`, never `ok`.",
+        "operationId": "status.get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "summary": "Get Status",
+        "tags": [
+          "status"
         ]
       }
     },
@@ -17003,6 +19859,236 @@
         "summary": "Rotate Token",
         "tags": [
           "tokens"
+        ]
+      }
+    },
+    "/v1/update-policy": {
+      "get": {
+        "description": "The owner's update policy for apps, and the apps whose auto-update is paused.",
+        "operationId": "updates.policy.get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          }
+        },
+        "summary": "Get Update Policy",
+        "tags": [
+          "updates"
+        ]
+      },
+      "put": {
+        "description": "Change the update policy (owner only). The knobs only ever hold an update back.",
+        "operationId": "updates.policy.update",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePolicyBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Put Update Policy",
+        "tags": [
+          "updates"
+        ]
+      }
+    },
+    "/v1/update-policy/dry-run": {
+      "get": {
+        "description": "What would update in the next maintenance window, app by app, and why not. Files nothing.",
+        "operationId": "updates.policy.dry_run",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          }
+        },
+        "summary": "Update Policy Dry Run",
+        "tags": [
+          "updates"
+        ]
+      }
+    },
+    "/v1/update-policy/resume": {
+      "post": {
+        "description": "Lift the back-off for one app (owner only): its failed updates before now stop counting.",
+        "operationId": "updates.policy.resume",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResumeBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Resume Auto Update",
+        "tags": [
+          "updates"
+        ]
+      }
+    },
+    "/v1/usage": {
+      "get": {
+        "description": "Per machine and per app CPU, memory and disk, read-only. Old data says so (`stale`).",
+        "operationId": "monitoring.usage",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Usage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          }
+        },
+        "summary": "Live Usage",
+        "tags": [
+          "monitoring"
         ]
       }
     },

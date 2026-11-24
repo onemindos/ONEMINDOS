@@ -2,7 +2,7 @@
   "$comment": "SPDX-License-Identifier: Apache-2.0",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/onemindos/ONEMINDOS/sdk/schema/onemind.app.schema.json",
-  "title": "OneMind app manifest (onemind.app/v1alpha1)",
+  "title": "OneMind app manifest (onemind.app/v1, and v1alpha1 until the freeze completes)",
   "description": "apps/<id>/onemind.app.yaml, as fixed by sdk/contracts/poc-v0.md section 4, extended by section 9.3 (metadata.links, metadata.upstream, metadata.tier, spec.updates) section 11.2 (spec.agent) and section 12.18 (spec.backup; spec.database for the shared PostgreSQL, DB-SHARED-1). Every object is closed: a new field is a contract change first. The value UNVERIFIED marks a fact the scaffolder could not confirm from a primary source; it caps the app's tier at community.",
   "type": "object",
   "additionalProperties": false,
@@ -14,7 +14,11 @@
   ],
   "properties": {
     "apiVersion": {
-      "const": "onemind.app/v1alpha1"
+      "description": "onemind.app/v1 is the frozen manifest (PLAN-E6, E1). onemind.app/v1alpha1 is still accepted; app-manifest convert rewrites it to v1 without changing any other field.",
+      "enum": [
+        "onemind.app/v1alpha1",
+        "onemind.app/v1"
+      ]
     },
     "kind": {
       "const": "App"
@@ -227,6 +231,22 @@
             "minMemoryMb": {
               "type": "integer",
               "minimum": 1
+            },
+            "cpuLevel": {
+              "description": "Lowest CPU level the pinned images need, per architecture. Install and update are refused on a box below it (NMD-09, #134). x86-64 levels follow the x86-64 psABI (-march=x86-64-vN). Omit when the images run on any CPU of the architecture.",
+              "type": "object",
+              "additionalProperties": false,
+              "minProperties": 1,
+              "properties": {
+                "amd64": {
+                  "enum": [
+                    "x86-64-v1",
+                    "x86-64-v2",
+                    "x86-64-v3",
+                    "x86-64-v4"
+                  ]
+                }
+              }
             }
           }
         },
@@ -442,6 +462,12 @@
                 "type": "string",
                 "minLength": 1,
                 "maxLength": 120
+              },
+              "port": {
+                "description": "The provider's Service port this app calls (contract 12.22, dependency network paths). Default: the provider's spec.web.port.",
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 65535
               }
             }
           }

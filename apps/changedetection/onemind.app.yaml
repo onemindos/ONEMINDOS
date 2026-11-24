@@ -23,7 +23,7 @@ metadata:
     website: "https://changedetection.io"
     support: "https://github.com/dgtlmoon/changedetection.io/issues"
   upstream: {release: "0.70.3", released_at: "2026-11-09T14:57:31Z", archived: false}
-  tier: community   # set by CI (sdk/tools/app-gate --tier write), not by hand
+  tier: verified   # set by CI (sdk/tools/app-gate --tier write), not by hand
 spec:
   archs: [amd64, arm64]
   requires: {gpu: false, minMemoryMb: 512}

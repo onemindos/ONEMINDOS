@@ -5,20 +5,30 @@ name: ci-onemindd
 on:
   workflow_dispatch:   # docs/testing/README.md §2 (test-all)
   pull_request:
-    paths: ["cmd/**", "internal/**", "go.mod", "go.sum", "deploy/systemd/**", ".github/workflows/ci-onemindd.yml"]
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths: ["cmd/**", "internal/**", "go.mod", "go.sum", "deploy/systemd/**", ".github/actions/sdk-gen/**", ".github/workflows/ci-onemindd.yml"]
   push:
     branches: [main]
-    paths: ["cmd/**", "internal/**", "go.mod", "go.sum", "deploy/systemd/**", ".github/workflows/ci-onemindd.yml"]
+    paths: ["cmd/**", "internal/**", "go.mod", "go.sum", "deploy/systemd/**", ".github/actions/sdk-gen/**", ".github/workflows/ci-onemindd.yml"]
 permissions:
   contents: read
+concurrency:
+  group: ci-onemindd-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   go:
+    if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
         with:
           go-version-file: go.mod
+      - name: Generate the SDK code from the committed spec (CI-16, not committed)
+        uses: ./.github/actions/sdk-gen
+        with:
+          langs: go
       - name: gofmt
         run: test -z "$(gofmt -l cmd internal)" || { gofmt -l cmd internal; exit 1; }
       - name: vet

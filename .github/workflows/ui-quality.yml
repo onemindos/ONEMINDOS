@@ -1,22 +1,30 @@
 # SPDX-License-Identifier: Apache-2.0
 # Real-browser quality gate for the ui/ demo and the dashboard (docs/testing/CI-MATRIX.md §1).
-#   build:    ui demo (vite build) + dashboard mock build (VITE_MOCK=1); ui/test pins, licences, typecheck
-#   browsers: Playwright in Chromium, Firefox and WebKit, one job each:
-#             axe-core on every screen in ui/test/e2e/screens.ts (light + dark, 1280 and 375 px),
-#             failing on any serious or critical finding or console error; sign-in and navigation
-#             flows; visual snapshots against ui/test/visual/<browser>/.
-# A run with update_baseline (Actions -> ui-quality -> Run workflow) rewrites every snapshot, uploads
-# visual-baseline-<browser> artifacts and (job commit-baseline) commits the PNGs to the branch it ran on,
-# never to main. People review the new images as image diffs in the pull request before it merges;
-# ui/test/accept-visual.sh (ui/test/README.md) still works for a local accept. Complements ci-ui.yml / ci-dashboard.yml (lint, vitest in jsdom, build).
+#   build:    ui demo (vite build) + dashboard mock build (VITE_MOCK=1), from the PR and, on a PR, also
+#             from its base (the first parent of GitHub's merge commit, i.e. main as the PR merges into it);
+#             ui/test pins, licences, typecheck
+#   browsers: Playwright in Chromium, Firefox and WebKit, one job each: axe-core on every screen in
+#             ui/test/e2e/screens.ts (light + dark, 1280 and 375 px), failing on any serious or critical
+#             finding or console error; sign-in and navigation flows. On a PR also the visual comparison:
+#             the screenshots are drawn from the base build, then the PR build is compared with them.
+#   visual:   the verdict (CI-17, scripts/ui-visual-verdict.py). No screen differs: pass. Screens differ:
+#             fail, unless the PR carries the label visual:accepted. The diffs are in playwright-report-<browser>.
+#   visual-recheck: adding or removing a label starts a cheap run that re-uses the newest full run of
+#             the commit (its axe, flows and screenshots) and decides again with the labels as they are now.
+# Nothing is committed: no screenshot lives in git, and no job can write to the repository.
+# A push to main or a manual run has no base to compare with: axe and flows only.
 name: ui-quality
+# Label runs are named so scripts/ui-visual-verdict.py can tell them apart; '' keeps GitHub's default name.
+run-name: "${{ (github.event.action == 'labeled' || github.event.action == 'unlabeled') && format('ui-quality: label re-check ({0} {1})', github.event.action, github.event.label.name) || '' }}"
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, labeled, unlabeled]
     paths:
       - 'ui/**'
       - 'dashboard/**'
       - 'scripts/npm-licence-check.py'
+      - 'scripts/ui-visual-verdict.py'
       - '.github/workflows/ui-quality.yml'
   push:
     branches: [main]
@@ -24,30 +32,38 @@ on:
       - 'ui/**'
       - 'dashboard/**'
       - 'scripts/npm-licence-check.py'
+      - 'scripts/ui-visual-verdict.py'
       - '.github/workflows/ui-quality.yml'
   workflow_dispatch:
-    inputs:
-      update_baseline:
-        type: boolean
-        default: false
-        description: 'Rewrite every visual snapshot, upload them as visual-baseline-<browser> artifacts and commit them to this branch (refused on main)'
 
 permissions: {}
 
+# A label re-check gets a group of its own: it must neither cancel nor be cancelled by the full run it reads.
 concurrency:
-  group: ui-quality-${{ github.event_name }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: >-
+    ui-quality-${{ github.event_name == 'pull_request' && github.event.action != 'labeled'
+    && github.event.action != 'unlabeled' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  # true on a PR event that renders the screens; false on push, manual runs and label re-checks.
+  COMPARE: ${{ github.event_name == 'pull_request' && github.event.action != 'labeled' && github.event.action != 'unlabeled' }}
 
 jobs:
   build:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    if: ${{ !github.event.pull_request.draft && github.event.action != 'labeled' && github.event.action != 'unlabeled' }}
+    # CI-13 (#299): arm64-safe, no secrets, no Docker. Local Mac runner when LOCAL_RUNNER=on and the event is
+    # trusted (never a fork PR); otherwise GitHub-hosted. docs/learning/self-hosted-runner.md
+    # merge_group only runs code already approved into the queue, so it is always trusted (no fork check); MQ_RUNNER unset keeps the old routing.
+    runs-on: ${{ (vars.MQ_RUNNER == 'on' && github.event_name == 'merge_group') && fromJSON('["self-hosted","onemind-mq"]') || (vars.LOCAL_RUNNER == 'on' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","onemind-local"]') || 'ubuntu-24.04' }}
+    timeout-minutes: 20
     permissions:
       contents: read
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           persist-credentials: false
+          fetch-depth: 2 # the merge commit and its first parent (the base)
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: '22'
@@ -61,22 +77,42 @@ jobs:
       - name: Build the ui demo
         working-directory: ui
         run: npm ci && npm run build:demo
+      - name: Generate the SDK code from the committed spec (CI-16, not committed)
+        uses: ./.github/actions/sdk-gen
+        with:
+          langs: ts
       - name: Build the dashboard (mock data, no gateway)
         working-directory: dashboard
         run: npm ci && npm run build:mock
       - name: Typecheck the browser tests
         working-directory: ui/test
         run: npm ci && npm run typecheck
+      # The PR is checked out as GitHub's merge commit (PR on top of main). Its first parent is main as
+      # the PR will merge into it, so only this PR's changes can differ, never another PR's.
+      - name: Build the base (main) the screenshots are compared with
+        if: ${{ env.COMPARE == 'true' }}
+        run: |
+          set -euo pipefail
+          git worktree add --detach _base HEAD^1
+          echo "base: $(git -C _base rev-parse HEAD)"
+          (cd _base/ui && npm ci && npm run build:demo)
+          # CI-16 (#386): once main stops committing the generated SDK, main's own script makes the TS
+          # schema the dashboard imports. Before that, the committed file is used and there is no script.
+          if [ -x _base/sdk/scripts/gen-code.sh ]; then _base/sdk/scripts/gen-code.sh ts; fi
+          (cd _base/dashboard && npm ci && npm run build:mock)
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: ui-quality-builds
           path: |
             ui/dist-demo/
             dashboard/dist/
+            _base/ui/dist-demo/
+            _base/dashboard/dist/
           if-no-files-found: error
           retention-days: 3
 
   browsers:
+    if: ${{ !github.event.pull_request.draft && github.event.action != 'labeled' && github.event.action != 'unlabeled' }}
     name: ${{ matrix.browser }}
     needs: build
     runs-on: ubuntu-24.04
@@ -92,7 +128,6 @@ jobs:
         working-directory: ui/test
     env:
       BROWSER: ${{ matrix.browser }}
-      UPDATE_BASELINE: ${{ github.event_name == 'workflow_dispatch' && inputs.update_baseline }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -109,13 +144,36 @@ jobs:
       - run: npm ci
       - name: Install ${{ matrix.browser }} (the build Playwright 1.64.1 pins) and its system libraries
         run: npx playwright install --with-deps "$BROWSER"
-      - name: Playwright (axe on every screen, flows, visual snapshots)
+      - name: Playwright (axe on every screen, flows)
+        run: npx playwright test --project="$BROWSER" --grep-invert @visual
+      - name: Draw the reference screenshots from the base (main)
+        if: ${{ !cancelled() && env.COMPARE == 'true' }}
+        env:
+          UI_DIST: ${{ github.workspace }}/_base/ui/dist-demo
+          DASH_DIST: ${{ github.workspace }}/_base/dashboard/dist
+          VISUAL_DIR: ${{ runner.temp }}/visual-base
+          PW_REPORT: ${{ runner.temp }}/base-report
+          PW_OUTPUT: ${{ runner.temp }}/base-results
+          PW_GITHUB: '0'
+        # A screen that fails to draw on the base gets no reference; the PR's run then lists it as changed.
+        # A screen that fails once (WebKit sometimes gives no stable frame) is drawn again, alone, before it is given up.
         run: |
-          if [ "$UPDATE_BASELINE" = true ]; then
-            npx playwright test --project="$BROWSER" --update-snapshots=all
-          else
-            npx playwright test --project="$BROWSER"
-          fi
+          npx playwright test --project="$BROWSER" --grep @visual --update-snapshots=all \
+            || npx playwright test --project="$BROWSER" --grep @visual --update-snapshots=all --last-failed \
+            || echo "::warning::some base screenshots could not be drawn"
+      - name: Compare the PR with the base
+        if: ${{ !cancelled() && env.COMPARE == 'true' }}
+        env:
+          VISUAL_DIR: ${{ runner.temp }}/visual-base
+          PW_REPORT: playwright-report-visual
+          PW_OUTPUT: test-results-visual
+          PW_JSON: visual-results.json
+          PW_GITHUB: '0'
+        run: |
+          # A difference makes Playwright exit 1; that is the verdict job's call, so carry on and list them.
+          npx playwright test --project="$BROWSER" --grep @visual --update-snapshots=none || true
+          mkdir -p "visual-changes-$BROWSER"
+          python3 -I ../../scripts/ui-visual-verdict.py changes visual-results.json "visual-changes-$BROWSER/changes.txt"
       - name: Upload the report (traces, axe results, screenshot diffs)
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -124,67 +182,83 @@ jobs:
           path: |
             ui/test/playwright-report/
             ui/test/test-results/
+            ui/test/playwright-report-visual/
+            ui/test/test-results-visual/
           if-no-files-found: ignore
           retention-days: 14
-      - name: New or changed baseline images
-        id: baseline
-        if: ${{ !cancelled() }}
-        run: |
-          changes=$(git status --porcelain --untracked-files=all -- "visual/$BROWSER")
-          if [ -n "$changes" ]; then
-            echo "changed=true" >> "$GITHUB_OUTPUT"
-            echo "$changes"
-            echo "::notice::visual-baseline-$BROWSER holds new or changed snapshots; accept with ui/test/accept-visual.sh $GITHUB_RUN_ID"
-          else
-            echo "baseline unchanged"
-          fi
-      - name: Upload the candidate baseline
-        if: ${{ !cancelled() && steps.baseline.outputs.changed == 'true' }}
+      - name: Upload the list of changed screens
+        if: ${{ !cancelled() && env.COMPARE == 'true' }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: visual-baseline-${{ matrix.browser }}
-          path: ui/test/visual/${{ matrix.browser }}/
+          name: visual-changes-${{ matrix.browser }}
+          path: ui/test/visual-changes-${{ matrix.browser }}/
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 14
 
-  # Commit the refreshed baseline to the branch the run was started on, so nobody has to download
-  # artifacts by hand. Only on a manual update_baseline run, never on main, only PNGs under
-  # ui/test/visual/<browser>/. Review happens in the pull request (GitHub shows image diffs).
-  commit-baseline:
+  visual:
     needs: browsers
-    if: ${{ !cancelled() && github.event_name == 'workflow_dispatch' && inputs.update_baseline && github.ref != 'refs/heads/main' }}
+    if: ${{ !cancelled() && !github.event.pull_request.draft && github.event_name == 'pull_request' && github.event.action != 'labeled' && github.event.action != 'unlabeled' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
-      contents: write
+      contents: read
+      pull-requests: read # the PR's timeline: when visual:accepted was added, when the newest commit came
+      issues: read # the same timeline endpoint (repos/{repo}/issues/{pr}/timeline)
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          ref: ${{ github.ref }}
+          persist-credentials: false
+          sparse-checkout: scripts/ui-visual-verdict.py
+          sparse-checkout-cone-mode: false
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
-          pattern: visual-baseline-*
-          path: ${{ runner.temp }}/baseline
-      - name: Copy the PNGs into ui/test/visual/<browser>/ and commit
+          pattern: visual-changes-*
+          path: ${{ runner.temp }}/changes
+      - name: Decide (screens differ and no visual:accepted label added after the newest commit = fail)
         env:
-          SRC: ${{ runner.temp }}/baseline
-          BRANCH: ${{ github.ref_name }}
-        run: |
-          set -euo pipefail
-          [ -d "$SRC" ] || { echo "no visual-baseline artifacts: nothing changed"; exit 0; }
-          for dir in "$SRC"/visual-baseline-*; do
-            b=${dir##*/visual-baseline-}
-            case "$b" in chromium|firefox|webkit) ;; *) echo "unexpected artifact $dir" >&2; exit 1 ;; esac
-            if find "$dir" \( -type l -o ! -type d ! -name '*.png' \) | grep -q .; then
-              echo "visual-baseline-$b holds something other than regular PNG files; refusing" >&2; exit 1
-            fi
-            rm -rf "ui/test/visual/$b"; mkdir -p "ui/test/visual/$b"
-            cp "$dir"/*.png "ui/test/visual/$b/"
-          done
-          git add -A -- ui/test/visual
-          if git diff --cached --quiet; then echo "baseline unchanged"; exit 0; fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -q -s -m "ui: accept visual baseline from ui-quality run $GITHUB_RUN_ID" \
-            -m "Committed by the commit-baseline job (manual update_baseline run). Review the image diffs in the pull request."
-          git push origin "HEAD:refs/heads/$BRANCH"
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          REPORT_HINT: 'Diffs: artifact playwright-report-<browser>, open playwright-report-visual/index.html.'
+        run: python3 -I scripts/ui-visual-verdict.py verdict "$RUNNER_TEMP/changes"
+
+  # A label was added or removed. Re-rendering everything for a label would cost three browser jobs, so
+  # this job waits for the newest full run of the same commit, requires its build, axe and flows to have
+  # passed, and decides the visual verdict again with the labels as they are now. Its run is the newest
+  # ui-quality run of the commit, so merge-gate reads this verdict (re-run merge-gate after labelling).
+  visual-recheck:
+    if: ${{ !github.event.pull_request.draft && (github.event.action == 'labeled' || github.event.action == 'unlabeled') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 70 # find-run waits up to 65 minutes (RECHECK_TIMEOUT_S) for the full run
+    permissions:
+      contents: read
+      actions: read # find the full run of this commit and download its visual-changes-* artifacts
+      pull-requests: read # the PR's timeline (labels and commits)
+      issues: read # the same timeline endpoint
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+          sparse-checkout: scripts/ui-visual-verdict.py
+          sparse-checkout-cone-mode: false
+      - name: Wait for the newest full run of this commit
+        id: full
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: python3 -I scripts/ui-visual-verdict.py find-run
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: visual-changes-*
+          path: ${{ runner.temp }}/changes
+          run-id: ${{ steps.full.outputs.run_id }}
+          github-token: ${{ github.token }}
+      - name: Decide again with the current labels
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          REPORT_HINT: 'Diffs: artifact playwright-report-<browser> of the run named above.'
+        run: python3 -I scripts/ui-visual-verdict.py verdict "$RUNNER_TEMP/changes"

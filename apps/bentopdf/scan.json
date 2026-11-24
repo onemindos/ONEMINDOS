@@ -1,0 +1,30 @@
+{
+  "scanned_at": "2026-11-21T13:12:53Z",
+  "result": "pass",
+  "images": [
+    {
+      "ref": "ghcr.io/alam00000/bentopdf:v2.8.11@sha256:b107c37d9f1f27b7edae28d262e526d8e225541a7cc26005b84dbab42c904105",
+      "archs": [
+        "amd64",
+        "arm64"
+      ],
+      "trivy": {
+        "version": "0.76.2",
+        "critical_fixable": 0,
+        "critical": 0,
+        "high": 0
+      },
+      "clamav": {
+        "signatures": "daily-28190",
+        "infected": 0
+      },
+      "secrets": 0,
+      "cosign": "unsigned"
+    }
+  ],
+  "licence": {
+    "spdx": "AGPL-3.0",
+    "class": "L2"
+  },
+  "smoke": "pass"
+}

@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 # Desktop app updates: channel and signing design
 
-**Status (2026-11-12): designed, switched off.** The app has no updater today: no `tauri-plugin-updater` dependency, no public key, no endpoint, and it never checks for updates. People install a new version by hand. Turning updates on needs two founder decisions (§6) and is built in UMB-CLIENT-12 (`.github/workflows/desktop-release.yml`, `desktop/release/**`).
+**Status (2026-11-21): app side built, switched off until the key exists.** `tauri-plugin-updater` 2.14.1 is linked and driven from Rust (`src-tauri/src/updates.rs`); the public key in `tauri.conf.json` is a placeholder, so nothing is checked yet. Channels are `stable` and `dev` (the channel follows the running version; the `beta` stream below is replaced by `dev`, matching the OS). The release workflow and the key are still open. Turning updates on needs two founder decisions (§6) and is built in UMB-CLIENT-12 (`.github/workflows/desktop-release.yml`, `desktop/release/**`).
 
 > **Explain it like I am the founder**
 > An updater is a door into every computer that runs the app: whoever can publish an update can run code there. So an update must prove two things before it installs. First, that **we** built it (our signature, checked by the app itself). Second, that it is **newer** than what is installed (no one may push an old version with known holes). A "channel" is a named stream of versions: `stable` for everyone, `beta` for people who opt in.

@@ -560,3 +560,81 @@ def test_open_login_challenges_are_capped(idc, monkeypatch):
         assert idc.post("/v1/auth/login/options").status_code == 200
     r = idc.post("/v1/auth/login/options")
     assert r.status_code == 429 and r.json()["error"] == "rate_limited"
+
+
+# ---- rescue console step-up (SEC-TERM-01, D-014) --------------------------------------------------
+def _rescue_ready(idc):
+    setup_owner(idc)
+    key = SoftAuthenticator()
+    register_passkey(idc, key)
+    return key
+
+
+def test_rescue_stepup_needs_a_passkey_and_an_owner(idc, settings):
+    setup_owner(idc)
+    # No passkey registered yet: nothing to step up with, so the console must refuse (409).
+    assert idc.post("/v1/auth/rescue/options", headers=OWNER).status_code == 409
+    key = SoftAuthenticator()
+    register_passkey(idc, key)
+    assert new_session_client(idc).post("/v1/auth/rescue/options").status_code == 401  # no credential at all
+    agent = idc.post("/v1/auth/rescue/options", headers=AGENT)
+    assert agent.status_code in (401, 403)
+    opts = idc.post("/v1/auth/rescue/options", headers=OWNER).json()
+    assert opts["publicKey"]["allowCredentials"][0]["id"] == b64url(key.cred_id)
+    assert opts["publicKey"]["userVerification"] == "required"
+    r = idc.post("/v1/auth/rescue/verify", json={"credential": key.assert_(opts["publicKey"]["challenge"])}, headers=OWNER)
+    assert r.status_code == 200, r.text
+    assert r.json()["credential_id"] == b64url(key.cred_id)
+    ev = [e for e in audit_events(settings) if e["event"] == "auth.step_up.succeeded"
+          and e["data"]["payload"].get("attempted") == "rescue session"]
+    assert len(ev) == 1 and ev[0]["data"]["payload"]["credential_id"] == b64url(key.cred_id)
+
+
+def test_rescue_challenge_is_single_use_short_lived_and_purpose_bound(idc, clock, settings):
+    key = _rescue_ready(idc)
+    opts = idc.post("/v1/auth/rescue/options", headers=OWNER).json()
+    good = key.assert_(opts["publicKey"]["challenge"])
+    assert idc.post("/v1/auth/rescue/verify", json={"credential": good}, headers=OWNER).status_code == 200
+    replay = idc.post("/v1/auth/rescue/verify", json={"credential": key.assert_(opts["publicKey"]["challenge"])}, headers=OWNER)
+    assert replay.status_code == 401  # a used challenge is never fresh again
+    stale = idc.post("/v1/auth/rescue/options", headers=OWNER).json()
+    clock.advance(121)
+    r = idc.post("/v1/auth/rescue/verify", json={"credential": key.assert_(stale["publicKey"]["challenge"])}, headers=OWNER)
+    assert r.status_code == 401
+    # A sign-in challenge cannot open a rescue session, and the reverse.
+    login = idc.post("/v1/auth/login/options").json()
+    r = idc.post("/v1/auth/rescue/verify", json={"credential": key.assert_(login["publicKey"]["challenge"])}, headers=OWNER)
+    assert r.status_code == 401
+    rescue = idc.post("/v1/auth/rescue/options", headers=OWNER).json()
+    r = new_session_client(idc).post("/v1/auth/login", json={"passkey": key.assert_(rescue["publicKey"]["challenge"])})
+    assert r.status_code == 401
+    fails = [e for e in audit_events(settings) if e["event"] == "auth.step_up.failed"]
+    assert len(fails) >= 3
+
+
+def test_rescue_verify_refuses_the_wrong_origin_and_a_bare_token(idc):
+    key = _rescue_ready(idc)
+    opts = idc.post("/v1/auth/rescue/options", headers=OWNER).json()
+    evil = SoftAuthenticator(origin="https://evil.example")
+    evil.key, evil.cred_id = key.key, key.cred_id
+    r = idc.post("/v1/auth/rescue/verify", json={"credential": evil.assert_(opts["publicKey"]["challenge"])}, headers=OWNER)
+    assert r.status_code == 401
+    r = idc.post("/v1/auth/rescue/verify", json={"credential": {"id": "nope"}}, headers=OWNER)
+    assert r.status_code == 401  # the owner token alone proves nothing here
+
+
+def test_rescue_stepup_is_not_in_the_published_api(idc):
+    spec = idc.get("/openapi.json").json()
+    assert not [p for p in spec["paths"] if "rescue" in p]
+
+
+def test_static_adult_cannot_mint_an_unowned_agent_token(idc):
+    """A static-file adult has no account: an agent token would be owned by no one and outlive them."""
+    from conftest import ADULT
+
+    setup_owner(idc)
+    body = {"name": "mine", "principal": {"kind": "agent", "id": "agent:mine"}, "scopes": ["actions:request"]}
+    r = idc.post("/v1/tokens", json=body, headers=ADULT)
+    assert r.status_code == 403 and r.json()["error"] == "permission_denied"
+    assert idc.post("/v1/tokens", json={"name": "x", "principal": "self"}, headers=ADULT).status_code == 403
+    assert not [t for t in idc.get("/v1/tokens").json() if t["source"] == "api"]

@@ -124,3 +124,41 @@ Founder decisions. Each entry is final until Zeus changes it. Reference these ID
   - Never an outbound proxy for apps, agents or AI (`SocksPort 0`).
   - Installed and removed only by owner-approved actions. Its egress lives in the app's own NetworkPolicy, so the core keeps default-deny egress.
 - **Why:** Zeus wants all three in the product now. The guardrails keep the locked rules: small boxes, AI never actuates without approval, default-deny egress.
+
+## D-015 · F-34: Kanidm runs as a host service on the hub OS
+**Date:** 2026-11-19 · **Decided by:** Zeus
+> "F34 YES ON THE HUB OS" (in chat, while lane 4 was being finished)
+- **F-34 = host service:** Kanidm (BD-03) runs as a systemd service in the hub's OS image, not as a chart inside k3s. This settles ACCT-D2 in `docs/umbrel2/accounts.md`; the `kanidm` chart listed in research 30's file tree is not built.
+- **Why:** sign-in must keep working when k3s is down or being updated, which is when the owner most needs to get in.
+- **Unblocks:** UMB-ACCT-1 (the Kanidm lab test) and CORE-SEC-10. #236 (SEC-SSO-01) still waits on UMB-ACCT-1 and #139. Background: `docs/learning/founder/06-kanidm-and-single-sign-on.md` (PR #399).
+
+## D-016 · The dashboard is a desktop, not a console: wallpaper, windows, dock
+**Date:** 2026-11-20 · **Decided by:** Zeus
+> "what if we wanted to change this immediately to this particular layout?" · "Do it now !" (said in a Claude session after comparing OneMind with umbrelOS 2.0.1 in a lab VM; [docs/learning/umbrelos-2-teardown.md](learning/umbrelos-2-teardown.md))
+- **Desktop is the default frame.** `/` is the wallpaper desktop: greeting, "Needs you", widgets, your apps. Every other screen (Market, Approvals, Settings, Nodes, …) opens as a window over the wallpaper, keeps its own URL, and closes with ✕ or Esc back to the desktop.
+- **The dock is the main navigation.** The same items, roles and badges as the old sidebar, plus the apps pinned on Home. On phones it replaces the bottom tab bar.
+- **The sidebar stays as the "Console" view,** one click away in the top bar and remembered per person.
+- **This replaces** IA §1 "sidebar on desktop, bottom tabs on phones" and `docs/strategy/umbrel-parity.md` PU-04 "a dock is not proposed".
+- **Unchanged:** every action is still a request, approvals still come first on Home, and freshness pills still show. umbrelOS is studied for the pattern only (PolyForm NC): no code, asset or text is copied.
+- **Why:** umbrelOS 2.0.1 runs on the same base as OneMind (Debian 13, A/B updates). What makes it feel like an operating system is its desktop frame. OneMind's sidebar made it read as an admin dashboard.
+
+## D-017 · F-45: Samba file sharing is built into the OS image
+**Date:** 2026-11-20 · **Decided by:** Zeus
+> "Built into OS" (said in a Claude session, answering F-45 after the File sharing screen landed as PR #443)
+- **Samba ships in the OneMind OS image** (Debian 13 package, GPL-3.0, a separate program; OneMind does not link to it). It is masked and off until an owner approves the first share.
+- **The root host service runs it** (`onemindd host serve`, docs/leap/core/HOST-ACTIONS.md): it renders the config under `/data`, checks it, and reloads. It updates with the OS through RAUC, not through the Market.
+- **Unchanged guardrails:** every share is an owner-approved action and AI can never request one; SMB2 or newer only, no guest access, one person's own credentials per share; reachable on the LAN and the OneMind mesh only, never from the internet.
+- **This replaces** F-45's proposed default, a separately updatable system app `apps/samba`.
+- **Why:** file sharing is a basic OS feature (umbrelOS treats it the same way). Built in, the box shows up in Finder and File Explorer reliably, and shares map directly to OneMind people without routing an app's network through k3s.
+
+## D-018 · The D-016 desktop is the only front door; Backstage is retired
+**Date:** 2026-11-21 · **Decided by:** Zeus
+> "Backstage is retired everywhere; the D-016 desktop is the only front door, including developer and cluster tiers." (approved by Zeus in a Claude session on 2026-11-21, after the portal-to-OneMind front-door study)
+- **One front door.** The D-016 desktop (wallpaper Home, windows, dock, Launchpad) is the only front door on every tier, including developer and cluster. Nothing ships a second portal with its own sidebar, theme or sign-in.
+- **Typed lists, not a generic catalog.** What the old portal listed comes in as typed lists: apps, plugins, nodes, links, devices and people. Anything else goes to a private archive, outside this repo.
+- **Dropped from core:** the Ops globe, OpenCost, the DigitalOcean page, GitHub cards, Tech Radar, Tech Insights, the Visualizer and DevTools. Any of them may return later as an optional plugin; none is built in core.
+- **OneMind supersedes the portal, it does not copy it.** Only Backstage's open formats are reused (Apache-2.0, with attribution under D-001): the entity YAML for a one-time import and the docs-build approach.
+- **Every change stays an approval request.** Agents read and request; only a person approves.
+- **This supersedes** "Backstage stays a developer portal" in `docs/ARCHITECTURE.md` (Dashboard row) and `docs/APPS.md` (Infrastructure tier row), and the same wording in `research-output/24` Q141 and Q255 (those files are left as written; this entry is the pointer).
+- **Tracking:** the front-door issues FD-00 to FD-20 (parent: FD-00).
+- **Why:** two front doors break D-016 and the "every change is an approval" rule, and the portal's cloud-only pages do not serve a home or small-business box.

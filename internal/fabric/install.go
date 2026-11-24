@@ -21,17 +21,22 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/onemindos/onemindos/internal/etcdir"
 	"github.com/onemindos/onemindos/internal/heartbeat"
 	"github.com/onemindos/onemindos/internal/leaf"
 	"github.com/onemindos/onemindos/internal/mesh"
 )
 
-// Where a joined node keeps its fabric identity (all under Layout.Root).
+// Where a joined node keeps its fabric identity (all under Installer.Root): /etc/onemind, or
+// ONEMIND_ETC_DIR on the OS image, whose /etc is read-only (internal/etcdir, #292).
+var (
+	IdentityDir = filepath.Join(etcdir.Dir(), "identity")
+	NATSDir     = filepath.Join(etcdir.Dir(), "nats")
+	StateFile   = filepath.Join(etcdir.Dir(), "fabric.json")
+	OnemindEnv  = filepath.Join(etcdir.Dir(), "onemindd.env")
+)
+
 const (
-	IdentityDir   = "/etc/onemind/identity"
-	NATSDir       = "/etc/onemind/nats"
-	StateFile     = "/etc/onemind/fabric.json"
-	OnemindEnv    = "/etc/onemind/onemindd.env"
 	K3sConfig     = "/etc/rancher/k3s/config.yaml"
 	HostsFile     = "/etc/hosts"
 	LeafStoreDir  = "/var/lib/onemind-nats-leaf"
@@ -117,6 +122,13 @@ func writeFile(path string, body []byte, mode os.FileMode) error {
 	}
 	tmp, err := os.CreateTemp(filepath.Dir(path), ".tmp-"+filepath.Base(path)+"-*")
 	if err != nil {
+		if errors.Is(err, syscall.EROFS) || errors.Is(err, syscall.EACCES) {
+			// A read-only directory (the image's /etc) cannot take a temp file, but the file itself may be a
+			// writable bind mount (/etc/hosts from /data/state): write it in place, as the Python set_hosts does.
+			if _, serr := os.Stat(path); serr == nil {
+				return os.WriteFile(path, body, mode)
+			}
+		}
 		return err
 	}
 	name := tmp.Name()
@@ -206,7 +218,7 @@ func (in *Installer) Apply(ctx context.Context, id *Identity, cr *Credentials, c
 	if err := in.writeLeaf(id, cr); err != nil {
 		return nil, fmt.Errorf("nats leaf: %w", err)
 	}
-	if err := in.Sys.Systemctl(ctx, "enable", "--now", LeafUnit); err != nil {
+	if err := in.startLeaf(ctx); err != nil {
 		return nil, err
 	}
 	_ = in.Sys.Systemctl(ctx, "reload-or-restart", LeafUnit)
@@ -223,8 +235,9 @@ func (in *Installer) Apply(ctx context.Context, id *Identity, cr *Credentials, c
 		in.say("k3s         agent config written (server %s, ticket valid 1 h)", cr.K3s.ServerURL)
 	}
 
-	// 6. onemindd publishes to its local leaf from now on.
-	if err := in.setEnv(map[string]string{"ONEMIND_NATS_URL": LocalNATSURL, "ONEMIND_NODE_ROLE": "node"}); err != nil {
+	// 6. onemindd publishes to its local leaf from now on, under the id the hub knows (firstboot wrote a
+	// different one; the leaf account and fabric.json use this one, so heartbeats on the old id never arrive).
+	if err := in.setEnv(map[string]string{"ONEMIND_NATS_URL": LocalNATSURL, "ONEMIND_NODE_ROLE": "node", "ONEMIND_NODE_ID": id.NodeID}); err != nil {
 		return nil, err
 	}
 	st.JoinedAt = in.Now().UTC().Format(time.RFC3339)
@@ -236,6 +249,16 @@ func (in *Installer) Apply(ctx context.Context, id *Identity, cr *Credentials, c
 		in.say("note: %v", err)
 	}
 	return st, nil
+}
+
+// startLeaf enables and starts the leaf. The OS image's units cannot be enabled (read-only /etc);
+// its first boot starts them on every boot instead, so starting it now is enough (IMG-MESH-01, #292).
+func (in *Installer) startLeaf(ctx context.Context) error {
+	if err := in.Sys.Systemctl(ctx, "enable", "--now", LeafUnit); err != nil {
+		in.say("note: %v; starting %s without enabling it", err, LeafUnit)
+		return in.Sys.Systemctl(ctx, "start", LeafUnit)
+	}
+	return nil
 }
 
 func (in *Installer) writeLeaf(id *Identity, cr *Credentials) error {
@@ -330,7 +353,7 @@ func (in *Installer) setEnv(set map[string]string) error {
 		}
 		out.WriteString(line + "\n")
 	}
-	for _, k := range []string{"ONEMIND_NATS_URL", "ONEMIND_NODE_ROLE"} {
+	for _, k := range []string{"ONEMIND_NATS_URL", "ONEMIND_NODE_ROLE", "ONEMIND_NODE_ID"} {
 		if v, ok := set[k]; ok {
 			fmt.Fprintf(&out, "%s=%s\n", k, v)
 		}

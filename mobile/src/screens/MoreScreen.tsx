@@ -6,7 +6,7 @@ import type { RootParams } from '../nav';
 import { OP } from '../api/client';
 import { useHubData } from '../data';
 import { useSignedIn } from '../session';
-import { Badge, Card, H1, Screen, s } from '../ui/bits';
+import { Badge, Card, H1, H2, Screen, s } from '../ui/bits';
 import { font, useTheme } from '../ui/theme';
 
 type Target = Exclude<keyof RootParams, 'Tabs' | 'AppDetail' | 'PhotoAlbums'>;
@@ -47,6 +47,16 @@ export function MoreScreen() {
       {features.has(OP.automationRules) && <Item to="Automation" label="Automation" detail="Rules, pause and what fired" />}
       {features.has(OP.filesRoots) && <Item to="Files" label="Files" detail="Browse what the box shares with you" />}
       {features.has(OP.migratePlans) && <Item to="Migrate" label="Migration" detail="Plans to move apps from another cluster" />}
+      {features.has(OP.users) && <Item to="People" label="People" detail="Family roles: owner, adult, teen, child, guest" />}
+      {features.has(OP.killSwitch) && <Item to="Agents" label="Agents" detail="What AI agents may do, asked and the stop switch" />}
+      <H2>System</H2>
+      {features.has(OP.osUpdates) && <Item to="OsUpdates" label="OS updates" detail="Running version, update on offer, ask to install" />}
+      {features.has(OP.systemPlan) && <Item to="SystemControls" label="System controls" detail="Restart, shut down or troubleshoot, as a request" />}
+      <Item to="DeviceInfo" label="About this box" detail="Hardware, system version, uptime" />
+      {(features.has(OP.nodeMetrics) || features.has(OP.appMetrics) || features.has(OP.monitoringSummary)) && (
+        <Item to="LiveUsage" label="Live usage" detail="CPU, memory and disk, per machine and per app" />
+      )}
+      {features.has(OP.mesh) && <Item to="Network" label="Network" detail="Box names and HTTPS, read only" />}
       <Item to="PhotoBackup" label="Photo backup" detail="This phone's photos to your box" />
       <Item to="Settings" label="Settings" detail="You, this phone, push, connection" />
     </Screen>
