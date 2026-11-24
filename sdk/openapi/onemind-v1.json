@@ -12028,6 +12028,40 @@
         "title": "Subject",
         "type": "object"
       },
+      "SubjectCard": {
+        "additionalProperties": false,
+        "properties": {
+          "source": {
+            "$ref": "#/components/schemas/SubjectSource"
+          }
+        },
+        "required": [
+          "source"
+        ],
+        "title": "SubjectCard",
+        "type": "object"
+      },
+      "SubjectSource": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "subject",
+            "title": "Kind",
+            "type": "string"
+          },
+          "subject": {
+            "description": "A gateway onemind.event subject with at most one wildcard in its name",
+            "title": "Subject",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "subject"
+        ],
+        "title": "SubjectSource",
+        "type": "object"
+      },
       "SubjectTree": {
         "description": "GET /v1/subjects.",
         "properties": {
@@ -29391,6 +29425,272 @@
         "summary": "Update Me",
         "tags": [
           "auth"
+        ]
+      }
+    },
+    "/v1/me/dashboard-card": {
+      "get": {
+        "operationId": "me.dashboard_card.get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/SubjectCard"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Me.Dashboard Card.Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "summary": "Read Card",
+        "tags": [
+          "me"
+        ]
+      },
+      "put": {
+        "operationId": "me.dashboard_card.save",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubjectCard"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubjectCard"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Save Card",
+        "tags": [
+          "me"
+        ]
+      }
+    },
+    "/v1/me/dashboard-card/events": {
+      "get": {
+        "operationId": "me.dashboard_card.events",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Last-Event-ID",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 40,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Last-Event-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "contentMediaType": "application/json",
+                      "contentSchema": {
+                        "properties": {
+                          "actor_id": {
+                            "type": "string"
+                          },
+                          "data": {
+                            "type": "object"
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "schema": {
+                            "const": "onemind.event/v1"
+                          },
+                          "severity": {
+                            "type": "string"
+                          },
+                          "subject": {
+                            "type": "object"
+                          },
+                          "ts": {
+                            "format": "date-time",
+                            "type": "string"
+                          },
+                          "type": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "schema",
+                          "id",
+                          "type",
+                          "ts",
+                          "subject",
+                          "severity",
+                          "data"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "string"
+                    },
+                    "event": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "retry": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "event",
+                    "data"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The person's authorized card events"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
+          }
+        },
+        "summary": "Card Events",
+        "tags": [
+          "me"
         ]
       }
     },
