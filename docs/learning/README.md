@@ -47,6 +47,7 @@ Short answers to founder questions, saved so they are not lost in chat. Folder: 
 | 05 | [Decision briefs, week of 2026-11-16: Z-41, signing keys, hardware, scoring rules, bootc Pi test, VMs/terminal/Tor](founder/05-decision-briefs-nov-2026.md) |
 | 06 | [The test lab, machine by machine: R530 + Proxmox, which box tests what, what to sell](founder/06-test-lab-hardware.md) |
 | 07 | [Why our own OS: distro vs image, bootc, Buildroot, Rugix vs RAUC, k3s, phones, desktop, the gateway](founder/07-why-our-own-os.md) |
+| 08 | [Real paths for C2 and physical AI: go-box, site ops, fabric, greenhouse, vision AI, drones, robots](founder/08-c2-and-physical-ai-paths.md) |
 
 Also from founder questions: [umbrelOS screens and OneMind: what we have, what is built, what is missing](umbrelos-screen-gaps.md) (2026-11-20).
 
