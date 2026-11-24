@@ -36,3 +36,9 @@ Provider formats come from the
 [NWS API documentation](https://www.weather.gov/documentation/services-web-api), and
 [NASA EONET API documentation](https://eonet.gsfc.nasa.gov/docs/v3).
 Each packaged bridge still needs its own manifest, permission and terms record.
+
+GDELT uses the documented [DOC API JSONFeed format](https://blog.gdeltproject.org/gdelt-doc-2-0-api-supports-jsonfeed/).
+The SDK emits article metadata only. CelesTrak uses the documented
+[GP JSON format](https://celestrak.org/NORAD/documentation/gp-data-formats.php)
+and [usage policy](https://celestrak.org/usage-policy.php), with a two-hour minimum
+between requests and a stop after a non-200 HTTP response.

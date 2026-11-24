@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from hashlib import sha256
 from typing import Any, Callable
+from urllib.parse import urlsplit
 
 import httpx
 
@@ -20,6 +21,8 @@ BRIDGE_ID = re.compile(r"^[a-z0-9][a-z0-9-]{0,62}$")
 SOURCES = {
     "usgs": ("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_hour.geojson", 60),
     "nws": ("https://api.weather.gov/alerts/active", 60),
+    "gdelt": ("https://api.gdeltproject.org/api/v2/doc/doc?query=%28wildfire%20OR%20earthquake%29&mode=artlist&format=jsonfeed&maxrecords=50", 900),
+    "celestrak": ("https://celestrak.org/NORAD/elements/gp.php?GROUP=stations&FORMAT=JSON", 7200),
     "eonet": ("https://eonet.gsfc.nasa.gov/api/v3/events/geojson?status=open&limit=100", 600),
 }
 
@@ -35,6 +38,7 @@ class BridgePoller:
         if not user_agent.strip():
             raise ValueError("a descriptive User-Agent is required")
         self.url, self.interval = SOURCES[source]
+        self.stop_on_http_error = source == "celestrak"
         self.http, self.user_agent, self.clock = http, user_agent, clock
         self.etag: str | None = None
         self.next_poll = 0.0
@@ -45,11 +49,15 @@ class BridgePoller:
         if start < self.next_poll:
             return None
         headers = {"Accept": "application/geo+json,application/json", "User-Agent": self.user_agent}
-        if self.etag:
+        if self.etag and not self.stop_on_http_error:
             headers["If-None-Match"] = self.etag
         self.next_poll = start + self.interval
         try:
             with self.http.stream("GET", self.url, headers=headers, follow_redirects=False, timeout=10) as response:
+                if self.stop_on_http_error and response.status_code != 200:
+                    # CelesTrak requires operator intervention after any unsuccessful HTTP response.
+                    self.next_poll = float("inf")
+                    raise ValueError(f"CelesTrak returned {response.status_code}; check the provider before polling again")
                 if response.status_code == 304:
                     self.failures = 0
                     return None
@@ -62,7 +70,8 @@ class BridgePoller:
                 return Snapshot(response.headers.get("ETag"), bytes(data))
         except (httpx.HTTPError, ValueError):
             self.failures += 1
-            self.next_poll = start + max(self.interval, min(3600, 10 * 2 ** min(self.failures, 9)))
+            if self.next_poll != float("inf"):
+                self.next_poll = start + max(self.interval, min(3600, 10 * 2 ** min(self.failures, 9)))
             raise
 
     def commit(self, snapshot: Snapshot):
@@ -83,10 +92,59 @@ def emit(client: Client, bridge_id: str, events: list[dict]) -> list[Any]:
     return reports
 
 
-def replay(source: str, document: dict) -> list[dict]:
+def _metadata(source: str, document: object) -> list[dict]:
+    articles = source == "gdelt"
+    records = document.get("items") if articles and isinstance(document, dict) else document
+    if not isinstance(records, list):
+        raise ValueError("provider response must contain a metadata list")
+    events = []
+    for record in records:
+        if not isinstance(record, dict):
+            continue
+        if articles:
+            key, headline, timestamp = record.get("url"), record.get("title"), record.get("date_published")
+            if not isinstance(key, str):
+                continue
+            try:
+                link = urlsplit(key)
+            except ValueError:
+                continue
+            if link.scheme not in ("http", "https") or not link.hostname or link.username or link.password:
+                continue
+            value = {"publisher": link.hostname}
+            kind, name = "article", "news"
+        else:
+            catalog = record.get("NORAD_CAT_ID")
+            if type(catalog) is not int or catalog <= 0:
+                continue
+            key, headline, timestamp = str(catalog), record.get("OBJECT_NAME"), record.get("EPOCH")
+            value = {"catalog_id": catalog}
+            kind, name = "intel", "orbit"
+        if not isinstance(headline, str) or not headline.strip() or not isinstance(timestamp, str):
+            continue
+        try:
+            at = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+        except ValueError:
+            continue
+        if not at.tzinfo:
+            if articles:
+                continue
+            at = at.replace(tzinfo=timezone.utc)  # CelesTrak GP JSON uses UTC.
+        revision = int(at.timestamp() * 1000)
+        if 0 <= revision <= 2**53 - 1:
+            events.append({"id": sha256(key.encode()).hexdigest(), "time": at.isoformat(), "revision": revision,
+                           "kind": kind, "name": name, "value": {**value, "headline": headline[:240]}})
+    return events
+
+
+def replay(source: str, document: object) -> list[dict]:
     """Map a recorded provider response without a clock, network or gateway credential."""
     if source not in SOURCES:
         raise ValueError("unknown fixed provider")
+    if source in {"gdelt", "celestrak"}:
+        return _metadata(source, document)
+    if not isinstance(document, dict):
+        raise ValueError("provider response must be a feature collection")
     features = document.get("features")
     if document.get("type") != "FeatureCollection" or not isinstance(features, list):
         raise ValueError("provider response must be a feature collection")
@@ -99,7 +157,7 @@ def replay(source: str, document: dict) -> list[dict]:
             continue
         if source == "usgs":
             key, title, stamp = feature.get("id"), props.get("title") or props.get("place"), props.get("updated")
-            at = datetime.fromtimestamp(stamp / 1000, tz=timezone.utc) if isinstance(stamp, int) and 0 < stamp < 4_102_444_800_000 else None
+            at = datetime.fromtimestamp(stamp / 1000, tz=timezone.utc) if type(stamp) is int and 0 < stamp < 4_102_444_800_000 else None
         else:
             key = props.get("id") or feature.get("id")
             title = (props.get("headline") or props.get("event")) if source == "nws" else props.get("title")

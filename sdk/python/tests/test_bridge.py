@@ -73,3 +73,36 @@ def test_emit_respects_gateway_batch_limit_without_hiding_a_refusal():
     assert len(gateway.batches) == 1 and len(gateway.batches[0]["events"]) == 100
     with pytest.raises(ValueError):
         emit(gateway, "no/slash", [{"id": "one"}])
+
+
+def test_news_replay_uses_metadata_and_refuses_unvetted_article_urls():
+    good = {"url": "https://publisher.example/one", "title": "Seismic report",
+            "date_published": "2026-01-01T00:00:00Z", "content_html": "<p>Article body</p>"}
+    [entry] = replay("gdelt", {"items": [good, {**good, "url": "file:///not-an-article"}]})
+    assert entry["kind"] == "article"
+    assert entry["value"] == {"publisher": "publisher.example", "headline": "Seismic report"}
+    assert entry["revision"] == 1767225600000
+
+
+def test_celestrak_metadata_and_two_hour_minimum_with_stop_on_http_error():
+    [entry] = replay("celestrak", [{"NORAD_CAT_ID": 25544, "OBJECT_NAME": "ISS", "EPOCH": "2026-01-01T00:00:00"}])
+    assert entry["value"] == {"catalog_id": 25544, "headline": "ISS"}
+    assert entry["time"] == "2026-01-01T00:00:00+00:00"
+    now = [0.0]
+    calls = []
+
+    def reply(request):
+        calls.append(request)
+        return httpx.Response(200, content=b"[]") if len(calls) == 1 else httpx.Response(403)
+
+    with httpx.Client(transport=httpx.MockTransport(reply), trust_env=False) as http:
+        poller = BridgePoller("celestrak", "OneMind Atlas bridge tests", http, lambda: now[0])
+        poller.commit(poller.fetch())
+        now[0] = 7199
+        assert poller.fetch() is None
+        now[0] = 7200
+        with pytest.raises(ValueError, match="check the provider"):
+            poller.fetch()
+        now[0] = 99999
+        assert poller.fetch() is None
+    assert len(calls) == 2
