@@ -38,6 +38,14 @@ function mount(route: string, tip = market) {
           collections: [{ id: 'apps', title: 'Apps', count: 1 }, { id: 'start', title: 'Getting started', count: 1 }],
           checklist: [backup.id],
         });
+      case '/v1/auth/passkeys':
+        return Response.json([{ id: 'key-1' }]);
+      case '/v1/users':
+        return Response.json([{ disabled: false }, { disabled: true }]);
+      case '/v1/backups/status':
+        return Response.json({ last_verified_restore_at: '2026-01-01T00:00:00Z' });
+      case '/v1/backups/kit':
+        return Response.json({ state: 'issued' });
       case '/v1/tips/find-an-app':
         return Response.json(tip);
       default:
@@ -72,9 +80,18 @@ it('browses collections and searches the loaded pack with / and no further reque
   expect(collection.queryByRole('link', { name: backup.title })).not.toBeInTheDocument();
   const checklist = within(screen.getByRole('region', { name: 'Getting started checklist' }));
   expect(checklist.getByRole('link', { name: backup.title })).toBeInTheDocument();
+  const states = await checklist.findByRole('list', { name: 'Setup status' });
+  expect(states).toHaveTextContent('Save a passkey Done');
+  expect(states).toHaveTextContent('Add another person To do');
+  expect(states).toHaveTextContent('Verify a backup restore Done');
+  expect(states).toHaveTextContent('Save the recovery key To do');
   expect(fetch.mock.calls.map(([url]) => String(url)).sort()).toEqual([
+    `${window.location.origin}/v1/auth/passkeys`,
+    `${window.location.origin}/v1/backups/kit`,
+    `${window.location.origin}/v1/backups/status`,
     `${window.location.origin}/v1/tips`,
     `${window.location.origin}/v1/tips/collections`,
+    `${window.location.origin}/v1/users`,
   ]);
   await user.click(screen.getByRole('button', { name: 'Copy link' }));
   expect(await navigator.clipboard.readText()).toBe(`${window.location.origin}/tips`);
