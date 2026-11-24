@@ -19,7 +19,7 @@ from ..errors import ApiError
 from ..identity.crypto import new_id
 from ..ledger import utc
 from ..store import Database, SqlRepository
-from .access import WORK_ROLES
+from .access import OWN_TASK_ONLY_ROLES, WORK_ROLES
 from .db import DependencyRow, InboxRow, ProjectMemberRow, ProjectRow, TaskRow, WorkCreateRow
 
 Name = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=160)]
@@ -117,7 +117,7 @@ def _owned_query(person: Principal, project_id: str, task_id: str | None = None)
     query = select(TaskRow).where(TaskRow.project_id == project_id)
     if task_id is not None:
         query = query.where(TaskRow.id == task_id)
-    if person.role == "child":
+    if person.role in OWN_TASK_ONLY_ROLES:
         query = query.where(TaskRow.owner_id == person.id)
     return query
 
@@ -149,7 +149,7 @@ def _visible_tasks(person: Principal, via_agent: bool):
     )
     if via_agent:
         query = query.where(ProjectRow.ai_access.in_(("read", "work")))
-    if person.role == "child":
+    if person.role in OWN_TASK_ONLY_ROLES:
         query = query.where(TaskRow.owner_id == person.id)
     return query
 
@@ -366,7 +366,7 @@ class WorkService(SqlRepository):
 
     @staticmethod
     def _check_assignee(session: Session, person: Principal, project_id: str, assignee: PersonAssignee | None) -> None:
-        if assignee is not None and (person.role == "child" and assignee.id != person.id
+        if assignee is not None and (person.role in OWN_TASK_ONLY_ROLES and assignee.id != person.id
                                      or session.get(ProjectMemberRow, (project_id, assignee.id)) is None):
             raise _not_found()
 

@@ -44,10 +44,11 @@ def test_capture_replays_and_partial_update_uses_task_revision(client):
         assert events_for_record(record)[0]["data"] == ids
 
 
-def test_child_cannot_list_edit_or_borrow_non_owned_task(client):
+@pytest.mark.parametrize("role", ["child", "teen"])
+def test_child_or_teen_cannot_list_edit_or_borrow_non_owned_task(client, role):
     service = client.app.state.work
     owner = Principal("work-owner", "person", "owner")
-    child = Principal("work-child", "person", "child")
+    child = Principal("work-child", "person", role)
     project = service.create_project(owner, ProjectFields(name="Family"))
     service.add_member(owner, project.id, child)
     other = service.create_task(owner, project.id, TaskFields(title="Owner's task", assignee={"id": child.id}))

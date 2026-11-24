@@ -11,7 +11,8 @@ from ..auth import Principal
 from ..identity import ctx_of
 from ..identity.scopes import has_any
 
-WORK_ROLES = frozenset({"owner", "adult", "child"})
+OWN_TASK_ONLY_ROLES = frozenset({"child", "teen"})
+WORK_ROLES = OWN_TASK_ONLY_ROLES | {"owner", "adult"}
 _authenticated_reader: ContextVar[tuple[Principal, Principal | None] | None] = ContextVar(
     "work_authenticated_reader", default=None,
 )
