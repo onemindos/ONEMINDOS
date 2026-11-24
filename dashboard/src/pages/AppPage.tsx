@@ -19,6 +19,7 @@ import { useSignedIn } from '../session';
 import { href } from '../shell/routes';
 import { useShell } from '../shell/Shell';
 import { Load } from './parts';
+import { AppMachineFit } from './AppMachineFit';
 
 const TONE: Record<AppDot, Tone> = { ok: 'ok', warn: 'warn', bad: 'bad', neutral: 'neutral', unknown: 'neutral' };
 const day = (iso: string | null | undefined) => (iso && !Number.isNaN(Date.parse(iso)) ? iso.slice(0, 10) : 'Not reported');
@@ -85,6 +86,7 @@ function Page({ app, sdk }: { app: CatalogApp; sdk?: OneMind }) {
       <p className="om-hint">Every change is a request an owner approves. <a href={href.manage(app.id)}>Open and manage {name}</a> · <a href={href.app(app.id)}>Market page</a></p>
     </Card>
     <Tabs label={`${name} details`} tabs={tabs} />
+    {pro && <AppMachineFit key={app.id} appId={app.id} />}
   </div>;
 }
 

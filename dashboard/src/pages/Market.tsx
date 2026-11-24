@@ -2,6 +2,7 @@
 // Market: Discover (editorial rails + category rails from TAXONOMY §1), search and filters, and the
 // app page with its trust card (scan, tier, licence, links; §11.4). Install is a request (§3):
 // POST /v1/actions → Approvals, then the app page follows the action live until it ends.
+import { AppMachineFit } from './AppMachineFit';
 import { useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { AppDetail, Market as StoreMarket, PageHeader, type Collection, type LoadState } from '@onemind/ui';
@@ -115,6 +116,7 @@ export function Market() {
           requestBlocked={blockedForYou}
         />
         {appJob && <ActionStatus action={appJob} label="App request progress" now={hub.now} />}
+        {app && shell.view === "pro" && <AppMachineFit key={appId} appId={appId} />}
         {app && <AppDepth key={appId} appId={appId} />}
         {blockedForYou && <p className="om-note om-tone-info">{blockedForYou}</p>}
         {askParent}
