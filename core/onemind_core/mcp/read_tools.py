@@ -115,6 +115,9 @@ class AreaReads:
             raise ApiError(503, "unavailable", f"{attr} is not running on this box")
         return found
 
+    def map_packs_list(self, p: Principal, a: dict):
+        return self.svc("map_packs").list().model_dump(mode="json")
+
     def get_backup_status(self, p: Principal, a: dict):
         self._backup_reader(p)
         return self.svc("backups").status()
@@ -237,6 +240,7 @@ class Shape:
 
 
 SHAPES: dict[str, Shape] = {
+    "map_packs_list": Shape(("packs.*.region",)),
     "get_backup_status": Shape(("last_run.error", "last_run.message")),
     "list_backup_runs": Shape(("error", "message"), kind="run"),
     "list_backup_snapshots": Shape(("paths.*", "tags.*"), kind="snapshot"),

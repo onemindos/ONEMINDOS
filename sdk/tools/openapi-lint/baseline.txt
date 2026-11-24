@@ -278,6 +278,7 @@ security GET /v1/files/wopi/files/{file_id}/contents owner=core:files
 security POST /v1/files/wopi/files/{file_id}/contents owner=core:files
 security GET /v1/sources owner=core:sources
 security GET /v1/sources/{source_id} owner=core:sources
+security GET /v1/map/packs owner=core:geo
 security GET /v1/sites owner=core:geo
 security POST /v1/sites owner=core:geo
 security GET /v1/status owner=core:status

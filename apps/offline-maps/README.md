@@ -49,7 +49,7 @@ Images:
 
 - One `Deployment` (`Recreate`) with two containers sharing the 16 GiB volume `offline-maps-data`. Both run as UID 65532 (the distroless `nonroot` user) with a read-only root filesystem, no privilege escalation and all capabilities dropped.
 - **`viewer`** (python 3.14 slim image, standard library only, port 8080):
-  - It serves the map page and the archives in `/data/maps` with HTTP range requests (PMTiles is read in small ranges by the browser).
+  - It serves the map page and the archives in `/data/maps` with HTTP range requests. The viewer's same-origin `/api/maps` lists local PMTiles v3 basemaps with byte size, bounds, zoom range and attribution when available. The list reads declared attribution from uncompressed or gzip metadata as plain text, and uses the [PMTiles header](https://github.com/protomaps/PMTiles/blob/main/spec/v3/spec.md#3-header) and skips incomplete archives.
   - On first start it downloads the browser libraries, fonts and icons once, **each checked against a pinned SHA-512 or SHA-256**, into `/data/assets`. A file that does not match is refused and the page says why. After that the box needs no internet.
   - It never writes, renames or deletes a map.
 - **`pmtiles`** (`go-pmtiles serve`, port 8081): a Z/X/Y tile API (`/<map name>/{z}/{x}/{y}.mvt`) for other map clients. It is also the tool the owner uses to cut a map (below).
@@ -101,9 +101,24 @@ API reference: [MapLibre GeoJSONSource](https://maplibre.org/maplibre-gl-js/docs
 Use only overlay data you have permission to use, and keep its attribution and
 licence with the original file; the overlay adds no redistribution rights.
 
+## Gateway-managed packs
+
+The gateway lists verified packs at `GET /v1/map/packs`. Add and remove go
+through the standard action approval flow using `map.pack.add` with a
+`region_id` or `map.pack.remove` with a `pack_id`. The app proxy serves bytes
+from `packs/<id>` with Range support.
+
+Provision the same directory for the gateway's `[map].packs_dir` and the
+viewer's `maps/packs` on the Offline Maps volume. Configure `region_catalog`
+with the signed `onemind.map.regions/v1` JSON and `region_key_file` with its
+trusted Ed25519 public key in PEM form. The adjacent `.sig` contains a base64
+signature over the exact JSON bytes. Each entry supplies `id`, `region`,
+`url`, `sha256` and `bytes`. Managed downloads require the shared mount and
+signed catalog.
+
 ## Not done yet
 
-- **Cutting a map is a terminal step.** A Market action ("add map for this area") that the owner approves from the dashboard is the next step. It needs a contract action type for app-specific jobs.
+- Cutting a custom region outside the signed catalog is a terminal step.
 - The tile API's TileJSON needs `--public-url`, which waits for the app proxy's LAN hostname.
 - No HTTPS or LAN hostname: the map is reached through a port-forward until the app proxy exists.
 - No search box (geocoding): finding a place by name offline needs a separate index.

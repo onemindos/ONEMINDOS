@@ -175,7 +175,7 @@ def test_scopes_filter_tools_list_and_resources(scoped):
     c, auth = scoped
     names = [t["name"] for t in mrpc(c, "tools/list", auth=auth).json()["result"]["tools"]]
     assert names == ["get_instance", "list_nodes", "get_node", "list_actions", "get_action",  # instance:read is always granted
-                     "get_os_updates", "get_os_update_history", "list_machines", "get_machine", "get_storage"]
+                     "map_packs_list", "get_os_updates", "get_os_update_history", "list_machines", "get_machine", "get_storage"]
     uris = [r["uri"] for r in mrpc(c, "resources/list", auth=auth).json()["result"]["resources"]]
     assert uris == ["onemind://nodes"]
 
