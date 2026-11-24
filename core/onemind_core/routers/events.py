@@ -95,6 +95,8 @@ def register(app: FastAPI, gw: Gateway) -> None:
 
     def own_card(p: Principal = Depends(principal)) -> Principal:
         if p.kind != "person":
+            gw.audit.append("authz.denied", p.as_dict(), None,
+                            {"attempted": "access a dashboard card", "reason": "permission_denied"})
             raise ApiError(403, "permission_denied", "only a person has a dashboard card")
         return p
 
@@ -105,6 +107,8 @@ def register(app: FastAPI, gw: Gateway) -> None:
     def require_subject(request: Request, p: Principal, subject: str) -> str:
         pattern = event_pattern(subject)
         if not allowed_subject(request, p, pattern):
+            gw.audit.append("authz.denied", p.as_dict(), None,
+                            {"attempted": "access a dashboard card subject", "reason": "subject_scope"})
             raise ApiError(403, "permission_denied", "your account does not have access to this subject",
                            reason="subject_scope")
         return pattern
