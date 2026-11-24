@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """Exercise the shipped map tools in Node and the viewer HTTP route locally (#126)."""
 import gzip
+import hashlib
 import http.client
 import importlib.util
 import json
@@ -88,6 +89,19 @@ class OfflineArchiveTests(unittest.TestCase):
             "bounds": [-1, -1, 1, 1], "min_zoom": 0, "max_zoom": 0,
             "attribution": "© OpenStreetMap contributors, Protomaps",
         }])
+
+    def test_managed_pack_range_has_sha256_etag_and_disappears_when_removed(self):
+        pack = self.viewer.MAPS_DIR / "packs" / "city"
+        pack.mkdir(parents=True)
+        archive = pack / "archive.pmtiles"
+        archive.write_bytes(self.archive)
+        status, headers, body = self.request("GET", "/packs/city", Range=f"bytes={self.tile_offset}-")
+        self.assertEqual((status, body), (206, self.tile))
+        self.assertEqual(headers["Accept-Ranges"], "bytes")
+        self.assertEqual(headers["ETag"], '"' + hashlib.sha256(self.archive).hexdigest() + '"')
+        self.assertEqual(self.request("GET", "/packs/city", Range="bytes=999999-")[0], 416)
+        archive.unlink()
+        self.assertEqual(self.request("GET", "/packs/city")[0], 404)
 
     def test_reports_archive_attribution_only_when_available(self):
         fixtures = {

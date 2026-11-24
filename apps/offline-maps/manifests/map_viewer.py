@@ -31,6 +31,8 @@ import threading
 import urllib.parse
 import urllib.request
 import zlib
+from collections import OrderedDict
+from collections.abc import Iterator
 from html.parser import HTMLParser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -67,7 +69,12 @@ ASSETS = [
 ]
 READY = ASSETS_DIR / ".ready-v1"
 STATE = {"assets": "missing", "detail": ""}
-NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,99}\.pmtiles$")
+PACK_ID = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}$")
+ARCHIVE_FILE = "archive.pmtiles"
+PACKS_FOLDER = "packs"
+ETAG_CACHE_SIZE = 64
+_etag_lock = threading.Lock()
+_etags: OrderedDict[tuple[int, ...], str] = OrderedDict()
 PMTILES_HEADER_SIZE = 127
 PMTILES_TYPE = "application/vnd.pmtiles"
 PMTILES_UNCOMPRESSED = 1
@@ -127,19 +134,71 @@ def fetch_assets() -> None:
         print(f"offline-maps: viewer assets not ready: {e}", file=sys.stderr, flush=True)
 
 
-def open_map(name: str) -> BinaryIO | None:
-    if not NAME_RE.fullmatch(name):
-        return None
+def _open_archive(folder: int, entry_name: str, managed: bool) -> BinaryIO | None:
+    child = None
     try:
-        # Serve only regular archives on the maps volume, even when a writer
-        # renames or replaces a directory entry concurrently with a request.
-        fd = os.open(MAPS_DIR / name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+        if managed:
+            child = os.open(entry_name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=folder)
+            folder, entry_name = child, ARCHIVE_FILE
+        fd = os.open(entry_name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=folder)
     except OSError:
         return None
+    finally:
+        if child is not None:
+            os.close(child)
     if not stat.S_ISREG(os.fstat(fd).st_mode):
         os.close(fd)
         return None
     return os.fdopen(fd, "rb")
+
+
+def _archives(managed: bool, wanted: str | None = None) -> Iterator[tuple[str, BinaryIO]]:
+    if wanted is not None and not PACK_ID.fullmatch(wanted):
+        return
+    directory = MAPS_DIR / PACKS_FOLDER if managed else MAPS_DIR
+    try:
+        folder = os.open(directory, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    except OSError:
+        return
+    try:
+        with os.scandir(folder) as entries:
+            for entry in entries:
+                if managed:
+                    pack_id = entry.name
+                elif entry.name.endswith(".pmtiles"):
+                    pack_id = entry.name.removesuffix(".pmtiles")
+                else:
+                    continue
+                if (wanted is not None and pack_id != wanted) or not PACK_ID.fullmatch(pack_id):
+                    continue
+                # The request only selects an enumerated entry. Open its name from the directory
+                # listing, with symlinks refused for both the pack directory and the archive file.
+                archive = _open_archive(folder, entry.name, managed)
+                if archive is not None:
+                    yield pack_id, archive
+    finally:
+        os.close(folder)
+
+
+def _archive_etag(file: BinaryIO) -> str:
+    st = os.fstat(file.fileno())
+    key = (st.st_dev, st.st_ino, st.st_size, st.st_mtime_ns, st.st_ctime_ns)
+    with _etag_lock:
+        cached = _etags.get(key)
+        if cached is not None:
+            _etags.move_to_end(key)
+            return cached
+    digest = hashlib.sha256()
+    file.seek(0)
+    while chunk := file.read(1024 * 1024):
+        digest.update(chunk)
+    etag = '"' + digest.hexdigest() + '"'
+    with _etag_lock:
+        _etags[key] = etag
+        _etags.move_to_end(key)
+        if len(_etags) > ETAG_CACHE_SIZE:
+            _etags.popitem(last=False)
+    return etag
 
 
 class AttributionText(HTMLParser):
@@ -205,19 +264,16 @@ def map_entry(name: str, archive: BinaryIO) -> dict | None:
 
 
 def list_maps() -> list[dict]:
-    try:
-        filenames = sorted(path.name for path in MAPS_DIR.iterdir())
-    except FileNotFoundError:
-        return []
     maps = []
-    for name in filenames:
-        archive = open_map(name)
-        if archive is not None:
+    for managed in (True, False):
+        for pack_id, archive in _archives(managed):
             with archive:
-                entry = map_entry(name, archive)
+                entry = map_entry(f"{pack_id}.pmtiles", archive)
             if entry is not None:
+                if managed:
+                    entry["path"] = f"packs/{pack_id}"
                 maps.append(entry)
-    return maps
+    return sorted(maps, key=lambda entry: entry["name"])
 
 
 def parse_range(header: str, size: int) -> tuple[int, int] | None:
@@ -293,10 +349,10 @@ document.getElementById('clear-overlay').onclick=()=>{
   overlayData=empty();OneMindMapTools.draw(map,'overlay',overlayData,'#176ba0');overlayStatus.textContent='Overlay cleared.';
 };
 function say(t){msg.textContent=t}
-async function show(name){
+async function show(name,path){
   const generation=++showGeneration;
   tools.disabled=true;points=[];distance.textContent='Enable measurement, then click two places on the map.';
-  const url=new URL('maps/'+encodeURIComponent(name),location.href).href;
+  const url=new URL(path||'maps/'+encodeURIComponent(name),location.href).href;
   const p=new pmtiles.PMTiles(url);const h=await p.getHeader();
   if(generation!==showGeneration)return;
   const base=new URL('.',location.href).href;  // the {tokens} must stay unescaped
@@ -326,9 +382,9 @@ async function show(name){
   maplibregl.addProtocol('pmtiles',new pmtiles.Protocol().tile);
   const maps=await (await fetch('api/maps')).json();
   if(!maps.length){say('No maps yet. The owner adds one (README, "Add a map").');return}
-  for(const m of maps){const o=document.createElement('option');o.value=m.name;o.textContent=m.name+' ('+Math.round(m.bytes/1048576)+' MiB)';pick.append(o)}
-  pick.hidden=maps.length<2;pick.onchange=()=>show(pick.value).catch(e=>say('Could not open the map: '+e));
-  show(maps[0].name).catch(e=>say('Could not open the map: '+e));
+  for(const [i,m] of maps.entries()){const o=document.createElement('option');o.value=i;o.textContent=m.name+' ('+Math.round(m.bytes/1048576)+' MiB)';pick.append(o)}
+  pick.hidden=maps.length<2;pick.onchange=()=>show(maps[Number(pick.value)].name,maps[Number(pick.value)].path).catch(e=>say('Could not open the map: '+e));
+  show(maps[0].name,maps[0].path).catch(e=>say('Could not open the map: '+e));
 })();
 </script></body></html>"""
 
@@ -366,12 +422,18 @@ class Handler(BaseHTTPRequestHandler):
     def _stream(self, file: BinaryIO, ctype: str, ranged: bool) -> None:
         size = os.fstat(file.fileno()).st_size
         range_header = self.headers.get("Range") if ranged else None
+        etag = _archive_etag(file) if ranged else None
+        if range_header is not None and self.headers.get("If-Range", etag) != etag:
+            range_header = None
         rng = parse_range(range_header, size) if range_header is not None else None
         if range_header is not None and rng is None:
-            return self._headers(416, "text/plain", 0, {"Content-Range": f"bytes */{size}", "Accept-Ranges": "bytes"})
+            return self._headers(416, "text/plain", 0, {"Content-Range": f"bytes */{size}", "Accept-Ranges": "bytes",
+                                                       "ETag": etag})
         start, end = rng or (0, size - 1)
         length = end - start + 1 if size else 0
         extra = {"Accept-Ranges": "bytes", "Cache-Control": "no-cache" if ranged else "max-age=86400"}
+        if etag is not None:
+            extra["ETag"] = etag
         if rng:
             extra["Content-Range"] = f"bytes {start}-{end}/{size}"
         self._headers(206 if rng else 200, ctype, length, extra)
@@ -398,10 +460,12 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, json.dumps(list_maps()).encode(), "application/json")
         if path == "/map_tools.js":
             return self._file(Path(__file__).with_name("map_tools.js"))
-        if path.startswith("/maps/"):
-            name = path[len("/maps/"):]
-            archive = open_map(name)
-            if archive is not None:
+        if path.startswith(("/maps/", "/packs/")):
+            managed = path.startswith("/packs/")
+            pack_id = path.split("/", 2)[2]
+            if not managed:
+                pack_id = pack_id.removesuffix(".pmtiles") if pack_id.endswith(".pmtiles") else ""
+            for _, archive in _archives(managed, pack_id):
                 with archive:
                     return self._stream(archive, PMTILES_TYPE, ranged=True)
         elif path.startswith("/assets/") and STATE["assets"] == "ready":
