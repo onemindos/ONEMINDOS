@@ -14,8 +14,6 @@ WF = Path(__file__).resolve().parents[2] / ".github" / "workflows"
 CHEAP = {"ci.yml": {"lint", "unit", "changes", "dco"}, "hygiene.yml": {"hygiene"}}
 # Own, hand-written concurrency: the gate keys on the PR number, security-nightly serialises PR runs.
 OWN_CONCURRENCY = {"gate.yml", "security-nightly.yml"}
-# ci-core.yml is being changed by #264 (merge queue); it joins this policy once that lands.
-PENDING = {"ci-core.yml"}
 
 
 def load():
@@ -28,14 +26,14 @@ def load():
 class DraftPolicy(unittest.TestCase):
     def test_pr_workflows_listen_to_ready_for_review(self):
         for name, d, on in load():
-            if "pull_request" in on and name not in PENDING:
+            if "pull_request" in on:
                 types = (on["pull_request"] or {}).get("types", [])
                 self.assertIn("ready_for_review", types, name)
                 self.assertIn("synchronize", types, name)
 
     def test_heavy_jobs_skip_on_drafts(self):
         for name, d, on in load():
-            if "pull_request" not in on or name in PENDING or name == "gate.yml":
+            if "pull_request" not in on or name == "gate.yml":
                 continue
             for job, spec in d["jobs"].items():
                 if job in CHEAP.get(name, ()):
@@ -58,7 +56,7 @@ class DraftPolicy(unittest.TestCase):
 class Concurrency(unittest.TestCase):
     def test_every_pr_workflow_cancels_only_superseded_pr_runs(self):
         for name, d, on in load():
-            if "pull_request" not in on or name in PENDING or name == "security-nightly.yml":
+            if "pull_request" not in on or name == "security-nightly.yml":
                 continue
             c = d.get("concurrency")
             self.assertIsNotNone(c, f"{name} has no concurrency group")
