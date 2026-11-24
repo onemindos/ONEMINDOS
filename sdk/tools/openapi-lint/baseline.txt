@@ -460,3 +460,10 @@ idempotency POST /v1/users owner=core:users
 idempotency PATCH /v1/users/{user_id} owner=core:users
 idempotency POST /v1/users/{user_id}/disable owner=core:users
 idempotency PUT /v1/windows/{window_id} owner=core:automation
+
+security GET /v1/work/tasks owner=core:work
+security GET /v1/work/projects/{project_id}/tasks/{task_id} owner=core:work
+security POST /v1/work/projects owner=core:work
+security POST /v1/work/capture owner=core:work
+security PATCH /v1/work/projects/{project_id}/tasks/{task_id} owner=core:work
+security DELETE /v1/work/projects/{project_id}/tasks/{task_id} owner=core:work

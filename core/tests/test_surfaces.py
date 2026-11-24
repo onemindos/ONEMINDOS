@@ -58,7 +58,7 @@ def test_mcp_tools_and_scopes_are_generated_from_the_registry(c):
     listed = rpc(c, "tools/list").json()["result"]["tools"]
     # A token with no `scopes:` (v0) lists every tool but those granted by name only (logs, file details, #632).
     by_name = {t.name for t in CORE_TOOLS if t.scope in MCP_BY_NAME_ONLY}
-    assert by_name == {"read_app_logs", "stat_file"}
+    assert by_name == {"read_app_logs", "stat_file", "work_tasks_list", "work_task_get"}
     assert {t["name"] for t in listed} == {t.name for t in CORE_TOOLS} - by_name
     described = c.app.openapi()["paths"]["/mcp"]["post"]["description"]
     assert all(t.name in described for t in CORE_TOOLS)

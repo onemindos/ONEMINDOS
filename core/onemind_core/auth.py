@@ -47,12 +47,12 @@ MCP_SCOPES = (
     "actions:request:app.stop", "actions:request:app.restart", "actions:request:app.update",
     "actions:request:app.configure", "actions:request:app.delete_data",
     # Area read tools (#632, surfaces/core.py AREA_TOOLS), named as in identity/scopes.py.
-    "backups:read", "updates:read", "alerts:read", "files:read", "logs:read",
+    "backups:read", "updates:read", "alerts:read", "files:read", "logs:read", "work:read",
 )
 ALWAYS_GRANTED = frozenset({"instance:read"})
-# File metadata and app logs are granted by name only: never by v0 or a bundle, so an agent that
+# File metadata, app logs and Work are granted by name only: never by v0 or a bundle, so an agent that
 # had no `scopes:` before reads exactly what it read before (REST refuses agents app logs, too).
-MCP_BY_NAME_ONLY = frozenset({"files:read", "logs:read"})
+MCP_BY_NAME_ONLY = frozenset({"files:read", "logs:read", "work:read"})
 _READER = ("instance:read", "nodes:read", "apps:read", "actions:read:own", "audit:read:own",
            "backups:read", "updates:read", "alerts:read")
 # One scope per request_action type (the lifecycle.TYPES keys; a test keeps the two in step), so a
