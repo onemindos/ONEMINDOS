@@ -51,3 +51,14 @@ def test_work_reader_still_reaches_only_work_tools(idc):
     setup_owner(idc)
     got = tools(idc, mint(idc, ["work:read"], "work"))
     assert "work_tasks_list" in got and "request_action" not in got and "list_nodes" not in got
+
+
+def test_narrowed_request_token_can_file_its_own_type(idc):
+    """The other direction: the type the token was narrowed to is filed and waits for approval."""
+    setup_owner(idc)
+    bearer = mint(idc, ["actions:request:app.install"], "narrow-ok")
+    body = {"type": "app.install", "app_id": "whoami", "reason": "user asked"}
+    out = rpc(idc, "tools/call", {"name": "request_action", "arguments": body}, headers={**H, **bearer})
+    result = out.json()["result"]
+    assert not result.get("isError"), result
+    assert result["structuredContent"]["state"] == "awaiting_approval", result
