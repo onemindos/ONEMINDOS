@@ -46,7 +46,7 @@ def host_status(vm):
     """(rollback available?, its reason, boot id) from GET /v1/status."""
     _, out = vm.run(f"S=$({CURL} http://h/v1/status | tr -d '\\n'); "
                     "echo AVAIL=$(echo \"$S\" | grep -o '\"kind\":\"os-rollback\",\"available\":[a-z]*' | grep -o '[a-z]*$'); "
-                    "echo REASON=$(echo \"$S\" | grep -o '\"kind\":\"os-rollback\",\"available\":false,\"reason\":\"[^\"]*\"' | sed 's/.*\"reason\":\"//; s/\"$//'); "
+                    "echo REASON=$(echo \"$S\" | grep -o '\"kind\":\"os-rollback\",\"available\":false,\"unavailable_reason\":\"[^\"]*\"' | sed 's/.*\"unavailable_reason\":\"//; s/\"$//'); "
                     "echo BOOT=$(cat /proc/sys/kernel/random/boot_id)")
     return val(out, "AVAIL") == "true", val(out, "REASON"), val(out, "BOOT")
 
@@ -57,7 +57,7 @@ def post(vm, action_id, version):
     _, out = vm.run(f"R=$({CURL} -o /tmp/rb.json -w '%{{http_code}}' -X POST -H 'Content-Type: application/json' "
                     f"-d '{body}' http://h/v1/operations); echo CODE=$R; echo RBODY=$(tr -d '\\n' < /tmp/rb.json)")
     reason = re.search(r'"reason":"([^"]*)"', val(out, "RBODY"))
-    return val(out, "CODE"), reason.group(1) if reason else ""
+    return val(out, "CODE"), (reason.group(1) if reason else "") + " " + val(out, "RBODY")[:160]
 
 
 def op_state(vm, action_id, wait=60):
@@ -83,6 +83,13 @@ def slots(vm):
     return val(out, "BOOTED"), val(out, "OTHERSTATUS"), val(out, "PENDING"), val(out, "BAD")
 
 
+def ensure_bundles(vm):
+    """shell_ready() mounts the bundles disk once; right after first boot udev may not have made the label link yet."""
+    vm.run("for i in $(seq 60); do mountpoint -q /run/onemind-test && break; udevadm settle -t 5 2>/dev/null; "
+           "mount -o ro /dev/disk/by-label/onemind-test /run/onemind-test 2>/dev/null; sleep 2; done; "
+           "mountpoint -q /run/onemind-test", 240)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--board", required=True, choices=["x86_64-efi"])
@@ -103,8 +110,11 @@ def main():
         vm.mark("RB0 first boot, then a good update: V2 in slot B, V1 waits in slot A")
         vm.start()
         vm.expect(fb.CONFIGURED, 900)
+        time.sleep(3)
+        vm.pos = 0                      # the gate line may have been printed before the first-boot line (bootlock.py does the same)
         g0 = vm.wait_gate()
         vm.shell_ready()
+        ensure_bundles(vm)
         rc, seg = battery.update_and_reboot(vm, "good.raucb")
         g = vm.wait_gate()
         vm.shell_ready()
@@ -115,9 +125,17 @@ def main():
         if not ok0:
             raise RuntimeError("RB0 failed: RB1-RB4 cannot run")
         vm.run("systemctl start onemind-host.socket", 60)
+        # Slot A was written by the image builder, so RAUC has no record of its version (CRITERIA-ROLLBACK.md §4).
+        # The update engine notes the version it replaced when it commits an update; this update was installed by
+        # hand with `rauc install` (as in T3), so the same note is written here, as status.json, in the engine's format.
+        note = json.dumps({"channel": "security", "current_version": V2, "available_version": None, "state": "committed", "last_check": None,
+                           "last_result": f"committed {V2} (health gate passed)", "previous_version": V1, "from_version": V1, "target_version": V2})
+        vm.run(f"mkdir -p /data/onemind/update && echo '{note}' > /data/onemind/update/status.json; sync")
 
         vm.mark("RB1 offered only when the other slot is known good")
         up, reason, boot1 = host_status(vm)
+        vm.run("echo RAUCJSON=$(rauc status --output-format=json | tr -d '\\n ' | cut -c1-900); cat /data/onemind/bad-releases 2>&1 | head -3; "
+               "grep -c . /etc/onemind/update.conf; cat /data/onemind/update/status.json 2>&1 | head -c 400")
         vm.run("rauc status mark-bad other")
         up_bad, reason_bad, _ = host_status(vm)
         code, why = post(vm, "rb-bad", V1)
@@ -127,7 +145,7 @@ def main():
         up_again, _, _ = host_status(vm)
         record("RB1", up and not up_bad and "not marked good" in reason_bad and code == "409"
                and boot_after == boot1 and booted_after == "B" and up_again,
-               f"offered={up} offered_with_bad_slot={up_bad} reason={reason_bad!r} post={code}/{why} same_boot={boot_after == boot1} "
+               f"offered={up} first_reason={reason!r} offered_with_bad_slot={up_bad} reason={reason_bad!r} post={code}/{why} same_boot={boot_after == boot1} "
                f"booted={booted_after} offered_after_repair={up_again}")
 
         vm.mark("RB4 a version the owner did not approve is not run")

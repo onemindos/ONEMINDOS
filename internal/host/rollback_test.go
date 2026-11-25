@@ -73,7 +73,7 @@ func newRollbackBox(t *testing.T, version string) *rollbackBox {
 		if b.fail != "" && strings.Contains(strings.Join(args, " "), b.fail) {
 			return nil, errors.New("rauc: boom")
 		}
-		if args[0] == "status" && len(args) > 1 && args[1] == "--output-format=json" {
+		if args[0] == "status" && len(args) > 2 && args[1] == "--detailed" && args[2] == "--output-format=json" {
 			return b.json, nil
 		}
 		return nil, nil
@@ -90,11 +90,11 @@ func refusal(t *testing.T, err error, reason string) {
 }
 
 func TestPreviousSlotNeedsOneGoodKnownOtherVersion(t *testing.T) {
-	got, rf := PreviousSlot(raucJSON(true, "good", "1.1.0"), "1.2.0")
+	got, rf := PreviousSlot(raucJSON(true, "good", "1.1.0"), "1.2.0", "")
 	if rf != nil || got != (RollbackTarget{Bootname: "B", Version: "1.1.0"}) {
 		t.Fatalf("slot A booted: %+v %v", got, rf)
 	}
-	got, rf = PreviousSlot(raucJSON(false, "good", "1.1.0"), "1.2.0")
+	got, rf = PreviousSlot(raucJSON(false, "good", "1.1.0"), "1.2.0", "")
 	if rf != nil || got != (RollbackTarget{Bootname: "A", Version: "1.1.0"}) {
 		t.Fatalf("slot B booted: %+v %v", got, rf)
 	}
@@ -110,9 +110,38 @@ func TestPreviousSlotNeedsOneGoodKnownOtherVersion(t *testing.T) {
 		{"garbage", "no_previous_slot", []byte("not json"), "1.2.0"},
 		{"no booted", "no_previous_slot", []byte(`{"slots": []}`), "1.2.0"},
 	} {
-		if _, rf := PreviousSlot(c.json, c.running); rf == nil || rf.Reason != c.reason {
+		if _, rf := PreviousSlot(c.json, c.running, ""); rf == nil || rf.Reason != c.reason {
 			t.Errorf("%s: got %v, want %s", c.name, rf, c.reason)
 		}
+	}
+}
+
+// A slot the image builder wrote has no record of its own in RAUC: its version is the one the update
+// engine noted when it committed the update that replaced it.
+func TestPreviousSlotFallsBackToTheEnginesNote(t *testing.T) {
+	got, rf := PreviousSlot(raucJSON(true, "good", ""), "1.2.0", "1.1.0")
+	if rf != nil || got != (RollbackTarget{Bootname: "B", Version: "1.1.0"}) {
+		t.Fatalf("%+v %v", got, rf)
+	}
+	if _, rf := PreviousSlot(raucJSON(true, "good", ""), "1.2.0", ""); rf == nil || rf.Reason != "previous_unknown" {
+		t.Fatalf("nothing known: %v", rf)
+	}
+	// RAUC's own record wins over the note.
+	if got, _ := PreviousSlot(raucJSON(true, "good", "1.0.5"), "1.2.0", "1.1.0"); got.Version != "1.0.5" {
+		t.Fatalf("%+v", got)
+	}
+	b := newRollbackBox(t, "1.2.0")
+	b.json = raucJSON(true, "good", "")
+	if why := b.r.RollbackUnavailable(); !strings.Contains(why, "no known OneMind version") {
+		t.Fatalf("%q", why)
+	}
+	st := &update.Status{}
+	st.State, st.PreviousVersion = "committed", "1.1.0"
+	if err := st.Save(b.conf); err != nil {
+		t.Fatal(err)
+	}
+	if err := b.r.Prepare(context.Background(), "1.1.0"); err != nil {
+		t.Fatal(err)
 	}
 }
 

@@ -27,3 +27,10 @@
 - **x86_64-efi** (OVMF) runs RB0-RB4 in the order RB0, RB1, RB4, RB2, RB3. Other boards are reported, never required.
 - On a host without KVM the run uses TCG and says so; a timeout missed only because TCG is slower is **BLOCKED (TCG timing)**, and the test must then pass on a KVM host before it counts.
 - Required for this task's "done": RB0-RB4 PASS on x86_64-efi.
+
+## 4. Amendment of 2026-11-25 (written after the first KVM run of RB0 and RB1, before any RB1-RB4 verdict)
+
+The first run showed that RAUC keeps no record of the bundle version for a slot the image builder wrote (slot A: `rauc status --detailed --output-format=json` has no `slot_status` for it), so after the first update nothing in RAUC says what slot A holds. The update engine now notes, in `status.json` as `previous_version`, the version it replaced when the health gate commits an update (`internal/update`), and the host service uses that note when the slot has no record of its own. Consequences for this file:
+
+- **Starting state (§1):** the good update is installed by hand with `rauc install` (as in T3), not by the engine, so the harness writes the engine's note (`/data/onemind/update/status.json`, state `committed`, `previous_version` V1) after RB0, in the engine's own format. The engine's behaviour is covered by `internal/update` unit tests (`TestVerdictAfterBoot`); this test covers what the host does with the note and with real RAUC.
+- **RB0** is unchanged. **RB1 to RB4** are unchanged except that "available" requires the note (or a slot record) to name V1.

@@ -100,11 +100,12 @@ func (r *SlotRollback) Target(ctx context.Context) (RollbackTarget, *update.Conf
 	if busy(st.State) {
 		return RollbackTarget{}, nil, &Refusal{"update_in_progress", "an OS update is " + st.State + "; wait for the health gate's verdict"}
 	}
-	out, err := r.rauc(ctx, c, "status", "--output-format=json")
+	// --detailed adds each slot's own record (the bundle version it was installed from).
+	out, err := r.rauc(ctx, c, "status", "--detailed", "--output-format=json")
 	if err != nil {
 		return RollbackTarget{}, nil, &Refusal{"unavailable", "RAUC does not answer: " + err.Error()}
 	}
-	t, rf := PreviousSlot(out, box.Version)
+	t, rf := PreviousSlot(out, box.Version, st.PreviousVersion)
 	if rf != nil {
 		return t, c, rf
 	}
@@ -119,7 +120,10 @@ func (r *SlotRollback) Target(ctx context.Context) (RollbackTarget, *update.Conf
 // PreviousSlot reads `rauc status --output-format=json` and returns the one
 // rootfs slot that is not booted, when it is bootable: marked good (it passed
 // the health gate once) and holding a known version other than the running one.
-func PreviousSlot(raucJSON []byte, running string) (RollbackTarget, *Refusal) {
+//
+// A slot written by the image builder has no record of its own, so its version is taken from
+// known (the update engine's note of the version it replaced, update.Status.PreviousVersion).
+func PreviousSlot(raucJSON []byte, running, known string) (RollbackTarget, *Refusal) {
 	st := detect.ParseRAUC(raucJSON)
 	if st.BootedSlot == nil {
 		return RollbackTarget{}, &Refusal{"no_previous_slot", "RAUC does not say which slot booted"}
@@ -136,6 +140,9 @@ func PreviousSlot(raucJSON []byte, running string) (RollbackTarget, *Refusal) {
 		return RollbackTarget{}, &Refusal{"no_previous_slot", "this box has no single other system slot to go back to"}
 	}
 	o := others[0]
+	if o.BundleVersion == "" {
+		o.BundleVersion = known
+	}
 	switch {
 	case o.BootStatus != "good":
 		return RollbackTarget{}, &Refusal{"previous_not_good", fmt.Sprintf("slot %s is not marked good (%s): it did not pass the health gate, so the box will not boot it", o.Bootname, orNone(o.BootStatus))}

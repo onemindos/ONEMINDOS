@@ -495,10 +495,11 @@ func TestRebootInhibitDefers(t *testing.T) {
 
 func TestVerdictAfterBoot(t *testing.T) {
 	for _, tc := range []struct {
-		name, booted, bad, want, result string
+		name, booted, bad, want, result, previous string
 	}{
-		{"committed", "0.1.1", "", heartbeat.UpdateCommitted, "committed 0.1.1"},
-		{"rolled back", "0.1.0", "2026-11-12T03:05:00Z version=0.1.1 verdict=image-bad\n", heartbeat.UpdateRolledBack, "gate verdict image-bad"},
+		// P-16: a committed update notes the version it replaced (still in the other slot: "go back" boots it).
+		{"committed", "0.1.1", "", heartbeat.UpdateCommitted, "committed 0.1.1", "0.1.0"},
+		{"rolled back", "0.1.0", "2026-11-12T03:05:00Z version=0.1.1 verdict=image-bad\n", heartbeat.UpdateRolledBack, "gate verdict image-bad", ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			f := newFixture(t, "security", "window = any\n")
@@ -519,6 +520,9 @@ func TestVerdictAfterBoot(t *testing.T) {
 			st := f.status()
 			if st.State != tc.want || !strings.Contains(st.LastResult, tc.result) || len(st.History) != 1 {
 				t.Fatalf("status %+v", st)
+			}
+			if st.PreviousVersion != tc.previous {
+				t.Fatalf("previous version %q, want %q", st.PreviousVersion, tc.previous)
 			}
 			// A rolled-back image-bad release is never offered again.
 			if tc.want == heartbeat.UpdateRolledBack && (res.Decision != DecideNothing || len(f.calls.log) != 0) {

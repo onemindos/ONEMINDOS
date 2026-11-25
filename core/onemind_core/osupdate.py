@@ -127,9 +127,11 @@ def _no_rollback(reason: str, message: str) -> dict:
     return {"available": False, "version": None, "slot": None, "reason": reason, "message": message}
 
 
-def rollback_view(reported: bool, state: str | None, current: str | None, rauc: dict) -> dict:
+def rollback_view(reported: bool, state: str | None, current: str | None, rauc: dict, previous: str | None = None) -> dict:
     """What going back would boot, from the node's heartbeat: the one other rootfs slot, when it is marked
-    good and holds a known, different version. The host checks again from RAUC itself before it acts."""
+    good and holds a known, different version. The version is the slot's own record, else the one the update
+    engine noted when it committed the update that replaced it (`previous_version`: a slot the image builder
+    wrote has no record of its own). The host checks again from RAUC itself before it acts."""
     if not reported:
         return _no_rollback("no_update_service", "This machine runs no update service, so it cannot go back.")
     if state in BUSY:
@@ -144,11 +146,12 @@ def rollback_view(reported: bool, state: str | None, current: str | None, rauc: 
     if o.get("boot_status") != "good":
         return _no_rollback("previous_not_good", f"Slot {name} is not marked good ({o.get('boot_status') or 'no status'}): "
                                                  "it did not pass the health gate, so the box will not boot it.")
-    if not o.get("bundle_version"):
+    version = o.get("bundle_version") or previous
+    if not version:
         return _no_rollback("previous_unknown", f"Slot {name} holds no known OneMind version.")
-    if o["bundle_version"] == current:
+    if version == current:
         return _no_rollback("same_version", f"The other slot holds {current}, the version already running.")
-    return {"available": True, "version": o["bundle_version"], "slot": o.get("bootname"), "reason": None, "message": None}
+    return {"available": True, "version": version, "slot": o.get("bootname"), "reason": None, "message": None}
 
 
 def node_view(n: dict) -> dict:
@@ -178,7 +181,7 @@ def node_view(n: dict) -> dict:
         "last_check": _text(up.get("last_check")) if up else None,
         "last_result": _text(up.get("last_result"), 500) if up else None,
         "rauc": view_rauc,
-        "rollback": rollback_view(up is not None, state, current, view_rauc),
+        "rollback": rollback_view(up is not None, state, current, view_rauc, _text(up.get("previous_version")) if up else None),
     }
 
 

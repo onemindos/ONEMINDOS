@@ -242,6 +242,10 @@ func (e *Engine) reconcile(st *Status, box Box, bad BadReleases) {
 		from := st.TargetVersion
 		if box.Version == st.TargetVersion {
 			st.State, st.LastResult = heartbeat.UpdateCommitted, "committed "+box.Version+" (health gate passed)"
+			st.PreviousVersion = ""
+			if st.FromVersion != box.Version {
+				st.PreviousVersion = st.FromVersion // the other slot still holds it: "go back" boots it (P-16)
+			}
 			st.addHistory(HistoryEntry{At: now, From: st.FromVersion, To: box.Version, Result: heartbeat.UpdateCommitted})
 		} else {
 			v := bad.Verdict(from)
@@ -249,6 +253,7 @@ func (e *Engine) reconcile(st *Status, box Box, bad BadReleases) {
 				v = "unknown"
 			}
 			st.State = heartbeat.UpdateRolledBack
+			st.PreviousVersion = "" // the other slot holds the version the gate turned away
 			st.LastResult = fmt.Sprintf("rolled back from %s to %s (gate verdict %s)", from, box.Version, v)
 			st.addHistory(HistoryEntry{At: now, From: box.Version, To: from, Result: heartbeat.UpdateRolledBack, Detail: "gate verdict " + v})
 		}
@@ -262,6 +267,7 @@ func (e *Engine) reconcile(st *Status, box Box, bad BadReleases) {
 func (e *Engine) install(ctx context.Context, st *Status, src source, idx *Index, t *Target, from string) error {
 	to := t.Meta.Version
 	st.State, st.TargetVersion, st.FromVersion, st.Warnings, st.Snapshot = heartbeat.UpdateDownloading, to, from, nil, ""
+	st.PreviousVersion = "" // the install is about to overwrite the other slot
 	st.LastResult = "downloading " + to
 	if err := st.Save(e.Cfg); err != nil {
 		return err

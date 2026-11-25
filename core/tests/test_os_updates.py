@@ -196,6 +196,21 @@ def test_status_names_the_version_a_rollback_would_boot(box):
     assert n["rollback"]["available"] is True and n["rollback"]["slot"] == "A" and n["rollback"]["version"] == "0.1.0"
 
 
+def test_a_slot_the_image_wrote_takes_its_version_from_the_engines_note(box):
+    """RAUC has no record for a slot the image builder wrote, so the first update's old slot has no bundle
+    version: the engine's previous_version (the version it replaced, noted at the commit) names it."""
+    bare = slots(other_version="")
+    box.report(rauc=bare)
+    [n] = box.get("/v1/os/updates", headers=OWNER).json()["nodes"]
+    assert n["rollback"]["reason"] == "previous_unknown"
+    box.report(rauc=bare, update={"previous_version": "0.1.0"})
+    [n] = box.get("/v1/os/updates", headers=OWNER).json()["nodes"]
+    assert n["rollback"] == {"available": True, "version": "0.1.0", "slot": "B", "reason": None, "message": None}
+    box.report(rauc=bare, update={"previous_version": "0.1.1"})  # the same as the running version: nothing to go back to
+    [n] = box.get("/v1/os/updates", headers=OWNER).json()["nodes"]
+    assert n["rollback"]["reason"] == "same_version"
+
+
 @pytest.mark.parametrize("rauc,reason", [
     (slots(other_status="bad", other_version="0.1.2"), "previous_not_good"),  # the gate rejected it
     (slots(other_status=""), "previous_not_good"),
