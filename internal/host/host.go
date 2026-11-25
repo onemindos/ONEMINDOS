@@ -282,22 +282,23 @@ type Keymap interface {
 // Service runs the actions. Power, OS and Reset may be nil: that kind is then
 // reported unavailable and refused.
 type Service struct {
-	Store  *Store // nil: status only, every action refused
-	Power  Power
-	OS     OSInstaller
-	Roll   OSRoller // os-rollback; nil: refused
-	Reset  Resetter
-	SMB    SMBManager    // file sharing (smb.go); nil: not on this box
-	SSH    SSHManager    // the owner's SSH keys and switch (ssh.go); nil: not on this box
-	Units  Units         // service-restart; nil: refused
-	Zones  Zones         // set-timezone; nil: refused
-	Names  Hostnamer     // set-hostname; nil: refused
-	Media  Media         // storage housekeeping and eject (housekeeping.go); nil: not on this box
-	Keymap Keymap        // set-keymap; nil: refused
-	BootID string        // /proc/sys/kernel/random/boot_id
-	Delay  time.Duration // before the box goes down, so the gateway records "accepted" first
-	Now    func() time.Time
-	Log    *slog.Logger
+	Store   *Store // nil: status only, every action refused
+	Power   Power
+	OS      OSInstaller
+	Roll    OSRoller // os-rollback; nil: refused
+	Reset   Resetter
+	SMB     SMBManager     // file sharing (smb.go); nil: not on this box
+	Flatpak FlatpakManager // Flathub desktop apps (flatpak.go); nil: not on this box
+	SSH     SSHManager     // the owner's SSH keys and switch (ssh.go); nil: not on this box
+	Units   Units          // service-restart; nil: refused
+	Zones   Zones          // set-timezone; nil: refused
+	Names   Hostnamer      // set-hostname; nil: refused
+	Media   Media          // storage housekeeping and eject (housekeeping.go); nil: not on this box
+	Keymap  Keymap         // set-keymap; nil: refused
+	BootID  string         // /proc/sys/kernel/random/boot_id
+	Delay   time.Duration  // before the box goes down, so the gateway records "accepted" first
+	Now     func() time.Time
+	Log     *slog.Logger
 
 	mu     sync.Mutex
 	active *Op

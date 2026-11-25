@@ -364,6 +364,10 @@ HUMAN_ONLY: dict[str, str] = {
     "GET /v1/engine": CONSOLE,
     "GET /v1/system/services/{unit}/logs": CONSOLE,
     "GET /v1/system/keyboard": CONSOLE,
+    # desktop apps (#1097): owner-only list and Flathub search; launching starts a program on the box
+    "GET /v1/desktop-apps": CONSOLE,
+    "GET /v1/desktop-apps/search": CONSOLE,
+    "POST /v1/desktop-apps/{app_id}/launch": WRITE,
     "GET /v1/system/ups": CONSOLE,
     "GET /v1/storage/housekeeping": CONSOLE,
     "GET /v1/system/time": CONSOLE,  # P-04: the hub's zone and clock sync state, owner only

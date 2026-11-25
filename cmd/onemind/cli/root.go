@@ -80,6 +80,7 @@ var groups = []func(a *App) []*cobra.Command{
 	timeCommands,
 	systemCommands,
 	firewallCommands,
+	desktopAppCommands,
 	bridgeCommands,
 	notifyCommands,
 	workCommands,
