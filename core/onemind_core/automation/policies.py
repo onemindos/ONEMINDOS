@@ -265,7 +265,7 @@ class PolicyService:
         app = self.catalog.get(app_id) if isinstance(app_id, str) else None
         if app is None:
             return "app_unknown"
-        if (app.manifest.get("metadata") or {}).get("tier") != "verified":
+        if app.manifest_tier != "verified":
             return "app_not_verified"
         if scan_problem(app.id, app.scan, at):
             return "scan_not_passing"

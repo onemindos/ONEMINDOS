@@ -47,6 +47,7 @@ log = logging.getLogger("onemind.appstore")
 
 NAME_RE = re.compile(r"^[a-z0-9]([-a-z0-9]{0,18}[a-z0-9])?$")
 COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
+REF_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]{0,98}[A-Za-z0-9]$|^[A-Za-z0-9]$")
 URL_RE = re.compile(r"^https://[A-Za-z0-9.-]+(:[0-9]{1,5})?(/[A-Za-z0-9._~%/+-]*)?$")
 DIGEST_IMAGE_RE = re.compile(r"^[a-z0-9][a-z0-9._/:-]*(:[A-Za-z0-9._-]+)?@sha256:[0-9a-f]{64}$")
 MAX_MANIFEST_BYTES = 256 * 1024
@@ -159,6 +160,35 @@ class GitFetcher:
             last = (cp.stderr or "").strip().splitlines()
             raise FetchError(f"git {args[0]} failed: {last[-1][:300] if last else cp.returncode}")
         return cp.stdout or ""
+
+    def resolve_ref(self, url: str, ref: str) -> str:
+        """The commit a branch, tag or commit id names right now (git ls-remote, same hardening as fetch).
+
+        A tag is followed to the commit it points at. Nothing is downloaded but the ref list."""
+        if COMMIT_RE.match(ref):
+            return ref
+        if not REF_RE.match(ref) or ".." in ref or "//" in ref or ref.endswith((".lock", "/", ".")):
+            raise FetchError("the ref must be a branch name, a tag name or a full commit id")
+        if param_problems(url=url) and not (self.allow_file_urls and url.startswith("file://")):
+            raise FetchError("refusing to fetch: bad url")
+        self.check_url(url)
+        base = self.root / "_resolve"
+        base.mkdir(parents=True, exist_ok=True)
+        home = base / uuid.uuid4().hex[:12]
+        home.mkdir()
+        try:
+            out = self._git(home, "ls-remote", "--", url, f"refs/heads/{ref}", f"refs/tags/{ref}", f"refs/tags/{ref}^{{}}", home=home)
+        finally:
+            shutil.rmtree(home, ignore_errors=True)
+        found: dict[str, str] = {}
+        for line in out.splitlines():
+            sha, _, name = line.partition("\t")
+            if COMMIT_RE.match(sha):
+                found[name.strip()] = sha
+        for name in (f"refs/tags/{ref}^{{}}", f"refs/heads/{ref}", f"refs/tags/{ref}"):
+            if name in found:
+                return found[name]
+        raise FetchError(f"the repository has no branch or tag named {ref!r}")
 
     def fetch(self, source_id: str, url: str, commit: str) -> Path:
         final = self.path(source_id, commit)
@@ -364,6 +394,10 @@ class SourceAppEntry(AppEntry):
     @property
     def scan(self) -> ScanRecord | None:  # the repository's scan.json is never trusted
         return self.scan_record
+
+    @property
+    def manifest_tier(self) -> str:  # read by the standing-approval check (F-6), which must not see the claim
+        return "community"
 
     def summary(self) -> dict:
         out = super().summary()

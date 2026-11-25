@@ -517,6 +517,12 @@ POLICY |= {
                                  "#605 surface registry: any reader; a child or agent sees only the apps shared with them"),
     ("GET", "/v1/sources"): Row(READ_ANY, w.p_static("/v1/sources"), "12.22: any reader"),
     ("GET", "/v1/sources/{source_id}"): Row(READ_ANY_404, w.p_static("/v1/sources/src_00000000000000000000000000"), "12.22: any reader; missing is 404"),
+    ("GET", "/v1/custom-apps"): Row(ONLY_OWNER, w.p_static("/v1/custom-apps"), "PLG-GIT-01: repository URLs and deploy history are the owner's"),
+    ("GET", "/v1/custom-apps/{app_id}"): Row(OWNER_ONLY_404, w.p_static("/v1/custom-apps/no-such-app"), "PLG-GIT-01: owner only; missing is 404"),
+    ("POST", "/v1/custom-apps/plan"): Row(grid(422, 403, 403, 403, 403), w.p_missing("/v1/custom-apps/plan", json={"url": "http://x.invalid/r", "ref": "main"}),
+                                          "PLG-GIT-01: planning fetches a repository, so owner only; the probe's http URL is refused (422) before any fetch"),
+    ("POST", "/v1/custom-apps/{app_id}/rollback"): Row(OWNER_ONLY_404, w.p_missing("/v1/custom-apps/no-such-app/rollback", json={}),
+                                                       "PLG-GIT-01: owner only; a missing custom app is 404"),
     ("POST", "/v1/deploy/compose"): Row(grid(422, 403, 403, 403, 403), w.p_missing("/v1/deploy/compose", json={"app_id": "imp", "compose": "x"}),
                                         "12.22: Compose import is owner only; the probe's text is not Compose (422)"),
     # ---- files ----------------------------------------------------------------------------------------------
