@@ -269,13 +269,13 @@ class PolicyService:
         return self.update_gate(params, at)
 
     def candidates(self, action_type: str, params: dict, requested_by: dict, at: datetime,
-                   paused: bool) -> tuple[list[dict], str]:
+                   paused: bool, stored_risk: object = registry._UNSET) -> tuple[list[dict], str]:
         """Live policies that cover this request, most specific first, and why there are none."""
         if paused:
             return [], "automation_paused"
         if not registry.known(action_type):
             return [], "no_policy"
-        if registry.policy_may_cover(action_type, params):
+        if registry.policy_may_cover(action_type, params, stored_risk):
             return [], "never_by_policy"
         who = requester_key(requested_by)
         kind = who.split(":", 1)[0]
@@ -319,7 +319,7 @@ class PolicyService:
     def decide(self, action: Action, paused: bool) -> StandingGrant | None:
         """The ActionService hook: reserve a use of the first matching policy with room left."""
         now = self.clock()
-        matched, reason = self.candidates(action.type, action.params, action.requested_by, now, paused)
+        matched, reason = self.candidates(action.type, action.params, action.requested_by, now, paused, action.risk)
         over = None
         for p in matched:
             status, n = self.repo.reserve_use(p["id"], p["revision"], p["per_day"], action.id, now)

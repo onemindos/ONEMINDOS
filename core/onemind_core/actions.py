@@ -361,7 +361,9 @@ def _never_by_policy(a: Action) -> bool:
     """True unless the §12.3 risk class of this request lets a standing approval accept it."""
     from .automation import registry  # imported late: the registry imports ActionType from here
 
-    return registry.policy_may_cover(a.type, a.params) is not None
+    # The class stored on the request counts, not only the table's: a feature's risk_for may have
+    # raised it, and a request with no stored class is never covered.
+    return registry.policy_may_cover(a.type, a.params, a.risk) is not None
 
 
 @dataclass(frozen=True)
@@ -513,12 +515,13 @@ class ActionService:
             raise ValueError(f"action type {action_type} is already registered")
         if spec.risk not in ("read", "write", "sensitive", "destructive", "actuate"):
             raise ValueError(f"{action_type}: unknown risk class {spec.risk!r}")
+        from .automation import registry  # imported late: the registry imports ActionType from here
+
         if spec.physical:
             if spec.requesters & {"automation", "policy"}:
                 raise ValueError(f"{action_type}: a physical type is never requested by an automation or policy")
-            from .automation import registry  # imported late: the registry imports ActionType from here
-
             registry.mark_physical(action_type)
+        registry.register_feature(action_type, spec.risk, automation="automation" in spec.requesters)
         self.feature_types[action_type] = spec
 
     def is_physical(self, action_type: str) -> bool:
