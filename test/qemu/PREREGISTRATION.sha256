@@ -22,3 +22,6 @@ ece09c7f8d261e8da30dff5acca3a649c68c080a273506bc65a3f26a3e3ba433  CRITERIA-EDGE.
 5cc09a8565003c8c27750bdd2e627609ef2fe183e3d2bb22d8093f83f6c4b7b8  CRITERIA-SYSEXT.md  2026-11-23T04:02:01Z  (with §5 amendment: X8 two-dot directory names, PR 972 review; written before the guard fix and before X8 ran)
 adc1cf6619e8b6440e00da65da7ff13c2dfd0f66151facfe30bf8fdafd74c411  CRITERIA-NAS.md  2026-11-22T23:36:45Z  (written before nasmount.py was implemented or run)
 33e4d0bd5553de5265e5e790f7231ef4e4b3c503fddf669c7b115ec1b06be1fc  CRITERIA-FIRSTBOOT.md  2026-11-23T00:37:43Z  (with §8 amendment: F12 gateway reaches the host helper, #875; written before F12 was implemented)
+5d66ac1bebc35aadec7e0fd1c5cb79878fe9d4cf8531f3e06eb5a21386888dbe  CRITERIA-FIRSTBOOT.md  2026-11-25T04:45:06Z  (with §9 amendment: F13 disk and admin tools, Step 2 PRs 4 and 7; written before F13 was implemented)
+fd87667a9160af535e58df2ffe47c7bbb27cf98fe5974c35bfa818f51bebfd6d  CRITERIA-FIRSTBOOT.md  2026-11-25T07:19:33Z  (with §10 amendment: F14 box care, Step 2b; written before F14 was implemented)
+ec66bcf3617c3b4c811a9ca045f58e9d41df3abe9abf2e2e909df0e7c54f19ae  CRITERIA-FIRSTBOOT.md  2026-11-25T13:00:58Z  (with §11 amendment: F15 storage housekeeping, P-10; written before F15 was implemented)

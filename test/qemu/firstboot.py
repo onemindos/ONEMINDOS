@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
-"""OneMind QEMU battery, first boot (F0-F12). Criteria: test/qemu/CRITERIA-FIRSTBOOT.md
+"""OneMind QEMU battery, first boot (F0-F15). Criteria: test/qemu/CRITERIA-FIRSTBOOT.md
 (pre-registered; never edited to make a result pass). Reuses run-tests.py's VM driver.
 
 Input: the battery's fixtures (`make fixtures`: disk.img = slot A v1 + test overlay, bundles.img with
@@ -496,6 +496,223 @@ def f12(vm, token):
     record("F12", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items())
            + f" box={box!r} up={up} down_summary={summary[:80]!r} engine_unreachable={inst.get('reason')}")
 
+def f13(vm):
+    """Step 2 PRs 4 and 7: the disk and admin tools run on the booted image (CRITERIA-FIRSTBOOT.md section 9; its smartd-masked clause is replaced by F15, section 11)."""
+    _, out = vm.run(
+        'D=$(lsblk -no PKNAME "$(findmnt -no SOURCE /)" 2>/dev/null | head -1); '
+        '[ -n "$D" ] || D=$(lsblk -dno NAME,TYPE | awk \'$2=="disk"{print $1; exit}\'); D=/dev/$D; echo DISK=$D; '
+        'smartctl --version >/dev/null 2>&1; echo SMARTV_RC=$?; smartctl --scan >/dev/null 2>&1; echo SCAN_RC=$?; '
+        'smartctl -H $D 2>&1 | head -3; echo SMARTH_BANNER=$(smartctl -H $D 2>&1 | grep -c "^smartctl"); '
+        'sgdisk -p $D >/tmp/f13.sg 2>&1; echo SGDISK_RC=$?; echo SGDISK_TABLE=$(grep -c "^Number" /tmp/f13.sg); '
+        'btrfs --version >/dev/null 2>&1; echo BTRFS_RC=$?; '
+        'for t in jq htop rsync nano less ethtool dmidecode lspci lsusb; do $t --version >/dev/null 2>&1; echo TOOL $t $?; done; '
+        'ping -V >/dev/null 2>&1; echo TOOL ping $?; '
+        'test -r /usr/share/bash-completion/bash_completion; echo BASHCOMP_RC=$?', 120)
+    get = lambda k: (re.findall(rf"^{k}=(\S*)\s*$", out, re.M) or ["?"])[-1]
+    tools = dict((t, rc) for t, rc in re.findall(r"^TOOL (\S+) (\d+)\s*$", out, re.M))
+    want = ["jq", "htop", "rsync", "nano", "less", "ethtool", "dmidecode", "lspci", "lsusb", "ping"]
+    c = {"smartctl_version": get("SMARTV_RC") == "0", "smartctl_scan": get("SCAN_RC") == "0",
+         "smartctl_H_runs": get("SMARTH_BANNER") not in ("0", "?"),
+         "sgdisk_p": get("SGDISK_RC") == "0" and get("SGDISK_TABLE") not in ("0", "?"),
+         "btrfs": get("BTRFS_RC") == "0",
+         "admin_tools": all(tools.get(t) == "0" for t in want),
+         "bash_completion": get("BASHCOMP_RC") == "0"}  # smartd is no longer masked: CRITERIA-FIRSTBOOT.md section 11 (F15)
+    record("F13", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items()) + f" disk={get('DISK')} tools={tools}")
+BOX_BINDS = {"/var/lib/fwupd": "var-lib-fwupd", "/var/cache/fwupd": "var-cache-fwupd",
+             "/var/lib/rasdaemon": "var-lib-rasdaemon", "/var/lib/udisks2": "var-lib-udisks2"}
+
+
+def f14(vm, board):
+    """Step 2b: box care for a 24/7 machine (CRITERIA-FIRSTBOOT.md section 10). Returns the marker content."""
+    marker = "f14-" + os.urandom(8).hex()
+    cmds = [
+        "fwupdmgr --version >/dev/null 2>&1; echo FWUPD_RC=$?",
+        "sensors -v >/dev/null 2>&1; echo SENSORS_RC=$?",
+        "ras-mc-ctl --help >/dev/null 2>&1; echo RASCTL_RC=$?",
+        "udisksctl help >/dev/null 2>&1; echo UDISKSCTL_RC=$?",
+        "timeout 90 fwupdmgr get-devices --no-unreported-check >/tmp/f14.fw 2>&1; echo FWDEV_RC=$?; echo FWDEV_HEAD=$(head -c 80 /tmp/f14.fw | tr -d '\\n' | tr ' ' '_')",
+        "timeout 60 udisksctl status >/dev/null 2>&1; echo UDSTATUS_RC=$?",
+        "for u in fwupd-refresh.timer fwupd-refresh.service; do echo STATE $u $(systemctl is-enabled $u 2>&1 | head -1); done",
+        "echo STATE fwupd.service $(systemctl is-enabled fwupd.service 2>&1 | head -1)",
+        "echo STATE fstrim.timer $(systemctl is-enabled fstrim.timer 2>&1 | head -1)",
+        "echo STATE rasdaemon.service $(systemctl is-enabled rasdaemon.service 2>&1 | head -1)",
+        "echo STATE thermald.service $(systemctl is-enabled thermald.service 2>&1 | head -1); echo ACTIVE=$(systemctl is-active thermald.service 2>&1 | head -1)",
+        "echo THERMALD_PKG=$(dpkg -s thermald >/dev/null 2>&1 && echo yes || echo no)",
+        "echo FSTRIM_LAST=$(systemctl cat fstrim.service | grep '^ExecStart=' | tail -1 | tr ' ' '_')",
+        "systemctl start fstrim.service; echo FSTRIM_RC=$?",
+        "echo WATCHDOG=$(systemctl show -p RuntimeWatchdogUSec --value)",
+        "for p in gvfs-udisks2-volume-monitor udiskie polkitd; do dpkg -s $p >/dev/null 2>&1; echo ABSENT $p $?; done",
+    ]
+    for path, src in BOX_BINDS.items():
+        cmds.append(f"echo BIND {path} $(findmnt -no SOURCE {path} | head -1 | tr -d ' ') "
+                    f"MARK=$(echo {marker} > {path}/onemind-f14 && sync && cat /data/state/{src}/onemind-f14)")
+    _, out = vm.run("; ".join(cmds), 240)
+    get = lambda k: (re.findall(rf"^{k}=(\S*)\s*$", out, re.M) or ["?"])[-1]
+    state = {u: st for u, st in re.findall(r"^STATE (\S+) (\S+)", out, re.M)}
+    amd = ARCH.get(board) == "amd64"
+    binds = {p: (m.group(1), m.group(2)) for p, m in
+             ((p, re.search(rf"^BIND {re.escape(p)} (\S*) MARK=(\S*)\s*$", out, re.M)) for p in BOX_BINDS) if m}
+    absent = dict(re.findall(r"^ABSENT (\S+) (\d+)\s*$", out, re.M))
+    c = {"fwupdmgr": get("FWUPD_RC") == "0", "sensors": get("SENSORS_RC") == "0",
+         "ras_mc_ctl": get("RASCTL_RC") == "0", "udisksctl": get("UDISKSCTL_RC") == "0",
+         "fwupd_get_devices_runs": get("FWDEV_RC") in ("0", "2"), "udisks_status_runs": get("UDSTATUS_RC") == "0",
+         "refresh_masked": state.get("fwupd-refresh.timer") == "masked" and state.get("fwupd-refresh.service") == "masked",
+         "fwupd_not_enabled": state.get("fwupd.service") != "enabled",
+         "fstrim_enabled": state.get("fstrim.timer") == "enabled",
+         "fstrim_data_only": get("FSTRIM_LAST").endswith("fstrim_--verbose_--quiet-unsupported_/data"),
+         "fstrim_runs": get("FSTRIM_RC") == "0",
+         "rasdaemon_enabled": state.get("rasdaemon.service") == "enabled",
+         "thermald": (state.get("thermald.service") == "enabled" and get("ACTIVE") != "active") if amd
+                     else get("THERMALD_PKG") == "no",
+         "binds_on_data": len(binds) == 4 and all(("/state/" + BOX_BINDS[p] + "]") in v[0] for p, v in binds.items()) and all(v[1] == marker for v in binds.values()),
+         "watchdog_30s": get("WATCHDOG") == "30s" if amd else True,
+         "no_automount_helpers": len(absent) == 3 and all(v != "0" for v in absent.values())}
+    # The loop device: detected, never mounted by itself, mounted read-only only when asked.
+    _, out2 = vm.run(
+        "truncate -s 64M /run/f14.img && mkfs.ext4 -q -F /run/f14.img && L=$(losetup --find --show /run/f14.img) && echo LOOP=$L; "
+        "udevadm trigger --name-match=$L; udevadm settle --timeout=30; sleep 3; "
+        "echo AUTO=$(udevadm info -q property -n $L | grep -c '^UDISKS_AUTO=0$'); "
+        "echo MOUNTED_BEFORE=$(findmnt -S $L -n | wc -l)$(lsblk -no MOUNTPOINT $L | grep -c .); "
+        "udisksctl info -b $L >/dev/null 2>&1; echo INFO_RC=$?; "
+        "udisksctl mount -b $L -o ro >/tmp/f14.mnt 2>&1; echo MOUNT_RC=$?; cat /tmp/f14.mnt; "
+        "echo RO=$(findmnt -S $L -no OPTIONS | tr ',' '\\n' | grep -c '^ro$'); "
+        "udisksctl unmount -b $L >/dev/null 2>&1; echo UNMOUNT_RC=$?; losetup -d $L; rm -f /run/f14.img", 240)
+    g2 = lambda k: (re.findall(rf"^{k}=(\S*)\s*$", out2, re.M) or ["?"])[-1]
+    c.update({"loop_has_auto0": g2("AUTO") == "1", "loop_not_automounted": g2("MOUNTED_BEFORE") == "00",
+              "udisks_info": g2("INFO_RC") == "0", "owner_mount_ro": g2("MOUNT_RC") == "0" and g2("RO") == "1",
+              "owner_unmount": g2("UNMOUNT_RC") == "0"})
+    record("F14", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items())
+           + f" states={state} fwdev={get('FWDEV_RC')}/{get('FWDEV_HEAD')} binds={binds}"
+           + ("" if all(c.values()) else f" mount_out={out2[-700:]!r}"))
+    return marker
+
+
+def f14_again(vm, tid, marker):
+    """F14b (after the reboot) and F14c (after the A/B update): the box-care state is still there."""
+    cmds = []
+    for path, src in BOX_BINDS.items():
+        cmds.append(f"echo BIND {path} $(findmnt -no SOURCE {path} | head -1 | tr -d ' ') MARK=$(cat {path}/onemind-f14 2>&1)")
+    cmds += ["echo STATE fstrim.timer $(systemctl is-enabled fstrim.timer 2>&1 | head -1)",
+             "echo STATE rasdaemon.service $(systemctl is-enabled rasdaemon.service 2>&1 | head -1)"]
+    _, out = vm.run("; ".join(cmds), 120)
+    state = {u: st for u, st in re.findall(r"^STATE (\S+) (\S+)", out, re.M)}
+    marks = {p: m.group(1) for p, m in
+             ((p, re.search(rf"^BIND {re.escape(p)} \S* MARK=(\S*)\s*$", out, re.M)) for p in BOX_BINDS) if m}
+    mounted = all(re.search(rf"^BIND {re.escape(p)} \S*/state/{BOX_BINDS[p]}\S* ", out, re.M) for p in BOX_BINDS)
+    c = {"markers_kept": len(marks) == 4 and all(v == marker for v in marks.values()), "binds_mounted": mounted,
+         "fstrim_enabled": state.get("fstrim.timer") == "enabled", "rasdaemon_enabled": state.get("rasdaemon.service") == "enabled"}
+    record(tid, all(c.values()), " ".join(f"{k}={v}" for k, v in c.items()))
+
+# Runs in the guest as root: reads the host service the way the gateway does (CRITERIA-FIRSTBOOT.md section 11).
+F15_PY = r"""
+import http.client, json, socket, sys, time
+
+class U(http.client.HTTPConnection):
+    def __init__(self):
+        super().__init__("host", timeout=20)
+    def connect(self):
+        self.sock = socket.socket(socket.AF_UNIX)
+        self.sock.settimeout(20)
+        self.sock.connect("/run/onemind/host.sock")
+
+def call(method, path, body=None):
+    c = U()
+    try:
+        c.request(method, path, json.dumps(body) if body is not None else None, {"Content-Type": "application/json"})
+        r = c.getresponse()
+        raw = r.read()
+        try:
+            return r.status, json.loads(raw or b"null")
+        except ValueError:
+            return r.status, None
+    finally:
+        c.close()
+
+res = {}
+for _ in range(30):  # the socket starts the service on the first request
+    try:
+        res["hk_code"], res["hk"] = call("GET", "/v1/storage/housekeeping")
+        break
+    except OSError:
+        time.sleep(2)
+res["st_code"], st = call("GET", "/v1/status")
+res["kinds"] = [o.get("kind") for o in (st or {}).get("operations", [])]
+if sys.argv[1] == "full":
+    res["eject_code"], res["eject"] = call("POST", "/v1/operations", {"action_id": "f15-root-disk", "kind": "eject", "device": sys.argv[2]})
+    res["ops_code"], ops = call("GET", "/v1/operations/f15-root-disk")
+print("RESULT " + json.dumps(res))
+"""
+
+
+def f15(vm):
+    """P-10: storage housekeeping is on the image and the host service reports it (CRITERIA-FIRSTBOOT.md section 11)."""
+    marker = "f15-" + os.urandom(6).hex()
+    feed = "/var/lib/smartmontools/onemind-alerts.jsonl"
+    env = f"SMARTD_DEVICE=/dev/vda SMARTD_FAILTYPE=FailedHealthCheck SMARTD_MESSAGE={marker} SMARTD_TFIRSTEPOCH=1700000000"
+    _, out = vm.run(
+        "cat > /run/f15.py <<'PYEOF'\n" + F15_PY + "\nPYEOF\n"
+        f"rm -f {feed}; "
+        "echo STATE smartmontools.service $(systemctl is-enabled smartmontools.service 2>&1 | head -1); "
+        "echo STATE smartd.service $(systemctl is-enabled smartd.service 2>&1 | head -1); "
+        "echo CONF_NOMAILER=$(grep -E '^DEVICESCAN' /etc/smartd.conf | grep -c -- '-m <nomailer>'); "
+        "echo CONF_EXEC=$(grep -E '^DEVICESCAN' /etc/smartd.conf | grep -c -- '-M exec /usr/lib/onemind/smartd-notify'); "
+        "smartd -q onecheck -c /etc/smartd.conf >/run/f15.smartd 2>&1; echo SMARTD_RC=$?; "
+        "echo SMARTD_CONF_ERRORS=$(grep -ciE 'fatal syntax|Directive:|unknown directive' /run/f15.smartd); "
+        "echo NOTIFY_X=$(test -x /usr/lib/onemind/smartd-notify && echo yes || echo no); "
+        f"env {env} /usr/lib/onemind/smartd-notify; env {env} /usr/lib/onemind/smartd-notify; "
+        f"echo LINES_AFTER_TWO=$(wc -l < {feed}); echo HAS_MARKER=$(grep -c {marker} {feed}); "
+        "SMARTD_DEVICE=/dev/disk/by-id/x SMARTD_FAILTYPE=Health SMARTD_MESSAGE=bad /usr/lib/onemind/smartd-notify; "
+        f"echo LINES_AFTER_BAD=$(wc -l < {feed}); "
+        "echo BIND=$(findmnt -no SOURCE /var/lib/smartmontools | head -1 | tr -d ' '); "
+        "systemctl start fstrim.service; echo FSTRIM_RC=$?; "
+        "ROOT=/dev/$(lsblk -no PKNAME \"$(findmnt -no SOURCE /)\" 2>/dev/null | head -1); echo ROOTDISK=$ROOT; "
+        f"{PY} -I /run/f15.py full $ROOT; rm -f /run/f15.py", 300)
+    get = lambda k: (re.findall(rf"^{k}=(\S*)\s*$", out, re.M) or ["?"])[-1]
+    state = {u: st for u, st in re.findall(r"^STATE (\S+) (\S+)", out, re.M)}
+    m = re.findall(r"^RESULT (\{.*\})\s*$", out, re.M)
+    res = json.loads(m[-1]) if m else {}
+    hk = res.get("hk") or {}
+    trim, smart = hk.get("trim") or {}, hk.get("smart") or {}
+    eject = res.get("eject") or {}
+    c = {"smartd_enabled_not_masked": state.get("smartmontools.service") == "enabled" and state.get("smartd.service") != "masked",
+         "conf_nomailer": get("CONF_NOMAILER") == "1", "conf_exec": get("CONF_EXEC") == "1",
+         "conf_parses": get("SMARTD_CONF_ERRORS") == "0", "notify_executable": get("NOTIFY_X") == "yes",
+         "one_line_for_a_reminder": get("LINES_AFTER_TWO") == "1" and get("HAS_MARKER") == "1",
+         "plain_nodes_only": get("LINES_AFTER_BAD") == "1",
+         "bind_on_data": get("BIND").startswith("/data/") or "/state/var-lib-smartmontools" in get("BIND"),
+         "fstrim_ran": get("FSTRIM_RC") == "0",
+         "housekeeping_200": res.get("hk_code") == 200 and trim.get("enabled") is True
+         and bool(trim.get("last_run_at")) and bool(trim.get("next_run_at")),
+         "alert_listed": any(a.get("id") == "1700000000-vda-FailedHealthCheck" and marker in a.get("message", "")
+                             for a in smart.get("alerts") or []),
+         "removable_is_a_list": isinstance(hk.get("removable"), list),
+         "eject_kind_listed": "eject" in (res.get("kinds") or []),
+         "root_disk_refused": res.get("eject_code") == 409 and eject.get("reason") == "not_removable" and res.get("ops_code") == 404}
+    record("F15", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items())
+           + f" rootdisk={get('ROOTDISK')} trim={trim} eject={eject} smartd_rc={get('SMARTD_RC')}")
+    return marker
+
+
+def f15_again(vm, tid, marker):
+    """F15b (after the reboot) and F15c (after the A/B update): the warning and its state are still there."""
+    feed = "/var/lib/smartmontools/onemind-alerts.jsonl"
+    _, out = vm.run(
+        "cat > /run/f15.py <<'PYEOF'\n" + F15_PY + "\nPYEOF\n"
+        "echo BIND=$(findmnt -no SOURCE /var/lib/smartmontools | head -1 | tr -d ' '); "
+        f"echo HAS_MARKER=$(grep -c {marker} {feed} 2>&1); "
+        "echo STATE smartmontools.service $(systemctl is-enabled smartmontools.service 2>&1 | head -1); "
+        f"{PY} -I /run/f15.py read; rm -f /run/f15.py", 200)
+    get = lambda k: (re.findall(rf"^{k}=(\S*)\s*$", out, re.M) or ["?"])[-1]
+    state = {u: st for u, st in re.findall(r"^STATE (\S+) (\S+)", out, re.M)}
+    m = re.findall(r"^RESULT (\{.*\})\s*$", out, re.M)
+    res = json.loads(m[-1]) if m else {}
+    alerts = ((res.get("hk") or {}).get("smart") or {}).get("alerts") or []
+    c = {"bind_mounted": "/state/var-lib-smartmontools" in get("BIND") or get("BIND").startswith("/data/"),
+         "feed_kept": get("HAS_MARKER") == "1", "host_lists_it": any(marker in a.get("message", "") for a in alerts),
+         "smartd_enabled": state.get("smartmontools.service") == "enabled"}
+    record(tid, all(c.values()), " ".join(f"{k}={v}" for k, v in c.items()))
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--board", required=True, choices=sorted(battery.BOARDS))
@@ -552,12 +769,15 @@ def main():
         vm.mark("F10 rescue console with k3s stopped (CORE-UPDATE-9)"); f10(vm, token)
         vm.mark("F11 starting page, then the gateway, never a refused connection"); f11(vm, (os.path.dirname(a.results) or ".") if a.results else None)
         vm.mark("F12 the gateway reaches the host helper, and says missing without it (#875)"); f12(vm, token)
+        vm.mark("F13 disk and admin tools run (Step 2)"); f13(vm)
+        vm.mark("F14 box care: fwupd, fstrim, sensors, rasdaemon, udisks2 without automount (Step 2b)"); box_marker = f14(vm, a.board)
+        vm.mark("F15 storage housekeeping: TRIM status, smartd warnings, eject refusal (P-10)"); smart_marker = f15(vm)
 
         if a.upto in ("F3", "F4"):
             vm.mark("F3 reboot keeps state")
             seg = vm.here(); vm.send("systemctl reboot")
             al = vm.expect(ALREADY, 900).group(0)
-            g3 = vm.wait_gate(); vm.shell_ready()
+            g3 = vm.wait_gate(since=seg); vm.shell_ready()
             new_toks = TOKEN.findall(vm.since(seg))
             ids3 = ident(vm)
             hz3 = http_code(vm, f"{GW}/healthz", timeout=900)
@@ -565,6 +785,8 @@ def main():
                 diagnose(vm, f"healthz={hz3} after reboot")
             listed3 = nodes(vm, token, ids["node_id"])
             same = [n for n in listed3 if n[0] == ids["node_id"]]
+            vm.mark("F14b box-care state after the reboot"); f14_again(vm, "F14b", box_marker)
+            vm.mark("F15b storage-housekeeping state after the reboot"); f15_again(vm, "F15b", smart_marker)
             record("F3", not new_toks and ids3 == ids and hz3 == "200" and bool(same) and bool(token),
                    f"'{al[:70]}' new_tokens={len(new_toks)} same_ids={ids3 == ids} healthz={hz3} listed={listed3} gate={g3}")
 
@@ -586,6 +808,8 @@ def main():
             listed4 = nodes(vm, token, ids["node_id"])
             same = [n for n in listed4 if n[0] == ids["node_id"]]
             already = re.search(ALREADY, s) is not None
+            vm.mark("F14c box-care state after the A/B update"); f14_again(vm, "F14c", box_marker)
+            vm.mark("F15c storage-housekeeping state after the A/B update"); f15_again(vm, "F15c", smart_marker)
             record("F4", rc_i == 0 and g4 == ("mark-good", "B", "2") and mark == mark2 and len(mark) == 64 and ver2
                    and already and not TOKEN.search(s) and ids4 == ids and hz4 == "200" and bool(same),
                    f"install_rc={rc_i} gate={g4} marker_kept={mark == mark2} version2={ver2} already_configured={already} "

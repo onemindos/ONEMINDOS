@@ -3831,6 +3831,38 @@
         "title": "DryRunBody",
         "type": "object"
       },
+      "EjectRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "idempotency_key": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idempotency Key"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "title": "EjectRequest",
+        "type": "object"
+      },
       "EngineAccount": {
         "properties": {
           "account": {
@@ -5527,6 +5559,72 @@
           "summary"
         ],
         "title": "HostStatus",
+        "type": "object"
+      },
+      "Housekeeping": {
+        "description": "GET /v1/storage/housekeeping.",
+        "properties": {
+          "at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "At"
+          },
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why nothing is shown when the host service cannot be read",
+            "title": "Message"
+          },
+          "removable": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/Removable"
+            },
+            "title": "Removable",
+            "type": "array"
+          },
+          "smart": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Smart"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "trim": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Trim"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "available"
+        ],
+        "title": "Housekeeping",
         "type": "object"
       },
       "ImportBody": {
@@ -10056,6 +10154,95 @@
         "title": "RefreshBody",
         "type": "object"
       },
+      "Removable": {
+        "properties": {
+          "device": {
+            "description": "Device path, e.g. /dev/sdb",
+            "title": "Device",
+            "type": "string"
+          },
+          "ejectable": {
+            "description": "false while the box is using the drive; why_not says why",
+            "title": "Ejectable",
+            "type": "boolean"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "mountpoints": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Mountpoints",
+            "type": "array"
+          },
+          "name": {
+            "description": "The path segment for the eject route, e.g. sdb",
+            "title": "Name",
+            "type": "string"
+          },
+          "partitions": {
+            "title": "Partitions",
+            "type": "integer"
+          },
+          "serial": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The drive's own serial number when it reports one; the eject is bound to it",
+            "title": "Serial"
+          },
+          "size_bytes": {
+            "title": "Size Bytes",
+            "type": "integer"
+          },
+          "why_not": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Why Not"
+          }
+        },
+        "required": [
+          "device",
+          "name",
+          "size_bytes",
+          "mountpoints",
+          "partitions",
+          "ejectable"
+        ],
+        "title": "Removable",
+        "type": "object"
+      },
       "RenameOp": {
         "additionalProperties": false,
         "properties": {
@@ -11947,6 +12134,64 @@
           "id"
         ],
         "title": "SiteRemoved",
+        "type": "object"
+      },
+      "Smart": {
+        "properties": {
+          "alerts": {
+            "description": "Warnings smartd raised, newest first",
+            "items": {
+              "$ref": "#/components/schemas/SmartAlert"
+            },
+            "title": "Alerts",
+            "type": "array"
+          },
+          "daemon_state": {
+            "description": "state of smartd: active, inactive (a virtual machine has no disk to watch) or unknown",
+            "title": "Daemon State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "daemon_state",
+          "alerts"
+        ],
+        "title": "Smart",
+        "type": "object"
+      },
+      "SmartAlert": {
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "device": {
+            "title": "Device",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "description": "smartd's warning type, e.g. Health, Temperature, FailedHealthCheck",
+            "title": "Kind",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "at",
+          "device",
+          "kind",
+          "message"
+        ],
+        "title": "SmartAlert",
         "type": "object"
       },
       "SourceIn": {
@@ -14594,6 +14839,79 @@
           "path"
         ],
         "title": "TrashOp",
+        "type": "object"
+      },
+      "Trim": {
+        "properties": {
+          "enabled": {
+            "description": "fstrim.timer is enabled (the image enables it)",
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "last_result": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "systemd's result of that run, e.g. success",
+            "title": "Last Result"
+          },
+          "last_run_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When the last TRIM finished; null: it has not run on this box yet",
+            "title": "Last Run At"
+          },
+          "last_trimmed_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "How much the last run told the SSD it may reuse; null when not reported",
+            "title": "Last Trimmed Bytes"
+          },
+          "next_run_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When the timer runs next; null when it has none",
+            "title": "Next Run At"
+          },
+          "timer_state": {
+            "description": "systemd state of the timer: active, inactive or unknown",
+            "title": "Timer State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "enabled",
+          "timer_state",
+          "last_run_at",
+          "last_trimmed_bytes",
+          "next_run_at"
+        ],
+        "title": "Trim",
         "type": "object"
       },
       "UpdatePolicyBody": {
@@ -37491,6 +37809,55 @@
         ]
       }
     },
+    "/v1/storage/housekeeping": {
+      "get": {
+        "description": "When the weekly TRIM last ran and runs next, smartd's warnings, and the USB drives that can be safely\nremoved. `available` is false, with a plain reason, when the host service cannot be read. Owner only.",
+        "operationId": "storage.housekeeping",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Housekeeping"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "system:admin"
+            ]
+          }
+        ],
+        "summary": "Storage Housekeeping",
+        "tags": [
+          "storage"
+        ]
+      }
+    },
     "/v1/storage/operations/{action_id}": {
       "get": {
         "description": "The stored plan and, while it runs, the node's journal (step by step).",
@@ -37697,6 +38064,161 @@
           }
         },
         "summary": "Storage Recovery Key",
+        "tags": [
+          "storage"
+        ]
+      }
+    },
+    "/v1/storage/removable/{name}/eject": {
+      "post": {
+        "description": "Ask to safely remove one USB drive (name from the housekeeping list, e.g. `sdb`). It waits for the owner\nto approve it; the response is the action. 404 for a drive that is not plugged in or not removable; 409\n`in_use` while the box is using it, `host_unavailable` while the host service cannot be reached.",
+        "operationId": "storage.removable.eject",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/EjectRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Req"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
+                }
+              }
+            },
+            "description": "Idempotent replay"
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "actions:request"
+            ]
+          }
+        ],
+        "summary": "Storage Eject",
         "tags": [
           "storage"
         ]

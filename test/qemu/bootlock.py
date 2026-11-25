@@ -134,7 +134,7 @@ def main():
         seg = vm.here()
         vm.send("systemctl reboot")
         al = vm.expect(fb.ALREADY, 900).group(0)
-        g2 = vm.wait_gate()
+        g2 = vm.wait_gate(since=seg)
         vm.shell_ready()
         _, out = vm.run(f"echo SHA=$(sha256sum {ESP}/user.cfg | cut -c1-64)")
         sha2 = (re.findall(r"^SHA=(\w+)", out, re.M) or [""])[-1]

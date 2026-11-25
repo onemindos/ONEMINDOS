@@ -141,6 +141,13 @@ _SPECS = [
          "Check {disk} in Storage and verify an off-box backup.", dedupe="storage:{node_id}:disk:{disk_key}",
          link="/storage", learn_more=_STORAGE_HELP),
     Spec("storage.disk.ok", "resolve", "storage", resolves=("storage:{node_id}:disk:{disk_key}",)),
+    # P-10: smartd (the background disk watcher on the image) raised a warning. Only an owner clears it.
+    Spec("storage.smart.warning", "open", "storage", "warning", "Disk warning on {device}",
+         "{message} Check {device} in Storage and keep a backup.", dedupe="storage:{node_id}:smartd:{alert_id}",
+         link="/storage", auto_resolve=False, learn_more=_STORAGE_HELP),
+    Spec("storage.smart.failing", "open", "storage", "critical", "Disk failing: {device}",
+         "{message} Back up now, then check {device} in Storage.", dedupe="storage:{node_id}:smartd:{alert_id}",
+         link="/storage", auto_resolve=False, learn_more=_STORAGE_HELP),
     # ---- automation and security ---------------------------------------------------------
     Spec("automation.breaker.opened", "open", "automation", "warning", "Automation paused: {name}",
          "{failures} requests failed. Review the rule and run a dry run before enabling it again.",

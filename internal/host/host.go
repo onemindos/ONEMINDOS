@@ -24,17 +24,18 @@ import (
 
 // Kinds of host action. The gateway's action types map onto them:
 // system.restart, system.shutdown, system.factory_reset, os.update.install,
-// service.restart.
+// service.restart, storage.eject.
 const (
 	KindRestart        = "restart"
 	KindShutdown       = "shutdown"
 	KindFactoryReset   = "factory-reset"
 	KindOSInstall      = "os-install"
 	KindServiceRestart = "service-restart"
+	KindEject          = "eject" // P-10: unmount and power off one USB drive
 )
 
 // Kinds lists every kind in a stable order (GET /v1/status).
-var Kinds = []string{KindRestart, KindShutdown, KindFactoryReset, KindOSInstall, KindServiceRestart}
+var Kinds = []string{KindRestart, KindShutdown, KindFactoryReset, KindOSInstall, KindServiceRestart, KindEject}
 
 // Operation states. going_down: the box was told to reboot or power off; the
 // next boot turns it into succeeded.
@@ -53,6 +54,8 @@ var (
 	actionIDRe = regexp.MustCompile(`^[A-Za-z0-9_.:-]{1,128}$`)
 	planHashRe = regexp.MustCompile(`^[0-9a-f]{64}$`)
 	versionRe  = regexp.MustCompile(`^[0-9A-Za-z.+-]{1,64}$`) // the gateway's InstallParams.version
+	serialRe   = regexp.MustCompile(`^[A-Za-z0-9._:-]{1,64}$`)
+	driveRe    = regexp.MustCompile(`^/dev/[a-z][a-z0-9]{1,15}$`)
 	unitRe     = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.@-]{0,90}\.(service|socket|timer|path)$`)
 )
 
@@ -77,6 +80,11 @@ type Request struct {
 	PlanSHA256 string `json:"plan_sha256,omitempty"`
 	// Unit (service-restart only, required) is the systemd unit the owner approved restarting.
 	Unit string `json:"unit,omitempty"`
+	// Device (eject only, required) is the removable disk the owner approved ejecting, e.g. /dev/sdb.
+	Device string `json:"device,omitempty"`
+	// Serial (eject only, optional) is the serial number the drive had when the owner was asked. If the stick was
+	// swapped for another one before approval, the serial differs and the host refuses. Empty: the drive reports none.
+	Serial string `json:"serial,omitempty"`
 }
 
 // Validate refuses a malformed request (HTTP 400).
@@ -87,7 +95,20 @@ func (r Request) Validate() error {
 	if (r.Kind == KindServiceRestart) != (r.Unit != "") {
 		return fmt.Errorf("unit is required for %s and only for it", KindServiceRestart)
 	}
+	if (r.Kind == KindEject) != (r.Device != "") {
+		return fmt.Errorf("device is required for %s and only for it", KindEject)
+	}
+	if r.Serial != "" && (r.Kind != KindEject || !serialRe.MatchString(r.Serial)) {
+		return errors.New("serial is only for eject and is 1-64 characters of A-Z a-z 0-9 . _ : -")
+	}
 	switch r.Kind {
+	case KindEject:
+		if r.Version != "" || r.PlanSHA256 != "" {
+			return errors.New("eject takes only a device")
+		}
+		if !driveRe.MatchString(r.Device) {
+			return errors.New("device must be a disk path such as /dev/sdb")
+		}
 	case KindRestart, KindShutdown, KindFactoryReset:
 		if r.Version != "" {
 			return fmt.Errorf("%s takes no version", r.Kind)
@@ -113,7 +134,7 @@ func (r Request) Validate() error {
 			return errors.New("unit must be a systemd unit name")
 		}
 	default:
-		return fmt.Errorf("unknown kind %q (restart, shutdown, factory-reset, os-install, service-restart)", r.Kind)
+		return fmt.Errorf("unknown kind %q (restart, shutdown, factory-reset, os-install, service-restart, eject)", r.Kind)
 	}
 	return nil
 }
@@ -125,6 +146,8 @@ type Op struct {
 	Version    string     `json:"version,omitempty"`
 	PlanSHA256 string     `json:"plan_sha256,omitempty"` // factory-reset: the approved plan
 	Unit       string     `json:"unit,omitempty"`        // service-restart: the approved unit
+	Device     string     `json:"device,omitempty"`      // eject: the approved drive
+	Serial     string     `json:"serial,omitempty"`      // eject: its serial when approved
 	State      string     `json:"state"`
 	Reason     string     `json:"reason,omitempty"` // failed: a stable code
 	Message    string     `json:"message,omitempty"`
@@ -181,6 +204,7 @@ type Service struct {
 	Reset  Resetter
 	SMB    SMBManager    // file sharing (smb.go); nil: not on this box
 	Units  Units         // service-restart; nil: refused
+	Media  Media         // storage housekeeping and eject (housekeeping.go); nil: not on this box
 	BootID string        // /proc/sys/kernel/random/boot_id
 	Delay  time.Duration // before the box goes down, so the gateway records "accepted" first
 	Now    func() time.Time
@@ -224,6 +248,11 @@ func (s *Service) Unavailable(kind string) string {
 		if s.Units == nil {
 			return "this host service cannot restart services"
 		}
+	case KindEject:
+		if s.Media == nil {
+			return "this host service cannot eject drives"
+		}
+		return s.Media.Unavailable()
 	case KindFactoryReset:
 		if s.Reset == nil {
 			return "factory reset is not in this OneMind version yet: the early-boot wipe ships separately (HOST-ACTIONS.md §4)"
@@ -257,7 +286,7 @@ func (s *Service) Submit(ctx context.Context, req Request) (op Op, created bool,
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if old, err := s.Store.Get(req.ActionID); err == nil {
-		if old.Kind != req.Kind || old.Version != req.Version || old.PlanSHA256 != req.PlanSHA256 || old.Unit != req.Unit {
+		if old.Kind != req.Kind || old.Version != req.Version || old.PlanSHA256 != req.PlanSHA256 || old.Unit != req.Unit || old.Device != req.Device || old.Serial != req.Serial {
 			return Op{}, false, &Refusal{"action_id_reused", "action " + req.ActionID + " was already sent as a different request"}
 		}
 		if s.active != nil && s.active.ID == old.ID {
@@ -286,6 +315,16 @@ func (s *Service) Submit(ctx context.Context, req Request) (op Op, created bool,
 			return Op{}, false, &Refusal{"not_restartable", req.Unit + ": " + err.Error()}
 		}
 	}
+	if req.Kind == KindEject {
+		// Checked again here, whatever the gateway said: only a removable disk the box is not using.
+		if err := s.Media.CheckEject(ctx, req.Device, req.Serial); err != nil {
+			var ref *Refusal
+			if errors.As(err, &ref) {
+				return Op{}, false, ref
+			}
+			return Op{}, false, &Refusal{"unavailable", err.Error()}
+		}
+	}
 	if req.Kind == KindFactoryReset {
 		// The owner approved one plan. If the disks changed since (a member
 		// added or pulled), nothing is armed: the owner must see the new plan.
@@ -294,7 +333,7 @@ func (s *Service) Submit(ctx context.Context, req Request) (op Op, created bool,
 		}
 	}
 	now := s.now()
-	op = Op{ID: req.ActionID, Kind: req.Kind, Version: req.Version, PlanSHA256: req.PlanSHA256, Unit: req.Unit, State: StateAccepted, BootID: s.BootID,
+	op = Op{ID: req.ActionID, Kind: req.Kind, Version: req.Version, PlanSHA256: req.PlanSHA256, Unit: req.Unit, Device: req.Device, Serial: req.Serial, State: StateAccepted, BootID: s.BootID,
 		AcceptedAt: now, UpdatedAt: now, Message: "accepted"}
 	if err := s.Store.Put(op); err != nil {
 		return Op{}, false, err
@@ -371,6 +410,18 @@ func (s *Service) run(ctx context.Context, op Op) {
 			return
 		}
 		s.set(&op, StateSucceeded, "", op.Unit+" restarted")
+	case KindEject:
+		s.set(&op, StateRunning, "", "unmounting "+op.Device)
+		if err := s.Media.Eject(ctx, op.Device, op.Serial); err != nil {
+			var ref *Refusal
+			if errors.As(err, &ref) {
+				s.set(&op, StateFailed, ref.Reason, ref.Message)
+				return
+			}
+			s.set(&op, StateFailed, "host_error", err.Error())
+			return
+		}
+		s.set(&op, StateSucceeded, "", op.Device+" is safe to remove")
 	case KindFactoryReset:
 		s.set(&op, StateRunning, "", "arming the factory reset")
 		if err := s.Reset.Arm(ctx, op); err != nil {

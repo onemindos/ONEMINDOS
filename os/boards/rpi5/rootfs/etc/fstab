@@ -27,3 +27,10 @@ PARTUUID=4f4d5035-07  /data      ext4  defaults,noatime,nofail,x-systemd.device-
 # The hub's JetStream store (app event streams), on the data disk so it survives A/B updates.
 /data/state/var-lib-onemind-nats      /var/lib/onemind-nats         none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0
 /data/state/etc-hosts                 /etc/hosts                    none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0
+# Box care (Step 2b): fwupd metadata and cache, the rasdaemon error database and udisks2 state, kept across reboots and A/B updates.
+/data/state/var-lib-fwupd         /var/lib/fwupd        none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0
+/data/state/var-cache-fwupd       /var/cache/fwupd      none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0
+/data/state/var-lib-rasdaemon     /var/lib/rasdaemon    none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0
+/data/state/var-lib-udisks2       /var/lib/udisks2      none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0
+# Storage housekeeping (P-10): smartd's state and the warnings feed the host service reads, kept across reboots and A/B updates.
+/data/state/var-lib-smartmontools /var/lib/smartmontools none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0
