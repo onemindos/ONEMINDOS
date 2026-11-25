@@ -234,6 +234,7 @@ type Service struct {
 	Roll   OSRoller // os-rollback; nil: refused
 	Reset  Resetter
 	SMB    SMBManager    // file sharing (smb.go); nil: not on this box
+	SSH    SSHManager    // the owner's SSH keys and switch (ssh.go); nil: not on this box
 	Units  Units         // service-restart; nil: refused
 	Zones  Zones         // set-timezone; nil: refused
 	Names  Hostnamer     // set-hostname; nil: refused

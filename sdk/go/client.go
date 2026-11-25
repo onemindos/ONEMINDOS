@@ -246,11 +246,15 @@ func (c *Client) Do(ctx context.Context, method, path string, body, out any) err
 	return err
 }
 
-// DoIdempotent is Do for a write that carries an Idempotency-Key header. The gateway answers a repeat of
-// the same key and request with the original result, so a retry is safe and is made like a GET's.
+// DoIdempotent is Do for a call that changes something (POST, PUT, DELETE) and carries an Idempotency-Key
+// header. The gateway answers a repeat with the same key with the first result instead of acting twice, so the
+// call is retried on a dropped connection or a 503 like a GET. Use it where the key cannot go in the body, such
+// as a DELETE.
 func (c *Client) DoIdempotent(ctx context.Context, method, path, key string, body, out any) error {
-	_, err := c.do(ctx, request{method: method, path: path, body: body, retry: true,
-		headers: map[string]string{"Idempotency-Key": key}}, out)
+	if key == "" {
+		return errors.New("onemind: DoIdempotent needs an idempotency key")
+	}
+	_, err := c.do(ctx, request{method: method, path: path, body: body, retry: true, headers: map[string]string{"Idempotency-Key": key}}, out)
 	return err
 }
 

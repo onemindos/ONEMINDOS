@@ -1,0 +1,43 @@
+# SPDX-License-Identifier: Apache-2.0
+# Applies the one SSH job the owner approved (add a key, remove a key, SSH on or off). `onemindd host serve` is
+# sandboxed (no /home, no way to start sshd), so it files the job as text in /data/onemind/ssh/job and starts this
+# oneshot, which runs `onemind-owner apply-job` as root and leaves the outcome in /data/onemind/ssh/result.
+# Nothing else starts it; it is not enabled and has no [Install] section.
+[Unit]
+Description=OneMind: apply an approved SSH key or on/off change
+RequiresMountsFor=/data /home/admin
+ConditionPathExists=/usr/lib/onemind/onemind-owner
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/onemind/onemind-owner apply-job
+TimeoutStartSec=60
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+ProtectKernelTunables=yes
+# The job writes only on /data (the SSH state), in the owner's home and in the extrausers store; the rest of the
+# root is read-only to it. Root needs just these powers: write files owned by others (owner's home, shadow),
+# become the owner for the key edits (runuser), and log through PAM.
+ProtectSystem=strict
+ReadWritePaths=/data -/home/admin -/var/lib/extrausers
+CapabilityBoundingSet=CAP_CHOWN CAP_DAC_OVERRIDE CAP_DAC_READ_SEARCH CAP_FOWNER CAP_SETUID CAP_SETGID CAP_AUDIT_WRITE
+RestrictAddressFamilies=AF_UNIX AF_NETLINK
+LockPersonality=yes
+# The rest of the sandbox (test/unit/test_unit_security.py: a new unit scores 5.0 or better). /home is read-only like
+# the rest of the root; ReadWritePaths above opens the owner's home. It talks to systemd over its Unix socket and to the
+# kernel audit log through PAM (runuser); it needs no IP, no devices, no namespaces and no realtime scheduling.
+ProtectHome=read-only
+PrivateDevices=yes
+ProtectKernelLogs=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+IPAddressDeny=any

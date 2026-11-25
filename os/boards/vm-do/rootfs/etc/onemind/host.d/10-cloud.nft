@@ -2,5 +2,12 @@
 # Cloud box: the owner reaches it over the internet, so SSH (key-only, board sshd_config) and the HTTPS
 # gateway answer from any address. Everything else stays LAN/mesh-only (host.nft). Rescue 7443 and the
 # Headscale join port stay LAN-only; the mesh port 41641/udp is open so direct mesh paths can form.
-add rule inet onemind_host input tcp dport { 22, 443, 8443 } accept
+# SSH goes through the "ssh" chain, not a plain accept: the 6-new-connections-a-minute limit then applies to the internet
+# too, and port 22 closes again when sshd is switched off (the chain is empty while it is stopped).
+# Fails closed: if the host firewall did not load, sshd does not start either (ssh.service.d/30-onemind-firewall.conf
+# cannot add its limit rules), so a public port 22 is never open without the limit. The way in is then the provider's
+# console (serial or VGA, docs/leap/core/CLOUD-IMAGES.md section 4): check `journalctl -u onemind-firewall -u ssh`.
+# The host service reports this file to the gateway (internal/ownerssh PublicRule), so GET /v1/ssh says "internet".
+add rule inet onemind_host input tcp dport 22 jump ssh
+add rule inet onemind_host input tcp dport { 443, 8443 } accept
 add rule inet onemind_host input udp dport 41641 accept

@@ -941,6 +941,148 @@ def f22(vm):
     record("F22", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items()) + f" out={out.strip()[-300:]!r}")
 
 
+# F23's script, run in the guest with the gateway's Python (section 12): the owner's SSH keys and switch through the
+# real chain (gateway API, owner approval, host service, onemind-ssh-apply.service, sshd). Keys are made here for
+# this test only. It prints "F23 NAME=value" lines; f23_judge reads them. No token or private key is printed.
+F23_PY = r"""
+import json, os, subprocess, sys, time, urllib.error, urllib.request
+GW = "http://127.0.0.1:8080"
+TOKEN = sys.argv[1]
+SSHO = "-o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=20 -o LogLevel=ERROR"
+def out(k, v): print("F23 %s=%s" % (k, v), flush=True)
+def api(method, path, body=None, token=TOKEN):
+    h = {"Content-Type": "application/json"}
+    if token: h["Authorization"] = "Bearer " + token
+    req = urllib.request.Request(GW + path, method=method, headers=h, data=None if body is None else json.dumps(body).encode())
+    try:
+        with urllib.request.urlopen(req, timeout=150) as r: return r.status, json.loads(r.read() or b"null")
+    except urllib.error.HTTPError as e:
+        try: return e.code, json.loads(e.read() or b"null")
+        except Exception: return e.code, None
+def sh(cmd, t=150):
+    p = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=t)
+    return p.returncode, (p.stdout + p.stderr).strip()
+def login(key):
+    rc, o = sh("ssh %s -i %s admin@127.0.0.1 'id -un' 2>&1" % (SSHO, key))
+    return rc, (o.splitlines() or [""])[-1]
+def active(): return sh("systemctl is-active ssh.service")[1]
+def listening(): return int(sh("ss -ltn 'sport = :22' | grep -c LISTEN")[1] or 0)
+def wait(cond, t=60):
+    end = time.time() + t
+    while time.time() < end:
+        if cond(): return True
+        time.sleep(1)
+    return cond()
+def settle(a):
+    end = time.time() + 120
+    while time.time() < end:
+        c, d = api("GET", "/v1/actions/" + a["id"])
+        if c == 200 and d["state"] in ("succeeded", "failed", "outcome_unknown"): return d["state"]
+        time.sleep(1)
+    return "timeout"
+def approve(a):
+    c, d = api("POST", "/v1/actions/%s/approve" % a["id"])
+    return settle(a) if c == 200 else "approve_%s" % c
+def fp(pub): return sh("ssh-keygen -l -f %s | cut -d' ' -f2" % pub)[1]
+
+sh("rm -rf /run/f20 && mkdir -p /run/f20 && ssh-keygen -q -t ed25519 -N '' -f /run/f20/k1 && ssh-keygen -q -t ed25519 -N '' -C second -f /run/f20/k2")
+K1, K2 = "/run/f20/k1", "/run/f20/k2"
+out("noauth", api("GET", "/v1/ssh", token="")[0])
+c, v = api("GET", "/v1/ssh"); s = (v or {}).get("service", {})
+out("get", c); out("available", s.get("available")); out("password_login", s.get("password_login")); out("port", s.get("port")); out("user", s.get("user"))
+
+c, a = api("POST", "/v1/ssh/keys", {"public_key": open(K1 + ".pub").read().strip()})
+out("b_code", c); out("b_state", (a or {}).get("state")); out("b_type", (a or {}).get("type"))
+out("b_pre_login", login(K1)[1])
+out("c_state", approve(a))
+wait(lambda: active() == "active" and listening() >= 1)
+out("c_login", login(K1)[1])
+c, ks = api("GET", "/v1/ssh/keys")
+out("c_listed", fp(K1 + ".pub") in [k["fingerprint"] for k in (ks or {}).get("keys", [])])
+
+c, a2 = api("POST", "/v1/ssh/keys", {"public_key": open(K2 + ".pub").read().strip()})
+out("d_add_code", c); out("d_add_state", approve(a2)); out("d_k2_login", login(K2)[1])
+c, ks = api("GET", "/v1/ssh/keys")
+kid = [k["id"] for k in (ks or {}).get("keys", []) if k["fingerprint"] == fp(K2 + ".pub")]
+c, d = api("DELETE", "/v1/ssh/keys/" + (kid[0] if kid else "missing"))
+out("d_del_code", c); out("d_del_state0", (d or {}).get("state")); out("d_k2_before_approval", login(K2)[1])
+out("d_del_state", approve(d) if c == 202 else "none")
+rc, o = sh("ssh %s -i %s admin@127.0.0.1 'id -un' 2>&1" % (SSHO, K2))
+out("d_k2_after_rc", rc); out("d_k2_after_denied", "Permission denied (publickey)" in o)
+out("d_k1_still", login(K1)[1])
+c, ks = api("GET", "/v1/ssh/keys")
+fps = [k["fingerprint"] for k in (ks or {}).get("keys", [])]
+out("d_k2_listed", fp(K2 + ".pub") in fps); out("d_k1_listed", fp(K1 + ".pub") in fps)
+
+def limit_ok():
+    # Both limit rules (IPv4 and IPv6) are in the chain and come before the accept rule.
+    lines = sh("nft list chain inet onemind_host ssh")[1].splitlines()
+    lim = [i for i, l in enumerate(lines) if "dport 22" in l and "limit rate over 6/minute" in l]
+    acc = [i for i, l in enumerate(lines) if l.strip().startswith("tcp dport 22 accept")]
+    return len(lim) == 2 and bool(acc) and max(lim) < acc[0]
+out("e_limit_first", limit_ok())
+
+c, a = api("PUT", "/v1/ssh", {"enabled": False})
+out("f_code", c); out("f_state0", (a or {}).get("state")); out("f_listen_before", listening())
+out("f_state", approve(a))
+wait(lambda: listening() == 0 and active() != "active")
+out("f_active", active()); out("f_listen", listening())
+out("f_nft", sh("nft list chain inet onemind_host ssh | grep -c 'dport 22'")[1])
+out("f_flag", os.path.exists("/data/onemind/ssh/disabled")); out("f_login_rc", login(K1)[0])
+sh("systemctl start ssh.service; sleep 2"); out("f_restart_active", active())
+
+c, a = api("PUT", "/v1/ssh", {"enabled": True})
+out("g_state", approve(a))
+wait(lambda: active() == "active" and listening() >= 1)
+out("g_active", active()); out("g_listen", listening()); out("g_flag", os.path.exists("/data/onemind/ssh/disabled")); out("g_login", login(K1)[1])
+# (e) again after SSH went off and on (the second start of ssh.service), and after a firewall restart (host.nft reloads,
+# the ssh chain empties, sshd restarts with it). The limit must come back each time (section 12 amendment).
+out("e_limit_after_on", limit_ok())
+sh("systemctl restart onemind-firewall.service")
+wait(lambda: active() == "active" and listening() >= 1 and limit_ok())
+out("e_limit_after_fw", limit_ok()); out("e_fw_login", login(K1)[1])
+
+before = len(api("GET", "/v1/actions")[1] or [])
+c, _ = api("POST", "/v1/ssh/keys", {"public_key": 'command="id" ' + open(K1 + ".pub").read().strip()})
+out("i_code", c); out("i_filed", len(api("GET", "/v1/actions")[1] or []) - before)
+sh("rm -rf /run/f20")
+"""
+
+
+def f23_judge(out):
+    """F23's verdict from the guest's output (pure, so test/unit can feed it canned text). (h), an agent's request,
+    is skipped: the first boot mints no agent token."""
+    g = lambda k: (re.findall(rf"^F23 {k}=(.*?)\s*$", out, re.M) or [""])[-1]
+    t, isint = "True", lambda k: g(k).isdigit()
+    c = {
+        "reads": g("get") == "200" and g("available") == t and g("password_login") == "False" and g("port") == "22"
+        and g("user") == "admin" and g("noauth") == "401",
+        "request_waits": g("b_code") == "202" and g("b_state") == "awaiting_approval" and g("b_type") == "ssh.key.add"
+        and g("b_pre_login") != "admin",
+        "approval_adds": g("c_state") == "succeeded" and g("c_login") == "admin" and g("c_listed") == t,
+        "second_key": g("d_add_code") == "202" and g("d_add_state") == "succeeded" and g("d_k2_login") == "admin",
+        "removal_waits": g("d_del_code") == "202" and g("d_del_state0") == "awaiting_approval" and g("d_k2_before_approval") == "admin",
+        "removal_refuses": g("d_del_state") == "succeeded" and isint("d_k2_after_rc") and g("d_k2_after_rc") != "0"
+        and g("d_k2_after_denied") == t and g("d_k1_still") == "admin" and g("d_k2_listed") == "False" and g("d_k1_listed") == t,
+        "rate_limit_rule": g("e_limit_first") == t and g("e_limit_after_on") == t and g("e_limit_after_fw") == t and g("e_fw_login") == "admin",
+        "off_waits": g("f_code") == "202" and g("f_state0") == "awaiting_approval" and isint("f_listen_before") and int(g("f_listen_before")) >= 1,
+        "off_closes_port": g("f_state") == "succeeded" and g("f_active") != "active" and g("f_active") != "" and g("f_listen") == "0"
+        and g("f_nft") == "0" and g("f_flag") == t and isint("f_login_rc") and g("f_login_rc") != "0",
+        "off_holds": g("f_restart_active") != "active" and g("f_restart_active") != "",
+        "on_opens_it": g("g_state") == "succeeded" and g("g_active") == "active" and isint("g_listen") and int(g("g_listen")) >= 1
+        and g("g_flag") == "False" and g("g_login") == "admin",
+        "bad_key_refused": g("i_code") == "422" and g("i_filed") == "0",
+    }
+    return c
+
+
+def f23(vm, token):
+    """SSH keys and the SSH switch through the approval queue (section 12)."""
+    _, o = vm.run("cat > /run/f23.py <<'PYEOF'\n" + F23_PY + f"\nPYEOF\n{PY} -I /run/f23.py '{token}'; rm -f /run/f23.py", 900)
+    c = f23_judge(o)
+    record("F23", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items()) + " agent_request=skipped(no agent token at first boot)")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--board", required=True, choices=sorted(battery.BOARDS))
@@ -1005,6 +1147,7 @@ def main():
         netcheck.nw1(vm, record); netcheck.nw2(vm, record); netcheck.nw3(vm, record)
         nw4 = netcheck.nw4_before(vm)
         vm.mark("F15 the owner shell: key-only SSH, tty2 login, no baked password"); f15(vm)
+        vm.mark("F23 SSH keys and the SSH switch through the approval queue (P-06)"); f23(vm, token)
         vm.mark("F16 audio and Bluetooth on the screen boards (Step 3)"); btmark = f16(vm, a.board)
         vm.mark("F14 onemind completion and man pages (#882)"); f14(vm)
         # F20 reboots the box: it stays the last check before F3

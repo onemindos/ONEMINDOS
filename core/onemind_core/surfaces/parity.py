@@ -172,6 +172,13 @@ HUMAN_ONLY: dict[str, str] = {
     "GET /v1/push/vapid-public-key": CREDENTIAL,
     "GET /v1/secrets/public-key": CREDENTIAL,
     "POST /v1/shares/smb/password": CREDENTIAL,
+    # P-06: the owner's SSH keys and switch. Reading names who may log in; every change is the owner's alone (an agent may
+    # not even request one: ssh.* types have an empty requesters set).
+    "GET /v1/ssh": CREDENTIAL,
+    "GET /v1/ssh/keys": CREDENTIAL,
+    "POST /v1/ssh/keys": CREDENTIAL,
+    "DELETE /v1/ssh/keys/{key_id}": CREDENTIAL,
+    "PUT /v1/ssh": CREDENTIAL,
     "POST /v1/storage/recovery-key": CREDENTIAL,
     "GET /v1/tls/ca.crt": CREDENTIAL,
     "GET /v1/tls/onemind.mobileconfig": CREDENTIAL,
