@@ -62,7 +62,7 @@ for p in (9091, 9092, 9093):
     threading.Thread(target=serve, args=(p,), daemon=True).start()
 time.sleep(1800)
 '''
-ALLOW_TTL_S = 25
+ALLOW_TTL_S = 60
 HOST_SOCK = "/run/onemind/host.sock"
 RESULTS = []
 
@@ -179,7 +179,7 @@ def allow_tests(box, scan):
     code, view = host_api(box, "GET", "/v1/firewall")
     supported = code == 200 and isinstance(view, dict) and (view.get("allow") or {}).get("supported") is True
     fb.send_file(box, "/run/fwlisten.py", LISTEN_PY)
-    box.run(f"nohup {fb.PY} -I /run/fwlisten.py >/dev/null 2>&1 &", 10)
+    box.run(f"(nohup {fb.PY} -I /run/fwlisten.py >/dev/null 2>&1 &)", 10)
     time.sleep(2)
     rule = lambda i, port, scope: {"id": i, "proto": "tcp", "port": port, "scope": scope}
     a = host_api(box, "POST", "/v1/firewall/allow", rule("fwa-1", 9091, "lan"))

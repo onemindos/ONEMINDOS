@@ -23,3 +23,4 @@ ece09c7f8d261e8da30dff5acca3a649c68c080a273506bc65a3f26a3e3ba433  CRITERIA-EDGE.
 adc1cf6619e8b6440e00da65da7ff13c2dfd0f66151facfe30bf8fdafd74c411  CRITERIA-NAS.md  2026-11-22T23:36:45Z  (written before nasmount.py was implemented or run)
 33e4d0bd5553de5265e5e790f7231ef4e4b3c503fddf669c7b115ec1b06be1fc  CRITERIA-FIRSTBOOT.md  2026-11-23T00:37:43Z  (with §8 amendment: F12 gateway reaches the host helper, #875; written before F12 was implemented)
 5b641d858b7d8403c5efab0f0ce5cb148f03d51fc8c14cdd80291acd793669ba  CRITERIA-FIREWALL-ALLOW.md  2026-11-25T12:30:00Z  (P-09 part 2: FW5-FW7 owner allow rules with automatic revert; written before FW5-FW7 were implemented)
+2626b70cf2c88d540093a5748ef20b47d8d248540bcc2ea0b84cbb06cb62cd37  CRITERIA-FIREWALL-ALLOW.md  2026-11-25T14:00:00Z  (with §4 amendment: deadline 60 s instead of 25 s after the first FW5 run lost rule A to console latency; no pass condition loosened)

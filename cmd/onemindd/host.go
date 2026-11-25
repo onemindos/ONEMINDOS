@@ -170,21 +170,7 @@ func firewallView(al *firewall.Allower) func(context.Context) (any, error) {
 func collectFirewall(ctx context.Context, al *firewall.Allower) (any, error) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	c := firewall.Collector{Allower: al, Run: func(ctx context.Context) ([]byte, error) {
-		cmd := exec.CommandContext(ctx, "/usr/sbin/nft", "-j", "list", "ruleset")
-		out, err := cmd.StdoutPipe()
-		if err != nil {
-			return nil, err
-		}
-		if err := cmd.Start(); err != nil {
-			return nil, err
-		}
-		raw, rerr := io.ReadAll(io.LimitReader(out, 8<<20))
-		if err := cmd.Wait(); err != nil {
-			return nil, err
-		}
-		return raw, rerr
-	}}
+	c := firewall.Collector{Allower: al, Run: readRuleset}
 	return c.Collect(ctx)
 }
 
@@ -212,4 +198,34 @@ func reloadOwnerFirewall(ctx context.Context) error {
 		return fmt.Errorf("systemctl restart onemind-firewall-owner.service: %w: %s", err, out)
 	}
 	return nil
+}
+
+// rulesetFile is where onemind-firewall-read.service leaves the ruleset (see that unit for why).
+const rulesetFile = "/run/onemind-fw/ruleset.json"
+
+// readRuleset asks systemd to run the reader unit, which holds CAP_NET_ADMIN (this service does not), and reads
+// the JSON it wrote. Without the unit (a development box) it runs `nft -j list ruleset` itself, which works
+// only with enough privilege; either way the output is capped and nothing here can change a rule.
+func readRuleset(ctx context.Context) ([]byte, error) {
+	if err := exec.CommandContext(ctx, "systemctl", "restart", "onemind-firewall-read.service").Run(); err == nil {
+		f, err := os.Open(rulesetFile)
+		if err != nil {
+			return nil, err
+		}
+		defer f.Close()
+		return io.ReadAll(io.LimitReader(f, 8<<20))
+	}
+	cmd := exec.CommandContext(ctx, "/usr/sbin/nft", "-j", "list", "ruleset")
+	out, err := cmd.StdoutPipe()
+	if err != nil {
+		return nil, err
+	}
+	if err := cmd.Start(); err != nil {
+		return nil, err
+	}
+	raw, rerr := io.ReadAll(io.LimitReader(out, 8<<20))
+	if err := cmd.Wait(); err != nil {
+		return nil, err
+	}
+	return raw, rerr
 }

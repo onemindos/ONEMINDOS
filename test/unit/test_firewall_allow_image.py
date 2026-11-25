@@ -76,6 +76,19 @@ class LoaderUnit(unittest.TestCase):
         self.assertIn("unit: onemind-firewall-owner.service", rd("os/rootfs/layers/onemind/usr/lib/onemind/services.yaml"))
 
 
+class ReaderUnit(unittest.TestCase):
+    def test_the_view_is_read_by_a_unit_that_can_only_write_one_file(self):
+        u = rd("os/rootfs/layers/onemind/usr/lib/systemd/system/onemind-firewall-read.service")
+        self.assertIn("CapabilityBoundingSet=CAP_NET_ADMIN\n", u)
+        self.assertIn("nft -j list ruleset > /run/onemind-fw/ruleset.json.tmp", u)
+        self.assertIn("RuntimeDirectory=onemind-fw", u)
+        self.assertNotIn("[Install]", u)
+        self.assertIn("IPAddressDeny=any", u)
+        host = rd("cmd/onemindd/host.go")
+        self.assertIn('"restart", "onemind-firewall-read.service"', host)
+        self.assertIn('rulesetFile = "/run/onemind-fw/ruleset.json"', host)
+
+
 class QemuCheck(unittest.TestCase):
     def test_criteria_are_preregistered_and_the_battery_judges_fw5_to_fw7(self):
         h = hashlib.sha256(open(os.path.join(ROOT, "test/qemu/CRITERIA-FIREWALL-ALLOW.md"), "rb").read()).hexdigest()

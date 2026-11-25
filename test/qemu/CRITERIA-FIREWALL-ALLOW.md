@@ -27,3 +27,7 @@
 - The gateway, passkey approval and the dashboard: covered by `core/tests/test_firewall_allow.py` and the dashboard tests.
 - Reboot persistence of a confirmed rule (the host service restart in FW6 runs the same load path; a full reboot is not repeated here).
 - Real hardware NICs.
+
+## 4. Amendment, 2026-11-25 (written after the first FW5 run, before any later run)
+
+The first run of FW5 was not a verdict on the box: the serial console takes tens of seconds to run the harness's setup commands, so rule A had already reverted by the 25 s deadline before the first probe (the harness saw only B). The deadline is therefore **60 s** (`ONEMIND_HOST_FIREWALL_TTL=60s`) and the wait after it is 10 s; wherever sections 1 and 2 say 25 s, read 60 s. The run also showed the firewall view itself could not be read on the shipped image (`allow.supported` was false because the host service lacks CAP_NET_ADMIN); the image now reads the ruleset through a separate read-only unit, and FW5 still requires `allow.supported` to be true. No pass condition was loosened.
