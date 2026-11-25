@@ -961,6 +961,16 @@
             }
           }
         },
+        "desktop": {
+          "description": "The app streams a desktop to a browser tab (issue #786). Every workload of the app is then held to the desktop rules: non-root, unprivileged, the one runtime named by apps/_bases/desktop/base.yaml, and its own login off only behind the gateway's policy (sdk/tools/factorylib/desktop.py). Required for any app whose image is built FROM ghcr.io/onemindos/bases/desktop (such images carry the label com.onemindos.base=desktop) or that runs a streaming runtime.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["runtime"],
+          "properties": {
+            "runtime": {"enum": ["neko", "selkies", "xpra"], "description": "Must be the runtime of the desktop base; the validator refuses any other."},
+            "base": {"const": "desktop", "description": "Set when the app's image is built FROM the OneMind desktop base."}
+          }
+        },
         "system": {
           "description": "Marks a built-in (system) app. Only honoured for an app that lives in apps/_system/<id>/ AND whose id is on the signed /usr/lib/onemind/system-apps.json in the OS image; anywhere else the manifest is rejected. A system app cannot be uninstalled; it can be switched off (app.disable) unless disable is never. Switching off scales the workload to zero and keeps volumes, secrets and settings.",
           "type": "object",

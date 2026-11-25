@@ -25,7 +25,7 @@ CASES = yaml.safe_load((GOLDEN / "cases.yaml").read_text())
 
 # Blocks older than #604 that a container plugin cannot also carry, each covered by its own tests.
 NOT_IN_GOLDEN_SPEC = {"agent", "system", "credentials", "web", "browser", "settings", "dependencies", "hostPorts",
-                      "streams", "secrets", "database"}
+                      "streams", "secrets", "database", "desktop"}
 NOT_IN_GOLDEN_EXT = {"widgets", "settings", "alerts", "tiles", "events"}
 ADDED_SPEC = {"runtime", "placement", "data", "services", "search", "share", "notifications", "mapLayers", "jobs",
               "roles", "continue", "needs", "terms", "recommends", "supports"}

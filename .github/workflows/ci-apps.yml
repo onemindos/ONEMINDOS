@@ -24,6 +24,7 @@ on:
       # SDKs have their own workflows and cannot change an app's gate result).
       - "sdk/tools/**"
       - "sdk/schema/**"
+      - "test/gui/**"   # the GUI runtime bake-off; its logic is tested in sdk/tools/tests (#786)
       # validate-apps runs the gateway's own manifest check (PLAN-E6, #175).
       - "core/onemind_core/catalog.py"
       - "core/onemind_core/manifest_convert.py"
@@ -32,6 +33,10 @@ on:
       - "core/onemind_core/scan.py"
       - "core/onemind_core/appsecrets/__init__.py"
       - "core/onemind_core/appsecrets/spec.py"
+      # validate-apps check 12 reads the NetworkPolicies the gateway writes (policy.py, its rules and imports, #786).
+      - "core/onemind_core/policy.py"
+      - "core/onemind_core/sections.py"
+      - "sdk/policy/app-objects.yaml"
       - "cmd/onemind/**"
       - "internal/plugin/**"
       - "go.mod"
@@ -124,6 +129,9 @@ jobs:
 
       - name: Validate apps
         run: python3 -I sdk/tools/validate-apps --plugin-validator "$ONEMIND_PLUGIN_VALIDATOR"
+
+      - name: Shared bases are valid (apps/_bases, #786)
+        run: python3 -I sdk/tools/app-factory base-check
 
       - name: Generated READMEs are up to date
         run: python3 -I sdk/tools/app-readme --check
