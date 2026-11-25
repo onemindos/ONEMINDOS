@@ -355,6 +355,7 @@ HUMAN_ONLY: dict[str, str] = {
     "GET /v1/bridges/{bridge_id}/latest": CONSOLE,
     "GET /v1/engine": CONSOLE,
     "GET /v1/system/services/{unit}/logs": CONSOLE,
+    "GET /v1/system/journal": CONSOLE,
     "GET /v1/system/ups": CONSOLE,
     "POST /v1/bridges/{bridge_id}/resume": WRITE,
     "POST /v1/system/services/{unit}/restart": WRITE,

@@ -79,6 +79,13 @@ func serviceActionCommands(a *App) []*cobra.Command {
 
 // serviceLogs streams the logs to stdout. Follow reads the hub's server-sent events (data: lines).
 func (a *App) serviceLogs(unit string, tail int, follow bool) error {
+	q := url.Values{"tail": {strconv.Itoa(tail)}}
+	return a.streamLogs("/v1/system/services/"+url.PathEscape(unit)+"/logs", q, "services logs", follow)
+}
+
+// streamLogs prints a hub log endpoint (plain text, or server-sent events with follow) to stdout, with
+// terminal control characters removed. Shared by `services logs` and `logs` (P-07).
+func (a *App) streamLogs(path string, q url.Values, what string, follow bool) error {
 	t, err := a.resolve()
 	if err != nil {
 		return err
@@ -90,10 +97,10 @@ func (a *App) serviceLogs(unit string, tail int, follow bool) error {
 		ctx, cancel = context.WithTimeout(ctx, a.G.Timeout+30*time.Second)
 		defer cancel()
 	}
-	u := strings.TrimRight(t.hub, "/") + "/v1/system/services/" + url.PathEscape(unit) + "/logs?tail=" + strconv.Itoa(tail)
 	if follow {
-		u += "&follow=true"
+		q.Set("follow", "true")
 	}
+	u := strings.TrimRight(t.hub, "/") + path + "?" + q.Encode()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	if err != nil {
 		return exitWith(ExitUsage, "usage", err.Error())
@@ -110,7 +117,7 @@ func (a *App) serviceLogs(unit string, tail int, follow bool) error {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return logsError(resp)
+		return logsError(resp, what)
 	}
 	sc := bufio.NewScanner(resp.Body)
 	sc.Buffer(make([]byte, 64<<10), 64<<10)
@@ -133,7 +140,7 @@ func (a *App) serviceLogs(unit string, tail int, follow bool) error {
 	return nil
 }
 
-func logsError(resp *http.Response) error {
+func logsError(resp *http.Response, what string) error {
 	var ge struct{ Error, Message, Reason string }
 	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 16<<10))
 	_ = json.Unmarshal(raw, &ge)
@@ -150,5 +157,5 @@ func logsError(resp *http.Response) error {
 	if name == "" {
 		name = "error"
 	}
-	return exitWith(code, name, "services logs: "+msg)
+	return exitWith(code, name, what+": "+msg)
 }
