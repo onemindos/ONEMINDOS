@@ -25,6 +25,8 @@ from ..fanout import ASSET_BUCKET, AssetState, parse_bbox, parse_kinds
 from ..files.service import FilesService
 from ..identity import ctx_of
 from ..identity.scopes import ALL, has_any, register_route_scope
+from ..work.access import delegated_reader
+from ..work.service import WORK_EVENTS
 from .audit import owned_action_ids
 
 # §12.9: events:read for household accounts and identity tokens (not a guest or child scope).
@@ -235,6 +237,17 @@ def register(app: FastAPI, gw: Gateway) -> None:
                 required += ("actions:read:own",)
             if ctx is not None and scope and not has_any(ctx.scopes, required):
                 return False
+            if t in WORK_EVENTS:
+                # The stream can outlive the credential; re-evaluate its scopes and task visibility.
+                request.state.identity = None
+                try:
+                    current = principal(request)
+                except ApiError:
+                    return False
+                live = ctx_of(request)
+                return (current.id == p.id and current.kind == p.kind
+                        and (live is None or has_any(live.scopes, ("work:read",)))
+                        and app.state.work.event_visible(current, ev, delegated=delegated_reader(request, current)))
             if t.startswith("alert."):
                 from .notifications import _can_see
                 row = app.state.notify.repo.get_alert(subject.get("alert_id"))

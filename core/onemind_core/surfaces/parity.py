@@ -90,6 +90,10 @@ def problems(keys: Iterable[str], tool_routes: dict[str, str]) -> list[str]:
 
 
 HUMAN_ONLY: dict[str, str] = {
+    "POST /v1/work/projects": WRITE,
+    "POST /v1/work/capture": WRITE,
+    "PATCH /v1/work/projects/{project_id}/tasks/{task_id}": WRITE,
+    "DELETE /v1/work/projects/{project_id}/tasks/{task_id}": WRITE,
     # ---- oversight: deciding requests and controlling agents
     "POST /v1/actions/{action_id}/approve": OVERSIGHT,
     "POST /v1/actions/{action_id}/approve-options": OVERSIGHT,
