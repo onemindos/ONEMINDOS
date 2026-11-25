@@ -100,10 +100,10 @@ Required for this task's "done": F12 PASS on x86_64-efi in CI's image workflow. 
 
 **Status:** PRE-REGISTERED before F13 was implemented in `firstboot.py` or run. F0-F12 above are unchanged. The sha256 of this file with this section is appended to `PREREGISTRATION.sha256`. **Serves:** the Debian-bones plan, PR 1: the image had no NTP client (recommends are off, so `systemd-timesyncd` was never installed) although `deploy/verify/node-check.sh` reads `NTPSynchronized`.
 
-F13 runs on the slot-A boot from F1, after F12 and before the F3 reboot, from the hub's shell. It waits up to 180 s for the clock to report synchronised.
+F13 runs on the slot-A boot from F1, after F12 and before the F3 reboot, from the hub's shell. It waits up to 60 s for the clock to report synchronised.
 
 | ID | Test | PASS if | FAIL if |
 |---|---|---|---|
-| F13 | The clock is Debian's own | `systemd-timesyncd.service` is `enabled` and `active`; `/usr/share/zoneinfo/UTC` is readable (tzdata); `/etc/locale.conf` is `LANG=C.UTF-8`; `timedatectl show -p NTPSynchronized` is `yes`, **or** `timedatectl timesync-status` names no server (user-mode QEMU networking cannot reach one), in which case the verdict says so | The unit is missing, disabled or dead, no zone database, another locale, or a server was reached and the clock still reports not synchronised |
+| F13 | The clock is Debian's own | `systemd-timesyncd.service` is `enabled` and `active`; `/usr/share/zoneinfo/UTC` is readable (tzdata); `/etc/locale.conf` holds `LANG=C.UTF-8` (comment lines ignored); `timedatectl show -p NTPSynchronized` is `yes`, **or** `timedatectl timesync-status` names no server (user-mode QEMU networking cannot reach one), in which case the verdict says so | The unit is missing, disabled or dead, no zone database, another locale, or a server was reached and the clock still reports not synchronised |
 
 Required for this task's "done": F13 PASS on x86_64-efi in CI's image workflow.
