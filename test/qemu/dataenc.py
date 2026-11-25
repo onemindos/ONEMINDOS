@@ -357,24 +357,25 @@ def main():
         restore_ok = len(h0) == 64 and r.get("HR") == h0 and r.get("HL") != h0
         guest_vals(vm, "systemctl start btrfs-scrub.service; for i in $(seq 1 300); do systemctl is-active -q btrfs-scrub.service || break; sleep 1; done", 420)
         sc = guest_vals(vm, "echo RES=$(systemctl show -p Result --value btrfs-scrub.service); "
-                            "echo FIN=$(btrfs scrub status /data | grep -cE 'Status: +finished'); "
-                            "echo ERR=$(btrfs scrub status /data | grep -cE 'Error summary: +no errors found')")
-        scrub_ok = sc.get("RES") == "success" and sc.get("FIN") == "1" and sc.get("ERR") == "1"
+                            "echo STATUS=$(btrfs scrub status /data 2>&1 | tr -s ' \\n' ' '); "
+                            "echo LOG=$(journalctl -b --no-pager -u btrfs-scrub.service | tail -6 | cut -d' ' -f5- | tr -s ' \\n' ' ' | cut -c1-500)")
+        scrub_ok = (sc.get("RES") == "success" and re.search(r"(?i)status: +finished", sc.get("STATUS", "")) is not None
+                    and re.search(r"(?i)error summary: +no errors found", sc.get("STATUS", "")) is not None)
         info0 = guest_vals(vm, f"echo INFO=$(sha256sum /data/storage/.snapshots/{n}/info.xml | cut -c1-64)").get("INFO", "")
         rc_up, seg = battery.update_and_reboot(vm, "good.raucb")
         vm.pos = seg
         g_up = vm.wait_gate(); s_up = vm.since(seg); vm.shell_ready()
-        a = guest_vals(vm, f"echo INFO=$(sha256sum /data/storage/.snapshots/{n}/info.xml | cut -c1-64); "
+        post = guest_vals(vm, f"echo INFO=$(sha256sum /data/storage/.snapshots/{n}/info.xml | cut -c1-64); "
                            f"cp /data/storage/.snapshots/{n}/snapshot/payload.bin /data/storage/restored2.bin; "
                            "echo H2=$(sha256sum /data/storage/restored2.bin | cut -c1-64); "
                            f"echo LISTED=$(snapper --no-dbus -c storage list 2>&1 | grep -cE '^ *{n} *\\|'); "
                            "echo FAILED=$(systemctl --failed --no-legend | wc -l)")
-        survive_ok = (rc_up == 0 and g_up == ("mark-good", "A", "2") and a.get("INFO") == info0 and len(info0) == 64
-                      and a.get("H2") == h0 and a.get("LISTED") == "1" and a.get("FAILED") == "0"
+        survive_ok = (rc_up == 0 and g_up == ("mark-good", "A", "2") and post.get("INFO") == info0 and len(info0) == 64
+                      and post.get("H2") == h0 and post.get("LISTED") == "1" and post.get("FAILED") == "0"
                       and "unlocked (tpm2)" in s_up and not re.search(PROMPT, s_up))
         record("E8", units_ok and timeline_ok and restore_ok and scrub_ok and survive_ok,
                f"units_ok={units_ok} {u} timeline_ok={timeline_ok} {t} restore_ok={restore_ok} scrub_ok={scrub_ok} {sc} "
-               f"update_survived={survive_ok} install_rc={rc_up} result={g_up} snapshot={n} {a}")
+               f"update_survived={survive_ok} install_rc={rc_up} result={g_up} snapshot={n} {post}")
         power_off(vm)
 
         # E3: the disk moved to another machine (a different TPM): it must ask, and the recovery key must work.
