@@ -39,6 +39,9 @@ const (
 	MaxKeys = 20
 	// MaxKeyBytes bounds one public key line (an RSA 8192 key is about 1.6 KB).
 	MaxKeyBytes = 8192
+	// PublicRule is the firewall file a cloud board ships (os/boards/{cloud,vm-do}): it sends port 22 from any
+	// address to the "ssh" chain, so SSH is reachable from the internet there, not only from the LAN and the mesh.
+	PublicRule = "/etc/onemind/host.d/10-cloud.nft"
 )
 
 var (
@@ -57,9 +60,12 @@ type Key struct {
 
 // State is what the box reports.
 type State struct {
-	Enabled bool  `json:"enabled"` // the owner has not switched SSH off
-	Running bool  `json:"running"` // sshd is up (it starts only once an owner key exists)
-	Keys    []Key `json:"keys"`
+	Enabled bool `json:"enabled"` // the owner has not switched SSH off
+	Running bool `json:"running"` // sshd is up (it starts only once an owner key exists)
+	// Internet is true on a cloud board: its firewall lets port 22 in from any address (PublicRule), still
+	// through the rate limit and the off switch. Elsewhere SSH answers the LAN and the mesh only.
+	Internet bool  `json:"internet"`
+	Keys     []Key `json:"keys"`
 }
 
 // Refusal is a well-formed request the box will not run (stable Reason, a sentence for the owner).
@@ -146,7 +152,7 @@ func (m *Manager) State(ctx context.Context) (State, error) {
 
 func (m *Manager) stateLocked(ctx context.Context) (State, error) {
 	_, offErr := os.Stat(filepath.Join(m.dir(), "disabled"))
-	st := State{Enabled: offErr != nil}
+	st := State{Enabled: offErr != nil, Internet: m.have(PublicRule)}
 	out, _ := m.Run.Run(ctx, "systemctl", "is-active", SSHUnit)
 	st.Running = strings.TrimSpace(string(out)) == "active"
 	raw, err := os.ReadFile(filepath.Join(m.dir(), "keys.list"))

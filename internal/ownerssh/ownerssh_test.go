@@ -73,6 +73,28 @@ func TestStateAsksForTheListOnceAndParsesIt(t *testing.T) {
 	}
 }
 
+func TestInternetFacingOnlyWhereTheCloudRuleShips(t *testing.T) {
+	m, _ := newMgr(t)
+	m.Have = func(p string) bool { return p != PublicRule }
+	if st, err := m.State(context.Background()); err != nil || st.Internet {
+		t.Fatalf("a home box answers the LAN and mesh only: %+v %v", st, err)
+	}
+	m.Have = func(string) bool { return true }
+	if st, err := m.State(context.Background()); err != nil || !st.Internet {
+		t.Fatalf("a cloud board (PublicRule present) is internet-facing: %+v %v", st, err)
+	}
+}
+
+// The path the host service checks is the file the cloud boards really ship, and that file sends 22 to the ssh chain.
+func TestPublicRuleIsTheCloudBoardsFile(t *testing.T) {
+	for _, board := range []string{"cloud", "vm-do"} {
+		raw, err := os.ReadFile(filepath.Join("..", "..", "os", "boards", board, "rootfs", PublicRule))
+		if err != nil || !strings.Contains(string(raw), "tcp dport 22 jump ssh") {
+			t.Fatalf("%s: %s must exist and send port 22 to the ssh chain: %v", board, PublicRule, err)
+		}
+	}
+}
+
 func TestParseKeysIgnoresNoise(t *testing.T) {
 	raw := "no keys\n2048 " + fp1 + "  (RSA)\n256 " + fp1 + " a b c (ECDSA-SK)\n"
 	ks := ParseKeys([]byte(raw))

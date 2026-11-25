@@ -20,6 +20,9 @@ const (
 
 // sshHub answers like core/onemind_core/routers/ssh.py: the list, and every change filed as an action
 // awaiting approval (202). It records each call.
+// sshLastIdem is the Idempotency-Key header of the last call sshHub saw.
+var sshLastIdem string
+
 func sshHub(t *testing.T, got *[]string) {
 	t.Helper()
 	isolate(t)
@@ -30,6 +33,7 @@ func sshHub(t *testing.T, got *[]string) {
 		}
 		body, _ := io.ReadAll(r.Body)
 		*got = append(*got, r.Method+" "+r.URL.EscapedPath()+" "+string(body))
+		sshLastIdem = r.Header.Get("Idempotency-Key")
 		switch {
 		case r.Method == http.MethodGet && r.URL.Path == "/v1/ssh/keys":
 			jsonOut(w, 200, map[string]any{"keys": []map[string]any{{"id": sshID, "fingerprint": sshFP, "type": "ed25519", "bits": 256, "comment": "alex@laptop\x1b[31m"}}})
@@ -121,6 +125,9 @@ func TestSSHKeyRmTurnsAFingerprintIntoTheRouteID(t *testing.T) {
 		}
 		if len(got) != 1 || got[0] != "DELETE /v1/ssh/keys/"+sshID+" " {
 			t.Fatalf("%s: asked %v", arg, got)
+		}
+		if !strings.HasPrefix(sshLastIdem, "cli-") {
+			t.Fatalf("%s: a removal carries an Idempotency-Key header (a retry files one request): %q", arg, sshLastIdem)
 		}
 	}
 }

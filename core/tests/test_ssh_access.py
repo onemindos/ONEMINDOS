@@ -54,13 +54,14 @@ class Box:
 
     def __init__(self, available: bool = True):
         self.available, self.enabled, self.running, self.keys, self.calls = available, True, False, {}, []
+        self.internet = False
         self.fail: SshHostError | None = None
 
     def state(self):
         if not self.available:
             return {"available": False, "reason": "ssh_unavailable", "message": "no sshd", "enabled": False, "running": False, "keys": []}
         return {"available": True, "reason": None, "message": None, "enabled": self.enabled, "running": self.running and self.enabled,
-                "keys": [{"fingerprint": fp, "type": "ed25519", "bits": 256, "comment": c} for fp, c in self.keys.items()]}
+                "internet": self.internet, "keys": [{"fingerprint": fp, "type": "ed25519", "bits": 256, "comment": c} for fp, c in self.keys.items()]}
 
     def _go(self, what):
         self.calls.append(what)
@@ -117,6 +118,20 @@ def test_the_view_carries_the_rules_the_box_runs_under(web):
     assert web.get("/v1/ssh", headers=OWNER).json()["service"]["state"] == "on"
     web.box.enabled = False
     assert web.get("/v1/ssh", headers=OWNER).json()["service"]["state"] == "off"
+
+
+def test_a_cloud_board_reports_that_ssh_faces_the_internet(web):
+    web.box.internet = True
+    assert web.get("/v1/ssh", headers=OWNER).json()["service"]["reach"] == ["lan", "mesh", "internet"]
+
+
+def test_host_client_reads_internet_from_the_host_service(settings):
+    from onemind_core.sshaccess import HostSshClient, SshSettings
+    c = HostSshClient(SshSettings())
+    for doc, want in (({"available": True, "internet": True, "keys": []}, True), ({"available": True, "keys": []}, False),
+                      ({"available": True, "internet": "yes", "keys": []}, False)):
+        c._call = lambda *a, doc=doc: (200, doc)
+        assert c.state()["internet"] is want
 
 
 def test_only_the_owner_reads_or_asks_and_an_agent_never_does(web):

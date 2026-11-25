@@ -74,7 +74,14 @@ func TestSSHStatusSaysWhyNotAndRefusesChanges(t *testing.T) {
 func TestSSHStatusListsTheBox(t *testing.T) {
 	f := &fakeSSH{state: ownerssh.State{Enabled: true, Running: true, Keys: []ownerssh.Key{{Fingerprint: "SHA256:x", Type: "ed25519", Bits: 256, Comment: "alex"}}}}
 	r := send(sshServer(f), "GET", "/v1/ssh", "")
-	for _, want := range []string{`"available":true`, `"enabled":true`, `"running":true`, `"fingerprint":"SHA256:x"`, `"comment":"alex"`} {
+	for _, want := range []string{`"available":true`, `"enabled":true`, `"running":true`, `"internet":false`, `"fingerprint":"SHA256:x"`, `"comment":"alex"`} {
+		if !strings.Contains(r.Body.String(), want) {
+			t.Errorf("missing %s in %s", want, r.Body)
+		}
+	}
+	f.state.Internet = true
+	r = send(sshServer(f), "GET", "/v1/ssh", "")
+	for _, want := range []string{`"internet":true`} {
 		if !strings.Contains(r.Body.String(), want) {
 			t.Errorf("missing %s in %s", want, r.Body)
 		}

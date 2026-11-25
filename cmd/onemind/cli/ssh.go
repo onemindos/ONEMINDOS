@@ -83,6 +83,7 @@ func sshCommands(a *App) []*cobra.Command {
 		Short: "Ask to remove a key (its id or SHA256 fingerprint from `ssh-key list`); prints the approval id",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
+			// A DELETE has no body, so the idempotency key goes in the header: a retry files one removal, not two.
 			return a.fileSSH(http.MethodDelete, "/v1/ssh/keys/"+url.PathEscape(sshKeyID(args[0])), nil, "SSH key removal")
 		},
 	}
@@ -197,7 +198,12 @@ func (a *App) fileSSH(method, path string, body map[string]any, what string) err
 		in = body
 	}
 	var act map[string]any
-	if err := c.Do(bg(), method, path, in, &act); err != nil {
+	if method == http.MethodDelete {
+		err = c.DoIdempotent(bg(), method, path, cliKey(), in, &act)
+	} else {
+		err = c.Do(bg(), method, path, in, &act)
+	}
+	if err != nil {
 		return err
 	}
 	if a.G.JSON {

@@ -26,6 +26,7 @@ type SSHStatus struct {
 	Reason    *string        `json:"unavailable_reason"`
 	Enabled   bool           `json:"enabled"`
 	Running   bool           `json:"running"`
+	Internet  bool           `json:"internet"` // a cloud board: port 22 answers any address, not only the LAN and mesh
 	Keys      []ownerssh.Key `json:"keys"`
 }
 
@@ -44,13 +45,13 @@ func (s *Server) sshStatus(ctx context.Context) (SSHStatus, error) {
 	if err != nil {
 		return st, err
 	}
-	return SSHStatus{Available: true, Enabled: box.Enabled, Running: box.Running, Keys: box.Keys}, nil
+	return SSHStatus{Available: true, Enabled: box.Enabled, Running: box.Running, Internet: box.Internet, Keys: box.Keys}, nil
 }
 
 // sshRoutes adds the owner-SSH calls. The gateway calls them only after an owner approved the action
 // (core/onemind_core/sshaccess.py); each one is a single job, applied by onemind-ssh-apply.service.
 //
-//	GET  /v1/ssh               available, why not, switch, whether sshd runs, the authorised keys (fingerprints)
+//	GET  /v1/ssh               available, why not, switch, whether sshd runs, internet-facing (cloud board), the keys
 //	POST /v1/ssh/keys          {public_key}: authorise one key
 //	POST /v1/ssh/keys/remove   {fingerprint}: take one key out
 //	PUT  /v1/ssh/enabled       {enabled}: SSH on or off, also after a reboot

@@ -12064,6 +12064,7 @@
             "type": "string"
           },
           "reach": {
+            "description": "Where port 22 answers from: lan and mesh, plus internet on a cloud board",
             "items": {
               "type": "string"
             },

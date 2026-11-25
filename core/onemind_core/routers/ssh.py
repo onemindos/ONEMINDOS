@@ -70,7 +70,7 @@ class SshServiceInfo(BaseModel):
     running: bool
     port: int
     user: str
-    reach: list[str]
+    reach: list[str] = Field(description="Where port 22 answers from: lan and mesh, plus internet on a cloud board")
     password_login: bool
     rate_limit: str
     max_keys: int

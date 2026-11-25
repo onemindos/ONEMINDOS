@@ -38,6 +38,30 @@ func writeErr(w http.ResponseWriter, status int, code, msg string) {
 	fmt.Fprintf(w, `{"error":%q,"message":%q}`, code, msg)
 }
 
+func TestDoIdempotentSendsTheKeyAndRetriesWithIt(t *testing.T) {
+	var keys []string
+	c := newTest(t, func(w http.ResponseWriter, r *http.Request) {
+		keys = append(keys, r.Method+" "+r.Header.Get("Idempotency-Key"))
+		if len(keys) == 1 {
+			w.WriteHeader(503)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(202)
+		fmt.Fprint(w, `{"id":"a1"}`)
+	})
+	var out map[string]any
+	if err := c.DoIdempotent(context.Background(), http.MethodDelete, "/v1/ssh/keys/x", "k-1", nil, &out); err != nil || out["id"] != "a1" {
+		t.Fatalf("%v %v", out, err)
+	}
+	if strings.Join(keys, "|") != "DELETE k-1|DELETE k-1" {
+		t.Fatalf("the retry carries the same key: %v", keys)
+	}
+	if err := c.DoIdempotent(context.Background(), http.MethodDelete, "/v1/ssh/keys/x", "", nil, nil); err == nil || len(keys) != 2 {
+		t.Fatalf("an empty key is refused before any call: %v %v", err, keys)
+	}
+}
+
 func TestNewRejectsBadURL(t *testing.T) {
 	for _, u := range []string{"", "hub.local", "ftp://x", "http://"} {
 		if _, err := New(u); err == nil {

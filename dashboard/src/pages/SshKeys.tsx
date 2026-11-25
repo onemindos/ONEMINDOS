@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // Settings > Account and security > SSH keys (P-06), from GET /v1/ssh. SSH is the owner's everyday shell
-// on the box and the way in when this screen is down: public key only, as admin, from the home network or
-// the mesh only, slowed to a few new connections a minute per address. Every change here only files a
+// on the box and the way in when this screen is down: public key only, as admin, from the home network and
+// the mesh (and the internet on a cloud box), slowed to a few new connections a minute per address. Every change here only files a
 // request; nothing changes until an owner approves it in Approvals, and letting a key in or switching SSH
 // on needs a passkey there once passkeys are active. Only an owner sees this card.
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router';
-import { OneMind, OneMindError } from '@onemind/sdk';
+import { OneMind, OneMindError, type components } from '@onemind/sdk';
 import { Button, Card, Table } from '@onemind/ui';
 import { ApiError } from '../api/types';
 import { usePoll } from '../lib/hooks';
@@ -15,9 +15,9 @@ import { useSignedIn } from '../session';
 import { href } from '../shell/routes';
 import { Load } from './parts';
 
-type Key = { id: string; fingerprint: string; type: string; bits: number | null; comment: string };
-type Service = { available: boolean; message: string | null; state: string; port: number; user: string; rate_limit: string; max_keys: number };
-type View = { service: Service; keys: Key[] };
+// The gateway's own response types (generated from core/onemind_core/routers/ssh.py through the OpenAPI spec).
+type Key = components['schemas']['SshKey'];
+type View = components['schemas']['SshView'];
 
 const STATE: Record<string, string> = {
   on: 'On, and listening',
@@ -29,8 +29,8 @@ const STATE: Record<string, string> = {
 function apiError(e: unknown) {
   return e instanceof OneMindError ? new ApiError(e.status, e.status === 401 ? 'unauthenticated' : e.status === 403 ? 'permission_denied' : 'unknown', e.message, e.reason) : e;
 }
-async function call(client: OneMind, method: 'GET' | 'POST' | 'PUT' | 'DELETE', path: string, body?: unknown) {
-  try { return await client.call<unknown>({ method, path, body }); } catch (e) { throw apiError(e); }
+async function call(client: OneMind, method: 'GET' | 'POST' | 'PUT' | 'DELETE', path: string, body?: unknown, headers?: Record<string, string>) {
+  try { return await client.call<unknown>({ method, path, body, headers }); } catch (e) { throw apiError(e); }
 }
 function view(v: unknown): View {
   const o = v && typeof v === 'object' ? (v as Partial<View>) : undefined;
@@ -70,17 +70,20 @@ function LiveSshKeys({ token }: { token: string }) {
     setKey(''); setLabel('');
     return r;
   }, 'add the key');
-  const remove = (k: Key) => file(() => call(client, 'DELETE', `/v1/ssh/keys/${encodeURIComponent(k.id)}`), 'remove the key');
+  // A DELETE has no body, so its idempotency key goes in the header: a retried click files one removal, not two.
+  const remove = (k: Key) => file(() => call(client, 'DELETE', `/v1/ssh/keys/${encodeURIComponent(k.id)}`, undefined, { 'Idempotency-Key': uuidv4() }), 'remove the key');
   const toggle = (enabled: boolean) => file(() => call(client, 'PUT', '/v1/ssh', { enabled, idempotency_key: uuidv4() }), enabled ? 'switch SSH on' : 'switch SSH off');
 
   return <Card title="SSH keys">
-    <p>SSH is a shell on this box for you, the owner: public key only (no password), as <code>admin</code>, from your home network or mesh (and from the internet on a cloud box), and slowed to a few new connections a minute per address. It is also the way in if this screen is down. Every change below is a request that an owner approves in Approvals, with a passkey to let a key in or switch SSH on.</p>
+    <p>SSH is a shell on this box for you, the owner: public key only (no password), as <code>admin</code>, from your home network or mesh, and slowed to a few new connections a minute per address. It is also the way in if this screen is down. Every change below is a request that an owner approves in Approvals, with a passkey to let a key in or switch SSH on.</p>
     {filed && <p role="status">Asked to {filed.what}. Nothing changes until an owner approves it. <Link to={href.approval(filed.id)}>Open request in Approvals</Link></p>}
     {failed && <p className="om-note om-tone-bad" role="status">{failed}</p>}
     <Load res={status} what="Loading SSH">{(s) => {
       const state = s.service.state;
       const off = state === 'off';
+      const internet = Array.isArray(s.service.reach) && s.service.reach.includes('internet');
       return <>
+        {internet && <p className="om-note om-tone-warn" role="note">This is a cloud box: SSH also answers from the internet, still with a key only and the same limit on new connections.</p>}
         {!s.service.available
           ? <p className="om-note om-tone-warn" role="note">SSH is not available on this box: {s.service.message ?? 'the host service gave no answer.'}</p>
           : <p role="status">SSH: {STATE[state] ?? state}. <Button size="sm" variant="ghost" disabled={busy} onClick={() => void toggle(off)}>{off ? 'Ask to switch SSH on' : 'Ask to switch SSH off'}</Button></p>}

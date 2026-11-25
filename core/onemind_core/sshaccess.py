@@ -43,6 +43,7 @@ MAX_KEYS = 20
 MAX_KEY_BYTES = 8192
 MIN_RSA_BITS = 2048
 REACH = ["lan", "mesh"]
+REACH_CLOUD = ["lan", "mesh", "internet"]   # a cloud board: its firewall lets 22 in from any address (rate-limited)
 RATE_LIMIT = "6 new connections a minute per address"
 LABEL_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 _.@+:-]{0,59}$")
 FINGERPRINT_RE = re.compile(r"^SHA256:[A-Za-z0-9+/]{43}$")
@@ -74,7 +75,8 @@ class SshHostError(Exception):
 
 class SshHost(Protocol):
     def state(self) -> dict:
-        """{available, reason, message, enabled, running, keys: [{fingerprint, type, bits, comment}]}."""
+        """{available, reason, message, enabled, running, internet, keys: [{fingerprint, type, bits, comment}]}.
+        `internet` is true on a cloud board, whose firewall lets port 22 in from any address."""
 
     def add_key(self, line: str) -> None: ...
     def remove_key(self, fingerprint: str) -> None: ...
@@ -97,7 +99,7 @@ class HostSshClient:
         return status, doc if isinstance(doc, dict) else {}
 
     def state(self) -> dict:
-        gone = {"available": False, "enabled": False, "running": False, "keys": []}
+        gone = {"available": False, "enabled": False, "running": False, "internet": False, "keys": []}
         try:
             status, doc = self._call("GET", "/v1/ssh")
         except SshHostError as e:
@@ -105,7 +107,7 @@ class HostSshClient:
         if status == 200 and doc.get("available") is True:
             keys = [k for k in doc.get("keys") or [] if isinstance(k, dict) and FINGERPRINT_RE.match(str(k.get("fingerprint")))]
             return {"available": True, "reason": None, "message": None, "enabled": doc.get("enabled") is True,
-                    "running": doc.get("running") is True, "keys": keys}
+                    "running": doc.get("running") is True, "internet": doc.get("internet") is True, "keys": keys}
         why = doc.get("unavailable_reason") if status == 200 else None
         return {**gone, "reason": "ssh_unavailable", "message": f"This box cannot manage SSH yet: {why or 'the host service gave no answer.'}"}
 
@@ -206,7 +208,8 @@ class SshService:
             state = "waiting_for_key" if not keys else "starting"
         return {"service": {"available": st["available"], "reason": st["reason"], "message": st["message"],
                             "state": state, "enabled": st["enabled"], "running": st["running"],
-                            "port": 22, "user": "admin", "reach": REACH, "password_login": False,
+                            "port": 22, "user": "admin", "reach": REACH_CLOUD if st.get("internet") is True else REACH,
+                            "password_login": False,
                             "rate_limit": RATE_LIMIT, "max_keys": MAX_KEYS},
                 "keys": keys}
 
