@@ -32,6 +32,7 @@ const Schema = "onemind.host/v1"
 //	GET  /v1/smb, PUT /v1/smb/shares, PUT /v1/smb/users/{user}/password   file sharing (smb.go)
 //	GET  /v1/network           read-only network facts (internal/netview; 404 when Network is nil)
 //	GET  /v1/firewall          the live nftables ruleset in a structured form (internal/firewall; 404 when Firewall is nil)
+//	POST /v1/firewall/allow, POST .../allow/{id}/confirm, DELETE .../allow/{id}   owner allow rules with automatic revert (firewall_allow.go)
 //	GET  /v1/services          service cards: the image's registry joined with systemd (internal/svcregistry; 404 when Services is nil)
 //	GET  /v1/services/{unit}/logs?lines=200&follow=1   a registry unit's journal as text lines (404 when ServiceLogs is nil)
 type Server struct {
@@ -47,6 +48,9 @@ type Server struct {
 	Network func() (any, error)
 	// Firewall answers GET /v1/firewall (P-09 part 1). It only reads (nft -j list ruleset); nil leaves the route off.
 	Firewall func(ctx context.Context) (any, error)
+	// FirewallAllow keeps the owner allow rules (P-09 part 2): POST /v1/firewall/allow, POST
+	// /v1/firewall/allow/{id}/confirm, DELETE /v1/firewall/allow/{id}. Nil leaves the routes off.
+	FirewallAllow AllowManager
 	// Services answers GET /v1/services (#623). It only reads (systemctl show); nil leaves the route off.
 	Services func(ctx context.Context) (any, error)
 	// Hostname names the box in GET /v1/status (#875; default os.Hostname): the harmless read the gateway
@@ -256,6 +260,7 @@ func (s *Server) Handler() http.Handler {
 		writeJSON(w, http.StatusOK, s.S.Reset.Plan(r.Context()))
 	})
 	s.smbRoutes(mux)
+	s.firewallAllowRoutes(mux)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !s.peerAllowed(r) {
 			apiError(w, http.StatusForbidden, "permission_denied", "peer", "this socket serves root and the gateway only")

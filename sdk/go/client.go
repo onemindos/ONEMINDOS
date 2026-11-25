@@ -459,6 +459,29 @@ func (s *NetworkService) Firewall(ctx context.Context) (*FirewallView, error) {
 	return &v, s.c.Do(ctx, http.MethodGet, "/v1/network/firewall", nil, &v)
 }
 
+// Allow is operation network.firewall.allow (POST /v1/network/firewall/allow, P-09 part 2): it files a
+// firewall.allow action for one port from the home network ("lan") or the mesh ("mesh"). It only asks: an owner
+// approves it with a passkey, and the rule then stays pending until it is confirmed. Retried calls carry one
+// idempotency key so a retry never files twice.
+func (s *NetworkService) Allow(ctx context.Context, proto string, port int, scope, reason string) (*Action, error) {
+	body := map[string]any{"proto": proto, "port": port, "scope": scope, "idempotency_key": "sdk-" + strconv.FormatInt(time.Now().UnixNano(), 36)}
+	if reason != "" {
+		body["reason"] = reason
+	}
+	var v Action
+	return &v, s.c.Do(ctx, http.MethodPost, "/v1/network/firewall/allow", body, &v)
+}
+
+// ConfirmAllow is operation network.firewall.allow.confirm: keep a pending rule (owner only).
+func (s *NetworkService) ConfirmAllow(ctx context.Context, id string) error {
+	return s.c.Do(ctx, http.MethodPost, "/v1/network/firewall/allow/"+url.PathEscape(id)+"/confirm", nil, nil)
+}
+
+// RemoveAllow is operation network.firewall.allow.remove: take a rule away, pending or confirmed (owner only).
+func (s *NetworkService) RemoveAllow(ctx context.Context, id string) error {
+	return s.c.Do(ctx, http.MethodDelete, "/v1/network/firewall/allow/"+url.PathEscape(id), nil, nil)
+}
+
 // NodesService is /v1/nodes.
 type NodesService struct{ c *Client }
 

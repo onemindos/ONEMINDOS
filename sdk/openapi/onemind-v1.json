@@ -982,6 +982,186 @@
         "title": "Allow",
         "type": "object"
       },
+      "AllowRequest": {
+        "additionalProperties": false,
+        "description": "POST /v1/network/firewall/allow.",
+        "properties": {
+          "idempotency_key": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idempotency Key"
+          },
+          "port": {
+            "maximum": 65535.0,
+            "minimum": 1.0,
+            "title": "Port",
+            "type": "integer"
+          },
+          "proto": {
+            "enum": [
+              "tcp",
+              "udp"
+            ],
+            "title": "Proto",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why, shown to the owner on the approval card.",
+            "title": "Reason"
+          },
+          "scope": {
+            "description": "lan: devices on the home network; mesh: your other OneMind machines. Never the internet.",
+            "enum": [
+              "lan",
+              "mesh"
+            ],
+            "title": "Scope",
+            "type": "string"
+          }
+        },
+        "required": [
+          "proto",
+          "port",
+          "scope"
+        ],
+        "title": "AllowRequest",
+        "type": "object"
+      },
+      "AllowRule": {
+        "additionalProperties": false,
+        "description": "One port the owner opened. `pending` rules revert at `expires_at` unless confirmed.",
+        "properties": {
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Pending only: when the box takes the rule away again if nobody confirmed it.",
+            "title": "Expires At"
+          },
+          "id": {
+            "description": "The id of the approved action that opened it.",
+            "title": "Id",
+            "type": "string"
+          },
+          "port": {
+            "title": "Port",
+            "type": "integer"
+          },
+          "proto": {
+            "enum": [
+              "tcp",
+              "udp"
+            ],
+            "title": "Proto",
+            "type": "string"
+          },
+          "scope": {
+            "enum": [
+              "lan",
+              "mesh"
+            ],
+            "title": "Scope",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "pending",
+              "confirmed"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "proto",
+          "port",
+          "scope",
+          "state",
+          "summary"
+        ],
+        "title": "AllowRule",
+        "type": "object"
+      },
+      "AllowView": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "rules": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/AllowRule"
+            },
+            "title": "Rules",
+            "type": "array"
+          },
+          "supported": {
+            "description": "False when this box's firewall has no owner rule lists yet (older image) or the host cannot take rules.",
+            "title": "Supported",
+            "type": "boolean"
+          },
+          "ttl_seconds": {
+            "description": "How long a new rule waits for confirmation before it reverts.",
+            "title": "Ttl Seconds",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "supported",
+          "ttl_seconds"
+        ],
+        "title": "AllowView",
+        "type": "object"
+      },
       "Anchor": {
         "additionalProperties": false,
         "properties": {
@@ -4886,8 +5066,19 @@
       },
       "FirewallView": {
         "additionalProperties": false,
-        "description": "The box's firewall, explained. Read only: `editable` is false until allow rules (P-09 part 2) exist.",
+        "description": "The box's firewall, explained. `editable` is true when the box can take allow rules (`allow.supported`).",
         "properties": {
+          "allow": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AllowView"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The ports the owner opened, with their state and deadline; null when the host service keeps none."
+          },
           "at": {
             "anyOf": [
               {
@@ -4936,7 +5127,7 @@
           },
           "editable": {
             "default": false,
-            "description": "False: this is the view. Allow rules with automatic revert are P-09 part 2.",
+            "description": "True when the owner can ask for allow rules (POST /v1/network/firewall/allow); false on an image or host that cannot take them.",
             "title": "Editable",
             "type": "boolean"
           },
@@ -31847,6 +32038,290 @@
           }
         },
         "summary": "Network Firewall",
+        "tags": [
+          "net"
+        ]
+      }
+    },
+    "/v1/network/firewall/allow": {
+      "post": {
+        "description": "Ask to open one port to the home network (`lan`) or your mesh (`mesh`). The internet is not an option.\n\nIt waits for the owner, who approves it with a passkey; the response is the action, whose id is the\napproval to look for. After approval the rule is *pending*: the box removes it again after\n`ttl_seconds` (see the firewall view) unless the owner confirms it. An agent may ask, never approve.\n\n409 when the box cannot take the rule now (host unreachable, firewall not loaded, image too old, or the\nsame rule already exists); nothing is filed then.",
+        "operationId": "network.firewall.allow",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AllowRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
+                }
+              }
+            },
+            "description": "Idempotent replay"
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
+          }
+        },
+        "summary": "Network Firewall Allow",
+        "tags": [
+          "net"
+        ]
+      }
+    },
+    "/v1/network/firewall/allow/{rule_id}": {
+      "delete": {
+        "description": "Take an allow rule away, pending or confirmed. Owner only and audited; removing exposure needs no approval.",
+        "operationId": "network.firewall.allow.remove",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "rule_id",
+            "required": true,
+            "schema": {
+              "title": "Rule Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Network Firewall Allow Remove",
+        "tags": [
+          "net"
+        ]
+      }
+    },
+    "/v1/network/firewall/allow/{rule_id}/confirm": {
+      "post": {
+        "description": "Keep a pending allow rule for good. Owner only and audited. A rule nobody confirmed in time is already gone: 404.",
+        "operationId": "network.firewall.allow.confirm",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "rule_id",
+            "required": true,
+            "schema": {
+              "title": "Rule Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such resource (not_found)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Network Firewall Allow Confirm",
         "tags": [
           "net"
         ]

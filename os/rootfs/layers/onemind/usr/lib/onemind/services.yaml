@@ -61,6 +61,8 @@ services:
      depends_on: [onemind-kiosk-apply.service], description: "Watches the kiosk switch the owner sets in the dashboard or the CLI and starts the kiosk switch when it changes."}
   - {unit: onemind-firewall.service, name: Firewall, docs: docs/architecture/NETWORKING.md, restartable: false, risk: high, depends_on: [],
      description: "Loads the default-deny firewall at boot, so only the ports OneMind uses are open."}
+  - {unit: onemind-firewall-owner.service, name: Firewall allow rules, docs: docs/architecture/NETWORKING.md, restartable: false, risk: high, depends_on: [onemind-firewall.service],
+     description: "Opens the extra ports the owner approved to the home network or the mesh, and takes them away again unless the owner confirms."}
   - {unit: onemind-health-gate.service, name: Update health check, docs: docs/learning/07-image-ab-updates-health-gate.md, restartable: false, risk: high,
      depends_on: [onemind-local-api.service], description: "After an update, keeps the new system only if it boots healthy; otherwise the next boot goes back to the old one."}
   - {unit: onemind-local-api.service, name: Boot check helper, docs: docs/learning/07-image-ab-updates-health-gate.md, restartable: false, risk: low,

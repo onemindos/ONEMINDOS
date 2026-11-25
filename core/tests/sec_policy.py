@@ -886,6 +886,18 @@ POLICY |= {
                                 "core/onemind_core/routers/network.py: every address, MAC and open port of the box; owner only"),
     ("GET", "/v1/network/firewall"): Row(grid(200, 403, 403, 403, 403), w.p_static("/v1/network/firewall"),
                                          "core/onemind_core/routers/network.py: every rule of the box's firewall (P-09 part 1); owner only, read only"),
+    # P-09 part 2: the matrix world has no host socket, so an owner (or an agent, for the request) passes authorization
+    # and gets 409 (nothing is filed); the switched-on paths are in tests/test_firewall_allow.py.
+    ("POST", "/v1/network/firewall/allow"): Row(
+        cells(403, **GONE, owner=409, agent=409, app_agent=409, plugin=DENIED, automation=DENIED, node=DENIED),
+        lambda _w: w.Req("/v1/network/firewall/allow", json={"proto": "tcp", "port": 8123, "scope": "lan"}),
+        "core/onemind_core/routers/network.py: owner or agent asks to open a port to the LAN or mesh; only an owner approves, with a passkey"),
+    ("POST", "/v1/network/firewall/allow/{rule_id}/confirm"): Row(
+        grid(409, 403, 403, 403, 403), w.p_static("/v1/network/firewall/allow/no-such-rule/confirm"),
+        "core/onemind_core/routers/network.py: keep a pending allow rule; owner only, audited"),
+    ("DELETE", "/v1/network/firewall/allow/{rule_id}"): Row(
+        grid(409, 403, 403, 403, 403), w.p_static("/v1/network/firewall/allow/no-such-rule"),
+        "core/onemind_core/routers/network.py: take an allow rule away; owner only, audited, no approval (removing exposure)"),
 }
 
 # ---- bring your own domain (NET-DOM-01, #238: core/onemind_core/routers/domains.py) -----------------------------

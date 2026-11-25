@@ -7,11 +7,10 @@ again item by item (H-06: a rule or name that fails a check is dropped and count
 rule lets in (this machine, the mesh, the pod network, the home LAN, or any address) and writes one
 plain sentence per rule. Nothing here changes the firewall.
 
-Seam for part 2 (allow rules with automatic revert): `FirewallView.editable` is false today. Part 2
-adds an owner-approved action that writes a rule into the same table and reverts it unless the owner
-confirms; it will flip `editable` and reuse `FirewallRule` as the shape of what it proposes. The
-explanation functions below are the part it shares: the approval card says what a proposed rule would
-open in the same words this screen uses for the rules already there.
+Part 2 (allow rules with automatic revert, fwallow.py) adds the owner's own allow rules: the host reports them
+in `allow`, this module checks them like every other field, and `editable` says whether the box can take new
+ones. The rules themselves also appear in `rules`, in the lists `owner_lan` and `owner_mesh`, in the same words as
+every other rule.
 """
 
 from __future__ import annotations
@@ -38,6 +37,9 @@ MAX_CHAINS = 64
 MAX_RULES = 400
 MAX_TABLES = 32
 MAX_VALUES = 64
+MAX_ALLOW = 32
+ALLOW_ID_RE = re.compile(r"^[A-Za-z0-9_.:-]{1,128}$")
+CONTROL_RE = re.compile(r"[\x00-\x1f\x7f]")
 
 Audience = Literal["this_machine", "mesh", "pod_network", "lan", "specific_address", "one_interface", "any_network"]
 Kind = Literal["open_port", "basics", "state", "internal", "hand_off", "block", "other"]
@@ -108,8 +110,30 @@ class FirewallTable(BaseModel):
     rules: int
 
 
+class AllowRule(BaseModel):
+    """One port the owner opened. `pending` rules revert at `expires_at` unless confirmed."""
+
+    model_config = ConfigDict(extra="forbid")
+    id: str = Field(description="The id of the approved action that opened it.")
+    proto: Literal["tcp", "udp"]
+    port: int
+    scope: Literal["lan", "mesh"]
+    state: Literal["pending", "confirmed"]
+    created_at: datetime | None = None
+    expires_at: datetime | None = Field(default=None, description="Pending only: when the box takes the rule away again if nobody confirmed it.")
+    summary: str
+
+
+class AllowView(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    supported: bool = Field(description="False when this box's firewall has no owner rule lists yet (older image) or the host cannot take rules.")
+    reason: str | None = None
+    ttl_seconds: int = Field(description="How long a new rule waits for confirmation before it reverts.")
+    rules: list[AllowRule] = []
+
+
 class FirewallView(BaseModel):
-    """The box's firewall, explained. Read only: `editable` is false until allow rules (P-09 part 2) exist."""
+    """The box's firewall, explained. `editable` is true when the box can take allow rules (`allow.supported`)."""
 
     model_config = ConfigDict(extra="forbid")
     available: bool
@@ -124,7 +148,8 @@ class FirewallView(BaseModel):
     rules: list[FirewallRule] = []
     sets: list[FirewallSet] = []
     other_tables: list[FirewallTable] = Field(default=[], description="Tables other services keep (cluster, mesh guard), by name and size only.")
-    editable: bool = Field(default=False, description="False: this is the view. Allow rules with automatic revert are P-09 part 2.")
+    editable: bool = Field(default=False, description="True when the owner can ask for allow rules (POST /v1/network/firewall/allow); false on an image or host that cannot take them.")
+    allow: AllowView | None = Field(default=None, description="The ports the owner opened, with their state and deadline; null when the host service keeps none.")
     dropped: int = Field(default=0, description="Entries the gateway refused because a field failed its checks, or past its own size caps.")
     truncated: int = Field(default=0, description="Chains, rules, sets and set members the host service left out because of its size caps. Not zero means the view is partial.")
 
@@ -337,7 +362,64 @@ def _headline(exposure: str, default: str | None, wan: list[str], why: list[str]
             "Nothing is open to the internet." + CHECKED)
 
 
+def _when(v: Any) -> datetime | None:
+    if v in (None, ""):
+        return None
+    if not isinstance(v, str):
+        raise ValueError("bad time")
+    return datetime.fromisoformat(v.replace("Z", "+00:00"))
+
+
+def _allow_rule(e: Any) -> AllowRule:
+    if not isinstance(e, dict):
+        raise ValueError("not an object")
+    rid, proto, scope, state = e.get("id"), e.get("proto"), e.get("scope"), e.get("state")
+    port = e.get("port")
+    if not isinstance(rid, str) or not ALLOW_ID_RE.match(rid) or proto not in ("tcp", "udp") or scope not in ("lan", "mesh") \
+            or state not in ("pending", "confirmed") or not isinstance(port, int) or isinstance(port, bool) or not 1 <= port <= 65535:
+        raise ValueError("bad allow rule")
+    expires = _when(e.get("expires")) if state == "pending" else None
+    if state == "pending" and expires is None:
+        raise ValueError("a pending rule has a deadline")
+    who = AUDIENCE_WORDS["lan" if scope == "lan" else "mesh"]
+    tail = "Closes again by itself unless you confirm it." if state == "pending" else "Confirmed: stays open until you remove it."
+    return AllowRule(id=rid, proto=proto, port=port, scope=scope, state=state, created_at=_when(e.get("created")), expires_at=expires,
+                     summary=f"Lets {who} reach {proto.upper()} port {port}. {tail}")
+
+
+def _allow_view(raw: Any) -> tuple[AllowView | None, int]:
+    """The host's `allow` part, checked: (view, entries dropped). Anything malformed is dropped and counted, never shown."""
+    if raw is None:
+        return None, 0
+    if not isinstance(raw, dict) or not isinstance(raw.get("supported"), bool):
+        return None, 1
+    ttl = raw.get("ttl_seconds")
+    if not isinstance(ttl, int) or isinstance(ttl, bool) or not 1 <= ttl <= 86400:
+        return None, 1
+    reason = raw.get("reason")
+    reason = reason[:200] if isinstance(reason, str) and reason and not CONTROL_RE.search(reason) else None
+    rules, dropped = _items(raw.get("rules"), _allow_rule, MAX_ALLOW)
+    seen: set[str] = set()
+    unique = []
+    for r in rules:
+        if r.id in seen:
+            dropped += 1
+        else:
+            seen.add(r.id)
+            unique.append(r)
+    return AllowView(supported=raw["supported"], reason=reason, ttl_seconds=ttl, rules=unique), dropped
+
+
 def parse_view(body: Any) -> FirewallView:
+    view = _parse_view(body)
+    if view.available and isinstance(body, dict):
+        allow, d = _allow_view(body.get("allow"))
+        view.allow, view.dropped = allow, view.dropped + d
+        view.editable = bool(allow and allow.supported and view.exposure != "no_firewall")
+    return view
+
+
+def _parse_view(body: Any) -> FirewallView:
     if not isinstance(body, dict) or body.get("schema") != SCHEMA:
         return unavailable("bad_response", "the host service sent something the gateway does not understand")
     dropped = 0

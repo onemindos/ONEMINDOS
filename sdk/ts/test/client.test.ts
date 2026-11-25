@@ -268,6 +268,19 @@ describe("network.view", () => {
     expect(calls[0]!.url).toBe("http://localhost:8080/v1/network/firewall");
     expect(calls[0]!.init.method).toBe("GET");
   });
+  it("asks to open a port, confirms it and removes it (P-09 part 2)", async () => {
+    const { om, calls } = client((_url, init) => json(init.method === "DELETE" ? 200 : 202, { id: "act-1", state: "awaiting_approval", removed: true }));
+    expect((await om.network.allow({ proto: "tcp", port: 8123, scope: "lan" })).id).toBe("act-1");
+    expect(calls[0]!.url).toBe("http://localhost:8080/v1/network/firewall/allow");
+    expect(calls[0]!.init.method).toBe("POST");
+    expect(JSON.parse(String(calls[0]!.init.body))).toEqual({ proto: "tcp", port: 8123, scope: "lan" });
+    await om.network.confirmAllow("act 1");
+    expect(calls[1]!.url).toBe("http://localhost:8080/v1/network/firewall/allow/act%201/confirm");
+    expect(calls[1]!.init.method).toBe("POST");
+    await om.network.removeAllow("act-1");
+    expect(calls[2]!.url).toBe("http://localhost:8080/v1/network/firewall/allow/act-1");
+    expect(calls[2]!.init.method).toBe("DELETE");
+  });
 });
 
 describe("protocol generation (sdk/contracts/protocol-versions.md)", () => {

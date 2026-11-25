@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
 """OneMind QEMU battery, host firewall (FW1-FW4). Criteria: test/qemu/CRITERIA-FIREWALL.md (pre-registered).
+FW5-FW7 (owner allow rules with automatic revert, P-09 part 2) follow in the same session; criteria:
+test/qemu/CRITERIA-FIREWALL-ALLOW.md (pre-registered).
 
 Two VMs boot the fixture image: the box (hub seed) and a scanner (no seed, so no role: the setup wizard runs).
 A QEMU socket link joins them with two address pairs, a LAN one and a documentation-range "public" one. The
@@ -8,7 +10,7 @@ scanner probes the box from both; the box counts what its firewall dropped (coun
 input chain), so the verdict does not depend on the scanner reading silence correctly. Then the box probes the
 scanner's wizard port from both addresses. Run: make firewall BOARD=x86_64-efi (CI image workflow; first run there).
 """
-import argparse, importlib.util, json, os, platform, re, shutil, sys, time
+import argparse, importlib.util, json, os, platform, re, shlex, shutil, sys, time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
@@ -50,6 +52,18 @@ th = [threading.Thread(target=t, args=(p,)) for p in tcp] + [threading.Thread(ta
 [x.start() for x in th]; [x.join() for x in th]
 print("PROBE-DONE", flush=True)
 '''
+LISTEN_PY = r'''
+import socket, threading, time
+def serve(p):
+    s = socket.socket(); s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1); s.bind(("0.0.0.0", p)); s.listen(16)
+    while True:
+        c, _ = s.accept(); c.close()
+for p in (9091, 9092, 9093):
+    threading.Thread(target=serve, args=(p,), daemon=True).start()
+time.sleep(1800)
+'''
+ALLOW_TTL_S = 25
+HOST_SOCK = "/run/onemind/host.sock"
 RESULTS = []
 
 
@@ -96,6 +110,42 @@ def read_counters(vm):
     return c
 
 
+def host_api(vm, method, path, body=None):
+    """One call on the host service's own socket, as root on the box (what the gateway does after an approval)."""
+    data = f"-H 'Content-Type: application/json' -d {shlex.quote(json.dumps(body))}" if body is not None else ""
+    _, out = vm.run(f"curl -s -o /run/fwapi.out -w 'HTTP=%{{http_code}}' --unix-socket {HOST_SOCK} -X {method} {data} http://host{path}; echo; "
+                    "cat /run/fwapi.out; echo; rm -f /run/fwapi.out", 30)
+    m = re.search(r"^HTTP=(\d{3})\s*$", out, re.M)
+    code = int(m.group(1)) if m else 0
+    j = re.search(r"^(\{.*\})\s*$", out, re.M)
+    try:
+        doc = json.loads(j.group(1)) if j else None
+    except ValueError:
+        doc = None
+    return code, doc
+
+
+def open_ports(scan, tag, box, ports):
+    """The ports of `ports` the scanner reaches on the box from this address (tag: lan or pub)."""
+    out = probe(scan, ADDR[tag]["scan"], ADDR[tag]["box"], ports, [])
+    return {int(p) for p in re.findall(r"^T (\d+) open", out, re.M)}
+
+
+def owner_chain(box, name):
+    _, out = box.run(f"nft list chain inet onemind_host {name}")
+    return out
+
+
+def wait_host_service(box, timeout=60):
+    end = time.time() + timeout
+    while time.time() < end:
+        code, doc = host_api(box, "GET", "/v1/status")
+        if code == 200:
+            return True
+        time.sleep(2)
+    return False
+
+
 K3S_PORTS = {6443, 10250}
 LISTEN_RE = re.compile(r"^LISTEN (?:\*|0\.0\.0\.0|\[::\]|::):(\d+)\s*$", re.M)
 SS_CMD = "ss -H -ltn | awk '{print \"LISTEN \" $4}'"
@@ -116,6 +166,54 @@ def wait_k3s_listening(vm, timeout=600, step=5, clock=time.time, sleep=time.slee
         if K3S_PORTS <= have or clock() >= end:
             return have, ss
         sleep(step)
+
+
+def allow_tests(box, scan):
+    """FW5-FW7 (CRITERIA-FIREWALL-ALLOW.md): owner allow rules, their automatic revert, and their scope."""
+    box.mark("allow rules: short deadline, restart the host service, start three listeners")
+    box.run("mkdir -p /run/systemd/system/onemind-host.service.d && printf '[Service]\\nEnvironment=ONEMIND_HOST_FIREWALL_TTL=%ss\\n' "
+            f"{ALLOW_TTL_S} > /run/systemd/system/onemind-host.service.d/ttl.conf && systemctl daemon-reload && systemctl restart onemind-host; echo RESTART-RC=$?", 60)
+    if not wait_host_service(box):
+        record("FW5", "BLOCKED", "the host service did not answer on its socket after the restart")
+        return
+    code, view = host_api(box, "GET", "/v1/firewall")
+    supported = code == 200 and isinstance(view, dict) and (view.get("allow") or {}).get("supported") is True
+    fb.send_file(box, "/run/fwlisten.py", LISTEN_PY)
+    box.run(f"nohup {fb.PY} -I /run/fwlisten.py >/dev/null 2>&1 &", 10)
+    time.sleep(2)
+    rule = lambda i, port, scope: {"id": i, "proto": "tcp", "port": port, "scope": scope}
+    a = host_api(box, "POST", "/v1/firewall/allow", rule("fwa-1", 9091, "lan"))
+    b = host_api(box, "POST", "/v1/firewall/allow", rule("fwb-1", 9092, "lan"))
+    c = host_api(box, "POST", "/v1/firewall/allow", rule("fwc-1", 9093, "mesh"))
+    pending = all(x[0] == 200 and (x[1] or {}).get("state") == "pending" for x in (a, b, c))
+    bad_scopes = [host_api(box, "POST", "/v1/firewall/allow", {"id": f"fwx-{i}", "proto": "tcp", "port": 9094, "scope": sc})[0]
+                  for i, sc in enumerate(("wan", "any", "0.0.0.0/0"))]
+    no_wan = all(x == 409 for x in bad_scopes) and "9094" not in owner_chain(box, "owner_lan") + owner_chain(box, "owner_mesh")
+    ports = [9091, 9092, 9093]
+    lan0, pub0 = open_ports(scan, "lan", box, ports), open_ports(scan, "pub", box, ports)
+    cb = host_api(box, "POST", "/v1/firewall/allow/fwb-1/confirm")
+    time.sleep(ALLOW_TTL_S + 10)
+    lan1 = open_ports(scan, "lan", box, ports)
+    lan_chain = owner_chain(box, "owner_lan")
+    ca = host_api(box, "POST", "/v1/firewall/allow/fwa-1/confirm")
+    record("FW5", supported and pending and lan0 == {9091, 9092} and cb[0] == 200 and lan1 == {9092}
+           and "9092" in lan_chain and "9091" not in lan_chain and ca[0] == 404,
+           f"supported={supported} add={[x[0] for x in (a, b, c)]} pending={pending} open_at_first={sorted(lan0)} confirm_b={cb[0]} "
+           f"open_after_deadline={sorted(lan1)} chain_has_9091={'9091' in lan_chain} chain_has_9092={'9092' in lan_chain} confirm_a_after_revert={ca[0]}")
+    host_api(box, "POST", "/v1/firewall/allow", rule("fwd-1", 9091, "lan"))
+    box.run("systemctl restart onemind-host; echo RESTART-RC=$?", 60)
+    back = wait_host_service(box)
+    lan2 = open_ports(scan, "lan", box, ports)
+    chain2 = owner_chain(box, "owner_lan")
+    rm = host_api(box, "DELETE", "/v1/firewall/allow/fwb-1")
+    lan3 = open_ports(scan, "lan", box, ports)
+    record("FW6", back and lan2 == {9092} and "9092" in chain2 and "9091" not in chain2 and rm[0] == 200 and not lan3,
+           f"host_back={back} open_after_restart={sorted(lan2)} chain_has_9092={'9092' in chain2} chain_has_9091={'9091' in chain2} "
+           f"remove_b={rm[0]} open_after_remove={sorted(lan3)}")
+    lan4 = open_ports(scan, "lan", box, ports)
+    record("FW7", not pub0 and 9093 not in lan0 and 9093 not in lan1 and no_wan,
+           f"open_from_public_while_allowed={sorted(pub0)} mesh_rule_open_from_lan={9093 in lan0 or 9093 in lan1} "
+           f"bad_scope_answers={bad_scopes} wan_in_chain={not no_wan} open_from_lan_at_end={sorted(lan4)}")
 
 
 def main():
@@ -189,6 +287,7 @@ def main():
             res[tag] = (re.findall(r"^T 8080 (\w+)", out, re.M) or ["none"])[-1]
         record("FW4", wiz_up and res["lan"] == "open" and res["pub"] != "open" and ("tcp", 8080) not in reach["lan"],
                f"wizard_running={wiz_up} 8080_from_lan={res['lan']} 8080_from_public={res['pub']} box_8080_from_lan={'open' if ('tcp', 8080) in reach['lan'] else 'dropped'}")
+        allow_tests(box, scan)
         rc = 0
     except (TimeoutError, RuntimeError) as e:
         record("HARNESS", False, f"aborted: {e}")

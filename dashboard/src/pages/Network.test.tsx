@@ -142,3 +142,93 @@ it('says "Not protected" when the OneMind firewall is not loaded', async () => {
   expect(await screen.findByText('Not protected')).toBeInTheDocument();
   expect(screen.getByText('No rules are loaded.')).toBeInTheDocument();
 });
+
+// ---- P-09 part 2: allow rules with automatic revert ------------------------------------------------------------------------
+const soon = new Date(Date.now() + 4 * 60_000).toISOString();
+const allowView = {
+  ...fwView, editable: true,
+  allow: {
+    supported: true, reason: null, ttl_seconds: 300,
+    rules: [
+      { id: 'act-1', proto: 'tcp', port: 8123, scope: 'lan', state: 'pending', created_at: null, expires_at: soon, summary: 'Lets devices on your home network (LAN) reach TCP port 8123. Closes again by itself unless you confirm it.' },
+      { id: 'act-2', proto: 'udp', port: 5353, scope: 'mesh', state: 'confirmed', created_at: null, expires_at: null, summary: 'Lets other machines on your OneMind mesh reach UDP port 5353. Confirmed: stays open until you remove it.' },
+    ],
+  },
+};
+
+function mountWithWrites(fw: unknown, write: (path: string, method: string, body: unknown) => Response = () => response({ id: 'act-9', state: 'awaiting_approval' }, 202)) {
+  const calls: { path: string; method: string; body: unknown }[] = [];
+  const fetch = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
+    const path = new URL(String(url)).pathname;
+    const method = init?.method ?? 'GET';
+    if (path === '/v1/network') return response(view);
+    if (path === '/v1/network/firewall' && method === 'GET') return response(fw);
+    const body = init?.body ? JSON.parse(String(init.body)) : null;
+    calls.push({ path, method, body });
+    return write(path, method, body);
+  });
+  vi.stubGlobal('fetch', fetch);
+  window.sessionStorage.setItem('onemind.token', 'owner-demo');
+  render(<MemoryRouter initialEntries={['/settings/network']}><SessionProvider deps={{ mock: false, makeApi: () => new MockApi('owner-demo'), knownPrincipal: () => DEMO_TOKENS['owner-demo'] }}><App mock={false} /></SessionProvider></MemoryRouter>);
+  return calls;
+}
+
+it('lists the ports the owner opened: a pending one says it closes unless confirmed, a kept one does not', async () => {
+  mountWithWrites(allowView);
+  const table = within(await screen.findByRole('table', { name: 'Ports you opened' }));
+  expect(table.getByText('TCP 8123 for home network')).toBeInTheDocument();
+  expect(table.getByText(/Closes in [34] min unless you confirm/)).toBeInTheDocument();
+  expect(table.getByText('UDP 5353 for mesh')).toBeInTheDocument();
+  expect(table.getByText('Kept')).toBeInTheDocument();
+  expect(table.getAllByRole('button', { name: 'Keep it open' })).toHaveLength(1); // only the pending rule
+  expect(table.getAllByRole('button', { name: 'Close it' })).toHaveLength(2);
+});
+
+it('asks to open a port: only the home network or the mesh, never the internet, and nothing opens by itself', async () => {
+  const calls = mountWithWrites(allowView);
+  const scope = await screen.findByLabelText('Who can connect');
+  expect(within(scope).getAllByRole('option').map((o) => o.textContent)).toEqual(['Devices on my home network (LAN)', 'My other OneMind machines (mesh)']);
+  const ask = screen.getByRole('button', { name: 'Ask to open this port' });
+  expect(ask).toBeDisabled();
+  const port = screen.getByLabelText('Port (1 to 65535)');
+  for (const bad of ['0', '65536', '80; flush', 'abc']) {
+    await userEvent.clear(port);
+    await userEvent.type(port, bad);
+    expect(ask).toBeDisabled();
+  }
+  await userEvent.clear(port);
+  await userEvent.type(port, '8123');
+  await userEvent.selectOptions(screen.getByLabelText('Type'), 'tcp');
+  await userEvent.selectOptions(scope, 'mesh');
+  await userEvent.click(ask);
+  expect(await screen.findByText(/Request filed\. Approve it with your passkey on the Approvals screen/)).toBeInTheDocument();
+  expect(calls).toEqual([{ path: '/v1/network/firewall/allow', method: 'POST', body: { proto: 'tcp', port: 8123, scope: 'mesh' } }]);
+});
+
+it('keeps a pending rule on request, and closes a rule on request', async () => {
+  const calls = mountWithWrites(allowView, () => response({ id: 'act-1', state: 'confirmed', removed: true }));
+  const table = within(await screen.findByRole('table', { name: 'Ports you opened' }));
+  await userEvent.click(table.getByRole('button', { name: 'Keep it open' }));
+  expect(await screen.findByText(/Kept\. It stays open until you remove it\./)).toBeInTheDocument();
+  await userEvent.click(within(screen.getByRole('table', { name: 'Ports you opened' })).getAllByRole('button', { name: 'Close it' })[1]!);
+  expect(await screen.findByText('Closed.')).toBeInTheDocument();
+  expect(calls).toEqual([
+    { path: '/v1/network/firewall/allow/act-1/confirm', method: 'POST', body: null },
+    { path: '/v1/network/firewall/allow/act-2', method: 'DELETE', body: null },
+  ]);
+});
+
+it('says plainly when a rule already reverted instead of pretending it was kept', async () => {
+  mountWithWrites(allowView, () => response({ error: 'not_found', message: 'there is no such allow rule (a rule that was not confirmed in time is already gone)' }, 404));
+  const table = within(await screen.findByRole('table', { name: 'Ports you opened' }));
+  await userEvent.click(table.getByRole('button', { name: 'Keep it open' }));
+  expect(await screen.findByText(/already gone/)).toBeInTheDocument();
+  expect(screen.queryByText(/Kept\. It stays open/)).not.toBeInTheDocument();
+});
+
+it('offers no form on a box that cannot take rules, and says why', async () => {
+  mountWithWrites({ ...allowView, editable: false, allow: { supported: false, reason: "this OS image's firewall has no owner rules lists yet; update the OS", ttl_seconds: 300, rules: [] } });
+  expect(await screen.findByText(/has no owner rules lists yet; update the OS/)).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Ask to open this port' })).not.toBeInTheDocument();
+  expect(screen.getByText('You have not opened any extra ports.')).toBeInTheDocument();
+});
