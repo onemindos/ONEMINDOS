@@ -17,6 +17,8 @@ export type AuditRecord = components["schemas"]["AuditRecord"];
 export type AuditVerify = components["schemas"]["AuditVerify"];
 /** This box's interfaces, gateway, DNS and listening ports, read only (`/v1/network`, owner only). */
 export type NetworkView = components["schemas"]["NetworkView"];
+/** The box's live firewall, explained in plain words, read only (`/v1/network/firewall`, owner only). */
+export type FirewallView = components["schemas"]["FirewallView"];
 /** The caller's own Home document (UMB-P07, `/v1/me/home`). */
 export type HomeView = components["schemas"]["HomeView"];
 export type HomeBody = components["schemas"]["HomeBody"];
@@ -179,7 +181,11 @@ export class OneMind {
     get: (id: string) => this.call<Node>({ method: "GET", path: `/v1/nodes/${encodeURIComponent(id)}` }),
   };
 
-  readonly network = { view: () => this.call<NetworkView>({ method: "GET", path: "/v1/network" }) };
+  readonly network = {
+    view: () => this.call<NetworkView>({ method: "GET", path: "/v1/network" }),
+    /** network.firewall (P-09 part 1): what the box's firewall lets in, and from where. Read only. */
+    firewall: () => this.call<FirewallView>({ method: "GET", path: "/v1/network/firewall" }),
+  };
 
   readonly apps = {
     list: () => this.call<CatalogApp[]>({ method: "GET", path: "/v1/apps" }),

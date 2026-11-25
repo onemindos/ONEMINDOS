@@ -201,6 +201,7 @@ security POST /v1/migrate/plans/{plan_id}/import owner=core:migrate
 security POST /v1/migrate/plans/{plan_id}/revert owner=core:migrate
 security GET /v1/monitoring/summary owner=core:monitoring
 security GET /v1/network owner=core:net
+security GET /v1/network/firewall owner=core:net
 security GET /v1/nodes owner=core:nodes
 security GET /v1/nodes/{node_id} owner=core:nodes
 security GET /v1/nodes/{node_id}/metrics owner=core:nodes

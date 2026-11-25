@@ -24,6 +24,8 @@ type (
 	Usage        = gen.Usage
 	ServicesView = gen.ServicesView
 	ServiceCard  = gen.ServiceCard
+	FirewallView = gen.FirewallView
+	FirewallRule = gen.FirewallRule
 )
 
 // Action types the gateway accepts today (contract §3; §12.5 adds more).

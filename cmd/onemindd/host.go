@@ -10,12 +10,14 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"os/signal"
 	"os/user"
 	"strconv"
 	"syscall"
 	"time"
 
+	"github.com/onemindos/onemindos/internal/firewall"
 	"github.com/onemindos/onemindos/internal/host"
 	"github.com/onemindos/onemindos/internal/netview"
 	"github.com/onemindos/onemindos/internal/smb"
@@ -92,7 +94,7 @@ func runHost(args []string) int {
 		return 1
 	}
 	log.Info("host service listening", "socket", *sock, "journal", svc.Store != nil, "boot_id", svc.BootID, "gateway_uid", uid)
-	err = (&host.Server{S: svc, AllowUID: uid, AllowGID: -1, Ctx: ctx, Network: networkView,
+	err = (&host.Server{S: svc, AllowUID: uid, AllowGID: -1, Ctx: ctx, Network: networkView, Firewall: firewallView,
 		Services: serviceCards, ServiceLogs: units.Logs}).Serve(ctx, l)
 	stop()
 	svc.Wait()
@@ -149,6 +151,30 @@ func networkView() (any, error) {
 	}
 	exists := func(p string) bool { _, err := os.Stat(p); return err == nil }
 	return netview.System(read, exists).Collect()
+}
+
+// firewallView is GET /v1/firewall: `nft -j list ruleset`, run with fixed arguments and no shell, parsed by
+// internal/firewall into a structured form. Output is capped and the run has a deadline, so a stuck
+// nft cannot hold the host service.
+func firewallView(ctx context.Context) (any, error) {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	c := firewall.Collector{Run: func(ctx context.Context) ([]byte, error) {
+		cmd := exec.CommandContext(ctx, "/usr/sbin/nft", "-j", "list", "ruleset")
+		out, err := cmd.StdoutPipe()
+		if err != nil {
+			return nil, err
+		}
+		if err := cmd.Start(); err != nil {
+			return nil, err
+		}
+		raw, rerr := io.ReadAll(io.LimitReader(out, 8<<20))
+		if err := cmd.Wait(); err != nil {
+			return nil, err
+		}
+		return raw, rerr
+	}}
+	return c.Collect(ctx)
 }
 
 // serviceCards is GET /v1/services (#623): every unit in the image's services registry
