@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
-"""OneMind QEMU battery, first boot (F0-F12). Criteria: test/qemu/CRITERIA-FIRSTBOOT.md
+"""OneMind QEMU battery, first boot (F0-F12, FP1-FP3). Criteria: test/qemu/CRITERIA-FIRSTBOOT.md
 (pre-registered; never edited to make a result pass). Reuses run-tests.py's VM driver.
 
 Input: the battery's fixtures (`make fixtures`: disk.img = slot A v1 + test overlay, bundles.img with
@@ -496,6 +496,32 @@ def f12(vm, token):
     record("F12", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items())
            + f" box={box!r} up={up} down_summary={summary[:80]!r} engine_unreachable={inst.get('reason')}")
 
+def printing(vm, tid, mode):
+    """Printing (CRITERIA-FIRSTBOOT.md section 9): FP1 on the first boot, FP2 after the reboot, FP3 after the update.
+    test/qemu/print-proof.sh runs in the guest as root (the owner) and prints KEY=value lines; judged here."""
+    send_file(vm, "/run/print-proof.sh", open(os.path.join(HERE, "print-proof.sh")).read())
+    _, out = vm.run(f"sh /run/print-proof.sh {mode}; rm -f /run/print-proof.sh /run/onemind-print-test.ppd", 420)
+    g = lambda k: (re.findall(rf"^{k}=(.*?)\s*$", out, re.M) or [""])[-1]
+    mnt = {m: g("MNT_" + m) for m in ("etc_cups", "var_spool_cups", "var_cache_cups", "var_lib_ipp_usb")}
+    ctl = g("CTL")
+    c = {"packages": g("PKGS") == "ok", "no_browsed": g("BROWSED") == "absent", "tools": g("BINS") == "ok",
+         "active": g("ACTIVE") == "active",
+         "listening": bool(re.search(r"(^|,)(\*|0\.0\.0\.0|\[::\]|::):631(,|$)", g("LISTEN"))),
+         "on_data": all(re.search(r"\[/state/" + n.replace("_", "-") + r"\]$", v) for n, v in mnt.items()),
+         "defaults_off": all(f"_{k}=0" in ctl for k in ("remote_admin", "remote_any", "share_printers", "user_cancel_any")),
+         "web_200": g("HTTP_ROOT") == "200", "admin_401": g("HTTP_ADMIN") == "401",
+         "filedevice_off_before": g("FILEDEV_BEFORE") == "0", "printed": g("LP_RC") == "0" and g("OUT_HEAD") == "%PDF"
+         and g("OUT_SIZE").isdigit() and int(g("OUT_SIZE")) >= 1000,
+         "filedevice_off_after": g("FILEDEV_AFTER") == "0", "finished": "PRINT-PROOF-DONE" in out}
+    if mode == "baseline":
+        c["non_owner_refused"] = g("NONOWNER_RC") not in ("", "0") and g("NONOWNER_QUEUE") == "absent"
+        c["queue_added"] = g("ADD_RC") == "0"
+    else:
+        c["queue_kept"] = g("QUEUE").startswith("printer OneMindTest ") and g("DESC") == "OneMind QEMU proof queue"
+    record(tid, all(c.values()), " ".join(f"{k}={v}" for k, v in c.items())
+           + f" listen={g('LISTEN')!r} mounts={mnt} ctl={ctl!r} out={g('OUT_HEAD')!r}/{g('OUT_SIZE')} queue={g('QUEUE')!r}")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--board", required=True, choices=sorted(battery.BOARDS))
@@ -553,6 +579,8 @@ def main():
         vm.mark("F11 starting page, then the gateway, never a refused connection"); f11(vm, (os.path.dirname(a.results) or ".") if a.results else None)
         vm.mark("F12 the gateway reaches the host helper, and says missing without it (#875)"); f12(vm, token)
 
+        vm.mark("FP1 printing: CUPS, locked down, on /data, prints a test page (Step 3)"); printing(vm, "FP1", "baseline")
+
         if a.upto in ("F3", "F4"):
             vm.mark("F3 reboot keeps state")
             seg = vm.here(); vm.send("systemctl reboot")
@@ -567,6 +595,7 @@ def main():
             same = [n for n in listed3 if n[0] == ids["node_id"]]
             record("F3", not new_toks and ids3 == ids and hz3 == "200" and bool(same) and bool(token),
                    f"'{al[:70]}' new_tokens={len(new_toks)} same_ids={ids3 == ids} healthz={hz3} listed={listed3} gate={g3}")
+            vm.mark("FP2 the printer and CUPS settings survive the reboot"); printing(vm, "FP2", "again")
 
         if a.upto == "F4":
             vm.mark("F4 A/B update keeps /data")
@@ -590,6 +619,7 @@ def main():
                    and already and not TOKEN.search(s) and ids4 == ids and hz4 == "200" and bool(same),
                    f"install_rc={rc_i} gate={g4} marker_kept={mark == mark2} version2={ver2} already_configured={already} "
                    f"new_token={bool(TOKEN.search(s))} same_ids={ids4 == ids} healthz={hz4} listed={listed4}")
+            vm.mark("FP3 the printer and CUPS settings survive the A/B update"); printing(vm, "FP3", "again")
         rc = 0
     except (TimeoutError, RuntimeError) as e:
         record("HARNESS", False, f"aborted: {e}")

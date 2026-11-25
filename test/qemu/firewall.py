@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
-"""OneMind QEMU battery, host firewall (FW1-FW4). Criteria: test/qemu/CRITERIA-FIREWALL.md (pre-registered).
+"""OneMind QEMU battery, host firewall (FW1-FW4, FWP1). Criteria: test/qemu/CRITERIA-FIREWALL.md (pre-registered).
 
 Two VMs boot the fixture image: the box (hub seed) and a scanner (no seed, so no role: the setup wizard runs).
 A QEMU socket link joins them with two address pairs, a LAN one and a documentation-range "public" one. The
@@ -26,9 +26,9 @@ battery = fb.battery
 LINK_PORT = int(os.environ.get("ONEMIND_QEMU_LINK_PORT", "18770"))
 MAC = {"box": "52:54:00:fe:00:01", "scan": "52:54:00:fe:00:02"}
 ADDR = {"lan": {"box": "192.168.77.1", "scan": "192.168.77.2"}, "pub": {"box": "198.51.100.1", "scan": "198.51.100.2"}}
-TCP = [22, 80, 443, 445, 4222, 6443, 7422, 7443, 8080, 8443, 8444, 10250]
+TCP = [22, 80, 443, 445, 631, 4222, 6443, 7422, 7443, 8080, 8443, 8444, 10250]
 UDP = [3478, 5353, 8472, 9999, 41641, 51820]
-WANT_LAN = {("tcp", p) for p in (443, 7443, 8443, 8444)} | {("udp", p) for p in (3478, 5353, 41641)}
+WANT_LAN = {("tcp", p) for p in (443, 631, 7443, 8443, 8444)} | {("udp", p) for p in (3478, 5353, 41641)}
 PROBE_PY = r'''
 import socket, sys, threading
 src, dst, tcp, udp = sys.argv[1], sys.argv[2], [int(x) for x in sys.argv[3].split(",") if x], [int(x) for x in sys.argv[4].split(",") if x]
@@ -163,6 +163,14 @@ def main():
             res[tag] = (re.findall(r"^T 8080 (\w+)", out, re.M) or ["none"])[-1]
         record("FW4", wiz_up and res["lan"] == "open" and res["pub"] != "open" and ("tcp", 8080) not in reach["lan"],
                f"wizard_running={wiz_up} 8080_from_lan={res['lan']} 8080_from_public={res['pub']} box_8080_from_lan={'open' if ('tcp', 8080) in reach['lan'] else 'dropped'}")
+        code = lambda src, dst, path: scan.run(
+            f"echo CODE=$(curl -s -o /dev/null -w '%{{http_code}}' --max-time 8 --interface {src} http://{dst}:631{path})")[1]
+        cc = lambda o: (re.findall(r"^CODE=(\d+)", o, re.M) or ["none"])[-1]
+        lan = {p: cc(code(ADDR["lan"]["scan"], ADDR["lan"]["box"], p)) for p in ("/", "/admin", "/admin/conf", "/admin/log")}
+        pub = cc(code(ADDR["pub"]["scan"], ADDR["pub"]["box"], "/"))
+        record("FWP1", complete and lan["/"] == "200" and all(lan[p] == "403" for p in ("/admin", "/admin/conf", "/admin/log"))
+               and pub == "000" and ("tcp", 631) in reach["lan"] and ("tcp", 631) not in reach["pub"],
+               f"lan={lan} public={pub} counter_lan_accepts_631={('tcp', 631) in reach['lan']} counter_public_accepts_631={('tcp', 631) in reach['pub']}")
         rc = 0
     except (TimeoutError, RuntimeError) as e:
         record("HARNESS", False, f"aborted: {e}")

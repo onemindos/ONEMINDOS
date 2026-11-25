@@ -210,6 +210,17 @@ COPY os/rootfs/layers/onemind/ /
 COPY os/rootfs/layers/machines/ /
 COPY --from=machines-fetch /opt/machines/ /usr/lib/onemind/extensions/machines/
 COPY os/boards/${BOARD}/rootfs/ /
+# Printing (Step 3, docs/learning/printing.md): the OneMind cupsd.conf is the image default and the seed for the copy on
+# /data; the bind-mount points exist; cupsd runs from boot; cups-browsed is not installed (checked), so no queue is
+# ever added without the owner.
+RUN set -eu; \
+    if dpkg-query -W -f='${Status}' cups-browsed 2>/dev/null | grep -q 'install ok installed'; then echo "ERROR: cups-browsed must not be installed" >&2; exit 1; fi; \
+    install -m 0640 -o root -g lp /usr/lib/onemind/cupsd.conf.onemind /etc/cups/cupsd.conf; \
+    rm -rf /usr/lib/onemind/cups-default; mkdir -p /usr/lib/onemind/cups-default /var/lib/ipp-usb; \
+    cp -a /etc/cups/. /usr/lib/onemind/cups-default/; \
+    systemctl enable cups.service cups.socket cups.path >/dev/null; \
+    test -x /usr/sbin/cupsd -a -x /usr/sbin/ipp-usb -a -x /usr/lib/cups/filter/pdftopdf -a -x /usr/lib/cups/backend/driverless -a -x /usr/lib/cups/cgi-bin/admin.cgi
+
 # The boot splash theme: Debian has plymouth-set-default-theme; Ubuntu (the CI hedge, D-007) sets it
 # with update-alternatives instead (#226).
 RUN set -eu; \
