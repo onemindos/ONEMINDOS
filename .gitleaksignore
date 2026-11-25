@@ -39,3 +39,6 @@ aa2c44166979a708f9f96ee0dcb9ba29a5fce7dc:internal/leaf/testdata/hub-accounts-jet
 # UMB-ACCT-1 lab log (#403): "credential_fp" is a 16-hex public fingerprint of a lab passkey credential id (sha256 prefix), not a secret.
 research-output/evidence/lab/acct-kanidm/run-1/AK-3.txt:generic-api-key:68
 dd47c170b08577f4b352d8a3c1f4792cba9326f4:research-output/evidence/lab/acct-kanidm/run-1/AK-3.txt:generic-api-key:68
+# G1 local sign-in tests: NATS user public nkeys (the seeds were thrown away; a public key cannot sign in), shown in a golden leaf.conf block
+internal/leaf/leaf_test.go:generic-api-key:444
+test/unit/test_edge_profile.py:generic-api-key:236

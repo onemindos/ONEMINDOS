@@ -80,6 +80,7 @@ func startNodeLeaf(t *testing.T, dir, name string, h *accountsHub, seed []byte) 
 		HubURLs: []string{fmt.Sprintf("tls://127.0.0.1:%d", h.leafPort)}, CAFile: h.pki.caFile, NkeyFile: nkeyFile,
 	}
 	c.CertFile, c.KeyFile = h.pki.issue(t, "node-"+name, false)
+	labLeaf(t, c)
 	confPath := filepath.Join(nd, "leaf.conf")
 	if _, err := Apply(confPath, c); err != nil {
 		t.Fatal(err)
@@ -112,12 +113,12 @@ func TestPerNodeAccountsIsolateNodes(t *testing.T) {
 	}
 	gw.Flush()
 
-	a, err := nats.Connect(leafA)
+	a, err := dialLeaf(leafA)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer a.Close()
-	b, err := nats.Connect(leafB)
+	b, err := dialLeaf(leafB)
 	if err != nil {
 		t.Fatal(err)
 	}

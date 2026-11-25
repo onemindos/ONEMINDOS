@@ -39,6 +39,7 @@ func fabricCommands(a *App) []*cobra.Command {
 		sub("approve ACTION_ID [--hub URL] [--token T]", "Approve a node join request", fabricApprove),
 		sub("status [--hub URL] [--token T] [--json]", "Nodes and pending joins", fabricStatus),
 		sub("events [--count N] [--hub URL] [--token T] [--json]", "Who connected to the message bus, and who was refused (read-only)", fabricEvents),
+		sub("upgrade-local", "Machine joined before G1: give its local NATS leaf per-program keys (run as root; the image does it at boot)", fabricUpgradeLocal),
 		sub("outbox init|status|send", "Leaf node: queue messages for the hub through hub outages", fabricOutbox),
 	)
 	return []*cobra.Command{fab}
@@ -134,6 +135,23 @@ func hostLabel(h string) string {
 		return "node"
 	}
 	return h
+}
+
+// fabricUpgradeLocal is what onemind-leaf-local.service runs before the health gate on every boot of
+// an edge (Installer.UpgradeLocal). It is quiet when there is nothing to do.
+func fabricUpgradeLocal(args []string, out io.Writer) error {
+	fs := flag.NewFlagSet("fabric upgrade-local", flag.ContinueOnError)
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if fs.NArg() > 0 {
+		return errors.New("fabric upgrade-local takes no arguments")
+	}
+	if !isRoot() {
+		return errors.New("run as root (sudo): this writes the leaf's keys and configuration")
+	}
+	_, err := newInstaller(out).UpgradeLocal(context.Background())
+	return err
 }
 
 func fabricJoin(args []string, out io.Writer) error {
