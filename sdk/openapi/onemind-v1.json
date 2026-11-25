@@ -24129,6 +24129,13 @@
             "description": "The principal may not do this (permission_denied)"
           }
         },
+        "security": [
+          {
+            "bearer": [
+              "content:admin"
+            ]
+          }
+        ],
         "summary": "Content Get",
         "tags": [
           "content"
@@ -24201,6 +24208,13 @@
             "description": "Request failed validation (conflict, with the bad fields in message)"
           }
         },
+        "security": [
+          {
+            "bearer": [
+              "content:admin"
+            ]
+          }
+        ],
         "summary": "Content Auto Update",
         "tags": [
           "content"
@@ -24303,6 +24317,13 @@
             "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
           }
         },
+        "security": [
+          {
+            "bearer": [
+              "content:admin"
+            ]
+          }
+        ],
         "summary": "Content Changes",
         "tags": [
           "content"
@@ -24395,6 +24416,13 @@
             "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
           }
         },
+        "security": [
+          {
+            "bearer": [
+              "content:admin"
+            ]
+          }
+        ],
         "summary": "Content Plan",
         "tags": [
           "content"
@@ -24457,6 +24485,13 @@
             "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
           }
         },
+        "security": [
+          {
+            "bearer": [
+              "content:admin"
+            ]
+          }
+        ],
         "summary": "Content Updates",
         "tags": [
           "content"
@@ -24543,6 +24578,13 @@
             "description": "unavailable: a feature is switched off or the service behind it cannot be used right now (see `reason` and Retry-After)"
           }
         },
+        "security": [
+          {
+            "bearer": [
+              "content:admin"
+            ]
+          }
+        ],
         "summary": "Content Wikipedia",
         "tags": [
           "content"

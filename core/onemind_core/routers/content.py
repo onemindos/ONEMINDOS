@@ -9,8 +9,9 @@ Everything here is the owner's: the library is shared by the household and costs
 
 from __future__ import annotations
 
-from fastapi import Depends, FastAPI, Query
+from fastapi import Depends, FastAPI, Query, Security
 from fastapi.responses import JSONResponse
+from fastapi.security import HTTPBearer
 from pydantic import BaseModel, ConfigDict, Field
 
 from ..apimodels import Action
@@ -32,6 +33,11 @@ register_route_scope("GET,HEAD", r"/v1/content/updates", ("content:admin",))
 register_route_scope("POST", r"/v1/content/plan", ("content:admin",))
 register_route_scope("POST", r"/v1/content/changes", ("content:admin",))
 register_route_scope("PUT", r"/v1/content/auto-update", ("content:admin",))
+
+BEARER = HTTPBearer(scheme_name="bearer", auto_error=False, description=(
+    "A OneMind bearer token or session. Every /v1/content operation needs the `content:admin` scope, "
+    "which only the owner role holds (contract §12.6)."))
+OWNER_ONLY = [Security(BEARER, scopes=["content:admin"])]
 
 LANG = r"^[a-z]{2,12}(-[a-z]{2,8})?$"
 
@@ -151,35 +157,35 @@ def register(app: FastAPI, gw: Gateway) -> None:
             gw.audit.append("authz.denied", p.as_dict(), None, {"attempted": what, "reason": "permission_denied"})
             raise ApiError(403, "permission_denied", f"only an owner may {what}")
 
-    @app.get("/v1/content", tags=tags, operation_id="content.get", response_model=ContentView,
+    @app.get("/v1/content", tags=tags, dependencies=OWNER_ONLY, operation_id="content.get", response_model=ContentView,
              responses=error_responses(401, 403))
     def content_get(p: Principal = Depends(principal)):
         """The Kiwix library, the curated packs and the auto-update setting. No network."""
         owner(p, "manage offline content")
         return svc.view()
 
-    @app.get("/v1/content/wikipedia", tags=tags, operation_id="content.wikipedia", response_model=WikipediaChoices,
+    @app.get("/v1/content/wikipedia", tags=tags, dependencies=OWNER_ONLY, operation_id="content.wikipedia", response_model=WikipediaChoices,
              responses=error_responses(401, 403, 409, 503))
     def content_wikipedia(lang: str = Query(min_length=2, max_length=21, pattern=LANG), p: Principal = Depends(principal)):
         """Wikipedia in one language, in each size the catalogue has, with the download size."""
         owner(p, "manage offline content")
         return {"lang": lang, "books": svc.wikipedia(lang)}
 
-    @app.get("/v1/content/updates", tags=tags, operation_id="content.updates", response_model=ContentPlan,
+    @app.get("/v1/content/updates", tags=tags, dependencies=OWNER_ONLY, operation_id="content.updates", response_model=ContentPlan,
              responses=error_responses(401, 403, 409, 503))
     def content_updates(p: Principal = Depends(principal)):
         """Newer releases of the books in the library, with their download size. Files nothing."""
         owner(p, "manage offline content")
         return svc.updates()
 
-    @app.post("/v1/content/plan", tags=tags, operation_id="content.plan", response_model=ContentPlan,
+    @app.post("/v1/content/plan", tags=tags, dependencies=OWNER_ONLY, operation_id="content.plan", response_model=ContentPlan,
               responses=error_responses(401, 403, 409, 422, 503))
     def content_plan(body: ContentChange, p: Principal = Depends(principal)):
         """What a change would download (with sizes) and stop serving. Files nothing."""
         owner(p, "manage offline content")
         return svc.plan([b.model_dump() for b in body.add], [b.model_dump() for b in body.remove])
 
-    @app.post("/v1/content/changes", tags=tags, operation_id="content.changes", status_code=201,
+    @app.post("/v1/content/changes", tags=tags, dependencies=OWNER_ONLY, operation_id="content.changes", status_code=201,
               response_model=ContentChangeResult, responses=error_responses(401, 403, 409, 422, 429, 503))
     def content_changes(body: ContentChangeRequest, p: Principal = Depends(principal)):
         """Request the change as an app.configure of Kiwix; it waits for an owner's approval."""
@@ -188,7 +194,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
                                  body.download_bytes, body.idempotency_key)
         return JSONResponse(status_code=201, content=out)
 
-    @app.put("/v1/content/auto-update", tags=tags, operation_id="content.auto_update", response_model=AutoUpdate,
+    @app.put("/v1/content/auto-update", tags=tags, dependencies=OWNER_ONLY, operation_id="content.auto_update", response_model=AutoUpdate,
              responses=error_responses(401, 403, 422))
     def content_auto_update(body: AutoUpdateBody, p: Principal = Depends(principal)):
         """Turn the auto-update check on or off, and pick the maintenance window it runs in."""

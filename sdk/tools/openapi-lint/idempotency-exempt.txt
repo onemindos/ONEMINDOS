@@ -42,3 +42,6 @@ DELETE /v1/agent-browser/sessions/{session_id}  # ending a session twice is the 
 DELETE /v1/agent-browser/sites/{site_id}  # removing an approved site twice leaves the same allowlist (the second answers 404)
 PATCH /v1/work/projects/{project_id}/tasks/{task_id}  # guarded by If-Match; replay cannot change a task at a newer revision
 DELETE /v1/work/projects/{project_id}/tasks/{task_id}  # the second removal sees no task
+POST /v1/content/plan  # read only: computes what a change would download and stop serving; files nothing (#127)
+POST /v1/content/changes  # contract §12.1: keeps its §3 body field idempotency_key, like POST /v1/actions; the same key answers the same request (#127)
+PUT /v1/content/auto-update  # sets the one auto-update setting: the same body twice leaves the same state (#127)
