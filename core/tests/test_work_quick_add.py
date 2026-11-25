@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 """Quick-add text turns into a Work task through /v1/work/quick-add."""
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -54,3 +54,28 @@ def test_quick_add_creates_in_a_named_project_replays_and_rejects_bad_input(clie
     empty = client.post("/v1/work/quick-add", json={"text": "#home"}, headers={**OWNER, "Idempotency-Key": "qa-4"})
     assert empty.status_code == 422
     assert client.post("/v1/work/quick-add", json=body, headers={**GUEST, "Idempotency-Key": "qa-5"}).status_code == 403
+
+
+def test_replay_returns_the_stored_task_after_the_clock_moves_or_a_project_is_renamed(client, clock):
+    key = {**OWNER, "Idempotency-Key": "qa-clock"}
+    body = {"text": "Water plants today", "tz": "UTC"}
+    first = client.post("/v1/work/quick-add", json=body, headers=key)
+    assert first.status_code == 201, first.text
+    clock.now += timedelta(days=2)  # "today" now means a different day
+    replay = client.post("/v1/work/quick-add", json=body, headers=key)
+    assert replay.status_code == 200 and replay.json()["id"] == first.json()["id"]
+    different = client.post("/v1/work/quick-add", json={**body, "text": "Water plants"}, headers=key)
+    assert different.status_code == 409 and different.json()["reason"] == "idempotency_mismatch"
+
+
+def test_project_names_match_beyond_ascii(client):
+    project = client.post("/v1/work/projects", json={"name": "\u00c9cole"}, headers={**OWNER, "Idempotency-Key": "p-ec"})
+    got = client.post("/v1/work/quick-add", json={"text": "Devoirs #\u00e9cole"}, headers={**OWNER, "Idempotency-Key": "qa-ec"})
+    assert got.status_code == 201, got.text
+    assert got.json()["project_id"] == project.json()["id"]
+
+
+def test_short_words_that_look_like_dates_stay_in_the_title():
+    got = parse_quick_add("Email Tom about rent, then sat on it", NOW)
+    assert got["title"] == "Email Tom about rent, then sat on it" and got["due_at"] is None
+    assert parse_quick_add("Rest next sat", NOW, "UTC")["due_at"] is not None

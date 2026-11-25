@@ -5,7 +5,7 @@
 words stand for, in the style of Todoist's quick add (a pattern, not its code):
 
     #Name project   @label   p1..p4 priority (p1 most urgent)   +person-id assignee
-    today, tomorrow, monday, next friday, in 3 days, 2026-12-01, "at 5pm", "17:30"
+    today, tomorrow, monday, next fri, in 3 days, 2026-12-01, "at 5pm", "17:30"
 
 Repeat rules ("every ...") and /sections need schema Work does not have yet, so they are left
 in the title rather than guessed at.
@@ -22,6 +22,7 @@ from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+_FULL_WD = "monday|tuesday|wednesday|thursday|friday|saturday|sunday"
 _WD = "mon(?:day)?|tue(?:s|sday)?|wed(?:nesday)?|thu(?:rs|rsday)?|fri(?:day)?|sat(?:urday)?|sun(?:day)?"
 
 
@@ -55,8 +56,9 @@ def _rx(p: str) -> re.Pattern:
 
 _IN = _rx(r"in\s+(?P<n>\d{1,3})\s+(?P<unit>day|week|month)s?")
 _ISO = _rx(r"(?P<d>\d{4}-\d{2}-\d{2})")
-_NEXT_WD = _rx(rf"(?:next\s+)?(?P<wd>{_WD})")
-_REL = _rx(r"(?P<w>today|tod|tomorrow|tom|tonight)")
+# A bare short word ("sat", "wed", "sun") is often a name or a verb, so it counts only after "next".
+_NEXT_WD = _rx(rf"(?:next\s+(?P<wd>{_WD})|(?P<full>{_FULL_WD}))")
+_REL = _rx(r"(?P<w>today|tomorrow|tonight)")
 _TIME = _rx(r"(?:at\s+)?(?P<h>\d{1,2})(?::(?P<m>\d{2}))?\s*(?P<ap>am|pm)|(?:at\s+)?(?P<h24>[01]?\d|2[0-3]):(?P<m24>[0-5]\d)")
 _PROJECT = re.compile(r"(?<![\w])#(?P<v>[\w-]{1,60})")
 _LABEL = re.compile(r"(?<![\w])@(?P<v>[A-Za-z0-9_-]{1,40})")
@@ -105,7 +107,7 @@ def parse_quick_add(text: str, now: datetime, tz: str | None = None) -> dict:
     if day is None:
         m, rest = _take(_NEXT_WD, rest)
         if m:
-            ahead = (_wd(m["wd"]) - local_now.weekday()) % 7 or 7
+            ahead = (_wd(m["wd"] or m["full"]) - local_now.weekday()) % 7 or 7
             day = local_now.date() + timedelta(days=ahead)
     at: time | None = None
     m, rest = _take(_TIME, rest)

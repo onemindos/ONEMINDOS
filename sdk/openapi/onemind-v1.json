@@ -41087,6 +41087,13 @@
             "description": "Request failed validation (conflict, with the bad fields in message)"
           }
         },
+        "security": [
+          {
+            "bearer": [
+              "work:write"
+            ]
+          }
+        ],
         "summary": "Quick Add",
         "tags": [
           "work"

@@ -49,6 +49,7 @@ func workHub(t *testing.T) *[]string {
 
 func TestWorkAddSendsTheLineWithAnIdempotencyKey(t *testing.T) {
 	seen := workHub(t)
+	t.Setenv("TZ", "UTC")
 	r := run(t, "", false, "work", "add", "Pay", "rent", "#Home", "--tz", "America/New_York", "--idempotency-key", "k1")
 	if r.code != 0 || !strings.Contains(r.out, "Added tsk_1  Pay rent  due 2026-11-26 22:00 UTC") {
 		t.Fatalf("add %+v", r)
@@ -72,6 +73,18 @@ func TestWorkListViewsAndDone(t *testing.T) {
 	}
 	got := strings.Join(*seen, "\n")
 	if !strings.Contains(got, "view=today") || !strings.Contains(got, "view=inbox") || !strings.Contains(got, "PATCH /v1/work/projects/prj_1/tasks/tsk_1 |3") {
+		t.Fatalf("requests %s", got)
+	}
+}
+
+func TestWorkAddDefaultsToTheMachineZoneAndPrintsDueTimeThere(t *testing.T) {
+	seen := workHub(t)
+	t.Setenv("TZ", "America/New_York")
+	r := run(t, "", false, "work", "add", "Pay", "rent", "--idempotency-key", "k2")
+	if r.code != 0 || !strings.Contains(r.out, "due 2026-11-26 17:00 EST") {
+		t.Fatalf("add %+v", r)
+	}
+	if got := strings.Join(*seen, "\n"); !strings.Contains(got, "body Pay rent/America/New_York") {
 		t.Fatalf("requests %s", got)
 	}
 }

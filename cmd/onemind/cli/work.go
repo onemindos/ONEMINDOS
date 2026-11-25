@@ -4,7 +4,11 @@ package cli
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -24,6 +28,9 @@ func workCommands(a *App) []*cobra.Command {
 			if err != nil {
 				return err
 			}
+			if tz == "" {
+				tz = localZone()
+			}
 			t, err := c.Work.QuickAdd(bg(), joinArgs(args), tz, key)
 			if err != nil {
 				return err
@@ -38,7 +45,7 @@ func workCommands(a *App) []*cobra.Command {
 			fmt.Fprintf(a.Stdout, "Added %s  %s%s\n", t.ID, sanitize(t.Title), dueSuffix(t))
 			return nil
 		}}
-	add.Flags().StringVar(&tz, "tz", "", "time zone for dates, e.g. America/New_York (default UTC)")
+	add.Flags().StringVar(&tz, "tz", "", "time zone for dates, e.g. America/New_York (default this machine's zone)")
 	add.Flags().StringVar(&key, "idempotency-key", "", "send the same key again to retry without adding a second task")
 
 	view := func(use, name, short string) *cobra.Command {
@@ -105,10 +112,32 @@ func joinArgs(args []string) string {
 	return out
 }
 
-// dueSuffix is "  due 2026-11-12 15:04 UTC" or "".
+// localZone is the machine's IANA time zone name ($TZ, else the /etc/localtime link target), or "UTC".
+// Dates in quick-add text ("today", "at 5pm") mean this zone unless --tz says otherwise.
+func localZone() string {
+	if name := os.Getenv("TZ"); name != "" {
+		if _, err := time.LoadLocation(name); err == nil && name != "Local" {
+			return name
+		}
+	}
+	if link, err := filepath.EvalSymlinks("/etc/localtime"); err == nil {
+		if _, after, ok := strings.Cut(filepath.ToSlash(link), "zoneinfo/"); ok {
+			if _, err := time.LoadLocation(after); err == nil {
+				return after
+			}
+		}
+	}
+	return "UTC"
+}
+
+// dueSuffix is "  due 2026-11-12 15:04 EST" or "", in the machine's zone (what localZone names).
 func dueSuffix(t *onemind.WorkTask) string {
 	if t.DueAt == nil {
 		return ""
 	}
-	return "  due " + t.DueAt.UTC().Format("2006-01-02 15:04 UTC")
+	loc, err := time.LoadLocation(localZone())
+	if err != nil {
+		loc = time.UTC
+	}
+	return "  due " + t.DueAt.In(loc).Format("2006-01-02 15:04 MST")
 }

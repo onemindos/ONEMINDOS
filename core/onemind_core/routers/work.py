@@ -133,9 +133,15 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return task
 
     @app.post(BASE + "/quick-add", tags=["work"], operation_id="work.quick_add", status_code=201,
+              openapi_extra={"security": [{"bearer": ["work:write"]}]},
               responses={200: {"model": Task, "description": "Idempotent quick-add replay"},
                          **error_responses(401, 403, 404, 409, 422)})
     def quick_add(body: QuickAddBody, key: IdempotencyKey, response: Response, p: Principal = Depends(writer)) -> Task:
+        request = {"text": body.text, "tz": body.tz}
+        earlier = service.quick_add_replay(p, request, key)
+        if earlier is not None:
+            response.status_code = 200
+            return earlier
         try:
             parsed = parse_quick_add(body.text, gw.clock(), body.tz)
             project_id = service.project_id_named(p, parsed["project"]) if parsed["project"] else None
@@ -147,7 +153,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         except (ValueError, ValidationError) as error:
             raise ApiError(422, "conflict", str(error) if isinstance(error, ValueError) and not isinstance(
                 error, ValidationError) else "Invalid quick-add text", reason="bad_quick_add") from None
-        task, fresh = service.capture(p, fields, key)
+        task, fresh = service.capture(p, fields, key, request=request)
         if fresh:
             emit("task_created", p, task.project_id, task.id)
         else:
