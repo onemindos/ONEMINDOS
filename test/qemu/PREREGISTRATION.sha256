@@ -52,3 +52,5 @@ e1dc1ad3c401a8a8d3330704ff0b88a8e40fdf534484738d6ef27656f32b917f  CRITERIA-FIRST
 0f7775d2bbf3940b070f31d8c9d2515f0c0a842862302b285cc65e673b19a195  CRITERIA-FIRSTBOOT.md  2026-11-25T08:15:00Z  (with §12 amendment: F20 SSH keys and the SSH switch, P-06; written before F20 was implemented)
 ac49907f0062ba98f9b42ecbf09f5078070293bdb0caac343582ae4cbda53872  CRITERIA-FIRSTBOOT.md  2026-11-25T10:05:00Z  (with §13 amendment: F20(e) repeated after SSH off/on and after a firewall restart; written before the fix)
 b5bdf4fc018a2cdf802d5d09e0f1c7cdde9fe84249918cb89a6ed1b7df3575bb  CRITERIA-FIRSTBOOT.md  2026-11-25T22:58:00Z  (round-2 integration: PR 1146's SSH checks appended as sections 16 and 17, F20 renumbered F23; no criterion changed)
+fd87667a9160af535e58df2ffe47c7bbb27cf98fe5974c35bfa818f51bebfd6d  CRITERIA-FIRSTBOOT.md  2026-11-25T07:19:33Z  (with §10 amendment: F14 box care, Step 2b; written before F14 was implemented)
+9a820ae21278620df5b3b24c4d0060bb3d648d407fd533d9f7d9aa17ff847b1b  CRITERIA-FIRSTBOOT.md  2026-11-25T23:00:09Z  (round-2 integration: PR 1115's box-care checks appended as section 18, F14/F14b/F14c renumbered F24/F24b/F24c; no criterion changed)

@@ -33,3 +33,8 @@ PARTLABEL=onemind-data  /data      auto  defaults,noatime,nofail,x-systemd.growf
 # btrfs-progs keeps the result of the last scrub here (`btrfs scrub status /data`); the root is read-only, so without
 # this the monthly scrub would run but leave no status behind (snapper/btrfsmaintenance, plan PR 6).
 /data/state/var-lib-btrfs             /var/lib/btrfs                none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0
+# Box care (Step 2b): fwupd metadata and cache, the rasdaemon error database and udisks2 state, kept across reboots and A/B updates.
+/data/state/var-lib-fwupd         /var/lib/fwupd        none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0
+/data/state/var-cache-fwupd       /var/cache/fwupd      none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0
+/data/state/var-lib-rasdaemon     /var/lib/rasdaemon    none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0
+/data/state/var-lib-udisks2       /var/lib/udisks2      none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0

@@ -51,3 +51,8 @@ bash-completion less nano rsync htop jq iputils-ping pciutils usbutils dmidecode
 openssh-server sudo libpam-systemd
 # Man pages: `man onemind` (the pages are generated from the CLI at image build; proof: first-boot check F14).
 man-db
+# Box care for a 24/7 machine (Step 2b): fwupd (firmware updates through LVFS, owner-approved only: the refresh timer
+# is masked in os/rootfs/Containerfile), lm-sensors (the sensors command), rasdaemon (hardware error log, its database
+# on /data), udisks2 (USB drives: detect only, never auto-mounted, os/rootfs/layers/base/usr/lib/udev). fstrim.timer
+# comes with util-linux; polkitd is not installed, so only root (the host helper) may mount or flash. Proof: first-boot check F24.
+fwupd lm-sensors rasdaemon udisks2

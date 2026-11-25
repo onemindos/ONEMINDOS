@@ -304,6 +304,11 @@ RUN set -eu; \
       nut-driver-enumerator.service nut-driver-enumerator.path nut-driver@.service >/dev/null; \
     systemctl enable onemind-ups.service onemind-ups-monitor.service >/dev/null; \
     systemctl mask smartmontools.service >/dev/null; \
+    systemctl mask fwupd-refresh.timer fwupd-refresh.service >/dev/null; \
+    systemctl enable fstrim.timer >/dev/null; \
+    rmdir /media && ln -s /run/media /media; \
+    for t in fwupdmgr sensors ras-mc-ctl udisksctl; do command -v $t >/dev/null || { echo "missing $t"; exit 1; }; done; \
+    if [ "${TARGETARCH}" = amd64 ]; then command -v thermald >/dev/null || { echo "missing thermald"; exit 1; }; fi; \
     systemctl disable rpcbind.service rpcbind.socket nfs-client.target nfs-blkmap.service >/dev/null 2>&1; \
     if [ "${LEG}" = debian ]; then \
       systemctl enable snapper-timeline.timer snapper-cleanup.timer btrfs-scrub.timer >/dev/null; \
@@ -350,7 +355,8 @@ RUN set -eu; \
     ln -sf "vmlinuz-$kver" /boot/vmlinuz; ln -sf "initrd.img-$kver" /boot/initrd.img; \
     update-initramfs -u -k "$kver"; \
     mkdir -p /data /boot/efi /etc/rancher/node /var/lib/rancher /var/lib/kubelet /var/lib/cni \
-      /var/lib/tailscale /var/lib/onemind-headscale /var/lib/onemind-nats-leaf /var/lib/onemind-nats /var/lib/btrfs; \
+      /var/lib/tailscale /var/lib/onemind-headscale /var/lib/onemind-nats-leaf /var/lib/onemind-nats /var/lib/btrfs \
+      /var/lib/fwupd /var/cache/fwupd /var/lib/rasdaemon /var/lib/udisks2; \
     grep -q '^SYSEXT_LEVEL=' /usr/lib/os-release || grep -E '^[A-Z_]+=' /usr/lib/onemind/os-release.sysext >> /usr/lib/os-release; \
     test -L /var/lib/extensions && test -L /var/lib/confexts; \
     dpkg-query -W -f='${Package} ${Version} ${Architecture} ${Installed-Size}\n' | sort > /usr/lib/onemind/packages.txt; \
