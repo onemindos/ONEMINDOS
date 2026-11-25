@@ -31,7 +31,7 @@ NATSCHECK = os.path.join(VERIFY_DIR, "natscheck.py")
 MOCK = os.path.join(HERE, "mock_gateway.py")
 OWNER = "owner-test-" + os.urandom(8).hex()   # made at test time, never real
 AGENT = "agent-test-" + os.urandom(8).hex()
-NATS_IMAGE = "docker.io/library/nats:2.15.2-alpine@sha256:afae2fdbe2e326c65e1246cb83b9d05d319188734f3bd577ac8072daae78a10f"
+NATS_IMAGE = "docker.io/library/nats:2.15.3-alpine@sha256:558394a23dd3c36f2d3a64b51865fd09908010e80a542cea5e75c2af543ed62a"
 
 # bug -> the verify.sh line that must FAIL (regex)
 EXPECT = {
@@ -271,7 +271,7 @@ def wait_port(port, timeout=30):
 
 @unittest.skipUnless(docker_ok() and shutil.which("openssl"), "needs Docker and openssl")
 class NatscheckAgainstRealNats(unittest.TestCase):
-    """nats-server 2.15.2 (the pinned compose image) with a token and TLS from a throwaway CA."""
+    """nats-server 2.15.3 (the pinned compose image) with a token and TLS from a throwaway CA."""
 
     @classmethod
     def setUpClass(cls):
@@ -443,6 +443,38 @@ class InstallAptTimerOrder(unittest.TestCase):
         self.assertGreater(hub.index("\n  apt_timers_start"), hub.rindex("\n  backup_setup"))
         self.assertIn("apt_timers_start", node)
         self.assertGreater(node.rindex("\n  apt_timers_start"), node.rindex("k3s_agent"))
+
+
+class CheckPinsNatsVersion(unittest.TestCase):
+    """deploy/check-pins.py fails when the dev compose stack runs another nats-server than the image."""
+
+    ROOT = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
+    FILES = ("os/versions.lock.yaml", "deploy/pins.env", "deploy/check-pins.py", "go.mod",
+             "deploy/compose/compose.yaml", "deploy/compose/onemindd.Dockerfile",
+             "deploy/verify/tests/test_verify.py", "internal/backup/pins.go")
+
+    def run_pins(self, compose_edit=None):
+        with tempfile.TemporaryDirectory() as tmp:
+            for f in self.FILES:
+                os.makedirs(os.path.join(tmp, os.path.dirname(f)), exist_ok=True)
+                shutil.copy(os.path.join(self.ROOT, f), os.path.join(tmp, f))
+            if compose_edit:
+                p = os.path.join(tmp, "deploy/compose/compose.yaml")
+                text = open(p, encoding="utf-8").read()
+                new = compose_edit(text)
+                self.assertNotEqual(text, new)
+                open(p, "w", encoding="utf-8").write(new)
+            return subprocess.run([sys.executable, "-I", os.path.join(tmp, "deploy/check-pins.py")],
+                                  capture_output=True, text=True)
+
+    def test_matching_compose_passes(self):
+        r = self.run_pins()
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+
+    def test_old_nats_in_compose_fails(self):
+        r = self.run_pins(lambda t: re.sub(r"library/nats:[0-9.]+-alpine", "library/nats:2.15.2-alpine", t))
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("deploy/compose/compose.yaml runs nats 2.15.2", r.stdout)
 
 
 if __name__ == "__main__":

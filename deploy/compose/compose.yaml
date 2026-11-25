@@ -3,6 +3,7 @@
 # the noop executor, the dashboard (built once, served by the gateway), one node (onemindd in a
 # container) and two simulated machines, a Raspberry Pi 5 and a Jetson (simnode).
 # DEVELOPMENT ONLY. Every port is bound to 127.0.0.1, so nothing is reachable from the network.
+# NATS signs clients in with per-client nkeys like the image (the nats-keys service makes them).
 #
 #   ./gen-tokens.sh                 # once: random owner + agent tokens into ./local/ (gitignored)
 #   docker compose up -d --build    # from this directory
@@ -16,10 +17,40 @@ x-onemindd-build: &onemindd-build
   dockerfile: deploy/compose/onemindd.Dockerfile
 
 services:
+  # One-shot: makes a NATS user key per client (a seed file only that client's user can read, and its
+  # public key) and the hub's accounts file, the same way the image does (core/onemind_core/natsconf.py,
+  # CORE-SEC-4 #161). Runs as root only to hand each seed to its client's uid; exits when done.
+  nats-keys:
+    build: &core-build
+      context: ../..
+      dockerfile: core/Dockerfile
+    image: onemind-core:compose-dev
+    user: "0:0"
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        d=/nats/keys
+        mkdir -p $$d
+        for s in gateway node-sim sim-rpi5 sim-jetson; do python -m onemind_core.natsconf service-key $$d $$s >/dev/null; done
+        rm -f /nats/accounts.conf
+        python -m onemind_core.natsconf /nats/accounts.conf $$d
+        chown 10001:10001 $$d/gateway.nk
+        for s in node-sim sim-rpi5 sim-jetson; do chown 65534:65534 $$d/$$s.nk; done
+        chmod 0755 /nats $$d && chmod 0644 /nats/accounts.conf
+    volumes:
+      - nats-config:/nats
+
+  # The pinned image's nats-server (os/versions.lock.yaml; deploy/check-pins.py compares them). A client
+  # with no key, or one this stack did not make, is refused.
   nats:
-    image: docker.io/library/nats:2.15.2-alpine@sha256:afae2fdbe2e326c65e1246cb83b9d05d319188734f3bd577ac8072daae78a10f
-    command: ["-p", "4222", "-m", "8222"]
+    image: docker.io/library/nats:2.15.3-alpine@sha256:558394a23dd3c36f2d3a64b51865fd09908010e80a542cea5e75c2af543ed62a
+    command: ["-c", "/etc/nats/nats.conf"]
+    depends_on:
+      nats-keys: {condition: service_completed_successfully}
     ports: ["127.0.0.1:4222:4222"]
+    volumes:
+      - ./nats.conf:/etc/nats/nats.conf:ro
+      - nats-config:/nats:ro
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8222/healthz"]
       interval: 5s
@@ -51,9 +82,7 @@ services:
       - dashboard-dist:/out
 
   gateway:
-    build:
-      context: ../..
-      dockerfile: core/Dockerfile
+    build: *core-build
     image: onemind-core:compose-dev
     depends_on:
       nats: {condition: service_healthy}
@@ -61,6 +90,7 @@ services:
     environment:
       ONEMIND_TOKENS_FILE: /cfg/tokens.yaml
       ONEMIND_NATS_URL: nats://nats:4222
+      ONEMIND_FABRIC_NATS_NKEY_SEED: /nats/keys/gateway.nk
       ONEMIND_EXECUTOR: noop
       ONEMIND_APPS_DIR: /opt/onemind/apps
       ONEMIND_DASHBOARD_DIST: /opt/onemind/dashboard
@@ -75,6 +105,7 @@ services:
       - ../../apps:/opt/onemind/apps:ro
       - dashboard-dist:/opt/onemind/dashboard:ro
       - gateway-data:/var/lib/onemind
+      - nats-config:/nats:ro
     ports: ["127.0.0.1:8080:8080"]
     restart: unless-stopped
 
@@ -86,12 +117,15 @@ services:
       nats: {condition: service_healthy}
     environment:
       ONEMIND_NATS_URL: nats://nats:4222
+      ONEMIND_NATS_NKEY_SEED: /nats/keys/node-sim.nk
       ONEMIND_NODE_ROLE: node
       ONEMIND_NODE_ID: compose-node-1
       # Inside the container: every interface, so the loopback-only port mapping below works.
       ONEMIND_AGENT_ADDR: ":7480"
     hostname: node-sim
     ports: ["127.0.0.1:7480:7480"]
+    volumes:
+      - nats-config:/nats:ro
     restart: unless-stopped
 
   # Two simulated machines (ported from PR #27): onemindd's own agent code reading a Raspberry Pi 5
@@ -105,8 +139,11 @@ services:
       nats: {condition: service_healthy}
     environment:
       ONEMIND_NATS_URL: nats://nats:4222
+      ONEMIND_NATS_NKEY_SEED: /nats/keys/sim-rpi5.nk
       ONEMIND_NODE_ROLE: node
       ONEMIND_NODE_ID: compose-sim-rpi5
+    volumes:
+      - nats-config:/nats:ro
     restart: unless-stopped
 
   sim-jetson:
@@ -117,10 +154,14 @@ services:
       nats: {condition: service_healthy}
     environment:
       ONEMIND_NATS_URL: nats://nats:4222
+      ONEMIND_NATS_NKEY_SEED: /nats/keys/sim-jetson.nk
       ONEMIND_NODE_ROLE: node
       ONEMIND_NODE_ID: compose-sim-jetson
+    volumes:
+      - nats-config:/nats:ro
     restart: unless-stopped
 
 volumes:
   dashboard-dist:
   gateway-data:
+  nats-config:
