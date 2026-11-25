@@ -6,7 +6,7 @@ from datetime import timedelta
 from conftest import ADULT, AGENT, GUEST, OWNER
 from onemind_core.auth import Principal
 from onemind_core.errors import ApiError
-from onemind_core.work.service import ProjectFields, SectionFields, TaskFields
+from onemind_core.work.service import PersonAssignee, ProjectFields, SectionFields, TaskFields
 
 
 def _project(client, name="Home", **extra):
@@ -299,3 +299,20 @@ def test_today_and_upcoming_end_at_midnight_in_the_callers_zone(client, clock):
     assert titles("today") == ["Tomorrow morning"] and titles("upcoming") == []  # UTC by default
     assert titles("today", "America/New_York") == [] and titles("upcoming", "America/New_York") == ["Tomorrow morning"]
     assert client.get("/v1/work/tasks?view=today&tz=Mars/Base", headers=OWNER).status_code == 422
+
+@pytest.mark.parametrize("role", ["child", "teen"])
+def test_an_adult_can_edit_a_task_a_child_assigned_to_themselves(client, role):
+    service = client.app.state.work
+    service.person_role = lambda person_id: role if person_id == "p-kid" else "adult"
+    owner, kid = Principal("p-owner", "person", "owner"), Principal("p-kid", "person", role)
+    project = service.create_project(owner, ProjectFields(name="Family"))
+    service.add_member(owner, project.id, kid)
+    task = service.create_task(kid, project.id, TaskFields(title="Tidy", assignee=PersonAssignee(id="p-kid")))
+    done = service.replace_task(owner, project.id, task.id, expected_revision=task.revision,
+                                fields=TaskFields(title="Tidy", status="done", assignee=PersonAssignee(id="p-kid")))
+    assert done.status == "done" and done.assignee == PersonAssignee(id="p-kid")
+    other = service.create_task(owner, project.id, TaskFields(title="Dishes"))
+    with pytest.raises(ApiError) as failure:
+        service.replace_task(owner, project.id, other.id, expected_revision=other.revision,
+                             fields=TaskFields(title="Dishes", assignee=PersonAssignee(id="p-kid")))
+    assert failure.value.status == 422
