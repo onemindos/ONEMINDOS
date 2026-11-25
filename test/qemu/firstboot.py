@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
-"""OneMind QEMU battery, first boot (F0-F12, F20-F22). Criteria: test/qemu/CRITERIA-FIRSTBOOT.md
+"""OneMind QEMU battery, first boot (F0-F12, F20-F23). Criteria: test/qemu/CRITERIA-FIRSTBOOT.md
 (pre-registered; never edited to make a result pass). Reuses run-tests.py's VM driver.
 
 Input: the battery's fixtures (`make fixtures`: disk.img = slot A v1 + test overlay, bundles.img with
@@ -562,6 +562,99 @@ def f22(vm):
     record("F22", st == ("de", "active", "z"), f"after_ab_update layout/unit/keycode21={st}")
 
 
+HOST_SOCK = "curl -s --unix-socket /run/onemind/host.sock -H 'Content-Type: application/json'"
+
+
+def host_post(vm, aid, body):
+    """POST /v1/operations on the host socket as root (the peer check admits root). Returns (http_code, json)."""
+    _, out = vm.run(f"{HOST_SOCK} -o /tmp/f23.out -w 'CODE=%{{http_code}}\\n' -d '{json.dumps(dict(body, action_id=aid))}' http://h/v1/operations; "
+                    "echo BODY=$(tr -d '\\n' < /tmp/f23.out); rm -f /tmp/f23.out", 60)
+    code = (re.findall(r"^CODE=(\d+)", out, re.M) or ["?"])[-1]
+    raw = (re.findall(r"^BODY=(.*)$", out, re.M) or ["{}"])[-1]
+    try:
+        return code, json.loads(raw)
+    except ValueError:
+        return code, {}
+
+
+def host_wait(vm, aid, secs=120):
+    """Poll GET /v1/operations/{id} until it is succeeded or failed; the last Op."""
+    end, op = time.time() + secs, {}
+    while time.time() < end:
+        _, out = vm.run(f"echo OP=$({HOST_SOCK} http://h/v1/operations/{aid} | tr -d '\\n')", 30)
+        try:
+            op = json.loads((re.findall(r"^OP=(.*)$", out, re.M) or ["{}"])[-1])
+        except ValueError:
+            op = {}
+        if op.get("state") in ("succeeded", "failed"):
+            break
+        time.sleep(2)
+    return op
+
+
+def keyboard_view(vm):
+    """GET /v1/keyboard on the host socket: (schema, current layout, variant, seeded, de offers nodeadkeys)."""
+    _, out = vm.run(f"echo KB=$({HOST_SOCK} http://h/v1/keyboard | tr -d '\\n')", 60)
+    try:
+        v = json.loads((re.findall(r"^KB=(.*)$", out, re.M) or ["{}"])[-1])
+    except ValueError:
+        v = {}
+    cur = v.get("current") or {}
+    de = next((l for l in v.get("layouts") or [] if l.get("id") == "de"), {})
+    return (v.get("schema"), cur.get("layout"), cur.get("variant"), v.get("seeded"),
+            any(x.get("id") == "nodeadkeys" for x in de.get("variants") or []))
+
+
+def key13(vm):
+    """The key left of Backspace on a German keyboard: a dead key (dead_acute) on plain de, a plain acute on nodeadkeys."""
+    _, out = vm.run(r"""echo KEY13=$(dumpkeys -C /dev/tty0 2>&1 | grep -m1 -E '^keycode +13 *=' | tr -s ' ' '_')""", 60)
+    return (re.findall(r"^KEY13=(\S*)\s*$", out, re.M) or ["?"])[-1]
+
+
+def f23_before(vm):
+    """P-11: set-keymap through the host socket (what the gateway does after an owner approves): the layout is written
+    to /data and loaded into the console. Run right after F21_before, which left the console on de."""
+    c = {}
+    _, out = vm.run(f"echo KINDS=$({HOST_SOCK} http://h/v1/status | tr -d '\\n' | grep -o '\"kind\":\"set-keymap\",\"available\":true' | wc -l)", 60)
+    c["kind_available"] = (re.findall(r"^KINDS=(\d+)", out, re.M) or ["0"])[-1] == "1"
+    c["view_before"] = keyboard_view(vm) == ("onemind.keyboard/v1", "de", "", False, True)
+    plain = key13(vm)
+    code, op = host_post(vm, "f23-set", {"kind": "set-keymap", "layout": "de", "variant": "nodeadkeys"})
+    c["accepted"] = code == "202"
+    done = host_wait(vm, "f23-set")
+    c["succeeded"] = done.get("state") == "succeeded"
+    st = console_state(vm)
+    c["applied"] = st == ("de", "active", "z")
+    c["variant_in_file"] = keyboard_view(vm)[1:3] == ("de", "nodeadkeys")
+    nodead = key13(vm)
+    c["variant_loaded"] = "dead_" in plain and nodead != plain and "dead_" not in nodead
+    bad_code, bad = host_post(vm, "f23-bad", {"kind": "set-keymap", "layout": "zz"})
+    c["unknown_refused"] = bad_code == "409" and bad.get("reason") == "unknown_layout"
+    shape_code, _ = host_post(vm, "f23-shape", {"kind": "set-keymap", "layout": "de;reboot"})
+    c["bad_shape_400"] = shape_code == "400"
+    c["refusal_changed_nothing"] = keyboard_view(vm)[1:3] == ("de", "nodeadkeys") and console_state(vm) == ("de", "active", "z")
+    return c, f"plain13={plain} nodeadkeys13={nodead} op={done.get('state')}/{done.get('message')!r}"
+
+
+def f23_state(vm):
+    return keyboard_view(vm)[1:4], console_state(vm), key13(vm)
+
+
+def f23_record(pre, mid, final):
+    """One verdict: the checks before the reboot, then (when the run got that far) after the F3 reboot and after the F4 update."""
+    c, note = pre
+    ok = ("de", "nodeadkeys", False)
+    if mid is not None:
+        c = dict(c, kept_after_reboot=mid[0] == ok and mid[1] == ("de", "active", "z") and mid[2] == pre_key(note))
+    if final is not None:
+        c = dict(c, kept_after_ab_update=final[0] == ok and final[1] == ("de", "active", "z") and final[2] == mid[2])
+    record("F23", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items()) + f" {note}" + (f" after_reboot={mid}" if mid else "") + (f" after_ab_update={final}" if final else ""))
+
+
+def pre_key(note):
+    return (re.findall(r"nodeadkeys13=(\S+)", note) or ["?"])[0]
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--board", required=True, choices=sorted(battery.BOARDS))
@@ -621,6 +714,8 @@ def main():
         if a.board in VAAPI_BOARDS:
             vm.mark("F20 VA-API packages and vainfo (Step 3; no GPU in QEMU)"); f20(vm)
         vm.mark("F21 console layout from /data, changed to de before the reboot"); pre21 = f21_before(vm)
+        vm.mark("F23 set-keymap through the host socket: de nodeadkeys, then a refused layout (P-11)"); pre23 = f23_before(vm)
+        mid23 = final23 = None
 
         if a.upto in ("F3", "F4"):
             vm.mark("F3 reboot keeps state")
@@ -637,6 +732,7 @@ def main():
             record("F3", not new_toks and ids3 == ids and hz3 == "200" and bool(same) and bool(token),
                    f"'{al[:70]}' new_tokens={len(new_toks)} same_ids={ids3 == ids} healthz={hz3} listed={listed3} gate={g3}")
             vm.mark("F21 the layout is still de after the reboot"); f21_after(vm, pre21)
+            mid23 = f23_state(vm)
 
         if a.upto == "F4":
             vm.mark("F4 A/B update keeps /data")
@@ -661,6 +757,8 @@ def main():
                    f"install_rc={rc_i} gate={g4} marker_kept={mark == mark2} version2={ver2} already_configured={already} "
                    f"new_token={bool(TOKEN.search(s))} same_ids={ids4 == ids} healthz={hz4} listed={listed4}")
             vm.mark("F22 the layout is still de after the A/B update"); f22(vm)
+            final23 = f23_state(vm)
+        f23_record(pre23, mid23, final23)
         rc = 0
     except (TimeoutError, RuntimeError) as e:
         record("HARNESS", False, f"aborted: {e}")

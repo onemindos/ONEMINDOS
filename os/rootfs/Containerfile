@@ -239,7 +239,7 @@ RUN set -eu; \
     /usr/sbin/tailscaled --version | head -1; /usr/bin/tailscale --version | head -1; /usr/bin/headscale version; \
     /usr/lib/onemind/restic version | grep -q 'restic 0.19.1'; command -v sqlite3 >/dev/null; \
     for t in loadkeys dumpkeys ckbcomp setupcon; do command -v $t >/dev/null || { echo "missing $t"; exit 1; }; done; \
-    test -f /usr/share/X11/xkb/symbols/de; \
+    test -f /usr/share/X11/xkb/symbols/de; test -f /usr/share/X11/xkb/rules/base.lst; \
     /usr/lib/onemind/gateway/venv/bin/python3 -I -c "import onemind_core" ; \
     if [ -x /tmp/onemind/board/post-install.sh ]; then /tmp/onemind/board/post-install.sh; fi; \
     systemctl enable systemd-networkd.service systemd-resolved.service onemind-data-layout.service \

@@ -31,6 +31,7 @@ const Schema = "onemind.host/v1"
 //	GET  /v1/plans/factory-reset  what a factory reset would erase, keep and warn (read-only)
 //	GET  /v1/smb, PUT /v1/smb/shares, PUT /v1/smb/users/{user}/password   file sharing (smb.go)
 //	GET  /v1/network           read-only network facts (internal/netview; 404 when Network is nil)
+//	GET  /v1/keyboard          the keyboard layout now and the layouts the image offers (read-only; 404 when Keymap is nil)
 //	GET  /v1/services          service cards: the image's registry joined with systemd (internal/svcregistry; 404 when Services is nil)
 //	GET  /v1/services/{unit}/logs?lines=200&follow=1   a registry unit's journal as text lines (404 when ServiceLogs is nil)
 type Server struct {
@@ -158,6 +159,16 @@ func (s *Server) Handler() http.Handler {
 			v, err := s.Network()
 			if err != nil {
 				apiError(w, http.StatusInternalServerError, "internal", "network", "the network facts could not be read")
+				return
+			}
+			writeJSON(w, http.StatusOK, v)
+		})
+	}
+	if s.S != nil && s.S.Keymap != nil {
+		mux.HandleFunc("GET /v1/keyboard", func(w http.ResponseWriter, r *http.Request) {
+			v, err := s.S.Keymap.View()
+			if err != nil {
+				apiError(w, http.StatusInternalServerError, "internal", "keyboard", "the keyboard layouts could not be read")
 				return
 			}
 			writeJSON(w, http.StatusOK, v)
