@@ -76,6 +76,7 @@ func workCommands(a *App) []*cobra.Command {
 			}
 			return nil
 		}}
+	root.AddCommand(a.workManage()...)
 	root.AddCommand(add, ls, view("today", "today", "Tasks due today or overdue"),
 		view("upcoming", "upcoming", "Tasks due after today"), view("inbox", "inbox", "Your Inbox"), done)
 	return []*cobra.Command{root}
@@ -140,4 +141,110 @@ func dueSuffix(t *onemind.WorkTask) string {
 		loc = time.UTC
 	}
 	return "  due " + t.DueAt.In(loc).Format("2006-01-02 15:04 MST")
+}
+
+// workManage is the project, member, preview and history commands of `onemind work`.
+func (a *App) workManage() []*cobra.Command {
+	var tz, name, access string
+	projects := &cobra.Command{Use: "projects", Short: "Projects you belong to", Args: cobra.NoArgs,
+		RunE: func(_ *cobra.Command, _ []string) error {
+			c, _, err := a.client()
+			if err != nil {
+				return err
+			}
+			list, err := c.Work.Projects(bg())
+			if err != nil {
+				return err
+			}
+			if a.G.JSON {
+				return printJSON(a.Stdout, list)
+			}
+			rows := make([][]string, 0, len(list))
+			for _, p := range list {
+				rows = append(rows, []string{p.ID, sanitize(p.Name), p.AIAccess})
+			}
+			return table(a.Stdout, "ID\tNAME\tAI ACCESS", rows)
+		}}
+	rename := &cobra.Command{Use: "project-edit PROJECT_ID", Short: "Rename a project or set what AI may see (creator only)",
+		Args: cobra.ExactArgs(1), RunE: func(_ *cobra.Command, args []string) error {
+			c, _, err := a.client()
+			if err != nil {
+				return err
+			}
+			p, err := c.Work.UpdateProject(bg(), args[0], name, access)
+			if err != nil {
+				return err
+			}
+			if a.G.JSON {
+				return printJSON(a.Stdout, p)
+			}
+			fmt.Fprintf(a.Stdout, "%s is now %q (AI access %s)\n", p.ID, sanitize(p.Name), p.AIAccess)
+			return nil
+		}}
+	rename.Flags().StringVar(&name, "name", "", "new name")
+	rename.Flags().StringVar(&access, "ai-access", "", "none, read or work")
+	remove := &cobra.Command{Use: "project-delete PROJECT_ID", Short: "Delete a project and its tasks (creator only)",
+		Args: cobra.ExactArgs(1), RunE: func(_ *cobra.Command, args []string) error {
+			c, _, err := a.client()
+			if err != nil {
+				return err
+			}
+			return c.Work.DeleteProject(bg(), args[0])
+		}}
+	member := func(use, short string, call func(c *onemind.Client, project, person string) error) *cobra.Command {
+		return &cobra.Command{Use: use + " PROJECT_ID PERSON_ID", Short: short, Args: cobra.ExactArgs(2),
+			RunE: func(_ *cobra.Command, args []string) error {
+				c, _, err := a.client()
+				if err != nil {
+					return err
+				}
+				return call(c, args[0], args[1])
+			}}
+	}
+	parse := &cobra.Command{Use: "parse TEXT", Short: "Preview what a quick-add line would become", Args: cobra.MinimumNArgs(1),
+		RunE: func(_ *cobra.Command, args []string) error {
+			c, _, err := a.client()
+			if err != nil {
+				return err
+			}
+			if tz == "" {
+				tz = localZone()
+			}
+			p, err := c.Work.Parse(bg(), joinArgs(args), tz)
+			if err != nil {
+				return err
+			}
+			if a.G.JSON {
+				return printJSON(a.Stdout, p)
+			}
+			fmt.Fprintf(a.Stdout, "title %q  labels %v  project found %v\n", sanitize(p.Title), p.Labels, p.ProjectFound)
+			return nil
+		}}
+	parse.Flags().StringVar(&tz, "tz", "", "time zone for dates (default this machine's zone)")
+	activity := &cobra.Command{Use: "activity PROJECT_ID TASK_ID", Short: "What changed on a task, newest first", Args: cobra.ExactArgs(2),
+		RunE: func(_ *cobra.Command, args []string) error {
+			c, _, err := a.client()
+			if err != nil {
+				return err
+			}
+			log, err := c.Work.Activity(bg(), args[0], args[1])
+			if err != nil {
+				return err
+			}
+			if a.G.JSON {
+				return printJSON(a.Stdout, log)
+			}
+			rows := make([][]string, 0, len(log))
+			for _, e := range log {
+				rows = append(rows, []string{e.At.Local().Format("2006-01-02 15:04"), e.ActorID, e.Kind, strings.Join(e.Fields, ",")})
+			}
+			return table(a.Stdout, "WHEN\tWHO\tWHAT\tFIELDS", rows)
+		}}
+	return []*cobra.Command{projects, rename, remove, parse, activity,
+		member("member-add", "Add a person to a project (creator only)", func(c *onemind.Client, p, who string) error {
+			return c.Work.AddMember(bg(), p, who)
+		}),
+		member("member-remove", "Remove a person from a project (creator only)", func(c *onemind.Client, p, who string) error {
+			return c.Work.RemoveMember(bg(), p, who)
+		})}
 }

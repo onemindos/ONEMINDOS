@@ -20,7 +20,7 @@ from ..identity.crypto import new_id
 from ..ledger import utc
 from ..store import Database, SqlRepository
 from .access import OWN_TASK_ONLY_ROLES, WORK_ROLES
-from .db import DependencyRow, InboxRow, ProjectMemberRow, ProjectRow, TaskRow, WorkCreateRow
+from .db import ActivityRow, DependencyRow, InboxRow, ProjectMemberRow, ProjectRow, TaskRow, WorkCreateRow
 
 Name = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=160)]
 Label = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=64)]
@@ -39,6 +39,23 @@ class ProjectFields(BaseModel):
 
 class Project(ProjectFields):
     id: str
+
+
+class ProjectChanges(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    name: Name | None = None
+    ai_access: AIAccess | None = None
+
+
+class Activity(BaseModel):
+    """What changed on a task and who changed it. Field names only, never the old or new values."""
+
+    id: int
+    actor_id: str
+    kind: Literal["created", "updated", "completed", "reopened"]
+    fields: tuple[str, ...]
+    at: AwareDatetime
 
 
 class PersonAssignee(BaseModel):
@@ -120,6 +137,11 @@ def _owned_query(person: Principal, project_id: str, task_id: str | None = None)
     if person.role in OWN_TASK_ONLY_ROLES:
         query = query.where(TaskRow.owner_id == person.id)
     return query
+
+
+def _log(session: Session, person: Principal, row: TaskRow, kind: str, names: Sequence[str], at: datetime) -> None:
+    session.add(ActivityRow(project_id=row.project_id, task_id=row.id, actor_id=person.id, kind=kind,
+                            fields=sorted(names), at=at))
 
 
 def _task_values(fields: TaskFields) -> dict:
@@ -242,9 +264,12 @@ class WorkService(SqlRepository):
                 receipt.project_id = project.id
             return project
 
-    def get_project(self, person: Principal, project_id: str) -> Project:
+    def get_project(self, actor: Principal, project_id: str, delegated: Principal | None = None) -> Project:
+        person, via_agent = _reader(actor, delegated)
         with self.db.session() as session:
             row = _project(session, person, project_id)
+            if via_agent and row.ai_access == "none":
+                raise _not_found()
             return Project(id=row.id, name=row.name, ai_access=row.ai_access)
 
     def project_id_named(self, person: Principal, name: str) -> str | None:
@@ -260,6 +285,84 @@ class WorkService(SqlRepository):
             raise ApiError(422, "conflict", f"No single project named {name!r}", reason="bad_project")
         return ids[0]
 
+    def list_projects(self, actor: Principal, delegated: Principal | None = None) -> list[Project]:
+        person, via_agent = _reader(actor, delegated)
+        query = select(ProjectRow).where(_member(ProjectRow.id, person.id).correlate(ProjectRow))
+        if via_agent:
+            query = query.where(ProjectRow.ai_access.in_(("read", "work")))
+        with self.db.session() as session:
+            return [Project(id=row.id, name=row.name, ai_access=row.ai_access)
+                    for row in session.scalars(query.order_by(ProjectRow.id))]
+
+    @staticmethod
+    def _owned_project(session: Session, person: Principal, project_id: str) -> ProjectRow:
+        """The project, for its creator only. The Inbox is part of the account and cannot be edited."""
+        row = _project(session, person, project_id, write=True)
+        if row.creator_id != person.id:
+            raise ApiError(403, "permission_denied", "Only the project creator can change this project")
+        if session.get(InboxRow, person.id) is not None and session.get(InboxRow, person.id).project_id == row.id:
+            raise ApiError(409, "conflict", "The Inbox cannot be changed or deleted", reason="inbox_fixed")
+        return row
+
+    def update_project(self, person: Principal, project_id: str, changes: ProjectChanges) -> Project:
+        _writer(person)
+        with self.db.session.begin() as session:
+            row = self._owned_project(session, person, project_id)
+            for name, value in changes.model_dump(exclude_none=True).items():
+                setattr(row, name, value)
+            return Project(id=row.id, name=row.name, ai_access=row.ai_access)
+
+    def delete_project(self, person: Principal, project_id: str) -> None:
+        _writer(person)
+        with self.db.session.begin() as session:
+            self._owned_project(session, person, project_id)
+            # Explicit deletes: the guarantee must not depend on the database enforcing foreign keys.
+            for table in (ActivityRow, DependencyRow, TaskRow):
+                session.execute(delete(table).where(table.project_id == project_id))
+            session.execute(delete(ProjectMemberRow).where(ProjectMemberRow.project_id == project_id))
+            session.execute(delete(WorkCreateRow).where(WorkCreateRow.project_id == project_id))
+            session.execute(delete(ProjectRow).where(ProjectRow.id == project_id))
+
+    def members(self, actor: Principal, project_id: str, delegated: Principal | None = None) -> list[str]:
+        person, via_agent = _reader(actor, delegated)
+        with self.db.session() as session:
+            if _project(session, person, project_id).ai_access == "none" and via_agent:
+                raise _not_found()
+            return list(session.scalars(select(ProjectMemberRow.person_id).where(
+                ProjectMemberRow.project_id == project_id).order_by(ProjectMemberRow.person_id)))
+
+    def remove_member(self, person: Principal, project_id: str, member_id: str) -> None:
+        """The creator removes anyone but themselves; any other member may remove only themselves (leave)."""
+        _writer(person)
+        with self.db.session.begin() as session:
+            if member_id == person.id:
+                project = _project(session, person, project_id, write=True)
+            else:
+                project = self._owned_project(session, person, project_id)
+            if member_id == project.creator_id:
+                raise ApiError(409, "conflict", "The project creator cannot be removed", reason="creator_fixed")
+            session.execute(delete(ProjectMemberRow).where(
+                ProjectMemberRow.project_id == project_id, ProjectMemberRow.person_id == member_id))
+            # Tasks assigned to someone who can no longer see the project fall back to unassigned.
+            # Each is a change like any other: its revision moves and the activity log says who did it.
+            for row in session.scalars(select(TaskRow).where(
+                    TaskRow.project_id == project_id, TaskRow.assignee_id == member_id)):
+                row.assignee_id = None
+                row.revision += 1
+                row.updated_at = self.clock()
+                _log(session, person, row, "updated", ("assignee",), self.clock())
+
+    def activity(self, actor: Principal, project_id: str, task_id: str, *, delegated: Principal | None = None,
+                 limit: int = 100) -> list[Activity]:
+        """Newest first. Reading it needs the same visibility as reading the task."""
+        with self.db.session() as session:
+            self._get_task(session, actor, project_id, task_id, delegated)
+            rows = session.scalars(select(ActivityRow).where(
+                ActivityRow.project_id == project_id, ActivityRow.task_id == task_id,
+            ).order_by(ActivityRow.id.desc()).limit(min(max(limit, 1), 200)))
+            return [Activity(id=r.id, actor_id=r.actor_id, kind=r.kind, fields=tuple(r.fields), at=utc(r.at))
+                    for r in rows]
+
     def add_member(self, person: Principal, project_id: str, member: Principal) -> None:
         with self.db.session.begin() as session:
             project = _project(session, person, project_id, write=True)
@@ -274,6 +377,8 @@ class WorkService(SqlRepository):
         row = TaskRow(project_id=project_id, id=new_id("tsk"), owner_id=person.id, revision=1,
                       updated_at=self.clock(), **_task_values(fields))
         session.add(row)
+        session.flush()
+        _log(session, person, row, "created", (), self.clock())
         return _task(row, ())
 
     def create_task(self, person: Principal, project_id: str, fields: TaskFields) -> Task:
@@ -432,8 +537,22 @@ class WorkService(SqlRepository):
                     DependencyRow.required_id.in_(visible_requirements),
                 ).order_by(DependencyRow.required_id)))
             values = _task_values(fields)
+            before = row.status
+            changed = [name for name, value in values.items() if getattr(row, name) != value
+                       and not (name == "due_at" and row.due_at is not None and value is not None
+                                and utc(row.due_at) == value)]
             for name, value in values.items():
                 setattr(row, name, value)
+            if dependencies is not None:
+                changed.append("dependencies")
+            if "status" in changed and row.status == "done":
+                kind = "completed"
+            elif "status" in changed and before == "done":
+                kind = "reopened"
+            else:
+                kind = "updated"
+            _log(session, person, row, kind, [name for name in changed if name != "status" or kind == "updated"],
+                 self.clock())
             row.revision += 1
             row.updated_at = self.clock()
             return _task(row, required)
@@ -452,4 +571,6 @@ class WorkService(SqlRepository):
                 DependencyRow.project_id == project_id,
                 or_(DependencyRow.task_id == task_id, DependencyRow.required_id == task_id),
             ))
+            session.execute(delete(ActivityRow).where(
+                ActivityRow.project_id == project_id, ActivityRow.task_id == task_id))
             session.delete(row)
