@@ -31,7 +31,7 @@ export default defineConfig({
     hookTimeout: 15_000,
     setupFiles: ['./src/test/setup.ts'],
     // Only these stylesheets are processed, so tests can read them with ?raw.
-    css: { include: [/tokens\.css/, /styles\/(fonts|base)\.css/] },
+    css: { include: [/tokens\.css/, /shell\.css/, /styles\/(fonts|base)\.css/] },
     include: ['src/**/*.test.{ts,tsx}', 'demo/src/**/*.test.{ts,tsx}'],
   },
 });

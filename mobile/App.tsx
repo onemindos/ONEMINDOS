@@ -42,6 +42,7 @@ import { InboxScreen } from './src/screens/InboxScreen';
 import { MoreScreen, useMoreBadge } from './src/screens/MoreScreen';
 import { NodesScreen } from './src/screens/NodesScreen';
 import { DeviceInfoScreen, LiveUsageScreen, NetworkScreen, OsUpdatesScreen, SystemControlsScreen } from './src/screens/SystemScreens';
+import { TipsScreen } from './src/screens/TipsScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
 import { useUpdateNeeded } from './src/lib/protocol';
 import { UpdateNeededScreen } from './src/screens/UpdateNeededScreen';
@@ -70,6 +71,7 @@ const linking: LinkingOptions<RootParams> = {
     screens: {
       Tabs: { screens: { Home: 'home', Apps: 'apps', Approvals: 'approvals', Activity: 'activity', More: 'more' } },
       AppDetail: 'apps/:id',
+      Tips: 'tips/:id?',
       Settings: 'settings',
       PhotoBackup: 'photos',
       PhotoAlbums: 'photos/albums',
@@ -179,6 +181,7 @@ function SignedIn() {
           <Stack.Navigator screenOptions={{ headerBackTitle: 'Back', headerStyle: { backgroundColor: t.card }, headerTintColor: t.text }}>
             <Stack.Screen name="Tabs" component={Tabs} options={{ headerShown: false }} />
             <Stack.Screen name="AppDetail" component={AppDetailScreen} options={{ title: 'App' }} />
+            <Stack.Screen name="Tips" component={TipsScreen} />
             <Stack.Screen name="Settings" component={SettingsScreen} />
             <Stack.Screen name="Inbox" component={InboxScreen} />
             <Stack.Screen name="Nodes" component={NodesScreen} />

@@ -8,6 +8,7 @@ import { Button, Card, PageHeader, StatusPill, Table, type Tone } from '@onemind
 import { ApiError } from '../api/types';
 import { usePoll } from '../lib/hooks';
 import { useSignedIn } from '../session';
+import { DomainsCard } from './DomainsCard';
 import { Load } from './parts';
 
 type Iface = NetworkView['interfaces'][number];
@@ -57,7 +58,7 @@ function LiveNetwork({ token }: { token: string }) {
   if (view.error?.status === 403 && view.data === undefined) return <OwnerOnly />;
   return (
     <div className="dash-stack">
-      <PageHeader title="Network" lede="How this box is connected: its addresses, gateway and DNS, Wi-Fi, and what it listens on. This page only reads; it changes nothing." />
+      <PageHeader title="Network" lede="How this box is connected: its addresses, gateway and DNS, Wi-Fi, and what it listens on. The connection details only read; your own domains, below, are the one thing you can change here." />
       <Button onClick={() => void view.reload()}>Refresh network</Button>
       <Load res={view} what="Loading the network">
         {(v) => {
@@ -139,6 +140,7 @@ function LiveNetwork({ token }: { token: string }) {
           );
         }}
       </Load>
+      <DomainsCard token={token} />
     </div>
   );
 }

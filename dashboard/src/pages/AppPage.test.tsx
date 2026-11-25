@@ -57,6 +57,8 @@ describe('one app page', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'Uptime Kuma' })).toBeInTheDocument();
     expect(await screen.findByText('Healthy')).toBeInTheDocument();
     expect(screen.getByText('Licence')).toBeInTheDocument();
+    // the licence's source duty: the upstream source is a real link on the app page
+    expect(screen.getByRole('link', { name: 'https://github.com/louislam/uptime-kuma' })).toHaveAttribute('href', 'https://github.com/louislam/uptime-kuma');
     expect(await seriousViolations(container)).toEqual([]);
   });
 

@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""k3s state that survives a power cut (VM 501 test 2026-11-25, bug 1; CRITERIA-FIRSTBOOT.md F13; Refs #234).
+"""k3s state that survives a power cut (VM 501 test 2026-11-25, bug 1; CRITERIA-FIRSTBOOT.md F17; Refs #234).
 
 What went wrong: k3s writes its first-start files (agent keys and certificates, the node password, the
 server token, the containerd config) and containerd unpacks image layers on the ext4 /data disk without
@@ -120,7 +120,7 @@ def _walk(top: str):
 
 
 def k3s_files(p: Paths) -> list[str]:
-    """The files k3s makes on its first start and needs to start again (the F13 definition, plus the rest of
+    """The files k3s makes on its first start and needs to start again (the F17 definition, plus the rest of
     its credentials): tokens, certificates and keys, the credentials folder, the agent's kubeconfigs and
     config, and the node password."""
     out = [os.path.join(p.server, "token"), os.path.join(p.server, "agent-token")]

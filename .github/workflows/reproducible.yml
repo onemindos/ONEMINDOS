@@ -1,0 +1,43 @@
+# SPDX-License-Identifier: Apache-2.0
+# Reproducible build (Step 2 PR 8): build the OS root twice from nothing and compare. Two builds of one commit must
+# give a byte-identical rootfs tar and rootfs.ext4 (the file RAUC writes to a slot), so "what was built" is a commit
+# anyone can rebuild and check. Runs when the build recipe changes, and on demand.
+name: reproducible
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths: ['os/rootfs/**', 'os/assemble/**', 'os/boards/x86_64-efi/**', 'os/versions.lock.yaml', 'Makefile', '.github/workflows/reproducible.yml']
+  push:
+    branches: [main]
+    paths: ['os/rootfs/**', 'os/assemble/**', 'os/boards/x86_64-efi/**', 'os/versions.lock.yaml', 'Makefile', '.github/workflows/reproducible.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: reproducible-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+jobs:
+  repro:
+    if: ${{ !github.event.pull_request.draft }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Free disk space
+        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL || true
+      - uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+      - name: Build tools image
+        run: |
+          docker buildx build -f os/rootfs/Containerfile --target tools --progress plain \
+            $(sed -n 's/^\([A-Z]*=.*\)/--build-arg \1/p' os/rootfs/debian.args) \
+            --cache-from type=gha,scope=tools-ubuntu-24.04 --cache-to type=gha,mode=max,scope=tools-ubuntu-24.04 \
+            --load -t onemind-tools:ci .
+      - name: Build the rootfs twice and compare (x86_64-efi)
+        run: make repro-check BOARD=x86_64-efi TOOLS=onemind-tools:ci
+      - name: Keep the evidence on a failure
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: repro-listings
+          path: out/repro-x86_64-efi/list-*.txt
+          if-no-files-found: ignore

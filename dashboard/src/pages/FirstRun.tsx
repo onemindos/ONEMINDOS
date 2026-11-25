@@ -82,6 +82,7 @@ export function FirstRun({ onDone }: { onDone: () => void }) {
       previewPlan={previewPlan}
       initial={{ boxName: loaded.settings.box_name ?? '', timeZone: loaded.settings.time_zone ?? Intl.DateTimeFormat().resolvedOptions().timeZone ?? 'UTC',
         backup: { destination: loaded.settings.backup_choice, destinationId: loaded.settings.backup_destination_id ?? undefined, kitSaved: false } }}
+      localAddress={window.location.hostname.endsWith('.local') ? window.location.hostname : undefined}
       backupDestinations={loaded.destinations}
       onSaveSettings={async (draft) => {
         const body: FirstRunSettingsBody = { box_name: draft.boxName, time_zone: draft.timeZone,
@@ -111,7 +112,8 @@ export function FirstRun({ onDone }: { onDone: () => void }) {
           for (const r of requests) {
             try {
               const shown = previewed.current.get(r.params.app_id);
-              if (shown && appPlan) {
+              if (appPlan) {
+                if (!shown) continue;
                 // Bound to what the owner saw: a plan that changed since the preview is not filed.
                 const now = await appPlan.call(api, r.params.app_id);
                 if (now.plan_sha256 !== shown) continue;

@@ -268,7 +268,8 @@ class IdentityService:
             if not allows_read(**policy):
                 raise self.deny(ctx.principal, f"{request.method} {request.url.path}", reason="plugin_policy")
         required = sc.required_scopes(request.method, request.url.path)
-        if required is not None and not sc.has_any(ctx.scopes, required):
+        if (required is not None and not sc.has_any(ctx.scopes, required)
+                and not sc.narrowed_mcp_access(request.method, request.url.path, ctx.scopes)):
             raise self.deny(ctx.principal, f"{request.method} {request.url.path}",
                             required=list(required), reason="scope")
         request.state.identity = ctx

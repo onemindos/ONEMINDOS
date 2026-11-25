@@ -76,7 +76,7 @@ jobs:
       # S-13 (test/qemu/CRITERIA-SECUREBOOT.md): signed UKI under OVMF Secure Boot with throwaway keys. Non-blocking
       # while CI capacity is tight; the verdicts are in results.json and the job summary. Needs the rootfs tar,
       # so it runs before the battery step deletes it.
-      - name: Secure Boot and signed UKI (SB1-SB4)
+      - name: Secure Boot and signed UKI (SB1-SB7)
         if: inputs.secureboot
         continue-on-error: true
         run: make secureboot-test TOOLS=onemind-tools:ci

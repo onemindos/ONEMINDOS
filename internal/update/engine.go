@@ -135,6 +135,7 @@ func (e *Engine) Run(ctx context.Context, mode Mode, noReboot bool) (*Result, er
 	if err != nil {
 		return res, e.fail(st, "", "box: "+err.Error())
 	}
+	prev := st.CurrentVersion // what the last run saw running; reconcile spots an owner go-back by it
 	st.CurrentVersion = box.Version
 	if !box.MarkerPresent && box.Version != "" {
 		// Running and committed: the gate passed this version, so any earlier
@@ -149,7 +150,7 @@ func (e *Engine) Run(ctx context.Context, mode Mode, noReboot bool) (*Result, er
 	if err != nil {
 		return res, e.fail(st, "", "bad-releases: "+err.Error())
 	}
-	e.reconcile(st, box, bad)
+	e.reconcile(st, box, bad, prev)
 
 	// Installed but not yet rebooted: finish that before anything else.
 	if st.State == heartbeat.UpdatePendingReboot && mode != ModeCheck {
@@ -224,7 +225,7 @@ func (e *Engine) Run(ctx context.Context, mode Mode, noReboot bool) (*Result, er
 // state. RAUC's exit status alone never counts as success (B4.2,
 // [C-TD-casaos-zimaos-044]): only the booted version plus the gate's
 // marker decide committed vs rolled back.
-func (e *Engine) reconcile(st *Status, box Box, bad BadReleases) {
+func (e *Engine) reconcile(st *Status, box Box, bad BadReleases, prev string) {
 	now := e.Now().UTC().Format(time.RFC3339)
 	switch {
 	case box.MarkerPresent && box.MarkerVersion == box.Version:
@@ -242,6 +243,10 @@ func (e *Engine) reconcile(st *Status, box Box, bad BadReleases) {
 		from := st.TargetVersion
 		if box.Version == st.TargetVersion {
 			st.State, st.LastResult = heartbeat.UpdateCommitted, "committed "+box.Version+" (health gate passed)"
+			st.PreviousVersion = ""
+			if st.FromVersion != box.Version {
+				st.PreviousVersion = st.FromVersion // the other slot still holds it: "go back" boots it (P-16)
+			}
 			st.addHistory(HistoryEntry{At: now, From: st.FromVersion, To: box.Version, Result: heartbeat.UpdateCommitted})
 		} else {
 			v := bad.Verdict(from)
@@ -249,10 +254,19 @@ func (e *Engine) reconcile(st *Status, box Box, bad BadReleases) {
 				v = "unknown"
 			}
 			st.State = heartbeat.UpdateRolledBack
+			st.PreviousVersion = "" // the other slot holds the version the gate turned away
 			st.LastResult = fmt.Sprintf("rolled back from %s to %s (gate verdict %s)", from, box.Version, v)
 			st.addHistory(HistoryEntry{At: now, From: box.Version, To: from, Result: heartbeat.UpdateRolledBack, Detail: "gate verdict " + v})
 		}
 		e.Log.Info("update verdict", "state", st.State, "detail", st.LastResult)
+	case prev != "" && prev != box.Version && bad.OwnerRolledBack(prev):
+		// The owner approved going back (P-16): the host marked the other slot active and rebooted. The
+		// status still says "committed <prev>", so record the go-back like the gate's own rollback.
+		st.State, st.TargetVersion, st.FromVersion = heartbeat.UpdateRolledBack, prev, box.Version
+		st.PreviousVersion = "" // the other slot holds the version the owner turned away
+		st.LastResult = fmt.Sprintf("went back from %s to %s (owner request)", prev, box.Version)
+		st.addHistory(HistoryEntry{At: now, From: prev, To: box.Version, Result: heartbeat.UpdateRolledBack, Detail: "owner rollback"})
+		e.Log.Info("owner rollback", "from", prev, "to", box.Version)
 	case st.State == heartbeat.UpdateDownloading || st.State == heartbeat.UpdateInstalling:
 		st.State, st.LastResult = heartbeat.UpdateError, "interrupted while "+st.State+" "+st.TargetVersion
 		st.addHistory(HistoryEntry{At: now, From: box.Version, To: st.TargetVersion, Result: heartbeat.UpdateError, Detail: "interrupted"})
@@ -262,6 +276,7 @@ func (e *Engine) reconcile(st *Status, box Box, bad BadReleases) {
 func (e *Engine) install(ctx context.Context, st *Status, src source, idx *Index, t *Target, from string) error {
 	to := t.Meta.Version
 	st.State, st.TargetVersion, st.FromVersion, st.Warnings, st.Snapshot = heartbeat.UpdateDownloading, to, from, nil, ""
+	st.PreviousVersion = "" // the install is about to overwrite the other slot
 	st.LastResult = "downloading " + to
 	if err := st.Save(e.Cfg); err != nil {
 		return err

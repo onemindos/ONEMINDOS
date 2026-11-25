@@ -53,6 +53,8 @@ _installs = itertools.count()
 def install(client, clock, app_id="whoami"):
     key = f"inst-{app_id}-{next(_installs)}"
     r = client.post("/v1/actions", json=action_body(clock, app_id, key=key), headers=OWNER)
+    if r.status_code == 409 and "is installed" in r.text:  # the covered types here restart, not remove
+        return
     assert r.status_code == 201, r.text
     r = client.post(f"/v1/actions/{r.json()['id']}/approve", headers=OWNER)
     assert r.json()["state"] == "succeeded", r.text
@@ -60,7 +62,7 @@ def install(client, clock, app_id="whoami"):
 
 def remove_rule(trigger, app_id="whoami", **options):
     return {"name": "remove on trouble", "trigger": trigger,
-            "actions": [{"type": "app.remove", "params": {"app_id": app_id}}],
+            "actions": [{"type": "app.restart", "params": {"app_id": app_id}}],
             "options": {"debounce_s": 0, **options}}
 
 
@@ -77,7 +79,7 @@ def enable(client, rule_id):
     return r.json()
 
 
-def policy(client, clock, *, types=("app.remove",), requested_by=("automation:*",), params=None,
+def policy(client, clock, *, types=("app.restart",), requested_by=("automation:*",), params=None,
            per_day=3, window_id=None, headers=OWNER):
     body = {"allow": {"types": list(types), "requested_by": list(requested_by), "params": params or {}},
             "limits": {"per_day": per_day}, "expires_at": iso(clock.now + timedelta(days=30))}
@@ -192,6 +194,44 @@ def test_missed_fires_after_downtime(client, clock, catch_up, expected):
     assert len(fired) == expected
 
 
+def test_rule_expiry_is_capped_at_the_agent_limit(client, clock):
+    """expires_s above 72 h would pass here and then be refused on every fire (gap 9)."""
+    ok = client.post("/v1/automation/rules", json=remove_rule({"schedule": {"cron": "0 3 * * *"}}, expires_s=72 * 3600),
+                     headers=OWNER)
+    assert ok.status_code == 201, ok.text
+    too_long = client.post("/v1/automation/rules",
+                           json=remove_rule({"schedule": {"cron": "0 3 * * *"}}, expires_s=72 * 3600 + 1), headers=OWNER)
+    assert too_long.status_code == 422, too_long.text
+
+
+def test_a_stored_rule_with_a_longer_expiry_is_clamped_when_it_fires(client, clock):
+    install(client, clock)
+    rule = create_rule(client, remove_rule({"schedule": {"cron": "* * * * *"}}))
+    enable(client, rule["id"])
+    stored = svc(client).repo.get_rule(rule["id"])
+    # a rule saved before the 72 h cap shipped, with a 7 day expiry
+    assert svc(client).repo.update_rule(rule["id"], options={**stored.options, "expires_s": 7 * 86400})
+    clock.now = datetime(2026, 11, 11, 22, 0, 30, tzinfo=UTC)
+    svc(client).tick()
+    clock.advance(100)
+    fired = svc(client).tick()
+    assert [f["outcome"] for f in fired] == ["requested"], fired
+    action = client.get(f"/v1/actions/{fired[0]['action_ids'][0]}", headers=OWNER).json()
+    assert datetime.fromisoformat(action["expires_at"]) - clock.now == timedelta(hours=72)
+
+
+def test_editing_a_stored_rule_with_a_longer_expiry_clamps_it(client, clock):
+    """PATCH without options re-validates the stored options; a 7 day value must not give a 500."""
+    install(client, clock)
+    rule = create_rule(client, remove_rule({"schedule": {"cron": "* * * * *"}}))
+    stored = svc(client).repo.get_rule(rule["id"])
+    assert svc(client).repo.update_rule(rule["id"], options={**stored.options, "expires_s": 7 * 86400})
+    resp = client.patch(f"/v1/automation/rules/{rule['id']}", json={"name": "renamed"}, headers=OWNER)
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["name"] == "renamed"
+    assert resp.json()["options"]["expires_s"] == 72 * 3600
+
+
 def test_a_late_tick_fires_a_rule_once(client, clock):
     install(client, clock)
     rule = create_rule(client, remove_rule({"schedule": {"cron": "* * * * *"}}))
@@ -234,7 +274,7 @@ def test_bad_standing_approvals_are_refused(client, clock, kw, status, needle):
 
 
 def test_standing_approval_expiry_is_bounded(client, clock):
-    body = {"allow": {"types": ["app.remove"], "requested_by": ["automation:*"]}, "limits": {"per_day": 1},
+    body = {"allow": {"types": ["app.restart"], "requested_by": ["automation:*"]}, "limits": {"per_day": 1},
             "expires_at": iso(clock.now + timedelta(days=91))}
     r = client.post("/v1/approval-policies", json=body, headers=OWNER)
     assert r.status_code == 422 and "90 days" in r.json()["message"]
@@ -245,7 +285,7 @@ def test_policy_limit_is_counted_in_the_database(client, clock, auto_settings, e
     approver = f"policy:{pol['id']}@1"
     for i in range(3):
         install(client, clock)
-        r = client.post("/v1/actions", json=action_body(clock, "whoami", "app.remove", key=f"rm{i}"), headers=AGENT)
+        r = client.post("/v1/actions", json=action_body(clock, "whoami", "app.restart", key=f"rm{i}"), headers=AGENT)
         assert r.status_code == 201
         a = r.json()
         assert a["state"] == "succeeded", a
@@ -253,9 +293,9 @@ def test_policy_limit_is_counted_in_the_database(client, clock, auto_settings, e
     install(client, clock)
     # A restarted gateway keeps the count (from here on only the new process writes).
     with TestClient(create_app(auto_settings, clock=clock, executor=executor)) as again:
-        r = again.post("/v1/actions", json=action_body(clock, "whoami", "app.remove", key="rm3"), headers=AGENT)
+        r = again.post("/v1/actions", json=action_body(clock, "whoami", "app.restart", key="rm3"), headers=AGENT)
         assert r.json()["state"] == "awaiting_approval"
-        assert again.get("/v1/approval-policies", headers=GUEST).json()[0]["uses_24h"] == 3
+        assert again.get("/v1/approval-policies", headers=OWNER).json()[0]["uses_24h"] == 3
         assert any(e["event"] == "automation.policy.limit_reached" and e["data"]["uses"] == "3/3"
                    for e in audit_events(again))
         approved = [e for e in audit_events(again) if e["event"] == "action.approved" and e["data"].get("approved_via")]
@@ -264,7 +304,7 @@ def test_policy_limit_is_counted_in_the_database(client, clock, auto_settings, e
         # 24 hours later there is room again.
         again.post(f"/v1/actions/{r.json()['id']}/deny", headers=OWNER)
         clock.advance(86401)
-        r = again.post("/v1/actions", json=action_body(clock, "whoami", "app.remove", key="rm4"), headers=AGENT)
+        r = again.post("/v1/actions", json=action_body(clock, "whoami", "app.restart", key="rm4"), headers=AGENT)
         assert r.json()["state"] == "succeeded"
         ok, _, msg = verify(again.app.state.settings.audit_path)
         assert ok, msg
@@ -273,11 +313,11 @@ def test_policy_limit_is_counted_in_the_database(client, clock, auto_settings, e
 def test_wildcards_never_cover_agents_and_params_must_match(client, clock):
     install(client, clock)
     policy(client, clock, requested_by=("automation:*", "person:*"))
-    r = client.post("/v1/actions", json=action_body(clock, "whoami", "app.remove", key="a1"), headers=AGENT)
+    r = client.post("/v1/actions", json=action_body(clock, "whoami", "app.restart", key="a1"), headers=AGENT)
     assert r.json()["state"] == "awaiting_approval"
     client.post(f"/v1/actions/{r.json()['id']}/deny", headers=OWNER)
     policy(client, clock, requested_by=("agent:hermes",), params={"app_id": {"enum": ["uptime-kuma"]}})
-    r = client.post("/v1/actions", json=action_body(clock, "whoami", "app.remove", key="a2"), headers=AGENT)
+    r = client.post("/v1/actions", json=action_body(clock, "whoami", "app.restart", key="a2"), headers=AGENT)
     assert r.json()["state"] == "awaiting_approval"
 
 
@@ -287,7 +327,7 @@ def test_sensitive_requests_are_never_auto_approved(client, clock):
             "actions": [{"type": "app.install", "params": {"app_id": "${event.resource.id}"}}]}
     rule = create_rule(client, body)
     enable(client, rule["id"])
-    policy(client, clock)  # covers app.remove only
+    policy(client, clock)  # covers app.restart only
     unhealthy(client, "whoami")
     fired = svc(client).process_events()
     a = client.get(f"/v1/actions/{fired[0]['action_ids'][0]}", headers=OWNER).json()
@@ -308,7 +348,7 @@ def test_action_path_never_lets_a_policy_accept_above_write(client, clock):
     assert r.status_code == 201 and r.json()["state"] == "awaiting_approval"
     assert s.repo.count_uses("pol_forged", clock.now - timedelta(days=1)) == 0
     # The same hook does accept a write request, so the refusal above is the risk ceiling.
-    r = client.post("/v1/actions", json=action_body(clock, "whoami", "app.remove", key="x2"), headers=AGENT)
+    r = client.post("/v1/actions", json=action_body(clock, "whoami", "app.restart", key="x2"), headers=AGENT)
     assert r.json()["state"] == "succeeded"
 
 
@@ -321,7 +361,7 @@ def test_a_failing_policy_approval_leaves_the_request_filed(client, clock, monke
         raise RuntimeError("database went away")
 
     monkeypatch.setattr(gw.actions.repo, "accept_and_claim", boom)
-    r = client.post("/v1/actions", json=action_body(clock, "whoami", "app.remove", key="f1"), headers=AGENT)
+    r = client.post("/v1/actions", json=action_body(clock, "whoami", "app.restart", key="f1"), headers=AGENT)
     assert r.status_code == 201 and r.json()["state"] == "awaiting_approval"
     assert client.get("/v1/approval-policies", headers=OWNER).json()[0]["uses_24h"] == 0  # the use came back
 
@@ -329,14 +369,14 @@ def test_a_failing_policy_approval_leaves_the_request_filed(client, clock, monke
 def test_window_bound_policy_and_revision_bump(client, clock):
     install(client, clock)
     pol = policy(client, clock, requested_by=("agent:hermes",), window_id="win_nightly").json()
-    r = client.post("/v1/actions", json=action_body(clock, "whoami", "app.remove", key="w1"), headers=AGENT)
+    r = client.post("/v1/actions", json=action_body(clock, "whoami", "app.restart", key="w1"), headers=AGENT)
     assert r.json()["state"] == "awaiting_approval"  # 22:00 UTC: nightly is 02:00-05:00
     client.post(f"/v1/actions/{r.json()['id']}/deny", headers=OWNER)
     w = client.put("/v1/windows/win_nightly", headers=OWNER,
                    json={"name": "nightly", "tz": "UTC", "ranges": [{"start": "21:00", "end": "23:00"}]})
     assert w.status_code == 200 and w.json()["open_now"] is True
     assert client.put("/v1/windows/win_nightly", headers=AGENT, json={"name": "x", "ranges": []}).status_code == 403
-    r = client.post("/v1/actions", json=action_body(clock, "whoami", "app.remove", key="w2"), headers=AGENT)
+    r = client.post("/v1/actions", json=action_body(clock, "whoami", "app.restart", key="w2"), headers=AGENT)
     assert r.json()["decided_by"]["id"] == f"policy:{pol['id']}@2"
 
 
@@ -365,7 +405,7 @@ def test_f6_patch_updates_of_verified_apps_inside_the_window(client, clock, auto
 # ---- event rules ---------------------------------------------------------------------------------
 def event_rule(client, **options):
     body = {**remove_rule({"event": {"type": "app.unhealthy", "where": {"resource.kind": "app"}}}, **options),
-            "actions": [{"type": "app.remove", "params": {"app_id": "${event.resource.id}"}}]}
+            "actions": [{"type": "app.restart", "params": {"app_id": "${event.resource.id}"}}]}
     rule = create_rule(client, body)
     enable(client, rule["id"])
     return rule
@@ -380,7 +420,7 @@ def test_event_rule_with_standing_approval_runs_and_is_audited(client, clock, ex
     assert fired[0]["outcome"] == "requested"
     a = client.get(f"/v1/actions/{fired[0]['action_ids'][0]}", headers=OWNER).json()
     assert a["state"] == "succeeded" and a["decided_by"]["id"] == f"policy:{pol['id']}@1"
-    assert ("app.remove", "whoami") in executor.calls
+    assert ("app.restart", "whoami") in executor.calls
     events = [e["event"] for e in audit_events(client)]
     assert "automation.fired" in events and "action.approved" in events
     ok, _, msg = verify(client.app.state.settings.audit_path)
@@ -436,12 +476,12 @@ def test_kill_switch_stops_rules_and_standing_approvals(client, clock):
     assert r.json()["paused"] is True and r.json()["reason"] == "investigating"
     unhealthy(client, "whoami")
     assert svc(client).process_events() == []
-    r = client.post("/v1/actions", json=action_body(clock, "whoami", "app.remove", key="k1"), headers=AGENT)
+    r = client.post("/v1/actions", json=action_body(clock, "whoami", "app.restart", key="k1"), headers=AGENT)
     assert r.json()["state"] == "awaiting_approval"
     client.post(f"/v1/actions/{r.json()['id']}/deny", headers=OWNER)
     assert client.post("/v1/automation/resume", headers=OWNER).json()["paused"] is False
     assert client.get("/v1/automation/state", headers=GUEST).json()["paused"] is False
-    r = client.post("/v1/actions", json=action_body(clock, "whoami", "app.remove", key="k2"), headers=AGENT)
+    r = client.post("/v1/actions", json=action_body(clock, "whoami", "app.restart", key="k2"), headers=AGENT)
     assert r.json()["state"] == "succeeded"
 
 
@@ -466,7 +506,7 @@ def test_dry_run_shows_verdicts_and_limits_without_side_effects(client, clock):
 
 def test_event_dry_run_replays_seen_events_and_samples(client, clock):
     rule = create_rule(client, {**remove_rule({"event": {"type": "app.*"}}, debounce_s=300),
-                                "actions": [{"type": "app.remove", "params": {"app_id": "${event.resource.id}"}}]})
+                                "actions": [{"type": "app.restart", "params": {"app_id": "${event.resource.id}"}}]})
     for _ in range(4):
         unhealthy(client, "whoami")
     unhealthy(client, "bad/x")

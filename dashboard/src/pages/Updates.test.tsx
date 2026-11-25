@@ -13,6 +13,7 @@ const node = {
   current_version: '0.1.1', available_version: '0.1.2', state: 'idle', last_check: '2026-11-18T10:00:00Z', last_result: 'update available',
   rauc: { present: true, booted_slot: 'A', slots: [{ name: 'rootfs.0', bootname: 'A', state: 'booted', boot_status: 'good', bundle_version: '0.1.1' }] },
 };
+const rollback = { available: true, version: '0.1.0', slot: 'B', reason: null, message: null };
 const status = { nodes: [node], install: { available: false, reason: 'engine_unreachable', message: 'Install at the box with onemind update apply.' } };
 const history = { events: [{ node_id: 'box0123456789', state: 'rolled_back', version: '0.1.1', last_result: 'gate: image-bad 0.1.2', observed_at: '2026-11-17T03:00:00Z' }], requests: [] };
 function response(value: unknown, code = 200) { return new Response(JSON.stringify(value), { status: code, headers: { 'content-type': 'application/json' } }); }
@@ -68,4 +69,42 @@ it('shows a refused install request', async () => {
 it('reports an invalid status payload honestly', async () => {
   mount((_, path) => response(path === '/v1/os/updates' ? { nodes: 'x' } : history));
   expect(await screen.findByText(/invalid update status/)).toBeInTheDocument();
+});
+
+const goBack = { ...status, nodes: [{ ...node, rollback }], rollback: { available: true, reason: null, message: 'An approved rollback runs on this box.' } };
+
+it('names the previous version and files an os.rollback request for the owner, never going back itself', async () => {
+  const sent: unknown[] = [];
+  const fetch = mount((method, path, body) => {
+    if (method === 'POST' && path === '/v1/actions') { sent.push(body); return response({ id: 'act-9', type: 'os.rollback', state: 'awaiting_approval' }, 201); }
+    return response(path === '/v1/os/updates' ? goBack : history);
+  });
+  expect(await screen.findByText('0.1.0 (slot B)')).toBeInTheDocument();
+  expect(screen.getByText(/confirms it with a passkey/)).toBeInTheDocument();
+  await userEvent.setup().click(await screen.findByRole('button', { name: 'Go back to 0.1.0' }));
+  expect(await screen.findByText(/Go-back request act-9: awaiting_approval/)).toBeInTheDocument();
+  expect(screen.getByText(/approves it with a passkey/)).toBeInTheDocument();
+  expect(sent).toEqual([expect.objectContaining({ type: 'os.rollback', params: { node_id: 'box0123456789', version: '0.1.0' } })]);
+  const posts = fetch.mock.calls.filter(([, init]) => (init as RequestInit | undefined)?.method === 'POST');
+  expect(posts.map(([url]) => new URL(String(url)).pathname)).toEqual(['/v1/actions']); // filed, never approved here
+  expect(screen.getByRole('link', { name: 'Open request in Approvals' })).toHaveAttribute('href', '/approvals?highlight=act-9');
+});
+
+it('offers no way back when the other slot is not known good, and says why', async () => {
+  const none = { available: false, version: null, slot: null, reason: 'previous_not_good', message: 'Slot B is not marked good (bad): it did not pass the health gate.' };
+  mount((_, path) => response(path === '/v1/os/updates' ? { ...goBack, nodes: [{ ...node, rollback: none }] } : history));
+  expect(await screen.findByText(/None\. Slot B is not marked good \(bad\)/)).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: /Go back to/ })).not.toBeInTheDocument();
+});
+
+it('disables going back while the hub cannot reach the host service', async () => {
+  const engine = { available: false, reason: 'engine_unreachable', message: 'At the box, the rescue console shows both slots.' };
+  mount((_, path) => response(path === '/v1/os/updates' ? { ...goBack, rollback: engine } : history));
+  expect(await screen.findByRole('button', { name: 'Go back to 0.1.0' })).toBeDisabled();
+  expect(screen.getAllByRole('note').some((n) => /Going back from the hub is not available yet/.test(n.textContent ?? ''))).toBe(true);
+});
+
+it('lists go-back requests in the history', async () => {
+  mount((_, path) => response(path === '/v1/os/updates' ? goBack : { ...history, requests: [{ type: 'os.rollback', version: '0.1.0', node_id: 'box0123456789', state: 'succeeded' }] }));
+  expect(await screen.findByText(/Go back to 0.1.0 on box0123456789 · succeeded/)).toBeInTheDocument();
 });

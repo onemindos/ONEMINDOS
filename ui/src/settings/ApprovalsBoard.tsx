@@ -96,7 +96,7 @@ export interface ApprovalsBoardProps {
   decided?: ActionSummary[];
   now: number;
   canDecide: ApprovalCardProps['canDecide'];
-  onApprove?: (a: ActionSummary) => void;
+  onApprove?: ApprovalCardProps['onApprove'];
   onDeny?: (a: ActionSummary) => void;
   onRetry?: () => void;
   /** Open with this request selected (deep link from a notification). */

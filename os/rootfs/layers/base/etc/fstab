@@ -1,13 +1,19 @@
 # SPDX-License-Identifier: Apache-2.0
 # OneMind OS: the slot root is mounted read-only (no "rw" on the kernel command line).
 # Labels are the contract (01 §4.3); see os/boards/<board>/layout.yaml.
+# /data is "auto": ext4 on boxes installed before #152, btrfs on new ones (data_encrypt.py makes @ its default
+# subvolume, so no subvol= option, which ext4 would refuse). The owner's files, the @storage subvolume, are mounted at
+# /data/storage by data-storage.mount (a unit, not a line here, so an ext4 box does not try a subvol= it would refuse).
+# x-systemd.growfs: after mounting, systemd-growfs makes the filesystem (and a LUKS2 volume under it) as big as the
+# device under it, which is how /data fills a partition that cloud-init's growpart or data_extend.py just enlarged.
 PARTLABEL=onemind-esp   /boot/efi  vfat  umask=0077                          0 1
-# nodelalloc on /data (VM 501 bug 1, CRITERIA-FIRSTBOOT.md F13): ext4's default delayed allocation writes a new file's
-# blocks and size only when it flushes, up to ~30 s later, after the metadata naming the file is already on the disk;
-# a power cut in between leaves 0-byte or torn files (k3s's certificates, the binaries of freshly unpacked images,
-# which then crash with SIGSEGV for good). Without it, data=ordered writes a file's data before the metadata that
-# points to it, so a program's fsync (containerd's, sqlite's) also carries the files it wrote before.
-PARTLABEL=onemind-data  /data      ext4  defaults,nodelalloc,noatime,nofail,x-systemd.device-timeout=30s  0 2
+# No delayed allocation on /data (VM 501 bug 1, CRITERIA-FIRSTBOOT.md F17): a power cut must never leave files that are
+# named on the disk but whose data is not (0-byte k3s certificates, torn binaries of freshly unpacked images that then
+# crash with SIGSEGV for good). The option depends on the filesystem and this line is "auto", which refuses an option
+# the filesystem does not know (btrfs refuses nodelalloc, ext4 refuses flushoncommit: /data would not mount at all).
+# So onemind-data-durable, run by onemind-data-layout.service before the binds and services that write to /data, remounts
+# it with nodelalloc on ext4 or flushoncommit on btrfs.
+PARTLABEL=onemind-data  /data      auto  defaults,noatime,nofail,x-systemd.growfs,x-systemd.device-timeout=30s  0 2
 # Writable state lives on onemind-data and is bind-mounted over the read-only root.
 # "nofail" on /data and every bind from it: a dead data disk must not fail local-fs.target (that
 # means emergency mode: no network, no page). onemind-data-check.service restores the ordering and
@@ -30,3 +36,6 @@ PARTLABEL=onemind-data  /data      ext4  defaults,nodelalloc,noatime,nofail,x-sy
 # The hub's JetStream store (app event streams), on the data disk so it survives A/B updates.
 /data/state/var-lib-onemind-nats      /var/lib/onemind-nats         none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0
 /data/state/etc-hosts                 /etc/hosts                    none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0
+# btrfs-progs keeps the result of the last scrub here (`btrfs scrub status /data`); the root is read-only, so without
+# this the monthly scrub would run but leave no status behind (snapper/btrfsmaintenance, plan PR 6).
+/data/state/var-lib-btrfs             /var/lib/btrfs                none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0

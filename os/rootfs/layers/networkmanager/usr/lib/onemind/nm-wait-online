@@ -1,0 +1,18 @@
+#!/bin/sh
+# SPDX-License-Identifier: Apache-2.0
+# "Online" on a NetworkManager board: at least ONE wired or Wi-Fi device is connected. Replaces Debian's
+# `nm-online -s`, which waits until NetworkManager has tried every device, and plain `nm-online`, which waits for
+# NetworkManager's overall state: that stays "connecting" while any device is still activating, so a second card
+# with a link and no DHCP server held the boot for the whole timeout (firewall battery FW5). Bounded by
+# NM_ONLINE_TIMEOUT seconds (30 in the unit): a box with no network at all goes on booting, k3s and the gateway work offline.
+t=${NM_ONLINE_TIMEOUT:-30}
+i=0
+while [ "$i" -lt $((t * 4)) ]; do
+  if nmcli -t -f STATE,TYPE device 2>/dev/null | grep -Eq '^connected:(ethernet|wifi|bond|bridge|vlan)$'; then
+    exit 0
+  fi
+  sleep 0.25
+  i=$((i + 1))
+done
+echo "nm-wait-online: no wired or Wi-Fi device connected after ${t}s" >&2
+exit 1

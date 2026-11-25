@@ -245,3 +245,14 @@
   .om-cz-wallpapers { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .om-cz-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+:root[data-om-high-contrast] {
+  --om-color-text-muted: var(--om-color-text);
+  --om-color-text-subtle: var(--om-color-text);
+  --om-color-border: var(--om-color-border-strong);
+}
+:root[data-om-focus-always] :focus {
+  outline: 2px solid var(--om-color-focus);
+  outline-offset: 2px;
+}
+:root[data-om-underline-links] a { text-decoration-line: underline; }

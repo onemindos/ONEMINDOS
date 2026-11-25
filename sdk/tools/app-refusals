@@ -1,0 +1,31 @@
+#!/usr/bin/env -S python3 -I
+# SPDX-License-Identifier: Apache-2.0
+"""Run the gateway's app refusal cases and fail if any case was skipped."""
+from pathlib import Path
+import subprocess
+from tempfile import TemporaryDirectory
+from xml.etree import ElementTree
+
+CASES = (
+    "tests/test_app_sdk_refusals.py",
+    "tests/test_notify_app_topics.py::test_a_built_in_posts_only_its_declared_topics_below_critical_and_only_while_on",
+)
+
+
+def main() -> int:
+    root = Path(__file__).resolve().parents[2]
+    with TemporaryDirectory() as tmp:
+        report = Path(tmp, "refusals.xml")
+        result = subprocess.run(["uv", "run", "pytest", "-q", f"--junitxml={report}", *CASES],
+                                cwd=root / "core", check=False)
+        if result.returncode:
+            return result.returncode
+        cases = ElementTree.parse(report).findall(".//testcase")
+        if len(cases) != len(CASES) or any(case.find("skipped") is not None for case in cases):
+            print("App refusal harness requires every case to run.")
+            return 1
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -1,0 +1,9 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist",
+    "paths": { "@onemind/sdk": ["../dist/index.d.ts"] }
+  },
+  "include": ["src"]
+}

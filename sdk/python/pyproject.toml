@@ -26,4 +26,4 @@ artifacts = ["src/onemind_sdk/_gen/models.py", "src/onemind_sdk/aio.py"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["src"]
+pythonpath = ["src", "app-sdk/src"]

@@ -14,6 +14,8 @@ export const href = {
   builtIn: '/built-in',
   sources: '/sources',
   compose: '/compose',
+  /** PLG-GIT-01: the Market's Custom tab (apps linked from a Git repository). */
+  custom: '/custom',
   manage: (id: string) => `/installed/${encodeURIComponent(id)}`,
   browser: (id: string) => `/browser/${encodeURIComponent(id)}`,
   approvals: '/approvals',

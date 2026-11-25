@@ -112,6 +112,7 @@ CATALOG_KEYS = {
     "archs", "requires", "web_port", "installed", "status", "data_kept",
     "links", "tier", "scan",  # §11.4
     "build",  # app factory provenance
+    "custom_source",  # PLG-GIT-01
     "catalog_source",  # §12.22
     "browser",  # #692: opened in a window with a per-person profile
     "machine_needs",  # #724: requires / recommends / supports in one shape

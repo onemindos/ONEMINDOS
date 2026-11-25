@@ -7,6 +7,7 @@ import type { Tone } from '../tokens/tokens';
 import { formatAgo, formatIn, secondsSince } from '../lib/time';
 import { Button } from './Button';
 import { Card } from './Card';
+import { HoldToApprove } from './HoldToApprove';
 import { Icon } from './Icon';
 import { StatusPill } from './StatusPill';
 
@@ -38,6 +39,7 @@ export interface ActionSummary {
   message?: string;
   /** What the target is called in the catalog ("Ollama", not its id "ollama"); the id is shown when absent. */
   target_name?: string;
+  hold?: { duration: number; plan?: string };
 }
 
 export const ACTION_STATE: Record<ActionState, { tone: Tone; label: string }> = {
@@ -92,7 +94,7 @@ export interface ApprovalCardProps {
   now: number;
   /** 'no' with a reason when the viewer may not decide (not the owner, or an agent). */
   canDecide: { allowed: true } | { allowed: false; reason: string };
-  onApprove?: (a: ActionSummary) => void;
+  onApprove?: (a: ActionSummary, elapsedMs?: number) => void;
   onDeny?: (a: ActionSummary) => void;
   busy?: boolean;
   /** Highlight a card the person just created or opened from a notification. */
@@ -121,9 +123,12 @@ export function ApprovalCard({ action, now, canDecide, onApprove, onDeny, busy, 
       footer={
         pending && (onApprove || onDeny) ? (
           <div className="om-decide">
-            <Button variant="primary" icon="check" disabled={!!blocked} busy={busy} aria-label={`Approve ${title}`} onClick={() => onApprove?.(action)} aria-describedby={blocked ? detailsId : undefined}>
+            {action.hold && !blocked && !busy && onApprove ? (
+              <HoldToApprove key={`${action.id}:${action.hold.plan}:${action.hold.duration}`} label={`Hold to approve ${title}`}
+                duration={action.hold.duration} onApprove={(ms) => onApprove(action, ms)} />
+            ) : <Button variant="primary" icon="check" disabled={!!blocked || !!action.hold} busy={busy} aria-label={`Approve ${title}`} onClick={() => onApprove?.(action)} aria-describedby={blocked ? detailsId : undefined}>
               Approve
-            </Button>
+            </Button>}
             <Button variant="secondary" icon="x" disabled={!!blocked || busy} aria-label={`Deny ${title}`} onClick={() => onDeny?.(action)}>
               Deny
             </Button>

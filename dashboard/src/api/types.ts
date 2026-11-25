@@ -152,6 +152,12 @@ export interface CommunitySource {
   errors: string[];
 }
 
+/** PLG-GIT-01: the custom-app shapes come from the generated client, not hand-written types. */
+export type CustomPlan = components['schemas']['CustomPlanResult'];
+export type CustomRevision = components['schemas']['CustomRevisionOut'];
+export type CustomApp = components['schemas']['CustomAppRow'];
+export type CustomRollbackPlan = components['schemas']['CustomRollbackResult'];
+
 /** POST /v1/deploy/compose (PD-13): a conversion only; it writes nothing on the box. */
 export interface ComposeResult {
   ok: boolean;
@@ -264,6 +270,7 @@ export interface ActionResult {
  * to "unknown" instead of crashing if the gateway names them differently.
  */
 export interface Action extends ActionRequest {
+  approval?: components['schemas']['Action']['approval'];
   plan?: PlanPreview['plan'] | null;
   progress?: { step: string; pct: number } | null;
   id: string;

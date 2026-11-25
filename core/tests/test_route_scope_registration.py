@@ -1,27 +1,56 @@
 # SPDX-License-Identifier: Apache-2.0
 """CORE-HYG-01 (#323): app creation must not grow the global scope registry."""
 
+import ast
 import re
+from collections import Counter
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
+from conftest import OWNER
+from onemind_core import routers
 from onemind_core.app import create_app
 from onemind_core.identity.scopes import _ROUTES, required_scopes
 
 
-def test_create_app_twice_keeps_route_scope_registry_stable(settings, clock):
-    # Use the noop, SQLite settings fixture and close each app's resources via its lifespan.
-    first = create_app(settings, clock=clock)
-    with TestClient(first):
-        registered = tuple(_ROUTES)
-        routes = [(route.path, route.methods) for route in first.routes]
-
-    second = create_app(settings, clock=clock)
-    with TestClient(second):
-        assert len(_ROUTES) == len(registered)
+def test_route_scope_registry_stays_stable_across_startups_and_requests(settings, clock):
+    # Importing the app discovers the routers before the first gateway is created.
+    registered = tuple(_ROUTES)
+    routes = None
+    for _ in range(2):
+        app = create_app(settings, clock=clock)
+        with TestClient(app) as client:
+            assert tuple(_ROUTES) == registered
+            mounted = [(route.path, route.methods) for route in app.routes]
+            if routes is None:
+                routes = mounted
+            assert mounted == routes
+            for path in ("/v1/me/home", "/v1/machines/capabilities"):
+                assert client.get(path, headers=OWNER).status_code == 200
+                assert tuple(_ROUTES) == registered
         assert tuple(_ROUTES) == registered
-        assert [(route.path, route.methods) for route in second.routes] == routes
+
+
+def test_each_method_and_route_pattern_is_registered_once():
+    counts = Counter((method, pattern.pattern) for methods, pattern, _ in _ROUTES for method in methods)
+    duplicates = sorted(key for key, count in counts.items() if count > 1)
+    assert not duplicates, f"duplicate route scopes: {duplicates}"
+
+
+def test_routers_do_not_register_scopes_from_functions():
+    # Cover handlers beyond the two requests exercised above.
+    late = []
+    for path in sorted(Path(routers.__file__).parent.glob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            for call in ast.walk(node):
+                if isinstance(call, ast.Call) and ast.unparse(call.func).split(".")[-1] == "register_route_scope":
+                    late.append(f"{path.name}:{call.lineno}")
+    assert not late, f"register route scopes at module level: {sorted(set(late))}"
 
 
 @pytest.mark.parametrize(("method", "path", "expected"), [
