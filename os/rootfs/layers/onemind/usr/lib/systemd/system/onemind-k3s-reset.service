@@ -1,0 +1,33 @@
+# SPDX-License-Identifier: Apache-2.0
+# "Reset k3s state", approved by the owner in the rescue console (onemind-rescue starts this unit; the console
+# itself is read-only). Stops k3s, moves its generated state (certificates, tokens, node password, datastore)
+# aside under /data/onemind/k3s-recovery/, starts k3s again. The owner's data, apps' volumes
+# (/data/k3s/storage) and the gateway database (/data/onemind) are not touched; cluster objects are made again.
+[Unit]
+Description=OneMind: reset k3s state (owner approved in the rescue console)
+RequiresMountsFor=/data
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/onemind/onemind-k3s-state reset
+TimeoutStartSec=10min
+UMask=0077
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectControlGroups=yes
+ProtectKernelTunables=yes
+LockPersonality=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+SystemCallArchitectures=native
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectHome=yes
+ProtectSystem=strict
+ReadWritePaths=/data
+# root needs to rename files inside folders other users own (the gateway's kubeconfig); nothing else.
+CapabilityBoundingSet=CAP_DAC_OVERRIDE CAP_DAC_READ_SEARCH CAP_FOWNER
+RestrictAddressFamilies=AF_UNIX

@@ -8,7 +8,7 @@ The QEMU harnesses boot the real image and check it against pre-registered crite
 |---|---|---|
 | `run-tests.py` | CRITERIA.md (T1-T11), then CRITERIA-DATAFAIL.md (TD1-TD3, data disk failure; when `UPTO` is T5 or later); with the same condition CRITERIA-NAS.md (TN0-TN2, SMB and NFS client loopback mounts, `nasmount.py`) right after T1 | `make battery` |
 | `firstboot.py` | CRITERIA-FIRSTBOOT.md (F0-F4) | `make firstboot` |
-| `powercut.py` | CRITERIA-FIRSTBOOT.md §12 (F17, power cut in the first minute) | `make powercut` |
+| `powercut.py` | CRITERIA-FIRSTBOOT.md §12-§14 (F17-F20, power cut in the first minute, corrupt k3s state repaired, agent certificates repaired alone, k3s held while the owner decides, owner-approved reset) | `make powercut` |
 | `firewall.py` | CRITERIA-FIREWALL.md (FW1-FW4, port scan from a second VM) | `make firewall` |
 | `bootlock.py` | CRITERIA-BOOTLOCK.md (B1-B6, GRUB menu lock) | `make bootlock` |
 | `sysextguard.py` | CRITERIA-SYSEXT.md (T-W19-01, X0-X7: only signed host extensions merge, after reboot and slot switch) | `make sysextguard` |
