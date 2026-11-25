@@ -780,7 +780,7 @@ def f14(vm):
     record("F14", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items()) + f" manw={get('MANW1')!r}")
 
 def f17(vm):
-    """The clock is Debian's own: systemd-timesyncd runs, tzdata is there, LANG is C.UTF-8 (section 9)."""
+    """The clock is Debian's own: systemd-timesyncd runs, tzdata is there, LANG is C.UTF-8 (section 12)."""
     _, out = vm.run("echo ENABLED=$(systemctl is-enabled systemd-timesyncd.service 2>&1 | head -1); "
                     "echo ACTIVE=$(systemctl is-active systemd-timesyncd.service 2>&1 | head -1); "
                     "echo ZONE=$(test -r /usr/share/zoneinfo/UTC && echo ok || echo missing); "
@@ -815,7 +815,7 @@ def zone_probe(vm):
 
 
 def f18(vm):
-    """The host applies a time zone now: the symlink on /data is swapped, the offset changes, an unknown zone is refused (section 10)."""
+    """The host applies a time zone now: the symlink on /data is swapped, the offset changes, an unknown zone is refused (section 13)."""
     before = zone_probe(vm)
     _, out = vm.run(
         f"{HOSTSOCK} -o /dev/null -w 'POST=%{{http_code}}\\n' -X POST http://host/v1/operations "
@@ -836,7 +836,7 @@ def f18(vm):
 
 
 def f19(vm):
-    """The zone survives the reboot (section 10)."""
+    """The zone survives the reboot (section 13)."""
     link, offset, host_zone = zone_probe(vm)
     c = {"link_auckland": link.endswith("zoneinfo/Pacific/Auckland"), "offset_plus_1300": offset == "+1300",
          "host_reports_zone": host_zone == "Pacific/Auckland"}
@@ -939,7 +939,7 @@ def f22(vm):
     record("F22", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items()) + f" out={out.strip()[-300:]!r}")
 
 
-# F23's script, run in the guest with the gateway's Python (section 12): the owner's SSH keys and switch through the
+# F23's script, run in the guest with the gateway's Python (section 16): the owner's SSH keys and switch through the
 # real chain (gateway API, owner approval, host service, onemind-ssh-apply.service, sshd). Keys are made here for
 # this test only. It prints "F23 NAME=value" lines; f23_judge reads them. No token or private key is printed.
 F23_PY = r"""
@@ -1034,7 +1034,7 @@ out("g_state", approve(a))
 wait(lambda: active() == "active" and listening() >= 1)
 out("g_active", active()); out("g_listen", listening()); out("g_flag", os.path.exists("/data/onemind/ssh/disabled")); out("g_login", login(K1)[1])
 # (e) again after SSH went off and on (the second start of ssh.service), and after a firewall restart (host.nft reloads,
-# the ssh chain empties, sshd restarts with it). The limit must come back each time (section 12 amendment).
+# the ssh chain empties, sshd restarts with it). The limit must come back each time (section 17 amendment).
 out("e_limit_after_on", limit_ok())
 sh("systemctl restart onemind-firewall.service")
 wait(lambda: active() == "active" and listening() >= 1 and limit_ok())
@@ -1075,7 +1075,7 @@ def f23_judge(out):
 
 
 def f23(vm, token):
-    """SSH keys and the SSH switch through the approval queue (section 12)."""
+    """SSH keys and the SSH switch through the approval queue (section 16)."""
     _, o = vm.run("cat > /run/f23.py <<'PYEOF'\n" + F23_PY + f"\nPYEOF\n{PY} -I /run/f23.py '{token}'; rm -f /run/f23.py", 900)
     c = f23_judge(o)
     record("F23", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items()) + " agent_request=skipped(no agent token at first boot)")
@@ -1311,6 +1311,73 @@ def printing(vm, tid, mode):
            + f" listen={g('LISTEN')!r} mounts={mnt} ctl={ctl!r} out={g('OUT_HEAD')!r}/{g('OUT_SIZE')} queue={g('QUEUE')!r}")
 
 
+# Boards that ship VA-API (os/boards/<board>/packages-*.txt); F29 runs only on these (CRITERIA-FIRSTBOOT.md section 23: "the x86 box").
+VAAPI_BOARDS = ("x86_64-efi", "x86_64-efi-nvidia")
+
+def f29(vm):
+    """Step 3: VA-API packages and drivers are on the x86 box and vainfo starts (CRITERIA-FIRSTBOOT.md section 23).
+    QEMU has no GPU with VA-API, so no decode profile is listed here; that is proven on real hardware only."""
+    d = "/usr/lib/x86_64-linux-gnu/dri"
+    _, out = vm.run(
+        'for p in vainfo intel-media-va-driver mesa-va-drivers; do echo PKG $p $(dpkg-query -W -f=\'${Status}\' $p 2>&1 | grep -c "install ok installed"); '
+        'echo LISTED $p $(grep -c "^$p " /usr/lib/onemind/packages.txt); done; '
+        f'for f in iHD radeonsi; do test -f {d}/${{f}}_drv_video.so; echo DRV $f $?; echo MISSING $f $(ldd {d}/${{f}}_drv_video.so 2>&1 | grep -c "not found"); done; '
+        'command -v vainfo >/dev/null; echo HAVE=$?; vainfo >/tmp/f29.out 2>&1; echo VAINFO_RC=$?; '
+        'echo BANNER=$(grep -c -E "^(vainfo|error):" /tmp/f29.out); head -3 /tmp/f29.out', 120)
+    get = lambda k: (re.findall(rf"^{k}=(\S*)\s*$", out, re.M) or ["?"])[-1]
+    pk = dict(re.findall(r"^PKG (\S+) (\d+)\s*$", out, re.M))
+    ls = dict(re.findall(r"^LISTED (\S+) (\d+)\s*$", out, re.M))
+    drv = dict(re.findall(r"^DRV (\S+) (\d+)\s*$", out, re.M))
+    miss = dict(re.findall(r"^MISSING (\S+) (\d+)\s*$", out, re.M))
+    names = ("vainfo", "intel-media-va-driver", "mesa-va-drivers")
+    c = {"packages": all(pk.get(n) == "1" for n in names), "listed": all(ls.get(n) == "1" for n in names),
+         "driver_files": drv == {"iHD": "0", "radeonsi": "0"}, "no_missing_libs": miss == {"iHD": "0", "radeonsi": "0"},
+         "vainfo_found": get("HAVE") == "0", "vainfo_exit_0_or_1": get("VAINFO_RC") in ("0", "1"),
+         "vainfo_banner": get("BANNER") not in ("0", "?")}
+    record("F29", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items())
+           + f" vainfo_rc={get('VAINFO_RC')} (no GPU in QEMU) out={out.strip()[-160:]!r}")
+
+
+# What the kernel maps keycode 21 to (the Y key on a US keyboard, Z on a German one): the full table (no -1) has one "keycode  21 = +y +Y ..." line.
+CONSOLE_STATE = (r"""echo LAYOUT=$(sed -n 's/^XKBLAYOUT="\(.*\)"$/\1/p' /data/onemind/console/keyboard); """
+                 r"""echo UNIT=$(systemctl is-active onemind-console-keyboard.service); """
+                 r"""echo KEY21=$(dumpkeys -C /dev/tty0 2>&1 | grep -m1 -E '^keycode +21 *=' | sed -n 's/^keycode *21 *= *+*\([A-Za-z]\).*/\1/p'); echo RAW=$(dumpkeys -C /dev/tty0 2>&1 | grep -m1 -E 'keycode +21 *=|rror' | cut -c1-60 | tr ' ' '_')""")
+
+
+def console_state(vm):
+    _, out = vm.run(CONSOLE_STATE, 60)
+    get = lambda k: (re.findall(rf"^{k}=(\S*)\s*$", out, re.M) or ["?"])[-1]
+    st = (get("LAYOUT"), get("UNIT"), get("KEY21"))
+    if st[2] in ("", "?"):
+        print(f"  console_state: no key for keycode 21, dumpkeys said {get('RAW')!r}")
+    return st
+
+
+def f30_before(vm):
+    """The seed is US and loaded; the owner's file is then changed to de and the unit re-run (judged after the F3 reboot)."""
+    _, out = vm.run("echo MASK=$(systemctl is-enabled console-setup.service 2>&1 | head -1)/$(systemctl is-enabled keyboard-setup.service 2>&1 | head -1)", 60)
+    mask = (re.findall(r"^MASK=(\S+)", out, re.M) or ["?"])[-1]
+    us = console_state(vm)
+    vm.run("sed -i 's/^XKBLAYOUT=.*/XKBLAYOUT=\"de\"/' /data/onemind/console/keyboard; sync; "
+           "systemctl restart onemind-console-keyboard.service", 60)
+    de = console_state(vm)
+    return {"masked": mask == "masked/masked", "seed_us": us == ("us", "active", "y"), "applied_de": de == ("de", "active", "z")}, f"mask={mask} us={us} de={de}"
+
+
+def f30_after(vm, pre):
+    c, note = pre
+    _, out = vm.run("echo FAILED=$(systemctl --failed --no-legend 2>/dev/null | grep -c -E 'console-setup|keyboard-setup')", 60)
+    failed = (re.findall(r"^FAILED=(\d+)", out, re.M) or ["?"])[-1]
+    st = console_state(vm)
+    c = dict(c, kept_de_after_reboot=st == ("de", "active", "z"), no_failed_setup_units=failed == "0")
+    record("F30", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items()) + f" {note} after_reboot={st} failed_setup_units={failed}")
+
+
+def f31(vm):
+    st = console_state(vm)
+    record("F31", st == ("de", "active", "z"), f"after_ab_update layout/unit/keycode21={st}")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--board", required=True, choices=sorted(battery.BOARDS))
@@ -1382,6 +1449,9 @@ def main():
         vm.mark("F24 box care: fwupd, fstrim, sensors, rasdaemon, udisks2 without automount (Step 2b)"); box_marker = f24(vm, a.board)
         vm.mark("F25 storage housekeeping: TRIM status, smartd warnings, eject refusal (P-10)"); smart_marker = f25(vm)
         vm.mark("FP1 printing: CUPS, locked down, on /data, prints a test page (Step 3)"); printing(vm, "FP1", "baseline")
+        if a.board in VAAPI_BOARDS:
+            vm.mark("F29 VA-API packages and vainfo (Step 3; no GPU in QEMU)"); f29(vm)
+        vm.mark("F30 console layout from /data, changed to de before the reboot"); pre30 = f30_before(vm)
         # F20 reboots the box: it stays the last check before F3
         vm.mark("F20 an approved restart reboots the box and the ledger says succeeded (W1)"); f20(vm, token)
 
@@ -1403,6 +1473,7 @@ def main():
             vm.mark("F19 the zone survives the reboot (P-04)"); f19(vm)
             record("F3", not new_toks and ids3 == ids and hz3 == "200" and bool(same) and bool(token),
                    f"'{al[:70]}' new_tokens={len(new_toks)} same_ids={ids3 == ids} healthz={hz3} listed={listed3} gate={g3}")
+            vm.mark("F30 the layout is still de after the reboot"); f30_after(vm, pre30)
             vm.mark("FP2 the printer and CUPS settings survive the reboot"); printing(vm, "FP2", "again")
             vm.mark("F22 the new name survives the reboot (P-05)"); f22(vm)
             netcheck.nw4_after(vm, record, nw4)
@@ -1435,6 +1506,7 @@ def main():
                    and already and not TOKEN.search(s) and ids4 == ids and hz4 == "200" and bool(same),
                    f"install_rc={rc_i} gate={g4} marker_kept={mark == mark2} version2={ver2} already_configured={already} "
                    f"new_token={bool(TOKEN.search(s))} same_ids={ids4 == ids} healthz={hz4} listed={listed4}")
+            vm.mark("F31 the layout is still de after the A/B update"); f31(vm)
             vm.mark("FP3 the printer and CUPS settings survive the A/B update"); printing(vm, "FP3", "again")
             if btmark:
                 f16_after(vm, "F16u", btmark)

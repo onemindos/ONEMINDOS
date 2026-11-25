@@ -21,6 +21,8 @@ cifs-utils nfs-common
 # Ubuntu 26.04 defaults to dracut; we name initramfs-tools explicitly [C-LAB-ubuntu-2604-leg-001]
 initramfs-tools
 grub-common
+# Console keyboard and charmap for the tty2 login (Step 3); see debian-common.txt. Proof: first-boot checks F30 and F31.
+console-setup keyboard-configuration
 libglib2.0-0t64 libssl3t64 libcurl4t64 libjson-glib-1.0-0 libfdisk1 libnl-genl-3-200
 # Disk and admin tools (Step 2 PRs 4 and 7). smartmontools is what internal/storage/smart.go calls (smartctl); its
 # smartd daemon (smartmontools.service, alias smartd.service) runs with /etc/smartd.conf and feeds Notifications (P-10). gdisk gives sgdisk, btrfs-progs the btrfs tool
