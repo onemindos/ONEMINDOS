@@ -161,3 +161,9 @@ def test_external_change_during_staging_is_saved_as_conflict(vault, files_root, 
     saved = vault.save(PERSON, note.path, "gateway edit", revision=note.revision)
     assert saved.conflict and saved.note.markdown == "gateway edit"
     assert vault.get(PERSON, note.path).markdown == "external edit"
+
+
+def test_vault_states_the_cross_protocol_write_guarantee(vault):
+    assert vault.write_guarantee is notes.WRITE_GUARANTEE
+    for term in ("SMB", "Syncthing", "os.replace", "shared write contract"):
+        assert term in notes.WRITE_GUARANTEE

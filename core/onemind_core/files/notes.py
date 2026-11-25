@@ -113,7 +113,18 @@ class SaveResult:
     conflict: bool = False
 
 
+WRITE_GUARANTEE = (
+    "Gateway saves are serialised and never overwrite an edit the gateway has seen. An SMB or "
+    "Syncthing write that lands between the final identity re-check and os.replace can still be "
+    "overwritten; closing that gap needs a shared write contract across protocols."
+)
+
+
 class NotesVault:
+    """A person's Notes vault. Routes must surface WRITE_GUARANTEE; it is the weaker guarantee."""
+
+    write_guarantee = WRITE_GUARANTEE
+
     def __init__(self, files: FilesService):
         self.files = files
 
