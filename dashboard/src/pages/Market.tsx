@@ -36,7 +36,7 @@ export function loadState<T>(p: Polled<T>, hub: Pick<Hub, 'freshness' | 'asOf'>)
 /** Explains the v0 placement rule wherever a node would be chosen. */
 export const PLACEMENT_NOTE = 'The hub picks the node (Kubernetes places it). A per-node preview comes with §12 plans.';
 
-function StoreTabs({ current }: { current: 'discover' | 'installed' | 'builtin' | 'sources' | 'compose' }) {
+function StoreTabs({ current }: { current: 'discover' | 'installed' | 'builtin' | 'sources' | 'compose' | 'custom' }) {
   // Community sources and Compose import are owner-only: other roles do not see the tabs.
   const { canDecide } = useSignedIn();
   const owner = canDecide !== 'no';
@@ -54,6 +54,11 @@ function StoreTabs({ current }: { current: 'discover' | 'installed' | 'builtin' 
       {owner && (
         <a href={href.sources} aria-current={current === 'sources' ? 'page' : undefined}>
           Sources
+        </a>
+      )}
+      {owner && (
+        <a href={href.custom} aria-current={current === 'custom' ? 'page' : undefined}>
+          Custom apps
         </a>
       )}
       {owner && (

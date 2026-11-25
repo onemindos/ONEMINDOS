@@ -162,6 +162,7 @@ class AppEntry:
             "build": build_summary(md.get("build")),
             # §12.22: set by a community source's entry; the official catalog has none.
             "catalog_source": None,
+            "custom_source": None,  # PLG-GIT-01: set by a custom app's entry
         }
 
 

@@ -69,6 +69,15 @@ class CatalogSource(BaseModel):
     commit: str
 
 
+class CustomSource(BaseModel):
+    """PLG-GIT-01: the Git repository a custom app was linked from, at the revision the catalog serves."""
+
+    url: str
+    ref: str
+    commit: str
+    revision: int
+
+
 class AppBuild(BaseModel):
     """metadata.build: OneMind rebuilt this app's image (sdk/tools/app-factory); upstream did not publish it."""
 
@@ -135,6 +144,9 @@ class CatalogApp(BaseModel):
     )
     catalog_source: CatalogSource | None = Field(
         default=None, description="§12.22: the community source and pinned commit; null for the official catalog"
+    )
+    custom_source: CustomSource | None = Field(
+        default=None, description="PLG-GIT-01: the Git repository, ref, commit and revision of a custom app; null otherwise"
     )
 
     @field_validator("ai_policy", mode="before")
