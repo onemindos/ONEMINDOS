@@ -267,6 +267,21 @@ POLICY |= {
     ("GET", "/v1/map/packs"): Row(cells(503, **GONE, child=403, plugin=DECIDE, automation=DECIDE, node=DECIDE),
                                   w.p_static("/v1/map/packs"),
                                   "Map uses nodes:read; the pack volume is unavailable in the security fixture"),
+    ("GET", "/v1/work/tasks"): Row(cells(403, **GONE, owner=200, adult=200, child=200),
+                                    w.p_static("/v1/work/tasks"), "Work lists only visible tasks"),
+    ("GET", "/v1/work/projects/{project_id}/tasks/{task_id}"): Row(
+        cells(403, **GONE, owner=404, adult=404, child=404),
+        w.p_static("/v1/work/projects/missing/tasks/missing"), "Work hides missing and other users' tasks"),
+    ("POST", "/v1/work/projects"): Row(cells(403, **GONE, owner=422, adult=422, child=422),
+                                         w.p_static("/v1/work/projects"), "Work project creation is people-only"),
+    ("POST", "/v1/work/capture"): Row(cells(403, **GONE, owner=422, adult=422, child=422),
+                                        w.p_static("/v1/work/capture"), "Work capture is people-only"),
+    ("PATCH", "/v1/work/projects/{project_id}/tasks/{task_id}"): Row(
+        cells(403, **GONE, owner=422, adult=422, child=422),
+        w.p_static("/v1/work/projects/missing/tasks/missing"), "Work revision edits are people-only"),
+    ("DELETE", "/v1/work/projects/{project_id}/tasks/{task_id}"): Row(
+        cells(403, **GONE, owner=422, adult=422, child=422),
+        w.p_static("/v1/work/projects/missing/tasks/missing"), "Work revision deletion is people-only"),
     ("GET", "/v1/series"): Row(CHILD_CANNOT, w.p_static("/v1/series?node_id=node1&metric=cpu_pct"),
                                "Node metric history, with the same monitoring:read scope as live metrics"),
     ("GET", "/v1/monitoring/summary"): Row(CHILD_CANNOT, w.p_static("/v1/monitoring/summary"),
