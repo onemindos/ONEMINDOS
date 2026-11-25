@@ -14,6 +14,7 @@ Every host field is checked again here (H-06): a value that fails its check is n
 
 from __future__ import annotations
 
+import functools
 import re
 import uuid
 import zoneinfo
@@ -40,6 +41,8 @@ REQUEST_TTL = timedelta(hours=24)
 HOST_SCHEMA = "onemind.host.time/v1"
 # Same shape the host enforces (internal/host/timezone.go ZoneName): Europe/Berlin, UTC, Etc/GMT+5.
 ZONE_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_+-]*(/[A-Za-z0-9_+-]+){0,2}$")
+# tzdata helper entries that are not zones (localtime links back to /etc/localtime); same list as the host.
+NOT_ZONES = frozenset({"localtime", "posixrules", "Factory"})
 SERVER_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,252}$")
 
 register_route_scope("GET,HEAD", r"/v1/system/time", ("system:admin",))
@@ -47,7 +50,8 @@ register_route_scope("POST", r"/v1/system/time/zone", ("actions:request",))
 
 
 def zone_name(v: Any) -> bool:
-    return isinstance(v, str) and len(v) <= 64 and bool(ZONE_RE.fullmatch(v)) and not v.startswith(("posix/", "right/"))
+    return (isinstance(v, str) and len(v) <= 64 and bool(ZONE_RE.fullmatch(v))
+            and not v.startswith(("posix/", "right/")) and v not in NOT_ZONES)
 
 
 class TimeView(BaseModel):
@@ -97,12 +101,17 @@ def parse_time(body: Any, now: datetime) -> TimeView:
         last_sync_at=last, problem=problem[:200] if isinstance(problem, str) and problem else None)
 
 
+@functools.lru_cache(maxsize=1)
+def _zones() -> frozenset[str]:
+    """The zone database's names, read once (each call to available_timezones walks the whole tree)."""
+    return frozenset(zoneinfo.available_timezones())
+
+
 def known_zone(zone: str) -> bool:
     """Does this machine's zone database know the name? With no database at all (a bare container) the host
     decides, so this says yes."""
-    if not zoneinfo.available_timezones():
-        return True
-    return zone in zoneinfo.available_timezones()
+    zones = _zones()
+    return not zones or zone in zones
 
 
 def register(app: FastAPI, gw: Gateway) -> None:

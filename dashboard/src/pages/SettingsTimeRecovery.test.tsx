@@ -11,7 +11,7 @@ vi.mock('../session', () => ({ useSignedIn: () => ({ token: 'fixture' }), useSes
 
 afterEach(() => vi.unstubAllGlobals());
 
-function gateway(offset: number, options: { time?: object | number } = {}) {
+function gateway(offset: number, options: { time?: object | number; action?: string } = {}) {
   const saved = { box_name: 'hill-hub', time_zone: 'UTC', backup_choice: 'later', backup_destination_id: null, saved: true };
   const live = { available: true, zone: 'UTC', ntp_enabled: true, ntp_synchronized: true, server: '0.debian.pool.ntp.org', stratum: 2,
     last_sync_at: '2026-11-25T12:00:00Z', at: '2026-11-25T12:30:00Z' };
@@ -23,7 +23,7 @@ function gateway(offset: number, options: { time?: object | number } = {}) {
     if (path === '/v1/system/time' && typeof options.time === 'number') return Response.json({ error: 'permission_denied', message: 'Owner only' }, { status: options.time });
     if (path === '/v1/system/time') return Response.json(options.time ?? live);
     if (path === '/v1/system/time/zone' && init.method === 'POST') return Response.json({ id: 'act-1', state: 'awaiting_approval', type: 'system.set_timezone' }, { status: 202 });
-    if (path === '/v1/actions/act-1') { actionState = 'succeeded'; return Response.json({ id: 'act-1', state: actionState }); }
+    if (path === '/v1/actions/act-1') { actionState = options.action ?? 'succeeded'; return Response.json({ id: 'act-1', state: actionState }); }
     if (path === '/v1/backups/status') return Response.json({ last_verified_restore_at: null });
     if (path === '/v1/backups/kit') return Response.json({ error: 'permission_denied', message: 'Owner only' }, { status: 403 });
     if (path === '/v1/system/controls') return Response.json({
@@ -54,6 +54,20 @@ it('warns at three minutes, shows the live sync state, and the owner requests a 
   // Nothing else is written: the request waits for approval, and onboarding settings are untouched.
   expect(network.mock.calls.filter((call) => call[1].method === 'PUT')).toHaveLength(0);
 });
+
+it('stops following the request once its outcome is unknown, and says so', async () => {
+  state.role = 'owner';
+  const network = gateway(0, { action: 'outcome_unknown' });
+  render(<MemoryRouter><SettingsDateTime /></MemoryRouter>);
+  const user = userEvent.setup();
+  await user.type(await screen.findByLabelText('Time zone'), '/x');
+  await user.click(screen.getByRole('button', { name: 'Request time zone change' }));
+  expect(await screen.findByText(/could not confirm whether the change was applied/, {}, { timeout: 6000 })).toBeVisible();
+  const polls = () => network.mock.calls.filter((call) => new URL(String(call[0])).pathname === '/v1/actions/act-1').length;
+  const seen = polls();
+  await new Promise((resolve) => setTimeout(resolve, 3500));
+  expect(polls()).toBe(seen); // no further poll after a final state
+}, 15000);
 
 it('says so when the clock is not synchronised, and when the hub cannot report it', async () => {
   state.role = 'owner';

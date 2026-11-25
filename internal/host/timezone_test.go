@@ -45,7 +45,7 @@ func TestZoneNameIsAShapeCheck(t *testing.T) {
 			t.Errorf("%q refused", ok)
 		}
 	}
-	for _, bad := range []string{"", "../etc/passwd", "/etc/passwd", "Europe/../../x", "posix/Europe/Berlin", "right/UTC", "a b", "Europe//Berlin", "A/B/C/D", "-UTC"} {
+	for _, bad := range []string{"", "../etc/passwd", "/etc/passwd", "Europe/../../x", "posix/Europe/Berlin", "right/UTC", "a b", "Europe//Berlin", "A/B/C/D", "-UTC", "localtime", "posixrules", "Factory"} {
 		if ZoneName(bad) {
 			t.Errorf("%q accepted", bad)
 		}
@@ -193,5 +193,25 @@ func TestTimeRoute(t *testing.T) {
 	var body map[string]any
 	if rec.Code != 200 || json.Unmarshal(rec.Body.Bytes(), &body) != nil || body["schema"] != TimeSchema || body["zone"] != "UTC" || body["ntp_synchronized"] != true {
 		t.Fatalf("%d %s", rec.Code, rec.Body)
+	}
+}
+
+// Debian's tzdata ships zoneinfo/localtime -> /etc/localtime. Whatever that ends at, a zone that steps out of
+// the zone directory must be refused: setting it would point the box's link back at itself.
+func TestCheckRefusesZonesWhoseLinksLeaveTheZoneDirectory(t *testing.T) {
+	z := zoneBox(t)
+	dir := z.ZoneDir
+	outside := filepath.Join(filepath.Dir(dir), "etc-localtime")
+	if err := os.Symlink(filepath.Join(dir, "UTC"), outside); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, filepath.Join(dir, "Loopy")); err != nil {
+		t.Fatal(err)
+	}
+	if err := z.Check("Loopy"); err == nil {
+		t.Fatal("a zone whose link goes through a path outside the zone directory was accepted")
+	}
+	if err := z.Check("UTC"); err != nil {
+		t.Fatal(err)
 	}
 }

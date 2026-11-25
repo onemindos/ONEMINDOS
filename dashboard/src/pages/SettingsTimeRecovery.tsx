@@ -29,7 +29,10 @@ function checked<T>(request: Promise<T>) {
 }
 
 type TimeView = components['schemas']['TimeView'];
-type ActionView = { id: string; state: string; message?: string | null };
+type ActionView = components['schemas']['Action'];
+// States an action never leaves (the gateway's ledger); anything else is still in flight.
+const FINAL_STATES = ['succeeded', 'failed', 'cancelled', 'expired', 'outcome_unknown'];
+const resultMessage = (a: ActionView): string | undefined => (typeof a.result?.message === 'string' ? a.result.message : undefined);
 
 function syncLabel(time: TimeView | undefined, error: ApiError | undefined) {
   if (error) return failure(error);
@@ -66,7 +69,7 @@ export function SettingsDateTime() {
   const reloadTime = time.reload;
   // After the request is filed, follow it until the owner approved it and the host applied it (or it failed).
   useEffect(() => {
-    if (!pending || ['succeeded', 'failed', 'denied', 'expired', 'cancelled'].includes(pending.state)) return;
+    if (!pending || FINAL_STATES.includes(pending.state)) return;
     const timer = setInterval(() => {
       api.call<ActionView>({ method: 'GET', path: `/v1/actions/${encodeURIComponent(pending.id)}` })
         .then((next) => setPending(next)).catch(() => undefined);
@@ -114,7 +117,7 @@ export function SettingsDateTime() {
         <datalist id="hub-time-zones">{choices.map((name) => <option key={name} value={name} />)}</datalist>
         <Button type="submit" disabled={!draft || draft === zone || saving}>Request time zone change</Button>
       </form>}
-      {pending && <p role="status">{pending.state === 'succeeded' ? 'Time zone changed.' : pending.state === 'failed' ? `The change failed: ${pending.message ?? 'the hub could not apply it'}` : pending.state === 'awaiting_approval' ? 'Waiting for an owner to approve it in Approvals.' : `Time zone change: ${pending.state.replace(/_/g, ' ')}.`}</p>}
+      {pending && <p role="status">{pending.state === 'succeeded' ? 'Time zone changed.' : pending.state === 'failed' ? `The change failed: ${resultMessage(pending) ?? 'the hub could not apply it'}` : pending.state === 'outcome_unknown' ? 'The hub could not confirm whether the change was applied. Check the time zone above.' : pending.state === 'awaiting_approval' ? 'Waiting for an owner to approve it in Approvals.' : `Time zone change: ${pending.state.replace(/_/g, ' ')}.`}</p>}
       {pending?.state === 'awaiting_approval' && <div className="dash-actions"><Link to="/approvals">Open Approvals</Link></div>}
       {error && <p role="alert">{error}</p>}
     </Card>

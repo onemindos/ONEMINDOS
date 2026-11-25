@@ -59,6 +59,7 @@ HOSTNAME = re.compile(r"(?=.{1,253}\Z)[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9
 PROBE_TIMEOUT_S = 2.0  # GET /v1/status reads the helper on every call: a silent socket must not hold it up
 UNIT = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.@-]{0,90}\.(service|socket|timer|path)$")
 ZONE = re.compile(r"^[A-Za-z][A-Za-z0-9_+-]*(/[A-Za-z0-9_+-]+){0,2}$")  # same shape as internal/host ZoneName
+NOT_ZONES = frozenset({"localtime", "posixrules", "Factory"})  # tzdata helper entries; localtime loops (host list)
 UNREACHABLE = "engine_unreachable"  # the reason when nothing answers on the socket
 NO_HOST = ("The gateway cannot reach the host service on this box (onemind-host.socket), so the action did not run. "
            "Your approval is recorded; use the rescue console or the box itself.")
@@ -183,7 +184,7 @@ class HostLink:
             body["unit"] = unit
         if kind == "set-timezone":
             zone = (a.params or {}).get("zone")
-            if not isinstance(zone, str) or not ZONE.fullmatch(zone):
+            if not isinstance(zone, str) or not ZONE.fullmatch(zone) or zone in NOT_ZONES:
                 return ExecResult("failed", "the change has no approved time zone", steps=[{"step": "host", "result": "bad_request"}])
             body["zone"] = zone
         with self._lock:

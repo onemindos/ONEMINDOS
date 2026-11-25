@@ -189,7 +189,7 @@ def test_a_host_that_fails_the_change_ends_the_action_failed(settings, clock, ho
         assert c.get(f"/v1/actions/{a['id']}", headers=OWNER).json()["state"] == "failed"
 
 
-@pytest.mark.parametrize("zone,status", [("../../etc/passwd", 422), ("Europe//Berlin", 422), ("posix/UTC", 422), ("Mars/Olympus_Mons", 409)])
+@pytest.mark.parametrize("zone,status", [("../../etc/passwd", 422), ("Europe//Berlin", 422), ("posix/UTC", 422), ("localtime", 422), ("posixrules", 422), ("Factory", 422), ("Mars/Olympus_Mons", 409)])
 def test_a_bad_zone_is_refused_and_nothing_is_filed(settings, clock, host, zone, status):
     with box(settings, clock, host.path) as c:
         r = set_zone(c, zone)

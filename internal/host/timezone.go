@@ -23,6 +23,12 @@ import (
 // therefore lives on /data: it is live at once for every process, survives a reboot, and survives an A/B
 // update. Reading the clock's sync state is `timedatectl show` and `timedatectl show-timesync`, which only
 // ask systemd-timedated and systemd-timesyncd.
+//
+// UNVERIFIED (needs a trixie box): systemd-timedated reads /etc/localtime one step and only recognises a
+// target under /usr/share/zoneinfo/, so with /etc/localtime -> /data/state/localtime `timedatectl` probably
+// prints "Time zone: n/a" and D-Bus readers of the Timezone property get "". This code never asks timedated
+// for the zone: Current() reads the /data link itself, and the dashboard, API and CLI use that. Anything
+// else on the box that needs the zone name must read /etc/localtime (libc does) or GET /v1/system/time.
 
 // TimeSchema names GET /v1/time's shape.
 const TimeSchema = "onemind.host.time/v1"
@@ -45,7 +51,16 @@ func ZoneName(s string) bool {
 		return false
 	}
 	// posix/ and right/ are alternative copies of the database, never what an owner picks.
-	return !strings.HasPrefix(s, "posix/") && !strings.HasPrefix(s, "right/")
+	if strings.HasPrefix(s, "posix/") || strings.HasPrefix(s, "right/") {
+		return false
+	}
+	// tzdata's own helper entries: localtime links back to /etc/localtime (which is our symlink: a loop),
+	// posixrules and Factory are not zones.
+	switch s {
+	case "localtime", "posixrules", "Factory":
+		return false
+	}
+	return true
 }
 
 // Timezone sets and reads the zone and reads the clock. The zero value is the production box.
@@ -92,6 +107,11 @@ func (t *Timezone) Check(zone string) error {
 	if err != nil || !strings.HasPrefix(path, dir+string(filepath.Separator)) {
 		return fmt.Errorf("this box does not know the time zone %q", zone)
 	}
+	// Every link on the way must stay inside the zone directory, even when the end lands back inside it
+	// (zoneinfo/localtime -> /etc/localtime -> /data/state/localtime -> ... would loop once we swap the link).
+	if leavesDir(dir, zone) {
+		return fmt.Errorf("this box does not know the time zone %q", zone)
+	}
 	f, err := os.Open(path)
 	if err != nil {
 		return fmt.Errorf("this box does not know the time zone %q", zone)
@@ -102,6 +122,33 @@ func (t *Timezone) Check(zone string) error {
 		return fmt.Errorf("%q is not a time zone", zone)
 	}
 	return nil
+}
+
+// leavesDir reports whether resolving zone under dir, one symlink step at a time, ever points outside dir.
+func leavesDir(dir, zone string) bool {
+	cur := filepath.Join(dir, zone)
+	for range 16 {
+		fi, err := os.Lstat(cur)
+		if err != nil {
+			return true
+		}
+		if fi.Mode()&os.ModeSymlink == 0 {
+			return false
+		}
+		target, err := os.Readlink(cur)
+		if err != nil {
+			return true
+		}
+		if !filepath.IsAbs(target) {
+			target = filepath.Join(filepath.Dir(cur), target)
+		}
+		target = filepath.Clean(target)
+		if !strings.HasPrefix(target, dir+string(filepath.Separator)) {
+			return true
+		}
+		cur = target
+	}
+	return true
 }
 
 // Set makes zone the box's zone: one atomic swap of the symlink on /data.
