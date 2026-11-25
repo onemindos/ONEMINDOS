@@ -92,3 +92,71 @@ def test_parse_previews_without_creating_anything(client):
     assert client.post("/v1/work/parse", json={"text": "#home"}, headers=OWNER).status_code == 422
     assert client.post("/v1/work/parse", json={"text": "x"}, headers=GUEST).status_code == 403
     assert client.get("/v1/work/tasks", headers=OWNER).json() == []
+
+
+def test_comments_replay_by_key_belong_to_their_author_and_follow_task_visibility(client):
+    task = client.post("/v1/work/capture", json={"title": "Plan"}, headers={**OWNER, "Idempotency-Key": "c0"}).json()
+    base = f"/v1/work/projects/{task['project_id']}/tasks/{task['id']}/comments"
+    key = {**OWNER, "Idempotency-Key": "c1"}
+    first = client.post(base, json={"body": "Call the plumber"}, headers=key)
+    assert first.status_code == 201, first.text
+    assert client.post(base, json={"body": "Call the plumber"}, headers=key).json()["id"] == first.json()["id"]
+    assert client.post(base, json={"body": "Different"}, headers=key).status_code == 409
+    assert client.post(base, json={"body": ""}, headers={**OWNER, "Idempotency-Key": "c2"}).status_code == 422
+    assert [c["body"] for c in client.get(base, headers=OWNER).json()] == ["Call the plumber"]
+    assert client.get(base, headers=AGENT).status_code == 403
+    assert client.delete(f"{base}/missing", headers=OWNER).status_code == 404
+    assert client.delete(f"{base}/{first.json()['id']}", headers=OWNER).status_code == 204
+    assert client.get(base, headers=OWNER).json() == []
+
+
+def test_sections_group_tasks_and_deleting_one_keeps_its_tasks(client):
+    home = _project(client)
+    sections = f"/v1/work/projects/{home['id']}/sections"
+    made = client.post(sections, json={"name": "This week"}, headers={**OWNER, "Idempotency-Key": "s1"})
+    assert made.status_code == 201, made.text
+    assert client.post(sections, json={"name": "This week"}, headers={**OWNER, "Idempotency-Key": "s1"}).json() == made.json()
+    later = client.post(sections, json={"name": "Later"}, headers={**OWNER, "Idempotency-Key": "s2"}).json()
+    assert [(s["name"], s["position"]) for s in client.get(sections, headers=OWNER).json()] == [("This week", 0), ("Later", 1)]
+    task = client.post("/v1/work/capture", json={"title": "Fix tap", "project_id": home["id"], "section_id": later["id"]},
+                       headers={**OWNER, "Idempotency-Key": "t"}).json()
+    assert task["section_id"] == later["id"]
+    other = _project(client, "Work")
+    foreign = client.post("/v1/work/capture", json={"title": "x", "project_id": other["id"], "section_id": later["id"]},
+                          headers={**OWNER, "Idempotency-Key": "t2"})
+    assert foreign.status_code == 422
+    assert client.patch(f"{sections}/{later['id']}", json={"name": "Someday"}, headers=OWNER).json()["name"] == "Someday"
+    assert client.delete(f"{sections}/{later['id']}", headers=OWNER).status_code == 204
+    after = client.get(f"/v1/work/projects/{home['id']}/tasks/{task['id']}", headers=OWNER).json()
+    assert after["section_id"] is None
+    assert client.delete(f"{sections}/{later['id']}", headers=OWNER).status_code == 404
+
+
+def test_completing_a_repeating_task_moves_it_to_the_next_occurrence(client, clock):
+    body = {"title": "Water plants", "due_at": "2026-11-25T09:00:00Z", "repeat": {"every": "week"}}
+    task = client.post("/v1/work/capture", json=body, headers={**OWNER, "Idempotency-Key": "r1"}).json()
+    path = f"/v1/work/projects/{task['project_id']}/tasks/{task['id']}"
+    done = client.patch(path, json={"status": "done"}, headers={**OWNER, "If-Match": "1"})
+    assert done.status_code == 200, done.text
+    got = done.json()
+    assert got["status"] == "todo" and got["due_at"].startswith("2026-12-02T09:00:00") and got["repeat"] == {
+        "every": "week", "interval": 1}
+    log = client.get(path + "/activity", headers=OWNER).json()
+    assert [row["kind"] for row in log] == ["completed", "created"] and log[0]["fields"] == ["due_at"]
+    stop = client.patch(path, json={"repeat": None}, headers={**OWNER, "If-Match": "2"})
+    assert stop.status_code == 200 and stop.json()["repeat"] is None
+
+
+def test_quick_add_reads_repeat_rules():
+    from datetime import UTC, datetime
+    from onemind_core.work.parse import next_due, parse_quick_add
+    now = datetime(2026, 11, 25, 15, 0, tzinfo=UTC)
+    got = parse_quick_add("Water plants every 2 weeks #Home", now)
+    assert got["repeat"] == {"every": "week", "interval": 2} and got["title"] == "Water plants"
+    assert got["due_at"].date().isoformat() == "2026-11-25"
+    assert parse_quick_add("Standup every weekday", now)["repeat"] == {"every": "weekday", "interval": 1}
+    friday = datetime(2026, 11, 27, 9, 0, tzinfo=UTC)
+    assert next_due(friday, {"every": "weekday", "interval": 1}, now).date().isoformat() == "2026-11-30"
+    jan31 = datetime(2027, 1, 31, 9, 0, tzinfo=UTC)
+    assert next_due(jan31, {"every": "month", "interval": 1}, now).date().isoformat() == "2027-02-28"
+    assert next_due(datetime(2026, 1, 1, 9, 0, tzinfo=UTC), {"every": "day", "interval": 1}, now).date().isoformat() == "2026-11-26"

@@ -26,7 +26,7 @@ NOW = datetime(2026, 1, 1, tzinfo=UTC)
 def work(settings):
     engine = make_engine(settings.db_url)
     try:
-        assert migrate(engine, [SCHEMA]) == {"work": 2}
+        assert migrate(engine, [SCHEMA]) == {"work": 3}
         yield WorkService(Database(engine), clock=lambda: NOW)
     finally:
         engine.dispose()

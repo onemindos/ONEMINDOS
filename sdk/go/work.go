@@ -12,16 +12,40 @@ import (
 
 // WorkTask is a Work task as /v1/work returns it.
 type WorkTask struct {
-	ID           string     `json:"id"`
-	ProjectID    string     `json:"project_id"`
-	Revision     int        `json:"revision"`
-	Title        string     `json:"title"`
-	Body         string     `json:"body"`
-	Status       string     `json:"status"`
-	Priority     int        `json:"priority"`
-	Labels       []string   `json:"labels"`
-	DueAt        *time.Time `json:"due_at"`
-	Dependencies []string   `json:"dependencies"`
+	ID           string      `json:"id"`
+	ProjectID    string      `json:"project_id"`
+	Revision     int         `json:"revision"`
+	Title        string      `json:"title"`
+	Body         string      `json:"body"`
+	Status       string      `json:"status"`
+	Priority     int         `json:"priority"`
+	Labels       []string    `json:"labels"`
+	DueAt        *time.Time  `json:"due_at"`
+	SectionID    *string     `json:"section_id"`
+	Repeat       *WorkRepeat `json:"repeat"`
+	Dependencies []string    `json:"dependencies"`
+}
+
+// WorkRepeat is a repeat rule: every day, weekday, week, month or year, every Interval of them.
+type WorkRepeat struct {
+	Every    string `json:"every"`
+	Interval int    `json:"interval"`
+}
+
+// WorkSection groups the tasks of one project.
+type WorkSection struct {
+	ID        string `json:"id"`
+	ProjectID string `json:"project_id"`
+	Name      string `json:"name"`
+	Position  int    `json:"position"`
+}
+
+// WorkComment is a note on a task.
+type WorkComment struct {
+	ID        string    `json:"id"`
+	AuthorID  string    `json:"author_id"`
+	Body      string    `json:"body"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 // WorkService is the Work tasks API (/v1/work).
@@ -82,15 +106,16 @@ type WorkProject struct {
 
 // WorkParsed is what quick-add would file for a line of text (operation work.parse). Nothing is created.
 type WorkParsed struct {
-	Title        string     `json:"title"`
-	Project      *string    `json:"project"`
-	ProjectID    *string    `json:"project_id"`
-	ProjectFound bool       `json:"project_found"`
-	Labels       []string   `json:"labels"`
-	Priority     *int       `json:"priority"`
-	Assignee     *string    `json:"assignee"`
-	DueAt        *time.Time `json:"due_at"`
-	DueAllDay    bool       `json:"due_all_day"`
+	Title        string      `json:"title"`
+	Project      *string     `json:"project"`
+	ProjectID    *string     `json:"project_id"`
+	ProjectFound bool        `json:"project_found"`
+	Labels       []string    `json:"labels"`
+	Repeat       *WorkRepeat `json:"repeat"`
+	Priority     *int        `json:"priority"`
+	Assignee     *string     `json:"assignee"`
+	DueAt        *time.Time  `json:"due_at"`
+	DueAllDay    bool        `json:"due_all_day"`
 }
 
 // WorkActivity is one line of a task's history: which fields changed, never their values.
@@ -152,4 +177,53 @@ func (s *WorkService) Parse(ctx context.Context, text, tz string) (*WorkParsed, 
 func (s *WorkService) Activity(ctx context.Context, project, task string) ([]WorkActivity, error) {
 	var v []WorkActivity
 	return v, s.c.Do(ctx, http.MethodGet, projectPath(project)+"/tasks/"+url.PathEscape(task)+"/activity", nil, &v)
+}
+
+func taskPath(project, task string) string {
+	return projectPath(project) + "/tasks/" + url.PathEscape(task)
+}
+
+func keyed(key string) map[string]string {
+	if key == "" {
+		key = NewIdempotencyKey()
+	}
+	return map[string]string{"Idempotency-Key": key}
+}
+
+// Comments is operation work.comments_list, oldest first.
+func (s *WorkService) Comments(ctx context.Context, project, task string) ([]WorkComment, error) {
+	var v []WorkComment
+	return v, s.c.Do(ctx, http.MethodGet, taskPath(project, task)+"/comments", nil, &v)
+}
+
+// AddComment is operation work.comment_add. A retry with the same key returns the same comment.
+func (s *WorkService) AddComment(ctx context.Context, project, task, body, key string) (*WorkComment, error) {
+	var c WorkComment
+	_, err := s.c.do(ctx, request{method: http.MethodPost, path: taskPath(project, task) + "/comments",
+		body: map[string]string{"body": body}, retry: true, headers: keyed(key)}, &c)
+	return &c, err
+}
+
+// DeleteComment is operation work.comment_delete (the author only).
+func (s *WorkService) DeleteComment(ctx context.Context, project, task, id string) error {
+	return s.c.Do(ctx, http.MethodDelete, taskPath(project, task)+"/comments/"+url.PathEscape(id), nil, nil)
+}
+
+// Sections is operation work.sections_list.
+func (s *WorkService) Sections(ctx context.Context, project string) ([]WorkSection, error) {
+	var v []WorkSection
+	return v, s.c.Do(ctx, http.MethodGet, projectPath(project)+"/sections", nil, &v)
+}
+
+// AddSection is operation work.section_create.
+func (s *WorkService) AddSection(ctx context.Context, project, name, key string) (*WorkSection, error) {
+	var v WorkSection
+	_, err := s.c.do(ctx, request{method: http.MethodPost, path: projectPath(project) + "/sections",
+		body: map[string]string{"name": name}, retry: true, headers: keyed(key)}, &v)
+	return &v, err
+}
+
+// DeleteSection is operation work.section_delete. Its tasks stay in the project.
+func (s *WorkService) DeleteSection(ctx context.Context, project, id string) error {
+	return s.c.Do(ctx, http.MethodDelete, projectPath(project)+"/sections/"+url.PathEscape(id), nil, nil)
 }

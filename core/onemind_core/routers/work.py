@@ -14,7 +14,7 @@ from ..identity.scopes import has_any, register_route_scope
 from ..jsonbody import JsonBody
 from ..work.access import WORK_ROLES, delegated_reader
 from ..work.parse import parse_quick_add
-from ..work.service import (Activity, CaptureFields, PersonAssignee, Project, ProjectChanges, ProjectFields, Task,
+from ..work.service import (Activity, CaptureFields, Comment, CommentFields, Repeat, Section, SectionFields, PersonAssignee, Project, ProjectChanges, ProjectFields, Task,
                             TaskFields, TaskView, WorkService)
 
 ORDER = 260
@@ -43,6 +43,7 @@ class ParsedLine(BaseModel):
     project_id: str | None
     project_found: bool
     labels: list[str]
+    repeat: Repeat | None
     priority: int | None
     assignee: str | None
     due_at: AwareDatetime | None
@@ -72,6 +73,8 @@ class ChangeBody(JsonBody):
     labels: list[str] | None = Field(default=None, max_length=32)
     assignee: PersonAssignee | None = None
     due_at: AwareDatetime | None = None
+    section_id: str | None = Field(default=None, min_length=1, max_length=40)
+    repeat: Repeat | None = None
     dependencies: list[str] | None = Field(default=None, max_length=100)
 
 
@@ -173,7 +176,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
             assignee = {"id": parsed["assignee"]} if parsed["assignee"] else None
             fields = CaptureFields.model_validate({
                 "title": parsed["title"], "labels": parsed["labels"], "priority": parsed["priority"] or 4,
-                "due_at": parsed["due_at"], "assignee": assignee, "project_id": project_id,
+                "due_at": parsed["due_at"], "assignee": assignee, "repeat": parsed["repeat"], "project_id": project_id,
             })
         except (ValueError, ValidationError) as error:
             raise ApiError(422, "conflict", str(error) if isinstance(error, ValueError) and not isinstance(
@@ -200,7 +203,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
             except ApiError:
                 found = False
         return ParsedLine(project_id=project_id, project_found=found, **{
-            key: parsed[key] for key in ("title", "project", "labels", "priority", "assignee", "due_at", "due_all_day")})
+            key: parsed[key] for key in ("title", "project", "labels", "repeat", "priority", "assignee", "due_at", "due_all_day")})
 
     @app.get(BASE + "/projects", tags=["work"], operation_id="work.projects_list", openapi_extra={"security": [{"bearer": ["work:read"]}]}, responses=error_responses(401, 403))
     def list_projects(p: Principal = Depends(person_reader)) -> list[Project]:
@@ -248,6 +251,48 @@ def register(app: FastAPI, gw: Gateway) -> None:
         """The newest 100 entries, newest first."""
         return service.activity(p, project_id, task_id)
 
+    COMMENTS = TASK + "/comments"
+    SECTIONS = BASE + "/projects/{project_id}/sections"
+
+    @app.get(COMMENTS, tags=["work"], operation_id="work.comments_list",
+             openapi_extra={"security": [{"bearer": ["work:read"]}]}, responses=error_responses(401, 403, 404))
+    def list_comments(project_id: str, task_id: str, p: Principal = Depends(person_reader)) -> list[Comment]:
+        """Oldest first, up to 500."""
+        return service.comments(p, project_id, task_id)
+
+    @app.post(COMMENTS, tags=["work"], operation_id="work.comment_add", status_code=201,
+              openapi_extra={"security": [{"bearer": ["work:write"]}]}, responses=error_responses(401, 403, 404, 422))
+    def add_comment(project_id: str, task_id: str, body: CommentFields, key: IdempotencyKey,
+                    p: Principal = Depends(writer)) -> Comment:
+        return service.add_comment(p, project_id, task_id, body, key)
+
+    @app.delete(COMMENTS + "/{comment_id}", tags=["work"], operation_id="work.comment_delete", status_code=204,
+                openapi_extra={"security": [{"bearer": ["work:write"]}]}, responses=error_responses(401, 403, 404))
+    def delete_comment(project_id: str, task_id: str, comment_id: str, p: Principal = Depends(writer)) -> Response:
+        service.delete_comment(p, project_id, task_id, comment_id)
+        return Response(status_code=204)
+
+    @app.get(SECTIONS, tags=["work"], operation_id="work.sections_list",
+             openapi_extra={"security": [{"bearer": ["work:read"]}]}, responses=error_responses(401, 403, 404))
+    def list_sections(project_id: str, p: Principal = Depends(person_reader)) -> list[Section]:
+        return service.sections(p, project_id)
+
+    @app.post(SECTIONS, tags=["work"], operation_id="work.section_create", status_code=201,
+              openapi_extra={"security": [{"bearer": ["work:write"]}]}, responses=error_responses(401, 403, 404, 422))
+    def create_section(project_id: str, body: SectionFields, key: IdempotencyKey, p: Principal = Depends(writer)) -> Section:
+        return service.create_section(p, project_id, body, key)
+
+    @app.patch(SECTIONS + "/{section_id}", tags=["work"], operation_id="work.section_update",
+               openapi_extra={"security": [{"bearer": ["work:write"]}]}, responses=error_responses(401, 403, 404, 422))
+    def rename_section(project_id: str, section_id: str, body: SectionFields, p: Principal = Depends(writer)) -> Section:
+        return service.rename_section(p, project_id, section_id, body)
+
+    @app.delete(SECTIONS + "/{section_id}", tags=["work"], operation_id="work.section_delete", status_code=204,
+                openapi_extra={"security": [{"bearer": ["work:write"]}]}, responses=error_responses(401, 403, 404))
+    def delete_section(project_id: str, section_id: str, p: Principal = Depends(writer)) -> Response:
+        service.delete_section(p, project_id, section_id)
+        return Response(status_code=204)
+
     @app.patch(TASK, tags=["work"], operation_id="work.task_update", responses=error_responses(401, 403, 404, 409, 422))
     def change_task(project_id: str, task_id: str, body: ChangeBody, revision: RevisionHeader,
                     p: Principal = Depends(writer)) -> Task:
@@ -260,7 +305,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
             raise ApiError(422, "conflict", "Invalid Work task fields", reason="bad_task") from None
         task = service.replace_task(p, project_id, task_id, expected_revision=_revision(revision),
                                     fields=proposed, dependencies=body.dependencies)
-        event = "task_completed" if task.status == "done" and previous.status != "done" else "task_updated"
+        event = "task_completed" if proposed.status == "done" and previous.status != "done" else "task_updated"
         emit(event, p, project_id, task_id)
         return task
 

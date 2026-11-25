@@ -20,7 +20,9 @@ from ..identity.crypto import new_id
 from ..ledger import utc
 from ..store import Database, SqlRepository
 from .access import OWN_TASK_ONLY_ROLES, WORK_ROLES
-from .db import ActivityRow, DependencyRow, InboxRow, ProjectMemberRow, ProjectRow, TaskRow, WorkCreateRow
+from .db import (ActivityRow, CommentRow, DependencyRow, InboxRow, ProjectMemberRow, ProjectRow, SectionRow, TaskRow,
+                 WorkCreateRow)
+from .parse import next_due
 
 Name = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=160)]
 Label = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=64)]
@@ -65,6 +67,39 @@ class PersonAssignee(BaseModel):
     id: PersonID
 
 
+class Repeat(BaseModel):
+    """Finishing a repeating task moves its due date to the next occurrence and keeps it open."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    every: Literal["day", "weekday", "week", "month", "year"]
+    interval: int = Field(default=1, ge=1, le=365, strict=True)
+
+
+class SectionFields(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    name: Name
+
+
+class Section(SectionFields):
+    id: str
+    project_id: str
+    position: int
+
+
+class CommentFields(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    body: str = Field(min_length=1, max_length=5000)
+
+
+class Comment(CommentFields):
+    id: str
+    author_id: str
+    created_at: AwareDatetime
+
+
 class TaskFields(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -75,6 +110,8 @@ class TaskFields(BaseModel):
     labels: tuple[Label, ...] = Field(default=(), max_length=32)
     assignee: PersonAssignee | None = None
     due_at: AwareDatetime | None = None
+    section_id: str | None = Field(default=None, min_length=1, max_length=40)
+    repeat: Repeat | None = None
 
 
 class CaptureFields(TaskFields):
@@ -153,6 +190,8 @@ def _task_values(fields: TaskFields) -> dict:
         "labels": list(fields.labels),
         "assignee_id": fields.assignee.id if fields.assignee else None,
         "due_at": utc(fields.due_at) if fields.due_at else None,
+        "section_id": fields.section_id,
+        "repeat": fields.repeat.model_dump() if fields.repeat else None,
     }
 
 
@@ -161,7 +200,8 @@ def _task(row: TaskRow, dependencies: tuple[str, ...]) -> Task:
         id=row.id, project_id=row.project_id, revision=row.revision, title=row.title, body=row.body,
         status=row.status, priority=row.priority, labels=tuple(row.labels),
         assignee=PersonAssignee(id=row.assignee_id) if row.assignee_id else None,
-        due_at=utc(row.due_at) if row.due_at else None, dependencies=dependencies, updated_at=utc(row.updated_at),
+        due_at=utc(row.due_at) if row.due_at else None, section_id=row.section_id,
+        repeat=Repeat(**row.repeat) if row.repeat else None, dependencies=dependencies, updated_at=utc(row.updated_at),
     )
 
 
@@ -317,7 +357,7 @@ class WorkService(SqlRepository):
         with self.db.session.begin() as session:
             self._owned_project(session, person, project_id)
             # Explicit deletes: the guarantee must not depend on the database enforcing foreign keys.
-            for table in (ActivityRow, DependencyRow, TaskRow):
+            for table in (ActivityRow, CommentRow, DependencyRow, TaskRow, SectionRow):
                 session.execute(delete(table).where(table.project_id == project_id))
             session.execute(delete(ProjectMemberRow).where(ProjectMemberRow.project_id == project_id))
             session.execute(delete(ProjectRow).where(ProjectRow.id == project_id))
@@ -353,6 +393,94 @@ class WorkService(SqlRepository):
             return [Activity(id=r.id, actor_id=r.actor_id, kind=r.kind, fields=tuple(r.fields), at=utc(r.at))
                     for r in rows]
 
+    @staticmethod
+    def _section_row(session: Session, project_id: str, section_id: str) -> SectionRow:
+        row = session.get(SectionRow, section_id)
+        if row is None or row.project_id != project_id:
+            raise _not_found()
+        return row
+
+    def sections(self, actor: Principal, project_id: str) -> list[Section]:
+        person, _ = _reader(actor, None)
+        with self.db.session() as session:
+            _project(session, person, project_id)
+            return [Section(id=r.id, project_id=r.project_id, name=r.name, position=r.position)
+                    for r in session.scalars(select(SectionRow).where(SectionRow.project_id == project_id)
+                                             .order_by(SectionRow.position, SectionRow.id))]
+
+    def create_section(self, person: Principal, project_id: str, fields: SectionFields, key: str) -> Section:
+        _writer(person)
+        with self.db.session.begin() as session:
+            _project(session, person, project_id, write=True)
+            receipt, fresh = self._create_receipt(session, person, "section", key,
+                                                  {"project_id": project_id, **fields.model_dump()})
+            if not fresh:
+                row = self._section_row(session, project_id, receipt.result_id)
+                return Section(id=row.id, project_id=project_id, name=row.name, position=row.position)
+            last = session.scalar(select(SectionRow.position).where(SectionRow.project_id == project_id)
+                                  .order_by(SectionRow.position.desc()).limit(1))
+            row = SectionRow(id=new_id("sec"), project_id=project_id, name=fields.name,
+                             position=0 if last is None else last + 1)
+            session.add(row)
+            receipt.project_id, receipt.result_id = project_id, row.id
+            return Section(id=row.id, project_id=project_id, name=row.name, position=row.position)
+
+    def rename_section(self, person: Principal, project_id: str, section_id: str, fields: SectionFields) -> Section:
+        _writer(person)
+        with self.db.session.begin() as session:
+            _project(session, person, project_id, write=True)
+            row = self._section_row(session, project_id, section_id)
+            row.name = fields.name
+            return Section(id=row.id, project_id=project_id, name=row.name, position=row.position)
+
+    def delete_section(self, person: Principal, project_id: str, section_id: str) -> None:
+        """Its tasks stay in the project, outside any section."""
+        _writer(person)
+        with self.db.session.begin() as session:
+            _project(session, person, project_id, write=True)
+            row = self._section_row(session, project_id, section_id)
+            session.execute(update(TaskRow).where(TaskRow.project_id == project_id, TaskRow.section_id == row.id)
+                            .values(section_id=None))
+            session.delete(row)
+
+    def comments(self, actor: Principal, project_id: str, task_id: str) -> list[Comment]:
+        with self.db.session() as session:
+            self._get_task(session, actor, project_id, task_id)
+            return [Comment(id=r.id, author_id=r.author_id, body=r.body, created_at=utc(r.created_at))
+                    for r in session.scalars(select(CommentRow).where(
+                        CommentRow.project_id == project_id, CommentRow.task_id == task_id,
+                    ).order_by(CommentRow.created_at, CommentRow.id).limit(500))]
+
+    def add_comment(self, person: Principal, project_id: str, task_id: str, fields: CommentFields, key: str) -> Comment:
+        _writer(person)
+        with self.db.session.begin() as session:
+            _project(session, person, project_id, write=True)
+            if session.scalar(_owned_query(person, project_id, task_id).with_only_columns(TaskRow.id)) is None:
+                raise _not_found()
+            receipt, fresh = self._create_receipt(session, person, "comment", key,
+                                                  {"task_id": task_id, **fields.model_dump()})
+            if not fresh:
+                earlier = session.get(CommentRow, receipt.result_id)
+                if earlier is None:
+                    raise _not_found()
+                return Comment(id=earlier.id, author_id=earlier.author_id, body=earlier.body,
+                               created_at=utc(earlier.created_at))
+            row = CommentRow(id=new_id("cmt"), project_id=project_id, task_id=task_id, author_id=person.id,
+                             body=fields.body, created_at=self.clock())
+            session.add(row)
+            receipt.project_id, receipt.result_id = project_id, row.id
+            return Comment(id=row.id, author_id=row.author_id, body=row.body, created_at=utc(row.created_at))
+
+    def delete_comment(self, person: Principal, project_id: str, task_id: str, comment_id: str) -> None:
+        """Only the author removes a comment; anyone else, and a missing one, gets the same 404."""
+        _writer(person)
+        with self.db.session.begin() as session:
+            _project(session, person, project_id, write=True)
+            row = session.get(CommentRow, comment_id)
+            if row is None or (row.project_id, row.task_id, row.author_id) != (project_id, task_id, person.id):
+                raise _not_found()
+            session.delete(row)
+
     def add_member(self, person: Principal, project_id: str, member: Principal) -> None:
         with self.db.session.begin() as session:
             project = _project(session, person, project_id, write=True)
@@ -364,6 +492,7 @@ class WorkService(SqlRepository):
 
     def _new_task(self, session: Session, person: Principal, project_id: str, fields: TaskFields) -> Task:
         self._check_assignee(session, person, project_id, fields.assignee)
+        self._check_section(session, project_id, fields.section_id)
         row = TaskRow(project_id=project_id, id=new_id("tsk"), owner_id=person.id, revision=1,
                       updated_at=self.clock(), **_task_values(fields))
         session.add(row)
@@ -497,6 +626,13 @@ class WorkService(SqlRepository):
             )) is not None
 
     @staticmethod
+    def _check_section(session: Session, project_id: str, section_id: str | None) -> None:
+        if section_id is not None:
+            section = session.get(SectionRow, section_id)
+            if section is None or section.project_id != project_id:
+                raise ApiError(422, "conflict", "That section is not in this project", reason="bad_section")
+
+    @staticmethod
     def _check_assignee(session: Session, person: Principal, project_id: str, assignee: PersonAssignee | None) -> None:
         if assignee is not None and (person.role in OWN_TASK_ONLY_ROLES and assignee.id != person.id
                                      or session.get(ProjectMemberRow, (project_id, assignee.id)) is None):
@@ -515,6 +651,7 @@ class WorkService(SqlRepository):
             if row.revision != expected_revision:
                 raise ApiError(409, "stale_precondition", "Work task revision has changed")
             self._check_assignee(session, person, project_id, fields.assignee)
+            self._check_section(session, project_id, fields.section_id)
             if dependencies is not None:
                 if len(dependencies) > 100:
                     raise ApiError(422, "conflict", "Work allows up to 100 dependencies per task")
@@ -535,14 +672,19 @@ class WorkService(SqlRepository):
                 setattr(row, name, value)
             if dependencies is not None:
                 changed.append("dependencies")
-            if "status" in changed and row.status == "done":
-                kind = "completed"
+            finished = before != "done" and row.status == "done"
+            if finished and row.repeat and row.due_at is not None:
+                # A repeating task is never finished: it moves to its next occurrence and stays open.
+                row.due_at = next_due(utc(row.due_at), row.repeat, self.clock())
+                row.status = "todo"
+                changed = [name for name in changed if name not in ("status", "due_at")] + ["due_at"]
+            if finished:
+                kind, changed = "completed", [name for name in changed if name != "status"]
             elif "status" in changed and before == "done":
-                kind = "reopened"
+                kind, changed = "reopened", [name for name in changed if name != "status"]
             else:
                 kind = "updated"
-            _log(session, person, row, kind, [name for name in changed if name != "status" or kind == "updated"],
-                 self.clock())
+            _log(session, person, row, kind, changed, self.clock())
             row.revision += 1
             row.updated_at = self.clock()
             return _task(row, required)
@@ -561,6 +703,6 @@ class WorkService(SqlRepository):
                 DependencyRow.project_id == project_id,
                 or_(DependencyRow.task_id == task_id, DependencyRow.required_id == task_id),
             ))
-            session.execute(delete(ActivityRow).where(
-                ActivityRow.project_id == project_id, ActivityRow.task_id == task_id))
+            for table in (ActivityRow, CommentRow):
+                session.execute(delete(table).where(table.project_id == project_id, table.task_id == task_id))
             session.delete(row)
