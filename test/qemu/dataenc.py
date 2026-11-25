@@ -113,9 +113,9 @@ def e57(a, logf, env):
     Returns False when a step could not run to its end."""
     ok = True
     # E5: no TPM at all, nobody types: D-020's no-TPM branch.
-    vm5 = None
+    vm5, w5, vm7, w7 = None, None, None, None
     try:
-        vm5, _ = fresh_vm(a, logf, "e5")
+        vm5, w5 = fresh_vm(a, logf, "e5")
         vm5.failfast = False
         vm5.mark("E5 no TPM, blank data: plain btrfs, nobody types")
         boot(vm5, None, "E5 boot")
@@ -147,11 +147,13 @@ def e57(a, logf, env):
         ok = False
     if vm5 is not None and vm5.proc and vm5.proc.poll() is None:
         vm5.kill()
+    if w5:
+        os.path.lexists(os.path.join(w5, "disk.img")) and os.remove(os.path.join(w5, "disk.img"))
     # E7: the image written to a 64 GiB disk, with a TPM: partition, LUKS2 volume and btrfs all grow, nothing fails.
-    vm7, tpm3 = None, None
+    tpm3 = None
     try:
         tpm3 = Tpm(a.work, "tpm3")
-        vm7, _ = fresh_vm(a, logf, "e7", grow_to=64 << 30)
+        vm7, w7 = fresh_vm(a, logf, "e7", grow_to=64 << 30)
         vm7.failfast = False
         vm7.mark("E7 growth on a large disk, encrypted (swtpm #3)")
         boot(vm7, tpm3, "E7 boot")
@@ -181,6 +183,8 @@ def e57(a, logf, env):
         ok = False
     if vm7 is not None and vm7.proc and vm7.proc.poll() is None:
         vm7.kill()
+    if w7:
+        os.path.lexists(os.path.join(w7, "disk.img")) and os.remove(os.path.join(w7, "disk.img"))
     if tpm3:
         tpm3.stop()
     return ok
