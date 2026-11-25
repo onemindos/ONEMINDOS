@@ -10,7 +10,7 @@ from itertools import groupby
 from typing import Annotated, Literal
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, StringConstraints, field_validator
-from sqlalchemy import delete, or_, select, update
+from sqlalchemy import case, delete, or_, select, update
 from sqlalchemy.orm import Session
 
 from ..audit import canonical_json
@@ -20,8 +20,8 @@ from ..identity.crypto import new_id
 from ..ledger import utc
 from ..store import Database, SqlRepository
 from .access import OWN_TASK_ONLY_ROLES, WORK_ROLES
-from .db import (ActivityRow, CommentRow, DependencyRow, InboxRow, ProjectMemberRow, ProjectRow, SectionRow, TaskRow,
-                 WorkCreateRow)
+from .db import (ActivityRow, CommentRow, DependencyRow, InboxRow, ProjectMemberRow, ProjectRow, ReminderRow, SectionRow,
+                 TaskRow, WorkCreateRow)
 from .parse import next_due
 
 Name = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=160)]
@@ -29,6 +29,7 @@ Label = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, ma
 PersonID = Annotated[str, StringConstraints(min_length=1, max_length=128)]
 AIAccess = Literal["none", "read", "work"]
 TaskView = Literal["all", "today", "upcoming", "inbox"]
+DUE_SOON = timedelta(hours=24)
 WORK_EVENTS = frozenset({"work.task_created", "work.task_updated", "work.task_completed", "work.task_deleted"})
 
 
@@ -272,9 +273,11 @@ def _replace_dependencies(
 
 
 class WorkService(SqlRepository):
-    def __init__(self, db: Database, *, clock: Callable[[], datetime] = lambda: datetime.now(UTC)):
+    def __init__(self, db: Database, *, clock: Callable[[], datetime] = lambda: datetime.now(UTC),
+                 person_role: Callable[[str], str | None]):
         super().__init__(db)
         self.clock = clock
+        self.person_role = person_role
 
     @staticmethod
     def _new_project(session: Session, person: Principal, fields: ProjectFields) -> Project:
@@ -366,7 +369,7 @@ class WorkService(SqlRepository):
         with self.db.session.begin() as session:
             self._owned_project(session, person, project_id)
             # Explicit deletes: the guarantee must not depend on the database enforcing foreign keys.
-            for table in (ActivityRow, CommentRow, DependencyRow, TaskRow, SectionRow):
+            for table in (ActivityRow, CommentRow, ReminderRow, DependencyRow, TaskRow, SectionRow):
                 session.execute(delete(table).where(table.project_id == project_id))
             session.execute(delete(ProjectMemberRow).where(ProjectMemberRow.project_id == project_id))
             session.execute(delete(WorkCreateRow).where(WorkCreateRow.project_id == project_id))
@@ -636,6 +639,46 @@ class WorkService(SqlRepository):
                 rows, (rows.c.project_id == TaskRow.project_id) & (rows.c.id == TaskRow.id),
             ))
 
+    def notification_fields(self, data: dict) -> dict:
+        """The title the notifier shows in the assignee's inbox. Events carry ids only; this looks the task up."""
+        project_id, task_id = data.get("project_id"), data.get("task_id")
+        if not isinstance(project_id, str) or not isinstance(task_id, str):
+            return {}
+        with self.db.session() as session:
+            row = session.get(TaskRow, (project_id, task_id))
+            return {"title": row.title[:80]} if row is not None else {}
+
+    def sweep(self) -> list[tuple[str, str, str, str, datetime]]:
+        """Reminders due now: (name, person, project, task, due). Open assigned tasks due within a day or late.
+
+        Each task and due date is reminded once per kind (a late task gets only `overdue`), so a sweep that
+        runs every few minutes never repeats itself, and a repeating task is reminded again for its next date.
+        """
+        now, found = self.clock(), []
+        with self.db.session.begin() as session:
+            # Tasks already reminded for their current due date and state are left out in the query, so a
+            # sweep every few minutes stays cheap however many overdue tasks are waiting.
+            reminded = select(ReminderRow.task_id).where(
+                ReminderRow.project_id == TaskRow.project_id, ReminderRow.task_id == TaskRow.id,
+                ReminderRow.due_at == TaskRow.due_at,
+                ReminderRow.kind == case((TaskRow.due_at < now, "overdue"), else_="due_soon"),
+            ).exists()
+            rows = session.scalars(select(TaskRow).where(
+                TaskRow.status != "done", TaskRow.assignee_id.is_not(None), TaskRow.due_at.is_not(None),
+                TaskRow.due_at <= now + DUE_SOON, ~reminded,
+            ).order_by(TaskRow.project_id, TaskRow.id)).all()
+            for row in rows:
+                due = utc(row.due_at)
+                kind = "overdue" if due < now else "due_soon"
+                fresh = session.scalar(self.db.insert()(ReminderRow).values(
+                    project_id=row.project_id, task_id=row.id, kind=kind, due_at=due,
+                ).on_conflict_do_nothing(index_elements=[
+                    ReminderRow.project_id, ReminderRow.task_id, ReminderRow.kind, ReminderRow.due_at,
+                ]).returning(ReminderRow.task_id))
+                if fresh is not None:
+                    found.append((f"task.{kind}", row.assignee_id, row.project_id, row.id, due))
+        return found
+
     def event_visible(self, actor: Principal, event: dict, *, delegated: Principal | None = None) -> bool:
         """Filter ids-only events by current task visibility. Deleted and missing tasks fail closed."""
         if event.get("type") not in WORK_EVENTS or not isinstance(event.get("data"), dict):
@@ -659,11 +702,18 @@ class WorkService(SqlRepository):
             if section is None or section.project_id != project_id:
                 raise ApiError(422, "conflict", "That section is not in this project", reason="bad_section")
 
-    @staticmethod
-    def _check_assignee(session: Session, person: Principal, project_id: str, assignee: PersonAssignee | None) -> None:
-        if assignee is not None and (person.role in OWN_TASK_ONLY_ROLES and assignee.id != person.id
-                                     or session.get(ProjectMemberRow, (project_id, assignee.id)) is None):
+    def _check_assignee(self, session: Session, person: Principal, project_id: str,
+                        assignee: PersonAssignee | None, *, changing: bool = True) -> None:
+        if assignee is None:
+            return
+        if person.role in OWN_TASK_ONLY_ROLES and assignee.id != person.id \
+                or session.get(ProjectMemberRow, (project_id, assignee.id)) is None:
             raise _not_found()
+        if changing and assignee.id != person.id and self.person_role(assignee.id) in OWN_TASK_ONLY_ROLES:
+            # A child or teen sees only the tasks they create, so a task assigned to them would be one
+            # they get reminders for but cannot open.
+            raise ApiError(422, "conflict", "Children and teens see only their own tasks, so a task cannot be assigned to them",
+                           reason="assignee_cannot_see")
 
     def replace_task(
         self, person: Principal, project_id: str, task_id: str, *, expected_revision: int, fields: TaskFields,
@@ -677,7 +727,9 @@ class WorkService(SqlRepository):
                 raise _not_found()
             if row.revision != expected_revision:
                 raise ApiError(409, "stale_precondition", "Work task revision has changed")
-            self._check_assignee(session, person, project_id, fields.assignee)
+            # PATCH sends the current assignee back unchanged; only a new assignee must be able to see the task.
+            self._check_assignee(session, person, project_id, fields.assignee,
+                                 changing=fields.assignee is None or fields.assignee.id != row.assignee_id)
             self._check_section(session, project_id, fields.section_id)
             if dependencies is not None:
                 if len(dependencies) > 100:
@@ -730,6 +782,6 @@ class WorkService(SqlRepository):
                 DependencyRow.project_id == project_id,
                 or_(DependencyRow.task_id == task_id, DependencyRow.required_id == task_id),
             ))
-            for table in (ActivityRow, CommentRow):
+            for table in (ActivityRow, CommentRow, ReminderRow):
                 session.execute(delete(table).where(table.project_id == project_id, table.task_id == task_id))
             session.delete(row)
