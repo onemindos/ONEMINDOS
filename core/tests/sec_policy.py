@@ -401,6 +401,11 @@ POLICY |= {
     ("POST", "/v1/agents/{name}/resume"): Row(ONLY_OWNER, w.p_missing("/v1/agents/hermes/resume", json={}),
                                               "AIG-03: an agent never resumes itself"),
     # #627: an agent's NATS user (account AGENTS) is the owner's to add or remove; an agent never keys itself
+    ("GET", "/v1/agents/{name}/inputs"): Row(ONLY_OWNER, w.p_static("/v1/agents/agent:probe/inputs"),
+                                             "PR 6: only the owner reads what an agent can read outside"),
+    ("PUT", "/v1/agents/{name}/inputs"): Row(ONLY_OWNER, w.p_missing("/v1/agents/agent:probe/inputs",
+                                                                     json={"external_inputs": ["web"]}),
+                                             "PR 6: only the owner changes it (an agent never lowers its own taint)"),
     ("GET", "/v1/agents/{name}/nats-key"): Row(ONLY_OWNER, w.p_static("/v1/agents/agent:probe/nats-key"),
                                                "#627: only the owner reads an agent's NATS key"),
     ("PUT", "/v1/agents/{name}/nats-key"): Row(ONLY_OWNER, w.p_missing("/v1/agents/agent:probe/nats-key", json={

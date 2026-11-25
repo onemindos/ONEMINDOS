@@ -102,6 +102,8 @@ HUMAN_ONLY: dict[str, str] = {
     "GET /v1/agents/kill-switch": OVERSIGHT,
     "PUT /v1/agents/kill-switch": OVERSIGHT,
     "PUT /v1/agents/{name}/budget": OVERSIGHT,
+    "GET /v1/agents/{name}/inputs": OVERSIGHT,
+    "PUT /v1/agents/{name}/inputs": OVERSIGHT,
     "POST /v1/agents/{name}/cancel": OVERSIGHT,
     "POST /v1/agents/{name}/resume": OVERSIGHT,
     # an agent never gets a tool that issues, reads or revokes its own NATS key
