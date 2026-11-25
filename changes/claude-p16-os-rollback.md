@@ -1,5 +1,5 @@
 ---
-pr: pending
+pr: 1140
 branch: claude/p16-os-rollback
 ---
 Go back to the previous OS version (P-16, D-027 to D-029). The Updates screen now shows, for each machine, the previous system version in the other A/B slot and a Go back button. The button only files an os.rollback request; going back discards the running version, so an owner approves it with a passkey (a bare token or a signed-in session gets step_up_required), and an agent or the new onemind update rollback command can only ask. On approval the gateway sends the approved version to the host service, which re-reads RAUC, refuses unless the other slot is marked good, holds a known different version and no update is pending or on trial, then marks that slot active and restarts. It never runs rauc install. The health gate sees no trial marker and commits the old slot. The version it left is written to the gate's bad-releases list, so the update service does not reinstall it at once and a second go back cannot swap the slots. GET /v1/os/updates gains a rollback object per machine and for the hub. A new QEMU test (make rollback, RB0 to RB4, CRITERIA-ROLLBACK.md) boots the previous slot through the real host service, RAUC and gate.
