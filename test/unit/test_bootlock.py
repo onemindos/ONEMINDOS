@@ -2,7 +2,7 @@
 """GRUB boot menu lock (security review 2026-11-21, item 6): os/assemble/grub.cfg.in, ensure_boot_lock in
 onemind_firstboot.py, and the QEMU criteria that judge them (test/qemu/CRITERIA-BOOTLOCK.md).
 The boot test itself (bootlock.py) needs QEMU and runs in CI's image workflow."""
-import hashlib, os, re, sys, tempfile, unittest
+import hashlib, os, re, sys, tempfile, time, unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(ROOT, "os", "rootfs", "layers", "onemind", "usr", "lib", "onemind"))
@@ -113,6 +113,102 @@ class Criteria(unittest.TestCase):
         compile(src, "bootlock.py", "exec")
         for tid in ("B1", "B2", "B3", "B4", "B5", "B6"):
             self.assertIn(f'record("{tid}"', src)
+
+
+def _load_harness():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("bootlock_harness", os.path.join(ROOT, "test", "qemu", "bootlock.py"))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+class FakeVM:
+    """The parts of run-tests.py's VM the GRUB login uses: a serial buffer and the keyboard. After the password's
+    Enter, GRUB's answer arrives `delay` seconds later, as GRUB's growing refusal sleep does."""
+
+    def __init__(self, answer, delay):
+        import threading
+        self.buf, self.lock, self.typed = "", threading.Lock(), []
+        self.answer, self.delay, self.timers = answer, delay, []
+        vm = self
+
+        class Stdin:
+            def write(self, b):
+                vm.typed.append(b.decode())
+                if len(vm.typed) == 3:          # Ctrl-U, the username, then the password: GRUB starts checking
+                    t = threading.Timer(vm.delay, vm.emit, (vm.answer,))
+                    t.start()
+                    vm.timers.append(t)
+
+            def flush(self):
+                pass
+
+        self.proc = type("P", (), {"stdin": Stdin()})()
+
+    def emit(self, text):
+        with self.lock:
+            self.buf += text
+
+    def here(self):
+        with self.lock:
+            return len(self.buf)
+
+    def since(self, i):
+        with self.lock:
+            return self.buf[i:]
+
+
+class Harness(unittest.TestCase):
+    """bootlock.py's own checks (CI run 45547568838 failed B1 and B5 on a correctly locked image)."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.h = _load_harness()
+
+    def count(self, text):
+        import subprocess
+        with tempfile.NamedTemporaryFile("w", suffix=".cfg", delete=False) as f:
+            f.write(text)
+        self.addCleanup(os.unlink, f.name)
+        r = subprocess.run(["grep", "-c", "-E", self.h.CFG_PASSWORD_ERE, f.name], capture_output=True, text=True)
+        return int(r.stdout.strip())
+
+    def test_b1_grub_cfg_check_ignores_the_module_load(self):
+        # The image's grub.cfg loads the password_pbkdf2 module; loading it sets no password (was hash_in_grub_cfg=1).
+        self.assertIn("insmod password_pbkdf2", CFG)
+        self.assertEqual(self.count(CFG), 0)
+
+    def test_b1_grub_cfg_check_still_catches_a_password_in_the_image(self):
+        line = fb.grub_pbkdf2("x")
+        self.assertEqual(self.count(CFG + f"password_pbkdf2 onemind {line}\n"), 1)
+        self.assertEqual(self.count(CFG + "    password onemind clear-text\n"), 1)
+        self.assertEqual(self.count(CFG + f"set hidden={line}\n"), 1)
+        self.assertEqual(self.count(CFG + f"\tpassword_pbkdf2 root {line}\n"), 1)
+
+    def test_login_waits_for_grub_s_doubled_refusal(self):
+        # B5 is GRUB's second refusal in a row: it sleeps 2 s, longer than the old fixed 1.5 s wait.
+        vm = FakeVM("\nerror: access denied.\n", 2.2)
+        start, t0 = vm.here(), time.time()
+        self.h.login(vm, "onemind", "wrong-password", f"{self.h.DENIED}|grub> ")
+        self.assertTrue(self.h.seen(vm, start, self.h.DENIED))
+        self.assertLess(time.time() - t0, 10, "login returns once GRUB answers, not after the full timeout")
+        self.assertEqual(vm.typed, ["\x15", "onemind\r", "wrong-password\r"])
+
+    def test_login_waits_for_the_editor_after_the_right_password(self):
+        vm = FakeVM("Minimum Emacs-like screen editing is supported.", 1.8)
+        start = vm.here()
+        self.h.login(vm, "onemind", "pw", f"{self.h.EDITOR}|{self.h.DENIED}")
+        self.assertTrue(self.h.seen(vm, start, self.h.EDITOR))
+
+    def test_no_answer_gives_up_after_the_timeout(self):
+        vm = FakeVM("", 0)
+        t0 = time.time()
+        self.assertFalse(self.h.answered(vm, 0, "access denied", timeout=0.5))
+        self.assertLess(time.time() - t0, 5)
+
+    def test_the_wait_fits_the_criteria_prompt_timeout(self):
+        self.assertLessEqual(self.h.ANSWER_TIMEOUT, 60)   # CRITERIA-BOOTLOCK.md §1: each GRUB prompt 60 s
 
 
 if __name__ == "__main__":
