@@ -16,7 +16,7 @@ spec:
       - GET /v1/alerts
   notifications:
     topics:
-      - {id: security, events: [notify.channel_failing, notify.channel_ok]}
+      - {id: security, events: [notify.channel_failing, notify.channel_ok, fabric.unknown_key, fabric.revoked_retry, fabric.key_refused, fabric.flapping, fabric.flap_cleared]}
   settingsPages:
     - {id: preferences, title: Notification preferences, source: GET /v1/notifications/preferences}
     - {id: channels, title: Delivery channels, source: GET /v1/notifications/channels}
