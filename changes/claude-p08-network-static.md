@@ -1,5 +1,5 @@
 ---
-pr: pending
+pr: 1156
 branch: claude/p08-network-static
 ---
 Wave 2 setting P-08: an owner can give a cable interface a fixed IPv4 address, gateway and DNS, or go back to DHCP, and a wrong address can never strand them. PUT /v1/network/{iface} only files an owner action (an owner approves it with a passkey; agents and the CLI cannot). After approval the host service asks NetworkManager to make the change inside a checkpoint with a rollback timer (10 to 600 seconds, default 120): the owner opens the box at the new address and presses Confirm (POST /v1/network/{iface}/confirm), and without that NetworkManager puts the old settings back by itself. A change that was still waiting when the box rebooted is put back at the next start. Confirmed changes live in the NetworkManager profile on /data and survive reboots and A/B updates. The Network screen gets a form, a countdown and a Confirm button, and the CLI gets onemind network set, dhcp and confirm. Tests: Go (netset, host routes, CLI), Python (gateway, passkey step-up, refusals), dashboard, and QEMU checks NS1 to NS3 in the first-boot battery (criteria pre-registered in test/qemu/CRITERIA-NETWORK-SET.md).
