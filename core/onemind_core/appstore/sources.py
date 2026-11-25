@@ -395,6 +395,10 @@ class SourceAppEntry(AppEntry):
     def scan(self) -> ScanRecord | None:  # the repository's scan.json is never trusted
         return self.scan_record
 
+    @property
+    def manifest_tier(self) -> str:  # read by the standing-approval check (F-6), which must not see the claim
+        return "community"
+
     def summary(self) -> dict:
         out = super().summary()
         if out.get("tier") == "verified":

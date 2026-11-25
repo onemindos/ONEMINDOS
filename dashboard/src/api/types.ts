@@ -138,36 +138,11 @@ export interface CommunitySource {
   errors: string[];
 }
 
-/** POST /v1/custom-apps/plan (PLG-GIT-01): a repository fetched and checked in the gateway's sandbox; nothing is installed. */
-export interface CustomPlan {
-  url: string; ref: string; commit: string;
-  app_id: string | null; name?: string | null; version?: string | null; revision: number | null;
-  verdict: 'ready' | 'blocked';
-  problems: string[]; notes: string[]; images?: string[];
-  scan: { result: string; scanned_at: string } | null;
-  /** The signing seam: custom apps have no decided signing policy yet, so this says "not_checked". */
-  signature: { policy: string; status: string; detail: string } | null;
-  action_type: 'app.install' | 'app.update' | null;
-  next?: string | null;
-}
-
-export interface CustomRevision {
-  revision: number; commit: string; ref: string; version: string | null;
-  scan: { result: string; scanned_at: string };
-  created_at: string; deployed_at: string | null; current: boolean; deployed: boolean;
-}
-
-/** One GET /v1/custom-apps row: a linked repository with its revisions, newest first. */
-export interface CustomApp {
-  app_id: string; url: string; ref: string; status: string;
-  current_revision: number | null; deployed_revision: number | null; rollback_to: number | null;
-  revisions: CustomRevision[];
-}
-
-export interface CustomRollbackPlan {
-  app_id: string; from_revision: number; to_revision: number; commit: string; version: string | null;
-  action_type: 'app.update'; next: string;
-}
+/** PLG-GIT-01: the custom-app shapes come from the generated client, not hand-written types. */
+export type CustomPlan = components['schemas']['CustomPlanResult'];
+export type CustomRevision = components['schemas']['CustomRevisionOut'];
+export type CustomApp = components['schemas']['CustomAppRow'];
+export type CustomRollbackPlan = components['schemas']['CustomRollbackResult'];
 
 /** POST /v1/deploy/compose (PD-13): a conversion only; it writes nothing on the box. */
 export interface ComposeResult {

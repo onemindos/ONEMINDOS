@@ -35,6 +35,7 @@ from ..auth import Principal
 from ..catalog import APP_ID_RE, MANIFEST, AppEntry
 from ..errors import ApiError
 from ..ledger import Action, iso
+from ..lifecycle import bundle_sha256
 from ..scan import ScanRecord
 from .compose import ComposeError, check_expansion
 from .sources import MAX_MANIFEST_BYTES, FetchError, param_problems, static_scan
@@ -70,6 +71,10 @@ class CustomAppEntry(AppEntry):
     @property
     def scan(self) -> ScanRecord | None:  # the repository's own scan.json is never trusted
         return self.scan_record
+
+    @property
+    def manifest_tier(self) -> str:  # read by the standing-approval check (F-6), which must not see the claim
+        return "community"
 
     def summary(self) -> dict:
         out = super().summary()
@@ -107,9 +112,10 @@ class CustomApps:
     # ---- the catalog provider -------------------------------------------------------------------
     def __call__(self, official: set[str]) -> dict[str, AppEntry]:
         out: dict[str, AppEntry] = {}
+        system = set(self.gw.catalog.system_ids())
         for app, rev in self.repo.custom_current():
             root = self.store.fetcher.path(self.key(app.url), rev.commit)
-            if app.app_id in official or not root.is_dir():
+            if app.app_id in official or app.app_id in system or not root.is_dir():
                 continue
             doc = self._manifest_at(root, rev)
             if doc is None:
@@ -120,23 +126,26 @@ class CustomApps:
         return out
 
     def _manifest_at(self, root: Path, rev: CustomRevision) -> dict | None:
-        """The parsed manifest, once per checkout, and only when it is the bytes that were scanned."""
+        """The parsed manifest (parsed once per checkout), served only while the checkout is still the
+        bytes that were scanned: the manifest and the manifests folder are re-hashed on every load."""
         cached = self._manifests.get((str(root), rev.manifest_sha))
         if cached is not None:
-            return cached[1]
+            if self._sha(root, cached[1]) == rev.manifest_sha:
+                return cached[1]
+            self._manifests.pop((str(root), rev.manifest_sha), None)
         doc, errs = self._read_manifest(root)
-        if errs or doc is None or self._sha(root) != rev.manifest_sha:
-            log.warning("custom app checkout %s no longer matches its scanned manifest; not served", root.name)
+        if errs or doc is None or self._sha(root, doc) != rev.manifest_sha:
+            log.warning("custom app checkout %s no longer matches what was scanned; not served", root.name)
             return None
         self._manifests[(str(root), rev.manifest_sha)] = (rev.manifest_sha, doc)
         return doc
 
     @staticmethod
-    def _sha(root: Path) -> str:
-        try:
-            return hashlib.sha256((root / MANIFEST).read_bytes()).hexdigest()
-        except OSError:
-            return ""
+    def _sha(root: Path, doc: dict) -> str:
+        """The bundle fingerprint the plan and its approval are bound to (manifest plus manifests
+        folder), as bare hex. Empty when it cannot be computed."""
+        digest = bundle_sha256(AppEntry(id=str((doc.get("metadata") or {}).get("id", "")), dir=root, manifest=doc))
+        return digest.removeprefix("sha256:") if digest else ""
 
     def _read_manifest(self, root: Path) -> tuple[dict | None, list[str]]:
         path = root / MANIFEST
@@ -213,7 +222,7 @@ class CustomApps:
             number = same.revision
         else:
             new = CustomRevision(app_id, 0, commit, ref, str(meta.get("version")) if meta.get("version") is not None else None,
-                                 self._sha(root), result, checks, now, str(p.id), now, None, None)
+                                 self._sha(root, doc), result, checks, now, str(p.id), now, None, None)
             number = self.repo.add_custom_revision(app_id, url, ref, new, serve).revision
         self._prune(self.repo.get_custom(app_id), self.repo.custom_revisions(app_id))
         self.gw.audit.append("customapp.planned", p.as_dict(), None, {
@@ -298,7 +307,7 @@ class CustomApps:
             except FetchError as exc:
                 raise _refuse(409, f"revision {target.revision} cannot be fetched again: {exc}", reason="checkout_missing") from exc
             doc, errs = self._read_manifest(root)
-            if doc is None or self._sha(root) != target.manifest_sha:
+            if doc is None or self._sha(root, doc) != target.manifest_sha:
                 raise _refuse(409, f"revision {target.revision} no longer matches what was scanned; plan the repository again",
                               reason="revision_changed", details=[{"field": "manifest", "problem": e} for e in errs])
             result, checks, _ = self._checks(AppEntry(id=app_id, dir=root, manifest=doc))
@@ -318,9 +327,26 @@ class CustomApps:
 
     # ---- deployed marker ------------------------------------------------------------------------
     def after_dispatch(self, a: Action, outcome: str) -> None:
-        """An approved install or update that succeeded makes the served revision the deployed one."""
+        """An approved install or update that succeeded marks the revision it was approved for as the
+        deployed one. That is found from the bundle fingerprint in the approved plan, not from whatever
+        the catalog serves now: a plan or rollback filed while the action ran may have moved it."""
         if a.type not in ("app.install", "app.update") or outcome != "succeeded":
             return
         app = self.repo.get_custom(str(a.params.get("app_id")))
-        if app is not None and app.current_revision is not None:
-            self.repo.mark_custom_deployed(app.app_id, app.current_revision, a.id, self.gw.clock())
+        if app is None or not isinstance(self.gw.catalog.get(app.app_id), CustomAppEntry):
+            return  # another app with this id (a source or a signed one) is what was installed
+        approved = self._approved_bundle(a)
+        rev = next((r for r in reversed(self.repo.custom_revisions(app.app_id)) if approved and r.manifest_sha == approved), None)
+        if rev is None:
+            log.warning("custom app %s: no revision matches the approved plan of action %s; none marked deployed", app.app_id, a.id)
+            return
+        self.repo.mark_custom_deployed(app.app_id, rev.revision, a.id, self.gw.clock())
+
+    @staticmethod
+    def _approved_bundle(a: Action) -> str | None:
+        objects = a.plan.get("objects") if isinstance(a.plan, dict) else None
+        for obj in objects or []:
+            sha = obj.get("bundle_sha256") if isinstance(obj, dict) else None
+            if isinstance(sha, str):
+                return sha.removeprefix("sha256:")
+        return None

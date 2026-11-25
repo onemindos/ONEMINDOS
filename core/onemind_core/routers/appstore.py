@@ -36,6 +36,80 @@ class CustomPlanBody(JsonBody):
     ref: str = Field(min_length=1, max_length=100)
 
 
+class ScanChecks(BaseModel):
+    result: str
+    scanned_at: str | None = None
+    checks: dict | None = None
+
+
+class CustomRevisionOut(BaseModel):
+    """One recorded revision of a custom app (appstore/custom.py revision_json)."""
+
+    revision: int
+    commit: str
+    ref: str
+    version: str | None = None
+    scan: ScanChecks
+    created_by: str
+    created_at: str | None = None
+    deployed_at: str | None = None
+    action_id: str | None = None
+    current: bool
+    deployed: bool
+
+
+class CustomAppRow(BaseModel):
+    """A linked repository with its revisions, newest first."""
+
+    app_id: str
+    url: str
+    ref: str
+    added_at: str | None = None
+    status: str
+    current_revision: int | None = None
+    deployed_revision: int | None = None
+    rollback_to: int | None = None
+    revisions: list[CustomRevisionOut]
+
+
+class CustomSignature(BaseModel):
+    policy: str
+    status: str
+    detail: str
+
+
+class CustomPlanResult(BaseModel):
+    """POST /v1/custom-apps/plan: what was fetched and checked. Nothing is installed."""
+
+    url: str
+    ref: str
+    commit: str
+    app_id: str | None = None
+    name: str | None = None
+    version: str | None = None
+    revision: int | None = None
+    verdict: Literal["ready", "blocked"]
+    problems: list[str]
+    notes: list[str]
+    images: list[str] = []
+    scan: ScanChecks | None = None
+    signature: CustomSignature | None = None
+    action_type: Literal["app.install", "app.update"] | None = None
+    next: str | None = None
+
+
+class CustomRollbackResult(BaseModel):
+    app_id: str
+    from_revision: int | None = None
+    to_revision: int
+    commit: str
+    version: str | None = None
+    verdict: Literal["ready"]
+    action_type: Literal["app.update"]
+    scan: ScanChecks
+    next: str
+
+
 class CustomRollbackBody(JsonBody):
     model_config = ConfigDict(extra="forbid")
     revision: int | None = Field(default=None, ge=1)
@@ -133,6 +207,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
             raise ApiError(403, "permission_denied", f"{p.kind}/{p.role} may not {what}")
 
     @app.get("/v1/custom-apps", operation_id="customapps.list", tags=["custom-apps"], dependencies=CUSTOM_READ,
+             response_model=list[CustomAppRow],
              responses=error_responses(401))
     def list_custom_apps(p: Principal = Depends(principal)):
         """Apps linked from a Git repository, each with its revisions and what a rollback would go back to."""
@@ -140,6 +215,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return store.custom.view()
 
     @app.get("/v1/custom-apps/{app_id}", operation_id="customapps.get", tags=["custom-apps"], dependencies=CUSTOM_READ,
+             response_model=CustomAppRow,
              responses=error_responses(401, 404))
     def get_custom_app(app_id: str, p: Principal = Depends(principal)):
         owner_only(p, "read a custom app")
@@ -148,6 +224,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return store.custom.view_one(app_id)
 
     @app.post("/v1/custom-apps/plan", operation_id="customapps.plan", tags=["custom-apps"], dependencies=CUSTOM_WRITE,
+              response_model=CustomPlanResult,
               responses=error_responses(401, 403, 409, 422))
     def plan_custom_app(body: CustomPlanBody, p: Principal = Depends(principal)):
         """Fetch a repository at a ref in a sandbox, check it like a Market app and record a revision.
@@ -156,7 +233,8 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return store.custom.plan(p, body.url, body.ref)
 
     @app.post("/v1/custom-apps/{app_id}/rollback", operation_id="customapps.rollback", tags=["custom-apps"],
-              dependencies=CUSTOM_WRITE, responses=error_responses(401, 403, 404, 409, 422))
+              dependencies=CUSTOM_WRITE, response_model=CustomRollbackResult,
+              responses=error_responses(401, 403, 404, 409, 422))
     def rollback_custom_app(app_id: str, body: CustomRollbackBody, p: Principal = Depends(principal)):
         """Point the catalog at the previously deployed revision. The app.update that applies it waits for an owner."""
         owner_only(p, "roll back a custom app")

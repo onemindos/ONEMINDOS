@@ -161,6 +161,49 @@ def test_a_claimed_tier_and_a_shipped_scan_json_are_ignored(world):
     assert "notes" not in {a["id"] for a in c.get("/v1/apps", headers=OWNER).json()}
 
 
+def test_a_claimed_verified_tier_cannot_unlock_a_standing_approval_even_with_a_passing_scan(world, clock):
+    """F-6 may auto-approve patch updates of *verified* apps only; a repository cannot claim that."""
+    c, store, _, tmp = world
+    plan(c)
+    deploy(c, clock)
+    t = tree(tmp / "claim", version="1.0.1")
+    doc = yaml.safe_load((t / "onemind.app.yaml").read_text())
+    doc["metadata"]["tier"] = "verified"
+    doc["metadata"]["upstream"] = {"release": "v1.0.1", "released_at": "2026-01-01T00:00:00Z"}
+    (t / "onemind.app.yaml").write_text(yaml.safe_dump(doc))
+    store.fetcher.refs["claim"], store.fetcher.trees[C3] = C3, t
+    assert plan(c, "claim").json()["verdict"] == "ready"  # the scan passes
+    entry = c.app.state.gateway.catalog.get("notes")
+    assert entry.manifest["metadata"]["tier"] == "verified" and entry.manifest_tier == "community"
+    from datetime import UTC, datetime
+    pol = c.app.state.automation.policies
+    assert pol._f6_problem({"app_id": "notes", "to_version": "1.0.1"}, datetime(2026, 11, 12, 3, 0, tzinfo=UTC)) == "app_not_verified"
+
+
+def test_the_revision_an_action_was_approved_for_is_marked_even_if_the_catalog_moves_meanwhile(world, clock):
+    c, store, ex, _ = world
+    plan(c)
+    real = ex.run
+
+    def run_and_plan_meanwhile(*a, **kw):
+        plan(c, "v2")  # filed while the install runs: the served revision moves to 2
+        return real(*a, **kw)
+
+    ex.run = run_and_plan_meanwhile
+    deploy(c, clock)
+    view = c.get("/v1/custom-apps/notes", headers=OWNER).json()
+    assert view["current_revision"] == 2 and view["deployed_revision"] == 1
+
+
+def test_another_apps_install_is_not_recorded_as_a_custom_deploy(world, clock):
+    c, store, *_ = world
+    plan(c)
+    gw = c.app.state.gateway
+    store.custom.after_dispatch(type("A", (), {"type": "app.install", "params": {"app_id": "notes"}, "id": "act_x",
+                                               "plan": {"objects": [{"bundle_sha256": "sha256:" + "0" * 64}]}})(), "succeeded")
+    assert c.get("/v1/custom-apps/notes", headers=OWNER).json()["deployed_revision"] is None  # no revision matches
+
+
 def test_each_deploy_is_a_revision_and_rollback_goes_back_to_the_previous_one(world, clock):
     c, store, ex, _ = world
     plan(c)

@@ -3402,6 +3402,87 @@
         "title": "CreateBody",
         "type": "object"
       },
+      "CustomAppRow": {
+        "description": "A linked repository with its revisions, newest first.",
+        "properties": {
+          "added_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Added At"
+          },
+          "app_id": {
+            "title": "App Id",
+            "type": "string"
+          },
+          "current_revision": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Revision"
+          },
+          "deployed_revision": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deployed Revision"
+          },
+          "ref": {
+            "title": "Ref",
+            "type": "string"
+          },
+          "revisions": {
+            "items": {
+              "$ref": "#/components/schemas/CustomRevisionOut"
+            },
+            "title": "Revisions",
+            "type": "array"
+          },
+          "rollback_to": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rollback To"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "app_id",
+          "url",
+          "ref",
+          "status",
+          "revisions"
+        ],
+        "title": "CustomAppRow",
+        "type": "object"
+      },
       "CustomPlanBody": {
         "additionalProperties": false,
         "properties": {
@@ -3425,6 +3506,240 @@
         "title": "CustomPlanBody",
         "type": "object"
       },
+      "CustomPlanResult": {
+        "description": "POST /v1/custom-apps/plan: what was fetched and checked. Nothing is installed.",
+        "properties": {
+          "action_type": {
+            "anyOf": [
+              {
+                "enum": [
+                  "app.install",
+                  "app.update"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Action Type"
+          },
+          "app_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "App Id"
+          },
+          "commit": {
+            "title": "Commit",
+            "type": "string"
+          },
+          "images": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Images",
+            "type": "array"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "next": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next"
+          },
+          "notes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Notes",
+            "type": "array"
+          },
+          "problems": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Problems",
+            "type": "array"
+          },
+          "ref": {
+            "title": "Ref",
+            "type": "string"
+          },
+          "revision": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revision"
+          },
+          "scan": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ScanChecks"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "signature": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CustomSignature"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          },
+          "verdict": {
+            "enum": [
+              "ready",
+              "blocked"
+            ],
+            "title": "Verdict",
+            "type": "string"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
+          }
+        },
+        "required": [
+          "url",
+          "ref",
+          "commit",
+          "verdict",
+          "problems",
+          "notes"
+        ],
+        "title": "CustomPlanResult",
+        "type": "object"
+      },
+      "CustomRevisionOut": {
+        "description": "One recorded revision of a custom app (appstore/custom.py revision_json).",
+        "properties": {
+          "action_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Action Id"
+          },
+          "commit": {
+            "title": "Commit",
+            "type": "string"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "created_by": {
+            "title": "Created By",
+            "type": "string"
+          },
+          "current": {
+            "title": "Current",
+            "type": "boolean"
+          },
+          "deployed": {
+            "title": "Deployed",
+            "type": "boolean"
+          },
+          "deployed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deployed At"
+          },
+          "ref": {
+            "title": "Ref",
+            "type": "string"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "scan": {
+            "$ref": "#/components/schemas/ScanChecks"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
+          }
+        },
+        "required": [
+          "revision",
+          "commit",
+          "ref",
+          "scan",
+          "created_by",
+          "current",
+          "deployed"
+        ],
+        "title": "CustomRevisionOut",
+        "type": "object"
+      },
       "CustomRollbackBody": {
         "additionalProperties": false,
         "properties": {
@@ -3442,6 +3757,95 @@
           }
         },
         "title": "CustomRollbackBody",
+        "type": "object"
+      },
+      "CustomRollbackResult": {
+        "properties": {
+          "action_type": {
+            "const": "app.update",
+            "title": "Action Type",
+            "type": "string"
+          },
+          "app_id": {
+            "title": "App Id",
+            "type": "string"
+          },
+          "commit": {
+            "title": "Commit",
+            "type": "string"
+          },
+          "from_revision": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "From Revision"
+          },
+          "next": {
+            "title": "Next",
+            "type": "string"
+          },
+          "scan": {
+            "$ref": "#/components/schemas/ScanChecks"
+          },
+          "to_revision": {
+            "title": "To Revision",
+            "type": "integer"
+          },
+          "verdict": {
+            "const": "ready",
+            "title": "Verdict",
+            "type": "string"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
+          }
+        },
+        "required": [
+          "app_id",
+          "to_revision",
+          "commit",
+          "verdict",
+          "action_type",
+          "scan",
+          "next"
+        ],
+        "title": "CustomRollbackResult",
+        "type": "object"
+      },
+      "CustomSignature": {
+        "properties": {
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "policy": {
+            "title": "Policy",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "policy",
+          "status",
+          "detail"
+        ],
+        "title": "CustomSignature",
         "type": "object"
       },
       "CustomSource": {
@@ -10646,6 +11050,42 @@
           }
         },
         "title": "RunBody",
+        "type": "object"
+      },
+      "ScanChecks": {
+        "properties": {
+          "checks": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checks"
+          },
+          "result": {
+            "title": "Result",
+            "type": "string"
+          },
+          "scanned_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scanned At"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "title": "ScanChecks",
         "type": "object"
       },
       "ScanSummary": {
@@ -23721,7 +24161,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CustomAppRow"
+                  },
+                  "title": "Response Customapps.List",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"
@@ -23768,7 +24214,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CustomPlanResult"
+                }
               }
             },
             "description": "Successful Response"
@@ -23855,7 +24303,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CustomAppRow"
+                }
               }
             },
             "description": "Successful Response"
@@ -23933,7 +24383,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CustomRollbackResult"
+                }
               }
             },
             "description": "Successful Response"
