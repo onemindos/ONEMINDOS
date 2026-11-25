@@ -320,6 +320,7 @@ class WorkService(SqlRepository):
             for table in (ActivityRow, DependencyRow, TaskRow):
                 session.execute(delete(table).where(table.project_id == project_id))
             session.execute(delete(ProjectMemberRow).where(ProjectMemberRow.project_id == project_id))
+            session.execute(delete(WorkCreateRow).where(WorkCreateRow.project_id == project_id))
             session.execute(delete(ProjectRow).where(ProjectRow.id == project_id))
 
     def members(self, actor: Principal, project_id: str, delegated: Principal | None = None) -> list[str]:
@@ -331,16 +332,25 @@ class WorkService(SqlRepository):
                 ProjectMemberRow.project_id == project_id).order_by(ProjectMemberRow.person_id)))
 
     def remove_member(self, person: Principal, project_id: str, member_id: str) -> None:
+        """The creator removes anyone but themselves; any other member may remove only themselves (leave)."""
         _writer(person)
         with self.db.session.begin() as session:
-            project = self._owned_project(session, person, project_id)
+            if member_id == person.id:
+                project = _project(session, person, project_id, write=True)
+            else:
+                project = self._owned_project(session, person, project_id)
             if member_id == project.creator_id:
                 raise ApiError(409, "conflict", "The project creator cannot be removed", reason="creator_fixed")
             session.execute(delete(ProjectMemberRow).where(
                 ProjectMemberRow.project_id == project_id, ProjectMemberRow.person_id == member_id))
             # Tasks assigned to someone who can no longer see the project fall back to unassigned.
-            session.execute(update(TaskRow).where(
-                TaskRow.project_id == project_id, TaskRow.assignee_id == member_id).values(assignee_id=None))
+            # Each is a change like any other: its revision moves and the activity log says who did it.
+            for row in session.scalars(select(TaskRow).where(
+                    TaskRow.project_id == project_id, TaskRow.assignee_id == member_id)):
+                row.assignee_id = None
+                row.revision += 1
+                row.updated_at = self.clock()
+                _log(session, person, row, "updated", ("assignee",), self.clock())
 
     def activity(self, actor: Principal, project_id: str, task_id: str, *, delegated: Principal | None = None,
                  limit: int = 100) -> list[Activity]:
