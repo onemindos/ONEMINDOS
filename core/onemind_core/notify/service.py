@@ -382,6 +382,17 @@ class NotifyService:
         return ([c.id for c in self.repo.list_channels(person_id)]
                 + [d.id for d in self.repo.list_devices(person_id)])
 
+    def muted(self, person_id: str, topic: str, target: str = routing.IN_APP) -> bool:
+        doc, _ = self.preferences(person_id)
+        return routing.silenced(doc, self.clock()) or routing.muted(doc, topic, target)
+
+    def _drop_muted(self, delivery: DeliveryRow, notification: NotificationRow | None) -> bool:
+        if notification is None or not self.muted(delivery.person_id, notification.topic, delivery.target_id):
+            return False
+        delivery.state, delivery.next_attempt_at, delivery.last_error = "dropped", None, "delivery suppressed by preferences"
+        self.repo.save_delivery(delivery)
+        return True
+
     def _channel_limits(self, person_id: str) -> dict[str, dict]:
         """channel id -> its config, for the per-channel limits (min_severity, per_hour)."""
         return {c.id: json.loads(c.config_json) for c in self.repo.list_channels(person_id)}
@@ -402,8 +413,8 @@ class NotifyService:
                 group_key=group_key, actions_json=json.dumps(actions) if actions else None, created_at=now,
             )
             deliveries = []
-            if not inapp_only:
-                doc, _ = self.preferences(pid)
+            doc, _ = self.preferences(pid)
+            if not inapp_only and not routing.silenced(doc, now):
                 held = routing.hold(doc, topic, severity, now)
                 limits = self._channel_limits(pid)
                 for target in routing.targets(doc, topic, severity, self._targets_of(pid)):
@@ -439,6 +450,8 @@ class NotifyService:
             groups: dict[str, list[DeliveryRow]] = defaultdict(list)
             for d in self.repo.released_held(now):
                 n = self.repo.get_notification(d.notification_id)
+                if self._drop_muted(d, n):
+                    continue
                 if n is None or not self._fold_outage(d, n, now):
                     groups[d.target_id].append(d)
             for rows in groups.values():
@@ -458,6 +471,8 @@ class NotifyService:
             tried = 0
             for d in self.repo.due_deliveries(now):
                 n = self.repo.get_notification(d.notification_id)
+                if self._drop_muted(d, n):
+                    continue
                 if n is not None and self._fold_outage(d, n, now):
                     continue
                 tried += 1
