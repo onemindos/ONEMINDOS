@@ -95,3 +95,15 @@ F12 runs on the slot-A boot from F1, after F11 and before the F3 reboot, from th
 | F12 | The gateway reaches the host helper; without it, it says so and starts nothing | Within 120 s, `GET /v1/status` on :8080 with the owner token returns HTTP 200 with `host.helper` = `reachable`, `host.state` = `ok` and `host.hostname` equal to the output of `hostname` in the guest (one harmless host read: the answer comes from the host helper over the socket); then, with `systemctl stop onemind-host.service onemind-host.socket` done and `/run/onemind/host.sock` removed: `GET /v1/status` returns HTTP 200 with `host.helper` = `missing`, `host.state` not `ok`, `host.hostname` null and a `host.summary` that starts with `host helper: missing` and contains no `/run/`; and `GET /v1/os/updates` returns HTTP 200 with `install.available` false, `install.reason` = `engine_unreachable` and a plain-text `install.message` (no `Traceback`, no `Errno`, no `/run/`); after `systemctl start onemind-host.socket`, `host.helper` is `reachable` again within 60 s | Any status other than 200, `reachable` never seen before the stop or after the restart, a hostname that differs, `reachable` or `ok` while the socket is gone, a summary or message that leaks a path or a traceback, or the install reported available without the helper |
 
 Required for this task's "done": F12 PASS on x86_64-efi in CI's image workflow. It is written without having run QEMU (no KVM where it was written); a harness bug found on the first run may be fixed and re-run once, named as such, under section 1's rule.
+
+## 9. Amendment (2026-11-24): F13, disk and admin tools are on the box (Step 2 PRs 4 and 7)
+
+**Status:** PRE-REGISTERED before F13 was implemented in `firstboot.py` or run, in the commit before the code that adds it. F0-F12 above are unchanged. The sha256 of this file with this section is appended to `PREREGISTRATION.sha256`. **Serves:** `internal/storage/smart.go` calls `smartctl`, which was not installed; the owner's shell had no gdisk, btrfs, ping, rsync and the like. **First run:** CI's image workflow.
+
+F13 runs on the slot-A boot from F1, after F12 and before the F3 reboot, from the hub's shell. It changes nothing on the box and reaches nothing outside the VM.
+
+| ID | Test | PASS if | FAIL if |
+|---|---|---|---|
+| F13 | The disk and admin tools run, and smartd is masked | In the guest: `smartctl --version` and `smartctl --scan` exit 0 and `smartctl -H` on the root disk runs and prints a `smartctl` banner (a virtual disk may say SMART is unavailable; that is fine, a missing command is not); `sgdisk -p` on the root disk exits 0 and lists a partition table; `btrfs --version` exits 0; each of `jq`, `htop`, `rsync`, `nano`, `less`, `ethtool`, `dmidecode`, `lspci`, `lsusb`, `ping` answers its version flag with exit 0; `/usr/share/bash-completion/bash_completion` exists; `systemctl is-enabled smartmontools.service` and `smartd.service` both say `masked` | Any command missing or exiting non-zero, no partition table listed, or smartd not masked |
+
+Required for this task's "done": F13 PASS on x86_64-efi in CI's image workflow.

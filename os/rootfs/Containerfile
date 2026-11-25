@@ -230,6 +230,7 @@ RUN set -eu; \
     systemctl mask nut-server.service nut-monitor.service nut-client.service ups-monitor.service \
       nut-driver-enumerator.service nut-driver-enumerator.path nut-driver@.service >/dev/null; \
     systemctl enable onemind-ups.service onemind-ups-monitor.service >/dev/null; \
+    systemctl mask smartmontools.service >/dev/null; \
     systemctl disable rpcbind.service rpcbind.socket nfs-client.target nfs-blkmap.service >/dev/null 2>&1; \
     for db in passwd group shadow; do \
       grep -Eq "^$db:.*extrausers" /etc/nsswitch.conf || sed -i -E "s/^($db:.*)$/\\1 extrausers/" /etc/nsswitch.conf; \
@@ -237,6 +238,7 @@ RUN set -eu; \
     /usr/bin/nats-server --version; \
     /usr/sbin/tailscaled --version | head -1; /usr/bin/tailscale --version | head -1; /usr/bin/headscale version; \
     /usr/lib/onemind/restic version | grep -q 'restic 0.19.1'; command -v sqlite3 >/dev/null; \
+    for t in smartctl sgdisk btrfs jq htop rsync nano less ethtool dmidecode lspci lsusb ping; do command -v $t >/dev/null || { echo "missing $t"; exit 1; }; done; \
     /usr/lib/onemind/gateway/venv/bin/python3 -I -c "import onemind_core" ; \
     if [ -x /tmp/onemind/board/post-install.sh ]; then /tmp/onemind/board/post-install.sh; fi; \
     systemctl enable systemd-networkd.service systemd-resolved.service onemind-data-layout.service \
