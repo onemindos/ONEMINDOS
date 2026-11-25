@@ -173,7 +173,11 @@ def register(app: FastAPI, gw: Gateway) -> None:
 
     @app.get("/v1/agents/{name}/inputs", operation_id="agents.inputs.get", tags=TAGS,
              responses={200: {"model": AgentInputsView}, **error_responses(401, 403, 422)})
-    def get_inputs(name: str, _: Principal = Depends(principal)):
+    def get_inputs(name: str, p: Principal = Depends(principal)):
+        if not p.is_owner:  # an agent that could read its own rules and taint could shape requests to fit
+            gw.audit.append("authz.denied", p.as_dict(), None,
+                            {"attempted": "read agent inputs", "reason": "permission_denied"})
+            raise ApiError(403, "permission_denied", f"{p.kind}/{p.role} may not read what an agent reads")
         return inputs.view(AgentPrincipals.principal_id(name))
 
     @app.put("/v1/agents/{name}/inputs", operation_id="agents.inputs.set", tags=TAGS,

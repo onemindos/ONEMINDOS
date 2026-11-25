@@ -800,6 +800,118 @@
         "title": "AgentCancelled",
         "type": "object"
       },
+      "AgentInputsBody": {
+        "additionalProperties": false,
+        "properties": {
+          "accept_injection_risk": {
+            "description": "write action types the owner accepts the injection risk for",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Accept Injection Risk",
+            "type": "array"
+          },
+          "external_inputs": {
+            "description": "the outside text this agent can read; empty means none (owner only)",
+            "items": {
+              "enum": [
+                "web",
+                "email",
+                "files",
+                "chat"
+              ],
+              "type": "string"
+            },
+            "maxItems": 4,
+            "title": "External Inputs",
+            "type": "array"
+          }
+        },
+        "required": [
+          "external_inputs"
+        ],
+        "title": "AgentInputsBody",
+        "type": "object"
+      },
+      "AgentInputsView": {
+        "description": "What an agent can read that the gateway cannot see, and the taint that follows from it.",
+        "properties": {
+          "accept_injection_risk": {
+            "description": "write types the owner accepted the risk for; recorded, not yet in effect",
+            "items": {
+              "type": "string"
+            },
+            "title": "Accept Injection Risk",
+            "type": "array"
+          },
+          "accept_injection_risk_effective": {
+            "description": "always false until the permission engine reads the flag",
+            "title": "Accept Injection Risk Effective",
+            "type": "boolean"
+          },
+          "declared": {
+            "description": "false: the list is the default for this kind of principal",
+            "title": "Declared",
+            "type": "boolean"
+          },
+          "exposed": {
+            "description": "true when external_inputs is not empty",
+            "title": "Exposed",
+            "type": "boolean"
+          },
+          "external_inputs": {
+            "description": "web, email, files, chat (a host with many chats), app or plugin",
+            "items": {
+              "type": "string"
+            },
+            "title": "External Inputs",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "permanently_tainted": {
+            "description": "an exposed agent is tainted all the time: no standing approval accepts its requests",
+            "title": "Permanently Tainted",
+            "type": "boolean"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "updated_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated By"
+          }
+        },
+        "required": [
+          "id",
+          "external_inputs",
+          "declared",
+          "exposed",
+          "permanently_tainted",
+          "accept_injection_risk",
+          "accept_injection_risk_effective"
+        ],
+        "title": "AgentInputsView",
+        "type": "object"
+      },
       "AgentNatsKey": {
         "description": "An agent's NATS user in account AGENTS (#627). `nkey` null: the agent has no NATS user.",
         "properties": {
@@ -16944,6 +17056,148 @@
           }
         },
         "summary": "Cancel Agent",
+        "tags": [
+          "agents"
+        ]
+      }
+    },
+    "/v1/agents/{name}/inputs": {
+      "get": {
+        "operationId": "agents.inputs.get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentInputsView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Get Inputs",
+        "tags": [
+          "agents"
+        ]
+      },
+      "put": {
+        "operationId": "agents.inputs.set",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentInputsBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentInputsView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          }
+        },
+        "summary": "Set Inputs",
         "tags": [
           "agents"
         ]
