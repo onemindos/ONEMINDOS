@@ -1,2 +1,4 @@
 # SPDX-License-Identifier: Apache-2.0
 linux-image-amd64 grub-efi-amd64-bin
+# efibootmgr: RAUC's efi backend switches slots with it on a Secure Boot (efi route) box (S-13, #148)
+efibootmgr

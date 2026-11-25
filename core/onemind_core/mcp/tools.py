@@ -22,18 +22,16 @@ from pydantic import ValidationError
 
 from .. import __version__
 from ..actions import APP_CLAIMS, ActionParams, ActionRequest
-from ..ai_policy import catalog_visible_to_ai
+from ..ai_policy import actions_for_agent, catalog_visible_to_ai, shown_policy
 from ..auth import Principal
 from ..errors import ApiError
+from ..surfaces.core import AREA_TOOLS, AUDIT_MAX, CORE_TOOLS, LIST_ACTIONS_MAX, MAX_REASON, obj
 from .limits import Limits
 from .untrusted import META_KEY, mark
 
 CATALOG_VERSION = "1.1.0"
 REQUEST_TTL = timedelta(hours=24)
-MAX_REASON = 500
 POLL_AFTER_S = 10
-LIST_ACTIONS_MAX = 50
-AUDIT_MAX = 100
 APPS_PAGE = 100
 INVALID_PARAMS = -32602
 
@@ -58,113 +56,24 @@ class Services:
     request: Callable[[Principal, ActionRequest, str | None], tuple[dict, bool]]
     audit_list: Callable[..., tuple[list[dict], bool]]
     clock: Callable[[], datetime]
+    # AIG-04: called as (principal, source) when a result carried third-party text; the gateway then
+    # treats every later request from that agent as tainted (taint.py). None in a bare Services.
+    mark_tainted: Callable[[Principal, str], None] | None = None
     # Request-only tools built from the descriptors of switched-on built-ins (builtins.py, #603):
     # tool name -> (action type, title, app name). A switched-off built-in's tools are not here.
     builtin_actions: Callable[[], dict[str, tuple[str, str, str]]] = lambda: {}
+    # The area read tools' services (mcp/read_tools.py AreaReads, #632); None serves them as unavailable.
+    area_reads: Any = None
 
 
-# ---- schemas ---------------------------------------------------------------------------------
-def _obj(props: dict | None = None, required: list[str] | None = None) -> dict:
-    s: dict[str, Any] = {"type": "object", "properties": props or {}, "additionalProperties": False}
-    if required:
-        s["required"] = required
-    return s
-
-
-READ = {"readOnlyHint": True, "openWorldHint": False}
-ID = {"type": "string", "minLength": 1, "maxLength": 200}
-LIST_OF = lambda key: {"type": "object", "properties": {key: {"type": "array", "items": {"type": "object"}},  # noqa: E731
-                                                        "next_cursor": {"type": ["string", "null"]}}, "required": [key]}
-ANY_OBJ = {"type": "object"}
-
-TOOLS: list[dict] = [
-    {
-        "name": "get_instance", "title": "About this OneMind",
-        "description": "The box name, gateway version, hub node id and the MCP revisions it speaks. "
-                       "Same data as GET /v1/instance. Read-only.",
-        "inputSchema": _obj(), "outputSchema": ANY_OBJ, "annotations": READ,
-    },
-    {
-        "name": "list_nodes", "title": "List OneMind nodes",
-        "description": "Every machine that has joined this OneMind, with its hardware, OS, k3s state and "
-                       "status (online, stale or offline). Same data as GET /v1/nodes. Read-only.",
-        "inputSchema": _obj(), "outputSchema": LIST_OF("nodes"), "annotations": READ,
-    },
-    {
-        "name": "get_node", "title": "One node",
-        "description": "One machine by node_id. Same data as GET /v1/nodes/{node_id}. Read-only.",
-        "inputSchema": _obj({"node_id": ID}, ["node_id"]), "outputSchema": ANY_OBJ, "annotations": READ,
-    },
-    {
-        "name": "list_apps", "title": "List Market apps",
-        "description": "The app catalog with install status, links, licence, tier and last scan. Same data "
-                       "as GET /v1/apps. Optional filters: category, installed. Read-only.",
-        "inputSchema": _obj({
-            "category": {"type": "string", "maxLength": 80},
-            "installed": {"type": "boolean"},
-            "cursor": {"type": "string", "maxLength": 20},
-        }),
-        "outputSchema": LIST_OF("apps"), "annotations": READ,
-    },
-    {
-        "name": "get_app", "title": "One Market app",
-        "description": "One catalog entry with its links, tier, scan result and requirements. Read-only.",
-        "inputSchema": _obj({"app_id": ID}, ["app_id"]), "outputSchema": ANY_OBJ, "annotations": READ,
-    },
-    {
-        "name": "list_actions", "title": "List my requests",
-        "description": "Actions this agent requested, newest first, with their state "
-                       "(awaiting_approval, accepted, succeeded, cancelled, expired, ...). Read-only.",
-        "inputSchema": _obj({
-            "state": {"type": "string", "maxLength": 40},
-            "type": {"type": "string", "maxLength": 40},
-            "limit": {"type": "integer", "minimum": 1, "maximum": LIST_ACTIONS_MAX},
-        }),
-        "outputSchema": LIST_OF("actions"), "annotations": READ,
-    },
-    {
-        "name": "get_action", "title": "One of my requests",
-        "description": "One action this agent requested, by id: its state, who decided it and the result. "
-                       "Use it to see whether the owner approved a request. Read-only.",
-        "inputSchema": _obj({"action_id": ID}, ["action_id"]), "outputSchema": ANY_OBJ, "annotations": READ,
-    },
-    {
-        "name": "search_audit", "title": "Search my audit records",
-        "description": "Hash-chained audit records about this agent and its requests, oldest first. "
-                       "Filters: event (glob, e.g. action.*), since/until (RFC 3339), after_seq. Read-only.",
-        "inputSchema": _obj({
-            "event": {"type": "string", "maxLength": 200},
-            "since": {"type": "string", "maxLength": 40},
-            "until": {"type": "string", "maxLength": 40},
-            "after_seq": {"type": "integer", "minimum": 0},
-            "limit": {"type": "integer", "minimum": 1, "maximum": AUDIT_MAX},
-        }),
-        "outputSchema": LIST_OF("entries"), "annotations": READ,
-    },
-    {
-        "name": "request_action", "title": "Request an app install or removal",
-        "description": (
-            "Files a request to install, remove, start, stop, restart or update an app. Removing keeps its data. Nothing changes until the owner approves "
-            "it in the OneMind app; you cannot approve it yourself. The request expires after 24 hours. "
-            "Returns the action id and its state (awaiting_approval); check it later with get_action. "
-            "If the same request is already waiting, its id is returned instead of a new one."
-        ),
-        "inputSchema": _obj({
-            "type": {"type": "string", "enum": ["app.install", "app.remove", "app.start", "app.stop", "app.restart", "app.update"]},
-            "app_id": {"type": "string", "minLength": 1, "maxLength": 59},
-            "reason": {"type": "string", "maxLength": MAX_REASON,
-                       "description": "Why you ask; shown to the owner, marked as written by an agent."},
-        }, ["type", "app_id"]),
-        "outputSchema": {
-            "type": "object",
-            "properties": {"action_id": {"type": "string"}, "state": {"type": "string"}},
-            "required": ["action_id", "state"],
-        },
-        "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": False},
-    },
-]
+# ---- the catalogue: generated from the surface registry (surfaces/core.py, #605) -------------------
+_obj = obj
+# Every core tool is declared once in surfaces/core.py with its route, effect, exposure and scope;
+# this list is generated from it. Do not add a tool here: add a ToolSurface there.
+TOOLS: list[dict] = [t.mcp_tool() for t in CORE_TOOLS if "mcp" in t.exposure]
 TOOL_NAMES = [t["name"] for t in TOOLS]
-READ_TOOLS = set(TOOL_NAMES) - {"request_action"}
+READ_TOOLS = {t.name for t in CORE_TOOLS if t.effect == "read" and t.name in TOOL_NAMES}
+AREA_TOOL_NAMES = frozenset(t.name for t in AREA_TOOLS)
 
 RESOURCES = [
     {"uri": "onemind://catalog", "name": "catalog", "title": "App catalog",
@@ -300,7 +209,20 @@ class Catalogue:
             wait = self.limits.reads.hit(p.id)
             if wait:
                 return refusal("rate_limited", "too many read calls; slow down", retry_after_s=wait)
-        return getattr(self, f"t_{name}")(p, args)
+        if name in AREA_TOOL_NAMES:  # registration hook for the area read tools (#632)
+            from .read_tools import call as area_call
+
+            out = area_call(self.svc.area_reads, p, name, args)
+        else:
+            out = getattr(self, f"t_{name}")(p, args)
+        # Area tools hand back logs, alert text and file names too: they taint like every other tool (AIG-04).
+        self._taint(p, out, f"mcp:{name}")
+        return out
+
+    def _taint(self, p: Principal, out: dict, source: str) -> None:
+        """An agent that was handed third-party text is tainted, whether or not it obeys it (AIG-04)."""
+        if self.svc.mark_tainted is not None and not out.get("isError") and (out.get("_meta") or {}).get(META_KEY):
+            self.svc.mark_tainted(p, source)
 
     def t_get_instance(self, p, args):
         _args(args, set())
@@ -330,7 +252,8 @@ class Catalogue:
             rows = [a for a in rows if a.get("category") == category]
         if installed is not None:
             rows = [a for a in rows if bool(a.get("installed")) is installed]
-        return rows
+        # aiPolicy shown exactly as GET /v1/apps shows it (models.CatalogApp).
+        return [{**a, "aiPolicy": shown_policy(a)} for a in rows]
 
     def t_list_apps(self, p, args):
         _args(args, {"category", "installed", "cursor"})
@@ -360,15 +283,19 @@ class Catalogue:
         rows = [a for a in self.svc.own_actions(p.id)
                 if (state is None or a["state"] == state) and (type_ is None or a["type"] == type_)]
         rows.sort(key=lambda a: a["created_at"], reverse=True)
-        s = {"actions": rows[:limit]}
+        s = {"actions": self._for_agent(rows[:limit])}
         return result(s, _under("actions", ACTION_FIELDS), _source(s, "actions", "id", "action"))
 
     def _own_action(self, p: Principal, action_id: str) -> dict | None:
+        """The agent's own action, already as the agent may see it (aiPolicy, #165): get_action,
+        onemind://actions/{id} and the tasks extension (tasks/get) all read it through here."""
         try:
             a = self.svc.get_action(action_id)
         except ApiError:
             return None
-        return a if (a.get("requested_by") or {}).get("id") == p.id else None
+        if (a.get("requested_by") or {}).get("id") != p.id:
+            return None
+        return self._for_agent([a])[0]
 
     def t_get_action(self, p, args):
         action_id = _str(_args(args, {"action_id"}), "action_id", True)
@@ -376,6 +303,11 @@ class Catalogue:
         if a is None:  # someone else's action looks exactly like a missing one
             return refusal("not_found", "no such action among your requests")
         return result(a, ACTION_FIELDS, _source(a, "", "id", "action"))
+
+    def _for_agent(self, rows: list[dict]) -> list[dict]:
+        """aiPolicy (#165) before any action leaves: an app's tool output reaches the agent only when
+        the app's catalog policy allows app data to go to an AI. An app outside the catalog has none."""
+        return actions_for_agent(rows, self.svc.list_apps)  # the same call as the agent REST readers
 
     def t_search_audit(self, p, args):
         _args(args, {"event", "since", "until", "after_seq", "limit"})
@@ -487,6 +419,7 @@ class Catalogue:
             raise RpcError(-32002, f"resource not found: {uri}")
         if r["isError"]:
             raise RpcError(-32002, f"resource not found: {uri}")
+        self._taint(p, r, f"mcp:resource:{parts[0]}")
         content = {"uri": uri, "mimeType": "application/json", "text": r["content"][0]["text"]}
         if "_meta" in r:
             content["_meta"] = r["_meta"]

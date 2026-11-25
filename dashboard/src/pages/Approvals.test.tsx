@@ -129,4 +129,32 @@ describe('toActionPlan', () => {
     expect(p.effects.find((e) => e.kind === 'data-delete')?.risk).toBe('high');
     expect(toActionPlan({ ...a, plan: undefined })).toBeUndefined();
   });
+
+  it('asks the owner to type the app id when the licence is not green, then approves with accept_licence (#173)', async () => {
+    const calls: Array<ApproveBody | undefined> = [];
+    const api = new MockApi('owner-demo');
+    const action: Action = { id: 'act-lic', type: 'app.install', params: { app_id: 'esphome' }, idempotency_key: 'k', expires_at: future(), state: 'awaiting_approval', plan: PLAN, plan_sha256: SHA, requested_by: { id: 'ops-agent', kind: 'agent', role: 'agent' }, created_at: new Date().toISOString() };
+    Object.assign(api, {
+      actions: async () => [action], action: async () => action,
+      me: async () => ({ principal: { id: 'owner', kind: 'person', role: 'owner' }, token: null, session: null, passkeys: 0, scopes: [], capabilities: [], step_up: { passkeys_active: false, require_passkey_approval: false } }),
+      approveOptions: undefined,
+      appSecrets: async () => ({ app_id: 'esphome', key_id: 'k1', missing_required: [], secrets: [] }),
+      approve: async (_id: string, body?: ApproveBody) => {
+        calls.push(body);
+        if (body?.accept_licence !== 'esphome') throw new ApiError(409, 'stale_precondition', 'app has licence class unknown', 'licence_unconfirmed');
+        return { ...action, state: 'accepted' as const };
+      },
+    });
+    window.sessionStorage.setItem('onemind.token', 'owner-demo');
+    render(<MemoryRouter initialEntries={['/approvals']}><SessionProvider deps={{ mock: false, makeApi: () => api, knownPrincipal: () => ({ id: 'owner', kind: 'person', role: 'owner' }) }}><App mock={false} /></SessionProvider></MemoryRouter>);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: /^approve/i }, T));
+    const dialog = await screen.findByRole('alertdialog', {}, T);
+    const accept = within(dialog).getByRole('button', { name: /accept licence/i });
+    expect(accept).toBeDisabled();
+    await user.type(within(dialog).getByLabelText('App id'), 'esphome');
+    await user.click(accept);
+    await waitFor(() => expect(calls[calls.length - 1]).toEqual({ accept_licence: 'esphome' }), T);
+    expect(calls[0]).toBeUndefined();
+  });
 });

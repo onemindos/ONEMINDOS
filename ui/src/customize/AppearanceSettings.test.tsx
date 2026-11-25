@@ -57,6 +57,27 @@ function mount(store: PreferencesStore, cache?: PreferencesStore) {
 afterEach(() => clearPreferences());
 
 describe('AppearanceSettings', () => {
+  it('starts in Contour with the Home command bar off and applies a pack without resetting text size', async () => {
+    const store = new MemoryStore('local', saved({ fontScale: 1.25 }));
+    mount(store);
+    const bar = await screen.findByRole('checkbox', { name: 'Show the Home command bar' });
+    expect(bar).not.toBeChecked();
+    expect(DEFAULT_PREFERENCES.wallpaper).toBe('contour');
+    await userEvent.click(bar);
+    await userEvent.click(screen.getByRole('button', { name: 'Harbor pack' }));
+    await waitFor(() => expect(store.saved.at(-1)).toMatchObject({
+      wallpaper: 'tide', accentPreset: 'copper', theme: 'dark', commandBar: true, fontScale: 1.25,
+    }));
+  });
+
+  it('offers every Atlas and Console pack', async () => {
+    mount(new MemoryStore('local', saved({})));
+    for (const n of ['Atlas Night', 'Atlas Day', 'Night Watch', 'Greenhouse', 'Harbor', 'Console Default', 'Console Light', 'Field', 'Village', 'Mono']) {
+      expect(await screen.findByRole('button', { name: `${n} pack` })).toBeInTheDocument();
+    }
+    expect(screen.queryByRole('button', { name: 'Paper pack' })).toBeNull();
+  });
+
   it('shows a labelled loading state', () => {
     mount(new PendingStore());
     expect(screen.getByRole('status')).toHaveTextContent('Loading your appearance');
@@ -145,7 +166,7 @@ describe('AppearanceSettings', () => {
     const user = userEvent.setup();
     mount(new MemoryStore('local', saved({ accentSource: 'preset', accentPreset: 'moss' })));
     await user.click(await screen.findByRole('button', { name: 'Reset to defaults' }));
-    expect(screen.getByRole('radio', { name: 'OneMind Red' })).toBeChecked();
+    expect(screen.getByRole('radio', { name: 'Teal' })).toBeChecked();
     await user.click(screen.getByRole('button', { name: 'Undo' }));
     expect(screen.getByRole('radio', { name: 'Moss' })).toBeChecked();
   });

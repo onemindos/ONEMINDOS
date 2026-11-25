@@ -134,17 +134,41 @@ func (s *ActionsService) Get(ctx context.Context, id string) (*Action, error) {
 // Approve is operation actions.approve (owner only). Never retried blindly: after an ambiguous
 // failure the action is read back (SDK.md §3.7).
 func (s *ActionsService) Approve(ctx context.Context, id string) (*Action, error) {
-	return s.decide(ctx, id, "approve")
+	return s.decide(ctx, id, "approve", nil)
+}
+
+// ApproveAcceptingLicence is Approve with accept_licence set to the app id: the owner's typed
+// confirmation that a blocked or unknown licence class is accepted (#173). Same read-back rule.
+func (s *ActionsService) ApproveAcceptingLicence(ctx context.Context, id, appID string) (*Action, error) {
+	return s.decide(ctx, id, "approve", map[string]string{"accept_licence": appID})
+}
+
+// ApproveBound approves with the plan fingerprint the approver was shown (Action.PlanSha256), and the
+// typed licence confirmation when one is needed (#173). The gateway refuses an approval without the
+// fingerprint for a tainted agent's request (AIG-04) or a physical action (#723), so a client that shows
+// the plan should always pass it. Either argument may be empty. Same read-back rule as Approve.
+func (s *ActionsService) ApproveBound(ctx context.Context, id, planSHA256, acceptLicence string) (*Action, error) {
+	body := map[string]string{}
+	if planSHA256 != "" {
+		body["plan_sha256"] = planSHA256
+	}
+	if acceptLicence != "" {
+		body["accept_licence"] = acceptLicence
+	}
+	if len(body) == 0 {
+		return s.decide(ctx, id, "approve", nil)
+	}
+	return s.decide(ctx, id, "approve", body)
 }
 
 // Deny is operation actions.deny (owner only), with the same read-back rule as Approve.
 func (s *ActionsService) Deny(ctx context.Context, id string) (*Action, error) {
-	return s.decide(ctx, id, "deny")
+	return s.decide(ctx, id, "deny", nil)
 }
 
-func (s *ActionsService) decide(ctx context.Context, id, verb string) (*Action, error) {
+func (s *ActionsService) decide(ctx context.Context, id, verb string, body any) (*Action, error) {
 	var a Action
-	_, err := s.c.do(ctx, request{method: http.MethodPost, path: "/v1/actions/" + url.PathEscape(id) + "/" + verb}, &a)
+	_, err := s.c.do(ctx, request{method: http.MethodPost, path: "/v1/actions/" + url.PathEscape(id) + "/" + verb, body: body}, &a)
 	if err == nil {
 		return &a, nil
 	}

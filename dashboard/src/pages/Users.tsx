@@ -2,9 +2,9 @@
 // Settings > People (owner only): GET/POST /v1/users, PATCH /v1/users/{id}, POST …/disable. These
 // are the owner's own acts in their own session; the gateway enforces owner-only, step-up and the
 // "last owner" guard. An invite code is shown once in a dialog and never stored.
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { Button, Card, Dialog, PageHeader, StatusPill, Table } from '@onemind/ui';
-import type { PersonRole, UserInfo } from '../api/wiring';
+import { AGE_PRESETS, type PersonRole, type UserInfo } from '../api/wiring';
 import { useHub } from '../data/hub';
 import { t } from '../i18n';
 import { usePoll } from '../lib/hooks';
@@ -13,6 +13,23 @@ import { useSignedIn } from '../session';
 import { Load, OneTimeDialog, TextField, useRun } from './parts';
 
 const ROLES: PersonRole[] = ['adult', 'teen', 'child', 'guest', 'owner'];
+
+/** Read-only: the person's real age-rating limit, marked as the default while it still equals the role preset. */
+function AgeRating({ user }: { user: UserInfo }) {
+  const { api } = useSignedIn();
+  const [max, setMax] = useState<number | null | undefined>();
+  useEffect(() => {
+    let live = true;
+    setMax(undefined);
+    api.familyProfile(user.id).then((p) => live && setMax(p.max_age_rating ?? null), () => undefined);
+    return () => { live = false; };
+  }, [api, user.id, user.role]);
+  if (max === undefined) return null;
+  const text = max === null ? t('users.age.none')
+    : max === AGE_PRESETS[user.role] ? t('users.age.default', { max: String(max), who: user.role === 'teen' ? 'teens' : 'children' })
+    : t('users.age.set', { max: String(max) });
+  return <div className="om-hint">{text}</div>;
+}
 
 export function Users() {
   const { api } = useSignedIn();
@@ -49,7 +66,7 @@ export function Users() {
               rows={rows}
               rowKey={(r) => r.id}
               columns={[
-                { key: 'name', header: t('users.name'), render: (r) => r.display_name, sortValue: (r) => r.display_name },
+                { key: 'name', header: t('users.name'), render: (r) => (r.role === 'child' || r.role === 'teen' ? <><div>{r.display_name}</div><AgeRating user={r} /></> : r.display_name), sortValue: (r) => r.display_name },
                 {
                   key: 'role',
                   header: t('users.role'),

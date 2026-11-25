@@ -6,6 +6,7 @@ import { ApiError, type FirstRunSettings } from '../api/types';
 import { SessionProvider, useSession, type SessionDeps } from '../session';
 import type { Connection } from '../storage';
 import { v0Api } from '../test/fakes';
+import { mockDeps } from '../test/mockHub';
 import { BoxSettingsSection } from './BoxSettingsSection';
 
 const LIVE: Connection = { mode: 'live', hubUrl: 'https://hub.example', token: 't' };
@@ -89,9 +90,9 @@ describe('first-run settings section', () => {
     expect(screen.queryByTestId('box-settings')).toBeNull();
   });
 
-  it('hides the form for a demo adult, who is known not to be an owner', async () => {
+  it('hides the form for an adult, who is known not to be an owner', async () => {
     await render(
-      <SessionProvider deps={{ load: async () => ({ mode: 'mock', token: 'adult-demo' }), save: async () => undefined, clear: async () => undefined }}>
+      <SessionProvider deps={mockDeps('adult-demo')}>
         <Gate>
           <BoxSettingsSection />
         </Gate>

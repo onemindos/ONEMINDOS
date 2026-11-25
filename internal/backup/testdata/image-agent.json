@@ -34,7 +34,9 @@
       "paths": [
         "/data/onemind/etc",
         "/data/onemind/gateway/tls",
-        "/data/onemind/nats/keys"
+        "/data/onemind/nats/keys",
+        "/data/onemind/gateway/backup-export",
+        "/data/onemind/files"
       ],
       "sqlite": [
         {

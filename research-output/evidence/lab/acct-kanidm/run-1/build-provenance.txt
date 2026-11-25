@@ -1,0 +1,60 @@
+# Build provenance: Kanidm v1.12.0 Debian packages, built natively on a disposable Debian 13 VM (4 vCPU, 8 GB)
+# with the project's own packaging scripts (kanidm/kanidm_ppa_automation, the submodule pinned by the v1.12.0 tag).
+# The community PPA (kanidm.github.io/kanidm_ppa) had only 1.11.2 for trixie on 2026-11-23, so v1.12.0 was built from source.
+# Excerpt of the real build log (tools/build-1.sh, then tools/build-2-resume.sh); lines are unchanged, selected with grep.
+
+93:+ git clone --branch v1.12.0 --depth 1 https://github.com/kanidm/kanidm.git
+119:+ git rev-parse HEAD
+120:a52b723ce8efb1f4d0a6bc2a2c36b4071f95317d
+122: d5327e7eab843f5a08ad16e49800703522aa0dab platform/debian/kanidm_ppa_automation (d5327e7)
+719:+ sh /root/rustup-init.sh -y --profile minimal --default-toolchain 1.96.0
+728:  1.96.0-x86_64-unknown-linux-gnu installed - rustc 1.96.0 (ac68faa20 2026-05-25)
+778:  1.96-x86_64-unknown-linux-gnu installed - rustc 1.96.1 (31fca3adb 2026-06-26)
+783:Checking Rust toolchain version, expecting 1.96:
+784:1.96-x86_64-unknown-linux-gnu (overridden by environment variable RUSTUP_TOOLCHAIN)
+785:Building for: x86_64-unknown-linux-gnu  with profile release_debian & rust 1.96 on Debian GNU/Linux 13 (trixie)
+1987:+ swapon /swapfile
+1996:Checking Rust toolchain version, expecting 1.96:
+1997:1.96-x86_64-unknown-linux-gnu (overridden by environment variable RUSTUP_TOOLCHAIN)
+1998:Building for: x86_64-unknown-linux-gnu  with profile release_debian & rust 1.96 on Debian GNU/Linux 13 (trixie)
+2004:    Finished `release` profile [optimized + debuginfo] target(s) in 20m 12s
+2211:    Finished `release` profile [optimized + debuginfo] target(s) in 6m 18s
+2233:Installing missing cargo-deb
+2242:  Downloaded cargo-deb v2.11.2
+2243:  Installing cargo-deb v2.11.2
+2377:   Compiling cargo-deb v2.11.2
+2392:    Finished `release` profile [optimized] target(s) in 2m 40s
+2393:  Installing /root/.cargo/bin/cargo-deb
+2394:   Installed package `cargo-deb v2.11.2` (executable `cargo-deb`)
+2395:Package version: 1.12.0-202611010319+a52b723
+2488:/root/kanidm/target/x86_64-unknown-linux-gnu/debian/kanidmd_1.12.0-202611010319+a52b723_amd64.deb
+2528:/root/kanidm/target/x86_64-unknown-linux-gnu/debian/kanidm-unixd_1.12.0-202611010319+a52b723_amd64.deb
+2537:/root/kanidm/target/x86_64-unknown-linux-gnu/debian/kanidm_1.12.0-202611010319+a52b723_amd64.deb
+2544:/root/kanidm/target/x86_64-unknown-linux-gnu/debian/libpam-kanidm_1.12.0-202611010319+a52b723_amd64.deb
+2549:/root/kanidm/target/x86_64-unknown-linux-gnu/debian/libnss-kanidm_1.12.0-202611010319+a52b723_amd64.deb
+2551:target/x86_64-unknown-linux-gnu/debian/kanidmd_1.12.0-202611010319+a52b723_amd64.deb
+2552:target/x86_64-unknown-linux-gnu/debian/libnss-kanidm_1.12.0-202611010319+a52b723_amd64.deb
+2553:target/x86_64-unknown-linux-gnu/debian/kanidm_1.12.0-202611010319+a52b723_amd64.deb
+2554:target/x86_64-unknown-linux-gnu/debian/libpam-kanidm_1.12.0-202611010319+a52b723_amd64.deb
+2555:target/x86_64-unknown-linux-gnu/debian/kanidm-unixd_1.12.0-202611010319+a52b723_amd64.deb
+2556:+ sha256sum target/x86_64-unknown-linux-gnu/debian/kanidm-unixd_1.12.0-202611010319+a52b723_amd64.deb target/x86_64-unknown-linux-gnu/debian/kanidm_1.12.0-202611010319+a52b723_amd64.deb target/x86_64-unknown-linux-g
+2557:cad2e36846f838b3ad9e3d928702ddc3d07bce570fc426776e90d6409339bea7  target/x86_64-unknown-linux-gnu/debian/kanidm-unixd_1.12.0-202611010319+a52b723_amd64.deb
+2558:88112601578ff3bc223188208314a7b347b3f6c990e4588157aaa5f694cf14b7  target/x86_64-unknown-linux-gnu/debian/kanidm_1.12.0-202611010319+a52b723_amd64.deb
+2559:31de180ee2f93e898fd686a5105444e98f2c8e2f8b2d1740691974a010e36a9e  target/x86_64-unknown-linux-gnu/debian/kanidmd_1.12.0-202611010319+a52b723_amd64.deb
+2560:200d34282ff366cb57da75f25a673467335036d9569c3cdbb328eb9a74c9b23d  target/x86_64-unknown-linux-gnu/debian/libnss-kanidm_1.12.0-202611010319+a52b723_amd64.deb
+2561:bca57d2521b78be6bdf6f5548903ad24299b17ae1b53e4c755954dc1e876871b  target/x86_64-unknown-linux-gnu/debian/libpam-kanidm_1.12.0-202611010319+a52b723_amd64.deb
+2562:+ echo BUILD-DONE
+2563:BUILD-DONE
+
+# first attempt: rustc for kanidmd_lib was killed with SIGKILL (8 GB, 4 jobs, codegen-units=1, thin LTO); most likely out of memory (kernel log not kept):
+process didn't exit successfully: `/root/.rustup/toolchains/1.96-x86_64-unknown-linux-gnu/bin/rustc --crate-name kanidmd_lib
+(signal: 9, SIGKILL: kill)
+# resumed with 8 GB swap and CARGO_BUILD_JOBS=2 (tools/build-2-resume.sh).
+
+# binary sizes on the build VM (unstripped, as packaged; release profile has debug = "limited", strip = "none") and stripped copies:
+-rwxr-xr-x 2 root root  75146256 Nov 23 01:24 kanidm
+-rwxr-xr-x 2 root root 250700720 Nov 23 01:52 kanidmd
+-rwxr-xr-x 1 root root 16176840 Nov 23 02:33 /tmp/kanidm.stripped
+-rwxr-xr-x 1 root root 56919376 Nov 23 02:33 /tmp/kanidmd.stripped
+ Installed-Size: 246640
+ Depends: libc6, tpm-udev

@@ -7,6 +7,7 @@ import {
   backupsTile,
   confirmText,
   errorText,
+  filesLabel,
   expiresText,
   footText,
   isInsecureAddress,
@@ -197,4 +198,20 @@ test('health rows hide what the box does not report and bytes read plainly', () 
   assert.equal(backupRow({ backups: { health: 'failing', last_success_at: null } }).tone, 'bad');
   assert.equal(bytesText(999), '999 B');
   assert.equal(bytesText(1500), '1.5 KB');
+});
+
+test('the Files button names the file manager of this computer (#722)', () => {
+  assert.equal(filesLabel('MacIntel').text, 'Open in Finder');
+  assert.match(filesLabel('MacIntel').title, /app password/);
+  assert.equal(filesLabel('Win32').text, 'Open in Explorer');
+  assert.match(filesLabel('Win32').title, /SMB/);
+  assert.equal(filesLabel('Linux x86_64').text, 'Open in Files');
+  assert.equal(filesLabel(undefined).text, 'Open in Files');
+});
+
+test('join errors (issue #717)', () => {
+  assert.match(errorText('ca_mismatch'), /Nothing was sent/);
+  assert.match(errorText('ca_pin_missing'), /fingerprint/);
+  assert.match(errorText('join_link_not_desktop'), /another kind of device/);
+  assert.match(errorText('join_link_hub'), /not a OneMind join link/);
 });

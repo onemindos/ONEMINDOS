@@ -1,0 +1,47 @@
+# SPDX-License-Identifier: Apache-2.0
+# UPS support (IMG-06, #244): NUT's upsmon watches the UPS through upsd on loopback. When the UPS is on battery and
+# low (OB LB), upsmon runs SHUTDOWNCMD from /data/onemind/ups/upsmon.conf, which starts
+# onemind-ups-shutdown.service: apps, then k3s, then the data volume, then poweroff. upsmon keeps a root parent
+# only to run that command; its polling child drops to the nut user (RUN_AS_USER).
+[Unit]
+Description=OneMind UPS: watch the battery and shut down cleanly when it runs low
+After=onemind-ups.service
+BindsTo=onemind-ups.service
+RequiresMountsFor=/data
+ConditionPathExists=/data/onemind/ups/upsmon.conf
+
+[Service]
+Type=simple
+Environment=NUT_CONFPATH=/data/onemind/ups NUT_STATEPATH=/run/onemind-ups NUT_ALTPIDPATH=/run/onemind-ups-monitor
+ExecStart=/usr/lib/nut/upsmon -F
+Restart=on-failure
+RestartSec=10s
+RuntimeDirectory=onemind-ups-monitor
+RuntimeDirectoryMode=0750
+NoNewPrivileges=yes
+CapabilityBoundingSet=CAP_SETUID CAP_SETGID
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+# AF_UNIX reaches systemd over D-Bus for the one `systemctl start` of the shutdown unit.
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+IPAddressDeny=any
+IPAddressAllow=localhost
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+UMask=0027
+
+[Install]
+WantedBy=multi-user.target

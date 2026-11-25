@@ -78,7 +78,10 @@ export function v0Api(over: Partial<OneMindApi> = {}, now = Date.now()): OneMind
     nodeMetrics: missing,
     appMetrics: missing,
     mesh: missing,
+    status: missing,
     systemPlan: missing,
+    myDevices: missing,
+    removeMyDevice: missing,
     eventsEndpoint: () => undefined,
     ...over,
   };

@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"os/exec"
@@ -236,6 +237,10 @@ type Reader struct {
 	Run     Runner // Systemctl when nil
 	Version string // the OneMind release of this image (internal/version)
 	Now     func() time.Time
+	// Restarter restarts a unit (SystemctlRestart when nil); Journal reads the journal (Journalctl when
+	// nil). Both are used only by Restart and Logs (actions.go), never by Collect.
+	Restarter func(ctx context.Context, unit string) error
+	Journal   func(ctx context.Context, args []string, w io.Writer) error
 }
 
 // Collect reads the registry and systemd. Units named onemind* that the registry does not list come
@@ -292,6 +297,7 @@ func (r *Reader) Collect(ctx context.Context) (View, error) {
 	}
 	card := func(e Entry, isKnown bool) Card {
 		c := Card{Entry: e, Known: isKnown}
+		c.Restartable = c.Restartable && !NeverRestart(e.Unit) // rescue, first-boot, host, data layout: never a button
 		if c.DependsOn == nil {
 			c.DependsOn = []string{}
 		}

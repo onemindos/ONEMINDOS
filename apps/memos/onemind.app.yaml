@@ -12,8 +12,11 @@ metadata:
   # Market category slug from docs/design/TAXONOMY.md §1; sub-tags (notes) are listed in README.md
   # until the schema has metadata.tags.
   category: notes
+  age_rating: 12   # proposed minimum age (apps/README.md rubric); the owner can override per app
+  age_reason: "Notes that can be shared by link; content is user-made."
   icon: icon.svg
   license: "MIT"
+  licenceClass: L1
   source: https://github.com/usememos/memos
   links:
     docs: "https://github.com/usememos/memos/tree/26.11.0/docs"
