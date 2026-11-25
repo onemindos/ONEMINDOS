@@ -884,6 +884,8 @@ POLICY |= {
 POLICY |= {
     ("GET", "/v1/network"): Row(grid(200, 403, 403, 403, 403), w.p_static("/v1/network"),
                                 "core/onemind_core/routers/network.py: every address, MAC and open port of the box; owner only"),
+    ("GET", "/v1/network/firewall"): Row(grid(200, 403, 403, 403, 403), w.p_static("/v1/network/firewall"),
+                                         "core/onemind_core/routers/network.py: every rule of the box's firewall (P-09 part 1); owner only, read only"),
 }
 
 # ---- bring your own domain (NET-DOM-01, #238: core/onemind_core/routers/domains.py) -----------------------------
