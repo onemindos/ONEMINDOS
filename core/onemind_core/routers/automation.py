@@ -110,8 +110,13 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return svc.set_paused(p, False, (body or PauseBody()).reason)
 
     # ---- standing approvals --------------------------------------------------------------------
-    @app.get("/v1/approval-policies", operation_id="approvals.policies.list", tags=tags, responses=error_responses(401))
-    def list_policies(_: Principal = Depends(principal)):
+    @app.get("/v1/approval-policies", operation_id="approvals.policies.list", tags=tags, responses=error_responses(401, 403))
+    def list_policies(p: Principal = Depends(principal)):
+        # Gateway permissions design gap 3: the rules are the owner's. An agent that can read them can shape its
+        # requests to fit one, so every other principal is refused (and the refusal is audited).
+        if not p.is_owner:
+            gw.audit.append("authz.denied", p.as_dict(), None, {"attempted": "list standing approvals", "reason": "permission_denied"})
+            raise ApiError(403, "permission_denied", f"{p.kind}/{p.role} may not list standing approvals")
         return [policies.to_json(x) for x in svc.repo.list_policies()]
 
     @app.post("/v1/approval-policies", operation_id="approvals.policies.create", tags=tags, status_code=201, responses=error_responses(401, 403, 404, 422))

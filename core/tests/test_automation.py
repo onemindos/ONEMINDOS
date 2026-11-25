@@ -255,7 +255,7 @@ def test_policy_limit_is_counted_in_the_database(client, clock, auto_settings, e
     with TestClient(create_app(auto_settings, clock=clock, executor=executor)) as again:
         r = again.post("/v1/actions", json=action_body(clock, "whoami", "app.remove", key="rm3"), headers=AGENT)
         assert r.json()["state"] == "awaiting_approval"
-        assert again.get("/v1/approval-policies", headers=GUEST).json()[0]["uses_24h"] == 3
+        assert again.get("/v1/approval-policies", headers=OWNER).json()[0]["uses_24h"] == 3
         assert any(e["event"] == "automation.policy.limit_reached" and e["data"]["uses"] == "3/3"
                    for e in audit_events(again))
         approved = [e for e in audit_events(again) if e["event"] == "action.approved" and e["data"].get("approved_via")]
