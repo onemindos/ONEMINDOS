@@ -115,6 +115,8 @@ services:
   - {unit: onemind-nvidia-setup.service, name: NVIDIA GPU setup, docs: docs/HARDWARE.md, restartable: false, risk: medium,
      depends_on: [onemind-data-layout.service], description: "GPU images only: loads the NVIDIA driver and lets apps use the card, when one is present."}
   # ---- power: a UPS on USB (IMG-06, #244) ----
+  - {unit: onemind-console-keyboard.service, name: Console keyboard layout, docs: docs/leap/core/IMAGES.md, restartable: true, risk: low,
+     depends_on: [onemind-data-layout.service], description: "Loads the keyboard layout you chose for the text console (the login on Ctrl+Alt+F2) from the data disk, so it survives restarts and updates. US until you choose another."}
   - {unit: onemind-ups.service, name: UPS connection, docs: docs/HARDWARE.md, restartable: true, risk: low, depends_on: [],
      description: "Talks to a UPS plugged into the box by USB and reports its battery. Off on a box without a UPS; a UPS plugged in later is found at the next start."}
   - {unit: onemind-ups-monitor.service, name: UPS battery watch, docs: docs/HARDWARE.md, restartable: true, risk: medium,

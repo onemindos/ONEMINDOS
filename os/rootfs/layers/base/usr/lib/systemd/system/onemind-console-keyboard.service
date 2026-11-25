@@ -13,11 +13,32 @@ Before=shutdown.target
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-# A fresh or missing /data is not an error: the script then loads the US default without writing anything.
-ExecStartPre=-/usr/bin/install -d -m 0755 /data/onemind /data/onemind/console
+# /data/onemind exists by now (onemind-data-layout); a missing /data is not an error: the script then loads the US
+# default without writing anything. The only write is /data/onemind/console; the only device it needs is the console.
+Environment=ONEMIND_TMP=/tmp
 ExecStart=/usr/lib/onemind/onemind-console-keyboard
 NoNewPrivileges=yes
+CapabilityBoundingSet=CAP_SYS_TTY_CONFIG CAP_DAC_OVERRIDE CAP_CHOWN CAP_FOWNER
+ProtectSystem=strict
+ReadWritePaths=-/data/onemind
 ProtectHome=yes
+PrivateTmp=yes
+PrivateNetwork=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+RestrictAddressFamilies=AF_UNIX
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+UMask=0022
 
 [Install]
 WantedBy=sysinit.target

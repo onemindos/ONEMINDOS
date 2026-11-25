@@ -520,16 +520,19 @@ def f20(vm):
            + f" vainfo_rc={get('VAINFO_RC')} (no GPU in QEMU) out={out.strip()[-160:]!r}")
 
 
-# What the kernel maps keycode 21 to (the Y key on a US keyboard, Z on a German one): dumpkeys prints "keycode  21 = +y ...".
+# What the kernel maps keycode 21 to (the Y key on a US keyboard, Z on a German one): the full table (no -1) has one "keycode  21 = +y +Y ..." line.
 CONSOLE_STATE = (r"""echo LAYOUT=$(sed -n 's/^XKBLAYOUT="\(.*\)"$/\1/p' /data/onemind/console/keyboard); """
                  r"""echo UNIT=$(systemctl is-active onemind-console-keyboard.service); """
-                 r"""echo KEY21=$(dumpkeys -C /dev/tty0 -1 2>/dev/null | grep -m1 -E '^keycode +21 ' | sed -n 's/^keycode *21 *= *+*\([A-Za-z]\).*/\1/p')""")
+                 r"""echo KEY21=$(dumpkeys -C /dev/tty0 2>&1 | grep -m1 -E '^keycode +21 *=' | sed -n 's/^keycode *21 *= *+*\([A-Za-z]\).*/\1/p'); echo RAW=$(dumpkeys -C /dev/tty0 2>&1 | grep -m1 -E 'keycode +21 *=|rror' | cut -c1-60 | tr ' ' '_')""")
 
 
 def console_state(vm):
     _, out = vm.run(CONSOLE_STATE, 60)
     get = lambda k: (re.findall(rf"^{k}=(\S*)\s*$", out, re.M) or ["?"])[-1]
-    return get("LAYOUT"), get("UNIT"), get("KEY21")
+    st = (get("LAYOUT"), get("UNIT"), get("KEY21"))
+    if st[2] in ("", "?"):
+        print(f"  console_state: no key for keycode 21, dumpkeys said {get('RAW')!r}")
+    return st
 
 
 def f21_before(vm):
