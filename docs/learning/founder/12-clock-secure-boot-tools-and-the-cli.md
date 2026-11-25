@@ -48,7 +48,7 @@ It is built the same way as `kubectl` (Kubernetes), `gh` (GitHub) and `docker`, 
 |---|---|
 | Go, one file, no dependencies | Copy it to any machine (Linux, Mac, Pi) and it runs |
 | Cobra, the standard Go CLI library | Gives Tab completion and help text for free; man pages need Cobra's small doc generator |
-| Talks to the box through the gateway, with the generated Go SDK (`sdk/go`) | CLI, dashboard, phone and AI agents use the same door: one set of permissions and one audit log. An agent can only request an action; the owner approves it. (A few commands act on the machine they run on instead: `node info`, `storage` disk checks and `update apply`, which need local root.) |
+| Talks to the box through the gateway, with the generated Go SDK (`sdk/go`) | CLI, dashboard, phone and AI agents use the same door: one set of permissions and one audit log. An agent can only request an action; the owner approves it. (A few commands act on the machine they run on instead: `node info`, plus `storage` disk checks and `update apply`, which need local root.) |
 | `--json` output | Scripts and agents can read the results |
 | Contexts (`onemind context`, `use`) | One CLI can talk to several boxes |
 
