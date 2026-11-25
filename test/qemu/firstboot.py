@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
-"""OneMind QEMU battery, first boot (F0-F12). Criteria: test/qemu/CRITERIA-FIRSTBOOT.md
+"""OneMind QEMU battery, first boot (F0-F13). Criteria: test/qemu/CRITERIA-FIRSTBOOT.md
 (pre-registered; never edited to make a result pass). Reuses run-tests.py's VM driver.
 
 Input: the battery's fixtures (`make fixtures`: disk.img = slot A v1 + test overlay, bundles.img with
@@ -496,6 +496,32 @@ def f12(vm, token):
     record("F12", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items())
            + f" box={box!r} up={up} down_summary={summary[:80]!r} engine_unreachable={inst.get('reason')}")
 
+def f13(vm):
+    """Step 2 PRs 4 and 7: the disk and admin tools run on the booted image (CRITERIA-FIRSTBOOT.md section 9)."""
+    _, out = vm.run(
+        'D=$(lsblk -no PKNAME "$(findmnt -no SOURCE /)" 2>/dev/null | head -1); '
+        '[ -n "$D" ] || D=$(lsblk -dno NAME,TYPE | awk \'$2=="disk"{print $1; exit}\'); D=/dev/$D; echo DISK=$D; '
+        'smartctl --version >/dev/null 2>&1; echo SMARTV_RC=$?; smartctl --scan >/dev/null 2>&1; echo SCAN_RC=$?; '
+        'smartctl -H $D 2>&1 | head -3; echo SMARTH_BANNER=$(smartctl -H $D 2>&1 | grep -c "^smartctl"); '
+        'sgdisk -p $D >/tmp/f13.sg 2>&1; echo SGDISK_RC=$?; echo SGDISK_TABLE=$(grep -c "^Number" /tmp/f13.sg); '
+        'btrfs --version >/dev/null 2>&1; echo BTRFS_RC=$?; '
+        'for t in jq htop rsync nano less ethtool dmidecode lspci lsusb; do $t --version >/dev/null 2>&1; echo TOOL $t $?; done; '
+        'ping -V >/dev/null 2>&1; echo TOOL ping $?; '
+        'test -r /usr/share/bash-completion/bash_completion; echo BASHCOMP_RC=$?; '
+        'echo SMARTD=$(systemctl is-enabled smartmontools.service 2>&1 | head -1)/$(systemctl is-enabled smartd.service 2>&1 | head -1)', 120)
+    get = lambda k: (re.findall(rf"^{k}=(\S*)\s*$", out, re.M) or ["?"])[-1]
+    tools = dict((t, rc) for t, rc in re.findall(r"^TOOL (\S+) (\d+)\s*$", out, re.M))
+    want = ["jq", "htop", "rsync", "nano", "less", "ethtool", "dmidecode", "lspci", "lsusb", "ping"]
+    c = {"smartctl_version": get("SMARTV_RC") == "0", "smartctl_scan": get("SCAN_RC") == "0",
+         "smartctl_H_runs": get("SMARTH_BANNER") not in ("0", "?"),
+         "sgdisk_p": get("SGDISK_RC") == "0" and get("SGDISK_TABLE") not in ("0", "?"),
+         "btrfs": get("BTRFS_RC") == "0",
+         "admin_tools": all(tools.get(t) == "0" for t in want),
+         "bash_completion": get("BASHCOMP_RC") == "0",
+         "smartd_masked": get("SMARTD") == "masked/masked"}
+    record("F13", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items()) + f" disk={get('DISK')} tools={tools}")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--board", required=True, choices=sorted(battery.BOARDS))
@@ -552,6 +578,7 @@ def main():
         vm.mark("F10 rescue console with k3s stopped (CORE-UPDATE-9)"); f10(vm, token)
         vm.mark("F11 starting page, then the gateway, never a refused connection"); f11(vm, (os.path.dirname(a.results) or ".") if a.results else None)
         vm.mark("F12 the gateway reaches the host helper, and says missing without it (#875)"); f12(vm, token)
+        vm.mark("F13 disk and admin tools run, smartd masked (Step 2)"); f13(vm)
 
         if a.upto in ("F3", "F4"):
             vm.mark("F3 reboot keeps state")

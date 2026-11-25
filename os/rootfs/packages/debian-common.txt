@@ -34,3 +34,8 @@ cryptsetup-bin systemd-cryptsetup libtss2-esys-3.0.2-0t64 libtss2-rc0t64 libtss2
 # UPS support (IMG-06, #244): NUT's client (upsmon, upsc) and server (upsd, upsdrvctl, nut-scanner, the USB drivers
 # and the udev rule that gives the nut group the UPS). The Debian nut-* units are masked; onemind-ups*.service run it.
 nut-client nut-server
+# Disk and admin tools (Step 2 PRs 4 and 7). smartmontools is what internal/storage/smart.go calls (smartctl); its
+# smartd daemon is masked below (the gateway reads SMART on demand). gdisk gives sgdisk, btrfs-progs the btrfs tool
+# for the coming btrfs /data. The rest is what an owner expects on an SSH or rescue shell. Proof: first-boot check F13.
+smartmontools gdisk btrfs-progs
+bash-completion less nano rsync htop jq iputils-ping pciutils usbutils dmidecode ethtool
