@@ -85,12 +85,19 @@ class BluetoothSettings(unittest.TestCase):
 
     def test_bluetooth_is_started_only_on_the_screen_boards(self):
         for b in glob.glob(os.path.join(ROOT, "os", "boards", "*")):
-            link = os.path.join(b, "rootfs/etc/systemd/system/multi-user.target.wants/bluetooth.service")
-            if os.path.basename(b) in SCREEN:
-                self.assertEqual(os.readlink(link), "/usr/lib/systemd/system/bluetooth.service")
-            else:
-                self.assertFalse(os.path.lexists(link), b)
-                self.assertFalse(os.path.exists(os.path.join(b, "rootfs/usr/lib/tmpfiles.d/onemind-bluetooth.conf")), b)
+            name = os.path.basename(b)
+            post = os.path.join(b, "post-install.sh")
+            text = open(post).read() if os.path.exists(post) else ""
+            wired = "systemctl add-wants multi-user.target bluetooth.service" in text
+            self.assertEqual(wired, name in SCREEN, name)
+            self.assertFalse(os.path.exists(os.path.join(b, "rootfs/usr/lib/tmpfiles.d/onemind-bluetooth.conf")) != (name in SCREEN), name)
+            # a symlink into the image's own /usr would dangle in the repo and break tools that read every file
+            for root, _, files in os.walk(os.path.join(b, "rootfs")):
+                for f in files:
+                    p = os.path.join(root, f)
+                    if os.path.islink(p):
+                        self.assertTrue(os.path.exists(p), p)
+        self.assertTrue(os.access(os.path.join(ROOT, "os/boards/x86_64-efi/post-install.sh"), os.X_OK))
 
 
 class VirtualSink(unittest.TestCase):
