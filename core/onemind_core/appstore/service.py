@@ -26,6 +26,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from ..machines.fit import fit
 from ..actions import FeatureAction
 from ..auth import Principal
 from .. import cpufit, gpufit, placement, streams
@@ -265,7 +266,9 @@ class AppStore:
 
     def placement_view(self, app_id: str) -> dict:
         """CORE-FABRIC-4 (#171): the Market verdict, from `spec.requires` and every node's capabilities."""
-        return {"app_id": app_id, **placement.place(self._app(app_id).manifest, self.gw.registry.list())}
+        manifest = self._app(app_id).manifest
+        nodes = self.gw.registry.list()
+        return {"app_id": app_id, **placement.place(manifest, nodes), "fit": fit(manifest, nodes)}
 
     def _port_conflicts(self, entry: AppEntry) -> list[dict]:
         # v0 runs every app on the hub node; per-node placement (CORE-FABRIC-4) narrows `others`.
