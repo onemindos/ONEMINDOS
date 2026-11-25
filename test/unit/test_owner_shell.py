@@ -317,6 +317,9 @@ class SshKeysAndSwitch(unittest.TestCase):
         self.assertIn("ReadWritePaths=/data", a)
         self.assertRegex(a, r"CapabilityBoundingSet=CAP_")
         self.assertNotIn("CAP_SYS_ADMIN", a)
+        for line in ("SystemCallFilter=@system-service", "PrivateDevices=yes", "IPAddressDeny=any", "RestrictNamespaces=yes",
+                     "ProtectHome=read-only", "MemoryDenyWriteExecute=yes"):
+            self.assertIn(line, a)                                # the score gate (test_unit_security.py) needs 5.0 or better
 
     def test_rate_limit_and_accept_are_in_the_ssh_chain_in_that_order(self):
         d = rd(f"{SYS}/ssh.service.d/30-onemind-firewall.conf")
