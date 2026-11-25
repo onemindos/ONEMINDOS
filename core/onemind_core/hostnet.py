@@ -90,7 +90,7 @@ class HostNetClient:
     def __init__(self, path: str, timeout_s: float):
         self.path, self.timeout_s = path, timeout_s
 
-    def fetch(self) -> tuple[int, Any]:
+    def fetch(self, path: str = "/v1/network") -> tuple[int, Any]:
         conn = _UnixConnection(self.path, self.timeout_s)
         try:
             try:
@@ -98,7 +98,7 @@ class HostNetClient:
             except OSError as exc:
                 raise StorageUnavailable(exc.__class__.__name__) from None
             try:
-                conn.request("GET", "/v1/network")
+                conn.request("GET", path)
                 resp = conn.getresponse()
                 raw = resp.read(MAX_BODY + 1)
             except Exception as exc:  # timeout, reset, protocol error

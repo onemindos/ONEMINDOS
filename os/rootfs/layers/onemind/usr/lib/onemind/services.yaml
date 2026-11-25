@@ -91,6 +91,10 @@ services:
      description: "Restarts, shuts down or updates the box, and only after the owner approved it. It also reads these service cards."}
   - {unit: onemind-host.socket, name: Host actions socket, docs: docs/leap/core/HOST-ACTIONS.md, restartable: false, risk: high, depends_on: [],
      description: "The private door between the gateway and the host actions service. Only the gateway and root may use it."}
+  - {unit: onemind-firewall-read.socket, name: Firewall read socket, docs: docs/architecture/NETWORKING.md, restartable: false, risk: medium, depends_on: [],
+     description: "The private door the host service uses to read the firewall rules. Only root may use it, and it can only print."}
+  - {unit: onemind-firewall-read@.service, name: Firewall read, docs: docs/architecture/NETWORKING.md, restartable: false, risk: medium, depends_on: [onemind-firewall-read.socket],
+     description: "Prints the firewall rules so the Network screen can show them. It cannot change a rule."}
   - {unit: onemind-update.service, name: OS updates, docs: docs/leap/core/UPDATES.md, restartable: true, risk: medium, depends_on: [],
      description: "Checks for signed OS updates, snapshots your data first and installs the new system next to the old one."}
   - {unit: onemind-rescue.service, name: Rescue console, docs: docs/security/rescue-terminal.md, restartable: false, risk: high, depends_on: [],

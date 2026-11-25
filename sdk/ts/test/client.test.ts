@@ -261,6 +261,13 @@ describe("network.view", () => {
     expect(calls[0]!.url).toBe("http://localhost:8080/v1/network");
     expect(calls[0]!.init.method).toBe("GET");
   });
+  it("reads GET /v1/network/firewall", async () => {
+    const view = { available: true, exposure: "lan_and_mesh_only", open_to_anywhere: [], rules: [], chains: [], sets: [], other_tables: [], editable: false, dropped: 0 };
+    const { om, calls } = client(() => json(200, view));
+    expect((await om.network.firewall()).exposure).toBe("lan_and_mesh_only");
+    expect(calls[0]!.url).toBe("http://localhost:8080/v1/network/firewall");
+    expect(calls[0]!.init.method).toBe("GET");
+  });
 });
 
 describe("protocol generation (sdk/contracts/protocol-versions.md)", () => {

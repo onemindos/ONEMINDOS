@@ -35,6 +35,7 @@ const Schema = "onemind.host/v1"
 //	GET  /v1/network           read-only network facts (internal/netview; 404 when Network is nil)
 //	GET  /v1/time              time zone and clock synchronisation (timedatectl; 404 when Time is nil)
 //	GET  /v1/keyboard          the keyboard layout now and the layouts the image offers (read-only; 404 when Keymap is nil)
+//	GET  /v1/firewall          the live nftables ruleset in a structured form (internal/firewall; 404 when Firewall is nil)
 //	GET  /v1/services          service cards: the image's registry joined with systemd (internal/svcregistry; 404 when Services is nil)
 //	GET  /v1/services/{unit}/logs?lines=200&follow=1   a registry unit's journal as text lines (404 when ServiceLogs is nil)
 type Server struct {
@@ -48,6 +49,8 @@ type Server struct {
 	PeerCred func(*net.UnixConn) (uid, gid int, ok bool)
 	// Network answers GET /v1/network (NET-UI-01). It only reads; nil leaves the route off.
 	Network func() (any, error)
+	// Firewall answers GET /v1/firewall (P-09 part 1). It only reads (nft -j list ruleset); nil leaves the route off.
+	Firewall func(ctx context.Context) (any, error)
 	// Services answers GET /v1/services (#623). It only reads (systemctl show); nil leaves the route off.
 	Services func(ctx context.Context) (any, error)
 	// Time answers GET /v1/time: the zone and the clock's sync state (timezone.go). It only reads; nil leaves the route off.
@@ -183,6 +186,16 @@ func (s *Server) Handler() http.Handler {
 			v, err := s.S.Keymap.View()
 			if err != nil {
 				apiError(w, http.StatusInternalServerError, "internal", "keyboard", "the keyboard layouts could not be read")
+				return
+			}
+			writeJSON(w, http.StatusOK, v)
+		})
+	}
+	if s.Firewall != nil {
+		mux.HandleFunc("GET /v1/firewall", func(w http.ResponseWriter, r *http.Request) {
+			v, err := s.Firewall(r.Context())
+			if err != nil {
+				apiError(w, http.StatusInternalServerError, "internal", "firewall", "the firewall rules could not be read")
 				return
 			}
 			writeJSON(w, http.StatusOK, v)

@@ -18,6 +18,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/onemindos/onemindos/internal/firewall"
 	"github.com/onemindos/onemindos/internal/host"
 	"github.com/onemindos/onemindos/internal/netview"
 	"github.com/onemindos/onemindos/internal/ownerssh"
@@ -110,7 +111,7 @@ func runHost(args []string) int {
 		return 1
 	}
 	log.Info("host service listening", "socket", *sock, "journal", svc.Store != nil, "boot_id", svc.BootID, "gateway_uid", uid)
-	err = (&host.Server{S: svc, AllowUID: uid, AllowGID: -1, Ctx: ctx, Network: networkView,
+	err = (&host.Server{S: svc, AllowUID: uid, AllowGID: -1, Ctx: ctx, Network: networkView, Firewall: firewallView,
 		Services: serviceCards, ServiceLogs: units.Logs,
 		Time:     func(ctx context.Context) (any, error) { return (&host.Timezone{}).Status(ctx), nil },
 		Hostname: func() (string, error) { return host.CurrentHostname("") }}).Serve(ctx, l)
@@ -189,6 +190,20 @@ func networkView() (any, error) {
 	}
 	exists := func(p string) bool { _, err := os.Stat(p); return err == nil }
 	return netview.System(read, exists).Collect()
+}
+
+// firewallReadSocket is where onemind-firewall-read.socket prints `nft -j list ruleset`. The host service
+// has no CAP_NET_ADMIN (the kernel wants it even to read nf_tables), so it cannot run nft itself.
+const firewallReadSocket = "/run/onemind/firewall-read.sock"
+
+// firewallView is GET /v1/firewall: the ruleset read from the firewall read socket (internal/firewall),
+// parsed into a structured form. Output is capped and the read has a deadline, so a stuck reader cannot hold
+// the host service.
+func firewallView(ctx context.Context) (any, error) {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	c := firewall.Collector{Run: firewall.SocketReader(firewallReadSocket)}
+	return c.Collect(ctx)
 }
 
 // serviceCards is GET /v1/services (#623): every unit in the image's services registry

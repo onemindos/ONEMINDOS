@@ -85,6 +85,7 @@ type Client struct {
 	Services *ServicesService
 	Domains  *DomainsService
 	Keyboard *KeyboardService
+	Network  *NetworkService
 }
 
 // Option configures a Client.
@@ -177,6 +178,7 @@ func New(baseURL string, opts ...Option) (*Client, error) {
 	c.Services = &ServicesService{c}
 	c.Domains = &DomainsService{c}
 	c.Keyboard = &KeyboardService{c}
+	c.Network = &NetworkService{c}
 	return c, nil
 }
 
@@ -462,6 +464,17 @@ type ServicesService struct{ c *Client }
 func (s *ServicesService) List(ctx context.Context) (*ServicesView, error) {
 	var v ServicesView
 	return &v, s.c.Do(ctx, http.MethodGet, "/v1/system/services", nil, &v)
+}
+
+// NetworkService is /v1/network: this box's network facts, owner only.
+type NetworkService struct{ c *Client }
+
+// Firewall is operation network.firewall (GET /v1/network/firewall, P-09 part 1): the live firewall checked
+// and explained in plain words, read only. Available is false, with a reason, when the host service cannot
+// be reached; an unknown firewall is never reported as safe.
+func (s *NetworkService) Firewall(ctx context.Context) (*FirewallView, error) {
+	var v FirewallView
+	return &v, s.c.Do(ctx, http.MethodGet, "/v1/network/firewall", nil, &v)
 }
 
 // NodesService is /v1/nodes.
