@@ -95,3 +95,15 @@ F12 runs on the slot-A boot from F1, after F11 and before the F3 reboot, from th
 | F12 | The gateway reaches the host helper; without it, it says so and starts nothing | Within 120 s, `GET /v1/status` on :8080 with the owner token returns HTTP 200 with `host.helper` = `reachable`, `host.state` = `ok` and `host.hostname` equal to the output of `hostname` in the guest (one harmless host read: the answer comes from the host helper over the socket); then, with `systemctl stop onemind-host.service onemind-host.socket` done and `/run/onemind/host.sock` removed: `GET /v1/status` returns HTTP 200 with `host.helper` = `missing`, `host.state` not `ok`, `host.hostname` null and a `host.summary` that starts with `host helper: missing` and contains no `/run/`; and `GET /v1/os/updates` returns HTTP 200 with `install.available` false, `install.reason` = `engine_unreachable` and a plain-text `install.message` (no `Traceback`, no `Errno`, no `/run/`); after `systemctl start onemind-host.socket`, `host.helper` is `reachable` again within 60 s | Any status other than 200, `reachable` never seen before the stop or after the restart, a hostname that differs, `reachable` or `ok` while the socket is gone, a summary or message that leaks a path or a traceback, or the install reported available without the helper |
 
 Required for this task's "done": F12 PASS on x86_64-efi in CI's image workflow. It is written without having run QEMU (no KVM where it was written); a harness bug found on the first run may be fixed and re-run once, named as such, under section 1's rule.
+
+## 9. Amendment (2026-11-25): F13, the clock (Step 2 PR 1, Debian bones)
+
+**Status:** PRE-REGISTERED before F13 was implemented in `firstboot.py` or run. F0-F12 above are unchanged. The sha256 of this file with this section is appended to `PREREGISTRATION.sha256`. **Serves:** the Debian-bones plan, PR 1: the image had no NTP client (recommends are off, so `systemd-timesyncd` was never installed) although `deploy/verify/node-check.sh` reads `NTPSynchronized`.
+
+F13 runs on the slot-A boot from F1, after F12 and before the F3 reboot, from the hub's shell. It waits up to 180 s for the clock to report synchronised.
+
+| ID | Test | PASS if | FAIL if |
+|---|---|---|---|
+| F13 | The clock is Debian's own | `systemd-timesyncd.service` is `enabled` and `active`; `/usr/share/zoneinfo/UTC` is readable (tzdata); `/etc/locale.conf` is `LANG=C.UTF-8`; `timedatectl show -p NTPSynchronized` is `yes`, **or** `timedatectl timesync-status` names no server (user-mode QEMU networking cannot reach one), in which case the verdict says so | The unit is missing, disabled or dead, no zone database, another locale, or a server was reached and the clock still reports not synchronised |
+
+Required for this task's "done": F13 PASS on x86_64-efi in CI's image workflow.
