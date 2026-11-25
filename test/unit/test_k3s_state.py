@@ -310,6 +310,64 @@ class Settle(Box):
         self.assertFalse(os.path.exists(self.p.settled))
 
 
+def pod(ns, phase="Running", ready=True):
+    return {"metadata": {"namespace": ns, "name": "x"},
+            "status": {"phase": phase, "conditions": [{"type": "Ready", "status": "True" if ready else "False"}]}}
+
+
+class FirstSetupDone(unittest.TestCase):
+    """settle marks the first setup done only once the OS's own pods are up (their images unpacked and started):
+    the VM 501 F13 runs showed coredns and helm crash with SIGSEGV after a cut that came after /readyz but before
+    their images were on the disk."""
+
+    def test_api_ready_but_system_pods_starting_is_not_done(self):
+        self.assertFalse(ks.system_pods_ready({"items": []}))
+        self.assertFalse(ks.system_pods_ready({"items": [pod("kube-system"), pod("kube-system", "Pending", False)]}))
+        self.assertFalse(ks.system_pods_ready({"items": [pod("onemind-system", ready=False)]}))
+
+    def test_ready_and_finished_system_pods_are_done_and_apps_never_count(self):
+        items = [pod("kube-system"), pod("kube-system", "Succeeded", False), pod("onemind-system"),
+                 pod("apps", "Pending", False), pod("apps", ready=False)]
+        self.assertTrue(ks.system_pods_ready({"items": items}))
+        self.assertFalse(ks.system_pods_ready({"items": [pod("apps")]}))     # only apps: the OS's own are missing
+
+    def test_k3s_ready_needs_readyz_and_the_pods(self):
+        with tempfile.TemporaryDirectory() as d:
+            p = ks.Paths(d)
+            self.assertFalse(ks.k3s_ready(p))                                # no kubeconfig on this boot yet
+            os.makedirs(os.path.dirname(p.kubeconfig))
+            open(p.kubeconfig, "w").close()
+            ok = mock.Mock(returncode=0, stdout=json.dumps({"items": [pod("kube-system")]}).encode())
+            starting = mock.Mock(returncode=0, stdout=json.dumps({"items": [pod("kube-system", ready=False)]}).encode())
+            with mock.patch.object(ks.subprocess, "run", side_effect=[mock.Mock(returncode=1)]) as run:
+                self.assertFalse(ks.k3s_ready(p))
+                self.assertEqual(run.call_count, 1)                           # /readyz failed: pods not asked
+            with mock.patch.object(ks.subprocess, "run", side_effect=[mock.Mock(returncode=0), starting]):
+                self.assertFalse(ks.k3s_ready(p))
+            with mock.patch.object(ks.subprocess, "run", side_effect=[mock.Mock(returncode=0), ok]) as run:
+                self.assertTrue(ks.k3s_ready(p))
+                self.assertIn("--raw=/readyz", run.call_args_list[0].args[0])
+                self.assertEqual(run.call_args_list[1].args[0][-4:], ["pods", "-A", "-o", "json"])
+
+
+class DataMountedWithoutDelayedAllocation(unittest.TestCase):
+    """Every board mounts /data with nodelalloc: with ext4's delayed allocation a power cut leaves files whose
+    metadata reached the disk but whose data did not (0-byte certificates, torn image binaries; VM 501 bug 1)."""
+    FSTABS = ("os/rootfs/layers/base/etc/fstab", "os/boards/rpi5/rootfs/etc/fstab",
+              "os/boards/jetson-orin/rootfs/etc/onemind/jetson-fstab")
+
+    def test_every_data_mount_has_nodelalloc(self):
+        for rel in self.FSTABS:
+            lines = [l.split() for l in open(os.path.join(ROOT, rel)) if l.strip() and not l.startswith("#")]
+            data = [f for f in lines if len(f) >= 4 and f[1] == "/data"]
+            self.assertEqual(len(data), 1, rel)
+            self.assertEqual(data[0][2], "ext4", rel)
+            opts = data[0][3].split(",")
+            self.assertIn("nodelalloc", opts, rel)
+            self.assertNotIn("delalloc", opts, rel)
+            self.assertFalse([o for o in opts if o.startswith("data=") and o != "data=ordered"], rel)
+
+
 class FirstbootUsesIt(unittest.TestCase):
     def test_firstboot_write_is_durable_and_atomic(self):
         import onemind_firstboot as fb

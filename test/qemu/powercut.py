@@ -199,11 +199,13 @@ def main():
         tok_in_file = "TOKSHA=1" in out
         tok_200 = bool(token) and owner_ok(vm, token)
         recovered = RECOVERY.search(vm.since(0))
+        _, out = vm.run("echo DATAOPTS=$(findmnt -no OPTIONS /data)")
+        data_opts = (re.findall(r"^DATAOPTS=(\S*)", out, re.M) or ["?"])[-1]      # recorded, not judged
         record("F13", len(toks) == 1 and bool(node1) and node1 == node2 and new_tok == 0 and g == ("committed-boot", "A", "1")
                and healthy and not bad and checked >= 8 and tok_in_file and tok_200,
                f"tokens_first_boot={len(toks)} node_id={node1}/{node2} new_tokens={new_tok} gate={g} k3s_healthy={healthy} "
                f"empty_or_missing={bad} files_checked={checked} token_hash_in_file={tok_in_file} token_200={tok_200} "
-               f"recovery_ran={recovered.group(0)[:90] if recovered else None} t={time.time() - t0:.0f}s")
+               f"recovery_ran={recovered.group(0)[:90] if recovered else None} data_opts={data_opts} t={time.time() - t0:.0f}s")
 
         if a.only_f13:
             raise SystemExit(0 if RESULTS and RESULTS[-1]["verdict"] == "PASS" else 1)

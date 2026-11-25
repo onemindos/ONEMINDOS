@@ -35,7 +35,7 @@ SYSTEM_NAMESPACES = frozenset({"kube-system", "kube-public", "kube-node-lease", 
 WORKLOAD_KINDS = ("deployments", "statefulsets", "daemonsets", "cronjobs", "jobs", "persistentvolumeclaims")
 SETTLE_TIMEOUT_S = 900
 SETTLE_POLL_S = 2
-SETTLE_GRACE_S = 5          # k3s keeps writing for a moment after /readyz first answers
+SETTLE_GRACE_S = 5          # k3s keeps writing for a moment after its first setup looks done
 REPEAT_LIMIT = 3            # automatic repairs inside REPEAT_WINDOW_S before the owner must decide
 REPEAT_WINDOW_S = 3600
 
@@ -340,18 +340,44 @@ def recover(p: Paths, force: bool = False, now: float | None = None) -> dict | N
 
 
 # ------------------------------------------------------------------ settle
+def system_pods_ready(pods: dict) -> bool:
+    """k3s's first setup is done when the OS's own pods (coredns, local-path, onemind-core, the helm jobs) have
+    started: at least one of them, every one either Ready or finished (Succeeded). Owners' apps never count."""
+    seen = 0
+    for pod in pods.get("items", []):
+        if pod.get("metadata", {}).get("namespace") not in SYSTEM_NAMESPACES:
+            continue
+        seen += 1
+        status = pod.get("status", {})
+        if status.get("phase") == "Succeeded":
+            continue
+        if not any(c.get("type") == "Ready" and c.get("status") == "True" for c in status.get("conditions", [])):
+            return False
+    return seen > 0
+
+
 def k3s_ready(p: Paths) -> bool:
+    """k3s answers and its first setup has finished: the API is ready and the OS's own pods are up (their images are
+    unpacked and started, which is the last thing k3s writes in bulk on a new box). Read-only."""
     if not os.path.exists(p.kubeconfig):
         return False
-    r = subprocess.run(["/usr/local/bin/k3s", "kubectl", "--kubeconfig", p.kubeconfig, "--request-timeout=5s",
-                        "get", "--raw=/readyz"], capture_output=True, check=False)
-    return r.returncode == 0
+    k = ["/usr/local/bin/k3s", "kubectl", "--kubeconfig", p.kubeconfig, "--request-timeout=5s"]
+    if subprocess.run(k + ["get", "--raw=/readyz"], capture_output=True, check=False).returncode != 0:
+        return False
+    r = subprocess.run(k + ["get", "pods", "-A", "-o", "json"], capture_output=True, check=False)
+    if r.returncode != 0:
+        return False
+    try:
+        return system_pods_ready(json.loads(r.stdout))
+    except ValueError:
+        return False
 
 
 def settle(p: Paths, timeout: int = SETTLE_TIMEOUT_S, sleep=time.sleep, ready=None, sync=None) -> int:
     """First boot's last step for k3s. Hub only, once: sync /data every few seconds while k3s starts (so a power
-    cut loses seconds of its work, not the whole first start), wait until it answers, sync again, check its
-    files, and only then write the marker that says the first setup is on the disk."""
+    cut loses seconds of its work, not the whole first start), wait until its first setup is done (API ready and
+    the OS's own pods up), sync again, check its files, and only then write the marker that says the first setup
+    is on the disk."""
     ready = ready or (lambda: k3s_ready(p))
     sync = sync or (lambda: sync_fs(p.data))
     if os.path.exists(p.settled):
@@ -379,7 +405,8 @@ def settle(p: Paths, timeout: int = SETTLE_TIMEOUT_S, sleep=time.sleep, ready=No
         sleep(SETTLE_POLL_S)
         waited += SETTLE_POLL_S
     sync()
-    say(p, f"ONEMIND-FIRSTBOOT: k3s did not answer within {timeout} s; /data is synced, first setup not marked done")
+    say(p, f"ONEMIND-FIRSTBOOT: k3s did not finish its first setup within {timeout} s; /data is synced, first setup "
+           "not marked done")
     return 1
 
 
