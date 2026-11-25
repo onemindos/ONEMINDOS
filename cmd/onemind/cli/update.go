@@ -120,7 +120,8 @@ func printStatus(c *update.Config, asJSON bool, out io.Writer) error {
 
 // rollbackCommand is `onemind update rollback`: it files an os.rollback request for the owner and
 // never approves it (P-16). Going back discards the running version, so the owner approves it with a
-// passkey in the dashboard (Approvals); a CLI or agent token can only ask. It asks the hub what the
+// passkey in the dashboard (Approvals). The CLI files the request with the owner's token and
+// never approves it; an agent token is refused (403), since only a person files a rollback. It asks the hub what the
 // previous version is, so the request names exactly the version the owner will read on the approval card.
 func rollbackCommand(a *App) *cobra.Command {
 	var node, version string

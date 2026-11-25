@@ -235,11 +235,28 @@ type fakeRoller struct {
 	prepared  []string
 	cancelled int
 	err       error
+	holdErr   error         // Hold refuses
+	holds     int           // Hold calls
+	released  int           // release calls
+	running   string        // RunningVersion
+	preparedC chan struct{} // signalled by Prepare, when set
 }
+
+func (f *fakeRoller) Hold() (func(), error) {
+	if f.holdErr != nil {
+		return nil, f.holdErr
+	}
+	f.holds++
+	return func() { f.released++ }, nil
+}
+func (f *fakeRoller) RunningVersion() string { return f.running }
 
 func (f *fakeRoller) RollbackUnavailable() string { return f.why }
 func (f *fakeRoller) Prepare(_ context.Context, v string) error {
 	f.prepared = append(f.prepared, v)
+	if f.preparedC != nil {
+		f.preparedC <- struct{}{}
+	}
 	return f.err
 }
 func (f *fakeRoller) Cancel(context.Context) { f.cancelled++ }
@@ -305,6 +322,15 @@ func TestOSRollbackRefusalsAndFailures(t *testing.T) {
 	if op, _ := s.Store.Get("n5"); op.State != StateFailed || roll.cancelled != 1 {
 		t.Fatalf("%+v cancelled %d", op, roll.cancelled)
 	}
+	// The update engine is mid-cycle: refused before anything changes.
+	s.Roll = &fakeRoller{holdErr: &Refusal{"engine_busy", "the update service is in the middle of a cycle"}}
+	if _, _, err := s.Submit(ctx, Request{ActionID: "n6", Kind: KindOSRollback, Version: "1.1.0"}); err != nil {
+		t.Fatal(err)
+	}
+	s.Wait()
+	if op, _ := s.Store.Get("n6"); op.State != StateFailed || op.Reason != "engine_busy" {
+		t.Fatalf("%+v", op)
+	}
 	for _, bad := range []Request{
 		{ActionID: "ok", Kind: KindOSRollback},
 		{ActionID: "ok", Kind: KindOSRollback, Version: "1.0; rm -rf /"},
@@ -315,4 +341,109 @@ func TestOSRollbackRefusalsAndFailures(t *testing.T) {
 		}
 	}
 	_ = time.Second
+}
+
+func TestOSRollbackHoldsTheEngineLockUntilTheBoxIsDown(t *testing.T) {
+	ctx := context.Background()
+	s, p := newService(t, t.TempDir(), "b")
+	roll := &fakeRoller{}
+	s.Roll = roll
+	if _, _, err := s.Submit(ctx, Request{ActionID: "h1", Kind: KindOSRollback, Version: "1.1.0"}); err != nil {
+		t.Fatal(err)
+	}
+	s.Wait()
+	// Going down: the lock stays held (the process ends with the box).
+	if roll.holds != 1 || roll.released != 0 || p.reboots != 1 {
+		t.Fatalf("holds %d released %d reboots %d", roll.holds, roll.released, p.reboots)
+	}
+	// A failed reboot or a refused Prepare lets go of it.
+	roll2 := &fakeRoller{err: &Refusal{"version_changed", "x"}}
+	s, _ = newService(t, t.TempDir(), "b")
+	s.Roll = roll2
+	if _, _, err := s.Submit(ctx, Request{ActionID: "h2", Kind: KindOSRollback, Version: "1.1.0"}); err != nil {
+		t.Fatal(err)
+	}
+	s.Wait()
+	if roll2.holds != 1 || roll2.released != 1 {
+		t.Fatalf("holds %d released %d", roll2.holds, roll2.released)
+	}
+}
+
+// The service stops during the delay: Prepare already flipped the boot order, so it is put back.
+func TestOSRollbackStoppedDuringTheDelayPutsTheBootOrderBack(t *testing.T) {
+	s, p := newService(t, t.TempDir(), "b")
+	s.Delay = time.Hour
+	roll := &fakeRoller{preparedC: make(chan struct{}, 1)}
+	s.Roll = roll
+	ctx, cancel := context.WithCancel(context.Background())
+	if _, _, err := s.Submit(ctx, Request{ActionID: "c1", Kind: KindOSRollback, Version: "1.1.0"}); err != nil {
+		t.Fatal(err)
+	}
+	<-roll.preparedC // Prepare ran: the boot order is flipped
+	cancel()
+	s.Wait()
+	op, _ := s.Store.Get("c1")
+	if op.State != StateFailed || op.Reason != "interrupted" || roll.cancelled != 1 || roll.released != 1 || p.reboots != 0 {
+		t.Fatalf("%+v cancelled %d released %d reboots %d", op, roll.cancelled, roll.released, p.reboots)
+	}
+}
+
+func TestResumeSettlesARollbackOnlyWhenTheBoxWentBack(t *testing.T) {
+	open := func(dir string, op Op) *Store {
+		st, err := OpenStore(dir)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := st.Put(op); err != nil {
+			t.Fatal(err)
+		}
+		return st
+	}
+	base := Op{ID: "r", Kind: KindOSRollback, Version: "1.1.0", BootID: "boot-1"}
+	for _, c := range []struct {
+		name, state, boot, running, want, reason string
+		cancelled                                int
+	}{
+		{"went back", StateGoingDown, "boot-2", "1.1.0", StateSucceeded, "", 0},
+		{"rebooted but still the old version", StateGoingDown, "boot-2", "1.2.0", StateFailed, "not_rolled_back", 1},
+		{"power cut before the reboot", StateRunning, "boot-2", "1.2.0", StateFailed, "interrupted", 1},
+		{"power cut, box did go back", StateRunning, "boot-2", "1.1.0", StateSucceeded, "", 0},
+		{"host restarted on the same boot", StateRunning, "boot-1", "1.2.0", StateFailed, "interrupted", 1},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			op := base
+			op.State = c.state
+			roll := &fakeRoller{running: c.running}
+			s := &Service{Store: open(t.TempDir(), op), BootID: c.boot, Roll: roll}
+			if err := s.Resume(); err != nil {
+				t.Fatal(err)
+			}
+			got, _ := s.Store.Get("r")
+			if got.State != c.want || got.Reason != c.reason || roll.cancelled != c.cancelled {
+				t.Fatalf("%+v cancelled %d", got, roll.cancelled)
+			}
+		})
+	}
+}
+
+func TestSlotRollbackHoldTakesTheEngineLock(t *testing.T) {
+	b := newRollbackBox(t, "1.2.0")
+	release, err := b.r.Hold()
+	if err != nil {
+		t.Fatal(err)
+	}
+	// While held, an engine run (the update timer's) cannot start.
+	if _, err := update.Lock(b.conf); !errors.Is(err, update.ErrBusy) {
+		t.Fatalf("engine lock not held: %v", err)
+	}
+	refusal(t, func() error { _, err := b.r.Hold(); return err }(), "engine_busy")
+	release()
+	unlock, err := update.Lock(b.conf)
+	if err != nil {
+		t.Fatalf("not released: %v", err)
+	}
+	unlock()
+	if v := b.r.RunningVersion(); v != "1.2.0" {
+		t.Fatalf("running %q", v)
+	}
 }

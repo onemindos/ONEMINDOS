@@ -4,6 +4,7 @@ package host
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -26,8 +27,14 @@ type OSRoller interface {
 	// that the slot is known good, then makes it the one the box boots next.
 	// It does not reboot. A *Refusal is returned when it must not go back.
 	Prepare(ctx context.Context, version string) error
-	// Cancel undoes Prepare when the reboot that was meant to follow failed.
+	// Cancel undoes Prepare when the reboot that was meant to follow failed or never came.
 	Cancel(ctx context.Context)
+	// Hold keeps the update engine from running (its timer would clear the version being left from
+	// the bad-releases list: it is still the running, committed one) until release is called or the
+	// process ends. A *Refusal (engine_busy) is returned when a run is in progress.
+	Hold() (release func(), err error)
+	// RunningVersion is the OS version booted now, or "" when it cannot be read.
+	RunningVersion() string
 }
 
 // RollbackTarget is the slot a rollback would boot.
@@ -197,6 +204,34 @@ func (r *SlotRollback) Prepare(ctx context.Context, version string) error {
 		return err
 	}
 	return nil
+}
+
+// Hold implements OSRoller with the update engine's own lock.
+func (r *SlotRollback) Hold() (func(), error) {
+	c, why := r.config()
+	if why != "" {
+		return nil, &Refusal{"unavailable", why}
+	}
+	unlock, err := update.Lock(c)
+	if errors.Is(err, update.ErrBusy) {
+		return nil, &Refusal{"engine_busy", "the update service is in the middle of a cycle; ask again in a minute"}
+	} else if err != nil {
+		return nil, err
+	}
+	return unlock, nil
+}
+
+// RunningVersion implements OSRoller.
+func (r *SlotRollback) RunningVersion() string {
+	c, why := r.config()
+	if why != "" {
+		return ""
+	}
+	box, err := update.ReadBox(c)
+	if err != nil {
+		return ""
+	}
+	return box.Version
 }
 
 // Cancel implements OSRoller: make the running slot the next boot again.

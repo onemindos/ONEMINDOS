@@ -324,3 +324,14 @@ def test_an_approved_rollback_sends_the_kind_and_the_version_only(box, host):
 def test_the_link_maps_the_action_to_os_rollback():
     from onemind_core.hostlink import KINDS
     assert KINDS["os.rollback"] == "os-rollback"
+
+
+def test_a_rollback_the_host_would_refuse_is_not_filed(box, host):
+    """After a go-back the heartbeat still shows the version just left as a good slot; only the host knows
+    (it keeps that version in the gate's bad-releases list), so the request is refused when it is filed."""
+    box.report(rauc=ROLLBACK_RAUC)
+    host.available["os-rollback"] = False
+    r = ask_rollback(box)
+    assert r.status_code == 409 and r.json()["reason"] == "unavailable" and "os-rollback is off here" in r.json()["message"]
+    host.available["os-rollback"] = True
+    assert ask_rollback(box).status_code == 201

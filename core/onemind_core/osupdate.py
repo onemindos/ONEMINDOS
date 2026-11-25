@@ -304,6 +304,13 @@ class OsUpdateService:
                                        f"({rb['version']}).")
         if self.link is not None and self.link.present() and v["node_id"] != self.gw.settings.node_id:
             return "other_node", "The host service goes back on this hub only; other machines go back at the box."
+        # The heartbeat cannot see the host's own refusals (a version just rolled back sits in the gate's
+        # bad-releases list, which the gateway never reads), so ask the host: a request it would refuse
+        # is not filed or approved. A host that cannot be reached is reported when the action runs.
+        if self.link is not None and self.link.present() and v["node_id"] == self.gw.settings.node_id:
+            p = self.rollback_problem()
+            if p is not None and p[0] != UNREACHABLE:
+                return p
         return None
 
     def rollback_check(self, a) -> str | None:

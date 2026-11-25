@@ -380,6 +380,25 @@ func (s *Service) run(ctx context.Context, op Op) {
 		}
 	case KindOSRollback:
 		s.set(&op, StateRunning, "", "going back to "+op.Version)
+		// Hold the update engine's lock from before Prepare until the box is down: an engine run in
+		// the delay would clear the version being left from bad-releases (it is still the running,
+		// committed one), and the security channel could then install it again.
+		release, err := s.Roll.Hold()
+		if err != nil {
+			var r *Refusal
+			if errors.As(err, &r) {
+				s.set(&op, StateFailed, r.Reason, r.Message)
+			} else {
+				s.set(&op, StateFailed, "host_error", "the rollback could not start; nothing changed: "+err.Error())
+			}
+			return
+		}
+		held := true
+		defer func() {
+			if held {
+				release()
+			}
+		}()
 		if err := s.Roll.Prepare(ctx, op.Version); err != nil {
 			var r *Refusal
 			if errors.As(err, &r) {
@@ -390,15 +409,21 @@ func (s *Service) run(ctx context.Context, op Op) {
 			return
 		}
 		select {
-		case <-ctx.Done(): // stopping: the slot is marked, the next boot goes back; Resume reports it
+		case <-ctx.Done():
+			// Stopping with the boot order already flipped: put it back (and the version we were
+			// leaving), or the box would go back at some later reboot while the request says failed.
+			s.Roll.Cancel(context.Background())
+			s.set(&op, StateFailed, "interrupted", "the host service stopped before the box went back; nothing changed")
 			return
 		case <-time.After(s.Delay):
 		}
 		s.set(&op, StateGoingDown, "", "going back to "+op.Version+"; rebooting into the previous system")
 		if err := s.Power.Reboot(ctx); err != nil {
-			s.Roll.Cancel(ctx)
+			s.Roll.Cancel(context.Background())
 			s.set(&op, StateFailed, "host_error", "restart failed: "+err.Error()+"; the box stays on the current version")
+			return
 		}
+		held = false // keep the lock until the box is down
 	case KindServiceRestart:
 		s.set(&op, StateRunning, "", "restarting "+op.Unit)
 		if err := s.Units.Restart(ctx, op.Unit); err != nil {
@@ -424,6 +449,28 @@ func (s *Service) run(ctx context.Context, op Op) {
 	}
 }
 
+// resumeRollback settles an os-rollback left open. Prepare has flipped the boot order, so every way
+// out must either confirm the box went back or flip it again: otherwise the box goes back at some
+// later reboot while the request says failed. Succeeded only when the running version is the one
+// the owner approved.
+func (s *Service) resumeRollback(op *Op, earlier bool) {
+	running := s.Roll.RunningVersion()
+	if earlier && running == op.Version {
+		s.set(op, StateSucceeded, "", "rebooted into the previous version "+op.Version+"; the health gate commits it (OS updates screen)")
+		return
+	}
+	// Still on the version being left (or something else): undo the flip, so nothing happens unasked.
+	s.Roll.Cancel(context.Background())
+	switch {
+	case op.State == StateGoingDown && earlier:
+		s.set(op, StateFailed, "not_rolled_back", fmt.Sprintf("the box restarted but runs %s, not the approved %s; the boot order was put back", orNone(running), op.Version))
+	case earlier:
+		s.set(op, StateFailed, "interrupted", "the box restarted before it went back (a power cut?); the boot order was put back")
+	default:
+		s.set(op, StateFailed, "interrupted", "the host service restarted before the box went back; the boot order was put back")
+	}
+}
+
 // Resume settles what the last run left open, at start: an action that took
 // the box down on an earlier boot succeeded; anything else left open was
 // interrupted, and is reported failed rather than run again unasked.
@@ -446,6 +493,8 @@ func (s *Service) Resume() error {
 			// The journal lives on /data, which the wipe erases: a record that
 			// survived a reboot means the box was not wiped.
 			s.set(&op, StateFailed, "not_wiped", "the box restarted but was not wiped (the early-boot wipe did not run)")
+		case op.Kind == KindOSRollback && s.Roll != nil:
+			s.resumeRollback(&op, earlier)
 		case op.State == StateGoingDown && earlier:
 			msg := map[string]string{
 				KindRestart:  "the box restarted",

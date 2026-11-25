@@ -782,3 +782,44 @@ func TestPlantedRootInStateIsNotAnAnchor(t *testing.T) {
 		t.Fatalf("err = %v candidate = %+v, want the genuine 0.1.1 from the image root", err, res.Candidate)
 	}
 }
+
+// P-16: after the owner goes back, the status says so (it used to keep "committed 0.1.1" and a
+// previous_version equal to the running one) and the history gets a went-back entry.
+func TestOwnerGoBackIsRecorded(t *testing.T) {
+	f := newFixture(t, "security", "window = any\n")
+	f.add("vm", "0.1.1", true)
+	f.publish(0)
+	if _, err := f.run(ModeScheduled); err != nil {
+		t.Fatal(err)
+	}
+	os.Remove(filepath.Join(f.dir, "gate", "pending"))
+	f.write("os-release", "ONEMIND_VERSION=\"0.1.1\"\nONEMIND_BOARD=\"vm\"\n")
+	if _, err := f.run(ModeScheduled); err != nil { // committed 0.1.1
+		t.Fatal(err)
+	}
+	// The host went back: the other slot (0.1.0) booted, and 0.1.1 is on the list with the owner's verdict.
+	f.write("os-release", "ONEMIND_VERSION=\"0.1.0\"\nONEMIND_BOARD=\"vm\"\n")
+	f.write("gate/bad-releases", "2026-11-12T03:05:00Z version=0.1.1 verdict=owner-rollback\n")
+	f.calls.log = nil
+	res, err := f.run(ModeScheduled)
+	if err != nil {
+		t.Fatal(err)
+	}
+	st := f.status()
+	if st.State != heartbeat.UpdateRolledBack || !strings.Contains(st.LastResult, "went back from 0.1.1 to 0.1.0 (owner request)") || st.PreviousVersion != "" {
+		t.Fatalf("status %+v", st)
+	}
+	if len(st.History) != 2 || st.History[0].Detail != "owner rollback" || st.History[0].From != "0.1.1" || st.History[0].To != "0.1.0" {
+		t.Fatalf("history %+v", st.History)
+	}
+	if res.Decision != DecideNothing || len(f.calls.log) != 0 {
+		t.Fatalf("0.1.1 was offered again: %s %v", res.Decision, f.calls.log)
+	}
+	// A later run does not record it twice.
+	if _, err := f.run(ModeScheduled); err != nil {
+		t.Fatal(err)
+	}
+	if st := f.status(); len(st.History) != 2 {
+		t.Fatalf("history %+v", st.History)
+	}
+}
