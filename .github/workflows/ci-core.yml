@@ -68,7 +68,7 @@ jobs:
     # GitHub-hosted. docs/learning/self-hosted-runner.md
     # merge_group only runs code already approved into the queue, so it is always trusted (no fork check); MQ_RUNNER unset keeps the old routing.
     runs-on: ${{ (vars.MQ_RUNNER == 'on' && github.event_name == 'merge_group') && fromJSON('["self-hosted","onemind-mq"]') || (vars.DO_RUNNER == 'on' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","onemind-do"]') || (vars.LOCAL_RUNNER == 'on' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","onemind-local"]') || 'ubuntu-24.04' }}
-    timeout-minutes: 40   # a safety net; a shard takes about 15 min (CI-03 target: under 20)
+    timeout-minutes: 60   # a safety net (raised from 40, founder 2026-11-23); a shard takes about 15 min (CI-03 target: under 20)
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.plan.outputs.sqlite) }}
@@ -118,7 +118,7 @@ jobs:
     needs: plan
     if: needs.plan.outputs.run_postgresql == 'true'
     runs-on: ubuntu-24.04   # service containers need Docker; the local runner has none
-    timeout-minutes: 40   # a safety net; a shard takes about 15 min (CI-03 target: under 20)
+    timeout-minutes: 60   # a safety net (raised from 40, founder 2026-11-23); a shard takes about 15 min (CI-03 target: under 20)
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.plan.outputs.postgresql) }}
