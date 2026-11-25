@@ -13,6 +13,8 @@ case "$FW" in yes) COMP="main non-free-firmware" ;; no) COMP=main ;; *) echo "fi
 cat > /etc/apt/apt.conf.d/90onemind <<'CONF'
 APT::Install-Recommends "false";
 APT::Install-Suggests "false";
+Acquire::Languages "none";
+APT::Keep-Downloaded-Packages "false";
 Acquire::Retries "8";
 Acquire::http::Timeout "120";
 CONF

@@ -6,13 +6,37 @@
 #   rauc-build  OneMind's RAUC v1.15.2 from the pinned commit (B4.1)
 #   rootfs      the OS tree for one board; exported as a tar and assembled by os/assemble/
 #   tools       the assembler's own toolbox (sgdisk, mkfs, mtools, RAUC 1.15.2, QEMU + firmware)
-# Build args (os/rootfs/debian.args or ubuntu.args): BASE (image@digest), LEG, SNAPSHOT; BOARD.
+# Build args (os/rootfs/debian.args or ubuntu.args): BASE (image@digest; on the Debian leg it only hosts mmdebstrap), LEG, SNAPSHOT; BOARD.
 #   docker buildx build -f os/rootfs/Containerfile --target rootfs --build-arg BOARD=x86_64-efi \
 #     $(sed -n 's/^\([A-Z]*=.*\)/--build-arg \1/p' os/rootfs/debian.args) --output type=tar,dest=rootfs.tar .
 ARG BASE=docker.io/library/debian:trixie@sha256:9c6e381421d0f48d1b8133e573f33c185ee16cbf505eda9c4a8a4791b25ea8a6
+ARG LEG=debian
 
 # ---------------------------------------------------------------- base: pinned archive
-FROM ${BASE} AS base
+# Debian leg (the shipping base, D-007): the tree is made by mmdebstrap straight from the pinned snapshot
+# (os/rootfs/sources/mkbase.sh), so none of the Docker Hub image's container leftovers (policy-rc.d, docker-* apt and
+# dpkg files) are in it. BASE then only hosts mmdebstrap. Ubuntu leg (CI hedge): BASE is the base itself, as before.
+# Two copies of each stage: one for the target platform and one for the build machine (the toolchain stages below).
+FROM ${BASE} AS bootstrap
+ARG SNAPSHOT=20261111T000000Z
+ARG SOURCE_DATE_EPOCH
+COPY os/rootfs/sources/ /tmp/sources/
+RUN sh /tmp/sources/mkbase.sh "$SNAPSHOT" /newroot
+FROM scratch AS base-debian
+COPY --from=bootstrap /newroot/ /
+
+FROM --platform=$BUILDPLATFORM ${BASE} AS bootstrap-build
+ARG SNAPSHOT=20261111T000000Z
+ARG SOURCE_DATE_EPOCH
+COPY os/rootfs/sources/ /tmp/sources/
+RUN sh /tmp/sources/mkbase.sh "$SNAPSHOT" /newroot
+FROM --platform=$BUILDPLATFORM scratch AS base-debian-build
+COPY --from=bootstrap-build /newroot/ /
+
+FROM ${BASE} AS base-ubuntu
+FROM --platform=$BUILDPLATFORM ${BASE} AS base-ubuntu-build
+
+FROM base-${LEG} AS base
 ARG LEG=debian
 ARG SNAPSHOT=20261111T000000Z
 # FIRMWARE=yes (default) enables Debian's non-free-firmware component; FIRMWARE=no is the fully open
@@ -21,6 +45,10 @@ ARG FIRMWARE=yes
 ENV DEBIAN_FRONTEND=noninteractive LC_ALL=C.UTF-8
 COPY os/rootfs/sources/configure-apt.sh /usr/local/sbin/onemind-configure-apt
 RUN onemind-configure-apt "$LEG" "$SNAPSHOT" "$FIRMWARE"
+# Build-time only, removed again at the end of the rootfs stage: a container has no init, so packages must not start
+# their services (policy-rc.d exit 101), and dpkg need not fsync a build that restarts clean anyway.
+RUN printf '#!/bin/sh\nexit 101\n' > /usr/sbin/policy-rc.d && chmod 755 /usr/sbin/policy-rc.d \
+ && printf 'force-unsafe-io\n' > /etc/dpkg/dpkg.cfg.d/onemind-build-speedup
 
 # ---------------------------------------------------------------- RAUC from source (B4.1)
 FROM base AS rauc-build
@@ -37,7 +65,7 @@ RUN build-rauc.sh /opt/rauc-dest
 # wheels: uv runs on the build machine only (fetch the target's Python, export core/uv.lock with
 # hashes, build the project wheel), then the target's own Python and pip make the venv with
 # --require-hashes (uv itself crashes under qemu-user emulation; docs/leap/core/IMAGES.md §2).
-FROM --platform=$BUILDPLATFORM ${BASE} AS onemind-buildbase
+FROM --platform=$BUILDPLATFORM base-${LEG}-build AS onemind-buildbase
 ARG LEG=debian
 ARG SNAPSHOT=20261111T000000Z
 ENV DEBIAN_FRONTEND=noninteractive LC_ALL=C.UTF-8
@@ -275,6 +303,9 @@ RUN set -eu; \
     # (os/assemble/assemble.py reset_machine_id empties it again per image), ldconfig's cache of directory mtimes \
     # (rebuilt by ldconfig on demand) and update-alternatives' timestamped log. \
     rm -f /etc/machine-id /var/lib/dbus/machine-id /var/cache/ldconfig/aux-cache /var/log/alternatives.log; : > /etc/machine-id; \
+    # The build-time policy-rc.d and dpkg speedup (stage base), and any container-image leftovers a stock Ubuntu base \
+    # brings: none may ship (a policy-rc.d would stop every service start on the box). \
+    rm -f /usr/sbin/policy-rc.d /etc/dpkg/dpkg.cfg.d/onemind-build-speedup /etc/apt/apt.conf.d/docker-* /etc/dpkg/dpkg.cfg.d/docker-*; \
     cat /usr/lib/onemind/build-info.txt
 
 # ---------------------------------------------------------------- assembler / test toolbox
