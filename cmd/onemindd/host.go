@@ -16,6 +16,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/onemindos/onemindos/internal/flatpak"
 	"github.com/onemindos/onemindos/internal/host"
 	"github.com/onemindos/onemindos/internal/netview"
 	"github.com/onemindos/onemindos/internal/smb"
@@ -62,9 +63,10 @@ func runHost(args []string) int {
 	units := &svcregistry.Reader{Version: version.Version} // service cards, logs and approved restarts (#623, #636)
 	svc := &host.Service{Power: host.Systemd{}, OS: &host.UpdateEngine{ConfigPath: *conf, Log: log},
 		BootID: host.BootID(), Delay: *delay, Log: log,
-		Reset: &host.FactoryReset{},
-		Units: units,
-		SMB:   &smb.Manager{P: smb.DefaultPaths(), Run: smb.ExecRunner{}}}
+		Reset:   &host.FactoryReset{},
+		Units:   units,
+		SMB:     &smb.Manager{P: smb.DefaultPaths(), Run: smb.ExecRunner{}},
+		Flatpak: flatpak.NewDefault()}
 	if st, err := host.OpenStore(*journal); err != nil {
 		log.Error("host journal unavailable: status only, every action refused", "dir", *journal, "err", err)
 	} else {

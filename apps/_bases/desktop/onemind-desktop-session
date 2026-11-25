@@ -1,0 +1,31 @@
+#!/bin/sh
+# SPDX-License-Identifier: Apache-2.0
+# Runs the Flathub app an owner asked to open (issue #1097), on this session's own screen. The box writes the app id to
+# the launch file (internal/flatpak Launch); each new write starts that app, and stops the one before it. Only an
+# application id is ever run: anything else in the file is ignored. The Flatpak installation is /data/onemind/flatpak,
+# mounted read-only, and every app keeps the sandbox the box gave it (one granted folder, no host files).
+set -eu
+# Per-user overrides (~/.local/share/flatpak/overrides) would let anything running as this user widen an app's
+# sandbox. Point Flatpak's user directory at an empty read-only one (made in the Dockerfile) so none can exist.
+FLATPAK_USER_DIR="${ONEMIND_FLATPAK_USER_DIR:-/usr/share/onemind-flatpak-user}"
+export FLATPAK_USER_DIR
+FILE="${ONEMIND_LAUNCH_FILE:-/data/onemind/desktop-session/launch}"
+STAMP="${TMPDIR:-/tmp}/onemind-desktop-session.stamp"
+pid=""
+while :; do
+  # find -newer is POSIX; the test builtin's newer-than operator is not (shellcheck SC3013 on some versions).
+  if [ -f "$FILE" ] && { [ ! -e "$STAMP" ] || [ -n "$(find "$FILE" -newer "$STAMP" 2>/dev/null)" ]; }; then
+    touch "$STAMP"
+    want=$(head -n 1 "$FILE" 2>/dev/null || true)
+    case "$want" in
+      "" | -* | *[!A-Za-z0-9._-]*) want="" ;;
+    esac
+    if [ -n "$want" ]; then
+      if [ -n "$pid" ]; then kill "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true; fi
+      flatpak run --installation=onemind "$want" &
+      pid=$!
+      [ -z "${ONEMIND_SESSION_ONCE:-}" ] || { wait "$pid" || true; exit 0; }
+    fi
+  fi
+  sleep 2
+done

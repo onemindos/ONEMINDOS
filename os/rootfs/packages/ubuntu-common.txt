@@ -12,6 +12,9 @@ ca-certificates curl socat zstd squashfs-tools
 apparmor
 avahi-daemon avahi-utils openssl
 samba samba-vfs-modules libnss-extrausers
+# Desktop apps from Flathub (#1097): Flatpak itself. One system installation on /data (installations.d/onemind.conf), so the
+# read-only root is untouched and the apps survive a reboot and an A/B update. No remote is added until an owner searches.
+flatpak
 # NAS client tools (#871): mount an SMB or NFS share from a NAS as a Files location (#718). Clients only: no
 # nfs-kernel-server or ksmbd-tools, and the rpcbind and nfs-client units nfs-common enables are disabled below
 # (os/rootfs/Containerfile); rpc-statd still starts on demand for an NFSv3 lock. The kernel's cifs and nfs modules
