@@ -9,7 +9,7 @@ import type { Tone } from '../tokens/tokens';
 import { matchSection } from './logic';
 import { SetIcon, type SetIconName } from './primitives';
 
-export type SettingsSectionId = 'default-apps' | 'appearance' | 'account' | 'users' | 'devices' | 'network' | 'backups' | 'updates' | 'notifications' | 'automation' | 'agents' | 'storage' | 'apps' | 'care' | 'about' | 'time' | 'recovery' | 'security' | 'permissions' | 'activity-monitor';
+export type SettingsSectionId = 'default-apps' | 'appearance' | 'account' | 'users' | 'devices' | 'network' | 'backups' | 'updates' | 'notifications' | 'automation' | 'agents' | 'storage' | 'apps' | 'care' | 'about' | 'time' | 'recovery' | 'security' | 'permissions' | 'activity-monitor' | 'accessibility';
 
 export interface SettingsSectionMeta {
   id: SettingsSectionId;
@@ -21,6 +21,7 @@ export interface SettingsSectionMeta {
 }
 
 export const SETTINGS_SECTIONS: SettingsSectionMeta[] = [
+  { id: 'accessibility', label: 'Accessibility and motion', icon: 'eye', group: 'You', keywords: ['reduce motion', 'text size', 'contrast', 'focus', 'underline'] },
   { id: 'appearance', label: 'Appearance', icon: 'eye', group: 'You', keywords: ['theme', 'dark', 'light', 'accent', 'wallpaper', 'colour', 'color', 'density', 'font'] },
   { id: 'default-apps', label: 'Default apps', icon: 'settings', group: 'You', keywords: ['open with', 'preferred', 'browser'] },
   { id: 'account', label: 'Account & security', icon: 'lock', group: 'People and access', keywords: ['passkey', 'password', 'sessions', 'tokens', 'sign in', '2fa', 'totp'] },
