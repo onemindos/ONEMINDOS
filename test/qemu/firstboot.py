@@ -777,7 +777,7 @@ def main():
             vm.mark("F3 reboot keeps state")
             seg = vm.here(); vm.send("systemctl reboot")
             al = vm.expect(ALREADY, 900).group(0)
-            g3 = vm.wait_gate(); vm.shell_ready()
+            g3 = vm.wait_gate(since=seg); vm.shell_ready()
             new_toks = TOKEN.findall(vm.since(seg))
             ids3 = ident(vm)
             hz3 = http_code(vm, f"{GW}/healthz", timeout=900)
