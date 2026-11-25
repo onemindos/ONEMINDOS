@@ -100,7 +100,7 @@ func TestPluginAliasPreservesAppTree(t *testing.T) {
 		if code := Run([]string{root, "--help"}, Env{Stdout: &stdout, Stderr: &stderr}); code != ExitOK {
 			t.Fatalf("%s: %d %s", root, code, &stderr)
 		}
-		for _, command := range []string{"check", "dev", "init", "new", "pack", "validate"} {
+		for _, command := range []string{"check", "dev", "init", "new", "pack", "test", "validate"} {
 			if !strings.Contains(stdout.String(), "  "+command+" ") {
 				t.Fatalf("%s help does not list %s: %s", root, command, &stdout)
 			}
