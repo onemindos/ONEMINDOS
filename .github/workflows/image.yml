@@ -187,6 +187,9 @@ jobs:
       # because `make firstboot` removes the work disk it copied, and this copies the fixture disk again.
       - name: Boot menu lock (B1-B6)
         run: make bootlock BOARD=x86_64-efi TOOLS=onemind-tools:ci
+      # Power cut in the first minute (F13, F14, CRITERIA-FIRSTBOOT.md section 9; VM 501 bug 1): own VM, own work dir.
+      - name: Power cut in the first minute (F13, F14)
+        run: make powercut BOARD=x86_64-efi TOOLS=onemind-tools:ci
       - name: Summary and trimmed log
         if: always()
         run: |
