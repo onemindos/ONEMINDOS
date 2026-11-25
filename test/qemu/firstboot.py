@@ -112,7 +112,11 @@ def ident(vm):
 def f0(vm, board):
     import yaml
     lock = yaml.safe_load(open(os.path.join(SRC, "os", "versions.lock.yaml")))
-    want = lock["onemind_layer"]["nats_server"][ARCH[board]]["binary"]
+    nats = lock["onemind_layer"]["nats_server"]
+    want = nats[ARCH[board]]["binary"]
+    # The version comes from the same lock the image build reads (fetch-onemind.sh), so a pin bump cannot
+    # leave a stale hard-coded string here.
+    nats_ver = re.escape(str(nats["version"]))
     _, out = vm.run("onemindd -version; onemind version; nats-server --version; "
                     "echo NATSSHA=$(sha256sum /usr/bin/nats-server | cut -c1-64); "
                     f"{PY} -I -c 'import onemind_core; print(\"GATEWAY-IMPORT ok\")'; "
@@ -121,7 +125,7 @@ def f0(vm, board):
     c = {
         "onemindd": re.search(r"^onemindd \S+", out, re.M) is not None,
         "onemind_cli": re.search(r"^onemind \S+", out, re.M) is not None,
-        "nats_server_runs": re.search(r"nats-server: v2\.15\.2", out) is not None,
+        "nats_server_runs": re.search(rf"nats-server: {nats_ver}\s*$", out, re.M) is not None,
         "nats_sha256_pinned": f"NATSSHA={want}" in out,
         "gateway_imports": "GATEWAY-IMPORT ok" in out,
         "dashboard": "DASH ok" in out,
