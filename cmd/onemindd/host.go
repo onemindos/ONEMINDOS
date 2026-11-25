@@ -29,6 +29,7 @@ import (
 const hostUsage = `usage:
   onemindd host serve [--socket PATH] [--user NAME] [--journal DIR] [--update-conf FILE] [--delay 3s]
   onemindd host apply-hostname [--file PATH]   at boot: give the box the name the owner saved (before avahi)
+  onemindd host mdns-aliases [--file PATH]     keep answering to the old names (onemind.local, the name before a rename)
   onemindd host plan factory-reset    print what a factory reset would erase and keep (JSON, read-only, root)
   onemindd factory-reset wipe [--esp DIR]   early boot only: run the armed reset (onemind-factory-reset.service)
 `
@@ -44,6 +45,9 @@ func runHost(args []string) int {
 		enc.SetIndent("", "  ")
 		_ = enc.Encode(p)
 		return 0
+	}
+	if len(args) >= 1 && args[0] == "mdns-aliases" {
+		return runMDNSAliases(args[1:])
 	}
 	if len(args) >= 1 && args[0] == "apply-hostname" {
 		return runApplyHostname(args[1:])
@@ -181,6 +185,23 @@ func runApplyHostname(args []string) int {
 	}
 	if name != "" {
 		fmt.Println("host name:", name)
+	}
+	return 0
+}
+
+// runMDNSAliases is `onemindd host mdns-aliases`, run by onemind-mdns-aliases.service: after a rename the box
+// keeps answering to onemind.local and its old name (P-05), because avahi publishes only the host name.
+func runMDNSAliases(args []string) int {
+	fs := flag.NewFlagSet("onemindd host mdns-aliases", flag.ContinueOnError)
+	file := fs.String("file", host.DefaultAliasesFile, "the saved old names, one per line")
+	if fs.Parse(args) != nil {
+		return 2
+	}
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	if err := host.RunAliases(ctx, *file, 15*time.Second); err != nil {
+		fmt.Fprintln(os.Stderr, "mdns-aliases:", err)
+		return 1
 	}
 	return 0
 }

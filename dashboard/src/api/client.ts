@@ -2,6 +2,7 @@
 import type { WiringApi } from './wiring';
 import { getPasskey } from '../lib/webauthn';
 import { withProtocol } from '../lib/protocol';
+import { uuidv4 } from '../lib/uuid';
 import type * as W from './wiring';
 import { OneMind, OneMindError, type components, type operations } from '@onemind/sdk';
 import type { FabricSummary, JoinTicket, MeshView } from '@onemind/ui';
@@ -274,7 +275,7 @@ export class HttpApi implements OneMindApi {
   }
   /** One PUT, never retried; the key makes an unseen retry by the person replay the same action. */
   renameInstance(name: string) {
-    return this.sdkCall<Action>('PUT', '/v1/instance/name', { name, idempotency_key: crypto.randomUUID() });
+    return this.sdkCall<Action>('PUT', '/v1/instance/name', { name, idempotency_key: uuidv4() });
   }
   nodes() {
     return this.req<NodeRecord[]>('GET', '/v1/nodes', undefined, 'array');

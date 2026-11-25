@@ -87,6 +87,7 @@ func TestSystemHostnameSavesTheNameAndAsksHostnamedAndAvahi(t *testing.T) {
 		t.Skip("this machine's host name is not a node name")
 	}
 	h := SystemHostname{File: filepath.Join(dir, "etc", "hostname"), K3sEnv: filepath.Join(dir, "etc", "k3s.env"), Hosts: hosts,
+		Aliases: filepath.Join(dir, "etc", "mdns-aliases"),
 		Run: func(_ context.Context, name string, args ...string) ([]byte, error) {
 			calls = append(calls, name+" "+strings.Join(args, " "))
 			return nil, nil
@@ -104,12 +105,19 @@ func TestSystemHostnameSavesTheNameAndAsksHostnamedAndAvahi(t *testing.T) {
 	if b, _ := os.ReadFile(hosts); string(b) != "127.0.0.1\tlocalhost\n127.0.1.1\tkitchen\n::1\t\tlocalhost\n" {
 		t.Fatalf("hosts %q", b)
 	}
-	want := []string{"systemctl start onemind-hostname.service", "systemctl try-restart avahi-daemon.service"}
+	want := []string{"systemctl start onemind-hostname.service", "systemctl try-restart avahi-daemon.service", "systemctl restart onemind-mdns-aliases.service"}
 	if strings.Join(calls, "|") != strings.Join(want, "|") {
 		t.Fatalf("calls %v", calls)
 	}
+	// The old names keep answering: onemind.local and the name the box had until now.
+	if got := ReadAliases(h.Aliases); strings.Join(got, ",") != strings.Join(MergeAliases(nil, strings.ToLower(old), "kitchen"), ",") {
+		t.Fatalf("aliases after the first rename: %v", got)
+	}
 	if err := h.Set(context.Background(), "garage"); err != nil {
 		t.Fatal(err)
+	}
+	if got := ReadAliases(h.Aliases); strings.Join(got, ",") != strings.Join(MergeAliases([]string{"kitchen", "onemind"}, strings.ToLower(old), "garage"), ",") {
+		t.Fatalf("aliases after the second rename: %v", got)
 	}
 	if b, _ := os.ReadFile(h.K3sEnv); string(b) != "K3S_NODE_NAME="+strings.ToLower(old)+"\n" {
 		t.Fatalf("a second rename moved the node name pin: %q", b)
@@ -124,8 +132,80 @@ func TestSystemHostnameSavesTheNameAndAsksHostnamedAndAvahi(t *testing.T) {
 	h.Run = func(context.Context, string, ...string) ([]byte, error) {
 		return []byte("denied"), errors.New("exit 1")
 	}
-	if err := h.Set(context.Background(), "garage"); err == nil || !strings.Contains(err.Error(), "denied") {
+	if err := h.Set(context.Background(), "attic"); err == nil || !strings.Contains(err.Error(), "denied") {
 		t.Fatalf("helper unit failure must surface: %v", err)
+	}
+	// The failed rename is rolled back on disk: the next boot must not apply a name the owner was told failed.
+	if b, _ := os.ReadFile(h.File); string(b) != "garage\n" {
+		t.Fatalf("a failed rename left %q in the saved name", b)
+	}
+	if got := ReadAliases(h.Aliases); strings.Contains(strings.Join(got, ","), "attic") {
+		t.Fatalf("a failed rename left aliases %v", got)
+	}
+}
+
+func TestSystemHostnameRollsBackWhenTheHostsFileFails(t *testing.T) {
+	dir := t.TempDir()
+	hosts := filepath.Join(dir, "hosts-dir") // a directory: rewriting it fails
+	if err := os.Mkdir(hosts, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Hostname(); err != nil {
+		t.Skip(err)
+	}
+	var calls []string
+	h := SystemHostname{File: filepath.Join(dir, "hostname"), K3sEnv: filepath.Join(dir, "k3s.env"), Hosts: hosts,
+		Aliases: filepath.Join(dir, "mdns-aliases"), NoMDNS: true,
+		Run: func(_ context.Context, name string, args ...string) ([]byte, error) {
+			calls = append(calls, name+" "+strings.Join(args, " "))
+			return nil, nil
+		}}
+	if err := os.WriteFile(h.File, []byte("garage\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := h.Set(context.Background(), "attic"); err == nil {
+		t.Fatal("a hosts file failure must fail the rename")
+	}
+	if b, _ := os.ReadFile(h.File); string(b) != "garage\n" {
+		t.Fatalf("saved name not restored: %q", b)
+	}
+	if _, err := os.Stat(h.Aliases); !os.IsNotExist(err) {
+		t.Fatalf("alias list not removed: %v", err)
+	}
+	// The helper ran again so the running name goes back to the restored one.
+	if len(calls) != 2 || calls[1] != "systemctl start onemind-hostname.service" {
+		t.Fatalf("calls %v", calls)
+	}
+}
+
+func TestAvahiFailureAfterTheRenameIsOnlyAWarning(t *testing.T) {
+	dir := t.TempDir()
+	if _, err := os.Hostname(); err != nil {
+		t.Skip(err)
+	}
+	h := SystemHostname{File: filepath.Join(dir, "hostname"), K3sEnv: filepath.Join(dir, "k3s.env"), Hosts: filepath.Join(dir, "none"),
+		Aliases: filepath.Join(dir, "mdns-aliases"),
+		Run: func(_ context.Context, _ string, args ...string) ([]byte, error) {
+			if len(args) > 1 && args[1] == "avahi-daemon.service" {
+				return []byte("no avahi"), errors.New("exit 1")
+			}
+			return nil, nil
+		}}
+	if err := h.Set(context.Background(), "attic"); err != nil {
+		t.Fatalf("the box is renamed; an avahi failure must not report failure: %v", err)
+	}
+	if b, _ := os.ReadFile(h.File); string(b) != "attic\n" {
+		t.Fatalf("saved name %q", b)
+	}
+}
+
+func TestMergeAliases(t *testing.T) {
+	got := MergeAliases([]string{"old", "BAD NAME", " kitchen "}, "garage", "kitchen")
+	if strings.Join(got, ",") != "garage,old,onemind" {
+		t.Fatalf("%v", got)
+	}
+	if got := MergeAliases(nil, "onemind", "onemind"); len(got) != 0 {
+		t.Fatalf("the current name is never an alias: %v", got)
 	}
 }
 

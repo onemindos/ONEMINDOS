@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from .ca import BOX_RE, MESH_NETS, box_name_from_hostname
+from .ca import BOX_RE, MESH_NETS, box_name_from_hostname, existing_box_name
 from .netpath import parse_networks
 from .sections import config_section
 
@@ -86,6 +86,11 @@ class NetSettings:
         if renamed and BOX_RE.match(renamed):
             return renamed
         return self.box_name or box_name_from_hostname(socket.gethostname())
+
+    def tls_box(self, tls_dir: Path) -> str:
+        """The box name for TLS: the one the existing CA was made with, else box(). A rename must not move the
+        certificate's names outside that CA's name constraints (P-05)."""
+        return existing_box_name(tls_dir) or self.box()
 
     def box_domains(self) -> tuple[str, ...]:
         """Suffixes app hosts live under: <app>.onemind.local, <app>.<box>.local, <app>.apps.onemind.internal."""

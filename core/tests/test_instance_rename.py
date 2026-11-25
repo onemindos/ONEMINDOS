@@ -109,7 +109,7 @@ def test_the_name_is_still_open_to_everyone_before_sign_in(settings, clock):
         assert c.get("/v1/instance/name").status_code == 200
 
 
-def test_the_box_certificate_and_join_qr_follow_the_saved_name(tmp_path):
+def test_the_box_name_follows_the_saved_name(tmp_path):
     from onemind_core.netconf import NetSettings
 
     f = tmp_path / "hostname"
@@ -119,3 +119,52 @@ def test_the_box_certificate_and_join_qr_follow_the_saved_name(tmp_path):
     assert net.box() == "kitchen" and net.box_domains()[1] == "kitchen.local"
     f.write_text("../etc\n")
     assert net.box() == "onemind"  # a file that is not a DNS label is ignored
+
+
+def _verify(leaf_pem: bytes, ca_pem: bytes, name: str) -> None:
+    """Verify the way a strict client does (RFC 5280 incl. name constraints) against the box's ca.crt."""
+    from cryptography import x509
+    from cryptography.x509.verification import PolicyBuilder, Store
+
+    store = Store([x509.load_pem_x509_certificate(ca_pem)])
+    leaf = x509.load_pem_x509_certificates(leaf_pem)[0]
+    verifier = PolicyBuilder().store(store).build_server_verifier(x509.DNSName(name))
+    verifier.verify(leaf, [])
+
+
+def test_a_rename_keeps_the_https_certificate_inside_the_ca_constraints(tmp_path):
+    """The CA's name constraints are fixed for its life: after a rename the certificate keeps the names the CA
+    permits, so it still verifies against the existing ca.crt, and the join URL names a name the cert covers."""
+    from onemind_core.ca import BoxCA, existing_box_name
+    from onemind_core.netconf import NetSettings
+
+    tls, f = tmp_path / "tls", tmp_path / "hostname"
+    net = NetSettings(box_name="oldbox", hostname_file=f)
+    first = BoxCA(tls, net.tls_box(tls)).ensure_https_cert()
+    ca_pem = (tls / "ca.crt").read_bytes()
+    _verify(first.cert_path.read_bytes(), ca_pem, "oldbox.local")
+    assert existing_box_name(tls) == "oldbox"
+
+    f.write_text("kitchen\n")  # the owner renamed the box
+    assert net.box() == "kitchen" and net.tls_box(tls) == "oldbox"
+    after = BoxCA(tls, net.tls_box(tls)).ensure_https_cert()  # what serve.https_cert does on the restart
+    assert (tls / "ca.crt").read_bytes() == ca_pem  # the CA is never replaced
+    for name in ("oldbox.local", "onemind.local", "files.oldbox.local"):
+        _verify(after.cert_path.read_bytes(), ca_pem, name)
+    assert not any("kitchen" in n for n in after.dns_names)
+    # With the new name the old code issued kitchen.local, which no strict client accepts under this CA.
+    bad = BoxCA(tls, "kitchen")
+    with pytest.raises(ValueError):
+        bad.issue("bad", ["kitchen.local"])
+    # The certificate does not flip between name sets across restarts, whichever box name the caller starts from.
+    again = BoxCA(tls, existing_box_name(tls) or "onemind").ensure_https_cert()
+    assert sorted(again.dns_names) == sorted(after.dns_names)
+    assert after.not_after == again.not_after  # unchanged, not re-issued
+
+
+def test_before_a_ca_exists_the_tls_name_is_the_box_name(tmp_path):
+    from onemind_core.netconf import NetSettings
+
+    f = tmp_path / "hostname"
+    f.write_text("kitchen\n")
+    assert NetSettings(box_name="onemind", hostname_file=f).tls_box(tmp_path / "tls") == "kitchen"

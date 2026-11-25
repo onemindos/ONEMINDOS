@@ -5,6 +5,7 @@ package host
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -24,6 +25,8 @@ const (
 	// volumes belong to the old one, so the first rename pins the old name here (k3s.service reads it as an
 	// EnvironmentFile; os/gate/onemind-k3s-check reads it too).
 	DefaultK3sEnv = "/data/onemind/etc/k3s.env"
+	// The old names the box keeps answering to over mDNS (one per line), published by onemind-mdns-aliases.service.
+	DefaultAliasesFile = "/data/onemind/etc/mdns-aliases"
 )
 
 var nodeNameRe = regexp.MustCompile(`^[a-z0-9]([a-z0-9.-]{0,251}[a-z0-9])?$`)
@@ -40,11 +43,12 @@ func execRunner(ctx context.Context, name string, args ...string) ([]byte, error
 // and restarts avahi so <name>.local answers at once. onemind-host.service has ProtectHostname=yes, so it
 // cannot call sethostname itself: the helper unit does it for the whole box.
 type SystemHostname struct {
-	File   string // DefaultHostnameFile
-	K3sEnv string // DefaultK3sEnv
-	Hosts  string // the hosts file to rewrite in place (default DefaultHostsSource, the file /etc/hosts is a bind mount of)
-	Run    Runner
-	NoMDNS bool // tests: do not restart avahi
+	File    string // DefaultHostnameFile
+	K3sEnv  string // DefaultK3sEnv
+	Aliases string // DefaultAliasesFile
+	Hosts   string // the hosts file to rewrite in place (default DefaultHostsSource, the file /etc/hosts is a bind mount of)
+	Run     Runner
+	NoMDNS  bool // tests: do not restart avahi
 }
 
 func (h SystemHostname) run() Runner {
@@ -66,16 +70,44 @@ func (h SystemHostname) Set(ctx context.Context, name string) error {
 	if err := h.pinNodeName(file); err != nil {
 		return fmt.Errorf("keeping the Kubernetes node's name: %w", err)
 	}
+	aliasFile := h.Aliases
+	if aliasFile == "" {
+		aliasFile = DefaultAliasesFile
+	}
+	prevName, hadName := readOptional(file)
+	prevAliases, hadAliases := readOptional(aliasFile)
+	// The names the box answered to until now keep answering (onemind.local, the old <name>.local), because
+	// passkeys, join codes, the certificate and the apps all use them. They are published as mDNS aliases.
+	current, _ := CurrentHostname(file)
+	aliases := MergeAliases(strings.Split(string(prevAliases), "\n"), current, name)
 	if err := WriteFileAtomic(file, []byte(name+"\n"), 0o644); err != nil {
 		return fmt.Errorf("saving the name on the data partition: %w", err)
+	}
+	// Any failure from here on puts the saved name (and the alias list) back, so the next boot does not apply a
+	// name the owner was told failed. The running name is switched back too when it was already changed.
+	applied := false
+	rollback := func() {
+		restoreOptional(file, prevName, hadName)
+		restoreOptional(aliasFile, prevAliases, hadAliases)
+		if applied && hadName {
+			rctx, rcancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer rcancel()
+			_, _ = h.run()(rctx, "systemctl", "start", "onemind-hostname.service")
+		}
+	}
+	if err := WriteFileAtomic(aliasFile, []byte(strings.Join(aliases, "\n")+"\n"), 0o644); err != nil {
+		rollback()
+		return fmt.Errorf("saving the old names: %w", err)
 	}
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	// onemind-hostname.service reads the saved name and sets the kernel host name (this unit's own sandbox has a
 	// private host name, so it cannot; hostnamed would also keep the static name from /etc/hostname).
 	if out, err := h.run()(ctx, "systemctl", "start", "onemind-hostname.service"); err != nil {
+		rollback()
 		return fmt.Errorf("applying the name: %w: %s", err, strings.TrimSpace(string(out)))
 	}
+	applied = true
 	// /etc/hosts is a bind mount of the data partition's file and this unit's root is read-only (ProtectSystem=strict),
 	// so the source file is rewritten: same inode, so /etc/hosts shows it at once. No such file (a board without the
 	// bind): nothing to fix, the name still works without the 127.0.1.1 line.
@@ -87,17 +119,46 @@ func (h SystemHostname) Set(ctx context.Context, name string) error {
 		}
 	}
 	if hosts != "" {
+		prevHosts, hadHosts := readOptional(hosts)
 		if err := RewriteLoopbackName(hosts, name); err != nil {
+			restoreOptional(hosts, prevHosts, hadHosts)
+			rollback()
 			return fmt.Errorf("updating the hosts file: %w", err)
 		}
 	}
+	// From here the box is renamed: the kernel name, the saved name and the hosts file agree. mDNS trouble is only
+	// a warning, because failing the op now would tell the owner the rename failed while the box has the new name.
 	if !h.NoMDNS {
 		// avahi reads the host name when it starts. try-restart: a box without avahi is not an error.
 		if out, err := h.run()(ctx, "systemctl", "try-restart", "avahi-daemon.service"); err != nil {
-			return fmt.Errorf("restarting avahi: %w: %s", err, strings.TrimSpace(string(out)))
+			log.Printf("host: renamed to %s, but avahi did not restart (%v: %s); other devices see the new name after the next boot",
+				name, err, strings.TrimSpace(string(out)))
+		}
+		// The alias publisher re-reads its list: restart (not try-restart) so a first rename starts it.
+		if out, err := h.run()(ctx, "systemctl", "restart", "onemind-mdns-aliases.service"); err != nil {
+			log.Printf("host: renamed to %s, but the old names are not published (%v: %s)", name, err, strings.TrimSpace(string(out)))
 		}
 	}
 	return nil
+}
+
+// readOptional returns a file's content and whether it existed.
+func readOptional(path string) ([]byte, bool) {
+	b, err := os.ReadFile(path)
+	return b, err == nil
+}
+
+// restoreOptional puts a file back as it was: the old content, or no file when there was none.
+func restoreOptional(path string, content []byte, existed bool) {
+	if existed {
+		if err := os.WriteFile(path, content, 0o644); err != nil {
+			log.Printf("host: could not restore %s: %v", path, err)
+		}
+		return
+	}
+	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+		log.Printf("host: could not remove %s: %v", path, err)
+	}
 }
 
 // pinNodeName writes K3S_NODE_NAME=<the name the box has now> unless a pin already exists, before the name changes.

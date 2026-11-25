@@ -70,8 +70,10 @@ def register(app: FastAPI, gw: Gateway) -> None:
             svc.save({k: before[k] for k in ("time_zone", "backup_choice", "backup_destination_id")} | {"box_name": name})
 
         def done(result: ExecResult) -> None:
-            if result.outcome == "failed" and before["saved"] and svc.read()["box_name"] == name:
-                svc.save({k: before[k] for k in ("box_name", "time_zone", "backup_choice", "backup_destination_id")})
+            # Put back only the name: a time zone or backup choice saved while the host worked stays.
+            now = svc.read()
+            if result.outcome == "failed" and before["saved"] and now["box_name"] == name:
+                svc.save({k: now[k] for k in ("time_zone", "backup_choice", "backup_destination_id")} | {"box_name": before["box_name"]})
             finish(result)
 
         link.run(a, done)

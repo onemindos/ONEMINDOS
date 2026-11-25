@@ -61,6 +61,8 @@ services:
      depends_on: [onemind-kiosk-apply.service], description: "Watches the kiosk switch the owner sets in the dashboard or the CLI and starts the kiosk switch when it changes."}
   - {unit: onemind-hostname.service, name: Box name, docs: docs/leap/core/IMAGES.md, restartable: false, risk: low, depends_on: [],
      description: "Gives the running system the name the owner chose for the box, so other devices find it as name.local. Starts after a rename and at every boot."}
+  - {unit: onemind-mdns-aliases.service, name: Old box names, docs: docs/leap/core/IMAGES.md, restartable: false, risk: low, depends_on: [],
+     description: "After a rename, keeps answering to onemind.local and the old name, so saved links, passkeys and apps keep working."}
   - {unit: onemind-firewall.service, name: Firewall, docs: docs/architecture/NETWORKING.md, restartable: false, risk: high, depends_on: [],
      description: "Loads the default-deny firewall at boot, so only the ports OneMind uses are open."}
   - {unit: onemind-health-gate.service, name: Update health check, docs: docs/learning/07-image-ab-updates-health-gate.md, restartable: false, risk: high,

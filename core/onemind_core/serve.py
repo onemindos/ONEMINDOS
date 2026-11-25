@@ -206,7 +206,7 @@ def pinned_path_app(app, path: str, *, peers=None, enabled=None):
 
 def https_cert(settings: Settings, net: NetSettings) -> tuple[str, str]:
     tls_dir = net.tls_dir or settings.audit_path.parent / "tls"
-    cert = BoxCA(tls_dir, net.box()).ensure_https_cert()
+    cert = BoxCA(tls_dir, net.tls_box(tls_dir)).ensure_https_cert()
     return str(cert.cert_path), str(cert.key_path)
 
 
