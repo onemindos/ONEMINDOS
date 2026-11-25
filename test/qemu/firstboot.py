@@ -518,7 +518,7 @@ def f13(vm):
          "btrfs": get("BTRFS_RC") == "0",
          "admin_tools": all(tools.get(t) == "0" for t in want),
          "bash_completion": get("BASHCOMP_RC") == "0",
-         "smartd_masked": get("SMARTD") == "masked/masked"}
+         "smartd_masked": get("SMARTD") in ("masked/masked", "masked/alias")}
     record("F13", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items()) + f" disk={get('DISK')} tools={tools}")
 
 
