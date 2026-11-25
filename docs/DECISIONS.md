@@ -223,3 +223,12 @@ Founder decisions. Each entry is final until Zeus changes it. Reference these ID
 - **Remote access: Headscale** (already on the hub in the image, #292). The neutral mesh layer in the gateway ([#876](https://github.com/onemindos/ONEMINDOS/issues/876)) serves Headscale; NetBird is not built.
 - **SMS: no provider now.** The SMS alert channel is built behind a provider-neutral adapter and tested with a fake transport only ([#869](https://github.com/onemindos/ONEMINDOS/issues/869)). Twilio may come later; the real text proof waits for that pick.
 - **Why:** the code stays provider-neutral so an owner can switch providers, and the picks let the B2 services wave build without waiting.
+
+## D-026 · Backstage is kept and runs on OneMind; custom apps are first-class
+**Date:** 2026-11-25 · **Decided by:** Zeus
+> "no we are not going to retire we are acually going to move it over after we have it stable not removing" and "for the move it over; when the OS is done I want to run it on the OS, also keep in mind I want to be able to run custom apps in OneMindOS not just marketplace apps so people can deploy anything they want through our process, etc" (founder, in a Claude session on 2026-11-25; quoted as written).
+- **Backstage is not retired or removed.** When the OS is done, the founder's Backstage portal runs on OneMind OS. This amends D-018: its "Backstage is retired" part no longer holds. The rest of D-018 and D-016 is unchanged.
+- **FD-00 ([#518](https://github.com/onemindos/ONEMINDOS/issues/518)):** its retirement and shutdown steps no longer apply.
+- **The move comes after the OS is done.** It is not a 1.0 gate.
+- **Custom apps are first-class.** People can deploy any app they want, not only Market apps, through OneMind's own gated process (every install is an owner approval). That path is built in [#643](https://github.com/onemindos/ONEMINDOS/issues/643) (pack, sideload and publish) and [#252](https://github.com/onemindos/ONEMINDOS/issues/252) (deploy a custom app from a Git repo).
+- **Why:** the founder wants to run Backstage on the founder's own OS, and wants people to be able to deploy anything they want through OneMind's process, not only what the Market lists.

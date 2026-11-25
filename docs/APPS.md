@@ -34,7 +34,7 @@
 | **Mesh & Networking** | Network map, VPN, mesh radios, Wi-Fi | Tailscale/Headscale peers, Meshtastic node list, network map | Headscale, Meshtastic MQTT, batman-adv | UniFi-style controllers |
 | **IoT & Home** | Devices, automations, greenhouse | Home Assistant as engine; OneMind views + AI capabilities; greenhouse template | HA (Matter/Zigbee/Z-Wave/ESPHome), MQTT | HA dashboards |
 | **Robotics & Drones** | Robots and drones as nodes: status, missions, sim | Robot node registry, telemetry, MAVLink/ROS 2 gateway status, Isaac Sim launch (Pro/Omni only) | ROS 2 containers, PX4/MAVLink, Open-RMF; MHS adapter when available | Fleet tools, Open-RMF |
-| **Infrastructure** | Advanced ops for clusters/enterprise | Workloads, GitOps (Argo) status, logs, metrics | k8s API, Argo CD, Prometheus/Grafana | Backstage (retired: D-018 supersedes "stays a dev portal"), Portainer |
+| **Infrastructure** | Advanced ops for clusters/enterprise | Workloads, GitOps (Argo) status, logs, metrics | k8s API, Argo CD, Prometheus/Grafana | Backstage (kept; runs on OneMind once the OS is done: D-026, amending D-018), Portainer |
 | **OSINT & Intel** | Open-source intelligence feeds and analysis | Feed ingest → NATS, search, alerts | Existing OneMind data plane (ClickHouse "time machine" plans) | Custom |
 | **Education** | Learn self-hosting and the OS, in-product | Guided setup, tutorials linked to Circle.so courses | Circle.so (website), Kolibri offline | Umbrel/Olares docs |
 
