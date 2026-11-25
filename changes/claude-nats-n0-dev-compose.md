@@ -1,5 +1,5 @@
 ---
-pr: pending
+pr: 1129
 branch: claude/nats-n0-dev-compose
 ---
 The dev compose stack now runs the same nats-server as the image (2.15.3) and signs every client in with its own key like the image does: a one-shot nats-keys service makes a key for the gateway and each simulated machine and writes the hub accounts file with core natsconf, so a client with no key is refused (checked on a real 2.15.3: no key got Authorization Violation, the gateway key connected). simnode takes a NATS key file. deploy/check-pins.py now also fails when the compose or verify-test NATS image differs from os/versions.lock.yaml, with tests for both. A separate fix(docs) commit corrects the plugin subject root in nats-fabric.md, the hub unit comment and the H-06 status line. Plan N0 (NATS-ROLE-AND-GATEWAY section 5); not done here: the bridges.py $KV publish check.
