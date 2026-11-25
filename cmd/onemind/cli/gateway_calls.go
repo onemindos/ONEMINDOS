@@ -34,11 +34,7 @@ func (a *App) gwDo(method, path string, body any) (any, error) {
 	c := a.gw
 	var raw any
 	if err := c.Do(bg(), method, path, body, &raw); err != nil {
-		var e *onemind.Error
-		if errors.As(err, &e) && e.Reason == "step_up_required" {
-			return nil, fmt.Errorf("%w\nThis step needs a passkey sign-in, which the CLI cannot do. Do it in the dashboard, or approve the request there", err)
-		}
-		return nil, err
+		return nil, explainGateway(err)
 	}
 	return raw, nil
 }
@@ -54,14 +50,30 @@ func (a *App) gwDoKeyed(method, path, key string, body any) (any, error) {
 	}
 	var raw any
 	if err := a.gw.DoIdempotent(bg(), method, path, key, body, &raw); err != nil {
-		var e *onemind.Error
-		if errors.As(err, &e) && e.Reason == "step_up_required" {
-			return nil, fmt.Errorf("%w\nThis step needs a passkey sign-in, which the CLI cannot do. Do it in the dashboard, or approve the request there", err)
-		}
-		return nil, err
+		return nil, explainGateway(err)
 	}
 	return raw, nil
 }
+
+// explainGateway adds plain words to the two gateway answers a person cannot decode alone: the
+// passkey step-up, and a 409 saying the idempotency key was already used for a different request.
+func explainGateway(err error) error {
+	var e *onemind.Error
+	if !errors.As(err, &e) {
+		return err
+	}
+	if e.Reason == "step_up_required" {
+		return fmt.Errorf("%w\nThis step needs a passkey sign-in, which the CLI cannot do. Do it in the dashboard, or approve the request there", err)
+	}
+	if e.Status == http.StatusConflict && strings.Contains(e.Message, "idempotency_key") {
+		return fmt.Errorf("%w\nThis exact request was already filed today by someone else, or with different details, so the box will not file it twice. See what is waiting with `onemind actions list`", err)
+	}
+	return err
+}
+
+// freshKey is a random Idempotency-Key for one invocation. It stays fixed across the SDK's own
+// retries of that one call, so a network retry is safe, but a second run is a real new request.
+func freshKey() string { return "cli-" + onemind.NewIdempotencyKey() }
 
 // idemKey builds an Idempotency-Key from stable inputs only (what is asked for, on what, and the UTC
 // day), never from a clock reading or a random number, so running the same command again files
@@ -97,12 +109,26 @@ func list(v any) []any {
 	return l
 }
 
-// printRequested says that an action now waits for an owner, or prints the action's JSON.
+// printRequested says that an action now waits for an owner, or prints the action's JSON. A repeat
+// request with a key the gateway already knows comes back as the stored action in whatever state it
+// reached; if that is not a waiting one nothing new was filed, so say so and exit ExitConflict.
 func (a *App) printRequested(what string, v any) error {
-	if a.G.JSON {
-		return printJSON(a.Stdout, v)
-	}
 	id := str(obj(v)["id"])
+	state := str(obj(v)["state"])
+	done := state != "" && state != "awaiting_approval" && state != "requested"
+	if a.G.JSON {
+		if err := printJSON(a.Stdout, v); err != nil {
+			return err
+		}
+	} else if a.G.Quiet {
+		fmt.Fprintln(a.Stdout, id)
+	}
+	if done {
+		return exitWith(ExitConflict, "conflict", fmt.Sprintf("%s: already %s, nothing filed (%s). Ask again tomorrow, or see `onemind actions list`", what, state, id))
+	}
+	if a.G.JSON || a.G.Quiet {
+		return nil
+	}
 	if a.G.Quiet {
 		fmt.Fprintln(a.Stdout, id)
 		return nil

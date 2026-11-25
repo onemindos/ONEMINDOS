@@ -59,7 +59,7 @@ func backupCommands(a *App) []*cobra.Command {
 			if dest != "" {
 				body["destination_id"] = dest
 			}
-			return a.backupRequest("backup run", "/v1/backups/runs", body, reason)
+			return a.backupRequest("backup run", "/v1/backups/runs", body, reason, false)
 		},
 	}
 	run.Flags().StringVar(&app, "app", "", "back up only this app")
@@ -75,7 +75,7 @@ func backupCommands(a *App) []*cobra.Command {
 			if mode != "scratch_restore" && mode != "check" {
 				return usageErr(cmd, "--mode must be scratch_restore or check")
 			}
-			return a.backupRequest("backup verify", "/v1/backups/verify", map[string]any{"mode": mode, "latest": true}, reason)
+			return a.backupRequest("backup verify", "/v1/backups/verify", map[string]any{"mode": mode, "latest": true}, reason, false)
 		},
 	}
 	verify.Flags().StringVar(&mode, "mode", "scratch_restore", "scratch_restore (a real trial restore) or check (repository check only)")
@@ -118,7 +118,7 @@ func backupCommands(a *App) []*cobra.Command {
 				}
 				scope["path"] = rPath
 			}
-			return a.backupRequest("restore of "+args[0], "/v1/restores", map[string]any{"snapshot_id": args[0], "scope": scope, "mode": "portable", "target": "in_place"}, reason)
+			return a.backupRequest("restore of "+args[0], "/v1/restores", map[string]any{"snapshot_id": args[0], "scope": scope, "mode": "portable", "target": "in_place"}, reason, true)
 		},
 	}
 	restore.Flags().StringVar(&rApp, "app", "", "the app to restore")
@@ -130,7 +130,11 @@ func backupCommands(a *App) []*cobra.Command {
 }
 
 // backupRequest files one backup request. The gateway answers 202 with the waiting action.
-func (a *App) backupRequest(what, path string, body map[string]any, reason string) error {
+//
+// stable chooses the key policy. A restore keeps a key built from what is asked for and the UTC day,
+// so repeating it replays the waiting request. A backup run or verify gets a fresh random key per
+// invocation: a second backup is a real request, not a replay of this morning's.
+func (a *App) backupRequest(what, path string, body map[string]any, reason string, stable bool) error {
 	if reason != "" {
 		body["reason"] = reason
 	}
@@ -143,7 +147,11 @@ func (a *App) backupRequest(what, path string, body map[string]any, reason strin
 		}
 	}
 	raw, _ := json.Marshal(target) // map keys marshal sorted, so equal requests give equal bytes
-	v, err := a.gwDoKeyed(http.MethodPost, path, idemKey("cli-backup-", path, string(raw)), body)
+	key := freshKey()
+	if stable {
+		key = idemKey("cli-backup-", path, string(raw))
+	}
+	v, err := a.gwDoKeyed(http.MethodPost, path, key, body)
 	if err != nil {
 		return err
 	}

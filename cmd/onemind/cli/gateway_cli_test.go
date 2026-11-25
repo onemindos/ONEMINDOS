@@ -25,6 +25,11 @@ type recGW struct {
 	noAISchedule bool
 	// noInstall makes GET /v1/os/updates say the box has no host service to install with.
 	noInstall bool
+	// replayState makes POST /v1/backups/*, /v1/restores and /v1/actions answer as a replay of an
+	// action already in this state (a repeat key), and conflict makes them answer the 409 for a key
+	// used by a different request.
+	replayState string
+	conflict    bool
 }
 
 type rec struct {
@@ -73,7 +78,15 @@ func (g *recGW) serve(w http.ResponseWriter, r *http.Request) {
 		return who == "agent"
 	}
 	waiting := func(typ string, params any) map[string]any {
-		return map[string]any{"id": "act_1", "type": typ, "params": params, "state": "awaiting_approval"}
+		st := "awaiting_approval"
+		if g.replayState != "" {
+			st = g.replayState
+		}
+		return map[string]any{"id": "act_1", "type": typ, "params": params, "state": st}
+	}
+	if g.conflict && r.Method == http.MethodPost && (strings.HasPrefix(r.URL.Path, "/v1/backups/") || r.URL.Path == "/v1/restores" || r.URL.Path == "/v1/actions") {
+		jsonOut(w, 409, map[string]string{"error": "conflict", "message": "idempotency_key was already used for a different request"})
+		return
 	}
 	switch p := r.URL.Path; {
 	case p == "/v1/instance":
@@ -358,34 +371,66 @@ func TestUpdateApplyWithNoHostServiceFilesNothingAndSaysWhatWorks(t *testing.T) 
 	}
 }
 
-func TestBackupWritesSendAStableIdempotencyKey(t *testing.T) {
+func TestRepeatOfAFinishedActionSaysNothingWasFiled(t *testing.T) {
 	g := asOwner(t)
-	cmds := [][]string{
-		{"backup", "run", "--app", "photos"},
-		{"backup", "verify", "--mode", "check"},
-		{"backup", "restore", "abcd1234", "--app", "photos"},
-	}
-	paths := []string{"/v1/backups/runs", "/v1/backups/verify", "/v1/restores"}
-	for i, args := range cmds {
-		// The free-text reason is not part of what is asked for, so it must not change the key.
-		for _, extra := range [][]string{nil, {"--reason", "again"}} {
-			if r := run(t, "", false, append(append([]string{}, args...), extra...)...); r.code != 0 {
-				t.Fatalf("%v %+v", args, r)
-			}
-		}
-		got := g.requests("POST", paths[i])
-		if len(got) != 2 || got[0].idem == "" || got[0].idem != got[1].idem {
-			t.Fatalf("%v: keys %+v", args, got)
+	g.replayState = "succeeded"
+	for _, args := range [][]string{{"backup", "run"}, {"backup", "restore", "abcd1234", "--app", "photos"}, {"update", "apply"}} {
+		r := run(t, "", false, args...)
+		if r.code != ExitConflict || !strings.Contains(r.errOut, "already succeeded, nothing filed") || strings.Contains(r.out, "Waiting for an owner") {
+			t.Errorf("%v: %+v", args, r)
 		}
 	}
-	// A different target is a different request.
-	run(t, "", false, "backup", "run", "--app", "notes")
-	if got := g.requests("POST", "/v1/backups/runs"); got[0].idem == got[2].idem {
-		t.Fatalf("different apps shared a key: %+v", got)
+	// --json still prints the stored action, and the exit code still tells scripts nothing new was filed.
+	if r := run(t, "", false, "backup", "run", "--json"); r.code != ExitConflict || obj(mustJSON2(t, r.out))["state"] != "succeeded" {
+		t.Errorf("json: %+v", r)
 	}
-	// And a different operation never collides with another.
-	if a, b := g.requests("POST", "/v1/backups/runs")[0].idem, g.requests("POST", "/v1/backups/verify")[0].idem; a == b {
-		t.Fatal("run and verify share a key")
+	g.replayState = "awaiting_approval"
+	if r := run(t, "", false, "backup", "run"); r.code != 0 || !strings.Contains(r.out, "Waiting for an owner") {
+		t.Errorf("waiting: %+v", r)
+	}
+}
+
+func TestIdempotencyConflictIsExplainedInPlainWords(t *testing.T) {
+	g := asOwner(t)
+	g.conflict = true
+	for _, args := range [][]string{{"backup", "restore", "abcd1234", "--app", "photos"}, {"update", "apply"}} {
+		r := run(t, "", false, args...)
+		if r.code != ExitConflict || !strings.Contains(r.errOut, "will not file it twice") {
+			t.Errorf("%v: %+v", args, r)
+		}
+	}
+}
+
+func TestBackupRunAndVerifyUseAFreshKeyEachTime(t *testing.T) {
+	g := asOwner(t)
+	for _, c := range []struct {
+		path string
+		args []string
+	}{{"/v1/backups/runs", []string{"backup", "run", "--app", "photos"}}, {"/v1/backups/verify", []string{"backup", "verify"}}} {
+		run(t, "", false, c.args...)
+		run(t, "", false, c.args...)
+		got := g.requests("POST", c.path)
+		if len(got) != 2 || got[0].idem == "" || got[0].idem == got[1].idem {
+			t.Errorf("%s: keys %+v", c.path, got)
+		}
+	}
+}
+
+func TestRestoreSendsAStableIdempotencyKey(t *testing.T) {
+	g := asOwner(t)
+	args := []string{"backup", "restore", "abcd1234", "--app", "photos"}
+	for _, extra := range [][]string{nil, {"--reason", "again"}} {
+		if r := run(t, "", false, append(append([]string{}, args...), extra...)...); r.code != 0 {
+			t.Fatalf("%+v", r)
+		}
+	}
+	got := g.requests("POST", "/v1/restores")
+	if len(got) != 2 || got[0].idem == "" || got[0].idem != got[1].idem {
+		t.Fatalf("keys %+v", got)
+	}
+	run(t, "", false, "backup", "restore", "abcd1234", "--app", "notes")
+	if got := g.requests("POST", "/v1/restores"); got[0].idem == got[2].idem {
+		t.Fatal("different apps shared a key")
 	}
 }
 

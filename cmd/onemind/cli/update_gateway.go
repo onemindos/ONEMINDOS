@@ -96,7 +96,7 @@ func (a *App) updateApplyViaGateway(node, version string) error {
 		"idempotency_key": idemKey("cli-os-update-", node, version), "expires_at": time.Now().Add(24 * time.Hour).UTC().Format(time.RFC3339)}
 	act, err := a.gwDo(http.MethodPost, "/v1/actions", body)
 	if err != nil {
-		return err
+		return explainGateway(err)
 	}
 	return a.printRequested("OS update "+version+" for "+node, act)
 }
