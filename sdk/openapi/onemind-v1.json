@@ -2395,6 +2395,10 @@
           "links": {
             "$ref": "#/components/schemas/AppLinks"
           },
+          "machine_needs": {
+            "$ref": "#/components/schemas/MachineNeeds",
+            "description": "#724: requires / recommends / supports normalised to one shape (arch, memoryMb, storageFreeGb, accelerator, devices, radios, models), whichever spelling the manifest uses; a fact it does not state is left out"
+          },
           "name": {
             "anyOf": [
               {
@@ -2408,6 +2412,7 @@
           },
           "requires": {
             "additionalProperties": true,
+            "description": "spec.requires exactly as the manifest writes it, in either spelling; read machine_needs for one shape",
             "title": "Requires",
             "type": "object"
           },
@@ -6527,6 +6532,31 @@
           "devices"
         ],
         "title": "MachineDevices",
+        "type": "object"
+      },
+      "MachineNeeds": {
+        "description": "What an app needs from a machine at each strength, in the sdk/schema $defs/machineNeeds shape (#724).",
+        "properties": {
+          "recommends": {
+            "additionalProperties": true,
+            "description": "Not required: the app runs without these and better with them",
+            "title": "Recommends",
+            "type": "object"
+          },
+          "requires": {
+            "additionalProperties": true,
+            "description": "The machine must have these, or the app is not placed there",
+            "title": "Requires",
+            "type": "object"
+          },
+          "supports": {
+            "additionalProperties": true,
+            "description": "The app can use these when the machine has them",
+            "title": "Supports",
+            "type": "object"
+          }
+        },
+        "title": "MachineNeeds",
         "type": "object"
       },
       "MachineUploadResult": {

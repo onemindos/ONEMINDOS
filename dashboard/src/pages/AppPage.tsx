@@ -14,6 +14,7 @@ import { useHub } from '../data/hub';
 import { appState, type AppDot, type AppHealth, type Fact } from '../lib/appState';
 import { appPageHref, readAppView, readSharing, readSnapshots, readUsage, type AppView } from '../lib/appPage';
 import { usePoll } from '../lib/hooks';
+import { needs } from '../lib/needs';
 import { useSignedIn } from '../session';
 import { href } from '../shell/routes';
 import { useShell } from '../shell/Shell';
@@ -174,7 +175,7 @@ function TrustTab({ app, now }: { app: CatalogApp; now: number }) {
     <div><dt>Licence</dt><dd>{app.license ?? 'Not reported'}</dd></div>
     <div><dt>Version</dt><dd>{app.version ?? 'Not reported'}</dd></div>
     <div><dt>Runs on</dt><dd>{app.archs.length ? app.archs.join(', ') : 'Not reported'}</dd></div>
-    <div><dt>Needs</dt><dd>{[app.requires.gpu ? 'a GPU' : null, app.requires.minMemoryMb ? `${app.requires.minMemoryMb} MB of memory` : null].filter(Boolean).join(', ') || 'Nothing special'}</dd></div>
+    <div><dt>Needs</dt><dd>{needs(app)}</dd></div>
     {links.length > 0 && <div><dt>Project</dt><dd>{links.length} link{links.length === 1 ? '' : 's'} under Help</dd></div>}
   </dl>;
 }

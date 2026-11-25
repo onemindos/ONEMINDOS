@@ -26,6 +26,8 @@ metadata:
 spec:
   archs: [amd64, arm64]
   requires: {gpu: false, minMemoryMb: 128}
+  recommends: {memoryMb: 256, storageFreeGb: 2}
+  supports: {radios: [lora]}
   manifests: manifests/
   updates: {channel: stable, automerge: none}
   compat: {onemind: ">=0.3 <1.0"}
