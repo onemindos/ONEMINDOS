@@ -87,7 +87,7 @@ func (a *App) workList(view, project string) error {
 	if err != nil {
 		return err
 	}
-	tasks, err := c.Work.List(bg(), view, project, 100)
+	tasks, err := c.Work.List(bg(), view, project, localZone(), 100)
 	if err != nil {
 		return err
 	}
