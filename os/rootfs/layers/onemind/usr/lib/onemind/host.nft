@@ -5,7 +5,8 @@
 # (mesh-guard.nft, k3s/flannel/kube-proxy keep their own).
 #
 # Reachable from the LAN only (private ranges below):  443 and 8443 (gateway, HTTPS), 8444 (Headscale join, until
-#   the mesh is up), 7443 (rescue console, owner login), 5353/udp (mDNS), 3478/udp (STUN), 41641/udp (mesh).
+#   the mesh is up), 7443 (rescue console, owner login), 631 (CUPS printing: IPP and its web page; /admin is
+#   localhost-only in cupsd.conf), 5353/udp (mDNS), 3478/udp (STUN), 41641/udp (mesh).
 # Reachable from loopback, the mesh and the pod network only:  k3s API 6443, kubelet 10250, flannel 8472/51820/51821,
 #   NATS leaf 7422. A home box has no reason to offer them to the LAN.
 # Everything else is dropped. Outgoing traffic is not filtered here. Pod-to-host filtering (H-04) and
@@ -36,6 +37,7 @@ table inet onemind_host {
     iifname "tailscale0" udp dport { 8472, 51820, 51821 } accept
     iifname "flannel*" udp dport { 8472, 51820, 51821 } accept
     iifname "tailscale0" tcp dport { 443, 8443, 7422 } accept
+    iifname "tailscale0" tcp dport 631 accept
     iifname "tailscale0" jump ssh
 
     # Network basics: ping, path-MTU, IPv6 neighbour discovery, DHCP replies (they arrive before conntrack knows them).
@@ -54,6 +56,7 @@ table inet onemind_host {
     jump samba
     jump ssh
     tcp dport { 443, 8443, 8444, 7443 } accept
+    tcp dport 631 accept
     udp dport { 5353, 3478, 41641 } accept
   }
 

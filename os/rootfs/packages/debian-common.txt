@@ -56,3 +56,7 @@ man-db
 # on /data), udisks2 (USB drives: detect only, never auto-mounted, os/rootfs/layers/base/usr/lib/udev). fstrim.timer
 # comes with util-linux; polkitd is not installed, so only root (the host helper) may mount or flash. Proof: first-boot check F24.
 fwupd lm-sensors rasdaemon udisks2
+# Printing (Step 3): CUPS with driverless (IPP Everywhere) printing. No cups-browsed: it would add queues by itself,
+# and adding a printer is an owner action. ipp-usb lets a USB printer speak IPP; avahi (above) announces it. "cups" brings
+# the web admin (the CGI programs) and cups-ppdc (the generic PPDs); the rest are named so a dependency change shows.
+cups cups-client cups-daemon cups-filters cups-ipp-utils ipp-usb

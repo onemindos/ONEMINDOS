@@ -40,3 +40,8 @@ PARTLABEL=onemind-data  /data      auto  defaults,noatime,nofail,x-systemd.growf
 /data/state/var-lib-udisks2       /var/lib/udisks2      none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0
 # Storage housekeeping (P-10): smartd's state and the warnings feed the host service reads, kept across reboots and A/B updates.
 /data/state/var-lib-smartmontools /var/lib/smartmontools none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0
+# Printing (Step 3): CUPS's settings and printers, its spool and cache, and ipp-usb's state live on the data disk.
+/data/state/etc-cups                  /etc/cups                     none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0
+/data/state/var-spool-cups            /var/spool/cups               none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0
+/data/state/var-cache-cups            /var/cache/cups               none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0
+/data/state/var-lib-ipp-usb           /var/lib/ipp-usb              none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0
