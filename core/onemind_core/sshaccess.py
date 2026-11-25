@@ -15,7 +15,7 @@ SSH is the everyday shell of the box and the way in when the web UI is down, so 
   A/B update. The list shown here is read from the box, so a key added on the console shows up too.
 
 Rules on the box (not settable from here): public key only, user `admin` only, no password login, port 22 reachable
-from the LAN and the mesh only, and at most 6 new connections a minute per address (nftables).
+from the LAN and the mesh (and the internet on a cloud box), and at most 6 new connections a minute per address (nftables).
 """
 
 from __future__ import annotations

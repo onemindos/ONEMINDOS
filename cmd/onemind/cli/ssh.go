@@ -118,7 +118,7 @@ func sshCommands(a *App) []*cobra.Command {
 			}
 			return kv(a.Stdout, [][2]string{{"ssh", state}, {"keys", strconv.Itoa(len(v.Keys))},
 				{"login", "public key only, as " + str(s["user"]) + ", port " + str(s["port"])},
-				{"reach", "LAN and mesh only; " + str(s["rate_limit"])}})
+				{"reach", "LAN and mesh (also the internet on a cloud box); " + str(s["rate_limit"])}})
 		},
 	})
 	for _, on := range []bool{true, false} {

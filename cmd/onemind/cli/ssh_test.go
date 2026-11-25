@@ -139,7 +139,7 @@ func TestSSHOnOffAndStatus(t *testing.T) {
 	}
 	r := run(t, "", false, "ssh", "status")
 	if r.code != 0 || !strings.Contains(r.out, "on and listening") || !strings.Contains(r.out, "public key only, as admin, port 22") ||
-		!strings.Contains(r.out, "LAN and mesh only") {
+		!strings.Contains(r.out, "LAN and mesh (also the internet on a cloud box)") {
 		t.Fatalf("%+v", r)
 	}
 	if r := run(t, "", false, "--quiet", "ssh", "off"); r.code != 0 || strings.TrimSpace(r.out) != "act-ssh-3" {

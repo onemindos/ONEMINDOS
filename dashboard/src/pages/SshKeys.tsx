@@ -74,7 +74,7 @@ function LiveSshKeys({ token }: { token: string }) {
   const toggle = (enabled: boolean) => file(() => call(client, 'PUT', '/v1/ssh', { enabled, idempotency_key: uuidv4() }), enabled ? 'switch SSH on' : 'switch SSH off');
 
   return <Card title="SSH keys">
-    <p>SSH is a shell on this box for you, the owner: public key only (no password), as <code>admin</code>, from your home network or mesh only, and slowed to a few new connections a minute per address. It is also the way in if this screen is down. Every change below is a request that an owner approves in Approvals, with a passkey to let a key in or switch SSH on.</p>
+    <p>SSH is a shell on this box for you, the owner: public key only (no password), as <code>admin</code>, from your home network or mesh (and from the internet on a cloud box), and slowed to a few new connections a minute per address. It is also the way in if this screen is down. Every change below is a request that an owner approves in Approvals, with a passkey to let a key in or switch SSH on.</p>
     {filed && <p role="status">Asked to {filed.what}. Nothing changes until an owner approves it. <Link to={href.approval(filed.id)}>Open request in Approvals</Link></p>}
     {failed && <p className="om-note om-tone-bad" role="status">{failed}</p>}
     <Load res={status} what="Loading SSH">{(s) => {
