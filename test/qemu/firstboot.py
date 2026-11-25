@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
-"""OneMind QEMU battery, first boot (F0-F12). Criteria: test/qemu/CRITERIA-FIRSTBOOT.md
+"""OneMind QEMU battery, first boot (F0-F13, F16). Criteria: test/qemu/CRITERIA-FIRSTBOOT.md
 (pre-registered; never edited to make a result pass). Reuses run-tests.py's VM driver.
 
 Input: the battery's fixtures (`make fixtures`: disk.img = slot A v1 + test overlay, bundles.img with
@@ -496,6 +496,94 @@ def f12(vm, token):
     record("F12", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items())
            + f" box={box!r} up={up} down_summary={summary[:80]!r} engine_unreachable={inst.get('reason')}")
 
+# F16 (CRITERIA-FIRSTBOOT.md section 10): audio and Bluetooth on the boards with a screen.
+SCREEN_BOARDS = {"x86_64-efi", "rpi5"}
+F16_PKGS = ["pipewire", "pipewire-pulse", "wireplumber", "bluez", "libspa-0.2-bluetooth"]
+F16_CONF = "/usr/lib/onemind/bluetooth/main.conf"
+# The session user is the image's "onemind" account (uid 961): its user manager is started by hand, as the screen
+# session's own user does not exist in every image. Commands run as that user with setpriv, no PAM, nothing written to /etc.
+F16_AS = ("setpriv --reuid=onemind --regid=onemind --clear-groups env XDG_RUNTIME_DIR=/run/user/961 "
+          "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/961/bus ")
+
+
+def f16_pairing_state(vm, token=None):
+    """The pairing directory facts, as a dict of booleans plus the marker token read back. With a token, write it first."""
+    write = (f"printf %s {token} > /var/lib/bluetooth/f16-marker; sync; " if token else "")
+    _, out = vm.run(write +
+        'echo MNT=$(findmnt -no FSROOT /var/lib/bluetooth 2>/dev/null | head -1); '
+        'echo MNTFS=$(findmnt -no SOURCE /var/lib/bluetooth 2>/dev/null | head -1 | sed "s/\\[.*//"); '
+        'echo DATAFS=$(findmnt -no SOURCE /data 2>/dev/null | head -1 | sed "s/\\[.*//"); '
+        'echo MARK=$(cat /var/lib/bluetooth/f16-marker 2>/dev/null); '
+        'echo DMARK=$(cat /data/state/var-lib-bluetooth/f16-marker 2>/dev/null); '
+        'echo BTACTIVE=$(systemctl is-active bluetooth.service 2>&1 | head -1)', 60)
+    g = lambda k: (re.findall(rf"^{k}=(\S*)\s*$", out, re.M) or ["?"])[-1]
+    return {"bind_of_data_dir": g("MNT") == "/state/var-lib-bluetooth" and g("MNTFS") == g("DATAFS") != "?",
+            "marker": g("MARK"), "marker_on_data": g("DMARK") == g("MARK") != "",
+            "bluetooth_active": g("BTACTIVE") == "active"}
+
+
+def f16(vm, board):
+    """Step 3: PipeWire and BlueZ run on a screen board; the pairing directory is on /data; a no-screen board has neither."""
+    if board not in SCREEN_BOARDS:
+        _, out = vm.run("dpkg-query -W -f='${Package} ${Status}\\n' pipewire wireplumber bluez 2>/dev/null | grep -c 'install ok installed'; "
+                        "echo MOUNT_RC=$(mountpoint -q /var/lib/bluetooth; echo $?); "
+                        "echo BTENABLED=$(systemctl is-enabled bluetooth.service 2>&1 | head -1)", 60)
+        installed = (re.findall(r"^(\d+)\s*$", out, re.M) or ["?"])[0]
+        g = lambda k: (re.findall(rf"^{k}=(\S*)\s*$", out, re.M) or ["?"])[-1]
+        c = {"none_installed": installed == "0", "not_a_mount": g("MOUNT_RC") == "1", "bluetooth_not_enabled": g("BTENABLED") != "enabled"}
+        record("F16", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items()) + f" board={board}")
+        return None
+    token = os.urandom(16).hex()
+    _, out = vm.run(
+        "for p in " + " ".join(F16_PKGS) + "; do dpkg-query -W -f='PKG ${Package} ${Status}\\n' $p 2>&1; done; "
+        "echo GLOBAL=$(systemctl --global is-enabled pipewire.socket pipewire-pulse.socket wireplumber.service 2>&1 | tr '\\n' ',' ); "
+        "echo BTENABLED=$(systemctl is-enabled bluetooth.service 2>&1 | head -1); "
+        "echo BTCMD=$(tr '\\0' ' ' < /proc/$(pgrep -x bluetoothd | head -1)/cmdline 2>/dev/null); "
+        "busctl --system status org.bluez >/dev/null 2>&1; echo BUS_RC=$?; "
+        f"grep -qE '^AutoEnable *= *false' {F16_CONF}; echo AUTO_RC=$?; "
+        f"grep -qE '^AlwaysPairable *= *false' {F16_CONF}; echo ALWAYS_RC=$?; "
+        f"grep -qE '^DiscoverableTimeout *= *[1-9]' {F16_CONF}; echo DISC_RC=$?; "
+        f"grep -qE '^PairableTimeout *= *[1-9]' {F16_CONF}; echo PAIR_RC=$?; "
+        "grep -qE '^ *AutoEnable *= *true' /etc/bluetooth/main.conf; echo ETCAUTO_RC=$?; "
+        "echo ADAPTERS=$(bluetoothctl list 2>/dev/null | grep -c '^Controller')", 90)
+    g = lambda k: (re.findall(rf"^{k}=(.*?)\s*$", out, re.M) or ["?"])[-1]
+    pkgs = re.findall(r"^PKG (\S+) install ok installed", out, re.M)
+    st = f16_pairing_state(vm, token)
+    # The session user's manager, started by hand; the three daemons come up through the image's own user units.
+    _, out2 = vm.run(
+        "systemctl start user@961.service; "
+        f"{F16_AS}systemctl --user start pipewire.socket pipewire-pulse.socket; "
+        f"{F16_AS}systemctl --user start wireplumber.service pipewire-pulse.service; "
+        "t0=$SECONDS; while [ $((SECONDS - t0)) -lt 90 ]; do "
+        f"a=$({F16_AS}systemctl --user is-active pipewire.service pipewire-pulse.service wireplumber.service 2>&1 | tr '\\n' ' '); "
+        f"s=$({F16_AS}pactl list short sinks 2>&1); "
+        "[ \"$a\" = 'active active active ' ] && echo \"$s\" | grep -q onemind-stream-sink && break; sleep 2; done; "
+        "echo DAEMONS=$a; echo SINKS=$(echo \"$s\" | tr '\\n' ';'); "
+        f"{F16_AS}pactl info 2>&1 | grep -E '^Server Name' ; "
+        "systemctl stop user@961.service; echo DONE=1", 200)
+    g2 = lambda k: (re.findall(rf"^{k}=(.*?)\s*$", out2, re.M) or ["?"])[-1]
+    c = {"packages": sorted(pkgs) == sorted(F16_PKGS),
+         "user_units_enabled": g("GLOBAL") == "enabled,enabled,enabled,",
+         "bluetooth_enabled": g("BTENABLED") == "enabled", "bluetooth_active": st["bluetooth_active"],
+         "bluetoothd_config": f"-f {F16_CONF}" in g("BTCMD"), "dbus_org_bluez": g("BUS_RC") == "0",
+         "adapter_off_by_default": g("AUTO_RC") == "0" and g("ETCAUTO_RC") == "1",
+         "pairing_needs_agent": g("ALWAYS_RC") == "0", "timeouts": g("DISC_RC") == "0" and g("PAIR_RC") == "0",
+         "pairing_dir_on_data": st["bind_of_data_dir"] and st["marker_on_data"] and st["marker"] == token,
+         "audio_daemons_active": g2("DAEMONS") == "active active active",
+         "virtual_sink": "onemind-stream-sink" in g2("SINKS")}
+    record("F16", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items())
+           + f" adapters={g('ADAPTERS')}(none expected in QEMU) daemons={g2('DAEMONS')!r} sinks={g2('SINKS')[:120]!r} btcmd={g('BTCMD')[:100]!r}")
+    return token
+
+
+def f16_after(vm, tid, token):
+    """F16r / F16u: the same pairing directory and marker after a reboot or an A/B update."""
+    st = f16_pairing_state(vm)
+    c = {"bind_of_data_dir": st["bind_of_data_dir"], "marker_kept": st["marker"] == token and st["marker_on_data"],
+         "bluetooth_active": st["bluetooth_active"]}
+    record(tid, all(c.values()), " ".join(f"{k}={v}" for k, v in c.items()))
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--board", required=True, choices=sorted(battery.BOARDS))
@@ -552,6 +640,7 @@ def main():
         vm.mark("F10 rescue console with k3s stopped (CORE-UPDATE-9)"); f10(vm, token)
         vm.mark("F11 starting page, then the gateway, never a refused connection"); f11(vm, (os.path.dirname(a.results) or ".") if a.results else None)
         vm.mark("F12 the gateway reaches the host helper, and says missing without it (#875)"); f12(vm, token)
+        vm.mark("F16 audio and Bluetooth on the screen boards (Step 3)"); btmark = f16(vm, a.board)
 
         if a.upto in ("F3", "F4"):
             vm.mark("F3 reboot keeps state")
@@ -567,6 +656,8 @@ def main():
             same = [n for n in listed3 if n[0] == ids["node_id"]]
             record("F3", not new_toks and ids3 == ids and hz3 == "200" and bool(same) and bool(token),
                    f"'{al[:70]}' new_tokens={len(new_toks)} same_ids={ids3 == ids} healthz={hz3} listed={listed3} gate={g3}")
+            if btmark:
+                f16_after(vm, "F16r", btmark)
 
         if a.upto == "F4":
             vm.mark("F4 A/B update keeps /data")
@@ -590,6 +681,8 @@ def main():
                    and already and not TOKEN.search(s) and ids4 == ids and hz4 == "200" and bool(same),
                    f"install_rc={rc_i} gate={g4} marker_kept={mark == mark2} version2={ver2} already_configured={already} "
                    f"new_token={bool(TOKEN.search(s))} same_ids={ids4 == ids} healthz={hz4} listed={listed4}")
+            if btmark:
+                f16_after(vm, "F16u", btmark)
         rc = 0
     except (TimeoutError, RuntimeError) as e:
         record("HARNESS", False, f"aborted: {e}")
