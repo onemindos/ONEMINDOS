@@ -76,6 +76,8 @@ services:
      description: "Creates the folders every service keeps its state in on the data partition."}
   - {unit: onemind-data-check.service, name: Data disk check, docs: docs/leap/core/STORAGE-ACTIONS.md, restartable: false, risk: high,
      depends_on: [onemind-data-layout.service], description: "Checks the data partition at boot and starts recovery mode if it is not usable."}
+  - {unit: onemind-leaf-local.service, name: Local sign-in upgrade, docs: docs/learning/nats-fabric.md, restartable: false, risk: high,
+     depends_on: [onemind-data-layout.service], description: "Gives a machine that joined the fabric before this release its own local NATS sign-in, once, at boot."}
   - {unit: onemind-storage.service, name: Storage operations, docs: docs/leap/core/STORAGE-ACTIONS.md, restartable: true, risk: medium, depends_on: [],
      description: "Adds, replaces and removes data disks, but only for disk changes the owner approved."}
   - {unit: onemind-smb.service, name: File sharing, docs: docs/leap/core/FILE-SHARING.md, restartable: true, risk: medium, depends_on: [],

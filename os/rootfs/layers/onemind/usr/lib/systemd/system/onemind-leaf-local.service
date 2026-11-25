@@ -20,6 +20,28 @@ Environment=ONEMIND_ETC_DIR=/data/onemind/etc
 ExecStart=/usr/bin/onemind fabric upgrade-local
 UMask=0077
 TimeoutStartSec=2min
+# Sandbox: it writes only under /data/onemind/etc and talks to systemd over a Unix socket.
+ProtectSystem=strict
+ReadWritePaths=/data/onemind/etc
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+NoNewPrivileges=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictAddressFamilies=AF_UNIX
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+CapabilityBoundingSet=CAP_CHOWN CAP_DAC_OVERRIDE CAP_FOWNER
+SystemCallFilter=@system-service
+SystemCallArchitectures=native
 
 [Install]
 WantedBy=multi-user.target
