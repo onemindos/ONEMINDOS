@@ -421,6 +421,76 @@ def test_preferences_validation_and_etag(nclient):
     assert nclient.get("/v1/notifications/preferences", headers=AGENT).status_code == 403
 
 
+def test_topic_mute_filters_queued_delivery_but_keeps_inbox_and_audit(nclient, http, settings):
+    muted_channel = add_channel(nclient, {"kind": "webhook", "label": "muted", "config": {"url": http.url}})
+    add_channel(nclient, {"kind": "webhook", "label": "still sends", "config": {"url": http.url}})
+    publish(nclient, "node", "offline", {"node_id": "first", "hostname": "first", "age_s": 1}, "warning")
+    first = inbox(nclient, OWNER)[0]
+    path = "/v1/notifications/preferences"
+    prefs = nclient.get(path, headers=OWNER).json()
+    prefs["mutes"] = [{"topic": "nodes.*", "channel": muted_channel["id"]}, {"topic": "nodes", "channel": "in_app"}]
+    assert nclient.put(path, headers=ADULT, json=prefs).status_code == 422
+    assert nclient.put(path, headers=OWNER, json=prefs).status_code == 200
+    assert svc(nclient).pump() == 1
+    assert len(http.requests) == 1
+    assert svc(nclient).muted("owner", first["topic"])
+    assert first["id"] in settings.audit_path.read_text()
+    publish(nclient, "node", "offline", {"node_id": "second", "hostname": "second", "age_s": 1}, "warning")
+    assert svc(nclient).pump() == 1
+    assert len(inbox(nclient, OWNER)) == 2
+
+
+def test_retention_prunes_only_the_persons_inbox(nclient, clock, settings):
+    service = svc(nclient)
+    delivered = service._fanout(["owner", "adult"], severity="info", topic="nodes", title="Ready", body="",
+                                link=None, source="test", action_id=None, alert_id=None, inapp_only=True)
+    path = "/v1/notifications/preferences"
+    prefs = nclient.get(path, headers=OWNER).json()
+    assert nclient.put(path, headers=OWNER, json={**prefs, "retention_days": True}).status_code == 422
+    assert nclient.put(path, headers=OWNER, json={**prefs, "retention_days": 7}).status_code == 200
+    clock.advance(8 * 86400)
+    service.repo.prune(clock.now)
+    assert inbox(nclient, OWNER) == []
+    assert [item["id"] for item in inbox(nclient, ADULT)] == delivered[1:]
+    assert delivered[0] in settings.audit_path.read_text()
+
+
+def test_quiet_hours_save_holds_phone_delivery_until_morning(nclient, clock, http):
+    registered = nclient.post("/v1/push/registrations", headers=OWNER,
+                              json={"platform": "unifiedpush", "endpoint": http.url + "/push/phone", "label": "Phone"})
+    assert registered.status_code == 201
+    path = "/v1/notifications/preferences"
+    prefs = nclient.get(path, headers=OWNER)
+    body = {**prefs.json(), "quiet_hours": {"tz": "UTC", "from": "21:30", "to": "07:00"}}
+    assert nclient.put(path, headers={**OWNER, "If-Match": prefs.headers["ETag"]}, json=body).status_code == 200
+    publish(nclient, "node", "offline", {"node_id": "node", "hostname": "node", "age_s": 1}, "warning")
+    assert svc(nclient).pump() == 0
+    assert http.requests == []
+    clock.advance(9 * 3600)
+    assert svc(nclient).pump() == 1
+    assert len(http.requests) == 1
+
+
+def test_silence_stops_delivery_until_expiry(nclient, clock, http):
+    from datetime import timedelta
+
+    registered = nclient.post("/v1/push/registrations", headers=OWNER,
+                              json={"platform": "unifiedpush", "endpoint": http.url + "/push/phone", "label": "Phone"})
+    assert registered.status_code == 201
+    path = "/v1/notifications/preferences"
+    prefs = nclient.get(path, headers=OWNER).json()
+    prefs["silence"] = {"reason": "Focus", "until": (clock.now + timedelta(hours=2)).isoformat()}
+    assert nclient.put(path, headers=OWNER, json=prefs).status_code == 200
+    svc(nclient).pump()
+    publish(nclient, "node", "offline", {"node_id": "first", "hostname": "first", "age_s": 1}, "warning")
+    assert svc(nclient).pump() == 0 and not http.requests
+    assert len(inbox(nclient, OWNER)) == 1 and svc(nclient).muted("owner", "nodes")
+    clock.advance(2 * 3600)
+    publish(nclient, "node", "offline", {"node_id": "second", "hostname": "second", "age_s": 1}, "warning")
+    assert svc(nclient).pump() == 1 and len(http.requests) == 1
+    assert json.loads(http.requests[0]["body"])["notification_id"] == inbox(nclient, OWNER)[0]["id"]
+
+
 # ---- inbox ------------------------------------------------------------------------------------
 
 def test_inbox_pagination_filters_and_read(nclient, clock):

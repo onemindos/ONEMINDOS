@@ -1186,6 +1186,16 @@
             "title": "App Id",
             "type": "string"
           },
+          "fit": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MachineFitReport"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "message": {
             "title": "Message",
             "type": "string"
@@ -2395,6 +2405,10 @@
           "links": {
             "$ref": "#/components/schemas/AppLinks"
           },
+          "machine_needs": {
+            "$ref": "#/components/schemas/MachineNeeds",
+            "description": "#724: requires / recommends / supports normalised to one shape (arch, memoryMb, storageFreeGb, accelerator, devices, radios, models), whichever spelling the manifest uses; a fact it does not state is left out"
+          },
           "name": {
             "anyOf": [
               {
@@ -2408,6 +2422,7 @@
           },
           "requires": {
             "additionalProperties": true,
+            "description": "spec.requires exactly as the manifest writes it, in either spelling; read machine_needs for one shape",
             "title": "Requires",
             "type": "object"
           },
@@ -6529,6 +6544,87 @@
         "title": "MachineDevices",
         "type": "object"
       },
+      "MachineFit": {
+        "properties": {
+          "node_id": {
+            "title": "Node Id",
+            "type": "string"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
+          },
+          "verdict": {
+            "enum": [
+              "yes",
+              "yes-but-slow",
+              "not-on-this-machine",
+              "not-checked"
+            ],
+            "title": "Verdict",
+            "type": "string"
+          }
+        },
+        "required": [
+          "node_id",
+          "verdict",
+          "reasons"
+        ],
+        "title": "MachineFit",
+        "type": "object"
+      },
+      "MachineFitReport": {
+        "properties": {
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/MachineFit"
+            },
+            "title": "Nodes",
+            "type": "array"
+          },
+          "passing_nodes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Passing Nodes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "nodes",
+          "passing_nodes"
+        ],
+        "title": "MachineFitReport",
+        "type": "object"
+      },
+      "MachineNeeds": {
+        "description": "What an app needs from a machine at each strength, in the sdk/schema $defs/machineNeeds shape (#724).",
+        "properties": {
+          "recommends": {
+            "additionalProperties": true,
+            "description": "Not required: the app runs without these and better with them",
+            "title": "Recommends",
+            "type": "object"
+          },
+          "requires": {
+            "additionalProperties": true,
+            "description": "The machine must have these, or the app is not placed there",
+            "title": "Requires",
+            "type": "object"
+          },
+          "supports": {
+            "additionalProperties": true,
+            "description": "The app can use these when the machine has them",
+            "title": "Supports",
+            "type": "object"
+          }
+        },
+        "title": "MachineNeeds",
+        "type": "object"
+      },
       "MachineUploadResult": {
         "properties": {
           "media": {
@@ -9465,6 +9561,51 @@
           "platform"
         ],
         "title": "PushIn",
+        "type": "object"
+      },
+      "PushRegistration": {
+        "properties": {
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "last_seen_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Seen At"
+          },
+          "platform": {
+            "title": "Platform",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "platform",
+          "label",
+          "state",
+          "created_at",
+          "last_seen_at"
+        ],
+        "title": "PushRegistration",
         "type": "object"
       },
       "QualityEvidence": {
@@ -32168,7 +32309,64 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "properties": {
+                    "mutes": {
+                      "description": "Suppress delivery to a channel, device, in_app or all (*) while keeping the inbox item.",
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "channel": {
+                            "type": "string"
+                          },
+                          "topic": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "topic",
+                          "channel"
+                        ],
+                        "type": "object"
+                      },
+                      "maxItems": 50,
+                      "type": "array"
+                    },
+                    "retention_days": {
+                      "description": "Days to keep the person's inbox, defaulting to 90.",
+                      "maximum": 90,
+                      "minimum": 1,
+                      "type": "integer"
+                    },
+                    "silence": {
+                      "anyOf": [
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "reason": {
+                              "maxLength": 200,
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "until": {
+                              "format": "date-time",
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "until",
+                            "reason"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "type": "object"
+                }
               }
             },
             "description": "Successful Response"
@@ -32223,6 +32421,61 @@
           "content": {
             "application/json": {
               "schema": {
+                "properties": {
+                  "mutes": {
+                    "description": "Suppress delivery to a channel, device, in_app or all (*) while keeping the inbox item.",
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "channel": {
+                          "type": "string"
+                        },
+                        "topic": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "topic",
+                        "channel"
+                      ],
+                      "type": "object"
+                    },
+                    "maxItems": 50,
+                    "type": "array"
+                  },
+                  "retention_days": {
+                    "description": "Days to keep the person's inbox, defaulting to 90.",
+                    "maximum": 90,
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "silence": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "reason": {
+                            "maxLength": 200,
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "until": {
+                            "format": "date-time",
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "until",
+                          "reason"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
                 "type": "object"
               }
             }
@@ -35312,7 +35565,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PushRegistration"
+                  },
+                  "title": "Response Push.Registrations.List",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"

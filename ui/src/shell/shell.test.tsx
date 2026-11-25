@@ -11,7 +11,7 @@ import { CommandPalette } from './CommandPalette';
 import { NotificationBell, NotificationCentre } from './NotificationCentre';
 import { Onboarding } from './Onboarding';
 import { StateView } from './StateView';
-import { buildCommands, isPaletteHotkey, moveActive, parseQuery, pushRecent, scoreCommand, searchCommands, type PaletteApp, type PaletteCommand } from './palette';
+import { buildCommands, isPaletteHotkey, moveActive, parseQuery, pushRecent, scoreCommand, searchCommands, SETTINGS_COMMANDS, type PaletteApp, type PaletteCommand } from './palette';
 import { filterNotifications, groupByDay, markAllRead, needsYou, safeDeepLink, setRead, unreadCount, type ShellNotification } from './notifications';
 import { newArrivals, toastForNotification, toastForRequest, useNotificationToasts } from './toasts';
 import { viewState, isSlow } from './states';
@@ -107,6 +107,10 @@ describe('taxonomy', () => {
 
 // ---------- palette ----------
 describe('palette logic', () => {
+  it('sends Passkeys and sessions to Account (everyone), not the pro-only Security overview', () => {
+    expect(SETTINGS_COMMANDS.find((c) => c.id === 'set:passkeys')?.href).toBe('#/settings/account');
+  });
+
   it('parses scope prefixes', () => {
     expect(parseQuery('> restart')).toEqual({ scope: 'requests', text: 'restart' });
     expect(parseQuery('@pi')).toEqual({ scope: 'nodes', text: 'pi' });

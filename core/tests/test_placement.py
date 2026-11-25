@@ -14,6 +14,7 @@ import pytest
 
 from conftest import OWNER, make_client
 from onemind_core import placement
+from onemind_core.machines.fit import fit
 from test_appstore import add_app, install, request
 from test_cpufit import ingest
 
@@ -116,12 +117,16 @@ def gpu_client(settings, clock, executor):
 
 def test_the_market_verdict_endpoint_places_a_gpu_app_on_the_gpu_node(gpu_client):
     ingest(gpu_client, node_id="hub1", gpu={"nvidia": False, "model": None})
-    ingest(gpu_client, node_id="gpu1", role="node", gpu={"nvidia": True, "model": "Orin"})
+    ingest(gpu_client, node_id="gpu1", role="node", mem_total_mb=8192, gpu={"nvidia": True, "model": "Orin"})
     r = gpu_client.get("/v1/apps/ollama/placement", headers=OWNER)
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["app_id"] == "ollama" and body["verdict"] == "elsewhere" and body["node_id"] == "gpu1"
     assert {n["node_id"]: n["labels"]["onemind.io/gpu"] for n in body["nodes"]} == {"hub1": "none", "gpu1": "nvidia"}
+    assert body["fit"]["passing_nodes"] == ["gpu1"]
+    assert {row["node_id"]: row["verdict"] for row in body["fit"]["nodes"]} == {
+        "hub1": "not-on-this-machine", "gpu1": "yes",
+    }
     assert gpu_client.get("/v1/apps/notes/placement", headers=OWNER).json()["verdict"] == "here"
 
 
@@ -150,3 +155,28 @@ def test_a_silent_hub_does_not_block_installs(gpu_client, clock):
 
 def test_placement_of_an_unknown_app_is_404(gpu_client):
     assert gpu_client.get("/v1/apps/nope/placement", headers=OWNER).status_code == 404
+
+
+def test_fit_reports_known_failures_and_unknown_profiles_without_changing_placement():
+    app = {"metadata": {"id": "simulator"}, "spec": {"archs": ["amd64"], "requires": {
+        "arch": ["x86-64-v3"], "memoryMb": 16_000, "accelerator": {"capability": "gpu-compute", "minMemoryMb": 12_000},
+    }}}
+    memory = {"mem_total_mb": 32_000, "mem_available_mb": 22_000}
+    rtx = {**HUB, **memory, "node_id": "rtx", "role": "node", "gpu": {"nvidia": True, "vram_mb": 24_000}}
+    unknown = {**rtx, "node_id": "unknown", "gpu": {"nvidia": True}}
+    pi = {**HUB, "node_id": "pi", "arch": "arm64", "mem_total_mb": 8_000}
+    x86 = {**HUB, **memory, "node_id": "x86"}
+    nodes = [pi, x86, rtx, unknown]
+    assert {row["node_id"]: row["verdict"] for row in fit(app, nodes)["nodes"]} == {
+        "pi": "not-on-this-machine", "x86": "not-on-this-machine", "rtx": "yes", "unknown": "not-checked",
+    }
+    assert fit(app, nodes)["passing_nodes"] == ["rtx"]
+    assert placement.place(app, nodes)["node_id"] == "rtx"
+
+
+def test_fit_describes_the_optional_accelerator_as_a_performance_warning():
+    app = {"spec": {"archs": ["amd64"], "requires": {"memoryMb": 1024},
+                    "recommends": {"accelerator": {"capability": "gpu-compute", "minMemoryMb": 4096}}}}
+    report = fit(app, [HUB])
+    assert report["nodes"][0]["verdict"] == "yes-but-slow"
+    assert report["passing_nodes"] == ["hub1"]

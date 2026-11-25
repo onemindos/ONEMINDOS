@@ -100,7 +100,7 @@ func apply(t *testing.T, doc map[string]any, ops []map[string]any) []byte {
 func TestGoldenManifestCoversEveryNewBlock(t *testing.T) {
 	spec := goldenBase(t)["spec"].(map[string]any)
 	for _, name := range []string{"runtime", "placement", "data", "services", "search", "share", "notifications",
-		"mapLayers", "jobs", "backup", "roles", "continue", "needs", "terms"} {
+		"mapLayers", "jobs", "backup", "roles", "continue", "needs", "terms", "requires", "recommends", "supports"} {
 		if _, ok := spec[name]; !ok {
 			t.Errorf("base.yaml lacks spec.%s", name)
 		}

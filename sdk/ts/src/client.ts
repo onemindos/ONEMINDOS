@@ -90,6 +90,7 @@ interface Req {
   path: string;
   body?: unknown;
   retry?: boolean;
+  redirect?: RequestRedirect;
   headers?: Record<string, string>;
 }
 
@@ -232,6 +233,9 @@ export class OneMind {
   };
 
   readonly notifications = {
+    devices: () => this.call<components['schemas']['PushRegistration'][]>({ method: 'GET', path: '/v1/push/registrations', retry: true }),
+    createChannel: (body: components['schemas']['ChannelIn']) =>
+      this.call<unknown>({ method: 'POST', path: '/v1/notifications/channels', body }),
     preferences: {
       /** The caller's routing document (quiet hours, routes, digest) and its ETag. */
       get: async (): Promise<NotificationPreferencesWithEtag> => {
@@ -336,6 +340,7 @@ export class OneMind {
     let res: Response;
     try {
       res = await this.fetchImpl(this.baseUrl + r.path, {
+        redirect: r.redirect,
         method: r.method,
         headers: {
           Accept: "application/json",
