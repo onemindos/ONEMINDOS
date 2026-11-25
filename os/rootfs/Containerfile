@@ -340,6 +340,7 @@ RUN set -eu; \
     systemctl mask systemd-firstboot.service >/dev/null 2>&1 || true; \
     mandb -q; \
     systemctl mask man-db.timer man-db.service >/dev/null; \
+    ln -sfn /data/state/localtime /etc/localtime; test "$(readlink /etc/localtime)" = /data/state/localtime; \
     passwd -l root >/dev/null; \
     if command -v plymouth-set-default-theme >/dev/null; then plymouth-set-default-theme onemind; \
     else update-alternatives --install /usr/share/plymouth/themes/default.plymouth default.plymouth \

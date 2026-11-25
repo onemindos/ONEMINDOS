@@ -336,8 +336,16 @@ func TestSocketPeerCredentials(t *testing.T) {
 	var st Status
 	_ = json.NewDecoder(resp.Body).Decode(&st)
 	resp.Body.Close()
-	if st.Schema != Schema || len(st.Operations) != 6 || !st.Operations[0].Available || st.Operations[2].Available || st.Operations[4].Available || st.Operations[5].Available {
+	// One entry per kind, in Kinds order. Without their hooks only restart, shutdown and os-install are offered
+	// (round-2 integration: checked by kind so every PR's new kind fits).
+	if st.Schema != Schema || len(st.Operations) != len(Kinds) {
 		t.Fatalf("status: %+v", st)
+	}
+	for i, o := range st.Operations {
+		want := o.Kind == KindRestart || o.Kind == KindShutdown || o.Kind == KindOSInstall
+		if o.Kind != Kinds[i] || o.Available != want {
+			t.Fatalf("status operation %d: %+v (want available=%v)", i, o, want)
+		}
 	}
 }
 

@@ -801,6 +801,49 @@ def f17(vm):
            + f" NTPSynchronized={sync} ntp_server={server!r}" + ("" if sync == "yes" else " (NTP server unreachable from the VM)"))
 
 
+HOSTSOCK = "curl -s --max-time 10 --unix-socket /run/onemind/host.sock"
+
+
+def zone_probe(vm):
+    """What the box says its zone is now: the symlink's target, the UTC offset, and the host's own GET /v1/time."""
+    _, out = vm.run("echo LINK=$(readlink -f /etc/localtime); echo OFFSET=$(date +%z); "
+                    f"echo TIME=$({HOSTSOCK} http://host/v1/time | tr -d '\\n')", 60)
+    get = lambda k: (re.findall(rf"^{k}=(.*?)\s*$", out, re.M) or [""])[-1]
+    try:
+        host_zone = json.loads(get("TIME")).get("zone")
+    except ValueError:
+        host_zone = None
+    return get("LINK"), get("OFFSET"), host_zone
+
+
+def f18(vm):
+    """The host applies a time zone now: the symlink on /data is swapped, the offset changes, an unknown zone is refused (section 10)."""
+    before = zone_probe(vm)
+    _, out = vm.run(
+        f"{HOSTSOCK} -o /dev/null -w 'POST=%{{http_code}}\\n' -X POST http://host/v1/operations "
+        "-d '{\"action_id\":\"f14-tz\",\"kind\":\"set-timezone\",\"zone\":\"Pacific/Auckland\"}'; "
+        "for i in $(seq 1 30); do "
+        f"S=$({HOSTSOCK} http://host/v1/operations/f14-tz | sed -n 's/.*\"state\":\"\\([a-z_]*\\)\".*/\\1/p'); "
+        "[ \"$S\" = succeeded ] || [ \"$S\" = failed ] && break; sleep 1; done; echo STATE=$S; "
+        f"{HOSTSOCK} -w '\\nBAD=%{{http_code}}\\n' -X POST http://host/v1/operations "
+        "-d '{\"action_id\":\"f14-bad\",\"kind\":\"set-timezone\",\"zone\":\"Mars/Olympus\"}'", 90)
+    get = lambda k: (re.findall(rf"^{k}=(.*?)\s*$", out, re.M) or [""])[-1]
+    after = zone_probe(vm)
+    c = {"started_utc": before[0].startswith("/usr/share/zoneinfo/") and before[2] == "UTC",
+         "accepted": get("POST") in ("200", "202"), "succeeded": get("STATE") == "succeeded",
+         "link_auckland": after[0].endswith("zoneinfo/Pacific/Auckland"), "offset_plus_1300": after[1] == "+1300",
+         "host_reports_zone": after[2] == "Pacific/Auckland",
+         "unknown_refused": get("BAD") == "409" and "unknown_zone" in out}
+    record("F18", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items()) + f" before={before} after={after}")
+
+
+def f19(vm):
+    """The zone survives the reboot (section 10)."""
+    link, offset, host_zone = zone_probe(vm)
+    c = {"link_auckland": link.endswith("zoneinfo/Pacific/Auckland"), "offset_plus_1300": offset == "+1300",
+         "host_reports_zone": host_zone == "Pacific/Auckland"}
+    record("F19", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items()) + f" link={link} offset={offset} host_zone={host_zone}")
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--board", required=True, choices=sorted(battery.BOARDS))
@@ -858,6 +901,7 @@ def main():
         vm.mark("F11 starting page, then the gateway, never a refused connection"); f11(vm, (os.path.dirname(a.results) or ".") if a.results else None)
         vm.mark("F12 the gateway reaches the host helper, and says missing without it (#875)"); f12(vm, token)
         vm.mark("F17 the clock: timesyncd, tzdata, C.UTF-8"); f17(vm)
+        vm.mark("F18 the host applies a time zone (P-04)"); f18(vm)
         vm.mark("F13 disk and admin tools run, smartd masked (Step 2)"); f13(vm)
         vm.mark("NW1-NW4 NetworkManager: wired DHCP, k3s order, unmanaged k3s links, saved profile")
         netcheck.nw1(vm, record); netcheck.nw2(vm, record); netcheck.nw3(vm, record)
@@ -870,6 +914,7 @@ def main():
             vm.mark("F3 reboot keeps state")
             seg = vm.here(); vm.send("systemctl reboot")
             al = vm.expect(ALREADY, 900).group(0)
+            vm.pos = seg    # on a fast host the gate line comes before ALREADY; search this boot's buffer from its start
             g3 = vm.wait_gate(); vm.shell_ready()
             new_toks = TOKEN.findall(vm.since(seg))
             ids3 = ident(vm)
@@ -878,6 +923,7 @@ def main():
                 diagnose(vm, f"healthz={hz3} after reboot")
             listed3 = nodes(vm, token, ids["node_id"])
             same = [n for n in listed3 if n[0] == ids["node_id"]]
+            vm.mark("F19 the zone survives the reboot (P-04)"); f19(vm)
             record("F3", not new_toks and ids3 == ids and hz3 == "200" and bool(same) and bool(token),
                    f"'{al[:70]}' new_tokens={len(new_toks)} same_ids={ids3 == ids} healthz={hz3} listed={listed3} gate={g3}")
             netcheck.nw4_after(vm, record, nw4)

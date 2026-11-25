@@ -883,6 +883,15 @@ POLICY |= {
         cells(403, **GONE, owner=409, agent=409, app_agent=409, plugin=DENIED, automation=DENIED, node=DENIED),
         lambda _w: w.Req("/v1/system/services/onemind-gateway.service/restart", json={}),
         "core/onemind_core/routers/services.py: owner or agent asks for a service restart; only an owner approves it"),
+    # P-04: the clock is owner only, read only; in this world there is no host socket, so the owner gets 200 with available=false.
+    ("GET", "/v1/system/time"): Row(OWNER_ONLY, w.p_static("/v1/system/time"),
+                                    "core/onemind_core/routers/clock.py: the hub's time zone and clock sync state; owner only"),
+    # P-04: the owner and agents pass authorization and get 409 (no host socket: nothing is filed); with a host the request
+    # is filed and waits for the owner's approval (tests/test_system_time.py).
+    ("POST", "/v1/system/time/zone"): Row(
+        cells(403, **GONE, owner=409, agent=409, app_agent=409, plugin=DENIED, automation=DENIED, node=DENIED),
+        lambda _w: w.Req("/v1/system/time/zone", json={"zone": "Europe/Berlin"}),
+        "core/onemind_core/routers/clock.py: owner or agent asks for a time zone change; only an owner approves it"),
     # The UPS battery (IMG-06, #244: core/onemind_core/routers/ups.py). Read only; no upsd in this world, so a
     # reader gets 200 with present=false. Device health like /v1/os/about: a child has no nodes:read.
     ("GET", "/v1/system/ups"): Row(CHILD_CANNOT, w.p_static("/v1/system/ups"),

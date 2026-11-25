@@ -24,7 +24,7 @@ import (
 
 // Kinds of host action. The gateway's action types map onto them:
 // system.restart, system.shutdown, system.factory_reset, os.update.install,
-// os.rollback, service.restart.
+// os.rollback, service.restart, system.set_timezone.
 const (
 	KindRestart        = "restart"
 	KindShutdown       = "shutdown"
@@ -32,10 +32,11 @@ const (
 	KindOSInstall      = "os-install"
 	KindOSRollback     = "os-rollback"
 	KindServiceRestart = "service-restart"
+	KindSetTimezone    = "set-timezone"
 )
 
 // Kinds lists every kind in a stable order (GET /v1/status).
-var Kinds = []string{KindRestart, KindShutdown, KindFactoryReset, KindOSInstall, KindOSRollback, KindServiceRestart}
+var Kinds = []string{KindRestart, KindShutdown, KindFactoryReset, KindOSInstall, KindOSRollback, KindServiceRestart, KindSetTimezone}
 
 // Operation states. going_down: the box was told to reboot or power off; the
 // next boot turns it into succeeded.
@@ -78,6 +79,8 @@ type Request struct {
 	PlanSHA256 string `json:"plan_sha256,omitempty"`
 	// Unit (service-restart only, required) is the systemd unit the owner approved restarting.
 	Unit string `json:"unit,omitempty"`
+	// Zone (set-timezone only, required) is the IANA zone name the owner approved, e.g. Europe/Berlin.
+	Zone string `json:"zone,omitempty"`
 }
 
 // Validate refuses a malformed request (HTTP 400).
@@ -88,7 +91,17 @@ func (r Request) Validate() error {
 	if (r.Kind == KindServiceRestart) != (r.Unit != "") {
 		return fmt.Errorf("unit is required for %s and only for it", KindServiceRestart)
 	}
+	if (r.Kind == KindSetTimezone) != (r.Zone != "") {
+		return fmt.Errorf("zone is required for %s and only for it", KindSetTimezone)
+	}
 	switch r.Kind {
+	case KindSetTimezone:
+		if r.Version != "" || r.PlanSHA256 != "" {
+			return errors.New("set-timezone takes only a zone")
+		}
+		if !ZoneName(r.Zone) {
+			return errors.New("zone must be an IANA time zone name such as Europe/Berlin")
+		}
 	case KindRestart, KindShutdown, KindFactoryReset:
 		if r.Version != "" {
 			return fmt.Errorf("%s takes no version", r.Kind)
@@ -121,7 +134,7 @@ func (r Request) Validate() error {
 			return errors.New("unit must be a systemd unit name")
 		}
 	default:
-		return fmt.Errorf("unknown kind %q (restart, shutdown, factory-reset, os-install, os-rollback, service-restart)", r.Kind)
+		return fmt.Errorf("unknown kind %q (restart, shutdown, factory-reset, os-install, os-rollback, service-restart, set-timezone)", r.Kind)
 	}
 	return nil
 }
@@ -133,6 +146,7 @@ type Op struct {
 	Version    string     `json:"version,omitempty"`
 	PlanSHA256 string     `json:"plan_sha256,omitempty"` // factory-reset: the approved plan
 	Unit       string     `json:"unit,omitempty"`        // service-restart: the approved unit
+	Zone       string     `json:"zone,omitempty"`        // set-timezone: the approved zone
 	State      string     `json:"state"`
 	Reason     string     `json:"reason,omitempty"` // failed: a stable code
 	Message    string     `json:"message,omitempty"`
@@ -180,6 +194,13 @@ type Units interface {
 	Restart(ctx context.Context, unit string) error
 }
 
+// Zones sets the box's time zone (Timezone in timezone.go in production). Check refuses a name this
+// box has no zone file for; Set makes the zone the box's, now and after every reboot and A/B update.
+type Zones interface {
+	Check(zone string) error
+	Set(ctx context.Context, zone string) error
+}
+
 // Service runs the actions. Power, OS and Reset may be nil: that kind is then
 // reported unavailable and refused.
 type Service struct {
@@ -190,6 +211,7 @@ type Service struct {
 	Reset  Resetter
 	SMB    SMBManager    // file sharing (smb.go); nil: not on this box
 	Units  Units         // service-restart; nil: refused
+	Zones  Zones         // set-timezone; nil: refused
 	BootID string        // /proc/sys/kernel/random/boot_id
 	Delay  time.Duration // before the box goes down, so the gateway records "accepted" first
 	Now    func() time.Time
@@ -238,6 +260,10 @@ func (s *Service) Unavailable(kind string) string {
 		if s.Units == nil {
 			return "this host service cannot restart services"
 		}
+	case KindSetTimezone:
+		if s.Zones == nil {
+			return "this host service cannot set the time zone"
+		}
 	case KindFactoryReset:
 		if s.Reset == nil {
 			return "factory reset is not in this OneMind version yet: the early-boot wipe ships separately (HOST-ACTIONS.md §4)"
@@ -271,7 +297,7 @@ func (s *Service) Submit(ctx context.Context, req Request) (op Op, created bool,
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if old, err := s.Store.Get(req.ActionID); err == nil {
-		if old.Kind != req.Kind || old.Version != req.Version || old.PlanSHA256 != req.PlanSHA256 || old.Unit != req.Unit {
+		if old.Kind != req.Kind || old.Version != req.Version || old.PlanSHA256 != req.PlanSHA256 || old.Unit != req.Unit || old.Zone != req.Zone {
 			return Op{}, false, &Refusal{"action_id_reused", "action " + req.ActionID + " was already sent as a different request"}
 		}
 		if s.active != nil && s.active.ID == old.ID {
@@ -300,6 +326,11 @@ func (s *Service) Submit(ctx context.Context, req Request) (op Op, created bool,
 			return Op{}, false, &Refusal{"not_restartable", req.Unit + ": " + err.Error()}
 		}
 	}
+	if req.Kind == KindSetTimezone {
+		if err := s.Zones.Check(req.Zone); err != nil {
+			return Op{}, false, &Refusal{"unknown_zone", err.Error()}
+		}
+	}
 	if req.Kind == KindFactoryReset {
 		// The owner approved one plan. If the disks changed since (a member
 		// added or pulled), nothing is armed: the owner must see the new plan.
@@ -308,7 +339,7 @@ func (s *Service) Submit(ctx context.Context, req Request) (op Op, created bool,
 		}
 	}
 	now := s.now()
-	op = Op{ID: req.ActionID, Kind: req.Kind, Version: req.Version, PlanSHA256: req.PlanSHA256, Unit: req.Unit, State: StateAccepted, BootID: s.BootID,
+	op = Op{ID: req.ActionID, Kind: req.Kind, Version: req.Version, PlanSHA256: req.PlanSHA256, Unit: req.Unit, Zone: req.Zone, State: StateAccepted, BootID: s.BootID,
 		AcceptedAt: now, UpdatedAt: now, Message: "accepted"}
 	if err := s.Store.Put(op); err != nil {
 		return Op{}, false, err
@@ -431,6 +462,13 @@ func (s *Service) run(ctx context.Context, op Op) {
 			return
 		}
 		s.set(&op, StateSucceeded, "", op.Unit+" restarted")
+	case KindSetTimezone:
+		s.set(&op, StateRunning, "", "setting the time zone to "+op.Zone)
+		if err := s.Zones.Set(ctx, op.Zone); err != nil {
+			s.set(&op, StateFailed, "host_error", "setting the time zone failed: "+err.Error())
+			return
+		}
+		s.set(&op, StateSucceeded, "", "time zone set to "+op.Zone)
 	case KindFactoryReset:
 		s.set(&op, StateRunning, "", "arming the factory reset")
 		if err := s.Reset.Arm(ctx, op); err != nil {
