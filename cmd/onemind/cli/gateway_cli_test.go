@@ -21,6 +21,8 @@ type recGW struct {
 	srv *httptest.Server
 	// stepUp makes POST /v1/users answer the passkey step-up error.
 	stepUp bool
+	// noAISchedule makes GET /v1/update-policy leave ai_schedule out.
+	noAISchedule bool
 }
 
 type rec struct {
@@ -115,9 +117,13 @@ func (g *recGW) serve(w http.ResponseWriter, r *http.Request) {
 			map[string]any{"id": "disk", "state": "clear", "detail": "Disks healthy.", "fix": nil},
 		})
 	case p == "/v1/update-policy" && r.Method == http.MethodGet:
-		jsonOut(w, 200, map[string]any{"window_id": "win_nightly", "cool_off_hours": 48, "same_major_only": true, "backoff_after_failures": 3,
+		pol := map[string]any{"window_id": "win_nightly", "cool_off_hours": 48, "same_major_only": true, "backoff_after_failures": 3,
 			"ai_schedule": map[string]any{"enabled": true, "tz": "box", "off": []any{map[string]any{"days": []any{"mon"}, "start": "23:00", "end": "07:00"}}},
-			"customized":  false, "updated_at": nil, "updated_by": nil, "paused_apps": []any{}})
+			"customized":  false, "updated_at": nil, "updated_by": nil, "paused_apps": []any{}}
+		if g.noAISchedule {
+			delete(pol, "ai_schedule")
+		}
+		jsonOut(w, 200, pol)
 	case p == "/v1/update-policy" && r.Method == http.MethodPut:
 		if denyAgent() {
 			return
@@ -311,6 +317,10 @@ func TestUpdateApplyFilesAnApprovalInsteadOfActingAsRoot(t *testing.T) {
 	if r := run(t, "", false, "update", "apply", "--json"); r.code != 0 || obj(mustJSON2(t, r.out))["state"] != "awaiting_approval" {
 		t.Fatalf("json %+v", r)
 	}
+	// A retry is a replay: the same node and version give the same idempotency key.
+	if acts := g.requests("POST", "/v1/actions"); len(acts) != 2 || acts[0].body["idempotency_key"] != acts[1].body["idempotency_key"] {
+		t.Fatalf("retry made a different key: %+v", acts)
+	}
 	// No update on offer, an unknown node, and local-only flags without --local are refused before filing.
 	n := len(g.requests("POST", "/v1/actions"))
 	for _, args := range [][]string{{"--node", "idle"}, {"--node", "ghost"}, {"--no-reboot"}, {"--mirror", "/mnt/usb"}} {
@@ -337,9 +347,34 @@ func TestUpdateApplyLocalIsLabelledBreakGlass(t *testing.T) {
 	if r := run(t, "", false, "update", "apply", "--local", "--node", "hub1", "--config", conf); r.code != ExitUsage {
 		t.Fatalf("--local with --node %+v", r)
 	}
-	// With no box selected at all the root path is the only one, and is labelled the same way.
+	// With no box selected and no --local there is no fallback to root: apply refuses.
 	t.Setenv("ONEMIND_HUB", "")
-	if r := run(t, "", false, "update", "apply", "--config", conf); r.code == 0 || !strings.Contains(r.errOut, "BREAK-GLASS") {
-		t.Fatalf("no box %+v", r)
+	r = run(t, "", false, "update", "apply", "--config", conf)
+	if r.code != ExitUsage || strings.Contains(r.errOut, "installing on this machine") {
+		t.Fatalf("no box, no --local %+v", r)
+	}
+	// --node with no box must not install locally either.
+	r = run(t, "", false, "update", "apply", "--node", "hub1", "--config", conf)
+	if r.code != ExitUsage || strings.Contains(r.errOut, "installing on this machine") {
+		t.Fatalf("no box, --node %+v", r)
+	}
+	// --local with no box is the explicit break-glass path.
+	if r := run(t, "", false, "update", "apply", "--local", "--config", conf); r.code == 0 || !strings.Contains(r.errOut, "BREAK-GLASS") {
+		t.Fatalf("--local, no box %+v", r)
+	}
+}
+
+func TestUpdatePolicySetSkipsAISchedulePolicyWhenAbsent(t *testing.T) {
+	g := asOwner(t)
+	g.noAISchedule = true
+	if r := run(t, "", false, "update", "policy", "set", "--cool-off-hours", "5"); r.code != 0 {
+		t.Fatalf("set %+v", r)
+	}
+	put := g.requests("PUT", "/v1/update-policy")
+	if len(put) != 1 {
+		t.Fatalf("puts %+v", put)
+	}
+	if _, has := put[0].body["ai_schedule"]; has {
+		t.Fatalf("ai_schedule sent as %v", put[0].body["ai_schedule"])
 	}
 }

@@ -4,8 +4,9 @@ package cli
 
 // Shared plumbing for the commands that call existing gateway routes (`users`, `backup`, `care`,
 // `update policy`, `update apply`). Writes that need approval only FILE a request: no command here
-// ever approves one, so an agent token can run them and still never actuate (AI never actuates
-// without human approval). The gateway decides who may do what and answers 403 to anyone else.
+// ever approves one, so nothing here can actuate on its own (AI never actuates without human
+// approval). The gateway decides who may do what and answers 403 to anyone else: it refuses agent
+// tokens for backup restore and os.update.install, which only a person may request.
 
 import (
 	"errors"

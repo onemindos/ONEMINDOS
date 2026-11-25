@@ -7,12 +7,13 @@ package cli
 // Apply has two paths. The normal one asks the gateway for the `os.update.install` action
 // (POST /v1/actions): an owner approves it (with a passkey when the box has one), and the box's host
 // service installs into the other A/B slot with the health gate and rollback. That path needs no
-// root and works from any machine with a token. The other one is break-glass: `--local` (or no box
-// selected at all) runs the engine on this machine as root, with no approval and no owner in the
-// loop, so it says so every time. Use it only when the gateway is down.
+// root and works from any machine with a token. The other one is break-glass: `--local` and nothing
+// else runs the engine on this machine as root, with no approval and no owner in the loop, so it says
+// so every time. With no box selected and no --local, apply refuses (usage error) rather than
+// falling back to root. Use --local only when the gateway is down.
 
 import (
-	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -28,7 +29,7 @@ import (
 func gatewayApply(a *App, apply *cobra.Command, local func() error) {
 	var forceLocal bool
 	var node, version string
-	apply.Flags().BoolVar(&forceLocal, "local", false, "BREAK-GLASS: install on this machine as root now, with no approval (default when no box is selected)")
+	apply.Flags().BoolVar(&forceLocal, "local", false, "BREAK-GLASS: install on this machine as root now, with no approval (never implied: with no box selected, apply refuses without it)")
 	apply.Flags().StringVar(&node, "node", "", "gateway mode: the node to update (default: the hub)")
 	apply.Flags().StringVar(&version, "target-version", "", "gateway mode: the version on offer to install (default: the one the node offers)")
 	apply.Short = "Install an available update: files an approval on the box; --local is the break-glass root path"
@@ -45,6 +46,8 @@ func gatewayApply(a *App, apply *cobra.Command, local func() error) {
 			if !strings.Contains(err.Error(), "no box selected") {
 				return err
 			}
+			return usageErr(cmd, "no box selected, so there is no owner to approve an install: run `onemind login` first, "+
+				"or add --local for the break-glass root install on this machine (no approval)")
 		} else if node != "" || version != "" {
 			return usageErr(cmd, "--node and --target-version are for the gateway path, not --local")
 		}
@@ -85,12 +88,11 @@ func (a *App) updateApplyViaGateway(node, version string) error {
 	if in := obj(obj(st)["install"]); in["available"] == false {
 		fmt.Fprintln(a.Stderr, "onemind: warning: the box cannot run an approved install yet:", sanitize(str(in["message"])))
 	}
-	key := make([]byte, 12)
-	if _, err := rand.Read(key); err != nil {
-		return err
-	}
+	// The key is built from node, version and the UTC day, so a retry the same day is a replay of
+	// the request already waiting, not a second one.
+	sum := sha256.Sum256([]byte(node + "\x00" + version + "\x00" + time.Now().UTC().Format("2006-01-02")))
 	body := map[string]any{"type": "os.update.install", "params": map[string]any{"node_id": node, "version": version},
-		"idempotency_key": "cli-" + hex.EncodeToString(key), "expires_at": time.Now().Add(24 * time.Hour).UTC().Format(time.RFC3339)}
+		"idempotency_key": "cli-os-update-" + hex.EncodeToString(sum[:12]), "expires_at": time.Now().Add(24 * time.Hour).UTC().Format(time.RFC3339)}
 	act, err := a.gwDo(http.MethodPost, "/v1/actions", body)
 	if err != nil {
 		return err
@@ -147,7 +149,9 @@ func updatePolicyCommand(a *App) *cobra.Command {
 			c := obj(cur)
 			body := map[string]any{}
 			for _, k := range []string{"window_id", "cool_off_hours", "same_major_only", "backoff_after_failures", "ai_schedule"} {
-				body[k] = c[k]
+				if v, ok := c[k]; ok && v != nil {
+					body[k] = v
+				}
 			}
 			if f.Changed("window") {
 				body["window_id"] = window
