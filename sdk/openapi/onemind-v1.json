@@ -17854,6 +17854,13 @@
             "description": "Request failed validation (conflict, with the bad fields in message)"
           }
         },
+        "security": [
+          {
+            "bearer": [
+              "*"
+            ]
+          }
+        ],
         "summary": "Confirm Policy",
         "tags": [
           "automation"

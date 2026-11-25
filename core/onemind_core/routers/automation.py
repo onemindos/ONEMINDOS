@@ -120,7 +120,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return JSONResponse(status_code=201, content=policies.create(p, body, approval=via))
 
     @app.post("/v1/approval-policies/{policy_id}/confirm", operation_id="approvals.policies.confirm", tags=tags,
-              responses=error_responses(401, 403, 404))
+              responses=error_responses(401, 403, 404), openapi_extra={"security": [{"bearer": ["*"]}]})
     def confirm_policy(policy_id: str, request: Request, p: Principal = Depends(principal)):
         step_up(request, p, "confirm standing approval")
         return policies.confirm(p, policy_id)
