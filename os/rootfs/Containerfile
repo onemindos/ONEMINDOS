@@ -93,9 +93,10 @@ RUN set -eu; \
     /tmp/gen/onemind completion zsh > /out/completions/_onemind; \
     /tmp/gen/onemind completion fish > /out/completions/onemind.fish; \
     test -s /out/completions/onemind.bash
-# The man pages carry a date: the commit time (make passes it as SOURCE_DATE_EPOCH), 0 only when built outside git.
-ARG SOURCE_DATE_EPOCH=0
-RUN set -eu; SOURCE_DATE_EPOCH="$SOURCE_DATE_EPOCH" /tmp/gen/onemind-mangen /out/man1 "$ONEMIND_VERSION"; \
+# The man pages carry a date: the commit time (make passes it as MAN_DATE_EPOCH), 0 only when built outside git.
+# Not called SOURCE_DATE_EPOCH as a build-arg: BuildKit would then rewrite every file time in the image.
+ARG MAN_DATE_EPOCH=0
+RUN set -eu; SOURCE_DATE_EPOCH="$MAN_DATE_EPOCH" /tmp/gen/onemind-mangen /out/man1 "$ONEMIND_VERSION"; \
     gzip -9n /out/man1/*.1; ls /out/man1 | head -3
 
 FROM onemind-buildbase AS onemind-dashboard
