@@ -408,9 +408,10 @@ def copy_datastore(p: Paths, stamp: str) -> str | None:
     names = [n for n in ("state.db", "state.db-wal", "state.db-shm") if os.path.isfile(os.path.join(src_dir, n))]
     if not names:
         return None
-    qdir = _new_quarantine(p, stamp + COPY_SUFFIX)
-    dst_dir = os.path.join(qdir, _rel(p, src_dir))
+    qdir = None
     try:
+        qdir = _new_quarantine(p, stamp + COPY_SUFFIX)
+        dst_dir = os.path.join(qdir, _rel(p, src_dir))
         os.makedirs(dst_dir, mode=0o700)
         for n in names:
             dst = os.path.join(dst_dir, n)
@@ -424,8 +425,9 @@ def copy_datastore(p: Paths, stamp: str) -> str | None:
         for d in (dst_dir, os.path.dirname(dst_dir), qdir, p.recovery):
             fsync_dir(d)
     except OSError as exc:
-        log(f"could not copy the datastore to /data/{_rel(p, qdir)}: {exc}")
-        shutil.rmtree(qdir, ignore_errors=True)
+        log(f"could not copy the datastore into the quarantine folder: {exc}")
+        if qdir:
+            shutil.rmtree(qdir, ignore_errors=True)
         return None
     return _rel(p, qdir)
 

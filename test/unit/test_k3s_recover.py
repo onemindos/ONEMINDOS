@@ -311,6 +311,13 @@ class HoldWhileWaiting(Box):
         self.assertNotIn("datastore_copy", self.last())
         self.assertFalse([d for d in os.listdir(self.p.recovery) if d.endswith(ks.COPY_SUFFIX)])
 
+    def test_no_room_for_a_quarantine_folder_still_holds_k3s(self):
+        self.empty_db_with_wal()
+        self.truncate(self.everything_k3s())
+        with mock.patch.object(ks.os, "mkdir", side_effect=OSError(28, "No space left on device")), \
+                mock.patch.object(ks, "say"):
+            self.assertEqual(ks.main(["--root", self.tmp.name, "recover"]), ks.HOLD)
+
     def test_a_record_that_cannot_be_written_still_holds_k3s(self):
         self.db(["/registry/deployments/apps/jellyfin"])
         self.truncate(self.everything_k3s())
