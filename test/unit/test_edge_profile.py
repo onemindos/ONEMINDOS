@@ -232,9 +232,13 @@ class LeafCheckRuns(unittest.TestCase):
         p = subprocess.run(["bash", LEAF_CHECK], capture_output=True, text=True, env=env, timeout=30)
         return p.returncode, p.stdout.strip()
 
-    def leaf_conf(self, start):
-        put(os.path.join(self.root, "data/onemind/etc/nats/leaf.conf"), 
-            'server_name: "node-abc"\nlisten: "127.0.0.1:4222"\nhttp: "127.0.0.1:8222"\n')
+    AUTH = ('# no_auth_user is gone (this comment must not trip the check)\n'
+            'authorization {\n  users: [\n    {nkey: "UBSMVUZ4GQXTXWP5H5SMM4LPEZAIBCEU54ADTY25RCHRECSM2O5KJ25J", '
+            'permissions: {publish: {allow: ["onemind.node.abc.status"]}}}  # onemindd\n  ]\n}\n')
+
+    def leaf_conf(self, start, auth=None):
+        put(os.path.join(self.root, "data/onemind/etc/nats/leaf.conf"),
+            'server_name: "node-abc"\nlisten: "127.0.0.1:4222"\nhttp: "127.0.0.1:8222"\n' + (self.AUTH if auth is None else auth))
         self.active.add("onemind-nats-leaf.service")
         self.urls["http://127.0.0.1:8222/healthz?js-enabled-only=true"] = '{"status":"ok"}'
         self.urls["http://127.0.0.1:8222/varz"] = json.dumps({"server_name": "node-abc", "start": start})
@@ -277,6 +281,16 @@ class LeafCheckRuns(unittest.TestCase):
                 rc, out = self.run_check()
                 self.assertEqual(rc, 1)
                 self.assertEqual(out, f"fail G2: hub service {unit.removesuffix('.service')} is running on an edge")
+
+    def test_leaf_without_local_sign_in_fails(self):
+        """G1: a leaf any local program can use (no nkey users, or a passwordless user) is a bad leaf."""
+        for what, auth in (("no authorization block", ""),
+                           ("a passwordless user", self.AUTH + 'no_auth_user: "sensor"\n')):
+            with self.subTest(what):
+                self.leaf_conf(self.iso(self.btime + 20), auth=auth)
+                rc, out = self.run_check()
+                self.assertEqual(rc, 1, out)
+                self.assertTrue(out.startswith("fail G3:") and "local" in out, out)
 
     def test_leaf_nats_unhealthy_or_stale(self):
         self.leaf_conf(self.iso(self.btime + 20))

@@ -30,6 +30,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/onemindos/onemindos/internal/leaf"
 	"github.com/onemindos/onemindos/internal/mesh"
 )
 
@@ -295,6 +296,28 @@ func TestJoinEndToEnd(t *testing.T) {
 	if strings.Contains(leafConf, string(id.NkeySeed)) {
 		t.Fatal("seed inside leaf.conf")
 	}
+	// G1: no passwordless local user; onemindd and the CLI each have their own key and seed file.
+	if strings.Contains(leafConf, "no_auth_user") || !strings.Contains(leafConf, "authorization {") {
+		t.Fatalf("leaf.conf lets anonymous local clients in:\n%s", leafConf)
+	}
+	var pubs []string
+	for _, name := range []string{"onemindd", "cli"} {
+		seed := read(LocalKeysDir + "/" + name + ".nk")
+		pub, err := leaf.WriteLocalSeed(filepath.Join(root, LocalKeysDir), name) // keeps the key the join made
+		if err != nil || !strings.Contains(leafConf, `nkey: "`+pub+`"`) || strings.Contains(leafConf, strings.TrimSpace(seed)) {
+			t.Fatalf("%s: key not in leaf.conf (or the seed is): %v\n%s", name, err, leafConf)
+		}
+		if fi, err := os.Stat(filepath.Join(root, LocalKeysDir, name+".nk")); err != nil || fi.Mode().Perm() != 0o600 {
+			t.Fatalf("%s seed file: %v %v", name, fi, err)
+		}
+		pubs = append(pubs, pub)
+	}
+	if pubs[0] == pubs[1] {
+		t.Fatal("onemindd and the CLI share a key")
+	}
+	if c, err := leaf.LoadConfig(filepath.Join(root, leaf.DefaultConfigPath)); err != nil || len(c.Local) != 2 {
+		t.Fatalf("persisted leaf config: %+v %v", c, err)
+	}
 	k3s := read(K3sConfig)
 	for _, want := range []string{`server: "https://100.64.0.1:6443"`, `node-ip: "100.64.0.7"`, `flannel-iface: "tailscale0"`} {
 		if !strings.Contains(k3s, want) {
@@ -304,6 +327,9 @@ func TestJoinEndToEnd(t *testing.T) {
 	env := read(OnemindEnv)
 	if !strings.Contains(env, "ONEMIND_NATS_URL=nats://127.0.0.1:4222") || strings.Contains(env, "nats://old") || !strings.Contains(env, "OTHER=1") {
 		t.Fatalf("env:\n%s", env)
+	}
+	if !strings.Contains(env, "ONEMIND_NATS_NKEY_SEED="+LocalKeysDir+"/onemindd.nk\n") || !strings.Contains(env, "ONEMIND_NATS_INBOX_PREFIX=_INBOX_onemindd\n") {
+		t.Fatalf("onemindd does not sign in to its leaf:\n%s", env)
 	}
 	// onemindd must publish under the joined identity, not the id firstboot wrote before the join
 	if !strings.Contains(env, "ONEMIND_NODE_ID=n1\n") || strings.Contains(env, "prejoin000000") || strings.Count(env, "ONEMIND_NODE_ID=") != 1 {

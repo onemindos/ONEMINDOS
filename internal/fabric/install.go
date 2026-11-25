@@ -33,7 +33,11 @@ var (
 	IdentityDir = filepath.Join(etcdir.Dir(), "identity")
 	NATSDir     = filepath.Join(etcdir.Dir(), "nats")
 	StateFile   = filepath.Join(etcdir.Dir(), "fabric.json")
-	OnemindEnv  = filepath.Join(etcdir.Dir(), "onemindd.env")
+	// LocalKeysDir holds the nkey seeds of the programs that sign in to this machine's leaf (G1).
+	// It is outside NATSDir, which belongs to the nats-server user: a seed is read only by the
+	// program it names (onemindd, the owner's CLI), both of which run as root.
+	LocalKeysDir = filepath.Join(etcdir.Dir(), leaf.LocalKeysDirName)
+	OnemindEnv   = filepath.Join(etcdir.Dir(), "onemindd.env")
 )
 
 const (
@@ -222,7 +226,9 @@ func (in *Installer) Apply(ctx context.Context, id *Identity, cr *Credentials, c
 
 	// 6. onemindd publishes to its local leaf from now on, under the id the hub knows (firstboot wrote a
 	// different one; the leaf account and fabric.json use this one, so heartbeats on the old id never arrive).
-	if err := in.setEnv(map[string]string{"ONEMIND_NATS_URL": LocalNATSURL, "ONEMIND_NODE_ROLE": "node", "ONEMIND_NODE_ID": id.NodeID}); err != nil {
+	if err := in.setEnv(map[string]string{"ONEMIND_NATS_URL": LocalNATSURL, "ONEMIND_NODE_ROLE": "node", "ONEMIND_NODE_ID": id.NodeID,
+		"ONEMIND_NATS_NKEY_SEED":    filepath.Join(LocalKeysDir, leaf.ProgramOnemindd+".nk"),
+		"ONEMIND_NATS_INBOX_PREFIX": leaf.InboxPrefix(leaf.ProgramOnemindd)}); err != nil {
 		return nil, err
 	}
 	st.JoinedAt = in.Now().UTC().Format(time.RFC3339)
@@ -313,7 +319,22 @@ func (in *Installer) writeLeaf(id *Identity, cr *Credentials) error {
 	if _, err := leaf.WriteNkeyFile(nkeyFile, id.NkeySeed); err != nil {
 		return err
 	}
+	// Local sign-in (G1): each local program gets its own key and exact subjects; the leaf has no
+	// passwordless user. The seeds stay in LocalKeysDir (root only); leaf.conf holds public keys.
+	pubs := map[string]string{}
+	for _, name := range []string{leaf.ProgramOnemindd, leaf.ProgramCLI} {
+		pub, err := leaf.WriteLocalSeed(in.p(LocalKeysDir), name)
+		if err != nil {
+			return err
+		}
+		pubs[name] = pub
+	}
+	progs, err := leaf.MachinePrograms(id.NodeID, pubs)
+	if err != nil {
+		return err
+	}
 	c := &leaf.Config{
+		Local:      progs,
 		ServerName: "node-" + id.NodeID, StoreDir: in.p(LeafStoreDir), HubURLs: []string{cr.NATS.URL},
 		CAFile: filepath.Join(dir, "ca.pem"), CertFile: filepath.Join(dir, "node.crt"), KeyFile: filepath.Join(dir, "node.key"),
 		NkeyFile: nkeyFile,
@@ -390,7 +411,7 @@ func (in *Installer) setEnv(set map[string]string) error {
 		}
 		out.WriteString(line + "\n")
 	}
-	for _, k := range []string{"ONEMIND_NATS_URL", "ONEMIND_NODE_ROLE", "ONEMIND_NODE_ID"} {
+	for _, k := range []string{"ONEMIND_NATS_URL", "ONEMIND_NODE_ROLE", "ONEMIND_NODE_ID", "ONEMIND_NATS_NKEY_SEED", "ONEMIND_NATS_INBOX_PREFIX"} {
 		if v, ok := set[k]; ok {
 			fmt.Fprintf(&out, "%s=%s\n", k, v)
 		}
