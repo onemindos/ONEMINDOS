@@ -15,3 +15,4 @@ layout: layout.yaml
 outputs: [raw]                   # .img.xz + a Raspberry Pi Imager os_list entry (imager_json.py)
 imager_devices: [pi5-64bit]
 eeprom_min: "2026-09-25"         # bootloader the image targets (os/versions.lock.yaml rpi5.eeprom); older warns
+network: networkmanager          # NetworkManager + Wi-Fi tools, profiles on /data (os/rootfs/layers/networkmanager); cloud boards keep networkd

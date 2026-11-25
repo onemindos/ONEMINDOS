@@ -9,3 +9,4 @@ efi_binary: BOOTX64.EFI
 console: "console=tty0 console=ttyS0,115200"
 layout: layout.yaml
 outputs: [raw]
+network: networkmanager          # NetworkManager + Wi-Fi tools, profiles on /data (os/rootfs/layers/networkmanager); cloud boards keep networkd
