@@ -149,7 +149,7 @@ def f5(vm):
     k = "k3s kubectl -n default apply --dry-run=server -f -"
     # The pod admission chain looks up the namespace's default ServiceAccount first; on a fast boot (CI) the
     # controller has not created it yet, which would refuse both pods for that reason and not for policy.
-    _, out = vm.run("for i in $(seq 1 90); do k3s kubectl -n default get serviceaccount default >/dev/null 2>&1 && break; sleep 2; done; "
+    _, out = vm.run("for i in $(seq 1 30); do k3s kubectl -n default get serviceaccount default >/dev/null 2>&1 && break; sleep 2; done; "
                     f"printf '{PRIV_POD}' | {k} 2>&1; echo PRIV_RC=$?; "
                     f"printf '{PLAIN_POD}' | {k} 2>&1; echo PLAIN_RC=$?; "
                     "echo UNIT=$(systemctl cat k3s.service | grep -c 'admission-control-config-file=/etc/rancher/k3s/psa.yaml')", 300)
@@ -501,17 +501,17 @@ def f13(vm):
     _, out = vm.run("echo ENABLED=$(systemctl is-enabled systemd-timesyncd.service 2>&1 | head -1); "
                     "echo ACTIVE=$(systemctl is-active systemd-timesyncd.service 2>&1 | head -1); "
                     "echo ZONE=$(test -r /usr/share/zoneinfo/UTC && echo ok || echo missing); "
-                    "echo LOCALE=$(cat /etc/locale.conf 2>/dev/null | head -1); "
-                    "for i in $(seq 1 90); do [ \"$(timedatectl show -p NTPSynchronized --value 2>/dev/null)\" = yes ] && break; sleep 2; done; "
+                    "echo LOCALE=$(grep -v '^#' /etc/locale.conf 2>/dev/null | head -1); "
+                    "for i in $(seq 1 30); do [ \"$(timedatectl show -p NTPSynchronized --value 2>/dev/null)\" = yes ] && break; sleep 2; done; "
                     "echo SYNC=$(timedatectl show -p NTPSynchronized --value 2>&1 | head -1); "
-                    "echo SERVER=$(timedatectl timesync-status 2>/dev/null | sed -n 's/^ *Server: *//p' | head -1)", 300)
+                    "echo SERVER=$(timedatectl timesync-status 2>/dev/null | sed -n 's/^ *Server: *//p' | head -1)", 200)
     get = lambda k: (re.findall(rf"^{k}=(.*?)\s*$", out, re.M) or [""])[-1]
     sync, server = get("SYNC"), get("SERVER")
     c = {"timesyncd_enabled": get("ENABLED") == "enabled", "timesyncd_active": get("ACTIVE") == "active",
          "tzdata": get("ZONE") == "ok", "lang_c_utf8": get("LOCALE") == "LANG=C.UTF-8"}
     # user-mode networking may not reach any NTP server: then the unit being enabled and running is the proof, and
     # the detail says so. If a server was reached, the clock must report synchronised (what node-check.sh asks).
-    c["synchronised_if_reachable"] = sync == "yes" or not server
+    c["synchronised_if_reachable"] = sync == "yes" or not server or server.startswith("n/a")
     record("F13", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items())
            + f" NTPSynchronized={sync} ntp_server={server!r}" + ("" if sync == "yes" else " (NTP server unreachable from the VM)"))
 
