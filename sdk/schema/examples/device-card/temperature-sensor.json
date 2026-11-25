@@ -1,0 +1,26 @@
+{
+  "@context": ["https://www.w3.org/2022/wot/td/v1.1", {"om": "https://github.com/onemindos/ONEMINDOS/sdk/schema/om#"}],
+  "om:schema": "onemind.device-card/v1",
+  "title": "Temperature sensor",
+  "description": "Reports the air temperature and its battery level. It only observes: nothing to approve.",
+  "securityDefinitions": {"nosec_sc": {"scheme": "nosec"}},
+  "security": ["nosec_sc"],
+  "properties": {
+    "temperature": {
+      "type": "number", "unit": "Cel", "minimum": -40, "maximum": 125, "readOnly": true, "observable": true,
+      "om:safety": {"class": "observe", "needsHold": false, "sim": true, "rate": {"max": 60, "per": "min"},
+                    "askers": ["owner", "member", "agent", "automation"]}
+    },
+    "battery": {
+      "type": "integer", "unit": "%", "minimum": 0, "maximum": 100, "readOnly": true,
+      "om:safety": {"class": "observe", "needsHold": false, "sim": true, "askers": ["owner", "member", "agent", "automation"]}
+    }
+  },
+  "events": {
+    "overheat": {
+      "description": "The temperature went above the alarm level.",
+      "data": {"type": "number", "unit": "Cel"},
+      "om:safety": {"class": "observe", "needsHold": false, "askers": ["owner", "member", "agent", "automation"]}
+    }
+  }
+}

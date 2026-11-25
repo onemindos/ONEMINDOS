@@ -271,10 +271,16 @@ func (a *App) pollActions(ctx context.Context, c *onemind.Client, emit func(stri
 // approves again with accept_licence. A script passes --accept-licence APP_ID instead.
 func (a *App) approveOrConfirmLicence(c *onemind.Client, x *onemind.Action, accept string, yes bool) (*onemind.Action, error) {
 	appID, _ := x.Params["app_id"].(string)
-	if accept != "" {
-		return c.Actions.ApproveAcceptingLicence(bg(), x.Id, accept)
+	// Bind the approval to the plan this command showed (AIG-04 tainted requests and physical actions
+	// refuse an approval without it); an action without a fingerprint approves as before.
+	plan := ""
+	if x.PlanSha256 != nil {
+		plan = *x.PlanSha256
 	}
-	got, err := c.Actions.Approve(bg(), x.Id)
+	if accept != "" {
+		return c.Actions.ApproveBound(bg(), x.Id, plan, accept)
+	}
+	got, err := c.Actions.ApproveBound(bg(), x.Id, plan, "")
 	var e *onemind.Error
 	if err == nil || !errors.As(err, &e) || e.Reason != "licence_unconfirmed" || appID == "" {
 		return got, err
@@ -290,5 +296,5 @@ func (a *App) approveOrConfirmLicence(c *onemind.Client, x *onemind.Action, acce
 	if !ok {
 		return nil, exitWith(ExitPending, "pending", "licence not accepted; the action still waits")
 	}
-	return c.Actions.ApproveAcceptingLicence(bg(), x.Id, appID)
+	return c.Actions.ApproveBound(bg(), x.Id, plan, appID)
 }

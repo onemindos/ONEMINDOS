@@ -45,6 +45,8 @@ describe('tokens', () => {
       ['accent', 'accent-soft'],
       ['accent-text', 'accent'],
       ['danger-text', 'danger'],
+      ['action-text', 'action'],
+      ['action-text', 'action-hover'],
     ] as Array<[keyof Theme, keyof Theme]>)('%s on %s ≥ 4.5', (fg, bg) => {
       expect(contrast(t[fg], t[bg])).toBeGreaterThanOrEqual(4.5);
     });

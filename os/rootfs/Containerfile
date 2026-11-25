@@ -227,6 +227,9 @@ RUN set -eu; \
     systemctl enable onemind-firstboot.service onemind-firewall.service avahi-daemon.service >/dev/null; \
     systemctl mask smbd.service nmbd.service winbind.service samba-ad-dc.service >/dev/null; \
     systemctl enable onemind-smb.service >/dev/null; \
+    systemctl mask nut-server.service nut-monitor.service nut-client.service ups-monitor.service \
+      nut-driver-enumerator.service nut-driver-enumerator.path nut-driver@.service >/dev/null; \
+    systemctl enable onemind-ups.service onemind-ups-monitor.service >/dev/null; \
     systemctl disable rpcbind.service rpcbind.socket nfs-client.target nfs-blkmap.service >/dev/null 2>&1; \
     for db in passwd group shadow; do \
       grep -Eq "^$db:.*extrausers" /etc/nsswitch.conf || sed -i -E "s/^($db:.*)$/\\1 extrausers/" /etc/nsswitch.conf; \

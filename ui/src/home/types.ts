@@ -127,6 +127,8 @@ export interface WeatherSlot {
 }
 
 export interface HomeData {
+  /** Gateway status for the front door. An absent observation is always unknown. */
+  boxStatus?: import('./boxStatus').HomeStatusRow[];
   /** Freshness of the hub's own answer: Home never shows a cached green (P2). */
   hub: { observed_at: string };
   nodes: Loadable<HomeNode[]>;

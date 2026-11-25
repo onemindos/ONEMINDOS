@@ -256,6 +256,33 @@ def test_app_unhealthy_after_three_minutes_and_recovers(mclient, clock):
     assert mclient.get("/v1/apps/nope", headers=OWNER).status_code == 404
 
 
+@pytest.mark.parametrize(("hosts", "duplicate", "waiting", "expected"), [
+    (("beelink", "beelink"), False, None, "n1"),
+    (("beelink", "elsewhere"), False, None, None),
+    (("beelink", None), False, None, None),
+    (("beelink",), True, None, None),
+    (("beelink",), False, "CrashLoopBackOff", None),
+])
+def test_app_health_correlation_requires_unambiguous_runtime_placement(
+    mclient, clock, hosts, duplicate, waiting, expected,
+):
+    install(mclient, clock)
+    beat(mclient)
+    if duplicate:
+        beat(mclient, "n2")
+    start = iso(clock.now - timedelta(minutes=4))
+    mon(mclient).kube.pods_by_ns["app-uptime-kuma"] = [
+        {**pod(f"web-{n}", ready=False, start=start, waiting=waiting), "spec": {"nodeName": host}}
+        for n, host in enumerate(hosts)
+    ]
+    mon(mclient).tick()
+    a = alerts(mclient)["app:uptime-kuma:health"]
+    assert a["subject"].get("node_id") == expected
+    items = mclient.get("/v1/notifications", headers=OWNER).json()
+    warning = next(item for item in items if item["alert_id"] == a["id"])
+    assert warning["group_key"] == (f"node:{expected}:offline" if expected else None)
+
+
 def test_crashloop_backoff_is_unhealthy_at_once(mclient, clock):
     install(mclient, clock)
     mon(mclient).kube.pods_by_ns["app-uptime-kuma"] = [pod("web-1", ready=False, waiting="CrashLoopBackOff",
