@@ -9,7 +9,7 @@ import type { Tone } from '../tokens/tokens';
 import { matchSection } from './logic';
 import { SetIcon, type SetIconName } from './primitives';
 
-export type SettingsSectionId = 'default-apps' | 'appearance' | 'account' | 'users' | 'devices' | 'network' | 'backups' | 'updates' | 'notifications' | 'automation' | 'agents' | 'storage' | 'apps' | 'care' | 'about';
+export type SettingsSectionId = 'default-apps' | 'appearance' | 'account' | 'users' | 'devices' | 'network' | 'backups' | 'updates' | 'notifications' | 'automation' | 'agents' | 'storage' | 'apps' | 'care' | 'about' | 'time' | 'recovery';
 
 export interface SettingsSectionMeta {
   id: SettingsSectionId;
@@ -29,6 +29,8 @@ export const SETTINGS_SECTIONS: SettingsSectionMeta[] = [
   { id: 'devices', label: 'Devices & nodes', icon: 'nodes', group: 'Machines', keywords: ['fabric', 'join', 'qr', 'hub', 'worker', 'leaf', 'add node'] },
   { id: 'network', label: 'Network & mesh', icon: 'globe', group: 'Machines', keywords: ['remote', 'vpn', 'mesh', 'dns', 'mdns', 'certificate', 'https', 'tls'] },
   { id: 'storage', label: 'Storage', icon: 'disk', group: 'Machines', keywords: ['disk', 'space', 'usage', 'categories'] },
+  { id: 'time', label: 'Date and time', icon: 'settings', group: 'Keeping it healthy', keywords: ['time zone', 'clock', 'ntp'] },
+  { id: 'recovery', label: 'Recovery and reset', icon: 'backups', group: 'Keeping it healthy', keywords: ['restore', 'emergency kit', 'reset', 'restart', 'shutdown'] },
   { id: 'care', label: 'Care', icon: 'info', group: 'Keeping it healthy', keywords: ['box check-up', 'health', 'drift'] },
   { id: 'backups', label: 'Backups', icon: 'backups', group: 'Keeping it healthy', keywords: ['restore', 'snapshot', 'usb', 's3', 'emergency kit'] },
   { id: 'updates', label: 'Updates', icon: 'updates', group: 'Keeping it healthy', keywords: ['os', 'version', 'channel', 'rollback', 'release notes', 'slot'] },
