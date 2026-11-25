@@ -197,6 +197,7 @@ export async function decide(api: OneMindApi, action: Action, decision: Decision
     const err = e instanceof ApiError ? e : new ApiError(0, 'unknown', String(e));
     const fail = (message: string) => ({ ok: false as const, message, forbidden: err.code === 'permission_denied', code: err.code, reason: err.reason });
     if (err.reason === 'plan_changed') return fail(`${title} changed since you opened it. Nothing was approved; check the new version.`);
+    if (err.reason === 'licence_unconfirmed') return fail(`${title} has a licence that needs you to read and accept it by typing the app id. Nothing was approved; do that on the dashboard or with the onemind command.`);
     if (err.reason === 'step_up_required') return fail('The hub needs your passkey for this, and this phone could not give one. Approve on the dashboard.');
     switch (err.code) {
       case 'policy_refused':

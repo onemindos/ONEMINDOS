@@ -29,6 +29,7 @@ TOPICS = ("approvals", "backups", "updates", "nodes", "apps", "storage", "securi
 OWNERS = "owners"
 OWNERS_AND_REQUESTER = "owners+requester"
 OWNERS_AND_ADULTS = "owners+adults"
+PERSON = "person"  # only the person named by data.person_id (their own download, #693); never pushed for them by role
 
 
 @dataclass(frozen=True)
@@ -82,11 +83,17 @@ def _topic_for_action(action_type: str | None) -> str:
             "automation": "automation", "tls": "security", "agent": "security"}.get(prefix, "apps")
 
 
+_DOCS = "https://github.com/onemindos/ONEMINDOS/blob/main/docs"
+_NODE_HELP = "https://github.com/onemindos/ONEMINDOS/blob/main/site/src/content/docs/docs/guides/troubleshooting.md"
+_STORAGE_HELP = f"{_DOCS}/leap/core/STORAGE-ACTIONS.md"
+
+
 _SPECS = [
     # ---- approvals and actions (from the action ledger) ----------------------------------
     Spec("approval.requested", "open", "approvals", "info",
          "Approval needed: {action_type} {app_id}", "Requested by {requested_by}. Expires {expires_at}.",
-         dedupe="approval:{action_id}", link="/approvals/{action_id}"),
+         dedupe="approval:{action_id}", link="/approvals/{action_id}",
+         learn_more=f"{_DOCS}/learning/09-gateway-approvals-agents-mcp.md"),
     Spec("approval.closed", "resolve", "approvals", resolves=("approval:{action_id}",)),
     Spec("action.succeeded", "notify", "apps", "info",
          "Done: {action_type} {app_id}", "{message}", audience=OWNERS_AND_REQUESTER,
@@ -97,33 +104,55 @@ _SPECS = [
     Spec("action.outcome_unknown", "open", "apps", "critical",
          "Outcome unknown: {action_type} {app_id}",
          "OneMind cannot tell whether this change was applied. Check the app before retrying. {message}",
-         dedupe="action:{action_id}", link="/activity/{action_id}", auto_resolve=False),
+         dedupe="action:{action_id}", link="/activity/{action_id}", auto_resolve=False,
+         learn_more=f"{_DOCS}/learning/09-gateway-approvals-agents-mcp.md"),
     # ---- nodes ---------------------------------------------------------------------------
+    Spec("node.joined", "notify", "nodes", "info", "Node {node_id} joined",
+         "The node joined as a {role}.", link="/nodes"),
     Spec("node.stale", "inbox", "nodes", "info", "{hostname} is late",
          "No heartbeat from {hostname} for {age_s} s.", link="/nodes/{node_id}"),
     Spec("node.offline", "open", "nodes", "warning", "{hostname} is offline",
          "No heartbeat from {hostname} for {age_s} s.", dedupe="node:{node_id}:offline",
-         link="/nodes/{node_id}", notify_resolve=True),
+         link="/nodes/{node_id}", notify_resolve=True, learn_more=_NODE_HELP),
     Spec("node.online", "resolve", "nodes", resolves=("node:{node_id}:offline",)),
     Spec("disk.low", "open", "storage", "warning", "Disk almost full on {hostname}",
          "{free_pct}% free on {mount} ({free_gb} GB).", dedupe="node:{node_id}:disk",
-         link="/nodes/{node_id}", notify_resolve=True),
+         link="/nodes/{node_id}", notify_resolve=True, learn_more=_STORAGE_HELP),
     Spec("disk.ok", "resolve", "storage", resolves=("node:{node_id}:disk",)),
     Spec("disk.budget_near", "open", "storage", "warning", "Image disk filling up on {hostname}",
          "{disk_used_pct}% used; the image budget is {budget_pct}%. OneMind already removes only superseded "
          "app images (never an installed app's, stopped or not); add a disk or remove apps you no longer need.",
-         dedupe="node:{node_id}:disk_budget", link="/nodes/{node_id}", notify_resolve=True),
+         dedupe="node:{node_id}:disk_budget", link="/nodes/{node_id}", notify_resolve=True, learn_more=_STORAGE_HELP),
     Spec("disk.budget_ok", "resolve", "storage", resolves=("node:{node_id}:disk_budget",)),
     Spec("memory.high", "open", "nodes", "warning", "Memory almost full on {hostname}",
-         "{used_pct}% of memory in use.", dedupe="node:{node_id}:memory", link="/nodes/{node_id}"),
+         "{used_pct}% of memory in use.", dedupe="node:{node_id}:memory", link="/nodes/{node_id}", learn_more=_NODE_HELP),
     Spec("memory.ok", "resolve", "nodes", resolves=("node:{node_id}:memory",)),
     Spec("temperature.high", "open", "nodes", "warning", "{hostname} is running hot",
          "{temp_c} °C (limit {limit_c} °C).", dedupe="node:{node_id}:temperature",
-         link="/nodes/{node_id}", notify_resolve=True),
+         link="/nodes/{node_id}", notify_resolve=True, learn_more=_NODE_HELP),
     Spec("temperature.ok", "resolve", "nodes", resolves=("node:{node_id}:temperature",)),
     Spec("cpu.high", "open", "nodes", "warning", "{hostname} is overloaded",
-         "CPU at {cpu_pct}% for {minutes} minutes.", dedupe="node:{node_id}:cpu", link="/nodes/{node_id}"),
+         "CPU at {cpu_pct}% for {minutes} minutes.", dedupe="node:{node_id}:cpu", link="/nodes/{node_id}", learn_more=_NODE_HELP),
     Spec("cpu.ok", "resolve", "nodes", resolves=("node:{node_id}:cpu",)),
+    Spec("storage.disk.warning", "open", "storage", "warning", "Disk health warning on {node_id}",
+         "Check the health report for {disk} in Storage.", dedupe="storage:{node_id}:disk:{disk_key}",
+         link="/storage", learn_more=_STORAGE_HELP),
+    Spec("storage.disk.failing", "open", "storage", "critical", "Disk failing on {node_id}",
+         "Check {disk} in Storage and verify an off-box backup.", dedupe="storage:{node_id}:disk:{disk_key}",
+         link="/storage", learn_more=_STORAGE_HELP),
+    Spec("storage.disk.ok", "resolve", "storage", resolves=("storage:{node_id}:disk:{disk_key}",)),
+    # ---- automation and security ---------------------------------------------------------
+    Spec("automation.breaker.opened", "open", "automation", "warning", "Automation paused: {name}",
+         "{failures} requests failed. Review the rule and run a dry run before enabling it again.",
+         dedupe="automation:{rule_id}:breaker", link="/automation", learn_more=f"{_DOCS}/leap/core/AUTOMATION.md"),
+    Spec("automation.rule.enabled", "resolve", "automation", resolves=("automation:{rule_id}:breaker",)),
+    Spec("security.owner_override.enabled", "open", "security", "warning", "Owner overrides are enabled",
+         "An owner may approve eligible app installs with a failed scan. Review the gateway setting.",
+         dedupe="owner-override-enabled", link="/activity", learn_more=f"{_DOCS}/leap/core/SECRETS.md",
+         auto_resolve=False),
+    Spec("app.owner_override", "notify", "security", "critical", "Owner override for {app_id}",
+         "An owner approved the install despite a failed scan. Review the audit entry in Activity.",
+         link="/activity"),
     # ---- apps ----------------------------------------------------------------------------
     Spec("app.unhealthy", "open", "apps", "warning", "{app_id} is not working",
          "{reason}", dedupe="app:{app_id}:health", audience=OWNERS_AND_ADULTS,
@@ -139,7 +168,7 @@ _SPECS = [
          "Component {component} was stopped for using too much memory and restarted.", link="/apps/{app_id}"),
     Spec("app.rolled_back", "open", "apps", "warning", "{app_id} was rolled back",
          "{reason}", dedupe="app:{app_id}:revert", link="/apps/{app_id}", auto_resolve=False,
-         aliases=("app.update_reverted",)),
+         learn_more=f"{_DOCS}/leap/core/APP-LIFECYCLE.md", aliases=("app.update_reverted",)),
     Spec("app.scan_blocked", "open", "security", "critical", "{app_id} failed its security scan",
          "The last scan of {app_id} found a problem. Remove it or wait for a fixed version.",
          dedupe="app:{app_id}:scan", link="/apps/{app_id}", fix=_fix("app.remove", "app_id")),
@@ -150,16 +179,17 @@ _SPECS = [
     # ---- bridges (#610: core/onemind_core/bridges.py) ------------------------------------
     Spec("bridge.paused", "open", "apps", "warning", "{app_id} was paused",
          "It sent {rejects} events OneMind refused within {window_min} minutes (last: {reason}). Nothing more "
-         "is taken from it until you resume it.", dedupe="bridge:{app_id}:paused", link="/apps/{app_id}"),
+         "is taken from it until you resume it.", dedupe="bridge:{app_id}:paused", link="/apps/{app_id}",
+         learn_more="https://github.com/onemindos/ONEMINDOS/blob/release/next/sdk/contracts/connectors.md#the-intake-post-v1bridgesidevents-610"),
     Spec("bridge.resumed", "resolve", "apps", resolves=("bridge:{app_id}:paused",)),
     # ---- OS updates ----------------------------------------------------------------------
     Spec("update.available", "open", "updates", "info", "Update {version} available for {hostname}",
          "", dedupe="os:{node_id}:available", link="/updates",
-         fix=_fix("os.update.apply", "node_id", "version")),
+         fix=_fix("os.update.apply", "node_id", "version"), learn_more=f"{_DOCS}/leap/core/UPDATES.md"),
     Spec("update.applied", "notify", "updates", "info", "{hostname} updated to {version}", "",
          link="/updates", resolves=("os:{node_id}:available", "os:{node_id}:rollback")),
     Spec("update.rolled_back", "open", "updates", "warning", "Update on {hostname} was rolled back",
-         "{reason}", dedupe="os:{node_id}:rollback", link="/updates", auto_resolve=False),
+         "{reason}", dedupe="os:{node_id}:rollback", link="/updates", auto_resolve=False, learn_more=f"{_DOCS}/leap/core/UPDATES.md"),
     # ---- backups -------------------------------------------------------------------------
     Spec("backup.failed", "open", "backups", "warning", "Backup to {target} failed", "{reason}",
          dedupe="backup:{target}", link="/backups", fix=lambda _d: {"type": "backup.run", "params": {"scope": "box"}},
@@ -167,12 +197,24 @@ _SPECS = [
     Spec("backup.succeeded", "resolve", "backups", resolves=("backup:{target}",),
          aliases=("backup.run.succeeded",)),
     Spec("backup.verify_failed", "open", "backups", "warning", "Test restore of {unit} failed", "{reason}",
-         dedupe="verify:{unit}", link="/backups", aliases=("backup.verify.failed",)),
+         dedupe="verify:{unit}", link="/backups", learn_more=f"{_DOCS}/leap/core/BACKUPS.md",
+         aliases=("backup.verify.failed",)),
     Spec("backup.verified", "notify", "backups", "info", "Test restore of {unit} passed", "",
          link="/backups", resolves=("verify:{unit}",), aliases=("backup.verify.succeeded",)),
+    # ---- browser downloads (#693; files/downloads.py) ---------------------------------------
+    # A held file is an owner's alert; it clears when the file is released to Files (by a clean
+    # rescan or an owner's approval of the fix) or discarded. Nothing in quarantine is ever opened.
+    Spec("files.download.quarantined", "open", "security", "warning", "Download held: {name}",
+         "{reason} The file stays in quarantine, unopened, until an owner approves moving it to Files "
+         "or discards it.", dedupe="download:{download_id}",
+         fix=_fix("files.download.release", "download_id", "verdict")),
+    Spec("files.download.delivered", "inbox", "storage", "info", "Downloaded: {name}",
+         "Saved to {path} in your Files.", audience=PERSON, link="/files",
+         resolves=("download:{download_id}",)),
+    Spec("files.download.discarded", "resolve", "security", resolves=("download:{download_id}",)),
     # ---- the notifier itself -------------------------------------------------------------
     Spec("notify.channel_failing", "open", "security", "warning", "Notification channel {label} is failing",
-         "{reason}", dedupe="channel:{channel_id}", link="/settings/notifications"),
+         "{reason}", dedupe="channel:{channel_id}", link="/settings/notifications", learn_more=f"{_DOCS}/leap/core/NOTIFICATIONS.md"),
     Spec("notify.channel_ok", "resolve", "security", resolves=("channel:{channel_id}",)),
 ]
 
@@ -212,6 +254,8 @@ def from_audit(record: dict, get_action: Callable[[str], object | None]) -> tupl
     if "event_id" in data:
         return None
     event = record.get("event")
+    if event == "automation.rule.enabled" and data.get("rule_id"):
+        return event, {"rule_id": data["rule_id"]}
     action_id = record.get("action_id")
     if not action_id or not isinstance(event, str) or not event.startswith("action."):
         return None
@@ -249,3 +293,19 @@ def topic_for(spec: Spec, data: dict) -> str:
 
 def _iso(dt) -> str | None:
     return None if dt is None else dt.isoformat().replace("+00:00", "Z")
+
+
+if __name__ == "__main__":
+    # Run standalone from make lint. This needs only the standard library on the CI runner.
+    from urllib.parse import urlsplit
+
+    missing = []
+    for alert in _SPECS:
+        if alert.kind != "open" or callable(alert.fix):
+            continue
+        help_url = urlsplit(alert.learn_more or "")
+        local_page = not help_url.netloc and (alert.learn_more or "").startswith("/")
+        if not local_page and not (help_url.scheme in {"https", "http"} and help_url.hostname):
+            missing.append(alert.type)
+    if missing:
+        raise SystemExit("Alerts without a fix action or help link: " + ", ".join(missing))

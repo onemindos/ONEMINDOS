@@ -60,3 +60,8 @@ export * from './network';
 export * from './store';
 export * from './shell';
 export * from './secrets';
+
+export { SeriesCard } from './cards/SeriesCard';
+export type { SeriesCardData, SeriesReading } from './cards/SeriesCard';
+export { isSeriesNodeId, parseSeriesCard, SERIES_INTERVAL_S, SERIES_METRICS, SERIES_POINTS } from './cards/seriesDocument';
+export type { SeriesCardDocument, SeriesMetric } from './cards/seriesDocument';

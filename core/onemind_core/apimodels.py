@@ -168,6 +168,22 @@ class NodeThermalProfile(_Profile):
     state: str | None = Field(default=None, max_length=16, description="normal | passive | hot | critical", json_schema_extra=OPEN_ENUM)
 
 
+DRIVER_NAME = r"^[A-Za-z0-9_.-]{1,32}$"
+
+
+class NodeIOMMUGroup(_Profile):
+    group: int = Field(ge=0, description="the kernel's IOMMU group number (/sys/kernel/iommu_groups/N)")
+    devices: list[Annotated[str, Field(pattern=PCI_SLOT)]] = Field(max_length=32, description="PCI addresses in the group")
+
+
+class NodePassthrough(_Profile):
+    """What a VM device grant reads (#690). Present only when the kernel runs with an IOMMU (VT-d, AMD-Vi)."""
+
+    iommu_groups: list[NodeIOMMUGroup] = Field(max_length=MAX_LISTED, description="the groups that hold an accelerator")
+    usb_drivers: dict[Annotated[str, Field(pattern=USB_PORT)], list[Annotated[str, Field(pattern=DRIVER_NAME)]]] = Field(
+        max_length=MAX_LISTED, description="USB port -> drivers bound to its interfaces; a port that is not a key has none")
+
+
 class NodeCapabilities(_Profile):
     """The machine's hardware profile, sent in its heartbeat; read with nodes:read only."""
 
@@ -181,6 +197,7 @@ class NodeCapabilities(_Profile):
     cameras: list[NodeCamera] | None = Field(max_length=MAX_LISTED)
     power: NodePowerProfile
     thermal: NodeThermalProfile
+    passthrough: NodePassthrough | None = Field(default=None, description="absent without an IOMMU: no device can be passed to a machine (#690)")
 
 
 class RadioConfirmation(BaseModel):
@@ -235,6 +252,11 @@ class Node(BaseModel):
     k3s: NodeK3s | None = None
     capabilities: NodeCapabilities | None = Field(default=None, description="hardware profile (#618); absent from older agents")
     status: str = Field(description="online | stale | offline", json_schema_extra=OPEN_ENUM)
+    presence: str | None = Field(default=None, description="online | offline: the fast view for live screens "
+                                 "(#608). Offline once a heartbeat is clearly missed (14 s) or at once after a "
+                                 "clean shutdown. Absent from older gateways", json_schema_extra=OPEN_ENUM)
+    departed_at: str | None = Field(default=None, description="RFC 3339 time the node announced a clean "
+                                    "shutdown; null while it is running or after it came back")
     last_seen: str = Field(description="RFC 3339 time the gateway last received a heartbeat")
 
 

@@ -34,7 +34,7 @@ function ThisPhone({
   const { api, features, connection } = useSignedIn();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string>();
-  const hubUrl = connection.mode === 'live' ? connection.hubUrl : undefined;
+  const hubUrl = connection.hubUrl;
   const supported = features.has(OP.deviceRequest);
 
   // While the owner has not answered, look again every few seconds (the screen is open, so it is cheap).
@@ -46,16 +46,12 @@ function ThisPhone({
     return () => clearInterval(id);
   }, [api, link, onLink]);
 
-  if (!hubUrl || !supported)
+  if (!supported)
     return (
       <>
         <H2>This phone</H2>
         <Card testID="device">
-          <P muted small>
-            {hubUrl
-              ? 'This hub does not register phones yet (device registry, CLIENT-2). The phone works with your sign-in alone until then.'
-              : 'In the demo this phone is not registered with a box.'}
-          </P>
+          <P muted small>This hub does not register phones yet (device registry, CLIENT-2). The phone works with your sign-in alone until then.</P>
         </Card>
       </>
     );
@@ -64,7 +60,7 @@ function ThisPhone({
     setBusy(true);
     setErr(undefined);
     try {
-      onLink(await requestDevice(api, hubUrl!, name));
+      onLink(await requestDevice(api, hubUrl, name));
     } catch (e) {
       setErr(e instanceof ApiError ? `The hub refused: ${e.message}` : String(e));
     } finally {

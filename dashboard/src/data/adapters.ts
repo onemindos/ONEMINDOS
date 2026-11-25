@@ -64,6 +64,20 @@ export function iconOf(icon: string | null | undefined): string | undefined {
   }
 }
 
+/**
+ * The Market licence class (#173). The manifest's declared class is the authority; the gate's scan
+ * record can only make it stricter, and only when it was recorded for the current manifest licence.
+ * `unknown` is never shown as green. An older gateway that sends no class falls back to the scan record.
+ */
+export function licenceClassOf(a: CatalogApp): NonNullable<StoreApp['licence_class']> {
+  const seen = a.scan?.licence;
+  const scanned = seen && seen.spdx === a.license ? seen.class : undefined;
+  const declared = a.licence_class;
+  if (declared === undefined) return scanned ?? 'L?';
+  if (declared === 'unknown') return 'L?';
+  return declared === 'blocked' || scanned === 'blocked' ? 'blocked' : declared;
+}
+
 /** §3 `GET /v1/apps` entry → Market card. `category` keeps an unknown slug, so the card says "Uncategorised". */
 export function toStoreApp(a: CatalogApp): StoreApp {
   return {
@@ -74,6 +88,7 @@ export function toStoreApp(a: CatalogApp): StoreApp {
     category: (categorySlug(a.category) ?? a.category ?? 'uncategorised') as CategorySlug,
     icon: iconOf(a.icon) ?? null,
     license: a.license ?? 'unknown',
+    licence_class: licenceClassOf(a),
     source: a.source ?? undefined,
     archs: a.archs.filter((x): x is 'amd64' | 'arm64' => ARCHS.has(x)),
     requires: a.requires,
@@ -373,6 +388,16 @@ export function toActionPlan(a: Action): ActionPlan | undefined {
     if (typeof w === 'string' && !NETWORK_WARNING.test(w)) effects.push({ kind: 'note', risk: /no undo|deleted|refus/i.test(w) ? 'high' : 'low', label: w });
   }
   if (typeof p.summary === 'string' && p.summary) effects.unshift({ kind: 'note', risk: 'low', label: p.summary });
+  // AIG-04 (#168): the requester read third-party text before asking (core taint.py). Shown first.
+  const taint = p.taint as { sources?: unknown; message?: unknown } | null | undefined;
+  if (taint && typeof taint === 'object') {
+    const read = Array.isArray(taint.sources) ? taint.sources.filter((x): x is string => typeof x === 'string') : [];
+    effects.unshift({
+      kind: 'note', risk: 'high',
+      label: typeof taint.message === 'string' && taint.message ? taint.message : 'This agent read text written by third parties before asking.',
+      ...(read.length ? { detail: `What it read: ${read.join(', ')}` } : {}),
+    });
+  }
   return {
     action_id: a.id,
     plan_hash: a.plan_sha256,

@@ -411,5 +411,39 @@ class NatscheckNkeyAgainstRealNats(unittest.TestCase):
             self.assertNotIn(f.read().strip(), out)
 
 
+class InstallAptTimerOrder(unittest.TestCase):
+    """#275: the apt timers must start after k3s is set up, or unattended-upgrades can replace
+    systemd/D-Bus while install.sh waits on systemctl ('D-Bus connection terminated')."""
+
+    @classmethod
+    def setUpClass(cls):
+        with open(os.path.join(os.path.dirname(VERIFY_DIR), "install.sh")) as f:
+            cls.src = f.read()
+        cls.main = cls.src[cls.src.index("\nK3S_CHANGED=0\n"):]
+
+    def test_apt_setup_does_not_start_the_timers(self):
+        body = re.search(r"\napt_setup\(\) \{\n(.*?)\n\}\n", self.src, re.S).group(1)
+        code = "\n".join(l for l in body.splitlines() if not l.lstrip().startswith(("plan ", "#")))
+        self.assertNotRegex(code, r"systemctl\s+(enable|start)[^\n]*apt-daily")
+
+    def test_only_apt_timers_start_enables_them(self):
+        hits = [m.start() for m in re.finditer(r"^\s*systemctl\s+enable[^\n]*apt-daily", self.src, re.M)]
+        fn = self.src.index("\napt_timers_start() {")
+        end = self.src.index("\n}\n", fn)
+        self.assertEqual(len(hits), 1, hits)
+        self.assertTrue(fn < hits[0] < end, "the timers are enabled outside apt_timers_start")
+
+    def test_timers_start_after_k3s_in_both_roles(self):
+        m = self.main
+        cut = m.index("\nelse\n  if [ \"$NODE_ROLE\" = worker ]; then k3s_binary")
+        hub, node = m[:cut], m[cut:]
+        self.assertNotIn("apt_timers_start", m[:m.index("\nif [ \"$ROLE\" = hub ]; then")])
+        self.assertIn("apt_timers_start", hub)
+        self.assertGreater(hub.index("\n  apt_timers_start"), hub.index("\n  k3s_server\n"))
+        self.assertGreater(hub.index("\n  apt_timers_start"), hub.rindex("\n  backup_setup"))
+        self.assertIn("apt_timers_start", node)
+        self.assertGreater(node.rindex("\n  apt_timers_start"), node.rindex("k3s_agent"))
+
+
 if __name__ == "__main__":
     unittest.main()
