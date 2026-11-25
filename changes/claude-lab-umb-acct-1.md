@@ -1,5 +1,5 @@
 ---
-pr: pending
+pr: 1141
 branch: claude/lab-umb-acct-1
 status_rows:
   - UMB-ACCT-1 | in-review | run 2 settles F-33 for option (a); TOTP replay still fails
