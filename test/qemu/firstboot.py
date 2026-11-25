@@ -112,7 +112,11 @@ def ident(vm):
 def f0(vm, board):
     import yaml
     lock = yaml.safe_load(open(os.path.join(SRC, "os", "versions.lock.yaml")))
-    want = lock["onemind_layer"]["nats_server"][ARCH[board]]["binary"]
+    nats = lock["onemind_layer"]["nats_server"]
+    want = nats[ARCH[board]]["binary"]
+    # The version comes from the same lock the image build reads (fetch-onemind.sh), so a pin bump cannot
+    # leave a stale hard-coded string here.
+    nats_ver = re.escape(str(nats["version"]))
     _, out = vm.run("onemindd -version; onemind version; nats-server --version; "
                     "echo NATSSHA=$(sha256sum /usr/bin/nats-server | cut -c1-64); "
                     f"{PY} -I -c 'import onemind_core; print(\"GATEWAY-IMPORT ok\")'; "
@@ -121,7 +125,7 @@ def f0(vm, board):
     c = {
         "onemindd": re.search(r"^onemindd \S+", out, re.M) is not None,
         "onemind_cli": re.search(r"^onemind \S+", out, re.M) is not None,
-        "nats_server_runs": re.search(r"nats-server: v2\.15\.2", out) is not None,
+        "nats_server_runs": re.search(rf"nats-server: {nats_ver}\s*$", out, re.M) is not None,
         "nats_sha256_pinned": f"NATSSHA={want}" in out,
         "gateway_imports": "GATEWAY-IMPORT ok" in out,
         "dashboard": "DASH ok" in out,
@@ -373,7 +377,11 @@ def f10(vm, token):
                     f"echo JSONOK=$({PY} -I -c 'import json; json.load(open(\"/run/f10.json\")); print(\"yes\")' 2>/dev/null || echo no); "
                     "rm -f /run/f10.json; systemctl start k3s; echo AFTER=$(systemctl is-active onemind-rescue)", 400)
     g = lambda k: (re.findall(rf"^{k}=(\S*)\s*$", out, re.M) or [""])[-1]
-    c = {"enabled": g("ENABLED") == "enabled", "active": g("ACTIVE") == "active", "k3s_stopped": g("K3S") != "active",
+    # The image's root is read-only: first boot starts the unit at runtime on every boot, never enables it in
+    # /etc (F0 holds only onemind-firstboot enabled). So "not enabled, yet active" is the expected state here;
+    # deploy/install.sh is the path that enables it.
+    c = {"runtime_started": g("ENABLED") not in ("", "enabled", "not-found", "masked") and g("ACTIVE") == "active",
+         "active": g("ACTIVE") == "active", "k3s_stopped": g("K3S") != "active",
          "noauth_401": g("NOAUTH") == "401", "token_200": g("WITH") == "200", "json_200": g("JSON") == "200",
          "json_valid": g("JSONOK") == "yes", "still_active": g("AFTER") == "active"}
     record("F10", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items()) + f" out={out.strip()[-200:]!r}")

@@ -14,7 +14,7 @@ from conftest import ADULT, AGENT, OWNER, action_body
 from onemind_core.mcp import PROTOCOL_VERSION
 
 # The area read tools (#632) a token with no `scopes:` holds; read_app_logs and stat_file need a scope by name.
-V0_AREA_TOOLS = ["get_backup_status", "list_backup_runs", "list_backup_snapshots", "get_os_updates",
+V0_AREA_TOOLS = ["map_packs_list", "get_backup_status", "list_backup_runs", "list_backup_snapshots", "get_os_updates",
                  "get_os_update_history", "list_machines", "get_machine", "get_storage", "list_alerts", "get_alert",
                  "get_update_settings"]
 H = {**AGENT, "Accept": "application/json, text/event-stream", "MCP-Protocol-Version": PROTOCOL_VERSION}
