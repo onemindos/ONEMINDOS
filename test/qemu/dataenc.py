@@ -31,15 +31,39 @@ def record(tid, ok, detail):
 
 
 class Tpm:
-    """One software TPM 2.0 (its own state directory = its own endorsement and storage keys)."""
+    """One software TPM 2.0 (its own state directory = its own endorsement and storage keys).
+
+    swtpm exits when QEMU shuts the TPM down (every power-off), taking its socket with it, so boot() calls start()
+    again before each QEMU start: the same state directory is the same TPM, with the keys sealed by an earlier boot."""
     def __init__(self, root, name):
         self.dir = os.path.join(root, name)
         shutil.rmtree(self.dir, ignore_errors=True)
         os.makedirs(self.dir)
         self.sock = os.path.join(self.dir, "sock")
+        self.start()
+
+    def alive(self):
+        try:
+            os.kill(int(open(f"{self.dir}/pid").read()), 0)
+        except (OSError, ValueError):
+            return False
+        return os.path.exists(self.sock)
+
+    def start(self):
+        if self.alive():
+            return
+        for f in (self.sock, f"{self.dir}/pid"):
+            try:
+                os.remove(f)
+            except OSError:
+                pass
         subprocess.run(["swtpm", "socket", "--tpm2", "--tpmstate", f"dir={self.dir}", "--ctrl",
                         f"type=unixio,path={self.sock}", "--pid", f"file={self.dir}/pid", "--daemon",
                         "--flags", "not-need-init,startup-clear"], check=True)
+        for _ in range(100):                      # --daemon returns once it forked; the socket appears a moment later
+            if os.path.exists(self.sock):
+                break
+            time.sleep(0.1)
 
     def args(self):
         return ["-chardev", f"socket,id=chrtpm,path={self.sock}", "-tpmdev", "emulator,id=tpm0,chardev=chrtpm",
@@ -102,6 +126,8 @@ def fresh_vm(a, logf, tag, grow_to=None):
 
 
 def boot(vm, tpm, tag):
+    if tpm:
+        tpm.start()                                # swtpm quit with the last QEMU (see Tpm); same state, same TPM
     vm.extra_args = tpm.args() if tpm else []
     vm.restart(tag) if vm.proc else vm.start()
 
