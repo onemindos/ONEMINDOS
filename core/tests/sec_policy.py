@@ -276,6 +276,8 @@ POLICY |= {
                                          w.p_static("/v1/work/projects"), "Work project creation is people-only"),
     ("POST", "/v1/work/capture"): Row(cells(403, **GONE, owner=422, adult=422, child=422),
                                         w.p_static("/v1/work/capture"), "Work capture is people-only"),
+    ("POST", "/v1/work/quick-add"): Row(cells(403, **GONE, owner=422, adult=422, child=422),
+                                          w.p_static("/v1/work/quick-add"), "Work quick-add is people-only"),
     ("PATCH", "/v1/work/projects/{project_id}/tasks/{task_id}"): Row(
         cells(403, **GONE, owner=422, adult=422, child=422),
         w.p_static("/v1/work/projects/missing/tasks/missing"), "Work revision edits are people-only"),

@@ -78,6 +78,7 @@ type Client struct {
 	Nodes    *NodesService
 	Apps     *AppsService
 	Actions  *ActionsService
+	Work     *WorkService
 	Audit    *AuditService
 	Events   *EventsService
 	Status   *StatusService
@@ -167,6 +168,7 @@ func New(baseURL string, opts ...Option) (*Client, error) {
 	c.Nodes = &NodesService{c}
 	c.Apps = &AppsService{c}
 	c.Actions = &ActionsService{c}
+	c.Work = &WorkService{c}
 	c.Audit = &AuditService{c}
 	c.Events = &EventsService{c}
 	c.Status = &StatusService{c}

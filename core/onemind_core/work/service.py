@@ -10,7 +10,7 @@ from itertools import groupby
 from typing import Annotated, Literal
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, StringConstraints
-from sqlalchemy import delete, or_, select, update
+from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.orm import Session
 
 from ..audit import canonical_json
@@ -246,6 +246,19 @@ class WorkService(SqlRepository):
         with self.db.session() as session:
             row = _project(session, person, project_id)
             return Project(id=row.id, name=row.name, ai_access=row.ai_access)
+
+    def project_id_named(self, person: Principal, name: str) -> str | None:
+        """A project the person can write to, by name (case-insensitive); None means the Inbox."""
+        _writer(person)
+        if name.casefold() == "inbox":
+            return None
+        with self.db.session() as session:
+            ids = session.scalars(select(ProjectRow.id).where(
+                func.lower(ProjectRow.name) == name.casefold(), _member(ProjectRow.id, person.id),
+            ).order_by(ProjectRow.id).limit(2)).all()
+        if len(ids) != 1:
+            raise ApiError(422, "conflict", f"No single project named {name!r}", reason="bad_project")
+        return ids[0]
 
     def add_member(self, person: Principal, project_id: str, member: Principal) -> None:
         with self.db.session.begin() as session:
