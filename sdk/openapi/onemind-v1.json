@@ -10278,6 +10278,19 @@
             "minimum": 1.0,
             "title": "Interval",
             "type": "integer"
+          },
+          "tz": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "IANA zone the repeat days are counted in (default UTC)",
+            "title": "Tz"
           }
         },
         "required": [

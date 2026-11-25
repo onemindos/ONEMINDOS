@@ -9,8 +9,8 @@ from hashlib import sha256
 from itertools import groupby
 from typing import Annotated, Literal
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, StringConstraints
-from sqlalchemy import delete, or_, select, update
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, StringConstraints, field_validator
+from sqlalchemy import case, delete, or_, select, update
 from sqlalchemy.orm import Session
 
 from ..audit import canonical_json
@@ -75,6 +75,15 @@ class Repeat(BaseModel):
 
     every: Literal["day", "weekday", "week", "month", "year"]
     interval: int = Field(default=1, ge=1, le=365, strict=True)
+    tz: str | None = Field(default=None, max_length=64, description="IANA zone the repeat days are counted in (default UTC)")
+
+    @field_validator("tz")
+    @classmethod
+    def _known_zone(cls, value: str | None) -> str | None:
+        if value is not None:
+            from .parse import zone
+            zone(value)
+        return value
 
 
 class SectionFields(BaseModel):
@@ -192,7 +201,7 @@ def _task_values(fields: TaskFields) -> dict:
         "assignee_id": fields.assignee.id if fields.assignee else None,
         "due_at": utc(fields.due_at) if fields.due_at else None,
         "section_id": fields.section_id,
-        "repeat": fields.repeat.model_dump() if fields.repeat else None,
+        "repeat": fields.repeat.model_dump(exclude_none=True) if fields.repeat else None,
     }
 
 
@@ -264,9 +273,11 @@ def _replace_dependencies(
 
 
 class WorkService(SqlRepository):
-    def __init__(self, db: Database, *, clock: Callable[[], datetime] = lambda: datetime.now(UTC)):
+    def __init__(self, db: Database, *, clock: Callable[[], datetime] = lambda: datetime.now(UTC),
+                 person_role: Callable[[str], str | None] = lambda person_id: None):
         super().__init__(db)
         self.clock = clock
+        self.person_role = person_role
 
     @staticmethod
     def _new_project(session: Session, person: Principal, fields: ProjectFields) -> Project:
@@ -361,6 +372,7 @@ class WorkService(SqlRepository):
             for table in (ActivityRow, CommentRow, ReminderRow, DependencyRow, TaskRow, SectionRow):
                 session.execute(delete(table).where(table.project_id == project_id))
             session.execute(delete(ProjectMemberRow).where(ProjectMemberRow.project_id == project_id))
+            session.execute(delete(WorkCreateRow).where(WorkCreateRow.project_id == project_id))
             session.execute(delete(ProjectRow).where(ProjectRow.id == project_id))
 
     def members(self, actor: Principal, project_id: str, delegated: Principal | None = None) -> list[str]:
@@ -372,16 +384,25 @@ class WorkService(SqlRepository):
                 ProjectMemberRow.project_id == project_id).order_by(ProjectMemberRow.person_id)))
 
     def remove_member(self, person: Principal, project_id: str, member_id: str) -> None:
+        """The creator removes anyone but themselves; any other member may remove only themselves (leave)."""
         _writer(person)
         with self.db.session.begin() as session:
-            project = self._owned_project(session, person, project_id)
+            if member_id == person.id:
+                project = _project(session, person, project_id, write=True)
+            else:
+                project = self._owned_project(session, person, project_id)
             if member_id == project.creator_id:
                 raise ApiError(409, "conflict", "The project creator cannot be removed", reason="creator_fixed")
             session.execute(delete(ProjectMemberRow).where(
                 ProjectMemberRow.project_id == project_id, ProjectMemberRow.person_id == member_id))
             # Tasks assigned to someone who can no longer see the project fall back to unassigned.
-            session.execute(update(TaskRow).where(
-                TaskRow.project_id == project_id, TaskRow.assignee_id == member_id).values(assignee_id=None))
+            # Each is a change like any other: its revision moves and the activity log says who did it.
+            for row in session.scalars(select(TaskRow).where(
+                    TaskRow.project_id == project_id, TaskRow.assignee_id == member_id)):
+                row.assignee_id = None
+                row.revision += 1
+                row.updated_at = self.clock()
+                _log(session, person, row, "updated", ("assignee",), self.clock())
 
     def activity(self, actor: Principal, project_id: str, task_id: str, *, delegated: Principal | None = None,
                  limit: int = 100) -> list[Activity]:
@@ -393,6 +414,14 @@ class WorkService(SqlRepository):
             ).order_by(ActivityRow.id.desc()).limit(min(max(limit, 1), 200)))
             return [Activity(id=r.id, actor_id=r.actor_id, kind=r.kind, fields=tuple(r.fields), at=utc(r.at))
                     for r in rows]
+
+    @staticmethod
+    def _section_writer(person: Principal) -> None:
+        """Sections are shared by everyone in the project, so a child or teen cannot change them: deleting
+        one rewrites tasks they are not allowed to see."""
+        _writer(person)
+        if person.role in OWN_TASK_ONLY_ROLES:
+            raise ApiError(403, "permission_denied", "Only adults can change a project's sections")
 
     @staticmethod
     def _section_row(session: Session, project_id: str, section_id: str) -> SectionRow:
@@ -410,7 +439,7 @@ class WorkService(SqlRepository):
                                              .order_by(SectionRow.position, SectionRow.id))]
 
     def create_section(self, person: Principal, project_id: str, fields: SectionFields, key: str) -> Section:
-        _writer(person)
+        self._section_writer(person)
         with self.db.session.begin() as session:
             _project(session, person, project_id, write=True)
             receipt, fresh = self._create_receipt(session, person, "section", key,
@@ -427,7 +456,7 @@ class WorkService(SqlRepository):
             return Section(id=row.id, project_id=project_id, name=row.name, position=row.position)
 
     def rename_section(self, person: Principal, project_id: str, section_id: str, fields: SectionFields) -> Section:
-        _writer(person)
+        self._section_writer(person)
         with self.db.session.begin() as session:
             _project(session, person, project_id, write=True)
             row = self._section_row(session, project_id, section_id)
@@ -436,7 +465,7 @@ class WorkService(SqlRepository):
 
     def delete_section(self, person: Principal, project_id: str, section_id: str) -> None:
         """Its tasks stay in the project, outside any section."""
-        _writer(person)
+        self._section_writer(person)
         with self.db.session.begin() as session:
             _project(session, person, project_id, write=True)
             row = self._section_row(session, project_id, section_id)
@@ -627,9 +656,16 @@ class WorkService(SqlRepository):
         """
         now, found = self.clock(), []
         with self.db.session.begin() as session:
+            # Tasks already reminded for their current due date and state are left out in the query, so a
+            # sweep every few minutes stays cheap however many overdue tasks are waiting.
+            reminded = select(ReminderRow.task_id).where(
+                ReminderRow.project_id == TaskRow.project_id, ReminderRow.task_id == TaskRow.id,
+                ReminderRow.due_at == TaskRow.due_at,
+                ReminderRow.kind == case((TaskRow.due_at < now, "overdue"), else_="due_soon"),
+            ).exists()
             rows = session.scalars(select(TaskRow).where(
                 TaskRow.status != "done", TaskRow.assignee_id.is_not(None), TaskRow.due_at.is_not(None),
-                TaskRow.due_at <= now + DUE_SOON,
+                TaskRow.due_at <= now + DUE_SOON, ~reminded,
             ).order_by(TaskRow.project_id, TaskRow.id)).all()
             for row in rows:
                 due = utc(row.due_at)
@@ -666,11 +702,18 @@ class WorkService(SqlRepository):
             if section is None or section.project_id != project_id:
                 raise ApiError(422, "conflict", "That section is not in this project", reason="bad_section")
 
-    @staticmethod
-    def _check_assignee(session: Session, person: Principal, project_id: str, assignee: PersonAssignee | None) -> None:
-        if assignee is not None and (person.role in OWN_TASK_ONLY_ROLES and assignee.id != person.id
-                                     or session.get(ProjectMemberRow, (project_id, assignee.id)) is None):
+    def _check_assignee(self, session: Session, person: Principal, project_id: str,
+                        assignee: PersonAssignee | None) -> None:
+        if assignee is None:
+            return
+        if person.role in OWN_TASK_ONLY_ROLES and assignee.id != person.id \
+                or session.get(ProjectMemberRow, (project_id, assignee.id)) is None:
             raise _not_found()
+        if assignee.id != person.id and self.person_role(assignee.id) in OWN_TASK_ONLY_ROLES:
+            # A child or teen sees only the tasks they create, so a task assigned to them would be one
+            # they get reminders for but cannot open.
+            raise ApiError(422, "conflict", "Children and teens see only their own tasks, so a task cannot be assigned to them",
+                           reason="assignee_cannot_see")
 
     def replace_task(
         self, person: Principal, project_id: str, task_id: str, *, expected_revision: int, fields: TaskFields,
