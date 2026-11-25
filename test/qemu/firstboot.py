@@ -540,14 +540,14 @@ def f16(vm, board):
         "for p in " + " ".join(F16_PKGS) + "; do dpkg-query -W -f='PKG ${Package} ${Status}\\n' $p 2>&1; done; "
         "echo GLOBAL=$(systemctl --global is-enabled pipewire.socket pipewire-pulse.socket wireplumber.service 2>&1 | tr '\\n' ',' ); "
         "echo BTENABLED=$(systemctl is-enabled bluetooth.service 2>&1 | head -1); "
-        "echo BTCMD=$(tr '\\0' ' ' < /proc/$(pgrep -x bluetoothd | head -1)/cmdline 2>/dev/null); "
+        "echo BTCMD=$(tr '\\0' ' ' < /proc/$(systemctl show -p MainPID --value bluetooth.service)/cmdline 2>/dev/null | grep -a bluetoothd); "
         "busctl --system status org.bluez >/dev/null 2>&1; echo BUS_RC=$?; "
         f"grep -qE '^AutoEnable *= *false' {F16_CONF}; echo AUTO_RC=$?; "
         f"grep -qE '^AlwaysPairable *= *false' {F16_CONF}; echo ALWAYS_RC=$?; "
         f"grep -qE '^DiscoverableTimeout *= *[1-9]' {F16_CONF}; echo DISC_RC=$?; "
         f"grep -qE '^PairableTimeout *= *[1-9]' {F16_CONF}; echo PAIR_RC=$?; "
         "grep -qE '^ *AutoEnable *= *true' /etc/bluetooth/main.conf; echo ETCAUTO_RC=$?; "
-        "echo ADAPTERS=$(bluetoothctl list 2>/dev/null | grep -c '^Controller')", 90)
+        "echo ADAPTERS=$(timeout 15 bluetoothctl list 2>/dev/null | grep -c '^Controller')", 90)
     g = lambda k: (re.findall(rf"^{k}=(.*?)\s*$", out, re.M) or ["?"])[-1]
     pkgs = re.findall(r"^PKG (\S+) install ok installed", out, re.M)
     st = f16_pairing_state(vm, token)
@@ -573,6 +573,10 @@ def f16(vm, board):
          "pairing_dir_on_data": st["bind_of_data_dir"] and st["marker_on_data"] and st["marker"] == token,
          "audio_daemons_active": g2("DAEMONS") == "active active active",
          "virtual_sink": "onemind-stream-sink" in g2("SINKS")}
+    if not all(c.values()):
+        vm.run("systemctl status bluetooth.service var-lib-bluetooth.mount --no-pager 2>&1 | head -40; "
+               "journalctl -u bluetooth.service -u var-lib-bluetooth.mount -b --no-pager 2>&1 | tail -25; "
+               "findmnt /var/lib/bluetooth; ls -la /var/lib/bluetooth /data/state | head -30", 60)
     record("F16", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items())
            + f" adapters={g('ADAPTERS')}(none expected in QEMU) daemons={g2('DAEMONS')!r} sinks={g2('SINKS')[:120]!r} btcmd={g('BTCMD')[:100]!r}")
     return token

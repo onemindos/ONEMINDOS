@@ -69,6 +69,7 @@ class BluetoothSettings(unittest.TestCase):
 
     def test_dropin_points_bluetoothd_at_it_and_needs_the_data_mount(self):
         d = open(os.path.join(ONEMIND, "usr/lib/systemd/system/bluetooth.service.d/10-onemind.conf")).read()
+        self.assertIn("ConditionPathIsDirectory=\n", d)            # Debian's adapter-present condition is cleared
         self.assertIn("Requires=var-lib-bluetooth.mount", d)
         self.assertIn("After=var-lib-bluetooth.mount", d)
         self.assertIn("ExecStart=\nExecStart=/usr/libexec/bluetooth/bluetoothd -f /usr/lib/onemind/bluetooth/main.conf", d)
@@ -116,7 +117,7 @@ class FakeVM:
 
     def run(self, cmd, timeout=None):
         self.cmds.append(cmd)
-        out = self.replies.pop(0)
+        out = self.replies.pop(0) if self.replies else ""       # the failure diagnostics ask for more
         m = re.search(r"printf %s (\w+) >", cmd)
         if callable(out):
             out = out(m.group(1) if m else None)
