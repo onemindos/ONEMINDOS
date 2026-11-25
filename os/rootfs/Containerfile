@@ -224,7 +224,7 @@ RUN set -eu; \
     useradd --system --uid 963 --gid onemind-headscale --no-create-home --home-dir /nonexistent \
       --shell /usr/sbin/nologin onemind-headscale; \
     groupadd --system --gid 964 onemind-radio; \
-    systemctl enable onemind-firstboot.service onemind-firewall.service avahi-daemon.service >/dev/null; \
+    systemctl enable onemind-firstboot.service onemind-firewall.service avahi-daemon.service onemind-mdns-aliases.service >/dev/null; \
     systemctl mask smbd.service nmbd.service winbind.service samba-ad-dc.service >/dev/null; \
     systemctl enable onemind-smb.service >/dev/null; \
     systemctl mask nut-server.service nut-monitor.service nut-client.service ups-monitor.service \

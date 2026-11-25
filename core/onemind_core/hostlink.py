@@ -3,7 +3,7 @@
 
 `onemindd host serve` runs as root on the box and listens on /run/onemind/host.sock (mode 0660,
 root:onemind). It does what an owner already approved, from the id of the approved action, and
-nothing else: restart, shut down, factory reset, install an OS update, restart one service (#636). This module is the gateway's
+nothing else: restart, shut down, factory reset, install an OS update, restart one service (#636), rename the box (P-05). This module is the gateway's
 half of that contract:
 
 - `HostLink.problem(type)`: can this box do it now? (`GET /v1/status`)
@@ -13,7 +13,7 @@ half of that contract:
   admits root and the gateway's uid only (SO_PEERCRED), so no pod or host path is involved.
 - `HostLink.run(action, finish)`: after the owner's approval, `POST /v1/operations` with the action
   id (and the approved version for an install). The host writes its journal before it acts, so a retry
-  never runs twice. Argv never leaves the gateway: the host knows four kinds and nothing else.
+  never runs twice. Argv never leaves the gateway: the host knows six kinds and nothing else.
 - a poller reads `GET /v1/operations/{id}` and closes the ledger action when the journal says
   `succeeded` or `failed`. `going_down` means the box is about to stop, so the action stays open;
   these types are SELF_RECONCILED (actions.py), so a gateway restarted by the reboot finds the action
@@ -51,11 +51,13 @@ KINDS = {
     "system.factory_reset": "factory-reset",
     "os.update.install": "os-install",
     "service.restart": "service-restart",  # #636: one registry unit; the host checks it is restartable
+    "instance.rename": "set-hostname",  # P-05: the box's DNS label; avahi then answers <name>.local
 }
 ACTION_ID = re.compile(r"^[A-Za-z0-9_.:-]{1,128}$")
 # RFC 1123 labels: what the host helper may call the box (H-06: the answer is checked, not trusted).
 HOSTNAME = re.compile(r"(?=.{1,253}\Z)[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*")
 PROBE_TIMEOUT_S = 2.0  # GET /v1/status reads the helper on every call: a silent socket must not hold it up
+LABEL = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$")  # the box name: one lower-case DNS label
 UNIT = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.@-]{0,90}\.(service|socket|timer|path)$")
 UNREACHABLE = "engine_unreachable"  # the reason when nothing answers on the socket
 NO_HOST = ("The gateway cannot reach the host service on this box (onemind-host.socket), so the action did not run. "
@@ -179,6 +181,11 @@ class HostLink:
             if not isinstance(unit, str) or not UNIT.fullmatch(unit):
                 return ExecResult("failed", "the restart has no approved unit", steps=[{"step": "host", "result": "bad_request"}])
             body["unit"] = unit
+        if kind == "set-hostname":
+            name = (a.params or {}).get("name")
+            if not isinstance(name, str) or not LABEL.fullmatch(name):
+                return ExecResult("failed", "the rename has no approved name", steps=[{"step": "host", "result": "bad_request"}])
+            body["hostname"] = name
         with self._lock:
             self._inflight.add(a.id)
         try:
