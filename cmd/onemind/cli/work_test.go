@@ -49,6 +49,16 @@ func workHub(t *testing.T) *[]string {
 				`"priority":1,"assignee":null,"due_at":null,"due_all_day":false}`))
 		case r.URL.Path == "/v1/work/projects/prj_1/tasks/tsk_1/activity":
 			_, _ = w.Write([]byte(`[{"id":2,"actor_id":"ana","kind":"completed","fields":[],"at":"2026-11-25T15:00:00Z"}]`))
+		case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/comments"):
+			_, _ = w.Write([]byte(`[{"id":"cmt_1","author_id":"ana","body":"Call them","created_at":"2026-11-25T15:00:00Z"}]`))
+		case r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/comments"):
+			w.WriteHeader(201)
+			_, _ = w.Write([]byte(`{"id":"cmt_2","author_id":"ana","body":"x","created_at":"2026-11-25T15:00:00Z"}`))
+		case r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/sections"):
+			w.WriteHeader(201)
+			_, _ = w.Write([]byte(`{"id":"sec_1","project_id":"prj_1","name":"Later","position":0}`))
+		case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/sections"):
+			_, _ = w.Write([]byte(`[{"id":"sec_1","project_id":"prj_1","name":"Later","position":0}]`))
 		default:
 			w.WriteHeader(404)
 			_, _ = w.Write([]byte(`{"error":"not_found","message":"no"}`))
@@ -125,6 +135,27 @@ func TestWorkProjectsParseActivityAndMembers(t *testing.T) {
 	}
 	if got := strings.Join(*seen, "\n"); !strings.Contains(got, "PUT /v1/work/projects/prj_1/members/ana") ||
 		!strings.Contains(got, "DELETE /v1/work/projects/prj_1 ") {
+		t.Fatalf("requests %s", got)
+	}
+}
+
+func TestWorkNotesAndSections(t *testing.T) {
+	seen := workHub(t)
+	if r := run(t, "", false, "work", "notes", "list", "prj_1", "tsk_1"); r.code != 0 || !strings.Contains(r.out, "Call them") {
+		t.Fatalf("list %+v", r)
+	}
+	if r := run(t, "", false, "work", "notes", "add", "prj_1", "tsk_1", "Call", "them", "--idempotency-key", "n1"); r.code != 0 ||
+		!strings.Contains(r.out, "Added cmt_2") {
+		t.Fatalf("add %+v", r)
+	}
+	if r := run(t, "", false, "work", "notes", "section-add", "prj_1", "Later", "--idempotency-key", "s1"); r.code != 0 ||
+		!strings.Contains(r.out, "Added sec_1") {
+		t.Fatalf("section-add %+v", r)
+	}
+	if r := run(t, "", false, "work", "notes", "sections", "prj_1"); r.code != 0 || !strings.Contains(r.out, "Later") {
+		t.Fatalf("sections %+v", r)
+	}
+	if got := strings.Join(*seen, "\n"); !strings.Contains(got, "POST /v1/work/projects/prj_1/tasks/tsk_1/comments n1|") {
 		t.Fatalf("requests %s", got)
 	}
 }

@@ -1,8 +1,10 @@
 # SPDX-License-Identifier: Apache-2.0
 """Work project management, the task activity log and the quick-add preview (part 2 of the #798 port)."""
+import pytest
 from conftest import AGENT, GUEST, OWNER
 from onemind_core.auth import Principal
-from onemind_core.work.service import ProjectFields, TaskFields
+from onemind_core.errors import ApiError
+from onemind_core.work.service import ProjectFields, SectionFields, TaskFields
 
 
 def _project(client, name="Home", **extra):
@@ -95,6 +97,115 @@ def test_parse_previews_without_creating_anything(client):
     assert client.post("/v1/work/parse", json={"text": "x"}, headers=GUEST).status_code == 403
     assert client.get("/v1/work/tasks", headers=OWNER).json() == []
 
+
+def test_comments_replay_by_key_belong_to_their_author_and_follow_task_visibility(client):
+    task = client.post("/v1/work/capture", json={"title": "Plan"}, headers={**OWNER, "Idempotency-Key": "c0"}).json()
+    base = f"/v1/work/projects/{task['project_id']}/tasks/{task['id']}/comments"
+    key = {**OWNER, "Idempotency-Key": "c1"}
+    first = client.post(base, json={"body": "Call the plumber"}, headers=key)
+    assert first.status_code == 201, first.text
+    assert client.post(base, json={"body": "Call the plumber"}, headers=key).json()["id"] == first.json()["id"]
+    assert client.post(base, json={"body": "Different"}, headers=key).status_code == 409
+    assert client.post(base, json={"body": ""}, headers={**OWNER, "Idempotency-Key": "c2"}).status_code == 422
+    assert [c["body"] for c in client.get(base, headers=OWNER).json()] == ["Call the plumber"]
+    assert client.get(base, headers=AGENT).status_code == 403
+    assert client.delete(f"{base}/missing", headers=OWNER).status_code == 404
+    assert client.delete(f"{base}/{first.json()['id']}", headers=OWNER).status_code == 204
+    assert client.get(base, headers=OWNER).json() == []
+
+
+def test_sections_group_tasks_and_deleting_one_keeps_its_tasks(client):
+    home = _project(client)
+    sections = f"/v1/work/projects/{home['id']}/sections"
+    made = client.post(sections, json={"name": "This week"}, headers={**OWNER, "Idempotency-Key": "s1"})
+    assert made.status_code == 201, made.text
+    assert client.post(sections, json={"name": "This week"}, headers={**OWNER, "Idempotency-Key": "s1"}).json() == made.json()
+    later = client.post(sections, json={"name": "Later"}, headers={**OWNER, "Idempotency-Key": "s2"}).json()
+    assert [(s["name"], s["position"]) for s in client.get(sections, headers=OWNER).json()] == [("This week", 0), ("Later", 1)]
+    task = client.post("/v1/work/capture", json={"title": "Fix tap", "project_id": home["id"], "section_id": later["id"]},
+                       headers={**OWNER, "Idempotency-Key": "t"}).json()
+    assert task["section_id"] == later["id"]
+    other = _project(client, "Work")
+    foreign = client.post("/v1/work/capture", json={"title": "x", "project_id": other["id"], "section_id": later["id"]},
+                          headers={**OWNER, "Idempotency-Key": "t2"})
+    assert foreign.status_code == 422
+    assert client.patch(f"{sections}/{later['id']}", json={"name": "Someday"}, headers=OWNER).json()["name"] == "Someday"
+    assert client.delete(f"{sections}/{later['id']}", headers=OWNER).status_code == 204
+    after = client.get(f"/v1/work/projects/{home['id']}/tasks/{task['id']}", headers=OWNER).json()
+    assert after["section_id"] is None
+    assert client.delete(f"{sections}/{later['id']}", headers=OWNER).status_code == 404
+
+
+def test_completing_a_repeating_task_moves_it_to_the_next_occurrence(client, clock):
+    body = {"title": "Water plants", "due_at": "2026-11-25T09:00:00Z", "repeat": {"every": "week"}}
+    task = client.post("/v1/work/capture", json=body, headers={**OWNER, "Idempotency-Key": "r1"}).json()
+    path = f"/v1/work/projects/{task['project_id']}/tasks/{task['id']}"
+    done = client.patch(path, json={"status": "done"}, headers={**OWNER, "If-Match": "1"})
+    assert done.status_code == 200, done.text
+    got = done.json()
+    assert got["status"] == "todo" and got["due_at"].startswith("2026-12-02T09:00:00") and got["repeat"] == {
+        "every": "week", "interval": 1, "tz": None}
+    log = client.get(path + "/activity", headers=OWNER).json()
+    assert [row["kind"] for row in log] == ["completed", "created"] and log[0]["fields"] == ["due_at"]
+    stop = client.patch(path, json={"repeat": None}, headers={**OWNER, "If-Match": "2"})
+    assert stop.status_code == 200 and stop.json()["repeat"] is None
+
+
+def test_quick_add_reads_repeat_rules():
+    from datetime import UTC, datetime
+    from onemind_core.work.parse import next_due, parse_quick_add
+    now = datetime(2026, 11, 25, 15, 0, tzinfo=UTC)
+    got = parse_quick_add("Water plants every 2 weeks #Home", now)
+    assert got["repeat"] == {"every": "week", "interval": 2} and got["title"] == "Water plants"
+    assert got["due_at"].date().isoformat() == "2026-11-25"
+    assert parse_quick_add("Standup every weekday", now)["repeat"] == {"every": "weekday", "interval": 1}
+    friday = datetime(2026, 11, 27, 9, 0, tzinfo=UTC)
+    assert next_due(friday, {"every": "weekday", "interval": 1}, now).date().isoformat() == "2026-11-30"
+    jan31 = datetime(2027, 1, 31, 9, 0, tzinfo=UTC)
+    assert next_due(jan31, {"every": "month", "interval": 1}, now).date().isoformat() == "2027-02-28"
+    assert next_due(datetime(2026, 1, 1, 9, 0, tzinfo=UTC), {"every": "day", "interval": 1}, now).date().isoformat() == "2026-11-26"
+
+
+@pytest.mark.parametrize("role", ["child", "teen"])
+def test_a_child_or_teen_cannot_change_sections(client, role):
+    service = client.app.state.work
+    owner, kid = Principal("p-owner", "person", "owner"), Principal("p-kid", "person", role)
+    project = service.create_project(owner, ProjectFields(name="Family"))
+    service.add_member(owner, project.id, kid)
+    section = service.create_section(owner, project.id, SectionFields(name="Chores"), "s1")
+    for call in (lambda: service.create_section(kid, project.id, SectionFields(name="Mine"), "s2"),
+                 lambda: service.rename_section(kid, project.id, section.id, SectionFields(name="x")),
+                 lambda: service.delete_section(kid, project.id, section.id)):
+        with pytest.raises(ApiError) as failure:
+            call()
+        assert failure.value.status == 403
+    assert [s.name for s in service.sections(kid, project.id)] == ["Chores"]
+
+
+def test_repeat_days_are_counted_in_the_rule_zone():
+    from datetime import UTC, datetime
+    from zoneinfo import ZoneInfo
+    from onemind_core.work.parse import next_due, parse_quick_add
+    ny = ZoneInfo("America/New_York")
+    now = datetime(2026, 11, 25, 15, 0, tzinfo=UTC)
+    parsed = parse_quick_add("standup every weekday 2026-11-26", now, "America/New_York")
+    assert parsed["repeat"] == {"every": "weekday", "interval": 1, "tz": "America/New_York"}
+    thursday = parsed["due_at"]
+    assert thursday.astimezone(ny).isoformat() == "2026-11-26T23:59:59-05:00"
+    friday = next_due(thursday, parsed["repeat"], now)
+    assert friday.astimezone(ny).isoformat() == "2026-11-27T23:59:59-05:00"
+    monday = next_due(friday, parsed["repeat"], now)
+    assert monday.astimezone(ny).isoformat() == "2026-11-30T23:59:59-05:00"
+    # Across the spring DST change the local time of day holds and no day is skipped.
+    daily = parse_quick_add("water every day 2027-03-13", now, "America/New_York")
+    sat = daily["due_at"]
+    sun = next_due(sat, daily["repeat"], now)
+    assert sun.astimezone(ny).isoformat() == "2027-03-14T23:59:59-04:00"
+    assert next_due(sun, daily["repeat"], now).astimezone(ny).isoformat() == "2027-03-15T23:59:59-04:00"
+    # A rule with no zone still counts in UTC, and an unknown zone is refused.
+    assert next_due(datetime(2026, 11, 27, 9, 0, tzinfo=UTC), {"every": "weekday"}, now).date().isoformat() == "2026-11-30"
+    with pytest.raises(ValueError):
+        next_due(sat, {"every": "day", "tz": "Mars/Base"}, now)
 
 def test_a_member_can_leave_a_project_but_not_remove_others(client):
     import pytest

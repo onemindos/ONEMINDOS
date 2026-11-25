@@ -51,3 +51,6 @@ PATCH /v1/work/projects/{project_id}  # sets fields to the stated values, so a r
 DELETE /v1/work/projects/{project_id}  # the second removal sees no project
 PUT /v1/work/projects/{project_id}/members/{person_id}  # adding a member twice is the same as once
 DELETE /v1/work/projects/{project_id}/members/{person_id}  # removing a member twice is the same as once
+DELETE /v1/work/projects/{project_id}/tasks/{task_id}/comments/{comment_id}  # the second removal sees no comment
+PATCH /v1/work/projects/{project_id}/sections/{section_id}  # sets the name to the stated value, so a repeat changes nothing more
+DELETE /v1/work/projects/{project_id}/sections/{section_id}  # the second removal sees no section

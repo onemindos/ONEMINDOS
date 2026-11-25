@@ -104,6 +104,13 @@ HUMAN_ONLY: dict[str, str] = {
     "GET /v1/work/projects/{project_id}": PERSON,
     "GET /v1/work/projects/{project_id}/members": PERSON,
     "GET /v1/work/projects/{project_id}/tasks/{task_id}/activity": PERSON,
+    "GET /v1/work/projects/{project_id}/tasks/{task_id}/comments": PERSON,
+    "POST /v1/work/projects/{project_id}/tasks/{task_id}/comments": WRITE,
+    "DELETE /v1/work/projects/{project_id}/tasks/{task_id}/comments/{comment_id}": WRITE,
+    "GET /v1/work/projects/{project_id}/sections": PERSON,
+    "POST /v1/work/projects/{project_id}/sections": WRITE,
+    "PATCH /v1/work/projects/{project_id}/sections/{section_id}": WRITE,
+    "DELETE /v1/work/projects/{project_id}/sections/{section_id}": WRITE,
     # ---- oversight: deciding requests and controlling agents
     "POST /v1/actions/{action_id}/approve": OVERSIGHT,
     "POST /v1/actions/{action_id}/approve-options": OVERSIGHT,

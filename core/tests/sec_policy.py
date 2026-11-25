@@ -309,6 +309,27 @@ POLICY |= {
         w.p_static("/v1/work/projects/missing/tasks/missing/activity"), "Work history follows task visibility"),
     ("POST", "/v1/work/parse"): Row(cells(403, **GONE, owner=422, adult=422, child=422),
                                      w.p_static("/v1/work/parse"), "Work parse preview is people-only"),
+    ("GET", "/v1/work/projects/{project_id}/tasks/{task_id}/comments"): Row(
+        cells(403, **GONE, owner=404, adult=404, child=404),
+        w.p_static("/v1/work/projects/missing/tasks/missing/comments"), "Work comments follow task visibility"),
+    ("POST", "/v1/work/projects/{project_id}/tasks/{task_id}/comments"): Row(
+        cells(403, **GONE, owner=422, adult=422, child=422),
+        w.p_static("/v1/work/projects/missing/tasks/missing/comments"), "Work comments are people-only"),
+    ("DELETE", "/v1/work/projects/{project_id}/tasks/{task_id}/comments/{comment_id}"): Row(
+        cells(403, **GONE, owner=404, adult=404, child=404),
+        w.p_static("/v1/work/projects/missing/tasks/missing/comments/missing"), "Only a comment's author deletes it"),
+    ("GET", "/v1/work/projects/{project_id}/sections"): Row(
+        cells(403, **GONE, owner=404, adult=404, child=404),
+        w.p_static("/v1/work/projects/missing/sections"), "Work lists sections of visible projects only"),
+    ("POST", "/v1/work/projects/{project_id}/sections"): Row(
+        cells(403, **GONE, owner=422, adult=422, child=422),
+        w.p_static("/v1/work/projects/missing/sections"), "Work section changes are people-only"),
+    ("PATCH", "/v1/work/projects/{project_id}/sections/{section_id}"): Row(
+        cells(403, **GONE, owner=422, adult=422, child=422),
+        w.p_static("/v1/work/projects/missing/sections/missing"), "Work section changes are people-only"),
+    ("DELETE", "/v1/work/projects/{project_id}/sections/{section_id}"): Row(
+        cells(403, **GONE, owner=404, adult=404, child=404),
+        w.p_static("/v1/work/projects/missing/sections/missing"), "Work section changes are people-only"),
     ("GET", "/v1/series"): Row(CHILD_CANNOT, w.p_static("/v1/series?node_id=node1&metric=cpu_pct"),
                                "Node metric history, with the same monitoring:read scope as live metrics"),
     ("GET", "/v1/monitoring/summary"): Row(CHILD_CANNOT, w.p_static("/v1/monitoring/summary"),
