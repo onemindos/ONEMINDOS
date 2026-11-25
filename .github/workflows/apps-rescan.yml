@@ -46,9 +46,10 @@ jobs:
         id: ids
         run: |
           set -euo pipefail
-          ids=$(find apps -mindepth 1 -maxdepth 1 -type d ! -name '_*' ! -name '.*' -printf '%f\n' | sort \
-            | while read -r id; do [ -f "apps/$id/onemind.app.yaml" ] && echo "$id"; done)
-          echo "apps=$(jq -cn '$ARGS.positional' --args $ids)" >> "$GITHUB_OUTPUT"
+          python3 -m venv "$RUNNER_TEMP/app-list"
+          "$RUNNER_TEMP/app-list/bin/python3" -m pip install -r sdk/tools/requirements.txt
+          ids=$("$RUNNER_TEMP/app-list/bin/python3" -I sdk/tools/app-select inventory)
+          echo "apps=$(jq -cn --arg ids "$ids" '$ids | split("\n") | map(select(length > 0))')" >> "$GITHUB_OUTPUT"
           echo "apps to rescan: $(wc -w <<<"$ids")"
 
   rescan:
@@ -115,7 +116,8 @@ jobs:
           # The step shell is bash -e: a failing gate (rc 1 = blocked, 2 = tool error) must not fail this
           # step. The rc is recorded for the publish job, which reports tool errors for every app at once.
           rc=0
-          python3 -I sdk/tools/app-gate "$APP" --smoke --tier write --clamav-db /var/lib/clamav \
+          app_path=$(python3 -I sdk/tools/app-select path "$APP") || exit 1
+          python3 -I sdk/tools/app-gate --apps-dir "${app_path%/*}" "${app_path##*/}" --smoke --tier write --clamav-db /var/lib/clamav \
             --workdir "$RUNNER_TEMP" --report "$out/report.json" || rc=$?
           echo "$rc" > "$out/status"
           # Stage first so NEW files (a first scan.json) are listed too; plain git diff skips untracked files.
@@ -158,6 +160,12 @@ jobs:
           pattern: apps-rescan-*
           path: ${{ runner.temp }}/results
 
+      - name: Install app selection dependencies
+        run: |
+          python3 -m venv "$RUNNER_TEMP/app-list"
+          "$RUNNER_TEMP/app-list/bin/python3" -m pip install -r sdk/tools/requirements.txt
+          echo "$RUNNER_TEMP/app-list/bin" >> "$GITHUB_PATH"
+
       - name: Collect the refreshed app files
         id: collect
         env:
@@ -165,35 +173,27 @@ jobs:
         run: |
           set -euo pipefail
           results="$RUNNER_TEMP/results"
-          before=$(grep -H '^  tier:' apps/*/onemind.app.yaml || true)
+          selector=(python3 -I sdk/tools/app-select)
+          before="$RUNNER_TEMP/tiers-before"
+          : > "$before"
           errors=""
           for id in $(jq -r '.[]' <<<"$PLANNED"); do
-            if ! grep -qE '^[a-z0-9][a-z0-9-]*$' <<<"$id"; then echo "bad app id in the plan: $id" >&2; exit 1; fi
+            app_path=$("${selector[@]}" path "$id")
+            if grep -qx '  tier: blocked' "$app_path/onemind.app.yaml"; then
+              echo "$id" >> "$before"
+            fi
             d="$results/apps-rescan-$id"
-            # No result, or no valid exit code, means the job died before the gate finished: a tool error.
+            # No result, or no valid exit code, means the job died before the gate finished.
             if [ ! -f "$d/status" ] || ! grep -qE '^[0-9]+$' "$d/status"; then errors="$errors $id"; continue; fi
             rc=$(cat "$d/status")
-            # rc 1 = the app is blocked (its scan.json is still refreshed); anything above is a tool error.
             [ "$rc" -ge 2 ] && errors="$errors $id"
             [ -s "$d/files.txt" ] || continue
-            # Only regenerated files under this app's own apps/<id>/ are taken from its job.
-            if grep -vE "^apps/$id/(onemind\.app\.yaml|scan\.json|README\.md)\$" "$d/files.txt"; then
-              echo "the rescan job for $id changed files other than its scan.json, tier or README" >&2
-              exit 1
-            fi
-            # Copy only the listed regular files out of the archive (no links, nothing else).
-            mkdir "$d/x"
-            tar -xf "$d/apps.tar" -C "$d/x" --no-same-owner
-            while IFS= read -r f; do
-              if [ -L "$d/x/$f" ] || [ ! -f "$d/x/$f" ]; then echo "not a regular file: $f" >&2; exit 1; fi
-              cp "$d/x/$f" "$f"
-            done < "$d/files.txt"
+            "${selector[@]}" apply-scan "$id" "$d/files.txt" "$d/apps.tar"
           done
           newly_blocked=""
-          for f in apps/*/onemind.app.yaml; do
-            id=$(basename "$(dirname "$f")")
-            case "$id" in _*|.*) continue ;; esac
-            if grep -q '^  tier: blocked' "$f" && ! grep -q "^$f:  tier: blocked" <<<"$before"; then
+          for id in $(jq -r '.[]' <<<"$PLANNED"); do
+            app_path=$("${selector[@]}" path "$id")
+            if grep -qx '  tier: blocked' "$app_path/onemind.app.yaml" && ! grep -qxF "$id" "$before"; then
               newly_blocked="$newly_blocked $id"
             fi
           done
