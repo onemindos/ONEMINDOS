@@ -868,6 +868,11 @@ POLICY |= {
         cells(403, **GONE, owner=409, plugin=DENIED, automation=DENIED, node=DENIED),
         w.p_static("/v1/system/services/onemind-gateway.service/logs"),
         "core/onemind_core/routers/services.py: a unit's redacted journal; owner only, audited"),
+    # P-07: the whole-system journal is owner only and audited; with no host socket in this world the owner gets 409.
+    ("GET", "/v1/system/journal"): Row(
+        cells(403, **GONE, owner=409, plugin=DENIED, automation=DENIED, node=DENIED),
+        w.p_static("/v1/system/journal"),
+        "core/onemind_core/routers/journal.py: the redacted system journal; owner only, read only, audited, rate and size limited"),
     # #636: the owner and agents pass authorization and get 409 (no host socket: nothing is filed); with a host
     # the request is filed and waits for the owner's passkey approval (tests/test_service_actions.py).
     ("POST", "/v1/system/services/{unit}/restart"): Row(
