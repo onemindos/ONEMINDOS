@@ -17,7 +17,7 @@ from ..identity import ctx_of
 from ..identity.scopes import has_any, register_route_scope
 from ..jsonbody import JsonBody
 from ..work.access import WORK_ROLES, delegated_reader
-from ..work.parse import parse_quick_add
+from ..work.parse import parse_quick_add, zone
 from ..work.service import (Activity, CaptureFields, Comment, CommentFields, Repeat, Section, SectionFields, PersonAssignee, Project, ProjectChanges, ProjectFields, Task,
                             TaskFields, TaskView, WorkService)
 
@@ -90,6 +90,15 @@ def _revision(value: str) -> int:
     if not value.isascii() or not value.isdecimal() or int(value) < 1:
         raise ApiError(422, "conflict", "If-Match must contain a task revision", reason="bad_revision")
     return int(value)
+
+
+def bad_zone(name: str | None) -> str | None:
+    """The zone name as given, or a 422 for one that does not exist."""
+    try:
+        zone(name)
+    except ValueError as error:
+        raise ApiError(422, "conflict", str(error), reason="bad_zone") from None
+    return name
 
 
 def register(app: FastAPI, gw: Gateway) -> None:
@@ -172,17 +181,20 @@ def register(app: FastAPI, gw: Gateway) -> None:
     def list_tasks(request: Request, response: Response, p: Principal = Depends(reader),
                    project_id: str | None = Query(None, min_length=1, max_length=40),
                    view: TaskView = "all", limit: int = Query(50, ge=1, le=100),
+                   tz: str | None = Query(None, max_length=64, description="IANA zone where today ends (default UTC)"),
                    cursor: str | None = Query(None, pattern=r"^[A-Za-z0-9_-]{1,40}/[A-Za-z0-9_-]{1,40}$")) -> list[Task]:
         after_project, after = cursor.split("/") if cursor else (None, "")
         if project_id and after_project not in (None, project_id):
             raise ApiError(422, "conflict", "Cursor does not belong to this project", reason="bad_cursor")
         rows = service.list_tasks(p, project_id, after=after, after_project=after_project, limit=limit + 1,
-                                  view=view, delegated=delegated_reader(request, p))
+                                  view=view, delegated=delegated_reader(request, p), tz=bad_zone(tz))
         if len(rows) > limit:
             last = rows[limit - 1]
             args = {"view": view, "limit": limit, "cursor": f"{last.project_id}/{last.id}"}
             if project_id is not None:
                 args["project_id"] = project_id
+            if tz:
+                args["tz"] = tz
             response.headers["Link"] = f'<{BASE}/tasks?{urlencode(args)}>; rel="next"'
         return rows[:limit]
 

@@ -71,13 +71,16 @@ func (s *WorkService) QuickAdd(ctx context.Context, text, tz, key string) (*Work
 }
 
 // List is operation work.tasks_list. view is "all", "today", "upcoming" or "inbox"; project may be empty.
-func (s *WorkService) List(ctx context.Context, view, project string, limit int) ([]WorkTask, error) {
+func (s *WorkService) List(ctx context.Context, view, project, tz string, limit int) ([]WorkTask, error) {
 	q := url.Values{}
 	if view != "" {
 		q.Set("view", view)
 	}
 	if project != "" {
 		q.Set("project_id", project)
+	}
+	if tz != "" {
+		q.Set("tz", tz)
 	}
 	if limit > 0 {
 		q.Set("limit", strconv.Itoa(limit))
