@@ -30,6 +30,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/onemindos/onemindos/internal/backup"
 	"github.com/onemindos/onemindos/internal/mesh"
 )
 
@@ -83,6 +84,8 @@ type fakeHub struct {
 	approved bool
 	gotFacts NodeFacts
 	role     string
+	jobPub   string // the gateway's job public key (PEM) the join reply carries
+	jobKid   string
 }
 
 func (h *fakeHub) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -138,12 +141,27 @@ func (h *fakeHub) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			"mesh": map[string]any{"control_url": "https://control.onemind.internal:8444", "control_addrs": []string{"192.0.2.10"},
 				"ca_sha256": h.ca.pin, "auth_key": "hskey-auth-test-only", "hostname": "node-n1", "hub_mesh_ip": "100.64.0.1",
 				"tags": []string{"tag:onemind-worker", "tag:onemind-k3s"}},
-			"k3s": map[string]string{"server_url": "https://100.64.0.1:6443", "token": "K10" + strings.Repeat("ab", 32) + "::abcdef.0123456789abcdef"},
+			"k3s":        map[string]string{"server_url": "https://100.64.0.1:6443", "token": "K10" + strings.Repeat("ab", 32) + "::abcdef.0123456789abcdef"},
+			"job_pubkey": h.jobPub, "job_kid": h.jobKid,
 		}
 		json.NewEncoder(w).Encode(map[string]any{"state": "delivered", "match_code": "K7-4QX", "credentials": cr})
 	default:
 		w.WriteHeader(404)
 	}
+}
+
+// newJobKey is a gateway job key's public half (PEM) and its kid, as the join reply sends them.
+func newJobKey(t *testing.T) (string, string) {
+	t.Helper()
+	pub, _, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	der, err := x509.MarshalPKIXPublicKey(pub)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: der})), backup.JobKeyID(pub)
 }
 
 func startHub(t *testing.T, role string) (*fakeHub, string, string) {
@@ -152,7 +170,8 @@ func startHub(t *testing.T, role string) (*fakeHub, string, string) {
 	skey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	scert := ca.sign(t, &skey.PublicKey, &x509.Certificate{DNSNames: []string{"box1.local"},
 		KeyUsage: x509.KeyUsageDigitalSignature, ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}})
-	h := &fakeHub{t: t, ca: ca, role: role}
+	jobPub, jobKid := newJobKey(t)
+	h := &fakeHub{t: t, ca: ca, role: role, jobPub: jobPub, jobKid: jobKid}
 	srv := httptest.NewUnstartedServer(h)
 	srv.TLS = &tls.Config{Certificates: []tls.Certificate{{Certificate: [][]byte{scert.Raw, ca.cert.Raw}, PrivateKey: skey}}}
 	srv.StartTLS()
@@ -320,8 +339,73 @@ func TestJoinEndToEnd(t *testing.T) {
 	if h := read(HostsFile); strings.Count(h, hostsBegin) != 1 || strings.Contains(h, "192.0.2.10") {
 		t.Fatalf("hosts:\n%s", h)
 	}
-	if s, err := LoadState(root); err != nil || s.NodeID != "n1" {
+	if s, err := LoadState(root); err != nil || s.NodeID != "n1" || s.JobKid != hub.jobKid {
 		t.Fatalf("%+v %v", s, err)
+	}
+	// The gateway's job key is pinned beside the identity (under /data on the image), readable by onemindd.
+	if read(JobPubFile) != hub.jobPub || mode(JobPubFile) != 0o644 || !strings.Contains(out.String(), hub.jobKid+" pinned") {
+		t.Fatalf("job key: mode %o\n%s", mode(JobPubFile), out.String())
+	}
+	// The pinned file is what a machine's job verifier loads (internal/backup NewNodeJobVerifier).
+	if pub, err := backup.LoadJobPublicKey(filepath.Join(root, JobPubFile)); err != nil || backup.JobKeyID(pub) != hub.jobKid {
+		t.Fatalf("pinned key: %v", err)
+	}
+}
+
+func TestCheckJobKey(t *testing.T) {
+	ca := newCA(t)
+	id, _ := NewIdentity("n1", "x")
+	cert := ca.sign(t, &id.Key.PublicKey, &x509.Certificate{ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth}})
+	base := Credentials{NodeCert: pemOf(cert), CACert: pemOf(ca.cert)}
+	base.NATS.UserPubkey = id.NkeyPub
+	pub, kid := newJobKey(t)
+	_, otherKid := newJobKey(t)
+	for name, c := range map[string]struct {
+		pub, kid string
+		ok       bool
+	}{
+		"key and its kid":     {pub, kid, true},
+		"no key (older hub)":  {"", "", true},
+		"kid of another key":  {pub, otherKid, false},
+		"kid without the key": {"", kid, false},
+		"key without its kid": {pub, "", false},
+		"not a PEM key":       {"job key", kid, false},
+		"a certificate":       {pemOf(ca.cert), kid, false},
+	} {
+		cr := base
+		cr.JobPubkey, cr.JobKid = c.pub, c.kid
+		if _, err := cr.Check(id, ca.pin); (err == nil) != c.ok {
+			t.Errorf("%s: err %v", name, err)
+		}
+	}
+}
+
+// A re-join to a hub that sends no job key drops the key an earlier join pinned.
+func TestApplyWithoutJobKeyRemovesAnOldPin(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Dir(filepath.Join(root, JobPubFile)), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	old, _ := newJobKey(t)
+	if err := os.WriteFile(filepath.Join(root, JobPubFile), []byte(old), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	ca := newCA(t)
+	id, _ := NewIdentity("n1", "x")
+	cert := ca.sign(t, &id.Key.PublicKey, &x509.Certificate{ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth}})
+	cr := &Credentials{Role: "leaf", NodeCert: pemOf(cert), CACert: pemOf(ca.cert)}
+	cr.NATS.URL, cr.NATS.UserPubkey = "tls://192.0.2.10:7422", id.NkeyPub
+	var out bytes.Buffer
+	in := &Installer{Root: root, Sys: &fakeSys{}, Out: &out}
+	st, err := in.Apply(context.Background(), id, cr, cert, &Ticket{CASHA: ca.pin, Hub: "https://box1.local"}, "192.0.2.10")
+	if err != nil {
+		t.Fatalf("%v\n%s", err, out.String())
+	}
+	if _, err := os.Stat(filepath.Join(root, JobPubFile)); !errors.Is(err, os.ErrNotExist) || st.JobKid != "" {
+		t.Fatalf("old pin kept: %v %+v", err, st)
+	}
+	if !strings.Contains(out.String(), "refuses every job") {
+		t.Fatalf("output:\n%s", out.String())
 	}
 }
 
