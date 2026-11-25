@@ -9,6 +9,7 @@ import { SCREENS } from '../screens/registry';
 import { useSignedIn } from '../session';
 import { useKeymap } from '../shell/keys/useKeymap';
 import { Load } from './parts';
+import { TipSetupStatus } from './TipSetupStatus';
 
 type Tip = components['schemas']['TipView'];
 
@@ -79,7 +80,7 @@ export function TipsGuide({ client }: { client: OneMind }) {
     {res.error?.status === 403
       ? <p role="status">Your account cannot view the getting started guide.</p>
       : <Load res={res} what="Loading the guide">{data => data.pack
-        ? <Checklist tips={data.tips} ids={data.checklist} />
+        ? <><Checklist tips={data.tips} ids={data.checklist} /><TipSetupStatus client={client} /></>
         : <p>This hub has no Tips pack for its current version.</p>}</Load>}
     <Link to={tipsPath}>Browse all Tips</Link>
   </Card>;
@@ -111,6 +112,7 @@ function TipsIndex({ client }: { client: OneMind }) {
       return <>
         <Card title="Getting started checklist">
           <Checklist tips={data.tips} ids={data.checklist} />
+          <TipSetupStatus client={client} />
         </Card>
         <Card title="Collections">
           <div className="dash-actions">
