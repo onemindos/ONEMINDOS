@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
-"""OneMind QEMU battery, first boot (F0-F12). Criteria: test/qemu/CRITERIA-FIRSTBOOT.md
+"""OneMind QEMU battery, first boot (F0-F14). Criteria: test/qemu/CRITERIA-FIRSTBOOT.md
 (pre-registered; never edited to make a result pass). Reuses run-tests.py's VM driver.
 
 Input: the battery's fixtures (`make fixtures`: disk.img = slot A v1 + test overlay, bundles.img with
@@ -496,6 +496,91 @@ def f12(vm, token):
     record("F12", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items())
            + f" box={box!r} up={up} down_summary={summary[:80]!r} engine_unreachable={inst.get('reason')}")
 
+BOX_BINDS = {"/var/lib/fwupd": "var-lib-fwupd", "/var/cache/fwupd": "var-cache-fwupd",
+             "/var/lib/rasdaemon": "var-lib-rasdaemon", "/var/lib/udisks2": "var-lib-udisks2"}
+
+
+def f14(vm, board):
+    """Step 2b: box care for a 24/7 machine (CRITERIA-FIRSTBOOT.md section 10). Returns the marker content."""
+    marker = "f14-" + os.urandom(8).hex()
+    cmds = [
+        "fwupdmgr --version >/dev/null 2>&1; echo FWUPD_RC=$?",
+        "sensors -v >/dev/null 2>&1; echo SENSORS_RC=$?",
+        "ras-mc-ctl --help >/dev/null 2>&1; echo RASCTL_RC=$?",
+        "udisksctl help >/dev/null 2>&1; echo UDISKSCTL_RC=$?",
+        "timeout 90 fwupdmgr get-devices --no-unreported-check >/tmp/f14.fw 2>&1; echo FWDEV_RC=$? FWDEV_HEAD=$(head -c 60 /tmp/f14.fw | tr -d '\\n' | tr ' ' '_')",
+        "timeout 60 udisksctl status >/dev/null 2>&1; echo UDSTATUS_RC=$?",
+        "for u in fwupd-refresh.timer fwupd-refresh.service; do echo STATE $u $(systemctl is-enabled $u 2>&1 | head -1); done",
+        "echo STATE fwupd.service $(systemctl is-enabled fwupd.service 2>&1 | head -1)",
+        "echo STATE fstrim.timer $(systemctl is-enabled fstrim.timer 2>&1 | head -1)",
+        "echo STATE rasdaemon.service $(systemctl is-enabled rasdaemon.service 2>&1 | head -1)",
+        "echo STATE thermald.service $(systemctl is-enabled thermald.service 2>&1 | head -1); echo ACTIVE=$(systemctl is-active thermald.service 2>&1 | head -1)",
+        "echo THERMALD_PKG=$(dpkg -s thermald >/dev/null 2>&1 && echo yes || echo no)",
+        "echo FSTRIM_LAST=$(systemctl cat fstrim.service | grep '^ExecStart=' | tail -1 | tr ' ' '_')",
+        "systemctl start fstrim.service; echo FSTRIM_RC=$?",
+        "echo WATCHDOG=$(systemctl show -p RuntimeWatchdogUSec --value)",
+        "for p in gvfs-udisks2-volume-monitor udiskie polkitd; do dpkg -s $p >/dev/null 2>&1; echo ABSENT $p $?; done",
+    ]
+    for path, src in BOX_BINDS.items():
+        cmds.append(f"echo BIND {path} $(findmnt -no SOURCE {path} | head -1 | tr -d ' ') "
+                    f"MARK=$(echo {marker} > {path}/onemind-f14 && sync && cat /data/state/{src}/onemind-f14)")
+    _, out = vm.run("; ".join(cmds), 240)
+    get = lambda k: (re.findall(rf"^{k}=(\S*)\s*$", out, re.M) or ["?"])[-1]
+    state = {u: st for u, st in re.findall(r"^STATE (\S+) (\S+)", out, re.M)}
+    amd = ARCH.get(board) == "amd64"
+    binds = {p: (m.group(1), m.group(2)) for p, m in
+             ((p, re.search(rf"^BIND {re.escape(p)} (\S*) MARK=(\S*)\s*$", out, re.M)) for p in BOX_BINDS) if m}
+    absent = dict(re.findall(r"^ABSENT (\S+) (\d+)\s*$", out, re.M))
+    c = {"fwupdmgr": get("FWUPD_RC") == "0", "sensors": get("SENSORS_RC") == "0",
+         "ras_mc_ctl": get("RASCTL_RC") == "0", "udisksctl": get("UDISKSCTL_RC") == "0",
+         "fwupd_get_devices_runs": get("FWDEV_RC") in ("0", "2"), "udisks_status_runs": get("UDSTATUS_RC") == "0",
+         "refresh_masked": state.get("fwupd-refresh.timer") == "masked" and state.get("fwupd-refresh.service") == "masked",
+         "fwupd_not_enabled": state.get("fwupd.service") != "enabled",
+         "fstrim_enabled": state.get("fstrim.timer") == "enabled",
+         "fstrim_data_only": get("FSTRIM_LAST").endswith("fstrim_--verbose_--quiet-unsupported_/data"),
+         "fstrim_runs": get("FSTRIM_RC") == "0",
+         "rasdaemon_enabled": state.get("rasdaemon.service") == "enabled",
+         "thermald": (state.get("thermald.service") == "enabled" and get("ACTIVE") != "active") if amd
+                     else get("THERMALD_PKG") == "no",
+         "binds_on_data": len(binds) == 4 and all(("/state/" + BOX_BINDS[p] + "]") in v[0] for p, v in binds.items()) and all(v[1] == marker for v in binds.values()),
+         "watchdog_30s": get("WATCHDOG") == "30s" if amd else True,
+         "no_automount_helpers": len(absent) == 3 and all(v != "0" for v in absent.values())}
+    # The loop device: detected, never mounted by itself, mounted read-only only when asked.
+    _, out2 = vm.run(
+        "truncate -s 64M /run/f14.img && mkfs.ext4 -q -F /run/f14.img && L=$(losetup --find --show /run/f14.img) && echo LOOP=$L; "
+        "udevadm trigger --name-match=$L; udevadm settle --timeout=30; sleep 3; "
+        "echo AUTO=$(udevadm info -q property -n $L | grep -c '^UDISKS_AUTO=0$'); "
+        "echo MOUNTED_BEFORE=$(findmnt -S $L -n | wc -l)$(lsblk -no MOUNTPOINT $L | grep -c .); "
+        "udisksctl info -b $L >/dev/null 2>&1; echo INFO_RC=$?; "
+        "udisksctl mount -b $L -o ro >/tmp/f14.mnt 2>&1; echo MOUNT_RC=$?; cat /tmp/f14.mnt; "
+        "echo RO=$(findmnt -S $L -no OPTIONS | tr ',' '\\n' | grep -c '^ro$'); "
+        "udisksctl unmount -b $L >/dev/null 2>&1; echo UNMOUNT_RC=$?; losetup -d $L; rm -f /run/f14.img", 240)
+    g2 = lambda k: (re.findall(rf"^{k}=(\S*)\s*$", out2, re.M) or ["?"])[-1]
+    c.update({"loop_has_auto0": g2("AUTO") == "1", "loop_not_automounted": g2("MOUNTED_BEFORE") == "00",
+              "udisks_info": g2("INFO_RC") == "0", "owner_mount_ro": g2("MOUNT_RC") == "0" and g2("RO") == "1",
+              "owner_unmount": g2("UNMOUNT_RC") == "0"})
+    record("F14", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items())
+           + f" states={state} fwdev={get('FWDEV_RC')}/{get('FWDEV_HEAD')} binds={binds}")
+    return marker
+
+
+def f14_again(vm, tid, marker):
+    """F14b (after the reboot) and F14c (after the A/B update): the box-care state is still there."""
+    cmds = []
+    for path, src in BOX_BINDS.items():
+        cmds.append(f"echo BIND {path} $(findmnt -no SOURCE {path} | head -1 | tr -d ' ') MARK=$(cat {path}/onemind-f14 2>&1)")
+    cmds += ["echo STATE fstrim.timer $(systemctl is-enabled fstrim.timer 2>&1 | head -1)",
+             "echo STATE rasdaemon.service $(systemctl is-enabled rasdaemon.service 2>&1 | head -1)"]
+    _, out = vm.run("; ".join(cmds), 120)
+    state = {u: st for u, st in re.findall(r"^STATE (\S+) (\S+)", out, re.M)}
+    marks = {p: m.group(1) for p, m in
+             ((p, re.search(rf"^BIND {re.escape(p)} \S* MARK=(\S*)\s*$", out, re.M)) for p in BOX_BINDS) if m}
+    mounted = all(re.search(rf"^BIND {re.escape(p)} \S*/state/{BOX_BINDS[p]}\S* ", out, re.M) for p in BOX_BINDS)
+    c = {"markers_kept": len(marks) == 4 and all(v == marker for v in marks.values()), "binds_mounted": mounted,
+         "fstrim_enabled": state.get("fstrim.timer") == "enabled", "rasdaemon_enabled": state.get("rasdaemon.service") == "enabled"}
+    record(tid, all(c.values()), " ".join(f"{k}={v}" for k, v in c.items()))
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--board", required=True, choices=sorted(battery.BOARDS))
@@ -552,6 +637,7 @@ def main():
         vm.mark("F10 rescue console with k3s stopped (CORE-UPDATE-9)"); f10(vm, token)
         vm.mark("F11 starting page, then the gateway, never a refused connection"); f11(vm, (os.path.dirname(a.results) or ".") if a.results else None)
         vm.mark("F12 the gateway reaches the host helper, and says missing without it (#875)"); f12(vm, token)
+        vm.mark("F14 box care: fwupd, fstrim, sensors, rasdaemon, udisks2 without automount (Step 2b)"); box_marker = f14(vm, a.board)
 
         if a.upto in ("F3", "F4"):
             vm.mark("F3 reboot keeps state")
@@ -565,6 +651,7 @@ def main():
                 diagnose(vm, f"healthz={hz3} after reboot")
             listed3 = nodes(vm, token, ids["node_id"])
             same = [n for n in listed3 if n[0] == ids["node_id"]]
+            vm.mark("F14b box-care state after the reboot"); f14_again(vm, "F14b", box_marker)
             record("F3", not new_toks and ids3 == ids and hz3 == "200" and bool(same) and bool(token),
                    f"'{al[:70]}' new_tokens={len(new_toks)} same_ids={ids3 == ids} healthz={hz3} listed={listed3} gate={g3}")
 
@@ -586,6 +673,7 @@ def main():
             listed4 = nodes(vm, token, ids["node_id"])
             same = [n for n in listed4 if n[0] == ids["node_id"]]
             already = re.search(ALREADY, s) is not None
+            vm.mark("F14c box-care state after the A/B update"); f14_again(vm, "F14c", box_marker)
             record("F4", rc_i == 0 and g4 == ("mark-good", "B", "2") and mark == mark2 and len(mark) == 64 and ver2
                    and already and not TOKEN.search(s) and ids4 == ids and hz4 == "200" and bool(same),
                    f"install_rc={rc_i} gate={g4} marker_kept={mark == mark2} version2={ver2} already_configured={already} "
