@@ -364,6 +364,8 @@ POLICY |= {
                                            f"{_AUTOMATION}: only the owner grants a standing approval"),
     ("DELETE", "/v1/approval-policies/{policy_id}"): Row(OWNER_ONLY_404, w.p_missing("/v1/approval-policies/{policy}"),
                                                          f"{_AUTOMATION}: only the owner revokes one"),
+    ("POST", "/v1/approval-policies/{policy_id}/confirm"): Row(OWNER_ONLY_404, w.p_missing("/v1/approval-policies/{policy}/confirm"),
+                                                              f"{_AUTOMATION}: only the owner confirms a paused one"),
     ("GET", "/v1/automation/rules"): Row(READ_ANY, w.p_static("/v1/automation/rules"), f"{_AUTOMATION}: any reader"),
     ("POST", "/v1/automation/rules"): Row(grid(201, 403, 403, 403, 403), w.p_rule_create,
                                           f"{_AUTOMATION}: only the owner writes rules (an agent is refused)"),
