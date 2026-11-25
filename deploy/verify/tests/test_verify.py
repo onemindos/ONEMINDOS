@@ -445,21 +445,24 @@ class InstallAptTimerOrder(unittest.TestCase):
         self.assertGreater(node.rindex("\n  apt_timers_start"), node.rindex("k3s_agent"))
 
 
+OLD = ".".join(("1", "12", "0"))  # Kanidm before D-030
+
+
 class CheckPinsNatsVersion(unittest.TestCase):
     """deploy/check-pins.py fails when the dev compose stack runs another nats-server than the image."""
 
     ROOT = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
     FILES = ("os/versions.lock.yaml", "deploy/pins.env", "deploy/check-pins.py", "go.mod",
              "deploy/compose/compose.yaml", "deploy/compose/onemindd.Dockerfile",
-             "deploy/verify/tests/test_verify.py", "internal/backup/pins.go")
+             "deploy/verify/tests/test_verify.py", "internal/backup/pins.go", "os/identity/kanidm/provision.yaml")
 
-    def run_pins(self, compose_edit=None):
+    def run_pins(self, compose_edit=None, edit_path="deploy/compose/compose.yaml"):
         with tempfile.TemporaryDirectory() as tmp:
             for f in self.FILES:
                 os.makedirs(os.path.join(tmp, os.path.dirname(f)), exist_ok=True)
                 shutil.copy(os.path.join(self.ROOT, f), os.path.join(tmp, f))
             if compose_edit:
-                p = os.path.join(tmp, "deploy/compose/compose.yaml")
+                p = os.path.join(tmp, edit_path)
                 text = open(p, encoding="utf-8").read()
                 new = compose_edit(text)
                 self.assertNotEqual(text, new)
@@ -475,6 +478,19 @@ class CheckPinsNatsVersion(unittest.TestCase):
         r = self.run_pins(lambda t: re.sub(r"library/nats:[0-9.]+-alpine", "library/nats:2.15.2-alpine", t))
         self.assertEqual(r.returncode, 1)
         self.assertIn("deploy/compose/compose.yaml runs nats 2.15.2", r.stdout)
+
+    def test_old_kanidm_in_plan_fails(self):
+        # (the old version is built at run time so this file itself never names an unlocked Kanidm version)
+        # D-030 (3): the Kanidm provisioning plan must name the locked version (1.12.1), not 1.12.0.
+        r = self.run_pins(lambda t: re.sub(r"(?m)^kanidm_version: \S+", "kanidm_version: " + OLD, t),
+                          edit_path="os/identity/kanidm/provision.yaml")
+        self.assertEqual(r.returncode, 1)
+        self.assertIn(f"provision.yaml kanidm_version={OLD!r}, lock says '1.12.1'", r.stdout)
+
+    def test_old_kanidm_in_deploy_fails(self):
+        r = self.run_pins(lambda t: t + "\n# kanidm/server:" + OLD + "\n")
+        self.assertEqual(r.returncode, 1)
+        self.assertIn(f"deploy/compose/compose.yaml names Kanidm {OLD}, lock says 1.12.1", r.stdout)
 
 
 class ComposeNatsClientsSignIn(unittest.TestCase):

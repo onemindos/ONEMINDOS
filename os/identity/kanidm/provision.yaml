@@ -1,0 +1,45 @@
+# SPDX-License-Identifier: Apache-2.0
+# Kanidm provisioning plan for the hub (BD-03, D-015 host service, D-030 founder decisions of 2026-11-25).
+# Kanidm is NOT installed in the image yet: CORE-SEC-10 installs kanidmd and runs this plan. Until then this
+# file is the single place the sign-in name, the groups and the credential policy are written down, and
+# kanidm-provision.py renders server.toml and the kanidm CLI steps from it (test/unit/test_kanidm_provision.py).
+schema: onemind.io/kanidm-provision/v1
+kanidm_version: 1.12.1           # must equal os/versions.lock.yaml identity.kanidm.version
+
+server:
+  # D-030 (1): one canonical sign-in name. Kanidm's domain is the passkey RP ID. Changing it after the first
+  # owner enrols breaks every passkey (upstream examples/server.toml warning), so it is fixed here, up front.
+  # Home and mesh must both reach the hub under this name or a sub-name of it (UMB-ACCT-1 run 2, PK-6, PK-9).
+  # Whether real phones resolve onemind.local over the mesh is still open: UMB-ACCT-13.
+  domain: onemind.local
+  # The origin must be the domain or a sub-name of it (kanidmd refuses to start otherwise). Port 8445 is a
+  # provisional default: the gateway already holds 443 and 8443 (onemind-gateway.service). CORE-SEC-10 /
+  # CORE-NET decide whether the edge fronts Kanidm instead, and open the port in host.nft when kanidmd ships.
+  origin: https://onemind.local:8445
+  bindaddress: "[::]:8445"
+  # Package defaults (kanidmd.service uses DynamicUser + StateDirectory=kanidmd). The root is read-only, so
+  # CORE-SEC-10 must bind this state onto /data (fstab bind + onemind-data-layout.service) before enabling it.
+  db_path: /var/lib/private/kanidmd/kanidm.db
+  tls_chain: /var/lib/private/kanidmd/chain.pem
+  tls_key: /var/lib/private/kanidmd/key.pem
+
+# Household roles (docs/umbrel2/accounts.md 4.2): exactly one per person, enforced by the gateway.
+role_groups:
+  owner: onemind_owners
+  adult: onemind_adults
+  child: onemind_children
+  guest: onemind_guests
+
+# Kanidm account policies, one per group. The strongest credential-type-minimum of all a person's groups wins
+# (Kanidm book, accounts/account_policy.md). Allowed values: any, mfa, passkey, attested_passkey.
+policy_groups:
+  # D-030 (2): passkeys only for everyone invited from now on. The policy blocks a new password or TOTP for
+  # members (lab AK-8c) but does not remove a TOTP a person already has (AK-8b).
+  onemind_passkey_only:
+    credential_type_minimum: passkey
+
+invite:
+  # Every newly invited person joins these groups as well as their role group. People who existed before
+  # D-030 are not added, so their TOTP stays as a fallback (D-030 (2), founder decision B1 in accounts.md 3.2).
+  add_to_groups: [onemind_passkey_only]
+  reset_token_ttl_seconds: 86400   # the one-time enrolment link is valid 24 h (accounts.md 4.4, Invite)
