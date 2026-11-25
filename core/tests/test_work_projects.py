@@ -53,7 +53,9 @@ def test_only_the_creator_changes_a_project_and_removing_a_member_unassigns_thei
         service.remove_member(owner, project.id, owner.id)
     assert failure.value.status == 409
     service.remove_member(owner, project.id, ana.id)
-    assert service.get_task(owner, project.id, assigned.id).assignee is None
+    after = service.get_task(owner, project.id, assigned.id)
+    assert after.assignee is None and after.revision == assigned.revision + 1
+    assert service.activity(owner, project.id, assigned.id)[0].fields == ("assignee",)
     with pytest.raises(ApiError):
         service.get_project(ana, project.id)
 
@@ -204,3 +206,32 @@ def test_repeat_days_are_counted_in_the_rule_zone():
     assert next_due(datetime(2026, 11, 27, 9, 0, tzinfo=UTC), {"every": "weekday"}, now).date().isoformat() == "2026-11-30"
     with pytest.raises(ValueError):
         next_due(sat, {"every": "day", "tz": "Mars/Base"}, now)
+
+def test_a_member_can_leave_a_project_but_not_remove_others(client):
+    import pytest
+    from onemind_core.errors import ApiError
+    service = client.app.state.work
+    owner, ana, bo = (Principal("p-owner", "person", "owner"), Principal("p-ana", "person", "adult"),
+                      Principal("p-bo", "person", "adult"))
+    project = service.create_project(owner, ProjectFields(name="Team"))
+    service.add_member(owner, project.id, ana)
+    service.add_member(owner, project.id, bo)
+    with pytest.raises(ApiError) as failure:
+        service.remove_member(ana, project.id, bo.id)
+    assert failure.value.status == 403
+    service.remove_member(ana, project.id, ana.id)
+    assert service.members(owner, project.id) == ["p-bo", "p-owner"]
+    with pytest.raises(ApiError) as failure:
+        service.get_project(ana, project.id)
+    assert failure.value.status == 404
+
+
+def test_deleting_a_project_removes_its_idempotency_receipts(client):
+    from sqlalchemy import select
+    from onemind_core.work.db import WorkCreateRow
+    service = client.app.state.work
+    made = _project(client)
+    client.post("/v1/work/capture", json={"title": "x", "project_id": made["id"]}, headers={**OWNER, "Idempotency-Key": "rc1"})
+    assert client.delete(f"/v1/work/projects/{made['id']}", headers=OWNER).status_code == 204
+    with service.db.session() as session:
+        assert not session.scalars(select(WorkCreateRow).where(WorkCreateRow.project_id == made["id"])).all()
