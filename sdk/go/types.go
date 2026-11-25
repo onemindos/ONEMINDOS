@@ -32,6 +32,8 @@ type (
 	KeyboardSetting = gen.KeyboardSetting
 	FirewallView    = gen.FirewallView
 	FirewallRule    = gen.FirewallRule
+	AllowRule       = gen.AllowRule
+	AllowRequest    = gen.AllowRequest
 )
 
 // Action types the gateway accepts today (contract §3; §12.5 adds more).

@@ -366,10 +366,15 @@ HUMAN_ONLY: dict[str, str] = {
     "GET /v1/system/ups": CONSOLE,
     "GET /v1/storage/housekeeping": CONSOLE,
     "GET /v1/system/time": CONSOLE,  # P-04: the hub's zone and clock sync state, owner only
+    "GET /v1/network/firewall": CONSOLE,  # P-09: the live host firewall explained, owner only, read only
     "POST /v1/bridges/{bridge_id}/resume": WRITE,
     "POST /v1/system/keyboard": WRITE,
     "POST /v1/system/services/{unit}/restart": WRITE,
     "PUT /v1/mesh/settings": WRITE,
+    # P-09 part 2: an owner allow rule (LAN or mesh only) reverts unless confirmed; owner writes, never an agent tool
+    "POST /v1/network/firewall/allow": WRITE,
+    "POST /v1/network/firewall/allow/{rule_id}/confirm": WRITE,
+    "DELETE /v1/network/firewall/allow/{rule_id}": WRITE,
     # ---- data commons (#615): the commons is itself the grant-checked door; grants are the owner's oversight
     "GET /v1/data/classes": DOOR,
     "GET /v1/data/classes/{data_class}": DOOR,

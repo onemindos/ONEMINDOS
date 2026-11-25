@@ -9,8 +9,8 @@
 // tables (k3s, kube-proxy, mesh guard) are reported by name and size only: they are not the owner's
 // rules and their contents are an implementation detail of those services.
 //
-// Part 2 (allow rules with automatic revert) will add a writer next to Collect. It does not exist yet:
-// nothing here changes the ruleset.
+// Reading never changes the ruleset. The one writer is Allower (allow.go): owner allow rules with
+// automatic revert, in two chains of the OneMind table and nowhere else.
 package firewall
 
 import (
@@ -53,6 +53,8 @@ type View struct {
 	// Truncated counts the chains, rules, sets and set members of the OneMind table that a size cap left
 	// out. Zero on every normal box; when it is not zero the gateway reports the firewall as not fully checked.
 	Truncated int `json:"truncated"`
+	// Allow is the owner allow rules (P-09 part 2); nil when this host service keeps none.
+	Allow *AllowState `json:"allow,omitempty"`
 }
 
 // TableInfo is one table, without its contents.
@@ -103,6 +105,9 @@ type Rule struct {
 type Collector struct {
 	Run func(ctx context.Context) ([]byte, error)
 	Now func() time.Time
+	// Allower, when set, adds the owner allow rules to the view. They are offered only when the host table
+	// has both lists (owner_lan, owner_mesh): an older image reads fine and says it cannot take rules yet.
+	Allower *Allower
 }
 
 // Collect reads and parses the live ruleset.
@@ -120,7 +125,22 @@ func (c Collector) Collect(ctx context.Context) (*View, error) {
 		return nil, err
 	}
 	v.At = now().UTC()
+	if c.Allower != nil {
+		v.Allow = c.Allower.State(v.hasChain(ChainLAN) && v.hasChain(ChainMesh))
+	}
 	return v, nil
+}
+
+func (v *View) hasChain(name string) bool {
+	if v.Host == nil {
+		return false
+	}
+	for _, c := range v.Host.Chains {
+		if c.Name == name {
+			return true
+		}
+	}
+	return false
 }
 
 type nftDoc struct {
