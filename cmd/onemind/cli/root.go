@@ -90,7 +90,6 @@ var groups = []func(a *App) []*cobra.Command{
 	usersCommands,
 	backupCommands,
 	careCommands,
-	pluginCommands,
 	extCommands,
 	tipsCommands,
 	versionCommands,
