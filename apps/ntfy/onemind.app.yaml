@@ -10,6 +10,8 @@ metadata:
   version: "2.37.2"
   description: Send push notifications to your phone or desktop using PUT/POST
   category: notifications
+  age_rating: 12   # proposed minimum age (apps/README.md rubric); the owner can override per app
+  age_reason: "Sends and receives push messages; topics can come from outside the home."
   icon: icon.svg
   license: Apache-2.0 OR GPL-2.0
   licenceClass: L1

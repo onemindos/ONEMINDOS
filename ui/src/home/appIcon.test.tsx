@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { render } from '@testing-library/react';
+import { fireEvent, render } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
 describe('AppIcon (CRITIQUE #20)', () => {
@@ -22,6 +22,13 @@ describe('AppIcon (CRITIQUE #20)', () => {
     tiles.forEach((t) => expect(t).toHaveTextContent('HA'));
   });
 
+  it('uses neutral initials for all missing or unsafe catalogue icons', async () => {
+    const { AppIcon } = await import('../components/AppIcon');
+    const { container } = render(<><AppIcon app={{ id: 'alpha', name: 'Alpha' }} /><AppIcon app={{ id: 'beta', name: 'Beta', icon: 'javascript:invalid' }} /></>);
+    for (const tile of container.querySelectorAll('.om-app-icon')) expect(tile).toHaveAttribute('data-hue', 'slate');
+    expect(container.querySelector('img')).toBeNull();
+  });
+
   it('never loads a javascript: or protocol-relative icon', async () => {
     const { AppIcon } = await import('../components/AppIcon');
     const { container } = render(
@@ -34,5 +41,9 @@ describe('AppIcon (CRITIQUE #20)', () => {
     const imgs = container.querySelectorAll('img');
     expect(imgs).toHaveLength(1);
     expect(imgs[0]).toHaveAttribute('src', '/icons/c.png');
+    fireEvent.error(imgs[0]!);
+    expect(container.querySelector('img')).toBeNull();
+    expect(container.lastElementChild).toHaveTextContent('C');
+    expect(container.lastElementChild).toHaveAttribute('data-hue', 'slate');
   });
 });

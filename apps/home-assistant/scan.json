@@ -1,9 +1,9 @@
 {
-  "scanned_at": "2026-11-21T14:37:07Z",
+  "scanned_at": "2026-11-23T10:09:05Z",
   "result": "fail",
   "images": [
     {
-      "ref": "ghcr.io/home-assistant/home-assistant:2026.11.1@sha256:6785d1eca68747a524c156faae1b139ed415c07357386ae6fe17291986e59e82",
+      "ref": "ghcr.io/home-assistant/home-assistant:2026.11.2@sha256:493a07e8f6530fc640223f4a0a5248f20a61ca2f718bb1d31efbf08a2c5ea28f",
       "archs": [
         "amd64",
         "arm64"
@@ -15,7 +15,7 @@
         "high": 63
       },
       "clamav": {
-        "signatures": "daily-28190",
+        "signatures": "daily-28192",
         "infected": 0
       },
       "secrets": 0,
@@ -26,5 +26,29 @@
     "spdx": "Apache-2.0",
     "class": "L1"
   },
-  "smoke": "pass"
+  "smoke": "pass",
+  "quality": {
+    "tier": "none",
+    "evidence": {
+      "bronze": {
+        "gate_pass": false,
+        "licence_green": true,
+        "images_clean": false,
+        "upstream_alive": true,
+        "nothing_unverified": true
+      },
+      "silver": {
+        "smoke_pass": true,
+        "non_root": true,
+        "support_links": true,
+        "security_updates": false
+      },
+      "gold": {
+        "images_signed": false,
+        "no_critical": false,
+        "patch_automerge": true,
+        "backup_declared": false
+      }
+    }
+  }
 }

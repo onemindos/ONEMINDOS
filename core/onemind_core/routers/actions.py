@@ -9,7 +9,8 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from ..actions import ActionRequest, ActionRequestBody, ApprovalInput, FeatureActionRequest
-from ..ai_policy import actions_for_agent, is_agent
+from ..agent_stop import is_agent
+from ..ai_policy import actions_for_agent
 from ..apimodels import Action
 from ..appsecrets.api import SealedInput
 from ..auth import Principal
@@ -18,6 +19,7 @@ from ..errors import error_responses
 from ..identity.approver_keys import DeviceSignature
 from ..jsonbody import JsonBody
 from ..plugins.actions import own_actions, own_action
+from ..taint import agent_answer, answer_source, rest_source
 from .apps import app_rows
 
 
@@ -59,6 +61,19 @@ def register(app: FastAPI, gw: Gateway) -> None:
     actions = gw.actions
     principal = gw.principal
 
+    def taint_rest_reads(request: Request, p: Principal) -> None:
+        """AIG-04: an agent that reads over REST is tainted like one that reads over MCP (taint.py).
+
+        Marked when the caller is known, before the route runs: a read that then fails still counts,
+        which can only make the agent wait for a person, never the other way round.
+        """
+        if is_agent(p):
+            source = rest_source(request.scope)
+            if source is not None:
+                actions.taint.mark(p.id, source)
+
+    gw.principal_guards.append(taint_rest_reads)
+
     def seen_by(p: Principal, rows: list[dict]) -> list[dict]:
         # aiPolicy (#165): an app's tool output reaches an agent only when the app allows app data
         # to go to an AI, the same rule as the MCP tools. People and plugins see the action as stored.
@@ -94,12 +109,16 @@ def register(app: FastAPI, gw: Gateway) -> None:
             **error_responses(401, 403, 404, 409, 422, 429),
         },
     )
-    def create_action(req: ActionRequestBody, p: Principal = Depends(principal)):
+    def create_action(req: ActionRequestBody, request: Request, p: Principal = Depends(principal)):
         if isinstance(req, FeatureActionRequest) and req.type not in postable_feature_types():
             # Same 422 a lifecycle body with a bad type gets: only registered types are requests.
             raise RequestValidationError([{"type": "literal_error", "loc": ("body", "type"),
                                            "msg": f"unknown action type {req.type!r}", "input": req.type}])
         body, created = actions.create(p, ActionRequest.model_validate(req.model_dump()))
+        if is_agent(p):  # AIG-04: the agent's answer carries no third-party text (taint.agent_answer)
+            body = agent_answer(body)
+            if source := answer_source(request.scope, body):
+                actions.taint.mark(p.id, source)
         # An idempotent replay returns the stored action, result included.
         return JSONResponse(status_code=201 if created else 200, content=seen_by(p, [body])[0])
 

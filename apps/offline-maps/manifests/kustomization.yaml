@@ -15,3 +15,4 @@ configMapGenerator:
   - name: offline-maps-viewer
     files:
       - map_viewer.py
+      - map_tools.js

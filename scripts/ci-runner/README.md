@@ -38,6 +38,7 @@ these, which the jobs use without installing them:
 | `git`, `curl`, `jq`, `make`, `build-essential`, `unzip`, `xz-utils` | most jobs (same list as `provision.sh`) |
 | `python3`, `python3-venv`, `python3-yaml`, `python3-pip` | ci.yml `unit` (it also runs `sudo apt-get install python3-yaml`), ci-apps, hygiene |
 | `shellcheck` | e2e.yml, `make lint` |
+| Node 22 (pinned in `runner.pin`; worker VM only) | ci-apps `validate` (offline-map JS tests; it also runs `setup-node`) |
 | passwordless `sudo` | ci.yml, brand.yml (`apt-get install python3-pil`), ci-apps.yml (clamav), hygiene.yml (gitleaks to `/usr/local/bin`), e2e.yml |
 | a writable tool cache and network to the GitHub and npm/PyPI/Go registries | `setup-node`, `setup-go`, `setup-uv`, `setup-python` download their own toolchains |
 | a Go toolchain only through `setup-go`; Docker is not required | ci-sdk.yml runs `go vet` and `go test` after `setup-go` |
