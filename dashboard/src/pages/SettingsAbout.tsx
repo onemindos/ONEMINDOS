@@ -9,6 +9,7 @@ import { useSignedIn } from '../session';
 import { SpatialStatus } from '../screens/spatial/SpatialStatus';
 import { AboutBox } from './AboutBox';
 import { DeviceCard } from './DeviceCard';
+import { SettingsBusEvents } from './SettingsBusEvents';
 import { SettingsEngine } from './SettingsEngine';
 import { UpsCard } from './UpsCard';
 
@@ -48,6 +49,7 @@ export function SettingsAbout() {
         <AboutBox />
       </details>
       <SettingsEngine />
+      <SettingsBusEvents />
       <SpatialStatus />
       <Card title="Plugin signing trust">
         <p>Owners can enroll public signing keys for private plugins. Changes wait for approval.</p>

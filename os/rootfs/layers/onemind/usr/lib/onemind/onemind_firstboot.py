@@ -475,11 +475,14 @@ def nats_service_keys(p: Paths) -> None:
     os.makedirs(p.nats_keys, mode=0o755, exist_ok=True)
     os.chmod(os.path.dirname(p.nats_keys), 0o755)
     os.chmod(p.nats_keys, 0o755)
-    for name in ("gateway", "onemindd"):
+    # "observer" (#620) is the gateway's read-only reader of the server's connect and auth-error events:
+    # natsconf puts it in the SYS account, not the hub account.
+    for name in ("gateway", "onemindd", "observer"):
         natsconf.make_service_key(Path(p.nats_keys), name)
     ids = onemind_ids()
     if ids:
-        os.chown(os.path.join(p.nats_keys, "gateway.nk"), *ids)
+        for name in ("gateway", "observer"):
+            os.chown(os.path.join(p.nats_keys, f"{name}.nk"), *ids)
     # The first accounts file (hub account with the two service keys); the gateway owns and rewrites it.
     os.environ.setdefault("ONEMIND_FABRIC_JETSTREAM_MAX_BYTES", str(jetstream_max_bytes(p)))
     natsconf.main([p.accounts, p.nats_keys])

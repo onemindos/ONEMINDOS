@@ -216,6 +216,19 @@ _SPECS = [
     Spec("notify.channel_failing", "open", "security", "warning", "Notification channel {label} is failing",
          "{reason}", dedupe="channel:{channel_id}", link="/settings/notifications", learn_more=f"{_DOCS}/leap/core/NOTIFICATIONS.md"),
     Spec("notify.channel_ok", "resolve", "security", resolves=("channel:{channel_id}",)),
+    # ---- the message bus (#620, fabricwatch.py): who tried to connect ----------------------
+    Spec("fabric.unknown_key", "open", "security", "warning", "An unknown device tried to join the message bus",
+         "A key this box never issued ({key_short}) was refused. Nothing was let in.",
+         dedupe="fabric:unknown:{key}", auto_resolve=False, link="/settings/about",
+         learn_more=f"{_DOCS}/learning/nats-fabric.md"),
+    Spec("fabric.revoked_retry", "open", "security", "warning", "{who} was removed but keeps trying to connect",
+         "A key that was removed ({key_short}) is still being refused at the message bus.",
+         dedupe="fabric:revoked:{key}", auto_resolve=False, link="/settings/about",
+         learn_more=f"{_DOCS}/learning/nats-fabric.md"),
+    Spec("fabric.flapping", "open", "security", "warning", "{who} keeps disconnecting",
+         "It connected {connects} times in {window_s} seconds.", dedupe="fabric:flap:{key}", link="/settings/about",
+         learn_more=f"{_DOCS}/learning/nats-fabric.md"),
+    Spec("fabric.flap_cleared", "resolve", "security", resolves=("fabric:flap:{key}",)),
 ]
 
 CATALOGUE: dict[str, Spec] = {}

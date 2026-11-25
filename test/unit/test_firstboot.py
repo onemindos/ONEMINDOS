@@ -1024,6 +1024,11 @@ class HubAccounts(Box):
         acc = self.read(self.p.accounts)
         for name in ("gateway", "onemindd"):
             self.assertIn(self.read(os.path.join(self.p.nats_keys, f"{name}.pub")).strip(), acc)
+        # #620: the observer's key is in the SYS account, never in the hub account
+        obs = self.read(os.path.join(self.p.nats_keys, "observer.pub")).strip()
+        self.assertIn(obs, acc)
+        self.assertIn("system_account: SYS", acc)
+        self.assertNotIn(obs, acc.split("  SYS: {")[0])
         # adding two node accounts gives each its own account (no shared node user)
         a, b = natsconf.new_user_key()[1], natsconf.new_user_key()[1]
         out = natsconf.render_accounts([natsconf.NodeAccount("n1", a), natsconf.NodeAccount("n2", b)],
