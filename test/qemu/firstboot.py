@@ -623,6 +623,10 @@ def f23_before(vm):
     c["accepted"] = code == "202"
     done = host_wait(vm, "f23-set")
     c["succeeded"] = done.get("state") == "succeeded"
+    if not c["succeeded"]:  # evidence for the failure detail only; it changes no verdict
+        _, dbg = vm.run("echo DBG-START; systemctl list-jobs --no-pager 2>&1 | head -8; ps -eo pid,args | grep -E 'systemctl|ckbcomp|loadkeys' | grep -v grep | head -5; "
+                        "journalctl -u onemind-host.service -u onemind-console-keyboard.service -n 25 --no-pager 2>&1 | cut -c1-200; echo DBG-END", 60)
+        print("F23-DEBUG " + dbg.replace("\n", " | ")[-2500:], flush=True)
     st = console_state(vm)
     c["applied"] = st == ("de", "active", "z")
     c["variant_in_file"] = keyboard_view(vm)[1:3] == ("de", "nodeadkeys")

@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/onemindos/onemindos/internal/keymap"
@@ -22,6 +23,9 @@ const (
 	KioskUnit   = "onemind-kiosk.service"
 )
 
+// DefaultKioskFlag is the file `onemind kiosk enable` creates; the kiosk unit has ConditionPathExists on it.
+const DefaultKioskFlag = "/data/onemind/kiosk/enabled"
+
 // KeymapView is GET /v1/keyboard: what is picked now and everything the image offers.
 type KeymapView struct {
 	Schema  string          `json:"schema"`
@@ -36,6 +40,8 @@ type KeymapStore struct {
 	Store keymap.Store
 	Units Units
 	Now   func() time.Time
+	// KioskFlag is the kiosk's enable file ("" means DefaultKioskFlag). Without it the kiosk is off and is not restarted.
+	KioskFlag string
 }
 
 // Unavailable is empty when the image ships its list of layouts.
@@ -67,7 +73,7 @@ func (k *KeymapStore) View() (KeymapView, error) {
 func (k *KeymapStore) Check(layout, variant string) error { return k.Store.Check(layout, variant) }
 
 // Set writes the layout, restarts the console unit (it loads the file with ckbcomp and loadkeys) and then the kiosk
-// unit (its condition skips it when kiosk mode is off). If the console cannot load the layout, the previous file is
+// unit when kiosk mode is on. If the console cannot load the layout, the previous file is
 // put back and loaded again, and the error says so. A kiosk restart that fails after the console loaded is not an
 // error of the choice: the layout is saved and the next kiosk start uses it, so it is reported in the message only.
 func (k *KeymapStore) Set(ctx context.Context, layout, variant string) error {
@@ -86,6 +92,15 @@ func (k *KeymapStore) Set(ctx context.Context, layout, variant string) error {
 		}
 		return errors.Join(fmt.Errorf("the console could not load %s: %w", keymap.Label(layout, variant), err),
 			fmt.Errorf("and the previous layout could not be put back: %w", undo))
+	}
+	// A restart of a unit whose condition fails still queues its Conflicts= stop of getty@tty1 (see the kiosk unit's
+	// comment), which would end the owner's tty1 login for nothing. So the kiosk is restarted only when it is on.
+	flag := k.KioskFlag
+	if flag == "" {
+		flag = DefaultKioskFlag
+	}
+	if _, err := os.Stat(flag); err != nil {
+		return nil
 	}
 	if err := k.Units.Restart(ctx, KioskUnit); err != nil {
 		return nil //nolint:nilerr // saved and loaded on the console; the kiosk takes it at its next start

@@ -53,7 +53,11 @@ func keyService(t *testing.T) (*Service, *KeymapStore, *keyUnits) {
 	}
 	st := keymap.Store{Path: filepath.Join(dir, "console", "keyboard"), Catalog: cat}
 	u := &keyUnits{file: st.Path}
-	k := &KeymapStore{Store: st, Units: u}
+	flag := filepath.Join(dir, "kiosk-enabled")
+	if err := os.WriteFile(flag, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	k := &KeymapStore{Store: st, Units: u, KioskFlag: flag}
 	s, _ := newService(t, t.TempDir(), "boot-1")
 	s.Keymap = k
 	return s, k, u
@@ -154,6 +158,23 @@ func TestSetKeymapKeepsThePreviousLayoutWhenTheConsoleCannotLoadTheNewOne(t *tes
 		if strings.HasPrefix(seen, KioskUnit) {
 			t.Fatalf("the kiosk must not restart after a failed console: %v", u.seen)
 		}
+	}
+}
+
+func TestSetKeymapLeavesTheKioskAloneWhenItIsOff(t *testing.T) {
+	s, k, u := keyService(t)
+	if err := os.Remove(k.KioskFlag); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := s.Submit(context.Background(), Request{ActionID: "k-off", Kind: KindSetKeymap, Layout: "de"}); err != nil {
+		t.Fatal(err)
+	}
+	s.Wait()
+	if got, _ := s.Store.Get("k-off"); got.State != StateSucceeded {
+		t.Fatalf("%+v", got)
+	}
+	if len(u.seen) != 1 || !strings.HasPrefix(u.seen[0], ConsoleUnit+":") {
+		t.Fatalf("with kiosk mode off only the console unit restarts (a kiosk restart would stop getty@tty1): %v", u.seen)
 	}
 }
 
