@@ -71,13 +71,18 @@ def empty_k3s_files(vm):
 def diagnose(vm, why):
     vm.mark(f"DIAGNOSE ({why}): k3s journal and the repair's files")
     try:
-        _, out = vm.run("k3s kubectl get pods -A 2>&1 | cut -c1-160; k3s kubectl -n kube-system describe pod -l k8s-app=kube-dns 2>&1 | tail -30 | cut -c1-200; "
-                        "k3s kubectl -n kube-system logs -l k8s-app=kube-dns --previous --tail=25 2>&1 | cut -c1-200; "
+        # The k3s journal first and the pods' own words last, so a cut tail keeps what explains a crash loop.
+        _, out = vm.run("journalctl -u k3s --no-pager -n 25 -o cat | cut -c1-220; "
+                        "journalctl -u k3s --no-pager -o cat | grep -iE 'x509|certificate|unauthorized|token' | tail -8 | cut -c1-220; "
+                        "ls -la /data/k3s/server/tls /data/onemind/k3s-recovery 2>&1 | head -30; "
+                        f"{fb.PY} -I -c 'import json; d=json.load(open(\"/data/onemind/k3s-recovery/last.json\")); d.pop(\"damaged\", None); print(d)' 2>&1 | cut -c1-1500; "
                         "ls -la /data/k3s/server/manifests 2>&1 | cut -c1-120; "
-                        "journalctl -u k3s --no-pager -n 40 -o cat | cut -c1-220; ls -la /data/k3s/server/tls /data/onemind/k3s-recovery "
-                        "2>&1 | head -30; "
-                        f"{fb.PY} -I -c 'import json; d=json.load(open(\"/data/onemind/k3s-recovery/last.json\")); d.pop(\"damaged\", None); print(d)' 2>&1 | cut -c1-1500", 120)
-        print(out[-6000:], flush=True)
+                        "k3s crictl ps -a 2>&1 | cut -c1-160 | head -20; "
+                        "k3s kubectl get pods -A 2>&1 | cut -c1-160; "
+                        "k3s kubectl get pods -A --no-headers 2>/dev/null | awk '$4 ~ /CrashLoop|Error/ {print $1, $2}' | head -4 | "
+                        "while read ns pod; do echo \"== logs --previous $ns/$pod\"; k3s kubectl -n $ns logs $pod --all-containers --previous --tail=15 2>&1 | cut -c1-240; "
+                        "k3s kubectl -n $ns get pod $pod -o jsonpath='{range .status.containerStatuses[*]}{.name} {.lastState.terminated.reason} exit={.lastState.terminated.exitCode} {.lastState.terminated.message}{\"\\n\"}{end}' 2>&1 | cut -c1-300; done", 180)
+        print(out[-12000:], flush=True)
     except (TimeoutError, RuntimeError, OSError) as e:
         vm.mark(f"DIAGNOSE failed: {e}")
 
