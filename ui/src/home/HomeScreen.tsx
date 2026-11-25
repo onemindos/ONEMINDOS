@@ -4,7 +4,7 @@
 // the installed apps by category, and a dock of pinned apps. Renders from data it is given;
 // every action is a callback the host maps to the API (P4). Layout is controlled: the host
 // stores it per person.
-import { useEffect, useId, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useState, type ReactNode } from 'react';
 import './home.css';
 import { Button } from '../components/Button';
 import { Icon } from '../components/Icon';
@@ -51,6 +51,8 @@ export interface HomeScreenProps {
   busy?: ReadonlySet<string>;
   /** Opens the command palette (UX-P3). Also bound to Ctrl/Cmd+K while Home is shown. */
   onOpenSearch?: () => void;
+  /** A host can provide its own optional command bar. */
+  commandBar?: ReactNode;
   links?: Partial<HomeLinks>;
   /** Start in edit mode (screenshots, tests). */
   initialEditing?: boolean;
@@ -73,6 +75,7 @@ export function HomeScreen({
   onDeny,
   busy,
   onOpenSearch,
+  commandBar,
   links: linkOverrides,
   initialEditing = false,
   showDock = true,
@@ -156,13 +159,13 @@ export function HomeScreen({
         )}
       </header>
 
-      <button type="button" className="omh-search" onClick={onOpenSearch} disabled={!onOpenSearch} aria-keyshortcuts="Control+K Meta+K">
+      {commandBar === undefined ? <button type="button" className="omh-search" onClick={onOpenSearch} disabled={!onOpenSearch} aria-keyshortcuts="Control+K Meta+K">
         <Icon name="search" size={20} />
         <span className="omh-search-text">Search apps, nodes and settings, or request something</span>
         <kbd className="omh-kbd" aria-hidden="true">
           Ctrl K
         </kbd>
-      </button>
+      </button> : commandBar}
 
       {!hubLive && !connecting && (
         <div className={cx('omh-banner', hubState === 'stale' ? 'om-tone-warn' : 'om-tone-neutral')} role="status">

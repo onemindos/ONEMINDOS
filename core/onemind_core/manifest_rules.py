@@ -80,21 +80,29 @@ def _dict(value: object) -> dict:
     return value if isinstance(value, dict) else {}
 
 
+def _name(value: object) -> str | None:
+    """A name used as a set or dict key: a string, else None. Catalog.validate runs these rules only on a
+    schema-valid manifest, but a caller may not, so a map or list where a name belongs is refused, never
+    hashed (a TypeError here would stop the whole catalog from loading)."""
+    return value if isinstance(value, str) else None
+
+
 def block_errors(spec: dict) -> list[str]:
     """Cross-field rules: hosts, providers, interval floors, own layers, declared tools, recording."""
     errs: list[str] = []
     ext = _dict(spec.get("extensions"))
     egress = {e for e in _list(spec.get("egress")) if isinstance(e, str)}
-    providers = {p.get("id"): p for p in _list(_dict(spec.get("terms")).get("providers")) if isinstance(p, dict)}
+    providers = {_name(p.get("id")): p for p in _list(_dict(spec.get("terms")).get("providers"))
+                 if isinstance(p, dict) and _name(p.get("id")) is not None}
     for name in BLOCKS:
         block = ext.get(name)
         if not isinstance(block, dict):
             continue
         where = f"spec/extensions/{name}"
         for host in _list(block.get("hosts")):
-            if host not in egress:
+            if _name(host) not in egress:
                 errs.append(f"{where}/hosts: {host} is not in spec.egress")
-        provider = providers.get(block.get("provider"))
+        provider = providers.get(_name(block.get("provider")))
         if provider is None:
             errs.append(f"{where}/provider: {block.get('provider')} has no terms record in spec.terms.providers")
             continue
@@ -104,21 +112,22 @@ def block_errors(spec: dict) -> list[str]:
         if name == "videoSource" and block.get("record") is True and (
                 provider.get("display") != "full" or provider.get("store") == "none"):
             errs.append(f"{where}/record: record needs a provider with display full and a store")
-    layers = {layer.get("id") for layer in _list(spec.get("mapLayers"))
-              if isinstance(layer, dict) and layer.get("source") == "emits"}
+    layers = {_name(layer.get("id")) for layer in _list(spec.get("mapLayers"))
+              if isinstance(layer, dict) and layer.get("source") == "emits"} - {None}
     for i, emit in enumerate(_list(_dict(ext.get("bridge")).get("emits"))):
-        if isinstance(emit, dict) and emit.get("kind") == "layer" and emit.get("name") not in layers:
+        if isinstance(emit, dict) and emit.get("kind") == "layer" and _name(emit.get("name")) not in layers:
             errs.append(f"spec/extensions/bridge/emits/{i}: layer {emit.get('name')} is not one of this app's mapLayers with source emits")
-    tools = {t.get("name"): t.get("effect") for t in _list(ext.get("tools")) if isinstance(t, dict)}
+    tools = {_name(t.get("name")): t.get("effect") for t in _list(ext.get("tools"))
+             if isinstance(t, dict) and _name(t.get("name")) is not None}
     for i, job in enumerate(_list(spec.get("jobs"))):
         tool = _dict(job).get("tool")
-        if tool not in tools:
+        if _name(tool) not in tools:
             errs.append(f"spec/jobs/{i}/tool: {tool} is not a declared tool")
         elif tools[tool] == "destructive":
             errs.append(f"spec/jobs/{i}/tool: a job may not call a destructive tool ({tool})")
     for t, topic in enumerate(_list(_dict(spec.get("notifications")).get("topics"))):
         for a, action in enumerate(_list(_dict(topic).get("actions"))):
             tool = _dict(action).get("tool")
-            if tool not in tools:
+            if _name(tool) not in tools:
                 errs.append(f"spec/notifications/topics/{t}/actions/{a}/tool: {tool} is not a declared tool")
     return errs

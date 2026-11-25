@@ -38,9 +38,16 @@ if [ -n "$DF" ]; then
   log "DATA-FAILURES $(printf '%s\n' "$DF" | wc -l) earlier boot(s) ran in recovery mode: $(printf '%s\n' "$DF" | tail -n1)"
 fi
 clear_pending() { rm -f "$PENDING" "$ESP_PENDING"; sync; }
+# The slot is decided: tell systemd (Type=notify), so units ordered After= the gate start now. Without this,
+# a committed boot held onemind-host.service back for the whole report-only watch below (up to TIMEOUT
+# seconds; F12 saw the host helper missing for 120 s). Outside systemd (no NOTIFY_SOCKET) it does nothing.
+notify_ready() {
+  [ -n "${NOTIFY_SOCKET:-}" ] || return 0
+  systemd-notify --ready --status="slot $SLOT decided: $1" || log "NOTIFY-ERROR: systemd-notify --ready failed ($1)"
+}
 # The host helper (#875): the gateway's way to restart, shut down and install updates. Reported only, never
-# part of a verdict. Never connect here: onemind-host.service is ordered After= this gate, so a connect would
-# wait on the gate itself. A listening socket (systemd starts the helper on the first connect) is what the
+# part of a verdict. Never connect here: onemind-host.service is ordered After= this gate (until notify_ready on a
+# committed boot, and for the whole trial), so a connect would wait on the gate itself. A listening socket (systemd starts the helper on the first connect) is what the
 # gateway needs; GET /v1/status then reports whether the helper answers.
 HOST_SOCK=${ONEMIND_HOST_SOCKET:-/run/onemind/host.sock}
 host_helper() {
@@ -72,6 +79,7 @@ case $MODE in
 committed)
   [ -e "$ESP_PENDING" ] && clear_pending   # a stale ESP copy (e.g. the data disk was replaced)
   commit && log "RESULT committed-boot slot=$SLOT version=$VER"
+  notify_ready committed
   watch_only ;;
 fell-back)
   why=${GATE_FELLBACK_WHY:-"gate rejected it or install was interrupted"}
@@ -85,6 +93,7 @@ fell-back)
   clear_pending
   remember_bad "$PV" "$verdict"
   commit && log "RESULT fell-back slot=$SLOT version=$VER; slot $P (v$PV) marked bad verdict=$verdict, $again ($why)"
+  notify_ready fell-back
   watch_only ;;
 trial)
   t0=$SECONDS; ok=0; r="n/a"; worst=0   # worst = highest check stage that failed after G1-G3 passed
@@ -101,7 +110,7 @@ trial)
           report_host
           if commit; then
             clear_pending
-            log "RESULT mark-good slot=$SLOT version=$VER after $((SECONDS - t0))s"; exit 0
+            log "RESULT mark-good slot=$SLOT version=$VER after $((SECONDS - t0))s"; notify_ready mark-good; exit 0
           fi
           ok=0   # refused commit: keep trying until the deadline [C-LAB-debian-rugix-024]
         fi
