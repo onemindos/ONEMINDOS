@@ -10,18 +10,29 @@
 set -eu
 OWNER="admin"
 HOMEDIR=/home/$OWNER
-KEYS=$HOMEDIR/.ssh/authorized_keys
-EXTRA=$(readlink -m /var/lib/extrausers)
+# Test hook (test/unit/test_owner_shell.py): a NON-root caller may move the home into a temp dir. As root it is ignored.
+if [ -n "${ONEMIND_OWNER_TEST_ROOT:-}" ] && [ "$(id -u)" != 0 ]; then
+    HOMEDIR=$ONEMIND_OWNER_TEST_ROOT/home; EXTRA=$ONEMIND_OWNER_TEST_ROOT/extrausers
+    as_owner() { "$@"; }
+    mkhome() { mkdir -m 0700 "$1"; }
+    shadow_owner() { :; }
+else
+    EXTRA=$(readlink -m /var/lib/extrausers)
+    [ "$(id -u)" = 0 ] || { echo "onemind-owner: run it as root" >&2; exit 1; }
+    as_owner() { runuser -u "$OWNER" -- "$@"; }
+    mkhome() { install -d -m 0700 -o "$OWNER" -g "$OWNER" "$1"; }
+    shadow_owner() { chown root:shadow "$1"; }
+fi
+SSHDIR=$HOMEDIR/.ssh
+KEYS=$SSHDIR/authorized_keys
 SHADOW=$EXTRA/shadow
 umask 077
-
-[ "$(id -u)" = 0 ] || { echo "onemind-owner: run it as root" >&2; exit 1; }
 
 write_shadow() {                      # $1 = the owner's password field (a hash, or "!" for locked)
     mkdir -p "$EXTRA"; chmod 0755 "$EXTRA"
     tmp=$(mktemp "$EXTRA/.shadow.XXXXXX")
     { [ -f "$SHADOW" ] && grep -v "^$OWNER:" "$SHADOW" || true; printf '%s:%s:19000:0:99999:7:::\n' "$OWNER" "$1"; } > "$tmp"
-    chown root:shadow "$tmp"; chmod 0640 "$tmp"
+    shadow_owner "$tmp"; chmod 0640 "$tmp"
     mv -f "$tmp" "$SHADOW"
 }
 
@@ -40,15 +51,27 @@ key-add)
     probe=$(mktemp); printf '%s\n' "$line" > "$probe"
     if ! ssh-keygen -l -f "$probe" >/dev/null 2>&1; then rm -f "$probe"; echo "onemind-owner: the key does not parse" >&2; exit 2; fi
     rm -f "$probe"
-    install -d -m 0700 -o "$OWNER" -g "$OWNER" "$HOMEDIR" "$HOMEDIR/.ssh"
-    if ! grep -qxF "$line" "$KEYS" 2>/dev/null; then
-        printf '%s\n' "$line" >> "$KEYS"
-    fi
-    chown "$OWNER:$OWNER" "$KEYS"; chmod 0600 "$KEYS"
+    # The owner controls its own home, so root never writes, changes the owner of or changes the mode of anything inside it: a key-only admin
+    # could otherwise point .ssh or authorized_keys at a root-only file (the shadow file) and have root change it.
+    # Refuse links up front for a clear message; the write itself runs as admin, so a race still reaches only
+    # what admin can already change.
+    [ -L "$HOMEDIR" ] || [ -L "$SSHDIR" ] || [ -L "$KEYS" ] && { echo "onemind-owner: $HOMEDIR, its .ssh or authorized_keys is a symlink; refusing" >&2; exit 3; }
+    [ -d "$HOMEDIR" ] || mkhome "$HOMEDIR"
+    # shellcheck disable=SC2016  # the $1 and $2 are for the inner shell
+    printf '%s\n' "$line" | as_owner sh -c '
+        set -eu; umask 077
+        [ -L "$1" ] || [ -L "$2" ] && { echo "onemind-owner: .ssh or authorized_keys is a symlink; refusing" >&2; exit 3; }
+        [ -d "$1" ] || mkdir -m 0700 "$1"
+        [ ! -e "$2" ] || [ -f "$2" ] || { echo "onemind-owner: authorized_keys is not a regular file; refusing" >&2; exit 3; }
+        read -r k
+        grep -qxF "$k" "$2" 2>/dev/null || printf "%s\n" "$k" >> "$2"
+        chmod 0700 "$1"; chmod 0600 "$2"
+    ' sh "$SSHDIR" "$KEYS"
     "$0" ensure
     echo "onemind-owner: key added; ssh starts on its own"
     ;;
 key-list)
+    if [ -L "$HOMEDIR" ] || [ -L "$SSHDIR" ] || [ -L "$KEYS" ]; then echo "onemind-owner: a symlink is in the way; refusing" >&2; exit 3; fi
     [ -f "$KEYS" ] && ssh-keygen -l -f "$KEYS" || echo "no keys"
     ;;
 password)

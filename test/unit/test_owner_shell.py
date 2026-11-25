@@ -27,7 +27,7 @@ class Packages(unittest.TestCase):
 
 
 class SshdPolicy(unittest.TestCase):
-    CONF = rd(f"{L}/etc/ssh/sshd_config.d/onemind.conf")
+    CONF = rd(f"{L}/etc/ssh/sshd_config.d/00-onemind.conf")
 
     def test_public_key_only_for_admin_only(self):
         lines = [l.strip() for l in self.CONF.splitlines() if l.strip() and not l.startswith("#")]
@@ -43,7 +43,7 @@ class SshdPolicy(unittest.TestCase):
 
     def test_the_cloud_boards_use_the_shared_files_not_copies(self):
         for b in ("cloud", "vm-do"):
-            for f in ("etc/ssh/sshd_config.d/onemind.conf", "usr/lib/systemd/system/onemind-ssh-hostkeys.service",
+            for f in ("etc/ssh/sshd_config.d/00-onemind.conf", "usr/lib/systemd/system/onemind-ssh-hostkeys.service",
                       "usr/lib/systemd/system/ssh.service.d/onemind-hostkeys.conf"):
                 self.assertFalse(exists(f"os/boards/{b}/rootfs/{f}"), f"{b} still ships its own {f}")
         self.assertTrue(exists(f"{SYS}/onemind-ssh-hostkeys.service"))
@@ -55,6 +55,11 @@ class StartsOnlyWithAnOwnerKey(unittest.TestCase):
         d = rd(f"{SYS}/ssh.service.d/20-onemind-owner-key.conf")
         self.assertIn("ConditionFileNotEmpty=/home/admin/.ssh/authorized_keys", d)
         self.assertIn("onemind-owner ensure", d)
+
+    def test_condition_is_checked_after_home_is_mounted(self):
+        d = rd(f"{SYS}/ssh.service.d/20-onemind-owner-key.conf")
+        unit = d.split("[Service]")[0]
+        self.assertRegex(unit, r"(?m)^RequiresMountsFor=/home/admin$")
 
     def test_path_unit_starts_ssh_when_the_key_file_changes(self):
         u = rd(f"{SYS}/onemind-ssh-owner-key.path")
@@ -91,6 +96,56 @@ class NoPasswordIsBaked(unittest.TestCase):
         self.assertIn("ln -s /data/onemind/samba/extrausers /var/lib/extrausers", rd("os/rootfs/Containerfile"))
         self.assertIn("admin ALL=(ALL) ALL", rd(f"{L}/etc/sudoers.d/admin"))
         self.assertNotIn("NOPASSWD", rd(f"{L}/etc/sudoers.d/admin"))
+
+    def test_key_add_never_follows_a_symlink_as_root(self):
+        # The admin owns /home/admin, so a key-only admin could point .ssh or authorized_keys at the shadow file.
+        # key-add refuses symlinks and does the writing as admin, so even a race cannot reach a root-only file.
+        t = rd(f"{L}/usr/lib/onemind/onemind-owner")
+        key_add = t.split("key-add)")[1].split("key-list)")[0]
+        self.assertIn('[ -L "$HOMEDIR" ]', t)
+        self.assertIn('[ -L "$SSHDIR" ]', t)
+        self.assertIn('[ -L "$KEYS" ]', t)
+        self.assertIn("runuser -u", t)
+        self.assertIn("as_owner sh -c", key_add)
+        self.assertNotRegex(key_add, r"chown[^\n]*\$KEYS|chmod[^\n]*\$KEYS|>>\s*\"\$KEYS\"")
+        self.assertNotRegex(key_add, r"install -d[^\n]*SSHDIR")
+        self.assertNotRegex(key_add, r"chown")
+
+    def test_key_add_symlink_attack_is_refused(self):
+        # Behavioural: run the real script as the current user with the paths pointed into a temp dir.
+        import subprocess, tempfile
+        t = rd(f"{L}/usr/lib/onemind/onemind-owner")
+        self.assertIn("ONEMIND_OWNER_TEST_ROOT", t)
+        with tempfile.TemporaryDirectory() as d:
+            home = os.path.join(d, "home"); os.makedirs(os.path.join(home, ".ssh"))
+            target = os.path.join(d, "shadow")
+            with open(target, "w") as f:
+                f.write("root:!:::\n")
+            os.symlink(target, os.path.join(home, ".ssh", "authorized_keys"))
+            key = os.path.join(d, "k.pub")
+            subprocess.run(["ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-f", key[:-4]], check=True)
+            env = dict(os.environ, ONEMIND_OWNER_TEST_ROOT=d)
+            r = subprocess.run(["sh", os.path.join(ROOT, L, "usr/lib/onemind/onemind-owner"), "key-add", key],
+                               env=env, capture_output=True, text=True)
+            self.assertNotEqual(r.returncode, 0, r.stdout + r.stderr)
+            self.assertIn("symlink", r.stderr)
+            with open(target) as f:
+                self.assertEqual(f.read(), "root:!:::\n")
+
+    def test_key_add_plain_case_writes_a_private_file(self):
+        import subprocess, tempfile
+        with tempfile.TemporaryDirectory() as d:
+            key = os.path.join(d, "k")
+            subprocess.run(["ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-f", key], check=True)
+            env = dict(os.environ, ONEMIND_OWNER_TEST_ROOT=d)
+            for _ in range(2):                      # twice: the second must not duplicate the line
+                r = subprocess.run(["sh", os.path.join(ROOT, L, "usr/lib/onemind/onemind-owner"), "key-add", key + ".pub"],
+                                   env=env, capture_output=True, text=True)
+                self.assertEqual(r.returncode, 0, r.stderr)
+            kf = os.path.join(d, "home", ".ssh", "authorized_keys")
+            with open(kf) as f:
+                self.assertEqual(len(f.read().splitlines()), 1)
+            self.assertEqual(os.stat(kf).st_mode & 0o777, 0o600)
 
     def test_key_add_refuses_options(self):
         t = rd(f"{L}/usr/lib/onemind/onemind-owner")

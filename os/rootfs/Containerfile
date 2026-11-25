@@ -224,8 +224,9 @@ RUN set -eu; \
     useradd --system --uid 963 --gid onemind-headscale --no-create-home --home-dir /nonexistent \
       --shell /usr/sbin/nologin onemind-headscale; \
     groupadd --system --gid 964 onemind-radio; \
-    useradd --system --no-create-home --home-dir /nonexistent --shell /usr/sbin/nologin \
-      --comment "OneMind kiosk" onemind-kiosk; \
+    groupadd --system --gid 965 onemind-kiosk; \
+    useradd --system --uid 965 --gid onemind-kiosk --no-create-home --home-dir /nonexistent \
+      --shell /usr/sbin/nologin --comment "OneMind kiosk" onemind-kiosk; \
     systemctl enable onemind-firstboot.service onemind-firewall.service avahi-daemon.service >/dev/null; \
     systemctl mask smbd.service nmbd.service winbind.service samba-ad-dc.service >/dev/null; \
     systemctl enable onemind-smb.service >/dev/null; \

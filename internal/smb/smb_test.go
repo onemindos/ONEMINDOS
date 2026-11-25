@@ -56,6 +56,7 @@ func TestValidateRefusesWhatCouldEscapeTheFilesLayout(t *testing.T) {
 		"tm in home":  {ID: "a", Kind: KindTimeMachine, Name: "x", User: "x", Path: "home/x", QuotaBytes: i64(2 << 30)},
 		"newline":     {ID: "a", Kind: KindHome, Name: "x\n[global]", User: "x", Path: "home/x"},
 		"user":        {ID: "a", Kind: KindHome, Name: "x", User: "x y", Path: "home/x"},
+		"owner name":  {ID: "a", Kind: KindHome, Name: "x", User: "admin", Path: "home/x"},
 		"no quota":    {ID: "a", Kind: KindTimeMachine, Name: "x", User: "x", Path: ".system/timemachine/x"},
 		"tiny quota":  {ID: "a", Kind: KindTimeMachine, Name: "x", User: "x", Path: ".system/timemachine/x", QuotaBytes: i64(1 << 20)},
 		"home quota":  {ID: "a", Kind: KindHome, Name: "x", User: "x", Path: "home/x", QuotaBytes: i64(2 << 30)},
