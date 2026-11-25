@@ -162,16 +162,22 @@ jobs:
           else
             files=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")
           fi
-          changed_apps=$(grep -oE '^apps/[^/_.][^/]*/' <<<"$files" | cut -d/ -f2 | sort -u || true)
+          selector=(python3 -I sdk/tools/app-select)
+          if ! python3 -I -c 'import yaml' 2>/dev/null; then
+            python3 -m venv "$RUNNER_TEMP/app-list"
+            "$RUNNER_TEMP/app-list/bin/python3" -m pip install -r sdk/tools/requirements.txt
+            selector=("$RUNNER_TEMP/app-list/bin/python3" -I sdk/tools/app-select)
+          fi
+          changed_apps=$("${selector[@]}" inventory --changed <<<"$files")
           all_apps() {
-            # Start scans of the PR's app pins first, even when a gate change requires the full catalogue.
-            { printf '%s\n' "$changed_apps"; find apps -mindepth 1 -maxdepth 1 -type d ! -name '_*' ! -name '.*' -printf '%f\n' | sort; } |
-              awk 'NF && !seen[$0]++'
+            local all
+            all=$("${selector[@]}" inventory) || return
+            printf '%s\n%s\n' "$changed_apps" "$all" | awk 'NF && !seen[$0]++'
           }
           matrix=research-output/evidence/license-matrix.csv
           # A change to the gate itself (its tools, pinned tool installer, schema or this workflow) re-gates
           # every app; otherwise only the apps the PR touches (SDK changes that are not gate inputs gate none).
-          if grep -qE '^(sdk/tools/((app-gate|validate-apps|requirements\.txt|ci/install-tools\.sh)$|applib/)|sdk/schema/|core/onemind_core/((catalog|manifest_convert|ai_policy|scan)\.py|appsecrets/(__init__|spec)\.py)$|cmd/onemind/|internal/plugin/|go\.(mod|sum)$|\.github/workflows/ci-apps\.yml$)' <<<"$files"; then
+          if grep -qE '^(sdk/tools/((app-gate|app-select|validate-apps|requirements\.txt|ci/install-tools\.sh)$|applib/)|sdk/schema/|core/onemind_core/((catalog|manifest_convert|ai_policy|scan)\.py|appsecrets/(__init__|spec)\.py)$|cmd/onemind/|internal/plugin/|go\.(mod|sum)$|\.github/workflows/ci-apps\.yml$)' <<<"$files"; then
             ids=$(all_apps)
           else
             ids=$changed_apps
@@ -182,7 +188,7 @@ jobs:
               tmp=$(mktemp -d)
               git show "$BASE_SHA:$matrix" > "$tmp/old.csv" 2>/dev/null || : > "$tmp/old.csv"
               git show "$HEAD_SHA:$matrix" > "$tmp/new.csv"
-              if rows=$(python3 -I sdk/tools/app-select matrix --old "$tmp/old.csv" --new "$tmp/new.csv"); then
+              if rows=$("${selector[@]}" matrix --old "$tmp/old.csv" --new "$tmp/new.csv"); then
                 ids=$(printf '%s\n%s\n' "$ids" "$rows" | sed '/^$/d' | sort -u)
                 echo "licence matrix changed; apps with changed rows: ${rows:-none}"
               else
@@ -192,8 +198,6 @@ jobs:
               rm -rf "$tmp"
             fi
           fi
-          # Deleted apps have nothing left to gate.
-          ids=$(for id in $ids; do [ -f "apps/$id/onemind.app.yaml" ] && echo "$id"; done || true)
           echo "apps=$(jq -cn --arg ids "$ids" '$ids | split("\n") | map(select(length > 0))')" >> "$GITHUB_OUTPUT"
           echo "apps to gate: ${ids:-none}"
 
@@ -267,13 +271,21 @@ jobs:
             --image docker.io/rancher/k3s:v1.37.2-k3s1@sha256:21ea6e0fac4e3930c2ce8aa40ddd41a8b18cb3e9a0222c030dc005e7e88c4332
           kubectl get nodes
 
-      - name: App gate (§9.4 checks 2-9)
+      - name: Resolve the app directory
+        id: app-path
         env:
           APP: ${{ matrix.app }}
+        run: |
+          app_path=$(python3 -I sdk/tools/app-select path "$APP")
+          echo "path=$app_path" >> "$GITHUB_OUTPUT"
+
+      - name: App gate (§9.4 checks 2-9)
+        env:
+          APP_PATH: ${{ steps.app-path.outputs.path }}
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           mkdir -p "$RUNNER_TEMP/out"
-          python3 -I sdk/tools/app-gate "$APP" --smoke --tier check --fail-on claim --clamav-db /var/lib/clamav \
+          python3 -I sdk/tools/app-gate --apps-dir "${APP_PATH%/*}" "${APP_PATH##*/}" --smoke --tier check --fail-on claim --clamav-db /var/lib/clamav \
             --workdir "$RUNNER_TEMP" --report "$RUNNER_TEMP/out/report.json" --sbom-dir "$RUNNER_TEMP/out/sbom"
 
       - name: Upload scan results
@@ -282,7 +294,7 @@ jobs:
         with:
           name: app-gate-${{ matrix.app }}
           path: |
-            apps/${{ matrix.app }}/scan.json
+            ${{ steps.app-path.outputs.path }}/scan.json
             ${{ runner.temp }}/out/
           if-no-files-found: ignore
           retention-days: 30

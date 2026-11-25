@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Point apt at a pinned, dated archive (brief 30 §2 rule 2).
 #   configure-apt.sh debian <SNAPSHOT>   -> snapshot.debian.org/<SNAPSHOT> for trixie, -updates, -security
-#   configure-apt.sh ubuntu none         -> the live Ubuntu archive (gap: handbook/findings.md F-03)
+#   configure-apt.sh ubuntu none         -> keep the live archive (os/versions.lock.yaml, base.ubuntu.snapshot)
 #   A third argument yes|no (default yes) enables Debian's non-free-firmware component (CPU microcode,
 #   Wi-Fi, GPU firmware: os/rootfs/firmware/README.md); no gives the fully open archive.
 # deb822 fields: sources.list(5) (Check-Valid-Until, Signed-By); snapshot URL scheme:
