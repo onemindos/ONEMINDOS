@@ -3,6 +3,9 @@
 # (os/versions.lock.yaml); the resolved list is exported as /usr/lib/onemind/packages.txt
 # ("<package> <version> <arch> <installed size in KiB>" per line, the size for the size budget).
 systemd systemd-sysv systemd-resolved udev dbus login passwd
+# Clock: recommends are off (configure-apt), so the NTP client and the zone database are listed by name. node-check.sh reads
+# NTPSynchronized; snapper and the update gate need a correct clock (Step 2, PR 1).
+systemd-timesyncd tzdata
 # Compressed RAM swap (zram) so one big app cannot push the control plane into the OOM killer
 systemd-zram-generator
 kmod iproute2 iptables nftables procps util-linux mount e2fsprogs dosfstools

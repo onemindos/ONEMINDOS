@@ -152,3 +152,19 @@ F14 runs on the slot-A boot from F1, after F12 and before the F3 reboot, from th
 | F14 | `onemind` completion and man pages work on the booted image | `/usr/share/bash-completion/completions/onemind` exists and is non-empty; in a fresh bash that sources it, `complete -p onemind` names a completion function; `onemind __complete ap` (Cobra's own completion entry point, run without a token or a gateway) prints a line starting `apps` and exits 0; `man -w onemind` and `man -w onemind-apps` each print a path under `/usr/share/man/man1/`; `man onemind` with `MANPAGER=cat` renders text that contains `onemind` and a `SYNOPSIS` heading and exits 0; the zsh and fish completion files exist and are non-empty | Any file missing or empty, no completion function registered, no `apps` candidate, or a man page that does not render |
 
 Required for this task's "done": F14 PASS on x86_64-efi in CI's image workflow. It is written without having run QEMU (no KVM where it was written); a harness bug found on the first run may be fixed and re-run once, named as such, under section 1's rule.
+
+## 12. Amendment (2026-11-25): F17, the clock (Step 2 PR 1, Debian bones)
+
+*(Renumbered in the round-2 integration of skipped OS PRs: PR #1091 pre-registered F13 as F17; the IDs and the section number are the only changes.)*
+
+**Status:** PRE-REGISTERED before F17 was implemented in `firstboot.py` or run. F0-F12 above are unchanged. The sha256 of this file with this section is appended to `PREREGISTRATION.sha256`. **Serves:** the Debian-bones plan, PR 1: the image had no NTP client (recommends are off, so `systemd-timesyncd` was never installed) although `deploy/verify/node-check.sh` reads `NTPSynchronized`.
+
+F17 runs on the slot-A boot from F1, after F12 and before the F3 reboot, from the hub's shell. It waits up to 60 s for the clock to report synchronised.
+
+| ID | Test | PASS if | FAIL if |
+|---|---|---|---|
+| F17 | The clock is Debian's own | `systemd-timesyncd.service` is `enabled` and `active`; `/usr/share/zoneinfo/UTC` is readable (tzdata); `/etc/locale.conf` holds `LANG=C.UTF-8` (comment lines ignored); `timedatectl show -p NTPSynchronized` is `yes`, **or** `timedatectl timesync-status` names no server (user-mode QEMU networking cannot reach one), in which case the verdict says so | The unit is missing, disabled or dead, no zone database, another locale, or a server was reached and the clock still reports not synchronised |
+
+Required for this task's "done": F17 PASS on x86_64-efi in CI's image workflow.
+
+**Amendment (2026-11-25, after the first run):** F17 waits up to 60 s, not longer. "Names no server" also covers `Server: n/a (<pool host>)`: timesyncd prints the pool host it is trying while it has not reached any server, so that line counts as unreachable. A reached server (a real address) with the clock still not synchronised is a FAIL. `/etc/locale.conf` is read with comment lines (the SPDX header) ignored. None of this makes a pass easier for a reached server.

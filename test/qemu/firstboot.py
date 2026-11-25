@@ -781,6 +781,26 @@ def f14(vm):
          "man_renders": get("MAN_RC") == "0" and get("MAN_NAME") not in ("0", "?") and get("MAN_SYN") not in ("0", "?")}
     record("F14", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items()) + f" manw={get('MANW1')!r}")
 
+def f17(vm):
+    """The clock is Debian's own: systemd-timesyncd runs, tzdata is there, LANG is C.UTF-8 (section 9)."""
+    _, out = vm.run("echo ENABLED=$(systemctl is-enabled systemd-timesyncd.service 2>&1 | head -1); "
+                    "echo ACTIVE=$(systemctl is-active systemd-timesyncd.service 2>&1 | head -1); "
+                    "echo ZONE=$(test -r /usr/share/zoneinfo/UTC && echo ok || echo missing); "
+                    "echo LOCALE=$(grep -v '^#' /etc/locale.conf 2>/dev/null | head -1); "
+                    "for i in $(seq 1 30); do [ \"$(timedatectl show -p NTPSynchronized --value 2>/dev/null)\" = yes ] && break; sleep 2; done; "
+                    "echo SYNC=$(timedatectl show -p NTPSynchronized --value 2>&1 | head -1); "
+                    "echo SERVER=$(timedatectl timesync-status 2>/dev/null | sed -n 's/^ *Server: *//p' | head -1)", 200)
+    get = lambda k: (re.findall(rf"^{k}=(.*?)\s*$", out, re.M) or [""])[-1]
+    sync, server = get("SYNC"), get("SERVER")
+    c = {"timesyncd_enabled": get("ENABLED") == "enabled", "timesyncd_active": get("ACTIVE") == "active",
+         "tzdata": get("ZONE") == "ok", "lang_c_utf8": get("LOCALE") == "LANG=C.UTF-8"}
+    # user-mode networking may not reach any NTP server: then the unit being enabled and running is the proof, and
+    # the detail says so. If a server was reached, the clock must report synchronised (what node-check.sh asks).
+    c["synchronised_if_reachable"] = sync == "yes" or not server or server.startswith("n/a")
+    record("F17", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items())
+           + f" NTPSynchronized={sync} ntp_server={server!r}" + ("" if sync == "yes" else " (NTP server unreachable from the VM)"))
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--board", required=True, choices=sorted(battery.BOARDS))
@@ -837,6 +857,7 @@ def main():
         vm.mark("F10 rescue console with k3s stopped (CORE-UPDATE-9)"); f10(vm, token)
         vm.mark("F11 starting page, then the gateway, never a refused connection"); f11(vm, (os.path.dirname(a.results) or ".") if a.results else None)
         vm.mark("F12 the gateway reaches the host helper, and says missing without it (#875)"); f12(vm, token)
+        vm.mark("F17 the clock: timesyncd, tzdata, C.UTF-8"); f17(vm)
         vm.mark("F13 disk and admin tools run, smartd masked (Step 2)"); f13(vm)
         vm.mark("NW1-NW4 NetworkManager: wired DHCP, k3s order, unmanaged k3s links, saved profile")
         netcheck.nw1(vm, record); netcheck.nw2(vm, record); netcheck.nw3(vm, record)
