@@ -451,7 +451,8 @@ class CheckPinsNatsVersion(unittest.TestCase):
     ROOT = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
     FILES = ("os/versions.lock.yaml", "deploy/pins.env", "deploy/check-pins.py", "go.mod",
              "deploy/compose/compose.yaml", "deploy/compose/onemindd.Dockerfile",
-             "deploy/verify/tests/test_verify.py", "internal/backup/pins.go")
+             "deploy/verify/tests/test_verify.py", "internal/backup/pins.go",
+             "apps/mosquitto/tests/test_bridge.py")  # check-pins.py also reads the bridge test's NATS tag (#1126)
 
     def run_pins(self, compose_edit=None):
         with tempfile.TemporaryDirectory() as tmp:

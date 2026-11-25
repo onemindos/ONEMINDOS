@@ -164,6 +164,7 @@ function mountWithWrites(fw: unknown, write: (path: string, method: string, body
     const method = init?.method ?? 'GET';
     if (path === '/v1/network') return response(view);
     if (path === '/v1/network/firewall' && method === 'GET') return response(fw);
+    if (path === '/v1/domains' && method === 'GET') return response({ enabled: false, acme: { account_thumbprint: null, issuance: 'not_available_yet' }, domains: [] }); // DomainsCard (release/next)
     const body = init?.body ? JSON.parse(String(init.body)) : null;
     calls.push({ path, method, body });
     return write(path, method, body);
