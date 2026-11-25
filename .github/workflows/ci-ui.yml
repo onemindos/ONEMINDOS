@@ -26,7 +26,8 @@ jobs:
     if: ${{ !github.event.pull_request.draft }}
     # CI-10 (#299): arm64-safe, no secrets. Local Mac runner when LOCAL_RUNNER=on and the event is trusted
     # (never a fork PR); otherwise GitHub-hosted. docs/learning/self-hosted-runner.md
-    runs-on: ${{ (vars.LOCAL_RUNNER == 'on' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","onemind-local"]') || 'ubuntu-24.04' }}
+    # merge_group only runs code already approved into the queue, so it is always trusted (no fork check); MQ_RUNNER unset keeps the old routing.
+    runs-on: ${{ (vars.MQ_RUNNER == 'on' && github.event_name == 'merge_group') && fromJSON('["self-hosted","onemind-mq"]') || (vars.LOCAL_RUNNER == 'on' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","onemind-local"]') || 'ubuntu-24.04' }}
     defaults:
       run:
         working-directory: ui

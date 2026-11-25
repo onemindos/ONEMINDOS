@@ -124,3 +124,102 @@ Founder decisions. Each entry is final until Zeus changes it. Reference these ID
   - Never an outbound proxy for apps, agents or AI (`SocksPort 0`).
   - Installed and removed only by owner-approved actions. Its egress lives in the app's own NetworkPolicy, so the core keeps default-deny egress.
 - **Why:** Zeus wants all three in the product now. The guardrails keep the locked rules: small boxes, AI never actuates without approval, default-deny egress.
+
+## D-015 · F-34: Kanidm runs as a host service on the hub OS
+**Date:** 2026-11-19 · **Decided by:** Zeus
+> "F34 YES ON THE HUB OS" (in chat, while lane 4 was being finished)
+- **F-34 = host service:** Kanidm (BD-03) runs as a systemd service in the hub's OS image, not as a chart inside k3s. This settles ACCT-D2 in `docs/umbrel2/accounts.md`; the `kanidm` chart listed in research 30's file tree is not built.
+- **Why:** sign-in must keep working when k3s is down or being updated, which is when the owner most needs to get in.
+- **Unblocks:** UMB-ACCT-1 (the Kanidm lab test) and CORE-SEC-10. #236 (SEC-SSO-01) still waits on UMB-ACCT-1 and #139. Background: `docs/learning/founder/06-kanidm-and-single-sign-on.md` (PR #399).
+
+## D-016 · The dashboard is a desktop, not a console: wallpaper, windows, dock
+**Date:** 2026-11-20 · **Decided by:** Zeus
+> "what if we wanted to change this immediately to this particular layout?" · "Do it now !" (said in a Claude session after comparing OneMind with umbrelOS 2.0.1 in a lab VM; [docs/learning/umbrelos-2-teardown.md](learning/umbrelos-2-teardown.md))
+- **Desktop is the default frame.** `/` is the wallpaper desktop: greeting, "Needs you", widgets, your apps. Every other screen (Market, Approvals, Settings, Nodes, …) opens as a window over the wallpaper, keeps its own URL, and closes with ✕ or Esc back to the desktop.
+- **The dock is the main navigation.** The same items, roles and badges as the old sidebar, plus the apps pinned on Home. On phones it replaces the bottom tab bar.
+- **The sidebar stays as the "Console" view,** one click away in the top bar and remembered per person.
+- **This replaces** IA §1 "sidebar on desktop, bottom tabs on phones" and `docs/strategy/umbrel-parity.md` PU-04 "a dock is not proposed".
+- **Unchanged:** every action is still a request, approvals still come first on Home, and freshness pills still show. umbrelOS is studied for the pattern only (PolyForm NC): no code, asset or text is copied.
+- **Why:** umbrelOS 2.0.1 runs on the same base as OneMind (Debian 13, A/B updates). What makes it feel like an operating system is its desktop frame. OneMind's sidebar made it read as an admin dashboard.
+
+## D-017 · F-45: Samba file sharing is built into the OS image
+**Date:** 2026-11-20 · **Decided by:** Zeus
+> "Built into OS" (said in a Claude session, answering F-45 after the File sharing screen landed as PR #443)
+- **Samba ships in the OneMind OS image** (Debian 13 package, GPL-3.0, a separate program; OneMind does not link to it). It is masked and off until an owner approves the first share.
+- **The root host service runs it** (`onemindd host serve`, docs/leap/core/HOST-ACTIONS.md): it renders the config under `/data`, checks it, and reloads. It updates with the OS through RAUC, not through the Market.
+- **Unchanged guardrails:** every share is an owner-approved action and AI can never request one; SMB2 or newer only, no guest access, one person's own credentials per share; reachable on the LAN and the OneMind mesh only, never from the internet.
+- **This replaces** F-45's proposed default, a separately updatable system app `apps/samba`.
+- **Why:** file sharing is a basic OS feature (umbrelOS treats it the same way). Built in, the box shows up in Finder and File Explorer reliably, and shares map directly to OneMind people without routing an app's network through k3s.
+
+## D-018 · The D-016 desktop is the only front door; Backstage is retired
+**Date:** 2026-11-21 · **Decided by:** Zeus
+> "Backstage is retired everywhere; the D-016 desktop is the only front door, including developer and cluster tiers." (approved by Zeus in a Claude session on 2026-11-21, after the portal-to-OneMind front-door study)
+- **One front door.** The D-016 desktop (wallpaper Home, windows, dock, Launchpad) is the only front door on every tier, including developer and cluster. Nothing ships a second portal with its own sidebar, theme or sign-in.
+- **Typed lists, not a generic catalog.** What the old portal listed comes in as typed lists: apps, plugins, nodes, links, devices and people. Anything else goes to a private archive, outside this repo.
+- **Dropped from core:** the Ops globe, OpenCost, the DigitalOcean page, GitHub cards, Tech Radar, Tech Insights, the Visualizer and DevTools. Any of them may return later as an optional plugin; none is built in core.
+- **OneMind supersedes the portal, it does not copy it.** Only Backstage's open formats are reused (Apache-2.0, with attribution under D-001): the entity YAML for a one-time import and the docs-build approach.
+- **Every change stays an approval request.** Agents read and request; only a person approves.
+- **This supersedes** "Backstage stays a developer portal" in `docs/ARCHITECTURE.md` (Dashboard row) and `docs/APPS.md` (Infrastructure tier row), and the same wording in `research-output/24` Q141 and Q255 (those files are left as written; this entry is the pointer).
+- **Tracking:** the front-door issues FD-00 to FD-20 (parent: FD-00).
+- **Why:** two front doors break D-016 and the "every change is an approval" rule, and the portal's cloud-only pages do not serve a home or small-business box.
+
+## D-019 · Z-18 / Z-19: Secure Boot uses the `efi` route with signed UKIs, plus an owner "sovereign mode"
+**Date:** 2026-11-22 · **Decided by:** Zeus
+> Recorded as the founder decision on [#148](https://github.com/onemindos/ONEMINDOS/issues/148) (IMG-01), answering Z-18 and Z-19.
+- **The research recommendation stands:** x86 boxes boot through RAUC's `efi` route with signed unified kernel images (UKIs, the kernel, initrd and command line in one signed file), and OneMind's key is enrolled at the factory.
+- **Sovereign mode:** an owner may take over their box's Secure Boot keys, with guard rails:
+  - it needs physical presence at the machine;
+  - it shows a clear warning first;
+  - the key state is shown in the dashboard;
+  - OneMind updates keep working when OneMind's key stays enrolled next to the owner's.
+- **Test keys until the key ceremony.** Build and test with throwaway keys now; real keys come after the ceremony ([#153](https://github.com/onemindos/ONEMINDOS/issues/153), D-010).
+- **What it changes:** #148 is no longer waiting on Zeus. Slot choice under Secure Boot, anti-downgrade and sovereign mode land as separate PRs on #148.
+- **Why:** a signed boot chain is the default that protects most owners; sovereign mode keeps the box the owner's own without breaking updates.
+
+## D-020 · Disk encryption: on by default with a TPM, opt-in with a passphrase without one
+**Date:** 2026-11-22 · **Decided by:** Zeus
+> Recorded as the founder decision on [#152](https://github.com/onemindos/ONEMINDOS/issues/152) (IMG-05, LUKS2 + btrfs).
+- **With a TPM** (the chip that stores keys inside the machine): the data partition is encrypted by default and unlocks by itself after a restart. The recovery key goes into the emergency kit.
+- **Without a TPM** (for example a Raspberry Pi 5): the data partition stays unencrypted unless the owner turns encryption on and accepts typing a passphrase at every restart. The setup screen says that plainly.
+- **What it changes:** #152 is no longer waiting on Zeus; the TPM / no-TPM rule and the opt-in passphrase backend are built on it.
+- **Why:** a home hub has to come back by itself after a power cut or an update restart.
+
+## D-021 · iPhone push moves to 1.1; 1.0 ships with Android
+**Date:** 2026-11-22 · **Decided by:** Zeus
+> Recorded as the founder decision on [#208](https://github.com/onemindos/ONEMINDOS/issues/208) (UX-03).
+- **1.0 ships with the Android app** (the founder's phone). The Apple Developer account, the push key and the content-free relay are 1.1 work.
+- **What it changes:** #208 and the issues that wait on it move to 1.1. D-005 (content-free Apple push) still holds for when it is built.
+- **Why:** the founder's phone is Android, and the Apple Developer account and push signing identity (F-4) are not in place.
+
+## D-022 · An app's own tokens pass through the gateway; Fleetbase is packaged after that
+**Date:** 2026-11-22 · **Decided by:** Zeus
+> Recorded as the founder decision on [#824](https://github.com/onemindos/ONEMINDOS/issues/824) (Market: Fleetbase).
+- **Fix the gateway first.** The app proxy treated an app's own `Authorization: Bearer` header as a OneMind token and rejected it, which breaks any app that uses its own tokens.
+- **The rule (security-reviewed):** once the person is signed in to OneMind (a valid session cookie), the app proxy passes the app's own Authorization header through to that app only.
+- **Then package Fleetbase** as #824 specifies.
+- **Why:** the blocker is in OneMind, not in Fleetbase, and the same fix unblocks every app that brings its own sign-in tokens.
+
+## D-023 · OpenVitals moves to 1.1, as a OneMind-built on-box copy
+**Date:** 2026-11-22 · **Decided by:** Zeus
+> Recorded as the founder decision on [#826](https://github.com/onemindos/ONEMINDOS/issues/826) (Market: OpenVitals).
+- **Not part of 1.0.** The upstream code (GPL-3.0) sends document text to a hosted AI service and expects hosted email, storage and a worker.
+- **Plan for 1.1:** once the local model router is in, build a OneMind copy from a pinned upstream commit with those parts replaced by on-box ones.
+- **Nothing that sends health data off the box is ever packaged.**
+- **Why:** so no health data leaves the box; packaging the upstream code as it is would send document text to a hosted service.
+
+## D-024 · LoRa messaging: MeshCore in 1.0, the Meshtastic bridge in 1.1
+**Date:** 2026-11-22 · **Decided by:** Zeus
+> Recorded on [#131](https://github.com/onemindos/ONEMINDOS/issues/131) (NMD-06) and its LoRa messenger issues, and in the 1.0 plan's founder additions.
+- **1.0 messenger is MeshCore** (MIT licence): in OneMind and in the Android app, both dock mode (a USB radio on the hub, [#740](https://github.com/onemindos/ONEMINDOS/issues/740)) and direct mode (the phone talks to its own radio over Bluetooth LE, [#865](https://github.com/onemindos/ONEMINDOS/issues/865)). The two-way proof needs a second radio ([#860](https://github.com/onemindos/ONEMINDOS/issues/860)).
+- **Meshtastic is 1.1:** a bridge in its own GPL-3.0 repo feeding the Messages module ([#739](https://github.com/onemindos/ONEMINDOS/issues/739)).
+- **Guard rails:** a radio only ever transmits on the owner's tap; agents only draft. OneMind never writes RF settings (region, frequency, power) in 1.0; the owner sets them once in MeshCore's own tools.
+- **This replaces** D-011's "radios when TAK is unparked" for a radio the owner already has.
+- **Why:** Zeus owns a LoRa radio, so D-011's reason to wait is gone. MeshCore's MIT licence fits D-001; Meshtastic is GPL-3.0, so its bridge lives in its own repo.
+
+## D-025 · Service picks: Backblaze B2 behind neutral S3, Headscale, and no SMS provider yet
+**Date:** 2026-11-22 · **Decided by:** Zeus
+> Recorded in the 1.0 plan's founder additions ("Picks"), answering the B2-checkpoint picks.
+- **Off-site backup: Backblaze B2**, reached through a provider-neutral S3 layer ([#870](https://github.com/onemindos/ONEMINDOS/issues/870)). restic already speaks S3; tests use a local S3-compatible stand-in, and the owner types the bucket keys himself.
+- **Remote access: Headscale** (already on the hub in the image, #292). The neutral mesh layer in the gateway ([#876](https://github.com/onemindos/ONEMINDOS/issues/876)) serves Headscale; NetBird is not built.
+- **SMS: no provider now.** The SMS alert channel is built behind a provider-neutral adapter and tested with a fake transport only ([#869](https://github.com/onemindos/ONEMINDOS/issues/869)). Twilio may come later; the real text proof waits for that pick.
+- **Why:** the code stays provider-neutral so an owner can switch providers, and the picks let the B2 services wave build without waiting.

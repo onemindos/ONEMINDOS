@@ -6,7 +6,8 @@
 // *.css as side-effectful, so a CSS import in a re-export-only module is tree-shaken away.
 import './customize.css';
 import { ACCENTS, DEFAULT_ACCENT, customAccent, isAccentId, presetAccent, type AccentId, type DerivedAccent, type ThemeName } from './accents';
-import { normalizeHex } from './color';
+import { mix, normalizeHex } from './color';
+import { dark, light } from '../tokens/tokens';
 import { WALLPAPERS, isWallpaperChoice, minDim, type WallpaperChoice } from './wallpapers';
 
 export type ThemeMode = 'system' | 'light' | 'dark' | 'schedule';
@@ -24,6 +25,7 @@ export const MAX_BLUR = 40;
 /** Version 1 of the appearance document. Field names are the proposed API shape (§12). */
 export interface AppearancePreferences {
   version: 1;
+  commandBar: boolean;
   theme: ThemeMode;
   /** Local times "HH:MM" for theme = schedule; dark from `darkFrom` until `lightFrom`. */
   schedule: { darkFrom: string; lightFrom: string };
@@ -47,13 +49,14 @@ export interface AppearancePreferences {
 
 export const DEFAULT_PREFERENCES: AppearancePreferences = {
   version: 1,
+  commandBar: false,
   theme: 'system',
   schedule: { darkFrom: '19:00', lightFrom: '07:00' },
-  // The brand accent is the default; a person can still follow the wallpaper or pick another.
+  // Atlas starts with teal highlights; personal accents can override that choice.
   accentSource: 'preset',
   accentPreset: DEFAULT_ACCENT,
   accentCustom: ACCENTS[DEFAULT_ACCENT].light,
-  wallpaper: 'aurora',
+  wallpaper: 'contour',
   wallpaperBlur: 0,
   wallpaperDim: 0.2,
   customWallpaperColors: [],
@@ -81,6 +84,7 @@ export function normalizePreferences(input: unknown): AppearancePreferences {
     : [];
   return {
     version: 1,
+    commandBar: o.commandBar === true,
     theme: pick(o.theme, ['system', 'light', 'dark', 'schedule'], d.theme),
     schedule: {
       darkFrom: typeof s.darkFrom === 'string' && TIME.test(s.darkFrom) ? s.darkFrom : d.schedule.darkFrom,
@@ -147,7 +151,9 @@ export function resolveAccent(p: AppearancePreferences): Record<ThemeName, Deriv
 export function effectiveDim(p: AppearancePreferences, theme: ThemeName, accent?: string): { dim: number; min: number; raised: boolean } {
   if (p.wallpaper === 'none') return { dim: 0, min: 0, raised: false };
   const stops = p.wallpaper === 'custom' ? (p.customWallpaperColors.length ? p.customWallpaperColors : null) : WALLPAPERS[p.wallpaper].colors[theme];
-  const min = minDim(stops, theme, accent);
+  const ink = theme === 'light' ? light.accent : dark.accent;
+  const tinted = stops && accent ? stops.map((stop) => mix(accent, stop, WALLPAPER_TINT)) : stops;
+  const min = Math.max(minDim(tinted, theme, ink), minDim(stops, theme, accent));
   return { dim: Math.max(min, p.wallpaperDim), min, raised: min > p.wallpaperDim };
 }
 
@@ -157,16 +163,15 @@ const RADII: Record<Corners, Record<string, string> | null> = {
   round: { xs: '6px', sm: '10px', md: '14px', lg: '20px', xl: '28px' },
 };
 
+// A personal accent tints the artwork. Selection, action and logo roles are fixed.
+const WALLPAPER_TINT = 0.08;
+
 function accentVars(a: DerivedAccent, dim: number, indent: string): string {
   return [
-    `--om-color-accent: ${a.set.accent};`,
-    `--om-color-accent-hover: ${a.set.hover};`,
-    `--om-color-accent-text: ${a.set.text};`,
-    `--om-color-accent-soft: ${a.set.soft};`,
+    `--om-wallpaper-tint: ${a.set.accent};`,
+    `--om-wallpaper-tint-opacity: ${WALLPAPER_TINT};`,
     `--om-wallpaper-dim: ${dim};`,
-  ]
-    .map((l) => indent + l)
-    .join('\n');
+  ].map((line) => indent + line).join('\n');
 }
 
 /**

@@ -372,12 +372,18 @@ def test_three_dropped_connections_then_one_stored_copy(pc, root):
     url = phone.create(key, data).headers["Location"]
     hdr = {**OWNER, **INTEROP, "Upload-Complete": "?1"}
     offset = 0
-    for cut in (700_000, 1_400_000, 2_100_000):
+    for cut in (200_000, 400_000, 600_000):
         part = data[offset:cut]
         status, _ = asgi_patch(pc, url, {**hdr, "Upload-Offset": str(offset)}, [part[:100_000], part[100_000:]], "disconnect")
+        assert status == 204
         h = phone.head(url)
         assert h.headers["Upload-Offset"] == str(cut)  # every byte that arrived was kept
         offset = cut
+    chunk = 256 * 1024
+    while len(data) - offset > chunk:
+        r = phone.patch(url, offset, data[offset:offset + chunk], last=False)
+        offset += chunk
+        assert r.status_code == 204 and r.headers["Upload-Offset"] == str(offset)
     status, headers = asgi_patch(pc, url, {**hdr, "Upload-Offset": str(offset)}, [data[offset:]], "done")
     assert status == 200 and headers["upload-complete"] == "?1"
     assert phone.check([(key, data)]) == ["have"]
@@ -819,3 +825,72 @@ def test_the_server_never_decodes_an_image(pc):
     phone = Phone(pc, OWNER)
     bomb = b"\x89PNG\r\n\x1a\n" + b"\x00" * 4096
     assert phone.upload(phone.key("bomb"), bomb, name="bomb.png")["deduped"] is False
+
+
+# ---- the library view (UMB-P12: the Photos window reads these two routes) ---------------------------
+
+def test_library_lists_own_photos_newest_first_and_pages(pc):
+    ana = Phone(pc, OWNER)
+    shots = [("a", "2026-03-01T10:00:00+00:00"), ("b", "2026-05-02T10:00:00+00:00"), ("c", "2026-04-03T10:00:00+00:00")]
+    for i, (k, when) in enumerate(shots):
+        ana.upload(ana.key(k), blob(40 + i, 50 + i), name=f"IMG_{k}.JPG", created_at=when)
+    r = pc.get("/v1/photos/library", params={"limit": 2}, headers=OWNER)
+    assert r.status_code == 200, r.text
+    page = r.json()
+    assert [i["file_name"] for i in page["items"]] == ["IMG_b.JPG", "IMG_c.JPG"]
+    assert page["items"][0]["level"] == "on_box" and page["items"][0]["size"] == 51
+    assert page["next_cursor"]
+    rest = pc.get("/v1/photos/library", params={"limit": 2, "cursor": page["next_cursor"]}, headers=OWNER).json()
+    assert [i["file_name"] for i in rest["items"]] == ["IMG_a.JPG"] and rest["next_cursor"] is None
+    assert pc.get("/v1/photos/library", params={"cursor": "nope"}, headers=OWNER).status_code == 422
+
+
+def test_library_shows_only_the_callers_photos(pc):
+    ana, ben = Phone(pc, OWNER), Phone(pc, ADULT)
+    ana.upload(ana.key("a"), blob(50, 60), name="ana.jpg")
+    ben.upload(ben.key("b"), blob(51, 61), name="ben.jpg")
+    assert [i["file_name"] for i in pc.get("/v1/photos/library", headers=OWNER).json()["items"]] == ["ana.jpg"]
+    assert [i["file_name"] for i in pc.get("/v1/photos/library", headers=ADULT).json()["items"]] == ["ben.jpg"]
+    ben_id = pc.get("/v1/photos/library", headers=ADULT).json()["items"][0]["id"]
+    assert pc.get(f"/v1/photos/assets/{ben_id}/content", headers=OWNER).status_code == 404
+
+
+def test_library_level_follows_verified_backups(pc, clock):
+    ana = Phone(pc, OWNER)
+    ana.upload(ana.key("a"), blob(52, 70), name="a.jpg")
+    assert pc.get("/v1/photos/library", headers=OWNER).json()["items"][0]["level"] == "on_box"
+    clock.advance(300)
+    verified_snapshot(pc.app.state.gateway.events, "s1", clock.now)
+    assert pc.get("/v1/photos/library", headers=OWNER).json()["items"][0]["level"] == "in_verified_backup"
+
+
+def test_asset_content_is_the_original_bytes_with_safe_headers(pc, root):
+    ana = Phone(pc, OWNER)
+    data = blob(53, 3000)
+    ana.upload(ana.key("a"), data, name="x.jpg")
+    ana.upload(ana.key("s"), blob(54, 30), name="vector.svg")
+    items = {i["file_name"]: i["id"] for i in pc.get("/v1/photos/library", headers=OWNER).json()["items"]}
+    r = pc.get(f"/v1/photos/assets/{items['x.jpg']}/content", headers=OWNER)
+    assert r.status_code == 200 and r.content == data
+    assert r.headers["content-type"] == "image/jpeg" and r.headers["x-content-type-options"] == "nosniff"
+    svg = pc.get(f"/v1/photos/assets/{items['vector.svg']}/content", headers=OWNER)
+    assert svg.headers["content-type"] == "application/octet-stream"  # never script-bearing markup inline
+    assert pc.get("/v1/photos/assets/ast_0123456789ABCDEFGHJKMNPQRS/content", headers=OWNER).status_code == 404
+    assert pc.get("/v1/photos/assets/..%2Fx/content", headers=OWNER).status_code == 404
+
+
+def test_asset_content_refuses_a_symlink_swapped_into_the_library(pc, root, tmp_path):
+    ana = Phone(pc, OWNER)
+    data = blob(55, 80)
+    ana.upload(ana.key("a"), data, name="x.jpg")
+    secret = tmp_path / "secret.txt"
+    secret.write_bytes(b"s" * 80)
+    (mine,) = library_files(root, "owner")
+    mine.unlink()
+    mine.symlink_to(secret)
+    aid = pc.get("/v1/photos/library", headers=OWNER).json()["items"][0]["id"]
+    assert pc.get(f"/v1/photos/assets/{aid}/content", headers=OWNER).status_code == 404
+
+
+def test_library_is_404_when_photos_is_off(client):
+    assert client.get("/v1/photos/library", headers=OWNER).status_code == 404

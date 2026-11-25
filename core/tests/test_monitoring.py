@@ -152,6 +152,33 @@ def test_disk_threshold_with_hysteresis(mclient, clock):
     assert "node:n1:disk" not in alerts(mclient)
 
 
+def images(used, warn=70.0, budget=80.0, **extra):
+    return {"count": 12, "bytes": 9e9, "superseded_bytes": 0, "disk_used_pct": used, "budget_pct": budget,
+            "warn_pct": warn, "last_cleanup_at": "2026-11-11T21:00:00Z", "last_result": "succeeded",
+            "last_removed": 3, "last_freed_bytes": 2e9, **extra}
+
+
+def test_disk_budget_warns_before_it_fills(mclient, clock):
+    """NMD-08 (#133): the image cleaner's heartbeat object opens a warning at warn_pct, before the budget."""
+    minute(mclient, clock, images=images(65.0))
+    assert "node:n1:disk_budget" not in alerts(mclient)
+    minute(mclient, clock, images=images(71.5))
+    a = alerts(mclient)["node:n1:disk_budget"]
+    assert a["type"] == "disk.budget_near" and a["topic"] == "storage" and a["severity"] == "warning"
+    assert "71.5% used" in a["body"] and "budget is 80.0%" in a["body"]
+    minute(mclient, clock, images=images(69.0))   # within 2 points: still near
+    assert "node:n1:disk_budget" in alerts(mclient)
+    minute(mclient, clock, images=images(60.0))   # the cleanup freed space
+    assert "node:n1:disk_budget" not in alerts(mclient)
+
+
+@pytest.mark.parametrize("obj", [None, "x", images(0), images("90"), images(90.0, warn=0), images(95.0, warn=90, budget=80)])
+def test_disk_budget_ignores_missing_or_bad_figures(mclient, clock, obj):
+    extra = {} if obj is None else {"images": obj}
+    minute(mclient, clock, **extra)
+    assert "node:n1:disk_budget" not in alerts(mclient)
+
+
 def test_storage_object_wins_over_root_disk(mclient, clock):
     minute(mclient, clock, storage={"state": "protected", "mount": "/data", "used_bytes": 95e9, "free_bytes": 5e9})
     assert "node:n1:disk" in alerts(mclient)
@@ -227,6 +254,33 @@ def test_app_unhealthy_after_three_minutes_and_recovers(mclient, clock):
     assert "app:uptime-kuma:health" not in alerts(mclient)
     assert mclient.get("/v1/apps/whoami", headers=OWNER).json()["health"]["state"] == "stopped"
     assert mclient.get("/v1/apps/nope", headers=OWNER).status_code == 404
+
+
+@pytest.mark.parametrize(("hosts", "duplicate", "waiting", "expected"), [
+    (("beelink", "beelink"), False, None, "n1"),
+    (("beelink", "elsewhere"), False, None, None),
+    (("beelink", None), False, None, None),
+    (("beelink",), True, None, None),
+    (("beelink",), False, "CrashLoopBackOff", None),
+])
+def test_app_health_correlation_requires_unambiguous_runtime_placement(
+    mclient, clock, hosts, duplicate, waiting, expected,
+):
+    install(mclient, clock)
+    beat(mclient)
+    if duplicate:
+        beat(mclient, "n2")
+    start = iso(clock.now - timedelta(minutes=4))
+    mon(mclient).kube.pods_by_ns["app-uptime-kuma"] = [
+        {**pod(f"web-{n}", ready=False, start=start, waiting=waiting), "spec": {"nodeName": host}}
+        for n, host in enumerate(hosts)
+    ]
+    mon(mclient).tick()
+    a = alerts(mclient)["app:uptime-kuma:health"]
+    assert a["subject"].get("node_id") == expected
+    items = mclient.get("/v1/notifications", headers=OWNER).json()
+    warning = next(item for item in items if item["alert_id"] == a["id"])
+    assert warning["group_key"] == (f"node:{expected}:offline" if expected else None)
 
 
 def test_crashloop_backoff_is_unhealthy_at_once(mclient, clock):
@@ -395,3 +449,33 @@ def test_quantities():
 def test_settings_validation():
     with pytest.raises(ValueError):
         MonitoringSettings(kube="maybe").validate()
+
+
+# ---- Prometheus /v1/metrics ---------------------------------------------------------------
+
+def test_prometheus_metrics_text(mclient, clock):
+    install(mclient, clock)
+    minute(mclient, clock, metrics={"cpu_pct": 12.5, "load1": 0.5, "temp_c": 50.0})
+    beat(mclient)  # minute() moved the clock on: a fresh heartbeat makes the node online again
+    r = mclient.get("/v1/metrics", headers=GUEST)
+    assert r.status_code == 200 and r.headers["content-type"].startswith("text/plain; version=0.0.4")
+    t = r.text
+    assert 'onemind_nodes{status="online"} 1' in t
+    assert 'onemind_node_cpu_percent{node="n1"} 12.5' in t
+    assert 'onemind_node_memory_used_bytes{node="n1"} 2097152000' in t
+    assert 'onemind_node_disk_free_bytes{node="n1"} 60000000000' in t
+    assert 'onemind_alerts_open{severity="critical"} 0' in t
+    assert '# TYPE onemind_node_temperature_celsius gauge' in t
+    assert 'onemind_app_health{app="uptime-kuma",state="' in t
+
+
+def test_prometheus_metrics_needs_a_token(mclient):
+    assert mclient.get("/v1/metrics").status_code == 401
+
+
+def test_prometheus_render_escapes_and_skips_unknowns():
+    from onemind_core.monitoring import prometheus as prom
+    out = prom.render([{"node_id": 'a"b', "status": "online"}], {'a"b': {"cpu_pct": None}}, {"kuma": "healthy"}, {})
+    assert 'onemind_node_cpu_percent' not in out
+    assert 'onemind_app_health{app="kuma",state="healthy"} 1' in out
+    assert 'onemind_app_health{app="kuma",state="unknown"} 0' in out

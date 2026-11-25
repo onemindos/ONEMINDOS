@@ -419,16 +419,43 @@ func (a *Agent) browseRepo(ctx context.Context, targetID string) (Repo, Target, 
 // findSnapshot resolves a full id or a short id (at least 8 characters)
 // among this box's snapshots.
 func (a *Agent) findSnapshot(ctx context.Context, targetID, id string) (Repo, Snapshot, error) {
+	repo, snap, cleanup, err := a.findSnapshotOfBox(ctx, targetID, "", "", id)
+	cleanup()
+	return repo, snap, err
+}
+
+// findSnapshotOfBox is findSnapshot for a snapshot another box made: new
+// hardware restoring from the old box's backup (UMB-P08). With a recovery key
+// the repository is opened with it (the old device key is gone) and the
+// snapshots of boxID are searched. The caller must call cleanup, which removes
+// the temporary key file, when it is done with the repository; it is never nil.
+func (a *Agent) findSnapshotOfBox(ctx context.Context, targetID, boxID, recoveryKey, id string) (Repo, Snapshot, func(), error) {
+	noop := func() {}
 	if len(id) < 8 || !tagValueRe.MatchString(id) {
-		return nil, Snapshot{}, fmt.Errorf("snapshot id %q is too short or malformed", id)
+		return nil, Snapshot{}, noop, fmt.Errorf("snapshot id %q is too short or malformed", id)
 	}
-	repo, _, err := a.browseRepo(ctx, targetID)
-	if err != nil {
-		return nil, Snapshot{}, err
+	var repo Repo
+	cleanup := noop
+	if recoveryKey == "" {
+		r, _, err := a.browseRepo(ctx, targetID)
+		if err != nil {
+			return nil, Snapshot{}, noop, err
+		}
+		repo = r
+	} else {
+		r, c, err := a.openWithKey(targetID, recoveryKey)
+		if err != nil {
+			return nil, Snapshot{}, noop, err
+		}
+		repo, cleanup = r, c
 	}
-	snaps, err := repo.Snapshots(ctx, []string{"onemind", "box=" + a.Cfg.BoxID})
+	if boxID == "" {
+		boxID = a.Cfg.BoxID
+	}
+	snaps, err := repo.Snapshots(ctx, []string{"onemind", "box=" + boxID})
 	if err != nil {
-		return nil, Snapshot{}, err
+		cleanup()
+		return nil, Snapshot{}, noop, err
 	}
 	var found []Snapshot
 	for _, s := range snaps {
@@ -438,9 +465,11 @@ func (a *Agent) findSnapshot(ctx context.Context, targetID, id string) (Repo, Sn
 	}
 	switch len(found) {
 	case 0:
-		return nil, Snapshot{}, fmt.Errorf("snapshot %s: %w", id, os.ErrNotExist)
+		cleanup()
+		return nil, Snapshot{}, noop, fmt.Errorf("snapshot %s: %w", id, os.ErrNotExist)
 	case 1:
-		return repo, found[0], nil
+		return repo, found[0], cleanup, nil
 	}
-	return nil, Snapshot{}, fmt.Errorf("snapshot id %q is ambiguous", id)
+	cleanup()
+	return nil, Snapshot{}, noop, fmt.Errorf("snapshot id %q is ambiguous", id)
 }

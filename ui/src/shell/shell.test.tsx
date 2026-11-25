@@ -254,20 +254,26 @@ describe('NotificationCentre', () => {
   it('bell announces unread count, opens, filters, marks read and closes on Escape', async () => {
     const user = userEvent.setup();
     render(<Harness />);
-    const bell = screen.getByRole('button', { name: 'Notifications, 2 unread' });
+    // The waiting approval has its own badge on Approvals, so the bell counts only the other unread item.
+    const bell = screen.getByRole('button', { name: 'Notifications, 1 unread' });
     await user.click(bell);
     expect(bell).toHaveAttribute('aria-expanded', 'true');
     const centre = screen.getByRole('region', { name: 'Notifications' });
     await user.click(within(centre).getByRole('radio', { name: /Needs you/ }));
     expect(within(centre).getAllByRole('listitem')).toHaveLength(2);
     await user.click(within(centre).getByRole('button', { name: /Mark as read: approval_waiting 1/ }));
-    expect(screen.getByRole('button', { name: 'Notifications, 1 unread' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Notifications, 1 unread' })).toBeInTheDocument(); // still the backup, not the approval
     await user.click(within(centre).getByRole('button', { name: 'Mark all read' }));
     expect(screen.getByRole('button', { name: 'Notifications' })).toBeInTheDocument();
     await noAxeViolations(document.body);
     await user.keyboard('{Escape}');
     expect(screen.getByRole('button', { name: 'Notifications' })).toHaveAttribute('aria-expanded', 'false');
     expect(screen.getByRole('button', { name: 'Notifications' })).toHaveFocus();
+  });
+
+  it('does not badge a waiting approval a second time next to the Approvals badge', () => {
+    render(<NotificationBell items={[notif('1', 'approval_waiting', 60)]} now={NOW} onSetRead={() => {}} onReadAll={() => {}} />);
+    expect(screen.getByRole('button', { name: 'Notifications' })).toBeInTheDocument();
   });
 
   it('shows empty, loading, error and stale honestly', () => {
@@ -401,10 +407,11 @@ describe('first-run logic', () => {
       "onemind init --name home-hub --timezone Europe/London --owner 'Dana O'\\''Neil' --accent orchid --backup usb --request-apps home-assistant",
     );
   });
-  it('re-tints with the Appearance presets in both themes; the brand accent is the default', () => {
+  it('re-tints with the Appearance presets in both themes; teal is the default', () => {
     expect(ACCENT_IDS).toContain('onemind');
     expect(ACCENT_IDS).toContain('teal');
-    expect(accentVars('onemind')).toEqual({});
+    expect(accentVars('teal')).toEqual({});
+    expect(accentVars('onemind')).toHaveProperty('--om-color-accent');
     const v = accentVars('orchid') as Record<string, string>;
     expect(v['--om-color-accent']).toMatch(/^light-dark\(#[0-9a-f]{6}, #[0-9a-f]{6}\)$/i);
     expect(Object.keys(v)).toEqual(['--om-color-accent', '--om-color-accent-hover', '--om-color-accent-text', '--om-color-accent-soft']);

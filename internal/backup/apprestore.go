@@ -35,6 +35,11 @@ type AppRestoreRequest struct {
 	// database dump) a refusal before anything is swapped, instead of
 	// restoring the volumes without the data that belongs with them.
 	StrictFiles bool `json:"strict_files,omitempty"`
+	// BoxID and RecoveryKey restore from another box's snapshot (new hardware,
+	// UMB-P08). The key opens that box's repository and lives in a 0600 file
+	// only for this call; it is never logged or returned.
+	BoxID       string `json:"box_id,omitempty"`
+	RecoveryKey string `json:"recovery_key,omitempty"`
 }
 
 // RestoredItem is one volume or file of an app restore.
@@ -75,10 +80,11 @@ func (a *Agent) RestoreApp(ctx context.Context, req AppRestoreRequest) (AppResto
 		return res, err
 	}
 	defer a.release()
-	repo, snap, err := a.findSnapshot(ctx, req.TargetID, req.SnapshotID)
+	repo, snap, cleanup, err := a.findSnapshotOfBox(ctx, req.TargetID, req.BoxID, req.RecoveryKey, req.SnapshotID)
 	if err != nil {
 		return res, err
 	}
+	defer cleanup()
 	res.SnapshotID = snap.ID
 	if snap.Tag("unit") != "app:"+req.AppID {
 		return res, fmt.Errorf("snapshot %s is of %s, not app:%s", snap.ShortID, snap.Tag("unit"), req.AppID)

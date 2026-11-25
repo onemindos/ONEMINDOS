@@ -3,6 +3,9 @@
 // dashboard speak the same contract types. Keep the two in sync; mobile changes noted inline.
 // Types for the proof-of-concept v0 contract (sdk/contracts/poc-v0.md).
 // Section numbers below refer to that file.
+import type { components } from '@onemind/sdk';
+
+import type { StatusView as SdkStatusView } from '@onemind/sdk';
 
 /** §2 `board` values. */
 export type Board =
@@ -111,6 +114,8 @@ export interface CatalogApp {
   tier: AppTier | null;
   /** Last scan, or null when the app has never been scanned (or its record is unreadable). */
   scan: ScanSummary | null;
+  /** FAM-01 minimum age when the hub classified the app; the hub already hides apps above a young person's limit. */
+  min_age?: number | null;
 }
 
 /** §3 types the phone itself requests; §12.5 adds many more, which the phone shows but never invents. */
@@ -134,8 +139,8 @@ export type ActionState =
 
 /** §3 kinds plus the §12.1 additions (`plugin`, `automation`, `node`). */
 export type PrincipalKind = 'person' | 'agent' | 'plugin' | 'automation' | 'node';
-/** §12.6 adds `child`; unknown roles are treated as the least privileged. */
-export type PrincipalRole = 'owner' | 'adult' | 'guest' | 'child' | 'agent';
+/** §12.6 adds `child`; FAM-01 adds `teen` (between child and adult); unknown roles are treated as the least privileged. */
+export type PrincipalRole = 'owner' | 'adult' | 'teen' | 'guest' | 'child' | 'agent';
 
 /** §3 tokens map to principals `{id, kind, role}`. */
 export interface Principal {
@@ -201,7 +206,11 @@ export interface Action extends ActionRequest {
   /** `person:<id>` or `policy:<id>@<rev>` (§12.1). */
   approved_by?: string | null;
   approved_via?: 'dashboard' | 'phone' | 'cli' | 'policy' | 'console' | null;
-  approval?: 'passkey' | 'token' | 'policy' | 'console' | null;
+  /**
+   * How the yes was given ('passkey' | 'token' | ...) from a §12.4 hub; the current gateway sends the
+   * approval card object here instead (#723, found by contract.ts). Read the string form with a typeof check.
+   */
+  approval?: 'passkey' | 'token' | 'policy' | 'console' | ApprovalCard | null;
   hold?: { window_id: string; until: string } | null;
 }
 
@@ -225,6 +234,8 @@ export interface ApproveOptions {
   /** null when the action has no plan (the hub's identity module sends null, not ""). */
   plan_sha256: string | null;
   expires_at: string;
+  /** #702: what an approval key signs (UTF-8). Absent on hubs without approver keys. */
+  device_payload?: string;
   /** The hub's challenge record (login and passkey-register options carry it too). */
   challenge_id?: string;
   rpId?: string;
@@ -279,6 +290,28 @@ export interface WebAuthnCreationOptions {
 export interface ApproveBody {
   plan_sha256?: string;
   webauthn?: WebAuthnAssertion;
+  /** #173: the app id, typed by the owner, to accept a blocked or unknown licence class. */
+  accept_licence?: string;
+  /** #702: or this phone's approval key's signature over approve-options' `device_payload`. */
+  device_signature?: DeviceSignature;
+}
+
+/** #702: an approval key's ECDSA P-256 SHA-256 signature (DER, base64url) over `device_payload`. */
+export interface DeviceSignature {
+  key_id: string;
+  challenge: string;
+  signature: string;
+}
+
+/** #702 `POST/GET /v1/auth/approver-keys`: a phone's approval key as the hub keeps it (public key only). */
+export interface ApproverKey {
+  key_id: string;
+  label: string;
+  key_kind: string;
+  fingerprint: string;
+  created_at: string;
+  last_used_at: string | null;
+  revoked_at: string | null;
 }
 
 /** §12.6 `GET /v1/me`. */
@@ -354,6 +387,8 @@ export interface PushRegistrationRequest {
   token?: string;
   keys?: { p256dh: string; auth: string };
   label: string;
+  /** This app install (#715, lib/install.ts); only hubs with My devices accept it. */
+  install_id?: string;
   environment?: 'sandbox' | 'production';
   bundle_id?: string;
 }
@@ -366,6 +401,37 @@ export interface PushRegistration {
   state?: string;
   created_at?: string;
   last_seen_at?: string | null;
+}
+
+/** #715 My devices (`GET /v1/me/devices`): a person's own phones, browsers and apps, each the credentials
+ * that carry its name. Mirrors the gateway's OpenAPI schemas MyDevices / MyDevice / MyDeviceRemoved. */
+export type MyDeviceSource = 'sessions' | 'passkeys' | 'approver_keys' | 'push';
+export interface MyDeviceCredential {
+  source: MyDeviceSource;
+  id: string;
+  label: string;
+  detail: string;
+  created_at: string | null;
+  last_seen_at: string | null;
+}
+export interface MyDevice {
+  id: string;
+  label: string;
+  kind: 'phone' | 'browser' | 'app' | 'unknown';
+  current: boolean;
+  last_seen_at: string | null;
+  first_seen_at: string | null;
+  credentials: MyDeviceCredential[];
+}
+export interface MyDevices {
+  devices: MyDevice[];
+  sources: Record<MyDeviceSource | 'mesh' | 'nats', boolean>;
+}
+/** `DELETE /v1/me/devices/{id}` (Lost this device): `removed` is false when there was nothing left to revoke. */
+export interface MyDeviceRemoved {
+  id: string;
+  removed: boolean;
+  revoked: Record<MyDeviceSource, number>;
 }
 
 /**
@@ -424,7 +490,9 @@ export type ApiErrorCode =
   | 'rate_limited'
   | 'unavailable'
   | 'payload_too_large'
-  | 'policy_refused';
+  | 'policy_refused'
+  /** The hub no longer serves this app's protocol generation (sdk/contracts/protocol-versions.md). */
+  | 'upgrade_required';
 
 /** §3 envelope with the optional §12.2 fields. Clients branch on `error` (and `reason`) only. */
 export interface ApiErrorBody {
@@ -580,5 +648,144 @@ export interface MigratePlan {
   updated_at?: string | null;
 }
 
+/** #723: the approval card the gateway puts on every action (hold-to-approve, physical limits, preview). */
+export type ApprovalCard = components['schemas']['ApprovalCard'];
+
 /** UMB-P07 `/v1/me/home`: the person's Home document, generated from the gateway's OpenAPI (`@onemind/sdk`). */
 export type { HomeBody, HomeView } from '@onemind/sdk';
+
+/** `GET /v1/users` (owner only, §12.6). */
+export interface UserInfo {
+  id: string;
+  username: string | null;
+  display_name: string;
+  role: string;
+  disabled?: boolean;
+  created_at?: string | null;
+  last_seen_at?: string | null;
+  passkeys?: number;
+}
+
+/** `POST /v1/users`: the new person plus their sign-in code, returned exactly once (identity/service.py `one_time`). */
+export interface CreatedUser extends UserInfo {
+  one_time?: { enrolment_code: string; enrolment_url: string; expires_at?: string };
+}
+
+/** FAM-01 `GET /v1/family/profiles/{id}` (owner only): the limits on one child or teen. */
+export interface FamilyProfile {
+  allowed_apps?: string[] | null;
+  max_age_rating?: number | null;
+  blocked_tags?: string[];
+  timezone?: string;
+  windows?: unknown[] | null;
+}
+
+/** `GET /v1/tokens` row (owner sees all). An agent's scopes are what its token may do. */
+export interface TokenInfo {
+  id: string;
+  name: string;
+  principal_id: string;
+  kind: string;
+  scopes: string[];
+  expires_at?: string | null;
+  last_used_at?: string | null;
+}
+
+/** CORE-SEC-6 `GET`/`PUT /v1/agents/kill-switch`: while `on`, every AI agent is refused. */
+export interface KillSwitch {
+  on: boolean;
+  changed_by?: { id: string; kind: PrincipalKind } | null;
+  changed_at?: string | null;
+  reason?: string | null;
+}
+
+// ---- System screens (OS updates, usage, network, controls) ----
+
+/** One A/B slot as `GET /v1/os/updates` reports it (core/osupdate.py `node_view`); every field may be null. */
+export interface OsSlot {
+  name: string | null;
+  bootname: string | null;
+  state: string | null;
+  boot_status: string | null;
+  bundle_version: string | null;
+}
+export interface OsNodeUpdate {
+  node_id: string;
+  hostname: string | null;
+  status: string | null;
+  last_seen: string | null;
+  /** false: this machine runs no update service. */
+  reported: boolean;
+  channel: string | null;
+  current_version: string | null;
+  available_version: string | null;
+  state: string | null;
+  last_check: string | null;
+  last_result: string | null;
+  rauc: { present: boolean; booted_slot: string | null; slots: OsSlot[] };
+}
+export interface OsUpdateStatus {
+  nodes: OsNodeUpdate[];
+  /** `available: false` while the hub cannot reach the box's update engine; an approved install then does not run. */
+  install: { available: boolean; reason?: string; message?: string };
+}
+export interface OsUpdateHistory {
+  events: Array<{ node_id: string; state: string; version: string | null; last_result: string | null; observed_at: string }>;
+  requests: Array<{ action_id: string; state: string; node_id: string | null; version: string | null; message: string | null }>;
+}
+
+/** `GET /v1/monitoring/summary`. */
+export interface MonitoringSummary {
+  nodes: { online: number; stale: number; offline: number };
+  apps: Record<string, number>;
+  open_alerts: Record<string, number>;
+  at: string;
+}
+/** `GET /v1/nodes/{id}/metrics`; `null` where the node reported no value. */
+export interface NodeMetrics {
+  node_id: string;
+  source: string;
+  samples: Array<{
+    at: string;
+    cpu_pct: number | null;
+    mem_used_mb: number | null;
+    mem_total_mb: number | null;
+    disk_free_gb: number | null;
+    disk_total_gb: number | null;
+    temp_c: number | null;
+    load1: number | null;
+  }>;
+}
+/** `GET /v1/apps/{id}/metrics`; empty `components` when the hub has no metrics source. */
+export interface AppMetrics {
+  app_id: string;
+  at: string;
+  components: Array<{ name: string; cpu_millicores: number | null; mem_mb: number | null; restarts: number }>;
+}
+/** `GET /v1/mesh` (the names and mode only; addresses are never asked for). */
+export interface MeshView {
+  mode: string;
+  box: string;
+  https?: boolean;
+  names?: { lan?: string[]; mesh?: string[] };
+}
+
+/**
+ * Restart / shut down / troubleshoot. UNVERIFIED: the hub serves no such route today (the plan preview
+ * `POST /v1/plans` takes app types only), so the screen stays hidden until `OP.systemPlan` appears in
+ * /openapi.json. The shape mirrors PlanPreview without an app.
+ */
+export type SystemControlType = 'system.restart' | 'system.shutdown' | 'system.troubleshoot';
+export interface SystemPlanPreview {
+  type?: string;
+  policy_verdict: 'needs_approval' | 'refused' | (string & {});
+  reason?: string | null;
+  risk?: Risk;
+  plan: Plan;
+  plan_sha256: string;
+}
+
+/** `GET /v1/status`: one state per source; a source that cannot be read is `unknown`, never `ok`. */
+export type { StatusView } from '@onemind/sdk';
+export type SourceStatus = SdkStatusView['alerts'];
+export type HealthState = SdkStatusView['state'];

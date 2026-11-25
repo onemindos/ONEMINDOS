@@ -8,7 +8,7 @@ A minimalist, self-hosted pastebin where the server knows nothing: pastes are en
 | | |
 |---|---|
 | Version | 2.1.1 (upstream release `2.1.1`, published 2026-11-04) |
-| Licence | `Zlib`, Market class L1 by SPDX id; not yet confirmed by the licence gate |
+| Licence | `Zlib`, Market class **L1** (licence gate, scan of 2026-11-21) |
 | Tier | `blocked` (set by CI: sdk/tools/app-gate) |
 | Category | files |
 | GitHub | <https://github.com/PrivateBin/PrivateBin> |
@@ -32,7 +32,7 @@ Storage: PVC `privatebin-data` 1Gi.
 
 Images:
 
-- `docker.io/privatebin/nginx-fpm-alpine:2.1.1@sha256:9fbcc4d5671b974cafb55948d6fc3ab9eaf77f0c39271a50a16dd71bd4c4d3e6`
+- `docker.io/privatebin/nginx-fpm-alpine:edge@sha256:f0ade5951258358b7f36ba8b7662f90f17165f60402b99945f3ffe2deb32011a`
 
 <!-- onemind:notes:begin -->
 ## What it is
@@ -67,4 +67,10 @@ Founder decision D25 (2026-11-13, `docs/leap/LANES.md`): PrivateBin ships only b
 
 ## Latest security scan
 
-No scan yet. `sdk/tools/app-gate` writes `scan.json` (contract §9.4, §11.1).
+Scanned 2026-11-21T15:37:17Z by `sdk/tools/app-gate`: **pass**. Licence `Zlib` class L1; smoke test pass.
+
+| Image | Archs | CRITICAL (with fix) | HIGH | ClamAV | Secrets | cosign |
+|---|---|---|---|---|---|---|
+| `docker.io/privatebin/nginx-fpm-alpine:edge@sha256:f0ade5951258358b7f36ba8b7662f90f17165f60402b99945f3ffe2deb32011a` | amd64, arm64 | 0 (0) | 0 | 0 infected (daily-28190) | 0 | unsigned |
+
+Trivy 0.76.2. A CRITICAL with a fix available fails the gate; other findings are recorded.

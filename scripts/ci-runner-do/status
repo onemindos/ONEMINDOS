@@ -1,0 +1,18 @@
+#!/bin/bash
+# SPDX-License-Identifier: Apache-2.0
+# Show the DigitalOcean runner state and what it costs per hour right now. Read-only.
+set -uo pipefail
+here=$(cd "$(dirname "$0")" && pwd)
+# shellcheck source=lib.sh
+. "$here/lib.sh"
+for t in doctl gh jq awk; do need "$t"; done
+echo "DO_RUNNER variable : $(gh api "repos/$REPO/actions/variables/DO_RUNNER" --jq .value 2>/dev/null || echo 'not set (= off)')"
+echo "droplets           :"
+total=0
+while read -r id name ip; do
+  size=$(doctl compute droplet get "$id" --format Size --no-header 2>/dev/null)
+  p=$(price_hourly "$size"); total=$(awk -v t="$total" -v p="${p:-0}" 'BEGIN {print t + p}')
+  echo "  $name ($id) $size $ip \$${p:-?}/hour"
+done < <(droplets)
+echo "cost now           : \$$total per hour"
+echo "runners online     : $(gh api --paginate "orgs/$ORG/actions/runners" --jq '.runners[] | select(.name | startswith("onemind-do-")) | .name + (if .busy then " busy" else " idle" end)' 2>/dev/null | tr '\n' ' ')"

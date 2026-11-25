@@ -1,16 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { CatalogApp } from '../api/types';
+import { formatDate } from '../i18n';
 
 /** §10.3 / §11.1: the hub installs only apps with a passing scan at most 7 days old. */
 export const SCAN_MAX_AGE_MS = 7 * 86_400_000;
 /** Same tolerance as the gateway for a scan dated slightly in the future (clock skew). */
 const FUTURE_SKEW_MS = 5 * 60_000;
 
-/** "12 Nov 2026" in UTC, so every viewer sees the same date the hub recorded. */
+/** "Nov 12, 2026" in UTC, so every viewer sees the same date the hub recorded. */
 export function formatDay(iso: string): string {
   const t = Date.parse(iso);
   if (Number.isNaN(t)) return 'unknown date';
-  return new Date(t).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
+  return formatDate(t, { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
 }
 
 /**

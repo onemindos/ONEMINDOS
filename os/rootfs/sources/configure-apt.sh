@@ -3,10 +3,13 @@
 # Point apt at a pinned, dated archive (brief 30 §2 rule 2).
 #   configure-apt.sh debian <SNAPSHOT>   -> snapshot.debian.org/<SNAPSHOT> for trixie, -updates, -security
 #   configure-apt.sh ubuntu none         -> the live Ubuntu archive (gap: handbook/findings.md F-03)
+#   A third argument yes|no (default yes) enables Debian's non-free-firmware component (CPU microcode,
+#   Wi-Fi, GPU firmware: os/rootfs/firmware/README.md); no gives the fully open archive.
 # deb822 fields: sources.list(5) (Check-Valid-Until, Signed-By); snapshot URL scheme:
 # https://snapshot.debian.org/ ("/archive/<archive>/<YYYYMMDDTHHMMSSZ>/").
 set -eu
-LEG=$1; SNAP=$2
+LEG=$1; SNAP=$2; FW=${3:-yes}
+case "$FW" in yes) COMP="main non-free-firmware" ;; no) COMP=main ;; *) echo "firmware must be yes or no" >&2; exit 1 ;; esac
 cat > /etc/apt/apt.conf.d/90onemind <<'CONF'
 APT::Install-Recommends "false";
 APT::Install-Suggests "false";
@@ -21,14 +24,14 @@ debian)
 Types: deb
 URIs: http://snapshot.debian.org/archive/debian/$SNAP
 Suites: trixie trixie-updates
-Components: main
+Components: $COMP
 Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
 Check-Valid-Until: no
 
 Types: deb
 URIs: http://snapshot.debian.org/archive/debian-security/$SNAP
 Suites: trixie-security
-Components: main
+Components: $COMP
 Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
 Check-Valid-Until: no
 SRC
@@ -36,4 +39,4 @@ SRC
 ubuntu) : ;;   # keep the image's own ubuntu.sources (live archive)
 *) echo "unknown leg $LEG" >&2; exit 1 ;;
 esac
-echo "apt configured for leg=$LEG snapshot=$SNAP"
+echo "apt configured for leg=$LEG snapshot=$SNAP firmware=$FW"

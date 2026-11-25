@@ -10,10 +10,13 @@ import {
   backupsTile,
   confirmText,
   errorText,
+  filesLabel,
   expiresText,
   footText,
+  healthRows,
   isInsecureAddress,
   itemAge,
+  needsYou,
   nodesTile,
   outcomeText,
   outcomeTone,
@@ -23,20 +26,29 @@ import {
   riskInfo,
   severityTone,
   shortHash,
+  updateStrip,
   updatesTile,
 } from './format.js';
-import { backupHealth, CHOICES, destinationsFor, filedText, isOwner, lifecycleLabel, planCard, settingsProblem } from './manage.js';
+import { backupHealth, backupPlan, CHOICES, destinationsFor, filedText, isOwner, lifecycleLabel, planCard, settingsProblem } from './manage.js';
 
 const tauri = window.__TAURI__;
 const invoke = (cmd, args) => tauri.core.invoke(cmd, args);
 const $ = (id) => document.getElementById(id);
 const view = $('view');
 
+// Update strip: the last `update_check` result, and whether an install was clicked.
+let update = null;
+let updating = false;
+let updateError = '';
+
 let mode = 'home'; // home | add | approval | inbox | manage
 let boxes = [];
 let found = [];
 let searching = false;
 let pairing = { url: '', token: '', insecure: false, error: '', busy: false };
+// Join by link or typed code (issue #717): the CA is pinned and the tokens go to the keychain.
+const JOIN_EMPTY = { link: '', code: '', address: '', ca: '', username: '', password: '', totp: '', enrolCode: '', typed: false, error: '', busy: false };
+let joining = { ...JOIN_EMPTY };
 // Approval card: { boxId, actionId, detail, error, busy, result, confirm: '' | 'approve' | 'deny', reason }
 let card = null;
 // Inbox: { boxId, items: null | [...], error, loading }
@@ -112,6 +124,52 @@ function inboxSection(b, st) {
   );
 }
 
+// "Needs you": approvals and open alerts in one list. Each part hides when the box does not serve its route.
+function needsSection(b, st) {
+  const n = needsYou(st);
+  const nodes = [h('div', { class: 'section-title', text: n.count ? `Needs you · ${n.count}` : 'Needs you' })];
+  if (!n.count) {
+    nodes.push(h('div', { class: 'note', text: n.alertsServed ? 'Nothing needs you right now.' : 'No approvals waiting.' }));
+    return h('div', {}, nodes);
+  }
+  nodes.push(
+    h(
+      'div',
+      { class: 'pending' },
+      n.items.slice(0, 5).map((it) =>
+        h(
+          'div',
+          { class: 'pending-item' },
+          h('div', {}, h('div', { class: 'what', text: it.title }), h('div', { class: 'who' }, h('span', { class: `dot ${it.tone === 'agent' ? 'neutral' : it.tone}` }), ` ${it.sub}`)),
+          it.kind === 'approval'
+            ? h('button', { class: 'btn small', text: 'Review', onclick: () => openApproval(b.id, it.id) })
+            : h('button', { class: 'btn small', text: 'Open', title: 'Opens this alert on the dashboard', onclick: () => run('open_link', { id: b.id, link: it.link }) }),
+        ),
+      ),
+    ),
+    n.count > 5 ? h('div', { class: 'note', text: `${n.count - 5} more on the dashboard.` }) : null,
+    h('div', { class: 'note', style: 'margin-top:6px', text: 'Review shows the exact plan first. A notification never approves anything.' }),
+  );
+  return h('div', {}, nodes);
+}
+
+function healthSection(st) {
+  const rows = healthRows(st);
+  if (!rows.length) return '';
+  return h(
+    'div',
+    {},
+    h('div', { class: 'section-title', text: 'Box health' }),
+    h(
+      'div',
+      { class: 'pending' },
+      rows.map((r) =>
+        h('div', { class: 'pending-item' }, h('div', {}, h('div', { class: 'what', text: `${r.label} · ${r.value}` }), r.note ? h('div', { class: 'who', text: r.note }) : null), h('span', { class: `dot ${r.tone}` })),
+      ),
+    ),
+  );
+}
+
 function boxCard(b) {
   const st = b.status;
   const online = st && st.reachable;
@@ -128,24 +186,7 @@ function boxCard(b) {
   if (st && !online) el.append(h('div', { class: 'error', style: 'margin-top:12px', text: errorText(st.error) }));
   if (st && online) {
     el.append(h('div', { class: 'tiles' }, tile(nodesTile(st)), tile(approvalsTile(st)), tile(updatesTile(st)), tile(backupsTile(st))));
-    if (st.pending.length) {
-      el.append(
-        h('div', { class: 'section-title', text: 'Waiting for your approval' }),
-        h(
-          'div',
-          { class: 'pending' },
-          st.pending.slice(0, 4).map((p) =>
-            h(
-              'div',
-              { class: 'pending-item' },
-              h('div', {}, h('div', { class: 'what', text: p.target ? `${p.kind} · ${p.target}` : p.kind }), h('div', { class: 'who', text: `asked by ${p.requested_by || 'someone'}` })),
-              h('button', { class: 'btn small', text: 'Review', onclick: () => openApproval(b.id, p.id) }),
-            ),
-          ),
-        ),
-        h('div', { class: 'note', style: 'margin-top:6px', text: 'Review shows the exact plan first. A notification never approves anything.' }),
-      );
-    }
+    el.append(needsSection(b, st), healthSection(st));
     el.append(inboxSection(b, st) || '');
   }
   el.append(
@@ -153,9 +194,21 @@ function boxCard(b) {
       'div',
       { class: 'actions' },
       h('button', { class: 'btn primary', onclick: () => run('open_dashboard', { id: b.id }) }, icon('globe'), 'Open dashboard'),
-      h('button', { class: 'btn', title: "Opens the box's file share in your file manager", onclick: () => run('open_files', { id: b.id }) }, icon('folder'), 'Files'),
+      h('button', { class: 'btn', title: filesLabel(navigator.platform).title, onclick: () => run('open_files', { id: b.id }) }, icon('folder'), filesLabel(navigator.platform).text),
     ),
   );
+  if (online) {
+    const own = isOwner(st);
+    el.append(
+      h('div', { class: 'section-title', text: 'Quick requests' }),
+      h(
+        'div',
+        { class: 'row' },
+        h('button', { class: 'btn', text: 'Restart an app…', title: 'Shows the plan first, then asks an owner', disabled: own === false, onclick: () => openManage(b.id, 'apps') }),
+        st.backups ? h('button', { class: 'btn', text: 'Back up now…', title: 'Shows the plan first, then asks an owner', disabled: own === false, onclick: () => openManage(b.id, 'backups', 'run') }) : null,
+      ),
+    );
+  }
   if (online) el.append(h('button', { class: 'btn', style: 'margin-top:8px;width:100%', title: 'Apps, backups and box settings. Every change is a request an owner approves.', text: 'Manage…', onclick: () => openManage(b.id) }));
   el.append(
     h(
@@ -182,9 +235,79 @@ function boxCard(b) {
   return el;
 }
 
+function updateCard() {
+  const u = updateStrip(update);
+  if (!u) return null;
+  return h(
+    'section',
+    { class: 'card update-strip', 'aria-label': 'App update' },
+    h('div', { class: 'box-name', text: u.title }),
+    h('div', { class: 'box-sub', text: u.detail }),
+    u.notes ? h('div', { class: 'update-notes', text: u.notes }) : null,
+    updateError ? h('div', { class: 'error', role: 'alert', text: errorText(updateError) }) : null,
+    h('button', {
+      class: 'btn primary small',
+      disabled: updating,
+      text: updating ? 'Installing…' : u.action,
+      // The only way an update is installed: this click. The app restarts when it is done.
+      onclick: async () => {
+        updating = true;
+        updateError = '';
+        render();
+        try {
+          await invoke('update_install');
+        } catch (e) {
+          updateError = String(e);
+          updating = false;
+          render();
+        }
+      },
+    }),
+  );
+}
+
+async function checkUpdate() {
+  try {
+    update = await invoke('update_check');
+  } catch {
+    update = null; // offline or a bad manifest: stay quiet, the next check is in six hours
+  }
+  if (mode === 'home') render();
+}
+
+// Launch at login: opt-in, off until the person turns it on. The OS holds the setting, not this app.
+let autostart = null; // null until read; the row is hidden if the OS call fails
+async function loadAutostart() {
+  try {
+    autostart = await invoke('autostart_get');
+  } catch {
+    autostart = null;
+  }
+  if (mode === 'home') render();
+}
+
+function autostartRow() {
+  if (autostart === null) return '';
+  return h(
+    'label',
+    { class: 'check', style: 'display:flex;gap:8px;align-items:center;margin:12px 4px 0' },
+    h('input', {
+      type: 'checkbox',
+      checked: autostart,
+      onchange: async (ev) => {
+        const want = ev.currentTarget.checked;
+        const got = await run('autostart_set', { on: want });
+        autostart = got === undefined ? !want : got;
+        render();
+      },
+    }),
+    h('span', { class: 'note', text: 'Start OneMind when I log in' }),
+  );
+}
+
 function homeView() {
   if (!boxes.length) return addView(true);
-  return boxes.map(boxCard);
+  return [updateCard(), ...boxes.map(boxCard), autostartRow()].filter(Boolean);
 }
 
 // ---- approval card ----
@@ -383,11 +506,11 @@ function inboxView() {
 
 // ---- manage: apps, backups, box settings (every write is a request an owner approves) ----
 
-async function openManage(boxId) {
+async function openManage(boxId, tab = 'apps', ask = null) {
   mode = 'manage';
-  manage = { boxId, tab: 'apps', data: {}, plan: null, form: null, notice: null, error: '', busy: false, denied: false };
+  manage = { boxId, tab, data: {}, plan: null, form: null, notice: null, error: '', busy: false, denied: false, backupAsk: ask };
   render();
-  await loadTab('apps');
+  await loadTab(tab);
 }
 
 async function loadTab(tab) {
@@ -532,14 +655,37 @@ function backupsPane(m) {
   const ask = (kind) =>
     mAct(async () => {
       m.notice = filedText(await invoke('manage_backup_request', { id: m.boxId, kind }));
+      m.backupAsk = null;
     });
+  if (m.backupAsk) {
+    // Plan first: the person sees exactly what the request says, then sends it. It still waits for an owner.
+    const kind = m.backupAsk;
+    const bp = backupPlan(kind, v);
+    return [
+      ...nodes.slice(0, 1),
+      h(
+        'section',
+        { class: 'card approval' },
+        h('h2', { class: 'title', text: kind === 'run' ? 'Back up now' : 'Check latest backup' }),
+        h('div', { class: 'plan-summary', text: bp.title }),
+        h('dl', { class: 'facts' }, bp.facts.flatMap(([k, val]) => [h('dt', { text: k }), h('dd', { text: val })])),
+        bp.blocked ? h('div', { class: 'error', text: bp.blocked }) : h('div', { class: 'note', text: 'Sending this only asks. An owner sees it in the approval list and decides; nothing starts before that.' }),
+        h(
+          'div',
+          { class: 'row', style: 'margin-top:12px' },
+          h('button', { class: 'btn', text: 'Cancel', onclick: () => ((m.backupAsk = null), render()) }),
+          bp.canSend ? h('button', { class: 'btn primary', disabled: m.busy, text: m.busy ? 'Sending…' : 'Send request', onclick: () => ask(kind) }) : null,
+        ),
+      ),
+    ];
+  }
   nodes.push(
     h('div', { class: 'section-title', text: 'Ask for a backup' }),
     h(
       'div',
       { class: 'row' },
-      h('button', { class: 'btn primary', disabled: m.busy || own === false, text: 'Back up now', onclick: () => ask('run') }),
-      h('button', { class: 'btn', disabled: m.busy || own === false, text: 'Check latest backup', onclick: () => ask('verify') }),
+      h('button', { class: 'btn primary', disabled: m.busy || own === false, text: 'Back up now', onclick: () => ((m.backupAsk = 'run'), render()) }),
+      h('button', { class: 'btn', disabled: m.busy || own === false, text: 'Check latest backup', onclick: () => ((m.backupAsk = 'verify'), render()) }),
     ),
     h('div', { class: 'note', text: own === false ? 'Only an owner can ask for a backup.' : 'This only asks. No backup starts until an owner approves. A restore can overwrite data, so it needs a passkey on the dashboard.' }),
   );
@@ -618,7 +764,7 @@ function addView(first = false) {
       { class: 'hero' },
       h('div', { class: `radar ${searching ? 'searching' : ''}` }, icon('search')),
       h('h1', { text: first ? 'Find your OneMind box' : 'Add a box' }),
-      h('p', { text: searching ? 'Looking on your network…' : found.length ? 'Pick your box, then paste its token.' : 'No box found yet. Type its address below.' }),
+      h('p', { text: searching ? 'Looking on your network…' : 'Paste the join link your box shows for a computer, then sign in.' }),
     ),
   );
   if (found.length) {
@@ -644,6 +790,7 @@ function addView(first = false) {
       ),
     );
   }
+  nodes.push(joinCard());
   const urlIn = h('input', { type: 'text', placeholder: 'onemind.local:8443', value: pairing.url, spellcheck: 'false', autocapitalize: 'off' });
   urlIn.addEventListener('input', () => {
     pairing.url = urlIn.value;
@@ -659,6 +806,7 @@ function addView(first = false) {
     h(
       'section',
       { class: 'card', style: 'display:flex;flex-direction:column;gap:12px' },
+      h('div', { class: 'what', text: 'Or pair with a token' }),
       h('label', { class: 'field' }, 'Box address', urlIn),
       h('label', { class: 'field' }, 'Token', tokIn),
       insecureRow,
@@ -674,6 +822,65 @@ function addView(first = false) {
   );
   if (!first) nodes.push(h('button', { class: 'link small', text: '← Back', onclick: back }));
   return nodes;
+}
+
+function joinInput(key, attrs) {
+  const el = h('input', { type: 'text', spellcheck: 'false', autocapitalize: 'off', autocomplete: 'off', value: joining[key], ...attrs });
+  el.addEventListener('input', () => (joining[key] = el.value));
+  return el;
+}
+
+function joinCard() {
+  const j = joining;
+  const where = j.typed
+    ? [
+        h('label', { class: 'field' }, 'Join code', joinInput('code', { placeholder: '7KQ4-M2XP-9D3F' })),
+        h('label', { class: 'field' }, 'Box address', joinInput('address', { placeholder: 'onemind.local:8443' })),
+        h('label', { class: 'field' }, 'Box fingerprint', joinInput('ca', { placeholder: '64 letters and digits, shown with the code' })),
+      ]
+    : [h('label', { class: 'field' }, 'Join link', joinInput('link', { placeholder: 'onemind-join:v2?…' }))];
+  return h(
+    'section',
+    { class: 'card', style: 'display:flex;flex-direction:column;gap:12px' },
+    h('div', { class: 'what', text: 'Join with the link from your box' }),
+    ...where,
+    h('button', {
+      class: 'link small',
+      text: j.typed ? 'Paste a link instead' : 'Type the code instead',
+      onclick: () => {
+        j.typed = !j.typed;
+        j.error = '';
+        render();
+      },
+    }),
+    h('label', { class: 'field' }, 'User name', joinInput('username', { placeholder: 'Your name on the box' })),
+    h('label', { class: 'field' }, 'Password', joinInput('password', { type: 'password' })),
+    h('label', { class: 'field' }, 'Enrolment code (only if the owner gave you one)', joinInput('enrolCode', {})),
+    j.error ? h('div', { class: 'error', text: errorText(j.error) }) : null,
+    h('div', { class: 'row' }, h('button', { class: 'btn primary', disabled: j.busy, onclick: joinBox, text: j.busy ? 'Joining…' : 'Join' })),
+    h('div', { class: 'note', text: 'The app trusts only the certificate named in the link. Your sign-in is kept in the system keychain, not in a file.' }),
+  );
+}
+
+async function joinBox() {
+  const j = joining;
+  j.busy = true;
+  j.error = '';
+  render();
+  try {
+    const input = j.typed ? { code: j.code, address: j.address, ca: j.ca } : { link: j.link };
+    await invoke('join_box', {
+      input,
+      signIn: { username: j.username, password: j.password, totp: j.totp, enrol_code: j.enrolCode },
+    });
+    joining = { ...JOIN_EMPTY };
+    mode = 'home';
+    await load();
+  } catch (e) {
+    j.busy = false;
+    j.error = String(e);
+    render();
+  }
 }
 
 const VIEWS = { home: homeView, add: () => addView(), approval: approvalView, inbox: inboxView, manage: manageView };
@@ -701,6 +908,7 @@ function toast(text) {
 }
 
 async function load() {
+  if (autostart === null) loadAutostart();
   boxes = (await invoke('list_boxes')) || [];
   if (!boxes.length && !found.length && !searching) search();
   if (mode === 'home' || mode === 'add') render();
@@ -770,6 +978,11 @@ tauri.event.listen('live', (ev) => {
   if (b) b.live = ev.payload.live;
   if (mode === 'home') render();
 });
+tauri.event.listen('update', (ev) => {
+  update = ev.payload;
+  if (mode === 'home') render();
+});
 tauri.event.listen('shown', () => load());
 setInterval(() => mode === 'home' && render(), 15000);
 load();
+checkUpdate();

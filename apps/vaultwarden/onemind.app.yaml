@@ -12,8 +12,11 @@ metadata:
   version: "1.37.5"
   description: "Unofficial Bitwarden compatible server written in Rust, formerly known as bitwarden_rs"
   category: passwords
+  age_rating: 18   # proposed minimum age (apps/README.md rubric); the owner can override per app
+  age_reason: "The household's password vault."
   icon: icon.svg
   license: AGPL-3.0
+  licenceClass: L2
   source: https://github.com/dani-garcia/vaultwarden
   # §9.3 facts from the GitHub API (repos/dani-garcia/vaultwarden and its releases/latest), read 2026-11-12.
   links:
@@ -25,7 +28,7 @@ metadata:
     website: https://github.com/dani-garcia/vaultwarden
     support: https://github.com/dani-garcia/vaultwarden/issues
   upstream: {release: "1.37.5", released_at: "2026-11-01T22:16:50Z", archived: false}
-  tier: verified   # set by CI (sdk/tools/app-gate --tier write), not by hand
+  tier: blocked   # set by CI (sdk/tools/app-gate --tier write), not by hand
 spec:
   archs: [amd64, arm64]
   requires: {gpu: false, minMemoryMb: 256}

@@ -50,6 +50,7 @@ from .auth import Principal
 from .context import Gateway
 from .errors import ApiError
 from .executors import ExecResult
+from .jsonbody import JsonBody
 from .ledger import Action, Base, utc
 from .sections import config_section
 from .store import FeatureSchema, SqlRepository
@@ -107,7 +108,7 @@ def _device_ref(v: str | None) -> str | None:
     return v
 
 
-class StorageParams(BaseModel):
+class StorageParams(JsonBody):
     model_config = ConfigDict(extra="forbid")
     node_id: str | None = Field(default=None, max_length=64)
     device: str | None = Field(default=None, pattern=DEVICE)  # the blank disk (path, WWN or serial)
@@ -131,6 +132,41 @@ class StorageActionRequest(StoragePlanRequest):
     reason: str | None = Field(default=None, max_length=500)
     expires_at: AwareDatetime | None = None  # default now + 24 h, at most now + 7 d
     idempotency_key: str | None = Field(default=None, min_length=1, max_length=200)
+
+
+class StorageSummary(BaseModel):
+    """GET /v1/storage. Only node_id, enabled and available are always present: the rest arrive once the
+    node's storage service answered (available true), and `error` says why it did not."""
+
+    node_id: str
+    enabled: bool
+    available: bool
+    error: str | None = None
+    state: str | None = None  # protected, unprotected, degraded, unavailable, unsupported
+    mount: str | None = None
+    encrypted: bool | None = None
+    generation: int | None = None
+    needs_scrub: bool | None = None
+    reasons: list[str] | None = None
+    repair: list[str] | None = None
+    profiles: list[dict[str, Any]] | None = None
+    used_bytes: int | None = Field(default=None, description="Logical bytes of data stored (one copy), as btrfs counts them.")
+    available_bytes: int | None = Field(
+        default=None, ge=0,
+        description="Bytes a person can still write to the data set, measured by the filesystem after its mirroring "
+                    "(btrfs filesystem usage). null when the node could not measure it: unknown, never estimated "
+                    "from the members, whose sizes count every mirrored byte twice.")
+    members: list[dict[str, Any]] | None = None
+    operations_available: bool | None = None
+    active_operation: dict[str, Any] | None = None
+    recovery_key_pending: bool | None = None
+    tpm2: bool | None = None
+    at: str | None = None
+
+
+def _byte_count(v: Any) -> int | None:
+    """A byte count from the node, or None (unknown) for anything that is not a whole number >= 0."""
+    return v if isinstance(v, int) and not isinstance(v, bool) and v >= 0 else None
 
 
 # ---- the node's storage service ---------------------------------------------------------------
@@ -349,6 +385,9 @@ class StorageService:
             "encrypted": m.get("encrypted", False), "generation": m.get("generation", 0),
             "needs_scrub": m.get("needs_scrub", False), "reasons": m.get("reasons") or [], "repair": m.get("repair") or [],
             "profiles": m.get("profiles") or [], "used_bytes": m.get("used_bytes"),
+            # Measured by the node; an older node without the field, or a reading it could not take, is
+            # null (unknown), never a figure derived here from the members.
+            "available_bytes": _byte_count(m.get("available_bytes")),
             "members": [{k: x.get(k) for k in ("devid", "missing", "size_bytes", "allocated_bytes", "errors")} for x in m.get("members") or []],
             "operations_available": st.get("operations_available", False),
             "active_operation": _progress(active) if active else None,

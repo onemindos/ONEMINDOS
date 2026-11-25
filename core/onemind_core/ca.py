@@ -1,7 +1,10 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Per-box certificate authority (H-05; NETWORKING.md §9.4). Not mounted yet (CORE-NET-8): no importer.
+"""Per-box certificate authority (H-05; NETWORKING.md §9.4).
 
-On first start the box creates its own CA under the data dir (ECDSA P-256, 10 years) and issues
+Mounted by routers/net.py (CORE-NET-8): the CA is created when something needs it (the mesh is
+turned on, HTTPS, a join ticket, the CA download), never as a side effect of reading the mesh view.
+
+The first time it is needed the box creates its own CA under the data dir (ECDSA P-256, 10 years) and issues
 the server certificates the box presents on the LAN and the mesh:
 
 - the gateway certificate: onemind.local, <box>.local, hub/control/join.onemind.internal;
@@ -114,6 +117,10 @@ class BoxCA:
             raise PermissionError(f"{path.name} must not be readable by group or others (expected 0600)")
 
     # ---- CA ----------------------------------------------------------------------------------
+    def started(self) -> bool:
+        """Whether the CA exists already (loaded, or on disk). Never creates it."""
+        return self._cert is not None or self._path(CA_CERT).exists()
+
     def ensure(self) -> x509.Certificate:
         """Load the CA, creating it on first start. Never replaces an existing CA."""
         with self._lock:

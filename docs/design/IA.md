@@ -20,6 +20,7 @@
 | System | Automation (PROPOSED, no mock yet) | `/automation` | — | More |
 | System | Settings (People, Agents and tokens, Security, Remote access, Notifications, Appearance) | `/settings/<section>` | — | More |
 
+- **Superseded by [D-016](../DECISIONS.md) (2026-11-20):** the default frame is now the Desktop (wallpaper desktop, every screen as a window over it, a dock as main navigation); the sidebar below remains as the optional "Console" view.
 - **Desktop (> 720 px):** left sidebar with groups; a top bar with the hub connection state (a freshness pill: the hub's own answer is ageing too) and the person menu.
 - **Phone (≤ 720 px):** bottom tab bar with four primary items plus **More**, which opens a sheet with the rest. Badges on More sum the hidden badges.
 - **Why Alerts is under More on phones:** on a phone, alerts arrive as notifications, and an alert that needs a decision opens its approval directly (NOT-B3). The tab slot is worth more for Activity. **This differs from backlog MOB-P1**, which lists six tabs (Home, Nodes, Apps, Approvals, Activity, Alerts); flagged for the founder, easy to switch.

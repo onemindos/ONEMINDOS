@@ -71,10 +71,7 @@ export interface AppLinks {
 export type AppTier = 'verified' | 'community' | 'blocked';
 
 /** §11.1 scan record as summarised in the catalog (§11.4). */
-export interface ScanSummary {
-  scanned_at: string;
-  result: 'pass' | 'fail';
-}
+export type ScanSummary = components['schemas']['ScanSummary'];
 
 /** §3 `GET /v1/apps` item, built from §4 `onemind.app.yaml`, plus the §11.4 fields. */
 export interface CatalogApp {
@@ -86,10 +83,14 @@ export interface CatalogApp {
   category: string | null;
   icon: string | null;
   license: string | null;
+  /** #173 metadata.licenceClass: L1 and L2 are green; blocked and unknown are not. Absent on an older gateway. */
+  licence_class?: components['schemas']['CatalogApp']['licence_class'];
   source: string | null;
   archs: string[];
   requires: { gpu?: boolean; minMemoryMb?: number };
   web_port: number | null;
+  /** #692: a browser app, opened in a dashboard window with the person's own profile (/browser/<id>). */
+  browser?: boolean;
   installed: boolean;
   status: string;
   links: AppLinks;
@@ -101,10 +102,49 @@ export interface CatalogApp {
 export type ActionType = components['schemas']['PlainActionRequest']['type'] | components['schemas']['ConfigureActionRequest']['type'];
 export type AppParams = components['schemas']['PlainActionParams'] & Partial<Pick<components['schemas']['ConfigureActionParams'], 'settings'>> & { name?: undefined };
 export type PlanPreview = components['schemas']['PlanPreview'];
+/** Body of POST /v1/actions/{id}/approve (§12.4): the plan read, the passkey assertion, the sealed secrets form. */
+export type ApproveBody = components['schemas']['onemind_core__routers__actions__ApproveBody'];
 /** Validated dashboard view of the SDK's opaque apps.settings response, not a wire contract. */
 export interface AppSettings {
-  fields: Array<{ name: string; title?: string; type: string; default?: string | number | boolean; enum?: Array<string | number | boolean>; description?: string; restart?: boolean }>;
+  fields: Array<{
+    name: string; title?: string; type: string; default?: string | number | boolean; enum?: Array<string | number | boolean>; description?: string; restart?: boolean;
+    minimum?: number; maximum?: number; minLength?: number; maxLength?: number; pattern?: string;
+  }>;
   values: Record<string, string | number | boolean> | null;
+}
+
+/** Validated view of GET /v1/apps/{id}/dependencies (contract §12.22, PD-10). */
+export interface AppDependencies {
+  app_id: string;
+  requires: Array<{
+    id: string; alternatives: string[]; reason: string | null; port: number | null; satisfied_by: string | null;
+    choices: Array<{ id: string; name: string | null; in_catalog: boolean; installed: boolean }>;
+  }>;
+  dependents: Array<{ id: string; name: string | null }>;
+}
+
+/** Validated view of GET /v1/apps/{id}/host-ports (PD-11). `with` names who already holds the port. */
+export interface AppHostPorts {
+  app_id: string;
+  node_id: string;
+  declared: Array<{ port: number; protocol: string; description: string | null }>;
+  conflicts: Array<{ port: number; protocol: string; with: string }>;
+}
+
+/** Validated view of one GET /v1/sources row (PD-12): a community source pinned at a commit. */
+export interface CommunitySource {
+  id: string; name: string; url: string; commit: string; state: string; added_at: string | null;
+  apps: Array<{ id: string; version: string; scan: { result: string; scanned_at: string | null } | null }>;
+  errors: string[];
+}
+
+/** POST /v1/deploy/compose (PD-13): a conversion only; it writes nothing on the box. */
+export interface ComposeResult {
+  ok: boolean;
+  app_id: string;
+  files: Record<string, string>;
+  refusals: Array<{ service: string | null; rule: string; field: string; message: string }>;
+  warnings: string[];
 }
 
 /** §3 action states. */
@@ -120,7 +160,7 @@ export type ActionState =
   | 'cancelled';
 
 export type PrincipalKind = 'person' | 'agent';
-export type PrincipalRole = 'owner' | 'adult' | 'guest' | 'child' | 'agent';
+export type PrincipalRole = 'owner' | 'adult' | 'guest' | 'child' | 'teen' | 'agent';
 
 /** §3 tokens map to principals `{id, kind, role}`. */
 export interface Principal {
@@ -130,15 +170,26 @@ export interface Principal {
 }
 
 /** MACH-01 (#281): machine requests. They carry a machine `name`, never an `app_id`. */
-export type MachineActionType = Extract<components['schemas']['FeatureActionRequest']['type'], `machine.${string}`>;
+export type MachineActionType = Extract<components['schemas']['FeatureActionRequest']['type'], `machine.${string}`> | 'machines.enable' | 'machines.disable';
+export type MachineMedia = Pick<components['schemas']['UploadedMedia'], 'size_bytes' | 'sha256'> & { upload_id: string };
+export type MachineSource = ({ kind: 'catalogue' } & Pick<components['schemas']['CatalogueImage'], 'url' | 'sha256'>)
+  | ({ kind: 'iso' | 'disk' } & MachineMedia);
 export interface MachineParams {
-  name: string;
+  /** Absent on machines.enable and machines.disable, which are about the whole extension. */
+  name?: string;
   ram_mb?: number;
   cpus?: number;
   disk_gb?: number;
   image_url?: string;
   /** Delete only: the machine's name typed again by the owner. */
   confirm?: string;
+  /** Snapshot only: the snapshot's name. Clone only: `source` is the machine to copy and `name` the new one. */
+  snapshot?: string;
+  source?: string | MachineSource;
+  firmware?: 'bios' | 'uefi';
+  tpm?: boolean;
+  virtio_drivers?: MachineMedia;
+  network?: 'isolated' | 'machine_peers';
   app_id?: undefined;
   settings?: undefined;
 }
@@ -154,8 +205,17 @@ export interface MachineRecord {
   created_at: string;
   updated_at: string;
 }
+/** GET /v1/machines/{name}/snapshots rows. `consistency` says how safe the copy is; `note` says it in words. */
+export interface MachineSnapshot {
+  machine: string;
+  name: string;
+  consistency: 'offline' | 'quiesced' | 'best_effort' | 'quiesce_failed' | string;
+  note: string;
+  created_at: string;
+}
 /** GET /v1/machines/capabilities, the parts the screen shows. */
 export interface MachineCapabilities {
+  image_catalogue?: components['schemas']['MachineCapabilities']['image_catalogue'];
   enabled: boolean;
   extension: { state: string; message: string };
   requirements: { min_memory_mb: number; arch: string; kvm: boolean };
@@ -213,7 +273,9 @@ export type ApiErrorCode =
   | 'unauthenticated'
   | 'rate_limited'
   | 'payload_too_large'
-  | 'policy_refused';
+  | 'policy_refused'
+  /** The hub no longer serves this dashboard's protocol generation (sdk/contracts/protocol-versions.md). */
+  | 'upgrade_required';
 
 export interface ApiErrorBody {
   error: ApiErrorCode;

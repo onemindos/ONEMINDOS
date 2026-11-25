@@ -6,7 +6,8 @@
 # - licence: LICENSE.txt at v2.1.2 ("SPDX-License-Identifier: EPL-2.0 OR BSD-3-Clause"); the image's
 #   org.opencontainers.image.licenses label says the same.
 # - image: docker/2.1-alpine/Dockerfile in the upstream repo builds docker.io/library/eclipse-mosquitto;
-#   only the 2.1.2-alpine tag exists for 2.1.2. Digest and archs from `crane manifest`.
+#   only the 2.1.2-alpine tag exists for 2.1.2. Digest and archs from `crane manifest`; digest re-read
+#   2026-11-19 from registry-1.docker.io /v2/library/eclipse-mosquitto/manifests/2.1.2-alpine (same).
 apiVersion: onemind.app/v1alpha1
 kind: App
 metadata:
@@ -15,8 +16,11 @@ metadata:
   version: "2.1.2"
   description: "Eclipse Mosquitto - An open source MQTT broker"
   category: iot   # GitHub topics: iot, mqtt, mqtt-broker, messaging
+  age_rating: 18   # proposed minimum age (apps/README.md rubric); the owner can override per app
+  age_reason: "Message hub for devices; whoever can publish can control them."
   icon: icon.svg
   license: "EPL-2.0 OR BSD-3-Clause"
+  licenceClass: L1
   source: https://github.com/eclipse-mosquitto/mosquitto
   links:
     docs: "https://mosquitto.org/documentation/"
@@ -24,9 +28,48 @@ metadata:
     website: "https://mosquitto.org"
     support: "https://github.com/eclipse-mosquitto/mosquitto/issues"
   upstream: {release: "v2.1.2", released_at: "2026-02-09T11:24:30Z", archived: false}
-  tier: blocked   # set by CI (sdk/tools/app-gate --tier write), not by hand
+  # was blocked on a licence-matrix mismatch; the gate now passes (apps-gate-all run 43879258129: pass, verified, amd64 and arm64).
+  tier: verified   # set by CI (sdk/tools/app-gate --tier write), not by hand
 spec:
   archs: [amd64, arm64]
   requires: {gpu: false, minMemoryMb: 128}   # the container's memory limit; upstream publishes no sizing
   manifests: manifests/
   updates: {channel: stable, automerge: none}
+  # Optional bridge to the OneMind NATS server's MQTT listener (issue #199, FLD-02; README "Bridge to
+  # NATS"). Empty host: no bridge. manifests/start.sh turns these into Mosquitto bridge settings.
+  settings:
+    - name: nats_mqtt_host
+      env: NATS_MQTT_HOST
+      type: string
+      title: NATS MQTT host
+      description: "Host name of the NATS server's MQTT listener (NATS speaks MQTT 3.1.1 only). Empty turns the bridge off."
+      default: ""
+      maxLength: 253
+      pattern: "^[A-Za-z0-9.-]*$"
+    - name: nats_mqtt_port
+      env: NATS_MQTT_PORT
+      type: integer
+      title: NATS MQTT port
+      description: Port of the NATS server's MQTT listener.
+      default: 1883
+      minimum: 1
+      maximum: 65535
+    - name: nats_mqtt_username
+      env: NATS_MQTT_USERNAME
+      type: string
+      title: NATS user for the bridge
+      description: "NATS user the bridge logs in as. Its password goes in the secret mosquitto-nats-bridge. Empty: no login."
+      default: ""
+      maxLength: 128
+      pattern: "^[A-Za-z0-9._@-]*$"
+    - name: nats_bridge_down
+      env: NATS_BRIDGE_DOWN
+      type: boolean
+      title: Let NATS send to devices
+      description: "Off: devices to NATS only (mqtt/up/...). On: messages on NATS under mqtt/down/... are also delivered to devices, so anything allowed to publish there can command them."
+      default: false
+  secrets:
+    - name: mosquitto-nats-bridge
+      description: "Password of the NATS user the bridge logs in as (only when the bridge is used)."
+      keys:
+        - {key: NATS_MQTT_PASSWORD, kind: password, description: "NATS password for the bridge user"}

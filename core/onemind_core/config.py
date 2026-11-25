@@ -48,6 +48,19 @@ def _opt_path(value: str | None) -> Path | None:
     return Path(value) if value else None
 
 
+def _env_int(env, name: str, default: int | None) -> int | None:
+    raw = (env.get(name) or "").strip()
+    if not raw:
+        return default
+    try:
+        value = int(raw)
+    except ValueError:
+        raise ValueError(f"{name} must be a whole number") from None
+    if value < 0:
+        raise ValueError(f"{name} must not be negative")
+    return value
+
+
 @dataclass(frozen=True)
 class Settings:
     tokens_file: Path | None
@@ -72,6 +85,17 @@ class Settings:
     agent_url: str | None = None
     # §11.1 dev override: skip the §10.3 scan check. Only honoured with the noop executor.
     allow_unscanned: bool = False
+    # ONEMIND_AUDIT_MAX_BYTES (default 0 = never rotate, until the backup unit also copies segments; set e.g. 16777216 to rotate) and ONEMIND_AUDIT_KEEP_SEGMENTS (unset = keep all).
+    audit_max_bytes: int = 16 * 1024 * 1024
+    audit_keep_segments: int | None = None
+    # ONEMIND_CATALOG_DIR: where `onemind catalog sync` keeps the signed Market catalog (None = the
+    # image's apps only).
+    catalog_dir: Path | None = None
+    # The optional machines layer (os/rootfs/layers/machines): pinned KubeVirt and CDI manifests.
+    machines_extension_dir: Path = Path("/usr/lib/onemind/extensions/machines")
+    # ONEMIND_MACHINES_ALLOW_TAG_IMAGES: let Turn on apply operators whose images are tags, not digests.
+    # Off by default until LT-MACH-2 records the digests; a lab switch, never set on a shipped box.
+    machines_allow_tag_images: bool = False
     # Per-feature sections (sections.py), keyed by section name. Read them with section().
     sections: dict[str, Any] = field(default_factory=dict, compare=False, repr=False)
 
@@ -149,6 +173,11 @@ class Settings:
             public_url=public_url,
             agent_url=agent_url,
             allow_unscanned=allow in ("1", "true", "yes"),
+            audit_max_bytes=_env_int(env, "ONEMIND_AUDIT_MAX_BYTES", 0),
+            audit_keep_segments=_env_int(env, "ONEMIND_AUDIT_KEEP_SEGMENTS", None),
+            catalog_dir=_opt_path(env.get("ONEMIND_CATALOG_DIR")),
+            machines_extension_dir=Path(env.get("ONEMIND_MACHINES_EXTENSION_DIR", "/usr/lib/onemind/extensions/machines")),
+            machines_allow_tag_images=env.get("ONEMIND_MACHINES_ALLOW_TAG_IMAGES", "").strip().lower() in ("1", "true", "yes"),
             sections=load_sections(env),
         )
         settings.check()

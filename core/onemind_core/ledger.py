@@ -14,11 +14,13 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Protocol
 
-from sqlalchemy import JSON, DateTime, Integer, String, create_engine, delete, select, update
+from sqlalchemy import JSON, DateTime, Integer, String, create_engine, delete, event, select, update
 from sqlalchemy.engine import Engine, make_url
 from sqlalchemy.dialects import postgresql, sqlite
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
+
+from .approvalcard import approval_card
 
 # requested -> awaiting_approval -> accepted -> dispatched -> succeeded | failed | outcome_unknown
 # awaiting_approval -> expired | cancelled (contract section 3). A stale precondition at approval
@@ -73,6 +75,10 @@ class Action:
     risk: str | None = None
     approved_by: str | None = None
 
+    def approval_card(self) -> dict:
+        card = self.plan.get("approval") if isinstance(self.plan, dict) else None
+        return card if isinstance(card, dict) else approval_card(self.risk, False)
+
     def to_json(self) -> dict:
         return {
             "id": self.id,
@@ -93,6 +99,9 @@ class Action:
             "plan": self.plan,
             "plan_sha256": self.plan_sha256,
             "progress": self.progress,
+            # #723: every action carries its approval card. A physical one is in the plan (hashed into
+            # plan_sha256); any other is derived from the risk: hold for "destructive" (cannot be undone).
+            "approval": self.approval_card(),
         }
 
 
@@ -221,13 +230,35 @@ def _to_action(r: ActionRow) -> Action:
     )
 
 
+def _sqlite_durability(dbapi_conn, _record) -> None:
+    """WAL journal with synchronous=FULL for the gateway database file.
+
+    Default SQLite (rollback journal) syncs the disk several times per commit and blocks readers
+    while a write commits. WAL commits append to one log (one fsync per commit with FULL) and
+    readers never wait for a writer. We deliberately keep FULL, not NORMAL: this engine is shared
+    with every feature table (app.py), including security state that is not rebuilt from the audit
+    log, such as agent token revocations, fabric ticket used/revoked flags and identity session
+    and token revocations. With NORMAL a power cut could roll a committed revocation or
+    single-use marker back, so a revoked token would work again or a used ticket could be
+    replayed. With FULL every acknowledged commit survives power loss.
+    """
+    cur = dbapi_conn.cursor()
+    cur.execute("PRAGMA journal_mode=WAL")
+    cur.execute("PRAGMA synchronous=FULL")
+    cur.execute("PRAGMA busy_timeout=5000")
+    cur.close()
+
+
 def make_engine(db_url: str) -> Engine:
     url = make_url(db_url)
     if url.get_backend_name() == "sqlite":
         db = url.database
         if db and db != ":memory:":
             Path(db).parent.mkdir(parents=True, exist_ok=True)
-        return create_engine(db_url, connect_args={"check_same_thread": False})
+        engine = create_engine(db_url, connect_args={"check_same_thread": False})
+        if db and db != ":memory:":
+            event.listen(engine, "connect", _sqlite_durability)
+        return engine
     if url.get_backend_name() == "postgresql" and url.drivername == "postgresql":
         # Plain postgresql:// would pick psycopg2; we ship psycopg (v3).
         url = url.set(drivername="postgresql+psycopg")

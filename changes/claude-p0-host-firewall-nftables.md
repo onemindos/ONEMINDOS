@@ -1,0 +1,5 @@
+---
+pr: pending
+branch: claude/p0-host-firewall-nftables
+---
+Host firewall: the box now drops everything that arrives unless it is on the list. `onemind-firewall.service` loads `host.nft` (nftables, default-deny input) before the network comes up. From the LAN only: HTTPS 443 and 8443, Headscale join 8444, rescue console 7443, mDNS, STUN and the mesh port 41641. The k3s API 6443, kubelet 10250, flannel 8472 and NATS leaf 7422 answer on loopback, the mesh and the pod network only. The setup wizard (8080) is opened to the LAN by `onemind-setup.service` only while the box has no role, so a new box can still be set up. Cloud and DigitalOcean images ship `/etc/onemind/host.d/10-cloud.nft` (SSH 22, HTTPS 443 and 8443 from any address, mesh 41641/udp) and keep the wizard local. Tests: a namespace port scan (`test/net/host_firewall_scan.py`) and a new pre-registered QEMU test, `test/qemu/firewall.py` (CRITERIA-FIREWALL.md FW1-FW4), that scans the box from a second VM; CI's image workflow is its first run. Optional services add rules in `/etc/onemind/host.local.nft`.

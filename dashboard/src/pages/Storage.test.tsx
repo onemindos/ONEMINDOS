@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { openScreen } from '../test/helpers';
 import { MemoryRouter } from 'react-router';
 import { afterEach, expect, it, vi } from 'vitest';
 import { App } from '../App';
@@ -32,7 +33,7 @@ it('reaches real storage and SMART data without computing fictional free capacit
   expect(screen.getByText('temperature above warning limit')).toBeInTheDocument();
   expect(screen.queryByText(/45 bytes free/)).not.toBeInTheDocument();
   expect(fetch.mock.calls.every(([url]) => new URL(String(url)).pathname.startsWith('/v1/storage'))).toBe(true);
-  await userEvent.setup().click(screen.getAllByRole('link', { name: /Coming soon/ })[0]!);
+  await openScreen(userEvent.setup(), 'Activity');
   expect(screen.queryByRole('article', { name: 'Storage and disk health' })).not.toBeInTheDocument();
 });
 

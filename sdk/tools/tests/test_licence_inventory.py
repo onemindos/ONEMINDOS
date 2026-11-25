@@ -15,9 +15,9 @@ VALIDATOR = runpy.run_path(str(TOOLS / "validate-apps"))
 
 class LicenceInventoryTests(unittest.TestCase):
     def check_in_memory(self, text):
-        schema = json.loads(VALIDATOR["SCHEMA_PATH"].read_text(encoding="utf-8"))
-        checker = VALIDATOR["AppChecker"](
-            VALIDATOR["Draft202012Validator"](schema), "unused", "unused")
+        # PLAN-E6 (#175): the checker validates with the gateway's own Catalog, as CI does.
+        catalog = VALIDATOR["Catalog"](VALIDATOR["REPO_ROOT"] / "apps", VALIDATOR["SCHEMA_PATH"])
+        checker = VALIDATOR["AppChecker"](catalog, "unused", "unused")
         output = io.StringIO()
         with patch.object(Path, "is_file", return_value=True), \
                 patch.object(Path, "read_text", side_effect=text if isinstance(text, Exception) else None,
@@ -76,6 +76,14 @@ class LicenceInventoryTests(unittest.TestCase):
         self.assertIn("SPDX-derived", output)
         self.assertIn("not declared metadata.licenceClass", output)
         self.assertIn("not primary-source verification, scan pass, or preinstall permission", output)
+
+    def test_main_prints_the_declared_class_beside_the_computed_one(self):
+        docs = {"chromium": {"metadata": {"id": "chromium", "license": "BSD-3-Clause", "licenceClass": "unknown"}},
+                "plain": {"metadata": {"id": "plain", "license": "MIT"}}}
+        _, output = self.run_in_memory(documents=docs)
+        rows = [line for line in output.splitlines() if line.startswith("licence-class apps/")]
+        self.assertEqual(rows, ["licence-class apps/chromium/ declared_licence_class=unknown",
+                                "licence-class apps/plain/ declared_licence_class=unset"])
 
     def test_main_target_filter_and_repeat_are_stable(self):
         first = self.run_in_memory(("zeta",))

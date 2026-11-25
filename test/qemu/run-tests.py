@@ -7,7 +7,7 @@ Criteria: test/qemu/CRITERIA.md (pre-registered; never edited to make a result p
 Boots the board's test disk under QEMU with user-mode networking (restrict=on: no route out; one
 forwarded port to the guest's :8080 for the off-box check) and an i6300esb watchdog, drives the
 serial console, runs T1..T11 (+ TC1 on cloud boards), then TD1..TD3 (test/qemu/CRITERIA-DATAFAIL.md)
-when --upto is T5 or later.
+when --upto is T5 or later; with the same condition TN0..TN2 (CRITERIA-NAS.md, nasmount.py) right after T1.
 Power cut = SIGKILL of the QEMU process. Runs in the tools container (QEMU + firmware pinned):
 
   python3 -I run-tests.py --board x86_64-efi --fixtures DIR --log serial.log [--upto T5] [--results r.json]
@@ -18,8 +18,20 @@ import urllib.error, urllib.request
 _ff = importlib.util.spec_from_file_location("failfast", os.path.join(os.path.dirname(os.path.abspath(__file__)), "failfast.py"))
 failfast = importlib.util.module_from_spec(_ff)
 _ff.loader.exec_module(failfast)
+_nas = importlib.util.spec_from_file_location("nasmount", os.path.join(os.path.dirname(os.path.abspath(__file__)), "nasmount.py"))
+nasmount = importlib.util.module_from_spec(_nas)
+_nas.loader.exec_module(nasmount)
 
-ANSI = re.compile(rb"\x1b\[[0-9;?]*[A-Za-z]|\x1b[()][0-9A-B]|\r")
+ANSI = re.compile(rb"\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b\[[0-9;?]*[A-Za-z]|\x1b[()][0-9A-B]|\r")
+# Escape sequences that can sit in front of a command's first output line on the serial console.
+# Ubuntu 26.04's systemd (shell integration) emits an OSC 3008 context mark "ESC ] 3008;start=...;cwd=/root ESC \"
+# right before the output, which put "rauc v1.15.2" behind it and broke every "^name" match (#283).
+# Debian 13's systemd does not emit it, so the Debian leg is unchanged.
+ESC_SEQ = re.compile(r"\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b?\[\?[0-9;]*[A-Za-z]|\x1b\[[0-9;]*[A-Za-z]")
+
+
+def strip_escapes(text):
+    return ESC_SEQ.sub("", text)
 # The version stops at whitespace or ";": the fell-back line reads "version=2; slot B (v2) marked bad ...".
 GATE = r"HEALTH-GATE: \S+ RESULT (\S+) slot=(\w) version=([^\s;]+)([^\n]*)"
 ENV = "grub-editenv /boot/efi/EFI/BOOT/grubenv list"
@@ -45,7 +57,7 @@ BOARDS = {  # QEMU settings per board (CRITERIA.md §3 item 6)
 def envkv(out):
     # Compare only grubenv KEY=VALUE lines; escape fragments split across serial reads can leak
     # into captured text (lab rauc-1152 deviation 4).
-    out = re.sub(r"\x1b?\[\?[0-9;]*[A-Za-z]|\x1b\[[0-9;]*[A-Za-z]", "", out)
+    out = strip_escapes(out)
     return sorted(x.strip() for x in re.findall(r"^(?:ORDER=[AB ]+|[AB]_(?:OK|TRY)=\d+)[ \t]*$", out, re.M))
 
 
@@ -69,6 +81,8 @@ class VM:
         # Opt-in fail-fast (failfast.py): the boot harnesses set it; the T-battery must not (T6/T7 panic on purpose).
         self.failfast, self._watch = False, failfast.Watch()
         self.vars = None
+        self.fwd = FWD                  # host port forwarded to the guest :8080 (firewall.py runs two VMs)
+        self.extra_args = []            # more QEMU arguments, passed once (firewall.py/wizard.py: a socket link NIC; dataenc.py: a TPM)
         if self.cfg["vars"]:
             self.vars = os.path.join(workdir, "VARS.fd")
             shutil.copy(self.cfg["vars"], self.vars)
@@ -76,9 +90,10 @@ class VM:
     def start(self):
         c = self.cfg
         cmd = [c["qemu"], "-machine", c["machine"], "-accel", self.accel, "-cpu", self.cpu,
-               "-smp", "4", "-m", "3072", "-nodefaults", "-display", "none", "-vga", "none",
-               "-nic", f"user,model=virtio-net-pci,restrict=on,hostfwd=tcp:127.0.0.1:{FWD}-:8080",
+               "-smp", "4", "-m", os.environ.get("ONEMIND_QEMU_MEM", "3072"), "-nodefaults", "-display", "none", "-vga", "none",
+               "-nic", f"user,model=virtio-net-pci,restrict=on,hostfwd=tcp:127.0.0.1:{self.fwd}-:8080",
                "-device", "i6300esb", "-action", "watchdog=reset"]
+        cmd += self.extra_args
         if c["code"]:
             cmd += ["-drive", f"if=pflash,format=raw,readonly=on,file={c['code']}",
                     "-drive", f"if=pflash,format=raw,file={self.vars}"]
@@ -140,22 +155,29 @@ class VM:
         with self.lock:
             out = self.buf[start:m.start()]
         # Escape fragments split across serial reads survive ANSI stripping (lab deviation 4).
-        return int(m.group(1)), re.sub(r"\x1b?\[\?[0-9;]*[A-Za-z]|\x1b\[[0-9;]*[A-Za-z]", "", out)
+        return int(m.group(1)), strip_escapes(out)
 
-    def wait_gate(self, timeout=1800):
-        m = self.expect(GATE, timeout)
-        # The match can fire while the serial line is still arriving (the reader hands over whatever
-        # the pipe holds), which cut "verdict=environment-bad" short and made TD3 read verdict=None
-        # (#324). Wait for the line's newline, then re-read the whole line. The check itself is unchanged.
-        end = time.time() + 30
+    def expect_line(self, pattern, timeout, eol_timeout=30):
+        """expect(), but only once the matched serial line is complete (#324).
+
+        The reader hands over whatever the pipe holds, so a match can fire while its line is still
+        arriving and a trailing group such as decision=(\\S+) is cut short ('fell-back' read as 'f').
+        Wait for the newline after the match, then match the same pattern again from the same start."""
+        m = self.expect(pattern, timeout)
+        rx, end = re.compile(pattern), time.time() + eol_timeout
         while time.time() < end:
             with self.lock:
                 if "\n" in self.buf[m.end():]:
                     break
             time.sleep(0.05)
         with self.lock:
-            whole = re.compile(GATE).match(self.buf, m.start())
-        m = whole or m
+            whole = rx.match(self.buf, m.start())
+            if whole:
+                self.pos = max(self.pos, whole.end())
+        return whole or m
+
+    def wait_gate(self, timeout=1800):
+        m = self.expect_line(GATE, timeout)
         self.last_gate = m.group(0)
         return m.group(1), m.group(2), m.group(3)
 
@@ -254,7 +276,7 @@ def tag(out, name):
 
 def recovery_check(vm, full=True):
     """One recovery boot: the console line, then (full) the recovery state and reachability (§1)."""
-    m = vm.expect(RECOV, 600)
+    m = vm.expect_line(RECOV, 600)
     slot, ver, reason, decision = m.groups()
     vm.shell_ready()
     d = {"slot": slot, "version": ver, "reason": reason, "decision": decision}
@@ -407,6 +429,12 @@ def main():
         hostkeys = "/data/onemind/ssh/ssh_host_ed25519_key" in hk and "SLOTKEYS=0" in hk
         record("TC1", done and key and active and hostkeys,
                f"cloud_init_done={done} key_installed={key} sshd_active={active} hostkeys_on_data_only={hostkeys}")
+
+    if upto >= ORDER.index("T5"):   # NAS client step, TN0-TN2 (CRITERIA-NAS.md, #871)
+        try:
+            nasmount.run(vm, record, tag, a.board)
+        except (TimeoutError, RuntimeError, ValueError, OSError) as e:
+            record("TN", False, f"NAS client step aborted: {e}")
 
     if want("T2"):
         vm.mark("T2 wrong-key bundle")

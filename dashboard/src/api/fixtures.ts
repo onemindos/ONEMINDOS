@@ -4,7 +4,7 @@
 // stale and offline nodes stay stale and offline whenever the demo is opened.
 // No real host data: ids, hostnames and models are made up.
 
-import type { Action, CatalogApp, Instance, NodeHeartbeat, NodeRecord, Principal } from './types';
+import type { Action, AppHostPorts, CatalogApp, Instance, NodeHeartbeat, NodeRecord, Principal } from './types';
 
 export const DEMO_TOKENS: Record<string, Principal> = {
   'owner-demo': { id: 'owner', kind: 'person', role: 'owner' },
@@ -12,6 +12,7 @@ export const DEMO_TOKENS: Record<string, Principal> = {
   'agent-demo': { id: 'ops-agent', kind: 'agent', role: 'agent' },
   'guest-demo': { id: 'sam', kind: 'person', role: 'guest' },
   'child-demo': { id: 'kai', kind: 'person', role: 'child' },
+  'teen-demo': { id: 'tess', kind: 'person', role: 'teen' },
 };
 
 const iso = (now: number, secondsAgo: number) => new Date(now - secondsAgo * 1000).toISOString();
@@ -142,7 +143,6 @@ const gh = (repo: string) => ({
  */
 export function makeApps(now: number = Date.now()): CatalogApp[] {
   const base = {
-    icon: 'icon.svg',
     archs: ['amd64', 'arm64'],
     installed: false,
     status: 'not_installed',
@@ -151,6 +151,7 @@ export function makeApps(now: number = Date.now()): CatalogApp[] {
     {
       ...base,
       id: 'uptime-kuma',
+      icon: '/mock-icons/uptime-kuma.svg', // demo drawing (public/mock-icons); real hubs carry the manifest's own icon
       name: 'Uptime Kuma',
       version: '2.0.2',
       description: 'Self-hosted uptime monitoring',
@@ -168,6 +169,7 @@ export function makeApps(now: number = Date.now()): CatalogApp[] {
     {
       ...base,
       id: 'jellyfin',
+      icon: '/mock-icons/jellyfin.svg', // demo drawing (public/mock-icons); real hubs carry the manifest's own icon
       name: 'Jellyfin',
       version: '10.10.7',
       description: 'Stream your own films, shows and music',
@@ -182,7 +184,40 @@ export function makeApps(now: number = Date.now()): CatalogApp[] {
     },
     {
       ...base,
+      id: 'firefox',
+      icon: '/mock-icons/firefox.svg', // demo drawing (public/mock-icons); real hubs carry the manifest's own icon
+      name: 'Firefox',
+      version: '3.2.0',
+      description: 'Firefox in a window you open from the dashboard, streamed from your box with Neko. One profile that stays on the box.',
+      category: 'developer',
+      license: 'Apache-2.0',
+      source: 'https://github.com/m1k1o/neko',
+      requires: { gpu: false, minMemoryMb: 1024 },
+      web_port: 8080,
+      links: { docs: 'https://neko.m1k1o.net/', website: 'https://www.mozilla.org/firefox/', ...gh('m1k1o/neko') },
+      tier: 'verified', // demo state after the gate passes; the Discover page hides community-tier apps by default,
+      scan: { scanned_at: iso(now, 86400), result: 'pass' },
+    },
+    {
+      ...base,
+      id: 'chromium',
+      icon: '/mock-icons/chromium.svg', // demo drawing (public/mock-icons); real hubs carry the manifest's own icon
+      name: 'Chromium',
+      version: '3.2.0',
+      description: 'Chromium in a window you open from the dashboard, streamed from your box with Neko. One profile that stays on the box.',
+      category: 'developer',
+      license: 'Apache-2.0',
+      source: 'https://github.com/m1k1o/neko',
+      requires: { gpu: false, minMemoryMb: 1024 },
+      web_port: 8080,
+      links: { docs: 'https://neko.m1k1o.net/', website: 'https://www.chromium.org/', ...gh('m1k1o/neko') },
+      tier: 'verified', // demo state after the gate passes; the Discover page hides community-tier apps by default,
+      scan: { scanned_at: iso(now, 86400), result: 'pass' },
+    },
+    {
+      ...base,
       id: 'ollama',
+      icon: '/mock-icons/ollama.svg', // demo drawing (public/mock-icons); real hubs carry the manifest's own icon
       name: 'Ollama',
       version: '0.6.5',
       description: 'Run local AI language models on your own hardware',
@@ -198,6 +233,7 @@ export function makeApps(now: number = Date.now()): CatalogApp[] {
     {
       ...base,
       id: 'node-red',
+      icon: '/mock-icons/node-red.svg', // demo drawing (public/mock-icons); real hubs carry the manifest's own icon
       name: 'Node-RED',
       version: '4.1.2',
       description: 'Wire devices and services together with flows',
@@ -213,6 +249,7 @@ export function makeApps(now: number = Date.now()): CatalogApp[] {
     {
       ...base,
       id: 'mosquitto',
+      icon: '/mock-icons/mosquitto.svg', // demo drawing (public/mock-icons); real hubs carry the manifest's own icon
       name: 'Mosquitto',
       version: '2.0.22',
       description: 'Lightweight MQTT message broker',
@@ -228,6 +265,7 @@ export function makeApps(now: number = Date.now()): CatalogApp[] {
     {
       ...base,
       id: 'zigbee2mqtt',
+      icon: '/mock-icons/zigbee2mqtt.svg', // demo drawing (public/mock-icons); real hubs carry the manifest's own icon
       name: 'Zigbee2MQTT',
       version: '2.6.1',
       description: 'Use Zigbee devices without the vendor hub',
@@ -244,6 +282,7 @@ export function makeApps(now: number = Date.now()): CatalogApp[] {
     {
       ...base,
       id: 'home-assistant',
+      icon: '/mock-icons/home-assistant.svg', // demo drawing (public/mock-icons); real hubs carry the manifest's own icon
       name: 'Home Assistant',
       version: '2026.11.1',
       description: 'Open-source home automation that puts local control first',
@@ -259,6 +298,7 @@ export function makeApps(now: number = Date.now()): CatalogApp[] {
     {
       ...base,
       id: 'vaultwarden',
+      icon: '/mock-icons/vaultwarden.svg', // demo drawing (public/mock-icons); real hubs carry the manifest's own icon
       name: 'Vaultwarden',
       version: '1.34.3',
       description: 'Password manager server compatible with Bitwarden apps',
@@ -274,6 +314,7 @@ export function makeApps(now: number = Date.now()): CatalogApp[] {
     {
       ...base,
       id: 'ntfy',
+      icon: '/mock-icons/ntfy.svg', // demo drawing (public/mock-icons); real hubs carry the manifest's own icon
       name: 'ntfy',
       version: '2.14.0',
       description: 'Send push notifications to your phone from scripts and apps',
@@ -289,6 +330,7 @@ export function makeApps(now: number = Date.now()): CatalogApp[] {
     {
       ...base,
       id: 'actual-budget',
+      icon: '/mock-icons/actual-budget.svg', // demo drawing (public/mock-icons); real hubs carry the manifest's own icon
       name: 'Actual Budget',
       version: '25.11.0',
       description: 'Local-first personal finance and envelope budgeting',
@@ -303,6 +345,18 @@ export function makeApps(now: number = Date.now()): CatalogApp[] {
     },
   ];
 }
+
+/**
+ * Demo app-store depth (§12.22): which catalog apps need another app, and which host ports an app
+ * binds. Zigbee2MQTT needs an MQTT broker (Mosquitto, or EMQX, which this catalog does not carry);
+ * Mosquitto binds 1883/TCP on the hub. Every other demo app binds nothing and needs nothing.
+ */
+export const DEMO_REQUIRES: Record<string, Array<{ id: string; alternatives: string[]; reason: string; port: number | null }>> = {
+  zigbee2mqtt: [{ id: 'mosquitto', alternatives: ['emqx'], reason: 'MQTT broker', port: 1883 }],
+};
+export const DEMO_HOST_PORTS: Record<string, AppHostPorts['declared']> = {
+  mosquitto: [{ port: 1883, protocol: 'TCP', description: 'MQTT clients' }],
+};
 
 export function makeActions(now: number): Action[] {
   return [

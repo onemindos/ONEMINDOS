@@ -1,0 +1,64 @@
+# SPDX-License-Identifier: Apache-2.0
+# File sharing (FILES-SHARE-01, #235, D-017; docs/leap/core/FILE-SHARING.md): Samba, SMB2 and newer only, per-person
+# accounts, for the shares an owner approved. Off by default twice over: the Debian smbd, nmbd and winbind units are
+# masked in the image, and this unit starts only while /data/onemind/samba/smb.conf exists. `onemindd host serve`
+# writes that file from the gateway's approved list and removes it when the last share is gone (internal/smb), then
+# starts, reloads or stops this unit. Nothing else edits it. No outbound traffic: the kernel only lets this unit
+# talk to LAN, link-local, mesh (CGNAT) and loopback addresses (IPAddressAllow; smb.conf repeats it in hosts allow).
+# Host firewall (host.nft): 445/tcp is open from the LAN ranges only while this unit runs (the "samba" chain).
+[Unit]
+Description=OneMind file sharing (Samba, SMB2+ only, approved shares)
+Documentation=https://github.com/onemindos/ONEMINDOS/blob/main/docs/leap/core/FILE-SHARING.md
+After=network-online.target onemind-firstboot.service onemind-firewall.service
+# A firewall restart reloads host.nft and empties the samba chain: restart with it so the 445 rule comes back.
+PartOf=onemind-firewall.service
+Wants=network-online.target
+RequiresMountsFor=/data
+ConditionPathExists=/data/onemind/samba/smb.conf
+
+[Service]
+Type=notify
+RuntimeDirectory=onemind-smb
+# Open 445/tcp to the LAN (host.nft "samba" chain, reached from LAN source addresses only) while smbd runs; closed
+# again when it stops. "+" runs nft outside the sandbox below (it needs CAP_NET_ADMIN and netlink, which smbd never
+# gets); "-" keeps a box without the firewall table able to share files.
+ExecStartPre=-+/usr/sbin/nft flush chain inet onemind_host samba
+ExecStartPre=-+/usr/sbin/nft add rule inet onemind_host samba tcp dport 445 accept
+ExecStart=/usr/sbin/smbd --foreground --no-process-group --configfile=/data/onemind/samba/smb.conf
+ExecReload=/bin/kill -HUP $MAINPID
+ExecStopPost=-+/usr/sbin/nft flush chain inet onemind_host samba
+Restart=on-failure
+RestartSec=5s
+LimitNOFILE=16384
+
+# --- identity / privileges: root, because smbd switches to the Unix user of each connection (force user) ---
+User=root
+NoNewPrivileges=yes
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE CAP_SETUID CAP_SETGID CAP_CHOWN CAP_FOWNER CAP_DAC_OVERRIDE CAP_SYS_RESOURCE CAP_SYS_CHROOT
+AmbientCapabilities=
+
+# --- filesystem: read-only except Samba's own state and the Files tree it serves ---
+ProtectSystem=strict
+ReadWritePaths=/data/onemind/samba /data/onemind/files
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+LockPersonality=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+SystemCallArchitectures=native
+
+# --- network: only LAN, link-local, mesh and loopback peers, in both directions ---
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+IPAddressDeny=any
+IPAddressAllow=127.0.0.0/8 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 169.254.0.0/16 100.64.0.0/10 ::1 fe80::/10 fc00::/7
+
+[Install]
+WantedBy=multi-user.target

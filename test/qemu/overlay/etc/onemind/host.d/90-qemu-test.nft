@@ -1,0 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
+# QEMU test overlay only (never in a shipped image): user-mode networking delivers the harness's forwarded
+# ports (SSH 22, plain HTTP 8080) from the slirp gateway 10.0.2.2, which the LAN rules do not allow.
+add rule inet onemind_host input ip saddr 10.0.2.2 tcp dport { 22, 8080 } accept

@@ -28,6 +28,13 @@ BASE_SCOPES = frozenset({
     "automation:read", "automation:request", "automation:write",
     "audit:read", "audit:admin", "users:read", "users:admin",
     "tokens:self", "tokens:read", "tokens:admin", "events:read", "deploy:write",
+    "files:share",  # FILES-02 (#237): publish household files through an expiring share link
+    "events:write",  # only as events:write:own, minted for an approved bridge block (#610)
+    "assets:read",  # #606: asset values on GET /v1/events (owner and adult by default)
+    # #615 data commons: a token's ceiling on its data grants. Neither opens any data by itself (an owner
+    # approves each grant); a token without them reads `public` only and never writes (datagrants/).
+    "data:read", "data:write",
+    "work:read", "work:write",
 })
 
 # Narrowing suffixes the contract names; anything else after a base scope is refused.
@@ -38,24 +45,33 @@ _SUFFIX = {
     "audit:read": re.compile(r"own|all"),
     "actions:withdraw": re.compile(r"own"),
     "events:read": re.compile(r"[a-z0-9_.*]{1,100}"),
+    "events:write": re.compile(r"own"),
 }
 
 # Never minted for agent, plugin, automation or node (§12.6).
-_PERSON_ONLY = {"actions:approve", "tokens:admin", "tokens:self", "tokens:read", "notifications:read",
-                "notifications:write"}
+_PERSON_ONLY = {"actions:approve", "tokens:admin", "tokens:self", "tokens:read", "notifications:read", "files:share",
+                "notifications:write", "work:write"}
 _KIND_ONLY = {"nodes:report": {"node"}, "notifications:send": {"plugin", "agent", "automation"},
-              "automation:request": {"agent", "plugin", "person"}}
+              "events:write": {"plugin"},
+              "automation:request": {"agent", "plugin", "person"}, "work:read": {"person", "agent"}}
 
 READ_SCOPES = frozenset(s for s in BASE_SCOPES if s.endswith(":read"))
 
 ROLE_SCOPES: dict[str, frozenset[str]] = {
     "owner": frozenset({ALL}),
     "adult": frozenset((READ_SCOPES - {"users:read"}) | {
-        "logs:read", "notifications:write", "tokens:self", "actions:request",
+        "logs:read", "notifications:write", "tokens:self", "actions:request", "files:share", "data:write", "work:write",
     }),
+    # Every household role carries the data ceiling so a grant the owner approved for that person works
+    # in their own session; with no grant they still see `public` only (datagrants/ access()).
     "guest": frozenset({"instance:read", "nodes:read", "apps:read", "notifications:read",
-                        "notifications:write", "alerts:read"}),
-    "child": frozenset({"instance:read", "apps:read", "notifications:read", "alerts:read"}),
+                        "notifications:write", "alerts:read", "data:read", "data:write"}),
+    "child": frozenset({"instance:read", "apps:read", "notifications:read", "alerts:read",
+                        "data:read", "data:write", "work:read", "work:write"}),
+    # FAM-01 Teen: signs in on their own with the same API scopes as a child. No approval, admin,
+    # users, nodes, tokens or logs scope; what a teen may open is narrowed by family controls only.
+    "teen": frozenset({"instance:read", "apps:read", "notifications:read", "alerts:read",
+                       "data:read", "data:write", "work:read", "work:write"}),
 }
 
 BUNDLES = {
@@ -140,6 +156,7 @@ _R = register_route_scope
 _R("GET,HEAD", r"/v1/instance", ("instance:read",))
 _R("GET,HEAD", r"/v1/me", ("instance:read",))
 _R("GET,HEAD,POST,DELETE,PATCH,PUT", r"/v1/auth/.*", None)  # self-service; handlers check the person
+_R("PATCH", r"/v1/me", None)  # own display name; the handler checks the caller is a person
 _R("GET,HEAD", r"/v1/nodes(/.*)?", ("nodes:read",))
 _R("GET,HEAD", r"/v1/apps/[^/]+/access", ("apps:read",))
 _R("PUT", r"/v1/apps/[^/]+/access", ("users:admin",))
@@ -150,9 +167,10 @@ _R("POST", r"/v1/actions/[^/]+/(approve|deny|approve-options)", ("actions:approv
 _R("POST", r"/v1/plans", ("actions:request",))  # a plan preview files nothing (contract §12.4)
 # An app's generated login: owner only (PD-07). The handler also checks, this keeps scoped tokens out.
 _R("GET,HEAD", r"/v1/apps/[^/]+/credentials", ("actions:approve",))
-# /mcp's request_action is not scope-aware yet (DEV-MCP-2), so an identity-issued agent needs
-# actions:request to use it at all; a reader-grant agent is refused rather than over-granted.
-_R("POST,GET,DELETE", r"/mcp", ("actions:request",))
+# An identity-issued Work reader reaches only Work tools and instance discovery through /mcp.
+# The MCP door passes that explicit scope ceiling to the catalogue before dispatch.
+_R("POST", r"/mcp", ("actions:request", "work:read"))
+_R("GET,DELETE", r"/mcp", ("actions:request",))
 _R("GET,HEAD", r"/v1/users", ("users:read",))
 _R("POST,PATCH", r"/v1/users(/.*)?", ("users:admin",))
 _R("GET,HEAD", r"/v1/tokens", ("tokens:read", "tokens:self", "tokens:admin"))

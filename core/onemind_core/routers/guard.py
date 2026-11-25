@@ -14,7 +14,7 @@ from ..guard import GuardMiddleware, LimitSettings
 
 
 # Route order in the app and in /openapi.json (routers/__init__.py).
-ORDER = 0  # first: limits and security headers wrap every later route
+ORDER = 0  # first route group; only the protocol gate (-1) comes before, so guard also wraps its refusals
 
 
 def register(app: FastAPI, gw: Gateway) -> None:
@@ -33,4 +33,4 @@ def register(app: FastAPI, gw: Gateway) -> None:
             {"source": source, "backoff_s": limits.auth_backoff_s, "failures_per_min": limits.auth_failures_per_min},
         )
 
-    app.add_middleware(GuardMiddleware, limits=limits, on_backoff=on_backoff)
+    app.add_middleware(GuardMiddleware, limits=limits, on_backoff=on_backoff, routes=lambda: app.router.routes)

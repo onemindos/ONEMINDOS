@@ -36,9 +36,9 @@
       "dark": {
         "accent": "#fb605a",
         "hover": "#fd8b82",
-        "text": "#0c1214",
-        "soft": "#3d2728",
-        "ratio": 4.56
+        "text": "#151311",
+        "soft": "#422421",
+        "ratio": 4.6
       }
     },
     "site": {

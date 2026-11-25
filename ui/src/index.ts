@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // @onemind/ui public API. Import the styles once: `import '@onemind/ui/ui.css'`.
 import './styles/index.css';
+// The jobs tray pill is drawn by the dashboard shell (ActionJobs) with these classes, on every screen. Imported here, not
+// from ./store (a .ts barrel the bundler drops when nothing in it is used), so it does not depend on which screen loaded.
+import './store/store.css';
 import { toJson } from './tokens/tokens';
 
 export { palette, light, dark, scale, shadow, TONES, toCss } from './tokens/tokens';
@@ -30,7 +33,9 @@ export { Meter } from './components/Meter';
 export type { MeterProps } from './components/Meter';
 export { NodeCard } from './components/NodeCard';
 export type { NodeSummary } from './components/NodeCard';
-export { StatusPill, FreshnessPill } from './components/StatusPill';
+export { StatusPill, FreshnessPill, FRESHNESS_GLYPH, TONE_WORD } from './components/StatusPill';
+export { StatusGlyph } from './components/StatusGlyph';
+export type { GlyphKind, StatusGlyphProps } from './components/StatusGlyph';
 export type { StatusPillProps } from './components/StatusPill';
 export { Table } from './components/Table';
 export type { Column, TableProps } from './components/Table';
@@ -55,3 +60,8 @@ export * from './network';
 export * from './store';
 export * from './shell';
 export * from './secrets';
+
+export { SeriesCard } from './cards/SeriesCard';
+export type { SeriesCardData, SeriesReading } from './cards/SeriesCard';
+export { isSeriesNodeId, parseSeriesCard, SERIES_INTERVAL_S, SERIES_METRICS, SERIES_POINTS } from './cards/seriesDocument';
+export type { SeriesCardDocument, SeriesMetric } from './cards/seriesDocument';

@@ -1,0 +1,33 @@
+{
+  "$comment": "SPDX-License-Identifier: Apache-2.0. The Messages action specs (issue #855). The module registers each as a FeatureAction (core/onemind_core/actions.py) with these fields (#854, #857, #858); sdk/tools/tests/test_messages_contract.py keeps them in line with the rules below and with onemind.app.yaml.",
+  "schema": "onemind.messages.actions/v1",
+  "rules": [
+    "An advert is a send. Nothing reaches a radio unless a person approved that exact send: no automation requests it, no policy or standing approval approves it.",
+    "Agents may only file message.send, radio.advert and radio.grant; they never change radio settings and never confirm the region.",
+    "None is physical (#723): a radio message moves nothing in the world."
+  ],
+  "actions": [
+    {"type": "message.send", "title": "Send a radio message", "risk": "write", "requesters": ["person", "agent"], "owner_only": false,
+     "physical": false, "policy_approval": false, "transmits": true, "mcp": true, "job": "lora.send",
+     "params": {"type": "object", "additionalProperties": false, "required": ["radio_id", "kind", "text", "max_attempts"],
+                "properties": {"radio_id": {"type": "string", "pattern": "^rad_[A-Za-z0-9]{8,64}$"}, "kind": {"enum": ["direct", "channel"]},
+                               "to": {"type": "string", "minLength": 1, "maxLength": 64}, "channel_index": {"type": "integer", "minimum": 0, "maximum": 39},
+                               "text": {"type": "string", "minLength": 1, "maxLength": 160}, "max_attempts": {"type": "integer", "minimum": 1, "maximum": 3}}}},
+    {"type": "radio.advert", "title": "Announce this radio (zero-hop)", "risk": "write", "requesters": ["person", "agent"], "owner_only": false,
+     "physical": false, "policy_approval": false, "transmits": true, "mcp": false, "job": "lora.advert",
+     "params": {"type": "object", "additionalProperties": false, "required": ["radio_id"],
+                "properties": {"radio_id": {"type": "string", "pattern": "^rad_[A-Za-z0-9]{8,64}$"}}}},
+    {"type": "radio.grant", "title": "Give a radio to Messages", "risk": "sensitive", "requesters": ["person", "agent"], "owner_only": false,
+     "physical": false, "policy_approval": false, "transmits": false, "mcp": false, "job": null,
+     "params": {"type": "object", "additionalProperties": false, "required": ["radio_id", "holder"],
+                "properties": {"radio_id": {"type": "string", "pattern": "^rad_[A-Za-z0-9]{8,64}$"}, "holder": {"const": "builtin:messages", "description": "An app holder is refused until 1.1"}}}},
+    {"type": "radio.revoke", "title": "Take a radio back", "risk": "write", "requesters": ["person"], "owner_only": true,
+     "physical": false, "policy_approval": false, "transmits": false, "mcp": false, "job": null,
+     "params": {"type": "object", "additionalProperties": false, "required": ["radio_id"],
+                "properties": {"radio_id": {"type": "string", "pattern": "^rad_[A-Za-z0-9]{8,64}$"}}}},
+    {"type": "radio.region.confirm", "title": "Confirm the radio's region", "risk": "sensitive", "requesters": ["person"], "owner_only": true,
+     "physical": false, "policy_approval": false, "transmits": false, "mcp": false, "job": null,
+     "params": {"type": "object", "additionalProperties": false, "required": ["radio_id", "region"],
+                "properties": {"radio_id": {"type": "string", "pattern": "^rad_[A-Za-z0-9]{8,64}$"}, "region": {"const": "US", "description": "US only in 1.0 (902-928 MHz)"}}}}
+  ]
+}

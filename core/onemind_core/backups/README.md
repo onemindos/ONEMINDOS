@@ -29,6 +29,8 @@ owner / agent ──REST──▶ gateway ── kubectl exec (hooks, pg_dump, p
 | `GET /v1/backups/snapshots?app_id&unit`, `/snapshots/{id}` | read | restore points, with `verified_at` |
 | `GET /v1/backups/snapshots/{id}/tree?path=`, `/file?path=` | owner | Rewind: browse a snapshot, download one file |
 | `POST /v1/backups/verify` | owner, agent | `{mode: scratch_restore\|check, latest, units?}` → `202` `backup.verify` |
+| `GET /v1/backups/content` | read | apps whose manifest marks re-downloadable content (`spec.backup.content`: ZIMs, maps, models) with the content tier on or off and its size now, measured by the agent |
+| `POST /v1/backups/content` | owner | `{app_id, enabled, seen_size_bytes?}` → `202` `backup.content.set`; on needs the size the owner saw (BAK-03) |
 | `GET /v1/backups/verifications` | read | `{unit, snapshot_id, mode, result: pass\|fail\|error, probes}` |
 | `POST /v1/restores` | owner | `{snapshot_id, scope: {app_id} \| {app_id, path}}` → `202` `backup.restore` plus `restore.plan` |
 | `GET /v1/restores`, `/restores/{id}` | read | state, plan, steps, `pre_restore_snapshot_id`, `health_gate` |
@@ -38,6 +40,18 @@ owner / agent ──REST──▶ gateway ── kubectl exec (hooks, pg_dump, p
 | `GET /v1/databases` | owner, adult | apps' databases on the shared PostgreSQL (no passwords) |
 
 Every request accepts `reason`, `expires_at` (≤ 7 days, default 24 h), the `Idempotency-Key` header and the owner shortcut `"approve": true` (§12.1). Errors: §3 codes, plus `503 unavailable` with `reason: backups_disabled | target_unreachable` (§12.2).
+
+## The content tier (BAK-03)
+
+> **In plain words.** Some apps hold big files they can fetch again by themselves: Kiwix's offline Wikipedia (ZIM files), offline map archives, Ollama's models. Copying them every hour would fill the backup disk, so by default they are left out and only the app's own settings and lists are saved. If you would rather have a restore bring the whole offline library back (say you have no internet where the box lives), switch the content tier on for that app. Before you can, the box shows how big it is, and the request must carry the size you were shown.
+
+The manifest marks the files with `spec.backup.content` patterns. Until the owner approves `backup.content.set` for the app, they are added to the app's excludes; each app snapshot is tagged `content=included|excluded`, and a restore plan says which (with a warning when the content is not in the snapshot: the app downloads it again). A restore from a snapshot without the content leaves the content out of the restored volume; carrying the current files over into the restored volume is a follow-up.
+
+## Built-in units (`units.py`, #616)
+
+> **In plain words.** The built-in apps (Photos, Approvals, Files and the rest) keep their data in the gateway's own database and in folders the gateway's settings name. Each one lists those tables and folders in its descriptor (`spec.backup.units`). The whole database is already copied in the agent's `system` unit, which is right for putting the same box back. On a new box the gateway may already have written its own first rows, so the export writes each built-in's rows as checked JSON lines (and copies its folders), and the restore puts them back in one transaction, or refuses and writes nothing.
+
+`GET /v1/backups/status` lists the set as `builtin_units` (folders as set or not, never host paths). Each unit names the agent unit that carries it (`snapshot_unit`: `system` for the gateway database) and `in_snapshot`, true only when that agent unit has a successful snapshot. Without `ONEMIND_BACKUPS_EXPORT_DIR` every built-in shows `snapshot_unit: null, in_snapshot: false`: its rows are only in the whole-database copy and its folders are in no snapshot. On the image, onemind-firstboot sets it to `/data/onemind/gateway/backup-export` and adds that folder and the files root to the agent's `system` paths (`ONEMIND_BACKUPS_AGENT_DIRS=ONEMIND_FILES_ROOT`). Before each box run the gateway writes the tables-only export there as `builtin-units.tar` (a failure fails every `builtin:<id>` unit of the run; the agent still runs). A built-in is `in_snapshot` once the newest run whose `system` unit succeeded wrote the export first and every folder it has set is one the agent copies (each folder says `carried`). The agent runs as root without the right to change user, so the gateway writes the export itself rather than through an agent command hook; a box run reports a built-in whose declared table is missing as a failed `builtin:<id>` unit. On the box: `python -m onemind_core.backups.units list | export DIR | export --tar - | restore DIR|FILE [--replace]`. The restore refuses undeclared tables or folders, a changed file, another schema version, tables that hold rows (unless `--replace`) and folders with files in them.
 
 ## The emergency kit cannot be skipped
 

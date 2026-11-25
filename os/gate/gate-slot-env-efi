@@ -1,0 +1,27 @@
+# SPDX-License-Identifier: Apache-2.0
+# shellcheck shell=bash disable=SC2034
+# Sourced by /usr/lib/onemind/onemind-health-gate on a Secure Boot (efi route) box, installed as
+# /usr/lib/onemind/gate-slot-env by os/assemble/assemble.py tree --boot efi (S-13, #148). RAUC's efi backend keeps the
+# slot state in firmware variables instead of grubenv (rauc v1.15.2 src/bootloaders/efi.c):
+#   <slot>_OK=1   the slot's boot entry (label = bootname A or B) is in BootOrder, which is what RAUC calls good
+#   <slot>_TRY=1  BootNext points at it: the trial boot `rauc install` set and the firmware has not used yet
+# The firmware clears BootNext when it uses it, so a new slot gets exactly one trial boot. A crash, hang (watchdog)
+# or power cut in that boot lands in BootOrder's first entry, the committed slot, where the gate's fell-back mode
+# marks the trial bad. The gate's trial logic (pending marker, mark-good, mark-bad + reboot) is unchanged.
+efivar() { efibootmgr 2>/dev/null | sed -n "s/^$1: //p"; }
+efinum() {
+  efibootmgr 2>/dev/null | awk -v l="$1" '/^Boot[0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][* ] / {
+    r = substr($0, 11); sub(/\t.*$/, "", r); if (r == l) { print substr($0, 5, 4); exit } }'
+}
+envget() {
+  local n; n=$(efinum "${1%_*}")
+  case $1 in
+    *_OK) [ -n "$n" ] && efivar BootOrder | tr ',' '\n' | grep -qixF "$n" && echo 1 || echo 0 ;;
+    *_TRY) [ -n "$n" ] && [ "$(efivar BootNext)" = "$n" ] && echo 1 || echo 0 ;;
+    *) echo n/a ;;
+  esac
+}
+envdump() {
+  echo "BootCurrent=$(efivar BootCurrent) BootNext=$(efivar BootNext) BootOrder=$(efivar BootOrder) A=$(efinum A) B=$(efinum B)"
+}
+GATE_FELLBACK_WHY="install interrupted, gate rejected it, or its one trial boot (BootNext) ended without a decision (crash, hang, watchdog, power cut, or the firmware refused its UKI)"

@@ -4,7 +4,7 @@
 # mounted read-only (no "rw" on the kernel command line). The autoboot partition (autoboot.txt,
 # slot markers, onemind.conf) is mounted at /boot/efi like every board's FAT partition.
 PARTUUID=4f4d5035-01  /boot/efi  vfat  umask=0077                          0 1
-PARTUUID=4f4d5035-07  /data      ext4  defaults,nofail,x-systemd.device-timeout=30s  0 2
+PARTUUID=4f4d5035-07  /data      ext4  defaults,noatime,nofail,x-systemd.device-timeout=30s  0 2
 # Writable state lives on onemind-data and is bind-mounted over the read-only root.
 # "nofail" on /data and every bind from it: a dead data disk must not fail local-fs.target (that
 # means emergency mode: no network, no page). onemind-data-check.service restores the ordering and
@@ -24,4 +24,6 @@ PARTUUID=4f4d5035-07  /data      ext4  defaults,nofail,x-systemd.device-timeout=
 /data/state/var-lib-tailscale         /var/lib/tailscale            none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0
 /data/state/var-lib-onemind-headscale /var/lib/onemind-headscale    none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0
 /data/state/var-lib-onemind-nats-leaf /var/lib/onemind-nats-leaf    none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0
+# The hub's JetStream store (app event streams), on the data disk so it survives A/B updates.
+/data/state/var-lib-onemind-nats      /var/lib/onemind-nats         none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0
 /data/state/etc-hosts                 /etc/hosts                    none bind,nofail,x-systemd.requires=onemind-data-layout.service 0 0

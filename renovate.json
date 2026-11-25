@@ -15,6 +15,12 @@
   "prConcurrentLimit": 10,
   "packageRules": [
     {
+      "description": "Images OneMind builds itself (sdk/tools/app-factory, .github/workflows/app-factory.yml) are updated only by that workflow, which rebuilds, scans and reviews them; Renovate must not touch their pins.",
+      "matchManagers": ["kubernetes"],
+      "matchPackageNames": ["ghcr.io/onemindos/apps/**"],
+      "enabled": false
+    },
+    {
       "description": "Every app image: one PR per image and update type (the default branch name carries the image), so the gate runs per app.",
       "matchManagers": ["kubernetes"],
       "matchFileNames": ["apps/**"],

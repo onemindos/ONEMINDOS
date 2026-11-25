@@ -31,7 +31,7 @@ from onemind_core.photos import PhotosSettings
 
 # Columns of the matrix, in the order the report shows them.
 KINDS = (
-    "none", "owner", "adult", "guest", "child", "agent", "app-agent", "plugin", "automation", "node",
+    "none", "owner", "adult", "guest", "child", "teen", "agent", "app-agent", "plugin", "automation", "node",
     "expired", "revoked", "revoked-agent",
 )
 
@@ -42,6 +42,7 @@ DESCRIBE = {
     "adult": "person, role adult (static tokens file)",
     "guest": "person, role guest (static tokens file)",
     "child": "household person, role child (contract §12.6)",
+    "teen": "household person, role teen (FAM-01, #204): child scopes, never approves",
     "agent": "agent principal from the static tokens file (§3)",
     "app-agent": "agent principal issued to an app at install (§11.2)",
     "plugin": "plugin principal plugin:<app-id> (§12.1)",
@@ -55,6 +56,7 @@ DESCRIBE = {
 # Kinds that cannot exist on a tree without their stream. The skip reason names the stream.
 PENDING_KINDS = {
     "child": "role child is created through household accounts: feat/identity (PR #41, CORE-SEC-2/-3, §12.6)",
+    "teen": "role teen is created through household accounts: FAM-01 (#204), same as child",
     "expired": "token expiry arrives with API tokens: feat/identity (PR #41, CORE-SEC-3, §12.6)",
     "plugin": "kind plugin arrives with the plugins stream: feat/plugins-core (PLUGIN-SDK, DEV-API-6, §12.1)",
     "automation": "kind automation arrives with feat/automation (CORE-AUTO-2, §12.1, §12.17)",
@@ -62,7 +64,7 @@ PENDING_KINDS = {
 }
 # Kinds whose mint() is written. A kind or role that appears in onemind_core.auth without being
 # in this set fails test_every_principal_kind_has_a_column: write its mint() first.
-MINTABLE = {"none", "owner", "adult", "guest", "child", "agent", "app-agent", "expired", "revoked", "revoked-agent"}
+MINTABLE = {"none", "owner", "adult", "guest", "child", "teen", "agent", "app-agent", "expired", "revoked", "revoked-agent"}
 
 # The static tokens file: matrix column -> (principal id, kind, role).
 STATIC = {
@@ -292,7 +294,7 @@ class World:
             assert self.client.get("/v1/instance", headers=bearer(token)).status_code == 200
             self.remove_app(AGENT_APP)
             return bearer(token)
-        if kind in ("child", "expired"):
+        if kind in ("child", "teen", "expired"):
             return self._mint_identity(kind)
         pytest.skip(PENDING_KINDS[kind])
 
@@ -331,12 +333,12 @@ class World:
         if not (self.has_route("POST", "/v1/auth/setup") and self.has_route("POST", "/v1/users")):
             pytest.skip(PENDING_KINDS[kind])
         owner = self._identity_owner()
-        if kind == "child":
-            r = self.client.post("/v1/users", headers=owner, json={"display_name": "Kid", "role": "child"})
+        if kind in ("child", "teen"):
+            r = self.client.post("/v1/users", headers=owner, json={"display_name": kind.title(), "role": kind})
             assert r.status_code == 201, r.text
             code = _enrol_code(r.json())
             r = self.client.post("/v1/auth/enrol", json={
-                "code": code, "username": "matrix-kid", "password": ID_PASSWORD, "client": "cli"})
+                "code": code, "username": f"matrix-{kind}", "password": ID_PASSWORD, "client": "cli"})
             assert r.status_code == 201, r.text
             return bearer(r.json()["access_token"])
         # expired: the household owner's own API token, one day after it expired
@@ -426,6 +428,18 @@ def p_session_delete(w: World) -> Req:
 
 def p_passkey_register(w: World) -> Req:
     return Req("/v1/auth/passkeys/register", json={"credential": {"id": "probe", "type": "public-key"}})
+
+
+def p_approver_key(w: World) -> Req:
+    """#702: a well-formed P-256 public key, so the probe reaches the authorization checks."""
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric import ec
+
+    from onemind_core.identity.crypto import b64url
+
+    spki = ec.generate_private_key(ec.SECP256R1()).public_key().public_bytes(
+        serialization.Encoding.DER, serialization.PublicFormat.SubjectPublicKeyInfo)
+    return Req("/v1/auth/approver-keys", json={"public_key": b64url(spki), "label": "probe", "key_kind": "software"})
 
 
 def p_password(w: World) -> Req:
@@ -536,7 +550,7 @@ KUBECONFIG = "apiVersion: v1\nkind: Config\n"
 MISSING = {"policy": "pol_0123456789abcdef", "rule": "rul_0123456789abcdef", "dest": "dst_0123456789abcdef",
            "run": "run_0123456789abcdef", "snap": "abcdef0123456789", "restore": "rst_0123456789abcdef",
            "plan": "mig_0123456789abcdef", "request": "frq_0123456789abcdef", "grant": "fgr_0123456789abcdef",
-           "upload": "upl_0123456789abcdef", "source": "src_0123456789ABCDEFGHJKMNPQRS"}
+           "upload": "upl_0123456789abcdef", "download": "dl_0123456789abcdef01234567", "source": "src_0123456789ABCDEFGHJKMNPQRS", "asset": "ast_0123456789ABCDEFGHJKMNPQRS"}
 TUS = {"Tus-Resumable": "1.0.0"}
 UPLOAD_META = "filename cHJvYmUudHh0,root c2hhcmVk,path Lw=="  # filename=probe.txt root=shared path=/
 
@@ -561,10 +575,25 @@ def p_window_put(w: World) -> Req:
     return Req("/v1/windows/win_probe", json={"name": "probe", "tz": "UTC", "ranges": [{"start": "21:00", "end": "23:00"}]})
 
 
+def p_kiosk_put(w: World) -> Req:
+    return Req("/v1/instance/kiosk", json={"enabled": False})
+
+
 def p_missing(path: str, *, json: Any = None, content: bytes | None = None, headers: dict | None = None):
     """A probe for `path` with {policy}-style placeholders filled from MISSING (an object that is not there)."""
     concrete = path.format(**MISSING)
     return lambda w: Req(concrete, json=json, content=content, headers=dict(headers or {}))
+
+
+# ---- share links (FILES-02, #237) ----------------------------------------------------------------------------
+SHARE_ID = "shl_0123456789ABCDEFGHJKMNPQRS"   # a share link that does not exist
+SHARE_TOKEN = "oms_" + "A" * 43               # a link secret the box never issued
+
+
+def p_share_create(w: World) -> Req:
+    """A well-formed link to a file that is not there: the people allowed to share reach the 404."""
+    return Req("/v1/files/shares", json={"items": [{"root": "shared", "path": "/no-such-file"}],
+                                         "expires_at": _in_a_day(w)})
 
 
 # ---- networking (feat/net-part2: join tickets, join requests, mesh, box CA, app sessions) --------------------

@@ -4,7 +4,13 @@
 One pure-ASGI middleware, added by routers/guard.py:
 - **Body size:** a request body over `max_body_bytes` (256 KiB, §12.1) gets 413
   `payload_too_large`, whether it declares Content-Length or streams chunks (the server enforces
-  a declared Content-Length, so a body cannot be longer than it says).
+  a declared Content-Length, so a body cannot be longer than it says). Streamed bytes are counted as
+  the route reads them; a body of unknown length that a route never reads is drained (counted and
+  discarded, never buffered, 5 s at most) before the route's answer goes out, so over-cap is 413
+  even when a precondition such as Tus-Resumable would have answered first. A route that declares
+  no body (an action like /disable, /deny, /ack) is drained before it runs, so an over-cap body is
+  refused with 413 and the route's change never happens; a 413 never hides a 2xx that already
+  changed state. Routes that read the raw stream themselves carry @reads_body and are left alone.
 - **Rate:** a token bucket per principal (the bearer token's hash) or, without a token, per
   source address. Reads 20/s burst 60; action requests (`POST /v1/actions`, `/v1/plans`) 2/s
   burst 10. Over the limit: 429 `rate_limited` with Retry-After.
@@ -18,13 +24,17 @@ The pending-action cap (§12.1, H-14) lives in actions.py; this module sets its 
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import math
 import threading
 import time
 from collections import OrderedDict
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
+
+from fastapi.routing import APIRoute
+from starlette.routing import Match
 
 from .errors import error_response
 from .sections import config_section
@@ -34,6 +44,16 @@ CSP = (
     "font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; "
     "frame-ancestors 'none'; form-action 'self'"
 )
+
+def csp_with_frames(frame_src: tuple[str, ...]) -> str:
+    """CSP plus a frame-src that admits only `frame_src` (the dashboard's browser windows, #692).
+
+    Without it frame-src falls back to default-src 'self' and no other origin can be framed. Only the
+    dashboard page carries this (routers/static.py), and only while a browser app is in the catalog.
+    """
+    return CSP + "; frame-src " + " ".join(frame_src) if frame_src else CSP
+
+
 SECURITY_HEADERS: tuple[tuple[bytes, bytes], ...] = (
     (b"content-security-policy", CSP.encode()),
     (b"x-content-type-options", b"nosniff"),
@@ -46,6 +66,33 @@ SECURITY_HEADERS: tuple[tuple[bytes, bytes], ...] = (
 REQUEST_ROUTES = frozenset({("POST", "/v1/actions"), ("POST", "/v1/plans")})
 OPEN_PATHS = frozenset({"/healthz"})
 MAX_KEYS = 10_000
+BODY_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
+DRAIN_TIMEOUT_S = 5.0  # longest a response waits for an unread body of unknown length to finish
+
+
+def reads_body(fn):
+    """Mark a route function that reads the raw request stream itself (request.stream(), .json()).
+
+    The guard drains an unread body of unknown length before a route that declares no body runs.
+    A route that reads the stream on its own must not be drained first, so it says so here;
+    test_guard_streaming_limits.py fails when a route reads the stream without this mark.
+    """
+    fn.reads_body = True
+    return fn
+
+
+def declares_no_body(routes: Iterable, scope) -> bool:
+    """True when the route that will serve `scope` takes no request body at all.
+
+    Only an APIRoute with no declared body field that does not read the stream itself counts.
+    Anything else (mounts, raw ASGI routes, no match) is unknown and treated as possibly reading.
+    """
+    for route in routes:
+        match, _ = route.matches(scope)
+        if match == Match.FULL:
+            return (isinstance(route, APIRoute) and route.body_field is None
+                    and not getattr(route.endpoint, "reads_body", False))
+    return False  # no route matches (404/405: no route code runs, the response-time drain covers it)
 
 
 @config_section("limits")
@@ -137,9 +184,10 @@ class AuthFailures:
 class GuardMiddleware:
     def __init__(
         self, app, *, limits: LimitSettings, on_backoff: Callable[[str], None] | None = None,
-        now: Callable[[], float] = time.monotonic,
+        now: Callable[[], float] = time.monotonic, routes: Callable[[], Iterable] | None = None,
     ):
         self.app = app
+        self.routes = routes  # the router's routes, to tell a route that takes no body from one that does
         self.limits = limits
         self.on_backoff = on_backoff
         self.reads = TokenBuckets(limits.read_rate, limits.read_burst, now)
@@ -168,29 +216,86 @@ class GuardMiddleware:
         if declared is not None and declared > limit:
             return await _reject(scope, receive, send, 413, "payload_too_large",
                                  f"request body is over {limit} bytes", None, None)
-        if declared is None and _has_body(scope):
-            # Chunked or unknown length: read it here, up to the limit, before any route sees it
-            # (a route's own body parser would turn an error into a generic 400).
-            body, more = bytearray(), True
-            while more:
-                msg = await receive()
-                if msg["type"] != "http.request":
-                    break
-                body += msg.get("body", b"")
-                more = msg.get("more_body", False)
-                if len(body) > limit:
-                    return await _reject(scope, receive, send, 413, "payload_too_large",
-                                         f"request body is over {limit} bytes", None, None)
-            receive = _replay(bytes(body), receive)
+        consumed, exceeded, finished, touched = 0, False, False, False
+
+        async def pull():
+            """One request message from the server, counted against the cap."""
+            nonlocal consumed, exceeded, finished
+            msg = await receive()
+            if msg["type"] == "http.request":
+                consumed += len(msg.get("body", b""))
+                if not msg.get("more_body", False):
+                    finished = True
+                if consumed > limit:
+                    exceeded = True
+                    raise _BodyTooLarge
+            else:
+                finished = True
+            return msg
+
+        async def limited_receive():
+            nonlocal touched
+            touched = True
+            if exceeded:
+                raise _BodyTooLarge
+            return await pull()
+
+        # A body of unknown length (chunked, or HTTP/2 without Content-Length) that the route
+        # never reads (the route's own read, with its deadline, runs first) cannot be sized without reading it. Before such a route answers, drain the
+        # rest, counting and discarding (never buffering), so an over-cap body is a 413 even when
+        # a precondition (Tus-Resumable, auth, validation) would have answered first (H-20).
+        drain_unread = declared is None and method in BODY_METHODS
+
+        async def drain() -> None:
+            try:
+                async with asyncio.timeout(DRAIN_TIMEOUT_S):
+                    while not finished:
+                        await pull()
+            except (_BodyTooLarge, TimeoutError):
+                pass  # overflow is recorded in `exceeded`; a stalled client just gets the route's answer
+
+        if drain_unread and self.routes is not None and declares_no_body(self.routes(), scope):
+            # The route takes no body, so nothing else will ever read it: settle its size now,
+            # before the route can change anything (an unread over-cap body must not leave a 2xx
+            # hidden behind a 413). Over the cap: refuse, the route never runs.
+            await drain()
+            if exceeded:
+                return await _reject(scope, receive, send, 413, "payload_too_large",
+                                     f"request body is over {limit} bytes", None, None)
+            drain_unread = False  # settled (or the client stalled: the route answers, nothing is hidden)
 
         status: dict[str, int] = {}
 
         async def tracking_send(msg):
+            # A parser or route cleanup may translate the receive exception into a
+            # 400/409. Keep the guard's 413 authoritative, without buffering a response.
+            if exceeded:
+                return
             if msg["type"] == "http.response.start":
+                if drain_unread and not touched and not finished:
+                    await drain()
+                    if exceeded:
+                        return
                 status["code"] = msg["status"]
             await send(msg)
 
-        await self.app(scope, receive, tracking_send)
+        try:
+            # Read only when the route asks: its read deadline and disconnect handling
+            # must surround receive(), not wait behind an eager middleware buffer.
+            await self.app(scope, limited_receive, tracking_send)
+        except (_BodyTooLarge, ExceptionGroup) as exc:
+            # AnyIO receive task groups may wrap the private signal. Handle only
+            # groups made entirely of overflow signals, never independent failures
+            # (including wrappers whose cause/context happens to be overflow).
+            if (not exceeded or "code" in status
+                    or isinstance(exc, ExceptionGroup) and exc.split(_BodyTooLarge)[1] is not None):
+                raise
+        if exceeded:
+            if "code" in status:
+                # A streaming response already started: never send a second start.
+                raise _BodyTooLarge
+            return await _reject(scope, receive, send, 413, "payload_too_large",
+                                 f"request body is over {limit} bytes", None, None)
         if status.get("code") == 401 and self.limits.enabled and self.auth.failed(source):
             if self.on_backoff is not None:
                 self.on_backoff(source)
@@ -214,21 +319,8 @@ async def _reject(scope, receive, send, status, error, message, reason, wait):
     await resp(scope, receive, send)
 
 
-def _has_body(scope) -> bool:
-    return any(k == b"transfer-encoding" for k, _ in scope.get("headers") or [])
-
-
-def _replay(body: bytes, receive):
-    sent = False
-
-    async def replay():
-        nonlocal sent
-        if not sent:
-            sent = True
-            return {"type": "http.request", "body": body, "more_body": False}
-        return await receive()
-
-    return replay
+class _BodyTooLarge(Exception):
+    """Internal receive signal; parsers may catch it, so the guard also tracks overflow."""
 
 
 def _content_length(scope) -> int | None:

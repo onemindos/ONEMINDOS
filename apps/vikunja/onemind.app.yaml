@@ -12,8 +12,11 @@ metadata:
   # Market category slug from docs/design/TAXONOMY.md §1; sub-tags (tasks) are listed in README.md
   # until the schema has metadata.tags.
   category: productivity
+  age_rating: 12   # proposed minimum age (apps/README.md rubric); the owner can override per app
+  age_reason: "Shared task lists and boards; content is user-made."
   icon: icon.svg
   license: "AGPL-3.0"
+  licenceClass: L2
   source: https://github.com/go-vikunja/vikunja
   links:
     docs: "https://vikunja.io/docs/"

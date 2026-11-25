@@ -115,6 +115,7 @@ func (c *Collector) Collect(ctx context.Context) heartbeat.Status {
 	st.MemTotalMB, st.MemAvailableMB = c.Memory()
 	st.DiskTotalGB, st.DiskFreeGB = c.Disk()
 	st.Metrics = c.Metrics()
+	st.Capabilities = c.capabilities(ctx, board, st.MemTotalMB, st.GPU)
 	return st
 }
 

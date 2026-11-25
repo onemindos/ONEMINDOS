@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """Contract §10.3 + §11.1 (no install without a fresh passing scan) and §11.4 (catalog fields)."""
 
+import json
 import logging
 from dataclasses import replace
 from datetime import timedelta
@@ -135,7 +136,8 @@ def test_catalog_links_tier_scan(client, clock, settings):
         "support": None,
     }
     assert h["tier"] == "community"
-    assert h["scan"] == {"scanned_at": "2026-11-10T22:00:00Z", "result": "pass"}
+    assert h["scan"] == {"scanned_at": "2026-11-10T22:00:00Z", "result": "pass", "reason": None,
+                         "licence": {"spdx": "MIT", "class": "L1"}, "quality": None}
     ku = apps["uptime-kuma"]
     assert ku["links"] == {"docs": None, "github": None, "website": None, "support": None}
     assert ku["tier"] is None
@@ -147,6 +149,49 @@ def test_catalog_scan_null_when_missing_and_shows_fail(client, clock, settings):
     apps = {a["id"]: a for a in client.get("/v1/apps", headers=GUEST).json()}
     assert apps["uptime-kuma"]["scan"] is None
     assert apps["whoami"]["scan"]["result"] == "fail"
+
+
+def test_catalog_scan_reason_for_failed_scan(client, clock, settings):
+    """The Market list tells the owner why a scan failed, from scan.json's own counts."""
+    d = settings.apps_dir / "whoami"
+    write_scan(d, clock.now, result="fail")
+    doc = json.loads((d / "scan.json").read_text())
+    doc["images"] = [
+        {"ref": "ghcr.io/example/whoami:1.0@sha256:" + "a" * 64, "trivy": {"critical_fixable": 2, "critical": 3},
+         "clamav": {"infected": 0}, "secrets": 1},
+        {"ref": "docker.io/library/postgres:18@sha256:" + "b" * 64, "trivy": {"critical_fixable": 0}, "secrets": 0},
+    ]
+    doc["smoke"] = "fail"
+    (d / "scan.json").write_text(json.dumps(doc))
+    apps = {a["id"]: a for a in client.get("/v1/apps", headers=GUEST).json()}
+    reason = apps["whoami"]["scan"]["reason"]
+    assert "ghcr.io/example/whoami:1.0: 2 CRITICAL vulnerabilities with a fix available, 1 secret finding(s)" in reason
+    assert "postgres" not in reason and "smoke test fail" in reason and "sha256" not in reason
+    # a pass carries no reason, and a bare fail still says something
+    write_scan(d, clock.now, result="fail")
+    assert client.get("/v1/apps", headers=GUEST).json()
+    write_scan(d, clock.now)
+    apps = {a["id"]: a for a in client.get("/v1/apps", headers=GUEST).json()}
+    assert apps["whoami"]["scan"]["reason"] is None
+
+
+@pytest.mark.parametrize("licence,expected", [
+    ({"spdx": "GPL-3.0", "class": "L2"}, {"spdx": "GPL-3.0", "class": "L2"}),
+    ({"spdx": "LicenseRef-Proprietary", "class": "blocked"}, {"spdx": "LicenseRef-Proprietary", "class": "blocked"}),
+    ({"spdx": "MIT", "class": "unrecognised"}, None),
+    ({"class": "L1"}, None),
+    (None, None),
+])
+def test_catalog_reports_only_recorded_licence_evidence(client, settings, licence, expected):
+    path = settings.apps_dir / "uptime-kuma" / "scan.json"
+    doc = json.loads(path.read_text())
+    if licence is None:
+        doc.pop("licence")
+    else:
+        doc["licence"] = licence
+    path.write_text(json.dumps(doc))
+    entry = next(a for a in client.get("/v1/apps", headers=GUEST).json() if a["id"] == "uptime-kuma")
+    assert entry["scan"]["licence"] == expected
 
 
 def test_unknown_tier_is_null(client, settings):

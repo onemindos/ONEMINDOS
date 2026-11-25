@@ -5,6 +5,7 @@
 #   /data/onemind/etc/nats.conf                -> nats.conf           (onemind-firstboot)
 #   /data/onemind/gateway/nats/accounts.conf   -> nats-accounts.conf  (the gateway; public nkeys only)
 #   /data/onemind/gateway/tls/{nats.crt,nats.key,ca.crt}              (the box CA; leaf listener TLS)
+#   /var/lib/onemind-nats/jetstream                                   (the JetStream store, owned by the NATS user)
 #   /data/onemind/etc/{nats-server.pem,nats-server.key,nats-ca.pem}   (only on a box set up before the mesh)
 set -eu
 d=/run/onemind-nats
@@ -19,3 +20,14 @@ copy /data/onemind/etc/nats.conf nats.conf
 copy /data/onemind/gateway/nats/accounts.conf nats-accounts.conf
 for f in nats.crt nats.key ca.crt; do copy "/data/onemind/gateway/tls/$f" "$f"; done
 for f in nats-server.pem nats-server.key nats-ca.pem; do copy "/data/onemind/etc/$f" "$f"; done
+# No JetStream without a cap (#601): a conf whose jetstream block lacks max_file_store above 0 and
+# max_memory_store: 0, or that turns JetStream on without a block, stops here. It runs after the copies
+# because it reads the conf the way nats-server will, includes (nats-accounts.conf) too.
+/usr/lib/onemind/onemind-nats-capcheck "$d/nats.conf"
+# The JetStream store: the NATS user is a DynamicUser (its uid changes), so own the dir for it here, as for
+# the files above. Skipped where the data disk bind is absent (a box set up before JetStream).
+if [ -d /var/lib/onemind-nats ]; then
+  mkdir -p /var/lib/onemind-nats/jetstream
+  chown "$(stat -c %u "$d")" /var/lib/onemind-nats/jetstream
+  chmod 0700 /var/lib/onemind-nats/jetstream
+fi

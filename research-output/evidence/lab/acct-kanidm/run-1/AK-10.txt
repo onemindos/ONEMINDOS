@@ -1,0 +1,16 @@
+# 2026-11-23T03:14:39Z AK-10: revocation
++ admin_relogin
+idm_admin login ok
+  (exit 0)
++ $PY oidc adult1 onemind_testapp https://app.onemind.test/oauth2/callback passkey 'openid groups profile'
+{"http": 200, "requested_scope": "openid groups profile", "step": "oidc_authorise", "user": "adult1"}
+{"http": 200, "step": "oidc_token", "user": "adult1"}
+{"result": {"id_token_claims": {"alg": "ES256", "aud": "onemind_testapp", "groups_onemind": ["onemind_adults@idm.onemind.test"], "iss": "https://idm.onemind.test:8443/oauth2/openid/onemind_testapp", "name": "Adult One", "nonce_matches": true, "onemind_role": ["adult"], "preferred_username": "adult1@idm.onemind.test", "scope": "groups openid profile", "signature_verified": true}}, "step": "oidc_result", "user": "adult1"}
+  (exit 0)
++ k group remove-members onemind_adults adult1
+Successfully removed members from group onemind_adults
+  (exit 0)
++ $PY oidc adult1 onemind_testapp https://app.onemind.test/oauth2/callback passkey 'openid groups profile'
+{"http": 403, "requested_scope": "openid groups profile", "step": "oidc_authorise", "user": "adult1"}
+{"result": {"http": 403, "refused_at": "authorise"}, "step": "oidc_result", "user": "adult1"}
+  (exit 0)

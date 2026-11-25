@@ -1,0 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+# NVIDIA driver for compute (no desktop, no X): Debian 13 (trixie), component non-free, branch 550
+# (packages.debian.org/trixie/nvidia-kernel-dkms, nvidia-smi, libcuda1: read 2026-11-21).
+# Every package needs a row in licences.txt (post-install.sh and test/unit/test_gpu_variant.py refuse otherwise).
+nvidia-kernel-dkms nvidia-kernel-support nvidia-modprobe nvidia-smi libcuda1 libnvidia-ml1

@@ -37,6 +37,8 @@ from sec_world import DESCRIBE, KINDS, MINTABLE, PENDING_KINDS, World, route_met
 # (method, path) of routes that answer without a bearer token, and why.
 PUBLIC = {
     ("GET", "/healthz"),                       # liveness probe for the health gate
+    ("GET", "/v1/instance/name"),              # the box name alone, so the sign-in page can show it
+    ("GET", "/v1/protocol"),                   # the protocol generations served (#697); an app too old to sign in must read it
     ("GET", "/openapi.json"),                  # the contract; reveals the version only
     ("POST", "/v1/auth/setup"),                # first owner; needs the install token in the body
     ("POST", "/v1/auth/login/options"),        # WebAuthn challenge; bounded (MAX_OPEN_LOGIN_CHALLENGES)
@@ -47,9 +49,12 @@ PUBLIC = {
     ("POST", "/v1/fabric/join-requests"),      # a joining node: the one-time join code authenticates; files node.join only; rate limited
     ("GET", "/v1/fabric/join-requests/{request_id}"),  # the node polls with its code and a proof signed by its own key
     ("GET", "/v1/tls/ca.crt"),                 # the box CA is public data; a phone or node needs it before sign-in
+    ("GET", "/v1/tls/onemind.mobileconfig"),   # the same public CA as ca.crt, as an Apple profile; no secret
     ("DELETE", "/v1/auth/app-session"),        # only clears the caller's own cookie; no data
     ("GET", "/v1/auth/forward"),               # loopback only (404 elsewhere); decides with the same sign-in + access rule as the proxy
     ("GET", "/{full_path:path}"),              # the dashboard's static files (never the API tree)
+    ("GET", "/v1/share/{token}"),              # FILES-02 share link: the 256-bit link secret in the path is the credential
+    ("GET", "/v1/share/{token}/items/{index}"),  # FILES-02: one shared item, same secret; expiry, revoke and creator re-checked
 }
 
 
@@ -184,7 +189,7 @@ def test_every_row_has_every_column():
 
 def test_every_principal_kind_has_a_column():
     """A kind or role the gateway can authenticate must be a minted column of the matrix."""
-    columns = {"person": {"owner", "adult", "guest", "child"}, "agent": {"agent", "app-agent"}}
+    columns = {"person": {"owner", "adult", "guest", "child", "teen"}, "agent": {"agent", "app-agent"}}
     for kind in auth.KINDS:
         cols = columns.get(kind, {kind})
         assert cols <= set(KINDS), f"principal kind {kind!r} has no matrix column"

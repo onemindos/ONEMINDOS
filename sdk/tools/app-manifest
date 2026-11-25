@@ -1,0 +1,96 @@
+#!/usr/bin/env -S python3 -I
+# SPDX-License-Identifier: Apache-2.0
+"""Check or convert app manifests with the gateway's own validator (PLAN-E6, issue #175).
+
+  app-manifest validate PATH...   PATH is an onemind.app.yaml or an apps/ folder; exit 1 on any error
+  app-manifest convert PATH...    rewrite apiVersion onemind.app/v1alpha1 -> onemind.app/v1 in place
+                                  (--check only reports; nothing else in the file changes)
+
+The check is core/onemind_core/catalog.py (Catalog.validate), the same code the box runs when it
+loads the catalog and CI runs in validate-apps. Exit codes: 0 ok, 1 invalid or not yet converted,
+2 usage or environment error.
+"""
+from __future__ import annotations
+
+import argparse
+import re
+import sys
+from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(REPO_ROOT / "core"))
+try:
+    import yaml
+    from onemind_core.catalog import MANIFEST, Catalog
+    from onemind_core.manifest_convert import CURRENT, convert_manifest
+except ImportError as exc:  # pragma: no cover - environment problem
+    sys.stderr.write(f"error: missing dependency ({exc.name}); install sdk/tools/requirements.txt\n")
+    sys.exit(2)
+
+SCHEMA = REPO_ROOT / "sdk" / "schema" / "onemind.app.schema.json"
+API_LINE = re.compile(r"^(apiVersion:\s*)\S+", re.MULTILINE)
+
+
+def manifests(paths: list[Path]) -> list[Path]:
+    found: list[Path] = []
+    for p in paths:
+        found.extend(sorted(p.glob(f"*/{MANIFEST}")) if p.is_dir() else [p])
+    return found
+
+
+def main(argv: list[str]) -> int:
+    ap = argparse.ArgumentParser(prog="app-manifest", description=__doc__.split("\n")[0])
+    ap.add_argument("command", choices=("validate", "convert"))
+    ap.add_argument("paths", nargs="+", type=Path)
+    ap.add_argument("--check", action="store_true", help="convert: report only, write nothing")
+    args = ap.parse_args(argv)
+    files = manifests(args.paths)
+    if not files:
+        sys.stderr.write("error: no manifests found\n")
+        return 2
+    catalog = Catalog(files[0].parent, SCHEMA)
+    bad = 0
+    for f in files:
+        try:
+            text = f.read_text(encoding="utf-8")
+            doc = yaml.safe_load(text)
+        except (OSError, yaml.YAMLError) as exc:
+            print(f"FAIL {f}: cannot read: {exc.__class__.__name__}")
+            bad += 1
+            continue
+        if args.command == "convert":
+            new, notes = convert_manifest(doc)
+            if notes and notes[0].startswith("cannot convert"):
+                print(f"FAIL {f}: {notes[0]}")
+                bad += 1
+            elif not notes:
+                print(f"ok   {f} (already {CURRENT})")
+            elif args.check:
+                print(f"TODO {f}: {notes[0]}")
+                bad += 1
+            else:
+                rewritten = API_LINE.sub(rf"\g<1>{CURRENT}", text, count=1)
+                try:
+                    ok = (yaml.safe_load(rewritten) or {}).get("apiVersion") == CURRENT
+                except yaml.YAMLError:
+                    ok = False
+                if not ok:  # the key is written in a style the line edit cannot reach
+                    print(f"FAIL {f}: could not rewrite apiVersion (unusual key style); edit it by hand")
+                    bad += 1
+                    continue
+                f.write_text(rewritten, encoding="utf-8")
+                print(f"done {f}: {notes[0]}")
+            continue
+        errs = sorted(catalog.validate(doc))
+        if errs:
+            bad += 1
+            print(f"FAIL {f}")
+            for e in errs:
+                print(f"  - {e}")
+        else:
+            print(f"ok   {f}")
+    return 1 if bad else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
