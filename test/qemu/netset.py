@@ -48,7 +48,12 @@ def diagnose(vm):
     _, out = sh(vm, "echo PBODY=$(head -c 400 /tmp/ns-P.json 2>&1); echo ---; journalctl -u onemind-host.service --no-pager -o cat | tail -12; echo ---; "
                 "systemd-run --wait --pipe -q -p MemoryDenyWriteExecute=yes -p NoNewPrivileges=yes -p CapabilityBoundingSet=CAP_DAC_READ_SEARCH "
                 "-p SystemCallFilter=@system-service -p SystemCallFilter=~@privileged -p RestrictAddressFamilies='AF_INET AF_INET6 AF_UNIX AF_NETLINK' "
-                "nmcli -t -g RUNNING general 2>&1 | tail -3; echo ---; nmcli -t -g RUNNING general 2>&1 | tail -2", 120)
+                "nmcli -t -g RUNNING general 2>&1 | tail -3; echo ---; "
+                "NM=org.freedesktop.NetworkManager; DEVP=$(busctl --system call $NM /org/freedesktop/NetworkManager $NM GetDeviceByIpIface s "
+                "$(nmcli -t -f DEVICE,TYPE device | awk -F: '$2==\"ethernet\" {print $1; exit}') 2>&1); echo DEVP=$DEVP; "
+                "P=$(echo $DEVP | sed -n 's/^o \"\\(.*\\)\"$/\\1/p'); "
+                "for F in 1 0; do echo FLAGS=$F: $(busctl --system call $NM /org/freedesktop/NetworkManager $NM CheckpointCreate aoui 1 \"$P\" 20 $F 2>&1); done; "
+                "echo CPS: $(busctl --system get-property $NM /org/freedesktop/NetworkManager $NM Checkpoints 2>&1); nmcli --version 2>&1 | head -1", 120)
     return " DIAG=" + out.replace("\n", " | ")[-1500:]
 
 

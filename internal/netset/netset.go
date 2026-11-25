@@ -391,12 +391,14 @@ func (m *Manager) Apply(ctx context.Context, iface string, c Config) (Status, er
 	devOut, err := m.Run.Run(ctx, "busctl", "--system", "call", nmBus, nmPath, nmBus, "GetDeviceByIpIface", "s", iface)
 	dm := devicePathRe.FindSubmatch(devOut)
 	if err != nil || dm == nil {
+		m.log().Error("network change: NetworkManager does not know the interface", "interface", iface, "err", err, "reply", string(devOut))
 		return Status{}, refuse("unknown_interface", "NetworkManager does not know an interface called %s", iface)
 	}
 	cp, err := m.Run.Run(ctx, "busctl", "--system", "call", nmBus, nmPath, nmBus, "CheckpointCreate", "aoui",
 		"1", string(dm[1]), strconv.Itoa(c.RollbackSeconds), checkpointFlags)
 	cm := checkpointRe.FindSubmatch(cp)
 	if err != nil || cm == nil {
+		m.log().Error("network change: NetworkManager would not take a checkpoint", "interface", iface, "err", err, "reply", string(cp))
 		return Status{}, refuse("checkpoint_failed", "NetworkManager would not take a checkpoint, so nothing was changed")
 	}
 	ch := &Change{Interface: iface, Connection: con, Mode: c.Mode, Address: c.Address, Gateway: c.Gateway, DNS: c.DNS,
