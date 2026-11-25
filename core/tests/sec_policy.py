@@ -284,6 +284,31 @@ POLICY |= {
     ("DELETE", "/v1/work/projects/{project_id}/tasks/{task_id}"): Row(
         cells(403, **GONE, owner=422, adult=422, child=422),
         w.p_static("/v1/work/projects/missing/tasks/missing"), "Work revision deletion is people-only"),
+    ("GET", "/v1/work/projects"): Row(cells(403, **GONE, owner=200, adult=200, child=200),
+                                       w.p_static("/v1/work/projects"), "Work lists only the caller's projects"),
+    ("GET", "/v1/work/projects/{project_id}"): Row(
+        cells(403, **GONE, owner=404, adult=404, child=404),
+        w.p_static("/v1/work/projects/missing"), "Work hides missing and other people's projects"),
+    ("PATCH", "/v1/work/projects/{project_id}"): Row(
+        cells(403, **GONE, owner=422, adult=422, child=422),
+        w.p_static("/v1/work/projects/missing"), "Work project edits are people-only and creator-only"),
+    ("DELETE", "/v1/work/projects/{project_id}"): Row(
+        cells(403, **GONE, owner=404, adult=404, child=404),
+        w.p_static("/v1/work/projects/missing"), "Work project deletion is people-only and creator-only"),
+    ("GET", "/v1/work/projects/{project_id}/members"): Row(
+        cells(403, **GONE, owner=404, adult=404, child=404),
+        w.p_static("/v1/work/projects/missing/members"), "Work lists members of visible projects only"),
+    ("PUT", "/v1/work/projects/{project_id}/members/{person_id}"): Row(
+        cells(403, **GONE, owner=404, adult=404, child=403),
+        w.p_static("/v1/work/projects/missing/members/missing"), "Work member changes are adults-only (a child's PUT is refused by the household-role gate)"),
+    ("DELETE", "/v1/work/projects/{project_id}/members/{person_id}"): Row(
+        cells(403, **GONE, owner=404, adult=404, child=404),
+        w.p_static("/v1/work/projects/missing/members/missing"), "Work member changes are people-only"),
+    ("GET", "/v1/work/projects/{project_id}/tasks/{task_id}/activity"): Row(
+        cells(403, **GONE, owner=404, adult=404, child=404),
+        w.p_static("/v1/work/projects/missing/tasks/missing/activity"), "Work history follows task visibility"),
+    ("POST", "/v1/work/parse"): Row(cells(403, **GONE, owner=422, adult=422, child=422),
+                                     w.p_static("/v1/work/parse"), "Work parse preview is people-only"),
     ("GET", "/v1/series"): Row(CHILD_CANNOT, w.p_static("/v1/series?node_id=node1&metric=cpu_pct"),
                                "Node metric history, with the same monitoring:read scope as live metrics"),
     ("GET", "/v1/monitoring/summary"): Row(CHILD_CANNOT, w.p_static("/v1/monitoring/summary"),
