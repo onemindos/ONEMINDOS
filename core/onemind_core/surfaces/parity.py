@@ -310,6 +310,7 @@ HUMAN_ONLY: dict[str, str] = {
     "DELETE /v1/files/downloads/{download_id}": WRITE,
     "PUT /v1/instance/kiosk": WRITE,
     "PUT /v1/instance/name": WRITE,
+    "POST /v1/system/time/zone": WRITE,  # P-04: files a time zone change; only an owner approves it
     "POST /v1/machines/disable": WRITE,
     "POST /v1/machines/enable": WRITE,
     "POST /v1/migrate/plans": WRITE,
@@ -363,6 +364,7 @@ HUMAN_ONLY: dict[str, str] = {
     "GET /v1/system/services/{unit}/logs": CONSOLE,
     "GET /v1/system/ups": CONSOLE,
     "GET /v1/storage/housekeeping": CONSOLE,
+    "GET /v1/system/time": CONSOLE,  # P-04: the hub's zone and clock sync state, owner only
     "POST /v1/bridges/{bridge_id}/resume": WRITE,
     "POST /v1/system/services/{unit}/restart": WRITE,
     "PUT /v1/mesh/settings": WRITE,
