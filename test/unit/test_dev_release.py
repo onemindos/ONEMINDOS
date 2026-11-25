@@ -135,8 +135,12 @@ class Workflow(unittest.TestCase):
     def test_downloads_what_the_picker_wants(self):
         image = read(".github", "workflows", "image.yml")
         self.assertIn("name: image-debian-${{ matrix.board }}", image)
+        # image.yml's matrix.include is a fromJSON(...) expression (tier 1 + 2 always, tier 3 on a full dispatch):
+        # read the board names from the JSON it really holds, not from a YAML spelling.
+        expr = yaml.safe_load(image)["jobs"]["image"]["strategy"]["matrix"]["include"]
+        boards = set(re.findall(r'"board":"([^"]+)"', expr))
         for board in ("arm64-efi", "vm-do"):
-            self.assertRegex(image, r"board: %s," % board)
+            self.assertIn(board, boards)
             self.assertIn("image-debian-" + board, self.text)
         self.assertIn("name: installer-debian-x86_64", image)
         self.assertIn("installer-debian-x86_64", self.text)
