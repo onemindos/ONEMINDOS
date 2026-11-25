@@ -22,3 +22,6 @@ ece09c7f8d261e8da30dff5acca3a649c68c080a273506bc65a3f26a3e3ba433  CRITERIA-EDGE.
 5cc09a8565003c8c27750bdd2e627609ef2fe183e3d2bb22d8093f83f6c4b7b8  CRITERIA-SYSEXT.md  2026-11-23T04:02:01Z  (with §5 amendment: X8 two-dot directory names, PR 972 review; written before the guard fix and before X8 ran)
 adc1cf6619e8b6440e00da65da7ff13c2dfd0f66151facfe30bf8fdafd74c411  CRITERIA-NAS.md  2026-11-22T23:36:45Z  (written before nasmount.py was implemented or run)
 33e4d0bd5553de5265e5e790f7231ef4e4b3c503fddf669c7b115ec1b06be1fc  CRITERIA-FIRSTBOOT.md  2026-11-23T00:37:43Z  (with §8 amendment: F12 gateway reaches the host helper, #875; written before F12 was implemented)
+357b2c04464937bcfb4ec0fba6a3617790b284de72d690faf4bbfc4a150faea6  CRITERIA-FIRSTBOOT.md  2026-11-25T04:45:05Z  (with §9 amendment: F13 the clock, Step 2 PR 1; written before F13 was implemented)
+b19207568c90016a9033ef0c9f902964f39fabbb121a380b20f076d4663e7228  CRITERIA-FIRSTBOOT.md  2026-11-25T05:50:54Z  (F13 wording after the first run: 60 s wait, "Server: n/a" means unreachable, comment lines in locale.conf; written before the F13 code fix)
+0f03cae80459e4219f9ea4f90b91aaf6d7b31a586dd2f2f93cc2f76a523c4fdc  CRITERIA-FIRSTBOOT.md  2026-11-25T06:05:33Z  (dated amendment line so the criteria text matches the F13 code; no change to what passes)
