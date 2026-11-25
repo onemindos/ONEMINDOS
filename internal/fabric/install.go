@@ -33,7 +33,11 @@ var (
 	IdentityDir = filepath.Join(etcdir.Dir(), "identity")
 	NATSDir     = filepath.Join(etcdir.Dir(), "nats")
 	StateFile   = filepath.Join(etcdir.Dir(), "fabric.json")
-	OnemindEnv  = filepath.Join(etcdir.Dir(), "onemindd.env")
+	// LocalKeysDir holds the nkey seeds of the programs that sign in to this machine's leaf (G1).
+	// It is outside NATSDir, which belongs to the nats-server user: a seed is read only by the
+	// program it names (onemindd, the owner's CLI), both of which run as root.
+	LocalKeysDir = filepath.Join(etcdir.Dir(), leaf.LocalKeysDirName)
+	OnemindEnv   = filepath.Join(etcdir.Dir(), "onemindd.env")
 )
 
 const (
@@ -222,7 +226,9 @@ func (in *Installer) Apply(ctx context.Context, id *Identity, cr *Credentials, c
 
 	// 6. onemindd publishes to its local leaf from now on, under the id the hub knows (firstboot wrote a
 	// different one; the leaf account and fabric.json use this one, so heartbeats on the old id never arrive).
-	if err := in.setEnv(map[string]string{"ONEMIND_NATS_URL": LocalNATSURL, "ONEMIND_NODE_ROLE": "node", "ONEMIND_NODE_ID": id.NodeID}); err != nil {
+	if err := in.setEnv(map[string]string{"ONEMIND_NATS_URL": LocalNATSURL, "ONEMIND_NODE_ROLE": "node", "ONEMIND_NODE_ID": id.NodeID,
+		"ONEMIND_NATS_NKEY_SEED":    filepath.Join(LocalKeysDir, leaf.ProgramOnemindd+".nk"),
+		"ONEMIND_NATS_INBOX_PREFIX": leaf.InboxPrefix(leaf.ProgramOnemindd)}); err != nil {
 		return nil, err
 	}
 	st.JoinedAt = in.Now().UTC().Format(time.RFC3339)
@@ -313,7 +319,22 @@ func (in *Installer) writeLeaf(id *Identity, cr *Credentials) error {
 	if _, err := leaf.WriteNkeyFile(nkeyFile, id.NkeySeed); err != nil {
 		return err
 	}
+	// Local sign-in (G1): each local program gets its own key and exact subjects; the leaf has no
+	// passwordless user. The seeds stay in LocalKeysDir (root only); leaf.conf holds public keys.
+	pubs := map[string]string{}
+	for _, name := range []string{leaf.ProgramOnemindd, leaf.ProgramCLI} {
+		pub, err := leaf.WriteLocalSeed(in.p(LocalKeysDir), name)
+		if err != nil {
+			return err
+		}
+		pubs[name] = pub
+	}
+	progs, err := leaf.MachinePrograms(id.NodeID, pubs)
+	if err != nil {
+		return err
+	}
 	c := &leaf.Config{
+		Local:      progs,
 		ServerName: "node-" + id.NodeID, StoreDir: in.p(LeafStoreDir), HubURLs: []string{cr.NATS.URL},
 		CAFile: filepath.Join(dir, "ca.pem"), CertFile: filepath.Join(dir, "node.crt"), KeyFile: filepath.Join(dir, "node.key"),
 		NkeyFile: nkeyFile,
@@ -390,7 +411,7 @@ func (in *Installer) setEnv(set map[string]string) error {
 		}
 		out.WriteString(line + "\n")
 	}
-	for _, k := range []string{"ONEMIND_NATS_URL", "ONEMIND_NODE_ROLE", "ONEMIND_NODE_ID"} {
+	for _, k := range []string{"ONEMIND_NATS_URL", "ONEMIND_NODE_ROLE", "ONEMIND_NODE_ID", "ONEMIND_NATS_NKEY_SEED", "ONEMIND_NATS_INBOX_PREFIX"} {
 		if v, ok := set[k]; ok {
 			fmt.Fprintf(&out, "%s=%s\n", k, v)
 		}
@@ -436,4 +457,65 @@ func Reporter(role string, leafLink func() string) func() *heartbeat.Fabric {
 		}
 		return f
 	}
+}
+
+// UpgradeLocal brings a machine that joined before the local sign-in (G1) up to it. Such a machine
+// has a leaf.conf with a passwordless local user and no seeds, and onemind-leaf-check (the health
+// gate's G3) refuses that file, so without this the update that ships G1 would fail its own trial
+// boot and roll back. The image runs it at every boot, before the gate (onemind-leaf-local.service):
+// it makes the onemindd and cli seeds, renders leaf.conf again with the machine's programs, points
+// onemindd at its seed and reply prefix, and restarts the leaf and onemindd if they run.
+// It does nothing, and returns false, on a machine that has not joined or is already current.
+func (in *Installer) UpgradeLocal(ctx context.Context) (bool, error) {
+	c, err := leaf.LoadConfig(in.p(leaf.DefaultConfigPath))
+	if errors.Is(err, os.ErrNotExist) {
+		return false, nil // not joined: there is no leaf to fix
+	}
+	if err != nil {
+		return false, err
+	}
+	if len(c.Local) > 0 {
+		return false, nil
+	}
+	st, err := LoadState(in.Root)
+	if err != nil {
+		return false, fmt.Errorf("fabric state: %w", err)
+	}
+	pubs := map[string]string{}
+	for _, name := range []string{leaf.ProgramOnemindd, leaf.ProgramCLI} {
+		pub, err := leaf.WriteLocalSeed(in.p(LocalKeysDir), name)
+		if err != nil {
+			return false, err
+		}
+		pubs[name] = pub
+	}
+	if c.Local, err = leaf.MachinePrograms(st.NodeID, pubs); err != nil {
+		return false, err
+	}
+	// Order: leaf.conf, onemindd's env, then the saved Config. A crash in between leaves a Config
+	// without Local, so the next boot redoes all of it.
+	conf := in.p(filepath.Join(NATSDir, "leaf.conf"))
+	if _, err := leaf.Apply(conf, c); err != nil {
+		return false, err
+	}
+	if err := in.Sys.Chown(conf, NATSUser); err != nil {
+		return false, err
+	}
+	if err := in.setEnv(map[string]string{
+		"ONEMIND_NATS_NKEY_SEED":    filepath.Join(LocalKeysDir, leaf.ProgramOnemindd+".nk"),
+		"ONEMIND_NATS_INBOX_PREFIX": leaf.InboxPrefix(leaf.ProgramOnemindd)}); err != nil {
+		return false, err
+	}
+	if _, err := leaf.SaveConfig(in.p(leaf.DefaultConfigPath), c); err != nil {
+		return false, err
+	}
+	// try-restart: a unit that is not running yet reads the new files when it starts. --no-block: this
+	// runs before the health gate, and the gate must not wait on a restart queue.
+	for _, u := range []string{LeafUnit, "onemindd.service"} {
+		if err := in.Sys.Systemctl(ctx, "--no-block", "try-restart", u); err != nil {
+			in.say("note: %v", err)
+		}
+	}
+	in.say("Local bus   signed in with per-program keys (was open to every program on this machine)")
+	return true, nil
 }

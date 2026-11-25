@@ -63,6 +63,13 @@ gomod = re.search(r"^\s*github\.com/nats-io/nats-server/v2\s+(\S+)", read("go.mo
 if not gomod or gomod.group(1) != nats_version:
     errors.append(f"go.mod nats-server/v2 {gomod.group(1) if gomod else None!r}, lock says {nats_version!r}")
 
+# The dev NATS images (compose, the verify and bridge tests) are the same nats-server version as the image (G7):
+# a dev stack on another version can pass with permissions the image would refuse, and the other way round.
+for path in ("deploy/compose/compose.yaml", "deploy/verify/tests/test_verify.py", "apps/mosquitto/tests/test_bridge.py"):
+    for ver in re.findall(r"library/nats:([0-9][0-9.]*)-alpine", read(path)):
+        if ver != nats_version.lstrip("v"):
+            errors.append(f"{path}: NATS image {ver}, os/versions.lock.yaml says {nats_version}")
+
 # restic: deploy/pins.env must name exactly what the backup agent accepts (internal/backup/pins.go).
 gopins = read("internal/backup/pins.go")
 for arch in ("amd64", "arm64"):

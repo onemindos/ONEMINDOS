@@ -31,7 +31,7 @@ NATSCHECK = os.path.join(VERIFY_DIR, "natscheck.py")
 MOCK = os.path.join(HERE, "mock_gateway.py")
 OWNER = "owner-test-" + os.urandom(8).hex()   # made at test time, never real
 AGENT = "agent-test-" + os.urandom(8).hex()
-NATS_IMAGE = "docker.io/library/nats:2.15.2-alpine@sha256:afae2fdbe2e326c65e1246cb83b9d05d319188734f3bd577ac8072daae78a10f"
+NATS_IMAGE = "docker.io/library/nats:2.15.3-alpine@sha256:558394a23dd3c36f2d3a64b51865fd09908010e80a542cea5e75c2af543ed62a"
 
 # bug -> the verify.sh line that must FAIL (regex)
 EXPECT = {
@@ -271,7 +271,7 @@ def wait_port(port, timeout=30):
 
 @unittest.skipUnless(docker_ok() and shutil.which("openssl"), "needs Docker and openssl")
 class NatscheckAgainstRealNats(unittest.TestCase):
-    """nats-server 2.15.2 (the pinned compose image) with a token and TLS from a throwaway CA."""
+    """nats-server 2.15.3 (the pinned compose image) with a token and TLS from a throwaway CA."""
 
     @classmethod
     def setUpClass(cls):

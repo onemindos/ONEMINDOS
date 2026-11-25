@@ -1,0 +1,47 @@
+# SPDX-License-Identifier: Apache-2.0
+# Local sign-in upgrade for an edge that joined before G1 (#274, PR "leaf local auth"). The leaf.conf such
+# a machine wrote has a passwordless local user, which onemind-leaf-check (the health gate's G3) refuses;
+# without this unit the update that ships G1 would fail its trial boot, roll back and land on the device's
+# bad-releases list for good. It runs on every boot and does nothing unless leaf-config.json has no local
+# programs yet: it makes the onemindd and cli seeds, renders leaf.conf again, points onemindd at its seed
+# and restarts the leaf and onemindd. It is not part of onemindd because onemindd's sandbox
+# (ProtectSystem=strict) cannot write /data/onemind/etc. Ordered Before= the gate, which therefore never
+# sees the old file.
+[Unit]
+Description=OneMind local NATS sign-in upgrade (edges joined before G1)
+After=onemind-data-layout.service local-fs.target
+Before=onemind-health-gate.service onemindd.service onemind-nats-leaf.service
+RequiresMountsFor=/data
+ConditionPathExists=/data/onemind/etc/leaf-config.json
+
+[Service]
+Type=oneshot
+Environment=ONEMIND_ETC_DIR=/data/onemind/etc
+ExecStart=/usr/bin/onemind fabric upgrade-local
+UMask=0077
+TimeoutStartSec=2min
+# Sandbox: it writes only under /data/onemind/etc and talks to systemd over a Unix socket.
+ProtectSystem=strict
+ReadWritePaths=/data/onemind/etc
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+NoNewPrivileges=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictAddressFamilies=AF_UNIX
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+CapabilityBoundingSet=CAP_CHOWN CAP_DAC_OVERRIDE CAP_FOWNER
+SystemCallFilter=@system-service
+SystemCallArchitectures=native
+
+[Install]
+WantedBy=multi-user.target

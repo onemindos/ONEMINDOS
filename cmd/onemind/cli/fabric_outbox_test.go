@@ -6,12 +6,20 @@ import (
 	"bytes"
 	"fmt"
 	"net"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/nats-io/nats-server/v2/server"
+	"github.com/nats-io/nats.go"
+
+	"github.com/onemindos/onemindos/internal/leaf"
 )
+
+// outboxSeed is the seed of the one nkey the test server accepts (the leaf has no passwordless
+// user, G1); runOutbox passes it as --nkey.
+var outboxSeed string
 
 func jsServer(t *testing.T) string {
 	t.Helper()
@@ -21,7 +29,15 @@ func jsServer(t *testing.T) string {
 	}
 	port := l.Addr().(*net.TCPAddr).Port
 	l.Close()
-	s, err := server.NewServer(&server.Options{Host: "127.0.0.1", Port: port, JetStream: true, StoreDir: t.TempDir(), NoSigs: true, NoLog: true})
+	keys := t.TempDir()
+	pub, err := leaf.WriteLocalSeed(keys, leaf.ProgramCLI)
+	if err != nil {
+		t.Fatal(err)
+	}
+	outboxSeed = filepath.Join(keys, leaf.ProgramCLI+".nk")
+	t.Cleanup(func() { outboxSeed = "" })
+	s, err := server.NewServer(&server.Options{Host: "127.0.0.1", Port: port, JetStream: true, StoreDir: t.TempDir(), NoSigs: true, NoLog: true,
+		Nkeys: []*server.NkeyUser{{Nkey: pub}}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -36,6 +52,9 @@ func jsServer(t *testing.T) string {
 func runOutbox(t *testing.T, args ...string) (string, error) {
 	t.Helper()
 	var b bytes.Buffer
+	if outboxSeed != "" {
+		args = append(append([]string{}, args...), "--nkey", outboxSeed)
+	}
 	err := fabricOutbox(args, &b)
 	return b.String(), err
 }
@@ -71,5 +90,19 @@ func TestFabricOutboxErrors(t *testing.T) {
 	url := jsServer(t)
 	if _, err := runOutbox(t, "send", "only-subject", "--url", url); err == nil {
 		t.Fatal("send without text accepted")
+	}
+}
+
+// G1: the tool signs in with its own key. With no key file it refuses to try anonymously, and
+// the server refuses an anonymous client.
+func TestFabricOutboxNeedsItsKey(t *testing.T) {
+	url := jsServer(t)
+	err := fabricOutbox([]string{"status", "--url", url, "--nkey", filepath.Join(t.TempDir(), "missing.nk")}, &bytes.Buffer{})
+	if err == nil || !strings.Contains(err.Error(), "no passwordless user") {
+		t.Fatalf("a missing key file: %v", err)
+	}
+	if nc, err := nats.Connect(url); err == nil {
+		nc.Close()
+		t.Fatal("the leaf accepted an anonymous client")
 	}
 }
