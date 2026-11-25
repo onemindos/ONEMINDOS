@@ -91,6 +91,9 @@ type ResetPlan struct {
 // candidates is the disk discovery (tests replace it).
 var candidates = ops.Candidates
 
+// blankMembers lists onemind-data partitions that hold no signature (tests replace it).
+var blankMembers = ops.BlankMembers
+
 const resetMethod = "fast wipe: destroy the LUKS2 encryption keys of every member, then clear its signatures"
 
 // resetMethodPlain and ResetWarningPlain are used instead when the data is
@@ -426,13 +429,15 @@ func Wipe(ctx context.Context, r ops.Runner, esp string, now time.Time) error {
 		erased[e] = true
 	}
 	deadline := time.Now().Add(wipeWait)
+	retry := m.State == "wiping"
 	var cands, targets []ops.Candidate
+	var blanks map[string]string
 	for {
 		if cands, err = candidates(ctx, r); err != nil {
 			return err
 		}
 		var missing []string
-		targets = targets[:0]
+		targets, blanks = targets[:0], nil
 		for _, mm := range m.Members {
 			if erased[mm.PartUUID] {
 				continue
@@ -443,6 +448,19 @@ func Wipe(ctx context.Context, r ops.Runner, esp string, now time.Time) error {
 					c.Token.SetUUID == m.DataSet && c.Token.Generation == mm.Generation {
 					targets, found = append(targets, c), true
 					break
+				}
+			}
+			// A retry: a planned partition that is present but has no signature at all had its signatures
+			// cleared before the power went (wipefs ran, the Erased note did not). It is already erased
+			// apart from the zeroed head, so it is finished here instead of ending in ErrMembersMissing.
+			if !found && retry {
+				if blanks == nil {
+					if blanks, err = blankMembers(ctx, r); err != nil {
+						return err
+					}
+				}
+				if part, ok := blanks[mm.PartUUID]; ok {
+					targets, found = append(targets, ops.Candidate{Part: part, PartUUID: mm.PartUUID, Plain: true}), true
 				}
 			}
 			if !found {
@@ -482,6 +500,12 @@ func Wipe(ctx context.Context, r ops.Runner, esp string, now time.Time) error {
 		return err
 	}
 	for _, c := range targets {
+		// The data disk is unlocked on every boot before this unit runs (onemind-data-encrypt.service), unless it
+		// found the armed marker and left it alone. Detach it first: wipefs needs the partition not to be held
+		// open, and a mounted one is never wiped under a running system.
+		if err := detach(ctx, r, c.Part); err != nil {
+			return err
+		}
 		if !c.Plain { // plain btrfs has no keys to destroy
 			if out, code, err := r.Exec(ctx, "", "cryptsetup", "erase", "--batch-mode", c.Part); err != nil || code != 0 {
 				return fmt.Errorf("cryptsetup erase %s failed: %s", c.Part, strings.TrimSpace(string(out)))
@@ -509,4 +533,30 @@ func Wipe(ctx context.Context, r ops.Runner, esp string, now time.Time) error {
 		return err
 	}
 	return os.Remove(path)
+}
+
+// detach closes every LUKS mapping held on part. It refuses when the partition
+// or anything stacked on it is mounted: a reset never pulls a disk from under
+// a running filesystem. Nothing to close is the normal case.
+func detach(ctx context.Context, r ops.Runner, part string) error {
+	out, code, err := r.Exec(ctx, "", "lsblk", "-rno", "NAME,TYPE,MOUNTPOINTS", part)
+	if err != nil || code != 0 {
+		return fmt.Errorf("cannot inspect %s before the wipe: %s", part, strings.TrimSpace(string(out)))
+	}
+	var crypts []string
+	for _, line := range strings.Split(string(out), "\n") {
+		f := strings.Fields(line)
+		if len(f) >= 3 {
+			return fmt.Errorf("%s is in use (mounted at %s); the wipe will not run under a mounted disk", part, f[2])
+		}
+		if len(f) == 2 && f[1] == "crypt" {
+			crypts = append(crypts, f[0])
+		}
+	}
+	for _, name := range crypts {
+		if out, code, err := r.Exec(ctx, "", "cryptsetup", "close", name); err != nil || code != 0 {
+			return fmt.Errorf("cryptsetup close %s failed: %s", name, strings.TrimSpace(string(out)))
+		}
+	}
+	return nil
 }

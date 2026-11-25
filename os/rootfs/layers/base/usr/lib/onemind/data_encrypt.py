@@ -30,6 +30,9 @@ What it does, by what it finds on the onemind-data partition:
     never touched or converted here; migrating a live box needs its own design (backup, re-create, restore).
   - anything else: do nothing and say so (the data check then puts the box in recovery mode).
 
+A factory reset armed on the ESP (reset_armed) makes it do nothing at all this boot: the wipe unit runs next, erases the
+partition and restarts the box, and THAT boot finds a blank partition and formats it as above.
+
 What it will never do: format a partition that holds anything, or write the recovery key or the passphrase to disk,
 the journal or a command line (secrets go on stdin or in a 0600 file in RAM).
 Exit status is always 0: a locked disk is reported by the data check (recovery mode), not by a failed unit.
@@ -82,6 +85,9 @@ SCRUB_BYTES = 16 << 20                     # a LUKS2 header plus keyslots is up 
 
 
 ACTIVE_CONSOLES = "/sys/class/tty/console/active"
+ESP_NODE = "/dev/disk/by-partlabel/onemind-esp"   # the ESP, which /etc/fstab mounts at /boot/efi (later than this runs)
+RESET_MARKER = "onemind/factory-reset"            # armed factory reset (internal/host/reset.go MarkerName)
+ESP_PROBE = RUN + "/esp-probe"
 
 
 def console_devices():
@@ -440,6 +446,26 @@ def wait_for(path, seconds=30):
     return os.path.exists(path)
 
 
+def reset_armed(runner=run, node=ESP_NODE, probe=ESP_PROBE):
+    """True when an armed factory reset is waiting on the ESP. Why this unit asks: it runs before the ESP is mounted, and
+    the reset (onemind-factory-reset.service, after this) erases the data disk. Unlocking it first would ask a
+    passphrase box for the passphrase of data the owner just approved erasing, and a TPM box would open it; after the wipe
+    the keyslots are gone, so a headless box would then wait for a recovery key for ever. The ESP is mounted read-only,
+    only for this look, and any doubt answers False (a normal boot)."""
+    if not os.path.exists(node):
+        return False
+    try:
+        os.makedirs(probe, exist_ok=True)
+    except OSError:
+        return False
+    if runner(["mount", "-o", "ro,nosuid,nodev,noexec", "-t", "vfat", node, probe], check=False).returncode != 0:
+        return False
+    try:
+        return os.path.exists(os.path.join(probe, RESET_MARKER))
+    finally:
+        runner(["umount", probe], check=False)
+
+
 def main(runner=run):
     if not wait_for(f"/dev/disk/by-partlabel/{LABEL}"):
         say(f"no partition labelled {LABEL}; nothing to do")
@@ -447,6 +473,10 @@ def main(runner=run):
     node = os.path.realpath(f"/dev/disk/by-partlabel/{LABEL}")
     if os.path.exists("/dev/mapper/" + NAME):
         return 0                                     # already open (this is not the first run of the boot)
+    if reset_armed(runner):
+        write_state(state="reset-pending", reason="a factory reset is armed; the data disk is not opened")
+        say("a factory reset is armed: not opening or making the data disk; it is wiped next and the box restarts")
+        return 0
     has_tpm = os.path.exists(TPM_DEV)
     firmware_tpm = has_tpm or firmware_has_tpm()
     if firmware_tpm and not has_tpm:

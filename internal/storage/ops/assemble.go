@@ -290,6 +290,31 @@ func Candidates(ctx context.Context, r Runner) ([]Candidate, error) {
 	return cands, err
 }
 
+// BlankMembers maps the PARTUUID (lower case) of every onemind-data partition
+// that holds no signature at all to its device path. The factory reset uses it
+// on a retry: a member whose signatures were cleared before the power went is
+// blank, so Candidates no longer lists it, but it is still the approved plan's
+// member and only needs its head zeroed.
+func BlankMembers(ctx context.Context, r Runner) (map[string]string, error) {
+	sr, ok := r.(storage.Runner)
+	if !ok {
+		sr = stdoutOf{r}
+	}
+	disks, err := (&storage.Collector{Run: sr}).Inventory(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	out := map[string]string{}
+	for _, d := range disks {
+		for _, s := range d.Holds {
+			if s.Type == "part" && s.PartLabel == "onemind-data" && s.FSType == "" && s.PartUUID != "" {
+				out[strings.ToLower(s.PartUUID)] = s.Path
+			}
+		}
+	}
+	return out, nil
+}
+
 // candidates lists onemind-data partitions with their tokens, and a blank
 // onemind-data partition on the system disk (first boot), if any.
 func candidates(ctx context.Context, col *storage.Collector, r Runner, plain bool) ([]Candidate, string, error) {

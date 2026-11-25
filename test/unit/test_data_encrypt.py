@@ -4,7 +4,7 @@ TPM2 + recovery-key unlock, and the founder's rule of 2026-11-22: no TPM means u
 passphrase. data_encrypt.py decides everything; these tests run it with a fake command runner and check the command
 sequence, the secrets handling and the 'never touch data that is already there' rules. The real boot (swtpm) is
 test/qemu/dataenc.py, run in CI."""
-import copy, hashlib, json, importlib.util, os, re, subprocess, sys, tempfile, unittest
+import copy, hashlib, json, importlib.util, os, re, shutil, subprocess, sys, tempfile, unittest
 from unittest import mock
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -648,6 +648,17 @@ class Main(unittest.TestCase):
             de.say("RECOVERY KEY: " + RECOVERY, journal=False)
             pr.assert_not_called()
 
+    def test_an_armed_factory_reset_leaves_the_data_disk_alone(self):
+        """The wipe unit runs after this one and erases the disk: a LUKS disk must not be unlocked (a passphrase box
+        would be asked for the passphrase of data being erased), and a blank one is formatted only on the restart."""
+        for sig, zero in (("crypto_LUKS", False), ("", True), ("btrfs", False)):
+            with mock.patch.object(de, "reset_armed", return_value=True):
+                rc, r, ws, keep, fb, ul = self.run_main(sig, zero, tpm=True)
+            self.assertEqual(rc, 0)
+            fb.assert_not_called(); ul.assert_not_called(); self.plain.assert_not_called(); keep.assert_not_called()
+            self.assertEqual(ws.call_args.kwargs["state"], "reset-pending")
+
+
 
 class Wiring(unittest.TestCase):
     def test_unit_runs_before_any_mount_and_a_locked_disk_is_not_a_failed_unit(self):
@@ -778,6 +789,43 @@ class Assembler(unittest.TestCase):
         self.assertEqual(len(want), 1)
         have = hashlib.sha256(open(os.path.join(ROOT, "test", "qemu", "CRITERIA-DATAENC.md"), "rb").read()).hexdigest()
         self.assertEqual(have, want[0])
+
+    def test_the_reset_criteria_are_preregistered_and_the_harness_runs_them(self):
+        h = hashlib.sha256(open(os.path.join(ROOT, "test", "qemu", "CRITERIA-DATARESET.md"), "rb").read()).hexdigest()
+        self.assertIn(f"{h}  CRITERIA-DATARESET.md", rd("test/qemu/PREREGISTRATION.sha256"))
+        harness = rd("test/qemu/dataenc.py")
+        self.assertIn("reset_tests(a, logf)", harness)
+        for tid in ("R1", "R2"):
+            self.assertIn(f'record("{tid}"', harness)
+
+
+class ResetArmed(unittest.TestCase):
+    """reset_armed: look at the ESP read-only for the marker, any doubt means a normal boot."""
+    def probe(self, marker, mount_rc=0):
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp, True)
+        node, probe = os.path.join(tmp, "esp-node"), os.path.join(tmp, "probe")
+        open(node, "w").close()
+        calls = []
+
+        def runner(cmd, input=None, check=True):
+            calls.append(cmd)
+            if cmd[0] == "mount" and mount_rc == 0 and marker:
+                os.makedirs(os.path.join(probe, "onemind"), exist_ok=True)
+                open(os.path.join(probe, "onemind", "factory-reset"), "w").close()
+            return subprocess.CompletedProcess(cmd, mount_rc if cmd[0] == "mount" else 0, stdout="", stderr="")
+        return de.reset_armed(runner, node, probe), calls
+
+    def test_armed_marker_is_seen_and_the_esp_is_unmounted_again(self):
+        armed, calls = self.probe(True)
+        self.assertTrue(armed)
+        self.assertIn("ro", calls[0][2].split(","))
+        self.assertEqual(calls[-1][0], "umount")
+
+    def test_no_marker_or_no_esp_or_a_failed_mount_is_a_normal_boot(self):
+        self.assertFalse(self.probe(False)[0])
+        self.assertFalse(self.probe(True, mount_rc=32)[0])
+        self.assertFalse(de.reset_armed(lambda *a, **k: self.fail("no ESP: nothing to mount"), "/nonexistent/esp", "/nonexistent/p"))
 
 
 if __name__ == "__main__":

@@ -36,7 +36,16 @@ func useDisks(t *testing.T, c []ops.Candidate, err error) {
 	t.Helper()
 	old := candidates
 	candidates = func(context.Context, ops.Runner) ([]ops.Candidate, error) { return c, err }
-	t.Cleanup(func() { candidates = old })
+	ob := blankMembers
+	blankMembers = func(context.Context, ops.Runner) (map[string]string, error) { return nil, nil }
+	t.Cleanup(func() { candidates, blankMembers = old, ob })
+}
+
+func useBlanks(t *testing.T, b map[string]string) {
+	t.Helper()
+	old := blankMembers
+	blankMembers = func(context.Context, ops.Runner) (map[string]string, error) { return b, nil }
+	t.Cleanup(func() { blankMembers = old })
 }
 
 func TestPlanListsEveryMirrorMemberAndTheRecoveryKeyWarning(t *testing.T) {
@@ -165,6 +174,8 @@ func TestPlanEndpoint(t *testing.T) {
 type recRunner struct {
 	cmds []string
 	fail string
+	// lsblk is what `lsblk -rno NAME,TYPE,MOUNTPOINTS <part>` prints, by partition.
+	lsblk map[string]string
 }
 
 func (r *recRunner) Exec(_ context.Context, _ string, name string, args ...string) ([]byte, int, error) {
@@ -172,6 +183,9 @@ func (r *recRunner) Exec(_ context.Context, _ string, name string, args ...strin
 	r.cmds = append(r.cmds, c)
 	if r.fail != "" && strings.Contains(c, r.fail) {
 		return []byte("boom"), 1, nil
+	}
+	if name == "lsblk" {
+		return []byte(r.lsblk[args[len(args)-1]]), 0, nil
 	}
 	return nil, 0, nil
 }
@@ -421,5 +435,87 @@ func TestWipeRefusesAPlainPartitionOfAnotherSet(t *testing.T) {
 	err := Wipe(context.Background(), r, armed(t, at, "set-a"), at.Add(time.Minute))
 	if err == nil || len(r.cmds) != 0 {
 		t.Fatalf("err=%v cmds=%v", err, r.cmds)
+	}
+}
+
+// The data disk is unlocked on every boot before the wipe unit runs, so the
+// mapping is open when Wipe starts: it must be closed before erase and wipefs.
+func TestWipeClosesAnOpenMappingBeforeErasingAndNeverWipesAMountedDisk(t *testing.T) {
+	useDisks(t, mirror(), nil)
+	at := time.Now().UTC()
+	esp := armed(t, at, "set-a")
+	r := &recRunner{lsblk: map[string]string{"/dev/vda7": "vda7 part\nonemind-data crypt\n"}}
+	if err := Wipe(context.Background(), r, esp, at); err != nil {
+		t.Fatal(err)
+	}
+	idx := func(want string) int {
+		for i, c := range r.cmds {
+			if c == want {
+				return i
+			}
+		}
+		return -1
+	}
+	cl, er, wf := idx("cryptsetup close onemind-data"), idx("cryptsetup erase --batch-mode /dev/vda7"), idx("wipefs -a /dev/vda7")
+	if cl < 0 || !(cl < er && er < wf) {
+		t.Fatalf("want close, erase, wipefs in that order, got %d %d %d in\n%s", cl, er, wf, strings.Join(r.cmds, "\n"))
+	}
+
+	// Mounted (the volume or the partition itself): refuse, wipe nothing, keep the marker.
+	for name, out := range map[string]string{"volume": "vda7 part\nonemind-data crypt /data\n", "plain": "vda7 part /data\n"} {
+		esp := armed(t, at, "set-a")
+		r := &recRunner{lsblk: map[string]string{"/dev/vda7": out}}
+		if err := Wipe(context.Background(), r, esp, at); err == nil || !strings.Contains(err.Error(), "in use") {
+			t.Fatalf("%s: err %v", name, err)
+		}
+		for _, c := range r.cmds {
+			if strings.HasPrefix(c, "cryptsetup") || strings.HasPrefix(c, "wipefs") || strings.HasPrefix(c, "dd ") {
+				t.Fatalf("%s: touched a mounted disk: %s", name, c)
+			}
+		}
+		if _, err := os.Stat(filepath.Join(esp, MarkerName)); err != nil {
+			t.Fatalf("%s: marker must stay", name)
+		}
+	}
+}
+
+// A power cut after wipefs (and before the Erased note) leaves a planned
+// partition with no signature. The retry finishes it instead of ending in
+// ErrMembersMissing for good.
+func TestWipeRetryFinishesAPlannedMemberThatIsAlreadyBlank(t *testing.T) {
+	fastWait(t)
+	useDisks(t, mirror(), nil)
+	at := time.Now().UTC()
+	esp := armed(t, at, "set-a")
+	if err := Wipe(context.Background(), &recRunner{fail: "dd if=/dev/zero of=/dev/vdb1"}, esp, at); err == nil {
+		t.Fatal("expected the zeroing to fail")
+	}
+	// Next boot: vda7 is done (blank, zeroed, noted); vdb1 lost its signature but was not zeroed.
+	useDisks(t, nil, nil)
+	useBlanks(t, map[string]string{"p-two": "/dev/vdb1", "p-other": "/dev/vdc1"})
+	r := &recRunner{}
+	if err := Wipe(context.Background(), r, esp, at.Add(3*time.Hour)); err != nil {
+		t.Fatalf("retry: %v", err)
+	}
+	all := strings.Join(r.cmds, "\n")
+	if !strings.Contains(all, "dd if=/dev/zero of=/dev/vdb1 bs=1M count=16 conv=fsync") || strings.Contains(all, "vdc1") || strings.Contains(all, "cryptsetup erase") {
+		t.Fatalf("retry:\n%s", all)
+	}
+	if _, err := os.Stat(filepath.Join(esp, MarkerDoneName)); err != nil {
+		t.Fatal("not finished")
+	}
+}
+
+// The blank shortcut is only for a retry of an approved wipe: on a first run a
+// planned member with no signature is a disk that is not the approved one.
+func TestWipeFirstRunNeverTreatsABlankPlannedMemberAsErased(t *testing.T) {
+	fastWait(t)
+	useDisks(t, []ops.Candidate{cand("/dev/vda7", "p-sys", "set-a", 3, true)}, nil)
+	useBlanks(t, map[string]string{"p-two": "/dev/vdb1"})
+	at := time.Now().UTC()
+	esp := armed(t, at, "set-a")
+	r := &recRunner{}
+	if err := Wipe(context.Background(), r, esp, at); !errors.Is(err, ErrMembersMissing) || len(r.cmds) != 0 {
+		t.Fatalf("err %v, cmds %v", err, r.cmds)
 	}
 }

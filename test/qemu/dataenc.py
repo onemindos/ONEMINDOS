@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
 """OneMind QEMU battery, encrypted and btrfs data. Criteria: test/qemu/CRITERIA-DATAENC.md (E1-E4) and
-test/qemu/CRITERIA-DATABTRFS.md (E5-E7), both pre-registered; never edited to make a result pass. Reuses
+test/qemu/CRITERIA-DATABTRFS.md (E5-E7) and test/qemu/CRITERIA-DATARESET.md (R1-R2), all pre-registered; never edited to make a result pass. Reuses
 run-tests.py's VM driver and adds a software TPM (swtpm).
 
 Input: fixtures made with `make fixtures` (the data partition is blank in the image, the default for x86_64-efi since
@@ -10,7 +10,7 @@ container:
 
   python3 -I dataenc.py --board x86_64-efi --fixtures DIR --work DIR --log serial.log [--results r.json]
 """
-import argparse, importlib.util, json, os, platform, re, shutil, subprocess, sys, time
+import argparse, base64, importlib.util, json, os, platform, re, shutil, subprocess, sys, time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 _spec = importlib.util.spec_from_file_location("battery", os.path.join(HERE, "run-tests.py"))
@@ -235,6 +235,83 @@ def e57(a, logf, env):
         tpm3.stop()
     return ok
 
+# Writes the ESP marker the owner's approval would write, for the plan this box prints (CRITERIA-DATARESET.md section 1).
+ARM_PY = r"""
+import datetime as d, json, os, subprocess
+p = json.loads(subprocess.check_output(["/usr/bin/onemindd", "host", "plan", "factory-reset"]))
+assert p["available"], p.get("refusal")
+n, f = d.datetime.now(d.timezone.utc), "%Y-%m-%dT%H:%M:%SZ"
+lines = ["ACTION_ID=r-test", "REQUESTED_AT=" + n.strftime(f), "DATA_SET=" + p["set_uuid"], "PLAN_SHA256=" + p["plan_sha256"],
+         "EXPIRES_AT=" + (n + d.timedelta(hours=1)).strftime(f), "STATE=", "ATTEMPTS=0"]
+lines += ["MEMBER=%s:%d" % (m["partuuid"], m["generation"]) for m in p["members"]]
+os.makedirs("/boot/efi/onemind", exist_ok=True)
+open("/boot/efi/onemind/factory-reset", "w").write("\n".join(lines) + "\n")
+print("ARMED=%d" % len(p["members"]))
+"""
+ARM_CMD = "echo " + base64.b64encode(ARM_PY.encode()).decode() + " | base64 -d | python3 -"
+RESET_AFTER = ("echo UUID=$(blkid -s UUID -o value /dev/disk/by-partlabel/onemind-data); "
+               "echo ARMED=$(test -e /boot/efi/onemind/factory-reset && echo yes || echo no); "
+               "echo DONE=$(test -e /boot/efi/onemind/factory-reset.done && echo yes || echo no); "
+               "echo MA=$(test -e /data/onemind/e-marker && echo yes || echo no); echo MB=$(test -e /data/storage/e-marker2 && echo yes || echo no); ")
+
+
+def reset_case(a, logf, tag, tpm):
+    """R1 (tpm=None, plain btrfs) or R2 (a software TPM, LUKS2 + btrfs): arm a factory reset, reboot once, and the box
+    must come back as a fresh first boot (CRITERIA-DATARESET.md). Returns (verdict, detail)."""
+    vm, w = None, None
+    plain = tpm is None
+    try:
+        vm, w = fresh_vm(a, logf, tag)
+        vm.failfast = False
+        vm.mark(f"{tag.upper()} factory reset of a {'plain btrfs' if plain else 'encrypted'} box")
+        boot(vm, tpm, f"{tag.upper()} boot")
+        first = vm.expect(r"ONEMIND-DATA-CRYPT: data partition ready \(btrfs, unencrypted\)" if plain else KEY.pattern, 900)
+        old_key = None if plain else KEY.search(first.group(0)).group(1)
+        vm.pos = 0
+        vm.wait_gate(); vm.shell_ready()
+        old = guest_vals(vm, "echo UUID=$(blkid -s UUID -o value /dev/disk/by-partlabel/onemind-data)").get("UUID", "")
+        guest_vals(vm, MARK_CMD.format(path="/data/onemind/e-marker", name="MA"))
+        guest_vals(vm, MARK_CMD.format(path="/data/storage/e-marker2", name="MB"))
+        armed = guest_vals(vm, ARM_CMD).get("ARMED", "")
+        seg = vm.here(); vm.send("systemctl reboot"); vm.pos = seg
+        vm.expect(r"ONEMIND-DATA-CRYPT: data partition ready \(btrfs, unencrypted\)" if plain else KEY.pattern, 1200)
+        vm.wait_gate(); s = vm.since(seg); vm.shell_ready()
+        v = guest_vals(vm, RESET_AFTER + SUBVOLS_CMD)
+        new_keys = [m.group(1) for m in KEY.finditer(s)]
+        recovered = bool(re.search(battery.RECOV, s))
+        want_src = "/dev/mapper/onemind-data" if not plain else None
+        src = v.get("SRC", "")
+        ok = bool(armed not in ("", "0") and bool(old) and v.get("UUID") and v.get("UUID") != old
+              and v.get("ARMED") == "no" and v.get("DONE") == "yes" and v.get("MA") == "no" and v.get("MB") == "no"
+              and v.get("STOR") == "1" and v.get("FAILED") == "0" and not recovered
+              and (("making it plain btrfs, NOT encrypted" in s and "/dev/mapper" not in src) if plain else
+                   (src == want_src and new_keys and new_keys[-1] != old_key and "data disk unlocked" not in s
+                    and not re.search(PROMPT, s))))
+        return ok, (f"plan_members={armed} old_uuid={old} new_uuid={v.get('UUID')} armed_marker_left={v.get('ARMED')} done={v.get('DONE')} "
+                    f"markers_left={v.get('MA')},{v.get('MB')} data_source={src} storage_mounted={v.get('STOR')} failed_units={v.get('FAILED')} "
+                    f"recovery_mode={recovered} prompted={bool(re.search(PROMPT, s))} unlocked_old={'data disk unlocked' in s} "
+                    f"new_recovery_key={bool(new_keys) and new_keys[-1] != old_key}")
+    except (TimeoutError, RuntimeError, ValueError) as e:
+        return False, f"aborted: {e}"
+    finally:
+        if vm is not None and vm.proc and vm.proc.poll() is None:
+            vm.kill()
+        if w and os.path.lexists(os.path.join(w, "disk.img")):
+            os.remove(os.path.join(w, "disk.img"))
+
+
+def reset_tests(a, logf):
+    """R1 and R2 (CRITERIA-DATARESET.md). Returns False when a step could not run to its end."""
+    ok1, d1 = reset_case(a, logf, "r1", None)
+    record("R1", ok1, d1)
+    tpm4 = Tpm(a.work, "tpm4")
+    try:
+        ok2, d2 = reset_case(a, logf, "r2", tpm4)
+    finally:
+        tpm4.stop()
+    record("R2", ok2, d2)
+    return ok1 and ok2
+
 
 def main():
     ap = argparse.ArgumentParser()
@@ -352,6 +429,7 @@ def main():
     if vm.proc and vm.proc.poll() is None:
         vm.kill()
     rc = rc if e57(a, logf, env) else 1
+    rc = rc if reset_tests(a, logf) else 1
     tpm1.stop(); tpm2.stop()
     total = (time.time() - t0) / 60
     print("\nSUMMARY (total %.0f min, accel=%s)" % (total, env["accel"]))
@@ -359,7 +437,7 @@ def main():
         print(" | ".join((r["test"], r["verdict"], r["detail"])))
     logf.close()
     if a.results:
-        json.dump({"env": env, "minutes": round(total, 1), "criteria": "test/qemu/CRITERIA-DATAENC.md",
+        json.dump({"env": env, "minutes": round(total, 1), "criteria": "test/qemu/CRITERIA-DATAENC.md, CRITERIA-DATABTRFS.md, CRITERIA-DATARESET.md",
                    "results": RESULTS}, open(a.results, "w"), indent=2)
     return 0 if rc == 0 and RESULTS and all(r["verdict"] == "PASS" for r in RESULTS) else 1
 
