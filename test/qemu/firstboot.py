@@ -508,7 +508,7 @@ def f14(vm, board):
         "sensors -v >/dev/null 2>&1; echo SENSORS_RC=$?",
         "ras-mc-ctl --help >/dev/null 2>&1; echo RASCTL_RC=$?",
         "udisksctl help >/dev/null 2>&1; echo UDISKSCTL_RC=$?",
-        "timeout 90 fwupdmgr get-devices --no-unreported-check >/tmp/f14.fw 2>&1; echo FWDEV_RC=$? FWDEV_HEAD=$(head -c 60 /tmp/f14.fw | tr -d '\\n' | tr ' ' '_')",
+        "timeout 90 fwupdmgr get-devices --no-unreported-check >/tmp/f14.fw 2>&1; echo FWDEV_RC=$?; echo FWDEV_HEAD=$(head -c 80 /tmp/f14.fw | tr -d '\\n' | tr ' ' '_')",
         "timeout 60 udisksctl status >/dev/null 2>&1; echo UDSTATUS_RC=$?",
         "for u in fwupd-refresh.timer fwupd-refresh.service; do echo STATE $u $(systemctl is-enabled $u 2>&1 | head -1); done",
         "echo STATE fwupd.service $(systemctl is-enabled fwupd.service 2>&1 | head -1)",
@@ -560,7 +560,8 @@ def f14(vm, board):
               "udisks_info": g2("INFO_RC") == "0", "owner_mount_ro": g2("MOUNT_RC") == "0" and g2("RO") == "1",
               "owner_unmount": g2("UNMOUNT_RC") == "0"})
     record("F14", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items())
-           + f" states={state} fwdev={get('FWDEV_RC')}/{get('FWDEV_HEAD')} binds={binds}")
+           + f" states={state} fwdev={get('FWDEV_RC')}/{get('FWDEV_HEAD')} binds={binds}"
+           + ("" if all(c.values()) else f" mount_out={out2[-700:]!r}"))
     return marker
 
 
