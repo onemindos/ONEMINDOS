@@ -178,3 +178,48 @@ def test_a_mark_writes_the_database_outside_the_ledger_lock(clock):
     ledger.attach(Store(), lambda _pid, _kind=None: None)
     ledger.mark("hermes", "mcp:get_app")
     assert seen == {"locked": False}
+
+
+def test_deleting_an_expired_mark_stays_outside_the_ledger_lock(clock):
+    from onemind_core.taint import TaintLedger
+
+    ledger = TaintLedger(clock)
+    seen = {}
+
+    class Store:
+        def load(self):
+            return {}
+
+        def save(self, pid, t):
+            pass
+
+        def delete(self, pid):
+            seen["locked"] = ledger._lock.locked()
+
+    ledger.attach(Store(), lambda _pid, _kind=None: None)
+    ledger.mark("hermes", "mcp:get_app")
+    clock.advance(TTL.total_seconds() + 1)
+    assert ledger.get("hermes") is None
+    assert seen == {"locked": False}
+
+
+SCOUT = "/v1/agents/scout/inputs"
+
+
+def test_the_inputs_audit_records_how_presence_was_proved_and_a_removed_app_forgets_its_declaration(tclient):
+    assert tclient.put(SCOUT, json={"external_inputs": ["web"]}, headers=OWNER).status_code == 200
+    ins = tclient.app.state.agent_inputs
+    assert tclient.put(SCOUT, json={"external_inputs": []}, headers=OWNER).status_code == 200  # loosens
+    e = [x for x in audit(tclient) if x["event"] == "agent.inputs.set"]
+    assert "via" in e[-1]["data"]
+    # the app is removed: what the owner declared must not carry over to a new agent with that id
+    from onemind_core.agent_principals import AgentPrincipals
+
+    pid = AgentPrincipals.principal_id("scout")
+    assert tclient.app.state.actions.agent_forgotten == ins.forget
+    assert ins.view(pid)["declared"] is True and ins.view(pid)["external_inputs"] == []
+    assert ins.forget(pid) is True and ins.forget(pid) is False
+    v = ins.view(pid)
+    assert v["declared"] is False and v["exposed"] is True  # back to the fail-closed default
+    cleared = [x for x in audit(tclient) if x["event"] == "agent.inputs.cleared"]
+    assert cleared and cleared[-1]["data"]["reason"] == "identity_ended"

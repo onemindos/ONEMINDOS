@@ -91,7 +91,10 @@ class TaintStore:
 
 
 class AgentInputs:
-    """Declared outside inputs per agent principal, and the exposure lookup the taint ledger uses."""
+    """Declared outside inputs per agent principal, and the exposure lookup the taint ledger uses.
+
+    The declarations are cached in memory and read once at start, so this assumes one gateway
+    process per ledger database (agent_stop.py assumes the same)."""
 
     def __init__(self, db: Database, audit: AuditLog, catalog: Catalog, clock: Callable[[], datetime]):
         self.db, self.audit, self.catalog, self.clock = db, audit, catalog, clock
@@ -131,6 +134,19 @@ class AgentInputs:
             row = self._rows.get(pid)
         return Exposure(names, row["updated_at"] if row else self._since)
 
+    def forget(self, pid: str) -> bool:
+        """The agent's identity ended (its app was removed): drop what the owner declared, so a new
+        agent with the same id starts at the fail-closed default (D-028: identity change resets)."""
+        with self._lock:
+            had = self._rows.pop(pid, None)
+        if had is None:
+            return False
+        with self.db.session.begin() as s:
+            s.execute(delete(InputsRow).where(InputsRow.principal_id == pid))
+        self.audit.append("agent.inputs.cleared", {"id": pid, "kind": "agent"}, None,
+                          {"principal_id": pid, "was": had["external_inputs"], "reason": "identity_ended"})
+        return True
+
     def loosens(self, pid: str, external_inputs: list[str], accept: list[str]) -> bool:
         """True when this declaration makes the agent less guarded than it is now (D-028: only that
         needs a person at the passkey; tightening stays at L0)."""
@@ -156,7 +172,8 @@ class AgentInputs:
             "updated_by": row["updated_by"] if row else None,
         }
 
-    def set(self, p: Principal, pid: str, external_inputs: list[str], accept: list[str]) -> dict:
+    def set(self, p: Principal, pid: str, external_inputs: list[str], accept: list[str],
+            via: str | None = None) -> dict:
         if not p.is_owner:
             self.audit.append("authz.denied", p.as_dict(), None,
                               {"attempted": "declare agent inputs", "principal_id": pid, "reason": "permission_denied"})
@@ -189,5 +206,5 @@ class AgentInputs:
         self.audit.append("agent.inputs.set", p.as_dict(), None,
                           {"principal_id": pid, "external_inputs": after["external_inputs"],
                            "was": before["external_inputs"], "accept_injection_risk": accept,
-                           "was_accepting": before["accept_injection_risk"]})
+                           "was_accepting": before["accept_injection_risk"], "via": via})
         return after

@@ -17117,6 +17117,13 @@
             "description": "Request failed validation (conflict, with the bad fields in message)"
           }
         },
+        "security": [
+          {
+            "bearer": [
+              "users:admin"
+            ]
+          }
+        ],
         "summary": "Get Inputs",
         "tags": [
           "agents"
@@ -17197,6 +17204,13 @@
             "description": "Request failed validation (conflict, with the bad fields in message)"
           }
         },
+        "security": [
+          {
+            "bearer": [
+              "*"
+            ]
+          }
+        ],
         "summary": "Set Inputs",
         "tags": [
           "agents"

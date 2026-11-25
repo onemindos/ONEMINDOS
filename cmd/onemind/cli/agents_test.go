@@ -143,3 +143,28 @@ func TestAgentsInputsSetAndGet(t *testing.T) {
 		t.Fatalf("agent set %+v", r)
 	}
 }
+
+// Once passkeys are active a token-only caller cannot loosen an agent; the CLI says what to do, and
+// a default (never declared) agent does not look like an owner declaration.
+func TestAgentsInputsStepUpAndDefaultWording(t *testing.T) {
+	isolate(t)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPut {
+			jsonOut(w, 401, map[string]string{"error": "unauthenticated", "message": "sign in again", "reason": "step_up_required"})
+			return
+		}
+		jsonOut(w, 200, map[string]any{"id": "agent:hermes", "external_inputs": []any{"undeclared"}, "declared": false,
+			"accept_injection_risk": []any{}})
+	}))
+	t.Cleanup(srv.Close)
+	t.Setenv("ONEMIND_HUB", srv.URL)
+	t.Setenv("ONEMIND_TOKEN", ownerTok)
+	r := run(t, "", false, "agents", "inputs", "get", "agent:hermes")
+	if r.code != 0 || !strings.Contains(r.out, "default") || !strings.Contains(r.out, "not declared") {
+		t.Fatalf("get %+v", r)
+	}
+	r = run(t, "", false, "agents", "inputs", "set", "agent:hermes", "--none")
+	if r.code != ExitUsage || !strings.Contains(r.errOut, "passkey in the dashboard") {
+		t.Fatalf("step-up %+v", r)
+	}
+}

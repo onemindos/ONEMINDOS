@@ -167,12 +167,14 @@ def register(app: FastAPI, gw: Gateway) -> None:
 
     inputs = AgentInputs(gw.db, gw.audit, gw.catalog, gw.clock)
     app.state.agent_inputs = inputs
+    gw.actions.agent_forgotten = inputs.forget
     gw.actions.taint.attach(
         TaintStore(gw.db), inputs.exposure,
         lambda event, pid, data: gw.audit.append(event, {"id": pid, "kind": "agent"}, None, data))
 
     @app.get("/v1/agents/{name}/inputs", operation_id="agents.inputs.get", tags=TAGS,
-             responses={200: {"model": AgentInputsView}, **error_responses(401, 403, 422)})
+             responses={200: {"model": AgentInputsView}, **error_responses(401, 403, 422)},
+             openapi_extra={"security": [{"bearer": ["users:admin"]}]})
     def get_inputs(name: str, p: Principal = Depends(principal)):
         if not p.is_owner:  # an agent that could read its own rules and taint could shape requests to fit
             gw.audit.append("authz.denied", p.as_dict(), None,
@@ -181,17 +183,19 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return inputs.view(AgentPrincipals.principal_id(name))
 
     @app.put("/v1/agents/{name}/inputs", operation_id="agents.inputs.set", tags=TAGS,
-             responses={200: {"model": AgentInputsView}, **error_responses(401, 403, 422)})
+             responses={200: {"model": AgentInputsView}, **error_responses(401, 403, 422)},
+             openapi_extra={"security": [{"bearer": ["*"]}]})
     def set_inputs(name: str, body: AgentInputsBody, request: Request, p: Principal = Depends(principal)):
         # Declaring fewer inputs loosens an agent, and accepting a risk does too: owner only, and a
         # fresh passkey sign-in once passkeys are active, like a standing approval (F-2). Adding an
         # input or removing an accepted risk only tightens, which stays at L0 (D-028).
         pid = AgentPrincipals.principal_id(name)
         ident = getattr(request.app.state, "identity", None)
+        via = None  # how the owner proved presence; only asked (and audited) when this loosens
         if (ident is not None and p.is_owner and NAME_RE.fullmatch(pid)
                 and inputs.loosens(pid, body.external_inputs, body.accept_injection_risk)):
-            ident.require_step_up(ctx_of(request), p, "declare what an agent reads")
-        return inputs.set(p, pid, body.external_inputs, body.accept_injection_risk)
+            via = ident.require_step_up(ctx_of(request), p, "declare what an agent reads")
+        return inputs.set(p, pid, body.external_inputs, body.accept_injection_risk, via=via)
 
     @app.put("/v1/agents/{name}/budget", operation_id="agents.budget.set", tags=TAGS,
              responses={200: {"model": AgentView}, **error_responses(401, 403, 422)})

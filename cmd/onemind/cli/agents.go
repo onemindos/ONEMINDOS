@@ -3,12 +3,15 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
 
 	"github.com/spf13/cobra"
+
+	onemind "github.com/onemindos/onemindos/sdk/go"
 )
 
 // agentsCommands is `onemind agents` (CORE-SEC-6, #159): the owner's kill switch for every AI
@@ -84,6 +87,9 @@ func agentInputsCommands(a *App) *cobra.Command {
 			return printJSON(a.Stdout, raw)
 		}
 		in := joinAny(raw["external_inputs"])
+		if declared, _ := raw["declared"].(bool); !declared && in != "" {
+			fmt.Fprintf(a.Stdout, "(default: you have not declared this agent's inputs, so it counts as reading outside text)\n")
+		}
 		if in == "" {
 			fmt.Fprintf(a.Stdout, "%s reads nothing outside OneMind that the gateway cannot see.\n", sanitize(fmt.Sprint(raw["id"])))
 		} else {
@@ -133,6 +139,10 @@ func agentInputsCommands(a *App) *cobra.Command {
 			var raw map[string]any
 			body := map[string]any{"external_inputs": inputs, "accept_injection_risk": append([]string{}, accept...)}
 			if err := c.Do(bg(), http.MethodPut, path(args[0]), body, &raw); err != nil {
+				var ge *onemind.Error
+				if errors.As(err, &ge) && ge.Reason == "step_up_required" {
+					return exitWith(ExitUsage, "usage", "loosening an agent needs a fresh passkey sign-in: sign in with your passkey in the dashboard, then run this again")
+				}
 				return err
 			}
 			return show(raw)

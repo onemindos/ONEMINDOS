@@ -160,12 +160,12 @@ class TaintLedger:
             if t is not None and t.until <= now:
                 del self._by_principal[principal_id]
                 expired = True
-                if self._store is not None:
-                    try:
-                        self._store.delete(principal_id)
-                    except Exception:
-                        log.exception("taint store delete failed")
                 t = None
+        if expired and self._store is not None:  # the database write stays outside the process-wide lock
+            try:
+                self._store.delete(principal_id)
+            except Exception:
+                log.exception("taint store delete failed")
         if expired and exposed is None:
             self._emit("taint.cleared", principal_id, {"reason": "expired"})
         if exposed is not None:
