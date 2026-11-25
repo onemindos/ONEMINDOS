@@ -54,7 +54,6 @@ it('clears the credential and destroys polls while locked; only fresh sign-in re
 
   const user = userEvent.setup();
   await user.click(screen.getByRole('button', { name: 'Unlock' }));
-  expect(screen.queryByLabelText('Access token')).toBeNull();
   const username = screen.getByLabelText(/username/i);
   const password = screen.getByLabelText(/^password$/i);
   await user.type(username, 'owner');
@@ -66,6 +65,35 @@ it('clears the credential and destroys polls while locked; only fresh sign-in re
   fireEvent.submit(username.closest('form')!);
   expect(await screen.findByText('Private window title')).toBeVisible();
   expect(sessionStorage.getItem('onemind.token')).toBe('fresh');
+  expect(readLock()).toBeNull();
+});
+
+it('a person signed in with an access token can unlock with a fresh token, and a bad one stays locked', async () => {
+  sessionStorage.setItem('onemind.token', 'original');
+  const logout = vi.fn().mockResolvedValue(undefined);
+  function Protected() {
+    const { lock } = useSignedIn();
+    return <><p>Private window title</p><button onClick={() => lock({ boxName: 'Home Hub', waiting: 0 })}>Lock now</button></>;
+  }
+  function View() {
+    const state = useSession();
+    return state.locked ? <LockScreen summary={state.locked} mock={false} /> : state.session ? <Protected /> : null;
+  }
+  const makeApi = () => ({ instance: vi.fn().mockResolvedValue({}), logout } as unknown as OneMindApi);
+  render(
+    <SessionProvider deps={{ mock: true, makeApi, knownPrincipal: () => ({ kind: 'person', role: 'owner', id: 'owner' }) }}>
+      <View />
+    </SessionProvider>,
+  );
+  expect(await screen.findByText('Private window title')).toBeVisible();
+  fireEvent.click(screen.getByRole('button', { name: 'Lock now' }));
+  const user = userEvent.setup();
+  await user.click(screen.getByRole('button', { name: 'Unlock' }));
+  const token = screen.getByLabelText('Access token');
+  await user.type(token, 'fresh-token');
+  fireEvent.submit(token.closest('form')!);
+  expect(await screen.findByText('Private window title')).toBeVisible();
+  expect(sessionStorage.getItem('onemind.token')).toBe('fresh-token');
   expect(readLock()).toBeNull();
 });
 

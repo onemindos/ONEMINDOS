@@ -190,13 +190,13 @@ export function SignIn({ mock, lockedBox, onReturnToLock, switchPerson }: {
                   {t('signin.account.submit')}
                 </Button>
               </form>
-              {!lockedBox && <form onSubmit={onToken} noValidate className="dash-signin-form">
+              <form onSubmit={onToken} noValidate className="dash-signin-form">
                 <h2 className="dash-signin-sub">{t('signin.token.heading')}</h2>
-                <Field label={t('signin.token.label')} name="token" type="password" autoComplete="off" value={token} onChange={setToken} invalid={bad('token')} describedBy={describe('token', mock && !chipGone ? hintId : undefined)} />
+                <Field label={t('signin.token.label')} name="token" type="password" autoComplete="off" value={token} onChange={setToken} invalid={bad('token')} describedBy={describe('token', mock && !lockedBox && !chipGone ? hintId : undefined)} />
                 <Button type="submit" variant="primary" disabled={busy}>
                   {busy ? t('signin.busy') : t('signin.token.submit')}
                 </Button>
-              </form>}
+              </form>
               {!lockedBox && <p className="om-hint">{t('signin.expiry')}</p>}
             </details>
             {alert}
