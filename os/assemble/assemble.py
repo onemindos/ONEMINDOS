@@ -25,7 +25,12 @@ OS_DIR = os.path.dirname(HERE)
 # Fixed namespace so partition UUIDs are the same on every box built from a layout (lab and HAOS
 # do the same); RAUC finds slots by PARTLABEL, GRUB passes root=PARTUUID.
 PU_NS = uuid.UUID("6e0a8b0e-0000-4a00-8000-000000000000")
-GPT_TYPES = {"esp": "EF00", "bios": "EF02", "linux": "8300"}
+# "data" is OneMind's own partition type GUID (uuid5 of "onemind-data-partition-type" in PU_NS, written out so it never
+# changes): the data partition is LUKS2 or btrfs or ext4 depending on the box, so the generic Linux type 8300 (which
+# every system and recovery slot also carries) says nothing about it. It is not a Discoverable Partitions Spec type, so
+# systemd-gpt-auto-generator never mounts it by itself (the /srv type would).
+DATA_TYPE_GUID = "d6bbb545-ec40-5f2a-9cfe-3c397e4d8112"
+GPT_TYPES = {"esp": "EF00", "bios": "EF02", "linux": "8300", "data": DATA_TYPE_GUID}
 CHUNK = 1 << 20
 
 
@@ -91,7 +96,7 @@ def validate_layout(layout):
 
 # The data partition ships as ext4 (existing boards) or "luks2": left BLANK in the image, and encrypted on the
 # box's first boot (usr/lib/onemind/data_encrypt.py). A key made at build time would be the same on every box.
-DATA_FS = ("ext4", "luks2")
+DATA_FS = ("ext4", "luks2")   # "luks2" = shipped blank; the box picks LUKS2+btrfs or plain btrfs (D-020)
 
 
 def part(layout, label):

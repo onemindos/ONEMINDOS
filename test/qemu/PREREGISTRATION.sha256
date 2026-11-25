@@ -28,3 +28,5 @@ df614949820dae1a1bf1a4a6821f81a4ab3b7e3a534c730acd63b4861395a9ba  CRITERIA-NETWO
 bf4882ea4f3b5eac96f0133fdb6d96a0fc07ad65339727301d9479e033a7e394  CRITERIA-FIRSTBOOT.md  2026-11-24T23:59:00Z  (with §9 amendment: F13 owner shell, Debian-bones step 2; written before F13 was implemented)
 b7993473cf8815397fb77d1f98a1a61870f40f5638f242c4578f26a072aa786a  CRITERIA-FIRSTBOOT.md  2026-11-25T07:30:00Z  (§9/F13 renumbered to §11/F15 to avoid the parallel Step 2 lanes' F13; text otherwise as pre-registered)
 d2acf432bbe7c16916f3f81a44217d28c5900b12a73e0cdac63bbcf72b7ffa5d  CRITERIA-SECUREBOOT.md  2026-11-25T04:49:04Z  (commit time of 9603d912; with §5 amendment: SB6 and SB7, a bad update rolls back under Secure Boot, #148; written before SB6 or SB7 was booted)
+85956c06ea1cd9d458a152e5ae885b7fa6998c3759d282efe9daaaedefb12933  CRITERIA-DATABTRFS.md  2026-11-25T03:50:00Z  (plan PR 5, #152; written before E5-E7 ran on any image)
+ed91afd4312d950d009a14ff4e96cf16b1809a02347a265d4046628a2434d1be  CRITERIA-DATABTRFS.md  2026-11-25T06:10:00Z  (with §4 amendment: E7 grows a second time after a later boot; written before that step ran)
