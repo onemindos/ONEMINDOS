@@ -50,7 +50,7 @@ def c(settings, clock, executor, tmp_path):
     f = tmp_path / "tokens.yaml"
     doc = yaml.safe_load(settings.tokens_file.read_text())
     doc["tokens"][AREA_TOKEN] = {"id": "area-agent", "kind": "agent", "role": "agent",
-                                 "scopes": ["v0", "files:read", "logs:read"]}
+                                 "scopes": ["v0", "files:read", "logs:read", "work:read"]}
     f.write_text(yaml.safe_dump(doc))
     s = replace(settings, tokens_file=f, sections={**settings.sections,
                                                    "notify": NotifySettings(worker=False, dir=tmp_path / "keys"),
@@ -112,6 +112,7 @@ def test_area_tools_are_listed_with_their_scopes(c):
     # Logs and file details need a scope granted by name: the default (v0) agent does not get them.
     v0 = {t["name"] for t in rpc(c, "tools/list").json()["result"]["tools"]}
     assert "read_app_logs" not in v0 and "stat_file" not in v0
+    assert {"work_tasks_list", "work_task_get"}.isdisjoint(v0)
     assert {"get_backup_status", "get_os_updates", "list_machines", "get_storage", "list_alerts",
             "get_update_settings"} <= v0
     assert "logs:read" not in MCP_BUNDLES["v0"] and "files:read" not in MCP_BUNDLES["reader"]
