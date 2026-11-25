@@ -7,11 +7,25 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
     paths: ['os/**', 'test/qemu/**', 'cmd/**', 'internal/**', 'core/**', 'dashboard/**', 'ui/src/**', 'apps/**', 'go.mod', 'go.sum', '.dockerignore', 'Makefile', '.github/workflows/image.yml', '.github/workflows/battery.yml']
   push:
-    branches: [main]
+    branches: [main, release/next]
     paths: ['os/**', 'test/qemu/**', 'cmd/**', 'internal/**', 'core/**', 'dashboard/**', 'ui/src/**', 'apps/**', 'go.mod', 'go.sum', '.dockerignore', 'Makefile', '.github/workflows/image.yml', '.github/workflows/battery.yml']
+  # Nightly full matrix, 3:17 AM ET (08:17 UTC in winter, 09:17 in summer; off the hour on purpose).
+  schedule:
+    - cron: '17 8 * * *'
   workflow_dispatch:
+    inputs:
+      full:
+        description: 'Build the full matrix (all boards, all clouds, installer, vm-do and arm64 batteries)'
+        type: boolean
+        default: false
 permissions:
   contents: read
+# WHICH MATRIX RUNS WHEN (founder, 2026-11-25: "we are still in development, we can worry about the images more
+# after we have it live"). The scope job output `full` decides; no test is weakened, only which entries run.
+#   light (PR, push to release/next, plain dispatch): images x86_64-efi + vm, cloud proxmox, smoke (first boot
+#     F0-F4 + boot menu lock), battery x86_64-efi up to T5 (with its firewall check).
+#   full (nightly schedule, push to main, dispatch with full=true): all 5 boards, all 5 clouds, installer,
+#     the vm-do and arm64-efi batteries. dataenc stays manual (dispatch) as before.
 # A newer push to the same PR cancels the superseded run; runs on main, tags and manual dispatches are never
 # cancelled (each gets its own group).
 concurrency:
@@ -31,9 +45,21 @@ jobs:
       pull-requests: read
     outputs:
       os: ${{ steps.s.outputs.os }}
+      full: ${{ steps.full.outputs.full }}
       sb: ${{ steps.sb.outputs.sb }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - id: full
+        name: Full matrix or light?
+        env:
+          FULL_INPUT: ${{ inputs.full }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = schedule ] || { [ "$GITHUB_EVENT_NAME" = push ] && [ "$GITHUB_REF" = refs/heads/main ]; } \
+             || { [ "$GITHUB_EVENT_NAME" = workflow_dispatch ] && [ "$FULL_INPUT" = true ]; }; then
+            echo full=true | tee -a "$GITHUB_OUTPUT"
+          else
+            echo full=false | tee -a "$GITHUB_OUTPUT"
+          fi
       - id: s
         name: OS change or payload only?
         env:
@@ -64,12 +90,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - {board: x86_64-efi, runner: ubuntu-24.04}
-          - {board: vm,         runner: ubuntu-24.04}
-          - {board: vm-do,      runner: ubuntu-24.04}
-          - {board: arm64-efi,  runner: ubuntu-24.04-arm}
-          - {board: rpi5,       runner: ubuntu-24.04-arm}   # no QEMU boot (Pi firmware): structure check + LT-PI5-01
+        # light: x86_64-efi + vm. full: + vm-do, arm64-efi, rpi5 (rpi5 has no QEMU boot: structure check + LT-PI5-01)
+        include: ${{ fromJSON(needs.scope.outputs.full == 'true' && '[{"board":"x86_64-efi","runner":"ubuntu-24.04"},{"board":"vm","runner":"ubuntu-24.04"},{"board":"vm-do","runner":"ubuntu-24.04"},{"board":"arm64-efi","runner":"ubuntu-24.04-arm"},{"board":"rpi5","runner":"ubuntu-24.04-arm"}]' || '[{"board":"x86_64-efi","runner":"ubuntu-24.04"},{"board":"vm","runner":"ubuntu-24.04"}]') }}
     # CI-14: x86 + KVM on a Proxmox VE host when KVM_RUNNER=on and the event is trusted (allow-list); else GitHub-hosted
     runs-on: ${{ (matrix.runner == 'ubuntu-24.04' && vars.KVM_RUNNER == 'on' && (contains(fromJSON('["push","schedule","workflow_dispatch","merge_group"]'), github.event_name) || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository))) && fromJSON('["self-hosted","onemind-kvm"]') || matrix.runner }}
     timeout-minutes: 90
@@ -222,10 +244,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - {board: x86_64-efi, upto: T5, runner: ubuntu-24.04, firstboot: true, firewall: true}
-          - {board: vm-do,      upto: T5, runner: ubuntu-24.04, firstboot: false, firewall: false}
-          - {board: arm64-efi,  upto: T1, runner: ubuntu-24.04-arm, firstboot: true, firewall: false}
+        # light: x86_64-efi only. full: + vm-do and arm64-efi.
+        include: ${{ fromJSON(needs.scope.outputs.full == 'true' && '[{"board":"x86_64-efi","upto":"T5","runner":"ubuntu-24.04","firstboot":true,"firewall":true},{"board":"vm-do","upto":"T5","runner":"ubuntu-24.04","firstboot":false,"firewall":false},{"board":"arm64-efi","upto":"T1","runner":"ubuntu-24.04-arm","firstboot":true,"firewall":false}]' || '[{"board":"x86_64-efi","upto":"T5","runner":"ubuntu-24.04","firstboot":true,"firewall":true}]') }}
     uses: ./.github/workflows/battery.yml
     with:
       board: ${{ matrix.board }}
@@ -243,7 +263,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        cloud: [aws, gcp, azure, hetzner, proxmox]
+        # light: proxmox only. full: all five.
+        cloud: ${{ fromJSON(needs.scope.outputs.full == 'true' && '["aws","gcp","azure","hetzner","proxmox"]' || '["proxmox"]') }}
     # CI-14: x86 + KVM on a Proxmox VE host when KVM_RUNNER=on and the event is trusted (allow-list); else GitHub-hosted
     runs-on: ${{ (vars.KVM_RUNNER == 'on' && (contains(fromJSON('["push","schedule","workflow_dispatch","merge_group"]'), github.event_name) || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository))) && fromJSON('["self-hosted","onemind-kvm"]') || 'ubuntu-24.04' }}
     timeout-minutes: 150
@@ -309,7 +330,8 @@ jobs:
   # stick, then I1-I5 (test/qemu/CRITERIA-INSTALLER.md): boot the stick, install to an NVMe disk
   # through the menu, verify, reboot into OneMind. KVM here; TCG runs exceed the write budget.
   installer:
-    if: ${{ !github.event.pull_request.draft && needs.scope.outputs.os == 'true' }}
+    # full matrix only (see the rule at the top)
+    if: ${{ !github.event.pull_request.draft && needs.scope.outputs.os == 'true' && needs.scope.outputs.full == 'true' }}
     needs: [scope, smoke]
     # CI-14: x86 + KVM on a Proxmox VE host when KVM_RUNNER=on and the event is trusted (allow-list); else GitHub-hosted
     runs-on: ${{ (vars.KVM_RUNNER == 'on' && (contains(fromJSON('["push","schedule","workflow_dispatch","merge_group"]'), github.event_name) || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository))) && fromJSON('["self-hosted","onemind-kvm"]') || 'ubuntu-24.04' }}
