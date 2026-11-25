@@ -140,7 +140,7 @@ def main():
         script += "sync; "
         for name, path in MARKERS.items():
             script += f"echo MARK-{name}=$(sha256sum {path} | cut -c1-64); "
-        _, out = vm.run(script, 120)
+        _, out = vm.run(script.rstrip("; "), 120)
         marks = {n: (re.findall(rf"^MARK-{n}=(\w+)", out, re.M) or [""])[-1] for n in MARKERS}
         _, out = vm.run(f"systemctl stop k3s; n=0; for f in {K3S_FILES}; do [ -e \"$f\" ] || continue; : > \"$f\"; n=$((n+1)); done; "
                         "sync; echo EMPTIED=$n")
