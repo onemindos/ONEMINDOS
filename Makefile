@@ -135,7 +135,7 @@ powercut:
 	mkdir -p $(OUT)/powercut-$(BOARD)
 	$(DOCKER_RUN) $(KVM) $(TOOLS) python3 -I /src/test/qemu/powercut.py --board $(BOARD) \
 	  --fixtures /out/fx-$(BOARD) --work /out/powercut-$(BOARD)/work \
-	  --log /out/powercut-$(BOARD)/serial.log --results /out/powercut-$(BOARD)/results.json; \
+	  --log /out/powercut-$(BOARD)/serial.log --results /out/powercut-$(BOARD)/results.json $(POWERCUT_ARGS); \
 	  rc=$$?; rm -f $(OUT)/powercut-$(BOARD)/work/disk.img; exit $$rc
 
 # Signed host extensions only (test/qemu/sysextguard.py, T-W19-01 for #186 and founder decision Z-22): unsigned,

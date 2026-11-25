@@ -44,8 +44,12 @@ record = fb.record
 fb.RESULTS = RESULTS
 
 
-def k3s_healthy(vm, timeout=HEALTHY_S):
+HEALTHY_TIMEOUT = [HEALTHY_S]        # --healthy-timeout shortens it for debugging runs only; the criterion is HEALTHY_S
+
+
+def k3s_healthy(vm, timeout=None):
     """The gate's own check (G1-G6) until it prints ok. Returns (ok, last line)."""
+    timeout = timeout or HEALTHY_TIMEOUT[0]
     _, out = vm.run(f"t0=$SECONDS; while :; do r=$(/usr/lib/onemind/onemind-k3s-check 2>&1); "
                     f"case \"$r\" in ok*) echo K3S=ok; break;; esac; "
                     f"[ $((SECONDS - t0)) -ge {timeout} ] && {{ echo K3S=timeout; break; }}; sleep 5; done; echo LAST=\"$r\"",
@@ -67,7 +71,10 @@ def empty_k3s_files(vm):
 def diagnose(vm, why):
     vm.mark(f"DIAGNOSE ({why}): k3s journal and the repair's files")
     try:
-        _, out = vm.run("journalctl -u k3s --no-pager -n 40 -o cat | cut -c1-220; ls -la /data/k3s/server/tls /data/onemind/k3s-recovery "
+        _, out = vm.run("k3s kubectl get pods -A 2>&1 | cut -c1-160; k3s kubectl -n kube-system describe pod -l k8s-app=kube-dns 2>&1 | tail -30 | cut -c1-200; "
+                        "k3s kubectl -n kube-system logs -l k8s-app=kube-dns --previous --tail=25 2>&1 | cut -c1-200; "
+                        "ls -la /data/k3s/server/manifests 2>&1 | cut -c1-120; "
+                        "journalctl -u k3s --no-pager -n 40 -o cat | cut -c1-220; ls -la /data/k3s/server/tls /data/onemind/k3s-recovery "
                         "2>&1 | head -30; "
                         f"{fb.PY} -I -c 'import json; d=json.load(open(\"/data/onemind/k3s-recovery/last.json\")); d.pop(\"damaged\", None); print(d)' 2>&1 | cut -c1-1500", 120)
         print(out[-6000:], flush=True)
@@ -152,7 +159,10 @@ def main():
     ap.add_argument("--work", required=True)
     ap.add_argument("--log", required=True)
     ap.add_argument("--results")
+    ap.add_argument("--only-f13", action="store_true", help="debugging: stop after F13")
+    ap.add_argument("--healthy-timeout", type=int, default=HEALTHY_S, help="debugging only; the criterion is 900 s")
     a = ap.parse_args()
+    HEALTHY_TIMEOUT[0] = a.healthy_timeout
     fb.make_work(a.fixtures, a.work)
     logf = open(a.log, "w")
     t0 = time.time()
@@ -190,6 +200,8 @@ def main():
                f"empty_or_missing={bad} files_checked={checked} token_hash_in_file={tok_in_file} token_200={tok_200} "
                f"recovery_ran={recovered.group(0)[:90] if recovered else None} t={time.time() - t0:.0f}s")
 
+        if a.only_f13:
+            raise SystemExit(0 if RESULTS and RESULTS[-1]["verdict"] == "PASS" else 1)
         # ---- F14: corrupt k3s state on a healthy box with no owner app (the fixture's test app deleted, §10)
         vm.mark("F14 corrupt k3s state, power cut, repair")
         ids = fb.ident(vm)
