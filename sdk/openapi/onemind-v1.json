@@ -9467,6 +9467,51 @@
         "title": "PushIn",
         "type": "object"
       },
+      "PushRegistration": {
+        "properties": {
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "last_seen_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Seen At"
+          },
+          "platform": {
+            "title": "Platform",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "platform",
+          "label",
+          "state",
+          "created_at",
+          "last_seen_at"
+        ],
+        "title": "PushRegistration",
+        "type": "object"
+      },
       "QualityEvidence": {
         "description": "The yes/no checks behind a quality tier (#174), per level. A tier needs every check of its level and of the levels below.",
         "properties": {
@@ -32196,6 +32241,32 @@
                       "maximum": 90,
                       "minimum": 1,
                       "type": "integer"
+                    },
+                    "silence": {
+                      "anyOf": [
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "reason": {
+                              "maxLength": 200,
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "until": {
+                              "format": "date-time",
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "until",
+                            "reason"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     }
                   },
                   "type": "object"
@@ -32281,6 +32352,32 @@
                     "maximum": 90,
                     "minimum": 1,
                     "type": "integer"
+                  },
+                  "silence": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "reason": {
+                            "maxLength": 200,
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "until": {
+                            "format": "date-time",
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "until",
+                          "reason"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   }
                 },
                 "type": "object"
@@ -35372,7 +35469,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PushRegistration"
+                  },
+                  "title": "Response Push.Registrations.List",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"

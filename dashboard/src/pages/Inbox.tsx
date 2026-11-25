@@ -2,10 +2,11 @@
 // Notifications: your inbox (GET /v1/notifications, mark read) and your channels
 // (GET/POST/DELETE /v1/notifications/channels, POST …/test). Channels cover the two kinds that need
 // one address (a push topic or a webhook) and SMS (#869: your number, the provider's HTTPS send URL,
-// its token and a daily cap the hub counts); email has more fields and stays on the API for now.
+// its token and a daily cap the hub counts). Email uses the existing STARTTLS gateway channel.
 // A test shows the provider's receipt or its plain error.
 // Notification text comes from the hub and is rendered as text, never as HTML.
-import { useState, type FormEvent } from 'react';
+import { useMemo, useState, type FormEvent } from 'react';
+import { OneMind } from '@onemind/sdk';
 import { Button, Card, Dialog, PageHeader, StatusPill, type Tone } from '@onemind/ui';
 import type { ChannelInfo, ChannelTestResult, NotificationItem, Severity } from '../api/wiring';
 import { useHub } from '../data/hub';
@@ -22,6 +23,7 @@ const TONE: Record<Severity, Tone> = { info: 'info', warning: 'warn', critical: 
 const KINDS = [
   { id: 'unifiedpush', label: 'Push topic (ntfy, UnifiedPush)' },
   { id: 'webhook', label: 'Webhook' },
+  { id: 'email', label: 'Email (SMTP)' },
   { id: 'sms', label: 'Text message (SMS)' },
 ] as const;
 const PHONE = /^\+[1-9]\d{6,14}$/;
@@ -32,7 +34,8 @@ function capOf(c: ChannelInfo): number | null {
 }
 
 export function Inbox({ preferences = false }: { preferences?: boolean }) {
-  const { api, person, mock } = useSignedIn();
+  const { api, person, mock, token } = useSignedIn();
+  const sdk = useMemo(() => new OneMind({ baseUrl: window.location.origin, token, retries: 1 }), [token]);
   const hub = useHub();
   const run = useRun();
   const inbox = usePoll(() => api.notifications({ limit: 100 }), 30_000);
@@ -44,23 +47,33 @@ export function Inbox({ preferences = false }: { preferences?: boolean }) {
   const [secret, setSecret] = useState('');
   const [phone, setPhone] = useState('');
   const [cap, setCap] = useState('20');
+  const [mail, setMail] = useState({ host: '', from: '', to: '', username: '' });
   const [tested, setTested] = useState<{ label: string; result: ChannelTestResult } | null>(null);
   const urlOk = /^https?:\/\/[^\s/@]+(\/\S*)?$/.test(url.trim());
   const sms = kind === 'sms';
+  const email = kind === 'email';
   const capN = Number(cap);
   const smsOk = !sms || (PHONE.test(phone.trim()) && Number.isInteger(capN) && capN >= 1 && capN <= 500);
+  const canAdd = label.trim() && (email ? mail.host.trim() && mail.from.includes('@') && mail.to.includes('@') : urlOk && smsOk);
 
   const add = (e: FormEvent) => {
     e.preventDefault();
-    if (!label.trim() || !urlOk || !smsOk) return;
+    if (!canAdd) return;
     void run(async () => {
       const config = sms ? { url: url.trim(), to: phone.trim(), daily_cap: capN } : { url: url.trim() };
-      await api.createChannel({ kind, label: label.trim(), config, ...(secret ? { secret } : {}) });
+      if (email) {
+        const { host, from, to, username } = mail;
+        await sdk.notifications.createChannel({ kind, label: label.trim(),
+          config: { host, from, to, security: 'starttls', ...(username ? { username } : {}) }, ...(secret ? { secret } : {}) });
+      } else {
+        await api.createChannel({ kind, label: label.trim(), config, ...(secret ? { secret } : {}) });
+      }
       setAdding(false);
       setLabel('');
       setUrl('');
       setSecret('');
       setPhone('');
+      setMail({ host: '', from: '', to: '', username: '' });
       await channels.reload();
     }, t('inbox.channels.add'));
   };
@@ -138,7 +151,7 @@ export function Inbox({ preferences = false }: { preferences?: boolean }) {
           </p>
         )}
       </Card>
-      <Dialog open={adding} onClose={() => setAdding(false)} title={t('inbox.channels.add')} actions={<><Button variant="ghost" onClick={() => setAdding(false)}>{t('common.cancel')}</Button><Button variant="primary" onClick={add} disabled={!label.trim() || !urlOk || !smsOk}>{t('common.save')}</Button></>}>
+      <Dialog open={adding} onClose={() => setAdding(false)} title={t('inbox.channels.add')} actions={<><Button variant="ghost" onClick={() => setAdding(false)}>{t('common.cancel')}</Button><Button variant="primary" onClick={add} disabled={!canAdd}>{t('common.save')}</Button></>}>
         <form className="dash-form" onSubmit={add}>
           <label htmlFor="chan-kind">{t('inbox.channels.kind')}</label>
           <select id="chan-kind" value={kind} onChange={(e) => setKind(e.target.value)}>
@@ -148,7 +161,12 @@ export function Inbox({ preferences = false }: { preferences?: boolean }) {
           </select>
           <TextField id="chan-label" label={t('inbox.channels.label')} value={label} onChange={setLabel} />
           {sms && <TextField id="chan-phone" label={t('inbox.channels.phone')} value={phone} onChange={setPhone} type="tel" />}
-          <TextField id="chan-url" label={sms ? t('inbox.channels.providerUrl') : t('inbox.channels.url')} value={url} onChange={setUrl} type="url" />
+          {email ? <>
+            <TextField id="chan-smtp" label="SMTP host (STARTTLS)" value={mail.host} onChange={(host) => setMail({ ...mail, host })} />
+            <TextField id="chan-from" label="Sender address" value={mail.from} onChange={(from) => setMail({ ...mail, from })} type="email" />
+            <TextField id="chan-to" label="Recipient address" value={mail.to} onChange={(to) => setMail({ ...mail, to })} type="email" />
+            <TextField id="chan-user" label="SMTP username" value={mail.username} onChange={(username) => setMail({ ...mail, username })} />
+          </> : <TextField id="chan-url" label={sms ? t('inbox.channels.providerUrl') : t('inbox.channels.url')} value={url} onChange={setUrl} type="url" />}
           <TextField id="chan-secret" label={sms ? t('inbox.channels.providerToken') : t('inbox.channels.secret')} value={secret} onChange={setSecret} type="password" />
           {sms && <TextField id="chan-cap" label={t('inbox.channels.cap')} value={cap} onChange={setCap} type="number" />}
           {sms && <p className="om-hint">{t('inbox.channels.smsHint')}</p>}

@@ -384,12 +384,12 @@ class NotifyService:
 
     def muted(self, person_id: str, topic: str, target: str = routing.IN_APP) -> bool:
         doc, _ = self.preferences(person_id)
-        return routing.muted(doc, topic, target)
+        return routing.silenced(doc, self.clock()) or routing.muted(doc, topic, target)
 
     def _drop_muted(self, delivery: DeliveryRow, notification: NotificationRow | None) -> bool:
         if notification is None or not self.muted(delivery.person_id, notification.topic, delivery.target_id):
             return False
-        delivery.state, delivery.next_attempt_at, delivery.last_error = "dropped", None, "topic muted"
+        delivery.state, delivery.next_attempt_at, delivery.last_error = "dropped", None, "delivery suppressed by preferences"
         self.repo.save_delivery(delivery)
         return True
 
@@ -413,8 +413,8 @@ class NotifyService:
                 group_key=group_key, actions_json=json.dumps(actions) if actions else None, created_at=now,
             )
             deliveries = []
-            if not inapp_only:
-                doc, _ = self.preferences(pid)
+            doc, _ = self.preferences(pid)
+            if not inapp_only and not routing.silenced(doc, now):
                 held = routing.hold(doc, topic, severity, now)
                 limits = self._channel_limits(pid)
                 for target in routing.targets(doc, topic, severity, self._targets_of(pid)):
