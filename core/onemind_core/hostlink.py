@@ -57,6 +57,7 @@ ACTION_ID = re.compile(r"^[A-Za-z0-9_.:-]{1,128}$")
 # RFC 1123 labels: what the host helper may call the box (H-06: the answer is checked, not trusted).
 HOSTNAME = re.compile(r"(?=.{1,253}\Z)[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*")
 PROBE_TIMEOUT_S = 2.0  # GET /v1/status reads the helper on every call: a silent socket must not hold it up
+SERIAL = re.compile(r"^[A-Za-z0-9._:-]{1,64}$")
 DEVICE = re.compile(r"^/dev/[a-z][a-z0-9]{1,15}$")
 UNIT = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.@-]{0,90}\.(service|socket|timer|path)$")
 UNREACHABLE = "engine_unreachable"  # the reason when nothing answers on the socket
@@ -186,6 +187,11 @@ class HostLink:
             if not isinstance(device, str) or not DEVICE.fullmatch(device):
                 return ExecResult("failed", "the eject has no approved drive", steps=[{"step": "host", "result": "bad_request"}])
             body["device"] = device
+            serial = (a.params or {}).get("serial")
+            if serial is not None:
+                if not isinstance(serial, str) or not SERIAL.fullmatch(serial):
+                    return ExecResult("failed", "the eject has a malformed drive serial", steps=[{"step": "host", "result": "bad_request"}])
+                body["serial"] = serial
         with self._lock:
             self._inflight.add(a.id)
         try:

@@ -29,6 +29,11 @@ class Image(unittest.TestCase):
         for want in ("-m <nomailer>", "-M exec /usr/lib/onemind/smartd-notify", "-n standby,q", "-W 4,60,70"):
             self.assertIn(want, conf[0])
 
+    def test_smartd_with_no_smart_disk_exits_cleanly_not_failed(self):
+        opts = [l for l in rd(BASE + "/etc/default/smartmontools").splitlines() if l.startswith("smartd_opts=")]
+        self.assertEqual(len(opts), 1)
+        self.assertIn("-q nodev0", opts[0])
+
     def test_script_is_executable_and_posix_sh(self):
         self.assertTrue(os.access(NOTIFY, os.X_OK))
         self.assertTrue(rd(BASE + "/usr/lib/onemind/smartd-notify").startswith("#!/bin/sh\n"))

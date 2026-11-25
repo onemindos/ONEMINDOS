@@ -54,6 +54,7 @@ var (
 	actionIDRe = regexp.MustCompile(`^[A-Za-z0-9_.:-]{1,128}$`)
 	planHashRe = regexp.MustCompile(`^[0-9a-f]{64}$`)
 	versionRe  = regexp.MustCompile(`^[0-9A-Za-z.+-]{1,64}$`) // the gateway's InstallParams.version
+	serialRe   = regexp.MustCompile(`^[A-Za-z0-9._:-]{1,64}$`)
 	driveRe    = regexp.MustCompile(`^/dev/[a-z][a-z0-9]{1,15}$`)
 	unitRe     = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.@-]{0,90}\.(service|socket|timer|path)$`)
 )
@@ -81,6 +82,9 @@ type Request struct {
 	Unit string `json:"unit,omitempty"`
 	// Device (eject only, required) is the removable disk the owner approved ejecting, e.g. /dev/sdb.
 	Device string `json:"device,omitempty"`
+	// Serial (eject only, optional) is the serial number the drive had when the owner was asked. If the stick was
+	// swapped for another one before approval, the serial differs and the host refuses. Empty: the drive reports none.
+	Serial string `json:"serial,omitempty"`
 }
 
 // Validate refuses a malformed request (HTTP 400).
@@ -93,6 +97,9 @@ func (r Request) Validate() error {
 	}
 	if (r.Kind == KindEject) != (r.Device != "") {
 		return fmt.Errorf("device is required for %s and only for it", KindEject)
+	}
+	if r.Serial != "" && (r.Kind != KindEject || !serialRe.MatchString(r.Serial)) {
+		return errors.New("serial is only for eject and is 1-64 characters of A-Z a-z 0-9 . _ : -")
 	}
 	switch r.Kind {
 	case KindEject:
@@ -140,6 +147,7 @@ type Op struct {
 	PlanSHA256 string     `json:"plan_sha256,omitempty"` // factory-reset: the approved plan
 	Unit       string     `json:"unit,omitempty"`        // service-restart: the approved unit
 	Device     string     `json:"device,omitempty"`      // eject: the approved drive
+	Serial     string     `json:"serial,omitempty"`      // eject: its serial when approved
 	State      string     `json:"state"`
 	Reason     string     `json:"reason,omitempty"` // failed: a stable code
 	Message    string     `json:"message,omitempty"`
@@ -278,7 +286,7 @@ func (s *Service) Submit(ctx context.Context, req Request) (op Op, created bool,
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if old, err := s.Store.Get(req.ActionID); err == nil {
-		if old.Kind != req.Kind || old.Version != req.Version || old.PlanSHA256 != req.PlanSHA256 || old.Unit != req.Unit || old.Device != req.Device {
+		if old.Kind != req.Kind || old.Version != req.Version || old.PlanSHA256 != req.PlanSHA256 || old.Unit != req.Unit || old.Device != req.Device || old.Serial != req.Serial {
 			return Op{}, false, &Refusal{"action_id_reused", "action " + req.ActionID + " was already sent as a different request"}
 		}
 		if s.active != nil && s.active.ID == old.ID {
@@ -309,7 +317,7 @@ func (s *Service) Submit(ctx context.Context, req Request) (op Op, created bool,
 	}
 	if req.Kind == KindEject {
 		// Checked again here, whatever the gateway said: only a removable disk the box is not using.
-		if err := s.Media.CheckEject(ctx, req.Device); err != nil {
+		if err := s.Media.CheckEject(ctx, req.Device, req.Serial); err != nil {
 			var ref *Refusal
 			if errors.As(err, &ref) {
 				return Op{}, false, ref
@@ -325,7 +333,7 @@ func (s *Service) Submit(ctx context.Context, req Request) (op Op, created bool,
 		}
 	}
 	now := s.now()
-	op = Op{ID: req.ActionID, Kind: req.Kind, Version: req.Version, PlanSHA256: req.PlanSHA256, Unit: req.Unit, Device: req.Device, State: StateAccepted, BootID: s.BootID,
+	op = Op{ID: req.ActionID, Kind: req.Kind, Version: req.Version, PlanSHA256: req.PlanSHA256, Unit: req.Unit, Device: req.Device, Serial: req.Serial, State: StateAccepted, BootID: s.BootID,
 		AcceptedAt: now, UpdatedAt: now, Message: "accepted"}
 	if err := s.Store.Put(op); err != nil {
 		return Op{}, false, err
@@ -404,7 +412,7 @@ func (s *Service) run(ctx context.Context, op Op) {
 		s.set(&op, StateSucceeded, "", op.Unit+" restarted")
 	case KindEject:
 		s.set(&op, StateRunning, "", "unmounting "+op.Device)
-		if err := s.Media.Eject(ctx, op.Device); err != nil {
+		if err := s.Media.Eject(ctx, op.Device, op.Serial); err != nil {
 			var ref *Refusal
 			if errors.As(err, &ref) {
 				s.set(&op, StateFailed, ref.Reason, ref.Message)

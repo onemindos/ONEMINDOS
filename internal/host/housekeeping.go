@@ -30,8 +30,9 @@ type Media interface {
 	Unavailable() string
 	View(ctx context.Context) MediaView
 	// CheckEject refuses (a *Refusal) unless device is a removable disk with nothing the box needs on it.
-	CheckEject(ctx context.Context, device string) error
-	Eject(ctx context.Context, device string) error
+	// serial, when not empty, must match the drive's own serial number (the stick may have been swapped).
+	CheckEject(ctx context.Context, device, serial string) error
+	Eject(ctx context.Context, device, serial string) error
 }
 
 var deviceRe = regexp.MustCompile(`^/dev/[a-z][a-z0-9]{1,15}$`)
@@ -65,6 +66,7 @@ type SmartStatus struct {
 type Removable struct {
 	Device     string   `json:"device"` // /dev/sdb
 	Model      string   `json:"model,omitempty"`
+	Serial     string   `json:"serial,omitempty"` // only when it is plain text; the eject request carries it
 	SizeBytes  int64    `json:"size_bytes"`
 	Label      string   `json:"label,omitempty"` // the first filesystem label
 	Mounts     []string `json:"mountpoints"`
@@ -88,6 +90,18 @@ type Housekeeping struct {
 	Run       CmdRunner
 	AlertFeed string // the JSON-lines file smartd's script appends to
 	Now       func() time.Time
+	// CmdTimeout bounds each udisksctl call so a hung udisks cannot leave an eject "running" for ever (default 30 s).
+	CmdTimeout time.Duration
+}
+
+func (h *Housekeeping) udisks(ctx context.Context, args ...string) ([]byte, int, error) {
+	d := h.CmdTimeout
+	if d <= 0 {
+		d = 30 * time.Second
+	}
+	ctx, cancel := context.WithTimeout(ctx, d)
+	defer cancel()
+	return h.Run.Run(ctx, "udisksctl", args...)
 }
 
 // DefaultAlertFeed lives on /data (a bind mount of /var/lib/smartmontools), so it survives reboots and A/B updates.
@@ -242,6 +256,7 @@ type lsblkDev struct {
 	Tran       string     `json:"tran"`
 	Size       int64      `json:"size"`
 	Model      string     `json:"model"`
+	Serial     string     `json:"serial"`
 	Label      string     `json:"label"`
 	Mountpoint []string   `json:"mountpoints"`
 	Children   []lsblkDev `json:"children"`
@@ -251,6 +266,9 @@ type lsblkDev struct {
 var protectedMounts = []string{"/", "/data", "/boot", "/usr", "/var", "/home", "/etc", "/opt", "/srv"}
 
 func protected(mp string) bool {
+	if mp == "[SWAP]" { // lsblk's name for swap: a swap partition on a USB disk is in use, not removable
+		return true
+	}
 	for _, p := range protectedMounts {
 		if mp == p || (p != "/" && strings.HasPrefix(mp, p+"/")) {
 			return true
@@ -283,7 +301,7 @@ func (d lsblkDev) partitions() []string {
 
 // disks lists the removable disks. A removable disk is a whole disk on the USB bus or flagged removable by the kernel.
 func (h *Housekeeping) disks(ctx context.Context) ([]lsblkDev, error) {
-	out, code, err := h.Run.Run(ctx, "lsblk", "--json", "--bytes", "--tree", "-o", "PATH,TYPE,RM,TRAN,SIZE,MODEL,LABEL,MOUNTPOINTS")
+	out, code, err := h.Run.Run(ctx, "lsblk", "--json", "--bytes", "--tree", "-o", "PATH,TYPE,RM,TRAN,SIZE,MODEL,SERIAL,LABEL,MOUNTPOINTS")
 	if err != nil || code != 0 {
 		return nil, fmt.Errorf("lsblk failed")
 	}
@@ -324,6 +342,9 @@ func (h *Housekeeping) View(ctx context.Context) MediaView {
 	}
 	for _, d := range ds {
 		r := Removable{Device: d.Path, Model: clean(d.Model, 80), SizeBytes: d.Size, Mounts: []string{}, Partitions: len(d.partitions())}
+		if serialRe.MatchString(strings.TrimSpace(d.Serial)) {
+			r.Serial = strings.TrimSpace(d.Serial)
+		}
 		for _, c := range append([]lsblkDev{d}, d.Children...) {
 			if c.Label != "" && r.Label == "" {
 				r.Label = clean(c.Label, 64)
@@ -356,10 +377,13 @@ func (h *Housekeeping) find(ctx context.Context, device string) (lsblkDev, error
 }
 
 // CheckEject implements Media.
-func (h *Housekeeping) CheckEject(ctx context.Context, device string) error {
+func (h *Housekeeping) CheckEject(ctx context.Context, device, serial string) error {
 	d, err := h.find(ctx, device)
 	if err != nil {
 		return err
+	}
+	if serial != "" && strings.TrimSpace(d.Serial) != serial {
+		return &Refusal{"drive_changed", device + " is not the drive the owner was asked about (it was swapped or replugged)"}
 	}
 	if why := ejectProblem(d); why != "" {
 		return &Refusal{"in_use", why}
@@ -369,10 +393,13 @@ func (h *Housekeeping) CheckEject(ctx context.Context, device string) error {
 
 // Eject unmounts every mounted partition (udisksctl, the owner-action path F14 proves) and powers the drive off, so
 // the stick is safe to pull. It re-checks first: the drive may have changed since the owner approved.
-func (h *Housekeeping) Eject(ctx context.Context, device string) error {
+func (h *Housekeeping) Eject(ctx context.Context, device, serial string) error {
 	d, err := h.find(ctx, device)
 	if err != nil {
 		return err
+	}
+	if serial != "" && strings.TrimSpace(d.Serial) != serial {
+		return &Refusal{"drive_changed", device + " is not the drive the owner was asked about (it was swapped or replugged)"}
 	}
 	if why := ejectProblem(d); why != "" {
 		return &Refusal{"in_use", why}
@@ -381,11 +408,11 @@ func (h *Housekeeping) Eject(ctx context.Context, device string) error {
 		if !deviceRe.MatchString(p) {
 			continue
 		}
-		if _, code, err := h.Run.Run(ctx, "udisksctl", "unmount", "-b", p); err != nil || (code != 0 && h.mounted(ctx, p)) {
+		if _, code, err := h.udisks(ctx, "unmount", "-b", p); err != nil || (code != 0 && h.mounted(ctx, p)) {
 			return fmt.Errorf("could not unmount %s", filepath.Base(p))
 		}
 	}
-	if _, code, err := h.Run.Run(ctx, "udisksctl", "power-off", "-b", device); err != nil || code != 0 {
+	if _, code, err := h.udisks(ctx, "power-off", "-b", device); err != nil || code != 0 {
 		return fmt.Errorf("could not power off %s", filepath.Base(device))
 	}
 	return nil

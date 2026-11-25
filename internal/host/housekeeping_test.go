@@ -39,7 +39,7 @@ func (f *fakeCmds) Run(_ context.Context, name string, args ...string) ([]byte, 
 const lsblkTwoDisks = `{"blockdevices":[
  {"path":"/dev/vda","type":"disk","rm":false,"tran":null,"size":34359738368,"model":null,"label":null,"mountpoints":[null],"children":[
    {"path":"/dev/vda2","type":"part","rm":false,"tran":null,"size":1,"model":null,"label":"data","mountpoints":["/data"]}]},
- {"path":"/dev/sdb","type":"disk","rm":true,"tran":"usb","size":16000000000,"model":"Cruzer","label":null,"mountpoints":[null],"children":[
+ {"path":"/dev/sdb","type":"disk","rm":true,"tran":"usb","size":16000000000,"model":"Cruzer","serial":"4C530001230","label":null,"mountpoints":[null],"children":[
    {"path":"/dev/sdb1","type":"part","rm":true,"tran":null,"size":15000000000,"model":null,"label":"HOLIDAY","mountpoints":["/run/media/holiday"]}]},
  {"path":"/dev/sdc","type":"disk","rm":"1","tran":"usb","size":500000000000,"model":"Boot stick","label":null,"mountpoints":[null],"children":[
    {"path":"/dev/sdc1","type":"part","rm":true,"tran":null,"size":1,"model":null,"label":null,"mountpoints":["/data/odd"]}]}
@@ -185,5 +185,63 @@ func TestHousekeepingRoute(t *testing.T) {
 	rec := get(&Server{S: &Service{Media: h}})
 	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"removable"`) || !strings.Contains(rec.Body.String(), `"smart"`) {
 		t.Fatalf("%d %s", rec.Code, rec.Body)
+	}
+}
+
+func TestEjectBoundToTheSerialAndSwapIsInUse(t *testing.T) {
+	h, f := newHK(t)
+	ctx := context.Background()
+	if v := h.View(ctx); v.Removable[0].Serial != "4C530001230" {
+		t.Fatalf("the view carries the serial: %+v", v.Removable[0])
+	}
+	var ref *Refusal
+	// Another stick that came up as sdb after the owner was asked: refused, nothing unmounted.
+	if err := h.CheckEject(ctx, "/dev/sdb", "OTHERSTICK"); !errors.As(err, &ref) || ref.Reason != "drive_changed" {
+		t.Fatalf("a swapped stick: %v", err)
+	}
+	if err := h.Eject(ctx, "/dev/sdb", "OTHERSTICK"); !errors.As(err, &ref) || ref.Reason != "drive_changed" {
+		t.Fatalf("a swapped stick at run time: %v", err)
+	}
+	for _, c := range f.calls {
+		if strings.HasPrefix(c, "udisksctl") {
+			t.Fatalf("nothing may be touched for a swapped stick: %v", f.calls)
+		}
+	}
+	if err := h.CheckEject(ctx, "/dev/sdb", "4C530001230"); err != nil {
+		t.Fatal(err)
+	}
+	// A swap area on a USB disk is the box's memory.
+	f.out["lsblk"] = `{"blockdevices":[{"path":"/dev/sdb","type":"disk","rm":true,"tran":"usb","size":1,"model":"x","serial":"S1","label":null,"mountpoints":[null],"children":[
+	  {"path":"/dev/sdb1","type":"part","rm":true,"tran":null,"size":1,"model":null,"label":null,"mountpoints":["[SWAP]"]}]}]}`
+	if err := h.CheckEject(ctx, "/dev/sdb", ""); !errors.As(err, &ref) || ref.Reason != "in_use" {
+		t.Fatalf("swap on a USB disk: %v", err)
+	}
+	if (Request{ActionID: "a", Kind: KindEject, Device: "/dev/sdb", Serial: "bad serial;"}).Validate() == nil ||
+		(Request{ActionID: "a", Kind: KindRestart, Serial: "S1"}).Validate() == nil {
+		t.Fatal("a bad serial, or a serial on another kind, must be refused")
+	}
+}
+
+type hangCmds struct{}
+
+func (hangCmds) Run(ctx context.Context, name string, args ...string) ([]byte, int, error) {
+	if name == "lsblk" {
+		return []byte(lsblkTwoDisks), 0, nil
+	}
+	<-ctx.Done() // a hung udisks: only the context ends it
+	return nil, -1, ctx.Err()
+}
+
+func TestEjectGivesUpWhenUdisksHangs(t *testing.T) {
+	h := &Housekeeping{Run: hangCmds{}, CmdTimeout: 50 * time.Millisecond}
+	done := make(chan error, 1)
+	go func() { done <- h.Eject(context.Background(), "/dev/sdb", "") }()
+	select {
+	case err := <-done:
+		if err == nil {
+			t.Fatal("a hung unmount must fail the eject")
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("eject hung: udisksctl has no timeout")
 	}
 }

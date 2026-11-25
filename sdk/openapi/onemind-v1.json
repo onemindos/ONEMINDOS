@@ -10063,6 +10063,18 @@
             "title": "Partitions",
             "type": "integer"
           },
+          "serial": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The drive's own serial number when it reports one; the eject is bound to it",
+            "title": "Serial"
+          },
           "size_bytes": {
             "title": "Size Bytes",
             "type": "integer"

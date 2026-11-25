@@ -45,6 +45,7 @@ POLL_S = 60
 FIRST_S = 5  # the first pass waits a moment: the host service may still be starting
 MAX_ALERTS = 50
 MAX_DRIVES = 32
+SERIAL_RE = re.compile(r"^[A-Za-z0-9._:-]{1,64}$")
 DEVICE_RE = re.compile(r"^/dev/[a-z][a-z0-9]{1,15}$")
 NAME_RE = re.compile(r"^[a-z][a-z0-9]{1,15}$")
 ID_RE = re.compile(r"^[A-Za-z0-9_.:-]{1,128}$")
@@ -81,6 +82,7 @@ class Removable(BaseModel):
     device: str = Field(description="Device path, e.g. /dev/sdb")
     name: str = Field(description="The path segment for the eject route, e.g. sdb")
     model: str | None = None
+    serial: str | None = Field(default=None, description="The drive's own serial number when it reports one; the eject is bound to it")
     size_bytes: int
     label: str | None = None
     mountpoints: list[str]
@@ -132,7 +134,7 @@ def parse(d) -> Housekeeping:
         mounts = [_text(m, 200) for m in r["mountpoints"][:16]]
         ok = r.get("ejectable") is True
         drives.append(Removable(
-            device=dev, name=dev.removeprefix("/dev/"), model=_text(r["model"], 80) if r.get("model") else None, size_bytes=r["size_bytes"],
+            device=dev, name=dev.removeprefix("/dev/"), serial=r["serial"] if isinstance(r.get("serial"), str) and SERIAL_RE.fullmatch(r["serial"]) else None, model=_text(r["model"], 80) if r.get("model") else None, size_bytes=r["size_bytes"],
             label=_text(r["label"], 64) if r.get("label") else None, mountpoints=mounts, partitions=int(r.get("partitions") or 0),
             ejectable=ok, why_not=None if ok else _text(r.get("why_not") or "the box is using this drive", 200)))
     return Housekeeping(
@@ -177,6 +179,9 @@ def register(app: FastAPI, gw: Gateway) -> None:
         d = next((r for r in view.removable if r.device == (a.params or {}).get("device")), None)
         if d is None:
             return "that drive is no longer plugged in"
+        want = (a.params or {}).get("serial")
+        if want and d.serial != want:
+            return "that is not the drive you were asked about (it was swapped or replugged)"
         return None if d.ejectable else (d.why_not or "the box is using that drive")
 
     def run(a, finish) -> None:
@@ -223,7 +228,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
         if why is not None:
             raise ApiError(409, "conflict", why[1], reason="host_unavailable")
         body, created = gw.actions.request_feature(
-            p, ACTION, {"device": drive.device}, idempotency_key=idem or req.idempotency_key or f"eject:{uuid.uuid4()}",
+            p, ACTION, {"device": drive.device, **({"serial": drive.serial} if drive.serial else {})}, idempotency_key=idem or req.idempotency_key or f"eject:{uuid.uuid4()}",
             expires_at=gw.clock() + REQUEST_TTL, reason=req.reason, pending_cap=True)
         return JSONResponse(status_code=202 if created else 200, content=body, headers={"Location": f"/v1/actions/{body['id']}"})
 

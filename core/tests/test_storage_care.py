@@ -27,7 +27,7 @@ from onemind_core.hostlink import HostLinkSettings
 from onemind_core.identity.scopes import required_scopes
 from onemind_core.netconf import NetSettings
 
-STICK = {"device": "/dev/sdb", "model": "Cruzer", "size_bytes": 16000000000, "label": "HOLIDAY",
+STICK = {"device": "/dev/sdb", "model": "Cruzer", "serial": "4C530001230", "size_bytes": 16000000000, "label": "HOLIDAY",
          "mountpoints": ["/run/media/holiday"], "ejectable": True, "partitions": 1}
 BUSY = {"device": "/dev/sdc", "model": "Boot stick", "size_bytes": 500, "mountpoints": ["/data/odd"], "ejectable": False,
         "why_not": "the box is using this drive (/data/odd)", "partitions": 1}
@@ -135,12 +135,12 @@ def test_an_agent_can_ask_to_remove_a_drive_but_only_the_owner_runs_it(settings,
         r = eject(c, who=AGENT, reason="the backup to this stick is done")
         assert r.status_code == 202, r.text
         a = r.json()
-        assert a["type"] == "storage.eject" and a["state"] == "awaiting_approval" and a["params"] == {"device": "/dev/sdb"}
+        assert a["type"] == "storage.eject" and a["state"] == "awaiting_approval" and a["params"] == {"device": "/dev/sdb", "serial": "4C530001230"}
         assert c.post(f"/v1/actions/{a['id']}/approve", headers=AGENT).status_code == 403
         assert host.posts == []
         ok = c.post(f"/v1/actions/{a['id']}/approve", headers=OWNER)
         assert ok.status_code == 200 and ok.json()["state"] == "dispatched", ok.text
-        assert host.posts == [{"action_id": a["id"], "kind": "eject", "device": "/dev/sdb"}]
+        assert host.posts == [{"action_id": a["id"], "kind": "eject", "device": "/dev/sdb", "serial": "4C530001230"}]
         host.ops[a["id"]].update(state="succeeded", message="/dev/sdb is safe to remove")
         c.app.state.hostlink.poll()
         done = c.get(f"/v1/actions/{a['id']}", headers=OWNER).json()
@@ -215,3 +215,15 @@ def test_each_smartd_warning_becomes_one_alert_and_is_never_told_twice(settings,
         assert sorted(x["type"] for x in open_alerts(c)) == ["storage.smart.failing", "storage.smart.warning"]
         # An owner clears one; it stays cleared (told once, even across a restart of the poll).
         assert poll() == 0
+
+
+def test_the_eject_is_bound_to_the_drive_that_was_asked_about(settings, clock, host):
+    with box(settings, clock, host.path) as c:
+        a = eject(c).json()
+        assert a["params"]["serial"] == "4C530001230"
+        host.view["removable"][0]["serial"] = "OTHERSTICK"  # another stick came up as sdb before approval
+        r = c.post(f"/v1/actions/{a['id']}/approve", headers=OWNER)
+        assert r.status_code == 409 and host.posts == []
+        host.view["removable"][0]["serial"] = "4C530001230"
+        assert c.post(f"/v1/actions/{a['id']}/approve", headers=OWNER).status_code in (200, 202)
+        assert host.posts and host.posts[0]["serial"] == "4C530001230" and host.posts[0]["device"] == "/dev/sdb"
