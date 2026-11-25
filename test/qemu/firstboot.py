@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
-"""OneMind QEMU battery, first boot (F0-F12). Criteria: test/qemu/CRITERIA-FIRSTBOOT.md
+"""OneMind QEMU battery, first boot (F0-F13). Criteria: test/qemu/CRITERIA-FIRSTBOOT.md
 (pre-registered; never edited to make a result pass). Reuses run-tests.py's VM driver.
 
 Input: the battery's fixtures (`make fixtures`: disk.img = slot A v1 + test overlay, bundles.img with
@@ -496,6 +496,69 @@ def f12(vm, token):
     record("F12", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items())
            + f" box={box!r} up={up} down_summary={summary[:80]!r} engine_unreachable={inst.get('reason')}")
 
+def f13(vm):
+    """The clock is Debian's own: systemd-timesyncd runs, tzdata is there, LANG is C.UTF-8 (section 9)."""
+    _, out = vm.run("echo ENABLED=$(systemctl is-enabled systemd-timesyncd.service 2>&1 | head -1); "
+                    "echo ACTIVE=$(systemctl is-active systemd-timesyncd.service 2>&1 | head -1); "
+                    "echo ZONE=$(test -r /usr/share/zoneinfo/UTC && echo ok || echo missing); "
+                    "echo LOCALE=$(grep -v '^#' /etc/locale.conf 2>/dev/null | head -1); "
+                    "for i in $(seq 1 30); do [ \"$(timedatectl show -p NTPSynchronized --value 2>/dev/null)\" = yes ] && break; sleep 2; done; "
+                    "echo SYNC=$(timedatectl show -p NTPSynchronized --value 2>&1 | head -1); "
+                    "echo SERVER=$(timedatectl timesync-status 2>/dev/null | sed -n 's/^ *Server: *//p' | head -1)", 200)
+    get = lambda k: (re.findall(rf"^{k}=(.*?)\s*$", out, re.M) or [""])[-1]
+    sync, server = get("SYNC"), get("SERVER")
+    c = {"timesyncd_enabled": get("ENABLED") == "enabled", "timesyncd_active": get("ACTIVE") == "active",
+         "tzdata": get("ZONE") == "ok", "lang_c_utf8": get("LOCALE") == "LANG=C.UTF-8"}
+    # user-mode networking may not reach any NTP server: then the unit being enabled and running is the proof, and
+    # the detail says so. If a server was reached, the clock must report synchronised (what node-check.sh asks).
+    c["synchronised_if_reachable"] = sync == "yes" or not server or server.startswith("n/a")
+    record("F13", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items())
+           + f" NTPSynchronized={sync} ntp_server={server!r}" + ("" if sync == "yes" else " (NTP server unreachable from the VM)"))
+
+HOSTSOCK = "curl -s --max-time 10 --unix-socket /run/onemind/host.sock"
+
+
+def zone_probe(vm):
+    """What the box says its zone is now: the symlink's target, the UTC offset, and the host's own GET /v1/time."""
+    _, out = vm.run("echo LINK=$(readlink -f /etc/localtime); echo OFFSET=$(date +%z); "
+                    f"echo TIME=$({HOSTSOCK} http://host/v1/time | tr -d '\\n')", 60)
+    get = lambda k: (re.findall(rf"^{k}=(.*?)\s*$", out, re.M) or [""])[-1]
+    try:
+        host_zone = json.loads(get("TIME")).get("zone")
+    except ValueError:
+        host_zone = None
+    return get("LINK"), get("OFFSET"), host_zone
+
+
+def f14(vm):
+    """The host applies a time zone now: the symlink on /data is swapped, the offset changes, an unknown zone is refused (section 10)."""
+    before = zone_probe(vm)
+    _, out = vm.run(
+        f"{HOSTSOCK} -o /dev/null -w 'POST=%{{http_code}}\\n' -X POST http://host/v1/operations "
+        "-d '{\"action_id\":\"f14-tz\",\"kind\":\"set-timezone\",\"zone\":\"Pacific/Auckland\"}'; "
+        "for i in $(seq 1 30); do "
+        f"S=$({HOSTSOCK} http://host/v1/operations/f14-tz | sed -n 's/.*\"state\":\"\\([a-z_]*\\)\".*/\\1/p'); "
+        "[ \"$S\" = succeeded ] || [ \"$S\" = failed ] && break; sleep 1; done; echo STATE=$S; "
+        f"{HOSTSOCK} -w '\\nBAD=%{{http_code}}\\n' -X POST http://host/v1/operations "
+        "-d '{\"action_id\":\"f14-bad\",\"kind\":\"set-timezone\",\"zone\":\"Mars/Olympus\"}'", 90)
+    get = lambda k: (re.findall(rf"^{k}=(.*?)\s*$", out, re.M) or [""])[-1]
+    after = zone_probe(vm)
+    c = {"started_utc": before[0].startswith("/usr/share/zoneinfo/") and before[2] == "UTC",
+         "accepted": get("POST") in ("200", "202"), "succeeded": get("STATE") == "succeeded",
+         "link_auckland": after[0].endswith("zoneinfo/Pacific/Auckland"), "offset_plus_1300": after[1] == "+1300",
+         "host_reports_zone": after[2] == "Pacific/Auckland",
+         "unknown_refused": get("BAD") == "409" and "unknown_zone" in out}
+    record("F14", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items()) + f" before={before} after={after}")
+
+
+def f15(vm):
+    """The zone survives the reboot (section 10)."""
+    link, offset, host_zone = zone_probe(vm)
+    c = {"link_auckland": link.endswith("zoneinfo/Pacific/Auckland"), "offset_plus_1300": offset == "+1300",
+         "host_reports_zone": host_zone == "Pacific/Auckland"}
+    record("F15", all(c.values()), " ".join(f"{k}={v}" for k, v in c.items()) + f" link={link} offset={offset} host_zone={host_zone}")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--board", required=True, choices=sorted(battery.BOARDS))
@@ -552,11 +615,14 @@ def main():
         vm.mark("F10 rescue console with k3s stopped (CORE-UPDATE-9)"); f10(vm, token)
         vm.mark("F11 starting page, then the gateway, never a refused connection"); f11(vm, (os.path.dirname(a.results) or ".") if a.results else None)
         vm.mark("F12 the gateway reaches the host helper, and says missing without it (#875)"); f12(vm, token)
+        vm.mark("F13 the clock: timesyncd, tzdata, C.UTF-8"); f13(vm)
+        vm.mark("F14 the host applies a time zone (P-04)"); f14(vm)
 
         if a.upto in ("F3", "F4"):
             vm.mark("F3 reboot keeps state")
             seg = vm.here(); vm.send("systemctl reboot")
             al = vm.expect(ALREADY, 900).group(0)
+            vm.pos = seg    # on a fast host the gate line comes before ALREADY; search this boot's buffer from its start
             g3 = vm.wait_gate(); vm.shell_ready()
             new_toks = TOKEN.findall(vm.since(seg))
             ids3 = ident(vm)
@@ -565,6 +631,7 @@ def main():
                 diagnose(vm, f"healthz={hz3} after reboot")
             listed3 = nodes(vm, token, ids["node_id"])
             same = [n for n in listed3 if n[0] == ids["node_id"]]
+            vm.mark("F15 the zone survives the reboot (P-04)"); f15(vm)
             record("F3", not new_toks and ids3 == ids and hz3 == "200" and bool(same) and bool(token),
                    f"'{al[:70]}' new_tokens={len(new_toks)} same_ids={ids3 == ids} healthz={hz3} listed={listed3} gate={g3}")
 

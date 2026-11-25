@@ -11213,6 +11213,49 @@
         "title": "SessionBody",
         "type": "object"
       },
+      "SetZoneRequest": {
+        "additionalProperties": false,
+        "description": "POST /v1/system/time/zone.",
+        "properties": {
+          "idempotency_key": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idempotency Key"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "zone": {
+            "description": "IANA time zone name, e.g. Europe/Berlin",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Zone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "zone"
+        ],
+        "title": "SetZoneRequest",
+        "type": "object"
+      },
       "SettingsRequest": {
         "additionalProperties": false,
         "properties": {
@@ -13973,6 +14016,147 @@
           }
         },
         "title": "TicketRequest",
+        "type": "object"
+      },
+      "TimeView": {
+        "additionalProperties": false,
+        "description": "GET /v1/system/time.",
+        "properties": {
+          "at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The hub's own clock now",
+            "title": "At"
+          },
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "last_sync_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When systemd-timesyncd last set the clock",
+            "title": "Last Sync At"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "ntp_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The box is asked to keep its clock from the network (timedatectl NTP)",
+            "title": "Ntp Enabled"
+          },
+          "ntp_synchronized": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The clock is currently set from a time server (timedatectl NTPSynchronized)",
+            "title": "Ntp Synchronized"
+          },
+          "problem": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why the clock state could not be read (the zone is still given)",
+            "title": "Problem"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "enum": [
+                  "host_service_unreachable",
+                  "host_service_error",
+                  "bad_response"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "server": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The time server systemd-timesyncd talked to last; null before it reached one",
+            "title": "Server"
+          },
+          "stratum": {
+            "anyOf": [
+              {
+                "maximum": 16.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stratum"
+          },
+          "zone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "IANA zone name, e.g. Europe/Berlin; null when the box names none",
+            "title": "Zone"
+          }
+        },
+        "required": [
+          "available"
+        ],
+        "title": "TimeView",
         "type": "object"
       },
       "TipClip": {
@@ -39019,6 +39203,184 @@
           }
         },
         "summary": "System Service Restart",
+        "tags": [
+          "system"
+        ]
+      }
+    },
+    "/v1/system/time": {
+      "get": {
+        "description": "The hub's time zone and whether its clock is set from a time server (read only, owner only).\n\n`available` is false, with a reason, when the host service cannot be reached; a field the clock\ndid not report is null, never guessed.",
+        "operationId": "system.time.get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimeView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "system:admin"
+            ]
+          }
+        ],
+        "summary": "System Time",
+        "tags": [
+          "system"
+        ]
+      }
+    },
+    "/v1/system/time/zone": {
+      "post": {
+        "description": "Ask for a new time zone. It waits for the owner, who approves it; the response is the action, whose id\nis the approval to look for. An agent may ask, never approve.\n\n422 for a name that is not a time zone; 409 unknown_zone for a name this box has no zone file for;\n409 host_unavailable while the host service cannot set it (nothing is filed). The `Idempotency-Key`\nheader (or the body's `idempotency_key`) makes a retry replay the same action.",
+        "operationId": "system.time.set_zone",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetZoneRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
+                }
+              }
+            },
+            "description": "Idempotent replay"
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Action"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Missing or unknown bearer token (unauthenticated)"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The principal may not do this (permission_denied)"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "stale_precondition, expired, conflict or policy_refused"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request body over its limit (payload_too_large)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Request failed validation (conflict, with the bad fields in message)"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
+          }
+        },
+        "security": [
+          {
+            "bearer": [
+              "actions:request"
+            ]
+          }
+        ],
+        "summary": "System Set Zone",
         "tags": [
           "system"
         ]

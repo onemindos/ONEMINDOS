@@ -95,3 +95,32 @@ F12 runs on the slot-A boot from F1, after F11 and before the F3 reboot, from th
 | F12 | The gateway reaches the host helper; without it, it says so and starts nothing | Within 120 s, `GET /v1/status` on :8080 with the owner token returns HTTP 200 with `host.helper` = `reachable`, `host.state` = `ok` and `host.hostname` equal to the output of `hostname` in the guest (one harmless host read: the answer comes from the host helper over the socket); then, with `systemctl stop onemind-host.service onemind-host.socket` done and `/run/onemind/host.sock` removed: `GET /v1/status` returns HTTP 200 with `host.helper` = `missing`, `host.state` not `ok`, `host.hostname` null and a `host.summary` that starts with `host helper: missing` and contains no `/run/`; and `GET /v1/os/updates` returns HTTP 200 with `install.available` false, `install.reason` = `engine_unreachable` and a plain-text `install.message` (no `Traceback`, no `Errno`, no `/run/`); after `systemctl start onemind-host.socket`, `host.helper` is `reachable` again within 60 s | Any status other than 200, `reachable` never seen before the stop or after the restart, a hostname that differs, `reachable` or `ok` while the socket is gone, a summary or message that leaks a path or a traceback, or the install reported available without the helper |
 
 Required for this task's "done": F12 PASS on x86_64-efi in CI's image workflow. It is written without having run QEMU (no KVM where it was written); a harness bug found on the first run may be fixed and re-run once, named as such, under section 1's rule.
+
+## 9. Amendment (2026-11-25): F13, the clock (Step 2 PR 1, Debian bones)
+
+**Status:** PRE-REGISTERED before F13 was implemented in `firstboot.py` or run. F0-F12 above are unchanged. The sha256 of this file with this section is appended to `PREREGISTRATION.sha256`. **Serves:** the Debian-bones plan, PR 1: the image had no NTP client (recommends are off, so `systemd-timesyncd` was never installed) although `deploy/verify/node-check.sh` reads `NTPSynchronized`.
+
+F13 runs on the slot-A boot from F1, after F12 and before the F3 reboot, from the hub's shell. It waits up to 60 s for the clock to report synchronised.
+
+| ID | Test | PASS if | FAIL if |
+|---|---|---|---|
+| F13 | The clock is Debian's own | `systemd-timesyncd.service` is `enabled` and `active`; `/usr/share/zoneinfo/UTC` is readable (tzdata); `/etc/locale.conf` holds `LANG=C.UTF-8` (comment lines ignored); `timedatectl show -p NTPSynchronized` is `yes`, **or** `timedatectl timesync-status` names no server (user-mode QEMU networking cannot reach one), in which case the verdict says so | The unit is missing, disabled or dead, no zone database, another locale, or a server was reached and the clock still reports not synchronised |
+
+Required for this task's "done": F13 PASS on x86_64-efi in CI's image workflow.
+
+**Amendment (2026-11-25, after the first run):** F13 waits up to 60 s, not longer. "Names no server" also covers `Server: n/a (<pool host>)`: timesyncd prints the pool host it is trying while it has not reached any server, so that line counts as unreachable. A reached server (a real address) with the clock still not synchronised is a FAIL. `/etc/locale.conf` is read with comment lines (the SPDX header) ignored. None of this makes a pass easier for a reached server.
+
+## 10. Amendment (2026-11-25): F14 and F15, the time zone (P-04)
+
+**Status:** PRE-REGISTERED before F14 and F15 were implemented in `firstboot.py` or run. F0-F13 above are unchanged. The sha256 of this file with this section is appended to `PREREGISTRATION.sha256`. **Serves:** native feature P-04 (time zone applied). The root is read-only, so the zone lives on `/data`: `/etc/localtime` is a symlink to `/data/state/localtime`, seeded as UTC by `onemind-data-layout`, and the host service (`onemind-host`, kind `set-timezone`) swaps it.
+
+F14 runs on the slot-A boot from F1, after F13 and before the F3 reboot, from the hub's shell as root. It sends a `set-timezone` operation straight to the host socket (the gateway's approval step is proven in `core/tests/test_system_time.py`; this proves the box applies it). F15 runs after the F3 reboot and only when F3 runs.
+
+| ID | Test | PASS if | FAIL if |
+|---|---|---|---|
+| F14 | The host applies a time zone now | Before the change `/etc/localtime` resolves into `/usr/share/zoneinfo` and the hub's zone is `UTC`; `POST /v1/operations` `{kind: set-timezone, zone: Pacific/Auckland}` is accepted and the operation reaches `succeeded` within 30 s; then `readlink -f /etc/localtime` ends in `zoneinfo/Pacific/Auckland`, `date +%z` is `+1300` (New Zealand daylight time in November), and `GET /v1/time` on the host socket reports `zone` `Pacific/Auckland`; a second operation for `Mars/Olympus` is refused with HTTP 409 reason `unknown_zone` and the zone is unchanged | The operation is refused or fails, the zone file or offset is wrong, `GET /v1/time` disagrees, or the unknown zone is accepted |
+| F15 | The zone survives a reboot | After the F3 reboot `readlink -f /etc/localtime` still ends in `zoneinfo/Pacific/Auckland`, `date +%z` is `+1300`, and `GET /v1/time` reports `Pacific/Auckland` | Any of them is back to UTC or missing |
+
+Required for this task's "done": F14 and F15 PASS on x86_64-efi (F15 needs a run with `FUPTO=F3` or higher).
+
+**Amendment (2026-11-25, after the first run):** the first run of F14 passed; the F3 reboot step then waited for a gate line that had already scrolled past (on a fast KVM host the health gate prints `RESULT committed-boot` before the harness has consumed the `already configured` line, the same race F1 already handles by resetting its search position). The harness now searches the boot's own buffer from the start of the reboot. This changes what is searched, not what passes, and is the one allowed re-run.

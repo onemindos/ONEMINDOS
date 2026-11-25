@@ -31,6 +31,7 @@ const Schema = "onemind.host/v1"
 //	GET  /v1/plans/factory-reset  what a factory reset would erase, keep and warn (read-only)
 //	GET  /v1/smb, PUT /v1/smb/shares, PUT /v1/smb/users/{user}/password   file sharing (smb.go)
 //	GET  /v1/network           read-only network facts (internal/netview; 404 when Network is nil)
+//	GET  /v1/time              time zone and clock synchronisation (timedatectl; 404 when Time is nil)
 //	GET  /v1/services          service cards: the image's registry joined with systemd (internal/svcregistry; 404 when Services is nil)
 //	GET  /v1/services/{unit}/logs?lines=200&follow=1   a registry unit's journal as text lines (404 when ServiceLogs is nil)
 type Server struct {
@@ -46,6 +47,8 @@ type Server struct {
 	Network func() (any, error)
 	// Services answers GET /v1/services (#623). It only reads (systemctl show); nil leaves the route off.
 	Services func(ctx context.Context) (any, error)
+	// Time answers GET /v1/time: the zone and the clock's sync state (timezone.go). It only reads; nil leaves the route off.
+	Time func(ctx context.Context) (any, error)
 	// Hostname names the box in GET /v1/status (#875; default os.Hostname): the harmless read the gateway
 	// and the boot battery use to prove the socket reaches this service. An error leaves the field out.
 	Hostname func() (string, error)
@@ -168,6 +171,16 @@ func (s *Server) Handler() http.Handler {
 			v, err := s.Services(r.Context())
 			if err != nil {
 				apiError(w, http.StatusInternalServerError, "internal", "services", "systemd could not be asked about the services")
+				return
+			}
+			writeJSON(w, http.StatusOK, v)
+		})
+	}
+	if s.Time != nil {
+		mux.HandleFunc("GET /v1/time", func(w http.ResponseWriter, r *http.Request) {
+			v, err := s.Time(r.Context())
+			if err != nil {
+				apiError(w, http.StatusInternalServerError, "internal", "time", "the clock could not be read")
 				return
 			}
 			writeJSON(w, http.StatusOK, v)

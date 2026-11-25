@@ -13,7 +13,7 @@ half of that contract:
   admits root and the gateway's uid only (SO_PEERCRED), so no pod or host path is involved.
 - `HostLink.run(action, finish)`: after the owner's approval, `POST /v1/operations` with the action
   id (and the approved version for an install). The host writes its journal before it acts, so a retry
-  never runs twice. Argv never leaves the gateway: the host knows four kinds and nothing else.
+  never runs twice. Argv never leaves the gateway: the host knows a fixed set of kinds and nothing else.
 - a poller reads `GET /v1/operations/{id}` and closes the ledger action when the journal says
   `succeeded` or `failed`. `going_down` means the box is about to stop, so the action stays open;
   these types are SELF_RECONCILED (actions.py), so a gateway restarted by the reboot finds the action
@@ -51,12 +51,15 @@ KINDS = {
     "system.factory_reset": "factory-reset",
     "os.update.install": "os-install",
     "service.restart": "service-restart",  # #636: one registry unit; the host checks it is restartable
+    "system.set_timezone": "set-timezone",  # P-04: one IANA zone; the host keeps it on /data
 }
 ACTION_ID = re.compile(r"^[A-Za-z0-9_.:-]{1,128}$")
 # RFC 1123 labels: what the host helper may call the box (H-06: the answer is checked, not trusted).
 HOSTNAME = re.compile(r"(?=.{1,253}\Z)[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*")
 PROBE_TIMEOUT_S = 2.0  # GET /v1/status reads the helper on every call: a silent socket must not hold it up
 UNIT = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.@-]{0,90}\.(service|socket|timer|path)$")
+ZONE = re.compile(r"^[A-Za-z][A-Za-z0-9_+-]*(/[A-Za-z0-9_+-]+){0,2}$")  # same shape as internal/host ZoneName
+NOT_ZONES = frozenset({"localtime", "posixrules", "Factory"})  # tzdata helper entries; localtime loops (host list)
 UNREACHABLE = "engine_unreachable"  # the reason when nothing answers on the socket
 NO_HOST = ("The gateway cannot reach the host service on this box (onemind-host.socket), so the action did not run. "
            "Your approval is recorded; use the rescue console or the box itself.")
@@ -179,6 +182,11 @@ class HostLink:
             if not isinstance(unit, str) or not UNIT.fullmatch(unit):
                 return ExecResult("failed", "the restart has no approved unit", steps=[{"step": "host", "result": "bad_request"}])
             body["unit"] = unit
+        if kind == "set-timezone":
+            zone = (a.params or {}).get("zone")
+            if not isinstance(zone, str) or not ZONE.fullmatch(zone) or zone in NOT_ZONES:
+                return ExecResult("failed", "the change has no approved time zone", steps=[{"step": "host", "result": "bad_request"}])
+            body["zone"] = zone
         with self._lock:
             self._inflight.add(a.id)
         try:
