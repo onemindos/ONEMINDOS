@@ -223,3 +223,14 @@ Founder decisions. Each entry is final until Zeus changes it. Reference these ID
 - **Remote access: Headscale** (already on the hub in the image, #292). The neutral mesh layer in the gateway ([#876](https://github.com/onemindos/ONEMINDOS/issues/876)) serves Headscale; NetBird is not built.
 - **SMS: no provider now.** The SMS alert channel is built behind a provider-neutral adapter and tested with a fake transport only ([#869](https://github.com/onemindos/ONEMINDOS/issues/869)). Twilio may come later; the real text proof waits for that pick.
 - **Why:** the code stays provider-neutral so an owner can switch providers, and the picks let the B2 services wave build without waiting.
+
+## D-027 · Permission modes: approve in advance, bypass only for low-risk digital actions, physical actions keep a person or a certified safety control, biometrics for certain actions
+**Date:** 2026-11-25 · **Decided by:** Zeus
+> "i agree with the assement of your flagging and i agree ; approve in advance, bypass only for low risk digital actions and robotics and anything physical always keep a person or a certified safey control. make sure the gateway is prep for this we also need add biomertics something up for certain actions we need to keep face id and finger printing,etc whatever the device provides in the future we will add our own custom devices but certain actions will require thismetc" (founder, in a Claude session on 2026-11-25; quoted as written). It answers a flag raised on his earlier request for permission modes ("always ask, bypass permissions like claude has ... the agent can be automatically approved for certain actions once in the future; the same thing for the robotics and humans").
+- **Approve in advance.** An owner can approve a kind of action ahead of time instead of each time. That standing approval is still a human approval.
+- **Bypass only for low-risk digital actions.** A bypass mode, where no one is asked, applies only to low-risk digital actions.
+- **Robotics and anything physical always keep a person or a certified safety control** in the loop. No mode removes that.
+- **Biometrics for certain actions.** Certain actions require the biometrics the person's device provides (for example Face ID or a fingerprint), and later OneMind's own devices.
+- **The gateway must be prepared for all of this.**
+- **This refines the locked rule "AI never actuates without human approval"** (the stack line in CLAUDE.md and the build brief): approvals given in advance count as human approval, and the one exception is bypass for low-risk digital actions. Physical actuation is never an exception.
+- **Still to define (design in progress):** which actions are low-risk, the limits a standing approval can carry, and which actions need biometrics.
