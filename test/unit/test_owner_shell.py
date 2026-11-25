@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """Owner shell (Debian-bones step 2): openssh-server, sudo and libpam-systemd, key-only SSH that starts with the
 first owner key, a console login whose password lives on /data, no password baked into the image. The booted proof
-is test/qemu F13 (CRITERIA-FIRSTBOOT.md section 9); these are the static parts that need no VM."""
+is test/qemu F15 (CRITERIA-FIRSTBOOT.md section 11); these are the static parts that need no VM."""
 import os, re, unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -87,7 +87,7 @@ class NoPasswordIsBaked(unittest.TestCase):
         self.assertIn("/var/lib/extrausers", t)
         self.assertIn("openssl passwd -6 -stdin", t)          # the password is never an argument (ps would show it)
         self.assertIn("/var/lib/extrausers - - - - /data/onemind/samba/extrausers", rd(f"{L}/usr/lib/tmpfiles.d/onemind-smb.conf"))
-        # /var/lib is on the read-only root, so tmpfiles cannot link it at boot: the image carries the link (F13 root cause)
+        # /var/lib is on the read-only root, so tmpfiles cannot link it at boot: the image carries the link (F15 root cause)
         self.assertIn("ln -s /data/onemind/samba/extrausers /var/lib/extrausers", rd("os/rootfs/Containerfile"))
         self.assertIn("admin ALL=(ALL) ALL", rd(f"{L}/etc/sudoers.d/admin"))
         self.assertNotIn("NOPASSWD", rd(f"{L}/etc/sudoers.d/admin"))
@@ -99,7 +99,7 @@ class NoPasswordIsBaked(unittest.TestCase):
 
 class KioskUserExistsInTheImage(unittest.TestCase):
     def test_kiosk_user_is_created_at_build_time(self):
-        # F13 first run: onemind-kiosk.service failed with 217/USER. The user came only from sysusers.d, which needs a
+        # F15 first run: onemind-kiosk.service failed with 217/USER. The user came only from sysusers.d, which needs a
         # writable /etc at boot; the root is read-only, so the account must be in the image like the other users.
         c = rd("os/rootfs/Containerfile")
         self.assertRegex(c, r"useradd --system[^\n]*\\\n[^\n]*onemind-kiosk;")

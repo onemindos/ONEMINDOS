@@ -88,32 +88,32 @@ class F10RescueRuntimeStarted(unittest.TestCase):
                 self.assertEqual(self.run_f10(state)["verdict"], "FAIL")
 
 
-GOOD_F13 = (
+GOOD_F15 = (
     "PKG=libpam-systemd openssh-server sudo\nADMIN=admin:x:1000:1000:OneMind admin:/home/admin:/bin/bash\n"
     "SHADOWLINE=0\nEXTRASH=0\nSLOTKEYS0=0\nSSH0=inactive\nLISTEN0=0\nNFT0=0\n"
     "ADDRC=0\nSSH1=active\nLISTEN1=2\nNFT1=1\nHK=/data/onemind/ssh/ssh_host_ed25519_key\nSLOTKEYS1=0\nKEYLOGIN=admin\n"
     "PWRC=0\nPWRC2=255\nPWOUT=admin@127.0.0.1: Permission denied (publickey).\n"
     "permitrootlogin no\npasswordauthentication no\nkbdinteractiveauthentication no\nauthenticationmethods publickey\n"
-    "allowusers admin\nTTY2=enabled\nF13LOGIN good_who=admin good_sudo=0 bad_denied=True bad_shell=False\n"
+    "allowusers admin\nTTY2=enabled\nF15LOGIN good_who=admin good_sudo=0 bad_denied=True bad_shell=False\n"
     "KIOSK=active\nSESS=1\n")
 
 
-class F13OwnerShell(unittest.TestCase):
-    """F13 (CRITERIA-FIRSTBOOT.md section 9): every sub-check must be able to fail on its own."""
+class F15OwnerShell(unittest.TestCase):
+    """F15 (CRITERIA-FIRSTBOOT.md section 11): every sub-check must be able to fail on its own."""
 
     def setUp(self):
         self.fb = load_firstboot()
 
     def verdict(self, out):
-        return self.fb.f13_judge(out)
+        return self.fb.f15_judge(out)
 
     def test_good_output_passes_every_check(self):
-        c = self.verdict(GOOD_F13)
+        c = self.verdict(GOOD_F15)
         self.assertTrue(all(c.values()), c)
 
     def mutate(self, old, new):
-        self.assertIn(old, GOOD_F13)
-        return self.verdict(GOOD_F13.replace(old, new))
+        self.assertIn(old, GOOD_F15)
+        return self.verdict(GOOD_F15.replace(old, new))
 
     def test_each_failure_is_caught(self):
         for old, new, key in (
@@ -142,12 +142,12 @@ class F13OwnerShell(unittest.TestCase):
             with self.subTest(change=new):
                 self.assertFalse(self.mutate(old, new)[key], key)
 
-    def test_f13_never_prints_the_password_or_key(self):
+    def test_f15_never_prints_the_password_or_key(self):
         src = open(os.path.join(ROOT, "test", "qemu", "firstboot.py")).read()
-        body = src[src.index("def f13("):src.index("def main(")]
-        self.assertNotIn("echo $F13_PW", body)
-        self.assertNotIn("cat /run/f13/k\n", body)
-        self.assertIn("F13_PW=$(head -c 18 /dev/urandom", body)         # generated in the guest, never baked
+        body = src[src.index("def f15("):src.index("def main(")]
+        self.assertNotIn("echo $F15_PW", body)
+        self.assertNotIn("cat /run/f15/k\n", body)
+        self.assertIn("F15_PW=$(head -c 18 /dev/urandom", body)         # generated in the guest, never baked
 
 
 if __name__ == "__main__":
