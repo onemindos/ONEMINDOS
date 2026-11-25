@@ -4,6 +4,7 @@ package cli
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -21,7 +22,14 @@ func TestAppDevRunsLocalGatewayAndDashboard(t *testing.T) {
 	}
 	bin := t.TempDir()
 	log := filepath.Join(bin, "commands")
+	ready := filepath.Join(bin, "gateway-ready")
+	stop := filepath.Join(bin, "gateway-stop")
+	if out, err := exec.Command("mkfifo", ready, stop).CombinedOutput(); err != nil {
+		t.Fatalf("create gateway synchronization pipes: %v: %s", err, out)
+	}
 	t.Setenv("OM_DEV_TEST_LOG", log)
+	t.Setenv("OM_DEV_TEST_READY", ready)
+	t.Setenv("OM_DEV_TEST_STOP", stop)
 	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
 	t.Setenv("VITE_MOCK", "1")
 	t.Setenv("ONEMIND_EXECUTOR", "kubernetes")
@@ -30,8 +38,16 @@ func TestAppDevRunsLocalGatewayAndDashboard(t *testing.T) {
 		script := `#!/bin/sh
 echo "${0##*/} $* executor=$ONEMIND_EXECUTOR mock=$VITE_MOCK db=$ONEMIND_DB_URL" >> "$OM_DEV_TEST_LOG"
 case "$*" in
-  *"core run") sleep 12 ;;
-  *"run dev"*) exit 17 ;;
+  *"core run")
+    # Signal only after the gateway recorded its invocation, then wait for CLI cancellation.
+    printf '%s\n' ready > "$OM_DEV_TEST_READY"
+    read -r ignored < "$OM_DEV_TEST_STOP"
+    ;;
+  *"run dev"*)
+    read -r state < "$OM_DEV_TEST_READY" || exit 18
+    [ "$state" = ready ] || exit 18
+    exit 17
+    ;;
 esac
 `
 		if err := os.WriteFile(filepath.Join(bin, tool), []byte(script), 0700); err != nil {
