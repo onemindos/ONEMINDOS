@@ -38,6 +38,7 @@ def register(app: FastAPI, gw: Gateway) -> None:
     policies = svc.policies
     principal = gw.principal
     gw.actions.standing_approvals.append(lambda a: policies.decide(a, svc.paused()))
+    policies.can_file = gw.actions.can_file
     gw.events.subscribe(">", svc.on_event)
     gw.on_startup(svc.start)
     gw.on_shutdown(svc.stop)

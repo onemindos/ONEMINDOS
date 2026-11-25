@@ -91,8 +91,7 @@ def test_feature_registration_feeds_the_table_and_checks_consistency(client):
 
     acts.register_type("test.risk.fresh", FeatureAction(risk="write", run=run))
     assert registry.TYPES["test.risk.fresh"].risk == "write"
-    # no standing approval fires on a feature path yet, so a rule may not name it
-    assert registry.policy_may_cover("test.risk.fresh") is not None
+    assert registry.policy_may_cover("test.risk.fresh") is None  # write: a rule may name it
     # a type the table already holds must agree on its class
     with pytest.raises(ValueError, match="risk table"):
         registry.register_feature("app.restart", "destructive")
@@ -110,10 +109,5 @@ def test_a_feature_whose_params_raise_it_is_not_covered(client):
 
     acts.register_type("test.risk.raised", FeatureAction(
         risk="write", run=run, risk_for=lambda p: "destructive" if p.get("wipe") else "write"))
-    # make it fireable, as the next PR does for feature types, so only the risk blocks it
-    registry.TYPES["test.risk.raised"] = registry.TypeInfo("write", False, fireable=True)
-    try:
-        assert not _never_by_policy(_action("test.risk.raised", {}, risk="write"))
-        assert _never_by_policy(_action("test.risk.raised", {"wipe": True}, risk="destructive"))
-    finally:
-        registry.TYPES["test.risk.raised"] = registry.TypeInfo("write", False, fireable=False)
+    assert not _never_by_policy(_action("test.risk.raised", {}, risk="write"))
+    assert _never_by_policy(_action("test.risk.raised", {"wipe": True}, risk="destructive"))
