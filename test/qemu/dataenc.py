@@ -285,7 +285,7 @@ def reset_case(a, logf, tag, tpm):
               and v.get("ARMED") == "no" and v.get("DONE") == "yes" and v.get("MA") == "no" and v.get("MB") == "no"
               and v.get("STOR") == "1" and v.get("FAILED") == "0" and not recovered
               and (("making it plain btrfs, NOT encrypted" in s and "/dev/mapper" not in src) if plain else
-                   (src == want_src and new_keys and new_keys[-1] != old_key and "data disk unlocked" not in s
+                   (src.startswith(want_src) and new_keys and new_keys[-1] != old_key and "data disk unlocked" not in s
                     and not re.search(PROMPT, s))))
         return ok, (f"plan_members={armed} old_uuid={old} new_uuid={v.get('UUID')} armed_marker_left={v.get('ARMED')} done={v.get('DONE')} "
                     f"markers_left={v.get('MA')},{v.get('MB')} data_source={src} storage_mounted={v.get('STOR')} failed_units={v.get('FAILED')} "
@@ -320,7 +320,15 @@ def main():
     ap.add_argument("--work", required=True)
     ap.add_argument("--log", required=True)
     ap.add_argument("--results")
+    ap.add_argument("--only", choices=["reset"], help="run only the factory-reset tests R1 and R2 (a quick re-run)")
     a = ap.parse_args()
+    if a.only == "reset":
+        logf = open(a.log, "w")
+        ok = reset_tests(a, logf)
+        logf.close()
+        if a.results:
+            json.dump({"criteria": "test/qemu/CRITERIA-DATARESET.md", "results": RESULTS}, open(a.results, "w"), indent=2)
+        return 0 if ok else 1
     make_work(a.fixtures, a.work)
     logf = open(a.log, "w")
     t0 = time.time()

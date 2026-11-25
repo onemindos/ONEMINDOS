@@ -6,7 +6,7 @@
 #   make image   BOARD=x86_64-efi [VERSION=...]         -> out/image-<board>/ (disk .img, .raucb, SHA256SUMS)
 #   make fixtures BOARD=x86_64-efi [UPTO=T5] [HW=1]     -> out/fx-<board>/ (battery inputs; HW=1 for founder kits)
 #   make fixtures ... DATA_FS=luks2                      -> data partition left blank, encrypted on first boot
-#   make dataenc BOARD=x86_64-efi                       -> out/dataenc-<board>/ (E1-E4, CRITERIA-DATAENC.md; needs DATA_FS=luks2 fixtures)
+#   make dataenc BOARD=x86_64-efi                       -> out/dataenc-<board>/ (E1-E7 and the reset tests R1-R2; DATAENC_ARGS='--only reset' runs just R1-R2)
 #   make battery BOARD=x86_64-efi [UPTO=T5]             -> out/battery-<board>/ (serial log, results.json)
 #   make firstboot BOARD=x86_64-efi [FUPTO=F4]          -> out/firstboot-<board>/ (F0-F4, CRITERIA-FIRSTBOOT.md)
 #   make secureboot-test                                -> out/secureboot-x86_64-efi/ (SB1-SB4, CRITERIA-SECUREBOOT.md)
@@ -154,7 +154,7 @@ dataenc:
 	mkdir -p $(OUT)/dataenc-$(BOARD)
 	$(DOCKER_RUN) $(KVM) $(TOOLS) python3 -I /src/test/qemu/dataenc.py --board $(BOARD) \
 	  --fixtures /out/fx-$(BOARD) --work /out/dataenc-$(BOARD)/work \
-	  --log /out/dataenc-$(BOARD)/serial.log --results /out/dataenc-$(BOARD)/results.json; \
+	  --log /out/dataenc-$(BOARD)/serial.log --results /out/dataenc-$(BOARD)/results.json $(DATAENC_ARGS); \
 	  rc=$$?; rm -f $(OUT)/dataenc-$(BOARD)/work/disk.img; exit $$rc
 
 # Local KVM check of F0-F4 (build + fixtures + firstboot); see test/qemu/README.md "Local first boot".
