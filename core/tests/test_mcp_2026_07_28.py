@@ -61,7 +61,8 @@ def test_initialize_and_ping_are_gone_404(client):
 def test_tools_list_deterministic_order_with_cache_hints(client):
     a = mrpc(client, "tools/list").json()["result"]
     b = mrpc(client, "tools/list").json()["result"]
-    v0 = [n for n in TOOL_NAMES if n not in ("stat_file", "read_app_logs")]  # granted by name only (#632)
+    explicit_scopes = {"stat_file", "read_app_logs", "work_tasks_list", "work_task_get"}
+    v0 = [n for n in TOOL_NAMES if n not in explicit_scopes]
     assert [t["name"] for t in a["tools"]] == v0 == [t["name"] for t in b["tools"]]
     assert a["ttlMs"] > 0 and a["cacheScope"] == "private" and a["resultType"] == "complete"
     for m in ("resources/list", "resources/templates/list"):
