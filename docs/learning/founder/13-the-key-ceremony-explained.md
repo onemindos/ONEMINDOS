@@ -10,14 +10,16 @@ Think of a **company seal**, the stamp a notary presses on a document.
 
 - Every OneMind box downloads updates from the internet. Before it installs one, it has to answer: *"Did this really come from OneMind, or did someone fake it?"*
 - To answer that, every box ships with a small file, `root.json`, that says: *"only trust updates stamped with these specific keys."*
-- The **ceremony** is the one-time moment where the founder **creates those master keys**: carving the company seal.
+- The **ceremony** is the one-time moment where the founder and the other key holders **create those master keys**: carving the company seal.
 - After that, every update OneMind publishes is stamped. Each box checks the stamp, installs real updates and refuses fakes.
 
 The signing design is called **TUF** (The Update Framework). The master keys are the **root keys**. Day-to-day signing uses separate **online keys** that the release pipeline holds; if one of those ever leaks, the root keys replace it. (Lesson 08, [From a Debian fix to your box](../08-security-pipeline-and-tuf.md), goes deeper.)
 
 ## What it protects against
 
-Someone breaking into OneMind's GitHub account, build machines or download server and pushing a poisoned update to every customer's box. Without the root keys they cannot make a stamp the boxes accept.
+- **Someone who breaks into the download server** has no keys, so they cannot fake an update a box accepts.
+- **Someone who breaks into GitHub** could steal the everyday online keys (kept there as secrets) and sign updates the boxes accept, but only until OneMind notices: the root keys then cancel the stolen keys and name new ones, and every box follows.
+- **What the offline root keys guarantee:** an attacker can never change *which* keys the boxes trust. Only the root key holders can.
 
 ## Why the owner does it, not an AI or a cloud service
 
@@ -29,19 +31,25 @@ Whoever holds the root keys decides what every OneMind box in the world will ins
 ## Why three keys, and why any two
 
 - **Lose one, still fine:** sign with the other two, then replace the lost one.
-- **One stolen, still fine:** one key alone cannot sign anything.
-- Keep them in three places: one with the founder, one in a safe at home, one off-site or with a trusted person.
+- **One stolen, still fine:** one key alone cannot sign a new `root.json`.
+- Keep them in three places, as D-010 says: home, off-site, and a trusted person.
 
 ## USB sticks or YubiKeys?
 
-**YubiKeys are better.** On a USB stick the secret key is a file, and using it copies it into the computer's memory, where malware could take it; that is why the stick version needs an offline laptop. On a YubiKey (a hardware security key) the secret is created inside the device and can never be copied out: the computer asks the YubiKey to sign, and the owner touches it to say yes. So no offline laptop and no printer are needed. The founder has three YubiKeys, which fits the any-two-of-three rule. The ceremony script still has to learn to sign with YubiKeys and be rehearsed on throwaway keys first (not built yet).
+**YubiKeys are safer.** On a USB stick the secret key is a file, and using it loads it into the computer's memory, where malware could take it. On a YubiKey (a hardware security key) the secret is created inside the device and never leaves it: the computer asks the YubiKey to sign, and the holder unlocks it with a PIN (and a touch, if it is set up that way).
+
+**What the plan says today (D-010):** the first ceremony runs on three encrypted USB sticks on an offline computer, and the root then moves onto hardware keys later ([#272](https://github.com/onemindos/ONEMINDOS/issues/272), REL-02). The script already supports hardware keys (`hsm:` keys in `scripts/tuf-bootstrap-root.sh`, tested in CI with SoftHSM, a software stand-in), and `os/update/CEREMONY.md` has a section for the move. Two things are still open:
+- **No real YubiKey has been tried yet** (CEREMONY.md marks it UNVERIFIED), so a rehearsal on a real key comes first.
+- **The hardware-key steps still use an offline computer and a sheet every key holder reads aloud.** It is simpler than the stick version, but not "plug into your everyday laptop".
+
+The founder has three YubiKeys, which is exactly what the move to hardware keys needs. Going straight to YubiKeys for the first ceremony would be a change to D-010 that the founder decides.
 
 ## Is it required?
 
-- **To build OneMind and use it yourself: no.** Development uses throwaway keys, and a box in daily use works with them.
+- **To build OneMind and use it yourself: no.** But until the ceremony, images carry no `root.json`, so a box gets no updates from the OneMind update channel; it is updated by installing new images. The throwaway keys exist only inside CI test runs and are deleted afterwards.
 - **To publish signed updates to other people: yes.** Until the ceremony is done, OneMind cannot put out an official release that customers' boxes trust (F-27).
-- **Customers never do this.** It is a one-time publisher task. A customer only ever sees "Update available". Everything on their own box (their passkeys, disk encryption, the box's own keys) is created automatically during setup.
+- **Customers never do this.** It is a one-time publisher task. A customer only ever sees "Update available". Everything on their own box is made on the box: they create their own passkeys during setup, the box makes its own keys, and disk encryption is on by default on machines with a TPM (D-020).
 
 ## What it will look like
 
-About 20 minutes, once, on the founder's normal computer: plug in each YubiKey, touch it when asked, set a PIN on each (typed by the founder, never seen by an agent), then store the three keys in their three places. The only file that comes back into the repo is the public `root.json`.
+Once, with the key holders: follow `os/update/CEREMONY.md` (or `scripts/ceremony-guide.py`) on an offline computer, rehearsing first with throwaway keys. Each holder sets their own passphrase or PIN, which no agent ever sees. The only file that comes back into the repo is the public `root.json`. How long it takes depends on which version is used; nothing in the repo measures it yet.
