@@ -1,10 +1,11 @@
 # SPDX-License-Identifier: Apache-2.0
 # Triggered by onemind-nats-accounts.path. The reload copies the new accounts file into NATS's runtime
-# dir (onemind-nats-files), then sends HUP; NATS keeps its old config if the new one is invalid.
+# dir (onemind-nats-files), then sends HUP; NATS keeps its old config if the new one is invalid. When the
+# system account changed it restarts NATS instead, as a reload cannot change it (onemind-nats-reload).
 # Nothing happens when NATS is not running.
 [Unit]
 Description=Reload the hub NATS accounts
 
 [Service]
 Type=oneshot
-ExecStart=/bin/systemctl try-reload-or-restart onemind-nats.service
+ExecStart=/usr/lib/onemind/onemind-nats-reload
