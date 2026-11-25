@@ -39244,6 +39244,13 @@
             "description": "The principal may not do this (permission_denied)"
           }
         },
+        "security": [
+          {
+            "bearer": [
+              "system:admin"
+            ]
+          }
+        ],
         "summary": "System Time",
         "tags": [
           "system"
@@ -39366,6 +39373,13 @@
             "description": "Too many requests, attempts or open streams, or the pending-action cap (rate_limited); see Retry-After"
           }
         },
+        "security": [
+          {
+            "bearer": [
+              "actions:request"
+            ]
+          }
+        ],
         "summary": "System Set Zone",
         "tags": [
           "system"

@@ -125,7 +125,8 @@ def register(app: FastAPI, gw: Gateway) -> None:
     gw.actions.register_type(ACTION, FeatureAction("actuate", run, REQUESTERS, check=recheck))
 
     @app.get("/v1/system/time", tags=["system"], operation_id="system.time.get", response_model=TimeView,
-             responses=error_responses(401, 403))
+             responses=error_responses(401, 403),
+             openapi_extra={"security": [{"bearer": ["system:admin"]}]})
     def system_time(p: Principal = Depends(gw.principal)) -> TimeView:
         """The hub's time zone and whether its clock is set from a time server (read only, owner only).
 
@@ -144,7 +145,8 @@ def register(app: FastAPI, gw: Gateway) -> None:
         return parse_time(body, now)
 
     @app.post("/v1/system/time/zone", tags=["system"], operation_id="system.time.set_zone", status_code=202, response_model=Action,
-              responses={200: {"model": Action, "description": "Idempotent replay"}, **error_responses(401, 403, 409, 422, 429)})
+              responses={200: {"model": Action, "description": "Idempotent replay"}, **error_responses(401, 403, 409, 422, 429)},
+              openapi_extra={"security": [{"bearer": ["actions:request"]}]})
     def system_set_zone(req: SetZoneRequest, p: Principal = Depends(gw.principal),
                         idem: Annotated[str | None, Header(alias="Idempotency-Key", min_length=1, max_length=200)] = None):
         """Ask for a new time zone. It waits for the owner, who approves it; the response is the action, whose id
